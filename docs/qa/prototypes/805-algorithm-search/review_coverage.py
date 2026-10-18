@@ -55,25 +55,34 @@ def annotate_resolution(data):
     return data
 
 
-def coverage_plan(data, registry, validations=None, measured_programs=None, measured_source=None):
+def coverage_plan(data, registry, validations=None, measured_programs=None, measured_source=None, measured_candidates=None):
     """Catalogue plus actually measured programs; preserve immutable input bytes."""
     working = copy.deepcopy(data)
     catalog_variants(working)
     expected = []
     known = {row['key'] for row in working['variantCatalog']}
-    for case in (measured_programs or {}).get('cases', []):
+    reports = [(measured_programs or {}, measured_source, 'search-artistic-program')]
+    reports += [(item['report'], item['source'], 'wgsl-fixed-wet-b-lite-coherent') for item in measured_candidates or []]
+    external_cases = []
+    for report, report_source, allowed in reports:
+      for index, case in enumerate(report.get('cases', [])):
         request = case['request']
         result = case.get('result') or {}
-        if request.get('algorithm') != 'search-artistic-program' or not result.get('samples'):
+        if request.get('algorithm') != allowed or not result.get('samples'):
             continue
         key = 'model:' + json.dumps([request['algorithm'], request['config']], ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+        external_cases.append({'key': key, 'source': report_source, 'caseIndex': index,
+                              'fixture': result.get('fixture', request.get('fixture')), 'fixtureSHA': result.get('fixtureSHA'),
+                              'encoding': result.get('encoding', request.get('encoding')), 'repeatExact': result.get('repeatExact')})
         if key in known:
             continue
         known.add(key)
-        row = {'key': key, 'label': 'Поиск программы: ' + json.dumps(request['config'], sort_keys=True),
-               'expectedOnly': True, 'provenance': {'source': measured_source, 'fixture': request.get('fixture'),
-                'fixtureSHA': result.get('fixtureSHA'), 'encoding': request.get('encoding'), 'repeatExact': result.get('repeatExact'),
-                'qualification': 'Actually measured historical DSL configuration; no image/result on canonical scenes inferred.'}}
+        label = ('Поиск программы: ' + json.dumps(request['config'], sort_keys=True) if allowed == 'search-artistic-program'
+                 else 'Неподвижная лужа: B-lite, подвижный тонкий край')
+        row = {'key': key, 'label': label, 'expectedOnly': True,
+               'provenance': {'source': report_source, 'caseIndex': index, 'fixture': request.get('fixture'),
+                'fixtureSHA': result.get('fixtureSHA'), 'encoding': result.get('encoding', request.get('encoding')), 'repeatExact': result.get('repeatExact'),
+                'qualification': 'Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred.'}}
         working['variantCatalog'].append(row)
         expected.append(key)
     definitions = {row['id']: row for row in registry['definitions']}
@@ -85,7 +94,7 @@ def coverage_plan(data, registry, validations=None, measured_programs=None, meas
         if key == 'input' or key.startswith('input-'):
             row.update(kind='input-reference', executionRequired=False, inputContract='Show the exact immutable scene input; no solver output or invented native baseline')
         elif key in ('original', 'native-lazy', 'native-one-octave', 'native-cache'):
-            row.update(kind='native-mini', executionRequired=True, inputContract='Immutable native raw P/C/coverage/water/foreign/original snapshot with fixed initial puddle; material adapter contract pending. Converted common input is NOT an inverse native snapshot.', model='front8-detail-flow-v4', flags={'frontZero': True, 'frontJumpZero': True, 'frontLazy': key == 'native-lazy', 'frontOneOctave': key == 'native-one-octave', 'nativeFeatherCache': key == 'native-cache'})
+            row.update(kind='native-mini', executionRequired=True, inputContract='Common-optical-seed-v1 forward synthetic native construction on exact common bytes, per-input raw-plane/paper roundtrip proof required. Historical native replay is separate, not an inverse capture.', model='front8-detail-flow-v4', flags={'frontZero': True, 'frontJumpZero': True, 'frontLazy': key == 'native-lazy', 'frontOneOctave': key == 'native-one-octave', 'nativeFeatherCache': key == 'native-cache'})
         else:
             if not key.startswith('model:'):
                 raise ValueError('Unknown catalogue key')
@@ -115,7 +124,7 @@ def coverage_plan(data, registry, validations=None, measured_programs=None, meas
     count = len(choices)
     execute = sum(row['executionRequired'] for row in choices)
     return {'schemaVersion': 1, 'qualification': 'CPU/source-only execution inventory, no GPU runs, no filled missing results. Counts are catalogue choices/configurations, not distinct algorithms or guaranteed successful factories.',
-            'registrySourceSHA256': registry['sourceSHA256'], 'registrySourceFiles': registry['sourceFiles'],
+            'externalMeasuredCases': external_cases, 'registrySourceSHA256': registry['sourceSHA256'], 'registrySourceFiles': registry['sourceFiles'],
             'summary': {'catalogChoices': count, 'nativeChoices': sum(row['kind'] == 'native-mini' for row in choices),
                         'workerChoices': sum(row['kind'] == 'worker-factory' for row in choices),
                         'inputReferences': sum(row['kind'] == 'input-reference' for row in choices),
@@ -124,7 +133,8 @@ def coverage_plan(data, registry, validations=None, measured_programs=None, meas
                         'allSceneSlots': len(matrix)*count, 'allNewExecutions': len(matrix)*execute,
                         'historicalActualVariants': working['variantCatalogStats']['actualVariants'],
                         'historicalMissingSlots': sum(len(r['historicalMissingKeys']) for r in matrix),
-                        'additionalMeasuredProgramChoices': len(expected),
+                        'additionalMeasuredProgramChoices': sum(key.startswith('model:["search-artistic-program"') for key in expected),
+                        'additionalMeasuredCandidateChoices': sum(not key.startswith('model:["search-artistic-program"') for key in expected),
                         'blockedChoices': sum(bool(row.get('blocked')) for row in choices)},
             'choices': choices, 'matrix': matrix,
             'gates': ['Freeze fixed-domain algorithm contract first; historical evidence remains valid for its recorded policy',

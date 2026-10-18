@@ -1,22 +1,467 @@
 {
   "schemaVersion": 1,
   "qualification": "CPU/source-only execution inventory, no GPU runs, no filled missing results. Counts are catalogue choices/configurations, not distinct algorithms or guaranteed successful factories.",
-  "registrySourceSHA256": "6acff073324922ccd3a719ed402682b38d71f436ff1c2d424ea3f0a6dc67ee22",
-  "registrySourceFiles": 99,
+  "externalMeasuredCases": [
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4369}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 0,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4369}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 1,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4388}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 2,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4388}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 3,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4369}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 4,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4369}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 5,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4388}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 6,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4388}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 7,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4369}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 8,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4369}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 9,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4388}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 10,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4388}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 11,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4369}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 12,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4369}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 13,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4388}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 14,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4388}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 15,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4369}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 16,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4369}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 17,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4388}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 18,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4388}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 19,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4369}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 20,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4369}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 21,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4388}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 22,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4388}]",
+      "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+      "caseIndex": 23,
+      "fixture": "captured-native-waterstroke",
+      "fixtureSHA": {
+        "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
+        "water": "09cb80225d16228b1b126b9763f415be5c29f2fc5939694ce7bb575ca45c0067",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"wgsl-fixed-wet-b-lite-coherent\",{\"fineSteps\":12}]",
+      "source": "fixed-wet-b-lite-results/report.json",
+      "caseIndex": 0,
+      "fixture": "fixed-wet-thin-1",
+      "fixtureSHA": {
+        "rgba": "9eadda91cd1b7ff5fbc3e38d346be3bbf65568c1713a15d1d32904b3fb959f57",
+        "water": "fc9f489a3e64115ee3c5e8bd8d1b0c8329f188e5ae1499fd88f1c86efd9f745b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "encoding": "premultiplied-rgb",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"wgsl-fixed-wet-b-lite-coherent\",{\"fineSteps\":12}]",
+      "source": "fixed-wet-b-lite-results/report.json",
+      "caseIndex": 1,
+      "fixture": "fixed-wet-thin-2",
+      "fixtureSHA": {
+        "rgba": "e46de541ae630df7dd79855d60ad261c97852beecf61964efcc2888f13e481c3",
+        "water": "87ef929e00d5e39958c0a1e761a9f8a960a00616cd1b406e254aeaa388fe10f7",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "encoding": "premultiplied-rgb",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"wgsl-fixed-wet-b-lite-coherent\",{\"fineSteps\":12}]",
+      "source": "fixed-wet-b-lite-results/report.json",
+      "caseIndex": 2,
+      "fixture": "fixed-wet-thin-7",
+      "fixtureSHA": {
+        "rgba": "5ea464af0262d09c0ca8f64af7d674118243cba7bc078a76100227955e8708e7",
+        "water": "e6c9cbf7ad031340f21604228ff4356fe42262efbc93c6d6a754cdfd8be7bdc7",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "encoding": "premultiplied-rgb",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"wgsl-fixed-wet-b-lite-coherent\",{\"fineSteps\":12}]",
+      "source": "fixed-wet-b-lite-results/report.json",
+      "caseIndex": 3,
+      "fixture": "fixed-wet-bulk-boundary",
+      "fixtureSHA": {
+        "rgba": "88e08f19243408f883f44cfb698abb495a37fb8f8d563bcdc38fed17d6b7f143",
+        "water": "7cb6790d22aed6bcf1e8a8437e484452501db30c34a5a7873124b72205155f44",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "encoding": "premultiplied-rgb",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"wgsl-fixed-wet-b-lite-coherent\",{\"fineSteps\":12}]",
+      "source": "fixed-wet-b-lite-results/report.json",
+      "caseIndex": 4,
+      "fixture": "flow-one-pixel-wall",
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "50bf4382d51a3a9667ba3e596ec7777159c90fda2614aca3936466bb2d69709b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"wgsl-fixed-wet-b-lite-coherent\",{\"fineSteps\":12}]",
+      "source": "fixed-wet-b-lite-results/report.json",
+      "caseIndex": 5,
+      "fixture": "flow-diagonal-wall",
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "dfdbe13c3b1c92915d505b28c571d189c5d54a5c5eed5c89bc220c07f42621e8",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"wgsl-fixed-wet-b-lite-coherent\",{\"fineSteps\":12}]",
+      "source": "fixed-wet-b-lite-results/report.json",
+      "caseIndex": 6,
+      "fixture": "flow-isolated-pools",
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "e7b2629754b832f6e9f8b3dbddd8b623fcc9e977ddd2cfb40107c24a07b8ecc1",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"wgsl-fixed-wet-b-lite-coherent\",{\"fineSteps\":12}]",
+      "source": "fixed-wet-b-lite-results/report.json",
+      "caseIndex": 7,
+      "fixture": "flow-water-only",
+      "fixtureSHA": {
+        "rgba": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"wgsl-fixed-wet-b-lite-coherent\",{\"fineSteps\":12}]",
+      "source": "fixed-wet-b-lite-results/report.json",
+      "caseIndex": 8,
+      "fixture": "mini-wave",
+      "fixtureSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    },
+    {
+      "key": "model:[\"wgsl-fixed-wet-b-lite-coherent\",{\"fineSteps\":12}]",
+      "source": "fixed-wet-b-lite-results/report.json",
+      "caseIndex": 9,
+      "fixture": "gallery-sheet-12-slot-1",
+      "fixtureSHA": {
+        "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+        "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "repeatExact": true
+    }
+  ],
+  "registrySourceSHA256": "e4d40f077a119aea650cd681c5fb6c21b6b750e8aea5f803cdddea267dd279ca",
+  "registrySourceFiles": 111,
   "summary": {
-    "catalogChoices": 134,
+    "catalogChoices": 135,
     "nativeChoices": 4,
-    "workerChoices": 129,
+    "workerChoices": 130,
     "inputReferences": 1,
     "canonicalScenes": 13,
     "otherScenes": 17,
-    "canonicalSlots": 1742,
-    "canonicalNewExecutions": 1729,
-    "allSceneSlots": 4020,
-    "allNewExecutions": 3990,
+    "canonicalSlots": 1755,
+    "canonicalNewExecutions": 1742,
+    "allSceneSlots": 4050,
+    "allNewExecutions": 4020,
     "historicalActualVariants": 660,
-    "historicalMissingSlots": 3360,
+    "historicalMissingSlots": 3390,
     "additionalMeasuredProgramChoices": 24,
+    "additionalMeasuredCandidateChoices": 1,
     "blockedChoices": 0
   },
   "choices": [
@@ -25,7 +470,7 @@
       "label": "Исходный алгоритм Mini",
       "kind": "native-mini",
       "executionRequired": true,
-      "inputContract": "Immutable native raw P/C/coverage/water/foreign/original snapshot with fixed initial puddle; material adapter contract pending. Converted common input is NOT an inverse native snapshot.",
+      "inputContract": "Common-optical-seed-v1 forward synthetic native construction on exact common bytes, per-input raw-plane/paper roundtrip proof required. Historical native replay is separate, not an inverse capture.",
       "model": "front8-detail-flow-v4",
       "flags": {
         "frontZero": true,
@@ -40,7 +485,7 @@
       "label": "Исходный Mini — точная оптимизация шума",
       "kind": "native-mini",
       "executionRequired": true,
-      "inputContract": "Immutable native raw P/C/coverage/water/foreign/original snapshot with fixed initial puddle; material adapter contract pending. Converted common input is NOT an inverse native snapshot.",
+      "inputContract": "Common-optical-seed-v1 forward synthetic native construction on exact common bytes, per-input raw-plane/paper roundtrip proof required. Historical native replay is separate, not an inverse capture.",
       "model": "front8-detail-flow-v4",
       "flags": {
         "frontZero": true,
@@ -55,7 +500,7 @@
       "label": "Исходный Mini — одна октава шума",
       "kind": "native-mini",
       "executionRequired": true,
-      "inputContract": "Immutable native raw P/C/coverage/water/foreign/original snapshot with fixed initial puddle; material adapter contract pending. Converted common input is NOT an inverse native snapshot.",
+      "inputContract": "Common-optical-seed-v1 forward synthetic native construction on exact common bytes, per-input raw-plane/paper roundtrip proof required. Historical native replay is separate, not an inverse capture.",
       "model": "front8-detail-flow-v4",
       "flags": {
         "frontZero": true,
@@ -70,7 +515,7 @@
       "label": "Исходный Mini — кэш фронта",
       "kind": "native-mini",
       "executionRequired": true,
-      "inputContract": "Immutable native raw P/C/coverage/water/foreign/original snapshot with fixed initial puddle; material adapter contract pending. Converted common input is NOT an inverse native snapshot.",
+      "inputContract": "Common-optical-seed-v1 forward synthetic native construction on exact common bytes, per-input raw-plane/paper roundtrip proof required. Historical native replay is separate, not an inverse capture.",
       "model": "front8-detail-flow-v4",
       "flags": {
         "frontZero": true,
@@ -2293,6 +2738,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 0,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2301,7 +2747,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2327,6 +2773,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 1,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2335,7 +2782,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2361,6 +2808,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 2,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2369,7 +2817,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2395,6 +2843,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 3,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2403,7 +2852,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2429,6 +2878,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 4,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2437,7 +2887,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2463,6 +2913,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 5,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2471,7 +2922,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2497,6 +2948,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 6,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2505,7 +2957,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2531,6 +2983,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 7,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2539,7 +2992,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2565,6 +3018,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 8,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2573,7 +3027,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2599,6 +3053,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 9,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2607,7 +3062,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2633,6 +3088,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 10,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2641,7 +3097,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2667,6 +3123,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 11,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2675,7 +3132,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2701,6 +3158,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 12,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2709,7 +3167,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2735,6 +3193,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 13,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2743,7 +3202,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2769,6 +3228,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 14,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2777,7 +3237,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2803,6 +3263,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 15,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2811,7 +3272,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2837,6 +3298,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 16,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2845,7 +3307,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2871,6 +3333,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 17,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2879,7 +3342,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2905,6 +3368,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 18,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2913,7 +3377,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2939,6 +3403,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 19,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2947,7 +3412,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -2973,6 +3438,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 20,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -2981,7 +3447,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -3007,6 +3473,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 21,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -3015,7 +3482,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -3041,6 +3508,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 22,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -3049,7 +3517,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -3075,6 +3543,7 @@
       "expectedOnly": true,
       "provenance": {
         "source": "docs/qa/runs/805-night-20261017/measurements/real-program-search-v14.json",
+        "caseIndex": 23,
         "fixture": "captured-native-waterstroke",
         "fixtureSHA": {
           "rgba": "92b709cdee8b59b2e7770f7344f1f12b97639f9d62766c9ed6085bdc00a78f36",
@@ -3083,7 +3552,7 @@
         },
         "encoding": "optical-density",
         "repeatExact": true,
-        "qualification": "Actually measured historical DSL configuration; no image/result on canonical scenes inferred."
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
       },
       "kind": "worker-factory",
       "executionRequired": true,
@@ -3100,6 +3569,37 @@
       "inputContract": "Identical immutable rgba/water/paper/seed bytes for every common model on this scene; preserve optical-depth encoding and fixed input-derived display scale",
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4388}]",
+        "valid": true
+      }
+    },
+    {
+      "key": "model:[\"wgsl-fixed-wet-b-lite-coherent\",{\"fineSteps\":12}]",
+      "label": "Неподвижная лужа: B-lite, подвижный тонкий край",
+      "expectedOnly": true,
+      "provenance": {
+        "source": "fixed-wet-b-lite-results/report.json",
+        "caseIndex": 0,
+        "fixture": "fixed-wet-thin-1",
+        "fixtureSHA": {
+          "rgba": "9eadda91cd1b7ff5fbc3e38d346be3bbf65568c1713a15d1d32904b3fb959f57",
+          "water": "fc9f489a3e64115ee3c5e8bd8d1b0c8329f188e5ae1499fd88f1c86efd9f745b",
+          "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+        },
+        "encoding": "premultiplied-rgb",
+        "repeatExact": true,
+        "qualification": "Actually measured configuration, absent from published catalogue; no unmeasured scene output inferred."
+      },
+      "kind": "worker-factory",
+      "executionRequired": true,
+      "algorithm": "wgsl-fixed-wet-b-lite-coherent",
+      "config": {
+        "fineSteps": 12
+      },
+      "backend": "webgpu",
+      "registryAvailable": true,
+      "inputContract": "Identical immutable rgba/water/paper/seed bytes for every common model on this scene; preserve optical-depth encoding and fixed input-derived display scale",
+      "configContract": {
+        "key": "model:[\"wgsl-fixed-wet-b-lite-coherent\",{\"fineSteps\":12}]",
         "valid": true
       }
     }
@@ -3161,7 +3661,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -3286,7 +3787,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -3412,7 +3914,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -3538,7 +4041,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -3638,7 +4142,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -3749,7 +4254,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -3875,7 +4381,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -4001,7 +4508,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -4112,7 +4620,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -4238,7 +4747,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -4364,7 +4874,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -4490,7 +5001,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -4581,7 +5093,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -4677,7 +5190,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -4802,7 +5316,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -4889,7 +5404,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -4985,7 +5501,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -5117,7 +5634,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -5252,7 +5770,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -5375,7 +5894,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -5502,7 +6022,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -5640,7 +6161,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -5778,7 +6300,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -5911,7 +6434,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -6047,7 +6571,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -6183,7 +6708,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -6315,7 +6841,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -6447,7 +6974,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -6571,7 +7099,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     },
     {
@@ -6702,7 +7231,8 @@
         130,
         131,
         132,
-        133
+        133,
+        134
       ]
     }
   ],
@@ -6714,8 +7244,10 @@
     "Preserve output/initial source hashes, repeats, coarse/fine ledgers where available, GL/device errors and full timing boundary",
     "Capability/config inventory is not shader compile or art acceptance"
   ],
-  "sourceComparisonSHA256": "a6b7ef562c4542f8e80c0882a8388f9d634fa30bf6d42d674caec5e942c05634",
+  "matrixIndexContract": "Indices refer to choices[]. External matching results are separate from published actual variants; new domain policy is not inferred from historical cells.",
+  "sourceComparisonSHA256": "cba44ad4e614e98306afbf8031676677303d7d6b0f6f63737bb5d69c21a16ad8",
   "measuredProgramsSHA256": "a25b7e40802dc5f35ffeb3861310df037e50f571d633f4781ecd69a6ec5b2caa",
+  "bLiteReportSHA256": "58356c3ccf7fc8f8dd0d8edaec9128f888033a3beba252643da4481ce5f94e15",
   "resolutionInventory": [
     {
       "scene": "mini-wave",
@@ -6763,6 +7295,8 @@
             "localFineGrid": 1024,
             "fineSteps": 4,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -6779,6 +7313,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -6795,6 +7331,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -6811,6 +7349,8 @@
             "localFineGrid": 1024,
             "fineSteps": 4,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -6827,6 +7367,8 @@
             "localFineGrid": 1024,
             "fineSteps": 4,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -6843,6 +7385,8 @@
             "localFineGrid": 1024,
             "fineSteps": 0,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -6859,6 +7403,8 @@
             "localFineGrid": 1024,
             "fineSteps": 4,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -6873,6 +7419,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -6886,6 +7434,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -6899,6 +7449,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -6914,6 +7466,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -6930,6 +7484,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -6946,6 +7502,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -6962,6 +7520,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -6978,6 +7538,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -6994,6 +7556,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7010,6 +7574,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7026,6 +7592,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7042,6 +7610,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7056,6 +7626,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7071,6 +7643,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7087,6 +7661,8 @@
             "localFineGrid": 1024,
             "fineSteps": 0,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7103,6 +7679,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7117,6 +7695,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7132,6 +7712,8 @@
             "localFineGrid": 1024,
             "fineSteps": 0,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7148,6 +7730,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7164,6 +7748,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7178,6 +7764,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7191,6 +7779,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7204,6 +7794,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "nearest-global-fallback-stationary",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7217,6 +7809,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer-halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7230,6 +7824,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer-halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7243,6 +7839,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7258,6 +7856,8 @@
             "localFineGrid": 1024,
             "fineSteps": 4,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7271,6 +7871,8 @@
           "gridResolution": {
             "transportGrid": 128,
             "outputSize": 1024,
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7286,6 +7888,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7302,6 +7906,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7318,6 +7924,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7332,6 +7940,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7347,6 +7957,8 @@
             "localFineGrid": 1024,
             "fineSteps": 4,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7361,6 +7973,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7376,6 +7990,8 @@
             "localFineGrid": 1024,
             "fineSteps": 4,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7392,6 +8008,8 @@
             "localFineGrid": 1024,
             "fineSteps": 4,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7408,6 +8026,8 @@
             "localFineGrid": 1024,
             "fineSteps": 4,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7421,6 +8041,8 @@
           "gridResolution": {
             "transportGrid": 128,
             "outputSize": 1024,
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7434,6 +8056,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7449,6 +8073,8 @@
             "localFineGrid": 1024,
             "fineSteps": 4,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7463,6 +8089,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7478,6 +8106,8 @@
             "localFineGrid": 1024,
             "fineSteps": 4,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7492,6 +8122,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7505,6 +8137,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7518,6 +8152,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7531,6 +8167,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7543,6 +8181,8 @@
           "gridResolution": {
             "transportGrid": 128,
             "outputSize": 1024,
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.coarseResolution",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7555,10 +8195,15 @@
           "gridResolution": {
             "transportGrid": 256,
             "outputSize": 1024,
+            "localFineGrid": 1024,
+            "fineSteps": 8,
             "reconstruction": "positive actual fine-paper/water weights normalized per coarse cell; no raw hard-disk fraction",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
-              "outputSize": "metadata.size or captureManifest recorded size"
+              "outputSize": "metadata.size or captureManifest recorded size",
+              "localFineGrid": "actual metadata.fineModel/fineSteps and input size; macro11-fine-paper.ts allocates N=size*size and dispatches full fine grid"
             },
             "qualification": "Transport grid, local detail grid and output size are different. A1024 fine stage does not turn coarse transport into full-resolution advection. No inference from PNG appearance."
           }
@@ -7568,10 +8213,15 @@
           "gridResolution": {
             "transportGrid": 256,
             "outputSize": 1024,
+            "localFineGrid": 1024,
+            "fineSteps": 8,
             "reconstruction": "positive actual fine-paper/water weights normalized per coarse cell; no raw hard-disk fraction",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
-              "outputSize": "metadata.size or captureManifest recorded size"
+              "outputSize": "metadata.size or captureManifest recorded size",
+              "localFineGrid": "actual metadata.fineModel/fineSteps and input size; macro11-fine-paper.ts allocates N=size*size and dispatches full fine grid"
             },
             "qualification": "Transport grid, local detail grid and output size are different. A1024 fine stage does not turn coarse transport into full-resolution advection. No inference from PNG appearance."
           }
@@ -7581,10 +8231,15 @@
           "gridResolution": {
             "transportGrid": 256,
             "outputSize": 1024,
+            "localFineGrid": 1024,
+            "fineSteps": 8,
             "reconstruction": "positive actual fine-paper/water weights normalized per coarse cell; no raw hard-disk fraction",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
-              "outputSize": "metadata.size or captureManifest recorded size"
+              "outputSize": "metadata.size or captureManifest recorded size",
+              "localFineGrid": "actual metadata.fineModel/fineSteps and input size; macro11-fine-paper.ts allocates N=size*size and dispatches full fine grid"
             },
             "qualification": "Transport grid, local detail grid and output size are different. A1024 fine stage does not turn coarse transport into full-resolution advection. No inference from PNG appearance."
           }
@@ -7595,6 +8250,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "half-pixel bilinear clamp coarse means + separate literal initial-dry pigment; no fine paper weights",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7608,6 +8265,8 @@
             "transportGrid": 256,
             "outputSize": 1024,
             "reconstruction": "nearest coarse cell; exact per-cell mass before f32/byte rounding; no amplified paper weights",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7621,6 +8280,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "nearest integer; unchanged cells literal raw",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7634,6 +8295,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "nearest-global-fallback-stationary",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7647,6 +8310,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "nearest-global-fallback-stationary",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7660,6 +8325,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer-halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7673,6 +8340,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer-halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7686,6 +8355,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7699,6 +8370,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7712,6 +8385,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7727,6 +8402,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7743,6 +8420,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7759,6 +8438,8 @@
             "localFineGrid": 1024,
             "fineSteps": 12,
             "reconstruction": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size",
@@ -7773,6 +8454,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7786,6 +8469,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7799,6 +8484,8 @@
             "transportGrid": 128,
             "outputSize": 1024,
             "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7812,9 +8499,11 @@
             "recordedResolution": 1024,
             "transportGrid": 256,
             "outputSize": 1024,
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "recordedResolution": "evidence.metadata.resolution (meaning depends on implementation)",
-              "transportGrid": "alternatives/finite-volume.ts: fixed gpu.target(256); config.coarse is stride, NOT grid size",
+              "transportGrid": "alternatives/finite-volume.ts or macro2-dense.ts: fixed gpu.target(256) coarse targets; metadata.resolution is fine/output size, config.coarse is stride, NOT grid size",
               "outputSize": "metadata.size or captureManifest recorded size"
             },
             "qualification": "Transport grid, local detail grid and output size are different. A1024 fine stage does not turn coarse transport into full-resolution advection. No inference from PNG appearance."
@@ -7824,9 +8513,13 @@
           "id": "earlier-alternative-correlated-paper-deposition",
           "gridResolution": {
             "recordedResolution": 1024,
+            "transportGrid": 1024,
             "outputSize": 1024,
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "recordedResolution": "evidence.metadata.resolution (meaning depends on implementation)",
+              "transportGrid": "actual metadata.resolution; corresponding alternatives source allocates transport targets at that resolution",
               "outputSize": "metadata.size or captureManifest recorded size"
             },
             "qualification": "Transport grid, local detail grid and output size are different. A1024 fine stage does not turn coarse transport into full-resolution advection. No inference from PNG appearance."
@@ -7836,9 +8529,13 @@
           "id": "earlier-alternative-stable-fluids",
           "gridResolution": {
             "recordedResolution": 256,
+            "transportGrid": 256,
             "outputSize": 1024,
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "recordedResolution": "evidence.metadata.resolution (meaning depends on implementation)",
+              "transportGrid": "actual metadata.resolution; corresponding alternatives source allocates transport targets at that resolution",
               "outputSize": "metadata.size or captureManifest recorded size"
             },
             "qualification": "Transport grid, local detail grid and output size are different. A1024 fine stage does not turn coarse transport into full-resolution advection. No inference from PNG appearance."
@@ -7848,9 +8545,13 @@
           "id": "earlier-alternative-artistic-front",
           "gridResolution": {
             "recordedResolution": 256,
+            "transportGrid": 256,
             "outputSize": 1024,
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "recordedResolution": "evidence.metadata.resolution (meaning depends on implementation)",
+              "transportGrid": "actual metadata.resolution; corresponding alternatives source allocates transport targets at that resolution",
               "outputSize": "metadata.size or captureManifest recorded size"
             },
             "qualification": "Transport grid, local detail grid and output size are different. A1024 fine stage does not turn coarse transport into full-resolution advection. No inference from PNG appearance."
@@ -7861,6 +8562,8 @@
           "gridResolution": {
             "transportGrid": 256,
             "outputSize": 1024,
+            "transportUnknown": false,
+            "outputUnknown": false,
             "provenance": {
               "transportGrid": "evidence.metadata.grid",
               "outputSize": "metadata.size or captureManifest recorded size"
@@ -7870,6 +8573,5 @@
         }
       ]
     }
-  ],
-  "matrixIndexContract": "Indices refer to choices[]; all executionRequired choices require rerun if domain policy changes, preserving immutable scene input bytes. Historical missing does not imply an invented output."
+  ]
 }

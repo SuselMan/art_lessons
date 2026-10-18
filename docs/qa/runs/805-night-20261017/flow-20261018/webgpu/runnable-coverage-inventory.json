@@ -1,17 +1,134 @@
 {
   "qualification": "Runnable request inventory, NOT execution fulfillment. Blocked jobs MUST NOT run until named source/domain/format gate is satisfied. Existing results certify only historical policy. No GPU operations performed.",
+  "catalogChoicePlan": "comparison-coverage-plan.json",
+  "fullJobManifestFile": "review-135x30-job-manifest.json",
+  "fullJobManifestSHA256": "2aa96eb209b1cdf2de9e427cf271b9dcce55ecda845e6b325fd04b530b585f87",
   "summary": {
     "scenes": 30,
-    "choices": 134,
-    "jobs": 4020,
+    "choices": 135,
+    "jobs": 4050,
     "states": {
-      "blocked-native-capture-and-domain-policy": 60,
+      "ready-native-forward-requires-proof": 120,
       "ready-no-solver": 30,
-      "blocked-domain-policy": 3870,
-      "blocked-native-source": 60
-    }
+      "ready-fixed-candidate-unvalidated": 3714,
+      "blocked-fixed-adapter": 180,
+      "completed-fixed-external": 6
+    },
+    "externalResultsAvailable": 6,
+    "fixedDomainCertified": 6
   },
-  "registrySHA": "73923d01cf400c556490ea3de1ef5d226f379aa6fd3f3900c545d61d67b69a40",
+  "registrySHA": "e4d40f077a119aea650cd681c5fb6c21b6b750e8aea5f803cdddea267dd279ca",
+  "blockedFixedAdapterByAlgorithm": {
+    "wgsl-macro-dynamic-wetness-smooth": 30,
+    "wgsl-macro-artistic-curl": 30,
+    "wgsl-d2q9-bgk": 30,
+    "wgsl-macro-dynamic-wetness-smooth-dither": 30,
+    "wgsl-macro-dynamic-wetness": 60
+  },
+  "externalFixedEvidence": [
+    {
+      "scene": "mini-wave",
+      "choiceIndex": 134,
+      "source": "fixed-wet-b-lite-results/report.json",
+      "reportObjectSHA": "5d1ed39fdb7f993e2b5c7d3a393877d7a05ccdee6334ce634b95df57875ae0e7",
+      "auditObjectSHA": "acc6681a4e31d6ea7f139215b871d054f0a85722a118a7c4b64c7eff16b9b43d",
+      "outputSHA": "0cc34e408f7e970755b529678f2c0a09fba5353924a4838fbbd45ca402fc188b",
+      "fixtureSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "fixedDomainCertified": true,
+      "repeatExact": true,
+      "certificationScope": "exact external report/audit sourceHashes only; not current-build or rerun certification",
+      "currentBuildCertified": false
+    },
+    {
+      "scene": "gallery-sheet-12-slot-1",
+      "choiceIndex": 134,
+      "source": "fixed-wet-b-lite-results/report.json",
+      "reportObjectSHA": "5d1ed39fdb7f993e2b5c7d3a393877d7a05ccdee6334ce634b95df57875ae0e7",
+      "auditObjectSHA": "acc6681a4e31d6ea7f139215b871d054f0a85722a118a7c4b64c7eff16b9b43d",
+      "outputSHA": "304c68316c7fe35e9134214d6fb502912dafe4d5fdf16473491d9f0de8a4d2fd",
+      "fixtureSHA": {
+        "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+        "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "fixedDomainCertified": true,
+      "repeatExact": true,
+      "certificationScope": "exact external report/audit sourceHashes only; not current-build or rerun certification",
+      "currentBuildCertified": false
+    },
+    {
+      "scene": "flow-isolated-pools",
+      "choiceIndex": 134,
+      "source": "fixed-wet-b-lite-results/report.json",
+      "reportObjectSHA": "5d1ed39fdb7f993e2b5c7d3a393877d7a05ccdee6334ce634b95df57875ae0e7",
+      "auditObjectSHA": "acc6681a4e31d6ea7f139215b871d054f0a85722a118a7c4b64c7eff16b9b43d",
+      "outputSHA": "c7bbdc5a0e0575042881c4ba1a64e697c536cd3d593c235ea2931a48b19e5c83",
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "e7b2629754b832f6e9f8b3dbddd8b623fcc9e977ddd2cfb40107c24a07b8ecc1",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "fixedDomainCertified": true,
+      "repeatExact": true,
+      "certificationScope": "exact external report/audit sourceHashes only; not current-build or rerun certification",
+      "currentBuildCertified": false
+    },
+    {
+      "scene": "flow-one-pixel-wall",
+      "choiceIndex": 134,
+      "source": "fixed-wet-b-lite-results/report.json",
+      "reportObjectSHA": "5d1ed39fdb7f993e2b5c7d3a393877d7a05ccdee6334ce634b95df57875ae0e7",
+      "auditObjectSHA": "acc6681a4e31d6ea7f139215b871d054f0a85722a118a7c4b64c7eff16b9b43d",
+      "outputSHA": "296cd362d01e3173e0ee216d5c89a3fe444b514d1d6e88b4f16819981751be6f",
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "50bf4382d51a3a9667ba3e596ec7777159c90fda2614aca3936466bb2d69709b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "fixedDomainCertified": true,
+      "repeatExact": true,
+      "certificationScope": "exact external report/audit sourceHashes only; not current-build or rerun certification",
+      "currentBuildCertified": false
+    },
+    {
+      "scene": "flow-water-only",
+      "choiceIndex": 134,
+      "source": "fixed-wet-b-lite-results/report.json",
+      "reportObjectSHA": "5d1ed39fdb7f993e2b5c7d3a393877d7a05ccdee6334ce634b95df57875ae0e7",
+      "auditObjectSHA": "acc6681a4e31d6ea7f139215b871d054f0a85722a118a7c4b64c7eff16b9b43d",
+      "outputSHA": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+      "fixtureSHA": {
+        "rgba": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "fixedDomainCertified": true,
+      "repeatExact": true,
+      "certificationScope": "exact external report/audit sourceHashes only; not current-build or rerun certification",
+      "currentBuildCertified": false
+    },
+    {
+      "scene": "flow-diagonal-wall",
+      "choiceIndex": 134,
+      "source": "fixed-wet-b-lite-results/report.json",
+      "reportObjectSHA": "5d1ed39fdb7f993e2b5c7d3a393877d7a05ccdee6334ce634b95df57875ae0e7",
+      "auditObjectSHA": "acc6681a4e31d6ea7f139215b871d054f0a85722a118a7c4b64c7eff16b9b43d",
+      "outputSHA": "2c75aff69fb49f7cc7f19de8dcdedb0966d33c75222c270bed165f34120473c3",
+      "fixtureSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "dfdbe13c3b1c92915d505b28c571d189c5d54a5c5eed5c89bc220c07f42621e8",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "fixedDomainCertified": true,
+      "repeatExact": true,
+      "certificationScope": "exact external report/audit sourceHashes only; not current-build or rerun certification",
+      "currentBuildCertified": false
+    }
+  ],
   "inputs": [
     {
       "id": "mini-wave",
@@ -33,6 +150,41 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [
+          {
+            "arm": "original",
+            "goal": false,
+            "sourceStable": false
+          },
+          {
+            "arm": "original",
+            "goal": true,
+            "sourceStable": false
+          },
+          {
+            "arm": "lazy",
+            "goal": true,
+            "sourceStable": false
+          },
+          {
+            "arm": "one-octave",
+            "goal": true,
+            "sourceStable": false
+          },
+          {
+            "arm": "cache",
+            "goal": true,
+            "sourceStable": false
+          }
+        ],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "canonical-native-replay",
         "sceneId": "mini-wave",
         "recipeSHA": "f4df8b1dfcd2e99e69313964f5a2dc54ba5590d84601a668964f9a5be8755933",
@@ -61,6 +213,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "canonical-native-replay",
         "sceneId": "mini-two-colors",
         "recipeSHA": "b281ab9bb69876e18a16751fa83103edb39c0a05a02e582eef8bd74333bbad5e",
@@ -89,6 +250,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "canonical-native-replay",
         "sceneId": "gallery-sheet-1-slot-17",
         "recipeSHA": "26852e9310d63e3d0a1ae9bb717898f68b945a611705c1c1f81d63c1b36d7084",
@@ -117,6 +287,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "canonical-native-replay",
         "sceneId": "gallery-sheet-2-slot-7",
         "recipeSHA": "c46f6b495c72b97e3c2791c654aed71ae45e43aa169cb3741afeabe5fd80e6df",
@@ -145,6 +324,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "canonical-native-replay",
         "sceneId": "gallery-sheet-3-slot-1",
         "recipeSHA": "7bf6e52d80bef0745858c917ab893053b53fa10f1020f346174746a965663b25",
@@ -173,6 +361,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "canonical-native-replay",
         "sceneId": "gallery-sheet-4-slot-1",
         "recipeSHA": "f698de4a7100b2bc4d468afeaccd20c61ddd28408c5cd475e18a0fe22cfdbf99",
@@ -201,6 +398,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "canonical-native-replay",
         "sceneId": "gallery-sheet-5-slot-1",
         "recipeSHA": "82320e9afecf42d2756a093ae0d09bceb484d9853674e534f3e111d993e5c413",
@@ -229,6 +435,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "canonical-native-replay",
         "sceneId": "gallery-sheet-6-slot-6",
         "recipeSHA": "72e0573c54ad8ceaa03b63c8ccfa41cd6cd135bcb373d4182ad33b27a5d6844c",
@@ -257,6 +472,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "canonical-native-replay",
         "sceneId": "gallery-sheet-7-slot-1",
         "recipeSHA": "d9f33a24ffbaba310350b8f5c5548a0fe0b8cc9e784f29006ec3778456b89abc",
@@ -285,6 +509,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "canonical-native-replay",
         "sceneId": "gallery-sheet-8-slot-6",
         "recipeSHA": "43766095d33787a7742f92023f3cf35581631de171b3796839ec95e89095c7e6",
@@ -313,6 +546,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "canonical-native-replay",
         "sceneId": "gallery-sheet-9-slot-1",
         "recipeSHA": "be85eda09dfa680f8d897fe06394db4bfc7f6a0e19d9462024e1669fa9bdb2ce",
@@ -341,6 +583,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "canonical-native-replay",
         "sceneId": "gallery-sheet-10-slot-3",
         "recipeSHA": "0660d5ab8e78e198cade724e2d4e518f26bc4a1396695c9c3e86c3e1e8334a02",
@@ -369,6 +620,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "canonical-native-replay",
         "sceneId": "gallery-sheet-12-slot-1",
         "recipeSHA": "6b57337046e2cb676fc01e08ea00056bede0130769364edaa6b74953f1abe6d8",
@@ -397,6 +657,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "authored-functional-native-replay",
         "sceneId": "native-flow-pool-drop",
         "recipeSHA": "9c6b551c466e3b4b05fc87dc85bfc00cf23e32231a59128b963922613d2c3a12",
@@ -425,6 +694,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "authored-functional-native-replay",
         "sceneId": "native-flow-separated-colors",
         "recipeSHA": "55efbd1a65fa51effd63ff0a89665c2da5d65e02cfd421bd062f29b79673b591",
@@ -454,6 +732,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
@@ -480,6 +767,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
@@ -506,6 +802,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
@@ -532,6 +837,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
@@ -558,6 +872,21 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [
+          {
+            "arm": "original",
+            "goal": false,
+            "sourceStable": false
+          }
+        ],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
@@ -584,6 +913,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
@@ -610,6 +948,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
@@ -636,6 +983,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
@@ -662,6 +1018,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
@@ -688,6 +1053,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
@@ -714,6 +1088,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
@@ -740,6 +1123,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
@@ -766,6 +1158,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
@@ -792,6 +1193,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
@@ -818,6 +1228,15 @@
       "carrierRGBExceedsAlphaPixels": 0,
       "depthWithoutMassPixels": 0,
       "native": {
+        "kind": "forward-common-optical-seed-v1",
+        "sourceContract": "common-optical-seed-v1",
+        "requiresPerInputIndependentProof": true,
+        "historicalEquivalence": false,
+        "sourceSHA": "48ee984ce5e35a1243346bae377e7a29eb4214958730d064be90b9fbd94458ba",
+        "knownGPUSeedProofs": [],
+        "qualification": "Explicit forward synthetic material, exact common roundtrip; NOT inverse native capture or historical native seed."
+      },
+      "historicalNative": {
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
@@ -825,5 +1244,6 @@
     }
   ],
   "losslessAdapter": "Do not clamp RGB>A or rescale source bytes. A bounded RGBA8 carrier cannot encode independent depth>A losslessly. Preserve bytes, use explicit separate optical-depth/mass lanes (u16/f32) with reviewed model conversion, or declare incompatible. Native needs original raw multi-plane checkpoint/replay; common conversion is not invertible.",
-  "encodingCorrection": "All30 actual inputs optical-density. Generated fixture input.encoding is propagated to request; old request-default labels are not revalidated as new fixed-domain results. Input bytes/SHA unchanged."
+  "encodingCorrection": "All30 actual inputs optical-density; all30x3 source SHA unchanged relative to134 plan. Historical wrong request labels not revalidated.",
+  "nativeQualification": "Forward common-optical-seed-v1 on all30 is synthetic native construction, not inverse capture or historical raw. Per-input independent GL raw/paper roundtrip remains mandatory."
 }

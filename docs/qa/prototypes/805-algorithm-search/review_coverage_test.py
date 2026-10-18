@@ -31,4 +31,16 @@ class CoverageTest(unittest.TestCase):
         self.assertEqual(result[2]['gridResolution']['localFineGrid'],1024)
         self.assertEqual([v['evidence'] for v in result], [v['evidence'] for v in before])
 
+    def test_b_lite_measured_once_without_importing_diagnostic_scenes(self):
+        rows = [{'request': {'algorithm':'wgsl-fixed-wet-b-lite-coherent','config':{'fineSteps':12},'fixture':fixture},
+                 'pass':True,'result':{'algorithm':'wgsl-fixed-wet-b-lite-coherent','fixture':fixture,'samples':[{}],'repeatExact':True}}
+                for fixture in ['fixed-wet-thin-1','mini-wave']]
+        p = coverage_plan(self.data(), {'definitions':[],'sourceSHA256':'a','sourceFiles':1},
+                          measured_candidates=[{'source':'B/report.json','report':{'pass':True,'cases':rows}}])
+        self.assertEqual(p['summary']['additionalMeasuredCandidateChoices'],1)
+        self.assertEqual(p['summary']['canonicalScenes'],1)
+        self.assertEqual(len(p['externalMeasuredCases']),2)
+        self.assertEqual(p['summary']['historicalActualVariants'],2)
+        self.assertEqual(p['choices'][-1]['config'],{'fineSteps':12})
+
 if __name__=='__main__': unittest.main()
