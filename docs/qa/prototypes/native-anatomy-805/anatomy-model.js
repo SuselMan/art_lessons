@@ -3,6 +3,7 @@
 function validate(data){
  const fail=m=>{throw new Error(m)},hash=v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
  if(data?.schemaVersion!==1||!Array.isArray(data.scenes))fail('Неподдерживаемый формат схемы');
+ if(data.optimization!==undefined){if(!Array.isArray(data.optimization.cases))fail('Неверное резюме оптимизации');for(const row of data.optimization.cases){if(typeof row.label!=='string'||typeof row.scope!=='string')fail('Нет границы замера оптимизации');for(const key of ['baselineMs','optimizedMs'])if(row[key]!==undefined&&(!Number.isFinite(row[key])||row[key]<0))fail('Неверное время оптимизации');if(row.sameOutput!==undefined&&typeof row.sameOutput!=='boolean')fail('Неверное подтверждение совпадения');}}
  const scenes=new Set();
  for(const scene of data.scenes){
   if(typeof scene.id!=='string'||scenes.has(scene.id))fail('Повтор или отсутствие сцены');scenes.add(scene.id);

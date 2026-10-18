@@ -8,3 +8,5 @@ test('reject unsafe image, fake time, duplicate stage',()=>{for(const fault of [
 test('chain time identifies cumulative versus estimated, never sums',()=>{assert.match(shortTiming({valueMs:12,kind:'cumulative',clock:'wall'}),/12 мс · накоплено/);assert.match(shortTiming({valueMs:3,kind:'estimated-difference',clock:'wall'}),/3 мс · оценка/);assert.match(shortTiming({valueMs:2,clock:'cpu-host'}),/2 мс · CPU/)});
 
 test('sub-resolution callbacks are not presented as free',()=>{const t={valueMs:0,clock:'cpu-host',scope:'callback',seriesId:'a',timerResolutionMs:.1};assert.match(timingLabel(t),/< 0,1 мс/);assert.match(shortTiming(t),/< 0,1 мс/);assert.match(shortTiming({...t,valueMs:.2}),/0,2 мс/);assert.doesNotMatch(shortTiming({...t,valueMs:.1}),/</)});
+
+test('optimization summary requires scope and real nonnegative values',()=>{const d=data();d.optimization={cases:[{label:'Direct',baselineMs:100,optimizedMs:70,scope:'Native source to full C',sameOutput:true}]};validate(d);d.optimization.cases[0].optimizedMs=-1;assert.throws(()=>validate(d));delete d.optimization;validate(d)});
