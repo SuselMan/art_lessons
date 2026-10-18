@@ -1,0 +1,58 @@
+{
+  "filled": {
+    "kind": "filled",
+    "nativeLikeClaim": false,
+    "size": 128,
+    "radius": 40,
+    "finePhases": 12,
+    "bandPixels": 1000,
+    "before": [
+      122304000,
+      38220000,
+      7644000,
+      152880000
+    ],
+    "after": [
+      122304000,
+      38220000,
+      7644000,
+      152880000
+    ],
+    "bandBefore": 30000000,
+    "bandAfter": 31968308,
+    "bandRatio": 1.0656102666666667,
+    "deltaBandAlphaCodes": 1968308,
+    "outsideAlphaCodes": 0,
+    "guardPassed": true,
+    "opaqueMobileAfter": null,
+    "qualification": "Synthetic design, not GPU or exact SDF. Same pair mass/cap operator; fixed final water for terminal phase."
+  },
+  "remotePigment": {
+    "kind": "remote",
+    "nativeLikeClaim": false,
+    "size": 128,
+    "radius": 40,
+    "finePhases": 12,
+    "bandPixels": 1000,
+    "before": [
+      7584000,
+      2370000,
+      474000,
+      9480000
+    ],
+    "after": [
+      7584000,
+      2370000,
+      474000,
+      9480000
+    ],
+    "bandBefore": 0,
+    "bandAfter": 0,
+    "bandRatio": null,
+    "deltaBandAlphaCodes": 0,
+    "outsideAlphaCodes": 0,
+    "guardPassed": true,
+    "opaqueMobileAfter": null,
+    "qualification": "Synthetic design, not GPU or exact SDF. Same pair mass/cap operator; fixed final water for terminal phase."
+  }
+}

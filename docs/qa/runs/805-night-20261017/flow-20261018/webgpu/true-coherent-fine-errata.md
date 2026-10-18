@@ -1,0 +1,9 @@
+# Исправление композиции fine-веток
+
+Проверка actual factory shader sources обнаружила ошибку: macro17 устанавливает default `basePairSourceOverride=mobilitySource(gain)`, macro11 передаёт его в `pairSourceOverride`, macro18 распространяет options в actual macro14. Поэтому **исторические fine18/22/23/26 рассчитывали coarse mobility pair, а не coherent stream pair**, несмотря на загрузку ψ и прежние подписи metadata. Утверждения о coherent-физике этих fine-веток отозваны. Их реальные картинки, измерения, точные сравнения CPU initializer, консервация и проверки владения/памяти остаются действительными для фактически запущенного mobility-алгоритма. Исходники старых ID не изменены.
+
+Новый `wgsl-macro-true-coherent-fine` явно задаёт `basePairSourceOverride=coherentSource(gain)` до вызова macro17. Actual macro14 строит и загружает поле ψ; fast initializer сохраняет точные state/aux/stationary. Compact aux/carrier включены, smooth M/D/fine exchange остаются прежними. CPU regression импортирует настоящие factories: pair source совпадает с coherentSource и содержит streamFace; старый pair source совпадает с mobilitySource; остальные shaders, uploads и fieldSHA совпадают при равном config. При curl0/128 shader одинаков, поле различно. Нет обещания coarse stateHash или универсальной меж-GPU точности F32 fine-init.
+
+Обязательная GPU проверка: curl0 vs128 на неплоской воде pool/two/mini должны дать различный результат хотя бы на диагностической неплоской сцене. Curl0 следует сравнить побайтно со старым fine при абсолютно одинаковых affinity/compact/config. CPU доказательство factory выбора само по себе не заменяет эти проверки.
+
+Macro27 terminal rim теперь тоже задаёт coherentSource явно. Его нулевой контроль сравнивается с **новым true coherent neutral fine** (paperGain0, affinity64, scalar storage), а не с ошибочно подписанным историческим fine. Все параметры coarse256/mobility3/eddy16/curl128, fine12 одинаковы; меняется только terminal affinity.

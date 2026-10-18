@@ -1,0 +1,156 @@
+{
+  "qualification": "NEW local terminal affinity; actual coherent coarse factory. Not whole-wash rim equivalence. Compare strength controls within this model. No historical macro18 pixel equivalence assumed.",
+  "algorithm": "wgsl-macro-terminal-rim-coherent-fine",
+  "repeat": 3,
+  "idleBetweenMs": 5000,
+  "cases": [
+    {
+      "fixture": "mini-wave",
+      "config": {
+        "steps": 256,
+        "fineSteps": 12,
+        "paperGain": 0,
+        "dither": 1,
+        "mobilityGain": 3,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "rimThreshold": 64,
+        "rimStrength": 0
+      }
+    },
+    {
+      "fixture": "mini-wave",
+      "config": {
+        "steps": 256,
+        "fineSteps": 12,
+        "paperGain": 0,
+        "dither": 1,
+        "mobilityGain": 3,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "rimThreshold": 64,
+        "rimStrength": 128
+      }
+    },
+    {
+      "fixture": "gallery-sheet-3-slot-1",
+      "config": {
+        "steps": 256,
+        "fineSteps": 12,
+        "paperGain": 0,
+        "dither": 1,
+        "mobilityGain": 3,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "rimThreshold": 64,
+        "rimStrength": 0
+      }
+    },
+    {
+      "fixture": "gallery-sheet-3-slot-1",
+      "config": {
+        "steps": 256,
+        "fineSteps": 12,
+        "paperGain": 0,
+        "dither": 1,
+        "mobilityGain": 3,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "rimThreshold": 64,
+        "rimStrength": 128
+      }
+    },
+    {
+      "fixture": "gallery-sheet-4-slot-1",
+      "config": {
+        "steps": 256,
+        "fineSteps": 12,
+        "paperGain": 0,
+        "dither": 1,
+        "mobilityGain": 3,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "rimThreshold": 64,
+        "rimStrength": 0
+      }
+    },
+    {
+      "fixture": "gallery-sheet-4-slot-1",
+      "config": {
+        "steps": 256,
+        "fineSteps": 12,
+        "paperGain": 0,
+        "dither": 1,
+        "mobilityGain": 3,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "rimThreshold": 64,
+        "rimStrength": 128
+      }
+    },
+    {
+      "fixture": "gallery-sheet-12-slot-1",
+      "config": {
+        "steps": 256,
+        "fineSteps": 12,
+        "paperGain": 0,
+        "dither": 1,
+        "mobilityGain": 3,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "rimThreshold": 64,
+        "rimStrength": 0
+      }
+    },
+    {
+      "fixture": "gallery-sheet-12-slot-1",
+      "config": {
+        "steps": 256,
+        "fineSteps": 12,
+        "paperGain": 0,
+        "dither": 1,
+        "mobilityGain": 3,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "rimThreshold": 64,
+        "rimStrength": 128
+      }
+    },
+    {
+      "fixture": "native-flow-pool-drop",
+      "config": {
+        "steps": 256,
+        "fineSteps": 12,
+        "paperGain": 0,
+        "dither": 1,
+        "mobilityGain": 3,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "rimThreshold": 64,
+        "rimStrength": 0
+      }
+    },
+    {
+      "fixture": "native-flow-pool-drop",
+      "config": {
+        "steps": 256,
+        "fineSteps": 12,
+        "paperGain": 0,
+        "dither": 1,
+        "mobilityGain": 3,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "rimThreshold": 64,
+        "rimStrength": 128
+      }
+    }
+  ],
+  "checks": [
+    "all fine guard counters0",
+    "all4 mobile channel sums identical to same init fine0 if available",
+    "fixed D/literal stationary unchanged",
+    "no outside old final wet gate transport",
+    "visual edge: no claim from mere band alpha gain",
+    "raw/output SHA repeats; no universal crossGPU F32 claim"
+  ]
+}
