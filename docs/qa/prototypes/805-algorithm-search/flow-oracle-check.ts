@@ -24,3 +24,8 @@ assert(throughCheck.insideOutsideWidthRatio===1,'Reference stroke same width ins
 const separate=createFlowFixture('dynamic-two-strokes'),separateCheck=dynamicMetrics('dynamic-two-strokes',separate,separate.rgba)!
 assert(separateCheck.initialMixedPixels===0&&separateCheck.mixedCarrierFraction===0,'Parallel stroke input must be unmixed')
 console.log(JSON.stringify({dynamicChecks:2}))
+const opaque=createFlowFixture('dynamic-opaque-stationary');let opaquePixels=0
+for(let i=0;i<opaque.water.length;i++)if(opaque.rgba[i*4+3]===255){assert(opaque.water[i]===0,'Opaque stationary is dry');opaquePixels++}
+assert(opaquePixels===4,'Four opaque dry pixels force coarse capacity fallback')
+for(const id of ['dynamic-saturated-pigment','dynamic-corner-wetting']){const f=createFlowFixture(id);assert(f.rgba.some(v=>v>0)&&f.water.some(v=>v>0),'Capacity/corner input nonempty');for(let i=0;i<f.water.length;i++)for(let c=0;c<3;c++)assert(f.rgba[i*4+c]<=f.rgba[i*4+3],'Premul extreme fixture')}
+console.log(JSON.stringify({capacityAndBoundaryInputs:3}))

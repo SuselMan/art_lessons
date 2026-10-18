@@ -27,6 +27,6 @@ export const exactProgramDefinitions=[{
  configs:[0,1,2,3].map(program=>({program,steps:128,smooth:1})),
  create:(device:GPUDevice,size:number,config:Record<string,number>={})=>{
   const program=integerOption(config.program??0,0,3,'program')
-  return create(device,size,config,{pairSourceOverride:exactProgramSource(program)})
+  return create(device,size,config,{pairSourceOverride:exactProgramSource(program),stateHash:true})
  }
 }]

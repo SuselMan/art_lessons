@@ -32,7 +32,7 @@ export function dynamicMetrics(id:string,input:AlgorithmInput,out:Uint8Array){
   if(input.rgba[p]&&input.rgba[p+2])initialMixed++
   if(out[p]>=2&&out[p+2]>=2)mixed+=Math.min(out[p],out[p+2])
   if(input.water[i]===0)newDryAlpha+=Math.max(0,a-input.rgba[p+3])
-  if(id==='dynamic-stroke-through-pool'){
+  if(id.startsWith('dynamic-stroke-through-pool')){
    const k=X>=480&&X<544?0:X>=240&&X<304?1:-1
    if(k>=0){roi[k].mass+=a;roi[k].moment+=a*(Y-512)**2}
   }
