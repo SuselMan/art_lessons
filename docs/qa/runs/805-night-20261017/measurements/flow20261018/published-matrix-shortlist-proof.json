@@ -1,0 +1,369 @@
+{
+  "qualification": "Published HTTPS files, no Fetch interception/substitution. Own browser context. Explicit published catalog counts, trusted independent navigation, swipe, card/zoom press-original-release-restore and centered1:1 zoom at390CSSpx. Real HTTPS; no algorithm execution or downloads.",
+  "errors": [],
+  "browser": "Chrome/155.0.8059.39",
+  "catalog": {
+    "scenes": 17,
+    "variants": [
+      16,
+      10,
+      9,
+      9,
+      11,
+      10,
+      9,
+      9,
+      11,
+      9,
+      9,
+      9,
+      15,
+      5,
+      2,
+      11,
+      4
+    ],
+    "cards": 17,
+    "sceneIDs": [
+      "mini-wave",
+      "mini-two-colors",
+      "gallery-sheet-1-slot-17",
+      "gallery-sheet-2-slot-7",
+      "gallery-sheet-3-slot-1",
+      "gallery-sheet-4-slot-1",
+      "gallery-sheet-5-slot-1",
+      "gallery-sheet-6-slot-6",
+      "gallery-sheet-7-slot-1",
+      "gallery-sheet-8-slot-6",
+      "gallery-sheet-9-slot-1",
+      "gallery-sheet-10-slot-3",
+      "gallery-sheet-12-slot-1",
+      "native-flow-pool-drop",
+      "native-flow-separated-colors",
+      "dynamic-two-strokes",
+      "dynamic-stroke-through-pool"
+    ],
+    "variantIDs": [
+      "original",
+      "earlier-native-lazy",
+      "earlier-native-one-octave",
+      "native-feather-cache",
+      "input",
+      "wgsl-macro-physical-dt-fine-52",
+      "wgsl-macro-coherent-physical-dt-47",
+      "wgsl-macro-coherent-physical-dt-45",
+      "wgsl-macro-true-coherent-fine-39",
+      "wgsl-macro-coherent-fast-initial-23",
+      "wgsl-macro-gpu-initial-coherent-dt4-56",
+      "wgsl-macro-capacity-aware-lite-61",
+      "wgsl-macro-gpu-initial-fine-62",
+      "wgsl-macro-capacity-aware-fine-65",
+      "wgsl-macro-gpu-capacity-aware-fine-66",
+      "wgsl-macro-gpu-capacity-aware-lite-67",
+      "wgsl-macro-physical-dt-fine-6",
+      "wgsl-macro-coherent-physical-dt-5",
+      "wgsl-macro-gpu-initial-coherent-dt4-7",
+      "wgsl-macro-gpu-capacity-aware-lite-8",
+      "wgsl-macro-gpu-capacity-aware-fine-9",
+      "wgsl-macro-physical-dt-fine-5",
+      "wgsl-macro-coherent-physical-dt-6",
+      "wgsl-macro-gpu-capacity-aware-fine-8",
+      "wgsl-macro-gpu-capacity-aware-lite-9",
+      "wgsl-macro-physical-dt-fine-29",
+      "wgsl-macro-coherent-physical-dt-24",
+      "wgsl-macro-coherent-physical-dt-22",
+      "wgsl-macro-gpu-initial-coherent-dt4-30",
+      "wgsl-macro-gpu-capacity-aware-lite-33",
+      "wgsl-macro-gpu-capacity-aware-fine-34",
+      "wgsl-macro-physical-dt-fine-19",
+      "wgsl-macro-coherent-physical-dt-14",
+      "wgsl-macro-coherent-physical-dt-12",
+      "wgsl-macro-gpu-initial-coherent-dt4-20",
+      "wgsl-macro-gpu-capacity-aware-fine-23",
+      "wgsl-macro-gpu-capacity-aware-lite-24",
+      "wgsl-macro-coherent-physical-dt-20",
+      "wgsl-macro-coherent-fast-initial-18",
+      "wgsl-macro-gpu-initial-coherent-dt4-21",
+      "wgsl-macro-gpu-capacity-aware-fine-22",
+      "wgsl-macro-gpu-capacity-aware-lite-23",
+      "wgsl-macro-physical-dt-fine-32",
+      "wgsl-macro-coherent-physical-dt-27",
+      "wgsl-macro-coherent-physical-dt-25",
+      "wgsl-macro-coherent-fast-initial-10",
+      "wgsl-macro-gpu-initial-coherent-dt4-34",
+      "wgsl-macro-capacity-aware-fine-37",
+      "wgsl-macro-capacity-aware-lite-40",
+      "wgsl-macro-gpu-initial-fine-41",
+      "wgsl-macro-gpu-capacity-aware-fine-42",
+      "wgsl-macro-gpu-capacity-aware-lite-43",
+      "wgsl-macro-coherent-physical-dt-37",
+      "wgsl-macro-coherent-physical-dt-35",
+      "input-reference-53",
+      "wgsl-macro-physical-dt-fine-23",
+      "wgsl-macro-coherent-physical-dt-18",
+      "wgsl-macro-coherent-physical-dt-21",
+      "wgsl-macro-true-coherent-fine-35",
+      "wgsl-macro-capacity-aware-lite-9",
+      "wgsl-macro-gpu-capacity-aware-fine-10",
+      "wgsl-macro-capacity-aware-fine-11",
+      "wgsl-macro-gpu-initial-fine-16",
+      "wgsl-macro-gpu-initial-coherent-dt4-17",
+      "input-reference-44",
+      "wgsl-macro-coherent-physical-dt-10",
+      "wgsl-macro-true-coherent-fine-19"
+    ],
+    "initial": [
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "4",
+      "4"
+    ],
+    "initialEnabled": true,
+    "matrix": {
+      "keys": [
+        "original",
+        "native-lazy",
+        "native-one-octave",
+        "native-cache",
+        "input",
+        "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
+        "model:[\"wgsl-macro-coherent-physical-dt\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
+        "model:[\"wgsl-macro-coherent-physical-dt\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":1,\"steps\":256}]",
+        "model:[\"wgsl-macro-true-coherent-fine\",{\"affinityBase\":128,\"compactAux\":true,\"compactCarrier\":true,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"steps\":256}]",
+        "model:[\"wgsl-macro-coherent-fast-initial\",{\"curlStrength\":128,\"eddyCells\":16,\"mobilityGain\":3,\"steps\":256}]",
+        "model:[\"wgsl-macro-gpu-initial-coherent-dt4\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
+        "model:[\"wgsl-macro-capacity-aware-lite\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
+        "model:[\"wgsl-macro-gpu-initial-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
+        "model:[\"wgsl-macro-capacity-aware-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
+        "model:[\"wgsl-macro-gpu-capacity-aware-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
+        "model:[\"wgsl-macro-gpu-capacity-aware-lite\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]"
+      ],
+      "rows": [
+        {
+          "optionCount": 16,
+          "enabledCount": 16,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        },
+        {
+          "optionCount": 16,
+          "enabledCount": 10,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        },
+        {
+          "optionCount": 16,
+          "enabledCount": 9,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        },
+        {
+          "optionCount": 16,
+          "enabledCount": 9,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        },
+        {
+          "optionCount": 16,
+          "enabledCount": 11,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        },
+        {
+          "optionCount": 16,
+          "enabledCount": 10,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        },
+        {
+          "optionCount": 16,
+          "enabledCount": 9,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        },
+        {
+          "optionCount": 16,
+          "enabledCount": 9,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        },
+        {
+          "optionCount": 16,
+          "enabledCount": 11,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        },
+        {
+          "optionCount": 16,
+          "enabledCount": 9,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        },
+        {
+          "optionCount": 16,
+          "enabledCount": 9,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        },
+        {
+          "optionCount": 16,
+          "enabledCount": 9,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        },
+        {
+          "optionCount": 16,
+          "enabledCount": 15,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        },
+        {
+          "optionCount": 16,
+          "enabledCount": 5,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        },
+        {
+          "optionCount": 16,
+          "enabledCount": 2,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        },
+        {
+          "optionCount": 16,
+          "enabledCount": 11,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        },
+        {
+          "optionCount": 16,
+          "enabledCount": 4,
+          "slotMappingExact": true,
+          "initialFirstAvailable": true
+        }
+      ]
+    },
+    "horizontalOverflow": false
+  },
+  "allExpectedSceneIDs": [
+    "gallery-sheet-1-slot-17",
+    "gallery-sheet-2-slot-7",
+    "gallery-sheet-3-slot-1",
+    "gallery-sheet-4-slot-1",
+    "gallery-sheet-5-slot-1",
+    "gallery-sheet-6-slot-6",
+    "gallery-sheet-7-slot-1",
+    "gallery-sheet-8-slot-6",
+    "gallery-sheet-9-slot-1",
+    "gallery-sheet-10-slot-3",
+    "gallery-sheet-12-slot-1",
+    "mini-wave",
+    "mini-two-colors"
+  ],
+  "initialSelections": [
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "0",
+    "4",
+    "4"
+  ],
+  "independentSelections": true,
+  "swipe": true,
+  "disabledGapNavigation": {
+    "firstCardHasNoMissingGap": true,
+    "allCardsSlotMappingVerified": true
+  },
+  "holdChoice": {
+    "index": 2,
+    "id": "earlier-native-one-octave",
+    "original": "285af1033d66e34ddea8cd4438aea611fd4a9acfca0ea152cccd866fb25cd99a",
+    "selected": "f8877745a30aec615f2da314cfcc90c4aa9d5494132bacde23978e6cc4c8619f"
+  },
+  "cardHold": {
+    "heldOriginal": true,
+    "selectedIndexPreserved": true,
+    "releasedRestoresSelected": true,
+    "otherCardUnchanged": true,
+    "altOriginalAndRestored": true,
+    "decodedAndTwoRAFWhileHeld": true
+  },
+  "zoomHold": {
+    "heldOriginal": true,
+    "selectedIndexPreserved": true,
+    "releasedRestoresSelected": true,
+    "otherCardUnchanged": true,
+    "altOriginalAndRestored": true,
+    "decodedAndTwoRAFWhileHeld": true
+  },
+  "zoom": {
+    "open": true,
+    "actual": true,
+    "width": 1024,
+    "actualWidth": 1024,
+    "centered": true
+  },
+  "hiddenOriginalHold": {
+    "heldOriginal": true,
+    "selectedIndexPreserved": true,
+    "releasedRestoresSelected": true,
+    "otherCardUnchanged": true,
+    "altOriginalAndRestored": true,
+    "decodedAndTwoRAFWhileHeld": true
+  },
+  "globalHide": {
+    "aligned": true,
+    "allRemoved": true,
+    "noDisabledSelection": true,
+    "actualResults": 158,
+    "reloadPersistence": true,
+    "restoredCatalog": true,
+    "hiddenOriginalHold": true,
+    "otherSelectionsPreserved": true,
+    "ownContextStorageOnly": true
+  },
+  "firstImage": {
+    "bytes": 1447256,
+    "sha256": "285af1033d66e34ddea8cd4438aea611fd4a9acfca0ea152cccd866fb25cd99a"
+  },
+  "reportLink": {
+    "status": 200,
+    "text": "Измерения и ограничения исследования"
+  },
+  "screenshot": {
+    "file": "published-cards-mobile.png",
+    "sha256": "e6806ce6068c9bc1a3441e0f7eb204fdbe0d0f3f53adc6969c733ea3aef5fcba"
+  },
+  "finalOverflow": false,
+  "pass": true,
+  "contextClosed": true,
+  "artifactPreservation": {
+    "scope": "outside disposable TTL",
+    "file": "shortlist-mobile.png",
+    "sha256": "e6806ce6068c9bc1a3441e0f7eb204fdbe0d0f3f53adc6969c733ea3aef5fcba"
+  }
+}

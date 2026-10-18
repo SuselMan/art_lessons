@@ -1,0 +1,109 @@
+{
+  "qualification": "Thirteen canonical scenes merged from two explicitly distinct immutable-build batches (initial six includes five canonical plus one separate pool; new eight fill remaining canonical). No new timing execution. Per-case samples/idle/source preserved; speed effect only established separately in balanced three-scene series. Observed full P/C/coverage/PNG equality checked against earlier thirteen canonical control, not universal shader equivalence.",
+  "checks": [
+    {
+      "id": "gallery-sheet-1-slot-17",
+      "rawCommonBinaryOperationExact": true,
+      "fullPCCoverageExact": true,
+      "pngExact": true,
+      "convertedEndpointExact": true,
+      "batch": "eight-coverage-idle0"
+    },
+    {
+      "id": "gallery-sheet-2-slot-7",
+      "rawCommonBinaryOperationExact": true,
+      "fullPCCoverageExact": true,
+      "pngExact": true,
+      "convertedEndpointExact": true,
+      "batch": "eight-coverage-idle0"
+    },
+    {
+      "id": "gallery-sheet-3-slot-1",
+      "rawCommonBinaryOperationExact": true,
+      "fullPCCoverageExact": true,
+      "pngExact": true,
+      "convertedEndpointExact": true,
+      "batch": "six-initial-gate-idle5s"
+    },
+    {
+      "id": "gallery-sheet-4-slot-1",
+      "rawCommonBinaryOperationExact": true,
+      "fullPCCoverageExact": true,
+      "pngExact": true,
+      "convertedEndpointExact": true,
+      "batch": "eight-coverage-idle0"
+    },
+    {
+      "id": "gallery-sheet-5-slot-1",
+      "rawCommonBinaryOperationExact": true,
+      "fullPCCoverageExact": true,
+      "pngExact": true,
+      "convertedEndpointExact": true,
+      "batch": "eight-coverage-idle0"
+    },
+    {
+      "id": "gallery-sheet-6-slot-6",
+      "rawCommonBinaryOperationExact": true,
+      "fullPCCoverageExact": true,
+      "pngExact": true,
+      "convertedEndpointExact": true,
+      "batch": "eight-coverage-idle0"
+    },
+    {
+      "id": "gallery-sheet-7-slot-1",
+      "rawCommonBinaryOperationExact": true,
+      "fullPCCoverageExact": true,
+      "pngExact": true,
+      "convertedEndpointExact": true,
+      "batch": "six-initial-gate-idle5s"
+    },
+    {
+      "id": "gallery-sheet-8-slot-6",
+      "rawCommonBinaryOperationExact": true,
+      "fullPCCoverageExact": true,
+      "pngExact": true,
+      "convertedEndpointExact": true,
+      "batch": "eight-coverage-idle0"
+    },
+    {
+      "id": "gallery-sheet-9-slot-1",
+      "rawCommonBinaryOperationExact": true,
+      "fullPCCoverageExact": true,
+      "pngExact": true,
+      "convertedEndpointExact": true,
+      "batch": "eight-coverage-idle0"
+    },
+    {
+      "id": "gallery-sheet-10-slot-3",
+      "rawCommonBinaryOperationExact": true,
+      "fullPCCoverageExact": true,
+      "pngExact": true,
+      "convertedEndpointExact": true,
+      "batch": "eight-coverage-idle0"
+    },
+    {
+      "id": "gallery-sheet-12-slot-1",
+      "rawCommonBinaryOperationExact": true,
+      "fullPCCoverageExact": true,
+      "pngExact": true,
+      "convertedEndpointExact": true,
+      "batch": "six-initial-gate-idle5s"
+    },
+    {
+      "id": "mini-wave",
+      "rawCommonBinaryOperationExact": true,
+      "fullPCCoverageExact": true,
+      "pngExact": true,
+      "convertedEndpointExact": true,
+      "batch": "six-initial-gate-idle5s"
+    },
+    {
+      "id": "mini-two-colors",
+      "rawCommonBinaryOperationExact": true,
+      "fullPCCoverageExact": true,
+      "pngExact": true,
+      "convertedEndpointExact": true,
+      "batch": "six-initial-gate-idle5s"
+    }
+  ]
+}
