@@ -88,6 +88,29 @@ class MatrixTest(unittest.TestCase):
         with self.assertRaises(MatrixError):
             normalize()
 
+    def test_partial_batch_closure_preserves_failure_and_binds_exact_successful_row(self):
+        row = {'pass': True, 'fixedInitialWetVerified': True, 'sameFixtureInput': True,
+               'request': self.cell['request'], 'result': self.cell['result'],
+               'png': {'sha256': self.cell['pngSHA']}, 'carrier': {'decodedSHA256': self.cell['rawSHA']}}
+        report = {'pass': False, 'failure': 'budget exceeded', 'contextClosed': True, 'errors': [],
+                  'sourceHashes': self.cell['sourceHashes'], 'cases': [row, {'pass': False}]}
+        closure = dict(reportSHA256='8' * 64, buildManifestSHA256='7' * 64,
+                       sourceHashesBefore=self.cell['sourceHashes'], sourceHashesAfter=self.cell['sourceHashes'],
+                       verifiedReadBuild=True, sourceStable=True, contextClosed=True, errors=[], excludedFailedRows=[1])
+        def normalize():
+            return worker_cell_from_batch(report, row, scene_id='s', comparison_key='model:x',
+                variant=self.cell['variant'], raw_audit=self.cell['rawAudit'], common_renderer=self.cell['commonRenderer'],
+                build_manifest_sha='7' * 64, closure=closure, report_sha='8' * 64, closure_sha='9' * 64, row_index=0)
+        out = normalize()
+        self.assertTrue(self.run_cells([out])['fixedMatrixCoverage']['complete'])
+        self.assertFalse(out['variant']['evidence']['batchScope']['reportPass'])
+        self.assertFalse(report['pass'])
+        for change in ('reportSHA256', 'sourceHashesAfter', 'excludedFailedRows'):
+            old = closure[change]
+            closure[change] = 'wrong'
+            with self.subTest(change=change), self.assertRaises(MatrixError):normalize()
+            closure[change] = old
+
     def test_choice_build_allowlist_rejects_unknown_build_or_other_source(self):
         good = copy.deepcopy(self.cell)
         for change in ('build', 'source', 'policy'):

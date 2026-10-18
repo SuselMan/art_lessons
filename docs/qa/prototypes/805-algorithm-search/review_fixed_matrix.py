@@ -219,24 +219,45 @@ def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None):
     return out
 
 
-def worker_cell_from_batch(report, row, *, scene_id, comparison_key, variant, raw_audit, common_renderer, build_manifest_sha):
+def worker_cell_from_batch(report, row, *, scene_id, comparison_key, variant, raw_audit, common_renderer, build_manifest_sha,
+                           closure=None, report_sha=None, closure_sha=None, row_index=None):
     """Normalize one physical batch row. Independent raw_audit must name exact bytes.
 
     No filename/scene inference: caller resolves the frozen input/choice indices.
     Report failures or missing immutable-build provenance cannot be papered over by
     a passing individual row. Assembly still checks every field against the manifest.
     """
-    require(report.get('pass') is True and report.get('sourceStable') is True
-            and report.get('contextClosed') is True and not report.get('errors'),
-            'batch failed, source changed or context not closed')
+    ordinary = (report.get('pass') is True and report.get('sourceStable') is True
+                and report.get('contextClosed') is True and not report.get('errors'))
+    scope_evidence = None
+    if not ordinary:
+        require(isinstance(closure, dict) and digest(report_sha) and digest(closure_sha)
+                and closure.get('reportSHA256') == report_sha
+                and closure.get('buildManifestSHA256') == build_manifest_sha
+                and closure.get('sourceHashesBefore') == report.get('sourceHashes') == closure.get('sourceHashesAfter')
+                and closure.get('verifiedReadBuild') is True and closure.get('sourceStable') is True
+                and closure.get('contextClosed') is True and report.get('contextClosed') is True
+                and closure.get('errors') == report.get('errors') == [],
+                'batch failed without exact successful-row closure proof')
+        excluded = [i for i, r in enumerate(report['cases']) if r.get('pass') is not True]
+        require(closure.get('excludedFailedRows') == excluded
+                and isinstance(row_index, int) and row_index not in excluded
+                and 0 <= row_index < len(report['cases']) and report['cases'][row_index] == row,
+                'partial closure row scope mismatch')
+        scope_evidence = {'scope': 'successful-rows-only-v1', 'reportPass': report.get('pass'),
+                          'reportSHA256': report_sha, 'closureSidecarSHA256': closure_sha,
+                          'excludedFailedRows': excluded, 'rowIndex': row_index}
     require(row.get('pass') is True and row.get('fixedInitialWetVerified') is True
             and row.get('sameFixtureInput') is True, 'row fixed-policy evidence absent')
     result = copy.deepcopy(row['result'])
     result['pass'] = True
+    variant = copy.deepcopy(variant)
+    if scope_evidence:
+        variant.setdefault('evidence', {})['batchScope'] = scope_evidence
     return {'sceneId': scene_id, 'comparisonKey': comparison_key,
             'request': copy.deepcopy(row['request']), 'result': result,
             'sourceHashes': copy.deepcopy(report['sourceHashes']), 'buildManifestSHA256': build_manifest_sha,
-            'variant': copy.deepcopy(variant), 'pngSHA': row['png']['sha256'],
+            'variant': variant, 'pngSHA': row['png']['sha256'],
             'rawSHA': row['carrier']['decodedSHA256'],
             'rawAudit': copy.deepcopy(raw_audit), 'commonRenderer': copy.deepcopy(common_renderer)}
 
