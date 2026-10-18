@@ -236,10 +236,14 @@ def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None):
             variant['id'] = 'input'
         # Discard caller aliases that could display a different pre-existing public file.
         variant.pop('image', None)
+        output_metadata = copy.deepcopy(result.get('metadata', {}))
+        if kind == 'input-reference' and isinstance(inp.get('size'), int) and inp['size'] > 0:
+            output_metadata['size'] = inp['size']
+            output_metadata['outputDimensionProof'] = {'kind': 'validated-frozen-input-v1', 'width': inp['size'], 'height': inp['size'], 'inputSHA': copy.deepcopy(inp['sha'])}
         variant['evidence'] = {**copy.deepcopy(variant.get('evidence', {})), 'algorithm': choice.get('algorithm'), 'config': choice.get('config'),
                                'fixedMatrix': True, 'sourceHashes': copy.deepcopy(source),
                                'inputSHA': copy.deepcopy(inp['sha']), 'rawSHA': cell['rawSHA'],
-                               'metadata': copy.deepcopy(result.get('metadata', {})),
+                               'metadata': output_metadata,
                                'buildManifestSHA256': cell.get('buildManifestSHA256'),
                                'allowedBuildsSHA256': manifest.get('allowedBuildsSHA256'),
                                'nativeProof': copy.deepcopy(cell.get('nativeProof')),

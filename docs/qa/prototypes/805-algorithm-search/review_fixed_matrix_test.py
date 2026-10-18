@@ -31,6 +31,18 @@ class MatrixTest(unittest.TestCase):
     def run_cells(self, cells):
         return assemble_fixed_matrix(self.shell, self.plan, self.manifest, cells, lambda _: b'png')
 
+    def test_reference_output_size_from_frozen_input_without_transport_guess(self):
+        self.choice.update(kind='input-reference')
+        self.manifest['inputs'][0]['size'] = 1024
+        self.cell['inputReferenceExact'] = True
+        self.cell['rawSHA'] = self.sha['rgba']
+        self.cell['rawAudit']['rawSHA'] = self.sha['rgba']
+        out = self.run_cells([self.cell])
+        variant = out['scenes'][0]['variants'][0]
+        self.assertEqual(variant['gridResolution']['outputSize'], 1024)
+        self.assertIsNone(variant['gridResolution'].get('transportGrid'))
+        self.assertEqual(variant['evidence']['metadata']['outputDimensionProof']['inputSHA'], self.sha)
+
     def test_complete_replaces_historical_preserves_key_without_mutation(self):
         original = copy.deepcopy(self.shell)
         out = self.run_cells([self.cell])
