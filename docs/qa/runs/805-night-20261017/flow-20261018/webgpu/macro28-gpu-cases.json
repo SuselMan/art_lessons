@@ -1,0 +1,274 @@
+[
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "mini-wave",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 0,
+      "exchangeActiveSteps": 128,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  },
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "mini-wave",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 1,
+      "exchangeActiveSteps": 128,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  },
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "native-flow-pool-drop",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 0,
+      "exchangeActiveSteps": 128,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  },
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "native-flow-pool-drop",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 1,
+      "exchangeActiveSteps": 128,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  },
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "dynamic-two-strokes",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 0,
+      "exchangeActiveSteps": 128,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  },
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "dynamic-two-strokes",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 1,
+      "exchangeActiveSteps": 128,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  },
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "dynamic-stroke-through-pool",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 0,
+      "exchangeActiveSteps": 128,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  },
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "dynamic-stroke-through-pool",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 1,
+      "exchangeActiveSteps": 128,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  },
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "gallery-sheet-3-slot-1",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 0,
+      "exchangeActiveSteps": 128,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  },
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "gallery-sheet-3-slot-1",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 1,
+      "exchangeActiveSteps": 128,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  },
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "gallery-sheet-4-slot-1",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 0,
+      "exchangeActiveSteps": 128,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  },
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "gallery-sheet-4-slot-1",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 1,
+      "exchangeActiveSteps": 128,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  },
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "gallery-sheet-12-slot-1",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 0,
+      "exchangeActiveSteps": 128,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  },
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "gallery-sheet-12-slot-1",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 1,
+      "exchangeActiveSteps": 128,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  },
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "mini-wave",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 1,
+      "exchangeActiveSteps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  },
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "dynamic-stroke-through-pool",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 1,
+      "exchangeActiveSteps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  },
+  {
+    "algorithm": "wgsl-macro-limited-coherent-advection",
+    "fixture": "dynamic-two-strokes",
+    "encoding": "optical-density",
+    "config": {
+      "steps": 256,
+      "limiter": 1,
+      "exchangeActiveSteps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    },
+    "repeats": 3,
+    "measureTransport": true,
+    "exportRaw": true
+  }
+]
