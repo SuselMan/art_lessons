@@ -7,6 +7,7 @@ from review_timing import apply_timing,apply_paused_exact_timing
 from review_model_timing import apply_model_timing
 from review_earlier import merge_earlier
 from review_catalog import catalog_variants
+from review_coverage import annotate_resolution
 from review_native_cache import apply_native_cache,apply_native_cache_timing
 p=argparse.ArgumentParser();p.add_argument('manifest',type=Path);p.add_argument('output',type=Path);a=p.parse_args();m=json.loads(a.manifest.read_text());here=Path(__file__).parent;intermediate=a.manifest.parent
 native=intermediate/'current-native-cards.json';dynamic=intermediate/'current-dynamic-cards.json'
@@ -72,5 +73,6 @@ for scene in scenes:
 
 data={'title':'Все алгоритмы и оптимизации растекания','note':'Исследование продолжается. Список вариантов одинаковый для всех карточек; серые варианты ещё не рассчитаны для этого мазка. Готовится полный пересчёт с неподвижной исходной лужей; текущие картинки ещё могут выходить за её границу. Переключайте варианты и увеличивайте до 1:1. У новых моделей проверяем перенос краски, качество и совпадение между устройствами отдельно. Время не является полным откликом Grafetto.','relatedLinks':[{'href':'shortlist.html','label':'Короткое сравнение основных кандидатов'},{'href':'report.html','label':'Проблемы, исправления и что ещё не проверено'},{'href':'eddy/index.html','label':'Подбор формы вихрей: 12 сочетаний'}],'scenes':scenes}
 catalog_variants(data)
+annotate_resolution(data)
 combined=intermediate/'current-all-cards.json';combined.write_text(json.dumps(data,ensure_ascii=False,indent=2))
 subprocess.run([sys.executable,str(here/'compare.py'),str(combined),str(a.output)],check=True)
