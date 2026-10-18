@@ -1,3 +1,4 @@
+import {reviewedFixedWet} from './fixed-wet-existing'
 import type {AlgorithmInput,GLAlgorithm,GLDefinition} from '../protocol'
 import {GPU,head,number} from './gpu'
 const h=head+'precision highp sampler2D;'
@@ -51,4 +52,4 @@ export function create(gl:WebGLRenderingContext,size:number,config:Record<string
   }
  }catch(e){gpu.destroy();throw e}
 }
-export const definitions:GLDefinition[]=[{id:'alternative-porous-water-transport',label:'Evolving porous water + donor-cell pigment and adsorption',create,configs:[{steps:8,mobile:.6,adsorption:.1,coarse:4,dt:.16,terrain:.18},{steps:10,mobile:.8,adsorption:.07,coarse:2,dt:.2,terrain:.25}]}]
+export const definitions:GLDefinition[]=[{id:'alternative-porous-water-transport',label:'Evolving porous water + donor-cell pigment and adsorption',create,createFixedInitialWet:reviewedFixedWet(create,_c=>({size:1024,grid:1024,geometrySource:'full-resolution raw aux water; cardinal gateAt samples j0..stride<=8 for water and pigment; no evolving mask expansion',partialWet:'full-resolution raw wet pixels; smoothstep threshold can immobilize very faint water',limitations:'Water evolves ONLY inside initial wet domain. No claim of dynamic capillary wetting, exact byte mass or art acceptance',fixedBulkShaderSources:[split,pigmentMove,seedWater,waterMove,depositFixed,depositMobile,finish]})),configs:[{steps:8,mobile:.6,adsorption:.1,coarse:4,dt:.16,terrain:.18},{steps:10,mobile:.8,adsorption:.07,coarse:2,dt:.2,terrain:.25}]}]

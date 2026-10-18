@@ -1,3 +1,5 @@
+import {fixedWetOption} from './fixed-wet-gl-core'
+import {guardRawWetCorners} from './fixed-wet-raw-corners'
 import type {AlgorithmInput,GLAlgorithm,GLDefinition} from '../protocol'
 import {GPU,head,number} from './gpu'
 const h=head+'precision highp sampler2D;'
@@ -12,15 +14,16 @@ const depositMobile=h+`uniform sampler2D mobile,aux;uniform float adsorption;${d
 const finish=h+`uniform sampler2D settled,mobile,original,aux;${paperFns}void main(){if(bytes(aux,uv).r==0.){gl_FragColor=bytes(original,uv)/255.;return;}vec4 c=min(bytes(settled,uv)+bytes(mobile,uv),vec4(255.))/255.;gl_FragColor=vec4(min(c.rgb,vec3(c.a)),c.a);}`
 export function create(gl:WebGLRenderingContext,size:number,config:Record<string,number>):GLAlgorithm{
  if(size!==1024)throw Error('paper deposition requires1024')
- const steps=Math.floor(number(config,'steps',4,1,8)),mobileFraction=number(config,'mobile',.4,0,.85),share=number(config,'share',.65,0,.9),adsorption=number(config,'adsorption',.16,0,.4),paperBias=number(config,'paperBias',.9,0,1),coarse=number(config,'coarse',4,1,8)
+ const fixedPolicy=fixedWetOption(config),steps=Math.floor(number(config,'steps',4,1,8)),mobileFraction=number(config,'mobile',.4,0,.85),share=number(config,'share',.65,0,.9),adsorption=number(config,'adsorption',.16,0,.4),paperBias=number(config,'paperBias',.9,0,1),coarse=number(config,'coarse',4,1,8)
  if(!Number.isInteger(coarse))throw Error('coarse stride must be integer')
  const gpu=new GPU(gl)
  try {
+  const flowSource=fixedPolicy?guardRawWetCorners(flow):flow
   const original=gpu.target(size),aux=gpu.target(size),mobile=[gpu.target(size),gpu.target(size)],fixed=[gpu.target(size),gpu.target(size)],out=gpu.target(size)
-  const seed=gpu.program(split,['original','aux','mobileFraction','part']),move=gpu.program(flow,['mobile','aux','n','share','stride','paperBias']),immobilize=gpu.program(depositFixed,['settled','mobile','aux','adsorption']),remainder=gpu.program(depositMobile,['mobile','aux','adsorption']),sum=gpu.program(finish,['settled','mobile','original','aux'])
+  const seed=gpu.program(split,['original','aux','mobileFraction','part']),move=gpu.program(flowSource,['mobile','aux','n','share','stride','paperBias']),immobilize=gpu.program(depositFixed,['settled','mobile','aux','adsorption']),remainder=gpu.program(depositMobile,['mobile','aux','adsorption']),sum=gpu.program(finish,['settled','mobile','original','aux'])
   let packed:Uint8Array|undefined=new Uint8Array(size*size*4),ready=false
   return {
-   metadata:{family:'multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim',resolution:size,passes:3+3*steps,conservation:'symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization',fixedFraction:1-mobileFraction},
+   get metadata(){return{family:'multiscale terrain-guided mobile pigment + byte-partitioned adsorption; no water-gradient rim',resolution:size,passes:3+3*steps,conservation:'symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization',fixedFraction:1-mobileFraction,...(fixedPolicy?{fixedInitialWet:true,policyRevision:1,policy:'initial raw water immutable; original operators with complete diagonal wet-path gate',geometrySource:'full raw-water centerline + both corner cells of each diagonal unit step; terrain filter retains raw water',size,grid:size,limitations:'Raw water smoothstep may immobilize very faint wet pigment; float/UNORM/saturation mass not certified',fixedBulkShaderSources:[split,flowSource,depositFixed,depositMobile,finish]}:{})}},
    upload(input:AlgorithmInput){
     ready=false
     if(!packed)throw Error('destroyed')
@@ -48,4 +51,4 @@ export function create(gl:WebGLRenderingContext,size:number,config:Record<string
   }
  }catch(e){gpu.destroy();throw e}
 }
-export const definitions:GLDefinition[]=[{id:'alternative-paper-deposition',label:'Paper-guided mobile pigment and gradual deposition (no pool-edge rim)',create,configs:[{steps:4,mobile:.4,share:.65,adsorption:.16,paperBias:.9,coarse:4},{steps:5,mobile:.8,share:.7,adsorption:.12,paperBias:1,coarse:6}]}]
+export const definitions:GLDefinition[]=[{id:'alternative-paper-deposition',label:'Paper-guided mobile pigment and gradual deposition (no pool-edge rim)',create,createFixedInitialWet:(g,s,c)=>create(g,s,{...c,fixedInitialWet:1}),configs:[{steps:4,mobile:.4,share:.65,adsorption:.16,paperBias:.9,coarse:4},{steps:5,mobile:.8,share:.7,adsorption:.12,paperBias:1,coarse:6}]}]

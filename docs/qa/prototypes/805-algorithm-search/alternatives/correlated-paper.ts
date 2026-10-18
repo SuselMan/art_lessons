@@ -1,3 +1,5 @@
+import {fixedWetOption} from './fixed-wet-gl-core'
+import {guardRawWetCorners} from './fixed-wet-raw-corners'
 // Separate quality iteration; v8 paper-deposition.ts and its definitions remain unchanged.
 import type {AlgorithmInput,GLAlgorithm,GLDefinition} from '../protocol'
 import {GPU,head,number} from './gpu'
@@ -23,18 +25,19 @@ export function terrainKernel(scale:number):{offset:number;weight:number}[]{
 const terrainBlur=h+`uniform sampler2D source,raw;uniform vec2 n,axis;uniform float stage,micro,relief;void main(){float sum=0.;/* TERRAIN_SAMPLES */vec4 original=texture2D(raw,uv);float height=sum;if(stage>.5)height=mix(clamp(.5+(height-.5)*relief,0.,1.),original.g,micro);gl_FragColor=vec4(floor(original.r*255.+.5)/255.,height,original.g,1.);}`
 export function create(gl:WebGLRenderingContext,size:number,config:Record<string,number>):GLAlgorithm{
  if(size!==1024)throw Error('correlated paper deposition requires1024')
- const steps=Math.floor(number(config,'steps',4,1,8)),mobileFraction=number(config,'mobile',.4,0,.85),share=number(config,'share',.65,0,.9),adsorption=number(config,'adsorption',.16,0,.4),paperBias=number(config,'paperBias',.9,0,1),coarse=number(config,'coarse',4,1,8)
+ const fixedPolicy=fixedWetOption(config),steps=Math.floor(number(config,'steps',4,1,8)),mobileFraction=number(config,'mobile',.4,0,.85),share=number(config,'share',.65,0,.9),adsorption=number(config,'adsorption',.16,0,.4),paperBias=number(config,'paperBias',.9,0,1),coarse=number(config,'coarse',4,1,8)
  const paperScale=number(config,'paperScale',5,1,12),micro=number(config,'micro',.15,0,.4),relief=number(config,'relief',3.5,1,8)
  if(!Number.isInteger(coarse))throw Error('coarse stride must be integer')
  const gpu=new GPU(gl)
  try {
+  const flowSource=fixedPolicy?guardRawWetCorners(flow):flow
   const original=gpu.target(size),aux=gpu.target(size),mobile=[gpu.target(size),gpu.target(size)],fixed=[gpu.target(size),gpu.target(size)],out=gpu.target(size),terrainX=gpu.target(size),terrain=gpu.target(size)
-  const seed=gpu.program(split,['original','aux','mobileFraction','part']),move=gpu.program(flow,['mobile','aux','n','share','stride','paperBias']),immobilize=gpu.program(depositFixed,['settled','mobile','aux','adsorption']),remainder=gpu.program(depositMobile,['mobile','aux','adsorption']),sum=gpu.program(finish,['settled','mobile','original','aux'])
+  const seed=gpu.program(split,['original','aux','mobileFraction','part']),move=gpu.program(flowSource,['mobile','aux','n','share','stride','paperBias']),immobilize=gpu.program(depositFixed,['settled','mobile','aux','adsorption']),remainder=gpu.program(depositMobile,['mobile','aux','adsorption']),sum=gpu.program(finish,['settled','mobile','original','aux'])
   const taps=terrainKernel(paperScale),samples=taps.map(tap=>`sum+=${tap.weight.toPrecision(12)}*texture2D(source,uv+axis*${tap.offset.toFixed(1)}/n).g;`).join('')
-  const blur=gpu.program(terrainBlur.replace('/* TERRAIN_SAMPLES */',samples),['source','raw','n','axis','stage','micro','relief'])
+  const blurSource=terrainBlur.replace('/* TERRAIN_SAMPLES */',samples),blur=gpu.program(blurSource,['source','raw','n','axis','stage','micro','relief'])
   let packed:Uint8Array|undefined=new Uint8Array(size*size*4),ready=false
   return {
-   metadata:{family:'correlated terrain affinity + fine microtexture + mobile pigment adsorption; raw water retained',resolution:size,passes:5+3*steps,paperScale,micro,relief,conservation:'symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization',fixedFraction:1-mobileFraction},
+   get metadata(){return{family:'correlated terrain affinity + fine microtexture + mobile pigment adsorption; raw water retained',resolution:size,passes:5+3*steps,paperScale,micro,relief,conservation:'symmetric donor flux before UNORM; rounded split/deposition partitions byte mass, except fixed saturation and flow quantization',fixedFraction:1-mobileFraction,...(fixedPolicy?{fixedInitialWet:true,policyRevision:1,policy:'initial raw water immutable; original operators with complete diagonal wet-path gate',geometrySource:'full raw-water centerline + both corner cells of each diagonal unit step; terrain filter retains raw water',size,grid:size,limitations:'Raw water smoothstep may immobilize very faint wet pigment; float/UNORM/saturation mass not certified',fixedBulkShaderSources:[split,flowSource,depositFixed,depositMobile,finish,blurSource]}:{})}},
    upload(input:AlgorithmInput){
     ready=false
     if(!packed)throw Error('destroyed')
@@ -64,4 +67,4 @@ export function create(gl:WebGLRenderingContext,size:number,config:Record<string
   }
  }catch(e){gpu.destroy();throw e}
 }
-export const definitions:GLDefinition[]=[{id:'alternative-correlated-paper-deposition',label:'Correlated paper affinity, micrograin and gradual pigment deposition',create,configs:[{steps:4,mobile:.6,share:.65,adsorption:.14,paperBias:.9,coarse:4,paperScale:3,micro:.12,relief:2.5},{steps:5,mobile:.75,share:.7,adsorption:.1,paperBias:1,coarse:6,paperScale:5,micro:.15,relief:3.5},{steps:5,mobile:.8,share:.7,adsorption:.09,paperBias:1,coarse:8,paperScale:8,micro:.1,relief:4.5}]}]
+export const definitions:GLDefinition[]=[{id:'alternative-correlated-paper-deposition',label:'Correlated paper affinity, micrograin and gradual pigment deposition',create,createFixedInitialWet:(g,s,c)=>create(g,s,{...c,fixedInitialWet:1}),configs:[{steps:4,mobile:.6,share:.65,adsorption:.14,paperBias:.9,coarse:4,paperScale:3,micro:.12,relief:2.5},{steps:5,mobile:.75,share:.7,adsorption:.1,paperBias:1,coarse:6,paperScale:5,micro:.15,relief:3.5},{steps:5,mobile:.8,share:.7,adsorption:.09,paperBias:1,coarse:8,paperScale:8,micro:.1,relief:4.5}]}]

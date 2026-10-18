@@ -1,3 +1,4 @@
+import {reviewedFixedWet} from './fixed-wet-existing'
 import type {AlgorithmInput,GLAlgorithm,GLDefinition} from '../protocol'
 import {GPU,head,number} from './gpu'
 import {receiverWeights} from './finite-volume-support'
@@ -69,4 +70,4 @@ export function create(gl:WebGLRenderingContext,size:number,config:Record<string
   }
  }catch(e){gpu.destroy();throw e}
 }
-export const definitions:GLDefinition[]=[{id:'macro2-dense-wetpath-exchange',label:'Dense radial wet-path transport with conservative fine detail',create,configs:[{steps:3,mobile:.8,adsorption:.025,paperGain:.1,fineSmooth:2,radius:24,sigma:12},{steps:3,mobile:.8,adsorption:.02,paperGain:0,fineSmooth:2,radius:32,sigma:16}]}]
+export const definitions:GLDefinition[]=[{id:'macro2-dense-wetpath-exchange',label:'Dense radial wet-path transport with conservative fine detail',create,createFixedInitialWet:reviewedFixedWet(create,c=>({size:1024,grid:256,...((c.fineSmooth??0)>0?{fineModel:'existing raw cardinal wet smoothing',fineSteps:c.fineSmooth}:{}),geometrySource:'raw4x4 minimum water; pathDistances checks diagonal corner cells and every path position; full-resolution cardinal fineDiffuse',partialWet:'coarse partial cells blocked; fineSmooth moves raw wet partial pixels locally; faint water smoothstep may immobilize pigment',limitations:'fineSmooth<=2 local horizon; no claim of long-range thin-line transport or global byte conservation',fixedBulkShaderSources:[split,exchange,average,denseSource(c.radius??24,c.sigma??12),depositFixed,depositMobile,finish,...((c.fineSmooth??0)>0?[fineDiffuse]:[])]})),configs:[{steps:3,mobile:.8,adsorption:.025,paperGain:.1,fineSmooth:2,radius:24,sigma:12},{steps:3,mobile:.8,adsorption:.02,paperGain:0,fineSmooth:2,radius:32,sigma:16}]}]

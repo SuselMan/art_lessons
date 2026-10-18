@@ -1,3 +1,4 @@
+import {reviewedFixedWet} from './fixed-wet-existing'
 import type {AlgorithmInput,GLAlgorithm,GLDefinition} from '../protocol'
 import {GPU,head,number} from './gpu'
 import {receiverWeights} from './finite-volume-support'
@@ -66,4 +67,4 @@ export function create(gl:WebGLRenderingContext,size:number,config:Record<string
   }
  }catch(e){gpu.destroy();throw e}
 }
-export const definitions:GLDefinition[]=[{id:'macro-multiscale-exchange',label:'Macro-scale wet-conductivity exchange (64/128px paths)',create,configs:[{program:0,mobile:.8,share:.75,adsorption:.025,paperGain:.15,fineSmooth:1},{program:1,mobile:.8,share:.75,adsorption:.02,paperGain:.15,fineSmooth:1}]}]
+export const definitions:GLDefinition[]=[{id:'macro-multiscale-exchange',label:'Macro-scale wet-conductivity exchange (64/128px paths)',create,createFixedInitialWet:reviewedFixedWet(create,c=>({size:1024,grid:256,...((c.fineSmooth??0)>0?{fineModel:'existing raw cardinal wet smoothing',fineSteps:c.fineSmooth}:{}),geometrySource:'raw4x4 minimum water; cardinal face visits every coarse cell for stride<=32; fineDiffuse uses raw cardinal wet gates',partialWet:'coarse partial cells blocked; only optional fineSmooth permits local partial motion; low-water smoothstep can freeze faint wet pixels',limitations:'Coarse boundary mobility limited; fineSmooth<=2 is local, NOT long-range thin-line transport or art acceptance',fixedBulkShaderSources:[split,exchange,average,incoming,depositFixed,depositMobile,finish,...((c.fineSmooth??0)>0?[fineDiffuse]:[])]})),configs:[{program:0,mobile:.8,share:.75,adsorption:.025,paperGain:.15,fineSmooth:1},{program:1,mobile:.8,share:.75,adsorption:.02,paperGain:.15,fineSmooth:1}]}]

@@ -1,0 +1,473 @@
+{
+  "qualification": "Requests only, not execution; optical-density explicit, immutable input SHA required; historical RGB/default encoding evidence is not new-policy proof.",
+  "phases": [
+    {
+      "name": "first12",
+      "cases": [
+        {
+          "algorithm": "macro3-local-hydraulic-residual",
+          "fixture": "water-stroke",
+          "encoding": "optical-density",
+          "config": {
+            "quanta": 128,
+            "mobile": 0.8,
+            "dt": 0.35,
+            "diffusion": 0.25,
+            "terrain": 0.1
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro3-local-hydraulic-residual",
+          "fixture": "flow-one-pixel-wall",
+          "encoding": "optical-density",
+          "config": {
+            "quanta": 128,
+            "mobile": 0.8,
+            "dt": 0.35,
+            "diffusion": 0.25,
+            "terrain": 0.1
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro3-local-hydraulic-residual",
+          "fixture": "fixed-wet-thin-1",
+          "encoding": "optical-density",
+          "config": {
+            "quanta": 128,
+            "mobile": 0.8,
+            "dt": 0.35,
+            "diffusion": 0.25,
+            "terrain": 0.1
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro2-dense-wetpath-exchange",
+          "fixture": "water-stroke",
+          "encoding": "optical-density",
+          "config": {
+            "steps": 3,
+            "mobile": 0.8,
+            "adsorption": 0.025,
+            "paperGain": 0.1,
+            "fineSmooth": 2,
+            "radius": 24,
+            "sigma": 12
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro2-dense-wetpath-exchange",
+          "fixture": "flow-one-pixel-wall",
+          "encoding": "optical-density",
+          "config": {
+            "steps": 3,
+            "mobile": 0.8,
+            "adsorption": 0.025,
+            "paperGain": 0.1,
+            "fineSmooth": 2,
+            "radius": 24,
+            "sigma": 12
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro2-dense-wetpath-exchange",
+          "fixture": "fixed-wet-thin-1",
+          "encoding": "optical-density",
+          "config": {
+            "steps": 3,
+            "mobile": 0.8,
+            "adsorption": 0.025,
+            "paperGain": 0.1,
+            "fineSmooth": 2,
+            "radius": 24,
+            "sigma": 12
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro-multiscale-exchange",
+          "fixture": "water-stroke",
+          "encoding": "optical-density",
+          "config": {
+            "program": 0,
+            "mobile": 0.8,
+            "share": 0.75,
+            "adsorption": 0.025,
+            "paperGain": 0.15,
+            "fineSmooth": 1
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro-multiscale-exchange",
+          "fixture": "flow-one-pixel-wall",
+          "encoding": "optical-density",
+          "config": {
+            "program": 0,
+            "mobile": 0.8,
+            "share": 0.75,
+            "adsorption": 0.025,
+            "paperGain": 0.15,
+            "fineSmooth": 1
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro-multiscale-exchange",
+          "fixture": "fixed-wet-thin-1",
+          "encoding": "optical-density",
+          "config": {
+            "program": 0,
+            "mobile": 0.8,
+            "share": 0.75,
+            "adsorption": 0.025,
+            "paperGain": 0.15,
+            "fineSmooth": 1
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro-wet-geodesic-exchange",
+          "fixture": "water-stroke",
+          "encoding": "optical-density",
+          "config": {
+            "distance": 96,
+            "share": 0.35,
+            "mobile": 0.8,
+            "cycles": 2
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro-wet-geodesic-exchange",
+          "fixture": "flow-one-pixel-wall",
+          "encoding": "optical-density",
+          "config": {
+            "distance": 96,
+            "share": 0.35,
+            "mobile": 0.8,
+            "cycles": 2
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro-wet-geodesic-exchange",
+          "fixture": "fixed-wet-thin-1",
+          "encoding": "optical-density",
+          "config": {
+            "distance": 96,
+            "share": 0.35,
+            "mobile": 0.8,
+            "cycles": 2
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        }
+      ]
+    },
+    {
+      "name": "then14",
+      "cases": [
+        {
+          "algorithm": "macro3-local-hydraulic-residual",
+          "fixture": "flow-diagonal-wall",
+          "encoding": "optical-density",
+          "config": {
+            "quanta": 128,
+            "mobile": 0.8,
+            "dt": 0.35,
+            "diffusion": 0.25,
+            "terrain": 0.1
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro3-local-hydraulic-residual",
+          "fixture": "gallery-sheet-12-slot-1",
+          "encoding": "optical-density",
+          "config": {
+            "quanta": 128,
+            "mobile": 0.8,
+            "dt": 0.35,
+            "diffusion": 0.25,
+            "terrain": 0.1
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro2-dense-wetpath-exchange",
+          "fixture": "flow-diagonal-wall",
+          "encoding": "optical-density",
+          "config": {
+            "steps": 3,
+            "mobile": 0.8,
+            "adsorption": 0.025,
+            "paperGain": 0.1,
+            "fineSmooth": 2,
+            "radius": 24,
+            "sigma": 12
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro2-dense-wetpath-exchange",
+          "fixture": "gallery-sheet-12-slot-1",
+          "encoding": "optical-density",
+          "config": {
+            "steps": 3,
+            "mobile": 0.8,
+            "adsorption": 0.025,
+            "paperGain": 0.1,
+            "fineSmooth": 2,
+            "radius": 24,
+            "sigma": 12
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro-multiscale-exchange",
+          "fixture": "flow-diagonal-wall",
+          "encoding": "optical-density",
+          "config": {
+            "program": 0,
+            "mobile": 0.8,
+            "share": 0.75,
+            "adsorption": 0.025,
+            "paperGain": 0.15,
+            "fineSmooth": 1
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro-multiscale-exchange",
+          "fixture": "gallery-sheet-12-slot-1",
+          "encoding": "optical-density",
+          "config": {
+            "program": 0,
+            "mobile": 0.8,
+            "share": 0.75,
+            "adsorption": 0.025,
+            "paperGain": 0.15,
+            "fineSmooth": 1
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro-wet-geodesic-exchange",
+          "fixture": "flow-diagonal-wall",
+          "encoding": "optical-density",
+          "config": {
+            "distance": 96,
+            "share": 0.35,
+            "mobile": 0.8,
+            "cycles": 2
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro-wet-geodesic-exchange",
+          "fixture": "gallery-sheet-12-slot-1",
+          "encoding": "optical-density",
+          "config": {
+            "distance": 96,
+            "share": 0.35,
+            "mobile": 0.8,
+            "cycles": 2
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro2-dense-wetpath-exchange",
+          "fixture": "water-stroke",
+          "encoding": "optical-density",
+          "config": {
+            "steps": 3,
+            "mobile": 0.8,
+            "adsorption": 0.02,
+            "paperGain": 0,
+            "fineSmooth": 2,
+            "radius": 32,
+            "sigma": 16
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro2-dense-wetpath-exchange",
+          "fixture": "flow-one-pixel-wall",
+          "encoding": "optical-density",
+          "config": {
+            "steps": 3,
+            "mobile": 0.8,
+            "adsorption": 0.02,
+            "paperGain": 0,
+            "fineSmooth": 2,
+            "radius": 32,
+            "sigma": 16
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro2-dense-wetpath-exchange",
+          "fixture": "fixed-wet-thin-1",
+          "encoding": "optical-density",
+          "config": {
+            "steps": 3,
+            "mobile": 0.8,
+            "adsorption": 0.02,
+            "paperGain": 0,
+            "fineSmooth": 2,
+            "radius": 32,
+            "sigma": 16
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro2-dense-wetpath-exchange",
+          "fixture": "flow-diagonal-wall",
+          "encoding": "optical-density",
+          "config": {
+            "steps": 3,
+            "mobile": 0.8,
+            "adsorption": 0.02,
+            "paperGain": 0,
+            "fineSmooth": 2,
+            "radius": 32,
+            "sigma": 16
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro2-dense-wetpath-exchange",
+          "fixture": "gallery-sheet-12-slot-1",
+          "encoding": "optical-density",
+          "config": {
+            "steps": 3,
+            "mobile": 0.8,
+            "adsorption": 0.02,
+            "paperGain": 0,
+            "fineSmooth": 2,
+            "radius": 32,
+            "sigma": 16
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "macro2-dense-wetpath-exchange",
+          "fixture": "dry-barrier",
+          "encoding": "optical-density",
+          "config": {
+            "steps": 3,
+            "mobile": 0.8,
+            "adsorption": 0.02,
+            "paperGain": 0,
+            "fineSmooth": 2,
+            "radius": 32,
+            "sigma": 16
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        }
+      ]
+    },
+    {
+      "name": "reviewed-static-walls4",
+      "cases": [
+        {
+          "algorithm": "alternative-finite-volume-exchange",
+          "fixture": "flow-diagonal-wall",
+          "encoding": "optical-density",
+          "config": {
+            "steps": 4,
+            "mobile": 0.6,
+            "share": 0.65,
+            "adsorption": 0.1,
+            "coarse": 4
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "alternative-finite-volume-exchange",
+          "fixture": "flow-one-pixel-wall",
+          "encoding": "optical-density",
+          "config": {
+            "steps": 4,
+            "mobile": 0.6,
+            "share": 0.65,
+            "adsorption": 0.1,
+            "coarse": 4
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "alternative-porous-water-transport",
+          "fixture": "flow-diagonal-wall",
+          "encoding": "optical-density",
+          "config": {
+            "steps": 8,
+            "mobile": 0.6,
+            "adsorption": 0.1,
+            "coarse": 4,
+            "dt": 0.16,
+            "terrain": 0.18
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        },
+        {
+          "algorithm": "alternative-porous-water-transport",
+          "fixture": "flow-one-pixel-wall",
+          "encoding": "optical-density",
+          "config": {
+            "steps": 8,
+            "mobile": 0.6,
+            "adsorption": 0.1,
+            "coarse": 4,
+            "dt": 0.16,
+            "terrain": 0.18
+          },
+          "fixedInitialWet": true,
+          "repeats": 1
+        }
+      ]
+    }
+  ],
+  "gates": [
+    "dry raw RGBA identity for every initial W0 pixel",
+    "no pigment on water-only / dry control before broad config coverage",
+    "diagonal/one-pixel disconnected pools do not exchange",
+    "macro3 thin stationary is expected intrinsic quality limitation, not falsely marked mobile",
+    "policyRevision1/actual compiled source SHA/unchanged input SHA/errors0",
+    "same authored params/configs; no fallback or fabricated missing results"
+  ],
+  "canonicalRequirement": "gallery-sheet-12-slot-1 must use exact existing captured catalogue binary and SHA, not generated approximation"
+}
