@@ -11,15 +11,24 @@ async function hashes(planes: NativeComponentPlanes): Promise<Record<NativePlane
  const entries = await Promise.all(nativePlaneKeys.map(async k=>[k,await sha(planes[k])] as const))
  return Object.fromEntries(entries) as Record<NativePlaneKey,string>
 }
-export function partitionNativeComponents(actual: NativeComponentPlanes, width:number, height:number, observe?:(label:string,wallMs:number)=>void, now:()=>number=()=>performance.now()) {
+function scatterFast(source:NativeComponentPlanes,destination:Pick<NativeComponentPlanes,typeof materialKeys[number]>,order:Uint32Array,start:number,end:number,mask?:Uint8Array){
+ const aligned=materialKeys.every(k=>source[k].byteOffset%4===0)
+ if(aligned){const from=materialKeys.map(k=>new Uint32Array(source[k].buffer,source[k].byteOffset,source[k].byteLength/4)),to=materialKeys.map(k=>new Uint32Array(destination[k].buffer,destination[k].byteOffset,destination[k].byteLength/4));const [sp,sc,sv,sw,sf]=from,[dp,dc,dv,dw,df]=to
+  for(let q=start;q<end;q++){const i=order[q];if(mask)mask[i]=1;dp[i]=sp[i];dc[i]=sc[i];dv[i]=sv[i];dw[i]=sw[i];df[i]=sf[i]}
+ }else for(let q=start;q<end;q++){const i=order[q],j=i*4;if(mask)mask[i]=1;for(const k of materialKeys){const a=source[k],b=destination[k];b[j]=a[j];b[j+1]=a[j+1];b[j+2]=a[j+2];b[j+3]=a[j+3]}}
+}
+export interface NativePreparationOptions {mode?:'baseline'|'fast';borrowImmutableSource?:boolean;shareImmutableBackdrop?:boolean}
+/** Borrow/share are explicit caller lifetime promises: all7 planes immutable until last materialize/describe/fork; fork uploads read-only. */
+export function partitionNativeComponents(actual: NativeComponentPlanes, width:number, height:number, observe?:(label:string,wallMs:number)=>void, now:()=>number=()=>performance.now(),options:NativePreparationOptions={}) {
+ const mode=options.mode??'baseline';if(!['baseline','fast'].includes(mode)||Object.keys(options).some(k=>!['mode','borrowImmutableSource','shareImmutableBackdrop'].includes(k))||[options.borrowImmutableSource,options.shareImmutableBackdrop].some(v=>v!==undefined&&typeof v!=='boolean')||(mode!=='fast'&&(options.borrowImmutableSource||options.shareImmutableBackdrop)))throw Error('Invalid native preparation options')
  const clock=()=>observe?now():0;let boundary=clock()
  const mark=(label:string)=>{const next=clock();observe?.(label,next-boundary);boundary=next}
  const n=width*height
  if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<1||height<1||!Number.isSafeInteger(n)||n>1024*1024) throw Error('Invalid bounded component dimensions')
  for(const k of nativePlaneKeys) if(!(actual[k] instanceof Uint8Array)||actual[k].length!==n*4) throw Error('Invalid native plane '+k)
  // Own snapshot prevents asynchronous hashing from observing a later source upload.
- const source=Object.fromEntries(nativePlaneKeys.map(k=>[k,new Uint8Array(actual[k])])) as NativeComponentPlanes
- mark('validate-and-copy-seven-planes')
+ const source=Object.fromEntries(nativePlaneKeys.map(k=>[k,options.borrowImmutableSource?actual[k]:new Uint8Array(actual[k])])) as NativeComponentPlanes
+ mark(options.borrowImmutableSource?'validate-and-borrow-immutable-seven-planes':'validate-and-copy-seven-planes')
  const labels=new Int32Array(n).fill(-1), order=new Uint32Array(n)
  const components: {id:number;pixelCount:number;pigmented:boolean;start:number;end:number}[]=[]
  let used=0
@@ -71,19 +80,20 @@ export function partitionNativeComponents(actual: NativeComponentPlanes, width:n
  function materialize(id:number) {
   boundary=clock()
   const c=components[id];if(!c||c.id!==id)throw Error('Unknown native component')
-  const mask=new Uint8Array(n),planes=Object.fromEntries(nativePlaneKeys.map(k=>[k,materialKeys.includes(k as typeof materialKeys[number])?new Uint8Array(n*4):new Uint8Array(source[k])])) as NativeComponentPlanes
+  const mask=new Uint8Array(n),planes=Object.fromEntries(nativePlaneKeys.map(k=>[k,materialKeys.includes(k as typeof materialKeys[number])?new Uint8Array(n*4):options.shareImmutableBackdrop?source[k]:new Uint8Array(source[k])])) as NativeComponentPlanes
   mark(`component-${id}-materialize-allocate-mask-and-seven-planes`)
-  for(let q=c.start;q<c.end;q++){const i=order[q],j=i*4;mask[i]=1;for(const k of materialKeys)planes[k].set(source[k].subarray(j,j+4),j)}
+  if(mode==='fast')scatterFast(source,planes,order,c.start,c.end,mask)
+  else for(let q=c.start;q<c.end;q++){const i=order[q],j=i*4;mask[i]=1;for(const k of materialKeys)planes[k].set(source[k].subarray(j,j+4),j)}
   mark(`component-${id}-materialize-scatter-five-material-planes`)
   return {id,mask,planes}
  }
  function dryLiteral() {
   const planes=Object.fromEntries(materialKeys.map(k=>[k,new Uint8Array(n*4)])) as Record<typeof materialKeys[number],Uint8Array>
-  for(let i=0;i<n;i++)if(labels[i]<0)for(const k of materialKeys)planes[k].set(source[k].subarray(i*4,i*4+4),i*4)
+  if(mode==='fast'){const dryOrder=new Uint32Array(n);let count=0;for(let i=0;i<n;i++)if(labels[i]<0)dryOrder[count++]=i;scatterFast(source,planes,dryOrder,0,count)}else for(let i=0;i<n;i++)if(labels[i]<0)for(const k of materialKeys)planes[k].set(source[k].subarray(i*4,i*4+4),i*4)
   return planes
  }
  return {
-  width,height,partitionAudit:Object.freeze({expectedWetPixels:expectedWet,labelledPixels:used,contiguousRanges:true,membershipChecked:true}),components:Object.freeze(components),materialize,dryLiteral,
+  width,height,preparation:Object.freeze({mode,sourceOwnership:options.borrowImmutableSource?'borrowed immutable caller lease':'owned snapshot',backdropOwnership:options.shareImmutableBackdrop?'shared readonly snapshot/caller lease':'owned per-component copies',qualification:'CPU QA component wrapper only; live Mini does not use this path'}),partitionAudit:Object.freeze({expectedWetPixels:expectedWet,labelledPixels:used,contiguousRanges:true,membershipChecked:true}),components:Object.freeze(components),materialize,dryLiteral,
   async describe(id:number, expectedOriginalSHA?:Partial<Record<NativePlaneKey,string>>) {
    const originalSHA=await hashes(source)
    if(expectedOriginalSHA)for(const k of nativePlaneKeys)if(!expectedOriginalSHA[k]||expectedOriginalSHA[k]!==originalSHA[k])throw Error('Original native SHA mismatch '+k)

@@ -1,0 +1,824 @@
+{
+  "qualification": "VPS CPU only; QA component wrapper. Not Samsung, GPU, end-to-end or live Mini measurement. Same7 authored planes verified. Hashes/proof outside timings. Allocation/GC may affect samples.",
+  "sourceReportSHA": "de7e787d6882e30212deef599b2666262cbdfe15d56aa33658189ed7cfc8dea0",
+  "cases": [
+    {
+      "fixture": "mini-wave",
+      "planeSHA": {
+        "p": "cf055f511aa3f7248cf409afc0eb4f32892397e1ffa6bb26b94e40bbc560ba96",
+        "c": "b52e030f3990336f09bae719c4827a2558325e071b25f9607bba6c3e96e5d83e",
+        "coverage": "0a1dd23c6d94bd35e3d95815947a60a763a845511733647232df7b018e3f857d",
+        "solvent": "f733dec9f2b5dc1f4936d87ef7807f32a2e0bbad7cb6a098ca3e6d3e284325c9",
+        "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+      },
+      "modes": [
+        {
+          "options": {
+            "mode": "baseline"
+          },
+          "samples": [
+            {
+              "repeat": 0,
+              "partitionMs": 135.512927,
+              "materializeMs": 271.043456,
+              "totalCpuPrepMs": 406.556383,
+              "phases": [
+                {
+                  "label": "validate-and-copy-seven-planes",
+                  "wallMs": 17.00077399999998
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 98.72810400000003
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 19.176715
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 8.123632000000043
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 240.778521
+                },
+                {
+                  "label": "component-1-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 8.371748999999909
+                },
+                {
+                  "label": "component-1-materialize-scatter-five-material-planes",
+                  "wallMs": 0.2374770000000126
+                },
+                {
+                  "label": "component-2-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 13.158053999999993
+                },
+                {
+                  "label": "component-2-materialize-scatter-five-material-planes",
+                  "wallMs": 0.052238999999985936
+                }
+              ],
+              "componentCount": 3,
+              "all7AndMasksExact": true
+            },
+            {
+              "repeat": 1,
+              "partitionMs": 152.72807899999998,
+              "materializeMs": 280.4739699999998,
+              "totalCpuPrepMs": 433.20204899999976,
+              "phases": [
+                {
+                  "label": "validate-and-copy-seven-planes",
+                  "wallMs": 27.338036999999986
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 104.51339200000007
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 20.712915000000066
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 9.143435999999838
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 249.81757500000003
+                },
+                {
+                  "label": "component-1-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 11.472870999999941
+                },
+                {
+                  "label": "component-1-materialize-scatter-five-material-planes",
+                  "wallMs": 0.030569999999897846
+                },
+                {
+                  "label": "component-2-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 9.9001209999999
+                },
+                {
+                  "label": "component-2-materialize-scatter-five-material-planes",
+                  "wallMs": 0.035886000000118656
+                }
+              ],
+              "componentCount": 3,
+              "all7AndMasksExact": true
+            },
+            {
+              "repeat": 2,
+              "partitionMs": 144.446281,
+              "materializeMs": 256.391433,
+              "totalCpuPrepMs": 400.837714,
+              "phases": [
+                {
+                  "label": "validate-and-copy-seven-planes",
+                  "wallMs": 17.943193000000065
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 114.42215499999998
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 12.036460999999917
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 13.070938999999953
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 225.55990099999985
+                },
+                {
+                  "label": "component-1-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 10.102354999999989
+                },
+                {
+                  "label": "component-1-materialize-scatter-five-material-planes",
+                  "wallMs": 0.07584199999973862
+                },
+                {
+                  "label": "component-2-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 7.456259999999929
+                },
+                {
+                  "label": "component-2-materialize-scatter-five-material-planes",
+                  "wallMs": 0.03390399999989313
+                }
+              ],
+              "componentCount": 3,
+              "all7AndMasksExact": true
+            }
+          ]
+        },
+        {
+          "options": {
+            "mode": "fast"
+          },
+          "samples": [
+            {
+              "repeat": 0,
+              "partitionMs": 172.081905,
+              "materializeMs": 69.32880100000057,
+              "totalCpuPrepMs": 241.41070600000057,
+              "phases": [
+                {
+                  "label": "validate-and-copy-seven-planes",
+                  "wallMs": 54.109543999999914
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 104.56354900000042
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 13.29172699999981
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 10.612123000000338
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 25.39065699999992
+                },
+                {
+                  "label": "component-1-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 7.822139000000334
+                },
+                {
+                  "label": "component-1-materialize-scatter-five-material-planes",
+                  "wallMs": 0.1558639999998377
+                },
+                {
+                  "label": "component-2-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 25.172233999999662
+                },
+                {
+                  "label": "component-2-materialize-scatter-five-material-planes",
+                  "wallMs": 0.13399600000002465
+                }
+              ],
+              "componentCount": 3,
+              "all7AndMasksExact": true
+            },
+            {
+              "repeat": 1,
+              "partitionMs": 113.07976099999996,
+              "materializeMs": 44.61046400000032,
+              "totalCpuPrepMs": 157.69022500000028,
+              "phases": [
+                {
+                  "label": "validate-and-copy-seven-planes",
+                  "wallMs": 21.065044999999827
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 79.24450999999999
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 12.725734999999986
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 5.902344999999968
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 23.718022999999903
+                },
+                {
+                  "label": "component-1-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 6.7255889999996725
+                },
+                {
+                  "label": "component-1-materialize-scatter-five-material-planes",
+                  "wallMs": 0.07156200000008539
+                },
+                {
+                  "label": "component-2-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 8.069878000000244
+                },
+                {
+                  "label": "component-2-materialize-scatter-five-material-planes",
+                  "wallMs": 0.0973229999999603
+                }
+              ],
+              "componentCount": 3,
+              "all7AndMasksExact": true
+            },
+            {
+              "repeat": 2,
+              "partitionMs": 99.67192699999987,
+              "materializeMs": 61.44346199999973,
+              "totalCpuPrepMs": 161.1153889999996,
+              "phases": [
+                {
+                  "label": "validate-and-copy-seven-planes",
+                  "wallMs": 7.044856000000436
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 79.5692769999996
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 13.0134850000004
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 12.762544000000162
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 23.530659999999898
+                },
+                {
+                  "label": "component-1-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 11.16316599999982
+                },
+                {
+                  "label": "component-1-materialize-scatter-five-material-planes",
+                  "wallMs": 0.10558399999990797
+                },
+                {
+                  "label": "component-2-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 13.794034999999894
+                },
+                {
+                  "label": "component-2-materialize-scatter-five-material-planes",
+                  "wallMs": 0.05223599999999351
+                }
+              ],
+              "componentCount": 3,
+              "all7AndMasksExact": true
+            }
+          ]
+        },
+        {
+          "options": {
+            "mode": "fast",
+            "borrowImmutableSource": true,
+            "shareImmutableBackdrop": true
+          },
+          "samples": [
+            {
+              "repeat": 0,
+              "partitionMs": 112.880134,
+              "materializeMs": 25.648462999999538,
+              "totalCpuPrepMs": 138.52859699999954,
+              "phases": [
+                {
+                  "label": "validate-and-borrow-immutable-seven-planes",
+                  "wallMs": 0.029051000000436034
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 100.50144099999943
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 12.24541600000066
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 3.3539700000001176
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 16.32125300000007
+                },
+                {
+                  "label": "component-1-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 3.978371999999581
+                },
+                {
+                  "label": "component-1-materialize-scatter-five-material-planes",
+                  "wallMs": 0.01808400000027177
+                },
+                {
+                  "label": "component-2-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 1.9228519999996934
+                },
+                {
+                  "label": "component-2-materialize-scatter-five-material-planes",
+                  "wallMs": 0.02853899999990972
+                }
+              ],
+              "componentCount": 3,
+              "all7AndMasksExact": true
+            },
+            {
+              "repeat": 1,
+              "partitionMs": 130.68753600000036,
+              "materializeMs": 27.547640000000683,
+              "totalCpuPrepMs": 158.23517600000105,
+              "phases": [
+                {
+                  "label": "validate-and-borrow-immutable-seven-planes",
+                  "wallMs": 0.02543599999989965
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 118.75195099999928
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 11.7945950000003
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 3.3893550000002506
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 16.230082999999468
+                },
+                {
+                  "label": "component-1-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 4.021862999999939
+                },
+                {
+                  "label": "component-1-materialize-scatter-five-material-planes",
+                  "wallMs": 0.016821000000163622
+                },
+                {
+                  "label": "component-2-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 3.8457870000002004
+                },
+                {
+                  "label": "component-2-materialize-scatter-five-material-planes",
+                  "wallMs": 0.017636000000493368
+                }
+              ],
+              "componentCount": 3,
+              "all7AndMasksExact": true
+            },
+            {
+              "repeat": 2,
+              "partitionMs": 96.95953499999996,
+              "materializeMs": 27.000490999999784,
+              "totalCpuPrepMs": 123.96002599999974,
+              "phases": [
+                {
+                  "label": "validate-and-borrow-immutable-seven-planes",
+                  "wallMs": 0.019416000000092026
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 83.97761399999945
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 12.923099999999977
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 3.368899999999485
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 16.33860999999979
+                },
+                {
+                  "label": "component-1-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 3.805068000000574
+                },
+                {
+                  "label": "component-1-materialize-scatter-five-material-planes",
+                  "wallMs": 0.01769999999942229
+                },
+                {
+                  "label": "component-2-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 3.4296949999998105
+                },
+                {
+                  "label": "component-2-materialize-scatter-five-material-planes",
+                  "wallMs": 0.017201000000568456
+                }
+              ],
+              "componentCount": 3,
+              "all7AndMasksExact": true
+            }
+          ]
+        }
+      ],
+      "proof": [
+        {
+          "id": 0,
+          "pixelCount": 221483,
+          "maskSHA": "ac37a796729f731cdca52530c2bc5540734748e3ebf6aeb26a4972b64a2ee38f",
+          "planeSHA": {
+            "p": "34fe9f5c093faf074b6b87bbec5b0030a476babbe5c78cbcc83942eeda9b5b8c",
+            "c": "dd68bc70b4524add43a208b75563b219aec1bbfc674121fce1018dd2ae594ac8",
+            "coverage": "744790f4e2608f52f2b30fdbc1377495c2311e9c4a0a81fc2efb7c336efd3bf0",
+            "solvent": "6af1918a90a1aeb32b228f733fa142479b5c9e6e86b9ce2b310b68015a3ceab9",
+            "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+            "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+          }
+        },
+        {
+          "id": 1,
+          "pixelCount": 3,
+          "maskSHA": "d59f704d49309f6eca66dcda24bea7533031a1c923c92bf6a8b0cae9363cbbbf",
+          "planeSHA": {
+            "p": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+            "c": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+            "coverage": "a2c25294b3360f31cbf07d9910e8ab9118a8c771bc72eb7dfa12ddc021044769",
+            "solvent": "a338836e23618cb7c803ca77863d82a7a55314c865ce10701c831c2a1760f488",
+            "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+            "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+          }
+        },
+        {
+          "id": 2,
+          "pixelCount": 1,
+          "maskSHA": "8ac94ead26a4552b87fdef4a1aa0206f1c649a6b2d178f1ce4574967e480464a",
+          "planeSHA": {
+            "p": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+            "c": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+            "coverage": "c1f7c071c758888ed1f5c1e6fdd0c989e1c3b4944796a8fd0acb98589cdf5447",
+            "solvent": "4a50825f9fbfee8eed146c740169a2a5b4211ca6b7d00cc4f85d668f8dce4ff1",
+            "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+            "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+          }
+        }
+      ]
+    },
+    {
+      "fixture": "mini-two-colors",
+      "planeSHA": {
+        "p": "9e6b2d1a55fb76d1ee0b78438ae5d3d469124611c919e11904fe985d9ce12e4b",
+        "c": "19da22c5009056852964dcdb2d18fe9ebf1cd646cdf3f080a3f29feb42318cca",
+        "coverage": "f4cfe8e7f89477c32d1c6f5bb7bf33281262704553260febe48ba9213f85a63d",
+        "solvent": "ca5e5542da5aeda7e8e8d72a2c18c58104ba3ae9bc15952bf23a92ccbd0e49cb",
+        "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+      },
+      "modes": [
+        {
+          "options": {
+            "mode": "baseline"
+          },
+          "samples": [
+            {
+              "repeat": 0,
+              "partitionMs": 152.797826,
+              "materializeMs": 400.13618399999996,
+              "totalCpuPrepMs": 552.93401,
+              "phases": [
+                {
+                  "label": "validate-and-copy-seven-planes",
+                  "wallMs": 7.021424999999908
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 129.83344800000032
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 15.904678999999305
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 12.92642800000067
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 387.2005769999996
+                }
+              ],
+              "componentCount": 1,
+              "all7AndMasksExact": true
+            },
+            {
+              "repeat": 1,
+              "partitionMs": 167.22610299999997,
+              "materializeMs": 375.9806929999995,
+              "totalCpuPrepMs": 543.2067959999995,
+              "phases": [
+                {
+                  "label": "validate-and-copy-seven-planes",
+                  "wallMs": 27.31879899999967
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 124.48874599999999
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 15.383974000000308
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 7.567735000000539
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 368.33399499999996
+                }
+              ],
+              "componentCount": 1,
+              "all7AndMasksExact": true
+            },
+            {
+              "repeat": 2,
+              "partitionMs": 148.31398199999967,
+              "materializeMs": 382.1447679999992,
+              "totalCpuPrepMs": 530.4587499999989,
+              "phases": [
+                {
+                  "label": "validate-and-copy-seven-planes",
+                  "wallMs": 6.405580999999984
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 126.18405900000016
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 15.687651999999616
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 10.886547000000064
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 371.24772799999937
+                }
+              ],
+              "componentCount": 1,
+              "all7AndMasksExact": true
+            }
+          ]
+        },
+        {
+          "options": {
+            "mode": "fast"
+          },
+          "samples": [
+            {
+              "repeat": 0,
+              "partitionMs": 149.27042700000038,
+              "materializeMs": 38.01303900000039,
+              "totalCpuPrepMs": 187.28346600000077,
+              "phases": [
+                {
+                  "label": "validate-and-copy-seven-planes",
+                  "wallMs": 11.189390000000458
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 122.66328499999963
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 15.383968000000095
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 7.332100999999966
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 30.668995999999424
+                }
+              ],
+              "componentCount": 1,
+              "all7AndMasksExact": true
+            },
+            {
+              "repeat": 1,
+              "partitionMs": 153.109112000001,
+              "materializeMs": 31.467424000000392,
+              "totalCpuPrepMs": 184.5765360000014,
+              "phases": [
+                {
+                  "label": "validate-and-copy-seven-planes",
+                  "wallMs": 15.745185999999194
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 121.82370900000024
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 15.504822999999305
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 5.574778000000151
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 25.88376900000003
+                }
+              ],
+              "componentCount": 1,
+              "all7AndMasksExact": true
+            },
+            {
+              "repeat": 2,
+              "partitionMs": 162.30690900000081,
+              "materializeMs": 39.50217899999916,
+              "totalCpuPrepMs": 201.80908799999997,
+              "phases": [
+                {
+                  "label": "validate-and-copy-seven-planes",
+                  "wallMs": 17.583873999999923
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 129.70386500000131
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 14.98488499999985
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 6.818924999999581
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 32.67160599999988
+                }
+              ],
+              "componentCount": 1,
+              "all7AndMasksExact": true
+            }
+          ]
+        },
+        {
+          "options": {
+            "mode": "fast",
+            "borrowImmutableSource": true,
+            "shareImmutableBackdrop": true
+          },
+          "samples": [
+            {
+              "repeat": 0,
+              "partitionMs": 143.58174599999984,
+              "materializeMs": 31.902533000000403,
+              "totalCpuPrepMs": 175.48427900000024,
+              "phases": [
+                {
+                  "label": "validate-and-borrow-immutable-seven-planes",
+                  "wallMs": 0.019847999999910826
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 128.03952600000048
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 15.484349000000293
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 4.865104000000429
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 27.027023999999074
+                }
+              ],
+              "componentCount": 1,
+              "all7AndMasksExact": true
+            },
+            {
+              "repeat": 1,
+              "partitionMs": 151.2009139999991,
+              "materializeMs": 29.259321999999884,
+              "totalCpuPrepMs": 180.460235999999,
+              "phases": [
+                {
+                  "label": "validate-and-borrow-immutable-seven-planes",
+                  "wallMs": 0.02123300000130257
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 135.59748199999922
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 15.542681000000812
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 3.4982230000005075
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 25.751053999998476
+                }
+              ],
+              "componentCount": 1,
+              "all7AndMasksExact": true
+            },
+            {
+              "repeat": 2,
+              "partitionMs": 145.19894199999908,
+              "materializeMs": 30.130918000000747,
+              "totalCpuPrepMs": 175.32985999999983,
+              "phases": [
+                {
+                  "label": "validate-and-borrow-immutable-seven-planes",
+                  "wallMs": 0.022221999999601394
+                },
+                {
+                  "label": "allocate-labels-and-find-four-connected-water",
+                  "wallMs": 128.81175000000076
+                },
+                {
+                  "label": "independent-partition-validation",
+                  "wallMs": 16.326900000000023
+                },
+                {
+                  "label": "component-0-materialize-allocate-mask-and-seven-planes",
+                  "wallMs": 3.796707999999853
+                },
+                {
+                  "label": "component-0-materialize-scatter-five-material-planes",
+                  "wallMs": 26.325956000000588
+                }
+              ],
+              "componentCount": 1,
+              "all7AndMasksExact": true
+            }
+          ]
+        }
+      ],
+      "proof": [
+        {
+          "id": 0,
+          "pixelCount": 338172,
+          "maskSHA": "c7a96745c6375109144c541838d61c2b1c359d4ba1a799f8f24d2c2d31e5e3b7",
+          "planeSHA": {
+            "p": "e68e55f0c5c3b2faee94789572848d0cb44f74e24a97f4dad5918fc11d3422a8",
+            "c": "12a6e8561cee578d9b97af1769fc083633945d2c109b30921c0df2b89622e370",
+            "coverage": "491d338f5152b436f1611f05c378f74233361dff3999b0580304a046bee00f27",
+            "solvent": "ca5e5542da5aeda7e8e8d72a2c18c58104ba3ae9bc15952bf23a92ccbd0e49cb",
+            "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+            "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+            "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+          }
+        }
+      ]
+    }
+  ]
+}
