@@ -1,3 +1,4 @@
+import {attachFixedWetFactories} from './fixed-wet-registry'
 import {fixedWetBLiteDefinitions} from './fixed-wet-b-lite'
 import {gpuCapacityDefinitions} from './macro42-gpu-capacity-aware'
 import {capacityAwareLiteDefinitions} from './macro41-capacity-aware-lite'
@@ -63,6 +64,7 @@ export const definitions:Definition[]=[
  {id:'wgsl-d2q9-bgk',label:'WebGPU: D2Q9 fluid with pigment/water tracers',configs:[{grid:256,steps:48},{grid:512,steps:48},{grid:256,steps:16,diffusion:0.015},{grid:128,steps:24,diffusion:0.025}],create:lbm},
  {id:'wgsl-integer-diffusion-texture',label:'WebGPU: same local integer diffusion, R32Uint texture access',configs:[{iterations:32,rate:24}],create:textureDiffusion},
 ]
+attachFixedWetFactories(definitions)
 // Attach contracts only at the public registry boundary, never inside composed factories.
 for(const definition of definitions){const keys=strongConfigKeys[definition.id];if(keys)definition.configKeys=keys}
 export const glDefinitions=[{id:'gl-integer-diffusion-match',label:'GL1: matched local integer diffusion',configs:[{iterations:32,rate:24}],create:glDiffusion}]

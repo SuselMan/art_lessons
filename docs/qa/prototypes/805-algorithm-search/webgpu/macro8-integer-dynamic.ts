@@ -1,3 +1,4 @@
+import type {PackingBuffers} from './macro9-integer-smooth'
 import {captureFixedWetHooks,type FixedWetCoarseHooks} from './fixed-wet-coarse-hooks'
 import {initialCoarsePigment,readCoarseCarrierLedger,cloneCoarseLedger,type CoarseCarrierLedger} from './coarse-carrier-ledger'
 import {BUFFER,buffer,integerOption,packedRGBA,pipeline,readPacked,validateInput,type Candidate,type Input} from './contract'
@@ -56,7 +57,7 @@ export function initialIntegerDynamic(input:Input){
  }
  return{state,aux,stationary,summary:{initialStationaryAlpha,initialMobileAlpha,frozenWetAlpha,frozenCellCount,initialWaterCodes,initialMobileCodes,initialCoarsePigmentCodesRGBA:initialCoarsePigment(state)}}
 }
-export async function create(device:GPUDevice,size:number,config:Record<string,number>={},options:{readonly fixedWet?:FixedWetCoarseHooks}={}):Promise<Candidate>{
+export async function create(device:GPUDevice,size:number,config:Record<string,number>={},options:{readonly fixedWet?:FixedWetCoarseHooks;readonly observePacking?:(buffers:PackingBuffers)=>void}={}):Promise<Candidate>{
  const fixedWet=captureFixedWetHooks(options.fixedWet)
  if(size!==1024)throw Error('Integer dynamic requires1024');const n=128,N=n*n,steps=integerOption(config.steps??128,1,512,'steps'),usage=BUFFER.STORAGE|BUFFER.COPY_DST|BUFFER.COPY_SRC
  const pair=await pipeline(device,fixedWet?fixedWet.transformPair(MACRO8_PAIR):MACRO8_PAIR,'u32-dynamic-pair-absorption'),pack=await pipeline(device,MACRO8_PACK,'u32-dynamic-nearest')
@@ -66,6 +67,7 @@ export async function create(device:GPUDevice,size:number,config:Record<string,n
  const params=Array.from({length:4},(_,phase)=>{const b=alloc(16,BUFFER.UNIFORM|BUFFER.COPY_DST,'phase');device.queue.writeBuffer(b,0,Uint32Array.of(n,size,phase,0));return b})
  const bind=(p:GPUComputePipeline,list:GPUBuffer[])=>device.createBindGroup({layout:p.getBindGroupLayout(0),entries:list.map((b,binding)=>({binding,resource:{buffer:b}}))})
  const groups=Array.from({length:4},(_,phase)=>[0,1].map(i=>bind(pair,[state[i],aux,state[1-i],params[phase]]))),packing=[0,1].map(i=>bind(pack,[state[i],stationary,output,params[0]]))
+ options.observePacking?.({states:state.slice(),stationary,output})
  fixedWet?.observePacking({states:state.slice(),stationary,output},steps%2)
  let destroyed=false,uploaded=false,ready=false,summary:ReturnType<typeof initialIntegerDynamic>['summary']|null=null,ledger:CoarseCarrierLedger|null=null
  return{metadata:Object.freeze({algorithm:'u32-dynamic-wetting-absorption',grid:n,steps,dispatches:steps+1,reconstruction:'nearest u32 plus literal stationary',staticWallMap:false,waterBlocked:false,coefficients:'dt35/100,absorption1/32,adsorption two-stage70/100',get initial(){return summary?{...summary,initialCoarsePigmentCodesRGBA:summary.initialCoarsePigmentCodesRGBA.slice()}:null},get finalState(){return ledger?cloneCoarseLedger(ledger):null},massScope:'coarse M+D/W+S integer exact; input reduction and final byte rounding separate',limitations:'Phenomenological capacity, not full CFD. Mixed cells with insufficient fine free alpha keep ALL original pigment stationary; frozenWetAlpha explicitly reported. Nearest8px grid.',seedUsed:false,featuresRequired:[]}),async upload(input:Input){
