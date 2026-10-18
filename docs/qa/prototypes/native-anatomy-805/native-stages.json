@@ -1,0 +1,226 @@
+[
+  {
+    "id": "align",
+    "label": "Согласовать количество краски",
+    "inputText": "Исходная форма мазка и её цвет.",
+    "actionText": "Согласуем количество пигмента с оптической плотностью цвета, не двигая мазок.",
+    "outputText": "Та же форма; внутренний P.b согласован с C.a.",
+    "sourceRefs": [
+      "apps/web/src/engine/src/watercolor/puddle/PuddleTarget.ts:125"
+    ],
+    "timings": [],
+    "qualification": "Источник: текущий native pipeline. Время и изображения добавляются только по actual replay; пустое timing не означает0мс.",
+    "details": "P — запись материала; C — оптическая плотность RGB. Это не RGB-картинка.",
+    "tapStage": "align.rawP"
+  },
+  {
+    "id": "local-background",
+    "label": "Оценить спокойную подложку",
+    "inputText": "Исходный цвет всего мокрого мазка.",
+    "actionText": "Берём взвешенное окружение в25точках; получаем локальный фон, относительно которого видны плотные и цветовые пики.",
+    "outputText": "Карта усреднённой оптической плотности.",
+    "sourceRefs": [
+      "apps/web/src/engine/src/watercolor/puddle/ContrastPhase.ts:10"
+    ],
+    "timings": [],
+    "qualification": "Источник: текущий native pipeline. Время и изображения добавляются только по actual replay; пустое timing не означает0мс.",
+    "details": "Stride24px; encoded c/(1+c). Для просмотра нужен обратный decode, не обычный RGB.",
+    "tapStage": "contrast.background"
+  },
+  {
+    "id": "contrast",
+    "label": "Выделить выразительные участки",
+    "inputText": "Цвет мазка, подложка и вода.",
+    "actionText": "Ищем избыток краски, изменение состава и оттенка; сухие места не выбираем.",
+    "outputText": "Серая карта доли, которую можно переносить.",
+    "sourceRefs": [
+      "apps/web/src/engine/src/watercolor/puddle/ContrastPhase.ts:11"
+    ],
+    "timings": [],
+    "qualification": "Источник: текущий native pipeline. Время и изображения добавляются только по actual replay; пустое timing не означает0мс.",
+    "details": "Это Q до фильтра компонент, не конечный цвет и не downstream reference.",
+    "tapStage": "contrast.selection"
+  },
+  {
+    "id": "keep",
+    "label": "Убрать слишком мелкие островки",
+    "inputText": "Карта выбранных участков.",
+    "actionText": "CPU находит связные области и оставляет достаточно крупные; загружает итоговую маску обратно.",
+    "outputText": "Маска retained regions.",
+    "sourceRefs": [
+      "apps/web/src/engine/src/watercolor/puddle/ContrastPhase.ts:27"
+    ],
+    "timings": [],
+    "qualification": "Источник: текущий native pipeline. Время и изображения добавляются только по actual replay; пустое timing не означает0мс.",
+    "details": "Обязательное чтение GPU→CPU и upload; не относить всю цену к shader.",
+    "tapStage": "contrast.retainedComponents"
+  },
+  {
+    "id": "reference",
+    "label": "Разделить неподвижную и переносимую краску",
+    "inputText": "Мазок и очищенная маска выбранных участков.",
+    "actionText": "Отделяем то, что останется на месте, от избытка/цветового контраста, который пойдёт в перенос.",
+    "outputText": "Reference P/C — неподвижная опора; переносимая часть будет выделена при сборке поля.",
+    "sourceRefs": [
+      "apps/web/src/engine/src/watercolor/puddle/ContrastPhase.ts:30"
+    ],
+    "timings": [],
+    "qualification": "Источник: текущий native pipeline. Время и изображения добавляются только по actual replay; пустое timing не означает0мс.",
+    "details": "Reference не предыдущий goal: каждый reset вычисляет его из исходного wash.",
+    "tapStage": "contrast.referenceC"
+  },
+  {
+    "id": "stitch",
+    "label": "Собрать рабочее поле",
+    "inputText": "P/C мазка, неподвижная опора, вода и покрытие.",
+    "actionText": "Копируем перекрытия в единое поле solver, сохраняя координаты и масштаб.",
+    "outputText": "Поля текущей и неподвижной краски, воды, покрытия.",
+    "sourceRefs": [
+      "apps/web/src/engine/src/raster/WatercolorSettlePlan.ts:428"
+    ],
+    "timings": [],
+    "qualification": "Источник: текущий native pipeline. Время и изображения добавляются только по actual replay; пустое timing не означает0мс.",
+    "details": "a/b = current/reference P, ca/cb = current/reference C; aliases позже меняют назначение.",
+    "tapStage": "stitch.complete"
+  },
+  {
+    "id": "outward",
+    "label": "Найти, куда может дойти вода",
+    "inputText": "Переносимая краска, вода и рельеф бумаги.",
+    "actionText": "Распространяем стоимость пути от исходного следа: мокрые и лёгкие направления дешевле; сухие/крутые дороже.",
+    "outputText": "Карта стоимости наружу; пока не перенос цвета.",
+    "sourceRefs": [
+      "apps/web/src/engine/src/raster/WatercolorSettlePlan.ts:572"
+    ],
+    "timings": [],
+    "qualification": "Источник: текущий native pipeline. Время и изображения добавляются только по actual replay; пустое timing не означает0мс.",
+    "details": "Prefix build/jump ускоряет оценку путей; packed costs — служебные данные, не промежуточная картина.",
+    "tapStage": "front.outwardComplete"
+  },
+  {
+    "id": "inward",
+    "label": "Найти глубину от внешнего края",
+    "inputText": "Наружная карта стоимости и бумага.",
+    "actionText": "Считаем расстояние/стоимость внутрь будущей области, чтобы край и его внутренние язычки следовали бумаге.",
+    "outputText": "Внутренняя карта стоимости.",
+    "sourceRefs": [
+      "apps/web/src/engine/src/raster/WatercolorSettlePlan.ts:603"
+    ],
+    "timings": [],
+    "qualification": "Источник: текущий native pipeline. Время и изображения добавляются только по actual replay; пустое timing не означает0мс.",
+    "details": "Два первых плоских шага, затем меньший relief. Не новая физическая симуляция воды.",
+    "tapStage": "front.inwardComplete"
+  },
+  {
+    "id": "band",
+    "label": "Построить зону кромки",
+    "inputText": "Обе карты пути и покрытие.",
+    "actionText": "Выделяем полосу у края и собираем её окрестность для нормировки переноса краски.",
+    "outputText": "Band, расширенное coverage и gathered normalizer.",
+    "sourceRefs": [
+      "apps/web/src/engine/src/raster/WatercolorSettlePlan.ts:614"
+    ],
+    "timings": [],
+    "qualification": "Источник: текущий native pipeline. Время и изображения добавляются только по actual replay; пустое timing не означает0мс.",
+    "details": "Показывать каналы раздельно с легендой; mode6/mode5, не декоративная обводка поверх картинки.",
+    "tapStage": "front.rimPrepared"
+  },
+  {
+    "id": "carry",
+    "label": "Унести краску по мокрым направлениям",
+    "inputText": "Переносимая P/C, неподвижная часть, карта наружного пути.",
+    "actionText": "Перераспределяем краску вдоль доступных путей; цвет следует тем же долям пигмента. Это формирует вытянутые потёки/пальцы.",
+    "outputText": "Перемещённая P/C; неподвижная опора остаётся отдельно.",
+    "sourceRefs": [
+      "apps/web/src/engine/src/raster/WatercolorSettlePlan.ts:810"
+    ],
+    "timings": [],
+    "qualification": "Источник: текущий native pipeline. Время и изображения добавляются только по actual replay; пустое timing не означает0мс.",
+    "details": "C вычисляется до P, по прежней плотности; последовательность этих двух draws важна.",
+    "tapStage": "carry.complete"
+  },
+  {
+    "id": "diffuse",
+    "label": "Смешать соседнюю мокрую краску",
+    "inputText": "Перенесённая и неподвижная краска, gate/покрытие/вода.",
+    "actionText": "Несколько локальных обменов смягчают и смешивают краску; затем часть оседает и перераспределяется к кромке.",
+    "outputText": "Смешанные мобильные P/C перед окончательным суммированием/кромкой.",
+    "sourceRefs": [
+      "apps/web/src/engine/src/raster/WatercolorSettlePlan.ts:957"
+    ],
+    "timings": [],
+    "qualification": "Источник: текущий native pipeline. Время и изображения добавляются только по actual replay; пустое timing не означает0мс.",
+    "details": "Это выбранная граница ДО terminal rim/sum; дополнительные fieldOp taps показывают terminal redistribution.",
+    "tapStage": "diffusion.complete"
+  },
+  {
+    "id": "land",
+    "label": "Вернуть результат в полный мазок",
+    "inputText": "Поля перенесённой краски и сохранённый исходник.",
+    "actionText": "Реконструируем полный размер относительно исходного следа, записываем итоговые P/C; согласуем высохший результат.",
+    "outputText": "inkDry/colorDry в координатах исходного tile.",
+    "sourceRefs": [
+      "apps/web/src/engine/src/raster/WatercolorSettlePlan.ts:1210"
+    ],
+    "timings": [],
+    "qualification": "Источник: текущий native pipeline. Время и изображения добавляются только по actual replay; пустое timing не означает0мс.",
+    "details": "Не равнозначно простому upscale поля: участвует captured baseline/detail.",
+    "tapStage": "land.complete"
+  },
+  {
+    "id": "background-smooth",
+    "label": "Смягчить спокойную заливку",
+    "inputText": "Опубликованные P/C и маска спокойной подложки.",
+    "actionText": "В уменьшенном поле сглаживаем только допустимые участки четырьмя радиусами2/4/8/4.",
+    "outputText": "Low-grid P/C после сглаживания.",
+    "sourceRefs": [
+      "apps/web/src/engine/src/watercolor/puddle/BackgroundMix.ts:36"
+    ],
+    "timings": [],
+    "qualification": "Источник: текущий native pipeline. Время и изображения добавляются только по actual replay; пустое timing не означает0мс.",
+    "details": "Четыре пары P/C draw. Фактические occurrence выбираются по trace; последнее значение — не первое.",
+    "tapStage": "background.smooth"
+  },
+  {
+    "id": "background-reconstruct",
+    "label": "Вернуть неоднородность подложки",
+    "inputText": "Полный исходный цвет, сглаженная подложка, eligibility и coverage.",
+    "actionText": "Подмешиваем сглаженную заливку с небольшим пространственным смещением внутри разрешённой мокрой области.",
+    "outputText": "Полноразмерные P/C после background mix.",
+    "sourceRefs": [
+      "apps/web/src/engine/src/watercolor/puddle/BackgroundMix.ts:20"
+    ],
+    "timings": [],
+    "qualification": "Источник: текущий native pipeline. Время и изображения добавляются только по actual replay; пустое timing не означает0мс.",
+    "details": "Только существующий shader/noise. P и C — два последовательных occurrence.",
+    "tapStage": "background.reconstruct"
+  },
+  {
+    "id": "dry-guard",
+    "label": "Сохранить сухой исходник",
+    "inputText": "Результат и исходные P/C с первоначальной водой.",
+    "actionText": "Там, где воды нет, возвращаем исходный материал; слабая вода даёт плавный переход.",
+    "outputText": "P/C после защиты сухих пикселей.",
+    "sourceRefs": [
+      "apps/web/src/engine/src/watercolor/puddle/PuddleTarget.ts:55"
+    ],
+    "timings": [],
+    "qualification": "Источник: текущий native pipeline. Время и изображения добавляются только по actual replay; пустое timing не означает0мс.",
+    "details": "Два прохода P/C и copies; wet=smoothstep(0,.03,4*water.a). Это часть native target, не PNG clip.",
+    "tapStage": "dryGuard"
+  },
+  {
+    "id": "dry",
+    "label": "Опубликовать сухую цель",
+    "inputText": "Готовые P/C и исходный контур покрытия.",
+    "actionText": "Обнуляем solvent B в coverage; сам пигмент и цвет уже рассчитаны.",
+    "outputText": "Конечные material P/C/coverage, готовые для общего renderer.",
+    "sourceRefs": [
+      "apps/web/src/engine/src/watercolor/puddle/PuddleTarget.ts:207"
+    ],
+    "timings": [],
+    "qualification": "Источник: текущий native pipeline. Время и изображения добавляются только по actual replay; пустое timing не означает0мс.",
+    "details": "Common encoding/compositor/PNG — отдельный QA/display слой, не новый перенос.",
+    "tapStage": "dry.coverage"
+  }
+]
