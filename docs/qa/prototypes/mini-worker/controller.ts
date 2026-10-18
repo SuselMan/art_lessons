@@ -156,6 +156,13 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
    try{replaySource=source;context=null;epoch++;captureContext();if(!locate()||!context)throw Error('Component context missing');return fn()}
    finally{replaySource=saved.replaySource;context=saved.context;epoch=saved.epoch;goalReady=saved.goalReady;diagnosticFinal=saved.diagnosticFinal;liveActive=saved.liveActive;drying=saved.drying}
   },
+  diagnosticPresentInput(){
+   const f=locate();if(!f)throw Error('Native input source required')
+   render(raw,{p:f.entry.inkLoad,c:f.entry.inkColor,coverage:f.entry.coverage});diagnosticFinal=true;liveActive=false;drying=false
+   raw.copyTo(f.tile.buffer);f.ctx.target.markContentPainted(bounds)
+   engine._paperCacheKey='';engine._paperPartialOK=false;engine._invalidateSplitCache()
+   original.get('_display')!.call(engine)
+  },
   diagnosticPresentGoal(){
    const f=locate();if(!f||!target.state.done)throw Error('Completed goal required')
    render(dryImage,target.buffers());diagnosticFinal=true;liveActive=false;drying=false

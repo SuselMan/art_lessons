@@ -73,7 +73,7 @@ function packageComparison(evidenceRoot, outPackage) {
   if (fs.existsSync(destination)) assert.equal(fs.readdirSync(destination).length, 0, 'Use an empty output package');
   const data = {
     schemaVersion: 1, title: 'Другие пути растекания внутри лужи', deviceLabel: 'Radeon Vega · 1024 × 1024',
-    qualification: 'Исходный отбор краски сохранён. Меняем только поиск путей внутри неизменной воды; радиус около24 пикселей. Перенос краски, смешивание и остальные этапы остаются нашими. Картинки экспортированы настоящим Mini. За пределами исходной воды пиксели не изменились во всех проверенных повторах.',
+    qualification: 'Исходный отбор краски сохранён. Меняем только поиск путей внутри неизменной воды; 24 шага расширения. Упрощён поиск путей, в том числе внутри расчёта общей кромки. Перенос краски и смешивание остаются нашими. Картинки экспортированы настоящим Mini. За пределами исходной воды пиксели не изменились во всех проверенных повторах.',
     scenes: []
   };
   const passport = { contract: 'native-expansion-comparison-package-v1', selection: 'original-Q-unchanged', radiusPx: 24, artImages: 'Actual native Mini canvas PNG; no CPU alternate compositor and no rescaling', waterImages: 'Diagnostic initial water only: wet RGB202/224/232, dry250/250/250, alpha255; top-left rows', files: [], scenes: [] };
@@ -99,11 +99,12 @@ function packageComparison(evidenceRoot, outPackage) {
     generated.push({ file: waterName, bytes: waterPng });
     const sceneData = { id: scene.id, label: LABELS[scene.id], input: { src: path.relative(destination, input.file), sha256: input.sha256 }, water: { src: waterName, sha256: hash(waterPng) }, variants: [] };
     const sceneProof = { id: scene.id, synthetic: scene.synthetic, operationJSONSHA: scene.operationSHA, timedReportSHA256: timed.sha256, imagesReportSHA256: imageReport.sha256, inputNativePNG: input.sha256, inputBinarySHA256: water.inputSHA256, waterSHA256: water.waterSHA256, nativeCSHA: {}, imagePNG: {} };
+    const identicalTargets=ARMS.every(arm=>['p','c','coverage'].every(key=>timed.data.outputs[arm].outputSHA[key]===timed.data.outputs.original.outputSHA[key]));
     for (const arm of ARMS) {
       const description = images.images[arm]; assert.equal(description.kind, 'goal'); assert.deepEqual(description.outputSHA, timed.data.outputs[arm].outputSHA); assert.equal(description.nativeCSHA, timed.data.outputs[arm].outputSHA.c);
       const image = nativeImage(imagesDir, description), metrics = deriveMetrics(timed.data, arm);
       assert.equal(metrics.nativeCSHA, description.nativeCSHA); assert.equal(metrics.gpuSamples, timed.data.request.repeats); assert.equal(metrics.wallSamples, timed.data.request.repeats);
-      sceneData.variants.push({ id: arm, timingArm: arm, label: VARIANTS[arm].label, note: VARIANTS[arm].note, image: { src: path.relative(destination, image.file), sha256: image.sha256, nativeCSHA: description.nativeCSHA }, report: { file: path.relative(destination, timed.file), sha256: timed.sha256 }, gpuMedianMs: metrics.gpuMedianMs, wallMedianMs: metrics.wallMedianMs });
+      sceneData.variants.push({ id: arm, timingArm: arm, label: VARIANTS[arm].label, note: VARIANTS[arm].note+(identicalTargets?' В этой сцене все три результата побайтно совпали.':''), image: { src: path.relative(destination, image.file), sha256: image.sha256, nativeCSHA: description.nativeCSHA }, report: { file: path.relative(destination, timed.file), sha256: timed.sha256 }, gpuMedianMs: metrics.gpuMedianMs, wallMedianMs: metrics.wallMedianMs });
       sceneProof.nativeCSHA[arm] = description.nativeCSHA; sceneProof.imagePNG[arm] = image.sha256;
     }
     data.scenes.push(sceneData); passport.scenes.push(sceneProof);

@@ -59,7 +59,8 @@ function declaredMetric(value, actual, name) {
   if (actual === null) assert.equal(value, null, name + ' was not measured');
   else assert.ok(Number.isFinite(value) && Math.abs(value - actual) <= 1e-6, name + ' differs from report median');
 }
-function build(inputFile, outputFile) {
+function build(inputFile, outputFile, options = {}) {
+  const external = new Map();
   assert.ok(inputFile && outputFile, 'Usage: node build-compare.cjs data.json output.html');
   const base = path.dirname(path.resolve(inputFile)), source = JSON.parse(fs.readFileSync(inputFile)), reports = new Map();
   assert.equal(source.schemaVersion, 1);
@@ -70,7 +71,9 @@ function build(inputFile, outputFile) {
     assert.match(value.sha256, HASH);
     const bytes = fs.readFileSync(path.resolve(base, value.src));
     assert.equal(hash(bytes), value.sha256, 'PNG SHA mismatch');
-    return { src: 'data:image/png;base64,' + bytes.toString('base64'), sha256: value.sha256, ...pngDimensions(bytes) };
+    const src=options.externalImages?'expansion-images/'+value.sha256+'.png':'data:image/png;base64,'+bytes.toString('base64');
+    if(options.externalImages)external.set(value.sha256,{from:path.resolve(base,value.src),bytes});
+    return {src,sha256:value.sha256,...pngDimensions(bytes)};
   };
   const readReport = value => {
     assert.ok(value && typeof value.file === 'string', 'Report file required');
@@ -110,6 +113,7 @@ function build(inputFile, outputFile) {
   const encoded = JSON.stringify(data).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
   const html = template.replace(marker, '<script id="comparison-data" type="application/json">' + encoded + '</script>');
   fs.mkdirSync(path.dirname(path.resolve(outputFile)), { recursive: true, mode: 0o700 });
+  if(options.externalImages){const dir=path.join(path.dirname(path.resolve(outputFile)),'expansion-images');fs.mkdirSync(dir,{recursive:true,mode:0o700});for(const [sha,row]of external){const dest=path.join(dir,sha+'.png');if(fs.existsSync(dest))assert.equal(hash(fs.readFileSync(dest)),sha,'Output PNG collision');else fs.linkSync(row.from,dest)}}
   const pending = outputFile + '.pending'; fs.writeFileSync(pending, html, { mode: 0o600 }); fs.renameSync(pending, outputFile);
   const result = { scenes: data.scenes.length, variants: data.scenes.map(scene => ({ id: scene.id, count: scene.variants.length })), reportCount: reports.size, bytes: Buffer.byteLength(html), sha256: hash(html) };
   console.log(JSON.stringify(result)); return result;
@@ -130,6 +134,6 @@ function selfTest() {
 }
 if (require.main === module) {
   if (process.argv.includes('--self-test')) selfTest();
-  else try { build(process.argv[2], process.argv[3]); } catch (error) { console.error(error.stack || error); process.exitCode = 1; }
+  else try { build(process.argv[2], process.argv[3], {externalImages:process.env.QA_EXTERNAL_IMAGES==='1'}); } catch (error) { console.error(error.stack || error); process.exitCode = 1; }
 }
 module.exports = { build, deriveMetrics, declaredMetric, pngDimensions, median };
