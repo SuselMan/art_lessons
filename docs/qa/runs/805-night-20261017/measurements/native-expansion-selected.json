@@ -1,0 +1,823 @@
+{
+  "contract": "selected-native-Q-paths-comparison-v1",
+  "scope": "Original native selection Q kept; only path/front hypothesis changed. Same local seven native source planes per scene. GPU timeline may include CPU-induced idle, full C read separate wall scope. Changed artistic model; no old-vs-new exact or pigment mass-conservation claim.",
+  "schedule": "One warmup per arm, cyclic O/S/N, S/N/O, N/O/S over five repeats; all samples retained",
+  "cases": [
+    {
+      "scene": "expansion-bridge",
+      "synthetic": true,
+      "pass": true,
+      "buildManifestSHA": "eeefd41d9f484c54f07c20a8e2ffc166c24c50bfa87be10f9c800aa05543d0e0",
+      "sourceSHA": {
+        "p": "c542b54f792392e293241ddbea1919a34c6d18bd060206dd56c910dfbf2b57f1",
+        "c": "76b08d6494b7bab730fcb278b080631b4ef3d22d0428d5f9ac13a7611b5d445c",
+        "coverage": "a42afbd762e3edd4685f3fc27817a4204baf4cea7037f82507bb6b32993bf00d",
+        "solvent": "b5febb3f52d4bae5c415432f9456a7877ac5dbabbc506b93e9e7292b285e1cb4",
+        "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "paper": "8a625eab873b82692c2b5f8130aa103e315adff2f11e35003abb5863bdb7e5fb"
+      },
+      "commonInputSHA": {
+        "rgba": "266c558271aa5703a7fa0189a3b2360a262641b43c488acacc517d5df355f93c",
+        "water": "2c3f729c8f1db6b650781be3c55b5b8964eeb23ecd405297dcced298e08e3909",
+        "paper": "d6b27b2771b5efd1a535e6c06e693268b6616a7c6772edc14bd778cccb56141a"
+      },
+      "arms": [
+        {
+          "arm": "original",
+          "gpuSamplesMs": [
+            56.40316,
+            56.71872,
+            57.83016,
+            57.84592,
+            81.99495
+          ],
+          "gpuMedianMs": 57.83016,
+          "fullCWallSamplesMs": [
+            72.19999999925494,
+            74.69999999925494,
+            76.59999999776483,
+            74.69999999925494,
+            131.90000000223517
+          ],
+          "fullCWallMedianMs": 74.69999999925494,
+          "outputSHA": {
+            "p": "df2f8f8cbd72cdcbe07b9bdd8205e3dc74d0cbfb55ba484248f022dd2c6bf99a",
+            "c": "5f51c6a08ffbd8817e54fde1511ea5875ef2cb06342516e78ba20e6d12dbae91",
+            "coverage": "615144bc1d1494801f17804f35e6c14ec782b91d485e4a1d738a2240832ce867"
+          },
+          "audit": {
+            "dryChangedPixels": 0,
+            "wetChangedPixels": 22843,
+            "newPaintPixels": 19164,
+            "inputSum": [
+              69241,
+              248509,
+              6817,
+              253875
+            ],
+            "outputSum": [
+              57162,
+              214558,
+              2930,
+              218922
+            ],
+            "channelRatios": [
+              0.8255513351915772,
+              0.8633812055096596,
+              0.429807833357782,
+              0.8623220088626292
+            ],
+            "qualification": "Native C channel sums are diagnostic, not an exact conserved-pigment ledger. New painted pixels use native C.a>0 within immutable initial solvent mask. All source readback and audit loops excluded from timings."
+          },
+          "config": {
+            "id": "original",
+            "model": "front8-detail-flow-v4"
+          },
+          "stats": null
+        },
+        {
+          "arm": "smooth",
+          "gpuSamplesMs": [
+            36.70268,
+            40.61324,
+            39.3356,
+            41.90143,
+            42.34974
+          ],
+          "gpuMedianMs": 40.61324,
+          "fullCWallSamplesMs": [
+            53.400000002235174,
+            50.600000001490116,
+            57.30000000074506,
+            52.30000000074506,
+            53.100000001490116
+          ],
+          "fullCWallMedianMs": 53.100000001490116,
+          "outputSHA": {
+            "p": "df2f8f8cbd72cdcbe07b9bdd8205e3dc74d0cbfb55ba484248f022dd2c6bf99a",
+            "c": "5f51c6a08ffbd8817e54fde1511ea5875ef2cb06342516e78ba20e6d12dbae91",
+            "coverage": "615144bc1d1494801f17804f35e6c14ec782b91d485e4a1d738a2240832ce867"
+          },
+          "audit": {
+            "dryChangedPixels": 0,
+            "wetChangedPixels": 22843,
+            "newPaintPixels": 19164,
+            "inputSum": [
+              69241,
+              248509,
+              6817,
+              253875
+            ],
+            "outputSum": [
+              57162,
+              214558,
+              2930,
+              218922
+            ],
+            "channelRatios": [
+              0.8255513351915772,
+              0.8633812055096596,
+              0.429807833357782,
+              0.8623220088626292
+            ],
+            "qualification": "Native C channel sums are diagnostic, not an exact conserved-pigment ledger. New painted pixels use native C.a>0 within immutable initial solvent mask. All source readback and audit loops excluded from timings."
+          },
+          "config": {
+            "id": "smooth-expansion",
+            "radiusPx": 24,
+            "allWetMobile": false,
+            "selection": "Original native contrast/Q selection and reference",
+            "fixedInitialWater": true,
+            "front": "bounded unit-step8-neighbor cost, no dry corner cutting",
+            "noise": "seed805, CPU integer lattice128\u00b2, costfactor1..1.7; flat variant factor1",
+            "qualification": "Different front hypothesis; native carry/diffusion/rim retain P/C transport. No exact mass-conservation or cross-GPU-equality claim."
+          },
+          "stats": {
+            "frontDraws": 44,
+            "outwardDraws": 24,
+            "inwardDraws": 20,
+            "coreCalls": 1
+          }
+        },
+        {
+          "arm": "noisy",
+          "gpuSamplesMs": [
+            39.23309,
+            37.66536,
+            41.28388,
+            39.43252,
+            42.04767
+          ],
+          "gpuMedianMs": 39.43252,
+          "fullCWallSamplesMs": [
+            49.599999997764826,
+            56.30000000074506,
+            66.69999999925494,
+            48,
+            50.80000000074506
+          ],
+          "fullCWallMedianMs": 50.80000000074506,
+          "outputSHA": {
+            "p": "df2f8f8cbd72cdcbe07b9bdd8205e3dc74d0cbfb55ba484248f022dd2c6bf99a",
+            "c": "5f51c6a08ffbd8817e54fde1511ea5875ef2cb06342516e78ba20e6d12dbae91",
+            "coverage": "615144bc1d1494801f17804f35e6c14ec782b91d485e4a1d738a2240832ce867"
+          },
+          "audit": {
+            "dryChangedPixels": 0,
+            "wetChangedPixels": 22843,
+            "newPaintPixels": 19164,
+            "inputSum": [
+              69241,
+              248509,
+              6817,
+              253875
+            ],
+            "outputSum": [
+              57162,
+              214558,
+              2930,
+              218922
+            ],
+            "channelRatios": [
+              0.8255513351915772,
+              0.8633812055096596,
+              0.429807833357782,
+              0.8623220088626292
+            ],
+            "qualification": "Native C channel sums are diagnostic, not an exact conserved-pigment ledger. New painted pixels use native C.a>0 within immutable initial solvent mask. All source readback and audit loops excluded from timings."
+          },
+          "config": {
+            "id": "noisy-expansion",
+            "radiusPx": 24,
+            "allWetMobile": false,
+            "selection": "Original native contrast/Q selection and reference",
+            "fixedInitialWater": true,
+            "front": "bounded unit-step8-neighbor cost, no dry corner cutting",
+            "noise": "seed805, CPU integer lattice128\u00b2, costfactor1..1.7; flat variant factor1",
+            "qualification": "Different front hypothesis; native carry/diffusion/rim retain P/C transport. No exact mass-conservation or cross-GPU-equality claim."
+          },
+          "stats": {
+            "frontDraws": 44,
+            "outwardDraws": 24,
+            "inwardDraws": 20,
+            "coreCalls": 1
+          }
+        }
+      ],
+      "allArmsOutputExact": true
+    },
+    {
+      "scene": "expansion-dry-hole",
+      "synthetic": true,
+      "pass": true,
+      "buildManifestSHA": "eeefd41d9f484c54f07c20a8e2ffc166c24c50bfa87be10f9c800aa05543d0e0",
+      "sourceSHA": {
+        "p": "e14c1f906cce9caf2152ac4319c7efaa9ae3a42b94d719f577d9c62bfa78f499",
+        "c": "fe6571a86e7f354e41b552b358aab74ebe078e8a00c8f15a0c2ecfaacd21f857",
+        "coverage": "f1ba0cd9843e98d6a3b1133fd0edc80b9f55103dfd9e5286ecd84aec1453c3a8",
+        "solvent": "c296f5ddbaf45b586dcac8095e397b56ff8288209ade5b09cf6de96256097f0f",
+        "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "paper": "8a625eab873b82692c2b5f8130aa103e315adff2f11e35003abb5863bdb7e5fb"
+      },
+      "commonInputSHA": {
+        "rgba": "0adb0e608492b26b6e4b520a635ecef3d2008675616068ebd83a87cceedd3fcc",
+        "water": "ead73273eed5fdbe6a1e23b5077d0f4fb18e282c420c88bdaa4ffc77bd2a051e",
+        "paper": "d6b27b2771b5efd1a535e6c06e693268b6616a7c6772edc14bd778cccb56141a"
+      },
+      "arms": [
+        {
+          "arm": "original",
+          "gpuSamplesMs": [
+            55.55444,
+            61.24906,
+            57.70432,
+            61.84436,
+            62.52981
+          ],
+          "gpuMedianMs": 61.24906,
+          "fullCWallSamplesMs": [
+            73.79999999701977,
+            71.39999999850988,
+            78.5,
+            70.90000000223517,
+            73.10000000149012
+          ],
+          "fullCWallMedianMs": 73.10000000149012,
+          "outputSHA": {
+            "p": "c568d106bcc909515dd9e250ddf59bff3c5bcd09bf7546139748633e5a39ac71",
+            "c": "d5b3c187ad71f58f67f041cd21b5cc499b3848e3e04b2de1476872314b0381a4",
+            "coverage": "d57bdf2fe2f45de299cd07ed46b7c24e71287a67046b10ae255ff7b3d2a91a41"
+          },
+          "audit": {
+            "dryChangedPixels": 0,
+            "wetChangedPixels": 27045,
+            "newPaintPixels": 20592,
+            "inputSum": [
+              123291,
+              442267,
+              12225,
+              451855
+            ],
+            "outputSum": [
+              106145,
+              389744,
+              7434,
+              396418
+            ],
+            "channelRatios": [
+              0.8609306437615073,
+              0.8812414220369144,
+              0.6080981595092024,
+              0.8773124121676201
+            ],
+            "qualification": "Native C channel sums are diagnostic, not an exact conserved-pigment ledger. New painted pixels use native C.a>0 within immutable initial solvent mask. All source readback and audit loops excluded from timings."
+          },
+          "config": {
+            "id": "original",
+            "model": "front8-detail-flow-v4"
+          },
+          "stats": null
+        },
+        {
+          "arm": "smooth",
+          "gpuSamplesMs": [
+            39.07513,
+            43.79459,
+            41.17692,
+            57.90405,
+            40.3124
+          ],
+          "gpuMedianMs": 41.17692,
+          "fullCWallSamplesMs": [
+            58,
+            74.69999999925494,
+            58,
+            75.30000000074506,
+            56.29999999701977
+          ],
+          "fullCWallMedianMs": 58,
+          "outputSHA": {
+            "p": "c3f1113fa0d7ddc3822057bb2992250203f9243ad5b838541237259dc4d56be6",
+            "c": "d9d7896a674c859f5f6f0947d515a57ee12a4f41e0166193d9d4a72113443349",
+            "coverage": "d57bdf2fe2f45de299cd07ed46b7c24e71287a67046b10ae255ff7b3d2a91a41"
+          },
+          "audit": {
+            "dryChangedPixels": 0,
+            "wetChangedPixels": 26844,
+            "newPaintPixels": 20392,
+            "inputSum": [
+              123291,
+              442267,
+              12225,
+              451855
+            ],
+            "outputSum": [
+              106333,
+              389842,
+              7526,
+              396535
+            ],
+            "channelRatios": [
+              0.8624554914795078,
+              0.8814630076401812,
+              0.6156237218813906,
+              0.8775713447898109
+            ],
+            "qualification": "Native C channel sums are diagnostic, not an exact conserved-pigment ledger. New painted pixels use native C.a>0 within immutable initial solvent mask. All source readback and audit loops excluded from timings."
+          },
+          "config": {
+            "id": "smooth-expansion",
+            "radiusPx": 24,
+            "allWetMobile": false,
+            "selection": "Original native contrast/Q selection and reference",
+            "fixedInitialWater": true,
+            "front": "bounded unit-step8-neighbor cost, no dry corner cutting",
+            "noise": "seed805, CPU integer lattice128\u00b2, costfactor1..1.7; flat variant factor1",
+            "qualification": "Different front hypothesis; native carry/diffusion/rim retain P/C transport. No exact mass-conservation or cross-GPU-equality claim."
+          },
+          "stats": {
+            "frontDraws": 44,
+            "outwardDraws": 24,
+            "inwardDraws": 20,
+            "coreCalls": 1
+          }
+        },
+        {
+          "arm": "noisy",
+          "gpuSamplesMs": [
+            39.10348,
+            49.66165,
+            39.74153,
+            39.91296,
+            42.2653
+          ],
+          "gpuMedianMs": 39.91296,
+          "fullCWallSamplesMs": [
+            57.400000002235174,
+            60.100000001490116,
+            57.29999999701977,
+            62.80000000074506,
+            52
+          ],
+          "fullCWallMedianMs": 57.400000002235174,
+          "outputSHA": {
+            "p": "a13a92525aad2f56bb584f25cb7edd55f38a22ee76307955d88cde51434d5a97",
+            "c": "42ea202d221726ee47b3bdd5042e7dae2dad159be1f0500bd9af95d128887bad",
+            "coverage": "d57bdf2fe2f45de299cd07ed46b7c24e71287a67046b10ae255ff7b3d2a91a41"
+          },
+          "audit": {
+            "dryChangedPixels": 0,
+            "wetChangedPixels": 26682,
+            "newPaintPixels": 20231,
+            "inputSum": [
+              123291,
+              442267,
+              12225,
+              451855
+            ],
+            "outputSum": [
+              105957,
+              389146,
+              7557,
+              395753
+            ],
+            "channelRatios": [
+              0.8594057960435069,
+              0.87988929764147,
+              0.618159509202454,
+              0.8758407011098693
+            ],
+            "qualification": "Native C channel sums are diagnostic, not an exact conserved-pigment ledger. New painted pixels use native C.a>0 within immutable initial solvent mask. All source readback and audit loops excluded from timings."
+          },
+          "config": {
+            "id": "noisy-expansion",
+            "radiusPx": 24,
+            "allWetMobile": false,
+            "selection": "Original native contrast/Q selection and reference",
+            "fixedInitialWater": true,
+            "front": "bounded unit-step8-neighbor cost, no dry corner cutting",
+            "noise": "seed805, CPU integer lattice128\u00b2, costfactor1..1.7; flat variant factor1",
+            "qualification": "Different front hypothesis; native carry/diffusion/rim retain P/C transport. No exact mass-conservation or cross-GPU-equality claim."
+          },
+          "stats": {
+            "frontDraws": 44,
+            "outwardDraws": 24,
+            "inwardDraws": 20,
+            "coreCalls": 1
+          }
+        }
+      ],
+      "allArmsOutputExact": false
+    },
+    {
+      "scene": "gallery-sheet-3-slot-1",
+      "synthetic": false,
+      "pass": true,
+      "buildManifestSHA": "eeefd41d9f484c54f07c20a8e2ffc166c24c50bfa87be10f9c800aa05543d0e0",
+      "sourceSHA": {
+        "p": "00146a28a9f2135a19daac246aeadeae4bec9c6c9d50f03dbb5bb729d8b54408",
+        "c": "dde56f83df4ac92d1740f5f176d8faed27cdd473363db41c29520baa552d6147",
+        "coverage": "4a9c38a03dcd794cfeb1fcb319fcfafadeccd71ef8dafeb265cf643af10d53a2",
+        "solvent": "5e9150f46084229a42294f7ce854b839a42c9c922ab97f2e975b1d8523faa49c",
+        "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "paper": "8a625eab873b82692c2b5f8130aa103e315adff2f11e35003abb5863bdb7e5fb"
+      },
+      "commonInputSHA": {
+        "rgba": "9434fbd71649af7d0b0ec3e2910a2b9a721c785614e95c4a103303aafd4d0b04",
+        "water": "a5b6f8872386115a6c79544bbb84f25b32766797caf60fd9057b6b1c755974c7",
+        "paper": "d6b27b2771b5efd1a535e6c06e693268b6616a7c6772edc14bd778cccb56141a"
+      },
+      "arms": [
+        {
+          "arm": "original",
+          "gpuSamplesMs": [
+            60.2729,
+            58.95352,
+            61.49036,
+            105.84477,
+            59.62504
+          ],
+          "gpuMedianMs": 60.2729,
+          "fullCWallSamplesMs": [
+            69.59999999776483,
+            68.40000000223517,
+            71.29999999701977,
+            118.30000000074506,
+            73.30000000074506
+          ],
+          "fullCWallMedianMs": 71.29999999701977,
+          "outputSHA": {
+            "p": "ca52446d67471d2a8ad5b44620ac2fc2e6230437b4fa298f4e34ad90496133b2",
+            "c": "ac854dddd7400902ae7b75d1b86e056a8f203d7bcdd0de95b6aaea6dc19149af",
+            "coverage": "0258a0c0e65ed5c3d2e65389e098813d2e06d01c824dce4dc98d0b00b56a1214"
+          },
+          "audit": {
+            "dryChangedPixels": 0,
+            "wetChangedPixels": 89294,
+            "newPaintPixels": 76750,
+            "inputSum": [
+              746394,
+              2665223,
+              73235,
+              2727553
+            ],
+            "outputSum": [
+              676289,
+              2475506,
+              60912,
+              2526600
+            ],
+            "channelRatios": [
+              0.9060750756302971,
+              0.9288175886220402,
+              0.8317334607769509,
+              0.9263248046875716
+            ],
+            "qualification": "Native C channel sums are diagnostic, not an exact conserved-pigment ledger. New painted pixels use native C.a>0 within immutable initial solvent mask. All source readback and audit loops excluded from timings."
+          },
+          "config": {
+            "id": "original",
+            "model": "front8-detail-flow-v4"
+          },
+          "stats": null
+        },
+        {
+          "arm": "smooth",
+          "gpuSamplesMs": [
+            124.45792,
+            42.82397,
+            44.41957,
+            46.92385,
+            53.82413
+          ],
+          "gpuMedianMs": 46.92385,
+          "fullCWallSamplesMs": [
+            134.30000000074506,
+            52.400000002235174,
+            52.69999999925494,
+            56.5,
+            62.599999997764826
+          ],
+          "fullCWallMedianMs": 56.5,
+          "outputSHA": {
+            "p": "30c59d0ec2150cf3f2828ec7c63fbf14362a8385377461a5e50debbf6acdde1a",
+            "c": "6456ddae03f360d36d2da2bb225d5b6c2a9b0765169bba4f6f212fe92f1446d7",
+            "coverage": "0258a0c0e65ed5c3d2e65389e098813d2e06d01c824dce4dc98d0b00b56a1214"
+          },
+          "audit": {
+            "dryChangedPixels": 0,
+            "wetChangedPixels": 88767,
+            "newPaintPixels": 76219,
+            "inputSum": [
+              746394,
+              2665223,
+              73235,
+              2727553
+            ],
+            "outputSum": [
+              675430,
+              2475754,
+              60786,
+              2526472
+            ],
+            "channelRatios": [
+              0.9049242089298681,
+              0.9289106389971871,
+              0.8300129719396463,
+              0.9262778761769249
+            ],
+            "qualification": "Native C channel sums are diagnostic, not an exact conserved-pigment ledger. New painted pixels use native C.a>0 within immutable initial solvent mask. All source readback and audit loops excluded from timings."
+          },
+          "config": {
+            "id": "smooth-expansion",
+            "radiusPx": 24,
+            "allWetMobile": false,
+            "selection": "Original native contrast/Q selection and reference",
+            "fixedInitialWater": true,
+            "front": "bounded unit-step8-neighbor cost, no dry corner cutting",
+            "noise": "seed805, CPU integer lattice128\u00b2, costfactor1..1.7; flat variant factor1",
+            "qualification": "Different front hypothesis; native carry/diffusion/rim retain P/C transport. No exact mass-conservation or cross-GPU-equality claim."
+          },
+          "stats": {
+            "frontDraws": 44,
+            "outwardDraws": 24,
+            "inwardDraws": 20,
+            "coreCalls": 1
+          }
+        },
+        {
+          "arm": "noisy",
+          "gpuSamplesMs": [
+            47.29788,
+            59.6256,
+            42.11853,
+            57.48892,
+            86.25155
+          ],
+          "gpuMedianMs": 57.48892,
+          "fullCWallSamplesMs": [
+            56.5,
+            72.89999999850988,
+            51.400000002235174,
+            77.5,
+            103.19999999925494
+          ],
+          "fullCWallMedianMs": 72.89999999850988,
+          "outputSHA": {
+            "p": "c0e5d88226408e675b9ac2d95ed174dc7abe1d96a08aebf90a336658ee962c11",
+            "c": "609726f7cc506df0d2d55d6fdd0e5cdf20961a98edc4ee548125f8ed48a24e0c",
+            "coverage": "0258a0c0e65ed5c3d2e65389e098813d2e06d01c824dce4dc98d0b00b56a1214"
+          },
+          "audit": {
+            "dryChangedPixels": 0,
+            "wetChangedPixels": 88357,
+            "newPaintPixels": 75818,
+            "inputSum": [
+              746394,
+              2665223,
+              73235,
+              2727553
+            ],
+            "outputSum": [
+              675250,
+              2471760,
+              60980,
+              2523240
+            ],
+            "channelRatios": [
+              0.9046830494350169,
+              0.9274120777135721,
+              0.832661978562163,
+              0.9250929312830951
+            ],
+            "qualification": "Native C channel sums are diagnostic, not an exact conserved-pigment ledger. New painted pixels use native C.a>0 within immutable initial solvent mask. All source readback and audit loops excluded from timings."
+          },
+          "config": {
+            "id": "noisy-expansion",
+            "radiusPx": 24,
+            "allWetMobile": false,
+            "selection": "Original native contrast/Q selection and reference",
+            "fixedInitialWater": true,
+            "front": "bounded unit-step8-neighbor cost, no dry corner cutting",
+            "noise": "seed805, CPU integer lattice128\u00b2, costfactor1..1.7; flat variant factor1",
+            "qualification": "Different front hypothesis; native carry/diffusion/rim retain P/C transport. No exact mass-conservation or cross-GPU-equality claim."
+          },
+          "stats": {
+            "frontDraws": 44,
+            "outwardDraws": 24,
+            "inwardDraws": 20,
+            "coreCalls": 1
+          }
+        }
+      ],
+      "allArmsOutputExact": false
+    },
+    {
+      "scene": "mini-two-colors",
+      "synthetic": false,
+      "pass": true,
+      "buildManifestSHA": "eeefd41d9f484c54f07c20a8e2ffc166c24c50bfa87be10f9c800aa05543d0e0",
+      "sourceSHA": {
+        "p": "45f6370cd921cf7e31b1a1a462852d48a92339798452cb6c8659cab8c72d4855",
+        "c": "477c62fc9a9f1e375942f8828929097c87a7cca21cb69d445cfe9344a4449555",
+        "coverage": "9f2e71ec34eb2792960cf11421d1700699bf29f48c54d33c069cd5fa0c36328c",
+        "solvent": "9f79d0a715b9499397b3237d68602858548a9efb83c540486961f9fabd1fc5c8",
+        "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "paper": "8a625eab873b82692c2b5f8130aa103e315adff2f11e35003abb5863bdb7e5fb"
+      },
+      "commonInputSHA": {
+        "rgba": "0472eda738a82ad397c639abf0f8f39fb22b7092f021cdf24cf35d4a68df9b76",
+        "water": "bb4f30eac9659f6dd114b3622817e738f447cb48305b124bcefb4a17aea614ad",
+        "paper": "d6b27b2771b5efd1a535e6c06e693268b6616a7c6772edc14bd778cccb56141a"
+      },
+      "arms": [
+        {
+          "arm": "original",
+          "gpuSamplesMs": [
+            75.89543,
+            74.06206,
+            75.01004,
+            76.94619,
+            77.09047
+          ],
+          "gpuMedianMs": 75.89543,
+          "fullCWallSamplesMs": [
+            85.80000000074506,
+            84.5,
+            92.40000000223517,
+            86,
+            90.29999999701977
+          ],
+          "fullCWallMedianMs": 86,
+          "outputSHA": {
+            "p": "b6ec3bea682d912d507a980a226955eebad6a60b8016ecef8104e46781738ac1",
+            "c": "c0522fe216afbff446246bf979ae1c5e1fb87efafa687edb477a499e45a7226e",
+            "coverage": "0707927e65bc0e098e6716f3d7744b94b0b0ca35712eb6bd94d78943b0839b67"
+          },
+          "audit": {
+            "dryChangedPixels": 0,
+            "wetChangedPixels": 337293,
+            "newPaintPixels": 2206,
+            "inputSum": [
+              10500186,
+              12459962,
+              4476544,
+              39515767
+            ],
+            "outputSum": [
+              9922034,
+              11956008,
+              4262793,
+              37821672
+            ],
+            "channelRatios": [
+              0.9449388801303139,
+              0.9595541302613925,
+              0.9522508881851715,
+              0.9571286317180684
+            ],
+            "qualification": "Native C channel sums are diagnostic, not an exact conserved-pigment ledger. New painted pixels use native C.a>0 within immutable initial solvent mask. All source readback and audit loops excluded from timings."
+          },
+          "config": {
+            "id": "original",
+            "model": "front8-detail-flow-v4"
+          },
+          "stats": null
+        },
+        {
+          "arm": "smooth",
+          "gpuSamplesMs": [
+            59.8071,
+            58.72838,
+            61.55639,
+            59.15656,
+            59.47308
+          ],
+          "gpuMedianMs": 59.47308,
+          "fullCWallSamplesMs": [
+            68.69999999925494,
+            68.69999999925494,
+            70.80000000074506,
+            78.19999999925494,
+            75.79999999701977
+          ],
+          "fullCWallMedianMs": 70.80000000074506,
+          "outputSHA": {
+            "p": "d1d6643cb6a8f0541e47fbd602cb7ad82d0b4114cbe5cd10775102eee2e85432",
+            "c": "b57638a7560c51b2857b6da6f8c2dd38c8806b24362f4e2482fcde77d4bbdd1d",
+            "coverage": "0707927e65bc0e098e6716f3d7744b94b0b0ca35712eb6bd94d78943b0839b67"
+          },
+          "audit": {
+            "dryChangedPixels": 0,
+            "wetChangedPixels": 337296,
+            "newPaintPixels": 2206,
+            "inputSum": [
+              10500186,
+              12459962,
+              4476544,
+              39515767
+            ],
+            "outputSum": [
+              9938111,
+              11967503,
+              4268317,
+              37863976
+            ],
+            "channelRatios": [
+              0.9464699958648352,
+              0.9604766852418972,
+              0.9534848758327853,
+              0.9581991917302276
+            ],
+            "qualification": "Native C channel sums are diagnostic, not an exact conserved-pigment ledger. New painted pixels use native C.a>0 within immutable initial solvent mask. All source readback and audit loops excluded from timings."
+          },
+          "config": {
+            "id": "smooth-expansion",
+            "radiusPx": 24,
+            "allWetMobile": false,
+            "selection": "Original native contrast/Q selection and reference",
+            "fixedInitialWater": true,
+            "front": "bounded unit-step8-neighbor cost, no dry corner cutting",
+            "noise": "seed805, CPU integer lattice128\u00b2, costfactor1..1.7; flat variant factor1",
+            "qualification": "Different front hypothesis; native carry/diffusion/rim retain P/C transport. No exact mass-conservation or cross-GPU-equality claim."
+          },
+          "stats": {
+            "frontDraws": 44,
+            "outwardDraws": 24,
+            "inwardDraws": 20,
+            "coreCalls": 1
+          }
+        },
+        {
+          "arm": "noisy",
+          "gpuSamplesMs": [
+            59.32532,
+            57.64368,
+            57.25632,
+            60.13866,
+            60.97722
+          ],
+          "gpuMedianMs": 59.32532,
+          "fullCWallSamplesMs": [
+            68.60000000149012,
+            79.69999999925494,
+            76.60000000149012,
+            76.09999999776483,
+            71.19999999925494
+          ],
+          "fullCWallMedianMs": 76.09999999776483,
+          "outputSHA": {
+            "p": "2ca53d224a406fbebea13c689014e81b9f4426f35aebce8fd16f8efbd713de76",
+            "c": "e27e8c476c50529cbd4e037fb3f3a55da4f23c6f9f9d88723e5433727ad2d9e8",
+            "coverage": "0707927e65bc0e098e6716f3d7744b94b0b0ca35712eb6bd94d78943b0839b67"
+          },
+          "audit": {
+            "dryChangedPixels": 0,
+            "wetChangedPixels": 337258,
+            "newPaintPixels": 2206,
+            "inputSum": [
+              10500186,
+              12459962,
+              4476544,
+              39515767
+            ],
+            "outputSum": [
+              9943660,
+              11972069,
+              4274898,
+              37875132
+            ],
+            "channelRatios": [
+              0.946998462693899,
+              0.960843139007968,
+              0.9549549831298431,
+              0.9584815094187593
+            ],
+            "qualification": "Native C channel sums are diagnostic, not an exact conserved-pigment ledger. New painted pixels use native C.a>0 within immutable initial solvent mask. All source readback and audit loops excluded from timings."
+          },
+          "config": {
+            "id": "noisy-expansion",
+            "radiusPx": 24,
+            "allWetMobile": false,
+            "selection": "Original native contrast/Q selection and reference",
+            "fixedInitialWater": true,
+            "front": "bounded unit-step8-neighbor cost, no dry corner cutting",
+            "noise": "seed805, CPU integer lattice128\u00b2, costfactor1..1.7; flat variant factor1",
+            "qualification": "Different front hypothesis; native carry/diffusion/rim retain P/C transport. No exact mass-conservation or cross-GPU-equality claim."
+          },
+          "stats": {
+            "frontDraws": 44,
+            "outwardDraws": 24,
+            "inwardDraws": 20,
+            "coreCalls": 1
+          }
+        }
+      ],
+      "allArmsOutputExact": false
+    }
+  ]
+}
