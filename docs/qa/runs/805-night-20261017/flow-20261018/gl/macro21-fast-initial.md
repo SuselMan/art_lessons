@@ -41,3 +41,17 @@ comparisons, plus edge/frozen/alpha0 cases. Independent source audit found
 no blocker: bounded integer scalar sums/rounding, immediately packed dry
 words, normal wet cells skip the second pass, frozen cells revisit only wet
 pixels, untouched pads/aux.w remain0. No timing claim before paired device A/B.
+
+Read-only timing-boundary audit: current worker starts uploadJsMs before
+`await candidate.upload`. Coherent upload performs validateInput →initializer
+→buildStream →SHA256(66564vertexbytes) →four4-byte phase-flag writes →state
+0.75MiB +aux0.25MiB +stationary4MiB writes →await queue.onSubmittedWorkDone.
+Thus uploadJsMs includes CPU validation/reduction/field preparation, async
+hashing, JS upload/driver work AND a queue completion wait; it is not a pure
+CPU reducer timer or isolated GPU transfer timer. Pipeline compilation/buffer
+creation occurred in createMs before this interval. Full pixel/state readback
+and hashing follow the compute-ready interval; previous repeat readback is
+awaited before next upload. Awaiting the whole queue also covers any preceding
+creation writes, so broad wall changes must not be attributed to a particular
+component without the planned paired stage instrumentation. This audit adds
+no instrumentation, dispatch, timing change or new optimization.

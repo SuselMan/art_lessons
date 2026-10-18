@@ -1,5 +1,13 @@
 """Short Russian review labels. Parameters remain in evidence, never imply art acceptance."""
 LABELS={
+ 'wgsl-macro-physical-dt-fine':'Крупный шаг с бумажной фактурой',
+ 'wgsl-macro-coherent-physical-dt':'Вихри — более крупный шаг расчёта',
+ 'wgsl-macro-coherent-gated-exchange':'Вихри с разной частотой смешения',
+ 'wgsl-macro-packed-aux-coherent-fine':'Та же мелкая бумага — компактная память',
+ 'wgsl-macro-packed-carrier-coherent-fine':'Та же мелкая бумага — меньше памяти',
+ 'wgsl-macro-terminal-rim-coherent-fine':'Местное накопление у мокрой кромки',
+ 'wgsl-macro-limited-coherent-advection':'Перенос с ограничением размытия',
+ 'wgsl-macro-true-coherent-fine':'Вихри и мелкая бумага — проверенная связка',
  'wgsl-macro-coherent-safe-dither':'Водные вихри без мелкой фактуры',
  'wgsl-macro-coherent-fast-initial':'Те же вихри — быстрая подготовка',
  'wgsl-macro-fast-coherent-smooth-fine-paper':'Вихри и фактура — быстрая подготовка',
@@ -32,9 +40,13 @@ def review_label(algorithm,config,fallback=None):
  elif 'strength' in config:parts.append('без вихрей' if not config['strength'] else 'вихри '+str(config['strength']))
  if 'eddyCells' in config:parts.append('масштаб поля '+str(config['eddyCells']*8)+' px')
  if 'affinityBase' in config:parts.append('бумага '+str(config.get('paperGain',0))+'/'+str(config['affinityBase']))
+ if 'exchangeActiveSteps' in config:parts.append('смешение '+str(config['exchangeActiveSteps'])+'/256')
+ if 'limiter' in config:parts.append('реконструкция включена' if config['limiter'] else 'контроль без реконструкции')
+ if 'rimStrength' in config:parts.append('без кромки' if not config['rimStrength'] else 'кромка '+str(config['rimStrength']))
  if 'edgeStain' in config:parts.append('без осаждения' if not config['edgeStain'] else 'осаждение '+str(config['edgeStain']))
  if 'fineSteps' in config:parts.append('без мелкого переноса' if not config['fineSteps'] else str(config['fineSteps'])+' мелких шагов')
  if config.get('paperGain')==0:parts.append('без бумажного притяжения')
  if config.get('smooth')==0:parts.append('блочное отображение')
- if config.get('steps') in (256,384):parts.append(str(config['steps'])+' шагов')
+ if 'physicalDt' in config:parts.append('шаг ×'+str(config['physicalDt']))
+ if 'steps' in config:parts.append(str(config['steps'])+' шагов')
  return label+(' · '+', '.join(parts) if parts else '')

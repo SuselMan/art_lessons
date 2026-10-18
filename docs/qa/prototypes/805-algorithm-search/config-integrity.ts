@@ -15,6 +15,8 @@ export const strongConfigKeys:Readonly<Record<string,readonly string[]>>={
  'wgsl-macro-packed-carrier-coherent-fine':soft,
  'wgsl-macro-terminal-rim-coherent-fine':[...fine,'rimStrength','rimThreshold'],
  'wgsl-macro-limited-coherent-advection':[...coarse,'exchangeActiveSteps','limiter'],
+ 'wgsl-macro-physical-dt-fine':[...soft,'physicalDt'],
+ 'wgsl-macro-coherent-physical-dt':[...coarse,'physicalDt'],
  'wgsl-macro-true-coherent-fine':[...soft,'compactAux','compactCarrier'],
 }
 export function assertDefinitionConfig(definition:ConfigContract,config:unknown):void{
