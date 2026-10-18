@@ -1,0 +1,128 @@
+{
+  "qualification": "Headless Chromium with --disable-gpu; static image gallery UI only. No rendering engine/GPU correctness/performance claim. No service started.",
+  "sourceChecks": {
+    "qualification": "Static HTML refresh only; no image/data/worker/kernel changes; headless GPUdisabled UI only",
+    "changed": [
+      "index.html"
+    ],
+    "mainSHA": "9f4e4f30f434a60c70f1037a542461dcf65c0cc9ca0ffb03c7aec5d261a30106",
+    "templateSHA": "59f40ddcc09a9d8f7afbd2d49547e0e1d0347094f8c78b4bb35ee0b4e9080ba9",
+    "eddyHTMLBeforeSHA": "9a8e0a0f4c75fab0137e21228fbadaa1bb0fba29e993baf379e9067a6f0b1a73",
+    "eddyHTMLAfterSHA": "5f5694740a2ede7106d4c820f01a9d5c12bc9d6d1b6f5ab2e8ac00b7b815905d",
+    "comparisonJSON_SHA": "472dc63d5858d5e272fab3448b7c8df905b5d1a2f6936bece76f9503462a2cc4",
+    "preservedOtherFileCount": 37,
+    "scenes": 3,
+    "variants": 36
+  },
+  "mainScenes": 30,
+  "mainVariants": 404,
+  "views": {
+    "main": [
+      {
+        "width": 320,
+        "cards": 30,
+        "overflow": false,
+        "errors": [],
+        "independentSwitch": true,
+        "keyboardZoom": true,
+        "actualZoomCentered": true,
+        "actualSize": true,
+        "swipe": true
+      },
+      {
+        "width": 390,
+        "cards": 30,
+        "overflow": false,
+        "errors": [],
+        "independentSwitch": true,
+        "keyboardZoom": true,
+        "actualZoomCentered": true,
+        "actualSize": true,
+        "swipe": true
+      },
+      {
+        "width": 768,
+        "cards": 30,
+        "overflow": false,
+        "errors": [],
+        "independentSwitch": true,
+        "keyboardZoom": true,
+        "actualZoomCentered": null,
+        "actualSize": true,
+        "swipe": true
+      },
+      {
+        "width": 1440,
+        "cards": 30,
+        "overflow": false,
+        "errors": [],
+        "independentSwitch": true,
+        "keyboardZoom": true,
+        "actualZoomCentered": null,
+        "actualSize": true,
+        "swipe": true
+      }
+    ],
+    "eddy": [
+      {
+        "width": 320,
+        "cards": 3,
+        "overflow": false,
+        "errors": [],
+        "independentSwitch": true,
+        "keyboardZoom": true,
+        "actualZoomCentered": true,
+        "actualSize": true,
+        "swipe": true
+      },
+      {
+        "width": 390,
+        "cards": 3,
+        "overflow": false,
+        "errors": [],
+        "independentSwitch": true,
+        "keyboardZoom": true,
+        "actualZoomCentered": true,
+        "actualSize": true,
+        "swipe": true
+      },
+      {
+        "width": 768,
+        "cards": 3,
+        "overflow": false,
+        "errors": [],
+        "independentSwitch": true,
+        "keyboardZoom": true,
+        "actualZoomCentered": null,
+        "actualSize": true,
+        "swipe": true
+      },
+      {
+        "width": 1440,
+        "cards": 3,
+        "overflow": false,
+        "errors": [],
+        "independentSwitch": true,
+        "keyboardZoom": true,
+        "actualZoomCentered": null,
+        "actualSize": true,
+        "swipe": true
+      }
+    ]
+  },
+  "screenshots": [
+    {
+      "file": "main-390.png",
+      "sha256": "99fe46d6937526135d3d09ca3bcbebc1d45f472eae1b6ab8667b591f761a6e7d"
+    },
+    {
+      "file": "eddy-390.png",
+      "sha256": "da164c8cbe06bdaeea5da9b29cecb3788cf811e9fef6efd2347c8dc2305c8097"
+    }
+  ],
+  "ownedBrowserClosed": true,
+  "ownedPagesClosed": true,
+  "harnessChanged": false,
+  "dataAndImagesPreserved": true,
+  "onlyStaticMutation": "eddy/index.html refreshed from currentcompare.html and unchangedexistingcomparisonJSON"
+}
