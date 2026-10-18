@@ -1,0 +1,54 @@
+[
+  {
+    "encoding": "optical-density",
+    "fixtures": {
+      "A": "mini-wave",
+      "B": "water-only",
+      "C": "dynamic-opaque-stationary"
+    },
+    "sequence": [
+      "A",
+      "B",
+      "A",
+      "C",
+      "B",
+      "A"
+    ],
+    "algorithm": "wgsl-macro-coherent-physical-dt",
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "encoding": "optical-density",
+    "fixtures": {
+      "A": "mini-wave",
+      "B": "water-only",
+      "C": "dynamic-opaque-stationary"
+    },
+    "sequence": [
+      "A",
+      "B",
+      "A",
+      "C",
+      "B",
+      "A"
+    ],
+    "algorithm": "wgsl-macro-physical-dt-fine",
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1,
+      "dither": 1,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  }
+]
