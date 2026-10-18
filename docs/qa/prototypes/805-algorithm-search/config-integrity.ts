@@ -4,6 +4,7 @@ const coarse=['steps','mobilityGain','eddyCells','curlStrength'] as const
 const fine=[...coarse,'fineSteps','paperGain','dither'] as const
 const soft=[...fine,'affinityBase'] as const
 export const strongConfigKeys:Readonly<Record<string,readonly string[]>>={
+ 'wgsl-fixed-wet-b-lite-coherent':['fineSteps'],
  'wgsl-macro-coherent-advection':coarse,
  'wgsl-macro-coherent-smooth-fine-paper':fine,
  'wgsl-macro-coherent-safe-dither':coarse,
