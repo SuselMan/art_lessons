@@ -1,3 +1,4 @@
+import {initialCoarsePigment} from './coarse-carrier-ledger'
 import type {Input} from './contract'
 import type {initialIntegerDynamic} from './macro8-integer-dynamic'
 /** Same validated1024 input domain and exact rounding as old initializer; caller factory retains validateInput. */
@@ -24,5 +25,5 @@ export function initialIntegerDynamicFast(input:Input):ReturnType<typeof initial
   }else{state[j*12]=cr;state[j*12+1]=cg;state[j*12+2]=cb;state[j*12+3]=ca;initialMobileAlpha+=a;initialMobileCodes+=ca}
   const W=Math.floor((water*257+128)/256),P=Math.floor((paper+32)/64);state[j*12+8]=W;initialWaterCodes+=W;aux[j*4]=cap;aux[j*4+1]=8192+P*64;aux[j*4+2]=P
  }
- return{state,aux,stationary,summary:{initialStationaryAlpha,initialMobileAlpha,frozenWetAlpha,frozenCellCount,initialWaterCodes,initialMobileCodes}}
+ return{state,aux,stationary,summary:{initialStationaryAlpha,initialMobileAlpha,frozenWetAlpha,frozenCellCount,initialWaterCodes,initialMobileCodes,initialCoarsePigmentCodesRGBA:initialCoarsePigment(state)}}
 }
