@@ -1,0 +1,1390 @@
+{
+  "scope": "CPU initial reconstruction, not final GPU state",
+  "results": [
+    {
+      "fixture": "gallery-sheet-1-slot-17.bin",
+      "qualification": "INITIAL reduction only; actual final coarse matrix not exported, no post-physics severity claim",
+      "inputSumByteCodes": [
+        2039874,
+        7796653,
+        542250,
+        9010145
+      ],
+      "stationaryFinePixels": 4,
+      "idealCarrierSum": [
+        524248384,
+        2003739904,
+        139356928,
+        2315607104
+      ],
+      "floorLossCarrierCodes": [
+        63629,
+        64004,
+        58842,
+        64160
+      ],
+      "floorLossSumByteCodes": [
+        247.58365758754863,
+        249.04280155642024,
+        228.95719844357976,
+        249.6498054474708
+      ],
+      "floorLossRelativeInput": [
+        0.00012137203454112785,
+        0.000031942270812414025,
+        0.00042223549736022085,
+        0.00002770763461048305
+      ],
+      "localNearestDeltaSumByteCodes": [
+        -6.945525291828794,
+        -26.48249027237354,
+        -1.793774319066148,
+        -30.595330739299612
+      ],
+      "initialSummary": {
+        "initialStationaryAlpha": 4,
+        "initialMobileAlpha": 9010141,
+        "frozenWetAlpha": 0,
+        "frozenCellCount": 0,
+        "initialWaterCodes": 6974243,
+        "initialMobileCodes": 36181361
+      },
+      "geometry": {
+        "stationary": [
+          275,
+          415,
+          504,
+          601
+        ],
+        "delta": [
+          275,
+          415,
+          504,
+          601
+        ]
+      },
+      "topLocalFallbackROIs": [
+        {
+          "coarseX": 51,
+          "coarseY": 75,
+          "fineBounds": [
+            408,
+            600,
+            415,
+            607
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": -4686,
+          "alphaDeltaSumByteCodes": -18.233463035019454
+        },
+        {
+          "coarseX": 63,
+          "coarseY": 51,
+          "fineBounds": [
+            504,
+            408,
+            511,
+            415
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": -3193,
+          "alphaDeltaSumByteCodes": -12.424124513618677
+        },
+        {
+          "coarseX": 35,
+          "coarseY": 74,
+          "fineBounds": [
+            280,
+            592,
+            287,
+            599
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": 983,
+          "alphaDeltaSumByteCodes": 3.8249027237354087
+        },
+        {
+          "coarseX": 34,
+          "coarseY": 53,
+          "fineBounds": [
+            272,
+            424,
+            279,
+            431
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": -967,
+          "alphaDeltaSumByteCodes": -3.762645914396887
+        }
+      ],
+      "initialNearestWithLiteralSumByteCodes": [
+        2039876.980544747,
+        7796657.322957198,
+        542244.8560311284,
+        9010148.373540856
+      ],
+      "localHybridPrePackSumByteCodes": [
+        2039622.4513618676,
+        7796381.79766537,
+        542014.1050583657,
+        9009868.12840467
+      ]
+    },
+    {
+      "fixture": "gallery-sheet-10-slot-3.bin",
+      "qualification": "INITIAL reduction only; actual final coarse matrix not exported, no post-physics severity claim",
+      "inputSumByteCodes": [
+        7568440,
+        1820632,
+        554926,
+        7568534
+      ],
+      "stationaryFinePixels": 0,
+      "idealCarrierSum": [
+        1945094144,
+        467905728,
+        142616000,
+        1945118272
+      ],
+      "floorLossCarrierCodes": [
+        145054,
+        131392,
+        40659,
+        145058
+      ],
+      "floorLossSumByteCodes": [
+        564.4124513618677,
+        511.25291828793775,
+        158.20622568093384,
+        564.4280155642024
+      ],
+      "floorLossRelativeInput": [
+        0.0000745744765581636,
+        0.000280810684579826,
+        0.00028509427505817687,
+        0.00007457560679045669
+      ],
+      "localNearestDeltaSumByteCodes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialSummary": {
+        "initialStationaryAlpha": 0,
+        "initialMobileAlpha": 7568534,
+        "frozenWetAlpha": 0,
+        "frozenCellCount": 0,
+        "initialWaterCodes": 20332627,
+        "initialMobileCodes": 30392473
+      },
+      "geometry": {
+        "stationary": [
+          1024,
+          1024,
+          -1,
+          -1
+        ],
+        "delta": [
+          1024,
+          1024,
+          -1,
+          -1
+        ]
+      },
+      "topLocalFallbackROIs": [],
+      "initialNearestWithLiteralSumByteCodes": [
+        7568459.704280156,
+        1820644.8560311284,
+        554926.0700389105,
+        7568553.587548638
+      ],
+      "localHybridPrePackSumByteCodes": [
+        7567895.2918287935,
+        1820133.6031128406,
+        554767.8638132296,
+        7567989.159533074
+      ]
+    },
+    {
+      "fixture": "gallery-sheet-12-slot-1.bin",
+      "qualification": "INITIAL reduction only; actual final coarse matrix not exported, no post-physics severity claim",
+      "inputSumByteCodes": [
+        1837695,
+        1065574,
+        513160,
+        2420311
+      ],
+      "stationaryFinePixels": 504,
+      "idealCarrierSum": [
+        468650624,
+        271778368,
+        130888000,
+        617259584
+      ],
+      "floorLossCarrierCodes": [
+        26481,
+        25825,
+        24265,
+        26626
+      ],
+      "floorLossSumByteCodes": [
+        103.03891050583658,
+        100.4863813229572,
+        94.41634241245136,
+        103.60311284046692
+      ],
+      "floorLossRelativeInput": [
+        0.00005606964730591125,
+        0.0000943025836994495,
+        0.00018399006628040253,
+        0.00004280570258965353
+      ],
+      "localNearestDeltaSumByteCodes": [
+        -4349.789883268482,
+        -2513.673151750973,
+        -1212.408560311284,
+        -5723.622568093385
+      ],
+      "initialSummary": {
+        "initialStationaryAlpha": 18523,
+        "initialMobileAlpha": 2401788,
+        "frozenWetAlpha": 15738,
+        "frozenCellCount": 1,
+        "initialWaterCodes": 162308,
+        "initialMobileCodes": 9644681
+      },
+      "geometry": {
+        "stationary": [
+          178,
+          465,
+          846,
+          557
+        ],
+        "delta": [
+          178,
+          465,
+          846,
+          557
+        ]
+      },
+      "topLocalFallbackROIs": [
+        {
+          "coarseX": 24,
+          "coarseY": 61,
+          "fineBounds": [
+            192,
+            488,
+            199,
+            495
+          ],
+          "stationaryCount": 64,
+          "alphaDeltaCarrierCodes": -1179491,
+          "alphaDeltaSumByteCodes": -4589.459143968872
+        },
+        {
+          "coarseX": 27,
+          "coarseY": 66,
+          "fineBounds": [
+            216,
+            528,
+            223,
+            535
+          ],
+          "stationaryCount": 8,
+          "alphaDeltaCarrierCodes": -78834,
+          "alphaDeltaSumByteCodes": -306.74708171206225
+        },
+        {
+          "coarseX": 22,
+          "coarseY": 63,
+          "fineBounds": [
+            176,
+            504,
+            183,
+            511
+          ],
+          "stationaryCount": 4,
+          "alphaDeltaCarrierCodes": -72823,
+          "alphaDeltaSumByteCodes": -283.3579766536965
+        },
+        {
+          "coarseX": 28,
+          "coarseY": 66,
+          "fineBounds": [
+            224,
+            528,
+            231,
+            535
+          ],
+          "stationaryCount": 8,
+          "alphaDeltaCarrierCodes": -66785,
+          "alphaDeltaSumByteCodes": -259.863813229572
+        },
+        {
+          "coarseX": 23,
+          "coarseY": 66,
+          "fineBounds": [
+            184,
+            528,
+            191,
+            535
+          ],
+          "stationaryCount": 4,
+          "alphaDeltaCarrierCodes": 57234,
+          "alphaDeltaSumByteCodes": 222.70038910505838
+        },
+        {
+          "coarseX": 22,
+          "coarseY": 65,
+          "fineBounds": [
+            176,
+            520,
+            183,
+            527
+          ],
+          "stationaryCount": 5,
+          "alphaDeltaCarrierCodes": 50943,
+          "alphaDeltaSumByteCodes": 198.22178988326849
+        },
+        {
+          "coarseX": 23,
+          "coarseY": 62,
+          "fineBounds": [
+            184,
+            496,
+            191,
+            503
+          ],
+          "stationaryCount": 3,
+          "alphaDeltaCarrierCodes": 36918,
+          "alphaDeltaSumByteCodes": 143.6498054474708
+        },
+        {
+          "coarseX": 30,
+          "coarseY": 66,
+          "fineBounds": [
+            240,
+            528,
+            247,
+            535
+          ],
+          "stationaryCount": 5,
+          "alphaDeltaCarrierCodes": -32841,
+          "alphaDeltaSumByteCodes": -127.78599221789884
+        },
+        {
+          "coarseX": 26,
+          "coarseY": 58,
+          "fineBounds": [
+            208,
+            464,
+            215,
+            471
+          ],
+          "stationaryCount": 2,
+          "alphaDeltaCarrierCodes": -31512,
+          "alphaDeltaSumByteCodes": -122.6147859922179
+        },
+        {
+          "coarseX": 49,
+          "coarseY": 58,
+          "fineBounds": [
+            392,
+            464,
+            399,
+            471
+          ],
+          "stationaryCount": 4,
+          "alphaDeltaCarrierCodes": -28143,
+          "alphaDeltaSumByteCodes": -109.50583657587549
+        },
+        {
+          "coarseX": 24,
+          "coarseY": 59,
+          "fineBounds": [
+            192,
+            472,
+            199,
+            479
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": -27969,
+          "alphaDeltaSumByteCodes": -108.82879377431907
+        },
+        {
+          "coarseX": 29,
+          "coarseY": 66,
+          "fineBounds": [
+            232,
+            528,
+            239,
+            535
+          ],
+          "stationaryCount": 4,
+          "alphaDeltaCarrierCodes": -27899,
+          "alphaDeltaSumByteCodes": -108.55642023346303
+        }
+      ],
+      "initialNearestWithLiteralSumByteCodes": [
+        1837693.2840466925,
+        1065571.3774319065,
+        513162.8287937743,
+        2420311.2645914396
+      ],
+      "localHybridPrePackSumByteCodes": [
+        1833240.4552529182,
+        1062957.2178988326,
+        511856.0038910506,
+        2414484.038910506
+      ]
+    },
+    {
+      "fixture": "gallery-sheet-2-slot-7.bin",
+      "qualification": "INITIAL reduction only; actual final coarse matrix not exported, no post-physics severity claim",
+      "inputSumByteCodes": [
+        1493259,
+        4450920,
+        511535,
+        6720101
+      ],
+      "stationaryFinePixels": 3,
+      "idealCarrierSum": [
+        383767616,
+        1143885696,
+        131464768,
+        1727066176
+      ],
+      "floorLossCarrierCodes": [
+        72119,
+        72532,
+        65120,
+        72548
+      ],
+      "floorLossSumByteCodes": [
+        280.61867704280155,
+        282.2256809338521,
+        253.3852140077821,
+        282.28793774319064
+      ],
+      "floorLossRelativeInput": [
+        0.0001879236468976926,
+        0.00006340839218270653,
+        0.0004953428680496586,
+        0.00004200650224500951
+      ],
+      "localNearestDeltaSumByteCodes": [
+        -2.8910505836575875,
+        -8.785992217898833,
+        -1.105058365758755,
+        -13.17509727626459
+      ],
+      "initialSummary": {
+        "initialStationaryAlpha": 4,
+        "initialMobileAlpha": 6720097,
+        "frozenWetAlpha": 0,
+        "frozenCellCount": 0,
+        "initialWaterCodes": 7766283,
+        "initialMobileCodes": 26985409
+      },
+      "geometry": {
+        "stationary": [
+          350,
+          333,
+          528,
+          521
+        ],
+        "delta": [
+          350,
+          333,
+          528,
+          521
+        ]
+      },
+      "topLocalFallbackROIs": [
+        {
+          "coarseX": 43,
+          "coarseY": 41,
+          "fineBounds": [
+            344,
+            328,
+            351,
+            335
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": -4186,
+          "alphaDeltaSumByteCodes": -16.28793774319066
+        },
+        {
+          "coarseX": 65,
+          "coarseY": 56,
+          "fineBounds": [
+            520,
+            448,
+            527,
+            455
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": 445,
+          "alphaDeltaSumByteCodes": 1.7315175097276265
+        },
+        {
+          "coarseX": 66,
+          "coarseY": 65,
+          "fineBounds": [
+            528,
+            520,
+            535,
+            527
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": 355,
+          "alphaDeltaSumByteCodes": 1.3813229571984436
+        }
+      ],
+      "initialNearestWithLiteralSumByteCodes": [
+        1493259.206225681,
+        4450920.1050583655,
+        511536.0622568093,
+        6720105.852140077
+      ],
+      "localHybridPrePackSumByteCodes": [
+        1492975.6964980545,
+        4450629.093385214,
+        511281.5719844358,
+        6719810.389105058
+      ]
+    },
+    {
+      "fixture": "gallery-sheet-3-slot-1.bin",
+      "qualification": "INITIAL reduction only; actual final coarse matrix not exported, no post-physics severity claim",
+      "inputSumByteCodes": [
+        746529,
+        2665711,
+        73244,
+        2728050
+      ],
+      "stationaryFinePixels": 0,
+      "idealCarrierSum": [
+        191858176,
+        685087744,
+        18823872,
+        701109184
+      ],
+      "floorLossCarrierCodes": [
+        8599,
+        8643,
+        8425,
+        8591
+      ],
+      "floorLossSumByteCodes": [
+        33.459143968871594,
+        33.63035019455253,
+        32.782101167315176,
+        33.42801556420233
+      ],
+      "floorLossRelativeInput": [
+        0.000044819617146650155,
+        0.000012615902547032491,
+        0.0004475738786428264,
+        0.00001225344680786728
+      ],
+      "localNearestDeltaSumByteCodes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialSummary": {
+        "initialStationaryAlpha": 0,
+        "initialMobileAlpha": 2728050,
+        "frozenWetAlpha": 0,
+        "frozenCellCount": 0,
+        "initialWaterCodes": 20700892,
+        "initialMobileCodes": 10954831
+      },
+      "geometry": {
+        "stationary": [
+          1024,
+          1024,
+          -1,
+          -1
+        ],
+        "delta": [
+          1024,
+          1024,
+          -1,
+          -1
+        ]
+      },
+      "topLocalFallbackROIs": [],
+      "initialNearestWithLiteralSumByteCodes": [
+        746529.8677042802,
+        2665711.06614786,
+        73244.63813229572,
+        2728051.299610895
+      ],
+      "localHybridPrePackSumByteCodes": [
+        746496.4085603113,
+        2665677.4357976653,
+        73211.85603112841,
+        2728017.8715953305
+      ]
+    },
+    {
+      "fixture": "gallery-sheet-4-slot-1.bin",
+      "qualification": "INITIAL reduction only; actual final coarse matrix not exported, no post-physics severity claim",
+      "inputSumByteCodes": [
+        1677624,
+        5271536,
+        299792,
+        5377731
+      ],
+      "stationaryFinePixels": 0,
+      "idealCarrierSum": [
+        431149504,
+        1354785024,
+        77047872,
+        1382077440
+      ],
+      "floorLossCarrierCodes": [
+        36366,
+        38086,
+        30078,
+        37957
+      ],
+      "floorLossSumByteCodes": [
+        141.50194552529183,
+        148.1945525291829,
+        117.03501945525292,
+        147.69260700389106
+      ],
+      "floorLossRelativeInput": [
+        0.00008434663877322441,
+        0.000028112214832485803,
+        0.00039038740011492276,
+        0.00002746374019152149
+      ],
+      "localNearestDeltaSumByteCodes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialSummary": {
+        "initialStationaryAlpha": 0,
+        "initialMobileAlpha": 5377731,
+        "frozenWetAlpha": 0,
+        "frozenCellCount": 0,
+        "initialWaterCodes": 7499682,
+        "initialMobileCodes": 21594960
+      },
+      "geometry": {
+        "stationary": [
+          1024,
+          1024,
+          -1,
+          -1
+        ],
+        "delta": [
+          1024,
+          1024,
+          -1,
+          -1
+        ]
+      },
+      "topLocalFallbackROIs": [],
+      "initialNearestWithLiteralSumByteCodes": [
+        1677624.5291828795,
+        5271537.0583657585,
+        299797.1673151751,
+        5377733.229571984
+      ],
+      "localHybridPrePackSumByteCodes": [
+        1677483.027237354,
+        5271388.86381323,
+        299680.1322957199,
+        5377585.536964981
+      ]
+    },
+    {
+      "fixture": "gallery-sheet-5-slot-1.bin",
+      "qualification": "INITIAL reduction only; actual final coarse matrix not exported, no post-physics severity claim",
+      "inputSumByteCodes": [
+        53908,
+        181956,
+        5200,
+        181956
+      ],
+      "stationaryFinePixels": 0,
+      "idealCarrierSum": [
+        13855040,
+        46762688,
+        1336448,
+        46762688
+      ],
+      "floorLossCarrierCodes": [
+        13248,
+        20281,
+        2306,
+        20281
+      ],
+      "floorLossSumByteCodes": [
+        51.54863813229572,
+        78.91439688715953,
+        8.972762645914397,
+        78.91439688715953
+      ],
+      "floorLossRelativeInput": [
+        0.0009562335484955057,
+        0.0004337004379474133,
+        0.001725531278060461,
+        0.0004337004379474133
+      ],
+      "localNearestDeltaSumByteCodes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialSummary": {
+        "initialStationaryAlpha": 0,
+        "initialMobileAlpha": 181956,
+        "frozenWetAlpha": 0,
+        "frozenCellCount": 0,
+        "initialWaterCodes": 3408786,
+        "initialMobileCodes": 730667
+      },
+      "geometry": {
+        "stationary": [
+          1024,
+          1024,
+          -1,
+          -1
+        ],
+        "delta": [
+          1024,
+          1024,
+          -1,
+          -1
+        ]
+      },
+      "topLocalFallbackROIs": [],
+      "initialNearestWithLiteralSumByteCodes": [
+        53910.66147859922,
+        181955.98443579767,
+        5200.186770428016,
+        181955.98443579767
+      ],
+      "localHybridPrePackSumByteCodes": [
+        53859.11284046693,
+        181877.07003891052,
+        5191.214007782101,
+        181877.07003891052
+      ]
+    },
+    {
+      "fixture": "gallery-sheet-6-slot-6.bin",
+      "qualification": "INITIAL reduction only; actual final coarse matrix not exported, no post-physics severity claim",
+      "inputSumByteCodes": [
+        1837732,
+        4832179,
+        631696,
+        4925731
+      ],
+      "stationaryFinePixels": 4,
+      "idealCarrierSum": [
+        472298624,
+        1241869440,
+        162345984,
+        1265912576
+      ],
+      "floorLossCarrierCodes": [
+        89199,
+        91029,
+        74046,
+        90983
+      ],
+      "floorLossSumByteCodes": [
+        347.07782101167317,
+        354.19844357976655,
+        288.1167315175097,
+        354.0194552529183
+      ],
+      "floorLossRelativeInput": [
+        0.00018886204354697701,
+        0.00007329994265108278,
+        0.00045610029431484406,
+        0.00007187145527291651
+      ],
+      "localNearestDeltaSumByteCodes": [
+        1.0428015564202335,
+        2.7237354085603114,
+        0.377431906614786,
+        2.7704280155642023
+      ],
+      "initialSummary": {
+        "initialStationaryAlpha": 4,
+        "initialMobileAlpha": 4925727,
+        "frozenWetAlpha": 0,
+        "frozenCellCount": 0,
+        "initialWaterCodes": 10382075,
+        "initialMobileCodes": 19779884
+      },
+      "geometry": {
+        "stationary": [
+          195,
+          360,
+          220,
+          486
+        ],
+        "delta": [
+          195,
+          360,
+          220,
+          486
+        ]
+      },
+      "topLocalFallbackROIs": [
+        {
+          "coarseX": 25,
+          "coarseY": 45,
+          "fineBounds": [
+            200,
+            360,
+            207,
+            367
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": 7913,
+          "alphaDeltaSumByteCodes": 30.78988326848249
+        },
+        {
+          "coarseX": 27,
+          "coarseY": 45,
+          "fineBounds": [
+            216,
+            360,
+            223,
+            367
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": -7364,
+          "alphaDeltaSumByteCodes": -28.653696498054476
+        },
+        {
+          "coarseX": 24,
+          "coarseY": 58,
+          "fineBounds": [
+            192,
+            464,
+            199,
+            471
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": 1266,
+          "alphaDeltaSumByteCodes": 4.926070038910506
+        },
+        {
+          "coarseX": 24,
+          "coarseY": 60,
+          "fineBounds": [
+            192,
+            480,
+            199,
+            487
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": -1103,
+          "alphaDeltaSumByteCodes": -4.291828793774319
+        }
+      ],
+      "initialNearestWithLiteralSumByteCodes": [
+        1837737.8365758755,
+        4832180.809338521,
+        631696.4357976654,
+        4925733.86770428
+      ],
+      "localHybridPrePackSumByteCodes": [
+        1837391.8015564203,
+        4831829.334630351,
+        631408.6964980544,
+        4925382.618677042
+      ]
+    },
+    {
+      "fixture": "gallery-sheet-7-slot-1.bin",
+      "qualification": "INITIAL reduction only; actual final coarse matrix not exported, no post-physics severity claim",
+      "inputSumByteCodes": [
+        3268769,
+        661521,
+        1804009,
+        7443096
+      ],
+      "stationaryFinePixels": 2,
+      "idealCarrierSum": [
+        840073728,
+        170011520,
+        463629952,
+        1912875264
+      ],
+      "floorLossCarrierCodes": [
+        62081,
+        64835,
+        75421,
+        77440
+      ],
+      "floorLossSumByteCodes": [
+        241.5603112840467,
+        252.27626459143968,
+        293.46692607003894,
+        301.3229571984436
+      ],
+      "floorLossRelativeInput": [
+        0.00007389947447618559,
+        0.00038135790789928014,
+        0.00016267486806886158,
+        0.00004048355109197081
+      ],
+      "localNearestDeltaSumByteCodes": [
+        -1.715953307392996,
+        -0.33852140077821014,
+        -1.1245136186770428,
+        -5.167315175097277
+      ],
+      "initialSummary": {
+        "initialStationaryAlpha": 2,
+        "initialMobileAlpha": 7443094,
+        "frozenWetAlpha": 0,
+        "frozenCellCount": 0,
+        "initialWaterCodes": 9992575,
+        "initialMobileCodes": 29888676
+      },
+      "geometry": {
+        "stationary": [
+          466,
+          449,
+          571,
+          593
+        ],
+        "delta": [
+          466,
+          449,
+          571,
+          593
+        ]
+      },
+      "topLocalFallbackROIs": [
+        {
+          "coarseX": 71,
+          "coarseY": 74,
+          "fineBounds": [
+            568,
+            592,
+            575,
+            599
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": -900,
+          "alphaDeltaSumByteCodes": -3.501945525291829
+        },
+        {
+          "coarseX": 58,
+          "coarseY": 56,
+          "fineBounds": [
+            464,
+            448,
+            471,
+            455
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": -428,
+          "alphaDeltaSumByteCodes": -1.6653696498054475
+        }
+      ],
+      "initialNearestWithLiteralSumByteCodes": [
+        3268770.3696498056,
+        661523.4241245136,
+        1804007.5953307394,
+        7443096.412451362
+      ],
+      "localHybridPrePackSumByteCodes": [
+        3268527.093385214,
+        661270.8093385214,
+        1803713.0038910506,
+        7442789.922178988
+      ]
+    },
+    {
+      "fixture": "gallery-sheet-8-slot-6.bin",
+      "qualification": "INITIAL reduction only; actual final coarse matrix not exported, no post-physics severity claim",
+      "inputSumByteCodes": [
+        3047470,
+        402008,
+        422254,
+        3074872
+      ],
+      "stationaryFinePixels": 0,
+      "idealCarrierSum": [
+        783201024,
+        103317632,
+        108520704,
+        790243072
+      ],
+      "floorLossCarrierCodes": [
+        47922,
+        30437,
+        31386,
+        47911
+      ],
+      "floorLossSumByteCodes": [
+        186.4669260700389,
+        118.43190661478599,
+        122.12451361867704,
+        186.42412451361866
+      ],
+      "floorLossRelativeInput": [
+        0.00006118745256558356,
+        0.000294600870168718,
+        0.00028922050144859974,
+        0.00006062825526188364
+      ],
+      "localNearestDeltaSumByteCodes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialSummary": {
+        "initialStationaryAlpha": 0,
+        "initialMobileAlpha": 3074872,
+        "frozenWetAlpha": 0,
+        "frozenCellCount": 0,
+        "initialWaterCodes": 5272679,
+        "initialMobileCodes": 12347548
+      },
+      "geometry": {
+        "stationary": [
+          1024,
+          1024,
+          -1,
+          -1
+        ],
+        "delta": [
+          1024,
+          1024,
+          -1,
+          -1
+        ]
+      },
+      "topLocalFallbackROIs": [],
+      "initialNearestWithLiteralSumByteCodes": [
+        3047474.80155642,
+        402014.1322957199,
+        422259.5486381323,
+        3074875.766536965
+      ],
+      "localHybridPrePackSumByteCodes": [
+        3047288.33463035,
+        401895.70038910507,
+        422137.42412451364,
+        3074689.3424124513
+      ]
+    },
+    {
+      "fixture": "gallery-sheet-9-slot-1.bin",
+      "qualification": "INITIAL reduction only; actual final coarse matrix not exported, no post-physics severity claim",
+      "inputSumByteCodes": [
+        8520858,
+        2404993,
+        576527,
+        8715636
+      ],
+      "stationaryFinePixels": 0,
+      "idealCarrierSum": [
+        2189859904,
+        618084928,
+        148167168,
+        2239917696
+      ],
+      "floorLossCarrierCodes": [
+        123101,
+        113007,
+        78668,
+        123005
+      ],
+      "floorLossSumByteCodes": [
+        478.9922178988327,
+        439.715953307393,
+        306.1011673151751,
+        478.61867704280155
+      ],
+      "floorLossRelativeInput": [
+        0.00005621408288916828,
+        0.00018283460837823352,
+        0.0005309398645946766,
+        0.00005491494562677945
+      ],
+      "localNearestDeltaSumByteCodes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialSummary": {
+        "initialStationaryAlpha": 0,
+        "initialMobileAlpha": 8715636,
+        "frozenWetAlpha": 0,
+        "frozenCellCount": 0,
+        "initialWaterCodes": 14135629,
+        "initialMobileCodes": 34998714
+      },
+      "geometry": {
+        "stationary": [
+          1024,
+          1024,
+          -1,
+          -1
+        ],
+        "delta": [
+          1024,
+          1024,
+          -1,
+          -1
+        ]
+      },
+      "topLocalFallbackROIs": [],
+      "initialNearestWithLiteralSumByteCodes": [
+        8520855.657587549,
+        2404999.719844358,
+        576525.9455252918,
+        8715633.058365759
+      ],
+      "localHybridPrePackSumByteCodes": [
+        8520376.66536965,
+        2404560.003891051,
+        576219.8443579767,
+        8715154.439688716
+      ]
+    },
+    {
+      "fixture": "mini-two-colors.bin",
+      "qualification": "INITIAL reduction only; actual final coarse matrix not exported, no post-physics severity claim",
+      "inputSumByteCodes": [
+        10504182,
+        12464414,
+        4477990,
+        39530046
+      ],
+      "stationaryFinePixels": 4,
+      "idealCarrierSum": [
+        2699575104,
+        3203355008,
+        1150844800,
+        10159223744
+      ],
+      "floorLossCarrierCodes": [
+        178422,
+        178947,
+        177558,
+        180189
+      ],
+      "floorLossSumByteCodes": [
+        694.2490272373541,
+        696.2918287937744,
+        690.8871595330739,
+        701.124513618677
+      ],
+      "floorLossRelativeInput": [
+        0.00006609263122414997,
+        0.00005586237979529357,
+        0.00015428510548997964,
+        0.00001773649627472422
+      ],
+      "localNearestDeltaSumByteCodes": [
+        -6.642023346303502,
+        -4.750972762645914,
+        -1.6070038910505837,
+        -18.84046692607004
+      ],
+      "initialSummary": {
+        "initialStationaryAlpha": 4,
+        "initialMobileAlpha": 39530042,
+        "frozenWetAlpha": 0,
+        "frozenCellCount": 0,
+        "initialWaterCodes": 26743135,
+        "initialMobileCodes": 158737871
+      },
+      "geometry": {
+        "stationary": [
+          171,
+          368,
+          852,
+          753
+        ],
+        "delta": [
+          171,
+          368,
+          852,
+          753
+        ]
+      },
+      "topLocalFallbackROIs": [
+        {
+          "coarseX": 21,
+          "coarseY": 93,
+          "fineBounds": [
+            168,
+            744,
+            175,
+            751
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": -6949,
+          "alphaDeltaSumByteCodes": -27.038910505836576
+        },
+        {
+          "coarseX": 86,
+          "coarseY": 94,
+          "fineBounds": [
+            688,
+            752,
+            695,
+            759
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": -6650,
+          "alphaDeltaSumByteCodes": -25.875486381322958
+        },
+        {
+          "coarseX": 106,
+          "coarseY": 81,
+          "fineBounds": [
+            848,
+            648,
+            855,
+            655
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": 5218,
+          "alphaDeltaSumByteCodes": 20.30350194552529
+        },
+        {
+          "coarseX": 106,
+          "coarseY": 46,
+          "fineBounds": [
+            848,
+            368,
+            855,
+            375
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": 3539,
+          "alphaDeltaSumByteCodes": 13.770428015564203
+        }
+      ],
+      "initialNearestWithLiteralSumByteCodes": [
+        10504183.284046693,
+        12464416.373540856,
+        4477995.3307393,
+        39530057.47859922
+      ],
+      "localHybridPrePackSumByteCodes": [
+        10503482.392996108,
+        12463715.330739299,
+        4477302.836575875,
+        39529337.51361868
+      ]
+    },
+    {
+      "fixture": "mini-wave.bin",
+      "qualification": "INITIAL reduction only; actual final coarse matrix not exported, no post-physics severity claim",
+      "inputSumByteCodes": [
+        12724686,
+        4213798,
+        1233451,
+        26769384
+      ],
+      "stationaryFinePixels": 1,
+      "idealCarrierSum": [
+        3270247936,
+        1082946944,
+        316997376,
+        6879734080
+      ],
+      "floorLossCarrierCodes": [
+        118950,
+        118628,
+        115387,
+        119517
+      ],
+      "floorLossSumByteCodes": [
+        462.84046692607006,
+        461.5875486381323,
+        448.97665369649803,
+        465.0466926070039
+      ],
+      "floorLossRelativeInput": [
+        0.00003637342932674881,
+        0.00010954192598651675,
+        0.0003640003970133374,
+        0.000017372334477588424
+      ],
+      "localNearestDeltaSumByteCodes": [
+        5.614785992217898,
+        1.867704280155642,
+        0.5330739299610895,
+        11.84046692607004
+      ],
+      "initialSummary": {
+        "initialStationaryAlpha": 1,
+        "initialMobileAlpha": 26769383,
+        "frozenWetAlpha": 0,
+        "frozenCellCount": 0,
+        "initialWaterCodes": 13360712,
+        "initialMobileCodes": 107495845
+      },
+      "geometry": {
+        "stationary": [
+          580,
+          653,
+          580,
+          653
+        ],
+        "delta": [
+          580,
+          653,
+          580,
+          653
+        ]
+      },
+      "topLocalFallbackROIs": [
+        {
+          "coarseX": 72,
+          "coarseY": 81,
+          "fineBounds": [
+            576,
+            648,
+            583,
+            655
+          ],
+          "stationaryCount": 1,
+          "alphaDeltaCarrierCodes": 3043,
+          "alphaDeltaSumByteCodes": 11.84046692607004
+        }
+      ],
+      "initialNearestWithLiteralSumByteCodes": [
+        12724700.140077822,
+        4213801.3385214005,
+        1233452.8249027238,
+        26769394.307392996
+      ],
+      "localHybridPrePackSumByteCodes": [
+        12724242.914396888,
+        4213341.618677042,
+        1233004.381322957,
+        26768941.101167314
+      ]
+    }
+  ]
+}
