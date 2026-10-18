@@ -88,6 +88,21 @@ class MatrixTest(unittest.TestCase):
         with self.assertRaises(MatrixError):
             normalize()
 
+    def test_actual_ledger_failure_cannot_be_hidden_by_declared_audit(self):
+        self.cell['result']['metadata'] = {'fineLedger': {'prePackGuardPassed': False}}
+        self.cell['ledgerAudit'] = {'pass': True}
+        with self.assertRaises(MatrixError):
+            self.run_cells([self.cell])
+        self.cell['result']['metadata'] = {'finalState': {'overflow': 1}}
+        with self.assertRaises(MatrixError):
+            self.run_cells([self.cell])
+        self.cell['result']['metadata'] = {'coarseLedger': {'coarsePigmentDeltaRGBA': [0, 1, 0, 0]}}
+        with self.assertRaises(MatrixError):
+            self.run_cells([self.cell])
+        self.cell['result']['metadata'] = {'fineLedger': {'prePackGuardPassed': None},
+                                         'finalState': {'signedFloatDelta': -0.0001}}
+        self.assertTrue(self.run_cells([self.cell])['fixedMatrixCoverage']['complete'])
+
     def test_partial_batch_closure_preserves_failure_and_binds_exact_successful_row(self):
         row = {'pass': True, 'fixedInitialWetVerified': True, 'sameFixtureInput': True,
                'request': self.cell['request'], 'result': self.cell['result'],
@@ -174,7 +189,7 @@ class MatrixTest(unittest.TestCase):
         self.cell['request']['flags'] = {'frontZero': True}
         with self.assertRaises(MatrixError):
             self.run_cells([self.cell])
-        self.cell['nativeProof'] = dict(contract='common-optical-seed-v1', inputSHA=self.sha,
+        self.cell['nativeProof'] = dict(contract='common-optical-seed-v1', nativeCoreActual=True, outputComposite='common-optical-picture-v1', inputSHA=self.sha,
                                        rawPlanesExact=True, paperExact=True, sourceUnchanged=True,
                                        fixedInitialWet=True, roundtripExact=True)
         with self.assertRaises(MatrixError):
@@ -214,7 +229,7 @@ class MatrixTest(unittest.TestCase):
         with self.assertRaises(MatrixError):
             self.run_cells([self.cell])
         self.cell['nativeProof'].update(authoredReplayExact=True, capturedRawExact=True,
-                                       nativeCompositeActual=True, originalBaselinePreserved=True,
+                                       nativeCoreActual=True, originalBaselinePreserved=True,
                                        replaySHA='1' * 64, nativeRawSHA='2' * 64,
                                        capturedCommonSHA=self.sha,
                                        rawDryAudit={'pass': True, 'changedDryChannels': 0,

@@ -27,6 +27,38 @@ def digest(value):
     return isinstance(value, str) and re.fullmatch('[0-9a-f]{64}', value) is not None
 
 
+def audit_actual_ledger_guards(metadata):
+    """Independent strict JSON equivalent of the central QA ledger-guards contract."""
+    zero = {'dryMaterial', 'invalid', 'negative', 'overflow', 'inactiveCoarseNonzero', 'coarseOverflow',
+            'initCapacityFailures', 'packFailures', 'coarseOutOfRangeCells', 'coarseInvalidPremulCells',
+            'coarseRepresentationOverflowCells'}
+    yes = {'fixedWetConserved', 'guardPassed', 'coarsePigmentConserved', 'coarseWaterConserved',
+           'coarseGuardPassed', 'prePackGuardPassed'}
+    checked = []
+    def visit(value, prefix):
+        if not isinstance(value, dict):
+            return
+        for key, item in value.items():
+            name = prefix + '.' + key
+            if key in zero and item is not None:
+                require(type(item) in (int, float) and item == 0, 'ledger counter failed: ' + name)
+                checked.append(name)
+            if key in yes and item is not None:
+                require(item is True, 'ledger guard failed: ' + name)
+                checked.append(name)
+            if key in ('fixedWetDeltaRGBA', 'coarsePigmentDeltaRGBA') and item is not None:
+                require(isinstance(item, list) and len(item) == 4
+                        and all(type(v) in (int, float) and v == 0 for v in item),
+                        'integer ledger delta failed: ' + name)
+                checked.append(name)
+            if isinstance(item, dict):
+                visit(item, name)
+    for key in ('fineLedger', 'finalState', 'coarseLedger'):
+        visit((metadata or {}).get(key), key)
+    return {'pass': True, 'checked': checked,
+            'qualification': 'Executed integer guards/capacity/nonfinite counters hard-gated; signed float deltas remain diagnostics.'}
+
+
 def catalog_identity_sha(plan):
     """Stable requested model identity, excluding labels, encoding and source capability."""
     import json
@@ -140,6 +172,7 @@ def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None):
         kind = choice['kind']
         validate_build_binding(cell, choice, manifest)
         if kind == 'worker-factory':
+            ledger_audit = audit_actual_ledger_guards(result.get('metadata', {}))
             require(request.get('fixedInitialWet') is True, 'old policy request: ' + tag)
             require(request.get('algorithm') == choice['algorithm'] == result.get('algorithm')
                     and request.get('config') == choice['config'] == result.get('config'), 'wrong algorithm/config: ' + tag)
@@ -152,6 +185,9 @@ def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None):
         elif kind == 'native-mini':
             proof = cell.get('nativeProof', {})
             contract = proof.get('contract')
+            require(proof.get('nativeCoreActual') is True
+                    and proof.get('outputComposite') == 'common-optical-picture-v1',
+                    'native core/common output contract absent: ' + tag)
             require(contract in ('common-optical-seed-v1', 'authored-native-replay-v1')
                     and proof.get('inputSHA') == inp['sha']
                     and all(proof.get(k) is True for k in ('rawPlanesExact', 'paperExact', 'sourceUnchanged',
@@ -159,7 +195,7 @@ def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None):
                     'native per-input source proof missing: ' + tag)
             if contract == 'authored-native-replay-v1':
                 require(all(proof.get(k) is True for k in ('authoredReplayExact', 'capturedRawExact',
-                                                          'nativeCompositeActual', 'originalBaselinePreserved'))
+                                                          'nativeCoreActual', 'originalBaselinePreserved'))
                         and digest(proof.get('replaySHA')) and digest(proof.get('nativeRawSHA'))
                         and proof.get('capturedCommonSHA') == inp['sha'],
                         'authored native replay/composite proof missing: ' + tag)
@@ -209,7 +245,8 @@ def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None):
                                'nativeProof': copy.deepcopy(cell.get('nativeProof')),
                                'rawAudit': copy.deepcopy(raw_audit),
                                'commonRenderer': copy.deepcopy(renderer),
-                               'initialWetAudit': copy.deepcopy(result.get('initialWetAudit'))}
+                               'initialWetAudit': copy.deepcopy(result.get('initialWetAudit')),
+                               'ledgerAudit': ledger_audit if kind == 'worker-factory' else None}
         found[sid, key] = variant
     missing = [(sid, key) for sid in scene_ids for key in keys if (sid, key) not in found]
     require(not missing, 'missing matrix cells: ' + str(len(missing)))

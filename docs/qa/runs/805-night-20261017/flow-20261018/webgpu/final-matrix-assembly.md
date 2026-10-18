@@ -57,3 +57,9 @@ Original report.pass:false не переписывается в true. Для у�
 Уточнение счётчика: goalRuns=len(actualcomponents)=expected wet components; waterOnlyRuns=wet−pigmented. Для каждой water-only компоненты zeroCOutputNonzero обязан быть0. Поле coverage nativePigmentedGoalsMinimum не выдаётся за полное число native вызовов. Independent common component counts не подгоняются при расхождении с actual authored source; такой случай требует отдельного source-bound count proof.
 
 Проверка actual conversion: commonWater=min(255,solventA+foreignA), поэтому positive-W topology исходных native7 и captured common совпадает точно (Y-flip не меняет связность). Certified actual-native counts обязаны совпасть и с independent common counts. Расхождение — source/partition bug, не разрешённая смена лужи.
+
+## Честный native-output договор
+
+Все135 comparison choices используют общий optical-picture вывод и один входозависимый scale. Native proof теперь требует nativeCoreActual:true и outputComposite:'common-optical-picture-v1'. Поле nativePresentationExecuted может описывать фактический per-component diagnosticPresentGoal, но **не означает** actual native composite всего merged scene. Нельзя проставлять nativeCompositeActual:true для общего PNG. Подпись: «Исходный расчёт · общий вывод материала». Исторический actual-native composite PNG/SHA сохраняется отдельно как имеющаяся диагностика, не136-й choice и не новая fair carrier-клетка. originalBaselinePreserved относится к исходному source/replay и сохранённой диагностике, а не к совпадению merged common PNG с историческим native-display PNG.
+
+Final worker gate независимо пересматривает actual metadata fineLedger/finalState/coarseLedger. Декларация ledgerAudit.pass:true не может скрыть false guard, ненулевой overflow/capacity counter или ненулевую integer4 delta. None/not-run пропускаются; signed float deltas не превращаются в exact conservation claims.
