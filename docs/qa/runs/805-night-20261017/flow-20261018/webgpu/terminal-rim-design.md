@@ -34,6 +34,6 @@ T управляет только affinity, **не заменяет** сущес
 
 Новый standalone macro27 собирает smooth fine kernels через actual macro11 factory, а coarse через actual macro14 factory с fast initializer. Нет изменений shared macro11/17/18; нет compact transforms первого опыта. Контроль strength0 имеет constant affinity64, доказанно эквивалентную constant1 в прежнем integer pair operator. Проверяются все четыре суммы, не только альфа. Параметры coarse steps256/mobility3/eddy16/curl128; fine12/paperGain0.
 
-### Обнаруженный риск прежней композиции
+### Обнаруженная регрессия V23 и исправление
 
-При сравнении полных shader sources обнаружено: macro17 задаёт `basePairSourceOverride=mobilitySource(gain)`, macro11 forwards его как `pairSourceOverride`; macro18 spreads этот объект в macro14. Таким образом старый macro18 загружает coherent ψ, но фактически выбирает mobility pair shader. Это отдельный подтверждённый source gap, не GPU-вывод. Macro27 с настоящим coherent pair не может называться побайтно прежним coarse control без явного выбора соответствующего baseline. Root уведомлён до GPU/commit.
+Первоначальный source-only вывод о всех старых fine-ветках уточнён проверкой истории root/operator: V17–V22 использовали coherentSource безусловно. c2110521 включил поддержку pairSourceOverride, после чего ранее игнорируемый mobility fallback через macro17/18 стал регрессией V23. Macro18 теперь явно выбирает coherentSource, восстанавливая прежнюю физику. Macro27 использует тот же явный выбор. Исторические coherent-утверждения V17–V22 сохраняются; новая кромка сравнивается с восстановленным neutral fine baseline. Полная область и исправление: true-coherent-fine-errata.md.
