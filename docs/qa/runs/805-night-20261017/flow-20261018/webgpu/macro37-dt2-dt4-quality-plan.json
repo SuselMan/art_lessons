@@ -1,0 +1,112 @@
+{
+  "purpose": "Bounded quality comparison of existing models: dt2 vs dt4 axial bands, with31dt2 control. No new physics code.",
+  "cases": [
+    {
+      "id": "wgsl-macro-relaxed-curl-dt-fine",
+      "fixture": "dynamic-two-strokes",
+      "config": {
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "fineSteps": 4,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1,
+        "physicalDt": 2,
+        "steps": 128
+      }
+    },
+    {
+      "id": "wgsl-macro-relaxed-curl-dt-fine",
+      "fixture": "dynamic-two-strokes",
+      "config": {
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "fineSteps": 4,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1,
+        "physicalDt": 4,
+        "steps": 64
+      }
+    },
+    {
+      "id": "wgsl-macro-physical-dt-fine",
+      "fixture": "dynamic-two-strokes",
+      "config": {
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "fineSteps": 4,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1,
+        "physicalDt": 2,
+        "steps": 128
+      }
+    },
+    {
+      "id": "wgsl-macro-relaxed-curl-dt-fine",
+      "fixture": "dynamic-stroke-through-pool",
+      "config": {
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "fineSteps": 4,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1,
+        "physicalDt": 2,
+        "steps": 128
+      }
+    },
+    {
+      "id": "wgsl-macro-relaxed-curl-dt-fine",
+      "fixture": "dynamic-stroke-through-pool",
+      "config": {
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "fineSteps": 4,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1,
+        "physicalDt": 4,
+        "steps": 64
+      }
+    },
+    {
+      "id": "wgsl-macro-physical-dt-fine",
+      "fixture": "dynamic-stroke-through-pool",
+      "config": {
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "fineSteps": 4,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1,
+        "physicalDt": 2,
+        "steps": 128
+      }
+    }
+  ],
+  "executions": {
+    "cases": 6,
+    "repeats": 3,
+    "total": 18,
+    "rootOperatorMayReduce": true
+  },
+  "inputRule": "Exact same saved input bytes/seed per fixture; same e8/c64 field and fine4/base64/paper1/dither1. No output normalization.",
+  "observations": [
+    "Raw RGBA/source hashes and all4coarse/fine conservation/capacity guards",
+    "Actual stream SHA equal for all three arms per scene",
+    "Same-scale images: axial striping, support edge, inside/outside original core, two-colour meeting/mixing",
+    "Existing flow metrics describe transport; do not turn them into art score",
+    "totalReady plus GPU boundary qualified; dt2 doubles coarse dispatch64\u2192128, fine4 unchanged",
+    "Record repeats and pause conditions; no universal speed from single warm sample"
+  ],
+  "acceptance": "No assumed winner. dt2 may reduce temporal splitting artifact at higher cost; relaxed curl cannot guarantee no bands.31dt2 controls pressure/curl formula changes jointly.",
+  "gpuRunByAuthor": false
+}
