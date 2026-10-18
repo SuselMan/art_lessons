@@ -1,0 +1,188 @@
+{
+  "qualification": "CPU worst-case load estimates, NOT GPU timings. All30 frozen input SHA verified; current saved3particle choices use default8/32/12.",
+  "maxTotalEstimatedReads": 4741459932,
+  "maxFixture": "mini-two-colors",
+  "budget": 32000000000,
+  "rows": [
+    {
+      "fixture": "mini-wave",
+      "occupiedWetPixels": 219769,
+      "ordinaryEstimatedReads": 1638817433,
+      "safeEstimatedReads": 3101599897
+    },
+    {
+      "fixture": "mini-two-colors",
+      "occupiedWetPixels": 335964,
+      "ordinaryEstimatedReads": 2505283548,
+      "safeEstimatedReads": 4741459932
+    },
+    {
+      "fixture": "gallery-sheet-1-slot-17",
+      "occupiedWetPixels": 111242,
+      "ordinaryEstimatedReads": 829531594,
+      "safeEstimatedReads": 1569958346
+    },
+    {
+      "fixture": "gallery-sheet-2-slot-7",
+      "occupiedWetPixels": 124125,
+      "ordinaryEstimatedReads": 925600125,
+      "safeEstimatedReads": 1751776125
+    },
+    {
+      "fixture": "gallery-sheet-3-slot-1",
+      "occupiedWetPixels": 12554,
+      "ordinaryEstimatedReads": 93615178,
+      "safeEstimatedReads": 177174602
+    },
+    {
+      "fixture": "gallery-sheet-4-slot-1",
+      "occupiedWetPixels": 63362,
+      "ordinaryEstimatedReads": 472490434,
+      "safeEstimatedReads": 894227906
+    },
+    {
+      "fixture": "gallery-sheet-5-slot-1",
+      "occupiedWetPixels": 53993,
+      "ordinaryEstimatedReads": 402625801,
+      "safeEstimatedReads": 762003209
+    },
+    {
+      "fixture": "gallery-sheet-6-slot-6",
+      "occupiedWetPixels": 161139,
+      "ordinaryEstimatedReads": 1201613523,
+      "safeEstimatedReads": 2274154707
+    },
+    {
+      "fixture": "gallery-sheet-7-slot-1",
+      "occupiedWetPixels": 140725,
+      "ordinaryEstimatedReads": 1049386325,
+      "safeEstimatedReads": 1986051925
+    },
+    {
+      "fixture": "gallery-sheet-8-slot-6",
+      "occupiedWetPixels": 84054,
+      "ordinaryEstimatedReads": 626790678,
+      "safeEstimatedReads": 1186254102
+    },
+    {
+      "fixture": "gallery-sheet-9-slot-1",
+      "occupiedWetPixels": 229437,
+      "ordinaryEstimatedReads": 1710911709,
+      "safeEstimatedReads": 3238044381
+    },
+    {
+      "fixture": "gallery-sheet-10-slot-3",
+      "occupiedWetPixels": 271969,
+      "ordinaryEstimatedReads": 2028072833,
+      "safeEstimatedReads": 3838298497
+    },
+    {
+      "fixture": "gallery-sheet-12-slot-1",
+      "occupiedWetPixels": 42241,
+      "ordinaryEstimatedReads": 314991137,
+      "safeEstimatedReads": 596147233
+    },
+    {
+      "fixture": "native-flow-pool-drop",
+      "occupiedWetPixels": 1890,
+      "ordinaryEstimatedReads": 14093730,
+      "safeEstimatedReads": 26673570
+    },
+    {
+      "fixture": "native-flow-separated-colors",
+      "occupiedWetPixels": 4057,
+      "ordinaryEstimatedReads": 30253049,
+      "safeEstimatedReads": 57256441
+    },
+    {
+      "fixture": "dynamic-two-strokes",
+      "occupiedWetPixels": 15824,
+      "ordinaryEstimatedReads": 117999568,
+      "safeEstimatedReads": 223324112
+    },
+    {
+      "fixture": "dynamic-stroke-through-pool",
+      "occupiedWetPixels": 14352,
+      "ordinaryEstimatedReads": 107022864,
+      "safeEstimatedReads": 202549776
+    },
+    {
+      "fixture": "dynamic-water-drop",
+      "occupiedWetPixels": 70661,
+      "ordinaryEstimatedReads": 526919077,
+      "safeEstimatedReads": 997238693
+    },
+    {
+      "fixture": "dynamic-wet-on-dry",
+      "occupiedWetPixels": 11277,
+      "ordinaryEstimatedReads": 84092589,
+      "safeEstimatedReads": 159152301
+    },
+    {
+      "fixture": "flow-pool-drop",
+      "occupiedWetPixels": 2109,
+      "ordinaryEstimatedReads": 15726813,
+      "safeEstimatedReads": 29764317
+    },
+    {
+      "fixture": "flow-separated-colors",
+      "occupiedWetPixels": 4218,
+      "ordinaryEstimatedReads": 31453626,
+      "safeEstimatedReads": 59528634
+    },
+    {
+      "fixture": "flow-dry-barrier",
+      "occupiedWetPixels": 4218,
+      "ordinaryEstimatedReads": 31453626,
+      "safeEstimatedReads": 59528634
+    },
+    {
+      "fixture": "flow-isolated-pools",
+      "occupiedWetPixels": 4218,
+      "ordinaryEstimatedReads": 31453626,
+      "safeEstimatedReads": 59528634
+    },
+    {
+      "fixture": "flow-one-pixel-wall",
+      "occupiedWetPixels": 4218,
+      "ordinaryEstimatedReads": 31453626,
+      "safeEstimatedReads": 59528634
+    },
+    {
+      "fixture": "flow-thin-neck",
+      "occupiedWetPixels": 4218,
+      "ordinaryEstimatedReads": 31453626,
+      "safeEstimatedReads": 59528634
+    },
+    {
+      "fixture": "flow-paper-drop",
+      "occupiedWetPixels": 2109,
+      "ordinaryEstimatedReads": 15726813,
+      "safeEstimatedReads": 29764317
+    },
+    {
+      "fixture": "flow-water-only",
+      "occupiedWetPixels": 0,
+      "ordinaryEstimatedReads": 0,
+      "safeEstimatedReads": 0
+    },
+    {
+      "fixture": "flow-dry-pigment",
+      "occupiedWetPixels": 0,
+      "ordinaryEstimatedReads": 0,
+      "safeEstimatedReads": 0
+    },
+    {
+      "fixture": "flow-near-colors",
+      "occupiedWetPixels": 4218,
+      "ordinaryEstimatedReads": 31453626,
+      "safeEstimatedReads": 59528634
+    },
+    {
+      "fixture": "flow-diagonal-wall",
+      "occupiedWetPixels": 4218,
+      "ordinaryEstimatedReads": 31453626,
+      "safeEstimatedReads": 59528634
+    }
+  ]
+}
