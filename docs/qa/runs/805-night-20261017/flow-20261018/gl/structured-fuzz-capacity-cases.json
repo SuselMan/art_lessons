@@ -1,0 +1,142 @@
+[
+  {
+    "algorithm": "wgsl-macro-gpu-capacity-aware-fine",
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "verifyInitializer": 0,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1
+    },
+    "recipes": [
+      "structured-00",
+      "structured-02",
+      "structured-04"
+    ]
+  },
+  {
+    "algorithm": "wgsl-macro-gpu-capacity-aware-fine",
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "verifyInitializer": 0,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1
+    },
+    "recipes": [
+      "structured-01",
+      "structured-03",
+      "structured-05"
+    ]
+  },
+  {
+    "algorithm": "wgsl-macro-gpu-capacity-aware-fine",
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "verifyInitializer": 0,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1
+    },
+    "recipes": [
+      "structured-06",
+      "structured-07",
+      "structured-08"
+    ]
+  },
+  {
+    "algorithm": "wgsl-macro-gpu-capacity-aware-fine",
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "verifyInitializer": 0,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1
+    },
+    "recipes": [
+      "structured-09",
+      "structured-10",
+      "structured-11"
+    ]
+  },
+  {
+    "algorithm": "wgsl-macro-gpu-capacity-aware-lite",
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "verifyInitializer": 0
+    },
+    "recipes": [
+      "structured-00",
+      "structured-02",
+      "structured-04"
+    ]
+  },
+  {
+    "algorithm": "wgsl-macro-gpu-capacity-aware-lite",
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "verifyInitializer": 0
+    },
+    "recipes": [
+      "structured-01",
+      "structured-03",
+      "structured-05"
+    ]
+  },
+  {
+    "algorithm": "wgsl-macro-gpu-capacity-aware-lite",
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "verifyInitializer": 0
+    },
+    "recipes": [
+      "structured-06",
+      "structured-07",
+      "structured-08"
+    ]
+  },
+  {
+    "algorithm": "wgsl-macro-gpu-capacity-aware-lite",
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "verifyInitializer": 0
+    },
+    "recipes": [
+      "structured-09",
+      "structured-10",
+      "structured-11"
+    ]
+  }
+]

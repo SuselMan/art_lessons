@@ -1,6 +1,6 @@
 import type {AlgorithmConfig,AlgorithmInput} from './protocol'
 import type {Candidate} from './webgpu/contract'
-import {assertFuzzRequest,assertFuzzConfig,FUZZ_GENERATOR_VERSION} from './deterministic-fuzz-input'
+import {assertFuzzRequest,assertFuzzConfig,FUZZ_GENERATOR_VERSION,isFuzzFine} from './deterministic-fuzz-input'
 type Digest=(bytes:Uint8Array)=>Promise<string>
 type Entry={id:string;control:string;input:AlgorithmInput}
 type Definition={id:string;create(device:GPUDevice,size:number,config:AlgorithmConfig):Promise<Candidate>}
@@ -31,12 +31,12 @@ async function createObserved(device:GPUDevice,definition:Definition,size:number
   return{candidate,shaders,shaderSet:[...new Set(shaders.map(s=>s.sha256))].sort()}
  }catch(e){candidate?.destroy();throw e}finally{codes.length=0}
 }
-/** 12 repeat/reuse executions; Fine39 adds three fresh fine0 ledger controls. */
+/** 12 repeat/reuse executions; Fine models adds three fresh fine0 ledger controls. */
 export async function runCandidateFuzz(device:GPUDevice,definition:Definition,inputs:readonly Entry[],digest:Digest,config:AlgorithmConfig={}){
  assertFuzzRequest(definition.id,inputs.map(i=>i.id));assertFuzzConfig(definition.id,config);if(inputs.some(i=>i.input.size!==1024||i.input.rgba.length!==4194304||i.input.water.length!==1048576||i.input.paper.length!==1048576))throw Error('Fuzz input size limit')
  let stage='input-hash',recipe='';const fingerprints=async(i:AlgorithmInput)=>({rgba:await digest(i.rgba),water:await digest(i.water),paper:await digest(i.paper),seed:i.seed})
  const inputSHA:Record<string,Awaited<ReturnType<typeof fingerprints>>>=Object.create(null),baseline:Record<string,unknown>=Object.create(null),rows:unknown[]=[]
- const fine=definition.id==='wgsl-macro-gpu-initial-fine'
+ const fine=isFuzzFine(definition.id)
  try{
   for(const e of inputs){recipe=e.id;inputSHA[e.id]=await fingerprints(e.input)}
   const execute=async(candidate:Candidate,e:Entry)=>{
@@ -63,6 +63,6 @@ export async function runCandidateFuzz(device:GPUDevice,definition:Definition,in
     fineControls.push({id:e.id,outputSHA:r.outputSHA,metadataSHA:r.metadataSHA,mobileRGBA16Codes:totals,shaders:control.shaders,exactFineConservation:true,qualification:'Fresh fine0 vs fine4 mobile integer sums, not equality of packed output pixels.'})
    }finally{control.candidate.destroy()}
   }
-  return{pass:true,generatorVersion:FUZZ_GENERATOR_VERSION,executions:rows.length+fineControls.length,inputSHA,baseline,rows,fineControls,qualification:'Full carrier repeat/reuse, observed shader sources, strict existing guards. Fine39 additionally compares four integer fine mobile sums against fresh fine0 controls; RGBA8 global mass and artistic quality are not certified. No timing/PNG/raw output.'}
+  return{pass:true,generatorVersion:FUZZ_GENERATOR_VERSION,executions:rows.length+fineControls.length,inputSHA,baseline,rows,fineControls,qualification:'Full carrier repeat/reuse, observed shader sources, strict existing guards. Fine models additionally compares four integer fine mobile sums against fresh fine0 controls; RGBA8 global mass and artistic quality are not certified. No timing/PNG/raw output.'}
  }catch(e){throw Error(JSON.stringify({probe:'structured-fuzz',stage,recipe,inputSHA,message:e instanceof Error?e.message:String(e)}))}
 }

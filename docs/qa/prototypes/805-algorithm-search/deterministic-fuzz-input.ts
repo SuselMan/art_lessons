@@ -24,13 +24,15 @@ export function createFuzzInput(id:string):{id:string;control:string;input:Algor
  return{id,control:recipe.control,input:{size,seed:recipe.seed,encoding:'premultiplied-rgb',rgba,water,paper}}
 }
 export function assertFuzzRequest(algorithm:unknown,ids:unknown):asserts ids is string[]{
- if(!['wgsl-macro-gpu-initial-coherent-dt4','wgsl-macro-gpu-initial-fine','wgsl-macro-capacity-aware-lite'].includes(String(algorithm)))throw Error('Unsupported strong fuzz algorithm')
+ if(!['wgsl-macro-gpu-initial-coherent-dt4','wgsl-macro-gpu-initial-fine','wgsl-macro-capacity-aware-lite','wgsl-macro-gpu-capacity-aware-fine','wgsl-macro-gpu-capacity-aware-lite'].includes(String(algorithm)))throw Error('Unsupported strong fuzz algorithm')
  if(!Array.isArray(ids)||ids.length!==3||new Set(ids).size!==3||ids.some(id=>typeof id!=='string'||!FUZZ_RECIPES.some(r=>r.id===id)))throw Error('Expected three distinct recorded fuzz recipes')
 }
-/** Diagnostic subset mirrors the three selected factories; reject invalid requests before GPU access. */
+/** Diagnostic subset mirrors the selected validated factories; reject invalid requests before GPU access. */
 export function assertFuzzConfig(algorithm:string,config:unknown):asserts config is Record<string,number>{
  if(!config||typeof config!=='object'||Array.isArray(config))throw Error('Invalid fuzz config')
- const fine=algorithm==='wgsl-macro-gpu-initial-fine',gpu=algorithm!=='wgsl-macro-capacity-aware-lite',rules:Record<string,readonly[number,number]>={physicalDt:[4,4],steps:[64,64],mobilityGain:[1,8],eddyCells:[4,64],curlStrength:[0,128],...(gpu?{verifyInitializer:[0,0] as const}:{}),...(fine?{fineSteps:[4,4] as const,affinityBase:[1,256] as const,paperGain:[0,4] as const,dither:[0,1] as const}:{})}
+ const fine=isFuzzFine(algorithm),gpu=algorithm!=='wgsl-macro-capacity-aware-lite',rules:Record<string,readonly[number,number]>={physicalDt:[4,4],steps:[64,64],mobilityGain:[1,8],eddyCells:[4,64],curlStrength:[0,128],...(gpu?{verifyInitializer:[0,0] as const}:{}),...(fine?{fineSteps:[4,4] as const,affinityBase:[1,256] as const,paperGain:[0,4] as const,dither:[0,1] as const}:{})}
  for(const[k,v]of Object.entries(config)){const range=rules[k];if(!range||typeof v!=='number'||!Number.isInteger(v)||v<range[0]||v>range[1])throw Error('Invalid/unsupported fuzz config '+k)}
  const c=config as Record<string,number>;if(fine&&(c.affinityBase??64)+Math.floor(255*(c.paperGain??1)/4)>256)throw Error('Fuzz affinity bound')
 }
+
+export function isFuzzFine(algorithm:string){return algorithm==='wgsl-macro-gpu-initial-fine'||algorithm==='wgsl-macro-gpu-capacity-aware-fine'}

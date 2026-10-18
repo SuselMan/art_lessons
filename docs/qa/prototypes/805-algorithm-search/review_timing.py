@@ -6,6 +6,8 @@ from pathlib import Path
 from statistics import median
 
 PAIRS = {
+    'wgsl-macro-capacity-aware-fine': 'wgsl-macro-gpu-capacity-aware-fine',
+    'wgsl-macro-capacity-aware-lite': 'wgsl-macro-gpu-capacity-aware-lite',
     'wgsl-macro-coherent-physical-dt': 'wgsl-macro-gpu-initial-coherent-dt4',
     'wgsl-macro-physical-dt-fine': 'wgsl-macro-gpu-initial-fine',
     'wgsl-macro-coherent-safe-dither': 'wgsl-macro-coherent-fast-initial',
@@ -21,7 +23,7 @@ def _json(value):
 
 def _key(r):
     config=dict(r.get('config', {}))
-    if r['algorithm'] in ('wgsl-macro-gpu-initial-coherent-dt4','wgsl-macro-gpu-initial-fine') and config.get('verifyInitializer')==0:config.pop('verifyInitializer')
+    if r['algorithm'] in ('wgsl-macro-gpu-initial-coherent-dt4','wgsl-macro-gpu-initial-fine','wgsl-macro-gpu-capacity-aware-fine','wgsl-macro-gpu-capacity-aware-lite') and config.get('verifyInitializer')==0:config.pop('verifyInitializer')
     return (CANONICAL[r['algorithm']], r['fixture'], _json(config), r.get('encoding'))
 
 
