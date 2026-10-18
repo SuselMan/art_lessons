@@ -9,6 +9,8 @@ export interface NativeComponentTimedOptions {
  withPaper:<T>(work:()=>T)=>T
  /** Actual controller.diagnosticRunCore(): reset/step/dry, NO present/read/hash. */
  runCore:()=>{c:{texture:WebGLTexture}}
+ optimizedPrep?:boolean
+ skipUnpigmentedC?:boolean
  now?:()=>number
  createMerge?:(gl:WebGLRenderingContext,w:number,h:number,options:NativeMergeMapping&{baseCommonRGBA:Uint8Array})=>Merge
  digest?:(pixels:Uint8Array)=>Promise<string>
@@ -25,11 +27,13 @@ export async function runNativeComponentTimed(options:NativeComponentTimedOption
   const preparationDetails:{label:string;wallMs:number}[]=[]
   const preparationSlices:{label:string;componentId?:number;wallMs:number}[]=[]
   const timed=<T>(label:string,work:()=>T,componentId?:number):T=>{const start=now();try{return work()}finally{preparationSlices.push({label,componentId,wallMs:now()-start})}}
-  const totalStart=now(),partition=timed('partition-copy-label-validate',()=>partitionNativeComponents(options.original,options.size,options.size,(label,wallMs)=>preparationDetails.push({label,wallMs}),now))
+  const totalStart=now(),partition=timed('partition-copy-label-validate',()=>partitionNativeComponents(options.original,options.size,options.size,(label,wallMs)=>preparationDetails.push({label,wallMs}),now,options.optimizedPrep?{mode:'fast',borrowImmutableSource:true,shareImmutableBackdrop:true}:{}))
   const components:{id:number;pixelCount:number;pigmented:boolean;computeReadyMs:number}[]=[]
   let computeReadyMs=0,probe:Uint8Array|undefined
   timed('merge-base-upload-copy',()=>merge.begin({uploadBase:true}))
-  for(const component of partition.components){
+  const colourSchedule=options.skipUnpigmentedC?timed('zero-colour-component-guard',()=>partition.colourOnlySchedule(options.baseCommonRGBA,'common-c-only')):undefined
+  const solveComponents=colourSchedule?.solve??partition.components
+  for(const component of solveComponents){
    const selected=timed('materialize-seven-planes-and-mask',()=>partition.materialize(component.id),component.id),fork=timed('fork-source-allocate-upload',()=>options.fork(selected.planes,(label,wallMs)=>preparationDetails.push({label:`component-${component.id}-${label}`,wallMs})),component.id)
    try{
     const computeStart=now();let computeEnd:number|undefined
@@ -40,12 +44,12 @@ export async function runNativeComponentTimed(options:NativeComponentTimedOption
     const elapsed=computeEnd-computeStart;computeReadyMs+=elapsed;components.push({id:component.id,pixelCount:component.pixelCount,pigmented:component.pigmented,computeReadyMs:elapsed})
    }finally{timed('fork-destroy',()=>fork.destroy(),component.id)}
   }
-  if(partition.components.length===0)probe=merge.dependency()
+  if(solveComponents.length===0)probe=merge.dependency()
   const totalEnd=now();if(totalEnd<totalStart||setupReady<setupStart)throw Error('Invalid native total timer')
   // Existing full read is outside dependent1px intervals but INCLUDED in full-output primary; hash remains outside all intervals.
   const fullReadStart=now(),output=merge.readback(),fullReadEnd=now(),outputSHA=await digest(output)
-  return{output,outputSHA,components,partitionAudit:partition.partitionAudit,mergeMetadata:merge.metadata,
-   sample:{preparationDetails,preparationSlices,preparationTimingQualification:'CPU host wall intervals including allocation/submission and possible driver blocking; NOT GPU execution times. Nonoverlapping with computeReadyMs.',fullReadbackMs:fullReadEnd-fullReadStart,totalToFullReadbackMs:fullReadEnd-totalStart,fullOutputBoundary:'preloaded original CPU planes and allocated merge resources → partition/materialize/fork upload/core/GPUmerge/full1024RGBA CPU readback; hash excluded; PRIMARY',inputFencePolicy:'none; no claim that CPU upload completion drains queued GPU work',totalReadyMs:totalEnd-totalStart,computeReadyMs,setupReadyMs:setupReady-setupStart,probeRGBA:Array.from(probe??[]),componentCount:components.length,
+  return{output,outputSHA,components,skippedComponents:colourSchedule?.skip??[],colourOnlySkipProof:colourSchedule?.proof,preparation:partition.preparation,partitionAudit:partition.partitionAudit,mergeMetadata:merge.metadata,
+   sample:{preparationDetails,preparationSlices,preparationTimingQualification:'CPU host wall intervals including allocation/submission and possible driver blocking; NOT GPU execution times. Nonoverlapping with computeReadyMs.',fullReadbackMs:fullReadEnd-fullReadStart,totalToFullReadbackMs:fullReadEnd-totalStart,fullOutputBoundary:'preloaded original CPU planes and allocated merge resources → partition/materialize/fork upload/core/GPUmerge/full1024RGBA CPU readback; hash excluded; PRIMARY',inputFencePolicy:'none; no claim that CPU upload completion drains queued GPU work',totalReadyMs:totalEnd-totalStart,computeReadyMs,setupReadyMs:setupReady-setupStart,probeRGBA:Array.from(probe??[]),componentCount:partition.components.length,executedComponentCount:components.length,skippedColourComponentCount:colourSchedule?.skip.length??0,
     primaryBoundary:'preloaded original CPU planes and allocated merge resources → partition/materialize/fork upload/core/merge/dependent1px ready common-C texture',
     computeBoundary:'sum per-component fork upload CPU returned → withPaper/source context + core-only reset/step/dry + merge/dependent1px; queued GPU upload work may remain',
     excluded:'source7 acquisition/proof, merge static allocation/initial preflight, full output read/hash, final merge destruction',

@@ -181,6 +181,7 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
    const ready=performance.now()
    return{submitJsMs:submitted-started,runToDependentMs:ready-submitted,totalReadyMs:ready-started,iterations:target.state.iterations,status,glError:error,probeRGBA:Array.from(pixel),logicalReadBytes:4,qualification:'Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.'}
   },
+  diagnosticCompletedCReadback(){if(!target.state.done)throw Error('Completed target required');return target.buffers().c.readPixels()},
   diagnosticGoalReadback(){const b=target.buffers();return{p:b.p.readPixels(),c:b.c.readPixels(),coverage:b.coverage.readPixels()}},
   diagnosticRawReadback(){const f=locate();return f?{p:f.entry.inkLoad.readPixels(),c:f.entry.inkColor.readPixels(),coverage:f.entry.coverage.readPixels()}:null},
   destroy(){
