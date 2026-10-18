@@ -1,3 +1,4 @@
+import {strongConfigKeys} from '../config-integrity'
 import {packedCarrierDefinitions} from './macro26-packed-carrier'
 import {terminalRimDefinitions} from './macro27-terminal-rim'
 import {limitedAdvectionDefinitions} from './macro28-limited-advection'
@@ -40,7 +41,7 @@ import {create as diffusion} from './diffusion'
 import {create as lbm} from './lbm'
 import {create as glDiffusion} from './gl-diffusion'
 import {create as textureDiffusion} from './diffusion-texture'
-export interface Definition {id:string;label:string;configs:AlgorithmConfig[];create(device:GPUDevice,size:number,config:AlgorithmConfig):Promise<Candidate>}
+export interface Definition {configKeys?:readonly string[];id:string;label:string;configs:Record<string,number|boolean|undefined>[];create(device:GPUDevice,size:number,config:AlgorithmConfig):Promise<Candidate>}
 export const definitions:Definition[]=[
  ...macroDefinitions,...macro2Definitions,...particleDefinitions,...finePaperDefinitions,...compactParticleDefinitions,...safeParticleDefinitions,...capillaryDefinitions,...integerHydraulicDefinitions,...smoothCapillaryDefinitions,...curlDefinitions,...integerDynamicDefinitions,...ditherCapillaryDefinitions,...integerSmoothDefinitions,...exactProgramDefinitions,...exactFusedDefinitions,...integerDitherDefinitions,...wetnessDefinitions,...fineIntegerDefinitions,...moduloProbeDefinitions,...frontAdsorptionDefinitions,...mobilityDefinitions,...safeIntegerDitherDefinitions,...safeFineDefinitions,...smoothFineDefinitions,...coherentDefinitions,...coherentFineDefinitions,...coherentDitherDefinitions,...fastCoherentDefinitions,...fastCoherentFineDefinitions,...softPaperDefinitions,...packedAuxDefinitions,...gatedExchangeDefinitions,...packedCarrierDefinitions,...terminalRimDefinitions,...limitedAdvectionDefinitions,...trueCoherentFineDefinitions,
  {id:'wgsl-integer-diffusion-direct',label:'WebGPU: local integer diffusion',configs:[{iterations:32,rate:24}],create:(d,s,c)=>diffusion(d,s,{...c,tiled:false})},
@@ -48,4 +49,6 @@ export const definitions:Definition[]=[
  {id:'wgsl-d2q9-bgk',label:'WebGPU: D2Q9 fluid with pigment/water tracers',configs:[{grid:256,steps:48},{grid:512,steps:48},{grid:256,steps:16,diffusion:0.015},{grid:128,steps:24,diffusion:0.025}],create:lbm},
  {id:'wgsl-integer-diffusion-texture',label:'WebGPU: same local integer diffusion, R32Uint texture access',configs:[{iterations:32,rate:24}],create:textureDiffusion},
 ]
+// Attach contracts only at the public registry boundary, never inside composed factories.
+for(const definition of definitions){const keys=strongConfigKeys[definition.id];if(keys)definition.configKeys=keys}
 export const glDefinitions=[{id:'gl-integer-diffusion-match',label:'GL1: matched local integer diffusion',configs:[{iterations:32,rate:24}],create:glDiffusion}]
