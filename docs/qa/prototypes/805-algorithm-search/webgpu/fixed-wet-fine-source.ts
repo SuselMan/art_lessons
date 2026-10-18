@@ -1,3 +1,4 @@
+import {SAFE_REMAINDER_WGSL} from './macro15-safe-integer-dither'
 function once(s:string,a:string,b:string){if(s.split(a).length!==2)throw Error('Fixed wet fine source drift: '+a);return s.replace(a,b)}
 const oldSelection='var m=c.m;var d=c.d;if((stationary[i]>>24u)==0u){m=interpolateCarrier(gid.xy,false);d=interpolateCarrier(gid.xy,true);}fineDeposit[i]=d;'
 const capacitySelection='var m=c.m;var d=c.d;let biM=interpolateCarrier(gid.xy,false);let biD=interpolateCarrier(gid.xy,true);let literalAlpha=(stationary[i]>>24u)*257u;if(literalAlpha+biM.a+biD.a<=65535u){m=biM;d=biD;}fineDeposit[i]=d;'
@@ -13,7 +14,7 @@ export function fixedWetFineInit(source:string){
  s=s.replace(/paper\[i\](?!\.)/g,'paper[i].x')
  return s
 }
-export function fixedWetFinePack(source:string){if(source.includes('fineDeposit:array<vec4u>;'))return source;return once(once(source,'@compute ','@group(0) @binding(6) var<storage,read> fineDeposit:array<vec4u>;\n@compute '),'let value=fine[i]+c.d;','let value=fine[i]+fineDeposit[i];')}
+export function fixedWetFinePack(source:string){let s=source;if(!s.includes('fineDeposit:array<vec4u>;'))s=once(once(s,'@compute ','@group(0) @binding(6) var<storage,read> fineDeposit:array<vec4u>;\n@compute '),'let value=fine[i]+c.d;','let value=fine[i]+fineDeposit[i];');if(s.includes('randomCode(gid.x,gid.y,p.seed)%257u'))s=once(once(s,'@compute ',SAFE_REMAINDER_WGSL+'@compute '),'randomCode(gid.x,gid.y,p.seed)%257u','mod257ByteFold(randomCode(gid.x,gid.y,p.seed))');return s}
 /** Mandatory component exchange, followed by the model's original paper operator. */
 export function fixedWetComponentPair(source:string){
  const start=' if(qa.z>0u&&qb.z>0u){',end='\n dest[ia]=a;dest[ib]=b;';const a=source.indexOf(start),b=source.indexOf(end)
