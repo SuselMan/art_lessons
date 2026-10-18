@@ -1,0 +1,39 @@
+{
+  "qualification": "REJECTED CPU-only reconstruction draft; NOT GPU output/timing or native equivalent. Carrier/input source is prior actual Samsung t4, all sourceSHA verified. Pixel formula is existing common optical-density view with capture density scale.",
+  "decision": "REJECT:8px grid and white breaks, no GPU port",
+  "files": [
+    {
+      "file": "mini-wave-CPU-draft.png",
+      "bytes": 2055236,
+      "sha256": "0b11950c4b41d6705c66335f4c29d6d2042aa92c346a32e1c52626c9bd9cdd50"
+    },
+    {
+      "file": "gallery-sheet-4-slot-1-CPU-draft.png",
+      "bytes": 1028839,
+      "sha256": "c04ee2127a9dbd82d807b42d21c6962cff1908b6f78f85f186855ad6f60194b2"
+    },
+    {
+      "file": "report.json",
+      "bytes": 8851,
+      "sha256": "19d2a27ea2386cbaa5b52ffdb8136f8b0e9716c3f195d54a60527996f00ca806"
+    }
+  ],
+  "sources": [
+    {
+      "file": "docs/qa/prototypes/805-algorithm-search/webgpu/detail-preserving-reconstruction.cjs",
+      "sha256": "be1e01438e9e1bb16e01a0ca1b5cb35b14addf05f89b3281c5262d3e60b45a50"
+    },
+    {
+      "file": "docs/qa/prototypes/805-algorithm-search/webgpu/detail-preserving-reconstruction.test.cjs",
+      "sha256": "da684142e9f09d8461e3eee1b67e0596b1980891b9084e5db3a0b4ecc3f7514e"
+    },
+    {
+      "file": "docs/qa/prototypes/805-algorithm-search/webgpu/detail-preserving-actual.cjs",
+      "sha256": "99a8581c766c853d9db6a23be3e22966ad2c8eaaaedca4712f4f60b6a7a1ab5b"
+    },
+    {
+      "file": "docs/qa/prototypes/805-algorithm-search/webgpu/detail-preserving-image.py",
+      "sha256": "942311a7aabeb58c93ee9b1e96db84bf630b9dd89b94a74290deeaecd74c1e3b"
+    }
+  ]
+}
