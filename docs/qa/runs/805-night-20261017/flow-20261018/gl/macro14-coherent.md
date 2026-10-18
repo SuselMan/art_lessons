@@ -76,3 +76,26 @@ material packets; it does not implement the paper's complete boundary or
 qualification above. No scientific assertion of watercolor fidelity.
 
 No GPU/device/browser/service/process/tempbuild created by author.
+
+## Follow-up: coherent base factory packing observer
+
+Added ONLY optional fourth `CoherentOverrides.observePacking`, same imported
+PackingBuffers contract as macro9. Invoked once after all11buffer allocations
+and10bindings, inside allocation try/catch, before candidate publication.
+Shares readonly references to both owned state planes, literal stationary and
+output. It transfers NO ownership. Consumer can bind fine reconstruction to
+those handles; base remains sole destroy owner. Observer throw destroys all
+owned buffers once and rejects creation. Default absent observer adds no GPU
+work, allocation, source transformation or numerical changes.
+
+Actual V16 quality report was read:11cases pass, including strength0 control;
+nonzero fieldSHA differs with paper input as intended. Parent's image review
+reports real shape motion but banding/soft pixelation. This motivates combining
+with fine reconstruction, not declaring standalone final art quality.
+
+Tests now6PASS including one-time callback after bindings, exact borrowed/run
+output identity across two uploads, no premature destruction and throwing
+callback cleanup. strict/noUnused0. No GPU run by author. Composition MUST use
+this actual create/upload, not coherentSource alone: ordinary aux.w0 yields
+an invalid decoded field. This hook does not add stateHash support; wrappers
+must not claim that optional capability was honored by this factory.
