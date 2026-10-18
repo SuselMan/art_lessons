@@ -1,0 +1,74 @@
+[
+  {
+    "algorithm": "wgsl-macro-single-pair-dt",
+    "fixture": "mini-wave",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "idleBetweenMs": 5000,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-single-pair-dt-fine",
+    "fixture": "mini-wave",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "idleBetweenMs": 5000,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1,
+      "dither": 1
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-single-pair-dt",
+    "fixture": "dynamic-two-strokes",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "idleBetweenMs": 5000,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-single-pair-dt-fine",
+    "fixture": "dynamic-two-strokes",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "idleBetweenMs": 5000,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1,
+      "dither": 1
+    }
+  }
+]
