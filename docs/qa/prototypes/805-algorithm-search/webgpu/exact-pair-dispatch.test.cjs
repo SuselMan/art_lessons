@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs'),esbuild=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild'),root=process.env.QA_TEMP_ROOT||'/home/suselman/.cache/codex-qa/flow-805-night-20261018';
+const out=path.join(root,'pair-test.cjs');esbuild.buildSync({stdin:{contents:`export * from ${JSON.stringify(path.join(__dirname,'exact-pair-dispatch.ts'))};export * from ${JSON.stringify(path.join(__dirname,'macro9-integer-smooth-core.ts'))};export {MACRO9_PAIR} from ${JSON.stringify(path.join(__dirname,'macro9-integer-smooth.ts'))};`,resolveDir:__dirname},bundle:true,platform:'node',outfile:out});const {pairTasks,singlePairSource,mixedDynamicPair,adsorbMixed,MACRO9_PAIR}=require(out);let cells=0;
+for(const n of[2,4,8,128])for(let phase=0;phase<4;phase++){const counts=new Uint8Array(n*n);for(const task of pairTasks(n,phase))for(const i of task)counts[i]++;assert.ok(counts.every(v=>v===1));cells+=n*n}
+let seed=805;const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed};const n=16;let state=Array.from({length:n*n},()=>{const a=rand()%32768;return{m:[rand()%(a+1),rand()%(a+1),rand()%(a+1),a],d:[0,0,0,0],w:rand()%65536,s:0,cap:65535,absCap:22000,paper:rand()%256}})
+for(let step=0;step<32;step++){
+ const phase=step%4,axis=phase%2,offset=phase>>1,old=[]
+ for(let i=0;i<n*n;i++){const x=i%n,y=Math.floor(i/n),coord=axis?y:x,first=(coord+2-offset)%2===0,other=coord+(first?1:-1);if(other<0||other>=n){old[i]=adsorbMixed(state[i]);continue}const j=axis?other*n+x:y*n+other,a=Math.min(i,j),b=Math.max(i,j),r=mixedDynamicPair(state[a],state[b]);old[i]=i===a?r.a:r.b}
+ const fresh=[];for(const task of pairTasks(n,phase))if(task.length===1)fresh[task[0]]=adsorbMixed(state[task[0]]);else{const r=mixedDynamicPair(state[task[0]],state[task[1]]);fresh[task[0]]=r.a;fresh[task[1]]=r.b}assert.deepEqual(fresh,old);state=fresh
+}
+const transformed=singlePairSource(MACRO9_PAIR);assert.ok(transformed.includes('dst[ia]=adsorb(a,aux[ia])'));assert.ok(!transformed.includes('if(i==ia)'));assert.throws(()=>singlePairSource('changed'));
+fs.unlinkSync(out);console.log(JSON.stringify({pass:true,mappingCells:cells,exactMaterialPhaseCells:32*n*n,shaderArithmetics:'literal old source segment retained',scope:'CPU mapping/arithmetic proof, GPU speed/compile pending'}));

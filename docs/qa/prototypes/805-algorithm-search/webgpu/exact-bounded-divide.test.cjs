@@ -1,0 +1,6 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),esbuild=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild');
+const tmp=path.join(process.env.QA_TEMP_ROOT||'/home/suselman/.cache/codex-qa/flow-805-night-20261018','exact-divide-test.cjs');esbuild.buildSync({entryPoints:[path.join(__dirname,'exact-bounded-divide.ts')],bundle:true,platform:'node',outfile:tmp});const {exactBoundedDivide}=require(tmp);let cases=0,seed=805;
+function test(n,d){assert.equal(exactBoundedDivide(n,d),Math.floor(n/d));cases++}
+for(let d=1;d<=65535;d++)for(const q of[0,1,255,256,32767,65534,65535])for(const delta of[-1,0,1]){const n=q*d+delta;if(n>=0&&n<=0xffffffff&&Math.floor(n/d)<=65535)test(n,d)}
+for(let i=0;i<2000000;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;const d=1+(seed%65535);seed=(Math.imul(seed,1664525)+1013904223)>>>0;const q=seed&65535;seed=(Math.imul(seed,1664525)+1013904223)>>>0;const n=q*d+seed%d;test(n,d)}
+assert.throws(()=>exactBoundedDivide(1,0));assert.throws(()=>exactBoundedDivide(0xffffffff,1));fs.unlinkSync(tmp);console.log(JSON.stringify({pass:true,cases,correctionProductMax:65536*65535,scope:'CPU exactness under bounded input contract, not GPU speed or cross-device proof'}));
