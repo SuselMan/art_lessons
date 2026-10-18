@@ -256,7 +256,10 @@
       "unitActive": "inactive",
       "displaySettingsChanged": false
     },
-    "ownRegisteredCacheFinished": "vega-stage805-20261018",
-    "rootBuildCacheUntouched": "vega-gpu-timing805-20261018"
+    "rootBuildCacheUntouched": "vega-gpu-timing805-20261018",
+    "ownRegisteredCache": "vega-stage805-20261018",
+    "cacheFinishRequested": true,
+    "ownCacheRemoved": false,
+    "cacheFinishGuard": "protected: active process; ordinary /proc guard, parent privileged verification pending"
   }
 }
