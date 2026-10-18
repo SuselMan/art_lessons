@@ -1,0 +1,262 @@
+{
+  "contract": "vega-native-semantic-gpu-timeline-v1",
+  "sceneResults": [
+    {
+      "scene": "mini-wave",
+      "pass": true,
+      "sourceSHA": {
+        "p": "09b5c0ba09670ba33f261071f1da64624452a51083ed30e87e8a6356d824d043",
+        "c": "4723462fb0d44acaccd32ab9b02c0660017b3195a3cea25957437596e478d85c",
+        "coverage": "54fa3865fc8cc1042cd242c26b36f79dd6deac4737cdcb359a08e47ff41a84e1",
+        "solvent": "ea34142ad9b794cda939ee182a72149cfb2df3487843ade48d35f33567bdda9a",
+        "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "paper": "8a625eab873b82692c2b5f8130aa103e315adff2f11e35003abb5863bdb7e5fb"
+      },
+      "outputSHA": {
+        "p": "b9df211a2463e1af3d7cea6ab885775ee953b85a7f0c0d1882e38e1235f12613",
+        "c": "da51fb66fc9346f448f2303bef5a92da5d2b6d69124ccccf86312a11386f5ebb",
+        "coverage": "0dceadde3607e3357e24254f30a8a9ad4abc4bf5c402c3e845085cfae8be0f19"
+      },
+      "buildManifestSHA": "19d5a15e4ea0817df4b9cc5b3c24611840d1d25b7b1d0783e93127eabba9db41",
+      "wholeSamplesMs": [
+        56.51358,
+        57.15473,
+        56.49454,
+        58.23792,
+        61.01644
+      ],
+      "wholeMedianMs": 57.15473,
+      "groupSumSamplesMs": [
+        56.863690000000005,
+        57.16743999999999,
+        57.394890000000004,
+        61.23798999999999,
+        58.28496
+      ],
+      "groupSumMedianMs": 57.394890000000004,
+      "groupSamplesMs": {
+        "ungrouped": [
+          1.1396,
+          1.24608,
+          1.36391,
+          2.30377,
+          1.24336
+        ],
+        "prepare": [
+          0.1534,
+          0.14136,
+          0.14456,
+          1.16492,
+          0.14156
+        ],
+        "selection": [
+          1.70272,
+          1.77008,
+          2.01682,
+          2.22292,
+          2.08864
+        ],
+        "paths": [
+          31.49161,
+          31.45792,
+          31.31432,
+          32.61474,
+          31.08512
+        ],
+        "transport": [
+          8.02604,
+          7.99352,
+          7.9902,
+          8.1438,
+          8.181
+        ],
+        "assemble": [
+          12.722,
+          12.67284,
+          12.6796,
+          12.91392,
+          12.67984
+        ],
+        "background": [
+          1.20808,
+          1.20388,
+          1.20564,
+          1.19988,
+          1.5986
+        ],
+        "protect": [
+          0.42024,
+          0.68176,
+          0.67984,
+          0.67404,
+          1.26684
+        ]
+      },
+      "observerFreeBeforeMs": [
+        75.30000000074506,
+        67,
+        70.39999999850988,
+        135.90000000223517,
+        146
+      ],
+      "observerFreeAfterMs": [
+        164.09999999776483,
+        68.19999999925494,
+        65.19999999925494,
+        68.89999999850988,
+        75.80000000074506
+      ],
+      "instrumentedFullCWallMs": [
+        66.5,
+        66.80000000074506,
+        67.80000000074506,
+        64.59999999776483,
+        68,
+        64.79999999701977,
+        67.80000000074506,
+        69.10000000149012,
+        68.69999999925494,
+        66
+      ]
+    },
+    {
+      "scene": "mini-two-colors",
+      "pass": true,
+      "sourceSHA": {
+        "p": "45f6370cd921cf7e31b1a1a462852d48a92339798452cb6c8659cab8c72d4855",
+        "c": "477c62fc9a9f1e375942f8828929097c87a7cca21cb69d445cfe9344a4449555",
+        "coverage": "9f2e71ec34eb2792960cf11421d1700699bf29f48c54d33c069cd5fa0c36328c",
+        "solvent": "9f79d0a715b9499397b3237d68602858548a9efb83c540486961f9fabd1fc5c8",
+        "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "paper": "8a625eab873b82692c2b5f8130aa103e315adff2f11e35003abb5863bdb7e5fb"
+      },
+      "outputSHA": {
+        "p": "b6ec3bea682d912d507a980a226955eebad6a60b8016ecef8104e46781738ac1",
+        "c": "c0522fe216afbff446246bf979ae1c5e1fb87efafa687edb477a499e45a7226e",
+        "coverage": "0707927e65bc0e098e6716f3d7744b94b0b0ca35712eb6bd94d78943b0839b67"
+      },
+      "buildManifestSHA": "19d5a15e4ea0817df4b9cc5b3c24611840d1d25b7b1d0783e93127eabba9db41",
+      "wholeSamplesMs": [
+        108.22927,
+        73.54561,
+        73.16429,
+        145.5129,
+        77.2569
+      ],
+      "wholeMedianMs": 77.2569,
+      "groupSumSamplesMs": [
+        75.54195,
+        138.17565,
+        73.70973,
+        79.96070999999999,
+        78.05555
+      ],
+      "groupSumMedianMs": 78.05555,
+      "groupSamplesMs": {
+        "ungrouped": [
+          1.1122,
+          2.27768,
+          1.3226,
+          1.32712,
+          1.15268
+        ],
+        "prepare": [
+          0.14928,
+          1.16525,
+          0.155,
+          0.15836,
+          0.21788
+        ],
+        "selection": [
+          2.03358,
+          6.68339,
+          2.06489,
+          2.35259,
+          3.11447
+        ],
+        "paths": [
+          34.35557,
+          89.83113,
+          31.99148,
+          32.81544,
+          34.0266
+        ],
+        "transport": [
+          22.50972,
+          22.53096,
+          22.50856,
+          23.98276,
+          22.93612
+        ],
+        "assemble": [
+          13.66396,
+          13.59088,
+          13.61824,
+          16.875,
+          13.63292
+        ],
+        "background": [
+          1.24844,
+          1.24052,
+          1.23876,
+          1.58704,
+          1.61644
+        ],
+        "protect": [
+          0.4692,
+          0.85584,
+          0.8102,
+          0.8624,
+          1.35844
+        ]
+      },
+      "observerFreeBeforeMs": [
+        94.40000000223517,
+        86,
+        85.80000000074506,
+        111.39999999850988,
+        80.60000000149012
+      ],
+      "observerFreeAfterMs": [
+        89.89999999850988,
+        83.39999999850988,
+        83.80000000074506,
+        83.60000000149012,
+        91.40000000223517
+      ],
+      "instrumentedFullCWallMs": [
+        148.69999999925494,
+        84.69999999925494,
+        83.89999999850988,
+        153.5,
+        82.39999999850988,
+        82.29999999701977,
+        166.69999999925494,
+        94.30000000074506,
+        86.20000000298023,
+        85.39999999850988
+      ]
+    }
+  ],
+  "qualification": "GPU timer elapsed includes possible CPU-induced GPU idle; not shader-active utilization. No nested queries. Separate whole/group runs. All outliers retained; observer-free wall controls include full C read, a different boundary. Device-local source; no cross-device input identity.",
+  "buildPathMap": "build-path-map.json",
+  "cleanup": {
+    "at": "2026-10-18T16:41:31.230049+00:00",
+    "forward19362Removed": true,
+    "forwardPID": 1029399,
+    "ownMeasurementContextsClosed": true,
+    "remote": {
+      "at": "2026-10-18T16:41:03.072190+00:00",
+      "unit": "grafetto805-vega-20261018-1740.service",
+      "verifiedRootPID": 55847,
+      "remainingOwnProfilePIDs": [],
+      "profileRemoved": true,
+      "unitActive": "inactive",
+      "displaySettingsChanged": false
+    },
+    "ownRegisteredCacheFinished": "vega-stage805-20261018",
+    "rootBuildCacheUntouched": "vega-gpu-timing805-20261018"
+  }
+}
