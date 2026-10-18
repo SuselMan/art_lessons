@@ -23,16 +23,46 @@ export function partitionNativeComponents(actual: NativeComponentPlanes, width:n
  const wet=(i:number)=>source.solvent[4*i+3]+source.foreign[4*i+3]>0
  for(let start=0;start<n;start++) {
   if(!wet(start)||labels[start]>=0)continue
-  const id=components.length,begin=used;let head=used,pigmented=false
-  order[used++]=start;labels[start]=id
-  while(head<used) {
-   const i=order[head++],x=i%width,y=Math.floor(i/width),j=4*i
-   pigmented ||= source.c[j]!==0||source.c[j+1]!==0||source.c[j+2]!==0||source.c[j+3]!==0
-   const add=(v:number)=>{if(labels[v]<0&&wet(v)){labels[v]=id;order[used++]=v}}
-   if(x>0)add(i-1);if(x+1<width)add(i+1);if(y>0)add(i-width);if(y+1<height)add(i+width)
+  const id=components.length,begin=used;let head=0,tail=1,pigmented=false
+  order[begin]=start;labels[start]=id
+  while(head<tail) {
+   const i=order[begin+head],x=i%width,y=Math.floor(i/width),j=4*i;head++
+   if(source.c[j]!==0||source.c[j+1]!==0||source.c[j+2]!==0||source.c[j+3]!==0)pigmented=true
+   for(let direction=0;direction<4;direction++) {
+    let v=-1
+    if(direction===0&&x>0)v=i-1
+    if(direction===1&&x+1<width)v=i+1
+    if(direction===2&&y>0)v=i-width
+    if(direction===3&&y+1<height)v=i+width
+    if(v<0||labels[v]>=0)continue
+    if(source.solvent[4*v+3]+source.foreign[4*v+3]===0)continue
+    if(begin+tail>=n)throw Error('Native component queue overflow')
+    labels[v]=id;order[begin+tail]=v;tail++
+   }
   }
-  components.push(Object.freeze({id,pixelCount:used-begin,pigmented,start:begin,end:used}))
+  used=begin+tail
+  components.push(Object.freeze({id,pixelCount:tail,pigmented,start:begin,end:used}))
  }
+ // Independent linear validation before any native solve: reject malformed partition,
+ // never feed a partially trusted mask to the GPU. No device/JIT cause is presumed.
+ const counts=new Uint32Array(components.length),coloured=new Uint8Array(components.length),orderSeen=new Uint8Array(n)
+ let expectedWet=0,rangeEnd=0
+ for(let i=0;i<n;i++){
+  const id=labels[i],isWet=source.solvent[4*i+3]+source.foreign[4*i+3]>0
+  if(!isWet){if(id!==-1)throw Error('Dry native pixel labelled');continue}
+  expectedWet++
+  if(id<0||id>=components.length)throw Error('Wet native pixel missing component')
+  counts[id]++
+  if(source.c[4*i]!==0||source.c[4*i+1]!==0||source.c[4*i+2]!==0||source.c[4*i+3]!==0)coloured[id]=1
+ }
+ for(let id=0;id<components.length;id++){
+  const c=components[id]
+  if(c.id!==id||c.start!==rangeEnd||c.end-c.start!==c.pixelCount||c.pixelCount!==counts[id]||c.pigmented!==(coloured[id]===1))throw Error('Native component range/count invariant failed')
+  for(let q=c.start;q<c.end;q++){const i=order[q];if(i>=n||labels[i]!==id||orderSeen[i]!==0)throw Error('Native component membership invariant failed');orderSeen[i]=1}
+  rangeEnd=c.end
+ }
+ if(rangeEnd!==used||used!==expectedWet||used>n)throw Error('Native component total invariant failed')
+
  function materialize(id:number) {
   const c=components[id];if(!c||c.id!==id)throw Error('Unknown native component')
   const mask=new Uint8Array(n),planes=Object.fromEntries(nativePlaneKeys.map(k=>[k,materialKeys.includes(k as typeof materialKeys[number])?new Uint8Array(n*4):new Uint8Array(source[k])])) as NativeComponentPlanes
@@ -45,7 +75,7 @@ export function partitionNativeComponents(actual: NativeComponentPlanes, width:n
   return planes
  }
  return {
-  width,height,components:Object.freeze(components),materialize,dryLiteral,
+  width,height,partitionAudit:Object.freeze({expectedWetPixels:expectedWet,labelledPixels:used,contiguousRanges:true,membershipChecked:true}),components:Object.freeze(components),materialize,dryLiteral,
   async describe(id:number, expectedOriginalSHA?:Partial<Record<NativePlaneKey,string>>) {
    const originalSHA=await hashes(source)
    if(expectedOriginalSHA)for(const k of nativePlaneKeys)if(!expectedOriginalSHA[k]||expectedOriginalSHA[k]!==originalSHA[k])throw Error('Original native SHA mismatch '+k)
