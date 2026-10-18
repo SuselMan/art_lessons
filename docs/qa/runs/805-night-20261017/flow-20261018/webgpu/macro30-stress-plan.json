@@ -1,0 +1,242 @@
+{
+  "algorithm": "wgsl-macro-coherent-physical-dt",
+  "fixtureSource": "flow-fixtures.ts:createFlowFixture exactexistingIDs; seed805 unchanged",
+  "cases": [
+    {
+      "fixture": "flow-water-only",
+      "purpose": "No pigment input; allRGBA output must stay0",
+      "config": {
+        "physicalDt": 2,
+        "steps": 128,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "flow-water-only",
+      "purpose": "No pigment input; allRGBA output must stay0",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "flow-dry-pigment",
+      "purpose": "Allwater0; literal stationary output byteexact input",
+      "config": {
+        "physicalDt": 1,
+        "steps": 256,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "flow-dry-pigment",
+      "purpose": "Allwater0; literal stationary output byteexact input",
+      "config": {
+        "physicalDt": 2,
+        "steps": 128,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "flow-dry-pigment",
+      "purpose": "Allwater0; literal stationary output byteexact input",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-opaque-stationary",
+      "purpose": "Dryopaque2x2 centre embedded in wet stroke; capacity/frozen mixed cells; literalpixels unchanged",
+      "config": {
+        "physicalDt": 1,
+        "steps": 256,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-opaque-stationary",
+      "purpose": "Dryopaque2x2 centre embedded in wet stroke; capacity/frozen mixed cells; literalpixels unchanged",
+      "config": {
+        "physicalDt": 2,
+        "steps": 128,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-opaque-stationary",
+      "purpose": "Dryopaque2x2 centre embedded in wet stroke; capacity/frozen mixed cells; literalpixels unchanged",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-saturated-pigment",
+      "purpose": "Water255/pigment255 saturation; maxpressure and capacity; no premul overflow",
+      "config": {
+        "physicalDt": 1,
+        "steps": 256,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-saturated-pigment",
+      "purpose": "Water255/pigment255 saturation; maxpressure and capacity; no premul overflow",
+      "config": {
+        "physicalDt": 2,
+        "steps": 128,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-saturated-pigment",
+      "purpose": "Water255/pigment255 saturation; maxpressure and capacity; no premul overflow",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-corner-wetting",
+      "purpose": "Centre12/12; boundary sealed and outofrange prevention",
+      "config": {
+        "physicalDt": 1,
+        "steps": 256,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-corner-wetting",
+      "purpose": "Centre12/12; boundary sealed and outofrange prevention",
+      "config": {
+        "physicalDt": 2,
+        "steps": 128,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-corner-wetting",
+      "purpose": "Centre12/12; boundary sealed and outofrange prevention",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "flow-thin-neck",
+      "purpose": "12px neck ~1.5coarse cells; no staticwalloracle for dynamicmodel",
+      "config": {
+        "physicalDt": 2,
+        "steps": 128,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "flow-thin-neck",
+      "purpose": "12px neck ~1.5coarse cells; no staticwalloracle for dynamicmodel",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-stroke-through-pool-w64",
+      "purpose": "Thin24px line withwater32 acrosspool64; highpigment/lowwater concentration",
+      "config": {
+        "physicalDt": 2,
+        "steps": 128,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-stroke-through-pool-w64",
+      "purpose": "Thin24px line withwater32 acrosspool64; highpigment/lowwater concentration",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-stroke-through-pool-soft",
+      "purpose": "Smoothpoolwater0..200, faintwaterfringe, sharpwater32line; division/threshold rounding",
+      "config": {
+        "physicalDt": 2,
+        "steps": 128,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    },
+    {
+      "fixture": "dynamic-stroke-through-pool-soft",
+      "purpose": "Smoothpoolwater0..200, faintwaterfringe, sharpwater32line; division/threshold rounding",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      }
+    }
+  ],
+  "sceneCount": 8,
+  "caseCount": 20,
+  "repeats": 3,
+  "idleBetweenMs": 5000,
+  "exportRaw": true,
+  "requiredChecks": [
+    "exact inputSHA acrossarms",
+    "repeatwholeRGBAexact",
+    "coarseM+D all4channels and W+S beforequantization; report ledger availability honestly",
+    "output premul/cap/zero initial pigment creates0",
+    "dryliteral exact andopaque centre unchanged",
+    "source pairSHA isexpected timestep variant; maxFaceRate<=256",
+    "doNOTassert nocross initialdrymask: this isdynamicwetness",
+    "record null/guardfail/drivererrors explicitly not averagedaway"
+  ],
+  "coverageGap": "Existing flow-fixtures have alpha180/255, no truly low-pigment faint carrier fixture. Soft case tests lowwater notlowpigment. Existing mini-wave/galleryqualitybatch must assess faintcarrier; do not call this gap covered."
+}
