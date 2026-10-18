@@ -11,7 +11,7 @@
       "blocked-native-source": 60
     }
   },
-  "registrySHA": "4a8cd431472d9a34e2943cf944155c5d1af6b3af46ba1a4cb977066734bf2002",
+  "registrySHA": "73923d01cf400c556490ea3de1ef5d226f379aa6fd3f3900c545d61d67b69a40",
   "inputs": [
     {
       "id": "mini-wave",
@@ -437,12 +437,12 @@
       "id": "dynamic-two-strokes",
       "size": 1024,
       "seed": 805,
-      "encoding": "premultiplied-rgb",
+      "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
         "id": "dynamic-two-strokes",
         "size": 1024,
-        "encoding": "premultiplied-rgb",
+        "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
       "sha": {
@@ -463,12 +463,12 @@
       "id": "dynamic-stroke-through-pool",
       "size": 1024,
       "seed": 805,
-      "encoding": "premultiplied-rgb",
+      "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
         "id": "dynamic-stroke-through-pool",
         "size": 1024,
-        "encoding": "premultiplied-rgb",
+        "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
       "sha": {
@@ -489,12 +489,12 @@
       "id": "dynamic-water-drop",
       "size": 1024,
       "seed": 805,
-      "encoding": "premultiplied-rgb",
+      "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
         "id": "dynamic-water-drop",
         "size": 1024,
-        "encoding": "premultiplied-rgb",
+        "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
       "sha": {
@@ -515,12 +515,12 @@
       "id": "dynamic-wet-on-dry",
       "size": 1024,
       "seed": 805,
-      "encoding": "premultiplied-rgb",
+      "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
         "id": "dynamic-wet-on-dry",
         "size": 1024,
-        "encoding": "premultiplied-rgb",
+        "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
       "sha": {
@@ -541,12 +541,12 @@
       "id": "flow-pool-drop",
       "size": 1024,
       "seed": 805,
-      "encoding": "premultiplied-rgb",
+      "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
         "id": "flow-pool-drop",
         "size": 1024,
-        "encoding": "premultiplied-rgb",
+        "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
       "sha": {
@@ -567,12 +567,12 @@
       "id": "flow-separated-colors",
       "size": 1024,
       "seed": 805,
-      "encoding": "premultiplied-rgb",
+      "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
         "id": "flow-separated-colors",
         "size": 1024,
-        "encoding": "premultiplied-rgb",
+        "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
       "sha": {
@@ -593,12 +593,12 @@
       "id": "flow-dry-barrier",
       "size": 1024,
       "seed": 805,
-      "encoding": "premultiplied-rgb",
+      "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
         "id": "flow-dry-barrier",
         "size": 1024,
-        "encoding": "premultiplied-rgb",
+        "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
       "sha": {
@@ -619,12 +619,12 @@
       "id": "flow-isolated-pools",
       "size": 1024,
       "seed": 805,
-      "encoding": "premultiplied-rgb",
+      "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
         "id": "flow-isolated-pools",
         "size": 1024,
-        "encoding": "premultiplied-rgb",
+        "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
       "sha": {
@@ -645,12 +645,12 @@
       "id": "flow-one-pixel-wall",
       "size": 1024,
       "seed": 805,
-      "encoding": "premultiplied-rgb",
+      "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
         "id": "flow-one-pixel-wall",
         "size": 1024,
-        "encoding": "premultiplied-rgb",
+        "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
       "sha": {
@@ -671,12 +671,12 @@
       "id": "flow-thin-neck",
       "size": 1024,
       "seed": 805,
-      "encoding": "premultiplied-rgb",
+      "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
         "id": "flow-thin-neck",
         "size": 1024,
-        "encoding": "premultiplied-rgb",
+        "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
       "sha": {
@@ -697,12 +697,12 @@
       "id": "flow-paper-drop",
       "size": 1024,
       "seed": 805,
-      "encoding": "premultiplied-rgb",
+      "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
         "id": "flow-paper-drop",
         "size": 1024,
-        "encoding": "premultiplied-rgb",
+        "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
       "sha": {
@@ -723,12 +723,12 @@
       "id": "flow-water-only",
       "size": 1024,
       "seed": 805,
-      "encoding": "premultiplied-rgb",
+      "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
         "id": "flow-water-only",
         "size": 1024,
-        "encoding": "premultiplied-rgb",
+        "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
       "sha": {
@@ -749,12 +749,12 @@
       "id": "flow-dry-pigment",
       "size": 1024,
       "seed": 805,
-      "encoding": "premultiplied-rgb",
+      "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
         "id": "flow-dry-pigment",
         "size": 1024,
-        "encoding": "premultiplied-rgb",
+        "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
       "sha": {
@@ -775,12 +775,12 @@
       "id": "flow-near-colors",
       "size": 1024,
       "seed": 805,
-      "encoding": "premultiplied-rgb",
+      "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
         "id": "flow-near-colors",
         "size": 1024,
-        "encoding": "premultiplied-rgb",
+        "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
       "sha": {
@@ -801,12 +801,12 @@
       "id": "flow-diagonal-wall",
       "size": 1024,
       "seed": 805,
-      "encoding": "premultiplied-rgb",
+      "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
         "id": "flow-diagonal-wall",
         "size": 1024,
-        "encoding": "premultiplied-rgb",
+        "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
       "sha": {
@@ -824,5 +824,6 @@
       }
     }
   ],
-  "losslessAdapter": "Do not clamp RGB>A or rescale source bytes. A bounded RGBA8 carrier cannot encode independent depth>A losslessly. Preserve bytes, use explicit separate optical-depth/mass lanes (u16/f32) with reviewed model conversion, or declare incompatible. Native needs original raw multi-plane checkpoint/replay; common conversion is not invertible."
+  "losslessAdapter": "Do not clamp RGB>A or rescale source bytes. A bounded RGBA8 carrier cannot encode independent depth>A losslessly. Preserve bytes, use explicit separate optical-depth/mass lanes (u16/f32) with reviewed model conversion, or declare incompatible. Native needs original raw multi-plane checkpoint/replay; common conversion is not invertible.",
+  "encodingCorrection": "All30 actual inputs optical-density. Generated fixture input.encoding is propagated to request; old request-default labels are not revalidated as new fixed-domain results. Input bytes/SHA unchanged."
 }

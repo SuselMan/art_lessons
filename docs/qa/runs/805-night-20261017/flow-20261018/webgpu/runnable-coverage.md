@@ -32,4 +32,8 @@ node docs/qa/prototypes/805-algorithm-search/review-job-manifest.cjs \
 node --test docs/qa/prototypes/805-algorithm-search/review-job-manifest.test.cjs
 ```
 
-Два CPU-теста проверяют отсутствие clamp, точные входные SHA, обязательный отказ при несовпадении SHA и явные blockers. Генерация manifest и анализ всех30 входов завершены; GPU-запусков не было. Новых моделей, фоновых расчётов, сервисов или сборок этот подэтап не создаёт.
+Три CPU-теста проверяют отсутствие clamp, точные входные SHA, обязательный отказ при несовпадении SHA и явные blockers. Генерация manifest и анализ всех30 входов завершены; GPU-запусков не было. Новых моделей, фоновых расчётов, сервисов или сборок этот подэтап не создаёт.
+
+## Исправление encoding18 октября
+
+Все30 actual inputs имеют `encoding: optical-density`, в том числе15 `createFlowFixture`. Manifest теперь передаёт **input.encoding**, а не предполагаемый request default premultiplied-rgb. Regression проверяет actual flow generator → executable worker request. После регенерации все30 SHA трёх полей совпали с предыдущим manifest: изменена только семантическая метка. Старые отчёты с неверным request encoding не переписываются в валидные результаты новой политики.
