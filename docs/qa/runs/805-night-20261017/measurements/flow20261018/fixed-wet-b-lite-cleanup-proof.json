@@ -1,0 +1,22 @@
+{
+  "serial": "R52RB0JXVSY",
+  "forward": "tcp:19336",
+  "remote": "localabstract:chrome_devtools_remote",
+  "bootstrapNonce": "fixed-wet-blite-20261018",
+  "owner": "puddle_undo",
+  "state": "closed",
+  "forwardRemoved": true,
+  "ownContextsClosed": true,
+  "remainingTemporaryResources": [
+    "fixed-wet-b-lite-v1 immutable compiled build under registered shared TTL",
+    "raw/PNG results under registered shared TTL; compact and selected images durable"
+  ],
+  "cleanupCompiledCoverage8": {
+    "path": "/home/suselman/.cache/codex-qa/flow-805-night-20261018/native-feather-coverage-eight",
+    "manifestSHA256": "601d5af22263f8d8ef6a4e288cefdb330e58f6bd8b8c63446a50c42cf16be9b8",
+    "verifiedFiles": 10,
+    "bytes": 5248603,
+    "removed": true,
+    "durableManifest": "/home/suselman/.local/share/project-services/gl1-review/flow-805-20261018/evidence/native-cache-canonical13-20261018/coverage-build-manifest.json"
+  }
+}

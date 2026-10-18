@@ -1,0 +1,2416 @@
+{
+  "technicalPass": true,
+  "sourceStable": true,
+  "contextClosed": true,
+  "qualification": "Diagnostic original dry RGBA byte identity on raw initial water==0. Leaks recorded as failures of requested fixed-mask contract, not silently clipped or relabelled historical physics.",
+  "sourceHashes": {
+    "entry.js": "0c21d264f320710831bf43723c645c5c22f0b1a454ab8fad2a696ebdd89448a9",
+    "worker.js": "a5b30e108fe4b4dc5db621ffa4eb6b73d201f4f89f1651e50d756c884bd5e235",
+    "chunk-UFEK7KRS.js": "1fab0e18924b0118ccef7ee3a8ae32386c5cda8ef3b86d0cc84041d1bbce47bf",
+    "fixtures/mini-wave.bin": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+    "fixtures/gallery-sheet-12-slot-1.bin": "69113189b2a48eb6d6fdfe51b7cb4936e7f75e5aa2d81629298c0b1b264aa21a",
+    "index.html": "7f174c6068b1a87f196251529b71ac6c4844f011e315c79534a94c0af5b824e4"
+  },
+  "cases": [
+    {
+      "algorithm": "alternative-finite-volume-exchange",
+      "fixture": "water-stroke",
+      "config": {
+        "steps": 6,
+        "mobile": 0.8,
+        "share": 0.75,
+        "adsorption": 0.08,
+        "coarse": 2
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+        "water": "25b133530fa81bcf77318bcd33bd06b73bd4146477556b67cc9e98567b77a956",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "0a100c37b680219b31dc16baab3ddc6bcd6adcdd258b83d5bc3fce49af74b927",
+      "dryPixels": 857030,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "001-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "0a100c37b680219b31dc16baab3ddc6bcd6adcdd258b83d5bc3fce49af74b927",
+        "gzipBytes": 169891,
+        "gzipSHA256": "7a86a30f2a68d6e04094fe01097d398051002373d1d7e1124a2954c60604b614",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 57.799999952316284,
+          "submitJsMs": 1.5,
+          "runToDependentMs": 36,
+          "totalReadyMs": 93.79999995231628,
+          "fullReadbackJsMs": 8.799999952316284,
+          "totalToFullReadbackMs": 102.59999990463257
+        }
+      ],
+      "png": {
+        "file": "001-alternative-finite-volume-exchange-water-stroke.png",
+        "bytes": 818678,
+        "sha256": "f4cfa98f2a48096d2c6cd5c1ddc38a61be910ffd52ef53e190069cd9261a5704"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-finite-volume-exchange",
+      "fixture": "dry-barrier",
+      "config": {
+        "steps": 6,
+        "mobile": 0.8,
+        "share": 0.75,
+        "adsorption": 0.08,
+        "coarse": 2
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "ea7b876a06ee6c1c5cca87da5fe899ee681fb656a980ad9eaeab78e32fe580ec",
+        "water": "f04b89aa71c005fc35f9128c3e2a961efc54396b9ed32cb5c5425b605d6009da",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "2b297115937e8758c56749d6421d7aa75d21289f5a6dec4f907f0a62ecece051",
+      "dryPixels": 786944,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "002-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "2b297115937e8758c56749d6421d7aa75d21289f5a6dec4f907f0a62ecece051",
+        "gzipBytes": 26071,
+        "gzipSHA256": "50f2f7db215b55b811f2eb97ca52d509b753dd4cd9fc9453fd0a017e99a907a9",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 34.69999980926514,
+          "submitJsMs": 0.7000000476837158,
+          "runToDependentMs": 34.700000047683716,
+          "totalReadyMs": 69.39999985694885,
+          "fullReadbackJsMs": 10.400000095367432,
+          "totalToFullReadbackMs": 79.79999995231628
+        }
+      ],
+      "png": {
+        "file": "002-alternative-finite-volume-exchange-dry-barrier.png",
+        "bytes": 669954,
+        "sha256": "959cbcfc81e15b7f21f70624dfd610caf71d759ce10196dc42873170c87dbdce"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-finite-volume-exchange",
+      "fixture": "fixed-wet-thin-1",
+      "config": {
+        "steps": 6,
+        "mobile": 0.8,
+        "share": 0.75,
+        "adsorption": 0.08,
+        "coarse": 2
+      },
+      "encoding": "premultiplied-rgb",
+      "fixtureSHA": {
+        "rgba": "9eadda91cd1b7ff5fbc3e38d346be3bbf65568c1713a15d1d32904b3fb959f57",
+        "water": "fc9f489a3e64115ee3c5e8bd8d1b0c8329f188e5ae1499fd88f1c86efd9f745b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "outputSHA": "9eadda91cd1b7ff5fbc3e38d346be3bbf65568c1713a15d1d32904b3fb959f57",
+      "dryPixels": 1048432,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "003-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "9eadda91cd1b7ff5fbc3e38d346be3bbf65568c1713a15d1d32904b3fb959f57",
+        "gzipBytes": 4126,
+        "gzipSHA256": "90fa3cbd7ed9905a86b8523117498beb231f7b509d1c942b9890cfb3b1aa3449",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 53,
+          "submitJsMs": 0.6000001430511475,
+          "runToDependentMs": 41.60000014305115,
+          "totalReadyMs": 94.60000014305115,
+          "fullReadbackJsMs": 16.59999990463257,
+          "totalToFullReadbackMs": 111.20000004768372
+        }
+      ],
+      "png": {
+        "file": "003-alternative-finite-volume-exchange-fixed-wet-thin-1.png",
+        "bytes": 632894,
+        "sha256": "7e9a846743a0a72c1157d49d3c359fc7c7b714a1c7ac7a0ddbbb9cbdd8cec541"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-coarse-mobile-detail",
+      "fixture": "water-stroke",
+      "config": {
+        "steps": 2,
+        "mobile": 0.35,
+        "share": 0.6,
+        "adsorption": 0.1,
+        "paperBias": 0.8,
+        "coarse": 1,
+        "paperScale": 5,
+        "micro": 0.12,
+        "relief": 2.5,
+        "detail": 0.4,
+        "mobility": 1
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+        "water": "25b133530fa81bcf77318bcd33bd06b73bd4146477556b67cc9e98567b77a956",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "10da11e557b86cd2fe3670e4ad016812ff9035978caf77469148f545ddfffe74",
+      "dryPixels": 857030,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "004-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "10da11e557b86cd2fe3670e4ad016812ff9035978caf77469148f545ddfffe74",
+        "gzipBytes": 119566,
+        "gzipSHA256": "3bd64cc1253e5ab8fff8a968aa58e52296a91a313991c0b08ac9557cd241c91c",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 71.59999990463257,
+          "submitJsMs": 0.9000000953674316,
+          "runToDependentMs": 33.80000019073486,
+          "totalReadyMs": 105.40000009536743,
+          "fullReadbackJsMs": 13.599999904632568,
+          "totalToFullReadbackMs": 119
+        }
+      ],
+      "png": {
+        "file": "004-alternative-coarse-mobile-detail-water-stroke.png",
+        "bytes": 775316,
+        "sha256": "7ed3ae3814bba44a782defc8cc4f299773b1bffa5b4b0743f2c5f0139d97d30d"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-coarse-mobile-detail",
+      "fixture": "dry-barrier",
+      "config": {
+        "steps": 2,
+        "mobile": 0.35,
+        "share": 0.6,
+        "adsorption": 0.1,
+        "paperBias": 0.8,
+        "coarse": 1,
+        "paperScale": 5,
+        "micro": 0.12,
+        "relief": 2.5,
+        "detail": 0.4,
+        "mobility": 1
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "ea7b876a06ee6c1c5cca87da5fe899ee681fb656a980ad9eaeab78e32fe580ec",
+        "water": "f04b89aa71c005fc35f9128c3e2a961efc54396b9ed32cb5c5425b605d6009da",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "d74d3f92db47ce3ff1bd46db781372a87f1aafbbc8ff51c3216dd461e87d48e7",
+      "dryPixels": 786944,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "005-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "d74d3f92db47ce3ff1bd46db781372a87f1aafbbc8ff51c3216dd461e87d48e7",
+        "gzipBytes": 18735,
+        "gzipSHA256": "2f80461aeaabe9b54ed13d1604cf0a210f97185793e735b754046e68917c0289",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 49.700000047683716,
+          "submitJsMs": 0.5,
+          "runToDependentMs": 31.899999856948853,
+          "totalReadyMs": 81.59999990463257,
+          "fullReadbackJsMs": 18.200000047683716,
+          "totalToFullReadbackMs": 99.79999995231628
+        }
+      ],
+      "png": {
+        "file": "005-alternative-coarse-mobile-detail-dry-barrier.png",
+        "bytes": 669431,
+        "sha256": "65719deaa79499770d6398395afe79c7f7ecc5f23389345a9073ec7879fdc717"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-coarse-mobile-detail",
+      "fixture": "fixed-wet-thin-1",
+      "config": {
+        "steps": 2,
+        "mobile": 0.35,
+        "share": 0.6,
+        "adsorption": 0.1,
+        "paperBias": 0.8,
+        "coarse": 1,
+        "paperScale": 5,
+        "micro": 0.12,
+        "relief": 2.5,
+        "detail": 0.4,
+        "mobility": 1
+      },
+      "encoding": "premultiplied-rgb",
+      "fixtureSHA": {
+        "rgba": "9eadda91cd1b7ff5fbc3e38d346be3bbf65568c1713a15d1d32904b3fb959f57",
+        "water": "fc9f489a3e64115ee3c5e8bd8d1b0c8329f188e5ae1499fd88f1c86efd9f745b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "outputSHA": "41bfaa5c6aa04d15547ede22f97f894b38e187d8450a66fe8cb45e3fa24c75e8",
+      "dryPixels": 1048432,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "006-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "41bfaa5c6aa04d15547ede22f97f894b38e187d8450a66fe8cb45e3fa24c75e8",
+        "gzipBytes": 4141,
+        "gzipSHA256": "6f60cd483c191cd0f7762ee8b5d9e41a5998a93898d6f63c71eed09bf3e3d44d",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 47.200000047683716,
+          "submitJsMs": 0.5,
+          "runToDependentMs": 29.5,
+          "totalReadyMs": 76.70000004768372,
+          "fullReadbackJsMs": 14,
+          "totalToFullReadbackMs": 90.70000004768372
+        }
+      ],
+      "png": {
+        "file": "006-alternative-coarse-mobile-detail-fixed-wet-thin-1.png",
+        "bytes": 632947,
+        "sha256": "108bae2097a8b40914c116a947d4dd47fc60c9d689fe51c432911c873f513a1a"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-stable-fluids",
+      "fixture": "water-stroke",
+      "config": {
+        "resolution": 256,
+        "steps": 4,
+        "projection": 4,
+        "force": 2
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+        "water": "25b133530fa81bcf77318bcd33bd06b73bd4146477556b67cc9e98567b77a956",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "22ef4ea54d2b0f20b7bb8604cd11e1a4a0a0d4cace09db52b5dd4ff47a49494e",
+      "dryPixels": 857030,
+      "changedDryPixels": 2769,
+      "changedDryBytes": 9261,
+      "maxDryDelta": 49,
+      "dryRGBAAbsoluteDelta": [
+        24384,
+        7634,
+        2168,
+        51467
+      ],
+      "first": [
+        {
+          "x": 817,
+          "y": 282,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 818,
+          "y": 282,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 819,
+          "y": 282,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            2
+          ]
+        },
+        {
+          "x": 820,
+          "y": 282,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            3
+          ]
+        }
+      ],
+      "raw": {
+        "file": "007-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "22ef4ea54d2b0f20b7bb8604cd11e1a4a0a0d4cace09db52b5dd4ff47a49494e",
+        "gzipBytes": 95625,
+        "gzipSHA256": "c0a42e42c636f7f38459947833d8f275c20e98ea3c1306a4f4a1967e8c0edff2",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 58.5,
+          "submitJsMs": 1.7999999523162842,
+          "runToDependentMs": 19,
+          "totalReadyMs": 77.5,
+          "fullReadbackJsMs": 13.100000143051147,
+          "totalToFullReadbackMs": 90.60000014305115
+        }
+      ],
+      "png": {
+        "file": "007-alternative-stable-fluids-water-stroke.png",
+        "bytes": 760065,
+        "sha256": "bc6e03720fdafc2290233bb88c1bd5a8140926aa90c5067527bafa6aeea43ad5"
+      },
+      "dryOriginalExact": false
+    },
+    {
+      "algorithm": "alternative-stable-fluids",
+      "fixture": "dry-barrier",
+      "config": {
+        "resolution": 256,
+        "steps": 4,
+        "projection": 4,
+        "force": 2
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "ea7b876a06ee6c1c5cca87da5fe899ee681fb656a980ad9eaeab78e32fe580ec",
+        "water": "f04b89aa71c005fc35f9128c3e2a961efc54396b9ed32cb5c5425b605d6009da",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "064f7dd5a4714322b73b7edb1f54089625558cfcfb10d608f1c452a01bdbce53",
+      "dryPixels": 786944,
+      "changedDryPixels": 244,
+      "changedDryBytes": 949,
+      "maxDryDelta": 33,
+      "dryRGBAAbsoluteDelta": [
+        2704,
+        785,
+        228,
+        5571
+      ],
+      "first": [
+        {
+          "x": 512,
+          "y": 388,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 512,
+          "y": 389,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 512,
+          "y": 390,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            2
+          ]
+        },
+        {
+          "x": 512,
+          "y": 391,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            2,
+            1,
+            0,
+            5
+          ]
+        }
+      ],
+      "raw": {
+        "file": "008-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "064f7dd5a4714322b73b7edb1f54089625558cfcfb10d608f1c452a01bdbce53",
+        "gzipBytes": 22000,
+        "gzipSHA256": "6e99c2ec4fc9aac39c762579f8d6eee7d7f8ddd9bd72373ed7c382ada16f87a0",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 35.89999985694885,
+          "submitJsMs": 0.7000000476837158,
+          "runToDependentMs": 15.800000190734863,
+          "totalReadyMs": 51.700000047683716,
+          "fullReadbackJsMs": 10.099999904632568,
+          "totalToFullReadbackMs": 61.799999952316284
+        }
+      ],
+      "png": {
+        "file": "008-alternative-stable-fluids-dry-barrier.png",
+        "bytes": 661350,
+        "sha256": "4ae36f0de6646acf06b8c7706f228a27e7f5c0a32d1f43cb9e26439588d77fb4"
+      },
+      "dryOriginalExact": false
+    },
+    {
+      "algorithm": "alternative-stable-fluids",
+      "fixture": "fixed-wet-thin-1",
+      "config": {
+        "resolution": 256,
+        "steps": 4,
+        "projection": 4,
+        "force": 2
+      },
+      "encoding": "premultiplied-rgb",
+      "fixtureSHA": {
+        "rgba": "9eadda91cd1b7ff5fbc3e38d346be3bbf65568c1713a15d1d32904b3fb959f57",
+        "water": "fc9f489a3e64115ee3c5e8bd8d1b0c8329f188e5ae1499fd88f1c86efd9f745b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "outputSHA": "0b024bdd1ad7a086d4e4702739dc66ec9374f5957a7bcf904a61c979345377c1",
+      "dryPixels": 1048432,
+      "changedDryPixels": 921,
+      "changedDryBytes": 3109,
+      "maxDryDelta": 21,
+      "dryRGBAAbsoluteDelta": [
+        3938,
+        3499,
+        865,
+        9035
+      ],
+      "first": [
+        {
+          "x": 441,
+          "y": 510,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 442,
+          "y": 510,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 443,
+          "y": 510,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 444,
+          "y": 510,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "raw": {
+        "file": "009-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "0b024bdd1ad7a086d4e4702739dc66ec9374f5957a7bcf904a61c979345377c1",
+        "gzipBytes": 4366,
+        "gzipSHA256": "6121bbd411c4c643ff8c2f3f7d3cef60a8cb56e11292b37bdaea47ff66e0bda5",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 42.90000009536743,
+          "submitJsMs": 0.5999999046325684,
+          "runToDependentMs": 7.099999904632568,
+          "totalReadyMs": 50,
+          "fullReadbackJsMs": 7.1000001430511475,
+          "totalToFullReadbackMs": 57.10000014305115
+        }
+      ],
+      "png": {
+        "file": "009-alternative-stable-fluids-fixed-wet-thin-1.png",
+        "bytes": 636868,
+        "sha256": "73cd3170a2b46c339673242d914459ddefb1c687312f9a5962ea3a1e4e47d458"
+      },
+      "dryOriginalExact": false
+    },
+    {
+      "algorithm": "alternative-lattice-diffusion",
+      "fixture": "water-stroke",
+      "config": {
+        "resolution": 256,
+        "steps": 12,
+        "stride": 2
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+        "water": "25b133530fa81bcf77318bcd33bd06b73bd4146477556b67cc9e98567b77a956",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "48a07df8a38d5265e408eb2998e233ddf3006bd9370be17e2d7b0dd5acbc73cd",
+      "dryPixels": 857030,
+      "changedDryPixels": 3143,
+      "changedDryBytes": 10133,
+      "maxDryDelta": 76,
+      "dryRGBAAbsoluteDelta": [
+        37977,
+        10528,
+        2316,
+        80995
+      ],
+      "first": [
+        {
+          "x": 816,
+          "y": 282,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 817,
+          "y": 282,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            2
+          ]
+        },
+        {
+          "x": 818,
+          "y": 282,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            3
+          ]
+        },
+        {
+          "x": 819,
+          "y": 282,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            2,
+            0,
+            0,
+            3
+          ]
+        }
+      ],
+      "raw": {
+        "file": "010-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "48a07df8a38d5265e408eb2998e233ddf3006bd9370be17e2d7b0dd5acbc73cd",
+        "gzipBytes": 106187,
+        "gzipSHA256": "84013723a25aa65c74f3eadf35734efc7fc0ecbae6c4ba2dfeeb3ba9512c4c7b",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 50.10000014305115,
+          "submitJsMs": 0.39999985694885254,
+          "runToDependentMs": 26.399999856948853,
+          "totalReadyMs": 76.5,
+          "fullReadbackJsMs": 19.100000143051147,
+          "totalToFullReadbackMs": 95.60000014305115
+        }
+      ],
+      "png": {
+        "file": "010-alternative-lattice-diffusion-water-stroke.png",
+        "bytes": 776500,
+        "sha256": "561e71268bccfc8a629dc0580ebe9f321b212055a29102217c75ce6829aab710"
+      },
+      "dryOriginalExact": false
+    },
+    {
+      "algorithm": "alternative-lattice-diffusion",
+      "fixture": "dry-barrier",
+      "config": {
+        "resolution": 256,
+        "steps": 12,
+        "stride": 2
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "ea7b876a06ee6c1c5cca87da5fe899ee681fb656a980ad9eaeab78e32fe580ec",
+        "water": "f04b89aa71c005fc35f9128c3e2a961efc54396b9ed32cb5c5425b605d6009da",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "7f52d18c8006e7281c917492c0d3cd81c84ceb7a51a65d74dd93a57176838ec7",
+      "dryPixels": 786944,
+      "changedDryPixels": 292,
+      "changedDryBytes": 1054,
+      "maxDryDelta": 44,
+      "dryRGBAAbsoluteDelta": [
+        4750,
+        1420,
+        440,
+        10202
+      ],
+      "first": [
+        {
+          "x": 512,
+          "y": 364,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 512,
+          "y": 365,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 512,
+          "y": 366,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 512,
+          "y": 367,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "raw": {
+        "file": "011-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "7f52d18c8006e7281c917492c0d3cd81c84ceb7a51a65d74dd93a57176838ec7",
+        "gzipBytes": 17097,
+        "gzipSHA256": "c4102847adc113e1134362d28285175ea71536991fecf5ffcc620d709055a102",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 36.299999952316284,
+          "submitJsMs": 0.40000009536743164,
+          "runToDependentMs": 9.900000095367432,
+          "totalReadyMs": 46.200000047683716,
+          "fullReadbackJsMs": 6.900000095367432,
+          "totalToFullReadbackMs": 53.10000014305115
+        }
+      ],
+      "png": {
+        "file": "011-alternative-lattice-diffusion-dry-barrier.png",
+        "bytes": 669902,
+        "sha256": "9c2b8c850e2afa201ee3489815c2e63846e156d5a5201f9602c74c15722543b4"
+      },
+      "dryOriginalExact": false
+    },
+    {
+      "algorithm": "alternative-lattice-diffusion",
+      "fixture": "fixed-wet-thin-1",
+      "config": {
+        "resolution": 256,
+        "steps": 12,
+        "stride": 2
+      },
+      "encoding": "premultiplied-rgb",
+      "fixtureSHA": {
+        "rgba": "9eadda91cd1b7ff5fbc3e38d346be3bbf65568c1713a15d1d32904b3fb959f57",
+        "water": "fc9f489a3e64115ee3c5e8bd8d1b0c8329f188e5ae1499fd88f1c86efd9f745b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "outputSHA": "5d2f7fb88a240fba07175d1c33a65529f9c0c7b33e652ccd88610bd2c2058fee",
+      "dryPixels": 1048432,
+      "changedDryPixels": 947,
+      "changedDryBytes": 3164,
+      "maxDryDelta": 25,
+      "dryRGBAAbsoluteDelta": [
+        4868,
+        4190,
+        938,
+        10867
+      ],
+      "first": [
+        {
+          "x": 441,
+          "y": 510,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 442,
+          "y": 510,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 443,
+          "y": 510,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 444,
+          "y": 510,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "raw": {
+        "file": "012-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "5d2f7fb88a240fba07175d1c33a65529f9c0c7b33e652ccd88610bd2c2058fee",
+        "gzipBytes": 4407,
+        "gzipSHA256": "03ec205862889d4f3910284a704ac75d870e4937742b46010a6bc1248f51ba4d",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 45.5,
+          "submitJsMs": 0.2999999523162842,
+          "runToDependentMs": 10.599999904632568,
+          "totalReadyMs": 56.09999990463257,
+          "fullReadbackJsMs": 7.5,
+          "totalToFullReadbackMs": 63.59999990463257
+        }
+      ],
+      "png": {
+        "file": "012-alternative-lattice-diffusion-fixed-wet-thin-1.png",
+        "bytes": 637104,
+        "sha256": "faeee007844976f82c110eba40f46a683e7b775c9480a0eac88e4f3449ad71c8"
+      },
+      "dryOriginalExact": false
+    },
+    {
+      "algorithm": "alternative-artistic-front",
+      "fixture": "water-stroke",
+      "config": {
+        "resolution": 256,
+        "steps": 8,
+        "budget": 16,
+        "rim": 0.35
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+        "water": "25b133530fa81bcf77318bcd33bd06b73bd4146477556b67cc9e98567b77a956",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "dceab10d258b0e4cbd156b1d61b10d314338f11a85f487e331461972700c1aee",
+      "dryPixels": 857030,
+      "changedDryPixels": 21016,
+      "changedDryBytes": 74781,
+      "maxDryDelta": 81,
+      "dryRGBAAbsoluteDelta": [
+        416800,
+        134710,
+        35524,
+        882172
+      ],
+      "first": [
+        {
+          "x": 825,
+          "y": 264,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 826,
+          "y": 264,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            2
+          ]
+        },
+        {
+          "x": 827,
+          "y": 264,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            2
+          ]
+        },
+        {
+          "x": 828,
+          "y": 264,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            2
+          ]
+        }
+      ],
+      "raw": {
+        "file": "013-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "dceab10d258b0e4cbd156b1d61b10d314338f11a85f487e331461972700c1aee",
+        "gzipBytes": 138126,
+        "gzipSHA256": "1b485330f18e57ed19a912c4ea04232dfbafbe51c5d7d8df6b23ef83b97d98c5",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 64,
+          "submitJsMs": 0.7000000476837158,
+          "runToDependentMs": 24.899999856948853,
+          "totalReadyMs": 88.89999985694885,
+          "fullReadbackJsMs": 15.100000143051147,
+          "totalToFullReadbackMs": 104
+        }
+      ],
+      "png": {
+        "file": "013-alternative-artistic-front-water-stroke.png",
+        "bytes": 810511,
+        "sha256": "a31ae15f7fde2d3ffad5b9823dfce922c1e1168a14d159d9b0ad1ee583bab1a0"
+      },
+      "dryOriginalExact": false
+    },
+    {
+      "algorithm": "alternative-artistic-front",
+      "fixture": "dry-barrier",
+      "config": {
+        "resolution": 256,
+        "steps": 8,
+        "budget": 16,
+        "rim": 0.35
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "ea7b876a06ee6c1c5cca87da5fe899ee681fb656a980ad9eaeab78e32fe580ec",
+        "water": "f04b89aa71c005fc35f9128c3e2a961efc54396b9ed32cb5c5425b605d6009da",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "1020d7099f4ebedda45fa1ca20489f4bda669ee0659359ddc22bd27cbb556972",
+      "dryPixels": 786944,
+      "changedDryPixels": 316,
+      "changedDryBytes": 1162,
+      "maxDryDelta": 35,
+      "dryRGBAAbsoluteDelta": [
+        4024,
+        1370,
+        426,
+        8305
+      ],
+      "first": [
+        {
+          "x": 512,
+          "y": 352,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 512,
+          "y": 353,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 512,
+          "y": 354,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 512,
+          "y": 355,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "raw": {
+        "file": "014-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "1020d7099f4ebedda45fa1ca20489f4bda669ee0659359ddc22bd27cbb556972",
+        "gzipBytes": 15413,
+        "gzipSHA256": "c14057271d84d210ab9b6591a2cef18b0c751d823bb3a652de9b7645842ae3cd",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 22,
+          "submitJsMs": 0.5,
+          "runToDependentMs": 7,
+          "totalReadyMs": 29,
+          "fullReadbackJsMs": 5.6000001430511475,
+          "totalToFullReadbackMs": 34.60000014305115
+        }
+      ],
+      "png": {
+        "file": "014-alternative-artistic-front-dry-barrier.png",
+        "bytes": 678492,
+        "sha256": "b379826e2004b5e0e678135314f8b58b8efd662b95eb6b4e3e7af918efe0b0d0"
+      },
+      "dryOriginalExact": false
+    },
+    {
+      "algorithm": "alternative-artistic-front",
+      "fixture": "fixed-wet-thin-1",
+      "config": {
+        "resolution": 256,
+        "steps": 8,
+        "budget": 16,
+        "rim": 0.35
+      },
+      "encoding": "premultiplied-rgb",
+      "fixtureSHA": {
+        "rgba": "9eadda91cd1b7ff5fbc3e38d346be3bbf65568c1713a15d1d32904b3fb959f57",
+        "water": "fc9f489a3e64115ee3c5e8bd8d1b0c8329f188e5ae1499fd88f1c86efd9f745b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "outputSHA": "6da7acbcee95be670f4ffdb7f71e209f1203323c30f8c72e4a692d9e79358f57",
+      "dryPixels": 1048432,
+      "changedDryPixels": 5596,
+      "changedDryBytes": 15412,
+      "maxDryDelta": 4,
+      "dryRGBAAbsoluteDelta": [
+        7650,
+        7404,
+        1692,
+        17356
+      ],
+      "first": [
+        {
+          "x": 436,
+          "y": 495,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 437,
+          "y": 495,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 438,
+          "y": 495,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 439,
+          "y": 495,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "raw": {
+        "file": "015-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "6da7acbcee95be670f4ffdb7f71e209f1203323c30f8c72e4a692d9e79358f57",
+        "gzipBytes": 5261,
+        "gzipSHA256": "b1ce3823b029c5a02651c73b91e037a0bd62b8143ca649ea599a9a451cd2f26d",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 25.200000047683716,
+          "submitJsMs": 0.2999999523162842,
+          "runToDependentMs": 7.5,
+          "totalReadyMs": 32.700000047683716,
+          "fullReadbackJsMs": 5.299999952316284,
+          "totalToFullReadbackMs": 38
+        }
+      ],
+      "png": {
+        "file": "015-alternative-artistic-front-fixed-wet-thin-1.png",
+        "bytes": 641723,
+        "sha256": "5d8d08dcc532b7c55164ac89a5e4b08b14605407d50340b72aa12ba221d79121"
+      },
+      "dryOriginalExact": false
+    },
+    {
+      "algorithm": "search-artistic-program",
+      "fixture": "water-stroke",
+      "config": {
+        "programDslVersion": 1,
+        "programNeighbors": 4,
+        "programFrontCode": 70216,
+        "programTransportCode": 4369,
+        "programRim": 1
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+        "water": "25b133530fa81bcf77318bcd33bd06b73bd4146477556b67cc9e98567b77a956",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "d051a0530aa5c4854a6d469720d6fd45e27967cd7d6fd959df27e1984e4730fc",
+      "dryPixels": 857030,
+      "changedDryPixels": 13311,
+      "changedDryBytes": 39393,
+      "maxDryDelta": 62,
+      "dryRGBAAbsoluteDelta": [
+        131441,
+        41049,
+        6451,
+        276894
+      ],
+      "first": [
+        {
+          "x": 820,
+          "y": 270,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 821,
+          "y": 270,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 822,
+          "y": 270,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 823,
+          "y": 270,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "raw": {
+        "file": "016-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "d051a0530aa5c4854a6d469720d6fd45e27967cd7d6fd959df27e1984e4730fc",
+        "gzipBytes": 99147,
+        "gzipSHA256": "18e80d140abf54ab04f4fa02b5a40936b1b37b101f397d3c9226e68ae49ab971",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 45.19999980926514,
+          "submitJsMs": 0.3000001907348633,
+          "runToDependentMs": 19.40000009536743,
+          "totalReadyMs": 64.59999990463257,
+          "fullReadbackJsMs": 13,
+          "totalToFullReadbackMs": 77.59999990463257
+        }
+      ],
+      "png": {
+        "file": "016-search-artistic-program-water-stroke.png",
+        "bytes": 774915,
+        "sha256": "1d3c16b07526ff8e0154784fe3d68f077a5ce3ebb3c3876bbd76bafe48c66d7f"
+      },
+      "dryOriginalExact": false
+    },
+    {
+      "algorithm": "search-artistic-program",
+      "fixture": "dry-barrier",
+      "config": {
+        "programDslVersion": 1,
+        "programNeighbors": 4,
+        "programFrontCode": 70216,
+        "programTransportCode": 4369,
+        "programRim": 1
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "ea7b876a06ee6c1c5cca87da5fe899ee681fb656a980ad9eaeab78e32fe580ec",
+        "water": "f04b89aa71c005fc35f9128c3e2a961efc54396b9ed32cb5c5425b605d6009da",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "ce6dab5ab430191ecad49cbd154292479c6dee131d70a6c40b420b1b684dc785",
+      "dryPixels": 786944,
+      "changedDryPixels": 264,
+      "changedDryBytes": 1006,
+      "maxDryDelta": 41,
+      "dryRGBAAbsoluteDelta": [
+        4664,
+        1622,
+        448,
+        9579
+      ],
+      "first": [
+        {
+          "x": 512,
+          "y": 378,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 512,
+          "y": 379,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 512,
+          "y": 380,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            2
+          ]
+        },
+        {
+          "x": 512,
+          "y": 381,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            1,
+            0,
+            0,
+            2
+          ]
+        }
+      ],
+      "raw": {
+        "file": "017-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "ce6dab5ab430191ecad49cbd154292479c6dee131d70a6c40b420b1b684dc785",
+        "gzipBytes": 12914,
+        "gzipSHA256": "b3c5bf97e93c950fbb34553310e99378c5f863f9dc2fa3dae601c09ccb2813c5",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 41.5,
+          "submitJsMs": 0.40000009536743164,
+          "runToDependentMs": 7.400000095367432,
+          "totalReadyMs": 48.90000009536743,
+          "fullReadbackJsMs": 7.099999904632568,
+          "totalToFullReadbackMs": 56
+        }
+      ],
+      "png": {
+        "file": "017-search-artistic-program-dry-barrier.png",
+        "bytes": 663065,
+        "sha256": "6b7ad2de5a4792f1fcee310877efc783f3a75b965931ad8b93bf51ef9758bb86"
+      },
+      "dryOriginalExact": false
+    },
+    {
+      "algorithm": "search-artistic-program",
+      "fixture": "fixed-wet-thin-1",
+      "config": {
+        "programDslVersion": 1,
+        "programNeighbors": 4,
+        "programFrontCode": 70216,
+        "programTransportCode": 4369,
+        "programRim": 1
+      },
+      "encoding": "premultiplied-rgb",
+      "fixtureSHA": {
+        "rgba": "9eadda91cd1b7ff5fbc3e38d346be3bbf65568c1713a15d1d32904b3fb959f57",
+        "water": "fc9f489a3e64115ee3c5e8bd8d1b0c8329f188e5ae1499fd88f1c86efd9f745b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "outputSHA": "94137c66f96f3301394fdf9b9975ba347f956ed75d316139692c6148d9d4a755",
+      "dryPixels": 1048432,
+      "changedDryPixels": 3910,
+      "changedDryBytes": 10106,
+      "maxDryDelta": 8,
+      "dryRGBAAbsoluteDelta": [
+        7574,
+        6157,
+        1264,
+        17984
+      ],
+      "first": [
+        {
+          "x": 451,
+          "y": 499,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 452,
+          "y": 499,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 453,
+          "y": 499,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        },
+        {
+          "x": 454,
+          "y": 499,
+          "before": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "after": [
+            0,
+            0,
+            0,
+            1
+          ]
+        }
+      ],
+      "raw": {
+        "file": "018-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "94137c66f96f3301394fdf9b9975ba347f956ed75d316139692c6148d9d4a755",
+        "gzipBytes": 5028,
+        "gzipSHA256": "d5551bce1e7b1e4fc47b983a933f7bce78f1637ca2a1f37e9f66b08e585a90a1",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 43.90000009536743,
+          "submitJsMs": 0.40000009536743164,
+          "runToDependentMs": 8.900000095367432,
+          "totalReadyMs": 52.80000019073486,
+          "fullReadbackJsMs": 8.199999809265137,
+          "totalToFullReadbackMs": 61
+        }
+      ],
+      "png": {
+        "file": "018-search-artistic-program-fixed-wet-thin-1.png",
+        "bytes": 639467,
+        "sha256": "39282aaeea5817a2734ca98b198a312c16d29d98316c231fbaed8e4123aa5b9c"
+      },
+      "dryOriginalExact": false
+    },
+    {
+      "algorithm": "alternative-wet-boundary-detail",
+      "fixture": "water-stroke",
+      "config": {
+        "resolution": 256,
+        "steps": 10,
+        "rim": 0.85,
+        "grain": 0.6,
+        "detail": 0.8,
+        "fullSteps": 3,
+        "share": 0.35
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+        "water": "25b133530fa81bcf77318bcd33bd06b73bd4146477556b67cc9e98567b77a956",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "0e64c68cc04c603e597f16fab640f0503e2762eb36068c1bf7ae95fad2ef71dd",
+      "dryPixels": 857030,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "019-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "0e64c68cc04c603e597f16fab640f0503e2762eb36068c1bf7ae95fad2ef71dd",
+        "gzipBytes": 161888,
+        "gzipSHA256": "1a6b3fce9ae701c656b7288e4090a8e2f2559fa8d323d909c1222ff9ef85d593",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 51.89999985694885,
+          "submitJsMs": 0.7999999523162842,
+          "runToDependentMs": 22,
+          "totalReadyMs": 73.89999985694885,
+          "fullReadbackJsMs": 9.700000047683716,
+          "totalToFullReadbackMs": 83.59999990463257
+        }
+      ],
+      "png": {
+        "file": "019-alternative-wet-boundary-detail-water-stroke.png",
+        "bytes": 796701,
+        "sha256": "ecdb3faf6f70bf89263f3bbf8e75fa9d56f629e877857a131eee1bf030ef87af"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-wet-boundary-detail",
+      "fixture": "dry-barrier",
+      "config": {
+        "resolution": 256,
+        "steps": 10,
+        "rim": 0.85,
+        "grain": 0.6,
+        "detail": 0.8,
+        "fullSteps": 3,
+        "share": 0.35
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "ea7b876a06ee6c1c5cca87da5fe899ee681fb656a980ad9eaeab78e32fe580ec",
+        "water": "f04b89aa71c005fc35f9128c3e2a961efc54396b9ed32cb5c5425b605d6009da",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "d0535e3ecf7b6bbf4e39a4f04295886a4a2b1a73425d528edbd12a9139b874d5",
+      "dryPixels": 786944,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "020-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "d0535e3ecf7b6bbf4e39a4f04295886a4a2b1a73425d528edbd12a9139b874d5",
+        "gzipBytes": 23171,
+        "gzipSHA256": "84b27965243931830f039c8bac67ed1db4b526920dfe73cbb2944c63b7e8c093",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 34,
+          "submitJsMs": 0.2999999523162842,
+          "runToDependentMs": 10.799999952316284,
+          "totalReadyMs": 44.799999952316284,
+          "fullReadbackJsMs": 6,
+          "totalToFullReadbackMs": 50.799999952316284
+        }
+      ],
+      "png": {
+        "file": "020-alternative-wet-boundary-detail-dry-barrier.png",
+        "bytes": 664107,
+        "sha256": "5c4be2a08b8de5eba16183bb33f3035897d1492daf45b8bd9caf423b66a4ec4d"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-wet-boundary-detail",
+      "fixture": "fixed-wet-thin-1",
+      "config": {
+        "resolution": 256,
+        "steps": 10,
+        "rim": 0.85,
+        "grain": 0.6,
+        "detail": 0.8,
+        "fullSteps": 3,
+        "share": 0.35
+      },
+      "encoding": "premultiplied-rgb",
+      "fixtureSHA": {
+        "rgba": "9eadda91cd1b7ff5fbc3e38d346be3bbf65568c1713a15d1d32904b3fb959f57",
+        "water": "fc9f489a3e64115ee3c5e8bd8d1b0c8329f188e5ae1499fd88f1c86efd9f745b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "outputSHA": "cbb6702faebdfe3ee728364344fe62a96a7fe0ad5d1c407be16b07caaf6a55db",
+      "dryPixels": 1048432,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "021-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "cbb6702faebdfe3ee728364344fe62a96a7fe0ad5d1c407be16b07caaf6a55db",
+        "gzipBytes": 4160,
+        "gzipSHA256": "69a6d7e84e71eb10b52bdd8a92e73f088bbd6dae5fb1a86fac964ffac8e7d15e",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 35.40000009536743,
+          "submitJsMs": 0.5,
+          "runToDependentMs": 11.099999904632568,
+          "totalReadyMs": 46.5,
+          "fullReadbackJsMs": 5.1000001430511475,
+          "totalToFullReadbackMs": 51.60000014305115
+        }
+      ],
+      "png": {
+        "file": "021-alternative-wet-boundary-detail-fixed-wet-thin-1.png",
+        "bytes": 632980,
+        "sha256": "a0d97d75ec6e9b2bb116d916756466c5d0395fcc9bda1d446aaf0dad5b7fcc6b"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-paper-deposition",
+      "fixture": "water-stroke",
+      "config": {
+        "steps": 5,
+        "mobile": 0.8,
+        "share": 0.7,
+        "adsorption": 0.12,
+        "paperBias": 1,
+        "coarse": 6
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+        "water": "25b133530fa81bcf77318bcd33bd06b73bd4146477556b67cc9e98567b77a956",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "ae3ce79afc0f8a1d3988fe8f1a8e0c208e4f8ef3c1a2267a3cdb153cab9bab3c",
+      "dryPixels": 857030,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "022-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "ae3ce79afc0f8a1d3988fe8f1a8e0c208e4f8ef3c1a2267a3cdb153cab9bab3c",
+        "gzipBytes": 214819,
+        "gzipSHA256": "69df840eb60f9457a048259343d20b6fc6c06c9717e4961b7442be1bc7a24294",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 25.09999990463257,
+          "submitJsMs": 0.7999999523162842,
+          "runToDependentMs": 56.5,
+          "totalReadyMs": 81.59999990463257,
+          "fullReadbackJsMs": 14.100000143051147,
+          "totalToFullReadbackMs": 95.70000004768372
+        }
+      ],
+      "png": {
+        "file": "022-alternative-paper-deposition-water-stroke.png",
+        "bytes": 899937,
+        "sha256": "d9b3bafc50665ee0b041f83838598ba728c3cfcdc5a87d47a1154a41cd606751"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-paper-deposition",
+      "fixture": "dry-barrier",
+      "config": {
+        "steps": 5,
+        "mobile": 0.8,
+        "share": 0.7,
+        "adsorption": 0.12,
+        "paperBias": 1,
+        "coarse": 6
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "ea7b876a06ee6c1c5cca87da5fe899ee681fb656a980ad9eaeab78e32fe580ec",
+        "water": "f04b89aa71c005fc35f9128c3e2a961efc54396b9ed32cb5c5425b605d6009da",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "6e7d437bbaf4ec0809a88d075e95178ecbf53d0691ac6ddbad48ad8541d1c542",
+      "dryPixels": 786944,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "023-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "6e7d437bbaf4ec0809a88d075e95178ecbf53d0691ac6ddbad48ad8541d1c542",
+        "gzipBytes": 29504,
+        "gzipSHA256": "49ec472313b80d2a468dd1efd685732d9b295d95acf561eb935811ae29c2bf04",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 12.100000143051147,
+          "submitJsMs": 0.39999985694885254,
+          "runToDependentMs": 40.89999985694885,
+          "totalReadyMs": 53,
+          "fullReadbackJsMs": 11.100000143051147,
+          "totalToFullReadbackMs": 64.10000014305115
+        }
+      ],
+      "png": {
+        "file": "023-alternative-paper-deposition-dry-barrier.png",
+        "bytes": 673158,
+        "sha256": "c857efad73488c68d2eb7b29e39ed729bfaa67eead182613684ddfe973a38eee"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-paper-deposition",
+      "fixture": "fixed-wet-thin-1",
+      "config": {
+        "steps": 5,
+        "mobile": 0.8,
+        "share": 0.7,
+        "adsorption": 0.12,
+        "paperBias": 1,
+        "coarse": 6
+      },
+      "encoding": "premultiplied-rgb",
+      "fixtureSHA": {
+        "rgba": "9eadda91cd1b7ff5fbc3e38d346be3bbf65568c1713a15d1d32904b3fb959f57",
+        "water": "fc9f489a3e64115ee3c5e8bd8d1b0c8329f188e5ae1499fd88f1c86efd9f745b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "outputSHA": "b97768b285a6267b279b7bf097fc1c7dd8d798f0d45f6e3f0abd6ef20e78fb5d",
+      "dryPixels": 1048432,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "024-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "b97768b285a6267b279b7bf097fc1c7dd8d798f0d45f6e3f0abd6ef20e78fb5d",
+        "gzipBytes": 4170,
+        "gzipSHA256": "64139dfb3159ed700b21fd0dd05dfba608cf5dd40b13769b2fbf285bdae4d04a",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 15.799999952316284,
+          "submitJsMs": 0.39999985694885254,
+          "runToDependentMs": 42,
+          "totalReadyMs": 57.799999952316284,
+          "fullReadbackJsMs": 9.200000047683716,
+          "totalToFullReadbackMs": 67
+        }
+      ],
+      "png": {
+        "file": "024-alternative-paper-deposition-fixed-wet-thin-1.png",
+        "bytes": 633120,
+        "sha256": "26883e652c8e22023a8f3e4834dc82ecf6fabce9100f46c4b1fde086c68f6f8c"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-porous-water-transport",
+      "fixture": "water-stroke",
+      "config": {
+        "steps": 10,
+        "mobile": 0.8,
+        "adsorption": 0.07,
+        "coarse": 2,
+        "dt": 0.2,
+        "terrain": 0.25
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+        "water": "25b133530fa81bcf77318bcd33bd06b73bd4146477556b67cc9e98567b77a956",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "f3eeaf9f257249b0218a09b52b396bd917da0b0c8bea5ab91f92d371c35e9446",
+      "dryPixels": 857030,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "025-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "f3eeaf9f257249b0218a09b52b396bd917da0b0c8bea5ab91f92d371c35e9446",
+        "gzipBytes": 95877,
+        "gzipSHA256": "bd92ff72fe60a433d8861fa117ff7b5a30da1322692f178f0ffdba784d56a4ee",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 29.09999990463257,
+          "submitJsMs": 1.7000000476837158,
+          "runToDependentMs": 97.79999995231628,
+          "totalReadyMs": 126.89999985694885,
+          "fullReadbackJsMs": 12.200000047683716,
+          "totalToFullReadbackMs": 139.09999990463257
+        }
+      ],
+      "png": {
+        "file": "025-alternative-porous-water-transport-water-stroke.png",
+        "bytes": 767586,
+        "sha256": "195ff2ee602365580db7340a072f39c3d67b293cb7cc24dc0f1fdf7fed0faa0e"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-porous-water-transport",
+      "fixture": "dry-barrier",
+      "config": {
+        "steps": 10,
+        "mobile": 0.8,
+        "adsorption": 0.07,
+        "coarse": 2,
+        "dt": 0.2,
+        "terrain": 0.25
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "ea7b876a06ee6c1c5cca87da5fe899ee681fb656a980ad9eaeab78e32fe580ec",
+        "water": "f04b89aa71c005fc35f9128c3e2a961efc54396b9ed32cb5c5425b605d6009da",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "6e95e9bdd2d71769b715a37100807a7f6d10dd4d752e7e67a083bc85c2242cef",
+      "dryPixels": 786944,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "026-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "6e95e9bdd2d71769b715a37100807a7f6d10dd4d752e7e67a083bc85c2242cef",
+        "gzipBytes": 14090,
+        "gzipSHA256": "614405f8af5f70e4a340fd6e8e8064c8f065b03f67f39abe257cd07571bd7dfb",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 32.40000009536743,
+          "submitJsMs": 0.7999999523162842,
+          "runToDependentMs": 94.89999985694885,
+          "totalReadyMs": 127.29999995231628,
+          "fullReadbackJsMs": 10,
+          "totalToFullReadbackMs": 137.29999995231628
+        }
+      ],
+      "png": {
+        "file": "026-alternative-porous-water-transport-dry-barrier.png",
+        "bytes": 660352,
+        "sha256": "e632caa8a2fbcf5704732326dee8efb41257557675fd1f53b825f6a96fc990ed"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-porous-water-transport",
+      "fixture": "fixed-wet-thin-1",
+      "config": {
+        "steps": 10,
+        "mobile": 0.8,
+        "adsorption": 0.07,
+        "coarse": 2,
+        "dt": 0.2,
+        "terrain": 0.25
+      },
+      "encoding": "premultiplied-rgb",
+      "fixtureSHA": {
+        "rgba": "9eadda91cd1b7ff5fbc3e38d346be3bbf65568c1713a15d1d32904b3fb959f57",
+        "water": "fc9f489a3e64115ee3c5e8bd8d1b0c8329f188e5ae1499fd88f1c86efd9f745b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "outputSHA": "c3430a0e786fd64e197af134d9389ce0cd816a99bcdf46269661c77fa95a8845",
+      "dryPixels": 1048432,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "027-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "c3430a0e786fd64e197af134d9389ce0cd816a99bcdf46269661c77fa95a8845",
+        "gzipBytes": 4155,
+        "gzipSHA256": "01529a13d78deea6f20923df2fd21ad7c3b051d3a2b6776cbcb3eb97a0b090c2",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 22.09999990463257,
+          "submitJsMs": 0.7000000476837158,
+          "runToDependentMs": 94.60000014305115,
+          "totalReadyMs": 116.70000004768372,
+          "fullReadbackJsMs": 10.299999952316284,
+          "totalToFullReadbackMs": 127
+        }
+      ],
+      "png": {
+        "file": "027-alternative-porous-water-transport-fixed-wet-thin-1.png",
+        "bytes": 632983,
+        "sha256": "6de0a285403c7edeba0676f41648cb79419f548bf68083afe2e3297c2b4230c2"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-correlated-paper-deposition",
+      "fixture": "water-stroke",
+      "config": {
+        "steps": 5,
+        "mobile": 0.75,
+        "share": 0.7,
+        "adsorption": 0.1,
+        "paperBias": 1,
+        "coarse": 6,
+        "paperScale": 5,
+        "micro": 0.15,
+        "relief": 3.5
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "0240adb8d486068ee9607874638c93060eef0be37cb45f3646c114a29b44fcbf",
+        "water": "25b133530fa81bcf77318bcd33bd06b73bd4146477556b67cc9e98567b77a956",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "d1eeff07b297f5e84f4be7a479351b51e5a567441e4f638efca2e19d9a6cbc15",
+      "dryPixels": 857030,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "028-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "d1eeff07b297f5e84f4be7a479351b51e5a567441e4f638efca2e19d9a6cbc15",
+        "gzipBytes": 172570,
+        "gzipSHA256": "9af0107bd9b346c848b63773b608cf6ceb376751608ff779383b277a2acb66bd",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 25.300000190734863,
+          "submitJsMs": 0.7999999523162842,
+          "runToDependentMs": 53.19999980926514,
+          "totalReadyMs": 78.5,
+          "fullReadbackJsMs": 12.100000143051147,
+          "totalToFullReadbackMs": 90.60000014305115
+        }
+      ],
+      "png": {
+        "file": "028-alternative-correlated-paper-deposition-water-stroke.png",
+        "bytes": 813094,
+        "sha256": "e45387e5e8b69e5c46e2f16be474ea0dbd4a70b422137803125babbb38637ea0"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-correlated-paper-deposition",
+      "fixture": "dry-barrier",
+      "config": {
+        "steps": 5,
+        "mobile": 0.75,
+        "share": 0.7,
+        "adsorption": 0.1,
+        "paperBias": 1,
+        "coarse": 6,
+        "paperScale": 5,
+        "micro": 0.15,
+        "relief": 3.5
+      },
+      "encoding": "optical-density",
+      "fixtureSHA": {
+        "rgba": "ea7b876a06ee6c1c5cca87da5fe899ee681fb656a980ad9eaeab78e32fe580ec",
+        "water": "f04b89aa71c005fc35f9128c3e2a961efc54396b9ed32cb5c5425b605d6009da",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "outputSHA": "f5735df0e4b85becad025f5570a467c37e0e09e3b08ed67d6878c7398146f7fd",
+      "dryPixels": 786944,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "029-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "f5735df0e4b85becad025f5570a467c37e0e09e3b08ed67d6878c7398146f7fd",
+        "gzipBytes": 26000,
+        "gzipSHA256": "d9df8ec296d53749ed0376e584d15bcbf00f706f0a8d2b8d2125f772f5b2d354",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 13.5,
+          "submitJsMs": 0.2999999523162842,
+          "runToDependentMs": 42.59999990463257,
+          "totalReadyMs": 56.09999990463257,
+          "fullReadbackJsMs": 10.300000190734863,
+          "totalToFullReadbackMs": 66.40000009536743
+        }
+      ],
+      "png": {
+        "file": "029-alternative-correlated-paper-deposition-dry-barrier.png",
+        "bytes": 665657,
+        "sha256": "f61e966da6de4c4b4c3006dad73bb88382aa513006d72eef1a0c96c23ecfa4ee"
+      },
+      "dryOriginalExact": true
+    },
+    {
+      "algorithm": "alternative-correlated-paper-deposition",
+      "fixture": "fixed-wet-thin-1",
+      "config": {
+        "steps": 5,
+        "mobile": 0.75,
+        "share": 0.7,
+        "adsorption": 0.1,
+        "paperBias": 1,
+        "coarse": 6,
+        "paperScale": 5,
+        "micro": 0.15,
+        "relief": 3.5
+      },
+      "encoding": "premultiplied-rgb",
+      "fixtureSHA": {
+        "rgba": "9eadda91cd1b7ff5fbc3e38d346be3bbf65568c1713a15d1d32904b3fb959f57",
+        "water": "fc9f489a3e64115ee3c5e8bd8d1b0c8329f188e5ae1499fd88f1c86efd9f745b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "outputSHA": "e842113e69b1bee0547f9357993af834d38049e96abb722fa7db7cd725429bb7",
+      "dryPixels": 1048432,
+      "changedDryPixels": 0,
+      "changedDryBytes": 0,
+      "maxDryDelta": 0,
+      "dryRGBAAbsoluteDelta": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "first": [],
+      "raw": {
+        "file": "030-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "e842113e69b1bee0547f9357993af834d38049e96abb722fa7db7cd725429bb7",
+        "gzipBytes": 4170,
+        "gzipSHA256": "6819ca6b11ebb4c1333e8306cf8d668259e8e0e9429a1edeb9a87580bbac11d3",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "samples": [
+        {
+          "uploadJsMs": 17,
+          "submitJsMs": 0.7000000476837158,
+          "runToDependentMs": 44.60000014305115,
+          "totalReadyMs": 61.60000014305115,
+          "fullReadbackJsMs": 11.200000047683716,
+          "totalToFullReadbackMs": 72.90000009536743
+        }
+      ],
+      "png": {
+        "file": "030-alternative-correlated-paper-deposition-fixed-wet-thin-1.png",
+        "bytes": 633117,
+        "sha256": "ef0860091e7fd0102d36e77b5ac4b1a894bb0941104fbf57920ef5596bc71588"
+      },
+      "dryOriginalExact": true
+    }
+  ]
+}
