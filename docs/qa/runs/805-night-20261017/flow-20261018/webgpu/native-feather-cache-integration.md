@@ -29,3 +29,32 @@ Fill сохраняетFBO/viewport/program/VAO/arrayBuffer/activeTexture/unit7b
 ## Gate оператору после review
 
 Шесть одинаковых native snapshot input: wave,twocolors,pooldrop,gallery3/7/12. Не substituted converted805fixtures. Сначалаoriginalrepeat/cachevariant fullP/C/coverage hashes+pairednativePNGs иrawsourceimmutability; bytechangesexpectedqualified. Technicaldry/water-only отдельно. Затем balancedABBA/паузы с completion ивключённымcachefillвtiming; безperpassreadbacks. НикакогоMRT вэтойветке. СтарыйпубличныйMini не менялся, временныхресурсовавторне создавал.
+
+## Реализованное wiring и рецепт (оператору, не выполнено автором)
+
+build/runtime opt-in теперь подключён, runtime sourceSHA экспортируется в `result.nativeFeatherCache`; flow-native.cjs сохраняет `v.nativeFeatherCache` и failclosed сверяет requestedflag с фактическимmanifest. Дляcachearm обязателен QA_EXPECT_COMMON_CATALOG — без matchednormalrawcapture запуск отклоняется. Тест wiring собирает настоящий worker/UI в памяти, безвыходныхфайлов. Всего7CPUtestsPASS, runtime strict types0 с текущимappconfig/существующим798dependencytree, lint0. Никакихdependencies/серверов/браузеровне создано.
+
+Build (QA_OUTPUT — НОВАЯ зарегистрированная disposableпапка; QA_PAPER_DIR — существующие immutablebakedpaperassets):
+
+```sh
+QA_NATIVE_FEATHER_CACHE=0 QA_FRONT_ZERO=1 QA_FRONT_JUMP_ZERO=1 QA_NATIVE_CAPTURE=1 QA_FRONT_LAZY=0 QA_FRONT_ONE_OCTAVE=0 QA_GATHER_SPECIALIZE=0 QA_OUTPUT="$QA_CACHE/native-feather-control" node docs/qa/prototypes/mini-worker/build.cjs
+QA_NATIVE_FEATHER_CACHE=1 QA_FRONT_ZERO=1 QA_FRONT_JUMP_ZERO=1 QA_NATIVE_CAPTURE=1 QA_FRONT_LAZY=0 QA_FRONT_ONE_OCTAVE=0 QA_GATHER_SPECIALIZE=0 QA_OUTPUT="$QA_CACHE/native-feather-cache" node docs/qa/prototypes/mini-worker/build.cjs
+```
+
+Вобеbuildпапки добавить ТОЖЕpaper/manifest.json иfine.texture/preview изQA_PAPER_DIR, обновивmanifest.filesSHA. Это тотже короткий loop, что build-gallery.cjs:8–15; сам build-gallery НЕзапускать, онсоздаётлишниеlazy/oneoctaveветки. Hardlinkimmutablepaperбезперекодирования. Никакойновыйсервисдлясборокненужен, owned-loaderперехватываетихтольковсвоёмконтексте.
+
+Source6: взять исходные authoredoperations из существующего `native-all13-endpoint-scenes.json`: mini-wave,mini-two-colors,gallery-sheet-3-slot-1,gallery-sheet-7-slot-1,gallery-sheet-12-slot-1; добавить native-flow-pool-drop из checked-in flow-20261018/native-scenes.json. Объединитьэти6sceneobjectбезизмененияoperations/transform/порядкаdab вмаленькийQA_SOURCE_FILEвзарегистрированномcache. НЕиспользовать6MiBcommonRGBAкакnativeinput. SourceSHAнормализованныхops/исходныхP/C/coverage/foreign/original+commonbytes записываютсясуществующимrunner.
+
+Контроль:
+
+```sh
+QA_NATIVE_FEATHER_CACHE=0 QA_NATIVE_BUILD=native-feather-control QA_SOURCE_FILE="$QA_CACHE/native-feather-six-scenes.json" QA_OUTPUT="$QA_CACHE/native-feather-control-results" QA_REPEATS=3 QA_IDLE_MS=5000 node docs/qa/harness/805-algorithm-search/flow-native.cjs
+```
+
+Изконтрольногоreportсоздатьмаленькийcatalog `[{id,metadata:absolutePathToControlCaptureManifest},...]`. Затем:
+
+```sh
+QA_NATIVE_FEATHER_CACHE=1 QA_NATIVE_BUILD=native-feather-cache QA_SOURCE_FILE="$QA_CACHE/native-feather-six-scenes.json" QA_EXPECT_COMMON_CATALOG="$QA_CACHE/native-feather-control-catalog.json" QA_OUTPUT="$QA_CACHE/native-feather-cache-results" QA_REPEATS=3 QA_IDLE_MS=5000 node docs/qa/harness/805-algorithm-search/flow-native.cjs
+```
+
+Сначала6pairedPNG/fullfields/GL0/repeatexact/sourceimmutability. Это6baseline+6candidateцелей,каждаяrepeat3, неABBA. ABBAпослевизуальнойприёмкиотдельнооператором, переиспользоватьэтажефиксированнаяsource; невыдаватьпоследовательныесериизаABBA. Имяvariantвстаромrunnerостаётсяoriginalкакструктурноесовместимостиполе; настоящийcacheflagиsourceSHAявноестьвmanifest/v.nativeFeatherCache — подписьнепритворяетсястаройфизикой.
