@@ -1,3 +1,4 @@
+import {profiles805} from '../native-expansion-805/profiles'
 import {runSynchronizedGoal805} from '../native-anatomy-805/synchronized-goal'
 import {installNativeExpansion805} from '../native-expansion-805/expansion'
 import {wrapExpansionTarget805} from '../native-expansion-805/live-target'
@@ -51,7 +52,7 @@ export async function createMiniRuntime(source:HTMLCanvasElement|OffscreenCanvas
  await engine.paperReady()
  engine.initLayer('local');engine.setBaseLayers(['local']);engine.setCompositeOrder([{id:'local',opacity:1}]);engine.setActiveLayer('local');engine.setTool('watercolor');engine.setLocked(false)
  let activeGesture:any=null,destroyed=false,lastStateAt=0,stepMax=0
- if(__QA_EXPANSION_LIVE__){if(!['original','smooth','noisy'].includes(__QA_NATIVE_EXPANSION_ARM__))throw Error('Invalid live paths profile');if(__QA_NATIVE_EXPANSION_ARM__!=='original')livePaths=installNativeExpansion805(e,null,{noise:__QA_NATIVE_EXPANSION_ARM__==='noisy',allWetMobile:false,radiusPx:24})}
+ if(__QA_EXPANSION_LIVE__){if(!Object.hasOwn(profiles805,__QA_NATIVE_EXPANSION_ARM__)&&__QA_NATIVE_EXPANSION_ARM__!=='noisy')throw Error('Invalid live paths profile');if(__QA_NATIVE_EXPANSION_ARM__!=='original')livePaths=installNativeExpansion805(e,null,{noise:__QA_NATIVE_EXPANSION_ARM__==='noisy',allWetMobile:false,radiusPx:24,precombineWater:['mask','combomask'].includes(__QA_NATIVE_EXPANSION_ARM__)})}
  const createTarget:typeof createNativePuddleTarget=(...args)=>{const target=createNativePuddleTarget(...args);if(featherCache){const reset=target.resetFromScratch;target.resetFromScratch=function(...resetArgs){featherCache!.invalidate();return reset.apply(this,resetArgs)}}return livePaths?wrapExpansionTarget805(target,livePaths):target}
  const puddle=installInteractivePuddle(e,size,'morph',message=>emit({type:'status',message}),createTarget,{noPauses:true,onStep:row=>{stepMax=Math.max(stepMax,row.ms)},onGoal:target=>{if(activeGesture){const goalEpoch=performance.timeOrigin+performance.now();let fullGoalEpoch:number|undefined,fullCReadMs:number|undefined;if(__QA_NATIVE_MINI_UI__){const start=performance.now();puddle.diagnosticCompletedCReadback();fullCReadMs=performance.now()-start;fullGoalEpoch=performance.timeOrigin+performance.now()}emit({type:'goal',gesture:activeGesture,goalEpoch,fullGoalEpoch,fullCReadMs,target,stepMax,optimization:__QA_NATIVE_MINI_OPTIMIZED__?(globalThis as any).__qaNativeMiniNoMobile805:null,simplePaths:__QA_EXPANSION_LIVE__?{arm:__QA_NATIVE_EXPANSION_ARM__,metadata:livePaths?.metadata??null,stats:livePaths?{...livePaths.stats}:null}:null,glError:e.gl.getError()})}}})
  puddleForCleanup=puddle
