@@ -1,0 +1,154 @@
+{
+  "qualification": "CPU integer packet oracle only; no GPU timing/artistic score. Static wet domain, externally supplied flow; no water solver/adsorption implemented.",
+  "requestBound": 71367615,
+  "cases": [
+    {
+      "mode": "shear",
+      "steps": 8,
+      "before": [
+        24885824,
+        0,
+        0,
+        24885824
+      ],
+      "after": [
+        24885824,
+        0,
+        0,
+        24885824
+      ],
+      "centerBefore": {
+        "x": 54,
+        "y": 64
+      },
+      "centerAfter": {
+        "x": 54.00021337448983,
+        "y": 64
+      },
+      "redCenterAfter": {
+        "x": 54.00021337448983,
+        "y": 64
+      },
+      "blueCenterAfter": null,
+      "mixedPixels": 0,
+      "requestAlpha": 170796032,
+      "acceptedAlpha": 170796032,
+      "maxRequest": 16448
+    },
+    {
+      "mode": "two-colors",
+      "steps": 8,
+      "before": [
+        11464256,
+        0,
+        11464256,
+        22928512
+      ],
+      "after": [
+        11464256,
+        0,
+        11464256,
+        22928512
+      ],
+      "centerBefore": {
+        "x": 64,
+        "y": 64
+      },
+      "centerAfter": {
+        "x": 64.00020459243059,
+        "y": 64.00025605673844
+      },
+      "redCenterAfter": {
+        "x": 51.469093676903235,
+        "y": 58.3543289682296
+      },
+      "blueCenterAfter": {
+        "x": 76.53131550795796,
+        "y": 69.64618314524728
+      },
+      "mixedPixels": 11,
+      "requestAlpha": 167485283,
+      "acceptedAlpha": 167485283,
+      "maxRequest": 27758
+    }
+  ],
+  "translation": [
+    {
+      "alphaByte": 1,
+      "expectedShiftX": 3,
+      "actualShiftX": 3.0201187631962654,
+      "acceptedFraction": 1,
+      "before": [
+        388841,
+        0,
+        0,
+        388841
+      ],
+      "after": [
+        388841,
+        0,
+        0,
+        388841
+      ]
+    },
+    {
+      "alphaByte": 64,
+      "expectedShiftX": 3,
+      "actualShiftX": 3.0000431972837234,
+      "acceptedFraction": 1,
+      "before": [
+        24885824,
+        0,
+        0,
+        24885824
+      ],
+      "after": [
+        24885824,
+        0,
+        0,
+        24885824
+      ]
+    },
+    {
+      "alphaByte": 254,
+      "expectedShiftX": 3,
+      "actualShiftX": 0.41233311221049007,
+      "acceptedFraction": 0.1374400401465811,
+      "before": [
+        98765614,
+        0,
+        0,
+        98765614
+      ],
+      "after": [
+        98765614,
+        0,
+        0,
+        98765614
+      ]
+    },
+    {
+      "alphaByte": 255,
+      "expectedShiftX": 3,
+      "actualShiftX": 0.38368457574598835,
+      "acceptedFraction": 0.12789274067534143,
+      "before": [
+        99154455,
+        0,
+        0,
+        99154455
+      ],
+      "after": [
+        99154455,
+        0,
+        0,
+        99154455
+      ]
+    }
+  ],
+  "sourceSHA": "e74446f7f071985193781aadf40c30f16957c485290b1caafb7d0ae0b91fe763",
+  "transpose": {
+    "changedChannels": 1944,
+    "maxU16Code": 5
+  }
+}
