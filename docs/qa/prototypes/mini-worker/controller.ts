@@ -3,6 +3,7 @@ import type {createNativePuddleTarget,NativePuddleTargetOptions} from '../mini-p
 import {createPuddlePresentation} from '../mini-puddle/presentation'
 import {morphProgress} from '../mini-puddle/morph-clock'
 import {createDiagnosticRegions} from './regions'
+import {createWaterPreview} from './water-preview'
 
 /** M69/M70: raw material owns each goal; presentation never feeds the solver. */
 export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'material',onStatus:(_message:string)=>void,createTarget:typeof createNativePuddleTarget, options:{noPauses?:boolean;onGoal?:(state:unknown)=>void;onStep?:(row:{ms:number;iterations:number;done:boolean})=>void}={}){
@@ -14,6 +15,7 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
  const targetOptions:NativePuddleTargetOptions={prepare:function(...args:any[]){const old=owner.diagnosticSkipBrushContacts;owner.diagnosticSkipBrushContacts=true;try{return originalPrepare.apply(owner,args)}finally{owner.diagnosticSkipBrushContacts=old}} as any}
  const target=createTarget(engine,size,targetOptions)
  const regions=createDiagnosticRegions(engine,size)
+ const waterPreview=createWaterPreview(gl)
  let presentation:ReturnType<typeof createPuddlePresentation>|null=null
  const rawNext=new AccumulationBuffer(gl,size,size)
  let morphEnabled=true
@@ -40,7 +42,8 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
  }
  function present(){
   const f=locate();if(!f)return
-  ;(live?(morphEnabled?presentation!.tick(0,{dry:drying}):goalReady?dryImage:raw):showEffect?dryImage:raw).copyTo(f.tile.buffer)
+  const paint=live?(morphEnabled?presentation!.tick(0,{dry:drying}):goalReady?dryImage:raw):showEffect?dryImage:raw
+  waterPreview.draw(f.tile.buffer,paint,f.entry.solventLoad??null,f.entry.foreignSolventLoad??null,liveFinished||showEffect?0:.16*(morphEnabled?1-morphProgress(clock,duration):1))
   f.ctx.target.markContentPainted(bounds);engine._paperPartialOK=false;engine._paperCacheKey='';engine._invalidateSplitCache()
  }
  function cancelFinalTimer(){if(finalTimer!==null){clearTimeout(finalTimer);finalTimer=null}}
@@ -85,7 +88,7 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
  engine._onStart=function(...args:any[]){
   if(live&&(calculating||goalPending||liveActive))cancellations++;cancelGoal();liveActive=false;drying=false;wantEffect=showEffect=false;regions.show(false)
   if(!live&&context)present()
-  down=true;epoch++;if(live&&morphEnabled)presentation!.invalidate(epoch);if(engine._wash)engine._wash.endedAt=Infinity
+  down=true;if(live)liveFinished=false;epoch++;if(live&&morphEnabled)presentation!.invalidate(epoch);if(engine._wash)engine._wash.endedAt=Infinity
   const r=original.get('_onStart')!.apply(engine,args);down=!!engine._strokeLayerId;return r
  }
  engine._onEnd=function(...args:any[]){
@@ -206,7 +209,7 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
   destroy(){
    if(destroyed)return;destroyed=true;cancelFinalTimer();if(raf)cancelAnimationFrame(raf)
    for(const key of keys)engine[key]=original.get(key)
-   owner.prepare=originalPrepare;target.destroy();ownedDiagnosticSource?.destroy();regions.destroy();raw.destroy();dryImage.destroy();rawNext.destroy();presentation?.destroy()
+   owner.prepare=originalPrepare;target.destroy();ownedDiagnosticSource?.destroy();regions.destroy();waterPreview.destroy();raw.destroy();dryImage.destroy();rawNext.destroy();presentation?.destroy()
    engine._ribbonPasses.diagnosticPigmentBlot=flags.blot;engine._ribbonPainter.diagnosticBandBatch=flags.batch
    engine.diagnosticWatercolorLiftSteps=flags.lift;engine.diagnosticNativeFieldMinimum=flags.minimum
    engine._wetTexAt=0

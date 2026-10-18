@@ -18,7 +18,7 @@
 <body>
 <main>
 <h1>Расчёт растекания</h1>
-<div class="controls"><label>Мазок <select id="scene" aria-label="Выбрать мазок"></select></label><span class="device" id="device"></span></div>
+<div class="controls"><label>Устройство <select id="device-select"></select></label><label>Версия <select id="version-select"></select></label><label>Замер <select id="method-select"><option value="natural">Обычный</option><option value="synchronized">Поэтапный контроль</option></select></label><label>Мазок <select id="scene" aria-label="Выбрать мазок"></select></label><span class="device" id="device"></span></div>
 <div class="measurement" id="measurement"></div>
 <p class="notice" id="parallel-note">CPU и GPU работают параллельно. Это две шкалы одного прогона: колонки не складываются и не совмещены по времени.</p>
 <div id="pipeline">
@@ -29,14 +29,14 @@
 <div id="native-pipeline"></div>
 <div id="qa-after"></div>
 </div>
-<p class="clock-note">CPU — время между вызовами программы, включая остановки в драйвере. GPU — время между командами графического процессора, включая возможное ожидание данных от CPU. Это два взгляда на один прогон; складывать колонки нельзя.</p>
-<details class="source-data"><summary>Что именно измерено и откуда картинки</summary><p id="proof-note"></p><p>Промежуточные служебные карты сняты отдельным диагностическим прогоном на Samsung Tab S7+. Они поясняют этапы, но не являются снимками этого замера на Vega и не являются кадрами анимации.</p><p id="image-proof"></p><pre id="proof-data"></pre></details>
+<p id="clock-note" class="clock-note">CPU — время между вызовами программы, включая остановки в драйвере. GPU — время между командами графического процессора, включая возможное ожидание данных от CPU. Это два взгляда на один прогон; складывать колонки нельзя.</p>
+<details class="source-data"><summary>Что именно измерено и откуда картинки</summary><p id="proof-note"></p><p>Картинки поясняют этапы на примере исходного алгоритма. Это отдельные диагностические прогоны, а не снимки выбранного замера или быстрого варианта.</p><p id="image-proof"></p><pre id="proof-data"></pre></details>
 </main>
 <script id="data" type="application/json">{"schemaVersion":1,"scenes":[]}</script>
 <script>
 'use strict';
 (()=>{
-const data=JSON.parse(document.querySelector('#data').textContent),$=id=>document.getElementById(id);
+const baseData=JSON.parse(document.querySelector('#data').textContent);let data=baseData;const $=id=>document.getElementById(id);
 const finite=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
 const ms=n=>n===0?'ниже точности часов':finite(n)?n.toLocaleString('ru-RU',{maximumFractionDigits:n<10?2:1})+' мс':'не измерено';
 const groups=[
@@ -101,7 +101,7 @@ function addStageDetails(body,group,scene){
  paragraph(body,'Промежуточные служебные карты: отдельный прогон на Samsung Tab S7+, не кадры этого замера на Vega.','image-note');
 }
 function relatedButton(id,label){const b=element('button','related',label);b.type='button';b.addEventListener('click',()=>{const target=$(id);if(!target)return;target.open=true;target.scrollIntoView({block:'nearest',behavior:'auto'});target.classList.add('highlight');setTimeout(()=>target.classList.remove('highlight'),1800)});return b}
-function taskCard(task,{denominator,lane,index,scene,tasks=[],seen=new Set()}){
+function taskCard(task,{denominator,lane,index,scene,tasks=[],seen=new Set(),method}){
  if(seen.has(task.id))throw Error('Цикл в списке этапов: '+task.id);const visited=new Set(seen);visited.add(task.id);
  const value=finite(task.elapsedMs)?task.elapsedMs:finite(task.gpuMs)?task.gpuMs:null,group=groupMap.get(task.groupId||task.id),d=element('details','task'+(value===null?' unmeasured':'')+(task.diagnosticOnly===true?' diagnostic':''));d.id=lane+'-'+task.id;d.dataset.task=task.id;d.dataset.lane=lane;d.dataset.elapsedMs=value===null?'':String(value);
  const summary=element('summary'),title=element('span','task-title');title.append(element('span','task-number',index),document.createTextNode(task.label||group?.title||task.id));const meta=element('span','task-meta');meta.append(element('span',null,task.locationLabel||(lane==='gpu'?(task.id==='selection'?'GPU ↔ CPU':'GPU'):task.lane==='transfer'?'CPU ↔ GPU':task.diagnosticOnly===true?'CPU · проверка стенда':'CPU')),element('span','duration',ms(value)));summary.append(title,meta);
@@ -109,7 +109,7 @@ function taskCard(task,{denominator,lane,index,scene,tasks=[],seen=new Set()}){
  const body=element('div','task-body'),copy=lane==='gpu'?group:hostDescription(task);paragraph(body,task.description||copy?.action||task.scope||'Длительность этого вызова измерена в программе.');paragraph(body,task.result||copy?.result,'result');
  if(lane==='cpu'&&finite(task.startMs)&&finite(task.endMs))paragraph(body,'От начала замера: '+ms(task.startMs)+' → '+ms(task.endMs)+'.','scope');
  if(value===0)paragraph(body,'Часы не различили начало и конец этого этапа. Это не означает, что он выполняется бесплатно.','scope');if(task.scope)paragraph(body,task.scope,'scope');if(task.qualification)paragraph(body,task.qualification,'scope');
- if(lane==='gpu'){paragraph(body,'Начало GPU-интервала относительно часов CPU не измерено. Длина полоски показывает только длительность.','scope');if(task.id==='selection')paragraph(body,'Этот интервал включает возможное ожидание CPU-фильтра и передачи данных. Его нельзя считать чистым временем шейдеров.','scope');const peer=tasks.find(t=>t.groupId===task.id);if(peer)body.append(relatedButton('cpu-'+peer.id,'Связанный этап CPU'));if(group)addStageDetails(body,group,scene)}
+ if(lane==='gpu'){if(method==='synchronized')paragraph(body,'Поэтапный контроль: здесь время ожидания зависимого пикселя из выходных карт этапа. Включает выполнение GPU и передачу пикселя; это не чистое время шейдеров.','scope');else if(method==='natural')paragraph(body,'В обычном прогоне этот GPU-этап отдельно не измерен.','scope');else paragraph(body,'Начало GPU-интервала относительно часов CPU не измерено. Длина полоски показывает только длительность.','scope');if(task.id==='selection')paragraph(body,'Этот интервал включает возможное ожидание CPU-фильтра и передачи данных. Его нельзя считать чистым временем шейдеров.','scope');const peer=tasks.find(t=>t.groupId===task.id);if(peer)body.append(relatedButton('cpu-'+peer.id,'Связанный этап CPU'));if(group)addStageDetails(body,group,scene)}
  else if(task.groupId&&groupMap.has(task.groupId)){body.append(relatedButton('gpu-'+task.groupId,'Что выполняет GPU'))}
  const children=tasks.filter(t=>t.parentId===task.id);if(children.length)paragraph(body,'Следующие вложенные строки уже входят в это время. Повторно их не прибавляем.','scope');
  if(task.parentId){const parent=tasks.find(t=>t.id===task.parentId);paragraph(body,'Входит в этап: '+(parent?.label||task.parentId)+'.','scope')}
@@ -137,7 +137,7 @@ function appendCpuTree(target,task,context,index,seen=new Set()){
 }
 function pairRow(cpu,gpu,index,context){
  const id=gpu.id,group=groupMap.get(id),pair=element('details','pair');pair.id='pair-'+id;pair.dataset.pair=id;
- const summary=element('summary'),title=element('span','pair-title',index+'. '+(group?.title||gpu.label));summary.append(title);const metrics=element('span','pair-metrics'),left=metric(cpu?.elapsedMs,'cpu',context.denominator),right=metric(gpu.elapsedMs??gpu.gpuMs,'gpu',context.denominator);right.dataset.lane='gpu';right.dataset.task=id;right.dataset.elapsedMs=String(gpu.elapsedMs??gpu.gpuMs);metrics.append(left,right);summary.append(metrics);
+ const summary=element('summary'),title=element('span','pair-title',index+'. '+(group?.title||gpu.label));summary.append(title);const metrics=element('span','pair-metrics'),left=metric(cpu?.elapsedMs,'cpu',context.denominator),right=metric(gpu.elapsedMs??gpu.gpuMs,'gpu',context.denominator,gpu.unmeasured?'Не измерено отдельно':undefined);right.dataset.lane='gpu';right.dataset.task=id;right.dataset.elapsedMs=String(gpu.elapsedMs??gpu.gpuMs);metrics.append(left,right);summary.append(metrics);
  const content=element('div','pair-content'),gpuCard=taskCard({...gpu,label:group?.title||gpu.label},{...context,lane:'gpu',index:String(index)}),body=gpuCard.querySelector('.task-body');body.querySelectorAll('.related').forEach(e=>e.remove());content.append(body);
  const host=element('details','host-detail');host.append(element('summary',null,'Действия CPU внутри этого этапа · '+ms(cpu?.elapsedMs)));
  if(cpu)appendCpuTree(host,cpu,context,String(index));else paragraph(host,'CPU-часть этой группы отдельно не измерена.','scope');host.querySelectorAll('.related').forEach(e=>e.remove());content.append(host);pair.append(summary,content);return pair;
@@ -146,18 +146,22 @@ function qaSection(target,rows,context,label){
  target.replaceChildren();if(!rows.length)return;const sum=rows.reduce((n,t)=>n+(finite(t.elapsedMs)?t.elapsedMs:0),0),known=rows.every(t=>finite(t.elapsedMs)),box=element('details','qa-panel'),body=element('div','qa-content');box.append(element('summary',null,label+' · '+(known?ms(sum):'время полностью не измерено')));paragraph(body,'Это проверки стенда, а не эффекты акварели. Вложенные интервалы входят в родительские.','scope');rows.forEach((t,i)=>appendCpuTree(body,t,context,String(i+1)));box.append(body);target.append(box);
 }
 function render(){
+ if(baseData.deviceVersions){const v=baseData.deviceVersions.find(v=>v.device===$('device-select').value&&v.version===$('version-select').value);if(!v)throw Error('Эта комбинация не измерена');data={...baseData,gpuTiming:undefined,pipelineTiming:{deviceLabel:v.label,scenes:[{id:'mini-two-colors',representative:v[$('method-select').value]}]}}}
  const scene=data.scenes.find(s=>s.id===$('scene').value),timing=data.gpuTiming?.scenes?.find(s=>s.id===scene.id),entry=data.pipelineTiming?.scenes?.find(s=>s.id===scene.id),run=entry?.representative||fallback(scene,timing),tasks=withBoundaryTasks(run),gpu=run.gpuIntervals||run.gpu?.intervals||[];
  if(!gpu.length)throw Error('Нет подтверждённых GPU-интервалов этой сцены');
- const sum=gpu.reduce((n,t)=>{const v=finite(t.elapsedMs)?t.elapsedMs:t.gpuMs;if(!finite(v))throw Error('Недопустимое время GPU');return n+v},0),hostTotal=finite(run.wallMs)?run.wallMs:run.knownWallMs,core=tasks.find(t=>(t.operation||t.id)==='core'||/^(host-core|core-host)$/.test(t.id)),read=tasks.find(t=>(t.operation||t.id)==='output.c-read'||/^(host-c-read|result-read)$/.test(t.id));
+ const sum=gpu.reduce((n,t)=>{const v=finite(t.elapsedMs)?t.elapsedMs:t.gpuMs;if(v==null)return n;if(!finite(v))throw Error('Недопустимое время GPU');return n+v},0),hostTotal=finite(run.wallMs)?run.wallMs:run.knownWallMs,core=tasks.find(t=>(t.operation||t.id)==='core'||/^(host-core|core-host)$/.test(t.id)),read=tasks.find(t=>(t.operation||t.id)==='output.c-read'||/^(host-c-read|result-read)$/.test(t.id));
  const nativeTotal=finite(run.nativeReadyMs)?run.nativeReadyMs:finite(core?.elapsedMs)&&finite(read?.elapsedMs)?core.elapsedMs+read.elapsedMs:run.knownWallMs,scale=finite(nativeTotal)?nativeTotal:sum;
  $('measurement').replaceChildren(element('strong',null,finite(nativeTotal)?'Готовый мазок — '+ms(nativeTotal):'Измеренные этапы расчёта'));
  if(finite(run.diagnosticOnlyMs))paragraph($('measurement'),'Проверки стенда: ещё '+ms(run.diagnosticOnlyMs)+'. Всего '+ms(hostTotal)+'.','small');
- paragraph($('measurement'),'Один прогон после прогрева. Без ввода пера и показа на экране.','small');
+ paragraph($('measurement'),run.summary||'Один прогон после прогрева. Без ввода пера и показа на экране.','small');
+ $('parallel-note').textContent=run.method==='synchronized'?'Поэтапный контроль: после каждого этапа читаем пиксель его выходных карт. Это останавливает конвейер. Правая колонка — ожидание GPU и передача пикселя, а не чистое время шейдеров.':'Обычный прогон: CPU отправляет команды, GPU выполняет их параллельно. GPU-этапы отдельно здесь не измерены. Финальное чтение ждёт весь результат.';
+ document.querySelector('.pipeline-head').lastElementChild.textContent=run.method==='synchronized'?'Ожидание выхода GPU · контроль':'GPU · отдельно не измерено';
  if(run.independentWholeControl)paragraph($('measurement'),'Другой контрольный прогон: '+ms(run.independentWholeControl.nativeReadyMs)+'. Причина разброса пока неизвестна.','small');
  $('device').textContent=data.pipelineTiming?.deviceLabel||data.gpuTiming?.deviceLabel||'Устройство не указано';
- $('row-clock').textContent='Длина полосок — длительность на общей шкале '+ms(scale)+'. GPU всего '+ms(sum)+'; это время уже входит в расчёт.';
+ $('row-clock').textContent='Длина полосок — длительность на общей шкале '+ms(scale)+(run.method==='synchronized'?'. Ожидания выходных карт суммарно '+ms(sum):run.method==='natural'?'. Длительности GPU отдельно неизвестны.':'. GPU всего '+ms(sum)+'; это время уже входит в расчёт.');
  const roots=tasks.filter(t=>!t.parentId),knownIds=new Set(tasks.map(t=>t.id));if(tasks.some(t=>t.parentId&&!knownIds.has(t.parentId)))throw Error('Не найден родитель CPU-этапа');
- const ctx={denominator:scale,scene,tasks},before=roots.filter(t=>t!==core&&t!==read&&finite(t.endMs)&&finite(core?.startMs)&&t.endMs<=core.startMs),after=roots.filter(t=>t!==core&&t!==read&&!before.includes(t));
+ $('clock-note').textContent=run.method==='synchronized'?'CPU слева включает ожидания, показанные справа. Колонки не складываются. Контрольные чтения тормозят конвейер; обычное время приведено сверху.':'CPU отправляет команды асинхронно. Полное чтение результата включает ожидание GPU и передачу картинки. Отдельные GPU-интервалы здесь не измерены.';
+ const ctx={denominator:scale,scene,tasks,method:run.method},before=roots.filter(t=>t!==core&&t!==read&&finite(t.endMs)&&finite(core?.startMs)&&t.endMs<=core.startMs),after=roots.filter(t=>t!==core&&t!==read&&!before.includes(t));
  qaSection($('qa-before'),before,{...ctx,denominator:hostTotal},'Проверки перед расчётом');
  $('core-summary').replaceChildren();if(core){const card=taskCard({...core,label:'Все CPU-вызовы расчёта: сумма восьми строк ниже'},{...ctx,lane:'cpu',index:'CPU'});card.querySelectorAll('.related').forEach(e=>e.remove());card.querySelector('summary').replaceChildren(element('span','task-title','CPU-команды всего: '+ms(core.elapsedMs)+' · сумма восьми строк'));$('core-summary').append(card)}
  const rows=gpu.map((g,i)=>pairRow(tasks.find(t=>t.operation==='group.'+g.id||t.id==='cpu-group-'+g.id),g,i+1,ctx));
@@ -168,7 +172,7 @@ function render(){
  $('proof-data').textContent=JSON.stringify({scene:scene.id,repeat:run.repeat,scope:run.scope,evidence:run.evidence||entry?.evidence,gpuReportSHA256:timing?.proofReportSHA256,unknowns:run.unknowns||entry?.unknowns,independentWholeControl:run.independentWholeControl},null,2);
 }
 
-try{if(!data.scenes?.length)throw Error('В прототип пока не подставлены данные измерений.');for(const s of data.scenes){const option=element('option',null,s.label);option.value=s.id;$('scene').append(option)}$('scene').value=data.scenes.some(s=>s.id==='mini-two-colors')?'mini-two-colors':data.scenes[0].id;$('scene').addEventListener('change',()=>{try{render()}catch(e){showError(e)}});render()}catch(e){showError(e)}
+try{if(baseData.deviceVersions){for(const [id,key]of [['device-select','device'],['version-select','version']])for(const value of [...new Set(baseData.deviceVersions.map(v=>v[key]))]){const option=element('option',null,key==='device'?value:value==='original'?'Наш исходный':'Быстрый · простые пути');option.value=value;$(id).append(option)}$('device-select').value='Samsung';for(const id of ['device-select','version-select','method-select'])$(id).addEventListener('change',()=>{try{render()}catch(e){showError(e)}})}else for(const id of ['device-select','version-select','method-select'])$(id).parentElement.hidden=true;if(!data.scenes?.length)throw Error('В прототип пока не подставлены данные измерений.');for(const s of data.scenes){const option=element('option',null,s.label);option.value=s.id;$('scene').append(option)}$('scene').value=data.scenes.some(s=>s.id==='mini-two-colors')?'mini-two-colors':data.scenes[0].id;$('scene').addEventListener('change',()=>{try{render()}catch(e){showError(e)}});render()}catch(e){showError(e)}
 function showError(error){$('pipeline').replaceChildren(element('p','error',String(error.message||error)));$('measurement').replaceChildren()}
 })();
 </script>

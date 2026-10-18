@@ -94,7 +94,7 @@ function build(inputFile, outputFile, options = {}) {
       current.water = image(item.water);
       assert.deepEqual([current.water.width, current.water.height], [current.input.width, current.input.height], 'Water image dimensions differ');
     }
-    for (const variant of item.variants) {
+    for (const variant of item.variants.filter(v=>v.id!=='noisy')) {
       assert.ok(ARMS.includes(variant.id), 'Known variant id required');
       assert.ok(!variantIds.has(variant.id), 'Duplicate variant'); variantIds.add(variant.id);
       assert.equal(variant.timingArm, variant.id, 'timingArm must identify selected variant');
