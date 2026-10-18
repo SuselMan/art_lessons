@@ -36,13 +36,14 @@ class Catalog(unittest.TestCase):
         self.assertEqual(len(data['variantCatalog']), 1)
         self.assertEqual(a['comparisonKeyProvenance']['omittedDiagnosticDefaults'], ['verifyInitializer'])
 
-    def test_encoding_and_actual_config_are_distinct_choices(self):
+    def test_input_encoding_is_scene_property_while_config_and_algorithm_are_distinct(self):
         variants = [model('a', config={'steps': 64}), model('b', config={'steps': 128}),
                     model('c', config={'steps': 64}, encoding='rgb-proxy'),
                     model('d', algorithm='other', config={'steps': 64})]
-        data = {'scenes': [{'id': 'a', 'variants': variants}]}
+        data = {'scenes': [{'id': 'a', 'variants': [variants[0],variants[1],variants[3]]}, {'id':'b','variants':[variants[2]]}]}
         catalog_variants(data)
-        self.assertEqual(len(data['variantCatalog']), 4)
+        self.assertEqual(len(data['variantCatalog']), 3)
+        self.assertEqual(variants[0]['comparisonKey'],variants[2]['comparisonKey'])
 
     def test_machine_json_fallback_only_and_no_label_parameter_guess(self):
         a = {'id': 'wgsl-flow-17', 'label': 'Настройка 99', 'note': 'Параметры: {"sigma":64,"steps":32}\nmetadata'}

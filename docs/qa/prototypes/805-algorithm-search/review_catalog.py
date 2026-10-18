@@ -90,7 +90,9 @@ def _identity(variant):
     encoding = evidence.get('encoding') or variant.get('encoding') or 'unspecified'
     if not isinstance(encoding, str):
         raise ValueError('Invalid encoding')
-    key = 'model:' + json.dumps([algorithm, config, encoding], ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
+    # Encoding belongs to the scene input, not to the algorithm/config choice.
+    # Keep it in evidence/provenance, so native OD and synthetic RGB can share a slot.
+    key = 'model:' + json.dumps([algorithm, config], ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
     provenance = {'algorithm': algorithm_source, 'config': config_source,
                   'encoding': 'evidence.encoding' if evidence.get('encoding') else 'variant.encoding' if variant.get('encoding') else 'unspecified'}
     if omitted:

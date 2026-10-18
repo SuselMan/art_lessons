@@ -2,9 +2,10 @@
 """Small visual comparison; preserves original images, timings and evidence verbatim."""
 import argparse,copy,json
 from pathlib import Path
+from review_catalog import catalog_variants
 
 def select_variant(v):
-    if v['id'] in ('original','input','native-common') or v['id'].startswith('input-reference-'):return True
+    if v['id'] in ('original','input','native-common','native-feather-cache','earlier-native-lazy','earlier-native-one-octave') or v['id'].startswith('input-reference-'):return True
     e=v.get('evidence',{});a=e.get('algorithm');c=e.get('config',{})
     if a=='wgsl-macro-coherent-physical-dt':return c.get('physicalDt') in (1,4) and c.get('eddyCells')==8 and c.get('curlStrength')==64
     if a=='wgsl-macro-physical-dt-fine':return c.get('physicalDt')==4 and c.get('fineSteps')==4 and c.get('affinityBase')==64 and c.get('eddyCells')==8 and c.get('curlStrength')==64
@@ -25,7 +26,7 @@ def shortlist(data):
     result['title']='Короткое сравнение растекания'
     result['note']='Выбранные мазки, исходник и несколько основных кандидатов. Художественный выбор ещё открыт. Укрупнённый шаг меняет картинку; точные оптимизации помечены отдельно. Время относится к стенду Mini1024.'
     result['relatedLinks']=[{'href':'index.html','label':'Все исследованные варианты'},{'href':'report.html','label':'Проблемы, исправления и непроверенное'},{'href':'eddy/index.html','label':'Подбор формы вихрей'}]
-    return result
+    return catalog_variants(result)
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('comparison',type=Path);p.add_argument('output',type=Path);a=p.parse_args()
