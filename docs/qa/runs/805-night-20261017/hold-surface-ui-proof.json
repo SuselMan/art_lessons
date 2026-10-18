@@ -1,0 +1,34 @@
+{
+  "qualification": "Headless Chromium --disable-gpu UI-only, original request delayed deliberately; no physical longpress claim.",
+  "cases": [
+    {
+      "width": 320,
+      "coldRetainsSelected": true,
+      "lateDecodeCancelled": true,
+      "cardZoomContextMenuAndDragSuppressed": true,
+      "scopeNotGlobal": true,
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "coldRetainsSelected": true,
+      "lateDecodeCancelled": true,
+      "cardZoomContextMenuAndDragSuppressed": true,
+      "scopeNotGlobal": true,
+      "overflow": false
+    },
+    {
+      "width": 1440,
+      "coldRetainsSelected": true,
+      "lateDecodeCancelled": true,
+      "cardZoomContextMenuAndDragSuppressed": true,
+      "scopeNotGlobal": true,
+      "overflow": false
+    }
+  ],
+  "browserClosed": true,
+  "pass": true,
+  "templateSHA256": "f7ea1478544de1d7e4a5ba94db61c07e8486ee780d739e899e89328062c643ea",
+  "missingCountAndVisibleCount": true,
+  "existingHideHoldRegression": "320/390/1440 PASS110catalog actual660 prior same hold implementation"
+}
