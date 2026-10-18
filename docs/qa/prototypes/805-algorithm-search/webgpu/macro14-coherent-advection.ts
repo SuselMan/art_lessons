@@ -4,10 +4,10 @@ import {MACRO10_LOCAL_PACK} from './macro10-wetness'
 import {buildStream} from './macro14-stream-field'
 import {coherentSource} from './macro14-coherent-source'
 import type {PackingBuffers} from './macro9-integer-smooth'
-export interface CoherentOverrides {observePacking?:(buffers:PackingBuffers)=>void}
+export interface CoherentOverrides {packSourceOverride?:string;observePacking?:(buffers:PackingBuffers)=>void}
 export async function create(device:GPUDevice,size:number,config:Record<string,number>={},options:CoherentOverrides={}):Promise<Candidate>{
  if(size!==1024)throw Error('Integer dynamic requires1024');const eddyCells=integerOption(config.eddyCells??16,4,64,'eddyCells'),strength=integerOption(config.curlStrength??128,0,128,'curlStrength'),gain=integerOption(config.mobilityGain??3,1,8,'mobilityGain');const n=128,N=n*n,steps=integerOption(config.steps??256,1,512,'steps'),usage=BUFFER.STORAGE|BUFFER.COPY_DST|BUFFER.COPY_SRC
- const pair=await pipeline(device,coherentSource(gain),'u32-dynamic-pair-absorption'),pack=await pipeline(device,MACRO10_LOCAL_PACK,'u32-dynamic-nearest')
+ const pair=await pipeline(device,coherentSource(gain),'u32-dynamic-pair-absorption'),pack=await pipeline(device,options.packSourceOverride??MACRO10_LOCAL_PACK,'u32-dynamic-nearest')
  const all:GPUBuffer[]=[];const alloc=(bytes:number,flags:number,label:string)=>{const b=buffer(device,bytes,flags,label);all.push(b);return b}
  try{
  const state=[alloc(N*48,usage,'dynamic0'),alloc(N*48,usage,'dynamic1')],aux=alloc(N*16,usage,'capacity-paper'),stationary=alloc(size*size*4,usage,'literal-stationary'),output=alloc(size*size*4,usage,'output'),staging=alloc(size*size*4,BUFFER.COPY_DST|BUFFER.MAP_READ,'readback'),stateStaging=alloc(N*48,BUFFER.COPY_DST|BUFFER.MAP_READ,'state-ledger')
