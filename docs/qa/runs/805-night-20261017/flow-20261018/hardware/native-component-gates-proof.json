@@ -1,0 +1,712 @@
+{
+  "scope": "QA component-isolated native policy, not native kernel modification. Diagnostic/source proof time is included in componentLoopMs; no GPU-only or cross-backend speed claim. No claim against shortcuts within a single connected wet component.",
+  "policy": "native-component-isolated-v1",
+  "cpuTests": 14,
+  "strongGate": {
+    "reportSHA": "19fdd859ea89842ea44d161677e54cb5cb9cbe78b38bd35fd202057a378aa523",
+    "pass": true,
+    "connectivityGatePass": true,
+    "cases": [
+      {
+        "id": "native-c-only-stationary",
+        "sourceSHA": {
+          "p": "fe71aaaef2536f4fbc651003f0e8cc7edaa8b4605a107f73d5964334d077c05d",
+          "c": "883ac861c36df7dc39305b25b6623cc35c4ffc06c19a4476d230ba73559182e5",
+          "coverage": "6178da57d15b9f142c4db116bfcb1f6c67db36a2f324a45c323594914ccda6b5",
+          "solvent": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92"
+        },
+        "outputSHA": {
+          "p": "fe71aaaef2536f4fbc651003f0e8cc7edaa8b4605a107f73d5964334d077c05d",
+          "c": "883ac861c36df7dc39305b25b6623cc35c4ffc06c19a4476d230ba73559182e5",
+          "coverage": "6178da57d15b9f142c4db116bfcb1f6c67db36a2f324a45c323594914ccda6b5"
+        },
+        "goalRuns": 0,
+        "waterOnlyRuns": 0,
+        "partitionAudit": {
+          "expectedWetPixels": 0,
+          "labelledPixels": 0,
+          "contiguousRanges": true,
+          "membershipChecked": true
+        },
+        "dryChanged": 0,
+        "connectivity": {
+          "dryChangedPixels": 0,
+          "components": [],
+          "oppositeComponentZeroChannelsExact": true,
+          "qualification": "Independent four-connected ORIGINAL water>0 components. New raw C codes in an initially absent component/channel violate this canary; this alone does not distinguish transport from native color reconstruction. No exp/compositor metrics and no universal shader-mask certification.",
+          "fullRGBAIdentity": true
+        },
+        "allSourceReadbacksExact": true,
+        "allMetadataExact": true
+      },
+      {
+        "id": "native-c-only-isolated-wet",
+        "sourceSHA": {
+          "p": "92b3b56d362651bb7dd835a0207e9bd5f71ef0d5b1492a45ba87b45739588ed1",
+          "c": "883ac861c36df7dc39305b25b6623cc35c4ffc06c19a4476d230ba73559182e5",
+          "coverage": "3be7370838ca53d2bdf7512fdfc959cd796e326b3f01c67ed95d6841760ccb44",
+          "solvent": "3b66809a9f86b0359a5fa03740278a7588485bdb5db4534f30af215aff35ac77",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92"
+        },
+        "outputSHA": {
+          "p": "a06b6337668d5146a4129e284f7a83c5122b02509e65ab445a1476aaa61afd90",
+          "c": "c900c4f28fb582d6c7fb794b21a1cac19a35ee102c5beb7ad461a6e2bf8523a4",
+          "coverage": "6178da57d15b9f142c4db116bfcb1f6c67db36a2f324a45c323594914ccda6b5"
+        },
+        "goalRuns": 4,
+        "waterOnlyRuns": 0,
+        "partitionAudit": {
+          "expectedWetPixels": 4,
+          "labelledPixels": 4,
+          "contiguousRanges": true,
+          "membershipChecked": true
+        },
+        "dryChanged": 0,
+        "connectivity": {
+          "dryChangedPixels": 0,
+          "components": [
+            {
+              "id": 0,
+              "pixels": 1,
+              "before": [
+                90,
+                0,
+                0,
+                180
+              ],
+              "after": [
+                89,
+                0,
+                0,
+                179
+              ],
+              "introducedRGBA": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "introducedPixelCounts": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "first": []
+            },
+            {
+              "id": 1,
+              "pixels": 1,
+              "before": [
+                0,
+                90,
+                0,
+                180
+              ],
+              "after": [
+                0,
+                89,
+                0,
+                179
+              ],
+              "introducedRGBA": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "introducedPixelCounts": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "first": []
+            },
+            {
+              "id": 2,
+              "pixels": 1,
+              "before": [
+                0,
+                0,
+                90,
+                180
+              ],
+              "after": [
+                0,
+                0,
+                89,
+                179
+              ],
+              "introducedRGBA": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "introducedPixelCounts": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "first": []
+            },
+            {
+              "id": 3,
+              "pixels": 1,
+              "before": [
+                90,
+                60,
+                0,
+                180
+              ],
+              "after": [
+                89,
+                60,
+                0,
+                179
+              ],
+              "introducedRGBA": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "introducedPixelCounts": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "first": []
+            }
+          ],
+          "oppositeComponentZeroChannelsExact": true,
+          "qualification": "Independent four-connected ORIGINAL water>0 components. New raw C codes in an initially absent component/channel violate this canary; this alone does not distinguish transport from native color reconstruction. No exp/compositor metrics and no universal shader-mask certification.",
+          "fullRGBAIdentity": false
+        },
+        "allSourceReadbacksExact": true,
+        "allMetadataExact": true
+      },
+      {
+        "id": "native-adjacent-wall",
+        "sourceSHA": {
+          "p": "65f7b52e5ff28617978be5bbd494ffd31baad07865575296dd596526984e9b12",
+          "c": "e7c3c8c0a0d4344d098dca7caa159fc64fed639b22fbb52f4e980db99463c08c",
+          "coverage": "cafef8276d9eb323863d735f5fc6054d1ff06e0bd5c46b92d0303d89a7f94db2",
+          "solvent": "62698762a92826a583d40e648d36dc7056190fd84ce44e889494d75f787cadcf",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92"
+        },
+        "outputSHA": {
+          "p": "8055e88bbcf1825ea68bd7646b2bb75279017ed69b9a142cb55e4b5e415cfc0a",
+          "c": "61e8697e14ae375ce6c9d2346b20eaa2b99b8f6fa8e64fa899f099692758c363",
+          "coverage": "6c8bfc89da607cf3b7cee97c5861b525c2afc7181f341e05bf7109a5126823d8"
+        },
+        "goalRuns": 2,
+        "waterOnlyRuns": 1,
+        "partitionAudit": {
+          "expectedWetPixels": 259772,
+          "labelledPixels": 259772,
+          "contiguousRanges": true,
+          "membershipChecked": true
+        },
+        "dryChanged": 0,
+        "connectivity": {
+          "dryChangedPixels": 0,
+          "components": [
+            {
+              "id": 0,
+              "pixels": 130492,
+              "before": [
+                812592,
+                427680,
+                0,
+                855360
+              ],
+              "after": [
+                762025,
+                394497,
+                0,
+                803639
+              ],
+              "introducedRGBA": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "introducedPixelCounts": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "first": []
+            },
+            {
+              "id": 1,
+              "pixels": 129280,
+              "before": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "after": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "introducedRGBA": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "introducedPixelCounts": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "first": []
+            }
+          ],
+          "oppositeComponentZeroChannelsExact": true,
+          "qualification": "Independent four-connected ORIGINAL water>0 components. New raw C codes in an initially absent component/channel violate this canary; this alone does not distinguish transport from native color reconstruction. No exp/compositor metrics and no universal shader-mask certification.",
+          "fullRGBAIdentity": false,
+          "oppositeSide": {
+            "pixels": 129280,
+            "before": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "after": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alphaAppeared": false
+          }
+        },
+        "allSourceReadbacksExact": true,
+        "allMetadataExact": true
+      },
+      {
+        "id": "native-adjacent-wall-open",
+        "sourceSHA": {
+          "p": "65f7b52e5ff28617978be5bbd494ffd31baad07865575296dd596526984e9b12",
+          "c": "e7c3c8c0a0d4344d098dca7caa159fc64fed639b22fbb52f4e980db99463c08c",
+          "coverage": "6f137e60a85bbdd689974b0b11e62b6c58d694b0efe898245b88474e15756b5b",
+          "solvent": "e506bdd989d408a030c2f3ec7868af68e1f5870b81c6aa272f5f8b54ce44ee57",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92"
+        },
+        "outputSHA": {
+          "p": "d77429a42df015ae9e142940d00c81bbb6aff77f0fc6be04cd428dffa3ed9621",
+          "c": "d8962d8b2e03b612411b5e8be23b5ceaef377cda9b02f76febfbf20e71b2673e",
+          "coverage": "4ea5f1127c8c8ea555c8195abadc44597fb961e16bd6c841e4276c91ff941435"
+        },
+        "goalRuns": 1,
+        "waterOnlyRuns": 0,
+        "partitionAudit": {
+          "expectedWetPixels": 260176,
+          "labelledPixels": 260176,
+          "contiguousRanges": true,
+          "membershipChecked": true
+        },
+        "dryChanged": 0,
+        "connectivity": {
+          "dryChangedPixels": 0,
+          "components": [
+            {
+              "id": 0,
+              "pixels": 260176,
+              "before": [
+                812592,
+                427680,
+                0,
+                855360
+              ],
+              "after": [
+                735615,
+                362829,
+                0,
+                777732
+              ],
+              "introducedRGBA": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "introducedPixelCounts": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "first": []
+            }
+          ],
+          "oppositeComponentZeroChannelsExact": true,
+          "qualification": "Independent four-connected ORIGINAL water>0 components. New raw C codes in an initially absent component/channel violate this canary; this alone does not distinguish transport from native color reconstruction. No exp/compositor metrics and no universal shader-mask certification.",
+          "fullRGBAIdentity": false,
+          "oppositeSide": {
+            "pixels": 129280,
+            "before": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "after": [
+              65214,
+              24603,
+              0,
+              69583
+            ],
+            "alphaAppeared": true
+          }
+        },
+        "allSourceReadbacksExact": true,
+        "allMetadataExact": true
+      },
+      {
+        "id": "native-adjacent-diagonal",
+        "sourceSHA": {
+          "p": "7eae673099556c244d0a57f88ef9039bf493d638bb7b0cdb9be9c7d9883acf4a",
+          "c": "7b8e3ae7040d30379def88637820474a2d84ab6b3a993c05d8426f23e8b63d79",
+          "coverage": "fc2bd099459fb5d8467e2e82d51dbec25c17680c68bee545c13914250609d0a1",
+          "solvent": "11a2ddde1d732e5a2a82d9877beebde54ba77610b712a3becdb7cd51825eb62f",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92"
+        },
+        "outputSHA": {
+          "p": "6502be053bc42eb2ae64425b4b8a645624adca5b0202cb10a35c3c3398ffc8d2",
+          "c": "a74517e5cd93718c6a916b478a5466521ce9537c34f23887d78f00ed50c3f6f1",
+          "coverage": "63cdcb049baf0c132417827ca954ead60aea1d22a53673950f92508c69ba8cca"
+        },
+        "goalRuns": 2,
+        "waterOnlyRuns": 1,
+        "partitionAudit": {
+          "expectedWetPixels": 259772,
+          "labelledPixels": 259772,
+          "contiguousRanges": true,
+          "membershipChecked": true
+        },
+        "dryChanged": 0,
+        "connectivity": {
+          "dryChangedPixels": 0,
+          "components": [
+            {
+              "id": 0,
+              "pixels": 130290,
+              "before": [
+                787968,
+                414720,
+                0,
+                829440
+              ],
+              "after": [
+                730990,
+                377474,
+                0,
+                770021
+              ],
+              "introducedRGBA": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "introducedPixelCounts": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "first": []
+            },
+            {
+              "id": 1,
+              "pixels": 129482,
+              "before": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "after": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "introducedRGBA": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "introducedPixelCounts": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "first": []
+            }
+          ],
+          "oppositeComponentZeroChannelsExact": true,
+          "qualification": "Independent four-connected ORIGINAL water>0 components. New raw C codes in an initially absent component/channel violate this canary; this alone does not distinguish transport from native color reconstruction. No exp/compositor metrics and no universal shader-mask certification.",
+          "fullRGBAIdentity": false,
+          "oppositeSide": {
+            "pixels": 129482,
+            "before": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "after": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alphaAppeared": false
+          }
+        },
+        "allSourceReadbacksExact": true,
+        "allMetadataExact": true
+      },
+      {
+        "id": "native-adjacent-diagonal-open",
+        "sourceSHA": {
+          "p": "7eae673099556c244d0a57f88ef9039bf493d638bb7b0cdb9be9c7d9883acf4a",
+          "c": "7b8e3ae7040d30379def88637820474a2d84ab6b3a993c05d8426f23e8b63d79",
+          "coverage": "6f137e60a85bbdd689974b0b11e62b6c58d694b0efe898245b88474e15756b5b",
+          "solvent": "e506bdd989d408a030c2f3ec7868af68e1f5870b81c6aa272f5f8b54ce44ee57",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92"
+        },
+        "outputSHA": {
+          "p": "d5304bdfeb60735895908df43ec101bd6b96ab210ae71c24d64d446415ea2bde",
+          "c": "2ec36b2b4c8ded0ba1249b0d747cf5878de0787bf83450fa7aedfaedeb3e5c8d",
+          "coverage": "4ea5f1127c8c8ea555c8195abadc44597fb961e16bd6c841e4276c91ff941435"
+        },
+        "goalRuns": 1,
+        "waterOnlyRuns": 0,
+        "partitionAudit": {
+          "expectedWetPixels": 260176,
+          "labelledPixels": 260176,
+          "contiguousRanges": true,
+          "membershipChecked": true
+        },
+        "dryChanged": 0,
+        "connectivity": {
+          "dryChangedPixels": 0,
+          "components": [
+            {
+              "id": 0,
+              "pixels": 260176,
+              "before": [
+                787968,
+                414720,
+                0,
+                829440
+              ],
+              "after": [
+                697111,
+                336430,
+                0,
+                737007
+              ],
+              "introducedRGBA": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "introducedPixelCounts": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "first": []
+            }
+          ],
+          "oppositeComponentZeroChannelsExact": true,
+          "qualification": "Independent four-connected ORIGINAL water>0 components. New raw C codes in an initially absent component/channel violate this canary; this alone does not distinguish transport from native color reconstruction. No exp/compositor metrics and no universal shader-mask certification.",
+          "fullRGBAIdentity": false,
+          "oppositeSide": {
+            "pixels": 129482,
+            "before": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "after": [
+              88212,
+              31831,
+              0,
+              93912
+            ],
+            "alphaAppeared": true
+          }
+        },
+        "allSourceReadbacksExact": true,
+        "allMetadataExact": true
+      },
+      {
+        "id": "native-c-only-water-pool",
+        "sourceSHA": {
+          "p": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "c": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "coverage": "6f137e60a85bbdd689974b0b11e62b6c58d694b0efe898245b88474e15756b5b",
+          "solvent": "e506bdd989d408a030c2f3ec7868af68e1f5870b81c6aa272f5f8b54ce44ee57",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92"
+        },
+        "outputSHA": {
+          "p": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "c": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "coverage": "4ea5f1127c8c8ea555c8195abadc44597fb961e16bd6c841e4276c91ff941435"
+        },
+        "goalRuns": 1,
+        "waterOnlyRuns": 1,
+        "partitionAudit": {
+          "expectedWetPixels": 260176,
+          "labelledPixels": 260176,
+          "contiguousRanges": true,
+          "membershipChecked": true
+        },
+        "dryChanged": 0,
+        "connectivity": {
+          "dryChangedPixels": 0,
+          "components": [
+            {
+              "id": 0,
+              "pixels": 260176,
+              "before": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "after": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "introducedRGBA": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "introducedPixelCounts": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "first": []
+            }
+          ],
+          "oppositeComponentZeroChannelsExact": true,
+          "qualification": "Independent four-connected ORIGINAL water>0 components. New raw C codes in an initially absent component/channel violate this canary; this alone does not distinguish transport from native color reconstruction. No exp/compositor metrics and no universal shader-mask certification.",
+          "fullRGBAIdentity": true
+        },
+        "allSourceReadbacksExact": true,
+        "allMetadataExact": true
+      }
+    ]
+  },
+  "authoredMini": {
+    "reportSHA": "fdd6a83030781a4e53200335ba91cb548d9449cdd9e2c0f9555eb414ab1aba13",
+    "pass": true,
+    "historicalActualSourceExact": true,
+    "sourceEvidence": {
+      "file": "source-native-seven.rgba.gz",
+      "sha256": "662153f3d8d03a2bf4281067a2ca04fa1a0799c7192e6b62604dfc60651b1d5e",
+      "gzipSHA": "d7b45ad1ad1545609c3dc802b83a1f67c58973170ab78f34622a0f85f0981c3f",
+      "metadata": {
+        "planeOrder": [
+          "p",
+          "c",
+          "coverage",
+          "solvent",
+          "foreign",
+          "original",
+          "paper"
+        ],
+        "planeBytes": 4194304,
+        "planeSHA": {
+          "p": "cf055f511aa3f7248cf409afc0eb4f32892397e1ffa6bb26b94e40bbc560ba96",
+          "c": "b52e030f3990336f09bae719c4827a2558325e071b25f9607bba6c3e96e5d83e",
+          "coverage": "0a1dd23c6d94bd35e3d95815947a60a763a845511733647232df7b018e3f857d",
+          "solvent": "f733dec9f2b5dc1f4936d87ef7807f32a2e0bbad7cb6a098ca3e6d3e284325c9",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+        },
+        "sourcePlanePresence": {
+          "p": true,
+          "c": true,
+          "coverage": true,
+          "solvent": true,
+          "foreign": false,
+          "original": true
+        },
+        "foreignKind": "absent-logical-zero",
+        "rows": "gl-bottom-up",
+        "paper": "actual sampled shader paper; unchanged world context",
+        "qualification": "Already independently read source arrays reused after all primary timers; no extra GPU reads"
+      }
+    },
+    "endpoint": {
+      "file": "merged-native-c.rgba.gz",
+      "sha256": "5eb542098fc1b13202dbdb6d2aefdab130ab95459bed416a5e378eda46e7df1b",
+      "gzipSHA": "b800ed53e3317877c4fccf36fda165057c4ff219dc8dd219fdd4437ead1d35f3",
+      "rows": "gl-bottom-up",
+      "conversionScale": 0.6781914893617021
+    },
+    "sourceStable": true,
+    "contextClosed": true
+  },
+  "qaFailures": [
+    {
+      "reportSHA": "d31ef6ffc942fabb71b37a888e5ed0314060f889b01373af5d66c2aea13fe877",
+      "scope": "QA partition implementation/device discrepancy, not native kernel failure; replaced with direct queue and independent membership invariants"
+    },
+    {
+      "reportSHA": "1a67a3c0894918d8ef6ed296b812faea338975da9a5dec531fd3cfda4ed41bce",
+      "scope": "QA partition implementation/device discrepancy, not native kernel failure; replaced with direct queue and independent membership invariants"
+    },
+    {
+      "reportSHA": "39d6bbc46bab537787a0689304bfa0d6083216101b3c441a0598ba89be28dff7",
+      "scope": "QA partition implementation/device discrepancy, not native kernel failure; replaced with direct queue and independent membership invariants"
+    }
+  ]
+}

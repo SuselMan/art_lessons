@@ -1,0 +1,8 @@
+'use strict';
+const ids=['native-c-only-water-pool','native-c-only-stationary','native-c-only-isolated-wet','native-adjacent-wall','native-adjacent-wall-open','native-adjacent-diagonal','native-adjacent-diagonal-open'];
+function create(id){if(!ids.includes(id))throw Error('Unknown native diagnostic fixture');const size=1024,n=size*size,rgba=new Uint8Array(n*4),water=new Uint8Array(n),paper=new Uint8Array(n).fill(128),diagonal=id.includes('diagonal'),open=id.endsWith('-open'),stationary=id.startsWith('native-c-only');
+ if(id==='native-c-only-water-pool'){for(let y=310;y<714;y++)for(let x=190;x<834;x++)water[y*size+x]=180;return{size,seed:805,encoding:'optical-density',rgba,water,paper,recipe:{version:1,id,kind:'stationary',open:false,zeroColour:true}}}
+ if(stationary){[[480,480,[90,0,0,180]],[544,480,[0,90,0,180]],[480,544,[0,0,90,180]],[544,544,[90,60,0,180]]].forEach(([x,y,c])=>{const i=y*size+x;rgba.set(c,i*4);if(id.endsWith('wet'))water[i]=180})}
+ else for(let y=310;y<714;y++)for(let x=190;x<834;x++){const i=y*size+x,wall=diagonal?x+y===1024:x===513;water[i]=wall&&!open?0:180;const pigment=diagonal?x>=440&&x<584&&x+y>=992&&x+y<=1023:x>=480&&x<=512&&y>=440&&y<584;if(pigment)rgba.set([171,90,0,180],i*4)}
+ return{size,seed:805,encoding:'optical-density',rgba,water,paper,recipe:{version:1,id,kind:stationary?'stationary':diagonal?'diagonal':'vertical',open,water:'raw rectangle x190..833 y310..713 W180; wall x513 orx+y1024 W0 unless open',pigment:'R171 G90 B0 A180 strip immediately against left wet edge; opposite side initially allRGBA0',paper:128,stationary:stationary?'four isolated equal-A180 pixels with different exact C, W0 or180; no anchor material':null}}}
+module.exports={ids,create};

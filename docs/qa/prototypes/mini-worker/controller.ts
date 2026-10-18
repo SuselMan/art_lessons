@@ -150,6 +150,12 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
    liveActive=false;drying=false;goalReady=false;render(raw,{p:locate()!.entry.inkLoad,c:locate()!.entry.inkColor,coverage:locate()!.entry.coverage})
   },
   diagnosticSource(){const f=locate();if(!f)throw Error('Native source missing');return f},
+  diagnosticWithSource<T>(source:any,fn:()=>T):T{
+   if(down||calculating||goalPending)throw Error('Stationary component diagnostic required')
+   const saved={replaySource,context,epoch,goalReady,diagnosticFinal,liveActive,drying}
+   try{replaySource=source;context=null;epoch++;captureContext();if(!locate()||!context)throw Error('Component context missing');return fn()}
+   finally{replaySource=saved.replaySource;context=saved.context;epoch=saved.epoch;goalReady=saved.goalReady;diagnosticFinal=saved.diagnosticFinal;liveActive=saved.liveActive;drying=saved.drying}
+  },
   diagnosticPresentGoal(){
    const f=locate();if(!f||!target.state.done)throw Error('Completed goal required')
    render(dryImage,target.buffers());diagnosticFinal=true;liveActive=false;drying=false
