@@ -1,0 +1,1799 @@
+{
+  "qualification": "Fixed1024 flow experiment on physical Samsung. TotalReady includes upload/reduction plus dependent result readiness, not pureGPUtime. Flow metrics/fullRGBA/PNG computed aftertiming. Technical repeat/premul checks do not imply50–200px material transport or artistic acceptance.",
+  "startedAt": "2026-10-18T01:03:24.711Z",
+  "finishedAt": "2026-10-18T01:04:02.392Z",
+  "sourceHashes": {
+    "entry.js": "678996849f31adeac2162590747ee770a3258a53a58010d614677649fd820554",
+    "worker.js": "cbf60de80775df10d56faa7853ebc4f2972433c18d1b6e084327394e04407f37",
+    "chunk-OOM2Y3OE.js": "1c8d2734a58c574ab13a2cc23979dab7dde5d96753623c187d42aae717914b8f",
+    "fixtures/native-flow-pool-drop.bin": "3c20c7068cd00c803b1a913343cb2024f93bc5b23667c74a3c73055cf7ccc538",
+    "fixtures/native-flow-separated-colors.bin": "3471744208958a1c64c1e42d53be00c988d5eea11ae46f1d977c89cf3ef24e85",
+    "fixtures/mini-wave.bin": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+    "fixtures/gallery-sheet-7-slot-1.bin": "60d1685ff317b9c4638ccdee4fd0cbf0eafaac4ae90b6b39a38ae7e259c3395f",
+    "fixtures/gallery-sheet-3-slot-1.bin": "566b5bff0205a1220745f8177cd37da5d2e97319e11b90814a5f2cb1ec08b03d",
+    "fixtures/gallery-sheet-1-slot-17.bin": "1277b0b3efe83853f72af79194f718e670b13d75a75eb8318f6a08ec3adc825e",
+    "fixtures/gallery-sheet-10-slot-3.bin": "00c05db5a93d15d9f1a819a073b93d1e3b259b53cb12a3a845f2d101bd83a364",
+    "fixtures/gallery-sheet-12-slot-1.bin": "69113189b2a48eb6d6fdfe51b7cb4936e7f75e5aa2d81629298c0b1b264aa21a",
+    "fixtures/gallery-sheet-2-slot-7.bin": "52d9cfccd269094d3bb534b3ebe11ababba452aaa799ce17ea459facb4ec9eef",
+    "fixtures/gallery-sheet-4-slot-1.bin": "5a8e3e8f16ee532c65db461a87f5098a0e06752c3c1ae9a5bc39eaaa2011c198",
+    "fixtures/gallery-sheet-5-slot-1.bin": "3c6e26fee64a05764cc985d3b4404f8909f694b4142ef2c3eff497e29130b232",
+    "fixtures/gallery-sheet-6-slot-6.bin": "76795ce7f63bcca1aed3d1ffd1395f864a4eda872205eda828c3ff6ba56c705b",
+    "fixtures/gallery-sheet-8-slot-6.bin": "b7aaee0fed9fa46b7de5fcfca7cf7435c0171c7812f46f6b0aaa59a54b8e6e92",
+    "fixtures/gallery-sheet-9-slot-1.bin": "f75c48a0caa16f147c753660b2fdb3db1721adb1a96c7eb207b7cb35d819094a",
+    "fixtures/mini-two-colors.bin": "d69b0e913564ebd2b7954ef9405e99c486858437833217bfddfc57f4def03d60",
+    "index.html": "7f174c6068b1a87f196251529b71ac6c4844f011e315c79534a94c0af5b824e4"
+  },
+  "checks": {
+    "pass": true,
+    "partial": false,
+    "sourceStable": true,
+    "contextClosed": true,
+    "errors": []
+  },
+  "cases": [
+    {
+      "request": {
+        "algorithm": "wgsl-macro-fast-coherent-smooth-fine-paper",
+        "fixture": "mini-wave",
+        "config": {
+          "steps": 256,
+          "fineSteps": 12,
+          "paperGain": 3,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 16,
+          "curlStrength": 128
+        },
+        "encoding": "optical-density",
+        "repeats": 3,
+        "exportRaw": true,
+        "measureTransport": true
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "captureInputExact": true,
+      "carrier": {
+        "file": "001-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "b79d6f12552510d064c5789c041e661594c3a3a3119b0dd880e0fc216cfbeb8a",
+        "gzipBytes": 513240,
+        "gzipSHA256": "2d109934f902eaac8d9bd4c6f2155ada3e07524ef876e6d9faf25a4306b84f28",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "png": {
+        "file": "001-wgsl-macro-fast-coherent-smooth-fine-paper-mini-wave.png",
+        "bytes": 1469171,
+        "sha256": "05e16b084228147dbef4764ae9f049aa66ebada89c4b5bd791a3c1bcac7d39aa"
+      },
+      "fixtureSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 222,
+      "samples": [
+        {
+          "uploadJsMs": 82.59999990463257,
+          "submitJsMs": 0.5,
+          "runToDependentMs": 108.29999995231628,
+          "totalReadyMs": 190.89999985694885,
+          "fullReadbackJsMs": 59.60000014305115,
+          "totalToFullReadbackMs": 250.5
+        },
+        {
+          "uploadJsMs": 47.10000014305115,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 93.20000004768372,
+          "totalReadyMs": 140.30000019073486,
+          "fullReadbackJsMs": 35.299999952316284,
+          "totalToFullReadbackMs": 175.60000014305115
+        },
+        {
+          "uploadJsMs": 56.90000009536743,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 103.29999995231628,
+          "totalReadyMs": 160.20000004768372,
+          "fullReadbackJsMs": 33.40000009536743,
+          "totalToFullReadbackMs": 193.60000014305115
+        }
+      ],
+      "hashes": [
+        "b79d6f12552510d064c5789c041e661594c3a3a3119b0dd880e0fc216cfbeb8a",
+        "b79d6f12552510d064c5789c041e661594c3a3a3119b0dd880e0fc216cfbeb8a",
+        "b79d6f12552510d064c5789c041e661594c3a3a3119b0dd880e0fc216cfbeb8a"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "u32-dynamic-plus-fine-paper-regularization",
+        "grid": 128,
+        "steps": 256,
+        "dispatches": 257,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "mobilityGain": 3,
+        "field": {
+          "seed": 805,
+          "eddyCells": 16,
+          "strength": 128,
+          "normalizationPowerOfTwo": 2,
+          "maxFaceRate": 199,
+          "rateDenominator": 512,
+          "paperComponent": "integer9tap separable lowpass, terrain4codes",
+          "field": "artistic streamfunction, not Navier-Stokes; actual gated donor flux need not remain divergence-free",
+          "sha256": "04b2a6b3cfc234497ac9fcfd5884a5418dc358a494282ae0f61da4edcd00153b"
+        },
+        "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+        "staticWallMap": false,
+        "waterBlocked": false,
+        "coefficients": "V13 calibrated pressure+mixing; stream face upwind water packets, bounded donor4/5 and recipient capacity; no new absorption coefficient",
+        "initial": {
+          "initialStationaryAlpha": 1,
+          "initialMobileAlpha": 26769383,
+          "frozenWetAlpha": 0,
+          "frozenCellCount": 0,
+          "initialWaterCodes": 13360712,
+          "initialMobileCodes": 107495845
+        },
+        "finalState": {
+          "surfaceCodes": 2018374,
+          "absorbedCodes": 11342338,
+          "totalWaterCodes": 13360712,
+          "mobileAlphaCodes": 74056420,
+          "adsorbedAlphaCodes": 33439425,
+          "totalPigmentAlphaCodes": 107495845
+        },
+        "massScope": "coarse M+D/W+S integer exact; input reduction and final byte rounding separate",
+        "limitations": "NEW independent floor-bilinear M/D initialization changes totals; local nearest only at literal stationary pixels. Compare fine0/fine12 same initialization. Fine deposited proxy fixed, mobile pair flow conservative; extra16MiB deposit plane. Not historical native equivalence.",
+        "seedUsed": true,
+        "featuresRequired": [],
+        "fineSteps": 12,
+        "paperGain": 3,
+        "dither": true,
+        "extraFineGPUBytes": 88080512,
+        "extraDispatches": 14,
+        "redundantBasePackDispatches": 1,
+        "fineInitialization": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+        "fineModel": "NEW conservative integer mobile-carrier paper-affinity exchange, fixed deposited/literal; final wet=W+S>0; NOT PACK-only",
+        "fineLedger": {
+          "mobileRGBA16Codes": [
+            2252322292,
+            745607666,
+            219827499,
+            4739477174
+          ],
+          "initialFineMobileAlphaExpected": null,
+          "initializationMassQualification": "Bilinear floor/local nearest changes init totals; compare identical fineSteps0 vsfineSteps12, pair-stage all4channels exact",
+          "initCapacityFailures": 0,
+          "packFailures": 0,
+          "guardPassed": true,
+          "reads": "full fine storage copy/map only after timed compute"
+        },
+        "basePhysicalModel": "macro14 actual coherent factory+upload stream field",
+        "fineDepositBasis": "NEW continuous proxy from independent floor bilinear coarse D; not historical native D",
+        "fineQuantization": "safe exact bytefold shared threshold",
+        "coherentUploadFieldPreserved": true,
+        "composition": "Actual coherent factory owns field construction/aux upload; macro17 owns smooth fine M/D; macro11 owns conservative fine mobile exchange. No coarse stateHash support promised.",
+        "initializer": "macro20 initialIntegerDynamicFast; exact state/aux/stationary/summary",
+        "optimizationScope": "CPU initializer only; coherent original PACK and full fine shader sources unchanged"
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 26769384,
+        "outputMass": 26768489,
+        "massRatio": 0.9999665662833332,
+        "lostPixels": 0,
+        "addedPixels": 43710,
+        "outsideWetPixels": 46297,
+        "invalidPremul": 0,
+        "changedPixels": 266237
+      },
+      "transportMetrics": {
+        "scope": "Exact distance from initial alpha>1 support; bounded carrier proxy, not physical pigment mass",
+        "supportPixels": 219036,
+        "inputAlpha": 26769384,
+        "outputAlpha": 26768489,
+        "alphaRatio": 0.9999665662833332,
+        "channelRatios": [
+          0.9999336722336409,
+          0.9997747874957461,
+          0.9993408736950231
+        ],
+        "rmsDistanceFromSupport": 4.085974737641711,
+        "beyond": [
+          {
+            "distance": 10,
+            "pixels": 25059,
+            "alpha": 1029236,
+            "fraction": 0.03844953669219058
+          },
+          {
+            "distance": 25,
+            "pixels": 5437,
+            "alpha": 197006,
+            "fraction": 0.007359623473704474
+          },
+          {
+            "distance": 50,
+            "pixels": 4,
+            "alpha": 8,
+            "fraction": 2.988588560228409e-7
+          },
+          {
+            "distance": 100,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          }
+        ],
+        "changedDryPixels": 45347
+      },
+      "ui": {
+        "maxRAF": 16.800000000000182,
+        "maxTimer": 12.700000047683716,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 150.2500001192093,
+      "display": {
+        "capturedDensityScale": 0.6781914893617021,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-packed-aux-coherent-fine",
+        "fixture": "mini-wave",
+        "config": {
+          "steps": 256,
+          "fineSteps": 12,
+          "paperGain": 3,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 16,
+          "curlStrength": 128
+        },
+        "encoding": "optical-density",
+        "repeats": 3,
+        "exportRaw": true,
+        "measureTransport": true
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "captureInputExact": true,
+      "carrier": {
+        "file": "002-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "b79d6f12552510d064c5789c041e661594c3a3a3119b0dd880e0fc216cfbeb8a",
+        "gzipBytes": 513240,
+        "gzipSHA256": "2d109934f902eaac8d9bd4c6f2155ada3e07524ef876e6d9faf25a4306b84f28",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "png": {
+        "file": "002-wgsl-macro-packed-aux-coherent-fine-mini-wave.png",
+        "bytes": 1469171,
+        "sha256": "05e16b084228147dbef4764ae9f049aa66ebada89c4b5bd791a3c1bcac7d39aa"
+      },
+      "fixtureSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 69.29999995231628,
+      "samples": [
+        {
+          "uploadJsMs": 56.200000047683716,
+          "submitJsMs": 0.19999980926513672,
+          "runToDependentMs": 103.09999990463257,
+          "totalReadyMs": 159.29999995231628,
+          "fullReadbackJsMs": 55.60000014305115,
+          "totalToFullReadbackMs": 215
+        },
+        {
+          "uploadJsMs": 42.69999980926514,
+          "submitJsMs": 0.3000001907348633,
+          "runToDependentMs": 89.5,
+          "totalReadyMs": 132.19999980926514,
+          "fullReadbackJsMs": 44.30000019073486,
+          "totalToFullReadbackMs": 176.5
+        },
+        {
+          "uploadJsMs": 27.40000009536743,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 49.200000047683716,
+          "totalReadyMs": 76.60000014305115,
+          "fullReadbackJsMs": 35,
+          "totalToFullReadbackMs": 111.60000014305115
+        }
+      ],
+      "hashes": [
+        "b79d6f12552510d064c5789c041e661594c3a3a3119b0dd880e0fc216cfbeb8a",
+        "b79d6f12552510d064c5789c041e661594c3a3a3119b0dd880e0fc216cfbeb8a",
+        "b79d6f12552510d064c5789c041e661594c3a3a3119b0dd880e0fc216cfbeb8a"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "u32-dynamic-plus-fine-paper-regularization",
+        "grid": 128,
+        "steps": 256,
+        "dispatches": 257,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "mobilityGain": 3,
+        "field": {
+          "seed": 805,
+          "eddyCells": 16,
+          "strength": 128,
+          "normalizationPowerOfTwo": 2,
+          "maxFaceRate": 199,
+          "rateDenominator": 512,
+          "paperComponent": "integer9tap separable lowpass, terrain4codes",
+          "field": "artistic streamfunction, not Navier-Stokes; actual gated donor flux need not remain divergence-free",
+          "sha256": "04b2a6b3cfc234497ac9fcfd5884a5418dc358a494282ae0f61da4edcd00153b"
+        },
+        "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+        "staticWallMap": false,
+        "waterBlocked": false,
+        "coefficients": "V13 calibrated pressure+mixing; stream face upwind water packets, bounded donor4/5 and recipient capacity; no new absorption coefficient",
+        "initial": {
+          "initialStationaryAlpha": 1,
+          "initialMobileAlpha": 26769383,
+          "frozenWetAlpha": 0,
+          "frozenCellCount": 0,
+          "initialWaterCodes": 13360712,
+          "initialMobileCodes": 107495845
+        },
+        "finalState": {
+          "surfaceCodes": 2018374,
+          "absorbedCodes": 11342338,
+          "totalWaterCodes": 13360712,
+          "mobileAlphaCodes": 74056420,
+          "adsorbedAlphaCodes": 33439425,
+          "totalPigmentAlphaCodes": 107495845
+        },
+        "massScope": "coarse M+D/W+S integer exact; input reduction and final byte rounding separate",
+        "limitations": "NEW independent floor-bilinear M/D initialization changes totals; local nearest only at literal stationary pixels. Compare fine0/fine12 same initialization. Fine deposited proxy fixed, mobile pair flow conservative; extra16MiB deposit plane. Not historical native equivalence.",
+        "seedUsed": true,
+        "featuresRequired": [],
+        "fineSteps": 12,
+        "paperGain": 3,
+        "fineAuxLayout": "u32 packed capacity16/affinity9/wet1",
+        "fineAuxBytes": 4194304,
+        "fineAuxBytesSaved": 12582912,
+        "dither": true,
+        "extraFineGPUBytes": 75497600,
+        "extraDispatches": 14,
+        "redundantBasePackDispatches": 1,
+        "fineInitialization": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+        "fineModel": "NEW conservative integer mobile-carrier paper-affinity exchange, fixed deposited/literal; final wet=W+S>0; NOT PACK-only",
+        "fineLedger": {
+          "mobileRGBA16Codes": [
+            2252322292,
+            745607666,
+            219827499,
+            4739477174
+          ],
+          "initialFineMobileAlphaExpected": null,
+          "initializationMassQualification": "Bilinear floor/local nearest changes init totals; compare identical fineSteps0 vsfineSteps12, pair-stage all4channels exact",
+          "initCapacityFailures": 0,
+          "packFailures": 0,
+          "guardPassed": true,
+          "reads": "full fine storage copy/map only after timed compute"
+        },
+        "basePhysicalModel": "macro14 actual coherent factory+upload stream field",
+        "fineDepositBasis": "NEW continuous proxy from independent floor bilinear coarse D; not historical native D",
+        "fineQuantization": "safe exact bytefold shared threshold",
+        "coherentUploadFieldPreserved": true,
+        "composition": "Actual coherent factory owns field construction/aux upload; macro17 owns smooth fine M/D; macro11 owns conservative fine mobile exchange. No coarse stateHash support promised.",
+        "initializer": "macro20 exact fast initializer",
+        "optimizationScope": "Exact fine aux storage 16→4bytes/pixel; same fine/coarse arithmetic"
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 26769384,
+        "outputMass": 26768489,
+        "massRatio": 0.9999665662833332,
+        "lostPixels": 0,
+        "addedPixels": 43710,
+        "outsideWetPixels": 46297,
+        "invalidPremul": 0,
+        "changedPixels": 266237
+      },
+      "transportMetrics": {
+        "scope": "Exact distance from initial alpha>1 support; bounded carrier proxy, not physical pigment mass",
+        "supportPixels": 219036,
+        "inputAlpha": 26769384,
+        "outputAlpha": 26768489,
+        "alphaRatio": 0.9999665662833332,
+        "channelRatios": [
+          0.9999336722336409,
+          0.9997747874957461,
+          0.9993408736950231
+        ],
+        "rmsDistanceFromSupport": 4.085974737641711,
+        "beyond": [
+          {
+            "distance": 10,
+            "pixels": 25059,
+            "alpha": 1029236,
+            "fraction": 0.03844953669219058
+          },
+          {
+            "distance": 25,
+            "pixels": 5437,
+            "alpha": 197006,
+            "fraction": 0.007359623473704474
+          },
+          {
+            "distance": 50,
+            "pixels": 4,
+            "alpha": 8,
+            "fraction": 2.988588560228409e-7
+          },
+          {
+            "distance": 100,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          }
+        ],
+        "changedDryPixels": 45347
+      },
+      "ui": {
+        "maxRAF": 17,
+        "maxTimer": 12.799999952316284,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 104.39999997615814,
+      "display": {
+        "capturedDensityScale": 0.6781914893617021,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-fast-coherent-smooth-fine-paper",
+        "fixture": "gallery-sheet-12-slot-1",
+        "config": {
+          "steps": 256,
+          "fineSteps": 12,
+          "paperGain": 3,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 16,
+          "curlStrength": 128
+        },
+        "encoding": "optical-density",
+        "repeats": 3,
+        "exportRaw": true,
+        "measureTransport": true
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "captureInputExact": true,
+      "carrier": {
+        "file": "003-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "e792128acf43c4850e22c4370b3a9efebe9c2127ff210382cc571fddcf52117e",
+        "gzipBytes": 91563,
+        "gzipSHA256": "50753a369b6f05bd84c02912a819f531a8a39bd8aa63aa1ac854e16034d037c4",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "png": {
+        "file": "003-wgsl-macro-fast-coherent-smooth-fine-paper-gallery-sheet-12-slot-1.png",
+        "bytes": 1012084,
+        "sha256": "d2710f902dc1973cf381f253745d8693eb9c366bacac70713dd7050240263a10"
+      },
+      "fixtureSHA": {
+        "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+        "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 68.70000004768372,
+      "samples": [
+        {
+          "uploadJsMs": 62.200000047683716,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 109.59999990463257,
+          "totalReadyMs": 171.79999995231628,
+          "fullReadbackJsMs": 37.60000014305115,
+          "totalToFullReadbackMs": 209.40000009536743
+        },
+        {
+          "uploadJsMs": 39.60000014305115,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 56.200000047683716,
+          "totalReadyMs": 95.80000019073486,
+          "fullReadbackJsMs": 47.5,
+          "totalToFullReadbackMs": 143.30000019073486
+        },
+        {
+          "uploadJsMs": 50.10000014305115,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 100.09999990463257,
+          "totalReadyMs": 150.20000004768372,
+          "fullReadbackJsMs": 38.799999952316284,
+          "totalToFullReadbackMs": 189
+        }
+      ],
+      "hashes": [
+        "e792128acf43c4850e22c4370b3a9efebe9c2127ff210382cc571fddcf52117e",
+        "e792128acf43c4850e22c4370b3a9efebe9c2127ff210382cc571fddcf52117e",
+        "e792128acf43c4850e22c4370b3a9efebe9c2127ff210382cc571fddcf52117e"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "u32-dynamic-plus-fine-paper-regularization",
+        "grid": 128,
+        "steps": 256,
+        "dispatches": 257,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "mobilityGain": 3,
+        "field": {
+          "seed": 805,
+          "eddyCells": 16,
+          "strength": 128,
+          "normalizationPowerOfTwo": 2,
+          "maxFaceRate": 199,
+          "rateDenominator": 512,
+          "paperComponent": "integer9tap separable lowpass, terrain4codes",
+          "field": "artistic streamfunction, not Navier-Stokes; actual gated donor flux need not remain divergence-free",
+          "sha256": "04b2a6b3cfc234497ac9fcfd5884a5418dc358a494282ae0f61da4edcd00153b"
+        },
+        "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+        "staticWallMap": false,
+        "waterBlocked": false,
+        "coefficients": "V13 calibrated pressure+mixing; stream face upwind water packets, bounded donor4/5 and recipient capacity; no new absorption coefficient",
+        "initial": {
+          "initialStationaryAlpha": 18523,
+          "initialMobileAlpha": 2401788,
+          "frozenWetAlpha": 15738,
+          "frozenCellCount": 1,
+          "initialWaterCodes": 162308,
+          "initialMobileCodes": 9644681
+        },
+        "finalState": {
+          "surfaceCodes": 86268,
+          "absorbedCodes": 76040,
+          "totalWaterCodes": 162308,
+          "mobileAlphaCodes": 8527171,
+          "adsorbedAlphaCodes": 1117510,
+          "totalPigmentAlphaCodes": 9644681
+        },
+        "massScope": "coarse M+D/W+S integer exact; input reduction and final byte rounding separate",
+        "limitations": "NEW independent floor-bilinear M/D initialization changes totals; local nearest only at literal stationary pixels. Compare fine0/fine12 same initialization. Fine deposited proxy fixed, mobile pair flow conservative; extra16MiB deposit plane. Not historical native equivalence.",
+        "seedUsed": true,
+        "featuresRequired": [],
+        "fineSteps": 12,
+        "paperGain": 3,
+        "dither": true,
+        "extraFineGPUBytes": 88080512,
+        "extraDispatches": 14,
+        "redundantBasePackDispatches": 1,
+        "fineInitialization": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+        "fineModel": "NEW conservative integer mobile-carrier paper-affinity exchange, fixed deposited/literal; final wet=W+S>0; NOT PACK-only",
+        "fineLedger": {
+          "mobileRGBA16Codes": [
+            413355730,
+            239801537,
+            115551178,
+            544527944
+          ],
+          "initialFineMobileAlphaExpected": null,
+          "initializationMassQualification": "Bilinear floor/local nearest changes init totals; compare identical fineSteps0 vsfineSteps12, pair-stage all4channels exact",
+          "initCapacityFailures": 0,
+          "packFailures": 0,
+          "guardPassed": true,
+          "reads": "full fine storage copy/map only after timed compute"
+        },
+        "basePhysicalModel": "macro14 actual coherent factory+upload stream field",
+        "fineDepositBasis": "NEW continuous proxy from independent floor bilinear coarse D; not historical native D",
+        "fineQuantization": "safe exact bytefold shared threshold",
+        "coherentUploadFieldPreserved": true,
+        "composition": "Actual coherent factory owns field construction/aux upload; macro17 owns smooth fine M/D; macro11 owns conservative fine mobile exchange. No coarse stateHash support promised.",
+        "initializer": "macro20 initialIntegerDynamicFast; exact state/aux/stationary/summary",
+        "optimizationScope": "CPU initializer only; coherent original PACK and full fine shader sources unchanged"
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 2420311,
+        "outputMass": 2414793,
+        "massRatio": 0.9977201277025969,
+        "lostPixels": 0,
+        "addedPixels": 7820,
+        "outsideWetPixels": 52376,
+        "invalidPremul": 0,
+        "changedPixels": 48695
+      },
+      "transportMetrics": {
+        "scope": "Exact distance from initial alpha>1 support; bounded carrier proxy, not physical pigment mass",
+        "supportPixels": 42474,
+        "inputAlpha": 2420311,
+        "outputAlpha": 2414793,
+        "alphaRatio": 0.9977201277025969,
+        "channelRatios": [
+          0.9976459641017688,
+          0.9975768928295923,
+          0.9972386779951672
+        ],
+        "rmsDistanceFromSupport": 0.7804991501666266,
+        "beyond": [
+          {
+            "distance": 10,
+            "pixels": 10,
+            "alpha": 24,
+            "fraction": 0.000009938740090765543
+          },
+          {
+            "distance": 25,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          },
+          {
+            "distance": 50,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          },
+          {
+            "distance": 100,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          }
+        ],
+        "changedDryPixels": 10105
+      },
+      "ui": {
+        "maxRAF": 17.400000000001455,
+        "maxTimer": 12.299999952316284,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 123.00000011920929,
+      "display": {
+        "capturedDensityScale": 0.5,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-packed-aux-coherent-fine",
+        "fixture": "gallery-sheet-12-slot-1",
+        "config": {
+          "steps": 256,
+          "fineSteps": 12,
+          "paperGain": 3,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 16,
+          "curlStrength": 128
+        },
+        "encoding": "optical-density",
+        "repeats": 3,
+        "exportRaw": true,
+        "measureTransport": true
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "captureInputExact": true,
+      "carrier": {
+        "file": "004-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "e792128acf43c4850e22c4370b3a9efebe9c2127ff210382cc571fddcf52117e",
+        "gzipBytes": 91563,
+        "gzipSHA256": "50753a369b6f05bd84c02912a819f531a8a39bd8aa63aa1ac854e16034d037c4",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "png": {
+        "file": "004-wgsl-macro-packed-aux-coherent-fine-gallery-sheet-12-slot-1.png",
+        "bytes": 1012084,
+        "sha256": "d2710f902dc1973cf381f253745d8693eb9c366bacac70713dd7050240263a10"
+      },
+      "fixtureSHA": {
+        "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+        "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 35.299999952316284,
+      "samples": [
+        {
+          "uploadJsMs": 52.700000047683716,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 101.40000009536743,
+          "totalReadyMs": 154.10000014305115,
+          "fullReadbackJsMs": 44.5,
+          "totalToFullReadbackMs": 198.60000014305115
+        },
+        {
+          "uploadJsMs": 29.399999856948853,
+          "submitJsMs": 0.10000014305114746,
+          "runToDependentMs": 49,
+          "totalReadyMs": 78.39999985694885,
+          "fullReadbackJsMs": 32.60000014305115,
+          "totalToFullReadbackMs": 111
+        },
+        {
+          "uploadJsMs": 29.200000047683716,
+          "submitJsMs": 0.19999980926513672,
+          "runToDependentMs": 49.799999952316284,
+          "totalReadyMs": 79,
+          "fullReadbackJsMs": 42.299999952316284,
+          "totalToFullReadbackMs": 121.29999995231628
+        }
+      ],
+      "hashes": [
+        "e792128acf43c4850e22c4370b3a9efebe9c2127ff210382cc571fddcf52117e",
+        "e792128acf43c4850e22c4370b3a9efebe9c2127ff210382cc571fddcf52117e",
+        "e792128acf43c4850e22c4370b3a9efebe9c2127ff210382cc571fddcf52117e"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "u32-dynamic-plus-fine-paper-regularization",
+        "grid": 128,
+        "steps": 256,
+        "dispatches": 257,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "mobilityGain": 3,
+        "field": {
+          "seed": 805,
+          "eddyCells": 16,
+          "strength": 128,
+          "normalizationPowerOfTwo": 2,
+          "maxFaceRate": 199,
+          "rateDenominator": 512,
+          "paperComponent": "integer9tap separable lowpass, terrain4codes",
+          "field": "artistic streamfunction, not Navier-Stokes; actual gated donor flux need not remain divergence-free",
+          "sha256": "04b2a6b3cfc234497ac9fcfd5884a5418dc358a494282ae0f61da4edcd00153b"
+        },
+        "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+        "staticWallMap": false,
+        "waterBlocked": false,
+        "coefficients": "V13 calibrated pressure+mixing; stream face upwind water packets, bounded donor4/5 and recipient capacity; no new absorption coefficient",
+        "initial": {
+          "initialStationaryAlpha": 18523,
+          "initialMobileAlpha": 2401788,
+          "frozenWetAlpha": 15738,
+          "frozenCellCount": 1,
+          "initialWaterCodes": 162308,
+          "initialMobileCodes": 9644681
+        },
+        "finalState": {
+          "surfaceCodes": 86268,
+          "absorbedCodes": 76040,
+          "totalWaterCodes": 162308,
+          "mobileAlphaCodes": 8527171,
+          "adsorbedAlphaCodes": 1117510,
+          "totalPigmentAlphaCodes": 9644681
+        },
+        "massScope": "coarse M+D/W+S integer exact; input reduction and final byte rounding separate",
+        "limitations": "NEW independent floor-bilinear M/D initialization changes totals; local nearest only at literal stationary pixels. Compare fine0/fine12 same initialization. Fine deposited proxy fixed, mobile pair flow conservative; extra16MiB deposit plane. Not historical native equivalence.",
+        "seedUsed": true,
+        "featuresRequired": [],
+        "fineSteps": 12,
+        "paperGain": 3,
+        "fineAuxLayout": "u32 packed capacity16/affinity9/wet1",
+        "fineAuxBytes": 4194304,
+        "fineAuxBytesSaved": 12582912,
+        "dither": true,
+        "extraFineGPUBytes": 75497600,
+        "extraDispatches": 14,
+        "redundantBasePackDispatches": 1,
+        "fineInitialization": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+        "fineModel": "NEW conservative integer mobile-carrier paper-affinity exchange, fixed deposited/literal; final wet=W+S>0; NOT PACK-only",
+        "fineLedger": {
+          "mobileRGBA16Codes": [
+            413355730,
+            239801537,
+            115551178,
+            544527944
+          ],
+          "initialFineMobileAlphaExpected": null,
+          "initializationMassQualification": "Bilinear floor/local nearest changes init totals; compare identical fineSteps0 vsfineSteps12, pair-stage all4channels exact",
+          "initCapacityFailures": 0,
+          "packFailures": 0,
+          "guardPassed": true,
+          "reads": "full fine storage copy/map only after timed compute"
+        },
+        "basePhysicalModel": "macro14 actual coherent factory+upload stream field",
+        "fineDepositBasis": "NEW continuous proxy from independent floor bilinear coarse D; not historical native D",
+        "fineQuantization": "safe exact bytefold shared threshold",
+        "coherentUploadFieldPreserved": true,
+        "composition": "Actual coherent factory owns field construction/aux upload; macro17 owns smooth fine M/D; macro11 owns conservative fine mobile exchange. No coarse stateHash support promised.",
+        "initializer": "macro20 exact fast initializer",
+        "optimizationScope": "Exact fine aux storage 16→4bytes/pixel; same fine/coarse arithmetic"
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 2420311,
+        "outputMass": 2414793,
+        "massRatio": 0.9977201277025969,
+        "lostPixels": 0,
+        "addedPixels": 7820,
+        "outsideWetPixels": 52376,
+        "invalidPremul": 0,
+        "changedPixels": 48695
+      },
+      "transportMetrics": {
+        "scope": "Exact distance from initial alpha>1 support; bounded carrier proxy, not physical pigment mass",
+        "supportPixels": 42474,
+        "inputAlpha": 2420311,
+        "outputAlpha": 2414793,
+        "alphaRatio": 0.9977201277025969,
+        "channelRatios": [
+          0.9976459641017688,
+          0.9975768928295923,
+          0.9972386779951672
+        ],
+        "rmsDistanceFromSupport": 0.7804991501666266,
+        "beyond": [
+          {
+            "distance": 10,
+            "pixels": 10,
+            "alpha": 24,
+            "fraction": 0.000009938740090765543
+          },
+          {
+            "distance": 25,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          },
+          {
+            "distance": 50,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          },
+          {
+            "distance": 100,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          }
+        ],
+        "changedDryPixels": 10105
+      },
+      "ui": {
+        "maxRAF": 17.100000000000364,
+        "maxTimer": 20.200000047683716,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 78.69999992847443,
+      "display": {
+        "capturedDensityScale": 0.5,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-fast-coherent-smooth-fine-paper",
+        "fixture": "dynamic-opaque-stationary",
+        "config": {
+          "steps": 256,
+          "fineSteps": 12,
+          "paperGain": 3,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 16,
+          "curlStrength": 128
+        },
+        "encoding": "optical-density",
+        "repeats": 3,
+        "exportRaw": true,
+        "measureTransport": true
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "carrier": {
+        "file": "005-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "a458810b019712272aaeadf470d47abc2791c2c88f099acea68b43b3f63bfd76",
+        "gzipBytes": 80294,
+        "gzipSHA256": "d06f510cf13ec9bfd1631c05a2961ec294111204cc4334ebe0da6b0e1fb00059",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "png": {
+        "file": "005-wgsl-macro-fast-coherent-smooth-fine-paper-dynamic-opaque-stationary.png",
+        "bytes": 779594,
+        "sha256": "b0b84f4c390e5e8849335a8055fa0e980e28c75b9b290906f8b8076eacb7e2ac"
+      },
+      "fixtureSHA": {
+        "rgba": "3ab519d24a0ea26005785f215591298a7f92a4be30e00c4c99aa3ed583db27a2",
+        "water": "038d8d989175a5a6d02975b8cf20c1295999056899aeac5cc5decbc299188024",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 76.79999995231628,
+      "samples": [
+        {
+          "uploadJsMs": 82.10000014305115,
+          "submitJsMs": 0.19999980926513672,
+          "runToDependentMs": 105.5,
+          "totalReadyMs": 187.60000014305115,
+          "fullReadbackJsMs": 46.39999985694885,
+          "totalToFullReadbackMs": 234
+        },
+        {
+          "uploadJsMs": 85.29999995231628,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 94.30000019073486,
+          "totalReadyMs": 179.60000014305115,
+          "fullReadbackJsMs": 53.799999952316284,
+          "totalToFullReadbackMs": 233.40000009536743
+        },
+        {
+          "uploadJsMs": 69.5,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 99.39999985694885,
+          "totalReadyMs": 168.89999985694885,
+          "fullReadbackJsMs": 43.700000047683716,
+          "totalToFullReadbackMs": 212.59999990463257
+        }
+      ],
+      "hashes": [
+        "a458810b019712272aaeadf470d47abc2791c2c88f099acea68b43b3f63bfd76",
+        "a458810b019712272aaeadf470d47abc2791c2c88f099acea68b43b3f63bfd76",
+        "a458810b019712272aaeadf470d47abc2791c2c88f099acea68b43b3f63bfd76"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "u32-dynamic-plus-fine-paper-regularization",
+        "grid": 128,
+        "steps": 256,
+        "dispatches": 257,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "mobilityGain": 3,
+        "field": {
+          "seed": 805,
+          "eddyCells": 16,
+          "strength": 128,
+          "normalizationPowerOfTwo": 2,
+          "maxFaceRate": 195,
+          "rateDenominator": 512,
+          "paperComponent": "integer9tap separable lowpass, terrain4codes",
+          "field": "artistic streamfunction, not Navier-Stokes; actual gated donor flux need not remain divergence-free",
+          "sha256": "057ec8403a090b793f6dff9554379b66fe74dcd07c4c27e2c3e599d6f166898e"
+        },
+        "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+        "staticWallMap": false,
+        "waterBlocked": false,
+        "coefficients": "V13 calibrated pressure+mixing; stream face upwind water packets, bounded donor4/5 and recipient capacity; no new absorption coefficient",
+        "initial": {
+          "initialStationaryAlpha": 46380,
+          "initialMobileAlpha": 1427040,
+          "frozenWetAlpha": 45360,
+          "frozenCellCount": 4,
+          "initialWaterCodes": 18386378,
+          "initialMobileCodes": 5730474
+        },
+        "finalState": {
+          "surfaceCodes": 2591789,
+          "absorbedCodes": 15794589,
+          "totalWaterCodes": 18386378,
+          "mobileAlphaCodes": 3978860,
+          "adsorbedAlphaCodes": 1751614,
+          "totalPigmentAlphaCodes": 5730474
+        },
+        "massScope": "coarse M+D/W+S integer exact; input reduction and final byte rounding separate",
+        "limitations": "NEW independent floor-bilinear M/D initialization changes totals; local nearest only at literal stationary pixels. Compare fine0/fine12 same initialization. Fine deposited proxy fixed, mobile pair flow conservative; extra16MiB deposit plane. Not historical native equivalence.",
+        "seedUsed": true,
+        "featuresRequired": [],
+        "fineSteps": 12,
+        "paperGain": 3,
+        "dither": true,
+        "extraFineGPUBytes": 88080512,
+        "extraDispatches": 14,
+        "redundantBasePackDispatches": 1,
+        "fineInitialization": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+        "fineModel": "NEW conservative integer mobile-carrier paper-affinity exchange, fixed deposited/literal; final wet=W+S>0; NOT PACK-only",
+        "fineLedger": {
+          "mobileRGBA16Codes": [
+            239923885,
+            127039336,
+            0,
+            254176059
+          ],
+          "initialFineMobileAlphaExpected": null,
+          "initializationMassQualification": "Bilinear floor/local nearest changes init totals; compare identical fineSteps0 vsfineSteps12, pair-stage all4channels exact",
+          "initCapacityFailures": 0,
+          "packFailures": 0,
+          "guardPassed": true,
+          "reads": "full fine storage copy/map only after timed compute"
+        },
+        "basePhysicalModel": "macro14 actual coherent factory+upload stream field",
+        "fineDepositBasis": "NEW continuous proxy from independent floor bilinear coarse D; not historical native D",
+        "fineQuantization": "safe exact bytefold shared threshold",
+        "coherentUploadFieldPreserved": true,
+        "composition": "Actual coherent factory owns field construction/aux upload; macro17 owns smooth fine M/D; macro11 owns conservative fine mobile exchange. No coarse stateHash support promised.",
+        "initializer": "macro20 initialIntegerDynamicFast; exact state/aux/stationary/summary",
+        "optimizationScope": "CPU initializer only; coherent original PACK and full fine shader sources unchanged"
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 1473420,
+        "outputMass": 1470268,
+        "massRatio": 0.9978607593218498,
+        "lostPixels": 0,
+        "addedPixels": 77919,
+        "outsideWetPixels": 25360,
+        "invalidPremul": 0,
+        "changedPixels": 104693
+      },
+      "dynamicMetrics": {
+        "scope": "Owned synthetic tracer diagnostics; initial dry paper is permeable",
+        "initialMixedPixels": 4,
+        "mixedCarrierFraction": 1,
+        "newAlphaOnInitiallyDryPaper": 132464,
+        "newDryPaperAlphaFraction": 0.09009513911749423,
+        "strokeRmsHalfWidthInsidePool": 0,
+        "strokeRmsHalfWidthOutsidePool": 0,
+        "insideOutsideWidthRatio": null
+      },
+      "transportMetrics": {
+        "scope": "Exact distance from initial alpha>1 support; bounded carrier proxy, not physical pigment mass",
+        "supportPixels": 8184,
+        "inputAlpha": 1473420,
+        "outputAlpha": 1470268,
+        "alphaRatio": 0.9978607593218498,
+        "channelRatios": [
+          0.9978118646830242,
+          0.9977401375473973,
+          1
+        ],
+        "rmsDistanceFromSupport": 39.976251513181865,
+        "beyond": [
+          {
+            "distance": 10,
+            "pixels": 72341,
+            "alpha": 921831,
+            "fraction": 0.6269816115157236
+          },
+          {
+            "distance": 25,
+            "pixels": 61915,
+            "alpha": 645651,
+            "fraction": 0.43913830675767956
+          },
+          {
+            "distance": 50,
+            "pixels": 41381,
+            "alpha": 288545,
+            "fraction": 0.19625333612647491
+          },
+          {
+            "distance": 100,
+            "pixels": 8924,
+            "alpha": 38086,
+            "fraction": 0.025904120881363124
+          }
+        ],
+        "changedDryPixels": 25356
+      },
+      "ui": {
+        "maxRAF": 17.799999999999272,
+        "maxTimer": 19,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 174.25,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-packed-aux-coherent-fine",
+        "fixture": "dynamic-opaque-stationary",
+        "config": {
+          "steps": 256,
+          "fineSteps": 12,
+          "paperGain": 3,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 16,
+          "curlStrength": 128
+        },
+        "encoding": "optical-density",
+        "repeats": 3,
+        "exportRaw": true,
+        "measureTransport": true
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "carrier": {
+        "file": "006-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "a458810b019712272aaeadf470d47abc2791c2c88f099acea68b43b3f63bfd76",
+        "gzipBytes": 80294,
+        "gzipSHA256": "d06f510cf13ec9bfd1631c05a2961ec294111204cc4334ebe0da6b0e1fb00059",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "png": {
+        "file": "006-wgsl-macro-packed-aux-coherent-fine-dynamic-opaque-stationary.png",
+        "bytes": 779594,
+        "sha256": "b0b84f4c390e5e8849335a8055fa0e980e28c75b9b290906f8b8076eacb7e2ac"
+      },
+      "fixtureSHA": {
+        "rgba": "3ab519d24a0ea26005785f215591298a7f92a4be30e00c4c99aa3ed583db27a2",
+        "water": "038d8d989175a5a6d02975b8cf20c1295999056899aeac5cc5decbc299188024",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 86.09999990463257,
+      "samples": [
+        {
+          "uploadJsMs": 77.60000014305115,
+          "submitJsMs": 0.5,
+          "runToDependentMs": 100.19999980926514,
+          "totalReadyMs": 177.79999995231628,
+          "fullReadbackJsMs": 47.90000009536743,
+          "totalToFullReadbackMs": 225.70000004768372
+        },
+        {
+          "uploadJsMs": 65.79999995231628,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 88.79999995231628,
+          "totalReadyMs": 154.59999990463257,
+          "fullReadbackJsMs": 43.90000009536743,
+          "totalToFullReadbackMs": 198.5
+        },
+        {
+          "uploadJsMs": 66.20000004768372,
+          "submitJsMs": 0.19999980926513672,
+          "runToDependentMs": 88.69999980926514,
+          "totalReadyMs": 154.89999985694885,
+          "fullReadbackJsMs": 41.200000047683716,
+          "totalToFullReadbackMs": 196.09999990463257
+        }
+      ],
+      "hashes": [
+        "a458810b019712272aaeadf470d47abc2791c2c88f099acea68b43b3f63bfd76",
+        "a458810b019712272aaeadf470d47abc2791c2c88f099acea68b43b3f63bfd76",
+        "a458810b019712272aaeadf470d47abc2791c2c88f099acea68b43b3f63bfd76"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "u32-dynamic-plus-fine-paper-regularization",
+        "grid": 128,
+        "steps": 256,
+        "dispatches": 257,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "mobilityGain": 3,
+        "field": {
+          "seed": 805,
+          "eddyCells": 16,
+          "strength": 128,
+          "normalizationPowerOfTwo": 2,
+          "maxFaceRate": 195,
+          "rateDenominator": 512,
+          "paperComponent": "integer9tap separable lowpass, terrain4codes",
+          "field": "artistic streamfunction, not Navier-Stokes; actual gated donor flux need not remain divergence-free",
+          "sha256": "057ec8403a090b793f6dff9554379b66fe74dcd07c4c27e2c3e599d6f166898e"
+        },
+        "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+        "staticWallMap": false,
+        "waterBlocked": false,
+        "coefficients": "V13 calibrated pressure+mixing; stream face upwind water packets, bounded donor4/5 and recipient capacity; no new absorption coefficient",
+        "initial": {
+          "initialStationaryAlpha": 46380,
+          "initialMobileAlpha": 1427040,
+          "frozenWetAlpha": 45360,
+          "frozenCellCount": 4,
+          "initialWaterCodes": 18386378,
+          "initialMobileCodes": 5730474
+        },
+        "finalState": {
+          "surfaceCodes": 2591789,
+          "absorbedCodes": 15794589,
+          "totalWaterCodes": 18386378,
+          "mobileAlphaCodes": 3978860,
+          "adsorbedAlphaCodes": 1751614,
+          "totalPigmentAlphaCodes": 5730474
+        },
+        "massScope": "coarse M+D/W+S integer exact; input reduction and final byte rounding separate",
+        "limitations": "NEW independent floor-bilinear M/D initialization changes totals; local nearest only at literal stationary pixels. Compare fine0/fine12 same initialization. Fine deposited proxy fixed, mobile pair flow conservative; extra16MiB deposit plane. Not historical native equivalence.",
+        "seedUsed": true,
+        "featuresRequired": [],
+        "fineSteps": 12,
+        "paperGain": 3,
+        "fineAuxLayout": "u32 packed capacity16/affinity9/wet1",
+        "fineAuxBytes": 4194304,
+        "fineAuxBytesSaved": 12582912,
+        "dither": true,
+        "extraFineGPUBytes": 75497600,
+        "extraDispatches": 14,
+        "redundantBasePackDispatches": 1,
+        "fineInitialization": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+        "fineModel": "NEW conservative integer mobile-carrier paper-affinity exchange, fixed deposited/literal; final wet=W+S>0; NOT PACK-only",
+        "fineLedger": {
+          "mobileRGBA16Codes": [
+            239923885,
+            127039336,
+            0,
+            254176059
+          ],
+          "initialFineMobileAlphaExpected": null,
+          "initializationMassQualification": "Bilinear floor/local nearest changes init totals; compare identical fineSteps0 vsfineSteps12, pair-stage all4channels exact",
+          "initCapacityFailures": 0,
+          "packFailures": 0,
+          "guardPassed": true,
+          "reads": "full fine storage copy/map only after timed compute"
+        },
+        "basePhysicalModel": "macro14 actual coherent factory+upload stream field",
+        "fineDepositBasis": "NEW continuous proxy from independent floor bilinear coarse D; not historical native D",
+        "fineQuantization": "safe exact bytefold shared threshold",
+        "coherentUploadFieldPreserved": true,
+        "composition": "Actual coherent factory owns field construction/aux upload; macro17 owns smooth fine M/D; macro11 owns conservative fine mobile exchange. No coarse stateHash support promised.",
+        "initializer": "macro20 exact fast initializer",
+        "optimizationScope": "Exact fine aux storage 16→4bytes/pixel; same fine/coarse arithmetic"
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 1473420,
+        "outputMass": 1470268,
+        "massRatio": 0.9978607593218498,
+        "lostPixels": 0,
+        "addedPixels": 77919,
+        "outsideWetPixels": 25360,
+        "invalidPremul": 0,
+        "changedPixels": 104693
+      },
+      "dynamicMetrics": {
+        "scope": "Owned synthetic tracer diagnostics; initial dry paper is permeable",
+        "initialMixedPixels": 4,
+        "mixedCarrierFraction": 1,
+        "newAlphaOnInitiallyDryPaper": 132464,
+        "newDryPaperAlphaFraction": 0.09009513911749423,
+        "strokeRmsHalfWidthInsidePool": 0,
+        "strokeRmsHalfWidthOutsidePool": 0,
+        "insideOutsideWidthRatio": null
+      },
+      "transportMetrics": {
+        "scope": "Exact distance from initial alpha>1 support; bounded carrier proxy, not physical pigment mass",
+        "supportPixels": 8184,
+        "inputAlpha": 1473420,
+        "outputAlpha": 1470268,
+        "alphaRatio": 0.9978607593218498,
+        "channelRatios": [
+          0.9978118646830242,
+          0.9977401375473973,
+          1
+        ],
+        "rmsDistanceFromSupport": 39.976251513181865,
+        "beyond": [
+          {
+            "distance": 10,
+            "pixels": 72341,
+            "alpha": 921831,
+            "fraction": 0.6269816115157236
+          },
+          {
+            "distance": 25,
+            "pixels": 61915,
+            "alpha": 645651,
+            "fraction": 0.43913830675767956
+          },
+          {
+            "distance": 50,
+            "pixels": 41381,
+            "alpha": 288545,
+            "fraction": 0.19625333612647491
+          },
+          {
+            "distance": 100,
+            "pixels": 8924,
+            "alpha": 38086,
+            "fraction": 0.025904120881363124
+          }
+        ],
+        "changedDryPixels": 25356
+      },
+      "ui": {
+        "maxRAF": 17,
+        "maxTimer": 12.299999952316284,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 154.7499998807907,
+      "display": {
+        "capturedDensityScale": 1,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-soft-paper-coherent-fine",
+        "fixture": "mini-wave",
+        "config": {
+          "steps": 256,
+          "fineSteps": 12,
+          "paperGain": 1,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 16,
+          "curlStrength": 128,
+          "affinityBase": 128
+        },
+        "encoding": "optical-density",
+        "repeats": 3,
+        "exportRaw": true,
+        "measureTransport": true
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "captureInputExact": true,
+      "carrier": {
+        "file": "007-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "5d8d3fab5e1eefff16906e66aa2f51261afa09e6840ffd9767cbcc963bb7d38c",
+        "gzipBytes": 417824,
+        "gzipSHA256": "4c72d2515c3c0416b3a38623d3bca8fcfe5922972631c20b45958249fd44989d",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "png": {
+        "file": "007-wgsl-macro-soft-paper-coherent-fine-mini-wave.png",
+        "bytes": 1309856,
+        "sha256": "34e1b97f670bdb837ca7953d14435949e938046800e9258b320a784652181958"
+      },
+      "fixtureSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 72.39999985694885,
+      "samples": [
+        {
+          "uploadJsMs": 77.90000009536743,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 120.39999985694885,
+          "totalReadyMs": 198.29999995231628,
+          "fullReadbackJsMs": 51.10000014305115,
+          "totalToFullReadbackMs": 249.40000009536743
+        },
+        {
+          "uploadJsMs": 56.90000009536743,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 99.20000004768372,
+          "totalReadyMs": 156.10000014305115,
+          "fullReadbackJsMs": 57.799999952316284,
+          "totalToFullReadbackMs": 213.90000009536743
+        },
+        {
+          "uploadJsMs": 49.700000047683716,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 95.09999990463257,
+          "totalReadyMs": 144.79999995231628,
+          "fullReadbackJsMs": 33.299999952316284,
+          "totalToFullReadbackMs": 178.09999990463257
+        }
+      ],
+      "hashes": [
+        "5d8d3fab5e1eefff16906e66aa2f51261afa09e6840ffd9767cbcc963bb7d38c",
+        "5d8d3fab5e1eefff16906e66aa2f51261afa09e6840ffd9767cbcc963bb7d38c",
+        "5d8d3fab5e1eefff16906e66aa2f51261afa09e6840ffd9767cbcc963bb7d38c"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "u32-dynamic-plus-fine-paper-regularization",
+        "grid": 128,
+        "steps": 256,
+        "dispatches": 257,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "mobilityGain": 3,
+        "field": {
+          "seed": 805,
+          "eddyCells": 16,
+          "strength": 128,
+          "normalizationPowerOfTwo": 2,
+          "maxFaceRate": 199,
+          "rateDenominator": 512,
+          "paperComponent": "integer9tap separable lowpass, terrain4codes",
+          "field": "artistic streamfunction, not Navier-Stokes; actual gated donor flux need not remain divergence-free",
+          "sha256": "04b2a6b3cfc234497ac9fcfd5884a5418dc358a494282ae0f61da4edcd00153b"
+        },
+        "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+        "staticWallMap": false,
+        "waterBlocked": false,
+        "coefficients": "V13 calibrated pressure+mixing; stream face upwind water packets, bounded donor4/5 and recipient capacity; no new absorption coefficient",
+        "initial": {
+          "initialStationaryAlpha": 1,
+          "initialMobileAlpha": 26769383,
+          "frozenWetAlpha": 0,
+          "frozenCellCount": 0,
+          "initialWaterCodes": 13360712,
+          "initialMobileCodes": 107495845
+        },
+        "finalState": {
+          "surfaceCodes": 2018374,
+          "absorbedCodes": 11342338,
+          "totalWaterCodes": 13360712,
+          "mobileAlphaCodes": 74056420,
+          "adsorbedAlphaCodes": 33439425,
+          "totalPigmentAlphaCodes": 107495845
+        },
+        "massScope": "coarse M+D/W+S integer exact; input reduction and final byte rounding separate",
+        "limitations": "NEW independent floor-bilinear M/D initialization changes totals; local nearest only at literal stationary pixels. Compare fine0/fine12 same initialization. Fine deposited proxy fixed, mobile pair flow conservative; extra16MiB deposit plane. Not historical native equivalence.",
+        "seedUsed": true,
+        "featuresRequired": [],
+        "fineSteps": 12,
+        "paperGain": 1,
+        "dither": true,
+        "extraFineGPUBytes": 88080512,
+        "extraDispatches": 14,
+        "redundantBasePackDispatches": 1,
+        "fineInitialization": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+        "fineModel": "NEW conservative integer mobile-carrier paper-affinity exchange, fixed deposited/literal; final wet=W+S>0; NOT PACK-only",
+        "fineLedger": {
+          "mobileRGBA16Codes": [
+            2252322292,
+            745607666,
+            219827499,
+            4739477174
+          ],
+          "initialFineMobileAlphaExpected": null,
+          "initializationMassQualification": "Bilinear floor/local nearest changes init totals; compare identical fineSteps0 vsfineSteps12, pair-stage all4channels exact",
+          "initCapacityFailures": 0,
+          "packFailures": 0,
+          "guardPassed": true,
+          "reads": "full fine storage copy/map only after timed compute"
+        },
+        "basePhysicalModel": "macro14 actual coherent factory+upload stream field",
+        "paperAffinityBase": 128,
+        "paperAffinityGlobalMax": 191,
+        "fineDepositBasis": "NEW continuous proxy from independent floor bilinear coarse D; not historical native D",
+        "fineQuantization": "safe exact bytefold shared threshold",
+        "coherentUploadFieldPreserved": true,
+        "composition": "Actual coherent factory owns field construction/aux upload; macro17 owns smooth fine M/D; macro11 owns conservative fine mobile exchange. No coarse stateHash support promised.",
+        "initializer": "macro20 exact fast initializer",
+        "paperContrastQualification": "NEW relative fine affinity contrast control, not native matching or artistic score. Coherent coarse model unchanged."
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 26769384,
+        "outputMass": 26768215,
+        "massRatio": 0.9999563307097391,
+        "lostPixels": 0,
+        "addedPixels": 43762,
+        "outsideWetPixels": 46309,
+        "invalidPremul": 0,
+        "changedPixels": 266290
+      },
+      "transportMetrics": {
+        "scope": "Exact distance from initial alpha>1 support; bounded carrier proxy, not physical pigment mass",
+        "supportPixels": 219036,
+        "inputAlpha": 26769384,
+        "outputAlpha": 26768215,
+        "alphaRatio": 0.9999563307097391,
+        "channelRatios": [
+          0.9999397234635102,
+          0.9998167923569189,
+          0.9991438654636463
+        ],
+        "rmsDistanceFromSupport": 4.085959818572499,
+        "beyond": [
+          {
+            "distance": 10,
+            "pixels": 25104,
+            "alpha": 1029029,
+            "fraction": 0.038442197210385526
+          },
+          {
+            "distance": 25,
+            "pixels": 5448,
+            "alpha": 196966,
+            "fraction": 0.007358204497386172
+          },
+          {
+            "distance": 50,
+            "pixels": 4,
+            "alpha": 8,
+            "fraction": 2.988619151482458e-7
+          },
+          {
+            "distance": 100,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          }
+        ],
+        "changedDryPixels": 45359
+      },
+      "ui": {
+        "maxRAF": 17,
+        "maxTimer": 24.600000143051147,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 150.45000004768372,
+      "display": {
+        "capturedDensityScale": 0.6781914893617021,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-packed-aux-coherent-fine",
+        "fixture": "mini-wave",
+        "config": {
+          "steps": 256,
+          "fineSteps": 12,
+          "paperGain": 1,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 16,
+          "curlStrength": 128,
+          "affinityBase": 128
+        },
+        "encoding": "optical-density",
+        "repeats": 3,
+        "exportRaw": true,
+        "measureTransport": true
+      },
+      "pass": true,
+      "rejected": false,
+      "sameFixtureInput": true,
+      "captureInputExact": true,
+      "carrier": {
+        "file": "008-carrier.rgba.gz",
+        "decodedBytes": 4194304,
+        "decodedSHA256": "5d8d3fab5e1eefff16906e66aa2f51261afa09e6840ffd9767cbcc963bb7d38c",
+        "gzipBytes": 417824,
+        "gzipSHA256": "4c72d2515c3c0416b3a38623d3bca8fcfe5922972631c20b45958249fd44989d",
+        "qualification": "Existing full output exported after all timers; no added GPU read"
+      },
+      "png": {
+        "file": "008-wgsl-macro-packed-aux-coherent-fine-mini-wave.png",
+        "bytes": 1309856,
+        "sha256": "34e1b97f670bdb837ca7953d14435949e938046800e9258b320a784652181958"
+      },
+      "fixtureSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "backend": "webgpu",
+      "hardware": {
+        "vendor": "qualcomm",
+        "architecture": "adreno-6xx",
+        "device": "",
+        "description": ""
+      },
+      "createMs": 61.5,
+      "samples": [
+        {
+          "uploadJsMs": 68.70000004768372,
+          "submitJsMs": 0.09999990463256836,
+          "runToDependentMs": 113.19999980926514,
+          "totalReadyMs": 181.89999985694885,
+          "fullReadbackJsMs": 32.30000019073486,
+          "totalToFullReadbackMs": 214.20000004768372
+        },
+        {
+          "uploadJsMs": 53,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 50.200000047683716,
+          "totalReadyMs": 103.20000004768372,
+          "fullReadbackJsMs": 51.700000047683716,
+          "totalToFullReadbackMs": 154.90000009536743
+        },
+        {
+          "uploadJsMs": 54.59999990463257,
+          "submitJsMs": 0.20000004768371582,
+          "runToDependentMs": 89,
+          "totalReadyMs": 143.59999990463257,
+          "fullReadbackJsMs": 50.299999952316284,
+          "totalToFullReadbackMs": 193.89999985694885
+        }
+      ],
+      "hashes": [
+        "5d8d3fab5e1eefff16906e66aa2f51261afa09e6840ffd9767cbcc963bb7d38c",
+        "5d8d3fab5e1eefff16906e66aa2f51261afa09e6840ffd9767cbcc963bb7d38c",
+        "5d8d3fab5e1eefff16906e66aa2f51261afa09e6840ffd9767cbcc963bb7d38c"
+      ],
+      "repeatExact": true,
+      "metadata": {
+        "algorithm": "u32-dynamic-plus-fine-paper-regularization",
+        "grid": 128,
+        "steps": 256,
+        "dispatches": 257,
+        "eddyCells": 16,
+        "curlStrength": 128,
+        "mobilityGain": 3,
+        "field": {
+          "seed": 805,
+          "eddyCells": 16,
+          "strength": 128,
+          "normalizationPowerOfTwo": 2,
+          "maxFaceRate": 199,
+          "rateDenominator": 512,
+          "paperComponent": "integer9tap separable lowpass, terrain4codes",
+          "field": "artistic streamfunction, not Navier-Stokes; actual gated donor flux need not remain divergence-free",
+          "sha256": "04b2a6b3cfc234497ac9fcfd5884a5418dc358a494282ae0f61da4edcd00153b"
+        },
+        "reconstruction": "integer halfpixel; nearest ONLY at literal stationary pixels",
+        "staticWallMap": false,
+        "waterBlocked": false,
+        "coefficients": "V13 calibrated pressure+mixing; stream face upwind water packets, bounded donor4/5 and recipient capacity; no new absorption coefficient",
+        "initial": {
+          "initialStationaryAlpha": 1,
+          "initialMobileAlpha": 26769383,
+          "frozenWetAlpha": 0,
+          "frozenCellCount": 0,
+          "initialWaterCodes": 13360712,
+          "initialMobileCodes": 107495845
+        },
+        "finalState": {
+          "surfaceCodes": 2018374,
+          "absorbedCodes": 11342338,
+          "totalWaterCodes": 13360712,
+          "mobileAlphaCodes": 74056420,
+          "adsorbedAlphaCodes": 33439425,
+          "totalPigmentAlphaCodes": 107495845
+        },
+        "massScope": "coarse M+D/W+S integer exact; input reduction and final byte rounding separate",
+        "limitations": "NEW independent floor-bilinear M/D initialization changes totals; local nearest only at literal stationary pixels. Compare fine0/fine12 same initialization. Fine deposited proxy fixed, mobile pair flow conservative; extra16MiB deposit plane. Not historical native equivalence.",
+        "seedUsed": true,
+        "featuresRequired": [],
+        "fineSteps": 12,
+        "paperGain": 1,
+        "fineAuxLayout": "u32 packed capacity16/affinity9/wet1",
+        "fineAuxBytes": 4194304,
+        "fineAuxBytesSaved": 12582912,
+        "dither": true,
+        "extraFineGPUBytes": 75497600,
+        "extraDispatches": 14,
+        "redundantBasePackDispatches": 1,
+        "fineInitialization": "independent floor bilinear mobile/deposit; local nearest at stationary pixel",
+        "fineModel": "NEW conservative integer mobile-carrier paper-affinity exchange, fixed deposited/literal; final wet=W+S>0; NOT PACK-only",
+        "fineLedger": {
+          "mobileRGBA16Codes": [
+            2252322292,
+            745607666,
+            219827499,
+            4739477174
+          ],
+          "initialFineMobileAlphaExpected": null,
+          "initializationMassQualification": "Bilinear floor/local nearest changes init totals; compare identical fineSteps0 vsfineSteps12, pair-stage all4channels exact",
+          "initCapacityFailures": 0,
+          "packFailures": 0,
+          "guardPassed": true,
+          "reads": "full fine storage copy/map only after timed compute"
+        },
+        "basePhysicalModel": "macro14 actual coherent factory+upload stream field",
+        "paperAffinityBase": 128,
+        "paperAffinityGlobalMax": 191,
+        "fineDepositBasis": "NEW continuous proxy from independent floor bilinear coarse D; not historical native D",
+        "fineQuantization": "safe exact bytefold shared threshold",
+        "coherentUploadFieldPreserved": true,
+        "composition": "Actual coherent factory owns field construction/aux upload; macro17 owns smooth fine M/D; macro11 owns conservative fine mobile exchange. No coarse stateHash support promised.",
+        "initializer": "macro20 exact fast initializer",
+        "optimizationScope": "Exact fine aux storage 16→4bytes/pixel; same fine/coarse arithmetic"
+      },
+      "metrics": {
+        "quantity": "Sum of alpha as a pigment-mass proxy; not a physical mass measurement",
+        "inputMass": 26769384,
+        "outputMass": 26768215,
+        "massRatio": 0.9999563307097391,
+        "lostPixels": 0,
+        "addedPixels": 43762,
+        "outsideWetPixels": 46309,
+        "invalidPremul": 0,
+        "changedPixels": 266290
+      },
+      "transportMetrics": {
+        "scope": "Exact distance from initial alpha>1 support; bounded carrier proxy, not physical pigment mass",
+        "supportPixels": 219036,
+        "inputAlpha": 26769384,
+        "outputAlpha": 26768215,
+        "alphaRatio": 0.9999563307097391,
+        "channelRatios": [
+          0.9999397234635102,
+          0.9998167923569189,
+          0.9991438654636463
+        ],
+        "rmsDistanceFromSupport": 4.085959818572499,
+        "beyond": [
+          {
+            "distance": 10,
+            "pixels": 25104,
+            "alpha": 1029029,
+            "fraction": 0.038442197210385526
+          },
+          {
+            "distance": 25,
+            "pixels": 5448,
+            "alpha": 196966,
+            "fraction": 0.007358204497386172
+          },
+          {
+            "distance": 50,
+            "pixels": 4,
+            "alpha": 8,
+            "fraction": 2.988619151482458e-7
+          },
+          {
+            "distance": 100,
+            "pixels": 0,
+            "alpha": 0,
+            "fraction": 0
+          }
+        ],
+        "changedDryPixels": 45359
+      },
+      "ui": {
+        "maxRAF": 17,
+        "maxTimer": 11.100000143051147,
+        "longtasks": [],
+        "qualification": "Main observation includes fixture setup/worker compute/message transfer; PNG generation excluded"
+      },
+      "warmMedianMs": 123.39999997615814,
+      "display": {
+        "capturedDensityScale": 0.6781914893617021,
+        "qualification": "Captured optical depth is divided by its recorded global dose scale before exp(-D); not native composite equivalence"
+      }
+    }
+  ]
+}

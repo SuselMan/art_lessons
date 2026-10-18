@@ -2589,5 +2589,12 @@
         }
       }
     }
-  ]
+  ],
+  "conversionQualification": {
+    "nativeEndpointBoundedPremulGuaranteed": false,
+    "sheet7InvalidPremulPixels": 7,
+    "sheet7MaxColorOverAlphaCode": 1,
+    "all13ClippedChannels": 0,
+    "action": "No clamp or output renormalization. Native optical-depth/mass is not a bounded-carrier model. Initial-support alpha EDT remains a scalar carrier proxy; RGB boundedness is not asserted."
+  }
 }
