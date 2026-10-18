@@ -1,6 +1,6 @@
 import type {Settings} from '../mini-worker/runtime'
 const el=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T
-const mode=el<HTMLSelectElement>('mode'),sheet=el('sheet'),status=el('status'),error=el('error'),latency=el('latency'),inputStatus=el('inputStatus'),processedStatus=el('processedStatus')
+const mode=el<HTMLSelectElement>('mode'),sheet=el('sheet'),status=el('status'),error=el('error'),latency=el('latency')
 declare const __QA_NATIVE_EXPANSION_ARM__:string
 const profileLabels:Record<string,string>={original:'Наш исходный',smooth:'Простые пути',noisy:'Пути с шумом'}
 const profileId=__QA_NATIVE_EXPANSION_ARM__;if(!Object.hasOwn(profileLabels,profileId))throw Error('Unknown expansion profile');const profile=el<HTMLSelectElement>('profile');profile.value=profileId;
@@ -28,19 +28,10 @@ function receive(row:any,ownGeneration:number){if(ownGeneration!==generation)ret
  else if(row.type==='ready'){bootstrap=row;const actual=row.profile;if(actual?.id!==profileId||actual?.interactivePath!=='native-direct'||actual?.sourceBuild!=='805-expansion-live-v1'){failure='Профиль страницы не совпадает с фактической сборкой';error.textContent=failure;status.textContent='Режим недоступен';ready=false;return}el('activeProfile').textContent=profileLabels[profileId]+' ('+profileId+') · подтверждено';ready=true;status.textContent='Можно рисовать';send({type:'settings',settings:settings()})}
  else if(row.type==='status')status.textContent=row.message
  else if(row.type==='state'){lastState=row;if(row.asyncError){failure=row.asyncError;error.textContent=failure;ready=false}}
- else if(row.type==='processed'){processedEvents.push(row);if(processedEvents.length>256)processedEvents.shift();const lag=row.processedEpoch-row.inputEpoch;input.lastLagMs=lag;input.maxLagMs=Math.max(input.maxLagMs,lag);input.lastProcessed=row.sequence;processedStatus.textContent=`Обработан ${row.eventType}: ${lag.toFixed(1)} мс · максимум ${input.maxLagMs.toFixed(1)} мс`}
+ else if(row.type==='processed'){processedEvents.push(row);if(processedEvents.length>256)processedEvents.shift();const lag=row.processedEpoch-row.inputEpoch;input.lastLagMs=lag;input.maxLagMs=Math.max(input.maxLagMs,lag);input.lastProcessed=row.sequence}
  else if(row.type==='goal'){lastResult={...row,receivedEpoch:epoch(),upToGoalMs:row.goalEpoch-row.gesture.captureUpEpoch,upToFullGoalMs:Number.isFinite(row.fullGoalEpoch)?row.fullGoalEpoch-row.gesture.captureUpEpoch:null,upToReceivedMs:epoch()-row.gesture.captureUpEpoch,dequeueLagMs:row.gesture.dequeuedUpEpoch-row.gesture.captureUpEpoch};recordAverage(lastResult);results.push(lastResult);if(results.length>20)results.shift();if(row.gesture.id===gestureId)latency.textContent=Number.isFinite(lastResult.upToFullGoalMs)?`После отпускания: ${lastResult.upToFullGoalMs.toFixed(0)} мс до готового результата`:`После отпускания: ${lastResult.upToGoalMs.toFixed(0)} мс до отправки команд (готовность картинки не подтверждена)`;if(row.glError){failure='WebGL error '+row.glError;error.textContent=failure}}
  else if(row.type==='png'){if(pngURL)URL.revokeObjectURL(pngURL);pngURL=URL.createObjectURL(row.blob);const link=el<HTMLAnchorElement>('download');link.href=pngURL;link.style.display='inline';link.click()}
- renderDiagnostics()
 }
-let diagnosticsAt=-Infinity
-const diagnostics=el('diagnostics'),diagnosticsPanel=diagnostics.closest('details')!
-function renderDiagnostics(force=false){
- if(!diagnosticsPanel.open)return
- const now=performance.now();if(!force&&now-diagnosticsAt<250)return
- diagnosticsAt=now;diagnostics.textContent=JSON.stringify(snapshot(),null,2)
-}
-diagnosticsPanel.addEventListener('toggle',()=>renderDiagnostics(true))
 function send(message:any){if(worker)worker.postMessage(message);else runtime?.handle(message)}
 async function start(){rafWindows.clear();renderAverages();const own=++generation;ready=false;pressed=null;failure='';error.textContent='';status.textContent='Загрузка бумаги и WebGL…';lastResult=null;lastState=null;latency.textContent='После отпускания: —';bootstrap=null;results.length=0;clickHistory.length=0;acceptedEvents.length=0;processedEvents.length=0;gestureId=0;sequence=0;input={down:0,move:0,up:0,lastLagMs:0,maxLagMs:0,lastProcessed:0}
  if(worker){worker.postMessage({type:'destroy'});worker.terminate();worker=null}runtime?.destroy();runtime=null;sheet.replaceChildren();canvas=document.createElement('canvas');canvas.width=canvas.height=1024;canvas.id='paper';canvas.setAttribute('aria-label','Лист 1024 на 1024 пикселя');sheet.append(canvas)
@@ -54,10 +45,10 @@ function pointer(event:PointerEvent){if(!ready)return;if(event.type==='pointerdo
  if(event.type==='pointermove')input.move++;if(event.type==='pointerup'||event.type==='pointercancel')input.up++
  if(event.type==='pointercancel')rafWindows.delete(gestureId);event.preventDefault();const r=canvas.getBoundingClientRect(),convert=(e:PointerEvent)=>({type:e.type,clientX:(e.clientX-r.left)*1024/r.width,clientY:(e.clientY-r.top)*1024/r.height,pointerId:e.pointerId,pointerType:e.pointerType,button:e.button,buttons:e.buttons,pressure:e.pressure,tiltX:e.tiltX,tiltY:e.tiltY,isPrimary:e.isPrimary,isTrusted:e.isTrusted,epochTime:performance.timeOrigin+e.timeStamp})
  const sentEpoch=epoch(),message={type:'pointer',sequence:++sequence,sentEpoch,gestureId,captureUpEpoch:event.type==='pointerup'?sentEpoch:undefined,event:{...convert(event),coalesced:event.type==='pointermove'?(event.getCoalescedEvents?.()??[]).map(convert):[]}}
- acceptedEvents.push({sequence:message.sequence,type:event.type,gestureId,sentEpoch,eventEpoch:performance.timeOrigin+event.timeStamp});if(acceptedEvents.length>256)acceptedEvents.shift();inputStatus.textContent=`UI принял ${event.type} · событие ${sequence}`;if(event.type==='pointerup')latency.textContent='После отпускания: расчёт…';send(message);if(event.type==='pointerup'||event.type==='pointercancel'){pressed=null;try{canvas.releasePointerCapture(event.pointerId)}catch{}}
+ acceptedEvents.push({sequence:message.sequence,type:event.type,gestureId,sentEpoch,eventEpoch:performance.timeOrigin+event.timeStamp});if(acceptedEvents.length>256)acceptedEvents.shift();if(event.type==='pointerup')latency.textContent='После отпускания: расчёт…';send(message);if(event.type==='pointerup'||event.type==='pointercancel'){pressed=null;try{canvas.releasePointerCapture(event.pointerId)}catch{}}
 }
-function tick(t:number){if(heartbeat.last){const gap=t-heartbeat.last;for(const w of rafWindows.values()){w.n++;w.ms+=gap;w.max=Math.max(w.max,gap)}heartbeat.maxGapMs=Math.max(heartbeat.maxGapMs,gap);if(gap>50)heartbeat.over50++}heartbeat.last=t;heartbeat.count++;el('pulse').style.transform=`translateX(${(Math.sin(t/180)+1)*18}px)`;el('heartbeat').textContent=`UI RAF: ${heartbeat.maxGapMs.toFixed(1)} мс макс.`;requestAnimationFrame(tick)}requestAnimationFrame(tick)
-el('ping').onclick=()=>{clicks++;clickHistory.push({atEpoch:epoch(),gestureId,lastGoalId:lastResult?.gesture?.id??null});if(clickHistory.length>20)clickHistory.shift();el('clicks').textContent=String(clicks)};mode.onchange=()=>void start();el('clear').onclick=()=>void start();el('dry').onclick=()=>send({type:'dry'});el('export').onclick=()=>send({type:'export'})
+function tick(t:number){if(heartbeat.last){const gap=t-heartbeat.last;for(const w of rafWindows.values()){w.n++;w.ms+=gap;w.max=Math.max(w.max,gap)}heartbeat.maxGapMs=Math.max(heartbeat.maxGapMs,gap);if(gap>50)heartbeat.over50++}heartbeat.last=t;heartbeat.count++;el('heartbeat').textContent=`UI RAF: ${heartbeat.maxGapMs.toFixed(1)} мс макс.`;requestAnimationFrame(tick)}requestAnimationFrame(tick)
+mode.onchange=()=>void start();el('clear').onclick=()=>void start();el('dry').onclick=()=>send({type:'dry'});el('export').onclick=()=>send({type:'export'})
 for(const id of ['size','water','pigment','paint','color'])el(id).addEventListener('input',()=>{if(['size','water','pigment'].includes(id))el<HTMLOutputElement>(id+'Value').value=el<HTMLInputElement>(id).value;send({type:'settings',settings:settings()})})
 window.addEventListener('pagehide',()=>{worker?.postMessage({type:'destroy'});worker?.terminate();runtime?.destroy();if(pngURL)URL.revokeObjectURL(pngURL)})
 void start()

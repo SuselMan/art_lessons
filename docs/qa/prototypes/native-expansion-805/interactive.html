@@ -13,10 +13,6 @@
 </nav></header>
 <main><div class="sheet" id="sheet"></div><aside class="panel">
 <p id="status">Загрузка…</p><p class="metric" id="latency">После отпускания: —</p>
-<div style="overflow-x:auto"><table style="width:100%;font-size:13px;border-spacing:0 10px"><thead><tr><th>Вариант</th><th>Среднее после пера (штрихов)</th><th>UI RAF среднее / макс.</th></tr></thead><tbody id="averages"></tbody></table></div><p class="muted">Режим: <span id="averageMode"></span>. RAF — интервалы кадров интерфейса от начала штриха до готового результата; это не FPS анимации краски. Средние сохраняются в этой вкладке между вариантами. Разные мазки могут занимать разное время.</p><button id="resetAverages">Сбросить средние</button>
-<p class="muted">Смена варианта открывает чистый лист. PNG сохраняет текущий вид.</p>
-<p id="error" role="alert"></p><details><summary>Диагностика и пояснение замера</summary><p id="inputStatus">Ввод: —</p><p id="processedStatus">Обработано: —</p><p><span class="pulse" id="pulse"></span> <span id="heartbeat">UI жив</span></p><button id="ping">Проверить UI: <span id="clicks">0</span></button>
-<p class="muted">В режиме Worker расчёт и рисование выполняются вне главного потока интерфейса. Видеочип остаётся общим. Анимация показывает переход к уже рассчитанному результату.</p>
-<p class="muted">Профиль страницы проверяется по фактически запущенному коду. Исходный вариант сохраняет прежний алгоритм; в двух новых изменён поиск путей, исходный отбор краски сохранён.</p><p class="muted">Основное время — от отпускания пера до готовой картинки, включая завершение расчёта на GPU и контрольное чтение результата. Это время ожидания на стенде. Оно отличается от GPU-замера отдельных алгоритмов. Если полное чтение не подтверждено, показывается только момент отправки команд.</p>
-<pre id="diagnostics"></pre></details>
+<div style="overflow-x:auto"><table style="width:100%;font-size:13px;border-spacing:0 10px"><thead><tr><th>Вариант</th><th>Среднее после пера (штрихов)</th><th>UI RAF среднее / макс.</th></tr></thead><tbody id="averages"></tbody></table></div><p class="muted">Поток: <span id="averageMode"></span></p><p id="heartbeat">UI RAF: —</p><button id="resetAverages">Сбросить средние</button>
+<p id="error" role="alert"></p>
 </aside></main><script type="module" src="./entry.js"></script></html>
