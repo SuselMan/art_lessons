@@ -1,0 +1,228 @@
+{
+  "pass": true,
+  "qualification": "CPU explicit forward construction only, not native source recovery; fixed pigmentScale.5, declared synthetic P/coverage.",
+  "cases": [
+    {
+      "fixture": "flow-water-only",
+      "sourceSHA": {
+        "rgba": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "planeSHA": {
+        "c": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "p": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "coverage": "6f137e60a85bbdd689974b0b11e62b6c58d694b0efe898245b88474e15756b5b",
+        "solvent": "e506bdd989d408a030c2f3ec7868af68e1f5870b81c6aa272f5f8b54ce44ee57",
+        "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "roundtripExact": true
+    },
+    {
+      "fixture": "flow-one-pixel-wall",
+      "sourceSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "50bf4382d51a3a9667ba3e596ec7777159c90fda2614aca3936466bb2d69709b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "planeSHA": {
+        "c": "6679be4eeb77c5c9c241e3e166db1d91d68522253b58dddc4772366edf51ae0d",
+        "p": "09c1b5cd3f9e53c28cc1564e5fe44da3c7910b3ab98bcc3fab27657b0eeb010b",
+        "coverage": "cafef8276d9eb323863d735f5fc6054d1ff06e0bd5c46b92d0303d89a7f94db2",
+        "solvent": "62698762a92826a583d40e648d36dc7056190fd84ce44e889494d75f787cadcf",
+        "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "roundtripExact": true
+    },
+    {
+      "fixture": "flow-diagonal-wall",
+      "sourceSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "dfdbe13c3b1c92915d505b28c571d189c5d54a5c5eed5c89bc220c07f42621e8",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "planeSHA": {
+        "c": "6679be4eeb77c5c9c241e3e166db1d91d68522253b58dddc4772366edf51ae0d",
+        "p": "09c1b5cd3f9e53c28cc1564e5fe44da3c7910b3ab98bcc3fab27657b0eeb010b",
+        "coverage": "fc2bd099459fb5d8467e2e82d51dbec25c17680c68bee545c13914250609d0a1",
+        "solvent": "11a2ddde1d732e5a2a82d9877beebde54ba77610b712a3becdb7cd51825eb62f",
+        "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "roundtripExact": true
+    },
+    {
+      "fixture": "flow-isolated-pools",
+      "sourceSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "e7b2629754b832f6e9f8b3dbddd8b623fcc9e977ddd2cfb40107c24a07b8ecc1",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "planeSHA": {
+        "c": "6679be4eeb77c5c9c241e3e166db1d91d68522253b58dddc4772366edf51ae0d",
+        "p": "09c1b5cd3f9e53c28cc1564e5fe44da3c7910b3ab98bcc3fab27657b0eeb010b",
+        "coverage": "f2b360624705df669e59a20c409458a25e82f5b9ba32698fb53bccd7080ce6aa",
+        "solvent": "af8a34d3f47391f9381264657ed4128f6da0badd99d21a852883cd1b48f24862",
+        "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "roundtripExact": true
+    },
+    {
+      "fixture": "flow-pool-drop",
+      "sourceSHA": {
+        "rgba": "ccc9e3fab94be714e3b0f50b428d045d870928fe629d96cffbd286e30f8a64f8",
+        "water": "2c7fecce66310254937a423921893b8c7bf0685920cc226b1f70902e4659ea3b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "planeSHA": {
+        "c": "e1d9c0bf65dc6234827bee4fdf71ad7b4ab486de800eb228a44f65cab3b95582",
+        "p": "f7f02454ddb38453e23275e5493878f35a4f20cd2cc1b20641f98a7ea93b79f5",
+        "coverage": "511fa85b7f34c7816c5ba9ea9feba0d13507f7ff2adb5f7b40edd4a6a2c7e858",
+        "solvent": "cbb2214ad19130cf2764977b05776855d9584268da951b581066ac041515af46",
+        "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "roundtripExact": true
+    },
+    {
+      "fixture": "flow-separated-colors",
+      "sourceSHA": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "planeSHA": {
+        "c": "6679be4eeb77c5c9c241e3e166db1d91d68522253b58dddc4772366edf51ae0d",
+        "p": "09c1b5cd3f9e53c28cc1564e5fe44da3c7910b3ab98bcc3fab27657b0eeb010b",
+        "coverage": "6f137e60a85bbdd689974b0b11e62b6c58d694b0efe898245b88474e15756b5b",
+        "solvent": "e506bdd989d408a030c2f3ec7868af68e1f5870b81c6aa272f5f8b54ce44ee57",
+        "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "roundtripExact": true
+    },
+    {
+      "fixture": "flow-near-colors",
+      "sourceSHA": {
+        "rgba": "d6bfc7d034cba96be9ccad1eb9e1ae0939ad343ce13b67d98082549f92a7eca1",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "planeSHA": {
+        "c": "eb908532a65bcc86592cdf52a7f613e08f96e00aaa07143c8210680c36cbef03",
+        "p": "11b243179865d8c1b7171bac06e7bebe8d50215025c82eb9e806d9fa435f38c5",
+        "coverage": "6f137e60a85bbdd689974b0b11e62b6c58d694b0efe898245b88474e15756b5b",
+        "solvent": "e506bdd989d408a030c2f3ec7868af68e1f5870b81c6aa272f5f8b54ce44ee57",
+        "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "roundtripExact": true
+    },
+    {
+      "fixture": "dynamic-two-strokes",
+      "sourceSHA": {
+        "rgba": "618501f3cceeda037eb4c917b6381e51d1fd1fb0dc2a028cfcc7493502c412aa",
+        "water": "402e8bac12ac5c66db0c453efc3c7c499a635502f3c4ef4706bcc2af3509d87a",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "planeSHA": {
+        "c": "618501f3cceeda037eb4c917b6381e51d1fd1fb0dc2a028cfcc7493502c412aa",
+        "p": "5aafd2162aedbee5a77120473e50189c003c9369077bca705299860c7e4265e5",
+        "coverage": "54452e3e99122fa9a28cf6fdd27532793f8f7a0966cba5ecf7837764e0f32721",
+        "solvent": "d201ee53f65c4100af5dc751a87e93e02f8db2b0819526633d7690d4f0f25c11",
+        "paper": "3be58b99fbc51099ec1ee75788e5a1a1be7129c7a3196fc6297bbf6692958dde",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "roundtripExact": true
+    },
+    {
+      "fixture": "dynamic-stroke-through-pool",
+      "sourceSHA": {
+        "rgba": "b1b307de376f256cece6325737f0b254f8b9f60ec5bcb26ba2c83fecb62d2337",
+        "water": "584ebdfb6cddb2528fb87eb2b3dd7c2202cb7ab7f8961635758f178067c0a14d",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "planeSHA": {
+        "c": "933e4c11daa7e6009a97ab17467e33aea7ead4a2a61938d4776944b5fbee75c2",
+        "p": "c7af3d3b3591ed331f4d53241cc8b00c3920a6b231006e05ea6d533e275c708f",
+        "coverage": "2268f546bbabfb6b896ed76dc87ed3947602c4c54504cbb019c53bcc90e926a4",
+        "solvent": "9336784929e276ece89ba394a9c59f0090c663ce416e54bcd25567c2c6053dd3",
+        "paper": "3be58b99fbc51099ec1ee75788e5a1a1be7129c7a3196fc6297bbf6692958dde",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "roundtripExact": true
+    },
+    {
+      "fixture": "dynamic-opaque-stationary",
+      "sourceSHA": {
+        "rgba": "3ab519d24a0ea26005785f215591298a7f92a4be30e00c4c99aa3ed583db27a2",
+        "water": "038d8d989175a5a6d02975b8cf20c1295999056899aeac5cc5decbc299188024",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "planeSHA": {
+        "c": "d731ff4c63f7cea36d28c1487a93d337e857213156b994cd35ae866777bedddd",
+        "p": "07f9e95da6cc2b3ecf398a1e1df2afa19d82cef9a8c4407affcf05a4dde71c4c",
+        "coverage": "0b3921a7544925b2c53c8e63c9a7d3e0edebae3e66577d6f2b73e62bc9277c21",
+        "solvent": "275ba1cfe70ab26303885fddaf5294c93bfb6bdf89e67ffd4e091896a4e16c6e",
+        "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "roundtripExact": true
+    },
+    {
+      "fixture": "dynamic-saturated-pigment",
+      "sourceSHA": {
+        "rgba": "4f633ae9ee8cc89e741b9f0edbf9b3345ee9f994366704eee8d1bb6c40b79ddf",
+        "water": "a9c098585c34d09dbff8d5d9b37eeeee9b2a81df853c5f34d2aba99fb9de0653",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "planeSHA": {
+        "c": "b43047b1190d1ad9dda96bb23104a37c6aabde5bac0b206bfc4064aebdb0d5ed",
+        "p": "6ec0e77b754b9290ef244ea5f6a4f5a28899360a00bc009b80e7d9def5113995",
+        "coverage": "5abecf1041a6d0abde0787f7eb9e7d48eeb2ddde76957c40f581696e8368572d",
+        "solvent": "06940d90753e82700e0d104774e647488b1fa173736b2dff3c3196dcd1ccb876",
+        "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "roundtripExact": true
+    },
+    {
+      "fixture": "dynamic-corner-wetting",
+      "sourceSHA": {
+        "rgba": "c0b1cf431177a7a3e5d1718fa1d5b9957e563e93bf3fd81da8e278128b81e0f3",
+        "water": "fc00283d4bc07693e2a6976dda16d121476b8db8035596f2608b271b3d5c6dcd",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "planeSHA": {
+        "c": "723eb1037144003d178f51cd2ab8c121d771d4f742a426426ec6337697a40eca",
+        "p": "d37cc72e211b6fc6c58b5df52517e68cf0d77674a9fa21021ce3f2f3cca3e3e6",
+        "coverage": "75894f90540704907b69de6dbfd910bdf82df30d725c7eed0ecd97372df46de6",
+        "solvent": "a87c6d5ae3c106b26ccf201fd93e135dd533e777eed55d6d35181037e317e834",
+        "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "roundtripExact": true
+    },
+    {
+      "fixture": "mini-wave",
+      "sourceSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "roundtripExact": true
+    },
+    {
+      "fixture": "gallery-sheet-12-slot-1",
+      "sourceSHA": {
+        "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+        "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "roundtripExact": true
+    }
+  ]
+}

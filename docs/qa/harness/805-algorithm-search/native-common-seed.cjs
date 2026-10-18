@@ -1,0 +1,12 @@
+'use strict';
+const assert=require('node:assert/strict'),{sha}=require('./fixed-wet-boundary-audit.cjs');
+/** Explicit QA forward material construction. Never claims to invert captured native fields. */
+function construct(input){
+ const{size,rgba,water,paper,encoding}=input,n=size*size;assert.ok(Number.isInteger(size)&&size>0&&size<=4096);assert.equal(encoding,'optical-density','RGB requires a separately declared color conversion');
+ for(const[a,length]of[[rgba,n*4],[water,n],[paper,n]]){assert.ok(a instanceof Uint8Array);assert.equal(a.length,length)}
+ const planes=Object.fromEntries(['c','p','coverage','solvent','paper','original'].map(k=>[k,new Uint8Array(n*4)]));
+ for(let y=0;y<size;y++)for(let x=0;x<size;x++){const i=y*size+x,j=((size-1-y)*size+x)*4,a=rgba[i*4+3],w=water[i],support=a>0||w>0;planes.c.set(rgba.subarray(i*4,i*4+4),j);planes.p.set([Math.round(a*w/255),Math.round(a*w/255),a,a],j);planes.coverage.set(support?[128,0,w,255]:[0,0,0,0],j);planes.solvent[j+3]=w;planes.paper.set([paper[i],0,0,255],j)}
+ return{size,planes,metadata:{policy:'common-optical-seed-v1',direction:'forward construction, not inverse native capture',encoding,pigmentScale:.5,rows:'native GL-bottom-up; common top-left',c:'native C raw codes equal common RGBA exactly, RGB>A preserved',p:'A=common mass code; B=A authoritative C mass; R=G=round(A*water/255), synthetic fully pigmented deposit',coverage:'wet-or-pigment support A255; across R128; blot G0; standing B=water',solvent:'local A=common water; no foreign field',paper:'R=common height; G=B0,A255; must inject world sampling consistently',original:'transparent zero backdrop',qualification:'P/coverage/paper mapping is a declared synthetic material convention. No brush history, contact/wetness/deposit recovery, or native historical equivalence.',sourceSHA:{rgba:sha(rgba),water:sha(water),paper:sha(paper)},planeSHA:Object.fromEntries(Object.entries(planes).map(([k,v])=>[k,sha(v)]))}};
+}
+function roundtrip(seed){const{size,planes,metadata}=seed,n=size*size;assert.equal(metadata.pigmentScale,.5);const rgba=new Uint8Array(n*4),water=new Uint8Array(n),paper=new Uint8Array(n);for(let y=0;y<size;y++)for(let x=0;x<size;x++){const i=y*size+x,j=((size-1-y)*size+x)*4;for(let k=0;k<4;k++)rgba[i*4+k]=Math.round(2*metadata.pigmentScale*planes.c[j+k]);water[i]=planes.solvent[j+3];paper[i]=planes.paper[j]}return{rgba,water,paper}}
+module.exports={construct,roundtrip};
