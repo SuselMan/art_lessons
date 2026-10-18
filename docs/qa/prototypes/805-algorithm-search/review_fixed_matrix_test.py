@@ -182,7 +182,7 @@ class MatrixTest(unittest.TestCase):
         self.manifest['inputs'][0]['nativeComponentCounts'] = {'components': 1, 'pigmented': 1}
         planes = {k: '3' * 64 for k in ('p', 'c', 'coverage', 'solvent', 'foreign', 'original', 'paper')}
         planes['paper'] = '5' * 64
-        component = dict(id=0, inputMaskSHA='4' * 64, expectedMaskedPlaneSHA=planes,
+        component = dict(id=0, pigmented=True, inputMaskSHA='4' * 64, expectedMaskedPlaneSHA=planes,
                          actualMaskedPlaneSHA=planes,
                          insideOriginalChangedChannels={k: 0 for k in planes},
                          outsideNonzeroChannels={k: 0 for k in ('p', 'c', 'coverage', 'solvent', 'foreign')},
@@ -192,13 +192,24 @@ class MatrixTest(unittest.TestCase):
                          rawDryChangedChannels=0, runCount=1)
         self.cell['nativeProof']['componentIsolation'] = dict(policy='native-component-isolated-v1',
             inputSHA=self.sha, sourceHashes=self.cell['sourceHashes'], connectivity=4, threshold=0,
-            totalComponentCount=1, pigmentedComponentCount=1, goalRuns=1,
+            totalComponentCount=1, pigmentedComponentCount=1, goalRuns=1, waterOnlyRuns=0,
             originalPlaneSHA=planes, paperSHA='5' * 64, components=[component])
         self.assertTrue(self.run_cells([self.cell])['fixedMatrixCoverage']['complete'])
         component['outsideEndpointChangedChannels'] = 1
         with self.assertRaises(MatrixError):
             self.run_cells([self.cell])
         component['outsideEndpointChangedChannels'] = 0
+        component['pigmented'] = False
+        self.manifest['inputs'][0]['nativeComponentCounts']['pigmented'] = 0
+        isolation = self.cell['nativeProof']['componentIsolation']
+        isolation.update(pigmentedComponentCount=0, waterOnlyRuns=1)
+        with self.assertRaises(MatrixError):
+            self.run_cells([self.cell])
+        component['zeroCOutputNonzero'] = 0
+        self.assertTrue(self.run_cells([self.cell])['fixedMatrixCoverage']['complete'])
+        component['pigmented'] = True
+        self.manifest['inputs'][0]['nativeComponentCounts']['pigmented'] = 1
+        isolation.update(pigmentedComponentCount=1, waterOnlyRuns=0)
         self.cell['nativeProof']['contract'] = 'authored-native-replay-v1'
         with self.assertRaises(MatrixError):
             self.run_cells([self.cell])
@@ -213,7 +224,7 @@ class MatrixTest(unittest.TestCase):
             self.run_cells([self.cell])
         self.manifest['inputs'][0]['authoredNativeSource'] = dict(
             inputSHA=self.sha, originalPlaneSHA=planes, paperSHA='5' * 64,
-            replaySHA='1' * 64, nativeRawSHA='2' * 64)
+            replaySHA='1' * 64, nativeRawSHA='2' * 64, nativeComponentCounts={'components': 1, 'pigmented': 1})
         self.assertTrue(self.run_cells([self.cell])['fixedMatrixCoverage']['complete'])
 
 

@@ -47,8 +47,8 @@ def validate_build_binding(cell, choice, manifest):
         for b in allowed), 'cell source/build not allowed for choice: ' + choice['key'])
 
 
-def validate_component_isolation(proof, inp, source):
-    expected = inp.get('nativeComponentCounts')
+def validate_component_isolation(proof, inp, source, authored_source=None):
+    expected = authored_source.get('nativeComponentCounts') if authored_source is not None else inp.get('nativeComponentCounts')
     require(isinstance(expected, dict), 'missing independent frozen component counts')
     require(proof.get('policy') == 'native-component-isolated-v1'
             and proof.get('inputSHA') == inp['sha'] and proof.get('sourceHashes') == source
@@ -57,7 +57,9 @@ def validate_component_isolation(proof, inp, source):
     components = proof.get('components', [])
     require(proof.get('totalComponentCount') == expected['components']
             and proof.get('pigmentedComponentCount') == expected['pigmented']
-            and proof.get('goalRuns') == expected['pigmented'] == len(components),
+            and proof.get('goalRuns') == expected['components'] == len(components)
+            and proof.get('waterOnlyRuns') == expected['components'] - expected['pigmented']
+            and sum(c.get('pigmented') is True for c in components) == expected['pigmented'],
             'component dispatch count mismatch')
     require(len({c['id'] for c in components}) == len(components), 'duplicate component dispatch')
     planes = proof.get('originalPlaneSHA', {})
@@ -66,6 +68,9 @@ def validate_component_isolation(proof, inp, source):
     require(set(planes) == plane_keys and all(digest(v) for v in planes.values())
             and proof.get('paperSHA') == planes['paper'], 'missing original seven planes/paper')
     for component in components:
+        require(isinstance(component.get('pigmented'), bool), 'missing component pigment classification')
+        if not component['pigmented']:
+            require(component.get('zeroCOutputNonzero') == 0, 'water-only component generated pigment')
         expected_planes = component.get('expectedMaskedPlaneSHA', {})
         require(set(expected_planes) == set(planes) and all(digest(v) for v in expected_planes.values())
                 and component.get('actualMaskedPlaneSHA') == expected_planes
@@ -169,7 +174,8 @@ def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None):
                         and dry.get('inputSHA') == inp['sha'] and dry.get('rawSHA') == cell['rawSHA']
                         and dry.get('sourceHashes') == source,
                         'authored native raw dry audit missing: ' + tag)
-            validate_component_isolation(proof.get('componentIsolation', {}), inp, source)
+            validate_component_isolation(proof.get('componentIsolation', {}), inp, source,
+                                         inp.get('authoredNativeSource') if contract == 'authored-native-replay-v1' else None)
             require(request.get('flags') == choice['flags'] and result.get('repeatExact') is True,
                     'native flags/repeat mismatch: ' + tag)
         else:
@@ -390,14 +396,16 @@ def main(argv=None):
     report = coverage_report(shell, plan, manifest, cells)
     report['allowedBuildsSHA256'] = manifest['allowedBuildsSHA256']
     report['catalogIdentitySHA256'] = catalog_identity_sha(plan)
-    report['nativeComponentGoalsRequired'] = sum(r['pigmented'] for r in component_counts) * sum(c['kind'] == 'native-mini' for c in plan['choices'])
+    report['nativePigmentedGoalsMinimum'] = sum(i.get('authoredNativeSource', {}).get('nativeComponentCounts', i['nativeComponentCounts'])['pigmented'] for i in manifest['inputs']) * sum(c['kind'] == 'native-mini' for c in plan['choices'])
+    report['expectedAllWetComponentGoalsIfExecuted'] = sum(i.get('authoredNativeSource', {}).get('nativeComponentCounts', i['nativeComponentCounts'])['components'] for i in manifest['inputs']) * sum(c['kind'] == 'native-mini' for c in plan['choices'])
+    report['nativeCountQualification'] = 'Certified authored-native7 source counts where provided; otherwise common-input counts are provisional for native until source proof. Not observed execution totals.'
     report['componentCountsSHA256'] = hashlib.sha256(args.component_counts.read_bytes()).hexdigest()
     args.coverage_report.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
     if args.coverage_text:
         lines = ['# Покрытие fixed-матрицы', '',
                  'Полная проверка: ' + ('PASS' if report['complete'] else 'НЕ ЗАВЕРШЕНА'),
                  f"Валидные уникальные клетки: {report['validUniqueCells']}/{report['requiredCells']}.",
-                 f"Требуемые отдельные native goals: {report['nativeComponentGoalsRequired']}.",
+                 f"Минимум pigmented native goals (не общее число вызовов): {report['nativePigmentedGoalsMinimum']}.",
                  'Это проверка доказательств; недостающие расчёты здесь не запускаются.', '',
                  '| Мазок | Проверено |', '|---|---|']
         lines += [f"| {r['scene']} | {r['validUnique']}/{r['required']} |" for r in report['perScene']]
