@@ -108,8 +108,11 @@ async function main() {
   assert.ok(scene, 'Known authored scene required');
   assert.equal(scene.transform.size, SIZE);
   assert.deepEqual(scene.transform.paperWorld, [SIZE, SIZE]);
-  assert.equal(scene.operationSHA, proof.replay.replay.operationSHA);
-  assert.equal(scene.operationSHA, expected.replay.replay.operationSHA);
+  // normalizeScene hashes authored JSON; runtime hashes its replay representation.
+  // Bind those representations through the actual replay, never equate their hashes.
+  const canonicalReplayOperationSHA = proof.replay.replay.operationSHA;
+  assert.match(canonicalReplayOperationSHA, SHA);
+  assert.equal(canonicalReplayOperationSHA, expected.replay.replay.operationSHA);
   if (fs.existsSync(output)) assert.equal(fs.readdirSync(output).length, 0, 'Use an empty owned output directory');
   fs.mkdirSync(output, { recursive: true, mode: 0o700 });
   const report = {
@@ -117,7 +120,7 @@ async function main() {
     deviceLocalPair: true, sourceQualification: 'Exact paired source/output on this renderer; NOT cross-device identity',
     dimensions: { width: SIZE, height: SIZE, channels: 4, bytes: SIZE * SIZE * 4, rows: 'gl-bottom-up' },
     expectedReportSHA: hash(expectedBytes), authoredProofReportSHA: hash(proofBytes), buildManifestSHA: hash(fs.readFileSync(path.join(build, 'manifest.json'))),
-    sourceHashes: immutable.hashes, sourceSHA: baseline.sourceSHA, baseline,
+    sourceHashes: immutable.hashes, sourceSHA: baseline.sourceSHA, baseline, authoredOperationsJSONSHA: scene.operationSHA, canonicalReplayOperationSHA,
     regime: { schedule: jobs, note: 'One warmup per mode, then alternating whole/groups; all rows retained. Independent sequential queries, never nested. Host clocks are reported separately. GPU elapsed includes possible CPU-induced idle, not shader-active utilization.' },
     warmups: [], samples: [], hashes: [], evidence: [], pass: false
   };
@@ -142,7 +145,7 @@ async function main() {
     assert.equal(snapshot.bootstrap.renderer, expected.bootstrap.renderer, 'Baseline renderer mismatch');
     report.bootstrap = snapshot.bootstrap;
     const replay = await own.evaluate('__nativeDirectRequest(' + JSON.stringify({ type: 'qa-replay-scene', operations: scene.operations, capture: false }) + ')');
-    validateReplay(replay, expected, scene.operationSHA);
+    validateReplay(replay, expected, canonicalReplayOperationSHA);
     report.replay = replay;
     save();
     for (const job of jobs) {
