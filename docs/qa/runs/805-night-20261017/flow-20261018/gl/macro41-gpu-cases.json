@@ -1,0 +1,82 @@
+[
+  {
+    "algorithm": "wgsl-macro-capacity-aware-lite",
+    "fixture": "stress-stationary-phase-a128",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "idleBetweenMs": 5000,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-capacity-aware-lite",
+    "fixture": "stress-stationary-phase-a254",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "idleBetweenMs": 5000,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-capacity-aware-lite",
+    "fixture": "stress-stationary-phase-a255",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "idleBetweenMs": 5000,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-capacity-aware-lite",
+    "fixture": "gallery-sheet-12-slot-1",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "idleBetweenMs": 5000,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-capacity-aware-lite",
+    "fixture": "mini-wave",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "idleBetweenMs": 5000,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  }
+]
