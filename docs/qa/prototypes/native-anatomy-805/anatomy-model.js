@@ -29,11 +29,12 @@ function validate(data){
  return data;
 }
 function timingLabel(t){
- const value=t.valueMs.toLocaleString('ru-RU',{maximumFractionDigits:2})+' мс';
+ const value=timeValue(t,2);
  const kind=t.kind==='cumulative'?'Накопленное время':t.kind==='estimated-difference'?'Оценка разности':'Отдельный интервал';
  const clock={'cpu-host':'CPU / вызов на хосте','gpu-timestamp':'GPU timestamp',wall:'Полное прошедшее время'}[t.clock];
  return kind+': '+value+' · '+clock+(t.observation?' · наблюдение':'');
 }
-function shortTiming(t){const kind=t.kind==='cumulative'?'накоплено':t.kind==='estimated-difference'?'оценка':{'cpu-host':'CPU','gpu-timestamp':'GPU','wall':'прошло'}[t.clock];return t.valueMs.toLocaleString('ru-RU',{maximumFractionDigits:1})+' мс · '+kind+(t.observation?' · наблюдение':'')}
+function timeValue(t,digits){const below=Number.isFinite(t.timerResolutionMs)&&t.timerResolutionMs>0&&t.valueMs<t.timerResolutionMs;return (below?'< ':'')+(below?t.timerResolutionMs:t.valueMs).toLocaleString('ru-RU',{maximumFractionDigits:digits})+' мс'}
+function shortTiming(t){const kind=t.kind==='cumulative'?'накоплено':t.kind==='estimated-difference'?'оценка':{'cpu-host':'CPU','gpu-timestamp':'GPU','wall':'прошло'}[t.clock];return timeValue(t,2)+' · '+kind+(t.observation?' · наблюдение':'')}
 const api={validate,timingLabel,shortTiming};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.NativeAnatomyModel=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
