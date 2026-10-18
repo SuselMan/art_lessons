@@ -4,6 +4,7 @@ import {preparePaperAux,decodeInitialSummary} from './macro34-gpu-initial-core'
 import {physicalDtSource} from './macro30-physical-dt'
 import {MACRO19_COHERENT_LOCAL_DITHER_PACK} from './macro19-coherent-dither'
 import {MACRO10_LOCAL_PACK} from './macro10-wetness'
+import {MACRO41_CAPACITY_AWARE_PACK} from './macro41-capacity-aware-lite'
 import type {PackingBuffers} from './macro9-integer-smooth'
 import {buildStream} from './macro14-stream-field'
 import {initialIntegerDynamicFast} from './macro20-fast-initial'
@@ -14,8 +15,8 @@ export async function create(device:GPUDevice,size:number,config:Record<string,n
  const overrides={...options};if(Object.keys(overrides).some(k=>!['observePacking','pairSourceOverride','packSourceOverride','stateHash'].includes(k)))throw Error('Unsupported GPU initializer override');if(overrides.stateHash!==undefined&&overrides.stateHash!==false)throw Error('GPU initializer does not support stateHash');if(overrides.observePacking!==undefined&&typeof overrides.observePacking!=='function')throw Error('Invalid packing observer')
  if(size!==1024)throw Error('GPU initializer requires1024');if(config.steps!==undefined&&config.steps!==64||config.physicalDt!==undefined&&config.physicalDt!==4)throw Error('GPU initializer fixed dt4/steps64')
  const verify=integerOption(config.verifyInitializer??0,0,1,'verifyInitializer'),gain=integerOption(config.mobilityGain??3,1,8,'mobilityGain'),eddy=integerOption(config.eddyCells??8,4,64,'eddyCells'),strength=integerOption(config.curlStrength??64,0,128,'curlStrength'),N=128**2,pairSource=physicalDtSource(gain,4)
- if(overrides.pairSourceOverride!==undefined&&overrides.pairSourceOverride!==pairSource)throw Error('Only exact physicalDtSource(gain,4) is supported');if(overrides.packSourceOverride!==undefined&&overrides.packSourceOverride!==MACRO10_LOCAL_PACK)throw Error('Only exact MACRO10_LOCAL_PACK override is supported');const packSource=overrides.packSourceOverride??MACRO19_COHERENT_LOCAL_DITHER_PACK
- if(!packSource.includes('if((p.pad&4u)!=0u||(stationary[i]>>24u)>0u)')||packSource.includes('p.pad&5u'))throw Error('GPU initializer requires local PACK independent of stationary flag1')
+ if(overrides.pairSourceOverride!==undefined&&overrides.pairSourceOverride!==pairSource)throw Error('Only exact physicalDtSource(gain,4) is supported');if(overrides.packSourceOverride!==undefined&&overrides.packSourceOverride!==MACRO10_LOCAL_PACK&&overrides.packSourceOverride!==MACRO41_CAPACITY_AWARE_PACK)throw Error('Only exact known local PACK overrides are supported');const packSource=overrides.packSourceOverride??MACRO19_COHERENT_LOCAL_DITHER_PACK
+ if((packSource===MACRO41_CAPACITY_AWARE_PACK?(!packSource.includes('if((p.pad&4u)!=0u)')||!packSource.includes('total.a+literal.a*65792u<=16776960u')):!packSource.includes('if((p.pad&4u)!=0u||(stationary[i]>>24u)>0u)'))||packSource.includes('p.pad&5u'))throw Error('GPU initializer requires local PACK independent of stationary flag1')
  const init=await pipeline(device,GPU_INITIAL_SHADER,'gpu-exact-initializer'),pair=await pipeline(device,pairSource,'u32-dynamic-pair-absorption'),pack=await pipeline(device,packSource,'u32-dynamic-nearest'),pairSourceSHA=await sha(new TextEncoder().encode(pairSource)),initializerSourceSHA=await sha(new TextEncoder().encode(GPU_INITIAL_SHADER)),packSourceSHA=await sha(new TextEncoder().encode(packSource)),all:GPUBuffer[]=[]
  const alloc=(bytes:number,usage:number,label:string)=>{const b=buffer(device,bytes,usage,label);all.push(b);return b},rw=BUFFER.STORAGE|BUFFER.COPY_DST|BUFFER.COPY_SRC
  try{

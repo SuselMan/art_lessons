@@ -1,0 +1,169 @@
+{
+  "cases": [
+    {
+      "id": "wgsl-macro-gpu-capacity-aware-fine",
+      "reference": "wgsl-macro-capacity-aware-fine",
+      "fixture": "mini-wave",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "verifyInitializer": 0,
+        "fineSteps": 4,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      }
+    },
+    {
+      "id": "wgsl-macro-gpu-capacity-aware-fine",
+      "reference": "wgsl-macro-capacity-aware-fine",
+      "fixture": "dynamic-two-strokes",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "verifyInitializer": 0,
+        "fineSteps": 4,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      }
+    },
+    {
+      "id": "wgsl-macro-gpu-capacity-aware-fine",
+      "reference": "wgsl-macro-capacity-aware-fine",
+      "fixture": "gallery-sheet-12-slot-1",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "verifyInitializer": 0,
+        "fineSteps": 4,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      }
+    },
+    {
+      "id": "wgsl-macro-gpu-capacity-aware-fine",
+      "reference": "wgsl-macro-capacity-aware-fine",
+      "fixture": "dynamic-opaque-stationary",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "verifyInitializer": 0,
+        "fineSteps": 4,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      }
+    },
+    {
+      "id": "wgsl-macro-gpu-capacity-aware-lite",
+      "reference": "wgsl-macro-capacity-aware-lite",
+      "fixture": "mini-wave",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "verifyInitializer": 0
+      }
+    },
+    {
+      "id": "wgsl-macro-gpu-capacity-aware-lite",
+      "reference": "wgsl-macro-capacity-aware-lite",
+      "fixture": "dynamic-two-strokes",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "verifyInitializer": 0
+      }
+    },
+    {
+      "id": "wgsl-macro-gpu-capacity-aware-lite",
+      "reference": "wgsl-macro-capacity-aware-lite",
+      "fixture": "gallery-sheet-12-slot-1",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "verifyInitializer": 0
+      }
+    },
+    {
+      "id": "wgsl-macro-gpu-capacity-aware-lite",
+      "reference": "wgsl-macro-capacity-aware-lite",
+      "fixture": "dynamic-opaque-stationary",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "verifyInitializer": 0
+      }
+    }
+  ],
+  "optionalDiagnostics": [
+    {
+      "id": "wgsl-macro-gpu-capacity-aware-fine",
+      "fixture": "mini-wave",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "verifyInitializer": 1,
+        "fineSteps": 4,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "performanceClaim": false
+    },
+    {
+      "id": "wgsl-macro-gpu-capacity-aware-fine",
+      "fixture": "dynamic-opaque-stationary",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "verifyInitializer": 1,
+        "fineSteps": 4,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "performanceClaim": false
+    }
+  ],
+  "gates": [
+    "wholeRGBA exact reference same config",
+    "all4 coarse and water ledgers pass",
+    "fine0 vs fine4 all4 fine sums exact same init",
+    "actual noninitializer program SHA and stream field equal",
+    "diagnostic initial state/aux/stationary snapshots equal CPU oracle"
+  ],
+  "next": "Full13 actual only after initial cases pass",
+  "gpuRunByAuthor": false
+}
