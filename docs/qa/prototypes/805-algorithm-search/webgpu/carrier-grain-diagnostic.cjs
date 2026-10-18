@@ -1,0 +1,13 @@
+'use strict';
+// Read-only CPU descriptor, NOT an artistic score. Inputs are top-left carrierRGBA8 and original input paperR8.
+function integral(a,w,h){const stride=w+1,t=new Float64Array(stride*(h+1));for(let y=0;y<h;y++){let row=0;for(let x=0;x<w;x++){row+=a[y*w+x];t[(y+1)*stride+x+1]=t[y*stride+x+1]+row}}return t}
+function box(a,w,h,r){const t=integral(a,w,h),stride=w+1,out=new Float64Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const x0=Math.max(0,x-r),x1=Math.min(w,x+r+1),y0=Math.max(0,y-r),y1=Math.min(h,y+r+1);out[y*w+x]=(t[y1*stride+x1]-t[y0*stride+x1]-t[y1*stride+x0]+t[y0*stride+x0])/((x1-x0)*(y1-y0))}return out}
+function alpha(rgba,N){if(rgba.length!==N*4)throw Error('RGBA dimensions');return Float64Array.from({length:N},(_,i)=>rgba[i*4+3])}
+function diagnose(rgba,paper,w,h,options={}){
+ if(!Number.isInteger(w)||!Number.isInteger(h)||w<32||h<32||paper.length!==w*h)throw Error('Dimensions');const N=w*h,A=alpha(rgba,N),reference=options.maskReference?alpha(options.maskReference,N):A,threshold=options.maskThreshold??8,maskRadius=8,erode=12
+ if(!Number.isFinite(threshold)||threshold<=0)throw Error('Mask threshold');
+ const envelope=box(reference,w,h,maskRadius),bad=Uint8Array.from(envelope,v=>v<threshold?1:0),badAround=box(bad,w,h,erode),mask=Uint8Array.from({length:N},(_,i)=>{const x=i%w,y=Math.floor(i/w);return x>=erode&&y>=erode&&x<w-erode&&y<h-erode&&badAround[i]===0?1:0}),count=mask.reduce((s,v)=>s+v,0)
+ const radii=[2,4],scales=radii.map(radius=>{const meanA=box(A,w,h,radius),meanP=box(paper,w,h,radius);let sa=0,sp=0,saa=0,spp=0,sap=0,meanAlpha=0,zeroAlpha=0,belowThreshold=0;for(let i=0;i<N;i++)if(mask[i]){const a=A[i]-meanA[i],p=paper[i]-meanP[i];sa+=a;sp+=p;saa+=a*a;spp+=p*p;sap+=a*p;meanAlpha+=A[i];if(A[i]===0)zeroAlpha++;if(A[i]<threshold)belowThreshold++}if(!count)return{radius,samples:0,correlation:null,normalizedRMS:null};const ma=sa/count,mp=sp/count,va=Math.max(0,saa/count-ma*ma),vp=Math.max(0,spp/count-mp*mp),rms=Math.sqrt(saa/count);meanAlpha/=count;return{radius,samples:count,meanAlphaByte:meanAlpha,zeroAlphaFraction:zeroAlpha/count,belowMaskThresholdFraction:belowThreshold/count,residualRMSByte:rms,normalizedRMS:meanAlpha>0?rms/meanAlpha:null,residualMeanByte:ma,paperResidualRMSByte:Math.sqrt(spp/count),correlation:va>1e-20&&vp>1e-20?(sap/count-ma*mp)/Math.sqrt(va*vp):null}})
+ return{qualification:'Descriptor only; correlation is not an art score or universal paper-physics test. Input carrierA, not displayed paper/compositor.',mask:{reference:options.maskReference?'external fixed baseline':'own carrier',thresholdByte:threshold,envelopeRadius:maskRadius,erodeRadius:erode,samples:count},scales}
+}
+module.exports={diagnose,box};
