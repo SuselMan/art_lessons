@@ -97,7 +97,11 @@ function validateCpuTimeline(timeline) {
   const ordered=GROUP_IDS.map(id=>{const matching=groups.filter(task=>task.groupId===id);assert.equal(matching.length,1);return matching[0]});
   for(let i=1;i<ordered.length;i++)assert.equal(ordered[i].startMs,ordered[i-1].endMs,'Host group boundary coverage');
   const top = timeline.tasks.filter(task => !task.parentId).sort((a,b) => a.startMs-b.startMs);
-  for(let i=1;i<top.length;i++)assert.ok(top[i].startMs>=top[i-1].endMs, 'Top-level host overlap');
+  // Quantized clocks can produce empty spans at the same start as the next
+  // positive span. Empty intervals do not overlap any work; positive intervals
+  // must still satisfy the strict guard with no tolerance or hidden overlap.
+  const positive=top.filter(task=>task.endMs>task.startMs);
+  for(let i=1;i<positive.length;i++)assert.ok(positive[i].startMs>=positive[i-1].endMs, 'Top-level host overlap');
   assert.ok(Math.abs(top.reduce((sum,task)=>sum+task.elapsedMs,0)-timeline.wallMs)<1e-6, 'Full host wall coverage');
   for(const operation of ['core','selection.readback','selection.filter','selection.upload','output.c-read','output.p-read','output.coverage-read','query.poll'])assert.equal(timeline.tasks.filter(task=>task.operation===operation).length,1,'Missing/repeated host operation '+operation);
 }
@@ -178,7 +182,7 @@ async function main() {
     for (const job of jobs) {
       report.pending = job; save();
       const result = await own.evaluate('__nativeDirectRequest(' + JSON.stringify({ type: 'qa-run-native-gpu', mode: job.mode, baseline, cpuTimeline }) + ')');
-      report.lastAttempt = { ...job, gpu: result.gpu, outputSHA: result.outputSHA, sourceSHA: result.sourceSHA, sourceSHAAfter: result.sourceSHAAfter, metadataSHA: result.metadataSHA };
+      report.lastAttempt = { ...job, gpu: result.gpu, outputSHA: result.outputSHA, sourceSHA: result.sourceSHA, sourceSHAAfter: result.sourceSHAAfter, metadataSHA: result.metadataSHA, ...(cpuTimeline?{cpuTimeline:result.cpuTimeline}:{}) };
       const bytes = validateGpuResult(result, baseline, job.mode);
       if(cpuTimeline)validateCpuTimeline(result.cpuTimeline);
       const row = { ...job, gpu: result.gpu, hostSample: result.sample, outputSHA: result.outputSHA, ...(cpuTimeline?{cpuTimeline:result.cpuTimeline}:{}) };
@@ -242,7 +246,11 @@ function selfTest() {
     const task=(id,operation,startMs,endMs,parentId,lane='cpu',groupId)=>({id,operation,label:id,startMs,endMs,elapsedMs:endMs-startMs,parentId,lane,groupId,clock:'host',wallAligned:true});
     const timeline={completePipeline:true,wallMs:13,tasks:[task('core','core',0,8),...GROUP_IDS.map((id,i)=>task('g-'+id,'group.'+id,i,i+1,'core','cpu',id)),task('read','selection.readback',2.1,2.2,'g-selection','transfer'),task('filter','selection.filter',2.2,2.3,'g-selection'),task('upload','selection.upload',2.3,2.4,'g-selection','transfer'),task('c','output.c-read',8,10,undefined,'transfer'),task('proof','output.proof',10,12),task('p','output.p-read',10,10.2,'proof','transfer'),task('coverage','output.coverage-read',10.2,10.4,'proof','transfer'),task('poll','query.poll',12,13)]};
     validateCpuTimeline(timeline);
+    // Real collector sorting puts the positive interval first on equal start.
+    // The preceding zero-duration metadata call is still a valid empty span.
+    const quantized=structuredClone(timeline);quantized.tasks.push(task('metadata-zero','metadata.before',8,8));quantized.tasks.sort((a,b)=>a.startMs-b.startMs||b.endMs-a.endMs);validateCpuTimeline(quantized);
     for(const change of [x=>x.completePipeline=false,x=>x.tasks.find(t=>t.id==='read').endMs=4,x=>x.tasks.find(t=>t.id==='filter').parentId='absent',x=>x.tasks.find(t=>t.id==='c').elapsedMs=3,x=>x.wallMs=14]){const row=structuredClone(timeline);change(row);assert.throws(()=>validateCpuTimeline(row))}
+    const overlapping=structuredClone(timeline);overlapping.tasks.push(task('real-overlap','bad',8,8.1));assert.throws(()=>validateCpuTimeline(overlapping),/Top-level host overlap/);
   });
 }
 if (require.main === module) {
