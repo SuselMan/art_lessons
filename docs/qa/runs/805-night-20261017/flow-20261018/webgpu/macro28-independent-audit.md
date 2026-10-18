@@ -1,0 +1,14 @@
+# Независимый CPU/source аудит macro28 перед GPU
+
+Проверен текущий macro28 после da651ff3, без изменения kernel и без GPU. Блокирующей ошибки целочисленной безопасности или направления пары не найдено. Это не доказательство художественного выигрыша или TVD.
+
+- `macro28-limited-advection.ts:6–20`: `c=floor(256M/W)`, minmod ограничен `|slope|≤c` для неотрицательных соседних концентраций. При `q≤4W/5` имеем `q*c*floor(256(W-q)/W)≤M*65536/4≤1,073,725,440`. Плюс65536 для округления остаётся ниже2³¹. `M*q+floor(W/2)` также ниже2³² при M,W≤65535 и q≤4W/5. Концентрации не превышают16,776,960, их signed differences безопасны i32. Все эти предпосылки обеспечивает текущий coherent q clamp; helper отдельно не является API для произвольного q>W.
+- Packet возвращает alpha≤donorM и≤receiverFree. Поканальный packet donor-ratio использует одно и то же значение на вычитание/прибавление. Максимум `Mchannel*alpha+floor(Malpha/2)`=4,294,868,992<2³². Монотонность округлённого donor-ratio и его остатка сохраняет RGB≤A. M+D каждой компоненты пары точно сохраняется; D и формулы переноса/сорбции воды не заменены.
+- `ia=min(i,j), ib=max(i,j)`. fromA выбирается уже по combined pressure+curl в coherentSource. Upstream=donor−axis при fromA=true и donor+axis при false; это правильно для обеих осей и обеих parity. Оба invocation одной пары читают одинаковые ia/ib/fromA/upstream из src; дополнительных write/read гонок нет.
+- Текущий exact cap/den source anchor встречается один раз; замена убирает только advection den, denominator внутри adsorb остаётся. Все исходные q/W/S updates сохранены; actual factory test проверяет selected pipeline и schedule.
+- **Ограничение:** donor/receiver уже после pair exchange, а upstream берётся из raw src до exchange. Это несовпадающие временные срезы, способные менять знак/величину slope; источник честно документирует его. Поэтому scalar minmod рассуждение не переносится на coupled split solver. Clamps сохраняют safety, но не дают TVD/max-principle доказательства.
+- Существующий 1D тест показывает peak20001 при initial20000: однокодовое превышение из округления уже явно признано. Не следует считать это универсальным максимумом overshoot для всех coupled inputs.
+
+Независимая BigInt перепроверка150,000 seeded805 валидных наборов сравнила все Q8 концентрации, minmod, factor, correction и итоговый clamp с экспортом limitedAlpha:0 расхождений; максимальный наблюдённый correctionProduct1,029,355,470, ниже аналитического предела. Это CPU арифметика, не WGSL compiler/device proof.
+
+До GPU17casebatch не требуется менять kernel по этому аудиту. Device compilation/guards/repeats и сравнение с limiter0 остаются обязательными. Возможная будущая строгость source transform: отдельно assert unique den-removal anchor (сейчас без проверки), но текущие pinned bytes совпадают; это не текущая математическая ошибка.
