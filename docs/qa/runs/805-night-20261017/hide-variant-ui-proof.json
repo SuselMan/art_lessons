@@ -1,0 +1,52 @@
+{
+  "qualification": "Own in-memory current template + actual saved comparison/PNG; intercepted browser requests, no network/server, Chromium --disable-gpu, UI only.",
+  "templateSHA256": "028c28ae00957f8b9a3ec98bab0e1944fc5de046ab59a91b5b25f3ab4a527de5",
+  "comparisonSHA256": "7a5e81aebb2491f8ce61de8d20e8c582a5a97ff74678d684589e08578ba6d95f",
+  "catalogChoices": 125,
+  "cases": [
+    {
+      "width": 320,
+      "globalHide": true,
+      "optionsAligned": true,
+      "otherSelectionsPreserved": true,
+      "nextActual": true,
+      "hiddenOriginalHold": true,
+      "restoreEach": true,
+      "reloadPersistence": true,
+      "unknownStorageIgnored": true,
+      "allHiddenRecoverable": true,
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "width": 390,
+      "globalHide": true,
+      "optionsAligned": true,
+      "otherSelectionsPreserved": true,
+      "nextActual": true,
+      "hiddenOriginalHold": true,
+      "restoreEach": true,
+      "reloadPersistence": true,
+      "unknownStorageIgnored": true,
+      "allHiddenRecoverable": true,
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "width": 1440,
+      "globalHide": true,
+      "optionsAligned": true,
+      "otherSelectionsPreserved": true,
+      "nextActual": true,
+      "hiddenOriginalHold": true,
+      "restoreEach": true,
+      "reloadPersistence": true,
+      "unknownStorageIgnored": true,
+      "allHiddenRecoverable": true,
+      "overflow": false,
+      "errors": []
+    }
+  ],
+  "browserClosed": true,
+  "pass": true
+}
