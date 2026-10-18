@@ -1,0 +1,1083 @@
+{
+  "qualification": "QA synthetic material forward seed, not restored native brush history. Source readback/roundtrip outside timing. Native target final dry C compared byte-exact only where original common water==0.",
+  "cases": [
+    {
+      "request": {
+        "fixture": "flow-pool-drop",
+        "arm": "original",
+        "goal": false
+      },
+      "commonSHA": {
+        "rgba": "ccc9e3fab94be714e3b0f50b428d045d870928fe629d96cffbd286e30f8a64f8",
+        "water": "2c7fecce66310254937a423921893b8c7bf0685920cc226b1f70902e4659ea3b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "expectedPlaneSHA": {
+        "c": "e1d9c0bf65dc6234827bee4fdf71ad7b4ab486de800eb228a44f65cab3b95582",
+        "p": "f7f02454ddb38453e23275e5493878f35a4f20cd2cc1b20641f98a7ea93b79f5",
+        "coverage": "511fa85b7f34c7816c5ba9ea9feba0d13507f7ff2adb5f7b40edd4a6a2c7e858",
+        "solvent": "cbb2214ad19130cf2764977b05776855d9584268da951b581066ac041515af46",
+        "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "sourceHashes": {
+        "entry.js": "dcbf8987849647464a047cf8e04da0acdff28b4360469205a40bc9494e4675de",
+        "worker.js": "b5bb26c6ab0881eee00c297e23bed50c20624185360870c775353b646f9eec7e",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-UXAXDATN.js": "6a305559c2fba9e9bd34047d21638cef9fa41dfa7299002f0ae0853bbe73731c",
+        "chunk-MJFT243R.js": "95fdd8d9c860bd84b76f0085bda6988830b0118a3c5b16897c90891438c5b301",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+        "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+        "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+      },
+      "seedProof": {
+        "type": "qa-seed-common-ready",
+        "requestId": "common-seed-2",
+        "planeSHA": {
+          "p": "f7f02454ddb38453e23275e5493878f35a4f20cd2cc1b20641f98a7ea93b79f5",
+          "c": "e1d9c0bf65dc6234827bee4fdf71ad7b4ab486de800eb228a44f65cab3b95582",
+          "coverage": "511fa85b7f34c7816c5ba9ea9feba0d13507f7ff2adb5f7b40edd4a6a2c7e858",
+          "solvent": "cbb2214ad19130cf2764977b05776855d9584268da951b581066ac041515af46",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "1131c64f6f2fff566e5b0779db20b6b3347bff363163d0e3cdc96976f4756c92"
+        },
+        "commonSHA": {
+          "rgba": "ccc9e3fab94be714e3b0f50b428d045d870928fe629d96cffbd286e30f8a64f8",
+          "water": "2c7fecce66310254937a423921893b8c7bf0685920cc226b1f70902e4659ea3b",
+          "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+        },
+        "paperContexts": {
+          "settle": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passes": {
+            "w": 1024,
+            "h": 1024
+          },
+          "ribbon": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passesTexture": true,
+          "ribbonTexture": true
+        },
+        "roundtripExact": true,
+        "sourceEncoding": "optical-density",
+        "nativeInterpretation": "numerical-carrier",
+        "nativeCompositeFair": false,
+        "pigmentScale": 0.5,
+        "seedEncodingScale": 0.5,
+        "sourceDisplayDensityScale": 1,
+        "policy": "common-optical-seed-v1",
+        "qualification": "Explicit synthetic native material; independently read all source planes and actual sampled paper. Fixedscale .5 conversion separate from historical autoScale.",
+        "metadata": {
+          "seed": 805,
+          "p": "A=B=commonA,R=G=round(A*water/255)",
+          "coverage": "A255 on wet-or-pigment,R128,G0,Bwater",
+          "foreign": "zero",
+          "original": "transparent",
+          "paperWorld": [
+            1024,
+            1024
+          ],
+          "paperScale": 1,
+          "paperScope": "engine and all settle/passes/ribbon callbacks; restored finally"
+        },
+        "rawSHA": {
+          "p": "f7f02454ddb38453e23275e5493878f35a4f20cd2cc1b20641f98a7ea93b79f5",
+          "c": "e1d9c0bf65dc6234827bee4fdf71ad7b4ab486de800eb228a44f65cab3b95582",
+          "coverage": "511fa85b7f34c7816c5ba9ea9feba0d13507f7ff2adb5f7b40edd4a6a2c7e858",
+          "water": "cbb2214ad19130cf2764977b05776855d9584268da951b581066ac041515af46",
+          "foreignWater": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        }
+      },
+      "sourceStable": true,
+      "pass": true,
+      "errors": [],
+      "contextClosed": true,
+      "manifestFlags": {
+        "frontZero": true,
+        "frontJumpZero": true,
+        "frontLazy": false,
+        "frontOneOctave": false,
+        "nativeFeatherCache": false
+      },
+      "buildStableAfterRun": true
+    },
+    {
+      "request": {
+        "fixture": "mini-wave",
+        "arm": "original",
+        "goal": false
+      },
+      "commonSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "expectedPlaneSHA": {
+        "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+        "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+        "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+        "solvent": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+        "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "sourceHashes": {
+        "entry.js": "dcbf8987849647464a047cf8e04da0acdff28b4360469205a40bc9494e4675de",
+        "worker.js": "b5bb26c6ab0881eee00c297e23bed50c20624185360870c775353b646f9eec7e",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-UXAXDATN.js": "6a305559c2fba9e9bd34047d21638cef9fa41dfa7299002f0ae0853bbe73731c",
+        "chunk-MJFT243R.js": "95fdd8d9c860bd84b76f0085bda6988830b0118a3c5b16897c90891438c5b301",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+        "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+        "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+      },
+      "seedProof": {
+        "type": "qa-seed-common-ready",
+        "requestId": "common-seed-2",
+        "planeSHA": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "solvent": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+        },
+        "commonSHA": {
+          "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+          "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "paperContexts": {
+          "settle": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passes": {
+            "w": 1024,
+            "h": 1024
+          },
+          "ribbon": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passesTexture": true,
+          "ribbonTexture": true
+        },
+        "roundtripExact": true,
+        "sourceEncoding": "optical-density",
+        "nativeInterpretation": "numerical-carrier",
+        "nativeCompositeFair": false,
+        "pigmentScale": 0.5,
+        "seedEncodingScale": 0.5,
+        "sourceDisplayDensityScale": 0.6781914893617021,
+        "policy": "common-optical-seed-v1",
+        "qualification": "Explicit synthetic native material; independently read all source planes and actual sampled paper. Fixedscale .5 conversion separate from historical autoScale.",
+        "metadata": {
+          "seed": 805,
+          "p": "A=B=commonA,R=G=round(A*water/255)",
+          "coverage": "A255 on wet-or-pigment,R128,G0,Bwater",
+          "foreign": "zero",
+          "original": "transparent",
+          "paperWorld": [
+            1024,
+            1024
+          ],
+          "paperScale": 1,
+          "paperScope": "engine and all settle/passes/ribbon callbacks; restored finally"
+        },
+        "rawSHA": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "water": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreignWater": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        }
+      },
+      "sourceStable": true,
+      "pass": true,
+      "errors": [],
+      "contextClosed": true,
+      "manifestFlags": {
+        "frontZero": true,
+        "frontJumpZero": true,
+        "frontLazy": false,
+        "frontOneOctave": false,
+        "nativeFeatherCache": false
+      },
+      "buildStableAfterRun": true
+    },
+    {
+      "request": {
+        "fixture": "mini-wave",
+        "arm": "original",
+        "goal": true
+      },
+      "commonSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "expectedPlaneSHA": {
+        "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+        "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+        "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+        "solvent": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+        "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "sourceHashes": {
+        "entry.js": "dcbf8987849647464a047cf8e04da0acdff28b4360469205a40bc9494e4675de",
+        "worker.js": "b5bb26c6ab0881eee00c297e23bed50c20624185360870c775353b646f9eec7e",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-UXAXDATN.js": "6a305559c2fba9e9bd34047d21638cef9fa41dfa7299002f0ae0853bbe73731c",
+        "chunk-MJFT243R.js": "95fdd8d9c860bd84b76f0085bda6988830b0118a3c5b16897c90891438c5b301",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+        "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+        "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+      },
+      "seedProof": {
+        "type": "qa-seed-common-ready",
+        "requestId": "common-seed-2",
+        "planeSHA": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "solvent": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+        },
+        "commonSHA": {
+          "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+          "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "paperContexts": {
+          "settle": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passes": {
+            "w": 1024,
+            "h": 1024
+          },
+          "ribbon": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passesTexture": true,
+          "ribbonTexture": true
+        },
+        "roundtripExact": true,
+        "sourceEncoding": "optical-density",
+        "nativeInterpretation": "numerical-carrier",
+        "nativeCompositeFair": false,
+        "pigmentScale": 0.5,
+        "seedEncodingScale": 0.5,
+        "sourceDisplayDensityScale": 0.6781914893617021,
+        "policy": "common-optical-seed-v1",
+        "qualification": "Explicit synthetic native material; independently read all source planes and actual sampled paper. Fixedscale .5 conversion separate from historical autoScale.",
+        "metadata": {
+          "seed": 805,
+          "p": "A=B=commonA,R=G=round(A*water/255)",
+          "coverage": "A255 on wet-or-pigment,R128,G0,Bwater",
+          "foreign": "zero",
+          "original": "transparent",
+          "paperWorld": [
+            1024,
+            1024
+          ],
+          "paperScale": 1,
+          "paperScope": "engine and all settle/passes/ribbon callbacks; restored finally"
+        },
+        "rawSHA": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "water": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreignWater": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        }
+      },
+      "goal": {
+        "samples": [
+          {
+            "submitJsMs": 169.20000004768372,
+            "runToDependentMs": 154.20000004768372,
+            "totalReadyMs": 323.40000009536743,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              95,
+              163,
+              199
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded."
+          }
+        ],
+        "hashes": [
+          {
+            "p": "3510f8315af1e96126dd06e462bb899645d170a8b2d94992eca05dd57793bfda",
+            "c": "c2b7e2fc621caf0a6efed31a29591d246120dec4a08f5d37a3f4bf51ef6da56c",
+            "coverage": "d0bedcbd6f8d2d5537b50163031485443c9dd99b899e8e8daf34b7d44ea5dd2a"
+          }
+        ],
+        "png": {
+          "file": "mini-wave-original.png",
+          "sha256": "15e54db5dacd2e0dd22d80db136d3870697988f663d13129a8fc30ca0ce9d248"
+        },
+        "dryChangedPixels": 0,
+        "rawSHAAfter": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "water": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreignWater": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        }
+      },
+      "seedAfter": {
+        "type": "qa-seed-common-ready",
+        "requestId": "common-seed-4",
+        "planeSHA": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "solvent": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+        },
+        "commonSHA": {
+          "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+          "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "paperContexts": {
+          "settle": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passes": {
+            "w": 1024,
+            "h": 1024
+          },
+          "ribbon": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passesTexture": true,
+          "ribbonTexture": true
+        },
+        "roundtripExact": true,
+        "sourceEncoding": "optical-density",
+        "nativeInterpretation": "numerical-carrier",
+        "nativeCompositeFair": false,
+        "pigmentScale": 0.5,
+        "seedEncodingScale": 0.5,
+        "sourceDisplayDensityScale": 0.6781914893617021,
+        "policy": "common-optical-seed-v1",
+        "qualification": "Explicit synthetic native material; independently read all source planes and actual sampled paper. Fixedscale .5 conversion separate from historical autoScale.",
+        "metadata": {
+          "seed": 805,
+          "p": "A=B=commonA,R=G=round(A*water/255)",
+          "coverage": "A255 on wet-or-pigment,R128,G0,Bwater",
+          "foreign": "zero",
+          "original": "transparent",
+          "paperWorld": [
+            1024,
+            1024
+          ],
+          "paperScale": 1,
+          "paperScope": "engine and all settle/passes/ribbon callbacks; restored finally"
+        }
+      },
+      "sourceStable": true,
+      "pass": true,
+      "errors": [],
+      "contextClosed": true,
+      "manifestFlags": {
+        "frontZero": true,
+        "frontJumpZero": true,
+        "frontLazy": false,
+        "frontOneOctave": false,
+        "nativeFeatherCache": false
+      },
+      "buildStableAfterRun": true
+    },
+    {
+      "request": {
+        "fixture": "mini-wave",
+        "arm": "lazy",
+        "goal": true
+      },
+      "commonSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "expectedPlaneSHA": {
+        "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+        "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+        "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+        "solvent": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+        "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "sourceHashes": {
+        "entry.js": "920c36e41d4becfe4f348438bc293542cc923424b56e8a07b773ad83f2e8bc6f",
+        "worker.js": "7740f706191d26fd7ccaea2afe92436703aefd8dac15079d0f3178395555b92e",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-U4GQ7CLD.js": "39e4b7582f989544f8b124e857fb5836750718d67bb5b9c453fd11ec0b841152",
+        "chunk-SKPSSJ5O.js": "3dfcc603912362fb36d31854d096c4102e0c96f89bb49f18fc622bac4b71f21f",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+        "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+        "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+      },
+      "seedProof": {
+        "type": "qa-seed-common-ready",
+        "requestId": "common-seed-2",
+        "planeSHA": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "solvent": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+        },
+        "commonSHA": {
+          "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+          "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "paperContexts": {
+          "settle": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passes": {
+            "w": 1024,
+            "h": 1024
+          },
+          "ribbon": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passesTexture": true,
+          "ribbonTexture": true
+        },
+        "roundtripExact": true,
+        "sourceEncoding": "optical-density",
+        "nativeInterpretation": "numerical-carrier",
+        "nativeCompositeFair": false,
+        "pigmentScale": 0.5,
+        "seedEncodingScale": 0.5,
+        "sourceDisplayDensityScale": 0.6781914893617021,
+        "policy": "common-optical-seed-v1",
+        "qualification": "Explicit synthetic native material; independently read all source planes and actual sampled paper. Fixedscale .5 conversion separate from historical autoScale.",
+        "metadata": {
+          "seed": 805,
+          "p": "A=B=commonA,R=G=round(A*water/255)",
+          "coverage": "A255 on wet-or-pigment,R128,G0,Bwater",
+          "foreign": "zero",
+          "original": "transparent",
+          "paperWorld": [
+            1024,
+            1024
+          ],
+          "paperScale": 1,
+          "paperScope": "engine and all settle/passes/ribbon callbacks; restored finally"
+        },
+        "rawSHA": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "water": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreignWater": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        }
+      },
+      "goal": {
+        "samples": [
+          {
+            "submitJsMs": 224.29999995231628,
+            "runToDependentMs": 124.10000014305115,
+            "totalReadyMs": 348.40000009536743,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              95,
+              163,
+              199
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded."
+          }
+        ],
+        "hashes": [
+          {
+            "p": "3510f8315af1e96126dd06e462bb899645d170a8b2d94992eca05dd57793bfda",
+            "c": "c2b7e2fc621caf0a6efed31a29591d246120dec4a08f5d37a3f4bf51ef6da56c",
+            "coverage": "d0bedcbd6f8d2d5537b50163031485443c9dd99b899e8e8daf34b7d44ea5dd2a"
+          }
+        ],
+        "png": {
+          "file": "mini-wave-lazy.png",
+          "sha256": "15e54db5dacd2e0dd22d80db136d3870697988f663d13129a8fc30ca0ce9d248"
+        },
+        "dryChangedPixels": 0,
+        "rawSHAAfter": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "water": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreignWater": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        }
+      },
+      "seedAfter": {
+        "type": "qa-seed-common-ready",
+        "requestId": "common-seed-4",
+        "planeSHA": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "solvent": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+        },
+        "commonSHA": {
+          "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+          "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "paperContexts": {
+          "settle": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passes": {
+            "w": 1024,
+            "h": 1024
+          },
+          "ribbon": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passesTexture": true,
+          "ribbonTexture": true
+        },
+        "roundtripExact": true,
+        "sourceEncoding": "optical-density",
+        "nativeInterpretation": "numerical-carrier",
+        "nativeCompositeFair": false,
+        "pigmentScale": 0.5,
+        "seedEncodingScale": 0.5,
+        "sourceDisplayDensityScale": 0.6781914893617021,
+        "policy": "common-optical-seed-v1",
+        "qualification": "Explicit synthetic native material; independently read all source planes and actual sampled paper. Fixedscale .5 conversion separate from historical autoScale.",
+        "metadata": {
+          "seed": 805,
+          "p": "A=B=commonA,R=G=round(A*water/255)",
+          "coverage": "A255 on wet-or-pigment,R128,G0,Bwater",
+          "foreign": "zero",
+          "original": "transparent",
+          "paperWorld": [
+            1024,
+            1024
+          ],
+          "paperScale": 1,
+          "paperScope": "engine and all settle/passes/ribbon callbacks; restored finally"
+        }
+      },
+      "sourceStable": true,
+      "pass": true,
+      "errors": [],
+      "contextClosed": true,
+      "manifestFlags": {
+        "frontZero": true,
+        "frontJumpZero": true,
+        "frontLazy": true,
+        "frontOneOctave": false,
+        "nativeFeatherCache": false
+      },
+      "buildStableAfterRun": true
+    },
+    {
+      "request": {
+        "fixture": "mini-wave",
+        "arm": "one-octave",
+        "goal": true
+      },
+      "commonSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "expectedPlaneSHA": {
+        "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+        "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+        "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+        "solvent": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+        "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "sourceHashes": {
+        "entry.js": "4ac5bb3eb56f71030542710bf0283660ea4b16945c376a9c5f4eaf7c9a52a06d",
+        "worker.js": "2b26e2a073554a4c410878f204f769c70b1d2aecc4b43da1fad8e300341e78fc",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-X3GCCB47.js": "396f7de7732825a82042510d74d324f3dde5a0e1aa4839e3011b7018ed4810c7",
+        "chunk-5YF3N6IV.js": "db5f779f911b4938d4c0bbcc55e52f6e0b6eccf43c53c3ab180a5c3efbb974f6",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+        "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+        "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+      },
+      "seedProof": {
+        "type": "qa-seed-common-ready",
+        "requestId": "common-seed-2",
+        "planeSHA": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "solvent": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+        },
+        "commonSHA": {
+          "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+          "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "paperContexts": {
+          "settle": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passes": {
+            "w": 1024,
+            "h": 1024
+          },
+          "ribbon": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passesTexture": true,
+          "ribbonTexture": true
+        },
+        "roundtripExact": true,
+        "sourceEncoding": "optical-density",
+        "nativeInterpretation": "numerical-carrier",
+        "nativeCompositeFair": false,
+        "pigmentScale": 0.5,
+        "seedEncodingScale": 0.5,
+        "sourceDisplayDensityScale": 0.6781914893617021,
+        "policy": "common-optical-seed-v1",
+        "qualification": "Explicit synthetic native material; independently read all source planes and actual sampled paper. Fixedscale .5 conversion separate from historical autoScale.",
+        "metadata": {
+          "seed": 805,
+          "p": "A=B=commonA,R=G=round(A*water/255)",
+          "coverage": "A255 on wet-or-pigment,R128,G0,Bwater",
+          "foreign": "zero",
+          "original": "transparent",
+          "paperWorld": [
+            1024,
+            1024
+          ],
+          "paperScale": 1,
+          "paperScope": "engine and all settle/passes/ribbon callbacks; restored finally"
+        },
+        "rawSHA": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "water": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreignWater": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        }
+      },
+      "goal": {
+        "samples": [
+          {
+            "submitJsMs": 219.39999985694885,
+            "runToDependentMs": 123,
+            "totalReadyMs": 342.39999985694885,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              95,
+              163,
+              199
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded."
+          }
+        ],
+        "hashes": [
+          {
+            "p": "256b16e1658300c46101508df8eef2262d26401806f7a932c298467af62ed6d6",
+            "c": "dad74861f4fe653d3069ecfbda279a0e9f5ce592f6bf6729801f0739f859fc29",
+            "coverage": "d0bedcbd6f8d2d5537b50163031485443c9dd99b899e8e8daf34b7d44ea5dd2a"
+          }
+        ],
+        "png": {
+          "file": "mini-wave-one-octave.png",
+          "sha256": "b9eb98ded35c9f5547e9e76da5305e3f410c40c67bd05416eec3e6821587ec50"
+        },
+        "dryChangedPixels": 0,
+        "rawSHAAfter": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "water": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreignWater": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        }
+      },
+      "seedAfter": {
+        "type": "qa-seed-common-ready",
+        "requestId": "common-seed-4",
+        "planeSHA": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "solvent": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+        },
+        "commonSHA": {
+          "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+          "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "paperContexts": {
+          "settle": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passes": {
+            "w": 1024,
+            "h": 1024
+          },
+          "ribbon": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passesTexture": true,
+          "ribbonTexture": true
+        },
+        "roundtripExact": true,
+        "sourceEncoding": "optical-density",
+        "nativeInterpretation": "numerical-carrier",
+        "nativeCompositeFair": false,
+        "pigmentScale": 0.5,
+        "seedEncodingScale": 0.5,
+        "sourceDisplayDensityScale": 0.6781914893617021,
+        "policy": "common-optical-seed-v1",
+        "qualification": "Explicit synthetic native material; independently read all source planes and actual sampled paper. Fixedscale .5 conversion separate from historical autoScale.",
+        "metadata": {
+          "seed": 805,
+          "p": "A=B=commonA,R=G=round(A*water/255)",
+          "coverage": "A255 on wet-or-pigment,R128,G0,Bwater",
+          "foreign": "zero",
+          "original": "transparent",
+          "paperWorld": [
+            1024,
+            1024
+          ],
+          "paperScale": 1,
+          "paperScope": "engine and all settle/passes/ribbon callbacks; restored finally"
+        }
+      },
+      "sourceStable": true,
+      "pass": true,
+      "errors": [],
+      "contextClosed": true,
+      "manifestFlags": {
+        "frontZero": true,
+        "frontJumpZero": true,
+        "frontLazy": false,
+        "frontOneOctave": true,
+        "nativeFeatherCache": false
+      },
+      "buildStableAfterRun": true
+    },
+    {
+      "request": {
+        "fixture": "mini-wave",
+        "arm": "cache",
+        "goal": true
+      },
+      "commonSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "expectedPlaneSHA": {
+        "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+        "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+        "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+        "solvent": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+        "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5",
+        "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+      },
+      "sourceHashes": {
+        "entry.js": "f9f137b0d88b5c4d03c3af807780d7a1e284be6bb461088254944b168aa4d040",
+        "worker.js": "97b71508393742847ca95d48343d72dee547f345aaa07993428f5b36eb6f1f5e",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-OD5YJY2H.js": "b69bab886e20f1e43d98269c4ddcdfd630cb3b4784bb13852b5173f638a5221e",
+        "chunk-EOVIRKN4.js": "21ff1062cb7d5a956559b073f17d82c49af8b6df1ef0d54298636cc30195d473",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+        "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+        "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+      },
+      "seedProof": {
+        "type": "qa-seed-common-ready",
+        "requestId": "common-seed-2",
+        "planeSHA": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "solvent": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+        },
+        "commonSHA": {
+          "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+          "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "paperContexts": {
+          "settle": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passes": {
+            "w": 1024,
+            "h": 1024
+          },
+          "ribbon": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passesTexture": true,
+          "ribbonTexture": true
+        },
+        "roundtripExact": true,
+        "sourceEncoding": "optical-density",
+        "nativeInterpretation": "numerical-carrier",
+        "nativeCompositeFair": false,
+        "pigmentScale": 0.5,
+        "seedEncodingScale": 0.5,
+        "sourceDisplayDensityScale": 0.6781914893617021,
+        "policy": "common-optical-seed-v1",
+        "qualification": "Explicit synthetic native material; independently read all source planes and actual sampled paper. Fixedscale .5 conversion separate from historical autoScale.",
+        "metadata": {
+          "seed": 805,
+          "p": "A=B=commonA,R=G=round(A*water/255)",
+          "coverage": "A255 on wet-or-pigment,R128,G0,Bwater",
+          "foreign": "zero",
+          "original": "transparent",
+          "paperWorld": [
+            1024,
+            1024
+          ],
+          "paperScale": 1,
+          "paperScope": "engine and all settle/passes/ribbon callbacks; restored finally"
+        },
+        "rawSHA": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "water": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreignWater": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        }
+      },
+      "goal": {
+        "samples": [
+          {
+            "submitJsMs": 179.79999995231628,
+            "runToDependentMs": 190,
+            "totalReadyMs": 369.7999999523163,
+            "iterations": 91,
+            "status": 36053,
+            "glError": 0,
+            "probeRGBA": [
+              0,
+              95,
+              163,
+              199
+            ],
+            "logicalReadBytes": 4,
+            "qualification": "Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.",
+            "nativeFeatherCache": {
+              "fillDraws": 1,
+              "consumerCalls": 45,
+              "cacheHits": 44
+            }
+          }
+        ],
+        "hashes": [
+          {
+            "p": "3510f8315af1e96126dd06e462bb899645d170a8b2d94992eca05dd57793bfda",
+            "c": "c2b7e2fc621caf0a6efed31a29591d246120dec4a08f5d37a3f4bf51ef6da56c",
+            "coverage": "d0bedcbd6f8d2d5537b50163031485443c9dd99b899e8e8daf34b7d44ea5dd2a"
+          }
+        ],
+        "png": {
+          "file": "mini-wave-cache.png",
+          "sha256": "15e54db5dacd2e0dd22d80db136d3870697988f663d13129a8fc30ca0ce9d248"
+        },
+        "dryChangedPixels": 0,
+        "rawSHAAfter": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "water": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreignWater": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8"
+        }
+      },
+      "seedAfter": {
+        "type": "qa-seed-common-ready",
+        "requestId": "common-seed-4",
+        "planeSHA": {
+          "p": "6606d2e06510e581ad32b790ee956a4c8f61d27e604420168c5774e49cf1161d",
+          "c": "44f6c799f67ab5279f5011941fb567eaea5137f3806fe4898c05179da119424f",
+          "coverage": "9e6a00a4e10bed7b562aca93f246e5db36c9c9f276d521c1ba88dcd8fa38b81e",
+          "solvent": "bab7eed6b43d79ffeab30f9adda0200853ed70059f26ca5adca35681b989c2a9",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "eb5934b3dfad1c526449180c1c543e39903d075a30c4820b33a8cc7dc320e6b5"
+        },
+        "commonSHA": {
+          "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+          "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+          "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+        },
+        "paperContexts": {
+          "settle": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passes": {
+            "w": 1024,
+            "h": 1024
+          },
+          "ribbon": {
+            "w": 1024,
+            "h": 1024
+          },
+          "passesTexture": true,
+          "ribbonTexture": true
+        },
+        "roundtripExact": true,
+        "sourceEncoding": "optical-density",
+        "nativeInterpretation": "numerical-carrier",
+        "nativeCompositeFair": false,
+        "pigmentScale": 0.5,
+        "seedEncodingScale": 0.5,
+        "sourceDisplayDensityScale": 0.6781914893617021,
+        "policy": "common-optical-seed-v1",
+        "qualification": "Explicit synthetic native material; independently read all source planes and actual sampled paper. Fixedscale .5 conversion separate from historical autoScale.",
+        "metadata": {
+          "seed": 805,
+          "p": "A=B=commonA,R=G=round(A*water/255)",
+          "coverage": "A255 on wet-or-pigment,R128,G0,Bwater",
+          "foreign": "zero",
+          "original": "transparent",
+          "paperWorld": [
+            1024,
+            1024
+          ],
+          "paperScale": 1,
+          "paperScope": "engine and all settle/passes/ribbon callbacks; restored finally"
+        }
+      },
+      "sourceStable": true,
+      "pass": true,
+      "errors": [],
+      "contextClosed": true,
+      "manifestFlags": {
+        "frontZero": true,
+        "frontJumpZero": true,
+        "frontLazy": false,
+        "frontOneOctave": false,
+        "nativeFeatherCache": true
+      },
+      "buildStableAfterRun": true
+    }
+  ],
+  "pass": true,
+  "outputEquality": [
+    {
+      "arm": "original",
+      "p": true,
+      "c": true,
+      "coverage": true
+    },
+    {
+      "arm": "lazy",
+      "p": true,
+      "c": true,
+      "coverage": true
+    },
+    {
+      "arm": "one-octave",
+      "p": false,
+      "c": false,
+      "coverage": true
+    },
+    {
+      "arm": "cache",
+      "p": true,
+      "c": true,
+      "coverage": true
+    }
+  ],
+  "previousAttempts": [
+    {
+      "version": 1,
+      "scope": "QA adapter paper texture CLAMP instead REPEAT, textured paper readback rejected; not model failure"
+    },
+    {
+      "version": 2,
+      "scope": "Seven-plane roundtrip passed but complete engine/settle/ribbon paper binding not fully scoped; goal timings not final comparison"
+    },
+    {
+      "version": 3,
+      "scope": "QA scope assignment to getter-only engine paper property rejected before solve; not model failure"
+    }
+  ]
+}

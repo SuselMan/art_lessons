@@ -23,7 +23,7 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
  const bounds={minX:0,minY:0,maxX:size,maxY:size}
  const keys=['_onStart','_onEnd','_display','_finishRibbonStroke','_scheduleDryingRepaint','_revealWash','_drawRibbonCompositeRect','_updateWetTexture','_flushLiveComposite'] as const
  const original=new Map(keys.map(k=>[k,engine[k]]))
- let replaySource:any=null,replayMode=false,diagnosticFinal=false
+ let ownedDiagnosticSource:any=null,replaySource:any=null,replayMode=false,diagnosticFinal=false
  let down=false,destroyed=false,context:any=null,epoch=0,raf=0,maskDirty=false,goalPending=false,goalAfter=0,calculating=false,wantEffect=false,showEffect=false,goalReady=false
  const locate=()=>{const scratch=replaySource??engine._ribbonStrokeScratch??engine._wash?.scratch,ctx=scratch?.finishContext;if(!ctx)return null;const tile=engine._resolveWithinSheet(ctx.target,bounds)[0],entry=tile&&scratch.peek(tile.buffer);return entry?.inkLoad&&entry.inkColor?{scratch,ctx,tile,entry}:null}
  function captureContext(){
@@ -143,6 +143,12 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
     try{engine.resumeDisplay()}finally{for(const[key,row]of retained){if(engine._replayRibbonChunks.has(key))throw Error('Replay cache identity collision');engine._replayRibbonChunks.set(key,row)}}
    }
   },
+  diagnosticSetOwnedSource(source:any){
+   if(ownedDiagnosticSource||down||calculating)throw Error('Fresh stationary diagnostic source required')
+   cancelGoal();ownedDiagnosticSource=source;replaySource=source;diagnosticFinal=false;context=null;epoch++;captureContext()
+   if(!locate()||!context)throw Error('Injected diagnostic source/context missing')
+   liveActive=false;drying=false;goalReady=false;render(raw,{p:locate()!.entry.inkLoad,c:locate()!.entry.inkColor,coverage:locate()!.entry.coverage})
+  },
   diagnosticSource(){const f=locate();if(!f)throw Error('Native source missing');return f},
   diagnosticPresentGoal(){
    const f=locate();if(!f||!target.state.done)throw Error('Completed goal required')
@@ -167,7 +173,7 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
   destroy(){
    if(destroyed)return;destroyed=true;if(raf)cancelAnimationFrame(raf)
    for(const key of keys)engine[key]=original.get(key)
-   owner.prepare=originalPrepare;target.destroy();regions.destroy();raw.destroy();dryImage.destroy();rawNext.destroy();presentation?.destroy()
+   owner.prepare=originalPrepare;target.destroy();ownedDiagnosticSource?.destroy();regions.destroy();raw.destroy();dryImage.destroy();rawNext.destroy();presentation?.destroy()
    engine._ribbonPasses.diagnosticPigmentBlot=flags.blot;engine._ribbonPainter.diagnosticBandBatch=flags.batch
    engine.diagnosticWatercolorLiftSteps=flags.lift;engine.diagnosticNativeFieldMinimum=flags.minimum
    engine._wetTexAt=0
