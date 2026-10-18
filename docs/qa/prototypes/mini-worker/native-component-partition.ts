@@ -11,12 +11,15 @@ async function hashes(planes: NativeComponentPlanes): Promise<Record<NativePlane
  const entries = await Promise.all(nativePlaneKeys.map(async k=>[k,await sha(planes[k])] as const))
  return Object.fromEntries(entries) as Record<NativePlaneKey,string>
 }
-export function partitionNativeComponents(actual: NativeComponentPlanes, width:number, height:number) {
+export function partitionNativeComponents(actual: NativeComponentPlanes, width:number, height:number, observe?:(label:string,wallMs:number)=>void, now:()=>number=()=>performance.now()) {
+ const clock=()=>observe?now():0;let boundary=clock()
+ const mark=(label:string)=>{const next=clock();observe?.(label,next-boundary);boundary=next}
  const n=width*height
  if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<1||height<1||!Number.isSafeInteger(n)||n>1024*1024) throw Error('Invalid bounded component dimensions')
  for(const k of nativePlaneKeys) if(!(actual[k] instanceof Uint8Array)||actual[k].length!==n*4) throw Error('Invalid native plane '+k)
  // Own snapshot prevents asynchronous hashing from observing a later source upload.
  const source=Object.fromEntries(nativePlaneKeys.map(k=>[k,new Uint8Array(actual[k])])) as NativeComponentPlanes
+ mark('validate-and-copy-seven-planes')
  const labels=new Int32Array(n).fill(-1), order=new Uint32Array(n)
  const components: {id:number;pixelCount:number;pigmented:boolean;start:number;end:number}[]=[]
  let used=0
@@ -43,6 +46,7 @@ export function partitionNativeComponents(actual: NativeComponentPlanes, width:n
   used=begin+tail
   components.push(Object.freeze({id,pixelCount:tail,pigmented,start:begin,end:used}))
  }
+ mark('allocate-labels-and-find-four-connected-water')
  // Independent linear validation before any native solve: reject malformed partition,
  // never feed a partially trusted mask to the GPU. No device/JIT cause is presumed.
  const counts=new Uint32Array(components.length),coloured=new Uint8Array(components.length),orderSeen=new Uint8Array(n)
@@ -63,10 +67,14 @@ export function partitionNativeComponents(actual: NativeComponentPlanes, width:n
  }
  if(rangeEnd!==used||used!==expectedWet||used>n)throw Error('Native component total invariant failed')
 
+ mark('independent-partition-validation')
  function materialize(id:number) {
+  boundary=clock()
   const c=components[id];if(!c||c.id!==id)throw Error('Unknown native component')
   const mask=new Uint8Array(n),planes=Object.fromEntries(nativePlaneKeys.map(k=>[k,materialKeys.includes(k as typeof materialKeys[number])?new Uint8Array(n*4):new Uint8Array(source[k])])) as NativeComponentPlanes
+  mark(`component-${id}-materialize-allocate-mask-and-seven-planes`)
   for(let q=c.start;q<c.end;q++){const i=order[q],j=i*4;mask[i]=1;for(const k of materialKeys)planes[k].set(source[k].subarray(j,j+4),j)}
+  mark(`component-${id}-materialize-scatter-five-material-planes`)
   return {id,mask,planes}
  }
  function dryLiteral() {
