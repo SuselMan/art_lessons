@@ -1,3 +1,4 @@
+import {auditInitialWet} from './initial-wet-audit'
 import {runCandidateFuzz} from './candidate-fuzz'
 import {assertFuzzRequest,assertFuzzConfig,createFuzzInput} from './deterministic-fuzz-input'
 import {runCandidateReuse,type ReuseInput} from './candidate-reuse'
@@ -13,7 +14,7 @@ import {definitions as gpuDefinitions,glDefinitions as backendGL} from './webgpu
 import {createFixture,fixtureInfo,fixtureIds,type FixtureId} from './fixtures'
 import {definitions as alternatives} from './alternatives'
 import {reference} from './reference'
-import type {AlgorithmConfig,AlgorithmInput,GLResult} from './protocol'
+import type {AlgorithmConfig,AlgorithmInput,GLResult,GLDefinition} from './protocol'
 const definitions=[reference,...alternatives,...macroGL,...macro2GL,...macro3GL,...backendGL]
 let busy=false
 const send=(r:unknown)=>self.postMessage(r)
@@ -41,10 +42,11 @@ function loadCapturedInput(id:string){
 function metrics(input:AlgorithmInput,output:Uint8Array){let inputMass=0,outputMass=0,lost=0,added=0,spread=0,invalidPremul=0,changed=0;for(let i=0;i<input.size*input.size;i++){const p=i*4,a=output[p+3],before=input.rgba[p+3];inputMass+=before;outputMass+=a;if(before&&!a)lost++;if(!before&&a>1)added++;if(a&&input.water[i]<5)spread++;if(output[p]>a+1||output[p+1]>a+1||output[p+2]>a+1)invalidPremul++;if(a!==before||output[p]!==input.rgba[p]||output[p+1]!==input.rgba[p+1]||output[p+2]!==input.rgba[p+2])changed++}
 return{quantity:'Sum of alpha as a pigment-mass proxy; not a physical mass measurement',inputMass,outputMass,massRatio:inputMass?outputMass/inputMass:outputMass===0?1:null,lostPixels:lost,addedPixels:added,outsideWetPixels:spread,invalidPremul,changedPixels:changed}}
 function read(gl:WebGLRenderingContext,result:GLResult,full=false){gl.bindFramebuffer(gl.FRAMEBUFFER,result.framebuffer);if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('Output framebuffer incomplete');const out=new Uint8Array(full?result.width*result.height*4:4);gl.readPixels(full?0:result.width>>1,full?0:result.height>>1,full?result.width:1,full?result.height:1,gl.RGBA,gl.UNSIGNED_BYTE,out);const error=gl.getError();if(error)throw Error('Output GLerror '+error);return out}
-async function runGL(algorithm:string,input:AlgorithmInput,config:AlgorithmConfig,repeats:number){const definition=definitions.find(x=>x.id===algorithm);if(!definition)throw Error('Unknown algorithm '+algorithm)
+async function runGL(algorithm:string,input:AlgorithmInput,config:AlgorithmConfig,repeats:number,fixedInitialWet=false){const definition=definitions.find(x=>x.id===algorithm) as GLDefinition|undefined;if(!definition)throw Error('Unknown algorithm '+algorithm)
+ const factory=fixedInitialWet?definition.createFixedInitialWet:definition.create;if(!factory)throw Error('Initial-fixed policy not implemented for '+algorithm)
  const canvas=new OffscreenCanvas(input.size,input.size),gl=canvas.getContext('webgl',{alpha:true,premultipliedAlpha:true,antialias:false,preserveDrawingBuffer:true})!;if(!gl)throw Error('WebGL1 unavailable');gl.disable(gl.DITHER)
  const renderer=gl.getExtension('WEBGL_debug_renderer_info'),hardware=renderer?gl.getParameter(renderer.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER),createStart=performance.now();let candidate:ReturnType<typeof definition.create>|null=null
- try{candidate=definition.create(gl,input.size,config);const createMs=performance.now()-createStart,samples=[];let output:Uint8Array|null=null;const hashes:string[]=[]
+ try{candidate=factory(gl,input.size,config);const createMs=performance.now()-createStart,samples=[];let output:Uint8Array|null=null;const hashes:string[]=[]
   for(let n=0;n<repeats;n++){const start=performance.now();candidate.upload(input);const uploaded=performance.now();const result=candidate.run();const submitted=performance.now();read(gl,result);const ready=performance.now()
    // The existing full read is measured separately; hashing remains outside both intervals.
    const fullReadStart=performance.now();output=read(gl,result,true);const fullReady=performance.now();samples.push({uploadJsMs:uploaded-start,submitJsMs:submitted-uploaded,runToDependentMs:ready-uploaded,totalReadyMs:ready-start,fullReadbackJsMs:fullReady-fullReadStart,totalToFullReadbackMs:fullReady-start});hashes.push(await digest(output))
@@ -57,13 +59,14 @@ async function runGL(algorithm:string,input:AlgorithmInput,config:AlgorithmConfi
 }
 declare const __QA_WGPU_ENABLED__:boolean
 let webgpuModule:Promise<any>|null=__QA_WGPU_ENABLED__?Promise.resolve({definitions:gpuDefinitions}):null
-async function runGPU(algorithm:string,input:AlgorithmInput,config:AlgorithmConfig,repeats:number,profileGPU=false,idleBetweenMs=0){
+async function runGPU(algorithm:string,input:AlgorithmInput,config:AlgorithmConfig,repeats:number,profileGPU=false,idleBetweenMs=0,fixedInitialWet=false){
  // The WebGPU registry is loaded by the build only once this direction is ready.
  if(!webgpuModule)throw Error('WebGPU candidate build is not enabled')
  const registry=await webgpuModule,definition=registry.definitions.find((x:any)=>x.id===algorithm);if(!definition)throw Error('Unknown WebGPU algorithm')
  assertDefinitionConfig(definition,config)
+ const factory=fixedInitialWet?definition.createFixedInitialWet:definition.create;if(!factory)throw Error('Initial-fixed policy not implemented for '+algorithm)
  const gpu=(self.navigator as any).gpu;if(!gpu)throw Error('WebGPU unavailable');const adapter=await gpu.requestAdapter();if(!adapter)throw Error('WebGPU adapter unavailable');if(profileGPU&&!adapter.features.has('timestamp-query'))throw Error('GPU timestamp queries unavailable');const device=await adapter.requestDevice(profileGPU?{requiredFeatures:['timestamp-query']}:{});let candidate:any=null;let profiler:ReturnType<typeof createPassProfiler>|null=null
- try{const errors:string[]=[];device.addEventListener('uncapturederror',(e:any)=>errors.push(String(e.error.message)));const startCreate=performance.now();candidate=await definition.create(device,input.size,config);const createMs=performance.now()-startCreate,samples=[],hashes:string[]=[];profiler=profileGPU?createPassProfiler(device,4):null;let output:Uint8Array|null=null
+ try{const errors:string[]=[];device.addEventListener('uncapturederror',(e:any)=>errors.push(String(e.error.message)));const startCreate=performance.now();candidate=await factory(device,input.size,config);const createMs=performance.now()-startCreate,samples=[],hashes:string[]=[];profiler=profileGPU?createPassProfiler(device,4):null;let output:Uint8Array|null=null
   for(let n=0;n<repeats;n++){let idleBeforeSampleMs=0;if(n>0&&idleBetweenMs){const idleStart=performance.now();await new Promise(resolve=>setTimeout(resolve,idleBetweenMs));idleBeforeSampleMs=performance.now()-idleStart;}const start=performance.now();await candidate.upload(input);const uploaded=performance.now();if(profiler)profiler.run(()=>candidate.run());else candidate.run();const submitted=performance.now();await device.queue.onSubmittedWorkDone();const ready=performance.now();const fullReadStart=performance.now();output=await candidate.readback();const fullReady=performance.now();const gpuPassMs=profiler?await profiler.read():undefined;samples.push({...(idleBetweenMs?{idleBeforeSampleMs,idleRequestedMs:idleBetweenMs}:{}),uploadJsMs:uploaded-start,submitJsMs:submitted-uploaded,runToDependentMs:ready-uploaded,totalReadyMs:ready-start,fullReadbackJsMs:fullReady-fullReadStart,totalToFullReadbackMs:fullReady-start,...(gpuPassMs===undefined?{}:{gpuPassMs,gpuPassMsByPass:profiler!.lastPassMs})});hashes.push(await digest(output!));if(errors.length)throw Error(errors.join('\n'))}
   return{backend:'webgpu',profileGPU,hardware:{vendor:adapter.info?.vendor??'',architecture:adapter.info?.architecture??'',device:adapter.info?.device??'',description:adapter.info?.description??''},createMs,samples,hashes,repeatExact:hashes.every(x=>x===hashes[0]),metadata:candidate.metadata??{},metrics:metrics(input,output!),output:output!,orientation:'fixture-row-order'}
  }finally{try{profiler?.destroy();candidate?.destroy()}finally{device.destroy()}}
@@ -83,12 +86,16 @@ self.onmessage=async({data})=>{if(busy){send({requestId:data.requestId,error:'Al
   const inputs:ReuseInput[]=[],fixtureSHA:Record<string,unknown>={};for(const[id,fixture]of entries){if(typeof fixture!=='string')throw Error('Invalid fixture');if(isCapturedFixture(fixture)&&data.encoding!=='optical-density')throw Error('Captured fixture requires optical-density encoding');const input=isCapturedFixture(fixture)?await loadCapturedInput(fixture):flowIds.some(id=>id===fixture)?createFlowFixture(fixture):createFixture(fixture as FixtureId,1024,data.encoding??'premultiplied-rgb');inputs.push({id,input});fixtureSHA[id]={fixture,rgba:await digest(input.rgba),water:await digest(input.water),paper:await digest(input.paper)}}
   const gpu=(self.navigator as any).gpu;if(!gpu)throw Error('WebGPU unavailable');const adapter=await gpu.requestAdapter();if(!adapter)throw Error('WebGPU adapter unavailable');const device=await adapter.requestDevice();try{const errors:string[]=[];device.addEventListener('uncapturederror',(e:any)=>errors.push(String(e.error.message)));const probe=await runCandidateReuse(device,definition,inputs,data.sequence,digest,data.config??{});if(errors.length)throw Error(errors.join('\n'));send({requestId:data.requestId,result:{algorithm:data.algorithm,config:data.config??{},fixtureSHA,hardware:{vendor:adapter.info?.vendor??'',architecture:adapter.info?.architecture??'',device:adapter.info?.device??'',description:adapter.info?.description??''},...probe}})}finally{device.destroy()}return
  }
- if(data.type!=='run')throw Error('Unknown request');const encoding=data.encoding??'premultiplied-rgb'
+ if(data.type!=='run')throw Error('Unknown request');if(data.fixedInitialWet!==undefined&&typeof data.fixedInitialWet!=='boolean')throw Error('fixedInitialWet must be boolean');const encoding=data.encoding??'premultiplied-rgb'
  if(isCapturedFixture(data.fixture)&&encoding!=='optical-density')throw Error('Captured fixture requires optical-density encoding')
  const input=isCapturedFixture(data.fixture)?await loadCapturedInput(data.fixture):flowIds.includes(data.fixture)?createFlowFixture(data.fixture):createFixture(data.fixture as FixtureId,1024,encoding),fixtureSHA={rgba:await digest(input.rgba),water:await digest(input.water),paper:await digest(input.paper)},repeats=Math.max(1,Math.min(5,Math.floor(data.repeats??3)))
  const idleBetweenMs=data.idleBetweenMs??0;if(!Number.isInteger(idleBetweenMs)||idleBetweenMs<0||idleBetweenMs>5000)throw Error('Invalid diagnostic idle interval');if(idleBetweenMs&&!data.algorithm.startsWith('wgsl-'))throw Error('Idle diagnostic currently requires WebGPU');
- const result=data.algorithm.startsWith('wgsl-')?await runGPU(data.algorithm,input,data.config??{},repeats,!!data.profileGPU,idleBetweenMs):await runGL(data.algorithm,input,data.config??{},repeats)
+ const result=data.algorithm.startsWith('wgsl-')?await runGPU(data.algorithm,input,data.config??{},repeats,!!data.profileGPU,idleBetweenMs,!!data.fixedInitialWet):await runGL(data.algorithm,input,data.config??{},repeats,!!data.fixedInitialWet)
  const {output,...report}=result
+ const fixtureSHAAfter={rgba:await digest(input.rgba),water:await digest(input.water),paper:await digest(input.paper)}
+ if(JSON.stringify(fixtureSHAAfter)!==JSON.stringify(fixtureSHA))throw Error('Algorithm changed immutable input bytes')
+ const initialWetAudit=auditInitialWet(input,output)
+ if(data.fixedInitialWet&& !initialWetAudit.dryIdentity)throw Error('Initial-fixed dry identity failed: '+JSON.stringify(initialWetAudit))
  let control:Record<string,number|boolean>|undefined
  if(data.fixture==='dry-stroke')control={exactIdentity:output.every((v,i)=>v===input.rgba[i])}
  if(data.fixture==='isolated-pools'||data.fixture==='dry-barrier'){
@@ -97,5 +104,5 @@ self.onmessage=async({data})=>{if(busy){send({requestId:data.requestId,error:'Al
   control={inputRightAlpha:inputRight,outputRightAlpha:outputRight,noCrossing:inputRight===0&&outputRight===0}
  }
  const paper=isCapturedFixture(data.fixture)?input.paper.slice():undefined
- ;(self as any).postMessage({requestId:data.requestId,result:{algorithm:data.algorithm,fixture:data.fixture,encoding,config:data.config??{},fixtureSHA,...report,flowMetrics:flowMetrics(data.fixture,input,output),dynamicMetrics:dynamicMetrics(data.fixture,input,output),...(data.measureTransport?{transportMetrics:transportMetrics(input.rgba,output,input.size,input.water)}:{}),...(control?{control}:{}),...(paper?{captureManifest:capturedRecord(data.fixture)}:{})},output,paper},[output.buffer,...(paper?[paper.buffer]:[])])
+ ;(self as any).postMessage({requestId:data.requestId,result:{algorithm:data.algorithm,fixture:data.fixture,encoding,config:data.config??{},fixtureSHA,fixtureSHAAfter,inputUnchanged:true,initialWetAudit,requestedDomainPolicy:data.fixedInitialWet?'initial-fixed-v1':'historical',...report,flowMetrics:flowMetrics(data.fixture,input,output),dynamicMetrics:dynamicMetrics(data.fixture,input,output),...(data.measureTransport?{transportMetrics:transportMetrics(input.rgba,output,input.size,input.water)}:{}),...(control?{control}:{}),...(paper?{captureManifest:capturedRecord(data.fixture)}:{})},output,paper},[output.buffer,...(paper?[paper.buffer]:[])])
  }catch(e){send({requestId:data.requestId,error:String((e as Error).stack??e)})}finally{busy=false}}

@@ -8,4 +8,4 @@ export interface AlgorithmInput {encoding?:PigmentEncoding;size:number; rgba:Uin
 export type AlgorithmConfig=Record<string,number>
 export interface GLResult {framebuffer:WebGLFramebuffer;texture:WebGLTexture;width:number;height:number}
 export interface GLAlgorithm {upload(input:AlgorithmInput):void;run():GLResult;destroy():void;metadata?:Record<string,unknown>}
-export interface GLDefinition {id:string;label:string;create(gl:WebGLRenderingContext,size:number,config:AlgorithmConfig):GLAlgorithm;configs?:AlgorithmConfig[]}
+export interface GLDefinition {id:string;label:string;create(gl:WebGLRenderingContext,size:number,config:AlgorithmConfig):GLAlgorithm;createFixedInitialWet?(gl:WebGLRenderingContext,size:number,config:AlgorithmConfig):GLAlgorithm;configs?:AlgorithmConfig[]}
