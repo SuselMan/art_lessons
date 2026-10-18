@@ -445,8 +445,8 @@
       "repeatExact": true
     }
   ],
-  "registrySourceSHA256": "e4d40f077a119aea650cd681c5fb6c21b6b750e8aea5f803cdddea267dd279ca",
-  "registrySourceFiles": 111,
+  "registrySourceSHA256": "b2a656ca3785786f0bffd83c922ded04fb06c17af3b9e81a25017c6d26bfb205",
+  "registrySourceFiles": 115,
   "summary": {
     "catalogChoices": 135,
     "nativeChoices": 4,
@@ -462,7 +462,8 @@
     "historicalMissingSlots": 3390,
     "additionalMeasuredProgramChoices": 24,
     "additionalMeasuredCandidateChoices": 1,
-    "blockedChoices": 0
+    "blockedChoices": 0,
+    "missingFixedFactoryChoices": 0
   },
   "choices": [
     {
@@ -555,7 +556,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":128,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
@@ -580,7 +582,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":128,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":128,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":1,\"steps\":256}]",
@@ -605,7 +608,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":128,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":1,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":64,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":2,\"steps\":128}]",
@@ -630,7 +634,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":64,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":2,\"steps\":128}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":64,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
@@ -655,7 +660,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":64,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":64,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":0,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
@@ -680,7 +686,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":64,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":0,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":1,\"steps\":256}]",
@@ -705,7 +712,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":1,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-coherent-physical-dt\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
@@ -726,7 +734,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-coherent-physical-dt\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-coherent-physical-dt\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":1,\"steps\":256}]",
@@ -747,7 +756,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-coherent-physical-dt\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":1,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-coherent-physical-dt\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":2,\"steps\":128}]",
@@ -768,7 +778,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-coherent-physical-dt\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":2,\"steps\":128}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-true-coherent-fine\",{\"affinityBase\":128,\"compactAux\":true,\"compactCarrier\":true,\"curlStrength\":0,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"steps\":256}]",
@@ -794,7 +805,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-true-coherent-fine\",{\"affinityBase\":128,\"compactAux\":true,\"compactCarrier\":true,\"curlStrength\":0,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-true-coherent-fine\",{\"affinityBase\":128,\"compactAux\":true,\"compactCarrier\":true,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"steps\":256}]",
@@ -820,7 +832,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-true-coherent-fine\",{\"affinityBase\":128,\"compactAux\":true,\"compactCarrier\":true,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-packed-carrier-coherent-fine\",{\"affinityBase\":1,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":3,\"steps\":256}]",
@@ -844,7 +857,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-packed-carrier-coherent-fine\",{\"affinityBase\":1,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":3,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-packed-carrier-coherent-fine\",{\"affinityBase\":128,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"steps\":256}]",
@@ -868,7 +882,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-packed-carrier-coherent-fine\",{\"affinityBase\":128,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-soft-paper-coherent-fine\",{\"affinityBase\":64,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"steps\":256}]",
@@ -892,7 +907,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-soft-paper-coherent-fine\",{\"affinityBase\":64,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-soft-paper-coherent-fine\",{\"affinityBase\":128,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"steps\":256}]",
@@ -916,7 +932,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-soft-paper-coherent-fine\",{\"affinityBase\":128,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-soft-paper-coherent-fine\",{\"affinityBase\":64,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":3,\"steps\":256}]",
@@ -940,7 +957,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-soft-paper-coherent-fine\",{\"affinityBase\":64,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":3,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-soft-paper-coherent-fine\",{\"affinityBase\":64,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":0,\"steps\":256}]",
@@ -964,7 +982,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-soft-paper-coherent-fine\",{\"affinityBase\":64,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":0,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-soft-paper-coherent-fine\",{\"affinityBase\":128,\"curlStrength\":0,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"steps\":256}]",
@@ -988,7 +1007,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-soft-paper-coherent-fine\",{\"affinityBase\":128,\"curlStrength\":0,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-coherent-fast-initial\",{\"curlStrength\":128,\"eddyCells\":16,\"mobilityGain\":3,\"steps\":256}]",
@@ -1008,7 +1028,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-coherent-fast-initial\",{\"curlStrength\":128,\"eddyCells\":16,\"mobilityGain\":3,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-fast-coherent-smooth-fine-paper\",{\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":3,\"steps\":256}]",
@@ -1031,7 +1052,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-fast-coherent-smooth-fine-paper\",{\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":3,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-fast-coherent-smooth-fine-paper\",{\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":0,\"mobilityGain\":3,\"paperGain\":0,\"steps\":256}]",
@@ -1054,7 +1076,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-fast-coherent-smooth-fine-paper\",{\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":0,\"mobilityGain\":3,\"paperGain\":0,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-coherent-smooth-fine-paper\",{\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":3,\"steps\":256}]",
@@ -1077,7 +1100,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-coherent-smooth-fine-paper\",{\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":3,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-coherent-safe-dither\",{\"curlStrength\":128,\"eddyCells\":16,\"mobilityGain\":3,\"steps\":256}]",
@@ -1097,7 +1121,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-coherent-safe-dither\",{\"curlStrength\":128,\"eddyCells\":16,\"mobilityGain\":3,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-mobility-smooth-fine-paper\",{\"dither\":1,\"fineSteps\":0,\"mobilityGain\":3,\"paperGain\":0,\"steps\":256}]",
@@ -1118,7 +1143,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-mobility-smooth-fine-paper\",{\"dither\":1,\"fineSteps\":0,\"mobilityGain\":3,\"paperGain\":0,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-mobility-smooth-fine-paper\",{\"dither\":1,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":0,\"steps\":256}]",
@@ -1139,7 +1165,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-mobility-smooth-fine-paper\",{\"dither\":1,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":0,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-mobility-smooth-fine-paper\",{\"dither\":1,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":3,\"steps\":256}]",
@@ -1160,7 +1187,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-mobility-smooth-fine-paper\",{\"dither\":1,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":3,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-coherent-advection\",{\"curlStrength\":0,\"eddyCells\":16,\"mobilityGain\":3,\"steps\":256}]",
@@ -1180,7 +1208,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-coherent-advection\",{\"curlStrength\":0,\"eddyCells\":16,\"mobilityGain\":3,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-coherent-advection\",{\"curlStrength\":128,\"eddyCells\":16,\"mobilityGain\":3,\"steps\":256}]",
@@ -1200,7 +1229,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-coherent-advection\",{\"curlStrength\":128,\"eddyCells\":16,\"mobilityGain\":3,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-integer-smooth-safe-dither\",{\"smooth\":1,\"steps\":128}]",
@@ -1218,7 +1248,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-integer-smooth-safe-dither\",{\"smooth\":1,\"steps\":128}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-mobility-calibration\",{\"mobilityGain\":3,\"steps\":256}]",
@@ -1236,7 +1267,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-mobility-calibration\",{\"mobilityGain\":3,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-mobility-calibration\",{\"mobilityGain\":6,\"steps\":256}]",
@@ -1254,7 +1286,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-mobility-calibration\",{\"mobilityGain\":6,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-bounded-pressure-dt\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
@@ -1275,7 +1308,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-bounded-pressure-dt\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-bounded-pressure-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
@@ -1300,7 +1334,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-bounded-pressure-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-gpu-initial-coherent-dt4\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
@@ -1321,7 +1356,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-gpu-initial-coherent-dt4\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-source-detail-fine\",{\"affinityBase\":128,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"sourceDetailGain\":0,\"steps\":64}]",
@@ -1347,7 +1383,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-source-detail-fine\",{\"affinityBase\":128,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"sourceDetailGain\":0,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-source-detail-fine\",{\"affinityBase\":128,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"sourceDetailGain\":1,\"steps\":64}]",
@@ -1373,7 +1410,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-source-detail-fine\",{\"affinityBase\":128,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"sourceDetailGain\":1,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-source-detail-fine\",{\"affinityBase\":128,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"sourceDetailGain\":2,\"steps\":64}]",
@@ -1399,7 +1437,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-source-detail-fine\",{\"affinityBase\":128,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"sourceDetailGain\":2,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-capacity-aware-lite\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
@@ -1420,7 +1459,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-capacity-aware-lite\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-gpu-initial-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
@@ -1445,7 +1485,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-gpu-initial-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-relaxed-curl-dt\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
@@ -1466,7 +1507,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-relaxed-curl-dt\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-relaxed-curl-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
@@ -1491,7 +1533,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-relaxed-curl-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-capacity-aware-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
@@ -1516,7 +1559,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-capacity-aware-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-gpu-capacity-aware-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
@@ -1541,7 +1585,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-gpu-capacity-aware-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-gpu-capacity-aware-lite\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
@@ -1562,7 +1607,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-gpu-capacity-aware-lite\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-single-pair-dt\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
@@ -1583,7 +1629,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-single-pair-dt\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-single-pair-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
@@ -1608,7 +1655,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-single-pair-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-coalesced-single-pair-dt\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
@@ -1629,7 +1677,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-coalesced-single-pair-dt\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-coalesced-single-pair-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
@@ -1654,7 +1703,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-coalesced-single-pair-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-current-exact-program\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"program\":0,\"steps\":64}]",
@@ -1676,7 +1726,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-current-exact-program\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"program\":0,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-current-exact-program\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"program\":1,\"steps\":64}]",
@@ -1698,7 +1749,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-current-exact-program\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"program\":1,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-current-exact-program\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"program\":2,\"steps\":64}]",
@@ -1720,7 +1772,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-current-exact-program\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"program\":2,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-current-exact-program\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"program\":3,\"steps\":64}]",
@@ -1742,7 +1795,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-current-exact-program\",{\"curlStrength\":64,\"eddyCells\":8,\"mobilityGain\":3,\"physicalDt\":4,\"program\":3,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"macro3-local-hydraulic-residual\",{}]",
@@ -1757,7 +1811,8 @@
       "configContract": {
         "key": "model:[\"macro3-local-hydraulic-residual\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-implicit-fine-paper\",{\"fineSteps\":8,\"paperGain\":2,\"sigma\":32}]",
@@ -1776,7 +1831,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-implicit-fine-paper\",{\"fineSteps\":8,\"paperGain\":2,\"sigma\":32}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-implicit-fine-paper\",{\"fineSteps\":8,\"paperGain\":2,\"sigma\":64}]",
@@ -1795,7 +1851,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-implicit-fine-paper\",{\"fineSteps\":8,\"paperGain\":2,\"sigma\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-implicit-fine-paper\",{\"fineSteps\":8,\"paperGain\":2,\"sigma\":96}]",
@@ -1814,7 +1871,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-implicit-fine-paper\",{\"fineSteps\":8,\"paperGain\":2,\"sigma\":96}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-dynamic-wetness-smooth\",{}]",
@@ -1829,7 +1887,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-dynamic-wetness-smooth\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-artistic-curl\",{}]",
@@ -1844,7 +1903,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-artistic-curl\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-integer-hydraulic\",{}]",
@@ -1859,7 +1919,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-integer-hydraulic\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-integer-smooth-control\",{}]",
@@ -1874,7 +1935,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-integer-smooth-control\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-integer-mixing-smooth\",{}]",
@@ -1889,7 +1951,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-integer-mixing-smooth\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-wetness-conductance\",{\"steps\":256}]",
@@ -1906,7 +1969,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-wetness-conductance\",{\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-local-smooth-control\",{\"steps\":256}]",
@@ -1923,7 +1987,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-local-smooth-control\",{\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-coherent-gated-exchange\",{\"curlStrength\":64,\"eddyCells\":8,\"exchangeActiveSteps\":256,\"mobilityGain\":3,\"steps\":256}]",
@@ -1944,7 +2009,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-coherent-gated-exchange\",{\"curlStrength\":64,\"eddyCells\":8,\"exchangeActiveSteps\":256,\"mobilityGain\":3,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-coherent-gated-exchange\",{\"curlStrength\":64,\"eddyCells\":8,\"exchangeActiveSteps\":128,\"mobilityGain\":3,\"steps\":256}]",
@@ -1965,7 +2031,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-coherent-gated-exchange\",{\"curlStrength\":64,\"eddyCells\":8,\"exchangeActiveSteps\":128,\"mobilityGain\":3,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-coherent-gated-exchange\",{\"curlStrength\":64,\"eddyCells\":8,\"exchangeActiveSteps\":64,\"mobilityGain\":3,\"steps\":256}]",
@@ -1986,7 +2053,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-coherent-gated-exchange\",{\"curlStrength\":64,\"eddyCells\":8,\"exchangeActiveSteps\":64,\"mobilityGain\":3,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-packed-aux-coherent-fine\",{\"affinityBase\":128,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"steps\":256}]",
@@ -2010,7 +2078,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-packed-aux-coherent-fine\",{\"affinityBase\":128,\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":1,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-terminal-rim-coherent-fine\",{\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":0,\"rimStrength\":0,\"rimThreshold\":64,\"steps\":256}]",
@@ -2035,7 +2104,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-terminal-rim-coherent-fine\",{\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":0,\"rimStrength\":0,\"rimThreshold\":64,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-terminal-rim-coherent-fine\",{\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":0,\"rimStrength\":128,\"rimThreshold\":64,\"steps\":256}]",
@@ -2060,7 +2130,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-terminal-rim-coherent-fine\",{\"curlStrength\":128,\"dither\":1,\"eddyCells\":16,\"fineSteps\":12,\"mobilityGain\":3,\"paperGain\":0,\"rimStrength\":128,\"rimThreshold\":64,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-limited-coherent-advection\",{\"curlStrength\":64,\"eddyCells\":8,\"exchangeActiveSteps\":128,\"limiter\":0,\"mobilityGain\":3,\"steps\":256}]",
@@ -2082,7 +2153,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-limited-coherent-advection\",{\"curlStrength\":64,\"eddyCells\":8,\"exchangeActiveSteps\":128,\"limiter\":0,\"mobilityGain\":3,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-limited-coherent-advection\",{\"curlStrength\":64,\"eddyCells\":8,\"exchangeActiveSteps\":128,\"limiter\":1,\"mobilityGain\":3,\"steps\":256}]",
@@ -2104,7 +2176,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-limited-coherent-advection\",{\"curlStrength\":64,\"eddyCells\":8,\"exchangeActiveSteps\":128,\"limiter\":1,\"mobilityGain\":3,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-limited-coherent-advection\",{\"curlStrength\":64,\"eddyCells\":8,\"exchangeActiveSteps\":64,\"limiter\":1,\"mobilityGain\":3,\"steps\":256}]",
@@ -2126,7 +2199,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-limited-coherent-advection\",{\"curlStrength\":64,\"eddyCells\":8,\"exchangeActiveSteps\":64,\"limiter\":1,\"mobilityGain\":3,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"alternative-finite-volume-exchange\",{\"adsorption\":0.08,\"coarse\":2,\"fineSmooth\":2,\"mobile\":0.8,\"paperGain\":0.25,\"share\":0.75,\"steps\":6}]",
@@ -2149,7 +2223,8 @@
       "configContract": {
         "key": "model:[\"alternative-finite-volume-exchange\",{\"adsorption\":0.08,\"coarse\":2,\"fineSmooth\":2,\"mobile\":0.8,\"paperGain\":0.25,\"share\":0.75,\"steps\":6}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"alternative-correlated-paper-deposition\",{\"adsorption\":0.09,\"coarse\":8,\"micro\":0.1,\"mobile\":0.8,\"paperBias\":1,\"paperScale\":8,\"relief\":4.5,\"share\":0.7,\"steps\":5}]",
@@ -2174,7 +2249,8 @@
       "configContract": {
         "key": "model:[\"alternative-correlated-paper-deposition\",{\"adsorption\":0.09,\"coarse\":8,\"micro\":0.1,\"mobile\":0.8,\"paperBias\":1,\"paperScale\":8,\"relief\":4.5,\"share\":0.7,\"steps\":5}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"alternative-stable-fluids\",{\"force\":2,\"projection\":4,\"resolution\":256,\"steps\":4}]",
@@ -2194,7 +2270,8 @@
       "configContract": {
         "key": "model:[\"alternative-stable-fluids\",{\"force\":2,\"projection\":4,\"resolution\":256,\"steps\":4}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"alternative-artistic-front\",{\"budget\":16,\"resolution\":256,\"rim\":0.35,\"steps\":8}]",
@@ -2214,7 +2291,8 @@
       "configContract": {
         "key": "model:[\"alternative-artistic-front\",{\"budget\":16,\"resolution\":256,\"rim\":0.35,\"steps\":8}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-d2q9-bgk\",{\"diffusion\":0.015,\"grid\":256,\"steps\":16}]",
@@ -2233,7 +2311,8 @@
       "configContract": {
         "key": "model:[\"wgsl-d2q9-bgk\",{\"diffusion\":0.015,\"grid\":256,\"steps\":16}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":0,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
@@ -2258,7 +2337,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":0,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-capacity-aware-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":0,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
@@ -2283,7 +2363,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-capacity-aware-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":0,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":4,\"steps\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-mobility-safe-fine-paper\",{\"dither\":0,\"fineSteps\":0,\"mobilityGain\":3,\"paperGain\":0,\"steps\":256}]",
@@ -2304,7 +2385,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-mobility-safe-fine-paper\",{\"dither\":0,\"fineSteps\":0,\"mobilityGain\":3,\"paperGain\":0,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-implicit\",{}]",
@@ -2319,7 +2401,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-implicit\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-darcy\",{}]",
@@ -2334,7 +2417,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-darcy\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"macro2-dense-wetpath-exchange\",{\"adsorption\":0.025,\"fineSmooth\":2,\"mobile\":0.8,\"paperGain\":0.1,\"radius\":24,\"sigma\":12,\"steps\":3}]",
@@ -2357,7 +2441,8 @@
       "configContract": {
         "key": "model:[\"macro2-dense-wetpath-exchange\",{\"adsorption\":0.025,\"fineSmooth\":2,\"mobile\":0.8,\"paperGain\":0.1,\"radius\":24,\"sigma\":12,\"steps\":3}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-implicit-sorption\",{}]",
@@ -2372,7 +2457,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-implicit-sorption\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-paper-particles\",{}]",
@@ -2387,7 +2473,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-paper-particles\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":2,\"steps\":128}]",
@@ -2412,7 +2499,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-physical-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":2,\"steps\":128}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-relaxed-curl-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":2,\"steps\":128}]",
@@ -2437,7 +2525,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-relaxed-curl-dt-fine\",{\"affinityBase\":64,\"curlStrength\":64,\"dither\":1,\"eddyCells\":8,\"fineSteps\":4,\"mobilityGain\":3,\"paperGain\":1,\"physicalDt\":2,\"steps\":128}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-dynamic-wetness-smooth-dither\",{}]",
@@ -2452,7 +2541,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-dynamic-wetness-smooth-dither\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-wetting-front-deposition\",{\"edgeStain\":0,\"steps\":256}]",
@@ -2470,7 +2560,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-wetting-front-deposition\",{\"edgeStain\":0,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-wetting-front-deposition\",{\"edgeStain\":16,\"steps\":256}]",
@@ -2488,7 +2579,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-wetting-front-deposition\",{\"edgeStain\":16,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-wetting-front-deposition\",{\"edgeStain\":48,\"steps\":256}]",
@@ -2506,7 +2598,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-wetting-front-deposition\",{\"edgeStain\":48,\"steps\":256}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-dynamic-wetness\",{\"finePaperGain\":0}]",
@@ -2523,7 +2616,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-dynamic-wetness\",{\"finePaperGain\":0}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-dynamic-wetness\",{}]",
@@ -2538,7 +2632,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-dynamic-wetness\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-paper-particles-safe\",{}]",
@@ -2553,7 +2648,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-paper-particles-safe\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-paper-particles-compact\",{}]",
@@ -2568,7 +2664,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-paper-particles-compact\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-implicit-fine-paper\",{}]",
@@ -2583,7 +2680,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-implicit-fine-paper\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"macro2-dense-wetpath-exchange\",{}]",
@@ -2598,7 +2696,8 @@
       "configContract": {
         "key": "model:[\"macro2-dense-wetpath-exchange\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"macro-multiscale-exchange\",{\"adsorption\":0.025,\"fineSmooth\":1,\"mobile\":0.8,\"paperGain\":0.15,\"program\":0,\"share\":0.75}]",
@@ -2620,7 +2719,8 @@
       "configContract": {
         "key": "model:[\"macro-multiscale-exchange\",{\"adsorption\":0.025,\"fineSmooth\":1,\"mobile\":0.8,\"paperGain\":0.15,\"program\":0,\"share\":0.75}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"macro-wet-geodesic-exchange\",{\"cycles\":2,\"distance\":96,\"mobile\":0.8,\"share\":0.35}]",
@@ -2640,7 +2740,8 @@
       "configContract": {
         "key": "model:[\"macro-wet-geodesic-exchange\",{\"cycles\":2,\"distance\":96,\"mobile\":0.8,\"share\":0.35}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-implicit\",{\"concentration\":0,\"cycles\":2,\"grid\":256,\"mobile\":1,\"paperDrag\":0.5,\"sigma\":64}]",
@@ -2662,7 +2763,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-implicit\",{\"concentration\":0,\"cycles\":2,\"grid\":256,\"mobile\":1,\"paperDrag\":0.5,\"sigma\":64}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-macro-darcy\",{\"flow\":0.2,\"grid\":128,\"mixing\":0.2,\"mobile\":1,\"paperHead\":0.2,\"solutalPressure\":0.5,\"steps\":128}]",
@@ -2685,7 +2787,8 @@
       "configContract": {
         "key": "model:[\"wgsl-macro-darcy\",{\"flow\":0.2,\"grid\":128,\"mixing\":0.2,\"mobile\":1,\"paperHead\":0.2,\"solutalPressure\":0.5,\"steps\":128}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"alternative-finite-volume-exchange\",{}]",
@@ -2700,7 +2803,8 @@
       "configContract": {
         "key": "model:[\"alternative-finite-volume-exchange\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"alternative-correlated-paper-deposition\",{}]",
@@ -2715,7 +2819,8 @@
       "configContract": {
         "key": "model:[\"alternative-correlated-paper-deposition\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"alternative-stable-fluids\",{}]",
@@ -2730,7 +2835,8 @@
       "configContract": {
         "key": "model:[\"alternative-stable-fluids\",{}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4369}]",
@@ -2765,7 +2871,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4369}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4369}]",
@@ -2800,7 +2907,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4369}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4388}]",
@@ -2835,7 +2943,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4388}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4388}]",
@@ -2870,7 +2979,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4388}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4369}]",
@@ -2905,7 +3015,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4369}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4369}]",
@@ -2940,7 +3051,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4369}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4388}]",
@@ -2975,7 +3087,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4388}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4388}]",
@@ -3010,7 +3123,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4388}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4369}]",
@@ -3045,7 +3159,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4369}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4369}]",
@@ -3080,7 +3195,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4369}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4388}]",
@@ -3115,7 +3231,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":4,\"programRim\":0,\"programTransportCode\":4388}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4388}]",
@@ -3150,7 +3267,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":4,\"programRim\":1,\"programTransportCode\":4388}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4369}]",
@@ -3185,7 +3303,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4369}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4369}]",
@@ -3220,7 +3339,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4369}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4388}]",
@@ -3255,7 +3375,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4388}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4388}]",
@@ -3290,7 +3411,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":70216,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4388}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4369}]",
@@ -3325,7 +3447,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4369}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4369}]",
@@ -3360,7 +3483,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4369}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4388}]",
@@ -3395,7 +3519,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4388}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4388}]",
@@ -3430,7 +3555,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":4388,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4388}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4369}]",
@@ -3465,7 +3591,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4369}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4369}]",
@@ -3500,7 +3627,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4369}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4388}]",
@@ -3535,7 +3663,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":8,\"programRim\":0,\"programTransportCode\":4388}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4388}]",
@@ -3570,7 +3699,8 @@
       "configContract": {
         "key": "model:[\"search-artistic-program\",{\"programDslVersion\":1,\"programFrontCode\":292,\"programNeighbors\":8,\"programRim\":1,\"programTransportCode\":4388}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     },
     {
       "key": "model:[\"wgsl-fixed-wet-b-lite-coherent\",{\"fineSteps\":12}]",
@@ -3601,7 +3731,8 @@
       "configContract": {
         "key": "model:[\"wgsl-fixed-wet-b-lite-coherent\",{\"fineSteps\":12}]",
         "valid": true
-      }
+      },
+      "fixedFactoryAvailable": true
     }
   ],
   "matrix": [
@@ -8573,5 +8704,12 @@
         }
       ]
     }
-  ]
+  ],
+  "externalCoverageSummary": {
+    "matchedSceneResults": 6,
+    "publishedActualVariants": 660,
+    "knownExternalResultsNotYetPublished": 6,
+    "knownMissingSlots": 3384,
+    "qualification": "B-lite exact input/config/encoding and independent report-source raw audit. Not current-build certification; only 4 diagnostic thin/bulk cases excluded from30."
+  }
 }

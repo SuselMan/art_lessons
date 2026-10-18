@@ -2,7 +2,7 @@
   "qualification": "Runnable request inventory, NOT execution fulfillment. Blocked jobs MUST NOT run until named source/domain/format gate is satisfied. Existing results certify only historical policy. No GPU operations performed.",
   "catalogChoicePlan": "comparison-coverage-plan.json",
   "fullJobManifestFile": "review-135x30-job-manifest.json",
-  "fullJobManifestSHA256": "2aa96eb209b1cdf2de9e427cf271b9dcce55ecda845e6b325fd04b530b585f87",
+  "fullJobManifestSHA256": "fbd5184a9608c50efe88f9944595cf8a386a188fa30817d300f5d6d3876357c0",
   "summary": {
     "scenes": 30,
     "choices": 135,
@@ -10,21 +10,14 @@
     "states": {
       "ready-native-forward-requires-proof": 120,
       "ready-no-solver": 30,
-      "ready-fixed-candidate-unvalidated": 3714,
-      "blocked-fixed-adapter": 180,
+      "ready-fixed-candidate-unvalidated": 3894,
       "completed-fixed-external": 6
     },
     "externalResultsAvailable": 6,
     "fixedDomainCertified": 6
   },
-  "registrySHA": "e4d40f077a119aea650cd681c5fb6c21b6b750e8aea5f803cdddea267dd279ca",
-  "blockedFixedAdapterByAlgorithm": {
-    "wgsl-macro-dynamic-wetness-smooth": 30,
-    "wgsl-macro-artistic-curl": 30,
-    "wgsl-d2q9-bgk": 30,
-    "wgsl-macro-dynamic-wetness-smooth-dither": 30,
-    "wgsl-macro-dynamic-wetness": 60
-  },
+  "registrySHA": "b2a656ca3785786f0bffd83c922ded04fb06c17af3b9e81a25017c6d26bfb205",
+  "blockedFixedAdapterByAlgorithm": {},
   "externalFixedEvidence": [
     {
       "scene": "mini-wave",
@@ -134,6 +127,16 @@
       "id": "mini-wave",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 26769384,
+      "wetPixels": 221487,
+      "maxRGBToAlpha": 0.6,
       "encoding": "optical-density",
       "reference": {
         "kind": "immutable-catalog-binary",
@@ -141,14 +144,7 @@
         "binarySHA": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
         "metadataSHA": "a37a753400dabe5fa27723335545f370db7d6601ae17ed527f51552341afe8ff"
       },
-      "sha": {
-        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
-        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
-        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -191,12 +187,23 @@
         "requiresCaptureBeforeSolve": true,
         "immutableRawCheckpointAvailable": false,
         "blocker": "Replay recipe exists; capture full native P/C/coverage/water/foreign, freeze raw SHA and verify converted common SHA before timed arms."
-      }
+      },
+      "source": "catalog"
     },
     {
       "id": "mini-two-colors",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "f03ca9ddcac1ca92d4c039aede7007323e527043166b5161e2e8586facf43704",
+        "water": "ceba695da63e56355e7c5b3a449eeb17281e64066378501c85f6bc24861f1ab5",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 39530046,
+      "wetPixels": 338172,
+      "maxRGBToAlpha": 0.5,
       "encoding": "optical-density",
       "reference": {
         "kind": "immutable-catalog-binary",
@@ -204,14 +211,7 @@
         "binarySHA": "d69b0e913564ebd2b7954ef9405e99c486858437833217bfddfc57f4def03d60",
         "metadataSHA": "9ea80298c050426c4308f571567342bbbf37801acdd5b40d016216adef6c0069"
       },
-      "sha": {
-        "rgba": "f03ca9ddcac1ca92d4c039aede7007323e527043166b5161e2e8586facf43704",
-        "water": "ceba695da63e56355e7c5b3a449eeb17281e64066378501c85f6bc24861f1ab5",
-        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -228,12 +228,23 @@
         "requiresCaptureBeforeSolve": true,
         "immutableRawCheckpointAvailable": false,
         "blocker": "Replay recipe exists; capture full native P/C/coverage/water/foreign, freeze raw SHA and verify converted common SHA before timed arms."
-      }
+      },
+      "source": "catalog"
     },
     {
       "id": "gallery-sheet-1-slot-17",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "b2f4e16e4f3a12a24e546f1e001040b409aff983a464d41d43bd02690fc69904",
+        "water": "3833988d2fb406dd4c30306bdede16f0d441003919e04ea8b55194a4f2f41918",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 9010145,
+      "wetPixels": 111416,
+      "maxRGBToAlpha": 1,
       "encoding": "optical-density",
       "reference": {
         "kind": "immutable-catalog-binary",
@@ -241,14 +252,7 @@
         "binarySHA": "1277b0b3efe83853f72af79194f718e670b13d75a75eb8318f6a08ec3adc825e",
         "metadataSHA": "4f2c4a0e4fd8d03e50ae0e4409a15107318b243efac277679d4b94f400e8a9b0"
       },
-      "sha": {
-        "rgba": "b2f4e16e4f3a12a24e546f1e001040b409aff983a464d41d43bd02690fc69904",
-        "water": "3833988d2fb406dd4c30306bdede16f0d441003919e04ea8b55194a4f2f41918",
-        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -265,12 +269,23 @@
         "requiresCaptureBeforeSolve": true,
         "immutableRawCheckpointAvailable": false,
         "blocker": "Replay recipe exists; capture full native P/C/coverage/water/foreign, freeze raw SHA and verify converted common SHA before timed arms."
-      }
+      },
+      "source": "catalog"
     },
     {
       "id": "gallery-sheet-2-slot-7",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "afdacb67dcfd66123ab673039530b83dcbe5c6cfbb021082265c4a4b5253f55f",
+        "water": "83986fa66fccde1600302f9268e5591030e2d4c6db41c4a3c1a3337f06a0ee7d",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 6720101,
+      "wetPixels": 124358,
+      "maxRGBToAlpha": 1,
       "encoding": "optical-density",
       "reference": {
         "kind": "immutable-catalog-binary",
@@ -278,14 +293,7 @@
         "binarySHA": "52d9cfccd269094d3bb534b3ebe11ababba452aaa799ce17ea459facb4ec9eef",
         "metadataSHA": "138c655b625caa83ecab761c1db1033fe15cbae147816bb6d64530ba6d29b193"
       },
-      "sha": {
-        "rgba": "afdacb67dcfd66123ab673039530b83dcbe5c6cfbb021082265c4a4b5253f55f",
-        "water": "83986fa66fccde1600302f9268e5591030e2d4c6db41c4a3c1a3337f06a0ee7d",
-        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -302,12 +310,23 @@
         "requiresCaptureBeforeSolve": true,
         "immutableRawCheckpointAvailable": false,
         "blocker": "Replay recipe exists; capture full native P/C/coverage/water/foreign, freeze raw SHA and verify converted common SHA before timed arms."
-      }
+      },
+      "source": "catalog"
     },
     {
       "id": "gallery-sheet-3-slot-1",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "4e3dce2299b553852a02e6d8334af9266c1538644745f62d1124255432e84e32",
+        "water": "6bc98c12086629bb7af6e8b3b7d4109b7b5ee1ea43bbb41df2565ecc518e28f2",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 2728050,
+      "wetPixels": 313216,
+      "maxRGBToAlpha": 1,
       "encoding": "optical-density",
       "reference": {
         "kind": "immutable-catalog-binary",
@@ -315,14 +334,7 @@
         "binarySHA": "566b5bff0205a1220745f8177cd37da5d2e97319e11b90814a5f2cb1ec08b03d",
         "metadataSHA": "acec9b1548624b661bb5cdec31cb28c0d28d59e3aa7b638242d84025a07156ac"
       },
-      "sha": {
-        "rgba": "4e3dce2299b553852a02e6d8334af9266c1538644745f62d1124255432e84e32",
-        "water": "6bc98c12086629bb7af6e8b3b7d4109b7b5ee1ea43bbb41df2565ecc518e28f2",
-        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -339,12 +351,23 @@
         "requiresCaptureBeforeSolve": true,
         "immutableRawCheckpointAvailable": false,
         "blocker": "Replay recipe exists; capture full native P/C/coverage/water/foreign, freeze raw SHA and verify converted common SHA before timed arms."
-      }
+      },
+      "source": "catalog"
     },
     {
       "id": "gallery-sheet-4-slot-1",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "f1e13c862acf276880d8497615173a01e4ac045e1e59c80eb28cebba130095e2",
+        "water": "08c4f5d3803ba7f6360fd78a5ac72932fc2189adefab0be26002e074cd62d50b",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 5377731,
+      "wetPixels": 95645,
+      "maxRGBToAlpha": 1,
       "encoding": "optical-density",
       "reference": {
         "kind": "immutable-catalog-binary",
@@ -352,14 +375,7 @@
         "binarySHA": "5a8e3e8f16ee532c65db461a87f5098a0e06752c3c1ae9a5bc39eaaa2011c198",
         "metadataSHA": "791501849d131778df64da36a863bedc4b70014cd087c560c810902435acbc77"
       },
-      "sha": {
-        "rgba": "f1e13c862acf276880d8497615173a01e4ac045e1e59c80eb28cebba130095e2",
-        "water": "08c4f5d3803ba7f6360fd78a5ac72932fc2189adefab0be26002e074cd62d50b",
-        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -376,12 +392,23 @@
         "requiresCaptureBeforeSolve": true,
         "immutableRawCheckpointAvailable": false,
         "blocker": "Replay recipe exists; capture full native P/C/coverage/water/foreign, freeze raw SHA and verify converted common SHA before timed arms."
-      }
+      },
+      "source": "catalog"
     },
     {
       "id": "gallery-sheet-5-slot-1",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "f4424cfaa535b582c1d19e6bb1e29d647f05b82150c4b132b7453ca0dd1d2e7d",
+        "water": "5428117c94fc4a9e9b31b5e5803abd09e922999911a817991629eb1d6fe81ff0",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 181956,
+      "wetPixels": 55774,
+      "maxRGBToAlpha": 1,
       "encoding": "optical-density",
       "reference": {
         "kind": "immutable-catalog-binary",
@@ -389,14 +416,7 @@
         "binarySHA": "3c6e26fee64a05764cc985d3b4404f8909f694b4142ef2c3eff497e29130b232",
         "metadataSHA": "1c2d8678b5b5504049638e34f780364e15d2d3c623361dd109e235aa2c804103"
       },
-      "sha": {
-        "rgba": "f4424cfaa535b582c1d19e6bb1e29d647f05b82150c4b132b7453ca0dd1d2e7d",
-        "water": "5428117c94fc4a9e9b31b5e5803abd09e922999911a817991629eb1d6fe81ff0",
-        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -413,12 +433,23 @@
         "requiresCaptureBeforeSolve": true,
         "immutableRawCheckpointAvailable": false,
         "blocker": "Replay recipe exists; capture full native P/C/coverage/water/foreign, freeze raw SHA and verify converted common SHA before timed arms."
-      }
+      },
+      "source": "catalog"
     },
     {
       "id": "gallery-sheet-6-slot-6",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "1476658cec2e4cf33e2113f38511b698e2322b30a3d441e3556d42fa5c9db6d5",
+        "water": "fac3cee7d448f8b3522fdabf35cdcfddd830e8b998563d66709bf74e15e9f6a8",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 4925731,
+      "wetPixels": 161758,
+      "maxRGBToAlpha": 1,
       "encoding": "optical-density",
       "reference": {
         "kind": "immutable-catalog-binary",
@@ -426,14 +457,7 @@
         "binarySHA": "76795ce7f63bcca1aed3d1ffd1395f864a4eda872205eda828c3ff6ba56c705b",
         "metadataSHA": "2a7712e31823c3a3f2abb79ebf7d1b1066377f671c21602a01aff81737e2c0da"
       },
-      "sha": {
-        "rgba": "1476658cec2e4cf33e2113f38511b698e2322b30a3d441e3556d42fa5c9db6d5",
-        "water": "fac3cee7d448f8b3522fdabf35cdcfddd830e8b998563d66709bf74e15e9f6a8",
-        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -450,12 +474,23 @@
         "requiresCaptureBeforeSolve": true,
         "immutableRawCheckpointAvailable": false,
         "blocker": "Replay recipe exists; capture full native P/C/coverage/water/foreign, freeze raw SHA and verify converted common SHA before timed arms."
-      }
+      },
+      "source": "catalog"
     },
     {
       "id": "gallery-sheet-7-slot-1",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "2638edf9b3177773a1f149ebfa9ad487cfe21555bcfa0c522c9ae0a436e79e10",
+        "water": "db479036ba5c13220bfc095c440b7a2fb13e5d34feeb961e1aff2651fdf16d49",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 7443096,
+      "wetPixels": 140886,
+      "maxRGBToAlpha": 1,
       "encoding": "optical-density",
       "reference": {
         "kind": "immutable-catalog-binary",
@@ -463,14 +498,7 @@
         "binarySHA": "60d1685ff317b9c4638ccdee4fd0cbf0eafaac4ae90b6b39a38ae7e259c3395f",
         "metadataSHA": "73484604d32f97184093ee04ce0d1c0f95d3063e1c765c61876e37a06b0fa433"
       },
-      "sha": {
-        "rgba": "2638edf9b3177773a1f149ebfa9ad487cfe21555bcfa0c522c9ae0a436e79e10",
-        "water": "db479036ba5c13220bfc095c440b7a2fb13e5d34feeb961e1aff2651fdf16d49",
-        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -487,12 +515,23 @@
         "requiresCaptureBeforeSolve": true,
         "immutableRawCheckpointAvailable": false,
         "blocker": "Replay recipe exists; capture full native P/C/coverage/water/foreign, freeze raw SHA and verify converted common SHA before timed arms."
-      }
+      },
+      "source": "catalog"
     },
     {
       "id": "gallery-sheet-8-slot-6",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "cfcbf2bec5aae5509c9055b5b70797e718da915cb91187993f0f4a723b558010",
+        "water": "0718baab30b7114f04cc90c3cc0da3f92ea561633a20bea2ed70ce8077ac6311",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 3074872,
+      "wetPixels": 84324,
+      "maxRGBToAlpha": 1,
       "encoding": "optical-density",
       "reference": {
         "kind": "immutable-catalog-binary",
@@ -500,14 +539,7 @@
         "binarySHA": "b7aaee0fed9fa46b7de5fcfca7cf7435c0171c7812f46f6b0aaa59a54b8e6e92",
         "metadataSHA": "097616d10f1ef5dc8502602a4bcc2ea32d692b55070ab9b4a8b6587b86fd76f7"
       },
-      "sha": {
-        "rgba": "cfcbf2bec5aae5509c9055b5b70797e718da915cb91187993f0f4a723b558010",
-        "water": "0718baab30b7114f04cc90c3cc0da3f92ea561633a20bea2ed70ce8077ac6311",
-        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -524,12 +556,23 @@
         "requiresCaptureBeforeSolve": true,
         "immutableRawCheckpointAvailable": false,
         "blocker": "Replay recipe exists; capture full native P/C/coverage/water/foreign, freeze raw SHA and verify converted common SHA before timed arms."
-      }
+      },
+      "source": "catalog"
     },
     {
       "id": "gallery-sheet-9-slot-1",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "0b3e21a28db4c5ecd913e75c9ce72dff91d6621c0fd38d32ce8826632f226aab",
+        "water": "51877279f9116064e707d25089d95a3c00bc32c8253c5c5fbb8a17fbd9245d50",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 8715636,
+      "wetPixels": 229796,
+      "maxRGBToAlpha": 1,
       "encoding": "optical-density",
       "reference": {
         "kind": "immutable-catalog-binary",
@@ -537,14 +580,7 @@
         "binarySHA": "f75c48a0caa16f147c753660b2fdb3db1721adb1a96c7eb207b7cb35d819094a",
         "metadataSHA": "8cf2c38f99ace6281514bd5447d8475792394c783d9e7e90ab7d89f57b82ca31"
       },
-      "sha": {
-        "rgba": "0b3e21a28db4c5ecd913e75c9ce72dff91d6621c0fd38d32ce8826632f226aab",
-        "water": "51877279f9116064e707d25089d95a3c00bc32c8253c5c5fbb8a17fbd9245d50",
-        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -561,12 +597,23 @@
         "requiresCaptureBeforeSolve": true,
         "immutableRawCheckpointAvailable": false,
         "blocker": "Replay recipe exists; capture full native P/C/coverage/water/foreign, freeze raw SHA and verify converted common SHA before timed arms."
-      }
+      },
+      "source": "catalog"
     },
     {
       "id": "gallery-sheet-10-slot-3",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "df021c0e6b8583a404a214b5d092eca8a751bddcad7a1eb36c290106a7c25dab",
+        "water": "d5f204f1a0fa2a3d3a2ef96f14e9085727569e50cabab919103136a13cb24183",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 7568534,
+      "wetPixels": 273867,
+      "maxRGBToAlpha": 1,
       "encoding": "optical-density",
       "reference": {
         "kind": "immutable-catalog-binary",
@@ -574,14 +621,7 @@
         "binarySHA": "00c05db5a93d15d9f1a819a073b93d1e3b259b53cb12a3a845f2d101bd83a364",
         "metadataSHA": "d546f13e0b6b34b22fbaadafda6162e8c58ffcb5e84bebd9ebb984a13a11dc30"
       },
-      "sha": {
-        "rgba": "df021c0e6b8583a404a214b5d092eca8a751bddcad7a1eb36c290106a7c25dab",
-        "water": "d5f204f1a0fa2a3d3a2ef96f14e9085727569e50cabab919103136a13cb24183",
-        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -598,12 +638,23 @@
         "requiresCaptureBeforeSolve": true,
         "immutableRawCheckpointAvailable": false,
         "blocker": "Replay recipe exists; capture full native P/C/coverage/water/foreign, freeze raw SHA and verify converted common SHA before timed arms."
-      }
+      },
+      "source": "catalog"
     },
     {
       "id": "gallery-sheet-12-slot-1",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+        "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 2420311,
+      "wetPixels": 42241,
+      "maxRGBToAlpha": 1,
       "encoding": "optical-density",
       "reference": {
         "kind": "immutable-catalog-binary",
@@ -611,14 +662,7 @@
         "binarySHA": "69113189b2a48eb6d6fdfe51b7cb4936e7f75e5aa2d81629298c0b1b264aa21a",
         "metadataSHA": "c0588c22e9840879019760419651007270838a796433261f05fba217dc5911f9"
       },
-      "sha": {
-        "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
-        "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
-        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -635,12 +679,23 @@
         "requiresCaptureBeforeSolve": true,
         "immutableRawCheckpointAvailable": false,
         "blocker": "Replay recipe exists; capture full native P/C/coverage/water/foreign, freeze raw SHA and verify converted common SHA before timed arms."
-      }
+      },
+      "source": "catalog"
     },
     {
       "id": "native-flow-pool-drop",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "ee7a6e022d82d8b2b3e0afdf558d4017ec11e4af51ea0a65882948fa7efde196",
+        "water": "71770d997651ee4911e33a963ca792dc80157b8dbb6d41daea769c5a726da626",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 189098,
+      "wetPixels": 318306,
+      "maxRGBToAlpha": 0.5,
       "encoding": "optical-density",
       "reference": {
         "kind": "immutable-catalog-binary",
@@ -648,14 +703,7 @@
         "binarySHA": "3c20c7068cd00c803b1a913343cb2024f93bc5b23667c74a3c73055cf7ccc538",
         "metadataSHA": "be4965ea1eb686fdac38c37e70439f6f23aed73a1f7b05680b02dc35c323e98d"
       },
-      "sha": {
-        "rgba": "ee7a6e022d82d8b2b3e0afdf558d4017ec11e4af51ea0a65882948fa7efde196",
-        "water": "71770d997651ee4911e33a963ca792dc80157b8dbb6d41daea769c5a726da626",
-        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -672,12 +720,23 @@
         "requiresCaptureBeforeSolve": true,
         "immutableRawCheckpointAvailable": false,
         "blocker": "Replay recipe exists; capture full native P/C/coverage/water/foreign, freeze raw SHA and verify converted common SHA before timed arms."
-      }
+      },
+      "source": "catalog"
     },
     {
       "id": "native-flow-separated-colors",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "51ba331a27b9dab2fd954160725c5e0f02c2039b33b7a00b3ef5504e7a9dd2c8",
+        "water": "0a7beada1a2c341a3b1eeb4e22b490e2fbf246c8f9f1b336f62e1ba6ad452fb6",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 349726,
+      "wetPixels": 223393,
+      "maxRGBToAlpha": 0.5,
       "encoding": "optical-density",
       "reference": {
         "kind": "immutable-catalog-binary",
@@ -685,14 +744,7 @@
         "binarySHA": "3471744208958a1c64c1e42d53be00c988d5eea11ae46f1d977c89cf3ef24e85",
         "metadataSHA": "fde441ff14f44c87d4098bfa3cbbc2830891416c1b3535c86e634ba8b169170d"
       },
-      "sha": {
-        "rgba": "51ba331a27b9dab2fd954160725c5e0f02c2039b33b7a00b3ef5504e7a9dd2c8",
-        "water": "0a7beada1a2c341a3b1eeb4e22b490e2fbf246c8f9f1b336f62e1ba6ad452fb6",
-        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -709,12 +761,23 @@
         "requiresCaptureBeforeSolve": true,
         "immutableRawCheckpointAvailable": false,
         "blocker": "Replay recipe exists; capture full native P/C/coverage/water/foreign, freeze raw SHA and verify converted common SHA before timed arms."
-      }
+      },
+      "source": "catalog"
     },
     {
       "id": "dynamic-two-strokes",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "618501f3cceeda037eb4c917b6381e51d1fd1fb0dc2a028cfcc7493502c412aa",
+        "water": "402e8bac12ac5c66db0c453efc3c7c499a635502f3c4ef4706bcc2af3509d87a",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 2848320,
+      "wetPixels": 152001,
+      "maxRGBToAlpha": 0.95,
       "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
@@ -723,14 +786,7 @@
         "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
-      "sha": {
-        "rgba": "618501f3cceeda037eb4c917b6381e51d1fd1fb0dc2a028cfcc7493502c412aa",
-        "water": "402e8bac12ac5c66db0c453efc3c7c499a635502f3c4ef4706bcc2af3509d87a",
-        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -744,12 +800,23 @@
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
-      }
+      },
+      "source": "generator"
     },
     {
       "id": "dynamic-stroke-through-pool",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "b1b307de376f256cece6325737f0b254f8b9f60ec5bcb26ba2c83fecb62d2337",
+        "water": "584ebdfb6cddb2528fb87eb2b3dd7c2202cb7ab7f8961635758f178067c0a14d",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 2583360,
+      "wetPixels": 107848,
+      "maxRGBToAlpha": 0.95,
       "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
@@ -758,14 +825,7 @@
         "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
-      "sha": {
-        "rgba": "b1b307de376f256cece6325737f0b254f8b9f60ec5bcb26ba2c83fecb62d2337",
-        "water": "584ebdfb6cddb2528fb87eb2b3dd7c2202cb7ab7f8961635758f178067c0a14d",
-        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -779,12 +839,23 @@
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
-      }
+      },
+      "source": "generator"
     },
     {
       "id": "dynamic-water-drop",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "ba6d68fd2a109a4c5964a3f0d0d38fe198fad4d560580b81027b8071b6fdfb56",
+        "water": "de9b1116b43d74c1e401e900f5ab6a059aea63da693b150373e88a540637fe38",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 12718980,
+      "wetPixels": 70661,
+      "maxRGBToAlpha": 0.95,
       "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
@@ -793,14 +864,7 @@
         "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
-      "sha": {
-        "rgba": "ba6d68fd2a109a4c5964a3f0d0d38fe198fad4d560580b81027b8071b6fdfb56",
-        "water": "de9b1116b43d74c1e401e900f5ab6a059aea63da693b150373e88a540637fe38",
-        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -814,12 +878,23 @@
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
-      }
+      },
+      "source": "generator"
     },
     {
       "id": "dynamic-wet-on-dry",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "ec6db3877c804041eb3816c7b755dcb43998a27cb7756f86e5236419afd5bbde",
+        "water": "375576e52608242cb4c83272cbd547f6a0c6eadde815963ff5114037b77ff36f",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 2029860,
+      "wetPixels": 15361,
+      "maxRGBToAlpha": 0.95,
       "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
@@ -828,14 +903,7 @@
         "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
-      "sha": {
-        "rgba": "ec6db3877c804041eb3816c7b755dcb43998a27cb7756f86e5236419afd5bbde",
-        "water": "375576e52608242cb4c83272cbd547f6a0c6eadde815963ff5114037b77ff36f",
-        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
-      },
       "historicalSHAExact": true,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -849,12 +917,23 @@
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
-      }
+      },
+      "source": "generator"
     },
     {
       "id": "flow-pool-drop",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "ccc9e3fab94be714e3b0f50b428d045d870928fe629d96cffbd286e30f8a64f8",
+        "water": "2c7fecce66310254937a423921893b8c7bf0685920cc226b1f70902e4659ea3b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 379620,
+      "wetPixels": 321645,
+      "maxRGBToAlpha": 0.95,
       "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
@@ -863,14 +942,7 @@
         "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
-      "sha": {
-        "rgba": "ccc9e3fab94be714e3b0f50b428d045d870928fe629d96cffbd286e30f8a64f8",
-        "water": "2c7fecce66310254937a423921893b8c7bf0685920cc226b1f70902e4659ea3b",
-        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
-      },
       "historicalSHAExact": false,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -890,12 +962,23 @@
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
-      }
+      },
+      "source": "generator"
     },
     {
       "id": "flow-separated-colors",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 759240,
+      "wetPixels": 260176,
+      "maxRGBToAlpha": 0.95,
       "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
@@ -904,14 +987,7 @@
         "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
-      "sha": {
-        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
-        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
-        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
-      },
       "historicalSHAExact": false,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -925,12 +1001,23 @@
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
-      }
+      },
+      "source": "generator"
     },
     {
       "id": "flow-dry-barrier",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "07f9faf678b1a6c973e0d1b490ae5c4584b34417596fd306c4e0eb8861f8a359",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 759240,
+      "wetPixels": 258964,
+      "maxRGBToAlpha": 0.95,
       "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
@@ -939,14 +1026,7 @@
         "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
-      "sha": {
-        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
-        "water": "07f9faf678b1a6c973e0d1b490ae5c4584b34417596fd306c4e0eb8861f8a359",
-        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
-      },
       "historicalSHAExact": false,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -960,12 +1040,23 @@
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
-      }
+      },
+      "source": "generator"
     },
     {
       "id": "flow-isolated-pools",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "e7b2629754b832f6e9f8b3dbddd8b623fcc9e977ddd2cfb40107c24a07b8ecc1",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 759240,
+      "wetPixels": 123034,
+      "maxRGBToAlpha": 0.95,
       "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
@@ -974,14 +1065,7 @@
         "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
-      "sha": {
-        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
-        "water": "e7b2629754b832f6e9f8b3dbddd8b623fcc9e977ddd2cfb40107c24a07b8ecc1",
-        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
-      },
       "historicalSHAExact": false,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -995,12 +1079,23 @@
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
-      }
+      },
+      "source": "generator"
     },
     {
       "id": "flow-one-pixel-wall",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "50bf4382d51a3a9667ba3e596ec7777159c90fda2614aca3936466bb2d69709b",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 759240,
+      "wetPixels": 259772,
+      "maxRGBToAlpha": 0.95,
       "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
@@ -1009,14 +1104,7 @@
         "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
-      "sha": {
-        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
-        "water": "50bf4382d51a3a9667ba3e596ec7777159c90fda2614aca3936466bb2d69709b",
-        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
-      },
       "historicalSHAExact": false,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -1030,12 +1118,23 @@
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
-      }
+      },
+      "source": "generator"
     },
     {
       "id": "flow-thin-neck",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "06295beb498adc09df992a50c632558f140ac5eccef9a399e2c376a8b302af5f",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 759240,
+      "wetPixels": 123359,
+      "maxRGBToAlpha": 0.95,
       "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
@@ -1044,14 +1143,7 @@
         "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
-      "sha": {
-        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
-        "water": "06295beb498adc09df992a50c632558f140ac5eccef9a399e2c376a8b302af5f",
-        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
-      },
       "historicalSHAExact": false,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -1065,12 +1157,23 @@
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
-      }
+      },
+      "source": "generator"
     },
     {
       "id": "flow-paper-drop",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "ccc9e3fab94be714e3b0f50b428d045d870928fe629d96cffbd286e30f8a64f8",
+        "water": "2c7fecce66310254937a423921893b8c7bf0685920cc226b1f70902e4659ea3b",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 379620,
+      "wetPixels": 321645,
+      "maxRGBToAlpha": 0.95,
       "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
@@ -1079,14 +1182,7 @@
         "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
-      "sha": {
-        "rgba": "ccc9e3fab94be714e3b0f50b428d045d870928fe629d96cffbd286e30f8a64f8",
-        "water": "2c7fecce66310254937a423921893b8c7bf0685920cc226b1f70902e4659ea3b",
-        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
-      },
       "historicalSHAExact": false,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -1100,12 +1196,23 @@
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
-      }
+      },
+      "source": "generator"
     },
     {
       "id": "flow-water-only",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 0,
+      "wetPixels": 260176,
+      "maxRGBToAlpha": 0,
       "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
@@ -1114,14 +1221,7 @@
         "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
-      "sha": {
-        "rgba": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
-        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
-        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
-      },
       "historicalSHAExact": false,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -1135,12 +1235,23 @@
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
-      }
+      },
+      "source": "generator"
     },
     {
       "id": "flow-dry-pigment",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 759240,
+      "wetPixels": 0,
+      "maxRGBToAlpha": 0.95,
       "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
@@ -1149,14 +1260,7 @@
         "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
-      "sha": {
-        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
-        "water": "30e14955ebf1352266dc2ff8067e68104607e750abb9d3b36582b8af909fcb58",
-        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
-      },
       "historicalSHAExact": false,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -1170,12 +1274,23 @@
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
-      }
+      },
+      "source": "generator"
     },
     {
       "id": "flow-near-colors",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "d6bfc7d034cba96be9ccad1eb9e1ae0939ad343ce13b67d98082549f92a7eca1",
+        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 759240,
+      "wetPixels": 260176,
+      "maxRGBToAlpha": 0.95,
       "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
@@ -1184,14 +1299,7 @@
         "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
-      "sha": {
-        "rgba": "d6bfc7d034cba96be9ccad1eb9e1ae0939ad343ce13b67d98082549f92a7eca1",
-        "water": "2b7498f5de7ff5f0c0e1adc37ad7fe3d7f8e14deb0c946534cd6ff9b84919c90",
-        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
-      },
       "historicalSHAExact": false,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -1205,12 +1313,23 @@
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
-      }
+      },
+      "source": "generator"
     },
     {
       "id": "flow-diagonal-wall",
       "size": 1024,
       "seed": 805,
+      "sha": {
+        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
+        "water": "dfdbe13c3b1c92915d505b28c571d189c5d54a5c5eed5c89bc220c07f42621e8",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "carrierRGBExceedsAlphaPixels": 0,
+      "depthWithoutMassPixels": 0,
+      "alphaSum": 759240,
+      "wetPixels": 259772,
+      "maxRGBToAlpha": 0.95,
       "encoding": "optical-density",
       "reference": {
         "kind": "deterministic-fixture",
@@ -1219,14 +1338,7 @@
         "encoding": "optical-density",
         "sourceSHA": "2e0e64565bf3c0074d3b7638d03a7f66186d5746f46d92fea772faf0a70a92d1"
       },
-      "sha": {
-        "rgba": "8f2b1b62a6d3027438de588c6551323a5cad8e133f9747e0551f5ca5ae6f8119",
-        "water": "dfdbe13c3b1c92915d505b28c571d189c5d54a5c5eed5c89bc220c07f42621e8",
-        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
-      },
       "historicalSHAExact": false,
-      "carrierRGBExceedsAlphaPixels": 0,
-      "depthWithoutMassPixels": 0,
       "native": {
         "kind": "forward-common-optical-seed-v1",
         "sourceContract": "common-optical-seed-v1",
@@ -1240,7 +1352,8 @@
         "kind": "unavailable",
         "immutableRawCheckpointAvailable": false,
         "blocker": "No native raw checkpoint or authored replay. Converted RGBA/water/paper cannot reconstruct native units/deposit/foreign planes losslessly."
-      }
+      },
+      "source": "generator"
     }
   ],
   "losslessAdapter": "Do not clamp RGB>A or rescale source bytes. A bounded RGBA8 carrier cannot encode independent depth>A losslessly. Preserve bytes, use explicit separate optical-depth/mass lanes (u16/f32) with reviewed model conversion, or declare incompatible. Native needs original raw multi-plane checkpoint/replay; common conversion is not invertible.",

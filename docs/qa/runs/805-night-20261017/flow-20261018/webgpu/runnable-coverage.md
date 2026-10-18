@@ -14,8 +14,8 @@
 
 ## Статус на момент snapshot
 
-- **3714 worker jobs:** actual factory явно поддерживает fixedInitialWet, конфигурация валидна. Статус `ready-fixed-candidate-unvalidated` означает возможность запросить проверку, а не device/quality PASS. Функция поддержки сама по себе не доказывает корректный shader/paper/packing на устройстве.
-- **180 worker jobs:**6 конфигураций пока не имеют явного fixed adapter в снимке registry: dynamic-wetness2, dynamic-wetness-smooth, artistic-curl, D2Q9 и dynamic-smooth-dither. Fallback на обычный create запрещён. Эти180 не следует запускать как fixed-policy, пока source contract не готов.
+- **3894 worker jobs:** actual factory явно поддерживает fixedInitialWet, конфигурация валидна. Статус `ready-fixed-candidate-unvalidated` означает возможность запросить проверку, а не device/quality PASS. Функция поддержки сама по себе не доказывает корректный shader/paper/packing на устройстве.
+- **0 unsupported worker choices:** все130 выбранных конфигураций имеют явную fixedInitialWet фабрику после capillary commit `0bfa6eee`. Проверка actual registry/config выполнена на CPU; компиляция capillary на устройстве и полная матрица ещё не подтверждены.
 - **6 B-lite external results:** mini-wave, sheet12, isolated-pools, one-pixel-wall, water-only, diagonal-wall. У каждого actual fixtureSHA иencoding совпали с immutable input map, а независимый audit совпал с report sourceHashes и raw outputSHA, dryChangedBytes0/invalidPremul0. Это доказательство **точного внешнего отчёта и его замороженного source**, не текущей сборки: `currentBuildCertified:false`. Оставшиеся4 B-lite diagnostics (thin1/2/7/bulk-boundary) вне30; они не превращены в новые публичные сцены. Поэтому B-lite имеет6/30 подтверждённых внешних совпадений,24 отсутствуют, а не2/28.
 - **120 native jobs:** доступна новая явно объявленная прямая конструкция `common-optical-seed-v1` из тех же common bytes. Каждый вход требует независимого GL чтения всех native source planes и actual sampled paper, exact common roundtrip и неизменности исходника до/после goal. Ранний proof проверил seed на pool-drop иmini,4goal-руки mini; это не120 готовых результатов.
 - **30 input-reference jobs:** solver не нужен; отображаются ровно исходные байты с фиксированным входозависимым оптическим масштабом.
@@ -44,3 +44,5 @@ python3 -m unittest discover -s docs/qa/prototypes/805-algorithm-search -p revie
 ```
 
 4CPU manifest tests и4coverage tests PASS: без clamp, SHA mismatch отказ, actual encoding propagation, exact external audit matching, native synthetic/nonhistorical distinction, B-lite dedup без добавления diagnostics в scenes. Ни GPU-запусков, ни новых сервисов/сборок этот подэтап не создаёт. Полный manifest должен быть перепроверен против actual frozen registry/source SHA перед запуском; изменения функций поддержки после snapshot не означают уже выполненные клетки.
+
+Финальное обновление source-capabilities после `0bfa6eee`: все130 worker choices поддержаны явно, без fallback; все30×3 input SHA и optical-density encoding неизменны. Измеренная LBM-конфигурация choice82: `{diffusion:0.015,grid:256,steps:16}`, не дефолт48шагов. Поддержка фабрики не считается выполнением дополнительных клеток. Snapshot фиксирует SHA всего actual registry, включая текущие наблюдательные metadata-изменения.
