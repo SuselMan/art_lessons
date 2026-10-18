@@ -1,3 +1,12 @@
+import {gpuCapacityDefinitions} from './macro42-gpu-capacity-aware'
+import {capacityAwareLiteDefinitions} from './macro41-capacity-aware-lite'
+import {gpuInitialFineDefinitions} from './macro39-gpu-initial-fine'
+import {currentExactSearchDefinitions} from './macro40-current-exact-search'
+import {coalescedSinglePairDefinitions} from './macro38-coalesced-single-pair'
+import {relaxedCurlDefinitions} from './macro37-relaxed-curl'
+import {sourceDetailFineDefinitions} from './macro35-source-detail-fine'
+import {capacityAwareFineDefinitions} from './macro36-capacity-aware-fine'
+import {gpuInitialDefinitions} from './macro34-gpu-initial'
 import {singlePairDtDefinitions} from './macro33-single-pair-dt'
 import {boundedPressureDefinitions} from './macro32-bounded-pressure'
 import {physicalDtFineDefinitions} from './macro31-physical-dt-fine'
@@ -47,7 +56,7 @@ import {create as glDiffusion} from './gl-diffusion'
 import {create as textureDiffusion} from './diffusion-texture'
 export interface Definition {configKeys?:readonly string[];id:string;label:string;configs:Record<string,number|boolean|undefined>[];create(device:GPUDevice,size:number,config:AlgorithmConfig):Promise<Candidate>}
 export const definitions:Definition[]=[
- ...macroDefinitions,...macro2Definitions,...particleDefinitions,...finePaperDefinitions,...compactParticleDefinitions,...safeParticleDefinitions,...capillaryDefinitions,...integerHydraulicDefinitions,...smoothCapillaryDefinitions,...curlDefinitions,...integerDynamicDefinitions,...ditherCapillaryDefinitions,...integerSmoothDefinitions,...exactProgramDefinitions,...exactFusedDefinitions,...integerDitherDefinitions,...wetnessDefinitions,...fineIntegerDefinitions,...moduloProbeDefinitions,...frontAdsorptionDefinitions,...mobilityDefinitions,...safeIntegerDitherDefinitions,...safeFineDefinitions,...smoothFineDefinitions,...coherentDefinitions,...coherentFineDefinitions,...coherentDitherDefinitions,...fastCoherentDefinitions,...fastCoherentFineDefinitions,...softPaperDefinitions,...packedAuxDefinitions,...gatedExchangeDefinitions,...packedCarrierDefinitions,...terminalRimDefinitions,...limitedAdvectionDefinitions,...trueCoherentFineDefinitions,...physicalDtDefinitions,...physicalDtFineDefinitions,...boundedPressureDefinitions,...singlePairDtDefinitions,
+ ...macroDefinitions,...macro2Definitions,...particleDefinitions,...finePaperDefinitions,...compactParticleDefinitions,...safeParticleDefinitions,...capillaryDefinitions,...integerHydraulicDefinitions,...smoothCapillaryDefinitions,...curlDefinitions,...integerDynamicDefinitions,...ditherCapillaryDefinitions,...integerSmoothDefinitions,...exactProgramDefinitions,...exactFusedDefinitions,...integerDitherDefinitions,...wetnessDefinitions,...fineIntegerDefinitions,...moduloProbeDefinitions,...frontAdsorptionDefinitions,...mobilityDefinitions,...safeIntegerDitherDefinitions,...safeFineDefinitions,...smoothFineDefinitions,...coherentDefinitions,...coherentFineDefinitions,...coherentDitherDefinitions,...fastCoherentDefinitions,...fastCoherentFineDefinitions,...softPaperDefinitions,...packedAuxDefinitions,...gatedExchangeDefinitions,...packedCarrierDefinitions,...terminalRimDefinitions,...limitedAdvectionDefinitions,...trueCoherentFineDefinitions,...physicalDtDefinitions,...physicalDtFineDefinitions,...boundedPressureDefinitions,...singlePairDtDefinitions,...gpuInitialDefinitions,...sourceDetailFineDefinitions,...capacityAwareFineDefinitions,...relaxedCurlDefinitions,...coalescedSinglePairDefinitions,...gpuInitialFineDefinitions,...currentExactSearchDefinitions,...capacityAwareLiteDefinitions,...gpuCapacityDefinitions,
  {id:'wgsl-integer-diffusion-direct',label:'WebGPU: local integer diffusion',configs:[{iterations:32,rate:24}],create:(d,s,c)=>diffusion(d,s,{...c,tiled:false})},
  {id:'wgsl-integer-diffusion-tiled4',label:'WebGPU: same local diffusion, four shared-memory steps',configs:[{iterations:32,rate:24}],create:(d,s,c)=>diffusion(d,s,{...c,tiled:true})},
  {id:'wgsl-d2q9-bgk',label:'WebGPU: D2Q9 fluid with pigment/water tracers',configs:[{grid:256,steps:48},{grid:512,steps:48},{grid:256,steps:16,diffusion:0.015},{grid:128,steps:24,diffusion:0.025}],create:lbm},

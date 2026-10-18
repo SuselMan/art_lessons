@@ -1,5 +1,17 @@
 """Short Russian review labels. Parameters remain in evidence, never imply art acceptance."""
 LABELS={
+ 'wgsl-macro-gpu-capacity-aware-fine':'Плавный цвет и мелкая бумага — подготовка на GPU',
+ 'wgsl-macro-gpu-capacity-aware-lite':'Плавный цвет — подготовка на GPU',
+ 'wgsl-macro-capacity-aware-lite':'Плавный цвет по свободной ёмкости — лёгкий вариант',
+ 'wgsl-macro-gpu-initial-fine':'Та же фактура — подготовка на GPU',
+ 'wgsl-macro-current-exact-program':'Тот же крупный шаг — поиск точной программы',
+ 'wgsl-macro-coalesced-single-pair-dt':'Тот же крупный шаг — упорядоченные пары',
+ 'wgsl-macro-coalesced-single-pair-dt-fine':'Та же фактура — упорядоченные пары',
+ 'wgsl-macro-relaxed-curl-dt':'Крупный шаг — ограниченная доля водного потока',
+ 'wgsl-macro-relaxed-curl-dt-fine':'Ограниченная доля потока с фактурой',
+ 'wgsl-macro-source-detail-fine':'Локальная фактура исходного мазка',
+ 'wgsl-macro-capacity-aware-fine':'Плавный цвет с учётом сухого материала',
+ 'wgsl-macro-gpu-initial-coherent-dt4':'Тот же крупный шаг — подготовка на GPU',
  'wgsl-macro-single-pair-dt':'Тот же крупный шаг — без повторного расчёта пар',
  'wgsl-macro-single-pair-dt-fine':'Та же фактура — без повторного расчёта пар',
  'wgsl-macro-bounded-pressure-dt':'Крупный шаг — ограниченный перенос давлением',
@@ -51,6 +63,8 @@ def review_label(algorithm,config,fallback=None):
  if 'fineSteps' in config:parts.append('без мелкого переноса' if not config['fineSteps'] else str(config['fineSteps'])+' мелких шагов')
  if config.get('paperGain')==0:parts.append('без бумажного притяжения')
  if config.get('smooth')==0:parts.append('блочное отображение')
+ if 'program' in config:parts.append('программа '+str(config['program']))
+ if 'sourceDetailGain' in config:parts.append('детали ×'+str(config['sourceDetailGain']))
  if 'physicalDt' in config:parts.append('шаг ×'+str(config['physicalDt']))
  if 'steps' in config:parts.append(str(config['steps'])+' шагов')
  return label+(' · '+', '.join(parts) if parts else '')

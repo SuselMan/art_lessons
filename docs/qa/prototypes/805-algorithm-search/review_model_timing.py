@@ -62,6 +62,6 @@ def apply_model_timing(scenes,paths):
             change=100*(g['arms'][4]['medianMs']/g['arms'][1]['medianMs']-1)
             evidence={'protocol':'ABBA/BAAB; four post5s samples per arm; totalReady, not full pen response','arms':g['arms'],'dt4ChangePercent':change,'picturesMayDiffer':True}
             variant['modelTiming']=evidence
-            variant['timeMs']=arm['medianMs'];variant['comparable']=False
+            variant['timeMs']=arm['medianMs'];variant['timingMode']='после паузы';variant['comparable']=False
             variant['note']+='\nЧередование мелкого и крупного шага после5с паузы. Картинка может меняться: это сравнение моделей. '+json.dumps(evidence,ensure_ascii=False)
     return scenes

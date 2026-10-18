@@ -3,7 +3,7 @@
 import argparse,json,subprocess,sys,hashlib
 from statistics import median
 from pathlib import Path
-from review_timing import apply_timing
+from review_timing import apply_timing,apply_paused_exact_timing
 from review_model_timing import apply_model_timing
 p=argparse.ArgumentParser();p.add_argument('manifest',type=Path);p.add_argument('output',type=Path);a=p.parse_args();m=json.loads(a.manifest.read_text());here=Path(__file__).parent;intermediate=a.manifest.parent
 native=intermediate/'current-native-cards.json';dynamic=intermediate/'current-dynamic-cards.json'
@@ -30,8 +30,14 @@ for scene in scenes:
   algorithm=v.get('evidence',{}).get('algorithm')
   return preferred.index(algorithm) if algorithm in preferred else 100
  scene['variants'].sort(key=lambda v:(priority(v), 0 if v.get('evidence',{}).get('config',{}).get('physicalDt')==4 and v.get('evidence',{}).get('config',{}).get('eddyCells')==8 else 1))
+for scene in scenes:
+ for variant in scene['variants']:
+  if variant.get('timeMs') is None:continue
+  samples=variant.get('evidence',{}).get('samples',[])[1:]
+  variant['timingMode']='после паузы' if samples and all(x.get('idleBeforeSampleMs',0)>=4900 for x in samples) else 'в серии'
 apply_timing(scenes,m.get('timingReports',[]),m.get('idleTimingReports',[]))
 apply_model_timing(scenes,m.get('modelTimingReports',[]))
+apply_paused_exact_timing(scenes,m.get('pausedExactTimingReports',[]))
 
 for report_path in m.get('nativeIdleReports',[]):
  report=json.loads(Path(report_path).read_text());assert report.get('pass') is True
@@ -47,6 +53,6 @@ for report_path in m.get('nativeIdleReports',[]):
   original['nativeIdleTiming']={'medianMs':center,'minMs':min(times),'maxMs':max(times),'samples':samples,'qualification':'Отдельная серия после5с без собственного расчёта; native reset/solve/dry/composite +1px. Не чистое GPU и не равная граница WebGPU.'}
   original['note']+='\nПосле5с без собственного расчёта: медиана '+format(center,'.1f')+'мс, диапазон '+format(min(times),'.1f')+'–'+format(max(times),'.1f')+'мс. Исходные поля и конечная картинка совпали с контрольной серией. Это отдельный режим; не смешан с числом над описанием.'
 
-data={'title':'Как разные алгоритмы меняют мазок','note':'Исследование продолжается. Переключайте варианты и исходный мазок, увеличивайте до1:1. У новых моделей проверяем перенос краски, качество и совпадение между устройствами отдельно. Время не является полным откликом Grafetto.','relatedLinks':[{'href':'report.html','label':'Проблемы, исправления и что ещё не проверено'},{'href':'eddy/index.html','label':'Подбор формы вихрей: 12 сочетаний'},{'href':'../index.html','label':'Первое сравнение13мазков'}],'scenes':scenes}
+data={'title':'Как разные алгоритмы меняют мазок','note':'Исследование продолжается. Переключайте варианты и исходный мазок, увеличивайте до1:1. У новых моделей проверяем перенос краски, качество и совпадение между устройствами отдельно. Время не является полным откликом Grafetto.','relatedLinks':[{'href':'shortlist.html','label':'Короткое сравнение основных кандидатов'},{'href':'report.html','label':'Проблемы, исправления и что ещё не проверено'},{'href':'eddy/index.html','label':'Подбор формы вихрей: 12 сочетаний'},{'href':'../index.html','label':'Первое сравнение13мазков'}],'scenes':scenes}
 combined=intermediate/'current-all-cards.json';combined.write_text(json.dumps(data,ensure_ascii=False,indent=2))
 subprocess.run([sys.executable,str(here/'compare.py'),str(combined),str(a.output)],check=True)

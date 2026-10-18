@@ -14,7 +14,9 @@ def main():
   for variant in scene['variants']:
    source=Path(variant.pop('imageSource'));assert source.is_file(),source
    content=source.read_bytes();sha=hashlib.sha256(content).hexdigest();assert content[:8]==b'\x89PNG\r\n\x1a\n'
-   name=sha+'.png';shutil.copy2(source,images/name);variant['image']='images/'+name;variant['imageSHA256']=sha
+   name=sha+'.png';target=images/name
+   if not target.exists() or not source.samefile(target):shutil.copy2(source,target)
+   variant['image']='images/'+name;variant['imageSHA256']=sha
    if variant.get('comparable'):
     assert variant.get('sameInputVerified') is True, 'Comparable ratio needs actual input verification'
     assert variant.get('timeMs',0)>0 and variant.get('baselineMs',0)>0
