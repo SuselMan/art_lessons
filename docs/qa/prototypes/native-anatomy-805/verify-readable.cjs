@@ -19,7 +19,9 @@ async function verify(target,out){
     for(const scene of ['mini-two-colors','mini-wave']){
      await page.locator('#scene').selectOption(scene);
      assert.equal(await page.locator('#simple-chain .simple-step').count(),7);
-     assert.match(await page.locator('#time-explanation').innerText(),/каждый эффект отдельно, пока неизвестно/);
+     const gpu=await page.evaluate(()=>JSON.parse(document.getElementById('anatomy-data').textContent).gpuTiming?.scenes.find(s=>s.id===document.getElementById('scene').value));
+     if(gpu){assert.equal(await page.locator('#gpu-timing-panel').isVisible(),true);assert.equal(await page.locator('.gpu-row').count(),8);const shown=await page.locator('.gpu-row').evaluateAll(rows=>rows.map(r=>Number(r.dataset.gpuMs)));assert.ok(Math.abs(shown.reduce((a,b)=>a+b,0)-gpu.representative.totalGpuMs)<.000001);assert.equal(await page.locator('#samsung-timing-body').isVisible(),false)}
+     else assert.match(await page.locator('#time-explanation').innerText(),/каждый эффект отдельно, пока неизвестно/);
      assert.match(await page.locator('#plain-overview').innerText(),scene==='mini-wave'?/после отбора не осталось/:/действительно переносится/);
      for(const step of await page.locator('#simple-chain .simple-step').all()){
       assert.match(await step.innerText(),/Получаем/);assert.match(await step.innerText(),/Почему требует работы/);
