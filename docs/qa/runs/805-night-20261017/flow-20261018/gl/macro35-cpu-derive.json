@@ -1,0 +1,272 @@
+{
+  "qualification": "VPS Node VM pure CPU derive only; NOT device/browser time, GPU or total upload. No GPU. All13 original/repeat SHA invariants pass.",
+  "sourceSHA": "ad40f1ef01cd74a6dde595d2ce2fc6a0cf617b5953865c8e2002a40d7a3c6c50",
+  "summary": {
+    "minimumMs": 59.734015,
+    "medianMs": 70.35399349999989,
+    "maximumMs": 98.0020199999999,
+    "over50ms": 26
+  },
+  "rows": [
+    {
+      "fixture": "gallery-sheet-1-slot-17",
+      "gain": 1,
+      "deriveMs": 97.69422200000008,
+      "changedPixels": 82753,
+      "corePixels": 107818,
+      "paperSHA": "a419bcce718a3c916a030bdcf55d8522acc1885c1356fd3a9b86b405ba053ed8",
+      "originalCommonBinarySHA": "1277b0b3efe83853f72af79194f718e670b13d75a75eb8318f6a08ec3adc825e",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-1-slot-17",
+      "gain": 2,
+      "deriveMs": 68.352848,
+      "changedPixels": 82753,
+      "corePixels": 107818,
+      "paperSHA": "eaf108f8d058e6056a1457f16540b68487a5d47ddc039fdd53d1a7e2e839536f",
+      "originalCommonBinarySHA": "1277b0b3efe83853f72af79194f718e670b13d75a75eb8318f6a08ec3adc825e",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-2-slot-7",
+      "gain": 1,
+      "deriveMs": 70.6567070000001,
+      "changedPixels": 81811,
+      "corePixels": 119072,
+      "paperSHA": "ee0c6ba666b1429e4c23324676a0a1e7b68f5d3c521970338bcbbf98f2169003",
+      "originalCommonBinarySHA": "52d9cfccd269094d3bb534b3ebe11ababba452aaa799ce17ea459facb4ec9eef",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-2-slot-7",
+      "gain": 2,
+      "deriveMs": 68.7319439999992,
+      "changedPixels": 81811,
+      "corePixels": 119072,
+      "paperSHA": "0dd43bd2d9ddbd06c60a0a3960978c3b7dcae5a1f1c78a1ce644b0217b89b361",
+      "originalCommonBinarySHA": "52d9cfccd269094d3bb534b3ebe11ababba452aaa799ce17ea459facb4ec9eef",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-3-slot-1",
+      "gain": 1,
+      "deriveMs": 63.461419000000205,
+      "changedPixels": 9614,
+      "corePixels": 11683,
+      "paperSHA": "67463633ed1e64583ed363e21b79f77a4706b0d4cee698148864450d1155c66e",
+      "originalCommonBinarySHA": "566b5bff0205a1220745f8177cd37da5d2e97319e11b90814a5f2cb1ec08b03d",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-3-slot-1",
+      "gain": 2,
+      "deriveMs": 61.62303400000019,
+      "changedPixels": 9614,
+      "corePixels": 11683,
+      "paperSHA": "261cd2baf3c5656c985b0c45f5c93539c2141c4e20e86a76a33157fd9739b5ef",
+      "originalCommonBinarySHA": "566b5bff0205a1220745f8177cd37da5d2e97319e11b90814a5f2cb1ec08b03d",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-4-slot-1",
+      "gain": 1,
+      "deriveMs": 63.23715800000082,
+      "changedPixels": 41903,
+      "corePixels": 60113,
+      "paperSHA": "976e4f4b1f8ef658aa765109c73e640ed6f2e7c478a8f259f1b8944200e5f22a",
+      "originalCommonBinarySHA": "5a8e3e8f16ee532c65db461a87f5098a0e06752c3c1ae9a5bc39eaaa2011c198",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-4-slot-1",
+      "gain": 2,
+      "deriveMs": 63.664246999999705,
+      "changedPixels": 41903,
+      "corePixels": 60113,
+      "paperSHA": "785ceea85fd43906016adca3cf22c7c5e9a7509662f1797dc9acf5dbc03d01d3",
+      "originalCommonBinarySHA": "5a8e3e8f16ee532c65db461a87f5098a0e06752c3c1ae9a5bc39eaaa2011c198",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-5-slot-1",
+      "gain": 1,
+      "deriveMs": 60.36789299999964,
+      "changedPixels": 941,
+      "corePixels": 1661,
+      "paperSHA": "5597025921daec58a7b73ce4c85d769d99d96a13101610cf521aad5ee8db6841",
+      "originalCommonBinarySHA": "3c6e26fee64a05764cc985d3b4404f8909f694b4142ef2c3eff497e29130b232",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-5-slot-1",
+      "gain": 2,
+      "deriveMs": 59.734015,
+      "changedPixels": 941,
+      "corePixels": 1661,
+      "paperSHA": "80f2b38242ff44edaa9cc1fb58d2fe18aba22d29710d062f3ebe9b3288ca698b",
+      "originalCommonBinarySHA": "3c6e26fee64a05764cc985d3b4404f8909f694b4142ef2c3eff497e29130b232",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-6-slot-6",
+      "gain": 1,
+      "deriveMs": 76.56377500000053,
+      "changedPixels": 78217,
+      "corePixels": 128224,
+      "paperSHA": "acc41cd12a04686a899aaa5c56800e496c1074427e875dc35d16c2d69c7e4c68",
+      "originalCommonBinarySHA": "76795ce7f63bcca1aed3d1ffd1395f864a4eda872205eda828c3ff6ba56c705b",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-6-slot-6",
+      "gain": 2,
+      "deriveMs": 70.05127999999968,
+      "changedPixels": 78217,
+      "corePixels": 128224,
+      "paperSHA": "42ffc908a4d05c488830b56eeb3243f552c530586ee2b0e978530a42eb58ada1",
+      "originalCommonBinarySHA": "76795ce7f63bcca1aed3d1ffd1395f864a4eda872205eda828c3ff6ba56c705b",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-7-slot-1",
+      "gain": 1,
+      "deriveMs": 78.03262799999993,
+      "changedPixels": 86894,
+      "corePixels": 135838,
+      "paperSHA": "f38e073dbcf473b98e596d3d342158c7747795293afddf5ea9059fdc67c39d8c",
+      "originalCommonBinarySHA": "60d1685ff317b9c4638ccdee4fd0cbf0eafaac4ae90b6b39a38ae7e259c3395f",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-7-slot-1",
+      "gain": 2,
+      "deriveMs": 85.86477600000035,
+      "changedPixels": 86894,
+      "corePixels": 135838,
+      "paperSHA": "4690cad010a5c8b4d37a139b6dae514f66c23f270d901cee2e25c3becad49dcd",
+      "originalCommonBinarySHA": "60d1685ff317b9c4638ccdee4fd0cbf0eafaac4ae90b6b39a38ae7e259c3395f",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-8-slot-6",
+      "gain": 1,
+      "deriveMs": 66.49197900000036,
+      "changedPixels": 42654,
+      "corePixels": 80686,
+      "paperSHA": "d5fe6a395af27f431b7a1262f7d977889be3c6698dbb0840b60b3951de9a8bcb",
+      "originalCommonBinarySHA": "b7aaee0fed9fa46b7de5fcfca7cf7435c0171c7812f46f6b0aaa59a54b8e6e92",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-8-slot-6",
+      "gain": 2,
+      "deriveMs": 65.60319199999958,
+      "changedPixels": 42654,
+      "corePixels": 80686,
+      "paperSHA": "96f5ead5502557975423964e595c739ef323ab6aa3ef433b45cf1d07e952ccf2",
+      "originalCommonBinarySHA": "b7aaee0fed9fa46b7de5fcfca7cf7435c0171c7812f46f6b0aaa59a54b8e6e92",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-9-slot-1",
+      "gain": 1,
+      "deriveMs": 98.0020199999999,
+      "changedPixels": 113427,
+      "corePixels": 222924,
+      "paperSHA": "65f00d49ac51c97b2951bf6f5dd8f4d894edae76491579698c72c6adea9259e4",
+      "originalCommonBinarySHA": "f75c48a0caa16f147c753660b2fdb3db1721adb1a96c7eb207b7cb35d819094a",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-9-slot-1",
+      "gain": 2,
+      "deriveMs": 76.42449899999974,
+      "changedPixels": 113427,
+      "corePixels": 222924,
+      "paperSHA": "348fa27372727a42dbd6cab59cc0b98b8da467cf30a519d0e6773ce2256f662f",
+      "originalCommonBinarySHA": "f75c48a0caa16f147c753660b2fdb3db1721adb1a96c7eb207b7cb35d819094a",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-10-slot-3",
+      "gain": 1,
+      "deriveMs": 80.18997800000034,
+      "changedPixels": 140445,
+      "corePixels": 266596,
+      "paperSHA": "db4237eae3734385721a6e93bd0db059dde583dd1b6013c68fb83f307a021a9c",
+      "originalCommonBinarySHA": "00c05db5a93d15d9f1a819a073b93d1e3b259b53cb12a3a845f2d101bd83a364",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-10-slot-3",
+      "gain": 2,
+      "deriveMs": 79.07586900000024,
+      "changedPixels": 140445,
+      "corePixels": 266596,
+      "paperSHA": "e7e35e02da0564fcd65d06ca5c09e14276a388989c55111f90ee69573798726e",
+      "originalCommonBinarySHA": "00c05db5a93d15d9f1a819a073b93d1e3b259b53cb12a3a845f2d101bd83a364",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-12-slot-1",
+      "gain": 1,
+      "deriveMs": 65.127657,
+      "changedPixels": 21409,
+      "corePixels": 36272,
+      "paperSHA": "22c6f5b2efbf60f49785c241bd1d68cfc75915ddb260d0014911d73dc0053923",
+      "originalCommonBinarySHA": "69113189b2a48eb6d6fdfe51b7cb4936e7f75e5aa2d81629298c0b1b264aa21a",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "gallery-sheet-12-slot-1",
+      "gain": 2,
+      "deriveMs": 63.78395399999954,
+      "changedPixels": 21409,
+      "corePixels": 36272,
+      "paperSHA": "e7f215923b74b17b0a315200ff5240d385b25e776f1a023595c30e22109944b2",
+      "originalCommonBinarySHA": "69113189b2a48eb6d6fdfe51b7cb4936e7f75e5aa2d81629298c0b1b264aa21a",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "mini-wave",
+      "gain": 1,
+      "deriveMs": 76.9666129999996,
+      "changedPixels": 194364,
+      "corePixels": 215050,
+      "paperSHA": "f1e48cc11d4d11df89b5d531ca1b03f967d5fbb7b5db8486e0590a4e1974bb56",
+      "originalCommonBinarySHA": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "mini-wave",
+      "gain": 2,
+      "deriveMs": 74.82613600000059,
+      "changedPixels": 194364,
+      "corePixels": 215050,
+      "paperSHA": "f561d95f7b3568bdc74f996f86e85c159c1754d3731e1a550b98702cca2833d3",
+      "originalCommonBinarySHA": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "mini-two-colors",
+      "gain": 1,
+      "deriveMs": 83.87593199999992,
+      "changedPixels": 293983,
+      "corePixels": 328538,
+      "paperSHA": "5b7c2995971c7c31450f8e194700c03f0d626f8da6d6b13ab79462515edd90b4",
+      "originalCommonBinarySHA": "d69b0e913564ebd2b7954ef9405e99c486858437833217bfddfc57f4def03d60",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    },
+    {
+      "fixture": "mini-two-colors",
+      "gain": 2,
+      "deriveMs": 82.75662299999931,
+      "changedPixels": 293983,
+      "corePixels": 328538,
+      "paperSHA": "2dc7c6fa0cae9d2ee5d51c6ade6ff82999419fe7db4b732b6e56fcef6bee5602",
+      "originalCommonBinarySHA": "d69b0e913564ebd2b7954ef9405e99c486858437833217bfddfc57f4def03d60",
+      "originalPaperSHA": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+    }
+  ]
+}
