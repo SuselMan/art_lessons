@@ -1,0 +1,156 @@
+{
+  "qualification": "CPU integer packet oracle only; no GPU timing/artistic score. Static wet domain, externally supplied flow; no water solver/adsorption implemented; display uses CPU Math.exp only, never feeds back into raw u32 state.",
+  "globalLimit": 2147483647,
+  "cases": [
+    {
+      "mode": "shear",
+      "steps": 8,
+      "before": [
+        774656,
+        308652,
+        0,
+        774656
+      ],
+      "after": [
+        774656,
+        308652,
+        0,
+        774656
+      ],
+      "centerBefore": {
+        "x": 54,
+        "y": 64
+      },
+      "centerAfter": {
+        "x": 54.00118504213483,
+        "y": 64
+      },
+      "densityRCenterAfter": {
+        "x": 54.00118504213483,
+        "y": 64
+      },
+      "densityBCenterAfter": null,
+      "overlappingDensityPixels": 0,
+      "densityMax": [
+        512,
+        204,
+        0,
+        512
+      ]
+    },
+    {
+      "mode": "two-colors",
+      "steps": 8,
+      "before": [
+        356864,
+        142188,
+        356864,
+        713728
+      ],
+      "after": [
+        356864,
+        142188,
+        356864,
+        713728
+      ],
+      "centerBefore": {
+        "x": 64,
+        "y": 64
+      },
+      "centerAfter": {
+        "x": 64.0064940705703,
+        "y": 64.00751827026542
+      },
+      "densityRCenterAfter": {
+        "x": 51.47550047076758,
+        "y": 58.36130290530846
+      },
+      "densityBCenterAfter": {
+        "x": 76.53748767037303,
+        "y": 69.65373363522238
+      },
+      "overlappingDensityPixels": 0,
+      "densityMax": [
+        885,
+        354,
+        886,
+        886
+      ]
+    }
+  ],
+  "translation": [
+    {
+      "alphaByte": 1,
+      "expectedShiftX": 3,
+      "actualShiftX": 3.0817085261070716,
+      "before": [
+        12104,
+        4539,
+        0,
+        12104
+      ],
+      "after": [
+        12104,
+        4539,
+        0,
+        12104
+      ]
+    },
+    {
+      "alphaByte": 64,
+      "expectedShiftX": 3,
+      "actualShiftX": 3.0013322042300032,
+      "before": [
+        774656,
+        308652,
+        0,
+        774656
+      ],
+      "after": [
+        774656,
+        308652,
+        0,
+        774656
+      ]
+    },
+    {
+      "alphaByte": 254,
+      "expectedShiftX": 3,
+      "actualShiftX": 3.000391619091232,
+      "before": [
+        3074416,
+        1228556,
+        0,
+        3074416
+      ],
+      "after": [
+        3074416,
+        1228556,
+        0,
+        3074416
+      ]
+    },
+    {
+      "alphaByte": 255,
+      "expectedShiftX": 3,
+      "actualShiftX": 3.0003343571400833,
+      "before": [
+        3086520,
+        1234608,
+        0,
+        3086520
+      ],
+      "after": [
+        3086520,
+        1234608,
+        0,
+        3086520
+      ]
+    }
+  ],
+  "sourceSHA": "10f2cee9fd0f157b54b4701f240dbd2613dd1ca88a9f2287a6dd01253640d23b",
+  "transpose": {
+    "changedChannels": 2217,
+    "maxRawDensityCode": 4
+  }
+}
