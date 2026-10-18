@@ -1,0 +1,495 @@
+{
+  "qualification": "CPU12finephases ononeactual64paperpatch; uniform16bit carrier. No GPU, art target or native matching fit.",
+  "patch": {
+    "rect": [
+      480,
+      480,
+      64,
+      64
+    ],
+    "inputSHA": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+    "paperSHA": "13606d9611530c0b1aadd5cceb2f835d1b274b14d501fc0081d12c2156b7dad1",
+    "paperMin": 4,
+    "paperMax": 251
+  },
+  "rows": [
+    {
+      "base": 1,
+      "gain": 0,
+      "maximum": 1,
+      "witnessAffinityMin": 1,
+      "witnessAffinityMax": 1,
+      "totals": [
+        98304000,
+        49152000,
+        16384000,
+        122880000
+      ],
+      "initial": [
+        98304000,
+        49152000,
+        16384000,
+        122880000
+      ],
+      "guardPassed": true,
+      "alpha16Min": 30000,
+      "alpha16Max": 30000,
+      "descriptor": {
+        "qualification": "Descriptor only; correlation is not an art score or universal paper-physics test. Input carrierA, not displayed paper/compositor.",
+        "mask": {
+          "reference": "own carrier",
+          "thresholdByte": 8,
+          "envelopeRadius": 8,
+          "erodeRadius": 12,
+          "samples": 1600
+        },
+        "scales": [
+          {
+            "radius": 2,
+            "samples": 1600,
+            "meanAlphaByte": 117,
+            "zeroAlphaFraction": 0,
+            "belowMaskThresholdFraction": 0,
+            "residualRMSByte": 0,
+            "normalizedRMS": 0,
+            "residualMeanByte": 0,
+            "paperResidualRMSByte": 32.4241311371639,
+            "correlation": null
+          },
+          {
+            "radius": 4,
+            "samples": 1600,
+            "meanAlphaByte": 117,
+            "zeroAlphaFraction": 0,
+            "belowMaskThresholdFraction": 0,
+            "residualRMSByte": 0,
+            "normalizedRMS": 0,
+            "residualMeanByte": 0,
+            "paperResidualRMSByte": 35.71336697465048,
+            "correlation": null
+          }
+        ]
+      },
+      "rgbaSHA": "e06ca0ee6c5aba51e30478f3e9f9fac928fe99fb59bcba35a24785ba0e204f75"
+    },
+    {
+      "base": 1,
+      "gain": 1,
+      "maximum": 64,
+      "witnessAffinityMin": 2,
+      "witnessAffinityMax": 63,
+      "totals": [
+        98304000,
+        49152000,
+        16384000,
+        122880000
+      ],
+      "initial": [
+        98304000,
+        49152000,
+        16384000,
+        122880000
+      ],
+      "guardPassed": true,
+      "alpha16Min": 3962,
+      "alpha16Max": 47126,
+      "descriptor": {
+        "qualification": "Descriptor only; correlation is not an art score or universal paper-physics test. Input carrierA, not displayed paper/compositor.",
+        "mask": {
+          "reference": "own carrier",
+          "thresholdByte": 8,
+          "envelopeRadius": 8,
+          "erodeRadius": 12,
+          "samples": 1600
+        },
+        "scales": [
+          {
+            "radius": 2,
+            "samples": 1600,
+            "meanAlphaByte": 116.650625,
+            "zeroAlphaFraction": 0,
+            "belowMaskThresholdFraction": 0,
+            "residualRMSByte": 22.762866954757687,
+            "normalizedRMS": 0.19513711953757373,
+            "residualMeanByte": -0.0621499999999999,
+            "paperResidualRMSByte": 32.4241311371639,
+            "correlation": -0.9429873329253049
+          },
+          {
+            "radius": 4,
+            "samples": 1600,
+            "meanAlphaByte": 116.650625,
+            "zeroAlphaFraction": 0,
+            "belowMaskThresholdFraction": 0,
+            "residualRMSByte": 22.73968646811876,
+            "normalizedRMS": 0.19493840232848095,
+            "residualMeanByte": -0.07647376543209894,
+            "paperResidualRMSByte": 35.71336697465048,
+            "correlation": -0.9048712632844362
+          }
+        ]
+      },
+      "rgbaSHA": "73cf103042eb53e23ef63a196e5008ea64e9748efdc9925fab3e68d7ad1af4ad"
+    },
+    {
+      "base": 1,
+      "gain": 3,
+      "maximum": 192,
+      "witnessAffinityMin": 4,
+      "witnessAffinityMax": 189,
+      "totals": [
+        98304000,
+        49152000,
+        16384000,
+        122880000
+      ],
+      "initial": [
+        98304000,
+        49152000,
+        16384000,
+        122880000
+      ],
+      "guardPassed": true,
+      "alpha16Min": 3003,
+      "alpha16Max": 47258,
+      "descriptor": {
+        "qualification": "Descriptor only; correlation is not an art score or universal paper-physics test. Input carrierA, not displayed paper/compositor.",
+        "mask": {
+          "reference": "own carrier",
+          "thresholdByte": 8,
+          "envelopeRadius": 8,
+          "erodeRadius": 12,
+          "samples": 1600
+        },
+        "scales": [
+          {
+            "radius": 2,
+            "samples": 1600,
+            "meanAlphaByte": 116.66,
+            "zeroAlphaFraction": 0,
+            "belowMaskThresholdFraction": 0,
+            "residualRMSByte": 23.118218573237883,
+            "normalizedRMS": 0.19816748305535645,
+            "residualMeanByte": -0.0649999999999999,
+            "paperResidualRMSByte": 32.4241311371639,
+            "correlation": -0.9427757815807337
+          },
+          {
+            "radius": 4,
+            "samples": 1600,
+            "meanAlphaByte": 116.66,
+            "zeroAlphaFraction": 0,
+            "belowMaskThresholdFraction": 0,
+            "residualRMSByte": 23.09285286805382,
+            "normalizedRMS": 0.1979500503004785,
+            "residualMeanByte": -0.08119598765432144,
+            "paperResidualRMSByte": 35.71336697465048,
+            "correlation": -0.9045738857501964
+          }
+        ]
+      },
+      "rgbaSHA": "af81320330467d9bf2e14187dfe4a8ab9b77115dd683b6ad900bbedd1a2c2996"
+    },
+    {
+      "base": 64,
+      "gain": 0,
+      "maximum": 64,
+      "witnessAffinityMin": 64,
+      "witnessAffinityMax": 64,
+      "totals": [
+        98304000,
+        49152000,
+        16384000,
+        122880000
+      ],
+      "initial": [
+        98304000,
+        49152000,
+        16384000,
+        122880000
+      ],
+      "guardPassed": true,
+      "alpha16Min": 30000,
+      "alpha16Max": 30000,
+      "descriptor": {
+        "qualification": "Descriptor only; correlation is not an art score or universal paper-physics test. Input carrierA, not displayed paper/compositor.",
+        "mask": {
+          "reference": "own carrier",
+          "thresholdByte": 8,
+          "envelopeRadius": 8,
+          "erodeRadius": 12,
+          "samples": 1600
+        },
+        "scales": [
+          {
+            "radius": 2,
+            "samples": 1600,
+            "meanAlphaByte": 117,
+            "zeroAlphaFraction": 0,
+            "belowMaskThresholdFraction": 0,
+            "residualRMSByte": 0,
+            "normalizedRMS": 0,
+            "residualMeanByte": 0,
+            "paperResidualRMSByte": 32.4241311371639,
+            "correlation": null
+          },
+          {
+            "radius": 4,
+            "samples": 1600,
+            "meanAlphaByte": 117,
+            "zeroAlphaFraction": 0,
+            "belowMaskThresholdFraction": 0,
+            "residualRMSByte": 0,
+            "normalizedRMS": 0,
+            "residualMeanByte": 0,
+            "paperResidualRMSByte": 35.71336697465048,
+            "correlation": null
+          }
+        ]
+      },
+      "rgbaSHA": "e06ca0ee6c5aba51e30478f3e9f9fac928fe99fb59bcba35a24785ba0e204f75"
+    },
+    {
+      "base": 64,
+      "gain": 1,
+      "maximum": 127,
+      "witnessAffinityMin": 65,
+      "witnessAffinityMax": 126,
+      "totals": [
+        98304000,
+        49152000,
+        16384000,
+        122880000
+      ],
+      "initial": [
+        98304000,
+        49152000,
+        16384000,
+        122880000
+      ],
+      "guardPassed": true,
+      "alpha16Min": 23713,
+      "alpha16Max": 36322,
+      "descriptor": {
+        "qualification": "Descriptor only; correlation is not an art score or universal paper-physics test. Input carrierA, not displayed paper/compositor.",
+        "mask": {
+          "reference": "own carrier",
+          "thresholdByte": 8,
+          "envelopeRadius": 8,
+          "erodeRadius": 12,
+          "samples": 1600
+        },
+        "scales": [
+          {
+            "radius": 2,
+            "samples": 1600,
+            "meanAlphaByte": 116.724375,
+            "zeroAlphaFraction": 0,
+            "belowMaskThresholdFraction": 0,
+            "residualRMSByte": 7.170868984997568,
+            "normalizedRMS": 0.06143420331012754,
+            "residualMeanByte": -0.014499999999999975,
+            "paperResidualRMSByte": 32.4241311371639,
+            "correlation": -0.9554556363515155
+          },
+          {
+            "radius": 4,
+            "samples": 1600,
+            "meanAlphaByte": 116.724375,
+            "zeroAlphaFraction": 0,
+            "belowMaskThresholdFraction": 0,
+            "residualRMSByte": 7.163184187539663,
+            "normalizedRMS": 0.061368366183495636,
+            "residualMeanByte": -0.018395061728395053,
+            "paperResidualRMSByte": 35.71336697465048,
+            "correlation": -0.9155644891855997
+          }
+        ]
+      },
+      "rgbaSHA": "a0b90e97ef6c37c89e786f63c8a3c57a112d4603de94addb7b2e7c4e31f8d11b"
+    },
+    {
+      "base": 64,
+      "gain": 3,
+      "maximum": 255,
+      "witnessAffinityMin": 67,
+      "witnessAffinityMax": 252,
+      "totals": [
+        98304000,
+        49152000,
+        16384000,
+        122880000
+      ],
+      "initial": [
+        98304000,
+        49152000,
+        16384000,
+        122880000
+      ],
+      "guardPassed": true,
+      "alpha16Min": 17023,
+      "alpha16Max": 40886,
+      "descriptor": {
+        "qualification": "Descriptor only; correlation is not an art score or universal paper-physics test. Input carrierA, not displayed paper/compositor.",
+        "mask": {
+          "reference": "own carrier",
+          "thresholdByte": 8,
+          "envelopeRadius": 8,
+          "erodeRadius": 12,
+          "samples": 1600
+        },
+        "scales": [
+          {
+            "radius": 2,
+            "samples": 1600,
+            "meanAlphaByte": 116.681875,
+            "zeroAlphaFraction": 0,
+            "belowMaskThresholdFraction": 0,
+            "residualRMSByte": 13.228918587700196,
+            "normalizedRMS": 0.1133759513866245,
+            "residualMeanByte": -0.03127499999999991,
+            "paperResidualRMSByte": 32.4241311371639,
+            "correlation": -0.9531284408312971
+          },
+          {
+            "radius": 4,
+            "samples": 1600,
+            "meanAlphaByte": 116.681875,
+            "zeroAlphaFraction": 0,
+            "belowMaskThresholdFraction": 0,
+            "residualRMSByte": 13.21576635095761,
+            "normalizedRMS": 0.11326323262252692,
+            "residualMeanByte": -0.03972993827160492,
+            "paperResidualRMSByte": 35.71336697465048,
+            "correlation": -0.913418436200705
+          }
+        ]
+      },
+      "rgbaSHA": "53e3aac9133841ed8f7ae63888525b961cdadf9194dee998df9f66a0ebe8665c"
+    },
+    {
+      "base": 128,
+      "gain": 0,
+      "maximum": 128,
+      "witnessAffinityMin": 128,
+      "witnessAffinityMax": 128,
+      "totals": [
+        98304000,
+        49152000,
+        16384000,
+        122880000
+      ],
+      "initial": [
+        98304000,
+        49152000,
+        16384000,
+        122880000
+      ],
+      "guardPassed": true,
+      "alpha16Min": 30000,
+      "alpha16Max": 30000,
+      "descriptor": {
+        "qualification": "Descriptor only; correlation is not an art score or universal paper-physics test. Input carrierA, not displayed paper/compositor.",
+        "mask": {
+          "reference": "own carrier",
+          "thresholdByte": 8,
+          "envelopeRadius": 8,
+          "erodeRadius": 12,
+          "samples": 1600
+        },
+        "scales": [
+          {
+            "radius": 2,
+            "samples": 1600,
+            "meanAlphaByte": 117,
+            "zeroAlphaFraction": 0,
+            "belowMaskThresholdFraction": 0,
+            "residualRMSByte": 0,
+            "normalizedRMS": 0,
+            "residualMeanByte": 0,
+            "paperResidualRMSByte": 32.4241311371639,
+            "correlation": null
+          },
+          {
+            "radius": 4,
+            "samples": 1600,
+            "meanAlphaByte": 117,
+            "zeroAlphaFraction": 0,
+            "belowMaskThresholdFraction": 0,
+            "residualRMSByte": 0,
+            "normalizedRMS": 0,
+            "residualMeanByte": 0,
+            "paperResidualRMSByte": 35.71336697465048,
+            "correlation": null
+          }
+        ]
+      },
+      "rgbaSHA": "e06ca0ee6c5aba51e30478f3e9f9fac928fe99fb59bcba35a24785ba0e204f75"
+    },
+    {
+      "base": 128,
+      "gain": 1,
+      "maximum": 191,
+      "witnessAffinityMin": 129,
+      "witnessAffinityMax": 190,
+      "totals": [
+        98304000,
+        49152000,
+        16384000,
+        122880000
+      ],
+      "initial": [
+        98304000,
+        49152000,
+        16384000,
+        122880000
+      ],
+      "guardPassed": true,
+      "alpha16Min": 26439,
+      "alpha16Max": 33863,
+      "descriptor": {
+        "qualification": "Descriptor only; correlation is not an art score or universal paper-physics test. Input carrierA, not displayed paper/compositor.",
+        "mask": {
+          "reference": "own carrier",
+          "thresholdByte": 8,
+          "envelopeRadius": 8,
+          "erodeRadius": 12,
+          "samples": 1600
+        },
+        "scales": [
+          {
+            "radius": 2,
+            "samples": 1600,
+            "meanAlphaByte": 116.729375,
+            "zeroAlphaFraction": 0,
+            "belowMaskThresholdFraction": 0,
+            "residualRMSByte": 4.250806158836228,
+            "normalizedRMS": 0.03641590781100496,
+            "residualMeanByte": -0.0072749999999998935,
+            "paperResidualRMSByte": 32.4241311371639,
+            "correlation": -0.9540181219265682
+          },
+          {
+            "radius": 4,
+            "samples": 1600,
+            "meanAlphaByte": 116.729375,
+            "zeroAlphaFraction": 0,
+            "belowMaskThresholdFraction": 0,
+            "residualRMSByte": 4.244673652951179,
+            "normalizedRMS": 0.03636337171300008,
+            "residualMeanByte": -0.008796296296296689,
+            "paperResidualRMSByte": 35.71336697465048,
+            "correlation": -0.9142246621896085
+          }
+        ]
+      },
+      "rgbaSHA": "8409427bbcdb007f38243bfb71764dbd1cf28d0f0a6a363d8c0f1e96dcacf916"
+    },
+    {
+      "base": 128,
+      "gain": 3,
+      "rejected": "global affinity maximum>256",
+      "maximum": 319
+    }
+  ]
+}

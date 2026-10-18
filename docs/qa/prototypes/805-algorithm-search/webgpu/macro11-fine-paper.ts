@@ -33,7 +33,7 @@ fn unpack(v:u32)->vec4u{return vec4u(v&255u,(v>>8u)&255u,(v>>16u)&255u,v>>24u);}
  let b=(value+vec4u(threshold))/257u+literal;output[i]=b.r|(b.g<<8u)|(b.b<<16u)|(b.a<<24u);
 }`
 export interface FineConfig {steps?:number;fineSteps?:number;paperGain?:number;dither?:number;mixing?:number}
-export interface FineOverrides {baseFactory?:typeof createBase;initSourceOverride?:string;fineDepositPlane?:boolean;smoothInitialization?:boolean;stateHash?:boolean;packSourceOverride?:string;basePairSourceOverride?:string}
+export interface FineOverrides {affinityBase?:number;baseFactory?:typeof createBase;initSourceOverride?:string;fineDepositPlane?:boolean;smoothInitialization?:boolean;stateHash?:boolean;packSourceOverride?:string;basePairSourceOverride?:string}
 export async function create(device:GPUDevice,size:number,config:FineConfig={},options:FineOverrides={}):Promise<Candidate>{
  if(size!==1024)throw Error('Fine integer requires1024');const steps=integerOption(config.steps??128,1,512,'steps'),fineSteps=integerOption(config.fineSteps??12,0,32,'fineSteps'),paperGain=integerOption(config.paperGain??3,0,4,'paperGain'),dither=integerOption(config.dither??1,0,1,'dither'),mixing=integerOption(config.mixing??1,0,1,'mixing'),N=size*size
  const init=await pipeline(device,options.initSourceOverride??MACRO11_FINE_INIT,'fine-integer-init'),pair=await pipeline(device,MACRO11_FINE_PAIR,'fine-integer-paper-pair'),pack=await pipeline(device,options.packSourceOverride??MACRO11_FINE_PACK,'fine-integer-pack'),owned:GPUBuffer[]=[]
