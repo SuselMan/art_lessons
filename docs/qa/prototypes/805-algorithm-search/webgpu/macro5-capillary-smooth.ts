@@ -17,9 +17,9 @@ fn coarse(q:vec2i)->vec4f{let c=clamp(q,vec2i(0),vec2i(i32(p.n)-1));let j=u32(c.
  let b=vec4u(floor(clamp(value,vec4f(0),vec4f(1))*255.0+vec4f(.5)));
  output[i]=b.r|(b.g<<8u)|(b.b<<16u)|(b.a<<24u);
 }`
-export function create(device:GPUDevice,size:number,config:CapillaryConfig={}):Promise<Candidate>{
+export function create(device:GPUDevice,size:number,config:CapillaryConfig={},policy:{readonly fixedInitialWet?:boolean}={}):Promise<Candidate>{
  if(config.finePaperGain!==undefined&&config.finePaperGain!==0)throw Error('Smooth reconstruction requires finePaperGain0')
- return createCapillary(device,size,{...config,finePaperGain:0},{source:MACRO5_CAPILLARY_SMOOTH_PACK,reconstruction:'half-pixel bilinear clamp coarse means + separate literal initial-dry pigment; no fine paper weights'})
+ return createCapillary(device,size,{...config,finePaperGain:0},{source:MACRO5_CAPILLARY_SMOOTH_PACK,reconstruction:'half-pixel bilinear clamp coarse means + separate literal initial-dry pigment; no fine paper weights'},policy)
 }
 export const smoothCapillaryDefinitions=[{id:'wgsl-macro-dynamic-wetness-smooth',label:'Динамическое смачивание без блочной реконструкции',create,configs:[
  {grid:128,steps:96,finePaperGain:0},

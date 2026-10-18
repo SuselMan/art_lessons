@@ -14,8 +14,8 @@ fn threshold(x:u32,y:u32,seed:u32)->f32{
 }
 `
 export const MACRO6_CAPILLARY_DITHER_PACK=MACRO5_CAPILLARY_SMOOTH_PACK.replace('@compute ',hash+'@compute ').replace('let value=moved+unpack(dryOriginal[i]);','if(all(moved==vec4f(0))){output[i]=dryOriginal[i];return;}let value=moved+unpack(dryOriginal[i]);').replace(anchor,'let randomThreshold=threshold(gid.x,gid.y,bitcast<u32>(weights[p.size*p.size]));let b=vec4u(floor(clamp(value,vec4f(0),vec4f(1))*255.0+vec4f(randomThreshold)));')
-export function create(device:GPUDevice,size:number,config:CapillaryConfig={}):Promise<Candidate>{
+export function create(device:GPUDevice,size:number,config:CapillaryConfig={},policy:{readonly fixedInitialWet?:boolean}={}):Promise<Candidate>{
  if(config.finePaperGain!==undefined&&config.finePaperGain!==0)throw Error('Smooth dither requires finePaperGain0')
- return createCapillary(device,size,{...config,finePaperGain:0},{source:MACRO6_CAPILLARY_DITHER_PACK,seedTail:true,reconstruction:'half-pixel bilinear + literal dryFixed; shared per-pixel deterministic stochastic rounding DISPLAY DITHER, physics unchanged'})
+ return createCapillary(device,size,{...config,finePaperGain:0},{source:MACRO6_CAPILLARY_DITHER_PACK,seedTail:true,reconstruction:'half-pixel bilinear + literal dryFixed; shared per-pixel deterministic stochastic rounding DISPLAY DITHER, physics unchanged'},policy)
 }
 export const ditherCapillaryDefinitions=[{id:'wgsl-macro-dynamic-wetness-smooth-dither',label:'Динамическая акварель: контроль округления без колец',create,configs:[{grid:128,steps:96,finePaperGain:0},{grid:256,steps:96,finePaperGain:0}]}]

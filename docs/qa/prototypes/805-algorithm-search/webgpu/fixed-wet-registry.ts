@@ -1,3 +1,6 @@
+import {create as createCapillary4} from './macro4-capillary'
+import {create as createCapillarySmooth5} from './macro5-capillary-smooth'
+import {create as createCapillaryDither6} from './macro6-capillary-dither'
 import {createFixedLBM} from './lbm-fixed'
 import {create as createFront12} from './macro12-front-adsorption'
 import {create as createMobility13} from './macro13-mobility-calibration'
@@ -43,6 +46,9 @@ function lite(d:GPUDevice,s:number,c:Config,steps:number,base:Base){return creat
 export function attachFixedWetFactories(definitions:Definition[]){
  const table:Record<string,NonNullable<Definition['createFixedInitialWet']>>={
  'wgsl-d2q9-bgk':createFixedLBM,
+ 'wgsl-macro-dynamic-wetness':(d,s,c)=>createCapillary4(d,s,c,undefined,{fixedInitialWet:true}),
+ 'wgsl-macro-dynamic-wetness-smooth':(d,s,c)=>createCapillarySmooth5(d,s,c,{fixedInitialWet:true}),
+ 'wgsl-macro-dynamic-wetness-smooth-dither':(d,s,c)=>createCapillaryDither6(d,s,c,{fixedInitialWet:true}),
  'wgsl-macro-wetting-front-deposition':(d,s,c)=>lite(d,s,c,c.steps??128,createFront12),
  'wgsl-macro-mobility-calibration':(d,s,c)=>lite(d,s,c,c.steps??128,createMobility13),
  'wgsl-macro-integer-smooth-safe-dither':(d,s,c)=>lite(d,s,c,c.steps??128,createSafe15),
