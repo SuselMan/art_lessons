@@ -10,6 +10,7 @@ async function verify(target,proofPath){
    const page=await browser.newPage({viewport:{width,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
    try{
     await page.goto(url);assert.equal(await page.locator('#error').isVisible(),false);
+    const technical=page.locator('#technical-details');if(await technical.count())await technical.evaluate(e=>e.open=true);
     const scenes=await page.evaluate(()=>JSON.parse(document.getElementById('anatomy-data').textContent).scenes);assert.ok(scenes.length);
     let visited=0,nativeStages=0,images=0,holds=0;
     for(const scene of scenes){
