@@ -1,0 +1,157 @@
+{
+  "qualification": "First physical smoke only, repeated determinism not claimed; immutable source SHA before/after; default historical context separate.",
+  "cases": [
+    {
+      "algorithm": "alternative-stable-fluids",
+      "fixture": "water-stroke",
+      "config": {
+        "resolution": 256,
+        "steps": 4,
+        "projection": 4,
+        "force": 2
+      },
+      "fixedInitialWet": true,
+      "repeats": 1
+    },
+    {
+      "algorithm": "alternative-stable-fluids",
+      "fixture": "dry-barrier",
+      "config": {
+        "resolution": 256,
+        "steps": 4,
+        "projection": 4,
+        "force": 2
+      },
+      "fixedInitialWet": true,
+      "repeats": 1
+    },
+    {
+      "algorithm": "alternative-stable-fluids",
+      "fixture": "fixed-wet-thin-1",
+      "config": {
+        "resolution": 256,
+        "steps": 4,
+        "projection": 4,
+        "force": 2
+      },
+      "fixedInitialWet": true,
+      "repeats": 1
+    },
+    {
+      "algorithm": "alternative-lattice-diffusion",
+      "fixture": "water-stroke",
+      "config": {
+        "resolution": 256,
+        "steps": 12,
+        "stride": 2
+      },
+      "fixedInitialWet": true,
+      "repeats": 1
+    },
+    {
+      "algorithm": "alternative-lattice-diffusion",
+      "fixture": "dry-barrier",
+      "config": {
+        "resolution": 256,
+        "steps": 12,
+        "stride": 2
+      },
+      "fixedInitialWet": true,
+      "repeats": 1
+    },
+    {
+      "algorithm": "alternative-lattice-diffusion",
+      "fixture": "fixed-wet-thin-1",
+      "config": {
+        "resolution": 256,
+        "steps": 12,
+        "stride": 2
+      },
+      "fixedInitialWet": true,
+      "repeats": 1
+    },
+    {
+      "algorithm": "alternative-artistic-front",
+      "fixture": "water-stroke",
+      "config": {
+        "resolution": 256,
+        "steps": 8,
+        "budget": 16,
+        "rim": 0.35
+      },
+      "fixedInitialWet": true,
+      "repeats": 1
+    },
+    {
+      "algorithm": "alternative-artistic-front",
+      "fixture": "dry-barrier",
+      "config": {
+        "resolution": 256,
+        "steps": 8,
+        "budget": 16,
+        "rim": 0.35
+      },
+      "fixedInitialWet": true,
+      "repeats": 1
+    },
+    {
+      "algorithm": "alternative-artistic-front",
+      "fixture": "fixed-wet-thin-1",
+      "config": {
+        "resolution": 256,
+        "steps": 8,
+        "budget": 16,
+        "rim": 0.35
+      },
+      "fixedInitialWet": true,
+      "repeats": 1
+    },
+    {
+      "algorithm": "search-artistic-program",
+      "fixture": "water-stroke",
+      "config": {
+        "programDslVersion": 1,
+        "programNeighbors": 4,
+        "programFrontCode": 70216,
+        "programTransportCode": 4369,
+        "programRim": 1
+      },
+      "fixedInitialWet": true,
+      "repeats": 1
+    },
+    {
+      "algorithm": "search-artistic-program",
+      "fixture": "dry-barrier",
+      "config": {
+        "programDslVersion": 1,
+        "programNeighbors": 4,
+        "programFrontCode": 70216,
+        "programTransportCode": 4369,
+        "programRim": 1
+      },
+      "fixedInitialWet": true,
+      "repeats": 1
+    },
+    {
+      "algorithm": "search-artistic-program",
+      "fixture": "fixed-wet-thin-1",
+      "config": {
+        "programDslVersion": 1,
+        "programNeighbors": 4,
+        "programFrontCode": 70216,
+        "programTransportCode": 4369,
+        "programRim": 1
+      },
+      "fixedInitialWet": true,
+      "repeats": 1
+    }
+  ],
+  "gates": [
+    "GL errors0/full readback and input unchanged",
+    "initial dry RGBA exact0diff for all3 fixtures",
+    "thin1 partial wet pigment actually changes; equal-alpha colors mix",
+    "metadata policyRevision1/fineSteps12/actual source SHA present",
+    "water-only no pigment creation and dry-only identity follow before broad matrix",
+    "Do not claim global conservation of old bulk rim/advection/UNORM"
+  ]
+}
