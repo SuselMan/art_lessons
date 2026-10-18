@@ -54,7 +54,8 @@ async function runGL(algorithm:string,input:AlgorithmInput,config:AlgorithmConfi
   // GL fixtures' first byte is y=0, written directly into bottom row. Their
   // output readback has the same numerical row order, so keep it top-left
   // for fixture comparisons; the display canvas is populated from these bytes.
-  return{backend:'webgl1',hardware,createMs,samples,hashes,repeatExact:hashes.every(x=>x===hashes[0]),metadata:candidate.metadata??{},metrics:metrics(input,output!),output:output!,orientation:'fixture-row-order'}
+  const metadata={...candidate.metadata};for(const key of ['fixedBulkShaderSources','fineShaderSources']){const sources=metadata[key];if(sources!==undefined){if(!Array.isArray(sources)||sources.some(x=>typeof x!=='string'))throw Error('Invalid actual shader provenance');metadata[key.replace('Sources','SHA')]=await Promise.all(sources.map(source=>digest(new TextEncoder().encode(source))));metadata[key.replace('Sources','Bytes')]=sources.map(source=>new TextEncoder().encode(source).length);delete metadata[key]}}
+  return{backend:'webgl1',hardware,createMs,samples,hashes,repeatExact:hashes.every(x=>x===hashes[0]),metadata,metrics:metrics(input,output!),output:output!,orientation:'fixture-row-order'}
  }finally{try{candidate?.destroy()}finally{gl.getExtension('WEBGL_lose_context')?.loseContext()}}
 }
 declare const __QA_WGPU_ENABLED__:boolean
@@ -72,7 +73,7 @@ async function runGPU(algorithm:string,input:AlgorithmInput,config:AlgorithmConf
  }finally{try{profiler?.destroy();candidate?.destroy()}finally{device.destroy()}}
 }
 self.onmessage=async({data})=>{if(busy){send({requestId:data.requestId,error:'Algorithm worker busy'});return}busy=true;try{
- if(data.type==='list'){const gpuDefinitions=webgpuModule?(await webgpuModule).definitions:[];send({requestId:data.requestId,algorithms:[...definitions.map(d=>({id:d.id,label:d.label,configs:d.configs??[{}],backend:'webgl1'})),...gpuDefinitions.map((d:any)=>({id:d.id,label:d.label,configs:d.configs??[{}],backend:'webgpu'}))],fixtures:[...fixtureIds.map(id=>({id,...fixtureInfo[id]})),...flowIds.map(id=>({id,label:id,description:'Функциональная сцена переноса пигмента по воде'})),...capturedFixtures.map(f=>({id:f.id,label:f.label,captured:true,description:'Захват Mini: реальная вода и бумага; приближённый общий композитор'}))]});return}
+ if(data.type==='list'){const gpuDefinitions=webgpuModule?(await webgpuModule).definitions:[];send({requestId:data.requestId,algorithms:[...definitions.map(d=>({id:d.id,label:d.label,configs:d.configs??[{}],backend:'webgl1',fixedInitialWetSupported:typeof (d as GLDefinition).createFixedInitialWet==='function'})),...gpuDefinitions.map((d:any)=>({id:d.id,label:d.label,configs:d.configs??[{}],backend:'webgpu',fixedInitialWetSupported:typeof d.createFixedInitialWet==='function'}))],fixtures:[...fixtureIds.map(id=>({id,...fixtureInfo[id]})),...flowIds.map(id=>({id,label:id,description:'Функциональная сцена переноса пигмента по воде'})),...capturedFixtures.map(f=>({id:f.id,label:f.label,captured:true,description:'Захват Mini: реальная вода и бумага; приближённый общий композитор'}))]});return}
  if(data.type==='fuzz-probe'){
   assertFuzzRequest(data.algorithm,data.recipes);assertFuzzConfig(data.algorithm,data.config??{})
   if(!webgpuModule)throw Error('WebGPU candidate build is not enabled');const registry=await webgpuModule,definition=registry.definitions.find((x:any)=>x.id===data.algorithm);if(!definition)throw Error('Unknown WebGPU algorithm');assertDefinitionConfig(definition,data.config??{})
