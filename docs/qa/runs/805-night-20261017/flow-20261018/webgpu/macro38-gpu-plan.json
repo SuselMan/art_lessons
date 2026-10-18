@@ -1,0 +1,77 @@
+{
+  "qualification": "Exact source-level mapping candidate; no GPU performance claim. Newrequests4; historicalreferences onlyifexactinput/config/field match.",
+  "cases": [
+    {
+      "fixture": "mini-wave",
+      "algorithm": "wgsl-macro-coalesced-single-pair-dt",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "mini-wave",
+      "algorithm": "wgsl-macro-coalesced-single-pair-dt-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "fineSteps": 4,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "dynamic-two-strokes",
+      "algorithm": "wgsl-macro-coalesced-single-pair-dt",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "dynamic-two-strokes",
+      "algorithm": "wgsl-macro-coalesced-single-pair-dt-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "fineSteps": 4,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    }
+  ],
+  "references": "functional-v29-single-pair-timing-results/report.json:33vs30Lite and33vs31Fine, samefixtures/configs",
+  "checks": [
+    "wholeRGBA SHA exact vs33 AND30/31 sameinput",
+    "actualpairSHA==coalescedSinglePairSource3; allotherpipelineSHA unchanged",
+    "all4coarseledger andwater unchanged, fine4mobileledger+guards",
+    "CPUcoverageN128H0V0H1V1 and32phases proof doesnotreplaceGPUcompilerproof",
+    "time onlysameprotocol/hardware/input; noclaimfromsinglecoldsample"
+  ]
+}
