@@ -1,0 +1,367 @@
+{
+  "qualification": "CPU staticwet density advection followed byantisymmetric9point flux,8steps. Raw4integer sums; CPU exp PNG only, noGPU/modeltiming/artscore.",
+  "cases": [
+    {
+      "scene": "contact-patches",
+      "gapPixels": 0,
+      "level": 0,
+      "initial": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 1,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      },
+      "final": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 1,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      }
+    },
+    {
+      "scene": "contact-patches",
+      "gapPixels": 0,
+      "level": 1,
+      "initial": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 1,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      },
+      "final": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 132,
+        "overlapDensityCodes": 8612,
+        "supportMinChebyshevCells": 0,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      }
+    },
+    {
+      "scene": "contact-patches",
+      "gapPixels": 0,
+      "level": 2,
+      "initial": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 1,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      },
+      "final": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 296,
+        "overlapDensityCodes": 21468,
+        "supportMinChebyshevCells": 0,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      }
+    },
+    {
+      "scene": "contact-patches",
+      "gapPixels": 2,
+      "level": 0,
+      "initial": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 3,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      },
+      "final": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 3,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      }
+    },
+    {
+      "scene": "contact-patches",
+      "gapPixels": 2,
+      "level": 1,
+      "initial": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 3,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      },
+      "final": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 64,
+        "overlapDensityCodes": 756,
+        "supportMinChebyshevCells": 0,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      }
+    },
+    {
+      "scene": "contact-patches",
+      "gapPixels": 2,
+      "level": 2,
+      "initial": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 3,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      },
+      "final": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 216,
+        "overlapDensityCodes": 8884,
+        "supportMinChebyshevCells": 0,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      }
+    },
+    {
+      "scene": "contact-patches",
+      "gapPixels": 24,
+      "level": 0,
+      "initial": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 25,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      },
+      "final": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 25,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      }
+    },
+    {
+      "scene": "contact-patches",
+      "gapPixels": 24,
+      "level": 1,
+      "initial": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 25,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      },
+      "final": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 21,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      }
+    },
+    {
+      "scene": "contact-patches",
+      "gapPixels": 24,
+      "level": 2,
+      "initial": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 25,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      },
+      "final": {
+        "sums": [
+          262144,
+          104448,
+          262144,
+          524288
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 17,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      }
+    },
+    {
+      "scene": "separated-blobs-advection",
+      "level": 0,
+      "initial": {
+        "sums": [
+          356864,
+          142188,
+          356864,
+          713728
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 14,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      },
+      "final": {
+        "sums": [
+          356864,
+          142188,
+          356864,
+          713728
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 1,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      }
+    },
+    {
+      "scene": "separated-blobs-advection",
+      "level": 1,
+      "initial": {
+        "sums": [
+          356864,
+          142188,
+          356864,
+          713728
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 14,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      },
+      "final": {
+        "sums": [
+          356864,
+          142188,
+          356864,
+          713728
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 1,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      }
+    },
+    {
+      "scene": "separated-blobs-advection",
+      "level": 2,
+      "initial": {
+        "sums": [
+          356864,
+          142188,
+          356864,
+          713728
+        ],
+        "mixedDensityPixels": 0,
+        "overlapDensityCodes": 0,
+        "supportMinChebyshevCells": 14,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      },
+      "final": {
+        "sums": [
+          356864,
+          142188,
+          356864,
+          713728
+        ],
+        "mixedDensityPixels": 16,
+        "overlapDensityCodes": 59,
+        "supportMinChebyshevCells": 0,
+        "threshold": "strictly positive rawdensity, NOT display threshold/artscore"
+      }
+    }
+  ],
+  "symmetry": [
+    {
+      "level": 1,
+      "singleStepTransposeChanged": 0,
+      "maxRawCode": 0,
+      "uniformWeakBoundaryMaxChange": 0,
+      "uniformWeakBoundaryMaxChangeAfter8": 0
+    },
+    {
+      "level": 2,
+      "singleStepTransposeChanged": 0,
+      "maxRawCode": 0,
+      "uniformWeakBoundaryMaxChange": 0,
+      "uniformWeakBoundaryMaxChangeAfter8": 0
+    }
+  ],
+  "sourceSHA": "68d5772e7a6adb78a847a124bb44fd3ff21143deb3ebaaed5956d6ba1aed4ffd"
+}
