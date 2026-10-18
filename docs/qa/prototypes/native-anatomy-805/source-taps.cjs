@@ -14,7 +14,7 @@ function transformNativeAnatomy(path,source){if(source.includes(KEY))throw Error
   const a='this.ctx.passes().fieldOp(out, a, b, mode, k, approvedM70 ? { ...opts, discreteGrid: true } : opts)';
   s=one(s,a,a+tap("'fieldOp'",'{out}', '{mode,k,opts,inputs:{a,b,c:opts?.c,d:opts?.d,e:opts?.e}}'));
   const f='this.ctx.passes().waterFrontStep(field, x0, y0, dryCost, src, dst, max, climb, floor, stride, S, foreignTexture, approvedM70)';
-  s=one(s,f,f+tap("'front.complete'",'{dst}', '{max,climb,floor,stride,scale:S,inputs:{src,coverage:field.coverage}}'));
+  s=one(s,f,'{'+f+tap("'front.complete'",'{dst}', '{max,climb,floor,stride,scale:S,inputs:{src,coverage:field.coverage}}')+'}');
   const d='this.ctx.passes().diffuseStep(field, x0, y0, S, paperTexW, paperTexH, src, dst, radius, knight, gate, density, solvent, approvedM70)';
   s=one(s,d,d+tap("'diffuse'",'{dst}', '{radius,knight,inputs:{src,gate,density,solvent}}'));
   s=one(s,'for (const capture of captureInputs) capture()',`for (const capture of captureInputs) capture();${tap("'stitch.complete'",'{a:field.a,b:field.b,coverage:field.coverage,ca:field.ca,cb:field.cb,solvent}', '{scale:S,x0,y0}')}`);
