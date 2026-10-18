@@ -1,0 +1,417 @@
+{
+  "qualification": "Same frozen source, requests and exact fixture bytes. Full exported carrier hashes verified before comparison; deltas right minus left. Per-device repeatability is separate from cross-device equality.",
+  "sourceHashes": {
+    "entry.js": "6d0eaf901509eff80d890ce65ee9ee2b1764a79f7102e866c4d4a460ad4adb63",
+    "worker.js": "dc9f41d76bb3132c1a6d88d21813dcd96aca1f8cea0d0baaf463d97160e1cf5d",
+    "chunk-OOM2Y3OE.js": "1c8d2734a58c574ab13a2cc23979dab7dde5d96753623c187d42aae717914b8f",
+    "fixtures/native-flow-pool-drop.bin": "3c20c7068cd00c803b1a913343cb2024f93bc5b23667c74a3c73055cf7ccc538",
+    "fixtures/native-flow-separated-colors.bin": "3471744208958a1c64c1e42d53be00c988d5eea11ae46f1d977c89cf3ef24e85",
+    "fixtures/mini-wave.bin": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+    "fixtures/gallery-sheet-7-slot-1.bin": "60d1685ff317b9c4638ccdee4fd0cbf0eafaac4ae90b6b39a38ae7e259c3395f",
+    "fixtures/gallery-sheet-3-slot-1.bin": "566b5bff0205a1220745f8177cd37da5d2e97319e11b90814a5f2cb1ec08b03d",
+    "fixtures/gallery-sheet-1-slot-17.bin": "1277b0b3efe83853f72af79194f718e670b13d75a75eb8318f6a08ec3adc825e",
+    "fixtures/gallery-sheet-10-slot-3.bin": "00c05db5a93d15d9f1a819a073b93d1e3b259b53cb12a3a845f2d101bd83a364",
+    "fixtures/gallery-sheet-12-slot-1.bin": "69113189b2a48eb6d6fdfe51b7cb4936e7f75e5aa2d81629298c0b1b264aa21a",
+    "fixtures/gallery-sheet-2-slot-7.bin": "52d9cfccd269094d3bb534b3ebe11ababba452aaa799ce17ea459facb4ec9eef",
+    "fixtures/gallery-sheet-4-slot-1.bin": "5a8e3e8f16ee532c65db461a87f5098a0e06752c3c1ae9a5bc39eaaa2011c198",
+    "fixtures/gallery-sheet-5-slot-1.bin": "3c6e26fee64a05764cc985d3b4404f8909f694b4142ef2c3eff497e29130b232",
+    "fixtures/gallery-sheet-6-slot-6.bin": "76795ce7f63bcca1aed3d1ffd1395f864a4eda872205eda828c3ff6ba56c705b",
+    "fixtures/gallery-sheet-8-slot-6.bin": "b7aaee0fed9fa46b7de5fcfca7cf7435c0171c7812f46f6b0aaa59a54b8e6e92",
+    "fixtures/gallery-sheet-9-slot-1.bin": "f75c48a0caa16f147c753660b2fdb3db1721adb1a96c7eb207b7cb35d819094a",
+    "fixtures/mini-two-colors.bin": "d69b0e913564ebd2b7954ef9405e99c486858437833217bfddfc57f4def03d60",
+    "index.html": "7f174c6068b1a87f196251529b71ac6c4844f011e315c79534a94c0af5b824e4"
+  },
+  "cases": [
+    {
+      "request": {
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 0,
+        "exportRaw": true,
+        "measureTransport": true,
+        "algorithm": "wgsl-macro-physical-dt-fine",
+        "fixture": "mini-wave",
+        "config": {
+          "physicalDt": 4,
+          "steps": 64,
+          "fineSteps": 4,
+          "affinityBase": 64,
+          "paperGain": 1,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 8,
+          "curlStrength": 64
+        }
+      },
+      "inputSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "leftSHA": "f947cef3a11cd5287700a001522e998992fdeb43b265f1433eb857d9488d70e1",
+      "rightSHA": "f947cef3a11cd5287700a001522e998992fdeb43b265f1433eb857d9488d70e1",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 0,
+        "exportRaw": true,
+        "measureTransport": true,
+        "algorithm": "wgsl-macro-physical-dt-fine",
+        "fixture": "dynamic-two-strokes",
+        "config": {
+          "physicalDt": 4,
+          "steps": 64,
+          "fineSteps": 4,
+          "affinityBase": 64,
+          "paperGain": 1,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 8,
+          "curlStrength": 64
+        }
+      },
+      "inputSHA": {
+        "rgba": "618501f3cceeda037eb4c917b6381e51d1fd1fb0dc2a028cfcc7493502c412aa",
+        "water": "402e8bac12ac5c66db0c453efc3c7c499a635502f3c4ef4706bcc2af3509d87a",
+        "paper": "1b0748155ba60566f3dce12b7752133735e98901ed9348842f526660277e774d"
+      },
+      "leftSHA": "135a4e10ec75be99452fd96ba8f49327f1bb8cc6852e2e739fdaf2d961329686",
+      "rightSHA": "135a4e10ec75be99452fd96ba8f49327f1bb8cc6852e2e739fdaf2d961329686",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 0,
+        "exportRaw": true,
+        "measureTransport": true,
+        "algorithm": "wgsl-macro-physical-dt-fine",
+        "fixture": "gallery-sheet-12-slot-1",
+        "config": {
+          "physicalDt": 4,
+          "steps": 64,
+          "fineSteps": 4,
+          "affinityBase": 64,
+          "paperGain": 1,
+          "dither": 1,
+          "mobilityGain": 3,
+          "eddyCells": 8,
+          "curlStrength": 64
+        }
+      },
+      "inputSHA": {
+        "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+        "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "leftSHA": "9dd5949bcddda735fd8a09c9fa85d937732f770726e85aecdee9b82ff02818d7",
+      "rightSHA": "9dd5949bcddda735fd8a09c9fa85d937732f770726e85aecdee9b82ff02818d7",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 0,
+        "exportRaw": true,
+        "measureTransport": true,
+        "algorithm": "wgsl-macro-gpu-initial-coherent-dt4",
+        "fixture": "mini-wave",
+        "config": {
+          "physicalDt": 4,
+          "steps": 64,
+          "mobilityGain": 3,
+          "eddyCells": 8,
+          "curlStrength": 64,
+          "verifyInitializer": 1
+        }
+      },
+      "inputSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "leftSHA": "b31443bb883ae8580e6da6a66373b5ac07792df77245644a33998b9606bd52cf",
+      "rightSHA": "b31443bb883ae8580e6da6a66373b5ac07792df77245644a33998b9606bd52cf",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 0,
+        "exportRaw": true,
+        "measureTransport": true,
+        "algorithm": "wgsl-macro-gpu-initial-coherent-dt4",
+        "fixture": "gallery-sheet-12-slot-1",
+        "config": {
+          "physicalDt": 4,
+          "steps": 64,
+          "mobilityGain": 3,
+          "eddyCells": 8,
+          "curlStrength": 64,
+          "verifyInitializer": 1
+        }
+      },
+      "inputSHA": {
+        "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+        "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "leftSHA": "0054de0144e8e0e13593c734333450370e795e63cd815efbb53e97948230f9f7",
+      "rightSHA": "0054de0144e8e0e13593c734333450370e795e63cd815efbb53e97948230f9f7",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "encoding": "optical-density",
+        "repeats": 3,
+        "idleBetweenMs": 0,
+        "exportRaw": true,
+        "measureTransport": true,
+        "algorithm": "wgsl-macro-gpu-initial-coherent-dt4",
+        "fixture": "stress-coarse-checker",
+        "config": {
+          "physicalDt": 4,
+          "steps": 64,
+          "mobilityGain": 3,
+          "eddyCells": 8,
+          "curlStrength": 64,
+          "verifyInitializer": 1
+        }
+      },
+      "inputSHA": {
+        "rgba": "6c4e25e796c69488d8c2d203cb3cfe3384b061c82377ab53b63d4732b216c9e6",
+        "water": "a2a8bf43e599f45de993ad4f64f184461ee130d6e56ad6f821f316886440ceb8",
+        "paper": "9dc867f9a72114d527e98e5418a2a70bf61ede72536dceb7466a68f0e143cefb"
+      },
+      "leftSHA": "d76bfb952400f8783d3544b5ffafa2144fa062e1917e8778cfdc58592d715007",
+      "rightSHA": "d76bfb952400f8783d3544b5ffafa2144fa062e1917e8778cfdc58592d715007",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    }
+  ],
+  "metadataChecks": [
+    {
+      "fixture": "mini-wave",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "initialFinalFieldPairExact": true,
+      "fineM4Exact": true,
+      "initializerVerified": null
+    },
+    {
+      "fixture": "dynamic-two-strokes",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "initialFinalFieldPairExact": true,
+      "fineM4Exact": true,
+      "initializerVerified": null
+    },
+    {
+      "fixture": "gallery-sheet-12-slot-1",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "initialFinalFieldPairExact": true,
+      "fineM4Exact": true,
+      "initializerVerified": null
+    },
+    {
+      "fixture": "mini-wave",
+      "algorithm": "wgsl-macro-gpu-initial-coherent-dt4",
+      "initialFinalFieldPairExact": true,
+      "fineM4Exact": null,
+      "initializerVerified": true
+    },
+    {
+      "fixture": "gallery-sheet-12-slot-1",
+      "algorithm": "wgsl-macro-gpu-initial-coherent-dt4",
+      "initialFinalFieldPairExact": true,
+      "fineM4Exact": null,
+      "initializerVerified": true
+    },
+    {
+      "fixture": "stress-coarse-checker",
+      "algorithm": "wgsl-macro-gpu-initial-coherent-dt4",
+      "initialFinalFieldPairExact": true,
+      "fineM4Exact": null,
+      "initializerVerified": true
+    }
+  ],
+  "cleanup": {
+    "owner": "805-flow",
+    "atUtc": "2026-10-18T02:46:01.3628571Z",
+    "stoppedPids": [
+      6028,
+      9568
+    ],
+    "remainingOwnProfilePids": [],
+    "profileRemoved": true,
+    "failures": [],
+    "watchdog": false
+  },
+  "tinyRootRemoved": true,
+  "forward19358Closed": true
+}
