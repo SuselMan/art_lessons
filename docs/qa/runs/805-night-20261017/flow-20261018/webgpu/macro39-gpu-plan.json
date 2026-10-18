@@ -1,0 +1,44 @@
+{
+  "candidate": "wgsl-macro-gpu-initial-fine",
+  "baseline": "macro31 same explicit config",
+  "config": {
+    "physicalDt": 4,
+    "steps": 64,
+    "fineSteps": 4,
+    "mobilityGain": 3,
+    "eddyCells": 8,
+    "curlStrength": 64,
+    "affinityBase": 64,
+    "paperGain": 1,
+    "dither": 1,
+    "verifyInitializer": 0
+  },
+  "fixtures": [
+    "mini-wave",
+    "dynamic-two-strokes",
+    "gallery-sheet-12-slot-1",
+    "dynamic-opaque-stationary"
+  ],
+  "optionalDiagnostics": [
+    {
+      "fixture": "mini-wave",
+      "verifyInitializer": 1,
+      "performanceClaim": false
+    },
+    {
+      "fixture": "dynamic-opaque-stationary",
+      "verifyInitializer": 1,
+      "performanceClaim": false
+    }
+  ],
+  "gates": [
+    "whole RGBA SHA exact baseline",
+    "all coarse RGBA and water ledgers pass",
+    "fine all4 ledger pass",
+    "source pair/PACK hashes and stream field exact",
+    "three compute passes expected",
+    "verify1 initial state/aux/stationary snapshots exact CPU oracle"
+  ],
+  "next": "Only after these pass: full13 actual gallery",
+  "gpuRunByAuthor": false
+}
