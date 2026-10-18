@@ -819,5 +819,85 @@
       ],
       "allArmsOutputExact": false
     }
-  ]
+  ],
+  "publishedUI": {
+    "pass": true,
+    "htmlSHA256": "25a48f45fb7825e90c11d4b86826909629c41b469f72c6ed57347d3b0c9f148f",
+    "layout": {
+      "cards": 4,
+      "variants": 12,
+      "images": 20,
+      "decoded": 20,
+      "width": 390,
+      "scroll": 375
+    },
+    "cards": [
+      {
+        "scene": "mini-two-colors",
+        "buttonLabels": [
+          "\u041d\u0430\u0448 \u0430\u043b\u0433\u043e\u0440\u0438\u0442\u043c",
+          "\u041f\u0440\u043e\u0441\u0442\u044b\u0435 \u043f\u0443\u0442\u0438",
+          "\u041f\u0443\u0442\u0438 \u0441 \u0448\u0443\u043c\u043e\u043c"
+        ],
+        "originalHoldRestores": true,
+        "inputAndWaterHoldRestores": true,
+        "inputColourPixels": 333375
+      },
+      {
+        "scene": "gallery-sheet-3-slot-1",
+        "buttonLabels": [
+          "\u041d\u0430\u0448 \u0430\u043b\u0433\u043e\u0440\u0438\u0442\u043c",
+          "\u041f\u0440\u043e\u0441\u0442\u044b\u0435 \u043f\u0443\u0442\u0438",
+          "\u041f\u0443\u0442\u0438 \u0441 \u0448\u0443\u043c\u043e\u043c"
+        ],
+        "originalHoldRestores": true,
+        "inputAndWaterHoldRestores": true,
+        "inputColourPixels": 12463
+      },
+      {
+        "scene": "expansion-bridge",
+        "buttonLabels": [
+          "\u041d\u0430\u0448 \u0430\u043b\u0433\u043e\u0440\u0438\u0442\u043c",
+          "\u041f\u0440\u043e\u0441\u0442\u044b\u0435 \u043f\u0443\u0442\u0438",
+          "\u041f\u0443\u0442\u0438 \u0441 \u0448\u0443\u043c\u043e\u043c"
+        ],
+        "originalHoldRestores": true,
+        "inputAndWaterHoldRestores": true,
+        "inputColourPixels": 3613
+      },
+      {
+        "scene": "expansion-dry-hole",
+        "buttonLabels": [
+          "\u041d\u0430\u0448 \u0430\u043b\u0433\u043e\u0440\u0438\u0442\u043c",
+          "\u041f\u0440\u043e\u0441\u0442\u044b\u0435 \u043f\u0443\u0442\u0438",
+          "\u041f\u0443\u0442\u0438 \u0441 \u0448\u0443\u043c\u043e\u043c"
+        ],
+        "originalHoldRestores": true,
+        "inputAndWaterHoldRestores": true,
+        "inputColourPixels": 6398
+      }
+    ],
+    "screenshotSHA256": "65edc51e3cd50de6d06b5c79346d383f29a0779768d300992ef89c2cb5b8c1dc",
+    "contextClosed": true,
+    "errors": [],
+    "inputMethod": "Trusted CDP mouse in actual headed Vega Chrome, responsive390"
+  },
+  "cleanup": {
+    "at": "2026-10-18T17:26:26.918286+00:00",
+    "remote": {
+      "at": "2026-10-18T17:25:03.132627+00:00",
+      "unit": "grafetto805-vega-expansion-20261018-2000.service",
+      "verifiedRootPID": 60073,
+      "remainingOwnProfilePIDs": [],
+      "profileRemoved": true,
+      "unitActive": "inactive",
+      "powerSettingsChanged": false
+    },
+    "ownContextsClosed": true,
+    "ownForward19362Removed": true,
+    "ownCacheRemoved": true,
+    "rootBuildCacheRemoved": true,
+    "cacheFinish": "Parent privileged standard operate finish under registry lock; ownership preserved",
+    "powerSettingsChanged": false
+  }
 }
