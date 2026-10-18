@@ -9,7 +9,7 @@ function planFixedMatrix(manifest,catalog,completedReports=[],sourceHashes,limit
  const fixtures=new Set(catalog.fixtures.map(x=>x.id)),done=new Map();
  for(const report of completedReports){
   if(canonical(report.sourceHashes)!==canonical(sourceHashes)||report.sourceStable!==true||report.contextClosed!==true)continue;
-  for(const row of report.cases||[]){const r=row.result;if(row.pass!==true||row.request?.fixedInitialWet!==true||r?.requestedDomainPolicy!=='initial-fixed-v1'||r?.inputUnchanged!==true||r?.initialWetAudit?.dryIdentity!==true||r?.repeatExact!==true||!row.png?.sha256||!verifyImage(row,report))continue;done.set(requestKey(row.request),r.fixtureSHA)}
+  for(const row of report.cases||[]){const r=row.result;if(row.pass!==true||row.request?.fixedInitialWet!==true||r?.requestedDomainPolicy!=='initial-fixed-v1'||r?.inputUnchanged!==true||r?.initialWetAudit?.dryIdentity!==true||r?.repeatExact!==true||!row.png?.sha256||row.rawAudit?.pass!==true||!row.carrier?.decodedSHA256||row.rawAudit.rawSHA!==row.carrier.decodedSHA256||row.rawAudit.rawSHA!==r.hashes?.at(-1)||canonical(row.rawAudit.inputSHA)!==canonical(r.fixtureSHA)||canonical(row.rawAudit.sourceHashes)!==canonical(sourceHashes)||!verifyImage(row,report))continue;done.set(requestKey(row.request),r.fixtureSHA)}
  }
  const batches=[],blocked=[],completed=[],nonWorker=[];let batch=[];
  const flush=()=>{if(batch.length)batches.push(batch);batch=[]};let previousFixture;
