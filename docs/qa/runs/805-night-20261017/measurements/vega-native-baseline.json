@@ -1,0 +1,165 @@
+{
+  "tinyProbe": {
+    "startedAt": "2026-10-18T16:33:15.694Z",
+    "scope": "Owned blank context, WebGL1 tiny query availability and actual asynchronous completion; no target runtime or user page",
+    "browser": "Chrome/155.0.8059.79",
+    "protocol": "1.3",
+    "version": {
+      "protocolVersion": "1.3",
+      "product": "Chrome/155.0.8059.79",
+      "revision": "@a49e2e3d4addfd84e765b52afe230bedb81096db",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "jsVersion": "15.5.35.23"
+    },
+    "expressionSHA256": "03b3f0f439aabf9bac77dc1cec97aadb0ad19fcd013e2363264b8613936ae6ae",
+    "result": {
+      "webgl": true,
+      "version": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+      "shadingLanguage": "WebGL GLSL ES 1.0 (OpenGL ES GLSL ES 1.0 Chromium)",
+      "vendor": "Google Inc. (AMD)",
+      "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+      "extensions": [
+        "ANGLE_instanced_arrays",
+        "EXT_blend_minmax",
+        "EXT_clip_control",
+        "EXT_color_buffer_half_float",
+        "EXT_depth_clamp",
+        "EXT_disjoint_timer_query",
+        "EXT_float_blend",
+        "EXT_frag_depth",
+        "EXT_polygon_offset_clamp",
+        "EXT_shader_texture_lod",
+        "EXT_texture_compression_bptc",
+        "EXT_texture_compression_rgtc",
+        "EXT_texture_filter_anisotropic",
+        "EXT_texture_mirror_clamp_to_edge",
+        "EXT_sRGB",
+        "KHR_parallel_shader_compile",
+        "OES_element_index_uint",
+        "OES_fbo_render_mipmap",
+        "OES_standard_derivatives",
+        "OES_texture_float",
+        "OES_texture_float_linear",
+        "OES_texture_half_float",
+        "OES_texture_half_float_linear",
+        "OES_vertex_array_object",
+        "WEBGL_blend_func_extended",
+        "WEBGL_color_buffer_float",
+        "WEBGL_compressed_texture_s3tc",
+        "WEBGL_compressed_texture_s3tc_srgb",
+        "WEBGL_debug_renderer_info",
+        "WEBGL_debug_shaders",
+        "WEBGL_depth_texture",
+        "WEBGL_draw_buffers",
+        "WEBGL_lose_context",
+        "WEBGL_multi_draw",
+        "WEBGL_polygon_mode"
+      ],
+      "timerExtension": true,
+      "highp": 23,
+      "counterBits": 64,
+      "actualQuery": {
+        "available": true,
+        "disjoint": false,
+        "polls": 1,
+        "pollWallMs": 5.099999997764826,
+        "elapsedNs": 4480
+      },
+      "glError": 0
+    },
+    "contextClosed": true,
+    "pass": true,
+    "finishedAt": "2026-10-18T16:33:16.152Z",
+    "operatorSHA256": "a0f1d3819c3e78562d963bba91b902f3373e1cbd1f1889164acee20bf54c07a3"
+  },
+  "baseline": {
+    "scenes": [
+      {
+        "scene": "mini-wave",
+        "pass": true,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "sourceSHA": {
+          "p": "09b5c0ba09670ba33f261071f1da64624452a51083ed30e87e8a6356d824d043",
+          "c": "4723462fb0d44acaccd32ab9b02c0660017b3195a3cea25957437596e478d85c",
+          "coverage": "54fa3865fc8cc1042cd242c26b36f79dd6deac4737cdcb359a08e47ff41a84e1",
+          "solvent": "ea34142ad9b794cda939ee182a72149cfb2df3487843ade48d35f33567bdda9a",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "8a625eab873b82692c2b5f8130aa103e315adff2f11e35003abb5863bdb7e5fb"
+        },
+        "outputSHA": {
+          "p": "b9df211a2463e1af3d7cea6ab885775ee953b85a7f0c0d1882e38e1235f12613",
+          "c": "da51fb66fc9346f448f2303bef5a92da5d2b6d69124ccccf86312a11386f5ebb",
+          "coverage": "0dceadde3607e3357e24254f30a8a9ad4abc4bf5c402c3e845085cfae8be0f19"
+        },
+        "fullCSamples": [
+          75.30000000074506,
+          67,
+          70.39999999850988,
+          135.90000000223517,
+          146
+        ],
+        "medianFullC": 75.30000000074506,
+        "coreHostSamples": [
+          8.5,
+          7.800000000745058,
+          8.300000000745058,
+          5.300000000745058,
+          12.799999997019768
+        ],
+        "readSamples": [
+          66.80000000074506,
+          59.19999999925494,
+          62.099999997764826,
+          130.60000000149012,
+          133.20000000298023
+        ],
+        "deviceLocal": true
+      },
+      {
+        "scene": "mini-two-colors",
+        "pass": true,
+        "renderer": "ANGLE (AMD, AMD Radeon Graphics (radeonsi renoir ACO), OpenGL 4.6)",
+        "sourceSHA": {
+          "p": "45f6370cd921cf7e31b1a1a462852d48a92339798452cb6c8659cab8c72d4855",
+          "c": "477c62fc9a9f1e375942f8828929097c87a7cca21cb69d445cfe9344a4449555",
+          "coverage": "9f2e71ec34eb2792960cf11421d1700699bf29f48c54d33c069cd5fa0c36328c",
+          "solvent": "9f79d0a715b9499397b3237d68602858548a9efb83c540486961f9fabd1fc5c8",
+          "foreign": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "original": "bb9f8df61474d25e71fa00722318cd387396ca1736605e1248821cc0de3d3af8",
+          "paper": "8a625eab873b82692c2b5f8130aa103e315adff2f11e35003abb5863bdb7e5fb"
+        },
+        "outputSHA": {
+          "p": "b6ec3bea682d912d507a980a226955eebad6a60b8016ecef8104e46781738ac1",
+          "c": "c0522fe216afbff446246bf979ae1c5e1fb87efafa687edb477a499e45a7226e",
+          "coverage": "0707927e65bc0e098e6716f3d7744b94b0b0ca35712eb6bd94d78943b0839b67"
+        },
+        "fullCSamples": [
+          94.40000000223517,
+          86,
+          85.80000000074506,
+          111.39999999850988,
+          80.60000000149012
+        ],
+        "medianFullC": 86,
+        "coreHostSamples": [
+          15,
+          9.200000002980232,
+          6.600000001490116,
+          6.599999997764826,
+          6.300000000745058
+        ],
+        "readSamples": [
+          79.40000000223517,
+          76.79999999701977,
+          79.19999999925494,
+          104.80000000074506,
+          74.30000000074506
+        ],
+        "deviceLocal": true
+      }
+    ],
+    "qualification": "Own Vega device-local raw replay, no canonical Samsung source identity or GPU-only claim"
+  },
+  "scope": "Vega owned headed Chrome. Baseline wall source-to-full-C; actual per-stage GPU measurement pending. Device-local source, not equal Samsung brush replay."
+}
