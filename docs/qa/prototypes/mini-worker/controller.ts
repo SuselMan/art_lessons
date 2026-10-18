@@ -163,6 +163,12 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
    engine._paperCacheKey='';engine._paperPartialOK=false;engine._invalidateSplitCache()
    original.get('_display')!.call(engine)
   },
+  diagnosticRunCore(maxOps=100000){
+   const f=locate();if(!f||down||calculating||goalPending)throw Error('Stationary component core source required')
+   target.resetFromScratch(f.scratch,f.tile,epoch)
+   while(!target.state.done)target.step(Math.max(1,maxOps))
+   target.dry();return target.buffers()
+  },
   diagnosticRunGoal(maxOps=100000){
    const f=locate();if(!f||down||calculating||goalPending)throw Error('Stationary replay source required')
    const started=performance.now();target.resetFromScratch(f.scratch,f.tile,epoch)
