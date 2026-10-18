@@ -1,0 +1,182 @@
+{
+  "qualification": "Same frozen source, requests and exact fixture bytes. Full exported carrier hashes verified before comparison; deltas right minus left. Per-device repeatability is separate from cross-device equality.",
+  "sourceHashes": {
+    "entry.js": "678996849f31adeac2162590747ee770a3258a53a58010d614677649fd820554",
+    "worker.js": "e4276c480085105fc8dcfadf1a5450186cd533e323b1c8a4beed860d0f7b4323",
+    "chunk-OOM2Y3OE.js": "1c8d2734a58c574ab13a2cc23979dab7dde5d96753623c187d42aae717914b8f",
+    "fixtures/native-flow-pool-drop.bin": "3c20c7068cd00c803b1a913343cb2024f93bc5b23667c74a3c73055cf7ccc538",
+    "fixtures/native-flow-separated-colors.bin": "3471744208958a1c64c1e42d53be00c988d5eea11ae46f1d977c89cf3ef24e85",
+    "fixtures/mini-wave.bin": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+    "fixtures/gallery-sheet-7-slot-1.bin": "60d1685ff317b9c4638ccdee4fd0cbf0eafaac4ae90b6b39a38ae7e259c3395f",
+    "fixtures/gallery-sheet-3-slot-1.bin": "566b5bff0205a1220745f8177cd37da5d2e97319e11b90814a5f2cb1ec08b03d",
+    "fixtures/gallery-sheet-1-slot-17.bin": "1277b0b3efe83853f72af79194f718e670b13d75a75eb8318f6a08ec3adc825e",
+    "fixtures/gallery-sheet-10-slot-3.bin": "00c05db5a93d15d9f1a819a073b93d1e3b259b53cb12a3a845f2d101bd83a364",
+    "fixtures/gallery-sheet-12-slot-1.bin": "69113189b2a48eb6d6fdfe51b7cb4936e7f75e5aa2d81629298c0b1b264aa21a",
+    "fixtures/gallery-sheet-2-slot-7.bin": "52d9cfccd269094d3bb534b3ebe11ababba452aaa799ce17ea459facb4ec9eef",
+    "fixtures/gallery-sheet-4-slot-1.bin": "5a8e3e8f16ee532c65db461a87f5098a0e06752c3c1ae9a5bc39eaaa2011c198",
+    "fixtures/gallery-sheet-5-slot-1.bin": "3c6e26fee64a05764cc985d3b4404f8909f694b4142ef2c3eff497e29130b232",
+    "fixtures/gallery-sheet-6-slot-6.bin": "76795ce7f63bcca1aed3d1ffd1395f864a4eda872205eda828c3ff6ba56c705b",
+    "fixtures/gallery-sheet-8-slot-6.bin": "b7aaee0fed9fa46b7de5fcfca7cf7435c0171c7812f46f6b0aaa59a54b8e6e92",
+    "fixtures/gallery-sheet-9-slot-1.bin": "f75c48a0caa16f147c753660b2fdb3db1721adb1a96c7eb207b7cb35d819094a",
+    "fixtures/mini-two-colors.bin": "d69b0e913564ebd2b7954ef9405e99c486858437833217bfddfc57f4def03d60",
+    "index.html": "7f174c6068b1a87f196251529b71ac6c4844f011e315c79534a94c0af5b824e4"
+  },
+  "cases": [
+    {
+      "request": {
+        "algorithm": "wgsl-macro-mobility-smooth-fine-paper",
+        "fixture": "mini-wave",
+        "config": {
+          "steps": 256,
+          "fineSteps": 12,
+          "paperGain": 3,
+          "dither": 1,
+          "mobilityGain": 3
+        },
+        "encoding": "optical-density",
+        "repeats": 3,
+        "measureTransport": true,
+        "exportRaw": true
+      },
+      "inputSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "leftSHA": "307ca50e09f20c824d1f4c81c5f6a7f8af5b9f956dd04dd9cc8fd9361d296ab2",
+      "rightSHA": "307ca50e09f20c824d1f4c81c5f6a7f8af5b9f956dd04dd9cc8fd9361d296ab2",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-mobility-smooth-fine-paper",
+        "encoding": "optical-density",
+        "repeats": 3,
+        "measureTransport": true,
+        "exportRaw": true,
+        "fixture": "dynamic-opaque-stationary",
+        "config": {
+          "steps": 256,
+          "fineSteps": 12,
+          "paperGain": 3,
+          "dither": 1,
+          "mobilityGain": 3
+        }
+      },
+      "inputSHA": {
+        "rgba": "3ab519d24a0ea26005785f215591298a7f92a4be30e00c4c99aa3ed583db27a2",
+        "water": "038d8d989175a5a6d02975b8cf20c1295999056899aeac5cc5decbc299188024",
+        "paper": "36ff34972077a9e824cce89d6a7056a0923719b8ae884a5ed7f0ba299303534e"
+      },
+      "leftSHA": "2fdfb73e059686485374252b87f0b536170fe09c5a5f6e0ca9300c415859e804",
+      "rightSHA": "2fdfb73e059686485374252b87f0b536170fe09c5a5f6e0ca9300c415859e804",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    },
+    {
+      "request": {
+        "algorithm": "wgsl-macro-mobility-smooth-fine-paper",
+        "encoding": "optical-density",
+        "repeats": 3,
+        "measureTransport": true,
+        "exportRaw": true,
+        "fixture": "gallery-sheet-12-slot-1",
+        "config": {
+          "steps": 256,
+          "fineSteps": 12,
+          "paperGain": 3,
+          "dither": 1,
+          "mobilityGain": 3
+        }
+      },
+      "inputSHA": {
+        "rgba": "440b758845cb6c63d335b2b922061af5cb8e70ff4e131b002bf0a57df294ebb5",
+        "water": "0ddbbecda67ff80361cd87fd0afd8741975411dbf82fe1140785d879973551ca",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "leftSHA": "45ae2f4048cfd9777177dcb7aae37eed213c1a1c9363180aedd7e6b2d75bc92f",
+      "rightSHA": "45ae2f4048cfd9777177dcb7aae37eed213c1a1c9363180aedd7e6b2d75bc92f",
+      "exact": true,
+      "changedPixels": 0,
+      "channels": [
+        {
+          "channel": "R",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "G",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "B",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        },
+        {
+          "channel": "A",
+          "changed": 0,
+          "maxAbs": 0,
+          "deltaRightMinusLeft": {}
+        }
+      ]
+    }
+  ]
+}

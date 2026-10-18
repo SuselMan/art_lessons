@@ -1,0 +1,487 @@
+{
+  "qualification": "Same frozen V14 shader/input/seed. Platform stack localization only; driver/compiler layer not isolated.",
+  "cases": [
+    {
+      "device": "samsung",
+      "config": {
+        "divisor": 65792,
+        "mode": 0
+      },
+      "diagnostic": {
+        "cells": 16384,
+        "seed": 805,
+        "divisor": 65792,
+        "mode": 0,
+        "hashMismatch": 0,
+        "remainderMismatch": 8180,
+        "quotientMismatch": 0,
+        "outOfRange": 8180,
+        "nonzeroZeroQuant": 8180,
+        "maxR": 131571,
+        "failures": [
+          {
+            "i": 4,
+            "h": 1806016855,
+            "expectedHash": 1806016855,
+            "r": 92247,
+            "expectedR": 26455,
+            "q": 27450,
+            "expectedQ": 27450,
+            "z": 1
+          },
+          {
+            "i": 6,
+            "h": 1587870535,
+            "expectedHash": 1587870535,
+            "r": 112199,
+            "expectedR": 46407,
+            "q": 24134,
+            "expectedQ": 24134,
+            "z": 1
+          },
+          {
+            "i": 7,
+            "h": 2440275426,
+            "expectedHash": 2440275426,
+            "r": 115938,
+            "expectedR": 50146,
+            "q": 37090,
+            "expectedQ": 37090,
+            "z": 1
+          },
+          {
+            "i": 8,
+            "h": 1626593482,
+            "expectedHash": 1626593482,
+            "r": 83658,
+            "expectedR": 17866,
+            "q": 24723,
+            "expectedQ": 24723,
+            "z": 1
+          },
+          {
+            "i": 11,
+            "h": 1830534860,
+            "expectedHash": 1830534860,
+            "r": 69836,
+            "expectedR": 4044,
+            "q": 27823,
+            "expectedQ": 27823,
+            "z": 1
+          },
+          {
+            "i": 13,
+            "h": 3718431060,
+            "expectedHash": 3718431060,
+            "r": 130388,
+            "expectedR": 64596,
+            "q": 56517,
+            "expectedQ": 56517,
+            "z": 1
+          },
+          {
+            "i": 14,
+            "h": 3587226866,
+            "expectedHash": 3587226866,
+            "r": 115442,
+            "expectedR": 49650,
+            "q": 54523,
+            "expectedQ": 54523,
+            "z": 1
+          },
+          {
+            "i": 15,
+            "h": 3565342938,
+            "expectedHash": 3565342938,
+            "r": 74458,
+            "expectedR": 8666,
+            "q": 54191,
+            "expectedQ": 54191,
+            "z": 1
+          },
+          {
+            "i": 17,
+            "h": 1135595158,
+            "expectedHash": 1135595158,
+            "r": 91030,
+            "expectedR": 25238,
+            "q": 17260,
+            "expectedQ": 17260,
+            "z": 1
+          },
+          {
+            "i": 18,
+            "h": 1913188115,
+            "expectedHash": 1913188115,
+            "r": 88339,
+            "expectedR": 22547,
+            "q": 29079,
+            "expectedQ": 29079,
+            "z": 1
+          },
+          {
+            "i": 19,
+            "h": 3838976187,
+            "expectedHash": 3838976187,
+            "r": 78779,
+            "expectedR": 12987,
+            "q": 58350,
+            "expectedQ": 58350,
+            "z": 1
+          },
+          {
+            "i": 20,
+            "h": 3407987911,
+            "expectedHash": 3407987911,
+            "r": 93895,
+            "expectedR": 28103,
+            "q": 51799,
+            "expectedQ": 51799,
+            "z": 1
+          },
+          {
+            "i": 21,
+            "h": 1634860176,
+            "expectedHash": 1634860176,
+            "r": 126352,
+            "expectedR": 60560,
+            "q": 24848,
+            "expectedQ": 24848,
+            "z": 1
+          },
+          {
+            "i": 22,
+            "h": 4046387777,
+            "expectedHash": 4046387777,
+            "r": 113985,
+            "expectedR": 48193,
+            "q": 61502,
+            "expectedQ": 61502,
+            "z": 1
+          },
+          {
+            "i": 24,
+            "h": 4258266572,
+            "expectedHash": 4258266572,
+            "r": 76748,
+            "expectedR": 10956,
+            "q": 64723,
+            "expectedQ": 64723,
+            "z": 1
+          },
+          {
+            "i": 27,
+            "h": 2607401846,
+            "expectedHash": 2607401846,
+            "r": 130678,
+            "expectedR": 64886,
+            "q": 39630,
+            "expectedQ": 39630,
+            "z": 1
+          }
+        ]
+      }
+    },
+    {
+      "device": "samsung",
+      "config": {
+        "divisor": 65792,
+        "mode": 2
+      },
+      "diagnostic": {
+        "cells": 16384,
+        "seed": 805,
+        "divisor": 65792,
+        "mode": 2,
+        "hashMismatch": 0,
+        "remainderMismatch": 0,
+        "quotientMismatch": 0,
+        "outOfRange": 0,
+        "nonzeroZeroQuant": 0,
+        "maxR": 65789,
+        "failures": []
+      }
+    },
+    {
+      "device": "samsung",
+      "config": {
+        "divisor": 257,
+        "mode": 0
+      },
+      "diagnostic": {
+        "cells": 16384,
+        "seed": 805,
+        "divisor": 257,
+        "mode": 0,
+        "hashMismatch": 0,
+        "remainderMismatch": 8180,
+        "quotientMismatch": 0,
+        "outOfRange": 8180,
+        "nonzeroZeroQuant": 8180,
+        "maxR": 66048,
+        "failures": [
+          {
+            "i": 4,
+            "h": 1806016855,
+            "expectedHash": 1806016855,
+            "r": 66033,
+            "expectedR": 241,
+            "q": 7027302,
+            "expectedQ": 7027302,
+            "z": 256
+          },
+          {
+            "i": 6,
+            "h": 1587870535,
+            "expectedHash": 1587870535,
+            "r": 65939,
+            "expectedR": 147,
+            "q": 6178484,
+            "expectedQ": 6178484,
+            "z": 256
+          },
+          {
+            "i": 7,
+            "h": 2440275426,
+            "expectedHash": 2440275426,
+            "r": 65823,
+            "expectedR": 31,
+            "q": 9495235,
+            "expectedQ": 9495235,
+            "z": 256
+          },
+          {
+            "i": 8,
+            "h": 1626593482,
+            "expectedHash": 1626593482,
+            "r": 65925,
+            "expectedR": 133,
+            "q": 6329157,
+            "expectedQ": 6329157,
+            "z": 256
+          },
+          {
+            "i": 11,
+            "h": 1830534860,
+            "expectedHash": 1830534860,
+            "r": 65981,
+            "expectedR": 189,
+            "q": 7122703,
+            "expectedQ": 7122703,
+            "z": 256
+          },
+          {
+            "i": 13,
+            "h": 3718431060,
+            "expectedHash": 3718431060,
+            "r": 65881,
+            "expectedR": 89,
+            "q": 14468603,
+            "expectedQ": 14468603,
+            "z": 256
+          },
+          {
+            "i": 14,
+            "h": 3587226866,
+            "expectedHash": 3587226866,
+            "r": 65841,
+            "expectedR": 49,
+            "q": 13958081,
+            "expectedQ": 13958081,
+            "z": 256
+          },
+          {
+            "i": 15,
+            "h": 3565342938,
+            "expectedHash": 3565342938,
+            "r": 65977,
+            "expectedR": 185,
+            "q": 13872929,
+            "expectedQ": 13872929,
+            "z": 256
+          },
+          {
+            "i": 17,
+            "h": 1135595158,
+            "expectedHash": 1135595158,
+            "r": 65844,
+            "expectedR": 52,
+            "q": 4418658,
+            "expectedQ": 4418658,
+            "z": 256
+          },
+          {
+            "i": 18,
+            "h": 1913188115,
+            "expectedHash": 1913188115,
+            "r": 65980,
+            "expectedR": 188,
+            "q": 7444311,
+            "expectedQ": 7444311,
+            "z": 256
+          },
+          {
+            "i": 19,
+            "h": 3838976187,
+            "expectedHash": 3838976187,
+            "r": 65929,
+            "expectedR": 137,
+            "q": 14937650,
+            "expectedQ": 14937650,
+            "z": 256
+          },
+          {
+            "i": 20,
+            "h": 3407987911,
+            "expectedHash": 3407987911,
+            "r": 65882,
+            "expectedR": 90,
+            "q": 13260653,
+            "expectedQ": 13260653,
+            "z": 256
+          },
+          {
+            "i": 21,
+            "h": 1634860176,
+            "expectedHash": 1634860176,
+            "r": 65957,
+            "expectedR": 165,
+            "q": 6361323,
+            "expectedQ": 6361323,
+            "z": 256
+          },
+          {
+            "i": 22,
+            "h": 4046387777,
+            "expectedHash": 4046387777,
+            "r": 65926,
+            "expectedR": 134,
+            "q": 15744699,
+            "expectedQ": 15744699,
+            "z": 256
+          },
+          {
+            "i": 24,
+            "h": 4258266572,
+            "expectedHash": 4258266572,
+            "r": 65954,
+            "expectedR": 162,
+            "q": 16569130,
+            "expectedQ": 16569130,
+            "z": 256
+          },
+          {
+            "i": 27,
+            "h": 2607401846,
+            "expectedHash": 2607401846,
+            "r": 65914,
+            "expectedR": 122,
+            "q": 10145532,
+            "expectedQ": 10145532,
+            "z": 256
+          }
+        ]
+      }
+    },
+    {
+      "device": "samsung",
+      "config": {
+        "divisor": 257,
+        "mode": 2
+      },
+      "diagnostic": {
+        "cells": 16384,
+        "seed": 805,
+        "divisor": 257,
+        "mode": 2,
+        "hashMismatch": 0,
+        "remainderMismatch": 0,
+        "quotientMismatch": 0,
+        "outOfRange": 0,
+        "nonzeroZeroQuant": 0,
+        "maxR": 256,
+        "failures": []
+      }
+    },
+    {
+      "device": "intel",
+      "config": {
+        "divisor": 65792,
+        "mode": 0
+      },
+      "diagnostic": {
+        "cells": 16384,
+        "seed": 805,
+        "divisor": 65792,
+        "mode": 0,
+        "hashMismatch": 0,
+        "remainderMismatch": 0,
+        "quotientMismatch": 0,
+        "outOfRange": 0,
+        "nonzeroZeroQuant": 0,
+        "maxR": 65789,
+        "failures": []
+      }
+    },
+    {
+      "device": "intel",
+      "config": {
+        "divisor": 65792,
+        "mode": 2
+      },
+      "diagnostic": {
+        "cells": 16384,
+        "seed": 805,
+        "divisor": 65792,
+        "mode": 2,
+        "hashMismatch": 0,
+        "remainderMismatch": 0,
+        "quotientMismatch": 0,
+        "outOfRange": 0,
+        "nonzeroZeroQuant": 0,
+        "maxR": 65789,
+        "failures": []
+      }
+    },
+    {
+      "device": "intel",
+      "config": {
+        "divisor": 257,
+        "mode": 0
+      },
+      "diagnostic": {
+        "cells": 16384,
+        "seed": 805,
+        "divisor": 257,
+        "mode": 0,
+        "hashMismatch": 0,
+        "remainderMismatch": 0,
+        "quotientMismatch": 0,
+        "outOfRange": 0,
+        "nonzeroZeroQuant": 0,
+        "maxR": 256,
+        "failures": []
+      }
+    },
+    {
+      "device": "intel",
+      "config": {
+        "divisor": 257,
+        "mode": 2
+      },
+      "diagnostic": {
+        "cells": 16384,
+        "seed": 805,
+        "divisor": 257,
+        "mode": 2,
+        "hashMismatch": 0,
+        "remainderMismatch": 0,
+        "quotientMismatch": 0,
+        "outOfRange": 0,
+        "nonzeroZeroQuant": 0,
+        "maxR": 256,
+        "failures": []
+      }
+    }
+  ]
+}
