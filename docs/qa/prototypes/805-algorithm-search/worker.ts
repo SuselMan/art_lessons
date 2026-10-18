@@ -1,3 +1,5 @@
+import {runCandidateFuzz} from './candidate-fuzz'
+import {assertFuzzRequest,assertFuzzConfig,createFuzzInput} from './deterministic-fuzz-input'
 import {runCandidateReuse,type ReuseInput} from './candidate-reuse'
 import {assertDefinitionConfig} from './config-integrity'
 import {definitions as macro3GL} from './alternatives/macro3-index'
@@ -68,6 +70,13 @@ async function runGPU(algorithm:string,input:AlgorithmInput,config:AlgorithmConf
 }
 self.onmessage=async({data})=>{if(busy){send({requestId:data.requestId,error:'Algorithm worker busy'});return}busy=true;try{
  if(data.type==='list'){const gpuDefinitions=webgpuModule?(await webgpuModule).definitions:[];send({requestId:data.requestId,algorithms:[...definitions.map(d=>({id:d.id,label:d.label,configs:d.configs??[{}],backend:'webgl1'})),...gpuDefinitions.map((d:any)=>({id:d.id,label:d.label,configs:d.configs??[{}],backend:'webgpu'}))],fixtures:[...fixtureIds.map(id=>({id,...fixtureInfo[id]})),...flowIds.map(id=>({id,label:id,description:'Функциональная сцена переноса пигмента по воде'})),...capturedFixtures.map(f=>({id:f.id,label:f.label,captured:true,description:'Захват Mini: реальная вода и бумага; приближённый общий композитор'}))]});return}
+ if(data.type==='fuzz-probe'){
+  assertFuzzRequest(data.algorithm,data.recipes);assertFuzzConfig(data.algorithm,data.config??{})
+  if(!webgpuModule)throw Error('WebGPU candidate build is not enabled');const registry=await webgpuModule,definition=registry.definitions.find((x:any)=>x.id===data.algorithm);if(!definition)throw Error('Unknown WebGPU algorithm');assertDefinitionConfig(definition,data.config??{})
+  const inputs=data.recipes.map((id:string)=>createFuzzInput(id))
+  const gpu=(self.navigator as any).gpu;if(!gpu)throw Error('WebGPU unavailable');const adapter=await gpu.requestAdapter();if(!adapter)throw Error('WebGPU adapter unavailable');const device=await adapter.requestDevice()
+  try{const errors:string[]=[];device.addEventListener('uncapturederror',(e:any)=>errors.push(String(e.error.message)));const result=await runCandidateFuzz(device,definition,inputs,digest,data.config??{});if(errors.length)throw Error(errors.join('\n'));send({requestId:data.requestId,result:{algorithm:data.algorithm,config:data.config??{},hardware:{vendor:adapter.info?.vendor??'',architecture:adapter.info?.architecture??'',device:adapter.info?.device??'',description:adapter.info?.description??''},...result}})}finally{device.destroy()}return
+ }
  if(data.type==='reuse-probe'){
   if(!webgpuModule)throw Error('WebGPU candidate build is not enabled');const registry=await webgpuModule,definition=registry.definitions.find((x:any)=>x.id===data.algorithm);if(!definition)throw Error('Unknown WebGPU algorithm');assertDefinitionConfig(definition,data.config??{})
   if(!data.fixtures||typeof data.fixtures!=='object'||Array.isArray(data.fixtures))throw Error('Expected reuse fixture map');const entries=Object.entries(data.fixtures);if(entries.length<1||entries.length>4||!Array.isArray(data.sequence)||data.sequence.length<1||data.sequence.length>12||data.sequence.some((id:unknown)=>typeof id!=='string'||!Object.hasOwn(data.fixtures,id)))throw Error('Invalid bounded reuse request')
