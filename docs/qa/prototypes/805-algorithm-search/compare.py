@@ -1,7 +1,23 @@
 #!/usr/bin/env python3
 """Publish scene cards from explicit evidence rows, without inventing timing ratios."""
-import argparse, hashlib, json, shutil
+import argparse, hashlib, json, os, tempfile
 from pathlib import Path
+
+def publish_image(source, images):
+ content=source.read_bytes();sha=hashlib.sha256(content).hexdigest()
+ assert content[:8]==b'\x89PNG\r\n\x1a\n', source
+ target=images/(sha+'.png')
+ if target.exists():
+  assert hashlib.sha256(target.read_bytes()).hexdigest()==sha, 'Corrupt content-addressed image: '+str(target)
+ else:
+  # Atomic publication also preserves any immutable evidence hardlinks.
+  fd, temporary=tempfile.mkstemp(prefix='.image-',dir=images)
+  try:
+   with os.fdopen(fd,'wb') as stream:stream.write(content)
+   os.replace(temporary,target)
+  finally:
+   if os.path.exists(temporary):os.unlink(temporary)
+ return target.name,sha
 
 def main():
  p=argparse.ArgumentParser();p.add_argument('data',type=Path);p.add_argument('output',type=Path);a=p.parse_args()
@@ -13,9 +29,7 @@ def main():
   assert scene['variants'],scene['id']
   for variant in scene['variants']:
    source=Path(variant.pop('imageSource'));assert source.is_file(),source
-   content=source.read_bytes();sha=hashlib.sha256(content).hexdigest();assert content[:8]==b'\x89PNG\r\n\x1a\n'
-   name=sha+'.png';target=images/name
-   if not target.exists() or not source.samefile(target):shutil.copy2(source,target)
+   name,sha=publish_image(source,images)
    variant['image']='images/'+name;variant['imageSHA256']=sha
    if variant.get('comparable'):
     assert variant.get('sameInputVerified') is True, 'Comparable ratio needs actual input verification'

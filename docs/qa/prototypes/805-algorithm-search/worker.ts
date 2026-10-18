@@ -90,6 +90,7 @@ self.onmessage=async({data})=>{if(busy){send({requestId:data.requestId,error:'Al
  if(data.type!=='run')throw Error('Unknown request');if(data.fixedInitialWet!==undefined&&typeof data.fixedInitialWet!=='boolean')throw Error('fixedInitialWet must be boolean');const encoding=data.encoding??'premultiplied-rgb'
  if(isCapturedFixture(data.fixture)&&encoding!=='optical-density')throw Error('Captured fixture requires optical-density encoding')
  const input=isCapturedFixture(data.fixture)?await loadCapturedInput(data.fixture):flowIds.includes(data.fixture)?createFlowFixture(data.fixture):createFixture(data.fixture as FixtureId,1024,encoding),fixtureSHA={rgba:await digest(input.rgba),water:await digest(input.water),paper:await digest(input.paper)},repeats=Math.max(1,Math.min(5,Math.floor(data.repeats??3)))
+ if(data.fixedInitialWet&&input.encoding!==undefined&&encoding!==input.encoding)throw Error('Requested encoding differs from immutable fixture semantics: '+encoding+' vs '+input.encoding)
  const idleBetweenMs=data.idleBetweenMs??0;if(!Number.isInteger(idleBetweenMs)||idleBetweenMs<0||idleBetweenMs>5000)throw Error('Invalid diagnostic idle interval');if(idleBetweenMs&&!data.algorithm.startsWith('wgsl-'))throw Error('Idle diagnostic currently requires WebGPU');
  const result=data.algorithm.startsWith('wgsl-')?await runGPU(data.algorithm,input,data.config??{},repeats,!!data.profileGPU,idleBetweenMs,!!data.fixedInitialWet):await runGL(data.algorithm,input,data.config??{},repeats,!!data.fixedInitialWet)
  const {output,...report}=result
