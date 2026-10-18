@@ -20,3 +20,23 @@ export function flowMetrics(id:string,input:AlgorithmInput,out:Uint8Array){
  const fraction=(v:number,t:number)=>t?v/t:0
  return{schemaVersion:2,scope:'Synthetic fixed wet-domain canaries; not artistic acceptance or physical mass',initialMixedPixels:initialMixed,alphaCarrier:total,massBeyond25px:fraction(far25,total),massBeyond50px:fraction(far50,total),massBeyond100px:fraction(far100,total),blueCrossFraction:fraction(blueCross,initialR),yellowCrossFraction:fraction(yellowCross,initialB),mixedCarrierFraction:fraction(mixed,Math.min(initialR,initialB)),redMassRatio:fraction(outputR,initialR),blueMassRatio:fraction(outputB,initialB),changedDryPixels:dry}
 }
+/** Additional diagnostics for owned dynamic common-field canaries, not real
+ * pigment unmixing. Tracer channels are defined explicitly by those fixtures. */
+export function dynamicMetrics(id:string,input:AlgorithmInput,out:Uint8Array){
+ if(!id.startsWith('dynamic-'))return undefined
+ let initialR=0,initialB=0,mixed=0,initialMixed=0,newDryAlpha=0,total=0
+ const roi=[{mass:0,moment:0},{mass:0,moment:0}]
+ for(let y=0;y<input.size;y++)for(let x=0;x<input.size;x++){
+  const i=y*input.size+x,p=i*4,a=out[p+3],X=x*1024/input.size,Y=y*1024/input.size
+  initialR+=input.rgba[p];initialB+=input.rgba[p+2];total+=a
+  if(input.rgba[p]&&input.rgba[p+2])initialMixed++
+  if(out[p]>=2&&out[p+2]>=2)mixed+=Math.min(out[p],out[p+2])
+  if(input.water[i]===0)newDryAlpha+=Math.max(0,a-input.rgba[p+3])
+  if(id==='dynamic-stroke-through-pool'){
+   const k=X>=480&&X<544?0:X>=240&&X<304?1:-1
+   if(k>=0){roi[k].mass+=a;roi[k].moment+=a*(Y-512)**2}
+  }
+ }
+ const widths=roi.map(r=>r.mass?Math.sqrt(r.moment/r.mass):0)
+ return{scope:'Owned synthetic tracer diagnostics; initial dry paper is permeable',initialMixedPixels:initialMixed,mixedCarrierFraction:Math.min(initialR,initialB)?mixed/Math.min(initialR,initialB):0,newAlphaOnInitiallyDryPaper:newDryAlpha,newDryPaperAlphaFraction:total?newDryAlpha/total:0,strokeRmsHalfWidthInsidePool:widths[0],strokeRmsHalfWidthOutsidePool:widths[1],insideOutsideWidthRatio:widths[1]?widths[0]/widths[1]:null}
+}

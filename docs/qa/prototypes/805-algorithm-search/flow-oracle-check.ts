@@ -1,5 +1,5 @@
 import {createFlowFixture} from './flow-fixtures'
-import {flowMetrics} from './flow-metrics'
+import {flowMetrics,dynamicMetrics} from './flow-metrics'
 const assert=(v:unknown,m:string)=>{if(!v)throw Error(m)}
 const drop=createFlowFixture('flow-pool-drop')
 const unchanged=flowMetrics('flow-pool-drop',drop,drop.rgba)!
@@ -18,3 +18,9 @@ assert(flowMetrics('flow-one-pixel-wall',thin,legal)!.blueCrossFraction===0,'Lef
 legal.set([10,0,0,10],(512*1024+514)*4)
 assert(flowMetrics('flow-one-pixel-wall',thin,legal)!.blueCrossFraction>0,'Column514 is beyond wall513')
 console.log(JSON.stringify({barrierBoundaryChecks:2}))
+
+const through=createFlowFixture('dynamic-stroke-through-pool'),throughCheck=dynamicMetrics('dynamic-stroke-through-pool',through,through.rgba)!
+assert(throughCheck.insideOutsideWidthRatio===1,'Reference stroke same width inside/outside pool')
+const separate=createFlowFixture('dynamic-two-strokes'),separateCheck=dynamicMetrics('dynamic-two-strokes',separate,separate.rgba)!
+assert(separateCheck.initialMixedPixels===0&&separateCheck.mixedCarrierFraction===0,'Parallel stroke input must be unmixed')
+console.log(JSON.stringify({dynamicChecks:2}))

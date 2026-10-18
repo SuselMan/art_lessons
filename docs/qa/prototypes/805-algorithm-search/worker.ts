@@ -3,7 +3,7 @@ import {transportMetrics} from './transport-metrics'
 import {definitions as macro2GL} from './alternatives/macro2-index'
 import {definitions as macroGL} from './alternatives/macro-index'
 import {flowIds,createFlowFixture} from './flow-fixtures'
-import {flowMetrics} from './flow-metrics'
+import {flowMetrics,dynamicMetrics} from './flow-metrics'
 import {createPassProfiler} from './gpu-timestamps'
 import {definitions as gpuDefinitions,glDefinitions as backendGL} from './webgpu'
 import {createFixture,fixtureInfo,fixtureIds,type FixtureId} from './fixtures'
@@ -78,5 +78,5 @@ self.onmessage=async({data})=>{if(busy){send({requestId:data.requestId,error:'Al
   control={inputRightAlpha:inputRight,outputRightAlpha:outputRight,noCrossing:inputRight===0&&outputRight===0}
  }
  const paper=isCapturedFixture(data.fixture)?input.paper.slice():undefined
- ;(self as any).postMessage({requestId:data.requestId,result:{algorithm:data.algorithm,fixture:data.fixture,encoding,config:data.config??{},fixtureSHA,...report,flowMetrics:flowMetrics(data.fixture,input,output),...(data.measureTransport?{transportMetrics:transportMetrics(input.rgba,output,input.size,input.water)}:{}),...(control?{control}:{}),...(paper?{captureManifest:capturedRecord(data.fixture)}:{})},output,paper},[output.buffer,...(paper?[paper.buffer]:[])])
+ ;(self as any).postMessage({requestId:data.requestId,result:{algorithm:data.algorithm,fixture:data.fixture,encoding,config:data.config??{},fixtureSHA,...report,flowMetrics:flowMetrics(data.fixture,input,output),dynamicMetrics:dynamicMetrics(data.fixture,input,output),...(data.measureTransport?{transportMetrics:transportMetrics(input.rgba,output,input.size,input.water)}:{}),...(control?{control}:{}),...(paper?{captureManifest:capturedRecord(data.fixture)}:{})},output,paper},[output.buffer,...(paper?[paper.buffer]:[])])
  }catch(e){send({requestId:data.requestId,error:String((e as Error).stack??e)})}finally{busy=false}}

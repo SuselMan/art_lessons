@@ -1,12 +1,20 @@
 import {paperBytes} from './fixtures'
 import type {AlgorithmInput} from './protocol'
-export const flowIds=['flow-pool-drop','flow-separated-colors','flow-dry-barrier','flow-isolated-pools','flow-one-pixel-wall','flow-thin-neck','flow-paper-drop','flow-water-only','flow-dry-pigment','flow-near-colors','flow-diagonal-wall','dynamic-wet-on-dry','dynamic-water-drop'] as const
+export const flowIds=['flow-pool-drop','flow-separated-colors','flow-dry-barrier','flow-isolated-pools','flow-one-pixel-wall','flow-thin-neck','flow-paper-drop','flow-water-only','flow-dry-pigment','flow-near-colors','flow-diagonal-wall','dynamic-wet-on-dry','dynamic-water-drop','dynamic-stroke-through-pool','dynamic-two-strokes'] as const
 export function createFlowFixture(id:string,size=1024):AlgorithmInput{
  if(!flowIds.includes(id as any))throw Error('Unknown flow fixture '+id)
  const dynamic=id.startsWith('dynamic-')
- const rgba=new Uint8Array(size*size*4),water=new Uint8Array(size*size),paper=id==='flow-paper-drop'?paperBytes(size):new Uint8Array(size*size).fill(128)
+ const rgba=new Uint8Array(size*size*4),water=new Uint8Array(size*size),paper=(id==='flow-paper-drop'||id==='dynamic-stroke-through-pool'||id==='dynamic-two-strokes')?paperBytes(size):new Uint8Array(size*size).fill(128)
  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
   const X=x*1024/size,Y=y*1024/size,i=y*size+x,p=i*4
+  if(id==='dynamic-stroke-through-pool'||id==='dynamic-two-strokes'){
+   const inLine=X>=200&&X<824&&Math.abs(Y-512)<12
+   const blue=id==='dynamic-stroke-through-pool'?inLine:Math.abs(X-464)<12&&Y>=340&&Y<684
+   const yellow=id==='dynamic-two-strokes'&&Math.abs(X-560)<12&&Y>=340&&Y<684
+   water[i]=id==='dynamic-stroke-through-pool'?Math.max(inLine?100:0,Math.hypot(X-512,Y-512)<180?200:0):(Math.hypot(X-512,Y-512)<220?180:0)
+   if(blue||yellow){rgba[p]=blue?171:0;rgba[p+1]=blue?90:14;rgba[p+2]=yellow?171:0;rgba[p+3]=180}
+   continue
+  }
   let wet=(id==='flow-pool-drop'||id==='flow-paper-drop')?Math.hypot(X-512,Y-512)<320:X>=190&&X<834&&Y>=310&&Y<714
   if(id==='flow-dry-barrier'&&Math.abs(X-512)<2)wet=false
   if(id==='flow-diagonal-wall'&&Math.floor(X)+Math.floor(Y)===1024)wet=false
