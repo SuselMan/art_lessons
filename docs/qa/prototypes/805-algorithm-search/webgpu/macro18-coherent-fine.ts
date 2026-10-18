@@ -4,11 +4,11 @@ import {integerOption,type Candidate} from './contract'
 import type {initialIntegerDynamic} from './macro8-integer-dynamic'
 import type {FineConfig} from './macro11-fine-paper'
 export interface CoherentFineConfig extends FineConfig {mobilityGain?:number;eddyCells?:number;curlStrength?:number}
-export interface CoherentFineOverrides {compactAux?:boolean;affinityBase?:number;initializer?:typeof initialIntegerDynamic}
+export interface CoherentFineOverrides {compactCarrier?:boolean;compactAux?:boolean;affinityBase?:number;initializer?:typeof initialIntegerDynamic}
 /** Actual coherent factory/upload, including aux.w stream construction; never shader-only composition. */
 export async function create(device:GPUDevice,size:number,config:CoherentFineConfig={},options:CoherentFineOverrides={}):Promise<Candidate>{
  const mobilityGain=integerOption(config.mobilityGain??3,1,8,'mobilityGain'),eddyCells=integerOption(config.eddyCells??16,4,64,'eddyCells'),curlStrength=integerOption(config.curlStrength??128,0,128,'curlStrength')
- const base=await createSmoothFine(device,size,{...config,mobilityGain},{...(options.compactAux?{compactAux:true}:{}),...(options.affinityBase===undefined?{}:{affinityBase:options.affinityBase}),baseFactory:(d,s,c,o)=>createCoherent(d,s,{...c,mobilityGain,eddyCells,curlStrength},{...o,initializer:options.initializer})})
+ const base=await createSmoothFine(device,size,{...config,mobilityGain},{...(options.compactCarrier?{compactCarrier:true}:{}),...(options.compactAux?{compactAux:true}:{}),...(options.affinityBase===undefined?{}:{affinityBase:options.affinityBase}),baseFactory:(d,s,c,o)=>createCoherent(d,s,{...c,mobilityGain,eddyCells,curlStrength},{...o,initializer:options.initializer})})
  return{get metadata(){return{...base.metadata,basePhysicalModel:'macro14 actual coherent factory+upload stream field',mobilityGain,eddyCells,curlStrength,coherentUploadFieldPreserved:true,seedUsed:curlStrength>0||(config.dither??1)!==0,composition:'Actual coherent factory owns field construction/aux upload; macro17 owns smooth fine M/D; macro11 owns conservative fine mobile exchange. No coarse stateHash support promised.'}},upload:i=>base.upload(i),run:()=>base.run(),readback:()=>base.readback(),destroy:()=>base.destroy()}
 }
 export const coherentFineDefinitions=[{id:'wgsl-macro-coherent-smooth-fine-paper',label:'Связное растекание и мелкая бумага',create,configs:[
