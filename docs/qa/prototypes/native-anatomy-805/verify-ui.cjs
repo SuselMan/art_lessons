@@ -18,7 +18,7 @@ async function verify(target,proofPath){
       const track=scene.tracks[ti];await page.locator('#tabs button').nth(ti).click();assert.equal(await page.locator('#chain button').count(),track.stages.length);
       if(track.id==='native')nativeStages+=track.stages.length;
       for(let si=0;si<track.stages.length;si++){
-       const stage=track.stages[si];await page.locator('#chain button').nth(si).click();assert.equal(await page.locator('#detail h2').innerText(),stage.label);
+       const stage=track.stages[si];await page.locator('#chain button').nth(si).click();assert.equal(await page.locator('#detail h2').innerText(),stage.label);if(width<=700)assert.equal(await page.locator('#detail').evaluate(e=>e.previousElementSibling?.dataset.id),stage.id,'Mobile detail must follow selected block');
        for(const key of ['inputText','actionText','outputText'])assert.ok((await page.locator('#detail').innerText()).includes(stage[key]));
        if(stage.details){const section=page.locator('#detail details').filter({has:page.locator('summary', {hasText:'Подробности расчёта'})});assert.equal(await section.count(),1);await section.locator('summary').click();assert.ok((await section.innerText()).length>24)}
        for(const image of await page.locator('#detail img, #final img').all()){
@@ -29,7 +29,7 @@ async function verify(target,proofPath){
         await page.locator('#detail .slider').fill('20');await surface.scrollIntoViewIfNeeded();const box=await surface.boundingBox();await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.waitForFunction(()=>document.querySelector('#detail .compare')?.classList.contains('held'));
         assert.equal(await page.locator('#detail .before').evaluate(e=>getComputedStyle(e).clipPath),'inset(0px)');await page.mouse.up();assert.equal(await surface.evaluate(e=>e.classList.contains('held')),false);holds++;
        }
-       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);visited++;
+       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Overflow '+width+' '+scene.id+' '+stage.id);visited++;
       }
      }
     }
