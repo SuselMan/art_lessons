@@ -4,6 +4,7 @@ import argparse,json,subprocess,sys,hashlib
 from statistics import median
 from pathlib import Path
 from review_timing import apply_timing
+from review_model_timing import apply_model_timing
 p=argparse.ArgumentParser();p.add_argument('manifest',type=Path);p.add_argument('output',type=Path);a=p.parse_args();m=json.loads(a.manifest.read_text());here=Path(__file__).parent;intermediate=a.manifest.parent
 native=intermediate/'current-native-cards.json';dynamic=intermediate/'current-dynamic-cards.json'
 args=[sys.executable,str(here/'assemble-native-flow.py')]
@@ -21,15 +22,16 @@ assert len({s['id'] for s in scenes})==len(scenes),'Duplicate scene group'
 for scene in scenes:
  scene['variants']=[v for v in scene['variants'] if v.get('evidence',{}).get('algorithm')!='wgsl-macro-integer-smooth-dither']
  assert scene['variants']
- preferred=['wgsl-macro-soft-paper-coherent-fine','wgsl-macro-coherent-fast-initial','wgsl-macro-fast-coherent-smooth-fine-paper','wgsl-macro-coherent-smooth-fine-paper','wgsl-macro-coherent-safe-dither','wgsl-macro-mobility-smooth-fine-paper','wgsl-macro-coherent-advection','wgsl-macro-integer-smooth-safe-dither','wgsl-macro-mobility-calibration']
+ preferred=['wgsl-macro-physical-dt-fine','wgsl-macro-coherent-physical-dt','wgsl-macro-true-coherent-fine','wgsl-macro-packed-carrier-coherent-fine','wgsl-macro-soft-paper-coherent-fine','wgsl-macro-coherent-fast-initial','wgsl-macro-fast-coherent-smooth-fine-paper','wgsl-macro-coherent-smooth-fine-paper','wgsl-macro-coherent-safe-dither','wgsl-macro-mobility-smooth-fine-paper','wgsl-macro-coherent-advection','wgsl-macro-integer-smooth-safe-dither','wgsl-macro-mobility-calibration']
  def priority(v):
   if v['id']=='original':return -3
   if v['id']=='input' or v['id'].startswith('input-reference-'):return -2
   if v['id']=='native-common':return -1
   algorithm=v.get('evidence',{}).get('algorithm')
   return preferred.index(algorithm) if algorithm in preferred else 100
- scene['variants'].sort(key=priority)
+ scene['variants'].sort(key=lambda v:(priority(v), 0 if v.get('evidence',{}).get('config',{}).get('physicalDt')==4 and v.get('evidence',{}).get('config',{}).get('eddyCells')==8 else 1))
 apply_timing(scenes,m.get('timingReports',[]),m.get('idleTimingReports',[]))
+apply_model_timing(scenes,m.get('modelTimingReports',[]))
 
 for report_path in m.get('nativeIdleReports',[]):
  report=json.loads(Path(report_path).read_text());assert report.get('pass') is True

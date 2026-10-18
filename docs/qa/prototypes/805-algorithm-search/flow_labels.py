@@ -1,5 +1,9 @@
 """Short Russian review labels. Parameters remain in evidence, never imply art acceptance."""
 LABELS={
+ 'wgsl-macro-single-pair-dt':'Тот же крупный шаг — без повторного расчёта пар',
+ 'wgsl-macro-single-pair-dt-fine':'Та же фактура — без повторного расчёта пар',
+ 'wgsl-macro-bounded-pressure-dt':'Крупный шаг — ограниченный перенос давлением',
+ 'wgsl-macro-bounded-pressure-dt-fine':'Ограниченный перенос давлением с фактурой',
  'wgsl-macro-physical-dt-fine':'Крупный шаг с бумажной фактурой',
  'wgsl-macro-coherent-physical-dt':'Вихри — более крупный шаг расчёта',
  'wgsl-macro-coherent-gated-exchange':'Вихри с разной частотой смешения',

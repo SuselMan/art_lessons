@@ -1,7 +1,9 @@
 import {paperBytes} from './fixtures'
+import {stressFlowIds,createStressFlowFixture} from './stress-flow-fixtures'
 import type {AlgorithmInput} from './protocol'
-export const flowIds=['flow-pool-drop','flow-separated-colors','flow-dry-barrier','flow-isolated-pools','flow-one-pixel-wall','flow-thin-neck','flow-paper-drop','flow-water-only','flow-dry-pigment','flow-near-colors','flow-diagonal-wall','dynamic-wet-on-dry','dynamic-water-drop','dynamic-stroke-through-pool','dynamic-two-strokes','dynamic-opaque-stationary','dynamic-saturated-pigment','dynamic-corner-wetting','dynamic-stroke-through-pool-w64','dynamic-stroke-through-pool-w128','dynamic-stroke-through-pool-w255','dynamic-stroke-through-pool-soft'] as const
+export const flowIds=['flow-pool-drop','flow-separated-colors','flow-dry-barrier','flow-isolated-pools','flow-one-pixel-wall','flow-thin-neck','flow-paper-drop','flow-water-only','flow-dry-pigment','flow-near-colors','flow-diagonal-wall','dynamic-wet-on-dry','dynamic-water-drop','dynamic-stroke-through-pool','dynamic-two-strokes','dynamic-opaque-stationary','dynamic-saturated-pigment','dynamic-corner-wetting','dynamic-stroke-through-pool-w64','dynamic-stroke-through-pool-w128','dynamic-stroke-through-pool-w255','dynamic-stroke-through-pool-soft',...stressFlowIds] as const
 export function createFlowFixture(id:string,size=1024):AlgorithmInput{
+ if(stressFlowIds.includes(id as any))return createStressFlowFixture(id,size)
  if(!flowIds.includes(id as any))throw Error('Unknown flow fixture '+id)
  const dynamic=id.startsWith('dynamic-')
  const rgba=new Uint8Array(size*size*4),water=new Uint8Array(size*size),paper=(id==='flow-paper-drop'||id.startsWith('dynamic-stroke-through-pool')||id==='dynamic-two-strokes')?paperBytes(size):new Uint8Array(size*size).fill(128)

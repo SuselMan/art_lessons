@@ -1,0 +1,342 @@
+[
+  {
+    "algorithm": "wgsl-macro-coherent-physical-dt",
+    "fixture": "stress-coarse-checker",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-physical-dt-fine",
+    "fixture": "stress-coarse-checker",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1,
+      "dither": 1
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-coherent-physical-dt",
+    "fixture": "stress-low-water-1",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-physical-dt-fine",
+    "fixture": "stress-low-water-1",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1,
+      "dither": 1
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-coherent-physical-dt",
+    "fixture": "stress-low-water-4",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-physical-dt-fine",
+    "fixture": "stress-low-water-4",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1,
+      "dither": 1
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-coherent-physical-dt",
+    "fixture": "stress-low-water-61",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-physical-dt-fine",
+    "fixture": "stress-low-water-61",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1,
+      "dither": 1
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-coherent-physical-dt",
+    "fixture": "stress-low-water-255",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-physical-dt-fine",
+    "fixture": "stress-low-water-255",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1,
+      "dither": 1
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-coherent-physical-dt",
+    "fixture": "stress-stationary-phase-a1",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-physical-dt-fine",
+    "fixture": "stress-stationary-phase-a1",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1,
+      "dither": 1
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-coherent-physical-dt",
+    "fixture": "stress-stationary-phase-a2",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-physical-dt-fine",
+    "fixture": "stress-stationary-phase-a2",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1,
+      "dither": 1
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-coherent-physical-dt",
+    "fixture": "stress-stationary-phase-a128",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-physical-dt-fine",
+    "fixture": "stress-stationary-phase-a128",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1,
+      "dither": 1
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-coherent-physical-dt",
+    "fixture": "stress-stationary-phase-a254",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-physical-dt-fine",
+    "fixture": "stress-stationary-phase-a254",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1,
+      "dither": 1
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-coherent-physical-dt",
+    "fixture": "stress-stationary-phase-a255",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64
+    }
+  },
+  {
+    "algorithm": "wgsl-macro-physical-dt-fine",
+    "fixture": "stress-stationary-phase-a255",
+    "encoding": "optical-density",
+    "repeats": 3,
+    "exportRaw": true,
+    "measureTransport": true,
+    "config": {
+      "physicalDt": 4,
+      "steps": 64,
+      "mobilityGain": 3,
+      "eddyCells": 8,
+      "curlStrength": 64,
+      "fineSteps": 4,
+      "affinityBase": 64,
+      "paperGain": 1,
+      "dither": 1
+    }
+  }
+]

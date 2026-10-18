@@ -1,0 +1,147 @@
+{
+  "qualification": "Same captured raw output and regenerated SHA-matching inputs. Dry literal RGBA lower bound; opaque literal exact. Does not prove no new wet pigment may arrive at semitransparent dry pixels.",
+  "sourceSHA": "8c3d3a46dd0a57a96c1b3d817c24955581bf5d4138e196ef52dd42c415e9bc3f",
+  "rows": [
+    {
+      "fixture": "stress-stationary-phase-a1",
+      "algorithm": "wgsl-macro-coherent-physical-dt",
+      "outputSHA": "9d5cf252e321e8638693fce06b8b6405d3b440476ae4a2dc2c8bf9a890f12ffd",
+      "pixels": 64,
+      "minDeltaRGBA": [
+        5,
+        10,
+        3,
+        14
+      ],
+      "violations": 0,
+      "opaqueDifferent": 0
+    },
+    {
+      "fixture": "stress-stationary-phase-a1",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "outputSHA": "4b487de459075b54eaedf3e56d8f306494bafa9e24cbf69448579f7fd292b8ee",
+      "pixels": 64,
+      "minDeltaRGBA": [
+        5,
+        10,
+        3,
+        14
+      ],
+      "violations": 0,
+      "opaqueDifferent": 0
+    },
+    {
+      "fixture": "stress-stationary-phase-a2",
+      "algorithm": "wgsl-macro-coherent-physical-dt",
+      "outputSHA": "0b2e9ace4611c5f46d5a3c464b84a9547fe30615755367b3e6fbfc0441e435d5",
+      "pixels": 64,
+      "minDeltaRGBA": [
+        5,
+        10,
+        3,
+        14
+      ],
+      "violations": 0,
+      "opaqueDifferent": 0
+    },
+    {
+      "fixture": "stress-stationary-phase-a2",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "outputSHA": "63ee225bf3f42709e478d33666dc7177f564e906782eacdcdb278916275847dc",
+      "pixels": 64,
+      "minDeltaRGBA": [
+        5,
+        10,
+        3,
+        14
+      ],
+      "violations": 0,
+      "opaqueDifferent": 0
+    },
+    {
+      "fixture": "stress-stationary-phase-a128",
+      "algorithm": "wgsl-macro-coherent-physical-dt",
+      "outputSHA": "8a113e30d9aa2e7ed688f4cfd65b0c5eb1650e985583adcec70a498b0e26a25d",
+      "pixels": 64,
+      "minDeltaRGBA": [
+        5,
+        10,
+        3,
+        14
+      ],
+      "violations": 0,
+      "opaqueDifferent": 0
+    },
+    {
+      "fixture": "stress-stationary-phase-a128",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "outputSHA": "78cd0dea2c9757b304d65c26cb05f501b2581c7d4b8d25bafb660a857f30171f",
+      "pixels": 64,
+      "minDeltaRGBA": [
+        5,
+        10,
+        3,
+        14
+      ],
+      "violations": 0,
+      "opaqueDifferent": 0
+    },
+    {
+      "fixture": "stress-stationary-phase-a254",
+      "algorithm": "wgsl-macro-coherent-physical-dt",
+      "outputSHA": "7224dcc4b56f07b4a06d07a56e4d8c1b695519294eab177a30a989ded2b1a199",
+      "pixels": 64,
+      "minDeltaRGBA": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "violations": 0,
+      "opaqueDifferent": 0
+    },
+    {
+      "fixture": "stress-stationary-phase-a254",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "outputSHA": "5cb8a126b7e0f422855e5560f8cb7a39200a25f984ddbc746b39e3ca3ae574aa",
+      "pixels": 64,
+      "minDeltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "violations": 0,
+      "opaqueDifferent": 0
+    },
+    {
+      "fixture": "stress-stationary-phase-a255",
+      "algorithm": "wgsl-macro-coherent-physical-dt",
+      "outputSHA": "48a3d49cd28d4488bbdcef3bb9b238d4c48be45a377087a6f76b6dac1487f6aa",
+      "pixels": 64,
+      "minDeltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "violations": 0,
+      "opaqueDifferent": 0
+    },
+    {
+      "fixture": "stress-stationary-phase-a255",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "outputSHA": "3948da7ed49a0adc52eec2c48b24102da79060aba874eb23e63495eed42214a2",
+      "pixels": 64,
+      "minDeltaRGBA": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "violations": 0,
+      "opaqueDifferent": 0
+    }
+  ],
+  "pass": true
+}
