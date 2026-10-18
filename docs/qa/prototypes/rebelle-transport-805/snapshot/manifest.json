@@ -1,0 +1,11 @@
+{
+  "sourceWorktree": "679-wc-sim",
+  "sourceCommit": "4bf33ed7",
+  "originalAlgorithm": "Curtis1997 plus virtual pipes; not proprietary Rebelle source",
+  "files": {
+    "pigments.js": "575c3907e00dbfa27672685f92ba5465a48eeba7a1616022e962cc86a2f3a332",
+    "gl.js": "6701816ef918df85cd6fcca01bb0b1e131cb88e19c293ac3c433a79e38ac7be4",
+    "sim.js": "59ccdde17990d2a78f1589e06b8b5db5ade9db912cc9155207951e8ba99d51a9",
+    "shaders.js": "d20b3b5fb47e5b77de332c4404338acce35062d3b461f1aa8dcee904321b2e1b"
+  }
+}

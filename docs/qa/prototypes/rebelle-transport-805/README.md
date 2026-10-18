@@ -1,0 +1,13 @@
+# Узкий Curtis/virtual-pipes эксперимент
+
+Локальные snapshots из 679-wc-sim, commit `4bf33ed7`; точные SHA в snapshot/manifest.json. Это адаптация Curtis-inspired virtual pipes, не код и не полная модель Rebelle. KM renderer/пигментные профили не используются.
+
+WebGL1, 1024², только реально проверенный RGBA/FLOAT32 render/read; half fallback запрещён. Factory `createTransport(gl,1024,{waterMode:'dynamic'|'frozen',auditPreClamp:true})`. `init` принимает исходные top-left common rgba/water/paper/seed/sourceScale. Все четыре канала G переносятся одинаково: RGB optical-density, A отдельный неоптический dose tracer. G+D wide float не ограничивается opacity-capacity. Fixed input water>0 — неизменяемая область; flux, capillary и diffusion имеют сухие стенки непосредственно в операторах. Сухой исходный пигмент хранится отдельно и возвращается literal при CPU compose.
+
+`run(deltaSteps)` до1024 шагов за вызов, максимум16384. Dynamic выполняет четыре старых прохода с движением воды внутри области; frozen удерживает исходную W (три прохода плюс copy), поэтому это отдельный контроль, не полная continuity/absorption-модель.
+
+Primary timer: fresh `init` → `run(N)` → `readOutput()`. Последний делает G+D (с исходным dry-literal из readonly RGBA8 texture) в отдельный FLOAT target и ОДИН полный16MiB read, возвращает `{combined,steps,rows:'gl-bottom-up',readBytes}`. Компиляция/аллокация factory до таймера. `readRaw()` после primary читает G,D,W и опциональный последний preclamp G:48/64MiB, включая дополнительный audit draw. Хеши, переворот строк, анализ, PNG/exp — после таймера. Сопоставление combined с Math.fround(G+D) — отдельный actual-device gate. GPU storage с audit:167MiB плюс малые объекты/драйвер, без audit151MiB; CPU raw/readback дополнительно.
+
+`analyzeRaw` проверяет отсутствие состояния вне initial domain до dry-literal compose, считает все4 суммы/дрейф/NaN/отрицательные/вход в чистую мокрую область. Сохраняется старый final `max(0,gn)`: при overdraw он может создавать массу. Last-step preclamp audit не доказывает отсутствие отрицательных значений на предыдущих шагах. Не заявляем conservation без фактического ledger. Нулевой шаг проверяет raw encoded roundtrip, display строится из точного исходного byte/255, чтобы не спутать погрешность float representation с изменением рисунка.
+
+CPU: `node --test docs/qa/prototypes/rebelle-transport-805/transport.test.cjs`. Эти проверки подтверждают snapshot/source/input-контракт, не компиляцию GLSL и не работу устройства. Реальный float32 gate, zero-step PNG, combined/raw equality, fixed-domain и repeat/mass проверяет единственный GPU-оператор.
