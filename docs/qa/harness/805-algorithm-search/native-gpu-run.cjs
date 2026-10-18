@@ -77,6 +77,30 @@ function validateGpuResult(result, baseline, mode) {
   // Reuse the byte, seven-source, orientation and host-clock checks unchanged.
   return validateResult({ ...result, type: 'qa-native-direct' }, baseline.sourceSHA, 'original');
 }
+function validateCpuTimeline(timeline) {
+  assert.equal(timeline.completePipeline, true, 'Complete CPU QA pipeline required');
+  assert.ok(Number.isFinite(timeline.wallMs) && timeline.wallMs > 0);
+  assert.ok(Array.isArray(timeline.tasks) && timeline.tasks.length > 8);
+  const ids = new Map(timeline.tasks.map(task => [task.id, task]));
+  assert.equal(ids.size, timeline.tasks.length, 'Duplicate host task id');
+  for (const task of timeline.tasks) {
+    assert.equal(task.clock, 'host'); assert.equal(task.wallAligned, true);
+    assert.ok(['cpu', 'transfer'].includes(task.lane));
+    assert.ok(typeof task.label === 'string' && task.label.length > 0);
+    assert.ok(Number.isFinite(task.startMs) && task.startMs >= 0);
+    assert.ok(Number.isFinite(task.endMs) && task.endMs >= task.startMs && task.endMs <= timeline.wallMs);
+    assert.ok(Math.abs(task.elapsedMs - (task.endMs - task.startMs)) < 1e-6);
+    if (task.parentId) { const parent = ids.get(task.parentId); assert.ok(parent && task.startMs >= parent.startMs && task.endMs <= parent.endMs, 'Host child outside parent'); }
+  }
+  const groups=timeline.tasks.filter(task=>task.operation.startsWith('group.'));
+  assert.equal(groups.length,GROUP_IDS.length);
+  const ordered=GROUP_IDS.map(id=>{const matching=groups.filter(task=>task.groupId===id);assert.equal(matching.length,1);return matching[0]});
+  for(let i=1;i<ordered.length;i++)assert.equal(ordered[i].startMs,ordered[i-1].endMs,'Host group boundary coverage');
+  const top = timeline.tasks.filter(task => !task.parentId).sort((a,b) => a.startMs-b.startMs);
+  for(let i=1;i<top.length;i++)assert.ok(top[i].startMs>=top[i-1].endMs, 'Top-level host overlap');
+  assert.ok(Math.abs(top.reduce((sum,task)=>sum+task.elapsedMs,0)-timeline.wallMs)<1e-6, 'Full host wall coverage');
+  for(const operation of ['core','selection.readback','selection.filter','selection.upload','output.c-read','output.p-read','output.coverage-read','query.poll'])assert.equal(timeline.tasks.filter(task=>task.operation===operation).length,1,'Missing/repeated host operation '+operation);
+}
 function validateReplay(replay, expected, operationSHA) {
   assert.equal(replay.replay.operationSHA, operationSHA, 'Canonical operation SHA');
   assert.equal(replay.replay.operationSHA, expected.replay.replay.operationSHA, 'Paired operation SHA');
@@ -93,12 +117,15 @@ async function main() {
   assert.ok(build && output && durable && expectedFile, 'QA_BUILD/QA_OUTPUT/QA_DURABLE/QA_EXPECTED required');
   assert.ok(process.env.QA_DEVICE_LOCAL_PAIR === undefined || process.env.QA_DEVICE_LOCAL_PAIR === '1', 'GPU timing is always a strict device-local pair');
   assert.ok(process.env.QA_SAVE_C === undefined || ['0', '1'].includes(process.env.QA_SAVE_C), 'QA_SAVE_C must be0/1');
+  assert.ok(process.env.QA_CPU_TIMELINE === undefined || ['0', '1'].includes(process.env.QA_CPU_TIMELINE), 'QA_CPU_TIMELINE must be0/1');
+  const cpuTimeline = process.env.QA_CPU_TIMELINE === '1';
   const fixture = process.env.QA_SCENE || 'mini-two-colors', jobs = schedule(Number(process.env.QA_REPEATS || 5));
   const expectedBytes = fs.readFileSync(expectedFile), expected = JSON.parse(expectedBytes), baseline = validateExpected(expected, fixture);
   const immutable = readBuild(build), manifest = immutable.manifest;
   assert.equal(manifest.nativeMiniUI, true);
   assert.equal(manifest.nativeMiniOptimized, false, 'Measure original algorithm only');
   assert.equal(manifest.nativeAnatomy, true, 'GPU semantic-observer build required');
+  if (cpuTimeline) assert.equal(manifest.nativeCpuTimeline, true, 'CPU timeline source-observer build required');
   const proofBytes = fs.readFileSync(path.join(durable, 'native/report.json')), proofReport = JSON.parse(proofBytes);
   const proof = proofReport.cases.find(row => row.pass && row.request.fixture === fixture && row.request.arm === 'original');
   assert.ok(proof && proof.repeatExact && proof.proofs.length >= 3, 'Certified authored operations required');
@@ -116,7 +143,7 @@ async function main() {
   if (fs.existsSync(output)) assert.equal(fs.readdirSync(output).length, 0, 'Use an empty owned output directory');
   fs.mkdirSync(output, { recursive: true, mode: 0o700 });
   const report = {
-    contract: 'native-gpu-timeline-v1', request: { fixture, profile: 'original', repeats: jobs.filter(job => job.mode === 'whole' && job.phase === 'measured').length },
+    contract: 'native-gpu-timeline-v1', request: { fixture, profile: 'original', cpuTimeline, repeats: jobs.filter(job => job.mode === 'whole' && job.phase === 'measured').length },
     deviceLocalPair: true, sourceQualification: 'Exact paired source/output on this renderer; NOT cross-device identity',
     dimensions: { width: SIZE, height: SIZE, channels: 4, bytes: SIZE * SIZE * 4, rows: 'gl-bottom-up' },
     expectedReportSHA: hash(expectedBytes), authoredProofReportSHA: hash(proofBytes), buildManifestSHA: hash(fs.readFileSync(path.join(build, 'manifest.json'))),
@@ -150,10 +177,11 @@ async function main() {
     save();
     for (const job of jobs) {
       report.pending = job; save();
-      const result = await own.evaluate('__nativeDirectRequest(' + JSON.stringify({ type: 'qa-run-native-gpu', mode: job.mode, baseline }) + ')');
+      const result = await own.evaluate('__nativeDirectRequest(' + JSON.stringify({ type: 'qa-run-native-gpu', mode: job.mode, baseline, cpuTimeline }) + ')');
       report.lastAttempt = { ...job, gpu: result.gpu, outputSHA: result.outputSHA, sourceSHA: result.sourceSHA, sourceSHAAfter: result.sourceSHAAfter, metadataSHA: result.metadataSHA };
       const bytes = validateGpuResult(result, baseline, job.mode);
-      const row = { ...job, gpu: result.gpu, hostSample: result.sample, outputSHA: result.outputSHA };
+      if(cpuTimeline)validateCpuTimeline(result.cpuTimeline);
+      const row = { ...job, gpu: result.gpu, hostSample: result.sample, outputSHA: result.outputSHA, ...(cpuTimeline?{cpuTimeline:result.cpuTimeline}:{}) };
       if (job.phase === 'warmup') report.warmups.push(row);
       else {
         report.samples.push(row); report.hashes.push(result.outputSHA);
@@ -210,9 +238,15 @@ function selfTest() {
     const jobs = schedule(5); assert.equal(jobs.length, 12); assert.equal(jobs.filter(row => row.phase === 'warmup').length, 2); assert.deepEqual(jobs.map(row => row.mode), Array.from({ length: 6 }, () => ['whole', 'groups']).flat());
     for (const value of [0, -1, 11, 1.5, NaN]) assert.throws(() => schedule(value));
   });
+  test('full host profile preserves parent nesting and counts only top-level wall once',()=>{
+    const task=(id,operation,startMs,endMs,parentId,lane='cpu',groupId)=>({id,operation,label:id,startMs,endMs,elapsedMs:endMs-startMs,parentId,lane,groupId,clock:'host',wallAligned:true});
+    const timeline={completePipeline:true,wallMs:13,tasks:[task('core','core',0,8),...GROUP_IDS.map((id,i)=>task('g-'+id,'group.'+id,i,i+1,'core','cpu',id)),task('read','selection.readback',2.1,2.2,'g-selection','transfer'),task('filter','selection.filter',2.2,2.3,'g-selection'),task('upload','selection.upload',2.3,2.4,'g-selection','transfer'),task('c','output.c-read',8,10,undefined,'transfer'),task('proof','output.proof',10,12),task('p','output.p-read',10,10.2,'proof','transfer'),task('coverage','output.coverage-read',10.2,10.4,'proof','transfer'),task('poll','query.poll',12,13)]};
+    validateCpuTimeline(timeline);
+    for(const change of [x=>x.completePipeline=false,x=>x.tasks.find(t=>t.id==='read').endMs=4,x=>x.tasks.find(t=>t.id==='filter').parentId='absent',x=>x.tasks.find(t=>t.id==='c').elapsedMs=3,x=>x.wallMs=14]){const row=structuredClone(timeline);change(row);assert.throws(()=>validateCpuTimeline(row))}
+  });
 }
 if (require.main === module) {
   if (process.argv.includes('--self-test')) selfTest();
   else main().catch(error => { console.error(error.message); process.exitCode = 1; });
 }
-module.exports = { validateExpected, validateGpu, validateGpuResult, validateReplay, schedule, GROUP_IDS, main };
+module.exports = { validateExpected, validateGpu, validateGpuResult, validateReplay, validateCpuTimeline, schedule, GROUP_IDS, main };
