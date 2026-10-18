@@ -27,6 +27,40 @@ def digest(value):
     return isinstance(value, str) and re.fullmatch('[0-9a-f]{64}', value) is not None
 
 
+def validate_component_isolation(proof, inp, source):
+    expected = inp.get('nativeComponentCounts')
+    require(isinstance(expected, dict), 'missing independent frozen component counts')
+    require(proof.get('policy') == 'native-component-isolated-v1'
+            and proof.get('inputSHA') == inp['sha'] and proof.get('sourceHashes') == source
+            and proof.get('connectivity') == 4 and proof.get('threshold') == 0,
+            'component isolation source/policy mismatch')
+    components = proof.get('components', [])
+    require(proof.get('totalComponentCount') == expected['components']
+            and proof.get('pigmentedComponentCount') == expected['pigmented']
+            and proof.get('goalRuns') == expected['pigmented'] == len(components),
+            'component dispatch count mismatch')
+    require(len({c['id'] for c in components}) == len(components), 'duplicate component dispatch')
+    planes = proof.get('originalPlaneSHA', {})
+    require(len(planes) == 7 and all(digest(v) for v in planes.values())
+            and digest(proof.get('paperSHA')), 'missing original seven planes/paper')
+    for component in components:
+        expected_planes = component.get('expectedMaskedPlaneSHA', {})
+        require(set(expected_planes) == set(planes) and all(digest(v) for v in expected_planes.values())
+                and component.get('actualMaskedPlaneSHA') == expected_planes
+                and digest(component.get('inputMaskSHA')),
+                'masked source plane readback mismatch')
+        require(component.get('insideOriginalChangedChannels') == {k: 0 for k in planes}
+                and component.get('outsideNonzeroChannels') == {k: 0 for k in planes},
+                'masked source inside/outside mismatch')
+        require(component.get('paperExpectedSHA') == proof['paperSHA']
+                and component.get('paperActualSHA') == proof['paperSHA']
+                and digest(component.get('endpointSHA'))
+                and component.get('outsideEndpointChangedChannels') == 0
+                and component.get('rawDryChangedChannels') == 0
+                and component.get('runCount') == 1,
+                'component paper/endpoint audit failed')
+
+
 def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None):
     """Return new data only after complete exact coverage. Inputs are not mutated.
 
@@ -67,7 +101,11 @@ def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None):
         require(bool(source) and all(digest(x) for x in source.values()), 'missing source SHA: ' + tag)
         renderer = cell.get('commonRenderer', {})
         require(renderer.get('inputSHA') == inp['sha'] and renderer.get('inputDerivedScale') is True
-                and renderer.get('outputNormalized') is False, 'unproven common renderer: ' + tag)
+                and renderer.get('outputNormalized') is False
+                and renderer.get('displayDensityScale') == inp.get('expectedDisplayDensityScale')
+                and isinstance(inp.get('expectedDisplayDensityScale'), (int, float))
+                and inp['expectedDisplayDensityScale'] > 0
+                and renderer.get('paperSHA') == inp['sha']['paper'], 'unproven common renderer: ' + tag)
         kind = choice['kind']
         if kind == 'worker-factory':
             require(request.get('fixedInitialWet') is True, 'old policy request: ' + tag)
@@ -93,16 +131,27 @@ def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None):
                         and digest(proof.get('replaySHA')) and digest(proof.get('nativeRawSHA'))
                         and proof.get('capturedCommonSHA') == inp['sha'],
                         'authored native replay/composite proof missing: ' + tag)
+                frozen_native = inp.get('authoredNativeSource', {})
+                isolation = proof.get('componentIsolation', {})
+                require(frozen_native.get('inputSHA') == inp['sha']
+                        and frozen_native.get('originalPlaneSHA') == isolation.get('originalPlaneSHA')
+                        and len(frozen_native.get('originalPlaneSHA', {})) == 7
+                        and frozen_native.get('paperSHA') == isolation.get('paperSHA')
+                        and frozen_native.get('replaySHA') == proof.get('replaySHA')
+                        and frozen_native.get('nativeRawSHA') == proof.get('nativeRawSHA'),
+                        'authored native planes not bound to frozen capture: ' + tag)
                 dry = proof.get('rawDryAudit', {})
                 require(dry.get('pass') is True and dry.get('changedDryChannels') == 0
                         and dry.get('inputSHA') == inp['sha'] and dry.get('rawSHA') == cell['rawSHA']
                         and dry.get('sourceHashes') == source,
                         'authored native raw dry audit missing: ' + tag)
+            validate_component_isolation(proof.get('componentIsolation', {}), inp, source)
             require(request.get('flags') == choice['flags'] and result.get('repeatExact') is True,
                     'native flags/repeat mismatch: ' + tag)
         else:
             require(kind == 'input-reference', 'unknown choice kind: ' + tag)
-            require(cell.get('inputReferenceExact') is True, 'unproven input reference: ' + tag)
+            require(cell.get('inputReferenceExact') is True and cell.get('rawSHA') == inp['sha']['rgba'],
+                    'unproven input reference: ' + tag)
         require(digest(cell.get('rawSHA')) and digest(cell.get('pngSHA')), 'missing output digests: ' + tag)
         raw_audit = cell.get('rawAudit', {})
         require(raw_audit.get('pass') is True and raw_audit.get('rawSHA') == cell['rawSHA']
@@ -112,19 +161,28 @@ def assemble_fixed_matrix(shell, plan, manifest, cells, read_bytes=None):
         require(hashlib.sha256(read_bytes(variant['imageSource'])).hexdigest() == cell['pngSHA'],
                 'PNG file SHA mismatch: ' + tag)
         variant.update(comparisonKey=key, label=choice['label'], imageSHA256=cell['pngSHA'])
+        if key == 'original':
+            variant['id'] = 'original'
+        elif kind == 'input-reference':
+            variant['id'] = 'input'
         # Discard caller aliases that could display a different pre-existing public file.
         variant.pop('image', None)
-        variant['evidence'] = {'algorithm': choice.get('algorithm'), 'config': choice.get('config'),
+        variant['evidence'] = {**copy.deepcopy(variant.get('evidence', {})), 'algorithm': choice.get('algorithm'), 'config': choice.get('config'),
                                'fixedMatrix': True, 'sourceHashes': copy.deepcopy(source),
                                'inputSHA': copy.deepcopy(inp['sha']), 'rawSHA': cell['rawSHA'],
                                'metadata': copy.deepcopy(result.get('metadata', {})),
-                               'nativeProof': copy.deepcopy(cell.get('nativeProof'))}
+                               'nativeProof': copy.deepcopy(cell.get('nativeProof')),
+                               'rawAudit': copy.deepcopy(raw_audit),
+                               'commonRenderer': copy.deepcopy(renderer),
+                               'initialWetAudit': copy.deepcopy(result.get('initialWetAudit'))}
         found[sid, key] = variant
     missing = [(sid, key) for sid in scene_ids for key in keys if (sid, key) not in found]
     require(not missing, 'missing matrix cells: ' + str(len(missing)))
     out = copy.deepcopy(shell)
     for scene in out['scenes']:
         scene['variants'] = [found[scene['id'], key] for key in keys]
+        ids = [v['id'] for v in scene['variants']]
+        require(len(ids) == len(set(ids)), 'duplicate variant DOM id: ' + scene['id'])
         scene['commonInputSHA'] = copy.deepcopy(inputs[scene['id']]['sha'])
         scene.pop('displayDiagnostics', None)
     out['variantCatalog'] = [{'key': c['key'], 'label': c['label']} for c in choices]
@@ -155,3 +213,151 @@ def worker_cell_from_batch(report, row, *, scene_id, comparison_key, variant, ra
             'variant': copy.deepcopy(variant), 'pngSHA': row['png']['sha256'],
             'rawSHA': row['carrier']['decodedSHA256'],
             'rawAudit': copy.deepcopy(raw_audit), 'commonRenderer': copy.deepcopy(common_renderer)}
+
+
+def coverage_report(shell, plan, manifest, cells, read_bytes=None):
+    """All-cell CPU validation with bounded readable missing/error inventory; no output assembly."""
+    global_errors = []
+    keys = [c['key'] for c in plan['choices']]
+    input_ids = [i['id'] for i in manifest['inputs']]
+    if len(keys) != len(set(keys)) or [c['key'] for c in manifest['choices']] != keys:
+        global_errors.append('duplicate/mismatched frozen catalogue')
+    if len(input_ids) != len(set(input_ids)) or set(input_ids) != {s['id'] for s in shell['scenes']} or set(input_ids) != {s['scene'] for s in plan['matrix']}:
+        global_errors.append('duplicate/mismatched frozen scenes')
+    if manifest['registrySHA'] != plan['registrySourceSHA256']:
+        global_errors.append('registry snapshot mismatch')
+    expected = {(i['id'], c['key']) for i in manifest['inputs'] for c in plan['choices']}
+    counts, invalid, unknown = {}, [], []
+    dom_ids = {}
+    by_input = {i['id']: i for i in manifest['inputs']}
+    by_choice = {c['key']: c for c in plan['choices']}
+    by_scene = {s['id']: s for s in shell['scenes']}
+    valid = set()
+    for index, cell in enumerate(cells):
+        pair = (cell.get('sceneId'), cell.get('comparisonKey'))
+        counts[pair] = counts.get(pair, 0) + 1
+        if pair not in expected:
+            unknown.append({'index': index, 'scene': pair[0], 'key': pair[1]})
+            continue
+        sid, key = pair
+        tiny_plan = {'choices': [by_choice[key]], 'matrix': [{'scene': sid}],
+                     'registrySourceSHA256': plan['registrySourceSHA256']}
+        tiny_manifest = {'inputs': [by_input[sid]], 'choices': [by_choice[key]],
+                         'registrySHA': manifest['registrySHA']}
+        try:
+            assemble_fixed_matrix({'scenes': [by_scene[sid]]}, tiny_plan, tiny_manifest, [cell], read_bytes)
+            valid.add(pair)
+            kind = by_choice[key]['kind']
+            vid = 'original' if key == 'original' else 'input' if kind == 'input-reference' else cell['variant']['id']
+            if vid in dom_ids.setdefault(sid, {}) and dom_ids[sid][vid] != key:
+                global_errors.append('duplicate variant DOM id in ' + sid + ': ' + vid)
+            dom_ids[sid][vid] = key
+        except (MatrixError, KeyError, OSError, TypeError) as error:
+            invalid.append({'index': index, 'scene': sid, 'key': key, 'error': str(error)})
+    duplicate = [{'scene': s, 'key': k, 'count': n} for (s, k), n in counts.items() if n > 1]
+    missing = [{'scene': s, 'key': k} for s, k in sorted(expected - valid)]
+    per_scene = [{'scene': i['id'], 'required': len(plan['choices']),
+                  'validUnique': sum((i['id'], c['key']) in valid for c in plan['choices'])}
+                 for i in manifest['inputs']]
+    return {'complete': not (global_errors or missing or duplicate or invalid or unknown) and len(cells) == len(expected),
+            'requiredCells': len(expected), 'providedCells': len(cells), 'validUniqueCells': len(valid),
+            'globalErrors': global_errors, 'missing': missing, 'duplicates': duplicate, 'invalid': invalid, 'unknown': unknown,
+            'perScene': per_scene,
+            'qualification': 'CPU evidence/file validation only. No cells computed; old published images never used as fallback.'}
+
+
+def main(argv=None):
+    import argparse
+    import json
+    import os
+    parser = argparse.ArgumentParser(description='Strict fixed-matrix CPU assembler; no render/GPU/publication.')
+    parser.add_argument('--shell', required=True, type=Path)
+    parser.add_argument('--plan', required=True, type=Path)
+    parser.add_argument('--manifest', required=True, type=Path)
+    parser.add_argument('--cells', required=True, nargs='+', type=Path)
+    parser.add_argument('--references', required=True, type=Path,
+                        help='Exactly one certified input-reference cell per frozen scene (30 in final matrix).')
+    parser.add_argument('--input-catalog', required=True, type=Path, help='Frozen30 input+capture metadata catalogue.')
+    parser.add_argument('--native-source-proofs', type=Path, help='Explicit certified authored input/7plane/paper/replay binding; absence blocks authored cells.')
+    parser.add_argument('--component-counts', required=True, type=Path,
+                        help='Independent frozen-input four-connected counts, including zero-solve scenes.')
+    parser.add_argument('--coverage-report', required=True, type=Path)
+    parser.add_argument('--coverage-text', type=Path, help='Optional human-readable Markdown coverage report.')
+    parser.add_argument('--output', type=Path, help='Written atomically ONLY when every cell passes; never HTML/published here.')
+    args = parser.parse_args(argv)
+    load = lambda p: json.loads(p.read_text())
+    shell, plan, manifest = map(load, (args.shell, args.plan, args.manifest))
+    catalog = load(args.input_catalog)
+    require(len(catalog) == len(manifest['inputs']) and {r['id'] for r in catalog} == {i['id'] for i in manifest['inputs']},
+            'frozen input catalogue scene set mismatch')
+    native_sources = load(args.native_source_proofs) if args.native_source_proofs else []
+    for inp in manifest['inputs']:
+        record = next(r for r in catalog if r['id'] == inp['id'])
+        require(record['sha'] == inp['sha'] and record['encoding'] == inp['encoding'], 'catalogue SHA/encoding mismatch')
+        meta_bytes = Path(record['metadata']).read_bytes()
+        require(hashlib.sha256(meta_bytes).hexdigest() == record.get('metadataSHA256'), 'capture metadata SHA mismatch')
+        meta = json.loads(meta_bytes)
+        if 'manifest' in meta:
+            require(meta['manifest'].get('commonSHA') == inp['sha'], 'capture common input SHA mismatch')
+            scale = meta['manifest'].get('pigmentScale')
+        else:
+            require(meta.get('source', {}).get('kind') == 'deterministic-fixture' and meta.get('sha') == inp['sha'],
+                    'unknown source scale provenance')
+            scale = 1
+        require(isinstance(scale, (int, float)) and 0 < scale <= 1, 'invalid original source density scale')
+        inp['expectedDisplayDensityScale'] = scale
+        native = [r for r in native_sources if r['id'] == inp['id']]
+        require(len(native) <= 1, 'duplicate authored source proof')
+        if native:
+            inp['authoredNativeSource'] = native[0]
+    component_counts = load(args.component_counts)
+    require(len(component_counts) == len(manifest['inputs'])
+            and {r['id'] for r in component_counts} == {i['id'] for i in manifest['inputs']},
+            'frozen component-count scene set mismatch')
+    for inp in manifest['inputs']:
+        row = next(r for r in component_counts if r['id'] == inp['id'])
+        require(row.get('inputSHA') == inp['sha'], 'component counts not bound to frozen input SHA')
+        inp['nativeComponentCounts'] = {'components': row['components'], 'pigmented': row['pigmented']}
+    cells = []
+    for file in args.cells:
+        obj = load(file)
+        cells.extend(obj if isinstance(obj, list) else obj['cells'])
+    refs = load(args.references)
+    refs = refs if isinstance(refs, list) else refs['cells']
+    ref_keys = {c['key'] for c in plan['choices'] if c['kind'] == 'input-reference'}
+    require(len(ref_keys) == 1 and len(refs) == len(manifest['inputs']), 'exact reference scene count required')
+    require({r['sceneId'] for r in refs} == {i['id'] for i in manifest['inputs']}
+            and all(r['comparisonKey'] in ref_keys for r in refs), 'reference set mismatch')
+    cells.extend(refs)
+    report = coverage_report(shell, plan, manifest, cells)
+    report['nativeComponentGoalsRequired'] = sum(r['pigmented'] for r in component_counts) * sum(c['kind'] == 'native-mini' for c in plan['choices'])
+    report['componentCountsSHA256'] = hashlib.sha256(args.component_counts.read_bytes()).hexdigest()
+    args.coverage_report.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
+    if args.coverage_text:
+        lines = ['# Покрытие fixed-матрицы', '',
+                 'Полная проверка: ' + ('PASS' if report['complete'] else 'НЕ ЗАВЕРШЕНА'),
+                 f"Валидные уникальные клетки: {report['validUniqueCells']}/{report['requiredCells']}.",
+                 f"Требуемые отдельные native goals: {report['nativeComponentGoalsRequired']}.",
+                 'Это проверка доказательств; недостающие расчёты здесь не запускаются.', '',
+                 '| Мазок | Проверено |', '|---|---|']
+        lines += [f"| {r['scene']} | {r['validUnique']}/{r['required']} |" for r in report['perScene']]
+        lines += ['', f"Пропуски: {len(report['missing'])}; дубликаты: {len(report['duplicates'])}; неверные: {len(report['invalid'])}; посторонние: {len(report['unknown'])}."]
+        lines += ['- ' + message for message in report['globalErrors']]
+        args.coverage_text.write_text('\n'.join(lines) + '\n')
+    print(json.dumps({k: report[k] for k in ('complete', 'requiredCells', 'providedCells', 'validUniqueCells')}, ensure_ascii=False))
+    if not report['complete']:
+        return 2
+    if args.output:
+        out = assemble_fixed_matrix(shell, plan, manifest, cells)
+        temp = args.output.with_name(args.output.name + '.pending-' + str(os.getpid()))
+        try:
+            temp.write_text(json.dumps(out, ensure_ascii=False, indent=2) + '\n')
+            temp.replace(args.output)
+        finally:
+            if temp.exists():
+                temp.unlink()
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

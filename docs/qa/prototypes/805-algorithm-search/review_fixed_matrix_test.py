@@ -1,7 +1,10 @@
 import copy
 import hashlib
 import unittest
-from review_fixed_matrix import assemble_fixed_matrix, worker_cell_from_batch, MatrixError
+import json
+import tempfile
+from pathlib import Path
+from review_fixed_matrix import assemble_fixed_matrix, worker_cell_from_batch, coverage_report, main, MatrixError
 
 
 class MatrixTest(unittest.TestCase):
@@ -10,7 +13,7 @@ class MatrixTest(unittest.TestCase):
         self.choice = {'key': 'model:x', 'kind': 'worker-factory', 'algorithm': 'x', 'config': {'steps': 4}, 'label': 'X'}
         self.shell = {'scenes': [{'id': 's', 'variants': [{'id': 'old', 'image': 'historic.png'}]}]}
         self.plan = {'choices': [self.choice], 'matrix': [{'scene': 's'}]}
-        self.manifest = {'choices': [self.choice], 'inputs': [{'id': 's', 'sha': self.sha, 'encoding': 'optical-density'}], 'registrySHA': 'e' * 64}
+        self.manifest = {'choices': [self.choice], 'inputs': [{'id': 's', 'sha': self.sha, 'encoding': 'optical-density', 'expectedDisplayDensityScale': 1}], 'registrySHA': 'e' * 64}
         self.cell = {'sceneId': 's', 'comparisonKey': 'model:x',
                      'sourceHashes': {'worker': 'd' * 64}, 'rawSHA': 'f' * 64,
                      'pngSHA': hashlib.sha256(b'png').hexdigest(),
@@ -22,7 +25,7 @@ class MatrixTest(unittest.TestCase):
                                 'initialWetAudit': {'policy': 'initial-raw-water-positive-v1', 'threshold': 0,
                                                     'dryIdentity': True, 'changedDryChannels': 0, 'newPigmentDryPixels': 0}},
                      'rawAudit': {'pass': True, 'rawSHA': 'f' * 64, 'inputSHA': self.sha, 'sourceHashes': {'worker': 'd' * 64}},
-                     'commonRenderer': {'inputSHA': self.sha, 'inputDerivedScale': True, 'outputNormalized': False}}
+                     'commonRenderer': {'inputSHA': self.sha, 'inputDerivedScale': True, 'outputNormalized': False, 'displayDensityScale': 1, 'paperSHA': self.sha['paper']}}
 
     def run_cells(self, cells):
         return assemble_fixed_matrix(self.shell, self.plan, self.manifest, cells, lambda _: b'png')
@@ -45,7 +48,7 @@ class MatrixTest(unittest.TestCase):
             self.run_cells([self.cell])
 
     def test_old_policy_and_wrong_input_and_raw_audit_rejected(self):
-        for change in ('old', 'sha', 'audit', 'normalized', 'png'):
+        for change in ('old', 'sha', 'audit', 'normalized', 'scale', 'paper', 'png'):
             c = copy.deepcopy(self.cell)
             if change == 'old':
                 c['request']['fixedInitialWet'] = False
@@ -55,6 +58,10 @@ class MatrixTest(unittest.TestCase):
                 c['rawAudit']['sourceHashes'] = {'worker': '1' * 64}
             elif change == 'normalized':
                 c['commonRenderer']['outputNormalized'] = True
+            elif change == 'scale':
+                c['commonRenderer']['displayDensityScale'] = .5
+            elif change == 'paper':
+                c['commonRenderer']['paperSHA'] = '0' * 64
             else:
                 c['pngSHA'] = '0' * 64
             with self.subTest(change=change), self.assertRaises(MatrixError):
@@ -80,6 +87,46 @@ class MatrixTest(unittest.TestCase):
         with self.assertRaises(MatrixError):
             normalize()
 
+    def test_coverage_reports_invalid_missing_and_duplicates_without_completeness(self):
+        self.plan['registrySourceSHA256'] = self.manifest['registrySHA']
+        report = coverage_report(self.shell, self.plan, self.manifest, [self.cell, self.cell], lambda _: b'png')
+        self.assertFalse(report['complete'])
+        self.assertEqual(report['duplicates'][0]['count'], 2)
+        report = coverage_report(self.shell, self.plan, self.manifest, [], lambda _: b'png')
+        self.assertEqual(len(report['missing']), 1)
+
+    def test_cli_exact_references_and_no_output_on_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'fresh.png').write_bytes(b'png')
+            self.cell['variant']['imageSource'] = str(root / 'fresh.png')
+            reference = copy.deepcopy(self.cell)
+            reference.update(comparisonKey='input', inputReferenceExact=True, rawSHA=self.sha['rgba'])
+            reference['rawAudit']['rawSHA'] = self.sha['rgba']
+            ref_choice = {'key': 'input', 'kind': 'input-reference', 'label': 'Вход'}
+            self.plan['choices'].append(ref_choice)
+            self.manifest['choices'].append(ref_choice)
+            self.plan['registrySourceSHA256'] = self.manifest['registrySHA']
+            args = []
+            for name, value in [('shell', self.shell), ('plan', self.plan), ('manifest', self.manifest),
+                                ('cells', [self.cell]), ('references', [reference]), ('component-counts', [{'id': 's', 'components': 1, 'pigmented': 1, 'inputSHA': self.sha}])]:
+                file = root / (name + '.json')
+                file.write_text(json.dumps(value))
+                args += ['--' + name, str(file)]
+            metadata = root / 'metadata.json'
+            metadata.write_text(json.dumps({'source': {'kind': 'deterministic-fixture'}, 'sha': self.sha}))
+            catalog = root / 'catalog.json'
+            catalog.write_text(json.dumps([{'id': 's', 'sha': self.sha, 'encoding': 'optical-density',
+                                            'metadata': str(metadata),
+                                            'metadataSHA256': hashlib.sha256(metadata.read_bytes()).hexdigest()}]))
+            args += ['--input-catalog', str(catalog)]
+            args += ['--coverage-report', str(root / 'coverage.json'), '--output', str(root / 'assembled.json')]
+            self.assertEqual(main(args), 0)
+            saved = (root / 'assembled.json').read_bytes()
+            (root / 'cells.json').write_text('[]')
+            self.assertEqual(main(args), 2)
+            self.assertEqual((root / 'assembled.json').read_bytes(), saved)
+
     def test_native_requires_per_input_proof_not_authored_id(self):
         self.choice.update(key='original', kind='native-mini', flags={'frontZero': True})
         self.cell['comparisonKey'] = 'original'
@@ -89,7 +136,26 @@ class MatrixTest(unittest.TestCase):
         self.cell['nativeProof'] = dict(contract='common-optical-seed-v1', inputSHA=self.sha,
                                        rawPlanesExact=True, paperExact=True, sourceUnchanged=True,
                                        fixedInitialWet=True, roundtripExact=True)
+        with self.assertRaises(MatrixError):
+            self.run_cells([self.cell])
+        self.manifest['inputs'][0]['nativeComponentCounts'] = {'components': 1, 'pigmented': 1}
+        planes = {str(i): '3' * 64 for i in range(7)}
+        component = dict(id=0, inputMaskSHA='4' * 64, expectedMaskedPlaneSHA=planes,
+                         actualMaskedPlaneSHA=planes,
+                         insideOriginalChangedChannels={k: 0 for k in planes},
+                         outsideNonzeroChannels={k: 0 for k in planes},
+                         paperExpectedSHA='5' * 64, paperActualSHA='5' * 64,
+                         endpointSHA='6' * 64, outsideEndpointChangedChannels=0,
+                         rawDryChangedChannels=0, runCount=1)
+        self.cell['nativeProof']['componentIsolation'] = dict(policy='native-component-isolated-v1',
+            inputSHA=self.sha, sourceHashes=self.cell['sourceHashes'], connectivity=4, threshold=0,
+            totalComponentCount=1, pigmentedComponentCount=1, goalRuns=1,
+            originalPlaneSHA=planes, paperSHA='5' * 64, components=[component])
         self.assertTrue(self.run_cells([self.cell])['fixedMatrixCoverage']['complete'])
+        component['outsideEndpointChangedChannels'] = 1
+        with self.assertRaises(MatrixError):
+            self.run_cells([self.cell])
+        component['outsideEndpointChangedChannels'] = 0
         self.cell['nativeProof']['contract'] = 'authored-native-replay-v1'
         with self.assertRaises(MatrixError):
             self.run_cells([self.cell])
@@ -100,6 +166,11 @@ class MatrixTest(unittest.TestCase):
                                        rawDryAudit={'pass': True, 'changedDryChannels': 0,
                                                     'inputSHA': self.sha, 'rawSHA': self.cell['rawSHA'],
                                                     'sourceHashes': self.cell['sourceHashes']})
+        with self.assertRaises(MatrixError):
+            self.run_cells([self.cell])
+        self.manifest['inputs'][0]['authoredNativeSource'] = dict(
+            inputSHA=self.sha, originalPlaneSHA=planes, paperSHA='5' * 64,
+            replaySHA='1' * 64, nativeRawSHA='2' * 64)
         self.assertTrue(self.run_cells([self.cell])['fixedMatrixCoverage']['complete'])
 
 
