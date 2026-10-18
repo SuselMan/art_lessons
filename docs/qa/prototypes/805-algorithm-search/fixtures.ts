@@ -1,7 +1,11 @@
 import type {AlgorithmInput,PigmentEncoding} from './protocol'
-export const fixtureIds=['dot','wave','water-only','water-stroke','two-colors','crosses','blue-yellow','fine-detail','border','wave-open','dry-stroke','isolated-pools','variable-wash','dry-barrier'] as const
+export const fixtureIds=['dot','wave','water-only','water-stroke','two-colors','crosses','blue-yellow','fine-detail','border','wave-open','dry-stroke','isolated-pools','variable-wash','dry-barrier','fixed-wet-thin-1','fixed-wet-thin-2','fixed-wet-thin-7','fixed-wet-bulk-boundary'] as const
 export type FixtureId=typeof fixtureIds[number]
 export const fixtureInfo:Record<FixtureId,{label:string;description:string}>={
+ 'fixed-wet-thin-1':{label:'Мокрая линия 1px',description:'Два цвета одинаковой alpha на плоской бумаге; сухой цвет снаружи неизменен'},
+ 'fixed-wet-thin-2':{label:'Мокрая линия 2px',description:'Тонкий подвижный край, который не помещается в крупную мокрую ячейку'},
+ 'fixed-wet-thin-7':{label:'Мокрая линия 7px',description:'Тонкая лужа с двумя цветами и свободным мокрым участком'},
+ 'fixed-wet-bulk-boundary':{label:'Переход bulk к тонкому краю',description:'Два цвета по разные стороны границы полной и частичной ячейки'},
  dot:{label:'Точка',description:'Один широкий отпечаток синей кисти'},
  wave:{label:'Широкая волна',description:'Кисть320 через значительную часть листа'},
  'water-only':{label:'Только вода',description:'Мокрая область без пигмента: краска не должна появляться'},
@@ -60,6 +64,17 @@ export function createFixture(id:FixtureId,size=1024,encoding:PigmentEncoding='p
  if(id==='dry-barrier'){
   dot(line(500,400,500,620),10,blue,.5,0)
   for(let y=Math.ceil(256*scale);y<Math.floor(768*scale);y++)for(let x=Math.ceil(256*scale);x<Math.floor(768*scale);x++)if(x!==Math.floor(512*scale))water[y*size+x]=242
+ }
+ if(id.startsWith('fixed-wet-')){
+  if(size!==1024)throw Error('Fixed-wet diagnostic fixtures require1024')
+  paper.fill(128)
+  const width=id==='fixed-wet-thin-1'?1:id==='fixed-wet-thin-2'?2:id==='fixed-wet-thin-7'?7:64
+  const left=440,right=id==='fixed-wet-bulk-boundary'?580:584,top=id==='fixed-wet-bulk-boundary'?480:513,split=id==='fixed-wet-bulk-boundary'?576:512
+  for(let y=top;y<top+width;y++)for(let x=left;x<right;x++){
+   const i=y*size+x;water[i]=242
+   if(x<right-16||id==='fixed-wet-bulk-boundary')rgba.set(x<split?[96,16,8,128]:[8,96,16,128],i*4)
+  }
+  rgba.set([12,23,34,64],0) // Existing dry material is a literal, never a leak.
  }
  return{size,rgba,water,paper,seed:805,encoding}
 }
