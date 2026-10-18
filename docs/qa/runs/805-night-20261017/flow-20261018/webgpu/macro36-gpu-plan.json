@@ -1,0 +1,307 @@
+{
+  "qualification": "NEW representation reconstruction policy, not globalmassrenormalization; signedRGBA difference canincrease/decrease.",
+  "cases": [
+    {
+      "fixture": "stress-stationary-phase-a128",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "fineSteps": 0,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "stress-stationary-phase-a128",
+      "algorithm": "wgsl-macro-capacity-aware-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "fineSteps": 0,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "stress-stationary-phase-a128",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "fineSteps": 4,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "stress-stationary-phase-a128",
+      "algorithm": "wgsl-macro-capacity-aware-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "fineSteps": 4,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "stress-stationary-phase-a254",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "fineSteps": 0,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "stress-stationary-phase-a254",
+      "algorithm": "wgsl-macro-capacity-aware-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "fineSteps": 0,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "stress-stationary-phase-a254",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "fineSteps": 4,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "stress-stationary-phase-a254",
+      "algorithm": "wgsl-macro-capacity-aware-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "fineSteps": 4,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "stress-stationary-phase-a255",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "fineSteps": 0,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "stress-stationary-phase-a255",
+      "algorithm": "wgsl-macro-capacity-aware-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "fineSteps": 0,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "stress-stationary-phase-a255",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "fineSteps": 4,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "stress-stationary-phase-a255",
+      "algorithm": "wgsl-macro-capacity-aware-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "fineSteps": 4,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "gallery-sheet-12-slot-1",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "fineSteps": 0,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "gallery-sheet-12-slot-1",
+      "algorithm": "wgsl-macro-capacity-aware-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "fineSteps": 0,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "gallery-sheet-12-slot-1",
+      "algorithm": "wgsl-macro-physical-dt-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "fineSteps": 4,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    },
+    {
+      "fixture": "gallery-sheet-12-slot-1",
+      "algorithm": "wgsl-macro-capacity-aware-fine",
+      "config": {
+        "physicalDt": 4,
+        "steps": 64,
+        "fineSteps": 4,
+        "mobilityGain": 3,
+        "eddyCells": 8,
+        "curlStrength": 64,
+        "affinityBase": 64,
+        "paperGain": 1,
+        "dither": 1
+      },
+      "repeats": 3,
+      "idleBetweenMs": 5000,
+      "exportRaw": true
+    }
+  ],
+  "requiredCount": 16,
+  "referenceReports": [
+    "functional-v28-rgba-stress-results:old31fine4",
+    "V29fine0 a254/a255:onlyifexactsameconfig/inputSHA"
+  ],
+  "optional": "mini-wave old31/new36 fine0/4, but wholeRGBAexactonlyifinputcontainsNOstationaryslots; verifythat condition first",
+  "requiredChecks": [
+    "all4coarseRGBAdeltas0+guards; pairsource/fieldSHAsold==new",
+    "opaqueanchor255RGBAexact andallpartialliteralRGBA lowerbounds unchanged",
+    "finalrawRGBAglobal4sums/alphaRatio oldvsnew bothsignsreported; noautomaticmassrepairclaim",
+    "fine4 mobile4channel ledger withinNEWinit; fine0 separatesinitfromfinephase",
+    "repeat exactGPU, no clipping/overflow/premul errors",
+    "compareimage quality/grid/localdilution notonlyglobalmass"
+  ]
+}
