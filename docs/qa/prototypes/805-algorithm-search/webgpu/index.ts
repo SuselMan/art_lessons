@@ -1,3 +1,4 @@
+import {attachIntrinsicFixedWetFactories} from './fixed-wet-intrinsic'
 import {attachFixedWetFactories} from './fixed-wet-registry'
 import {fixedWetBLiteDefinitions} from './fixed-wet-b-lite'
 import {gpuCapacityDefinitions} from './macro42-gpu-capacity-aware'
@@ -65,6 +66,7 @@ export const definitions:Definition[]=[
  {id:'wgsl-integer-diffusion-texture',label:'WebGPU: same local integer diffusion, R32Uint texture access',configs:[{iterations:32,rate:24}],create:textureDiffusion},
 ]
 attachFixedWetFactories(definitions)
+attachIntrinsicFixedWetFactories(definitions)
 // Attach contracts only at the public registry boundary, never inside composed factories.
 for(const definition of definitions){const keys=strongConfigKeys[definition.id];if(keys)definition.configKeys=keys}
 export const glDefinitions=[{id:'gl-integer-diffusion-match',label:'GL1: matched local integer diffusion',configs:[{iterations:32,rate:24}],create:glDiffusion}]

@@ -16,3 +16,5 @@ export function prepareFixedWetFine(input:Input,finePaper:Uint8Array){
 
 /** Independent explicit options per factory call. Original CPU initializer is still executed (old/fast distinction). */
 export function createFixedWetFineHooks():Readonly<FixedWetFineHooks>{return Object.freeze({initialize:initialFixedWet,transformPair:guardFixedWetPair,observePacking:()=>{},prepareFine:prepareFixedWetFine})}
+
+export interface FixedWetFineOptions {readonly fixedWet?:FixedWetFineHooks}

@@ -1,3 +1,4 @@
+import type {FixedWetBaseOptions} from './fixed-wet-coarse-hooks'
 import {create as createSmooth} from './macro9-integer-smooth'
 import {MACRO10_WET_PAIR,MACRO10_LOCAL_PACK} from './macro10-wetness'
 import {integerOption,type Candidate} from './contract'
@@ -22,8 +23,8 @@ fn frontDeposit(value:Cell,e:vec4u,index:u32)->Cell{
  s=once(s,'c.w-=absorbed;c.s+=absorbed;return c;','c.w-=absorbed;c.s+=absorbed;return frontDeposit(c,e,index);')
  s=once(s,'adsorb(src[i],aux[i])','adsorb(src[i],aux[i],i)');s=once(s,'adsorb(a,aux[ia])','adsorb(a,aux[ia],ia)');s=once(s,'adsorb(b,aux[ib])','adsorb(b,aux[ib],ib)');return s
 }
-export async function create(device:GPUDevice,size:number,config:Record<string,number>={}):Promise<Candidate>{
- const edgeStain=integerOption(config.edgeStain??16,0,128,'edgeStain'),base=await createSmooth(device,size,{...config,mixing:1,smooth:1},{pairSourceOverride:frontAdsorptionSource(edgeStain),packSourceOverride:MACRO10_LOCAL_PACK})
+export async function create(device:GPUDevice,size:number,config:Record<string,number>={},options:FixedWetBaseOptions={}):Promise<Candidate>{
+ const edgeStain=integerOption(config.edgeStain??16,0,128,'edgeStain'),base=await createSmooth(device,size,{...config,mixing:1,smooth:1},{...options,pairSourceOverride:frontAdsorptionSource(edgeStain),packSourceOverride:MACRO10_LOCAL_PACK})
  const descriptors=Object.getOwnPropertyDescriptors(base.metadata)
  descriptors.algorithm={enumerable:true,value:'u32-wetting-front-adsorption'};descriptors.edgeStain={enumerable:true,value:edgeStain}
  descriptors.reconstruction={enumerable:true,value:'integer-halfpixel; nearest ONLY at literal stationary pixels'}

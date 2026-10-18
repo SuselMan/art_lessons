@@ -9,15 +9,16 @@ export interface FixedWetCoarseHooks {
 }
 /** Derive gate from the ACTUAL selected source, preserving every arithmetic byte outside this gate. */
 export function guardFixedWetPair(source:string){
+ const indexedAdsorb=source.includes('fn adsorb(value:Cell,e:vec4u,index:u32)');const local=(index:string)=>`adsorb(src[${index}],aux[${index}]${indexedAdsorb?','+index:''})`
  const ordinary='let j=u32(partner.y)*p.n+u32(partner.x);'
  const single='var a=src[ia];var b=src[ib];'
  if(source.includes('fixed-wet-face-gate'))throw Error('Fixed wet pair already guarded')
  if(source.includes(ordinary)){
   if(source.split(ordinary).length!==2)throw Error('Fixed wet ordinary pair anchor drift')
-  return source.replace(ordinary,ordinary+'/*fixed-wet-face-gate*/if(aux[i].x==0u||aux[j].x==0u){dst[i]=adsorb(src[i],aux[i]);return;}')
+  return source.replace(ordinary,ordinary+`/*fixed-wet-face-gate*/if(aux[i].x==0u||aux[j].x==0u){dst[i]=${local('i')};return;}`)
  }
  if(source.includes('dst[ia]=adsorb(a,aux[ia]);dst[ib]=adsorb(b,aux[ib]);')&&source.split(single).length===2){
-  return source.replace(single,'/*fixed-wet-face-gate*/if(aux[ia].x==0u||aux[ib].x==0u){dst[ia]=adsorb(src[ia],aux[ia]);dst[ib]=adsorb(src[ib],aux[ib]);return;}'+single)
+  return source.replace(single,`/*fixed-wet-face-gate*/if(aux[ia].x==0u||aux[ib].x==0u){dst[ia]=${local('ia')};dst[ib]=${local('ib')};return;}`+single)
  }
  throw Error('Unsupported fixed wet pair layout')
 }
@@ -27,3 +28,5 @@ export function captureFixedWetHooks(hooks:FixedWetCoarseHooks|undefined):Readon
  if(!hooks||['initialize','transformPair','observePacking'].some(k=>typeof hooks[k as keyof FixedWetCoarseHooks]!=='function'))throw Error('Invalid fixed wet hooks')
  return Object.freeze({...hooks})
 }
+
+export interface FixedWetBaseOptions {readonly fixedWet?:FixedWetCoarseHooks;readonly observePacking?:(buffers:PackingBuffers)=>void}

@@ -1,3 +1,4 @@
+import type {FixedWetFineOptions} from './fixed-wet-fine-hooks'
 import {create as createFine} from './macro11-fine-paper'
 import {MACRO17_SMOOTH_FINE_INIT,MACRO17_SMOOTH_FINE_PACK} from './macro17-smooth-fine-paper'
 import {create as createCoherent} from './macro14-coherent-advection'
@@ -29,11 +30,11 @@ fn terminalAffinity(gid:vec2u)->u32{
  return once(source,'1u+(255u-paper[i])*p.gain/4u',strength===0?'64u+(255u-paper[i])*p.gain/4u':'terminalAffinity(gid.xy)+(255u-paper[i])*p.gain/4u')
 }
 export interface TerminalRimConfig extends CoherentFineConfig {rimStrength?:number;rimThreshold?:number}
-export async function create(device:GPUDevice,size:number,config:TerminalRimConfig={}):Promise<Candidate>{
+export async function create(device:GPUDevice,size:number,config:TerminalRimConfig={},options:FixedWetFineOptions={}):Promise<Candidate>{
  const rimStrength=integerOption(config.rimStrength??128,0,256,'rimStrength'),rimThreshold=integerOption(config.rimThreshold??64,1,16384,'rimThreshold')
  const mobilityGain=integerOption(config.mobilityGain??3,1,8,'mobilityGain'),eddyCells=integerOption(config.eddyCells??16,4,64,'eddyCells'),curlStrength=integerOption(config.curlStrength??128,0,128,'curlStrength')
  if(config.paperGain!==undefined&&config.paperGain!==0)throw Error('Terminal rim isolates edge affinity: paperGain must be0')
- const base=await createFine(device,size,{...config,paperGain:0},{initSourceOverride:terminalRimInit(rimStrength,rimThreshold),packSourceOverride:MACRO17_SMOOTH_FINE_PACK,fineDepositPlane:true,smoothInitialization:true,basePairSourceOverride:coherentSource(mobilityGain),baseFactory:(d,s,c,o)=>createCoherent(d,s,{...c,mobilityGain,eddyCells,curlStrength},{...o,initializer:initialIntegerDynamicFast})})
+ const base=await createFine(device,size,{...config,paperGain:0},{...options,initSourceOverride:terminalRimInit(rimStrength,rimThreshold),packSourceOverride:MACRO17_SMOOTH_FINE_PACK,fineDepositPlane:true,smoothInitialization:true,basePairSourceOverride:coherentSource(mobilityGain),baseFactory:(d,s,c,o)=>createCoherent(d,s,{...c,mobilityGain,eddyCells,curlStrength},{...o,initializer:initialIntegerDynamicFast})})
  return{get metadata(){return{...base.metadata,basePhysicalModel:'actual coherent advection; original coarse PACK; fast exact initializer',terminalRim:{strength:rimStrength,threshold:rimThreshold,affinityMin:64,affinityMax:64+Math.floor(rimStrength*.75),paperGain:0,waterGate:'unchanged nearest final W+S>0',profile:'bilinear final W+S threshold-crossing cells; analytic approximate distance; peak2px, tail8px',horizon:'12 phases at most6px per axis; cannot collect remote pigment',qualification:'NEW local conservative terminal redistribution, not whole-wash native rim equivalence or true SDF; float affinity is not crossGPU-certified'},optimizationScope:'No extra GPU allocation/dispatch over scalar smooth fine. Four extra coarse water samples per fine pixel when strength>0.'}},upload:i=>base.upload(i),run:()=>base.run(),readback:()=>base.readback(),destroy:()=>base.destroy()}
 }
 export const terminalRimDefinitions=[{id:'wgsl-macro-terminal-rim-coherent-fine',label:'Локальная кромка после растекания — опытный вариант',create,configs:[0,128].map(rimStrength=>({steps:256,fineSteps:12,paperGain:0,dither:1,mobilityGain:3,eddyCells:16,curlStrength:128,rimThreshold:64,rimStrength}))}]

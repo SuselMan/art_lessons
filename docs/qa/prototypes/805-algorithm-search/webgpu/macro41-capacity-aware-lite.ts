@@ -1,3 +1,4 @@
+import type {FixedWetBaseOptions} from './fixed-wet-coarse-hooks'
 import {MACRO19_COHERENT_LOCAL_DITHER_PACK} from './macro19-coherent-dither'
 import {mod257ByteFold,mod65792ByteFold} from './macro15-safe-integer-dither'
 import {create as createCoherent} from './macro14-coherent-advection'
@@ -19,9 +20,9 @@ export function capacityAwareBytePack(total:readonly number[],nearest:readonly n
  const smooth=!forceNearest&&total[3]+literal[3]*CARRIER_BILINEAR_DEN<=CARRIER_BILINEAR_MAX,den=smooth?CARRIER_BILINEAR_DEN:257,threshold=smooth?mod65792ByteFold(hash):mod257ByteFold(hash),values=smooth?total:nearest
  return{smooth,rgba:values.map((v,k)=>Math.floor((v+threshold)/den)+literal[k])}
 }
-export async function create(device:GPUDevice,size:number,config:Record<string,number>={}):Promise<Candidate>{
+export async function create(device:GPUDevice,size:number,config:Record<string,number>={},options:FixedWetBaseOptions={}):Promise<Candidate>{
  if(config.physicalDt!==undefined&&config.physicalDt!==4||config.steps!==undefined&&config.steps!==64)throw Error('Capacity-aware Lite requires dt4/64steps')
- const gain=integerOption(config.mobilityGain??3,1,8,'mobilityGain'),eddy=integerOption(config.eddyCells??8,4,64,'eddyCells'),curl=integerOption(config.curlStrength??64,0,128,'curlStrength'),base=await createCoherent(device,size,{...config,steps:64,mobilityGain:gain,eddyCells:eddy,curlStrength:curl},{initializer:initialIntegerDynamicFast,pairSourceOverride:physicalDtSource(gain,4),packSourceOverride:MACRO41_CAPACITY_AWARE_PACK})
+ const gain=integerOption(config.mobilityGain??3,1,8,'mobilityGain'),eddy=integerOption(config.eddyCells??8,4,64,'eddyCells'),curl=integerOption(config.curlStrength??64,0,128,'curlStrength'),base=await createCoherent(device,size,{...config,steps:64,mobilityGain:gain,eddyCells:eddy,curlStrength:curl},{...options,initializer:initialIntegerDynamicFast,pairSourceOverride:physicalDtSource(gain,4),packSourceOverride:MACRO41_CAPACITY_AWARE_PACK})
  return{get metadata(){return{...base.metadata,physicalDt:4,packingHashSeed:0,packingSeedPolicy:'existing phase0 uniform; field remains input.seed',reconstructionChange:true,reconstructionPolicy:'Exact unrounded BLR total accepted if total.a+literal.a*65792<=16776960, then old safe BLR quant+literal; otherwise original safe nearest quant+literal. Forced nearest flag4 retained.',reconstructionQualification:'NEW representation policy; no global mass fix/renormalization. Signed mass delta may increase or decrease. No-literal whole input equals old30; opaque literal exact under existing zero-nearest capacity invariant. Coarse evolution/PACK thresholds/seed0 unchanged, no fine buffers/dispatch.'}},upload:i=>base.upload(i),run:()=>base.run(),readback:()=>base.readback(),destroy:()=>base.destroy()}
 }
 export const capacityAwareLiteDefinitions=[{id:'wgsl-macro-capacity-aware-lite',label:'Плавный носитель по ёмкости — без мелких проходов',create,configs:[{physicalDt:4,steps:64,mobilityGain:3,eddyCells:8,curlStrength:64}]}]

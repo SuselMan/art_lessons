@@ -1,3 +1,4 @@
+import type {FixedWetBaseOptions} from './fixed-wet-coarse-hooks'
 import {create as createFastCoherent} from './macro21-fast-coherent'
 import {exchangeSchedule,gatedExchangeSource} from './macro25-gated-exchange'
 import {integerOption,type Candidate} from './contract'
@@ -26,9 +27,9 @@ export function limitedAdvectionSource(gain:number,limiter:number){
  source=source.replace('let cap=select(aux[ia].x,aux[ib].x,fromA);let den=max(donor.w,1u);','let cap=select(aux[ia].x,aux[ib].x,fromA);')
  return source.replace(anchor,'let alpha=limitedPigmentFlux(donor,receiver,q,cap,ia,ib,fromA,axis);let ma=max(donor.m.a,1u);')
 }
-export async function create(device:GPUDevice,size:number,config:Record<string,number>={}):Promise<Candidate>{
+export async function create(device:GPUDevice,size:number,config:Record<string,number>={},options:FixedWetBaseOptions={}):Promise<Candidate>{
  const steps=integerOption(config.steps??256,256,256,'steps'),limiter=integerOption(config.limiter??1,0,1,'limiter'),active=integerOption(config.exchangeActiveSteps??128,64,256,'exchangeActiveSteps'),gain=integerOption(config.mobilityGain??3,1,8,'mobilityGain')
- const base=await createFastCoherent(device,size,{...config,steps,mobilityGain:gain,eddyCells:config.eddyCells??8,curlStrength:config.curlStrength??64},{pairSourceOverride:limitedAdvectionSource(gain,limiter),exchangeSchedule:exchangeSchedule(active,steps)})
+ const base=await createFastCoherent(device,size,{...config,steps,mobilityGain:gain,eddyCells:config.eddyCells??8,curlStrength:config.curlStrength??64},{...options,pairSourceOverride:limitedAdvectionSource(gain,limiter),exchangeSchedule:exchangeSchedule(active,steps)})
  return{get metadata(){return{...base.metadata,algorithm:'u32-limited-concentration-face-advection',limiter,exchangeActiveSteps:active,physicsChange:limiter!==0||active!==256,limitation:'NEW concentration-Q8 minmod face correction; conservative bounded alpha packet, original donor color ratios. Upstream src is prior split-phase while pair may be exchanged. No whole-solver TVD/nonoscillation/CFD claim.',optimizationScope:'Quality hypothesis, extra upstream read/divisions; no speedup claim'}},upload:i=>base.upload(i),run:()=>base.run(),readback:()=>base.readback(),destroy:()=>base.destroy()}
 }
 export const limitedAdvectionDefinitions=[{id:'wgsl-macro-limited-coherent-advection',label:'Перенос с ограничением численного размытия',create,configs:[
