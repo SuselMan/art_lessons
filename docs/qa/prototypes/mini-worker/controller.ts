@@ -163,6 +163,7 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
    engine._paperCacheKey='';engine._paperPartialOK=false;engine._invalidateSplitCache()
    original.get('_display')!.call(engine)
   },
+  diagnosticCancelCore(){target.cancel()},
   diagnosticRunCore(maxOps=100000){
    const f=locate();if(!f||down||calculating||goalPending)throw Error('Stationary component core source required')
    target.resetFromScratch(f.scratch,f.tile,epoch)

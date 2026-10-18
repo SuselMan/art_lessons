@@ -1,0 +1,11 @@
+import {installAnatomyCapture,type Snapshot} from './capture'
+import {runNativeTimedGoal} from '../mini-worker/native-component-timed-goal'
+import type {NativeMergeMapping} from '../mini-worker/native-component-merge'
+/** Separate untimed observer replay: reads exact selected producer planes while alive. */
+export async function runNativeAnatomySnapshots(engine:any,controller:any,base:Uint8Array,mapping:NativeMergeMapping,selections:{stage:string;role:string;occurrence:number}[]){
+ const original=controller.diagnosticRunCore,snapshots:Snapshot[]=[],occurrences=new Map<string,number>();let component=-1,total=0
+ controller.diagnosticRunCore=function(...args:unknown[]){component++;return original.apply(this,args)}
+ const hook=installAnatomyCapture(engine.gl,{select:()=>false,onSnapshot:()=>{},onEvent(e,ordinal){if(component!==0)return;const occurrence=occurrences.get(e.stage)??0;occurrences.set(e.stage,occurrence+1);for(const s of selections){if(s.stage!==e.stage||s.occurrence!==occurrence)continue;const p=e.outputs[s.role];if(!p)throw Error('Snapshot role absent '+s.stage+'/'+s.role);const n=p.width*p.height*4;if((total+=n)>64*1024*1024)throw Error('Snapshot cap');const fbo=engine.gl.getParameter(engine.gl.FRAMEBUFFER_BINDING);try{snapshots.push({stage:s.stage,ordinal,role:s.role,width:p.width,height:p.height,rows:'gl-bottom-up',rgba:p.readPixels()})}finally{engine.gl.bindFramebuffer(engine.gl.FRAMEBUFFER,fbo)}}}})
+ try{const result=await runNativeTimedGoal(engine,controller,fn=>fn(),base,mapping);if(snapshots.length!==selections.length)throw Error('Missing selected stage snapshots');let offset=0;const index=snapshots.map((s,i)=>{const{rgba,...description}=s;const row={...description,occurrence:selections[i].occurrence,offset,bytes:rgba.byteLength};offset+=rgba.byteLength;return row});const stream=new Blob(snapshots.map(s=>new Uint8Array(s.rgba))).stream().pipeThrough(new CompressionStream('gzip')),blob=await new Response(stream).blob();const{output,...evidence}=result;return{...evidence,index,snapshotBlob:blob,readBytes:total,qualification:'Separate untimed snapshot replay. All selected actual RGBA producer planes, GL bottom-up; timing samples from this observer replay MUST NOT be used as ordinary performance.'}}
+ finally{controller.diagnosticRunCore=original;hook.dispose()}
+}
