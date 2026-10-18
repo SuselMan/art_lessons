@@ -11,9 +11,11 @@ trajectory/splat/atomic body and original PACK. No new model or reduced work.
 Ordinary factories and historical default admission limit remain unchanged.
 Research execution is separate metadata, NOT an algorithm-config override.
 
-Execution policy: total estimated loads<=32B, each dispatch<=128M worst-case
+Execution policy: total estimated loads<=32B, each dispatch<=8M worst-case
 loads. Uniform blocks are separately aligned immutable slots in one buffer;
 all writes precede submission and no chunk observes a later mutable offset.
+Clear is submitted once; every walk chunk has its own ordered queue submission;
+PACK is submitted once after all walks.
 Baseline maps source indices directly; compact/safe retain the ORIGINAL
 occupied-index list. Every source/list entry appears exactly once. Accumulator
 is cleared ONCE and packed ONCE after all chunks. `chooseParticleQuantum`
@@ -42,3 +44,16 @@ Required coordinated v3 GPU gate: mini-wave/sheet12/thinwall for each particle
 variant, repeated fullRGBA equality; on an admitted small fixture compare old
 ordinary factory vs new chunked output EXACT. Input/source SHAs, raw dry/premul,
 chunk bounds, selected config and all quantization limitations remain explicit.
+
+## Narrow v3 device-loss follow-up
+
+`final-particle-v3-large-results`: first9cases passed, safe mini-two-colors lost
+GPUDevice during mapAsync; ordinary/compact fourcases each and safe mini-wave
+passed. Small old-vs-chunked comparison all3fullRGBA exact. This localizes a
+heavy execution failure, not its driver cause. Old execution encoded all128M
+chunks into ONEcommandbuffer; current patch reduces to8M and submits each
+separately, keeping immutable uniforms, source body and accumulator unchanged.
+FourCPUtests verify one clear submission +one per walk +one finalPACK, exact
+coverage, unchanged shader arithmetic and cleanup. This is not a guarantee
+that a device watchdog will accept the total workload; actual safe mini-two-
+colors retry first is required, then remaining safe sheet12/thinwall and repeat.
