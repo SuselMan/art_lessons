@@ -39,13 +39,13 @@ export async function runNativeComponentTimed(options:NativeComponentTimedOption
   }
   if(partition.components.length===0)probe=merge.dependency()
   const totalEnd=now();if(totalEnd<totalStart||setupReady<setupStart)throw Error('Invalid native total timer')
-  // Full read/hash outside BOTH primary timers, before own merge resources release.
-  const output=merge.readback(),outputSHA=await digest(output)
+  // Existing full read is outside dependent1px intervals but INCLUDED in full-output primary; hash remains outside all intervals.
+  const fullReadStart=now(),output=merge.readback(),fullReadEnd=now(),outputSHA=await digest(output)
   return{output,outputSHA,components,partitionAudit:partition.partitionAudit,mergeMetadata:merge.metadata,
-   sample:{inputFencePolicy:'none; no claim that CPU upload completion drains queued GPU work',totalReadyMs:totalEnd-totalStart,computeReadyMs,setupReadyMs:setupReady-setupStart,probeRGBA:Array.from(probe??[]),componentCount:components.length,
+   sample:{fullReadbackMs:fullReadEnd-fullReadStart,totalToFullReadbackMs:fullReadEnd-totalStart,fullOutputBoundary:'preloaded original CPU planes and allocated merge resources → partition/materialize/fork upload/core/GPUmerge/full1024RGBA CPU readback; hash excluded; PRIMARY',inputFencePolicy:'none; no claim that CPU upload completion drains queued GPU work',totalReadyMs:totalEnd-totalStart,computeReadyMs,setupReadyMs:setupReady-setupStart,probeRGBA:Array.from(probe??[]),componentCount:components.length,
     primaryBoundary:'preloaded original CPU planes and allocated merge resources → partition/materialize/fork upload/core/merge/dependent1px ready common-C texture',
     computeBoundary:'sum per-component fork upload CPU returned → withPaper/source context + core-only reset/step/dry + merge/dependent1px; queued GPU upload work may remain',
     excluded:'source7 acquisition/proof, merge static allocation/initial preflight, full output read/hash, final merge destruction',
-    qualification:'QA algorithm-stand timing, NOT pen-up/end-to-end latency or pure GPU timing. No gl.finish GPU-completion claim: affected Chromium implementation flushes only. Secondary computeReadyMs can include queued input-upload work; compare speedup only using totalReadyMs. Native paper texture is a preloaded room resource; worker paper-height upload scope differs. setupReadyMs reported separately.'}}
+    qualification:'QA algorithm-stand timing, NOT pen-up/end-to-end latency or pure GPU timing. No gl.finish GPU-completion claim: affected Chromium implementation flushes only. Secondary computeReadyMs can include queued input-upload work; Use totalToFullReadbackMs as the full-output primary. totalReadyMs is only a one-pixel dependency and does not certify every tile. No cross-boundary speedup. Native paper texture is a preloaded room resource; worker paper-height upload scope differs. setupReadyMs reported separately.'}}
  }finally{merge.destroy()}
 }

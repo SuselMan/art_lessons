@@ -9,6 +9,9 @@ while True:
  except json.JSONDecodeError:time.sleep(1);continue
  closed=sum(r['kind']=='native'for r in q['runs'])
  if closed>seen:
+  health=directory/('device-health-'+str(closed)+'.json')
+  healthCode=subprocess.run(['python3',str(pathlib.Path(__file__).with_name('matrix-device-health.py')),str(health)]).returncode
+  state['lastHealth']={'closedFixtures':closed,'code':healthCode,'file':str(health)};save()
   log=directory/('preview-refresh-'+str(closed)+'.log')
   with log.open('w')as f:code=subprocess.run(['python3',script],stdout=f,stderr=subprocess.STDOUT).returncode
   state['runs'].append({'closedFixtures':closed,'code':code,'log':str(log),'at':datetime.datetime.now(datetime.timezone.utc).isoformat()});seen=closed;save()

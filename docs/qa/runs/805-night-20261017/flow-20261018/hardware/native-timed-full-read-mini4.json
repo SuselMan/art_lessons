@@ -1,0 +1,349 @@
+{
+  "scope": "Actual Samsung mini-wave native timed GPU common-C merge gate. Three real repetitions per arm; no speedup claim from fixed order. Primary includes full common RGBA CPU readback; source proof/hash and resource setup excluded. Full matrix/timed120 not yet complete.",
+  "arms": [
+    {
+      "request": {
+        "fixture": "mini-wave",
+        "arm": "original"
+      },
+      "contract": "native-preloaded-source-to-common-cpu-material-v2",
+      "inputSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "displayScale": 0.6781914893617021,
+      "mapping": {
+        "mode": "authored",
+        "maxOriginalCode": 188
+      },
+      "buildManifestSHA": "3551b194b84a570fb590212f627b84ec94dd88600a6e59fc95cadb6a261075ee",
+      "buildFlags": {
+        "frontZero": true,
+        "frontJumpZero": true,
+        "frontLazy": false,
+        "frontOneOctave": false,
+        "nativeFeatherCache": false,
+        "gatherSpecialization": false,
+        "nativeCapture": true
+      },
+      "sourceHashes": {
+        "entry.js": "b3261f4f9ac5d0c11fb0f1fab757c2dd523b406907b99aeb8ed3335735933ad0",
+        "worker.js": "81e0080088a81b752e5fcaf33a0b901b353a826cdefcda0859bbd13e984f750c",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-TRT4JD2L.js": "eeacab9c11217c96caebe54475958a2e5d493a539f675491273e18d7f7e06f4f",
+        "chunk-DDKAOEAP.js": "a03210416f11494c19ff3b93016d0c3f16a19b523d351b73119efeedd245fa91",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+        "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+        "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+      },
+      "commonCarrierSHA": "4c27e6f63ab00989862c23bf7108bbda07331cf76d9628038465e768ce354241",
+      "expectedGLSHA": "091cc5aaef7428a1c7c7e1d05cd430f8d163a3b163b382ad8cd545bf0bbb95f5",
+      "saturationAudit": {
+        "saturatedChannels": 0,
+        "scope": "Independent canonical full native-C conversion had clippedChannels0; actual timed common output byteequal3x with same independently read original7 source SHA",
+        "canonicalCommonSHA": "4c27e6f63ab00989862c23bf7108bbda07331cf76d9628038465e768ce354241",
+        "canonicalNativeCSHA": "5eb542098fc1b13202dbdb6d2aefdab130ab95459bed416a5e378eda46e7df1b"
+      },
+      "regime": {
+        "repeats": 3,
+        "idleRequestedMs": 0,
+        "order": "consecutive same owned engine; first sample retained; warm samples index1..2",
+        "qualification": "Prepared room paper resource; native/worker source preparation scopes differ; no pure GPU or pen-up claim"
+      },
+      "sourceStable": true,
+      "contextClosed": true,
+      "repeatExact": true,
+      "pass": true,
+      "reportSHA": "52f95a2dc212a6fa328bfc2fdd3d25752396da78b081fd3eea5bf3213c746a98",
+      "samples": [
+        {
+          "totalToFullReadbackMs": 824.5,
+          "fullReadbackMs": 13.799999952316284,
+          "totalReadyMs": 810.7000000476837,
+          "computeReadyMs": 529.5999999046326,
+          "setupReadyMs": 27.40000009536743,
+          "componentCount": 3
+        },
+        {
+          "totalToFullReadbackMs": 721.2000000476837,
+          "fullReadbackMs": 21.799999952316284,
+          "totalReadyMs": 699.4000000953674,
+          "computeReadyMs": 406.10000014305115,
+          "setupReadyMs": 19.09999990463257,
+          "componentCount": 3
+        },
+        {
+          "totalToFullReadbackMs": 677.7000000476837,
+          "fullReadbackMs": 11.700000047683716,
+          "totalReadyMs": 666,
+          "computeReadyMs": 399.19999980926514,
+          "setupReadyMs": 28.799999952316284,
+          "componentCount": 3
+        }
+      ],
+      "warmMedianFullReadyMs": 699.4500000476837
+    },
+    {
+      "request": {
+        "fixture": "mini-wave",
+        "arm": "lazy"
+      },
+      "contract": "native-preloaded-source-to-common-cpu-material-v2",
+      "inputSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "displayScale": 0.6781914893617021,
+      "mapping": {
+        "mode": "authored",
+        "maxOriginalCode": 188
+      },
+      "buildManifestSHA": "c6dd81beb31ac3cfd3cad539bb147f97040d93ee36885939bd7a9b6494288ca2",
+      "buildFlags": {
+        "frontZero": true,
+        "frontJumpZero": true,
+        "frontLazy": true,
+        "frontOneOctave": false,
+        "nativeFeatherCache": false,
+        "gatherSpecialization": false,
+        "nativeCapture": true
+      },
+      "sourceHashes": {
+        "entry.js": "43aa559ccec4910f1726f51db92261134b0c869aaa9c74a6155e816de77a6e68",
+        "worker.js": "6f982524d06a8acf5c99cc2db389aa7e8d267c61650cfcaabc31389047e8e34a",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-QPNJQEOP.js": "7295ebff4b0104f3c326ef3fa6691a16f962d31e6c246da3e3edc1f52ada5c07",
+        "chunk-6ECLORDU.js": "e2a26e29b7bf7a2ebd90a21ecbf29e7fe5c38a263427c63e175ec124350e440a",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+        "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+        "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+      },
+      "commonCarrierSHA": "4c27e6f63ab00989862c23bf7108bbda07331cf76d9628038465e768ce354241",
+      "expectedGLSHA": "091cc5aaef7428a1c7c7e1d05cd430f8d163a3b163b382ad8cd545bf0bbb95f5",
+      "saturationAudit": {
+        "saturatedChannels": 0,
+        "scope": "Independent canonical full native-C conversion had clippedChannels0; actual timed common output byteequal3x with same independently read original7 source SHA",
+        "canonicalCommonSHA": "4c27e6f63ab00989862c23bf7108bbda07331cf76d9628038465e768ce354241",
+        "canonicalNativeCSHA": "5eb542098fc1b13202dbdb6d2aefdab130ab95459bed416a5e378eda46e7df1b"
+      },
+      "regime": {
+        "repeats": 3,
+        "idleRequestedMs": 0,
+        "order": "consecutive same owned engine; first sample retained; warm samples index1..2",
+        "qualification": "Prepared room paper resource; native/worker source preparation scopes differ; no pure GPU or pen-up claim"
+      },
+      "sourceStable": true,
+      "contextClosed": true,
+      "repeatExact": true,
+      "pass": true,
+      "reportSHA": "f4dfc9eea2b695738e08bd0e2db9964247f06f7320d6ed21a67fc4ba14a37ee6",
+      "samples": [
+        {
+          "totalToFullReadbackMs": 821.7999999523163,
+          "fullReadbackMs": 10.799999952316284,
+          "totalReadyMs": 811,
+          "computeReadyMs": 523.7000000476837,
+          "setupReadyMs": 25.09999990463257,
+          "componentCount": 3
+        },
+        {
+          "totalToFullReadbackMs": 663.2000000476837,
+          "fullReadbackMs": 14.5,
+          "totalReadyMs": 648.7000000476837,
+          "computeReadyMs": 397.7999999523163,
+          "setupReadyMs": 21.90000009536743,
+          "componentCount": 3
+        },
+        {
+          "totalToFullReadbackMs": 665.2999999523163,
+          "fullReadbackMs": 18.199999809265137,
+          "totalReadyMs": 647.1000001430511,
+          "computeReadyMs": 394.8999996185303,
+          "setupReadyMs": 28.200000047683716,
+          "componentCount": 3
+        }
+      ],
+      "warmMedianFullReadyMs": 664.25
+    },
+    {
+      "request": {
+        "fixture": "mini-wave",
+        "arm": "one-octave"
+      },
+      "contract": "native-preloaded-source-to-common-cpu-material-v2",
+      "inputSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "displayScale": 0.6781914893617021,
+      "mapping": {
+        "mode": "authored",
+        "maxOriginalCode": 188
+      },
+      "buildManifestSHA": "87631441bd5f940c4dc73515048243e5318287d66369c73d52ac5b174333e144",
+      "buildFlags": {
+        "frontZero": true,
+        "frontJumpZero": true,
+        "frontLazy": false,
+        "frontOneOctave": true,
+        "nativeFeatherCache": false,
+        "gatherSpecialization": false,
+        "nativeCapture": true
+      },
+      "sourceHashes": {
+        "entry.js": "dd2441263c47127903b71d053eb5688ddef4ad5e87410c6046f54909ff2e24ed",
+        "worker.js": "96d92f0d3103c8b8e575b1dcfadd95e799dc7b0903f827503bcd6a6f26042934",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-VPN2XM5M.js": "fe851dcefbd0f25717dcae5187a3bf0c9a700a427166240a1661171c1606a267",
+        "chunk-ULWHYWNX.js": "064909bac00429f3269d5019c657f9ee83c3496bacb5691e8eb405ed827107b8",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+        "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+        "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+      },
+      "commonCarrierSHA": "e12e4d59aab2eed324f25d03fdaf160d72c4ec9639f1d13c68e8d9a13cae647e",
+      "expectedGLSHA": "dac3cc7c5f29642b86a09df84aa0f47151f9fb4b977929829bc41b5bb0c876d2",
+      "saturationAudit": {
+        "saturatedChannels": 0,
+        "scope": "Independent canonical full native-C conversion had clippedChannels0; actual timed common output byteequal3x with same independently read original7 source SHA",
+        "canonicalCommonSHA": "e12e4d59aab2eed324f25d03fdaf160d72c4ec9639f1d13c68e8d9a13cae647e",
+        "canonicalNativeCSHA": "a4b8dfcd448dd9ab16e9c9760655da85717f18e0bc6e21ecc632d75e0eaf624c"
+      },
+      "regime": {
+        "repeats": 3,
+        "idleRequestedMs": 0,
+        "order": "consecutive same owned engine; first sample retained; warm samples index1..2",
+        "qualification": "Prepared room paper resource; native/worker source preparation scopes differ; no pure GPU or pen-up claim"
+      },
+      "sourceStable": true,
+      "contextClosed": true,
+      "repeatExact": true,
+      "pass": true,
+      "reportSHA": "11efafb6d071b24c0cf8a1ad0dd5678b64a39c1093097d3915dd7715a0f2ad6d",
+      "samples": [
+        {
+          "totalToFullReadbackMs": 786.1000001430511,
+          "fullReadbackMs": 17.300000190734863,
+          "totalReadyMs": 768.7000000476837,
+          "computeReadyMs": 500.7000002861023,
+          "setupReadyMs": 24.700000047683716,
+          "componentCount": 3
+        },
+        {
+          "totalToFullReadbackMs": 680.5999999046326,
+          "fullReadbackMs": 18.200000047683716,
+          "totalReadyMs": 662.3999998569489,
+          "computeReadyMs": 390.900000333786,
+          "setupReadyMs": 18.100000143051147,
+          "componentCount": 3
+        },
+        {
+          "totalToFullReadbackMs": 652.6000001430511,
+          "fullReadbackMs": 15,
+          "totalReadyMs": 637.6000001430511,
+          "computeReadyMs": 382.0000002384186,
+          "setupReadyMs": 51.299999952316284,
+          "componentCount": 3
+        }
+      ],
+      "warmMedianFullReadyMs": 666.6000000238419
+    },
+    {
+      "request": {
+        "fixture": "mini-wave",
+        "arm": "cache"
+      },
+      "contract": "native-preloaded-source-to-common-cpu-material-v2",
+      "inputSHA": {
+        "rgba": "96ecba8d7d2eaafa502ab9b225b02debe6f5a1b9255259a0f88c0503832a7270",
+        "water": "3b1812bf901b2e670096799c18da65053b69fc4eb2cf0c6af8a0994402f39848",
+        "paper": "23363228f6956e61f5ff3e21cc16fcea1c3f691bd13923099f7633ea736edafb"
+      },
+      "encoding": "optical-density",
+      "displayScale": 0.6781914893617021,
+      "mapping": {
+        "mode": "authored",
+        "maxOriginalCode": 188
+      },
+      "buildManifestSHA": "0854cb59e0b38e9023ea10d6a14f1e65753f1683a26956dc3a48ca33074e30be",
+      "buildFlags": {
+        "frontZero": true,
+        "frontJumpZero": true,
+        "frontLazy": false,
+        "frontOneOctave": false,
+        "nativeFeatherCache": true,
+        "gatherSpecialization": false,
+        "nativeCapture": true
+      },
+      "sourceHashes": {
+        "entry.js": "faf9e8a0c8f462322a40b324c28a312d07655b3562ee65699f2819f611a80536",
+        "worker.js": "76b5b21da24a1abe30e3f148007157798d9649591f5c93e28028b0308941c65a",
+        "chunk-QW7LYNL6.js": "d76d1a01ae65fd15a0198fe225380d465ec3293cb0fc2b6205df675cae0ba0be",
+        "chunk-67LSR3FB.js": "27a071188c30e2517e6460d2544c1847044e08e6d33cbf97bbf83ff29c1da942",
+        "chunk-7EO7WBMX.js": "8ee7605c8193bf23dc6b3999ed447a2f6043e258a17e566abbf4ebf08791a5ce",
+        "chunk-SQE76S5B.js": "11247d28c5c2fb3d976002c2b55fecb6ba19fd88153e11d2c7af5832fd6ff331",
+        "index.html": "ca5d6118b5c4a976086797581d63cfce88933eff2604a14d48fd60782fe30c9f",
+        "paper/manifest.json": "385e31d3e26901d63f81e9d6c56b6f7af26b2f33eb3dc4db16725b6e378884ac",
+        "paper/fine.e59ea6fa.paper": "4c631b8c5da1813977aeb34405fa223ebf74b59a0b5df951e23d71f986a26968",
+        "paper/fine.a19fcf63.preview": "e30ea86bc432e063d1c077b83aaf3579e4742ab88ef8248bbb3849dd7000c61d"
+      },
+      "commonCarrierSHA": "4c27e6f63ab00989862c23bf7108bbda07331cf76d9628038465e768ce354241",
+      "expectedGLSHA": "091cc5aaef7428a1c7c7e1d05cd430f8d163a3b163b382ad8cd545bf0bbb95f5",
+      "saturationAudit": {
+        "saturatedChannels": 0,
+        "scope": "Independent canonical full native-C conversion had clippedChannels0; actual timed common output byteequal3x with same independently read original7 source SHA",
+        "canonicalCommonSHA": "4c27e6f63ab00989862c23bf7108bbda07331cf76d9628038465e768ce354241",
+        "canonicalNativeCSHA": "5eb542098fc1b13202dbdb6d2aefdab130ab95459bed416a5e378eda46e7df1b"
+      },
+      "regime": {
+        "repeats": 3,
+        "idleRequestedMs": 0,
+        "order": "consecutive same owned engine; first sample retained; warm samples index1..2",
+        "qualification": "Prepared room paper resource; native/worker source preparation scopes differ; no pure GPU or pen-up claim"
+      },
+      "sourceStable": true,
+      "contextClosed": true,
+      "repeatExact": true,
+      "pass": true,
+      "reportSHA": "fc8972ac9f592f42f931360f6f2ff89382bcdf3902bb8fcfa868e1bb671cf1ae",
+      "samples": [
+        {
+          "totalToFullReadbackMs": 927,
+          "fullReadbackMs": 16.40000009536743,
+          "totalReadyMs": 910.5999999046326,
+          "computeReadyMs": 608.5,
+          "setupReadyMs": 32.40000009536743,
+          "componentCount": 3
+        },
+        {
+          "totalToFullReadbackMs": 667.4000000953674,
+          "fullReadbackMs": 19.5,
+          "totalReadyMs": 647.9000000953674,
+          "computeReadyMs": 386.10000014305115,
+          "setupReadyMs": 23.200000047683716,
+          "componentCount": 3
+        },
+        {
+          "totalToFullReadbackMs": 674.8999998569489,
+          "fullReadbackMs": 19.899999856948853,
+          "totalReadyMs": 655,
+          "computeReadyMs": 379,
+          "setupReadyMs": 27.799999952316284,
+          "componentCount": 3
+        }
+      ],
+      "warmMedianFullReadyMs": 671.1499999761581
+    }
+  ]
+}
