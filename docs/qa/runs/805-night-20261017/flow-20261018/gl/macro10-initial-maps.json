@@ -1,0 +1,130 @@
+{
+  "qualification": "INITIAL state analysis only. Dynamic final differences require actual coarse output. Full bilinear beside stationary is an unsafe comparison, not an oracle. Bound is conservative per-channel.",
+  "rows": [
+    {
+      "fixture": "extra-inputs/mini-wave.bin",
+      "inputSHA": "25d7f24073c75080fe2811d5da06a88bf986e699bc03ee252f10f3f74110c1c5",
+      "initialStationaryAlpha": 1,
+      "initialMobileAlpha": 26769383,
+      "frozenWetAlpha": 0,
+      "frozenCellCount": 0,
+      "initialWaterCodes": 13360712,
+      "initialMobileCodes": 107495845,
+      "stationaryPixels": 1,
+      "affectedCoarseCells": 1,
+      "initialLocalMinusFullBilinearCodeSum": [
+        1442.2578125,
+        479.62109375,
+        136.2421875,
+        3042.71484375
+      ],
+      "initialLocalMinusFullBilinearByteSum": [
+        6,
+        2,
+        0,
+        12
+      ],
+      "worstDynamicAbsByteDeltaBoundPerChannel": 255
+    },
+    {
+      "fixture": "extra-inputs/gallery-sheet-3-slot-1.bin",
+      "inputSHA": "566b5bff0205a1220745f8177cd37da5d2e97319e11b90814a5f2cb1ec08b03d",
+      "initialStationaryAlpha": 0,
+      "initialMobileAlpha": 2728050,
+      "frozenWetAlpha": 0,
+      "frozenCellCount": 0,
+      "initialWaterCodes": 20700892,
+      "initialMobileCodes": 10954831,
+      "stationaryPixels": 0,
+      "affectedCoarseCells": 0,
+      "initialLocalMinusFullBilinearCodeSum": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialLocalMinusFullBilinearByteSum": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "worstDynamicAbsByteDeltaBoundPerChannel": 0
+    },
+    {
+      "fixture": "extra-inputs/gallery-sheet-7-slot-1.bin",
+      "inputSHA": "60d1685ff317b9c4638ccdee4fd0cbf0eafaac4ae90b6b39a38ae7e259c3395f",
+      "initialStationaryAlpha": 2,
+      "initialMobileAlpha": 7443094,
+      "frozenWetAlpha": 0,
+      "frozenCellCount": 0,
+      "initialWaterCodes": 9992575,
+      "initialMobileCodes": 29888676,
+      "stationaryPixels": 2,
+      "affectedCoarseCells": 2,
+      "initialLocalMinusFullBilinearCodeSum": [
+        -441.953125,
+        -87.8828125,
+        -289.30078125,
+        -1328.6875
+      ],
+      "initialLocalMinusFullBilinearByteSum": [
+        -2,
+        0,
+        -1,
+        -5
+      ],
+      "worstDynamicAbsByteDeltaBoundPerChannel": 510
+    },
+    {
+      "fixture": "native-flow-waterdrop-after-color/fixture.bin",
+      "inputSHA": "63a722411be803961485418d0a7bbaf9c8a3b8d9c735a1723b7720ac99ce5a2f",
+      "initialStationaryAlpha": 740,
+      "initialMobileAlpha": 3755196,
+      "frozenWetAlpha": 0,
+      "frozenCellCount": 0,
+      "initialWaterCodes": 3788419,
+      "initialMobileCodes": 15079457,
+      "stationaryPixels": 211,
+      "affectedCoarseCells": 32,
+      "initialLocalMinusFullBilinearCodeSum": [
+        -256830.1484375,
+        -84623.5078125,
+        -25550.86328125,
+        -539310.71875
+      ],
+      "initialLocalMinusFullBilinearByteSum": [
+        -999,
+        -316,
+        -106,
+        -2091
+      ],
+      "worstDynamicAbsByteDeltaBoundPerChannel": 53805
+    },
+    {
+      "fixture": "native-flow-near-colors/fixture.bin",
+      "inputSHA": "c4fff84fd8fcf871b022dbea6d4c37b1ec602394af8dcf16938581589fc508f3",
+      "initialStationaryAlpha": 0,
+      "initialMobileAlpha": 307904,
+      "frozenWetAlpha": 0,
+      "frozenCellCount": 0,
+      "initialWaterCodes": 14231988,
+      "initialMobileCodes": 1236431,
+      "stationaryPixels": 0,
+      "affectedCoarseCells": 0,
+      "initialLocalMinusFullBilinearCodeSum": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "initialLocalMinusFullBilinearByteSum": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "worstDynamicAbsByteDeltaBoundPerChannel": 0
+    }
+  ]
+}
