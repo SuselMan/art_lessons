@@ -19,7 +19,7 @@ export function installInteractivePuddle(engine:any,size:number|{width:number;he
  const waterPreview=createWaterPreview(gl)
  let presentation:ReturnType<typeof createPuddlePresentation>|null=null
  const rawNext=new AccumulationBuffer(gl,width,height)
- let morphEnabled=true
+ let morphEnabled=true,calculationEnabled=true,solvesStarted=0,solvesCompleted=0
  let live=false,liveActive=false,liveFinished=false,drying=false,clock=0,lastAt=0,lastShown=0,cancellations=0,liveInputs=0
  let finalTimer:ReturnType<typeof setTimeout>|null=null
  const duration=120000
@@ -56,10 +56,10 @@ export function installInteractivePuddle(engine:any,size:number|{width:number;he
   try{
    const f=locate()
    if(maskDirty&&!down){maskDirty=false;if(f&&!live)regions.update(f.entry)}
-   if(goalPending&&!down&&at>=goalAfter&&f){goalPending=false;gl.disable(gl.SCISSOR_TEST);gl.colorMask(true,true,true,true);target.resetFromScratch(f.scratch,f.tile,epoch);calculating=true}
+   if(goalPending&&!down&&at>=goalAfter&&f){goalPending=false;gl.disable(gl.SCISSOR_TEST);gl.colorMask(true,true,true,true);solvesStarted++;target.resetFromScratch(f.scratch,f.tile,epoch);calculating=true}
    if(calculating&&!down){
     const stepStart=performance.now();target.step(options.noPauses?100000:4);options.onStep?.({ms:performance.now()-stepStart,iterations:target.state.iterations,done:target.state.done})
-    if(target.state.done){calculating=false;target.dry();render(dryImage,target.buffers());goalReady=true;options.onGoal?.({...target.state});
+    if(target.state.done){solvesCompleted++;calculating=false;target.dry();render(dryImage,target.buffers());goalReady=true;options.onGoal?.({...target.state});
      if(live){if(morphEnabled){presentation!.setTarget(dryImage,target.buffers().coverage,epoch);liveActive=true;lastAt=0;clock=0}else{liveActive=false;if(drying)finishLiveGoal();else{scheduleFinalTimer();engine._display();onStatus('Результат готов')}}}
      else{showEffect=wantEffect;regions.show(!showEffect);engine._display();onStatus(showEffect?'Показан сухой результат':'Исходные штрихи')}
     }
@@ -84,7 +84,7 @@ export function installInteractivePuddle(engine:any,size:number|{width:number;he
  if(engine._dryingTimer){clearTimeout(engine._dryingTimer);engine._dryingTimer=0}
  engine._display=function(...args:any[]){if(!diagnosticFinal&&(live||!down)&&context)present();const result=original.get('_display')!.apply(engine,args);regions.draw();return result}
  function acceptLiveInput(){const f=locate();if(!f)return;captureContext();render(rawNext,{p:f.entry.inkLoad,c:f.entry.inkColor,coverage:f.entry.coverage});if(morphEnabled)presentation!.acceptInput(raw,rawNext,epoch);rawNext.copyTo(raw);liveInputs++;present()}
- function scheduleLiveGoal(delay=options.goalDelayMs??(options.noPauses?0:60)){if(!locate())return;cancelGoal();liveActive=false;liveFinished=false;goalPending=true;goalAfter=performance.now()+delay;clock=0;lastAt=0;request()}
+ function scheduleLiveGoal(delay=options.goalDelayMs??(options.noPauses?0:60)){if(!calculationEnabled||!locate())return;cancelGoal();liveActive=false;liveFinished=false;goalPending=true;goalAfter=performance.now()+delay;clock=0;lastAt=0;request()}
  engine._flushLiveComposite=function(...args:any[]){const changed=!!engine._liveComposite?.scratch?.pendingComposite?.size;if(live&&changed)captureContext();const result=original.get('_flushLiveComposite')!.apply(engine,args);if(live&&changed)acceptLiveInput();return result}
  engine._onStart=function(...args:any[]){
   if(live&&(calculating||goalPending||liveActive))cancellations++;cancelGoal();liveActive=false;drying=false;wantEffect=showEffect=false;regions.show(false)
@@ -95,10 +95,10 @@ export function installInteractivePuddle(engine:any,size:number|{width:number;he
  engine._onEnd=function(...args:any[]){
   const r=original.get('_onEnd')!.apply(engine,args);down=false;captureContext()
   if(engine._wash)engine._wash.endedAt=Infinity
-  if(live){acceptLiveInput();scheduleLiveGoal();regions.show(false);engine._display();onStatus('Расчёт новой цели…')}else{refreshRaw();regions.show(true);engine._display();onStatus('Исходные штрихи · контуры обновляются ползунками')}return r
+  if(live){acceptLiveInput();scheduleLiveGoal();regions.show(false);engine._display();onStatus(calculationEnabled?'Расчёт новой цели…':'Расчёт отключён · только живой мазок')}else{refreshRaw();regions.show(true);engine._display();onStatus('Исходные штрихи · контуры обновляются ползунками')}return r
  }
  return{
-  get state(){return{diagnostic:true,live,morphEnabled,active:liveActive,done:live?!down&&(liveFinished||(!liveActive&&!calculating&&!goalPending)):goalReady,dry:drying,progress:morphProgress(clock,duration),durationMs:duration,cancellations,liveInputs,epoch,drawing:down,showingEffect:showEffect,effectRequested:wantEffect,calculating:calculating||goalPending,goalReady,regions:regions.state,target:{...target.state}}},
+  get state(){return{diagnostic:true,live,calculationEnabled,solvesStarted,solvesCompleted,morphEnabled,presentationAllocated:!!presentation,active:liveActive,done:live?!down&&(liveFinished||(!liveActive&&!calculating&&!goalPending)):goalReady,dry:drying,progress:morphProgress(clock,duration),durationMs:duration,cancellations,liveInputs,epoch,drawing:down,showingEffect:showEffect,effectRequested:wantEffect,calculating:calculating||goalPending,goalReady,regions:regions.state,target:{...target.state}}},
   tuningChanged(){if(live){scheduleLiveGoal(180);regions.show(false);onStatus('Обновляется цель морфинга…');return}maskDirty=true;goalReady=false;if(wantEffect){cancelGoal();goalPending=true;goalAfter=performance.now()+180;regions.show(false);engine._display()}request()},
   toggleEffect(){
    wantEffect=!wantEffect
@@ -113,14 +113,21 @@ export function installInteractivePuddle(engine:any,size:number|{width:number;he
    if(live){if(morphEnabled){presentation??=createPuddlePresentation(gl,size,{smoothArrival:true});presentation.reset(raw,epoch)}regions.show(false);scheduleLiveGoal();engine._display();onStatus('Живое рисование · можно рисовать')}
    else{presentation?.destroy();presentation=null;maskDirty=true;regions.show(true);engine._display();request();onStatus('Исходные штрихи · контуры')}
   },
+  setCalculationEnabled(value:boolean){
+   if(value===calculationEnabled)return
+   cancelGoal();calculationEnabled=value;liveActive=false;drying=false;showEffect=wantEffect=false
+   if(!value){this.setMorphEnabled(false);if(live&&locate())acceptLiveInput();engine._display();onStatus('Расчёт отключён · только живой мазок')}
+   else if(live){scheduleLiveGoal(0);engine._display();onStatus('Расчёт включён')}
+  },
   setMorphEnabled(value:boolean){
+   value=value&&calculationEnabled
    if(value===morphEnabled)return
    cancelFinalTimer();morphEnabled=value;liveActive=false;drying=false;clock=0;lastAt=0
    if(value&&live){presentation??=createPuddlePresentation(gl,size,{smoothArrival:true});presentation.reset(raw,epoch);if(goalReady&&!liveFinished&&locate()){presentation.setTarget(dryImage,target.buffers().coverage,epoch);liveActive=true;request()}}
    else{presentation?.destroy();presentation=null;if(live&&goalReady&&!liveFinished&&locate())scheduleFinalTimer()}
    if(live){engine._display();onStatus(value?'Морфинг включён':goalReady?'Результат готов':'Морфинг отключён')}
   },
-  dry(){if(live){if(!locate()||liveFinished)return;if(!morphEnabled&&goalReady){cancelFinalTimer();finishLiveGoal();return true}drying=true;goalAfter=0;lastAt=performance.now();request();return true}return this.toggleEffect()},
+  dry(){if(!calculationEnabled)return false;if(live){if(!locate()||liveFinished)return;if(!morphEnabled&&goalReady){cancelFinalTimer();finishLiveGoal();return true}drying=true;goalAfter=0;lastAt=performance.now();request();return true}return this.toggleEffect()},
   diagnosticMorphAt(progress:number){if(!live||!morphEnabled||!goalReady||!presentation)throw Error('Need a ready live goal');presentation.tick(1,{dry:false,progress:Math.max(0,Math.min(1,progress))});engine._display();return undefined},
   diagnosticMaskReadback:()=>regions.readback(),
   /** QA oracle: repeat from the unchanged raw wash, never animated pixels.
