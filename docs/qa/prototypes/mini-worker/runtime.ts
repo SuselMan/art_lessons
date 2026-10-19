@@ -1,3 +1,4 @@
+import {installRibbonV1} from '../ribbon-v1-805/painter'
 import {installLiveTiming805} from './live-timing'
 import {installSharedPassTiles805} from '../native-tiles-805/shared-pass'
 import {AccumulationBuffer} from '../../../../apps/web/src/engine/src/buffers/AccumulationBuffer'
@@ -35,7 +36,7 @@ import {createNativePuddleTarget} from '../mini-puddle/native-target-v70'
 import {installInteractivePuddle} from './controller'
 import {createCanvasAdapter} from './canvas-adapter'
 export const APPROVED_TUNING={massThreshold:.298116,compositionThreshold:.474721,hueThreshold:.505521,hueStrength:1,backgroundStrength:.877969,minimumRegionArea:2994.2784,backgroundDistortion:.597529}
-export type Settings={size:number;water:number;pigment:number;paint:string;color:string;morph?:boolean;calculation?:boolean}
+export type Settings={size:number;water:number;pigment:number;paint:string;color:string;morph?:boolean;calculation?:boolean;liveGpu?:boolean;brush?:'legacy'|'ribbon-v1'}
 export async function createMiniRuntime(source:HTMLCanvasElement|OffscreenCanvas,settings:Settings,hardware:{maxTouchPoints:number;deviceMemory:number},emit:(row:any)=>void,geometry?:{width:number;height:number;tileSize:number;tiled:boolean}){
  if(typeof requestAnimationFrame!=='function')throw Error('requestAnimationFrame is unavailable in this worker')
  const width=geometry?.width??1024,height=geometry?.height??1024,size=1024,domainSize=geometry?{width,height}:1024,display={width:1024,height:Math.round(1024*height/width)},host=createCanvasAdapter(source,geometry?display:1024)
@@ -51,6 +52,7 @@ export async function createMiniRuntime(source:HTMLCanvasElement|OffscreenCanvas
   tileExecutor=installSharedPassTiles805(e.gl,geometry.tileSize);tileExecutor.set({enabled:geometry.tiled})
  }
 
+ let ribbon:ReturnType<typeof installRibbonV1>|null=null
  let livePaths:ReturnType<typeof installNativeExpansion805>|null=null
  let featherCache:ReturnType<typeof installNativeFeatherCache>|null=null,restoreGather:(()=>void)|null=null,puddleForCleanup:ReturnType<typeof installInteractivePuddle>|null=null
  try{
@@ -64,13 +66,14 @@ export async function createMiniRuntime(source:HTMLCanvasElement|OffscreenCanvas
  ;(globalThis as any).__miniTuning={...APPROVED_TUNING}
  await engine.paperReady()
  engine.initLayer('local');engine.setBaseLayers(['local']);engine.setCompositeOrder([{id:'local',opacity:1}]);engine.setActiveLayer('local');engine.setTool('watercolor');engine.setLocked(false);if(geometry){engine.resizeCanvas(display.width,display.height);engine.setInfiniteCamera(width/2,height/2,display.width/width,0)}
+ if(settings.brush==='ribbon-v1')ribbon=installRibbonV1(e)
  let activeGesture:any=null,destroyed=false,lastStateAt=0,stepMax=0
  if(__QA_EXPANSION_LIVE__){if(!Object.hasOwn(profiles805,__QA_NATIVE_EXPANSION_ARM__)&&__QA_NATIVE_EXPANSION_ARM__!=='noisy')throw Error('Invalid live paths profile');if(__QA_NATIVE_EXPANSION_ARM__!=='original')livePaths=installNativeExpansion805(e,null,{noise:__QA_NATIVE_EXPANSION_ARM__==='noisy',allWetMobile:false,radiusPx:24,precombineWater:['mask','combomask'].includes(__QA_NATIVE_EXPANSION_ARM__)})}
  const createTarget:typeof createNativePuddleTarget=(...args)=>{const target=createNativePuddleTarget(...args);if(featherCache){const reset=target.resetFromScratch;target.resetFromScratch=function(...resetArgs){featherCache!.invalidate();return reset.apply(this,resetArgs)}}return livePaths?wrapExpansionTarget805(target,livePaths):target}
  const puddle=installInteractivePuddle(e,domainSize,'morph',message=>emit({type:'status',message}),createTarget,{noPauses:!geometry,goalDelayMs:0,onStep:row=>{stepMax=Math.max(stepMax,row.ms)},onGoal:target=>{if(activeGesture){const goalEpoch=performance.timeOrigin+performance.now();let fullGoalEpoch:number|undefined,fullCReadMs:number|undefined;if(__QA_NATIVE_MINI_UI__){const start=performance.now();puddle.diagnosticCompletedCReadback();fullCReadMs=performance.now()-start;fullGoalEpoch=performance.timeOrigin+performance.now()}emit({type:'goal',gesture:activeGesture,goalEpoch,fullGoalEpoch,fullCReadMs,target,stepMax,optimization:__QA_NATIVE_MINI_OPTIMIZED__?(globalThis as any).__qaNativeMiniNoMobile805:null,nativeTiles:tileExecutor?{...tileExecutor.stats,...tileExecutor.configuration,width,height}:null,simplePaths:__QA_EXPANSION_LIVE__?{arm:__QA_NATIVE_EXPANSION_ARM__,metadata:livePaths?.metadata??null,stats:livePaths?{...livePaths.stats}:null}:null,glError:e.gl.getError()})}}})
  puddleForCleanup=puddle
  const liveTiming=installLiveTiming805(e)
- function apply(value:Settings){settings=value;if(value.calculation===false)activeGesture=null;puddle.setCalculationEnabled(value.calculation!==false);puddle.setMorphEnabled(value.calculation!==false&&value.morph!==false);engine.setSize(value.size);engine.setColor([1,3,5].map(i=>parseInt(value.color.slice(i,i+2),16)/255) as[number,number,number]);engine.setPencil(watercolorPresetString('normal',{water:value.water/100,pigment:value.pigment/100},value.paint))}
+ function apply(value:Settings){settings=value;liveTiming.setSynchronized(value.liveGpu===true);if(value.calculation===false)activeGesture=null;puddle.setCalculationEnabled(value.calculation!==false);puddle.setMorphEnabled(value.calculation!==false&&value.morph!==false);engine.setSize(value.size);engine.setColor([1,3,5].map(i=>parseInt(value.color.slice(i,i+2),16)/255) as[number,number,number]);engine.setPencil(watercolorPresetString('normal',{water:value.water/100,pigment:value.pigment/100},value.paint))}
  apply(settings);puddle.setLive(true)
  async function goalHashes(buffers:Record<string,Uint8Array>){
   const hashes:Record<string,string>={}
@@ -78,9 +81,9 @@ export async function createMiniRuntime(source:HTMLCanvasElement|OffscreenCanvas
   return hashes
  }
  async function cacheReport(){if(!featherCache)return undefined;const{fillSource,consumerSource,prefixSources,...counters}=featherCache.stats;const numeric={...counters,fills:counters.fills.map(row=>({...row}))},sources={fill:new TextEncoder().encode(fillSource),native:new TextEncoder().encode(consumerSource),...Object.fromEntries(prefixSources.map((source,i)=>['prefix'+i,new TextEncoder().encode(source)]))};return{...numeric,sourceSHA:await goalHashes(sources),qualification:'QA-only feather16 quantization; cachefill inside timed solve; source hashes outside interval; no other noise consumer in current native/prefix entrypoints'}}
- function stateLoop(){if(destroyed)return;const now=performance.now();if(now-lastStateAt>=100){lastStateAt=now;emit({type:'state',state:puddle.state,liveTiming:liveTiming.snapshot(),asyncError:String(e._wcAsyncError||''),stepMax})}requestAnimationFrame(stateLoop)}requestAnimationFrame(stateLoop)
+ function stateLoop(){if(destroyed)return;const now=performance.now();if(now-lastStateAt>=100){lastStateAt=now;emit({type:'state',state:puddle.state,liveTiming:liveTiming.snapshot(),brush:ribbon?{...ribbon.stats}:null,asyncError:String(e._wcAsyncError||''),stepMax})}requestAnimationFrame(stateLoop)}requestAnimationFrame(stateLoop)
  const dbg=e.gl.getExtension('WEBGL_debug_renderer_info')
- emit({type:'ready',nativeTiles:tileExecutor?{...tileExecutor.stats,...tileExecutor.configuration,width,height}:null,profile:{id:__QA_EXPANSION_LIVE__?__QA_NATIVE_EXPANSION_ARM__:(__QA_NATIVE_MINI_OPTIMIZED__?'optimized':'original'),skipEmptyMobile:__QA_NATIVE_MINI_OPTIMIZED__,interactivePath:'native-direct',sourceBuild:__QA_EXPANSION_LIVE__?'805-expansion-live-v1':'805-native-mini-opt-v1',selection:__QA_EXPANSION_LIVE__?'original-Q-unchanged':undefined},renderer:dbg?e.gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL):e.gl.getParameter(e.gl.RENDERER),budgetBytes:Number.isFinite(e._gpuBudget)?e._gpuBudget:null,flags:{...(__QA_NATIVE_FEATHER_CACHE__?{nativeFeatherCache:true}:{}),model:e._watercolorModel,asyncFinish:e._wcAsyncFinish,joinedTouch:e._wcJoinedTouch,materialPresentation:e._wcMaterialPresentation},tuning:APPROVED_TUNING,glError:e.gl.getError()})
+ emit({type:'ready',brushModel:settings.brush??'legacy',nativeTiles:tileExecutor?{...tileExecutor.stats,...tileExecutor.configuration,width,height}:null,profile:{id:__QA_EXPANSION_LIVE__?__QA_NATIVE_EXPANSION_ARM__:(__QA_NATIVE_MINI_OPTIMIZED__?'optimized':'original'),skipEmptyMobile:__QA_NATIVE_MINI_OPTIMIZED__,interactivePath:'native-direct',sourceBuild:__QA_EXPANSION_LIVE__?'805-expansion-live-v1':'805-native-mini-opt-v1',selection:__QA_EXPANSION_LIVE__?'original-Q-unchanged':undefined},renderer:dbg?e.gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL):e.gl.getParameter(e.gl.RENDERER),budgetBytes:Number.isFinite(e._gpuBudget)?e._gpuBudget:null,flags:{...(__QA_NATIVE_FEATHER_CACHE__?{nativeFeatherCache:true}:{}),model:e._watercolorModel,asyncFinish:e._wcAsyncFinish,joinedTouch:e._wcJoinedTouch,materialPresentation:e._wcMaterialPresentation},tuning:APPROVED_TUNING,glError:e.gl.getError()})
  async function rawSceneHashes(){
   const f=puddle.diagnosticSource(),hashes:Record<string,string>={}
   for(const [name,buffer] of Object.entries({p:f.entry.inkLoad,c:f.entry.inkColor,coverage:f.entry.coverage,water:f.entry.solventLoad,foreignWater:f.entry.foreignSolventLoad,original:f.entry.original})){
@@ -90,7 +93,8 @@ export async function createMiniRuntime(source:HTMLCanvasElement|OffscreenCanvas
  }
  let nativeCommonSeed:Awaited<ReturnType<typeof createNativeCommonSeed>>|null=null
  let replayedScene=false,expansionComputed=false,sceneRawSHA:Record<string,string>|null=null
- return {handle(message:any){if(destroyed)return;if(geometry&&(width!==1024||height!==1024)&&String(message.type).startsWith('qa-')){emit({type:'qa-scene-error',requestId:message.requestId,message:'Legacy Mini QA oracle requires a 1024 square source; use native-tile-compare for the full sheet'});return;}if(message.type==='tile-settings'){tileExecutor?.set(message.settings)
+ return {handle(message:any){if(destroyed)return;if(geometry&&(width!==1024||height!==1024)&&String(message.type).startsWith('qa-')&&message.type!=='qa-ribbon-proof'){emit({type:'qa-scene-error',requestId:message.requestId,message:'Legacy Mini QA oracle requires a 1024 square source; use native-tile-compare for the full sheet'});return;}if(message.type==='qa-ribbon-proof'){emit({type:'qa-ribbon-proof',proof:ribbon?.proof()??null})
+  }else if(message.type==='tile-settings'){tileExecutor?.set(message.settings)
   }else if(message.type==='native-tile-compare'){
    if(!tileExecutor||settings.calculation===false)throw Error('Enabled native tile calculation required')
    void(async()=>{const saved=tileExecutor!.enabled,epoch=puddle.state.epoch;try{tileExecutor!.set({enabled:false});const whole=await goalHashes(puddle.diagnosticRepeatGoal(true));if(destroyed||settings.calculation===false||puddle.state.epoch!==epoch){if(!destroyed)emit({type:'native-tile-comparison-cancelled'});return}tileExecutor!.set({enabled:true});const tiled=await goalHashes(puddle.diagnosticRepeatGoal(true));if(destroyed||settings.calculation===false||puddle.state.epoch!==epoch){if(!destroyed)emit({type:'native-tile-comparison-cancelled'});return}emit({type:'native-tile-comparison',whole,tiled,exact:JSON.stringify(whole)===JSON.stringify(tiled),stats:{...tileExecutor!.stats}})}finally{if(!destroyed)tileExecutor!.set({enabled:saved})}})().catch(error=>emit({type:'error',message:String(error)}))
@@ -152,6 +156,6 @@ export async function createMiniRuntime(source:HTMLCanvasElement|OffscreenCanvas
     void goalHashes(bytes).then(hashes=>emit({type:'qa-goal-hashes',requestId:message.requestId,hashes,frontJumpStats})).catch(error=>emit({type:'error',message:String(error)}))
    }finally{try{restore?.()}finally{try{restoreFront?.()}finally{restoreJump?.()}}}
   }else if(message.type==='morph')puddle.setMorphEnabled(message.enabled!==false);else if(message.type==='settings')apply(message.settings);else if(message.type==='dry')puddle.dry();else if(message.type==='export'){const finish=(blob:Blob|null)=>{if(!blob)throw Error('PNG export returned no data');emit({type:'png',blob})};if('convertToBlob'in source)source.convertToBlob({type:'image/png'}).then(finish).catch(error=>emit({type:'error',message:String(error)}));else source.toBlob(finish,'image/png')}},
- destroy(){destroyed=true;liveTiming.destroy();try{featherCache?.dispose()}finally{try{puddle.destroy()}finally{livePaths?.restore();tileExecutor?.destroy();nativeCommonSeed?.destroy();try{restoreGather?.()}finally{try{host.destroy()}finally{engine.destroy()}}}}}}
- }catch(error){try{featherCache?.dispose()}finally{try{puddleForCleanup?.destroy()}finally{livePaths?.restore();tileExecutor?.destroy();try{restoreGather?.()}finally{try{host.destroy()}finally{engine.destroy()}}}}throw error}
+ destroy(){destroyed=true;liveTiming.destroy();try{featherCache?.dispose()}finally{try{puddle.destroy()}finally{ribbon?.destroy();livePaths?.restore();tileExecutor?.destroy();nativeCommonSeed?.destroy();try{restoreGather?.()}finally{try{host.destroy()}finally{engine.destroy()}}}}}}
+ }catch(error){try{featherCache?.dispose()}finally{try{puddleForCleanup?.destroy()}finally{ribbon?.destroy();livePaths?.restore();tileExecutor?.destroy();try{restoreGather?.()}finally{try{host.destroy()}finally{engine.destroy()}}}}throw error}
 }
