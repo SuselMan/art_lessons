@@ -11,6 +11,7 @@ function transformNativeExpansion805(file,source,profile='smooth'){
   s=one(s,anchor,anchor+`const qa=(globalThis as unknown as {${KEY}?:{allWetMobile?:boolean}}).${KEY};if(qa?.allWetMobile===true){for(const [optical,out]of [[0,referenceP],[1,referenceC]]as const){begin(qaWetReference,out,{color:c,water:w,pigment:p},volume);gl.uniform1f(gl.getUniformLocation(qaWetReference,'optical'),optical);end(out)}regionKeep.clear();return;}`);
   s=one(s,'gl.deleteProgram(bg);gl.deleteProgram(split);','gl.deleteProgram(bg);gl.deleteProgram(split);gl.deleteProgram(qaWetReference);');
  }else{
+  s=one(s,'const CAP = 1536 * S',`const CAP = (this as any).qaFullSheet805===true ? Infinity : 1536*S`);
   const anchor='        const list = strides ?? Array.from({ length: steps }, () => 1)';
   s=one(s,anchor,`        const qaExpansion=(globalThis as unknown as {${KEY}?:{radiusPx?:number;allWetMobile?:boolean}}).${KEY}
         const qaList = qaExpansion?.radiusPx!==undefined&&climb===WC_FRONT_CLIMB ? Array.from({length:Math.ceil(qaExpansion.radiusPx)},()=>1) : strides??Array.from({length:steps},()=>1)

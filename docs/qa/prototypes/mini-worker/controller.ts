@@ -6,25 +6,26 @@ import {createDiagnosticRegions} from './regions'
 import {createWaterPreview} from './water-preview'
 
 /** M69/M70: raw material owns each goal; presentation never feeds the solver. */
-export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'material',onStatus:(_message:string)=>void,createTarget:typeof createNativePuddleTarget, options:{noPauses?:boolean;onGoal?:(state:unknown)=>void;onStep?:(row:{ms:number;iterations:number;done:boolean})=>void}={}){
+export function installInteractivePuddle(engine:any,size:number|{width:number;height:number},_mode:'morph'|'material',onStatus:(_message:string)=>void,createTarget:typeof createNativePuddleTarget, options:{noPauses?:boolean;goalDelayMs?:number;onGoal?:(state:unknown)=>void;onStep?:(row:{ms:number;iterations:number;done:boolean})=>void}={}){
+ const width=typeof size==='number'?size:size.width,height=typeof size==='number'?size:size.height
  const gl:WebGLRenderingContext=engine.gl,owner=engine._settlePlan
  const flags={blot:engine._ribbonPasses.diagnosticPigmentBlot,batch:engine._ribbonPainter.diagnosticBandBatch,lift:engine.diagnosticWatercolorLiftSteps,minimum:engine.diagnosticNativeFieldMinimum}
  engine._ribbonPasses.diagnosticPigmentBlot=.45;engine._ribbonPainter.diagnosticBandBatch=true
  engine.diagnosticWatercolorLiftSteps=4;engine.diagnosticNativeFieldMinimum=1024
  const originalPrepare=owner.prepare
- const targetOptions:NativePuddleTargetOptions={prepare:function(...args:any[]){const old=owner.diagnosticSkipBrushContacts;owner.diagnosticSkipBrushContacts=true;try{return originalPrepare.apply(owner,args)}finally{owner.diagnosticSkipBrushContacts=old}} as any}
- const target=createTarget(engine,size,targetOptions)
- const regions=createDiagnosticRegions(engine,size)
+ const targetOptions:NativePuddleTargetOptions={fullResolution:typeof size!=='number',finalOnly:typeof size!=='number',prepare:function(...args:any[]){const old=owner.diagnosticSkipBrushContacts;owner.diagnosticSkipBrushContacts=true;try{return originalPrepare.apply(owner,args)}finally{owner.diagnosticSkipBrushContacts=old}} as any}
+ const target=createTarget(engine,size as any,targetOptions)
+ const regions=createDiagnosticRegions(engine,width)
  const waterPreview=createWaterPreview(gl)
  let presentation:ReturnType<typeof createPuddlePresentation>|null=null
- const rawNext=new AccumulationBuffer(gl,size,size)
+ const rawNext=new AccumulationBuffer(gl,width,height)
  let morphEnabled=true
  let live=false,liveActive=false,liveFinished=false,drying=false,clock=0,lastAt=0,lastShown=0,cancellations=0,liveInputs=0
  let finalTimer:ReturnType<typeof setTimeout>|null=null
  const duration=120000
- const raw=new AccumulationBuffer(gl,size,size),dryImage=new AccumulationBuffer(gl,size,size)
+ const raw=new AccumulationBuffer(gl,width,height),dryImage=new AccumulationBuffer(gl,width,height)
  raw.clear();dryImage.clear();rawNext.clear()
- const bounds={minX:0,minY:0,maxX:size,maxY:size}
+ const bounds={minX:0,minY:0,maxX:width,maxY:height}
  const keys=['_onStart','_onEnd','_display','_finishRibbonStroke','_scheduleDryingRepaint','_revealWash','_drawRibbonCompositeRect','_updateWetTexture','_flushLiveComposite'] as const
  const original=new Map(keys.map(k=>[k,engine[k]]))
  let ownedDiagnosticSource:any=null,replaySource:any=null,replayMode=false,diagnosticFinal=false
@@ -83,7 +84,7 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
  if(engine._dryingTimer){clearTimeout(engine._dryingTimer);engine._dryingTimer=0}
  engine._display=function(...args:any[]){if(!diagnosticFinal&&(live||!down)&&context)present();const result=original.get('_display')!.apply(engine,args);regions.draw();return result}
  function acceptLiveInput(){const f=locate();if(!f)return;captureContext();render(rawNext,{p:f.entry.inkLoad,c:f.entry.inkColor,coverage:f.entry.coverage});if(morphEnabled)presentation!.acceptInput(raw,rawNext,epoch);rawNext.copyTo(raw);liveInputs++;present()}
- function scheduleLiveGoal(delay=options.noPauses?0:60){if(!locate())return;cancelGoal();liveActive=false;liveFinished=false;goalPending=true;goalAfter=performance.now()+delay;clock=0;lastAt=0;request()}
+ function scheduleLiveGoal(delay=options.goalDelayMs??(options.noPauses?0:60)){if(!locate())return;cancelGoal();liveActive=false;liveFinished=false;goalPending=true;goalAfter=performance.now()+delay;clock=0;lastAt=0;request()}
  engine._flushLiveComposite=function(...args:any[]){const changed=!!engine._liveComposite?.scratch?.pendingComposite?.size;if(live&&changed)captureContext();const result=original.get('_flushLiveComposite')!.apply(engine,args);if(live&&changed)acceptLiveInput();return result}
  engine._onStart=function(...args:any[]){
   if(live&&(calculating||goalPending||liveActive))cancellations++;cancelGoal();liveActive=false;drying=false;wantEffect=showEffect=false;regions.show(false)
@@ -199,7 +200,7 @@ export function installInteractivePuddle(engine:any,size:number,_mode:'morph'|'m
    target.dry();this.diagnosticPresentGoal();goalReady=true
    const submitted=performance.now(),saved=gl.getParameter(gl.FRAMEBUFFER_BINDING),pixel=new Uint8Array(4)
    let status=0,error=0
-   try{gl.bindFramebuffer(gl.FRAMEBUFFER,(dryImage as any)._fbo);status=gl.checkFramebufferStatus(gl.FRAMEBUFFER);if(status!==gl.FRAMEBUFFER_COMPLETE)throw Error('Goal framebuffer incomplete');gl.readPixels(size>>1,size>>1,1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixel);error=gl.getError();if(error)throw Error('Goal dependency GLerror '+error)}finally{gl.bindFramebuffer(gl.FRAMEBUFFER,saved)}
+   try{gl.bindFramebuffer(gl.FRAMEBUFFER,(dryImage as any)._fbo);status=gl.checkFramebufferStatus(gl.FRAMEBUFFER);if(status!==gl.FRAMEBUFFER_COMPLETE)throw Error('Goal framebuffer incomplete');gl.readPixels(width>>1,height>>1,1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixel);error=gl.getError();if(error)throw Error('Goal dependency GLerror '+error)}finally{gl.bindFramebuffer(gl.FRAMEBUFFER,saved)}
    const ready=performance.now()
    return{submitJsMs:submitted-started,runToDependentMs:ready-submitted,totalReadyMs:ready-started,iterations:target.state.iterations,status,glError:error,probeRGBA:Array.from(pixel),logicalReadBytes:4,qualification:'Reset, native solve, dry and final composite; dependent1px read, not universal GPU completion. Full output hashing/PNG excluded.'}
   },

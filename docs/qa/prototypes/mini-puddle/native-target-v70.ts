@@ -5,7 +5,7 @@ import type {PuddleParameters} from '../../../../apps/web/src/engine/src/waterco
 export type {NativePuddleTargetOptions} from '../../../../apps/web/src/engine/src/watercolor/puddle/PuddleTarget'
 /** Mini-only adapter to private engine hooks; the shared solver has an explicit host. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createNativePuddleTarget(engine: any, size: number, options: NativePuddleTargetOptions = {}) {
+export function createNativePuddleTarget(engine: any, size: number | {width:number;height:number}, options: NativePuddleTargetOptions = {}) {
   const target=createSharedTarget({
     gl: engine.gl,
     settlePlan: engine._settlePlan,
