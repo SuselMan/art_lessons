@@ -15,7 +15,7 @@
 <label>Краска <select id="paint"><option>PB15</option><option>PB29</option><option>PR122</option></select></label><input id="color" type="color" value="#2688d3" aria-label="Цвет">
 </nav></header>
 <main><div class="sheet" id="sheet"></div><aside class="panel">
-<p id="tileNote" hidden class="muted">Только поиск путей в фиксированной воде, не полный расчёт краски. Вход — тестовая волна. Поверх можно рисовать диагностической кистью. Время включает подготовку и проверочное чтение.</p><p id="tileStatus" hidden style="white-space:pre-line"></p><div id="paintMetrics"><p id="status">Загрузка…</p><p class="metric" id="latency">После отпускания: —</p>
+<p id="tileNote" hidden class="muted">Только поиск путей в фиксированной воде, не полный расчёт краски. Настройки кисти задают размер, воду, пигмент и цвет. После мазка рассчитываются пути в нарисованной воде. Без мазков используется тестовая волна. Это диагностическая кисть, смешивание цветов пока не рассчитывается.</p><p id="tileStatus" hidden style="white-space:pre-line"></p><div id="paintMetrics"><p id="status">Загрузка…</p><p class="metric" id="latency">После отпускания: —</p>
 <div style="overflow-x:auto"><table style="width:100%;font-size:13px;border-spacing:0 10px"><thead><tr><th>Вариант</th><th>Среднее после пера (штрихов)</th><th>UI RAF среднее / макс.</th></tr></thead><tbody id="averages"></tbody></table></div><p class="muted">Поток: <span id="averageMode"></span></p><p id="heartbeat">UI RAF: —</p><button id="resetAverages">Сбросить средние</button>
 </div><p id="error" role="alert"></p>
 </aside></main><script type="module" src="./entry.js"></script></html>
