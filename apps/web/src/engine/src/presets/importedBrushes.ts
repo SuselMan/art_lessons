@@ -59,3 +59,12 @@ export function importedBrushAssets(preset: string | undefined): string[] {
 
 /** Call only after all engines that can replay these resources have been destroyed. */
 export function clearImportedBrushPixels(): void { assets.clear() }
+
+/** Keep resources belonging to current/retiring engines. GPU textures are owned
+ * by those engines; this only releases the synchronous replay source bytes. */
+export function retainImportedBrushResources(libraries: readonly BrushLibrary[]): void {
+  const versions = new Set(libraries.flatMap(l => l.brushes.map(b => `${b.descriptor.id}@${b.descriptor.version}`)))
+  const pixels = new Set<string>(libraries.flatMap(l => l.assets.map(a => a.id)))
+  for (const key of brushes.keys()) if (!versions.has(key)) brushes.delete(key)
+  for (const key of assets.keys()) if (!pixels.has(key)) assets.delete(key)
+}

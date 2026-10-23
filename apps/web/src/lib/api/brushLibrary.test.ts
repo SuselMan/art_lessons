@@ -100,4 +100,41 @@ describe('lazy brush API resources', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 
+  it('keeps a retiring engine readable, then releases its pixels and metadata after destroy', async () => {
+    const f = fixture()
+    request.mockResolvedValue(f.manifest)
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array(f.pixels))))
+    const api = await import('./brushLibrary')
+    const resources = await import('../../engine/brushLibrary')
+    api.setBrushRoomScope('old-board')
+    await api.loadBrushLibrary()
+    const release = api.retainBrushRoomResources('old-board')
+    await api.prepareBrushPresets([f.token])
+    api.setBrushRoomScope('next-board')
+    expect(resources.isBrushAssetReady(f.manifest.assets[0].id)).toBe(true)
+    expect(resources.importedBrushes()).toHaveLength(1)
+    release()
+    release() // StrictMode/repeated cleanup cannot release another engine.
+    expect(resources.isBrushAssetReady(f.manifest.assets[0].id)).toBe(false)
+    expect(resources.importedBrushes()).toHaveLength(0)
+  })
+
+  it('does not reinstall pixels from a download finishing after the room was abandoned', async () => {
+    const f = fixture()
+    request.mockResolvedValue(f.manifest)
+    let finish!: (value: Response) => void
+    const fetch = vi.fn(() => new Promise<Response>(resolve => { finish = resolve }))
+    vi.stubGlobal('fetch', fetch)
+    const api = await import('./brushLibrary')
+    const resources = await import('../../engine/brushLibrary')
+    api.setBrushRoomScope('old-board')
+    await api.loadBrushLibrary()
+    const pending = api.prepareBrushPresets([f.token])
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce())
+    api.setBrushRoomScope('next-board')
+    finish(new Response(new Uint8Array(f.pixels)))
+    await pending
+    expect(resources.isBrushAssetReady(f.manifest.assets[0].id)).toBe(false)
+  })
+
 })

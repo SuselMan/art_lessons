@@ -196,6 +196,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
 
   return () => {
     brushes.cancel()
+    setBrushRoomScope(undefined)
     // Раньше `socket.disconnect()`: иначе запланированная попытка заведёт
     // сокет комнаты, которую уже покинули.
     revival.cancel()

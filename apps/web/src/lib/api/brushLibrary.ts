@@ -1,5 +1,5 @@
 import { isBrushLibrary, type BrushLibrary, type BrushImportJob } from '@grafetto/shared'
-import { installBrushLibrary, installBrushPixels, importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
+import { installBrushLibrary, installBrushPixels, retainImportedBrushResources, importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
 import { apiResponse, apiPath, api } from './api'
 import { cachedBrushAsset, cacheBrushAsset } from './brushAssetCache'
 
@@ -10,10 +10,36 @@ let metadataScope: string | undefined
 const pending = new Map<string, Promise<void>>()
 const pinned = new Set<string>()
 const listeners = new Set<() => void>()
+const scopedLibraries = new Map<string | undefined, BrushLibrary>()
+const engines = new Map<string, number>()
 export function subscribeBrushLibrary(listener: () => void): () => void { listeners.add(listener); return () => { listeners.delete(listener) } }
 
+function pruneResources(): void {
+  for (const scope of scopedLibraries.keys()) {
+    if (scope !== roomScope && (!scope || !engines.has(scope))) scopedLibraries.delete(scope)
+  }
+  retainImportedBrushResources([...scopedLibraries.values()])
+}
+
+/** The lease ends after destroy, including the final asynchronous thumbnail. */
+export function retainBrushRoomResources(boardId: string): () => void {
+  engines.set(boardId, (engines.get(boardId) ?? 0) + 1)
+  let released = false
+  return () => {
+    if (released) return
+    released = true
+    const count = (engines.get(boardId) ?? 1) - 1
+    if (count) engines.set(boardId, count)
+    else engines.delete(boardId)
+    pruneResources()
+  }
+}
+
 export function setBrushRoomScope(roomId: string | undefined): void {
+  if (roomScope === roomId) return
   roomScope = roomId
+  library = scopedLibraries.get(roomId) ?? null
+  pruneResources()
 }
 
 /** Install metadata only. Resource bytes are loaded for selection/history. */
@@ -34,6 +60,8 @@ export async function loadBrushLibrary(): Promise<void> {
   try { localStorage.setItem(cacheKey, JSON.stringify(data)) } catch { /* quota/private mode */ }
   installBrushLibrary(data)
   library = data
+  scopedLibraries.set(scope, data)
+  pruneResources()
   for (const listener of listeners) listener()
 }
 
@@ -51,9 +79,10 @@ async function verified(id: string, data: Uint8Array, size: number): Promise<boo
 }
 async function fetchAsset(id: string): Promise<void> {
   if (isBrushAssetReady(id)) return
-  const existing = pending.get(id)
-  if (existing) return existing
   const scope = roomScope
+  const key = `${scope ?? 'personal'}:${id}`
+  const existing = pending.get(key)
+  if (existing) return existing
   const work = (async () => {
     const asset = library?.assets.find(a => a.id === id)
     if (!asset) throw new Error(`Unknown brush asset: ${id}`)
@@ -68,10 +97,10 @@ async function fetchAsset(id: string): Promise<void> {
       if (data.length !== asset.size * asset.size) throw new Error('Brush asset size mismatch')
       if (!await verified(id, data, asset.size)) throw new Error('Brush asset checksum mismatch')
     }
-    installBrushPixels(id, data)
+    if (scopedLibraries.get(scope)?.assets.some(a => a.id === id)) installBrushPixels(id, data)
     void cacheBrushAsset(hash, data)
-  })().finally(() => pending.delete(id))
-  pending.set(id, work)
+  })().finally(() => pending.delete(key))
+  pending.set(key, work)
   return work
 }
 

@@ -1,6 +1,7 @@
 import type { RefObject } from 'react'
 
 import type { PencilEngineAPI } from '../../engine'
+import { retainBrushRoomResources } from '../../lib/api/brushLibrary'
 import { diagLog } from '../../lib/observability/diagLog'
 import type { PencilSound } from '../../lib/sound/PencilSound'
 import { computeCompositeOrder } from '../../lib/layers/layers'
@@ -117,8 +118,12 @@ export function retireEngine(
   engine: PencilEngineAPI, boardId: string, replayIncompleteRef: RefObject<boolean>,
   /** (§17.73) releaseOnPageHide's cleanup: the room is going, not the page. */
   unhookPageHide?: () => void,
+  releaseBrushResources?: () => void,
 ): void {
   unhookPageHide?.()
+  const destroy = (): void => {
+    try { engine.destroy() } finally { releaseBrushResources?.() }
+  }
   if (!replayIncompleteRef.current) {
     void uploadThumbnail(boardId, engine)
       .then(uploaded => {
@@ -130,11 +135,14 @@ export function retireEngine(
           })
         }
       })
-      .finally(() => engine.destroy())
+      .finally(destroy)
   } else {
-    engine.destroy()
+    destroy()
   }
 }
+
+/** Pair with retireEngine, rather than the beginning of React cleanup. */
+export const retainEngineBrushResources = retainBrushRoomResources
 
 export interface ParkedRoomState<Engine> {
   /** The `room_state` that arrived before this engine did, if any. Consumed. */
