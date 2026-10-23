@@ -19,14 +19,21 @@ describe('distance-driven wet pigment state',()=>{
   for(let i=0;i<100;i++)wetMixStep(wet,many,dabs[1],0.1,false)
   expect(many.charge).toBeCloseTo(once.charge,12)
   expect(once.charge).toBeLessThan(0.001)
-  const noPull={...wet,pull:0};const empty={charge:0}
-  expect(wetMixStep(noPull,empty,dabs[0],1,false).strength).toBe(0)
+  const empty={charge:0}
+  expect(wetMixStep({...wet,pull:0,charge:0},empty,dabs[0],0,true).load).toBe(0)
+  expect(wetMixStep(wet,{charge:1},dabs[1],1,false).retention).toBeLessThan(1)
  })
  it('loads only at touch down, permits pigment pickup after exhaustion, and never refills on empty canvas',()=>{
   const state={charge:1}
   expect(wetMixStep(wet,state,dabs[0],0,true).load).toBeGreaterThan(0)
   const end=wetMixStep(wet,state,dabs[1],100,false)
   expect(end.load).toBe(0);expect(end.pickup).toBeGreaterThan(0);expect(end.strength).toBeGreaterThan(0)
+ })
+ it('does not apply charge twice: charge controls pigment, attack controls its transfer',()=>{
+  const low=wetMixStep({...wet,charge:0.2},{charge:1},dabs[0],0,true)
+  const high=wetMixStep({...wet,charge:0.8},{charge:1},dabs[0],0,true)
+  expect(low.load).toBeCloseTo(high.load/4)
+  expect(low.strength).toBe(high.strength)
  })
  it('dilution weakens pigment, attack controls transfer and grade controls exhaustion',()=>{
   const prime=(changes:Partial<typeof wet>)=>wetMixStep({...wet,wetnessJitter:0,...changes},{charge:1},dabs[0],0,true)

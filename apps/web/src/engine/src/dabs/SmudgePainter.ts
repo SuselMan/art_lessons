@@ -23,7 +23,7 @@ import type { ILayerBuffer, PaintTarget } from '../buffers/ILayerBuffer'
 import { ScratchFreeList } from '../buffers/scratchPools'
 import type { WorldRect } from '../buffers/tileMath'
 import type { PaperSampling } from '../paper/PaperState'
-import { brushDabRandom, curveAt, type MixerPaint } from '../presets/digitalBrushPresets'
+import { brushDabRandom, brushDabSeed, curveAt, type MixerPaint } from '../presets/digitalBrushPresets'
 import { smudgeGrainRelief } from '../presets/smudgeGrain'
 import { DAB_VERT, DISPLAY_VERT, SMUDGE_PICKUP_FRAG, SMUDGE_TRANSFER_FRAG } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
@@ -209,10 +209,10 @@ export class SmudgePainter {
       'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode', 'u_grainRelief',
       'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap',
-      'u_wetEnabled','u_tipKind','u_tip','u_wetGrain','u_grainStrength','u_grainPeriod','u_grainTransform','u_grainTone','u_wetWorldOrigin','u_flip','u_grainBlend','u_dual','u_dualKind','u_dualBlend','u_dualTransform','u_wetOriginal','u_wetRender','u_wetBlend','u_burntBlend',
+      'u_wetEnabled','u_tipKind','u_tip','u_wetGrain','u_grainStrength','u_grainPeriod','u_grainTransform','u_grainTone','u_wetRoundPhase','u_wetWorldOrigin','u_flip','u_grainBlend','u_dual','u_dualKind','u_dualBlend','u_dualTransform','u_wetOriginal','u_wetRender','u_wetBlend','u_burntBlend',
     ])
     this.pickupUni = getUniforms(gl, this.pickupProg, [
-      'u_patch', 'u_carried', 'u_rate', 'u_paint', 'u_paintLoad', 'u_alphaPickup', 'u_wetBlur','u_wetTexel',
+      'u_patch', 'u_carried', 'u_rate', 'u_paint', 'u_paintLoad', 'u_alphaPickup', 'u_wetBlur','u_wetTexel','u_wetRetention',
     ])
     this.oldTransferUni=getUniforms(gl,this.oldTransferProg,Object.keys(this.transferUni))
     this.oldPickupUni=getUniforms(gl,this.oldPickupProg,Object.keys(this.pickupUni))
@@ -328,7 +328,7 @@ export class SmudgePainter {
     const wet = brush.behavior?.wetMix
     const step = wet ? wetMixStep(wet,state,dab,travel,!prev) : {
       load: !prev ? MIXER_PRIME_LOAD : clampNum(paint.load*travel,0,1),
-      pickup: clampNum(paint.pickup*travel,0,1),strength:1,blur:0,
+      pickup: clampNum(paint.pickup*travel,0,1),strength:1,retention:1,blur:0,
     }
     for (const stamp of behaviorStampsForDab(brush,dab,state.behavior,paint.color)) {
       const shaped = {...dab,x:stamp.x,y:stamp.y,size:stamp.size,angle:stamp.angle}
@@ -468,7 +468,7 @@ export class SmudgePainter {
     // The mixer picks up at its own rate — slower than the stump's, which is
     // what lets it drag a colour a couple of brush widths rather than one.
     const pickRate = wet ? wet.step.pickup : paint && !priming ? clampNum(paint.pickup * travel, 0, 1) : rate
-    this.runPickup(patch, imprint.buf ?? patch, next, pickRate, wet?.stamp.color ?? paint?.color ?? null, paintLoad, wet?.step.blur ?? 0, !!wet)
+    this.runPickup(patch, imprint.buf ?? patch, next, pickRate, wet?.stamp.color ?? paint?.color ?? null, paintLoad, wet?.step.blur ?? 0, !!wet, wet?.step.retention ?? 1)
     if (imprint.buf) this.releaseScratch(imprint.buf)
     imprint.buf = next
     if (priming && !wet) { this.releaseScratch(patch); return }
@@ -502,7 +502,7 @@ export class SmudgePainter {
       // patch, since the dab quad is contained in it by construction.
       const originX = patchX - tile.originX
       const originGlY = tile.buffer.height - (patchY - tile.originY) - patchSize
-      this.drawTransferDab(tile, dab, radius, next, originX, originGlY, patchSize, 'clear', strength, wet, patch)
+      if (!wet) this.drawTransferDab(tile, dab, radius, next, originX, originGlY, patchSize, 'clear', strength)
       this.drawTransferDab(tile, dab, radius, next, originX, originGlY, patchSize, 'lay', strength, wet, patch)
     }
 
@@ -567,7 +567,7 @@ export class SmudgePainter {
    *  buffer happened to hold before. */
   private runPickup(
     patch: AccumulationBuffer, carried: AccumulationBuffer, target: AccumulationBuffer, rate: number,
-    paintColor: [number, number, number] | null = null, paintLoad = 0, blur = 0, wet = false,
+    paintColor: [number, number, number] | null = null, paintLoad = 0, blur = 0, wet = false, retention = 1,
   ): void {
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo)
@@ -583,6 +583,7 @@ export class SmudgePainter {
     gl.uniform1i(u.u_carried, 1)
     gl.uniform1f(u.u_rate, rate)
     gl.uniform1f(u.u_wetBlur, blur)
+    gl.uniform1f(u.u_wetRetention,retention)
     gl.uniform2f(u.u_wetTexel,1/target.width,1/target.height)
     // Opaque and premultiplied: the colour is its own premultiplied value at
     // alpha 1. Set on every pickup, smudge's included (load 0), because a
@@ -625,7 +626,8 @@ export class SmudgePainter {
     const { gl } = this
     const { buffer } = tile
     const paper = this.ctx.paper
-    if (mode === 'lay') buffer.beginAdditiveDraw()
+    if (wet) buffer.beginReplaceDraw()
+    else if (mode === 'lay') buffer.beginAdditiveDraw()
     else buffer.beginErase()
 
     gl.useProgram(wet ? this.transferProg : this.oldTransferProg)
@@ -685,6 +687,8 @@ export class SmudgePainter {
     gl.uniform4f(u.u_grainTransform,-dab.x*movement+jitter,-dab.y*movement+jitter,Math.cos(angle),Math.sin(angle))
     gl.uniform2f(u.u_grainTone,g?.brightness ?? 0,g?.contrast ?? 0)
     gl.uniform2f(u.u_wetWorldOrigin,tile.originX,tile.originY+buffer.height)
+    const phase=brushDabSeed(dab.x,dab.y,dab.pressure)
+    gl.uniform2f(u.u_wetRoundPhase,phase&7,(phase>>>3)&7)
     gl.uniform2f(u.u_flip,wet?.stamp.flipX ?? 1,wet?.stamp.flipY ?? 1)
     gl.uniform1f(u.u_mode, mode === 'lay' ? 1.0 : 0.0)
     gl.uniform1f(u.u_strength, strength)

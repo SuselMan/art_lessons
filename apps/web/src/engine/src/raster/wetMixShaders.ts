@@ -3,22 +3,29 @@ import { SMUDGE_PICKUP_FRAG, SMUDGE_TRANSFER_FRAG } from './shaders'
 /** Old stump/mixer equations remain behind u_wetEnabled=0. Blur uses a bounded
  * five-tap kernel on the carried premultiplied pigment, never CPU readback. */
 export const WET_PICKUP_FRAG = SMUDGE_PICKUP_FRAG
- .replace('uniform float u_rate;', 'uniform float u_wetBlur; uniform vec2 u_wetTexel; uniform float u_rate;')
+ .replace('uniform float u_rate;', 'uniform float u_wetRetention; uniform float u_wetBlur; uniform vec2 u_wetTexel; uniform float u_rate;')
  .replace('vec4 picked = mix(texture2D(u_carried, v_uv), under, rate);', `
  vec4 carried = texture2D(u_carried, v_uv);
  if (u_wetBlur > 0.0) {
    vec2 d = u_wetTexel * u_wetBlur * 3.0;
    carried = (carried * 4.0 + texture2D(u_carried,v_uv+vec2(d.x,0.0)) + texture2D(u_carried,v_uv-vec2(d.x,0.0)) + texture2D(u_carried,v_uv+vec2(0.0,d.y)) + texture2D(u_carried,v_uv-vec2(0.0,d.y))) / 8.0;
  }
- vec4 picked = mix(carried, under, rate);`)
+ vec4 picked = mix(carried * u_wetRetention, under, rate);`)
 export const WET_TRANSFER_FRAG = SMUDGE_TRANSFER_FRAG
  .replace('uniform float u_hardness;', `uniform float u_hardness;
  uniform sampler2D u_dual; uniform float u_dualKind; uniform float u_dualBlend; uniform vec4 u_dualTransform;
  uniform sampler2D u_wetOriginal; uniform vec4 u_wetRender; uniform float u_wetBlend; uniform float u_burntBlend;
- uniform float u_wetEnabled; uniform float u_tipKind; uniform sampler2D u_tip;
+ uniform vec2 u_wetRoundPhase; uniform float u_wetEnabled; uniform float u_tipKind; uniform sampler2D u_tip;
  uniform sampler2D u_wetGrain; uniform float u_grainStrength; uniform float u_grainPeriod;
  uniform float u_grainBlend; uniform vec4 u_grainTransform; uniform vec2 u_grainTone; uniform vec2 u_wetWorldOrigin; uniform vec2 u_flip;`)
  .replace('  void main() {', `
+ // Exact small integer Bayer ranks; no float hash, trig, time or frame state.
+ float wetRank2(vec2 p) { return 2.0*p.x+3.0*p.y-4.0*p.x*p.y; }
+ float wetThreshold(vec2 world) {
+   vec2 p=mod(floor(world)+u_wetRoundPhase,8.0);
+   float rank=16.0*wetRank2(mod(p,2.0))+4.0*wetRank2(mod(floor(p/2.0),2.0))+wetRank2(floor(p/4.0));
+   return (rank+0.5)/64.0;
+ }
  float wetGrainBlend(float b,float s,float m) {
    if(m<0.5)return s;
    if(m<1.5)return b*s;
@@ -77,3 +84,18 @@ export const WET_TRANSFER_FRAG = SMUDGE_TRANSFER_FRAG
       c=vec4(pigment*c.a,c.a);
     }
     float a=clamp(amount,0.0,1.0);`)
+
+ .replace('if (u_mode > 0.5) {', `
+    if (u_wetEnabled > 0.5) {
+      vec4 base=texture2D(u_wetOriginal,puv);
+      float tooth=1.0+u_grainRelief*(1.0-c.a)*(paperCatch-0.5)*2.0;
+      vec4 result=clamp(base*(1.0-a)+c*tooth*a,0.0,1.0);
+      vec2 world=vec2(gl_FragCoord.x+u_wetWorldOrigin.x,u_wetWorldOrigin.y-gl_FragCoord.y);
+      // Round once, after the complete lerp; two 8-bit clear/add passes lose
+      // every sub-byte wet transfer before it has a chance to accumulate.
+      result=floor(result*255.0+wetThreshold(world))/255.0;
+      result.rgb=min(result.rgb,vec3(result.a));
+      gl_FragColor=result;
+      return;
+    }
+    if (u_mode > 0.5) {`)
