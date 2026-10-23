@@ -1,4 +1,5 @@
 import { importedBrushes } from '../../engine/brushLibrary'
+
 import {
   PENCIL_GRADES, DEFAULT_GRAPHITE_COLOR, LINER_SIZES_MM, CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE,
   TILT_RESPONSES, PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE,
@@ -41,6 +42,12 @@ import type { IconName } from '../../icons/iconNames'
 // (toolSlice.ts) is built from: everything selectable is a UiToolId, so the
 // selected tool always has a schema to show, but not every UiToolId is
 // selectable (colorPencil has a schema and no toolbar slot yet — #188).
+// Historical versions remain resolvable for replay; the picker offers the latest import.
+const pickerImportedBrushes = () => {
+  const all = importedBrushes()
+  return all.filter(b => b.descriptor.behavior || !all.some(next => next.source === b.source && next.name === b.name && next.descriptor.behavior))
+}
+
 export type UiToolId =
   | 'pencil' | 'colorPencil' | 'charcoal' | 'liner' | 'marker' | 'brushPen' | 'watercolor'
   | 'digitalBrush'
@@ -391,9 +398,9 @@ const digitalBrushSchema = (): ToolSchema => ({
   // equivalent of picking a pencil out of the stack, not of adjusting one.
   brush: {
     nameKey: 'tool.field.brush',
-    get valueType() { return { kind: 'enumOptions' as const, options: [...DIGITAL_BRUSH_IDS, ...importedBrushes().map(b => b.descriptor.id)] } },
-    get optionDescriptions() { return Object.fromEntries(importedBrushes().map(b => [b.descriptor.id, b.warnings.join(' · ')])) },
-    get optionLabels() { return Object.fromEntries(importedBrushes().map(b => [b.descriptor.id, `${b.source.endsWith('.abr') ? 'ABR' : 'Procreate'} · ${b.name}`])) },
+    get valueType() { return { kind: 'enumOptions' as const, options: [...DIGITAL_BRUSH_IDS, ...pickerImportedBrushes().map(b => b.descriptor.id)] } },
+    get optionDescriptions() { return Object.fromEntries(pickerImportedBrushes().map(b => [b.descriptor.id, b.warnings.join(' · ')])) },
+    get optionLabels() { return Object.fromEntries(pickerImportedBrushes().map(b => [b.descriptor.id, `${b.source.endsWith('.abr') ? 'ABR' : 'Procreate'} · ${b.name}`])) },
     optionLabelKeys: {
       'soft-round': 'tool.brush.softRound',
       'medium-round': 'tool.brush.mediumRound',
@@ -421,7 +428,7 @@ const digitalBrushSchema = (): ToolSchema => ({
       'gouache': 'tool.brush.gouache',
     },
     get optionGroups() { return Object.fromEntries(
-      [...DIGITAL_BRUSHES.map(b => [b.id, BRUSH_GROUP_LABEL_KEYS[b.category]]), ...importedBrushes().map(b => [b.descriptor.id, 'tool.brushGroup.imported'])],
+      [...DIGITAL_BRUSHES.map(b => [b.id, BRUSH_GROUP_LABEL_KEYS[b.category]]), ...pickerImportedBrushes().map(b => [b.descriptor.id, 'tool.brushGroup.imported'])],
     ) },
     // A sample stroke, like a pencil grade's — not the plotted falloff this
     // shipped with first. The curve was honest and still wrong for the job: it

@@ -48,6 +48,8 @@ export interface RoomInfo {
 }
 
 export interface RoomInfoSlice {
+  /** UI reflection of newly installed brush metadata, never the renderer source. */
+  brushLibraryRevision: number
   room: RoomInfo | null
   setRoomInfo: (info: RoomInfo) => void
   participants: Participant[]
@@ -151,6 +153,7 @@ export interface RoomInfoSlice {
 }
 
 export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
+  brushLibraryRevision: 0,
   room: null,
   setRoomInfo: info => set({ room: info }),
   participants: [],

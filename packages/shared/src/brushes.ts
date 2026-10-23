@@ -265,9 +265,9 @@ function curve(value: unknown): boolean {
 const ASSET = /^asset:[a-f0-9]{64}$/
 /** Validate untrusted conversion output at both ends of the wire. Imported
  * presets currently target the stamp model, with explicit conversion warnings. */
-export function isBrushLibrary(value: unknown): value is BrushLibrary {
+export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxBrushes?: number; maxAssets?: number } = {}): value is BrushLibrary {
   if (!record(value) || value.schemaVersion !== 1 || !Array.isArray(value.assets) || !Array.isArray(value.brushes)
-    || !Array.isArray(value.skipped) || value.brushes.length > 512 || value.assets.length > 1024) return false
+    || !Array.isArray(value.skipped) || value.brushes.length > (limits.maxBrushes ?? 512) || value.assets.length > (limits.maxAssets ?? 1024)) return false
   const ids = new Set<string>()
   let bytes = 0
   for (const a of value.assets) {
@@ -276,7 +276,7 @@ export function isBrushLibrary(value: unknown): value is BrushLibrary {
       || a.file !== `${a.id.slice(6)}.bin`) return false
     ids.add(a.id); bytes += a.size * a.size
   }
-  if (bytes > 256 * 1024 * 1024) return false
+  if (bytes > (limits.maxBytes ?? 256 * 1024 * 1024)) return false
   const keys = new Set<string>()
   const ref = (id: unknown): boolean => typeof id === 'string' && ids.has(id)
   for (const b of value.brushes) {
@@ -319,6 +319,7 @@ export function isBrushLibrary(value: unknown): value is BrushLibrary {
     }
     if (d.mixer !== undefined && (!record(d.mixer) || !numberIn(d.mixer.load,0,1) || !numberIn(d.mixer.pickup,0,1) || !numberIn(d.mixer.strength,0,1))) return false
     if (d.model === 'mixer' && d.mixer === undefined) return false
+    if (d.model !== 'mixer' && d.mixer !== undefined) return false
     if (b.compatibility !== undefined && (!Array.isArray(b.compatibility) || b.compatibility.length > 128 || !b.compatibility.every(c => record(c) && typeof c.feature === 'string' && c.feature.length <= 128 && ['supported','approximate','unsupported'].includes(String(c.status)) && typeof c.detail === 'string' && c.detail.length <= 2000))) return false
     if (d.screentonePx !== undefined) return false
   }

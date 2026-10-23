@@ -5,7 +5,7 @@ import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@gra
 
 import type { PencilEngineAPI } from '../../../engine'
 import { BANNED_ERROR_CODE, noteBanned } from '../../../lib/api/banned'
-import { prepareBrushPresets } from '../../../lib/api/brushLibrary'
+import { prepareBrushPresets, setBrushRoomScope, loadBrushLibrary } from '../../../lib/api/brushLibrary'
 import { notifyError } from '../../../stores/noticeStore'
 import { createBoardEventHandlers } from './boardEvents'
 import { createConfirmedStreamHandler, type ConfirmedStreamDeps } from './confirmedStream'
@@ -75,6 +75,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   // navigation into another lesson (takeRoomCopy) learns that lesson's name
   // and paper instead of keeping the previous one's.
   firstRoomStateReceivedRef.current = false
+  setBrushRoomScope(id)
 
   const socket = openSocket()
   socketRef.current = socket
@@ -172,7 +173,11 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   socket.on('boards_reordered',           ordered(board.boards_reordered))
   socket.on('board_deleted',              ordered(board.board_deleted))
   socket.on('connect',                    handleConnect)
-  socket.on('room_state',                 ordered(handleRoomState, state => state.tailOperations.map(presetFor)))
+  socket.on('room_state',                 ordered(handleRoomState, state => {
+    setBrushRoomScope(state.room.id)
+    void loadBrushLibrary().catch(error => console.warn('Room brush metadata unavailable', error))
+    return state.tailOperations.map(presetFor)
+  }))
   socket.on('operation_confirmed',        ordered(handleOperationConfirmed, message => [presetFor(message.operation)]))
   socket.on('peer_joined',                ordered(peer.peer_joined))
   socket.on('peer_left',                  ordered(peer.peer_left))

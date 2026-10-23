@@ -11,7 +11,7 @@ import { connectRoomSocket, type RoomSocket, type RoomSocketDeps } from './roomS
 
 vi.mock('../../../lib/api/banned', () => ({ BANNED_ERROR_CODE: 'banned', noteBanned: vi.fn() }))
 
-vi.mock('../../../lib/api/brushLibrary', () => ({ prepareBrushPresets: vi.fn(() => null) }))
+vi.mock('../../../lib/api/brushLibrary', () => ({ prepareBrushPresets: vi.fn(() => null), setBrushRoomScope: vi.fn(), loadBrushLibrary: vi.fn(async () => {}) }))
 vi.mock('../../../stores/noticeStore', () => ({ notifyError: vi.fn() }))
 beforeEach(() => { vi.mocked(prepareBrushPresets).mockReset().mockReturnValue(null) })
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { prepareBrushPresets } from '../../lib/api/brushLibrary'
+import { prepareBrushPresets, publishBrushPresets } from '../../lib/api/brushLibrary'
+import { useRoomStore } from '../../stores/roomStore'
 import { pushNotice } from '../../stores/noticeStore'
 import { PrecisionSlider } from '../PrecisionSlider'
 import { NumberField } from '../NumberField'
@@ -33,6 +34,7 @@ const ENUM_TRACK_HEIGHT = 128
  *  toolSchemas.ts; this file does not grow per tool. */
 export function SettingField({ descriptor, value, onChange: commitChange, layout, onExpand }: SettingFieldProps) {
   const t = useT()
+  useRoomStore(s => s.brushLibraryRevision)
   const [loading, setLoading] = useState(false)
   const requestVersion = useRef(0)
   useEffect(() => {
@@ -43,7 +45,14 @@ export function SettingField({ descriptor, value, onChange: commitChange, layout
     if (loading) return
     const version = requestVersion.current
     let pending: Promise<void> | null
-    try { pending = typeof next === 'string' ? prepareBrushPresets([next]) : null } catch {
+    try {
+      pending = typeof next === 'string' ? prepareBrushPresets([next]) : null
+      const roomId = useRoomStore.getState().boardId
+      if (roomId && typeof next === 'string' && next.startsWith('imported-')) {
+        const resources = pending
+        pending = (async () => { if (resources) await resources; await publishBrushPresets(roomId, [next]) })()
+      }
+    } catch {
       if (version === requestVersion.current) pushNotice({ variant: 'error', message: t('brushLibrary.error') }); return
     }
     if (!pending) { commitChange(next); return }

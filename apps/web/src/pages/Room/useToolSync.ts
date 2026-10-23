@@ -1,4 +1,4 @@
-import { prepareBrushPresets } from '../../lib/api/brushLibrary'
+import { prepareBrushPresets, publishBrushPresets } from '../../lib/api/brushLibrary'
 import { importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
 import { notifyError } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
@@ -61,6 +61,7 @@ export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
   // one it was actually drawn with so a later retune of that brush cannot
   // repaint it. digitalBrushFromPreset resolves a bare id for exactly this
   // hand-off.
+  useRoomStore(s => s.brushLibraryRevision)
   const digitalBrushId = toolSettings.digitalBrush.brush as string
   // #547, #573 — the two pressure switches ride the same token as modifiers.
   // They change the mark, so they have to be recorded: a peer replaying the
@@ -68,24 +69,28 @@ export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
   const digitalBrushSizeFromPressure = toolSettings.digitalBrush.sizeFromPressure as boolean
   const digitalBrushOpacityFromPressure = toolSettings.digitalBrush.opacityFromPressure as boolean
   const digitalBrushPresetName = (() => {
-    const brush = digitalBrushFromPreset(digitalBrushId)
+    let brush
+    try { brush = digitalBrushFromPreset(digitalBrushId) } catch { return undefined }
     return digitalBrushPreset(brush.id, brush.version, {
       size: digitalBrushSizeFromPressure, opacity: digitalBrushOpacityFromPressure,
     })
   })()
   const [, resourcesChanged] = useState(0)
   const t = useT()
-  const brushResourcesReady = drawingTool !== 'digitalBrush' || importedBrushAssets(digitalBrushPresetName).every(isBrushAssetReady)
+  const brushResourcesReady = drawingTool !== 'digitalBrush' || (digitalBrushPresetName !== undefined && importedBrushAssets(digitalBrushPresetName).every(isBrushAssetReady))
   useEffect(() => {
     if (drawingTool !== 'digitalBrush') return
     let active = true
-    const pending = prepareBrushPresets([digitalBrushPresetName])
+    const roomId = useRoomStore.getState().boardId
+    const resources = prepareBrushPresets([digitalBrushPresetName ?? digitalBrushId])
+    const pending = resources || (roomId && digitalBrushId.startsWith('imported-'))
+      ? (async () => { if (resources) await resources; if (roomId && digitalBrushId.startsWith('imported-')) await publishBrushPresets(roomId, [digitalBrushPresetName ?? digitalBrushId]) })() : null
     pending?.then(() => { if (active) resourcesChanged(v => v + 1) }).catch(error => {
       console.error('Selected brush unavailable', error)
       if (active) notifyError(t('brushLibrary.error'))
     })
     return () => { active = false }
-  }, [drawingTool, digitalBrushPresetName, t])
+  }, [drawingTool, digitalBrushPresetName, digitalBrushId, t])
   // #468 v4 — the whole watercolor mix rides the one preset slot as
   // `response:water:pigment` (watercolorPresetString). Same trick the marker
   // plays with `${nib}:${size}`, and for the same reason: #366 exists to shrink
@@ -120,7 +125,7 @@ export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
     : drawingTool === 'charcoal' ? charcoalPreset
     : drawingTool === 'brushPen' ? brushPenResponse
     : drawingTool === 'watercolor' ? watercolorPreset
-    : drawingTool === 'digitalBrush' ? digitalBrushPresetName
+    : drawingTool === 'digitalBrush' ? (digitalBrushPresetName ?? 'hard-round')
     : pencilGrade
   // #278/#279 → #482, ADR 012 §3. The frame the chisel's angle is measured in
   // is now named and lives on the tool, so the engine resolves it (dabShaping's
@@ -197,13 +202,14 @@ export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
     // §2) — they still do, but the nib no longer does, so the same slot now
     // carries both halves and _resolvePreset reads the type out of field 0.
     const markerPreset = `${markerNib}:${markerSize}`
+    if (drawingTool === 'digitalBrush' && digitalBrushPresetName === undefined) return
     engine?.setPencil(
       drawingTool === 'liner' ? linerSize
         : drawingTool === 'marker' ? markerPreset
         : drawingTool === 'charcoal' ? charcoalPreset
         : drawingTool === 'brushPen' ? brushPenResponse
         : drawingTool === 'watercolor' ? watercolorPreset
-        : drawingTool === 'digitalBrush' ? digitalBrushPresetName
+        : drawingTool === 'digitalBrush' ? (digitalBrushPresetName ?? 'hard-round')
         : pencilGrade,
     )
   }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalPreset, brushPenResponse, watercolorPreset, digitalBrushPresetName, engineEpoch, engineRef])

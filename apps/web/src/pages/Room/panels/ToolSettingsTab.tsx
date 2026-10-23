@@ -6,6 +6,7 @@ import { useRoomStore } from '../../../stores/roomStore'
 import { ShapeRatioPresets } from '../shapes/ShapeFrameFields'
 import { TOOL_SCHEMAS, type UiToolId } from '../../../lib/tools/toolSchemas'
 import styles from '../Room.module.css'
+import { BrushLibraryControls } from './BrushLibraryControls'
 
 export interface ToolSettingsTabProps {
   /** Opens the colour flyout on the rail's well for this colour field. */
@@ -66,6 +67,7 @@ export function ToolSettingsTab({ onExpandColor, onShapeFrameChange }: ToolSetti
           once, and the rail is for what a hand reaches for
           mid-gesture. Only while a shape is open — they resize
           that shape, not the tool. */}
+      {settingsToolId === 'digitalBrush' && <BrushLibraryControls />}
       {shapeFrame && <ShapeRatioPresets frame={shapeFrame} onChange={onShapeFrameChange} />}
     </div>
   )
