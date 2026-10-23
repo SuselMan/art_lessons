@@ -161,6 +161,12 @@ export default defineConfig(({ mode }) => {
         : []),
     ],
     server: {
+      // The service index owns `/` on shared QA origins. Keep HMR on a
+      // proxied path there; direct local development keeps Vite's default.
+      hmr: process.env.GRAFETTO_HMR_PATH ? { path: process.env.GRAFETTO_HMR_PATH } : undefined,
+      // Our dev bridge already forwards errors. Two console wrappers can
+      // repeatedly report each other's failed sends when HMR is unavailable.
+      forwardConsole: false,
       // Vite 8's server.https only accepts an options object (or undefined)
       // — no more `https: true` shorthand. `{}` (defaults) is enough: the
       // mkcert plugin patches in its own cert/key onto this at config-resolve

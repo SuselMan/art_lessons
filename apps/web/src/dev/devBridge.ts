@@ -81,6 +81,9 @@ export function startDevBridge(): void {
   history.pushState = (...args: Parameters<History['pushState']>) => { pushState(...args); setTimeout(hello, 0) }
 
   const log = (level: string, parts: unknown[]): void => {
+    // Vite reports failed hot.send calls through console.error itself.
+    // Forwarding those transport errors would feed them back indefinitely.
+    if (typeof parts[0] === 'string' && (parts[0].startsWith('[vite]') || parts[0].startsWith('Failed to send error to Vite server:'))) return
     const text = parts.map(p => (typeof p === 'string' ? p : (() => { try { return JSON.stringify(toJsonSafe(p)) } catch { return String(p) } })())).join(' ')
     hot.send('devbridge:log', { id, level, text })
   }
