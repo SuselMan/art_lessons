@@ -46,6 +46,7 @@ export const WET_TRANSFER_FRAG = SMUDGE_TRANSFER_FRAG
      if (abs(uv.x)>1.0 || abs(uv.y)>1.0) second=0.0;
      shape=wetGrainBlend(shape,second,u_dualBlend);
    }
+   if (shape <= 0.0) discard;
    vec2 world = vec2(gl_FragCoord.x + u_wetWorldOrigin.x, u_wetWorldOrigin.y-gl_FragCoord.y);
    vec2 guv = (world + u_grainTransform.xy)/u_grainPeriod;
    guv = mat2(u_grainTransform.z,-u_grainTransform.w,u_grainTransform.w,u_grainTransform.z)*guv;
