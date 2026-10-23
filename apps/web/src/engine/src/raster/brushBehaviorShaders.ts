@@ -56,8 +56,7 @@ export const BRUSH_V2_STAMP_FRAG = BRUSH_STAMP_FRAG
     }
     if (shape <= 0.0) discard;`)
   .replace('float g = texture2D(u_texture, w / u_texPeriod).r;', `
-      w += u_grainTransform.xy;
-      w = mat2(u_grainTransform.z,-u_grainTransform.w,u_grainTransform.w,u_grainTransform.z)*w;
+      w = mat2(u_grainTransform.z,-u_grainTransform.w,u_grainTransform.w,u_grainTransform.z)*(w-u_texOrigin)+u_grainTransform.xy;
       float g = texture2D(u_texture, w / u_texPeriod).r;
       g = clamp((g-0.5)*(1.0+u_grainTone.y*2.0)+0.5+u_grainTone.x,0.0,1.0);`)
   .replace('amount *= mix(1.0, smoothstep(reach - 0.1, reach + 0.14, g), u_texStrength);', `
