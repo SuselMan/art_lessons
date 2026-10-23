@@ -1,7 +1,7 @@
 'use strict';
 // CPU-only host benchmark, NOT Samsung/GPU or live Mini latency.
 const fs=require('node:fs'),path=require('node:path'),zlib=require('node:zlib'),crypto=require('node:crypto'),vm=require('node:vm'),{performance}=require('node:perf_hooks'),assert=require('node:assert/strict');
-const esbuild=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild');
+const esbuild=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/esbuild');
 const m={exports:{}};vm.runInNewContext(esbuild.buildSync({entryPoints:[__dirname+'/native-component-partition.ts'],bundle:true,write:false,format:'cjs',platform:'node'}).outputFiles[0].text,{module:m,exports:m.exports,Uint8Array,Uint32Array,Int32Array,ArrayBuffer,performance});const{partitionNativeComponents:partition,nativePlaneKeys:keys}=m.exports;
 const sha=a=>crypto.createHash('sha256').update(a).digest('hex');
 function run(reportFile){const report=JSON.parse(fs.readFileSync(reportFile)),output={qualification:'VPS CPU only; QA component wrapper. Not Samsung, GPU, end-to-end or live Mini measurement. Same7 authored planes verified. Hashes/proof outside timings. Allocation/GC may affect samples.',sourceReportSHA:sha(fs.readFileSync(reportFile)),cases:[]};

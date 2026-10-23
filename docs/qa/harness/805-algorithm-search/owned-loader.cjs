@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict');
-const WS=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/ws');
+const WS=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/ws');
 const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 function readBuild(directory){const manifest=JSON.parse(fs.readFileSync(path.join(directory,'manifest.json'))),files=new Map();assert.ok(Array.isArray(manifest.files));for(const row of manifest.files){assert.ok(row.file&&!row.file.includes('..')&&!path.isAbsolute(row.file));const bytes=fs.readFileSync(path.join(directory,row.file));assert.equal(hash(bytes),row.sha256,'Build SHA '+row.file);assert.ok(!files.has(row.file));files.set(row.file,bytes)}assert.ok(files.has('index.html'),'Manifest must include index.html');return{manifest,files,hashes:Object.fromEntries([...files].map(([name,bytes])=>[name,hash(bytes)]))}}
 function resourceName(pathname){if(pathname.startsWith('/paper/'))return pathname.slice(1);if(pathname.startsWith('/watercolor-worker-802/'))return pathname.slice('/watercolor-worker-802/'.length)||'index.html';throw Error('Unexpected owned resource path')}

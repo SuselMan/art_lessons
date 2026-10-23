@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const eb=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild'),{transformNativeCpuTimeline805,KEY}=require('./cpu-source.cjs'),{transformNativeAnatomy}=require('./source-taps.cjs');
+const eb=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/esbuild'),{transformNativeCpuTimeline805,KEY}=require('./cpu-source.cjs'),{transformNativeAnatomy}=require('./source-taps.cjs');
 const root=path.resolve(__dirname,'../../../..');
 const files=['apps/web/src/engine/src/watercolor/puddle/ContrastPhase.ts','apps/web/src/engine/src/watercolor/puddle/PuddleTarget.ts','apps/web/src/engine/src/watercolor/puddle/BackgroundMix.ts','apps/web/src/engine/src/raster/WatercolorSettlePlan.ts','apps/web/src/engine/src/raster/WatercolorFrontPaths.ts','docs/qa/prototypes/native-mini-optimized805/native-direct-timed.ts','docs/qa/prototypes/native-anatomy-805/gpu-group-goal.ts'];
 test('all seven actual source files parse, retain native read/draw counts, and compose after anatomy',()=>{

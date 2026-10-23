@@ -1,5 +1,5 @@
 'use strict';
-const fs=require('node:fs'),vm=require('node:vm'),{createHash}=require('node:crypto'),esbuild=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild'),{diagnose}=require('./carrier-grain-diagnostic.cjs');
+const fs=require('node:fs'),vm=require('node:vm'),{createHash}=require('node:crypto'),esbuild=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/esbuild'),{diagnose}=require('./carrier-grain-diagnostic.cjs');
 const moduleCore={exports:{}};vm.runInNewContext(esbuild.buildSync({entryPoints:[__dirname+'/macro11-fine-paper-core.ts'],bundle:true,write:false,format:'cjs',platform:'node'}).outputFiles[0].text,{module:moduleCore,exports:moduleCore.exports,Math,Object,Error});const{finePair}=moduleCore.exports;
 const sha=b=>createHash('sha256').update(b).digest('hex');
 function simulate(paper,n,base,steps){

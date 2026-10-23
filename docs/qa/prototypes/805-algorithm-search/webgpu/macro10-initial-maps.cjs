@@ -1,6 +1,6 @@
 'use strict';
 // Read-only private fixture analysis. No GPU or raw-array serialization.
-const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),vm=require('node:vm'),esbuild=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild');
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),vm=require('node:vm'),esbuild=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/esbuild');
 function load(file){const m={exports:{}};vm.runInNewContext(esbuild.buildSync({entryPoints:[path.join(__dirname,file)],bundle:true,write:false,format:'cjs',platform:'node'}).outputFiles[0].text,{module:m,exports:m.exports,Uint8Array,Uint32Array,Math,Object,ArrayBuffer});return m.exports;}
 const{initialIntegerDynamic}=load('macro8-integer-dynamic.ts'),{axisWeights}=load('macro9-integer-smooth-core.ts'),root=process.env.QA_FLOW_CACHE||'/home/suselman/.cache/codex-qa/flow-805-night-20261018';
 const paths=['extra-inputs/mini-wave.bin','extra-inputs/gallery-sheet-3-slot-1.bin','extra-inputs/gallery-sheet-7-slot-1.bin','native-flow-followup-results/native-flow-waterdrop-after-color/fixture.bin','native-flow-followup-results/native-flow-near-colors/fixture.bin'];

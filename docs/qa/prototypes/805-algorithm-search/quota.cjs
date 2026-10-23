@@ -1,5 +1,5 @@
 // Read-only account quota snapshot; capability token never leaves memory.
-const fs=require('node:fs'),path=require('node:path'),WS=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/ws');
+const fs=require('node:fs'),path=require('node:path'),WS=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/ws');
 const output=process.env.QA_QUOTA_OUTPUT;if(!output)throw Error('QA_QUOTA_OUTPUT required');
 const ws=new WS('ws://127.0.0.1:4500',{headers:{Authorization:'Bearer '+fs.readFileSync('/home/suselman/.local/share/codex-portal/ws-token','utf8').trim()}});let id=0;const pending=new Map();const timeout=setTimeout(()=>{ws.close();process.exitCode=1},15000);
 ws.on('message',b=>{const r=JSON.parse(b);if(r.id!==undefined&&!r.method){const p=pending.get(r.id);if(p){pending.delete(r.id);r.error?p.reject(Error(r.error.message)):p.resolve(r.result)}}});

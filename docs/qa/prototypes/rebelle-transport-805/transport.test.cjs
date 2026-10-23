@@ -1,5 +1,5 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),crypto=require('node:crypto'),vm=require('node:vm');
-const eb=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild');
+const eb=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/esbuild');
 function load(name){const code=eb.buildSync({entryPoints:[`${__dirname}/${name}.ts`],bundle:true,write:false,format:'cjs',platform:'node'}).outputFiles[0].text,m={exports:{}};vm.runInNewContext(code,{module:m,exports:m.exports,URLSearchParams,Float32Array,Uint8Array,Math,Error,Object});return m.exports}
 const {prepareInput,analyzeTransportRaw}=load('input');
 function raw(p){return{G:p.G.slice(),D:new Float32Array(p.G.length),W:p.W.slice(),steps:0,rows:'gl-bottom-up',auditExtraRead:false,readBytes:p.G.byteLength*3}}

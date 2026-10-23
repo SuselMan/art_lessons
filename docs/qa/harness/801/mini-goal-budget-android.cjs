@@ -1,5 +1,5 @@
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),assert=require('node:assert/strict');
-const WS=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/ws');
+const WS=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/ws');
 const {installMiniGoalBudgetObserver}=require('./mini-goal-budget-observer.cjs');const env=process.env;assert.ok(env.QA_OUTPUT&&env.QA_CDP&&env.QA_MINI_URL);
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex'),specs=[{id:'matched800-wave320',size:320,paint:'PB15',color:'#2688d3',points:Array.from({length:101},(_,i)=>{const t=i/100;return[200+624*t,700-376*t+65*Math.sin(12*Math.PI*t)]})},{id:'short90-control',size:90,paint:'PB29',color:'#2a3b97',points:[[400,470],[430,485],[460,500],[490,515],[520,530]]}];
 fs.mkdirSync(env.QA_OUTPUT,{recursive:true,mode:0o700});const report={startedAt:new Date().toISOString(),scope:'801 actual deployed Mini1024 first-goal budget: early prepare/finish and actualRAF iteration observation; ops/identity/tags untouched; no flags changed or extra GL calls. Single fresh instance per short/wide. Host wall timings, not pure GPU.',cases:[]};const save=()=>fs.writeFileSync(path.join(env.QA_OUTPUT,'report.json'),JSON.stringify(report,null,2));save();

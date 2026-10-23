@@ -1,6 +1,6 @@
 // Fresh owned actual-device contexts; no application/renderer edits.
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),assert=require('node:assert/strict');
-const WS=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/ws');
+const WS=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/ws');
 const {installInstanceCostObserver}=require('./instance-cost-observer.cjs');
 const env=process.env;assert.ok(env.QA_OUTPUT&&env.QA_CDP&&env.QA_MINI_URL&&env.QA_ENGINE_URL&&env.QA_SOURCE);
 const hash=x=>crypto.createHash('sha256').update(x).digest('hex');
@@ -9,7 +9,7 @@ const fullWave=Array.from({length:101},(_,i)=>{const t=i/100;return[300+2900*t,2
 const cases=[{id:'mini1024',mini:true,size:[1024,1024],points:pixelWave},{id:'engine1024-true',flags:true,size:[1024,1024],points:pixelWave},{id:'engine1024-false',flags:false,size:[1024,1024],points:pixelWave},{id:'engineA2-true',flags:true,size:[3508,2480],points:fullWave},{id:'engineA2-false',flags:false,size:[3508,2480],points:fullWave},{id:'engineA2-local-true',flags:true,size:[3508,2480],points:pixelWave}].filter(x=>env.QA_CASES?env.QA_CASES.split(',').includes(x.id):x.id!=='engineA2-local-true');
 fs.mkdirSync(env.QA_OUTPUT,{recursive:true,mode:0o700});
 const report={source:env.QA_SOURCE,startedAt:new Date().toISOString(),scope:'Actual Mini versus isolated real engine M70 constructor controls; engine instances are NOT Room React/socket flow. No model/pipeline mutation on live pages. Host timings include GPU waits, scopes overlap. Different Mini model/controller is qualified, not a pixel oracle.',cases:[]};
-const runtimeRoot='/home/suselman/projects/pencil-agents/798-wave-buffer';
+const runtimeRoot='/home/suselman/projects/pencil-agents/805-watercolor-search';
 const runtimePaths=['apps/web/src/engine/index.ts','apps/web/src/engine/src/dabs/RibbonStrokePainter.ts','apps/web/src/engine/src/watercolor/puddle/PagedPuddleTarget.ts','apps/web/src/engine/src/watercolor/puddle/PuddleRoomController.ts','apps/web/src/engine/src/watercolor/WatercolorCanonicalFIFO.ts'];
 report.runtimeHashes=Object.fromEntries(runtimePaths.map(p=>[p,hash(fs.readFileSync(path.join(runtimeRoot,p)))]));
 const save=()=>fs.writeFileSync(path.join(env.QA_OUTPUT,'report.json'),JSON.stringify(report,null,2));save();

@@ -1,4 +1,4 @@
-'use strict';const{test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),crypto=require('node:crypto'),esbuild=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild');
+'use strict';const{test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),crypto=require('node:crypto'),esbuild=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/esbuild');
 function load(name){const Module=require('node:module'),m=new Module(__filename,module);m._compile(esbuild.buildSync({entryPoints:[__dirname+'/'+name+'.ts'],bundle:true,write:false,format:'cjs',platform:'node'}).outputFiles[0].text,__filename);return m.exports}
 const{createFuzzInput,FUZZ_RECIPES,assertFuzzRequest,assertFuzzConfig}=load('deterministic-fuzz-input'),{runCandidateFuzz,assertFuzzGuards}=load('candidate-fuzz'),digest=async b=>crypto.createHash('sha256').update(b).digest('hex'),id='wgsl-macro-gpu-initial-coherent-dt4';
 const inputs=['structured-00','structured-02','structured-04'].map(createFuzzInput);

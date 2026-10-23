@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const eb=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild');
+const eb=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/esbuild');
 const KEY='__qaNativeAnatomy805',stages=['align.rawP','contrast.background','stitch.complete','front.rimPrepared','diffusion.complete','land.complete','background.reconstruct','background.reconstruct','dry.coverage'];
 function rig({sequence=stages,missingExtension=false,ns=1000000,disjoint=false,external=false,neverReady=false}={}){
  const m={exports:{}},sandbox={module:m,exports:m.exports,performance:{now:()=>clock},setTimeout,Object,Promise,Error,Number};let clock=0,active=null,ready=false,deleted=0,created=0,polls=0,readDuringQuery=0,forcedDisjoint=disjoint;

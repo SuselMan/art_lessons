@@ -1,5 +1,5 @@
 'use strict';
-const {chromium}=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/@playwright/test');
+const {chromium}=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/@playwright/test');
 const fs=require('node:fs'),assert=require('node:assert/strict'),{pathToFileURL}=require('node:url');
 async function verify(target,proofPath){
  const url=/^[a-z]+:/i.test(target)?target:pathToFileURL(target).href;

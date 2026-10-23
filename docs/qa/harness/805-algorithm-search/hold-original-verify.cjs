@@ -1,5 +1,5 @@
 'use strict';
-const {chromium}=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/@playwright/test');
+const {chromium}=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/@playwright/test');
 const assert=require('node:assert/strict'),fs=require('node:fs'),crypto=require('node:crypto'),{pathToFileURL,fileURLToPath}=require('node:url');
 const argument=process.argv[2];if(!argument)throw Error('Usage: node hold-original-verify.cjs fileURL [proof.json]');
 const value=argument.startsWith('@')?fs.readFileSync(argument.slice(1),'utf8').trim():argument,target=/^[a-z]+:/i.test(value)?value:pathToFileURL(value).href;

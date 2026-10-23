@@ -1,4 +1,4 @@
-'use strict';const{test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),esbuild=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild');
+'use strict';const{test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),esbuild=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/esbuild');
 function load(file){const module={exports:{}};vm.runInNewContext(esbuild.buildSync({entryPoints:[__dirname+'/'+file],bundle:true,write:false,format:'cjs',platform:'node'}).outputFiles[0].text,{module,exports:module.exports,Uint8Array,Uint32Array,Float32Array,ArrayBuffer,Math,Object,Error});return module.exports;}
 const{axisWeights,smoothCodes,exchange,mixedDynamicPair,adsorbMixed}=load('macro9-integer-smooth-core.ts');
 test('exact integer halfpixel columns including clamped edges sum r, rows sum2r',()=>{

@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),{pathToFileURL}=require('node:url');
-const {chromium}=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/@playwright/test');
+const {chromium}=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/@playwright/test');
 
 async function verify(target,output){
  assert.ok(target,'Missing page URL or HTML path');assert.ok(output,'Missing evidence directory');

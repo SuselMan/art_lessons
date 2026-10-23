@@ -1,6 +1,6 @@
 'use strict';
 // CPU-only audit. Input paths supplied by caller; no GPU, network, fixture writes or post-physics claim.
-const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),esbuild=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild');
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),esbuild=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/esbuild');
 const m={exports:{}};vm.runInNewContext(esbuild.buildSync({entryPoints:[__dirname+'/macro8-integer-dynamic.ts'],bundle:true,write:false,format:'cjs',platform:'node'}).outputFiles[0].text,{module:m,exports:m.exports,Uint8Array,Uint32Array,Float32Array,ArrayBuffer,Math,Object,Error});
 const SIZE=1024,N=SIZE*SIZE,n=128;
 function audit(file){const bytes=fs.readFileSync(file);if(bytes.length!==N*6)throw Error('Expected RGBA/water/paper6planes');const rgba=Uint8Array.from(bytes.subarray(0,N*4)),input={size:SIZE,seed:805,rgba,water:Uint8Array.from(bytes.subarray(N*4,N*5)),paper:Uint8Array.from(bytes.subarray(N*5))},raw=m.exports.initialIntegerDynamic(input),state=raw.state,stationary=raw.stationary,ideal=[0,0,0,0],floored=[0,0,0,0],local=[0,0,0,0],loss=[0,0,0,0],delta=[0,0,0,0],inputSums=[0,0,0,0];let K=0;const roi=new Map(),bounds={stationary:[1024,1024,-1,-1],delta:[1024,1024,-1,-1]};const extend=(b,x,y)=>{b[0]=Math.min(b[0],x);b[1]=Math.min(b[1],y);b[2]=Math.max(b[2],x);b[3]=Math.max(b[3],y)};

@@ -31,7 +31,7 @@ function createPackage({baselinePath,nativeProofRoot,catalogPath,out}){
   }
  }
  // CPU-only exact partition for masks; no GPU or alternate interpretation.
- const esbuild=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild'),mod={exports:{}};
+ const esbuild=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/esbuild'),mod={exports:{}};
  const code=esbuild.transformSync(fs.readFileSync(path.join(__dirname,'../mini-worker/native-component-partition.ts'),'utf8'),{loader:'ts',format:'cjs'}).code;new Function('module','exports',code)(mod,mod.exports);
  const partition=mod.exports.partitionNativeComponents(planes,1024,1024);assert.deepEqual(partition.components.map(c=>c.pixelCount),b.lastEvidence.components.map(c=>c.pixelCount));
  const water=Buffer.alloc(planeBytes);for(let i=0;i<1024*1024;i++){const v=planes.solvent[i*4+3]+planes.foreign[i*4+3]>0?255:0;water[i*4]=water[i*4+1]=water[i*4+2]=v;water[i*4+3]=255}

@@ -1,4 +1,4 @@
-'use strict';const{test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),esbuild=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild');
+'use strict';const{test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),esbuild=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/esbuild');
 function load(file){const module={exports:{}};vm.runInNewContext(esbuild.buildSync({entryPoints:[__dirname+'/'+file],bundle:true,write:false,format:'cjs',platform:'node'}).outputFiles[0].text,{module,exports:module.exports,Uint8Array,Uint32Array,Float32Array,ArrayBuffer,Math,Object,Error});return module.exports;}
 const{dynamicPair}=load('macro8-integer-dynamic-core.ts');let seed=7;function rnd(n){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed%n;}
 function cell(){const cap=rnd(65536),alpha=rnd(cap+1),da=rnd(cap-alpha+1),m=[rnd(alpha+1),rnd(alpha+1),rnd(alpha+1),alpha],d=[rnd(da+1),rnd(da+1),rnd(da+1),da],paper=rnd(256),absCap=8192+paper*64;return{m,d,w:rnd(65536),s:rnd(absCap+1),cap,absCap,paper};}

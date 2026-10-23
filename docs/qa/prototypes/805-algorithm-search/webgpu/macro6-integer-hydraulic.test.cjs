@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm');
-const esbuild=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild');
+const esbuild=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/esbuild');
 function load(){const code=esbuild.buildSync({entryPoints:[__dirname+'/macro6-integer-hydraulic-core.ts'],bundle:true,write:false,platform:'node',format:'cjs'}).outputFiles[0].text;const module={exports:{}};vm.runInNewContext(code,{module,exports:module.exports});return module.exports;}
 const {integerPair}=load();
 let seed=1;function random(n){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed%n;}

@@ -1,7 +1,7 @@
 'use strict'
 // CPU audit of physical-device raw carriers; launches no browser or GPU.
 const fs=require('node:fs'),path=require('node:path'),zlib=require('node:zlib'),crypto=require('node:crypto'),vm=require('node:vm'),assert=require('node:assert/strict')
-const source=path.resolve(__dirname,'../../prototypes/805-algorithm-search/stress-flow-fixtures.ts'),esbuild=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild'),m={exports:{}}
+const source=path.resolve(__dirname,'../../prototypes/805-algorithm-search/stress-flow-fixtures.ts'),esbuild=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/esbuild'),m={exports:{}}
 vm.runInNewContext(esbuild.buildSync({entryPoints:[source],bundle:true,write:false,format:'cjs',platform:'node'}).outputFiles[0].text,{module:m,exports:m.exports,Uint8Array})
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex'),file=path.resolve(process.argv[2]),report=JSON.parse(fs.readFileSync(file)),rows=[]
 assert.equal(report.pass,true);assert.equal(report.sourceStable,true);assert.equal(report.contextClosed,true)

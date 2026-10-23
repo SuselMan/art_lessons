@@ -1,5 +1,5 @@
 'use strict';
-const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');const esbuild=require(require.resolve('esbuild',{paths:['/home/suselman/projects/pencil-agents/798-wave-buffer']}));
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');const esbuild=require(require.resolve('esbuild',{paths:['/home/suselman/projects/pencil-agents/805-watercolor-search']}));
 async function load(name){const r=await esbuild.build({entryPoints:[path.join(__dirname,name)],bundle:true,platform:'node',format:'cjs',write:false});const module={exports:{}};vm.runInNewContext(r.outputFiles[0].text,{module,exports:module.exports,Uint8Array,Uint16Array,Int32Array,Float32Array,Math,Number,Object,Error});return module.exports}
 function stats(src,n,scale=1){let mass=0,r2=0,far=0,mixed=0;for(let y=0;y<n;y++)for(let x=0;x<n;x++){const v=src[y*n+x],d=Math.hypot(x-n/2,y-n/2)*scale;mass+=v;r2+=v*d*d;if(d>=50)far+=v;if(v>1e-5)mixed++}return{mass,rmsPx:Math.sqrt(r2/mass),fractionAtLeast50px:far/mass,positivePixels:mixed}}
 (async()=>{

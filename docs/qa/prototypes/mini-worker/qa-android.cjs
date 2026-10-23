@@ -1,5 +1,5 @@
 // Own contexts only. Private gate cookie stays in memory, never in report/Git.
-const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto'),WS=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/ws');
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto'),WS=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/ws');
 const env=process.env;assert.ok(env.QA_OUTPUT&&env.QA_CDP&&env.QA_ACCESS_FILE);const entry=new URL(JSON.parse(fs.readFileSync(env.QA_ACCESS_FILE)).url),hash=x=>crypto.createHash('sha256').update(x).digest('hex');
 const wave=Array.from({length:101},(_,i)=>{const t=i/100;return[200+624*t,700-376*t+65*Math.sin(12*Math.PI*t)]}),quick=[[450,430],[480,450],[510,470],[540,490],[570,510]];
 fs.mkdirSync(env.QA_OUTPUT,{recursive:true,mode:0o700});const report={startedAt:new Date().toISOString(),scope:'802 actual Samsung visual prototype worker/main, no-pause same source. Trusted main DOM events transported into unchanged PointerInput; clocks converted by origins. JS goal signal, not GPU fence. One order, not calibrated GPU benchmark.',cases:[]};const save=()=>fs.writeFileSync(path.join(env.QA_OUTPUT,'report.json'),JSON.stringify(report,null,2));save();

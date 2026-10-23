@@ -1,5 +1,5 @@
 'use strict';
-const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');const esbuild=require(require.resolve('esbuild',{paths:['/home/suselman/projects/pencil-agents/798-wave-buffer']}));
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');const esbuild=require(require.resolve('esbuild',{paths:['/home/suselman/projects/pencil-agents/805-watercolor-search']}));
 async function load(name){const r=await esbuild.build({entryPoints:[path.join(__dirname,name)],bundle:true,platform:'node',format:'cjs',write:false});const module={exports:{}};vm.runInNewContext(r.outputFiles[0].text,{module,exports:module.exports,Uint8Array,Uint16Array,Int32Array,Float32Array,Math,Number,Object,Error});return module.exports}
 (async()=>{
  const{pathDistances,directions,denseKernel}=await load('macro2-paths.ts');

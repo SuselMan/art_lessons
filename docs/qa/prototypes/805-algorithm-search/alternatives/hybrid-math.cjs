@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict'),path=require('node:path'),vm=require('node:vm');
-const esbuild=require(require.resolve('esbuild',{paths:['/home/suselman/projects/pencil-agents/798-wave-buffer']}));
+const esbuild=require(require.resolve('esbuild',{paths:['/home/suselman/projects/pencil-agents/805-watercolor-search']}));
 (async()=>{const b=await esbuild.build({entryPoints:[path.join(__dirname,'hybrid-support.ts')],bundle:true,platform:'node',format:'cjs',write:false});const module={exports:{}};vm.runInNewContext(b.outputFiles[0].text,{module,exports:module.exports,Uint8Array,Math,Error});const{reduceWet,safeFootprint}=module.exports;
 const size=1024,water=new Uint8Array(size*size),rgba=new Uint8Array(size*size*4);let checks=0;
 for(const kind of ['vertical','horizontal','diagonal','edge'])for(let phase=0;phase<4;phase++){

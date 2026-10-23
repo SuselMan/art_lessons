@@ -2,7 +2,7 @@
 // Standalone PC adapter: shared Samsung loader/runner files stay untouched.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {readBuild,resourceName,hash}=require('./owned-loader.cjs');
-const WebSocket=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/ws');
+const WebSocket=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/ws');
 function endpointURL(value){const u=new URL(value);assert.equal(u.protocol,'http:');assert.ok(['127.0.0.1','localhost','[::1]'].includes(u.hostname),'Explicit loopback CDP forward required');assert.ok(!u.username&&!u.password&&!u.search&&!u.hash);return u}
 async function openOwned(buildDirectory,options={}){
  const endpoint=endpointURL(options.cdpEndpoint||process.env.QA_PC_CDP_ENDPOINT||''),accessFile=options.accessFile||process.env.QA_PC_ACCESS_FILE;

@@ -1,5 +1,5 @@
 'use strict'
-const{test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),esbuild=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild')
+const{test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),esbuild=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/esbuild')
 const m={exports:{}};vm.runInNewContext(esbuild.buildSync({entryPoints:[__dirname+'/stress-flow-fixtures.ts'],bundle:true,write:false,format:'cjs',platform:'node'}).outputFiles[0].text,{module:m,exports:m.exports,Uint8Array})
 const{stressFlowIds,createStressFlowFixture}=m.exports
 test('stationary grid covers all64 fine offsets with literal dry material and wet neighbours',()=>{

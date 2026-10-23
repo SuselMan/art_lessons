@@ -1,4 +1,4 @@
-'use strict';const{test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),crypto=require('node:crypto'),esbuild=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild');
+'use strict';const{test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),crypto=require('node:crypto'),esbuild=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/esbuild');
 function load(file){const m={exports:{}};vm.runInNewContext(esbuild.buildSync({entryPoints:[__dirname+'/'+file],bundle:true,write:false,format:'cjs',platform:'node'}).outputFiles[0].text,{TextEncoder,module:m,exports:m.exports,Uint8Array,Uint32Array,Int32Array,ArrayBuffer,Math,Object,Error,crypto:crypto.webcrypto});return m.exports;}
 const{mod257ByteFold,mod65792ByteFold}=load('macro15-safe-integer-dither.ts'),{integerDitherHash}=load('macro10-integer-dither.ts');
 test('local safe source has no fullrange remainder, fixed shared phase0 thresholds, correct local fallback condition',()=>{

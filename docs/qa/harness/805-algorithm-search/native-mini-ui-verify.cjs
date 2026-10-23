@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
-const {chromium}=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/@playwright/test');
+const {chromium}=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/@playwright/test');
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
 async function verify(base,site,proofPath){
  const proof={qualification:'Headless UI/HTTP asset integrity only. Worker script replaced by empty script to prevent engine/GPU initialization; no readiness/model/performance claim.',assets:[],cases:[],browserClosed:false};

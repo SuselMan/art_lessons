@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto');
-const eb=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/esbuild'),{KEY,transformNativeExpansion805}=require('./source.cjs'),{transformNativeAnatomy}=require('../native-anatomy-805/source-taps.cjs');
+const eb=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/esbuild'),{KEY,transformNativeExpansion805}=require('./source.cjs'),{transformNativeAnatomy}=require('../native-anatomy-805/source-taps.cjs');
 const root=path.resolve(__dirname,'../../../..');
 function load(){const m={exports:{}},sandbox={require:id=>{assert.ok(id.includes('AccumulationBuffer'));return{AccumulationBuffer:class{constructor(gl,width,height){this.width=width;this.height=height;this.texture={mask:true}}beginReplaceDraw(){}endDraw(){}destroy(){}}}},module:m,exports:m.exports,Uint8Array,Float32Array,Object,Math,Number,Error};vm.runInNewContext(eb.transformSync(fs.readFileSync(__dirname+'/expansion.ts','utf8'),{loader:'ts',format:'cjs'}).code,sandbox);return{...m.exports,sandbox}}
 test('actual source transforms compose with anatomy, preserve defaults and guard against source drift',()=>{

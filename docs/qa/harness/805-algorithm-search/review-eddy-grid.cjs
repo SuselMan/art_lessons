@@ -1,5 +1,5 @@
 'use strict';
-const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto'),{chromium}=require('/home/suselman/projects/pencil-agents/798-wave-buffer/node_modules/@playwright/test');
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto'),{chromium}=require('/home/suselman/projects/pencil-agents/805-watercolor-search/node_modules/@playwright/test');
 const reportFile=process.argv[2],output=process.argv[3],sha=b=>crypto.createHash('sha256').update(b).digest('hex');assert.ok(reportFile&&output);const data=JSON.parse(fs.readFileSync(reportFile)),groups=new Map();fs.mkdirSync(output,{recursive:true,mode:0o700});
 for(const row of data.cases){assert.equal(row.pass,true);const r=row.result;if(!groups.has(r.fixture))groups.set(r.fixture,[]);const source=path.resolve(path.dirname(reportFile),row.png.file);assert.equal(sha(fs.readFileSync(source)),row.png.sha256);groups.get(r.fixture).push({source,sha256:row.png.sha256,config:r.config,metrics:r.dynamicMetrics,transport:r.transportMetrics})}
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
