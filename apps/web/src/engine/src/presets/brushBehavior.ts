@@ -4,7 +4,7 @@ import { brushDabRandom, brushDabSeed, brushStampsForDab, curveAt, type BrushSta
 /** Logical gesture state: never derives randomness or dynamics from a frame/batch. */
 export interface BrushBehaviorState {
   pending?: BehaviorPlaced[]
-  seed: number; distance: number; firstAngle: number; opacity: number; previous?: Dab
+  seed: number; distance: number; firstAngle: number; directionSet?: boolean; opacity: number; previous?: Dab
 }
 export interface BehaviorStamp extends BrushStamp {
   opacityScale: number; grainDepth: number; flipX: number; flipY: number
@@ -57,18 +57,21 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const behavior = brush.behavior
   const prev = state.previous
   if (prev) state.distance += Math.hypot(dab.x-prev.x,dab.y-prev.y) / Math.max(0.5, (dab.size+prev.size)*0.5)
+  const direction = prev && (prev.x !== dab.x || prev.y !== dab.y) ? Math.atan2(dab.y-prev.y,dab.x-prev.x) : dab.angle
+  if (prev && !state.directionSet && (prev.x !== dab.x || prev.y !== dab.y)) { state.firstAngle=direction; state.directionSet=true }
+  const directionalDab={...dab,angle:direction}
   const seed = brushDabSeed(dab.x,dab.y,dab.pressure)
   const rand = (i: number): number => brushDabRandom(seed,i)
-  const dynamic = (target: BrushDynamicTarget, i: number): number => dynamicValue(behavior?.dynamics?.[target],dab,state,rand(i))
+  const dynamic = (target: BrushDynamicTarget, i: number): number => dynamicValue(behavior?.dynamics?.[target],directionalDab,state,rand(i))
   const rotation = behavior?.rotation
   const randomRotation = rotation?.random === 'stroke' ? brushDabRandom(state.seed,9) : rand(9)
   const countScale = dynamic('count',10) * (1 - (behavior?.scatter?.countJitter ?? 0)*rand(11))
   const count = Math.max(1, Math.round((brush.scatter?.count ?? 1)*countScale))
   const scatter = brush.scatter ? { ...brush.scatter, count, radius: brush.scatter.radius*dynamic('scatter',12) } : undefined
   const configured = scatter ? { ...brush, scatter } : brush
-  const rotationAngle = rotation ? brush.tip.angle + dab.angle*rotation.follow + (rotation.random === 'none' ? 0 : randomRotation*Math.PI*2) : dab.angle
+  const rotationAngle = rotation ? brush.tip.angle + direction*rotation.follow + (rotation.random === 'none' ? 0 : randomRotation*Math.PI*2) : dab.angle
   const angleDynamic = behavior?.dynamics?.angle
-  const angle = rotationAngle + (angleDynamic ? (dynamic('angle',13)-1)*Math.PI*2 : 0)
+  const angle = rotationAngle + (angleDynamic ? angleDynamic.control === 'off' ? (rand(13)-0.5)*2*Math.PI*angleDynamic.jitter : (dynamic('angle',13)-1)*Math.PI*2 : 0)
   let taper = 1
   const t = behavior?.taper
   if (t && t.start > 0) taper = clamp(state.distance / Math.max(0.001,t.start*10))
