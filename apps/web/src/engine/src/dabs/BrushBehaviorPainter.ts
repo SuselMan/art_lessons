@@ -106,7 +106,11 @@ export class BrushBehaviorPainter {
     const jitter=g?.offsetJitter ? brushDabRandom(state.seed,42)*period : 0
     const moving=g?.mode==='moving' ? 1-g.movement : 0
     const rotation=(g?.rotation??0)*Math.PI
-    gl.uniform4f(u.u_grainTransform,wrap(-s.x*moving+jitter),wrap(-s.y*moving+jitter),Math.cos(rotation),Math.sin(rotation))
+    // Rotate the full world origin before reducing modulo the grain period.
+    // Reducing first would create a phase seam at every tile for arbitrary angles.
+    const cos=Math.cos(rotation),sin=Math.sin(rotation)
+    const ox=tile.originX-s.x*moving+jitter,oy=tile.originY-s.y*moving+jitter
+    gl.uniform4f(u.u_grainTransform,wrap(cos*ox+sin*oy),wrap(-sin*ox+cos*oy),cos,sin)
     const depth=(brush.texture?.strength??0)*s.grainDepth
     gl.uniform1f(u.u_texStrength,g ? clamp(Math.max(g.depthMinimum,depth)*(1-g.depthJitter*brushDabRandom(state.seed,43))) : depth)
     gl.drawArrays(gl.TRIANGLES,0,6)
