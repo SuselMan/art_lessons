@@ -86,6 +86,23 @@ class KritaTests(unittest.TestCase):
                 self.assertEqual(c.skipped,[])
                 self.assertEqual(c.brushes[0]['descriptor']['mixer'],{'load':load,'pickup':pickup,'strength':1})
 
+    def test_colorsmudge_mapping_fix_has_new_content_identity_for_same_source(self):
+        import copy
+        from brush_contract import finalize_identity
+        source=kpp(engine='colorsmudge')
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'Rates.kpp';p.write_bytes(source)
+            c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
+            current=c.brushes[0]['descriptor']
+            # Reconstruct the old unchecked/missing mapping against exactly the
+            # same source and descriptor version. Immutable identity includes
+            # final mixer parameters, so old rooms keep their former resource.
+            old=copy.deepcopy(current);old['mixer'].update(load=.5,pickup=.5)
+            finalize_identity(old,source)
+            self.assertEqual(current['version'],4)
+            self.assertNotEqual(old['id'],current['id'])
+            self.assertEqual(finalize_identity(copy.deepcopy(current),source)['id'],current['id'])
+
     def test_krita_masking_uses_the_shared_independent_secondary(self):
         with tempfile.TemporaryDirectory() as tmp:
             import xml.etree.ElementTree as E

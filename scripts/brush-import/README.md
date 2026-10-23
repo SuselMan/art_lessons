@@ -27,7 +27,7 @@ Pass all source packs in one invocation: `manifest.json` is replaced, not append
 
 Tips are centered in a transparent POT square, retaining original pixels until dimensions exceed 2048. Larger tips are proportionally resampled, with a warning. Grain is resampled to square POT; non-square grain may change aspect, reported as a warning. Alpha multiplies image luminance. ABR samples already encode positive coverage and are not inverted heuristically.
 
-Imported descriptors have `id: imported-<24 hexadecimal digits>`, immutable preset versions3 (ABR),4 (Krita),5 (Procreate) and behavior schema2, `model: stamp` or `mixer`; the ID hashes source settings, all final rendering fields (including shape/grain content hashes), and the importer schema/version. Source file paths are not persisted. Preset identity/settings are immutable at runtime. A future importer which changes rendering must bump its import version/identity rule; it must not overwrite referenced resources.
+Imported descriptors have `id: imported-<24 hexadecimal digits>`, immutable preset versions4 (ABR),4 (Krita),5 (Procreate) and behavior schema2, `model: stamp` or `mixer`; the ID hashes source settings, all final rendering fields (including shape/grain content hashes), and the importer schema/version. Source file paths are not persisted. Preset identity/settings are immutable at runtime. A future importer which changes rendering must bump its import version/identity rule; it must not overwrite referenced resources.
 
 ## Fidelity and supported subset
 
@@ -67,3 +67,7 @@ transport. Unknown MixSoftening and modulated transfer are reported explicitly;
 Grade changes grain contrast rather than exhaustion. Rotated footprints are not
 clipped to one radius, and mixer imprints beyond512px keep full world coverage at
 bounded pickup resolution. See RESEARCH.md for approximation and migration limits.
+
+ABR importer version4 reads published Mixer/Smudge tool keys `wetness` and `Prs ` (strength), retaining older aliases as fallbacks. Load/mix reservoir flags remain approximate; no `dryness` interpretation is guessed.
+
+Krita Color Smudge honours `PressureColorRate` and `PressureSmudgeRate`: unchecked/missing options map to load 0 and pickup 1; enabled options without saved Value default to 1. This correction changes the content-derived descriptor ID even with descriptor version 4, because identity covers the complete final mixer parameters and source hash. Existing ID/version resources remain immutable.
