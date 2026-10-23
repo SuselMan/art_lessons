@@ -53,5 +53,6 @@ export function isBrushAssetReady(id: string): boolean { return assets.has(id) }
 export function importedBrushAssets(preset: string | undefined): string[] {
   const b = importedBrushFromPreset(preset)
   if (!b) return []
-  return [b.tip.mask, b.texture?.id].filter((id): id is string & `asset:${string}` => !!id && id.startsWith('asset:'))
+  const componentAssets = (brush: BrushDescriptor): (string | undefined)[] => [brush.tip.mask, brush.texture?.id, ...(brush.behavior?.dual ? componentAssets(brush.behavior.dual.brush) : [])]
+  return [...new Set(componentAssets(b))].filter((id): id is string & `asset:${string}` => !!id && id.startsWith('asset:'))
 }

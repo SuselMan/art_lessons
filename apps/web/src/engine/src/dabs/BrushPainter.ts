@@ -19,6 +19,8 @@
 // and are dropped without touching the driver; each texture is uploaded again
 // on its first use after that, exactly as it was the first time.
 
+import { BrushBehaviorPainter, type BehaviorScratch } from './BrushBehaviorPainter'
+
 import type { Dab } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { ILayerBuffer, PaintTarget } from '../buffers/ILayerBuffer'
@@ -73,6 +75,7 @@ export interface BrushScratch {
 type Uniforms = Record<string, WebGLUniformLocation | null>
 
 export class BrushPainter {
+  private readonly behavior: BrushBehaviorPainter
   private readonly gl: WebGLRenderingContext
   private readonly ctx: BrushContext
 
@@ -96,12 +99,14 @@ export class BrushPainter {
   constructor(ctx: BrushContext) {
     this.gl = ctx.gl
     this.ctx = ctx
+    this.behavior = new BrushBehaviorPainter(ctx, id => this.tipTexture(id), id => this.brushTexture(id))
   }
 
   /** Builds both programs and looks up the extension — from the engine's
    *  _initGL, at construction and on a context restore. */
   initGL(): void {
     const { gl } = this
+    this.behavior.initGL()
     this.stampProg     = createProgram(gl, DAB_VERT, BRUSH_STAMP_FRAG)
     this.compositeProg = createProgram(gl, DAB_VERT, BRUSH_COMPOSITE_FRAG)
     this.stampUni = getUniforms(gl, this.stampProg, [
@@ -130,6 +135,7 @@ export class BrushPainter {
 
   destroy(): void {
     const { gl } = this
+    this.behavior.destroy()
     gl.deleteProgram(this.stampProg)
     gl.deleteProgram(this.compositeProg)
     for (const tex of this.tipTextures.values()) gl.deleteTexture(tex)
@@ -157,11 +163,15 @@ export class BrushPainter {
   paint(
     target: ILayerBuffer, dabs: Dab[], preset: PencilPreset,
     stamp: { brush: BrushDescriptor; pressure: BrushPressureSettings },
-    color: [number, number, number], scratch: BrushScratch, prevDab: Dab | undefined,
+    color: [number, number, number], scratch: BehaviorScratch, prevDab: Dab | undefined,
   ): void {
     const { gl, ctx } = this
     const { paper } = ctx
     const { brush, pressure } = stamp
+    if (brush.behavior?.version === 2) {
+      this.behavior.paint(target, dabs, preset, brush, pressure, color, scratch)
+      return
+    }
     interface Placed { x: number; y: number; radius: number; angle: number; aspect: number; flow: number; ceiling: number; pressure: number }
     const placed: Placed[] = []
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity

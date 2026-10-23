@@ -1,3 +1,4 @@
+import type { BrushBehaviorState } from '../presets/brushBehavior'
 import type { Dab } from '@grafetto/shared'
 
 import { AccumulationBuffer } from './AccumulationBuffer'
@@ -109,6 +110,7 @@ function clearParkedBuffer(buffer: AccumulationBuffer): void {
 type ScratchBounds = { minX: number; minY: number; maxX: number; maxY: number }
 
 export class RibbonStrokeScratch {
+  brushBehavior?: BrushBehaviorState
   /** Transient next-film continuation while the previous settle is pending. */
   trackRunningSource = false
   runningSourceCommands: Array<() => void> = []
@@ -613,6 +615,16 @@ export class RibbonStrokeScratch {
     return entry
   }
 
+  /** V2 brush opacity ceiling, pooled and captured by the existing inkLoad snapshot slot. */
+  brushCeiling(tile: AccumulationBuffer): AccumulationBuffer {
+    const entry = this.getOrCreate(tile)
+    if (!entry.inkLoad) {
+      entry.inkLoad = this.pool.acquire(tile.width, tile.height)
+      entry.inkLoad.clear()
+    }
+    return entry.inkLoad
+  }
+
   /** Bounded diagnostic solvent state: one loaded-contact film is V=1;
    * RGBA8 stores V/4. MAX within the gesture, additive/capped between films. */
   solventFilm(tile: AccumulationBuffer): { load: AccumulationBuffer; base: AccumulationBuffer; film: AccumulationBuffer } {
@@ -631,6 +643,7 @@ export class RibbonStrokeScratch {
    *  still means "this scratch is finished with" — what changed (#385) is that
    *  the buffers go back to the pool instead of to the driver. */
   destroy(): void {
+    this.brushBehavior = undefined
     this._materialGesture = null
     this._storageBounds = null
     this._waterUsed = 0
@@ -658,6 +671,7 @@ export class RibbonStrokeScratch {
   /** Context loss: the GL objects are already dead, so neither release nor
    *  destroy is meaningful — just let go of them. */
   forget(): void {
+    this.brushBehavior = undefined
     this._materialGesture = null
     this.trackRunningSource = false
     this.runningSourceCommands = []
@@ -703,6 +717,7 @@ export class RibbonStrokeScratch {
   /** Every number the next operation of this wash reads - see snapshot. */
   private _scalars(): ScratchScalars {
     return {
+      brushBehavior: this.brushBehavior ? structuredClone(this.brushBehavior) : undefined,
       needsInk: this.needsInk, needsColor: this.needsColor,
       storageBounds: this._storageBounds ? { ...this._storageBounds } : this._storageBounds,
       paints: [...this.paints], waterUsed: this._waterUsed, pigmentUsed: this._pigmentUsed,
@@ -718,6 +733,7 @@ export class RibbonStrokeScratch {
   }
 
   private _applyScalars(snap: ScratchScalars, target: ILayerBuffer): void {
+    this.brushBehavior = snap.brushBehavior ? structuredClone(snap.brushBehavior) : undefined
     this._materialGesture = null
     this.pigmentInputsKnownZero = false
 
@@ -926,6 +942,7 @@ export function freeScratchSnapshot(snap: ScratchSnapshot): void {
 /** (#536, §17.56) Every number of a RibbonStrokeScratch the next operation
  *  of its wash reads. */
 interface ScratchScalars {
+  brushBehavior?: BrushBehaviorState
   storageBounds?: ScratchBounds | null
   needsInk: boolean; needsColor: boolean
   paints: string[]; waterUsed: number; pigmentUsed: number
