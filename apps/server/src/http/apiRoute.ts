@@ -1,3 +1,4 @@
+import type { Readable } from 'node:stream'
 import type {
   FastifyInstance, RawReplyDefaultExpression, RawRequestDefaultExpression, RawServerDefault,
   RouteGenericInterface, RouteHandlerMethod, RouteShorthandOptions,
@@ -24,7 +25,7 @@ export interface ServerRoute<K extends ApiRouteKey> extends RouteGenericInterfac
   Body: Untrusted<RouteBody<K>>
   Reply:
     // A binary route may also answer 304 with nothing, when the ETag matches.
-    | (RouteResponse<K> extends ApiBinary ? Buffer | Uint8Array | undefined : RouteResponse<K>)
+    | (RouteResponse<K> extends ApiBinary ? Buffer | Uint8Array | Readable | undefined : RouteResponse<K>)
     | (RouteHasNoContent<K> extends true ? undefined : never)
     | ApiErrorBody
 }
