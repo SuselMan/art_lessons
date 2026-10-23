@@ -29,6 +29,12 @@ export const BRUSH_V2_STAMP_FRAG = BRUSH_STAMP_FRAG
   uniform sampler2D u_dual;
   uniform float u_dualKind;
   uniform float u_dualBlend;
+  uniform float u_dualHardness;
+  uniform float u_dualStrength;
+  uniform sampler2D u_dualTexture;
+  uniform vec2 u_dualTexOrigin;
+  uniform float u_dualTexPeriod;
+  uniform float u_dualTexStrength;
   uniform vec4 u_dualTransform;
   ${BLEND}
   void main() {`)
@@ -37,8 +43,13 @@ export const BRUSH_V2_STAMP_FRAG = BRUSH_STAMP_FRAG
     if (u_dualKind > 0.5) {
       vec2 dualUV = v_localUV * u_dualTransform.xy;
       dualUV = mat2(u_dualTransform.z,-u_dualTransform.w,u_dualTransform.w,u_dualTransform.z)*dualUV;
-      float secondary = u_dualKind > 1.5 ? texture2D(u_dual,dualUV*0.5+0.5).r : 1.0-smoothstep(0.7,1.0,length(dualUV));
+      float secondary = u_dualKind > 1.5 ? texture2D(u_dual,dualUV*0.5+0.5).r : 1.0-smoothstep(min(u_dualHardness,0.99),1.0,length(dualUV));
       if (abs(dualUV.x)>1.0 || abs(dualUV.y)>1.0) secondary=0.0;
+      secondary *= u_dualStrength;
+      if(u_dualTexStrength>0.0) {
+        vec2 dw=u_dualTexOrigin+vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
+        secondary *= mix(1.0,texture2D(u_dualTexture,dw/u_dualTexPeriod).r,u_dualTexStrength);
+      }
       shape = brushBlend(vec3(shape),vec3(secondary),u_dualBlend).r;
     }
     if (shape <= 0.0) discard;`)
