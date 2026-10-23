@@ -23,3 +23,20 @@
 Ограничения: при каждом входном пакете геометрия текущего жеста пересобирается, цветной фильм перерисовывается в его области. Рост очень длинного жеста ещё надо измерить. Полноразмерные рабочие карты A2 не заменены физическими страницами памяти. Равенство между GPU, Undo/Redo и совместное рисование этой новой модели не проверены и не интегрированы в продуктовый operation protocol. Параметр `brush=ribbon-v1` существует в QA, старые сохранённые операции не менялись. Художественное качество требует оценки Ильи.
 
 Компактные доказательства и замороженная сборка: `~/.local/share/project-services/gl1-review/ribbon-v1-805-20261019`. Новых сервисов нет; используется существующий статический Mini. Общие старые JS-ассеты старше текущего и предыдущего manifest удаляются при публикации. Исходники, worktrees и документы сохранены.
+
+## Fixed nib revision, 23.10
+
+The first dab fixes the nib angle for the entire gesture. Path support normals
+still determine the swept silhouette, but no longer rotate the actual nib or its
+transverse profile. Moving strokes have an entry and a release instead of round
+endpoint stamps; isolated taps retain their footprint. The release varies by
+bristle bundle. Pigment delivery is multiplied by1.65 and hair contrast narrowed.
+Within one gesture the later footprint replaces the older hair pattern instead
+of taking its maximum. This is repainting, not physical pigment advection, and
+previous gestures still contribute through the existing color base.
+
+Water and coverage are rebuilt from immutable pre-gesture GPU snapshots in the
+changed rectangle. This removes the initial tap ghost when the brush starts
+moving. There remains one canonical live water field; snapshots use existing
+pool-owned solventBase/coverageFilm leases. Added copies need fresh device
+measurements; the old Vega timing is not a measurement of this revision.
