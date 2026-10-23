@@ -61,6 +61,31 @@ class KritaTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             p=Path(tmp)/'QA.kpp';p.write_bytes(kpp(engine='colorsmudge'));c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
             self.assertEqual(c.brushes[0]['descriptor']['model'],'mixer')
+    def test_colorsmudge_rate_checkboxes_and_verified_missing_defaults(self):
+        import xml.etree.ElementTree as E
+        # Missing checkboxes are false (KisKritaSensorPack::read). Enabled
+        # options with missing Value use strengthMaxValue=1, not a guessed .5.
+        cases=[
+            ({'PressureColorRate':'true','ColorRateValue':'0.3','PressureSmudgeRate':'true','SmudgeRateValue':'0.7'},.3,.7),
+            ({'PressureColorRate':'false','ColorRateValue':'0.9','PressureSmudgeRate':'false','SmudgeRateValue':'0.2'},0,1),
+            ({'ColorRateValue':'0.9','SmudgeRateValue':'0.2'},0,1),
+            ({},0,1),
+            ({'PressureColorRate':'true','PressureSmudgeRate':'true'},1,1),
+            ({'PressureColorRate':'1','ColorRateValue':'0','PressureSmudgeRate':'1','SmudgeRateValue':'0'},0,0),
+            ({'PressureColorRate':'true','ColorRateValue':'0.4','PressureSmudgeRate':'false','SmudgeRateValue':'0.1'},.4,1),
+            ({'PressureColorRate':'false','ColorRateValue':'0.4','PressureSmudgeRate':'true','SmudgeRateValue':'0.1'},0,.1),
+        ]
+        for params,load,pickup in cases:
+            with self.subTest(params=params), tempfile.TemporaryDirectory() as tmp:
+                original=Image.open(io.BytesIO(kpp(engine='colorsmudge')))
+                root=E.fromstring(original.info['preset'])
+                for key,value in params.items(): E.SubElement(root,'param',{'name':key}).text=value
+                meta=PngImagePlugin.PngInfo();meta.add_text('preset',E.tostring(root,encoding='unicode'))
+                p=Path(tmp)/'Rates.kpp';Image.new('RGB',(2,2)).save(p,format='PNG',pnginfo=meta)
+                c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
+                self.assertEqual(c.skipped,[])
+                self.assertEqual(c.brushes[0]['descriptor']['mixer'],{'load':load,'pickup':pickup,'strength':1})
+
     def test_krita_masking_uses_the_shared_independent_secondary(self):
         with tempfile.TemporaryDirectory() as tmp:
             import xml.etree.ElementTree as E

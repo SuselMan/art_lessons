@@ -228,7 +228,15 @@ def preset(data, name, catalog, external, depth=0):
         d['texture']={'id':aid,'strength':clamp(numeric(params.get('Texture/Strength/Value'),1)),'periodPx':clamp(256*numeric(params.get('Texture/Pattern/Scale'),1),1,4096)}
         notes.append(compatibility('texture','Pattern retained; Krita texture offset, relief and application modes require further translation.'))
     if engine == 'colorsmudge' and not eraser:
-        d['model']='mixer';d['mixer']={'load':clamp(numeric(params.get('ColorRateValue'),0.5)),'pickup':clamp(numeric(params.get('SmudgeRateValue'),0.5)),'strength':1}
+        # Krita's checkable rate options default unchecked. A disabled colour
+        # rate contributes no foreground paint; disabled smudge means full pickup.
+        # Source semantics (independent mapping, no vendor implementation copied):
+        # KDE/krita plugins/paintops/colorsmudge/kis_colorsmudgeop.cpp,
+        # libpaintop/KisKritaSensorPack.cpp and KisCurveOptionData.h.
+        # Enabled but missing Value defaults to the option range maximum (1).
+        color_rate=clamp(numeric(params.get('ColorRateValue'),1)) if enabled(params.get('PressureColorRate')) else 0
+        smudge_rate=clamp(numeric(params.get('SmudgeRateValue'),1)) if enabled(params.get('PressureSmudgeRate')) else 1
+        d['model']='mixer';d['mixer']={'load':color_rate,'pickup':smudge_rate,'strength':1}
         notes.append(compatibility('colorSmudge','Krita Color Smudge is approximated using Grafetto carried-pigment mixer; dulling/smearing formulas differ.'))
     active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter')]
     if active:
