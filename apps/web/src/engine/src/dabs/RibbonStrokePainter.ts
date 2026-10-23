@@ -63,6 +63,9 @@ export class RibbonStrokePainter {
   diagnosticPigmentRecord = true
   diagnosticSharedFluid = true
   diagnosticLandingReservoir = true
+  diagnosticLandingPolicy: 'dry' | 'fluid' = 'dry'
+  /** Independent reservoir ablation: clear and coloured brushes spend water alike. */
+  diagnosticWaterPolicy: 'legacy' | 'finite' | 'bottomless' = 'legacy'
   private diagnosticDepth = 0
   diagnosticTrace: { before: number; after: number; water: number; dose: number }[] = []
   constructor(ctx: RibbonStrokePainterContext) { this.ctx = ctx }
@@ -554,7 +557,9 @@ export class RibbonStrokePainter {
         // carries the nominal pigment setting, so only the remaining *fraction*
         // multiplies it here.
         // (#536, §17.21) …and a clean-water brush does not run down at all.
-        const load = profile.waterDepletion && watercolorBrushRunsDry(profile.pigmentStrength) ? watercolorWaterLoad(used) : 1
+        const spendsWater = segmentMode && this.diagnosticWaterPolicy !== 'legacy'
+          ? this.diagnosticWaterPolicy === 'finite' : watercolorBrushRunsDry(profile.pigmentStrength)
+        const load = profile.waterDepletion && spendsWater ? watercolorWaterLoad(used) : 1
         const water = profile.waterDepletion ? profile.waterLevel * load : 1
         // (#536, §17.14) …by the brush's water: a wet brush spends the same
         // finite budget further along the path. See PIGMENT_RUN_DRY_RADII.
@@ -625,7 +630,15 @@ export class RibbonStrokePainter {
         scratch.surplusAt = pigUsed
         scratch.trail.push({ x: dab.x, y: dab.y, t: dab.t })
         if (scratch.trail.length > WC_TRAIL_LEN) scratch.trail.shift()
-        const excess = profile.waterDepletion ? watercolorExcessFromSurplus(pigUsed, segmentMode && this.diagnosticLandingReservoir ? 0 : landedWet, Math.max(scratch.surplusPigment, scratch.brakePigment)) : 1
+        // Freeze the landing decision at first contact, not at a later
+        // segment's depleted load. The fluid variant uses the initially
+        // delivered standing water rather than imposing a dry-paper excess.
+        const landingWet = segmentMode && this.diagnosticLandingReservoir
+          ? this.diagnosticLandingPolicy === 'fluid'
+            ? Math.max(landedWet, watercolorStandingWater(delivery.water, delivery.retain, landedWet, 1))
+            : 0
+          : landedWet
+        const excess = profile.waterDepletion ? watercolorExcessFromSurplus(pigUsed, landingWet, Math.max(scratch.surplusPigment, scratch.brakePigment)) : 1
         excessByDab.set(dab, excess)
         // (#680, s17.79) ...and the landing's own surplus, which needs no dwell:
         // the touch-down's pool is a pool too, broken into blots like the others.
