@@ -625,6 +625,14 @@ export class RibbonStrokeScratch {
     return entry.inkLoad
   }
 
+  /** Reversible brush tail preview. Main coverage remains the committed prefix. */
+  brushPreview(tile: AccumulationBuffer): { coverage: AccumulationBuffer; ceiling: AccumulationBuffer } {
+    const entry = this.getOrCreate(tile)
+    if (!entry.inkSettled) entry.inkSettled = this.pool.acquire(tile.width, tile.height)
+    if (!entry.colorSettled) entry.colorSettled = this.pool.acquire(tile.width, tile.height)
+    return { coverage: entry.inkSettled, ceiling: entry.colorSettled }
+  }
+
   /** Bounded diagnostic solvent state: one loaded-contact film is V=1;
    * RGBA8 stores V/4. MAX within the gesture, additive/capped between films. */
   solventFilm(tile: AccumulationBuffer): { load: AccumulationBuffer; base: AccumulationBuffer; film: AccumulationBuffer } {

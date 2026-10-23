@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BrushDescriptor, Dab } from '@grafetto/shared'
-import { beginBrushBehavior, behaviorStampsForDab } from './brushBehavior'
+import { beginBrushBehavior, behaviorStampsForDab, splitBrushTail } from './brushBehavior'
 import { DIGITAL_BRUSHES } from './digitalBrushPresets'
 import { nominalDabSpacing } from '../dabs/dabSpacing'
 const color:[number,number,number]=[0.8,0.3,0.1]
@@ -17,8 +17,8 @@ describe('v2 logical brush state',()=>{
   const fixed={...brush,scatter:undefined,behavior:{version:2 as const,rotation:{follow:0,random:'stroke' as const}}}
   const state=beginBrushBehavior(dabs[0]);const angles=dabs.map(d=>behaviorStampsForDab(fixed,d,state,color)[0].angle)
   expect(new Set(angles).size).toBe(1)
-  fixed.behavior.rotation.random='stamp' as 'stroke'
-  const other=beginBrushBehavior(dabs[0]);expect(new Set(dabs.map(d=>behaviorStampsForDab(fixed,d,other,color)[0].angle)).size).toBeGreaterThan(1)
+  const random={...fixed,behavior:{version:2 as const,rotation:{follow:0,random:'stamp' as const}}}
+  const other=beginBrushBehavior(dabs[0]);expect(new Set(dabs.map(d=>behaviorStampsForDab(random,d,other,color)[0].angle)).size).toBeGreaterThan(1)
  })
  it('keeps flow independent from opacity, and handles reversed pressure curves',()=>{
   const b={...brush,scatter:undefined,flowByPressure:[[0,1],[1,0]] as const,behavior:{version:2 as const}}
@@ -26,6 +26,18 @@ describe('v2 logical brush state',()=>{
   expect(behaviorStampsForDab(b,low,beginBrushBehavior(low),color)[0].flowScale).toBeCloseTo(0.9)
   expect(behaviorStampsForDab(b,high,beginBrushBehavior(high),color)[0].flowScale).toBeCloseTo(0.1)
   expect(behaviorStampsForDab(b,high,beginBrushBehavior(high),color)[0].opacityScale).toBe(1)
+ })
+ it('keeps a bounded reversible tail and commits the same final taper across chunk boundaries',()=>{
+  const state=beginBrushBehavior(dabs[0])
+  const all=dabs.flatMap(d=>behaviorStampsForDab(brush,d,state,color)).map(s=>({...s,radius:s.size*0.5,flow:s.flowScale,ceiling:1,pressure:1}))
+  const final=splitBrushTail(all,state.distance,0.2,true)
+  let pending:typeof all=[],committed:typeof all=[]
+  for(let i=0;i<all.length;i+=11){const part=all.slice(i,i+11);const out=splitBrushTail([...pending,...part],part.at(-1)!.distance,0.2,false);pending=out.pending;committed.push(...out.ready)}
+  committed.push(...splitBrushTail(pending,state.distance,0.2,true).ready)
+  expect(committed).toEqual(final.ready)
+  expect(committed.at(-1)!.radius).toBe(0)
+  const huge=splitBrushTail(Array.from({length:5000},()=>all[0]),0,1,false)
+  expect(huge.pending.length).toBe(4096)
  })
  it('bounds ultra-small source spacing to the existing one-pixel dab floor',()=>{
   const step=nominalDabSpacing(4096,0.000001)
