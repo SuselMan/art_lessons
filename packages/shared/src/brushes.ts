@@ -292,7 +292,7 @@ export function isBrushLibrary(value: unknown): value is BrushLibrary {
       || ((d.tip.kind === 'bitmap' || d.tip.mask !== undefined) && !ref(d.tip.mask))
       || !numberIn(d.tip.hardness, 0, 1) || !numberIn(d.tip.aspect, 1, 16) || !numberIn(d.tip.angle, -Math.PI * 2, Math.PI * 2)
       || !['fixed','path','travel'].includes(String(d.tip.rotation))
-      || !numberIn(d.paperInteraction, 0, 1) || !numberIn(d.spacing, 0.0001, 2) || !numberIn(d.flow, 0, 1)
+      || !numberIn(d.paperInteraction, 0, 1) || !numberIn(d.spacing, 0.000001, 2) || !numberIn(d.flow, 0, 1)
       || !['pass','stamp'].includes(String(d.flowPer)) || !numberIn(d.opacity, 0, 1)
       || !numberIn(d.pressureSmoothingPx, 0, 100) || !curve(d.sizeByPressure) || !curve(d.flowByPressure) || !curve(d.opacityByPressure)) return false
     const key = `${d.id}@${d.version}`
