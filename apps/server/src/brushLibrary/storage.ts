@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { mkdirSync, lstatSync, writeFileSync, renameSync, rmSync, constants, openSync, closeSync, fstatSync, readSync, readdirSync, fsyncSync } from 'node:fs'
+import { mkdirSync, lstatSync, writeFileSync, renameSync, rmSync, constants, openSync, closeSync, fstatSync, readSync, readdirSync, fsyncSync, linkSync } from 'node:fs'
 import { resolve, join, parse } from 'node:path'
 import { isBrushLibrary, type BrushLibrary } from '@grafetto/shared'
 
@@ -99,8 +99,18 @@ export class BrushStorage {
       for (const [hash,bytes] of assets) {
         if (keyBytes(bytes)!==hash) throw Error('Corrupt brush asset')
         const path=join(this.root,'assets',hash+'.bin')
-        try { const fd=openSync(path,constants.O_CREAT|constants.O_EXCL|constants.O_WRONLY,0o600);try {writeFileSync(fd,bytes);fsyncSync(fd)} finally {closeSync(fd)} } catch(e) { if ((e as NodeJS.ErrnoException).code!=='EEXIST') throw e; if (!boundedRead(path,bytes.length).equals(bytes)) throw Error('Immutable asset conflict') }
+        const temporary=path+'.'+randomUUID()
+        try {
+          const fd=openSync(temporary,constants.O_CREAT|constants.O_EXCL|constants.O_WRONLY,0o600)
+          try {writeFileSync(fd,bytes);fsyncSync(fd)} finally {closeSync(fd)}
+          try {linkSync(temporary,path)} catch(e) {
+            if((e as NodeJS.ErrnoException).code!=='EEXIST') throw e
+            if(!boundedRead(path,bytes.length).equals(bytes)) throw Error('Immutable asset conflict')
+          }
+        } finally {rmSync(temporary,{force:true})} 
       }
+      const directory=openSync(join(this.root,'assets'),constants.O_RDONLY|constants.O_DIRECTORY)
+      try {fsyncSync(directory)} finally {closeSync(directory)}
       this.atomic(this.path('owners',owner),next); return next
     })
   }
