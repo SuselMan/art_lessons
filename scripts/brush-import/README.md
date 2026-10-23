@@ -39,7 +39,7 @@ Procreate: signed pressure curves, source spacing down to 1e-6, shape Rotation (
 
 ## Portable export import
 
-Krita `.kpp` and `.bundle` are also accepted: Pixel Brush, Color Smudge approximation, erasers, circle/rect tips, embedded or bundled GBR/PNG masks and PAT/PNG grain, pressure curves and one independent masking brush. Animated GIH tips, SVG/text generators and specialized paint engines are reported as unsupported; missing resources are not replaced with thumbnail pixels. XML and archive limits apply before resource decoding.
+Krita `.kpp` and `.bundle` are also accepted: Pixel Brush, Color Smudge approximation, erasers, circle/rect tips, embedded or bundled GBR/PNG masks and PAT/PNG grain, pressure/tilt/speed/direction curves, scatter and one independent masking brush. Animated GIH tips, SVG/text generators and specialized paint engines are reported as unsupported; missing resources are not replaced with thumbnail pixels. XML and archive limits apply before resource decoding.
 
 The CLI also accepts `.grafetto-brushes.json`: `{library, assets: {"asset:<sha256>": "<base64 raw>"}}`. This keeps exact descriptor IDs. Envelope/counts/paths/dimensions/asset-reference/SHA256/decoded-size limits are checked before writes (360 MiB encoded, 256 MiB raw). Runtime **must still run the shared `isBrushLibrary` semantic guard** before serving/importing the resulting catalog; Python does not duplicate all TypeScript descriptor constraints. Extra payloads, nested dual components, duplicate IDs and corrupt raw bytes fail closed.
 
@@ -58,3 +58,5 @@ CPU/GPU differences are measured on decoded pixels, not PNG byte hashes.
 which closes in finally. It reuses an installed Playwright via NODE_PATH.
 
 The pre-release renderer was unified by explicit owner decision: old built-in tokens use the current set. See ADR017 consolidation and [research notes](RESEARCH.md) for verified facts, approximation boundaries and the deferred vendor-reference comparison.
+
+Krita importer rendering version4 adds single/multiple sensor transfer curves through the shared runtime, up to four supported controls per target. Unsupported sensor types and non-product combination modes are reported; curve interpolation and sensor normalization require vendor calibration.

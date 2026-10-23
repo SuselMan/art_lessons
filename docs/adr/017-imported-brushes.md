@@ -167,3 +167,9 @@ CPU-ресурсы освобождаются по lease жизненного ц
 Режимы наложения, signed tilt/speed/pressure controls, gamma, independent secondary
 и wet dynamics отражены в shared guard; подробные источники и ограничения —
 [scripts/brush-import/RESEARCH.md](../../scripts/brush-import/RESEARCH.md).
+
+Krita rendering4 сохраняет индивидуальные кривые нескольких датчиков через общий
+BrushDynamic.curve и modulations для размера, opacity, flow и scatter. Датчики
+наклона/азимута вычисляются из записанных tiltX/tiltY; новые данные сети не нужны.
+Кривые интерполируются линейно; нормализация скорости и распределение scatter
+остаются приближениями. Неизвестные датчики/режимы комбинации явно отмечаются.

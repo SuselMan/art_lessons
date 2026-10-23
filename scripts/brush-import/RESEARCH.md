@@ -43,3 +43,23 @@ ICC profile стороннего приложения оно не воспрои
 не предоставлены; Илья перенёс сравнение в приложениях на следующий день.
 Точная vendor pixel equivalence не заявляется. Отсутствующие bundled изображения
 Procreate нельзя восстановить только по имени; такие пресеты пропускаются.
+
+## Krita sensor follow-up, rendering version4
+
+Primary sources read: [KisKritaSensorPack.cpp](https://github.com/KDE/krita/blob/master/plugins/paintops/libpaintop/KisKritaSensorPack.cpp),
+[KisSensorData.cpp](https://github.com/KDE/krita/blob/master/plugins/paintops/libpaintop/KisSensorData.cpp),
+[KisDynamicSensorIds.h](https://github.com/KDE/krita/blob/master/plugins/paintops/libpaintop/KisDynamicSensorIds.h),
+[KisScatterOptionData.cpp](https://github.com/KDE/krita/blob/master/plugins/paintops/libpaintop/KisScatterOptionData.cpp).
+Read for serialized identifiers and format semantics; no implementation code copied.
+
+Single sensors and ChildSensor lists, UseSameCurve/commonCurve, legacy Curve<Option>
+and product combination mode0 are decoded. Size/Opacity/Flow/Scatter use the common
+runtime modulation contract (up to4 supported sensors). Pressure, elevation, X/Y tilt,
+azimuth, speed and drawing direction retain individual transfer points. Curve points
+are linearly interpolated; Krita cubic interpolation and speed scaling are approximate.
+Twist, tangential pressure, time, fuzzy and distance/fade are explicitly unsupported
+in this importer. Non-product combinations are reported rather than silently multiplied.
+[KoCompositeOpRegistry.h](https://github.com/KDE/krita/blob/master/libs/pigment/KoCompositeOpRegistry.h) provides native blend IDs, including spaces in `linear light`, `hard mix`, `darker color` and `lighter color`.
+Scatter radius is bounded to the shared limit4, with source distribution/axis orientation
+reported as approximate. Krita descriptor version4 distinguishes this conversion;
+other format converters remain rendering version3.

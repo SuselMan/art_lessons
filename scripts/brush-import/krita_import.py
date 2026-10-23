@@ -86,6 +86,38 @@ def raster(data, name, brush=False):
     return image
 
 
+def sensor_controls(params, option, notes):
+    """Read Krita's single sensor or ChildSensor list into the shared product."""
+    if not enabled(params.get(option+'UseCurve','true')):
+        return []
+    sensor=xml(params.get(option+'Sensor','<params id="pressure"/>'))
+    sensors=list(sensor.findall('ChildSensor')) if sensor.get('id')=='sensorslist' else [sensor]
+    if len(sensors)>32: raise ValueError('Krita sensor count limit')
+    ids=[node.get('id') for node in sensors]
+    if len(ids)!=len(set(ids)): raise ValueError('Duplicate Krita sensor')
+    if numeric(params.get(option+'curveMode'))!=0:
+        notes.append(compatibility(option+'SensorCombination','Non-multiplicative sensor combination is unsupported.','unsupported'))
+        return []
+    common=params.get(option+'commonCurve') or (sensors[-1].findtext('curve') if sensors else None)
+    use_common=enabled(params.get(option+'UseSameCurve','true'))
+    controls=[]
+    supported={'pressure':'pressure','declination':'tiltElevation','xtilt':'tiltX','ytilt':'tiltY','ascension':'azimuth','speed':'speed','drawingangle':'direction'}
+    for node in sensors:
+        name=node.get('id','')
+        if name not in supported:
+            notes.append(compatibility(option+'Sensor','Unsupported Krita sensor '+name,'unsupported'));continue
+        curve=(common if use_common and common else node.findtext('curve')) or params.get('Curve'+option,'0,0;1,1;')
+        points=[[numeric(v,float('nan')) for v in pair.split(',')] for pair in curve.split(';') if pair.strip()]
+        if len(points)<2 or len(points)>256 or any(len(p)!=2 or not all(0<=v<=1 for v in p) for p in points) or any(points[i][0]<=points[i-1][0] for i in range(1,len(points))):
+            raise ValueError('Invalid Krita sensor curve')
+        if len(controls)>=4:
+            notes.append(compatibility(option+'Sensor','More than four active supported sensors; excess controls unsupported.','unsupported'));continue
+        controls.append({'control':supported[name],'minimum':0,'jitter':0,'curve':points})
+        if name!='pressure':
+            notes.append(compatibility(option+'Sensor','Sensor '+name+' uses recorded Grafetto input; speed scaling and curve interpolation require vendor calibration.'))
+    return controls
+
+
 def preset(data, name, catalog, external, depth=0):
     if depth>1: raise ValueError('Nested Krita masking brushes exceed supported depth')
     PngImagePlugin.MAX_TEXT_CHUNK = MAX_XML
@@ -128,6 +160,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
+    d['version']=4
     kind = definition.get('type')
     if kind == 'auto_brush':
         generator = definition.find('MaskGenerator')
@@ -160,24 +193,33 @@ def preset(data, name, catalog, external, depth=0):
     d['flow']=clamp(numeric(params.get('FlowValue'),1))
     d['opacity']=clamp(numeric(params.get('OpacityValue'),1))
     behavior={'version':2,'rendering':{'mode':'buildUp','blendMode':'normal','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}}
-    modes={'normal':'normal','multiply':'multiply','screen':'screen','overlay':'overlay','darken':'darken','lighten':'lighten','burn':'colorBurn','dodge':'colorDodge','linear_burn':'linearBurn','linear_dodge':'add','add':'add','subtract':'subtract','diff':'difference','exclusion':'exclusion','soft_light':'softLight','hard_light':'hardLight','divide':'divide','hue':'hue','saturation':'saturation','color':'color','luminosity':'luminosity'}
+    modes={'normal':'normal','multiply':'multiply','screen':'screen','overlay':'overlay','darken':'darken','lighten':'lighten','burn':'colorBurn','dodge':'colorDodge','linear_burn':'linearBurn','linear_dodge':'add','add':'add','subtract':'subtract','diff':'difference','exclusion':'exclusion','soft_light':'softLight','hard_light':'hardLight','divide':'divide','hue':'hue','saturation':'saturation','color':'color','luminosity':'luminosity','linear light':'linearLight','vivid_light':'vividLight','pin_light':'pinLight','hard mix':'hardMix','hard_mix_photoshop':'hardMix','darker color':'darkerColor','lighter color':'lighterColor'}
     if eraser: behavior['erase']=True
     mode='normal' if eraser else params.get('CompositeOp','normal')
     if mode in modes:
         behavior['rendering']['blendMode']=modes[mode]
     else:
         notes.append(compatibility('blendMode','Unsupported Krita blend '+mode+'; normal used.','unsupported'))
-    for option,field in [('Size','sizeByPressure'),('Opacity','opacityByPressure'),('Flow','flowByPressure')]:
-        if not enabled(params.get(option+'UseCurve',params.get('Pressure'+option))):
+    for option,target in [('Size','size'),('Opacity','opacity'),('Flow','flow'),('Scatter','scatter')]:
+        if not enabled(params.get('Pressure'+option,params.get(option+'UseCurve','false'))):
             continue
-        sensor=xml(params.get(option+'Sensor','<params id="pressure"/>'))
-        if sensor.get('id') != 'pressure':
-            notes.append(compatibility(option+'Sensor','Multiple/non-pressure Krita sensors are not yet reproduced.','unsupported'));continue
-        curve=sensor.findtext('curve') or params.get(option+'commonCurve') or '0,0;1,1;'
-        points=[[numeric(v) for v in pair.split(',')] for pair in curve.split(';') if pair.strip()]
-        if len(points)<2 or len(points)>256 or any(len(p)!=2 or not all(0<=v<=1 for v in p) for p in points) or any(points[i][0] <= points[i-1][0] for i in range(1,len(points))):
-            raise ValueError('Invalid Krita pressure curve')
-        d[field]=points
+        controls=sensor_controls(params,option,notes)
+        if controls:
+            # Keep pressure in the canonical curves so dab spacing sees size
+            # pressure before sampling; remaining sensors modulate the stamps.
+            field={'Size':'sizeByPressure','Opacity':'opacityByPressure','Flow':'flowByPressure'}.get(option)
+            pressure=next((control for control in controls if control['control']=='pressure'),None)
+            if field and pressure:
+                d[field]=pressure['curve'];controls=[control for control in controls if control is not pressure]
+            if controls: behavior.setdefault('modulations',{})[target]=controls
+            notes.append(compatibility(option+'Curve','Sensor control points retained; Krita cubic curves use Grafetto piecewise-linear interpolation.'))
+    if enabled(params.get('PressureScatter')):
+        amount=clamp(numeric(params.get('ScatterValue',params.get('Scattering/Amount')),1),0,4)
+        x=enabled(params.get('Scattering/AxisX','true'));y=enabled(params.get('Scattering/AxisY','true'))
+        if x or y:
+            d['scatter']={'count':1,'radius':amount,'scale':1,'sizeJitter':0,'angleJitter':0,'flowJitter':0}
+            behavior['scatter']={'countJitter':0,'bothAxes':x and y}
+            notes.append(compatibility('scatter','Scatter amount and sensors retained; single-axis orientation and distribution use Grafetto semantics.'))
     if enabled(params.get('Texture/Pattern/Enabled')):
         filename=params.get('Texture/Pattern/PatternFileName','')
         payload=resource(filename)
@@ -188,7 +230,7 @@ def preset(data, name, catalog, external, depth=0):
     if engine == 'colorsmudge' and not eraser:
         d['model']='mixer';d['mixer']={'load':clamp(numeric(params.get('ColorRateValue'),0.5)),'pickup':clamp(numeric(params.get('SmudgeRateValue'),0.5)),'strength':1}
         notes.append(compatibility('colorSmudge','Krita Color Smudge is approximated using Grafetto carried-pigment mixer; dulling/smearing formulas differ.'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow')]
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter')]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):

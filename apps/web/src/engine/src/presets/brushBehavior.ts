@@ -92,12 +92,17 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
   const travel = prev ? Math.hypot(dab.x - prev.x, dab.y - prev.y) : 0
   const speed = prev ? travel / Math.max(1, dab.t - prev.t) : 0
   const turn = (a: number): number => ((a / (Math.PI * 2)) % 1 + 1) % 1
-  const value = d.control === 'pressure' ? dab.pressure
+  const sensor = d.control === 'pressure' ? dab.pressure
+    : d.control === 'tiltElevation' ? 1-clamp(penTilt(dab).angle/(Math.PI/2))
+      : d.control === 'tiltX' ? clamp((dab.tiltX+90)/180)
+      : d.control === 'tiltY' ? clamp((dab.tiltY+90)/180)
+      : d.control === 'azimuth' ? turn(penTilt(dab).azimuth)
     : d.control === 'tilt' ? clamp(penTilt(dab).angle/(Math.PI/2))
       : d.control === 'speed' ? clamp(speed / 2)
         : d.control === 'fade' ? clamp(1 - state.distance / Math.max(0.001, d.fade ?? 1))
           : d.control === 'direction' ? turn(dab.angle)
             : d.control === 'initialDirection' ? turn(state.firstAngle) : 1
+  const value = d.curve ? curveAt(d.curve, sensor) : sensor
   const controlled = d.strength === undefined ? value : d.strength >= 0 ? 1 - d.strength + d.strength * value : 1 + d.strength * value
   return clamp((d.minimum + (1 - d.minimum) * controlled) * (1 - d.jitter * random))
 }

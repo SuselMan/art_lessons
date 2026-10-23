@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { BrushDescriptor, Dab } from '@grafetto/shared'
-import { beginBrushBehavior, behaviorStampsForDab, secondaryBrushDabs, splitBrushTail } from './brushBehavior'
+import { isBrushBehavior, type BrushDescriptor, type Dab } from '@grafetto/shared'
+import { beginBrushBehavior, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, splitBrushTail } from './brushBehavior'
 import { DIGITAL_BRUSHES } from './digitalBrushPresets'
 import { nominalDabSpacing } from '../dabs/dabSpacing'
 const color: [
@@ -22,6 +22,24 @@ describe('v2 logical brush state', () => {
     }
     expect(actual).toEqual(expected)
     expect(chunk).toEqual(full)
+  })
+  it('validates incoming sensor curves before they reach the renderer', () => {
+    const valid={version:2,modulations:{size:[{control:'tiltElevation',minimum:0,jitter:0,curve:[[0,1],[1,0]]}]}}
+    expect(isBrushBehavior(valid)).toBe(true)
+    for(const curve of [[[0,1],[0,0]],[[0,1],[1,NaN]],[[0,1]],[[0,1],null]]) {
+      expect(isBrushBehavior({...valid,modulations:{size:[{...valid.modulations.size[0],curve}]}})).toBe(false)
+    }
+  })
+  it('applies independent sensor curves and preserves them through chunked replay', () => {
+    const source: BrushDescriptor={...brush,scatter:undefined,behavior:{version:2,modulations:{size:[{control:'pressure',minimum:0,jitter:0,curve:[[0,1],[1,0]]},{control:'tiltElevation',minimum:0,jitter:0,curve:[[0,0],[1,1]]}]}}}
+    const input={...dabs[0],pressure:.25,tiltX:45,tiltY:0}
+    expect(behaviorStampsForDab(source,input,beginBrushBehavior(input),color)[0].size).toBeCloseTo(input.size*.75*.5)
+    const whole=beginBrushBehavior(dabs[0]),chunk=beginBrushBehavior(dabs[0])
+    const expected=dabs.flatMap(d=>behaviorStampsForDab(source,d,whole,color))
+    const actual=dabs.flatMap(d=>behaviorStampsForDab(structuredClone(source),d,chunk,color))
+    expect(actual).toEqual(expected)
+    expect(brushDynamicValue({control:'tiltX',minimum:0,jitter:0}, {...input,tiltX:-90},chunk,0)).toBe(0)
+    expect(brushDynamicValue({control:'tiltY',minimum:0,jitter:0}, {...input,tiltY:90},chunk,0)).toBe(1)
   })
   it('uses one random rotation for the gesture, and independent random rotations for stamps', () => {
     const fixed = { ...brush, scatter: undefined, behavior: { version: 2 as const, rotation: { follow: 0, random: 'stroke' as const } } }

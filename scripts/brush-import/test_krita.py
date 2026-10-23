@@ -74,6 +74,38 @@ class KritaTests(unittest.TestCase):
             self.assertEqual(dual['sampling'],'independent');self.assertEqual(dual['brush']['spacing'],0.5)
             self.assertEqual(dual['brush']['sizeByPressure'],[[0,0.5],[1,0.5]])
 
+    def test_multiple_sensors_preserve_independent_curves_and_unknown_sensor(self):
+        from krita_import import sensor_controls
+        notes=[]
+        params={'SizeUseSameCurve':'false','SizeSensor':'<params id="sensorslist"><ChildSensor id="pressure"><curve>0,1;1,0;</curve></ChildSensor><ChildSensor id="declination"><curve>0,0.1;1,1;</curve></ChildSensor><ChildSensor id="rotation"/></params>'}
+        controls=sensor_controls(params,'Size',notes)
+        self.assertEqual([c['control'] for c in controls],['pressure','tiltElevation'])
+        self.assertEqual(controls[0]['curve'],[[0,1],[1,0]])
+        self.assertTrue(any(n['status']=='unsupported' and 'rotation' in n['detail'] for n in notes))
+        params['SizeUseSameCurve']='true';params['SizecommonCurve']='0,0.4;1,0.8;'
+        self.assertEqual(sensor_controls(params,'Size',[])[0]['curve'],[[0,0.4],[1,0.8]])
+        params['SizecommonCurve']='0,0;0,1;'
+        with self.assertRaises(ValueError):sensor_controls(params,'Size',[])
+
+    def test_scatter_uses_common_dynamics_and_reports_axis_approximation(self):
+        import xml.etree.ElementTree as E
+        original=Image.open(io.BytesIO(kpp()));root=E.fromstring(original.info['preset'])
+        for key,value in [('PressureScatter','true'),('ScatterValue','0.8'),('Scattering/AxisX','false'),('Scattering/AxisY','true'),('ScatterSensor','<params id="pressure"/>')]:E.SubElement(root,'param',{'name':key}).text=value
+        meta=PngImagePlugin.PngInfo();meta.add_text('preset',E.tostring(root,encoding='unicode'))
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'Scatter.kpp';Image.new('RGB',(2,2)).save(p,format='PNG',pnginfo=meta)
+            c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c);d=c.brushes[0]['descriptor']
+            self.assertEqual(d['scatter']['radius'],.8)
+            self.assertFalse(d['behavior']['scatter']['bothAxes'])
+            self.assertEqual(d['behavior']['modulations']['scatter'][0]['control'],'pressure')
+            self.assertFalse(any(n['feature']=='activeDynamics' for n in c.brushes[0]['compatibility']))
+
+    def test_native_krita_composite_identifiers(self):
+        for source,target in [('linear light','linearLight'),('hard mix','hardMix'),('darker color','darkerColor')]:
+            with tempfile.TemporaryDirectory() as tmp:
+                p=Path(tmp)/'Mode.kpp';p.write_bytes(kpp(mode=source));c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
+                self.assertEqual(c.brushes[0]['descriptor']['behavior']['rendering']['blendMode'],target)
+
     def test_rejects_xml_entities_and_bad_gbr(self):
         with self.assertRaises(ValueError):xml('<!DOCTYPE a [<!ENTITY x "bad">]><a>&x;</a>')
         with self.assertRaises(ValueError):gbr(struct.pack('>5I',20,1,10000,10000,1))

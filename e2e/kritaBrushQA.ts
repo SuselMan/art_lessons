@@ -17,7 +17,7 @@ async function main() {
   const out=process.env.QA_OUTPUT!
   await mkdir(out,{recursive:true})
   const thumbnail=await sharp({create:{width:2,height:2,channels:3,background:'#ff0000'}}).png().toBuffer()
-  const make=(name:string,definition:string,mode='normal')=>pngText(pngText(thumbnail,'version','5.0'),'preset',`<Preset name="${name}" paintopid="paintbrush"><param name="brush_definition"><![CDATA[${definition}]]></param><param name="CompositeOp">${mode}</param><param name="SizeUseCurve">true</param><param name="SizeSensor"><![CDATA[<params id="pressure"><curve>0,0.2;1,1;</curve></params>]]></param></Preset>`)
+  const make=(name:string,definition:string,mode='normal',engine='paintbrush')=>pngText(pngText(thumbnail,'version','5.0'),'preset',`<Preset name="${name}" paintopid="${engine}"><param name="brush_definition"><![CDATA[${definition}]]></param><param name="CompositeOp">${mode}</param><param name="SizeUseCurve">true</param><param name="SizeUseSameCurve">false</param><param name="SizeSensor"><![CDATA[<params id="sensorslist"><ChildSensor id="pressure"><curve>0,0.2;1,1;</curve></ChildSensor><ChildSensor id="declination"><curve>0,0.5;1,1;</curve></ChildSensor></params>]]></param></Preset>`)
   const tip=Buffer.alloc(29+64*64,255)
   for(const [i,v] of [29,2,64,64,1,0x47494d50,25].entries())tip.writeUInt32BE(v,i*4)
   tip[28]=0
@@ -25,6 +25,7 @@ async function main() {
     {name:'Krita-QA.kpp',data:make('Krita QA Round','<Brush type="auto_brush" spacing="0.15"><MaskGenerator type="circle" ratio="1" hfade="1" vfade="1"/></Brush>'),label:'Krita QA Round'},
     {name:'Krita-QA.bundle',data:Buffer.from(zipSync({'paintoppresets/QA.kpp':make('Krita QA Linked','<Brush type="gbr_brush" filename="tip.gbr" spacing="0.2"/>'),'brushes/tip.gbr':tip})),label:'Krita QA Linked'},
     {name:'Krita-Erase.kpp',data:make('Krita QA Eraser','<Brush type="auto_brush" spacing="0.1"><MaskGenerator type="circle" ratio="1" hfade="1" vfade="1"/></Brush>','erase'),label:'Krita QA Eraser'},
+    {name:'Krita-Smudge.kpp',data:make('Krita QA Smudge','<Brush type="auto_brush" spacing="0.15"><MaskGenerator type="circle" ratio="1" hfade="1" vfade="1"/></Brush>','normal','colorsmudge'),label:'Krita QA Smudge'},
   ]
   const browser=await chromium.launch({args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']})
   const contexts=await Promise.all([0,1].map(()=>browser.newContext({baseURL:process.env.QA_URL??'http://127.0.0.1:5386'})))

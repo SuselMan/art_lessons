@@ -2,13 +2,15 @@
 import type { BrushDescriptor } from './brushes.js'
 
 export type BrushBlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'colorBurn' | 'linearBurn' | 'colorDodge' | 'add' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'color' | 'luminosity'
-export type BrushControl = 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection'
+export type BrushControl = 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection' | 'tiltElevation' | 'tiltX' | 'tiltY' | 'azimuth'
 export interface BrushDynamic {
   control: BrushControl
   jitter: number
   minimum: number
   /** Distance in brush diameters. */
   fade?: number
+  /** Normalized sensor transfer points, interpolated linearly. */
+  curve?: [number, number][]
   /** Signed influence; absent retains historical v2 dynamics. */
   strength?: number
 }
@@ -65,7 +67,7 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const s=value.scatter
   if (s !== undefined && (!obj(s) || !keys(s,['countJitter','bothAxes','roundnessJitter']) || !n(s.countJitter) || typeof s.bothAxes !== 'boolean' || (s.roundnessJitter !== undefined && !n(s.roundnessJitter)))) return false
   const d=value.dynamics
-  if (d !== undefined && (!obj(d) || !keys(d,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth']) || !Object.values(d).every(v => obj(v) && keys(v,['control','jitter','minimum','fade','strength']) && ['off','pressure','tilt','speed','fade','direction','initialDirection'].includes(String(v.control)) && n(v.jitter) && n(v.minimum) && (v.fade === undefined || n(v.fade,0.001,100000)) && (v.strength === undefined || n(v.strength,-1,1))))) return false
+  if (d !== undefined && (!obj(d) || !keys(d,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth']) || !Object.values(d).every(v => obj(v) && keys(v,['control','jitter','minimum','fade','strength','curve']) && ['off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth'].includes(String(v.control)) && n(v.jitter) && n(v.minimum) && (v.fade === undefined || n(v.fade,0.001,100000)) && (v.strength === undefined || n(v.strength,-1,1)) && (v.curve === undefined || (Array.isArray(v.curve) && v.curve.length >= 2 && v.curve.length <= 256 && v.curve.every((point, i, points) => Array.isArray(point) && point.length === 2 && n(point[0]) && n(point[1]) && (i === 0 || point[0] > (points[i-1] as number[])[0]))))))) return false
   const mod=value.modulations
   if (mod !== undefined && (!obj(mod) || !keys(mod,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth']) || !Object.values(mod).every(list => Array.isArray(list) && list.length <= 4 && list.every(v => isBrushBehavior({version:2,dynamics:{size:v}}))))) return false
   const g=value.grain
