@@ -294,8 +294,12 @@ links:
       именами полей из таблицы, но значениями unknown, и проверяет сам.
     messages:
       - { dir: '→', name: 'GET /api/me', type: 'Me' }
-      - { dir: '→', name: 'GET /api/brush-library', type: 'BrushLibrary', note: 'метаданные закрытого QA-каталога' }
+      - { dir: '→', name: 'GET /api/brush-library', type: 'BrushLibrary', note: 'личная библиотека и версии, доступные участнику доски' }
       - { dir: '→', name: 'GET /api/brush-library/assets/:hash', type: 'raw grayscale bytes', note: 'неизменяемый ресурс по SHA256, загрузка по требованию' }
+      - { dir: '→', name: 'POST /api/brush-library/imports', type: 'BrushImportJob', note: 'потоковая загрузка до512МиБ, ограниченная очередь конвертации' }
+      - { dir: '→', name: 'GET /api/brush-library/imports/:id', type: 'BrushImportJob', note: 'статус только владельцу задания' }
+      - { dir: '→', name: 'POST /api/rooms/:id/brush-library', type: 'BrushLibrary', note: 'закрепление неизменяемых версий и ресурсов перед штрихом' }
+      - { dir: '→', name: 'GET /api/rooms/:id/brush-library/export', type: 'portable JSON bytes', note: 'потоковый перенос точных версий вместе с ресурсами; ACL доски' }
       - { dir: '→', name: 'POST /api/me/environment', type: 'ClientEnvironment', runtime: 'сервер прогоняет тело через sanitizeClientEnvironment' }
       - { dir: '→', name: 'POST /api/me/room-open', type: 'RoomOpenMeasurement', runtime: 'parseRoomOpenMeasurement проверяет тело; один итог на попытку, хранение 90 дней' }
       - { dir: '→', name: 'POST /api/auth/code/request', type: 'RequestedLoginCode' }

@@ -55,7 +55,7 @@ export function BrushLibraryControls(): React.JSX.Element {
     {phase !== 'idle' && <div role="status">
       <p>{phase === 'uploading' ? `${t('brushLibrary.uploading')} ${Math.round(progress * 100)}%` : t('brushLibrary.converting')}</p>
       {phase === 'uploading' && <progress max={1} value={progress} />}
-      <button className={styles.button} onClick={() => { controller.current?.abort(); setPhase('idle') }}>{t('common.cancel')}</button>
+      <button className={styles.button} disabled={phase !== 'uploading'} onClick={() => { controller.current?.abort(); setPhase('idle') }}>{t('common.cancel')}</button>
     </div>}
     {result && <p role="status">{result}</p>}
     {error && <p role="alert">{error}</p>}

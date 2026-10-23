@@ -59,5 +59,3 @@ export async function loadBrushLibrary(directory?: string): Promise<{ manifest: 
   manifest.skipped = value.skipped
   return { manifest, assets }
 }
-
-export { registerBrushLibraryRoutes } from './routes.js'

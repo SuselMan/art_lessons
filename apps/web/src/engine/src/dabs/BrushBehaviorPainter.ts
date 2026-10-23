@@ -192,6 +192,7 @@ export class BrushBehaviorPainter {
         }
         const copy = scratch.brushCeilingCopy(tile.buffer)
         for (const item of list) {
+          gl.activeTexture(gl.TEXTURE7)
           ceiling.copyTo(copy)
           ceiling.beginReplaceDraw()
           gl.activeTexture(gl.TEXTURE5)
@@ -207,6 +208,7 @@ export class BrushBehaviorPainter {
       drawCeilings(tail.ready)
       if (tail.preview.length) {
         const preview = scratch.brushPreview(tile.buffer)
+        gl.activeTexture(gl.TEXTURE7)
         coverage.copyTo(preview.coverage)
         ceiling.copyTo(preview.ceiling)
         coverage = preview.coverage

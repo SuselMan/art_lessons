@@ -27,7 +27,7 @@ Pass all source packs in one invocation: `manifest.json` is replaced, not append
 
 Tips are centered in a transparent POT square, retaining original pixels until dimensions exceed 2048. Larger tips are proportionally resampled, with a warning. Grain is resampled to square POT; non-square grain may change aspect, reported as a warning. Alpha multiplies image luminance. ABR samples already encode positive coverage and are not inverted heuristically.
 
-Imported descriptors have `id: imported-<24 hexadecimal digits>`, version 1, `model: stamp`; the ID hashes source settings, all final rendering fields (including shape/grain content hashes), and the importer schema/version. Source file paths are not persisted. Preset identity/settings are immutable at runtime. A future importer which changes rendering must bump its import version/identity rule; it must not overwrite referenced resources.
+Imported descriptors have `id: imported-<24 hexadecimal digits>`, immutable preset version1 and importer behavior version2, `model: stamp` or `mixer`; the ID hashes source settings, all final rendering fields (including shape/grain content hashes), and the importer schema/version. Source file paths are not persisted. Preset identity/settings are immutable at runtime. A future importer which changes rendering must bump its import version/identity rule; it must not overwrite referenced resources.
 
 ## Fidelity and supported subset
 
@@ -41,7 +41,7 @@ Procreate: signed pressure curves, source spacing down to 1e-6, shape Rotation (
 
 The CLI also accepts `.grafetto-brushes.json`: `{library, assets: {"asset:<sha256>": "<base64 raw>"}}`. This keeps exact descriptor IDs. Envelope/counts/paths/dimensions/asset-reference/SHA256/decoded-size limits are checked before writes (360 MiB encoded, 256 MiB raw). Runtime **must still run the shared `isBrushLibrary` semantic guard** before serving/importing the resulting catalog; Python does not duplicate all TypeScript descriptor constraints. Extra payloads, nested dual components, duplicate IDs and corrupt raw bytes fail closed.
 
-ZIP expansion, nesting, record lengths, dimensions, channel counts and RLE rows are bounded. This is an offline trusted-owner tool, not an HTTP upload parser; runtime catalog validation remains mandatory.
+ZIP expansion, nesting, record lengths, dimensions, channel counts and RLE rows are bounded. The CLI is also invoked by the bounded server worker for uploads; runtime catalog validation remains mandatory before installation.
 
 Format references used for independent implementation: [ag-psd ABR reader](https://github.com/Agamnentzar/ag-psd/blob/master/src/abr.ts) (MIT), [Adobe shared descriptor structures](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/), [BrushBox byte-level research](https://github.com/Stef4678/brushbox/blob/main/docs/abr-format-spec.md). No GPL implementation was copied. Tests build synthetic inputs and contain no commercial source pixels.
 

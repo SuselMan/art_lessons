@@ -4,7 +4,8 @@ import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import Fastify from 'fastify'
 import { afterEach, describe, expect, it } from 'vitest'
-import { loadBrushLibrary, registerBrushLibraryRoutes } from './brushLibrary.js'
+import { loadBrushLibrary } from './brushLibrary.js'
+import { registerBrushLibraryRoutes } from './routes.js'
 
 const directories: string[] = []
 afterEach(async () => { await Promise.all(directories.splice(0).map(d => rm(d, { recursive: true, force: true }))) })
