@@ -22,6 +22,7 @@ async function fixture() {
 describe('read-only brush library', () => {
   it('returns an empty catalog when no directory is configured', async () => {
     const app = Fastify()
+    app.addHook('onRequest', async request => { request.userId = 'test-user' })
     try {
       await registerBrushLibraryRoutes(app, '')
       expect((await app.inject('/api/brush-library')).json()).toEqual({ schemaVersion: 1, brushes: [], assets: [], skipped: [] })
@@ -31,6 +32,7 @@ describe('read-only brush library', () => {
   it('serves verified immutable binary assets and does not reread changed files', async () => {
     const f = await fixture()
     const app = Fastify()
+    app.addHook('onRequest', async request => { request.userId = 'test-user' })
     try {
       await registerBrushLibraryRoutes(app, f.directory)
       expect((await app.inject('/api/brush-library')).json()).toEqual(f.manifest)
