@@ -83,7 +83,7 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
       } catch { job.status='failed';job.error='Import failed: unsupported, damaged, oversized, or incompatible brush file' }
       finally { storage.atomic(storage.path('jobs',id),{owner,job}); await rm(work,{recursive:true,force:true}); jobs.delete(id) }
     })
-    drainTask=drain()
+    if(!running) drainTask=drain()
     return reply.code(202).send({...job})
   })
   apiRoute(app,'GET /api/brush-library/imports/:id',async(request,reply)=> {
