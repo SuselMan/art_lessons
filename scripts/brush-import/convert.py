@@ -317,9 +317,15 @@ def procreate_component(z,names,prefix,catalog,notes):
         notes.append(compatibility('grain','Movement, zoom, depth and contrast retained; Procreate numeric blend-mode enum is undocumented, multiply used.'))
     behavior['rendering']={'mode':'intenseBlend' if settings.get('renderingRecursiveMixing') else 'uniformBlend' if settings.get('renderingMaxTransfer') else 'lightGlaze','blendMode':'normal','wetEdges':clamp(settings.get('wetEdgesAmount')),'burntEdges':clamp(settings.get('burntEdgesAmount')),'burntEdgesMode':'multiply'}
     wet={'dilution':'dynamicsMix','charge':'dynamicsLoad','attack':'dynamicsAttack','pull':'dynamicsWetAccumulation','grade':'dynamicsGradation','blur':'dynamicsBlur','blurJitter':'dynamicsBlurJitter','wetnessJitter':'dynamicsWetnessJitter'}
-    if any(number(settings.get(k)) for k in wet.values()):
+    if any(number(settings.get(k)) for k in wet.values()) or settings.get('renderingRecursiveMixing'):
         behavior['wetMix']={k:clamp(settings.get(v)) for k,v in wet.items()}
-        notes.append(compatibility('wetMix','Wet mixing parameters retained; pigment simulation and archive-to-handbook naming require reference strokes.'))
+        # Wet parameters execute only in the mixer path. Even dilution/charge-only
+        # presets need that path; retaining inert wetMix on stamp loses behavior.
+        d['model']='mixer'
+        d['mixer']={'load':clamp(settings.get('dynamicsLoad',1)),
+            'pickup':clamp(settings.get('dynamicsWetAccumulation')),
+            'strength':clamp(settings.get('dynamicsAttack',1))}
+        notes.append(compatibility('wetMix','Active wet mix or recursive blending selects Grafetto mixer. Charge/pull/attack are approximated as load/pickup/strength; pigment formulas and rendering-mode transfer require reference strokes.'))
     behavior['taper']={'start':clamp(settings.get('pencilTaperStartLength')),'end':clamp(settings.get('pencilTaperEndLength')),'size':clamp(settings.get('pencilTaperSize')),'opacity':clamp(settings.get('pencilTaperOpacity')),'pressure':True}
     notes.append(compatibility('spacing','Small source spacing retained; runtime enforces a pixel budget and archive spacing scale is not fully documented.'))
     notes.append(compatibility('rendering','Rendering modes, edge effects and taper use Grafetto algorithms, not Procreate formulas.'))
@@ -347,7 +353,7 @@ def procreate(path,catalog):
                     try:
                         child,childraw,_,cw=procreate_component(z,names,children[0][:-len('Brush.archive')],catalog,notes)
                         d['behavior']['dual']={'brush':finalize_identity(child,childraw),'blendMode':'multiply'};warnings.extend(cw)
-                        notes.append(compatibility('dual','Secondary settings retained; undocumented blend enum approximated as multiply.'))
+                        notes.append(compatibility('dual','Secondary is a mask-only approximation: independent spacing, scatter/count, dynamics, moving grain, rendering and Wet Mix are not simulated as a second stroke; undocumented blend enum approximated as multiply.'))
                     except ValueError as e: notes.append(compatibility('dual',str(e),'unsupported'))
                     if len(children)>1: notes.append(compatibility('dualDepth','Only one secondary component supported.','unsupported'))
                 warnings.extend(n['feature']+': '+n['detail'] for n in notes if n['status']!='supported')
