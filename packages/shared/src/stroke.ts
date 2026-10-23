@@ -97,6 +97,8 @@ export type StrokeOperation = OperationBase & {
    *  Absent on strokes recorded before this existed; they replay as they
    *  always did, each chunk standing alone. */
   strokeId?: string
+  /** Explicit pen-up for v2 brush tail effects across chunk operations. */
+  strokeEnd?: true
   /** (#468 v7) Which *wash* this stroke belongs to — watercolor only.
    *
    *  A wash is several strokes laid in quick succession with the same paint on
