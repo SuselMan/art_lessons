@@ -1,3 +1,4 @@
+import { readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'vite'
@@ -99,6 +100,17 @@ const pwa = VitePWA({
   devOptions: { enabled: false },
 })
 
+/** (#584) Every baked help page as its own build input — the hub plus one
+ *  folder per article, written by `npm run bake:help` and committed. */
+function helpPages(): Record<string, string> {
+  const dir = fileURLToPath(new URL('./help/', import.meta.url))
+  const pages: Record<string, string> = { help: `${dir}index.html` }
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory() && entry.name !== 'content') pages[`help-${entry.name}`] = `${dir}${entry.name}/index.html`
+  }
+  return pages
+}
+
 /** Shared by the dev server and `preview`: both have to reach the same local
  *  backend, and a copy would be one more thing to keep in step. */
 function apiProxy() {
@@ -122,6 +134,7 @@ export default defineConfig(({ mode }) => {
         input: {
           main: fileURLToPath(new URL('./index.html', import.meta.url)),
           landing: fileURLToPath(new URL('./landing/index.html', import.meta.url)),
+          ...helpPages(),
         },
       },
     },

@@ -1,0 +1,142 @@
+/* (#584) The help pages. Palette, type, header and footer are the landing's
+   (landing/theme.css); this file is only the reading layout — a topic list on
+   the left, one article of comfortable measure on the right. */
+@import '../landing/theme.css';
+
+.help-home {
+  color: var(--dim);
+  text-decoration: none;
+  font-size: 14px;
+  padding-left: 16px;
+  border-left: 1px solid var(--border);
+}
+.help-home:hover { color: var(--bright); }
+
+.help {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 56px;
+  max-width: calc(var(--wide) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 40px var(--gutter) 96px;
+}
+@media (max-width: 900px) {
+  .help { grid-template-columns: 1fr; gap: 32px; padding-top: 24px; }
+  .help-nav { order: 2; border-top: 1px solid var(--border); padding-top: 24px; }
+}
+
+/* Topic list */
+.help-nav { font-size: 14px; }
+.help-nav h2 {
+  margin: 24px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--dim);
+}
+.help-nav h2:first-child { margin-top: 0; }
+.help-nav ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.help-nav a {
+  display: block;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  line-height: 1.35;
+}
+.help-nav a:hover { background: var(--card); color: var(--bright); }
+.help-nav a[aria-current="page"] { background: var(--card); color: var(--bright); box-shadow: inset 2px 0 0 var(--accent); }
+
+/* Article */
+.help-main { min-width: 0; }
+.prose { max-width: 680px; font-size: 16px; line-height: 1.65; }
+.prose .crumb { color: var(--dim); font-size: 14px; margin-bottom: 8px; }
+.prose h1 { font-size: 40px; line-height: 1.08; letter-spacing: -0.03em; margin-bottom: 20px; }
+.prose h2 { font-size: 24px; line-height: 1.2; letter-spacing: -0.015em; margin: 44px 0 12px; }
+.prose h3 { font-size: 17px; margin: 28px 0 8px; }
+.prose p, .prose ul, .prose ol, .prose table, .prose blockquote { margin: 0 0 16px; }
+.prose ul, .prose ol { padding-left: 22px; }
+.prose li { margin: 4px 0; }
+.prose li::marker { color: var(--dim); }
+.prose a { color: var(--bright); text-decoration-color: var(--accent-soft); text-underline-offset: 3px; }
+.prose a:hover { text-decoration-color: currentColor; }
+.prose strong { color: var(--bright); font-weight: 600; }
+.prose code { font-size: 0.9em; background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; }
+.prose hr { border: 0; border-top: 1px solid var(--border); margin: 40px 0; }
+@media (max-width: 560px) { .prose h1 { font-size: 30px; } .prose h2 { font-size: 21px; } }
+
+/* "Good to know" boxes: a blockquote in the Markdown. */
+.prose blockquote {
+  padding: 14px 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  color: var(--text);
+}
+.prose blockquote p:last-child { margin-bottom: 0; }
+
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--bright);
+  font: 500 13px/1.5 var(--sans);
+  text-align: center;
+}
+.plus { color: var(--dim); padding: 0 3px; font-size: 13px; }
+
+.prose table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.prose th { text-align: left; font-weight: 600; color: var(--dim); font-size: 13px; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--border); }
+.prose td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+.prose table.keys td:nth-child(n+2) { white-space: nowrap; }
+@media (max-width: 560px) { .prose table { display: block; overflow-x: auto; } }
+
+/* Previous / next */
+.pager {
+  max-width: 680px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 56px;
+}
+.pager a {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--bright);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 15px;
+}
+.pager a:hover { border-color: var(--dim); }
+.pager span { color: var(--dim); font-weight: 400; font-size: 13px; }
+.pager-next { text-align: right; grid-column: 2; }
+
+/* The hub */
+.hub h1 { font-size: 44px; line-height: 1.05; letter-spacing: -0.03em; }
+.hub-lede { color: var(--dim); font-size: 17px; margin: 14px 0 40px; max-width: 560px; }
+.hub-section { margin-bottom: 40px; }
+.hub-section h2 { font-size: 20px; margin-bottom: 14px; }
+.hub-section ul {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+}
+.hub-section a {
+  display: grid; gap: 4px; height: 100%;
+  padding: 16px 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+}
+.hub-section a:hover { border-color: var(--dim); }
+.hub-section strong { color: var(--bright); font-weight: 600; font-size: 15px; }
+.hub-section span { color: var(--dim); font-size: 14px; line-height: 1.45; }
+@media (max-width: 700px) { .hub-section ul { grid-template-columns: 1fr; } .hub h1 { font-size: 32px; } }
