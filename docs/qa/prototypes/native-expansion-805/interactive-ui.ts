@@ -20,7 +20,7 @@ let worker:Worker|null=null,runtime:any=null,canvas:HTMLCanvasElement,generation
 const results:any[]=[],clickHistory:any[]=[],acceptedEvents:any[]=[],processedEvents:any[]=[]
 let heartbeat={count:0,maxGapMs:0,over50:0,last:0},input={down:0,move:0,up:0,lastLagMs:0,maxLagMs:0,lastProcessed:0},failure=''
 type Average805={n:number,ms:number,rafN:number,rafMs:number,rafMax:number}
-const averageKey='watercolor-path-averages-v5'+(brushModel.value==='ribbon-v1'?':ribbon-v1':'');
+const averageKey='watercolor-path-averages-v5'+(brushModel.value==='ribbon-v1'?':fixed-footprint-v4':'');
 function geometrySlot(row?:any){if(row?.nativeTiles){const t=row.nativeTiles;return ':'+t.width+'x'+t.height+':'+(t.enabled?'tiled':'whole')+':'+t.size}if(experiment.value!=='tiles')return '';return ':'+el<HTMLSelectElement>('tileSheet').value.replace(',','x')+':'+(el<HTMLSelectElement>('tileMode').value==='exchange'?'tiled':'whole')+':'+el<HTMLSelectElement>('tileSize').value}
 let averages:Record<string,Average805>={}
 try{const saved=JSON.parse(sessionStorage.getItem(averageKey)||'{}');for(const [key,v]of Object.entries(saved)){const a=v as Average805;if(/^(worker|main):(original|smooth|paths2|transport2|rim2|combined|rim4|combined4|mixsafe|combosafe|mask|combomask):(on|off)(?::[0-9]+x[0-9]+:(tiled|whole):[0-9]+)?$/.test(key)&&['n','ms','rafN','rafMs','rafMax'].every(k=>Number.isFinite((a as any)[k])&&(a as any)[k]>=0))averages[key]=a}}catch{}

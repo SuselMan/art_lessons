@@ -52,3 +52,20 @@ The entry is a sampled ellipse-like width ramp from zero to full contact, not
 a flat cross-section or a full-sized round stamp. Body hair contrast is0.45
 instead of0.22, with the same average optical dose. verify-turns captures a held
 stroke and asserts release state is false before pen-up and true afterward.
+
+## Fixed footprint stream, 23.10 next experiment
+
+Active revision is now fixed-footprint-v4. The old geometry.ts is retained as
+source history for the preceding experiment, not used by the current painter.
+FootprintStream805 emits only new analytically rounded elliptical footprints,
+at a fixed distance spacing with phase carried across input batches. Angle and
+aspect are fixed on first contact; size may respond to pressure. Old footprint
+vertices are never regenerated. One gesture's mass film persists and new deposits
+blend into it; GPU water/coverage use MAX. No pre-gesture water/coverage copies
+or full-gesture clear/redraw are needed. Only the new batch rectangle is combined
+and displayed. Film RGB is derived from mass and the gesture pigment once in
+the combine pass, avoiding repeated 8-bit optical-color rounding per stamp.
+The old pen-up lift remains; there is no synthetic moving tail or head taper.
+Tests compare a painted prefix screenshot byte-for-byte while the pen continues
+farther away, and compare emitted geometry across different event batches.
+This is a QA prototype, not a room/replay integration or a hardware performance claim.
