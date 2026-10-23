@@ -36,7 +36,7 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
   let running=false
   async function drain(): Promise<void> {
     if (running) return; running=true
-    try { while(queue.length) await queue.shift()!() } finally { running=false }
+    try { while(queue.length) {try {await queue.shift()!()} catch(error) {app.log.error({err:error},'Brush import job persistence failed')}} } finally { running=false }
   }
   const catalog=(owner:string,room?:string)=>merge(operator.manifest,storage.library('owners',owner),room ? storage.library('rooms',room) : empty())
   apiRoute(app,'GET /api/brush-library',async(request,reply)=> {
@@ -84,8 +84,9 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
     } catch { jobs.delete(id);await rm(work,{recursive:true,force:true});return reply.code(413).send({error:'Empty or oversized brush upload'}) }
     storage.atomic(storage.path('jobs',id),{owner,job})
     queue.push(async()=> {
-      job.status='running'; storage.atomic(storage.path('jobs',id),{owner,job})
+      job.status='running'
       try {
+        storage.atomic(storage.path('jobs',id),{owner,job})
         if(closing) throw Error('Import interrupted')
         await mkdir(output,{mode:0o700})
         await new Promise<void>((resolveJob,reject)=> {
@@ -101,7 +102,10 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
         storage.install(owner,converted.manifest,converted.assets)
         job.status='complete'; job.library=converted.manifest
       } catch { job.status='failed';job.error='Import failed: unsupported, damaged, oversized, or incompatible brush file' }
-      finally { storage.atomic(storage.path('jobs',id),{owner,job}); await rm(work,{recursive:true,force:true}); jobs.delete(id) }
+      finally {
+        try {storage.atomic(storage.path('jobs',id),{owner,job})}
+        finally {await rm(work,{recursive:true,force:true});jobs.delete(id)}
+      }
     })
     if(!running) drainTask=drain()
     return reply.code(202).send({...job})
@@ -119,7 +123,7 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
     const presets=request.body?.presets
     if(!Array.isArray(presets)||presets.length>512||!presets.every(p=>typeof p==='string'&&p.length<200)) return reply.code(400).send({error:'Invalid brush references'})
     try { storage.pin(request.params.id,request.userId,presets,operator.manifest) } catch { return reply.code(400).send({error:'Brush unavailable'}) }
-    return {ok:true}
+    return {ok:true as const}
   })
   apiRoute(app,'GET /api/rooms/:id/brush-library/export',async(request,reply)=> {
     if(!await mayReadBoardContent(request.params.id,request.userId)) return reply.code(403).send({error:'forbidden'})
@@ -133,6 +137,6 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
       }
       yield '}}'
     }
-    return reply.type('application/json').header('Content-Disposition','attachment; filename="room.grafetto-brushes.json"').send(Readable.from(bundle()) as never)
+    return reply.type('application/json').header('Content-Disposition','attachment; filename="room.grafetto-brushes.json"').send(Readable.from(bundle()))
   })
 }
