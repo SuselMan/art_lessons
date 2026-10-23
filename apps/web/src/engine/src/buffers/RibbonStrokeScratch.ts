@@ -633,6 +633,13 @@ export class RibbonStrokeScratch {
     return { coverage: entry.inkSettled, ceiling: entry.colorSettled }
   }
 
+  /** Slow WebGL1 fallback when EXT_blend_minmax is unavailable. */
+  brushCeilingCopy(tile: AccumulationBuffer): AccumulationBuffer {
+    const entry = this.getOrCreate(tile)
+    if (!entry.inkColor) entry.inkColor = this.pool.acquire(tile.width, tile.height)
+    return entry.inkColor
+  }
+
   /** Bounded diagnostic solvent state: one loaded-contact film is V=1;
    * RGBA8 stores V/4. MAX within the gesture, additive/capped between films. */
   solventFilm(tile: AccumulationBuffer): { load: AccumulationBuffer; base: AccumulationBuffer; film: AccumulationBuffer } {

@@ -10,7 +10,7 @@ import { DAB_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 import type { BrushContext, BrushScratch } from './BrushPainter'
 
-export interface BehaviorScratch extends BrushScratch { brushBehavior?: BrushBehaviorState; brushCeiling(tile: AccumulationBuffer): AccumulationBuffer; brushPreview(tile: AccumulationBuffer): {coverage: AccumulationBuffer; ceiling: AccumulationBuffer} }
+export interface BehaviorScratch extends BrushScratch { brushBehavior?: BrushBehaviorState; brushCeiling(tile: AccumulationBuffer): AccumulationBuffer; brushCeilingCopy(tile: AccumulationBuffer): AccumulationBuffer; brushPreview(tile: AccumulationBuffer): {coverage: AccumulationBuffer; ceiling: AccumulationBuffer} }
 const modes = ['lightGlaze','uniformGlaze','intenseGlaze','heavyGlaze','uniformBlend','intenseBlend','buildUp']
 const clamp = (v: number, lo=0, hi=1): number => Math.max(lo,Math.min(hi,v))
 const blend = (name: string | undefined): number => Math.max(0,BRUSH_BLEND_MODES.indexOf(name as typeof BRUSH_BLEND_MODES[number]))
@@ -31,8 +31,8 @@ export class BrushBehaviorPainter {
   this.minmax=gl.getExtension('EXT_blend_minmax') as {MAX_EXT:number}|null
   this.stamp=createProgram(gl,DAB_VERT,BRUSH_V2_STAMP_FRAG)
   this.composite=createProgram(gl,DAB_VERT,BRUSH_V2_COMPOSITE_FRAG)
-  this.su=getUniforms(gl,this.stamp,['u_ceilingPass','u_dabCenter','u_dabRadius','u_angle','u_aspectRatio','u_resolution','u_opacity','u_paperHeightMap','u_tip','u_paperScale','u_paperOrigin','u_paperTexSize','u_tipKind','u_hardness','u_aaPx','u_ceiling','u_paper','u_paperPressure','u_texture','u_texStrength','u_texPeriod','u_texOrigin','u_color','u_flip','u_grainTransform','u_grainTone','u_grainBlend','u_dual','u_dualKind','u_dualBlend','u_dualTransform','u_dualHardness','u_dualStrength','u_dualTexture','u_dualTexOrigin','u_dualTexPeriod','u_dualTexStrength'])
-  this.cu=getUniforms(gl,this.composite,['u_dabCenter','u_dabRadius','u_angle','u_aspectRatio','u_resolution','u_original','u_strokeCoverage','u_ceiling','u_useCeiling','u_opacity','u_blend','u_mode','u_wetEdge','u_burntEdge','u_burntBlend','u_edgePx','u_luminance'])
+  this.su=getUniforms(gl,this.stamp,['u_ceilingPass','u_ceilingFallback','u_previousCeiling','u_dabCenter','u_dabRadius','u_angle','u_aspectRatio','u_resolution','u_opacity','u_paperHeightMap','u_tip','u_paperScale','u_paperOrigin','u_paperTexSize','u_tipKind','u_hardness','u_aaPx','u_ceiling','u_paper','u_paperPressure','u_texture','u_texStrength','u_texPeriod','u_texOrigin','u_color','u_flip','u_grainTransform','u_grainTone','u_grainBlend','u_dual','u_dualKind','u_dualBlend','u_dualTransform','u_dualHardness','u_dualStrength','u_dualTexture','u_dualTexOrigin','u_dualTexPeriod','u_dualTexStrength'])
+  this.cu=getUniforms(gl,this.composite,['u_dabCenter','u_dabRadius','u_angle','u_aspectRatio','u_resolution','u_original','u_strokeCoverage','u_ceiling','u_opacity','u_blend','u_mode','u_wetEdge','u_burntEdge','u_burntBlend','u_edgePx','u_luminance'])
   this.sp=gl.getAttribLocation(this.stamp,'a_position'); this.cp=gl.getAttribLocation(this.composite,'a_position')
  }
  finish(scratch:BehaviorScratch):void {const b=this.bindings.get(scratch);if(b)this.paint(b.target,[],b.preset,b.brush,b.pressure,b.color,scratch,true)}
@@ -80,7 +80,7 @@ export class BrushBehaviorPainter {
    gl.uniform2f(u.u_resolution,coverage.width,coverage.height)
    const world=paper.worldSize()
    gl.uniform2f(u.u_paperTexSize,world.w,world.h);gl.uniform2f(u.u_paperScale,paper.scale,paper.scale);gl.uniform2f(u.u_paperOrigin,tile.originX,-tile.originY||0)
-   for(const [unit,tex,name] of [[0,paper.texture,'u_paperHeightMap'],[1,mask,'u_tip'],[2,texture,'u_texture'],[3,dualMask,'u_dual'],[4,dualTexture,'u_dualTexture']] as const) {gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,tex);gl.uniform1i(u[name],unit)}
+   for(const [unit,tex,name] of [[0,paper.texture,'u_paperHeightMap'],[1,mask,'u_tip'],[2,texture,'u_texture'],[3,dualMask,'u_dual'],[4,dualTexture,'u_dualTexture'],[5,paper.texture,'u_previousCeiling']] as const) {gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,tex);gl.uniform1i(u[name],unit)}
    gl.uniform1f(u.u_tipKind,brush.tip.kind==='bitmap'?1:0);gl.uniform1f(u.u_hardness,brush.tip.hardness);gl.uniform1f(u.u_aaPx,1);gl.uniform1f(u.u_paper,brush.paperInteraction)
    gl.uniform1f(u.u_texPeriod,period);gl.uniform2f(u.u_texOrigin,wrap(tile.originX),wrap(tile.originY))
    gl.uniform2f(u.u_grainTone,g?.brightness??0,g?.contrast??0);gl.uniform1f(u.u_grainBlend,g ? blend(g.blendMode) : 1)
@@ -89,7 +89,8 @@ export class BrushBehaviorPainter {
    gl.uniform2f(u.u_dualTexOrigin,((tile.originX%dualPeriod)+dualPeriod)%dualPeriod,((tile.originY%dualPeriod)+dualPeriod)%dualPeriod)
    gl.uniform1f(u.u_dualKind,secondary ? secondary.tip.kind==='bitmap'?2:1 : 0);gl.uniform1f(u.u_dualBlend,blend(behavior.dual?.blendMode))
    gl.bindBuffer(gl.ARRAY_BUFFER,this.ctx.quadBuf());gl.enableVertexAttribArray(this.sp);gl.vertexAttribPointer(this.sp,2,gl.FLOAT,false,0,0)
-   const drawStamps=(list:BehaviorPlaced[],ceilingPass:boolean):void=>{
+   const drawStamps=(list:BehaviorPlaced[],ceilingPass:boolean, fallback=false):void=>{
+   gl.uniform1f(u.u_ceilingFallback,fallback?1:0)
    gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,dualMask)
    gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,dualTexture)
    gl.uniform1f(u.u_ceilingPass,ceilingPass?1:0)
@@ -111,20 +112,29 @@ export class BrushBehaviorPainter {
     gl.drawArrays(gl.TRIANGLES,0,6)
    }
    }
+   const drawCeilings=(list:BehaviorPlaced[]):void=>{
+    if(this.minmax) {ceiling.beginMaxDraw(this.minmax);drawStamps(list,true);ceiling.endDraw();return}
+    const copy=scratch.brushCeilingCopy(tile.buffer)
+    for(const item of list) {
+      ceiling.copyTo(copy);ceiling.beginReplaceDraw()
+      gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,copy.texture)
+      drawStamps([item],true,true);ceiling.endDraw()
+    }
+    gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,paper.texture)
+   }
    drawStamps(tail.ready,false);coverage.endDraw()
-   if(this.minmax) {ceiling.beginMaxDraw(this.minmax);drawStamps(tail.ready,true);ceiling.endDraw()}
+   drawCeilings(tail.ready)
    if(tail.preview.length) {
     const preview=scratch.brushPreview(tile.buffer)
     coverage.copyTo(preview.coverage);ceiling.copyTo(preview.ceiling)
     coverage=preview.coverage;ceiling=preview.ceiling
     coverage.beginDraw();drawStamps(tail.preview,false);coverage.endDraw()
-    if(this.minmax) {ceiling.beginMaxDraw(this.minmax);drawStamps(tail.preview,true);ceiling.endDraw()}
+    drawCeilings(tail.preview)
    }
    tile.buffer.beginReplaceDraw();gl.useProgram(this.composite)
    const c=this.cu,render=behavior.rendering
    gl.uniform2f(c.u_resolution,tile.buffer.width,tile.buffer.height)
    for(const [unit,tex,name] of [[0,original.texture,'u_original'],[1,coverage.texture,'u_strokeCoverage'],[2,ceiling.texture,'u_ceiling']] as const) {gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,tex);gl.uniform1i(c[name],unit)}
-   gl.uniform1f(c.u_useCeiling,this.minmax?1:0)
    gl.uniform1f(c.u_opacity,state.opacity);gl.uniform1f(c.u_mode,render ? modes.indexOf(render.mode) : 6);gl.uniform1f(c.u_blend,blend(render?.blendMode));gl.uniform1f(c.u_wetEdge,render?.wetEdges??0);gl.uniform1f(c.u_burntEdge,render?.burntEdges??0);gl.uniform1f(c.u_burntBlend,blend(render?.burntEdgesMode));gl.uniform1f(c.u_edgePx,edge);gl.uniform1f(c.u_luminance,render?.luminance?1:0)
    const cx=(bounds.minX+bounds.maxX)*0.5,cy=(bounds.minY+bounds.maxY)*0.5
    gl.bindBuffer(gl.ARRAY_BUFFER,this.ctx.quadBuf());gl.enableVertexAttribArray(this.cp);gl.vertexAttribPointer(this.cp,2,gl.FLOAT,false,0,0)
