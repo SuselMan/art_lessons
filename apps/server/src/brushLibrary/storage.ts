@@ -30,7 +30,7 @@ export function merge(...libraries: BrushLibrary[]): BrushLibrary {
     for (const asset of library.assets) if (!result.assets.some(a => a.id === asset.id)) result.assets.push(asset)
     result.skipped.push(...library.skipped)
   }
-  if (!isBrushLibrary(result)) throw Error('Library quota exceeded')
+  if (!isBrushLibrary(result, {maxBytes:512*1024*1024,maxBrushes:1024,maxAssets:2048})) throw Error('Visible brush library quota exceeded')
   return result
 }
 export class BrushStorage {
@@ -95,7 +95,7 @@ export class BrushStorage {
       this.ensureCapacity([...assets.values()].reduce((sum,bytes)=>sum+bytes.length,0))
       const next=merge(this.library('owners',owner),library)
       const total=next.assets.reduce((sum,a)=>sum+a.size*a.size,0)
-      if (total>512*1024*1024) throw Error('Brush storage quota exceeded')
+      if (total>256*1024*1024 || !isBrushLibrary(next)) throw Error('Personal brush library quota exceeded (256 MiB / 512 brushes)')
       for (const [hash,bytes] of assets) {
         if (keyBytes(bytes)!==hash) throw Error('Corrupt brush asset')
         const path=join(this.root,'assets',hash+'.bin')
@@ -129,10 +129,16 @@ export class BrushStorage {
       const serialized=JSON.stringify(selected.brushes)
       selected.assets=available.assets.filter(a=>serialized.includes(a.id))
       for(const a of selected.assets) this.asset(a.id.slice(6),a.size)
-      this.atomic(this.path('rooms',room),merge(current,selected))
+      const next=merge(current,selected)
+      if(!isBrushLibrary(next)) throw Error('Room brush library quota exceeded (256 MiB / 512 brushes)')
+      this.atomic(this.path('rooms',room),next)
     })
   }
-  copy(source: string, target: string): void { this.mutate(()=>this.atomic(this.path('rooms',target),this.library('rooms',source))) }
+  copy(source: string, target: string): void { this.mutate(()=>{
+    const library=this.library('rooms',source)
+    if(!isBrushLibrary(library)) throw Error('Invalid source room brush library')
+    this.atomic(this.path('rooms',target),library)
+  }) }
 }
 function keyBytes(bytes: Buffer): string { return createHash('sha256').update(bytes).digest('hex') }
 let active: BrushStorage | undefined

@@ -22,7 +22,7 @@ One conversion worker, four queued uploads, one pending job per owner, 512 MiB s
 120 s wall time, 110 s CPU, 1 GiB address space, 512 MiB file size; Linux `prlimit` is
 required. Set `GRAFETTO_BRUSH_IMPORT_PYTHON` to the Python/Pillow executable. Converter
 output is validated before installation (2 MiB manifest, 256 MiB textures); an owner's
-combined assets cannot exceed 512 MiB or the shared library count limits. Input/output
+combined assets cannot exceed 256 MiB or the shared library count limits. Input/output
 temporary files are removed on completion. Per-owner job metadata is limited to 32 jobs,
 256 globally, expiring after 24 hours; the global disk budget defaults to 4 GiB
 (`GRAFETTO_BRUSH_STORAGE_QUOTA_BYTES`), checked before uploads and CAS installation. Persisted queued/running jobs from an older
