@@ -146,7 +146,7 @@ export interface RibbonProfile {
    *  On the profile rather than parsed from the preset string at every call
    *  site: the profile is already built from that string once per batch, and a
    *  second parser somewhere else is a second place for the format to drift. */
-  materialModel?: 'legacy' | 'front8-v1'
+  materialModel?: 'legacy' | 'front8-v1' | 'front8-v2'
   waterLevel: number
   /** #468 v4 — the stroke's own pigment level, 0..1. Same story. */
   pigmentLevel: number

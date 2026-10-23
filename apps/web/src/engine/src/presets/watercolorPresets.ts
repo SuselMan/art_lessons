@@ -1630,17 +1630,20 @@ export function watercolorPresetString(
 }
 
 /** The sixth field versions the material solver in both the log and live packets. */
-export function watercolorModelFromPreset(presetName: string | undefined): 'legacy' | 'front8-v1' {
+export type WatercolorModel = 'legacy' | 'front8-v1' | 'front8-v2'
+
+export function watercolorModelFromPreset(presetName: string | undefined): WatercolorModel {
   const model = presetName?.split(':')[5]
   if (model === 'wc@front8-v1') return 'front8-v1'
+  if (model === 'wc@front8-v2') return 'front8-v2'
   if (model?.startsWith('wc@')) throw new Error(`Unsupported watercolor model: ${model}`)
   return 'legacy'
 }
 
-export function withWatercolorModel(presetName: string, model: 'legacy' | 'front8-v1'): string {
+export function withWatercolorModel(presetName: string, model: WatercolorModel): string {
   if (model === 'legacy') return presetName
   return watercolorPresetString(watercolorResponseFromPreset(presetName), watercolorMixFromPreset(presetName),
-    watercolorPigmentFromPreset(presetName), watercolorNibFromPreset(presetName)) + ':wc@front8-v1'
+    watercolorPigmentFromPreset(presetName), watercolorNibFromPreset(presetName)) + `:wc@${model}`
 }
 
 /** (#468 v5) Which paint the stroke was made with — the Colour Index code, the
@@ -1681,7 +1684,8 @@ export function watercolorWashSignature(_presetName: string | undefined, _color:
   // properties - granulation, staining - are still the wash's scalars from
   // its first paint; a mixture takes them from whichever paint opened the
   // wash. Recorded debt (§17.9): the honest form is mass-weighted moments.
-  return watercolorModelFromPreset(_presetName) === 'front8-v1' ? 'wc:front8-v1' : 'wc'
+  const model = watercolorModelFromPreset(_presetName)
+  return model === 'legacy' ? 'wc' : `wc:${model}`
 }
 
 export function watercolorMixFromPreset(presetName: string | undefined): WatercolorMix {

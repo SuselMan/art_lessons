@@ -252,7 +252,7 @@ export interface PencilEngineOptions {
   /** DEV-only combined WebGL1 candidate for manual A/B review. */
   watercolorReview?: boolean
   /** Model stamped into new watercolor presets; replay follows the recorded marker. */
-  watercolorModel?: 'legacy' | 'front8-v1'
+  watercolorModel?: 'legacy' | 'front8-v1' | 'front8-v2'
   /** DEV review: reserve GPU continuations for pen-up intervals. */
   reviewInputPriority?: boolean
   /** DEV diagnostic: expose intermediate physical reveal before canonical completion. */
@@ -1635,7 +1635,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _wetTex: WebGLTexture | null = null
   private _wetTexSize: [number, number] = [0, 0]
   private _watercolorReview = false
-  private _watercolorModel: 'legacy' | 'front8-v1' = 'legacy'
+  private _watercolorModel: 'legacy' | 'front8-v1' | 'front8-v2' = 'legacy'
   private _wcDryWorkScheduler: WatercolorWorkScheduler | null = null
   private readonly _wcDryTickets = new Map<string, number>()
   private _reviewInputPriority = false
@@ -2277,7 +2277,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._diagLog = options.diagLog ?? (() => {})
     this._infinite = options.infinite ?? false
     this._wcGradientFibres = options.gradientFibres ?? false
-    if (this._watercolorModel === 'front8-v1' && this._wcAsyncFinish) {
+    if (this._watercolorModel !== 'legacy' && this._wcAsyncFinish) {
       this._wcDryWorkScheduler = new WatercolorWorkScheduler({
         canRunTasks: () => !this._strokeLayerId && !this._contextLost && !this.gl.isContextLost(),
         failed: error => { this._wcAsyncError = error; this._wcCanonical.cancel(false); this._cancelSettle() },

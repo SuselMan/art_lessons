@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { createTestEngine } from './testing/engineTestUtils'
 
 describe('room paper_dry acceptance', () => {
-  it('starts the Dry scheduler before earlier canonical work, and stops at the ordered Dry entry', () => {
-    const { engine } = createTestEngine({ watercolorModel: 'front8-v1', asyncFinish: true, materialPresentation: true })
+  it.each(['front8-v1', 'front8-v2'] as const)('%s starts the Dry scheduler before earlier canonical work, and stops at the ordered Dry entry', (model) => {
+    const { engine } = createTestEngine({ watercolorModel: model, asyncFinish: true, materialPresentation: true })
     const scheduler = engine['_wcDryWorkScheduler']!, fifo = engine['_wcCanonical']
     const start = vi.spyOn(scheduler, 'start'), stop = vi.spyOn(scheduler, 'stop')
     const order: string[] = []
