@@ -97,7 +97,7 @@ class ReaderTests(unittest.TestCase):
         original=convert.finalize_identity(convert.descriptor(seed,'asset:test'),seed)
         changed=convert.descriptor(seed,'asset:test');changed['spacing']=0.25
         self.assertNotEqual(original['id'],convert.finalize_identity(changed,seed)['id'])
-        with patch.object(convert,'IMPORTER_RENDERING_VERSION',2):
+        with patch.object(convert,'IMPORTER_RENDERING_VERSION',convert.IMPORTER_RENDERING_VERSION+1):
             upgraded=convert.finalize_identity(convert.descriptor(seed,'asset:test'),seed)
         self.assertNotEqual(original['id'],upgraded['id'])
     def test_procreate_manifest_with_texture(self):
@@ -112,3 +112,65 @@ class ReaderTests(unittest.TestCase):
             self.assertEqual(json.loads((c.output/'manifest.json').read_text())['schemaVersion'],1)
 
 if __name__=='__main__': unittest.main()
+
+class FidelityTests(unittest.TestCase):
+    def test_signed_pressure_and_rotation_domains(self):
+        self.assertEqual(convert.pressure_curve({'p':-0.4},'p'),[[0,1],[1,0.6]])
+        self.assertEqual(convert.pressure_curve({'p':0.4},'p'),[[0,0.6],[1,1]])
+    def test_procreate_v2_semantics_and_secondary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'test.brushset';b=io.BytesIO();Image.new('L',(2,2),255).save(b,format='PNG')
+            with zipfile.ZipFile(path,'w') as z:
+                z.writestr('a/Brush.archive',plistlib.dumps({'name':'A','plotSpacing':0.000002,'shapeRotation':-0.5,'shapeAzimuth':True,'shapeRandomise':True,'shapeCount':1,'dynamicsPressureOpacity':-0.3,'wetEdgesAmount':0.7}))
+                z.writestr('a/Shape.png',b.getvalue())
+                z.writestr('a/Sub1/Brush.archive',plistlib.dumps({'name':'B'}));z.writestr('a/Sub1/Shape.png',b.getvalue())
+            c=convert.Catalog(Path(tmp)/'out');convert.procreate(path,c);d=c.brushes[0]['descriptor']
+            self.assertEqual(len(c.brushes),1);self.assertEqual(d['spacing'],0.000002)
+            self.assertEqual(d['scatter']['count'],16);self.assertEqual(d['behavior']['rotation']['random'],'stroke')
+            self.assertEqual(d['behavior']['rotation']['follow'],-0.5);self.assertEqual(d['tip']['rotation'],'fixed')
+            self.assertEqual(d['opacityByPressure'],[[0,1],[1,0.7]])
+            self.assertIn('dual',d['behavior']);self.assertTrue(any(n['feature']=='shapeAzimuth' and n['status']=='unsupported' for n in c.brushes[0]['compatibility']))
+    def test_modern_versions_fixed_preamble_and_sixteen_bit(self):
+        for version in [6,7,9,10]:
+            item=b'\x01x'+bytes(264)+struct.pack('>iiiiHB',0,0,1,2,16,0)+b'\x80\x00\xff\xff'
+            body=u32(len(item))+item+b'\0'*((-len(item))%4)
+            with tempfile.TemporaryDirectory() as tmp:
+                p=Path(tmp)/'v.abr';p.write_bytes(struct.pack('>HH',version,2)+b'8BIMsamp'+u32(len(body))+body)
+                samples,_,errors=convert.read_abr(p)
+                self.assertEqual(errors,[]);self.assertEqual(samples['x'].tobytes(),b'\x80\xff')
+    def test_pattern_rgb_and_bad_bounds(self):
+        chans=[]
+        for value in [255,128,0]:
+            c=u32(8)+struct.pack('>iiiiHB',0,0,1,1,8,0)+bytes([value]);chans.append(u32(1)+u32(len(c))+c)
+        vmal=struct.pack('>iiiiI',0,0,1,1,1)+b''.join(chans)
+        pattern=u32(1)+u32(3)+bytes(4)+text('Pattern')+b'\x01p'+u32(3)+u32(len(vmal))+vmal
+        pid,image=convert.read_pattern(pattern);self.assertEqual(pid,'p');self.assertEqual(image.getpixel((0,0)),151)
+        with self.assertRaises(ValueError): convert.read_pattern(pattern[:-1])
+    def test_legacy_sampled_records_and_resync(self):
+        for version in [1,2]:
+            record=bytes(4)+struct.pack('>H',25)+(text('Named') if version==2 else b'')+bytes(9)+struct.pack('>iiiiHB',0,0,1,2,8,0)+b'\x40\xff'
+            with tempfile.TemporaryDirectory() as tmp:
+                p=Path(tmp)/'old.abr';p.write_bytes(struct.pack('>HHHI',version,2,1,2)+b'xx'+struct.pack('>HI',2,len(record))+record)
+                samples,presets,errors=convert.read_abr(p)
+                self.assertEqual(samples['legacy-1'].tobytes(),b'\x40\xff');self.assertEqual(len(errors),1)
+                self.assertEqual(presets[0]['Brsh']['Spcn'],25)
+    def test_procedural_dynamics_and_percent_tool_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p={'Brsh':{'_class':'computedBrush','Hrdn':{'unit':'#Prc','value':50}},'toolOptions':{'flow':{'unit':'#Prc','value':30},'Opct':70},'useTipDynamics':True,'szVr':{'bVTy':2,'jitter':20},'minimumDiameter':15,'useColorDynamics':True,'H   ':25}
+            d,_=convert.photoshop_component(p,{},convert.Catalog(Path(tmp)),[],b'x')
+            self.assertEqual(d['tip']['kind'],'round');self.assertEqual(d['tip']['hardness'],0.5)
+            self.assertEqual(d['flow'],0.3);self.assertEqual(d['behavior']['dynamics']['size']['minimum'],0.15)
+            self.assertEqual(d['behavior']['dynamics']['hue']['jitter'],0.25)
+
+class PortableTests(unittest.TestCase):
+    def test_portable_integrity_and_atomic_rejection(self):
+        import base64,hashlib
+        raw=bytes([0,128,128,255]);sha=hashlib.sha256(raw).hexdigest();aid='asset:'+sha
+        d=convert.finalize_identity(convert.descriptor(b'x',aid),b'x')
+        data={'library':{'schemaVersion':1,'brushes':[{'name':'Synthetic','source':'test','warnings':[],'descriptor':d}],'assets':[{'id':aid,'size':2,'file':sha+'.bin'}],'skipped':[]},'assets':{aid:base64.b64encode(raw).decode()}}
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'test.grafetto-brushes.json';path.write_text(json.dumps(data));c=convert.Catalog(Path(tmp)/'valid');convert.portable_bundle(path,c)
+            self.assertEqual(c.brushes[0]['descriptor']['id'],d['id']);self.assertEqual((c.output/(sha+'.bin')).read_bytes(),raw)
+            data['assets'][aid]=base64.b64encode(bytes(4)).decode();path.write_text(json.dumps(data));bad=convert.Catalog(Path(tmp)/'bad')
+            with self.assertRaises(ValueError): convert.portable_bundle(path,bad)
+            self.assertEqual(list(bad.output.iterdir()),[])

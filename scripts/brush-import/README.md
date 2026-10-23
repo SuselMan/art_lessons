@@ -5,7 +5,7 @@ summary: импорт внешних кистей
 
 # Offline brush import
 
-Offline conversion of Procreate `.brush` / `.brushset` and Photoshop ABR 6.1/6.2 into Grafetto's shared `BrushDescriptor` contract. Python's standard library reads archives, keyed plist objects, Photoshop Action Descriptors and VMAL channels. Pillow decodes/resamples images; no external converter or vendor engine runs.
+Offline conversion of Procreate `.brush` / `.brushset` and Photoshop ABR 1/2 sampled and 6/7/9/10 into Grafetto's shared `BrushDescriptor` contract. Python's standard library reads archives, keyed plist objects, Photoshop Action Descriptors and VMAL channels. Pillow decodes/resamples images; no external converter or vendor engine runs.
 
 ```sh
 python3 -m venv ~/.local/share/grafetto/brush-import-python
@@ -21,7 +21,7 @@ Pass all source packs in one invocation: `manifest.json` is replaced, not append
 ## Manifest v1
 
 - `schemaVersion: 1`
-- `brushes: [{descriptor, name, source, warnings}]`: shared `BrushDescriptor`, UTF-8 display name, source basename, explicit approximation warnings.
+- `brushes: [{descriptor, name, source, warnings, compatibility?}]`: shared `BrushDescriptor`, UTF-8 display name, source basename, explicit approximation warnings.
 - `assets: [{id, size, file}]`: `id = "asset:" + SHA256(raw)`, `file = SHA256(raw) + ".bin"`. Exactly `size * size` bytes, one unsigned 8-bit luminance channel, **white = coverage**. `size` is a power of two up to 2048. `descriptor.tip.mask` and optional `descriptor.texture.id` refer to asset IDs. Duplicate raw pixels share a single asset. The SHA covers pixel bytes, whose length determines size.
 - `skipped: [{name, reasons}]`: brushes without embedded shape/grain or supported sampled tip. Missing built-in Procreate resources are never silently substituted.
 
@@ -31,9 +31,15 @@ Imported descriptors have `id: imported-<24 hexadecimal digits>`, version 1, `mo
 
 ## Fidelity and supported subset
 
-ABR: section lengths/padding, variable-length sample IDs, VMAL channels, raw and PackBits 8-bit rasters, Action Descriptor scalar/object/list values, preset-to-sample matching, names, spacing, fixed angle, tip roundness/flips, tool opacity/flow, basic pressure-size/opacity curves. Descriptor dynamics are approximations; unsupported descriptor value types fail explicitly. Procedural tips and non-8-bit samples are unsupported. Texture patterns, dual brush, color, tilt and Photoshop blending are not reproduced. Version 6.1 is covered structurally but the real supplied sample is 6.2.
+Importer rendering version **2** emits optional `descriptor.behavior.version: 2` and per-brush `compatibility: [{feature,status,detail}]`. Existing IDs and historical manifests are not rewritten. `approximate` means source semantics are retained but Grafetto's formula differs or the archive transfer function is undocumented; `unsupported` identifies an active lost feature. Neither status promises Photoshop/Procreate pixel equivalence.
 
-Procreate: embedded Shape/Grain images, NSKeyedArchiver references and curve points, names, spacing, maximum opacity, basic pressure-size/opacity response, shape rotation/azimuth, shape/size/opacity jitter and grain depth. Flow/pressure/texture/scatter mapping is approximate. Wet Mix, tilt, taper, grain movement, dual secondary brush, exact rendering/blending and bundled factory assets are not reproduced. These are stamped approximations of imported brushes, not a Procreate watercolor simulation.
+ABR 6/7/9/10 minor 1/2: descriptor blocks plus both the minor-1 bitmap layout and minor-2 VMAL/fixed-preamble layouts, raw/PackBits 8/16-bit samples; 16-bit converted to 8-bit coverage. Embedded grayscale/RGB `patt` records use a separate bounded VMAL reader (indexed/CMYK rejected). Computed round tips, tip transforms, shape/scatter/count dynamics, pressure/tilt/direction/fade controls, color jitter, tool options, texture and one dual component are retained. Unknown blend modes/controls, projection, pose, noise, mixer/smudge tools and foreground/background mixing produce specific compatibility notes. Legacy 1/2 sampled records are supported with bounded per-record resynchronization; computed legacy records are skipped because shape metadata is undocumented. Modern variants, patterns and legacy are synthetic-fixture tested; the owner's real reference pack is 6.2.
+
+Procreate: signed pressure curves, source spacing down to 1e-6, shape Rotation (stroke following, distinct from pencil azimuth), random orientation per stroke, count/count jitter, moving grain settings, rendering flags, wet/burnt edges, wet-mix fields, pressure taper and one secondary archive are retained. Normalized count is approximated linearly to 1–16; numeric blend-mode enums, rendering formulas and private archive-to-handbook scales remain undocumented and explicitly approximate. Small spacing is declarative: runtime must enforce its own minimum pixel step/budget. Active azimuth, tilt and unmapped dynamic scalar fields are reported individually, not silently presented as supported. Factory bundled images are never substituted when absent.
+
+## Portable export import
+
+The CLI also accepts `.grafetto-brushes.json`: `{library, assets: {"asset:<sha256>": "<base64 raw>"}}`. This keeps exact descriptor IDs. Envelope/counts/paths/dimensions/asset-reference/SHA256/decoded-size limits are checked before writes (360 MiB encoded, 256 MiB raw). Runtime **must still run the shared `isBrushLibrary` semantic guard** before serving/importing the resulting catalog; Python does not duplicate all TypeScript descriptor constraints. Extra payloads, nested dual components, duplicate IDs and corrupt raw bytes fail closed.
 
 ZIP expansion, nesting, record lengths, dimensions, channel counts and RLE rows are bounded. This is an offline trusted-owner tool, not an HTTP upload parser; runtime catalog validation remains mandatory.
 
