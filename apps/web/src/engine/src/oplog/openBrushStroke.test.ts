@@ -6,7 +6,7 @@ import { hasOpenBrushStroke } from './openBrushStroke'
 function stroke(overrides: Partial<StrokeOperation> = {}): StrokeOperation {
   return {
     id: 'chunk', type: 'stroke', userId: 'alice', layerId: 'ink', timestamp: 0,
-    tool: 'digitalBrush', color: [0, 0, 0], dabs: [], strokeId: 'gesture-a',
+    tool: 'digitalBrush', preset: 'hard-round', color: [0, 0, 0], dabs: [], strokeId: 'gesture-a',
     ...overrides,
   }
 }
