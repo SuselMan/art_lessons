@@ -40,3 +40,15 @@ changed rectangle. This removes the initial tap ghost when the brush starts
 moving. There remains one canonical live water field; snapshots use existing
 pool-owned solventBase/coverageFilm leases. Added copies need fresh device
 measurements; the old Vega timing is not a measurement of this revision.
+
+## Soft entry / pen-up-only lift, 23.10 follow-up
+
+Supersedes the moving-tip tooth mask in v2. While pointer is down, tip contact
+is solid. `_onEnd` enables the old brush's release-pressure thresholds for the
+existing appendWatercolorLift dabs; size is clamped to at least82% of the last
+live width. The one-dimensional seeded hair field replaces the old expensive
+noise lookup, so this is the same release principle rather than pixel identity.
+The entry is a sampled ellipse-like width ramp from zero to full contact, not
+a flat cross-section or a full-sized round stamp. Body hair contrast is0.45
+instead of0.22, with the same average optical dose. verify-turns captures a held
+stroke and asserts release state is false before pen-up and true afterward.
