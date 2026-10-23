@@ -174,3 +174,23 @@ class PortableTests(unittest.TestCase):
             data['assets'][aid]=base64.b64encode(bytes(4)).decode();path.write_text(json.dumps(data));bad=convert.Catalog(Path(tmp)/'bad')
             with self.assertRaises(ValueError): convert.portable_bundle(path,bad)
             self.assertEqual(list(bad.output.iterdir()),[])
+
+class WetRoutingTests(unittest.TestCase):
+    def test_wet_mix_parameters_select_mixer_including_charge_only(self):
+        for settings in [{'dynamicsLoad':0.4},{'dynamicsMix':0.5},{'dynamicsAttack':0.2}, {'dynamicsBlur':0.1},{'dynamicsWetAccumulation':0.7},{'renderingRecursiveMixing':True}]:
+            with self.subTest(settings=settings), tempfile.TemporaryDirectory() as tmp:
+                path=Path(tmp)/'test.brush';image=io.BytesIO();Image.new('L',(2,2),255).save(image,format='PNG')
+                with zipfile.ZipFile(path,'w') as z:
+                    z.writestr('Brush.archive',plistlib.dumps(settings));z.writestr('Shape.png',image.getvalue())
+                c=convert.Catalog(Path(tmp)/'out');convert.procreate(path,c);d=c.brushes[0]['descriptor']
+                self.assertEqual(d['model'],'mixer');self.assertIn('wetMix',d['behavior'])
+                self.assertEqual(set(d['mixer']),{'load','pickup','strength'})
+                self.assertTrue(all(0<=v<=1 for v in d['mixer'].values()))
+                self.assertTrue(any(n['feature']=='wetMix' and n['status']=='approximate' for n in c.brushes[0]['compatibility']))
+    def test_dry_procreate_preserves_stamp_route(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'dry.brush';image=io.BytesIO();Image.new('L',(2,2),255).save(image,format='PNG')
+            with zipfile.ZipFile(path,'w') as z:
+                z.writestr('Brush.archive',plistlib.dumps({'dynamicsLoad':0,'dynamicsMix':0}));z.writestr('Shape.png',image.getvalue())
+            c=convert.Catalog(Path(tmp)/'out');convert.procreate(path,c)
+            self.assertEqual(c.brushes[0]['descriptor']['model'],'stamp');self.assertNotIn('mixer',c.brushes[0]['descriptor'])
