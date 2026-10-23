@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Offline, bounded brush archive reader. Pillow is used only for raster conversion."""
 import argparse
+import base64
 import hashlib
 import io
 import json
@@ -14,7 +15,7 @@ from PIL import Image, ImageOps
 
 MAX_PIXELS = 64 * 1024 * 1024
 IMPORTER_SCHEMA_VERSION = 1
-IMPORTER_RENDERING_VERSION = 1
+IMPORTER_RENDERING_VERSION = 2
 
 class Reader:
     def __init__(self, data): self.data, self.pos = data, 0
@@ -65,11 +66,15 @@ def packbits(data, expected):
 def read_pixels(r, width, height, depth, compression):
     if not (0 < width <= 10000 and 0 < height <= 10000 and width*height <= MAX_PIXELS):
         raise ValueError('Image dimensions exceed limit')
-    if depth != 8: raise ValueError('Only 8-bit sampled ABR is supported')
-    if compression == 0: return r.take(width*height)
+    if depth not in (8,16): raise ValueError('Only 8/16-bit sampled ABR is supported')
+    stride = width * (depth//8)
+    if compression == 0:
+        raw = r.take(stride*height)
+        return raw if depth == 8 else raw[::2]
     if compression != 1: raise ValueError('Unsupported ABR compression')
     sizes = [r.num('H') for _ in range(height)]
-    return b''.join(packbits(r.take(n), width) for n in sizes)
+    raw = b''.join(packbits(r.take(n), stride) for n in sizes)
+    return raw if depth == 8 else raw[::2]
 
 
 def abr_sample(data, minor):
@@ -79,6 +84,11 @@ def abr_sample(data, minor):
         depth, compression = r.num('H'), r.num('B')
         w,h = bounds[3]-bounds[1],bounds[2]-bounds[0]
         return key, Image.frombytes('L',(w,h), read_pixels(r,w,h,depth,compression))
+    if len(data) >= r.pos+283 and data[r.pos+4:r.pos+8] != b'\0\0\0\3':
+        r.take(264); bounds = [r.num('i') for _ in range(4)]
+        depth, compression = r.num('H'), r.num('B')
+        w,h = bounds[3]-bounds[1],bounds[2]-bounds[0]
+        return key, Image.frombytes('L',(w,h),read_pixels(r,w,h,depth,compression))
     r.take(4)
     if r.u32() != 3: raise ValueError('Unsupported VMAL version')
     length = r.u32(); end = r.pos + length
@@ -101,10 +111,64 @@ def abr_sample(data, minor):
     return key,image
 
 
-def read_abr(path):
+def read_pattern(data):
+    r=Reader(data)
+    if r.u32()!=1: raise ValueError('Unsupported pattern version')
+    mode=r.u32();r.take(4);name=r.text();pid=r.take(r.num('B')).decode('ascii')
+    if mode not in (1,3): raise ValueError('Only grayscale and RGB patterns supported')
+    if r.u32()!=3: raise ValueError('Invalid pattern VMAL version')
+    length=r.u32();end=r.pos+length
+    top,left,bottom,right=[r.num('i') for _ in range(4)];w,h=right-left,bottom-top
+    if not (0<w<=10000 and 0<h<=10000 and w*h<=MAX_PIXELS): raise ValueError('Pattern dimensions exceed limit')
+    count=r.u32()
+    if count>256: raise ValueError('Pattern channel limit')
+    channels=[]
+    for _ in range(count+2):
+        if not r.u32(): continue
+        size=r.u32()
+        if not size: continue
+        c=Reader(r.take(size));depth=c.u32();ct,cl,cb,cr=[c.num('i') for _ in range(4)]
+        if c.num('H')!=depth: raise ValueError('Pattern depth mismatch')
+        compression=c.num('B');cw,ch=cr-cl,cb-ct
+        if cl<left or ct<top or cr>right or cb>bottom: raise ValueError('Pattern channel outside bounds')
+        pixels=read_pixels(c,cw,ch,depth,compression)
+        if c.pos!=len(c.data): raise ValueError('Pattern channel trailing bytes')
+        canvas=Image.new('L',(w,h));canvas.paste(Image.frombytes('L',(cw,ch),pixels),(cl-left,ct-top));channels.append(canvas)
+    if r.pos!=end or end!=len(data): raise ValueError('Pattern VMAL length mismatch')
+    required=1 if mode==1 else 3
+    if len(channels)<required: raise ValueError('Missing pattern channels')
+    image=channels[0] if mode==1 else Image.merge('RGB',channels[:3]).convert('L')
+    return pid,image
+
+
+def read_legacy_abr(r,version,count):
+    samples,presets,errors={ },[],[]
+    for index in range(count):
+        kind=r.num('H');size=r.u32();record=Reader(r.take(size))
+        name='Legacy brush '+str(index+1)
+        if kind!=2:
+            errors.append({'name':name,'reasons':['Legacy computed/unknown record type '+str(kind)+' has undocumented shape metadata']});continue
+        try:
+            record.take(4);spacing=record.num('H')
+            if version==2: name=record.text() or name
+            record.take(9);top,left,bottom,right=[record.num('i') for _ in range(4)]
+            depth,compression=record.num('H'),record.num('B')
+            pixels=read_pixels(record,right-left,bottom-top,depth,compression)
+            if record.pos!=len(record.data): raise ValueError('Legacy record trailing bytes')
+            sid='legacy-'+str(index);samples[sid]=Image.frombytes('L',(right-left,bottom-top),pixels)
+            presets.append({'Nm  ':name,'Brsh':{'_class':'sampledBrush','sampledData':sid,'Spcn':spacing},'_legacyVersion':version})
+        except ValueError as e: errors.append({'name':name,'reasons':[str(e)]})
+    if r.pos!=len(r.data): raise ValueError('Legacy file trailing records')
+    return samples,presets,errors
+
+
+def read_abr(path, include_patterns=False):
     r = Reader(path.read_bytes()); major,minor = r.num('H'),r.num('H')
-    if major != 6 or minor not in (1,2): raise ValueError('Supported ABR versions: 6.1, 6.2')
-    samples, presets, errors = {}, [], []
+    if major in (1,2):
+        result=read_legacy_abr(r,major,minor)
+        return (*result,{}) if include_patterns else result
+    if major not in (6,7,9,10) or minor not in (1,2): raise ValueError('Supported ABR versions: 6/7/9/10, minor 1 or 2; legacy 1/2 are not descriptor-based')
+    samples, presets, errors, patterns = {}, [], [], {}
     while r.pos < len(r.data):
         if r.take(4) != b'8BIM': raise ValueError('Invalid ABR section signature')
         key, size = r.take(4),r.u32(); body = r.take(size)
@@ -116,13 +180,21 @@ def read_abr(path):
                     sample_id,image = abr_sample(item,minor); samples[sample_id] = image
                 except ValueError as e: errors.append({'name': 'sample '+str(len(samples)), 'reasons':[str(e)]})
                 s.take((-n)%4)
+        elif key == b'patt':
+            pattern_reader=Reader(body)
+            while pattern_reader.pos<len(body):
+                n=pattern_reader.u32();item=pattern_reader.take(n)
+                try:
+                    pid,image=read_pattern(item);patterns[pid]=image
+                except ValueError as e: errors.append({'name':'pattern','reasons':[str(e)]})
+                pattern_reader.take((-n)%4)
         elif key == b'desc':
             d = Reader(body)
             if d.u32() != 16: raise ValueError('Unsupported ABR descriptor version')
             presets.extend(d.descriptor().get('Brsh',[]))
             if d.pos != len(body): raise ValueError('ABR descriptor trailing bytes')
         if r.pos < len(r.data): r.take((-size)%4)
-    return samples,presets,errors
+    return (samples,presets,errors,patterns) if include_patterns else (samples,presets,errors)
 
 
 def number(value, fallback=0):
@@ -206,80 +278,226 @@ def resolve_archive(data):
     return resolve(archive['$top']['root'])
 
 
+def compatibility(feature, detail, status='approximate'):
+    return {'feature': feature, 'status': status, 'detail': detail}
+
+
+def pressure_curve(settings,key):
+    amount=clamp(settings.get(key),-1,1)
+    curve=settings.get(key+'Curve',{}).get('points',[])
+    points=[list(map(float,re.findall(r'-?\d+(?:\.\d+)?',p))) for p in curve if isinstance(p,str)]
+    points=[p for p in points if len(p)==2]
+    if len(points)<2: points=[[0,0],[1,1]]
+    return [[clamp(x),clamp(1-amount+amount*clamp(y) if amount>=0 else 1+amount*clamp(y))] for x,y in points]
+
+
+def procreate_component(z,names,prefix,catalog,notes):
+    raw=z.read(prefix+'Brush.archive'); settings=resolve_archive(raw)
+    if prefix+'Shape.png' not in names: raise ValueError('Missing embedded Shape.png; bundled resource: '+str(settings.get('bundledShapePath')))
+    if settings.get('bundledGrainPath') and prefix+'Grain.png' not in names: raise ValueError('Missing embedded grain: '+str(settings['bundledGrainPath']))
+    warnings=[]
+    mask=catalog.asset(Image.open(io.BytesIO(z.read(prefix+'Shape.png'))),warnings,bool(settings.get('shapeInverted')))
+    d=descriptor(raw,mask)
+    d['spacing']=clamp(settings.get('plotSpacing',0.1),0.000001,2)
+    d['opacity']=clamp(settings.get('maxOpacity',1));d['flow']=clamp(settings.get('dynamicsGlazedFlow',1))
+    d['tip']['angle']=clamp(settings.get('shapeAngle'),-1,1)*math.pi
+    d['tip']['aspect']=1/clamp(settings.get('shapeRoundness',1),0.0625,1)
+    # Shape Rotation follows stroke direction. Azimuth is pencil orientation, not path rotation.
+    behavior={'version':2,'rotation':{'follow':clamp(settings.get('shapeRotation'),-1,1),'random':'stroke' if settings.get('shapeRandomise') else 'none','flipX':bool(settings.get('shapeFlipXJitter')),'flipY':bool(settings.get('shapeFlipYJitter'))},
+        'scatter':{'countJitter':clamp(settings.get('shapeCountJitter')),'bothAxes':True}}
+    count=1+round(clamp(settings.get('shapeCount'))*15)
+    d['scatter']={'count':count,'radius':clamp(settings.get('plotJitter')),'scale':1,'sizeJitter':clamp(settings.get('dynamicsJitterSize')),'angleJitter':clamp(settings.get('shapeScatter')),'flowJitter':clamp(settings.get('dynamicsJitterOpacity'))}
+    if settings.get('shapeCount'):
+        notes.append(compatibility('shapeCount','Normalized archive count mapped linearly to 1–16; private archive transfer function is undocumented.'))
+    for field,key in [('sizeByPressure','dynamicsPressureSize'),('opacityByPressure','dynamicsPressureOpacity')]: d[field]=pressure_curve(settings,key)
+    if prefix+'Grain.png' in names:
+        aid=catalog.asset(Image.open(io.BytesIO(z.read(prefix+'Grain.png'))),warnings,bool(settings.get('textureInverted')),grain=True)
+        d['texture']={'id':aid,'strength':clamp(settings.get('grainDepth',1)),'periodPx':clamp(256*number(settings.get('textureScale'),1),1,4096)}
+        behavior['grain']={'mode':'moving' if number(settings.get('textureMovement')) else 'canvas','movement':clamp(settings.get('textureMovement')),'zoom':clamp(settings.get('textureZoom',1)),'rotation':clamp(settings.get('textureRotation'),-1,1),'offsetJitter':bool(settings.get('textureOffsetJitter')),'brightness':clamp(settings.get('textureBrightness'),-1,1),'contrast':clamp(settings.get('textureContrast'),-1,1),'depthMinimum':clamp(settings.get('grainDepthMinimum')),'depthJitter':clamp(settings.get('grainDepthJitter')),'blendMode':'multiply'}
+        notes.append(compatibility('grain','Movement, zoom, depth and contrast retained; Procreate numeric blend-mode enum is undocumented, multiply used.'))
+    behavior['rendering']={'mode':'intenseBlend' if settings.get('renderingRecursiveMixing') else 'uniformBlend' if settings.get('renderingMaxTransfer') else 'lightGlaze','blendMode':'normal','wetEdges':clamp(settings.get('wetEdgesAmount')),'burntEdges':clamp(settings.get('burntEdgesAmount')),'burntEdgesMode':'multiply'}
+    wet={'dilution':'dynamicsMix','charge':'dynamicsLoad','attack':'dynamicsAttack','pull':'dynamicsWetAccumulation','grade':'dynamicsGradation','blur':'dynamicsBlur','blurJitter':'dynamicsBlurJitter','wetnessJitter':'dynamicsWetnessJitter'}
+    if any(number(settings.get(k)) for k in wet.values()):
+        behavior['wetMix']={k:clamp(settings.get(v)) for k,v in wet.items()}
+        notes.append(compatibility('wetMix','Wet mixing parameters retained; pigment simulation and archive-to-handbook naming require reference strokes.'))
+    behavior['taper']={'start':clamp(settings.get('pencilTaperStartLength')),'end':clamp(settings.get('pencilTaperEndLength')),'size':clamp(settings.get('pencilTaperSize')),'opacity':clamp(settings.get('pencilTaperOpacity')),'pressure':True}
+    notes.append(compatibility('spacing','Small source spacing retained; runtime enforces a pixel budget and archive spacing scale is not fully documented.'))
+    notes.append(compatibility('rendering','Rendering modes, edge effects and taper use Grafetto algorithms, not Procreate formulas.'))
+    if settings.get('shapeAzimuth'): notes.append(compatibility('shapeAzimuth','Pencil azimuth is not represented by stroke direction.','unsupported'))
+    active=[k for k,v in settings.items() if k.startswith('dynamicsTilt') and number(v) and not k.endswith('Minimum')]
+    if active: notes.append(compatibility('tilt',', '.join(sorted(active)),'unsupported'))
+    if settings.get('blendMode') or settings.get('extendedBlend'): notes.append(compatibility('blendMode','Procreate numeric blend enum is undocumented; normal used.','unsupported'))
+    mapped={'dynamicsJitterSize','dynamicsJitterOpacity','dynamicsPressureSize','dynamicsPressureOpacity','dynamicsGlazedFlow',*wet.values()}
+    unknown=[k for k,v in settings.items() if (k.startswith('dynamics') or k in ('jitterSecondary','jitterStrokeSecondary','plotJitterLinear','plotSpacingJitter','dynamicsFalloff')) and k not in mapped and not k.endswith(('Minimum','Angle','Curve')) and number(v)!=0 and not k.startswith('dynamicsTilt')]
+    if unknown: notes.append(compatibility('activeUnmapped',', '.join(sorted(unknown)),'unsupported'))
+    d['behavior']=behavior
+    return d,raw,settings,warnings
+
+
 def procreate(path,catalog):
     with zipfile.ZipFile(path) as z:
         if sum(x.file_size for x in z.infolist()) > 1024*1024*1024: raise ValueError('Archive expands beyond 1 GiB')
         names=set(z.namelist())
         for entry in sorted(n for n in names if n.endswith('Brush.archive') and '/Sub' not in n):
-            raw=z.read(entry); settings=resolve_archive(raw); prefix=entry[:-len('Brush.archive')]
-            name=settings.get('name') or prefix.rstrip('/') or path.stem
-            reasons=[]; warnings=['Procreate rendering is approximated; not pixel-identical. Wet Mix, tilt, taper, blend modes and moving grain are unsupported.']
-            if prefix+'Shape.png' not in names: reasons.append('Missing embedded Shape.png; bundled resource: '+str(settings.get('bundledShapePath')))
-            if settings.get('bundledGrainPath') and prefix+'Grain.png' not in names: reasons.append('Missing embedded grain: '+str(settings['bundledGrainPath']))
-            if reasons: catalog.skipped.append({'name':name,'reasons':reasons}); continue
-            if any(n.startswith(prefix+'Sub') for n in names): warnings.append('Dual brush secondary component omitted')
-            if number(settings.get('shapeCount')): warnings.append('Shape count/count jitter not mapped; one primary stamp per dab')
-            mask=catalog.asset(Image.open(io.BytesIO(z.read(prefix+'Shape.png'))),warnings, bool(settings.get('shapeInverted')))
-            d=descriptor(raw,mask)
-            d['spacing']=clamp(settings.get('plotSpacing',0.1),0.01,2)
-            d['opacity']=clamp(settings.get('maxOpacity',1))
-            d['flow']=clamp(settings.get('dynamicsGlazedFlow',1),0.01,1)
-            warnings.append('Glazed flow and pressure response mapped approximately to Grafetto stamp model')
-            d['tip']['angle']=number(settings.get('shapeAngle'))*math.pi
-            d['tip']['rotation']='path' if settings.get('shapeAzimuth') else 'fixed'
-            d['scatter']={'count':1,'radius':clamp(settings.get('plotJitter')),'scale':1,
-                'sizeJitter':clamp(settings.get('dynamicsJitterSize')),
-                'angleJitter':1 if settings.get('shapeRandomise') else clamp(settings.get('shapeScatter')),
-                'flowJitter':clamp(settings.get('dynamicsJitterOpacity'))}
-            for param,key in [('sizeByPressure','dynamicsPressureSize'),('opacityByPressure','dynamicsPressureOpacity')]:
-                amount=clamp(settings.get(key)); floor=max(0.02,1-amount)
-                curve=settings.get(key+'Curve',{}).get('points',[])
-                points=[list(map(float,re.findall(r'-?\d+(?:\.\d+)?',p))) for p in curve if isinstance(p,str)]
-                d[param]=[[clamp(x), floor+(1-floor)*clamp(y)] for x,y in points] if len(points)>=2 else [[0,floor],[1,1]]
-            if prefix+'Grain.png' in names:
-                aid=catalog.asset(Image.open(io.BytesIO(z.read(prefix+'Grain.png'))),warnings,bool(settings.get('textureInverted')),grain=True)
-                d['texture']={'id':aid,'strength':clamp(settings.get('grainDepth',1)),'periodPx':clamp(256*number(settings.get('textureScale'),1),1,4096)}
-                warnings.append('Grain scale, depth and application approximate; contrast/brightness not mapped')
-            catalog.brushes.append({'descriptor':finalize_identity(d,raw),'name':name,'source':path.name,'warnings':warnings})
+            prefix=entry[:-len('Brush.archive')];notes=[]
+            try:
+                d,raw,settings,warnings=procreate_component(z,names,prefix,catalog,notes)
+                children=sorted(n for n in names if n.startswith(prefix+'Sub') and n.endswith('Brush.archive'))
+                if children:
+                    try:
+                        child,childraw,_,cw=procreate_component(z,names,children[0][:-len('Brush.archive')],catalog,notes)
+                        d['behavior']['dual']={'brush':finalize_identity(child,childraw),'blendMode':'multiply'};warnings.extend(cw)
+                        notes.append(compatibility('dual','Secondary settings retained; undocumented blend enum approximated as multiply.'))
+                    except ValueError as e: notes.append(compatibility('dual',str(e),'unsupported'))
+                    if len(children)>1: notes.append(compatibility('dualDepth','Only one secondary component supported.','unsupported'))
+                warnings.extend(n['feature']+': '+n['detail'] for n in notes if n['status']!='supported')
+                catalog.brushes.append({'descriptor':finalize_identity(d,raw),'name':settings.get('name') or path.stem,'source':path.name,'warnings':warnings,'compatibility':notes})
+            except ValueError as e: catalog.skipped.append({'name':prefix.rstrip('/') or path.stem,'reasons':[str(e)]})
 
 
-def photoshop(path,catalog):
-    samples,presets,errors=read_abr(path); catalog.skipped.extend(errors)
-    for index,p in enumerate(presets):
-        name=p.get('Nm  ',f'Brush {index+1}'); shape=p.get('Brsh',{}); sid=shape.get('sampledData')
-        if sid not in samples:
-            catalog.skipped.append({'name':name,'reasons':['Unsupported procedural tip or missing sampledData '+str(sid)]});continue
-        warnings=['Photoshop rendering approximated; wet edges, texture patterns, dual brush, color/tilt dynamics and tool blending unsupported.']
+BLENDS={'Nrml':'normal','Mltp':'multiply','Scrn':'screen','Ovrl':'overlay','Drkn':'darken','Lghn':'lighten','CBrn':'colorBurn','linearBurn':'linearBurn','CDdg':'colorDodge','linearDodge':'add','Sbtr':'subtract','Dfrn':'difference','Xclu':'exclusion'}
+def blend(value,notes,feature):
+    if isinstance(value,dict): value=value.get('value')
+    value=str(value or 'Nrml').split('.')[-1]
+    if value not in BLENDS: notes.append(compatibility(feature,'Unsupported blend '+value+'; normal used.','unsupported'))
+    return BLENDS.get(value,'normal')
+
+
+def abr_dynamic(value,notes,feature,minimum=None):
+    value=value or {};control=int(number(value.get('bVTy')))
+    controls={0:'off',1:'fade',2:'pressure',3:'tilt',5:'initialDirection',6:'direction'}
+    if control not in controls: notes.append(compatibility(feature,'Unsupported Photoshop control '+str(control),'unsupported'))
+    result={'control':controls.get(control,'off'),'jitter':clamp(number(value.get('jitter'))/100),'minimum':clamp(number(value.get('Mnm '))/100 if minimum is None else minimum)}
+    if control==1: result['fade']=clamp(value.get('fStp',1),0.001,100000)
+    return result
+
+
+def photoshop_component(p,samples,catalog,notes,seed,secondary=False,patterns=None):
+    shape=p.get('Brsh',{});sid=shape.get('sampledData');warnings=[]
+    if sid in samples:
         image=samples[sid]
         if shape.get('flipX'): image=ImageOps.mirror(image)
         if shape.get('flipY'): image=ImageOps.flip(image)
         mask=catalog.asset(image,warnings)
-        seed=json.dumps(p,sort_keys=True).encode()
         d=descriptor(seed,mask)
-        d['spacing']=clamp(number(shape.get('Spcn'),10)/100,0.01,2)
-        d['tip']['angle']=math.remainder(number(shape.get('Angl'))*math.pi/180,2*math.pi)
-        roundness=clamp(number(shape.get('Rndn'),100)/100,0.0625,1)
-        d['tip']['aspect']=1/roundness
-        if p.get('useTipDynamics'):
-            size=p.get('szVr',{})
-            if size.get('bVTy')==2:
-                d['sizeByPressure']=[[0,max(0.02,number(p.get('minimumDiameter'))/100)],[1,1]]
-            if size.get('bVTy',0) not in (0,2): warnings.append('Size control other than pen pressure omitted')
-        d['flow']=clamp(number(p.get('toolOptions',{}).get('flow'),100)/100,0.01,1)
-        d['opacity']=clamp(number(p.get('toolOptions',{}).get('Opct'),100)/100)
-        if p.get('usePaintDynamics'):
-            for field,key in [('opacityByPressure','opVr'),('flowByPressure','prVr')]:
-                v=p.get(key,{})
-                if v.get('bVTy')==2: d[field]=[[0,max(0.02,number(v.get('Mnm '))/100)],[1,1]]
-            warnings.append('Pressure dynamics approximated; flow pressure is not active in stamp renderer')
-        catalog.brushes.append({'descriptor':finalize_identity(d,seed),'name':name,'source':path.name,'warnings':warnings})
+    elif shape.get('_class')=='computedBrush':
+        d=descriptor(seed,'');d['tip']={'kind':'round','hardness':clamp(number(shape.get('Hrdn'),100)/100),'aspect':1,'rotation':'fixed','angle':0}
+    else: raise ValueError('Unsupported '+str(shape.get('_class'))+' tip or missing sampledData '+str(sid))
+    d['spacing']=clamp(number(shape.get('Spcn'),10)/100,0.000001,2)
+    d['tip']['angle']=math.remainder(number(shape.get('Angl'))*math.pi/180,2*math.pi)
+    d['tip']['aspect']=1/clamp(number(shape.get('Rndn'),100)/100,0.0625,1)
+    b={'version':2};dynamics={}
+    if p.get('useTipDynamics'):
+        for target,key,minkey in [('size','szVr','minimumDiameter'),('angle','angleDynamics',None),('roundness','roundnessDynamics','minimumRoundness')]:
+            dynamics[target]=abr_dynamic(p.get(key),notes,target,number(p.get(minkey))/100 if minkey else None)
+        b['rotation']={'follow':0,'random':'none','flipX':bool(p.get('flipX')),'flipY':bool(p.get('flipY'))}
+        if p.get('brushProjection'): notes.append(compatibility('brushProjection','Tilt projection is not retained.','unsupported'))
+    if p.get('useScatter'):
+        sd=abr_dynamic(p.get('scatterDynamics'),notes,'scatter');cd=abr_dynamic(p.get('countDynamics'),notes,'count');dynamics.update(scatter=sd,count=cd)
+        d['scatter']={'count':int(clamp(p.get('Cnt ',1),1,16)),'radius':clamp(number(p.get('scatterDynamics',{}).get('jitter'))/100,0,4),'scale':1}
+        b['scatter']={'countJitter':cd['jitter'],'bothAxes':bool(p.get('bothAxes'))}
+    tool=p.get('toolOptions',{})
+    d['flow']=clamp(number(tool.get('flow'),100)/100);d['opacity']=clamp(number(tool.get('Opct'),100)/100)
+    if p.get('usePaintDynamics'):
+        for target,key in [('flow','prVr'),('opacity','opVr')]: dynamics[target]=abr_dynamic(p.get(key),notes,target)
+    for target,key in [('size','szVr'),('flow','prVr'),('opacity','opVr')]:
+        if key in tool: dynamics[target]=abr_dynamic(tool[key],notes,'tool '+target)
+    if p.get('useColorDynamics'):
+        for target,key in [('hue','H   '),('saturation','Strt'),('brightness','Brgh')]: dynamics[target]={'control':'off','jitter':clamp(number(p.get(key))/100),'minimum':0}
+        if not p.get('colorDynamicsPerTip'): notes.append(compatibility('colorDynamics','Whole-stroke color randomness approximated per tip.'))
+        if number(p.get('purity')) or p.get('clVr',{}).get('bVTy'): notes.append(compatibility('foregroundBackground','Background-color mixing and purity not retained.','unsupported'))
+    if dynamics: b['dynamics']=dynamics
+    b['rendering']={'mode':'buildUp','blendMode':blend(tool.get('Md  '),notes,'toolBlend'),'wetEdges':1 if p.get('Wtdg') else 0,'burntEdges':0,'burntEdgesMode':'multiply'}
+    if p.get('Wtdg'): notes.append(compatibility('wetEdges','Grafetto edge algorithm approximates Photoshop wet edges.'))
+    if p.get('useTexture'):
+        pid=p.get('Txtr',{}).get('Idnt')
+        if pid in (patterns or {}):
+            aid=catalog.asset(patterns[pid],warnings,bool(p.get('InvT')),grain=True)
+            d['texture']={'id':aid,'strength':clamp(number(p.get('textureDepth'),100)/100),'periodPx':clamp(256*number(p.get('textureScale'),100)/100,1,4096)}
+            gd=abr_dynamic(p.get('textureDepthDynamics'),notes,'grainDepth');dynamics['grainDepth']=gd;b['dynamics']=dynamics
+            b['grain']={'mode':'moving' if p.get('TxtC') else 'canvas','movement':1 if p.get('TxtC') else 0,'zoom':1,'rotation':0,'offsetJitter':False,'brightness':clamp(number(p.get('textureBrightness'))/100,-1,1),'contrast':clamp(number(p.get('textureContrast'))/100,-1,1),'depthMinimum':clamp(number(p.get('minimumDepth'))/100),'depthJitter':gd['jitter'],'blendMode':blend(p.get('textureBlendMode'),notes,'textureBlend')}
+            notes.append(compatibility('texture','Embedded pattern retained; Photoshop per-tip texture coordinates approximated.'))
+        else: notes.append(compatibility('texture','Missing or unsupported pattern '+str(pid),'unsupported'))
+    for key in ['Nose','useBrushPose']:
+        if p.get(key): notes.append(compatibility(key,'Active Photoshop feature not implemented.','unsupported'))
+    dual=p.get('dualBrush',{})
+    if dual.get('useDualBrush') and not secondary:
+        try:
+            child=photoshop_component(dual,samples,catalog,notes,seed+b'dual',True,patterns)[0]
+            b['dual']={'brush':finalize_identity(child,seed+b'dual'),'blendMode':blend(dual.get('BlnM'),notes,'dualBlend')}
+            notes.append(compatibility('dual','One secondary tip retained; independent Photoshop sampling is approximated.'))
+        except ValueError as e: notes.append(compatibility('dual',str(e),'unsupported'))
+    if tool.get('_class') in ('MixB','SmTl'): notes.append(compatibility('toolType','Mixer/smudge tool painting is approximated as stamp painting.','unsupported'))
+    d['behavior']=b
+    return d,warnings
+
+
+def photoshop(path,catalog):
+    samples,presets,errors,patterns=read_abr(path,True);catalog.skipped.extend(errors)
+    for index,p in enumerate(presets):
+        name=p.get('Nm  ',f'Brush {index+1}');notes=[]
+        if p.get('_legacyVersion'): notes.append(compatibility('legacyABR','Legacy sampled records validated with synthetic fixtures; no owner-supplied legacy reference yet.'))
+        seed=json.dumps(p,sort_keys=True).encode()
+        try:
+            d,warnings=photoshop_component(p,samples,catalog,notes,seed,patterns=patterns)
+            warnings.extend(n['feature']+': '+n['detail'] for n in notes if n['status']!='supported')
+            catalog.brushes.append({'descriptor':finalize_identity(d,seed),'name':name,'source':path.name,'warnings':warnings,'compatibility':notes})
+        except ValueError as e: catalog.skipped.append({'name':name,'reasons':[str(e)]})
+
+
+def portable_bundle(path,catalog):
+    # The runtime shared guard remains authoritative for descriptor semantics.
+    if path.stat().st_size>360*1024*1024: raise ValueError('Portable bundle exceeds 360 MiB')
+    data=json.loads(path.read_text(),parse_constant=lambda v: (_ for _ in ()).throw(ValueError('Nonfinite JSON number '+v)))
+    if not isinstance(data,dict) or set(data)!={'library','assets'}: raise ValueError('Invalid portable bundle envelope')
+    library=data['library'];payloads=data['assets']
+    if not isinstance(library,dict) or library.get('schemaVersion')!=1 or not isinstance(payloads,dict): raise ValueError('Invalid portable library')
+    assets=library.get('assets');brushes=library.get('brushes');skipped=library.get('skipped')
+    if not isinstance(assets,list) or len(assets)>1024 or not isinstance(brushes,list) or len(brushes)>512 or not isinstance(skipped,list) or len(skipped)>1024: raise ValueError('Portable library item limit')
+    total=0;validated=[];ids=set()
+    for asset in assets:
+        if not isinstance(asset,dict): raise ValueError('Invalid portable asset')
+        aid=asset.get('id');size=asset.get('size')
+        if not isinstance(aid,str) or not re.fullmatch(r'asset:[a-f0-9]{64}',aid) or aid in ids: raise ValueError('Invalid or duplicate portable asset ID')
+        if type(size)!=int or not 2<=size<=2048 or size&(size-1) or asset.get('file')!=aid[6:]+'.bin': raise ValueError('Invalid portable asset dimensions/path')
+        ids.add(aid);total+=size*size
+        if total>256*1024*1024: raise ValueError('Portable raw assets exceed 256 MiB')
+        encoded=payloads.get(aid)
+        if not isinstance(encoded,str) or len(encoded)>((size*size+2)//3)*4: raise ValueError('Invalid portable asset payload')
+        raw=base64.b64decode(encoded,validate=True)
+        if len(raw)!=size*size or hashlib.sha256(raw).hexdigest()!=aid[6:]: raise ValueError('Portable asset integrity mismatch')
+        validated.append((asset,raw))
+    if set(payloads)!=ids: raise ValueError('Portable payload keys differ from manifest')
+    seen=set()
+    def validate_descriptor(d,depth=0):
+        if not isinstance(d,dict) or depth>1 or not isinstance(d.get('id'),str) or not re.fullmatch(r'imported-[a-f0-9]{24}',d['id']): raise ValueError('Invalid portable descriptor')
+        if d.get('version')!=1 or d.get('model') not in ('stamp','mixer') or not isinstance(d.get('tip'),dict): raise ValueError('Unsupported portable descriptor')
+        tip=d['tip']
+        if tip.get('kind') not in ('bitmap','round') or (tip.get('kind')=='bitmap' and tip.get('mask') not in ids): raise ValueError('Missing portable tip asset')
+        if 'texture' in d and (not isinstance(d['texture'],dict) or d['texture'].get('id') not in ids): raise ValueError('Missing portable grain asset')
+        behavior=d.get('behavior',{})
+        if not isinstance(behavior,dict): raise ValueError('Invalid portable behavior')
+        if 'dual' in behavior:
+            if not isinstance(behavior['dual'],dict): raise ValueError('Invalid portable dual component')
+            validate_descriptor(behavior['dual'].get('brush'),depth+1)
+    for brush in brushes:
+        if not isinstance(brush,dict) or not isinstance(brush.get('name'),str) or len(brush['name'])>256 or not isinstance(brush.get('source'),str) or len(brush['source'])>256 or not isinstance(brush.get('warnings'),list) or len(brush['warnings'])>100 or any(not isinstance(w,str) or len(w)>2000 for w in brush['warnings']): raise ValueError('Invalid portable brush metadata')
+        validate_descriptor(brush.get('descriptor'))
+        bid=brush['descriptor']['id']
+        if bid in seen: raise ValueError('Duplicate portable brush ID')
+        seen.add(bid)
+    # Validate everything before writing any raster or mutating the catalog.
+    for asset,raw in validated:
+        (catalog.output/asset['file']).write_bytes(raw);catalog.assets[asset['id']]=asset
+    catalog.brushes.extend(brushes);catalog.skipped.extend(skipped)
 
 
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument('sources',type=Path,nargs='+'); ap.add_argument('--output',type=Path,required=True)
     args=ap.parse_args(); catalog=Catalog(args.output)
     for path in args.sources:
-        if path.suffix.lower()=='.abr': photoshop(path,catalog)
+        if path.name.endswith('.grafetto-brushes.json'): portable_bundle(path,catalog)
+        elif path.suffix.lower()=='.abr': photoshop(path,catalog)
         elif path.suffix.lower() in ('.brush','.brushset'): procreate(path,catalog)
         else: ap.error('Unsupported extension: '+path.suffix)
     result=catalog.write();print(json.dumps({'brushes':len(result['brushes']),'assets':len(result['assets']),'skipped':len(result['skipped'])}))
