@@ -1,3 +1,4 @@
+import { pinOperationBrush } from '../brushLibrary/storage.js'
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@grafetto/shared'
@@ -582,6 +583,8 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
           ack?.({ ok: false, reason })
           return
         }
+
+        pinOperationBrush(roomId, userId, op)
 
         // (#254/#258) Keeps the server's owner-lock mirror in sync the
         // instant this op is accepted, so the very next operation on this

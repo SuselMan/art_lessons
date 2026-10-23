@@ -2,18 +2,15 @@ import { constants } from 'node:fs'
 import { open, lstat } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { join, resolve, parse } from 'node:path'
-import type { FastifyInstance } from 'fastify'
 import { isBrushLibrary, type BrushLibrary } from '@grafetto/shared'
-import { apiRoute } from '../http/apiRoute.js'
 
-const HASH = /^[a-f0-9]{64}$/
 const MAX_MANIFEST = 2 * 1024 * 1024
 const MAX_ASSETS = 256 * 1024 * 1024
 const empty = (): BrushLibrary => ({ schemaVersion: 1, brushes: [], assets: [], skipped: [] })
 function fail(): never { throw new Error('Invalid brush library') }
 
 /** Reject symlinks in every directory component, including the configured root. */
-async function checkDirectory(directory: string): Promise<void> {
+export async function checkDirectory(directory: string): Promise<void> {
   const absolute = resolve(directory)
   let cursor = parse(absolute).root
   for (const part of absolute.slice(cursor.length).split('/').filter(Boolean)) {
@@ -22,7 +19,7 @@ async function checkDirectory(directory: string): Promise<void> {
     if (stat.isSymbolicLink() || !stat.isDirectory()) fail()
   }
 }
-async function readFile(path: string, limit: number): Promise<Buffer> {
+export async function readFile(path: string, limit: number): Promise<Buffer> {
   const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW)
   try {
     const stat = await handle.stat()
@@ -63,15 +60,4 @@ export async function loadBrushLibrary(directory?: string): Promise<{ manifest: 
   return { manifest, assets }
 }
 
-export async function registerBrushLibraryRoutes(app: FastifyInstance, directory = process.env.GRAFETTO_BRUSH_LIBRARY_DIR): Promise<void> {
-  const { manifest, assets } = await loadBrushLibrary(directory)
-  apiRoute(app, 'GET /api/brush-library', async (_request, reply) => {
-    reply.header('Cache-Control', 'private, no-cache')
-    return manifest
-  })
-  apiRoute(app, 'GET /api/brush-library/assets/:hash', async (request, reply) => {
-    const bytes = HASH.test(request.params.hash) ? assets.get(request.params.hash) : undefined
-    if (!bytes) return reply.code(404).send({ error: 'Brush asset not found' })
-    return reply.header('Cache-Control', 'private, max-age=31536000, immutable').type('application/octet-stream').send(bytes)
-  })
-}
+export { registerBrushLibraryRoutes } from './routes.js'
