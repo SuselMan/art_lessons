@@ -248,6 +248,7 @@ topics:
     modules: [ui-layers, apps/web/src/engine/src/filters, ui-filters]
 
   - id: brush-tools
+    issue: 807
     level: 3
     parent: dab-pipeline
     title: Инструменты-кисти

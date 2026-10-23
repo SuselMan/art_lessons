@@ -1,3 +1,4 @@
+import type { BrushLibrary } from './brushes.js'
 import type {
   AdminActionList, AdminIpBanList, AdminIpDetail, AdminLessonList, AdminOverview, AdminUserDetail, AdminUserFilter,
   AdminUserList, ClientEnvironment, IpBanDurationHours,
@@ -122,6 +123,9 @@ export interface SnapshotUploadResult {
 /** The routes. `response` is the success body; a route with `noContent` may
  *  answer 204, which the client reads as `null`. */
 export interface ApiRoutes {
+  'GET /api/brush-library': { response: BrushLibrary }
+  'GET /api/brush-library/assets/:hash': { params: { hash: string }; response: ApiBinary }
+
   // ── identity (authRoutes.ts, sessions.ts) ──────────────────────────────
   'GET /api/me': { response: Me }
   'POST /api/auth/code/request': { body: { email: string; locale?: string }; response: RequestedLoginCode }

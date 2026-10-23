@@ -1,3 +1,7 @@
+import type { TipMaskId, BrushTextureId } from '@grafetto/shared'
+export type { TipMaskId, BrushTextureId } from '@grafetto/shared'
+import { importedAssetPixels } from './importedBrushes'
+
 // #573, ADR 013 §11 — the digital brush's bitmap tips.
 //
 // A textured brush is a round brush whose footprint is a picture instead of a
@@ -39,7 +43,7 @@
  *  bristle brush at 12 px would otherwise alias its 22 hairs into moiré. */
 export const TIP_MASK_SIZE = 256
 
-export type TipMaskId = 'chalk' | 'rough' | 'bristle' | 'speckle' | 'grass' | 'leaf' | 'clumps'
+type BuiltinTipMaskId = Exclude<TipMaskId, `asset:${string}`>
 
 export const TIP_MASK_IDS: readonly TipMaskId[] = ['chalk', 'rough', 'bristle', 'speckle', 'grass', 'leaf', 'clumps']
 
@@ -289,7 +293,7 @@ function buildClumps(): MaskFn {
   }
 }
 
-const GENERATORS: Record<TipMaskId, () => MaskFn> = {
+const GENERATORS: Record<BuiltinTipMaskId, () => MaskFn> = {
   chalk: () => chalk,
   rough: () => rough,
   bristle: buildBristle,
@@ -301,7 +305,8 @@ const GENERATORS: Record<TipMaskId, () => MaskFn> = {
 
 /** The mask at full resolution, row 0 on top, 0..255 per texel. */
 export function tipMaskPixels(id: TipMaskId): Uint8Array {
-  const fn = GENERATORS[id]()
+  if (id.startsWith('asset:')) return importedAssetPixels(id)
+  const fn = GENERATORS[id as BuiltinTipMaskId]()
   const n = TIP_MASK_SIZE
   const out = new Uint8Array(n * n)
   for (let py = 0; py < n; py++) {
@@ -329,7 +334,7 @@ export function tipMaskMips(id: TipMaskId): Uint8Array[] {
 
 function mipChain(base: Uint8Array): Uint8Array[] {
   const levels = [base]
-  let size = TIP_MASK_SIZE
+  let size = Math.sqrt(base.length)
   while (size > 1) {
     const src = levels[levels.length - 1]
     const half = size >> 1
@@ -361,7 +366,7 @@ function mipChain(base: Uint8Array): Uint8Array[] {
 // and the smooth one has no tooth at all. So these are the brush's own, tiled
 // across the canvas with REPEAT — which is why they are generated seamless.
 
-export type BrushTextureId = 'dry' | 'grit' | 'cloud'
+type BuiltinTextureId = Exclude<BrushTextureId, `asset:${string}`>
 
 export const BRUSH_TEXTURE_IDS: readonly BrushTextureId[] = ['dry', 'grit', 'cloud']
 
@@ -394,7 +399,7 @@ function tileFbm(x: number, y: number, cell: number, seed: number): number {
     + tileNoise(x, y, cell / 4, n / (cell / 4), seed + 2)) / 7
 }
 
-const TEXTURES: Record<BrushTextureId, (px: number, py: number) => number> = {
+const TEXTURES: Record<BuiltinTextureId, (px: number, py: number) => number> = {
   // Dry paint dragged over a rough surface: broad patches where the paint
   // caught and where it skipped, with finer breakup inside them.
   dry: (px, py) => clamp01(tileFbm(px, py, 32, 71) * 0.75 + tileNoise(px, py, 4, TIP_MASK_SIZE / 4, 73) * 0.25),
@@ -410,9 +415,10 @@ const TEXTURES: Record<BrushTextureId, (px: number, py: number) => number> = {
  *  filter in tipMaskMips preserves tiling, since each level's texels are
  *  averages of whole 2x2 blocks of a seamless image. */
 export function brushTextureMips(id: BrushTextureId): Uint8Array[] {
+  if (id.startsWith('asset:')) return mipChain(importedAssetPixels(id))
   const n = TIP_MASK_SIZE
   const base = new Uint8Array(n * n)
-  const fn = TEXTURES[id]
+  const fn = TEXTURES[id as BuiltinTextureId]
   for (let py = 0; py < n; py++) {
     for (let px = 0; px < n; px++) base[py * n + px] = Math.round(fn(px, py) * 255)
   }

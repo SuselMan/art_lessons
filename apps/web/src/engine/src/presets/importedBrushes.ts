@@ -1,0 +1,57 @@
+import type { BrushDescriptor, ImportedBrush, BrushLibrary } from '@grafetto/shared'
+
+const brushes = new Map<string, ImportedBrush>()
+const assets = new Map<string, Uint8Array>()
+
+/** Immutable metadata; pixels arrive separately before a brush can render. */
+export function installBrushLibrary(library: BrushLibrary): void {
+  for (const brush of library.brushes) {
+    const key = `${brush.descriptor.id}@${brush.descriptor.version}`
+    const previous = brushes.get(key)
+    if (previous && JSON.stringify(previous) !== JSON.stringify(brush)) throw new Error('Brush version cannot be replaced')
+  }
+  for (const brush of library.brushes) {
+    const copy: ImportedBrush = structuredClone(brush)
+    const freeze = (v: object): void => {
+      for (const child of Object.values(v)) if (child && typeof child === 'object') freeze(child)
+      Object.freeze(v)
+    }
+    freeze(copy)
+    brushes.set(`${copy.descriptor.id}@${copy.descriptor.version}`, copy)
+  }
+}
+
+export function importedBrushes(): readonly ImportedBrush[] { return [...brushes.values()] }
+
+export function importedBrushFromPreset(preset: string | undefined): BrushDescriptor | undefined {
+  if (!preset) return undefined
+  const token = /^brush:(imported-[a-f0-9]+)@(\d+)(?::[a-z0-9-]+)*$/.exec(preset)
+  if (token) {
+    const brush = brushes.get(`${token[1]}@${token[2]}`)
+    if (!brush) throw new Error(`Imported brush unavailable: ${token[1]}@${token[2]}`)
+    return brush.descriptor
+  }
+  const found = [...brushes.values()].find(b => b.descriptor.id === preset)?.descriptor
+  if (!found && preset.startsWith('imported-')) throw new Error(`Imported brush unavailable: ${preset}`)
+  return found
+}
+
+export function importedAssetPixels(id: string): Uint8Array {
+  const data = assets.get(id)
+  if (!data) throw new Error(`Brush asset unavailable: ${id}`)
+  return data
+}
+
+export function installBrushPixels(id: string, data: Uint8Array): void {
+  const size = Math.sqrt(data.length)
+  if (!/^asset:[a-f0-9]{64}$/.test(id) || !Number.isInteger(size) || size < 2 || size > 2048 || (size & (size - 1)) !== 0) throw new Error('Invalid brush pixels')
+  const previous = assets.get(id)
+  if (previous && (previous.length !== data.length || previous.some((v, i) => v !== data[i]))) throw new Error('Brush asset cannot be replaced')
+  assets.set(id, data.slice())
+}
+export function isBrushAssetReady(id: string): boolean { return assets.has(id) }
+export function importedBrushAssets(preset: string | undefined): string[] {
+  const b = importedBrushFromPreset(preset)
+  if (!b) return []
+  return [b.tip.mask, b.texture?.id].filter((id): id is string & `asset:${string}` => !!id && id.startsWith('asset:'))
+}

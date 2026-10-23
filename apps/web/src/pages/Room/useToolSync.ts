@@ -1,4 +1,8 @@
-import { useEffect, useMemo, type RefObject } from 'react'
+import { prepareBrushPresets } from '../../lib/api/brushLibrary'
+import { importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
+import { notifyError } from '../../stores/noticeStore'
+import { useT } from '../../i18n'
+import { useEffect, useMemo, useState, type RefObject } from 'react'
 
 import { pressureMapOf } from '../../lib/input/pressureCalibration'
 import {
@@ -69,6 +73,19 @@ export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
       size: digitalBrushSizeFromPressure, opacity: digitalBrushOpacityFromPressure,
     })
   })()
+  const [, resourcesChanged] = useState(0)
+  const t = useT()
+  const brushResourcesReady = drawingTool !== 'digitalBrush' || importedBrushAssets(digitalBrushPresetName).every(isBrushAssetReady)
+  useEffect(() => {
+    if (drawingTool !== 'digitalBrush') return
+    let active = true
+    const pending = prepareBrushPresets([digitalBrushPresetName])
+    pending?.then(() => { if (active) resourcesChanged(v => v + 1) }).catch(error => {
+      console.error('Selected brush unavailable', error)
+      if (active) notifyError(t('brushLibrary.error'))
+    })
+    return () => { active = false }
+  }, [drawingTool, digitalBrushPresetName, t])
   // #468 v4 — the whole watercolor mix rides the one preset slot as
   // `response:water:pigment` (watercolorPresetString). Same trick the marker
   // plays with `${nib}:${size}`, and for the same reason: #366 exists to shrink
@@ -219,5 +236,5 @@ export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
     engine?.setOpacity((activeCfg.opacity as number | undefined) ?? 1)
   }, [sizePx, activeCfg, engineEpoch, engineRef])
 
-  return { cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx }
+  return { brushResourcesReady, cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx }
 }

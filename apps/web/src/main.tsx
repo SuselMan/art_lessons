@@ -7,6 +7,8 @@ import * as Sentry from '@sentry/react'
 import './styles/global.css'
 import type { Me } from '@grafetto/shared'
 
+import { loadBrushLibrary, prepareBrushPresets } from './lib/api/brushLibrary'
+import { useRoomStore } from './stores/roomStore'
 import { fetchMe } from './lib/api/api'
 import { reportEnvironment } from './lib/api/environment'
 import { ME_QUERY_KEY } from './lib/api/authState'
@@ -135,7 +137,22 @@ registerServiceWorker(apply => {
 
 queryClient.prefetchQuery({ queryKey: ME_QUERY_KEY, queryFn: fetchMe })
   .catch(err => console.error('failed to warm up identity', err))
-  .finally(() => {
+  .finally(async () => {
+    try {
+      await loadBrushLibrary()
+      await prepareBrushPresets([String(useRoomStore.getState().toolSettings.digitalBrush.brush)])
+    } catch (error) {
+      console.error('Brush library bootstrap failed', error)
+      const locale = useSettingsStore.getState().locale
+      createRoot(document.getElementById('root')!).render(
+        <main role="alert" style={{ padding: 32 }}>
+          <p>{translate(locale, 'brushLibrary.error')}</p>
+          <button onClick={() => location.reload()}>{translate(locale, 'common.retry')}</button>
+        </main>,
+      )
+      return
+    }
+
     // (#589) Only once the identity (and device) cookies exist — the report
     // is stored against them. A failed or refused warm-up (e.g. a ban) sends
     // nothing.

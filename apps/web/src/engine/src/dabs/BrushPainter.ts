@@ -378,8 +378,14 @@ export class BrushPainter {
    *  CLAMP, and mipmapped from the CPU chain for the same reason the tips are. */
   private brushTexture(id: BrushTextureId): WebGLTexture {
     const cached = this.brushTextures.get(id)
-    if (cached) return cached
+    if (cached) {
+      // LRU order; imported texture residency is bounded independently of the
+      // CPU resources retained for synchronous undo/replay.
+      this.brushTextures.delete(id); this.brushTextures.set(id, cached)
+      return cached
+    }
     const tex = this.uploadMips(brushTextureMips(id), this.gl.REPEAT)
+    if (id.startsWith('asset:')) this.trimImportedTextures(this.brushTextures)
     this.brushTextures.set(id, tex)
     return tex
   }
@@ -391,10 +397,24 @@ export class BrushPainter {
    *  trusted with a value every participant has to agree on. */
   private tipTexture(id: TipMaskId): WebGLTexture {
     const cached = this.tipTextures.get(id)
-    if (cached) return cached
+    if (cached) {
+      this.tipTextures.delete(id); this.tipTextures.set(id, cached)
+      return cached
+    }
     const tex = this.uploadMips(tipMaskMips(id), this.gl.CLAMP_TO_EDGE)
+    if (id.startsWith('asset:')) this.trimImportedTextures(this.tipTextures)
     this.tipTextures.set(id, tex)
     return tex
+  }
+
+  /** At most four imported masks and four imported grains per renderer:
+   * roughly 43 MiB including CPU-built mips at 2048², rather than the library. */
+  private trimImportedTextures(textures: Map<string, WebGLTexture>): void {
+    const imported = [...textures.keys()].filter(key => key.startsWith('asset:'))
+    if (imported.length < 4) return
+    const key = imported[0]
+    this.gl.deleteTexture(textures.get(key)!)
+    textures.delete(key)
   }
 
   private uploadMips(levels: Uint8Array[], wrapMode: number): WebGLTexture {

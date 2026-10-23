@@ -1046,7 +1046,7 @@ function RoomEditor() {
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
   // (#493) Every engine.setX that reflects the tool in hand — see useToolSync.
-  const { cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx } =
+  const { brushResourcesReady, cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx } =
     useToolSync({ engineRef, engineEpoch })
   useWatercolorDevFlags(engineRef, engineEpoch) // (#536) dev views and A/B switches
   // (#493) Whose colour the controls edit, what the engine draws with, the
@@ -1086,7 +1086,7 @@ function RoomEditor() {
   // ── sync layer state → engine ─────────────────────────────────────────────────
   // (#493) Active layer, composite order, and the one gate that decides
   // whether a stroke may start at all — see useLayerStateSync.
-  useLayerStateSync(engineRef, isOwner)
+  useLayerStateSync(engineRef, isOwner, brushResourcesReady)
 
   // (#520) Which layers the eraser goes through, when it is set to go through
   // them at all. Pushed from here rather than decided in the engine because the

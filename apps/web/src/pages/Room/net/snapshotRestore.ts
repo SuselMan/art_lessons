@@ -1,3 +1,7 @@
+import { notifyError } from '../../../stores/noticeStore'
+import { useSettingsStore } from '../../../stores/settingsStore'
+import { translate } from '../../../i18n/core/translate'
+import { prepareBrushPresets } from '../../../lib/api/brushLibrary'
 import { isLayerStateShape, type LayerState, type Operation, type SnapshotIndex } from '@grafetto/shared'
 
 import { api, ApiError, apiPath } from '../../../lib/api/api'
@@ -303,9 +307,7 @@ export async function restoreLatestSnapshot(
         while (cursor > 0) {
           const page = await withRetry<Operation[]>(async () => {
             try {
-              return { ok: true, value: await api('GET /api/rooms/:roomId/operations', {
-                params: { roomId }, query: { beforeSeq: cursor, limit: HISTORY_PAGE_LIMIT, layerIds: missing.join(',') },
-              }) }
+              return { ok: true, value: await fetchBrushHistory(roomId, { beforeSeq: cursor, limit: HISTORY_PAGE_LIMIT, layerIds: missing.join(',') }) }
             } catch (error) {
               return { ok: false, retriable: !(error instanceof ApiError) || isRetriableStatus(error.status), error }
             }
@@ -383,7 +385,7 @@ export async function fetchHistoryPage(
   roomId: string, beforeSeq: number, limit = HISTORY_PAGE_LIMIT,
 ): Promise<Operation[]> {
   try {
-    return await api('GET /api/rooms/:roomId/operations', { params: { roomId }, query: { beforeSeq, limit } })
+    return await fetchBrushHistory(roomId, { beforeSeq, limit })
   } catch {
     return []
   }
@@ -423,4 +425,16 @@ export async function walkHistoryBackward(
     if (oldest >= cursor) return
     cursor = oldest
   }
+}
+
+/** Replay/undo can reach older presets absent from the join tail. */
+async function fetchBrushHistory(roomId: string, query: { beforeSeq: number; limit?: number; layerIds?: string }): Promise<Operation[]> {
+  const operations = await api('GET /api/rooms/:roomId/operations', { params: { roomId }, query })
+  try {
+    await prepareBrushPresets(operations.map(op => op.type === 'stroke' ? op.preset : undefined))
+  } catch (error) {
+    notifyError(translate(useSettingsStore.getState().locale, 'brushLibrary.error'), { key: 'brush-library-history', durationMs: null })
+    throw error
+  }
+  return operations
 }

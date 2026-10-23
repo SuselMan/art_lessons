@@ -22,6 +22,9 @@ export const en = {
   'common.create': 'Create',
   'common.rename': 'Rename',
   'common.delete': 'Delete',
+  'tool.brushGroup.imported': 'Imported',
+  'brushLibrary.approximation': 'Imported approximation — compatibility notes',
+  'brushLibrary.error': 'Could not load the brush resources. Check your connection and try again.',
   'common.retry': 'Retry',
   // (#48) The service worker found a newer deploy. Deliberately an offer and
   // not an automatic reload: a teacher mid-lesson can have unsent operations

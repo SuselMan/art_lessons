@@ -30,7 +30,7 @@ import { isDrawingTool } from '../../stores/slices/toolSlice'
  *  `setLocked` only gates `PencilEngine._onStart`; it never touches layerState,
  *  so none of this shows the layer as locked in the panel. It is purely "do not
  *  start a stroke right now". */
-export function useLayerStateSync(engineRef: RefObject<PencilEngineAPI | null>, isOwner: boolean): void {
+export function useLayerStateSync(engineRef: RefObject<PencilEngineAPI | null>, isOwner: boolean, brushResourcesReady = true): void {
   const layerState = useRoomStore(s => s.layerState)
   const tool = useRoomStore(s => s.tool)
   const soloIds = useRoomStore(s => s.soloIds)
@@ -46,7 +46,7 @@ export function useLayerStateSync(engineRef: RefObject<PencilEngineAPI | null>, 
       // put out of view is invisible to its author in exactly the sense #359
       // is about, and refuses paint for the same reason.
       || !isVisibleUnderSolo(layerState, layerState.activeId, soloIds)
-      || !isDrawingTool(tool),
+      || !isDrawingTool(tool) || !brushResourcesReady,
     )
     // The picture, then this viewer's look at it. The order is the shared
     // visibility and nothing else, so exportPNG (and the room thumbnail
@@ -65,5 +65,5 @@ export function useLayerStateSync(engineRef: RefObject<PencilEngineAPI | null>, 
     // different matter: the engine is created by a later effect than this one
     // first runs, so depending on it would re-run this on the engine's
     // arrival, and it is read at call time precisely so that never matters.
-  }, [engineRef, layerState, tool, isOwner, soloIds, setSoloIds])
+  }, [brushResourcesReady, engineRef, layerState, tool, isOwner, soloIds, setSoloIds])
 }

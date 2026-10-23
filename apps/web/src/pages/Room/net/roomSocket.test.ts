@@ -1,12 +1,19 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ServerToClientEvents } from '@grafetto/shared'
 import type { QueryClient } from '@tanstack/react-query'
 
 import type { PencilEngineAPI } from '../../../engine'
+import { prepareBrushPresets } from '../../../lib/api/brushLibrary'
+import { notifyError } from '../../../stores/noticeStore'
 import { noteBanned } from '../../../lib/api/banned'
 import { createPendingPreviews } from './pendingPreviews'
 import { connectRoomSocket, type RoomSocket, type RoomSocketDeps } from './roomSocket'
 
 vi.mock('../../../lib/api/banned', () => ({ BANNED_ERROR_CODE: 'banned', noteBanned: vi.fn() }))
+
+vi.mock('../../../lib/api/brushLibrary', () => ({ prepareBrushPresets: vi.fn(() => null) }))
+vi.mock('../../../stores/noticeStore', () => ({ notifyError: vi.fn() }))
+beforeEach(() => { vi.mocked(prepareBrushPresets).mockReset().mockReturnValue(null) })
 
 /** (#493) The room socket's own lifecycle — what is wired, what a teardown
  *  undoes, how a refused handshake is read. The handlers themselves have their
@@ -86,6 +93,29 @@ function setup() {
 }
 
 describe('connectRoomSocket (#493)', () => {
+  it('locks the room and stops the socket when imported resources fail', async () => {
+    const { deps, listeners, fake, onConnectionChange } = setup()
+    const lock = vi.fn()
+    deps.engineRef.current = { setLocked: lock } as unknown as PencilEngineAPI
+    let reject!: (error: Error) => void
+    const load = new Promise<void>((_resolve, no) => { reject = no })
+    vi.mocked(prepareBrushPresets).mockReturnValueOnce(load)
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const close = connectRoomSocket(deps)
+    try {
+      const live = listeners.get('peer_stroke_live') as ServerToClientEvents['peer_stroke_live']
+      live({ preset: 'imported-a@1' } as Parameters<ServerToClientEvents['peer_stroke_live']>[0])
+      reject(new Error('unavailable'))
+      await load.catch(() => {})
+      expect(onConnectionChange).toHaveBeenLastCalledWith(false)
+      expect(lock).toHaveBeenCalledWith(true)
+      expect(deps.setRoomContentReady).toHaveBeenCalledWith(false)
+      expect(notifyError).toHaveBeenCalledWith('brushLibrary.error', { key: 'brush-library', durationMs: null })
+      expect(fake.disconnect).toHaveBeenCalledOnce()
+      expect(fake.emit).not.toHaveBeenCalled()
+    } finally { close(); errorLog.mockRestore() }
+  })
+
   it('answers every event the page handles, and not peer_cursor (#152)', () => {
     const { deps, listeners } = setup()
     connectRoomSocket(deps)

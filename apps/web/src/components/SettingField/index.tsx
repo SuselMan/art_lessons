@@ -1,3 +1,6 @@
+import { useEffect, useRef, useState } from 'react'
+import { prepareBrushPresets } from '../../lib/api/brushLibrary'
+import { pushNotice } from '../../stores/noticeStore'
 import { PrecisionSlider } from '../PrecisionSlider'
 import { NumberField } from '../NumberField'
 import { OptionButton, OptionSelect, type PickerOption } from '../OptionPicker'
@@ -28,10 +31,30 @@ const ENUM_TRACK_HEIGHT = 128
  *  full "Tool settings" panel tab, switching purely on
  *  `descriptor.valueType.kind`. Adding a new tool/setting is a data change in
  *  toolSchemas.ts; this file does not grow per tool. */
-export function SettingField({ descriptor, value, onChange, layout, onExpand }: SettingFieldProps) {
+export function SettingField({ descriptor, value, onChange: commitChange, layout, onExpand }: SettingFieldProps) {
   const t = useT()
+  const [loading, setLoading] = useState(false)
+  const requestVersion = useRef(0)
+  useEffect(() => {
+    setLoading(false)
+    return () => { requestVersion.current++ }
+  }, [descriptor, value])
+  const onChange = (next: SettingDescriptor['default']) => {
+    if (loading) return
+    const version = requestVersion.current
+    let pending: Promise<void> | null
+    try { pending = typeof next === 'string' ? prepareBrushPresets([next]) : null } catch {
+      if (version === requestVersion.current) pushNotice({ variant: 'error', message: t('brushLibrary.error') }); return
+    }
+    if (!pending) { commitChange(next); return }
+    setLoading(true)
+    pending.then(() => { if (version === requestVersion.current) commitChange(next) }).catch(error => {
+      console.error('Brush loading failed', error)
+      if (version === requestVersion.current) pushNotice({ variant: 'error', message: t('brushLibrary.error') })
+    }).finally(() => { if (version === requestVersion.current) setLoading(false) })
+  }
   const { valueType } = descriptor
-  const label = t(descriptor.nameKey)
+  const label = loading ? t('common.loading') : t(descriptor.nameKey)
 
   /** An enum option's display text: its own translation where the schema
    *  provides one (nib, charcoal type), a literal name where the schema
@@ -136,10 +159,18 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
           <span className={styles.toolbarValue}>{optionLabel(strValue)}</span>
         </div>
       ) : (
-        <div className={styles.panelRow}>
-          <span className={styles.panelLabel}>{label}</span>
-          <OptionSelect options={options} value={strValue} onChange={onChange} label={label} />
-        </div>
+        <>
+          <div className={styles.panelRow}>
+            <span className={styles.panelLabel}>{label}</span>
+            <OptionSelect options={options} value={strValue} onChange={onChange} label={label} />
+          </div>
+          {descriptor.optionDescriptions?.[strValue] && (
+            <details className={styles.importDescription}>
+              <summary>{t('brushLibrary.approximation')}</summary>
+              <p>{descriptor.optionDescriptions[strValue]}</p>
+            </details>
+          )}
+        </>
       )
     }
 

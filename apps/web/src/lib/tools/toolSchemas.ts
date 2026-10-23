@@ -1,3 +1,4 @@
+import { importedBrushes } from '../../engine/brushLibrary'
 import {
   PENCIL_GRADES, DEFAULT_GRAPHITE_COLOR, LINER_SIZES_MM, CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE,
   TILT_RESPONSES, PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE,
@@ -129,6 +130,7 @@ export interface SettingDescriptor {
    *  list is drawn in groups under these, in the order the options come in.
    *  The digital brush's sixteen brushes are unreadable as one column; five
    *  labelled rows of two or three are how every painting app shows a set. */
+  optionDescriptions?: Readonly<Record<string, string>>
   optionGroups?: Readonly<Record<string, TranslationKey>>
   /** Which control(s) this field can render as; first is the default. */
   uiControls: readonly SettingUiControl[]
@@ -389,7 +391,9 @@ const digitalBrushSchema = (): ToolSchema => ({
   // equivalent of picking a pencil out of the stack, not of adjusting one.
   brush: {
     nameKey: 'tool.field.brush',
-    valueType: { kind: 'enumOptions', options: DIGITAL_BRUSH_IDS },
+    get valueType() { return { kind: 'enumOptions' as const, options: [...DIGITAL_BRUSH_IDS, ...importedBrushes().map(b => b.descriptor.id)] } },
+    get optionDescriptions() { return Object.fromEntries(importedBrushes().map(b => [b.descriptor.id, b.warnings.join(' · ')])) },
+    get optionLabels() { return Object.fromEntries(importedBrushes().map(b => [b.descriptor.id, `${b.source.endsWith('.abr') ? 'ABR' : 'Procreate'} · ${b.name}`])) },
     optionLabelKeys: {
       'soft-round': 'tool.brush.softRound',
       'medium-round': 'tool.brush.mediumRound',
@@ -416,9 +420,9 @@ const digitalBrushSchema = (): ToolSchema => ({
       'sponge': 'tool.brush.sponge',
       'gouache': 'tool.brush.gouache',
     },
-    optionGroups: Object.fromEntries(
-      DIGITAL_BRUSHES.map(b => [b.id, BRUSH_GROUP_LABEL_KEYS[b.category]]),
-    ),
+    get optionGroups() { return Object.fromEntries(
+      [...DIGITAL_BRUSHES.map(b => [b.id, BRUSH_GROUP_LABEL_KEYS[b.category]]), ...importedBrushes().map(b => [b.descriptor.id, 'tool.brushGroup.imported'])],
+    ) },
     // A sample stroke, like a pencil grade's — not the plotted falloff this
     // shipped with first. The curve was honest and still wrong for the job: it
     // showed the tool's insides where the question is "what does this leave on
