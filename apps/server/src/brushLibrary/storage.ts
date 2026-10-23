@@ -6,6 +6,12 @@ import { isBrushLibrary, type BrushLibrary } from '@grafetto/shared'
 export const empty = (): BrushLibrary => ({ schemaVersion: 1, brushes: [], assets: [], skipped: [] })
 const key = (s: string) => createHash('sha256').update(s).digest('hex')
 export function boundedRead(path: string, limit: number): Buffer {
+  let cursor = parse(resolve(path)).root
+  for (const part of resolve(path).slice(cursor.length).split('/').filter(Boolean).slice(0,-1)) {
+    cursor=join(cursor,part)
+    const stat=lstatSync(cursor)
+    if(stat.isSymbolicLink() || !stat.isDirectory()) throw Error('Unsafe file path')
+  }
   const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW)
   try { const stat = fstatSync(fd); if (!stat.isFile() || stat.size > limit) throw Error('Invalid file')
     const bytes = Buffer.alloc(stat.size); let offset = 0
