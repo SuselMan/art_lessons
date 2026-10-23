@@ -16,7 +16,7 @@ export const ru: Dictionary = {
   'brushLibrary.title': 'Библиотека кистей',
   'brushLibrary.import': 'Импортировать кисти',
   'brushLibrary.export': 'Скачать кисти проекта',
-  'brushLibrary.importHint': 'ABR, Procreate или набор Grafetto. Импортированные кисти станут доступны в этом проекте.',
+  'brushLibrary.importHint': 'ABR, Procreate, Krita KPP/Bundle или набор Grafetto. Импортированные кисти станут доступны в этом проекте.',
   'brushLibrary.uploading': 'Загрузка',
   'brushLibrary.converting': 'Читаем настройки кистей…',
   'brushLibrary.imported': 'Импортировано кистей: {n}',

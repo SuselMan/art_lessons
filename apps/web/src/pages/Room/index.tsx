@@ -111,7 +111,7 @@ import { createSnapshotGate } from './net/snapshotGate'
 import type { RoomStatePayload } from './restoreRoomState'
 import { useRoomRestore } from './useRoomRestore'
 import { useTransformSession, type TransformSession } from './useTransformSession'
-import { initLayersFromStore, openParkedRoomState, releaseOnPageHide, retainEngineBrushResources, retireEngine, wireLocalStrokeEvents } from './engineWiring'
+import { initEngineFromStore, openParkedRoomState, releaseOnPageHide, retireEngine, wireLocalStrokeEvents } from './engineWiring'
 import { useRoomStore, resetRoomStore, resetBoardState } from '../../stores/roomStore'
 import { useT } from '../../i18n'
 import { isHandActive } from '../../stores/slices/viewportSlice'
@@ -999,7 +999,6 @@ function RoomEditor() {
       ...engineDevOptions,
     })
     engineRef.current = engine
-    const releaseBrushResources = retainEngineBrushResources(boardId)
     exposeEngineForDev(engine)
     // Tells every engine-sync effect below that there is now an engine to sync
     // to — see engineEpoch's own comment for what silently did not happen
@@ -1016,7 +1015,7 @@ function RoomEditor() {
     // (#493) What happens around this person's own strokes, and the layer
     // structure the store already holds — see engineWiring.
     wireLocalStrokeEvents(engine, { strokeActiveRef, markActive, pencilSoundRef })
-    initLayersFromStore(engine)
+    initEngineFromStore(engine, boardId)
 
     // (#493) The `room_state` parked for this engine, or the paper wait for a
     // room with none — see openParkedRoomState.
@@ -1031,7 +1030,7 @@ function RoomEditor() {
     return () => {
       engineRef.current = null
       // (#493) Final thumbnail, then destroy: `engine`, not the nulled ref.
-      retireEngine(engine, boardId, replayIncompleteRef, unhookPageHide, releaseBrushResources)
+      retireEngine(engine, boardId, replayIncompleteRef, unhookPageHide)
     }
   }, [
     boardId, enginePaper, enginePaperColor, engineInfinite,

@@ -1,5 +1,6 @@
 import { clamp } from 'lodash-es'
 
+import { normalizeBrush } from './brushNormalization'
 import { importedBrushFromPreset } from './importedBrushes'
 
 import { tiltOrPathAngle, type DabShapingProfile } from './dabShaping'
@@ -138,56 +139,6 @@ const OPACITY_WET: BrushCurve = [[0, 0.3], [0.5, 0.85], [1, 1]]
 
 /** Ink keeps most of its black at a light touch, but still answers it. */
 const OPACITY_INK: BrushCurve = [[0, 0.3], [0.5, 0.8], [1, 1]]
-
-// ─── v1 (frozen) ────────────────────────────────────────────────────────────
-
-/** The set as #547 shipped it, frozen (ADR 013 §7).
- *
- *  Nothing new draws with these: they exist so a stroke whose token says
- *  `brush:soft-round@1` keeps resolving to exactly the numbers and the renderer
- *  it was drawn with. The live set below supersedes each one at `@2`, where the
- *  meaning of pressure changed from flow to an opacity ceiling (#573) — a change
- *  to pixels, and therefore a version. `opacityByPressure` is present only to
- *  satisfy the type: the `ribbon` model never reads it. */
-const V1_BRUSHES: readonly BrushDescriptor[] = [
-  {
-    id: 'soft-round', version: 1, model: 'ribbon', category: 'soft',
-    tip: roundTip(0.12), paperInteraction: 0, spacing: 0.06, flow: 0.45, flowPer: 'pass',
-    sizeByPressure: SIZE_FULL, flowByPressure: FLOW_LINEAR, opacityByPressure: [[0, 1], [1, 1]],
-    pressureSmoothingPx: 8, opacity: 1,
-  },
-  {
-    id: 'medium-round', version: 1, model: 'ribbon', category: 'paint',
-    tip: roundTip(0.45), paperInteraction: 0, spacing: 0.08, flow: 0.85, flowPer: 'pass',
-    sizeByPressure: SIZE_FULL, flowByPressure: FLOW_EARLY, opacityByPressure: [[0, 1], [1, 1]],
-    pressureSmoothingPx: 8, opacity: 1,
-  },
-  {
-    id: 'hard-round', version: 1, model: 'ribbon', category: 'line',
-    tip: roundTip(0.82), paperInteraction: 0, spacing: 0.10, flow: 0.95, flowPer: 'pass',
-    sizeByPressure: SIZE_FULL, flowByPressure: FLOW_EARLY, opacityByPressure: [[0, 1], [1, 1]],
-    pressureSmoothingPx: 10, opacity: 1,
-  },
-  {
-    id: 'ink-round', version: 1, model: 'ribbon', category: 'line',
-    tip: roundTip(0.94), paperInteraction: 0, spacing: 0.09, flow: 1, flowPer: 'pass',
-    sizeByPressure: SIZE_KNEE, flowByPressure: FLOW_FLAT, opacityByPressure: [[0, 1], [1, 1]],
-    pressureSmoothingPx: 14, opacity: 1,
-  },
-  {
-    id: 'opaque-paint', version: 1, model: 'ribbon', category: 'paint',
-    tip: roundTip(0.62), paperInteraction: 0, spacing: 0.08, flow: 0.95, flowPer: 'pass',
-    sizeByPressure: SIZE_FULL, flowByPressure: FLOW_COVERING, opacityByPressure: [[0, 1], [1, 1]],
-    pressureSmoothingPx: 8, opacity: 1,
-  },
-  {
-    id: 'flat', version: 1, model: 'ribbon', category: 'paint',
-    tip: { kind: 'round', hardness: 0.7, aspect: 4, rotation: 'fixed', angle: Math.PI / 4 },
-    paperInteraction: 0, spacing: 0.05, flow: 0.9, flowPer: 'pass',
-    sizeByPressure: SIZE_FULL, flowByPressure: FLOW_COVERING, opacityByPressure: [[0, 1], [1, 1]],
-    pressureSmoothingPx: 10, opacity: 1,
-  },
-]
 
 // ─── The live set ───────────────────────────────────────────────────────────
 
@@ -711,136 +662,13 @@ export function digitalBrushFlowFromPreset(presetName: string | undefined): bool
   return digitalBrushPressureFromPreset(presetName).opacity
 }
 
-/** (#581) The digital watercolor set as #579 shipped it, frozen — its strokes
- *  replay through wet model 1. The live set supersedes each at `@2`. */
-const V1_WET_BRUSHES: readonly BrushDescriptor[] = [
-  {
-    // The workhorse wash: soft enough to merge, transparent, blooming.
-    id: 'wet-wash',
-    version: 1, model: 'stamp', category: 'wet',
-    tip: roundTip(0.5),
-    paperInteraction: 0.15,
-    spacing: 0.07,
-    flow: 0.95, flowPer: 'pass',
-    sizeByPressure: SIZE_HALF,
-    flowByPressure: FLOW_LINEAR,
-    opacityByPressure: OPACITY_WET,
-    pressureSmoothingPx: 8,
-    opacity: 1,
-    wet: { edge: 0.55, mottle: 0.6, granulation: 0.1, glaze: true },
-  },
-  {
-    // Wet edge on its own terms: a firm stroke whose pigment has run to the
-    // rim and dried there as a dark outline.
-    id: 'wet-edge',
-    version: 1, model: 'stamp', category: 'wet',
-    tip: roundTip(0.9),
-    paperInteraction: 0.1,
-    spacing: 0.07,
-    flow: 0.95, flowPer: 'pass',
-    sizeByPressure: SIZE_HALF,
-    flowByPressure: FLOW_LINEAR,
-    opacityByPressure: OPACITY_WET,
-    pressureSmoothingPx: 8,
-    opacity: 1,
-    wet: { edge: 1, mottle: 0.25, granulation: 0, glaze: true },
-  },
-  {
-    // Granulating pigment — ultramarine, earth colours: the tone gathers in a
-    // fine grain rather than lying flat.
-    id: 'granulating',
-    version: 1, model: 'stamp', category: 'wet',
-    tip: roundTip(0.45),
-    paperInteraction: 0.2,
-    spacing: 0.07,
-    flow: 0.95, flowPer: 'pass',
-    sizeByPressure: SIZE_HALF,
-    flowByPressure: FLOW_LINEAR,
-    opacityByPressure: OPACITY_WET,
-    pressureSmoothingPx: 8,
-    opacity: 1,
-    wet: { edge: 0.35, mottle: 0.35, granulation: 0.85, glaze: true },
-  },
-  {
-    // A dry, loaded brush dragged fast: ragged rim, broken body, still a glaze.
-    id: 'dry-wash',
-    version: 1, model: 'stamp', category: 'wet',
-    tip: bitmapTip('rough', 'travel'),
-    paperInteraction: 0.35,
-    texture: { id: 'dry', periodPx: 320, strength: 0.7 },
-    spacing: 0.08,
-    flow: 0.95, flowPer: 'pass',
-    sizeByPressure: SIZE_HALF,
-    flowByPressure: FLOW_LINEAR,
-    opacityByPressure: OPACITY_WET,
-    pressureSmoothingPx: 8,
-    opacity: 0.95,
-    scatter: { count: 1, radius: 0, scale: 1, sizeJitter: 0.08, angleJitter: 0.03, flowJitter: 0 },
-    wet: { edge: 0.3, mottle: 0.3, granulation: 0.2, glaze: true },
-  },
-  {
-    // A flat whose hairs have clumped: one pass lays a stack of parallel
-    // glazed stripes, darker where their soft sides overlap.
-    id: 'wet-bands',
-    version: 1, model: 'stamp', category: 'wet',
-    tip: bitmapTip('clumps', 'travel'),
-    paperInteraction: 0.1,
-    // Without these the stripes come out ruled: a clump's position is fixed in
-    // the tip, so only per-stamp jitter and the canvas grain make a stripe
-    // wander and break the way a real one does.
-    texture: { id: 'dry', periodPx: 320, strength: 0.35 },
-    scatter: { count: 1, radius: 0.04, scale: 1, sizeJitter: 0.12, angleJitter: 0.02, flowJitter: 0.2 },
-    spacing: 0.03,
-    flow: 0.95, flowPer: 'pass', flowSpan: 0.4,
-    sizeByPressure: SIZE_HALF,
-    flowByPressure: FLOW_LINEAR,
-    opacityByPressure: OPACITY_WET,
-    pressureSmoothingPx: 8,
-    opacity: 1,
-    wet: { edge: 0.5, mottle: 0.3, granulation: 0, glaze: true },
-  },
-  {
-    // Dabbed rather than dragged: round prints far enough apart that each
-    // keeps its own wet rim, so the stroke's edge comes out scalloped.
-    id: 'sponge',
-    version: 1, model: 'stamp', category: 'wet',
-    tip: roundTip(0.7),
-    paperInteraction: 0.15,
-    spacing: 0.32,
-    flow: 0.9, flowPer: 'stamp',
-    sizeByPressure: SIZE_HALF,
-    flowByPressure: FLOW_LINEAR,
-    opacityByPressure: OPACITY_WET,
-    pressureSmoothingPx: 8,
-    opacity: 1,
-    wet: { edge: 0.8, mottle: 0.25, granulation: 0.1, glaze: true },
-  },
-  {
-    // Gouache: opaque, flat and matte — it covers what is under it rather
-    // than glazing it, with only a trace of the brush in the tone.
-    id: 'gouache',
-    version: 1, model: 'stamp', category: 'wet',
-    tip: roundTip(0.7),
-    paperInteraction: 0.1,
-    texture: { id: 'dry', periodPx: 384, strength: 0.18 },
-    spacing: 0.07,
-    flow: 0.95, flowPer: 'pass',
-    sizeByPressure: SIZE_HALF,
-    flowByPressure: FLOW_COVERING,
-    opacityByPressure: OPACITY_WET,
-    pressureSmoothingPx: 8,
-    opacity: 1,
-    wet: { edge: 0.15, mottle: 0.15, granulation: 0, glaze: false },
-  },
-]
-
-const ALL_BRUSHES: readonly BrushDescriptor[] = [...DIGITAL_BRUSHES, ...V1_BRUSHES, ...V1_WET_BRUSHES]
-
 /** Inverse of the above, defensive in the same way markerNibFromPreset is: an
  *  unrecognised or missing token resolves to the default brush's current
  *  version rather than throwing, because this runs on the replay path where a
  *  hard failure would take out the whole room's history rather than one mark. */
-export function digitalBrushFromPreset(presetName: string | undefined): BrushDescriptor {
+export function digitalBrushFromPreset(presetName: string | undefined): BrushDescriptor { return normalizeBrush(rawBrushFromPreset(presetName)) }
+
+function rawBrushFromPreset(presetName: string | undefined): BrushDescriptor {
   const imported = importedBrushFromPreset(presetName)
   if (imported) return imported
   const fallback = DIGITAL_BRUSHES.find(b => b.id === DEFAULT_DIGITAL_BRUSH) ?? DIGITAL_BRUSHES[0]
@@ -852,14 +680,10 @@ export function digitalBrushFromPreset(presetName: string | undefined): BrushDes
     // the moment a stroke is recorded (see engine's own _strokePreset).
     return DIGITAL_BRUSHES.find(b => b.id === presetName) ?? fallback
   }
-  const [, id, version] = m
-  // Matched on id *and* version across the live set and the frozen v1 one: an
-  // old stroke must find the old numbers. An unknown version falls back to the
-  // id's current descriptor, which is the only honest answer for a stroke
-  // recorded by a client newer than this one.
-  return ALL_BRUSHES.find(b => b.id === id && b.version === Number(version))
-    ?? DIGITAL_BRUSHES.find(b => b.id === id)
-    ?? fallback
+  const [, id] = m
+  // Pre-release consolidation: old built-in tokens resolve through today's
+  // single preset set. Imported assets still use exact immutable identities.
+  return DIGITAL_BRUSHES.find(b => b.id === id) ?? fallback
 }
 
 // ─── Engine-facing derivations ──────────────────────────────────────────────
@@ -1058,7 +882,7 @@ export function digitalBrushMixer(
   if (brush.model !== 'mixer' || !brush.mixer) return null
   return {
     color,
-    brush: brush.behavior ? brush : undefined,
+    brush,
     load: brush.mixer.load,
     pickup: brush.mixer.pickup,
     strength: brush.mixer.strength,

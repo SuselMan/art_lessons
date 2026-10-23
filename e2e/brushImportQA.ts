@@ -27,6 +27,7 @@ try {
   await writeFile(`${out}/room-id`, id)
   expect(downloads[0]).toHaveLength(0)
   const library = await teacher.evaluate(async () => (await fetch('/api/brush-library')).json())
+  library.brushes.sort((a:{descriptor:{version:number}},b:{descriptor:{version:number}})=>b.descriptor.version-a.descriptor.version)
   const abr = baseline ? { name: 'Hard Round', source: 'builtin', descriptor: { id: 'hard-round' } } : library.brushes.find((b: { source: string; descriptor: { behavior?: unknown } }) => b.source.endsWith('.abr') && b.descriptor.behavior)
   const procreate = baseline ? { name: 'Soft Round', source: 'builtin', descriptor: { id: 'soft-round' } } : library.brushes.find((b: { source: string; name: string; descriptor: { behavior?: unknown } }) => b.source.endsWith('.brushset') && b.name === 'Main Brush' && b.descriptor.behavior)
   if (!abr || !procreate) throw new Error('Expected both real source formats in the QA catalog')

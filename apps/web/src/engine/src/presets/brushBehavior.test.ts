@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BrushDescriptor, Dab } from '@grafetto/shared'
-import { beginBrushBehavior, behaviorStampsForDab, splitBrushTail } from './brushBehavior'
+import { beginBrushBehavior, behaviorStampsForDab, secondaryBrushDabs, splitBrushTail } from './brushBehavior'
 import { DIGITAL_BRUSHES } from './digitalBrushPresets'
 import { nominalDabSpacing } from '../dabs/dabSpacing'
 const color: [
@@ -64,4 +64,28 @@ describe('v2 logical brush state', () => {
     const maximumStamps = Math.ceil(length / step) * 16
     expect(maximumStamps).toBe(16000)
   })
+  it('keeps pen azimuth distinct from path direction and combines signed tilt/speed influence', () => {
+    const b: BrushDescriptor = { ...brush, scatter: undefined, behavior: {version:2,rotation:{follow:1,random:'none',azimuth:true},modulations:{size:[{control:'tilt',strength:.5,minimum:0,jitter:0},{control:'speed',strength:-.5,minimum:0,jitter:0}]}} }
+    const first = {...dabs[0], x:0,y:0,tiltX:0,tiltY:45,angle:0}
+    const state = beginBrushBehavior(first)
+    const one = behaviorStampsForDab(b, first,state,color)[0]
+    expect(one.angle).toBeCloseTo(Math.PI/2)
+    expect(one.size).toBeCloseTo(first.size*.75)
+    const second = {...first,x:8,t:first.t+8}
+    const two = behaviorStampsForDab(b,second,state,color)[0]
+    expect(two.angle).toBeCloseTo(Math.PI/2)
+    expect(two.size).toBeCloseTo(second.size*.75*.75)
+  })
+
+  it('samples a secondary brush with its own spacing across arbitrary packet splits', () => {
+    const child={...brush,spacing:.11}
+    const full=secondaryBrushDabs(brush,child,dabs,{remaining:0})
+    let state={remaining:0} as Parameters<typeof secondaryBrushDabs>[3]
+    const chunked=[]
+    for(let i=0;i<dabs.length;i+=7){chunked.push(...secondaryBrushDabs(brush,child,dabs.slice(i,i+7),state));state=structuredClone(state)}
+    expect(chunked).toEqual(full)
+    expect(full.every(d=>d.opacity===1)).toBe(true)
+    expect(secondaryBrushDabs(brush,{...child,spacing:.7},dabs,{remaining:0}).length).toBeLessThan(full.length)
+  })
+
 })

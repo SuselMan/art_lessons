@@ -78,7 +78,7 @@ describe('digital brush, v1 strokes (#547, ADR 013 §7)', () => {
     engine.appendOperation(makeStroke('user-a', 'L', brushStroke(), {
       tool: 'digitalBrush', preset: TOKEN,
     }))
-    expect(markerPassDraw(engine, 10)).toBeDefined()
+    expect(brushDraws(engine).some(d=>d.kind==='stamp')).toBe(true)
     expect(markerPassDraw(engine, 6)).toBeUndefined()
   })
 
@@ -94,14 +94,14 @@ describe('digital brush, v1 strokes (#547, ADR 013 §7)', () => {
     expect(markerPassDraw(engine, 7)).toBeUndefined()
   })
 
-  it('composites through the brush pen’s source-over branch', () => {
+  it('composites historical tokens through the shared digital brush program', () => {
     // ADR 013 §3 — reused whole rather than copied: alpha = coverage * opacity
     // over the frozen pre-stroke content is already exactly flow-against-opacity.
     const engine = setupLayer()
     engine.appendOperation(makeStroke('user-a', 'L', brushStroke(), {
       tool: 'digitalBrush', preset: TOKEN,
     }))
-    expect(markerPassDraw(engine, 8)).toBeDefined()
+    expect(brushDraws(engine).some(d=>d.kind==='composite')).toBe(true)
     expect(markerPassDraw(engine, 9)).toBeUndefined()
   })
 
@@ -117,7 +117,7 @@ describe('digital brush, v1 strokes (#547, ADR 013 §7)', () => {
       dab(16, 32, { size: 20, pressure, opacity: 1 }),
       dab(32, 32, { size: 20, pressure, opacity: 1 }),
     ], { tool: 'digitalBrush', preset: digitalBrushPreset(brush.id, brush.version) }))
-    const stamp = markerPassDraw(engine, 10)
+    const stamp = brushDraws(engine).find(d=>d.kind==='stamp')
     expect(stamp).toBeDefined()
 
     // Per *stamp*, and therefore strictly below the brush's per-pass flow: the
@@ -128,8 +128,8 @@ describe('digital brush, v1 strokes (#547, ADR 013 §7)', () => {
     // every brush solid at every pressure.
     const perPass = digitalBrushFlow(brush, pressure)
     expect(perPass).toBeLessThan(1)
-    expect(stamp!.opacity).toBeGreaterThan(0)
-    expect(stamp!.opacity).toBeLessThan(perPass)
+    expect(stamp!.uniforms.get('u_opacity') as number).toBeGreaterThan(0)
+    expect(stamp!.uniforms.get('u_opacity') as number).toBeLessThan(perPass)
 
     // And it is still the dab's *pressure* that drives it, not the dab's
     // opacity — the wire this test exists for.
@@ -261,9 +261,9 @@ describe('digital brush, v1 strokes (#547, ADR 013 §7)', () => {
         dab(16, 32, { size: 20, pressure }),
         dab(32, 32, { size: 20, pressure }),
       ], { tool: 'digitalBrush', preset }))
-      const stamp = markerPassDraw(engine, 10)
+      const stamp = brushDraws(engine).find(d=>d.kind==='stamp')
       if (!stamp) throw new Error('no stamp draw')
-      return stamp.opacity
+      return stamp.uniforms.get('u_ceiling') as number
     }
 
     // On (the plain token): pressing harder lays more down.

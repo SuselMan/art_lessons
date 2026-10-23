@@ -12,10 +12,8 @@ import re
 import struct
 import zipfile
 from PIL import Image, ImageOps
+from brush_contract import Catalog, MAX_PIXELS, IMPORTER_SCHEMA_VERSION, IMPORTER_RENDERING_VERSION, number, clamp, descriptor, finalize_identity, compatibility
 
-MAX_PIXELS = 64 * 1024 * 1024
-IMPORTER_SCHEMA_VERSION = 1
-IMPORTER_RENDERING_VERSION = 2
 
 class Reader:
     def __init__(self, data): self.data, self.pos = data, 0
@@ -115,7 +113,9 @@ def read_pattern(data):
     r=Reader(data)
     if r.u32()!=1: raise ValueError('Unsupported pattern version')
     mode=r.u32();r.take(4);name=r.text();pid=r.take(r.num('B')).decode('ascii')
-    if mode not in (1,3): raise ValueError('Only grayscale and RGB patterns supported')
+    if mode not in (1,2,3): raise ValueError('Only grayscale, indexed and RGB patterns supported')
+    palette=r.take(768) if mode==2 else None
+    if mode==2: r.take(4)
     if r.u32()!=3: raise ValueError('Invalid pattern VMAL version')
     length=r.u32();end=r.pos+length
     top,left,bottom,right=[r.num('i') for _ in range(4)];w,h=right-left,bottom-top
@@ -135,9 +135,11 @@ def read_pattern(data):
         if c.pos!=len(c.data): raise ValueError('Pattern channel trailing bytes')
         canvas=Image.new('L',(w,h));canvas.paste(Image.frombytes('L',(cw,ch),pixels),(cl-left,ct-top));channels.append(canvas)
     if r.pos!=end or end!=len(data): raise ValueError('Pattern VMAL length mismatch')
-    required=1 if mode==1 else 3
+    required=1 if mode in (1,2) else 3
     if len(channels)<required: raise ValueError('Missing pattern channels')
-    image=channels[0] if mode==1 else Image.merge('RGB',channels[:3]).convert('L')
+    if mode==2:
+        indexed=Image.frombytes('P',(w,h),channels[0].tobytes());indexed.putpalette(palette);image=indexed.convert('L')
+    else: image=channels[0] if mode==1 else Image.merge('RGB',channels[:3]).convert('L')
     return pid,image
 
 
@@ -197,73 +199,6 @@ def read_abr(path, include_patterns=False):
     return (samples,presets,errors,patterns) if include_patterns else (samples,presets,errors)
 
 
-def number(value, fallback=0):
-    if isinstance(value,dict): value = value.get('value',fallback)
-    return float(value) if isinstance(value,(int,float)) and math.isfinite(value) else fallback
-
-
-def clamp(value,low=0,high=1): return min(high,max(low,number(value)))
-
-
-def descriptor(seed, mask):
-    return {'id':'imported-'+hashlib.sha256(seed).hexdigest()[:24], 'version':1,
-            'model':'stamp','category':'paint',
-            'tip':{'kind':'bitmap','mask':mask,'hardness':0.7,'aspect':1,'rotation':'fixed','angle':0},
-            'paperInteraction':0,'spacing':0.1,'flow':1,'flowPer':'stamp',
-            'sizeByPressure':[[0,1],[1,1]],'flowByPressure':[[0,1],[1,1]],
-            'opacityByPressure':[[0,1],[1,1]],'pressureSmoothingPx':0,'opacity':1}
-
-
-def finalize_identity(d, seed):
-    """Freeze identity only after every rendering field and asset hash is known."""
-    rendering = {k: v for k, v in d.items() if k != 'id'}
-    identity = {
-        'schemaVersion': IMPORTER_SCHEMA_VERSION,
-        'importerRenderingVersion': IMPORTER_RENDERING_VERSION,
-        'sourceSettingsSha256': hashlib.sha256(seed).hexdigest(),
-        'rendering': rendering,
-    }
-    canonical = json.dumps(identity, sort_keys=True, separators=(',', ':'), allow_nan=False).encode('utf-8')
-    d['id'] = 'imported-' + hashlib.sha256(canonical).hexdigest()[:24]
-    return d
-
-
-class Catalog:
-    def __init__(self, output):
-        self.output = output; output.mkdir(parents=True,exist_ok=True)
-        self.brushes, self.assets, self.skipped = [],{},[]
-    def asset(self, image, warnings, invert=False, grain=False):
-        if image.width*image.height > MAX_PIXELS: raise ValueError('Raster exceeds pixel limit')
-        image.load()
-        # Procreate shapes and grain are luminance maps, with white = coverage.
-        # Alpha masks multiply luminance instead of replacing it.
-        gray = image.convert('L')
-        if 'A' in image.getbands():
-            from PIL import ImageChops
-            gray = ImageChops.multiply(gray,image.getchannel('A'))
-        if invert: gray = ImageOps.invert(gray)
-        longest = max(gray.size); size = max(2,min(2048,1 << (longest-1).bit_length()))
-        if longest > 2048: warnings.append(f'Downsampled {gray.width}x{gray.height} to fit 2048')
-        if grain:
-            if gray.size != (size,size): warnings.append('Grain resampled to square power-of-two texture')
-            gray = gray.resize((size,size),Image.Resampling.LANCZOS)
-        else:
-            ratio = min(1,size/longest)
-            resized = gray.resize((max(1,round(gray.width*ratio)),max(1,round(gray.height*ratio))),Image.Resampling.LANCZOS)
-            if resized.size != (size,size): warnings.append('Tip padded to square power-of-two; footprint includes transparent margin')
-            gray = Image.new('L',(size,size)); gray.paste(resized,((size-resized.width)//2,(size-resized.height)//2))
-        raw = gray.tobytes(); sha = hashlib.sha256(raw).hexdigest(); aid='asset:'+sha
-        (self.output/(sha+'.bin')).write_bytes(raw)
-        self.assets[aid]={'id':aid,'size':size,'file':sha+'.bin'}
-        return aid
-    def write(self):
-        if sum(a['size']**2 for a in self.assets.values()) > 256*1024*1024:
-            raise ValueError('Catalog raw assets exceed 256 MiB; convert a smaller selection')
-        result={'schemaVersion':1,'brushes':self.brushes,'assets':list(self.assets.values()),'skipped':self.skipped}
-        (self.output/'manifest.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
-        return result
-
-
 def resolve_archive(data):
     archive = plistlib.loads(data); objects = archive.get('$objects')
     if objects is None: return archive
@@ -278,10 +213,6 @@ def resolve_archive(data):
     return resolve(archive['$top']['root'])
 
 
-def compatibility(feature, detail, status='approximate'):
-    return {'feature': feature, 'status': status, 'detail': detail}
-
-
 def pressure_curve(settings,key):
     amount=clamp(settings.get(key),-1,1)
     curve=settings.get(key+'Curve',{}).get('points',[])
@@ -289,6 +220,16 @@ def pressure_curve(settings,key):
     points=[p for p in points if len(p)==2]
     if len(points)<2: points=[[0,0],[1,1]]
     return [[clamp(x),clamp(1-amount+amount*clamp(y) if amount>=0 else 1+amount*clamp(y))] for x,y in points]
+
+
+# Numeric file-format identifiers, independently decoded into our blend contract.
+# Cross-reference: Freya Lupen's published Procreate format research (see README).
+PROCREATE_BLEND_IDS={0:'normal',1:'multiply',2:'screen',3:'add',4:'lighten',5:'exclusion',6:'difference',7:'subtract',8:'linearBurn',9:'colorDodge',10:'colorBurn',11:'overlay',12:'hardLight',13:'luminosity',14:'color',15:'hue',16:'saturation',17:'softLight',19:'darken',20:'hardMix',21:'vividLight',23:'pinLight',24:'lighterColor',25:'darkerColor',26:'divide'}
+def procreate_blend(value,notes,feature,default='normal'):
+    code=int(number(value))
+    if code not in PROCREATE_BLEND_IDS:
+        notes.append(compatibility(feature,'Unknown Procreate blend identifier '+str(code)+'; '+default+' used.','unsupported'))
+    return PROCREATE_BLEND_IDS.get(code,default)
 
 
 def procreate_component(z,names,prefix,catalog,notes):
@@ -303,7 +244,7 @@ def procreate_component(z,names,prefix,catalog,notes):
     d['tip']['angle']=clamp(settings.get('shapeAngle'),-1,1)*math.pi
     d['tip']['aspect']=1/clamp(settings.get('shapeRoundness',1),0.0625,1)
     # Shape Rotation follows stroke direction. Azimuth is pencil orientation, not path rotation.
-    behavior={'version':2,'rotation':{'follow':clamp(settings.get('shapeRotation'),-1,1),'random':'stroke' if settings.get('shapeRandomise') else 'none','flipX':bool(settings.get('shapeFlipXJitter')),'flipY':bool(settings.get('shapeFlipYJitter'))},
+    behavior={'version':2,'rotation':{'follow':clamp(settings.get('shapeRotation'),-1,1),'random':'stroke' if settings.get('shapeRandomise') else 'none','flipX':bool(settings.get('shapeFlipXJitter')),'flipY':bool(settings.get('shapeFlipYJitter')),'azimuth':bool(settings.get('shapeAzimuth'))},
         'scatter':{'countJitter':clamp(settings.get('shapeCountJitter')),'bothAxes':True}}
     count=1+round(clamp(settings.get('shapeCount'))*15)
     d['scatter']={'count':count,'radius':clamp(settings.get('plotJitter')),'scale':1,'sizeJitter':clamp(settings.get('dynamicsJitterSize')),'angleJitter':clamp(settings.get('shapeScatter')),'flowJitter':clamp(settings.get('dynamicsJitterOpacity'))}
@@ -313,12 +254,18 @@ def procreate_component(z,names,prefix,catalog,notes):
     if prefix+'Grain.png' in names:
         aid=catalog.asset(Image.open(io.BytesIO(z.read(prefix+'Grain.png'))),warnings,bool(settings.get('textureInverted')),grain=True)
         d['texture']={'id':aid,'strength':clamp(settings.get('grainDepth',1)),'periodPx':clamp(256*number(settings.get('textureScale'),1),1,4096)}
-        behavior['grain']={'mode':'moving' if number(settings.get('textureMovement')) else 'canvas','movement':clamp(settings.get('textureMovement')),'zoom':clamp(settings.get('textureZoom',1)),'rotation':clamp(settings.get('textureRotation'),-1,1),'offsetJitter':bool(settings.get('textureOffsetJitter')),'brightness':clamp(settings.get('textureBrightness'),-1,1),'contrast':clamp(settings.get('textureContrast'),-1,1),'depthMinimum':clamp(settings.get('grainDepthMinimum')),'depthJitter':clamp(settings.get('grainDepthJitter')),'blendMode':'multiply'}
-        notes.append(compatibility('grain','Movement, zoom, depth and contrast retained; Procreate numeric blend-mode enum is undocumented, multiply used.'))
-    behavior['rendering']={'mode':'intenseBlend' if settings.get('renderingRecursiveMixing') else 'uniformBlend' if settings.get('renderingMaxTransfer') else 'lightGlaze','blendMode':'normal','wetEdges':clamp(settings.get('wetEdgesAmount')),'burntEdges':clamp(settings.get('burntEdgesAmount')),'burntEdgesMode':'multiply'}
+        behavior['grain']={'mode':'moving' if number(settings.get('textureMovement')) else 'canvas','movement':clamp(settings.get('textureMovement')),'zoom':clamp(settings.get('textureZoom',1)),'rotation':clamp(settings.get('textureRotation'),-1,1),'offsetJitter':bool(settings.get('textureOffsetJitter')),'brightness':clamp(settings.get('textureBrightness'),-1,1),'contrast':clamp(settings.get('textureContrast'),-1,1),'depthMinimum':clamp(settings.get('grainDepthMinimum')),'depthJitter':clamp(settings.get('grainDepthJitter')),'blendMode':procreate_blend(settings.get('grainBlendMode',1),notes,'grainBlend','multiply')}
+        notes.append(compatibility('grain','Published blend identifiers retained; movement/zoom/depth transfer functions remain approximate.'))
+    behavior['rendering']={'mode':'intenseBlend' if settings.get('renderingRecursiveMixing') else 'uniformBlend' if settings.get('renderingMaxTransfer') else 'lightGlaze','blendMode':procreate_blend(settings.get('extendedBlend',settings.get('blendMode',0)),notes,'blendMode'),'wetEdges':clamp(settings.get('wetEdgesAmount')),'burntEdges':clamp(settings.get('burntEdgesAmount')),'burntEdgesMode':procreate_blend(settings.get('burntEdgesBlendMode',1),notes,'burntEdgesBlend','multiply'), 'luminance':bool(settings.get('blendLuminance')),'gammaCorrect':bool(settings.get('blendGammaCorrect'))}
     wet={'dilution':'dynamicsMix','charge':'dynamicsLoad','attack':'dynamicsAttack','pull':'dynamicsWetAccumulation','grade':'dynamicsGradation','blur':'dynamicsBlur','blurJitter':'dynamicsBlurJitter','wetnessJitter':'dynamicsWetnessJitter'}
     if any(number(settings.get(k)) for k in wet.values()) or settings.get('renderingRecursiveMixing'):
         behavior['wetMix']={k:clamp(settings.get(v)) for k,v in wet.items()}
+        behavior['wetMix']['blur']=max(behavior['wetMix']['blur'],clamp(settings.get('dynamicsMixSoftening')))
+        wet_dynamics={}
+        for target,key,control in [('dilution','dynamicsPressureMix','pressure'),('pull','dynamicsPressureBleed','pressure'),('grade','dynamicsTiltGradation','tilt')]:
+            if number(settings.get(key)):
+                wet_dynamics[target]=[{'control':control,'strength':clamp(settings[key],-1,1),'minimum':0,'jitter':0}]
+        if wet_dynamics: behavior['wetMix']['dynamics']=wet_dynamics
         # Wet parameters execute only in the mixer path. Even dilution/charge-only
         # presets need that path; retaining inert wetMix on stamp loses behavior.
         d['model']='mixer'
@@ -329,11 +276,25 @@ def procreate_component(z,names,prefix,catalog,notes):
     behavior['taper']={'start':clamp(settings.get('pencilTaperStartLength')),'end':clamp(settings.get('pencilTaperEndLength')),'size':clamp(settings.get('pencilTaperSize')),'opacity':clamp(settings.get('pencilTaperOpacity')),'pressure':True}
     notes.append(compatibility('spacing','Small source spacing retained; runtime enforces a pixel budget and archive spacing scale is not fully documented.'))
     notes.append(compatibility('rendering','Rendering modes, edge effects and taper use Grafetto algorithms, not Procreate formulas.'))
-    if settings.get('shapeAzimuth'): notes.append(compatibility('shapeAzimuth','Pencil azimuth is not represented by stroke direction.','unsupported'))
-    active=[k for k,v in settings.items() if k.startswith('dynamicsTilt') and number(v) and not k.endswith('Minimum')]
+    if settings.get('shapeAzimuth'): notes.append(compatibility('shapeAzimuth','Azimuth uses recorded pen tilt; falls back to path for upright/no-tilt input.'))
+    modulations={};mod_mapped=set()
+    for target, suffix in [('size','Size'),('opacity','Opacity'),('flow','Flow'),('roundness','ShapeRoundness'),('grainDepth','TextureDepth')]:
+        for control,prefix_name in [('tilt','dynamicsTilt'),('speed','dynamicsSpeed'),('pressure','dynamicsPressure')]:
+            key=prefix_name+('OpacityTransfer' if target=='flow' and control=='pressure' else suffix)
+            if number(settings.get(key)) and key not in ('dynamicsPressureSize','dynamicsPressureOpacity'):
+                modulations.setdefault(target,[]).append({'control':control,'strength':clamp(settings[key],-1,1),'jitter':0,'minimum':clamp(settings.get(key+'Minimum'))})
+                mod_mapped.add(key)
+    if modulations:
+        behavior['modulations']=modulations
+        notes.append(compatibility('penDynamics','Signed tilt/speed size, opacity, flow, roundness and grain depth execute together. Normalized input curves and angle thresholds require reference calibration.'))
+    active=[k for k,v in settings.items() if k.startswith('dynamicsTilt') and number(v) and not k.endswith(('Minimum','Angle')) and k not in mod_mapped and k != 'dynamicsTiltGradation']
     if active: notes.append(compatibility('tilt',', '.join(sorted(active)),'unsupported'))
-    if settings.get('blendMode') or settings.get('extendedBlend'): notes.append(compatibility('blendMode','Procreate numeric blend enum is undocumented; normal used.','unsupported'))
-    mapped={'dynamicsJitterSize','dynamicsJitterOpacity','dynamicsPressureSize','dynamicsPressureOpacity','dynamicsGlazedFlow',*wet.values()}
+    if settings.get('blendGammaCorrect'): notes.append(compatibility('blendGammaCorrect','sRGB linear-light compositing enabled; Procreate working colour-profile differences require reference calibration.'))
+    if settings.get('dynamicsFalloff'): behavior['falloff']=clamp(settings['dynamicsFalloff'])
+    if settings.get('dynamicsPressureSmoothing'): d['pressureSmoothingPx']=clamp(settings['dynamicsPressureSmoothing'])*32
+    if settings.get('dynamicsMixSoftening') or settings.get('dynamicsFalloff') or settings.get('dynamicsPressureSmoothing'):
+        notes.append(compatibility('strokeResponse','Mix softening uses bounded pigment blur; falloff is distance-driven; pressure smoothing uses the common spatial filter. Source transfer scales require reference calibration.'))
+    mapped={'dynamicsMixSoftening','dynamicsFalloff','dynamicsPressureSmoothing','dynamicsPressureMix','dynamicsPressureBleed','dynamicsTiltGradation','dynamicsJitterSize','dynamicsJitterOpacity','dynamicsPressureSize','dynamicsPressureOpacity','dynamicsGlazedFlow',*wet.values(),*mod_mapped}
     unknown=[k for k,v in settings.items() if (k.startswith('dynamics') or k in ('jitterSecondary','jitterStrokeSecondary','plotJitterLinear','plotSpacingJitter','dynamicsFalloff')) and k not in mapped and not k.endswith(('Minimum','Angle','Curve')) and number(v)!=0 and not k.startswith('dynamicsTilt')]
     if unknown: notes.append(compatibility('activeUnmapped',', '.join(sorted(unknown)),'unsupported'))
     d['behavior']=behavior
@@ -352,8 +313,8 @@ def procreate(path,catalog):
                 if children:
                     try:
                         child,childraw,_,cw=procreate_component(z,names,children[0][:-len('Brush.archive')],catalog,notes)
-                        d['behavior']['dual']={'brush':finalize_identity(child,childraw),'blendMode':'multiply'};warnings.extend(cw)
-                        notes.append(compatibility('dual','Secondary is a mask-only approximation: independent spacing, scatter/count, dynamics, moving grain, rendering and Wet Mix are not simulated as a second stroke; undocumented blend enum approximated as multiply.'))
+                        d['behavior']['dual']={'brush':finalize_identity(child,childraw),'blendMode':procreate_blend(settings.get('dualBlendMode',1),notes,'dualBlend','multiply'),'sampling':'independent'};warnings.extend(cw)
+                        notes.append(compatibility('dual','Secondary has independent spacing, scatter/count, dynamics, grain and rendering on the recorded centreline. Separate secondary pigment pickup and final mixer tail recomposition remain approximate; combine mode decoded where known.'))
                     except ValueError as e: notes.append(compatibility('dual',str(e),'unsupported'))
                     if len(children)>1: notes.append(compatibility('dualDepth','Only one secondary component supported.','unsupported'))
                 warnings.extend(n['feature']+': '+n['detail'] for n in notes if n['status']!='supported')
@@ -361,7 +322,7 @@ def procreate(path,catalog):
             except ValueError as e: catalog.skipped.append({'name':prefix.rstrip('/') or path.stem,'reasons':[str(e)]})
 
 
-BLENDS={'Nrml':'normal','Mltp':'multiply','Scrn':'screen','Ovrl':'overlay','Drkn':'darken','Lghn':'lighten','CBrn':'colorBurn','linearBurn':'linearBurn','CDdg':'colorDodge','linearDodge':'add','Sbtr':'subtract','Dfrn':'difference','Xclu':'exclusion'}
+BLENDS={'Nrml':'normal','Mltp':'multiply','Scrn':'screen','Ovrl':'overlay','Drkn':'darken','Lghn':'lighten','CBrn':'colorBurn','linearBurn':'linearBurn','CDdg':'colorDodge','linearDodge':'add','Sbtr':'subtract','Dfrn':'difference','Xclu':'exclusion','SftL':'softLight','HrdL':'hardLight','div ':'divide','linearLight':'linearLight','vividLight':'vividLight','pinLight':'pinLight','hardMix':'hardMix','darkerColor':'darkerColor','lighterColor':'lighterColor','H   ':'hue','Strt':'saturation','Clr ':'color','Lmns':'luminosity'}
 def blend(value,notes,feature):
     if isinstance(value,dict): value=value.get('value')
     value=str(value or 'Nrml').split('.')[-1]
@@ -397,7 +358,9 @@ def photoshop_component(p,samples,catalog,notes,seed,secondary=False,patterns=No
         for target,key,minkey in [('size','szVr','minimumDiameter'),('angle','angleDynamics',None),('roundness','roundnessDynamics','minimumRoundness')]:
             dynamics[target]=abr_dynamic(p.get(key),notes,target,number(p.get(minkey))/100 if minkey else None)
         b['rotation']={'follow':0,'random':'none','flipX':bool(p.get('flipX')),'flipY':bool(p.get('flipY'))}
-        if p.get('brushProjection'): notes.append(compatibility('brushProjection','Tilt projection is not retained.','unsupported'))
+        if p.get('brushProjection'):
+            b['rotation']['projection']=True
+            notes.append(compatibility('brushProjection','Tip aspect projects using recorded tilt; vendor projection transfer remains approximate.'))
     if p.get('useScatter'):
         sd=abr_dynamic(p.get('scatterDynamics'),notes,'scatter');cd=abr_dynamic(p.get('countDynamics'),notes,'count');dynamics.update(scatter=sd,count=cd)
         d['scatter']={'count':int(clamp(p.get('Cnt ',1),1,16)),'radius':clamp(number(p.get('scatterDynamics',{}).get('jitter'))/100,0,4),'scale':1}
@@ -430,10 +393,14 @@ def photoshop_component(p,samples,catalog,notes,seed,secondary=False,patterns=No
     if dual.get('useDualBrush') and not secondary:
         try:
             child=photoshop_component(dual,samples,catalog,notes,seed+b'dual',True,patterns)[0]
-            b['dual']={'brush':finalize_identity(child,seed+b'dual'),'blendMode':blend(dual.get('BlnM'),notes,'dualBlend')}
-            notes.append(compatibility('dual','One secondary tip retained; independent Photoshop sampling is approximated.'))
+            b['dual']={'brush':finalize_identity(child,seed+b'dual'),'blendMode':blend(dual.get('BlnM'),notes,'dualBlend'),'sampling':'independent'}
+            notes.append(compatibility('dual','Independent secondary spacing, scatter/count, dynamics, grain and taper operate on the recorded centreline. Vendor masks/combine transfer remains approximate.'))
         except ValueError as e: notes.append(compatibility('dual',str(e),'unsupported'))
-    if tool.get('_class') in ('MixB','SmTl'): notes.append(compatibility('toolType','Mixer/smudge tool painting is approximated as stamp painting.','unsupported'))
+    if tool.get('_class') in ('MixB','SmTl'):
+        d['model']='mixer'
+        d['mixer']={'load':0 if tool.get('_class')=='SmTl' else 0.5,'pickup':clamp(number(tool.get('wet'),50)/100),'strength':clamp(number(tool.get('strength'),50)/100)}
+        b['wetMix']={'dilution':0,'charge':d['mixer']['load'],'attack':d['mixer']['strength'],'pull':d['mixer']['pickup'],'grade':0,'blur':0,'blurJitter':0,'wetnessJitter':0}
+        notes.append(compatibility('toolType','Photoshop Mixer/Smudge selects carried-pigment rendering. Unknown tool-specific load/mix flags use explicit defaults; Photoshop reservoir formulas differ.'))
     d['behavior']=b
     return d,warnings
 
@@ -477,7 +444,7 @@ def portable_bundle(path,catalog):
     seen=set()
     def validate_descriptor(d,depth=0):
         if not isinstance(d,dict) or depth>1 or not isinstance(d.get('id'),str) or not re.fullmatch(r'imported-[a-f0-9]{24}',d['id']): raise ValueError('Invalid portable descriptor')
-        if d.get('version')!=1 or d.get('model') not in ('stamp','mixer') or not isinstance(d.get('tip'),dict): raise ValueError('Unsupported portable descriptor')
+        if type(d.get('version'))!=int or not 1<=d['version']<=1024 or d.get('model') not in ('stamp','mixer') or not isinstance(d.get('tip'),dict): raise ValueError('Unsupported portable descriptor')
         tip=d['tip']
         if tip.get('kind') not in ('bitmap','round') or (tip.get('kind')=='bitmap' and tip.get('mask') not in ids): raise ValueError('Missing portable tip asset')
         if 'texture' in d and (not isinstance(d['texture'],dict) or d['texture'].get('id') not in ids): raise ValueError('Missing portable grain asset')
@@ -505,6 +472,9 @@ def main():
         if path.name.endswith('.grafetto-brushes.json'): portable_bundle(path,catalog)
         elif path.suffix.lower()=='.abr': photoshop(path,catalog)
         elif path.suffix.lower() in ('.brush','.brushset'): procreate(path,catalog)
+        elif path.suffix.lower() in ('.kpp','.bundle'):
+            from krita_import import convert_krita
+            convert_krita(path,catalog)
         else: ap.error('Unsupported extension: '+path.suffix)
     result=catalog.write();print(json.dumps({'brushes':len(result['brushes']),'assets':len(result['assets']),'skipped':len(result['skipped'])}))
 

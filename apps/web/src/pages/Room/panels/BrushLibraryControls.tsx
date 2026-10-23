@@ -43,7 +43,7 @@ export function BrushLibraryControls(): React.JSX.Element {
   }
   return <section className={styles.library} aria-label={t('brushLibrary.title')}>
     <div className={styles.actions}>
-      <input ref={input} className={styles.file} type="file" accept=".abr,.brush,.brushset,.json" onChange={e => {
+      <input ref={input} className={styles.file} type="file" accept=".abr,.brush,.brushset,.kpp,.bundle,.json" onChange={e => {
         const file = e.target.files?.[0]
         e.target.value = ''
         if (file) void upload(file)

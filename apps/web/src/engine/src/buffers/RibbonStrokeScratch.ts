@@ -1,4 +1,4 @@
-import type { BrushBehaviorState } from '../presets/brushBehavior'
+import type { BrushBehaviorState, SecondarySamplingState } from '../presets/brushBehavior'
 import type { Dab } from '@grafetto/shared'
 
 import { AccumulationBuffer } from './AccumulationBuffer'
@@ -111,6 +111,15 @@ type ScratchBounds = { minX: number; minY: number; maxX: number; maxY: number }
 
 export class RibbonStrokeScratch {
   brushBehavior?: BrushBehaviorState
+  private _brushSecondary?: {scratch:RibbonStrokeScratch; sampling:SecondarySamplingState; tiles:Map<AccumulationBuffer,AccumulationBuffer>}
+  brushSecondary(): {scratch:RibbonStrokeScratch; sampling:SecondarySamplingState; tile:(source:AccumulationBuffer)=>AccumulationBuffer} {
+    const state=this._brushSecondary ??= {scratch:new RibbonStrokeScratch(this.pool,false),sampling:{remaining:0},tiles:new Map()}
+    return {scratch:state.scratch,sampling:state.sampling,tile:source=>{
+      let buffer=state.tiles.get(source)
+      if(!buffer){buffer=this.pool.acquire(source.width,source.height);clearParkedBuffer(buffer);state.tiles.set(source,buffer)}
+      return buffer
+    }}
+  }
   /** Transient next-film continuation while the previous settle is pending. */
   trackRunningSource = false
   runningSourceCommands: Array<() => void> = []
@@ -658,6 +667,7 @@ export class RibbonStrokeScratch {
    *  still means "this scratch is finished with" — what changed (#385) is that
    *  the buffers go back to the pool instead of to the driver. */
   destroy(): void {
+    if(this._brushSecondary){this._brushSecondary.scratch.destroy();for(const buffer of this._brushSecondary.tiles.values())this.pool.release(buffer);this._brushSecondary=undefined}
     this.brushBehavior = undefined
     this._materialGesture = null
     this._storageBounds = null
@@ -686,6 +696,8 @@ export class RibbonStrokeScratch {
   /** Context loss: the GL objects are already dead, so neither release nor
    *  destroy is meaningful — just let go of them. */
   forget(): void {
+    this._brushSecondary?.scratch.forget()
+    this._brushSecondary=undefined
     this.brushBehavior = undefined
     this._materialGesture = null
     this.trackRunningSource = false
@@ -710,6 +722,9 @@ export class RibbonStrokeScratch {
    *  `originOf` names each tile by its place on the sheet: the replay that
    *  restores this paints into another buffer. */
   snapshot(gl: WebGLRenderingContext, originOf: (tile: AccumulationBuffer) => { originX: number; originY: number } | null): ScratchSnapshot | null {
+    // Secondary live coverage is not part of the watercolor snapshot format.
+    // Rebuild from operations rather than publishing an incomplete checkpoint.
+    if (this._brushSecondary) return null
     if (this._materialGesture !== null && this._materialGesture !== this.gesture) return null
     if ([...this._tiles.values()].some(entry => entry.coverageFilm)) return null
     const tiles: ScratchSnapshot['tiles'] = []
@@ -792,6 +807,9 @@ export class RibbonStrokeScratch {
    * clear and only receive writes inside storageBounds. GPU sub-rect copies
    * preserve every byte; unpark clears the missing exterior. */
   spill(originOf: (tile: AccumulationBuffer) => { originX: number; originY: number } | null): SpilledScratch | null {
+    // Secondary live coverage is not part of the watercolor snapshot format.
+    // Rebuild from operations rather than publishing an incomplete checkpoint.
+    if (this._brushSecondary) return null
     if (this._materialGesture !== null && this._materialGesture !== this.gesture) return null
     const work = this.spillWork(originOf)
     let r = work.next()

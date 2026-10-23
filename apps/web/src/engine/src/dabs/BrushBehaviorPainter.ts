@@ -1,15 +1,18 @@
 import { BRUSH_BLEND_MODES, type BrushDescriptor, type Dab } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { ILayerBuffer } from '../buffers/ILayerBuffer'
+import { wetMixStep } from '../presets/wetMix'
 import type { PencilPreset } from '../presets/pencilPresets'
-import { beginBrushBehavior, behaviorStampsForDab, splitBrushTail, type BehaviorPlaced, type BrushBehaviorState } from '../presets/brushBehavior'
+import { beginBrushBehavior, behaviorStampsForDab, secondaryBrushDabs, splitBrushTail, type BehaviorPlaced, type BrushBehaviorState, type SecondarySamplingState } from '../presets/brushBehavior'
 import { digitalBrushCeiling, brushDabRandom, curveAt, type BrushPressureSettings } from '../presets/digitalBrushPresets'
 import type { BrushTextureId, TipMaskId } from '../presets/tipMasks'
-import { BRUSH_V2_COMPOSITE_FRAG, BRUSH_V2_STAMP_FRAG } from '../raster/brushBehaviorShaders'
+import { BRUSH_COMPOSITE_FRAG, BRUSH_STAMP_FRAG } from '../raster/brushBehaviorShaders'
 import { DAB_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 import type { BrushContext, BrushScratch } from './BrushPainter'
+type BrushTarget = Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>
 export interface BehaviorScratch extends BrushScratch {
+  brushSecondary(): {scratch:BehaviorScratch;sampling:SecondarySamplingState;tile:(source:AccumulationBuffer)=>AccumulationBuffer}
   brushBehavior?: BrushBehaviorState
   brushCeiling(tile: AccumulationBuffer): AccumulationBuffer
   brushCeilingCopy(tile: AccumulationBuffer): AccumulationBuffer
@@ -26,7 +29,7 @@ type Uniforms = Record<string, WebGLUniformLocation | null>
  * Only v2 descriptors opt into colour coverage and these equations. */
 export class BrushBehaviorPainter {
   private bindings = new WeakMap<BehaviorScratch, {
-    target: ILayerBuffer
+    target: BrushTarget
     preset: PencilPreset
     brush: BrushDescriptor
     pressure: BrushPressureSettings
@@ -54,10 +57,10 @@ export class BrushBehaviorPainter {
     this.minmax = gl.getExtension('EXT_blend_minmax') as {
       MAX_EXT: number
     } | null
-    this.stamp = createProgram(gl, DAB_VERT, BRUSH_V2_STAMP_FRAG)
-    this.composite = createProgram(gl, DAB_VERT, BRUSH_V2_COMPOSITE_FRAG)
+    this.stamp = createProgram(gl, DAB_VERT, BRUSH_STAMP_FRAG)
+    this.composite = createProgram(gl, DAB_VERT, BRUSH_COMPOSITE_FRAG)
     this.su = getUniforms(gl, this.stamp, ['u_ceilingPass', 'u_ceilingFallback', 'u_previousCeiling', 'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity', 'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure', 'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin', 'u_color', 'u_flip', 'u_grainTransform', 'u_grainTone', 'u_grainBlend', 'u_dual', 'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin', 'u_dualTexPeriod', 'u_dualTexStrength'])
-    this.cu = getUniforms(gl, this.composite, ['u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_original', 'u_strokeCoverage', 'u_ceiling', 'u_opacity', 'u_blend', 'u_mode', 'u_wetEdge', 'u_burntEdge', 'u_burntBlend', 'u_edgePx', 'u_luminance'])
+    this.cu = getUniforms(gl, this.composite, ['u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_original', 'u_strokeCoverage', 'u_ceiling', 'u_opacity', 'u_blend', 'u_mode', 'u_wetEdge', 'u_burntEdge', 'u_burntBlend', 'u_edgePx', 'u_luminance', 'u_gammaCorrect', 'u_secondaryCoverage', 'u_secondaryMode', 'u_secondaryEnabled', 'u_surfaceCloud', 'u_surfaceGrain', 'u_surface', 'u_surfaceOrigin', 'u_screenOrigin', 'u_screentone', 'u_erase'])
     this.sp = gl.getAttribLocation(this.stamp, 'a_position')
     this.cp = gl.getAttribLocation(this.composite, 'a_position')
   }
@@ -66,7 +69,7 @@ export class BrushBehaviorPainter {
       this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true)
   }
   destroy(): void { const gl = this.ctx.gl; gl.deleteProgram(this.stamp); gl.deleteProgram(this.composite) }
-  paint(target: ILayerBuffer, dabs: Dab[], preset: PencilPreset, brush: BrushDescriptor, pressure: BrushPressureSettings, color: [
+  paint(target: BrushTarget, dabs: Dab[], preset: PencilPreset, brush: BrushDescriptor, pressure: BrushPressureSettings, color: [
     number,
     number,
     number
@@ -76,6 +79,17 @@ export class BrushBehaviorPainter {
       return
     this.bindings.set(scratch, { target, preset, brush, pressure, color })
     const state = scratch.brushBehavior ?? (scratch.brushBehavior = beginBrushBehavior(dabs[0]))
+    const independent = behavior.dual?.sampling === 'independent' ? behavior.dual.brush : undefined
+    const secondaryState = independent ? scratch.brushSecondary() : undefined
+    if (independent && secondaryState) {
+      const secondaryTarget: BrushTarget={
+        resolveForPaint:bounds=>target.resolveForPaint(bounds).map(tile=>({...tile,buffer:secondaryState.tile(tile.buffer)})),
+        markContentPainted:()=>{},
+      }
+      const child={...independent,behavior:independent.behavior??{version:2 as const}}
+      this.paint(secondaryTarget, secondaryBrushDabs(brush,child,dabs,secondaryState.sampling),preset,child,pressure,[1,1,1],secondaryState.scratch,finish)
+    }
+
     const incoming = dabs.flatMap(dab => {
       const previous = state.previous
       let flow = brush.flow
@@ -84,16 +98,21 @@ export class BrushBehaviorPainter {
         const travel = previous ? this.ctx.segmentLength(dab, previous, diameter * 0.5) : diameter * Math.max(brush.spacing, 0.001)
         flow = 1 - Math.pow(1 - flow, Math.min(travel / (diameter * (brush.flowSpan ?? 1)), 1))
       }
-      const opacity = digitalBrushCeiling(brush, dab.pressure, pressure.opacity)
+      // A secondary wet component contributes optical coverage here. Canvas
+      // colour pickup remains the parent mixer's job, rather than a second
+      // competing reservoir painting directly into the same layer.
+      const wet=brush.model==='mixer' && behavior.wetMix ? wetMixStep(behavior.wetMix,state,dab,previous?Math.hypot(dab.x-previous.x,dab.y-previous.y)/Math.max(.5,dab.size):0,!previous,state):undefined
+      if(wet)flow*=wet.strength
+      const opacity = digitalBrushCeiling(brush, dab.pressure, pressure.opacity)*(wet?state.charge:1)
       return behaviorStampsForDab(brush, dab, state, color).map(st => ({ ...st, radius: st.size * preset.sizeMultiplier * 0.5, flow: flow * st.flowScale, ceiling: opacity * st.opacityScale, pressure: dab.pressure }))
     }).filter(st => st.radius >= 0.25)
     const all = [...(state.pending ?? []), ...incoming]
     const tail = splitBrushTail(all, state.distance, behavior.taper?.end ?? 0, finish, behavior.taper?.size, behavior.taper?.opacity)
     state.pending = tail.pending
     const stamps = [...tail.ready, ...tail.preview]
-    if (!stamps.length)
+    if (!stamps.length && (!independent || !state.bounds))
       return
-    const edge = scratch.noteBrushEdgePx(clamp((dabs[0]?.size ?? state.previous?.size ?? 1) * preset.sizeMultiplier * 0.06, 1.5, 14))
+    const edge = (behavior.rendering?.wetEdges || behavior.rendering?.burntEdges || brush.wet?.feather) ? scratch.noteBrushEdgePx(clamp((dabs[0]?.size ?? state.previous?.size ?? 1) * preset.sizeMultiplier * 0.06, 1.5, 14)) : 0
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const s of all) {
       const r = s.radius * Math.max(s.aspect, 1) + edge + 1
@@ -102,10 +121,15 @@ export class BrushBehaviorPainter {
       maxX = Math.max(maxX, s.x + r)
       maxY = Math.max(maxY, s.y + r)
     }
+    if(independent && state.bounds) {
+      minX=Math.min(minX,state.bounds.minX);minY=Math.min(minY,state.bounds.minY)
+      maxX=Math.max(maxX,state.bounds.maxX);maxY=Math.max(maxY,state.bounds.maxY)
+    }
     const bounds = { minX: Math.floor(minX), minY: Math.floor(minY), maxX: Math.ceil(maxX), maxY: Math.ceil(maxY) }
+    if(independent) state.bounds=bounds
     const mask = brush.tip.mask ? this.tip(brush.tip.mask) : paper.texture
     const texture = brush.texture ? this.grain(brush.texture.id) : paper.texture
-    const secondary = behavior.dual?.brush
+    const secondary = independent ? undefined : behavior.dual?.brush
     const dualMask = secondary?.tip.mask ? this.tip(secondary.tip.mask) : paper.texture
     const dualTexture = secondary?.texture ? this.grain(secondary.texture.id) : paper.texture
     const dualPeriod = Math.max(0.5, secondary?.texture?.periodPx ?? 1)
@@ -235,6 +259,25 @@ export class BrushBehaviorPainter {
       gl.uniform1f(c.u_burntBlend, blend(render?.burntEdgesMode))
       gl.uniform1f(c.u_edgePx, edge)
       gl.uniform1f(c.u_luminance, render?.luminance ? 1 : 0)
+      gl.uniform1f(c.u_gammaCorrect, render?.gammaCorrect ? 1 : 0)
+      gl.activeTexture(gl.TEXTURE6)
+      gl.bindTexture(gl.TEXTURE_2D,secondaryState ? secondaryState.tile(tile.buffer).texture : paper.texture)
+      gl.uniform1i(c.u_secondaryCoverage,6)
+      gl.uniform1f(c.u_secondaryMode,blend(behavior.dual?.blendMode))
+      gl.uniform1f(c.u_secondaryEnabled,secondaryState?1:0)
+      const wet=brush.wet
+      const wrapSurface=(v:number,p:number):number=>((v%p)+p)%p
+      gl.uniform4f(c.u_surface,wet?.granulation??0,wet?.mottle??0,wet?.bloom??0,wet?.feather??(brush.model==='mixer'?behavior.wetMix?.blur??0:0))
+      gl.uniform4f(c.u_surfaceOrigin,wrapSurface(tile.originX,640),wrapSurface(tile.originY,640),wrapSurface(tile.originX,224),wrapSurface(tile.originY,224))
+      for(const [unit,id,name] of [[3,'cloud','u_surfaceCloud'],[4,'grit','u_surfaceGrain']] as const){
+        gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,this.grain(id));gl.uniform1i(c[name],unit)
+      }
+      gl.uniform1f(c.u_screentone,brush.screentonePx??0)
+      gl.uniform1f(c.u_erase,behavior.erase?1:0)
+      const screenPeriod=(brush.screentonePx??0)*2
+      gl.uniform2f(c.u_screenOrigin,screenPeriod?wrapSurface(tile.originX,screenPeriod):0,screenPeriod?wrapSurface(tile.originY,screenPeriod):0)
+
+
       const cx = (bounds.minX + bounds.maxX) * 0.5, cy = (bounds.minY + bounds.maxY) * 0.5
       gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.quadBuf())
       gl.enableVertexAttribArray(this.cp)

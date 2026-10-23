@@ -354,12 +354,13 @@ describe('#573 — pressure switches in the token', () => {
   })
 })
 
-describe('#573 — v1 strokes stay v1', () => {
-  it('resolves every @1 token of the original six to the frozen ribbon descriptor', () => {
+describe('historical preset tokens use the common renderer', () => {
+  it('normalizes every original @1 token into the shared stamp contract', () => {
     for (const id of ['soft-round', 'medium-round', 'hard-round', 'ink-round', 'opaque-paint', 'flat']) {
       const b = digitalBrushFromPreset(`brush:${id}@1`)
-      expect(b.version).toBe(1)
-      expect(b.model).toBe('ribbon')
+      expect(b.version).toBeGreaterThan(1)
+      expect(b.model).toBe('stamp')
+      expect(b.behavior?.version).toBe(2)
     }
   })
 
@@ -433,12 +434,12 @@ describe('#573 — scatter', () => {
   })
 })
 
-describe('#581 — the digital watercolor set, v1 frozen', () => {
-  it('resolves every @1 wet token to the frozen model-1 descriptor', () => {
+describe('digital watercolor uses the common optics', () => {
+  it('resolves every old wet token through the current brush set', () => {
     for (const id of ['wet-wash', 'wet-edge', 'granulating', 'dry-wash', 'wet-bands', 'sponge', 'gouache']) {
       const b = digitalBrushFromPreset(`brush:${id}@1`)
-      expect(b.version, id).toBe(1)
-      expect(b.wet?.model ?? 1, id).toBe(1)
+      expect(b.version, id).toBeGreaterThan(1)
+      expect(b.behavior?.version, id).toBe(2)
     }
   })
 

@@ -27,7 +27,7 @@ export const en = {
   'brushLibrary.title': 'Brush library',
   'brushLibrary.import': 'Import brushes',
   'brushLibrary.export': 'Export project brushes',
-  'brushLibrary.importHint': 'ABR, Procreate or a Grafetto brush bundle. Imported brushes become available in this project.',
+  'brushLibrary.importHint': 'ABR, Procreate, Krita KPP/Bundle or a Grafetto brush bundle. Imported brushes become available in this project.',
   'brushLibrary.uploading': 'Uploading',
   'brushLibrary.converting': 'Reading brush settings…',
   'brushLibrary.imported': 'Imported brushes: {n}',

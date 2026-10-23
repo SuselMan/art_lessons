@@ -73,7 +73,7 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
     const header=request.headers['x-brush-filename']
     let filename=''
     try { filename=typeof header==='string' ? decodeURIComponent(header) : '' } catch { return reply.code(400).send({error:'Invalid brush filename'}) }
-    if(filename!==basename(filename) || filename.includes('\\') || filename.length>180 || !(['.abr','.brush','.brushset'].includes(extname(filename).toLowerCase()) || filename.endsWith('.grafetto-brushes.json')) || !(request.body instanceof Readable)) return reply.code(400).send({error:'Invalid brush upload'})
+    if(filename!==basename(filename) || filename.includes('\\') || filename.length>180 || !(['.abr','.brush','.brushset','.kpp','.bundle'].includes(extname(filename).toLowerCase()) || filename.endsWith('.grafetto-brushes.json')) || !(request.body instanceof Readable)) return reply.code(400).send({error:'Invalid brush upload'})
     const incomingLength=Number(request.headers['content-length'])
     if(Number.isFinite(incomingLength) && incomingLength>MAX_UPLOAD) return reply.code(413).send({error:'Brush upload too large'})
     let ownJobs=0,totalJobs=0

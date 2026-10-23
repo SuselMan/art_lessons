@@ -252,7 +252,7 @@ topics:
     level: 3
     parent: dab-pipeline
     title: Инструменты-кисти
-    adr: [003-liner-tool, 004-marker-tool, 005-charcoal-tool, 009-brush-pen, 012-tip-footprint-geometry, 013-digital-brush]
+    adr: [003-liner-tool, 004-marker-tool, 005-charcoal-tool, 009-brush-pen, 012-tip-footprint-geometry, 013-digital-brush, 017-imported-brushes]
 
   - id: watercolor
     issue: 687

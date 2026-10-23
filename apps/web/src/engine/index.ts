@@ -2411,6 +2411,8 @@ export class PencilEngine implements PencilEngineAPI {
     // built by _initGL below, like every other one.
     this._smudge = new SmudgePainter({
       gl,
+      createBrushScratch:()=>new RibbonStrokeScratch(this._ribbonScratchPool,false),
+      paintBrushMask:(...args)=>this._brush.paintMask(...args),
       quadBuf: () => this._quadBuf,
       screenBuf: () => this._screenBuf,
       paper: this._paper,
@@ -3862,6 +3864,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   endPeerLiveStroke(peerId: string, strokeId?: string, cancelled = false): number {
+    this._smudge.finishSecondary(peerId,false,strokeId)
     if (cancelled && !strokeId) return 0
     if (cancelled && strokeId) {
       // Socket.io preserves packet/end order. Also reject already queued or
@@ -6369,6 +6372,7 @@ export class PencilEngine implements PencilEngineAPI {
       appendWatercolorLift(dabs, this._strokeChunkTail ? [this._strokeChunkTail, ...this._strokeDabs] : this._strokeDabs)
     }
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
+    this._smudge.finishSecondary(this._userId)
     if (this._ribbonStrokeScratch && !this._wcAsyncLocalStroke) {
       this._brush.finish(this._ribbonStrokeScratch)
       this._finishRibbonStroke(this._ribbonStrokeScratch, true)
@@ -7066,7 +7070,7 @@ export class PencilEngine implements PencilEngineAPI {
   ): ReadonlyMap<Dab, number> | undefined {
     if (!dabs.length) return undefined
     // V2 dynamics hash recorded float32 inputs, including distance/speed across batches.
-    if (tool === 'digitalBrush' && digitalBrushFromPreset(presetName).behavior?.version === 2) {
+    if (tool === 'digitalBrush') {
       dabs = dabs.map(codecDab)
       if (prevDab) prevDab = codecDab(prevDab)
     }
@@ -7082,7 +7086,7 @@ export class PencilEngine implements PencilEngineAPI {
     // tool below.
     if (tool === 'digitalBrush') {
       const paint = digitalBrushMixer(presetName, color)
-      if (paint) { this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint); return undefined }
+      if (paint) { this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint); if(strokeEnd)this._smudge.finishSecondary(userId,false,strokeId); return undefined }
     }
     // Marker (#250, ADR 004 §3; distance-normalized deposit added in
     // "Ревизия v1.5"): each dab needs its own coverage/inkLoad/composite

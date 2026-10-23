@@ -45,7 +45,7 @@ import type { IconName } from '../../icons/iconNames'
 // Historical versions remain resolvable for replay; the picker offers the latest import.
 const pickerImportedBrushes = () => {
   const all = importedBrushes()
-  return all.filter(b => b.descriptor.behavior || !all.some(next => next.source === b.source && next.name === b.name && next.descriptor.behavior))
+  return all.filter(b => !all.some(next => next.source === b.source && next.name === b.name && (next.descriptor.version > b.descriptor.version || (!b.descriptor.behavior && !!next.descriptor.behavior))))
 }
 
 export type UiToolId =
@@ -400,7 +400,7 @@ const digitalBrushSchema = (): ToolSchema => ({
     nameKey: 'tool.field.brush',
     get valueType() { return { kind: 'enumOptions' as const, options: [...DIGITAL_BRUSH_IDS, ...pickerImportedBrushes().map(b => b.descriptor.id)] } },
     get optionDescriptions() { return Object.fromEntries(pickerImportedBrushes().map(b => [b.descriptor.id, b.warnings.join(' · ')])) },
-    get optionLabels() { return Object.fromEntries(pickerImportedBrushes().map(b => [b.descriptor.id, `${b.source.endsWith('.abr') ? 'ABR' : 'Procreate'} · ${b.name}`])) },
+    get optionLabels() { return Object.fromEntries(pickerImportedBrushes().map(b => [b.descriptor.id, `${b.source.endsWith('.abr') ? 'ABR' : /\.(kpp|bundle)$/i.test(b.source) ? 'Krita' : /\.brush(set)?$/i.test(b.source) ? 'Procreate' : 'Grafetto'} · ${b.name}`])) },
     optionLabelKeys: {
       'soft-round': 'tool.brush.softRound',
       'medium-round': 'tool.brush.mediumRound',

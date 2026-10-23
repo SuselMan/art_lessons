@@ -222,8 +222,9 @@ export class MockGL {
     if (source.includes('u_eraseMode')) return 'dab'
     // (#573) The digital brush's own two programs — each has one uniform no
     // other shader declares.
+    if (source.includes('u_patchOrigin')) return 'smudge'
     if (source.includes('u_tipKind')) return 'brushStamp'
-    if (source.includes('u_useCeiling')) return 'brushComposite'
+    if (source.includes('u_strokeCoverage')) return 'brushComposite'
     // Order matters against 'dab' above only: DAB_FRAG is caught by
     // u_eraseMode first, and these two names appear in no other shader.
     if (source.includes('u_patchOrigin')) return 'smudge'
@@ -1052,7 +1053,10 @@ export class MockGL {
         if (d >= 1) continue
         const amount = (1 - smoothstep(Math.min(hardness, 0.99), 1, d)) * flow
         const idx = py * width + px
-        data[idx] = amount + data[idx] * (1 - amount)
+        if ((uniforms.get('u_ceilingPass') as number) > 0.5) {
+          const shape=1-smoothstep(Math.min(hardness,0.99),1,d)
+          data[idx]=Math.max(data[idx],((uniforms.get('u_ceiling') as number)??1)*smoothstep(0,.3,shape))
+        } else data[idx] = amount + data[idx] * (1 - amount)
       }
     }
   }
@@ -1067,6 +1071,8 @@ export class MockGL {
     const coverage = coverageTex ? this._textureData.get(coverageTex) : undefined
     const original = originalTex ? this._textureData.get(originalTex) : undefined
     if (!coverage || !original) return
+    const ceilingTex=this._textureUnits[(uniforms.get('u_ceiling') as number)??2]??null
+    const ceiling=ceilingTex?this._textureData.get(ceilingTex):undefined
     const opacity = (uniforms.get('u_opacity') as number) ?? 1
     const [cx, cy] = (uniforms.get('u_dabCenter') as number[]) ?? [0, 0]
     const radius = ((uniforms.get('u_dabRadius') as number) ?? 1) * Math.SQRT2 + 1
@@ -1075,8 +1081,8 @@ export class MockGL {
         const idx = py * width + px
         const cov = coverage.data[idx] ?? 0
         if (cov <= 0) continue
-        const a = clamp(cov * opacity, 0, 1)
-        data[idx] = a + (1 - a) * (original.data[idx] ?? 0)
+        const a = clamp(cov * opacity * (ceiling?.data[idx]??1), 0, 1)
+        data[idx] = ((uniforms.get('u_erase') as number) > .5 ? 0 : a) + (1 - a) * (original.data[idx] ?? 0)
       }
     }
   }

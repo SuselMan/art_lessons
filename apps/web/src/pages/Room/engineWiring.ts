@@ -75,7 +75,10 @@ export function wireLocalStrokeEvents(
 /** Gives a new engine the layer structure the store already holds. For a
  *  fresh room that is the initial layer set; anything a `room_state` brings is
  *  applied later, by restoreRoomState. */
-export function initLayersFromStore(engine: PencilEngineAPI): void {
+const brushResourceLeases = new WeakMap<PencilEngineAPI, () => void>()
+
+export function initEngineFromStore(engine: PencilEngineAPI, boardId: string): void {
+  brushResourceLeases.set(engine, retainBrushRoomResources(boardId))
   const ls = useRoomStore.getState().layerState
   for (const id of ls.rootOrder) {
     if (ls.items[id]?.kind === 'layer') engine.initLayer(id)
@@ -118,11 +121,10 @@ export function retireEngine(
   engine: PencilEngineAPI, boardId: string, replayIncompleteRef: RefObject<boolean>,
   /** (§17.73) releaseOnPageHide's cleanup: the room is going, not the page. */
   unhookPageHide?: () => void,
-  releaseBrushResources?: () => void,
 ): void {
   unhookPageHide?.()
   const destroy = (): void => {
-    try { engine.destroy() } finally { releaseBrushResources?.() }
+    try { engine.destroy() } finally { brushResourceLeases.get(engine)?.(); brushResourceLeases.delete(engine) }
   }
   if (!replayIncompleteRef.current) {
     void uploadThumbnail(boardId, engine)
@@ -141,8 +143,6 @@ export function retireEngine(
   }
 }
 
-/** Pair with retireEngine, rather than the beginning of React cleanup. */
-export const retainEngineBrushResources = retainBrushRoomResources
 
 export interface ParkedRoomState<Engine> {
   /** The `room_state` that arrived before this engine did, if any. Consumed. */

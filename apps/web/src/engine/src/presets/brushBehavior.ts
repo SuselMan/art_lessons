@@ -4,11 +4,39 @@ import { brushDabRandom, brushDabSeed, brushStampsForDab, curveAt, type BrushSta
 export interface BrushBehaviorState {
   pending?: BehaviorPlaced[]
   seed: number
+  charge: number
   distance: number
   firstAngle: number
   directionSet?: boolean
   opacity: number
   previous?: Dab
+  bounds?: {minX:number;minY:number;maxX:number;maxY:number}
+}
+
+export interface SecondarySamplingState { previous?: Dab; remaining: number }
+/** Resample the recorded centreline, carrying phase through network chunks.
+ * One-pixel minimum and 16 stamps per input diameter bound imported tiny spacing. */
+export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescriptor, dabs: readonly Dab[], state: SecondarySamplingState): Dab[] {
+  const result: Dab[] = []
+  const size = (d: Dab): Dab => ({...d,opacity:1,size:d.size*curveAt(child.sizeByPressure,d.pressure)/Math.max(0.01,curveAt(primary.sizeByPressure,d.pressure))})
+  for (const raw of dabs) {
+    const dab=size(raw), previous=state.previous
+    if (!previous) { result.push(dab); state.remaining=Math.max(1,dab.size*child.spacing);state.previous=dab;continue }
+    const length=Math.hypot(dab.x-previous.x,dab.y-previous.y)
+    if (!length) {state.previous=dab;continue}
+    const stepFloor=Math.max(1,length/256)
+    let travel=state.remaining
+    while(travel<=length) {
+      const t=travel/length
+      const lerp=(a:number,b:number):number=>Math.fround(a+(b-a)*t)
+      const point: Dab={x:lerp(previous.x,dab.x),y:lerp(previous.y,dab.y),size:lerp(previous.size,dab.size),pressure:lerp(previous.pressure,dab.pressure),angle:lerp(previous.angle,dab.angle),aspectRatio:lerp(previous.aspectRatio,dab.aspectRatio),tiltX:lerp(previous.tiltX,dab.tiltX),tiltY:lerp(previous.tiltY,dab.tiltY),opacity:lerp(previous.opacity,dab.opacity),t:lerp(previous.t,dab.t)}
+      result.push(point)
+      travel+=Math.max(stepFloor,point.size*child.spacing)
+    }
+    state.remaining=travel-length
+    state.previous=dab
+  }
+  return result
 }
 export interface BehaviorStamp extends BrushStamp {
   opacityScale: number
@@ -50,9 +78,14 @@ export function splitBrushTail(stamps: BehaviorPlaced[], distance: number, end: 
 }
 const clamp = (v: number, lo = 0, hi = 1): number => Math.max(lo, Math.min(hi, v))
 export function beginBrushBehavior(dab: Dab): BrushBehaviorState {
-  return { seed: brushDabSeed(dab.x, dab.y, dab.pressure), distance: 0, firstAngle: dab.angle, opacity: dab.opacity }
+  return { charge: 1, seed: brushDabSeed(dab.x, dab.y, dab.pressure), distance: 0, firstAngle: dab.angle, opacity: dab.opacity }
 }
-function dynamicValue(d: BrushDynamic | undefined, dab: Dab, state: BrushBehaviorState, random: number): number {
+/** PointerEvent tilt axes describe slopes, not independent polar angles. */
+function penTilt(dab:Dab): {angle:number;azimuth:number} {
+  const x=Math.tan(dab.tiltX*Math.PI/180),y=Math.tan(dab.tiltY*Math.PI/180)
+  return {angle:Math.atan(Math.hypot(x,y)),azimuth:Math.atan2(y,x)}
+}
+export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: BrushBehaviorState, random: number): number {
   if (!d)
     return 1
   const prev = state.previous
@@ -60,12 +93,13 @@ function dynamicValue(d: BrushDynamic | undefined, dab: Dab, state: BrushBehavio
   const speed = prev ? travel / Math.max(1, dab.t - prev.t) : 0
   const turn = (a: number): number => ((a / (Math.PI * 2)) % 1 + 1) % 1
   const value = d.control === 'pressure' ? dab.pressure
-    : d.control === 'tilt' ? clamp(Math.hypot(dab.tiltX, dab.tiltY) / 90)
+    : d.control === 'tilt' ? clamp(penTilt(dab).angle/(Math.PI/2))
       : d.control === 'speed' ? clamp(speed / 2)
         : d.control === 'fade' ? clamp(1 - state.distance / Math.max(0.001, d.fade ?? 1))
           : d.control === 'direction' ? turn(dab.angle)
             : d.control === 'initialDirection' ? turn(state.firstAngle) : 1
-  return clamp((d.minimum + (1 - d.minimum) * value) * (1 - d.jitter * random))
+  const controlled = d.strength === undefined ? value : d.strength >= 0 ? 1 - d.strength + d.strength * value : 1 + d.strength * value
+  return clamp((d.minimum + (1 - d.minimum) * controlled) * (1 - d.jitter * random))
 }
 /** RGB/HSV conversion on CPU, before rasterisation, shared by all participants. */
 function shiftColor(rgb: [
@@ -102,14 +136,16 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const directionalDab = { ...dab, angle: direction }
   const seed = brushDabSeed(dab.x, dab.y, dab.pressure)
   const rand = (i: number): number => brushDabRandom(seed, i)
-  const dynamic = (target: BrushDynamicTarget, i: number): number => dynamicValue(behavior?.dynamics?.[target], directionalDab, state, rand(i))
+  const dynamic = (target: BrushDynamicTarget, i: number): number => brushDynamicValue(behavior?.dynamics?.[target], directionalDab, state, rand(i)) * (behavior?.modulations?.[target] ?? []).reduce((factor, control, index) => factor * brushDynamicValue(control, directionalDab, state, rand(i + 67 + index)), 1)
   const rotation = behavior?.rotation
   const randomRotation = rotation?.random === 'stroke' ? brushDabRandom(state.seed, 9) : rand(9)
   const countScale = dynamic('count', 10) * (1 - (behavior?.scatter?.countJitter ?? 0) * rand(11))
   const count = Math.max(1, Math.round((brush.scatter?.count ?? 1) * countScale))
   const scatter = brush.scatter ? { ...brush.scatter, count, radius: brush.scatter.radius * dynamic('scatter', 12) } : undefined
   const configured = scatter ? { ...brush, scatter } : brush
-  const rotationAngle = rotation ? brush.tip.angle + direction * rotation.follow + (rotation.random === 'none' ? 0 : randomRotation * Math.PI * 2) : dab.angle
+  const pen=penTilt(dab),tilt=Math.min(1.5,pen.angle)
+  const penAngle = tilt > 0.001 ? pen.azimuth : direction
+  const rotationAngle = rotation ? brush.tip.angle + (rotation.azimuth ? penAngle : direction * rotation.follow) + (rotation.random === 'none' ? 0 : randomRotation * Math.PI * 2) : dab.angle
   const angleDynamic = behavior?.dynamics?.angle
   const angle = rotationAngle + (angleDynamic ? angleDynamic.control === 'off' ? (rand(13) - 0.5) * 2 * Math.PI * angleDynamic.jitter : (dynamic('angle', 13) - 1) * Math.PI * 2 : 0)
   let taper = 1
@@ -131,8 +167,8 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
     const roundness = Math.max(0.02, dynamic('roundness', 20 + i * 8) * (1 - (behavior?.scatter?.roundnessJitter ?? 0) * rand(21 + i * 8)))
     const hasColor = behavior?.dynamics?.hue || behavior?.dynamics?.saturation || behavior?.dynamics?.brightness
     return {
-      ...stamp, x, y, aspect: clamp(stamp.aspect / roundness, 0.05, 20),
-      flowScale: stamp.flowScale * curveAt(brush.flowByPressure, dab.pressure) * dynamic('flow', 22 + i * 8),
+      ...stamp, x, y, aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
+      flowScale: stamp.flowScale * curveAt(brush.flowByPressure, dab.pressure) * dynamic('flow', 22 + i * 8) * Math.exp(-state.distance*(behavior?.falloff??0)*4),
       opacityScale, grainDepth: dynamic('grainDepth', 23 + i * 8),
       flipX: rotation?.flipX && rand(24 + i * 8) < 0.5 ? -1 : 1,
       flipY: rotation?.flipY && rand(25 + i * 8) < 0.5 ? -1 : 1,

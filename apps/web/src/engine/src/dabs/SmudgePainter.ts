@@ -18,6 +18,8 @@
 // in them is dead.
 
 import { BRUSH_BLEND_MODES, type Dab } from '@grafetto/shared'
+import type { BrushDescriptor } from '@grafetto/shared'
+import { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
 import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { ILayerBuffer, PaintTarget } from '../buffers/ILayerBuffer'
 import { ScratchFreeList } from '../buffers/scratchPools'
@@ -25,16 +27,16 @@ import type { WorldRect } from '../buffers/tileMath'
 import type { PaperSampling } from '../paper/PaperState'
 import { brushDabRandom, brushDabSeed, curveAt, type MixerPaint } from '../presets/digitalBrushPresets'
 import { smudgeGrainRelief } from '../presets/smudgeGrain'
-import { DAB_VERT, DISPLAY_VERT, SMUDGE_PICKUP_FRAG, SMUDGE_TRANSFER_FRAG } from '../raster/shaders'
+import { DAB_VERT, DISPLAY_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 
 import { WET_PICKUP_FRAG, WET_TRANSFER_FRAG } from '../raster/wetMixShaders'
-import { beginBrushBehavior, behaviorStampsForDab, type BrushBehaviorState, type BehaviorStamp } from '../presets/brushBehavior'
+import { beginBrushBehavior, behaviorStampsForDab, secondaryBrushDabs, type BrushBehaviorState, type BehaviorStamp } from '../presets/brushBehavior'
 import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix'
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
 
-interface WetGesture extends WetMixState { behavior: BrushBehaviorState }
-interface WetStamp { seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
+interface WetGesture extends WetMixState { behavior: BrushBehaviorState; secondary?: RibbonStrokeScratch }
+interface WetStamp { secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
 
 // Smudge (#14) tuning constants — picked by eye, not exposed as settings
 // (the tool's user-facing knobs are just size/pressure/strength, reusing the
@@ -89,6 +91,8 @@ const MIXER_PRIME_LOAD = 0.85
  *  _initGL on a context restore. The paper is the engine's one PaperState,
  *  held by reference — its texture and catch change inside it. */
 export interface SmudgeContext {
+  createBrushScratch(): RibbonStrokeScratch
+  paintBrushMask(target:Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>,dabs:Dab[],brush:BrushDescriptor,pressure:boolean,scratch:RibbonStrokeScratch,sizeMultiplier:number):void
   readonly gl: WebGLRenderingContext
   /** DAB_VERT's -0.5..0.5 dab quad. */
   quadBuf(): WebGLBuffer
@@ -169,12 +173,6 @@ export class SmudgePainter {
 
   // Smudge (#14) — paired with the existing DAB_VERT (see SMUDGE_TRANSFER_
   // FRAG's own doc comment for why it never uses DAB_VERT_INSTANCED).
-  private oldTransferProg!: WebGLProgram
-  private oldPickupProg!: WebGLProgram
-  private oldTransferUni: Uniforms = {}
-  private oldPickupUni: Uniforms = {}
-  private oldTransferPosLoc = -1
-  private oldPickupPosLoc = -1
   private transferProg!: WebGLProgram
   // The imprint-refresh pass (#416) — paired with DISPLAY_VERT (a plain
   // full-screen quad over the imprint texture; it needs no dab-quad
@@ -200,8 +198,6 @@ export class SmudgePainter {
    *  again on every context restore (the old names died with the context). */
   initGL(): void {
     const { gl } = this
-    this.oldTransferProg=createProgram(gl,DAB_VERT,SMUDGE_TRANSFER_FRAG)
-    this.oldPickupProg=createProgram(gl,DISPLAY_VERT,SMUDGE_PICKUP_FRAG)
     this.transferProg = createProgram(gl, DAB_VERT, WET_TRANSFER_FRAG)
     this.pickupProg   = createProgram(gl, DISPLAY_VERT, WET_PICKUP_FRAG)
     this.transferUni = getUniforms(gl, this.transferProg, [
@@ -209,15 +205,11 @@ export class SmudgePainter {
       'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode', 'u_grainRelief',
       'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap',
-      'u_wetEnabled','u_tipKind','u_tip','u_wetGrain','u_grainStrength','u_grainPeriod','u_grainTransform','u_grainTone','u_wetRoundPhase','u_wetWorldOrigin','u_flip','u_grainBlend','u_dual','u_dualKind','u_dualBlend','u_dualTransform','u_wetOriginal','u_wetRender','u_wetBlend','u_burntBlend',
+      'u_wetEnabled','u_tipKind','u_tip','u_wetGrain','u_grainStrength','u_grainPeriod','u_grainTransform','u_grainTone','u_wetRoundPhase','u_wetWorldOrigin','u_flip','u_grainBlend','u_dual','u_dualKind','u_dualBlend','u_dualTransform','u_wetOriginal','u_wetRender','u_wetBlend','u_burntBlend','u_wetGamma','u_secondaryCoverage','u_secondaryEnabled',
     ])
     this.pickupUni = getUniforms(gl, this.pickupProg, [
       'u_patch', 'u_carried', 'u_rate', 'u_paint', 'u_paintLoad', 'u_alphaPickup', 'u_wetBlur','u_wetTexel','u_wetRetention',
     ])
-    this.oldTransferUni=getUniforms(gl,this.oldTransferProg,Object.keys(this.transferUni))
-    this.oldPickupUni=getUniforms(gl,this.oldPickupProg,Object.keys(this.pickupUni))
-    this.oldTransferPosLoc=gl.getAttribLocation(this.oldTransferProg,'a_position')
-    this.oldPickupPosLoc=gl.getAttribLocation(this.oldPickupProg,'a_position')
     this.transferPosLoc = gl.getAttribLocation(this.transferProg, 'a_position')
     this.pickupPosLoc   = gl.getAttribLocation(this.pickupProg, 'a_position')
   }
@@ -226,6 +218,7 @@ export class SmudgePainter {
   forget(): void {
     this.scratchPool.forget() // same reasoning as AreaOps' pool, see #14
     this.wetTextures.clear()
+    for(const state of this.wetGestures.values()) state.secondary?.forget()
     this.wetGestures.clear()
     this.imprints.clear() // same reasoning — pooled GL objects are dead too
     this.replayChunks.clear()
@@ -241,9 +234,8 @@ export class SmudgePainter {
     this.replayChunks.clear()
     for (const texture of this.wetTextures.values()) gl.deleteTexture(texture)
     this.wetTextures.clear()
+    for(const state of this.wetGestures.values())state.secondary?.destroy()
     this.wetGestures.clear()
-    gl.deleteProgram(this.oldTransferProg)
-    gl.deleteProgram(this.oldPickupProg)
     gl.deleteProgram(this.transferProg)
     gl.deleteProgram(this.pickupProg)
   }
@@ -254,6 +246,7 @@ export class SmudgePainter {
     if (imprint?.strokeId === strokeId) {
       if (!lost) imprint.buf?.destroy()
       this.imprints.delete(userId)
+      this.finishSecondary(userId,lost)
       this.wetGestures.delete(userId)
     }
     if (this.replayChunks.get(userId)?.strokeId === strokeId) this.replayChunks.delete(userId)
@@ -320,11 +313,21 @@ export class SmudgePainter {
     const brush = paint.brush!
     let state = this.wetGestures.get(userId)
     if (!state || !prev) {
+      state?.secondary?.destroy()
       state = { charge: 1, behavior: beginBrushBehavior(dab) }
       this.wetGestures.set(userId,state)
     }
     const travel = prev ? Math.hypot(dab.x-prev.x,dab.y-prev.y)/Math.max(0.5,this.radiusOf(dab,paint)) : 0
     if (prev && travel < 1e-6) return
+    const dual=brush.behavior?.dual
+    let secondary: ReturnType<RibbonStrokeScratch['brushSecondary']> | undefined
+    if(dual?.sampling==='independent') {
+      state.secondary ??= this.ctx.createBrushScratch()
+      secondary=state.secondary.brushSecondary()
+      const owned=secondary
+      const maskTarget:Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>={resolveForPaint:bounds=>target.resolveForPaint(bounds).map(tile=>({...tile,buffer:owned.tile(tile.buffer)})),markContentPainted:()=>{}}
+      this.ctx.paintBrushMask(maskTarget,secondaryBrushDabs(brush,dual.brush,[dab],secondary.sampling),dual.brush,paint.pressure,secondary.scratch,paint.sizeMultiplier)
+    }
     const wet = brush.behavior?.wetMix
     const step = wet ? wetMixStep(wet,state,dab,travel,!prev) : {
       load: !prev ? MIXER_PRIME_LOAD : clampNum(paint.load*travel,0,1),
@@ -332,8 +335,15 @@ export class SmudgePainter {
     }
     for (const stamp of behaviorStampsForDab(brush,dab,state.behavior,paint.color)) {
       const shaped = {...dab,x:stamp.x,y:stamp.y,size:stamp.size,angle:stamp.angle}
-      this.applyDab(target,shaped,Math.max(travel,0.1),userId,paint,{seed:state.behavior.seed,stamp,step,paint})
+      this.applyDab(target,shaped,Math.max(travel,0.1),userId,paint,{secondary,seed:state.behavior.seed,stamp,step,paint})
     }
+  }
+
+  /** Optical mask belongs to one gesture, not the user's carried reservoir. */
+  finishSecondary(userId:string,lost=false,strokeId?:string):void {
+    if(strokeId && this.imprints.get(userId)?.strokeId!==strokeId)return
+    const state=this.wetGestures.get(userId)
+    if(state?.secondary){if(lost)state.secondary.forget();else state.secondary.destroy();state.secondary=undefined}
   }
 
   /** Resolves what the first dab of this call should treat as its
@@ -358,6 +368,7 @@ export class SmudgePainter {
     if (!continuing) {
       if (imprint.buf) this.releaseScratch(imprint.buf)
       imprint.buf = null
+      this.finishSecondary(userId)
       this.wetGestures.delete(userId)
     }
     imprint.strokeId = strokeId ?? null
@@ -468,7 +479,7 @@ export class SmudgePainter {
     // The mixer picks up at its own rate — slower than the stump's, which is
     // what lets it drag a colour a couple of brush widths rather than one.
     const pickRate = wet ? wet.step.pickup : paint && !priming ? clampNum(paint.pickup * travel, 0, 1) : rate
-    this.runPickup(patch, imprint.buf ?? patch, next, pickRate, wet?.stamp.color ?? paint?.color ?? null, paintLoad, wet?.step.blur ?? 0, !!wet, wet?.step.retention ?? 1)
+    this.runPickup(patch, imprint.buf ?? patch, next, pickRate, wet?.stamp.color ?? paint?.color ?? null, paintLoad, wet?.step.blur ?? 0, wet?.step.retention ?? 1)
     if (imprint.buf) this.releaseScratch(imprint.buf)
     imprint.buf = next
     if (priming && !wet) { this.releaseScratch(patch); return }
@@ -567,14 +578,14 @@ export class SmudgePainter {
    *  buffer happened to hold before. */
   private runPickup(
     patch: AccumulationBuffer, carried: AccumulationBuffer, target: AccumulationBuffer, rate: number,
-    paintColor: [number, number, number] | null = null, paintLoad = 0, blur = 0, wet = false, retention = 1,
+    paintColor: [number, number, number] | null = null, paintLoad = 0, blur = 0, retention = 1,
   ): void {
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo)
     gl.viewport(0, 0, target.width, target.height)
     gl.disable(gl.BLEND)
-    gl.useProgram(wet ? this.pickupProg : this.oldPickupProg)
-    const u = wet ? this.pickupUni : this.oldPickupUni
+    gl.useProgram(this.pickupProg)
+    const u = this.pickupUni
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, patch.texture)
     gl.uniform1i(u.u_patch, 0)
@@ -602,7 +613,7 @@ export class SmudgePainter {
     // onto the canvas — the square blocks a wide smudge stroke used to
     // stamp out (see index.smudge.test.ts's own square-block test).
     gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.screenBuf())
-    const position=wet ? this.pickupPosLoc : this.oldPickupPosLoc
+    const position=this.pickupPosLoc
     gl.enableVertexAttribArray(position)
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
@@ -630,8 +641,8 @@ export class SmudgePainter {
     else if (mode === 'lay') buffer.beginAdditiveDraw()
     else buffer.beginErase()
 
-    gl.useProgram(wet ? this.transferProg : this.oldTransferProg)
-    const u = wet ? this.transferUni : this.oldTransferUni
+    gl.useProgram(this.transferProg)
+    const u = this.transferUni
     gl.uniform2f(u.u_resolution, buffer.width, buffer.height)
     // Same world-space paper sampling every other dab shader uses — see
     // DAB_FRAG's own #141 comment for the origin-sign/world-size reasoning.
@@ -666,14 +677,19 @@ export class SmudgePainter {
     gl.bindTexture(gl.TEXTURE_2D,carried.texture)
     const blend=(name:typeof BRUSH_BLEND_MODES[number] | undefined):number=>Math.max(0,BRUSH_BLEND_MODES.indexOf(name ?? 'normal'))
     const dualAngle=(dual?.brush.tip.angle ?? 0)-(brush?.tip.angle ?? 0)
-    gl.uniform1f(u.u_dualKind,dual ? dual.brush.tip.kind === 'bitmap' ? 2 : 1 : 0)
+    gl.uniform1f(u.u_dualKind,dual && !wet?.secondary ? dual.brush.tip.kind === 'bitmap' ? 2 : 1 : 0)
     gl.uniform1f(u.u_dualBlend,blend(dual?.blendMode))
     gl.uniform4f(u.u_dualTransform,1,(brush?.tip.aspect ?? 1)/(dual?.brush.tip.aspect ?? 1),Math.cos(dualAngle),Math.sin(dualAngle))
+    gl.activeTexture(gl.TEXTURE6)
+    gl.bindTexture(gl.TEXTURE_2D,wet?.secondary?.tile(buffer).texture??paper.texture)
+    gl.uniform1i(u.u_secondaryCoverage,6)
+    gl.uniform1f(u.u_secondaryEnabled,wet?.secondary?1:0)
     const rendering=brush?.behavior?.rendering
     const modes=['lightGlaze','uniformGlaze','intenseGlaze','heavyGlaze','uniformBlend','intenseBlend','buildUp']
     gl.uniform4f(u.u_wetRender,rendering?.wetEdges ?? 0,rendering?.burntEdges ?? 0,rendering ? modes.indexOf(rendering.mode) : 6,rendering?.luminance ? 1 : 0)
     gl.uniform1f(u.u_wetBlend,blend(rendering?.blendMode))
     gl.uniform1f(u.u_burntBlend,blend(rendering?.burntEdgesMode))
+    gl.uniform1f(u.u_wetGamma,rendering?.gammaCorrect ? 1 : 0)
     const g=brush?.behavior?.grain
     const period=Math.max(0.5,(brush?.texture?.periodPx ?? 1)*(g ? 0.1+g.zoom*1.9 : 1))
     const depth=(brush?.texture?.strength ?? 0)*(wet?.stamp.grainDepth ?? 1)
@@ -700,7 +716,7 @@ export class SmudgePainter {
     gl.uniform1f(u.u_grainRelief, smudgeGrainRelief(dab.pressure))
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.quadBuf())
-    const position=wet ? this.transferPosLoc : this.oldTransferPosLoc
+    const position=this.transferPosLoc
     gl.enableVertexAttribArray(position)
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
 

@@ -97,7 +97,7 @@ class ReaderTests(unittest.TestCase):
         original=convert.finalize_identity(convert.descriptor(seed,'asset:test'),seed)
         changed=convert.descriptor(seed,'asset:test');changed['spacing']=0.25
         self.assertNotEqual(original['id'],convert.finalize_identity(changed,seed)['id'])
-        with patch.object(convert,'IMPORTER_RENDERING_VERSION',convert.IMPORTER_RENDERING_VERSION+1):
+        with patch.object(__import__('brush_contract'),'IMPORTER_RENDERING_VERSION',convert.IMPORTER_RENDERING_VERSION+1):
             upgraded=convert.finalize_identity(convert.descriptor(seed,'asset:test'),seed)
         self.assertNotEqual(original['id'],upgraded['id'])
     def test_procreate_manifest_with_texture(self):
@@ -129,7 +129,18 @@ class FidelityTests(unittest.TestCase):
             self.assertEqual(d['scatter']['count'],16);self.assertEqual(d['behavior']['rotation']['random'],'stroke')
             self.assertEqual(d['behavior']['rotation']['follow'],-0.5);self.assertEqual(d['tip']['rotation'],'fixed')
             self.assertEqual(d['opacityByPressure'],[[0,1],[1,0.7]])
-            self.assertIn('dual',d['behavior']);self.assertTrue(any(n['feature']=='shapeAzimuth' and n['status']=='unsupported' for n in c.brushes[0]['compatibility']))
+            self.assertIn('dual',d['behavior']);self.assertTrue(d['behavior']['rotation']['azimuth'])
+    def test_published_procreate_blends_and_signed_modulations(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'test.brush';img=io.BytesIO();Image.new('L',(2,2),255).save(img,format='PNG')
+            with zipfile.ZipFile(p,'w') as z:
+                z.writestr('Brush.archive',plistlib.dumps({'name':'Blend probe','blendMode':1,'extendedBlend':17,'grainBlendMode':11,'dynamicsSpeedSize':-0.4,'dynamicsTiltOpacity':0.3}))
+                z.writestr('Shape.png',img.getvalue());z.writestr('Grain.png',img.getvalue())
+            c=convert.Catalog(Path(tmp)/'out');convert.procreate(p,c);b=c.brushes[0]['descriptor']['behavior']
+            self.assertEqual(b['rendering']['blendMode'],'softLight');self.assertEqual(b['grain']['blendMode'],'overlay')
+            self.assertAlmostEqual(b['modulations']['size'][0]['strength'],-0.4)
+            self.assertAlmostEqual(b['modulations']['opacity'][0]['strength'],0.3)
+
     def test_modern_versions_fixed_preamble_and_sixteen_bit(self):
         for version in [6,7,9,10]:
             item=b'\x01x'+bytes(264)+struct.pack('>iiiiHB',0,0,1,2,16,0)+b'\x80\x00\xff\xff'
@@ -145,6 +156,14 @@ class FidelityTests(unittest.TestCase):
         vmal=struct.pack('>iiiiI',0,0,1,1,1)+b''.join(chans)
         pattern=u32(1)+u32(3)+bytes(4)+text('Pattern')+b'\x01p'+u32(3)+u32(len(vmal))+vmal
         pid,image=convert.read_pattern(pattern);self.assertEqual(pid,'p');self.assertEqual(image.getpixel((0,0)),151)
+        with self.assertRaises(ValueError): convert.read_pattern(pattern[:-1])
+    def test_indexed_pattern_uses_palette(self):
+        palette=bytearray(768);palette[3:6]=bytes([255,128,0])
+        channel=u32(8)+struct.pack('>iiiiHB',0,0,1,2,8,0)+bytes([1,0])
+        vmal=struct.pack('>iiiiI',0,0,1,2,1)+u32(1)+u32(len(channel))+channel+u32(0)+u32(0)
+        pattern=u32(1)+u32(2)+bytes(4)+text('Indexed')+b'\x01p'+palette+bytes(4)+u32(3)+u32(len(vmal))+vmal
+        _,image=convert.read_pattern(pattern)
+        self.assertEqual(list(image.getdata()),[151,0])
         with self.assertRaises(ValueError): convert.read_pattern(pattern[:-1])
     def test_legacy_sampled_records_and_resync(self):
         for version in [1,2]:
