@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { mkdir, mkdtemp, rm, readdir, stat } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, readdir, stat, writeFile, lstat } from 'node:fs/promises'
 import { createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
 import { join, basename, extname } from 'node:path'
@@ -21,6 +21,17 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
   const root=process.env.GRAFETTO_BRUSH_STORAGE_DIR
   const scratch=!root ? await mkdtemp(join(tmpdir(),'grafetto-brush-runtime-')) : undefined
   const storage=new BrushStorage(root ?? scratch!)
+  for(const name of await readdir(join(storage.root,'tmp'))) {
+    if(!/^import-[a-zA-Z0-9]{6}$/.test(name)) continue
+    const path=join(storage.root,'tmp',name), info=await lstat(path)
+    if(!info.isDirectory() || info.isSymbolicLink()) continue
+    let abandoned=false
+    try {
+      const pid=Number(boundedRead(join(path,'.owner-pid'),32).toString())
+      if(Number.isInteger(pid)&&pid>0) {try {process.kill(pid,0)} catch(error) {abandoned=(error as NodeJS.ErrnoException).code==='ESRCH'}}
+    } catch(error) {if((error as NodeJS.ErrnoException).code==='ENOENT') abandoned=Date.now()-info.mtimeMs>24*60*60*1000}
+    if(abandoned) await rm(path,{recursive:true,force:true})
+  }
   if (operator.manifest.assets.length) storage.install('__operator__',operator.manifest,operator.assets)
   operator.assets.clear()
   setBrushStorage(storage,operator.manifest)
@@ -78,6 +89,7 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
     try {storage.ensureCapacity(MAX_UPLOAD*(jobs.size+1))} catch {return reply.code(507).send({error:'Brush storage capacity exceeded'})}
     const owner=request.userId, id=randomUUID(), job:BrushImportJob={id,status:'queued'}
     const work=await mkdtemp(join(storage.root,'tmp','import-'))
+    await writeFile(join(work,'.owner-pid'),String(process.pid),{flag:'wx',mode:0o600})
     const input=join(work,filename), output=join(work,'output')
     jobs.set(id,{owner,job})
     let received=0
