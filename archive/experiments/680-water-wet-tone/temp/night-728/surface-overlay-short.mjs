@@ -1,0 +1,10 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import {ev} from '/home/suselman/projects/pencil-agents/680-lifetime-hardware/temp/night-overlay/apps/web/scripts/devices/bridge.mjs';
+const page='twm2vt';
+const out={at:new Date().toISOString(),fixture:'synthetic PointerInput, physical640x480, current8aa + candidateOFF5311, Surface GPU, HTTP UUID-metadata fixture'};
+out.install=await ev(page,readFileSync(new URL('./ipad-pageLib.js',import.meta.url),'utf8'));
+out.setup=await ev(page,`const {useRoomStore}=await import('/src/stores/roomStore.ts'); useRoomStore.getState().setTool('watercolor'); await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))); window.__mt.setup({preset:'normal:100:100:PB29:round',size:80,color:[.2,.35,.7]}); const e=window.__engine; return {renderer:(()=>{const d=e.gl.getExtension('WEBGL_debug_renderer_info');return d?e.gl.getParameter(d.UNMASKED_RENDERER_WEBGL):e.gl.getParameter(e.gl.RENDERER)})(),locked:e._locked,layer:e._activeId,page:e._pageSize(),batchEnabled:e._settleQueue.contactBatchEnabled,lost:e.gl.isContextLost(),timeOrigin:performance.timeOrigin};`);
+out.stroke=await ev(page,`return await window.__mt.stroke({pts:[[.25,.4],[.6,.4]],ms:1000,perFrame:2})`,45000);
+out.after=await ev(page,`const e=window.__engine;return {perf:e.getWatercolorPerf(),lost:e.gl.isContextLost(),error:e.gl.getError(),timeOrigin:performance.timeOrigin,ops:e._log.entries.map(x=>({type:x.op?.type,serverSeq:x.serverSeq,pending:x.pending}))};`);
+writeFileSync(new URL('./surface-overlay-short-result.json',import.meta.url),JSON.stringify(out,null,2));
+console.log(JSON.stringify(out));

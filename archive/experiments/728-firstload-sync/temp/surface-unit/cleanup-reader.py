@@ -1,0 +1,3 @@
+import base64,subprocess
+code=r'''$p=Get-CimInstance Win32_Process | Where-Object {$_.Name -eq 'chrome.exe' -and $_.CommandLine -like '*qa728-firstload-reader6b*' -and $_.CommandLine -notlike '*--type=*'};$p | Select-Object ProcessId | ConvertTo-Json -Compress;foreach($x in $p){Stop-Process -Id $x.ProcessId};Stop-ScheduledTask -TaskName Grafetto728FirstloadReader6b;Unregister-ScheduledTask -TaskName Grafetto728FirstloadReader6b -Confirm:$false;(Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory'''
+e=base64.b64encode(code.encode('utf-16le')).decode();subprocess.run(['ssh','-o','BatchMode=yes','-i','/home/suselman/.ssh/home_ed25519','-p22022','suselman@127.0.0.1','ssh surface "powershell -NoProfile -EncodedCommand '+e+'"'],check=True)

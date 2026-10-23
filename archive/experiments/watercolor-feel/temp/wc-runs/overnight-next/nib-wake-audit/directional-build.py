@@ -1,0 +1,10 @@
+import pathlib,json
+r=pathlib.Path('temp/wc-runs/overnight-next/nib-wake-audit')
+for name in ['compact','aspect-damped-control']:
+ src=r/f'production-strong80-nib-wake-{name}-instrumented-v1.json';s=json.loads(src.read_text());s['id']=f'production-strong80-nib-wake-directional-{name}-v1';p=next(x for x in s['runtimePatches'] if x.get('semanticFamily','').startswith('nib-wake-local-velocity'))
+ p['after']=p['after'].replace('const ux = d.dx / length, uy = d.dy / length;','const ux = d.dx / length, uy = d.dy / length;\n\t\t\tconst uBodyX = ux * c + uy * s, uBodyY = -ux * s + uy * c;\n\t\t\tconst directionalBound = Math.max(1, Math.min(kappa, rx >= ry ? Math.abs(uBodyX) + kappa * Math.abs(uBodyY) : kappa * Math.abs(uBodyX) + Math.abs(uBodyY)));').replace('/ kappa','/ directionalBound');p['semanticFamily']='nib-wake-directional-scalar-bound-'+name
+ s['mechanism']='Per-footprint constant direction-aware streamfunction velocity bound; matched uniform damping control' if name!='compact' else 'Compact translating-nib wake with direction-aware scalar CFL bound'
+ s['risks']=['Per-footprint analytic divergence-free does not imply full EMA/B/gated transport incompressibility.','Conservative direction bound is not tight; minority-axis translation still attenuated.','Constitutive diagnostic without established watercolor physics.'];s['observableOutcome']='Changes only local conditional velocity; direction-dependent constant divisor leaves source, exposure B, contact geometry and calibrated strong80 h/mixclock unchanged.'
+ (r/f"{s['id']}.json").write_text(json.dumps(s,indent=2))
+ b=(r/f'validate-{name}-instrumented-v1.mts').read_text().replace(src.name,f"{s['id']}.json").replace(f'compiled-validation-{name}-instrumented-v1.json',f'compiled-validation-directional-{name}-v1.json');(r/f'validate-directional-{name}-v1.mts').write_text(b)
+a=(r/'audit.py').read_text();a=a.replace("psi=ux*py-uy*px;", "D=max(1,min(max(rx/ry,ry/rx),abs(ux)+rx/ry*abs(uy) if rx>=ry else ry/rx*abs(ux)+abs(uy)));psi=ux*py-uy*px;").replace("/a['aspect']","/D").replace('actual-nine-cpu.json','actual-nine-directional-cpu.json');(r/'audit-directional.py').write_text(a)

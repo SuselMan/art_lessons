@@ -1,0 +1,1 @@
+export default {root:'/home/suselman/projects/pencil-agents/680-device-qa-guards',test:{include:['/home/suselman/projects/pencil-agents/728-firstload-sync/temp/surface-unit/descriptor.test.ts'],environment:'node'},resolve:{alias:{'@grafetto/shared':'/home/suselman/projects/pencil-agents/728-firstload-sync/packages/shared/src/index.ts'}}}

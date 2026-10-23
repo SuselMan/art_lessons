@@ -1,0 +1,1 @@
+export default {resolve:{alias:{'lodash-es':'/home/suselman/projects/pencil/node_modules/lodash-es/lodash.js',nanoid:'/home/suselman/projects/pencil/apps/web/node_modules/nanoid/index.js','@grafetto/shared':'/home/suselman/projects/pencil-agents/728-duplicate-field-clears/packages/shared/src/index.ts'}},test:{environment:'node',include:['apps/**/*.test.ts']}}

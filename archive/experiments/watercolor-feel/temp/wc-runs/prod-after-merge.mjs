@@ -1,0 +1,4 @@
+import {chromium} from 'playwright';
+import {writeFileSync} from 'node:fs';
+const b=await chromium.launch({channel:'chrome',headless:false});
+try{const p=await b.newPage();const errors=[];p.on('pageerror',e=>errors.push(e.message));await p.goto('https://grafetto.com/create');await p.locator('input[type="text"]').first().waitFor({state:'visible',timeout:30000});await p.waitForTimeout(1500);const version=await p.evaluate(async()=>await(await fetch('/version.json',{cache:'no-store'})).json());await p.screenshot({path:'temp/wc-runs/prod-after-merge.png'});const report={version,createFormVisible:true,errors};writeFileSync('temp/wc-runs/prod-after-merge.json',JSON.stringify(report,null,2));console.log(report);if(errors.length||version.sha!=='da1941b6a0c9d069622bf37a446ac25048d18a02')throw new Error('Production smoke failed')}finally{await b.close()}

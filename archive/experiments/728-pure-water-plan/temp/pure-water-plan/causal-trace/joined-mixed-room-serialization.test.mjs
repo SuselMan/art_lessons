@@ -1,0 +1,15 @@
+import fs from 'node:fs';import assert from 'node:assert/strict';
+const source=fs.readFileSync(new URL('./joined-mixed-room-function.js',import.meta.url),'utf8');
+const expression=source.match(/material=(journal\.map\(op=>\{[^\n]+?return result\}\));/)[1];
+const material=new Function('journal','return '+expression);
+const op={id:'fresh-operation-A',userId:'actual-A',layerId:'L-A',timestamp:1700000000000,seq:9,type:'stroke',tool:'watercolor',strokeId:'mixed-fixed-1',washId:'mixed-fixed-wash',dabsPacked:'AAEFphysicalbytes',wet:'de00',dabs:[{x:1,y:2,timeStamp:1000,t:16,pressure:.8}],preset:'normal:100:100:PB29:round',color:[.8,.05,.02]};
+const normalized=material([op])[0];
+for(const key of ['id','userId','layerId','timestamp','seq'])assert.equal(key in normalized,false);
+assert.equal(normalized.dabsPacked,op.dabsPacked);assert.equal(normalized.wet,'de00');assert.equal(normalized.dabs[0].timeStamp,1000);assert.equal(normalized.dabs[0].t,16);assert.equal(normalized.strokeId,op.strokeId);assert.equal(normalized.washId,op.washId);
+const shifted={...op,id:'fresh-operation-B',userId:'actual-B',layerId:'L-B',timestamp:1700000000400,seq:12};assert.deepEqual(material([shifted]),material([op]));
+assert.notDeepEqual(material([{...op,wet:'de01'}]),material([op]));assert.notDeepEqual(material([{...op,dabsPacked:'changedphysicalbytes'}]),material([op]));
+assert.ok(!source.includes('getRandomValues'));assert.ok(!source.includes('Math.random='));
+assert.ok(source.includes('expectedIDs.every(id=>persisted.some(x=>x.id===id))'));assert.ok(source.includes('stable(withoutSeq(actual))!==stable(withoutSeq(stored))'));
+const withoutSeq=new Function('op',source.match(/const withoutSeq=op=>\{([^\n]+)\};/)[1]);
+assert.equal(withoutSeq({...op,seq:11}).timestamp,op.timestamp);assert.equal(withoutSeq({...op,seq:11}).id,op.id);assert.equal(withoutSeq({...op,seq:11}).wet,op.wet);assert.equal('seq'in withoutSeq(op),false);
+console.log('Actual serialization retains packed wet/time/physical IDs; only allowed metadata excluded; durable payload keeps actual ID/walltime PASS');

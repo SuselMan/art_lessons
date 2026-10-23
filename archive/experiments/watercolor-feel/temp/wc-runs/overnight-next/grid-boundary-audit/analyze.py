@@ -1,0 +1,16 @@
+import pathlib,json,numpy as np,hashlib
+from PIL import Image
+r=pathlib.Path('temp/wc-runs/overnight-next');folder=r/'general-integer-power05-seven-nine-v3';fixtures={c['id']:c for c in json.loads((r/'inputs.json').read_text())['cases']};out=[]
+for cid in ['s9-n3','s7-n3']:
+ meta=json.loads((folder/(cid+'-phase-fields.json')).read_text());fs={(f['stage'],f['role']):f for f in meta['frames']};first=meta['frames'][0];m=first['mapping'];S=m['S'];h,w=first['height'],first['width'];box=fixtures[cid]['box'];x0=max(0,int((box[0]-m['x0'])/S));x1=min(w,int(np.ceil((box[2]-m['x0'])/S)));y0=max(0,int((box[1]-m['y0'])/S));y1=min(h,int(np.ceil((box[3]-m['y0'])/S)))
+ def read(stage,role):
+  f=fs[stage,role];assert f['mapping']==m;b=(folder/f['file']).read_bytes();assert hashlib.sha256(b).hexdigest()==f['sha256'];return np.frombuffer(b,dtype=np.uint8).reshape(h,w,4)[::-1].astype(float)
+ pre=read('after-fine-before-brush','pigment');post=read('after-brush-stable','pigment');cpre=read('after-fine-before-brush','color');cpost=read('after-brush-stable','color');mask=(pre[...,3]>5)&(post[...,3]>5)
+ # Interior avoid geometric boundary and support corners.
+ for axis in [0,1]:mask&=np.roll(mask,2,axis)&np.roll(mask,-2,axis)
+ mask=mask[y0:y1,x0:x1];H,W=mask.shape;fx=np.fft.fftfreq(W,S)[None,:];fy=np.fft.fftfreq(H,S)[:,None];window=np.outer(np.hanning(H),np.hanning(W));metrics=[]
+ for label,P,C in [('pre',pre,cpre),('post',post,cpost)]:
+  for channel,data in [('B',P[...,2]),('A',P[...,3]),('waterRatio',np.divide(P[...,0],P[...,3],out=np.zeros((h,w)),where=P[...,3]>0)),('depthRatioR',np.divide(C[...,0],P[...,2],out=np.zeros((h,w)),where=P[...,2]>0))]:
+   crop=data[y0:y1,x0:x1];v=crop[mask];center=(crop-v.mean())*mask*window;power=abs(np.fft.fft2(center))**2/max(1,center.size**2);vertical=power[(np.broadcast_to(abs(fx)>2*abs(fy),(H,W)))&(np.broadcast_to((abs(fx)>=1/12)&(abs(fx)<=.5),(H,W)))].sum();horizontal=power[(np.broadcast_to(abs(fy)>2*abs(fx),(H,W)))&(np.broadcast_to((abs(fy)>=1/12)&(abs(fy)<=.5),(H,W)))].sum();metrics.append({'stage':label,'channel':channel,'verticalStripeBandPower':float(vertical),'horizontalStripeBandPower':float(horizontal),'verticalOverHorizontal':float(vertical/max(horizontal,1e-30))})
+ delta=(post[...,2]-pre[...,2])[y0:y1,x0:x1];profile=np.divide((delta*mask).sum(0),mask.sum(0),out=np.zeros(W),where=mask.sum(0)>0);jumps=abs(np.diff(profile));indices=np.argsort(jumps)[-12:][::-1];png=np.asarray(Image.open(folder/(cid+'.png')).convert('RGB'));yy,xx=np.indices(mask.shape);wy=np.floor(m['y0']+(yy+y0+.5)*S).astype(int);wx=np.floor(m['x0']+(xx+x0+.5)*S).astype(int);dark=255-png[wy,wx].mean(2);pcorr=float(np.corrcoef(post[y0:y1,x0:x1,2][mask],dark[mask])[0,1]);out.append({'case':cid,'mapping':m,'roi':box,'pngSize':[png.shape[1],png.shape[0]],'postBvsPNGdarknessCorrelation':pcorr,'metrics':metrics,'largestDeltaColumnJumps':[{'worldX':float(m['x0']+(x0+int(i)+.5)*S),'jumpMeanCodes':float(jumps[i])} for i in indices],'warning':'Frequency diagnostic uses same interior mask; columns cannot be causally linked to contactrect without percontactbounds logs. PNG pixel mapping not assumed identical to fullfield.'})
+(r/'grid-boundary-audit/axis-frequency.json').write_text(json.dumps(out,indent=2)+'\n')

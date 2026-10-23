@@ -1,0 +1,2 @@
+import {watercolorPigmentLoad,watercolorPigmentRate,watercolorPigmentRun} from '../../apps/web/src/engine/src/presets/watercolorPresets'
+console.log(JSON.stringify([0,1].map(water=>({water,run:watercolorPigmentRun(water),rate:watercolorPigmentRate(water),budget:watercolorPigmentRate(water)*watercolorPigmentRun(water),doseAt:[0,1,4,10].map(used=>({used,rate:watercolorPigmentRate(water)*watercolorPigmentLoad(used,water)}))})),null,2))

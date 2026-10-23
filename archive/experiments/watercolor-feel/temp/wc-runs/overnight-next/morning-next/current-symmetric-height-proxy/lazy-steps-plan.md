@@ -1,0 +1,11 @@
+# Минимальный lazy brush schedule
+
+Actual consumers: WatercolorSettlePlan.prepare ops:Array<()=>void>; index.ts watercolor wrapper6950 and _startSettle7113; WatercolorSettleQueue.ts job.ops/start51/advance107/complete121 use indexed length. index synchronous7457 and WatercolorSettlePlan.test38 use for-of. perf.settleOps expects total count, immediate first snapshot captured in start before frame scheduling.
+
+Stage0 optional minimal memory improvement: for each contact allocate one reusable paired-step closure, then push the SAME reference hop times. It only reads contact rect/pulseGain and executes P/C draw+copyback; current closure never reads sub index, so exact order and output unchanged. Removes many closure objects while preserving current Array contract and length/indices. Does not solve large reference array or long synchronous complete(). Measure real size400 op count/prepare wall/heap before deciding more.
+
+True lazy stage: return {ops:Iterable<()=>void>,stepCount,finish}; retain prefix ordinary ops array, brush contact descriptors with hop, suffix ordinary ops. Generator yields prefix, then each contact upload once and the same paired-step closure hop times, then suffix. No mass caps, no hop truncation. Queue stores iterator plus next/stepCount; start calls next once and executes first snapshot immediately. advance consumes exactly one unit; complete drains iterator. Finish once after exhausted. Existing synchronous for-of unchanged. Both index wrapper types and job/start signature change; groupTideOps can remain internal Array producer (no gratuitous rewrite).
+
+Need iterator created once per job, no lookahead that executes work, no late scratch reading changing source. Contact field buffers kept alive until generator exhausted. Cancellation/!scratch.live must retain current release semantics; completion may create chained settle and drain as currently done.
+
+Tests meaningful: trace exact ordered fake ops and immediate snapshot, sliced advance vs synchronous complete count/finish once, nested completion, scratch invalidation; actual GPU PNG/P/C equality to pre-change fixture on one long stroke. The change saves allocation; it does not claim fewer physical steps or bound one draw's GPU duration.

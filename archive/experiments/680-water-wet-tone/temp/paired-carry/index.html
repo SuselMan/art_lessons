@@ -1,0 +1,1 @@
+<button>Paired carry byte gate</button><pre></pre><script type="module">import{runPairedCarryGate}from"./run.js";document.querySelector("button").onclick=async()=>{try{window.result=await runPairedCarryGate();document.querySelector("pre").textContent=JSON.stringify(window.result,null,2)}catch(e){document.querySelector("pre").textContent=e.stack}}</script>

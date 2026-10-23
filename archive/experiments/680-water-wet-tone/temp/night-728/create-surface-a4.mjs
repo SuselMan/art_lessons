@@ -1,0 +1,4 @@
+import{io}from'socket.io-client';import{randomUUID}from'node:crypto';import fs from'node:fs';
+const room={id:randomUUID().slice(0,8),name:'728 Surface A4 overlay',paper:'fine',paperColor:'#ffffff',infinite:false,canvasWidth:1754,canvasHeight:2480,enabledTools:['pencil','watercolor'],classVisibility:'private'};
+const socket=io('http://127.0.0.1:4537',{transports:['websocket']});const timeout=setTimeout(()=>{socket.close();process.exitCode=1},15000);
+socket.on('connect',()=>socket.emit('create_room',{room,name:'728 Surface QA'},result=>{fs.writeFileSync('/home/suselman/projects/pencil-agents/680-lifetime-hardware/temp/night-overlay/surface-a4-room.json',JSON.stringify({room,result,backend:4537},null,2));console.log(JSON.stringify({room,result}));clearTimeout(timeout);socket.close();if(!result.ok)process.exitCode=1}));socket.on('connect_error',e=>console.error(e.message));

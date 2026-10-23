@@ -1,0 +1,1 @@
+export default { root: '/home/suselman/projects/pencil-agents/680-water-wet-tone', resolve: { alias: { vitest: '/home/suselman/projects/pencil-agents/680-device-qa-guards/node_modules/vitest/dist/index.js' } }, test: { include: ['apps/web/src/engine/src/paper/wetOverlayPixels.test.ts'], environment: 'node' } }

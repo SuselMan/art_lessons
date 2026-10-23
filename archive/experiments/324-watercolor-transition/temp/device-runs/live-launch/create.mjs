@@ -1,0 +1,2 @@
+import {chromium} from 'playwright';import fs from'node:fs';
+const b=await chromium.launch({headless:true,args:['--enable-unsafe-swiftshader']});try{const p=await b.newPage({ignoreHTTPSErrors:true});await p.goto('https://192.168.1.70:5290/create');await p.locator('input[type=text]').first().fill('Акварель — живой переход');await p.getByRole('button',{name:'Create project',exact:true}).click();await p.waitForURL(/\/room\/[^/]+$/,{timeout:30000});fs.writeFileSync('temp/device-runs/live-launch/url',p.url());console.log(p.url());}finally{await b.close()}

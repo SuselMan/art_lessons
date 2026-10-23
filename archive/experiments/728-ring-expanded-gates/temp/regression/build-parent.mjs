@@ -1,0 +1,11 @@
+import {createRequire} from 'node:module';
+import {resolve} from 'node:path';
+import {readFileSync,writeFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+const require=createRequire('/home/suselman/projects/pencil-agents/680-water-wet-tone-qa/package.json');
+const esbuild=require('esbuild');
+const build=JSON.parse(readFileSync('build-passport.json'));
+await esbuild.build({entryPoints:['sources/5cb04f46/apps/web/src/engine/index.ts'],outfile:'bundles/5cb04f46.mjs',bundle:true,platform:'browser',format:'esm',minify:false,define:build.define,alias:{'@grafetto/shared':resolve('sources/5cb04f46/packages/shared/src/index.ts')}});
+const b=readFileSync('bundles/5cb04f46.mjs');
+writeFileSync('parent-build-passport.json',JSON.stringify({SHA256:createHash('sha256').update(b).digest('hex'),bytes:b.length}));
+console.log('parent bundle PASS',b.length);

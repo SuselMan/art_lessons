@@ -1,0 +1,4 @@
+import {createRequire} from 'node:module';
+const require=createRequire('/home/suselman/projects/pencil-agents/680-device-qa-guards/package.json');
+import base from './vitest-combined-pending.config.mjs';
+export default {...base,plugins:[{name:"real-deps",enforce:"pre",resolveId(id){if(id.startsWith(".")||id.startsWith("/")||id==="vitest"||id.startsWith("vitest/")||id==="@grafetto/shared"||id.startsWith("node:"))return;try{return require.resolve(id)}catch{}}}],test:{...base.test,include:[...base.test.include,'apps/server/src/rooms/snapshotReplayPlan.test.ts','apps/server/src/rooms/snapshotReplayLoader.test.ts','apps/server/src/rooms/roomSnapshots.test.ts','apps/server/src/roomRoutes/snapshotRoutes.test.ts','apps/web/src/pages/Room/net/snapshotRestore.test.ts','apps/web/src/pages/Room/restoreRoomState.test.ts','apps/web/src/engine/index.networkSnapshot.test.ts']}};

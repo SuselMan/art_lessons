@@ -1,0 +1,3 @@
+В QA на последнем main 8990c479: холст 1754×2480, zoom 0.319, Chrome/AMD. После карандаша новый штрих маркером записан в журнал, но экран остаётся пустым. Raw tile в точке (400,1240): RGBA [239,124,24,255]; pickColor экрана [0.9725,0.9725,0.9725]. После allResident(), который помечает coarse tiles dirty, и _display(): [0.94117,0.5451,0.2], штрих появляется. Аналогичный UI regression падает для brushPen и watercolor.
+
+Регрессия: e2e/specs/allToolsCollaboration.spec.ts; диагностика marker-probe.mts, логи temp/device-runs/qa-2026-10-02. Вероятная причина: deferred ribbon composite пишет после того, как resolveForPaint уже пометил/обновил coarse cache, без повторного уведомления после записи.

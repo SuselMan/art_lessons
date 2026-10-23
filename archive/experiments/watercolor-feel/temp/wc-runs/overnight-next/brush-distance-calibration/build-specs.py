@@ -1,0 +1,12 @@
+import json,copy
+from pathlib import Path
+r=Path(__file__).parent
+parents=[('float',r.parent/'transport-resolution-audit/production-physical22-brush-resolution-substeps-bound9-budget4096.json'),('integer',r.parent/'integer-paired-allocation/production-physical22-brush-integer-fivebins-permutation120-snap-substeps-bound9.json')]
+before='    float amount = (0.6 * max(dot(velocity, direction), 0.0) + mixFraction) * min(flow.b, flowAt(to).b) * contact;'
+after='''    float doseB = min(flow.b, flowAt(to).b);
+    float occupancy = smoothstep(0.00392156862745098, 0.05, doseB);
+    float amount = (0.6 * max(dot(velocity, direction), 0.0) * occupancy + mixFraction * doseB) * contact;'''
+for kind,path in parents:
+ p=json.load(open(path));s=dict(id='production-physical22-occupancy-adv-substeps-'+kind,parent='baseline',baseEngine='7ca4cf5d',runtimePatches=copy.deepcopy(p['runtimePatches']),status='UNRENDERED root review required',researchParentId=p['id'],mechanism='Only advective term uses bounded smooth contact occupancy instead of doseB; mixing retains original doseB and .02 concentration ratio. RG conditional mean direction and both endpoint support, coverage gate, source MAX/geometry/headroom2 unchanged.',proof='Outgoing bound .6sqrt2+4*.02=.928529; occupancy,doseB,contact in0..1. Paired physical/colour precontact guide unchanged. Integer variant modifies only rawFraction upstream exact fivebins; existing code allocation untouched.',comparisons=['s9-n3']if kind=='integer'else['s6-n6','s9-n3','s1-n1','s8-n1','s7-n3'],risks=['Not calibrated to equal full brush displacement: hop=.25R is not recorded length.','Smooth occupancy removes dose amplitude from advection; even residual dry load can mechanically drag.','Float substeps knownRGBA8rounding loss; compare matched substeps parent.','Integer9only inherits strictsinglepaint/snap/hop/cell guards; no applicability claim to multicolour.'],observableOutcome='Advective shift strengthens while diffusion-like mixing keeps original temporal water dose; inspect retained turn/core structure, not just contrast.')
+ s['runtimePatches'].append(dict(kind='shader-exact',selector='float rawFraction(vec2 from, vec2 to, vec2 direction)'if kind=='integer'else'float flux(vec2 from, vec2 to, vec2 direction)',countPerShader=1,before=before,after=after,semanticFamily='adv-occupancy-only'))
+ (r/(s['id']+'.json')).write_text(json.dumps(s,indent=2))

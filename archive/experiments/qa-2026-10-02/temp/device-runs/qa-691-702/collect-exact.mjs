@@ -1,0 +1,2 @@
+import{ev}from'../../../apps/web/scripts/devices/bridge.mjs';import{writeFileSync}from'node:fs';
+for(const[n,id]of[['laptop','uqqucb'],['surface','5sdfa7'],['ipad','quyopf']]){const r=await ev(id,`const P=__qaExactPark;P.restore();return {reads:P.reads,steps:P.steps,ops:__engine.getOperations().length,gpu:__engine.gpuInfo()};`);writeFileSync(new URL('exact-park-'+n+'.json',import.meta.url),JSON.stringify(r,null,2));console.log(n,JSON.stringify({reads:r.reads,count:r.steps.length,max:Math.max(0,...r.steps.map(s=>s.ms)),over100:r.steps.filter(s=>s.ms>100).length}));}

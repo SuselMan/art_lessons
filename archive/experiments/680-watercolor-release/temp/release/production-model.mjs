@@ -1,0 +1,12 @@
+import {build} from 'vite';
+import {writeFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {pathToFileURL} from 'node:url';
+await build({configFile:false,build:{ssr:'apps/web/src/engine/src/dabs/RibbonStrokePainter.ts',outDir:'temp/release/model',minify:false},define:{'import.meta.env.DEV':'false','import.meta.env.PROD':'true'}});
+const {RibbonStrokePainter}=await import(pathToFileURL(resolve('temp/release/model/RibbonStrokePainter.mjs')));
+const painter=new RibbonStrokePainter({});
+const expected={diagnosticSegmentDelivery:'combined',diagnosticPigmentRecord:true,diagnosticSharedFluid:true,diagnosticLandingReservoir:true,diagnosticSolventField:true,diagnosticForeignSolvent:true,diagnosticCanonicalSettleRadius:true,diagnosticLandingPolicy:'fluid',diagnosticWaterPolicy:'bottomless'};
+const actual=Object.fromEntries(Object.keys(expected).map(k=>[k,painter[k]]));
+if(JSON.stringify(expected)!==JSON.stringify(actual))throw Error('Production model differs from accepted review tuple');
+writeFileSync('temp/release/production-model.json',JSON.stringify({production:true,actual},null,2));
+console.log(JSON.stringify(actual));

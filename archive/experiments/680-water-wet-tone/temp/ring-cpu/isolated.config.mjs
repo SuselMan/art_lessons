@@ -1,0 +1,1 @@
+import {defineConfig} from 'vitest/config'; export default defineConfig({resolve:{alias:{vitest:'/home/suselman/projects/pencil-agents/680-water-wet-tone/node_modules/vitest/dist/index.js'}},test:{include:['apps/**/*.test.ts'],environment:'node'}});

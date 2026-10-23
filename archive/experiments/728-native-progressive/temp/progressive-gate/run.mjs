@@ -1,0 +1,3 @@
+import {chromium} from 'playwright';import {writeFile} from 'node:fs/promises';
+const browser=await chromium.launch({headless:true,args:['--enable-unsafe-webgpu','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+try{const page=await browser.newPage({ignoreHTTPSErrors:true});page.on('pageerror',e=>console.log('pageerror',e.message));await page.goto('https://127.0.0.1:5363/webgpu-progressive-gate.html');await page.waitForFunction(()=>typeof window.gate==='function');const result=await page.evaluate(()=>window.gate());await writeFile('temp/progressive-gate/result.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));}finally{await browser.close()}

@@ -1,0 +1,36 @@
+import{execFileSync}from'node:child_process';
+import { chromium } from 'playwright';
+import { mkdirSync, writeFileSync } from 'node:fs';
+const out='temp/snapshot-hardware';mkdirSync(out,{recursive:true});
+const report={stages:[],errors:[]};const mark=s=>{report.health??=[];try{const h=JSON.parse(execFileSync('curl',['--max-time','5','-s','http://127.0.0.1:4536/health'],{encoding:'utf8'}));report.health.push({phase:s,at:Date.now(),ok:h.ok,db:h.db});}catch(e){report.health.push({phase:s,at:Date.now(),failure:String(e)});}report.stages.push(s);writeFileSync(out+'/progress100.json',JSON.stringify(report,null,2));console.log(s);};const browser=await chromium.launch({channel:'chrome',headless:false,args:['--ignore-certificate-errors'],env:{...process.env,DISPLAY:':0'}});
+const wall=setTimeout(()=>{report.wallExpired=true;writeFileSync(out+'/report100.json',JSON.stringify(report,null,2));browser.close().finally(()=>process.exit(124));},240000);
+const base='https://127.0.0.1:5305';
+const fresh=async()=>{const c=await browser.newContext({baseURL:base,ignoreHTTPSErrors:true,viewport:{width:1000,height:700}});const p=await c.newPage();p.on('pageerror',e=>report.errors.push(e.message));p.on('websocket',ws=>ws.on('framereceived',({payload})=>{if(typeof payload!=='string'||!payload.startsWith('43'))return;try{const a=JSON.parse(payload.slice(payload.indexOf('[')));report.acks??=[];report.acks.push(a.map(v=>v&&typeof v==='object'?{status:v.status,seq:v.seq,reason:v.reason,code:v.code,error:v.error}:v));if(report.acks.length>12)report.acks.shift();}catch{}}));return p;};
+const ready=p=>p.waitForFunction(()=>window.__engine&&document.querySelector('canvas')&&getComputedStyle(document.querySelector('canvas')).pointerEvents!=='none',{},{timeout:60000});
+const join=async(p,room,name)=>{await p.goto('/room/'+room);await p.locator('form input[type="text"]').first().fill(name);await p.locator('form button[type="submit"]').click();await ready(p);};
+const state=p=>p.evaluate(()=>{const e=window.__engine;return{seq:Math.max(0,...e._log.entries.map(x=>x.serverSeq??0)),entries:e._log.entries.map(x=>({id:x.op.id,type:x.op.type,seq:x.serverSeq,pending:x.pending})),gl:e.gl.getError(),lost:e.gl.isContextLost(),renderer:e.gpuInfo().renderer,user:window.__roomStore.getState().userId};});
+const send=async(p,op)=>{const id=await p.evaluate(op=>{const s=window.__roomStore.getState(),id=crypto.randomUUID();window.__engine.appendOperation({...op,id,userId:s.userId,timestamp:Date.now()});return id;},op);await p.waitForFunction(id=>window.__engine._log.entries.some(e=>e.op.id===id&&e.serverSeq!==undefined&&!e.pending),id,{timeout:30000});return id;};
+const quiet=async p=>p.waitForFunction(()=>{const e=window.__engine;return!e._settle&&!e._opQueue.length&&!e._rebuildJobs.size&&!e._pendingRebuilds.size},{},{timeout:60000});
+const dab=(x,y)=>({x,y,size:20,pressure:1,tiltX:0,tiltY:0,aspectRatio:1,angle:0,opacity:1,t:0});
+try{
+ const A=await fresh();await A.goto('/create');await A.locator('form input[type="text"]').first().fill('wet snapshot isolated QA');await A.locator('form button[type="submit"]').click();await A.waitForURL(/\/room\//);await ready(A);const room=new URL(A.url()).pathname.split('/').pop();report.room=room;
+ const B=await fresh();await join(B,room,'QA B');
+ await A.evaluate(()=>{window.__engine.suspendDisplay();window.__engine.bakePreview=()=>{throw Error('QA omit best-effort thumbnail only')};});await B.evaluate(()=>{window.__engine.suspendDisplay();window.__engine.bakePreview=()=>{throw Error('QA omit best-effort thumbnail only')};});
+ const R=await A.evaluate(()=>window.__roomStore.getState().layerState.activeId);report.R=R;mark('room ready');
+ await send(A,{type:'stroke',layerId:R,tool:'pencil',preset:'HB',color:[.1,.1,.1],dabs:[dab(400,400),dab(415,400)]});await quiet(A);
+ const L='wet-qa-'+Date.now();report.L=L;await send(A,{type:'layer_add',layerId:L,name:'Wet donor'});
+ while((await state(A)).seq<97)await send(A,{type:'layer_rename',layerId:R,name:'QA '+(await state(A)).seq});
+ mark('prefill97 confirmed');const donor=await send(A,{type:'stroke',layerId:L,tool:'watercolor',preset:'normal:100:0',color:[.2,.2,.7],strokeId:'clear-unique',washId:'clear-wash',dabs:[dab(400,400),dab(420,400)],wet:'00'});report.donor=donor;mark('water98 confirmed');await quiet(A);
+ await send(A,{type:'stroke',layerId:L,tool:'pencil',preset:'HB',color:[.1,.1,.1],dabs:[dab(450,450),dab(460,450)]});await quiet(A);await quiet(B);
+ mark('pencil99 quiet');mark('beforeA state');report.before=await state(A);mark('beforeA state read');report.gate=await A.evaluate(L=>({quiet:window.__engine._snapshotQuiet(L),open:window.__engine._openWashes(window.__engine._log.doneOperations().filter(o=>o.type==='paper_dry'||o.type==='stroke'&&o.layerId===L),Date.now()).open}),L);
+ mark('hardware actual owner boundary100');await send(A,{type:'layer_rename',layerId:R,name:'hardware-boundary100'});mark('hardware boundary100 confirmed');
+ mark('bake real R and protected L at99');
+ let index;for(let i=0;i<60;i++){const r=await A.request.get('/api/rooms/'+room+'/snapshots/index',{timeout:5000});if(r.status()===200){index=await r.json();if(index.layers?.some(l=>l.layerId===R))break;}await A.waitForTimeout(500);}report.index=index;
+ if(!index?.layers?.some(l=>l.layerId===R))throw Error('No real dry R StoredSnapshot');if(index.layers.some(l=>l.layerId===L&&l.seq>=98))throw Error('Wet donor erroneously covered');
+ const C=await fresh();const blobs=[];C.on('response',r=>{if(/\/snapshots\/[^/]+\/[^/]+/.test(r.url()))blobs.push({url:r.url(),status:r.status()});});let roomState;await C.addInitScript(()=>{window.__qaRoomStates=[];});
+ await join(C,room,'QA C');await quiet(C);await C.evaluate(()=>window.__engine.suspendDisplay());report.C=await state(C);report.blobs=blobs;
+ report.water=await C.evaluate(L=>({peak:window.__engine._paperWet.peak(performance.now()),sample:window.__engine._paperWet.sample(L,400,400,performance.now()),audit:window.__engine.takeSnapshotRestoreAudit()}),L);
+ if(!report.C.entries.some(e=>e.id===donor&&e.seq===98&&!e.pending))throw Error('Donor missing after snapshot join');if(!(report.water.peak>0))throw Error('Water missing after snapshot join');if(!blobs.some(b=>b.status===200))throw Error('No real blob restore');
+ if(report.C.gl||report.C.lost||report.errors.length)throw Error('GL/page error');report.pass=true;
+ console.log(JSON.stringify(report));
+}catch(e){report.failure=String(e);console.error(e);process.exitCode=1;}finally{clearTimeout(wall);writeFileSync(out+'/report100.json',JSON.stringify(report,null,2));await browser.close();}

@@ -1,0 +1,2 @@
+import base from './vitest-combined-closure.config.mjs';
+export default {...base,test:{...base.test,include:['apps/web/src/pages/Room/diagnostics/joinedFinishDeferredQa.test.ts','apps/web/src/engine/index.joinedTouch.test.ts','apps/web/src/engine/index.joinedDeferredFinish.test.ts','apps/web/src/engine/index.expeditedDry.test.ts','apps/web/src/engine/index.asyncFailureMaterial.test.ts','apps/web/src/engine/src/watercolor/WatercolorSettleQueue.test.ts'],maxWorkers:1}};

@@ -1,0 +1,33 @@
+import fs from 'node:fs';import{createRequire}from'node:module';import crypto from'node:crypto';
+const require=createRequire('/home/suselman/projects/pencil-agents/680-lifetime-hardware/package.json'),{chromium}=require('playwright');
+const root='/home/suselman/projects/pencil-agents/680-lifetime-hardware/temp/live-material-preview-79df';
+const nonce=Date.now(),out=root+'/qa-ui-'+nonce;fs.mkdirSync(out,{recursive:true});
+const report={source:'79df45400676df0a2bdf63a9ed6ad2535ddf33a4',scope:'actual Vega local water180→pigment86 pending visible prototype, not Samsung/cap/peer PASS',stages:[],errors:[]};
+const save=()=>fs.writeFileSync(out+'/report.json',JSON.stringify(report,null,2));
+const mem=()=>Number(fs.readFileSync('/proc/meminfo','utf8').match(/MemAvailable:\s+(\d+)/)[1])/1024;
+let browser,page,monitor;const wall=setTimeout(()=>{report.timeout=true;save();void browser?.close()},240000);
+const state=()=>page.evaluate(()=>{const e=__engine;return{url:location.href,at:performance.now(),gpu:e.gpuInfo(),lost:e.gl.isContextLost(),gl:e.gl.getError(),async:e._wcAsyncFinish,material:e._wcMaterialPresentation,error:e._wcAsyncError&&String(e._wcAsyncError),queue:e._wcCanonical.pending,requests:e._wcCanonical.requests.length,settle:!!e._settle,reveals:e._washReveals.size,owners:[...e._wcMaterialOwners.layers.values()].map(o=>({layer:o.layerId,extent:o.extent,pending:o.pending.size,pool:o.material.pool.bytes,wet:o.material.raster.paperWet.peak(performance.now())})),reserved:e._wcMaterialOwners.bytes,ops:e._log.entries.map(x=>({id:x.op.id,type:x.op.type,seq:x.serverSeq,pending:x.pending,state:x.state,preset:x.op.preset}))}});
+const shot=async name=>{await page.screenshot({path:out+'/'+name+'.png'});report.stages.push({name,state:await state()});save()};
+const idle=()=>page.waitForFunction(()=>!__engine._wcCanonical.pending&&!__engine._settle&&!__engine._washReveals.size&&!__engine._opQueue.length&&!__engine._rebuildJobs.size,null,{timeout:150000});
+const button=async name=>{const b=page.getByRole('button',{name}).first();if(await b.count())await b.click();else throw Error('UI button '+name)};
+const image=async name=>{const p=await page.evaluate(async()=>{const b=await __engine.exportPNG(true);if(!b)throw Error('PNG null');return await new Promise(r=>{const f=new FileReader;f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(b)})});fs.writeFileSync(out+'/'+name+'.png',Buffer.from(p,'base64'));return crypto.createHash('sha256').update(Buffer.from(p,'base64')).digest('hex')};
+try{
+ report.preflightMiB=mem();if(report.preflightMiB<1700)throw Error('RAM1700');
+ const manifest=JSON.parse(fs.readFileSync(root+'/source-passport.json'));const bad=Object.entries(manifest.files).filter(([p,h])=>crypto.createHash('sha256').update(fs.readFileSync(root+'/'+p)).digest('hex')!==h);if(bad.length)throw Error('sourceSHA '+bad[0][0]);report.filesVerified=Object.keys(manifest.files).length;save();
+ monitor=setInterval(()=>{const m=mem();report.minMiB=Math.min(report.minMiB??m,m);if(m<500){report.resourceAbort=true;save();void browser?.close()}},2000);
+ browser=await chromium.launch({channel:'chrome',headless:false,env:{...process.env,DISPLAY:':0'},args:['--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows']});
+ const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:824,height:1182}});page=await context.newPage();page.on('pageerror',e=>{report.errors.push(String(e));save()});page.on('requestfailed',r=>{(report.requestsFailed??=[]).push({path:new URL(r.url()).pathname,error:r.failure()?.errorText});save()});
+ await page.goto('https://192.168.1.70:5331/create?qa=vega79-'+nonce);await page.locator('form input[type=text]').fill('728 live material preview');await page.locator('form button[type=submit]').click();await page.waitForFunction(()=>window.__engine&&window.__roomStore,null,{timeout:30000});await page.evaluate(()=>__engine.paperReady());
+ await button(/^(Fit canvas|Вписать холст)$/);
+ await page.evaluate(()=>{const e=__engine;if(!e._wcAsyncFinish||!e._wcMaterialOwners)throw Error('candidate missing');e._wcMaterialPresentation=true;const s=__roomStore.getState();s.setTool('watercolor');s.setToolSetting('watercolor','water',1);s.setToolSetting('watercolor','pigment',0);s.setToolSetting('watercolor','size',180)});
+ await page.evaluate(fs.readFileSync(root+'/native-nexttouch-bounded.js','utf8'));await shot('before');
+ const gpu=JSON.stringify(report.stages[0].state.gpu);if(!/AMD|Radeon|Vega/i.test(gpu)||/SwiftShader/i.test(gpu))throw Error('not actual Vega '+gpu);
+ report.water=JSON.parse(await page.evaluate(()=>__mt.stroke({pts:[[.3,.4],[.6,.4]],ms:700,perFrame:2})));await shot('water-pending');
+ await page.evaluate(()=>{const s=__roomStore.getState();s.setToolSetting('watercolor','pigment',1);s.setToolSetting('watercolor','size',86);s.setToolSetting('watercolor','color',[.6,0,.35])});await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+ report.pigment=JSON.parse(await page.evaluate(()=>__mt.stroke({pts:[[.35,.4],[.55,.4]],ms:700,perFrame:2})));await shot('pigment-pending');
+ const p=report.stages.at(-1).state;if(!p.owners.length||!p.owners.some(o=>o.wet>0)||p.error||p.lost||p.gl)throw Error('material meaningful preconditions');
+ await idle();await shot('canonical-handoff');await button(/^(Dry everything|Высушить всё)$/);await idle();report.nativeDry=await image('native-dry');report.journal=await page.evaluate(()=>__engine._log.entries.map(x=>({op:x.op,serverSeq:x.serverSeq,pending:x.pending,state:x.state})));if(report.journal.some(x=>x.pending)||!report.journal.some(x=>x.op.type==='paper_dry'))throw Error('Dry/ACK missing');save();
+ const url=page.url();await page.close();page=await context.newPage();await page.goto(url);await page.waitForFunction(()=>window.__engine||document.querySelector('form input[type=text]'),null,{timeout:30000});if(await page.locator('form input[type=text]').count()){await page.locator('form input[type=text]').fill('728 fresh same identity');await page.locator('form button[type=submit]').click()};await page.waitForFunction(()=>window.__engine,null,{timeout:30000});await page.evaluate(()=>__engine.paperReady());await idle();report.fresh=await image('fresh-dry');report.freshState=await state();report.pixelOraclePendingOffline=true;report.complete=true;save();
+}catch(e){report.error=String(e);try{if(page)report.failure=await state()}catch{}save();process.exitCode=1}
+finally{clearInterval(monitor);clearTimeout(wall);await browser?.close();report.closed=true;save()}
+console.log(JSON.stringify({out,complete:report.complete,error:report.error,closed:report.closed}));

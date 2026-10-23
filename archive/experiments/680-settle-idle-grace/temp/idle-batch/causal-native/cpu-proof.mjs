@@ -1,0 +1,24 @@
+import vm from 'node:vm';
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+let clock = 0, calls = 0;
+const window = {}, sandbox = { window, performance: { now: () => clock }, Error };
+vm.runInNewContext(fs.readFileSync(new URL('glCallTrace.js', import.meta.url), 'utf8'), sandbox);
+const context = { id: 99 };
+const original = function(arg) {
+  assert.equal(this, context); calls++; clock += arg;
+  if (arg === 7) throw Error('original failure');
+  return 42;
+};
+const gl = { drawArrays: original };
+const trace = window.__installGlCallTrace(gl, () => ({ phase: 'burst-2', cpuScope: 'completeSettle', pendingOps: 960 }));
+assert.equal(calls, 0);
+for (let i = 0; i < 40; i++) assert.equal(gl.drawArrays.call(context, 2 + i / 100), 42);
+assert.throws(() => gl.drawArrays.call(context, 7), /original failure/);
+assert.equal(calls, 41); assert.equal(trace.report().top.length, 30);
+assert.equal(trace.report().details.calls, 41); assert.equal(trace.report().top[0].ms, 7);
+trace.restore(); assert.equal(gl.drawArrays, original);
+const bad = window.__installGlCallTrace(gl, () => { throw Error('observer failure') });
+assert.equal(gl.drawArrays.call(context, 2), 42); assert.equal(bad.report().errors.length, 1);
+bad.restore();
+console.log('CPU passthrough/context/return/throw/30cap/restore/observer-error proof PASS; no GL calls added');

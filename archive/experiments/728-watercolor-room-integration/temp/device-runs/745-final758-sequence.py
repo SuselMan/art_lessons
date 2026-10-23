@@ -1,0 +1,5 @@
+import subprocess,pathlib,json,os,datetime
+base=pathlib.Path('temp/device-runs');resource=base/'745-final758-coordinator.json';r={'pid':os.getpid(),'owner':'/root/dry_contract','ttl':(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=2)).isoformat(),'command':'python3 temp/device-runs/745-final758-sequence.py','runtime':'2c2f6115'};resource.write_text(json.dumps(r));records=[]
+for case,suffix,more in [('guard-geometry','oversize',{'QA_CANVAS_WIDTH':'1536','QA_CANVAS_HEIGHT':'1536','QA_GUARD_X':'2030'}),('guard-geometry','nonsquare',{'QA_CANVAS_WIDTH':'512','QA_CANVAS_HEIGHT':'768'}),('guard-geometry','infinite',{'QA_INFINITE':'1'}),('guard-third-wet','third-wet',{})]:
+ env=os.environ.copy();env.update(more);out=base/('745-final758-'+suffix);result=subprocess.run(['python3','docs/qa/harness/728-undo-v1/night-wide/run-case.py','--case',case,'--cdp','http://127.0.0.1:19333','--output',str(out)],env=env);records.append({'case':suffix,'exit':result.returncode,'report':str(out/'report.json')});(base/'745-final758-progress.json').write_text(json.dumps(records,indent=2))
+r.update(ended=True);resource.write_text(json.dumps(r))

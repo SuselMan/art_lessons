@@ -1,0 +1,12 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+const dir=process.argv[2],meta=JSON.parse(readFileSync(dir+'/trace-metadata.json')),bench=JSON.parse(readFileSync(dir+'/burst.json'));
+if(meta.truncated)throw Error('Truncated trace cannot prove event absence');
+const raw=JSON.parse(readFileSync(dir+'/trace.json')),events=raw.traceEvents||raw;
+const mark=events.find(e=>e.name==='wc-native-causal-clock');
+if(!mark)throw Error('Trace clock mark missing');
+const offset=mark.ts-meta.clock.markStart*1000;
+const names={};for(const e of events)if(e.ph==='M'&&e.name==='thread_name')names[e.pid+':'+e.tid]=e.args?.name;
+const counts={};for(const e of events)counts[e.name]=(counts[e.name]||0)+1;
+const tasks=events.filter(e=>e.ph==='X'&&e.dur>=1000).map(e=>({name:e.name,cat:e.cat,thread:names[e.pid+':'+e.tid]||e.pid+':'+e.tid,atMs:(e.ts-offset)/1000,durationMs:e.dur/1000}));
+const result={metadata:meta,eventCount:events.length,threadNames:names,frequentEvents:Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,50),tasksOver20ms:tasks.filter(e=>e.durationMs>20),tasks:tasks.filter(e=>e.atMs>=0&&e.atMs<12000),limitation:'Task wall times and submission events are browser CPU traces, not hardware GPU execution or photon latency.'};
+writeFileSync(dir+'/trace-summary.json',JSON.stringify(result,null,2));console.log(JSON.stringify({events:events.length,threads:names,tasksOver20ms:result.tasksOver20ms},null,2));

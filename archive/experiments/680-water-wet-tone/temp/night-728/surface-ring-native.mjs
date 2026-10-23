@@ -1,0 +1,11 @@
+import {writeFileSync} from 'node:fs';
+import {ev,pageLib} from '/home/suselman/projects/pencil-agents/680-lifetime-hardware/temp/night-overlay/apps/web/scripts/devices/bridge.mjs';
+const page='oqhqfg';const out={at:new Date().toISOString(),source:'engine180, sourceRebaseON plus plateauPhaseON',scope:'native Surface physical1754x2480; UI layer; real PointerInput; no prior paperDry between water and pigment'};
+out.setup=await ev(page,`const e=window.__engine;e._wcSourceFilmRebase=true;e._settlePlan.diagnosticPlateauPhase=true;const p=e._watercolorPasses,orig=p.fieldOp;window.__phaseQA={calls:0,withActualSolvent:0};p.fieldOp=function(...args){const o=args[5];if(o?.tau?.[2]===1){window.__phaseQA.calls++;if(o.e)window.__phaseQA.withActualSolvent++}return orig.apply(this,args)};window.__restorePhaseQA=()=>p.fieldOp=orig;document.querySelector('button[aria-label="Add layer"]').click();await new Promise(r=>setTimeout(r,400));return {phase:e._settlePlan.diagnosticPlateauPhase,rebase:e._wcSourceFilmRebase,layer:e._activeId,page:e._pageSize(),lost:e.gl.isContextLost()};`);
+await ev(page,pageLib);
+await ev(page,`return window.__mt.setup({preset:'normal:100:0:PB29:round',size:400,color:[.3,.15,.55]})`);
+out.water=await ev(page,`return await window.__mt.stroke({pts:[[.46,.5],[.5,.5],[.54,.5]],ms:1500,perFrame:2})`,45000);
+await ev(page,`return window.__mt.setup({preset:'normal:100:100:PB29:round',size:100,color:[.3,.15,.55]})`);
+out.pigment=await ev(page,`return await window.__mt.stroke({pts:[[.495,.5],[.505,.5]],ms:350,perFrame:2})`,45000);
+out.after=await ev(page,`const e=window.__engine;return {phase:window.__phaseQA,rebase:e._wcSourceFilmRebase,ops:e._log.entries.length,lost:e.gl.isContextLost(),gl:e.gl.getError(),jobs:e._rebuildJobs.size,settle:!!e._settle,pending:e._log.entries.filter(x=>x.pending).length};`);
+writeFileSync(new URL('./surface-ring-native-result.json',import.meta.url),JSON.stringify(out,null,2));console.log(JSON.stringify(out));

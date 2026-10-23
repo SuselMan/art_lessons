@@ -1,0 +1,1 @@
+export default { test: { include: ['docs/qa/harness/728-room-moment/heldStamp*.test.ts','docs/qa/harness/728-room-moment/movingContactFixture.test.ts'], alias: {'@grafetto/shared':'/home/suselman/projects/pencil-agents/728-prepared-delivery-commands/packages/shared/src/index.ts'} } }

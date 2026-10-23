@@ -1,0 +1,17 @@
+// Inject into an OWNED QA page before painting. No source/model changes.
+(() => {
+ const e=window.__engine; if(!e)throw Error('engine missing');
+ const ext=e.gl.getExtension('WEBGL_lose_context');if(!ext)throw Error('WEBGL_lose_context unavailable');
+ const events=[];let armed=null,triggered=false;
+ const faults=[];for(const key of ['bindTexture','useProgram','bindFramebuffer','framebufferTexture2D','drawArrays','drawElements']){const f=e.gl[key].bind(e.gl);e.gl[key]=function(...args){const v=f(...args);if(triggered&&!e.gl.isContextLost()){const error=e.gl.getError();if(error&&faults.length<30)faults.push({method:key,error,at:performance.now(),stack:new Error().stack});}return v;};}
+ const note=(phase,extra={})=>events.push({phase,at:performance.now(),engineSame:e===window.__engine,lost:e.gl.isContextLost(),...extra});
+ e.canvas.addEventListener('webglcontextlost',()=>note('lost'));
+ e.canvas.addEventListener('webglcontextrestored',()=>note('restored',{gl:e.gl.getError()}));
+ const trigger=phase=>{if(triggered)return;const entries=e._log.entries.filter(x=>x.op.type==='stroke');if(entries.length<window.__contextQa.minimumStrokes||entries.some(x=>x.pending||x.serverSeq==null))return;triggered=true;note('requested',{phase,glBeforeLoss:e.gl.getError(),inJobStep:e._inJobStep,ownedScratch:e._ribbonStrokeScratch?{tiles:[...e._ribbonStrokeScratch.tileEntries()].length}:null,replayScratch:[...e._replayRibbonChunks.values()].map(c=>({tiles:[...c.scratch.tileEntries()].length})),acked:entries.map(x=>({id:x.op.id,seq:x.serverSeq,pending:!!x.pending})),userId:window.__roomStore.getState().userId});ext.loseContext();setTimeout(()=>ext.restoreContext(),window.__contextQaRestoreDelay??300)};
+ const loaded=e._paper.onLoaded;e._paper.onLoaded=function(...args){note('paper-loaded');return loaded.apply(this,args);};const init=e._initGL.bind(e);e._initGL=function(...args){const v=init(...args);const painter=e._ribbonPainter;const paint=painter.__contextQaOriginalPaint??=painter.paint;painter.paint=function*(...input){note('restored-painter-first-enter',{waterOnly:!!input[12]?.waterOnly});return yield* paint.apply(this,input);};return v;};
+ const sync=e._syncBuffersToLog.bind(e);let deferred=false;e._syncBuffersToLog=function(...args){if(window.__contextQaWaitPaper&&triggered&&!deferred){deferred=true;window.__contextQa.paperPending=true;note('replay-deferred-for-paper');void e.paperReady().then(()=>{if(e._destroyed||e.gl.isContextLost()||e!==window.__engine)return;note('paper-ready-replay');sync(...args);window.__contextQa.paperPending=false;});return;}return sync(...args);};
+ const original=e._ribbonPainter.paintWaterSource;
+ e._ribbonPainter.paintWaterSource=function*(...args){const job=original.apply(this,args);let n=0;for(;;){const step=job.next();if(step.done)return step.value;yield step.value;if(armed==='foreign-import'&&++n===1){trigger('foreign-import-yield');}}};
+ window.__contextQa={events,faults,minimumStrokes:1,repeat(wait){window.__contextQaWaitPaper=wait;deferred=false;triggered=false;trigger('matched-journal-repeat');},arm(phase){if(!['settle','foreign-import'].includes(phase))throw Error('bad phase');armed=phase;},poll(){if(armed==='settle'&&e._settle)trigger('settle-observed');return{triggered,events,pending:e._log.entries.filter(x=>x.pending).length,strokes:e.getOperations().filter(x=>x.type==='stroke').length,lost:e.gl.isContextLost(),contextLost:e._contextLost};}};
+ // Controller polls poll() after pen-up and requires acknowledged journal first.
+})();

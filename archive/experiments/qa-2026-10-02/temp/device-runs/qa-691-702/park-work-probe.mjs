@@ -1,0 +1,2 @@
+import{ev}from'../../../apps/web/scripts/devices/bridge.mjs';
+for(const id of ['uqqucb','5sdfa7','quyopf'])console.log(id,await ev(id,`const E=__engine,start=E._startSpill;const P=__qaPark;P.workSteps=[];E._startSpill=function(...args){const result=start.apply(this,args);const job=E._spillJob;if(job){const work=job.work,next=work.next;work.next=function(...a){const t=performance.now();try{return next.apply(this,a)}finally{P.workSteps.push(performance.now()-t);}};}return result;};const restore=P.restore;P.restore=()=>{restore();E._startSpill=start;};return __mt.watch();`));

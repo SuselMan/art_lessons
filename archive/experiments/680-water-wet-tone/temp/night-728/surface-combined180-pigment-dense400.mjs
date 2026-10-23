@@ -1,0 +1,10 @@
+import {writeFileSync} from 'node:fs';
+import {ev,pageLib} from '/home/suselman/projects/pencil-agents/680-lifetime-hardware/temp/night-overlay/apps/web/scripts/devices/bridge.mjs';
+const page='twm2vt';
+const out={at:new Date().toISOString(),fixture:'synthetic PointerInput, physical1754x2480 A4, engine18018025 all diagnostics default OFF; prior UI/backend4537, port5319, Surface GPU, HTTP UUID-metadata fixture'};
+out.install=await ev(page,pageLib);
+out.setup=await ev(page,`const {useRoomStore}=await import('/src/stores/roomStore.ts'); useRoomStore.getState().setTool('watercolor'); await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))); window.__mt.setup({preset:'normal:100:100:PB29:round',size:400,color:[.2,.35,.7]}); const e=window.__engine; return {renderer:(()=>{const d=e.gl.getExtension('WEBGL_debug_renderer_info');return d?e.gl.getParameter(d.UNMASKED_RENDERER_WEBGL):e.gl.getParameter(e.gl.RENDERER)})(),locked:e._locked,layer:e._activeId,page:e._pageSize(),batchEnabled:e._settleQueue.contactBatchEnabled,lost:e.gl.isContextLost(),timeOrigin:performance.timeOrigin};`);
+out.stroke=await ev(page,`return await window.__mt.stroke({pts:[[.25,.3],[.65,.35],[.25,.4],[.65,.45],[.25,.5],[.65,.55],[.25,.6],[.65,.65]],ms:6000,perFrame:2})`,45000);
+out.after=await ev(page,`const e=window.__engine;return {perf:e.getWatercolorPerf(),lost:e.gl.isContextLost(),error:e.gl.getError(),timeOrigin:performance.timeOrigin,ops:e._log.entries.map(x=>({type:x.op?.type,serverSeq:x.serverSeq,pending:x.pending}))};`);
+writeFileSync(new URL('./surface-combined180-pigment-dense400-result.json',import.meta.url),JSON.stringify(out,null,2));
+console.log(JSON.stringify(out));

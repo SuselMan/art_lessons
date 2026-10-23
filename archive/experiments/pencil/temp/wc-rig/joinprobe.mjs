@@ -1,0 +1,12 @@
+import { createRequire } from 'node:module'
+const { chromium } = createRequire('/home/suselman/projects/pencil-agents/watercolor-feel/package.json')('playwright')
+const browser = await chromium.launch({ headless: true, args: ['--ignore-certificate-errors', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })
+const ctx = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1600, height: 1000 } })
+const page = await ctx.newPage()
+page.on('websocket', ws => ws.on('framereceived', f => { const t = String(f.payload); if (t.includes('room_state')) console.log('room_state types', JSON.stringify([...t.matchAll(/"type":"([a-z_]+)"/g)].map(m => m[1]))) }))
+await page.goto('https://localhost:5277/room/' + process.argv[2])
+const inp = page.getByRole('textbox').first(); await inp.waitFor({ timeout: 30000 }); await inp.fill('probe')
+await page.getByRole('button', { name: /join|войти/i }).last().click()
+await page.waitForFunction(() => !!window.__engine, undefined, { timeout: 60000 }); await page.waitForTimeout(4000)
+console.log(JSON.stringify(await page.evaluate(() => ({ entries: window.__engine._log.entries.map(e => e.op.type + ':' + e.state), wet: window.__engine.getWatercolorPerf().wetCells }))))
+await browser.close()

@@ -1,0 +1,9 @@
+# Combined candidate QA (CPU prepared, not run)
+
+`combined.mjs` uses the actual Room UI/native pointer/ACK helpers proven in a462b675. It requires source name and exact current index/shader SHA via WC_QA_SOURCE, WC_QA_EXPECT_INDEX, WC_QA_EXPECT_SHADER. MODE queue creates640×480 sharedlayer/twoauthors; MODE snapshot createsA41754×2480/oneauthor. Max2contexts, MemAvailable≥500MiB,20min hard wall,120s idle phases, journal/pixels/failure state saved incrementally; ownBrowserfinallyclosed.
+
+Queue mode needs observed original_shouldQueue()==true for a remote stroke while settle active; eight native strokes followed by controlled close of only this page's own WebSocket and actual new B ACK/A recovered journal. No server restart/network global changes. Captured close→open events required. Dry/UndoRedo and normal same-identity rejoin then canonical/journal guards. If queue predicate not reached, classify fixture inconclusive; do not silently remove the guard.
+
+Snapshot mode creates one actual wet pigment/Dry operation plus101actualUI layer opacity keyboard operations. This exercises real uploader boundary100 and full A4 baked/restored pixels, not100pigment strokes or largepaint performance. Each opacity must receive serverACK. Persisted /snapshots/index layerseq≥100 and fresh SnapshotLedger.coverage required. Capture snapshot-index+pre/fresh fulljournals; canonicalPNG and UndoRedo. Fresh journal may legitimately have covered prefix; keep raw, analyse each absent op against actual coverage by type/layer/serverseq. Do not blanket-ignore old operations or PaperDry. 204snapshotindex explicitly supported until upload.
+
+Failure capture preserves live DOM/operation metadata/queue/rebuild/settle/reveal before finally, no causal product claim from selector/bootstrap/timeouts alone. Script and all serialized evaluate arrow bodies parse with Node22 --check. GPU launch waits parent grant after profiler load. Frozen5314/userrooms unchanged.

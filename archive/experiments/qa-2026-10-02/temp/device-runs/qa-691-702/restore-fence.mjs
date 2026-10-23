@@ -1,0 +1,1 @@
+import{ev}from'../../../apps/web/scripts/devices/bridge.mjs';for(const[n,id]of[['laptop','uqqucb'],['surface','5sdfa7'],['ipad','quyopf']])console.log(n,await ev(id,'if(__qaFenceProbe){__engine.gl.readPixels=__qaFenceProbe.read;delete window.__qaFenceProbe;}return "restored"'));

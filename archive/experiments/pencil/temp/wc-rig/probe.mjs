@@ -1,0 +1,15 @@
+import { createRequire } from 'node:module'
+const { chromium } = createRequire('/home/suselman/projects/pencil-agents/watercolor-feel/package.json')('playwright')
+const browser = await chromium.launch({ headless: true, args: ['--ignore-certificate-errors', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] })
+const page = await (await browser.newContext({ ignoreHTTPSErrors: true })).newPage()
+const msgs = []
+page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') msgs.push(m.type() + ': ' + m.text().slice(0, 600)) })
+page.on('pageerror', e => msgs.push('PAGEERROR ' + e.message.slice(0, 600)))
+await page.goto('https://localhost:5277/create')
+await page.locator('form input[type="text"]').first().fill('probe')
+await page.locator('form button[type="submit"]').click()
+await page.waitForTimeout(15000)
+console.log('url', page.url())
+console.log('engine', await page.evaluate(() => typeof window.__engine))
+for (const m of msgs.slice(0, 12)) console.log(m)
+await browser.close()

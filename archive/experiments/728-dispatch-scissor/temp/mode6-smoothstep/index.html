@@ -1,0 +1,1 @@
+<button>Run mode6 expressions</button><pre></pre><script type="module">import{runMode6Smoothstep}from"./run.js";document.querySelector("button").onclick=async()=>{try{window.result=await runMode6Smoothstep();document.querySelector("pre").textContent=JSON.stringify(window.result,null,2)}catch(e){document.querySelector("pre").textContent=e.stack}}</script>

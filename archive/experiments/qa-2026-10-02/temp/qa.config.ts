@@ -1,0 +1,3 @@
+import { defineConfig } from '@playwright/test'
+import base from '../playwright.config'
+export default defineConfig({...base, testDir:'../e2e/specs', globalTeardown:undefined, webServer:undefined, use:{...base.use, baseURL:'https://localhost:5277',ignoreHTTPSErrors:true}, projects:[{name:'qa-chrome',use:{...base.projects![0].use,channel:'chrome',headless:false,launchOptions:{...base.projects![0].use?.launchOptions,args:[...(base.projects![0].use?.launchOptions?.args??[]),'--ignore-certificate-errors']}}}],reporter:[['list'],['json',{outputFile:'temp/device-runs/qa-2026-10-02/e2e.json'}]],outputDir:'../temp/device-runs/qa-2026-10-02/e2e-artifacts'})

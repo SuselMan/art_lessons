@@ -1,0 +1,1 @@
+export default {resolve:{alias:{vitest:'/home/suselman/projects/pencil-agents/680-device-qa-guards/node_modules/vitest/dist/index.js','lodash-es':'/home/suselman/projects/pencil-agents/680-device-qa-guards/node_modules/lodash-es/lodash.js'}},test:{include:['apps/web/src/engine/src/raster/shaders.test.ts'],environment:'node'}};

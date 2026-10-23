@@ -1,0 +1,9 @@
+# Optical-only isolation
+
+Old zero-channel-optics85 contains TWO independent shaders: brush-total-zero and DAB composite optical tail. NEW35-patch spec takes only second tail on existing34-patch general power05 pad4. It does not alter any source/physical/depth texture writes or brush program; existing physical22 decoded pigmentMass/tauHere inputs remain. Expected P/C byteidentity is structural claim pending actualraw proof, not measured. Composite alpha/paint representation and therefore final white-backed tone change, not physical transport. Could change optical/display caches only. Historicalvotes copiedread-only, no posts.
+
+Round28 baseline brush-total-zero:85 better9/3,9/2,6/6,50uncertain9/3. Round29 baselineproduction7ca: combinedZERO+85 worse1/1,8/1,7/3; uncertain4/1; better10/3. Differentbaseline makes those votes insufficient to separateZERO from85 or predict generalstrongpad4 behaviour. Broad guards mandatory.
+
+Visual criteria photo6: connected mobile pigment clusters change shape across dense direction reversals, avoid identical dark ellipses at eachturn; firstlanding pigment stronger than typicalturns; preserve bristle/finebody variation without orthogonal grid; no homogeneousflat filling. Photo9: local connected dark regions/light gaps deform with overlap instead of clean uniform circles, contour not artificially blurred, noregular comb/grid/clippedsquarefields. Optical85 could reveal existing structure but cannot create transport deformation absentP.
+
+Evaluate wettime vsdry honestly: fixeddry gallery doesn't show liveflow speed. Inputrepeatpath differsphoto, so compare material characteristics not pixeloverlay/automaticphotoMSE ranking. Controls1/8 check standardfilm tone and initialdarkness,7 checks genuinecolor mixture rather than numericalconeonly,4wetpassselective center spread. Keep darker-butflat versus deformed coherent distinctions; no winnerpromise.

@@ -1,0 +1,2 @@
+import base from './vitest-combined-closure.config.mjs';
+export default {...base,resolve:{...base.resolve,alias:{...base.resolve.alias,'@prisma/client':'/home/suselman/projects/pencil-agents/680-device-qa-guards/apps/server/node_modules/@prisma/client/default.js'}},test:{...base.test,include:['apps/web/src/engine/index.asyncWatercolor.test.ts','apps/web/src/pages/Room/engineNetwork.test.ts','apps/web/src/pages/Room/net/peerEvents.test.ts','apps/server/src/rooms/socketHandlers.test.ts']}};

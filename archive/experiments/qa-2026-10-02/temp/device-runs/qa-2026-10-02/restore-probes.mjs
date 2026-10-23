@@ -1,0 +1,4 @@
+import{ev}from'../../../apps/web/scripts/devices/bridge.mjs';import fs from'node:fs';
+const out={at:Date.now(),devices:{}};
+for(const[name,id]of[['laptop','4ng0kf'],['surface','5sdfa7'],['ipad','quyopf']])try{out.devices[name]=await ev(id,`const gl=__engine.gl,restored=[],skipped=[];for(const k of ['readPixels','finish','texImage2D','copyTexSubImage2D','drawArrays','drawElements','clear']){if(!Object.prototype.hasOwnProperty.call(gl,k))continue;const body=String(gl[k]);if(body.includes('entries.push')&&body.includes('performance.now')){delete gl[k];restored.push(k);}else skipped.push(k);}for(const k of ['__qaReadbackProbe','__qaGpuWaitProbe','__qaGpuMethodProbe'])delete window[k];return {restored,skipped};`,10000);console.log(name,JSON.stringify(out.devices[name]));}catch(e){out.devices[name]={error:String(e)};console.log(name,String(e));}
+fs.writeFileSync('temp/device-runs/qa-2026-10-02/probes-restored.json',JSON.stringify(out,null,2));

@@ -1,0 +1,5 @@
+import fs from 'node:fs';import ts from 'typescript';
+const log=fs.readFileSync('temp/494-ribbon-passes/typecheck.log','utf8');
+for(const file of ['apps/web/src/engine/index.ts','apps/web/src/engine/src/raster/RibbonPasses.ts']){
+const unused=new Set([...log.matchAll(/^([^\n(]+)\(.*?TS6133: '([^']+)'/gm)].filter(m=>m[1]===file).map(m=>m[2]));let s=fs.readFileSync(file,'utf8');const f=ts.createSourceFile(file,s,ts.ScriptTarget.Latest,true);const edits=[];
+for(const n of f.statements){if(!ts.isImportDeclaration(n)||!n.importClause?.namedBindings||!ts.isNamedImports(n.importClause.namedBindings))continue;const kept=n.importClause.namedBindings.elements.filter(e=>!unused.has(e.name.text));if(kept.length===n.importClause.namedBindings.elements.length)continue;const replacement=kept.length?'import '+(n.importClause.isTypeOnly?'type ':'')+'{ '+kept.map(e=>e.getText(f)).join(', ')+' } from '+n.moduleSpecifier.getText(f):'';edits.push([n.getStart(f),n.end,replacement]);}for(const [a,b,t]of edits.sort((a,b)=>b[0]-a[0]))s=s.slice(0,a)+t+s.slice(b);fs.writeFileSync(file,s);}

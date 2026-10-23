@@ -1,0 +1,1 @@
+export default {resolve:{alias:{'lodash-es':'/home/suselman/projects/pencil-agents/680-device-qa-guards/node_modules/lodash-es/lodash.js','nanoid':'/home/suselman/projects/pencil-agents/680-device-qa-guards/node_modules/nanoid/index.js','@grafetto/shared':'/home/suselman/projects/pencil-agents/728-foreign-source-prefix/packages/shared/src/index.ts'}},test:{environment:'node'}}

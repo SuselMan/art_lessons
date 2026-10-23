@@ -1,0 +1,3 @@
+import {ev,call} from '/home/suselman/projects/pencil-agents/680-lifetime-hardware/temp/night-overlay/apps/web/scripts/devices/bridge.mjs';
+const clients=await call('/clients'),c=clients.find(x=>x.id==='oqhqfg');if(!c||!c.ua.includes('Windows')||!c.href.includes('/room/52tPYmve'))throw Error('owned Surface identity/URL mismatch');
+const result=await ev('oqhqfg',`const prior={url:location.href,timeOrigin:performance.timeOrigin,engine:!!window.__engine};setTimeout(()=>{const u='http://192.168.1.70:5324/surface-fifo-qa728.html?qa=7ace-'+Date.now();if(window.__devNavigate)window.__devNavigate(u);else location.assign(u)},100);return prior;`,10000);console.log(JSON.stringify(result));

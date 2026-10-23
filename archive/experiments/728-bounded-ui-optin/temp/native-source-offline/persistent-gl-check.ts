@@ -1,0 +1,6 @@
+import {createCoverageGlSequence} from '../../docs/qa/harness/728-native-end-to-end/coverageGlSequence'
+import {ribbonGlOracle,stampGlOracle} from '../../apps/web/src/engine/src/webgpuCanonical/ribbonOracle'
+import {replaySourceCoverage} from '../../docs/qa/harness/728-native-end-to-end/sourceReplay'
+import fixture from '../../docs/qa/harness/728-native-end-to-end/sourceReplay.fixture.json'
+import type {StrokeOperation} from '@grafetto/shared'
+export function check(){const commands=replaySourceCoverage(fixture.operation as StrokeOperation,{diagnosticWaterPolicy:'bottomless',diagnosticSharedFluid:true,diagnosticLandingReservoir:true,diagnosticLandingPolicy:'fluid',diagnosticCanonicalSettleRadius:true,diagnosticSolventField:true,diagnosticPigmentRecord:true}),owner=createCoverageGlSequence(),rows=[];let expected:Uint8Array=new Uint8Array(4194304);try{for(const [index,c]of commands.entries()){owner.draw(c);expected=c.kind==='ribbon'?ribbonGlOracle(c.batch,1024,1024,true,expected,true).coverage:stampGlOracle(c.stamp,1024,1024,true,expected,true).coverage;if([37,44,144].includes(index)){const bytes=owner.read();let changed=0,max=0;for(let i=0;i<bytes.length;i++){if(bytes[i]!==expected[i])changed++;max=Math.max(max,Math.abs(bytes[i]-expected[i]))}rows.push({index,changed,max})}}return{softwareOnly:true,commands:commands.length,rows}}finally{owner.destroy()}}

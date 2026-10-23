@@ -1,0 +1,3 @@
+Уточнена причина: partial screen composite включает SCISSOR_TEST в координатах экрана; _drawCompositeItem внутри этого участка вызывает fold coarse tiles. _downsampleTileInto наследовал экранную scissor-обрезку и записывал лишь часть coarse slot.
+
+Исправление локально отключает scissor на время fold и восстанавливает состояние вызывающей стороны. Предварительные изменения invalidation удалены как не подтверждённые. Реальный GPU Chrome: все 9 drawing tools через input → live peer → undo/redo → history witness PASS (1.5 мин). До исправления marker/brushPen/watercolor FAIL. Диагностика: маркер виден сразу, pickColor [0.941,0.545,0.2], без allResident/принудительного обновления. Push не выполнялся.

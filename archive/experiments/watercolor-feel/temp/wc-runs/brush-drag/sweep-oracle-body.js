@@ -1,0 +1,18 @@
+async function oracle(shaders) {
+const gl=document.createElement('canvas').getContext('webgl'),W=32,N=W*W;
+if(!gl)throw Error('no WebGL');
+const pr=gl.createProgram();for(const [kind,src] of [[gl.VERTEX_SHADER,shaders.vertex],[gl.FRAGMENT_SHADER,shaders.fragment]]){const s=gl.createShader(kind);gl.shaderSource(s,'// sheet6 cold '+Date.now()+'\n'+src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));gl.attachShader(pr,s)}gl.linkProgram(pr);if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(pr));
+const vb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);gl.viewport(0,0,W,W);gl.useProgram(pr);const pos=gl.getAttribLocation(pr,'a_position');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
+const tex=data=>{const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,W,W,0,gl.RGBA,gl.UNSIGNED_BYTE,data);return t};const cases=[];
+for(const kind of ['pool','uniform-still','cancelled','dry-channel']){
+const paint=new Uint8Array(N*4),water=new Uint8Array(N*4),flow=new Uint8Array(N*4);
+for(let y=0;y<W;y++)for(let x=0;x<W;x++){const i=(y*W+x)*4;const a=kind==='dry-channel'&&x>15?0:kind==='uniform-still'?160:(x>=8&&x<=12&&y>=10&&y<=20?160:40);paint.set([a/2,a/4,a/8,a],i);water[i+2]=x<22&&(kind!=='dry-channel'||x!==15)?255:0;flow.set(kind==='uniform-still'?[128,128,0,255]:kind==='cancelled'?[128,128,220,255]:[255,128,220,255],i)}
+let src=tex(paint),dst=tex(null);const wt=tex(water),ft=tex(flow);
+for(let k=0;k<12;k++){gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,dst,0);const names=['u_paint','u_flow','u_water','u_pigment','u_base'];[src,ft,wt,src,src].forEach((t,i)=>{gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,t);gl.uniform1i(gl.getUniformLocation(pr,names[i]),i)});gl.uniform2f(gl.getUniformLocation(pr,'u_step'),2/W,2/W);gl.uniform4f(gl.getUniformLocation(pr,'u_flowRect'),0,0,1,1);gl.uniform1f(gl.getUniformLocation(pr,'u_mode'),2);gl.drawArrays(gl.TRIANGLES,0,6);[src,dst]=[dst,src]}
+gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,src,0);const out=new Uint8Array(N*4);gl.readPixels(0,0,W,W,gl.RGBA,gl.UNSIGNED_BYTE,out);
+let before=0,after=0,cm0=0,cm1=0,dryGain=0,rightGain=0,error=0,changes=0;
+for(let y=0;y<W;y++)for(let x=0;x<W;x++){const i=(y*W+x)*4;before+=paint[i+3];after+=out[i+3];cm0+=paint[i+3]*x;cm1+=out[i+3]*x;error=Math.max(error,Math.abs(out[i]*2-out[i+3]));if(x>=22||kind==='dry-channel'&&x===15)dryGain+=Math.max(0,out[i+3]-paint[i+3]);if(kind==='dry-channel'&&x>15)rightGain+=Math.max(0,out[i+3]-paint[i+3]);if(out.subarray(i,i+4).some((v,j)=>v!==paint[i+j]))changes++;}
+cases.push({kind,before,after,relativeLoss:(before-after)/before,centreBefore:cm0/before,centreAfter:cm1/after,dryGain,rightGain,ratioError:error,changes,glError:gl.getError()});for(const t of[src,dst,wt,ft])gl.deleteTexture(t);
+}
+const ext=gl.getExtension('WEBGL_debug_renderer_info');const result={gpu:ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):'',cases,lost:gl.isContextLost()};gl.getExtension('WEBGL_lose_context')?.loseContext();return result;
+}

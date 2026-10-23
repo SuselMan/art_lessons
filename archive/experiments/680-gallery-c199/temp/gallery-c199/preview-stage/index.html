@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Принятая DEV версия c1997fee — Архив мазков акварели</title>
+<style>
+:root{--bg:#f5f3ee;--fg:#1d1d1f;--muted:#6b6b70;--card:#fff;--line:#e2dfd8;--accent:#2a5bd7;--paper:#fbfaf7}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#18181a;--fg:#ececee;--muted:#9a9aa0;--card:#232326;--line:#35353a;--accent:#7aa2ff;--paper:#fbfaf7}}
+:root[data-theme="dark"]{--bg:#18181a;--fg:#ececee;--muted:#9a9aa0;--card:#232326;--line:#35353a;--accent:#7aa2ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+header{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+h1{font-size:18px;margin:0 8px 0 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:999px;padding:4px 12px;cursor:pointer;font:inherit}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.count{color:var(--muted);margin-left:auto}
+main{max-width:1400px;margin:0 auto;padding:16px}
+.sheet{margin:0 0 28px}
+.sheet h2{font-size:16px;margin:0 0 2px}
+.sheet p{margin:0 0 12px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;text-align:left;padding:0;color:inherit;font:inherit}
+.card:focus-visible{outline:2px solid var(--accent)}
+.thumb{height:180px;background:var(--paper);display:flex;align-items:center;justify-content:center}
+.thumb img{max-width:100%;max-height:100%;object-fit:contain}
+.card .meta{padding:8px 10px}
+.card .n{font-weight:600}
+.card .lab{color:var(--muted);font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.badges{display:flex;gap:6px;margin-top:6px;font-size:12px;color:var(--muted)}
+.empty{color:var(--muted);padding:48px 0;text-align:center}
+dialog{border:none;border-radius:12px;padding:0;width:min(1300px,96vw);max-height:94vh;background:var(--card);color:var(--fg)}
+dialog::backdrop{background:#000a}
+.dhead{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.dhead h3{margin:0;font-size:17px}
+.dhead .lab{color:var(--muted)}
+.dhead .dnav{margin-left:auto;display:flex;gap:8px;align-items:center}
+.dnav button{min-width:44px;min-height:44px}
+.dnav button:disabled{opacity:.35;cursor:default}
+@media(max-width:600px){.dhead{flex-wrap:wrap}.dhead .dnav{width:100%;margin-left:0}}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit}
+.dbody{display:grid;grid-template-columns:1fr;gap:14px;padding:16px;overflow:auto;max-height:calc(94vh - 60px)}
+.appbar{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.appbar select{font:inherit;padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
+.comments{grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px}
+.comments h4{margin:0 0 8px;font-size:14px;color:var(--muted)}
+.cm{padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px}
+.cm .when{font-size:12px;color:var(--muted)}
+.cm > div:last-child{white-space:pre-wrap}
+.sheet > details{margin:0 0 12px}
+.cm .ver{font-size:12px;border:1px solid var(--line);border-radius:4px;padding:0 6px;margin-left:6px}
+.newc{display:flex;gap:8px;align-items:flex-start}
+.newc textarea{flex:1;min-height:64px;font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.hint{font-size:12px;color:var(--muted)}
+.pane h4{margin:0 0 8px;font-size:14px;color:var(--muted);font-weight:600}
+.stage{background:var(--paper);border-radius:8px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.stage img{display:block;flex:none}
+.pane{min-width:0}
+.pane h4{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.scalebar{position:absolute;left:10px;bottom:10px;height:4px;background:#111;border-radius:2px}
+.scalebar span{position:absolute;left:0;bottom:6px;font-size:11px;color:#111;white-space:nowrap}
+.timeline{display:flex;align-items:center;gap:10px;margin-top:10px}
+.timeline input{flex:1}
+.ticks{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tick{font-size:12px;border:1px solid var(--line);border-radius:6px;padding:2px 8px;cursor:pointer;background:var(--card);color:var(--fg)}
+.tick[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.none{color:var(--muted);padding:40px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>Архив мазков акварели</h1>
+  <div class="chips" id="sheets" role="group" aria-label="Лист"></div>
+  <div class="count" id="count"></div>
+</header>
+<main id="main"></main>
+
+<dialog id="dlg">
+  <div class="dhead"><h3 id="dTitle"></h3><span class="lab" id="dLabel"></span><div class="dnav"><button class="btn" id="dPrev" aria-label="Предыдущий мазок" title="Предыдущий мазок (←)">←</button><span id="dPosition" class="hint"></span><button class="btn" id="dNext" aria-label="Следующий мазок" title="Следующий мазок (→)">→</button><button class="btn" id="dClose">Закрыть</button></div></div>
+  <div class="dbody">
+    <div class="pane">
+      <h4 id="wetTitle">Мокрый — серия высыхания</h4>
+      <div class="stage" id="wetStage"></div>
+      <div class="timeline" id="wetTimeline"><button class="btn" id="play" aria-label="Проиграть высыхание">▶</button><input type="range" id="wetRange" min="0" max="0" value="0" aria-label="Кадр серии"><span id="wetAge"></span></div>
+      <div class="ticks" id="wetTicks"></div>
+    </div>
+    <div class="pane">
+      <h4>Сухой</h4>
+      <div class="stage" id="dryStage"></div>
+    </div>
+    <div class="pane">
+      <h4>Графетто — повтор <span class="appbar" style="margin:0"><label for="appVer" class="hint">версия</label><select id="appVer"></select></span></h4>
+      <div class="stage" id="appStage"></div>
+    </div>
+    <div class="comments">
+      <h4>Комментарии к мазку</h4>
+      <div id="cmList"></div>
+      <div class="newc"><textarea id="cmText" placeholder="Что не так, что похоже — к выбранной версии"></textarea><button class="btn" id="cmSend">Отправить</button></div>
+      <div class="hint" id="cmHint"></div>
+    </div>
+  </div>
+</dialog>
+
+<script src="archive.js"></script>
+<script>
+const A = window.STROKE_ARCHIVE || { pxPerMm: 12, sheets: [] }
+const $ = id => document.getElementById(id)
+let current = 'all'
+let timer = null, stopPlay = () => {}
+let activeStroke = null, preferredVersion = null
+const drafts = new Map()
+const strokeKey = (s, st) => s.id + ":" + st.n
+let comments = []
+fetch('../../comments').then(r => r.ok ? r.json() : []).then(c => { comments = c; render() }).catch(() => {})
+try { current = localStorage.getItem('strokes.sheet') || 'all' } catch (e) {}
+
+function fmtAge(s) {
+  if (s == null) return ''
+  if (s < 60) return Math.round(s) + ' с'
+  const m = Math.floor(s / 60), r = Math.round(s % 60)
+  return r ? `${m} мин ${r} с` : `${m} мин`
+}
+
+function chips() {
+  const box = $('sheets'); box.innerHTML = ''
+  const opts = [['all', 'Все листы'], ...A.sheets.map(s => [s.id, s.id])]
+  for (const [id, name] of opts) {
+    const b = document.createElement('button')
+    b.className = 'chip'; b.textContent = name
+    b.setAttribute('aria-pressed', String(current === id))
+    b.onclick = () => { current = id; try { localStorage.setItem('strokes.sheet', id) } catch (e) {}; render() }
+    box.appendChild(b)
+  }
+}
+
+function render() {
+  chips()
+  const main = $('main'); main.innerHTML = ''
+  const sheets = A.sheets.filter(s => current === 'all' || s.id === current)
+  let total = 0
+  for (const s of sheets) {
+    const sec = document.createElement('section'); sec.className = 'sheet'
+    const coin = { '1rub': '1 ₽', '2rub': '2 ₽', '5rub': '5 ₽', '10rub': '10 ₽', '50eurocent': '50 евроцентов' }[s.coin] || s.coin
+    const room = s.board && s.board.room ? ` · <a href="${s.board.room}" target="_blank" rel="noopener">комната для повтора</a>` : ''
+    sec.innerHTML = `<h2>Лист ${s.id}</h2><p>${[s.paper, s.note, 'масштаб по монете ' + coin].filter(Boolean).join(' · ')}${room}</p>`
+    // Comments on the whole sheet (n empty) and on everything ('*'): under the heading.
+    const general = comments.filter(c => c.n == null && (c.sheet === s.id || (c.sheet === '*' && s === sheets[0])))
+    if (general.length) {
+      const det = document.createElement('details'); det.className = 'cm'
+      det.innerHTML = `<summary>Общие комментарии (${general.length})</summary>`
+      for (const c of general) {
+        const d = document.createElement('div'); d.style.marginTop = '8px'; d.style.whiteSpace = 'pre-wrap'
+        d.textContent = `${c.author || 'Илья'}${c.sheet === '*' ? ' (по всем листам)' : ''}: ${c.text}`; det.appendChild(d)
+      }
+      sec.appendChild(det)
+    }
+    const grid = document.createElement('div'); grid.className = 'grid'
+    for (const st of s.strokes) {
+      total++
+      const pic = st.dry || st.wet[st.wet.length - 1]
+      const c = document.createElement('button'); c.className = 'card'
+      c.innerHTML = `<div class="thumb">${pic ? `<img loading="lazy" src="${pic.src}" alt="">` : ''}</div>
+        <div class="meta"><div class="n">№ ${st.n}</div><div class="lab"></div>
+        <div class="badges"><span>мокрых: ${st.wet.length}</span><span>${st.dry ? 'сухой ✓' : 'сухого нет'}</span><span>${comments.filter(c => c.sheet === s.id && c.n === st.n).length || ''} ${comments.some(c => c.sheet === s.id && c.n === st.n) ? '💬' : ''}</span></div></div>`
+      c.querySelector('.lab').textContent = st.label || ''
+      c.onclick = () => open(s, st)
+      // Hover: the series plays in the card itself, dry shot last.
+      const seq = st.dry ? [...st.wet, st.dry] : st.wet
+      if (seq.length > 1) {
+        let t = null
+        const img = c.querySelector('.thumb img')
+        c.onmouseenter = () => {
+          preload(seq)
+          let i = 0
+          const step = () => { img.src = seq[i].src; i = (i + 1) % seq.length; t = setTimeout(step, i === 0 ? 1200 : 400) }
+          step()
+        }
+        c.onmouseleave = () => { clearTimeout(t); img.src = pic.src }
+      }
+      grid.appendChild(c)
+    }
+    if (!s.strokes.length) grid.innerHTML = '<div class="empty">Пока пусто</div>'
+    sec.appendChild(grid); main.appendChild(sec)
+  }
+  if (!A.sheets.length) main.innerHTML = '<div class="empty">Архив пуст. Мазки добавляются скриптом scripts/strokes/refs.py.</div>'
+  $('count').textContent = total ? `мазков: ${total}` : ''
+}
+
+// One <img> per stage, its src swapped in place: rebuilding it on every
+// frame let the stage collapse while the next frame loaded, and the whole
+// dialog jumped. The stage keeps the frames' aspect ratio (all frames of a
+// stroke are cut the same size).
+const cache = new Map()
+function preload(pics) {
+  for (const p of pics) if (p && !cache.has(p.src)) { const i = new Image(); i.src = p.src; cache.set(p.src, i) }
+}
+function stage(el, pic) {
+  el._pic = pic
+  if (!pic) { el.innerHTML = '<div class="none">нет снимка</div>'; layout(); return }
+  let img = el.querySelector('img'), bar = el.querySelector('.scalebar')
+  if (!img) {
+    el.innerHTML = ''
+    img = document.createElement('img'); img.alt = ''
+    bar = document.createElement('div'); bar.className = 'scalebar'
+    const lab = document.createElement('span'); lab.textContent = '1 см'; bar.appendChild(lab)
+    el.appendChild(img); el.appendChild(bar)
+    new ResizeObserver(() => { if (img.naturalWidth) bar.style.width = (A.pxPerMm * 10 * img.clientWidth / img.naturalWidth) + 'px' }).observe(img)
+  }
+  img.src = pic.src
+  layout()
+}
+
+// The three panes stacked, one frame size and one scale for all: every
+// picture is cut at the archive's px/mm, so the same factor on each keeps
+// the photo and the repeats the same physical size. The frame is the largest
+// of the three at that scale; the scale is what lets all three fit the dialog
+// width and, together, its height.
+const STAGES = ['wetStage', 'dryStage', 'appStage']
+function layout() {
+  const els = STAGES.map($), pics = els.map(e => e._pic).filter(Boolean)
+  if (!pics.length) return
+  const mw = Math.max(...pics.map(p => p.w)), mh = Math.max(...pics.map(p => p.h))
+  const width = $('dryStage').parentElement.clientWidth || 800
+  const height = Math.max(120, (window.innerHeight * 0.94 - 330) / 3)
+  const k = Math.min(width / mw, height / mh)
+  for (const e of els) {
+    e.style.width = Math.round(mw * k) + 'px'; e.style.height = Math.round(mh * k) + 'px'
+    const img = e.querySelector('img')
+    if (img && e._pic) { img.style.width = Math.round(e._pic.w * k) + 'px'; img.style.height = Math.round(e._pic.h * k) + 'px' }
+  }
+}
+window.addEventListener('resize', layout)
+new ResizeObserver(() => layout()).observe(document.querySelector('.dbody'))
+
+function visibleStrokes() {
+  return A.sheets.filter(s => current === 'all' || s.id === current)
+    .flatMap(s => s.strokes.map(st => ({ s, st })))
+}
+function saveDraft() {
+  if (activeStroke) drafts.set(strokeKey(activeStroke.s, activeStroke.st), $('cmText').value)
+}
+function moveStroke(delta) {
+  if (!activeStroke) return
+  const items = visibleStrokes()
+  const i = items.findIndex(x => x.s === activeStroke.s && x.st === activeStroke.st)
+  const next = items[i + delta]
+  if (next) open(next.s, next.st)
+}
+function open(s, st) {
+  saveDraft()
+  stopPlay()
+  activeStroke = { s, st }
+  const items = visibleStrokes()
+  const i = items.findIndex(x => x.s === s && x.st === st)
+  $('dPrev').disabled = i <= 0
+  $('dNext').disabled = i < 0 || i >= items.length - 1
+  $('dPosition').textContent = `${i + 1} / ${items.length}`
+  $('cmText').value = drafts.get(strokeKey(s, st)) || ''
+  $('cmHint').textContent = ''
+  $('dTitle').textContent = `Лист ${s.id} · № ${st.n}`
+  $('dLabel').textContent = st.label || ''
+  const wet = st.wet, range = $('wetRange'), ticks = $('wetTicks')
+  $('wetTimeline').style.display = wet.length > 1 || st.dry ? '' : 'none'
+  range.max = Math.max(0, wet.length - 1); range.value = 0
+  ticks.innerHTML = ''
+  const show = i => {
+    stage($('wetStage'), wet[i])
+    $('wetAge').textContent = wet[i] ? fmtAge(wet[i].ageS) : ''
+    ;[...ticks.children].forEach((t, k) => t.setAttribute('aria-pressed', String(k === i)))
+    range.value = i
+  }
+  wet.forEach((w, i) => {
+    const t = document.createElement('button'); t.className = 'tick'
+    t.textContent = w.ageS != null ? fmtAge(w.ageS) : `кадр ${i + 1}`
+    t.onclick = () => show(i); ticks.appendChild(t)
+  })
+  range.oninput = () => { stop(); show(+range.value) }
+  // Play: the wet frames in order, then the dry shot in the same pane - the
+  // frames are registered onto each other, so the stroke holds still and
+  // only the paint changes.
+  const seq = st.dry ? [...wet, st.dry] : wet
+  preload(seq)
+  const play = $('play')
+  const frame = i => {
+    if (i < wet.length) show(i)
+    else { stage($('wetStage'), st.dry); $('wetAge').textContent = 'сухой'; [...ticks.children].forEach(t => t.setAttribute('aria-pressed', 'false')) }
+  }
+  const stop = () => { clearTimeout(timer); timer = null; play.textContent = '▶' }
+  play.onclick = () => {
+    if (timer) { stop(); return }
+    play.textContent = '❚❚'
+    let i = 0
+    const step = () => {
+      frame(i)
+      const last = i === seq.length - 1
+      timer = setTimeout(() => { if (last) { stop(); return } i++; step() }, last ? 0 : 450)
+    }
+    step()
+  }
+  stopPlay = stop
+  play.style.display = seq.length > 1 ? '' : 'none'
+  show(0)
+  stage($('dryStage'), st.dry)
+  // Grafetto: the repeat, one picture per engine version; newest first.
+  const vers = (A.versions || []).filter(v => st.app && st.app[v.id]).slice().reverse()
+  const sel = $('appVer'); sel.innerHTML = ''
+  for (const v of vers) {
+    const o = document.createElement('option'); o.value = v.id
+    o.textContent = `${v.id} · ${v.date} · ${v.subject.slice(0, 60)}`; sel.appendChild(o)
+  }
+  if (vers.some(v => v.id === preferredVersion)) sel.value = preferredVersion
+  const showApp = () => stage($('appStage'), vers.length ? st.app[sel.value] : null)
+  sel.onchange = () => { preferredVersion = sel.value; showApp(); renderComments() }
+  showApp()
+  const renderComments = () => {
+    const mine = comments.filter(c => c.sheet === s.id && c.n === st.n)
+    const list = $('cmList'); list.innerHTML = mine.length ? '' : '<div class="hint">пока нет</div>'
+    for (const c of mine) {
+      const d = document.createElement('div'); d.className = 'cm'
+      const head = document.createElement('div'); head.className = 'when'
+      head.textContent = (c.author || 'Илья') + ' · ' + c.at.replace('T', ' ')
+      if (c.version) { const v = document.createElement('span'); v.className = 'ver'; v.textContent = c.version; head.appendChild(v) }
+      const body = document.createElement('div'); body.textContent = c.text
+      d.appendChild(head); d.appendChild(body); list.appendChild(d)
+    }
+  }
+  $('cmSend').onclick = async () => {
+    const text = $('cmText').value.trim()
+    if (!text) return
+    try {
+      const r = await fetch('../../comments', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sheet: s.id, n: st.n, version: sel.value || null, text }) })
+      if (!r.ok) throw new Error(r.status)
+      comments.push(await r.json()); drafts.delete(strokeKey(s, st));
+      if (activeStroke?.s === s && activeStroke?.st === st) { $('cmText').value = ''; $('cmHint').textContent = ''; renderComments() }
+    } catch (e) { $('cmHint').textContent = 'Не сохранилось: комментарии пишутся только через scripts/strokes/serve.py' }
+  }
+  renderComments()
+  if (!$('dlg').open) $('dlg').showModal()
+  requestAnimationFrame(layout)
+}
+
+$('dClose').onclick = () => $('dlg').close()
+$('dlg').addEventListener('close', () => { saveDraft(); stopPlay(); activeStroke = null })
+$('dPrev').onclick = () => moveStroke(-1)
+$('dNext').onclick = () => moveStroke(1)
+document.addEventListener('keydown', e => {
+  if (!$('dlg').open || e.altKey || e.ctrlKey || e.metaKey || e.target.closest('input, textarea, select, [contenteditable]')) return
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); moveStroke(e.key === 'ArrowLeft' ? -1 : 1) }
+})
+$('dlg').addEventListener('click', e => { if (e.target === $('dlg')) $('dlg').close() })
+render()
+</script>
+</body>
+</html>

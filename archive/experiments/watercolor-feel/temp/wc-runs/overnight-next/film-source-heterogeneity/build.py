@@ -1,0 +1,21 @@
+import json,pathlib,hashlib
+r=pathlib.Path('temp/wc-runs/overnight-next');o=r/'film-source-heterogeneity';parent=json.loads((r/'transport-distance-audit/production-max-paired-headroom2-microcoupled-curvature10.json').read_text())
+selector='float wcPoolBlot(vec2 wp, vec2 seed, float puddle, float paperWet, float on)'
+ribbon='wcPoolBlot(mottleWp, u_mottleSeed, v_pigmentPool, v_ink > 5e-7 ? v_inkWet / v_ink : 0.0, u_poolBlot)'
+dab='wcPoolBlot(mottleWp, u_mottleSeed, u_puddle, u_paperWet, u_poolBlot)'
+for gain in [.25,.5]:
+ id='production-physical22-film-meso'+str(int(gain*100))
+ helper=f'''float wcFilmBlot(vec2 wp, vec2 seed, float puddle, float paperWet, float on, float brushWater, float pigmentOn) {{
+    if (pigmentOn < 0.5) return wcPoolBlot(wp, seed, puddle, paperWet, on);
+    float pool = on * clamp(max(puddle, {gain} * clamp(brushWater, 0.0, 1.0) * (1.0 - clamp(paperWet, 0.0, 1.0))), 0.0, 1.0);
+    if (pool <= 0.0) return 1.0;
+    float n = wcFbm(wp * 0.055 + seed * 1.7 + vec2(13.0, 5.0));
+    return 1.0 + pool * 0.85 * (2.0 * smoothstep(0.3, 0.7, n) - 1.0);
+}}
+'''
+ # Insert after original function, before subsequent helper, preserving fallback verbatim.
+ src=pathlib.Path('apps/web/src/engine/src/raster/shaders.ts').read_text();start=src.index(selector);end=src.index('\n  }',start)+4;old=src[start:end]
+ patches=parent['runtimePatches']+[{'kind':'shader-exact','selector':selector,'before':old,'after':old+'\n'+helper,'countPerShader':1,'semanticFamily':'source-film-heterogeneity-helper'}, {'kind':'shader-exact','selector':'float amount = (u_mode > 0.5 ? cov * v_ink * mottle : cov) * tip;','before':ribbon,'after':ribbon.replace('wcPoolBlot','wcFilmBlot')[:-1]+', v_ink > 5e-7 ? clamp(v_inkWater / v_ink, 0.0, 1.0) : 0.0, step(5e-7, abs(v_inkStrength)))','countPerShader':1}, {'kind':'shader-exact','selector':'* wcPoolBlot(mottleWp, u_mottleSeed, u_puddle, u_paperWet, u_poolBlot);','before':dab,'after':dab.replace('wcPoolBlot','wcFilmBlot')[:-1]+', u_inkWater, step(5e-7, abs(u_inkStrength)))','countPerShader':1}]
+ s=dict(id=id,parent='baseline',researchParentId=parent['id'],baseEngine='7ca4cf5d',runtimePatches=patches,comparisons=['s9-n3','s6-n6','s1-n1','s8-n1','s7-n3'],mechanism=f'Pigmented wet-film source mesostructure, film gate gain {gain}; original MAX source geometry retained.',proof='Physical22 flattened. Only ink/depth source modulation widened; paired physical and optical dose receive identical positive factor before framebuffer quantization. Original wcPoolBlot remains verbatim for zero pigment. Coverage/wcPoolness unchanged. Existing standing/pool scalar unchanged, but source physical water/strength masses intentionally scale with source carrier.',observableOutcome='Broader internal mesoscopic source mass variation in wet pigmented film, subsequently moved by existing unloading/transport, rather than modulation confined to surplus pools.',risks=['Artificial deterministic source pattern; no finite brush-inventory derivation.','No exact volume conservation: positive multiplier .15..1.85 has mean1 only under symmetric noise distribution; MAX and clipping alter integrated mass.','Existing pool source also changes frequency/amplitude for pigment; this experiment combines wider gate with meso pool pattern.','Paperwet=1 suppresses additional film gate, but existing puddle gate still applies; not a guarantee merged sheet7 unchanged.','Headroom2 carrier/optical quantization and clipping may alter paired ratios after storage.','Pigment threshold5e-7 excludes infinitesimal pigment; purewater ±0 returns original helper.'],limits={'gain':gain,'factorBounds':[.15,1.85],'filmGateMaximum':gain,'pureWaterFallback':'original helper; profile strength=pigment, signed ribbon motion tag multiplies strength only'},auditedSourceFilesSha256={'apps/web/src/engine/src/raster/shaders.ts':hashlib.sha256(src.encode()).hexdigest()})
+ (o/(id+'.json')).write_text(json.dumps(s,indent=2)+'\n')
+(o/'cpu-limits.json').write_text(json.dumps({'factorMin':.15,'factorMax':1.85,'zeroPigmentSigns':[0.0,-0.0],'pureWaterBranch':'abs(strength)=0 <5e-7 => original helper','pairedRatioProof':'For positive F: (F*W)/(F*A)=W/A and (F*D)/(F*A)=D/A before quantization/clipping','waterGateAtPaperWet1':0,'noExactMeanOrMassClaim':True},indent=2)+'\n')

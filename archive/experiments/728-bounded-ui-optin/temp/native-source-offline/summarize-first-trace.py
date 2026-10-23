@@ -1,0 +1,13 @@
+import json,pathlib
+p=pathlib.Path('temp/device-runs/room-firstwater-trace92')
+x=json.loads((p/'report.json').read_text());trace=json.loads((p/'first-water-trace.json').read_text())['traceEvents']
+mark=next(e for e in trace if e['name']=='QA_NATIVE_FIRST_DOWN');offset=mark['ts']/1000-x['firstDownAt']
+gpu=next(e for e in trace if e.get('name')=='CommandBufferService:PutChanged' and e.get('dur',0)>1000000)
+gs=gpu['ts']/1000-offset;ge=gs+gpu['dur']/1000
+f=x['primaryRaf']['frames'];i=max(range(1,len(f)),key=lambda i:f[i]-f[i-1])
+starts={e['id']:e for e in x['initTrace'] if e['stage']=='queue.completion:start'}
+ends=[e for e in x['initTrace'] if e['stage']=='queue.completion:end' and e['id'] in starts and starts[e['id']]['ms']<ge and e['ms']>gs]
+first=next(e for e in x['initTrace']if e['stage']=='bridge.canvas:start');bf=next(e for e in x['initTrace']if e['stage']=='bridge.canvas:end'and e['id']==first['id'])
+r={'issue':'#728','source':x['source'],'complete':x['complete'],'ownClosed':x['ownTargetCloseRequested']and x['ownedContextDisposed'],'rawTraceBytes':x['timelineTrace']['bytes'],'dataLossOccurred':x['timelineTrace']['dataLossOccurred'],'memoryMiB':{'pre':x['ramStart'],'min':min(v['MiB']for v in x['memoryTimeline']),'post':1968948/1024},'firstDownBrowserMs':x['firstDownAt'],'actualTraceDownMarkUs':mark['ts'],'browserToTraceOffsetMs':offset,'rafGap':{'browserMs':[f[i-1],f[i]],'ms':f[i]-f[i-1]},'decoderSpan':{'name':gpu['name'],'handler':gpu['args'].get('handler'),'putOffset':gpu['args'].get('put_offset'),'wallMs':gpu['dur']/1000,'browserMs':[gs,ge],'pid':gpu['pid'],'tid':gpu['tid']},'firstBridge':{'browserMs':[first['ms'],bf['ms']],'wallMs':bf['ms']-first['ms']},'overlappingCompletionCount':len(ends),'oldestOverlappingCompletionStart':min(starts[e['id']]['ms']for e in ends),'completionReleaseStartBrowserMs':min(e['ms']for e in ends),'submitsWithinDecoderSpan':sum(e['stage']=='queue.submit:start'and gs<=e['ms']<=ge for e in x['initTrace']),'limits':['GPU process decoder CPU/native wall span is not physical GPU execution time','Shared CrGpuMain; exact originating encoder/channel not proven from put_offset alone','Nested shader compiler/Dawn events absent; compile vs driver synchronization/execution remains unknown','Trace recorded after readiness before first DOWN; extraction6.1s after first idle changes total scenario wall','Multiple pending completions share queue fence;52waits do not mean52independent GPU durations','User timing mark/browser read clocks within same callback, no physical display timestamp']}
+pathlib.Path('docs/qa/native-room-init/first-water-trace-surface-summary.json').write_text(json.dumps(r,indent=2)+'\n')
+print(json.dumps(r['firstBridge']));print(gs,ge)

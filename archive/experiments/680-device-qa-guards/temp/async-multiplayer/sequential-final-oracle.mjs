@@ -1,0 +1,26 @@
+import {chromium} from 'playwright';
+import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {createRequire} from 'node:module';
+import {dirname,join} from 'node:path';
+const require=createRequire(import.meta.url),{PNG}=require(join(dirname(require.resolve('playwright-core/package.json')),'lib/utilsBundle.js'));
+const root='temp/async-multiplayer/',prior=root+'results-sequential-wet-index-composite-final/',out=root+'results-sequential-final-oracle/';mkdirSync(out,{recursive:true});
+const saved=JSON.parse(readFileSync(prior+'report.json')),tape=saved.nativeDry.states[0].ops;
+const sha=readFileSync(root+'sha256-sync.js','utf8'),stage=readFileSync(root+'material-stage-function.js','utf8');
+const report={source:saved.source,prior,scope:'sequential fresh same immutable accepted4op journal vs saved nativeB orderedDry; nativeA2 proof in prior',results:[]};
+const save=()=>writeFileSync(out+'report.json',JSON.stringify(report,null,2));
+const available=()=>+readFileSync('/proc/meminfo','utf8').match(/MemAvailable:\s+(\d+)/)[1]/1024;
+function diff(A,B){let count=0,max=0,alphaMax=0;for(let i=0;i<A.data.length;i+=4){let changed=false;for(let k=0;k<4;k++){const d=Math.abs(A.data[i+k]-B.data[i+k]);max=Math.max(max,d);changed||=d>0;if(k===3)alphaMax=Math.max(alphaMax,d)}count+=+changed}return{count,max,alphaMax}}
+let browser;const monitor=setInterval(()=>{(report.memory??=[]).push(available());if(available()<500){report.resourceAbort=available();save();void browser?.close()}},2000);
+const cap=setTimeout(()=>{report.timeout=true;save();void browser?.close()},240000);
+try{report.sourcePassport=readFileSync(root+'source-passport.txt','utf8').trim();if(!report.sourcePassport.includes(saved.source))throw Error('Source passport mismatch');report.preflight=available();if(report.preflight<1700)throw Error('RAM1700 preflight');browser=await chromium.launch({channel:'chrome',headless:false,env:{...process.env,DISPLAY:':0'}});
+ const pngs=[];
+ for(let copy=0;copy<2;copy++){
+ const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:640,height:480}}),p=await context.newPage();await p.goto(process.env.APP_URL+'/');
+ await p.evaluate(async order=>{const {PencilEngine}=await import('/src/engine/index.ts');const c=document.createElement('canvas');c.width=640;c.height=480;document.body.append(c);const E=window.__engine=new PencilEngine(c,{debug:true,pageWidth:640,pageHeight:480,paper:'fine',paperColor:[253/255,253/255,252/255],userId:'fresh-oracle'});await E.paperReady();E.initLayer('layer-1');E.setCompositeOrder(order);E._wcAsyncFinish=true;E._wcSourceFilmRebase=true;E._settlePlan.splitQuanta=true},saved.ABeforeClose.compositeOrder);
+ await p.evaluate(sha+';window.__sha256Bytes=sha256Bytes');if(await p.evaluate('('+stage+')()')!==true)throw Error('Stage missing');await p.evaluate(ops=>{for(const op of ops)window.__engine.appendOperation(op,'remote')},tape);
+ await p.waitForFunction(()=>{const E=window.__engine;return !E._wcCanonical.pending&&!E._settle&&!E._opQueue.length&&!E._rebuildJobs.size&&!E._pendingRebuilds.size&&!E._washReveals.size},null,{timeout:120000});
+ const state=await p.evaluate(()=>({stages:window.__materialStages,ops:window.__engine.getOperations(),gl:window.__engine.gl.getError(),lost:window.__engine.gl.isContextLost(),order:window.__engine._compositeOrder,page:[window.__engine._pageSize().w,window.__engine._pageSize().h],flags:{async:window.__engine._wcAsyncFinish,rebase:window.__engine._wcSourceFilmRebase,split:window.__engine._settlePlan.splitQuanta}}));
+ if(JSON.stringify(state.ops)!==JSON.stringify(tape))throw Error('Fresh journal identity mismatch');if(state.page[0]!==640||state.page[1]!==480)throw Error('Physical page mismatch');const base64=await p.evaluate(async()=>{const b=await window.__engine.exportPNG(true);return await new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(b)})});const png=Buffer.from(base64,'base64'),decoded=PNG.sync.read(png);state.nonempty=decoded.data.filter((v,i)=>i%4===3&&v>0).length;if(!state.nonempty||state.gl||state.lost)throw Error('Fresh nonempty/GL guard');writeFileSync(out+'fresh-'+copy+'.png',png);pngs.push(decoded);state.materialDiff=[];const native=saved.nativeDry.states[0].material;if(!native.length||state.stages.length!==native.length)throw Error('Stage count mismatch');for(let j=0;j<native.length;j++){const a=native[j],b=state.stages[j];if(a.kind!==b.kind||a.tiles.length!==b.tiles.length)throw Error('Stage shape mismatch');for(let t=0;t<a.tiles.length;t++)for(const [key,value]of Object.entries(a.tiles[t].fields)){const other=b.tiles[t].fields[key];if(Boolean(value)!==Boolean(other)||(value&&value.sha!==other.sha))state.materialDiff.push({stage:j,tile:t,key,native:value?.sha,fresh:other?.sha})}}report.results.push(state);save();await context.close();
+ }
+ report.BNativeFreshDiff=diff(PNG.sync.read(readFileSync(prior+'B-native-final.png')),pngs[0]);report.freshDiff=diff(...pngs);save();if(report.BNativeFreshDiff.count||report.freshDiff.count||report.results.some(r=>r.materialDiff.length))throw Error('Strict canonical mismatch');
+}catch(e){report.error=String(e);save();throw e}finally{clearInterval(monitor);clearTimeout(cap);await browser?.close();report.ownedChromeClosed=true;save()}

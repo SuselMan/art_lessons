@@ -1,0 +1,11 @@
+# Surface firstload CPU preparation — no launch
+
+Existing cached access is HOME ssh surface; profiler own9345 forwardedVPS9445 existed for QA profile qa728-firstpixel049 but is now retired. Do not reuse closed forward/task/profile accidentally. New explicit own Surface QA browser/profile/task+forward required from root; no scans/userChrome changes.
+
+Main controller supports QA_REMOTE_CDP_URL and QA_DEVICE_MEMORY_PROBE JSON {file,args}. The latter must execute readonly actual Surface FreePhysicalMemory KiB over cached SSH; no Linux substitute/hardcoded3.78GiB. Same1700/500 MiB guard,5s sampling, probe errors close only owned contexts. Playwright connects remote Chrome and creates isolated BrowserContexts. Cleanup closes only contexts created by runner then disconnects its connection, NEVER calls Browser.close nor traverses default pages. CPU negative tests prove existing default context and remote Chrome are untouched. Actual CDP support/cleanup still needs hardware gate.
+
+Source remains immutable6b1f76f1 on HOME5341; source-passport940,7papers,strict47/actualauthor/UUID/REST durable48/49/snapshot/fresh checks identical to HOME runner. Renderer is Surface, controller/PNG decode VPS, HOME only Vite/backend. Report must explicitly distinguish these hosts. No RAM threshold reduction.
+
+Full47 safety prerequisite: actual Surface solver budget for same paper/A4physical1754x2480 Fine and original packed water/pigment groups, not inferred from prior400 motion850ms tail or Vega15ms. Proposed prior bounded owned sampler: actual native water/pigment400 preparation followed by first16 real canonical Plan operations, semantic ordinals+field dimensions+1x1 completion upperbound each. No operation skip/reorder/physicsflag; separate sampling work from eventual firstload timings. Root must grant this short hardware phase and review real budget before full47; currently no such measurement exists. Large legacy1536 work may block Runtime; fixed perRPC/outer timeout closes only new own targets and retains incomplete observations.
+
+Profiler39441 terminalEXIT0/CLOSED/ownChrome6448+task+forward2492764 retired; Surface reported4026868KiB≈3.84GiB. These are preceding measurements, future preflight must read again. Root coordinates next tail667 passive profile vsfirstload; no device started by this agent.

@@ -1,0 +1,5 @@
+Нагрузка завершилась19:40:13 MSK. Последняя фаза после follow-up #701:18rounds/errors0,3realGPU+17Socket.IO,9tools/reconnect/dedup; journals сходятся после idle. В предыдущей фазе максимальный tail frame iPad2042ms; ранее отдельный spill readback1870ms.
+
+Probe19:41 после reload: slow spill readbacks **вне** `_inJobStep`: AMD35/max454ms, Intel57/max650.6ms, Apple4/max179ms. В rebuild slow spill reads0. QA pixel-capture/export reads исключены. `gl.finish`: AMD/Intel0>30ms, Apple2/max34ms. Дополнительный probe texImage2D/copy/draw/clear в последних двух раундах не обнаружил отдельных вызовов>30ms.
+
+Остальные iPad active/tail gaps этой фазы (active856ms/tail1252ms) не следует автоматически приписывать именно spill: этот замер не объясняет каждую паузу. #702 остаётся без исправления; увеличение бюджета кеша/порога кадров не выдаётся за решение. Регрессия QA-020, artifacts `probes-1905.json`, `probes-1941.json`, `long-summary.json`. GL probes сняты после сохранения замеров; Surface startup script восстановлен.

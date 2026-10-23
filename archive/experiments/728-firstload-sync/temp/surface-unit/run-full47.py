@@ -1,0 +1,4 @@
+import os,base64,json,subprocess,time
+enc=base64.b64encode('(Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory'.encode('utf-16le')).decode()
+e=os.environ.copy();e.update(WC_RELEASE_ROOT='/home/suselman/projects/pencil-agents/680-device-qa-guards',QA_GPU_GRANT='explicit-root-grant',QA_URL='https://192.168.1.70:5341',QA_SOURCE_PASSPORT='temp/ordinary-room-sync/source-passport-eligibility.json',QA_INPUT='/home/suselman/projects/pencil-agents/680-device-qa-guards/temp/room-KJc0OoVo/ops.json',QA_OUT='temp/surface-unit/full47-'+str(int(time.time())),QA_REMOTE_CDP_URL='http://127.0.0.1:9451',QA_DEVICE_MEMORY_PROBE=json.dumps({'file':'ssh','args':['-o','BatchMode=yes','-i','/home/suselman/.ssh/home_ed25519','-p22022','suselman@127.0.0.1','ssh surface "powershell -NoProfile -EncodedCommand '+enc+'"']}))
+print(e['QA_OUT'],flush=True);raise SystemExit(subprocess.call(['node','docs/qa/harness/728-firstload/controller-surface6b.mjs'],env=e))
