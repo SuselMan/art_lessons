@@ -1,10 +1,12 @@
 import { spawn } from 'node:child_process'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, readdir, stat } from 'node:fs/promises'
+import { createWriteStream } from 'node:fs'
+import { pipeline } from 'node:stream/promises'
 import { join, basename, extname } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
-import { Readable } from 'node:stream'
+import { Readable, Transform } from 'node:stream'
 import type { FastifyInstance } from 'fastify'
 import type { BrushImportJob } from '@grafetto/shared'
 import { apiRoute } from '../http/apiRoute.js'
@@ -12,7 +14,7 @@ import { mayReadBoardContent } from '../rooms/boardContentAccess.js'
 import { loadBrushLibrary } from './brushLibrary.js'
 import { BrushStorage, boundedRead, empty, merge, setBrushStorage } from './storage.js'
 
-const MAX_UPLOAD=128*1024*1024
+const MAX_UPLOAD=512*1024*1024
 export async function registerBrushLibraryRoutes(app: FastifyInstance, directory=process.env.GRAFETTO_BRUSH_LIBRARY_DIR): Promise<void> {
   // A configured legacy directory is an explicit operator-provisioned QA library.
   const operator=await loadBrushLibrary(directory)
@@ -49,20 +51,38 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
     if(!asset) return reply.code(404).send({error:'Brush asset not found'})
     return reply.header('Cache-Control','private, max-age=31536000, immutable').type('application/octet-stream').send(storage.asset(request.params.hash,asset.size))
   })
-  app.addContentTypeParser('application/octet-stream',{parseAs:'buffer',bodyLimit:MAX_UPLOAD},(_req,body,done)=>done(null,body))
+  app.addContentTypeParser('application/octet-stream',(_req,payload,done)=>done(null,payload))
   apiRoute(app,'POST /api/brush-library/imports',{bodyLimit:MAX_UPLOAD},async(request,reply)=> {
     if(closing) return reply.code(503).send({error:'Server shutting down'})
     if(!root) return reply.code(503).send({error:'Brush uploads are not configured'})
     const header=request.headers['x-brush-filename']
     let filename=''
     try { filename=typeof header==='string' ? decodeURIComponent(header) : '' } catch { return reply.code(400).send({error:'Invalid brush filename'}) }
-    if(filename!==basename(filename) || filename.includes('\\') || filename.length>180 || !(['.abr','.brush','.brushset'].includes(extname(filename).toLowerCase()) || filename.endsWith('.grafetto-brushes.json')) || !Buffer.isBuffer(request.body) || request.body.length===0) return reply.code(400).send({error:'Invalid brush upload'})
-    if(queue.length>=4 || [...jobs.values()].some(j=>j.owner===request.userId && ['queued','running'].includes(j.job.status))) return reply.code(429).send({error:'Brush import queue full'})
+    if(filename!==basename(filename) || filename.includes('\\') || filename.length>180 || !(['.abr','.brush','.brushset'].includes(extname(filename).toLowerCase()) || filename.endsWith('.grafetto-brushes.json')) || !(request.body instanceof Readable)) return reply.code(400).send({error:'Invalid brush upload'})
+    const incomingLength=Number(request.headers['content-length'])
+    if(Number.isFinite(incomingLength) && incomingLength>MAX_UPLOAD) return reply.code(413).send({error:'Brush upload too large'})
+    let ownJobs=0,totalJobs=0
+    for(const file of await readdir(join(storage.root,'jobs'))) {
+      if(!/^[a-f0-9]{64}\.json$/.test(file)) continue
+      const path=join(storage.root,'jobs',file)
+      const saved=JSON.parse(boundedRead(path,4*1024*1024).toString()) as {owner:string;job:BrushImportJob}
+      if(Date.now()-(await stat(path)).mtimeMs>24*60*60*1000 && !jobs.has(saved.job.id)) { await rm(path);continue }
+      totalJobs++;if(saved.owner===request.userId) ownJobs++
+    }
+    if(ownJobs>=32 || totalJobs>=256) return reply.code(429).send({error:'Brush import job quota exceeded; retry later'})
+    if(jobs.size>=5 || queue.length>=4 || [...jobs.values()].some(j=>j.owner===request.userId && ['queued','running'].includes(j.job.status))) return reply.code(429).send({error:'Brush import queue full'})
+    try {storage.ensureCapacity(MAX_UPLOAD*(jobs.size+1))} catch {return reply.code(507).send({error:'Brush storage capacity exceeded'})}
     const owner=request.userId, id=randomUUID(), job:BrushImportJob={id,status:'queued'}
     const work=await mkdtemp(join(storage.root,'tmp','import-'))
     const input=join(work,filename), output=join(work,'output')
-    try { await writeFile(input,request.body,{flag:'wx',mode:0o600}) } catch(e) { await rm(work,{recursive:true,force:true}); throw e }
-    jobs.set(id,{owner,job}); storage.atomic(storage.path('jobs',id),{owner,job})
+    jobs.set(id,{owner,job})
+    let received=0
+    const bound=new Transform({transform(chunk:Buffer,_encoding,done) { received+=chunk.length; done(received>MAX_UPLOAD ? Error('Brush upload too large') : null,chunk) }})
+    try {
+      await pipeline(request.body,bound,createWriteStream(input,{flags:'wx',mode:0o600}))
+      if(!received) throw Error('Empty upload')
+    } catch { jobs.delete(id);await rm(work,{recursive:true,force:true});return reply.code(413).send({error:'Empty or oversized brush upload'}) }
+    storage.atomic(storage.path('jobs',id),{owner,job})
     queue.push(async()=> {
       job.status='running'; storage.atomic(storage.path('jobs',id),{owner,job})
       try {
@@ -113,6 +133,6 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
       }
       yield '}}'
     }
-    return reply.type('application/json').header('Content-Disposition','attachment; filename="brush-library.json"').send(Readable.from(bundle()) as never)
+    return reply.type('application/json').header('Content-Disposition','attachment; filename="room.grafetto-brushes.json"').send(Readable.from(bundle()) as never)
   })
 }

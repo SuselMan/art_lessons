@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { mkdirSync, lstatSync, writeFileSync, renameSync, rmSync, constants, openSync, closeSync, fstatSync, readSync } from 'node:fs'
+import { mkdirSync, lstatSync, writeFileSync, renameSync, rmSync, constants, openSync, closeSync, fstatSync, readSync, readdirSync, fsyncSync } from 'node:fs'
 import { resolve, join, parse } from 'node:path'
 import { isBrushLibrary, type BrushLibrary } from '@grafetto/shared'
 
@@ -47,10 +47,41 @@ export class BrushStorage {
     catch(e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return empty(); throw e }
   }
   atomic(path: string, value: unknown): void {
-    const temp=path+'.'+randomUUID(); try { writeFileSync(temp,JSON.stringify(value),{flag:'wx',mode:0o600}); renameSync(temp,path) } finally { rmSync(temp,{force:true}) }
+    const temp=path+'.'+randomUUID();
+    try {
+      const fd=openSync(temp,constants.O_CREAT|constants.O_EXCL|constants.O_WRONLY,0o600)
+      try { writeFileSync(fd,JSON.stringify(value));fsyncSync(fd) } finally {closeSync(fd)}
+      renameSync(temp,path)
+      const directory=openSync(join(path,'..'),constants.O_RDONLY|constants.O_DIRECTORY)
+      try {fsyncSync(directory)} finally {closeSync(directory)}
+    } finally { rmSync(temp,{force:true}) }
+  }
+  diskBytes(): number {
+    const walk=(path:string):number=>readdirSync(path).reduce((sum,name)=>{
+      const child=join(path,name),s=lstatSync(child)
+      if(s.isSymbolicLink()) throw Error('Unsafe storage path')
+      return sum+(s.isDirectory() ? walk(child) : s.size)
+    },0)
+    return walk(this.root)
+  }
+  ensureCapacity(extra: number): void {
+    const configured=Number(process.env.GRAFETTO_BRUSH_STORAGE_QUOTA_BYTES ?? 4*1024*1024*1024)
+    const quota=Number.isSafeInteger(configured)&&configured>0 ? configured : 4*1024*1024*1024
+    if(this.diskBytes()+extra>quota) throw Error('Global brush storage quota exceeded')
   }
   mutate<T>(fn:()=>T): T {
-    const lock=join(this.root,'.write-lock'); mkdirSync(lock,{mode:0o700})
+    const lock=join(this.root,'.write-lock')
+    try { mkdirSync(lock,{mode:0o700}) } catch(e) {
+      if((e as NodeJS.ErrnoException).code!=='EEXIST') throw e
+      let dead=false
+      try {
+        const pid=Number(boundedRead(join(lock,'pid'),32).toString())
+        if(Number.isInteger(pid)&&pid>0) { try {process.kill(pid,0)} catch(err) {dead=(err as NodeJS.ErrnoException).code==='ESRCH'} }
+      } catch(err) { if((err as NodeJS.ErrnoException).code==='ENOENT') dead=Date.now()-lstatSync(lock).mtimeMs>30000 }
+      if(!dead) throw Error('Brush storage writer busy')
+      rmSync(lock,{recursive:true});mkdirSync(lock,{mode:0o700})
+    }
+    writeFileSync(join(lock,'pid'),String(process.pid),{flag:'wx',mode:0o600})
     try { return fn() } finally { rmSync(lock,{recursive:true}) }
   }
   asset(hash: string, size: number): Buffer {
@@ -61,13 +92,14 @@ export class BrushStorage {
   }
   install(owner: string, library: BrushLibrary, assets: Map<string,Buffer>): BrushLibrary {
     return this.mutate(()=> {
+      this.ensureCapacity([...assets.values()].reduce((sum,bytes)=>sum+bytes.length,0))
       const next=merge(this.library('owners',owner),library)
       const total=next.assets.reduce((sum,a)=>sum+a.size*a.size,0)
       if (total>512*1024*1024) throw Error('Brush storage quota exceeded')
       for (const [hash,bytes] of assets) {
         if (keyBytes(bytes)!==hash) throw Error('Corrupt brush asset')
         const path=join(this.root,'assets',hash+'.bin')
-        try { writeFileSync(path,bytes,{flag:'wx',mode:0o600}) } catch(e) { if ((e as NodeJS.ErrnoException).code!=='EEXIST') throw e; if (!boundedRead(path,bytes.length).equals(bytes)) throw Error('Immutable asset conflict') }
+        try { const fd=openSync(path,constants.O_CREAT|constants.O_EXCL|constants.O_WRONLY,0o600);try {writeFileSync(fd,bytes);fsyncSync(fd)} finally {closeSync(fd)} } catch(e) { if ((e as NodeJS.ErrnoException).code!=='EEXIST') throw e; if (!boundedRead(path,bytes.length).equals(bytes)) throw Error('Immutable asset conflict') }
       }
       this.atomic(this.path('owners',owner),next); return next
     })
