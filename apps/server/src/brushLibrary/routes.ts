@@ -33,6 +33,7 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
   })
   const jobs=new Map<string,{ owner: string; job: BrushImportJob }>()
   const queue: Array<()=>Promise<void>>=[]
+  const pendingOwners=new Set<string>()
   let running=false
   async function drain(): Promise<void> {
     if (running) return; running=true
@@ -55,6 +56,9 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
   apiRoute(app,'POST /api/brush-library/imports',{bodyLimit:MAX_UPLOAD},async(request,reply)=> {
     if(closing) return reply.code(503).send({error:'Server shutting down'})
     if(!root) return reply.code(503).send({error:'Brush uploads are not configured'})
+    if(pendingOwners.has(request.userId) || new Set([...pendingOwners,...[...jobs.values()].map(value=>value.owner)]).size>=5) return reply.code(429).send({error:'Brush upload queue full'})
+    pendingOwners.add(request.userId)
+    try {
     const header=request.headers['x-brush-filename']
     let filename=''
     try { filename=typeof header==='string' ? decodeURIComponent(header) : '' } catch { return reply.code(400).send({error:'Invalid brush filename'}) }
@@ -109,6 +113,7 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
     })
     if(!running) drainTask=drain()
     return reply.code(202).send({...job})
+    } finally {pendingOwners.delete(request.userId)}
   })
   apiRoute(app,'GET /api/brush-library/imports/:id',async(request,reply)=> {
     try {
