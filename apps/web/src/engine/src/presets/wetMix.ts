@@ -10,9 +10,9 @@ const clamp = (n: number): number => Math.max(0, Math.min(1, n))
  * It is carried pigment, not a physical fluid simulation or a wall-clock timer. */
 export function wetMixStep(wet: NonNullable<BrushBehavior['wetMix']>, state: WetMixState, dab: Dab, travel: number, priming: boolean, logical?: BrushBehaviorState): WetMixStep {
   const random = (i: number): number => brushDabRandom(brushDabSeed(dab.x,dab.y,dab.pressure),i)
-  const dynamic=(key:'dilution'|'attack'|'pull'|'grade'|'blur'):number=>(wet.dynamics?.[key]??[]).reduce((n,d,i)=>n*brushDynamicValue(d,dab,logical??state.behavior??beginBrushBehavior(dab),random(90+i)),wet[key])
+  const dynamic=(key:'dilution'|'attack'|'pull'|'blur'):number=>(wet.dynamics?.[key]??[]).reduce((n,d,i)=>n*brushDynamicValue(d,dab,logical??state.behavior??beginBrushBehavior(dab),random(90+i)),wet[key])
   const water = clamp(dynamic('dilution') + (random(81)*2-1)*wet.wetnessJitter)
-  const retention=priming ? 1 : Math.exp(-Math.max(0,travel)*(0.05+dynamic('grade')*1.95))
+  const retention=priming ? 1 : Math.exp(-Math.max(0,travel)*0.05)
   if (priming) state.charge = wet.charge
   else state.charge *= retention
   return {

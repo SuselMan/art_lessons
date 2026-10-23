@@ -239,6 +239,7 @@ def procreate_component(z,names,prefix,catalog,notes):
     warnings=[]
     mask=catalog.asset(Image.open(io.BytesIO(z.read(prefix+'Shape.png'))),warnings,bool(settings.get('shapeInverted')))
     d=descriptor(raw,mask)
+    d['version']=5
     d['spacing']=clamp(settings.get('plotSpacing',0.1),0.000001,2)
     d['opacity']=clamp(settings.get('maxOpacity',1));d['flow']=clamp(settings.get('dynamicsGlazedFlow',1))
     d['tip']['angle']=clamp(settings.get('shapeAngle'),-1,1)*math.pi
@@ -259,11 +260,10 @@ def procreate_component(z,names,prefix,catalog,notes):
     behavior['rendering']={'mode':'intenseBlend' if settings.get('renderingRecursiveMixing') else 'uniformBlend' if settings.get('renderingMaxTransfer') else 'lightGlaze','blendMode':procreate_blend(settings.get('extendedBlend',settings.get('blendMode',0)),notes,'blendMode'),'wetEdges':clamp(settings.get('wetEdgesAmount')),'burntEdges':clamp(settings.get('burntEdgesAmount')),'burntEdgesMode':procreate_blend(settings.get('burntEdgesBlendMode',1),notes,'burntEdgesBlend','multiply'), 'luminance':bool(settings.get('blendLuminance')),'gammaCorrect':bool(settings.get('blendGammaCorrect'))}
     wet={'dilution':'dynamicsMix','charge':'dynamicsLoad','attack':'dynamicsAttack','pull':'dynamicsWetAccumulation','grade':'dynamicsGradation','blur':'dynamicsBlur','blurJitter':'dynamicsBlurJitter','wetnessJitter':'dynamicsWetnessJitter'}
     if any(number(settings.get(k)) for k in wet.values()) or settings.get('renderingRecursiveMixing'):
-        behavior['wetMix']={k:clamp(settings.get(v)) for k,v in wet.items()}
-        behavior['wetMix']['blur']=max(behavior['wetMix']['blur'],clamp(settings.get('dynamicsMixSoftening')))
+        behavior['wetMix']={k:clamp(settings.get(v),-1 if k=='grade' else 0,1) for k,v in wet.items()}
         wet_dynamics={}
-        for target,key,control in [('dilution','dynamicsPressureMix','pressure'),('pull','dynamicsPressureBleed','pressure'),('grade','dynamicsTiltGradation','tilt')]:
-            if number(settings.get(key)):
+        for target,key,control in [('dilution','dynamicsPressureMix','pressure')]:
+            if number(settings.get(key)) and number(settings.get('dynamicsMix'))>0:
                 wet_dynamics[target]=[{'control':control,'strength':clamp(settings[key],-1,1),'minimum':0,'jitter':0}]
         if wet_dynamics: behavior['wetMix']['dynamics']=wet_dynamics
         # Wet parameters execute only in the mixer path. Even dilution/charge-only
@@ -272,7 +272,17 @@ def procreate_component(z,names,prefix,catalog,notes):
         d['mixer']={'load':clamp(settings.get('dynamicsLoad',1)),
             'pickup':clamp(settings.get('dynamicsWetAccumulation')),
             'strength':clamp(settings.get('dynamicsAttack',1))}
+        notes.append(compatibility('wetMixGrade','Grade adjusts grain contrast, independently of pigment exhaustion; source texture response remains approximate.'))
         notes.append(compatibility('wetMix','Active wet mix or recursive blending selects Grafetto mixer. Charge/pull/attack are approximated as load/pickup/strength; pigment formulas and rendering-mode transfer require reference strokes.'))
+    if number(settings.get('dynamicsPressureMix')) and not number(settings.get('dynamicsMix')):
+        notes.append(compatibility('dynamicsPressureMix','Pressure-only dilution transfer is unknown without base dilution; not silently enabled as an inert control.','unsupported'))
+    if number(settings.get('dynamicsTiltBleed')) and number(settings.get('bleedTiltAngle')):
+        notes.append(compatibility('bleedTiltAngle','Saved tilt activation threshold requires calibration; current edge model uses normalized recorded tilt.','unsupported'))
+    if number(settings.get('dynamicsPressureBleed')) or number(settings.get('dynamicsTiltBleed')):
+        behavior['edgeBleed']={'pressure':clamp(settings.get('dynamicsPressureBleed'),-1,1),'tilt':clamp(settings.get('dynamicsTiltBleed'),-1,1)}
+        curve=pressure_curve({**settings,'dynamicsPressureBleed':1},'dynamicsPressureBleed')
+        behavior['edgeBleed']['pressureCurve']=curve
+        notes.append(compatibility('edgeBleed','Pressure/tilt Bleed softens shape coverage independently of Pull, Blur and Wet Edges. Bounded 9-tap edge diffusion is a Grafetto approximation; Procreate kernel and tilt threshold require reference calibration.'))
     behavior['taper']={'start':clamp(settings.get('pencilTaperStartLength')),'end':clamp(settings.get('pencilTaperEndLength')),'size':clamp(settings.get('pencilTaperSize')),'opacity':clamp(settings.get('pencilTaperOpacity')),'pressure':True}
     notes.append(compatibility('spacing','Small source spacing retained; runtime enforces a pixel budget and archive spacing scale is not fully documented.'))
     notes.append(compatibility('rendering','Rendering modes, edge effects and taper use Grafetto algorithms, not Procreate formulas.'))
@@ -287,14 +297,16 @@ def procreate_component(z,names,prefix,catalog,notes):
     if modulations:
         behavior['modulations']=modulations
         notes.append(compatibility('penDynamics','Signed tilt/speed size, opacity, flow, roundness and grain depth execute together. Normalized input curves and angle thresholds require reference calibration.'))
-    active=[k for k,v in settings.items() if k.startswith('dynamicsTilt') and number(v) and not k.endswith(('Minimum','Angle')) and k not in mod_mapped and k != 'dynamicsTiltGradation']
+    active=[k for k,v in settings.items() if k.startswith('dynamicsTilt') and number(v) and not k.endswith(('Minimum','Angle')) and k not in mod_mapped and k != 'dynamicsTiltBleed']
     if active: notes.append(compatibility('tilt',', '.join(sorted(active)),'unsupported'))
     if settings.get('blendGammaCorrect'): notes.append(compatibility('blendGammaCorrect','sRGB linear-light compositing enabled; Procreate working colour-profile differences require reference calibration.'))
     if settings.get('dynamicsFalloff'): behavior['falloff']=clamp(settings['dynamicsFalloff'])
     if settings.get('dynamicsPressureSmoothing'): d['pressureSmoothingPx']=clamp(settings['dynamicsPressureSmoothing'])*32
-    if settings.get('dynamicsMixSoftening') or settings.get('dynamicsFalloff') or settings.get('dynamicsPressureSmoothing'):
-        notes.append(compatibility('strokeResponse','Mix softening uses bounded pigment blur; falloff is distance-driven; pressure smoothing uses the common spatial filter. Source transfer scales require reference calibration.'))
-    mapped={'dynamicsMixSoftening','dynamicsFalloff','dynamicsPressureSmoothing','dynamicsPressureMix','dynamicsPressureBleed','dynamicsTiltGradation','dynamicsJitterSize','dynamicsJitterOpacity','dynamicsPressureSize','dynamicsPressureOpacity','dynamicsGlazedFlow',*wet.values(),*mod_mapped}
+    if settings.get('dynamicsMixSoftening'): notes.append(compatibility('dynamicsMixSoftening','Source transfer function is unknown; not substituted for Blur.','unsupported'))
+    if settings.get('renderingModulatedTransfer'): notes.append(compatibility('renderingModulatedTransfer','Modulated rendering transfer is not yet calibrated.','unsupported'))
+    if settings.get('dynamicsFalloff') or settings.get('dynamicsPressureSmoothing'):
+        notes.append(compatibility('strokeResponse','Falloff is distance-driven; pressure smoothing uses the common spatial filter. Source transfer scales require reference calibration.'))
+    mapped={'dynamicsMixSoftening','dynamicsFalloff','dynamicsPressureSmoothing','dynamicsPressureMix','dynamicsPressureBleed','dynamicsTiltBleed','dynamicsJitterSize','dynamicsJitterOpacity','dynamicsPressureSize','dynamicsPressureOpacity','dynamicsGlazedFlow',*wet.values(),*mod_mapped}
     unknown=[k for k,v in settings.items() if (k.startswith('dynamics') or k in ('jitterSecondary','jitterStrokeSecondary','plotJitterLinear','plotSpacingJitter','dynamicsFalloff')) and k not in mapped and not k.endswith(('Minimum','Angle','Curve')) and number(v)!=0 and not k.startswith('dynamicsTilt')]
     if unknown: notes.append(compatibility('activeUnmapped',', '.join(sorted(unknown)),'unsupported'))
     d['behavior']=behavior

@@ -1,9 +1,13 @@
-import { BRUSH_BLEND_GLSL } from './brushBehaviorShaders'
+import { BRUSH_BLEND_GLSL, BRUSH_EDGE_BLEED_GLSL } from './brushBehaviorShaders'
 
 /** Shared pickup/transfer programs for the stump and all mixer brushes. */
 export const WET_PICKUP_FRAG = `
   precision highp float;
 
+  uniform float u_gatherEnabled;
+  uniform vec2 u_gatherRect;
+  uniform vec4 u_gatherTile;
+  uniform float u_gatherScale;
   uniform sampler2D u_patch;    // canvas patch under this dab (premultiplied)
   uniform sampler2D u_carried;  // the imprint as of the previous dab, same normalized square
   uniform float u_wetRetention; uniform float u_wetBlur; uniform vec2 u_wetTexel; uniform float u_rate;         // 0..1 — how much of the imprint this dab refreshes (1 = prime it outright)
@@ -23,6 +27,13 @@ export const WET_PICKUP_FRAG = `
   varying vec2 v_uv;
 
   void main() {
+    if(u_gatherEnabled>0.5) {
+      vec2 world=u_gatherRect+vec2(gl_FragCoord.x,-gl_FragCoord.y)*u_gatherScale;
+      vec2 p=world-u_gatherTile.xy;
+      if(p.x<0.0 || p.y<0.0 || p.x>=u_gatherTile.z || p.y>=u_gatherTile.w) discard;
+      gl_FragColor=texture2D(u_patch,vec2(p.x/u_gatherTile.z,1.0-p.y/u_gatherTile.w));
+      return;
+    }
     // Straight per-texel refresh, blending disabled by the caller: this
     // writes the imprint's new value outright, it does not accumulate onto
     // the previous one (the previous one is an input here, u_carried).
@@ -100,7 +111,9 @@ export const WET_TRANSFER_FRAG = `
    float rank=16.0*wetRank2(mod(p,2.0))+4.0*wetRank2(mod(floor(p/2.0),2.0))+wetRank2(floor(p/4.0));
    return (rank+0.5)/64.0;
  }
+ uniform float u_edgeBleed;
  ${BRUSH_BLEND_GLSL}
+ ${BRUSH_EDGE_BLEED_GLSL}
  float wetGrainBlend(float b,float s,float m) { return brushBlend(vec3(b),vec3(s),m).r; }
  void main() {
     // Circular only (v1) — DAB_VERT always sets u_aspectRatio=1/u_angle=0
@@ -108,13 +121,14 @@ export const WET_TRANSFER_FRAG = `
     // exactly the unit-circle-space DAB_FRAG's own uv would be for a
     // circular dab; no aspect-ratio divide needed here.
     float dist = length(v_localUV);
-    if ((u_wetEnabled < 0.5 || u_tipKind < 0.5) && dist > 1.0) discard;
+    if ((u_wetEnabled < 0.5 || u_tipKind < 0.5) && dist > 1.0 && u_edgeBleed<=0.0) discard;
 
     float innerEdge = u_hardness * 0.85;
     float shape = 1.0 - smoothstep(innerEdge, 1.0, dist);
     shape *= 1.0 - exp(-8.0 * (1.0 - dist));
  if (u_wetEnabled > 0.5) {
    if (u_tipKind > 0.5) shape = texture2D(u_tip,v_localUV*u_flip*0.5+0.5).a;
+   if(u_edgeBleed>0.0) shape=brushEdgeBleed(u_tip,v_localUV,u_tipKind,u_hardness,u_flip,1.0,u_edgeBleed,0.004);
    if (u_dualKind > 0.5) {
      vec2 uv=v_localUV*u_dualTransform.xy;
      uv=mat2(u_dualTransform.z,-u_dualTransform.w,u_dualTransform.w,u_dualTransform.z)*uv;
@@ -128,7 +142,7 @@ export const WET_TRANSFER_FRAG = `
    vec2 guv = (world + u_grainTransform.xy)/u_grainPeriod;
    guv = mat2(u_grainTransform.z,-u_grainTransform.w,u_grainTransform.w,u_grainTransform.z)*guv;
    float grain = texture2D(u_wetGrain,fract(guv)).a;
-   grain = clamp((grain-0.5)*(1.0+u_grainTone.y*3.0)+0.5+u_grainTone.x,0.0,1.0);
+   grain = clamp((grain-0.5)*max(0.0,1.0+u_grainTone.y*3.0)+0.5+u_grainTone.x,0.0,1.0);
    shape = mix(shape,wetGrainBlend(shape,grain,u_grainBlend),u_grainStrength);
  }
 
@@ -177,7 +191,6 @@ export const WET_TRANSFER_FRAG = `
       // Mixer has a sequential carried imprint rather than stroke coverage.
       // These density/edge equations approximate the same rendering controls.
       float edge=shape*(1.0-shape)*4.0;
-      amount *= 1.0 + u_wetRender.x*edge;
       float density=u_wetRender.z<0.5?0.5:u_wetRender.z<1.5?0.8:u_wetRender.z<2.5?1.5:u_wetRender.z<3.5?2.5:u_wetRender.z<4.5?0.9:u_wetRender.z<5.5?1.8:1.0;
       amount=1.0-pow(1.0-clamp(amount,0.0,1.0),density);
       vec4 base=texture2D(u_wetOriginal,puv);

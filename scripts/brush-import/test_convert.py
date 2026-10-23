@@ -206,6 +206,20 @@ class WetRoutingTests(unittest.TestCase):
                 self.assertEqual(set(d['mixer']),{'load','pickup','strength'})
                 self.assertTrue(all(0<=v<=1 for v in d['mixer'].values()))
                 self.assertTrue(any(n['feature']=='wetMix' and n['status']=='approximate' for n in c.brushes[0]['compatibility']))
+    def test_bleed_is_shape_response_and_never_pull(self):
+        for wet in [False,True]:
+            with tempfile.TemporaryDirectory() as tmp:
+                path=Path(tmp)/'edge.brush';image=io.BytesIO();Image.new('L',(2,2),255).save(image,format='PNG')
+                settings={'dynamicsPressureBleed':.8,'dynamicsTiltBleed':.4,'dynamicsPressureBleedCurve':{'points':['{0, 0}','{0.5, 0.2}','{1, 1}']}}
+                if wet:settings.update(dynamicsWetAccumulation=.6,dynamicsLoad=.8,dynamicsGradation=-.4)
+                with zipfile.ZipFile(path,'w') as z:z.writestr('Brush.archive',plistlib.dumps(settings));z.writestr('Shape.png',image.getvalue())
+                c=convert.Catalog(Path(tmp)/'out');convert.procreate(path,c);d=c.brushes[0]['descriptor'];b=d['behavior']
+                self.assertEqual(d['version'],5)
+                self.assertEqual(b['edgeBleed'],{'pressure':.8,'tilt':.4,'pressureCurve':[[0,0],[.5,.2],[1,1]]})
+                if wet:
+                    self.assertEqual(b['wetMix']['pull'],.6);self.assertNotIn('pull',b['wetMix'].get('dynamics',{}));self.assertEqual(b['wetMix']['grade'],-.4)
+                else:self.assertNotIn('wetMix',b);self.assertEqual(d['model'],'stamp')
+
     def test_dry_procreate_preserves_stamp_route(self):
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/'dry.brush';image=io.BytesIO();Image.new('L',(2,2),255).save(image,format='PNG')

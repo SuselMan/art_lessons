@@ -39,6 +39,9 @@ export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescrip
   return result
 }
 export interface BehaviorStamp extends BrushStamp {
+  wetGrade: number
+  edgeSoftness: number
+  bleed: number
   opacityScale: number
   grainDepth: number
   flipX: number
@@ -160,6 +163,11 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   // The end taper is supplied by the painter at logical finish, independent of batches.
   if (t?.pressure && t.end > 0)
     taper *= clamp(dab.pressure / Math.max(0.001, t.end))
+  const edge=behavior?.edgeBleed
+  const edgeControl=(amount:number,value:number):number=>Math.abs(amount)*(amount<0 ? 1-value : value)
+  const bleed=edge ? clamp(edgeControl(edge.pressure,edge.pressureCurve?curveAt(edge.pressureCurve,dab.pressure):dab.pressure)+edgeControl(edge.tilt,clamp(tilt/(Math.PI/2)))) : 0
+  const wetGrade=(behavior?.wetMix?.dynamics?.grade??[]).reduce((value,control,i)=>value*brushDynamicValue(control,directionalDab,state,rand(100+i)),behavior?.wetMix?.grade??0)
+  const edgeSoftness=1-(1-bleed)*(1-(behavior?.rendering?.wetEdges ?? 0)*.5)
   const sizeScale = dynamic('size', 14) * (t ? 1 - t.size * (1 - taper) : 1)
   const opacityScale = dynamic('opacity', 15) * (t ? 1 - t.opacity * (1 - taper) : 1)
   const out = brushStampsForDab(configured, { ...dab, angle, size: dab.size * sizeScale }).map((stamp, i): BehaviorStamp => {
@@ -172,7 +180,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
     const roundness = Math.max(0.02, dynamic('roundness', 20 + i * 8) * (1 - (behavior?.scatter?.roundnessJitter ?? 0) * rand(21 + i * 8)))
     const hasColor = behavior?.dynamics?.hue || behavior?.dynamics?.saturation || behavior?.dynamics?.brightness
     return {
-      ...stamp, x, y, aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
+      ...stamp, x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
       flowScale: stamp.flowScale * curveAt(brush.flowByPressure, dab.pressure) * dynamic('flow', 22 + i * 8) * Math.exp(-state.distance*(behavior?.falloff??0)*4),
       opacityScale, grainDepth: dynamic('grainDepth', 23 + i * 8),
       flipX: rotation?.flipX && rand(24 + i * 8) < 0.5 ? -1 : 1,

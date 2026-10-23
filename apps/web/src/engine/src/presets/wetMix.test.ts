@@ -15,8 +15,8 @@ describe('distance-driven wet pigment state',()=>{
  })
  it('exhausts finite pigment with distance, independently of sample count',()=>{
   const once={charge:0.8},many={charge:0.8}
-  wetMixStep(wet,once,dabs[1],10,false)
-  for(let i=0;i<100;i++)wetMixStep(wet,many,dabs[1],0.1,false)
+  wetMixStep(wet,once,dabs[1],200,false)
+  for(let i=0;i<100;i++)wetMixStep(wet,many,dabs[1],2,false)
   expect(many.charge).toBeCloseTo(once.charge,12)
   expect(once.charge).toBeLessThan(0.001)
   const empty={charge:0}
@@ -35,13 +35,13 @@ describe('distance-driven wet pigment state',()=>{
   expect(low.load).toBeCloseTo(high.load/4)
   expect(low.strength).toBe(high.strength)
  })
- it('dilution weakens pigment, attack controls transfer and grade controls exhaustion',()=>{
+ it('dilution weakens pigment, attack controls transfer and grade does not change pigment exhaustion',()=>{
   const prime=(changes:Partial<typeof wet>)=>wetMixStep({...wet,wetnessJitter:0,...changes},{charge:1},dabs[0],0,true)
   expect(prime({dilution:1}).load).toBeLessThan(prime({dilution:0}).load)
   expect(prime({attack:1}).strength).toBeGreaterThan(prime({attack:0}).strength)
   const soft={charge:0.8},hard={charge:0.8}
   wetMixStep({...wet,grade:0},soft,dabs[1],1,false);wetMixStep({...wet,grade:1},hard,dabs[1],1,false)
-  expect(hard.charge).toBeLessThan(soft.charge)
+  expect(hard.charge).toBe(soft.charge)
  })
  it('jitter is bounded and tied to recorded dabs, never frame or clock',()=>{
   const steps=dabs.map(d=>wetMixStep(wet,{charge:1},d,0,true))

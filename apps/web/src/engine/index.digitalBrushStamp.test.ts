@@ -195,10 +195,12 @@ describe('digital watercolor (#579)', () => {
     return brushDraws(engine).find(d => d.kind === 'composite')!.uniforms
   }
 
-  it('hands the composite its wet edge, blooms, grain and glaze', () => {
+  it('keeps optical blooms and glaze separate from stamp-edge softening', () => {
     const u = composite('wet-wash')
-    expect(u.get('u_wetEdge') as number).toBeGreaterThan(0)
-    expect(u.get('u_edgePx') as number).toBeGreaterThan(0)
+    const engine=setupLayer()
+    engine.appendOperation(makeStroke('user-a','L',line(.8,40),{tool:'digitalBrush',preset:current('wet-wash')}))
+    expect(stamps(engine)[0].get('u_edgeBleed') as number).toBeGreaterThan(0)
+    expect(u.get('u_edgePx')).toBe(0)
     expect((u.get('u_surface') as number[])[1]).toBeGreaterThan(0)
     expect(u.get('u_blend')).toBe(1)
   })
@@ -210,7 +212,7 @@ describe('digital watercolor (#579)', () => {
     engine.appendOperation(makeStroke('user-a', 'L', line(0.8, 40), { tool: 'digitalBrush', preset: current('wet-wash') }))
     engine.appendOperation(makeStroke('user-a', 'L', line(0.8, 40), { tool: 'digitalBrush', preset: current('hard-round') }))
     const last = brushDraws(engine).filter(d => d.kind === 'composite').at(-1)!.uniforms
-    expect(last.get('u_wetEdge')).toBe(0)
+    expect(stamps(engine).at(-1)!.get('u_edgeBleed')).toBe(0)
     expect(last.get('u_surface')).toEqual([0,0,0,0])
     expect(last.get('u_blend')).toBe(0)
   })
@@ -218,13 +220,13 @@ describe('digital watercolor (#579)', () => {
   it('retains old wet preset parameters in the common compositor', () => {
     const engine = setupLayer()
     engine.appendOperation(makeStroke('user-a', 'L', line(0.8, 40), { tool: 'digitalBrush', preset: 'brush:wet-wash@1' }))
-    expect(brushDraws(engine).find(d => d.kind === 'composite')!.uniforms.get('u_wetEdge') as number).toBeGreaterThan(0)
+    expect(stamps(engine)[0].get('u_edgeBleed') as number).toBeGreaterThan(0)
   })
 
   it('retains blooms and feathering in the common optical parameters', () => {
     expect((composite('wet-wash').get('u_surface') as number[])[2]).toBeGreaterThan(0)
     expect((composite('wet-on-wet').get('u_surface') as number[])[3]).toBeGreaterThan(0)
-    expect(composite('wet-on-wet').get('u_wetEdge')).toBe(0)
+    expect(composite('wet-on-wet').get('u_burntEdge')).toBe(0)
   })
 
   it('covers rather than glazes with gouache', () => {

@@ -41,6 +41,27 @@ describe('v2 logical brush state', () => {
     expect(brushDynamicValue({control:'tiltX',minimum:0,jitter:0}, {...input,tiltX:-90},chunk,0)).toBe(0)
     expect(brushDynamicValue({control:'tiltY',minimum:0,jitter:0}, {...input,tiltY:90},chunk,0)).toBe(1)
   })
+  it('controls Bleed independently from flow, opacity and wet colour pickup', () => {
+    const base:BrushDescriptor={...brush,scatter:undefined,flowByPressure:[[0,1],[1,1]],behavior:{version:2}}
+    const edge:BrushDescriptor={...base,behavior:{version:2,edgeBleed:{pressure:1,tilt:0,pressureCurve:[[0,0],[.5,.25],[1,1]]}}}
+    const stamp=(b:BrushDescriptor,p:number)=>{const d={...dabs[0],pressure:p,tiltX:0,tiltY:0};return behaviorStampsForDab(b,d,beginBrushBehavior(d),color)[0]}
+    expect(stamp(edge,0)).toEqual(stamp(base,0))
+    const high=stamp(edge,1),dry=stamp(base,1)
+    expect(high.bleed).toBe(1);expect(stamp(edge,.5).bleed).toBe(.25)
+    expect(high.size).toBeCloseTo(dry.size*1.15)
+    expect(high.flowScale).toBe(dry.flowScale);expect(high.opacityScale).toBe(dry.opacityScale)
+    expect(high.color).toEqual(dry.color)
+    expect(isBrushBehavior(edge.behavior)).toBe(true)
+    expect(isBrushBehavior({version:2,edgeBleed:{pressure:NaN,tilt:0}})).toBe(false)
+    expect(isBrushBehavior({version:2,edgeBleed:{pressure:1,tilt:0,pressureCurve:[[0,0],[0,1]]}})).toBe(false)
+  })
+  it('uses wet Grade controls for grain contrast without changing charge', () => {
+    const d={...dabs[0],pressure:.5}
+    const b:BrushDescriptor={...brush,behavior:{version:2,wetMix:{charge:.8,dilution:0,attack:1,pull:0,grade:-.6,blur:0,blurJitter:0,wetnessJitter:0,dynamics:{grade:[{control:'pressure',minimum:0,jitter:0}]}}}}
+    const state=beginBrushBehavior(d)
+    expect(behaviorStampsForDab(b,d,state,color)[0].wetGrade).toBeCloseTo(-.3)
+    expect(state.charge).toBe(1)
+  })
   it('uses one random rotation for the gesture, and independent random rotations for stamps', () => {
     const fixed = { ...brush, scatter: undefined, behavior: { version: 2 as const, rotation: { follow: 0, random: 'stroke' as const } } }
     const state = beginBrushBehavior(dabs[0])

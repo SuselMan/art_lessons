@@ -17,6 +17,8 @@ export interface BrushDynamic {
 export type BrushDynamicTarget = 'size' | 'angle' | 'roundness' | 'scatter' | 'count' | 'flow' | 'opacity' | 'hue' | 'saturation' | 'brightness' | 'grainDepth'
 export interface BrushBehavior {
   version: 2
+  /** Independent shape-edge softening; never controls canvas colour pickup. */
+  edgeBleed?: { pressure: number; tilt: number; pressureCurve?: [number, number][] }
   erase?: boolean
   falloff?: number
   rotation?: { follow: number; random: 'none' | 'stroke' | 'stamp'; flipX?: boolean; flipY?: boolean; azimuth?: boolean; projection?: boolean }
@@ -59,13 +61,15 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const n = (v: unknown, min = 0, max = 1): boolean => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max
   const keys = (v: Record<string, unknown>, allowed: string[]): boolean => Object.keys(v).every(k => allowed.includes(k))
   const blend = (v: unknown): boolean => BRUSH_BLEND_MODES.includes(v as BrushBlendMode)
-  if (!obj(value) || value.version !== 2 || !keys(value,['version','erase','falloff','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
+  if (!obj(value) || value.version !== 2 || !keys(value,['version','edgeBleed','erase','falloff','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
   if(value.erase !== undefined && typeof value.erase !== 'boolean') return false
   if(value.falloff !== undefined && !n(value.falloff)) return false
   const r=value.rotation
   if (r !== undefined && (!obj(r) || !keys(r,['follow','random','flipX','flipY','azimuth','projection']) || !n(r.follow,-1,1) || !['none','stroke','stamp'].includes(String(r.random)) || ['flipX','flipY','azimuth','projection'].some(k => r[k] !== undefined && typeof r[k] !== 'boolean'))) return false
   const s=value.scatter
   if (s !== undefined && (!obj(s) || !keys(s,['countJitter','bothAxes','roundnessJitter']) || !n(s.countJitter) || typeof s.bothAxes !== 'boolean' || (s.roundnessJitter !== undefined && !n(s.roundnessJitter)))) return false
+  const edge=value.edgeBleed
+  if (edge !== undefined && (!obj(edge) || !keys(edge,['pressure','tilt','pressureCurve']) || !n(edge.pressure,-1,1) || !n(edge.tilt,-1,1) || (edge.pressureCurve !== undefined && !isBrushBehavior({version:2,dynamics:{size:{control:'pressure',minimum:0,jitter:0,curve:edge.pressureCurve}}})))) return false
   const d=value.dynamics
   if (d !== undefined && (!obj(d) || !keys(d,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth']) || !Object.values(d).every(v => obj(v) && keys(v,['control','jitter','minimum','fade','strength','curve']) && ['off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth'].includes(String(v.control)) && n(v.jitter) && n(v.minimum) && (v.fade === undefined || n(v.fade,0.001,100000)) && (v.strength === undefined || n(v.strength,-1,1)) && (v.curve === undefined || (Array.isArray(v.curve) && v.curve.length >= 2 && v.curve.length <= 256 && v.curve.every((point, i, points) => Array.isArray(point) && point.length === 2 && n(point[0]) && n(point[1]) && (i === 0 || point[0] > (points[i-1] as number[])[0]))))))) return false
   const mod=value.modulations
@@ -76,7 +80,7 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   if (render !== undefined && (!obj(render) || !keys(render,['mode','blendMode','wetEdges','burntEdges','burntEdgesMode','luminance','gammaCorrect']) || !['lightGlaze','uniformGlaze','intenseGlaze','heavyGlaze','uniformBlend','intenseBlend','buildUp'].includes(String(render.mode)) || !blend(render.blendMode) || !n(render.wetEdges) || !n(render.burntEdges) || !blend(render.burntEdgesMode) || (['luminance','gammaCorrect'].some(k => render[k] !== undefined && typeof render[k] !== 'boolean')))) return false
   const w=value.wetMix
   const wetKeys=['dilution','charge','attack','pull','grade','blur','blurJitter','wetnessJitter']
-  if (w !== undefined && (!obj(w) || !keys(w,[...wetKeys,'dynamics']) || !wetKeys.every(k => n(w[k])))) return false
+  if (w !== undefined && (!obj(w) || !keys(w,[...wetKeys,'dynamics']) || !wetKeys.every(k => n(w[k],k==='grade'?-1:0,1)))) return false
   if (obj(w) && w.dynamics !== undefined && (!obj(w.dynamics) || !keys(w.dynamics,['dilution','attack','pull','grade','blur']) || !Object.values(w.dynamics).every(list=>Array.isArray(list)&&list.length<=4&&list.every(v=>isBrushBehavior({version:2,dynamics:{size:v}}))))) return false
   const t=value.taper
   if (t !== undefined && (!obj(t) || !keys(t,['start','end','size','opacity','pressure']) || !n(t.start) || !n(t.end) || !n(t.size) || !n(t.opacity) || typeof t.pressure !== 'boolean')) return false

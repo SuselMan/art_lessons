@@ -62,4 +62,50 @@ in this importer. Non-product combinations are reported rather than silently mul
 [KoCompositeOpRegistry.h](https://github.com/KDE/krita/blob/master/libs/pigment/KoCompositeOpRegistry.h) provides native blend IDs, including spaces in `linear light`, `hard mix`, `darker color` and `lighter color`.
 Scatter radius is bounded to the shared limit4, with source distribution/axis orientation
 reported as approximate. Krita descriptor version4 distinguishes this conversion;
-other format converters remain rendering version3.
+ABR remains rendering version3; the subsequent Procreate audit uses version5.
+
+
+## Procreate edge audit, 24.10.2026, rendering5
+
+Official [Apple Pencil Bleed, Rendering and Wet Mix descriptions](https://help.procreate.com/procreate/handbook/5.3/brushes/brush-studio-settings)
+distinguish four controls. Pressure/tilt Bleed changes shape edges; Wet Edges softens
+coverage; Blur filters paint; Pull carries existing canvas pigment. Grade controls
+texture chunkiness/contrast. No published Procreate edge kernel was found. Freya
+explicitly leaves these controls unsupported; it is evidence of field names, not
+of formulas. In particular MixSoftening is not evidence for a Blur alias.
+
+Rendering5 preserves pressure Bleed curves and tilt amount in `behavior.edgeBleed`,
+independently of pickup. A normalized, bounded9-tap filter softens shape coverage;
+15% geometry padding contains its support. Stamp AA and mixer falloff remain the
+same at zero radius, so epsilon Bleed does not switch to a different shape. The
+shared filter also approximates Wet Edges at the stamp stage, before accumulation;
+it is not a claim of Procreate whole-stroke filtering. Burnt Edges alone darkens
+pigment. The kernel never samples canvas colours or global simulation time.
+
+Blur remains a separate carried-pigment filter. MixSoftening and modulated transfer
+now produce explicit unsupported warnings instead of overriding Blur or silently
+losing a rendering flag. PressureMix without base dilution and saved Bleed tilt
+activation thresholds are explicitly uncalibrated; no invented source formula is
+claimed. Apple Pencil tilt Gradation is no longer mistaken for Wet Mix Grade.
+Grade is signed grain contrast, not pigment depletion. Neutral depletion retains
+the earlier Grade=0 exponential baseline0.05 per normalized travel; its transfer
+scale is still a Grafetto approximation awaiting reference strokes.
+
+Rotated quad bounds are shared by stamp and mixer. For a mixer footprint beyond
+512 world pixels, pickup gathers the complete world square into a texture bounded
+to512²; transfer maps it back using the world span. This trades imprint resolution,
+not brush extent. Both active samplers are bound to safe input during gathering,
+including reuse after zero-opacity dabs. Bilinear interpolation across source tile
+edges at reduced resolution can still differ from an untiled image; exact large
+imprint resampling parity is not claimed.
+
+The owner explicitly approved changing all pre-release brushes on23October: no
+users or published compatibility promise exist. Immutable descriptor metadata and
+assets are retained; the common engine semantics change for old tokens too. This
+is an intentional pre-release migration, not a hidden frozen-renderer/version gate.
+
+GPU proofs use transparent export alpha. Subtracting an opaque PNG from its paper
+background is not a coverage oracle: source-over retains a fraction of the local
+paper texture. The corrected alpha probe measures0/epsilon/.5/1 Bleed, round/bitmap,
+stamp/mixer and translated45° tile crossings. Vendor-reference comparison remains
+pending; the prepared four-brush sheet is an input for it, not proof of equivalence.

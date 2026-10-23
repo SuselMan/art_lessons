@@ -50,6 +50,31 @@ vec3 brushBlend(vec3 b, vec3 s, float mode) {
   return brushSetLum(b,brushLum(s));
 }
 `
+/** Bounded shape-only diffusion shared by stamp and carried-pigment transfer.
+ * The geometry includes a 15% pad at full bleed; no canvas colour is sampled. */
+export const BRUSH_EDGE_BLEED_GLSL = `
+float brushEdgeSample(sampler2D tip,vec2 p,float kind,float hardness,vec2 flip,float alphaChannel,float aa) {
+  if(max(abs(p.x),abs(p.y))>=1.0) return 0.0;
+  if(kind<0.5) {
+    float dist=length(p);
+    if(dist>=1.0) return 0.0;
+    float stamp=1.0-smoothstep(min(hardness,1.0-aa),1.0,dist);
+    float wet=(1.0-smoothstep(hardness*0.85,1.0,dist))*(1.0-exp(-8.0*(1.0-dist)));
+    return mix(stamp,wet,alphaChannel);
+  }
+  vec4 sampleValue=texture2D(tip,p*flip*0.5+0.5);
+  return mix(sampleValue.r,sampleValue.a,alphaChannel);
+}
+float brushEdgeBleed(sampler2D tip,vec2 uv,float kind,float hardness,vec2 flip,float alphaChannel,float bleed,float aa) {
+  vec2 p=uv*(1.0+bleed*0.15);
+  float r=bleed*0.12, d=r*0.70710678;
+  float center=brushEdgeSample(tip,p,kind,hardness,flip,alphaChannel,aa);
+  float axial=brushEdgeSample(tip,p+vec2(r,0.0),kind,hardness,flip,alphaChannel,aa)+brushEdgeSample(tip,p-vec2(r,0.0),kind,hardness,flip,alphaChannel,aa)+brushEdgeSample(tip,p+vec2(0.0,r),kind,hardness,flip,alphaChannel,aa)+brushEdgeSample(tip,p-vec2(0.0,r),kind,hardness,flip,alphaChannel,aa);
+  float diag=brushEdgeSample(tip,p+vec2(d,d),kind,hardness,flip,alphaChannel,aa)+brushEdgeSample(tip,p-vec2(d,d),kind,hardness,flip,alphaChannel,aa)+brushEdgeSample(tip,p+vec2(d,-d),kind,hardness,flip,alphaChannel,aa)+brushEdgeSample(tip,p+vec2(-d,d),kind,hardness,flip,alphaChannel,aa);
+  return mix(center,center*0.5+axial/12.0+diag/24.0,bleed);
+}
+`
+
 export const BRUSH_STAMP_FRAG = `
   precision highp float;
 
@@ -84,6 +109,7 @@ export const BRUSH_STAMP_FRAG = `
   varying float v_radius;
 
 
+  uniform float u_edgeBleed;
   uniform float u_ceilingPass;
   uniform float u_ceilingFallback;
   uniform sampler2D u_previousCeiling;
@@ -103,13 +129,14 @@ export const BRUSH_STAMP_FRAG = `
   uniform float u_dualTexStrength;
   uniform vec4 u_dualTransform;
   ${BRUSH_BLEND_GLSL}
+  ${BRUSH_EDGE_BLEED_GLSL}
   void main() {
     float shape;
     if (u_tipKind < 0.5) {
       // Normalized radius: v_localUV is the dab's own frame, 1.0 at the
       // boundary, so this is scale-free and an ellipse comes out as one.
       float d = length(v_localUV);
-      if (d >= 1.0) discard;
+      if (d >= 1.0 && u_edgeBleed<=0.0) discard;
       // The ramp is a fraction of the *mark*, not an absolute width: a soft
       // 200px brush has to have a 200px-scale falloff. u_aaPx enters only as
       // the floor, so the hardest brush still antialiases.
@@ -122,6 +149,7 @@ export const BRUSH_STAMP_FRAG = `
       shape = texture2D(u_tip, v_localUV * u_flip * 0.5 + 0.5).r;
     }
 
+    if(u_edgeBleed>0.0) shape=brushEdgeBleed(u_tip,v_localUV,u_tipKind,u_hardness,u_flip,0.0,u_edgeBleed,clamp(u_aaPx*(1.0+u_edgeBleed*0.15)/max(v_radius,0.0001),0.004,0.9));
     if (u_dualKind > 0.5) {
       vec2 dualUV = v_localUV * u_dualTransform.xy;
       dualUV = mat2(u_dualTransform.z,-u_dualTransform.w,u_dualTransform.w,u_dualTransform.z)*dualUV;
@@ -160,7 +188,7 @@ export const BRUSH_STAMP_FRAG = `
 
       w = mat2(u_grainTransform.z,-u_grainTransform.w,u_grainTransform.w,u_grainTransform.z)*(w-u_texOrigin)+u_grainTransform.xy;
       float g = texture2D(u_texture, w / u_texPeriod).r;
-      g = clamp((g-0.5)*(1.0+u_grainTone.y*2.0)+0.5+u_grainTone.x,0.0,1.0);
+      g = clamp((g-0.5)*max(0.0,1.0+u_grainTone.y*2.0)+0.5+u_grainTone.x,0.0,1.0);
       // Same pressure-into-tooth rule as the paper above, on the brush's own
       // grain: a light touch catches only the high points.
       // Stays well above the bottom of the range even at full weight: a real
@@ -191,7 +219,6 @@ uniform vec2 u_resolution;
 uniform float u_opacity;
 uniform float u_blend;
 uniform float u_mode;
-uniform float u_wetEdge;
 uniform float u_burntEdge;
 uniform float u_burntBlend;
 uniform float u_edgePx;
@@ -246,12 +273,11 @@ void main() {
    coverage*=dotMask; pigment=vec3(0.0);
  }
  float edge=0.0;
- if(u_wetEdge+u_burntEdge>0.0) {
+ if(u_burntEdge>0.0) {
    vec2 e=vec2(u_edgePx)/u_resolution;
    float ring=texture2D(u_strokeCoverage,uv+vec2(e.x,0.0)).a+texture2D(u_strokeCoverage,uv-vec2(e.x,0.0)).a
      +texture2D(u_strokeCoverage,uv+vec2(0.0,e.y)).a+texture2D(u_strokeCoverage,uv-vec2(0.0,e.y)).a;
    edge=clamp((ink.a-ring*0.25)*3.0,0.0,1.0);
-   pigment*=1.0-u_wetEdge*edge*0.55;
    pigment=mix(pigment,brushBlend(pigment,pigment*0.5,u_burntBlend),u_burntEdge*edge);
  }
  if(u_luminance>0.5) coverage*=1.0-dot(pigment,vec3(0.2126,0.7152,0.0722));

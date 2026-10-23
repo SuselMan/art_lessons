@@ -17,6 +17,7 @@
 // restore as objects; forget() drops what they hold, because every GL name
 // in them is dead.
 
+import { brushFootprintBounds } from './brushFootprint'
 import { BRUSH_BLEND_MODES, type Dab } from '@grafetto/shared'
 import type { BrushDescriptor } from '@grafetto/shared'
 import { RibbonStrokeScratch } from '../buffers/RibbonStrokeScratch'
@@ -205,10 +206,10 @@ export class SmudgePainter {
       'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode', 'u_grainRelief',
       'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap',
-      'u_wetEnabled','u_tipKind','u_tip','u_wetGrain','u_grainStrength','u_grainPeriod','u_grainTransform','u_grainTone','u_wetRoundPhase','u_wetWorldOrigin','u_flip','u_grainBlend','u_dual','u_dualKind','u_dualBlend','u_dualTransform','u_wetOriginal','u_wetRender','u_wetBlend','u_burntBlend','u_wetGamma','u_secondaryCoverage','u_secondaryEnabled',
+      'u_edgeBleed','u_wetEnabled','u_tipKind','u_tip','u_wetGrain','u_grainStrength','u_grainPeriod','u_grainTransform','u_grainTone','u_wetRoundPhase','u_wetWorldOrigin','u_flip','u_grainBlend','u_dual','u_dualKind','u_dualBlend','u_dualTransform','u_wetOriginal','u_wetRender','u_wetBlend','u_burntBlend','u_wetGamma','u_secondaryCoverage','u_secondaryEnabled',
     ])
     this.pickupUni = getUniforms(gl, this.pickupProg, [
-      'u_patch', 'u_carried', 'u_rate', 'u_paint', 'u_paintLoad', 'u_alphaPickup', 'u_wetBlur','u_wetTexel','u_wetRetention',
+      'u_gatherEnabled','u_gatherRect','u_gatherTile','u_gatherScale','u_patch', 'u_carried', 'u_rate', 'u_paint', 'u_paintLoad', 'u_alphaPickup', 'u_wetBlur','u_wetTexel','u_wetRetention',
     ])
     this.transferPosLoc = gl.getAttribLocation(this.transferProg, 'a_position')
     this.pickupPosLoc   = gl.getAttribLocation(this.pickupProg, 'a_position')
@@ -440,11 +441,14 @@ export class SmudgePainter {
   private applyDab(target: ILayerBuffer, dab: Dab, travel: number, userId: string, paint?: MixerPaint, wet?: WetStamp): void {
     const radius = this.radiusOf(dab, paint)
     if (radius < 0.5) return
-    const reach = radius * Math.max(1,wet?.stamp.aspect ?? 1)
+    const footprint=brushFootprintBounds(dab.x,dab.y,radius,wet?.stamp.aspect ?? 1,wet?.stamp.angle ?? 0,1)
+    if(!footprint)return
+    const reach = Math.max(footprint.maxX-dab.x,footprint.maxY-dab.y)
     const patchWorld = Math.ceil(reach * 2)
-    const patchSize = Math.min(SMUDGE_MAX_PATCH_SIZE, Math.ceil(patchWorld / SMUDGE_PATCH_GRANULARITY) * SMUDGE_PATCH_GRANULARITY)
+    const patchSpan = Math.ceil(patchWorld / SMUDGE_PATCH_GRANULARITY) * SMUDGE_PATCH_GRANULARITY
+    const patchSize = Math.min(SMUDGE_MAX_PATCH_SIZE,patchSpan)
     if (patchSize < 1) return
-    const half = patchSize / 2
+    const half = patchSpan / 2
 
     // Whole world texels, not the dab's own fractional center: the imprint
     // and the canvas have to agree to the texel, or the lerp mixes a shifted
@@ -455,13 +459,13 @@ export class SmudgePainter {
     // the two halves of a seam-straddling patch line up with each other.
     const patchX = Math.round(dab.x - half)
     const patchY = Math.round(dab.y - half)
-    const patchRect = { minX: patchX, minY: patchY, maxX: patchX + patchSize, maxY: patchY + patchSize }
+    const patchRect = { minX: patchX, minY: patchY, maxX: patchX + patchSpan, maxY: patchY + patchSpan }
 
     const targets = target.resolveForPaint(patchRect)
     if (!targets.length) return // degenerate rect only — tilesOverlappingRect never returns empty otherwise
 
     const patch = this.acquireScratch(patchSize)
-    this.gatherPatch(patch, targets, patchRect, patchSize)
+    this.gatherPatch(patch, targets, patchRect, patchSize,patchSpan)
 
     const imprint = this.imprintFor(userId)
     const priming = imprint.buf === null
@@ -500,8 +504,8 @@ export class SmudgePainter {
       // to SMUDGE_PATCH_GRANULARITY, so a patch can reach into a tile the
       // stump itself never touches, where both draws below would discard
       // every fragment for nothing.
-      if (dab.x + reach <= tile.originX || dab.x - reach >= tile.originX + tile.buffer.width
-        || dab.y + reach <= tile.originY || dab.y - reach >= tile.originY + tile.buffer.height) continue
+      if (footprint.maxX <= tile.originX || footprint.minX >= tile.originX + tile.buffer.width
+        || footprint.maxY <= tile.originY || footprint.minY >= tile.originY + tile.buffer.height) continue
       // App-space (top-down, like every Dab.x/y) -> GL framebuffer space
       // (bottom-up) — the same flip every other app-space/GL boundary in this
       // file applies (DAB_VERT's clip.y flip, pickColor). The patch's own
@@ -512,13 +516,13 @@ export class SmudgePainter {
       // as-is — every fragment it actually shades still lands inside the
       // patch, since the dab quad is contained in it by construction.
       const originX = patchX - tile.originX
-      const originGlY = tile.buffer.height - (patchY - tile.originY) - patchSize
-      if (!wet) this.drawTransferDab(tile, dab, radius, next, originX, originGlY, patchSize, 'clear', strength)
-      this.drawTransferDab(tile, dab, radius, next, originX, originGlY, patchSize, 'lay', strength, wet, patch)
+      const originGlY = tile.buffer.height - (patchY - tile.originY) - patchSpan
+      if (!wet) this.drawTransferDab(tile, dab, radius, next, originX, originGlY, patchSpan, 'clear', strength)
+      this.drawTransferDab(tile, dab, radius, next, originX, originGlY, patchSpan, 'lay', strength, wet, patch)
     }
 
     this.releaseScratch(patch)
-    target.markContentPainted({ minX: dab.x - reach, minY: dab.y - reach, maxX: dab.x + reach, maxY: dab.y + reach })
+    target.markContentPainted(footprint)
   }
 
   /** Assembles the canvas patch under one dab out of every tile it overlaps
@@ -536,9 +540,10 @@ export class SmudgePainter {
    *  a bounded room, whose grid stops at the sheet's own last tile, and cheap
    *  next to the two full-quad passes each dab already runs. */
   private gatherPatch(
-    patch: AccumulationBuffer, targets: PaintTarget[], patchRect: WorldRect, patchSize: number,
+    patch: AccumulationBuffer, targets: PaintTarget[], patchRect: WorldRect, patchSize: number, patchSpan=patchSize,
   ): void {
     patch.clear()
+    if(patchSpan>patchSize){this.gatherScaledPatch(patch,targets,patchRect,patchSpan);return}
     for (const { buffer, originX, originY } of targets) {
       // The overlap between this tile and the patch, in world space.
       const x0 = Math.max(patchRect.minX, originX)
@@ -556,6 +561,27 @@ export class SmudgePainter {
         x1 - x0, y1 - y0,
       )
     }
+  }
+
+  /** Keep the whole world footprint while bounding the carried texture to
+   * 512². Large tips trade imprint resolution, never clamp canvas edge colours. */
+  private gatherScaledPatch(patch:AccumulationBuffer,targets:PaintTarget[],rect:WorldRect,span:number):void {
+    const {gl}=this,u=this.pickupUni
+    patch.beginReplaceDraw();gl.useProgram(this.pickupProg)
+    gl.uniform1f(u.u_gatherEnabled,1)
+    gl.uniform2f(u.u_gatherRect,rect.minX,rect.maxY)
+    gl.uniform1f(u.u_gatherScale,span/patch.width)
+    // Both active samplers must reference input, even in the gather branch.
+    gl.uniform1i(u.u_carried,0)
+    gl.uniform1i(u.u_patch,0);gl.activeTexture(gl.TEXTURE0)
+    gl.bindBuffer(gl.ARRAY_BUFFER,this.ctx.screenBuf())
+    gl.enableVertexAttribArray(this.pickupPosLoc);gl.vertexAttribPointer(this.pickupPosLoc,2,gl.FLOAT,false,0,0)
+    for(const {buffer,originX,originY} of targets){
+      gl.bindTexture(gl.TEXTURE_2D,buffer.texture)
+      gl.uniform4f(u.u_gatherTile,originX,originY,buffer.width,buffer.height)
+      gl.drawArrays(gl.TRIANGLES,0,6)
+    }
+    patch.endDraw()
   }
 
   /** `userId`'s own imprint slot, created empty (never primed) on first use.
@@ -592,6 +618,7 @@ export class SmudgePainter {
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_2D, carried.texture)
     gl.uniform1i(u.u_carried, 1)
+    gl.uniform1f(u.u_gatherEnabled,0)
     gl.uniform1f(u.u_rate, rate)
     gl.uniform1f(u.u_wetBlur, blur)
     gl.uniform1f(u.u_wetRetention,retention)
@@ -659,6 +686,7 @@ export class SmudgePainter {
     gl.uniform2f(u.u_patchOrigin, patchX, patchGlY)
     gl.uniform1f(u.u_patchSize, patchSize)
     const brush = wet?.paint.brush
+    gl.uniform1f(u.u_edgeBleed,wet?.stamp.edgeSoftness ?? 0)
     gl.uniform1f(u.u_wetEnabled,wet ? 1 : 0)
     gl.uniform1f(u.u_tipKind,brush?.tip.kind === 'bitmap' ? 1 : 0)
     gl.uniform1f(u.u_hardness, brush?.tip.hardness ?? SMUDGE_HARDNESS)
@@ -679,14 +707,14 @@ export class SmudgePainter {
     const dualAngle=(dual?.brush.tip.angle ?? 0)-(brush?.tip.angle ?? 0)
     gl.uniform1f(u.u_dualKind,dual && !wet?.secondary ? dual.brush.tip.kind === 'bitmap' ? 2 : 1 : 0)
     gl.uniform1f(u.u_dualBlend,blend(dual?.blendMode))
-    gl.uniform4f(u.u_dualTransform,1,(brush?.tip.aspect ?? 1)/(dual?.brush.tip.aspect ?? 1),Math.cos(dualAngle),Math.sin(dualAngle))
+    gl.uniform4f(u.u_dualTransform,1+(wet?.stamp.edgeSoftness ?? 0)*.15,(1+(wet?.stamp.edgeSoftness ?? 0)*.15)*(brush?.tip.aspect ?? 1)/(dual?.brush.tip.aspect ?? 1),Math.cos(dualAngle),Math.sin(dualAngle))
     gl.activeTexture(gl.TEXTURE6)
     gl.bindTexture(gl.TEXTURE_2D,wet?.secondary?.tile(buffer).texture??paper.texture)
     gl.uniform1i(u.u_secondaryCoverage,6)
     gl.uniform1f(u.u_secondaryEnabled,wet?.secondary?1:0)
     const rendering=brush?.behavior?.rendering
     const modes=['lightGlaze','uniformGlaze','intenseGlaze','heavyGlaze','uniformBlend','intenseBlend','buildUp']
-    gl.uniform4f(u.u_wetRender,rendering?.wetEdges ?? 0,rendering?.burntEdges ?? 0,rendering ? modes.indexOf(rendering.mode) : 6,rendering?.luminance ? 1 : 0)
+    gl.uniform4f(u.u_wetRender,0,rendering?.burntEdges ?? 0,rendering ? modes.indexOf(rendering.mode) : 6,rendering?.luminance ? 1 : 0)
     gl.uniform1f(u.u_wetBlend,blend(rendering?.blendMode))
     gl.uniform1f(u.u_burntBlend,blend(rendering?.burntEdgesMode))
     gl.uniform1f(u.u_wetGamma,rendering?.gammaCorrect ? 1 : 0)
@@ -701,7 +729,7 @@ export class SmudgePainter {
     const angle=(g?.rotation ?? 0)*Math.PI
     const jitter=g?.offsetJitter ? random(42)*period : 0
     gl.uniform4f(u.u_grainTransform,-dab.x*movement+jitter,-dab.y*movement+jitter,Math.cos(angle),Math.sin(angle))
-    gl.uniform2f(u.u_grainTone,g?.brightness ?? 0,g?.contrast ?? 0)
+    gl.uniform2f(u.u_grainTone,g?.brightness ?? 0,clampNum((g?.contrast ?? 0)+(wet?.stamp.wetGrade ?? 0),-1,1))
     gl.uniform2f(u.u_wetWorldOrigin,tile.originX,tile.originY+buffer.height)
     const phase=brushDabSeed(dab.x,dab.y,dab.pressure)
     gl.uniform2f(u.u_wetRoundPhase,phase&7,(phase>>>3)&7)

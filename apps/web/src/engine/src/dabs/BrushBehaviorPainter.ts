@@ -1,3 +1,4 @@
+import { brushFootprintBounds } from './brushFootprint'
 import { BRUSH_BLEND_MODES, type BrushDescriptor, type Dab } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { ILayerBuffer } from '../buffers/ILayerBuffer'
@@ -59,8 +60,8 @@ export class BrushBehaviorPainter {
     } | null
     this.stamp = createProgram(gl, DAB_VERT, BRUSH_STAMP_FRAG)
     this.composite = createProgram(gl, DAB_VERT, BRUSH_COMPOSITE_FRAG)
-    this.su = getUniforms(gl, this.stamp, ['u_ceilingPass', 'u_ceilingFallback', 'u_previousCeiling', 'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity', 'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure', 'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin', 'u_color', 'u_flip', 'u_grainTransform', 'u_grainTone', 'u_grainBlend', 'u_dual', 'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin', 'u_dualTexPeriod', 'u_dualTexStrength'])
-    this.cu = getUniforms(gl, this.composite, ['u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_original', 'u_strokeCoverage', 'u_ceiling', 'u_opacity', 'u_blend', 'u_mode', 'u_wetEdge', 'u_burntEdge', 'u_burntBlend', 'u_edgePx', 'u_luminance', 'u_gammaCorrect', 'u_secondaryCoverage', 'u_secondaryMode', 'u_secondaryEnabled', 'u_surfaceCloud', 'u_surfaceGrain', 'u_surface', 'u_surfaceOrigin', 'u_screenOrigin', 'u_screentone', 'u_erase'])
+    this.su = getUniforms(gl, this.stamp, ['u_edgeBleed', 'u_ceilingPass', 'u_ceilingFallback', 'u_previousCeiling', 'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity', 'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure', 'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin', 'u_color', 'u_flip', 'u_grainTransform', 'u_grainTone', 'u_grainBlend', 'u_dual', 'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin', 'u_dualTexPeriod', 'u_dualTexStrength'])
+    this.cu = getUniforms(gl, this.composite, ['u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_original', 'u_strokeCoverage', 'u_ceiling', 'u_opacity', 'u_blend', 'u_mode', 'u_burntEdge', 'u_burntBlend', 'u_edgePx', 'u_luminance', 'u_gammaCorrect', 'u_secondaryCoverage', 'u_secondaryMode', 'u_secondaryEnabled', 'u_surfaceCloud', 'u_surfaceGrain', 'u_surface', 'u_surfaceOrigin', 'u_screenOrigin', 'u_screentone', 'u_erase'])
     this.sp = gl.getAttribLocation(this.stamp, 'a_position')
     this.cp = gl.getAttribLocation(this.composite, 'a_position')
   }
@@ -112,14 +113,15 @@ export class BrushBehaviorPainter {
     const stamps = [...tail.ready, ...tail.preview]
     if (!stamps.length && (!independent || !state.bounds))
       return
-    const edge = (behavior.rendering?.wetEdges || behavior.rendering?.burntEdges || brush.wet?.feather) ? scratch.noteBrushEdgePx(clamp((dabs[0]?.size ?? state.previous?.size ?? 1) * preset.sizeMultiplier * 0.06, 1.5, 14)) : 0
+    const edge = (behavior.rendering?.burntEdges || brush.wet?.feather) ? scratch.noteBrushEdgePx(clamp((dabs[0]?.size ?? state.previous?.size ?? 1) * preset.sizeMultiplier * 0.06, 1.5, 14)) : 0
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const s of all) {
-      const r = s.radius * Math.max(s.aspect, 1) + edge + 1
-      minX = Math.min(minX, s.x - r)
-      minY = Math.min(minY, s.y - r)
-      maxX = Math.max(maxX, s.x + r)
-      maxY = Math.max(maxY, s.y + r)
+      const footprint=brushFootprintBounds(s.x,s.y,s.radius,s.aspect,s.angle,edge+1)
+      if(!footprint)continue
+      minX = Math.min(minX, footprint.minX)
+      minY = Math.min(minY, footprint.minY)
+      maxX = Math.max(maxX, footprint.maxX)
+      maxY = Math.max(maxY, footprint.maxY)
     }
     if(independent && state.bounds) {
       minX=Math.min(minX,state.bounds.minX);minY=Math.min(minY,state.bounds.minY)
@@ -178,16 +180,17 @@ export class BrushBehaviorPainter {
         gl.bindTexture(gl.TEXTURE_2D, dualTexture)
         gl.uniform1f(u.u_ceilingPass, ceilingPass ? 1 : 0)
         for (const s of list) {
-          const reach = s.radius * Math.max(s.aspect, 1) + 1
-          if (s.x + reach < tile.originX || s.y + reach < tile.originY || s.x - reach > tile.originX + coverage.width || s.y - reach > tile.originY + coverage.height)
-            continue
+          const footprint=brushFootprintBounds(s.x,s.y,s.radius,s.aspect,s.angle,1)
+          if(!footprint || footprint.maxX<tile.originX || footprint.maxY<tile.originY || footprint.minX>tile.originX+coverage.width || footprint.minY>tile.originY+coverage.height) continue
           gl.uniform2f(u.u_dabCenter, s.x - tile.originX, s.y - tile.originY)
+          gl.uniform2f(u.u_grainTone,g?.brightness??0,clamp((g?.contrast??0)+s.wetGrade,-1,1))
+          gl.uniform1f(u.u_edgeBleed, s.edgeSoftness)
           gl.uniform1f(u.u_dabRadius, s.radius)
           gl.uniform1f(u.u_angle, s.angle)
           gl.uniform1f(u.u_aspectRatio, s.aspect)
           const ratio = secondary ? Math.max(0.01, curveAt(secondary.sizeByPressure, s.pressure) / Math.max(0.01, curveAt(brush.sizeByPressure, s.pressure)) * (secondary.scatter?.scale ?? 1)) : 1
           const dualAngle = (secondary?.tip.rotation === 'fixed' ? secondary.tip.angle : s.angle) - s.angle
-          gl.uniform4f(u.u_dualTransform, 1 / ratio, (secondary?.tip.aspect ?? 1) / brush.tip.aspect / ratio, Math.cos(dualAngle), Math.sin(dualAngle))
+          gl.uniform4f(u.u_dualTransform, (1+s.edgeSoftness*.15) / ratio, (1+s.edgeSoftness*.15)*(secondary?.tip.aspect ?? 1) / brush.tip.aspect / ratio, Math.cos(dualAngle), Math.sin(dualAngle))
           gl.uniform1f(u.u_dualStrength, secondary ? secondary.flow * curveAt(secondary.flowByPressure, s.pressure) * curveAt(secondary.opacityByPressure, s.pressure) : 1)
           gl.uniform1f(u.u_opacity, clamp(s.flow))
           gl.uniform1f(u.u_ceiling, s.ceiling)
@@ -254,7 +257,6 @@ export class BrushBehaviorPainter {
       gl.uniform1f(c.u_opacity, state.opacity)
       gl.uniform1f(c.u_mode, render ? modes.indexOf(render.mode) : 6)
       gl.uniform1f(c.u_blend, blend(render?.blendMode))
-      gl.uniform1f(c.u_wetEdge, render?.wetEdges ?? 0)
       gl.uniform1f(c.u_burntEdge, render?.burntEdges ?? 0)
       gl.uniform1f(c.u_burntBlend, blend(render?.burntEdgesMode))
       gl.uniform1f(c.u_edgePx, edge)
@@ -267,7 +269,7 @@ export class BrushBehaviorPainter {
       gl.uniform1f(c.u_secondaryEnabled,secondaryState?1:0)
       const wet=brush.wet
       const wrapSurface=(v:number,p:number):number=>((v%p)+p)%p
-      gl.uniform4f(c.u_surface,wet?.granulation??0,wet?.mottle??0,wet?.bloom??0,wet?.feather??(brush.model==='mixer'?behavior.wetMix?.blur??0:0))
+      gl.uniform4f(c.u_surface,wet?.granulation??0,wet?.mottle??0,wet?.bloom??0,wet?.feather??0)
       gl.uniform4f(c.u_surfaceOrigin,wrapSurface(tile.originX,640),wrapSurface(tile.originY,640),wrapSurface(tile.originX,224),wrapSurface(tile.originY,224))
       for(const [unit,id,name] of [[3,'cloud','u_surfaceCloud'],[4,'grit','u_surfaceGrain']] as const){
         gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,this.grain(id));gl.uniform1i(c[name],unit)
