@@ -68,6 +68,6 @@ Grade changes grain contrast rather than exhaustion. Rotated footprints are not
 clipped to one radius, and mixer imprints beyond512px keep full world coverage at
 bounded pickup resolution. See RESEARCH.md for approximation and migration limits.
 
-ABR importer version4 reads published Mixer/Smudge tool keys `wetness` and `Prs ` (strength), retaining older aliases as fallbacks. Load/mix reservoir flags remain approximate; no `dryness` interpretation is guessed.
+The revision number is a compatibility label, not the sole identity: the complete descriptor and source settings are hashed, so changed settings already receive a new content ID. ABR importer version4 reads published Mixer/Smudge tool keys `wetness` and `Prs ` (strength), retaining older aliases as fallbacks. Load/mix reservoir flags remain approximate; no `dryness` interpretation is guessed.
 
 Krita Color Smudge honours `PressureColorRate` and `PressureSmudgeRate`: unchecked/missing options map to load 0 and pickup 1; enabled options without saved Value default to 1. This correction changes the content-derived descriptor ID even with descriptor version 4, because identity covers the complete final mixer parameters and source hash. Existing ID/version resources remain immutable.

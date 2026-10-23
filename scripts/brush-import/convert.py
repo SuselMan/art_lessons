@@ -362,6 +362,7 @@ def photoshop_component(p,samples,catalog,notes,seed,secondary=False,patterns=No
     elif shape.get('_class')=='computedBrush':
         d=descriptor(seed,'');d['tip']={'kind':'round','hardness':clamp(number(shape.get('Hrdn'),100)/100),'aspect':1,'rotation':'fixed','angle':0}
     else: raise ValueError('Unsupported '+str(shape.get('_class'))+' tip or missing sampledData '+str(sid))
+    d['version']=4
     d['spacing']=clamp(number(shape.get('Spcn'),10)/100,0.000001,2)
     d['tip']['angle']=math.remainder(number(shape.get('Angl'))*math.pi/180,2*math.pi)
     d['tip']['aspect']=1/clamp(number(shape.get('Rndn'),100)/100,0.0625,1)
@@ -410,7 +411,12 @@ def photoshop_component(p,samples,catalog,notes,seed,secondary=False,patterns=No
         except ValueError as e: notes.append(compatibility('dual',str(e),'unsupported'))
     if tool.get('_class') in ('MixB','SmTl'):
         d['model']='mixer'
-        d['mixer']={'load':0 if tool.get('_class')=='SmTl' else 0.5,'pickup':clamp(number(tool.get('wet'),50)/100),'strength':clamp(number(tool.get('strength'),50)/100)}
+        # Published ABR descriptor keys are wetness and 'Prs ' (strength).
+        # Preserve aliases accepted by earlier synthetic/private descriptors;
+        # canonical fields take precedence, including an explicit zero.
+        wetness=tool.get('wetness',tool.get('wet',50))
+        strength=tool.get('Prs ',tool.get('strength',50))
+        d['mixer']={'load':0 if tool.get('_class')=='SmTl' else 0.5,'pickup':clamp(number(wetness,50)/100),'strength':clamp(number(strength,50)/100)}
         b['wetMix']={'dilution':0,'charge':d['mixer']['load'],'attack':d['mixer']['strength'],'pull':d['mixer']['pickup'],'grade':0,'blur':0,'blurJitter':0,'wetnessJitter':0}
         notes.append(compatibility('toolType','Photoshop Mixer/Smudge selects carried-pigment rendering. Unknown tool-specific load/mix flags use explicit defaults; Photoshop reservoir formulas differ.'))
     d['behavior']=b
