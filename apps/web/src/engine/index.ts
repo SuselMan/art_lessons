@@ -1,3 +1,4 @@
+import { hasOpenBrushStroke } from './src/oplog/openBrushStroke'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './src/watercolor/WatercolorPresentationOwners'
 import { WatercolorPresentationRaster } from './src/watercolor/WatercolorPresentationRaster'
@@ -5517,6 +5518,7 @@ export class PencilEngine implements PencilEngineAPI {
     // passed on in every snapshot they bake. Refusing costs nothing: the layer
     // is left out of this upload and the server keeps serving its operations.
     const done = this._log.doneOperations()
+    if (hasOpenBrushStroke(done,layerId)) return false
     // A closed wash can still supply water to another gesture. Its encoded
     // donor must remain in the join tail until that ephemeral water expires.
     if (hasActiveWater(done, layerId, Date.now())) return false

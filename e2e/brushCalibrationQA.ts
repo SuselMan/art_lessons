@@ -1,6 +1,7 @@
 import { chromium, expect } from '@playwright/test'
 import sharp from 'sharp'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { strokeDabs, type Operation } from '../packages/shared/src/index'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { createRoom, drawStroke, joinRoom, setBrushSize, waitForRoomReady } from './support/room'
 
 /** Private owner-supplied resources; prepares a repeatable sheet for vendor comparison. */
@@ -14,8 +15,11 @@ async function main() {
   try {
     const [owner,peer]=await Promise.all(contexts.map(c=>c.newPage()))
     for(const page of [owner,peer])page.on('pageerror',e=>errors.push(e.message))
-    const room=await createRoom(owner,'Procreate — четыре кисти для сравнения')
+    const existing=process.env.QA_CALIBRATION_ROOM
+    const room=existing??await createRoom(owner,'Procreate — четыре кисти для сравнения')
+    if(existing)await joinRoom(owner,room,'Повторная проверка исходного листа')
     await waitForRoomReady(owner)
+    await writeFile(`${out}/room-id`,room)
     const names=['Main Brush','Wet Brush','Wet Blender','Loaded Colour Brush']
     const brushes=await owner.evaluate(async names=>{
       const library=await (await fetch('/api/brush-library')).json()
@@ -23,11 +27,12 @@ async function main() {
     },names)
     if(brushes.some(b=>!b||b.descriptor.version<5))throw Error('Expected four current Procreate descriptors')
     await joinRoom(peer,room,'Проверка листа')
+    let count=existing?16:0
+    if(!existing){
     await owner.evaluate(()=>window.__roomStore!.getState().setTool('digitalBrush'))
     const cdp=await contexts[0].newCDPSession(owner)
     const box=await owner.locator('canvas').first().boundingBox()
     if(!box)throw Error('Missing canvas bounds')
-    let count=0
     for(const [row,brush] of brushes.entries()) {
       const y=200+row*260
       console.log('Preparing reference',brush.name)
@@ -52,7 +57,17 @@ async function main() {
       count++
       await expect.poll(()=>owner.evaluate(()=>window.__engine!.getOperations().filter(o=>o.type==='stroke').length),{timeout:60_000}).toBe(count)
     }
-    await expect.poll(()=>peer.evaluate(()=>window.__engine!.getOperations().filter(o=>o.type==='stroke').length),{timeout:60_000}).toBe(count)
+    }
+    const readOperations=()=>owner.evaluate(async room=>{
+      const response=await fetch(`/api/rooms/${room}/operations?beforeSeq=2147483647&limit=500`)
+      if(!response.ok)throw Error('Cannot read source operations for pressure audit')
+      return response.json()
+    },room) as Promise<Operation[]>
+    await expect.poll(async()=>(await readOperations()).filter(o=>o.type==='stroke').length,{timeout:60_000}).toBe(count)
+    const operations=await readOperations()
+    const expectedLastSeq=Math.max(...operations.map(o=>o.seq??0))
+    const waitForTail=()=>expect.poll(()=>peer.evaluate(()=>Math.max(0,...window.__engine!.getOperations().map(o=>o.seq??0))),{timeout:60_000}).toBeGreaterThanOrEqual(expectedLastSeq)
+    await waitForTail()
     const pixels=async(page:typeof owner)=>{
       const encoded=await page.evaluate(async()=>{
         const blob=await window.__engine!.exportPNG();if(!blob)throw Error('Missing export')
@@ -61,16 +76,34 @@ async function main() {
       const png=Buffer.from(encoded,'base64')
       return {png,raw:await sharp(png).ensureAlpha().raw().toBuffer()}
     }
-    const before=await pixels(owner)
-    expect(Buffer.compare(before.raw,(await pixels(peer)).raw)).toBe(0)
+    const actualOwner=await pixels(owner)
+    const expectedPath=process.env.QA_EXPECTED_PNG
+    const expectedPng=expectedPath?await readFile(expectedPath):null
+    const before=expectedPng?{png:expectedPng,raw:await sharp(expectedPng).ensureAlpha().raw().toBuffer()}:actualOwner
+    await writeFile(`${out}/sheet.png`,before.png)
+    const comparisons:{label:string;changed:number;max:number}[]=[]
+    const compare=async(label:string,other:Awaited<ReturnType<typeof pixels>>)=>{
+      await writeFile(`${out}/${label}.png`,other.png)
+      let changed=0,max=0
+      for(let i=0;i<before.raw.length;i+=4){let delta=0;for(let c=0;c<4;c++)delta=Math.max(delta,Math.abs(before.raw[i+c]-other.raw[i+c]));if(delta)changed++;max=Math.max(max,delta)}
+      comparisons.push({label,changed,max})
+      await writeFile(`${out}/comparisons.json`,JSON.stringify(comparisons,null,2))
+      console.log('Pixels',label,{changed,max})
+    }
+    if(existing)await compare('owner-rejoined',actualOwner)
+    await compare('live-peer',await pixels(peer))
     await peer.reload();await peer.locator('form input[type=text]').first().fill('Повторная проверка листа');await peer.locator('form button[type=submit]').click();await waitForRoomReady(peer)
-    expect(Buffer.compare(before.raw,(await pixels(peer)).raw)).toBe(0)
-    const pressure=await owner.evaluate(()=>window.__engine!.getOperations().filter(o=>o.type==='stroke'&&o.preset?.startsWith('brush:imported-')).flatMap(o=>o.type==='stroke'?(o.dabs??[]).map(d=>d.pressure):[]))
+    await waitForTail()
+    await compare('reload-peer',await pixels(peer))
+    // Confirmed operations may keep only compact dab payloads in the client.
+    const imported=operations.filter(o=>o.type==='stroke'&&o.preset?.startsWith('brush:imported-'))
+    const pressure=imported.flatMap(o=>o.type==='stroke'?strokeDabs(o).map(d=>d.pressure):[])
+    await writeFile(`${out}/source-operations.json`,JSON.stringify(operations))
     expect(Math.max(...pressure)-Math.min(...pressure)).toBeGreaterThan(.2)
     expect(errors).toEqual([])
-    await writeFile(`${out}/sheet.png`,before.png)
     await owner.screenshot({path:`${out}/screen.png`})
-    await writeFile(`${out}/report.json`,JSON.stringify({room,brushes:brushes.map(b=>({name:b.name,descriptor:b.descriptor,compatibility:b.compatibility})),strokes:count,pressure:{min:Math.min(...pressure),max:Math.max(...pressure)},liveAndReload:'pixel equal',vendorComparison:'pending',errors},null,2))
+    await writeFile(`${out}/report.json`,JSON.stringify({room,brushes:brushes.map(b=>({name:b.name,descriptor:b.descriptor,compatibility:b.compatibility})),strokes:count,pressure:{min:Math.min(...pressure),max:Math.max(...pressure)},comparisons,liveAndReload:comparisons.every(c=>!c.changed)?'pixel equal':'differences measured',vendorComparison:'pending',errors},null,2))
+    for(const c of comparisons)expect(c.changed,c.label).toBe(0)
     console.log('PASS four source brushes, pressure ramp, colour crossings, peer and reload')
   } finally {await Promise.all(contexts.map(c=>c.close()));await browser.close()}
 }
