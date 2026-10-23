@@ -144,6 +144,9 @@ export class BrushPainter {
     this.brushTextures.clear()
   }
 
+  /** Logical pen-up only; chunk boundaries leave the reversible tail open. */
+  finish(scratch: BehaviorScratch): void { this.behavior.finish(scratch) }
+
   /** #573, ADR 013 §11 — a digital brush stroke on the `stamp` model.
    *
    *  Same three-step shape as every stroke-scoped tool in the engine — freeze

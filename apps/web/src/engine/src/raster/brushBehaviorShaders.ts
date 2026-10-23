@@ -73,7 +73,7 @@ ${BLEND}
 void main() {
  vec2 uv=gl_FragCoord.xy/u_resolution;
  vec4 ink=texture2D(u_strokeCoverage,uv);
- if(ink.a<=0.0) discard;
+
  vec4 base=texture2D(u_original,uv);
  vec3 pigment=ink.rgb/max(ink.a,0.00392157);
  float coverage=ink.a;

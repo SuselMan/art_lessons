@@ -3,11 +3,27 @@ import { brushDabRandom, brushDabSeed, brushStampsForDab, curveAt, type BrushSta
 
 /** Logical gesture state: never derives randomness or dynamics from a frame/batch. */
 export interface BrushBehaviorState {
+  pending?: BehaviorPlaced[]
   seed: number; distance: number; firstAngle: number; opacity: number; previous?: Dab
 }
 export interface BehaviorStamp extends BrushStamp {
   opacityScale: number; grainDepth: number; flipX: number; flipY: number
   color: [number, number, number]; distance: number
+}
+export interface BehaviorPlaced extends BehaviorStamp { radius: number; flow: number; ceiling: number; pressure: number }
+/** A bounded provisional tail, recalculated from fixed gesture distance. */
+export function splitBrushTail(stamps: BehaviorPlaced[], distance: number, end: number, finish: boolean, size = 1, opacity = 1): { ready: BehaviorPlaced[]; pending: BehaviorPlaced[]; preview: BehaviorPlaced[] } {
+  if (end <= 0) return { ready: stamps, pending: [], preview: [] }
+  const span = end * 10
+  const taper = (s: BehaviorPlaced): BehaviorPlaced => {
+    const t = Math.max(0, Math.min(1, (distance-s.distance)/span))
+    return { ...s, radius: s.radius*(1-size*(1-t)), size:s.size*(1-size*(1-t)), ceiling:s.ceiling*(1-opacity*(1-t)) }
+  }
+  if (finish) return { ready: stamps.map(taper), pending: [], preview: [] }
+  const boundary = Math.max(stamps.findIndex(s => s.distance > distance-span), stamps.length-4096)
+  const at = boundary < 0 ? stamps.length : boundary
+  const ready=stamps.slice(0,at), pending=stamps.slice(at)
+  return { ready, pending, preview: pending.map(taper) }
 }
 const clamp = (v: number, lo = 0, hi = 1): number => Math.max(lo, Math.min(hi, v))
 export function beginBrushBehavior(dab: Dab): BrushBehaviorState {

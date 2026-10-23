@@ -2,7 +2,7 @@ import { BRUSH_BLEND_MODES, type BrushDescriptor, type Dab } from '@grafetto/sha
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { ILayerBuffer } from '../buffers/ILayerBuffer'
 import type { PencilPreset } from '../presets/pencilPresets'
-import { beginBrushBehavior, behaviorStampsForDab, type BrushBehaviorState } from '../presets/brushBehavior'
+import { beginBrushBehavior, behaviorStampsForDab, splitBrushTail, type BehaviorPlaced, type BrushBehaviorState } from '../presets/brushBehavior'
 import { digitalBrushCeiling, brushDabRandom, type BrushPressureSettings } from '../presets/digitalBrushPresets'
 import type { BrushTextureId, TipMaskId } from '../presets/tipMasks'
 import { BRUSH_V2_COMPOSITE_FRAG, BRUSH_V2_STAMP_FRAG } from '../raster/brushBehaviorShaders'
@@ -10,7 +10,7 @@ import { DAB_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 import type { BrushContext, BrushScratch } from './BrushPainter'
 
-export interface BehaviorScratch extends BrushScratch { brushBehavior?: BrushBehaviorState; brushCeiling(tile: AccumulationBuffer): AccumulationBuffer }
+export interface BehaviorScratch extends BrushScratch { brushBehavior?: BrushBehaviorState; brushCeiling(tile: AccumulationBuffer): AccumulationBuffer; brushPreview(tile: AccumulationBuffer): {coverage: AccumulationBuffer; ceiling: AccumulationBuffer} }
 const modes = ['lightGlaze','uniformGlaze','intenseGlaze','heavyGlaze','uniformBlend','intenseBlend','buildUp']
 const clamp = (v: number, lo=0, hi=1): number => Math.max(lo,Math.min(hi,v))
 const blend = (name: string | undefined): number => Math.max(0,BRUSH_BLEND_MODES.indexOf(name as typeof BRUSH_BLEND_MODES[number]))
@@ -18,6 +18,7 @@ type Uniforms=Record<string,WebGLUniformLocation|null>
 /** Uses the same frozen-original / coverage resources as the other digital brushes.
  * Only v2 descriptors opt into colour coverage and these equations. */
 export class BrushBehaviorPainter {
+ private bindings=new WeakMap<BehaviorScratch,{target:ILayerBuffer;preset:PencilPreset;brush:BrushDescriptor;pressure:BrushPressureSettings;color:[number,number,number]}>()
  private minmax: {MAX_EXT:number}|null=null
  private stamp!: WebGLProgram; private composite!: WebGLProgram
  private su!: Uniforms; private cu!: Uniforms; private sp=-1; private cp=-1
@@ -34,12 +35,14 @@ export class BrushBehaviorPainter {
   this.cu=getUniforms(gl,this.composite,['u_dabCenter','u_dabRadius','u_angle','u_aspectRatio','u_resolution','u_original','u_strokeCoverage','u_ceiling','u_useCeiling','u_opacity','u_blend','u_mode','u_wetEdge','u_burntEdge','u_burntBlend','u_edgePx','u_luminance'])
   this.sp=gl.getAttribLocation(this.stamp,'a_position'); this.cp=gl.getAttribLocation(this.composite,'a_position')
  }
+ finish(scratch:BehaviorScratch):void {const b=this.bindings.get(scratch);if(b)this.paint(b.target,[],b.preset,b.brush,b.pressure,b.color,scratch,true)}
  destroy(): void { const gl=this.ctx.gl; gl.deleteProgram(this.stamp); gl.deleteProgram(this.composite) }
- paint(target:ILayerBuffer,dabs:Dab[],preset:PencilPreset,brush:BrushDescriptor,pressure:BrushPressureSettings,color:[number,number,number],scratch:BehaviorScratch):void {
+ paint(target:ILayerBuffer,dabs:Dab[],preset:PencilPreset,brush:BrushDescriptor,pressure:BrushPressureSettings,color:[number,number,number],scratch:BehaviorScratch,finish=false):void {
   const {gl,paper}=this.ctx, behavior=brush.behavior!
-  if(!dabs.length)return
+  if(!dabs.length&&!scratch.brushBehavior)return
+  this.bindings.set(scratch,{target,preset,brush,pressure,color})
   const state=scratch.brushBehavior ?? (scratch.brushBehavior=beginBrushBehavior(dabs[0]))
-  const stamps=dabs.flatMap(dab=> {
+  const incoming=dabs.flatMap(dab=> {
    const previous=state.previous
    let flow=brush.flow
    if(brush.flowPer==='pass'&&flow<1) {
@@ -50,10 +53,14 @@ export class BrushBehaviorPainter {
    const opacity=digitalBrushCeiling(brush,dab.pressure,pressure.opacity)
    return behaviorStampsForDab(brush,dab,state,color).map(st=>({...st,radius:st.size*preset.sizeMultiplier*0.5,flow:flow*st.flowScale,ceiling:opacity*st.opacityScale,pressure:dab.pressure}))
   }).filter(st=>st.radius>=0.25)
+  const all=[...(state.pending??[]),...incoming]
+  const tail=splitBrushTail(all,state.distance,behavior.taper?.end??0,finish,behavior.taper?.size,behavior.taper?.opacity)
+  state.pending=tail.pending
+  const stamps=[...tail.ready,...tail.preview]
   if(!stamps.length)return
-  const edge=scratch.noteBrushEdgePx(clamp(dabs[0].size*preset.sizeMultiplier*0.06,1.5,14))
+  const edge=scratch.noteBrushEdgePx(clamp((dabs[0]?.size??state.previous?.size??1)*preset.sizeMultiplier*0.06,1.5,14))
   let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity
-  for(const s of stamps) {const r=s.radius*Math.max(s.aspect,1)+edge+1; minX=Math.min(minX,s.x-r);minY=Math.min(minY,s.y-r);maxX=Math.max(maxX,s.x+r);maxY=Math.max(maxY,s.y+r)}
+  for(const s of all) {const r=s.radius*Math.max(s.aspect,1)+edge+1; minX=Math.min(minX,s.x-r);minY=Math.min(minY,s.y-r);maxX=Math.max(maxX,s.x+r);maxY=Math.max(maxY,s.y+r)}
   const bounds={minX:Math.floor(minX),minY:Math.floor(minY),maxX:Math.ceil(maxX),maxY:Math.ceil(maxY)}
   const mask=brush.tip.mask ? this.tip(brush.tip.mask) : paper.texture
   const texture=brush.texture ? this.grain(brush.texture.id) : paper.texture
@@ -63,8 +70,9 @@ export class BrushBehaviorPainter {
   const period=Math.max(0.5,(brush.texture?.periodPx??1)*(g ? 0.1+g.zoom*1.9 : 1))
   const wrap=(v:number):number=>((v%period)+period)%period
   for(const tile of target.resolveForPaint(bounds)) {
-   const {original,coverage}=scratch.getOrCreate(tile.buffer)
-   const ceiling=scratch.brushCeiling(tile.buffer)
+   const original=scratch.getOrCreate(tile.buffer).original
+   let coverage=scratch.getOrCreate(tile.buffer).coverage
+   let ceiling=scratch.brushCeiling(tile.buffer)
    coverage.beginDraw(); gl.useProgram(this.stamp)
    const u=this.su
    gl.uniform2f(u.u_resolution,coverage.width,coverage.height)
@@ -78,9 +86,10 @@ export class BrushBehaviorPainter {
    const dualAngle=(secondary?.tip.angle??0)-brush.tip.angle
    gl.uniform4f(u.u_dualTransform,1,brush.tip.aspect/(secondary?.tip.aspect??1),Math.cos(dualAngle),Math.sin(dualAngle))
    gl.bindBuffer(gl.ARRAY_BUFFER,this.ctx.quadBuf());gl.enableVertexAttribArray(this.sp);gl.vertexAttribPointer(this.sp,2,gl.FLOAT,false,0,0)
-   const drawStamps=(ceilingPass:boolean):void=>{
+   const drawStamps=(list:BehaviorPlaced[],ceilingPass:boolean):void=>{
+   gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,dualMask)
    gl.uniform1f(u.u_ceilingPass,ceilingPass?1:0)
-   for(const s of stamps) {
+   for(const s of list) {
     const reach=s.radius*Math.max(s.aspect,1)+1
     if(s.x+reach<tile.originX||s.y+reach<tile.originY||s.x-reach>tile.originX+coverage.width||s.y-reach>tile.originY+coverage.height)continue
     gl.uniform2f(u.u_dabCenter,s.x-tile.originX,s.y-tile.originY);gl.uniform1f(u.u_dabRadius,s.radius);gl.uniform1f(u.u_angle,s.angle);gl.uniform1f(u.u_aspectRatio,s.aspect)
@@ -94,8 +103,15 @@ export class BrushBehaviorPainter {
     gl.drawArrays(gl.TRIANGLES,0,6)
    }
    }
-   drawStamps(false);coverage.endDraw()
-   if(this.minmax) {ceiling.beginMaxDraw(this.minmax);drawStamps(true);ceiling.endDraw()}
+   drawStamps(tail.ready,false);coverage.endDraw()
+   if(this.minmax) {ceiling.beginMaxDraw(this.minmax);drawStamps(tail.ready,true);ceiling.endDraw()}
+   if(tail.preview.length) {
+    const preview=scratch.brushPreview(tile.buffer)
+    coverage.copyTo(preview.coverage);ceiling.copyTo(preview.ceiling)
+    coverage=preview.coverage;ceiling=preview.ceiling
+    coverage.beginDraw();drawStamps(tail.preview,false);coverage.endDraw()
+    if(this.minmax) {ceiling.beginMaxDraw(this.minmax);drawStamps(tail.preview,true);ceiling.endDraw()}
+   }
    tile.buffer.beginReplaceDraw();gl.useProgram(this.composite)
    const c=this.cu,render=behavior.rendering
    gl.uniform2f(c.u_resolution,tile.buffer.width,tile.buffer.height)
