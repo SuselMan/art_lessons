@@ -65,8 +65,10 @@ async function main() {
     },room) as Promise<Operation[]>
     await expect.poll(async()=>(await readOperations()).filter(o=>o.type==='stroke').length,{timeout:60_000}).toBe(count)
     const operations=await readOperations()
-    const expectedLastSeq=Math.max(...operations.map(o=>o.seq??0))
-    const waitForTail=()=>expect.poll(()=>peer.evaluate(()=>Math.max(0,...window.__engine!.getOperations().map(o=>o.seq??0))),{timeout:60_000}).toBeGreaterThanOrEqual(expectedLastSeq)
+    // Restored snapshots can cover the newest operations without retaining
+    // those operations in the client log. Room readiness plus exact exported
+    // pixels is the oracle; retained operation counts/seq are not.
+    const waitForTail=()=>waitForRoomReady(peer)
     await waitForTail()
     const pixels=async(page:typeof owner)=>{
       const encoded=await page.evaluate(async()=>{
