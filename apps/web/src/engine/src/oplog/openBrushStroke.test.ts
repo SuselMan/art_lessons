@@ -44,11 +44,27 @@ describe('hasOpenBrushStroke', () => {
     expect(hasOpenBrushStroke([alice, bob, aliceEnd, bobEnd], 'ink')).toBe(false)
   })
 
-  it('does not let a final chunk on another layer close this layer', () => {
-    const ops: Operation[] = [stroke(), stroke({ id: 'other-end', layerId: 'other', strokeEnd: true })]
+  it('tracks a multi-layer gesture and closes all its layers on pen-up anywhere', () => {
+    const prefix: Operation[] = [stroke(), stroke({ id: 'other-chunk', layerId: 'other' })]
+    expect(hasOpenBrushStroke(prefix, 'ink')).toBe(true)
+    expect(hasOpenBrushStroke(prefix, 'other')).toBe(true)
+    expect(hasOpenBrushStroke(prefix, 'empty')).toBe(false)
+    const completed = [...prefix, stroke({ id: 'other-end', layerId: 'other', strokeEnd: true })]
+    expect(hasOpenBrushStroke(completed, 'ink')).toBe(false)
+    expect(hasOpenBrushStroke(completed, 'other')).toBe(false)
+  })
+
+  it('ends the old reservoir when its user starts another gesture on another layer', () => {
+    const ops = [stroke(), stroke({ id: 'other-start', strokeId: 'gesture-b', layerId: 'other' })]
+    expect(hasOpenBrushStroke(ops, 'ink')).toBe(false)
+    expect(hasOpenBrushStroke(ops, 'other')).toBe(true)
+    expect(hasOpenBrushStroke([stroke(), stroke({ tool: 'pencil', layerId: 'other', strokeId: 'pencil' })], 'ink')).toBe(false)
+  })
+
+  it('does not close another user group when a foreign gesture ends on another layer', () => {
+    const ops = [stroke(), stroke({ id: 'bob-end', userId: 'bob', layerId: 'other', strokeEnd: true })]
     expect(hasOpenBrushStroke(ops, 'ink')).toBe(true)
     expect(hasOpenBrushStroke(ops, 'other')).toBe(false)
-    expect(hasOpenBrushStroke(ops, 'empty')).toBe(false)
   })
 
   it('does not block legacy standalone strokes or ordinary grouped pencil strokes', () => {
