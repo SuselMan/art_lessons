@@ -47,7 +47,7 @@ try {
     await expect.poll(() => teacher.evaluate(() => window.__roomStore!.getState().toolSettings.digitalBrush.brush)).toBe(brush.descriptor.id)
     await drawStroke(teacher, [[350, 300 + i * 160], [470, 260 + i * 160], [600, 330 + i * 160], [760, 280 + i * 160]], { size: 120 })
     await waitForOperations(teacher, 'stroke', i + 1)
-    await waitForOperations(student, 'stroke', i + 1)
+    await expect.poll(() => student.evaluate(() => window.__engine!.getOperations().filter(o => o.type === 'stroke').length), { timeout: 60_000 }).toBeGreaterThanOrEqual(i + 1)
   }
   await teacher.screenshot({ path: `${out}/teacher.png` })
   await student.screenshot({ path: `${out}/student.png` })
