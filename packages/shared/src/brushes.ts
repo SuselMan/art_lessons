@@ -1,3 +1,4 @@
+import { isBrushBehavior, type BrushBehavior, type BrushCompatibility } from './brushBehavior.js'
 /** Immutable rendering data shared by built-in brushes, importers and room clients. */
 export type AssetId = `asset:${string}`
 export type TipMaskId = 'chalk' | 'rough' | 'bristle' | 'speckle' | 'grass' | 'leaf' | 'clumps' | AssetId
@@ -96,6 +97,7 @@ export type BrushCategory = 'line' | 'paint' | 'wet' | 'soft' | 'texture' | 'sca
 export type BrushModel = 'ribbon' | 'stamp' | 'mixer'
 
 export interface BrushDescriptor {
+  behavior?: BrushBehavior
   /** Stable across versions — it is half of the recorded preset token. */
   id: string
   /** Bumped by **any** edit that changes a pixel. See ADR 013 §7: the token a
@@ -235,6 +237,7 @@ export interface ImportedBrush {
   name: string
   source: string
   warnings: string[]
+  compatibility?: BrushCompatibility[]
 }
 export interface BrushAsset { id: AssetId; size: number; file: string }
 export interface BrushLibrary {
@@ -281,15 +284,15 @@ export function isBrushLibrary(value: unknown): value is BrushLibrary {
       || !Array.isArray(b.warnings) || b.warnings.length > 100 || !b.warnings.every(w => typeof w === 'string' && w.length <= 2000)
       || !record(b.descriptor)) return false
     const d = b.descriptor
-    const descriptorKeys = ['id','version','model','category','tip','paperInteraction','spacing','flow','flowPer','flowSpan','sizeByPressure','flowByPressure','opacityByPressure','pressureSmoothingPx','opacity','scatter','texture','wet']
+    const descriptorKeys = ['id','version','model','category','tip','paperInteraction','spacing','flow','flowPer','flowSpan','sizeByPressure','flowByPressure','opacityByPressure','pressureSmoothingPx','opacity','scatter','texture','wet','behavior','mixer']
     if (Object.keys(d).some(key => !descriptorKeys.includes(key))) return false
     if (typeof d.id !== 'string' || !/^imported-[a-f0-9]{16,64}$/.test(d.id) || !numberIn(d.version, 1, 10000)
-      || !Number.isInteger(d.version) || d.model !== 'stamp' || !['line','paint','wet','soft','texture','scatter'].includes(String(d.category))
+      || !Number.isInteger(d.version) || !['stamp','mixer'].includes(String(d.model)) || !['line','paint','wet','soft','texture','scatter'].includes(String(d.category))
       || !record(d.tip) || !['round','bitmap'].includes(String(d.tip.kind))
       || ((d.tip.kind === 'bitmap' || d.tip.mask !== undefined) && !ref(d.tip.mask))
       || !numberIn(d.tip.hardness, 0, 1) || !numberIn(d.tip.aspect, 1, 16) || !numberIn(d.tip.angle, -Math.PI * 2, Math.PI * 2)
       || !['fixed','path','travel'].includes(String(d.tip.rotation))
-      || !numberIn(d.paperInteraction, 0, 1) || !numberIn(d.spacing, 0.01, 2) || !numberIn(d.flow, 0, 1)
+      || !numberIn(d.paperInteraction, 0, 1) || !numberIn(d.spacing, 0.0001, 2) || !numberIn(d.flow, 0, 1)
       || !['pass','stamp'].includes(String(d.flowPer)) || !numberIn(d.opacity, 0, 1)
       || !numberIn(d.pressureSmoothingPx, 0, 100) || !curve(d.sizeByPressure) || !curve(d.flowByPressure) || !curve(d.opacityByPressure)) return false
     const key = `${d.id}@${d.version}`
@@ -305,7 +308,19 @@ export function isBrushLibrary(value: unknown): value is BrushLibrary {
       || !numberIn(d.wet.granulation, 0, 1) || typeof d.wet.glaze !== 'boolean'
       || (d.wet.model !== undefined && d.wet.model !== 1 && d.wet.model !== 2)
       || (d.wet.bloom !== undefined && !numberIn(d.wet.bloom, 0, 1)) || (d.wet.feather !== undefined && !numberIn(d.wet.feather, 0, 1)))) return false
-    if (d.mixer !== undefined || d.screentonePx !== undefined) return false
+    if (d.behavior !== undefined) {
+      if (!isBrushBehavior(d.behavior)) return false
+      const secondary = d.behavior.dual?.brush
+      if (secondary) {
+        if (secondary.behavior?.dual) return false
+        const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary }], skipped: [] }
+        if (!isBrushLibrary(probe)) return false
+      }
+    }
+    if (d.mixer !== undefined && (!record(d.mixer) || !numberIn(d.mixer.load,0,1) || !numberIn(d.mixer.pickup,0,1) || !numberIn(d.mixer.strength,0,1))) return false
+    if (d.model === 'mixer' && d.mixer === undefined) return false
+    if (b.compatibility !== undefined && (!Array.isArray(b.compatibility) || b.compatibility.length > 128 || !b.compatibility.every(c => record(c) && typeof c.feature === 'string' && c.feature.length <= 128 && ['supported','approximate','unsupported'].includes(String(c.status)) && typeof c.detail === 'string' && c.detail.length <= 2000))) return false
+    if (d.screentonePx !== undefined) return false
   }
   return value.skipped.length <= 1024 && value.skipped.every(s => record(s) && typeof s.name === 'string' && s.name.length <= 256
     && Array.isArray(s.reasons) && s.reasons.length <= 100 && s.reasons.every(r => typeof r === 'string' && r.length <= 2000))
