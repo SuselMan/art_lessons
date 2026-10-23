@@ -1033,6 +1033,7 @@ export function brushDabSeed(x: number, y: number, pressure: number): number {
 /** What the smudge pipeline needs to paint as a mixer brush instead of a
  *  plain stump. */
 export interface MixerPaint {
+  brush?: BrushDescriptor
   color: [number, number, number]
   /** Fraction of the brush colour folded into the carried imprint per radius
    *  travelled (and in full on the gesture's first dab — a brush arrives on
@@ -1057,6 +1058,7 @@ export function digitalBrushMixer(
   if (brush.model !== 'mixer' || !brush.mixer) return null
   return {
     color,
+    brush: brush.behavior ? brush : undefined,
     load: brush.mixer.load,
     pickup: brush.mixer.pickup,
     strength: brush.mixer.strength,
