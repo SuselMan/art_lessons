@@ -665,6 +665,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         layerId: data.layerId, tool: data.tool, preset: data.preset, color: data.color, dabs: [],
       }
       if (getOperationRejectReason(roomId, userId, standIn)) return
+      try { pinOperationBrush(roomId,userId,standIn) } catch { return }
       socket.to(roomId).emit('peer_stroke_live', { ...data, userId })
     })
 
