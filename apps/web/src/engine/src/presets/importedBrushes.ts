@@ -56,3 +56,6 @@ export function importedBrushAssets(preset: string | undefined): string[] {
   const componentAssets = (brush: BrushDescriptor): (string | undefined)[] => [brush.tip.mask, brush.texture?.id, ...(brush.behavior?.dual ? componentAssets(brush.behavior.dual.brush) : [])]
   return [...new Set(componentAssets(b))].filter((id): id is string & `asset:${string}` => !!id && id.startsWith('asset:'))
 }
+
+/** Call only after all engines that can replay these resources have been destroyed. */
+export function clearImportedBrushPixels(): void { assets.clear() }

@@ -21,6 +21,8 @@ vec3 brushBlend(vec3 b, vec3 s, float mode) {
 export const BRUSH_V2_STAMP_FRAG = BRUSH_STAMP_FRAG
   .replace('  void main() {', `
   uniform float u_ceilingPass;
+  uniform float u_ceilingFallback;
+  uniform sampler2D u_previousCeiling;
   uniform vec3 u_color;
   uniform vec2 u_flip;
   uniform vec4 u_grainTransform;
@@ -60,8 +62,8 @@ export const BRUSH_V2_STAMP_FRAG = BRUSH_STAMP_FRAG
       g = clamp((g-0.5)*(1.0+u_grainTone.y*2.0)+0.5+u_grainTone.x,0.0,1.0);`)
   .replace('amount *= mix(1.0, smoothstep(reach - 0.1, reach + 0.14, g), u_texStrength);', `
       float tooth=smoothstep(reach-0.1,reach+0.14,g);
-      amount = mix(amount,brushBlend(vec3(amount),vec3(tooth),u_grainBlend).r,u_texStrength);`)
-  .replace('gl_FragColor = vec4(vec3(amount), ceiling);','gl_FragColor = u_ceilingPass > 0.5 ? vec4(ceiling) : vec4(u_color * amount, amount);')
+      amount *= mix(1.0,brushBlend(vec3(1.0),vec3(tooth),u_grainBlend).r,u_texStrength);`)
+  .replace('gl_FragColor = vec4(vec3(amount), ceiling);','if (u_ceilingFallback > 0.5) ceiling = max(ceiling,texture2D(u_previousCeiling,gl_FragCoord.xy/u_resolution).r); gl_FragColor = u_ceilingPass > 0.5 ? vec4(ceiling) : vec4(u_color * amount, amount);')
 
 /** V2 coverage holds premultiplied pigment and flow, keeping colour dynamics
  * independent from the original layer and from the user's stroke opacity. */
@@ -70,7 +72,6 @@ precision highp float;
 uniform sampler2D u_original;
 uniform sampler2D u_strokeCoverage;
 uniform sampler2D u_ceiling;
-uniform float u_useCeiling;
 uniform vec2 u_resolution;
 uniform float u_opacity;
 uniform float u_blend;
@@ -105,7 +106,7 @@ void main() {
    pigment=mix(pigment,brushBlend(pigment,pigment*0.5,u_burntBlend),u_burntEdge*edge);
  }
  if(u_luminance>0.5) coverage*=1.0-dot(pigment,vec3(0.2126,0.7152,0.0722));
- float ceiling=u_useCeiling>0.5 ? texture2D(u_ceiling,uv).r : 1.0;
+ float ceiling=texture2D(u_ceiling,uv).r;
  float alpha=clamp(coverage*u_opacity*ceiling,0.0,1.0);
  vec3 b=base.rgb/max(base.a,0.00392157);
  vec3 blend=brushBlend(b,pigment,u_blend);
