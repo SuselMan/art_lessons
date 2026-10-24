@@ -259,11 +259,11 @@ function record(value: unknown): value is Record<string, unknown> {
 function numberIn(value: unknown, min: number, max: number): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max
 }
-function curve(value: unknown): boolean {
+function curve(value: unknown, maximum = 2): boolean {
   if (!Array.isArray(value) || value.length < 2 || value.length > 32) return false
   let last = -1
   return value.every(p => {
-    if (!Array.isArray(p) || p.length !== 2 || !numberIn(p[0], 0, 1) || !numberIn(p[1], 0, 2) || p[0] < last) return false
+    if (!Array.isArray(p) || p.length !== 2 || !numberIn(p[0], 0, 1) || !numberIn(p[1], 0, maximum) || p[0] < last) return false
     last = p[0]
     return true
   })
@@ -304,7 +304,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !['fixed','path','travel'].includes(String(d.tip.rotation))
       || !numberIn(d.paperInteraction, 0, 1) || !numberIn(d.spacing, 0.000001, 2) || !numberIn(d.flow, 0, 1)
       || !['pass','stamp'].includes(String(d.flowPer)) || !numberIn(d.opacity, 0, 1)
-      || !numberIn(d.pressureSmoothingPx, 0, 100) || !curve(d.sizeByPressure) || !curve(d.flowByPressure) || !curve(d.opacityByPressure)) return false
+      || !numberIn(d.pressureSmoothingPx, 0, 100) || !curve(d.sizeByPressure, 8) || !curve(d.flowByPressure) || !curve(d.opacityByPressure)) return false
     if (d.tip.maskBounds !== undefined) {
       const bounds = d.tip.maskBounds
       if (d.tip.kind !== 'bitmap' || !record(bounds)
