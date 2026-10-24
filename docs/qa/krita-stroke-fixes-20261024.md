@@ -204,3 +204,53 @@ Samsung max premultdelta5/255, mean<=.179/255, уDullingmax<=2/255. Undo/redo
 Остаются только существующие QA frontend/backend/PostgreSQL, активный один
 compiled build с hardlinked report, компактные evidence/каталоги и source cache.
 Grafetto коммиты локальные; production/main/push не выполнялись.
+
+## Foreground, scatter, soft mask и давление: версия16
+
+Source/compiled SHA `7141a439db40c1b9bd52ebacd5acf67c5c04b204`, importer16,
+каталог117/245assets, manifest SHA
+`a7caee026c0574a2eb28ed23953d9d48dc7c69f53cdf0beeb60c5d3c524f05ec`.
+Все117 заново нарисованы source-engine на реальном Samsung: GLerrors0.
+42 изображения отличаются от13,75 побайтно прежние. Два независимых визуальных
+review изменённых кистей не нашли новых тяжёлых регрессий; это не эквивалентность.
+
+Для восьми контролируемых Wet41–48 средняя абсолютная ошибка premult RGBA
+относительно native уменьшилась на74–95% на одном и том же union alpha>=8 mask
+каждой пары. Это метрика этих трёх контрольных линий, не «процент поддержки».
+49 улучшилась лишь на5.6% и всё ещё существенно отличается. Остались49/51
+(форма),67/71 (размещение/ориентация/цвет),100/101 (составные маски),102
+(pressure coverage), часть акварельных режимов и неподдержанные engines.
+
+Полный authored GPU witness foreground transfer:1944 cases на Samsung и iPad,
+max CPU-oracle delta1/255, GLerrors0; межустройственный максимум1/255.
+Shader SHA `34f178768e23f01f9298cb4261226615a303c0e8238d99df4424f5df84ff875e`.
+Не является сравнением с закрытым движком или полной Qt byteidentity.
+Typecheck,206 tests/24 suites,128 Python tests, lint и map checks пройдены.
+Evidence: `temp/device-runs/krita-stroke-20261024/fixes-v16` и
+`temp/device-runs/krita-wet-20261024`; сырые токены/данные комнаты не публикуются.
+
+Обновление operator metadata с396 до279 сохраняет последние исторические
+версии и все25 старых неприкреплённых preset references из106 DB references;
+81 уже закреплена room manifests. Room manifests, CAS и операции не удалялись.
+Это уменьшение списка определений, не удаление рисунков/комнат.
+
+Compiled16: UI/cold asset loading/экспорт9 кистей41/42/44/47/53/100/102/109/110
+на каждом устройстве прошли, GLerrors0. Samsung все9 побайтно совпали с source16;
+Apple premult maxdelta5/255, mean<=.082/255. Gallery117,6/page, переход из старого
+отчёта, поиск Rock,512/1024toggle проверены настоящим Chromium; browser закрыт.
+
+Сравнение13→16:16 случаев (два GPU × четыре Wet кисти ×48/128px),72rAF batches
+по4 события, независимый engine. Samsung p95=16.8ms (раньше16.8–17), Apple17–19ms
+(раньше17–20); в каждом случае один кадр>33ms. Новая версия сохраняет обычный
+кадр, но cold первый мазок остаётся проблемой: Samsung max83.6–150.5ms,
+Apple38–70ms. Не заявляется устранение задержки первого мазка, OS pen latency
+или устойчивость памяти длительного рисования. Offscreen engines/GPU contexts
+закрывались finally; реальные комнатные операции не создавались тестовыми мазками.
+
+Undo/redo42/47/100/109 на обоих GPU:8 случаев, экспорт после redo побайтно равен
+исходному PNG. Собственная Samsung room tab3615 закрыта, прежняя report tab3613
+переведена на16, свой ADBforward19228 удалён. Неактивные builds13/15 удалены
+после проверки registry и /proc; сохраняется один активный compiled16 с отчётом.
+Временных jobs/browser contexts/дополнительных GPU contexts не осталось.
+Остаются существующие QA frontend5386/backend4560/PG55560, компактные evidence,
+исторические каталоги/CAS и source cache. Grafetto push/main/deploy не выполнялись.

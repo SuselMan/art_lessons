@@ -253,3 +253,34 @@ independent child может иметь собственный материал.
 пока отклоняются, вместо неявного применения другой физики. Старые descriptor
 без material сохраняют обычное чтение маски. Converter13 создаёт новые immutable
 identity/version, не переписывая сохранённые strokes или room pins.
+
+## Legacy ColorSmudge, scatter и источник шага (converter16)
+
+`mixer.foreground={rate,dynamics?}` добавляет foreground через source-over к
+подобранному предыдущему canvas **до** masked transfer. Это opt-in дополнение
+существующего чистого feedback-пути; guard load=initialLoad=0/no wetMix сохранён.
+Импортёр компилирует native legacy rate `max(1-rawSmudgeRate,.2)*ColorRate`,
+сохраняя влияние raw rate даже при выключенном checkbox. Давление foreground
+и `mixer.sampling.radiusDynamics` вычисляется до продвижения dab-состояния,
+в отдельных namespace случайных контроллеров. Legacy flow не подменяет opacity.
+Поддерживается только разрешённая alpha-mask/Normal/no MergedPaint комбинация;
+прочие режимы явно отмечаются приближёнными.
+
+`behavior.scatter.placement` opt-in различает равномерный scatter вдоль движения,
+по нормали и независимый worldXY квадрат (`pathUniform/normalUniform/xyUniform`).
+Амплитуда — полный текущий диаметр, размер вычислен до scatter. Отсутствие поля
+сохраняет старое распределение. Native integer rotated bounding-box отличается
+от непрерывного диаметра: побайтное совпадение случайного размещения не обещано.
+
+`behavior.spacing.mode='diameter'` дополняет прежний `kritaAuto`: базовый шаг
+равен coefficient*D вместо coefficient*sqrt(D). Опциональные dynamics умножают
+базовый шаг до нижнего предела .5px на ось; isotropic выбирает большую ось.
+Контроллер шага имеет независимое состояние/namespace и участвует в fork/reset.
+Отсутствие dynamics/isotropic сохраняет прежние значения. Нативная pressure
+spacing curve импортируется независимо от updateSpacingBetweenDabs.
+
+Soft circle без AA/randomness/dynamic softness компилируется offline в bitmap:
+нативная кривая применяется к **квадрату** нормализованного радиуса; LUT размер
+зависит от authored diameter. Немо­нотонные кольцевые кривые сохраняются, а не
+заменяются Gaussian. Rect/spikes/AA и другие неподдержанные варианты отмечаются
+явно. Новые версии descriptor не переписывают исторические операции комнаты.
