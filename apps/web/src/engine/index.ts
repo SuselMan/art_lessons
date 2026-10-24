@@ -1,3 +1,5 @@
+import { BrushPreparation, brushPreparationResources, brushPreparationBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
+import { importedAssetPixels } from './src/presets/importedBrushes'
 import { hasOpenBrushStroke } from './src/oplog/openBrushStroke'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './src/watercolor/WatercolorPresentationOwners'
@@ -802,6 +804,10 @@ export interface PencilEngineAPI {
   setUserId(id: string): void
   setPaper(type: PaperType): void
   setPencil(type: string): void
+  /** Selected-brush warmup only: one CPU-mips/upload task per rAF. Oversized
+   * sets or residency displaced by concurrent replay use the lazy fallback.
+   * A new request, abort, context loss or destroy cancels pending work. */
+  prepareBrush(preset: string, options?: BrushPreparationOptions): Promise<BrushPreparationResult>
   setTool(tool: ToolType): void
   setOpacity(v: number): void
   setSize(px: number): void
@@ -2064,6 +2070,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _minmaxExt: { MAX_EXT: number } | null = null
   // (#494) The digital brush's stamp model, its tips and textures — see
   // BrushPainter.ts. Its programs are built by _initGL, like every other one.
+  private _brushPreparationGeneration = 0
+  private readonly _brushPreparation = new BrushPreparation()
   private readonly _brush: BrushPainter
 
   // (#494) Floating layer previews — the scratch tiles a gesture shows in
@@ -3397,6 +3405,27 @@ export class PencilEngine implements PencilEngineAPI {
     this._display()
   }
 
+  async prepareBrush(preset: string, options: BrushPreparationOptions = {}): Promise<BrushPreparationResult> {
+    this._brushPreparationGeneration++
+    this._brushPreparation.cancel()
+    if (this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
+    const generation = this._brushPreparationGeneration
+    const resources = brushPreparationResources(digitalBrushFromPreset(preset))
+    const bytes = brushPreparationBytes(resources,id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256)
+    if (bytes > BRUSH_PREPARATION_BYTES) return { status: 'skipped' }
+    const stamp = resources.filter(r => r.painter === 'stamp'), wet = resources.filter(r => r.painter === 'wet')
+    const missing = resources.filter(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))
+    const result = await this._brushPreparation.run(missing.map(resource => () => {
+      if (resource.painter === 'stamp') this._brush.prepareTexture(stamp,resource)
+      else this._smudge.prepareTexture(wet,resource)
+    }),options,() => !this._destroyed && !this._contextLost && !this.gl.isContextLost())
+    if (generation !== this._brushPreparationGeneration || this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
+    // Another peer's replay may have changed the protected cache group between
+    // jobs. Do not claim residency or loop indefinitely under that workload.
+    if (result.status === 'ready' && resources.some(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))) return { status: 'skipped' }
+    return result
+  }
+
   setPencil(type: string): void  { this._opts.pencilType = type }
   setTool(tool: ToolType): void  {
     // (#468 v7) Reaching for another tool ends the wash: whatever is on the
@@ -4097,6 +4126,8 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   destroy(): void {
+    this._brushPreparationGeneration++
+    this._brushPreparation.cancel()
     this._continuationGpuFence?.release()
     this._continuationGpuFence = null
     this._opQueue = [] // (§17.58)
@@ -5028,6 +5059,8 @@ export class PencilEngine implements PencilEngineAPI {
   // there) stalling the GPU pipeline long enough to trip a mobile browser's
   // watchdog, especially with several full-size layer textures resident.
   private _handleContextLost = (e: Event): void => {
+    this._brushPreparationGeneration++
+    this._brushPreparation.cancel()
     this._continuationGpuFence?.forget()
     e.preventDefault()
     this._contextLost = true

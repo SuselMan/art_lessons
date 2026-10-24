@@ -19,6 +19,7 @@ export interface ToolSyncDeps {
   engineRef: RefObject<PencilEngineAPI | null>
   /** Bumped when a new engine exists to sync to — see engineEpoch in Room. */
   engineEpoch: number
+  canvasRef: RefObject<HTMLCanvasElement | null>
 }
 
 /** (#493) The tool in hand, pushed into the engine: preset, tool, size and
@@ -29,7 +30,7 @@ export interface ToolSyncDeps {
  *
  *  Out of Room — the first step #493's own plan names. What comes back is
  *  what the brush-ring cursor draws with. */
-export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
+export function useToolSync({ engineRef, engineEpoch, canvasRef }: ToolSyncDeps) {
   const toolSettings = useRoomStore(s => s.toolSettings)
   const drawingTool = useRoomStore(s => s.drawingTool)
   // (#405) `drawingTool`, not `tool`: these are the size/opacity/colour the
@@ -75,22 +76,47 @@ export function useToolSync({ engineRef, engineEpoch }: ToolSyncDeps) {
       size: digitalBrushSizeFromPressure, opacity: digitalBrushOpacityFromPressure,
     })
   })()
-  const [, resourcesChanged] = useState(0)
+  const [preparationEpoch, preparationChanged] = useState(0)
+  const [preparedKey, setPreparedKey] = useState('')
   const t = useT()
-  const brushResourcesReady = drawingTool !== 'digitalBrush' || (digitalBrushPresetName !== undefined && importedBrushAssets(digitalBrushPresetName).every(isBrushAssetReady))
+  // Loss and restore both invalidate readiness, including a loss shorter than
+  // the overlay's grace period. The engine cancels the corresponding GPU job.
   useEffect(() => {
-    if (drawingTool !== 'digitalBrush') return
-    let active = true
+    const canvas = canvasRef.current
+    const invalidate = () => preparationChanged(v => v + 1)
+    canvas?.addEventListener('webglcontextlost', invalidate)
+    canvas?.addEventListener('webglcontextrestored', invalidate)
+    return () => {
+      canvas?.removeEventListener('webglcontextlost', invalidate)
+      canvas?.removeEventListener('webglcontextrestored', invalidate)
+    }
+  }, [canvasRef, engineEpoch])
+  const preparationKey = `${engineEpoch}:${preparationEpoch}:${digitalBrushPresetName ?? digitalBrushId}`
+  const brushResourcesReady = drawingTool !== 'digitalBrush' || (preparedKey === preparationKey && digitalBrushPresetName !== undefined && importedBrushAssets(digitalBrushPresetName).every(isBrushAssetReady))
+  useEffect(() => {
+    if (drawingTool !== 'digitalBrush') { setPreparedKey(''); return }
+    const engine = engineRef.current
+    if (!engine) return
+    const controller = new AbortController()
     const roomId = useRoomStore.getState().boardId
-    const resources = prepareBrushPresets([digitalBrushPresetName ?? digitalBrushId])
-    const pending = resources || (roomId && digitalBrushId.startsWith('imported-'))
-      ? (async () => { if (resources) await resources; if (roomId && digitalBrushId.startsWith('imported-')) await publishBrushPresets(roomId, [digitalBrushPresetName ?? digitalBrushId]) })() : null
-    pending?.then(() => { if (active) resourcesChanged(v => v + 1) }).catch(error => {
-      console.error('Selected brush unavailable', error)
-      if (active) notifyError(t('brushLibrary.error'))
+    const preset = digitalBrushPresetName ?? digitalBrushId
+    const pending = (async () => {
+      const resources = prepareBrushPresets([preset])
+      if (resources) await resources
+      if (controller.signal.aborted) return
+      if (roomId && digitalBrushId.startsWith('imported-')) await publishBrushPresets(roomId, [preset])
+      if (controller.signal.aborted) return
+      const result = await engine.prepareBrush(preset, { signal: controller.signal })
+      if (!controller.signal.aborted && result.status !== 'cancelled') setPreparedKey(preparationKey)
+    })()
+    pending.catch(error => {
+      if (!controller.signal.aborted) {
+        console.error('Selected brush unavailable', error)
+        notifyError(t('brushLibrary.error'))
+      }
     })
-    return () => { active = false }
-  }, [drawingTool, digitalBrushPresetName, digitalBrushId, t])
+    return () => controller.abort()
+  }, [drawingTool, digitalBrushPresetName, digitalBrushId, preparationKey, engineEpoch, engineRef, t])
   // #468 v4 — the whole watercolor mix rides the one preset slot as
   // `response:water:pigment` (watercolorPresetString). Same trick the marker
   // plays with `${nib}:${size}`, and for the same reason: #366 exists to shrink

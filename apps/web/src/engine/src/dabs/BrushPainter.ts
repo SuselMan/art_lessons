@@ -1,3 +1,4 @@
+import type { BrushPreparationResource } from './BrushPreparation'
 /** One digital-stamp renderer for built-in, imported and historical presets.
  * BrushBehaviorPainter owns deposition/composition; this facade owns texture LRU. */
 import type { Dab } from '@grafetto/shared'
@@ -46,6 +47,16 @@ export class BrushPainter {
   }
   paintMask(target:Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>,dabs:Dab[],brush:BrushDescriptor,pressure:boolean,scratch:BehaviorScratch,sizeMultiplier:number):void {
     this.behavior.paint(target,dabs,{opacity:1,hardness:1,sizeMultiplier},normalizeBrush(brush),{size:true,opacity:pressure},[1,1,1],scratch)
+  }
+
+  hasPreparedTexture(resource: BrushPreparationResource): boolean {
+    return this.textures.get(`${resource.grain ? 'g' : 't'}:${resource.id}`) !== undefined
+  }
+
+  prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {
+    this.textures.protect(group.map(item => `${item.grain ? 'g' : 't'}:${item.id}`))
+    if (resource.grain) this.brushTexture(resource.id as BrushTextureId)
+    else this.tipTexture(resource.id as TipMaskId)
   }
 
   private brushTexture(id: BrushTextureId): WebGLTexture {

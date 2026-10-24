@@ -1047,7 +1047,7 @@ function RoomEditor() {
   // ── sync tool → engine ────────────────────────────────────────────────────────
   // (#493) Every engine.setX that reflects the tool in hand — see useToolSync.
   const { brushResourcesReady, cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx } =
-    useToolSync({ engineRef, engineEpoch })
+    useToolSync({ engineRef, engineEpoch, canvasRef })
   useWatercolorDevFlags(engineRef, engineEpoch) // (#536) dev views and A/B switches
   // (#493) Whose colour the controls edit, what the engine draws with, the
   // well, the room palette and the flyout — see useToolColor.

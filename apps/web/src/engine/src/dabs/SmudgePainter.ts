@@ -1,3 +1,4 @@
+import type { BrushPreparationResource } from './BrushPreparation'
 // (#494) Smudge and the digital brush's mixer, out of PencilEngine (seam С15
 // of the survey). Both paint through one carried imprint per user: every dab
 // copies the canvas patch under it, refreshes the imprint from that patch
@@ -787,6 +788,15 @@ export class SmudgePainter {
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     buffer.endDraw()
+  }
+
+  hasPreparedTexture(resource: BrushPreparationResource): boolean {
+    return this.wetTextures.get(`${resource.grain ? 'g' : 't'}:${resource.id}`) !== undefined
+  }
+
+  prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {
+    this.wetTextures.protect(group.map(item => `${item.grain ? 'g' : 't'}:${item.id}`))
+    this.wetTexture(resource.id,resource.grain)
   }
 
   /** Byte-bounded residency; active samplers remain protected across draws. */
