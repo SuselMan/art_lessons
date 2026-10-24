@@ -103,6 +103,9 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
       : d.control === 'tiltX' ? clamp((dab.tiltX+90)/180)
       : d.control === 'tiltY' ? clamp((dab.tiltY+90)/180)
       : d.control === 'azimuth' ? turn(penTilt(dab).azimuth)
+      // Raw tilt-axis direction is a separate input convention from the
+      // physical slope azimuth. A vertical pen has a defined reference.
+      : d.control === 'tiltDirection' ? (Math.PI + (dab.tiltX === 0 && dab.tiltY === 0 ? -Math.PI / 2 : Math.atan2(-dab.tiltX,dab.tiltY))) / (2 * Math.PI)
     : d.control === 'tilt' ? clamp(penTilt(dab).angle/(Math.PI/2))
       : d.control === 'speed' ? clamp(speed / 2)
         : d.control === 'fade' ? clamp(1 - state.distance / Math.max(0.001, d.fade ?? 1))

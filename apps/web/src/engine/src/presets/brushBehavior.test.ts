@@ -11,6 +11,27 @@ const color: [
 const dabs: Dab[] = Array.from({ length: 48 }, (_, i) => ({ x: 20 + i * 4, y: 30 + Math.sin(i / 8) * 20, size: 30, pressure: 0.2 + i / 60, angle: i / 30, aspectRatio: 1, tiltX: 20, tiltY: 10, opacity: 0.6, t: i * 8 }))
 const brush: BrushDescriptor = { ...DIGITAL_BRUSHES[0], flowByPressure: [[0, 0.1], [1, 1]], scatter: { count: 16, radius: 0.3, scale: 0.8, sizeJitter: 0.2, angleJitter: 0.2, flowJitter: 0.1 }, behavior: { version: 2, rotation: { follow: 0.4, random: 'stroke', flipX: true, flipY: true }, scatter: { countJitter: 0.4, bothAxes: false, roundnessJitter: 0.3 }, dynamics: { size: { control: 'fade', fade: 30, minimum: 0.1, jitter: 0.2 }, hue: { control: 'pressure', minimum: 0, jitter: 0.3 }, flow: { control: 'speed', minimum: 0.3, jitter: 0.2 } } } }
 describe('v2 logical brush state', () => {
+  it('keeps raw tilt direction and its vertical-pen reference separate from slope azimuth', () => {
+    const input={...dabs[0],tiltX:0,tiltY:0},state=beginBrushBehavior(input)
+    const value=(x:number,y:number)=>brushDynamicValue({control:'tiltDirection',minimum:0,jitter:0},{...input,tiltX:x,tiltY:y},state,0)
+    expect(value(0,0)).toBe(.25)
+    expect(value(45,0)).toBe(.25)
+    expect(value(-45,0)).toBe(.75)
+    expect(value(0,45)).toBe(.5)
+    expect(value(45,10)).toBeCloseTo(.28480224363653197,12)
+    expect(brushDynamicValue({control:'azimuth',minimum:0,jitter:0},input,state,0)).toBe(0)
+    expect(isBrushBehavior({version:2,dynamics:{angle:{control:'tiltDirection',minimum:0,jitter:0}}})).toBe(true)
+  })
+  it('maps raw-axis tilt to a common clockwise flat-tip angle', () => {
+    const b:BrushDescriptor={...brush,scatter:undefined,tip:{...brush.tip,angle:-Math.PI/2,rotation:'fixed'},behavior:{version:2,dynamics:{angle:{control:'tiltDirection',minimum:0,jitter:0,curve:[[0,0],[1,1]]}}}}
+    // PointerInput's fixed-tip shaping already records the base tip angle.
+    const input={...dabs[0],tiltX:0,tiltY:0,angle:-Math.PI/2}
+    const angle=(x:number,y:number)=>{const dab={...input,tiltX:x,tiltY:y};return behaviorStampsForDab(b,dab,beginBrushBehavior(dab),color)[0].angle}
+    expect(Math.cos(angle(0,0))).toBeCloseTo(1,12)
+    expect(Math.sin(angle(0,0))).toBeCloseTo(0,12)
+    expect(Math.cos(angle(45,10))).toBeCloseTo(45/Math.hypot(45,10),12)
+    expect(Math.sin(angle(45,10))).toBeCloseTo(10/Math.hypot(45,10),12)
+  })
   it('produces identical stamps for whole, arbitrary chunks and restored state', () => {
     const full = beginBrushBehavior(dabs[0])
     const expected = dabs.flatMap(d => behaviorStampsForDab(brush, d, full, color))
