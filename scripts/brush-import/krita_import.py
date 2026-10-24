@@ -315,6 +315,8 @@ def preset(data, name, catalog, external, depth=0):
         else:
             mask = raster(resource(filename), filename, True)
             d['tip']['mask'],d['tip']['maskBounds']=tip_asset(mask,catalog,warnings)
+            if kind=='svg_brush':
+                notes.append(compatibility('svgRasterizer','Pinned official stock SVG rasterized on white at native1000px using librsvg; Qt SVG edge antialiasing may differ. General SVG uploads remain unsupported.'))
         # KisScalingSizeBrush::userEffectiveSize is longest native side * scale.
         source_size=max(mask.size)*numeric(definition.get('scale'),1)
         d['tip']['aspect']=1/clamp(numeric(definition.get('ratio'),1),0.0625,1)

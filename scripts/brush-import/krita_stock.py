@@ -14,6 +14,15 @@ from krita_import import convert_krita
 LOCK = Path(__file__).with_name('krita-stock-sources.json')
 
 
+def stock_svg(data):
+    """Bounded subprocess accepts only one immutable audited SVG SHA256."""
+    result=subprocess.run(['node','--max-old-space-size=96',str(Path(__file__).with_name('rasterize_stock_svg.mjs'))],
+                          input=data,capture_output=True,timeout=20,check=True)
+    if len(result.stdout)>4_000_000:
+        raise ValueError('Stock SVG raster exceeds limit')
+    return result.stdout
+
+
 def verified_source(entry, commit, cache):
     relative = PurePosixPath(entry['path'])
     if relative.is_absolute() or '..' in relative.parts or '\\' in entry['path']:
@@ -51,6 +60,10 @@ def build(lock, cache, output, include_legacy=False):
                 continue
             archive=stack.enter_context(zipfile.ZipFile(path))
             for name in archive.namelist():
+                if entry['group']=='default' and path.name=='Krita_4_Default_Resources.bundle' and name=='brushes/leaves-scattered.svg':
+                    # The bundle was integrity-checked; helper independently
+                    # verifies the one SVG hash before invoking any renderer.
+                    external[path.name+'/'+name]=stock_svg(archive.read(name))
                 if name.lower().endswith(('.gbr','.gih','.png','.pat','.jpg','.jpeg','.webp')):
                     external[path.name+'/'+name]=lambda z=archive,n=name:z.read(n)
         return _convert_selected(lock,output,include_legacy,catalog,sources,duplicates,seen,selected,paths,external)

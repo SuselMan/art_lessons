@@ -144,3 +144,16 @@ boundary knots without changing native internal control points. This does not
 remove the separate cubic-versus-linear interpolation limitation. A tight POT
 with an odd short side is padded to the next POT to keep the centered square
 crop inside texture bounds without shifting native mask pixels.
+
+The stock runner additionally rasterizes the single official
+`leaves-scattered.svg` using the already installed Node sharp/librsvg. This is
+**offline stock only**: the helper accepts exactly20404 bytes with SHA256
+`9ccd89dfbbd74096b858374700629b94413855276c8075db3f8cbef72e9baa5a` before
+rendering. No arbitrary SVG upload support is enabled. The input is audited,
+fixed and integrity-checked independently of the bundle. Subprocess limits:
+20s timeout,96MiB JS heap, one libvips worker,1M input pixels,4MB PNG output.
+Krita's SVG path renders to a white1000px canvas before mask conversion
+(`libs/brush/kis_svg_brush.cpp`30–59); this is reproduced, with an explicit
+Qt-versus-librsvg antialiasing approximation warning. No new dependency is
+installed. General untrusted SVG needs a separate bounded safe renderer and
+continues to fail explicitly.
