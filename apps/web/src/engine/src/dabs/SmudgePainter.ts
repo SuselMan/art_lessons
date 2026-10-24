@@ -34,11 +34,11 @@ import { DAB_VERT, DISPLAY_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 
 import { WET_PICKUP_FRAG, WET_TRANSFER_FRAG } from '../raster/wetMixShaders'
-import { advanceBrushAnimation, beginBrushBehavior, behaviorStampsForDab, secondaryBrushDabs, type BrushBehaviorState, type BehaviorStamp } from '../presets/brushBehavior'
+import { advanceBrushAnimation, beginBrushBehavior, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, type BrushBehaviorState, type BehaviorStamp } from '../presets/brushBehavior'
 import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix'
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
 
-interface WetGesture extends WetMixState { behavior: BrushBehaviorState; secondary?: RibbonStrokeScratch }
+interface WetGesture extends WetMixState { behavior: BrushBehaviorState; secondary?: RibbonStrokeScratch; previousPlaced?: { x: number; y: number } }
 interface WetStamp { secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
 
 // Smudge (#14) tuning constants — picked by eye, not exposed as settings
@@ -213,7 +213,7 @@ export class SmudgePainter {
       'u_tipBounds', 'u_dualBounds', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode', 'u_grainRelief',
       'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap',
-      'u_edgeBleed','u_wetEnabled','u_tipKind','u_tip','u_wetGrain','u_grainStrength','u_grainPeriod','u_grainTransform','u_grainTone','u_wetRoundPhase','u_wetWorldOrigin','u_flip','u_grainBlend','u_dual','u_dualKind','u_dualBlend','u_dualTransform','u_wetOriginal','u_wetRender','u_wetBlend','u_burntBlend','u_wetGamma','u_secondaryCoverage','u_secondaryEnabled',
+      'u_previousCanvas','u_edgeBleed','u_wetEnabled','u_tipKind','u_tip','u_wetGrain','u_grainStrength','u_grainPeriod','u_grainTransform','u_grainTone','u_wetRoundPhase','u_wetWorldOrigin','u_flip','u_grainBlend','u_dual','u_dualKind','u_dualBlend','u_dualTransform','u_wetOriginal','u_wetRender','u_wetBlend','u_burntBlend','u_wetGamma','u_secondaryCoverage','u_secondaryEnabled',
     ])
     this.pickupUni = getUniforms(gl, this.pickupProg, [
       'u_gatherEnabled','u_gatherRect','u_gatherTile','u_gatherScale','u_patch', 'u_carried', 'u_rate', 'u_paint', 'u_paintLoad', 'u_alphaPickup', 'u_wetBlur','u_wetTexel','u_wetRetention',
@@ -343,7 +343,7 @@ export class SmudgePainter {
       this.wetGestures.set(userId,state)
     }
     const travel = prev ? Math.hypot(dab.x-prev.x,dab.y-prev.y)/Math.max(0.5,this.radiusOf(dab,paint)) : 0
-    if (prev && travel < 1e-6) { advanceBrushAnimation(brush,state.behavior); return }
+    if (prev && travel < 1e-6 && brush.mixer?.source !== 'previousCanvas') { advanceBrushAnimation(brush,state.behavior); return }
     const dual=brush.behavior?.dual
     let secondary: ReturnType<RibbonStrokeScratch['brushSecondary']> | undefined
     if(dual?.sampling==='independent') {
@@ -354,15 +354,26 @@ export class SmudgePainter {
       this.ctx.paintBrushMask(maskTarget,secondaryBrushDabs(brush,dual.brush,[dab],secondary.sampling),dual.brush,paint.pressure,secondary.scratch,paint.sizeMultiplier)
     }
     const wet = brush.behavior?.wetMix
+    const directionalDab = {...dab,angle:prev && (prev.x!==dab.x || prev.y!==dab.y) ? Math.atan2(dab.y-prev.y,dab.x-prev.x) : dab.angle}
+    const pickupFactor = (brush.mixer?.pickupDynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(brushDabSeed(dab.x,dab.y,dab.pressure),0x60000+index)),1)
     const step = wet ? wetMixStep(wet,state,dab,travel,!prev) : {
       // The descriptor's zero load means a pure blender. The legacy mixer's
       // fixed .85 prime would inject foreground paint even with load=0.
       load: !prev ? brush.mixer?.initialLoad ?? MIXER_PRIME_LOAD : clampNum(paint.load * travel,0,1),
-      pickup: !prev ? 1 : clampNum(paint.pickup*travel,0,1),strength:1,retention:1,blur:0,
+      pickup: brush.mixer?.source === 'previousCanvas' ? paint.pickup : !prev ? 1 : clampNum(paint.pickup*travel,0,1),strength:1,retention:1,blur:0,
     }
+    step.pickup = clampNum(step.pickup*pickupFactor,0,1)
     for (const stamp of behaviorStampsForDab(brush,dab,state.behavior,paint.color)) {
       const shaped = {...dab,x:stamp.x,y:stamp.y,size:stamp.size,angle:stamp.angle}
-      this.applyDab(target,shaped,Math.max(travel,0.1),userId,paint,{secondary,seed:state.behavior.seed,stamp,step,paint})
+      const wetStamp = {secondary,seed:state.behavior.seed,stamp,step,paint}
+      if (brush.mixer?.source === 'previousCanvas') {
+        if (this.radiusOf(shaped,paint) < 0.5) continue
+        const previousPlaced = state.previousPlaced
+        // Own gesture state, independent of frame selection/RNG. The first
+        // placed contact establishes the source centre without painting.
+        state.previousPlaced = {x:Math.round(shaped.x),y:Math.round(shaped.y)}
+        if (previousPlaced) this.applyDab(target,shaped,0,userId,paint,wetStamp,previousPlaced)
+      } else this.applyDab(target,shaped,Math.max(travel,0.1),userId,paint,wetStamp)
     }
   }
 
@@ -464,7 +475,7 @@ export class SmudgePainter {
    *  either way; only which tile's pixel space each piece of it is expressed
    *  in changes, which is exactly how pencil and eraser have always crossed
    *  a seam. */
-  private applyDab(target: ILayerBuffer, dab: Dab, travel: number, userId: string, paint?: MixerPaint, wet?: WetStamp): void {
+  private applyDab(target: ILayerBuffer, dab: Dab, travel: number, userId: string, paint?: MixerPaint, wet?: WetStamp, previousCanvas?: { x: number; y: number }): void {
     const radius = this.radiusOf(dab, paint)
     if (radius < 0.5) return
     const footprint=brushFootprintBounds(dab.x,dab.y,radius,wet?.stamp.aspect ?? 1,wet?.stamp.angle ?? 0,1)
@@ -487,6 +498,10 @@ export class SmudgePainter {
     const patchY = Math.round(dab.y - half)
     const patchRect = { minX: patchX, minY: patchY, maxX: patchX + patchSpan, maxY: patchY + patchSpan }
 
+    if (previousCanvas && wet && paint) {
+      this.paintPreviousCanvas(target,dab,radius,footprint,patchRect,patchSize,patchSpan,previousCanvas,paint,wet)
+      return
+    }
     const targets = target.resolveForPaint(patchRect)
     if (!targets.length) return // degenerate rect only — tilesOverlappingRect never returns empty otherwise
 
@@ -549,6 +564,32 @@ export class SmudgePainter {
 
     this.releaseScratch(patch)
     target.markContentPainted(footprint)
+  }
+
+  /** Spatial canvas feedback, not a carried reservoir. Both snapshots are
+   * complete before any destination write; changing size uses current bounds
+   * at the previous placed centre, never rescales an old imprint. */
+  private paintPreviousCanvas(target: ILayerBuffer, dab: Dab, radius: number, footprint: WorldRect, rect: WorldRect, patchSize: number, span: number, previous: {x:number;y:number}, paint: MixerPaint, wet: WetStamp): void {
+    const source = this.acquireScratch(patchSize)
+    let original: AccumulationBuffer | undefined
+    try {
+      original = this.acquireScratch(patchSize)
+      const x = Math.round(previous.x-span/2), y = Math.round(previous.y-span/2)
+      const sourceRect = {minX:x,minY:y,maxX:x+span,maxY:y+span}
+      // Resolve/gather source first: allocating distant destination tiles can
+      // evict source tiles, whereas the already gathered snapshot is stable.
+      this.gatherPatch(source,target.resolveForPaint(sourceRect),sourceRect,patchSize,span)
+      const targets = target.resolveForPaint(rect)
+      if (!targets.length) return
+      this.gatherPatch(original,targets,rect,patchSize,span)
+      const strength = wet.step.pickup * paint.strength * (paint.pressure ? curveAt(paint.curve,dab.pressure) : 1) * dab.opacity * wet.stamp.opacityScale
+      if (strength <= 0) return
+      for (const tile of targets) {
+        if (footprint.maxX <= tile.originX || footprint.minX >= tile.originX+tile.buffer.width || footprint.maxY <= tile.originY || footprint.minY >= tile.originY+tile.buffer.height) continue
+        this.drawTransferDab(tile,dab,radius,source,rect.minX-tile.originX,tile.buffer.height-(rect.minY-tile.originY)-span,span,'lay',strength,wet,original)
+      }
+      target.markContentPainted(footprint)
+    } finally { this.releaseScratch(source); if (original) this.releaseScratch(original) }
   }
 
   /** Assembles the canvas patch under one dab out of every tile it overlaps
@@ -723,6 +764,7 @@ export class SmudgePainter {
     gl.uniform1f(u.u_patchSize, patchSize)
     gl.uniform1f(u.u_edgeBleed,wet?.stamp.edgeSoftness ?? 0)
     gl.uniform1f(u.u_wetEnabled,wet ? 1 : 0)
+    gl.uniform1f(u.u_previousCanvas,brush?.mixer?.source === 'previousCanvas' ? brush.mixer.smearAlpha ? 1 : 2 : 0)
     gl.uniform1f(u.u_tipKind,brush?.tip.kind === 'bitmap' ? 1 : 0)
     gl.uniform1f(u.u_hardness, brush?.tip.hardness ?? SMUDGE_HARDNESS)
     const tipBounds=brush?.tip.maskBounds
