@@ -90,6 +90,54 @@ def gbr(data):
     return image
 
 
+def gih(data):
+    """Read the documented image-pipe container without discarding any frame.
+
+    The currently shipped Krita pipes use one random/incremental dimension.
+    Other selection/rank combinations fail explicitly pending runtime support.
+    Reference: https://developer.gimp.org/core/standards/gih/
+    """
+    if len(data)>MAX_XML*2:
+        raise ValueError('GIH file exceeds limit')
+    first=data.find(b'\n',0,65536)
+    second=data.find(b'\n',first+1,65536) if first>=0 else -1
+    if second<0:
+        raise ValueError('Truncated GIH header')
+    header=data[first+1:second].decode('ascii').split()
+    try:
+        count=int(header[0])
+        pairs=[item.split(':',1) for item in header[1:]]
+        params=dict(pairs)
+        if len(params)!=len(pairs):
+            raise ValueError('Duplicate GIH header parameter')
+        if not 1<=count<=256 or int(params.get('dim','1'))!=1 or int(params.get('rank0',str(count)))!=count or int(params.get('ncells',str(count)))!=count:
+            raise ValueError('Unsupported GIH frame count or dimensions/ranks')
+    except (IndexError,ValueError) as error:
+        raise ValueError('Invalid or unsupported GIH parameters: '+str(error)) from error
+    mode=params.get('sel0',params.get('selection','incremental'))
+    if mode not in ('random','incremental'):
+        raise ValueError('Unsupported GIH selection mode: '+mode)
+    frames=[];offset=second+1;pixels=0;coloured=False
+    for _ in range(count):
+        # Krita loads valid frames until exact EOF, then indexes modulo the
+        # actual count. Its official fairy-dust pipe declares4 but contains1.
+        if offset==len(data) and frames:
+            break
+        if len(data)-offset<20:
+            raise ValueError('Truncated GIH frame')
+        header_size,version,w,h,channels=struct.unpack('>5I',data[offset:offset+20])
+        if header_size>MAX_XML or w*h>MAX_PIXELS or channels not in (1,4):
+            raise ValueError('GIH frame exceeds limits')
+        length=header_size+w*h*channels
+        frame=gbr(data[offset:offset+length])
+        frames.append(frame);pixels+=w*h;coloured|=channels==4;offset+=length
+        if pixels>MAX_PIXELS:
+            raise ValueError('GIH cumulative pixel limit')
+    if offset!=len(data):
+        raise ValueError('GIH trailing bytes or frame count mismatch')
+    return {'mode':mode,'frames':frames,'coloured':coloured,'declaredCount':count}
+
+
 def raster(data, name, brush=False):
     if name.lower().endswith('.gbr'):
         return gbr(data)

@@ -8,7 +8,7 @@ import unittest
 import zipfile
 from PIL import Image, PngImagePlugin
 import convert
-from krita_import import convert_krita, gbr, xml, gaussian_circle
+from krita_import import convert_krita, gbr, gih, xml, gaussian_circle
 
 
 def kpp(definition=None, resources='', engine='paintbrush', mode='normal'):
@@ -20,6 +20,21 @@ def kpp(definition=None, resources='', engine='paintbrush', mode='normal'):
 
 
 class KritaTests(unittest.TestCase):
+    def test_gih_keeps_all_frames_and_selection(self):
+        def frame(w,h,value):
+            return struct.pack('>7I',29,2,w,h,1,0x47494d50,25)+b'\0'+bytes([value])*(w*h)
+        data=b'Authored pipe\n2 ncells:2 dim:1 rank0:2 sel0:random\n'+frame(2,2,64)+frame(3,1,192)
+        result=gih(data)
+        self.assertEqual(result['mode'],'random')
+        self.assertEqual([f.size for f in result['frames']],[(2,2),(3,1)])
+        self.assertEqual([f.getpixel((0,0)) for f in result['frames']],[64,192])
+        for invalid in [data[:-1],data+b'extra',data.replace(b'dim:1',b'dim:2'),data.replace(b'sel0:random',b'sel0:pressure'),data.replace(b'rank0:2',b'rank0:3')]:
+            with self.assertRaises(ValueError):gih(invalid)
+        incomplete=data[:-len(frame(3,1,192))]
+        result=gih(incomplete)
+        self.assertEqual(len(result['frames']),1)
+        self.assertEqual(result['declaredCount'],2)
+
     def test_adaptive_spacing_retains_vendor_coefficient(self):
         definition='<Brush type="auto_brush" spacing=".1" useAutoSpacing="1" autoSpacingCoeff=".8"><MaskGenerator type="circle" ratio="1" hfade="1" vfade="1"/></Brush>'
         with tempfile.TemporaryDirectory() as tmp:
