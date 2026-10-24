@@ -77,7 +77,7 @@ export class BrushBehaviorPainter {
     } | null
     this.stamp = createProgram(gl, DAB_VERT, BRUSH_STAMP_FRAG)
     this.composite = createProgram(gl, DAB_VERT, BRUSH_COMPOSITE_FRAG)
-    this.su = getUniforms(gl, this.stamp, ['u_lightnessMaterial','u_lightnessStrength','u_dualLightnessMaterial','u_textureApplication','u_textureMapping','u_dualTextureApplication','u_dualTextureMapping','u_tipBounds', 'u_dualBounds', 'u_edgeBleed', 'u_ceilingPass', 'u_ceilingFallback', 'u_previousCeiling', 'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity', 'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure', 'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin', 'u_color', 'u_flip', 'u_grainTransform', 'u_grainTone', 'u_grainBlend', 'u_dual', 'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin', 'u_dualTexPeriod', 'u_dualTexStrength'])
+    this.su = getUniforms(gl, this.stamp, ['u_lightnessMaterial','u_lightnessStrength','u_dualLightnessMaterial','u_textureApplication','u_textureMapping','u_dualTextureApplication','u_dualTextureMapping','u_tipBounds', 'u_dualBounds', 'u_edgeBleed', 'u_ceilingPass', 'u_uniformCeiling', 'u_ceilingFallback', 'u_previousCeiling', 'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity', 'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure', 'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin', 'u_color', 'u_flip', 'u_grainTransform', 'u_grainTone', 'u_grainBlend', 'u_dual', 'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin', 'u_dualTexPeriod', 'u_dualTexStrength'])
     this.cu = getUniforms(gl, this.composite, ['u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_original', 'u_strokeCoverage', 'u_ceiling', 'u_opacity', 'u_blend', 'u_mode', 'u_burntEdge', 'u_burntBlend', 'u_edgePx', 'u_luminance', 'u_gammaCorrect', 'u_secondaryCoverage', 'u_secondaryMode', 'u_secondaryEnabled', 'u_surfaceCloud', 'u_surfaceGrain', 'u_surface', 'u_surfaceOrigin', 'u_screenOrigin', 'u_screentone', 'u_erase'])
     this.sp = gl.getAttribLocation(this.stamp, 'a_position')
     this.cp = gl.getAttribLocation(this.composite, 'a_position')
@@ -216,6 +216,7 @@ export class BrushBehaviorPainter {
         gl.activeTexture(gl.TEXTURE4)
         gl.bindTexture(gl.TEXTURE_2D, dualTexture)
         gl.uniform1f(u.u_ceilingPass, ceilingPass ? 1 : 0)
+        gl.uniform1f(u.u_uniformCeiling, behavior.rendering?.opacityCeiling==='uniform' ? 1 : 0)
         for (const s of list) {
           if(animated) {
             const currentMask=s.mask ?? brush.tip.mask, currentDual=s.dualMask ?? secondary?.tip.mask

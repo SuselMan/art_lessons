@@ -220,3 +220,36 @@ describe('v2 logical brush state', () => {
   })
 
 })
+
+describe('logical dab progress',()=>{
+  const d={...dabs[0],pressure:1,size:20}
+  const progress={control:'dabProgress' as const,period:4,periodic:false,minimum:0,jitter:0}
+  const b:BrushDescriptor={...DIGITAL_BRUSHES[0],scatter:undefined,behavior:{version:2,modulations:{opacity:[progress]}}}
+  it('starts at zero and counts static transparent dabs, independent of travel and batches',()=>{
+    const state=beginBrushBehavior(d)
+    const first=behaviorStampsForDab(b,d,state,color)[0]
+    expect(first.opacityScale).toBe(0)
+    const fork=structuredClone(state)
+    const rest=Array.from({length:5},(_,i)=>({...d,x:d.x+i*91,t:d.t+i*17}))
+    const values=rest.map(v=>behaviorStampsForDab(b,v,state,color)[0].opacityScale)
+    expect(values).toEqual([.25,.5,.75,1,1])
+    const chunked=[...rest.slice(0,2).map(v=>behaviorStampsForDab(b,v,fork,color)[0].opacityScale),...rest.slice(2).map(v=>behaviorStampsForDab(b,{...v,x:d.x,t:d.t},fork,color)[0].opacityScale)]
+    expect(chunked).toEqual(values)
+    expect(state.dabSequence).toBe(6)
+    expect(state.dabOrdinal).toBeUndefined()
+  })
+  it('wraps before the nonlinear curve and leaves historical distance fade unchanged',()=>{
+    const state=beginBrushBehavior(d)
+    const periodic={...progress,periodic:true,curve:[[0,0],[.5,.1],[1,1]] as const}
+    const seen=[]
+    for(let i=0;i<6;i++){
+      seen.push(brushDynamicValue(periodic,d,state,.8))
+      behaviorStampsForDab(b,d,state,color)
+    }
+    expect(seen).toEqual([0,.05,.1,.55,0,.05])
+    expect(brushDynamicValue({control:'fade',fade:4,minimum:0,jitter:0},d,state,0)).toBe(1)
+    expect(isBrushBehavior(b.behavior)).toBe(true)
+    for(const invalid of [0,-1,1.5,Infinity,1000001])expect(isBrushBehavior({version:2,modulations:{opacity:[{...progress,period:invalid}]}})).toBe(false)
+    expect(isBrushBehavior({version:2,modulations:{opacity:[{...progress,control:'pressure'}]}})).toBe(false)
+  })
+})

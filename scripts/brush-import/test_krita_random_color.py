@@ -52,3 +52,20 @@ class RandomOptionTests(unittest.TestCase):
             self.assertEqual(any(x['feature']=='airbrush' for x in b['compatibility']),expected)
 
 if __name__=='__main__':unittest.main()
+
+
+class DabProgressTests(unittest.TestCase):
+    def test_fade_is_dab_progress_with_own_curve_and_pressure_product(self):
+        from krita_import import sensor_controls
+        notes=[]
+        params={'OpacityUseSameCurve':'false','OpacitySensor':'<params id="sensorslist"><ChildSensor id="fade" length="169" periodic="0"><curve>0,0;.5,.25;1,1;</curve></ChildSensor><ChildSensor id="pressure"/></params>'}
+        c=sensor_controls(params,'Opacity',notes)
+        self.assertEqual([x['control'] for x in c],['dabProgress','pressure'])
+        self.assertEqual((c[0]['period'],c[0]['periodic']),(169,False))
+        self.assertAlmostEqual(c[0]['curve']['samples'][0],0)
+        self.assertLess(c[0]['curve']['samples'][128],.3)
+        for raw in ['0','-1','1.5','nan','1000001']:
+            notes=[];self.assertEqual(sensor_controls({'FlowSensor':f'<params id="fade" length="{raw}"/>'},'Flow',notes),[])
+            self.assertTrue(any(x['status']=='unsupported' for x in notes))
+        c=sensor_controls({'FlowSensor':'<params id="fade" periodic="1"/>'},'Flow',[])[0]
+        self.assertEqual((c['period'],c['periodic']),(1000,True))

@@ -123,6 +123,7 @@ export const BRUSH_STAMP_FRAG = `
   uniform float u_aaPx;
   // This stamp's opacity ceiling (digitalBrushCeiling), 1 with the switch off.
   uniform float u_ceiling;
+  uniform float u_uniformCeiling;
   // How strongly the paper's tooth breaks this brush's contact (0..1), and the
   // pressure pushing it into the tooth.
   uniform float u_paper;
@@ -263,7 +264,7 @@ export const BRUSH_STAMP_FRAG = `
     // The ceiling follows the stamp's silhouette only as far as needed to stay
     // continuous: a hard step at the stamp's rim would draw a visible circle
     // wherever a firm stamp's edge crosses a lighter part of the same stroke.
-    float ceiling = u_ceiling * smoothstep(0.0, 0.3, shape);
+    float ceiling = u_ceiling * mix(smoothstep(0.0, 0.3, shape), 1.0, u_uniformCeiling);
     if (u_ceilingFallback > 0.5) ceiling = max(ceiling,texture2D(u_previousCeiling,gl_FragCoord.xy/u_resolution).r); gl_FragColor = u_ceilingPass > 0.5 ? vec4(ceiling) : vec4(pigment * amount, amount);
   }
 `

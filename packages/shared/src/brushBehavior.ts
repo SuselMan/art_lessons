@@ -3,11 +3,14 @@ import { isBrushCurve, type BrushCurve } from './brushCurves.js'
 import type { BrushDescriptor } from './brushes.js'
 
 export type BrushBlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'colorBurn' | 'linearBurn' | 'colorDodge' | 'add' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'color' | 'luminosity'
-export type BrushControl = 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection' | 'tiltElevation' | 'tiltX' | 'tiltY' | 'azimuth' | 'tiltDirection' | 'random' | 'strokeRandom'
+export type BrushControl = 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection' | 'tiltElevation' | 'tiltX' | 'tiltY' | 'azimuth' | 'tiltDirection' | 'random' | 'strokeRandom' | 'dabProgress'
 export interface BrushDynamic {
   control: BrushControl
   /** Required option-keyed stream for a gesture-constant random sensor. */
   randomStream?: number
+  /** Logical emitted-dab count; independent of distance, animation and batches. */
+  period?: number
+  periodic?: boolean
   jitter: number
   minimum: number
   /** Distance in brush diameters. */
@@ -45,6 +48,8 @@ export interface BrushBehavior {
     depthMinimum: number; depthJitter: number; blendMode: BrushBlendMode
   }
   rendering?: {
+    /** Shape attenuation is historical; uniform keeps mask coverage only once. */
+    opacityCeiling?: 'shape' | 'uniform'
     mode: 'lightGlaze' | 'uniformGlaze' | 'intenseGlaze' | 'heavyGlaze' | 'uniformBlend' | 'intenseBlend' | 'buildUp'
     blendMode: BrushBlendMode; wetEdges: number; burntEdges: number; burntEdgesMode: BrushBlendMode
     luminance?: boolean
@@ -96,13 +101,13 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const edge=value.edgeBleed
   if (edge !== undefined && (!obj(edge) || !keys(edge,['pressure','tilt','pressureCurve']) || !n(edge.pressure,-1,1) || !n(edge.tilt,-1,1) || (edge.pressureCurve !== undefined && !isBrushBehavior({version:2,dynamics:{size:{control:'pressure',minimum:0,jitter:0,curve:edge.pressureCurve}}})))) return false
   const d=value.dynamics
-  if (d !== undefined && (!obj(d) || !keys(d,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth']) || !Object.values(d).every(v => obj(v) && keys(v,['control','randomStream','jitter','minimum','fade','strength','curve']) && ['off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom'].includes(String(v.control)) && (v.control==='strokeRandom' ? n(v.randomStream,0,4294967295) && Number.isInteger(v.randomStream) : v.randomStream===undefined) && n(v.jitter) && n(v.minimum) && (v.fade === undefined || n(v.fade,0.001,100000)) && (v.strength === undefined || n(v.strength,-1,1)) && (v.curve === undefined || isBrushCurve(v.curve,1,256,true))))) return false
+  if (d !== undefined && (!obj(d) || !keys(d,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth']) || !Object.values(d).every(v => obj(v) && keys(v,['control','randomStream','period','periodic','jitter','minimum','fade','strength','curve']) && ['off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom','dabProgress'].includes(String(v.control)) && (v.control==='strokeRandom' ? n(v.randomStream,0,4294967295) && Number.isInteger(v.randomStream) : v.randomStream===undefined) && (v.control==='dabProgress' ? n(v.period,1,1000000) && Number.isInteger(v.period) && typeof v.periodic==='boolean' : v.period===undefined && v.periodic===undefined) && n(v.jitter) && n(v.minimum) && (v.fade === undefined || n(v.fade,0.001,100000)) && (v.strength === undefined || n(v.strength,-1,1)) && (v.curve === undefined || isBrushCurve(v.curve,1,256,true))))) return false
   const mod=value.modulations
   if (mod !== undefined && (!obj(mod) || !keys(mod,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth']) || !Object.values(mod).every(list => Array.isArray(list) && list.length <= 4 && list.every(v => isBrushBehavior({version:2,dynamics:{size:v}}))))) return false
   const g=value.grain
   if (g !== undefined && (!obj(g) || !keys(g,['mode','movement','zoom','rotation','offsetJitter','brightness','contrast','depthMinimum','depthJitter','blendMode']) || !['canvas','moving'].includes(String(g.mode)) || !n(g.movement) || !n(g.zoom) || !n(g.rotation,-1,1) || typeof g.offsetJitter !== 'boolean' || !n(g.brightness,-1,1) || !n(g.contrast,-1,1) || !n(g.depthMinimum) || !n(g.depthJitter) || !blend(g.blendMode))) return false
   const render=value.rendering
-  if (render !== undefined && (!obj(render) || !keys(render,['mode','blendMode','wetEdges','burntEdges','burntEdgesMode','luminance','gammaCorrect']) || !['lightGlaze','uniformGlaze','intenseGlaze','heavyGlaze','uniformBlend','intenseBlend','buildUp'].includes(String(render.mode)) || !blend(render.blendMode) || !n(render.wetEdges) || !n(render.burntEdges) || !blend(render.burntEdgesMode) || (['luminance','gammaCorrect'].some(k => render[k] !== undefined && typeof render[k] !== 'boolean')))) return false
+  if (render !== undefined && (!obj(render) || !keys(render,['opacityCeiling','mode','blendMode','wetEdges','burntEdges','burntEdgesMode','luminance','gammaCorrect']) || !['lightGlaze','uniformGlaze','intenseGlaze','heavyGlaze','uniformBlend','intenseBlend','buildUp'].includes(String(render.mode)) || (render.opacityCeiling!==undefined && !['shape','uniform'].includes(String(render.opacityCeiling))) || !blend(render.blendMode) || !n(render.wetEdges) || !n(render.burntEdges) || !blend(render.burntEdgesMode) || (['luminance','gammaCorrect'].some(k => render[k] !== undefined && typeof render[k] !== 'boolean')))) return false
   const w=value.wetMix
   const wetKeys=['dilution','charge','attack','pull','grade','blur','blurJitter','wetnessJitter']
   if (w !== undefined && (!obj(w) || !keys(w,[...wetKeys,'dynamics']) || !wetKeys.every(k => n(w[k],k==='grade'?-1:0,1)))) return false

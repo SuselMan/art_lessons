@@ -280,16 +280,23 @@ def sensor_controls(params, option, notes):
     common=params.get(option+'commonCurve') or (sensors[-1].findtext('curve') if sensors else None)
     use_common=enabled(params.get(option+'UseSameCurve','true'))
     controls=[]
-    supported={'pressure':'pressure','declination':'tiltElevation','xtilt':'tiltX','ytilt':'tiltY','ascension':'azimuth','speed':'speed','drawingangle':'direction','fuzzy':'random','fuzzystroke':'strokeRandom'}
+    supported={'pressure':'pressure','declination':'tiltElevation','xtilt':'tiltX','ytilt':'tiltY','ascension':'azimuth','speed':'speed','drawingangle':'direction','fuzzy':'random','fuzzystroke':'strokeRandom','fade':'dabProgress'}
     for node in sensors:
         name=node.get('id','')
         if name not in supported:
             notes.append(compatibility(option+'Sensor','Unsupported Krita sensor '+name,'unsupported'));continue
+        if name=='fade':
+            raw=node.get('length','1000')
+            try: period=int(raw)
+            except (ValueError,OverflowError): period=0
+            if not 1<=period<=1000000 or str(period)!=raw.strip():
+                notes.append(compatibility(option+'Sensor','Invalid or out-of-range dab fade length; sensor unsupported.','unsupported'));continue
         curve=(common if use_common and common else node.findtext('curve')) or legacy_curve
         transfer=native_transfer(curve)
         if len(controls)>=4:
             notes.append(compatibility(option+'Sensor','More than four active supported sensors; excess controls unsupported.','unsupported'));continue
         controls.append({'control':supported[name],'minimum':0,'jitter':0,'curve':transfer})
+        if name=='fade': controls[-1].update(period=period,periodic=enabled(node.get('periodic','0')))
         if name=='fuzzystroke': controls[-1]['randomStream']=int.from_bytes(hashlib.sha256(option.encode()).digest()[:4],'big')
         if name!='pressure':
             notes.append(compatibility(option+'Sensor','Sensor '+name+' uses recorded Grafetto input; speed scaling and curve interpolation require vendor calibration.'))
@@ -354,7 +361,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=19
+    d['version']=20
     source_size=None
     application=0
     kind = definition.get('type')
@@ -453,7 +460,7 @@ def preset(data, name, catalog, external, depth=0):
     d['tip']['angle']=math.remainder(-numeric(definition.get('angle')),2*math.pi)
     d['flow']=clamp(numeric(params.get('FlowValue'),1))
     d['opacity']=clamp(numeric(params.get('OpacityValue'),1))
-    behavior={'version':2,'rendering':{'mode':'buildUp','blendMode':'normal','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}}
+    behavior={'version':2,'rendering':{'opacityCeiling':'uniform','mode':'buildUp','blendMode':'normal','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}}
     spacing_checked=enabled(params.get('PressureSpacing'))
     auto_spacing=enabled(definition.get('useAutoSpacing'))
     isotropic=enabled(params.get('Spacing/Isotropic'))

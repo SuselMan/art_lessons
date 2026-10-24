@@ -4,6 +4,7 @@ import { brushDabRandom, brushDabSeed, brushStampsForDab, curveAt, type BrushSta
 export interface BrushBehaviorState {
   pending?: BehaviorPlaced[]
   dabOrdinal?: number
+  dabSequence?: number
   seed: number
   charge: number
   distance: number
@@ -139,6 +140,7 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
       : d.control === 'tiltDirection' ? (Math.PI + (dab.tiltX === 0 && dab.tiltY === 0 ? -Math.PI / 2 : Math.atan2(-dab.tiltX,dab.tiltY))) / (2 * Math.PI)
     : d.control === 'tilt' ? clamp(penTilt(dab).angle/(Math.PI/2))
       : d.control === 'speed' ? clamp(speed / 2)
+        : d.control === 'dabProgress' ? (d.periodic ? ((state.dabSequence ?? 0) % d.period!) / d.period! : clamp((state.dabSequence ?? 0) / d.period!))
         : d.control === 'fade' ? clamp(1 - state.distance / Math.max(0.001, d.fade ?? 1))
           : d.control === 'direction' ? turn(dab.angle)
             : d.control === 'initialDirection' ? turn(state.firstAngle) : 1
@@ -289,5 +291,6 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
     }
   })
   state.previous = { ...dab }
+  state.dabSequence = (state.dabSequence ?? 0) + 1
   return out
 }
