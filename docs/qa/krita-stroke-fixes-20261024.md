@@ -499,3 +499,13 @@ Actual WebGL lose/restore67/115:2cases вернули тот же PNG,новые
 перестроились из журнала. Authored8witnesses повторены наfinalruntime без изменения.
 Viewer21Native/20/21:117/6page/search/pagination/512↔1024 PASS; browser/contextзакрыты.
 Operator279/283:106refs=81pinned+25operatorresolved,serverhealth/dbup.
+
+
+Фактический Samsungentry проверенCDP: main-fq-5XEU0.js совпал сdist21d,
+включая active serviceworker. Свояroom3619 и version-probe room закрыты,
+прежняяreport3613на21, forwards19236/19238удалены; temporaryjobsпусты.
+Browser/GPUcontextsзакрытыfinally. Приcleanup одинsameUID/proc/cwd был защищён;
+привилегированный read-only аудит подтвердил0references/0unreadable, затем
+удалены только knowninactive20b/21/21b/21c и unactivatedcatalog33. Остаются один
+compiled21d/report, прежниеQAfrontend/backend/PG,compactsource/evidence/CAS/history.
+Новыхworktree/dependencyкопийнет;Grafettomain/push/productiondeployне выполнялись.
