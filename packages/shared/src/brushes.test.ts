@@ -15,6 +15,16 @@ function library(): BrushLibrary {
 }
 
 describe('brush library contract', () => {
+  it('validates explicit uniform scatter placement without silently conflicting axes', () => {
+    const data=library(),d=data.brushes[0].descriptor
+    d.behavior={version:2,scatter:{countJitter:0,bothAxes:false,placement:'pathUniform'}}
+    expect(isBrushLibrary(data)).toBe(true)
+    d.behavior.scatter!.placement='normalUniform';expect(isBrushLibrary(data)).toBe(true)
+    d.behavior.scatter!.placement='xyUniform';expect(isBrushLibrary(data)).toBe(false)
+    d.behavior.scatter!.bothAxes=true;expect(isBrushLibrary(data)).toBe(true)
+    Object.assign(d.behavior.scatter!,{placement:'native'});expect(isBrushLibrary(data)).toBe(false)
+    delete d.behavior.scatter!.placement;expect(isBrushLibrary(data)).toBe(true)
+  })
   it('keeps canvas foreground separate from reservoirs and bounds both sensor products', () => {
     const data=library(),d=data.brushes[0].descriptor
     d.model='mixer'

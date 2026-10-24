@@ -25,7 +25,13 @@ export interface BrushBehavior {
   erase?: boolean
   falloff?: number
   rotation?: { follow: number; random: 'none' | 'stroke' | 'stamp'; flipX?: boolean; flipY?: boolean; azimuth?: boolean; projection?: boolean }
-  scatter?: { countJitter: number; bothAxes: boolean; roundnessJitter?: number }
+  scatter?: {
+    countJitter: number; bothAxes: boolean; roundnessJitter?: number
+    /** Uniform signed displacement over a full diameter-scaled radius.
+     * Path/normal follow motion independently of tip rotation; xy is a square.
+     * Absence retains historical disc/projection placement. */
+    placement?: 'pathUniform' | 'normalUniform' | 'xyUniform'
+  }
   dynamics?: Partial<Record<BrushDynamicTarget, BrushDynamic>>
   modulations?: Partial<Record<BrushDynamicTarget, BrushDynamic[]>>
   grain?: {
@@ -71,7 +77,8 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const r=value.rotation
   if (r !== undefined && (!obj(r) || !keys(r,['follow','random','flipX','flipY','azimuth','projection']) || !n(r.follow,-1,1) || !['none','stroke','stamp'].includes(String(r.random)) || ['flipX','flipY','azimuth','projection'].some(k => r[k] !== undefined && typeof r[k] !== 'boolean'))) return false
   const s=value.scatter
-  if (s !== undefined && (!obj(s) || !keys(s,['countJitter','bothAxes','roundnessJitter']) || !n(s.countJitter) || typeof s.bothAxes !== 'boolean' || (s.roundnessJitter !== undefined && !n(s.roundnessJitter)))) return false
+  if (s !== undefined && (!obj(s) || !keys(s,['countJitter','bothAxes','roundnessJitter','placement']) || !n(s.countJitter) || typeof s.bothAxes !== 'boolean' || (s.roundnessJitter !== undefined && !n(s.roundnessJitter))
+    || (s.placement !== undefined && (!['pathUniform','normalUniform','xyUniform'].includes(String(s.placement)) || s.bothAxes !== (s.placement === 'xyUniform'))))) return false
   const edge=value.edgeBleed
   if (edge !== undefined && (!obj(edge) || !keys(edge,['pressure','tilt','pressureCurve']) || !n(edge.pressure,-1,1) || !n(edge.tilt,-1,1) || (edge.pressureCurve !== undefined && !isBrushBehavior({version:2,dynamics:{size:{control:'pressure',minimum:0,jitter:0,curve:edge.pressureCurve}}})))) return false
   const d=value.dynamics
