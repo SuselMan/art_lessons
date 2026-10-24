@@ -69,6 +69,8 @@ float brushEdgeBleed(sampler2D tip,vec2 uv,float kind,float hardness,vec2 flip,f
   vec2 p=uv*(1.0+bleed*0.15);
   float r=bleed*0.12, d=r*0.70710678;
   float center=brushEdgeSample(tip,p,kind,hardness,flip,alphaChannel,aa);
+  // Uniform fast path: an inactive edge filter needs one mask lookup, not nine.
+  if(bleed<=0.0) return center;
   float axial=brushEdgeSample(tip,p+vec2(r,0.0),kind,hardness,flip,alphaChannel,aa)+brushEdgeSample(tip,p-vec2(r,0.0),kind,hardness,flip,alphaChannel,aa)+brushEdgeSample(tip,p+vec2(0.0,r),kind,hardness,flip,alphaChannel,aa)+brushEdgeSample(tip,p-vec2(0.0,r),kind,hardness,flip,alphaChannel,aa);
   float diag=brushEdgeSample(tip,p+vec2(d,d),kind,hardness,flip,alphaChannel,aa)+brushEdgeSample(tip,p-vec2(d,d),kind,hardness,flip,alphaChannel,aa)+brushEdgeSample(tip,p+vec2(d,-d),kind,hardness,flip,alphaChannel,aa)+brushEdgeSample(tip,p+vec2(-d,d),kind,hardness,flip,alphaChannel,aa);
   return mix(center,center*0.5+axial/12.0+diag/24.0,bleed);
