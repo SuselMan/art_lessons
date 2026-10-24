@@ -293,7 +293,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=10
+    d['version']=11
     source_size=None
     kind = definition.get('type')
     if kind == 'auto_brush':
@@ -383,6 +383,31 @@ def preset(data, name, catalog, external, depth=0):
                 d[field]=pressure['curve'];controls=[control for control in controls if control is not pressure]
             if controls: behavior.setdefault('modulations',{})[target]=controls
             notes.append(compatibility(option+'Curve','Native natural-cubic response compiled to256-sample float transfer with linear lookup; sensor normalization still requires vendor calibration.'))
+    rotation_decoded=False
+    if enabled(params.get('PressureRotation')) and enabled(params.get('RotationUseCurve','true')):
+        rotation_sensor=xml(params.get('RotationSensor','<params id="pressure"/>'))
+        rotation_sensors=list(rotation_sensor.findall('ChildSensor')) if rotation_sensor.get('id')=='sensorslist' else [rotation_sensor]
+        strength=numeric(params.get('RotationValue'),1)
+        # A single additive direction sensor: C(u) is evaluated BEFORE the
+        # native additive conversion and strength. Angle offsets are modulo2pi.
+        if (len(rotation_sensors)==1 and rotation_sensors[0].get('id')=='ascension'
+                and numeric(params.get('RotationcurveMode'),0)==0 and -1<=strength<=1):
+            rotation_notes=[]
+            controls=sensor_controls(params,'Rotation',rotation_notes)
+            notes.extend(note for note in rotation_notes if note['status']=='unsupported')
+            if len(controls)==1:
+                control=controls[0];curve=control['curve']
+                transform=lambda value:.5+strength*(.5-value)
+                if isinstance(curve,list):
+                    mapped=[[x,transform(y)] for x,y in curve]
+                else:
+                    mapped={**curve,'samples':[transform(value) for value in curve['samples']]}
+                    # Direction input is normalized unsigned0..1; the mapped
+                    # additive output must not restore a signed sensor value.
+                    mapped.pop('preserveInputSign',None)
+                behavior.setdefault('dynamics',{})['angle']={**control,'control':'tiltDirection','curve':mapped}
+                rotation_decoded=True
+                notes.append(compatibility('RotationCurve','Single additive tilt-direction response compiled before native angle strength; raw tilt direction includes neutral zero-tilt orientation.'))
     if enabled(params.get('PressureScatter')):
         amount=clamp(numeric(params.get('ScatterValue',params.get('Scattering/Amount')),1),0,4)
         x=enabled(params.get('Scattering/AxisX','true'));y=enabled(params.get('Scattering/AxisY','true'))
@@ -477,7 +502,7 @@ def preset(data, name, catalog, external, depth=0):
             if controls:
                 d['mixer']['pickupDynamics']=controls
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate')]
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureRotation' and rotation_decoded)]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):
