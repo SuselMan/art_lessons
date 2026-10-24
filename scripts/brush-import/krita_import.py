@@ -292,7 +292,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=7
+    d['version']=8
     source_size=None
     kind = definition.get('type')
     if kind == 'auto_brush':
@@ -418,7 +418,16 @@ def preset(data, name, catalog, external, depth=0):
         smudge_rate=clamp(numeric(params.get('SmudgeRateValue'),1)) if enabled(params.get('PressureSmudgeRate')) else 1
         d['model']='mixer';d['mixer']={'load':color_rate,'pickup':smudge_rate,'strength':1,
                                     'initialLoad':color_rate,'smearAlpha':enabled(params.get('SmudgeRateSmearAlpha','true'))}
-        notes.append(compatibility('colorSmudge','Krita Color Smudge is approximated using Grafetto carried-pigment mixer; dulling/smearing formulas differ.'))
+        # KisSmudgeLengthOptionData::read defaults: legacy engine, SMEARING0.
+        previous_canvas=(not enabled(params.get('SmudgeRateUseNewEngine','false'))
+                         and numeric(params.get('SmudgeRateMode'),0)==0 and color_rate==0)
+        if previous_canvas:
+            d['mixer']['source']='previousCanvas'
+            notes.append(compatibility('colorSmudge','Legacy pure smearing samples previous canvas; native distance/smudge-rate dynamics are not yet reproduced.'))
+        else:
+            notes.append(compatibility('colorSmudge','Dulling, new-engine or foreground-paint mixing retains approximate Grafetto carried pigment; native formulas differ.'))
+        if enabled(params.get('SmudgeRateUseCurve')):
+            notes.append(compatibility('smudgeRateCurve','Native SmudgeRate sensor curves are not applied; only the enabled constant rate is retained.','unsupported'))
     active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter')]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))

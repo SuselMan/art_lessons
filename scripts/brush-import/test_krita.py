@@ -196,7 +196,27 @@ class KritaTests(unittest.TestCase):
                 p=Path(tmp)/'Rates.kpp';Image.new('RGB',(2,2)).save(p,format='PNG',pnginfo=meta)
                 c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
                 self.assertEqual(c.skipped,[])
-                self.assertEqual(c.brushes[0]['descriptor']['mixer'],{'load':load,'pickup':pickup,'strength':1,'initialLoad':load,'smearAlpha':True})
+                self.assertEqual(c.brushes[0]['descriptor']['mixer'],{'load':load,'pickup':pickup,'strength':1,'initialLoad':load,'smearAlpha':True,**({'source':'previousCanvas'} if load==0 else {})})
+
+    def test_previous_canvas_selection_is_semantic_and_defaults_legacy(self):
+        cases=[({},True),({'SmudgeRateUseNewEngine':'false','SmudgeRateMode':'0'},True),
+               ({'SmudgeRateUseNewEngine':'true'},False),({'SmudgeRateMode':'1'},False),
+               ({'PressureColorRate':'true','ColorRateValue':'.25'},False),
+               ({'PressureColorRate':'true','ColorRateValue':'0'},True),
+               ({'PressureColorRate':'false','ColorRateValue':'.9'},True)]
+        for params,expected in cases:
+            with self.subTest(params=params),tempfile.TemporaryDirectory() as tmp:
+                saved=''.join('<param name="'+key+'">'+value+'</param>' for key,value in params.items())
+                path=Path(tmp)/'Unrelated.kpp';path.write_bytes(kpp(resources=saved,engine='colorsmudge'))
+                catalog=convert.Catalog(Path(tmp)/'out');convert_krita(path,catalog)
+                self.assertEqual(catalog.skipped,[])
+                self.assertEqual(catalog.brushes[0]['descriptor']['mixer'].get('source')=='previousCanvas',expected)
+
+    def test_smudge_rate_curve_is_explicitly_unsupported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'QA.kpp';path.write_bytes(kpp(resources='<param name="SmudgeRateUseCurve">true</param>',engine='colorsmudge'))
+            catalog=convert.Catalog(Path(tmp)/'out');convert_krita(path,catalog)
+            self.assertTrue(any(x['feature']=='smudgeRateCurve' and x['status']=='unsupported' for x in catalog.brushes[0]['compatibility']))
 
     def test_colorsmudge_smear_alpha_explicit_and_missing_defaults(self):
         for saved,expected in [(None,True),('true',True),('false',False),('0',False)]:
@@ -221,8 +241,8 @@ class KritaTests(unittest.TestCase):
             # final mixer parameters, so old rooms keep their former resource.
             old=copy.deepcopy(current);old['mixer'].update(load=.5,pickup=.5)
             finalize_identity(old,source)
-            self.assertEqual(current['version'],7)
-            previous=copy.deepcopy(current);previous['version']=6
+            self.assertEqual(current['version'],8)
+            previous=copy.deepcopy(current);previous['version']=7
             finalize_identity(previous,source)
             self.assertNotEqual(previous['id'],current['id'])
             self.assertNotEqual(old['id'],current['id'])

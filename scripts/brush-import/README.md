@@ -27,11 +27,11 @@ Pass all source packs in one invocation: `manifest.json` is replaced, not append
 
 Tips are centered in a transparent POT square, retaining original pixels until dimensions exceed 2048. Larger tips are proportionally resampled, with a warning. Grain is resampled to square POT; non-square grain may change aspect, reported as a warning. Alpha multiplies image luminance. ABR samples already encode positive coverage and are not inverted heuristically.
 
-Imported descriptors have `id: imported-<24 hexadecimal digits>`, immutable preset versions4 (ABR),7 (Krita),5 (Procreate) and behavior schema2, `model: stamp` or `mixer`; the ID hashes source settings, all final rendering fields (including shape/grain content hashes), and the importer schema/version. Source file paths are not persisted. Preset identity/settings are immutable at runtime. A future importer which changes rendering must bump its import version/identity rule; it must not overwrite referenced resources.
+Imported descriptors have `id: imported-<24 hexadecimal digits>`, immutable preset versions4 (ABR),8 (Krita),5 (Procreate) and behavior schema2, `model: stamp` or `mixer`; the ID hashes source settings, all final rendering fields (including shape/grain content hashes), and the importer schema/version. Source file paths are not persisted. Preset identity/settings are immutable at runtime. A future importer which changes rendering must bump its import version/identity rule; it must not overwrite referenced resources.
 
 ## Fidelity and supported subset
 
-Importer rendering versions **3/4/5/6/7** emit optional `descriptor.behavior.version: 2` and per-brush `compatibility: [{feature,status,detail}]`. Existing imported IDs and historical manifests are not rewritten; old built-in tokens intentionally resolve to the current pre-release set. `approximate` means source semantics are retained but Grafetto's formula differs or the archive transfer function is undocumented; `unsupported` identifies an active lost feature. Neither status promises Photoshop/Procreate pixel equivalence.
+Importer rendering versions **3/4/5/6/7/8** emit optional `descriptor.behavior.version: 2` and per-brush `compatibility: [{feature,status,detail}]`. Existing imported IDs and historical manifests are not rewritten; old built-in tokens intentionally resolve to the current pre-release set. `approximate` means source semantics are retained but Grafetto's formula differs or the archive transfer function is undocumented; `unsupported` identifies an active lost feature. Neither status promises Photoshop/Procreate pixel equivalence.
 
 ABR 6/7/9/10 minor 1/2: descriptor blocks plus both the minor-1 bitmap layout and minor-2 VMAL/fixed-preamble layouts, raw/PackBits 8/16-bit samples; 16-bit converted to 8-bit coverage. Embedded grayscale/RGB `patt` records use a separate bounded VMAL reader (indexed/CMYK rejected). Computed round tips, tip transforms, shape/scatter/count dynamics, pressure/tilt/direction/fade controls, color jitter, tool options, texture and one dual component are retained. Unknown blend modes/controls, projection, pose, noise, mixer/smudge tools and foreground/background mixing produce specific compatibility notes. Legacy 1/2 sampled records are supported with bounded per-record resynchronization; computed legacy records are skipped because shape metadata is undocumented. Modern variants, patterns and legacy are synthetic-fixture tested; the owner's real reference pack is 6.2.
 
@@ -188,3 +188,10 @@ Version7 Color Smudge additionally retains initialLoad=effectiveColorRate and
 SmudgeRateSmearAlpha (legacy absent defaulttrue). Dulling/smearing algorithms
 remain approximate. Rebuild/validate/install a NEW version7 catalog separately;
 version6 metadata/assets and the comparison baseline must remain untouched.
+
+Krita version8 selects `mixer.source: previousCanvas` only for legacy engine,
+SMEARING mode0, effective ColorRate0. Absent engine/mode use native false/0
+respectively. Dulling/new-engine/foreground paint keeps approximate carried
+pigment. SmudgeRate sensor curves remain unsupported and are reported when
+active. This creates new immutable IDs; older catalogs must not be rewritten.
+Offline `krita_texture.py` remains independent and is not applied by import.
