@@ -44,7 +44,9 @@ import type { IconName } from '../../icons/iconNames'
 // selectable (colorPencil has a schema and no toolbar slot yet — #188).
 // Historical versions remain resolvable for replay; the picker offers the latest import.
 const pickerImportedBrushes = () => {
-  const all = importedBrushes()
+  // Focus the selectable library on Krita while matching its reference renderer.
+  // Keep every imported descriptor available to existing strokes and replay.
+  const all = importedBrushes().filter(b => !/\.(abr|brush|brushset)$/i.test(b.source))
   return all.filter(b => !all.some(next => next.source === b.source && next.name === b.name && (next.descriptor.version > b.descriptor.version || (!b.descriptor.behavior && !!next.descriptor.behavior))))
 }
 
