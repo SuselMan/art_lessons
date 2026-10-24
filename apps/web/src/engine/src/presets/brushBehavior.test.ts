@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isBrushBehavior, type BrushDescriptor, type Dab } from '@grafetto/shared'
-import { beginBrushBehavior, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, splitBrushTail } from './brushBehavior'
+import { beginBrushBehavior, hsvAdjustColor, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, splitBrushTail } from './brushBehavior'
 import { DIGITAL_BRUSHES } from './digitalBrushPresets'
 import { nominalDabSpacing } from '../dabs/dabSpacing'
 const color: [
@@ -11,6 +11,27 @@ const color: [
 const dabs: Dab[] = Array.from({ length: 48 }, (_, i) => ({ x: 20 + i * 4, y: 30 + Math.sin(i / 8) * 20, size: 30, pressure: 0.2 + i / 60, angle: i / 30, aspectRatio: 1, tiltX: 20, tiltY: 10, opacity: 0.6, t: i * 8 }))
 const brush: BrushDescriptor = { ...DIGITAL_BRUSHES[0], flowByPressure: [[0, 0.1], [1, 1]], scatter: { count: 16, radius: 0.3, scale: 0.8, sizeJitter: 0.2, angleJitter: 0.2, flowJitter: 0.1 }, behavior: { version: 2, rotation: { follow: 0.4, random: 'stroke', flipX: true, flipY: true }, scatter: { countJitter: 0.4, bothAxes: false, roundnessJitter: 0.3 }, dynamics: { size: { control: 'fade', fade: 30, minimum: 0.1, jitter: 0.2 }, hue: { control: 'pressure', minimum: 0, jitter: 0.3 }, flow: { control: 'speed', minimum: 0.3, jitter: 0.2 } } } }
 describe('v2 logical brush state', () => {
+  it('uses signed HSV white/black mixing and a half-turn hue range', () => {
+    expect(hsvAdjustColor([1,0,0],0,0,.5)).toEqual([1,.5,.5])
+    expect(hsvAdjustColor([1,0,0],0,0,-.5)).toEqual([.5,0,0])
+    expect(hsvAdjustColor([1,0,0],1,0,0)).toEqual([0,1,1])
+    hsvAdjustColor([.8,.5,.5],0,1,.5).forEach((v,i)=>expect(v).toBeCloseTo([.9,.4,.4][i],12))
+    hsvAdjustColor([.8,.2,.2],.2,0,0).forEach((v,i)=>expect(v).toBeCloseTo([.8,.56,.2][i],12))
+    hsvAdjustColor([.2,.2,.2],.8,.7,.5).forEach(v=>expect(v).toBeCloseTo(.6,12))
+    expect(hsvAdjustColor([.8,.4,.4],0,-1,0)).toEqual([.8,.8,.8])
+    const c={control:'random',minimum:0,jitter:0}
+    expect(isBrushBehavior({version:2,colorAdjustment:{hue:c,value:c}})).toBe(true)
+    expect(isBrushBehavior({version:2,colorAdjustment:{value:{...c,jitter:NaN}}})).toBe(false)
+  })
+
+  it('samples a shaped random controller before its response curve', () => {
+    const input=dabs[0],state=beginBrushBehavior(input)
+    const control={control:'random' as const,minimum:0,jitter:0,curve:[[0,1],[.5,.2],[1,0]] as [number,number][]}
+    expect(isBrushBehavior({version:2,dynamics:{angle:control}})).toBe(true)
+    expect(brushDynamicValue(control,input,state,0)).toBe(1)
+    expect(brushDynamicValue(control,input,state,.5)).toBeCloseTo(.2,12)
+    expect(brushDynamicValue(control,input,state,1)).toBe(0)
+  })
   it('keeps raw tilt direction and its vertical-pen reference separate from slope azimuth', () => {
     const input={...dabs[0],tiltX:0,tiltY:0},state=beginBrushBehavior(input)
     const value=(x:number,y:number)=>brushDynamicValue({control:'tiltDirection',minimum:0,jitter:0},{...input,tiltX:x,tiltY:y},state,0)
@@ -137,14 +158,21 @@ describe('v2 logical brush state', () => {
     expect(two.size).toBeCloseTo(second.size*.75*.75)
   })
 
+  it('roundness compresses local Y while preserving local X width', () => {
+    const b:BrushDescriptor={...brush,scatter:undefined,behavior:{version:2,dynamics:{roundness:{control:'off',minimum:0,jitter:0,curve:[[0,.25],[1,.25]]}}}}
+    const input={...dabs[0],aspectRatio:2}
+    const stamp=behaviorStampsForDab(b,input,beginBrushBehavior(input),color)[0]
+    expect(stamp.size).toBeCloseTo(input.size*.25)
+    expect(stamp.size*stamp.aspect).toBeCloseTo(input.size*input.aspectRatio)
+  })
   it('samples a secondary brush with its own spacing across arbitrary packet splits', () => {
-    const child={...brush,spacing:.11}
+    const child={...brush,spacing:.11,opacity:.47}
     const full=secondaryBrushDabs(brush,child,dabs,{remaining:0})
     let state={remaining:0} as Parameters<typeof secondaryBrushDabs>[3]
     const chunked=[]
     for(let i=0;i<dabs.length;i+=7){chunked.push(...secondaryBrushDabs(brush,child,dabs.slice(i,i+7),state));state=structuredClone(state)}
     expect(chunked).toEqual(full)
-    expect(full.every(d=>d.opacity===1)).toBe(true)
+    full.forEach(d=>expect(d.opacity).toBeCloseTo(.47,6))
     expect(secondaryBrushDabs(brush,{...child,spacing:.7},dabs,{remaining:0}).length).toBeLessThan(full.length)
   })
 

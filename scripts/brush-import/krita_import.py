@@ -265,6 +265,9 @@ def sensor_controls(params, option, notes):
     if len(sensors)>32: raise ValueError('Krita sensor count limit')
     ids=[node.get('id') for node in sensors]
     if len(ids)!=len(set(ids)): raise ValueError('Duplicate Krita sensor')
+    if sum(name in ('fuzzy','ascension','rotation') for name in ids)>1:
+        notes.append(compatibility(option+'SensorCombination','Multiple native additive sensors require a summed response; product approximation rejected.','unsupported'))
+        return []
     if numeric(params.get(option+'curveMode'))!=0:
         notes.append(compatibility(option+'SensorCombination','Non-multiplicative sensor combination is unsupported.','unsupported'))
         return []
@@ -272,7 +275,7 @@ def sensor_controls(params, option, notes):
     common=params.get(option+'commonCurve') or (sensors[-1].findtext('curve') if sensors else None)
     use_common=enabled(params.get(option+'UseSameCurve','true'))
     controls=[]
-    supported={'pressure':'pressure','declination':'tiltElevation','xtilt':'tiltX','ytilt':'tiltY','ascension':'azimuth','speed':'speed','drawingangle':'direction'}
+    supported={'pressure':'pressure','declination':'tiltElevation','xtilt':'tiltX','ytilt':'tiltY','ascension':'azimuth','speed':'speed','drawingangle':'direction','fuzzy':'random'}
     for node in sensors:
         name=node.get('id','')
         if name not in supported:
@@ -345,7 +348,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=16
+    d['version']=17
     source_size=None
     application=0
     kind = definition.get('type')
@@ -494,6 +497,28 @@ def preset(data, name, catalog, external, depth=0):
                 d[field]=pressure['curve'];controls=[control for control in controls if control is not pressure]
             if controls: behavior.setdefault('modulations',{})[target]=controls
             notes.append(compatibility(option+'Curve','Native natural-cubic response compiled to256-sample float transfer with linear lookup; sensor normalization still requires vendor calibration.'))
+    color_decoded=[]
+    for option,target in [('h','hue'),('s','saturation'),('v','value')]:
+        if not enabled(params.get('Pressure'+option)): continue
+        node=xml(params.get(option+'Sensor') or '<params id="pressure"/>')
+        if (enabled(params.get(option+'UseCurve','true')) and numeric(params.get(option+'Value'),1)==1
+                and numeric(params.get(option+'curveMode'),0)==0 and node.get('id') in ('fuzzy','pressure')):
+            controls=sensor_controls(params,option,notes)
+            if len(controls)==1:
+                behavior.setdefault('colorAdjustment',{})[target]=controls[0]
+                color_decoded.append('Pressure'+option)
+                notes.append(compatibility('hsvAdjustment.'+option,'Per-dab signed HSV adjustment retained for single pressure/random sensor and unit strength; U8 colorspace quantization and vendor random sequence remain approximate.'))
+    ratio_decoded=False
+    if enabled(params.get('PressureRatio')):
+        controls=size_like_controls(params,'Ratio',notes)
+        value=clamp(numeric(params.get('RatioValue'),1))
+        # Existing local-Y roundness divides the tip aspect, preserving the
+        # native base generator ratio rather than applying it to diameter.
+        controls.append({'control':'off','minimum':0,'jitter':0,'curve':[[0,value],[1,value]]})
+        if len(controls)<=4:
+            behavior.setdefault('modulations',{})['roundness']=controls
+            ratio_decoded=True
+            notes.append(compatibility('ratioDynamics','Native local-Y ratio and independent sensors retained; Grafetto minimum roundness .02 and maximum aspect20 approximate near-zero native ratios.'))
     rotation_decoded=False
     if enabled(params.get('PressureRotation')) and enabled(params.get('RotationUseCurve','true')):
         rotation_sensor=xml(params.get('RotationSensor','<params id="pressure"/>'))
@@ -519,6 +544,38 @@ def preset(data, name, catalog, external, depth=0):
                 behavior.setdefault('dynamics',{})['angle']={**control,'control':'tiltDirection','curve':mapped}
                 rotation_decoded=True
                 notes.append(compatibility('RotationCurve','Single additive tilt-direction response compiled before native angle strength; raw tilt direction includes neutral zero-tilt orientation.'))
+    # Native fuzzy is additive [-1,1]. C(u) is evaluated in unsigned space,
+    # then mapped back before RotationValue. Physical Qt rotation is
+    # -pi + strength*pi*(2*C(u)-1); do not turn a shaped distribution into
+    # an uncurved jitter or use a pressure controller as its random source.
+    if (not rotation_decoded and enabled(params.get('PressureRotation'))
+            and enabled(params.get('RotationUseCurve','true'))
+            and len(rotation_sensors)==1 and rotation_sensors[0].get('id')=='fuzzy'
+            and numeric(params.get('RotationcurveMode'),0)==0 and -1<=strength<=1):
+        node=rotation_sensors[0]
+        curve=(params.get('RotationcommonCurve') if enabled(params.get('RotationUseSameCurve','true')) else None) or node.findtext('curve') or (params.get('CurveRotation') if enabled(params.get('CustomRotation')) else None) or '0,0;1,1;'
+        transfer=native_transfer(curve)
+        transform=lambda value:.5+strength*(value-.5)
+        if isinstance(transfer,list): mapped=[[x,transform(y)] for x,y in transfer]
+        else:
+            mapped={**transfer,'samples':[transform(value) for value in transfer['samples']]}
+            mapped.pop('preserveInputSign',None)
+        behavior.setdefault('dynamics',{})['angle']={'control':'random','minimum':0,'jitter':0,'curve':mapped}
+        rotation_decoded=True
+        notes.append(compatibility('RotationFuzzy','Native per-dab additive random angle and response curve retained; deterministic Grafetto RNG differs from Krita random sequence.'))
+    if (not rotation_decoded and enabled(params.get('PressureRotation'))
+            and enabled(params.get('RotationUseCurve','true')) and len(rotation_sensors)==1
+            and rotation_sensors[0].get('id')=='drawingangle'
+            and numeric(params.get('RotationcurveMode'),0)==0):
+        node=rotation_sensors[0]
+        curve=(params.get('RotationcommonCurve') if enabled(params.get('RotationUseSameCurve','true')) else None) or node.findtext('curve') or '0,0;1,1;'
+        if native_transfer(curve)==[[0,0],[1,1]] and not enabled(node.get('lockedAngleMode')):
+            offset=numeric(node.get('angleOffset'))
+            if -360<=offset<=360:
+                d['tip']['angle']=math.remainder(d['tip']['angle']+math.radians(offset),2*math.pi)
+                behavior['rotation']={'follow':1,'random':'none'}
+                rotation_decoded=True
+                notes.append(compatibility('RotationDrawingAngle','Absolute drawing direction and angle offset retained for identity sensor curve; corner fanning and locked-angle mode are not reproduced.'))
     if enabled(params.get('PressureScatter')):
         amount=clamp(numeric(params.get('ScatterValue',params.get('Scattering/Amount')),1),0,4)
         x=enabled(params.get('Scattering/AxisX','true'));y=enabled(params.get('Scattering/AxisY','true'))
@@ -649,7 +706,7 @@ def preset(data, name, catalog, external, depth=0):
             if controls:
                 d['mixer']['pickupDynamics']=controls
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source')=='previousCanvas') and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source')=='previousCanvas') and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and k not in color_decoded and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):

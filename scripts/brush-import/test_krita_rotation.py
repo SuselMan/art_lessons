@@ -72,8 +72,34 @@ class RotationImportTests(unittest.TestCase):
                 native=-(math.pi/2+(1-(2*u-1))*math.pi)
                 self.assertAlmostEqual(math.cos(actual),math.cos(native));self.assertAlmostEqual(math.sin(actual),math.sin(native))
 
+    def test_fuzzy_rotation_keeps_curve_strength_and_native_half_turn(self):
+        for strength in [-1,0,.5,1]:
+            with self.subTest(strength=strength),tempfile.TemporaryDirectory() as tmp:
+                b=self.brush(tmp,str(strength),'<params id="fuzzy"><curve>0,0;.5,.2;1,1;</curve></params>')
+                d=b['descriptor'];control=d['behavior']['dynamics']['angle'];curve=control['curve']
+                self.assertEqual(control['control'],'random');self.assertEqual(control['jitter'],0)
+                self.assertEqual(d['tip']['angle'],0)
+                self.assertAlmostEqual(curve['samples'][0],.5-.5*strength)
+                self.assertAlmostEqual(curve['samples'][-1],.5+.5*strength)
+                for i in [0,64,128,192,255]:
+                    from curve_transfer import native_transfer
+                    response=native_transfer('0,0;.5,.2;1,1;')['samples'][i]
+                    actual=d['tip']['angle']+(curve['samples'][i]-1)*2*math.pi
+                    native=-math.pi+strength*math.pi*(2*response-1)
+                    self.assertAlmostEqual(math.cos(actual),math.cos(native))
+                    self.assertAlmostEqual(math.sin(actual),math.sin(native))
+
+    def test_absolute_drawing_direction_offset_is_not_random_rotation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            b=self.brush(tmp,'1','<params id="drawingangle" angleOffset="91" lockedAngleMode="false"><curve>0,0;1,1;</curve></params>')
+            d=b['descriptor'];self.assertEqual(d['behavior']['rotation'],{'follow':1,'random':'none'})
+            self.assertAlmostEqual(d['tip']['angle'],math.radians(91))
+            for direction in [0,math.pi/2,-math.pi/2]:
+                self.assertAlmostEqual(math.cos(d['tip']['angle']+direction),math.cos(direction+math.radians(91)))
+            self.assertTrue(any(x['feature']=='RotationDrawingAngle' for x in b['compatibility']))
+
     def test_other_sensors_combinations_disabled_curve_and_outside_strength_stay_unsupported(self):
-        cases=[('1','<params id="pressure"/>',{}),('1','<params id="fuzzy"/>',{}),
+        cases=[('1','<params id="pressure"/>',{}),
                ('1','<params id="sensorslist"><ChildSensor id="ascension"/><ChildSensor id="pressure"/></params>',{}),
                ('1','<params id="ascension"/>',{'RotationcurveMode':'1'}),
                ('1','<params id="ascension"/>',{'RotationUseCurve':'false'}),

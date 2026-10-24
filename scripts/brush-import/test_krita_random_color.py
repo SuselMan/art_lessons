@@ -1,0 +1,41 @@
+"""Missing native random options must survive as independent response inputs."""
+from pathlib import Path
+import tempfile
+import unittest
+import convert
+from PIL import Image,PngImagePlugin
+from krita_import import convert_krita
+
+class RandomOptionTests(unittest.TestCase):
+    def brush(self,params):
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'Generic.kpp'
+            text=''.join('<param name="'+k+'"><![CDATA['+v+']]></param>' for k,v in params.items())
+            definition='<Brush type="auto_brush"><MaskGenerator type="circle" ratio=".7"/></Brush>'
+            meta=PngImagePlugin.PngInfo();meta.add_text('version','5.0');meta.add_text('preset','<Preset name="Unrelated" paintopid="paintbrush"><param name="brush_definition"><![CDATA['+definition+']]></param>'+text+'</Preset>')
+            Image.new('RGB',(2,2)).save(p,format='PNG',pnginfo=meta)
+            catalog=convert.Catalog(Path(tmp)/'out');convert_krita(p,catalog)
+            self.assertEqual(catalog.skipped,[]);return catalog.brushes[0]
+
+    def test_pressure_and_fuzzy_responses_are_not_collapsed_into_pressure(self):
+        sensor='<params id="sensorslist"><ChildSensor id="fuzzy"><curve>0,.2;1,1;</curve></ChildSensor><ChildSensor id="pressure"><curve>0,.2;1,1;</curve></ChildSensor></params>'
+        b=self.brush({'SizeUseCurve':'true','SizeSensor':sensor,'SizeUseSameCurve':'false'})['descriptor']
+        self.assertAlmostEqual(b['sizeByPressure']['samples'][0],.2)
+        c=b['behavior']['modulations']['size'];self.assertEqual(len(c),1)
+        self.assertEqual(c[0]['control'],'random');self.assertAlmostEqual(c[0]['curve']['samples'][0],.2)
+
+    def test_ratio_preserves_local_y_and_independent_random_curve(self):
+        b=self.brush({'PressureRatio':'true','RatioValue':'.6','RatioSensor':'<params id="fuzzy"><curve>0,0;1,1;</curve></params>'})['descriptor']
+        controls=b['behavior']['modulations']['roundness']
+        self.assertEqual(controls[0]['control'],'random');self.assertEqual(controls[1]['curve'],[[0,.6],[1,.6]])
+
+    def test_unit_strength_hsv_keeps_neutral_domain_and_rejects_unproved_strength(self):
+        for option,target in [('h','hue'),('s','saturation'),('v','value')]:
+            params={'Pressure'+option:'true',option+'Value':'1',option+'Sensor':'<params id="fuzzy"><curve>0,.48;1,.61;</curve></params>'}
+            b=self.brush(params);c=b['descriptor']['behavior']['colorAdjustment'][target]
+            self.assertEqual(c['control'],'random');self.assertAlmostEqual(c['curve']['samples'][0],.48)
+            params[option+'Value']='.7';b=self.brush(params)
+            self.assertNotIn('colorAdjustment',b['descriptor']['behavior'])
+            self.assertTrue(any(x['feature']=='activeDynamics' and 'Pressure'+option in x['detail'] for x in b['compatibility']))
+
+if __name__=='__main__':unittest.main()

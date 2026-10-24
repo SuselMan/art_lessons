@@ -19,7 +19,7 @@ export interface SecondarySamplingState { previous?: Dab; remaining: number }
  * One-pixel minimum and 16 stamps per input diameter bound imported tiny spacing. */
 export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescriptor, dabs: readonly Dab[], state: SecondarySamplingState): Dab[] {
   const result: Dab[] = []
-  const size = (d: Dab): Dab => ({...d,opacity:1,size:d.size*curveAt(child.sizeByPressure,d.pressure)/Math.max(0.01,curveAt(primary.sizeByPressure,d.pressure))})
+  const size = (d: Dab): Dab => ({...d,opacity:child.opacity ?? 1,size:d.size*curveAt(child.sizeByPressure,d.pressure)/Math.max(0.01,curveAt(primary.sizeByPressure,d.pressure))})
   for (const raw of dabs) {
     const dab=size(raw), previous=state.previous
     if (!previous) { result.push(dab); state.remaining=Math.max(1,dab.size*child.spacing);state.previous=dab;continue }
@@ -100,7 +100,7 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
   const travel = prev ? Math.hypot(dab.x - prev.x, dab.y - prev.y) : 0
   const speed = prev ? travel / Math.max(1, dab.t - prev.t) : 0
   const turn = (a: number): number => ((a / (Math.PI * 2)) % 1 + 1) % 1
-  const sensor = d.control === 'pressure' ? dab.pressure
+  const sensor = d.control === 'random' ? clamp(random) : d.control === 'pressure' ? dab.pressure
     : d.control === 'tiltElevation' ? 1-clamp(penTilt(dab).angle/(Math.PI/2))
       : d.control === 'tiltX' ? clamp((dab.tiltX+90)/180)
       : d.control === 'tiltY' ? clamp((dab.tiltY+90)/180)
@@ -134,6 +134,20 @@ function shiftColor(rgb: [
   const c = v * s, x = c * (1 - Math.abs((h * 6) % 2 - 1)), m = v - c
   const values = h < 1 / 6 ? [c, x, 0] : h < 2 / 6 ? [x, c, 0] : h < 3 / 6 ? [0, c, x] : h < 4 / 6 ? [0, x, c] : h < 5 / 6 ? [x, 0, c] : [c, 0, x]
   return [values[0] + m, values[1] + m, values[2] + m]
+}
+/** Signed HSV adjustment: positive value mixes towards white, negative
+ * towards black; chroma is adjusted before value. Hue spans half a turn. */
+export function hsvAdjustColor(rgb: [number,number,number], hue:number, saturation:number, value:number): [number,number,number] {
+  const [r,g,b]=rgb,v=Math.max(r,g,b),minimum=Math.min(r,g,b),chroma=v-minimum
+  const adjustedV=clamp(value>=0 ? v+value*(1-v) : v*(1+value))
+  if(chroma<=1e-9 || v<=1e-9) return [adjustedV,adjustedV,adjustedV]
+  let h=v===r ? ((g-b)/chroma)%6 : v===g ? (b-r)/chroma+2 : (r-g)/chroma+4
+  h=((h+hue*3)%6+6)%6
+  const saturationScale=saturation>0 ? 1+saturation+2*saturation*saturation : 1+saturation
+  const c=Math.min(adjustedV,Math.min(1,chroma*saturationScale)*(1-Math.abs(value)))
+  const x=c*(1-Math.abs(h%2-1)),m=adjustedV-c
+  const sector=h<1 ? [c,x,0] : h<2 ? [x,c,0] : h<3 ? [0,c,x] : h<4 ? [0,x,c] : h<5 ? [x,0,c] : [c,0,x]
+  return [sector[0]+m,sector[1]+m,sector[2]+m]
 }
 /** Frame choice is one logical-dab event, independent of scatter and batches.
  * Dedicated random stream leaves every existing brush jitter salt unchanged. */
@@ -202,6 +216,8 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const edgeSoftness=1-(1-bleed)*(1-(behavior?.rendering?.wetEdges ?? 0)*.5)
   const sizeScale = dynamic('size', 14) * (t ? 1 - t.size * (1 - taper) : 1)
   const opacityScale = dynamic('opacity', 15) * (t ? 1 - t.opacity * (1 - taper) : 1)
+  const adjustment=behavior?.colorAdjustment
+  const adjustedColor=adjustment ? hsvAdjustColor(color,...(['hue','saturation','value'] as const).map((key,i)=>adjustment[key] ? 2*brushDynamicValue(adjustment[key],directionalDab,state,rand(0xc0000+i))-1 : 0) as [number,number,number]) : color
   const out = brushStampsForDab(configured, { ...dab, angle, size: dab.size * sizeScale }).map((stamp, i): BehaviorStamp => {
     let x = stamp.x, y = stamp.y
     const placement=behavior?.scatter?.placement
@@ -225,12 +241,12 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
     const roundness = Math.max(0.02, dynamic('roundness', 20 + i * 8) * (1 - (behavior?.scatter?.roundnessJitter ?? 0) * rand(21 + i * 8)))
     const hasColor = behavior?.dynamics?.hue || behavior?.dynamics?.saturation || behavior?.dynamics?.brightness
     return {
-      ...stamp, ...(gray ? {gray} : {}), ...(dualGray ? {dualGray} : {}), ...(mask ? { mask } : {}), ...(dualMask ? { dualMask } : {}), x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
+      ...stamp, ...(gray ? {gray} : {}), ...(dualGray ? {dualGray} : {}), ...(mask ? { mask } : {}), ...(dualMask ? { dualMask } : {}), x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*roundness*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
       flowScale: stamp.flowScale * curveAt(brush.flowByPressure, dab.pressure) * dynamic('flow', 22 + i * 8) * Math.exp(-state.distance*(behavior?.falloff??0)*4),
       opacityScale, grainDepth: dynamic('grainDepth', 23 + i * 8),
       flipX: rotation?.flipX && rand(24 + i * 8) < 0.5 ? -1 : 1,
       flipY: rotation?.flipY && rand(25 + i * 8) < 0.5 ? -1 : 1,
-      color: hasColor ? shiftColor(color, behavior.dynamics?.hue ? dynamic('hue', 26 + i * 8) : 0, dynamic('saturation', 27 + i * 8), dynamic('brightness', 28 + i * 8)) : color,
+      color: hasColor ? shiftColor(adjustedColor, behavior.dynamics?.hue ? dynamic('hue', 26 + i * 8) : 0, dynamic('saturation', 27 + i * 8), dynamic('brightness', 28 + i * 8)) : adjustedColor,
       distance: state.distance,
     }
   })

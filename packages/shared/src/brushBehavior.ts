@@ -3,7 +3,7 @@ import { isBrushCurve, type BrushCurve } from './brushCurves.js'
 import type { BrushDescriptor } from './brushes.js'
 
 export type BrushBlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'colorBurn' | 'linearBurn' | 'colorDodge' | 'add' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'color' | 'luminosity'
-export type BrushControl = 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection' | 'tiltElevation' | 'tiltX' | 'tiltY' | 'azimuth' | 'tiltDirection'
+export type BrushControl = 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection' | 'tiltElevation' | 'tiltX' | 'tiltY' | 'azimuth' | 'tiltDirection' | 'random'
 export interface BrushDynamic {
   control: BrushControl
   jitter: number
@@ -18,6 +18,8 @@ export interface BrushDynamic {
 export type BrushDynamicTarget = 'size' | 'angle' | 'roundness' | 'scatter' | 'count' | 'flow' | 'opacity' | 'hue' | 'saturation' | 'brightness' | 'grainDepth'
 export interface BrushBehavior {
   version: 2
+  /** Normalized per-dab HSV adjustment; .5 is neutral, decoded signed [-1,1]. */
+  colorAdjustment?: { hue?: BrushDynamic; saturation?: BrushDynamic; value?: BrushDynamic }
   /** Source step axes use actual diameter (or sqrt, linear below 1px).
    * Input responses scale the result before the per-axis .5px floor. */
   spacing?: { mode: 'kritaAuto' | 'diameter'; coefficient: number; dynamics?: BrushDynamic[]; isotropic?: boolean }
@@ -71,13 +73,15 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const n = (v: unknown, min = 0, max = 1): boolean => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max
   const keys = (v: Record<string, unknown>, allowed: string[]): boolean => Object.keys(v).every(k => allowed.includes(k))
   const blend = (v: unknown): boolean => BRUSH_BLEND_MODES.includes(v as BrushBlendMode)
-  if (!obj(value) || value.version !== 2 || !keys(value,['version','spacing','edgeBleed','erase','falloff','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
+  if (!obj(value) || value.version !== 2 || !keys(value,['version','colorAdjustment','spacing','edgeBleed','erase','falloff','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
   if (value.spacing !== undefined && (!obj(value.spacing) || !keys(value.spacing,['mode','coefficient','dynamics','isotropic'])
     || !['kritaAuto','diameter'].includes(String(value.spacing.mode)) || !n(value.spacing.coefficient,value.spacing.mode==='diameter'?0:.001,100)
     || (value.spacing.isotropic !== undefined && typeof value.spacing.isotropic !== 'boolean')
     || (value.spacing.dynamics !== undefined && !isBrushBehavior({version:2,modulations:{flow:value.spacing.dynamics}})))) return false
   if(value.erase !== undefined && typeof value.erase !== 'boolean') return false
   if(value.falloff !== undefined && !n(value.falloff)) return false
+  const color=value.colorAdjustment
+  if(color!==undefined && (!obj(color) || !keys(color,['hue','saturation','value']) || !Object.values(color).every(v=>isBrushBehavior({version:2,dynamics:{size:v}})))) return false
   const r=value.rotation
   if (r !== undefined && (!obj(r) || !keys(r,['follow','random','flipX','flipY','azimuth','projection']) || !n(r.follow,-1,1) || !['none','stroke','stamp'].includes(String(r.random)) || ['flipX','flipY','azimuth','projection'].some(k => r[k] !== undefined && typeof r[k] !== 'boolean'))) return false
   const s=value.scatter
@@ -86,7 +90,7 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const edge=value.edgeBleed
   if (edge !== undefined && (!obj(edge) || !keys(edge,['pressure','tilt','pressureCurve']) || !n(edge.pressure,-1,1) || !n(edge.tilt,-1,1) || (edge.pressureCurve !== undefined && !isBrushBehavior({version:2,dynamics:{size:{control:'pressure',minimum:0,jitter:0,curve:edge.pressureCurve}}})))) return false
   const d=value.dynamics
-  if (d !== undefined && (!obj(d) || !keys(d,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth']) || !Object.values(d).every(v => obj(v) && keys(v,['control','jitter','minimum','fade','strength','curve']) && ['off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection'].includes(String(v.control)) && n(v.jitter) && n(v.minimum) && (v.fade === undefined || n(v.fade,0.001,100000)) && (v.strength === undefined || n(v.strength,-1,1)) && (v.curve === undefined || isBrushCurve(v.curve,1,256,true))))) return false
+  if (d !== undefined && (!obj(d) || !keys(d,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth']) || !Object.values(d).every(v => obj(v) && keys(v,['control','jitter','minimum','fade','strength','curve']) && ['off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random'].includes(String(v.control)) && n(v.jitter) && n(v.minimum) && (v.fade === undefined || n(v.fade,0.001,100000)) && (v.strength === undefined || n(v.strength,-1,1)) && (v.curve === undefined || isBrushCurve(v.curve,1,256,true))))) return false
   const mod=value.modulations
   if (mod !== undefined && (!obj(mod) || !keys(mod,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth']) || !Object.values(mod).every(list => Array.isArray(list) && list.length <= 4 && list.every(v => isBrushBehavior({version:2,dynamics:{size:v}}))))) return false
   const g=value.grain
