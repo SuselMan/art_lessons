@@ -18,8 +18,9 @@ export interface BrushDynamic {
 export type BrushDynamicTarget = 'size' | 'angle' | 'roundness' | 'scatter' | 'count' | 'flow' | 'opacity' | 'hue' | 'saturation' | 'brightness' | 'grainDepth'
 export interface BrushBehavior {
   version: 2
-  /** Krita auto spacing uses coefficient * sqrt(actual diameter), linear below 1px. */
-  spacing?: { mode: 'kritaAuto'; coefficient: number }
+  /** Source step axes use actual diameter (or sqrt, linear below 1px).
+   * Input responses scale the result before the per-axis .5px floor. */
+  spacing?: { mode: 'kritaAuto' | 'diameter'; coefficient: number; dynamics?: BrushDynamic[]; isotropic?: boolean }
   /** Independent shape-edge softening; never controls canvas colour pickup. */
   edgeBleed?: { pressure: number; tilt: number; pressureCurve?: BrushCurve }
   erase?: boolean
@@ -71,7 +72,10 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const keys = (v: Record<string, unknown>, allowed: string[]): boolean => Object.keys(v).every(k => allowed.includes(k))
   const blend = (v: unknown): boolean => BRUSH_BLEND_MODES.includes(v as BrushBlendMode)
   if (!obj(value) || value.version !== 2 || !keys(value,['version','spacing','edgeBleed','erase','falloff','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
-  if (value.spacing !== undefined && (!obj(value.spacing) || !keys(value.spacing,['mode','coefficient']) || value.spacing.mode !== 'kritaAuto' || !n(value.spacing.coefficient,0.001,100))) return false
+  if (value.spacing !== undefined && (!obj(value.spacing) || !keys(value.spacing,['mode','coefficient','dynamics','isotropic'])
+    || !['kritaAuto','diameter'].includes(String(value.spacing.mode)) || !n(value.spacing.coefficient,value.spacing.mode==='diameter'?0:.001,100)
+    || (value.spacing.isotropic !== undefined && typeof value.spacing.isotropic !== 'boolean')
+    || (value.spacing.dynamics !== undefined && !isBrushBehavior({version:2,modulations:{flow:value.spacing.dynamics}})))) return false
   if(value.erase !== undefined && typeof value.erase !== 'boolean') return false
   if(value.falloff !== undefined && !n(value.falloff)) return false
   const r=value.rotation

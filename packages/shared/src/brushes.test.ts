@@ -15,6 +15,18 @@ function library(): BrushLibrary {
 }
 
 describe('brush library contract', () => {
+  it('bounds source spacing laws and responses independently of the legacy brush step', () => {
+    const data=library(),d=data.brushes[0].descriptor
+    d.behavior={version:2,spacing:{mode:'diameter',coefficient:.06,dynamics:[{control:'pressure',minimum:0,jitter:0,curve:[[0,1],[1,0]]}],isotropic:false}}
+    expect(isBrushLibrary(data)).toBe(true)
+    d.behavior.spacing!.coefficient=0;expect(isBrushLibrary(data)).toBe(true)
+    d.behavior.spacing!.mode='kritaAuto';expect(isBrushLibrary(data)).toBe(false)
+    d.behavior.spacing!.coefficient=.4;expect(isBrushLibrary(data)).toBe(true)
+    Object.assign(d.behavior.spacing!,{isotropic:1});expect(isBrushLibrary(data)).toBe(false)
+    d.behavior.spacing!.isotropic=true
+    d.behavior.spacing!.dynamics=Array.from({length:5},()=>({control:'pressure',minimum:0,jitter:0}));expect(isBrushLibrary(data)).toBe(false)
+    delete d.behavior.spacing!.dynamics;expect(isBrushLibrary(data)).toBe(true)
+  })
   it('validates explicit uniform scatter placement without silently conflicting axes', () => {
     const data=library(),d=data.brushes[0].descriptor
     d.behavior={version:2,scatter:{countJitter:0,bothAxes:false,placement:'pathUniform'}}
