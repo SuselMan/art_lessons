@@ -348,3 +348,30 @@ CAS-key включает alpha и gray; LRU вытесняет производ�
 oversize цепочки не вытесняют полезные записи. GPU-кэш по-прежнему16МиБ.
 Это устраняет повторное построение пирамиды после GPU-вытеснения, но не сами
 повторные GPU uploads. Результирующие texel-данные не меняются.
+
+
+## Прогресс отпечатков и независимое ограничение opacity (converter20)
+
+`BrushDynamic.control='dabProgress'` с обязательными integer `period`1..1000000
+и boolean `periodic` вычисляет u=min(n,L)/L либо (n%L)/L. Native Fade означает
+именно этот нарастающий прогресс, а не прежний убывающий distance `fade`.
+Отдельный state.dabSequence начинается0 и растёт после логического paintAt,
+включая прозрачный dab/неподвижный mixer skip, независимо от animation/scatter
+count. Geometry mirror и child имеют свои состояния; fork сохраняет фазу.
+Native length default1000, periodicfalse; raw0/невалидные длины явно unsupported.
+Кривая применяется после progress, давление остаётся независимым множителем.
+
+`rendering.opacityCeiling='uniform'` убирает вторую shape-аттенюацию в ceiling
+pass, оставляя M ровно в coverage. Отсутствие поля сохраняет historical shape
+smoothstep. Это generic capability, не проверка vendor/name. Native Krita20
+включает uniform: для alpha mask с постоянной opacity1 creamy Wash даёт
+Dnew=D+F*M*(1-D). Старый shader дополнительно умножал результат на smoothstep(M).
+Authored Samsung GPU witness: constant alpha26/255 даёт26/255 вместо7/255.
+
+Это ограниченная коррекция, не полная реализация native Wash: меняющаяся opacity
+использует averageA (рост сразу доO, спад .1*O+.9*Aold), затем A/O-dependent
+alpha-darken recurrence. Нынешний max ceiling не эквивалентен ей. Native BuildUp
+также требует отдельной per-dab opacity семантики. Новые режимы не объявляются
+полностью идентичными; локальное ухудшение115 pressure-onset записано в QA.
+Time-progress и timed-airbrush пока unsupported; zero-time native paintLine
+не создаёт timed dabs и не объясняет прежнюю бледность111/112.

@@ -374,3 +374,60 @@ registry+/proc. Samsung report3613 открыт на19, собственнаяro
 ADBforward19232 удалён; temporary jobs пусты. GPU contexts/browser закрыты finally.
 Остаются прежние QA frontend/backend/PG, один compiled19b/report и компактные
 исходные данные/история/CAS/evidence. Grafetto push/main/deploy не выполнялись.
+
+
+## Krita20: восстановление слабых масок и постепенного начала
+
+Продолжение §15 release track #314 (эпик #547 «Цифровая кисть»), понимание
+#807 «Инструменты-кисти». Source5d028ac1, final compiled4f130813. Reader20,
+каталогv32:117brushes/245assets,manifestSHA
+`ea0a73cb3cdf155dff2637502e74189591bfe7d3b610013e5b52cc1e6185e186`.
+Все изменения общие, без per-name коэффициентов и ручного усиления alpha.
+
+Primary source audit нашёл пропущенный native Fade:106–108 Opacity по100/169/100
+отпечаткам,109 Flow по204;107 child Flow186 со своей curve,115 Opacity264.
+Native firstseq0 и post-paint increment; прежний fade был убывающим distance
+и намеренно не переиспользован. Добавлены dabProgress, fork/periodic/bounds
+witnesses, совместимый portable validator и счётчик stationary mixer skips.
+
+Второй дефект — двойное ослабление bitmap: coverage содержалmask, а ceiling
+ещё раз умножал её на smoothstep(0,.3,M). Новый uniform-ceiling профиль устраняет
+этот множитель. Authored actual SamsungGPU constant mask26 дал alpha7 в старом
+режиме и26 в новом, GL0. Исходные asset alpha и Flow не умножались вручную.
+Alpha-сумма crop0..300 (без синей seed области):111native431144/19=234030/
+20=410572;112native583698/19=330882/20=695113. Это не проценты сходства.
+
+Full117 source Samsung GL0:98pixel-changed к19/19unchanged. Один source-run
+прервался на54 после HMR reload при правке SmudgePainter; сохранённый прогон
+продолжен. Final frozen compiled14exports GL0, все14побайтно равны source20.
+Undo/redo51/106/107/112/115:5из5 вернули идентичный PNG. iPad в этом этапе
+недоступен, проверка20 на AppleGPU НЕ заявлена. 575TS/35suites,138Python,
+fulltypes/build/lint/map PASS; viewer117/6page/search/pagination/512↔1024 PASS.
+
+Visual gates всех98changed PASS в смысле отсутствия новой тяжёлой массовой
+регрессии:106–109 gradual-onset,38–40 плотность,98/104 покрытие и111/112 заметно
+ближе native. ЛОКАЛЬНЫЙ FAIL115 early pressure-ramp: тонкий тёмный старт стал
+слишком слабым, хотя constant/mix начало улучшилось. Fade/sourcecurve проверены,
+конкретного importerbug нет; Wash accumulation остаётся общей неточностью.
+12/85 всё ещё сильно отличаются, часть pencil/soft/mixer также PARTIAL.
+
+Native111/112 PaintOpAction2=WASH/defaultcreamy. ConstantO1 даёт стандартное OVER
+M*F, но variableO использует running average и alpha-darken, не наш max ceiling.
+Это конкретный следующий механизм, вместе с time sensors108, tiny-mask filtering
+и timed airbrush. Источники с полными формулами сохранены в analysis-111-112-v20.md
+и analysis-106-109-v20.md рядом с компактным evidence; native source pinbd6e8d0.
+
+Performance20 Samsung100/101/111/112×48/128,72rAF batches×4events: GL0;
+100p9533–50ms, остальные≈16.8ms. Cold stalls до100ms остаются. Ускорение100
+этим изменением НЕ заявлено; OSstyluslatency/memory-soak не измерялись.
+
+Stand117@20/healthdbup, operator279/283 сохраняет все25unpinned из106refs,
+81room-pinned. CAS/операции/пользовательские рисунки/история не удалялись.
+
+
+После проверки собственная Samsungroom3618 закрыта, прежняяreport3613 открыта
+на20; ADBforward19234 удалён. Browser/GPU contexts закрыты finally; temporaryjobs
+пусты. Inactive compiled19b/20 и неопубликованный interimcatalog30 удалены с
+registry+/proc проверкой. Остаются один compiled20b/report, прежние QA frontend/
+backend/PG и compact evidence/source/CAS/history. Worktree/dependencies не копировались.
+Grafetto main/push/productiondeploy не выполнялись.
