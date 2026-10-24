@@ -92,3 +92,46 @@ describe('Krita auto spacing in the live dab sampler', () => {
     expect(line(sys, 100)).toEqual(line(legacy, 100))
   })
 })
+
+describe('explicit diameter source spacing and independent spacing controls',()=>{
+  const pressureSpacing={control:'pressure' as const,jitter:0,minimum:0,curve:[[0,1],[1,0]] as const}
+  it('uses diameter times coefficient times pressure-spacing, with the native half-pixel floor last',()=>{
+    const make=()=>{const sys=system(.2);sys.autoSpacing!.mode='diameter';sys.autoSpacing!.dynamics=[pressureSpacing];return sys}
+    expectGap(line(make(),100,.5),5)
+    expectGap(line(make(),100,.25),3.75)
+    expectGap(line(make(),100,1),.5)
+    expectGap(line(make(),100,0),.5)
+  })
+  it('modulates auto-spacing after the square root rather than shrinking its input diameter',()=>{
+    const sys=system(.4);sys.autoSpacing!.dynamics=[pressureSpacing]
+    expectGap(line(sys,100,.5),Math.sqrt(50)*.4*.5)
+  })
+  it('keeps anisotropic axes and rotation, or explicitly chooses a rotation-independent max axis',()=>{
+    const make=(angle=0,iso=false)=>{const sys=system(.2,4,angle);sys.autoSpacing!.mode='diameter';sys.autoSpacing!.isotropic=iso;return sys}
+    expectGap(line(make(),100),20)
+    expectGap(line(make(),100,1,true),5)
+    expectGap(line(make(Math.PI/2),100),5)
+    expectGap(line(make(0,true),100,1,true),20)
+    expectGap(line(make(Math.PI/2,true),100),20)
+  })
+  it('deep-copies control lists/curves for preview and resets gesture state without changing real gaps',()=>{
+    const make=()=>{const sys=system(.2);sys.autoSpacing!.mode='diameter';sys.autoSpacing!.dynamics=[structuredClone(pressureSpacing)];return sys}
+    const real=make(),control=make()
+    for(const sys of [real,control]){sys.startStroke(0,0,.5,0,0,100,1);sys.continueStroke(10,0,.5,0,0,100,1);sys.continueStroke(20,0,.5,0,0,100,1)}
+    const fork=real.forkForPreview();fork.autoSpacing!.dynamics![0].curve=[[0,0],[1,0]]
+    fork.continueStroke(80,0,1,0,0,100,1);real.peekTipDabs(100);real.peekTipDabs(100)
+    expect(real.autoSpacing!.dynamics![0].curve).toEqual([[0,1],[1,0]])
+    expect(real.continueStroke(30,0,.5,0,0,100,1)).toEqual(control.continueStroke(30,0,.5,0,0,100,1))
+    expect(real.endStroke(100,1)).toEqual(control.endStroke(100,1))
+    expect(line(real,100,.5)).toEqual(line(make(),100,.5))
+  })
+  it('evaluates fade from pre-advance spacing state rather than the current travelled distance',()=>{
+    const sys=system(.2);sys.autoSpacing!.mode='diameter';sys.autoSpacing!.dynamics=[{control:'fade',fade:1,minimum:0,jitter:0}]
+    const positions=line(sys,100).slice(0,4).map(d=>d.x)
+    expect(positions[0]).toBe(0);expect(positions[1]).toBeCloseTo(20,5);expect(positions[2]).toBeCloseTo(40,5);expect(positions[3]).toBeCloseTo(56,5)
+  })
+  it('keeps old auto-spacing exact when new fields are absent',()=>{
+    const old=system(),explicit=system();explicit.autoSpacing!.mode='kritaAuto';explicit.autoSpacing!.dynamics=[];explicit.autoSpacing!.isotropic=false
+    expect(line(old,100,.25)).toEqual(line(explicit,100,.25))
+  })
+})

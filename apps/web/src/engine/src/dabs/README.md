@@ -108,3 +108,11 @@ recorded movement, independent of tip rotation. Extent uses pre-scatter configur
 size times scatter radius (no half-diameter conversion); exact native integer
 rotated-mask dimensions remain an approximation. Absent placement preserves the
 historical disc/projection path and its random streams.
+
+Source spacing may explicitly use the diameter law or the existing Krita-auto
+square-root law. Optional spacing sensors multiply the resulting characteristic
+axis distance before each axis's 0.5px floor; they do not alter dab size. Their
+codec-clock/directional inputs read the isolated spacing state before advancement.
+An isotropic option selects the largest characteristic axis with no tip rotation.
+Axes remain continuous rendered dimensions rather than native integer mask bounds.
+Preview forks deep-copy spacing controls; historical absent fields retain the old law.

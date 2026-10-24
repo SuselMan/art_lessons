@@ -7,12 +7,13 @@
 //   With extrapolated P3 the tangent at P2 doesn't match the next segment → visible kinks.
 //   The lag is one pointer event (~5-16ms) which is imperceptible.
 
-import type { BrushDescriptor, Dab } from '@grafetto/shared'
-import { beginBrushBehavior, behaviorStampsForDab, type BrushBehaviorState } from '../presets/brushBehavior'
+import type { BrushDescriptor, BrushDynamic, Dab } from '@grafetto/shared'
+import { beginBrushBehavior, brushDynamicValue, behaviorStampsForDab, type BrushBehaviorState } from '../presets/brushBehavior'
 import { clamp } from 'lodash-es'
 
 import { PENCIL_DAB_SHAPING, type DabShapingProfile } from '../presets/dabShaping'
 import { MIN_DAB_SPACING_PX, boundedDabSpacing, nominalDabSpacing } from './dabSpacing'
+import { brushDabRandom, brushDabSeed } from '../presets/digitalBrushPresets'
 import { codecDab } from './codecDab'
 import {
   assignTipState, copyTipState, createTipState, maxNibReach, tipFootprint,
@@ -144,7 +145,7 @@ const MAX_PRESSURE_FILTER_STEP = 0.9
 export class DabSystem {
   spacingFactor: number
   /** Opt-in source spacing; latched per gesture, independent of nominal/floor/scallop rules. */
-  autoSpacing: { coefficient: number; brush: BrushDescriptor; sizeMultiplier: number } | null = null
+  autoSpacing: { mode?: 'kritaAuto' | 'diameter'; coefficient: number; dynamics?: BrushDynamic[]; isotropic?: boolean; brush: BrushDescriptor; sizeMultiplier: number } | null = null
   private _spacingBehavior?: BrushBehaviorState
   private _spacingAxes?: { x: number; y: number; angle: number }
   private _pathAngle = 0
@@ -528,7 +529,7 @@ export class DabSystem {
     const fork = new DabSystem({ spacingFactor: this.spacingFactor, shaping: this._shaping })
     fork.curvatureTolerancePx = this.curvatureTolerancePx
     fork.footprint = this.footprint
-    fork.autoSpacing = this.autoSpacing ? { ...this.autoSpacing } : null
+    fork.autoSpacing = this.autoSpacing ? { ...this.autoSpacing, ...(this.autoSpacing.dynamics ? {dynamics:structuredClone(this.autoSpacing.dynamics)} : {}) } : null
     fork._spacingBehavior = this._spacingBehavior ? structuredClone(this._spacingBehavior) : undefined
     fork._spacingAxes = this._spacingAxes ? { ...this._spacingAxes } : undefined
     fork._pathAngle = this._pathAngle
@@ -850,22 +851,29 @@ export class DabSystem {
 
   private _spacingAfter(dab: Dab, baseSize: number, maxSpacing: number): number {
     if (this.autoSpacing) {
-      const { coefficient, brush, sizeMultiplier } = this.autoSpacing
+      const { coefficient, brush, sizeMultiplier, mode, dynamics, isotropic } = this.autoSpacing
       const state = this._spacingBehavior ??= beginBrushBehavior(dab)
       const previous = state.previous
       // Input speed is canvas px/ms, already latched for this pointer batch.
       // This local clock feeds size sensors only; recorded dab time is untouched.
       const t = previous ? previous.t + Math.hypot(dab.x - previous.x, dab.y - previous.y) / Math.max(.001, this._speed) : 0
-      const stamp = behaviorStampsForDab(brush, codecDab({ ...dab, t }), state, [0, 0, 0])[0]
+      const input=codecDab({ ...dab, t })
+      // Independent sensors observe pre-advance logical state and the same
+      // codec clock as size dynamics, without consuming their random streams.
+      const spacingInput={...input,angle:this._pathAngle}
+      const factor=dynamics?.reduce((value,control,index)=>value*brushDynamicValue(control,spacingInput,state,brushDabRandom(brushDabSeed(input.x,input.y,input.pressure),0xa0000+index)),1) ?? 1
+      const stamp = behaviorStampsForDab(brush, input, state, [0, 0, 0])[0]
       // Source spacing uses characteristic dimensions, before optical edge spread.
       const diameter = stamp.size * sizeMultiplier / (1 + stamp.edgeSoftness * .15)
       const axis = (value: number): number => {
         // Native distance interpolation clamps EACH spacing axis to .5px
         // (kis_distance_information.cpp), after the auto-spacing transfer.
         const actual = Math.max(0, value)
-        return Math.max(.5, coefficient * (actual < 1 ? actual : Math.sqrt(actual)))
+        const characteristic=mode==='diameter' ? actual : actual < 1 ? actual : Math.sqrt(actual)
+        return Math.max(.5, coefficient * factor * characteristic)
       }
-      this._spacingAxes = { x: axis(diameter * brush.tip.aspect), y: axis(diameter), angle: stamp.angle }
+      const x=axis(diameter*brush.tip.aspect),y=axis(diameter)
+      this._spacingAxes = isotropic ? {x:Math.max(x,y),y:Math.max(x,y),angle:0} : { x, y, angle: stamp.angle }
       return this._autoSpacingStep(this._pathAngle)
     }
     const fp = this.footprint

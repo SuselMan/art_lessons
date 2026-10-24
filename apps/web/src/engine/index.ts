@@ -6131,8 +6131,8 @@ export class PencilEngine implements PencilEngineAPI {
     // made, and a replay paints the dabs the log holds.
     const spacingBrush = this._strokeTool === 'digitalBrush' ? digitalBrushFromPreset(this._opts.pencilType) : null
     const sourceSpacing = spacingBrush?.behavior?.spacing
-    this._dabs.autoSpacing = spacingBrush && sourceSpacing?.mode === 'kritaAuto'
-      ? { coefficient: sourceSpacing.coefficient, brush: { ...spacingBrush, scatter: undefined }, sizeMultiplier: this._dabSizeScale(this._strokeTool, this._opts.pencilType) }
+    this._dabs.autoSpacing = spacingBrush && sourceSpacing
+      ? { mode:sourceSpacing.mode, coefficient: sourceSpacing.coefficient, dynamics:sourceSpacing.dynamics, isotropic:sourceSpacing.isotropic, brush: { ...spacingBrush, scatter: undefined }, sizeMultiplier: this._dabSizeScale(this._strokeTool, this._opts.pencilType) }
       : null
     const stampBrush = this._strokeTool === 'digitalBrush'
       && digitalBrushFromPreset(this._opts.pencilType).flowPer === 'stamp'
