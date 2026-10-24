@@ -1075,9 +1075,20 @@ export class MockGL {
     const ceiling=ceilingTex?this._textureData.get(ceilingTex):undefined
     const opacity = (uniforms.get('u_opacity') as number) ?? 1
     const [cx, cy] = (uniforms.get('u_dabCenter') as number[]) ?? [0, 0]
-    const radius = ((uniforms.get('u_dabRadius') as number) ?? 1) * Math.SQRT2 + 1
-    for (let py = Math.max(0, Math.floor(cy - radius)); py < Math.min(height, Math.ceil(cy + radius)); py++) {
-      for (let px = Math.max(0, Math.floor(cx - radius)); px < Math.min(width, Math.ceil(cx + radius)); px++) {
+    // Rasterize the actual DAB_VERT quad: local X is stretched before
+    // rotation. A tight dirty rectangle can be much wider than it is tall;
+    // treating radius as a square silently drops its ends during replay.
+    const radius = (uniforms.get('u_dabRadius') as number) ?? 1
+    const aspect = Math.max((uniforms.get('u_aspectRatio') as number) ?? 1, 1e-6)
+    const angle = (uniforms.get('u_angle') as number) ?? 0
+    const c = Math.cos(angle), s = Math.sin(angle)
+    const halfY = radius * this._boundQuadExtent() * 2, halfX = halfY * aspect
+    const extentX = Math.abs(c) * halfX + Math.abs(s) * halfY
+    const extentY = Math.abs(s) * halfX + Math.abs(c) * halfY
+    for (let py = Math.max(0, Math.floor(cy - extentY)); py < Math.min(height, Math.ceil(cy + extentY)); py++) {
+      for (let px = Math.max(0, Math.floor(cx - extentX)); px < Math.min(width, Math.ceil(cx + extentX)); px++) {
+        const dx = px + .5 - cx, dy = py + .5 - cy
+        if (Math.abs(dx * c + dy * s) > halfX || Math.abs(-dx * s + dy * c) > halfY) continue
         const idx = py * width + px
         const cov = coverage.data[idx] ?? 0
         if (cov <= 0) continue
