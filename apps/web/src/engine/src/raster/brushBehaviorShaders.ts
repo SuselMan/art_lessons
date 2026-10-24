@@ -50,6 +50,20 @@ vec3 brushBlend(vec3 b, vec3 s, float mode) {
   return brushSetLum(b,brushLum(s));
 }
 `
+/** Straight encoded-RGB lightness adjustment after premultiplied tip filtering. */
+export const BRUSH_LIGHTNESS_GLSL = `
+vec3 brushMaterialColor(vec3 rgb,float gray,float strength) {
+ float lightness=(max(rgb.r,max(rgb.g,rgb.b))+min(rgb.r,min(rgb.g,rgb.b)))*0.5;
+ float x=(gray-0.5)*strength+0.5, b=4.0*lightness-1.0;
+ float target=clamp((1.0-b)*x*x+b*x,0.0,1.0);
+ vec3 shifted=rgb+vec3(target-lightness);
+ float low=min(shifted.r,min(shifted.g,shifted.b));
+ if(low<0.0) shifted=vec3(target)+(shifted-vec3(target))*target/max(target-low,0.0000001);
+ float high=max(shifted.r,max(shifted.g,shifted.b));
+ if(high>1.0) shifted=vec3(target)+(shifted-vec3(target))*(1.0-target)/max(high-target,0.0000001);
+ return clamp(shifted,0.0,1.0);
+}
+`
 /** Bounded shape-only diffusion shared by stamp and carried-pigment transfer.
  * The geometry includes a 15% pad at full bleed; no canvas colour is sampled. */
 export const BRUSH_EDGE_BLEED_GLSL = `
@@ -135,6 +149,9 @@ export const BRUSH_STAMP_FRAG = `
   uniform float u_ceilingFallback;
   uniform sampler2D u_previousCeiling;
   uniform vec3 u_color;
+  uniform float u_lightnessMaterial;
+  uniform float u_lightnessStrength;
+  uniform float u_dualLightnessMaterial;
   uniform vec2 u_flip;
   uniform vec4 u_grainTransform;
   uniform vec2 u_grainTone;
@@ -152,9 +169,11 @@ export const BRUSH_STAMP_FRAG = `
   uniform vec4 u_dualTransform;
   ${BRUSH_BLEND_GLSL}
   ${BRUSH_EDGE_BLEED_GLSL}
+  ${BRUSH_LIGHTNESS_GLSL}
   ${BRUSH_TEXTURE_APPLICATION_GLSL}
   void main() {
     float shape;
+    vec3 pigment=u_color;
     if (u_tipKind < 0.5) {
       // Normalized radius: v_localUV is the dab's own frame, 1.0 at the
       // boundary, so this is scale-free and an ellipse comes out as one.
@@ -169,14 +188,21 @@ export const BRUSH_STAMP_FRAG = `
     } else {
       // The quad spans -1..1 in the stamp's own (rotated) frame, and the mask
       // is stored with row 0 on top — see tipMasks.ts on orientation.
-      shape = texture2D(u_tip, u_tipBounds.xy+(v_localUV * u_flip * 0.5 + 0.5)*u_tipBounds.zw).r;
+      vec4 tipSample=texture2D(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw);
+      shape=mix(tipSample.r,tipSample.a,u_lightnessMaterial);
+      if(u_lightnessMaterial>0.5) {
+        float gray=tipSample.a>0.0 ? clamp(tipSample.r/tipSample.a,0.0,1.0) : 0.5;
+        pigment=brushMaterialColor(u_color,gray,u_lightnessStrength);
+        shape=min(shape,1.0); // opaque foreground alpha; flow is applied below
+      }
     }
 
-    if(u_edgeBleed>0.0) shape=brushEdgeBleed(u_tip,v_localUV,u_tipKind,u_hardness,u_flip,0.0,u_edgeBleed,clamp(u_aaPx*(1.0+u_edgeBleed*0.15)/max(v_radius,0.0001),0.004,0.9));
+    if(u_edgeBleed>0.0) shape=brushEdgeBleed(u_tip,v_localUV,u_tipKind,u_hardness,u_flip,u_lightnessMaterial,u_edgeBleed,clamp(u_aaPx*(1.0+u_edgeBleed*0.15)/max(v_radius,0.0001),0.004,0.9));
     if (u_dualKind > 0.5) {
       vec2 dualUV = v_localUV * u_dualTransform.xy;
       dualUV = mat2(u_dualTransform.z,-u_dualTransform.w,u_dualTransform.w,u_dualTransform.z)*dualUV;
-      float secondary = u_dualKind > 1.5 ? texture2D(u_dual,u_dualBounds.xy+(dualUV*0.5+0.5)*u_dualBounds.zw).r : 1.0-smoothstep(min(u_dualHardness,0.99),1.0,length(dualUV));
+      vec4 dualSample=texture2D(u_dual,u_dualBounds.xy+(dualUV*0.5+0.5)*u_dualBounds.zw);
+      float secondary = u_dualKind > 1.5 ? mix(dualSample.r,dualSample.a,u_dualLightnessMaterial) : 1.0-smoothstep(min(u_dualHardness,0.99),1.0,length(dualUV));
       if (abs(dualUV.x)>1.0 || abs(dualUV.y)>1.0) secondary=0.0;
       if(u_dualTextureApplication.x>0.5) {
         vec2 local=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
@@ -238,7 +264,7 @@ export const BRUSH_STAMP_FRAG = `
     // continuous: a hard step at the stamp's rim would draw a visible circle
     // wherever a firm stamp's edge crosses a lighter part of the same stroke.
     float ceiling = u_ceiling * smoothstep(0.0, 0.3, shape);
-    if (u_ceilingFallback > 0.5) ceiling = max(ceiling,texture2D(u_previousCeiling,gl_FragCoord.xy/u_resolution).r); gl_FragColor = u_ceilingPass > 0.5 ? vec4(ceiling) : vec4(u_color * amount, amount);
+    if (u_ceilingFallback > 0.5) ceiling = max(ceiling,texture2D(u_previousCeiling,gl_FragCoord.xy/u_resolution).r); gl_FragColor = u_ceilingPass > 0.5 ? vec4(ceiling) : vec4(pigment * amount, amount);
   }
 `
 

@@ -72,3 +72,14 @@ describe('selected brush resource plan', () => {
     expect(local.some(r => r.painter === 'stamp')).toBe(false)
   })
 })
+
+it('plans one packed variant for each alpha/gray pair, not duplicate old-format alpha textures',()=>{
+  const brush=structuredClone(digitalBrushFromPreset('hard-round'))
+  const alpha=`asset:${'a'.repeat(64)}` as const,g1=`asset:${'b'.repeat(64)}` as const,g2=`asset:${'c'.repeat(64)}` as const
+  brush.tip={...brush.tip,mask:alpha,animation:{mode:'incremental',frames:[alpha,alpha]},material:{kind:'lightness',gray:g1,grayFrames:[g1,g2],strength:1}}
+  const resources=brushPreparationResources(brush).filter(r=>!r.grain)
+  expect(resources).toEqual([{painter:'stamp',id:alpha,gray:g1,grain:false},{painter:'stamp',id:alpha,gray:g2,grain:false}])
+  expect(brushPreparationBytes(resources,()=>2)).toBe(40)
+  brush.model='mixer'
+  expect(()=>brushPreparationResources(brush)).toThrow('stamp renderer')
+})

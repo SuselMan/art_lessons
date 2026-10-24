@@ -158,3 +158,15 @@ it('uploads a discrete grid as one NEAREST base level and charges no mip bytes',
   expect(result.bytes).toBe(64*4)
   expect(gl.getMinFilter(result.texture)).toBe(gl.NEAREST)
 })
+
+it('uploads packed premultiplied LA with explicit dimensions, old byte budget and restored upload state',()=>{
+  const gl=new MockGL(),upload=vi.spyOn(gl,'texImage2D')
+  const previous=gl.createTexture();gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,previous)
+  const levels=[new Uint8Array([0,0,255,255,64,128,255,255]),new Uint8Array([144,160])]
+  const result=uploadBrushTexture(gl as unknown as WebGLRenderingContext,levels,gl.LUMINANCE_ALPHA,gl.CLAMP_TO_EDGE)
+  expect(upload.mock.calls.map(call=>[call[3],call[4],call[6]])).toEqual([[2,2,gl.LUMINANCE_ALPHA],[1,1,gl.LUMINANCE_ALPHA]])
+  expect(result.bytes).toBe(20)
+  expect(gl.getParameter(gl.ACTIVE_TEXTURE)).toBe(gl.TEXTURE1)
+  expect(gl.getParameter(gl.TEXTURE_BINDING_2D)).toBe(previous)
+  expect(gl.getParameter(gl.UNPACK_ALIGNMENT)).toBe(4)
+})

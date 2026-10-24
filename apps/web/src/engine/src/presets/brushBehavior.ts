@@ -42,6 +42,8 @@ export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescrip
 export interface BehaviorStamp extends BrushStamp {
   mask?: BrushDescriptor['tip']['mask']
   dualMask?: BrushDescriptor['tip']['mask']
+  gray?: string
+  dualGray?: string
   wetGrade: number
   edgeSoftness: number
   bleed: number
@@ -135,12 +137,15 @@ function shiftColor(rgb: [
 }
 /** Frame choice is one logical-dab event, independent of scatter and batches.
  * Dedicated random stream leaves every existing brush jitter salt unchanged. */
+export function brushAnimationIndex(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0): number | undefined {
+  const animation=tip.animation
+  if(!animation) return undefined
+  return animation.mode==='incremental' ? ordinal%animation.frames.length
+    : Math.min(animation.frames.length-1,Math.floor(brushDabRandom(seed,0x40000+stream*0x10000+ordinal)*animation.frames.length))
+}
 export function brushAnimationFrame(tip: BrushDescriptor['tip'], seed: number, ordinal: number, stream = 0): BrushDescriptor['tip']['mask'] {
-  const animation = tip.animation
-  if (!animation) return undefined
-  const index = animation.mode === 'incremental' ? ordinal % animation.frames.length
-    : Math.min(animation.frames.length - 1, Math.floor(brushDabRandom(seed, 0x40000 + stream * 0x10000 + ordinal) * animation.frames.length))
-  return animation.frames[index]
+  const index=brushAnimationIndex(tip,seed,ordinal,stream)
+  return index===undefined ? undefined : tip.animation!.frames[index]
 }
 export function advanceBrushAnimation(brush: BrushDescriptor, state: BrushBehaviorState): number {
   const ordinal = state.dabOrdinal ?? 0
@@ -154,8 +159,12 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
 ]): BehaviorStamp[] {
   const behavior = brush.behavior
   const ordinal = advanceBrushAnimation(brush, state)
-  const mask = brushAnimationFrame(brush.tip, state.seed, ordinal)
-  const dualMask = behavior?.dual ? brushAnimationFrame(behavior.dual.brush.tip, state.seed, ordinal, 1) : undefined
+  const index=brushAnimationIndex(brush.tip,state.seed,ordinal)
+  const dualIndex=behavior?.dual ? brushAnimationIndex(behavior.dual.brush.tip,state.seed,ordinal,1) : undefined
+  const mask=index===undefined ? undefined : brush.tip.animation!.frames[index]
+  const dualMask=dualIndex===undefined ? undefined : behavior!.dual!.brush.tip.animation!.frames[dualIndex]
+  const gray=(index===undefined ? undefined : brush.tip.material?.grayFrames?.[index]) ?? brush.tip.material?.gray
+  const dualGray=(dualIndex===undefined ? undefined : behavior?.dual?.brush.tip.material?.grayFrames?.[dualIndex]) ?? behavior?.dual?.brush.tip.material?.gray
   const prev = state.previous
   if (prev)
     state.distance += Math.hypot(dab.x - prev.x, dab.y - prev.y) / Math.max(0.5, (dab.size + prev.size) * 0.5)
@@ -203,7 +212,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
     const roundness = Math.max(0.02, dynamic('roundness', 20 + i * 8) * (1 - (behavior?.scatter?.roundnessJitter ?? 0) * rand(21 + i * 8)))
     const hasColor = behavior?.dynamics?.hue || behavior?.dynamics?.saturation || behavior?.dynamics?.brightness
     return {
-      ...stamp, ...(mask ? { mask } : {}), ...(dualMask ? { dualMask } : {}), x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
+      ...stamp, ...(gray ? {gray} : {}), ...(dualGray ? {dualGray} : {}), ...(mask ? { mask } : {}), ...(dualMask ? { dualMask } : {}), x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
       flowScale: stamp.flowScale * curveAt(brush.flowByPressure, dab.pressure) * dynamic('flow', 22 + i * 8) * Math.exp(-state.distance*(behavior?.falloff??0)*4),
       opacityScale, grainDepth: dynamic('grainDepth', 23 + i * 8),
       flipX: rotation?.flipX && rand(24 + i * 8) < 0.5 ? -1 : 1,
