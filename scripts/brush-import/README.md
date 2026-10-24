@@ -120,3 +120,13 @@ installed bundles, including references from loose KPP and RGBA presets.
 Conflicting resources with the same basename are rejected by the resource
 reader; animated GIH and SVG are still skipped instead of selecting a frame or
 substituting a circle.
+
+GIH current-stock image pipes retain all equal-sized frames and the one-dimensional
+random/incremental selection mode. Random selection uses Grafetto deterministic
+per-dab randomness, not the vendor RNG. Other dimension/selection modes and unequal
+frame dimensions fail explicitly. Exact EOF after fewer complete GBR frames is
+accepted as Krita does (official fairy-dust declares4, contains1), with an explicit
+compatibility warning; partial frames are rejected. RGBA pipe pixels currently
+contribute alpha only, with an unsupported-colour warning. All native static and
+pipe raster tips include square `maskBounds` matching exact POT padding, including
+half-texel offsets for odd dimensions; Gaussian256 masks already fill the cache.

@@ -8,7 +8,7 @@ import unittest
 import zipfile
 from PIL import Image, PngImagePlugin
 import convert
-from krita_import import convert_krita, gbr, gih, xml, gaussian_circle
+from krita_import import convert_krita, gbr, gih, xml, gaussian_circle, tip_asset
 
 
 def kpp(definition=None, resources='', engine='paintbrush', mode='normal'):
@@ -20,6 +20,36 @@ def kpp(definition=None, resources='', engine='paintbrush', mode='normal'):
 
 
 class KritaTests(unittest.TestCase):
+    def test_tip_bounds_keep_native_square_and_odd_portrait_extent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            c=convert.Catalog(Path(tmp)/'out')
+            _,bounds=tip_asset(Image.new('L',(300,300),255),c,[])
+            self.assertEqual(bounds,{'x':106/512,'y':106/512,'width':300/512,'height':300/512})
+            _,bounds=tip_asset(Image.new('L',(169,170),255),c,[])
+            self.assertEqual(bounds,{'x':42.5/256,'y':43/256,'width':170/256,'height':170/256})
+
+    def test_gih_descriptor_preserves_frames_and_exact_eof_diagnostic(self):
+        def frame(value):
+            return struct.pack('>7I',29,2,3,3,1,0x47494d50,25)+b'\0'+bytes([value])*9
+        for mode in ['random','incremental']:
+            for actual in [1,2]:
+                pipe=('Authored\n2 dim:1 rank0:2 sel0:'+mode+'\n').encode()+frame(64)+(frame(192) if actual==2 else b'')
+                with tempfile.TemporaryDirectory() as tmp:
+                    p=Path(tmp)/'QA.kpp';p.write_bytes(kpp('<Brush type="gbr_brush" filename="tip.gih" scale="2"/>'))
+                    c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c,{'brushes/tip.gih':pipe})
+                    self.assertEqual(c.skipped,[])
+                    brush=c.brushes[0];tip=brush['descriptor']['tip']
+                    self.assertEqual(brush['sourceDefaults']['sizePx'],6)
+                    self.assertEqual(tip['maskBounds']['width'],.75)
+                    if actual==2:
+                        self.assertEqual(tip['animation']['mode'],mode)
+                        self.assertEqual(len(tip['animation']['frames']),2)
+                        self.assertEqual(tip['animation']['frames'][0],tip['mask'])
+                        self.assertNotEqual(*tip['animation']['frames'])
+                    else:
+                        self.assertNotIn('animation',tip)
+                        self.assertTrue(any(n['feature']=='gihFrameCount' for n in brush['compatibility']))
+
     def test_source_defaults_do_not_apply_opacity_flow_twice(self):
         definition='<Brush type="auto_brush"><MaskGenerator type="circle" diameter="40" hfade="1" vfade="1"/></Brush>'
         params='<param name="OpacityValue">.6</param><param name="FlowValue">.4</param>'

@@ -190,6 +190,18 @@ class PortableTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/'test.grafetto-brushes.json';path.write_text(json.dumps(data));c=convert.Catalog(Path(tmp)/'valid');convert.portable_bundle(path,c)
             self.assertEqual(c.brushes[0]['descriptor']['id'],d['id']);self.assertEqual((c.output/(sha+'.bin')).read_bytes(),raw)
+            d['tip']['animation']={'mode':'random','frames':[aid,aid]}
+            d['tip']['maskBounds']={'x':.25,'y':.25,'width':.5,'height':.5}
+            path.write_text(json.dumps(data));convert.portable_bundle(path,convert.Catalog(Path(tmp)/'animation'))
+            d['tip']['animation']['frames'][1]='asset:'+'f'*64
+            path.write_text(json.dumps(data));missing=convert.Catalog(Path(tmp)/'missing-frame')
+            with self.assertRaisesRegex(ValueError,'animation asset'):convert.portable_bundle(path,missing)
+            self.assertEqual(list(missing.output.iterdir()),[])
+            d['tip']['animation']['frames'][1]=aid
+            d['tip']['maskBounds']['x']=.75
+            path.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError,'bounds'):convert.portable_bundle(path,convert.Catalog(Path(tmp)/'bad-bounds'))
+            del d['tip']['animation'];del d['tip']['maskBounds']
             data['assets'][aid]=base64.b64encode(bytes(4)).decode();path.write_text(json.dumps(data));bad=convert.Catalog(Path(tmp)/'bad')
             with self.assertRaises(ValueError): convert.portable_bundle(path,bad)
             self.assertEqual(list(bad.output.iterdir()),[])

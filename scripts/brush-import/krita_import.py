@@ -138,6 +138,19 @@ def gih(data):
     return {'mode':mode,'frames':frames,'coloured':coloured,'declaredCount':count}
 
 
+def tip_asset(mask,catalog,warnings):
+    """Match Catalog.asset's resize/padding exactly, including odd offsets."""
+    aid=catalog.asset(mask,warnings)
+    size=catalog.assets[aid]['size']
+    scale=min(1,size/max(mask.size))
+    w,h=(max(1,round(side*scale)) for side in mask.size)
+    longest=max(w,h)
+    bounds={'x':((size-w)//2+(w-longest)/2)/size,
+            'y':((size-h)//2+(h-longest)/2)/size,
+            'width':longest/size,'height':longest/size}
+    return aid,bounds
+
+
 def raster(data, name, brush=False):
     if name.lower().endswith('.gbr'):
         return gbr(data)
@@ -267,10 +280,26 @@ def preset(data, name, catalog, external, depth=0):
             notes.append(compatibility('autoSpacing','Krita adaptive spacing coefficient retained; anisotropic axis metrics and spacing sensors require separate calibration.'))
     elif kind in ('gbr_brush', 'png_brush', 'svg_brush', 'abr_brush'):
         filename = definition.get('filename','')
-        mask = raster(resource(filename), filename, True)
+        if filename.lower().endswith('.gih'):
+            pipe=gih(resource(filename))
+            frames=pipe['frames']
+            if len({frame.size for frame in frames})!=1:
+                raise ValueError('GIH frames with unequal dimensions are unsupported')
+            assets=[tip_asset(frame,catalog,warnings) for frame in frames]
+            mask=frames[0]
+            d['tip']['mask'],d['tip']['maskBounds']=assets[0]
+            if len(assets)>1:
+                d['tip']['animation']={'mode':pipe['mode'],'frames':[asset[0] for asset in assets]}
+            if pipe['declaredCount']!=len(frames):
+                notes.append(compatibility('gihFrameCount',f"Header declares {pipe['declaredCount']} frames, but exactly {len(frames)} valid frames end at EOF; retained actual frames as Krita does."))
+            notes.append(compatibility('gihSelection','All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.'))
+            if pipe['coloured']:
+                notes.append(compatibility('gihColour','RGBA pipe colour is approximated as alpha coverage; coloured stamp pixels are not retained.','unsupported'))
+        else:
+            mask = raster(resource(filename), filename, True)
+            d['tip']['mask'],d['tip']['maskBounds']=tip_asset(mask,catalog,warnings)
         # KisScalingSizeBrush::userEffectiveSize is longest native side * scale.
         source_size=max(mask.size)*numeric(definition.get('scale'),1)
-        d['tip']['mask'] = catalog.asset(mask,warnings)
         d['tip']['aspect']=1/clamp(numeric(definition.get('ratio'),1),0.0625,1)
         if numeric(definition.get('brushApplication')) not in (0,):
             notes.append(compatibility('brushApplication','Lightness/coloured stamp application is approximated as an alpha mask.','unsupported'))
@@ -393,7 +422,7 @@ def convert_krita(path, catalog, external=None):
         if len(set(names))!=len(names) or any(n.startswith('/') or '\\' in n or '..' in PurePosixPath(n).parts for n in names):
             raise ValueError('Unsafe or duplicate Krita bundle member')
         resources=dict(external or {})
-        resources.update({n:(lambda entry=n: archive.read(entry)) for n in names if n.lower().endswith(('.gbr','.png','.pat','.jpg','.jpeg','.webp'))})
+        resources.update({n:(lambda entry=n: archive.read(entry)) for n in names if n.lower().endswith(('.gbr','.gih','.png','.pat','.jpg','.jpeg','.webp'))})
         for name in sorted(n for n in names if n.lower().endswith('.kpp')):
             try:
                 catalog.brushes.append(preset(archive.read(name),name,catalog,resources))

@@ -460,11 +460,22 @@ def portable_bundle(path,catalog):
         validated.append((asset,raw))
     if set(payloads)!=ids: raise ValueError('Portable payload keys differ from manifest')
     seen=set()
+    asset_sizes={asset['id']:asset['size'] for asset,_ in validated}
     def validate_descriptor(d,depth=0):
         if not isinstance(d,dict) or depth>1 or not isinstance(d.get('id'),str) or not re.fullmatch(r'imported-[a-f0-9]{24}',d['id']): raise ValueError('Invalid portable descriptor')
         if type(d.get('version'))!=int or not 1<=d['version']<=1024 or d.get('model') not in ('stamp','mixer') or not isinstance(d.get('tip'),dict): raise ValueError('Unsupported portable descriptor')
         tip=d['tip']
         if tip.get('kind') not in ('bitmap','round') or (tip.get('kind')=='bitmap' and tip.get('mask') not in ids): raise ValueError('Missing portable tip asset')
+        if 'animation' in tip:
+            animation=tip['animation']
+            if not isinstance(animation,dict) or set(animation)!={'mode','frames'} or animation['mode'] not in ('random','incremental'): raise ValueError('Invalid portable tip animation')
+            frames=animation['frames']
+            if not isinstance(frames,list) or not 2<=len(frames)<=256 or frames[0]!=tip.get('mask') or any(not isinstance(frame,str) or frame not in ids for frame in frames): raise ValueError('Missing portable animation asset')
+            if len({asset_sizes[frame] for frame in frames})!=1: raise ValueError('Portable animation assets differ in size')
+        if 'maskBounds' in tip:
+            bounds=tip['maskBounds']
+            if not isinstance(bounds,dict) or set(bounds)!={'x','y','width','height'} or any(type(v) not in (int,float) or not math.isfinite(v) for v in bounds.values()): raise ValueError('Invalid portable mask bounds')
+            if bounds['x']<0 or bounds['y']<0 or bounds['width']<=0 or bounds['width']!=bounds['height'] or bounds['x']+bounds['width']>1 or bounds['y']+bounds['height']>1: raise ValueError('Portable mask bounds outside asset')
         if 'texture' in d and (not isinstance(d['texture'],dict) or d['texture'].get('id') not in ids): raise ValueError('Missing portable grain asset')
         behavior=d.get('behavior',{})
         if not isinstance(behavior,dict): raise ValueError('Invalid portable behavior')

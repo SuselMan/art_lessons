@@ -50,7 +50,7 @@ def build(lock, cache, output, include_legacy=False):
                 continue
             archive=stack.enter_context(zipfile.ZipFile(path))
             for name in archive.namelist():
-                if name.lower().endswith(('.gbr','.png','.pat','.jpg','.jpeg','.webp')):
+                if name.lower().endswith(('.gbr','.gih','.png','.pat','.jpg','.jpeg','.webp')):
                     external[path.name+'/'+name]=lambda z=archive,n=name:z.read(n)
         return _convert_selected(lock,output,include_legacy,catalog,sources,duplicates,seen,selected,paths,external)
 
