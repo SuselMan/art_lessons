@@ -38,6 +38,8 @@ export interface BrushTip {
   maskBounds?: { x: number; y: number; width: number; height: number }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
   animation?: { mode: 'random' | 'incremental'; frames: AssetId[] }
+  /** Straight adjusted-gray CAS plane paired with mask alpha; frame indices are shared. */
+  material?: { kind: 'lightness'; gray: AssetId; grayFrames?: AssetId[]; strength: number }
   /** 0 = a gradient with no edge at all, 1 = a disc. Feeds the round stamp's
    *  profile, and also dabSpacing's footprint rule — a hard-edged stamp has to
    *  be laid denser or the mark reads as a row of discs (#478). A bitmap tip's
@@ -331,6 +333,20 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const frameIds = animation.frames
       const sizes = new Set(value.assets.filter(asset => frameIds.includes(asset.id)).map(asset => asset.size))
       if (sizes.size !== 1) return false
+    }
+    if (d.tip.material !== undefined) {
+      const material = d.tip.material
+      if (d.model !== 'stamp' || d.tip.kind !== 'bitmap' || !record(material)
+        || Object.keys(material).some(key => !['kind','gray','grayFrames','strength'].includes(key))
+        || material.kind !== 'lightness' || !ref(material.gray) || !ref(d.tip.mask)
+        || !numberIn(material.strength,0,1)) return false
+      const animation = d.tip.animation as { frames: unknown[] } | undefined
+      const alphaFrames = animation?.frames ?? [d.tip.mask]
+      if (d.tip.animation ? !Array.isArray(material.grayFrames) || material.grayFrames.length !== alphaFrames.length
+        || material.grayFrames[0] !== material.gray || !material.grayFrames.every(ref) : material.grayFrames !== undefined) return false
+      const grayFrames = (material.grayFrames ?? [material.gray]) as unknown[]
+      const paired = [...alphaFrames,...grayFrames]
+      if (new Set(value.assets.filter(asset => paired.includes(asset.id)).map(asset => asset.size)).size !== 1) return false
     }
     const key = `${d.id}@${d.version}`
     if (keys.has(key)) return false

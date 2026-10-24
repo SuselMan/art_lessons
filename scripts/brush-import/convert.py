@@ -472,6 +472,20 @@ def portable_bundle(path,catalog):
             frames=animation['frames']
             if not isinstance(frames,list) or not 2<=len(frames)<=256 or frames[0]!=tip.get('mask') or any(not isinstance(frame,str) or frame not in ids for frame in frames): raise ValueError('Missing portable animation asset')
             if len({asset_sizes[frame] for frame in frames})!=1: raise ValueError('Portable animation assets differ in size')
+        if 'material' in tip:
+            material=tip['material']
+            if (d['model']!='stamp' or tip.get('kind')!='bitmap' or not isinstance(material,dict)
+                    or set(material)-{'kind','gray','grayFrames','strength'} or material.get('kind')!='lightness'
+                    or not isinstance(material.get('gray'),str) or material['gray'] not in ids
+                    or type(material.get('strength')) not in (int,float) or not math.isfinite(material['strength']) or not 0<=material['strength']<=1):
+                raise ValueError('Invalid portable lightness material')
+            alpha_frames=tip.get('animation',{}).get('frames',[tip.get('mask')])
+            gray_frames=material.get('grayFrames',[material['gray']])
+            if ('animation' in tip and ('grayFrames' not in material or not isinstance(gray_frames,list) or len(gray_frames)!=len(alpha_frames)
+                    or gray_frames[0]!=material['gray'])) or ('animation' not in tip and 'grayFrames' in material):
+                raise ValueError('Portable lightness animation mismatch')
+            if any(not isinstance(frame,str) or frame not in ids for frame in gray_frames): raise ValueError('Missing portable lightness asset')
+            if len({asset_sizes[frame] for frame in alpha_frames+gray_frames})!=1: raise ValueError('Portable lightness plane dimensions differ')
         if 'maskBounds' in tip:
             bounds=tip['maskBounds']
             if not isinstance(bounds,dict) or set(bounds)!={'x','y','width','height'} or any(type(v) not in (int,float) or not math.isfinite(v) for v in bounds.values()): raise ValueError('Invalid portable mask bounds')

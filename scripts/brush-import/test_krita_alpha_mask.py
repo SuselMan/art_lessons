@@ -50,7 +50,7 @@ class AlphaMaskTests(unittest.TestCase):
             self.assertEqual((catalog.output/catalog.assets[frames[0]]['file']).read_bytes(),bytes(4))
             self.assertEqual((catalog.output/catalog.assets[frames[1]]['file']).read_bytes(),bytes([255,0,0,0]))
             self.assertFalse(any(note['feature']=='gihColour' for note in brush['compatibility']))
-    def test_legacy_lightness_is_explicitly_unsupported_without_changing_to_mask(self):
+    def test_legacy_lightness_emits_paired_planes_without_changing_source_name(self):
         image=Image.new('RGBA',(2,2),(255,255,255,128))
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/'QA.kpp';path.write_bytes(kpp('<Brush type="png_brush" filename="tip.png" preserveLightness="1" ColorAsMask="1"/>'))
@@ -58,6 +58,7 @@ class AlphaMaskTests(unittest.TestCase):
             brush=catalog.brushes[0]
             self.assertEqual(brush['source'],'QA.kpp')
             self.assertEqual(brush['name'],'QA Krita')
-            self.assertTrue(any(note['feature']=='brushApplication' and note['status']=='unsupported' and 'LIGHTNESSMAP' in note['detail'] for note in brush['compatibility']))
+            self.assertEqual(brush['descriptor']['tip']['material']['kind'],'lightness')
+            self.assertFalse(any(note['feature']=='brushApplication' for note in brush['compatibility']))
             aid=brush['descriptor']['tip']['mask'];raw=(catalog.output/catalog.assets[aid]['file']).read_bytes()
             self.assertEqual(raw,bytes([128])*4)

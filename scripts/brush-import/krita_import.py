@@ -15,6 +15,7 @@ from PIL import Image, ImageChops, PngImagePlugin
 from brush_contract import MAX_PIXELS, clamp, compatibility, descriptor, finalize_identity
 from curve_transfer import native_transfer,scaled_curve
 from krita_texture import preprocess_texture
+from krita_lightness import compile_lightness_planes
 
 MAX_XML = 32 * 1024 * 1024
 
@@ -197,6 +198,17 @@ def image_coverage(image, application=0):
     return Image.frombytes('L',image.size,pixels)
 
 
+def lightness_planes(image, definition):
+    # Native metadata absence matters: explicit AutoAdjustMidPoint=false
+    # suppresses the pre-version2 adjustment migration.
+    return compile_lightness_planes(image,
+        midpoint=int(numeric(definition.get('AdjustmentMidPoint'),127)),
+        brightness=numeric(definition.get('BrightnessAdjustment'),0),
+        contrast=numeric(definition.get('ContrastAdjustment'),0),
+        adjustment_version=int(numeric(definition.get('AdjustmentVersion'),1)),
+        auto_midpoint=enabled(definition.get('AutoAdjustMidPoint')) if definition.get('AutoAdjustMidPoint') is not None else None)
+
+
 def raster(data, name, brush=False):
     if name.lower().endswith('.gbr'):
         image=gbr(data,preserve_color=brush)
@@ -293,7 +305,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=12
+    d['version']=13
     source_size=None
     kind = definition.get('type')
     if kind == 'auto_brush':
@@ -321,11 +333,17 @@ def preset(data, name, catalog, external, depth=0):
             notes.append(compatibility('autoSpacing','Krita adaptive spacing coefficient retained; anisotropic axis metrics and spacing sensors require separate calibration.'))
     elif kind in ('gbr_brush', 'png_brush', 'svg_brush', 'abr_brush'):
         filename = definition.get('filename','')
+        material_gray=[]
         if filename.lower().endswith('.gih'):
             pipe=gih(resource(filename),preserve_color=True)
             adjustment_active=any(frame.mode=='RGBA' for frame in pipe['frames'])
             application=brush_application(definition,pipe['frames'])
-            frames=[frame if frame.mode=='L' else image_coverage(frame,application) for frame in pipe['frames']]
+            if application==2 and engine=='paintbrush' and all(frame.mode=='RGBA' for frame in pipe['frames']):
+                planes=[lightness_planes(frame,definition) for frame in pipe['frames']]
+                material_gray=[gray for gray,alpha in planes]
+                frames=[alpha for gray,alpha in planes]
+            else:
+                frames=[frame if frame.mode=='L' else image_coverage(frame,application) for frame in pipe['frames']]
             if len({frame.size for frame in frames})!=1:
                 raise ValueError('GIH frames with unequal dimensions are unsupported')
             assets=[tip_asset(frame,catalog,warnings) for frame in frames]
@@ -336,20 +354,34 @@ def preset(data, name, catalog, external, depth=0):
             if pipe['declaredCount']!=len(frames):
                 notes.append(compatibility('gihFrameCount',f"Header declares {pipe['declaredCount']} frames, but exactly {len(frames)} valid frames end at EOF; retained actual frames as Krita does."))
             notes.append(compatibility('gihSelection','All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.'))
-            if pipe['coloured'] and application!=0:
+            if pipe['coloured'] and application!=0 and not material_gray:
                 notes.append(compatibility('gihColour','RGBA pipe colour is approximated as alpha coverage; coloured stamp pixels are not retained.','unsupported'))
         else:
             image=gbr(resource(filename),preserve_color=True) if filename.lower().endswith('.gbr') else raster(resource(filename),filename)
             adjustment_active=image.mode=='RGBA' if filename.lower().endswith('.gbr') else has_color(image) or image.convert('RGBA').getchannel('A').getextrema()[0]<255
             application=brush_application(definition,[image])
-            mask=image if filename.lower().endswith('.gbr') and image.mode=='L' else image_coverage(image,application)
+            if application==2 and engine=='paintbrush' and adjustment_active:
+                gray,mask=lightness_planes(image,definition)
+                material_gray=[gray]
+            else:
+                mask=image if filename.lower().endswith('.gbr') and image.mode=='L' else image_coverage(image,application)
             d['tip']['mask'],d['tip']['maskBounds']=tip_asset(mask,catalog,warnings)
             if kind=='svg_brush':
                 notes.append(compatibility('svgRasterizer','Pinned official stock SVG rasterized on white at native1000px using librsvg; Qt SVG edge antialiasing may differ. General SVG uploads remain unsupported.'))
         # KisScalingSizeBrush::userEffectiveSize is longest native side * scale.
         source_size=max(mask.size)*numeric(definition.get('scale'),1)
         d['tip']['aspect']=1/clamp(numeric(definition.get('ratio'),1),0.0625,1)
-        if application!=0:
+        if material_gray:
+            gray_assets=[tip_asset(gray,catalog,warnings) for gray in material_gray]
+            if any(bounds!=d['tip']['maskBounds'] for asset,bounds in gray_assets):
+                raise ValueError('Lightness/alpha plane bounds mismatch')
+            strength=clamp(numeric(params.get('LightnessStrengthValue'),1)) if enabled(params.get('PressureLightnessStrength')) else 1
+            d['tip']['material']={'kind':'lightness','gray':gray_assets[0][0],'strength':strength}
+            if len(gray_assets)>1: d['tip']['material']['grayFrames']=[asset for asset,bounds in gray_assets]
+            if enabled(params.get('PressureLightnessStrength')) and enabled(params.get('LightnessStrengthUseCurve','true')):
+                notes.append(compatibility('lightnessStrength','Active native lightness-strength sensors are not applied; constant strength retained.','unsupported'))
+            notes.append(compatibility('lightnessMaterial','Adjusted straight gray and source alpha retained as paired planes; native premultiplied filtering, RGB lightness tone mapping and U8 rounding require renderer comparison.'))
+        elif application!=0:
             application_name={1:'IMAGESTAMP',2:'LIGHTNESSMAP',3:'GRADIENTMAP'}[application]
             notes.append(compatibility('brushApplication',application_name+' resolved from native/legacy flags; its material is unsupported and retains the alpha-mask approximation.','unsupported'))
         elif adjustment_active and (any(numeric(definition.get(key),default)!=default for key,default in [('AdjustmentMidPoint',127),('BrightnessAdjustment',0),('ContrastAdjustment',0)]) or enabled(definition.get('AutoAdjustMidPoint'))):
@@ -513,7 +545,7 @@ def preset(data, name, catalog, external, depth=0):
             if controls:
                 d['mixer']['pickupDynamics']=controls
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureRotation' and rotation_decoded)]
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):
