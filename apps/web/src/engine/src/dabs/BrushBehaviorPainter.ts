@@ -221,7 +221,7 @@ export class BrushBehaviorPainter {
       gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.quadBuf())
       gl.enableVertexAttribArray(this.sp)
       gl.vertexAttribPointer(this.sp, 2, gl.FLOAT, false, 0, 0)
-      const drawStamps = (list: BehaviorPlaced[], ceilingPass: boolean, fallback = false): void => {
+      const drawStamps = (list: BehaviorPlaced[], ceilingPass: boolean, fallback = false, beforeStamp?: (stamp:BehaviorPlaced)=>void): void => {
         gl.uniform1f(u.u_ceilingFallback, fallback ? 1 : 0)
         gl.activeTexture(gl.TEXTURE3)
         gl.bindTexture(gl.TEXTURE_2D, animated ? paper.texture : dualMask)
@@ -242,6 +242,7 @@ export class BrushBehaviorPainter {
           }
           const footprint=brushFootprintBounds(s.x,s.y,s.radius,s.aspect,s.angle,1)
           if(!footprint || footprint.maxX<tile.originX || footprint.maxY<tile.originY || footprint.minX>tile.originX+coverage.width || footprint.minY>tile.originY+coverage.height) continue
+          beforeStamp?.(s)
           gl.uniform2f(u.u_dabCenter, s.x - tile.originX, s.y - tile.originY)
           gl.uniform2f(u.u_grainTone,g?.brightness??0,clamp((g?.contrast??0)+s.wetGrade,-1,1))
           gl.uniform1f(u.u_edgeBleed, s.edgeSoftness)
@@ -299,24 +300,29 @@ export class BrushBehaviorPainter {
       }
       const drawPhysical=(list:BehaviorPlaced[]):void=>{
         const copy=accumulation==='alphaDarken' && list.some(s=>s.washFeedback) ? ceiling : undefined
-        for(const item of list){
+        let fastBound=false, lastAverage:number|undefined
+        // Preserve one uninterrupted render pass for ordinary OVER and rising
+        // constant-pigment Wash. Only a feedback dab needs a regional copy.
+        drawStamps(list,false,false,item=>{
           if(item.washFeedback && copy){
-            const rect=brushFootprintCopyRect(item.x,item.y,item.radius,item.aspect,item.angle,tile.originX,tile.originY,coverage.width,coverage.height)
-            if(!rect)continue
+            const rect=brushFootprintCopyRect(item.x,item.y,item.radius,item.aspect,item.angle,tile.originX,tile.originY,coverage.width,coverage.height)!
             gl.activeTexture(gl.TEXTURE7)
             coverage.copyRegionInto(copy,rect.x,rect.y,rect.x,rect.y,rect.width,rect.height)
             coverage.beginReplaceDraw()
             gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,copy.texture)
+            fastBound=false
           }else{
-            coverage.beginDraw()
-            if(accumulation==='alphaDarken'){
-              gl.blendColor(0,0,0,item.washAverage??0)
-              gl.blendFunc(gl.CONSTANT_ALPHA,gl.ONE_MINUS_SRC_ALPHA)
+            if(!fastBound){
+              coverage.beginDraw()
+              if(accumulation==='alphaDarken')gl.blendFunc(gl.CONSTANT_ALPHA,gl.ONE_MINUS_SRC_ALPHA)
+              fastBound=true
+            }
+            if(accumulation==='alphaDarken' && lastAverage!==item.washAverage){
+              gl.blendColor(0,0,0,item.washAverage??0);lastAverage=item.washAverage
             }
           }
-          drawStamps([item],false)
-          coverage.endDraw()
-        }
+        })
+        coverage.endDraw()
         gl.blendColor(0,0,0,0)
         gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,paper.texture)
       }
