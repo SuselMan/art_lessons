@@ -71,3 +71,15 @@ family остаётся на lazy LRU. Непредвиденный current draw
 поэтому прежняя граница max(target,current draw working set) не увеличивается.
 Это снижает cyclic-LRU amplification, но не обещает удержать одновременно две
 animation family, суммарно превышающие бюджет; recorded draw order не меняется.
+
+Texture.application выбирает общую GLSL операцию multiply/subtract hard/soft над
+маской до flow/opacity. Нет application — прежний grain shader остаётся прежним.
+`brushTextureApplication` задаёт общий NPOT grid/мировую фазу для stamp, mixer и
+inline dual; independent child использует stamp renderer. Offset вычитается,
+random заменяет fixed отдельно по осям и стабилен в пределах gesture. Grid texels
+лежат в верхнем левом углу padded POT asset и читаются NEAREST без mip levels.
+Отдельный `g:grid` GPU cache key позволяет одному asset одновременно иметь legacy
+LINEAR+mips и discrete samplers. Prepare/leases учитывают обе реально нужные
+версии и base-only bytes grid, сохраняя существующий бюджет. CPU/GPU readback
+для этой операции не используется; численная vendor byte equivalence проверяется
+отдельным native/device сравнением, не MockGL.

@@ -150,3 +150,11 @@ describe('short paint-batch leases', () => {
     release(); expect(cache.bytes).toBe(40)
   })
 })
+
+it('uploads a discrete grid as one NEAREST base level and charges no mip bytes',()=>{
+  const gl=new MockGL(),upload=vi.spyOn(gl,'texImage2D')
+  const result=uploadBrushTexture(gl as unknown as WebGLRenderingContext,[new Uint8Array(64),new Uint8Array(16),new Uint8Array(4),new Uint8Array(1)],gl.LUMINANCE,gl.REPEAT,true)
+  expect(upload).toHaveBeenCalledTimes(1)
+  expect(result.bytes).toBe(64*4)
+  expect(gl.getMinFilter(result.texture)).toBe(gl.NEAREST)
+})

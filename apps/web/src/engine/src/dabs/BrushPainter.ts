@@ -1,4 +1,4 @@
-import { brushTextureLeaseResources, type BrushPreparationResource } from './BrushPreparation'
+import { brushTextureLeaseResources, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 /** One digital-stamp renderer for built-in, imported and historical presets.
  * BrushBehaviorPainter owns deposition/composition; this facade owns texture LRU. */
 import type { Dab } from '@grafetto/shared'
@@ -30,10 +30,10 @@ export class BrushPainter {
   constructor(ctx: BrushContext) {
     this.gl=ctx.gl
     this.textures=new BrushTextureCache(ctx.gl)
-    this.behavior=new BrushBehaviorPainter(ctx,id=>this.tipTexture(id),id=>this.brushTexture(id),(tip,grain,dual,dualGrain)=>this.textures.protect([
+    this.behavior=new BrushBehaviorPainter(ctx,id=>this.tipTexture(id),(id,discrete)=>this.brushTexture(id,discrete),(tip,grain,dual,dualGrain,grid,dualGrid)=>this.textures.protect([
       'g:cloud', 'g:grit',
-      ...(tip ? [`t:${tip}`] : []), ...(grain ? [`g:${grain}`] : []),
-      ...(dual ? [`t:${dual}`] : []), ...(dualGrain ? [`g:${dualGrain}`] : []),
+      ...(tip ? [`t:${tip}`] : []), ...(grain ? [brushTextureResourceKey({id:grain,grain:true,discrete:grid?true:undefined})] : []),
+      ...(dual ? [`t:${dual}`] : []), ...(dualGrain ? [brushTextureResourceKey({id:dualGrain,grain:true,discrete:dualGrid?true:undefined})] : []),
     ]),brush=>this.textures.lease(brushTextureLeaseResources(brush,'stamp')))
   }
   initGL():void {this.textures.clear(true);this.behavior.initGL()}
@@ -50,19 +50,19 @@ export class BrushPainter {
   }
 
   hasPreparedTexture(resource: BrushPreparationResource): boolean {
-    return this.textures.get(`${resource.grain ? 'g' : 't'}:${resource.id}`) !== undefined
+    return this.textures.get(brushTextureResourceKey(resource)) !== undefined
   }
 
   prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {
-    this.textures.protect(group.map(item => `${item.grain ? 'g' : 't'}:${item.id}`))
-    if (resource.grain) this.brushTexture(resource.id as BrushTextureId)
+    this.textures.protect(group.map(brushTextureResourceKey))
+    if (resource.grain) this.brushTexture(resource.id as BrushTextureId,resource.discrete)
     else this.tipTexture(resource.id as TipMaskId)
   }
 
-  private brushTexture(id: BrushTextureId): WebGLTexture {
-    const key=`g:${id}`, cached=this.textures.get(key)
+  private brushTexture(id: BrushTextureId, discrete = false): WebGLTexture {
+    const key=brushTextureResourceKey({id,grain:true,discrete:discrete?true:undefined}), cached=this.textures.get(key)
     if(cached)return cached
-    const entry=uploadBrushTexture(this.gl,brushTextureMips(id),this.gl.LUMINANCE,this.gl.REPEAT)
+    const entry=uploadBrushTexture(this.gl,brushTextureMips(id),this.gl.LUMINANCE,this.gl.REPEAT,discrete)
     this.textures.put(key,entry.texture,entry.bytes)
     return entry.texture
   }

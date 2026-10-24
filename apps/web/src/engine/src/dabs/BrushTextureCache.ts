@@ -69,7 +69,7 @@ export class BrushTextureCache {
 
 /** Upload does not bind an FBO or leave a different sampler/packing state.
  * Resolve the entire protected group before the caller binds it for drawing. */
-export function uploadBrushTexture(gl: WebGLRenderingContext, levels: readonly Uint8Array[], format: number, wrapMode: number): { texture: WebGLTexture; bytes: number } {
+export function uploadBrushTexture(gl: WebGLRenderingContext, levels: readonly Uint8Array[], format: number, wrapMode: number, discrete = false): { texture: WebGLTexture; bytes: number } {
   const active = gl.getParameter(gl.ACTIVE_TEXTURE) as number
   const previous = gl.getParameter(gl.TEXTURE_BINDING_2D) as WebGLTexture | null
   const unpack = gl.getParameter(gl.UNPACK_ALIGNMENT) as number
@@ -79,13 +79,13 @@ export function uploadBrushTexture(gl: WebGLRenderingContext, levels: readonly U
     gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
     let bytes = 0
-    for (const [level, pixels] of levels.entries()) {
+    for (const [level, pixels] of (discrete ? levels.slice(0,1) : levels).entries()) {
       const size = Math.sqrt(pixels.length)
       gl.texImage2D(gl.TEXTURE_2D, level, format, size, size, 0, format, gl.UNSIGNED_BYTE, pixels)
       bytes += pixels.length * 4
     }
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, discrete ? gl.NEAREST : gl.LINEAR_MIPMAP_LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, discrete ? gl.NEAREST : gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapMode)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapMode)
     return { texture, bytes }

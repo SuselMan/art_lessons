@@ -78,6 +78,22 @@ float brushEdgeBleed(sampler2D tip,vec2 uv,float kind,float hardness,vec2 flip,f
 }
 `
 
+/** Explicit mask application. Old descriptors keep their original grain path. */
+export const BRUSH_TEXTURE_APPLICATION_GLSL = `
+float brushTextureAlpha(float a,float t,float strength,vec4 application) {
+ float s=clamp(strength,0.0,1.0);
+ if(application.x<1.5) return application.y>0.5 ? a*(1.0-s+s*t) : a*t*s;
+ return application.y>0.5 ? max(0.0,a-t*s) : max(0.0,a-t-(1.0-s));
+}
+float brushTextureGrid(sampler2D tex,vec2 local,vec4 application,vec4 mapping,float alphaChannel) {
+ vec2 grid=application.zw;
+ vec2 period=vec2(mapping.x,mapping.x*grid.y/grid.x);
+ vec2 cell=floor(fract((local+mapping.zw)/period)*grid);
+ vec4 value=texture2D(tex,(cell+0.5)/mapping.y);
+ return mix(value.r,value.a,alphaChannel);
+}
+`
+
 export const BRUSH_STAMP_FRAG = `
   precision highp float;
 
@@ -101,6 +117,8 @@ export const BRUSH_STAMP_FRAG = `
   // how strongly it breaks the mark, the world size of one tile, and this
   // tile's world origin already reduced modulo that size on the CPU — so the
   // numbers stay small enough for a mediump fallback not to shift the grain.
+  uniform vec4 u_textureApplication; uniform vec4 u_textureMapping;
+  uniform vec4 u_dualTextureApplication; uniform vec4 u_dualTextureMapping;
   uniform sampler2D u_texture;
   uniform float u_texStrength;
   uniform float u_texPeriod;
@@ -134,6 +152,7 @@ export const BRUSH_STAMP_FRAG = `
   uniform vec4 u_dualTransform;
   ${BRUSH_BLEND_GLSL}
   ${BRUSH_EDGE_BLEED_GLSL}
+  ${BRUSH_TEXTURE_APPLICATION_GLSL}
   void main() {
     float shape;
     if (u_tipKind < 0.5) {
@@ -159,14 +178,25 @@ export const BRUSH_STAMP_FRAG = `
       dualUV = mat2(u_dualTransform.z,-u_dualTransform.w,u_dualTransform.w,u_dualTransform.z)*dualUV;
       float secondary = u_dualKind > 1.5 ? texture2D(u_dual,u_dualBounds.xy+(dualUV*0.5+0.5)*u_dualBounds.zw).r : 1.0-smoothstep(min(u_dualHardness,0.99),1.0,length(dualUV));
       if (abs(dualUV.x)>1.0 || abs(dualUV.y)>1.0) secondary=0.0;
+      if(u_dualTextureApplication.x>0.5) {
+        vec2 local=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
+        secondary=brushTextureAlpha(secondary,brushTextureGrid(u_dualTexture,local,u_dualTextureApplication,u_dualTextureMapping,0.0),u_dualTexStrength,u_dualTextureApplication);
+        secondary*=u_dualStrength;
+      } else {
       secondary *= u_dualStrength;
       if(u_dualTexStrength>0.0) {
         vec2 dw=u_dualTexOrigin+vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
         secondary *= mix(1.0,texture2D(u_dualTexture,dw/u_dualTexPeriod).r,u_dualTexStrength);
       }
+      }
       shape = brushBlend(vec3(shape),vec3(secondary),u_dualBlend).r;
     }
     if (shape <= 0.0) discard;
+
+    if(u_textureApplication.x>0.5) {
+      vec2 local=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
+      shape=brushTextureAlpha(shape,brushTextureGrid(u_texture,local,u_textureApplication,u_textureMapping,0.0),u_texStrength,u_textureApplication);
+    }
 
     // v_opacity carries this stamp's *flow* (per-pass normalized, jittered).
     float amount = shape * v_opacity;
@@ -184,7 +214,7 @@ export const BRUSH_STAMP_FRAG = `
       float tooth = smoothstep(reach, reach + 0.3, paperCatch);
       amount *= mix(1.0, tooth, u_paper);
     }
-    if (u_texStrength > 0.0) {
+    if (u_textureApplication.x<0.5 && u_texStrength > 0.0) {
       // World position, top-down like every Dab.x/y; tiles draw with GL's
       // bottom-up rows, so y is measured back from the tile's top.
       vec2 w = vec2(u_texOrigin.x + gl_FragCoord.x,

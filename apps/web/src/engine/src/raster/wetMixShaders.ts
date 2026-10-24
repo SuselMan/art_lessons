@@ -1,4 +1,4 @@
-import { BRUSH_BLEND_GLSL, BRUSH_EDGE_BLEED_GLSL } from './brushBehaviorShaders'
+import { BRUSH_BLEND_GLSL, BRUSH_EDGE_BLEED_GLSL, BRUSH_TEXTURE_APPLICATION_GLSL } from './brushBehaviorShaders'
 
 /** Shared pickup/transfer programs for the stump and all mixer brushes. */
 export const WET_PICKUP_FRAG = `
@@ -64,6 +64,8 @@ export const WET_TRANSFER_FRAG = `
  uniform sampler2D u_dual; uniform float u_dualKind; uniform float u_dualBlend; uniform vec4 u_dualTransform;
  uniform sampler2D u_wetOriginal; uniform vec4 u_wetRender; uniform float u_wetBlend; uniform float u_burntBlend; uniform float u_wetGamma; uniform sampler2D u_secondaryCoverage; uniform float u_secondaryEnabled; uniform vec2 u_resolution;
  uniform vec2 u_wetRoundPhase; uniform float u_wetEnabled; uniform float u_tipKind; uniform sampler2D u_tip;
+ uniform sampler2D u_dualGrain; uniform float u_dualGrainStrength;
+ uniform vec4 u_textureApplication; uniform vec4 u_textureMapping; uniform vec4 u_dualTextureApplication; uniform vec4 u_dualTextureMapping;
  uniform sampler2D u_wetGrain; uniform float u_grainStrength; uniform float u_grainPeriod;
  uniform float u_grainBlend; uniform vec4 u_grainTransform; uniform vec2 u_grainTone; uniform vec2 u_wetWorldOrigin; uniform vec2 u_flip;
   // The imprint this dab lays down (SMUDGE_PICKUP_FRAG's own output),
@@ -116,6 +118,7 @@ export const WET_TRANSFER_FRAG = `
  uniform float u_edgeBleed;
  ${BRUSH_BLEND_GLSL}
  ${BRUSH_EDGE_BLEED_GLSL}
+ ${BRUSH_TEXTURE_APPLICATION_GLSL}
  float wetGrainBlend(float b,float s,float m) { return brushBlend(vec3(b),vec3(s),m).r; }
  void main() {
     // Circular only (v1) — DAB_VERT always sets u_aspectRatio=1/u_angle=0
@@ -136,16 +139,25 @@ export const WET_TRANSFER_FRAG = `
      uv=mat2(u_dualTransform.z,-u_dualTransform.w,u_dualTransform.w,u_dualTransform.z)*uv;
      float second=u_dualKind>1.5 ? texture2D(u_dual,u_dualBounds.xy+(uv*0.5+0.5)*u_dualBounds.zw).a : 1.0-smoothstep(0.7,1.0,length(uv));
      if (abs(uv.x)>1.0 || abs(uv.y)>1.0) second=0.0;
+     if(u_dualTextureApplication.x>0.5) {
+       vec2 local=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
+       second=brushTextureAlpha(second,brushTextureGrid(u_dualGrain,local,u_dualTextureApplication,u_dualTextureMapping,1.0),u_dualGrainStrength,u_dualTextureApplication);
+     }
      shape=wetGrainBlend(shape,second,u_dualBlend);
    }
    if(u_secondaryEnabled>0.5) shape=brushBlend(vec3(shape),vec3(texture2D(u_secondaryCoverage,gl_FragCoord.xy/u_resolution).a),u_dualBlend).r;
    if (shape <= 0.0) discard;
+   if(u_textureApplication.x>0.5) {
+     vec2 local=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
+     shape=brushTextureAlpha(shape,brushTextureGrid(u_wetGrain,local,u_textureApplication,u_textureMapping,1.0),u_grainStrength,u_textureApplication);
+   } else {
    vec2 world = vec2(gl_FragCoord.x + u_wetWorldOrigin.x, u_wetWorldOrigin.y-gl_FragCoord.y);
    vec2 guv = (world + u_grainTransform.xy)/u_grainPeriod;
    guv = mat2(u_grainTransform.z,-u_grainTransform.w,u_grainTransform.w,u_grainTransform.z)*guv;
    float grain = texture2D(u_wetGrain,fract(guv)).a;
    grain = clamp((grain-0.5)*max(0.0,1.0+u_grainTone.y*3.0)+0.5+u_grainTone.x,0.0,1.0);
    shape = mix(shape,wetGrainBlend(shape,grain,u_grainBlend),u_grainStrength);
+   }
  }
 
     if (u_previousCanvas > 0.5) {

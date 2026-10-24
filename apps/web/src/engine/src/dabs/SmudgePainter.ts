@@ -1,4 +1,5 @@
-import { brushTextureLeaseResources, type BrushPreparationResource } from './BrushPreparation'
+import { brushTextureApplication } from './brushTextureApplication'
+import { brushTextureLeaseResources, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 // (#494) Smudge and the digital brush's mixer, out of PencilEngine (seam С15
 // of the survey). Both paint through one carried imprint per user: every dab
 // copies the canvas patch under it, refreshes the imprint from that patch
@@ -209,6 +210,7 @@ export class SmudgePainter {
     this.transferProg = createProgram(gl, DAB_VERT, WET_TRANSFER_FRAG)
     this.pickupProg   = createProgram(gl, DISPLAY_VERT, WET_PICKUP_FRAG)
     this.transferUni = getUniforms(gl, this.transferProg, [
+      'u_textureApplication','u_textureMapping','u_dualTextureApplication','u_dualTextureMapping','u_dualGrain','u_dualGrainStrength',
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
       'u_tipBounds', 'u_dualBounds', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode', 'u_grainRelief',
@@ -737,10 +739,12 @@ export class SmudgePainter {
     const brush = wet?.paint.brush, dual=brush?.behavior?.dual
     const tip=wet?.stamp.mask ?? brush?.tip.mask
     const dualTip=wet?.secondary ? undefined : wet?.stamp.dualMask ?? dual?.brush.tip.mask
-    this.wetTextures.protect([...(tip ? [`t:${tip}`] : []),...(brush?.texture ? [`g:${brush.texture.id}`] : []),...(dualTip ? [`t:${dualTip}`] : [])])
+    const dualGrain = !wet?.secondary && dual?.brush.texture?.application ? dual.brush.texture : undefined
+    this.wetTextures.protect([...(tip ? [`t:${tip}`] : []),...(brush?.texture ? [brushTextureResourceKey({id:brush.texture.id,grain:true,discrete:brush.texture.application?true:undefined})] : []),...(dualTip ? [`t:${dualTip}`] : []),...(dualGrain ? [brushTextureResourceKey({id:dualGrain.id,grain:true,discrete:true})] : [])])
     const tipTexture=tip ? this.wetTexture(tip,false) : paper.texture
-    const grainTexture=brush?.texture ? this.wetTexture(brush.texture.id,true) : paper.texture
+    const grainTexture=brush?.texture ? this.wetTexture(brush.texture.id,true,!!brush.texture.application) : paper.texture
     const dualTexture=dualTip ? this.wetTexture(dualTip,false) : paper.texture
+    const dualGrainTexture=dualGrain ? this.wetTexture(dualGrain.id,true,true) : paper.texture
     if (wet) buffer.beginReplaceDraw()
     else if (mode === 'lay') buffer.beginAdditiveDraw()
     else buffer.beginErase()
@@ -776,6 +780,7 @@ export class SmudgePainter {
       [3,grainTexture,'u_wetGrain'],
       [4,dualTexture,'u_dual'],
       [5,original?.texture ?? carried.texture,'u_wetOriginal'],
+      [7,dualGrainTexture,'u_dualGrain'],
     ] as const) {
       gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(u[name],unit)
     }
@@ -792,6 +797,11 @@ export class SmudgePainter {
     gl.bindTexture(gl.TEXTURE_2D,secondaryTexture)
     gl.uniform1i(u.u_secondaryCoverage,6)
     gl.uniform1f(u.u_secondaryEnabled,wet?.secondary?1:0)
+    const primaryApplication=brushTextureApplication(brush?.texture,wet?.seed ?? 0,tile.originX,tile.originY)
+    const secondaryApplication=brushTextureApplication(dualGrain,wet?.seed ?? 0,tile.originX,tile.originY,1)
+    gl.uniform4f(u.u_textureApplication,...primaryApplication.application);gl.uniform4f(u.u_textureMapping,...primaryApplication.mapping)
+    gl.uniform4f(u.u_dualTextureApplication,...secondaryApplication.application);gl.uniform4f(u.u_dualTextureMapping,...secondaryApplication.mapping)
+    gl.uniform1f(u.u_dualGrainStrength,dualGrain?.strength ?? 0)
     const rendering=brush?.behavior?.rendering
     const modes=['lightGlaze','uniformGlaze','intenseGlaze','heavyGlaze','uniformBlend','intenseBlend','buildUp']
     gl.uniform4f(u.u_wetRender,0,rendering?.burntEdges ?? 0,rendering ? modes.indexOf(rendering.mode) : 6,rendering?.luminance ? 1 : 0)
@@ -838,20 +848,20 @@ export class SmudgePainter {
   }
 
   hasPreparedTexture(resource: BrushPreparationResource): boolean {
-    return this.wetTextures.get(`${resource.grain ? 'g' : 't'}:${resource.id}`) !== undefined
+    return this.wetTextures.get(brushTextureResourceKey(resource)) !== undefined
   }
 
   prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {
-    this.wetTextures.protect(group.map(item => `${item.grain ? 'g' : 't'}:${item.id}`))
-    this.wetTexture(resource.id,resource.grain)
+    this.wetTextures.protect(group.map(brushTextureResourceKey))
+    this.wetTexture(resource.id,resource.grain,!!resource.discrete)
   }
 
   /** Byte-bounded residency; active samplers remain protected across draws. */
-  private wetTexture(id: TipMaskId | BrushTextureId, grain: boolean): WebGLTexture {
-    const key = `${grain ? 'g' : 't'}:${id}`, cached = this.wetTextures.get(key)
+  private wetTexture(id: TipMaskId | BrushTextureId, grain: boolean, discrete = false): WebGLTexture {
+    const key = brushTextureResourceKey({id,grain,discrete:discrete?true:undefined}), cached = this.wetTextures.get(key)
     if(cached)return cached
     const levels=grain ? brushTextureMips(id as BrushTextureId) : tipMaskMips(id as TipMaskId)
-    const entry=uploadBrushTexture(this.gl,levels,this.gl.ALPHA,this.gl.CLAMP_TO_EDGE)
+    const entry=uploadBrushTexture(this.gl,levels,this.gl.ALPHA,this.gl.CLAMP_TO_EDGE,discrete)
     this.wetTextures.put(key,entry.texture,entry.bytes)
     return entry.texture
   }
