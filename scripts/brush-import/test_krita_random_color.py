@@ -53,6 +53,11 @@ class RandomOptionTests(unittest.TestCase):
 
 
 
+    def test_source_spacing_keeps_plain_pressure_geometry_without_fuzzy(self):
+        d=self.brush({'PressureSize':'true','SizeUseCurve':'true','SizeSensor':'<params id="pressure"><curve>0,0;1,1;</curve></params>'})['descriptor']
+        self.assertEqual(d['behavior']['spacing'],{'mode':'diameter','coefficient':.1})
+        self.assertEqual(d['sizeByPressure'],[[0,0],[1,1]])
+
     def test_native_accumulation_is_explicit_and_material_cost_is_bounded(self):
         for params in [{},{'PaintOpAction':'1'}]:
             self.assertEqual(self.brush(params)['descriptor']['behavior']['rendering']['accumulation'],'over')

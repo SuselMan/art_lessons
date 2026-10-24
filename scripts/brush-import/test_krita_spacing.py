@@ -50,9 +50,9 @@ class PressureSpacingTests(unittest.TestCase):
         self.assertEqual(self.brush({'PressureSpacing':'true','SpacingValue':'0'},auto)['descriptor']['behavior']['spacing'],{'mode':'diameter','coefficient':0})
         self.assertEqual(self.brush({},auto.replace('Coeff=".8"','Coeff="0"'))['descriptor']['behavior']['spacing'],{'mode':'diameter','coefficient':0})
 
-    def test_disabled_pressure_option_preserves_absent_profile_and_nonproduct_warns(self):
+    def test_disabled_pressure_option_keeps_source_axes_without_inactive_controls(self):
         b=self.brush({'PressureSpacing':'false','SpacingValue':'.2','SpacingSensor':'<params id="pressure"><curve>0,1;1,0;</curve></params>'})
-        self.assertNotIn('spacing',b['descriptor']['behavior']);self.assertEqual(b['descriptor']['spacing'],.06)
+        self.assertEqual(b['descriptor']['behavior']['spacing'],{'mode':'diameter','coefficient':.06});self.assertEqual(b['descriptor']['spacing'],.06)
         b=self.brush({'PressureSpacing':'true','SpacingcurveMode':'1','SpacingSensor':'<params id="sensorslist"><ChildSensor id="pressure"/><ChildSensor id="declination"/></params>'})
         self.assertNotIn('dynamics',b['descriptor']['behavior']['spacing'])
         self.assertTrue(any(x['feature']=='SpacingSensorCombination' and x['status']=='unsupported' for x in b['compatibility']))

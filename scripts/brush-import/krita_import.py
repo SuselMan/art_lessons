@@ -464,36 +464,32 @@ def preset(data, name, catalog, external, depth=0):
     spacing_checked=enabled(params.get('PressureSpacing'))
     auto_spacing=enabled(definition.get('useAutoSpacing'))
     isotropic=enabled(params.get('Spacing/Isotropic'))
-    zero_fixed=not auto_spacing and numeric(definition.get('spacing'),.1)==0
-    # Native step follows the actual dynamic shape, including random size and
-    # local-Y ratio. Legacy nominal spacing must not discard those controls.
-    size_sensor=xml(params.get('SizeSensor') or '<params id="pressure"/>')
-    dynamic_shape=(enabled(params.get('PressureSize',params.get('SizeUseCurve','false'))) and any(node.get('id') in ('fuzzy','fuzzystroke') for node in size_sensor.iter())) or enabled(params.get('PressureRatio'))
-    if auto_spacing or spacing_checked or isotropic or zero_fixed or dynamic_shape:
-        raw_coefficient=definition.get('autoSpacingCoeff','1') if auto_spacing else definition.get('spacing',str(d['spacing']))
-        try:
-            coefficient=float(raw_coefficient)
-            strength=float(params.get('SpacingValue',1)) if spacing_checked else 1
-        except (TypeError,ValueError): raise ValueError('Invalid native spacing coefficient/strength')
-        if not math.isfinite(coefficient) or not 0<=coefficient<=100 or not math.isfinite(strength) or not 0<=strength<=1:
-            raise ValueError('Native spacing coefficient/strength outside bounded range')
-        coefficient*=strength
-        if coefficient==0:
-            # Any zero axis law reaches the same native .5px floor. This
-            # ordinary diameter profile avoids a synthetic fifth control.
-            profile={'mode':'diameter','coefficient':0}
-            if auto_spacing: notes.append(compatibility('spacingZero','Zero auto spacing represented by equivalent zero diameter law before native distance floor.','supported'))
-        else:
-            profile={'mode':'kritaAuto' if auto_spacing else 'diameter','coefficient':max(.001,coefficient) if auto_spacing else coefficient}
-            if auto_spacing and coefficient<.001:
-                notes.append(compatibility('spacingCoefficient','Positive auto coefficient below bounded.001 was raised; native step may differ.','unsupported'))
-            if spacing_checked:
-                controls=size_like_controls(params,'Spacing',notes)
-                if controls: profile['dynamics']=controls
-        if isotropic: profile['isotropic']=True
-        behavior['spacing']=profile
-        if spacing_checked or isotropic:
-            notes.append(compatibility('spacingDynamics','Native spacing strength/response retained after fixed/auto law and before distance floor; update-between-dabs clock, rotated characteristic dimensions and subpixel accumulation still require calibration.'))
+    # Every source brush spaces against its own actual axes, including plain
+    # pressure size. A nominal fallback loses native Fade's emitted-dab clock.
+    raw_coefficient=definition.get('autoSpacingCoeff','1') if auto_spacing else definition.get('spacing',str(d['spacing']))
+    try:
+        coefficient=float(raw_coefficient)
+        strength=float(params.get('SpacingValue',1)) if spacing_checked else 1
+    except (TypeError,ValueError): raise ValueError('Invalid native spacing coefficient/strength')
+    if not math.isfinite(coefficient) or not 0<=coefficient<=100 or not math.isfinite(strength) or not 0<=strength<=1:
+        raise ValueError('Native spacing coefficient/strength outside bounded range')
+    coefficient*=strength
+    if coefficient==0:
+        # Any zero axis law reaches the same native .5px floor. This
+        # ordinary diameter profile avoids a synthetic fifth control.
+        profile={'mode':'diameter','coefficient':0}
+        if auto_spacing: notes.append(compatibility('spacingZero','Zero auto spacing represented by equivalent zero diameter law before native distance floor.','supported'))
+    else:
+        profile={'mode':'kritaAuto' if auto_spacing else 'diameter','coefficient':max(.001,coefficient) if auto_spacing else coefficient}
+        if auto_spacing and coefficient<.001:
+            notes.append(compatibility('spacingCoefficient','Positive auto coefficient below bounded.001 was raised; native step may differ.','unsupported'))
+        if spacing_checked:
+            controls=size_like_controls(params,'Spacing',notes)
+            if controls: profile['dynamics']=controls
+    if isotropic: profile['isotropic']=True
+    behavior['spacing']=profile
+    if spacing_checked or isotropic:
+        notes.append(compatibility('spacingDynamics','Native spacing strength/response retained after fixed/auto law and before distance floor; update-between-dabs clock, rotated characteristic dimensions and subpixel accumulation still require calibration.'))
     modes={'normal':'normal','multiply':'multiply','screen':'screen','overlay':'overlay','darken':'darken','lighten':'lighten','burn':'colorBurn','dodge':'colorDodge','linear_burn':'linearBurn','linear_dodge':'add','add':'add','subtract':'subtract','diff':'difference','exclusion':'exclusion','soft_light':'softLight','hard_light':'hardLight','divide':'divide','hue':'hue','saturation':'saturation','color':'color','luminosity':'luminosity','linear light':'linearLight','vivid_light':'vividLight','pin_light':'pinLight','hard mix':'hardMix','hard_mix_photoshop':'hardMix','darker color':'darkerColor','lighter color':'lighterColor'}
     if eraser: behavior['erase']=True
     mode='normal' if eraser else params.get('CompositeOp','normal')
