@@ -22,6 +22,7 @@ class RandomOptionTests(unittest.TestCase):
         b=self.brush({'SizeUseCurve':'true','SizeSensor':sensor,'SizeUseSameCurve':'false'})['descriptor']
         self.assertAlmostEqual(b['sizeByPressure']['samples'][0],.2)
         c=b['behavior']['modulations']['size'];self.assertEqual(len(c),1)
+        self.assertEqual(b['behavior']['spacing']['mode'],'diameter')
         self.assertEqual(c[0]['control'],'random');self.assertAlmostEqual(c[0]['curve']['samples'][0],.2)
 
     def test_ratio_preserves_local_y_and_independent_random_curve(self):

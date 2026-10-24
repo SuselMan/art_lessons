@@ -348,7 +348,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=17
+    d['version']=18
     source_size=None
     application=0
     kind = definition.get('type')
@@ -452,7 +452,11 @@ def preset(data, name, catalog, external, depth=0):
     auto_spacing=enabled(definition.get('useAutoSpacing'))
     isotropic=enabled(params.get('Spacing/Isotropic'))
     zero_fixed=not auto_spacing and numeric(definition.get('spacing'),.1)==0
-    if auto_spacing or spacing_checked or isotropic or zero_fixed:
+    # Native step follows the actual dynamic shape, including random size and
+    # local-Y ratio. Legacy nominal spacing must not discard those controls.
+    size_sensor=xml(params.get('SizeSensor') or '<params id="pressure"/>')
+    dynamic_shape=(enabled(params.get('PressureSize',params.get('SizeUseCurve','false'))) and any(node.get('id')=='fuzzy' for node in size_sensor.iter())) or enabled(params.get('PressureRatio'))
+    if auto_spacing or spacing_checked or isotropic or zero_fixed or dynamic_shape:
         raw_coefficient=definition.get('autoSpacingCoeff','1') if auto_spacing else definition.get('spacing',str(d['spacing']))
         try:
             coefficient=float(raw_coefficient)

@@ -64,6 +64,12 @@ describe('Krita auto spacing in the live dab sampler', () => {
     expectGap(line(sys, 100, .25), 1)
   })
 
+  it('uses dynamic local axes: ratio compresses Y spacing but leaves X spacing intact', () => {
+    const make=()=>{const sys=system(.2);sys.autoSpacing!.mode='diameter';sys.autoSpacing!.brush.behavior={version:2,dynamics:{roundness:{control:'off',minimum:0,jitter:0,curve:[[0,.25],[1,.25]]}}};return sys}
+    expectGap(line(make(),100),20)
+    expectGap(line(make(),100,1,true),5)
+  })
+
   it('forks source configuration and gesture state without advancing the real sampler', () => {
     const real = system(), control = system()
     for (const sys of [real, control]) {

@@ -872,7 +872,7 @@ export class DabSystem {
         const characteristic=mode==='diameter' ? actual : actual < 1 ? actual : Math.sqrt(actual)
         return Math.max(.5, coefficient * factor * characteristic)
       }
-      const x=axis(diameter*brush.tip.aspect),y=axis(diameter)
+      const x=axis(diameter*stamp.aspect),y=axis(diameter)
       this._spacingAxes = isotropic ? {x:Math.max(x,y),y:Math.max(x,y),angle:0} : { x, y, angle: stamp.angle }
       return this._autoSpacingStep(this._pathAngle)
     }
