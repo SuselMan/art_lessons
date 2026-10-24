@@ -214,7 +214,7 @@ def preset(data, name, catalog, external, depth=0):
         if (generator.get('id','default') != 'default' and not gaussian) or numeric(generator.get('spikes'),2) != 2 or numeric(definition.get('randomness')) or numeric(definition.get('density'),1) != 1:
             notes.append(compatibility('autoBrush','Gaussian/curve generator, spikes, randomness and density are not reproduced.','unsupported'))
         if enabled(definition.get('useAutoSpacing')):
-            notes.append(compatibility('autoSpacing','Adaptive Krita spacing is approximated by the saved fixed spacing.'))
+            notes.append(compatibility('autoSpacing','Krita adaptive spacing coefficient retained; anisotropic axis metrics and spacing sensors require separate calibration.'))
     elif kind in ('gbr_brush', 'png_brush', 'svg_brush', 'abr_brush'):
         filename = definition.get('filename','')
         mask = raster(resource(filename), filename, True)
@@ -229,6 +229,8 @@ def preset(data, name, catalog, external, depth=0):
     d['flow']=clamp(numeric(params.get('FlowValue'),1))
     d['opacity']=clamp(numeric(params.get('OpacityValue'),1))
     behavior={'version':2,'rendering':{'mode':'buildUp','blendMode':'normal','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}}
+    if enabled(definition.get('useAutoSpacing')):
+        behavior['spacing']={'mode':'kritaAuto','coefficient':clamp(numeric(definition.get('autoSpacingCoeff'),1),.001,100)}
     modes={'normal':'normal','multiply':'multiply','screen':'screen','overlay':'overlay','darken':'darken','lighten':'lighten','burn':'colorBurn','dodge':'colorDodge','linear_burn':'linearBurn','linear_dodge':'add','add':'add','subtract':'subtract','diff':'difference','exclusion':'exclusion','soft_light':'softLight','hard_light':'hardLight','divide':'divide','hue':'hue','saturation':'saturation','color':'color','luminosity':'luminosity','linear light':'linearLight','vivid_light':'vividLight','pin_light':'pinLight','hard mix':'hardMix','hard_mix_photoshop':'hardMix','darker color':'darkerColor','lighter color':'lighterColor'}
     if eraser: behavior['erase']=True
     mode='normal' if eraser else params.get('CompositeOp','normal')

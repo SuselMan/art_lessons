@@ -111,7 +111,9 @@ Gaussian circle auto tips use a sampled normalized erf profile rather than a
 linear hardness ramp. This improves the radial distribution, while remaining
 approximate: a static GPU bitmap cannot reproduce Krita's regenerated subpixel
 mask and size-dependent antialiasing. Gaussian rectangles, curve generators,
-spikes, auto-spacing and random density retain explicit compatibility warnings.
+spikes and random density retain explicit compatibility warnings. Krita adaptive
+spacing retains its coefficient; anisotropic metrics and spacing sensors remain
+subject to the renderer compatibility warning.
 
 The stock runner resolves shared static raster resources across the selected
 installed bundles, including references from loose KPP and RGBA presets.

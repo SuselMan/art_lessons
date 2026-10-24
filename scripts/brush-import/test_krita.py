@@ -20,6 +20,13 @@ def kpp(definition=None, resources='', engine='paintbrush', mode='normal'):
 
 
 class KritaTests(unittest.TestCase):
+    def test_adaptive_spacing_retains_vendor_coefficient(self):
+        definition='<Brush type="auto_brush" spacing=".1" useAutoSpacing="1" autoSpacingCoeff=".8"><MaskGenerator type="circle" ratio="1" hfade="1" vfade="1"/></Brush>'
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'QA.kpp';p.write_bytes(kpp(definition));c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
+            self.assertEqual(c.brushes[0]['descriptor']['behavior']['spacing'],{'mode':'kritaAuto','coefficient':.8})
+            self.assertEqual(c.brushes[0]['descriptor']['spacing'],.1)
+
     def test_gaussian_profile_is_symmetric_monotonic_and_not_linear_hardness(self):
         image=gaussian_circle(.15,.15,10)
         self.assertEqual(image.getpixel((0,0)),0)
