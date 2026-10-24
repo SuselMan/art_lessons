@@ -682,6 +682,9 @@ export class SmudgePainter {
     const { gl } = this
     const { buffer } = tile
     const paper = this.ctx.paper
+    // A cold secondary tile clears its own framebuffer. Resolve it before
+    // beginning the destination pass so allocation cannot redirect this dab.
+    const secondaryTexture = wet?.secondary?.tile(buffer).texture ?? paper.texture
     if (wet) buffer.beginReplaceDraw()
     else if (mode === 'lay') buffer.beginAdditiveDraw()
     else buffer.beginErase()
@@ -727,7 +730,7 @@ export class SmudgePainter {
     gl.uniform1f(u.u_dualBlend,blend(dual?.blendMode))
     gl.uniform4f(u.u_dualTransform,1+(wet?.stamp.edgeSoftness ?? 0)*.15,(1+(wet?.stamp.edgeSoftness ?? 0)*.15)*(brush?.tip.aspect ?? 1)/(dual?.brush.tip.aspect ?? 1),Math.cos(dualAngle),Math.sin(dualAngle))
     gl.activeTexture(gl.TEXTURE6)
-    gl.bindTexture(gl.TEXTURE_2D,wet?.secondary?.tile(buffer).texture??paper.texture)
+    gl.bindTexture(gl.TEXTURE_2D,secondaryTexture)
     gl.uniform1i(u.u_secondaryCoverage,6)
     gl.uniform1f(u.u_secondaryEnabled,wet?.secondary?1:0)
     const rendering=brush?.behavior?.rendering
