@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { brushFootprintBounds } from './brushFootprint'
+import { brushFootprintBounds, brushFootprintCopyRect } from './brushFootprint'
 
 describe('brushFootprintBounds', () => {
   it('covers square corners at 45 degrees beyond one radius', () => {
@@ -55,5 +55,47 @@ describe('brushFootprintBounds', () => {
     }
     expect(brushFootprintBounds(0, 0, Number.MAX_VALUE, 20, 0)).toBeNull()
     expect(brushFootprintBounds(Number.MAX_VALUE, 0, Number.MAX_VALUE, 1, 0)).toBeNull()
+  })
+})
+
+
+describe('brushFootprintCopyRect', () => {
+  it('converts top-down world bounds to matching bottom-up tile offsets', () => {
+    expect(brushFootprintCopyRect(110, 220, 2, 1, 0, 100, 200, 64, 32)).toEqual({ x: 7, y: 9, width: 6, height: 6 })
+    expect(brushFootprintCopyRect(100, 200, 2, 1, 0, 100, 200, 64, 32)).toEqual({ x: 0, y: 29, width: 3, height: 3 })
+    expect(brushFootprintCopyRect(50, 50, 2, 1, 0, 100, 200, 64, 32)).toBeNull()
+    expect(brushFootprintCopyRect(110, 220, 2, 1, 0, 100, 200, 0, 32)).toBeNull()
+  })
+
+  it('matches full-copy reads for overlapping, rotated, seam-crossing stamps despite stale pooled pixels', () => {
+    const width = 64, height = 48, tileX = -64, tileY = 100
+    const source = Float64Array.from({ length: width * height }, (_, i) => i + 1)
+    const partial = new Float64Array(source.length).fill(-999)
+    let copied = 0, reads = 0
+    for (const [cx, cy, radius, aspect, angle] of [[-48.3, 112.8, 3, 1, 0], [-46, 114, 4, 2, .7], [-64, 123, 6, .5, -.8], [-1, 145, 5, 1, Math.PI / 4]]) {
+      const rect = brushFootprintCopyRect(cx, cy, radius, aspect, angle, tileX, tileY, width, height)!
+      for (let y = rect.y; y < rect.y + rect.height; y++)
+        for (let x = rect.x; x < rect.x + rect.width; x++) partial[y * width + x] = source[y * width + x]
+      copied += rect.width * rect.height
+      const modified: number[] = []
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const dx = tileX + x + .5 - cx, dy = tileY + height - y - .5 - cy
+          const u = (dx * Math.cos(angle) + dy * Math.sin(angle)) / aspect
+          const v = -dx * Math.sin(angle) + dy * Math.cos(angle)
+          if (Math.abs(u) > radius || Math.abs(v) > radius) continue
+          // All four possible LINEAR footprint texels must be fresh. Shader
+          // actually samples exact centers; neighboring reads add a safety oracle.
+          for (const sx of [x - 1, x, x + 1])
+            for (const sy of [y - 1, y, y + 1])
+              if (sx >= 0 && sx < width && sy >= 0 && sy < height) expect(partial[sy * width + sx]).toBe(source[sy * width + sx])
+          modified.push(y * width + x)
+          reads++
+        }
+      }
+      for (const index of modified) source[index] += 10000 // next overlapping stamp sees the update
+    }
+    expect(reads).toBeGreaterThan(100)
+    expect(copied).toBeLessThan(width * height)
   })
 })

@@ -27,3 +27,22 @@ export function brushFootprintBounds(
   const bounds = { minX: x - extentX, minY: y - extentY, maxX: x + extentX, maxY: y + extentY }
   return Object.values(bounds).every(Number.isFinite) ? bounds : null
 }
+
+/** Integer GL rectangle to refresh before sampling a previous tile at the
+ * stamp's own fragment coordinates. One world pixel protects raster rounding
+ * and LINEAR's neighboring texel; source and destination keep identical offsets.
+ */
+export function brushFootprintCopyRect(
+  x: number, y: number, radius: number, aspect: number, angle: number,
+  tileX: number, tileY: number, width: number, height: number,
+): { x: number; y: number; width: number; height: number } | null {
+  if (![tileX, tileY, width, height].every(Number.isFinite) || !Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0)
+    return null
+  const bounds = brushFootprintBounds(x, y, radius, aspect, angle, 1)
+  if (!bounds) return null
+  const left = Math.max(0, Math.floor(bounds.minX - tileX))
+  const top = Math.max(0, Math.floor(bounds.minY - tileY))
+  const right = Math.min(width, Math.ceil(bounds.maxX - tileX))
+  const bottom = Math.min(height, Math.ceil(bounds.maxY - tileY))
+  return right > left && bottom > top ? { x: left, y: height - bottom, width: right - left, height: bottom - top } : null
+}

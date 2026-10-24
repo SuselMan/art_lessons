@@ -1,4 +1,4 @@
-import { brushFootprintBounds } from './brushFootprint'
+import { brushFootprintBounds, brushFootprintCopyRect } from './brushFootprint'
 import { BRUSH_BLEND_MODES, type BrushDescriptor, type Dab } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { ILayerBuffer } from '../buffers/ILayerBuffer'
@@ -219,8 +219,12 @@ export class BrushBehaviorPainter {
         }
         const copy = scratch.brushCeilingCopy(tile.buffer)
         for (const item of list) {
+          const rect = brushFootprintCopyRect(item.x, item.y, item.radius, item.aspect, item.angle, tile.originX, tile.originY, ceiling.width, ceiling.height)
+          if (!rect) continue
           gl.activeTexture(gl.TEXTURE7)
-          ceiling.copyTo(copy)
+          // Only this quad samples previous ceiling. Keep tile-sized storage
+          // and identical offsets so the shader's gl_FragCoord UV is unchanged.
+          ceiling.copyRegionInto(copy, rect.x, rect.y, rect.x, rect.y, rect.width, rect.height)
           ceiling.beginReplaceDraw()
           gl.activeTexture(gl.TEXTURE5)
           gl.bindTexture(gl.TEXTURE_2D, copy.texture)
