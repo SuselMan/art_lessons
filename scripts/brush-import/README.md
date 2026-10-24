@@ -71,3 +71,38 @@ bounded pickup resolution. See RESEARCH.md for approximation and migration limit
 The revision number is a compatibility label, not the sole identity: the complete descriptor and source settings are hashed, so changed settings already receive a new content ID. ABR importer version4 reads published Mixer/Smudge tool keys `wetness` and `Prs ` (strength), retaining older aliases as fallbacks. Load/mix reservoir flags remain approximate; no `dryness` interpretation is guessed.
 
 Krita Color Smudge honours `PressureColorRate` and `PressureSmudgeRate`: unchecked/missing options map to load 0 and pickup 1; enabled options without saved Value default to 1. This correction changes the content-derived descriptor ID even with descriptor version 4, because identity covers the complete final mixer parameters and source hash. Existing ID/version resources remain immutable.
+
+### Официальный штатный набор Krita
+
+Воспроизводимая загрузка фиксированной версии Krita 5.3.4.1 (общий исходный
+release tag `v6.0.4.1`, commit `bd6e8d061d2f0388c5b10278786cf0fe62e3135f`):
+
+```sh
+python krita_stock.py --cache /path/to/private/source-cache --output /path/to/catalog
+```
+
+`krita-stock-sources.json` фиксирует размер, SHA256 и Git blob SHA1 каждого
+официального файла. Повреждённый существующий cache отклоняется; скрипт его не
+перезаписывает. Текущий default: Krita4 bundle, RGBA bundle и 16 loose KPP;
+`--include-legacy` дополнительно включает Krita3 отдельным source group в отчёте.
+Точные ID-дубликаты исключаются с записью в `stock-report.json`. Все skipped
+сохраняются с причиной; импорт не означает идентичность движку Krita.
+
+Лицензии ресурсов следует отличать от GPL приложения: `meta.xml` Krita4 и
+Krita3 bundle указывает CC-0. Авторы Krita4: Deevad (David Revoy), производные
+кистей Ramon Miranda, Razvanc, Radian, Wolthera, Storm, Scottyp и других.
+Krita3: Timothée Giet, Ramon Miranda, David Revoy и другие. RGBA: Ramon Miranda;
+точная строка лицензии «Same as default brushes in Krita». Для loose KPP нет
+индивидуального license field: общий `krita/data/README` описывает CC-BY-3.0
+старых GBR/GIH/VBR и credit David Revoy / Blender Foundation / Ramon Miranda,
+но не устанавливает однозначно лицензию каждого нового watercolor preset.
+Не маркировать все loose ресурсы CC0 без дополнительного подтверждения.
+Сырые bundle, KPP и изображения в Git не включать.
+
+Формат embedded pattern подтверждён официальными
+`plugins/paintops/libpaintop/KisEmbeddedTextureData.cpp` и
+`libs/image/kis_properties_configuration.cc` закреплённого commit: XML
+`type="bytearray"` добавляет внешний base64 слой; затем embedded pattern
+декодируется как base64 ресурс при отсутствии linked pattern. Период текстуры
+берётся из исходной ширины, а не размера квадратного GPU cache. Неквадратные
+текстуры и vendor texture application сохраняют предупреждение приближения.

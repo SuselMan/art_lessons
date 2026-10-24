@@ -20,6 +20,18 @@ def kpp(definition=None, resources='', engine='paintbrush', mode='normal'):
 
 
 class KritaTests(unittest.TestCase):
+    def test_legacy_bytearray_embedded_pattern_and_native_period(self):
+        out=io.BytesIO();Image.new('L',(8,8),128).save(out,format='PNG')
+        encoded=base64.b64encode(out.getvalue())
+        for attribute, value in [('',encoded), (' type="bytearray"',base64.b64encode(encoded))]:
+            params='<param name="Texture/Pattern/Enabled">true</param><param name="Texture/Pattern/PatternFileName">/missing/paper.png</param><param name="Texture/Pattern/Scale">1.5</param>'
+            params+='<param name="Texture/Pattern/Pattern"'+attribute+'>'+value.decode()+'</param>'
+            with tempfile.TemporaryDirectory() as tmp:
+                p=Path(tmp)/'QA.kpp';p.write_bytes(kpp(resources=params));c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
+                self.assertEqual(c.skipped,[])
+                self.assertEqual(c.brushes[0]['descriptor']['texture']['periodPx'],12)
+                self.assertEqual(len(c.assets),1)
+
     def test_kpp_metadata_not_thumbnail_and_pressure(self):
         with tempfile.TemporaryDirectory() as tmp:
             p=Path(tmp)/'QA.kpp';p.write_bytes(kpp());c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)

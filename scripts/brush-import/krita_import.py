@@ -136,6 +136,11 @@ def preset(data, name, catalog, external, depth=0):
     if engine not in ('paintbrush', 'colorsmudge'):
         raise ValueError('Unsupported Krita paint engine: '+str(engine))
     params = {p.get('name'): p.text or '' for p in root.findall('param')}
+    # XML bytearray properties have an outer serialization layer. The embedded
+    # pattern string itself is base64, hence two layers for bytearray patterns.
+    for p in root.findall('param'):
+        if p.get('type')=='bytearray':
+            params[p.get('name')]=base64.b64decode(''.join((p.text or '').split()),validate=True).decode('utf-8')
     if len(params) != len(root.findall('param')):
         raise ValueError('Duplicate Krita parameter')
     eraser=params.get('CompositeOp') in ('erase','destination-out') or enabled(params.get('Krita/erase'))
@@ -222,10 +227,21 @@ def preset(data, name, catalog, external, depth=0):
             notes.append(compatibility('scatter','Scatter amount and sensors retained; single-axis orientation and distribution use Grafetto semantics.'))
     if enabled(params.get('Texture/Pattern/Enabled')):
         filename=params.get('Texture/Pattern/PatternFileName','')
-        payload=resource(filename)
-        mask=raster(payload,filename)
+        try:
+            payload=resource(filename)
+            mask=raster(payload,filename)
+        except ValueError as error:
+            # KisEmbeddedTextureData::loadLinkedPattern uses embedded bytes only
+            # when the linked resource is missing, not to hide corrupt resources.
+            embedded=params.get('Texture/Pattern/Pattern','')
+            if not str(error).startswith('Missing Krita resource:') or not embedded:
+                raise
+            if len(embedded)>MAX_XML:
+                raise ValueError('Embedded Krita pattern exceeds limit')
+            payload=base64.b64decode(''.join(embedded.split()),validate=True)
+            mask=raster(payload,'embedded.png')
         aid=catalog.asset(mask,warnings,grain=True)
-        d['texture']={'id':aid,'strength':clamp(numeric(params.get('Texture/Strength/Value'),1)),'periodPx':clamp(256*numeric(params.get('Texture/Pattern/Scale'),1),1,4096)}
+        d['texture']={'id':aid,'strength':clamp(numeric(params.get('Texture/Strength/Value'),1)),'periodPx':clamp(mask.width*numeric(params.get('Texture/Pattern/Scale'),1),1,4096)}
         notes.append(compatibility('texture','Pattern retained; Krita texture offset, relief and application modes require further translation.'))
     if engine == 'colorsmudge' and not eraser:
         # Krita's checkable rate options default unchecked. A disabled colour
