@@ -6096,6 +6096,11 @@ export class PencilEngine implements PencilEngineAPI {
     // spaced to the footprint came out as a smooth band with no dabs in it.
     // Recorded strokes are unaffected: spacing is decided when the dabs are
     // made, and a replay paints the dabs the log holds.
+    const spacingBrush = this._strokeTool === 'digitalBrush' ? digitalBrushFromPreset(this._opts.pencilType) : null
+    const sourceSpacing = spacingBrush?.behavior?.spacing
+    this._dabs.autoSpacing = spacingBrush && sourceSpacing?.mode === 'kritaAuto'
+      ? { coefficient: sourceSpacing.coefficient, brush: { ...spacingBrush, scatter: undefined }, sizeMultiplier: this._dabSizeScale(this._strokeTool, this._opts.pencilType) }
+      : null
     const stampBrush = this._strokeTool === 'digitalBrush'
       && digitalBrushFromPreset(this._opts.pencilType).flowPer === 'stamp'
     this._dabs.footprint = isFootprintSpacedTool(this._strokeTool) && !stampBrush

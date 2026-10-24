@@ -7,11 +7,13 @@
 //   With extrapolated P3 the tangent at P2 doesn't match the next segment → visible kinks.
 //   The lag is one pointer event (~5-16ms) which is imperceptible.
 
-import type { Dab } from '@grafetto/shared'
+import type { BrushDescriptor, Dab } from '@grafetto/shared'
+import { beginBrushBehavior, behaviorStampsForDab, type BrushBehaviorState } from '../presets/brushBehavior'
 import { clamp } from 'lodash-es'
 
 import { PENCIL_DAB_SHAPING, type DabShapingProfile } from '../presets/dabShaping'
 import { MIN_DAB_SPACING_PX, boundedDabSpacing, nominalDabSpacing } from './dabSpacing'
+import { codecDab } from './codecDab'
 import {
   assignTipState, copyTipState, createTipState, maxNibReach, tipFootprint,
   type TipFootprint, type TipState,
@@ -141,6 +143,11 @@ const MAX_PRESSURE_FILTER_STEP = 0.9
 
 export class DabSystem {
   spacingFactor: number
+  /** Opt-in source spacing; latched per gesture, independent of nominal/floor/scallop rules. */
+  autoSpacing: { coefficient: number; brush: BrushDescriptor; sizeMultiplier: number } | null = null
+  private _spacingBehavior?: BrushBehaviorState
+  private _spacingAxes?: { x: number; y: number; angle: number }
+  private _pathAngle = 0
   /**
    * #330 stage 3 — marker only, null for every other tool (which keeps plain
    * `baseSize * spacingFactor` spacing, unchanged).
@@ -358,6 +365,9 @@ export class DabSystem {
     // no dab to take a footprint from at that point, and the very first dab of
     // a stroke lands at arc length 0 regardless.
     this._pendingSpacing = 0
+    this._spacingBehavior = undefined
+    this._spacingAxes = undefined
+    this._pathAngle = 0
     // Cleared, not zeroed: _filterTilt seeds itself from the stroke's first
     // real sample. Zeroing would instead start every stroke at "perfectly
     // upright" and let the shape swing up to the true tilt over the first
@@ -518,6 +528,10 @@ export class DabSystem {
     const fork = new DabSystem({ spacingFactor: this.spacingFactor, shaping: this._shaping })
     fork.curvatureTolerancePx = this.curvatureTolerancePx
     fork.footprint = this.footprint
+    fork.autoSpacing = this.autoSpacing ? { ...this.autoSpacing } : null
+    fork._spacingBehavior = this._spacingBehavior ? structuredClone(this._spacingBehavior) : undefined
+    fork._spacingAxes = this._spacingAxes ? { ...this._spacingAxes } : undefined
+    fork._pathAngle = this._pathAngle
     fork.cameraAngle = this.cameraAngle
     fork._buf = this._buf.map(p => ({ ...p }))
     fork._remainder = this._remainder
@@ -667,6 +681,9 @@ export class DabSystem {
     // a peeked tip must not leave the real stroke owing a step measured off a
     // dab that was only ever speculative.
     const savedPending = this._pendingSpacing
+    const savedSpacingBehavior = this._spacingBehavior ? structuredClone(this._spacingBehavior) : undefined
+    const savedSpacingAxes = this._spacingAxes ? { ...this._spacingAxes } : undefined
+    const savedPathAngle = this._pathAngle
     // #472: the bent nib's orientation is stroke state too, and this method is
     // defined to leave stroke state alone — advancing it here would bend the
     // nib along a *guessed* tangent, and the real segment arriving a moment
@@ -676,6 +693,9 @@ export class DabSystem {
     const dabs = this._splineDabs(p0, p1, p2, p3, baseSize)
     this._remainder = savedRemainder
     this._pendingSpacing = savedPending
+    this._spacingBehavior = savedSpacingBehavior
+    this._spacingAxes = savedSpacingAxes
+    this._pathAngle = savedPathAngle
     assignTipState(this._tip, savedTip)
     return dabs
   }
@@ -730,7 +750,7 @@ export class DabSystem {
     // The loosest step this segment allows: the nominal size-proportional rule
     // and, for a ribbon tool, its curvature limit. #478's footprint rule can
     // only tighten it further, per dab — see _spacingAfter.
-    const maxSpacing = Math.max(MIN_DAB_SPACING_PX, Math.min(
+    const maxSpacing = this.autoSpacing ? Infinity : Math.max(MIN_DAB_SPACING_PX, Math.min(
       baseSize * this.spacingFactor,
       this._curvatureSpacingLimit(p1, p2, m1, m2, totalLen, baseSize),
     ))
@@ -742,7 +762,10 @@ export class DabSystem {
     // caps it, because this segment's curvature limit is this segment's to
     // impose. Falls back to the nominal step before a stroke has emitted
     // anything at all.
-    let step = Math.min(this._pendingSpacing || maxSpacing, maxSpacing)
+    const tangentAtStart = this.autoSpacing ? hermiteTangent(p1, p2, m1, m2, 0) : null
+    let step = tangentAtStart && this._spacingAxes
+      ? this._autoSpacingStep(Math.atan2(tangentAtStart.y, tangentAtStart.x))
+      : Math.min(this._pendingSpacing || maxSpacing, maxSpacing)
     // Clamped at 0, and that clamp is load-bearing for any tool whose spacing
     // is not constant across a stroke — the marker via _curvatureSpacingLimit,
     // and since #478 every footprint-spaced tool, whose step changes with
@@ -819,7 +842,32 @@ export class DabSystem {
    *  which is the entire pre-#478 behaviour — see dabSpacing.ts for why the
    *  nominal brush size is the wrong thing to space off, and which tools want
    *  this and which are already normalized some other way. */
+  private _autoSpacingStep(pathAngle: number): number {
+    const axes = this._spacingAxes!
+    const angle = pathAngle - axes.angle
+    return 1 / Math.hypot(Math.cos(angle) / axes.x, Math.sin(angle) / axes.y)
+  }
+
   private _spacingAfter(dab: Dab, baseSize: number, maxSpacing: number): number {
+    if (this.autoSpacing) {
+      const { coefficient, brush, sizeMultiplier } = this.autoSpacing
+      const state = this._spacingBehavior ??= beginBrushBehavior(dab)
+      const previous = state.previous
+      // Input speed is canvas px/ms, already latched for this pointer batch.
+      // This local clock feeds size sensors only; recorded dab time is untouched.
+      const t = previous ? previous.t + Math.hypot(dab.x - previous.x, dab.y - previous.y) / Math.max(.001, this._speed) : 0
+      const stamp = behaviorStampsForDab(brush, codecDab({ ...dab, t }), state, [0, 0, 0])[0]
+      // Source spacing uses characteristic dimensions, before optical edge spread.
+      const diameter = stamp.size * sizeMultiplier / (1 + stamp.edgeSoftness * .15)
+      const axis = (value: number): number => {
+        // Native distance interpolation clamps EACH spacing axis to .5px
+        // (kis_distance_information.cpp), after the auto-spacing transfer.
+        const actual = Math.max(0, value)
+        return Math.max(.5, coefficient * (actual < 1 ? actual : Math.sqrt(actual)))
+      }
+      this._spacingAxes = { x: axis(diameter * brush.tip.aspect), y: axis(diameter), angle: stamp.angle }
+      return this._autoSpacingStep(this._pathAngle)
+    }
     const fp = this.footprint
     const sc = this.nibScallop
     // The same number either way (both are set from the engine's own
@@ -909,6 +957,7 @@ export class DabSystem {
     // #482: the footprint itself is worked out in exactly one place now
     // (tipFootprint.ts) — this method's job is the two things that are *not*
     // geometry: running the input filters, and assembling the wire record.
+    this._pathAngle = pathAngle
     const fp = tipFootprint(this._shaping, {
       x, y, pressure, tiltX, tiltY, baseSize, pathAngle, ds,
       speed: this._speed, cameraAngle: this.cameraAngle,
