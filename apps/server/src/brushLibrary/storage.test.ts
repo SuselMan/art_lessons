@@ -26,20 +26,23 @@ describe('persistent private brush resources',()=> {
   })
   it('pins versioned resources durably and preserves them in a fork',()=> {
     const {dir,storage}=fixture(),bytes=Buffer.from([1,2,3,4]),hash=createHash('sha256').update(bytes).digest('hex')
+    const secondFrame=Buffer.from([4,3,2,1]),secondHash=createHash('sha256').update(secondFrame).digest('hex')
     const library=empty()
     library.assets.push({id:`asset:${hash}`,size:2,file:hash+'.bin'})
+    library.assets.push({id:`asset:${secondHash}`,size:2,file:secondHash+'.bin'})
     library.brushes.push({name:'test',source:'test.abr',warnings:[],descriptor:{
       id:'imported-'+'a'.repeat(16),version:1,model:'stamp',category:'paint',
-      tip:{kind:'bitmap',mask:`asset:${hash}`,hardness:1,aspect:1,rotation:'fixed',angle:0},
+      tip:{kind:'bitmap',mask:`asset:${hash}`,animation:{mode:'incremental',frames:[`asset:${hash}`,`asset:${secondHash}`]},hardness:1,aspect:1,rotation:'fixed',angle:0},
       paperInteraction:0,spacing:0.1,flow:1,flowPer:'pass',opacity:1,pressureSmoothingPx:0,
       sizeByPressure:[[0,0],[1,1]],flowByPressure:[[0,0],[1,1]],opacityByPressure:[[0,0],[1,1]],
     }})
-    storage.install('alice',library,new Map([[hash,bytes]]))
+    storage.install('alice',library,new Map([[hash,bytes],[secondHash,secondFrame]]))
     const token='brush:'+library.brushes[0].descriptor.id+'@1'
     storage.pin('room','alice',[token]);storage.pin('room','bob',[token])
     storage.copy('room','fork')
     const restarted=new BrushStorage(dir)
     expect(restarted.library('rooms','fork')).toEqual(library)
+    expect(restarted.asset(secondHash,2)).toEqual(secondFrame)
     expect(()=>restarted.pin('other-room','bob',[token])).toThrow('unavailable')
   })
   it('does not record an unavailable brush and copies exact room references',()=> {
