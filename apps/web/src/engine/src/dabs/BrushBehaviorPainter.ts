@@ -74,7 +74,7 @@ export class BrushBehaviorPainter {
     } | null
     this.stamp = createProgram(gl, DAB_VERT, BRUSH_STAMP_FRAG)
     this.composite = createProgram(gl, DAB_VERT, BRUSH_COMPOSITE_FRAG)
-    this.su = getUniforms(gl, this.stamp, ['u_edgeBleed', 'u_ceilingPass', 'u_ceilingFallback', 'u_previousCeiling', 'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity', 'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure', 'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin', 'u_color', 'u_flip', 'u_grainTransform', 'u_grainTone', 'u_grainBlend', 'u_dual', 'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin', 'u_dualTexPeriod', 'u_dualTexStrength'])
+    this.su = getUniforms(gl, this.stamp, ['u_tipBounds', 'u_dualBounds', 'u_edgeBleed', 'u_ceilingPass', 'u_ceilingFallback', 'u_previousCeiling', 'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity', 'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure', 'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin', 'u_color', 'u_flip', 'u_grainTransform', 'u_grainTone', 'u_grainBlend', 'u_dual', 'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin', 'u_dualTexPeriod', 'u_dualTexStrength'])
     this.cu = getUniforms(gl, this.composite, ['u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_original', 'u_strokeCoverage', 'u_ceiling', 'u_opacity', 'u_blend', 'u_mode', 'u_burntEdge', 'u_burntBlend', 'u_edgePx', 'u_luminance', 'u_gammaCorrect', 'u_secondaryCoverage', 'u_secondaryMode', 'u_secondaryEnabled', 'u_surfaceCloud', 'u_surfaceGrain', 'u_surface', 'u_surfaceOrigin', 'u_screenOrigin', 'u_screentone', 'u_erase'])
     this.sp = gl.getAttribLocation(this.stamp, 'a_position')
     this.cp = gl.getAttribLocation(this.composite, 'a_position')
@@ -154,6 +154,7 @@ export class BrushBehaviorPainter {
     const secondary = independent ? undefined : behavior.dual?.brush
     const dualMask = secondary?.tip.mask ? this.tip(secondary.tip.mask) : paper.texture
     const dualTexture = secondary?.texture ? this.grain(secondary.texture.id) : paper.texture
+    const animated = !!brush.tip.animation || !!secondary?.tip.animation
     const dualPeriod = Math.max(0.5, secondary?.texture?.periodPx ?? 1)
     const g = behavior.grain
     const period = Math.max(0.5, (brush.texture?.periodPx ?? 1) * (g ? 0.1 + g.zoom * 1.9 : 1))
@@ -170,11 +171,14 @@ export class BrushBehaviorPainter {
       gl.uniform2f(u.u_paperTexSize, world.w, world.h)
       gl.uniform2f(u.u_paperScale, paper.scale, paper.scale)
       gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
-      for (const [unit, tex, name] of [[0, paper.texture, 'u_paperHeightMap'], [1, mask, 'u_tip'], [2, texture, 'u_texture'], [3, dualMask, 'u_dual'], [4, dualTexture, 'u_dualTexture'], [5, paper.texture, 'u_previousCeiling']] as const) {
+      for (const [unit, tex, name] of [[0, paper.texture, 'u_paperHeightMap'], [1, animated ? paper.texture : mask, 'u_tip'], [2, texture, 'u_texture'], [3, animated ? paper.texture : dualMask, 'u_dual'], [4, dualTexture, 'u_dualTexture'], [5, paper.texture, 'u_previousCeiling']] as const) {
         gl.activeTexture(gl.TEXTURE0 + unit)
         gl.bindTexture(gl.TEXTURE_2D, tex)
         gl.uniform1i(u[name], unit)
       }
+      const tipBounds=brush.tip.maskBounds, dualBounds=secondary?.tip.maskBounds
+      gl.uniform4f(u.u_tipBounds,tipBounds?.x ?? 0,tipBounds?.y ?? 0,tipBounds?.width ?? 1,tipBounds?.height ?? 1)
+      gl.uniform4f(u.u_dualBounds,dualBounds?.x ?? 0,dualBounds?.y ?? 0,dualBounds?.width ?? 1,dualBounds?.height ?? 1)
       gl.uniform1f(u.u_tipKind, brush.tip.kind === 'bitmap' ? 1 : 0)
       gl.uniform1f(u.u_hardness, brush.tip.hardness)
       gl.uniform1f(u.u_aaPx, 1)
@@ -195,11 +199,21 @@ export class BrushBehaviorPainter {
       const drawStamps = (list: BehaviorPlaced[], ceilingPass: boolean, fallback = false): void => {
         gl.uniform1f(u.u_ceilingFallback, fallback ? 1 : 0)
         gl.activeTexture(gl.TEXTURE3)
-        gl.bindTexture(gl.TEXTURE_2D, dualMask)
+        gl.bindTexture(gl.TEXTURE_2D, animated ? paper.texture : dualMask)
         gl.activeTexture(gl.TEXTURE4)
         gl.bindTexture(gl.TEXTURE_2D, dualTexture)
         gl.uniform1f(u.u_ceilingPass, ceilingPass ? 1 : 0)
         for (const s of list) {
+          if(animated) {
+            // Refresh both current masks in the bounded LRU. Holding a frame-0
+            // texture across a long pipe can otherwise retain an evicted handle.
+            gl.activeTexture(gl.TEXTURE1)
+            const currentMask=s.mask ?? brush.tip.mask
+            gl.bindTexture(gl.TEXTURE_2D,currentMask ? this.tip(currentMask) : paper.texture)
+            gl.activeTexture(gl.TEXTURE3)
+            const currentDual=s.dualMask ?? secondary?.tip.mask
+            gl.bindTexture(gl.TEXTURE_2D,currentDual ? this.tip(currentDual) : paper.texture)
+          }
           const footprint=brushFootprintBounds(s.x,s.y,s.radius,s.aspect,s.angle,1)
           if(!footprint || footprint.maxX<tile.originX || footprint.maxY<tile.originY || footprint.minX>tile.originX+coverage.width || footprint.minY>tile.originY+coverage.height) continue
           gl.uniform2f(u.u_dabCenter, s.x - tile.originX, s.y - tile.originY)

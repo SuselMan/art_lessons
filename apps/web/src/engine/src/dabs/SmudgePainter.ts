@@ -32,7 +32,7 @@ import { DAB_VERT, DISPLAY_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 
 import { WET_PICKUP_FRAG, WET_TRANSFER_FRAG } from '../raster/wetMixShaders'
-import { beginBrushBehavior, behaviorStampsForDab, secondaryBrushDabs, type BrushBehaviorState, type BehaviorStamp } from '../presets/brushBehavior'
+import { advanceBrushAnimation, beginBrushBehavior, behaviorStampsForDab, secondaryBrushDabs, type BrushBehaviorState, type BehaviorStamp } from '../presets/brushBehavior'
 import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix'
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
 
@@ -206,7 +206,7 @@ export class SmudgePainter {
     this.pickupProg   = createProgram(gl, DISPLAY_VERT, WET_PICKUP_FRAG)
     this.transferUni = getUniforms(gl, this.transferProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
-      'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
+      'u_tipBounds', 'u_dualBounds', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode', 'u_grainRelief',
       'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap',
       'u_edgeBleed','u_wetEnabled','u_tipKind','u_tip','u_wetGrain','u_grainStrength','u_grainPeriod','u_grainTransform','u_grainTone','u_wetRoundPhase','u_wetWorldOrigin','u_flip','u_grainBlend','u_dual','u_dualKind','u_dualBlend','u_dualTransform','u_wetOriginal','u_wetRender','u_wetBlend','u_burntBlend','u_wetGamma','u_secondaryCoverage','u_secondaryEnabled',
@@ -337,7 +337,7 @@ export class SmudgePainter {
       this.wetGestures.set(userId,state)
     }
     const travel = prev ? Math.hypot(dab.x-prev.x,dab.y-prev.y)/Math.max(0.5,this.radiusOf(dab,paint)) : 0
-    if (prev && travel < 1e-6) return
+    if (prev && travel < 1e-6) { advanceBrushAnimation(brush,state.behavior); return }
     const dual=brush.behavior?.dual
     let secondary: ReturnType<RibbonStrokeScratch['brushSecondary']> | undefined
     if(dual?.sampling==='independent') {
@@ -711,11 +711,15 @@ export class SmudgePainter {
     gl.uniform1f(u.u_wetEnabled,wet ? 1 : 0)
     gl.uniform1f(u.u_tipKind,brush?.tip.kind === 'bitmap' ? 1 : 0)
     gl.uniform1f(u.u_hardness, brush?.tip.hardness ?? SMUDGE_HARDNESS)
+    const tipBounds=brush?.tip.maskBounds
+    gl.uniform4f(u.u_tipBounds,tipBounds?.x ?? 0,tipBounds?.y ?? 0,tipBounds?.width ?? 1,tipBounds?.height ?? 1)
+    const dualBounds=brush?.behavior?.dual?.brush.tip.maskBounds
+    gl.uniform4f(u.u_dualBounds,dualBounds?.x ?? 0,dualBounds?.y ?? 0,dualBounds?.width ?? 1,dualBounds?.height ?? 1)
     const dual=brush?.behavior?.dual
     for (const [unit,texture,name] of [
-      [2,brush?.tip.mask ? this.wetTexture(brush.tip.mask,false) : paper.texture,'u_tip'],
+      [2,(wet?.stamp.mask ?? brush?.tip.mask) ? this.wetTexture((wet?.stamp.mask ?? brush!.tip.mask)!,false) : paper.texture,'u_tip'],
       [3,brush?.texture ? this.wetTexture(brush.texture.id,true) : paper.texture,'u_wetGrain'],
-      [4,dual?.brush.tip.mask ? this.wetTexture(dual.brush.tip.mask,false) : paper.texture,'u_dual'],
+      [4,(wet?.stamp.dualMask ?? dual?.brush.tip.mask) ? this.wetTexture((wet?.stamp.dualMask ?? dual!.brush.tip.mask)!,false) : paper.texture,'u_dual'],
       [5,original?.texture ?? carried.texture,'u_wetOriginal'],
     ] as const) {
       gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(u[name],unit)

@@ -53,6 +53,7 @@ vec3 brushBlend(vec3 b, vec3 s, float mode) {
 /** Bounded shape-only diffusion shared by stamp and carried-pigment transfer.
  * The geometry includes a 15% pad at full bleed; no canvas colour is sampled. */
 export const BRUSH_EDGE_BLEED_GLSL = `
+uniform vec4 u_tipBounds;
 float brushEdgeSample(sampler2D tip,vec2 p,float kind,float hardness,vec2 flip,float alphaChannel,float aa) {
   if(max(abs(p.x),abs(p.y))>=1.0) return 0.0;
   if(kind<0.5) {
@@ -62,7 +63,7 @@ float brushEdgeSample(sampler2D tip,vec2 p,float kind,float hardness,vec2 flip,f
     float wet=(1.0-smoothstep(hardness*0.85,1.0,dist))*(1.0-exp(-8.0*(1.0-dist)));
     return mix(stamp,wet,alphaChannel);
   }
-  vec4 sampleValue=texture2D(tip,p*flip*0.5+0.5);
+  vec4 sampleValue=texture2D(tip,u_tipBounds.xy+(p*flip*0.5+0.5)*u_tipBounds.zw);
   return mix(sampleValue.r,sampleValue.a,alphaChannel);
 }
 float brushEdgeBleed(sampler2D tip,vec2 uv,float kind,float hardness,vec2 flip,float alphaChannel,float bleed,float aa) {
@@ -120,6 +121,7 @@ export const BRUSH_STAMP_FRAG = `
   uniform vec4 u_grainTransform;
   uniform vec2 u_grainTone;
   uniform float u_grainBlend;
+  uniform vec4 u_dualBounds;
   uniform sampler2D u_dual;
   uniform float u_dualKind;
   uniform float u_dualBlend;
@@ -148,14 +150,14 @@ export const BRUSH_STAMP_FRAG = `
     } else {
       // The quad spans -1..1 in the stamp's own (rotated) frame, and the mask
       // is stored with row 0 on top — see tipMasks.ts on orientation.
-      shape = texture2D(u_tip, v_localUV * u_flip * 0.5 + 0.5).r;
+      shape = texture2D(u_tip, u_tipBounds.xy+(v_localUV * u_flip * 0.5 + 0.5)*u_tipBounds.zw).r;
     }
 
     if(u_edgeBleed>0.0) shape=brushEdgeBleed(u_tip,v_localUV,u_tipKind,u_hardness,u_flip,0.0,u_edgeBleed,clamp(u_aaPx*(1.0+u_edgeBleed*0.15)/max(v_radius,0.0001),0.004,0.9));
     if (u_dualKind > 0.5) {
       vec2 dualUV = v_localUV * u_dualTransform.xy;
       dualUV = mat2(u_dualTransform.z,-u_dualTransform.w,u_dualTransform.w,u_dualTransform.z)*dualUV;
-      float secondary = u_dualKind > 1.5 ? texture2D(u_dual,dualUV*0.5+0.5).r : 1.0-smoothstep(min(u_dualHardness,0.99),1.0,length(dualUV));
+      float secondary = u_dualKind > 1.5 ? texture2D(u_dual,u_dualBounds.xy+(dualUV*0.5+0.5)*u_dualBounds.zw).r : 1.0-smoothstep(min(u_dualHardness,0.99),1.0,length(dualUV));
       if (abs(dualUV.x)>1.0 || abs(dualUV.y)>1.0) secondary=0.0;
       secondary *= u_dualStrength;
       if(u_dualTexStrength>0.0) {
