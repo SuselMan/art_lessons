@@ -1,3 +1,4 @@
+import { BrushMipCache } from './BrushMipCache'
 import { lightnessMaterialMips } from '../presets/lightnessMaterial'
 import { importedAssetPixels } from '../presets/importedBrushes'
 import { brushTextureLeaseResources, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
@@ -28,6 +29,7 @@ export interface BrushScratch {
 export class BrushPainter {
   private readonly behavior: BrushBehaviorPainter
   private readonly gl: WebGLRenderingContext
+  private readonly materialMips=new BrushMipCache()
   private readonly textures: BrushTextureCache
   constructor(ctx: BrushContext) {
     this.gl=ctx.gl
@@ -42,6 +44,7 @@ export class BrushPainter {
   destroy():void {
     this.behavior.destroy()
     this.textures.clear()
+    this.materialMips.clear()
   }
   finish(scratch:BehaviorScratch):void {this.behavior.finish(scratch)}
   paint(target:ILayerBuffer,dabs:Dab[],preset:PencilPreset,stamp:{brush:BrushDescriptor;pressure:BrushPressureSettings},color:[number,number,number],scratch:BehaviorScratch,_previous:Dab|undefined):void {
@@ -72,7 +75,7 @@ export class BrushPainter {
   private tipTexture(id: TipMaskId, gray?: string): WebGLTexture {
     const key=brushTextureResourceKey({id,grain:false,gray}), cached=this.textures.get(key)
     if(cached)return cached
-    const entry=uploadBrushTexture(this.gl,gray ? lightnessMaterialMips(importedAssetPixels(id),importedAssetPixels(gray)) : tipMaskMips(id),gray ? this.gl.LUMINANCE_ALPHA : this.gl.LUMINANCE,this.gl.CLAMP_TO_EDGE)
+    const entry=uploadBrushTexture(this.gl,gray ? this.materialMips.get(key,()=>lightnessMaterialMips(importedAssetPixels(id),importedAssetPixels(gray))) : tipMaskMips(id),gray ? this.gl.LUMINANCE_ALPHA : this.gl.LUMINANCE,this.gl.CLAMP_TO_EDGE)
     this.textures.put(key,entry.texture,entry.bytes)
     return entry.texture
   }
