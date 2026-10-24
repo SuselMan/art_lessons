@@ -284,3 +284,42 @@ Soft circle без AA/randomness/dynamic softness компилируется off
 зависит от authored diameter. Немо­нотонные кольцевые кривые сохраняются, а не
 заменяются Gaussian. Rect/spikes/AA и другие неподдержанные варианты отмечаются
 явно. Новые версии descriptor не переписывают исторические операции комнаты.
+
+## Нормализованная случайная динамика и цветовая коррекция (converter17)
+
+`BrushControl='random'` использует нормализованный per-dab random input до
+применения кривой. Это самостоятельный sensor, а не jitter результата:
+нелинейная C(U) и ненулевые endpoints сохраняются. Существующие детерминированные
+каналы targets/options независимы; chunk/replay используют прежний coordinate
+seed. Последовательность Krita не воспроизводится. Один native fuzzy additive
+в size-like option переводится в C(U), умножаемую на scaling/pressure; сумма
+нескольких additive sensors не заменяется произведением.
+
+Одиночный fuzzy Rotation хранит нормализованную кривую с учётом strength;
+в physical angle он даёт -π+strength*π*(2C(U)-1). Одиночный unlocked identity
+DrawingAngle использует общий rotation.follow=1 и base angle+offset. Curved
+absolute responses, locked angle и добавочные corner-fan dabs остаются явными
+ограничениями. Ratio использует local-Y roundness; размер пятна также умножается
+на roundness, чтобы сохранять local-X вместо его растягивания. Минимальная
+roundness .02 и aspect<=20 ограничивают вырожденные формы.
+
+`behavior.colorAdjustment={hue?,saturation?,value?}` содержит независимые
+BrushDynamic responses0..1, neutral=.5. Runtime декодирует signed2C-1.
+Hue задаёт ±180°, положительная saturation нелинейно усиливает chroma, отрицательная
+её уменьшает. Value смешивает с белым/чёрным и согласованно уменьшает chroma;
+это отдельная операция от существующих hue-turn/saturation/brightness multipliers.
+Коррекция применяется к foreground до stamp/material/compositing. Импортёр17
+включает её только для доказанного одиночного fuzzy/pressure при unit strength;
+прочие режимы остаются unsupported, без выдуманного пересчёта.
+
+Independent secondary получает configured child opacity ровно один раз через
+собственные записанные в scratch dabs. Parent opacity не подменяет её и не
+умножается второй раз. Это сохраняет optical strength masking subtract при
+накоплении child stroke; flow и opacity response остаются отдельными.
+
+Converter18 включает existing source diameter-spacing для dynamic size/ratio,
+чтобы уменьшение случайного отпечатка уменьшало и шаг. В native source axes
+используются actual stamp.size/aspect, исключая optical edge spread; исходный
+aspect не может подменять динамический. Номинальный legacy path других
+presets сохраняется. Это корректировка sampler-а, не пересчёт старых операций:
+старый журнал уже хранит выпущенные dabs и воспроизводится без нового resampling.

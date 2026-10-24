@@ -254,3 +254,82 @@ Undo/redo42/47/100/109 на обоих GPU:8 случаев, экспорт по
 Временных jobs/browser contexts/дополнительных GPU contexts не осталось.
 Остаются существующие QA frontend5386/backend4560/PG55560, компактные evidence,
 исторические каталоги/CAS и source cache. Grafetto push/main/deploy не выполнялись.
+
+## Версия17: устранение сильных различий формы/динамик
+
+Source/compiled `3c038d146d82efb1dfb0c61be9da5ffe3b5828ad`, importer17,
+каталогv28:117/245assets, manifest SHA
+`b50d17595f8f4ca3ea045c9c5ac63009ccd9924fa4160fd42dfde871f3b58f81`.
+Источник — прежний pinned Krita; исследований GPL runtime в продукт не копировали.
+Добавлены нормализованный random sensor, fuzzy Size/Opacity/Rotation, identity
+DrawingAngle+offset, локальная-Y Ratio и signed HSV adjustment при unit strength.
+Исправлена потеря opacity independent child. Никакой подгонки по имени пресета.
+
+Причины подтверждены KPP и source:49 пропускала random rotation узкого эллипса;
+51 secondary subtract теряла opacity .47 и вырезала середину;67 пропускала
+random size/opacity/ratio;71 пропускала direction offset91° и hue/value.
+Контрольные изображения восстановили характерные формы и цвет этих четырёх.
+На фиксированных union alpha>=8 масках ошибка premult RGBA к native снизилась
+для49/51/67/71 на53.2/60.8/42.7/14.2%; статистика разных случайных расположений
+не означает процент эквивалентности. Сохраняются RNG/geometry/coverage различия.
+
+Все117 заново отрисованы source на настоящем Samsung, GLerrors0;40 изменены,
+77 побайтно совпали с16. Данные/proof/contact sheets в `fixes-v17` рядом с16.
+133 Python tests,364 TS tests/23 suites,полные typecheck/build/lint,map checks
+прошли; существующие lint/map warnings сохранены. Roundness geometry witness
+проверяет сохранение local-X при сжатииY; HSV witnesses проверяют hue180°,
+белый/чёрный, grayscale и порядок saturation/value. Перестановка сетевых chunks
+не меняет secondary sampling; configured opacity не теряется.
+
+Стенд17 активирован, operator остаётся279definitions/283assets: новая117 и
+исторически необходимые определения. Повторный readonly DB audit106refs,
+81pinned и25unpinned: все25 сохранены; CAS/room manifests/операции не удалялись.
+
+Производительность17: четыре проблемных кисти49/51/67/71 ×48/128px ×2GPU,
+72rAF batches по4input events. Samsungp95≈16.8ms, iPad17–22ms; GLerrors0.
+Cold maxima Samsung117.1ms/Apple59ms сохраняются,51/128Samsung имеет два
+кадра>33ms. Это иной набор кистей, не прямой perf A/B к старому набору Wet.
+Нельзя объявлять устранёнными pen latency, cold stall или memory reloads
+по короткому offscreen тесту. Длительный pressure/tilt/freehand остаётся отдельной
+проверкой. FanCorners/locked/custom absolute curves и HSV nonunit strength пока
+явно ограничены, а не переведены в приблизительную случайную формулу молча.
+
+## Коррекция шага: финальный стенд18
+
+Source/compiled `39d06a7ebab0f595f96b4e86a373f20a7db6cca5`, importer18,
+каталогv29:117/245, manifest SHA
+`2d8a523c50120bcdbb726866ae4ae1af9ad849a3add8f539319f17034f3c46a5`.
+Fixed nominal spacing обходил actual fuzzy size; теперь dynamic shape включает
+source diameter-spacing. Его X использует actual stamp.aspect: изменение ratio
+сжимает Y, не X; отдельно проверены осевые шаги20/5px при ratio.25.
+Все117 source-экспортов повторены Samsung GL0;41 изменён против16,76 byte-equal.
+133 Python,379 TS tests/25suites плюс73 DabSystem/behavior tests,полные
+build/types/lint/map checks PASS. Существующие warnings не скрывались.
+
+Это не сняло все расхождения111/112: площадь покрытия по-прежнему недостаточна.
+Alpha-crop0..300 исключает blue seed320..448:111native431144,17=59127,
+18=234032;112native583698,16=968541,17=93460,18=262439. Числа — сумма8-bit alpha,
+не проценты похожести. Первоначальная проба crop0..340 включала20строк seed и
+заменена исправленным отчётом; в выводах используются только crop0..300.
+Отдельный visual gate Native/16/18 для изменённых low/high не выявил новой общей
+тяжёлой регрессии. Улучшения49/51/67/71 и91/98/106/110 сохранены;100/101 всё ещё
+слишком крупные в ramp/mix,85 слишком бледная решётка,111/112 недопокрыты.
+
+Страница18 сравнивает Native/16/18, без примешивания устаревшей начальной
+классификации к актуальным заметкам.117 кистей,6/page, pagination/searchRock,
+512preview/1024original PASS, браузер/context закрыты. Старые отчёты сохранены.
+
+Compiled18 UI/prepare/export9 ×2GPU PASS,GL0; Samsung все9 побайтно равны
+source18; Apple vsSamsung maxpremultdelta5/255,mean<=.149/255. Current served
+117@18, operator279/283 metadata сохраняет все25unpinned references,health/dbup.
+Performance18 на67/71/111/112 ×48/128 ×2GPU: Samsungp95≈16.8ms,Apple17–20ms,
+GL0; cold maxima117/66ms остаются. Это короткая синтетическая проверка rAF,
+не доказанная аппаратная задержка стилуса или memory soak.
+
+Undo/redo49/51/67/71 ×2GPU:8 случаев вернули побайтно идентичный экспорт.
+Собственная Samsung room tab3616 закрыта, прежняя report tab3613 открыта на18,
+свой ADBforward19230 удалён. Неактивные builds16/17 и неопубликованные
+промежуточные каталоги26/27 удалены после проверки registry и/proc. Browser/GPU
+contexts закрыты finally, registered temporary jobs пусты. Остаются один
+compiled18/report, существующие QA frontend/backend/PG и компактные source/
+evidence/каталоги/CAS. Grafetto коммиты локальны; push/main/deploy не выполнялись.
