@@ -12,19 +12,36 @@ async function main() {
       const context=await browser.newContext({baseURL:process.env.QA_URL??'http://127.0.0.1:5386'})
       try {
         // Validate a candidate without editing Vite's live source or reloading devices.
-        if(process.env.QA_BRUSH_PAINTER_FILE) {
-          const candidate=(await transform(await readFile(process.env.QA_BRUSH_PAINTER_FILE,'utf8'),{loader:'ts',format:'esm',target:'es2022'})).code
-          await context.route('**/src/engine/src/dabs/BrushBehaviorPainter.ts*',async route=>{
+        const overrides:Record<string,string>=JSON.parse(process.env.QA_MODULE_OVERRIDES??'{}')
+        if(process.env.QA_BRUSH_PAINTER_FILE)overrides['/src/engine/src/dabs/BrushBehaviorPainter.ts']=process.env.QA_BRUSH_PAINTER_FILE
+        for(const [modulePath,file]of Object.entries(overrides)) {
+          if(!modulePath.startsWith('/src/engine/'))throw Error('Unexpected candidate module path')
+          const candidate=(await transform(await readFile(file,'utf8'),{loader:'ts',format:'esm',target:'es2022'})).code
+          await context.route('**'+modulePath+'*',async route=>{
             const response=await route.fetch(),original=await response.text()
             const imports=[...original.matchAll(/from\s+["']([^"']+)["']/g)].map(m=>m[1])
             const code=candidate.replace(/from\s+["']([^"']+)["']/g,(_,specifier:string)=>{
-              const resolved=imports.find(p=>specifier==='@grafetto/shared'?p.includes('/packages/shared/'):p.split('?')[0].endsWith('/'+specifier.split('/').at(-1)+'.ts'))
+              let resolved=imports.find(p=>specifier==='@grafetto/shared'?p.includes('/packages/shared/'):p.split('?')[0].endsWith('/'+specifier.split('/').at(-1)+'.ts'))
+              if(!resolved&&specifier.startsWith('.'))resolved=new URL(specifier+(specifier.endsWith('.ts')?'':'.ts'),route.request().url()).pathname
               if(!resolved)throw Error('Cannot resolve candidate import '+specifier)
               return 'from '+JSON.stringify(resolved)
             })
-            await route.fulfill({response,body:code,contentType:'application/javascript'})
+            await route.fulfill({status:200,body:code,contentType:'application/javascript'})
           })
         }
+        await context.addInitScript(()=>{
+          Reflect.set(globalThis,'__qaInstancedDraws',0)
+          const tracked=new WeakSet<object>(),original=WebGLRenderingContext.prototype.getExtension
+          WebGLRenderingContext.prototype.getExtension=function(name:string){
+            const extension=Reflect.apply(original,this,[name])
+            if(name==='ANGLE_instanced_arrays'&&extension&&!tracked.has(extension)){
+              tracked.add(extension)
+              const draw=extension.drawArraysInstancedANGLE
+              extension.drawArraysInstancedANGLE=function(...args:number[]){Reflect.set(globalThis,'__qaInstancedDraws',Reflect.get(globalThis,'__qaInstancedDraws')+1);return Reflect.apply(draw,extension,args)}
+            }
+            return extension
+          }
+        })
         await context.addInitScript('globalThis.__name = (fn) => fn')
         if(fallback)await context.addInitScript(()=>{
           const original=WebGLRenderingContext.prototype.getExtension
@@ -76,10 +93,11 @@ async function main() {
           let changed=0,max=0
           for(let i=0;i<full.image.length;i+=4){let delta=0;for(let c=0;c<4;c++)delta=Math.max(delta,Math.abs(full.image[i+c]-chunked.image[i+c]));if(delta)changed++;max=Math.max(max,delta)}
           const imageHash=async(bytes:Uint8ClampedArray)=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new Uint8Array(bytes)))].map(v=>v.toString(16).padStart(2,'0')).join('')
-          return {painted:full.painted,chunkedPainted:chunked.painted,changed,max,copies:{full:full.paintingCopies,chunked:chunked.paintingCopies},fullHash:await imageHash(full.image),chunkedHash:await imageHash(chunked.image),errors:[full.error,chunked.error]}
+          return {instancedDraws:Reflect.get(globalThis,'__qaInstancedDraws') as number,painted:full.painted,chunkedPainted:chunked.painted,changed,max,copies:{full:full.paintingCopies,chunked:chunked.paintingCopies},fullHash:await imageHash(full.image),chunkedHash:await imageHash(chunked.image),errors:[full.error,chunked.error]}
         },{independent,mixer})
         console.log('Scenario',{fallback,independent,mixer},result)
         await writeFile(`${out}/case-${fallback}-${independent}-${mixer}.json`,JSON.stringify(result,null,2))
+        if(process.env.QA_INSTANCING_REQUIRED==='1'&&!fallback)expect(result.instancedDraws).toBeGreaterThan(0)
         expect(result.errors).toEqual([0,0])
         expect(result.painted).toBeGreaterThan(100)
         expect(result.errors).toEqual([0,0])
