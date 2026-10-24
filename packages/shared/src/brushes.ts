@@ -35,6 +35,10 @@ export interface BrushTip {
   kind: 'round' | 'bitmap'
   /** Which mask, when kind is 'bitmap'. */
   mask?: TipMaskId
+  /** Sample this square inside the padded asset, retaining the source tip size. */
+  maskBounds?: { x: number; y: number; width: number; height: number }
+  /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
+  animation?: { mode: 'random' | 'incremental'; frames: AssetId[] }
   /** 0 = a gradient with no edge at all, 1 = a disc. Feeds the round stamp's
    *  profile, and also dabSpacing's footprint rule — a hard-edged stamp has to
    *  be laid denser or the mark reads as a row of discs (#478). A bitmap tip's
@@ -301,6 +305,25 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !numberIn(d.paperInteraction, 0, 1) || !numberIn(d.spacing, 0.000001, 2) || !numberIn(d.flow, 0, 1)
       || !['pass','stamp'].includes(String(d.flowPer)) || !numberIn(d.opacity, 0, 1)
       || !numberIn(d.pressureSmoothingPx, 0, 100) || !curve(d.sizeByPressure) || !curve(d.flowByPressure) || !curve(d.opacityByPressure)) return false
+    if (d.tip.maskBounds !== undefined) {
+      const bounds = d.tip.maskBounds
+      if (d.tip.kind !== 'bitmap' || !record(bounds)
+        || Object.keys(bounds).some(key => !['x','y','width','height'].includes(key))
+        || !numberIn(bounds.x,0,1) || !numberIn(bounds.y,0,1)
+        || !numberIn(bounds.width,1/2048,1) || !numberIn(bounds.height,1/2048,1)
+        || bounds.x + bounds.width > 1 || bounds.y + bounds.height > 1) return false
+    }
+    if (d.tip.animation !== undefined) {
+      const animation = d.tip.animation
+      if (d.tip.kind !== 'bitmap' || !record(animation)
+        || Object.keys(animation).some(key => !['mode','frames'].includes(key))
+        || !['random','incremental'].includes(String(animation.mode))
+        || !Array.isArray(animation.frames) || animation.frames.length < 2 || animation.frames.length > 256
+        || !animation.frames.every(ref) || animation.frames[0] !== d.tip.mask) return false
+      const frameIds = animation.frames
+      const sizes = new Set(value.assets.filter(asset => frameIds.includes(asset.id)).map(asset => asset.size))
+      if (sizes.size !== 1) return false
+    }
     const key = `${d.id}@${d.version}`
     if (keys.has(key)) return false
     keys.add(key)
