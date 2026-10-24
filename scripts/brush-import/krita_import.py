@@ -269,7 +269,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=4
+    d['version']=5
     source_size=None
     kind = definition.get('type')
     if kind == 'auto_brush':

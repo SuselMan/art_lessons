@@ -207,7 +207,10 @@ class KritaTests(unittest.TestCase):
             # final mixer parameters, so old rooms keep their former resource.
             old=copy.deepcopy(current);old['mixer'].update(load=.5,pickup=.5)
             finalize_identity(old,source)
-            self.assertEqual(current['version'],4)
+            self.assertEqual(current['version'],5)
+            previous=copy.deepcopy(current);previous['version']=4
+            finalize_identity(previous,source)
+            self.assertNotEqual(previous['id'],current['id'])
             self.assertNotEqual(old['id'],current['id'])
             self.assertEqual(finalize_identity(copy.deepcopy(current),source)['id'],current['id'])
 

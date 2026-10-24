@@ -27,7 +27,7 @@ Pass all source packs in one invocation: `manifest.json` is replaced, not append
 
 Tips are centered in a transparent POT square, retaining original pixels until dimensions exceed 2048. Larger tips are proportionally resampled, with a warning. Grain is resampled to square POT; non-square grain may change aspect, reported as a warning. Alpha multiplies image luminance. ABR samples already encode positive coverage and are not inverted heuristically.
 
-Imported descriptors have `id: imported-<24 hexadecimal digits>`, immutable preset versions4 (ABR),4 (Krita),5 (Procreate) and behavior schema2, `model: stamp` or `mixer`; the ID hashes source settings, all final rendering fields (including shape/grain content hashes), and the importer schema/version. Source file paths are not persisted. Preset identity/settings are immutable at runtime. A future importer which changes rendering must bump its import version/identity rule; it must not overwrite referenced resources.
+Imported descriptors have `id: imported-<24 hexadecimal digits>`, immutable preset versions4 (ABR),5 (Krita),5 (Procreate) and behavior schema2, `model: stamp` or `mixer`; the ID hashes source settings, all final rendering fields (including shape/grain content hashes), and the importer schema/version. Source file paths are not persisted. Preset identity/settings are immutable at runtime. A future importer which changes rendering must bump its import version/identity rule; it must not overwrite referenced resources.
 
 ## Fidelity and supported subset
 
@@ -157,3 +157,9 @@ Krita's SVG path renders to a white1000px canvas before mask conversion
 Qt-versus-librsvg antialiasing approximation warning. No new dependency is
 installed. General untrusted SVG needs a separate bounded safe renderer and
 continues to fail explicitly.
+
+Krita importer rendering version5 identifies the new stock conversion: animated
+frames, native mask UV bounds, adaptive spacing and source default metadata.
+All presets are re-identified, including brushes whose raster settings did not
+change, so installing the catalog never rewrites historical version4 metadata.
+Old manifests and replay resources remain immutable.
