@@ -441,8 +441,12 @@ def validate_portable_dynamics(controls):
         return type(value) in (int,float) and math.isfinite(value) and low<=value<=high
     if not isinstance(controls,list) or len(controls)>4: raise ValueError('Invalid portable dynamic count')
     for control in controls:
-        if (not isinstance(control,dict) or set(control)-{'control','minimum','jitter','strength','fade','curve'}
-                or control.get('control') not in ('off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection')
+        if (not isinstance(control,dict) or set(control)-{'control','minimum','jitter','strength','fade','curve','randomStream','period','periodic'}
+                or control.get('control') not in ('off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom','dabProgress')
+                or (control.get('control')=='strokeRandom' and (type(control.get('randomStream')) is not int or not 0<=control['randomStream']<=4294967295))
+                or (control.get('control')!='strokeRandom' and 'randomStream' in control)
+                or (control.get('control')=='dabProgress' and (type(control.get('period')) is not int or not 1<=control['period']<=1000000 or type(control.get('periodic')) is not bool))
+                or (control.get('control')!='dabProgress' and ('period' in control or 'periodic' in control))
                 or not finite(control.get('minimum')) or not finite(control.get('jitter'))
                 or ('strength' in control and not finite(control['strength'],-1,1))
                 or ('fade' in control and not finite(control['fade'],.001,100000))):

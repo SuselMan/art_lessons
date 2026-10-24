@@ -353,7 +353,7 @@ export class SmudgePainter {
       this.wetGestures.set(userId,state)
     }
     const travel = prev ? Math.hypot(dab.x-prev.x,dab.y-prev.y)/Math.max(0.5,this.radiusOf(dab,paint)) : 0
-    if (prev && travel < 1e-6 && brush.mixer?.source !== 'previousCanvas') { advanceBrushAnimation(brush,state.behavior); return }
+    if (prev && travel < 1e-6 && brush.mixer?.source !== 'previousCanvas') { advanceBrushAnimation(brush,state.behavior); state.behavior.dabSequence=(state.behavior.dabSequence??0)+1; return }
     const dual=brush.behavior?.dual
     let secondary: ReturnType<RibbonStrokeScratch['brushSecondary']> | undefined
     if(dual?.sampling==='independent') {

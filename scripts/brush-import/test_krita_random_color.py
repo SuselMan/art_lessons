@@ -69,3 +69,10 @@ class DabProgressTests(unittest.TestCase):
             self.assertTrue(any(x['status']=='unsupported' for x in notes))
         c=sensor_controls({'FlowSensor':'<params id="fade" periodic="1"/>'},'Flow',[])[0]
         self.assertEqual((c['period'],c['periodic']),(1000,True))
+
+    def test_portable_progress_and_random_controls_keep_recursive_contract(self):
+        from convert import validate_portable_dynamics
+        for c in [{'control':'dabProgress','period':169,'periodic':False}, {'control':'strokeRandom','randomStream':4294967295}, {'control':'random'}]:
+            validate_portable_dynamics([dict(c,minimum=0,jitter=0)])
+        for c in [{'control':'dabProgress','period':0,'periodic':False},{'control':'strokeRandom','randomStream':-1},{'control':'pressure','period':1,'periodic':False},{'control':'random','randomStream':0},{'control':'dabProgress','period':True,'periodic':False}]:
+            with self.assertRaises(ValueError): validate_portable_dynamics([dict(c,minimum=0,jitter=0)])
