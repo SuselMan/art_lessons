@@ -31,7 +31,9 @@ def natural_run(points):
     return evaluate
 
 
-def native_transfer(text):
+def native_transfer(text, sample_count=256):
+    if type(sample_count) is not int or not 2<=sample_count<=40002:
+        raise ValueError('Krita transfer resolution exceeds bounded offline limit')
     records=[record.split(',') for record in text.split(';') if record.strip()]
     if not 1<=len(records)<=256:
         raise ValueError('Krita curve knot count exceeds limit')
@@ -54,8 +56,8 @@ def native_transfer(text):
     else:
         runs=[(points[end][0],natural_run(points[start:end+1])) for start,end in zip(ends,ends[1:])]
     samples=[]
-    for i in range(256):
-        x=max(points[0][0],min(points[-1][0],i*(1/255)))
+    for i in range(sample_count):
+        x=max(points[0][0],min(points[-1][0],i*(1/(sample_count-1))))
         evaluate=next((f for end,f in runs if x<=end),runs[-1][1])
         value=evaluate(x)
         if not math.isfinite(value):

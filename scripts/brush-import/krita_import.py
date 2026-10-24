@@ -74,6 +74,33 @@ def gaussian_circle(hfade, vfade, diameter, antialias=False, size=256):
     return Image.frombytes('L',(size,size),bytes(pixels))
 
 
+def soft_circle(curve='0,0;1,1', diameter=60, size=256):
+    """Independent radial-squared curve coverage (native SoftId circle).
+
+    References: pinned kis_curve_circle_mask_generator.{h,cpp}: norme is r²,
+    generator stores inverted opacity, scalar applicator inverts it back.
+    Static source curve only; native resolution-dependent AA is not simulated.
+    """
+    if type(size) is not int or not 2<=size<=2048: raise ValueError('Soft curve raster size exceeds bounds')
+    if type(diameter) not in (int,float) or not math.isfinite(diameter) or not 0<diameter<=10000: raise ValueError('Invalid soft curve native diameter')
+    resolution=math.floor(diameter*4+.5)
+    if resolution<1: raise ValueError('Singular soft curve native resolution')
+    transfer=native_transfer(curve,resolution+2)
+    samples=([i/(resolution+1) for i in range(resolution+2)] if isinstance(transfer,list) else transfer['samples'])
+    def sample(t):
+        position=t*resolution;lower=min(resolution,int(position));fraction=position-lower
+        return samples[lower]*(1-fraction)+samples[lower+1]*fraction
+    data=bytearray(size*size)
+    for y in range(size):
+        ny=(2*y+1-size)/size
+        for x in range(size):
+            nx=(2*x+1-size)/size;radius_squared=nx*nx+ny*ny
+            if radius_squared<=1:
+                coverage=sample(radius_squared)
+                data[y*size+x]=255-int((1-coverage)*255)
+    return Image.frombytes('L',(size,size),bytes(data))
+
+
 def gbr(data, preserve_color=False):
     if len(data) < 20:
         raise ValueError('Truncated GBR header')
@@ -318,7 +345,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=14
+    d['version']=15
     source_size=None
     application=0
     kind = definition.get('type')
@@ -341,7 +368,16 @@ def preset(data, name, catalog, external, depth=0):
             mask=gaussian_circle(numeric(generator.get('hfade'),1),numeric(generator.get('vfade'),1),numeric(generator.get('diameter'),10),enabled(generator.get('antialiasEdges')))
             d['tip']['kind']='bitmap';d['tip']['hardness']=1;d['tip']['mask']=catalog.asset(mask,warnings)
             notes.append(compatibility('gaussianGenerator','Gaussian erf radial profile retained in a static 256px tip; Krita regenerates scale-dependent edge antialiasing and subpixel masks per dab.'))
-        if (generator.get('id','default') != 'default' and not gaussian) or numeric(generator.get('spikes'),2) != 2 or numeric(definition.get('randomness')) or numeric(definition.get('density'),1) != 1:
+        soft=(generator.get('id')=='soft' and shape=='circle' and numeric(generator.get('spikes'),2)==2
+              and not enabled(generator.get('antialiasEdges')) and numeric(definition.get('randomness'))==0
+              and numeric(definition.get('density'),1)==1)
+        if soft:
+            mask=soft_circle(generator.get('softness_curve','0,0;1,1'),source_size)
+            d['tip']['kind']='bitmap';d['tip']['hardness']=1;d['tip']['mask']=catalog.asset(mask,warnings)
+            notes.append(compatibility('softCurveGenerator','Native author-diameter4x LUT with two extra samples retained at squared normalized radius in static256px mask; scale-dependent antialiasing, subpixel raster, resampling and scalar/SIMD rounding remain approximate.'))
+            if engine=='paintbrush' and enabled(params.get('PressureSoftness')):
+                notes.append(compatibility('softnessDynamics','Native softness transforms interior curve knots per dab; static base curve retained.','unsupported'))
+        if (generator.get('id','default') != 'default' and not gaussian and not soft) or numeric(generator.get('spikes'),2) != 2 or numeric(definition.get('randomness')) or numeric(definition.get('density'),1) != 1:
             notes.append(compatibility('autoBrush','Gaussian/curve generator, spikes, randomness and density are not reproduced.','unsupported'))
         if enabled(definition.get('useAutoSpacing')):
             notes.append(compatibility('autoSpacing','Krita adaptive spacing coefficient retained; anisotropic axis metrics and spacing sensors require separate calibration.'))
@@ -461,8 +497,10 @@ def preset(data, name, catalog, external, depth=0):
         x=enabled(params.get('Scattering/AxisX','true'));y=enabled(params.get('Scattering/AxisY','true'))
         if x or y:
             d['scatter']={'count':1,'radius':amount,'scale':1,'sizeJitter':0,'angleJitter':0,'flowJitter':0}
-            behavior['scatter']={'countJitter':0,'bothAxes':x and y}
-            notes.append(compatibility('scatter','Scatter amount and sensors retained; single-axis orientation and distribution use Grafetto semantics.'))
+            behavior['scatter']={'countJitter':0,'bothAxes':x and y,'placement':'xyUniform' if x and y else 'pathUniform' if x else 'normalUniform'}
+            notes.append(compatibility('scatter','Native axis-selected uniform placement and full diameter amplitude retained; deterministic Grafetto RNG and nominal diameter differ from native RNG and integer dab-bbox diameter.'))
+        else:
+            behavior.get('modulations',{}).pop('scatter',None)
     if enabled(params.get('Texture/Pattern/Enabled')):
         filename=params.get('Texture/Pattern/PatternFileName','')
         try:
