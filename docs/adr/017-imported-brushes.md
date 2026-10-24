@@ -228,3 +228,28 @@ NEAREST без mip levels, с отдельным bounded cache key: legacy и na
 одновременно использовать один raw asset, не меняя sampler друг другу. Prepare
 и paint-batch lease учитывают этот же вариант. Случайная последовательность фаз
 детерминирована Grafetto, побайтное совпадение native RNG не заявляется.
+
+## Усреднённый источник и светлотный отпечаток
+
+`mixer.sampling={mode:'uniformMean',radius}` расширяет только чистый
+`source:'previousCanvas'`: источник становится пространственно постоянным цветом
+предыдущей области. Guard load=initialLoad=0/no wetMix остаётся. Radius хранится
+уже в нормализованных единицах, миграции формата выполняются importer-ом.
+Первый bounded GPU implementation имеет fixed64 Halton taps, pooled1×1 результат,
+ограничение gather512px и явные предупреждения про native adaptive count/colorspace.
+Legacy carried mixer и пространственный previousCanvas без sampling неизменны.
+
+`tip.material={kind:'lightness',gray,grayFrames?,strength}` opt-in для bitmap stamp.
+`tip.mask`/animation.frames остаются alpha. Материал содержит независимую gray
+плоскость того же POT размера; grayFrames синхронны по индексу, а не поиском alpha
+ID: одна alpha может соответствовать разным gray. Shared и portable validators
+проверяют ссылки/размеры/кадры, asset loading и preparation обходят обе плоскости.
+
+GPU хранит производную premult LUMINANCE_ALPHA пару с ключом из двух IDs;
+фильтрация/мip предшествует unpremultiply. Это сохраняет текущие sampler и cache
+лимиты. Color mapping — encodedRGB lightness quadratic, RGBshift и gamut fit;
+UI flow/opacity применяются отдельно. Inline secondary использует только alpha,
+independent child может иметь собственный материал. Цветные mixer materials
+пока отклоняются, вместо неявного применения другой физики. Старые descriptor
+без material сохраняют обычное чтение маски. Converter13 создаёт новые immutable
+identity/version, не переписывая сохранённые strokes или room pins.

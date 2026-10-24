@@ -141,3 +141,33 @@ mean<=.189/255; для55 max<1/255. StraightRGB при alpha≈0 даёт лож
 полная проверка undo/replay. Viewer6/page, поиск
 Dithering1,512/1024 режимы и отсутствие page errors проверены Playwright;
 его context/browser закрыты в finally.
+
+## Dulling и светлотный материал, importer13
+
+Pure53/58 opt-in `mixer.sampling={mode:uniformMean,radius}` не снимает старый
+foreground guard. Saved SmudgeRadiusVersion<2 мигрирует /100: .41→.0041,
+.5→.005. Предыдущая область усредняется отдельным pooled1×1 GPU pass до
+переноса; native Halton first64, количество min(area,64), без CPU readback.
+Точный native adaptive stopping/differenceA не заявляется; >512px gather
+уменьшается, RGBA8/colorspace округление остаётся ограничением.
+
+В первом native fixture tail alpha>=16:53 native50px, прежний12=34, new13=46;
+58 native64, прежний85, new62. Оба visually ближе, на blank foreground не возникает.
+
+LIGHTNESSMAP97–102 получает отдельные alpha/adjustedgray CAS planes, paired
+animationframes (включая одинаковый alpha при различном gray). GPU объединяет
+их в premult LA и фильтрует до деления; один sampler, общий индекс без новых
+RNG calls. Native encodedRGB lightness quadratic и RGBshift/gamutfit реализованы
+отдельно от обычного HSL. Cache key включает обе plane IDs; preparation/leases
+и холодная загрузка обходят обе, байтовый лимит сохранён. Mask-only child не
+наследует родительский материал. Auto/legacy midpoint/brightness/contrast
+компилируются offline; singular unsupported параметры отклоняются явно.
+
+Actual BRUSH_STAMP_FRAG authored witness:219cases на каждом Adreno650/AppleGPU,
+max CPUoracle delta1/255, GLerrors0; между GPU max1/255. Проверены цвет, strength,
+alpha/transparentRGB, PM filtering и mips. Это не Qt byteidentity или nativeE2E.
+Контексты закрыты finally. Полный typecheck и map:check прошли; targeted
+19TS suites/114tests прошли; Python107 и shared targeted17 ранее прошли.
+Native сравнение показывает у102 значительно ближе тёмный цвет, но у98 ещё
+ошибка ширины;100/101 отличаются размещением secondary/давлением. Поддержка
+material сама эти независимые причины не устраняет.
