@@ -1,6 +1,7 @@
 import type { StateCreator } from 'zustand'
 
 import type { ShapeFrame } from '@grafetto/shared'
+import { importedBrushes } from '../../engine/brushLibrary'
 
 import { defaultToolSettings, type ToolSettingsMap, type UiToolId, type SettingDescriptor, type ShapeSwatch } from '../../lib/tools/toolSchemas'
 
@@ -232,16 +233,23 @@ export const createToolSlice: StateCreator<ToolSlice> = set => ({
     }
   }),
   toolSettings: defaultToolSettings(),
-  setToolSetting: (toolId, key, value) => set(state => ({
-    toolSettings: {
+  setToolSetting: (toolId, key, value) => set(state => {
+    const next = typeof value === 'function'
+      ? (value as (prev: SettingDescriptor['default']) => SettingDescriptor['default'])(state.toolSettings[toolId][key])
+      : value
+    const defaults = toolId === 'digitalBrush' && key === 'brush' && next !== state.toolSettings.digitalBrush.brush
+      ? importedBrushes().find(b => b.descriptor.id === next)?.sourceDefaults
+      : undefined
+    return { toolSettings: {
       ...state.toolSettings,
       [toolId]: {
         ...state.toolSettings[toolId],
-        [key]: typeof value === 'function'
-          ? (value as (prev: SettingDescriptor['default']) => SettingDescriptor['default'])(state.toolSettings[toolId][key])
-          : value,
+        [key]: next,
+        // Source opacity/flow already live in the descriptor. Applying them
+        // here again would multiply the preset's paint strength twice.
+        ...(defaults ? { size: defaults.sizePx } : {}),
       },
-    },
-  })),
+    } }
+  }),
   setAllToolSettings: settings => set({ toolSettings: settings }),
 })

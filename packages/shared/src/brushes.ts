@@ -236,6 +236,8 @@ export interface ImportedBrush {
   descriptor: BrushDescriptor
   name: string
   source: string
+  /** Source editor defaults; opacity/flow already contribute to descriptor rendering. */
+  sourceDefaults?: { sizePx: number; opacity: number; flow: number }
   warnings: string[]
   compatibility?: BrushCompatibility[]
 }
@@ -283,6 +285,10 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (!record(b) || typeof b.name !== 'string' || b.name.length > 256 || typeof b.source !== 'string' || b.source.length > 256
       || !Array.isArray(b.warnings) || b.warnings.length > 100 || !b.warnings.every(w => typeof w === 'string' && w.length <= 2000)
       || !record(b.descriptor)) return false
+    if (b.sourceDefaults !== undefined && (!record(b.sourceDefaults)
+      || Object.keys(b.sourceDefaults).some(key => !['sizePx','opacity','flow'].includes(key))
+      || !numberIn(b.sourceDefaults.sizePx, 0.01, 10000)
+      || !numberIn(b.sourceDefaults.opacity, 0, 1) || !numberIn(b.sourceDefaults.flow, 0, 1))) return false
     const d = b.descriptor
     const descriptorKeys = ['id','version','model','category','tip','paperInteraction','spacing','flow','flowPer','flowSpan','sizeByPressure','flowByPressure','opacityByPressure','pressureSmoothingPx','opacity','scatter','texture','wet','behavior','mixer']
     if (Object.keys(d).some(key => !descriptorKeys.includes(key))) return false
