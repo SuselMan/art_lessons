@@ -196,7 +196,7 @@ class KritaTests(unittest.TestCase):
                 p=Path(tmp)/'Rates.kpp';Image.new('RGB',(2,2)).save(p,format='PNG',pnginfo=meta)
                 c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
                 self.assertEqual(c.skipped,[])
-                self.assertEqual(c.brushes[0]['descriptor']['mixer'],{'load':load,'pickup':pickup,'strength':1,'initialLoad':load,'smearAlpha':True,**({'source':'previousCanvas'} if load==0 else {})})
+                self.assertEqual({key:value for key,value in c.brushes[0]['descriptor']['mixer'].items() if key!='pickupDynamics'},{'load':load,'pickup':pickup,'strength':1,'initialLoad':load,'smearAlpha':True,**({'source':'previousCanvas'} if load==0 else {})})
 
     def test_previous_canvas_selection_is_semantic_and_defaults_legacy(self):
         cases=[({},True),({'SmudgeRateUseNewEngine':'false','SmudgeRateMode':'0'},True),
@@ -212,11 +212,22 @@ class KritaTests(unittest.TestCase):
                 self.assertEqual(catalog.skipped,[])
                 self.assertEqual(catalog.brushes[0]['descriptor']['mixer'].get('source')=='previousCanvas',expected)
 
-    def test_smudge_rate_curve_is_explicitly_unsupported(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            path=Path(tmp)/'QA.kpp';path.write_bytes(kpp(resources='<param name="SmudgeRateUseCurve">true</param>',engine='colorsmudge'))
-            catalog=convert.Catalog(Path(tmp)/'out');convert_krita(path,catalog)
-            self.assertTrue(any(x['feature']=='smudgeRateCurve' and x['status']=='unsupported' for x in catalog.brushes[0]['compatibility']))
+    def test_smudge_rate_dynamics_enabled_disabled_and_nonproduct(self):
+        cases=[('true','true',0,True),('false','true',0,False),('true','false',0,False),('true','true',1,False)]
+        for checked,use_curve,mode,expected in cases:
+            with self.subTest(checked=checked,use_curve=use_curve,mode=mode),tempfile.TemporaryDirectory() as tmp:
+                params={'PressureSmudgeRate':checked,'SmudgeRateUseCurve':use_curve,'SmudgeRatecurveMode':str(mode),'SmudgeRateSensor':'<params id="pressure"><curve>0,0;0.5,0.2;1,1;</curve></params>'}
+                saved=''.join('<param name="'+key+'"><![CDATA['+value+']]></param>' for key,value in params.items())
+                path=Path(tmp)/'QA.kpp';path.write_bytes(kpp(resources=saved,engine='colorsmudge'))
+                catalog=convert.Catalog(Path(tmp)/'out');convert_krita(path,catalog)
+                brush=catalog.brushes[0];controls=brush['descriptor']['mixer'].get('pickupDynamics',[])
+                self.assertEqual(bool(controls),expected)
+                if expected:
+                    self.assertEqual(len(controls),1);self.assertEqual(controls[0]['control'],'pressure')
+                    self.assertLess(controls[0]['curve']['samples'][191],191/255)
+                    self.assertEqual(len(controls[0]['curve']['samples']),256)
+                if mode:
+                    self.assertTrue(any(x['feature']=='SmudgeRateSensorCombination' and x['status']=='unsupported' for x in brush['compatibility']))
 
     def test_colorsmudge_smear_alpha_explicit_and_missing_defaults(self):
         for saved,expected in [(None,True),('true',True),('false',False),('0',False)]:
@@ -241,8 +252,8 @@ class KritaTests(unittest.TestCase):
             # final mixer parameters, so old rooms keep their former resource.
             old=copy.deepcopy(current);old['mixer'].update(load=.5,pickup=.5)
             finalize_identity(old,source)
-            self.assertEqual(current['version'],8)
-            previous=copy.deepcopy(current);previous['version']=7
+            self.assertEqual(current['version'],9)
+            previous=copy.deepcopy(current);previous['version']=8
             finalize_identity(previous,source)
             self.assertNotEqual(previous['id'],current['id'])
             self.assertNotEqual(old['id'],current['id'])

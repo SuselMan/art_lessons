@@ -292,7 +292,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=8
+    d['version']=9
     source_size=None
     kind = definition.get('type')
     if kind == 'auto_brush':
@@ -426,9 +426,12 @@ def preset(data, name, catalog, external, depth=0):
             notes.append(compatibility('colorSmudge','Legacy pure smearing samples previous canvas; native distance/smudge-rate dynamics are not yet reproduced.'))
         else:
             notes.append(compatibility('colorSmudge','Dulling, new-engine or foreground-paint mixing retains approximate Grafetto carried pigment; native formulas differ.'))
-        if enabled(params.get('SmudgeRateUseCurve')):
-            notes.append(compatibility('smudgeRateCurve','Native SmudgeRate sensor curves are not applied; only the enabled constant rate is retained.','unsupported'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter')]
+        if enabled(params.get('PressureSmudgeRate')):
+            controls=sensor_controls(params,'SmudgeRate',notes)
+            if controls:
+                d['mixer']['pickupDynamics']=controls
+                notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate')]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):
