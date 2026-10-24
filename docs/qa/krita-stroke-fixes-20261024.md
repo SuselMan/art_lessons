@@ -431,3 +431,11 @@ Stand117@20/healthdbup, operator279/283 сохраняет все25unpinned из
 registry+/proc проверкой. Остаются один compiled20b/report, прежние QA frontend/
 backend/PG и compact evidence/source/CAS/history. Worktree/dependencies не копировались.
 Grafetto main/push/productiondeploy не выполнялись.
+
+
+Исправление предыдущего отчёта о typecheck19/20: параметр-свойство конструктора
+BrushMipCache нарушало erasableSyntaxOnly (TS1294). Результат полного typecheck
+был ошибочно отмечен PASS по хвосту workspace-лога; это утверждение отозвано.
+Vite/GL/image проверки20 оставались успешными. Конструктор исправлен вf516330d;
+повторный полный npm run typecheck действительно завершился exit0 (включая
+web/SW/shared/server/e2e/scripts), wash-types-fixed.log. Новые проверки21 ниже.

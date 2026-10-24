@@ -6,6 +6,8 @@ export interface BrushBehaviorState {
   dabOrdinal?: number
   dabSequence?: number
   washOpacity?: {average:number;maximum:number}
+  washColor?: [number,number,number]
+  washVaryingPigment?: boolean
   seed: number
   charge: number
   distance: number

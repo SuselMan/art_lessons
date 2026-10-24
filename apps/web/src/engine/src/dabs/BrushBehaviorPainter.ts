@@ -115,7 +115,11 @@ export class BrushBehaviorPainter {
     }
 
     const accumulation=behavior.rendering?.accumulation
-    const constantPigment=!brush.tip.material && !behavior.colorAdjustment && !['hue','saturation','brightness'].some(key=>behavior.dynamics?.[key as 'hue'] || behavior.modulations?.[key as 'hue'])
+    if(accumulation==='alphaDarken'){
+      if(state.washColor && color.some((value,index)=>value!==state.washColor![index]))state.washVaryingPigment=true
+      state.washColor??=[...color]
+    }
+    const constantPigment=!state.washVaryingPigment && !brush.tip.material && !behavior.colorAdjustment && !['hue','saturation','brightness'].some(key=>behavior.dynamics?.[key as 'hue'] || behavior.modulations?.[key as 'hue'])
     const incoming = dabs.flatMap(dab => {
       const previous = state.previous
       let flow = brush.flow
@@ -294,7 +298,7 @@ export class BrushBehaviorPainter {
         gl.bindTexture(gl.TEXTURE_2D, paper.texture)
       }
       const drawPhysical=(list:BehaviorPlaced[]):void=>{
-        const copy=accumulation==='alphaDarken' && list.some(s=>s.washFeedback) ? scratch.brushCeilingCopy(tile.buffer) : undefined
+        const copy=accumulation==='alphaDarken' && list.some(s=>s.washFeedback) ? ceiling : undefined
         for(const item of list){
           if(item.washFeedback && copy){
             const rect=brushFootprintCopyRect(item.x,item.y,item.radius,item.aspect,item.angle,tile.originX,tile.originY,coverage.width,coverage.height)
