@@ -175,6 +175,25 @@ describe('v2 logical brush state', () => {
     const disabled=secondaryBrushDabs({...primary,sizeByPressure:[[0,0],[1,1]]},child,[{...input[0],pressure:.1}],{remaining:0},false)
     expect(disabled[0].size).toBe(100)
   })
+  it('carries a fractional ellipse spacing phase through a turn and packet split',()=>{
+    const child:BrushDescriptor={...brush,scatter:undefined,sizeByPressure:[[0,1],[1,1]],tip:{...brush.tip,rotation:'fixed',angle:0,aspect:16},behavior:{version:2,spacing:{mode:'kritaAuto',coefficient:.4}}}
+    const primary={...child,tip:{...child.tip,aspect:1}}
+    const input=[{...dabs[0],x:0,y:0,size:100,pressure:1},{...dabs[0],x:3.5,y:0,size:100,pressure:1},{...dabs[0],x:3.5,y:2,size:100,pressure:1}]
+    const full=secondaryBrushDabs(primary,child,input,{remaining:0}),state:Parameters<typeof secondaryBrushDabs>[3]={remaining:0}
+    const chunked=secondaryBrushDabs(primary,child,input.slice(0,2),state)
+    expect(state.remaining).toBeCloseTo(.5)
+    const saved=structuredClone(state)
+    chunked.push(...secondaryBrushDabs(primary,child,input.slice(2),state))
+    expect(chunked).toEqual(full);expect(full[1].y).toBeCloseTo(.125)
+    expect(secondaryBrushDabs(primary,child,input.slice(2),saved)).toEqual(full.slice(1))
+  })
+  it('samples a nonlinear child pressure response after centreline interpolation',()=>{
+    const primary:BrushDescriptor={...brush,scatter:undefined,sizeByPressure:[[0,0],[1,1]],behavior:{version:2}}
+    const child:BrushDescriptor={...primary,tip:{...primary.tip,rotation:'fixed'},sizeByPressure:[[0,0],[.5,.25],[1,1]],behavior:{version:2,spacing:{mode:'diameter',coefficient:0}}}
+    const output=secondaryBrushDabs(primary,child,[{...dabs[0],x:0,y:0,size:25,pressure:.25},{...dabs[0],x:80,y:0,size:75,pressure:.75}],{remaining:0})
+    const midpoint=output.find(d=>Math.abs(d.x-40)<.0001)!
+    expect(midpoint.pressure).toBe(.5);expect(midpoint.size).toBe(25)
+  })
   it('composes signed additive rotation minus scaling, preserving per-stroke channels',()=>{
     const input=dabs[0],state=beginBrushBehavior(input)
     const constant=(v:number)=>({control:'off' as const,minimum:0,jitter:0,curve:[[0,v],[1,v]] as [number,number][]})

@@ -39,31 +39,32 @@ export interface SecondarySamplingState { previous?: Dab; remaining: number; geo
  * The bounded segment loop and independent phase survive network chunks. */
 export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescriptor, dabs: readonly Dab[], state: SecondarySamplingState, sizePressure=true): Dab[] {
   const result: Dab[] = []
+  const baseSize=(d:Dab):number=>d.size/Math.max(.01,sizePressure?curveAt(primary.sizeByPressure,d.pressure):1)
   const size = (d:Dab):Dab=>({...d,opacity:child.opacity ?? 1,
-    size:d.size*curveAt(child.sizeByPressure,sizePressure?d.pressure:1)/Math.max(.01,sizePressure?curveAt(primary.sizeByPressure,d.pressure):1),
+    size:baseSize(d)*curveAt(child.sizeByPressure,sizePressure?d.pressure:1),
     aspectRatio:child.tip.aspect,angle:child.tip.rotation==='fixed'?child.tip.angle:d.angle})
   const spacing=(dab:Dab,pathAngle:number):number=>{
-    const profile=child.behavior?.spacing
-    if(!profile)return Math.max(1,dab.size*child.spacing)
+    const profile=child.behavior?.spacing ?? {mode:'diameter' as const,coefficient:child.spacing}
     const geometry=state.geometry ??= beginBrushBehavior(dab)
     state.axes=brushSourceSpacingAxes({...child,scatter:undefined},dab,geometry,profile,1/Math.max(child.tip.aspect,1),pathAngle)
     return brushSpacingStep(state.axes,pathAngle)
   }
   for (const raw of dabs) {
     const dab=size(raw),previous=state.previous
-    if(!previous){result.push(dab);state.remaining=spacing(dab,dab.angle);state.direction=dab.angle;state.previous=dab;continue}
+    if(!previous){result.push(dab);state.remaining=spacing(dab,dab.angle);state.direction=dab.angle;state.previous={...raw};continue}
     const length=Math.hypot(dab.x-previous.x,dab.y-previous.y)
-    if(!length){state.previous=dab;continue}
+    if(!length){state.previous={...raw};continue}
     const direction=Math.atan2(dab.y-previous.y,dab.x-previous.x)
     if(state.axes && state.direction!==undefined)state.remaining*=brushSpacingStep(state.axes,direction)/brushSpacingStep(state.axes,state.direction)
-    const stepFloor=Math.max(child.behavior?.spacing?.mode ? .5 : 1,length/256)
+    const stepFloor=Math.max(.5,length/256)
     let travel=state.remaining
     while(travel<=length){
       const t=travel/length,lerp=(a:number,b:number):number=>Math.fround(a+(b-a)*t)
-      const point:Dab={x:lerp(previous.x,dab.x),y:lerp(previous.y,dab.y),size:lerp(previous.size,dab.size),pressure:lerp(previous.pressure,dab.pressure),angle:lerp(previous.angle,dab.angle),aspectRatio:child.tip.aspect,tiltX:lerp(previous.tiltX,dab.tiltX),tiltY:lerp(previous.tiltY,dab.tiltY),opacity:child.opacity ?? 1,t:lerp(previous.t,dab.t)}
+      const pressure=lerp(previous.pressure,raw.pressure)
+      const point:Dab={x:lerp(previous.x,raw.x),y:lerp(previous.y,raw.y),size:lerp(baseSize(previous),baseSize(raw))*curveAt(child.sizeByPressure,sizePressure?pressure:1),pressure,angle:child.tip.rotation==='fixed'?child.tip.angle:lerp(previous.angle,raw.angle),aspectRatio:child.tip.aspect,tiltX:lerp(previous.tiltX,dab.tiltX),tiltY:lerp(previous.tiltY,dab.tiltY),opacity:child.opacity ?? 1,t:lerp(previous.t,dab.t)}
       result.push(point);travel+=Math.max(stepFloor,spacing(point,direction))
     }
-    state.remaining=travel-length;state.direction=direction;state.previous=dab
+    state.remaining=travel-length;state.direction=direction;state.previous={...raw}
   }
   return result
 }
