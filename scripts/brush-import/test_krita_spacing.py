@@ -53,7 +53,7 @@ class PressureSpacingTests(unittest.TestCase):
     def test_disabled_pressure_option_preserves_absent_profile_and_nonproduct_warns(self):
         b=self.brush({'PressureSpacing':'false','SpacingValue':'.2','SpacingSensor':'<params id="pressure"><curve>0,1;1,0;</curve></params>'})
         self.assertNotIn('spacing',b['descriptor']['behavior']);self.assertEqual(b['descriptor']['spacing'],.06)
-        b=self.brush({'PressureSpacing':'true','SpacingcurveMode':'1'})
+        b=self.brush({'PressureSpacing':'true','SpacingcurveMode':'1','SpacingSensor':'<params id="sensorslist"><ChildSensor id="pressure"/><ChildSensor id="declination"/></params>'})
         self.assertNotIn('dynamics',b['descriptor']['behavior']['spacing'])
         self.assertTrue(any(x['feature']=='SpacingSensorCombination' and x['status']=='unsupported' for x in b['compatibility']))
 

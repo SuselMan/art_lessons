@@ -25,6 +25,13 @@ class RandomOptionTests(unittest.TestCase):
         self.assertEqual(b['behavior']['spacing']['mode'],'diameter')
         self.assertEqual(c[0]['control'],'random');self.assertAlmostEqual(c[0]['curve']['samples'][0],.2)
 
+    def test_nonproduct_mode_does_not_discard_single_pressure_plus_additive_fuzzy(self):
+        sensor='<params id="sensorslist"><ChildSensor id="fuzzy"/><ChildSensor id="pressure"><curve>0,0;1,1;</curve></ChildSensor></params>'
+        for mode in ['0','1','2','3','4']:
+            b=self.brush({'PressureSize':'true','SizeUseCurve':'true','SizeSensor':sensor,'SizeUseSameCurve':'false','SizecurveMode':mode})['descriptor']
+            self.assertEqual(b['sizeByPressure'],[[0,0],[1,1]])
+            self.assertEqual(b['behavior']['modulations']['size'][0]['control'],'random')
+
     def test_ratio_preserves_local_y_and_independent_random_curve(self):
         b=self.brush({'PressureRatio':'true','RatioValue':'.6','RatioSensor':'<params id="fuzzy"><curve>0,0;1,1;</curve></params>'})['descriptor']
         controls=b['behavior']['modulations']['roundness']

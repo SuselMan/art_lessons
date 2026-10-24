@@ -222,6 +222,7 @@ class KritaTests(unittest.TestCase):
         for checked,use_curve,mode,expected in cases:
             with self.subTest(checked=checked,use_curve=use_curve,mode=mode),tempfile.TemporaryDirectory() as tmp:
                 params={'PressureSmudgeRate':checked,'SmudgeRateUseCurve':use_curve,'SmudgeRatecurveMode':str(mode),'SmudgeRateSensor':'<params id="pressure"><curve>0,0;0.5,0.2;1,1;</curve></params>'}
+                if mode: params['SmudgeRateSensor']='<params id="sensorslist"><ChildSensor id="pressure"/><ChildSensor id="declination"/></params>'
                 saved=''.join('<param name="'+key+'"><![CDATA['+value+']]></param>' for key,value in params.items())
                 path=Path(tmp)/'QA.kpp';path.write_bytes(kpp(resources=saved,engine='colorsmudge'))
                 catalog=convert.Catalog(Path(tmp)/'out');convert_krita(path,catalog)

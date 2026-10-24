@@ -84,7 +84,7 @@ class LegacyForegroundTests(unittest.TestCase):
             target=m['foreground'] if option=='ColorRate' else m['sampling']
             self.assertNotIn('dynamics' if option=='ColorRate' else 'radiusDynamics',target)
             self.assertTrue(any(n['feature']==option+'SensorCombination' and n['status']=='unsupported' for n in b['compatibility']))
-        c=self.brush({'ColorRateUseCurve':'true','ColorRatecurveMode':'1'})
+        c=self.brush({'ColorRateUseCurve':'true','ColorRatecurveMode':'1','ColorRateSensor':'<params id="sensorslist"><ChildSensor id="pressure"/><ChildSensor id="declination"/></params>'})
         self.assertNotIn('dynamics',c.brushes[0]['descriptor']['mixer']['foreground'])
         self.assertTrue(any(n['feature']=='ColorRateSensorCombination' and n['status']=='unsupported' for n in c.brushes[0]['compatibility']))
 

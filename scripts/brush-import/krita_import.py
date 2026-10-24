@@ -268,8 +268,13 @@ def sensor_controls(params, option, notes):
     if option!='Rotation' and sum(name in ('fuzzy','fuzzystroke','ascension','rotation') for name in ids)>1:
         notes.append(compatibility(option+'SensorCombination','Multiple native additive sensors require a summed response; product approximation rejected.','unsupported'))
         return []
-    if numeric(params.get(option+'curveMode'))!=0:
-        notes.append(compatibility(option+'SensorCombination','Non-multiplicative sensor combination is unsupported.','unsupported'))
+    mode=numeric(params.get(option+'curveMode'))
+    # Native curveMode combines scaling sensors only. One pressure scaling
+    # sensor plus one additive fuzzy has the same result for product/max/min/
+    # sum/difference: Cpressure(p)*Cfuzzy(U), not max of those two responses.
+    scaling_count=sum(name not in ('fuzzy','fuzzystroke','ascension','drawingangle','rotation') for name in ids)
+    if mode!=0 and not (mode in (1,2,3,4) and scaling_count<=1):
+        notes.append(compatibility(option+'SensorCombination','Non-multiplicative combination of multiple scaling sensors is unsupported.','unsupported'))
         return []
     legacy_curve=params.get('Curve'+option,'0,0;1,1;') if 'curve' not in sensor_definition and enabled(params.get('Custom'+option)) else '0,0;1,1;'
     common=params.get(option+'commonCurve') or (sensors[-1].findtext('curve') if sensors else None)
