@@ -5,6 +5,7 @@ export interface BrushBehaviorState {
   pending?: BehaviorPlaced[]
   dabOrdinal?: number
   dabSequence?: number
+  washOpacity?: {average:number;maximum:number}
   seed: number
   charge: number
   distance: number
@@ -92,6 +93,8 @@ export interface BehaviorPlaced extends BehaviorStamp {
   radius: number
   flow: number
   ceiling: number
+  washAverage?: number
+  washFeedback?: boolean
   pressure: number
 }
 /** A bounded provisional tail, recalculated from fixed gesture distance. */

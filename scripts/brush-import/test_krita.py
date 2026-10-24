@@ -258,7 +258,7 @@ class KritaTests(unittest.TestCase):
             # final mixer parameters, so old rooms keep their former resource.
             old=copy.deepcopy(current);old['mixer'].update(load=.5,pickup=.5)
             finalize_identity(old,source)
-            self.assertEqual(current['version'],20)
+            self.assertEqual(current['version'],21)
             previous=copy.deepcopy(current);previous['version']=15
             finalize_identity(previous,source)
             self.assertNotEqual(previous['id'],current['id'])
@@ -275,7 +275,8 @@ class KritaTests(unittest.TestCase):
             p=Path(tmp)/'Mask.kpp';Image.new('RGB',(2,2)).save(p,format='PNG',pnginfo=meta)
             c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
             dual=c.brushes[0]['descriptor']['behavior']['dual']
-            self.assertEqual(dual['sampling'],'independent');self.assertEqual(dual['brush']['spacing'],0.5)
+            self.assertEqual(dual['sampling'],'independent')
+            self.assertEqual(dual['brush']['behavior']['rendering']['accumulation'],'alphaDarken');self.assertEqual(dual['brush']['spacing'],0.5)
             self.assertEqual(dual['brush']['sizeByPressure'],[[0,0.5],[1,0.5]])
 
     def test_multiple_sensors_preserve_independent_curves_and_unknown_sensor(self):

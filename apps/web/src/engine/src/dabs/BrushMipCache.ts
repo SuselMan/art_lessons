@@ -3,7 +3,8 @@
 export class BrushMipCache {
   private readonly entries=new Map<string,readonly Uint8Array[]>()
   private usedBytes=0
-  constructor(private readonly targetBytes=4*1024*1024) {}
+  private readonly targetBytes:number
+  constructor(targetBytes=4*1024*1024) {this.targetBytes=targetBytes}
   get bytes():number{return this.usedBytes}
   get(key:string,build:()=>readonly Uint8Array[]):readonly Uint8Array[] {
     const cached=this.entries.get(key)

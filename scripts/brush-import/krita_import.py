@@ -361,7 +361,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=20
+    d['version']=21
     source_size=None
     application=0
     kind = definition.get('type')
@@ -765,6 +765,15 @@ def preset(data, name, catalog, external, depth=0):
         notes.append(compatibility('maskingBrush','Independent masking spacing, dynamics and grain retained. Krita-specific edge/colour mixing formulas remain approximate.'))
     if enabled(params.get('PaintOpSettings/isAirbrushing',params.get('AirbrushOption/isAirbrushing'))):
         notes.append(compatibility('airbrush','Timed spraying is not reproduced.','unsupported'))
+    if engine=='paintbrush':
+        wash=depth>0 or params.get('PaintOpAction')=='2'
+        varying_color=d['tip'].get('material') or behavior.get('colorAdjustment') or any(key in behavior.get('dynamics',{}) or key in behavior.get('modulations',{}) for key in ('hue','saturation','brightness'))
+        if not wash:
+            behavior['rendering']['accumulation']='over'
+        elif not varying_color:
+            behavior['rendering']['accumulation']='alphaDarken'
+        else:
+            notes.append(compatibility('washAccumulation','Varying material/color retains approximate stroke opacity; exact alpha-darken feedback is not enabled for this high-cost profile.'))
     d['behavior']=behavior
     warnings.extend(n['feature']+': '+n['detail'] for n in notes if n['status']!='supported')
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}

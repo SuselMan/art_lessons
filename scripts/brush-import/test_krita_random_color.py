@@ -51,8 +51,15 @@ class RandomOptionTests(unittest.TestCase):
             b=self.brush(params)
             self.assertEqual(any(x['feature']=='airbrush' for x in b['compatibility']),expected)
 
-if __name__=='__main__':unittest.main()
 
+
+    def test_native_accumulation_is_explicit_and_material_cost_is_bounded(self):
+        for params in [{},{'PaintOpAction':'1'}]:
+            self.assertEqual(self.brush(params)['descriptor']['behavior']['rendering']['accumulation'],'over')
+        self.assertEqual(self.brush({'PaintOpAction':'2'})['descriptor']['behavior']['rendering']['accumulation'],'alphaDarken')
+        varied=self.brush({'PaintOpAction':'2','Pressureh':'true','hUseCurve':'true','hValue':'1','hSensor':'<params id="fuzzy"/>'})
+        self.assertNotIn('accumulation',varied['descriptor']['behavior']['rendering'])
+        self.assertTrue(any(x['feature']=='washAccumulation' for x in varied['compatibility']))
 
 class DabProgressTests(unittest.TestCase):
     def test_fade_is_dab_progress_with_own_curve_and_pressure_product(self):

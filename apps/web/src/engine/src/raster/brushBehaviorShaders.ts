@@ -124,6 +124,9 @@ export const BRUSH_STAMP_FRAG = `
   // This stamp's opacity ceiling (digitalBrushCeiling), 1 with the switch off.
   uniform float u_ceiling;
   uniform float u_uniformCeiling;
+  uniform float u_washMode;
+  uniform float u_washFlow;
+  uniform float u_washAverage;
   // How strongly the paper's tooth breaks this brush's contact (0..1), and the
   // pressure pushing it into the tooth.
   uniform float u_paper;
@@ -261,6 +264,27 @@ export const BRUSH_STAMP_FRAG = `
     }
     if (amount <= 0.0) discard;
 
+    if (u_washMode > 0.5) {
+      float M=clamp(amount,0.0,1.0), O=clamp(u_ceiling,0.0,1.0), F=u_washFlow;
+      if (u_washMode < 1.5) {
+        // OVER applies opacity per dab, not to the completed stroke.
+        float a=M*O*F; gl_FragColor=vec4(pigment*a,a); return;
+      }
+      float A=u_washAverage;
+      if (u_washMode > 2.5) {
+        // Constant pigment and D<=A: exact fixed-function alpha-darken.
+        float q=A>0.0 ? M*F*O/A : 0.0;
+        gl_FragColor=vec4(pigment*q,q); return;
+      }
+      vec4 previous=texture2D(u_previousCeiling,gl_FragCoord.xy/u_resolution);
+      float D=previous.a, T=M*O;
+      float H=A>O ? (A>D ? T+(A-T)*D/max(A,0.0000001) : D)
+                  : (O>D ? D+(O-D)*M : D);
+      float a=D+F*(H-D);
+      vec3 C=D>0.0 ? mix(previous.rgb/D,pigment,T) : pigment;
+      gl_FragColor=vec4(C*a,a); return;
+    }
+
     // The ceiling follows the stamp's silhouette only as far as needed to stay
     // continuous: a hard step at the stamp's rim would draw a visible circle
     // wherever a firm stamp's edge crosses a lighter part of the same stroke.
@@ -276,6 +300,7 @@ precision highp float;
 uniform sampler2D u_original;
 uniform sampler2D u_strokeCoverage;
 uniform sampler2D u_ceiling;
+uniform float u_physicalAccumulation;
 uniform vec2 u_resolution;
 uniform float u_opacity;
 uniform float u_blend;
@@ -342,7 +367,7 @@ void main() {
    pigment=mix(pigment,brushBlend(pigment,pigment*0.5,u_burntBlend),u_burntEdge*edge);
  }
  if(u_luminance>0.5) coverage*=1.0-dot(pigment,vec3(0.2126,0.7152,0.0722));
- float ceiling=texture2D(u_ceiling,uv).r;
+ float ceiling=u_physicalAccumulation>0.5 ? 1.0 : texture2D(u_ceiling,uv).r;
  float alpha=clamp(coverage*u_opacity*ceiling,0.0,1.0);
  if(u_erase>0.5){gl_FragColor=base*(1.0-alpha);return;}
  vec3 b=base.rgb/max(base.a,0.00392157);

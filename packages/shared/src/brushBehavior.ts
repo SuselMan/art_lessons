@@ -50,6 +50,8 @@ export interface BrushBehavior {
   rendering?: {
     /** Shape attenuation is historical; uniform keeps mask coverage only once. */
     opacityCeiling?: 'shape' | 'uniform'
+    /** Physical per-dab alpha, bypassing the historical final stroke ceiling. */
+    accumulation?: 'over' | 'alphaDarken'
     mode: 'lightGlaze' | 'uniformGlaze' | 'intenseGlaze' | 'heavyGlaze' | 'uniformBlend' | 'intenseBlend' | 'buildUp'
     blendMode: BrushBlendMode; wetEdges: number; burntEdges: number; burntEdgesMode: BrushBlendMode
     luminance?: boolean
@@ -107,7 +109,7 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const g=value.grain
   if (g !== undefined && (!obj(g) || !keys(g,['mode','movement','zoom','rotation','offsetJitter','brightness','contrast','depthMinimum','depthJitter','blendMode']) || !['canvas','moving'].includes(String(g.mode)) || !n(g.movement) || !n(g.zoom) || !n(g.rotation,-1,1) || typeof g.offsetJitter !== 'boolean' || !n(g.brightness,-1,1) || !n(g.contrast,-1,1) || !n(g.depthMinimum) || !n(g.depthJitter) || !blend(g.blendMode))) return false
   const render=value.rendering
-  if (render !== undefined && (!obj(render) || !keys(render,['opacityCeiling','mode','blendMode','wetEdges','burntEdges','burntEdgesMode','luminance','gammaCorrect']) || !['lightGlaze','uniformGlaze','intenseGlaze','heavyGlaze','uniformBlend','intenseBlend','buildUp'].includes(String(render.mode)) || (render.opacityCeiling!==undefined && !['shape','uniform'].includes(String(render.opacityCeiling))) || !blend(render.blendMode) || !n(render.wetEdges) || !n(render.burntEdges) || !blend(render.burntEdgesMode) || (['luminance','gammaCorrect'].some(k => render[k] !== undefined && typeof render[k] !== 'boolean')))) return false
+  if (render !== undefined && (!obj(render) || !keys(render,['accumulation','opacityCeiling','mode','blendMode','wetEdges','burntEdges','burntEdgesMode','luminance','gammaCorrect']) || !['lightGlaze','uniformGlaze','intenseGlaze','heavyGlaze','uniformBlend','intenseBlend','buildUp'].includes(String(render.mode)) || (render.accumulation!==undefined && (!['over','alphaDarken'].includes(String(render.accumulation)) || render.mode!=='buildUp' || value.taper!==undefined)) || (render.opacityCeiling!==undefined && !['shape','uniform'].includes(String(render.opacityCeiling))) || !blend(render.blendMode) || !n(render.wetEdges) || !n(render.burntEdges) || !blend(render.burntEdgesMode) || (['luminance','gammaCorrect'].some(k => render[k] !== undefined && typeof render[k] !== 'boolean')))) return false
   const w=value.wetMix
   const wetKeys=['dilution','charge','attack','pull','grade','blur','blurJitter','wetnessJitter']
   if (w !== undefined && (!obj(w) || !keys(w,[...wetKeys,'dynamics']) || !wetKeys.every(k => n(w[k],k==='grade'?-1:0,1)))) return false
