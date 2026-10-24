@@ -14,6 +14,7 @@ import zipfile
 from PIL import Image, ImageChops, PngImagePlugin
 from brush_contract import MAX_PIXELS, clamp, compatibility, descriptor, finalize_identity
 from curve_transfer import native_transfer,scaled_curve
+from krita_texture import preprocess_texture
 
 MAX_XML = 32 * 1024 * 1024
 
@@ -292,7 +293,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=9
+    d['version']=10
     source_size=None
     kind = definition.get('type')
     if kind == 'auto_brush':
@@ -404,9 +405,54 @@ def preset(data, name, catalog, external, depth=0):
                 raise ValueError('Embedded Krita pattern exceeds limit')
             payload=base64.b64decode(''.join(embedded.split()),validate=True)
             mask=raster(payload,'embedded.png')
-        aid=catalog.asset(mask,warnings,grain=True)
-        d['texture']={'id':aid,'strength':clamp(numeric(params.get('Texture/Strength/Value'),1)),'periodPx':clamp(mask.width*numeric(params.get('Texture/Pattern/Scale'),1),1,4096)}
-        notes.append(compatibility('texture','Pattern retained; Krita texture offset, relief and application modes require further translation.'))
+        texture_mode=numeric(params.get('Texture/Pattern/TexturingMode'),0)
+        if texture_mode in (0,1):
+            prefix='Texture/Pattern/'
+            scale=numeric(params.get(prefix+'Scale'),1)
+            if scale<0: raise ValueError('Negative Krita texture scale')
+            # Native0/1 skip scaling. Qt rounds transformed rectangle extents;
+            # smooth filtering is approximated offline with PIL bilinear.
+            grid=mask.size if scale in (0,1) else tuple(max(2,math.floor(v*scale+.5)) for v in mask.size)
+            if max(grid)>8192: raise ValueError('Krita texture native period exceeds8192')
+            native_width=grid[0]
+            target=grid
+            if max(grid)>2048:
+                ratio=2048/max(grid);target=tuple(max(2,math.floor(v*ratio+.5)) for v in grid)
+                warnings.append('Krita scaled pattern exceeds2048; downsampled preserving aspect and native world period')
+                notes.append(compatibility('textureResolution','Scaled pattern downsampled to2048; native detail and rounded aspect differ.','unsupported'))
+            if target!=mask.size:
+                mask=mask.resize(target,Image.Resampling.BILINEAR)
+                notes.append(compatibility('textureResampling','Native Qt SmoothTransformation approximated offline with PIL bilinear at rounded integer grid.'))
+            mask=preprocess_texture(mask,
+                brightness=numeric(params.get(prefix+'Brightness'),0),
+                contrast=numeric(params.get(prefix+'Contrast'),1),
+                neutral_point=numeric(params.get(prefix+'NeutralPoint'),.5),
+                invert=enabled(params.get(prefix+'Invert')),
+                cutoff_policy=int(numeric(params.get(prefix+'CutoffPolicy'),0)),
+                cutoff_left=int(numeric(params.get(prefix+'CutoffLeft'),0)),
+                cutoff_right=int(numeric(params.get(prefix+'CutoffRight'),255)))
+            width,height=mask.size
+            pot=max(2,1<<(max(width,height)-1).bit_length())
+            padded=Image.new('L',(pot,pot));padded.paste(mask,(0,0))
+            aid=catalog.asset(padded,warnings,grain=True)
+            offset={axis:clamp(numeric(params.get(prefix+'Offset'+axis.upper()),0),-8192,8192) for axis in ('x','y')}
+            offset.update(randomX=enabled(params.get(prefix+'isRandomOffsetX')),randomY=enabled(params.get(prefix+'isRandomOffsetY')))
+            d['texture']={'id':aid,'strength':clamp(numeric(params.get('Texture/Strength/Value'),1)),
+                          'periodPx':native_width,'patternSize':{'width':width,'height':height},
+                          'application':{'mode':'multiply' if texture_mode==0 else 'subtract','soft':enabled(params.get(prefix+'UseSoftTexturing'))},'offset':offset}
+            if any(abs(numeric(params.get(prefix+'Offset'+axis),0))>8192 for axis in ('X','Y')):
+                notes.append(compatibility('textureOffset','Native offset exceeds bounded8192 and was clamped.','unsupported'))
+            if offset['randomX'] or offset['randomY']:
+                notes.append(compatibility('textureRandomOffset','Per-stroke pattern phase uses deterministic Grafetto RNG rather than Krita RNG.'))
+            if enabled(params.get(prefix+'AutoInvertOnErase')):
+                notes.append(compatibility('textureEraseInvert','Automatic texture inversion on erasing is not implemented.','unsupported'))
+            controls=sensor_controls(params,'Texture/Strength/',notes)
+            if controls: behavior.setdefault('modulations',{})['grainDepth']=controls
+            notes.append(compatibility('texture','Native alpha-operation parameters and grid retained; GPU filtering/byte quantization require native comparison.'))
+        else:
+            aid=catalog.asset(mask,warnings,grain=True)
+            d['texture']={'id':aid,'strength':clamp(numeric(params.get('Texture/Strength/Value'),1)),'periodPx':clamp(mask.width*numeric(params.get('Texture/Pattern/Scale'),1),1,4096)}
+            notes.append(compatibility('textureApplication','Unsupported native texturing mode '+str(texture_mode)+'; previous grain approximation retained.','unsupported'))
     if engine == 'colorsmudge' and not eraser:
         # Krita's checkable rate options default unchecked. A disabled colour
         # rate contributes no foreground paint; disabled smudge means full pickup.
