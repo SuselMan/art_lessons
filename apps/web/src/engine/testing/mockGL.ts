@@ -102,7 +102,7 @@ const ENUM = {
   // which this mock's single-scalar-per-texel model happens to match exactly.
   ALPHA: 30,
   TEXTURE0: 100, TEXTURE1: 101,
-  UNPACK_ALIGNMENT: 102,
+  UNPACK_ALIGNMENT: 102, ACTIVE_TEXTURE: 1060, TEXTURE_BINDING_2D: 1061,
   // #141: infinite-canvas paper texture wrap mode — REPEAT vs CLAMP_TO_EDGE
   // is otherwise never observable through this mock (texParameteri used to
   // be a total no-op — see its own comment), so a test asserting the fix
@@ -153,6 +153,8 @@ export class MockGL {
   readonly TEXTURE1 = ENUM.TEXTURE1
   readonly REPEAT = ENUM.REPEAT
   readonly UNPACK_ALIGNMENT = ENUM.UNPACK_ALIGNMENT
+  readonly ACTIVE_TEXTURE = ENUM.ACTIVE_TEXTURE
+  readonly TEXTURE_BINDING_2D = ENUM.TEXTURE_BINDING_2D
 
   private _textureData = new Map<object, TextureInfo>()
   // #141 introspection only (see texParameteri) — never read by any
@@ -166,6 +168,7 @@ export class MockGL {
   private _transformDraws: Array<{ blendDst: number; srcMinFilter: number | null; srcMagFilter: number | null }> = []
   private _framebuffers = new Map<object, FramebufferInfo>()
   private _activeUnit = 0
+  private _unpackAlignment = 4
   private _textureUnits: Array<object | null> = []
   private _boundTextureTarget: object | null = null // last bound, regardless of unit (texImage2D/texParameteri target)
   private _boundFramebuffer: object | null = null
@@ -364,12 +367,9 @@ export class MockGL {
     if (pname === ENUM.TEXTURE_MAG_FILTER) this._magFilter.set(tex, param)
   }
 
-  // pixelStorei affects only real-GL row-alignment during unpack — this
-  // mock reads whole typed arrays directly (no row-stride math), so it's a
-  // true no-op; kept only so callers (e.g. paperLoader.ts's
-  // uploadPaperTexture, matching real-browser practice for a LUMINANCE
-  // upload) don't hit a missing-method error under vitest's mocked gl.
-  pixelStorei(_pname: number, _param: number): void { /* no-op */ }
+  // Typed arrays need no row-stride math here; retain alignment so uploads
+  // can nevertheless prove that they restore the caller's packing state.
+  pixelStorei(pname: number, param: number): void { if (pname === ENUM.UNPACK_ALIGNMENT) this._unpackAlignment = param }
 
   // Two overloads, exactly as real WebGL1 has them. The 6-argument form takes
   // a DOM source (an HTMLImageElement — reference-image import, #88/#398)
@@ -499,7 +499,10 @@ export class MockGL {
   // stamp its report — exercises the same shape here as in a browser. A mock
   // that simply lacks the method turns a diagnostic into a crash, which is the
   // one thing a diagnostic must never be.
-  getParameter(pname: number): number | null {
+  getParameter(pname: number): number | object | null {
+    if (pname === ENUM.ACTIVE_TEXTURE) return ENUM.TEXTURE0 + this._activeUnit
+    if (pname === ENUM.TEXTURE_BINDING_2D) return this._textureUnits[this._activeUnit] ?? null
+    if (pname === ENUM.UNPACK_ALIGNMENT) return this._unpackAlignment
     return pname === ENUM.MAX_TEXTURE_SIZE ? 4096 : null
   }
 

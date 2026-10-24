@@ -17,6 +17,7 @@
 // restore as objects; forget() drops what they hold, because every GL name
 // in them is dead.
 
+import { BrushTextureCache, uploadBrushTexture } from './BrushTextureCache'
 import { brushFootprintBounds } from './brushFootprint'
 import { BRUSH_BLEND_MODES, type Dab } from '@grafetto/shared'
 import type { BrushDescriptor } from '@grafetto/shared'
@@ -172,7 +173,7 @@ export class SmudgePainter {
   // smudge state is per-user by construction — two peers' chunked strokes
   // interleaving in the log would otherwise each reset the other.
   private readonly wetGestures = new Map<string, WetGesture>()
-  private readonly wetTextures = new Map<string, WebGLTexture>()
+  private readonly wetTextures: BrushTextureCache
   private readonly replayChunks = new Map<string, { strokeId: string; lastDab: Dab }>()
 
   // Smudge (#14) — paired with the existing DAB_VERT (see SMUDGE_TRANSFER_
@@ -194,6 +195,7 @@ export class SmudgePainter {
   constructor(ctx: SmudgeContext) {
     this.ctx = ctx
     this.gl = ctx.gl
+    this.wetTextures = new BrushTextureCache(ctx.gl)
     const { gl } = ctx
     this.scratchPool = new ScratchFreeList((w, h) => new AccumulationBuffer(gl, w, h, 'linear'), SMUDGE_IDLE_SCRATCH_BYTES)
   }
@@ -201,6 +203,7 @@ export class SmudgePainter {
   /** Builds both programs — from the engine's _initGL, at construction and
    *  again on every context restore (the old names died with the context). */
   initGL(): void {
+    this.wetTextures.clear(true)
     const { gl } = this
     this.transferProg = createProgram(gl, DAB_VERT, WET_TRANSFER_FRAG)
     this.pickupProg   = createProgram(gl, DISPLAY_VERT, WET_PICKUP_FRAG)
@@ -221,7 +224,7 @@ export class SmudgePainter {
   /** Context loss: every GL object held here is already dead. */
   forget(): void {
     this.scratchPool.forget() // same reasoning as AreaOps' pool, see #14
-    this.wetTextures.clear()
+    this.wetTextures.clear(true)
     for(const state of this.wetGestures.values()) state.secondary?.forget()
     this.wetGestures.clear()
     this.imprints.clear() // same reasoning — pooled GL objects are dead too
@@ -236,7 +239,6 @@ export class SmudgePainter {
     for (const imprint of this.imprints.values()) imprint.buf?.destroy()
     this.imprints.clear()
     this.replayChunks.clear()
-    for (const texture of this.wetTextures.values()) gl.deleteTexture(texture)
     this.wetTextures.clear()
     for(const state of this.wetGestures.values())state.secondary?.destroy()
     this.wetGestures.clear()
@@ -685,6 +687,13 @@ export class SmudgePainter {
     // A cold secondary tile clears its own framebuffer. Resolve it before
     // beginning the destination pass so allocation cannot redirect this dab.
     const secondaryTexture = wet?.secondary?.tile(buffer).texture ?? paper.texture
+    const brush = wet?.paint.brush, dual=brush?.behavior?.dual
+    const tip=wet?.stamp.mask ?? brush?.tip.mask
+    const dualTip=wet?.secondary ? undefined : wet?.stamp.dualMask ?? dual?.brush.tip.mask
+    this.wetTextures.protect([...(tip ? [`t:${tip}`] : []),...(brush?.texture ? [`g:${brush.texture.id}`] : []),...(dualTip ? [`t:${dualTip}`] : [])])
+    const tipTexture=tip ? this.wetTexture(tip,false) : paper.texture
+    const grainTexture=brush?.texture ? this.wetTexture(brush.texture.id,true) : paper.texture
+    const dualTexture=dualTip ? this.wetTexture(dualTip,false) : paper.texture
     if (wet) buffer.beginReplaceDraw()
     else if (mode === 'lay') buffer.beginAdditiveDraw()
     else buffer.beginErase()
@@ -706,7 +715,6 @@ export class SmudgePainter {
     gl.uniform1i(u.u_carried, 1)
     gl.uniform2f(u.u_patchOrigin, patchX, patchGlY)
     gl.uniform1f(u.u_patchSize, patchSize)
-    const brush = wet?.paint.brush
     gl.uniform1f(u.u_edgeBleed,wet?.stamp.edgeSoftness ?? 0)
     gl.uniform1f(u.u_wetEnabled,wet ? 1 : 0)
     gl.uniform1f(u.u_tipKind,brush?.tip.kind === 'bitmap' ? 1 : 0)
@@ -715,11 +723,10 @@ export class SmudgePainter {
     gl.uniform4f(u.u_tipBounds,tipBounds?.x ?? 0,tipBounds?.y ?? 0,tipBounds?.width ?? 1,tipBounds?.height ?? 1)
     const dualBounds=brush?.behavior?.dual?.brush.tip.maskBounds
     gl.uniform4f(u.u_dualBounds,dualBounds?.x ?? 0,dualBounds?.y ?? 0,dualBounds?.width ?? 1,dualBounds?.height ?? 1)
-    const dual=brush?.behavior?.dual
     for (const [unit,texture,name] of [
-      [2,(wet?.stamp.mask ?? brush?.tip.mask) ? this.wetTexture((wet?.stamp.mask ?? brush!.tip.mask)!,false) : paper.texture,'u_tip'],
-      [3,brush?.texture ? this.wetTexture(brush.texture.id,true) : paper.texture,'u_wetGrain'],
-      [4,(wet?.stamp.dualMask ?? dual?.brush.tip.mask) ? this.wetTexture((wet?.stamp.dualMask ?? dual!.brush.tip.mask)!,false) : paper.texture,'u_dual'],
+      [2,tipTexture,'u_tip'],
+      [3,grainTexture,'u_wetGrain'],
+      [4,dualTexture,'u_dual'],
       [5,original?.texture ?? carried.texture,'u_wetOriginal'],
     ] as const) {
       gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(u[name],unit)
@@ -782,31 +789,14 @@ export class SmudgePainter {
     buffer.endDraw()
   }
 
-  /** At most eight mask/grain uploads; eviction/context loss never grows GPU memory. */
+  /** Byte-bounded residency; active samplers remain protected across draws. */
   private wetTexture(id: TipMaskId | BrushTextureId, grain: boolean): WebGLTexture {
-    const key = `${grain ? 'g' : 't'}:${id}`
-    const old = this.wetTextures.get(key)
-    if (old) { this.wetTextures.delete(key); this.wetTextures.set(key,old); return old }
-    const levels = grain ? brushTextureMips(id as BrushTextureId) : tipMaskMips(id as TipMaskId)
-    const gl=this.gl
-    const texture=gl.createTexture()
-    if (!texture) throw new Error('Wet brush texture allocation failed')
-    gl.bindTexture(gl.TEXTURE_2D,texture)
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT,1)
-    for (const [level,pixels] of levels.entries()) {
-      const size=Math.sqrt(pixels.length)
-      gl.texImage2D(gl.TEXTURE_2D,level,gl.ALPHA,size,size,0,gl.ALPHA,gl.UNSIGNED_BYTE,pixels)
-    }
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE)
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE)
-    this.wetTextures.set(key,texture)
-    if (this.wetTextures.size>8) {
-      const first=this.wetTextures.entries().next().value
-      if (first) {gl.deleteTexture(first[1]);this.wetTextures.delete(first[0])}
-    }
-    return texture
+    const key = `${grain ? 'g' : 't'}:${id}`, cached = this.wetTextures.get(key)
+    if(cached)return cached
+    const levels=grain ? brushTextureMips(id as BrushTextureId) : tipMaskMips(id as TipMaskId)
+    const entry=uploadBrushTexture(this.gl,levels,this.gl.ALPHA,this.gl.CLAMP_TO_EDGE)
+    this.wetTextures.put(key,entry.texture,entry.bytes)
+    return entry.texture
   }
 
   /** Smudge's own size-keyed free list (patches *and* imprints — both are

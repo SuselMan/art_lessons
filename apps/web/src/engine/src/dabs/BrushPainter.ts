@@ -8,6 +8,7 @@ import type { BrushDescriptor, BrushPressureSettings } from '../presets/digitalB
 import { normalizeBrush } from '../presets/brushNormalization'
 import type { PencilPreset } from '../presets/pencilPresets'
 import { brushTextureMips, tipMaskMips, type BrushTextureId, type TipMaskId } from '../presets/tipMasks'
+import { BrushTextureCache, uploadBrushTexture } from './BrushTextureCache'
 import { BrushBehaviorPainter, type BehaviorScratch } from './BrushBehaviorPainter'
 
 export interface BrushContext {
@@ -24,17 +25,20 @@ export interface BrushScratch {
 export class BrushPainter {
   private readonly behavior: BrushBehaviorPainter
   private readonly gl: WebGLRenderingContext
-  private tipTextures = new Map<TipMaskId, WebGLTexture>()
-  private brushTextures = new Map<BrushTextureId, WebGLTexture>()
+  private readonly textures: BrushTextureCache
   constructor(ctx: BrushContext) {
     this.gl=ctx.gl
-    this.behavior=new BrushBehaviorPainter(ctx,id=>this.tipTexture(id),id=>this.brushTexture(id))
+    this.textures=new BrushTextureCache(ctx.gl)
+    this.behavior=new BrushBehaviorPainter(ctx,id=>this.tipTexture(id),id=>this.brushTexture(id),(tip,grain,dual,dualGrain)=>this.textures.protect([
+      'g:cloud', 'g:grit',
+      ...(tip ? [`t:${tip}`] : []), ...(grain ? [`g:${grain}`] : []),
+      ...(dual ? [`t:${dual}`] : []), ...(dualGrain ? [`g:${dualGrain}`] : []),
+    ]))
   }
-  initGL():void {this.tipTextures.clear();this.brushTextures.clear();this.behavior.initGL()}
+  initGL():void {this.textures.clear(true);this.behavior.initGL()}
   destroy():void {
     this.behavior.destroy()
-    for(const texture of [...this.tipTextures.values(),...this.brushTextures.values()])this.gl.deleteTexture(texture)
-    this.tipTextures.clear();this.brushTextures.clear()
+    this.textures.clear()
   }
   finish(scratch:BehaviorScratch):void {this.behavior.finish(scratch)}
   paint(target:ILayerBuffer,dabs:Dab[],preset:PencilPreset,stamp:{brush:BrushDescriptor;pressure:BrushPressureSettings},color:[number,number,number],scratch:BehaviorScratch,_previous:Dab|undefined):void {
@@ -45,61 +49,18 @@ export class BrushPainter {
   }
 
   private brushTexture(id: BrushTextureId): WebGLTexture {
-    const cached = this.brushTextures.get(id)
-    if (cached) {
-      // LRU order; imported texture residency is bounded independently of the
-      // CPU resources retained for synchronous undo/replay.
-      this.brushTextures.delete(id); this.brushTextures.set(id, cached)
-      return cached
-    }
-    const tex = this.uploadMips(brushTextureMips(id), this.gl.REPEAT)
-    if (id.startsWith('asset:')) this.trimImportedTextures(this.brushTextures)
-    this.brushTextures.set(id, tex)
-    return tex
+    const key=`g:${id}`, cached=this.textures.get(key)
+    if(cached)return cached
+    const entry=uploadBrushTexture(this.gl,brushTextureMips(id),this.gl.LUMINANCE,this.gl.REPEAT)
+    this.textures.put(key,entry.texture,entry.bytes)
+    return entry.texture
   }
 
-  /** One bitmap tip as a mipmapped LUMINANCE texture, uploaded on first use.
-   *
-   *  Every mip level comes from tipMaskMips on the CPU rather than from
-   *  gl.generateMipmap — see that function on why the driver's filter is not
-   *  trusted with a value every participant has to agree on. */
   private tipTexture(id: TipMaskId): WebGLTexture {
-    const cached = this.tipTextures.get(id)
-    if (cached) {
-      this.tipTextures.delete(id); this.tipTextures.set(id, cached)
-      return cached
-    }
-    const tex = this.uploadMips(tipMaskMips(id), this.gl.CLAMP_TO_EDGE)
-    if (id.startsWith('asset:')) this.trimImportedTextures(this.tipTextures)
-    this.tipTextures.set(id, tex)
-    return tex
-  }
-
-  /** At most four imported masks and four imported grains per renderer:
-   * roughly 43 MiB including CPU-built mips at 2048², rather than the library. */
-  private trimImportedTextures(textures: Map<string, WebGLTexture>): void {
-    const imported = [...textures.keys()].filter(key => key.startsWith('asset:'))
-    if (imported.length < 4) return
-    const key = imported[0]
-    this.gl.deleteTexture(textures.get(key)!)
-    textures.delete(key)
-  }
-
-  private uploadMips(levels: Uint8Array[], wrapMode: number): WebGLTexture {
-    const { gl } = this
-    const tex = gl.createTexture()!
-    gl.bindTexture(gl.TEXTURE_2D, tex)
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-    let size = Math.round(Math.sqrt(levels[0].length))
-    for (let level = 0; level < levels.length; level++) {
-      gl.texImage2D(gl.TEXTURE_2D, level, gl.LUMINANCE, size, size, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, levels[level])
-      size = Math.max(1, size >> 1)
-    }
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapMode)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapMode)
-    return tex
+    const key=`t:${id}`, cached=this.textures.get(key)
+    if(cached)return cached
+    const entry=uploadBrushTexture(this.gl,tipMaskMips(id),this.gl.LUMINANCE,this.gl.CLAMP_TO_EDGE)
+    this.textures.put(key,entry.texture,entry.bytes)
+    return entry.texture
   }
 }

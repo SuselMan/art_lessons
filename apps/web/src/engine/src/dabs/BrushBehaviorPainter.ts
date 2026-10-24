@@ -66,7 +66,8 @@ export class BrushBehaviorPainter {
   private readonly ctx: BrushContext
   private readonly tip: (id: TipMaskId) => WebGLTexture
   private readonly grain: (id: BrushTextureId) => WebGLTexture
-  constructor(ctx: BrushContext, tip: (id: TipMaskId) => WebGLTexture, grain: (id: BrushTextureId) => WebGLTexture) { this.ctx = ctx; this.tip = tip; this.grain = grain }
+  private readonly protectTextures: (tip?: TipMaskId, grain?: BrushTextureId, dual?: TipMaskId, dualGrain?: BrushTextureId) => void
+  constructor(ctx: BrushContext, tip: (id: TipMaskId) => WebGLTexture, grain: (id: BrushTextureId) => WebGLTexture, protectTextures: (tip?: TipMaskId, grain?: BrushTextureId, dual?: TipMaskId, dualGrain?: BrushTextureId) => void) { this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures }
   initGL(): void {
     const gl = this.ctx.gl
     this.minmax = gl.getExtension('EXT_blend_minmax') as {
@@ -149,12 +150,13 @@ export class BrushBehaviorPainter {
     // Only current changes are dirty. Historical primary coverage remains in
     // scratch and the output tile; it does not require recompositing.
     const bounds = {minX:Math.floor(dirty.minX),minY:Math.floor(dirty.minY),maxX:Math.ceil(dirty.maxX),maxY:Math.ceil(dirty.maxY)}
-    const mask = brush.tip.mask ? this.tip(brush.tip.mask) : paper.texture
-    const texture = brush.texture ? this.grain(brush.texture.id) : paper.texture
     const secondary = independent ? undefined : behavior.dual?.brush
-    const dualMask = secondary?.tip.mask ? this.tip(secondary.tip.mask) : paper.texture
-    const dualTexture = secondary?.texture ? this.grain(secondary.texture.id) : paper.texture
     const animated = !!brush.tip.animation || !!secondary?.tip.animation
+    this.protectTextures(stamps[0]?.mask ?? brush.tip.mask,brush.texture?.id,stamps[0]?.dualMask ?? secondary?.tip.mask,secondary?.texture?.id)
+    const mask = !animated && brush.tip.mask ? this.tip(brush.tip.mask) : paper.texture
+    const texture = brush.texture ? this.grain(brush.texture.id) : paper.texture
+    const dualMask = !animated && secondary?.tip.mask ? this.tip(secondary.tip.mask) : paper.texture
+    const dualTexture = secondary?.texture ? this.grain(secondary.texture.id) : paper.texture
     const dualPeriod = Math.max(0.5, secondary?.texture?.periodPx ?? 1)
     const g = behavior.grain
     const period = Math.max(0.5, (brush.texture?.periodPx ?? 1) * (g ? 0.1 + g.zoom * 1.9 : 1))
@@ -205,14 +207,14 @@ export class BrushBehaviorPainter {
         gl.uniform1f(u.u_ceilingPass, ceilingPass ? 1 : 0)
         for (const s of list) {
           if(animated) {
-            // Refresh both current masks in the bounded LRU. Holding a frame-0
-            // texture across a long pipe can otherwise retain an evicted handle.
-            gl.activeTexture(gl.TEXTURE1)
-            const currentMask=s.mask ?? brush.tip.mask
-            gl.bindTexture(gl.TEXTURE_2D,currentMask ? this.tip(currentMask) : paper.texture)
-            gl.activeTexture(gl.TEXTURE3)
-            const currentDual=s.dualMask ?? secondary?.tip.mask
-            gl.bindTexture(gl.TEXTURE_2D,currentDual ? this.tip(currentDual) : paper.texture)
+            const currentMask=s.mask ?? brush.tip.mask, currentDual=s.dualMask ?? secondary?.tip.mask
+            this.protectTextures(currentMask,brush.texture?.id,currentDual,secondary?.texture?.id)
+            // Resolve the whole group before binding. Lazy upload restores GL
+            // state and cannot evict another sampler in this protected group.
+            const mainTexture=currentMask ? this.tip(currentMask) : paper.texture
+            const secondTexture=currentDual ? this.tip(currentDual) : paper.texture
+            gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,mainTexture)
+            gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,secondTexture)
           }
           const footprint=brushFootprintBounds(s.x,s.y,s.radius,s.aspect,s.angle,1)
           if(!footprint || footprint.maxX<tile.originX || footprint.maxY<tile.originY || footprint.minX>tile.originX+coverage.width || footprint.minY>tile.originY+coverage.height) continue

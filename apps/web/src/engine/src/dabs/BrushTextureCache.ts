@@ -1,0 +1,75 @@
+/** Per-painter GPU residency, conservatively charged as RGBA including mips.
+ * Active draw-group resources may exceed the target; evicting one of those
+ * would invalidate a bound sampler or re-upload the same working set forever. */
+export class BrushTextureCache {
+  private readonly entries = new Map<string, { texture: WebGLTexture; bytes: number }>()
+  private protectedKeys = new Set<string>()
+  private usedBytes = 0
+  private readonly gl: WebGLRenderingContext
+  private readonly targetBytes: number
+  constructor(gl: WebGLRenderingContext, targetBytes = 16 * 1024 * 1024) { this.gl = gl; this.targetBytes = targetBytes }
+  get bytes(): number { return this.usedBytes }
+  protect(keys: readonly string[]): void {
+    this.protectedKeys = new Set(keys)
+    this.trim()
+  }
+  get(key: string): WebGLTexture | undefined {
+    const entry = this.entries.get(key)
+    if (entry) { this.entries.delete(key); this.entries.set(key, entry) }
+    return entry?.texture
+  }
+  put(key: string, texture: WebGLTexture, bytes: number): void {
+    if (!this.protectedKeys.has(key)) throw new Error('Resolve a protected brush group before uploading')
+    const previous = this.entries.get(key)
+    if (previous) throw new Error('Brush texture cache entry already exists')
+    this.entries.set(key, { texture, bytes })
+    this.usedBytes += bytes
+    this.trim()
+  }
+  clear(lost = false): void {
+    if (!lost) for (const entry of this.entries.values()) this.gl.deleteTexture(entry.texture)
+    this.entries.clear(); this.protectedKeys.clear(); this.usedBytes = 0
+  }
+  private trim(): void {
+    let protectedBytes = 0
+    for (const [key, entry] of this.entries) if (this.protectedKeys.has(key)) protectedBytes += entry.bytes
+    const limit = Math.max(this.targetBytes, protectedBytes)
+    for (const [key, entry] of this.entries) {
+      if (this.usedBytes <= limit) break
+      if (this.protectedKeys.has(key)) continue
+      this.gl.deleteTexture(entry.texture); this.entries.delete(key); this.usedBytes -= entry.bytes
+    }
+  }
+}
+
+/** Upload does not bind an FBO or leave a different sampler/packing state.
+ * Resolve the entire protected group before the caller binds it for drawing. */
+export function uploadBrushTexture(gl: WebGLRenderingContext, levels: readonly Uint8Array[], format: number, wrapMode: number): { texture: WebGLTexture; bytes: number } {
+  const active = gl.getParameter(gl.ACTIVE_TEXTURE) as number
+  const previous = gl.getParameter(gl.TEXTURE_BINDING_2D) as WebGLTexture | null
+  const unpack = gl.getParameter(gl.UNPACK_ALIGNMENT) as number
+  const texture = gl.createTexture()
+  if (!texture) throw new Error('Brush texture allocation failed')
+  try {
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+    let bytes = 0
+    for (const [level, pixels] of levels.entries()) {
+      const size = Math.sqrt(pixels.length)
+      gl.texImage2D(gl.TEXTURE_2D, level, format, size, size, 0, format, gl.UNSIGNED_BYTE, pixels)
+      bytes += pixels.length * 4
+    }
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapMode)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapMode)
+    return { texture, bytes }
+  } catch (error) {
+    gl.deleteTexture(texture)
+    throw error
+  } finally {
+    gl.activeTexture(active)
+    gl.bindTexture(gl.TEXTURE_2D, previous)
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, unpack)
+  }
+}
