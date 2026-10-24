@@ -3,9 +3,11 @@ import { isBrushCurve, type BrushCurve } from './brushCurves.js'
 import type { BrushDescriptor } from './brushes.js'
 
 export type BrushBlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'colorBurn' | 'linearBurn' | 'colorDodge' | 'add' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'color' | 'luminosity'
-export type BrushControl = 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection' | 'tiltElevation' | 'tiltX' | 'tiltY' | 'azimuth' | 'tiltDirection' | 'random'
+export type BrushControl = 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection' | 'tiltElevation' | 'tiltX' | 'tiltY' | 'azimuth' | 'tiltDirection' | 'random' | 'strokeRandom'
 export interface BrushDynamic {
   control: BrushControl
+  /** Required option-keyed stream for a gesture-constant random sensor. */
+  randomStream?: number
   jitter: number
   minimum: number
   /** Distance in brush diameters. */
@@ -27,7 +29,7 @@ export interface BrushBehavior {
   edgeBleed?: { pressure: number; tilt: number; pressureCurve?: BrushCurve }
   erase?: boolean
   falloff?: number
-  rotation?: { follow: number; random: 'none' | 'stroke' | 'stamp'; flipX?: boolean; flipY?: boolean; azimuth?: boolean; projection?: boolean }
+  rotation?: { follow: number; random: 'none' | 'stroke' | 'stamp'; flipX?: boolean; flipY?: boolean; azimuth?: boolean; projection?: boolean; composition?: { strength:number; additive:BrushDynamic[]; scaling?:BrushDynamic[] } }
   scatter?: {
     countJitter: number; bothAxes: boolean; roundnessJitter?: number
     /** Uniform signed displacement over a full diameter-scaled radius.
@@ -83,14 +85,18 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const color=value.colorAdjustment
   if(color!==undefined && (!obj(color) || !keys(color,['hue','saturation','value']) || !Object.values(color).every(v=>isBrushBehavior({version:2,dynamics:{size:v}})))) return false
   const r=value.rotation
-  if (r !== undefined && (!obj(r) || !keys(r,['follow','random','flipX','flipY','azimuth','projection']) || !n(r.follow,-1,1) || !['none','stroke','stamp'].includes(String(r.random)) || ['flipX','flipY','azimuth','projection'].some(k => r[k] !== undefined && typeof r[k] !== 'boolean'))) return false
+  if (r !== undefined && (!obj(r) || !keys(r,['follow','random','flipX','flipY','azimuth','projection','composition']) || !n(r.follow,-1,1) || !['none','stroke','stamp'].includes(String(r.random)) || ['flipX','flipY','azimuth','projection'].some(k => r[k] !== undefined && typeof r[k] !== 'boolean'))) return false
+  if(obj(r) && r.composition!==undefined) {
+    const c=r.composition
+    if(!obj(c) || !keys(c,['strength','additive','scaling']) || !n(c.strength,-1,1) || !Array.isArray(c.additive) || c.additive.length>4 || (c.scaling!==undefined && (!Array.isArray(c.scaling) || c.scaling.length>4)) || c.additive.length+(Array.isArray(c.scaling)?c.scaling.length:0)<1 || !isBrushBehavior({version:2,modulations:{angle:c.additive}}) || (c.scaling!==undefined && !isBrushBehavior({version:2,modulations:{angle:c.scaling}}))) return false
+  }
   const s=value.scatter
   if (s !== undefined && (!obj(s) || !keys(s,['countJitter','bothAxes','roundnessJitter','placement']) || !n(s.countJitter) || typeof s.bothAxes !== 'boolean' || (s.roundnessJitter !== undefined && !n(s.roundnessJitter))
     || (s.placement !== undefined && (!['pathUniform','normalUniform','xyUniform'].includes(String(s.placement)) || s.bothAxes !== (s.placement === 'xyUniform'))))) return false
   const edge=value.edgeBleed
   if (edge !== undefined && (!obj(edge) || !keys(edge,['pressure','tilt','pressureCurve']) || !n(edge.pressure,-1,1) || !n(edge.tilt,-1,1) || (edge.pressureCurve !== undefined && !isBrushBehavior({version:2,dynamics:{size:{control:'pressure',minimum:0,jitter:0,curve:edge.pressureCurve}}})))) return false
   const d=value.dynamics
-  if (d !== undefined && (!obj(d) || !keys(d,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth']) || !Object.values(d).every(v => obj(v) && keys(v,['control','jitter','minimum','fade','strength','curve']) && ['off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random'].includes(String(v.control)) && n(v.jitter) && n(v.minimum) && (v.fade === undefined || n(v.fade,0.001,100000)) && (v.strength === undefined || n(v.strength,-1,1)) && (v.curve === undefined || isBrushCurve(v.curve,1,256,true))))) return false
+  if (d !== undefined && (!obj(d) || !keys(d,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth']) || !Object.values(d).every(v => obj(v) && keys(v,['control','randomStream','jitter','minimum','fade','strength','curve']) && ['off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom'].includes(String(v.control)) && (v.control==='strokeRandom' ? n(v.randomStream,0,4294967295) && Number.isInteger(v.randomStream) : v.randomStream===undefined) && n(v.jitter) && n(v.minimum) && (v.fade === undefined || n(v.fade,0.001,100000)) && (v.strength === undefined || n(v.strength,-1,1)) && (v.curve === undefined || isBrushCurve(v.curve,1,256,true))))) return false
   const mod=value.modulations
   if (mod !== undefined && (!obj(mod) || !keys(mod,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth']) || !Object.values(mod).every(list => Array.isArray(list) && list.length <= 4 && list.every(v => isBrushBehavior({version:2,dynamics:{size:v}}))))) return false
   const g=value.grain

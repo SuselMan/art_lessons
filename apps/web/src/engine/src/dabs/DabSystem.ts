@@ -8,12 +8,11 @@
 //   The lag is one pointer event (~5-16ms) which is imperceptible.
 
 import type { BrushDescriptor, BrushDynamic, Dab } from '@grafetto/shared'
-import { beginBrushBehavior, brushDynamicValue, behaviorStampsForDab, type BrushBehaviorState } from '../presets/brushBehavior'
+import { beginBrushBehavior, brushSourceSpacingAxes, brushSpacingStep, type BrushBehaviorState } from '../presets/brushBehavior'
 import { clamp } from 'lodash-es'
 
 import { PENCIL_DAB_SHAPING, type DabShapingProfile } from '../presets/dabShaping'
 import { MIN_DAB_SPACING_PX, boundedDabSpacing, nominalDabSpacing } from './dabSpacing'
-import { brushDabRandom, brushDabSeed } from '../presets/digitalBrushPresets'
 import { codecDab } from './codecDab'
 import {
   assignTipState, copyTipState, createTipState, maxNibReach, tipFootprint,
@@ -844,36 +843,19 @@ export class DabSystem {
    *  nominal brush size is the wrong thing to space off, and which tools want
    *  this and which are already normalized some other way. */
   private _autoSpacingStep(pathAngle: number): number {
-    const axes = this._spacingAxes!
-    const angle = pathAngle - axes.angle
-    return 1 / Math.hypot(Math.cos(angle) / axes.x, Math.sin(angle) / axes.y)
+    return brushSpacingStep(this._spacingAxes!,pathAngle)
   }
 
   private _spacingAfter(dab: Dab, baseSize: number, maxSpacing: number): number {
     if (this.autoSpacing) {
-      const { coefficient, brush, sizeMultiplier, mode, dynamics, isotropic } = this.autoSpacing
+      const { brush, sizeMultiplier } = this.autoSpacing
       const state = this._spacingBehavior ??= beginBrushBehavior(dab)
       const previous = state.previous
       // Input speed is canvas px/ms, already latched for this pointer batch.
       // This local clock feeds size sensors only; recorded dab time is untouched.
       const t = previous ? previous.t + Math.hypot(dab.x - previous.x, dab.y - previous.y) / Math.max(.001, this._speed) : 0
       const input=codecDab({ ...dab, t })
-      // Independent sensors observe pre-advance logical state and the same
-      // codec clock as size dynamics, without consuming their random streams.
-      const spacingInput={...input,angle:this._pathAngle}
-      const factor=dynamics?.reduce((value,control,index)=>value*brushDynamicValue(control,spacingInput,state,brushDabRandom(brushDabSeed(input.x,input.y,input.pressure),0xa0000+index)),1) ?? 1
-      const stamp = behaviorStampsForDab(brush, input, state, [0, 0, 0])[0]
-      // Source spacing uses characteristic dimensions, before optical edge spread.
-      const diameter = stamp.size * sizeMultiplier / (1 + stamp.edgeSoftness * .15)
-      const axis = (value: number): number => {
-        // Native distance interpolation clamps EACH spacing axis to .5px
-        // (kis_distance_information.cpp), after the auto-spacing transfer.
-        const actual = Math.max(0, value)
-        const characteristic=mode==='diameter' ? actual : actual < 1 ? actual : Math.sqrt(actual)
-        return Math.max(.5, coefficient * factor * characteristic)
-      }
-      const x=axis(diameter*stamp.aspect),y=axis(diameter)
-      this._spacingAxes = isotropic ? {x:Math.max(x,y),y:Math.max(x,y),angle:0} : { x, y, angle: stamp.angle }
+      this._spacingAxes=brushSourceSpacingAxes(brush,input,state,{mode:this.autoSpacing.mode ?? 'kritaAuto',coefficient:this.autoSpacing.coefficient,dynamics:this.autoSpacing.dynamics,isotropic:this.autoSpacing.isotropic},sizeMultiplier,this._pathAngle)
       return this._autoSpacingStep(this._pathAngle)
     }
     const fp = this.footprint

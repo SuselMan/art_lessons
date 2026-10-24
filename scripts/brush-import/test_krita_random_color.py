@@ -39,4 +39,9 @@ class RandomOptionTests(unittest.TestCase):
             self.assertNotIn('colorAdjustment',b['descriptor']['behavior'])
             self.assertTrue(any(x['feature']=='activeDynamics' and 'Pressure'+option in x['detail'] for x in b['compatibility']))
 
+    def test_canonical_airbrush_key_overrides_legacy_alias(self):
+        for params,expected in [({'PaintOpSettings/isAirbrushing':'true'},True),({'AirbrushOption/isAirbrushing':'true'},True),({'PaintOpSettings/isAirbrushing':'false','AirbrushOption/isAirbrushing':'true'},False)]:
+            b=self.brush(params)
+            self.assertEqual(any(x['feature']=='airbrush' for x in b['compatibility']),expected)
+
 if __name__=='__main__':unittest.main()

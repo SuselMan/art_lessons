@@ -98,8 +98,18 @@ class RotationImportTests(unittest.TestCase):
                 self.assertAlmostEqual(math.cos(d['tip']['angle']+direction),math.cos(direction+math.radians(91)))
             self.assertTrue(any(x['feature']=='RotationDrawingAngle' for x in b['compatibility']))
 
+    def test_combined_additive_and_scaling_and_keyed_stroke_random(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sensor='<params id="sensorslist"><ChildSensor id="fuzzy"><curve>0,0;1,1;</curve></ChildSensor><ChildSensor id="pressure"><curve>0,0;.5,.2;1,1;</curve></ChildSensor></params>'
+            b=self.brush(tmp,'.31',sensor,{'RotationUseSameCurve':'false'})
+            c=b['descriptor']['behavior']['rotation']['composition']
+            self.assertEqual(c['strength'],.31);self.assertEqual(c['additive'][0]['control'],'random');self.assertEqual(c['scaling'][0]['control'],'pressure')
+        with tempfile.TemporaryDirectory() as tmp:
+            b=self.brush(tmp,'1','<params id="fuzzystroke"/>')
+            c=b['descriptor']['behavior']['rotation']['composition'];self.assertEqual(c['additive'][0]['control'],'strokeRandom');self.assertIsInstance(c['additive'][0]['randomStream'],int)
+
     def test_other_sensors_combinations_disabled_curve_and_outside_strength_stay_unsupported(self):
-        cases=[('1','<params id="pressure"/>',{}),
+        cases=[
                ('1','<params id="sensorslist"><ChildSensor id="ascension"/><ChildSensor id="pressure"/></params>',{}),
                ('1','<params id="ascension"/>',{'RotationcurveMode':'1'}),
                ('1','<params id="ascension"/>',{'RotationUseCurve':'false'}),

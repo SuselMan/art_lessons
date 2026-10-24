@@ -265,7 +265,7 @@ def sensor_controls(params, option, notes):
     if len(sensors)>32: raise ValueError('Krita sensor count limit')
     ids=[node.get('id') for node in sensors]
     if len(ids)!=len(set(ids)): raise ValueError('Duplicate Krita sensor')
-    if sum(name in ('fuzzy','ascension','rotation') for name in ids)>1:
+    if option!='Rotation' and sum(name in ('fuzzy','fuzzystroke','ascension','rotation') for name in ids)>1:
         notes.append(compatibility(option+'SensorCombination','Multiple native additive sensors require a summed response; product approximation rejected.','unsupported'))
         return []
     if numeric(params.get(option+'curveMode'))!=0:
@@ -275,7 +275,7 @@ def sensor_controls(params, option, notes):
     common=params.get(option+'commonCurve') or (sensors[-1].findtext('curve') if sensors else None)
     use_common=enabled(params.get(option+'UseSameCurve','true'))
     controls=[]
-    supported={'pressure':'pressure','declination':'tiltElevation','xtilt':'tiltX','ytilt':'tiltY','ascension':'azimuth','speed':'speed','drawingangle':'direction','fuzzy':'random'}
+    supported={'pressure':'pressure','declination':'tiltElevation','xtilt':'tiltX','ytilt':'tiltY','ascension':'azimuth','speed':'speed','drawingangle':'direction','fuzzy':'random','fuzzystroke':'strokeRandom'}
     for node in sensors:
         name=node.get('id','')
         if name not in supported:
@@ -285,6 +285,7 @@ def sensor_controls(params, option, notes):
         if len(controls)>=4:
             notes.append(compatibility(option+'Sensor','More than four active supported sensors; excess controls unsupported.','unsupported'));continue
         controls.append({'control':supported[name],'minimum':0,'jitter':0,'curve':transfer})
+        if name=='fuzzystroke': controls[-1]['randomStream']=int.from_bytes(hashlib.sha256(option.encode()).digest()[:4],'big')
         if name!='pressure':
             notes.append(compatibility(option+'Sensor','Sensor '+name+' uses recorded Grafetto input; speed scaling and curve interpolation require vendor calibration.'))
     return controls
@@ -348,7 +349,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=18
+    d['version']=19
     source_size=None
     application=0
     kind = definition.get('type')
@@ -455,7 +456,7 @@ def preset(data, name, catalog, external, depth=0):
     # Native step follows the actual dynamic shape, including random size and
     # local-Y ratio. Legacy nominal spacing must not discard those controls.
     size_sensor=xml(params.get('SizeSensor') or '<params id="pressure"/>')
-    dynamic_shape=(enabled(params.get('PressureSize',params.get('SizeUseCurve','false'))) and any(node.get('id')=='fuzzy' for node in size_sensor.iter())) or enabled(params.get('PressureRatio'))
+    dynamic_shape=(enabled(params.get('PressureSize',params.get('SizeUseCurve','false'))) and any(node.get('id') in ('fuzzy','fuzzystroke') for node in size_sensor.iter())) or enabled(params.get('PressureRatio'))
     if auto_spacing or spacing_checked or isotropic or zero_fixed or dynamic_shape:
         raw_coefficient=definition.get('autoSpacingCoeff','1') if auto_spacing else definition.get('spacing',str(d['spacing']))
         try:
@@ -580,6 +581,17 @@ def preset(data, name, catalog, external, depth=0):
                 behavior['rotation']={'follow':1,'random':'none'}
                 rotation_decoded=True
                 notes.append(compatibility('RotationDrawingAngle','Absolute drawing direction and angle offset retained for identity sensor curve; corner fanning and locked-angle mode are not reproduced.'))
+    if (not rotation_decoded and enabled(params.get('PressureRotation'))
+            and enabled(params.get('RotationUseCurve','true')) and numeric(params.get('RotationcurveMode'),0)==0
+            and -1<=strength<=1 and 1<=len(rotation_sensors)<=4
+            and all(node.get('id') in ('fuzzy','fuzzystroke','pressure','declination','xtilt','ytilt','speed') for node in rotation_sensors)):
+        controls=sensor_controls(params,'Rotation',notes)
+        if len(controls)==len(rotation_sensors):
+            additive=[c for node,c in zip(rotation_sensors,controls) if node.get('id') in ('fuzzy','fuzzystroke')]
+            scaling=[c for node,c in zip(rotation_sensors,controls) if node.get('id') not in ('fuzzy','fuzzystroke')]
+            behavior['rotation']={'follow':0,'random':'none','composition':{'strength':strength,'additive':additive,**({'scaling':scaling} if scaling else {})}}
+            rotation_decoded=True
+            notes.append(compatibility('RotationComposition','Native signed additive minus scaling rotation retained; per-stroke random is option-keyed, deterministic Grafetto random sequences differ from Krita.'))
     if enabled(params.get('PressureScatter')):
         amount=clamp(numeric(params.get('ScatterValue',params.get('Scattering/Amount')),1),0,4)
         x=enabled(params.get('Scattering/AxisX','true'));y=enabled(params.get('Scattering/AxisY','true'))
@@ -739,7 +751,7 @@ def preset(data, name, catalog, external, depth=0):
         if mode not in modes: notes.append(compatibility('maskingBlend','Unsupported Krita masking mode '+mode+'; multiply used.','unsupported'))
         behavior['dual']={'brush':child,'blendMode':combine,'sampling':'independent'}
         notes.append(compatibility('maskingBrush','Independent masking spacing, dynamics and grain retained. Krita-specific edge/colour mixing formulas remain approximate.'))
-    if enabled(params.get('AirbrushOption/isAirbrushing')):
+    if enabled(params.get('PaintOpSettings/isAirbrushing',params.get('AirbrushOption/isAirbrushing'))):
         notes.append(compatibility('airbrush','Timed spraying is not reproduced.','unsupported'))
     d['behavior']=behavior
     warnings.extend(n['feature']+': '+n['detail'] for n in notes if n['status']!='supported')

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isBrushBehavior, type BrushDescriptor, type Dab } from '@grafetto/shared'
-import { beginBrushBehavior, hsvAdjustColor, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, splitBrushTail } from './brushBehavior'
+import { beginBrushBehavior, brushRotationOffset, hsvAdjustColor, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, splitBrushTail } from './brushBehavior'
 import { DIGITAL_BRUSHES } from './digitalBrushPresets'
 import { nominalDabSpacing } from '../dabs/dabSpacing'
 const color: [
@@ -164,6 +164,30 @@ describe('v2 logical brush state', () => {
     const stamp=behaviorStampsForDab(b,input,beginBrushBehavior(input),color)[0]
     expect(stamp.size).toBeCloseTo(input.size*.25)
     expect(stamp.size*stamp.aspect).toBeCloseTo(input.size*input.aspectRatio)
+  })
+  it('keeps mask shape independent and uses its own square-root spacing',()=>{
+    const primary={...brush,scatter:undefined,sizeByPressure:[[0,1],[1,1]] as [number,number][]}
+    const child:BrushDescriptor={...primary,opacity:.47,tip:{...primary.tip,rotation:'fixed',angle:Math.PI/3,aspect:2},behavior:{version:2,spacing:{mode:'kritaAuto',coefficient:.4}}}
+    const input=[{...dabs[0],x:0,y:0,size:100,angle:-1,aspectRatio:8,pressure:1},{...dabs[0],x:80,y:0,size:100,angle:-1,aspectRatio:8,pressure:1}]
+    const output=secondaryBrushDabs(primary,child,input,{remaining:0})
+    expect(output.length).toBeGreaterThan(10)
+    output.forEach((d,i)=>{expect(d.angle).toBeCloseTo(Math.PI/3);expect(d.aspectRatio).toBe(2);expect(d.opacity).toBeCloseTo(.47);if(i)expect(d.x-output[i-1].x).toBeCloseTo(1/Math.hypot(Math.cos(Math.PI/3)/4,Math.sin(Math.PI/3)/(Math.sqrt(50)*.4)),5)})
+    const disabled=secondaryBrushDabs({...primary,sizeByPressure:[[0,0],[1,1]]},child,[{...input[0],pressure:.1}],{remaining:0},false)
+    expect(disabled[0].size).toBe(100)
+  })
+  it('composes signed additive rotation minus scaling, preserving per-stroke channels',()=>{
+    const input=dabs[0],state=beginBrushBehavior(input)
+    const constant=(v:number)=>({control:'off' as const,minimum:0,jitter:0,curve:[[0,v],[1,v]] as [number,number][]})
+    for(const [u,p,v] of [[.5,.5,0],[.5,1,-.31],[1,.5,.31],[1,1,0],[1,0,.62]]){
+      const angle=brushRotationOffset({strength:.31,additive:[constant(u)],scaling:[constant(p)]},input,state)
+      expect(angle).toBeCloseTo(Math.PI*(-1+v),12)
+    }
+    const c={control:'strokeRandom' as const,randomStream:42,minimum:0,jitter:0}
+    expect(isBrushBehavior({version:2,dynamics:{size:c}})).toBe(true)
+    expect(isBrushBehavior({version:2,dynamics:{size:{...c,randomStream:undefined}}})).toBe(false)
+    const a=brushDynamicValue(c,input,state,.1)
+    expect(brushDynamicValue(c,{...input,x:100},structuredClone(state),.9)).toBe(a)
+    expect(brushDynamicValue({...c,randomStream:43},input,state,.1)).not.toBe(a)
   })
   it('samples a secondary brush with its own spacing across arbitrary packet splits', () => {
     const child={...brush,spacing:.11,opacity:.47}

@@ -14,28 +14,56 @@ export interface BrushBehaviorState {
   bounds?: {minX:number;minY:number;maxX:number;maxY:number}
 }
 
-export interface SecondarySamplingState { previous?: Dab; remaining: number }
-/** Resample the recorded centreline, carrying phase through network chunks.
- * One-pixel minimum and 16 stamps per input diameter bound imported tiny spacing. */
-export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescriptor, dabs: readonly Dab[], state: SecondarySamplingState): Dab[] {
+export interface BrushSpacingAxes { x:number; y:number; angle:number }
+export function brushSpacingStep(axes:BrushSpacingAxes,pathAngle:number):number {
+  const angle=pathAngle-axes.angle
+  return 1/Math.hypot(Math.cos(angle)/axes.x,Math.sin(angle)/axes.y)
+}
+/** Common source spacing for the primary sampler and independent masks.
+ * This observes pre-advance controls, then advances exactly one geometry dab. */
+export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:BrushBehaviorState,profile:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>,sizeMultiplier:number,pathAngle:number):BrushSpacingAxes {
+  const {mode,coefficient,dynamics,isotropic}=profile
+  const seed=brushDabSeed(input.x,input.y,input.pressure)
+  const factor=dynamics?.reduce((value,control,index)=>value*brushDynamicValue(control,{...input,angle:pathAngle},state,brushDabRandom(seed,0xa0000+index)),1) ?? 1
+  const stamp=behaviorStampsForDab(brush,input,state,[0,0,0])[0]
+  const diameter=stamp.size*sizeMultiplier/(1+stamp.edgeSoftness*.15)
+  const axis=(value:number):number=>{
+    const actual=Math.max(0,value)
+    return Math.max(.5,coefficient*factor*(mode==='diameter' ? actual : actual<1 ? actual : Math.sqrt(actual)))
+  }
+  const x=axis(diameter*stamp.aspect),y=axis(diameter)
+  return isotropic ? {x:Math.max(x,y),y:Math.max(x,y),angle:0} : {x,y,angle:stamp.angle}
+}
+export interface SecondarySamplingState { previous?: Dab; remaining: number; geometry?:BrushBehaviorState; axes?:BrushSpacingAxes; direction?:number }
+/** Resample the recorded centreline using the child's own source geometry.
+ * The bounded segment loop and independent phase survive network chunks. */
+export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescriptor, dabs: readonly Dab[], state: SecondarySamplingState, sizePressure=true): Dab[] {
   const result: Dab[] = []
-  const size = (d: Dab): Dab => ({...d,opacity:child.opacity ?? 1,size:d.size*curveAt(child.sizeByPressure,d.pressure)/Math.max(0.01,curveAt(primary.sizeByPressure,d.pressure))})
+  const size = (d:Dab):Dab=>({...d,opacity:child.opacity ?? 1,
+    size:d.size*curveAt(child.sizeByPressure,sizePressure?d.pressure:1)/Math.max(.01,sizePressure?curveAt(primary.sizeByPressure,d.pressure):1),
+    aspectRatio:child.tip.aspect,angle:child.tip.rotation==='fixed'?child.tip.angle:d.angle})
+  const spacing=(dab:Dab,pathAngle:number):number=>{
+    const profile=child.behavior?.spacing
+    if(!profile)return Math.max(1,dab.size*child.spacing)
+    const geometry=state.geometry ??= beginBrushBehavior(dab)
+    state.axes=brushSourceSpacingAxes({...child,scatter:undefined},dab,geometry,profile,1/Math.max(child.tip.aspect,1),pathAngle)
+    return brushSpacingStep(state.axes,pathAngle)
+  }
   for (const raw of dabs) {
-    const dab=size(raw), previous=state.previous
-    if (!previous) { result.push(dab); state.remaining=Math.max(1,dab.size*child.spacing);state.previous=dab;continue }
+    const dab=size(raw),previous=state.previous
+    if(!previous){result.push(dab);state.remaining=spacing(dab,dab.angle);state.direction=dab.angle;state.previous=dab;continue}
     const length=Math.hypot(dab.x-previous.x,dab.y-previous.y)
-    if (!length) {state.previous=dab;continue}
-    const stepFloor=Math.max(1,length/256)
+    if(!length){state.previous=dab;continue}
+    const direction=Math.atan2(dab.y-previous.y,dab.x-previous.x)
+    if(state.axes && state.direction!==undefined)state.remaining*=brushSpacingStep(state.axes,direction)/brushSpacingStep(state.axes,state.direction)
+    const stepFloor=Math.max(child.behavior?.spacing?.mode ? .5 : 1,length/256)
     let travel=state.remaining
-    while(travel<=length) {
-      const t=travel/length
-      const lerp=(a:number,b:number):number=>Math.fround(a+(b-a)*t)
-      const point: Dab={x:lerp(previous.x,dab.x),y:lerp(previous.y,dab.y),size:lerp(previous.size,dab.size),pressure:lerp(previous.pressure,dab.pressure),angle:lerp(previous.angle,dab.angle),aspectRatio:lerp(previous.aspectRatio,dab.aspectRatio),tiltX:lerp(previous.tiltX,dab.tiltX),tiltY:lerp(previous.tiltY,dab.tiltY),opacity:lerp(previous.opacity,dab.opacity),t:lerp(previous.t,dab.t)}
-      result.push(point)
-      travel+=Math.max(stepFloor,point.size*child.spacing)
+    while(travel<=length){
+      const t=travel/length,lerp=(a:number,b:number):number=>Math.fround(a+(b-a)*t)
+      const point:Dab={x:lerp(previous.x,dab.x),y:lerp(previous.y,dab.y),size:lerp(previous.size,dab.size),pressure:lerp(previous.pressure,dab.pressure),angle:lerp(previous.angle,dab.angle),aspectRatio:child.tip.aspect,tiltX:lerp(previous.tiltX,dab.tiltX),tiltY:lerp(previous.tiltY,dab.tiltY),opacity:child.opacity ?? 1,t:lerp(previous.t,dab.t)}
+      result.push(point);travel+=Math.max(stepFloor,spacing(point,direction))
     }
-    state.remaining=travel-length
-    state.previous=dab
+    state.remaining=travel-length;state.direction=direction;state.previous=dab
   }
   return result
 }
@@ -100,7 +128,7 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
   const travel = prev ? Math.hypot(dab.x - prev.x, dab.y - prev.y) : 0
   const speed = prev ? travel / Math.max(1, dab.t - prev.t) : 0
   const turn = (a: number): number => ((a / (Math.PI * 2)) % 1 + 1) % 1
-  const sensor = d.control === 'random' ? clamp(random) : d.control === 'pressure' ? dab.pressure
+  const sensor = d.control === 'strokeRandom' ? brushDabRandom(state.seed,0xd0000+(d.randomStream ?? 0)) : d.control === 'random' ? clamp(random) : d.control === 'pressure' ? dab.pressure
     : d.control === 'tiltElevation' ? 1-clamp(penTilt(dab).angle/(Math.PI/2))
       : d.control === 'tiltX' ? clamp((dab.tiltX+90)/180)
       : d.control === 'tiltY' ? clamp((dab.tiltY+90)/180)
@@ -116,6 +144,15 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
   const value = d.curve ? curveAt(d.curve, sensor) : sensor
   const controlled = d.strength === undefined ? value : d.strength >= 0 ? 1 - d.strength + d.strength * value : 1 + d.strength * value
   return clamp((d.minimum + (1 - d.minimum) * controlled) * (1 - d.jitter * random))
+}
+/** Native-style signed additive minus scaling angle, in physical radians.
+ * Periodic wrap may be deferred to trig; this preserves the exact direction. */
+export function brushRotationOffset(profile:NonNullable<NonNullable<BrushDescriptor['behavior']>['rotation']>['composition'],input:Dab,state:BrushBehaviorState):number {
+  if(!profile)return 0
+  const seed=brushDabSeed(input.x,input.y,input.pressure)
+  const additive=profile.additive.reduce((sum,control,i)=>sum+2*brushDynamicValue(control,input,state,brushDabRandom(seed,0xe0000+i))-1,0)
+  const scaling=profile.scaling?.length ? 2*profile.scaling.reduce((v,control,i)=>v*brushDynamicValue(control,input,state,brushDabRandom(seed,0xe0100+i)),1)-1 : 0
+  return Math.PI*(-1+profile.strength*(additive-scaling))
 }
 /** RGB/HSV conversion on CPU, before rasterisation, shared by all participants. */
 function shiftColor(rgb: [
@@ -201,7 +238,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const penAngle = tilt > 0.001 ? pen.azimuth : direction
   const rotationAngle = rotation ? brush.tip.angle + (rotation.azimuth ? penAngle : direction * rotation.follow) + (rotation.random === 'none' ? 0 : randomRotation * Math.PI * 2) : dab.angle
   const angleDynamic = behavior?.dynamics?.angle
-  const angle = rotationAngle + (angleDynamic ? angleDynamic.control === 'off' ? (rand(13) - 0.5) * 2 * Math.PI * angleDynamic.jitter : (dynamic('angle', 13) - 1) * Math.PI * 2 : 0)
+  const angle = rotationAngle + brushRotationOffset(rotation?.composition,directionalDab,state) + (angleDynamic ? angleDynamic.control === 'off' ? (rand(13) - 0.5) * 2 * Math.PI * angleDynamic.jitter : (dynamic('angle', 13) - 1) * Math.PI * 2 : 0)
   let taper = 1
   const t = behavior?.taper
   if (t && t.start > 0)
