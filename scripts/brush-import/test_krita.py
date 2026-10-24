@@ -196,12 +196,17 @@ class KritaTests(unittest.TestCase):
                 p=Path(tmp)/'Rates.kpp';Image.new('RGB',(2,2)).save(p,format='PNG',pnginfo=meta)
                 c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
                 self.assertEqual(c.skipped,[])
-                self.assertEqual({key:value for key,value in c.brushes[0]['descriptor']['mixer'].items() if key!='pickupDynamics'},{'load':load,'pickup':pickup,'strength':1,'initialLoad':load,'smearAlpha':True,**({'source':'previousCanvas'} if load==0 else {})})
+                mixer=c.brushes[0]['descriptor']['mixer']
+                self.assertEqual((mixer['load'],mixer['initialLoad'],mixer['pickup']),(0,0,pickup))
+                self.assertEqual(mixer['source'],'previousCanvas')
+                if load:
+                    self.assertAlmostEqual(mixer['foreground']['rate'],max(1-float(params.get('SmudgeRateValue',1)),.2)*load)
+                else: self.assertNotIn('foreground',mixer)
 
     def test_previous_canvas_selection_is_semantic_and_defaults_legacy(self):
         cases=[({},True),({'SmudgeRateUseNewEngine':'false','SmudgeRateMode':'0'},True),
                ({'SmudgeRateUseNewEngine':'true'},False),({'SmudgeRateMode':'1'},True),
-               ({'PressureColorRate':'true','ColorRateValue':'.25'},False),
+               ({'PressureColorRate':'true','ColorRateValue':'.25'},True),
                ({'PressureColorRate':'true','ColorRateValue':'0'},True),
                ({'PressureColorRate':'false','ColorRateValue':'.9'},True)]
         for params,expected in cases:
@@ -252,8 +257,8 @@ class KritaTests(unittest.TestCase):
             # final mixer parameters, so old rooms keep their former resource.
             old=copy.deepcopy(current);old['mixer'].update(load=.5,pickup=.5)
             finalize_identity(old,source)
-            self.assertEqual(current['version'],13)
-            previous=copy.deepcopy(current);previous['version']=12
+            self.assertEqual(current['version'],14)
+            previous=copy.deepcopy(current);previous['version']=13
             finalize_identity(previous,source)
             self.assertNotEqual(previous['id'],current['id'])
             self.assertNotEqual(old['id'],current['id'])

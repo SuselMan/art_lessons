@@ -436,6 +436,67 @@ def photoshop(path,catalog):
         except ValueError as e: catalog.skipped.append({'name':name,'reasons':[str(e)]})
 
 
+def validate_portable_dynamics(controls):
+    def finite(value,low=0,high=1):
+        return type(value) in (int,float) and math.isfinite(value) and low<=value<=high
+    if not isinstance(controls,list) or len(controls)>4: raise ValueError('Invalid portable dynamic count')
+    for control in controls:
+        if (not isinstance(control,dict) or set(control)-{'control','minimum','jitter','strength','fade','curve'}
+                or control.get('control') not in ('off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection')
+                or not finite(control.get('minimum')) or not finite(control.get('jitter'))
+                or ('strength' in control and not finite(control['strength'],-1,1))
+                or ('fade' in control and not finite(control['fade'],.001,100000))):
+            raise ValueError('Invalid portable dynamic')
+        if 'curve' not in control: continue
+        curve=control['curve']
+        if isinstance(curve,dict):
+            if (set(curve)-{'kind','samples','endpointEpsilon','preserveInputSign'} or curve.get('kind')!='uniform'
+                    or not isinstance(curve.get('samples'),list) or not 2<=len(curve['samples'])<=256
+                    or any(not finite(v) for v in curve['samples'])
+                    or ('endpointEpsilon' in curve and not finite(curve['endpointEpsilon'],0,.001))
+                    or ('preserveInputSign' in curve and type(curve['preserveInputSign']) is not bool)):
+                raise ValueError('Invalid portable dynamic transfer')
+        elif isinstance(curve,list) and 2<=len(curve)<=256:
+            previous=-1
+            for point in curve:
+                if not isinstance(point,list) or len(point)!=2 or not all(finite(v) for v in point) or point[0]<=previous:
+                    raise ValueError('Invalid portable dynamic knots')
+                previous=point[0]
+        else: raise ValueError('Invalid portable dynamic curve')
+
+
+def validate_portable_mixer(descriptor):
+    mixer=descriptor.get('mixer')
+    if mixer is None:
+        if descriptor['model']=='mixer': raise ValueError('Missing portable mixer')
+        return
+    def finite(value,low=0,high=1):
+        return type(value) in (int,float) and math.isfinite(value) and low<=value<=high
+    if (descriptor['model']!='mixer' or not isinstance(mixer,dict)
+            or set(mixer)-{'load','pickup','strength','initialLoad','smearAlpha','source','pickupDynamics','sampling','foreground'}
+            or any(not finite(mixer.get(key)) for key in ('load','pickup','strength'))
+            or ('initialLoad' in mixer and not finite(mixer['initialLoad']))
+            or ('smearAlpha' in mixer and type(mixer['smearAlpha']) is not bool)
+            or ('source' in mixer and mixer['source']!='previousCanvas')):
+        raise ValueError('Invalid portable mixer')
+    if not isinstance(descriptor.get('behavior',{}),dict): raise ValueError('Invalid portable mixer behavior')
+    if mixer.get('source')=='previousCanvas' and (mixer['load']!=0 or mixer.get('initialLoad')!=0 or descriptor.get('behavior',{}).get('wetMix') is not None):
+        raise ValueError('Invalid portable previous-canvas source')
+    if 'pickupDynamics' in mixer: validate_portable_dynamics(mixer['pickupDynamics'])
+    if 'sampling' in mixer:
+        sampling=mixer['sampling']
+        if (not isinstance(sampling,dict) or set(sampling)-{'mode','radius','radiusDynamics'}
+                or mixer.get('source')!='previousCanvas' or sampling.get('mode')!='uniformMean' or not finite(sampling.get('radius'),0,3)):
+            raise ValueError('Invalid portable mixer sampling')
+        if 'radiusDynamics' in sampling: validate_portable_dynamics(sampling['radiusDynamics'])
+    if 'foreground' in mixer:
+        foreground=mixer['foreground']
+        if (not isinstance(foreground,dict) or set(foreground)-{'rate','dynamics'} or mixer.get('source')!='previousCanvas'
+                or not finite(foreground.get('rate'))):
+            raise ValueError('Invalid portable mixer foreground')
+        if 'dynamics' in foreground: validate_portable_dynamics(foreground['dynamics'])
+
+
 def portable_bundle(path,catalog):
     # The runtime shared guard remains authoritative for descriptor semantics.
     if path.stat().st_size>360*1024*1024: raise ValueError('Portable bundle exceeds 360 MiB')
@@ -464,6 +525,7 @@ def portable_bundle(path,catalog):
     def validate_descriptor(d,depth=0):
         if not isinstance(d,dict) or depth>1 or not isinstance(d.get('id'),str) or not re.fullmatch(r'imported-[a-f0-9]{24}',d['id']): raise ValueError('Invalid portable descriptor')
         if type(d.get('version'))!=int or not 1<=d['version']<=1024 or d.get('model') not in ('stamp','mixer') or not isinstance(d.get('tip'),dict): raise ValueError('Unsupported portable descriptor')
+        validate_portable_mixer(d)
         tip=d['tip']
         if tip.get('kind') not in ('bitmap','round') or (tip.get('kind')=='bitmap' and tip.get('mask') not in ids): raise ValueError('Missing portable tip asset')
         if 'animation' in tip:

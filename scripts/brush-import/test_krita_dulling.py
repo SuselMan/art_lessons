@@ -23,10 +23,11 @@ class DullingImportTests(unittest.TestCase):
         self.assertEqual(self.brush({'PressureSmudgeRadius':'false'})['descriptor']['mixer']['sampling']['radius'],0)
         self.assertEqual(self.brush({'SmudgeRadiusVersion':'2','SmudgeRadiusValue':'9'})['descriptor']['mixer']['sampling']['radius'],3)
     def test_foreground_newengine_and_dynamic_radius_honest_limits(self):
-        for extra in [{'PressureColorRate':'true'},{'SmudgeRateUseNewEngine':'true'}]:
-            self.assertNotIn('source',self.brush(extra)['descriptor']['mixer'])
+        foreground=self.brush({'PressureColorRate':'true'})['descriptor']['mixer']
+        self.assertEqual(foreground['source'],'previousCanvas');self.assertAlmostEqual(foreground['foreground']['rate'],.1)
+        self.assertNotIn('source',self.brush({'SmudgeRateUseNewEngine':'true'})['descriptor']['mixer'])
         b=self.brush({'SmudgeRadiusUseCurve':'true','SmudgeRadiusSensor':'<params id="pressure"><curve>0,0;1,1;</curve></params>'})
-        self.assertTrue(any(n['feature']=='SmudgeRadiusCurve' and n['status']=='unsupported' for n in b['compatibility']))
+        self.assertEqual(b['descriptor']['mixer']['sampling']['radiusDynamics'][0]['control'],'pressure')
     def test_spatial_mode_does_not_accidentally_gain_mean(self):
         m=self.brush({'SmudgeRateMode':'0'})['descriptor']['mixer']
         self.assertEqual(m['source'],'previousCanvas');self.assertNotIn('sampling',m)

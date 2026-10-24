@@ -27,11 +27,11 @@ Pass all source packs in one invocation: `manifest.json` is replaced, not append
 
 Tips are centered in a transparent POT square, retaining original pixels until dimensions exceed 2048. Larger tips are proportionally resampled, with a warning. Grain is resampled to square POT; non-square grain may change aspect, reported as a warning. Alpha multiplies image luminance. ABR samples already encode positive coverage and are not inverted heuristically.
 
-Imported descriptors have `id: imported-<24 hexadecimal digits>`, immutable preset versions4 (ABR),13 (Krita),5 (Procreate) and behavior schema2, `model: stamp` or `mixer`; the ID hashes source settings, all final rendering fields (including shape/grain content hashes), and the importer schema/version. Source file paths are not persisted. Preset identity/settings are immutable at runtime. A future importer which changes rendering must bump its import version/identity rule; it must not overwrite referenced resources.
+Imported descriptors have `id: imported-<24 hexadecimal digits>`, immutable preset versions4 (ABR),14 (Krita),5 (Procreate) and behavior schema2, `model: stamp` or `mixer`; the ID hashes source settings, all final rendering fields (including shape/grain content hashes), and the importer schema/version. Source file paths are not persisted. Preset identity/settings are immutable at runtime. A future importer which changes rendering must bump its import version/identity rule; it must not overwrite referenced resources.
 
 ## Fidelity and supported subset
 
-Importer rendering versions **3/4/5/6/7/8/9/10/11/12/13** emit optional `descriptor.behavior.version: 2` and per-brush `compatibility: [{feature,status,detail}]`. Existing imported IDs and historical manifests are not rewritten; old built-in tokens intentionally resolve to the current pre-release set. `approximate` means source semantics are retained but Grafetto's formula differs or the archive transfer function is undocumented; `unsupported` identifies an active lost feature. Neither status promises Photoshop/Procreate pixel equivalence.
+Importer rendering versions **3/4/5/6/7/8/9/10/11/12/13/14** emit optional `descriptor.behavior.version: 2` and per-brush `compatibility: [{feature,status,detail}]`. Existing imported IDs and historical manifests are not rewritten; old built-in tokens intentionally resolve to the current pre-release set. `approximate` means source semantics are retained but Grafetto's formula differs or the archive transfer function is undocumented; `unsupported` identifies an active lost feature. Neither status promises Photoshop/Procreate pixel equivalence.
 
 ABR 6/7/9/10 minor 1/2: descriptor blocks plus both the minor-1 bitmap layout and minor-2 VMAL/fixed-preamble layouts, raw/PackBits 8/16-bit samples; 16-bit converted to 8-bit coverage. Embedded grayscale/RGB `patt` records use a separate bounded VMAL reader (indexed/CMYK rejected). Computed round tips, tip transforms, shape/scatter/count dynamics, pressure/tilt/direction/fade controls, color jitter, tool options, texture and one dual component are retained. Unknown blend modes/controls, projection, pose, noise, mixer/smudge tools and foreground/background mixing produce specific compatibility notes. Legacy 1/2 sampled records are supported with bounded per-record resynchronization; computed legacy records are skipped because shape metadata is undocumented. Modern variants, patterns and legacy are synthetic-fixture tested; the owner's real reference pack is 6.2.
 
@@ -236,3 +236,18 @@ once. RGB/gradient applications and mixer lightness still use explicit unsupport
 fallback; paired planes alone do not promise native filtering/rounding identity.
 Version13 is shared with the separate legacy pure-dulling sampling migration;
 older descriptors are immutable, and no catalog is automatically installed.
+
+Krita version14 selects previous-canvas legacy Color Smudge only for resolved
+ALPHAMASK, old engine, Normal foreground composite and MergedPaint=false.
+This gate applies to pure and foreground profiles alike; other strategies keep
+explicit unsupported carry approximation. Previous-canvas load/initialLoad stay0;
+foreground.rate=max(1-RAW SmudgeRateValue,.2)*effectiveColorRate, with ColorRate
+sensor dynamics. Unchecked SmudgeRate gives pickup1 but leaves RAW strength in
+the foreground prefactor. Both raw rate settings must be finite0..1 or import
+rejects them, rather than silently changing clamp order.
+Mean sampling retains SmudgeRadius dynamics; missing radius strength is native3
+(version<2 migrates percent/100). Native Color Smudge does not use FlowOption,
+so this branch emits flow1 and no flow dynamics; existing opacity is not doubled.
+Sensor fallback honours CustomOption flags before legacy CurveOption data.
+Portable imports validate bounded foreground/radius controls before any writes.
+Native adaptive mean/byte rounding remain approximate, not pixel equivalence.

@@ -232,7 +232,8 @@ def sensor_controls(params, option, notes):
     """Read Krita's single sensor or ChildSensor list into the shared product."""
     if not enabled(params.get(option+'UseCurve','true')):
         return []
-    sensor=xml(params.get(option+'Sensor','<params id="pressure"/>'))
+    sensor_definition=params.get(option+'Sensor') or '<params id="pressure"/>'
+    sensor=xml(sensor_definition)
     sensors=list(sensor.findall('ChildSensor')) if sensor.get('id')=='sensorslist' else [sensor]
     if len(sensors)>32: raise ValueError('Krita sensor count limit')
     ids=[node.get('id') for node in sensors]
@@ -240,6 +241,7 @@ def sensor_controls(params, option, notes):
     if numeric(params.get(option+'curveMode'))!=0:
         notes.append(compatibility(option+'SensorCombination','Non-multiplicative sensor combination is unsupported.','unsupported'))
         return []
+    legacy_curve=params.get('Curve'+option,'0,0;1,1;') if 'curve' not in sensor_definition and enabled(params.get('Custom'+option)) else '0,0;1,1;'
     common=params.get(option+'commonCurve') or (sensors[-1].findtext('curve') if sensors else None)
     use_common=enabled(params.get(option+'UseSameCurve','true'))
     controls=[]
@@ -248,7 +250,7 @@ def sensor_controls(params, option, notes):
         name=node.get('id','')
         if name not in supported:
             notes.append(compatibility(option+'Sensor','Unsupported Krita sensor '+name,'unsupported'));continue
-        curve=(common if use_common and common else node.findtext('curve')) or params.get('Curve'+option,'0,0;1,1;')
+        curve=(common if use_common and common else node.findtext('curve')) or legacy_curve
         transfer=native_transfer(curve)
         if len(controls)>=4:
             notes.append(compatibility(option+'Sensor','More than four active supported sensors; excess controls unsupported.','unsupported'));continue
@@ -256,6 +258,17 @@ def sensor_controls(params, option, notes):
         if name!='pressure':
             notes.append(compatibility(option+'Sensor','Sensor '+name+' uses recorded Grafetto input; speed scaling and curve interpolation require vendor calibration.'))
     return controls
+
+
+def size_like_controls(params, option, notes):
+    """Product-only subset; additive/absolute native sensors need other math."""
+    if not enabled(params.get(option+'UseCurve','true')): return []
+    sensor=xml(params.get(option+'Sensor') or '<params id="pressure"/>')
+    sensors=list(sensor.findall('ChildSensor')) if sensor.get('id')=='sensorslist' else [sensor]
+    if any(node.get('id') in ('ascension','rotation','drawingangle') for node in sensors):
+        notes.append(compatibility(option+'SensorCombination','Additive or absolute native size-like sensor cannot be compiled as a product; constant rate retained.','unsupported'))
+        return []
+    return sensor_controls(params,option,notes)
 
 
 def preset(data, name, catalog, external, depth=0):
@@ -305,8 +318,9 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=13
+    d['version']=14
     source_size=None
+    application=0
     kind = definition.get('type')
     if kind == 'auto_brush':
         generator = definition.find('MaskGenerator')
@@ -519,33 +533,58 @@ def preset(data, name, catalog, external, depth=0):
         # KDE/krita plugins/paintops/colorsmudge/kis_colorsmudgeop.cpp,
         # libpaintop/KisKritaSensorPack.cpp and KisCurveOptionData.h.
         # Enabled but missing Value defaults to the option range maximum (1).
-        color_rate=clamp(numeric(params.get('ColorRateValue'),1)) if enabled(params.get('PressureColorRate')) else 0
-        smudge_rate=clamp(numeric(params.get('SmudgeRateValue'),1)) if enabled(params.get('PressureSmudgeRate')) else 1
+        try:
+            raw_color_rate=float(params.get('ColorRateValue',1))
+        except (ValueError,TypeError):
+            raise ValueError('Invalid raw native ColorRateValue')
+        if not math.isfinite(raw_color_rate) or not 0<=raw_color_rate<=1:
+            raise ValueError('Raw native ColorRateValue outside0..1')
+        color_rate=raw_color_rate if enabled(params.get('PressureColorRate')) else 0
+        try:
+            raw_smudge_rate=float(params.get('SmudgeRateValue',1))
+        except (ValueError,TypeError):
+            raise ValueError('Invalid raw native SmudgeRateValue')
+        if not math.isfinite(raw_smudge_rate) or not 0<=raw_smudge_rate<=1:
+            raise ValueError('Raw native SmudgeRateValue outside0..1')
+        smudge_rate=raw_smudge_rate if enabled(params.get('PressureSmudgeRate')) else 1
         d['model']='mixer';d['mixer']={'load':color_rate,'pickup':smudge_rate,'strength':1,
                                     'initialLoad':color_rate,'smearAlpha':enabled(params.get('SmudgeRateSmearAlpha','true'))}
-        # KisSmudgeLengthOptionData::read defaults: legacy engine, SMEARING0.
+        # Both pure and foreground canvas paths require this same native
+        # legacy ALPHAMASK strategy. New/lightness/stamp/overlay stay fallback.
         previous_canvas=(not enabled(params.get('SmudgeRateUseNewEngine','false'))
-                         and numeric(params.get('SmudgeRateMode'),0) in (0,1) and color_rate==0)
+                         and numeric(params.get('SmudgeRateMode'),0) in (0,1)
+                         and application==0 and not enabled(params.get('MergedPaint','false'))
+                         and params.get('CompositeOp','normal')=='normal')
         if previous_canvas:
-            d['mixer']['source']='previousCanvas'
+            d['mixer'].update(source='previousCanvas',load=0,initialLoad=0)
+            # Native has no FlowOption in Color Smudge. Opacity is already in
+            # dab.opacity, and is used in two distinct native composition stages.
+            d['flow']=1;d['flowByPressure']=[[0,1],[1,1]]
+            behavior.get('modulations',{}).pop('flow',None)
+            if color_rate>0:
+                foreground={'rate':clamp(max(1-raw_smudge_rate,.2)*color_rate)}
+                controls=size_like_controls(params,'ColorRate',notes)
+                if controls: foreground['dynamics']=controls
+                d['mixer']['foreground']=foreground
             if numeric(params.get('SmudgeRateMode'),0)==1:
-                radius=numeric(params.get('SmudgeRadiusValue'),1)
+                radius=numeric(params.get('SmudgeRadiusValue'),3)
                 if numeric(params.get('SmudgeRadiusVersion'),1)<2: radius/=100
                 radius=clamp(radius,0,3) if enabled(params.get('PressureSmudgeRadius')) else 0
                 d['mixer']['sampling']={'mode':'uniformMean','radius':radius}
-                notes.append(compatibility('colorSmudge','Legacy pure dulling uses previous-canvas uniform mean: fixed64 Halton samples, bounded512px gather and premultiplied RGBA8 differ from native adaptive/colorspace rounding.'))
-                if enabled(params.get('PressureSmudgeRadius')) and sensor_controls(params,'SmudgeRadius',notes):
-                    notes.append(compatibility('SmudgeRadiusCurve','Dynamic sampling radius is not yet reproduced; configured radius retained.','unsupported'))
+                if enabled(params.get('PressureSmudgeRadius')):
+                    controls=size_like_controls(params,'SmudgeRadius',notes)
+                    if controls: d['mixer']['sampling']['radiusDynamics']=controls
+                notes.append(compatibility('colorSmudge','Legacy normal ALPHAMASK dulling uses previous-canvas uniform mean and optional foreground: fixed64 Halton samples, bounded512px gather and premultiplied RGBA8 differ from native adaptive/colorspace rounding.'))
             else:
-                notes.append(compatibility('colorSmudge','Legacy pure smearing samples previous canvas; native mask/byte quantization require calibration.'))
+                notes.append(compatibility('colorSmudge','Legacy normal ALPHAMASK smearing samples previous canvas with optional foreground; native mask/byte quantization require calibration.'))
         else:
-            notes.append(compatibility('colorSmudge','Dulling, new-engine or foreground-paint mixing retains approximate Grafetto carried pigment; native formulas differ.'))
+            notes.append(compatibility('colorSmudge','Unsupported native new-engine, non-ALPHAMASK, overlay, non-normal or unknown-mode strategy; carried-pigment approximation retained.','unsupported'))
         if enabled(params.get('PressureSmudgeRate')):
-            controls=sensor_controls(params,'SmudgeRate',notes)
+            controls=size_like_controls(params,'SmudgeRate',notes)
             if controls:
                 d['mixer']['pickupDynamics']=controls
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source')=='previousCanvas') and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):
