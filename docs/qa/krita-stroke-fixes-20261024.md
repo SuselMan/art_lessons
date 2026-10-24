@@ -121,3 +121,23 @@ negativeY. Scalar/math proof не заменяет будущую freehand tilt 
 след восстановлен; native firstline bbox высота47/48px, candidate47/47px при
 alpha>=32. Перечень других неисправленных режимов остаётся открытым. Этапы10/11
 сохранены как доказательства промежуточных результатов, не текущая сборка.
+
+## Активация QA версии12
+
+Стенд переключён на compiled `f0c45c37`, каталог117@12. Новый frontend и backend
+подтверждены qa-source/health. При активации обнаружено, что объединённый279
+каталог превышает2MiB file-limit загрузчика: runtime provisioned только117новых,
+а279 operator definitions сохранены в storage независимо. Это решение не меняет
+продуктовые лимиты. Все25 неподкреплённых старых DB references оставлены доступными;
+остальная история имеет room pins. Ни room manifests, ни операции, ни CAS не удалялись.
+
+В compiled Samsung реальные UI selection+asset loading и отдельный engine export
+для26/55/69/109 прошли с GLerror0; PNG побитово совпали со source-module12.
+На iPad также выполнены четыре compiled UI-driven exports: GLerror0. Первичная
+ошибка селектора устранена учётом русского интерфейса и выбора DigitalBrush.
+Различия против Samsung после premultiplication малы: max RGBA delta<=5.883/255,
+mean<=.189/255; для55 max<1/255. StraightRGB при alpha≈0 даёт ложный max255,
+поэтому отдельно сохранены premult/alpha метрики. Это не native identity и не
+полная проверка undo/replay. Viewer6/page, поиск
+Dithering1,512/1024 режимы и отсутствие page errors проверены Playwright;
+его context/browser закрыты в finally.
