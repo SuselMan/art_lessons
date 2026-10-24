@@ -305,7 +305,8 @@ export class BrushBehaviorPainter {
         // constant-pigment Wash. Only a feedback dab needs a regional copy.
         drawStamps(list,false,false,item=>{
           if(item.washFeedback && copy){
-            const rect=brushFootprintCopyRect(item.x,item.y,item.radius,item.aspect,item.angle,tile.originX,tile.originY,coverage.width,coverage.height)!
+            const rect=brushFootprintCopyRect(item.x,item.y,item.radius,item.aspect,item.angle,tile.originX,tile.originY,coverage.width,coverage.height)
+            if(!rect)return
             gl.activeTexture(gl.TEXTURE7)
             coverage.copyRegionInto(copy,rect.x,rect.y,rect.x,rect.y,rect.width,rect.height)
             coverage.beginReplaceDraw()
