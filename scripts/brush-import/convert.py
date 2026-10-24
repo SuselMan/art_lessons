@@ -555,6 +555,15 @@ def portable_bundle(path,catalog):
         if 'texture' in d and (not isinstance(d['texture'],dict) or d['texture'].get('id') not in ids): raise ValueError('Missing portable grain asset')
         behavior=d.get('behavior',{})
         if not isinstance(behavior,dict): raise ValueError('Invalid portable behavior')
+        if 'spacing' in behavior:
+            spacing=behavior['spacing']
+            if (not isinstance(spacing,dict) or set(spacing)-{'mode','coefficient','dynamics','isotropic'}
+                    or spacing.get('mode') not in ('diameter','kritaAuto')
+                    or type(spacing.get('coefficient')) not in (int,float) or not math.isfinite(spacing['coefficient'])
+                    or not (0 if spacing['mode']=='diameter' else .001)<=spacing['coefficient']<=100
+                    or ('isotropic' in spacing and type(spacing['isotropic']) is not bool)):
+                raise ValueError('Invalid portable spacing profile')
+            if 'dynamics' in spacing: validate_portable_dynamics(spacing['dynamics'])
         if 'dual' in behavior:
             if not isinstance(behavior['dual'],dict): raise ValueError('Invalid portable dual component')
             validate_descriptor(behavior['dual'].get('brush'),depth+1)

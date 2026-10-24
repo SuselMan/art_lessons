@@ -345,7 +345,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=15
+    d['version']=16
     source_size=None
     application=0
     kind = definition.get('type')
@@ -445,8 +445,35 @@ def preset(data, name, catalog, external, depth=0):
     d['flow']=clamp(numeric(params.get('FlowValue'),1))
     d['opacity']=clamp(numeric(params.get('OpacityValue'),1))
     behavior={'version':2,'rendering':{'mode':'buildUp','blendMode':'normal','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}}
-    if enabled(definition.get('useAutoSpacing')):
-        behavior['spacing']={'mode':'kritaAuto','coefficient':clamp(numeric(definition.get('autoSpacingCoeff'),1),.001,100)}
+    spacing_checked=enabled(params.get('PressureSpacing'))
+    auto_spacing=enabled(definition.get('useAutoSpacing'))
+    isotropic=enabled(params.get('Spacing/Isotropic'))
+    zero_fixed=not auto_spacing and numeric(definition.get('spacing'),.1)==0
+    if auto_spacing or spacing_checked or isotropic or zero_fixed:
+        raw_coefficient=definition.get('autoSpacingCoeff','1') if auto_spacing else definition.get('spacing',str(d['spacing']))
+        try:
+            coefficient=float(raw_coefficient)
+            strength=float(params.get('SpacingValue',1)) if spacing_checked else 1
+        except (TypeError,ValueError): raise ValueError('Invalid native spacing coefficient/strength')
+        if not math.isfinite(coefficient) or not 0<=coefficient<=100 or not math.isfinite(strength) or not 0<=strength<=1:
+            raise ValueError('Native spacing coefficient/strength outside bounded range')
+        coefficient*=strength
+        if coefficient==0:
+            # Any zero axis law reaches the same native .5px floor. This
+            # ordinary diameter profile avoids a synthetic fifth control.
+            profile={'mode':'diameter','coefficient':0}
+            if auto_spacing: notes.append(compatibility('spacingZero','Zero auto spacing represented by equivalent zero diameter law before native distance floor.','supported'))
+        else:
+            profile={'mode':'kritaAuto' if auto_spacing else 'diameter','coefficient':max(.001,coefficient) if auto_spacing else coefficient}
+            if auto_spacing and coefficient<.001:
+                notes.append(compatibility('spacingCoefficient','Positive auto coefficient below bounded.001 was raised; native step may differ.','unsupported'))
+            if spacing_checked:
+                controls=size_like_controls(params,'Spacing',notes)
+                if controls: profile['dynamics']=controls
+        if isotropic: profile['isotropic']=True
+        behavior['spacing']=profile
+        if spacing_checked or isotropic:
+            notes.append(compatibility('spacingDynamics','Native spacing strength/response retained after fixed/auto law and before distance floor; update-between-dabs clock, rotated characteristic dimensions and subpixel accumulation still require calibration.'))
     modes={'normal':'normal','multiply':'multiply','screen':'screen','overlay':'overlay','darken':'darken','lighten':'lighten','burn':'colorBurn','dodge':'colorDodge','linear_burn':'linearBurn','linear_dodge':'add','add':'add','subtract':'subtract','diff':'difference','exclusion':'exclusion','soft_light':'softLight','hard_light':'hardLight','divide':'divide','hue':'hue','saturation':'saturation','color':'color','luminosity':'luminosity','linear light':'linearLight','vivid_light':'vividLight','pin_light':'pinLight','hard mix':'hardMix','hard_mix_photoshop':'hardMix','darker color':'darkerColor','lighter color':'lighterColor'}
     if eraser: behavior['erase']=True
     mode='normal' if eraser else params.get('CompositeOp','normal')
@@ -622,7 +649,7 @@ def preset(data, name, catalog, external, depth=0):
             if controls:
                 d['mixer']['pickupDynamics']=controls
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source')=='previousCanvas') and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source')=='previousCanvas') and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):
