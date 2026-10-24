@@ -67,7 +67,8 @@ export class BrushBehaviorPainter {
   private readonly tip: (id: TipMaskId) => WebGLTexture
   private readonly grain: (id: BrushTextureId) => WebGLTexture
   private readonly protectTextures: (tip?: TipMaskId, grain?: BrushTextureId, dual?: TipMaskId, dualGrain?: BrushTextureId) => void
-  constructor(ctx: BrushContext, tip: (id: TipMaskId) => WebGLTexture, grain: (id: BrushTextureId) => WebGLTexture, protectTextures: (tip?: TipMaskId, grain?: BrushTextureId, dual?: TipMaskId, dualGrain?: BrushTextureId) => void) { this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures }
+  private readonly leaseTextures: (brush: BrushDescriptor) => () => void
+  constructor(ctx: BrushContext, tip: (id: TipMaskId) => WebGLTexture, grain: (id: BrushTextureId) => WebGLTexture, protectTextures: (tip?: TipMaskId, grain?: BrushTextureId, dual?: TipMaskId, dualGrain?: BrushTextureId) => void, leaseTextures: (brush: BrushDescriptor) => () => void) { this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
   initGL(): void {
     const gl = this.ctx.gl
     this.minmax = gl.getExtension('EXT_blend_minmax') as {
@@ -93,6 +94,8 @@ export class BrushBehaviorPainter {
     const { gl, paper } = this.ctx, behavior = brush.behavior!
     if (!dabs.length && !scratch.brushBehavior)
       return
+    const releaseTextures = this.leaseTextures(brush)
+    try {
     this.bindings.set(scratch, { target, preset, brush, pressure, color })
     const state = scratch.brushBehavior ?? (scratch.brushBehavior = beginBrushBehavior(dabs[0]))
     const independent = behavior.dual?.sampling === 'independent' ? behavior.dual.brush : undefined
@@ -339,5 +342,6 @@ export class BrushBehaviorPainter {
       tile.buffer.endDraw()
     }
     target.markContentPainted(bounds)
+    } finally { releaseTextures() }
   }
 }

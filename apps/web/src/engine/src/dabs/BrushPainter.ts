@@ -1,4 +1,4 @@
-import type { BrushPreparationResource } from './BrushPreparation'
+import { brushTextureLeaseResources, type BrushPreparationResource } from './BrushPreparation'
 /** One digital-stamp renderer for built-in, imported and historical presets.
  * BrushBehaviorPainter owns deposition/composition; this facade owns texture LRU. */
 import type { Dab } from '@grafetto/shared'
@@ -34,7 +34,7 @@ export class BrushPainter {
       'g:cloud', 'g:grit',
       ...(tip ? [`t:${tip}`] : []), ...(grain ? [`g:${grain}`] : []),
       ...(dual ? [`t:${dual}`] : []), ...(dualGrain ? [`g:${dualGrain}`] : []),
-    ]))
+    ]),brush=>this.textures.lease(brushTextureLeaseResources(brush,'stamp')))
   }
   initGL():void {this.textures.clear(true);this.behavior.initGL()}
   destroy():void {

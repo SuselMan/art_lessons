@@ -4,6 +4,7 @@
 export class BrushTextureCache {
   private readonly entries = new Map<string, { texture: WebGLTexture; bytes: number }>()
   private protectedKeys = new Set<string>()
+  private readonly leases = new Map<symbol, readonly { key: string; bytes: number }[]>()
   private usedBytes = 0
   private readonly gl: WebGLRenderingContext
   private readonly targetBytes: number
@@ -12,6 +13,20 @@ export class BrushTextureCache {
   protect(keys: readonly string[]): void {
     this.protectedKeys = new Set(keys)
     this.trim()
+  }
+  /** Synchronous paint-batch pinning, admitted only within the unchanged byte
+   * target. It prevents a partially resident animation's sequential scan from
+   * evicting its own later frames. No gesture/lifetime residency is promised. */
+  lease(resources: readonly { key: string; bytes: number }[]): () => void {
+    const union = new Map<string, number>()
+    for (const group of this.leases.values()) for (const item of group) union.set(item.key,item.bytes)
+    for (const item of resources) union.set(item.key,item.bytes)
+    if ([...union.values()].reduce((sum,bytes)=>sum+bytes,0) > this.targetBytes) return () => {}
+    const token = Symbol()
+    this.leases.set(token,resources)
+    // The previous draw group can still be bound here. The caller switches
+    // it before loading; changing residency now could evict a live sampler.
+    return () => { this.leases.delete(token); this.trim() }
   }
   get(key: string): WebGLTexture | undefined {
     const entry = this.entries.get(key)
@@ -28,15 +43,25 @@ export class BrushTextureCache {
   }
   clear(lost = false): void {
     if (!lost) for (const entry of this.entries.values()) this.gl.deleteTexture(entry.texture)
-    this.entries.clear(); this.protectedKeys.clear(); this.usedBytes = 0
+    this.entries.clear(); this.protectedKeys.clear(); this.leases.clear(); this.usedBytes = 0
   }
   private trim(): void {
     let protectedBytes = 0
     for (const [key, entry] of this.entries) if (this.protectedKeys.has(key)) protectedBytes += entry.bytes
     const limit = Math.max(this.targetBytes, protectedBytes)
+    let protectedKeys = this.protectedKeys
+    if (this.leases.size) {
+      protectedKeys = new Set(this.protectedKeys)
+      for (const group of this.leases.values()) for (const item of group) protectedKeys.add(item.key)
+      let unionBytes = 0
+      for (const [key,entry] of this.entries) if (protectedKeys.has(key)) unionBytes += entry.bytes
+      // An unplanned/oversized nested draw takes precedence over optional batch
+      // pins. Never enlarge the old max(target,current draw working set) bound.
+      if (unionBytes > limit) { this.leases.clear(); protectedKeys = this.protectedKeys }
+    }
     for (const [key, entry] of this.entries) {
       if (this.usedBytes <= limit) break
-      if (this.protectedKeys.has(key)) continue
+      if (protectedKeys.has(key)) continue
       this.gl.deleteTexture(entry.texture); this.entries.delete(key); this.usedBytes -= entry.bytes
     }
   }

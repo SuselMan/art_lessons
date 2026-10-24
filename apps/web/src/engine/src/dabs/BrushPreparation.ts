@@ -1,3 +1,4 @@
+import { importedAssetPixels } from '../presets/importedBrushes'
 import type { BrushDescriptor, BrushTextureId, TipMaskId } from '@grafetto/shared'
 
 export interface BrushPreparationResource { painter: 'stamp' | 'wet'; id: TipMaskId | BrushTextureId; grain: boolean }
@@ -31,6 +32,13 @@ export function brushPreparationBytes(resources: readonly BrushPreparationResour
     while (side >= 1) { bytes += side * side * 4; side = Math.floor(side / 2) }
     return total + bytes
   }, 0)
+}
+
+/** Cheap metadata-only batch pin plan; CPU mip arrays are not built here. */
+export function brushTextureLeaseResources(brush: BrushDescriptor, painter: 'stamp' | 'wet'): { key: string; bytes: number }[] {
+  return brushPreparationResources(painter === 'stamp' && brush.model === 'mixer' ? { ...brush, model: 'stamp' } : brush)
+    .filter(resource => resource.painter === painter)
+    .map(resource => ({ key: `${resource.grain ? 'g' : 't'}:${resource.id}`, bytes: brushPreparationBytes([resource], id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256) }))
 }
 
 /** Only one CPU-mips/upload job per animation frame; no stroke state is touched. */

@@ -1,4 +1,4 @@
-import type { BrushPreparationResource } from './BrushPreparation'
+import { brushTextureLeaseResources, type BrushPreparationResource } from './BrushPreparation'
 // (#494) Smudge and the digital brush's mixer, out of PencilEngine (seam С15
 // of the survey). Both paint through one carried imprint per user: every dab
 // copies the canvas patch under it, refreshes the imprint from that patch
@@ -312,6 +312,8 @@ export class SmudgePainter {
     if (target instanceof AccumulationBuffer) return
     // An explicit prevDab means the caller *is* the continuation (the live
     // stroke's own next incremental batch), and nothing needs resolving.
+    const releaseTextures = paint?.brush ? this.wetTextures.lease(brushTextureLeaseResources(paint.brush,'wet')) : () => {}
+    try {
     let prev = prevDab ?? this.resumeGesture(userId, strokeId, dabs)
     for (const dab of dabs) {
       if (paint?.brush) {
@@ -327,6 +329,7 @@ export class SmudgePainter {
       else this.applyDab(target, dab, 0, userId, paint)
       prev = dab
     }
+    } finally { releaseTextures() }
   }
 
   /** Each logical dab advances dynamics exactly once, independent of live batches.

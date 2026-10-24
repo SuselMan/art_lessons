@@ -62,3 +62,12 @@ FBO не меняет. Попадание в кеш не пересчитыва�
 если replay вытеснил ресурс ещё во время jobs, результат `skipped` включает обычный
 ленивый fallback без бесконечных повторов. Room держит input lock до окончания
 assets/publish/prepare; короткий context loss тоже сбрасывает readiness.
+
+Синхронный paint batch получает короткий texture lease на кадры своей brush family:
+это сохраняет уже resident будущие кадры при последовательном scan и нескольких
+ceiling/coverage/tile passes. Lease admission (включая вложенный independent child)
+не превышает те же16MiB; завершение/ошибка снимает pins через finally. Oversized
+family остаётся на lazy LRU. Непредвиденный current draw вытесняет optional lease,
+поэтому прежняя граница max(target,current draw working set) не увеличивается.
+Это снижает cyclic-LRU amplification, но не обещает удержать одновременно две
+animation family, суммарно превышающие бюджет; recorded draw order не меняется.

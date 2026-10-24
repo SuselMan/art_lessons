@@ -103,3 +103,50 @@ describe('cold brush upload GL state', () => {
     expect(gl.getParameter(gl.UNPACK_ALIGNMENT)).toBe(4)
   })
 })
+
+describe('short paint-batch leases', () => {
+  it('avoids cyclic LRU amplification for alternating nine/seven frame batches without increasing the byte target', () => {
+    const run = (leased: boolean) => {
+      const { cache } = setup(120)
+      let uploads = 0, peak = 0
+      const batches = [Array.from({ length: 9 }, (_, i) => `dry-${i}`), Array.from({ length: 7 }, (_, i) => `chalk-${i}`)]
+      for (let round = 0; round < 3; round++) for (const keys of batches) {
+        const release = leased ? cache.lease(keys.map(key => ({ key, bytes: 10 }))) : () => {}
+        try {
+          // Ceiling then coverage: same recorded stamp order, never regrouped.
+          for (let pass = 0; pass < 2; pass++) for (const key of keys) {
+            cache.protect([key])
+            if (!cache.get(key)) { uploads++; cache.put(key, texture(), 10) }
+            peak = Math.max(peak, cache.bytes)
+          }
+        } finally { release() }
+      }
+      return { uploads, peak }
+    }
+    expect(run(false)).toEqual({ uploads: 48, peak: 120 })
+    expect(run(true)).toEqual({ uploads: 32, peak: 120 })
+  })
+
+  it('rejects oversized/nested lease unions and releases pins after the batch', () => {
+    const { cache, deleted } = setup(20), a = texture(), b = texture(), c = texture()
+    const releaseA = cache.lease([{ key: 'a', bytes: 10 }])
+    cache.protect(['a']); cache.put('a', a, 10)
+    const rejected = cache.lease([{ key: 'b', bytes: 20 }])
+    cache.protect(['b']); cache.put('b', b, 10)
+    cache.protect(['c']); cache.put('c', c, 10)
+    expect(cache.get('a')).toBe(a); expect(cache.get('b')).toBeUndefined()
+    releaseA(); rejected(); cache.get('c')
+    cache.protect(['d']); cache.put('d', texture(), 10)
+    expect(deleted.mock.calls.map(call => call[0])).toContain(a)
+    expect(cache.bytes).toBe(20)
+  })
+
+  it('preempts optional batch pins rather than exceeding the original oversized-draw bound', () => {
+    const { cache } = setup(20)
+    const release = cache.lease([{ key: 'small', bytes: 10 }])
+    cache.protect(['small']); cache.put('small', texture(), 10)
+    cache.protect(['large']); cache.put('large', texture(), 40)
+    expect(cache.bytes).toBe(40); expect(cache.get('small')).toBeUndefined()
+    release(); expect(cache.bytes).toBe(40)
+  })
+})
