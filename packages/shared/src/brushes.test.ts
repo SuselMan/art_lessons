@@ -15,6 +15,24 @@ function library(): BrushLibrary {
 }
 
 describe('brush library contract', () => {
+  it('keeps canvas foreground separate from reservoirs and bounds both sensor products', () => {
+    const data=library(),d=data.brushes[0].descriptor
+    d.model='mixer'
+    d.mixer={load:0,initialLoad:0,pickup:1,strength:1,source:'previousCanvas',foreground:{rate:.2,dynamics:[{control:'pressure',minimum:0,jitter:0,curve:[[0,0],[1,1]]}]},sampling:{mode:'uniformMean',radius:.0923,radiusDynamics:[{control:'pressure',minimum:0,jitter:0}]}}
+    expect(isBrushLibrary(data)).toBe(true)
+    for(const rate of [-.01,1.01,Infinity,NaN]){d.mixer.foreground!.rate=rate;expect(isBrushLibrary(data)).toBe(false)}
+    d.mixer.foreground!.rate=.2
+    d.mixer.load=.1;expect(isBrushLibrary(data)).toBe(false)
+    d.mixer.load=0;delete d.mixer.source;expect(isBrushLibrary(data)).toBe(false)
+    d.mixer.source='previousCanvas';d.behavior={version:2,wetMix:{dilution:0,charge:1,attack:1,pull:0,grade:0,blur:0,blurJitter:0,wetnessJitter:0}}
+    expect(isBrushLibrary(data)).toBe(false)
+    delete d.behavior
+    const dynamic={control:'pressure' as const,minimum:0,jitter:0}
+    d.mixer.foreground!.dynamics=Array.from({length:5},()=>dynamic);expect(isBrushLibrary(data)).toBe(false)
+    d.mixer.foreground!.dynamics=[dynamic]
+    d.mixer.sampling!.radiusDynamics=Array.from({length:5},()=>dynamic);expect(isBrushLibrary(data)).toBe(false)
+    d.mixer.sampling!.radiusDynamics=[dynamic];expect(isBrushLibrary(data)).toBe(true)
+  })
   it('validates uniform size transfers recursively without allowing opacity above its range', () => {
     const data=library()
     data.brushes[0].descriptor.sizeByPressure={kind:'uniform',samples:[0,8]}
