@@ -92,6 +92,21 @@ describe('brush library contract', () => {
     Object.assign(data.brushes[0].descriptor.mixer, { smearAlpha: 'true' })
     expect(isBrushLibrary(data)).toBe(false)
   })
+  it('allows previous canvas sampling only for pure transfer', () => {
+    const data = library()
+    data.brushes[0].descriptor.model = 'mixer'
+    const mixer = { load: 0, initialLoad: 0, pickup: 1, strength: 1, source: 'previousCanvas' as const }
+    data.brushes[0].descriptor.mixer = mixer
+    expect(isBrushLibrary(data)).toBe(true)
+    mixer.load = 0.1
+    expect(isBrushLibrary(data)).toBe(false)
+    mixer.load = 0
+    mixer.initialLoad = 0.5
+    expect(isBrushLibrary(data)).toBe(false)
+    mixer.initialLoad = 0
+    data.brushes[0].descriptor.behavior = { version: 2, wetMix: { dilution: 0, charge: 1, attack: 1, pull: 1, grade: 0, blur: 0, blurJitter: 0, wetnessJitter: 0 } }
+    expect(isBrushLibrary(data)).toBe(false)
+  })
 })
 
 describe('Krita source rendering contracts', () => {

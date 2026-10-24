@@ -234,6 +234,8 @@ export interface BrushDescriptor {
     pickup: number
     /** Include transparent canvas pixels in pickup; absent preserves opaque pickup. */
     smearAlpha?: boolean
+    /** Sample the previous placed dab's canvas neighbourhood instead of a reservoir. */
+    source?: 'previousCanvas'
     /** How strongly the carried paint is laid down per radius travelled. */
     strength: number
   }
@@ -342,7 +344,11 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     }
     if (d.mixer !== undefined && (!record(d.mixer) || !numberIn(d.mixer.load,0,1) || !numberIn(d.mixer.pickup,0,1) || !numberIn(d.mixer.strength,0,1)
       || (d.mixer.initialLoad !== undefined && !numberIn(d.mixer.initialLoad,0,1))
-      || (d.mixer.smearAlpha !== undefined && typeof d.mixer.smearAlpha !== 'boolean'))) return false
+      || (d.mixer.smearAlpha !== undefined && typeof d.mixer.smearAlpha !== 'boolean')
+      || (d.mixer.source !== undefined && d.mixer.source !== 'previousCanvas'))) return false
+    // This source currently describes pure spatial transfer. Foreground
+    // injection and wet charge need their own composition contract first.
+    if (d.mixer?.source === 'previousCanvas' && (d.mixer.load !== 0 || d.mixer.initialLoad !== 0 || d.behavior?.wetMix !== undefined)) return false
     if (d.model === 'mixer' && d.mixer === undefined) return false
     if (d.model !== 'mixer' && d.mixer !== undefined) return false
     if (b.compatibility !== undefined && (!Array.isArray(b.compatibility) || b.compatibility.length > 128 || !b.compatibility.every(c => record(c) && typeof c.feature === 'string' && c.feature.length <= 128 && ['supported','approximate','unsupported'].includes(String(c.status)) && typeof c.detail === 'string' && c.detail.length <= 2000))) return false
