@@ -493,10 +493,19 @@ def preset(data, name, catalog, external, depth=0):
                                     'initialLoad':color_rate,'smearAlpha':enabled(params.get('SmudgeRateSmearAlpha','true'))}
         # KisSmudgeLengthOptionData::read defaults: legacy engine, SMEARING0.
         previous_canvas=(not enabled(params.get('SmudgeRateUseNewEngine','false'))
-                         and numeric(params.get('SmudgeRateMode'),0)==0 and color_rate==0)
+                         and numeric(params.get('SmudgeRateMode'),0) in (0,1) and color_rate==0)
         if previous_canvas:
             d['mixer']['source']='previousCanvas'
-            notes.append(compatibility('colorSmudge','Legacy pure smearing samples previous canvas; native distance/smudge-rate dynamics are not yet reproduced.'))
+            if numeric(params.get('SmudgeRateMode'),0)==1:
+                radius=numeric(params.get('SmudgeRadiusValue'),1)
+                if numeric(params.get('SmudgeRadiusVersion'),1)<2: radius/=100
+                radius=clamp(radius,0,3) if enabled(params.get('PressureSmudgeRadius')) else 0
+                d['mixer']['sampling']={'mode':'uniformMean','radius':radius}
+                notes.append(compatibility('colorSmudge','Legacy pure dulling uses previous-canvas uniform mean: fixed64 Halton samples, bounded512px gather and premultiplied RGBA8 differ from native adaptive/colorspace rounding.'))
+                if enabled(params.get('PressureSmudgeRadius')) and sensor_controls(params,'SmudgeRadius',notes):
+                    notes.append(compatibility('SmudgeRadiusCurve','Dynamic sampling radius is not yet reproduced; configured radius retained.','unsupported'))
+            else:
+                notes.append(compatibility('colorSmudge','Legacy pure smearing samples previous canvas; native mask/byte quantization require calibration.'))
         else:
             notes.append(compatibility('colorSmudge','Dulling, new-engine or foreground-paint mixing retains approximate Grafetto carried pigment; native formulas differ.'))
         if enabled(params.get('PressureSmudgeRate')):
@@ -504,7 +513,7 @@ def preset(data, name, catalog, external, depth=0):
             if controls:
                 d['mixer']['pickupDynamics']=controls
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureRotation' and rotation_decoded)]
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureRotation' and rotation_decoded)]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):

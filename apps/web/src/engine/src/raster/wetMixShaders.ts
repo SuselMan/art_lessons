@@ -1,3 +1,4 @@
+import { CANVAS_MEAN_TAPS } from './canvasMeanSampling'
 import { BRUSH_BLEND_GLSL, BRUSH_EDGE_BLEED_GLSL, BRUSH_TEXTURE_APPLICATION_GLSL } from './brushBehaviorShaders'
 
 /** Shared pickup/transfer programs for the stump and all mixer brushes. */
@@ -285,4 +286,18 @@ export const WET_TRANSFER_FRAG = `
       gl_FragColor = vec4(0.0, 0.0, 0.0, a);
     }
   }
+`
+
+/** Bounded uniform previous-canvas mean. One final RGBA8 quantization; fixed64
+ * is approximate when native adaptive sampling would continue. */
+export const CANVAS_MEAN_FRAG = `
+precision highp float;
+uniform sampler2D u_source;
+// Native integer sample width/height, gathered square world span, sample count.
+uniform vec4 u_geometry;
+void main() {
+  vec4 sum=vec4(0.0);
+  ${CANVAS_MEAN_TAPS.map(([x,y],i)=>`if(u_geometry.w>${i}.0){vec2 p=floor(vec2(${x.toFixed(12)},${y.toFixed(12)})*(u_geometry.xy-1.0)+0.5);sum+=texture2D(u_source,vec2((p.x+0.5)/u_geometry.z,1.0-(p.y+0.5)/u_geometry.z));}`).join('\n')}
+  gl_FragColor=sum/u_geometry.w;
+}
 `

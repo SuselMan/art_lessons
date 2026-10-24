@@ -1,3 +1,4 @@
+import { canvasMeanRect } from '../raster/canvasMeanSampling'
 import { brushTextureApplication } from './brushTextureApplication'
 import { brushTextureLeaseResources, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 // (#494) Smudge and the digital brush's mixer, out of PencilEngine (seam С15
@@ -34,7 +35,7 @@ import { smudgeGrainRelief } from '../presets/smudgeGrain'
 import { DAB_VERT, DISPLAY_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 
-import { WET_PICKUP_FRAG, WET_TRANSFER_FRAG } from '../raster/wetMixShaders'
+import { WET_PICKUP_FRAG, WET_TRANSFER_FRAG, CANVAS_MEAN_FRAG } from '../raster/wetMixShaders'
 import { advanceBrushAnimation, beginBrushBehavior, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, type BrushBehaviorState, type BehaviorStamp } from '../presets/brushBehavior'
 import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix'
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
@@ -185,6 +186,9 @@ export class SmudgePainter {
   // full-screen quad over the imprint texture; it needs no dab-quad
   // geometry, only the patch's own normalized square) rather than DAB_VERT.
   private pickupProg!: WebGLProgram
+  private meanProg!: WebGLProgram
+  private meanUni: Uniforms = {}
+  private meanPosLoc = -1
   private transferUni: Uniforms = {}
   private pickupUni: Uniforms = {}
   // Attribute locations are per-*program*, not per-shader-source — even
@@ -209,6 +213,9 @@ export class SmudgePainter {
     const { gl } = this
     this.transferProg = createProgram(gl, DAB_VERT, WET_TRANSFER_FRAG)
     this.pickupProg   = createProgram(gl, DISPLAY_VERT, WET_PICKUP_FRAG)
+    this.meanProg = createProgram(gl, DISPLAY_VERT, CANVAS_MEAN_FRAG)
+    this.meanUni = getUniforms(gl,this.meanProg,['u_source','u_geometry'])
+    this.meanPosLoc = gl.getAttribLocation(this.meanProg,'a_position')
     this.transferUni = getUniforms(gl, this.transferProg, [
       'u_textureApplication','u_textureMapping','u_dualTextureApplication','u_dualTextureMapping','u_dualGrain','u_dualGrainStrength',
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
@@ -247,6 +254,7 @@ export class SmudgePainter {
     this.wetGestures.clear()
     gl.deleteProgram(this.transferProg)
     gl.deleteProgram(this.pickupProg)
+    gl.deleteProgram(this.meanProg)
   }
 
   /** Release a presentation-only owner without touching a newer gesture. */
@@ -572,7 +580,7 @@ export class SmudgePainter {
    * complete before any destination write; changing size uses current bounds
    * at the previous placed centre, never rescales an old imprint. */
   private paintPreviousCanvas(target: ILayerBuffer, dab: Dab, radius: number, footprint: WorldRect, rect: WorldRect, patchSize: number, span: number, previous: {x:number;y:number}, paint: MixerPaint, wet: WetStamp): void {
-    const source = this.acquireScratch(patchSize)
+    let source:AccumulationBuffer|undefined
     let original: AccumulationBuffer | undefined
     try {
       original = this.acquireScratch(patchSize)
@@ -580,7 +588,14 @@ export class SmudgePainter {
       const sourceRect = {minX:x,minY:y,maxX:x+span,maxY:y+span}
       // Resolve/gather source first: allocating distant destination tiles can
       // evict source tiles, whereas the already gathered snapshot is stable.
-      this.gatherPatch(source,target.resolveForPaint(sourceRect),sourceRect,patchSize,span)
+      if(paint.brush?.mixer?.sampling){
+        // Sampling geometry excludes transfer padding/granularity. Its own
+        // square gather retains original texel centres up to512 world pixels.
+        const native=brushFootprintBounds(dab.x,dab.y,radius,wet.stamp.aspect,wet.stamp.angle)!
+        const sampleRect=canvasMeanRect(previous,Math.max(1,Math.ceil(native.maxX-native.minX)),Math.max(1,Math.ceil(native.maxY-native.minY)),paint.brush.mixer.sampling.radius)
+        const mean=this.meanPreviousCanvas(target,sampleRect)
+        source=mean
+      }else {source=this.acquireScratch(patchSize);this.gatherPatch(source,target.resolveForPaint(sourceRect),sourceRect,patchSize,span)}
       const targets = target.resolveForPaint(rect)
       if (!targets.length) return
       this.gatherPatch(original,targets,rect,patchSize,span)
@@ -591,7 +606,32 @@ export class SmudgePainter {
         this.drawTransferDab(tile,dab,radius,source,rect.minX-tile.originX,tile.buffer.height-(rect.minY-tile.originY)-span,span,'lay',strength,wet,original)
       }
       target.markContentPainted(footprint)
-    } finally { this.releaseScratch(source); if (original) this.releaseScratch(original) }
+    } finally { if(source)this.releaseScratch(source); if (original) this.releaseScratch(original) }
+  }
+
+  /** Fixed64 nearest-centre samples, no CPU readback or persistent reservoir.
+   * Samples larger than512px use the bounded gather's existing downsampling;
+   * importer reports both this and native adaptive-count approximation. */
+  private meanPreviousCanvas(target:ILayerBuffer,rect:WorldRect):AccumulationBuffer {
+    const width=rect.maxX-rect.minX,height=rect.maxY-rect.minY,span=Math.max(width,height)
+    const size=Math.min(SMUDGE_MAX_PATCH_SIZE,span),sample=this.acquireScratch(size)
+    let mean:AccumulationBuffer|undefined
+    try {
+      const square={...rect,maxX:rect.minX+span,maxY:rect.minY+span}
+      this.gatherPatch(sample,target.resolveForPaint(square),square,size,span)
+      mean=this.acquireScratch(1)
+      const {gl}=this,u=this.meanUni
+      mean.beginReplaceDraw()
+      try {
+      gl.useProgram(this.meanProg)
+      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,sample.texture)
+      gl.uniform1i(u.u_source,0);gl.uniform4f(u.u_geometry,width,height,span,Math.min(64,width*height))
+      gl.bindBuffer(gl.ARRAY_BUFFER,this.ctx.screenBuf());gl.enableVertexAttribArray(this.meanPosLoc)
+      gl.vertexAttribPointer(this.meanPosLoc,2,gl.FLOAT,false,0,0);gl.drawArrays(gl.TRIANGLES,0,6)
+      }finally{mean.endDraw()}
+      return mean
+    }catch(error){if(mean)this.releaseScratch(mean);throw error}
+    finally{this.releaseScratch(sample)}
   }
 
   /** Assembles the canvas patch under one dab out of every tile it overlaps

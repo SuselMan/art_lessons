@@ -83,3 +83,11 @@ LINEAR+mips и discrete samplers. Prepare/leases учитывают обе ре�
 версии и base-only bytes grid, сохраняя существующий бюджет. CPU/GPU readback
 для этой операции не используется; численная vendor byte equivalence проверяется
 отдельным native/device сравнением, не MockGL.
+
+Опциональный `mixer.sampling: { mode: 'uniformMean', radius }` дополняет только
+чистый `previousCanvas` (load/initialLoad0, безwetMix). Вместо пространственной
+patch `SmudgePainter` усредняет предыдущую область отдельным pooled1×1 GPU-pass:
+integer rect/radius, округлённые Halton2/3 texel centres, максимум64 samples.
+На областях больше512px gather уменьшает разрешение; native adaptive sampling,
+цветовое пространство и byte-rounding не считаются точно воспроизведёнными.
+First contact, порядокscatter/chunks иCOPY/OVER общие с пространственной веткой.

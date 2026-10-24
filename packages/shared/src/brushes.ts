@@ -244,6 +244,8 @@ export interface BrushDescriptor {
     smearAlpha?: boolean
     /** Sample the previous placed dab's canvas neighbourhood instead of a reservoir. */
     source?: 'previousCanvas'
+    /** Uniform previous-canvas area mean. Fixed64 sample cap; no foreground. */
+    sampling?: { mode: 'uniformMean'; radius: number }
     /** Multiplicative input responses for the pickup/transfer amount. */
     pickupDynamics?: BrushDynamic[]
     /** How strongly the carried paint is laid down per radius travelled. */
@@ -370,6 +372,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || (d.mixer.initialLoad !== undefined && !numberIn(d.mixer.initialLoad,0,1))
       || (d.mixer.smearAlpha !== undefined && typeof d.mixer.smearAlpha !== 'boolean')
       || (d.mixer.source !== undefined && d.mixer.source !== 'previousCanvas')
+      || (d.mixer.sampling !== undefined && (!record(d.mixer.sampling) || d.mixer.source !== 'previousCanvas' || d.mixer.sampling.mode !== 'uniformMean' || !numberIn(d.mixer.sampling.radius,0,3)))
       || (d.mixer.pickupDynamics !== undefined && !isBrushBehavior({ version: 2, modulations: { flow: d.mixer.pickupDynamics } })))) return false
     // This source currently describes pure spatial transfer. Foreground
     // injection and wet charge need their own composition contract first.
