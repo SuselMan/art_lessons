@@ -439,3 +439,63 @@ BrushMipCache нарушало erasableSyntaxOnly (TS1294). Результат �
 Vite/GL/image проверки20 оставались успешными. Конструктор исправлен вf516330d;
 повторный полный npm run typecheck действительно завершился exit0 (включая
 web/SW/shared/server/e2e/scripts), wash-types-fixed.log. Новые проверки21 ниже.
+
+
+## Krita21: AlphaDarken/OVER и фактический шаг с давлением
+
+Reader5cd08263, final runtime12319e4d; источник полного117run runtime5634eccd,
+финальный inputкаталогv34,117brushes/245assets,manifestSHA
+`9395bbbccb5ccf3b30749f1bf776e5cf65c3ab3b1f186588240dce0c73a50c5d`.
+Каталогv33 был внутренней неопубликованной пробой Wash до source-spacing fix;
+backend его никогда не активировал. Финальные данные21 опубликованы изv34.
+Результаты и source-proof: temp/device-runs/krita-stroke-20261024/fixes-v21.
+
+По pinnedKrita bd6e8d0 перенесены creamy AlphaDarken color/alpha и averageOpacity,
+per-dab opacity OVER, forced alphaDarken masking-context.88WASHparent,4OVERparent,
+20WASHchildren;9WASHparent с material/HSV явно approximate по стоимости feedback,
+16colorsmudge сохраняют previousCanvas. Основной и child clocks независимы.
+
+Actual source axes включены для всех кистей вместо выборочного fuzzy/Ratio gate.
+115 PressureSize identity раньше не включала профиль: шаг2.88px вместо
+max(.5,2.88*p). Fade264dabs поэтому набирался к760px вместо≈145px.
+После исправления тонкий насыщенный earlyramp115 восстановлен, localFAIL20снят.
+Source/time/history/read-only audits и formula witnesses сохранены рядом.
+
+Все117 sourceSamsung GL0:104changed к20/13unchanged; обаvisualgates всех104PASS.
+Улучшения28/51/70/106/108/115.12 всё ещё сильно бледнее native,85 имеет неверную
+сетчатую фактуру;116 перенос синего и часть edge/filter/RNG остаютсяPARTIAL.
+Native Qt pyramid, time sensor108 и timed airbrush ещё не полностью воспроизведены.
+Полная идентичность всех кистей не заявлена. iPad/AppleGPU21 недоступен.
+
+8actualGPU scalar/color witnesses проверили falling-opacity, Flow1/.25/0,
+цвет междуchunks, saturatedD>A и fast rising. Flow0 действительно меняетцвет,
+не alpha. Nativefloat premultdelta<=1.5/255 сRGBA8rounding; saturatedfall alpha204
+сохранена, chunk-colour pixel-identical single-op. После batching/parametercache
+эти witnesses повторены.581TS/36suites,140Python; fulltypecheck/lint/map/build
+успешно завершены exit0. Erratatypecheck19/20 выше сохраняется, не скрыта.
+
+Быстрые последовательные dabs рисуются одним renderpass; uniformflow/A/mode
+обновляются при изменении, feedback копирует только footprint в existingceiling.
+Первый21вариант с per-dab FBO switching дал100p95до67ms; он заменён batching.
+Matched Impasto100 ABBA (72rAF×4events, дваразмера, одинаковый actualSampler,
+одинSamsung/sourceclass12319e4d) сравнил descriptors20/21 и старый strippedshader.
+На48px20p95≈50ms,21p9517–34ms;128px20p9517–33ms,21p9517ms.
+Diagnostic stripped20 shader дал48pxp9550–67ms,128px≈17ms.
+У21drawcalls2263→1924 и1688→1478, FBO switches4549→4280/3935→3743;
+texImage2Dвсехmiplevels1658/1134 не изменились. Strippedlegacyshader не дал
+стабильного выигрыша: гипотеза лишней shaderbranch как причины не подтверждена.
+Это короткое instrumentedAB, не обещание60FPS/OS pen latency. В fixed/variable
+19/106/111 p95≈16.8ms, coldstalls до150ms остаются. Memory-soak не заявлен.
+
+Оставшееся конкретное performanceнаправление: устранить повторные uploads при
+16МиБ conservative GPUbudget, не увеличиваялимит. Возможный эксперимент —
+упаковка анимированных alpha/material frames вRGBAканалы с побайтно идентичными
+mips и swizzle; это пока план, не реализованная/измеренная оптимизация.
+
+
+Final compiled12319e4d:20selectedexports (включаяrandomOpacity67/81/82) GL0,
+все20 byte-identical frozen source5634. Undo/redo7cases pixel-identical.
+Actual WebGL lose/restore67/115:2cases вернули тот же PNG,новыепрограммы/average
+перестроились из журнала. Authored8witnesses повторены наfinalruntime без изменения.
+Viewer21Native/20/21:117/6page/search/pagination/512↔1024 PASS; browser/contextзакрыты.
+Operator279/283:106refs=81pinned+25operatorresolved,serverhealth/dbup.

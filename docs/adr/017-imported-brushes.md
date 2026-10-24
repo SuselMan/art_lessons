@@ -375,3 +375,37 @@ alpha-darken recurrence. Нынешний max ceiling не эквивалент�
 полностью идентичными; локальное ухудшение115 pressure-onset записано в QA.
 Time-progress и timed-airbrush пока unsupported; zero-time native paintLine
 не создаёт timed dabs и не объясняет прежнюю бледность111/112.
+
+
+## Физическое накопление отпечатков (converter21)
+
+Все кисти Krita теперь получают явный source-spacing по actual axes, включая
+обычный pressure Size без fuzzy. Это восстанавливает не только плотность, но
+время Fade в пространстве: у115 nominal2.88px заменяется max(.5,2.88*p).
+Native264dabs достигаются примерно через145px pressure-ramp вместо760px.
+Primary/masking seq независимы в native; объединённый счётчик не вводился.
+
+`rendering.accumulation='over'|'alphaDarken'` доступен только с modebuildUp без
+retrospective taper. OVER применяет opacity к каждому dab. AlphaDarken хранит
+физическое premultiplied покрытие и scalar average opacityA: рост сразу доO,
+спад .1*O+.9*Aold. Пусть M=mask, F=flow, D=stored alpha,T=M*O. При A>O:
+H=(A>D ? T+(A-T)*D/A : D), иначе H=(O>D ? D+(O-D)*M : D).
+Dnew=D+F*(H-D). Прямой цвет смешивается с source с весомT (безF), затем
+premultiply наDnew. ОкруглениеRGBA8 и vendor implementation детали отличаются.
+
+Для постоянного pigment и A>=предыдущего maximumO имеем D<=A, поэтому точная
+формула alpha выполняется fixed-function blending: q=M*F*O/A, source=q*C,
+blendFunc(CONSTANT_ALPHA(A),ONE_MINUS_SRC_ALPHA). Остальные случаи читают
+предыдущее покрытие из regional copy уже существующего ceilingbuffer: новой
+полноразмерной GPUтекстуры не требуется. Смена foreground между chunks навсегда
+снимает fast proof текущего жеста. Последовательные fastdabs рисуются одним
+проходом; неизменные параметры flow/A/mode не отправляются повторно вGPU.
+
+Физический профиль пропускает прежний ceiling pass и final ceiling multiplier.
+В importer21:88одноцветных parentWASH,4parentOVER,20maskingchildrenWASH;
+maskingконтекст принудительно AlphaDarken даже без PaintOpAction. Девять WASH
+parent с материалом/HSV остаются на приблизительном режиме с явной заметкой,
+чтобы пока не включать дорогой per-dab feedback для их материала. Colorsmudge
+сохраняет свой отдельный previousCanvas path. Runtime feedback включает точный
+порядок цвета/alpha, включая смену цвета при Flow0; native loss/restoration
+повторяет журнал и строит average заново, а не хранит его между жестами.
