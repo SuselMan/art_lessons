@@ -226,10 +226,14 @@ export interface BrushDescriptor {
      *  per radius travelled. 1 = never picks anything up (a plain brush); low =
      *  mostly drags what is already on the canvas. */
     load: number
+    /** Foreground fraction at contact; absent preserves the historical .85 prime. */
+    initialLoad?: number
     /** How much of what is under the brush it picks up per radius
      *  travelled. Together with `load` this sets how far a colour is dragged:
      *  the carried paint forgets at `pickup + load` per radius. */
     pickup: number
+    /** Include transparent canvas pixels in pickup; absent preserves opaque pickup. */
+    smearAlpha?: boolean
     /** How strongly the carried paint is laid down per radius travelled. */
     strength: number
   }
@@ -336,7 +340,9 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         if (!isBrushLibrary(probe)) return false
       }
     }
-    if (d.mixer !== undefined && (!record(d.mixer) || !numberIn(d.mixer.load,0,1) || !numberIn(d.mixer.pickup,0,1) || !numberIn(d.mixer.strength,0,1))) return false
+    if (d.mixer !== undefined && (!record(d.mixer) || !numberIn(d.mixer.load,0,1) || !numberIn(d.mixer.pickup,0,1) || !numberIn(d.mixer.strength,0,1)
+      || (d.mixer.initialLoad !== undefined && !numberIn(d.mixer.initialLoad,0,1))
+      || (d.mixer.smearAlpha !== undefined && typeof d.mixer.smearAlpha !== 'boolean'))) return false
     if (d.model === 'mixer' && d.mixer === undefined) return false
     if (d.model !== 'mixer' && d.mixer !== undefined) return false
     if (b.compatibility !== undefined && (!Array.isArray(b.compatibility) || b.compatibility.length > 128 || !b.compatibility.every(c => record(c) && typeof c.feature === 'string' && c.feature.length <= 128 && ['supported','approximate','unsupported'].includes(String(c.status)) && typeof c.detail === 'string' && c.detail.length <= 2000))) return false

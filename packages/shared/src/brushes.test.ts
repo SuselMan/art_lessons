@@ -81,6 +81,17 @@ describe('brush library contract', () => {
     })
     expect(isBrushLibrary(data)).toBe(false)
   })
+  it('bounds initial mixer load and validates alpha smearing', () => {
+    const data = library()
+    data.brushes[0].descriptor.model = 'mixer'
+    data.brushes[0].descriptor.mixer = { load: 0, initialLoad: 0, pickup: 1, strength: 1, smearAlpha: true }
+    expect(isBrushLibrary(data)).toBe(true)
+    data.brushes[0].descriptor.mixer.initialLoad = -1
+    expect(isBrushLibrary(data)).toBe(false)
+    data.brushes[0].descriptor.mixer.initialLoad = 0
+    Object.assign(data.brushes[0].descriptor.mixer, { smearAlpha: 'true' })
+    expect(isBrushLibrary(data)).toBe(false)
+  })
 })
 
 describe('Krita source rendering contracts', () => {

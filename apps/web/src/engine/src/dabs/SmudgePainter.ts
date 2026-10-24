@@ -355,8 +355,10 @@ export class SmudgePainter {
     }
     const wet = brush.behavior?.wetMix
     const step = wet ? wetMixStep(wet,state,dab,travel,!prev) : {
-      load: !prev ? MIXER_PRIME_LOAD : clampNum(paint.load*travel,0,1),
-      pickup: clampNum(paint.pickup*travel,0,1),strength:1,retention:1,blur:0,
+      // The descriptor's zero load means a pure blender. The legacy mixer's
+      // fixed .85 prime would inject foreground paint even with load=0.
+      load: !prev ? brush.mixer?.initialLoad ?? MIXER_PRIME_LOAD : clampNum(paint.load * travel,0,1),
+      pickup: !prev ? 1 : clampNum(paint.pickup*travel,0,1),strength:1,retention:1,blur:0,
     }
     for (const stamp of behaviorStampsForDab(brush,dab,state.behavior,paint.color)) {
       const shaped = {...dab,x:stamp.x,y:stamp.y,size:stamp.size,angle:stamp.angle}
@@ -507,7 +509,7 @@ export class SmudgePainter {
     // The mixer picks up at its own rate — slower than the stump's, which is
     // what lets it drag a colour a couple of brush widths rather than one.
     const pickRate = wet ? wet.step.pickup : paint && !priming ? clampNum(paint.pickup * travel, 0, 1) : rate
-    this.runPickup(patch, imprint.buf ?? patch, next, pickRate, wet?.stamp.color ?? paint?.color ?? null, paintLoad, wet?.step.blur ?? 0, wet?.step.retention ?? 1)
+    this.runPickup(patch, imprint.buf ?? patch, next, pickRate, wet?.stamp.color ?? paint?.color ?? null, paintLoad, wet?.step.blur ?? 0, wet?.step.retention ?? 1, paint?.brush?.mixer?.smearAlpha ?? false)
     if (imprint.buf) this.releaseScratch(imprint.buf)
     imprint.buf = next
     if (priming && !wet) { this.releaseScratch(patch); return }
@@ -628,7 +630,7 @@ export class SmudgePainter {
    *  buffer happened to hold before. */
   private runPickup(
     patch: AccumulationBuffer, carried: AccumulationBuffer, target: AccumulationBuffer, rate: number,
-    paintColor: [number, number, number] | null = null, paintLoad = 0, blur = 0, retention = 1,
+    paintColor: [number, number, number] | null = null, paintLoad = 0, blur = 0, retention = 1, smearAlpha = false,
   ): void {
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo)
@@ -653,7 +655,7 @@ export class SmudgePainter {
     const [pr, pg, pb] = paintColor ?? [0, 0, 0]
     gl.uniform4f(u.u_paint, pr, pg, pb, 1)
     gl.uniform1f(u.u_paintLoad, paintLoad)
-    gl.uniform1f(u.u_alphaPickup, paintColor ? 1 : 0)
+    gl.uniform1f(u.u_alphaPickup, paintColor && !smearAlpha ? 1 : 0)
 
     // screenBuf, not quadBuf: this pass runs DISPLAY_VERT, whose "quad"
     // convention is the -1..1 fullscreen one, while quadBuf is DAB_VERT's
