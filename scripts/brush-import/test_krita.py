@@ -27,6 +27,14 @@ class KritaTests(unittest.TestCase):
             self.assertEqual(bounds,{'x':106/512,'y':106/512,'width':300/512,'height':300/512})
             _,bounds=tip_asset(Image.new('L',(169,170),255),c,[])
             self.assertEqual(bounds,{'x':42.5/256,'y':43/256,'width':170/256,'height':170/256})
+            aid,bounds=tip_asset(Image.new('L',(1,32),255),c,[])
+            self.assertEqual(c.assets[aid]['size'],64)
+            self.assertEqual(bounds,{'x':15.5/64,'y':16/64,'width':.5,'height':.5})
+
+    def test_sensor_curve_extends_boundary_without_changing_native_knots(self):
+        from krita_import import sensor_controls
+        params={'SizeSensor':'<params id="pressure"><curve>.2,.3;.8,.9;</curve></params>'}
+        self.assertEqual(sensor_controls(params,'Size',[])[0]['curve'],[[0,.3],[.2,.3],[.8,.9],[1,.9]])
 
     def test_gih_descriptor_preserves_frames_and_exact_eof_diagnostic(self):
         def frame(value):

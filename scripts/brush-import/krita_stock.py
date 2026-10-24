@@ -6,6 +6,7 @@ from pathlib import Path, PurePosixPath
 import urllib.parse
 import urllib.request
 import zipfile
+import subprocess
 from contextlib import ExitStack
 from brush_contract import Catalog
 from krita_import import convert_krita
@@ -89,6 +90,10 @@ def main():
     parser.add_argument('--include-legacy', action='store_true')
     args = parser.parse_args()
     report = build(json.loads(LOCK.read_text()), args.cache, args.output, args.include_legacy)
+    # Python parsing is not sufficient: validate recursive dual descriptors and
+    # all asset references with the application's authoritative TS contract.
+    subprocess.run(['node',str(Path(__file__).with_name('validate_catalog.mjs')),
+                    str(args.output/'manifest.json'),str(args.output/'validation.json')],check=True)
     print(json.dumps({key:report[key] for key in ('imported','assets')}, ensure_ascii=False))
     print('Skipped:', len(report['skipped']))
 

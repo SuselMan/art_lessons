@@ -130,3 +130,17 @@ compatibility warning; partial frames are rejected. RGBA pipe pixels currently
 contribute alpha only, with an unsupported-colour warning. All native static and
 pipe raster tips include square `maskBounds` matching exact POT padding, including
 half-texel offsets for odd dimensions; Gaussian256 masks already fill the cache.
+
+Before publishing a stock catalog, build the current shared package
+(`pnpm --filter @grafetto/shared build`). The stock CLI then runs
+`node validate_catalog.mjs /path/to/catalog/manifest.json /path/to/catalog/validation.json`
+and fails if the whole library or any recursive component fails the real shared
+TypeScript guard. The report records manifest and guard SHA256. Python tests
+alone do not establish that the server can accept the catalog.
+
+Krita curves extend their first/last value outside defined knots, as specified
+by `libs/image/kis_cubic_curve.cpp`117–125. The converter explicitly adds missing
+boundary knots without changing native internal control points. This does not
+remove the separate cubic-versus-linear interpolation limitation. A tight POT
+with an odd short side is padded to the next POT to keep the centered square
+crop inside texture bounds without shifting native mask pixels.

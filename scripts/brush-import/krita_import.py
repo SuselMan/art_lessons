@@ -140,11 +140,22 @@ def gih(data):
 
 def tip_asset(mask,catalog,warnings):
     """Match Catalog.asset's resize/padding exactly, including odd offsets."""
-    aid=catalog.asset(mask,warnings)
-    size=catalog.assets[aid]['size']
+    size=max(2,min(2048,1 << (max(mask.size)-1).bit_length()))
     scale=min(1,size/max(mask.size))
     w,h=(max(1,round(side*scale)) for side in mask.size)
     longest=max(w,h)
+    if longest==size and ((size-w)%2 or (size-h)%2):
+        # A short odd side puts its centered square crop half a texel outside
+        # a tight POT. Add transparent padding rather than shift/crop pixels.
+        if size>=2048:
+            raise ValueError('Odd native tip requires padding beyond 2048 texture limit')
+        size*=2
+        native=mask.resize((w,h),Image.Resampling.LANCZOS)
+        canvas=Image.new(mask.mode,(size,size),0)
+        canvas.paste(native,((size-w)//2,(size-h)//2))
+        aid=catalog.asset(canvas,warnings)
+    else:
+        aid=catalog.asset(mask,warnings)
     bounds={'x':((size-w)//2+(w-longest)/2)/size,
             'y':((size-h)//2+(h-longest)/2)/size,
             'width':longest/size,'height':longest/size}
@@ -197,6 +208,12 @@ def sensor_controls(params, option, notes):
         points=[[numeric(v,float('nan')) for v in pair.split(',')] for pair in curve.split(';') if pair.strip()]
         if len(points)<2 or len(points)>256 or any(len(p)!=2 or not all(0<=v<=1 for v in p) for p in points) or any(points[i][0]<=points[i-1][0] for i in range(1,len(points))):
             raise ValueError('Invalid Krita sensor curve')
+        # KisCubicCurve clamps outside its first/last knot. Preserve all native
+        # interior points and make that endpoint extension explicit.
+        if points[0][0]>0:
+            points.insert(0,[0,points[0][1]])
+        if points[-1][0]<1:
+            points.append([1,points[-1][1]])
         if len(controls)>=4:
             notes.append(compatibility(option+'Sensor','More than four active supported sensors; excess controls unsupported.','unsupported'));continue
         controls.append({'control':supported[name],'minimum':0,'jitter':0,'curve':points})
