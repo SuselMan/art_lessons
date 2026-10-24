@@ -1,3 +1,4 @@
+import { isBrushCurve, type BrushCurve } from './brushCurves.js'
 /** Shared brush behavior schema; built-in defaults are normalized by the engine. */
 import type { BrushDescriptor } from './brushes.js'
 
@@ -9,8 +10,8 @@ export interface BrushDynamic {
   minimum: number
   /** Distance in brush diameters. */
   fade?: number
-  /** Normalized sensor transfer points, interpolated linearly. */
-  curve?: [number, number][]
+  /** Normalized sparse points or bounded uniform response samples. */
+  curve?: BrushCurve
   /** Signed influence; absent retains historical v2 dynamics. */
   strength?: number
 }
@@ -20,7 +21,7 @@ export interface BrushBehavior {
   /** Krita auto spacing uses coefficient * sqrt(actual diameter), linear below 1px. */
   spacing?: { mode: 'kritaAuto'; coefficient: number }
   /** Independent shape-edge softening; never controls canvas colour pickup. */
-  edgeBleed?: { pressure: number; tilt: number; pressureCurve?: [number, number][] }
+  edgeBleed?: { pressure: number; tilt: number; pressureCurve?: BrushCurve }
   erase?: boolean
   falloff?: number
   rotation?: { follow: number; random: 'none' | 'stroke' | 'stamp'; flipX?: boolean; flipY?: boolean; azimuth?: boolean; projection?: boolean }
@@ -74,7 +75,7 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const edge=value.edgeBleed
   if (edge !== undefined && (!obj(edge) || !keys(edge,['pressure','tilt','pressureCurve']) || !n(edge.pressure,-1,1) || !n(edge.tilt,-1,1) || (edge.pressureCurve !== undefined && !isBrushBehavior({version:2,dynamics:{size:{control:'pressure',minimum:0,jitter:0,curve:edge.pressureCurve}}})))) return false
   const d=value.dynamics
-  if (d !== undefined && (!obj(d) || !keys(d,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth']) || !Object.values(d).every(v => obj(v) && keys(v,['control','jitter','minimum','fade','strength','curve']) && ['off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth'].includes(String(v.control)) && n(v.jitter) && n(v.minimum) && (v.fade === undefined || n(v.fade,0.001,100000)) && (v.strength === undefined || n(v.strength,-1,1)) && (v.curve === undefined || (Array.isArray(v.curve) && v.curve.length >= 2 && v.curve.length <= 256 && v.curve.every((point, i, points) => Array.isArray(point) && point.length === 2 && n(point[0]) && n(point[1]) && (i === 0 || point[0] > (points[i-1] as number[])[0]))))))) return false
+  if (d !== undefined && (!obj(d) || !keys(d,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth']) || !Object.values(d).every(v => obj(v) && keys(v,['control','jitter','minimum','fade','strength','curve']) && ['off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth'].includes(String(v.control)) && n(v.jitter) && n(v.minimum) && (v.fade === undefined || n(v.fade,0.001,100000)) && (v.strength === undefined || n(v.strength,-1,1)) && (v.curve === undefined || isBrushCurve(v.curve,1,256,true))))) return false
   const mod=value.modulations
   if (mod !== undefined && (!obj(mod) || !keys(mod,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth']) || !Object.values(mod).every(list => Array.isArray(list) && list.length <= 4 && list.every(v => isBrushBehavior({version:2,dynamics:{size:v}}))))) return false
   const g=value.grain

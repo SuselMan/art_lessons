@@ -10,10 +10,13 @@ const path = process.argv[2]
 if (!path) throw new Error('Usage: node validate_catalog.mjs /path/to/manifest.json')
 const library = JSON.parse(fs.readFileSync(path, 'utf8'))
 const invalid = library.brushes.filter(brush => !isBrushLibrary({ ...library, brushes: [brush] })).map(brush => brush.name)
-const valid = isBrushLibrary(library)
+const fileBytes = fs.statSync(path).size
+const serverFileLimitBytes = 2 * 1024 * 1024
+const valid = isBrushLibrary(library) && fileBytes <= serverFileLimitBytes
 const report = {
-  valid, brushes: library.brushes.length, assets: library.assets.length,
+  valid, fileBytes, serverFileLimitBytes, brushes: library.brushes.length, assets: library.assets.length,
   invalidBrushes: invalid,
+  sharedModulesSha256: Object.fromEntries(['brushes.js','brushBehavior.js','brushCurves.js'].map(name => [name,createHash('sha256').update(fs.readFileSync(fileURLToPath(new URL('../../packages/shared/dist/'+name,import.meta.url)))).digest('hex')])),
   manifestSha256: createHash('sha256').update(fs.readFileSync(path)).digest('hex'),
   sharedGuardSha256: createHash('sha256').update(fs.readFileSync(fileURLToPath(new URL('../../packages/shared/dist/brushes.js', import.meta.url)))).digest('hex'),
 }

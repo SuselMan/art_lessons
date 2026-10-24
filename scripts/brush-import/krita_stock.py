@@ -86,6 +86,9 @@ def _convert_selected(lock,output,include_legacy,catalog,sources,duplicates,seen
         sources.append({**entry, 'imported':len(catalog.brushes)-before,
                         'skipped':len(catalog.skipped)-skipped})
     manifest = catalog.write()
+    # Preserve every double and historical field while fitting the server file
+    # envelope. Pretty-print whitespace alone can exceed its2MiB quota.
+    (output/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,separators=(',',':'))+'\n')
     report = {'schemaVersion':1, 'kritaVersion':lock['kritaVersion'],
               'sourceCommit':lock['sourceCommit'], 'includeLegacy':include_legacy,
               'sources':sources, 'duplicates':duplicates,

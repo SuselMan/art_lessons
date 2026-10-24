@@ -34,7 +34,9 @@ class KritaTests(unittest.TestCase):
     def test_sensor_curve_extends_boundary_without_changing_native_knots(self):
         from krita_import import sensor_controls
         params={'SizeSensor':'<params id="pressure"><curve>.2,.3;.8,.9;</curve></params>'}
-        self.assertEqual(sensor_controls(params,'Size',[])[0]['curve'],[[0,.3],[.2,.3],[.8,.9],[1,.9]])
+        curve=sensor_controls(params,'Size',[])[0]['curve']
+        self.assertEqual(curve['samples'][0],.3)
+        self.assertEqual(curve['samples'][-1],.9)
 
     def test_gih_descriptor_preserves_frames_and_exact_eof_diagnostic(self):
         def frame(value):
@@ -126,7 +128,9 @@ class KritaTests(unittest.TestCase):
             d=c.brushes[0]['descriptor']
             self.assertEqual(d['tip']['kind'],'round');self.assertNotIn('mask',d['tip'])
             self.assertEqual(d['tip']['aspect'],2);self.assertEqual(d['spacing'],0.2)
-            self.assertEqual(d['sizeByPressure'],[[0,0],[0.5,0.2],[1,1]])
+            self.assertEqual(d['sizeByPressure']['kind'],'uniform')
+            self.assertEqual(len(d['sizeByPressure']['samples']),256)
+            self.assertAlmostEqual(d['sizeByPressure']['samples'][128],.2019676956826568,places=8)
             self.assertEqual(c.assets,{})
     def test_embedded_gbr_positive_coverage(self):
         raw=struct.pack('>7I',29,2,2,2,1,0x47494d50,25)+b'\0'+b'\0\x40\x80\xff'
@@ -207,8 +211,8 @@ class KritaTests(unittest.TestCase):
             # final mixer parameters, so old rooms keep their former resource.
             old=copy.deepcopy(current);old['mixer'].update(load=.5,pickup=.5)
             finalize_identity(old,source)
-            self.assertEqual(current['version'],5)
-            previous=copy.deepcopy(current);previous['version']=4
+            self.assertEqual(current['version'],6)
+            previous=copy.deepcopy(current);previous['version']=5
             finalize_identity(previous,source)
             self.assertNotEqual(previous['id'],current['id'])
             self.assertNotEqual(old['id'],current['id'])
@@ -233,10 +237,12 @@ class KritaTests(unittest.TestCase):
         params={'SizeUseSameCurve':'false','SizeSensor':'<params id="sensorslist"><ChildSensor id="pressure"><curve>0,1;1,0;</curve></ChildSensor><ChildSensor id="declination"><curve>0,0.1;1,1;</curve></ChildSensor><ChildSensor id="rotation"/></params>'}
         controls=sensor_controls(params,'Size',notes)
         self.assertEqual([c['control'] for c in controls],['pressure','tiltElevation'])
-        self.assertEqual(controls[0]['curve'],[[0,1],[1,0]])
+        self.assertEqual(controls[0]['curve']['samples'][0],1)
+        self.assertEqual(controls[0]['curve']['samples'][-1],0)
         self.assertTrue(any(n['status']=='unsupported' and 'rotation' in n['detail'] for n in notes))
         params['SizeUseSameCurve']='true';params['SizecommonCurve']='0,0.4;1,0.8;'
-        self.assertEqual(sensor_controls(params,'Size',[])[0]['curve'],[[0,0.4],[1,0.8]])
+        self.assertEqual(sensor_controls(params,'Size',[])[0]['curve']['samples'][0],.4)
+        self.assertEqual(sensor_controls(params,'Size',[])[0]['curve']['samples'][-1],.8)
         params['SizecommonCurve']='0,0;0,1;'
         with self.assertRaises(ValueError):sensor_controls(params,'Size',[])
 

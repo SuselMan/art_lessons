@@ -29,3 +29,5 @@ export { IP_BAN_DURATIONS_HOURS, sanitizeClientEnvironment } from './admin.js'
 
 export * from './brushes.js'
 export * from './brushBehavior.js'
+
+export * from './brushCurves.js'

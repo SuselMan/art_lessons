@@ -15,6 +15,17 @@ function library(): BrushLibrary {
 }
 
 describe('brush library contract', () => {
+  it('validates uniform size transfers recursively without allowing opacity above its range', () => {
+    const data=library()
+    data.brushes[0].descriptor.sizeByPressure={kind:'uniform',samples:[0,8]}
+    expect(isBrushLibrary(data)).toBe(true)
+    const child=structuredClone(data.brushes[0].descriptor)
+    child.sizeByPressure={kind:'uniform',samples:[0,3.1838227176]}
+    data.brushes[0].descriptor.behavior={version:2,dual:{brush:child,blendMode:'multiply',sampling:'independent'}}
+    expect(isBrushLibrary(data)).toBe(true)
+    child.opacityByPressure={kind:'uniform',samples:[0,3]}
+    expect(isBrushLibrary(data)).toBe(false)
+  })
   it('accepts empty metadata and an imported stamp descriptor', () => {
     expect(isBrushLibrary({ schemaVersion: 1, brushes: [], assets: [], skipped: [] })).toBe(true)
     expect(isBrushLibrary(library())).toBe(true)

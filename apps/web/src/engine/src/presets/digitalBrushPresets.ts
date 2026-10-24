@@ -1,4 +1,5 @@
 import { clamp } from 'lodash-es'
+import { evaluateBrushCurve as curveAt } from '@grafetto/shared'
 
 import { normalizeBrush } from './brushNormalization'
 import { importedBrushFromPreset } from './importedBrushes'
@@ -31,27 +32,8 @@ export type { BrushCurve, TipRotation, BrushTip, BrushScatter, BrushCategory, Br
 // all; Krita's own engine is GPL-3.0 and this client ships as a JS bundle to the
 // browser, which is distribution. ADR 013 §2 records that fork in full.
 
-/** Piecewise-linear read of `curve` at `x`, clamped to the end values outside
- *  the authored range.
- *
- *  Linear search rather than a binary one on purpose: a curve is 2-5 points, and
- *  this runs once per dab per output. A loop over four numbers beats the branch
- *  misprediction of anything cleverer, and it keeps the function obviously pure
- *  — which matters more than speed here, because replay has to reproduce it dab
- *  for dab (ADR 002). */
-export function curveAt(curve: BrushCurve, x: number): number {
-  const t = clamp(x, 0, 1)
-  if (t <= curve[0][0]) return curve[0][1]
-  for (let i = 1; i < curve.length; i++) {
-    const [x1, y1] = curve[i]
-    if (t > x1) continue
-    const [x0, y0] = curve[i - 1]
-    const span = x1 - x0
-    // Two points authored at the same x are a step, not a division by zero.
-    return span <= 0 ? y1 : y0 + (y1 - y0) * ((t - x0) / span)
-  }
-  return curve[curve.length - 1][1]
-}
+/** Shared scalar responses: legacy sparse interpolation or bounded O(1) LUT. */
+export { curveAt }
 
 // ─── The tip (ADR 013 §5, revised) ──────────────────────────────────────────
 // The shape of one imprint, separated from everything about how the brush

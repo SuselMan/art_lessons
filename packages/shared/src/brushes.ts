@@ -1,11 +1,10 @@
+import { isBrushCurve as curve, type BrushCurve } from './brushCurves.js'
+export type { BrushCurve } from './brushCurves.js'
 import { isBrushBehavior, type BrushBehavior, type BrushCompatibility } from './brushBehavior.js'
 /** Immutable rendering data shared by built-in brushes, importers and room clients. */
 export type AssetId = `asset:${string}`
 export type TipMaskId = 'chalk' | 'rough' | 'bristle' | 'speckle' | 'grass' | 'leaf' | 'clumps' | AssetId
 export type BrushTextureId = 'dry' | 'grit' | 'cloud' | AssetId
-
-/** Control points in x order, x in 0..1, y unbounded above 0. At least two. */
-export type BrushCurve = readonly (readonly [x: number, y: number])[]
 
 /** How the footprint is oriented in the world.
  *
@@ -258,15 +257,6 @@ function record(value: unknown): value is Record<string, unknown> {
 }
 function numberIn(value: unknown, min: number, max: number): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max
-}
-function curve(value: unknown, maximum = 2): boolean {
-  if (!Array.isArray(value) || value.length < 2 || value.length > 32) return false
-  let last = -1
-  return value.every(p => {
-    if (!Array.isArray(p) || p.length !== 2 || !numberIn(p[0], 0, 1) || !numberIn(p[1], 0, maximum) || p[0] < last) return false
-    last = p[0]
-    return true
-  })
 }
 const ASSET = /^asset:[a-f0-9]{64}$/
 /** Validate untrusted conversion output at both ends of the wire. Imported

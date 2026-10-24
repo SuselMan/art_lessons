@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 from PIL import Image, PngImagePlugin
 from brush_contract import MAX_PIXELS, clamp, compatibility, descriptor, finalize_identity
+from curve_transfer import native_transfer,scaled_curve
 
 MAX_XML = 32 * 1024 * 1024
 
@@ -205,18 +206,10 @@ def sensor_controls(params, option, notes):
         if name not in supported:
             notes.append(compatibility(option+'Sensor','Unsupported Krita sensor '+name,'unsupported'));continue
         curve=(common if use_common and common else node.findtext('curve')) or params.get('Curve'+option,'0,0;1,1;')
-        points=[[numeric(v,float('nan')) for v in pair.split(',')] for pair in curve.split(';') if pair.strip()]
-        if len(points)<2 or len(points)>256 or any(len(p)!=2 or not all(0<=v<=1 for v in p) for p in points) or any(points[i][0]<=points[i-1][0] for i in range(1,len(points))):
-            raise ValueError('Invalid Krita sensor curve')
-        # KisCubicCurve clamps outside its first/last knot. Preserve all native
-        # interior points and make that endpoint extension explicit.
-        if points[0][0]>0:
-            points.insert(0,[0,points[0][1]])
-        if points[-1][0]<1:
-            points.append([1,points[-1][1]])
+        transfer=native_transfer(curve)
         if len(controls)>=4:
             notes.append(compatibility(option+'Sensor','More than four active supported sensors; excess controls unsupported.','unsupported'));continue
-        controls.append({'control':supported[name],'minimum':0,'jitter':0,'curve':points})
+        controls.append({'control':supported[name],'minimum':0,'jitter':0,'curve':transfer})
         if name!='pressure':
             notes.append(compatibility(option+'Sensor','Sensor '+name+' uses recorded Grafetto input; speed scaling and curve interpolation require vendor calibration.'))
     return controls
@@ -269,7 +262,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=5
+    d['version']=6
     source_size=None
     kind = definition.get('type')
     if kind == 'auto_brush':
@@ -350,7 +343,7 @@ def preset(data, name, catalog, external, depth=0):
             if field and pressure:
                 d[field]=pressure['curve'];controls=[control for control in controls if control is not pressure]
             if controls: behavior.setdefault('modulations',{})[target]=controls
-            notes.append(compatibility(option+'Curve','Sensor control points retained; Krita cubic curves use Grafetto piecewise-linear interpolation.'))
+            notes.append(compatibility(option+'Curve','Native natural-cubic response compiled to256-sample float transfer with linear lookup; sensor normalization still requires vendor calibration.'))
     if enabled(params.get('PressureScatter')):
         amount=clamp(numeric(params.get('ScatterValue',params.get('Scattering/Amount')),1),0,4)
         x=enabled(params.get('Scattering/AxisX','true'));y=enabled(params.get('Scattering/AxisY','true'))
@@ -409,7 +402,7 @@ def preset(data, name, catalog, external, depth=0):
             else:
                 notes.append(compatibility('maskingSize','Absolute size of linked masking tip requires calibration; saved master ratio used.'))
         ratio=clamp(ratio,.01,8)
-        child['sizeByPressure']=[[x,y*ratio] for x,y in child['sizeByPressure']]
+        child['sizeByPressure']=scaled_curve(child['sizeByPressure'],ratio)
         child=finalize_identity(child,child_png.getvalue())
         mode=params.get('MaskingBrush/MaskingCompositeOp','multiply')
         combine=modes.get(mode,'multiply')
