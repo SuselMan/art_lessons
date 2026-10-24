@@ -240,11 +240,13 @@ def preset(data, name, catalog, external, depth=0):
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
     d['version']=4
+    source_size=None
     kind = definition.get('type')
     if kind == 'auto_brush':
         generator = definition.find('MaskGenerator')
         if generator is None:
             raise ValueError('Missing Krita auto-brush generator')
+        source_size=numeric(generator.get('diameter'),1)
         shape = generator.get('type', 'circle')
         if shape not in ('circle', 'rect'):
             raise ValueError('Unsupported Krita auto-brush shape: '+shape)
@@ -266,6 +268,8 @@ def preset(data, name, catalog, external, depth=0):
     elif kind in ('gbr_brush', 'png_brush', 'svg_brush', 'abr_brush'):
         filename = definition.get('filename','')
         mask = raster(resource(filename), filename, True)
+        # KisScalingSizeBrush::userEffectiveSize is longest native side * scale.
+        source_size=max(mask.size)*numeric(definition.get('scale'),1)
         d['tip']['mask'] = catalog.asset(mask,warnings)
         d['tip']['aspect']=1/clamp(numeric(definition.get('ratio'),1),0.0625,1)
         if numeric(definition.get('brushApplication')) not in (0,):
@@ -368,7 +372,10 @@ def preset(data, name, catalog, external, depth=0):
         notes.append(compatibility('airbrush','Timed spraying is not reproduced.','unsupported'))
     d['behavior']=behavior
     warnings.extend(n['feature']+': '+n['detail'] for n in notes if n['status']!='supported')
-    return {'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
+    result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
+    if source_size is not None:
+        result['sourceDefaults']={'sizePx':clamp(source_size,.01,10000),'opacity':d['opacity'],'flow':d['flow']}
+    return result
 
 
 def convert_krita(path, catalog, external=None):

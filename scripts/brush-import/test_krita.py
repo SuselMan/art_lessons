@@ -20,6 +20,16 @@ def kpp(definition=None, resources='', engine='paintbrush', mode='normal'):
 
 
 class KritaTests(unittest.TestCase):
+    def test_source_defaults_do_not_apply_opacity_flow_twice(self):
+        definition='<Brush type="auto_brush"><MaskGenerator type="circle" diameter="40" hfade="1" vfade="1"/></Brush>'
+        params='<param name="OpacityValue">.6</param><param name="FlowValue">.4</param>'
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'QA.kpp';p.write_bytes(kpp(definition,params));c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
+            brush=c.brushes[0]
+            self.assertEqual(brush['sourceDefaults'],{'sizePx':40,'opacity':.6,'flow':.4})
+            self.assertEqual(brush['descriptor']['opacity'],.6)
+            self.assertEqual(brush['descriptor']['flow'],.4)
+
     def test_gih_keeps_all_frames_and_selection(self):
         def frame(w,h,value):
             return struct.pack('>7I',29,2,w,h,1,0x47494d50,25)+b'\0'+bytes([value])*(w*h)
@@ -101,10 +111,11 @@ class KritaTests(unittest.TestCase):
     def test_loose_kpp_resolves_installed_bundle_tip(self):
         raw=struct.pack('>7I',29,2,2,2,1,0x47494d50,25)+b'\0'+bytes([255]*4)
         with tempfile.TemporaryDirectory() as tmp:
-            p=Path(tmp)/'QA.kpp';p.write_bytes(kpp('<Brush type="gbr_brush" filename="tip.gbr"/>'))
+            p=Path(tmp)/'QA.kpp';p.write_bytes(kpp('<Brush type="gbr_brush" filename="tip.gbr" scale="3"/>'))
             c=convert.Catalog(Path(tmp)/'out')
             convert_krita(p,c,{'default.bundle/brushes/tip.gbr':lambda:raw})
             self.assertEqual(c.skipped,[]);self.assertEqual(len(c.brushes),1)
+            self.assertEqual(c.brushes[0]['sourceDefaults']['sizePx'],6)
     def test_missing_resources_and_unsupported_engines_skip_honestly(self):
         for data in [kpp('<Brush type="gbr_brush" filename="absent.gbr"/>'),kpp(engine='particlebrush')]:
             with tempfile.TemporaryDirectory() as tmp:
