@@ -1,4 +1,4 @@
-import { canvasMeanRect } from '../raster/canvasMeanSampling'
+import { canvasMeanDabRect, canvasMeanPlacedCenter, canvasMeanSourceRect } from '../raster/canvasMeanGeometry'
 import { brushTextureApplication } from './brushTextureApplication'
 import { brushTextureLeaseResources, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 // (#494) Smudge and the digital brush's mixer, out of PencilEngine (seam С15
@@ -40,7 +40,7 @@ import { advanceBrushAnimation, beginBrushBehavior, brushDynamicValue, behaviorS
 import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix'
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
 
-interface WetGesture extends WetMixState { behavior: BrushBehaviorState; secondary?: RibbonStrokeScratch; previousPlaced?: { x: number; y: number } }
+interface WetGesture extends WetMixState { behavior: BrushBehaviorState; secondary?: RibbonStrokeScratch; previousPlaced?: { x: number; y: number }; previousMeanPlaced?: {x:number;y:number} }
 interface WetStamp { secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
 
 // Smudge (#14) tuning constants — picked by eye, not exposed as settings
@@ -378,10 +378,14 @@ export class SmudgePainter {
       const wetStamp = {secondary,seed:state.behavior.seed,stamp,step,paint}
       if (brush.mixer?.source === 'previousCanvas') {
         if (this.radiusOf(shaped,paint) < 0.5) continue
-        const previousPlaced = state.previousPlaced
+        const mean=brush.mixer.sampling
+        const previousPlaced = mean ? state.previousMeanPlaced : state.previousPlaced
         // Own gesture state, independent of frame selection/RNG. The first
         // placed contact establishes the source centre without painting.
-        state.previousPlaced = {x:Math.round(shaped.x),y:Math.round(shaped.y)}
+        if(mean){
+          const bounds=brushFootprintBounds(shaped.x,shaped.y,this.radiusOf(shaped,paint),stamp.aspect,stamp.angle)!
+          state.previousMeanPlaced=canvasMeanPlacedCenter(canvasMeanDabRect(shaped.x,shaped.y,bounds.maxX-bounds.minX,bounds.maxY-bounds.minY))
+        }else state.previousPlaced = {x:Math.round(shaped.x),y:Math.round(shaped.y)}
         if (previousPlaced) this.applyDab(target,shaped,0,userId,paint,wetStamp,previousPlaced)
       } else this.applyDab(target,shaped,Math.max(travel,0.1),userId,paint,wetStamp)
     }
@@ -592,7 +596,8 @@ export class SmudgePainter {
         // Sampling geometry excludes transfer padding/granularity. Its own
         // square gather retains original texel centres up to512 world pixels.
         const native=brushFootprintBounds(dab.x,dab.y,radius,wet.stamp.aspect,wet.stamp.angle)!
-        const sampleRect=canvasMeanRect(previous,Math.max(1,Math.ceil(native.maxX-native.minX)),Math.max(1,Math.ceil(native.maxY-native.minY)),paint.brush.mixer.sampling.radius)
+        const current=canvasMeanDabRect(dab.x,dab.y,native.maxX-native.minX,native.maxY-native.minY)
+        const sampleRect=canvasMeanSourceRect(previous,current,paint.brush.mixer.sampling.radius)
         const mean=this.meanPreviousCanvas(target,sampleRect)
         source=mean
       }else {source=this.acquireScratch(patchSize);this.gatherPatch(source,target.resolveForPaint(sourceRect),sourceRect,patchSize,span)}

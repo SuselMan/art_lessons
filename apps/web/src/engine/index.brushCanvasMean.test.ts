@@ -12,11 +12,11 @@ it('pure mean primes once, samples previous current-size contact across chunks, 
  const mean=vi.spyOn(painter,'meanPreviousCanvas'),transfer=vi.spyOn(painter,'drawTransferDab'),uniform=vi.spyOn(engine['gl'],'uniform4f')
  const append=(x:number,size:number,end=false)=>engine.appendOperation(makeStroke('peer','ink',[dab(x,64,{size,pressure:1})],{tool:'digitalBrush',preset:`brush:${descriptor.id}@13`,strokeId:'mean',...(end?{strokeEnd:true as const}:{})}),'remote')
  try {
-  await paperReady(engine);engine.appendOperation(makeLayerAdd('peer','ink'));append(40,48)
-  expect(mean).not.toHaveBeenCalled();append(80,48);append(120,47,true)
-  expect(mean.mock.calls.map(c=>c[1])).toEqual([{minX:39,minY:63,maxX:41,maxY:65},{minX:80,minY:64,maxX:81,maxY:65}])
+  await paperReady(engine);engine.appendOperation(makeLayerAdd('peer','ink'));append(40.25,48)
+  expect(mean).not.toHaveBeenCalled();append(80.25,48);append(120,47,true)
+  expect(mean.mock.calls.map(c=>c[1])).toEqual([{minX:40,minY:63,maxX:41,maxY:65},{minX:79,minY:63,maxX:81,maxY:65}])
   const geometry=uniform.mock.calls.filter(([loc])=>(loc as unknown as {name:string}).name==='u_geometry').map(c=>c.slice(1))
-  expect(geometry).toEqual([[2,2,2,4],[1,1,1,1]])
+  expect(geometry).toEqual([[1,2,2,2],[2,2,2,4]])
   expect(transfer.mock.calls.every(c=>(c[3] as {width:number;height:number}).width===1&&(c[3] as {height:number}).height===1)).toBe(true)
   expect(mean.mock.invocationCallOrder[0]).toBeLessThan(transfer.mock.invocationCallOrder[0])
  }finally{engine.destroy()}

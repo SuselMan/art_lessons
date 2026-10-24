@@ -59,7 +59,8 @@ WebGL2.
 
 `GpuBudgetFence` — принадлежащий движку отдельный FBO 1×1 для экспериментального GPU budget clock; физические проходы его не читают. По умолчанию выключен, scope ограничен canonical continuations.
 
-`canvasMeanSampling.ts` задаёт integer sample rectangle и независимую отbrushRNG
-таблицу64 Halton2/3 координат. `CANVAS_MEAN_FRAG` вwetMixShaders усредняет premulRGBA
+`canvasMeanGeometry.ts` задаёт subpixel-aligned mask rectangle, actual placed
+centre и signed integer radius rectangle; `canvasMeanSampling.ts` — независимую
+отbrushRNG таблицу64 Halton2/3 координат. `CANVAS_MEAN_FRAG` вwetMixShaders усредняет premulRGBA
 одним1×1 pass, округляя storage лишь после суммы; native adaptive convergence и
 straight-byte colorspace rounding остаются явно указанными приближениями.

@@ -1,15 +1,3 @@
-import type { WorldRect } from '../buffers/tileMath'
-
-/** Qt integer rectangle inset: truncate each offset towards zero, preserving
- * the integer centre. The source uses current mask bounds at previous centre. */
-export function canvasMeanRect(previous: {x:number;y:number}, width:number, height:number, radius:number): WorldRect {
-  const x=Math.round(previous.x-width/2), y=Math.round(previous.y-height/2)
-  const cx=x+Math.floor((width-1)/2), cy=y+Math.floor((height-1)/2)
-  if(radius<=0)return {minX:cx,minY:cy,maxX:cx+1,maxY:cy+1}
-  const dx=Math.trunc(width*(radius-1)/2),dy=Math.trunc(height*(radius-1)/2)
-  return {minX:Math.min(x-dx,cx),minY:Math.min(y-dy,cy),maxX:Math.max(x+width+dx,cx+1),maxY:Math.max(y+height+dy,cy+1)}
-}
-
 /** Mathematical radical-inverse sequence, independent of brush RNG. Native
  * rounds each coordinate over [0,size-1]; tiny rectangles may repeat pixels. */
 function radicalInverse(index:number,base:number):number {
