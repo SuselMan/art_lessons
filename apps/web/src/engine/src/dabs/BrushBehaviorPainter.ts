@@ -229,6 +229,10 @@ export class BrushBehaviorPainter {
         gl.bindTexture(gl.TEXTURE_2D, dualTexture)
         gl.uniform1f(u.u_ceilingPass, ceilingPass ? 1 : 0)
         gl.uniform1f(u.u_uniformCeiling, behavior.rendering?.opacityCeiling==='uniform' ? 1 : 0)
+        let lastFlow:number|undefined, lastAverage:number|undefined
+        let lastMode=accumulation==='over' ? 1 : 0
+        gl.uniform1f(u.u_washMode,lastMode)
+        if(accumulation)gl.uniform1f(u.u_opacity,1)
         for (const s of list) {
           if(animated) {
             const currentMask=s.mask ?? brush.tip.mask, currentDual=s.dualMask ?? secondary?.tip.mask
@@ -253,10 +257,13 @@ export class BrushBehaviorPainter {
           const dualAngle = (secondary?.tip.rotation === 'fixed' ? secondary.tip.angle : s.angle) - s.angle
           gl.uniform4f(u.u_dualTransform, (1+s.edgeSoftness*.15) / ratio, (1+s.edgeSoftness*.15)*(secondary?.tip.aspect ?? 1) / brush.tip.aspect / ratio, Math.cos(dualAngle), Math.sin(dualAngle))
           gl.uniform1f(u.u_dualStrength, secondary ? secondary.flow * curveAt(secondary.flowByPressure, s.pressure) * curveAt(secondary.opacityByPressure, s.pressure) : 1)
-          gl.uniform1f(u.u_opacity, accumulation ? 1 : clamp(s.flow))
-          gl.uniform1f(u.u_washFlow,clamp(s.flow))
-          gl.uniform1f(u.u_washAverage,s.washAverage??0)
-          gl.uniform1f(u.u_washMode,accumulation==='over' ? 1 : accumulation==='alphaDarken' ? s.washFeedback ? 2 : 3 : 0)
+          const flowValue=clamp(s.flow)
+          if(lastFlow!==flowValue){gl.uniform1f(accumulation?u.u_washFlow:u.u_opacity,flowValue);lastFlow=flowValue}
+          if(accumulation==='alphaDarken'){
+            const average=s.washAverage??0, mode=s.washFeedback?2:3
+            if(lastAverage!==average){gl.uniform1f(u.u_washAverage,average);lastAverage=average}
+            if(lastMode!==mode){gl.uniform1f(u.u_washMode,mode);lastMode=mode}
+          }
           gl.uniform1f(u.u_ceiling, s.ceiling)
           gl.uniform1f(u.u_paperPressure, s.pressure)
           gl.uniform3fv(u.u_color, s.color)
