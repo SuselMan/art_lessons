@@ -293,7 +293,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=11
+    d['version']=12
     source_size=None
     kind = definition.get('type')
     if kind == 'auto_brush':
@@ -357,7 +357,9 @@ def preset(data, name, catalog, external, depth=0):
     else:
         raise ValueError('Unsupported Krita brush definition: '+str(kind))
     d['spacing']=clamp(numeric(definition.get('spacing'),0.1),0.000001,2)
-    d['tip']['angle']=math.remainder(numeric(definition.get('angle')),2*math.pi)
+    # Native brush angles are counterclockwise: pyramid negates the sum,
+    # and auto brushes rotate destination coordinates back into the mask.
+    d['tip']['angle']=math.remainder(-numeric(definition.get('angle')),2*math.pi)
     d['flow']=clamp(numeric(params.get('FlowValue'),1))
     d['opacity']=clamp(numeric(params.get('OpacityValue'),1))
     behavior={'version':2,'rendering':{'mode':'buildUp','blendMode':'normal','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}}
@@ -397,7 +399,7 @@ def preset(data, name, catalog, external, depth=0):
             notes.extend(note for note in rotation_notes if note['status']=='unsupported')
             if len(controls)==1:
                 control=controls[0];curve=control['curve']
-                transform=lambda value:.5+strength*(.5-value)
+                transform=lambda value:.5+strength*(value-.5)
                 if isinstance(curve,list):
                     mapped=[[x,transform(y)] for x,y in curve]
                 else:
