@@ -171,3 +171,36 @@ alpha/transparentRGB, PM filtering и mips. Это не Qt byteidentity или n
 Native сравнение показывает у102 значительно ближе тёмный цвет, но у98 ещё
 ошибка ширины;100/101 отличаются размещением secondary/давлением. Поддержка
 material сама эти независимые причины не устраняет.
+
+## Финальная проверка и стенд13
+
+Mean-only phase исправлена отдельно: сохраняется действительный центр aligned
+отпечатка, учитываются subpixel/hotspot/parity, Qt half-away и signed integer
+centre на отрицательных координатах. Spatial путь не менялся.15 targeted tests
+и web typecheck прошли. Native non-square image extent не восстанавливается
+побайтно из квадратного descriptor footprint — это оставшееся ограничение.
+Повтор53/58 после phase: хвост49/57px против native50/64; до этого46/62.
+Первая метрика улучшилась, вторая стала дальше на5px: корректность геометрии
+не подгонялась под один хвост. Прежний12 давал34/85. Визуальная структура
+переноса остаётся ближе native, полная идентичность не утверждается.
+
+Стенд compiled `c0222899`,117@13/240assets; servedhealth/db и sourceSHA проверены.
+Operator396 definitions сохраняют все25 старых неподкреплённых room references;
+зафиксированные room manifests/CAS/операции не удалялись. Полный117 source-run
+был на7ed947bc, после phase перерисованы только53/58; provenance записан вproof.
+У остальных nonmaterial различия от нового shader составили max<=2/255 либо
+3/255 на1–9pixels/524288. Это не81 содержательно изменённая кисть.
+
+Compiled UI selection+готовность cold assets+exports53/58/100/102/109 прошли
+на обоих устройствах, GLerror0. Samsung все5 pixel-equal source13. Apple vs
+Samsung max premultdelta5/255, mean<=.179/255, уDullingmax<=2/255. Undo/redo
+53/100/109 на обоих вернуло pixel-identical PNG; это проверка отдельных engine,
+не новая запись на общей комнате. Viewer6/page, поискточнойRock,512/1024toggle,
+переходизисходногоreport PASS; browser/context закрыты.
+
+Временные test jobs закончены, лишние dist-picker/dist-native10/dist-current
+удалены после проверки process registry. На Samsung существующая report tab
+переведена на версию13; собственная room tab закрыта, ADB forward19226 удалён.
+Остаются только существующие QA frontend/backend/PostgreSQL, активный один
+compiled build с hardlinked report, компактные evidence/каталоги и source cache.
+Grafetto коммиты локальные; production/main/push не выполнялись.
