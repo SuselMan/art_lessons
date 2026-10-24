@@ -101,3 +101,10 @@ Absent foreground keeps the pure previous-canvas branch unchanged. The RGB comes
 from the placed stamp, including its existing HSV dynamics. Sampling radius and
 foreground controls use separate deterministic hash namespaces and read logical
 state before placement advances it; neither depends on travel, paper or density.
+
+Explicit scatter placement can use a uniform path interval, its perpendicular
+normal interval, or an independent world-axis square. Path direction comes from
+recorded movement, independent of tip rotation. Extent uses pre-scatter configured
+size times scatter radius (no half-diameter conversion); exact native integer
+rotated-mask dimensions remain an approximation. Absent placement preserves the
+historical disc/projection path and its random streams.

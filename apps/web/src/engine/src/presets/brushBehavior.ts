@@ -204,7 +204,20 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const opacityScale = dynamic('opacity', 15) * (t ? 1 - t.opacity * (1 - taper) : 1)
   const out = brushStampsForDab(configured, { ...dab, angle, size: dab.size * sizeScale }).map((stamp, i): BehaviorStamp => {
     let x = stamp.x, y = stamp.y
-    if (behavior?.scatter && !behavior.scatter.bothAxes) {
+    const placement=behavior?.scatter?.placement
+    if(placement) {
+      // Explicit axis scatter is uniform in its native interval/square. The
+      // diameter is the configured pre-scatter size, not jittered tip size.
+      const extent=dab.size*sizeScale*(scatter?.radius ?? 0)
+      const along=(brushDabRandom(seed,0x90000+i*2)*2-1)*extent
+      const across=(brushDabRandom(seed,0x90001+i*2)*2-1)*extent
+      if(placement==='xyUniform') {x=dab.x+along;y=dab.y+across}
+      else {
+        const axis=direction+(placement==='normalUniform' ? Math.PI/2 : 0)
+        x=dab.x+Math.cos(axis)*along
+        y=dab.y+Math.sin(axis)*along
+      }
+    } else if (behavior?.scatter && !behavior.scatter.bothAxes) {
       const offset = (stamp.x - dab.x) * Math.cos(angle) + (stamp.y - dab.y) * Math.sin(angle)
       x = dab.x - Math.sin(angle) * offset
       y = dab.y + Math.cos(angle) * offset
