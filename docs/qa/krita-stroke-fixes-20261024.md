@@ -101,3 +101,23 @@ native fidelity всех кистей на iPad. Все shader contexts закр
 Итог проверок этапа:102 targeted TS tests/11files,93 Python, полный typecheck,
 lint (старые warnings), map:check/map:rules (0errors,7warnings). Offline lightness
 helper сохранён с тестами, в importer/GPU пока не подключён. New material не заявлен.
+
+## Регрессия плоских форм и поворот, importer12
+
+Просмотр117 выявил109/110: после правильного inversegray старая Rotation-ошибка
+проявилась как12px вместо47px native. Старый opaque прямоугольник её скрывал.
+Добавлен отдельный generic raw-tilt direction control: IEEE atan2(-tiltX,tiltY),
+вертикальное перо имеет нормализованную reference .25; slope azimuth не менялся.
+
+Одновременно проверена handedness: native image/auto вычисляют inverse mapping,
+общий descriptor хранит физический clockwise angle. Converter12 переводит base
+angle со знаком минус и single ascension response v=.5+s*(C(u)-.5). Это общий
+format-boundary перевод, не исключение для109/110. Native9 presets имеют этот
+поддержанный single sensor. Остальные rotation sensors отмечены unsupported.
+AsymmetricL witness45/10 даёт physical rightleg(.976187,+.216930), не зеркальный
+negativeY. Scalar/math proof не заменяет будущую freehand tilt проверку.
+
+Все117 importer12 снова экспортированы на Samsung, GLerror0. У109/110 широкий
+след восстановлен; native firstline bbox высота47/48px, candidate47/47px при
+alpha>=32. Перечень других неисправленных режимов остаётся открытым. Этапы10/11
+сохранены как доказательства промежуточных результатов, не текущая сборка.

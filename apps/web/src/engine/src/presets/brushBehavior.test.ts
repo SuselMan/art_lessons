@@ -18,7 +18,7 @@ describe('v2 logical brush state', () => {
     expect(value(45,0)).toBe(.25)
     expect(value(-45,0)).toBe(.75)
     expect(value(0,45)).toBe(.5)
-    expect(value(45,10)).toBeCloseTo(.28480224363653197,12)
+    expect(value(45,10)).toBeCloseTo(.284802243636532,12)
     expect(brushDynamicValue({control:'azimuth',minimum:0,jitter:0},input,state,0)).toBe(0)
     expect(isBrushBehavior({version:2,dynamics:{angle:{control:'tiltDirection',minimum:0,jitter:0}}})).toBe(true)
   })
