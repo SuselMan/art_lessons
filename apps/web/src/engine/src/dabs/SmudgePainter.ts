@@ -64,6 +64,9 @@ const SMUDGE_PATCH_GRANULARITY = 8
 // large a brush size requests — bounds a single dab's worst-case GPU
 // texture allocation.
 const SMUDGE_MAX_PATCH_SIZE = 512
+// 64 exact patch sizes otherwise retain about 65 MiB after pressure sweeps.
+// Limit idle storage only; the active pickup/patch/imprint are never evicted.
+const SMUDGE_IDLE_SCRATCH_BYTES = 16 * 1024 * 1024
 // How much of the carried imprint one dab refreshes from the canvas under
 // it, per brush radius travelled (see `travel` in paintOneDab — both
 // rates are scaled that way so what a stroke leaves behind depends on how
@@ -192,7 +195,7 @@ export class SmudgePainter {
     this.ctx = ctx
     this.gl = ctx.gl
     const { gl } = ctx
-    this.scratchPool = new ScratchFreeList((w, h) => new AccumulationBuffer(gl, w, h, 'linear'))
+    this.scratchPool = new ScratchFreeList((w, h) => new AccumulationBuffer(gl, w, h, 'linear'), SMUDGE_IDLE_SCRATCH_BYTES)
   }
 
   /** Builds both programs — from the engine's _initGL, at construction and
