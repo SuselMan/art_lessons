@@ -5,6 +5,8 @@ import json
 from pathlib import Path, PurePosixPath
 import urllib.parse
 import urllib.request
+import zipfile
+from contextlib import ExitStack
 from brush_contract import Catalog
 from krita_import import convert_krita
 
@@ -36,12 +38,28 @@ def build(lock, cache, output, include_legacy=False):
     sources = []
     duplicates = []
     seen = set()
-    for entry in lock['files']:
-        if entry['group'] == 'legacy' and not include_legacy:
-            continue
-        path = verified_source(entry, lock['sourceCommit'], cache)
+    # Loose installed presets resolve resources from installed default bundles.
+    # Keep those bundles open while lazy readers serve the per-preset converter.
+    with ExitStack() as stack:
+        external = {}
+        selected = [entry for entry in lock['files'] if entry['group']!='legacy' or include_legacy]
+        paths = {entry['path']:verified_source(entry,lock['sourceCommit'],cache) for entry in selected}
+        for entry in selected:
+            path=paths[entry['path']]
+            if path.suffix!='.bundle':
+                continue
+            archive=stack.enter_context(zipfile.ZipFile(path))
+            for name in archive.namelist():
+                if name.lower().endswith(('.gbr','.png','.pat','.jpg','.jpeg','.webp')):
+                    external[path.name+'/'+name]=lambda z=archive,n=name:z.read(n)
+        return _convert_selected(lock,output,include_legacy,catalog,sources,duplicates,seen,selected,paths,external)
+
+
+def _convert_selected(lock,output,include_legacy,catalog,sources,duplicates,seen,selected,paths,external):
+    for entry in selected:
+        path = paths[entry['path']]
         before, skipped = len(catalog.brushes), len(catalog.skipped)
-        convert_krita(path, catalog)
+        convert_krita(path, catalog, external)
         incoming = catalog.brushes[before:]
         del catalog.brushes[before:]
         for brush in incoming:

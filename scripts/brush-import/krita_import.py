@@ -321,10 +321,10 @@ def preset(data, name, catalog, external, depth=0):
     return {'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
 
 
-def convert_krita(path, catalog):
+def convert_krita(path, catalog, external=None):
     if path.suffix.lower() == '.kpp':
         try:
-            catalog.brushes.append(preset(path.read_bytes(), path.name, catalog, {}))
+            catalog.brushes.append(preset(path.read_bytes(), path.name, catalog, external or {}))
         except (ValueError, ET.ParseError, OSError) as error:
             catalog.skipped.append({'name':path.stem,'reasons':[str(error)]})
         return
@@ -335,7 +335,8 @@ def convert_krita(path, catalog):
         names=[e.filename for e in entries]
         if len(set(names))!=len(names) or any(n.startswith('/') or '\\' in n or '..' in PurePosixPath(n).parts for n in names):
             raise ValueError('Unsafe or duplicate Krita bundle member')
-        resources={n:(lambda entry=n: archive.read(entry)) for n in names if n.lower().endswith(('.gbr','.png','.pat','.jpg','.jpeg','.webp'))}
+        resources=dict(external or {})
+        resources.update({n:(lambda entry=n: archive.read(entry)) for n in names if n.lower().endswith(('.gbr','.png','.pat','.jpg','.jpeg','.webp'))})
         for name in sorted(n for n in names if n.lower().endswith('.kpp')):
             try:
                 catalog.brushes.append(preset(archive.read(name),name,catalog,resources))

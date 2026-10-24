@@ -76,6 +76,13 @@ class KritaTests(unittest.TestCase):
                 z.writestr('brushes/tip.gbr',raw)
             c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
             self.assertEqual(len(c.brushes),1);self.assertEqual(c.skipped,[])
+    def test_loose_kpp_resolves_installed_bundle_tip(self):
+        raw=struct.pack('>7I',29,2,2,2,1,0x47494d50,25)+b'\0'+bytes([255]*4)
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'QA.kpp';p.write_bytes(kpp('<Brush type="gbr_brush" filename="tip.gbr"/>'))
+            c=convert.Catalog(Path(tmp)/'out')
+            convert_krita(p,c,{'default.bundle/brushes/tip.gbr':lambda:raw})
+            self.assertEqual(c.skipped,[]);self.assertEqual(len(c.brushes),1)
     def test_missing_resources_and_unsupported_engines_skip_honestly(self):
         for data in [kpp('<Brush type="gbr_brush" filename="absent.gbr"/>'),kpp(engine='particlebrush')]:
             with tempfile.TemporaryDirectory() as tmp:

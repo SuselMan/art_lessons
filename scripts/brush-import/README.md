@@ -112,3 +112,9 @@ linear hardness ramp. This improves the radial distribution, while remaining
 approximate: a static GPU bitmap cannot reproduce Krita's regenerated subpixel
 mask and size-dependent antialiasing. Gaussian rectangles, curve generators,
 spikes, auto-spacing and random density retain explicit compatibility warnings.
+
+The stock runner resolves shared static raster resources across the selected
+installed bundles, including references from loose KPP and RGBA presets.
+Conflicting resources with the same basename are rejected by the resource
+reader; animated GIH and SVG are still skipped instead of selecting a frame or
+substituting a circle.
