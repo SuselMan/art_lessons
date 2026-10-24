@@ -92,6 +92,7 @@ export const WET_TRANSFER_FRAG = `
   // (ZERO, ONE_MINUS_SRC_ALPHA); 1 = its "+ carried*a" half, under
   // beginAdditiveDraw()'s (ONE, ONE). See this file's header comment.
   uniform float u_mode;
+  uniform vec4 u_previousCanvasForeground; // straight RGB, effective foreground alpha
   uniform float u_previousCanvas; // 0 reservoir; 1 spatial COPY; 2 spatial OVER
   // This dab's own share of the transfer, before the per-pixel weighting
   // below: SMUDGE_DEPOSIT_RATE * pressure * strength * travel (see
@@ -164,6 +165,10 @@ export const WET_TRANSFER_FRAG = `
     if (u_previousCanvas > 0.5) {
       vec2 uv=(gl_FragCoord.xy-u_patchOrigin)/u_patchSize;
       vec4 source=texture2D(u_carried,uv);
+      if(u_previousCanvasForeground.a>0.0) {
+        float b=u_previousCanvasForeground.a;
+        source=vec4(u_previousCanvasForeground.rgb*b,b)+source*(1.0-b);
+      }
       vec4 destination=texture2D(u_wetOriginal,uv);
       float amount=clamp(u_strength*shape,0.0,1.0);
       // Premultiplied RGBA. No travel, paper catch, rendering density,

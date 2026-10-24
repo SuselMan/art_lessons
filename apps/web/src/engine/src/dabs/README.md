@@ -91,3 +91,13 @@ integer rect/radius, округлённые Halton2/3 texel centres, макси�
 На областях больше512px gather уменьшает разрешение; native adaptive sampling,
 цветовое пространство и byte-rounding не считаются точно воспроизведёнными.
 First contact, порядокscatter/chunks иCOPY/OVER общие с пространственной веткой.
+
+`mixer.source=previousCanvas` optionally adds foreground paint to its sampled
+premultiplied source before transfer: `B=Over(F*b,A)`, with
+`b=foreground.rate*dynamicProduct*effectiveDabOpacity`. Its rate already contains
+the importer-computed configured-smudge prefactor; dynamic pickup never changes
+that prefactor. Final transfer independently uses `mask*pickup*effectiveDabOpacity`.
+Absent foreground keeps the pure previous-canvas branch unchanged. The RGB comes
+from the placed stamp, including its existing HSV dynamics. Sampling radius and
+foreground controls use separate deterministic hash namespaces and read logical
+state before placement advances it; neither depends on travel, paper or density.

@@ -41,7 +41,7 @@ import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
 
 interface WetGesture extends WetMixState { behavior: BrushBehaviorState; secondary?: RibbonStrokeScratch; previousPlaced?: { x: number; y: number }; previousMeanPlaced?: {x:number;y:number} }
-interface WetStamp { secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
+interface WetStamp { samplingRadius?: number; foregroundRate?: number; secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
 
 // Smudge (#14) tuning constants — picked by eye, not exposed as settings
 // (the tool's user-facing knobs are just size/pressure/strength, reusing the
@@ -222,7 +222,7 @@ export class SmudgePainter {
       'u_tipBounds', 'u_dualBounds', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode', 'u_grainRelief',
       'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap',
-      'u_previousCanvas','u_edgeBleed','u_wetEnabled','u_tipKind','u_tip','u_wetGrain','u_grainStrength','u_grainPeriod','u_grainTransform','u_grainTone','u_wetRoundPhase','u_wetWorldOrigin','u_flip','u_grainBlend','u_dual','u_dualKind','u_dualBlend','u_dualTransform','u_wetOriginal','u_wetRender','u_wetBlend','u_burntBlend','u_wetGamma','u_secondaryCoverage','u_secondaryEnabled',
+      'u_previousCanvasForeground','u_previousCanvas','u_edgeBleed','u_wetEnabled','u_tipKind','u_tip','u_wetGrain','u_grainStrength','u_grainPeriod','u_grainTransform','u_grainTone','u_wetRoundPhase','u_wetWorldOrigin','u_flip','u_grainBlend','u_dual','u_dualKind','u_dualBlend','u_dualTransform','u_wetOriginal','u_wetRender','u_wetBlend','u_burntBlend','u_wetGamma','u_secondaryCoverage','u_secondaryEnabled',
     ])
     this.pickupUni = getUniforms(gl, this.pickupProg, [
       'u_gatherEnabled','u_gatherRect','u_gatherTile','u_gatherScale','u_patch', 'u_carried', 'u_rate', 'u_paint', 'u_paintLoad', 'u_alphaPickup', 'u_wetBlur','u_wetTexel','u_wetRetention',
@@ -366,6 +366,11 @@ export class SmudgePainter {
     const wet = brush.behavior?.wetMix
     const directionalDab = {...dab,angle:prev && (prev.x!==dab.x || prev.y!==dab.y) ? Math.atan2(dab.y-prev.y,dab.x-prev.x) : dab.angle}
     const pickupFactor = (brush.mixer?.pickupDynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(brushDabSeed(dab.x,dab.y,dab.pressure),0x60000+index)),1)
+    // Evaluate source controls before behaviorStampsForDab advances distance,
+    // direction and animation. Hash namespaces do not perturb old jitter streams.
+    const sourceSeed=brushDabSeed(dab.x,dab.y,dab.pressure)
+    const samplingRadius=brush.mixer?.sampling ? clampNum(brush.mixer.sampling.radius*(brush.mixer.sampling.radiusDynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(sourceSeed,0x70000+index)),1),0,3) : undefined
+    const foregroundRate=brush.mixer?.foreground ? brush.mixer.foreground.rate*(brush.mixer.foreground.dynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(sourceSeed,0x80000+index)),1) : undefined
     const step = wet ? wetMixStep(wet,state,dab,travel,!prev) : {
       // The descriptor's zero load means a pure blender. The legacy mixer's
       // fixed .85 prime would inject foreground paint even with load=0.
@@ -375,7 +380,7 @@ export class SmudgePainter {
     step.pickup = clampNum(step.pickup*pickupFactor,0,1)
     for (const stamp of behaviorStampsForDab(brush,dab,state.behavior,paint.color)) {
       const shaped = {...dab,x:stamp.x,y:stamp.y,size:stamp.size,angle:stamp.angle}
-      const wetStamp = {secondary,seed:state.behavior.seed,stamp,step,paint}
+      const wetStamp = {samplingRadius,foregroundRate,secondary,seed:state.behavior.seed,stamp,step,paint}
       if (brush.mixer?.source === 'previousCanvas') {
         if (this.radiusOf(shaped,paint) < 0.5) continue
         const mean=brush.mixer.sampling
@@ -597,7 +602,7 @@ export class SmudgePainter {
         // square gather retains original texel centres up to512 world pixels.
         const native=brushFootprintBounds(dab.x,dab.y,radius,wet.stamp.aspect,wet.stamp.angle)!
         const current=canvasMeanDabRect(dab.x,dab.y,native.maxX-native.minX,native.maxY-native.minY)
-        const sampleRect=canvasMeanSourceRect(previous,current,paint.brush.mixer.sampling.radius)
+        const sampleRect=canvasMeanSourceRect(previous,current,wet.samplingRadius ?? paint.brush.mixer.sampling.radius)
         const mean=this.meanPreviousCanvas(target,sampleRect)
         source=mean
       }else {source=this.acquireScratch(patchSize);this.gatherPatch(source,target.resolveForPaint(sourceRect),sourceRect,patchSize,span)}
@@ -813,6 +818,12 @@ export class SmudgePainter {
     gl.uniform1f(u.u_patchSize, patchSize)
     gl.uniform1f(u.u_edgeBleed,wet?.stamp.edgeSoftness ?? 0)
     gl.uniform1f(u.u_wetEnabled,wet ? 1 : 0)
+    // Foreground source-over precedes masked transfer. Dab opacity belongs
+    // to both native stages; pickup belongs only to final transfer.
+    const foregroundOpacity=brush?.mixer?.source==='previousCanvas' && wet?.foregroundRate !== undefined
+      ? clampNum(wet.foregroundRate*(wet.paint.strength)*(wet.paint.pressure ? curveAt(wet.paint.curve,dab.pressure) : 1)*dab.opacity*wet.stamp.opacityScale,0,1) : 0
+    const foregroundColor=wet?.stamp.color ?? [0,0,0]
+    gl.uniform4f(u.u_previousCanvasForeground,foregroundColor[0],foregroundColor[1],foregroundColor[2],foregroundOpacity)
     gl.uniform1f(u.u_previousCanvas,brush?.mixer?.source === 'previousCanvas' ? brush.mixer.smearAlpha ? 1 : 2 : 0)
     gl.uniform1f(u.u_tipKind,brush?.tip.kind === 'bitmap' ? 1 : 0)
     gl.uniform1f(u.u_hardness, brush?.tip.hardness ?? SMUDGE_HARDNESS)
