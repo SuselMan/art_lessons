@@ -72,3 +72,32 @@ Rake431/307px, Smear49/43px, WaterPattern127/68px. Для Knife до новог�
 COPY/OVER, chunk/gesture state, pressure dynamics и однократную opacity.
 Полный typecheck после source/controls прошёл. Новый этап текстур не включён
 в эти результаты. Нативная Krita повторно не запускалась: baseline пригоден.
+
+## Текстура, importer10 и повтор117
+
+Новый runtime f45126ee: общая alpha operation перед flow/opacity, native integer
+pattern grid, отдельный NEAREST/base-only cache variant, prepare+batchlease.
+Перенесены offline brightness/contrast/neutral/invert/cutoff/scale и фаза;
+Texture/Strength sensors работают через общий grainDepth response. Для native
+QtSmooth scaling используется явно отмеченная PILbilinear аппроксимация.
+
+Все117 пресетов candidate stock-v19@10 повторно нарисованы на реальном Samsung,
+по одному экспорту того же трёхлинейного fixture, WebGLerror0. Во время прогона
+в harness исправлен пропуск recursive dual asset dependencies после index31;
+renderer не менялся, прогон продолжен, все117 PNG присутствуют. Исторические
+702PNG неизменны. Новые картинки/20contacts/хеши — fixes-v10.
+
+Dithering69 снова рисует, визуально близок к native. Непрозрачные прямоугольники
+и pure-blender foreground injection исправлены. Остались важные несовпадения:
+foreground mixer41–48 слишком бледный, разные width/footprints19/23/44/49,
+контур51 вместо filled native;53/58 — ещё другой Dulling. У42 форма лучше,
+плотность хуже: это явно фиксируется, не маскируется случайностью.
+
+Отдельный authored GLSL witness224cases на Adreno650 и Apple GPU: hard/soft
+multiply/subtract, s0/.5/1, NPOT5×3/8, LUMINANCE.r/ALPHA.a и tile phase.
+Оба PASS, max channel delta0, GLerrors0. Это проверка формул GPU, не утверждение
+native fidelity всех кистей на iPad. Все shader contexts закрыты в finally.
+
+Итог проверок этапа:102 targeted TS tests/11files,93 Python, полный typecheck,
+lint (старые warnings), map:check/map:rules (0errors,7warnings). Offline lightness
+helper сохранён с тестами, в importer/GPU пока не подключён. New material не заявлен.
