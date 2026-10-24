@@ -1,5 +1,6 @@
 import { chromium, expect } from '@playwright/test'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { transform } from 'esbuild'
 
 async function main() {
   const out=process.env.QA_OUTPUT!
@@ -7,9 +8,23 @@ async function main() {
   const browser=await chromium.launch({args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']})
   const reports:unknown[]=[]
   try {
-    for(const {fallback,independent,mixer=false} of [{fallback:false,independent:false},{fallback:true,independent:false},{fallback:false,independent:true},{fallback:true,independent:true},{fallback:false,independent:true,mixer:true},{fallback:true,independent:true,mixer:true}].filter(s=>process.env.QA_MIXER_ONLY!=='1'||('mixer' in s && s.mixer))) {
+    for(const {fallback,independent,mixer=false} of [{fallback:false,independent:false},{fallback:true,independent:false},{fallback:false,independent:true},{fallback:true,independent:true},{fallback:false,independent:true,mixer:true},{fallback:true,independent:true,mixer:true}].filter(s=>(process.env.QA_MIXER_ONLY!=='1'||('mixer' in s && s.mixer))&&(process.env.QA_INDEPENDENT_STAMP_ONLY!=='1'||(s.independent&&!('mixer' in s && s.mixer))))) {
       const context=await browser.newContext({baseURL:process.env.QA_URL??'http://127.0.0.1:5386'})
       try {
+        // Validate a candidate without editing Vite's live source or reloading devices.
+        if(process.env.QA_BRUSH_PAINTER_FILE) {
+          const candidate=(await transform(await readFile(process.env.QA_BRUSH_PAINTER_FILE,'utf8'),{loader:'ts',format:'esm',target:'es2022'})).code
+          await context.route('**/src/engine/src/dabs/BrushBehaviorPainter.ts*',async route=>{
+            const response=await route.fetch(),original=await response.text()
+            const imports=[...original.matchAll(/from\s+["']([^"']+)["']/g)].map(m=>m[1])
+            const code=candidate.replace(/from\s+["']([^"']+)["']/g,(_,specifier:string)=>{
+              const resolved=imports.find(p=>specifier==='@grafetto/shared'?p.includes('/packages/shared/'):p.split('?')[0].endsWith('/'+specifier.split('/').at(-1)+'.ts'))
+              if(!resolved)throw Error('Cannot resolve candidate import '+specifier)
+              return 'from '+JSON.stringify(resolved)
+            })
+            await route.fulfill({response,body:code,contentType:'application/javascript'})
+          })
+        }
         await context.addInitScript('globalThis.__name = (fn) => fn')
         if(fallback)await context.addInitScript(()=>{
           const original=WebGLRenderingContext.prototype.getExtension
@@ -44,16 +59,24 @@ async function main() {
             try {
               await engine.paperReady();engine.setBaseLayers(['ink']);engine.setActiveLayer('ink');engine.setCompositeOrder([{id:'ink',opacity:1}])
               const blank=await read(engine)
+              const gl=canvas.getContext('webgl')!
+              let copyPixels=0,copyCalls=0
+              const originalCopy=gl.copyTexSubImage2D.bind(gl)
+              gl.copyTexSubImage2D=(...args:Parameters<WebGLRenderingContext['copyTexSubImage2D']>)=>{copyCalls++;copyPixels+=args[6]*args[7];originalCopy(...args)}
+              const originalFullCopy=gl.copyTexImage2D.bind(gl)
+              gl.copyTexImage2D=(...args:Parameters<WebGLRenderingContext['copyTexImage2D']>)=>{copyCalls++;copyPixels+=args[5]*args[6];originalFullCopy(...args)}
               for(let i=0;i<dabs.length;i+=chunkSize)engine.appendOperation({id:`op-${i}`,type:'stroke',userId:'gpu-probe',timestamp:i,seq:i+1,strokeId:'one-gesture',...(i+chunkSize>=dabs.length?{strokeEnd:true}:{}),tool:'digitalBrush',preset:`brush:${id}@1`,layerId:'ink',color:[.1,.3,.7],dabs:dabs.slice(i,i+chunkSize)},'remote')
-              const image=await read(engine),gl=canvas.getContext('webgl')!
+              const paintingCopies={copyPixels,copyCalls}
+              const image=await read(engine)
               let painted=0;for(let i=0;i<image.length;i+=4)if(image[i]!==blank[i]||image[i+1]!==blank[i+1]||image[i+2]!==blank[i+2])painted++
-              return {image,painted,error:gl.getError()}
+              return {image,painted,paintingCopies,error:gl.getError()}
             } finally {engine.destroy();canvas.remove()}
           }
           const full=await render(64),chunked=await render(7)
           let changed=0,max=0
           for(let i=0;i<full.image.length;i+=4){let delta=0;for(let c=0;c<4;c++)delta=Math.max(delta,Math.abs(full.image[i+c]-chunked.image[i+c]));if(delta)changed++;max=Math.max(max,delta)}
-          return {painted:full.painted,chunkedPainted:chunked.painted,changed,max,errors:[full.error,chunked.error]}
+          const imageHash=async(bytes:Uint8ClampedArray)=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new Uint8Array(bytes)))].map(v=>v.toString(16).padStart(2,'0')).join('')
+          return {painted:full.painted,chunkedPainted:chunked.painted,changed,max,copies:{full:full.paintingCopies,chunked:chunked.paintingCopies},fullHash:await imageHash(full.image),chunkedHash:await imageHash(chunked.image),errors:[full.error,chunked.error]}
         },{independent,mixer})
         console.log('Scenario',{fallback,independent,mixer},result)
         await writeFile(`${out}/case-${fallback}-${independent}-${mixer}.json`,JSON.stringify(result,null,2))

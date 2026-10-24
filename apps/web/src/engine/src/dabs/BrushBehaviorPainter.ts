@@ -26,9 +26,23 @@ const modes = ['lightGlaze', 'uniformGlaze', 'intenseGlaze', 'heavyGlaze', 'unif
 const clamp = (v: number, lo = 0, hi = 1): number => Math.max(lo, Math.min(hi, v))
 const blend = (name: string | undefined): number => Math.max(0, BRUSH_BLEND_MODES.indexOf(name as typeof BRUSH_BLEND_MODES[number]))
 type Uniforms = Record<string, WebGLUniformLocation | null>
+type BrushBounds = { minX: number; minY: number; maxX: number; maxY: number }
+const unionBounds = (a: BrushBounds | undefined, b: BrushBounds): BrushBounds => a ? ({
+  minX: Math.min(a.minX,b.minX), minY: Math.min(a.minY,b.minY),
+  maxX: Math.max(a.maxX,b.maxX), maxY: Math.max(a.maxY,b.maxY),
+}) : b
+/** Bounds in world coordinates -> integer GL copy rectangle. */
+const boundsCopyRect = (bounds: BrushBounds, tile: { originX: number; originY: number; buffer: AccumulationBuffer }, halo = 0) => {
+  const left = Math.max(0,Math.floor(bounds.minX-tile.originX-halo))
+  const right = Math.min(tile.buffer.width,Math.ceil(bounds.maxX-tile.originX+halo))
+  const top = Math.max(0,Math.floor(bounds.minY-tile.originY-halo))
+  const bottom = Math.min(tile.buffer.height,Math.ceil(bounds.maxY-tile.originY+halo))
+  return right>left && bottom>top ? { x:left,y:tile.buffer.height-bottom,width:right-left,height:bottom-top } : null
+}
 /** Uses the same frozen-original / coverage resources as the other digital brushes.
  * Only v2 descriptors opt into colour coverage and these equations. */
 export class BrushBehaviorPainter {
+  private previewBounds = new WeakMap<BrushBehaviorState,BrushBounds>()
   private bindings = new WeakMap<BehaviorScratch, {
     target: BrushTarget
     preset: PencilPreset
@@ -82,10 +96,13 @@ export class BrushBehaviorPainter {
     const state = scratch.brushBehavior ?? (scratch.brushBehavior = beginBrushBehavior(dabs[0]))
     const independent = behavior.dual?.sampling === 'independent' ? behavior.dual.brush : undefined
     const secondaryState = independent ? scratch.brushSecondary() : undefined
+    let secondaryDirty: BrushBounds | undefined
     if (independent && secondaryState) {
       const secondaryTarget: BrushTarget={
         resolveForPaint:bounds=>target.resolveForPaint(bounds).map(tile=>({...tile,buffer:secondaryState.tile(tile.buffer)})),
-        markContentPainted:()=>{},
+        // Includes the child's old + new provisional tail, even on finish()
+        // or when centreline resampling emits no new secondary dab.
+        markContentPainted:bounds=>{ secondaryDirty=unionBounds(secondaryDirty,bounds) },
       }
       const child={...independent,behavior:independent.behavior??{version:2 as const}}
       this.paint(secondaryTarget, secondaryBrushDabs(brush,child,dabs,secondaryState.sampling),preset,child,pressure,[1,1,1],secondaryState.scratch,finish)
@@ -111,24 +128,27 @@ export class BrushBehaviorPainter {
     const tail = splitBrushTail(all, state.distance, behavior.taper?.end ?? 0, finish, behavior.taper?.size, behavior.taper?.opacity)
     state.pending = tail.pending
     const stamps = [...tail.ready, ...tail.preview]
-    if (!stamps.length && (!independent || !state.bounds))
+    const oldPreview = this.previewBounds.get(state)
+    if (!stamps.length && !secondaryDirty && !oldPreview)
       return
     const edge = (behavior.rendering?.burntEdges || brush.wet?.feather) ? scratch.noteBrushEdgePx(clamp((dabs[0]?.size ?? state.previous?.size ?? 1) * preset.sizeMultiplier * 0.06, 1.5, 14)) : 0
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    let dirty: BrushBounds | undefined = oldPreview
+    let nextPreview: BrushBounds | undefined
     for (const s of all) {
       const footprint=brushFootprintBounds(s.x,s.y,s.radius,s.aspect,s.angle,edge+1)
-      if(!footprint)continue
-      minX = Math.min(minX, footprint.minX)
-      minY = Math.min(minY, footprint.minY)
-      maxX = Math.max(maxX, footprint.maxX)
-      maxY = Math.max(maxY, footprint.maxY)
+      if(footprint) dirty=unionBounds(dirty,footprint)
     }
-    if(independent && state.bounds) {
-      minX=Math.min(minX,state.bounds.minX);minY=Math.min(minY,state.bounds.minY)
-      maxX=Math.max(maxX,state.bounds.maxX);maxY=Math.max(maxY,state.bounds.maxY)
+    for (const s of tail.preview) {
+      const footprint=brushFootprintBounds(s.x,s.y,s.radius,s.aspect,s.angle,edge+1)
+      if(footprint) nextPreview=unionBounds(nextPreview,footprint)
     }
-    const bounds = { minX: Math.floor(minX), minY: Math.floor(minY), maxX: Math.ceil(maxX), maxY: Math.ceil(maxY) }
-    if(independent) state.bounds=bounds
+    if (nextPreview) this.previewBounds.set(state,nextPreview)
+    else this.previewBounds.delete(state)
+    if(secondaryDirty) dirty=unionBounds(dirty,secondaryDirty)
+    if(!dirty)return
+    // Only current changes are dirty. Historical primary coverage remains in
+    // scratch and the output tile; it does not require recompositing.
+    const bounds = {minX:Math.floor(dirty.minX),minY:Math.floor(dirty.minY),maxX:Math.ceil(dirty.maxX),maxY:Math.ceil(dirty.maxY)}
     const mask = brush.tip.mask ? this.tip(brush.tip.mask) : paper.texture
     const texture = brush.texture ? this.grain(brush.texture.id) : paper.texture
     const secondary = independent ? undefined : behavior.dual?.brush
@@ -240,8 +260,12 @@ export class BrushBehaviorPainter {
       if (tail.preview.length) {
         const preview = scratch.brushPreview(tile.buffer)
         gl.activeTexture(gl.TEXTURE7)
-        coverage.copyTo(preview.coverage)
-        ceiling.copyTo(preview.ceiling)
+        // The composite only reads dirty pixels, plus bounded neighbor taps
+        // for Burnt Edges/feather. Never sample pooled pixels outside this copy.
+        const rect=boundsCopyRect(bounds,tile,edge+2)
+        if(!rect)continue
+        coverage.copyRegionInto(preview.coverage,rect.x,rect.y,rect.x,rect.y,rect.width,rect.height)
+        ceiling.copyRegionInto(preview.ceiling,rect.x,rect.y,rect.x,rect.y,rect.width,rect.height)
         coverage = preview.coverage
         ceiling = preview.ceiling
         coverage.beginDraw()
@@ -289,9 +313,12 @@ export class BrushBehaviorPainter {
       gl.enableVertexAttribArray(this.cp)
       gl.vertexAttribPointer(this.cp, 2, gl.FLOAT, false, 0, 0)
       gl.uniform2f(c.u_dabCenter, cx - tile.originX, cy - tile.originY)
-      gl.uniform1f(c.u_dabRadius, Math.hypot(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) * 0.5 + 1)
+      // Tight axis-aligned quad: partial preview storage is valid only in
+      // bounds (+ sampling halo). The former enclosing square wrote outside it.
+      const width=bounds.maxX-bounds.minX,height=bounds.maxY-bounds.minY
+      gl.uniform1f(c.u_dabRadius, height*0.5)
       gl.uniform1f(c.u_angle, 0)
-      gl.uniform1f(c.u_aspectRatio, 1)
+      gl.uniform1f(c.u_aspectRatio, width/height)
       gl.drawArrays(gl.TRIANGLES, 0, 6)
       tile.buffer.endDraw()
     }

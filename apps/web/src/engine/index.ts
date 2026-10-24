@@ -2936,6 +2936,9 @@ export class PencilEngine implements PencilEngineAPI {
               : undefined
             // A committed final op can contain only dabs already claimed by the live stream.
             if (op.strokeEnd && op.strokeId) {
+              // The final operation can be entirely claimed by live painting.
+              // Its durable end still closes the matching carried reservoir.
+              if (op.tool === 'digitalBrush' || op.tool === 'smudge') this._smudge.finishGesture(op.userId, op.strokeId)
               const open = this._replayRibbonChunks.get(op.strokeId)
               if (open?.target === buf) this._brush.finish(open.scratch)
             }
@@ -6374,7 +6377,9 @@ export class PencilEngine implements PencilEngineAPI {
       appendWatercolorLift(dabs, this._strokeChunkTail ? [this._strokeChunkTail, ...this._strokeDabs] : this._strokeDabs)
     }
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
-    this._smudge.finishSecondary(this._userId)
+    // Async canonical chunks may still be queued after local pen-up; their
+    // final operation owns cleanup. Synchronous local painting uses null ID.
+    if (!this._wcAsyncLocalStroke) this._smudge.finishGesture(this._userId, null)
     if (this._ribbonStrokeScratch && !this._wcAsyncLocalStroke) {
       this._brush.finish(this._ribbonStrokeScratch)
       this._finishRibbonStroke(this._ribbonStrokeScratch, true)
@@ -7082,13 +7087,13 @@ export class PencilEngine implements PencilEngineAPI {
       const layerId = [...this._layers].find(([, buffer]) => buffer === target)?.[0]
       if (layerId) { this._paintAsyncLocalTool(layerId, dabs, tool, presetName, color, prevDab); return undefined }
     }
-    if (tool === 'smudge') { this._smudge.paint(target, dabs, userId, prevDab, strokeId); return undefined }
+    if (tool === 'smudge') { this._smudge.paint(target, dabs, userId, prevDab, strokeId); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
     // #573 — the mixer brush paints through smudge's carried imprint with its
     // own colour loaded into it; every other digital brush is a ribbon-scratch
     // tool below.
     if (tool === 'digitalBrush') {
       const paint = digitalBrushMixer(presetName, color)
-      if (paint) { this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint); if(strokeEnd)this._smudge.finishSecondary(userId,false,strokeId); return undefined }
+      if (paint) { this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
     }
     // Marker (#250, ADR 004 §3; distance-normalized deposit added in
     // "Ревизия v1.5"): each dab needs its own coverage/inkLoad/composite
