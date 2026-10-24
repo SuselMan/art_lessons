@@ -47,7 +47,16 @@ const pickerImportedBrushes = () => {
   // Focus the selectable library on Krita while matching its reference renderer.
   // Keep every imported descriptor available to existing strokes and replay.
   const all = importedBrushes().filter(b => !/\.(abr|brush|brushset)$/i.test(b.source))
-  return all.filter(b => !all.some(next => next.source === b.source && next.name === b.name && (next.descriptor.version > b.descriptor.version || (!b.descriptor.behavior && !!next.descriptor.behavior))))
+  const latest = new Map<string, { version: number; behavior: boolean }>()
+  const key = (source: string, name: string) => JSON.stringify([source, name])
+  for (const brush of all) {
+    const id = key(brush.source, brush.name), previous = latest.get(id)
+    latest.set(id, { version: Math.max(previous?.version ?? 0, brush.descriptor.version), behavior: !!brush.descriptor.behavior || !!previous?.behavior })
+  }
+  return all.filter(brush => {
+    const next = latest.get(key(brush.source, brush.name))!
+    return next.version === brush.descriptor.version && (!!brush.descriptor.behavior || !next.behavior)
+  })
 }
 
 export type UiToolId =

@@ -63,6 +63,9 @@ export function SettingField({ descriptor, value, onChange: commitChange, layout
     }).finally(() => { if (version === requestVersion.current) setLoading(false) })
   }
   const { valueType } = descriptor
+  // Schemas may compute imported metadata in getters. Snapshot once per
+  // render, rather than rebuilding the whole catalog for every option.
+  const optionLabels = valueType.kind === 'enumOptions' ? descriptor.optionLabels : undefined
   const label = loading ? t('common.loading') : t(descriptor.nameKey)
 
   /** An enum option's display text: its own translation where the schema
@@ -74,7 +77,7 @@ export function SettingField({ descriptor, value, onChange: commitChange, layout
   const optionLabel = (option: string): string => {
     const key = descriptor.optionLabelKeys?.[option]
     if (key) return t(key)
-    return descriptor.optionLabels?.[option] ?? option
+    return optionLabels?.[option] ?? option
   }
 
   if (valueType.kind === 'numberRange') {
@@ -151,13 +154,14 @@ export function SettingField({ descriptor, value, onChange: commitChange, layout
     // a single number on a scale, which is what a slider is, and there's
     // nothing to show about 0.3mm that "0.3" doesn't already say.
     if (descriptor.uiControls[0] === 'select') {
+      const optionGroups = descriptor.optionGroups
       const options: PickerOption[] = valueType.options.map(option => ({
         value: option,
         label: optionLabel(option),
         image: descriptor.optionImages?.[option],
         icon: descriptor.optionIcons?.[option],
         curve: descriptor.optionCurves?.[option],
-        group: descriptor.optionGroups?.[option] !== undefined ? t(descriptor.optionGroups[option]) : undefined,
+        group: optionGroups?.[option] !== undefined ? t(optionGroups[option]) : undefined,
       }))
       return layout === 'toolbar' ? (
         // Same block shape as the toolbar's other fields: the control, with
