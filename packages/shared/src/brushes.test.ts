@@ -104,6 +104,11 @@ describe('brush library contract', () => {
     mixer.initialLoad = 0.5
     expect(isBrushLibrary(data)).toBe(false)
     mixer.initialLoad = 0
+    Object.assign(mixer, { pickupDynamics: [{ control: 'pressure', minimum: 0, jitter: 0 }] })
+    expect(isBrushLibrary(data)).toBe(true)
+    Object.assign(mixer, { pickupDynamics: Array(5).fill({ control: 'pressure', minimum: 0, jitter: 0 }) })
+    expect(isBrushLibrary(data)).toBe(false)
+    Object.assign(mixer, { pickupDynamics: [] })
     data.brushes[0].descriptor.behavior = { version: 2, wetMix: { dilution: 0, charge: 1, attack: 1, pull: 1, grade: 0, blur: 0, blurJitter: 0, wetnessJitter: 0 } }
     expect(isBrushLibrary(data)).toBe(false)
   })

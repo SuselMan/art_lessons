@@ -1,6 +1,6 @@
 import { isBrushCurve as curve, type BrushCurve } from './brushCurves.js'
 export type { BrushCurve } from './brushCurves.js'
-import { isBrushBehavior, type BrushBehavior, type BrushCompatibility } from './brushBehavior.js'
+import { isBrushBehavior, type BrushBehavior, type BrushCompatibility, type BrushDynamic } from './brushBehavior.js'
 /** Immutable rendering data shared by built-in brushes, importers and room clients. */
 export type AssetId = `asset:${string}`
 export type TipMaskId = 'chalk' | 'rough' | 'bristle' | 'speckle' | 'grass' | 'leaf' | 'clumps' | AssetId
@@ -236,6 +236,8 @@ export interface BrushDescriptor {
     smearAlpha?: boolean
     /** Sample the previous placed dab's canvas neighbourhood instead of a reservoir. */
     source?: 'previousCanvas'
+    /** Multiplicative input responses for the pickup/transfer amount. */
+    pickupDynamics?: BrushDynamic[]
     /** How strongly the carried paint is laid down per radius travelled. */
     strength: number
   }
@@ -345,7 +347,8 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (d.mixer !== undefined && (!record(d.mixer) || !numberIn(d.mixer.load,0,1) || !numberIn(d.mixer.pickup,0,1) || !numberIn(d.mixer.strength,0,1)
       || (d.mixer.initialLoad !== undefined && !numberIn(d.mixer.initialLoad,0,1))
       || (d.mixer.smearAlpha !== undefined && typeof d.mixer.smearAlpha !== 'boolean')
-      || (d.mixer.source !== undefined && d.mixer.source !== 'previousCanvas'))) return false
+      || (d.mixer.source !== undefined && d.mixer.source !== 'previousCanvas')
+      || (d.mixer.pickupDynamics !== undefined && !isBrushBehavior({ version: 2, modulations: { flow: d.mixer.pickupDynamics } })))) return false
     // This source currently describes pure spatial transfer. Foreground
     // injection and wet charge need their own composition contract first.
     if (d.mixer?.source === 'previousCanvas' && (d.mixer.load !== 0 || d.mixer.initialLoad !== 0 || d.behavior?.wetMix !== undefined)) return false
