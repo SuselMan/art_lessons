@@ -54,3 +54,21 @@ map:check; map:rules (0errors,7warnings). Source-only tests не заменяю�
 Новые постоянные сервисы/runtime/node_modules/worktree не создавались. Каталог7 и
 компактные доказательства сохранены. Существующие QAfrontend/backend/PG оставлены.
 Production/Git push Grafetto не выполнялись.
+
+## Пространственный перенос, importer9
+
+Добавлен opt-in source previousCanvas для чистого legacy Smearing. Положение
+предыдущего placed stamp хранится в gesture state; обе canvas snapshots берутся
+до записи; source имеет текущие dimensions. COPY/OVER работают отдельной веткой
+без travel/paper/density/tooth/stochastic rounding. Поддержаны ограниченные
+pickupDynamics через общий input response. Первый placed stamp только задаёт центр.
+
+Новые реальные Samsung PNG в fixes-v8 (это importer9, имя каталога — этап8).
+Кандидат исходников cc8e10ca, metadata stock-v18,5presets54/55/56/57/116, GLerror0.
+Синий хвост alpha>=16 native/candidate: Blur38/35px, Knife439/436px,
+Rake431/307px, Smear49/43px, WaterPattern127/68px. Для Knife до нового source
+было19px, Blur430px, Smear172px. Mask/texture/radius различия ещё видны.
+8 новых integration tests проверяют firstcontact, snapshot order, no-travel,
+COPY/OVER, chunk/gesture state, pressure dynamics и однократную opacity.
+Полный typecheck после source/controls прошёл. Новый этап текстур не включён
+в эти результаты. Нативная Krita повторно не запускалась: baseline пригоден.

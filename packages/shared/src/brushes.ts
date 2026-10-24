@@ -185,7 +185,15 @@ export interface BrushDescriptor {
   /** (#573) The brush's own grain, anchored to the canvas rather than to the
    *  stamp — see tipMasks.ts on why only that survives the overlap of a
    *  continuous stroke. `periodPx` is the world size of one tile of it. */
-  texture?: { id: BrushTextureId; periodPx: number; strength: number }
+  texture?: {
+    id: BrushTextureId; periodPx: number; strength: number
+    /** Explicit operation on the dab mask; absent preserves historical grain. */
+    application?: { mode: 'multiply' | 'subtract'; soft: boolean }
+    /** Integer repeat grid at the top-left of its padded square asset. */
+    patternSize?: { width: number; height: number }
+    /** Canvas phase in world pixels; random axes are selected once per gesture. */
+    offset?: { x: number; y: number; randomX: boolean; randomY: boolean }
+  }
   /** (#579) How the finished stroke is rendered like wet media — the digital
    *  watercolor family, built the way Procreate builds its own: from the
    *  stroke's coverage and a few render settings, with no fluid anywhere. The
@@ -326,8 +334,22 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (keys.has(key)) return false
     keys.add(key)
     if (d.flowSpan !== undefined && !numberIn(d.flowSpan, 0.01, 1)) return false
-    if (d.texture !== undefined && (!record(d.texture) || !ref(d.texture.id)
-      || !numberIn(d.texture.periodPx, 1, 8192) || !numberIn(d.texture.strength, 0, 1))) return false
+    if (d.texture !== undefined) {
+      const t = d.texture
+      if (!record(t) || !ref(t.id) || !numberIn(t.periodPx, 1, 8192) || !numberIn(t.strength, 0, 1)
+        || Object.keys(t).some(key => !['id','periodPx','strength','application','patternSize','offset'].includes(key))) return false
+      if (t.application !== undefined && (!record(t.application) || !['multiply','subtract'].includes(String(t.application.mode))
+        || typeof t.application.soft !== 'boolean' || Object.keys(t.application).some(key => !['mode','soft'].includes(key)))) return false
+      if (t.patternSize !== undefined) {
+        const p = t.patternSize, asset = value.assets.find(a => a.id === t.id)
+        if (!record(p) || !asset || !numberIn(p.width,1,asset.size) || !numberIn(p.height,1,asset.size)
+          || !Number.isInteger(p.width) || !Number.isInteger(p.height)
+          || Object.keys(p).some(key => !['width','height'].includes(key))) return false
+      }
+      if (t.offset !== undefined && (!record(t.offset) || !numberIn(t.offset.x,-8192,8192) || !numberIn(t.offset.y,-8192,8192)
+        || typeof t.offset.randomX !== 'boolean' || typeof t.offset.randomY !== 'boolean'
+        || Object.keys(t.offset).some(key => !['x','y','randomX','randomY'].includes(key)))) return false
+    }
     if (d.scatter !== undefined && (!record(d.scatter) || !numberIn(d.scatter.count, 1, 32) || !Number.isInteger(d.scatter.count)
       || !numberIn(d.scatter.radius, 0, 4) || !numberIn(d.scatter.scale, 0.01, 2)
       || !numberIn(d.scatter.sizeJitter, 0, 1) || !numberIn(d.scatter.angleJitter, 0, 1) || !numberIn(d.scatter.flowJitter, 0, 1))) return false

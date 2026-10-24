@@ -81,6 +81,24 @@ describe('brush library contract', () => {
     })
     expect(isBrushLibrary(data)).toBe(false)
   })
+  it('validates alpha operations and keeps a texture repeat grid inside its resource', () => {
+    const data = library()
+    const t: NonNullable<BrushLibrary['brushes'][number]['descriptor']['texture']> = {
+      id: data.assets[0].id, periodPx: 2, strength: 0,
+      application: { mode: 'subtract', soft: false }, patternSize: { width: 2, height: 1 },
+      offset: { x: -2, y: 10, randomX: true, randomY: false },
+    }
+    data.brushes[0].descriptor.texture = t
+    expect(isBrushLibrary(data)).toBe(true)
+    t.patternSize!.width = 3
+    expect(isBrushLibrary(data)).toBe(false)
+    t.patternSize!.width = 2
+    Object.assign(t.application!, { mode: 'height' })
+    expect(isBrushLibrary(data)).toBe(false)
+    t.application!.mode = 'multiply'
+    Object.assign(t.offset!, { randomX: 1 })
+    expect(isBrushLibrary(data)).toBe(false)
+  })
   it('bounds initial mixer load and validates alpha smearing', () => {
     const data = library()
     data.brushes[0].descriptor.model = 'mixer'
