@@ -45,6 +45,32 @@ def enabled(value):
     return str(value).lower() in ('true', '1')
 
 
+def gaussian_circle(hfade, vfade, diameter, antialias=False, size=256):
+    """Sample the normalized erf radial profile, independently of vendor code.
+
+    Format/math reference: KDE Krita kis_gauss_circle_mask_generator.cpp and
+    kis_antialiasing_fade_maker.h. This static cache cannot reproduce Krita's
+    per-dab scale-dependent antialiasing or subpixel mask regeneration.
+    """
+    fade=clamp(1-(hfade+vfade)/2,1e-6,1-1e-6)
+    center=2.5*(6761*fade-10000)/(math.sqrt(2)*6761*fade)
+    factor=1/(2*math.erf(center))
+    slope=math.sqrt(2)*12500/(6761*fade)
+    def profile(r):
+        return clamp(factor*(math.erf(r*slope+center)-math.erf(r*slope-center)))
+    start=max(0,1-2/max(diameter,0.000001))
+    edge=profile(start)
+    pixels=bytearray(size*size)
+    for y in range(size):
+        for x in range(size):
+            radius=math.hypot((x+.5)*2/size-1,(y+.5)*2/size-1)
+            coverage=0 if radius>1 else profile(radius)
+            if antialias and radius>start and radius<=1:
+                coverage=edge*(1-radius)/(1-start)
+            pixels[y*size+x]=int(clamp(coverage)*255)
+    return Image.frombytes('L',(size,size),bytes(pixels))
+
+
 def gbr(data):
     if len(data) < 20:
         raise ValueError('Truncated GBR header')
@@ -180,7 +206,12 @@ def preset(data, name, catalog, external, depth=0):
         if shape == 'rect':
             mask = Image.new('L',(256,256),255)
             d['tip']['kind']='bitmap';d['tip']['mask']=catalog.asset(mask,warnings)
-        if generator.get('id','default') != 'default' or numeric(generator.get('spikes'),2) != 2 or numeric(definition.get('randomness')) or numeric(definition.get('density'),1) != 1:
+        gaussian=generator.get('id')=='gauss' and shape=='circle' and numeric(generator.get('spikes'),2)==2
+        if gaussian:
+            mask=gaussian_circle(numeric(generator.get('hfade'),1),numeric(generator.get('vfade'),1),numeric(generator.get('diameter'),10),enabled(generator.get('antialiasEdges')))
+            d['tip']['kind']='bitmap';d['tip']['hardness']=1;d['tip']['mask']=catalog.asset(mask,warnings)
+            notes.append(compatibility('gaussianGenerator','Gaussian erf radial profile retained in a static 256px tip; Krita regenerates scale-dependent edge antialiasing and subpixel masks per dab.'))
+        if (generator.get('id','default') != 'default' and not gaussian) or numeric(generator.get('spikes'),2) != 2 or numeric(definition.get('randomness')) or numeric(definition.get('density'),1) != 1:
             notes.append(compatibility('autoBrush','Gaussian/curve generator, spikes, randomness and density are not reproduced.','unsupported'))
         if enabled(definition.get('useAutoSpacing')):
             notes.append(compatibility('autoSpacing','Adaptive Krita spacing is approximated by the saved fixed spacing.'))

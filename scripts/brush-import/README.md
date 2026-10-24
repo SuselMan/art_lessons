@@ -106,3 +106,9 @@ Krita3: Timothée Giet, Ramon Miranda, David Revoy и другие. RGBA: Ramon 
 декодируется как base64 ресурс при отсутствии linked pattern. Период текстуры
 берётся из исходной ширины, а не размера квадратного GPU cache. Неквадратные
 текстуры и vendor texture application сохраняют предупреждение приближения.
+
+Gaussian circle auto tips use a sampled normalized erf profile rather than a
+linear hardness ramp. This improves the radial distribution, while remaining
+approximate: a static GPU bitmap cannot reproduce Krita's regenerated subpixel
+mask and size-dependent antialiasing. Gaussian rectangles, curve generators,
+spikes, auto-spacing and random density retain explicit compatibility warnings.

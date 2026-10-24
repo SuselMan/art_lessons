@@ -8,7 +8,7 @@ import unittest
 import zipfile
 from PIL import Image, PngImagePlugin
 import convert
-from krita_import import convert_krita, gbr, xml
+from krita_import import convert_krita, gbr, xml, gaussian_circle
 
 
 def kpp(definition=None, resources='', engine='paintbrush', mode='normal'):
@@ -20,6 +20,24 @@ def kpp(definition=None, resources='', engine='paintbrush', mode='normal'):
 
 
 class KritaTests(unittest.TestCase):
+    def test_gaussian_profile_is_symmetric_monotonic_and_not_linear_hardness(self):
+        image=gaussian_circle(.15,.15,10)
+        self.assertEqual(image.getpixel((0,0)),0)
+        row=[image.getpixel((x,128)) for x in range(128,256)]
+        self.assertEqual(row,sorted(row,reverse=True))
+        self.assertEqual(row[64],99)
+        self.assertEqual(image.tobytes(),image.transpose(Image.Transpose.FLIP_LEFT_RIGHT).tobytes())
+        self.assertEqual(image.tobytes(),image.transpose(Image.Transpose.FLIP_TOP_BOTTOM).tobytes())
+
+    def test_gaussian_preset_routes_bitmap_and_keeps_fidelity_warning(self):
+        definition='<Brush type="auto_brush"><MaskGenerator id="gauss" type="circle" ratio="1" hfade=".15" vfade=".15" diameter="10" spikes="2"/></Brush>'
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'QA.kpp';p.write_bytes(kpp(definition));c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
+            self.assertEqual(c.skipped,[])
+            brush=c.brushes[0]
+            self.assertEqual(brush['descriptor']['tip']['kind'],'bitmap')
+            self.assertTrue(any(n['feature']=='gaussianGenerator' and n['status']=='approximate' for n in brush['compatibility']))
+
     def test_legacy_bytearray_embedded_pattern_and_native_period(self):
         out=io.BytesIO();Image.new('L',(8,8),128).save(out,format='PNG')
         encoded=base64.b64encode(out.getvalue())
