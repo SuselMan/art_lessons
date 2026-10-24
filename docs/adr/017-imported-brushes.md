@@ -323,3 +323,28 @@ Converter18 включает existing source diameter-spacing для dynamic siz
 aspect не может подменять динамический. Номинальный legacy path других
 presets сохраняется. Это корректировка sampler-а, не пересчёт старых операций:
 старый журнал уже хранит выпущенные dabs и воспроизводится без нового resampling.
+
+
+## Независимая геометрия и комбинированное вращение (converter19)
+
+Parent и independent child используют общий расчёт source-spacing по actual
+size/aspect. Child сохраняет собственные angle, opacity, pressure curve и шаг;
+при интерполяции сначала восстанавливается исходный размер, затем вычисляется
+нелинейная pressure response. Фаза шага пересчитывается при повороте эллипса.
+Без source-spacing child использует свой diameter spacing. Ограничение256
+семплов на raw segment сохраняется, поэтому произвольная плотность входных
+сегментов может влиять на результат при экстремальных настройках.
+
+Rotation composition хранит additive и scaling sensors раздельно:
+π*(-1+strength*(sum(2Ci-1)-(2*product(Cscale)-1))). StrokeRandom имеет отдельный
+uint32 stream и детерминированное значение на жест; native RNG не воспроизводится.
+Size-like Max/Min/другие scaling modes допустимы при единственном scaling sensor:
+они не должны блокировать независимый additive fuzzy. Несколько scaling sensors
+с неподдержанным mode по-прежнему явно ограничены. Canonical isAirbrushing
+приоритетнее legacy alias; timed airbrush пока не реализован.
+
+CPU-кэш immutable premultiplied lightness mip-уровней ограничен4МиБ на painter.
+CAS-key включает alpha и gray; LRU вытесняет производные, destroy очищает кэш,
+oversize цепочки не вытесняют полезные записи. GPU-кэш по-прежнему16МиБ.
+Это устраняет повторное построение пирамиды после GPU-вытеснения, но не сами
+повторные GPU uploads. Результирующие texel-данные не меняются.

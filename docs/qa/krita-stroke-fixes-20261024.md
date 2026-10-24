@@ -333,3 +333,44 @@ Undo/redo49/51/67/71 ×2GPU:8 случаев вернули побайтно и�
 contexts закрыты finally, registered temporary jobs пусты. Остаются один
 compiled18/report, существующие QA frontend/backend/PG и компактные source/
 evidence/каталоги/CAS. Grafetto коммиты локальны; push/main/deploy не выполнялись.
+
+
+## Независимая геометрия и Impasto: стенд19
+
+Importer19 (reader331f2550), final source e19c4288; performance-only renderer
+3498ec38. Каталогv31:117кистей/245assets, manifestSHA
+`b1cf934876d21eb1875cfbc78b257291c39c4e5d306261905196dbb42e2f63be`.
+Исправлены собственный angle/aspect/spacing child, интерполяция nonlinear pressure,
+фаза при повороте, single-scaling Max плюс additive fuzzy; добавлены combined
+rotation и per-stroke random. Все изменения общие, без ветвлений по имени кисти.
+
+Повторный source-run всех117 на Samsung: GL0,24изменены к18/93byteequal.
+Два visual gates проверили24изменённых: новой тяжёлой общей регрессии не выявлено.
+100/101 заметно ближе native по толщине и pressure ramp,19/74 также улучшились.
+111/112 всё ещё бледнее native;104бледная,106–109 имеют слишком резкий старт.
+Timed airbrush, native random sequence, corner-fanning и часть sensor combinations
+не поддержаны полностью. Это не заявление идентичности всех117кистей.
+
+136 Python tests,383 TS/25suites,42 child/spacing tests,17 texture-cache tests;
+полные types/build/lint/map PASS (существующие предупреждения сохранены).
+Viewer19 Native/18/19:117/6page/searchRock/512preview/1024original PASS.
+Source-proof и результаты лежат в temp/device-runs/krita-stroke-20261024/fixes-v19;
+performance — в соседнем krita-wet-20261024. Приватные runtime logs не коммитятся.
+
+Impasto100 требует повторных uploads из-за рабочего набора больше GPU16МиБ.
+Кэш CPU lightness mip-деривативов4МиБ устраняет повторное построение, но не uploads:
+в идентичном инструментированном прогоне166base/1649mip uploads до/после на обоих
+GPU. Samsung mean inputCPU11.40→6.57ms; Apple6.15→6.79ms (нет доказанного выигрыша).
+Обычный повторный прогон100/101/111/112 ×48/128 ×2GPU: GL0; Samsung100p95
+33–50ms, остальные≈16.8ms; Apple17–21ms. Cold maxima до117ms остаются.
+Короткий синтетический прогон не доказывает OS stylus latency или memory-soak.
+
+
+Final compiled3498ec38:18exports (9brushes×2GPU) GL0 и побайтно равны версии
+до кэша; undo/redo51/100/101/112×2GPU вернули идентичный PNG во всех8случаях.
+Все106QA references сохранены:81room-pinned,25разрешаются operator279/283.
+Активен только dist-candidate19b, старые inactive18/19 удалены после проверки
+registry+/proc. Samsung report3613 открыт на19, собственнаяroom3617 закрыта,
+ADBforward19232 удалён; temporary jobs пусты. GPU contexts/browser закрыты finally.
+Остаются прежние QA frontend/backend/PG, один compiled19b/report и компактные
+исходные данные/история/CAS/evidence. Grafetto push/main/deploy не выполнялись.
