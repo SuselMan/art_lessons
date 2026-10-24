@@ -11,7 +11,7 @@ from pathlib import PurePosixPath
 import struct
 import xml.etree.ElementTree as ET
 import zipfile
-from PIL import Image, PngImagePlugin
+from PIL import Image, ImageChops, PngImagePlugin
 from brush_contract import MAX_PIXELS, clamp, compatibility, descriptor, finalize_identity
 from curve_transfer import native_transfer,scaled_curve
 
@@ -72,7 +72,7 @@ def gaussian_circle(hfade, vfade, diameter, antialias=False, size=256):
     return Image.frombytes('L',(size,size),bytes(pixels))
 
 
-def gbr(data):
+def gbr(data, preserve_color=False):
     if len(data) < 20:
         raise ValueError('Truncated GBR header')
     header, version, w, h, channels = struct.unpack('>5I', data[:20])
@@ -86,12 +86,12 @@ def gbr(data):
         raise ValueError('GBR payload size mismatch; animated pipes are not static brushes')
     image = Image.frombytes('L' if channels == 1 else 'RGBA', (w, h), data[header:end])
     # GBR grayscale bytes already encode positive opacity, not a black-on-white image.
-    if channels == 4:
+    if channels == 4 and not preserve_color:
         image = image.getchannel('A')
     return image
 
 
-def gih(data):
+def gih(data, preserve_color=False):
     """Read the documented image-pipe container without discarding any frame.
 
     The currently shipped Krita pipes use one random/incremental dimension.
@@ -130,7 +130,7 @@ def gih(data):
         if header_size>MAX_XML or w*h>MAX_PIXELS or channels not in (1,4):
             raise ValueError('GIH frame exceeds limits')
         length=header_size+w*h*channels
-        frame=gbr(data[offset:offset+length])
+        frame=gbr(data[offset:offset+length],preserve_color)
         frames.append(frame);pixels+=w*h;coloured|=channels==4;offset+=length
         if pixels>MAX_PIXELS:
             raise ValueError('GIH cumulative pixel limit')
@@ -163,9 +163,43 @@ def tip_asset(mask,catalog,warnings):
     return aid,bounds
 
 
+def has_color(image):
+    red,green,blue=image.convert('RGB').split()
+    return ImageChops.difference(red,green).getbbox() is not None or ImageChops.difference(red,blue).getbbox() is not None
+
+
+def brush_application(definition, images):
+    """KisPredefinedBrushFactory legacy precedence, independent format reader."""
+    colorful=any(has_color(image) for image in images)
+    legacy=lambda: 0 if numeric(definition.get('ColorAsMask','1'))!=0 or not colorful else 1
+    if definition.get('preserveLightness') is not None:
+        return 2 if numeric(definition.get('preserveLightness'))!=0 else legacy()
+    if definition.get('brushApplication') is not None:
+        value=numeric(definition.get('brushApplication'),-1)
+        if value not in (0,1,2,3):
+            raise ValueError('Unsupported Krita brush application')
+        return int(value)
+    if definition.get('ColorAsMask') is not None:
+        return legacy()
+    return 1 if colorful else 0
+
+
+def image_coverage(image, application=0):
+    if application!=0:
+        # Existing approximation only; caller reports the resolved unsupported
+        # application explicitly. Lightness/RGB/gradient material is not added.
+        return image.getchannel('A') if 'A' in image.getbands() else image.convert('L').point(lambda v:255-v)
+    rgba=image.convert('RGBA')
+    # qGray uses integer11:16:5 weights. Opacity is inverse gray times alpha,
+    # rounded to nearest8-bit value; opaque white remains transparent.
+    pixels=bytes(((255-((11*r+16*g+5*b)//32))*a+127)//255 for r,g,b,a in rgba.get_flattened_data())
+    return Image.frombytes('L',image.size,pixels)
+
+
 def raster(data, name, brush=False):
     if name.lower().endswith('.gbr'):
-        return gbr(data)
+        image=gbr(data,preserve_color=brush)
+        return image_coverage(image) if brush and image.mode=='RGBA' else image
     if name.lower().endswith('.pat'):
         if len(data)<24: raise ValueError('Truncated PAT header')
         header, version, w, h, channels, magic = struct.unpack('>6I',data[:24])
@@ -177,11 +211,7 @@ def raster(data, name, brush=False):
         raise ValueError('Krita resource exceeds pixel limit')
     image.load()
     if brush:
-        # Krita image tips: transparency is coverage; opaque black-on-white tips
-        # are masks. Coloured brush application is reported separately.
-        if 'A' in image.getbands():
-            return image.getchannel('A')
-        return image.convert('L').point(lambda v: 255-v)
+        return image_coverage(image)
     return image
 
 
@@ -262,7 +292,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=6
+    d['version']=7
     source_size=None
     kind = definition.get('type')
     if kind == 'auto_brush':
@@ -291,8 +321,10 @@ def preset(data, name, catalog, external, depth=0):
     elif kind in ('gbr_brush', 'png_brush', 'svg_brush', 'abr_brush'):
         filename = definition.get('filename','')
         if filename.lower().endswith('.gih'):
-            pipe=gih(resource(filename))
-            frames=pipe['frames']
+            pipe=gih(resource(filename),preserve_color=True)
+            adjustment_active=any(frame.mode=='RGBA' for frame in pipe['frames'])
+            application=brush_application(definition,pipe['frames'])
+            frames=[frame if frame.mode=='L' else image_coverage(frame,application) for frame in pipe['frames']]
             if len({frame.size for frame in frames})!=1:
                 raise ValueError('GIH frames with unequal dimensions are unsupported')
             assets=[tip_asset(frame,catalog,warnings) for frame in frames]
@@ -303,18 +335,24 @@ def preset(data, name, catalog, external, depth=0):
             if pipe['declaredCount']!=len(frames):
                 notes.append(compatibility('gihFrameCount',f"Header declares {pipe['declaredCount']} frames, but exactly {len(frames)} valid frames end at EOF; retained actual frames as Krita does."))
             notes.append(compatibility('gihSelection','All pipe frames retained; random selection uses deterministic Grafetto per-dab randomness rather than Krita RNG.' if pipe['mode']=='random' else 'Incremental pipe selection uses dab sequence modulo actual frame count.'))
-            if pipe['coloured']:
+            if pipe['coloured'] and application!=0:
                 notes.append(compatibility('gihColour','RGBA pipe colour is approximated as alpha coverage; coloured stamp pixels are not retained.','unsupported'))
         else:
-            mask = raster(resource(filename), filename, True)
+            image=gbr(resource(filename),preserve_color=True) if filename.lower().endswith('.gbr') else raster(resource(filename),filename)
+            adjustment_active=image.mode=='RGBA' if filename.lower().endswith('.gbr') else has_color(image) or image.convert('RGBA').getchannel('A').getextrema()[0]<255
+            application=brush_application(definition,[image])
+            mask=image if filename.lower().endswith('.gbr') and image.mode=='L' else image_coverage(image,application)
             d['tip']['mask'],d['tip']['maskBounds']=tip_asset(mask,catalog,warnings)
             if kind=='svg_brush':
                 notes.append(compatibility('svgRasterizer','Pinned official stock SVG rasterized on white at native1000px using librsvg; Qt SVG edge antialiasing may differ. General SVG uploads remain unsupported.'))
         # KisScalingSizeBrush::userEffectiveSize is longest native side * scale.
         source_size=max(mask.size)*numeric(definition.get('scale'),1)
         d['tip']['aspect']=1/clamp(numeric(definition.get('ratio'),1),0.0625,1)
-        if numeric(definition.get('brushApplication')) not in (0,):
-            notes.append(compatibility('brushApplication','Lightness/coloured stamp application is approximated as an alpha mask.','unsupported'))
+        if application!=0:
+            application_name={1:'IMAGESTAMP',2:'LIGHTNESSMAP',3:'GRADIENTMAP'}[application]
+            notes.append(compatibility('brushApplication',application_name+' resolved from native/legacy flags; its material is unsupported and retains the alpha-mask approximation.','unsupported'))
+        elif adjustment_active and (any(numeric(definition.get(key),default)!=default for key,default in [('AdjustmentMidPoint',127),('BrightnessAdjustment',0),('ContrastAdjustment',0)]) or enabled(definition.get('AutoAdjustMidPoint'))):
+            notes.append(compatibility('alphaMaskAdjustments','Custom brightness/contrast/midpoint adjustment of image masks is not implemented.','unsupported'))
     else:
         raise ValueError('Unsupported Krita brush definition: '+str(kind))
     d['spacing']=clamp(numeric(definition.get('spacing'),0.1),0.000001,2)
@@ -378,7 +416,8 @@ def preset(data, name, catalog, external, depth=0):
         # Enabled but missing Value defaults to the option range maximum (1).
         color_rate=clamp(numeric(params.get('ColorRateValue'),1)) if enabled(params.get('PressureColorRate')) else 0
         smudge_rate=clamp(numeric(params.get('SmudgeRateValue'),1)) if enabled(params.get('PressureSmudgeRate')) else 1
-        d['model']='mixer';d['mixer']={'load':color_rate,'pickup':smudge_rate,'strength':1}
+        d['model']='mixer';d['mixer']={'load':color_rate,'pickup':smudge_rate,'strength':1,
+                                    'initialLoad':color_rate,'smearAlpha':enabled(params.get('SmudgeRateSmearAlpha','true'))}
         notes.append(compatibility('colorSmudge','Krita Color Smudge is approximated using Grafetto carried-pigment mixer; dulling/smearing formulas differ.'))
     active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter')]
     if active:

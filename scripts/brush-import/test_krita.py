@@ -196,7 +196,17 @@ class KritaTests(unittest.TestCase):
                 p=Path(tmp)/'Rates.kpp';Image.new('RGB',(2,2)).save(p,format='PNG',pnginfo=meta)
                 c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
                 self.assertEqual(c.skipped,[])
-                self.assertEqual(c.brushes[0]['descriptor']['mixer'],{'load':load,'pickup':pickup,'strength':1})
+                self.assertEqual(c.brushes[0]['descriptor']['mixer'],{'load':load,'pickup':pickup,'strength':1,'initialLoad':load,'smearAlpha':True})
+
+    def test_colorsmudge_smear_alpha_explicit_and_missing_defaults(self):
+        for saved,expected in [(None,True),('true',True),('false',False),('0',False)]:
+            params='' if saved is None else '<param name="SmudgeRateSmearAlpha">'+saved+'</param>'
+            with self.subTest(saved=saved), tempfile.TemporaryDirectory() as tmp:
+                p=Path(tmp)/'QA.kpp';p.write_bytes(kpp(resources=params,engine='colorsmudge'))
+                c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
+                self.assertEqual(c.skipped,[])
+                self.assertEqual(c.brushes[0]['descriptor']['mixer']['smearAlpha'],expected)
+                self.assertEqual(c.brushes[0]['descriptor']['mixer']['initialLoad'],0)
 
     def test_colorsmudge_mapping_fix_has_new_content_identity_for_same_source(self):
         import copy
@@ -211,8 +221,8 @@ class KritaTests(unittest.TestCase):
             # final mixer parameters, so old rooms keep their former resource.
             old=copy.deepcopy(current);old['mixer'].update(load=.5,pickup=.5)
             finalize_identity(old,source)
-            self.assertEqual(current['version'],6)
-            previous=copy.deepcopy(current);previous['version']=5
+            self.assertEqual(current['version'],7)
+            previous=copy.deepcopy(current);previous['version']=6
             finalize_identity(previous,source)
             self.assertNotEqual(previous['id'],current['id'])
             self.assertNotEqual(old['id'],current['id'])
