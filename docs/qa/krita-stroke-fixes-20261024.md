@@ -551,3 +551,14 @@ stock engines и9varying-pigment WASH остаются ограничениям�
 и Bleed0/.6, GL0. Повтор117 и matched perf ещё выполняются; ускорение/полное
 совпадение финального24 пока не заявляются. Архив evidence fixes-v22/v23/v24
 сохранён в temp/device-runs, приватные ссылки и room IDs не включены в Git.
+
+
+Final source24(fd04bc02) повтор117: все117PNG byte-identical23,GL0.
+Сбой wet rounding устранён без ослабления сравнения. Matched Samsung ABBA16runs,
+100/101×48/128×old/new/new/old:100oldp9533.4–50.1ms,packed16.8ms;
+101оба16.8ms.100typed-array texture uploads во времяштриха116,129,681B/48px
+и74,536,206B/128px против0послеподготовки; оставшиеся9–25texImage2Dвызовов
+служебные, не всеuploads исчезли. Подготовка100packed≈205–209ms противold
+skipped≈.1ms; исключённая стоимость не скрывается. Maxcold/first-stroke кадры
+83–117ms остаются, mean≈18–20ms. Этоisolated72rAF×4events,неOSpenlatency,
+неmemorysoak/второйGPU. Source graph frozen до tiny-dab исправления.

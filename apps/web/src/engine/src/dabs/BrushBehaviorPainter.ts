@@ -140,7 +140,10 @@ export class BrushBehaviorPainter {
       const wet=brush.model==='mixer' && behavior.wetMix ? wetMixStep(behavior.wetMix,state,dab,previous?Math.hypot(dab.x-previous.x,dab.y-previous.y)/Math.max(.5,dab.size):0,!previous,state):undefined
       if(wet)flow*=wet.strength
       const opacity = digitalBrushCeiling(brush, dab.pressure, pressure.opacity)*(wet?state.charge:1)
-      return behaviorStampsForDab(brush, dab, state, color).map(st => {
+      // Only admitted paint dabs enter the native-style opacity history.
+      // Geometry/RNG still advance above, but a discarded tiny footprint must
+      // not leave a high average behind for the next visible low-opacity dab.
+      return behaviorStampsForDab(brush, dab, state, color).filter(st=>st.size*preset.sizeMultiplier*.5>=.25).map(st => {
         // Native BuildUp OVER consumes the operation opacity per dab. Keeping
         // it for the final composite instead imposes a whole-stroke ceiling.
         const ceiling=clamp(opacity*st.opacityScale*(accumulation==='directOver' ? state.opacity : 1))
@@ -148,7 +151,7 @@ export class BrushBehaviorPainter {
         return {...st,radius:st.size*preset.sizeMultiplier*.5,flow:flow*st.flowScale,ceiling,pressure:dab.pressure,
           ...(wash ? {washAverage:wash.average,washFeedback:!wash.canBlend || !constantPigment} : {})}
       })
-    }).filter(st => st.radius >= 0.25)
+    })
     const all = [...(state.pending ?? []), ...incoming]
     const tail = splitBrushTail(all, state.distance, behavior.taper?.end ?? 0, finish, behavior.taper?.size, behavior.taper?.opacity)
     state.pending = tail.pending
