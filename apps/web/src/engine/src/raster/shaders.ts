@@ -3653,10 +3653,8 @@ export const WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG = WC_FIELD_OP_CARRY_FRAG.
 export const WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_COLOUR_FRAG = `#define FIELD_OP_COLOUR
 ${WC_FIELD_OP_ADDITIVE_ZERO_FACE_CARRY_FRAG}`
 
-// Layer and export blits must retain pixel-centre UVs on non-power-of-two
-// targets: mediump interpolation introduced visible alpha into empty texels.
 export const LAYER_COMPOSITE_FRAG = `
-  precision highp float;
+  precision mediump float;
   uniform sampler2D u_layer;
   uniform float u_opacity;
   varying vec2 v_uv;
