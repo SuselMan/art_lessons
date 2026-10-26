@@ -5,8 +5,7 @@ import { cachedBrushAsset, cacheBrushAsset } from './brushAssetCache'
 
 let library: BrushLibrary | null = null
 let roomScope: string | undefined
-let metadataWork: Promise<void> | null = null
-let metadataScope: string | undefined
+const metadataWork = new Map<string | undefined, Promise<void>>()
 const pending = new Map<string, Promise<void>>()
 const pinned = new Set<string>()
 const listeners = new Set<() => void>()
@@ -43,8 +42,18 @@ export function setBrushRoomScope(roomId: string | undefined): void {
 }
 
 /** Install metadata only. Resource bytes are loaded for selection/history. */
-export async function loadBrushLibrary(): Promise<void> {
+export function loadBrushLibrary(): Promise<void> {
   const scope = roomScope
+  const existing = metadataWork.get(scope)
+  if (existing) return existing
+  const work = loadMetadata(scope).finally(() => {
+    if (metadataWork.get(scope) === work) metadataWork.delete(scope)
+  })
+  metadataWork.set(scope, work)
+  return work
+}
+
+async function loadMetadata(scope: string | undefined): Promise<void> {
   const cacheKey = `grafetto:brush-library:v1:${scope ?? 'personal'}`
   let data: unknown
   try {
@@ -52,8 +61,12 @@ export async function loadBrushLibrary(): Promise<void> {
     data = await response.json()
   } catch (error) {
     if (!(error instanceof TypeError) && !(error instanceof Error && ['AbortError','TimeoutError'].includes(error.name))) throw error
+    // A transport failure says nothing about which immutable room versions
+    // exist. Never replace a successful in-memory manifest with stale/empty
+    // offline metadata: pruning would make already loaded history unreadable.
+    if (scopedLibraries.has(scope)) return
     try { data = JSON.parse(localStorage.getItem(cacheKey) ?? 'null') } catch { /* unavailable storage */ }
-    if (!isBrushLibrary(data, { maxBytes: 512 * 1024 * 1024, maxBrushes: 1024, maxAssets: 2048 })) data = { schemaVersion: 1, brushes: [], assets: [], skipped: [] }
+    if (!isBrushLibrary(data, { maxBytes: 512 * 1024 * 1024, maxBrushes: 1024, maxAssets: 2048 })) throw error
   }
   if (!isBrushLibrary(data, { maxBytes: 512 * 1024 * 1024, maxBrushes: 1024, maxAssets: 2048 })) throw new Error('Invalid brush library')
   if (scope !== roomScope) return
@@ -65,13 +78,6 @@ export async function loadBrushLibrary(): Promise<void> {
   for (const listener of listeners) listener()
 }
 
-function refreshMetadata(): Promise<void> {
-  if (metadataWork && metadataScope === roomScope) return metadataWork
-  metadataScope = roomScope
-  const work = loadBrushLibrary().finally(() => { if (metadataWork === work) metadataWork = null })
-  metadataWork = work
-  return work
-}
 async function verified(id: string, data: Uint8Array, size: number): Promise<boolean> {
   if (data.length !== size * size) return false
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', data.slice()))
@@ -112,7 +118,28 @@ export function prepareBrushPresets(presets: readonly (string | undefined)[]): P
   try { needed = new Set(presets.flatMap(p => importedBrushAssets(p)).filter(id => !isBrushAssetReady(id))) }
   catch {
     if (!imported.length) throw new Error('Invalid brush preset')
-    return refreshMetadata().then(async () => { const work = prepareBrushPresetsKnown(presets); if (work) await work })
+    const scope = roomScope
+    const existing = metadataWork.get(scope)
+    return (async () => {
+      await (existing ?? loadBrushLibrary())
+      const checkScope = () => {
+        if (scope !== roomScope) throw new DOMException('Brush room changed during preparation', 'AbortError')
+      }
+      checkScope()
+      if (existing) {
+        // An older in-flight response may predate the peer's newly pinned
+        // version. Only callers that joined such a request get one fresh
+        // refresh; a fresh response missing the version remains an error.
+        let missing = false
+        try { for (const preset of presets) importedBrushAssets(preset) } catch { missing = true }
+        if (missing) {
+          await loadBrushLibrary()
+          checkScope()
+        }
+      }
+      const work = prepareBrushPresetsKnown(presets)
+      if (work) await work
+    })()
   }
   if (!needed.size) return null
   return (async () => { for (const id of needed) await fetchAsset(id) })()

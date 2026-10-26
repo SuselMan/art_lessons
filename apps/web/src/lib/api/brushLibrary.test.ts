@@ -90,12 +90,12 @@ describe('lazy brush API resources', () => {
     expect(fetch).toHaveBeenCalledOnce()
     expect(api.prepareBrushPresets([f.token])).toBeNull()
   })
-  it('keeps built-in tools available when offline without a cached catalog', async () => {
+  it('reports failed metadata without a cache while keeping built-in tools synchronous', async () => {
     request.mockRejectedValue(new TypeError('Failed to fetch'))
     const fetch = vi.fn()
     vi.stubGlobal('fetch', fetch)
     const api = await import('./brushLibrary')
-    await api.loadBrushLibrary()
+    await expect(api.loadBrushLibrary()).rejects.toThrow('Failed to fetch')
     expect(api.prepareBrushPresets(['hard-round'])).toBeNull()
     expect(fetch).not.toHaveBeenCalled()
   })
@@ -135,6 +135,151 @@ describe('lazy brush API resources', () => {
     finish(new Response(new Uint8Array(f.pixels)))
     await pending
     expect(resources.isBrushAssetReady(f.manifest.assets[0].id)).toBe(false)
+  })
+
+  it('shares direct room-state loads and unknown-preset refreshes until one metadata response resolves', async () => {
+    const f = fixture()
+    let finish!: (value: BrushLibrary) => void
+    request.mockReturnValue(new Promise<BrushLibrary>(resolve => { finish = resolve }))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array(f.pixels))))
+    const api = await import('./brushLibrary')
+    const { createOrderedBrushGate } = await import('../../pages/Room/net/orderedBrushGate')
+    api.setBrushRoomScope('same-room')
+    const direct = api.loadBrushLibrary()
+    expect(api.loadBrushLibrary()).toBe(direct)
+    const apply = vi.fn(), fail = vi.fn()
+    const gate = createOrderedBrushGate(api.prepareBrushPresets, fail)
+    gate.dispatch([f.token], apply)
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(apply).not.toHaveBeenCalled()
+    finish(f.manifest)
+    await direct
+    await vi.waitFor(() => expect(apply).toHaveBeenCalledOnce())
+    expect(fail).not.toHaveBeenCalled()
+    expect(request).toHaveBeenCalledTimes(1)
+    gate.cancel()
+  })
+
+  it('does not turn a shared metadata timeout into an empty successful room manifest and can retry', async () => {
+    const f = fixture()
+    let reject!: (error: Error) => void
+    request.mockReturnValueOnce(new Promise((_, fail) => { reject = fail })).mockResolvedValue(f.manifest)
+    const setItem = vi.fn()
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem })
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array(f.pixels))))
+    const api = await import('./brushLibrary')
+    api.setBrushRoomScope('cold-room')
+    const first = api.loadBrushLibrary(), preparation = api.prepareBrushPresets([f.token])!
+    const errors = Promise.allSettled([first, preparation])
+    reject(new DOMException('metadata deadline', 'TimeoutError'))
+    const results = await errors
+    expect(results.every(result => result.status === 'rejected')).toBe(true)
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(setItem).not.toHaveBeenCalled()
+    await api.prepareBrushPresets([f.token])
+    expect(request).toHaveBeenCalledTimes(2)
+    expect(api.prepareBrushPresets([f.token])).toBeNull()
+  })
+
+  it('retains successful room versions when a later request times out with stale empty offline metadata', async () => {
+    const f = fixture(), empty = { schemaVersion: 1, brushes: [], assets: [], skipped: [] }
+    request.mockResolvedValueOnce(f.manifest).mockRejectedValueOnce(new DOMException('late deadline', 'TimeoutError'))
+    vi.stubGlobal('localStorage', { getItem: () => JSON.stringify(empty), setItem: vi.fn() })
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array(f.pixels))))
+    const api = await import('./brushLibrary')
+    const resources = await import('../../engine/brushLibrary')
+    api.setBrushRoomScope('existing-room')
+    await api.loadBrushLibrary()
+    await api.prepareBrushPresets([f.token])
+    await api.loadBrushLibrary()
+    expect(resources.importedBrushes()).toHaveLength(1)
+    expect(resources.isBrushAssetReady(f.manifest.assets[0].id)).toBe(true)
+    expect(api.prepareBrushPresets([f.token])).toBeNull()
+  })
+
+  it('installs a valid scoped offline cache on the first unavailable request', async () => {
+    const f = fixture()
+    request.mockRejectedValue(new TypeError('offline'))
+    const getItem = vi.fn(() => JSON.stringify(f.manifest))
+    vi.stubGlobal('localStorage', { getItem, setItem: vi.fn() })
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array(f.pixels))))
+    const api = await import('./brushLibrary')
+    api.setBrushRoomScope('cached-room')
+    await api.loadBrushLibrary()
+    await api.prepareBrushPresets([f.token])
+    expect(getItem).toHaveBeenCalledWith('grafetto:brush-library:v1:cached-room')
+    expect(request).toHaveBeenCalledTimes(1)
+  })
+
+  it('coalesces per scope and ignores a previous room response finishing after the next room', async () => {
+    const a = fixture().manifest, b = structuredClone(a)
+    b.brushes[0].descriptor.id = 'imported-' + 'b'.repeat(16)
+    let finishA!: (value: BrushLibrary) => void, finishB!: (value: BrushLibrary) => void
+    request.mockReturnValueOnce(new Promise(resolve => { finishA = resolve }))
+      .mockReturnValueOnce(new Promise(resolve => { finishB = resolve }))
+    const api = await import('./brushLibrary')
+    const resources = await import('../../engine/brushLibrary')
+    api.setBrushRoomScope('A')
+    const first = api.loadBrushLibrary()
+    api.setBrushRoomScope('B')
+    const second = api.loadBrushLibrary()
+    expect(second).not.toBe(first)
+    expect(api.loadBrushLibrary()).toBe(second)
+    finishB(b); await second
+    finishA(a); await first
+    expect(resources.importedBrushes().map(brush => brush.descriptor.id)).toEqual([b.brushes[0].descriptor.id])
+    expect(request).toHaveBeenCalledTimes(2)
+  })
+
+  it('refreshes once after an older in-flight manifest misses a newly pinned peer version', async () => {
+    const f = fixture(), empty: BrushLibrary = { schemaVersion: 1, brushes: [], assets: [], skipped: [] }
+    let finishOld!: (value: BrushLibrary) => void, finishFresh!: (value: BrushLibrary) => void
+    request.mockReturnValueOnce(new Promise(resolve => { finishOld = resolve }))
+      .mockReturnValueOnce(new Promise(resolve => { finishFresh = resolve }))
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array(f.pixels))))
+    const api = await import('./brushLibrary')
+    const { createOrderedBrushGate } = await import('../../pages/Room/net/orderedBrushGate')
+    api.setBrushRoomScope('new-peer-version')
+    const old = api.loadBrushLibrary(), apply = vi.fn(), fail = vi.fn()
+    const gate = createOrderedBrushGate(api.prepareBrushPresets, fail)
+    gate.dispatch([f.token], apply)
+    expect(request).toHaveBeenCalledTimes(1)
+    finishOld(empty); await old
+    await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2))
+    expect(apply).not.toHaveBeenCalled()
+    finishFresh(f.manifest)
+    await vi.waitFor(() => expect(apply).toHaveBeenCalledOnce())
+    expect(fail).not.toHaveBeenCalled()
+    expect(request).toHaveBeenCalledTimes(2)
+    gate.cancel()
+  })
+
+  it('does not repeatedly refresh an actually missing version or refresh the next room', async () => {
+    const f = fixture(), empty: BrushLibrary = { schemaVersion: 1, brushes: [], assets: [], skipped: [] }
+    request.mockResolvedValue(empty)
+    const api = await import('./brushLibrary')
+    api.setBrushRoomScope('missing-version')
+    await expect(api.prepareBrushPresets([f.token])).rejects.toThrow('Imported brush unavailable')
+    expect(request).toHaveBeenCalledTimes(1) // this preparation started its own fresh request
+    let finish!: (value: BrushLibrary) => void
+    request.mockReturnValueOnce(new Promise(resolve => { finish = resolve }))
+    const old = api.loadBrushLibrary(), preparation = api.prepareBrushPresets([f.token])!
+    const result = Promise.allSettled([preparation])
+    api.setBrushRoomScope('another-room')
+    finish(empty); await old
+    expect(await result).toEqual([expect.objectContaining({ status: 'rejected', reason: expect.objectContaining({ name: 'AbortError' }) })])
+    expect(request).toHaveBeenCalledTimes(2)
+  })
+
+  it('stops after one fresh retry when both an older in-flight response and the fresh response lack the version', async () => {
+    const f = fixture()
+    request.mockResolvedValue({ schemaVersion: 1, brushes: [], assets: [], skipped: [] })
+    const api = await import('./brushLibrary')
+    api.setBrushRoomScope('genuinely-missing')
+    const older = api.loadBrushLibrary(), preparation = api.prepareBrushPresets([f.token])!
+    await older
+    await expect(preparation).rejects.toThrow('Imported brush unavailable')
+    expect(request).toHaveBeenCalledTimes(2)
   })
 
 })
