@@ -409,3 +409,34 @@ parent с материалом/HSV остаются на приблизител�
 сохраняет свой отдельный previousCanvas path. Runtime feedback включает точный
 порядок цвета/alpha, включая смену цвета при Flow0; native loss/restoration
 повторяет журнал и строит average заново, а не хранит его между жестами.
+
+
+## Source semantics 22–23 и residency 24
+
+Native BUILDUP использует `directOver`: opacity применяется на каждый dab,
+включая tool opacity, Flow игнорируется. Старый `over` сохраняет прежнюю формулу.
+Actual bitmap width/height хранятся отдельно от квадратной padded mask: spacing
+учитывает повёрнутую исходную геометрию, не сжимая повторно форму/UV.
+Constant Sharpness выполняет U8 threshold до texture/masking; выключенный
+checkable TextureStrength возвращает 1, игнорируя сохранённые неактивные controls.
+
+Новые Krita23 явно задают speedInput view/maximum30. PointerInput записывает
+отдельную нормализованную скорость в CSS coordinates; интерполяция и replay
+используют сохранённый float32, включая ноль. EMA30ms остаётся нашим estimator,
+не заявляется идентичность native фильтру. Wire v2 содержит optional speed,
+v1 остаётся декодируемым и используется при полном отсутствии поля. Старый
+клиент не обязан понимать v2: обновление протокола требует совместимого runtime.
+
+Final strokeEndSample сохраняет последний реальный input для независимой маски,
+включая metadata-only final chunk после полного flush. Он не создаёт дополнительный
+primary stamp и не двигает его RNG/Fade. Midstroke child пока идёт по resampled
+primary polyline, а не полному исходному input stream.
+
+Packing24 объединяет только пары material LA frames в RGBA: premultGray0,
+alpha0,premultGray1,alpha1. Исходные CAS и округлённые mip bytes не меняются;
+shader восстанавливает LA перед unpremultiply. Preparation, lease и draw
+используют один resolver физических keys. GPU budget16MiB и CPU derivative
+budget4MiB сохранены. У Impasto100 полный working set сокращён примерно
+с17.667 до15MiB, включая grain/surface assets. Wet renderer не использует
+material packing: его GLSL сохранён без изменений, потому что даже неиспользуемая
+ветка decoder меняла rounding на Adreno. GPU acceptance измеряется отдельно.

@@ -509,3 +509,45 @@ Browser/GPUcontextsзакрытыfinally. Приcleanup одинsameUID/proc/cwd
 удалены только knowninactive20b/21/21b/21c и unactivatedcatalog33. Остаются один
 compiled21d/report, прежниеQAfrontend/backend/PG,compactsource/evidence/CAS/history.
 Новыхworktree/dependencyкопийнет;Grafettomain/push/productiondeployне выполнялись.
+
+
+## Этапы22–23, Samsung26.10.2026
+
+Runtime22=636915b3, descriptor22 manifest SHA256
+cc63139c6e11a382cb2b406f0fd22c48bca5c1432bc70167dab07f86b0254390.
+Исправлены directOver/Flow, spacing прямоугольных bitmap, constant Sharpness,
+выключенный TextureStrength.117source exports GL0,33changed относительно21;
+все33 просмотрены, новых severe regressions не выявлено.35compiled exports
+byte-identical source22.9undo/redo и3actual context restore совпали по PNG.
+6GPU directOver witnesses подтвердили независимость от Flow;5threshold witnesses
+подтвердили U8 boundary и порядок primary/child masking.211TS/25suites,149Python,
+full typecheck/lint/map exit0. Короткий variable-pressure perf: p95≈16.8ms
+у12/85/69/101/102/116, но100≈50ms; cold max83–100ms остаются.
+
+Runtime23=7f7b68a0, descriptor23 manifest SHA256
+5522486833782b7cfd6c8478bd8b98b09b19eb1d4c20a66c948a2d2511903482.
+Записываются normalized view speed и secondary endpoint.117source GL0;
+все fixture speed0/wire2;16changed относительно22, все16 просмотрены.
+22compiled exports byte-identical source23;6undo/redo,3actual context restore PASS.
+256TS/36suites,150Python и full typecheck exit0. Actual Samsung отправил2wire2
+stroke operations с ненулевой скоростью и endpoint; второй browser получил их
+через QA backend. После нового join durable API вернул обе операции без изменения
+packed data/endpoint. Headless browser/context закрыты finally; это network check,
+не подтверждение второй реальной GPU или OS stylus latency.
+
+Новая116 native A/A envelope не подтверждает прежнее сильное under-transfer:
+наши outside alpha/support/seed loss входят в диапазон3native randomized runs.
+Не добавлялся коэффициент pickup ради одного случайного native raster.
+99first-dab hooks связаны с Node.paintLine initial position(0,0); переносить этот
+oracle API artifact в реальный GUI не стали.109slit остаётся необъяснённым этим
+endpoint fix. Native Qt filtering, RNG, time sensor108/airbrush,20unsupported
+stock engines и9varying-pigment WASH остаются ограничениями. iPad22+не проверен.
+
+## Этап24: acceptance ещё выполняется
+
+040bf9a2 material pair packing; fd04bc02 восстанавливает wet GLSL byte-for-byte
+к23. Первый117GPU прогон дал8wet rounding regressions; они не приняты как успех.
+32authored GPUcases дали16LA↔packed RG/BA byte-identical pairs при size8/24/64/128
+и Bleed0/.6, GL0. Повтор117 и matched perf ещё выполняются; ускорение/полное
+совпадение финального24 пока не заявляются. Архив evidence fixes-v22/v23/v24
+сохранён в temp/device-runs, приватные ссылки и room IDs не включены в Git.
