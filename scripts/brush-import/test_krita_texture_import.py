@@ -45,10 +45,30 @@ class TextureImportTests(unittest.TestCase):
 
     def test_strength_sensor_native_slash_keys(self):
         with tempfile.TemporaryDirectory() as tmp:
-            b,t,a,raw=self.imported(tmp,{'Texture/Strength/UseCurve':'true','Texture/Strength/Sensor':'<params id="pressure"><curve>0,0;0.5,0.2;1,1;</curve></params>'})
+            b,t,a,raw=self.imported(tmp,{'PressureTexture/Strength/':'true','Texture/Strength/UseCurve':'true','Texture/Strength/Sensor':'<params id="pressure"><curve>0,0;0.5,0.2;1,1;</curve></params>'})
             controls=b['descriptor']['behavior']['modulations']['grainDepth']
             self.assertEqual(controls[0]['control'],'pressure');self.assertEqual(len(controls[0]['curve']['samples']),256)
             self.assertLess(controls[0]['curve']['samples'][128],.3)
+
+    def test_unchecked_strength_ignores_stale_curve_and_constant(self):
+        # Rock/Spread-Pattern/Water-Pattern keep an identity pressure curve in
+        # XML while their native Strength checkbox is off. Hard subtract must
+        # remain max(0,a-t), not max(0,a-t-(1-pressure)). Missing checkbox is off.
+        for checked in (None,'false','true'):
+            with self.subTest(checked=checked),tempfile.TemporaryDirectory() as tmp:
+                extra={'Texture/Pattern/TexturingMode':'1','Texture/Strength/Value':'0.2',
+                       'Texture/Strength/UseCurve':'true','Texture/Strength/Sensor':'<params id="pressure"><curve>0,0;1,1;</curve></params>'}
+                if checked is not None: extra['PressureTexture/Strength/']=checked
+                b,t,a,raw=self.imported(tmp,extra)
+                controls=b['descriptor']['behavior'].get('modulations',{}).get('grainDepth')
+                self.assertEqual(t['strength'],.2 if checked=='true' else 1)
+                self.assertEqual(bool(controls),checked=='true')
+
+    def test_checked_constant_strength_does_not_require_curve(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            b,t,a,raw=self.imported(tmp,{'PressureTexture/Strength/':'true','Texture/Strength/Value':'0.2','Texture/Strength/UseCurve':'false'})
+            self.assertEqual(t['strength'],.2)
+            self.assertNotIn('grainDepth',b['descriptor']['behavior'].get('modulations',{}))
 
     def test_unknown_application_keeps_explicit_legacy_fallback(self):
         with tempfile.TemporaryDirectory() as tmp:

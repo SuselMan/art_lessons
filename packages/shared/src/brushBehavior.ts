@@ -27,7 +27,10 @@ export interface BrushBehavior {
   colorAdjustment?: { hue?: BrushDynamic; saturation?: BrushDynamic; value?: BrushDynamic }
   /** Source step axes use actual diameter (or sqrt, linear below 1px).
    * Input responses scale the result before the per-axis .5px floor. */
-  spacing?: { mode: 'kritaAuto' | 'diameter'; coefficient: number; dynamics?: BrushDynamic[]; isotropic?: boolean }
+  /** Axis scale affects source spacing only, independently of padded mask UVs.
+   * Static tip rotation can already be baked into these characteristic bounds;
+   * angleOffset then removes that rotation from the spacing ellipse. */
+  spacing?: { mode: 'kritaAuto' | 'diameter'; coefficient: number; dynamics?: BrushDynamic[]; isotropic?: boolean; axisScale?: { x: number; y: number }; angleOffset?: number }
   /** Independent shape-edge softening; never controls canvas colour pickup. */
   edgeBleed?: { pressure: number; tilt: number; pressureCurve?: BrushCurve }
   erase?: boolean
@@ -51,7 +54,7 @@ export interface BrushBehavior {
     /** Shape attenuation is historical; uniform keeps mask coverage only once. */
     opacityCeiling?: 'shape' | 'uniform'
     /** Physical per-dab alpha, bypassing the historical final stroke ceiling. */
-    accumulation?: 'over' | 'alphaDarken'
+    accumulation?: 'over' | 'directOver' | 'alphaDarken'
     mode: 'lightGlaze' | 'uniformGlaze' | 'intenseGlaze' | 'heavyGlaze' | 'uniformBlend' | 'intenseBlend' | 'buildUp'
     blendMode: BrushBlendMode; wetEdges: number; burntEdges: number; burntEdgesMode: BrushBlendMode
     luminance?: boolean
@@ -83,9 +86,11 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const keys = (v: Record<string, unknown>, allowed: string[]): boolean => Object.keys(v).every(k => allowed.includes(k))
   const blend = (v: unknown): boolean => BRUSH_BLEND_MODES.includes(v as BrushBlendMode)
   if (!obj(value) || value.version !== 2 || !keys(value,['version','colorAdjustment','spacing','edgeBleed','erase','falloff','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
-  if (value.spacing !== undefined && (!obj(value.spacing) || !keys(value.spacing,['mode','coefficient','dynamics','isotropic'])
+  if (value.spacing !== undefined && (!obj(value.spacing) || !keys(value.spacing,['mode','coefficient','dynamics','isotropic','axisScale','angleOffset'])
     || !['kritaAuto','diameter'].includes(String(value.spacing.mode)) || !n(value.spacing.coefficient,value.spacing.mode==='diameter'?0:.001,100)
     || (value.spacing.isotropic !== undefined && typeof value.spacing.isotropic !== 'boolean')
+    || (value.spacing.axisScale !== undefined && (!obj(value.spacing.axisScale) || !keys(value.spacing.axisScale,['x','y']) || !n(value.spacing.axisScale.x,Number.MIN_VALUE,2) || !n(value.spacing.axisScale.y,Number.MIN_VALUE,2)))
+    || (value.spacing.angleOffset !== undefined && !n(value.spacing.angleOffset,-Math.PI,Math.PI))
     || (value.spacing.dynamics !== undefined && !isBrushBehavior({version:2,modulations:{flow:value.spacing.dynamics}})))) return false
   if(value.erase !== undefined && typeof value.erase !== 'boolean') return false
   if(value.falloff !== undefined && !n(value.falloff)) return false
@@ -109,7 +114,7 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const g=value.grain
   if (g !== undefined && (!obj(g) || !keys(g,['mode','movement','zoom','rotation','offsetJitter','brightness','contrast','depthMinimum','depthJitter','blendMode']) || !['canvas','moving'].includes(String(g.mode)) || !n(g.movement) || !n(g.zoom) || !n(g.rotation,-1,1) || typeof g.offsetJitter !== 'boolean' || !n(g.brightness,-1,1) || !n(g.contrast,-1,1) || !n(g.depthMinimum) || !n(g.depthJitter) || !blend(g.blendMode))) return false
   const render=value.rendering
-  if (render !== undefined && (!obj(render) || !keys(render,['accumulation','opacityCeiling','mode','blendMode','wetEdges','burntEdges','burntEdgesMode','luminance','gammaCorrect']) || !['lightGlaze','uniformGlaze','intenseGlaze','heavyGlaze','uniformBlend','intenseBlend','buildUp'].includes(String(render.mode)) || (render.accumulation!==undefined && (!['over','alphaDarken'].includes(String(render.accumulation)) || render.mode!=='buildUp' || value.taper!==undefined)) || (render.opacityCeiling!==undefined && !['shape','uniform'].includes(String(render.opacityCeiling))) || !blend(render.blendMode) || !n(render.wetEdges) || !n(render.burntEdges) || !blend(render.burntEdgesMode) || (['luminance','gammaCorrect'].some(k => render[k] !== undefined && typeof render[k] !== 'boolean')))) return false
+  if (render !== undefined && (!obj(render) || !keys(render,['accumulation','opacityCeiling','mode','blendMode','wetEdges','burntEdges','burntEdgesMode','luminance','gammaCorrect']) || !['lightGlaze','uniformGlaze','intenseGlaze','heavyGlaze','uniformBlend','intenseBlend','buildUp'].includes(String(render.mode)) || (render.accumulation!==undefined && (!['over','directOver','alphaDarken'].includes(String(render.accumulation)) || render.mode!=='buildUp' || value.taper!==undefined)) || (render.opacityCeiling!==undefined && !['shape','uniform'].includes(String(render.opacityCeiling))) || !blend(render.blendMode) || !n(render.wetEdges) || !n(render.burntEdges) || !blend(render.burntEdgesMode) || (['luminance','gammaCorrect'].some(k => render[k] !== undefined && typeof render[k] !== 'boolean')))) return false
   const w=value.wetMix
   const wetKeys=['dilution','charge','attack','pull','grade','blur','blurJitter','wetnessJitter']
   if (w !== undefined && (!obj(w) || !keys(w,[...wetKeys,'dynamics']) || !wetKeys.every(k => n(w[k],k==='grade'?-1:0,1)))) return false

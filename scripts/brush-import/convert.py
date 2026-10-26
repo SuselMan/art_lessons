@@ -532,6 +532,11 @@ def portable_bundle(path,catalog):
         validate_portable_mixer(d)
         tip=d['tip']
         if tip.get('kind') not in ('bitmap','round') or (tip.get('kind')=='bitmap' and tip.get('mask') not in ids): raise ValueError('Missing portable tip asset')
+        if 'alphaThreshold' in tip:
+            threshold=tip['alphaThreshold']
+            if (not isinstance(threshold,dict) or set(threshold)!={'value','softness'}
+                    or any(type(threshold.get(key)) not in (int,float) or not math.isfinite(threshold[key]) or not 0<=threshold[key]<=1 for key in ('value','softness'))):
+                raise ValueError('Invalid portable mask threshold')
         if 'animation' in tip:
             animation=tip['animation']
             if not isinstance(animation,dict) or set(animation)!={'mode','frames'} or animation['mode'] not in ('random','incremental'): raise ValueError('Invalid portable tip animation')
@@ -561,12 +566,18 @@ def portable_bundle(path,catalog):
         if not isinstance(behavior,dict): raise ValueError('Invalid portable behavior')
         if 'spacing' in behavior:
             spacing=behavior['spacing']
-            if (not isinstance(spacing,dict) or set(spacing)-{'mode','coefficient','dynamics','isotropic'}
+            if (not isinstance(spacing,dict) or set(spacing)-{'mode','coefficient','dynamics','isotropic','axisScale','angleOffset'}
                     or spacing.get('mode') not in ('diameter','kritaAuto')
                     or type(spacing.get('coefficient')) not in (int,float) or not math.isfinite(spacing['coefficient'])
                     or not (0 if spacing['mode']=='diameter' else .001)<=spacing['coefficient']<=100
                     or ('isotropic' in spacing and type(spacing['isotropic']) is not bool)):
                 raise ValueError('Invalid portable spacing profile')
+            if 'axisScale' in spacing:
+                axes=spacing['axisScale']
+                if (not isinstance(axes,dict) or set(axes)!={'x','y'} or any(type(v) not in (int,float) or not math.isfinite(v) or not 0<v<=2 for v in axes.values())):
+                    raise ValueError('Invalid portable spacing axis scale')
+            if 'angleOffset' in spacing and (type(spacing['angleOffset']) not in (int,float) or not math.isfinite(spacing['angleOffset']) or not -math.pi<=spacing['angleOffset']<=math.pi):
+                raise ValueError('Invalid portable spacing angle offset')
             if 'dynamics' in spacing: validate_portable_dynamics(spacing['dynamics'])
         if 'dual' in behavior:
             if not isinstance(behavior['dual'],dict): raise ValueError('Invalid portable dual component')

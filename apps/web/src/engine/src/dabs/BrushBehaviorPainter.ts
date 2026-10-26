@@ -78,7 +78,7 @@ export class BrushBehaviorPainter {
     } | null
     this.stamp = createProgram(gl, DAB_VERT, BRUSH_STAMP_FRAG)
     this.composite = createProgram(gl, DAB_VERT, BRUSH_COMPOSITE_FRAG)
-    this.su = getUniforms(gl, this.stamp, ['u_lightnessMaterial','u_lightnessStrength','u_dualLightnessMaterial','u_textureApplication','u_textureMapping','u_dualTextureApplication','u_dualTextureMapping','u_tipBounds', 'u_dualBounds', 'u_edgeBleed', 'u_ceilingPass', 'u_uniformCeiling', 'u_washMode', 'u_washFlow', 'u_washAverage', 'u_ceilingFallback', 'u_previousCeiling', 'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity', 'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure', 'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin', 'u_color', 'u_flip', 'u_grainTransform', 'u_grainTone', 'u_grainBlend', 'u_dual', 'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin', 'u_dualTexPeriod', 'u_dualTexStrength'])
+    this.su = getUniforms(gl, this.stamp, ['u_lightnessMaterial','u_lightnessStrength','u_dualLightnessMaterial','u_textureApplication','u_textureMapping','u_dualTextureApplication','u_dualTextureMapping','u_alphaThreshold', 'u_dualAlphaThreshold', 'u_tipBounds', 'u_dualBounds', 'u_edgeBleed', 'u_ceilingPass', 'u_uniformCeiling', 'u_washMode', 'u_washFlow', 'u_washAverage', 'u_ceilingFallback', 'u_previousCeiling', 'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity', 'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure', 'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin', 'u_color', 'u_flip', 'u_grainTransform', 'u_grainTone', 'u_grainBlend', 'u_dual', 'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin', 'u_dualTexPeriod', 'u_dualTexStrength'])
     this.cu = getUniforms(gl, this.composite, ['u_physicalAccumulation','u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_original', 'u_strokeCoverage', 'u_ceiling', 'u_opacity', 'u_blend', 'u_mode', 'u_burntEdge', 'u_burntBlend', 'u_edgePx', 'u_luminance', 'u_gammaCorrect', 'u_secondaryCoverage', 'u_secondaryMode', 'u_secondaryEnabled', 'u_surfaceCloud', 'u_surfaceGrain', 'u_surface', 'u_surfaceOrigin', 'u_screenOrigin', 'u_screentone', 'u_erase'])
     this.sp = gl.getAttribLocation(this.stamp, 'a_position')
     this.cp = gl.getAttribLocation(this.composite, 'a_position')
@@ -135,7 +135,9 @@ export class BrushBehaviorPainter {
       if(wet)flow*=wet.strength
       const opacity = digitalBrushCeiling(brush, dab.pressure, pressure.opacity)*(wet?state.charge:1)
       return behaviorStampsForDab(brush, dab, state, color).map(st => {
-        const ceiling=clamp(opacity*st.opacityScale)
+        // Native BuildUp OVER consumes the operation opacity per dab. Keeping
+        // it for the final composite instead imposes a whole-stroke ceiling.
+        const ceiling=clamp(opacity*st.opacityScale*(accumulation==='directOver' ? state.opacity : 1))
         const wash=accumulation==='alphaDarken' ? advanceWashOpacity(state.washOpacity??=( {average:0,maximum:0} ),ceiling) : undefined
         return {...st,radius:st.size*preset.sizeMultiplier*.5,flow:flow*st.flowScale,ceiling,pressure:dab.pressure,
           ...(wash ? {washAverage:wash.average,washFeedback:!wash.canBlend || !constantPigment} : {})}
@@ -198,6 +200,9 @@ export class BrushBehaviorPainter {
         gl.bindTexture(gl.TEXTURE_2D, tex)
         gl.uniform1i(u[name], unit)
       }
+      const threshold=brush.tip.alphaThreshold, dualThreshold=secondary?.tip.alphaThreshold
+      gl.uniform3f(u.u_alphaThreshold,threshold?.value ?? 0,threshold?.softness ?? 0,threshold ? 1 : 0)
+      gl.uniform3f(u.u_dualAlphaThreshold,dualThreshold?.value ?? 0,dualThreshold?.softness ?? 0,dualThreshold ? 1 : 0)
       const tipBounds=brush.tip.maskBounds, dualBounds=secondary?.tip.maskBounds
       gl.uniform4f(u.u_tipBounds,tipBounds?.x ?? 0,tipBounds?.y ?? 0,tipBounds?.width ?? 1,tipBounds?.height ?? 1)
       gl.uniform4f(u.u_dualBounds,dualBounds?.x ?? 0,dualBounds?.y ?? 0,dualBounds?.width ?? 1,dualBounds?.height ?? 1)
@@ -230,7 +235,7 @@ export class BrushBehaviorPainter {
         gl.uniform1f(u.u_ceilingPass, ceilingPass ? 1 : 0)
         gl.uniform1f(u.u_uniformCeiling, behavior.rendering?.opacityCeiling==='uniform' ? 1 : 0)
         let lastFlow:number|undefined, lastAverage:number|undefined
-        let lastMode=accumulation==='over' ? 1 : 0
+        let lastMode=accumulation==='directOver' ? 4 : accumulation==='over' ? 1 : 0
         gl.uniform1f(u.u_washMode,lastMode)
         if(accumulation)gl.uniform1f(u.u_opacity,1)
         for (const s of list) {
@@ -360,7 +365,7 @@ export class BrushBehaviorPainter {
         gl.bindTexture(gl.TEXTURE_2D, tex)
         gl.uniform1i(c[name], unit)
       }
-      gl.uniform1f(c.u_opacity, state.opacity)
+      gl.uniform1f(c.u_opacity, accumulation==='directOver' ? 1 : state.opacity)
       gl.uniform1f(c.u_physicalAccumulation,accumulation?1:0)
       gl.uniform1f(c.u_mode, render ? modes.indexOf(render.mode) : 6)
       gl.uniform1f(c.u_blend, blend(render?.blendMode))

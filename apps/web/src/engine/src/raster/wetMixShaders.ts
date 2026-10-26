@@ -1,3 +1,4 @@
+import { BRUSH_ALPHA_THRESHOLD_GLSL } from '../presets/brushAlphaThreshold'
 import { CANVAS_MEAN_TAPS } from './canvasMeanSampling'
 import { BRUSH_BLEND_GLSL, BRUSH_EDGE_BLEED_GLSL, BRUSH_TEXTURE_APPLICATION_GLSL } from './brushBehaviorShaders'
 
@@ -62,6 +63,7 @@ export const WET_TRANSFER_FRAG = `
   uniform vec2 u_paperTexSize;
   uniform float u_hardness;
  uniform vec4 u_dualBounds;
+ uniform vec3 u_alphaThreshold; uniform vec3 u_dualAlphaThreshold;
  uniform sampler2D u_dual; uniform float u_dualKind; uniform float u_dualBlend; uniform vec4 u_dualTransform;
  uniform sampler2D u_wetOriginal; uniform vec4 u_wetRender; uniform float u_wetBlend; uniform float u_burntBlend; uniform float u_wetGamma; uniform sampler2D u_secondaryCoverage; uniform float u_secondaryEnabled; uniform vec2 u_resolution;
  uniform vec2 u_wetRoundPhase; uniform float u_wetEnabled; uniform float u_tipKind; uniform sampler2D u_tip;
@@ -120,6 +122,7 @@ export const WET_TRANSFER_FRAG = `
  uniform float u_edgeBleed;
  ${BRUSH_BLEND_GLSL}
  ${BRUSH_EDGE_BLEED_GLSL}
+ ${BRUSH_ALPHA_THRESHOLD_GLSL}
  ${BRUSH_TEXTURE_APPLICATION_GLSL}
  float wetGrainBlend(float b,float s,float m) { return brushBlend(vec3(b),vec3(s),m).r; }
  void main() {
@@ -136,11 +139,13 @@ export const WET_TRANSFER_FRAG = `
  if (u_wetEnabled > 0.5) {
    if (u_tipKind > 0.5) shape = texture2D(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw).a;
    if(u_edgeBleed>0.0) shape=brushEdgeBleed(u_tip,v_localUV,u_tipKind,u_hardness,u_flip,1.0,u_edgeBleed,0.004);
+   shape=brushAlphaThreshold(shape,u_alphaThreshold);
    if (u_dualKind > 0.5) {
      vec2 uv=v_localUV*u_dualTransform.xy;
      uv=mat2(u_dualTransform.z,-u_dualTransform.w,u_dualTransform.w,u_dualTransform.z)*uv;
      float second=u_dualKind>1.5 ? texture2D(u_dual,u_dualBounds.xy+(uv*0.5+0.5)*u_dualBounds.zw).a : 1.0-smoothstep(0.7,1.0,length(uv));
      if (abs(uv.x)>1.0 || abs(uv.y)>1.0) second=0.0;
+     second=brushAlphaThreshold(second,u_dualAlphaThreshold);
      if(u_dualTextureApplication.x>0.5) {
        vec2 local=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
        second=brushTextureAlpha(second,brushTextureGrid(u_dualGrain,local,u_dualTextureApplication,u_dualTextureMapping,1.0),u_dualGrainStrength,u_dualTextureApplication);

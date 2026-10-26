@@ -361,8 +361,9 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=21
+    d['version']=22
     source_size=None
+    source_metric=None
     application=0
     kind = definition.get('type')
     if kind == 'auto_brush':
@@ -436,6 +437,7 @@ def preset(data, name, catalog, external, depth=0):
                 notes.append(compatibility('svgRasterizer','Pinned official stock SVG rasterized on white at native1000px using librsvg; Qt SVG edge antialiasing may differ. General SVG uploads remain unsupported.'))
         # KisScalingSizeBrush::userEffectiveSize is longest native side * scale.
         source_size=max(mask.size)*numeric(definition.get('scale'),1)
+        source_metric=mask.size
         d['tip']['aspect']=1/clamp(numeric(definition.get('ratio'),1),0.0625,1)
         if material_gray:
             gray_assets=[tip_asset(gray,catalog,warnings) for gray in material_gray]
@@ -458,6 +460,20 @@ def preset(data, name, catalog, external, depth=0):
     # Native brush angles are counterclockwise: pyramid negates the sum,
     # and auto brushes rotate destination coordinates back into the mask.
     d['tip']['angle']=math.remainder(-numeric(definition.get('angle')),2*math.pi)
+    if enabled(params.get('PressureSharpness')):
+        if enabled(params.get('SharpnessUseCurve','true')):
+            notes.append(compatibility('maskThreshold','Active Sharpness sensor response is unsupported; no constant threshold substituted.','unsupported'))
+        else:
+            value=numeric(params.get('SharpnessValue',params.get('Sharpness/factor',1)),1)
+            softness=numeric(params.get('Sharpness/softness'),0)/100
+            if 'SharpnessValue' not in params and 'Sharpness/factor' in params:
+                softness=value
+            if not 0<=value<=1 or not 0<=softness<=1:
+                raise ValueError('Native Sharpness value/softness outside0..1')
+            d['tip']['alphaThreshold']={'value':value,'softness':softness}
+            notes.append(compatibility('maskThreshold','Constant U8 alpha threshold retained before texture; subpixel/filter quantization remains approximate.'))
+        if enabled(params.get('Sharpness/alignoutline')):
+            notes.append(compatibility('maskThresholdAlignment','Native outline pixel alignment is unsupported.','unsupported'))
     d['flow']=clamp(numeric(params.get('FlowValue'),1))
     d['opacity']=clamp(numeric(params.get('OpacityValue'),1))
     behavior={'version':2,'rendering':{'opacityCeiling':'uniform','mode':'buildUp','blendMode':'normal','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}}
@@ -488,6 +504,16 @@ def preset(data, name, catalog, external, depth=0):
             if controls: profile['dynamics']=controls
     if isotropic: profile['isotropic']=True
     behavior['spacing']=profile
+    if source_metric is not None:
+        # Native spacing uses the unpadded characteristic rectangle, including
+        # the static brush angle, before applying the dynamic option rotation.
+        # maskBounds is a square UV crop and cannot recover these dimensions.
+        width,height=source_metric
+        angle=d['tip']['angle'];c,s=abs(math.cos(angle)),abs(math.sin(angle))
+        if width!=height or angle!=0:
+            longest=max(width,height)
+            profile['axisScale']={'x':(c*width+s*height)/longest,'y':(s*width+c*height)/longest}
+            if angle!=0: profile['angleOffset']=-angle
     if spacing_checked or isotropic:
         notes.append(compatibility('spacingDynamics','Native spacing strength/response retained after fixed/auto law and before distance floor; update-between-dabs clock, rotated characteristic dimensions and subpixel accumulation still require calibration.'))
     modes={'normal':'normal','multiply':'multiply','screen':'screen','overlay':'overlay','darken':'darken','lighten':'lighten','burn':'colorBurn','dodge':'colorDodge','linear_burn':'linearBurn','linear_dodge':'add','add':'add','subtract':'subtract','diff':'difference','exclusion':'exclusion','soft_light':'softLight','hard_light':'hardLight','divide':'divide','hue':'hue','saturation':'saturation','color':'color','luminosity':'luminosity','linear light':'linearLight','vivid_light':'vividLight','pin_light':'pinLight','hard mix':'hardMix','hard_mix_photoshop':'hardMix','darker color':'darkerColor','lighter color':'lighterColor'}
@@ -625,6 +651,11 @@ def preset(data, name, catalog, external, depth=0):
             payload=base64.b64decode(''.join(embedded.split()),validate=True)
             mask=raster(payload,'embedded.png')
         texture_mode=numeric(params.get('Texture/Pattern/TexturingMode'),0)
+        # KisStrengthOption is checkable: unchecked (also the missing-key
+        # default) returns1 before reading strength or sensors. UseCurve is
+        # independent: stale enabled curves must not revive an unchecked option.
+        texture_strength_enabled=enabled(params.get('PressureTexture/Strength/'))
+        texture_strength=clamp(numeric(params.get('Texture/Strength/Value'),1)) if texture_strength_enabled else 1
         if texture_mode in (0,1):
             prefix='Texture/Pattern/'
             scale=numeric(params.get(prefix+'Scale'),1)
@@ -656,7 +687,7 @@ def preset(data, name, catalog, external, depth=0):
             aid=catalog.asset(padded,warnings,grain=True)
             offset={axis:clamp(numeric(params.get(prefix+'Offset'+axis.upper()),0),-8192,8192) for axis in ('x','y')}
             offset.update(randomX=enabled(params.get(prefix+'isRandomOffsetX')),randomY=enabled(params.get(prefix+'isRandomOffsetY')))
-            d['texture']={'id':aid,'strength':clamp(numeric(params.get('Texture/Strength/Value'),1)),
+            d['texture']={'id':aid,'strength':texture_strength,
                           'periodPx':native_width,'patternSize':{'width':width,'height':height},
                           'application':{'mode':'multiply' if texture_mode==0 else 'subtract','soft':enabled(params.get(prefix+'UseSoftTexturing'))},'offset':offset}
             if any(abs(numeric(params.get(prefix+'Offset'+axis),0))>8192 for axis in ('X','Y')):
@@ -665,12 +696,12 @@ def preset(data, name, catalog, external, depth=0):
                 notes.append(compatibility('textureRandomOffset','Per-stroke pattern phase uses deterministic Grafetto RNG rather than Krita RNG.'))
             if enabled(params.get(prefix+'AutoInvertOnErase')):
                 notes.append(compatibility('textureEraseInvert','Automatic texture inversion on erasing is not implemented.','unsupported'))
-            controls=sensor_controls(params,'Texture/Strength/',notes)
+            controls=sensor_controls(params,'Texture/Strength/',notes) if texture_strength_enabled else []
             if controls: behavior.setdefault('modulations',{})['grainDepth']=controls
             notes.append(compatibility('texture','Native alpha-operation parameters and grid retained; GPU filtering/byte quantization require native comparison.'))
         else:
             aid=catalog.asset(mask,warnings,grain=True)
-            d['texture']={'id':aid,'strength':clamp(numeric(params.get('Texture/Strength/Value'),1)),'periodPx':clamp(mask.width*numeric(params.get('Texture/Pattern/Scale'),1),1,4096)}
+            d['texture']={'id':aid,'strength':texture_strength,'periodPx':clamp(mask.width*numeric(params.get('Texture/Pattern/Scale'),1),1,4096)}
             notes.append(compatibility('textureApplication','Unsupported native texturing mode '+str(texture_mode)+'; previous grain approximation retained.','unsupported'))
     if engine == 'colorsmudge' and not eraser:
         # Krita's checkable rate options default unchecked. A disabled colour
@@ -765,7 +796,7 @@ def preset(data, name, catalog, external, depth=0):
         wash=depth>0 or params.get('PaintOpAction')=='2'
         varying_color=d['tip'].get('material') or behavior.get('colorAdjustment') or any(key in behavior.get('dynamics',{}) or key in behavior.get('modulations',{}) for key in ('hue','saturation','brightness'))
         if not wash:
-            behavior['rendering']['accumulation']='over'
+            behavior['rendering']['accumulation']='directOver'
         elif not varying_color:
             behavior['rendering']['accumulation']='alphaDarken'
         else:

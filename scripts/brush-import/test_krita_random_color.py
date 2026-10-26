@@ -60,7 +60,7 @@ class RandomOptionTests(unittest.TestCase):
 
     def test_native_accumulation_is_explicit_and_material_cost_is_bounded(self):
         for params in [{},{'PaintOpAction':'1'}]:
-            self.assertEqual(self.brush(params)['descriptor']['behavior']['rendering']['accumulation'],'over')
+            self.assertEqual(self.brush(params)['descriptor']['behavior']['rendering']['accumulation'],'directOver')
         self.assertEqual(self.brush({'PaintOpAction':'2'})['descriptor']['behavior']['rendering']['accumulation'],'alphaDarken')
         varied=self.brush({'PaintOpAction':'2','Pressureh':'true','hUseCurve':'true','hValue':'1','hSensor':'<params id="fuzzy"/>'})
         self.assertNotIn('accumulation',varied['descriptor']['behavior']['rendering'])

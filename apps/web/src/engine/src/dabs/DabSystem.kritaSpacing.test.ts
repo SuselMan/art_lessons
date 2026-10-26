@@ -141,3 +141,27 @@ describe('explicit diameter source spacing and independent spacing controls',()=
     expect(line(old,100,.25)).toEqual(line(explicit,100,.25))
   })
 })
+
+describe('padded bitmap characteristic spacing lifecycle',()=>{
+  function narrow():DabSystem {
+    const sys=system(.14)
+    sys.autoSpacing={...sys.autoSpacing!,mode:'diameter',axisScale:{x:7/32,y:1},angleOffset:0}
+    return sys
+  }
+  it('passes native axis metrics through the live primary sampler',()=>{
+    expectGap(line(narrow(),48),1.47)
+    expectGap(line(narrow(),48,1,true),6.72)
+  })
+  it('copies source axes for prediction and preserves actual gesture phase',()=>{
+    const real=narrow(),control=narrow()
+    real.startStroke(0,0,1,0,0,48,1);control.startStroke(0,0,1,0,0,48,1)
+    expect(real.continueStroke(30,0,1,0,0,48,1)).toEqual(control.continueStroke(30,0,1,0,0,48,1))
+    const fork=real.forkForPreview()
+    expect(fork.autoSpacing!.axisScale).not.toBe(real.autoSpacing!.axisScale)
+    fork.autoSpacing!.axisScale!.x=1;fork.autoSpacing!.angleOffset=Math.PI/2
+    fork.continueStroke(100,100,1,0,0,48,1)
+    real.peekTipDabs(48)
+    expect(real.continueStroke(80,0,1,0,0,48,1)).toEqual(control.continueStroke(80,0,1,0,0,48,1))
+    expectGap(line(real,48),1.47)
+  })
+})

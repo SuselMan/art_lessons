@@ -6132,7 +6132,7 @@ export class PencilEngine implements PencilEngineAPI {
     const spacingBrush = this._strokeTool === 'digitalBrush' ? digitalBrushFromPreset(this._opts.pencilType) : null
     const sourceSpacing = spacingBrush?.behavior?.spacing
     this._dabs.autoSpacing = spacingBrush && sourceSpacing
-      ? { mode:sourceSpacing.mode, coefficient: sourceSpacing.coefficient, dynamics:sourceSpacing.dynamics, isotropic:sourceSpacing.isotropic, brush: { ...spacingBrush, scatter: undefined }, sizeMultiplier: this._dabSizeScale(this._strokeTool, this._opts.pencilType) }
+      ? { mode:sourceSpacing.mode, coefficient: sourceSpacing.coefficient, dynamics:sourceSpacing.dynamics, isotropic:sourceSpacing.isotropic, axisScale:sourceSpacing.axisScale, angleOffset:sourceSpacing.angleOffset, brush: { ...spacingBrush, scatter: undefined }, sizeMultiplier: this._dabSizeScale(this._strokeTool, this._opts.pencilType) }
       : null
     const stampBrush = this._strokeTool === 'digitalBrush'
       && digitalBrushFromPreset(this._opts.pencilType).flowPer === 'stamp'

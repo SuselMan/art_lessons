@@ -1,3 +1,4 @@
+import { BRUSH_ALPHA_THRESHOLD_GLSL } from '../presets/brushAlphaThreshold'
 /** Shared separable blend equations; used by grain, dual tips and final paint. */
 export const BRUSH_BLEND_GLSL = `
 vec3 brushLinear(vec3 c) { return mix(c/12.92,pow(max((c+0.055)/1.055,vec3(0.0)),vec3(2.4)),step(vec3(0.04045),c)); }
@@ -121,6 +122,8 @@ export const BRUSH_STAMP_FRAG = `
   uniform float u_hardness;
   // Antialiasing floor for the round ramp, canvas px.
   uniform float u_aaPx;
+  uniform vec3 u_alphaThreshold;
+  uniform vec3 u_dualAlphaThreshold;
   // This stamp's opacity ceiling (digitalBrushCeiling), 1 with the switch off.
   uniform float u_ceiling;
   uniform float u_uniformCeiling;
@@ -173,6 +176,7 @@ export const BRUSH_STAMP_FRAG = `
   uniform vec4 u_dualTransform;
   ${BRUSH_BLEND_GLSL}
   ${BRUSH_EDGE_BLEED_GLSL}
+  ${BRUSH_ALPHA_THRESHOLD_GLSL}
   ${BRUSH_LIGHTNESS_GLSL}
   ${BRUSH_TEXTURE_APPLICATION_GLSL}
   void main() {
@@ -202,12 +206,14 @@ export const BRUSH_STAMP_FRAG = `
     }
 
     if(u_edgeBleed>0.0) shape=brushEdgeBleed(u_tip,v_localUV,u_tipKind,u_hardness,u_flip,u_lightnessMaterial,u_edgeBleed,clamp(u_aaPx*(1.0+u_edgeBleed*0.15)/max(v_radius,0.0001),0.004,0.9));
+    shape=brushAlphaThreshold(shape,u_alphaThreshold);
     if (u_dualKind > 0.5) {
       vec2 dualUV = v_localUV * u_dualTransform.xy;
       dualUV = mat2(u_dualTransform.z,-u_dualTransform.w,u_dualTransform.w,u_dualTransform.z)*dualUV;
       vec4 dualSample=texture2D(u_dual,u_dualBounds.xy+(dualUV*0.5+0.5)*u_dualBounds.zw);
       float secondary = u_dualKind > 1.5 ? mix(dualSample.r,dualSample.a,u_dualLightnessMaterial) : 1.0-smoothstep(min(u_dualHardness,0.99),1.0,length(dualUV));
       if (abs(dualUV.x)>1.0 || abs(dualUV.y)>1.0) secondary=0.0;
+      secondary=brushAlphaThreshold(secondary,u_dualAlphaThreshold);
       if(u_dualTextureApplication.x>0.5) {
         vec2 local=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
         secondary=brushTextureAlpha(secondary,brushTextureGrid(u_dualTexture,local,u_dualTextureApplication,u_dualTextureMapping,0.0),u_dualTexStrength,u_dualTextureApplication);
@@ -266,9 +272,9 @@ export const BRUSH_STAMP_FRAG = `
 
     if (u_washMode > 0.5) {
       float M=clamp(amount,0.0,1.0), O=clamp(u_ceiling,0.0,1.0), F=u_washFlow;
-      if (u_washMode < 1.5) {
-        // OVER applies opacity per dab, not to the completed stroke.
-        float a=M*O*F; gl_FragColor=vec4(pigment*a,a); return;
+      if (u_washMode < 1.5 || u_washMode > 3.5) {
+        // Native normal OVER consumes opacity; its composite ignores Flow.
+        float a=M*O*(u_washMode>3.5 ? 1.0 : F); gl_FragColor=vec4(pigment*a,a); return;
       }
       float A=u_washAverage;
       if (u_washMode > 2.5) {

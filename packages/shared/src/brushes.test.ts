@@ -207,3 +207,18 @@ describe('Krita source rendering contracts', () => {
     expect(isBrushLibrary(data)).toBe(false)
   })
 })
+
+
+describe('tip alpha threshold', () => {
+  it('accepts only a bounded complete threshold pair', () => {
+    const data=library(),tip=data.brushes[0].descriptor.tip
+    tip.alphaThreshold={value:1,softness:0}
+    expect(isBrushLibrary(data)).toBe(true)
+    for(const invalid of [{value:2,softness:0},{value:1,softness:-1},{value:NaN,softness:0},{value:1},{value:1,softness:0,extra:1}]) {
+      Object.assign(tip,{alphaThreshold:invalid})
+      expect(isBrushLibrary(data)).toBe(false)
+    }
+    delete tip.alphaThreshold
+    expect(isBrushLibrary(data)).toBe(true)
+  })
+})

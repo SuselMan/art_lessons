@@ -26,7 +26,7 @@ export function brushSpacingStep(axes:BrushSpacingAxes,pathAngle:number):number 
 /** Common source spacing for the primary sampler and independent masks.
  * This observes pre-advance controls, then advances exactly one geometry dab. */
 export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:BrushBehaviorState,profile:NonNullable<NonNullable<BrushDescriptor['behavior']>['spacing']>,sizeMultiplier:number,pathAngle:number):BrushSpacingAxes {
-  const {mode,coefficient,dynamics,isotropic}=profile
+  const {mode,coefficient,dynamics,isotropic,axisScale,angleOffset}=profile
   const seed=brushDabSeed(input.x,input.y,input.pressure)
   const factor=dynamics?.reduce((value,control,index)=>value*brushDynamicValue(control,{...input,angle:pathAngle},state,brushDabRandom(seed,0xa0000+index)),1) ?? 1
   const stamp=behaviorStampsForDab(brush,input,state,[0,0,0])[0]
@@ -35,8 +35,8 @@ export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:Bru
     const actual=Math.max(0,value)
     return Math.max(.5,coefficient*factor*(mode==='diameter' ? actual : actual<1 ? actual : Math.sqrt(actual)))
   }
-  const x=axis(diameter*stamp.aspect),y=axis(diameter)
-  return isotropic ? {x:Math.max(x,y),y:Math.max(x,y),angle:0} : {x,y,angle:stamp.angle}
+  const x=axis(diameter*stamp.aspect*(axisScale?.x ?? 1)),y=axis(diameter*(axisScale?.y ?? 1))
+  return isotropic ? {x:Math.max(x,y),y:Math.max(x,y),angle:0} : {x,y,angle:angleOffset === undefined ? stamp.angle : stamp.angle+angleOffset}
 }
 export interface SecondarySamplingState { previous?: Dab; remaining: number; geometry?:BrushBehaviorState; axes?:BrushSpacingAxes; direction?:number }
 /** Resample the recorded centreline using the child's own source geometry.

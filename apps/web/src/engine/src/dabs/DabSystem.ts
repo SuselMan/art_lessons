@@ -144,7 +144,7 @@ const MAX_PRESSURE_FILTER_STEP = 0.9
 export class DabSystem {
   spacingFactor: number
   /** Opt-in source spacing; latched per gesture, independent of nominal/floor/scallop rules. */
-  autoSpacing: { mode?: 'kritaAuto' | 'diameter'; coefficient: number; dynamics?: BrushDynamic[]; isotropic?: boolean; brush: BrushDescriptor; sizeMultiplier: number } | null = null
+  autoSpacing: { mode?: 'kritaAuto' | 'diameter'; coefficient: number; dynamics?: BrushDynamic[]; isotropic?: boolean; axisScale?: { x:number; y:number }; angleOffset?:number; brush: BrushDescriptor; sizeMultiplier: number } | null = null
   private _spacingBehavior?: BrushBehaviorState
   private _spacingAxes?: { x: number; y: number; angle: number }
   private _pathAngle = 0
@@ -528,7 +528,7 @@ export class DabSystem {
     const fork = new DabSystem({ spacingFactor: this.spacingFactor, shaping: this._shaping })
     fork.curvatureTolerancePx = this.curvatureTolerancePx
     fork.footprint = this.footprint
-    fork.autoSpacing = this.autoSpacing ? { ...this.autoSpacing, ...(this.autoSpacing.dynamics ? {dynamics:structuredClone(this.autoSpacing.dynamics)} : {}) } : null
+    fork.autoSpacing = this.autoSpacing ? { ...this.autoSpacing, ...(this.autoSpacing.dynamics ? {dynamics:structuredClone(this.autoSpacing.dynamics)} : {}), ...(this.autoSpacing.axisScale ? {axisScale:{...this.autoSpacing.axisScale}} : {}) } : null
     fork._spacingBehavior = this._spacingBehavior ? structuredClone(this._spacingBehavior) : undefined
     fork._spacingAxes = this._spacingAxes ? { ...this._spacingAxes } : undefined
     fork._pathAngle = this._pathAngle
@@ -855,7 +855,7 @@ export class DabSystem {
       // This local clock feeds size sensors only; recorded dab time is untouched.
       const t = previous ? previous.t + Math.hypot(dab.x - previous.x, dab.y - previous.y) / Math.max(.001, this._speed) : 0
       const input=codecDab({ ...dab, t })
-      this._spacingAxes=brushSourceSpacingAxes(brush,input,state,{mode:this.autoSpacing.mode ?? 'kritaAuto',coefficient:this.autoSpacing.coefficient,dynamics:this.autoSpacing.dynamics,isotropic:this.autoSpacing.isotropic},sizeMultiplier,this._pathAngle)
+      this._spacingAxes=brushSourceSpacingAxes(brush,input,state,{mode:this.autoSpacing.mode ?? 'kritaAuto',coefficient:this.autoSpacing.coefficient,dynamics:this.autoSpacing.dynamics,isotropic:this.autoSpacing.isotropic,axisScale:this.autoSpacing.axisScale,angleOffset:this.autoSpacing.angleOffset},sizeMultiplier,this._pathAngle)
       return this._autoSpacingStep(this._pathAngle)
     }
     const fp = this.footprint

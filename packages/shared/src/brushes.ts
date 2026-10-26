@@ -36,6 +36,8 @@ export interface BrushTip {
   mask?: TipMaskId
   /** Sample this square inside the padded asset, retaining the source tip size. */
   maskBounds?: { x: number; y: number; width: number; height: number }
+  /** Quantized mask operation before texture, flow and opacity. */
+  alphaThreshold?: { value: number; softness: number }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
   animation?: { mode: 'random' | 'incremental'; frames: AssetId[] }
   /** Straight adjusted-gray CAS plane paired with mask alpha; frame indices are shared. */
@@ -319,6 +321,10 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !numberIn(d.paperInteraction, 0, 1) || !numberIn(d.spacing, 0.000001, 2) || !numberIn(d.flow, 0, 1)
       || !['pass','stamp'].includes(String(d.flowPer)) || !numberIn(d.opacity, 0, 1)
       || !numberIn(d.pressureSmoothingPx, 0, 100) || !curve(d.sizeByPressure, 8) || !curve(d.flowByPressure) || !curve(d.opacityByPressure)) return false
+    if (d.tip.alphaThreshold !== undefined) {
+      const threshold=d.tip.alphaThreshold
+      if (!record(threshold) || Object.keys(threshold).some(key=>!['value','softness'].includes(key)) || !numberIn(threshold.value,0,1) || !numberIn(threshold.softness,0,1)) return false
+    }
     if (d.tip.maskBounds !== undefined) {
       const bounds = d.tip.maskBounds
       if (d.tip.kind !== 'bitmap' || !record(bounds)
