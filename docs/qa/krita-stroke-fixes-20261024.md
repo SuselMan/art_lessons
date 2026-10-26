@@ -649,3 +649,43 @@ Operator279/283сохранил108historyrefs(83roompinned+25operatorresolved).
 ViewerNative/23/27 опубликовансразунапрежнемcomparisonentry. Продолжается
 sourceaudit SizeValue: доказанпропущенныйconstantstrength у108child/113/114,
 следующаяправкаещёнеявляетсячастьюпроверенного27.
+
+
+## Converter25 / gallery28: постоянный SizeValue
+
+3570552a сохраняет checked SizeValue до sensor/master композиции, игнорирует
+staleValue/UseCurve приunchecked.159PythonPASS(7новых). Полныйinventory137options
+нашёлровно4измененияв3кистях:108child.97;113primary.47/child.52;114primary.47.
+Остальные114renderdescriptors(безimmutableidentity/version) и244assetmetadata
+побайтно/структурнонеизменны. Catalogv39descriptor25:117/244,1628478B,SHA256
+c568047175b688f98b771488e4b69d3be64ce0c6be509086cf5bf6c34063180a.
+Runtimea3b26422неизменён, новаяполнаяruntimeсборканесоздавалась.
+
+9sourceexports=3изменённых+6контрольныхGL0; ровно108/113/114изменились,
+6controls byte-identical27.9compiledexportsсовпали сsource28.3undo/redo,
+1actualcontextrestore113PNG-identical.6perf(108/113/114×48/128)p95≈16.8ms,
+GL0,postpreparetypeduploads0; редкиекадрыиreadinessостаются. Gallery117 состоит
+из114проверенных27PNG и3новых28PNG, невыдаётсяза117новыхGPUзапусков.
+
+NativeA/A113:constantmass445.7–476.5,ours1092.3→457.7; support13525→6512
+(native6442–6754); thickness18→9(native10). Rampmass447.7→154.3(native147.3–171.7),
+thickness15→6(native6–7).114constantmass466.8→348.4(native368.5–381.4),ramp
+254.4→171.7(native175–182.2),row3mass244.6→205.6(native205.65–207.98).
+108correct.97неулучшилпрежнийmassgap, подгонкиобратнодо1нет. Все3контакты
+Native/27/28просмотрены;newsevereневыявлено, полнойидентичности нет.
+
+## Короткая проверка ресурсов27 и уборка28
+
+Одинcompiledengine,40alternating100/101strokes≈28.25s:GPUmax15728624B,
+CPUmaxmips3495250B,glErrors0/contextlostfalse. Во времяstroke typeduploads0;
+391mipuploads относятсякprepareприсменеbrush приограниченномcache. Этоshort
+bounded-cachecheck, неbrowserRSS/длинныйmemorysoak/OSpenlatency.
+
+СвоятестоваяSamsungtab3622закрыта,существующаяreport3613переведенанатекущий28.
+ActualauthenticatedHTTPSreportпоказал117/Native/27/28(а неPIN/старый21).
+screen_off_timeout возвращён600000,forward19236удалён,своиheadlesscontexts
+закрытыfinally. Неактивныеbuild21d/22/23/24/26удалены послепроверки0processrefs/
+0unreadable; остаётсяоднаdist-candidate27сhardlinkedreporthistory,frontend3161148,
+backend3173881,catalog39,QA Postgres изащищённыеCAS/комнаты. Temporaryjobs=[];
+стендсохранёнвладельцу,новыхworktree/dependencyкопийнет. Следующийnative-standard
+ellipse/rectprofileещёвработе,нечастьэтогопроверенногоruntime.
