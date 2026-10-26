@@ -137,13 +137,13 @@ export const WET_TRANSFER_FRAG = `
     float shape = 1.0 - smoothstep(innerEdge, 1.0, dist);
     shape *= 1.0 - exp(-8.0 * (1.0 - dist));
  if (u_wetEnabled > 0.5) {
-   if (u_tipKind > 0.5) shape = brushTipSample(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw,u_tipPacking).a;
+   if (u_tipKind > 0.5) shape = texture2D(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw).a;
    if(u_edgeBleed>0.0) shape=brushEdgeBleed(u_tip,v_localUV,u_tipKind,u_hardness,u_flip,1.0,u_edgeBleed,0.004);
    shape=brushAlphaThreshold(shape,u_alphaThreshold);
    if (u_dualKind > 0.5) {
      vec2 uv=v_localUV*u_dualTransform.xy;
      uv=mat2(u_dualTransform.z,-u_dualTransform.w,u_dualTransform.w,u_dualTransform.z)*uv;
-     float second=u_dualKind>1.5 ? brushTipSample(u_dual,u_dualBounds.xy+(uv*0.5+0.5)*u_dualBounds.zw,u_dualTipPacking).a : 1.0-smoothstep(0.7,1.0,length(uv));
+     float second=u_dualKind>1.5 ? texture2D(u_dual,u_dualBounds.xy+(uv*0.5+0.5)*u_dualBounds.zw).a : 1.0-smoothstep(0.7,1.0,length(uv));
      if (abs(uv.x)>1.0 || abs(uv.y)>1.0) second=0.0;
      second=brushAlphaThreshold(second,u_dualAlphaThreshold);
      if(u_dualTextureApplication.x>0.5) {

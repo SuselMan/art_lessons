@@ -219,7 +219,7 @@ export class SmudgePainter {
     this.transferUni = getUniforms(gl, this.transferProg, [
       'u_textureApplication','u_textureMapping','u_dualTextureApplication','u_dualTextureMapping','u_dualGrain','u_dualGrainStrength',
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
-      'u_tipPacking', 'u_dualTipPacking', 'u_alphaThreshold', 'u_dualAlphaThreshold', 'u_tipBounds', 'u_dualBounds', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
+      'u_alphaThreshold', 'u_dualAlphaThreshold', 'u_tipBounds', 'u_dualBounds', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode', 'u_grainRelief',
       'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap',
       'u_previousCanvasForeground','u_previousCanvas','u_edgeBleed','u_wetEnabled','u_tipKind','u_tip','u_wetGrain','u_grainStrength','u_grainPeriod','u_grainTransform','u_grainTone','u_wetRoundPhase','u_wetWorldOrigin','u_flip','u_grainBlend','u_dual','u_dualKind','u_dualBlend','u_dualTransform','u_wetOriginal','u_wetRender','u_wetBlend','u_burntBlend','u_wetGamma','u_secondaryCoverage','u_secondaryEnabled',
@@ -827,8 +827,6 @@ export class SmudgePainter {
     gl.uniform1f(u.u_previousCanvas,brush?.mixer?.source === 'previousCanvas' ? brush.mixer.smearAlpha ? 1 : 2 : 0)
     gl.uniform1f(u.u_tipKind,brush?.tip.kind === 'bitmap' ? 1 : 0)
     gl.uniform1f(u.u_hardness, brush?.tip.hardness ?? SMUDGE_HARDNESS)
-    // Material lightness remains stamp-only; legacy ALPHA samplers retain their channels.
-    gl.uniform1f(u.u_tipPacking,0);gl.uniform1f(u.u_dualTipPacking,0)
     const threshold=brush?.tip.alphaThreshold, dualThreshold=brush?.behavior?.dual?.brush.tip.alphaThreshold
     gl.uniform3f(u.u_alphaThreshold,threshold?.value ?? 0,threshold?.softness ?? 0,threshold ? 1 : 0)
     gl.uniform3f(u.u_dualAlphaThreshold,dualThreshold?.value ?? 0,dualThreshold?.softness ?? 0,dualThreshold ? 1 : 0)

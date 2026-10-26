@@ -69,7 +69,6 @@ vec3 brushMaterialColor(vec3 rgb,float gray,float strength) {
 /** Bounded shape-only diffusion shared by stamp and carried-pigment transfer.
  * The geometry includes a 15% pad at full bleed; no canvas colour is sampled. */
 export const BRUSH_EDGE_BLEED_GLSL = `
-${BRUSH_TIP_PACKING_GLSL}
 uniform vec4 u_tipBounds;
 float brushEdgeSample(sampler2D tip,vec2 p,float kind,float hardness,vec2 flip,float alphaChannel,float aa) {
   if(max(abs(p.x),abs(p.y))>=1.0) return 0.0;
@@ -80,7 +79,7 @@ float brushEdgeSample(sampler2D tip,vec2 p,float kind,float hardness,vec2 flip,f
     float wet=(1.0-smoothstep(hardness*0.85,1.0,dist))*(1.0-exp(-8.0*(1.0-dist)));
     return mix(stamp,wet,alphaChannel);
   }
-  vec4 sampleValue=brushTipSample(tip,u_tipBounds.xy+(p*flip*0.5+0.5)*u_tipBounds.zw,u_tipPacking);
+  vec4 sampleValue=texture2D(tip,u_tipBounds.xy+(p*flip*0.5+0.5)*u_tipBounds.zw);
   return mix(sampleValue.r,sampleValue.a,alphaChannel);
 }
 float brushEdgeBleed(sampler2D tip,vec2 uv,float kind,float hardness,vec2 flip,float alphaChannel,float bleed,float aa) {
@@ -110,6 +109,18 @@ float brushTextureGrid(sampler2D tex,vec2 local,vec4 application,vec4 mapping,fl
  return mix(value.r,value.a,alphaChannel);
 }
 `
+
+/** Inject the sampler only into the existing stamp program. The wet program
+ * keeps the original helper byte-for-byte to avoid driver precision changes.
+ * Geometry and kernel formulas have one template above.
+ */
+function packedEdgeSampler(template: string): string {
+  return `\n${BRUSH_TIP_PACKING_GLSL}` + template.replace(
+    'texture2D(tip,u_tipBounds.xy+(p*flip*0.5+0.5)*u_tipBounds.zw)',
+    'brushTipSample(tip,u_tipBounds.xy+(p*flip*0.5+0.5)*u_tipBounds.zw,u_tipPacking)',
+  )
+}
+const BRUSH_PACKED_EDGE_BLEED_GLSL = packedEdgeSampler(BRUSH_EDGE_BLEED_GLSL)
 
 export const BRUSH_STAMP_FRAG = `
   precision highp float;
@@ -177,7 +188,7 @@ export const BRUSH_STAMP_FRAG = `
   uniform float u_dualTexStrength;
   uniform vec4 u_dualTransform;
   ${BRUSH_BLEND_GLSL}
-  ${BRUSH_EDGE_BLEED_GLSL}
+  ${BRUSH_PACKED_EDGE_BLEED_GLSL}
   ${BRUSH_ALPHA_THRESHOLD_GLSL}
   ${BRUSH_LIGHTNESS_GLSL}
   ${BRUSH_TEXTURE_APPLICATION_GLSL}
