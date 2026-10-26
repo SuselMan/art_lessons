@@ -1,3 +1,4 @@
+import { BRUSH_TIP_PACKING_GLSL } from '../presets/brushMaterialPacking'
 import { BRUSH_ALPHA_THRESHOLD_GLSL } from '../presets/brushAlphaThreshold'
 /** Shared separable blend equations; used by grain, dual tips and final paint. */
 export const BRUSH_BLEND_GLSL = `
@@ -68,6 +69,7 @@ vec3 brushMaterialColor(vec3 rgb,float gray,float strength) {
 /** Bounded shape-only diffusion shared by stamp and carried-pigment transfer.
  * The geometry includes a 15% pad at full bleed; no canvas colour is sampled. */
 export const BRUSH_EDGE_BLEED_GLSL = `
+${BRUSH_TIP_PACKING_GLSL}
 uniform vec4 u_tipBounds;
 float brushEdgeSample(sampler2D tip,vec2 p,float kind,float hardness,vec2 flip,float alphaChannel,float aa) {
   if(max(abs(p.x),abs(p.y))>=1.0) return 0.0;
@@ -78,7 +80,7 @@ float brushEdgeSample(sampler2D tip,vec2 p,float kind,float hardness,vec2 flip,f
     float wet=(1.0-smoothstep(hardness*0.85,1.0,dist))*(1.0-exp(-8.0*(1.0-dist)));
     return mix(stamp,wet,alphaChannel);
   }
-  vec4 sampleValue=texture2D(tip,u_tipBounds.xy+(p*flip*0.5+0.5)*u_tipBounds.zw);
+  vec4 sampleValue=brushTipSample(tip,u_tipBounds.xy+(p*flip*0.5+0.5)*u_tipBounds.zw,u_tipPacking);
   return mix(sampleValue.r,sampleValue.a,alphaChannel);
 }
 float brushEdgeBleed(sampler2D tip,vec2 uv,float kind,float hardness,vec2 flip,float alphaChannel,float bleed,float aa) {
@@ -196,7 +198,7 @@ export const BRUSH_STAMP_FRAG = `
     } else {
       // The quad spans -1..1 in the stamp's own (rotated) frame, and the mask
       // is stored with row 0 on top — see tipMasks.ts on orientation.
-      vec4 tipSample=texture2D(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw);
+      vec4 tipSample=brushTipSample(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw,u_tipPacking);
       shape=mix(tipSample.r,tipSample.a,u_lightnessMaterial);
       if(u_lightnessMaterial>0.5) {
         float gray=tipSample.a>0.0 ? clamp(tipSample.r/tipSample.a,0.0,1.0) : 0.5;
@@ -210,7 +212,7 @@ export const BRUSH_STAMP_FRAG = `
     if (u_dualKind > 0.5) {
       vec2 dualUV = v_localUV * u_dualTransform.xy;
       dualUV = mat2(u_dualTransform.z,-u_dualTransform.w,u_dualTransform.w,u_dualTransform.z)*dualUV;
-      vec4 dualSample=texture2D(u_dual,u_dualBounds.xy+(dualUV*0.5+0.5)*u_dualBounds.zw);
+      vec4 dualSample=brushTipSample(u_dual,u_dualBounds.xy+(dualUV*0.5+0.5)*u_dualBounds.zw,u_dualTipPacking);
       float secondary = u_dualKind > 1.5 ? mix(dualSample.r,dualSample.a,u_dualLightnessMaterial) : 1.0-smoothstep(min(u_dualHardness,0.99),1.0,length(dualUV));
       if (abs(dualUV.x)>1.0 || abs(dualUV.y)>1.0) secondary=0.0;
       secondary=brushAlphaThreshold(secondary,u_dualAlphaThreshold);

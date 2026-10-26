@@ -1,7 +1,9 @@
+import { brushTipResource, brushTextureResourceKey } from './BrushPreparation'
+import type { MaterialTextureGroup } from '../presets/brushMaterialPacking'
 import { advanceWashOpacity } from '../presets/brushWash'
 import { brushTextureApplication } from './brushTextureApplication'
 import { brushFootprintBounds, brushFootprintCopyRect } from './brushFootprint'
-import { BRUSH_BLEND_MODES, type BrushDescriptor, type Dab } from '@grafetto/shared'
+import { BRUSH_BLEND_MODES, type BrushDescriptor, type BrushTip, type Dab } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { ILayerBuffer } from '../buffers/ILayerBuffer'
 import { wetMixStep } from '../presets/wetMix'
@@ -66,11 +68,15 @@ export class BrushBehaviorPainter {
   private sp = -1;
   private cp = -1;
   private readonly ctx: BrushContext
-  private readonly tip: (id: TipMaskId, gray?: string) => WebGLTexture
+  private readonly tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup) => WebGLTexture
   private readonly grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture
-  private readonly protectTextures: (tip?: TipMaskId, grain?: BrushTextureId, dual?: TipMaskId, dualGrain?: BrushTextureId, grid?: boolean, dualGrid?: boolean, gray?: string, dualGray?: string) => void
+  private readonly protectTextures: (keys: readonly string[]) => void
   private readonly leaseTextures: (brush: BrushDescriptor) => () => void
-  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (tip?: TipMaskId, grain?: BrushTextureId, dual?: TipMaskId, dualGrain?: BrushTextureId, grid?: boolean, dualGrid?: boolean, gray?: string, dualGray?: string) => void, leaseTextures: (brush: BrushDescriptor) => () => void) { this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
+  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor) => () => void) { this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
+  private tipView(id: TipMaskId, gray?: string, tip?: BrushTip): {texture:WebGLTexture; mode:number} {
+    const resource=brushTipResource(id,gray,tip)
+    return {texture:this.tip(id,gray,resource.materialGroup),mode:resource.materialChannels==='rg' ? 1 : resource.materialChannels==='ba' ? 2 : 0}
+  }
   initGL(): void {
     const gl = this.ctx.gl
     this.minmax = gl.getExtension('EXT_blend_minmax') as {
@@ -78,7 +84,7 @@ export class BrushBehaviorPainter {
     } | null
     this.stamp = createProgram(gl, DAB_VERT, BRUSH_STAMP_FRAG)
     this.composite = createProgram(gl, DAB_VERT, BRUSH_COMPOSITE_FRAG)
-    this.su = getUniforms(gl, this.stamp, ['u_lightnessMaterial','u_lightnessStrength','u_dualLightnessMaterial','u_textureApplication','u_textureMapping','u_dualTextureApplication','u_dualTextureMapping','u_alphaThreshold', 'u_dualAlphaThreshold', 'u_tipBounds', 'u_dualBounds', 'u_edgeBleed', 'u_ceilingPass', 'u_uniformCeiling', 'u_washMode', 'u_washFlow', 'u_washAverage', 'u_ceilingFallback', 'u_previousCeiling', 'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity', 'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure', 'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin', 'u_color', 'u_flip', 'u_grainTransform', 'u_grainTone', 'u_grainBlend', 'u_dual', 'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin', 'u_dualTexPeriod', 'u_dualTexStrength'])
+    this.su = getUniforms(gl, this.stamp, ['u_tipPacking','u_dualTipPacking','u_lightnessMaterial','u_lightnessStrength','u_dualLightnessMaterial','u_textureApplication','u_textureMapping','u_dualTextureApplication','u_dualTextureMapping','u_alphaThreshold', 'u_dualAlphaThreshold', 'u_tipBounds', 'u_dualBounds', 'u_edgeBleed', 'u_ceilingPass', 'u_uniformCeiling', 'u_washMode', 'u_washFlow', 'u_washAverage', 'u_ceilingFallback', 'u_previousCeiling', 'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity', 'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure', 'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin', 'u_color', 'u_flip', 'u_grainTransform', 'u_grainTone', 'u_grainBlend', 'u_dual', 'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin', 'u_dualTexPeriod', 'u_dualTexStrength'])
     this.cu = getUniforms(gl, this.composite, ['u_physicalAccumulation','u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_original', 'u_strokeCoverage', 'u_ceiling', 'u_opacity', 'u_blend', 'u_mode', 'u_burntEdge', 'u_burntBlend', 'u_edgePx', 'u_luminance', 'u_gammaCorrect', 'u_secondaryCoverage', 'u_secondaryMode', 'u_secondaryEnabled', 'u_surfaceCloud', 'u_surfaceGrain', 'u_surface', 'u_surfaceOrigin', 'u_screenOrigin', 'u_screentone', 'u_erase'])
     this.sp = gl.getAttribLocation(this.stamp, 'a_position')
     this.cp = gl.getAttribLocation(this.composite, 'a_position')
@@ -169,11 +175,20 @@ export class BrushBehaviorPainter {
     // scratch and the output tile; it does not require recompositing.
     const bounds = {minX:Math.floor(dirty.minX),minY:Math.floor(dirty.minY),maxX:Math.ceil(dirty.maxX),maxY:Math.ceil(dirty.maxY)}
     const secondary = independent ? undefined : behavior.dual?.brush
+    const protect=(tip?:TipMaskId,grain?:BrushTextureId,dual?:TipMaskId,dualGrain?:BrushTextureId,grid?:boolean,dualGrid?:boolean,gray?:string,dualGray?:string):void=>this.protectTextures([
+      'g:cloud','g:grit',
+      ...(tip ? [brushTextureResourceKey(brushTipResource(tip,gray,brush.tip))] : []),
+      ...(dual ? [brushTextureResourceKey(brushTipResource(dual,dualGray,secondary?.tip))] : []),
+      ...(grain ? [brushTextureResourceKey({id:grain,grain:true,discrete:grid?true:undefined})] : []),
+      ...(dualGrain ? [brushTextureResourceKey({id:dualGrain,grain:true,discrete:dualGrid?true:undefined})] : []),
+    ])
     const animated = !!brush.tip.animation || !!secondary?.tip.animation
-    this.protectTextures(stamps[0]?.mask ?? brush.tip.mask,brush.texture?.id,stamps[0]?.dualMask ?? secondary?.tip.mask,secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,stamps[0]?.gray ?? brush.tip.material?.gray,stamps[0]?.dualGray ?? secondary?.tip.material?.gray)
-    const mask = !animated && brush.tip.mask ? this.tip(brush.tip.mask,brush.tip.material?.gray) : paper.texture
+    protect(stamps[0]?.mask ?? brush.tip.mask,brush.texture?.id,stamps[0]?.dualMask ?? secondary?.tip.mask,secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,stamps[0]?.gray ?? brush.tip.material?.gray,stamps[0]?.dualGray ?? secondary?.tip.material?.gray)
+    const mainView = !animated && brush.tip.mask ? this.tipView(brush.tip.mask,brush.tip.material?.gray,brush.tip) : {texture:paper.texture,mode:0}
+    const mask=mainView.texture
     const texture = brush.texture ? this.grain(brush.texture.id,!!brush.texture.application) : paper.texture
-    const dualMask = !animated && secondary?.tip.mask ? this.tip(secondary.tip.mask,secondary.tip.material?.gray) : paper.texture
+    const dualView = !animated && secondary?.tip.mask ? this.tipView(secondary.tip.mask,secondary.tip.material?.gray,secondary.tip) : {texture:paper.texture,mode:0}
+    const dualMask=dualView.texture
     const dualTexture = secondary?.texture ? this.grain(secondary.texture.id,!!secondary.texture.application) : paper.texture
     const dualPeriod = Math.max(0.5, secondary?.texture?.periodPx ?? 1)
     const g = behavior.grain
@@ -206,6 +221,7 @@ export class BrushBehaviorPainter {
       const tipBounds=brush.tip.maskBounds, dualBounds=secondary?.tip.maskBounds
       gl.uniform4f(u.u_tipBounds,tipBounds?.x ?? 0,tipBounds?.y ?? 0,tipBounds?.width ?? 1,tipBounds?.height ?? 1)
       gl.uniform4f(u.u_dualBounds,dualBounds?.x ?? 0,dualBounds?.y ?? 0,dualBounds?.width ?? 1,dualBounds?.height ?? 1)
+      gl.uniform1f(u.u_tipPacking,mainView.mode);gl.uniform1f(u.u_dualTipPacking,dualView.mode)
       gl.uniform1f(u.u_lightnessMaterial,brush.tip.material ? 1 : 0)
       gl.uniform1f(u.u_lightnessStrength,brush.tip.material?.strength ?? 1)
       gl.uniform1f(u.u_dualLightnessMaterial,secondary?.tip.material ? 1 : 0)
@@ -241,11 +257,14 @@ export class BrushBehaviorPainter {
         for (const s of list) {
           if(animated) {
             const currentMask=s.mask ?? brush.tip.mask, currentDual=s.dualMask ?? secondary?.tip.mask
-            this.protectTextures(currentMask,brush.texture?.id,currentDual,secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,s.gray ?? brush.tip.material?.gray,s.dualGray ?? secondary?.tip.material?.gray)
+            protect(currentMask,brush.texture?.id,currentDual,secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,s.gray ?? brush.tip.material?.gray,s.dualGray ?? secondary?.tip.material?.gray)
             // Resolve the whole group before binding. Lazy upload restores GL
             // state and cannot evict another sampler in this protected group.
-            const mainTexture=currentMask ? this.tip(currentMask,s.gray ?? brush.tip.material?.gray) : paper.texture
-            const secondTexture=currentDual ? this.tip(currentDual,s.dualGray ?? secondary?.tip.material?.gray) : paper.texture
+            const mainView=currentMask ? this.tipView(currentMask,s.gray ?? brush.tip.material?.gray,brush.tip) : {texture:paper.texture,mode:0}
+            const mainTexture=mainView.texture
+            const secondView=currentDual ? this.tipView(currentDual,s.dualGray ?? secondary?.tip.material?.gray,secondary?.tip) : {texture:paper.texture,mode:0}
+            const secondTexture=secondView.texture
+            gl.uniform1f(u.u_tipPacking,mainView.mode);gl.uniform1f(u.u_dualTipPacking,secondView.mode)
             gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,mainTexture)
             gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,secondTexture)
           }

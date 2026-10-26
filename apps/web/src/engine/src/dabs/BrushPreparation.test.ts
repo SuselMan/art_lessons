@@ -1,6 +1,7 @@
+import { installBrushPixels } from '../presets/importedBrushes'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { digitalBrushFromPreset } from '../presets/digitalBrushPresets'
-import { BrushPreparation, brushPreparationBytes, brushPreparationResources } from './BrushPreparation'
+import { BrushPreparation, brushPreparationBytes, brushPreparationResources, brushTextureResourceKey, brushTipResource } from './BrushPreparation'
 
 let frames: Map<number, FrameRequestCallback>, ordinal: number
 const nextFrame = () => { const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(cb => cb(0)) }
@@ -77,9 +78,14 @@ it('plans one packed variant for each alpha/gray pair, not duplicate old-format 
   const brush=structuredClone(digitalBrushFromPreset('hard-round'))
   const alpha=`asset:${'a'.repeat(64)}` as const,g1=`asset:${'b'.repeat(64)}` as const,g2=`asset:${'c'.repeat(64)}` as const
   brush.tip={...brush.tip,mask:alpha,animation:{mode:'incremental',frames:[alpha,alpha]},material:{kind:'lightness',gray:g1,grayFrames:[g1,g2],strength:1}}
+  installBrushPixels(alpha,new Uint8Array(4));installBrushPixels(g1,new Uint8Array(4));installBrushPixels(g2,new Uint8Array(4))
   const resources=brushPreparationResources(brush).filter(r=>!r.grain)
-  expect(resources).toEqual([{painter:'stamp',id:alpha,gray:g1,grain:false},{painter:'stamp',id:alpha,gray:g2,grain:false}])
-  expect(brushPreparationBytes(resources,()=>2)).toBe(40)
+  expect(resources).toHaveLength(1)
+  expect(resources[0].materialGroup?.format).toBe('rgba')
+  const first=brushTipResource(alpha,g1,brush.tip),second=brushTipResource(alpha,g2,brush.tip)
+  expect(brushTextureResourceKey(first)).toBe(brushTextureResourceKey(second))
+  expect(first.materialChannels).toBe('rg');expect(second.materialChannels).toBe('ba')
+  expect(brushPreparationBytes(resources,()=>2)).toBe(20)
   brush.model='mixer'
   expect(()=>brushPreparationResources(brush)).toThrow('stamp renderer')
 })

@@ -80,7 +80,7 @@ export function uploadBrushTexture(gl: WebGLRenderingContext, levels: readonly U
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
     let bytes = 0
     for (const [level, pixels] of (discrete ? levels.slice(0,1) : levels).entries()) {
-      const channels=format===gl.LUMINANCE_ALPHA ? 2 : 1
+      const channels=format===gl.RGBA ? 4 : format===gl.LUMINANCE_ALPHA ? 2 : 1
       const size = Math.sqrt(pixels.length/channels)
       if(!Number.isInteger(size)) throw Error('Invalid brush texture plane dimensions')
       gl.texImage2D(gl.TEXTURE_2D, level, format, size, size, 0, format, gl.UNSIGNED_BYTE, pixels)

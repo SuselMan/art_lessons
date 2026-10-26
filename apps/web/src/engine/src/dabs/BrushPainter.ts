@@ -1,3 +1,4 @@
+import { packMaterialMips, type MaterialTextureGroup } from '../presets/brushMaterialPacking'
 import { BrushMipCache } from './BrushMipCache'
 import { lightnessMaterialMips } from '../presets/lightnessMaterial'
 import { importedAssetPixels } from '../presets/importedBrushes'
@@ -34,11 +35,7 @@ export class BrushPainter {
   constructor(ctx: BrushContext) {
     this.gl=ctx.gl
     this.textures=new BrushTextureCache(ctx.gl)
-    this.behavior=new BrushBehaviorPainter(ctx,(id,gray)=>this.tipTexture(id,gray),(id,discrete)=>this.brushTexture(id,discrete),(tip,grain,dual,dualGrain,grid,dualGrid,gray,dualGray)=>this.textures.protect([
-      'g:cloud', 'g:grit',
-      ...(tip ? [brushTextureResourceKey({id:tip,grain:false,gray})] : []), ...(grain ? [brushTextureResourceKey({id:grain,grain:true,discrete:grid?true:undefined})] : []),
-      ...(dual ? [brushTextureResourceKey({id:dual,grain:false,gray:dualGray})] : []), ...(dualGrain ? [brushTextureResourceKey({id:dualGrain,grain:true,discrete:dualGrid?true:undefined})] : []),
-    ]),brush=>this.textures.lease(brushTextureLeaseResources(brush,'stamp')))
+    this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group)=>this.tipTexture(id,gray,group),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),brush=>this.textures.lease(brushTextureLeaseResources(brush,'stamp')))
   }
   initGL():void {this.textures.clear(true);this.behavior.initGL()}
   destroy():void {
@@ -61,7 +58,7 @@ export class BrushPainter {
   prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {
     this.textures.protect(group.map(brushTextureResourceKey))
     if (resource.grain) this.brushTexture(resource.id as BrushTextureId,resource.discrete)
-    else this.tipTexture(resource.id as TipMaskId,resource.gray)
+    else this.tipTexture(resource.id as TipMaskId,resource.gray,resource.materialGroup)
   }
 
   private brushTexture(id: BrushTextureId, discrete = false): WebGLTexture {
@@ -72,10 +69,13 @@ export class BrushPainter {
     return entry.texture
   }
 
-  private tipTexture(id: TipMaskId, gray?: string): WebGLTexture {
-    const key=brushTextureResourceKey({id,grain:false,gray}), cached=this.textures.get(key)
+  private tipTexture(id: TipMaskId, gray?: string, materialGroup?: MaterialTextureGroup): WebGLTexture {
+    const key=brushTextureResourceKey({id,grain:false,gray,materialGroup}), cached=this.textures.get(key)
     if(cached)return cached
-    const entry=uploadBrushTexture(this.gl,gray ? this.materialMips.get(key,()=>lightnessMaterialMips(importedAssetPixels(id),importedAssetPixels(gray))) : tipMaskMips(id),gray ? this.gl.LUMINANCE_ALPHA : this.gl.LUMINANCE,this.gl.CLAMP_TO_EDGE)
+    const levels=materialGroup ? this.materialMips.get(key,()=>packMaterialMips(materialGroup,materialGroup.frames.map(frame=>lightnessMaterialMips(importedAssetPixels(frame.alpha),importedAssetPixels(frame.gray)))) )
+      : gray ? this.materialMips.get(key,()=>lightnessMaterialMips(importedAssetPixels(id),importedAssetPixels(gray))) : tipMaskMips(id)
+    const format=materialGroup?.format==='rgba' ? this.gl.RGBA : gray ? this.gl.LUMINANCE_ALPHA : this.gl.LUMINANCE
+    const entry=uploadBrushTexture(this.gl,levels,format,this.gl.CLAMP_TO_EDGE)
     this.textures.put(key,entry.texture,entry.bytes)
     return entry.texture
   }

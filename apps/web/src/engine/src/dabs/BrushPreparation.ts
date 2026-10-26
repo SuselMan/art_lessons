@@ -1,22 +1,42 @@
+import { materialPackingPlan, materialGroupBytes, type MaterialTextureGroup } from '../presets/brushMaterialPacking'
 import { importedAssetPixels } from '../presets/importedBrushes'
-import type { BrushDescriptor, BrushTextureId, TipMaskId } from '@grafetto/shared'
+import type { BrushDescriptor, BrushTip, BrushTextureId, TipMaskId } from '@grafetto/shared'
 
-export interface BrushPreparationResource { painter: 'stamp' | 'wet'; id: TipMaskId | BrushTextureId; grain: boolean; gray?: string; discrete?: true }
+export interface BrushPreparationResource { painter: 'stamp' | 'wet'; id: TipMaskId | BrushTextureId; grain: boolean; gray?: string; discrete?: true; materialGroup?: MaterialTextureGroup; materialChannels?: 'ra' | 'rg' | 'ba' }
 export interface BrushPreparationOptions { signal?: AbortSignal; onProgress?: (done: number, total: number) => void }
 export interface BrushPreparationResult { status: 'ready' | 'skipped' | 'cancelled' }
-export const brushTextureResourceKey = (resource: Pick<BrushPreparationResource,'id'|'grain'|'discrete'|'gray'>): string => resource.gray ? `t:lightness:${resource.id}:${resource.gray}` : `${resource.grain ? resource.discrete ? 'g:grid' : 'g' : 't'}:${resource.id}`
+export const brushTextureResourceKey = (resource: Pick<BrushPreparationResource,'id'|'grain'|'discrete'|'gray'|'materialGroup'>): string => resource.materialGroup?.key ?? (resource.gray ? `t:lightness:${resource.id}:${resource.gray}` : `${resource.grain ? resource.discrete ? 'g:grid' : 'g' : 't'}:${resource.id}`)
 export const BRUSH_PREPARATION_BYTES = 16 * 1024 * 1024
+
+const materialPlans = new WeakMap<BrushTip, ReturnType<typeof materialPackingPlan>>()
+/** One physical resource resolver for preparation, pinning and render lookup. */
+export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): Omit<BrushPreparationResource,'painter'> {
+  if (!gray || !tip?.material || !tip.animation) return {id,grain:false,...(gray ? {gray} : {})}
+  let plan=materialPlans.get(tip)
+  if(!plan){
+    const frames=tip.animation.frames.map((alpha,index)=>({alpha,gray:tip.material!.grayFrames?.[index] ?? tip.material!.gray}))
+    plan=materialPackingPlan(frames,Math.sqrt(importedAssetPixels(frames[0].alpha).length))
+    materialPlans.set(tip,plan)
+  }
+  const index=tip.animation.frames.findIndex((alpha,index)=>alpha===id && (tip.material!.grayFrames?.[index] ?? tip.material!.gray)===gray)
+  if(index<0)throw Error('Material frame is absent from its tip plan')
+  const view=plan.frames[index]
+  return {id,gray,grain:false,materialGroup:view.group,materialChannels:view.channels}
+}
 
 /** Matches sampler routes, rather than uploading both formats for every tip. */
 export function brushPreparationResources(brush: BrushDescriptor): BrushPreparationResource[] {
   const resources = new Map<string, BrushPreparationResource>()
-  const add = (painter: 'stamp' | 'wet', id: TipMaskId | BrushTextureId | undefined, grain = false, discrete = false, gray?: string) => {
-    if (id) resources.set(`${painter}:${grain}:${discrete}:${id}:${gray ?? ""}`, { painter, id, grain, ...(gray ? {gray} : {}), ...(discrete ? {discrete:true as const} : {}) })
+  const add = (painter: 'stamp' | 'wet', id: TipMaskId | BrushTextureId | undefined, grain = false, discrete = false, gray?: string, tip?: BrushTip) => {
+    if (id) {
+      const resource:BrushPreparationResource={painter,...(grain ? {id,grain,...(discrete ? {discrete:true as const} : {})} : brushTipResource(id as TipMaskId,gray,tip))}
+      resources.set(`${painter}:${brushTextureResourceKey(resource)}`,resource)
+    }
   }
   const visit = (b: BrushDescriptor, painter: 'stamp' | 'wet') => {
     if(b.tip.material && painter==='wet') throw Error('Lightness tip material requires the stamp renderer')
     const frames=b.tip.animation?.frames ?? (b.tip.mask ? [b.tip.mask] : [])
-    frames.forEach((id,index)=>add(painter,id,false,false,b.tip.material?.grayFrames?.[index] ?? b.tip.material?.gray))
+    frames.forEach((id,index)=>add(painter,id,false,false,b.tip.material?.grayFrames?.[index] ?? b.tip.material?.gray,b.tip))
     add(painter, b.texture?.id, true,!!b.texture?.application)
     if (painter === 'stamp') { add('stamp', 'cloud', true); add('stamp', 'grit', true) }
     const dual = b.behavior?.dual
@@ -35,6 +55,7 @@ export function brushPreparationResources(brush: BrushDescriptor): BrushPreparat
 
 export function brushPreparationBytes(resources: readonly BrushPreparationResource[], size: (id: string) => number): number {
   return resources.reduce((total, resource) => {
+    if(resource.materialGroup)return total+materialGroupBytes(resource.materialGroup).gpu
     let side = size(resource.id), bytes = 0
     while (side >= 1) { bytes += side * side * 4; if(resource.discrete)break; side = Math.floor(side / 2) }
     return total + bytes
