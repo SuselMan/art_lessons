@@ -235,6 +235,7 @@ export type RejectReason =
   // place a server-side failure could happen with nothing visible anywhere
   // but a log line. See socketHandlers.ts's 'operation' handler.
   | 'server_error'
+  | 'invalid_operation'
 
 /** (#495) The reasons that are not verdicts on the operation.
  *

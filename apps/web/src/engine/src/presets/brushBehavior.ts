@@ -41,9 +41,9 @@ export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:Bru
 export interface SecondarySamplingState { previous?: Dab; remaining: number; geometry?:BrushBehaviorState; axes?:BrushSpacingAxes; direction?:number }
 /** Resample the recorded centreline using the child's own source geometry.
  * The bounded segment loop and independent phase survive network chunks. */
-export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescriptor, dabs: readonly Dab[], state: SecondarySamplingState, sizePressure=true): Dab[] {
+export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescriptor, dabs: readonly Dab[], state: SecondarySamplingState, sizePressure=true, endpoint?: Dab & {baseSize:number}): Dab[] {
   const result: Dab[] = []
-  const baseSize=(d:Dab):number=>d.size/Math.max(.01,sizePressure?curveAt(primary.sizeByPressure,d.pressure):1)
+  const baseSize=(d:Dab):number=>endpoint ? endpoint.baseSize : d.size/Math.max(.01,sizePressure?curveAt(primary.sizeByPressure,d.pressure):1)
   const size = (d:Dab):Dab=>({...d,opacity:child.opacity ?? 1,
     size:baseSize(d)*curveAt(child.sizeByPressure,sizePressure?d.pressure:1),
     aspectRatio:child.tip.aspect,angle:child.tip.rotation==='fixed'?child.tip.angle:d.angle})
@@ -53,7 +53,7 @@ export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescrip
     state.axes=brushSourceSpacingAxes({...child,scatter:undefined},dab,geometry,profile,1/Math.max(child.tip.aspect,1),pathAngle)
     return brushSpacingStep(state.axes,pathAngle)
   }
-  for (const raw of dabs) {
+  for (const raw of endpoint ? [...dabs,endpoint] : dabs) {
     const dab=size(raw),previous=state.previous
     if(!previous){result.push(dab);state.remaining=spacing(dab,dab.angle);state.direction=dab.angle;state.previous={...raw};continue}
     const length=Math.hypot(dab.x-previous.x,dab.y-previous.y)
@@ -65,7 +65,7 @@ export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescrip
     while(travel<=length){
       const t=travel/length,lerp=(a:number,b:number):number=>Math.fround(a+(b-a)*t)
       const pressure=lerp(previous.pressure,raw.pressure)
-      const point:Dab={x:lerp(previous.x,raw.x),y:lerp(previous.y,raw.y),size:lerp(baseSize(previous),baseSize(raw))*curveAt(child.sizeByPressure,sizePressure?pressure:1),pressure,angle:child.tip.rotation==='fixed'?child.tip.angle:lerp(previous.angle,raw.angle),aspectRatio:child.tip.aspect,tiltX:lerp(previous.tiltX,dab.tiltX),tiltY:lerp(previous.tiltY,dab.tiltY),opacity:child.opacity ?? 1,t:lerp(previous.t,dab.t)}
+      const point:Dab={x:lerp(previous.x,raw.x),y:lerp(previous.y,raw.y),size:lerp(baseSize(previous),baseSize(raw))*curveAt(child.sizeByPressure,sizePressure?pressure:1),pressure,angle:child.tip.rotation==='fixed'?child.tip.angle:lerp(previous.angle,raw.angle),aspectRatio:child.tip.aspect,tiltX:lerp(previous.tiltX,dab.tiltX),tiltY:lerp(previous.tiltY,dab.tiltY),opacity:child.opacity ?? 1,t:lerp(previous.t,dab.t),...(previous.normalizedSpeed!==undefined && raw.normalizedSpeed!==undefined ? {normalizedSpeed:Math.fround(lerp(previous.normalizedSpeed,raw.normalizedSpeed))} : {})}
       result.push(point);travel+=Math.max(stepFloor,spacing(point,direction))
     }
     state.remaining=travel-length;state.direction=direction;state.previous={...raw}
@@ -144,7 +144,7 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
       // physical slope azimuth. A vertical pen has a defined reference.
       : d.control === 'tiltDirection' ? (Math.PI + (dab.tiltX === 0 && dab.tiltY === 0 ? -Math.PI / 2 : Math.atan2(-dab.tiltX,dab.tiltY))) / (2 * Math.PI)
     : d.control === 'tilt' ? clamp(penTilt(dab).angle/(Math.PI/2))
-      : d.control === 'speed' ? clamp(speed / 2)
+      : d.control === 'speed' ? dab.normalizedSpeed ?? clamp(speed / 2)
         : d.control === 'dabProgress' ? (d.periodic ? ((state.dabSequence ?? 0) % d.period!) / d.period! : clamp((state.dabSequence ?? 0) / d.period!))
         : d.control === 'fade' ? clamp(1 - state.distance / Math.max(0.001, d.fade ?? 1))
           : d.control === 'direction' ? turn(dab.angle)

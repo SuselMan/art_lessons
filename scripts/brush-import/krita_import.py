@@ -299,7 +299,9 @@ def sensor_controls(params, option, notes):
         if name=='fade': controls[-1].update(period=period,periodic=enabled(node.get('periodic','0')))
         if name=='fuzzystroke': controls[-1]['randomStream']=int.from_bytes(hashlib.sha256(option.encode()).digest()[:4],'big')
         if name!='pressure':
-            notes.append(compatibility(option+'Sensor','Sensor '+name+' uses recorded Grafetto input; speed scaling and curve interpolation require vendor calibration.'))
+            notes.append(compatibility(option+'Sensor',
+                'Speed is captured in view/widget coordinates, normalized by native default30 and logged before geometry; Grafetto30ms EMA approximates the different native history estimator.' if name=='speed'
+                else 'Sensor '+name+' uses recorded Grafetto input; curve interpolation requires vendor calibration.'))
     return controls
 
 
@@ -361,7 +363,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=22
+    d['version']=23
     source_size=None
     source_metric=None
     application=0
@@ -476,7 +478,7 @@ def preset(data, name, catalog, external, depth=0):
             notes.append(compatibility('maskThresholdAlignment','Native outline pixel alignment is unsupported.','unsupported'))
     d['flow']=clamp(numeric(params.get('FlowValue'),1))
     d['opacity']=clamp(numeric(params.get('OpacityValue'),1))
-    behavior={'version':2,'rendering':{'opacityCeiling':'uniform','mode':'buildUp','blendMode':'normal','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}}
+    behavior={'version':2,'speedInput':{'version':1,'space':'view','maximum':30,'estimator':'grafettoEMA30ms'},'rendering':{'opacityCeiling':'uniform','mode':'buildUp','blendMode':'normal','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}}
     spacing_checked=enabled(params.get('PressureSpacing'))
     auto_spacing=enabled(definition.get('useAutoSpacing'))
     isotropic=enabled(params.get('Spacing/Isotropic'))

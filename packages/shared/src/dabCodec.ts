@@ -2,7 +2,8 @@ import type { Dab, StrokeOperation } from './stroke.js'
 
 // (#366) Compact encoding for a stroke operation's dab array.
 //
-// A dab is ten numbers. Serialized as JSON it measures ~250 bytes — a figure
+// A legacy dab is ten numbers; v2 optionally adds a captured normalized speed.
+// Serialized as JSON it measures ~250 bytes — a figure
 // taken from real room data, not estimated (see engine/index.ts's
 // STROKE_DAB_CHUNK_LIMIT). Packed as ten float32s it is 40, and base64 brings
 // that back to ~53: a little under 5x, on the wire, in Postgres, in the room
@@ -33,12 +34,15 @@ const FIELDS = [
 const FLOATS_PER_DAB = FIELDS.length
 const BYTES_PER_DAB = FLOATS_PER_DAB * 4
 
-/** Bumped only if the layout above changes incompatibly. Written as a prefix
+/** Maximum supported layout. Encoding remains v1 when speed is absent on all
+ * dabs. V2 adds one float, with -1 meaning absent only on the wire (mixed data).
+ * Zero means a measured zero and must never be treated as missing.
+ * Bumped only if the layout above changes incompatibly. Written as a prefix
  *  on every packed payload so a client meeting an encoding it does not know
  *  says so instead of silently painting garbage — the log is permanent, and a
  *  room recorded today gets replayed by clients built much later. Costs two
  *  characters per stroke, not per dab. */
-export const DAB_PACK_VERSION = 1
+export const DAB_PACK_VERSION = 2
 
 // float32, not float64, and that is a real (if tiny) loss rather than pure
 // repacking: dab values are computed in double precision and rounded here.
@@ -74,7 +78,9 @@ function fromBase64(text: string): Uint8Array {
 
 /** Packs dabs into the base64 form a StrokeOperation carries. */
 export function packDabs(dabs: Dab[]): string {
-  const buffer = new ArrayBuffer(dabs.length * BYTES_PER_DAB)
+  const extended=dabs.some(dab=>dab.normalizedSpeed!==undefined)
+  const stride=BYTES_PER_DAB+(extended?4:0)
+  const buffer = new ArrayBuffer(dabs.length * stride)
   const view = new DataView(buffer)
   let offset = 0
   for (const dab of dabs) {
@@ -82,8 +88,14 @@ export function packDabs(dabs: Dab[]): string {
       view.setFloat32(offset, dab[field], LITTLE_ENDIAN)
       offset += 4
     }
+    if(extended){
+      const speed=dab.normalizedSpeed
+      if(speed!==undefined && (!Number.isFinite(speed)||speed<0||speed>1))throw new Error('packed dabs: invalid normalized speed')
+      view.setFloat32(offset,speed??-1,LITTLE_ENDIAN)
+      offset+=4
+    }
   }
-  return `${DAB_PACK_VERSION}:${toBase64(new Uint8Array(buffer))}`
+  return `${extended?DAB_PACK_VERSION:1}:${toBase64(new Uint8Array(buffer))}`
 }
 
 /** Inverse of packDabs. Throws on a payload that is not a whole number of
@@ -92,21 +104,29 @@ export function packDabs(dabs: Dab[]): string {
 export function unpackDabs(packed: string): Dab[] {
   const separator = packed.indexOf(':')
   const version = separator === -1 ? NaN : Number(packed.slice(0, separator))
-  if (version !== DAB_PACK_VERSION) {
+  if (version !== 1 && version !== DAB_PACK_VERSION) {
     throw new Error(`packed dabs: unknown encoding version ${packed.slice(0, Math.max(separator, 0)) || '(none)'}`)
   }
   const bytes = fromBase64(packed.slice(separator + 1))
-  if (bytes.length % BYTES_PER_DAB !== 0) {
-    throw new Error(`packed dabs: ${bytes.length} bytes is not a multiple of ${BYTES_PER_DAB}`)
+  const stride=BYTES_PER_DAB+(version===2?4:0)
+  if (bytes.length % stride !== 0) {
+    throw new Error(`packed dabs: ${bytes.length} bytes is not a multiple of ${stride}`)
   }
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   const dabs: Dab[] = []
   let offset = 0
-  for (let i = 0; i < bytes.length / BYTES_PER_DAB; i++) {
+  for (let i = 0; i < bytes.length / stride; i++) {
     const dab = {} as Dab
     for (const field of FIELDS) {
       dab[field] = view.getFloat32(offset, LITTLE_ENDIAN)
       offset += 4
+    }
+    if(version===2){
+      const speed=view.getFloat32(offset,LITTLE_ENDIAN);offset+=4
+      if(speed!==-1){
+        if(!Number.isFinite(speed)||speed<0||speed>1)throw new Error('packed dabs: invalid normalized speed')
+        dab.normalizedSpeed=speed
+      }
     }
     dabs.push(dab)
   }
@@ -123,6 +143,12 @@ export function unpackDabs(packed: string): Dab[] {
  *  repeatedly (a peer's live-stroke reveal, which walks the array as time
  *  passes) holds its own reference to the result. */
 export function strokeDabs(op: StrokeOperation): Dab[] {
-  if (op.dabs) return op.dabs
+  if (op.dabs) {
+    for(const dab of op.dabs){
+      const speed=dab.normalizedSpeed
+      if(speed!==undefined && (!Number.isFinite(speed)||speed<0||speed>1))throw new Error('plain dabs: invalid normalized speed')
+    }
+    return op.dabs
+  }
   return op.dabsPacked ? unpackDabs(op.dabsPacked) : []
 }

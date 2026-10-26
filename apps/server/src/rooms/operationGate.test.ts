@@ -103,3 +103,11 @@ describe('content on a destroyed layer (#311)', () => {
     expect(reason(board(), lesson(), stroke(STUDENT, 'layer-new'))).toBeNull()
   })
 })
+
+it('rejects malformed endpoint metadata permanently, but accepts final endpoint-only chunks',()=>{
+ const sample={x:10,y:4,pressure:1,tiltX:0,tiltY:0,size:1,aspectRatio:1,angle:0,opacity:1,t:20,baseSize:1}
+ const op:Operation={...base(OWNER),type:'stroke',layerId:'layer-1',tool:'digitalBrush',preset:'qa',color:[0,0,0],dabs:[],strokeId:'gesture',strokeEnd:true,strokeEndSample:sample}
+ expect(reason(board(),lesson(),op)).toBeNull()
+ expect(reason(board(),lesson(),{...op,strokeEndSample:{...sample,x:NaN}})).toBe('invalid_operation')
+ expect(reason(board(),lesson(),{...op,strokeEnd:undefined})).toBe('invalid_operation')
+})

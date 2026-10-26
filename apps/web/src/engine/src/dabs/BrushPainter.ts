@@ -46,7 +46,7 @@ export class BrushPainter {
     this.textures.clear()
     this.materialMips.clear()
   }
-  finish(scratch:BehaviorScratch):void {this.behavior.finish(scratch)}
+  finish(scratch:BehaviorScratch,endpoint?:Dab & {baseSize:number}):void {this.behavior.finish(scratch,endpoint)}
   paint(target:ILayerBuffer,dabs:Dab[],preset:PencilPreset,stamp:{brush:BrushDescriptor;pressure:BrushPressureSettings},color:[number,number,number],scratch:BehaviorScratch,_previous:Dab|undefined):void {
     this.behavior.paint(target,dabs,preset,normalizeBrush(stamp.brush),stamp.pressure,color,scratch)
   }

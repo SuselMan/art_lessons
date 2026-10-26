@@ -23,6 +23,9 @@ export type ToolType =
   | 'digitalBrush'
 
 export type Dab = {
+  /** Captured input sensor, already normalized and rounded to float32.
+   * Absent on historical strokes; zero is a real measurement. */
+  normalizedSpeed?: number
   x: number
   y: number
   pressure: number
@@ -35,9 +38,9 @@ export type Dab = {
   // speed). Replay has no live pointer speed, so it must not recompute this.
   opacity: number
   // Milliseconds since the stroke's first dab (always 0 for that first dab).
-  // Undo/redo/checkpoint replay ignore it (paints the whole array at once),
-  // but a peer's live-stroke reveal (#37 follow-up v2) uses it to play the
-  // recorded dabs back at the original pacing instead of all at once.
+  // A peer's live reveal uses this pacing clock. Captured speed dynamics use
+  // normalizedSpeed instead; only historical dabs without that field retain
+  // the old distance/time approximation on replay.
   t: number
 }
 
@@ -99,6 +102,9 @@ export type StrokeOperation = OperationBase & {
   strokeId?: string
   /** Explicit pen-up for v2 brush tail effects across chunk operations. */
   strokeEnd?: true
+  /** Canonical centreline endpoint for independent secondary sampling only.
+   * Not a primary dab. baseSize retains nominal size even at zero pressure. */
+  strokeEndSample?: Dab & { baseSize: number }
   /** (#468 v7) Which *wash* this stroke belongs to — watercolor only.
    *
    *  A wash is several strokes laid in quick succession with the same paint on

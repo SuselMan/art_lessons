@@ -23,6 +23,9 @@ export interface BrushDynamic {
 export type BrushDynamicTarget = 'size' | 'angle' | 'roundness' | 'scatter' | 'count' | 'flow' | 'opacity' | 'hue' | 'saturation' | 'brightness' | 'grainDepth'
 export interface BrushBehavior {
   version: 2
+  /** View/widget coordinates per millisecond; EMA is Grafetto's approximation
+   * of the source input estimator. Captured once before geometry, then logged. */
+  speedInput?: { version: 1; space: 'view'; maximum: number; estimator: 'grafettoEMA30ms' }
   /** Normalized per-dab HSV adjustment; .5 is neutral, decoded signed [-1,1]. */
   colorAdjustment?: { hue?: BrushDynamic; saturation?: BrushDynamic; value?: BrushDynamic }
   /** Source step axes use actual diameter (or sqrt, linear below 1px).
@@ -85,7 +88,9 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const n = (v: unknown, min = 0, max = 1): boolean => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max
   const keys = (v: Record<string, unknown>, allowed: string[]): boolean => Object.keys(v).every(k => allowed.includes(k))
   const blend = (v: unknown): boolean => BRUSH_BLEND_MODES.includes(v as BrushBlendMode)
-  if (!obj(value) || value.version !== 2 || !keys(value,['version','colorAdjustment','spacing','edgeBleed','erase','falloff','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
+  if (!obj(value) || value.version !== 2 || !keys(value,['version','speedInput','colorAdjustment','spacing','edgeBleed','erase','falloff','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
+  const speed=value.speedInput
+  if(speed!==undefined && (!obj(speed)||!keys(speed,['version','space','maximum','estimator'])||speed.version!==1||speed.space!=='view'||!n(speed.maximum,.001,1000)||speed.estimator!=='grafettoEMA30ms'))return false
   if (value.spacing !== undefined && (!obj(value.spacing) || !keys(value.spacing,['mode','coefficient','dynamics','isotropic','axisScale','angleOffset'])
     || !['kritaAuto','diameter'].includes(String(value.spacing.mode)) || !n(value.spacing.coefficient,value.spacing.mode==='diameter'?0:.001,100)
     || (value.spacing.isotropic !== undefined && typeof value.spacing.isotropic !== 'boolean')

@@ -31,3 +31,5 @@ export * from './brushes.js'
 export * from './brushBehavior.js'
 
 export * from './brushCurves.js'
+
+export * from './strokeEndSample.js'

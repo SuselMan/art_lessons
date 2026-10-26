@@ -8,6 +8,7 @@ export function codecDab(dab: Dab): Dab {
     tiltX: Math.fround(dab.tiltX), tiltY: Math.fround(dab.tiltY), size: Math.fround(dab.size),
     aspectRatio: Math.fround(dab.aspectRatio), angle: Math.fround(dab.angle),
     opacity: Math.fround(dab.opacity), t: Math.fround(dab.t),
+    ...(dab.normalizedSpeed===undefined?{}:{normalizedSpeed:Math.fround(dab.normalizedSpeed)}),
   }
   return Object.keys(copy).every(key => copy[key as keyof Dab] === dab[key as keyof Dab]) ? dab : copy
 }

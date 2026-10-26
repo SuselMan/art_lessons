@@ -83,16 +83,16 @@ export class BrushBehaviorPainter {
     this.sp = gl.getAttribLocation(this.stamp, 'a_position')
     this.cp = gl.getAttribLocation(this.composite, 'a_position')
   }
-  finish(scratch: BehaviorScratch): void {
+  finish(scratch: BehaviorScratch, endpoint?: Dab & {baseSize:number}): void {
     const b = this.bindings.get(scratch); if (b)
-      this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true)
+      this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint)
   }
   destroy(): void { const gl = this.ctx.gl; gl.deleteProgram(this.stamp); gl.deleteProgram(this.composite) }
   paint(target: BrushTarget, dabs: Dab[], preset: PencilPreset, brush: BrushDescriptor, pressure: BrushPressureSettings, color: [
     number,
     number,
     number
-  ], scratch: BehaviorScratch, finish = false): void {
+  ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}): void {
     const { gl, paper } = this.ctx, behavior = brush.behavior!
     if (!dabs.length && !scratch.brushBehavior)
       return
@@ -111,7 +111,7 @@ export class BrushBehaviorPainter {
         markContentPainted:bounds=>{ secondaryDirty=unionBounds(secondaryDirty,bounds) },
       }
       const child={...independent,behavior:independent.behavior??{version:2 as const}}
-      this.paint(secondaryTarget, secondaryBrushDabs(brush,child,dabs,secondaryState.sampling,pressure.size),{...preset,sizeMultiplier:1/Math.max(child.tip.aspect,1)},child,pressure,[1,1,1],secondaryState.scratch,finish)
+      this.paint(secondaryTarget, secondaryBrushDabs(brush,child,dabs,secondaryState.sampling,pressure.size,endpoint),{...preset,sizeMultiplier:1/Math.max(child.tip.aspect,1)},child,pressure,[1,1,1],secondaryState.scratch,finish)
     }
 
     const accumulation=behavior.rendering?.accumulation

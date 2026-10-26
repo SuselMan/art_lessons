@@ -76,6 +76,10 @@ export interface PointerData {
   tiltX: number
   tiltY: number
   speed: number
+  /** CSS/widget view-coordinate units/ms, independent of canvas zoom/DPR. */
+  viewSpeed?: number
+  /** Explicit normalized fixture/input override; zero is meaningful. */
+  normalizedSpeed?: number
   pointerType: string
   // Real DOMHighResTimeStamp the browser/OS recorded for this sample
   // (PointerEvent.timeStamp), NOT performance.now() at handler-entry — by
@@ -143,6 +147,9 @@ export class PointerInput {
   // Smoothed speed in px/ms (smoothSpeed above); -1 until this stroke has a
   // first real measurement to seed it with.
   private _speed: number
+  private _viewSpeed = -1
+  private _lastClientX = 0
+  private _lastClientY = 0
   private _transform: ((clientX: number, clientY: number) => { x: number; y: number }) | null
 
   // (#187) Which pointer actually started/owns the in-progress stroke.
@@ -281,7 +288,7 @@ export class PointerInput {
     }
   }
 
-  private _toPointerData(e: PointerEvent, x: number, y: number, speed: number): PointerData {
+  private _toPointerData(e: PointerEvent, x: number, y: number, speed: number, viewSpeed=this._viewSpeed): PointerData {
     let pressure = e.pressure ?? 0.5
     if (e.pointerType === 'mouse' && pressure === 0) pressure = 0.5
     // (#475) Pen only. A mouse has no pressure to correct (it sits at the
@@ -290,7 +297,7 @@ export class PointerInput {
     // would apply a correction measured for a stylus to an input that never
     // produced the problem.
     else if (e.pointerType === 'pen' && this._pressureMap) pressure = this._pressureMap(pressure)
-    return { x, y, pressure, tiltX: e.tiltX ?? 0, tiltY: e.tiltY ?? 0, speed, pointerType: e.pointerType, timeStamp: e.timeStamp }
+    return { x, y, pressure, tiltX: e.tiltX ?? 0, tiltY: e.tiltY ?? 0, speed, viewSpeed:Math.max(viewSpeed,0), pointerType: e.pointerType, timeStamp: e.timeStamp }
   }
 
   private _extract(e: PointerEvent): PointerData {
@@ -302,6 +309,8 @@ export class PointerInput {
     // zero-duration run in one honest quotient.
     if (dt > 0) {
       this._speed = smoothSpeed(this._speed, Math.hypot(x - this._lastX, y - this._lastY) / dt, dt)
+      this._viewSpeed=smoothSpeed(this._viewSpeed,Math.hypot(e.clientX-this._lastClientX,e.clientY-this._lastClientY)/dt,dt)
+      this._lastClientX=e.clientX;this._lastClientY=e.clientY
       this._lastT = e.timeStamp
       this._lastX = x
       this._lastY = y
@@ -321,8 +330,8 @@ export class PointerInput {
     const speed = dt > 0
       ? smoothSpeed(this._speed, Math.hypot(x - this._lastX, y - this._lastY) / dt, dt)
       : this._speed
-
-    return this._toPointerData(e, x, y, Math.max(speed, 0))
+    const viewSpeed=dt>0 ? smoothSpeed(this._viewSpeed,Math.hypot(e.clientX-this._lastClientX,e.clientY-this._lastClientY)/dt,dt) : this._viewSpeed
+    return this._toPointerData(e, x, y, Math.max(speed, 0),viewSpeed)
   }
 
   /** (#517) The fix for strokes that vanished on iPad, and a listener that
@@ -430,6 +439,8 @@ export class PointerInput {
     this._lastX = down.x
     this._lastY = down.y
     this._speed = -1
+    this._viewSpeed=-1
+    this._lastClientX=e.clientX;this._lastClientY=e.clientY
     this._emit('start', this._extract(e))
   }
 
