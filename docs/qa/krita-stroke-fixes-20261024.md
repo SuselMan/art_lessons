@@ -562,3 +562,13 @@ Final source24(fd04bc02) повтор117: все117PNG byte-identical23,GL0.
 skipped≈.1ms; исключённая стоимость не скрывается. Maxcold/first-stroke кадры
 83–117ms остаются, mean≈18–20ms. Этоisolated72rAF×4events,неOSpenlatency,
 неmemorysoak/второйGPU. Source graph frozen до tiny-dab исправления.
+
+
+Compiled24=bdf20b90, actualSamsung script main-psI1B3K6.js совпал сbuild.
+12control exports byte-identical frozen source24;5undo/redo и3actual context
+restore(100/101/41) сохранилиPNG. Tiny-dab fix переносит существующий .25radius
+filter передA-history, сохраняя geometry/RNG и whole/chunk semantics;10targetedTS
+иwebtypecheckPASS. Полныйroot typecheck/lint:fix/map:check/map:rules завершены0,
+существующие7boundarywarnings не являются новыми errors. Compiled build exit0.
+Viewer оставляет23images, так какpacking24 их не меняет; добавлена измеренная
+runtime24annotation без заявления полнойидентичности/плавности. Работа продолжается.
