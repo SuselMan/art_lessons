@@ -6,6 +6,16 @@ import { reportInvariant } from '../../../lib/observability/reportInvariant'
 import { snapshotBase64 } from './snapshotBase64'
 import { compressSnapshot } from './snapshotCompression'
 
+type EncodedSnapshotLayers = Readonly<Record<string, string>>
+
+async function encodeSnapshotLayers(layers: Map<string, Uint8Array>, workerCompression: boolean): Promise<EncodedSnapshotLayers> {
+  const encoded: Record<string, string> = {}
+  for (const [layerId, raw] of layers) {
+    encoded[layerId] = await snapshotBase64(await compressSnapshot(raw, workerCompression))
+  }
+  return Object.freeze(encoded)
+}
+
 /** (#371/#374) One gzipped `encodeLayerTiles` payload per layer, keyed by
  *  layerId — the server stores each as its own row, at its own coverage. There
  *  is no room-level bundle: sending the layers separately is what lets a layer
@@ -13,14 +23,12 @@ import { compressSnapshot } from './snapshotCompression'
  *  the loss #369 was. */
 async function uploadSnapshot(
   roomId: string, seq: number, layerState: LayerState, layers: Map<string, Uint8Array>,
-  onCheckpointRefused?: () => Promise<void>,
+  onUploadFailed?: (captureRefused: boolean) => Promise<void>,
   workerCompression = false,
+  prepared?: Promise<EncodedSnapshotLayers>,
 ): Promise<boolean> {
   try {
-    const encoded: Record<string, string> = {}
-    for (const [layerId, raw] of layers) {
-      encoded[layerId] = await snapshotBase64(await compressSnapshot(raw, workerCompression))
-    }
+    const encoded = await (prepared ?? encodeSnapshotLayers(layers, workerCompression))
     await api('POST /api/rooms/:roomId/snapshots', { params: { roomId }, body: { seq, layerState, layers: encoded } })
     return true
   } catch (error) {
@@ -37,10 +45,11 @@ async function uploadSnapshot(
         roomId, seq, missingCount: missing.length, missing: missing.join(','),
       })
     }
-    if (error instanceof ApiError && error.code === 'not_a_checkpoint_seq' && onCheckpointRefused) {
-      // Another client may already have published first coverage while our
-      // compression was in flight. Only the server index can prove that.
-      try { await onCheckpointRefused() } catch { /* Retain retry eligibility. */ }
+    if (onUploadFailed) {
+      // A transport error may hide a successful server commit too. Reconcile
+      // actual coverage before another expensive bootstrap capture.
+      try { await onUploadFailed(error instanceof ApiError
+        && (error.code === 'not_a_checkpoint_seq' || error.code === 'stale_layer_state')) } catch { /* Retain retry eligibility. */ }
     }
     // Best-effort (#149 epic): another client independently crossing the
     // same seq boundary will very likely succeed even if this upload was
@@ -97,12 +106,27 @@ export async function uploadThumbnail(roomId: string, engine: PencilEngineAPI): 
  *  "highest seq I've seen" (Room/index.tsx's latestKnownSeqRef) advances —
  *  both for its own acked local operations and for peer_operation — it
  *  detects on its own whether that crossed a new boundary. */
+// Bounds retained retry bytes, without imposing a new upload size limit.
+const MAX_BOOTSTRAP_RETRY_BYTES = 40 * 1024 * 1024
+const BOOTSTRAP_RETRY_BASE_MS = 1000
+const BOOTSTRAP_RETRY_MAX_MS = 30_000
+
 export function createSnapshotUploader(roomId: string, options: { workerCompression?: boolean } = {}) {
   const attempted = new Set<number>()
   const firstCovered = new Set<string>()
   const firstBaked = new Set<string>()
   let bootstrap = false
   let bootstrapUploading = false
+  let retryAt = 0
+  let failures = 0
+  let candidate: {
+    engine: PencilEngineAPI
+    seq: number
+    layerState: LayerState
+    layerIds: string[]
+    encoded: Promise<EncodedSnapshotLayers>
+    retain: boolean
+  } | undefined
 
   return {
     /** Armed only by a completed catch-up that found no snapshot index. */
@@ -112,24 +136,66 @@ export function createSnapshotUploader(roomId: string, options: { workerCompress
      * A refused wet/pending layer remains eligible for the next observation. */
     tryFirstSnapshot(seq: number, engine: PencilEngineAPI, layerState: LayerState): void {
       if (!bootstrap || bootstrapUploading || seq <= 0) return
-      const known = new Set(Object.keys(layerState.items))
-      if (engine.liveLayerIds().some(id => !known.has(id))) return
-      const layers = new Map<string, Uint8Array>()
-      for (const item of Object.values(layerState.items)) {
-        if (item.kind !== 'layer' || firstCovered.has(item.id)) continue
-        // Never read empty/untouched paper every second. A failed upload may
-        // already have cleared dirty, so its layer must remain retryable.
-        if (!engine.isLayerDirty(item.id) && !firstBaked.has(item.id)) continue
-        const baked = engine.bakeNetworkSnapshot(item.id)
-        if (baked) { firstBaked.add(item.id); layers.set(item.id, baked) }
+      // A candidate describes one immutable historical state. Neither newer
+      // pixels nor another engine may be silently labelled with its old seq.
+      if (candidate && (candidate.engine !== engine || candidate.seq !== seq)) candidate = undefined
+      if (Date.now() < retryAt) return
+      if (candidate) {
+        const uncovered = candidate.layerIds.filter(id => !firstCovered.has(id))
+        if (!uncovered.length) { candidate = undefined; return }
+        if (uncovered.length !== candidate.layerIds.length) {
+          candidate = { ...candidate, layerIds: uncovered, encoded: candidate.encoded.then(encoded =>
+            Object.freeze(Object.fromEntries(uncovered.map(id => [id, encoded[id]])))) }
+        }
       }
-      if (!layers.size) return
+      if (!candidate) {
+        const known = new Set(Object.keys(layerState.items))
+        if (engine.liveLayerIds().some(id => !known.has(id))) return
+        const layers = new Map<string, Uint8Array>()
+        for (const item of Object.values(layerState.items)) {
+          if (item.kind !== 'layer' || firstCovered.has(item.id)) continue
+          // A failed upload has already cleared dirty, so firstBaked remains
+          // eligible even after a candidate was invalidated or exceeded cap.
+          if (!engine.isLayerDirty(item.id) && !firstBaked.has(item.id)) continue
+          const baked = engine.bakeNetworkSnapshot(item.id)
+          if (baked) {
+            firstBaked.add(item.id)
+            layers.set(item.id, baked)
+          }
+        }
+        if (!layers.size) return
+        // Capture the mutable structure now, not after async compression.
+        // The retained candidate contains immutable encoded strings only;
+        // release raw tile payloads as soon as compression has completed.
+        const captured = {
+          engine, seq, layerState: structuredClone(layerState), layerIds: [...layers.keys()],
+          retain: true, encoded: Promise.resolve({} as EncodedSnapshotLayers),
+        }
+        captured.encoded = encodeSnapshotLayers(layers, options.workerCompression ?? false).then(encoded => {
+          // Count UTF-16 conservatively even on engines using Latin-1 strings.
+          captured.retain = Object.values(encoded).reduce((bytes, value) => bytes + value.length * 2, 0) <= MAX_BOOTSTRAP_RETRY_BYTES
+          return encoded
+        }, error => { captured.retain = false; throw error }).finally(() => { layers.clear() })
+        candidate = captured
+      }
+      const captured = candidate
       bootstrapUploading = true
-      void uploadSnapshot(roomId, seq, layerState, layers, async () => {
+      void uploadSnapshot(roomId, captured.seq, captured.layerState, new Map(), async refused => {
+        if (refused) captured.retain = false // stale watermark/structure needs a new honest capture
         const index = await api('GET /api/rooms/:roomId/snapshots/index', { params: { roomId } })
         for (const entry of index?.layers ?? []) firstCovered.add(entry.layerId)
-      }, options.workerCompression).then(ok => {
-        if (ok) for (const id of layers.keys()) firstCovered.add(id)
+      }, options.workerCompression, captured.encoded).then(ok => {
+        if (ok) {
+          for (const id of captured.layerIds) firstCovered.add(id)
+          candidate = undefined
+          failures = 0
+          retryAt = 0
+        } else {
+          failures++
+          retryAt = Date.now() + Math.min(BOOTSTRAP_RETRY_MAX_MS,
+            BOOTSTRAP_RETRY_BASE_MS * 2 ** Math.min(failures - 1, 5))
+          if (!captured.retain || captured.layerIds.every(id => firstCovered.has(id))) candidate = undefined
+        }
       }).finally(() => { bootstrapUploading = false })
     },
     onSeqObserved(previousSeq: number, newSeq: number, engine: PencilEngineAPI, layerState: LayerState): void {
