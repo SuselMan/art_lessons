@@ -1,10 +1,33 @@
-import type { LayerState } from '@grafetto/shared'
+import type { LayerState, RouteResponse } from '@grafetto/shared'
 import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../../engine'
-import { api, ApiError } from '../../../lib/api/api'
+import { api, apiResponse, ApiError } from '../../../lib/api/api'
 import { reportInvariant } from '../../../lib/observability/reportInvariant'
 import { snapshotBase64 } from './snapshotBase64'
 import { compressSnapshot } from './snapshotCompression'
+
+const SNAPSHOT_INDEX_TIMEOUT_MS = 5000
+
+/** Optional reconciliation must not keep bootstrap admission locked forever.
+ * Race the whole response/body read, even if a transport ignores its abort.
+ * Only the winning result reaches the caller's coverage mutation. */
+async function firstSnapshotIndex(roomId: string): Promise<RouteResponse<'GET /api/rooms/:roomId/snapshots/index'> | null> {
+  const controller = new AbortController()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      controller.abort()
+      reject(new DOMException('Snapshot index deadline exceeded', 'TimeoutError'))
+    }, SNAPSHOT_INDEX_TIMEOUT_MS)
+  })
+  try {
+    const request = apiResponse('GET /api/rooms/:roomId/snapshots/index', { params: { roomId } }, { signal: controller.signal })
+      .then(response => response.status === 204 ? null : response.json() as Promise<RouteResponse<'GET /api/rooms/:roomId/snapshots/index'>>)
+    return await Promise.race([request, deadline])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
+}
 
 type EncodedSnapshotLayers = Readonly<Record<string, string>>
 
@@ -182,7 +205,7 @@ export function createSnapshotUploader(roomId: string, options: { workerCompress
       bootstrapUploading = true
       void uploadSnapshot(roomId, captured.seq, captured.layerState, new Map(), async refused => {
         if (refused) captured.retain = false // stale watermark/structure needs a new honest capture
-        const index = await api('GET /api/rooms/:roomId/snapshots/index', { params: { roomId } })
+        const index = await firstSnapshotIndex(roomId)
         for (const entry of index?.layers ?? []) firstCovered.add(entry.layerId)
       }, options.workerCompression, captured.encoded).then(ok => {
         if (ok) {

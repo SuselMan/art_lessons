@@ -675,3 +675,54 @@ describe('bounded bootstrap transport retries', () => {
   })
 
 })
+
+
+describe('bootstrap index reconciliation deadlines', () => {
+  it.each(['headers', 'body'] as const)('releases a stalled index %s read and ignores its late coverage', async stalled => {
+    vi.useFakeTimers()
+    try {
+      let resolveOld!: (value: unknown) => void
+      const old = new Promise<unknown>(resolve => { resolveOld = resolve })
+      let posts = 0, indexes = 0
+      let signal: AbortSignal | undefined
+      vi.stubGlobal('fetch', vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          posts++
+          if (posts <= 2) throw Error('ambiguous upload failure')
+          return Response.json({ ok: true })
+        }
+        indexes++
+        if (indexes === 1) {
+          signal = init?.signal ?? undefined
+          if (stalled === 'headers') return old // deliberately ignores abort
+          return { ok: true, status: 200, json: () => old }
+        }
+        return Response.json({ layers: [] })
+      }))
+      const { engine, bakeCalls } = fakeEngine({ 'layer-1': new Uint8Array([1]) })
+      const uploader = createSnapshotUploader('room-1')
+      uploader.requestFirstSnapshot()
+      uploader.tryFirstSnapshot(47, engine, layerState())
+      await vi.waitFor(() => expect(indexes).toBe(1))
+      await vi.advanceTimersByTimeAsync(5001)
+      expect(signal?.aborted).toBe(true)
+      engine.isLayerDirty = () => false
+      uploader.tryFirstSnapshot(47, engine, layerState())
+      expect(posts).toBe(1) // Failed reconciliation still honours upload backoff.
+      await vi.advanceTimersByTimeAsync(1001)
+      uploader.tryFirstSnapshot(47, engine, layerState())
+      await vi.waitFor(() => expect(indexes).toBe(2))
+      await vi.advanceTimersByTimeAsync(0)
+      const late = { layers: [{ layerId: 'layer-1', seq: 47, hash: 'old-response' }] }
+      resolveOld(stalled === 'headers' ? Response.json(late) : late)
+      await vi.advanceTimersByTimeAsync(2001)
+      uploader.tryFirstSnapshot(47, engine, layerState())
+      await vi.waitFor(() => expect(posts).toBe(3))
+      expect(bakeCalls).toEqual(['layer-1'])
+      const bodies = fetchCallsTo('/api/rooms/room-1/snapshots').map(([, init]) => init.body)
+      expect(bodies[1]).toEqual(bodies[0])
+      expect(bodies[2]).toEqual(bodies[0])
+      expect(vi.getTimerCount()).toBe(0)
+    } finally { vi.useRealTimers() }
+  })
+})
