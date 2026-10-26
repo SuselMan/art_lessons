@@ -473,3 +473,14 @@ Gaussian без ресурсов/материала; прежние round и bit
 этот профиль не реализует: shared validation и preparation отклоняют его явно.
 Erf считается аналитической аппроксимацией; проверка float32 на CPU не заменяет
 GPU-сравнение с нативной растеризацией, включая субпиксельную фазу и границы.
+
+
+## Native Size constant strength (converter25)
+
+Size checkbox и UseCurve — разные части nativeoption: unchecked возвращает1
+и игнорирует staleValue/UseCurve; checked сохраняет SizeValue даже при UseCurvefalse.
+Constantstrength один раз умножает каноническую sizeByPressure, остальные sensor
+modulations остаются независимыми множителями. Linked masking master ratio
+применяется после этого тем же путём, без специальных значений для конкретныхкистей.
+В pinnedstock изменены только108child(.97),113primary(.47)/child(.52),114primary(.47).
+SourceDefaults сохраняет диаметр инструмента, не подменяется effective footprint.

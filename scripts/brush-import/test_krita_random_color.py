@@ -19,7 +19,7 @@ class RandomOptionTests(unittest.TestCase):
 
     def test_pressure_and_fuzzy_responses_are_not_collapsed_into_pressure(self):
         sensor='<params id="sensorslist"><ChildSensor id="fuzzy"><curve>0,.2;1,1;</curve></ChildSensor><ChildSensor id="pressure"><curve>0,.2;1,1;</curve></ChildSensor></params>'
-        b=self.brush({'SizeUseCurve':'true','SizeSensor':sensor,'SizeUseSameCurve':'false'})['descriptor']
+        b=self.brush({'PressureSize':'true','SizeUseCurve':'true','SizeSensor':sensor,'SizeUseSameCurve':'false'})['descriptor']
         self.assertAlmostEqual(b['sizeByPressure']['samples'][0],.2)
         c=b['behavior']['modulations']['size'];self.assertEqual(len(c),1)
         self.assertEqual(b['behavior']['spacing']['mode'],'diameter')

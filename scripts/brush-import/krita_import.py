@@ -363,7 +363,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=24
+    d['version']=25
     source_size=None
     source_metric=None
     application=0
@@ -532,8 +532,18 @@ def preset(data, name, catalog, external, depth=0):
         behavior['rendering']['blendMode']=modes[mode]
     else:
         notes.append(compatibility('blendMode','Unsupported Krita blend '+mode+'; normal used.','unsupported'))
+    # Native checked Size keeps its constant even when UseCurve=false.
+    # Missing PressureSize is unchecked; stale UseCurve/Value do not enable it.
+    size_checked=enabled(params.get('PressureSize','false'))
+    size_strength=1.0
+    if size_checked:
+        try: size_strength=float(params.get('SizeValue',1))
+        except (TypeError,ValueError): raise ValueError('Invalid native SizeValue')
+        if not math.isfinite(size_strength) or not 0<=size_strength<=1:
+            raise ValueError('Native SizeValue outside supported0..1')
     for option,target in [('Size','size'),('Opacity','opacity'),('Flow','flow'),('Scatter','scatter')]:
-        if not enabled(params.get('Pressure'+option,params.get(option+'UseCurve','false'))):
+        checked=size_checked if option=='Size' else enabled(params.get('Pressure'+option,params.get(option+'UseCurve','false')))
+        if not checked:
             continue
         controls=sensor_controls(params,option,notes)
         if controls:
@@ -545,6 +555,11 @@ def preset(data, name, catalog, external, depth=0):
                 d[field]=pressure['curve'];controls=[control for control in controls if control is not pressure]
             if controls: behavior.setdefault('modulations',{})[target]=controls
             notes.append(compatibility(option+'Curve','Native natural-cubic response compiled to256-sample float transfer with linear lookup; sensor normalization still requires vendor calibration.'))
+    if size_checked and size_strength!=1:
+        # Supported normalized size factors are0..1. Bake bounded strength
+        # once into the canonical factor, retaining other independent inputs.
+        d['sizeByPressure']=scaled_curve(d['sizeByPressure'],size_strength)
+        notes.append(compatibility('SizeStrength','Checked native SizeValue retained once as per-dab size multiplier, including constant UseCurve=false.','supported'))
     color_decoded=[]
     for option,target in [('h','hue'),('s','saturation'),('v','value')]:
         if not enabled(params.get('Pressure'+option)): continue
