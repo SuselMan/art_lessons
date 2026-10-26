@@ -55,6 +55,7 @@ export class BrushPainter {
     return this.textures.get(brushTextureResourceKey(resource)) !== undefined
   }
 
+  prepareProcedural(): void { this.behavior.prepareProcedural() }
   prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {
     this.textures.protect(group.map(brushTextureResourceKey))
     if (resource.grain) this.brushTexture(resource.id as BrushTextureId,resource.discrete)

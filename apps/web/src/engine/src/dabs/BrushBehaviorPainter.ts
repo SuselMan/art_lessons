@@ -112,6 +112,9 @@ export class BrushBehaviorPainter {
     this.sp = gl.getAttribLocation(this.stamp, 'a_position')
     this.cp = gl.getAttribLocation(this.composite, 'a_position')
   }
+  /** Compile the bounded profile capability during explicit brush readiness. */
+  prepareProcedural(): void { this.stampFor(true) }
+
   private stampFor(procedural: boolean): { program: WebGLProgram; uniforms: Uniforms; position: number } {
     if (!procedural) return { program: this.stamp, uniforms: this.su, position: this.sp }
     if (!this.proceduralStamp) {

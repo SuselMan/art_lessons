@@ -780,6 +780,23 @@ export class SmudgePainter {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
+  /** Compile once outside pointer input; initGL/forget invalidate this capability. */
+  prepareProcedural(): void {
+    const gl = this.gl
+    if (!this.proceduralTransfer) {
+      const program = createProgram(gl, DAB_VERT, wetTransferFragment(true))
+      this.proceduralTransfer = {
+        program,
+        uniforms: getUniforms(gl, program, [
+          ...TRANSFER_UNIFORMS, 'u_tipProcedural', 'u_dualProcedural',
+          'u_tipProceduralGeometry', 'u_dualProceduralGeometry', 'u_dualProceduralAngle',
+          'u_wickPx', 'u_wickCap',
+        ]),
+        position: gl.getAttribLocation(program, 'a_position'),
+      }
+    }
+  }
+
   /** One half of a smudge dab's transfer — `clear` is `dst *= (1-a)` under
    *  beginErase()'s (ZERO, ONE_MINUS_SRC_ALPHA), `lay` is
    *  `dst += carried*a*tooth` under beginAdditiveDraw()'s (ONE, ONE). Issued
@@ -817,18 +834,8 @@ export class SmudgePainter {
       ? dual.brush.tip.profile : undefined
     let binding = this.proceduralTransfer
     if (primaryProfile || childProfile) {
-      if (!binding) {
-        const program = createProgram(gl, DAB_VERT, wetTransferFragment(true))
-        binding = this.proceduralTransfer = {
-          program,
-          uniforms: getUniforms(gl, program, [
-            ...TRANSFER_UNIFORMS, 'u_tipProcedural', 'u_dualProcedural',
-            'u_tipProceduralGeometry', 'u_dualProceduralGeometry', 'u_dualProceduralAngle',
-            'u_wickPx', 'u_wickCap',
-          ]),
-          position: gl.getAttribLocation(program, 'a_position'),
-        }
-      }
+      this.prepareProcedural()
+      binding = this.proceduralTransfer
     } else binding = undefined
     gl.useProgram(binding?.program ?? this.transferProg)
     const u = binding?.uniforms ?? this.transferUni

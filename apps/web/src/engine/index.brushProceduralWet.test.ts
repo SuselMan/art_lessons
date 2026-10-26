@@ -42,8 +42,12 @@ it('reuses one lazy native mixer program, restores its lifetime, and uploads phy
     const append = (x: number, gesture = 'one') => engine.appendOperation(makeStroke('peer', 'ink', [
       dab(x, 32, { size: 40, aspectRatio: 5, pressure: 1 }),
     ], { tool: 'digitalBrush', preset, strokeId: gesture }), 'remote')
-    append(20)
     expect(create).not.toHaveBeenCalled()
+    await expect(engine.prepareBrush(preset)).resolves.toEqual({ status: 'ready' })
+    expect(create).toHaveBeenCalledTimes(1)
+    await engine.prepareBrush(preset)
+    append(20)
+    expect(create).toHaveBeenCalledTimes(1)
     append(40); append(60)
     expect(create).toHaveBeenCalledTimes(1)
     const geometry = uniform.mock.calls.filter(([loc]) => (loc as unknown as { name: string }).name === 'u_tipProceduralGeometry')
@@ -58,6 +62,8 @@ it('reuses one lazy native mixer program, restores its lifetime, and uploads phy
     const lostProgram = painter['proceduralTransfer']?.program
     painter.forget(); painter.initGL()
     expect(painter['proceduralTransfer']).toBeUndefined()
+    await engine.prepareBrush(preset)
+    expect(create).toHaveBeenCalledTimes(5)
     append(20, 'two'); append(40, 'two')
     expect(create).toHaveBeenCalledTimes(5) // three baseline programs + one new lazy variant
     expect(painter['proceduralTransfer']?.program).not.toBe(lostProgram)
@@ -94,15 +100,62 @@ it('selects the native program for an inline child while keeping the parent mask
   try {
     await paperReady(engine)
     engine.appendOperation(makeLayerAdd('peer', 'ink'))
+    const create = vi.spyOn(engine['gl'], 'createProgram')
+    await engine.prepareBrush(parent.preset)
+    expect(create).toHaveBeenCalledTimes(1)
     const uniform = vi.spyOn(engine['gl'], 'uniform4f'), scalar = vi.spyOn(engine['gl'], 'uniform1f')
     engine.appendOperation(makeStroke('peer', 'ink', [dab(20, 32, { size: 40 }), dab(40, 32, { size: 40 })], {
       tool: 'digitalBrush', preset: parent.preset, strokeId: 'inline',
     }), 'remote')
     const values = (name: string) => uniform.mock.calls.filter(([loc]) => (loc as unknown as { name: string }).name === name).map(call => call.slice(1))
+    expect(create).toHaveBeenCalledTimes(1)
     expect(values('u_tipProcedural')).toEqual([[-1, 0, 0, 0]])
     expect(values('u_dualProcedural')).toEqual([[1, 1, 1, 1]])
     expect(values('u_dualProceduralGeometry')).toEqual([[20, 10, 1, 0]])
     const wick = scalar.mock.calls.filter(([loc]) => (loc as unknown as { name: string }).name === 'u_wickPx')
     expect(wick.map(([, value]) => value)).toEqual([0]) // preserve legacy parent's bitmap clipping quad
+  } finally { engine.destroy() }
+})
+
+it('prepares independent procedural children through stamp without compiling a legacy mixer variant', async () => {
+  const child = fixture({ model: 'stamp', mixer: undefined }).descriptor
+  const parent = fixture({
+    tip: { kind: 'round', hardness: 1, aspect: 1, angle: 0, rotation: 'fixed' },
+    behavior: { version: 2, dual: { brush: child, blendMode: 'multiply', sampling: 'independent' } },
+  })
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  try {
+    await paperReady(engine)
+    await new Promise(resolve => setTimeout(resolve, 5))
+    const create = vi.spyOn(engine['gl'], 'createProgram')
+    const draws = vi.spyOn(engine['gl'], 'drawArrays')
+    const history = engine.getOperations()
+    await expect(engine.prepareBrush(parent.preset)).resolves.toEqual({ status: 'ready' })
+    expect(create).toHaveBeenCalledTimes(1)
+    expect(engine['_smudge']['proceduralTransfer']).toBeUndefined()
+    expect(engine['_brush']['behavior']['proceduralStamp']).toBeDefined()
+    expect(draws).not.toHaveBeenCalled()
+    expect(engine.getOperations()).toEqual(history)
+    engine.appendOperation(makeLayerAdd('peer', 'ink'))
+    engine.appendOperation(makeStroke('peer', 'ink', [dab(20, 32), dab(40, 32)], {
+      tool: 'digitalBrush', preset: parent.preset, strokeId: 'prepared-child', strokeEnd: true,
+    }), 'remote')
+    expect(create).toHaveBeenCalledTimes(1)
+  } finally { engine.destroy() }
+})
+
+it.each(['abort', 'context loss'] as const)('does not compile a pending procedural capability after %s', async reason => {
+  const { preset } = fixture()
+  const { engine } = createTestEngine({}, { width: 64, height: 64 })
+  try {
+    await paperReady(engine)
+    const create = vi.spyOn(engine['gl'], 'createProgram')
+    const controller = new AbortController()
+    const pending = engine.prepareBrush(preset, { signal: controller.signal })
+    if (reason === 'abort') controller.abort()
+    else engine['_handleContextLost'](new Event('webglcontextlost', { cancelable: true }))
+    await expect(pending).resolves.toEqual({ status: 'cancelled' })
+    await new Promise(resolve => setTimeout(resolve, 5))
+    expect(create).not.toHaveBeenCalled()
   } finally { engine.destroy() }
 })

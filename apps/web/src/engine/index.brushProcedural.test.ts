@@ -4,7 +4,7 @@ import { installBrushLibrary } from './brushLibrary'
 import { brushPreparationResources } from './src/dabs/BrushPreparation'
 import { digitalBrushFromPreset } from './src/presets/digitalBrushPresets'
 import { BRUSH_STAMP_FRAG, createBrushStampFragment } from './src/raster/brushBehaviorShaders'
-import { brushDraws, createTestEngine, dab, makeLayerAdd, makeStroke } from './testing/engineTestUtils'
+import { brushDraws, createTestEngine, dab, makeLayerAdd, makeStroke, paperReady } from './testing/engineTestUtils'
 let ordinal = 2929
 function fixture(): BrushDescriptor {
   return {
@@ -46,7 +46,7 @@ it('uploads physical axes before rotation and keeps profiles free of tip asset r
     expect(u.get('u_wickPx')).toBeCloseTo(Math.SQRT2)
   } finally { engine.destroy() }
 })
-it('bounds the lazy stamp capability to one program and resets it on context reinitialization', () => {
+it('prepares the stamp capability once before input and resets it on context reinitialization', async () => {
   const descriptor = fixture(), preset = install(descriptor)
   const { engine } = createTestEngine({ userId: 'observer' }, { width: 64, height: 64 })
   const gl = engine['gl'], painter = engine['_brush']['behavior']
@@ -54,12 +54,18 @@ it('bounds the lazy stamp capability to one program and resets it on context rei
   try {
     engine.appendOperation(makeLayerAdd('peer', 'ink'))
     const append = (id: string) => engine.appendOperation(makeStroke('peer', 'ink', [dab(32, 32, { size: 20, opacity: 1 })], { tool: 'digitalBrush', preset, strokeId: id, strokeEnd: true }), 'remote')
+    await paperReady(engine)
     expect(create).not.toHaveBeenCalled()
+    await expect(engine.prepareBrush(preset)).resolves.toEqual({ status: 'ready' })
+    expect(create).toHaveBeenCalledTimes(1)
+    await engine.prepareBrush(preset)
     append('one'); append('two')
     expect(create).toHaveBeenCalledTimes(1)
     const lost = painter['proceduralStamp']?.program
     painter.initGL()
     expect(painter['proceduralStamp']).toBeUndefined()
+    await engine.prepareBrush(preset)
+    expect(create).toHaveBeenCalledTimes(4)
     append('three')
     expect(create).toHaveBeenCalledTimes(4) // Two immutable programs + one new lazy program.
     const live = painter['proceduralStamp']?.program

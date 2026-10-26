@@ -1,5 +1,5 @@
 import { hasValidStrokeEndSample } from '@grafetto/shared'
-import { BrushPreparation, brushPreparationResources, brushPreparationBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
+import { BrushPreparation, brushPreparationPlan, brushPreparationBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
 import { importedAssetPixels } from './src/presets/importedBrushes'
 import { hasOpenBrushStroke } from './src/oplog/openBrushStroke'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
@@ -3413,15 +3413,21 @@ export class PencilEngine implements PencilEngineAPI {
     this._brushPreparation.cancel()
     if (this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
     const generation = this._brushPreparationGeneration
-    const resources = brushPreparationResources(digitalBrushFromPreset(preset))
+    const descriptor = digitalBrushFromPreset(preset)
+    const { resources, capabilities } = brushPreparationPlan(descriptor)
     const bytes = brushPreparationBytes(resources,id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256)
     if (bytes > BRUSH_PREPARATION_BYTES) return { status: 'skipped' }
     const stamp = resources.filter(r => r.painter === 'stamp'), wet = resources.filter(r => r.painter === 'wet')
     const missing = resources.filter(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))
-    const result = await this._brushPreparation.run(missing.map(resource => () => {
+    // Capabilities and textures share one traversal, including independent children.
+    const programJobs = [...capabilities].map(painter => () => {
+      if (painter === 'stamp') this._brush.prepareProcedural()
+      else this._smudge.prepareProcedural()
+    })
+    const result = await this._brushPreparation.run([...programJobs, ...missing.map(resource => () => {
       if (resource.painter === 'stamp') this._brush.prepareTexture(stamp,resource)
       else this._smudge.prepareTexture(wet,resource)
-    }),options,() => !this._destroyed && !this._contextLost && !this.gl.isContextLost())
+    })],options,() => !this._destroyed && !this._contextLost && !this.gl.isContextLost())
     if (generation !== this._brushPreparationGeneration || this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
     // Another peer's replay may have changed the protected cache group between
     // jobs. Do not claim residency or loop indefinitely under that workload.

@@ -25,7 +25,11 @@ export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): 
 }
 
 /** Matches sampler routes, rather than uploading both formats for every tip. */
-export function brushPreparationResources(brush: BrushDescriptor): BrushPreparationResource[] {
+export function brushPreparationPlan(brush: BrushDescriptor): {
+  resources: BrushPreparationResource[]
+  capabilities: ('stamp' | 'wet')[]
+} {
+  const capabilities = new Set<'stamp' | 'wet'>()
   const resources = new Map<string, BrushPreparationResource>()
   const add = (painter: 'stamp' | 'wet', id: TipMaskId | BrushTextureId | undefined, grain = false, discrete = false, gray?: string, tip?: BrushTip) => {
     if (id) {
@@ -36,6 +40,10 @@ export function brushPreparationResources(brush: BrushDescriptor): BrushPreparat
   const visit = (b: BrushDescriptor, painter: 'stamp' | 'wet') => {
     if(b.tip.profile?.kind==='gaussian' && painter==='wet') throw Error('Procedural tip profile requires the stamp renderer')
     if(b.tip.material && painter==='wet') throw Error('Lightness tip material requires the stamp renderer')
+    const inline = b.behavior?.dual?.sampling !== 'independent' ? b.behavior?.dual?.brush : undefined
+    if (painter === 'stamp'
+      ? b.tip.kind === 'procedural' || inline?.tip.kind === 'procedural'
+      : b.tip.profile?.kind === 'standard' || inline?.tip.profile?.kind === 'standard') capabilities.add(painter)
     const frames=b.tip.animation?.frames ?? (b.tip.mask ? [b.tip.mask] : [])
     frames.forEach((id,index)=>add(painter,id,false,false,b.tip.material?.grayFrames?.[index] ?? b.tip.material?.gray,b.tip))
     add(painter, b.texture?.id, true,!!b.texture?.application)
@@ -52,7 +60,11 @@ export function brushPreparationResources(brush: BrushDescriptor): BrushPreparat
     }
   }
   visit(brush, brush.model === 'mixer' ? 'wet' : 'stamp')
-  return [...resources.values()]
+  return { resources: [...resources.values()], capabilities: [...capabilities] }
+}
+
+export function brushPreparationResources(brush: BrushDescriptor): BrushPreparationResource[] {
+  return brushPreparationPlan(brush).resources
 }
 
 export function brushPreparationBytes(resources: readonly BrushPreparationResource[], size: (id: string) => number): number {
