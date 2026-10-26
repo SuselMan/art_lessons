@@ -1,3 +1,4 @@
+import { BRUSH_PROCEDURAL_GLSL } from './brushProcedural'
 import { BRUSH_ALPHA_THRESHOLD_GLSL } from '../presets/brushAlphaThreshold'
 import { CANVAS_MEAN_TAPS } from './canvasMeanSampling'
 import { BRUSH_BLEND_GLSL, BRUSH_EDGE_BLEED_GLSL, BRUSH_TEXTURE_APPLICATION_GLSL } from './brushBehaviorShaders'
@@ -311,3 +312,31 @@ void main() {
   gl_FragColor=sum/u_geometry.w;
 }
 `
+
+/** Separate compiler input: legacy transfer must remain byte-identical. */
+export function wetTransferFragment(procedural = false): string {
+  if (!procedural) return WET_TRANSFER_FRAG
+  const replace = (source: string, from: string, to: string): string => {
+    if (source.split(from).length !== 2) throw new Error('Wet procedural shader anchor changed')
+    return source.replace(from, to)
+  }
+  let source = replace(WET_TRANSFER_FRAG, ' void main() {', `
+ uniform vec2 u_dabCenter;
+ uniform float u_angle;
+ uniform vec4 u_tipProcedural;
+ uniform vec4 u_dualProcedural;
+ uniform vec4 u_tipProceduralGeometry;
+ uniform vec4 u_dualProceduralGeometry;
+ uniform float u_dualProceduralAngle;
+ ${BRUSH_PROCEDURAL_GLSL}
+ float wetProceduralMask(vec4 geometry, vec4 profile, float angle) {
+   vec2 pixel=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter;
+   float c=cos(angle),s=sin(angle);
+   return brushProceduralMask(pixel,mat2(c,-s,s,c),geometry,profile);
+ }
+ void main() {`)
+  source = replace(source, 'if ((u_wetEnabled < 0.5 || u_tipKind < 0.5) && dist > 1.0 && u_edgeBleed<=0.0)', 'if (u_tipProcedural.x<0.0 && (u_wetEnabled < 0.5 || u_tipKind < 0.5) && dist > 1.0 && u_edgeBleed<=0.0)')
+  source = replace(source, 'shape *= 1.0 - exp(-8.0 * (1.0 - dist));', 'shape *= 1.0 - exp(-8.0 * (1.0 - dist));\n    if(u_tipProcedural.x>=0.0) shape=wetProceduralMask(u_tipProceduralGeometry,u_tipProcedural,u_angle);')
+  source = replace(source, 'if (abs(uv.x)>1.0 || abs(uv.y)>1.0) second=0.0;', 'if(u_dualProcedural.x>=0.0) second=wetProceduralMask(u_dualProceduralGeometry,u_dualProcedural,u_dualProceduralAngle);\n     else if (abs(uv.x)>1.0 || abs(uv.y)>1.0) second=0.0;')
+  return source
+}

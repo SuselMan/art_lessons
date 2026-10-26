@@ -102,7 +102,7 @@ class LegacyForegroundTests(unittest.TestCase):
             # by the importer fixture, whose private directory is already gone.
             import hashlib
             raw=bytes(4);sha=hashlib.sha256(raw).hexdigest();aid='asset:'+sha
-            d=copy.deepcopy(c.brushes[0]['descriptor']);d['tip'].update(kind='bitmap',mask=aid)
+            d=copy.deepcopy(c.brushes[0]['descriptor']);d['tip'].pop('profile',None);d['tip'].update(kind='bitmap',mask=aid)
             bundle={'library':{'schemaVersion':1,'brushes':[{**c.brushes[0],'descriptor':d}],'assets':[{'id':aid,'size':2,'file':sha+'.bin'}],'skipped':[]},'assets':{aid:base64.b64encode(raw).decode()}}
             path=Path(tmp)/'test.grafetto-brushes.json';path.write_text(json.dumps(bundle))
             convert.portable_bundle(path,convert.Catalog(Path(tmp)/'valid'))

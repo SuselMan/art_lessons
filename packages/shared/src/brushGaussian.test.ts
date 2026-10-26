@@ -13,7 +13,7 @@ it('accepts opt-in scalar parameters and a recursively validated independent chi
  const child=structuredClone(library.brushes[0].descriptor)
  library.brushes[0].descriptor.behavior={version:2,dual:{brush:child,blendMode:'multiply',sampling:'independent'}}
  expect(isBrushLibrary(library)).toBe(true)
- child.tip.profile!.fade=0;expect(isBrushLibrary(library)).toBe(false)
+ Object.assign(child.tip.profile!,{fade:0});expect(isBrushLibrary(library)).toBe(false)
 })
 it('rejects malformed profiles and unsupported wet/bitmap/aspect combinations',()=>{
  const mutations:((d:BrushDescriptor)=>void)[]=[

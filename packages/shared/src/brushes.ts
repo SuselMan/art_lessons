@@ -28,16 +28,17 @@ export type TipRotation =
   | 'travel'
 
 export interface BrushTip {
-  /** 'round' is the procedural radial ramp. 'bitmap' (#573) is a mask sampled
-   *  per stamp (tipMasks.ts), which is what turns the set from a row of round
-   *  brushes into a library. */
-  kind: 'round' | 'bitmap'
+  /** Legacy round ramp, sampled bitmap, or an explicit mathematical profile.
+   * Existing round Gaussian descriptors retain their immutable renderer path. */
+  kind: 'round' | 'bitmap' | 'procedural'
   /** Which mask, when kind is 'bitmap'. */
   mask?: TipMaskId
   /** Sample this square inside the padded asset, retaining the source tip size. */
   maskBounds?: { x: number; y: number; width: number; height: number }
-  /** Stamp-only analytic radial mask; absence preserves the legacy round ramp. */
-  profile?: { kind: 'gaussian'; /** Normalized 1-mean hardness, clamped to [1e-6,1-1e-6]. */ fade: number; antialias: boolean }
+  /** Standard axial masks work with stamp and mixer; Gaussian remains stamp-only.
+   * Absence preserves legacy round/bitmap sampling. */
+  profile?: { kind: 'gaussian'; fade: number; antialias: boolean }
+    | { kind: 'standard'; shape: 'ellipse' | 'rectangle'; horizontalFade: number; verticalFade: number; antialias: boolean }
   /** Quantized mask operation before texture, flow and opacity. */
   alphaThreshold?: { value: number; softness: number }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
@@ -316,23 +317,31 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
     if (Object.keys(d).some(key => !descriptorKeys.includes(key))) return false
     if (typeof d.id !== 'string' || !/^imported-[a-f0-9]{16,64}$/.test(d.id) || !numberIn(d.version, 1, 10000)
       || !Number.isInteger(d.version) || !['stamp','mixer'].includes(String(d.model)) || !['line','paint','wet','soft','texture','scatter'].includes(String(d.category))
-      || !record(d.tip) || !['round','bitmap'].includes(String(d.tip.kind))
+      || !record(d.tip) || !['round','bitmap','procedural'].includes(String(d.tip.kind))
       || ((d.tip.kind === 'bitmap' || d.tip.mask !== undefined) && !ref(d.tip.mask))
       || !numberIn(d.tip.hardness, 0, 1) || !numberIn(d.tip.aspect, 1, 16) || !numberIn(d.tip.angle, -Math.PI * 2, Math.PI * 2)
       || !['fixed','path','travel'].includes(String(d.tip.rotation))
       || !numberIn(d.paperInteraction, 0, 1) || !numberIn(d.spacing, 0.000001, 2) || !numberIn(d.flow, 0, 1)
       || !['pass','stamp'].includes(String(d.flowPer)) || !numberIn(d.opacity, 0, 1)
       || !numberIn(d.pressureSmoothingPx, 0, 100) || !curve(d.sizeByPressure, 8) || !curve(d.flowByPressure) || !curve(d.opacityByPressure)) return false
+    if (d.tip.kind === 'procedural' && d.tip.profile === undefined) return false
     if (d.tip.profile !== undefined) {
       const profile=d.tip.profile
-      if (d.model !== 'stamp' || d.tip.kind !== 'round' || d.tip.aspect !== 1
-        || d.tip.mask !== undefined || d.tip.animation !== undefined || d.tip.material !== undefined
+      if (!record(profile) || !['round','procedural'].includes(String(d.tip.kind))
+        || d.tip.mask !== undefined || d.tip.maskBounds !== undefined || d.tip.animation !== undefined || d.tip.material !== undefined
         || !record(d.behavior) || d.behavior.version !== 2 || d.behavior.wetMix !== undefined
         || d.behavior.edgeBleed !== undefined || d.wet !== undefined
         || (record(d.behavior.rendering) && d.behavior.rendering.wetEdges !== undefined && d.behavior.rendering.wetEdges !== 0)
-        || !record(profile) || Object.keys(profile).some(key=>!['kind','fade','antialias'].includes(key))
-        || profile.kind !== 'gaussian' || !numberIn(profile.fade,0.000001,0.999999)
         || typeof profile.antialias !== 'boolean') return false
+      if (profile.kind === 'gaussian') {
+        if (d.model !== 'stamp' || d.tip.aspect !== 1
+          || Object.keys(profile).some(key=>!['kind','fade','antialias'].includes(key))
+          || !numberIn(profile.fade,0.000001,0.999999)) return false
+      } else if (profile.kind === 'standard') {
+        if (d.tip.kind !== 'procedural' || !['ellipse','rectangle'].includes(String(profile.shape))
+          || Object.keys(profile).some(key=>!['kind','shape','horizontalFade','verticalFade','antialias'].includes(key))
+          || !numberIn(profile.horizontalFade,0,1) || !numberIn(profile.verticalFade,0,1)) return false
+      } else return false
     }
     if (d.tip.alphaThreshold !== undefined) {
       const threshold=d.tip.alphaThreshold
@@ -402,7 +411,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (!isBrushBehavior(d.behavior)) return false
       const secondary = d.behavior.dual?.brush
       if (secondary) {
-        if (d.model !== 'stamp' && secondary.tip?.profile !== undefined) return false
+        if (d.model !== 'stamp' && secondary.tip?.profile?.kind === 'gaussian') return false
         if (secondary.behavior?.dual) return false
         const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary }], skipped: [] }
         if (!isBrushLibrary(probe)) return false

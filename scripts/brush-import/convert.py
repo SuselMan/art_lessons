@@ -501,6 +501,35 @@ def validate_portable_mixer(descriptor):
         if 'dynamics' in foreground: validate_portable_dynamics(foreground['dynamics'])
 
 
+def validate_portable_profile(descriptor):
+    """Bound the portable Python boundary; shared isBrushLibrary remains the
+    authoritative whole-library validator before installation."""
+    tip=descriptor['tip']
+    profile=tip.get('profile')
+    if profile is None:
+        if tip.get('kind')=='procedural': raise ValueError('Procedural tip requires profile')
+        return
+    behavior=descriptor.get('behavior',{})
+    if (not isinstance(profile,dict) or type(profile.get('antialias')) is not bool
+            or tip.get('kind') not in ('round','procedural')
+            or any(key in tip for key in ('mask','maskBounds','animation','material'))
+            or not isinstance(behavior,dict) or behavior.get('version')!=2
+            or any(key in behavior for key in ('wetMix','edgeBleed')) or 'wet' in descriptor
+            or behavior.get('rendering',{}).get('wetEdges',0)!=0):
+        raise ValueError('Invalid portable procedural profile combination')
+    finite=lambda value,lo,hi:type(value) in (int,float) and math.isfinite(value) and lo<=value<=hi
+    if profile.get('kind')=='gaussian':
+        if (set(profile)!={'kind','fade','antialias'} or descriptor['model']!='stamp'
+                or tip.get('aspect')!=1 or not finite(profile.get('fade'),.000001,.999999)):
+            raise ValueError('Invalid portable Gaussian profile')
+    elif profile.get('kind')=='standard':
+        if (set(profile)!={'kind','shape','horizontalFade','verticalFade','antialias'}
+                or tip.get('kind')!='procedural' or profile['shape'] not in ('ellipse','rectangle')
+                or any(not finite(profile.get(key),0,1) for key in ('horizontalFade','verticalFade'))):
+            raise ValueError('Invalid portable standard profile')
+    else: raise ValueError('Unknown portable procedural profile')
+
+
 def portable_bundle(path,catalog):
     # The runtime shared guard remains authoritative for descriptor semantics.
     if path.stat().st_size>360*1024*1024: raise ValueError('Portable bundle exceeds 360 MiB')
@@ -531,7 +560,8 @@ def portable_bundle(path,catalog):
         if type(d.get('version'))!=int or not 1<=d['version']<=1024 or d.get('model') not in ('stamp','mixer') or not isinstance(d.get('tip'),dict): raise ValueError('Unsupported portable descriptor')
         validate_portable_mixer(d)
         tip=d['tip']
-        if tip.get('kind') not in ('bitmap','round') or (tip.get('kind')=='bitmap' and tip.get('mask') not in ids): raise ValueError('Missing portable tip asset')
+        validate_portable_profile(d)
+        if tip.get('kind') not in ('bitmap','round','procedural') or (tip.get('kind')=='bitmap' and tip.get('mask') not in ids): raise ValueError('Missing portable tip asset')
         if 'alphaThreshold' in tip:
             threshold=tip['alphaThreshold']
             if (not isinstance(threshold,dict) or set(threshold)!={'value','softness'}

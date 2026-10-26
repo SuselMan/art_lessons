@@ -8,7 +8,8 @@ import convert
 from krita_import import convert_krita
 
 def authored(params):
-    definition='<Brush type="auto_brush" spacing=".1"><MaskGenerator type="circle" ratio="1" diameter="100"/></Brush>'
+    params=dict(params)
+    definition=params.pop('brush_definition','<Brush type="auto_brush" spacing=".1"><MaskGenerator type="circle" ratio="1" diameter="100"/></Brush>')
     text='<Preset name="Authored" paintopid="paintbrush"><param name="brush_definition"><![CDATA['+definition+']]></param>'
     text+=''.join('<param name="'+k+'"><![CDATA['+v+']]></param>'for k,v in params.items())+'</Preset>'
     meta=PngImagePlugin.PngInfo();meta.add_text('preset',text);out=io.BytesIO();Image.new('L',(2,2)).save(out,format='PNG',pnginfo=meta);return out.getvalue()

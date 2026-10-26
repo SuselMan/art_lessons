@@ -126,7 +126,7 @@ class KritaTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             p=Path(tmp)/'QA.kpp';p.write_bytes(kpp(resources='<param name="PressureSize">true</param>'));c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
             d=c.brushes[0]['descriptor']
-            self.assertEqual(d['tip']['kind'],'round');self.assertNotIn('mask',d['tip'])
+            self.assertEqual(d['tip']['kind'],'procedural');self.assertNotIn('mask',d['tip'])
             self.assertEqual(d['tip']['aspect'],2);self.assertEqual(d['spacing'],0.2)
             self.assertEqual(d['sizeByPressure']['kind'],'uniform')
             self.assertEqual(len(d['sizeByPressure']['samples']),256)
@@ -258,7 +258,7 @@ class KritaTests(unittest.TestCase):
             # final mixer parameters, so old rooms keep their former resource.
             old=copy.deepcopy(current);old['mixer'].update(load=.5,pickup=.5)
             finalize_identity(old,source)
-            self.assertEqual(current['version'],25)
+            self.assertEqual(current['version'],26)
             previous=copy.deepcopy(current);previous['version']=15
             finalize_identity(previous,source)
             self.assertNotEqual(previous['id'],current['id'])

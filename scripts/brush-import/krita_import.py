@@ -363,7 +363,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=25
+    d['version']=26
     source_size=None
     source_metric=None
     application=0
@@ -379,14 +379,13 @@ def preset(data, name, catalog, external, depth=0):
         hardness = clamp((numeric(generator.get('hfade'),1)+numeric(generator.get('vfade'),1))/2)
         ratio = clamp(numeric(generator.get('ratio'),1),0.0625,1)
         d['tip'] = {'kind':'round','hardness':hardness,'aspect':1/ratio,'angle':0,'rotation':'fixed'}
-        if shape == 'rect':
-            mask = Image.new('L',(256,256),255)
-            d['tip']['kind']='bitmap';d['tip']['mask']=catalog.asset(mask,warnings)
         gaussian=generator.get('id')=='gauss' and shape=='circle' and numeric(generator.get('spikes'),2)==2
         procedural_gaussian=(gaussian and engine=='paintbrush' and ratio==1
             and enabled(generator.get('antialiasEdges')) and numeric(definition.get('randomness'))==0
             and numeric(definition.get('density'),1)==1)
         if procedural_gaussian:
+            # Existing immutable Gaussian program/frame remains the round path.
+            d['tip']['kind']='round'
             d['tip']['profile']={'kind':'gaussian','fade':clamp(1-hardness,1e-6,1-1e-6),'antialias':True}
             d['tip']['hardness']=1
             notes.append(compatibility('gaussianProcedural','Erf radial parameters retained with per-dab scale-aware 1px AA and U8 scalar3x3/6x6 sampling. GPU erf precision, subpixel placement and scalar/SIMD rounding require comparison.'))
@@ -405,6 +404,28 @@ def preset(data, name, catalog, external, depth=0):
                 notes.append(compatibility('softnessDynamics','Native softness transforms interior curve knots per dab; static base curve retained.','unsupported'))
         if (generator.get('id','default') != 'default' and not gaussian and not soft) or numeric(generator.get('spikes'),2) != 2 or numeric(definition.get('randomness')) or numeric(definition.get('density'),1) != 1:
             notes.append(compatibility('autoBrush','Gaussian/curve generator, spikes, randomness and density are not reproduced.','unsupported'))
+        default_generator=generator.get('id','default')=='default'
+        softness_checked=enabled(params.get('PressureSoftness'))
+        constant_softness=(not softness_checked or
+            (not enabled(params.get('SoftnessUseCurve','true')) and numeric(params.get('SoftnessValue'),1)==1))
+        standard=(default_generator and shape in ('circle','rect') and numeric(generator.get('spikes'),2)==2
+            and numeric(definition.get('randomness'))==0 and numeric(definition.get('density'),1)==1
+            and constant_softness)
+        if standard:
+            horizontal=numeric(generator.get('hfade'),0)
+            vertical=numeric(generator.get('vfade'),0)
+            if not 0<=horizontal<=1 or not 0<=vertical<=1:
+                raise ValueError('Native standard mask fade outside0..1')
+            d['tip'].pop('mask',None)
+            d['tip']['kind']='procedural'
+            d['tip']['profile']={'kind':'standard','shape':'ellipse' if shape=='circle' else 'rectangle',
+                'horizontalFade':horizontal,'verticalFade':vertical,'antialias':enabled(generator.get('antialiasEdges'))}
+            notes.append(compatibility('standardMaskProfile','Independent axial fade and physical-size U8 scalar1/3/6 antialias sampling retained; scalar/SIMD rounding and undefined hard-circle boundary require comparison.'))
+        elif default_generator:
+            notes.append(compatibility('standardMaskProfile','Dynamic/nonunit softness, spikes, per-pixel density or randomness remain unsupported; legacy mask approximation retained.','unsupported'))
+        if shape=='rect' and not standard:
+            mask=Image.new('L',(256,256),255)
+            d['tip']['kind']='bitmap';d['tip']['mask']=catalog.asset(mask,warnings)
         if enabled(definition.get('useAutoSpacing')):
             notes.append(compatibility('autoSpacing','Krita adaptive spacing coefficient retained; anisotropic axis metrics and spacing sensors require separate calibration.'))
     elif kind in ('gbr_brush', 'png_brush', 'svg_brush', 'abr_brush'):

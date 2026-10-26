@@ -1,3 +1,4 @@
+import { BRUSH_PROCEDURAL_GLSL } from './brushProcedural'
 import { BRUSH_GAUSSIAN_GLSL } from './gaussianTip'
 import { BRUSH_TIP_PACKING_GLSL } from '../presets/brushMaterialPacking'
 import { BRUSH_ALPHA_THRESHOLD_GLSL } from '../presets/brushAlphaThreshold'
@@ -420,3 +421,27 @@ void main() {
  gl_FragColor=vec4(source*alpha+base.rgb*(1.0-alpha),alpha+base.a*(1.0-alpha));
 }
 `
+
+/** One opt-in renderer capability. The immutable legacy shader text is kept
+ * intact; both variants derive geometry and sampling from shared templates. */
+export function createBrushStampFragment(procedural = false): string {
+  if (!procedural) return BRUSH_STAMP_FRAG
+  let source = BRUSH_STAMP_FRAG
+  const replace = (from: string, to: string): void => {
+    if (source.split(from).length !== 2) throw new Error('Stamp procedural template replacement must match exactly once')
+    source = source.replace(from, to)
+  }
+  replace(BRUSH_GAUSSIAN_GLSL, BRUSH_PROCEDURAL_GLSL)
+  replace('  void main() {', `  uniform vec4 u_tipProcedural;
+  uniform vec4 u_dualProcedural;
+  uniform vec4 u_tipProceduralGeometry;
+  uniform vec4 u_dualProceduralGeometry;
+  uniform float u_dualProceduralAngle;
+  void main() {`)
+  replace('gaussianFrame=mat2(c,-s*u_aspectRatio,s,c*u_aspectRatio);', 'gaussianFrame=mat2(c,-s,s,c);')
+  replace('brushGaussianMask(pixel,gaussianFrame,u_gaussianGeometry.xy,u_tipProfile)',
+    'brushProceduralMask(pixel,gaussianFrame,u_tipProceduralGeometry,u_tipProcedural)')
+  replace('brushGaussianMask(vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter,dualRotation*dualScale*gaussianFrame,u_gaussianGeometry.zw,u_dualProfile)',
+    'brushProceduralMask(vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter,mat2(cos(u_dualProceduralAngle),-sin(u_dualProceduralAngle),sin(u_dualProceduralAngle),cos(u_dualProceduralAngle)),u_dualProceduralGeometry,u_dualProcedural)')
+  return source
+}

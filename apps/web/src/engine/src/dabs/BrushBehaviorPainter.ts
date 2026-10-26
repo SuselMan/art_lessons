@@ -1,3 +1,4 @@
+import { proceduralProfileUniforms, proceduralSampleCount } from '../raster/brushProcedural'
 import { gaussianSampleCount } from '../raster/gaussianTip'
 import { brushTipResource, brushTextureResourceKey } from './BrushPreparation'
 import type { MaterialTextureGroup } from '../presets/brushMaterialPacking'
@@ -12,10 +13,29 @@ import type { PencilPreset } from '../presets/pencilPresets'
 import { beginBrushBehavior, behaviorStampsForDab, secondaryBrushDabs, splitBrushTail, type BehaviorPlaced, type BrushBehaviorState, type SecondarySamplingState } from '../presets/brushBehavior'
 import { digitalBrushCeiling, brushDabRandom, curveAt, type BrushPressureSettings } from '../presets/digitalBrushPresets'
 import type { BrushTextureId, TipMaskId } from '../presets/tipMasks'
-import { BRUSH_COMPOSITE_FRAG, BRUSH_STAMP_FRAG } from '../raster/brushBehaviorShaders'
+import { BRUSH_COMPOSITE_FRAG, BRUSH_STAMP_FRAG, createBrushStampFragment } from '../raster/brushBehaviorShaders'
 import { DAB_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 import type { BrushContext, BrushScratch } from './BrushPainter'
+const STAMP_UNIFORMS = [
+  'u_gaussianGeometry', 'u_tipProfile', 'u_dualProfile', 'u_wickPx',
+  'u_wickCap', 'u_tipPacking', 'u_dualTipPacking', 'u_lightnessMaterial',
+  'u_lightnessStrength', 'u_dualLightnessMaterial', 'u_textureApplication', 'u_textureMapping',
+  'u_dualTextureApplication', 'u_dualTextureMapping', 'u_alphaThreshold', 'u_dualAlphaThreshold',
+  'u_tipBounds', 'u_dualBounds', 'u_edgeBleed', 'u_ceilingPass',
+  'u_uniformCeiling', 'u_washMode', 'u_washFlow', 'u_washAverage',
+  'u_ceilingFallback', 'u_previousCeiling', 'u_dabCenter', 'u_dabRadius',
+  'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity',
+  'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin',
+  'u_paperTexSize', 'u_tipKind', 'u_hardness', 'u_aaPx',
+  'u_ceiling', 'u_paper', 'u_paperPressure', 'u_texture',
+  'u_texStrength', 'u_texPeriod', 'u_texOrigin', 'u_color',
+  'u_flip', 'u_grainTransform', 'u_grainTone', 'u_grainBlend',
+  'u_dual', 'u_dualKind', 'u_dualBlend', 'u_dualTransform',
+  'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin',
+  'u_dualTexPeriod', 'u_dualTexStrength', 'u_tipProcedural', 'u_dualProcedural',
+  'u_tipProceduralGeometry', 'u_dualProceduralGeometry', 'u_dualProceduralAngle',
+]
 type BrushTarget = Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>
 export interface BehaviorScratch extends BrushScratch {
   brushSecondary(): {scratch:BehaviorScratch;sampling:SecondarySamplingState;tile:(source:AccumulationBuffer)=>AccumulationBuffer}
@@ -63,6 +83,7 @@ export class BrushBehaviorPainter {
     MAX_EXT: number
   } | null = null;
   private stamp!: WebGLProgram
+  private proceduralStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private composite!: WebGLProgram
   private su!: Uniforms
   private cu!: Uniforms
@@ -79,22 +100,32 @@ export class BrushBehaviorPainter {
     return {texture:this.tip(id,gray,resource.materialGroup),mode:resource.materialChannels==='rg' ? 1 : resource.materialChannels==='ba' ? 2 : 0}
   }
   initGL(): void {
+    this.proceduralStamp = undefined
     const gl = this.ctx.gl
     this.minmax = gl.getExtension('EXT_blend_minmax') as {
       MAX_EXT: number
     } | null
     this.stamp = createProgram(gl, DAB_VERT, BRUSH_STAMP_FRAG)
     this.composite = createProgram(gl, DAB_VERT, BRUSH_COMPOSITE_FRAG)
-    this.su = getUniforms(gl, this.stamp, ['u_gaussianGeometry','u_tipProfile','u_dualProfile','u_wickPx','u_wickCap','u_tipPacking','u_dualTipPacking','u_lightnessMaterial','u_lightnessStrength','u_dualLightnessMaterial','u_textureApplication','u_textureMapping','u_dualTextureApplication','u_dualTextureMapping','u_alphaThreshold', 'u_dualAlphaThreshold', 'u_tipBounds', 'u_dualBounds', 'u_edgeBleed', 'u_ceilingPass', 'u_uniformCeiling', 'u_washMode', 'u_washFlow', 'u_washAverage', 'u_ceilingFallback', 'u_previousCeiling', 'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity', 'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure', 'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin', 'u_color', 'u_flip', 'u_grainTransform', 'u_grainTone', 'u_grainBlend', 'u_dual', 'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin', 'u_dualTexPeriod', 'u_dualTexStrength'])
+    this.su = getUniforms(gl, this.stamp, STAMP_UNIFORMS)
     this.cu = getUniforms(gl, this.composite, ['u_physicalAccumulation','u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_original', 'u_strokeCoverage', 'u_ceiling', 'u_opacity', 'u_blend', 'u_mode', 'u_burntEdge', 'u_burntBlend', 'u_edgePx', 'u_luminance', 'u_gammaCorrect', 'u_secondaryCoverage', 'u_secondaryMode', 'u_secondaryEnabled', 'u_surfaceCloud', 'u_surfaceGrain', 'u_surface', 'u_surfaceOrigin', 'u_screenOrigin', 'u_screentone', 'u_erase'])
     this.sp = gl.getAttribLocation(this.stamp, 'a_position')
     this.cp = gl.getAttribLocation(this.composite, 'a_position')
+  }
+  private stampFor(procedural: boolean): { program: WebGLProgram; uniforms: Uniforms; position: number } {
+    if (!procedural) return { program: this.stamp, uniforms: this.su, position: this.sp }
+    if (!this.proceduralStamp) {
+      const gl = this.ctx.gl
+      const program = createProgram(gl, DAB_VERT, createBrushStampFragment(true))
+      this.proceduralStamp = { program, uniforms: getUniforms(gl, program, STAMP_UNIFORMS), position: gl.getAttribLocation(program, 'a_position') }
+    }
+    return this.proceduralStamp
   }
   finish(scratch: BehaviorScratch, endpoint?: Dab & {baseSize:number}): void {
     const b = this.bindings.get(scratch); if (b)
       this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint)
   }
-  destroy(): void { const gl = this.ctx.gl; gl.deleteProgram(this.stamp); gl.deleteProgram(this.composite) }
+  destroy(): void { const gl = this.ctx.gl; gl.deleteProgram(this.stamp); gl.deleteProgram(this.composite); if (this.proceduralStamp) gl.deleteProgram(this.proceduralStamp.program); this.proceduralStamp = undefined }
   paint(target: BrushTarget, dabs: Dab[], preset: PencilPreset, brush: BrushDescriptor, pressure: BrushPressureSettings, color: [
     number,
     number,
@@ -188,6 +219,8 @@ export class BrushBehaviorPainter {
     ])
     const animated = !!brush.tip.animation || !!secondary?.tip.animation
     protect(stamps[0]?.mask ?? brush.tip.mask,brush.texture?.id,stamps[0]?.dualMask ?? secondary?.tip.mask,secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,stamps[0]?.gray ?? brush.tip.material?.gray,stamps[0]?.dualGray ?? secondary?.tip.material?.gray)
+    const procedural = brush.tip.kind === 'procedural' || secondary?.tip.kind === 'procedural'
+    const selected = this.stampFor(procedural)
     const mainView = !animated && brush.tip.mask ? this.tipView(brush.tip.mask,brush.tip.material?.gray,brush.tip) : {texture:paper.texture,mode:0}
     const mask=mainView.texture
     const texture = brush.texture ? this.grain(brush.texture.id,!!brush.texture.application) : paper.texture
@@ -203,8 +236,8 @@ export class BrushBehaviorPainter {
       let coverage = scratch.getOrCreate(tile.buffer).coverage
       let ceiling = scratch.brushCeiling(tile.buffer)
       coverage.beginDraw()
-      gl.useProgram(this.stamp)
-      const u = this.su
+      gl.useProgram(selected.program)
+      const u = selected.uniforms
       const primaryApplication=brushTextureApplication(brush.texture,state.seed,tile.originX,tile.originY)
       const secondaryApplication=brushTextureApplication(secondary?.texture,state.seed,tile.originX,tile.originY,1)
       gl.uniform4f(u.u_textureApplication,...primaryApplication.application);gl.uniform4f(u.u_textureMapping,...primaryApplication.mapping)
@@ -230,9 +263,13 @@ export class BrushBehaviorPainter {
       gl.uniform1f(u.u_lightnessStrength,brush.tip.material?.strength ?? 1)
       gl.uniform1f(u.u_dualLightnessMaterial,secondary?.tip.material ? 1 : 0)
       gl.uniform1f(u.u_tipKind, brush.tip.profile ? 2 : brush.tip.kind === 'bitmap' ? 1 : 0)
-      gl.uniform2f(u.u_tipProfile,brush.tip.profile?.fade ?? .5,brush.tip.profile?.antialias ? 1 : 0)
-      gl.uniform2f(u.u_dualProfile,secondary?.tip.profile?.fade ?? .5,secondary?.tip.profile?.antialias ? 1 : 0)
+      gl.uniform2f(u.u_tipProfile,brush.tip.profile?.kind === 'gaussian' ? brush.tip.profile.fade : .5,brush.tip.profile?.antialias ? 1 : 0)
+      gl.uniform2f(u.u_dualProfile,secondary?.tip.profile?.kind === 'gaussian' ? secondary.tip.profile.fade : .5,secondary?.tip.profile?.antialias ? 1 : 0)
       gl.uniform1f(u.u_wickCap,4)
+      if (procedural) {
+        gl.uniform4f(u.u_tipProcedural, ...proceduralProfileUniforms(brush.tip.profile))
+        gl.uniform4f(u.u_dualProcedural, ...proceduralProfileUniforms(secondary?.tip.profile))
+      }
       gl.uniform1f(u.u_wickPx,brush.tip.profile || secondary?.tip.profile ? 1 : 0)
       gl.uniform1f(u.u_hardness, brush.tip.hardness)
       gl.uniform1f(u.u_aaPx, 1)
@@ -248,8 +285,8 @@ export class BrushBehaviorPainter {
       gl.uniform1f(u.u_dualKind, secondary ? secondary.tip.profile ? 3 : secondary.tip.kind === 'bitmap' ? 2 : 1 : 0)
       gl.uniform1f(u.u_dualBlend, blend(behavior.dual?.blendMode))
       gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.quadBuf())
-      gl.enableVertexAttribArray(this.sp)
-      gl.vertexAttribPointer(this.sp, 2, gl.FLOAT, false, 0, 0)
+      gl.enableVertexAttribArray(selected.position)
+      gl.vertexAttribPointer(selected.position, 2, gl.FLOAT, false, 0, 0)
       const drawStamps = (list: BehaviorPlaced[], ceilingPass: boolean, fallback = false, beforeStamp?: (stamp:BehaviorPlaced)=>void): void => {
         gl.uniform1f(u.u_ceilingFallback, fallback ? 1 : 0)
         gl.activeTexture(gl.TEXTURE3)
@@ -293,6 +330,21 @@ export class BrushBehaviorPainter {
             const childAspect=(secondary?.tip.aspect ?? 1)/brush.tip.aspect*aspect
             gl.uniform4f(u.u_gaussianGeometry,mainRadius,gaussianSampleCount(2*mainRadius/Math.max(1,aspect),!!brush.tip.profile?.antialias),
               childRadius,gaussianSampleCount(2*childRadius/Math.max(1,childAspect),!!secondary?.tip.profile?.antialias))
+          }
+          if (procedural) {
+            const mainRx = Math.fround(Math.fround(s.radius) * Math.fround(s.aspect))
+            const mainRy = Math.fround(s.radius)
+            const childRx = Math.fround(mainRx * ratio / (1 + s.edgeSoftness * .15))
+            const childRy = Math.fround(childRx / (secondary?.tip.aspect ?? 1))
+            const standard = brush.tip.profile?.kind === 'standard'
+            // A child profile does not expand a legacy parent's clipping quad.
+            const wick = standard ? Math.SQRT2 / Math.min(1, s.aspect)
+              : brush.tip.profile || secondary?.tip.profile?.kind === 'gaussian' ? 1 : 0
+            gl.uniform1f(u.u_wickPx, wick)
+            gl.uniform1f(u.u_wickCap, Math.max(4, wick / Math.max(s.radius, .0001)))
+            gl.uniform4f(u.u_tipProceduralGeometry, mainRx, mainRy, proceduralSampleCount(2 * Math.min(mainRx, mainRy), !!brush.tip.profile?.antialias), 0)
+            gl.uniform4f(u.u_dualProceduralGeometry, childRx, childRy, proceduralSampleCount(2 * Math.min(childRx, childRy), !!secondary?.tip.profile?.antialias), 0)
+            gl.uniform1f(u.u_dualProceduralAngle, secondary?.tip.rotation === 'fixed' ? secondary.tip.angle : s.angle)
           }
           const dualAngle = (secondary?.tip.rotation === 'fixed' ? secondary.tip.angle : s.angle) - s.angle
           gl.uniform4f(u.u_dualTransform, (1+s.edgeSoftness*.15) / ratio, (1+s.edgeSoftness*.15)*(secondary?.tip.aspect ?? 1) / brush.tip.aspect / ratio, Math.cos(dualAngle), Math.sin(dualAngle))

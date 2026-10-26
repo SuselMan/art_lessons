@@ -1,3 +1,4 @@
+import { proceduralProfileUniforms, proceduralSampleCount } from '../raster/brushProcedural'
 import { canvasMeanDabRect, canvasMeanPlacedCenter, canvasMeanSourceRect } from '../raster/canvasMeanGeometry'
 import { brushTextureApplication } from './brushTextureApplication'
 import { brushTextureLeaseResources, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
@@ -35,7 +36,7 @@ import { smudgeGrainRelief } from '../presets/smudgeGrain'
 import { DAB_VERT, DISPLAY_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 
-import { WET_PICKUP_FRAG, WET_TRANSFER_FRAG, CANVAS_MEAN_FRAG } from '../raster/wetMixShaders'
+import { WET_PICKUP_FRAG, WET_TRANSFER_FRAG, wetTransferFragment, CANVAS_MEAN_FRAG } from '../raster/wetMixShaders'
 import { advanceBrushAnimation, beginBrushBehavior, brushDynamicValue, behaviorStampsForDab, secondaryBrushDabs, type BrushBehaviorState, type BehaviorStamp } from '../presets/brushBehavior'
 import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix'
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
@@ -124,6 +125,20 @@ function clampNum(x: number, lo: number, hi: number): number {
 
 type Uniforms = Record<string, WebGLUniformLocation | null>
 
+const TRANSFER_UNIFORMS = [
+  'u_textureApplication', 'u_textureMapping', 'u_dualTextureApplication', 'u_dualTextureMapping', 'u_dualGrain',
+  'u_dualGrainStrength', 'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
+  'u_resolution', 'u_alphaThreshold', 'u_dualAlphaThreshold', 'u_tipBounds', 'u_dualBounds',
+  'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_hardness',
+  'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode', 'u_grainRelief',
+  'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap', 'u_previousCanvasForeground',
+  'u_previousCanvas', 'u_edgeBleed', 'u_wetEnabled', 'u_tipKind', 'u_tip',
+  'u_wetGrain', 'u_grainStrength', 'u_grainPeriod', 'u_grainTransform', 'u_grainTone',
+  'u_wetRoundPhase', 'u_wetWorldOrigin', 'u_flip', 'u_grainBlend', 'u_dual',
+  'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_wetOriginal', 'u_wetRender',
+  'u_wetBlend', 'u_burntBlend', 'u_wetGamma', 'u_secondaryCoverage', 'u_secondaryEnabled',
+]
+
 export class SmudgePainter {
   private readonly gl: WebGLRenderingContext
   private readonly ctx: SmudgeContext
@@ -181,6 +196,7 @@ export class SmudgePainter {
 
   // Smudge (#14) — paired with the existing DAB_VERT (see SMUDGE_TRANSFER_
   // FRAG's own doc comment for why it never uses DAB_VERT_INSTANCED).
+  private proceduralTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private transferProg!: WebGLProgram
   // The imprint-refresh pass (#416) — paired with DISPLAY_VERT (a plain
   // full-screen quad over the imprint texture; it needs no dab-quad
@@ -210,20 +226,14 @@ export class SmudgePainter {
    *  again on every context restore (the old names died with the context). */
   initGL(): void {
     this.wetTextures.clear(true)
+    this.proceduralTransfer = undefined
     const { gl } = this
     this.transferProg = createProgram(gl, DAB_VERT, WET_TRANSFER_FRAG)
     this.pickupProg   = createProgram(gl, DISPLAY_VERT, WET_PICKUP_FRAG)
     this.meanProg = createProgram(gl, DISPLAY_VERT, CANVAS_MEAN_FRAG)
     this.meanUni = getUniforms(gl,this.meanProg,['u_source','u_geometry'])
     this.meanPosLoc = gl.getAttribLocation(this.meanProg,'a_position')
-    this.transferUni = getUniforms(gl, this.transferProg, [
-      'u_textureApplication','u_textureMapping','u_dualTextureApplication','u_dualTextureMapping','u_dualGrain','u_dualGrainStrength',
-      'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
-      'u_alphaThreshold', 'u_dualAlphaThreshold', 'u_tipBounds', 'u_dualBounds', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_hardness', 'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode', 'u_grainRelief',
-      'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap',
-      'u_previousCanvasForeground','u_previousCanvas','u_edgeBleed','u_wetEnabled','u_tipKind','u_tip','u_wetGrain','u_grainStrength','u_grainPeriod','u_grainTransform','u_grainTone','u_wetRoundPhase','u_wetWorldOrigin','u_flip','u_grainBlend','u_dual','u_dualKind','u_dualBlend','u_dualTransform','u_wetOriginal','u_wetRender','u_wetBlend','u_burntBlend','u_wetGamma','u_secondaryCoverage','u_secondaryEnabled',
-    ])
+    this.transferUni = getUniforms(gl, this.transferProg, TRANSFER_UNIFORMS)
     this.pickupUni = getUniforms(gl, this.pickupProg, [
       'u_gatherEnabled','u_gatherRect','u_gatherTile','u_gatherScale','u_patch', 'u_carried', 'u_rate', 'u_paint', 'u_paintLoad', 'u_alphaPickup', 'u_wetBlur','u_wetTexel','u_wetRetention',
     ])
@@ -233,6 +243,7 @@ export class SmudgePainter {
 
   /** Context loss: every GL object held here is already dead. */
   forget(): void {
+    this.proceduralTransfer = undefined
     this.scratchPool.forget() // same reasoning as AreaOps' pool, see #14
     this.wetTextures.clear(true)
     for(const state of this.wetGestures.values()) state.secondary?.forget()
@@ -252,6 +263,8 @@ export class SmudgePainter {
     this.wetTextures.clear()
     for(const state of this.wetGestures.values())state.secondary?.destroy()
     this.wetGestures.clear()
+    if (this.proceduralTransfer) gl.deleteProgram(this.proceduralTransfer.program)
+    this.proceduralTransfer = undefined
     gl.deleteProgram(this.transferProg)
     gl.deleteProgram(this.pickupProg)
     gl.deleteProgram(this.meanProg)
@@ -799,8 +812,54 @@ export class SmudgePainter {
     else if (mode === 'lay') buffer.beginAdditiveDraw()
     else buffer.beginErase()
 
-    gl.useProgram(this.transferProg)
-    const u = this.transferUni
+    const primaryProfile = brush?.tip.profile?.kind === 'standard' ? brush.tip.profile : undefined
+    const childProfile = !wet?.secondary && dual?.brush.tip.profile?.kind === 'standard'
+      ? dual.brush.tip.profile : undefined
+    let binding = this.proceduralTransfer
+    if (primaryProfile || childProfile) {
+      if (!binding) {
+        const program = createProgram(gl, DAB_VERT, wetTransferFragment(true))
+        binding = this.proceduralTransfer = {
+          program,
+          uniforms: getUniforms(gl, program, [
+            ...TRANSFER_UNIFORMS, 'u_tipProcedural', 'u_dualProcedural',
+            'u_tipProceduralGeometry', 'u_dualProceduralGeometry', 'u_dualProceduralAngle',
+            'u_wickPx', 'u_wickCap',
+          ]),
+          position: gl.getAttribLocation(program, 'a_position'),
+        }
+      }
+    } else binding = undefined
+    gl.useProgram(binding?.program ?? this.transferProg)
+    const u = binding?.uniforms ?? this.transferUni
+    if (binding) {
+      // Physical axes, not reconstructed inverse float matrices: the native
+      // 10px stencil transition must not become 9.999999 after inversion.
+      const ry = Math.fround(radius)
+      const rx = Math.fround(ry * Math.fround(wet?.stamp.aspect ?? 1))
+      const ratio = dual && brush ? Math.max(.01,
+        curveAt(dual.brush.sizeByPressure, dab.pressure)
+        / Math.max(.01, curveAt(brush.sizeByPressure, dab.pressure))
+        * (dual.brush.scatter?.scale ?? 1)) : 1
+      const childRx = Math.fround(rx * ratio / (1 + (wet?.stamp.edgeSoftness ?? 0) * .15))
+      const childRy = Math.fround(childRx / (dual?.brush.tip.aspect ?? 1))
+      gl.uniform4f(u.u_tipProcedural, ...proceduralProfileUniforms(primaryProfile))
+      gl.uniform4f(u.u_dualProcedural, ...proceduralProfileUniforms(childProfile))
+      gl.uniform4f(u.u_tipProceduralGeometry, rx, ry,
+        proceduralSampleCount(2 * Math.min(rx, ry), primaryProfile?.antialias ?? false), 0)
+      gl.uniform4f(u.u_dualProceduralGeometry, childRx, childRy,
+        proceduralSampleCount(2 * Math.min(childRx, childRy), childProfile?.antialias ?? false), 0)
+      gl.uniform1f(u.u_dualProceduralAngle,
+        dual?.brush.tip.rotation === 'fixed' ? dual.brush.tip.angle ?? 0 : wet?.stamp.angle ?? 0)
+      // Only the native variant expands its quad; the legacy program and
+      // compiler input retain their previous geometry and uniform traffic.
+      // The stencil offsets lie in [0,1) on both world axes. A rotated
+      // frame needs at most sqrt(2) local pixels on each axis. Retain the
+      // nominal parent clipping quad when only its child is procedural.
+      const wick = primaryProfile ? Math.SQRT2 / Math.min(1, wet?.stamp.aspect ?? 1) : 0
+      gl.uniform1f(u.u_wickPx, wick)
+      gl.uniform1f(u.u_wickCap, Math.max(4, wick / radius))
+    }
     gl.uniform2f(u.u_resolution, buffer.width, buffer.height)
     // Same world-space paper sampling every other dab shader uses — see
     // DAB_FRAG's own #141 comment for the origin-sign/world-size reasoning.
@@ -893,7 +952,7 @@ export class SmudgePainter {
     gl.uniform1f(u.u_grainRelief, smudgeGrainRelief(dab.pressure))
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.ctx.quadBuf())
-    const position=this.transferPosLoc
+    const position=binding?.position ?? this.transferPosLoc
     gl.enableVertexAttribArray(position)
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
 
