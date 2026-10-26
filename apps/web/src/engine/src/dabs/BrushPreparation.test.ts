@@ -89,3 +89,17 @@ it('plans one packed variant for each alpha/gray pair, not duplicate old-format 
   brush.model='mixer'
   expect(()=>brushPreparationResources(brush)).toThrow('stamp renderer')
 })
+
+it('rejects procedural masks on wet samplers before scheduling any upload',()=>{
+  const brush=structuredClone(digitalBrushFromPreset('hard-round'))
+  brush.tip.profile={kind:'gaussian',fade:1e-6,antialias:true}
+  brush.behavior={version:2}
+  const prepared=brushPreparationResources(brush)
+  expect(prepared.every(resource=>resource.painter==='stamp')).toBe(true)
+  expect(prepared.some(resource=>!resource.grain)).toBe(false)
+  const wet=structuredClone(brush);wet.model='mixer';wet.mixer={load:1,pickup:1,strength:1}
+  expect(()=>brushPreparationResources(wet)).toThrow('Procedural tip profile requires the stamp renderer')
+  delete wet.tip.profile
+  wet.behavior={version:2,dual:{brush,blendMode:'multiply'}}
+  expect(()=>brushPreparationResources(wet)).toThrow('Procedural dual profile requires the stamp renderer')
+})

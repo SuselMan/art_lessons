@@ -363,7 +363,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=23
+    d['version']=24
     source_size=None
     source_metric=None
     application=0
@@ -383,7 +383,14 @@ def preset(data, name, catalog, external, depth=0):
             mask = Image.new('L',(256,256),255)
             d['tip']['kind']='bitmap';d['tip']['mask']=catalog.asset(mask,warnings)
         gaussian=generator.get('id')=='gauss' and shape=='circle' and numeric(generator.get('spikes'),2)==2
-        if gaussian:
+        procedural_gaussian=(gaussian and engine=='paintbrush' and ratio==1
+            and enabled(generator.get('antialiasEdges')) and numeric(definition.get('randomness'))==0
+            and numeric(definition.get('density'),1)==1)
+        if procedural_gaussian:
+            d['tip']['profile']={'kind':'gaussian','fade':clamp(1-hardness,1e-6,1-1e-6),'antialias':True}
+            d['tip']['hardness']=1
+            notes.append(compatibility('gaussianProcedural','Erf radial parameters retained with per-dab scale-aware 1px AA and U8 scalar3x3/6x6 sampling. GPU erf precision, subpixel placement and scalar/SIMD rounding require comparison.'))
+        elif gaussian:
             mask=gaussian_circle(numeric(generator.get('hfade'),1),numeric(generator.get('vfade'),1),numeric(generator.get('diameter'),10),enabled(generator.get('antialiasEdges')))
             d['tip']['kind']='bitmap';d['tip']['hardness']=1;d['tip']['mask']=catalog.asset(mask,warnings)
             notes.append(compatibility('gaussianGenerator','Gaussian erf radial profile retained in a static 256px tip; Krita regenerates scale-dependent edge antialiasing and subpixel masks per dab.'))

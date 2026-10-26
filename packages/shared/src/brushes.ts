@@ -36,6 +36,8 @@ export interface BrushTip {
   mask?: TipMaskId
   /** Sample this square inside the padded asset, retaining the source tip size. */
   maskBounds?: { x: number; y: number; width: number; height: number }
+  /** Stamp-only analytic radial mask; absence preserves the legacy round ramp. */
+  profile?: { kind: 'gaussian'; /** Normalized 1-mean hardness, clamped to [1e-6,1-1e-6]. */ fade: number; antialias: boolean }
   /** Quantized mask operation before texture, flow and opacity. */
   alphaThreshold?: { value: number; softness: number }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
@@ -321,6 +323,17 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !numberIn(d.paperInteraction, 0, 1) || !numberIn(d.spacing, 0.000001, 2) || !numberIn(d.flow, 0, 1)
       || !['pass','stamp'].includes(String(d.flowPer)) || !numberIn(d.opacity, 0, 1)
       || !numberIn(d.pressureSmoothingPx, 0, 100) || !curve(d.sizeByPressure, 8) || !curve(d.flowByPressure) || !curve(d.opacityByPressure)) return false
+    if (d.tip.profile !== undefined) {
+      const profile=d.tip.profile
+      if (d.model !== 'stamp' || d.tip.kind !== 'round' || d.tip.aspect !== 1
+        || d.tip.mask !== undefined || d.tip.animation !== undefined || d.tip.material !== undefined
+        || !record(d.behavior) || d.behavior.version !== 2 || d.behavior.wetMix !== undefined
+        || d.behavior.edgeBleed !== undefined || d.wet !== undefined
+        || (record(d.behavior.rendering) && d.behavior.rendering.wetEdges !== undefined && d.behavior.rendering.wetEdges !== 0)
+        || !record(profile) || Object.keys(profile).some(key=>!['kind','fade','antialias'].includes(key))
+        || profile.kind !== 'gaussian' || !numberIn(profile.fade,0.000001,0.999999)
+        || typeof profile.antialias !== 'boolean') return false
+    }
     if (d.tip.alphaThreshold !== undefined) {
       const threshold=d.tip.alphaThreshold
       if (!record(threshold) || Object.keys(threshold).some(key=>!['value','softness'].includes(key)) || !numberIn(threshold.value,0,1) || !numberIn(threshold.softness,0,1)) return false
@@ -389,6 +402,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       if (!isBrushBehavior(d.behavior)) return false
       const secondary = d.behavior.dual?.brush
       if (secondary) {
+        if (d.model !== 'stamp' && secondary.tip?.profile !== undefined) return false
         if (secondary.behavior?.dual) return false
         const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary }], skipped: [] }
         if (!isBrushLibrary(probe)) return false

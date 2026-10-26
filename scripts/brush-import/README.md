@@ -27,7 +27,7 @@ Pass all source packs in one invocation: `manifest.json` is replaced, not append
 
 Tips are centered in a transparent POT square, retaining original pixels until dimensions exceed 2048. Larger tips are proportionally resampled, with a warning. Grain is resampled to square POT; non-square grain may change aspect, reported as a warning. Alpha multiplies image luminance. ABR samples already encode positive coverage and are not inverted heuristically.
 
-Imported descriptors have `id: imported-<24 hexadecimal digits>`, immutable preset versions4 (ABR),16 (Krita),5 (Procreate) and behavior schema2, `model: stamp` or `mixer`; the ID hashes source settings, all final rendering fields (including shape/grain content hashes), and the importer schema/version. Source file paths are not persisted. Preset identity/settings are immutable at runtime. A future importer which changes rendering must bump its import version/identity rule; it must not overwrite referenced resources.
+Imported descriptors have `id: imported-<24 hexadecimal digits>`, immutable preset versions4 (ABR),24 (Krita),5 (Procreate) and behavior schema2, `model: stamp` or `mixer`; the ID hashes source settings, all final rendering fields (including shape/grain content hashes), and the importer schema/version. Source file paths are not persisted. Preset identity/settings are immutable at runtime. A future importer which changes rendering must bump its import version/identity rule; it must not overwrite referenced resources.
 
 ## Fidelity and supported subset
 
@@ -107,10 +107,13 @@ Krita3: Timothée Giet, Ramon Miranda, David Revoy и другие. RGBA: Ramon 
 берётся из исходной ширины, а не размера квадратного GPU cache. Неквадратные
 текстуры и vendor texture application сохраняют предупреждение приближения.
 
-Gaussian circle auto tips use a sampled normalized erf profile rather than a
-linear hardness ramp. This improves the radial distribution, while remaining
-approximate: a static GPU bitmap cannot reproduce Krita's regenerated subpixel
-mask and size-dependent antialiasing. Gaussian rectangles, curve generators,
+Eligible circular AA Gaussian stamp tips retain erf profile parameters instead
+of a scaled bitmap. The renderer uses the actual dab radius, U8 quantization,
+one-pixel AA and scalar3x3/6x6 small-tip sampling. Initial eligibility requires
+ratio1/spikes2/randomness0/density1; other Gaussian tips retain the previous
+sampled256 bitmap and explicit approximation warning. Wet samplers reject the
+procedural profile. Float32 erf precision and native subpixel placement still
+require GPU comparison; pixel equivalence is not claimed. Gaussian rectangles, curve generators,
 spikes and random density retain explicit compatibility warnings. Krita adaptive
 spacing retains its coefficient; anisotropic metrics and spacing sensors remain
 subject to the renderer compatibility warning.

@@ -34,6 +34,7 @@ export function brushPreparationResources(brush: BrushDescriptor): BrushPreparat
     }
   }
   const visit = (b: BrushDescriptor, painter: 'stamp' | 'wet') => {
+    if(b.tip.profile && painter==='wet') throw Error('Procedural tip profile requires the stamp renderer')
     if(b.tip.material && painter==='wet') throw Error('Lightness tip material requires the stamp renderer')
     const frames=b.tip.animation?.frames ?? (b.tip.mask ? [b.tip.mask] : [])
     frames.forEach((id,index)=>add(painter,id,false,false,b.tip.material?.grayFrames?.[index] ?? b.tip.material?.gray,b.tip))
@@ -44,6 +45,7 @@ export function brushPreparationResources(brush: BrushDescriptor): BrushPreparat
     if (dual.sampling === 'independent') visit(dual.brush, 'stamp')
     else if (painter === 'stamp') visit(dual.brush, 'stamp')
     else {
+      if(dual.brush.tip.profile) throw Error('Procedural dual profile requires the stamp renderer')
       if(dual.brush.tip.material) throw Error('Lightness dual material requires the stamp renderer')
       for (const id of dual.brush.tip.animation?.frames ?? (dual.brush.tip.mask ? [dual.brush.tip.mask] : [])) add('wet', id)
       if(dual.brush.texture?.application)add('wet',dual.brush.texture.id,true,true)

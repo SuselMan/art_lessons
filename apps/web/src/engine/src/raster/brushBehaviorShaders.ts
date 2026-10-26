@@ -1,3 +1,4 @@
+import { BRUSH_GAUSSIAN_GLSL } from './gaussianTip'
 import { BRUSH_TIP_PACKING_GLSL } from '../presets/brushMaterialPacking'
 import { BRUSH_ALPHA_THRESHOLD_GLSL } from '../presets/brushAlphaThreshold'
 /** Shared separable blend equations; used by grain, dual tips and final paint. */
@@ -130,8 +131,12 @@ export const BRUSH_STAMP_FRAG = `
   uniform vec2 u_paperScale;
   uniform vec2 u_paperOrigin;
   uniform vec2 u_paperTexSize;
-  // 0 = the round procedural ramp, 1 = the bitmap mask in u_tip.
+  // 0 = legacy round ramp, 1 = bitmap, 2 = opt-in analytic Gaussian.
   uniform float u_tipKind;
+  uniform vec2 u_tipProfile;
+  uniform vec2 u_dualProfile;
+  uniform float u_angle;
+  uniform float u_aspectRatio;
   uniform float u_hardness;
   // Antialiasing floor for the round ramp, canvas px.
   uniform float u_aaPx;
@@ -192,10 +197,18 @@ export const BRUSH_STAMP_FRAG = `
   ${BRUSH_ALPHA_THRESHOLD_GLSL}
   ${BRUSH_LIGHTNESS_GLSL}
   ${BRUSH_TEXTURE_APPLICATION_GLSL}
+  ${BRUSH_GAUSSIAN_GLSL}
   void main() {
     float shape;
     vec3 pigment=u_color;
-    if (u_tipKind < 0.5) {
+    mat2 gaussianFrame=mat2(1.0);
+    if(u_tipKind>1.5 || u_dualKind>2.5) {
+      float c=cos(u_angle),s=sin(u_angle);
+      gaussianFrame=mat2(c/u_aspectRatio,-s,s/u_aspectRatio,c)/v_radius;
+    }
+    if (u_tipKind > 1.5) {
+      shape=brushGaussianMask(v_localUV,gaussianFrame,u_tipProfile);
+    } else if (u_tipKind < 0.5) {
       // Normalized radius: v_localUV is the dab's own frame, 1.0 at the
       // boundary, so this is scale-free and an ellipse comes out as one.
       float d = length(v_localUV);
@@ -224,8 +237,10 @@ export const BRUSH_STAMP_FRAG = `
       vec2 dualUV = v_localUV * u_dualTransform.xy;
       dualUV = mat2(u_dualTransform.z,-u_dualTransform.w,u_dualTransform.w,u_dualTransform.z)*dualUV;
       vec4 dualSample=brushTipSample(u_dual,u_dualBounds.xy+(dualUV*0.5+0.5)*u_dualBounds.zw,u_dualTipPacking);
-      float secondary = u_dualKind > 1.5 ? mix(dualSample.r,dualSample.a,u_dualLightnessMaterial) : 1.0-smoothstep(min(u_dualHardness,0.99),1.0,length(dualUV));
-      if (abs(dualUV.x)>1.0 || abs(dualUV.y)>1.0) secondary=0.0;
+      mat2 dualRotation=mat2(u_dualTransform.z,-u_dualTransform.w,u_dualTransform.w,u_dualTransform.z);
+      mat2 dualScale=mat2(u_dualTransform.x,0.0,0.0,u_dualTransform.y);
+      float secondary = u_dualKind > 2.5 ? brushGaussianMask(dualUV,dualRotation*dualScale*gaussianFrame,u_dualProfile) : u_dualKind > 1.5 ? mix(dualSample.r,dualSample.a,u_dualLightnessMaterial) : 1.0-smoothstep(min(u_dualHardness,0.99),1.0,length(dualUV));
+      if (u_dualKind<2.5 && (abs(dualUV.x)>1.0 || abs(dualUV.y)>1.0)) secondary=0.0;
       secondary=brushAlphaThreshold(secondary,u_dualAlphaThreshold);
       if(u_dualTextureApplication.x>0.5) {
         vec2 local=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y);
