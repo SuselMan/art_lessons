@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { lightnessMaterialMips } from './lightnessMaterial'
-import { materialGroupBytes, materialMipPixelCount, materialPackingPlan, packMaterialMips } from './brushMaterialPacking'
+import { materialGroupMips, materialGroupBytes, materialMipPixelCount, materialPackingPlan, packMaterialMips } from './brushMaterialPacking'
 
 const sources = Array.from({length: 5}, (_, i) => ({alpha:`asset:alpha-${i}`,gray:`asset:gray-${i}`}))
 
@@ -69,5 +69,41 @@ describe('packed material byte oracle', () => {
     expect(()=>packMaterialMips(group,[])).toThrow()
     expect(()=>packMaterialMips(group,[chain.slice(1)])).toThrow()
     expect(()=>packMaterialMips(group,[[new Uint8Array(31),...chain.slice(1)]])).toThrow()
+  })
+})
+
+
+describe('direct material derivatives', () => {
+  it('matches the historical LA-then-pack oracle byte for byte at every LOD', () => {
+    let seed = 0x813a49f1
+    const randomByte = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed >>> 24 }
+    for (const size of [2, 4, 8, 16, 32, 64, 512]) for (let trial = 0; trial < (size === 512 ? 1 : 5); trial++) {
+      const planes = Array.from({ length: 4 }, (_, channel) => Uint8Array.from({ length: size * size }, (_, i) => {
+        const value = randomByte()
+        return channel % 2 === 0 ? i % 5 === 0 ? 0 : i % 7 === 0 ? 255 : value : value | 1
+      }))
+      const [alpha0, gray0, alpha1, gray1] = planes, snapshots = planes.map(plane => plane.slice())
+      const group = materialPackingPlan(sources.slice(0, 2), size).groups[0]
+      const ids = new Map([[sources[0].alpha, alpha0], [sources[0].gray, gray0], [sources[1].alpha, alpha1], [sources[1].gray, gray1]])
+      const oracle = packMaterialMips(group, [lightnessMaterialMips(alpha0, gray0), lightnessMaterialMips(alpha1, gray1)])
+      const actual = materialGroupMips(group, id => ids.get(id)!)
+      expect(actual.length).toBe(Math.log2(size) + 1)
+      actual.forEach((level, lod) => {
+        expect(level.length).toBe(oracle[lod].length)
+        expect(level.every((byte, index) => byte === oracle[lod][index])).toBe(true)
+      })
+      expect(actual.reduce((sum, level) => sum + level.byteLength, 0)).toBe(materialGroupBytes(group).cpu)
+      planes.forEach((plane, index) => expect(plane.every((byte, pixel) => byte === snapshots[index][pixel])).toBe(true))
+    }
+  })
+  it('preserves singleton LA bytes and source aliases, and validates input dimensions', () => {
+    const alpha = Uint8Array.from([0, 1, 127, 255]), gray = Uint8Array.from([255, 193, 1, 129])
+    const single = materialPackingPlan(sources.slice(0, 1), 2).groups[0]
+    expect(materialGroupMips(single, id => id === sources[0].alpha ? alpha : gray)).toEqual(lightnessMaterialMips(alpha, gray))
+    const paired = materialPackingPlan([sources[0], sources[0]], 2).groups[0]
+    expect(materialGroupMips(paired, id => id === sources[0].alpha ? alpha : gray)).toEqual(packMaterialMips(paired, [lightnessMaterialMips(alpha, gray), lightnessMaterialMips(alpha, gray)]))
+    expect(() => materialGroupMips(single, () => new Uint8Array(16))).toThrow('dimensions')
+    expect(() => materialGroupMips({ ...paired, frames: [] }, () => alpha)).toThrow('count')
+    expect(() => materialGroupMips({ ...paired, size: 3 }, () => alpha)).toThrow('dimensions')
   })
 })

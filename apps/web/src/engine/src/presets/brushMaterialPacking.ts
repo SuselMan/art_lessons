@@ -1,3 +1,5 @@
+import { lightnessMaterialMips } from './lightnessMaterial'
+
 /** Runtime derivatives only: source CAS planes and animation order stay immutable. */
 export interface MaterialFrameSource { readonly alpha: string; readonly gray: string }
 export interface MaterialTextureGroup {
@@ -82,6 +84,33 @@ export function packMaterialMips(group: MaterialTextureGroup, chains: readonly (
     }
     return packed
   })
+}
+
+/** Build paired channels directly, retaining the historical per-plane U8
+ * rounding without allocating two intermediate LA pyramids. */
+export function materialGroupMips(group: MaterialTextureGroup, pixels: (id: string) => Uint8Array): readonly Uint8Array[] {
+  if (!validSize(group.size) || group.frames.length !== (group.format === 'la' ? 1 : 2))
+    throw Error('Invalid material group dimensions/count')
+  const planes = group.frames.map(frame => ({ alpha: pixels(frame.alpha), gray: pixels(frame.gray) }))
+  if (planes.some(plane => plane.alpha.length !== group.size * group.size || plane.gray.length !== group.size * group.size))
+    throw Error('Material source dimensions mismatch')
+  if (group.format === 'la') return lightnessMaterialMips(planes[0].alpha, planes[0].gray)
+  const base = new Uint8Array(group.size * group.size * 4)
+  for (let i = 0; i < group.size * group.size; i++) for (let frame = 0; frame < 2; frame++) {
+    const { alpha, gray } = planes[frame], offset = i * 4 + frame * 2
+    base[offset] = Math.round(gray[i] * alpha[i] / 255)
+    base[offset + 1] = alpha[i]
+  }
+  const levels = [base]
+  for (let size = group.size; size > 1; size >>= 1) {
+    const source = levels[levels.length - 1], half = size >> 1, next = new Uint8Array(half * half * 4)
+    for (let y = 0; y < half; y++) for (let x = 0; x < half; x++) for (let c = 0; c < 4; c++) {
+      const i = (y * 2 * size + x * 2) * 4 + c
+      next[(y * half + x) * 4 + c] = (source[i] + source[i + 4] + source[i + size * 4] + source[i + size * 4 + 4] + 2) >> 2
+    }
+    levels.push(next)
+  }
+  return levels
 }
 
 /** Legacy sampler channels are unchanged. Packed material pairs reconstruct

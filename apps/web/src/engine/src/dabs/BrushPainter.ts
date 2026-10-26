@@ -1,4 +1,4 @@
-import { packMaterialMips, type MaterialTextureGroup } from '../presets/brushMaterialPacking'
+import { materialGroupMips, type MaterialTextureGroup } from '../presets/brushMaterialPacking'
 import { BrushMipCache } from './BrushMipCache'
 import { lightnessMaterialMips } from '../presets/lightnessMaterial'
 import { importedAssetPixels } from '../presets/importedBrushes'
@@ -12,7 +12,7 @@ import type { PaperSampling } from '../paper/PaperState'
 import type { BrushDescriptor, BrushPressureSettings } from '../presets/digitalBrushPresets'
 import { normalizeBrush } from '../presets/brushNormalization'
 import type { PencilPreset } from '../presets/pencilPresets'
-import { brushTextureMips, tipMaskMips, type BrushTextureId, type TipMaskId } from '../presets/tipMasks'
+import { brushTextureMips, brushTexturePixels, tipMaskMips, type BrushTextureId, type TipMaskId } from '../presets/tipMasks'
 import { BrushTextureCache, uploadBrushTexture } from './BrushTextureCache'
 import { BrushBehaviorPainter, type BehaviorScratch } from './BrushBehaviorPainter'
 
@@ -64,7 +64,7 @@ export class BrushPainter {
   private brushTexture(id: BrushTextureId, discrete = false): WebGLTexture {
     const key=brushTextureResourceKey({id,grain:true,discrete:discrete?true:undefined}), cached=this.textures.get(key)
     if(cached)return cached
-    const entry=uploadBrushTexture(this.gl,brushTextureMips(id),this.gl.LUMINANCE,this.gl.REPEAT,discrete)
+    const entry=uploadBrushTexture(this.gl,discrete ? [brushTexturePixels(id)] : brushTextureMips(id),this.gl.LUMINANCE,this.gl.REPEAT,discrete)
     this.textures.put(key,entry.texture,entry.bytes)
     return entry.texture
   }
@@ -72,7 +72,7 @@ export class BrushPainter {
   private tipTexture(id: TipMaskId, gray?: string, materialGroup?: MaterialTextureGroup): WebGLTexture {
     const key=brushTextureResourceKey({id,grain:false,gray,materialGroup}), cached=this.textures.get(key)
     if(cached)return cached
-    const levels=materialGroup ? this.materialMips.get(key,()=>packMaterialMips(materialGroup,materialGroup.frames.map(frame=>lightnessMaterialMips(importedAssetPixels(frame.alpha),importedAssetPixels(frame.gray)))) )
+    const levels=materialGroup ? this.materialMips.get(key,()=>materialGroupMips(materialGroup,importedAssetPixels) )
       : gray ? this.materialMips.get(key,()=>lightnessMaterialMips(importedAssetPixels(id),importedAssetPixels(gray))) : tipMaskMips(id)
     const format=materialGroup?.format==='rgba' ? this.gl.RGBA : gray ? this.gl.LUMINANCE_ALPHA : this.gl.LUMINANCE
     const entry=uploadBrushTexture(this.gl,levels,format,this.gl.CLAMP_TO_EDGE)

@@ -411,16 +411,20 @@ const TEXTURES: Record<BuiltinTextureId, (px: number, py: number) => number> = {
   cloud: (px, py) => clamp01((tileFbm(px, py, 64, 101) - 0.5) * 2.2 + 0.5),
 }
 
-/** A texture's full mip chain, level 0 first — 0..255, tileable. The box
- *  filter in tipMaskMips preserves tiling, since each level's texels are
- *  averages of whole 2x2 blocks of a seamless image. */
-export function brushTextureMips(id: BrushTextureId): Uint8Array[] {
-  if (id.startsWith('asset:')) return mipChain(importedAssetPixels(id))
+/** Immutable imported base pixels or a newly generated built-in texture.
+ * Discrete samplers need only this level; do not allocate discarded mips. */
+export function brushTexturePixels(id: BrushTextureId): Uint8Array {
+  if (id.startsWith('asset:')) return importedAssetPixels(id)
   const n = TIP_MASK_SIZE
   const base = new Uint8Array(n * n)
   const fn = TEXTURES[id as BuiltinTextureId]
   for (let py = 0; py < n; py++) {
     for (let px = 0; px < n; px++) base[py * n + px] = Math.round(fn(px, py) * 255)
   }
-  return mipChain(base)
+  return base
+}
+
+/** Full integer-box mip chain; preserves the source texture's tiling. */
+export function brushTextureMips(id: BrushTextureId): Uint8Array[] {
+  return mipChain(brushTexturePixels(id))
 }
