@@ -21,9 +21,13 @@ function transparency(x:number,y:number,radius:number,fade:number,antialias:bool
   }
   return 255-Math.floor(255*gaussianCoverage(distance/radius,fade))
 }
+/** Classify from the admitted physical axes, never from an inverted float matrix. */
+export function gaussianSampleCount(minimumDiameter:number,antialias:boolean):number {
+  return antialias && minimumDiameter<10 ? minimumDiameter<1?6:3 : 1
+}
 /** x/y are pixel-centre offsets in canvas pixels for an unrotated circular tip. */
 export function gaussianMaskAlpha(x:number,y:number,diameter:number,fade:number,antialias:boolean):number {
-  const n=antialias && diameter<10 ? diameter<1?6:3 : 1
+  const n=gaussianSampleCount(diameter,antialias)
   let sum=0
   for(let sy=0;sy<n;sy++)for(let sx=0;sx<n;sx++)sum+=transparency(x+sx/n,y+sy/n,diameter*.5,fade,antialias)
   return 255-Math.floor(sum/(n*n))
@@ -39,37 +43,32 @@ float brushGaussianErf(float x) {
   float p=(((((1.061405429*t-1.453152027)*t+1.421413741)*t-0.284496736)*t+0.254829592)*t);
   return direction*(1.0-p*exp(-x*x));
 }
-float brushGaussianCoverage(float r,float fade) {
+float brushGaussianCoverage(float distance,float radius,float fade) {
   float k=2.614653088250805/fade;
-  // Factored arguments retain precision for a near-hard fade of 1e-6.
   float a=1.767766952966369;
-  return clamp((brushGaussianErf(k*(r-1.0)+a)-brushGaussianErf(k*(r+1.0)-a))/(2.0*brushGaussianErf(a-k)),0.0,1.0);
+  // Subtract physical distances first. Normalized/interpolated UV magnifies
+  // pixel-boundary error by 1/fade for a near-hard Gaussian.
+  return clamp((brushGaussianErf(k*((distance-radius)/radius)+a)-brushGaussianErf(k*((distance+radius)/radius)-a))/(2.0*brushGaussianErf(a-k)),0.0,1.0);
 }
 float brushGaussianTransparency(vec2 point,float radius,vec2 profile) {
-  float distance=length(point)*radius;
+  float distance=length(point);
   if(distance>radius)return 255.0;
   float start=max(0.0,radius-1.0);
   if(profile.y>0.5 && distance>start) {
-    float base=255.0-floor(255.0*brushGaussianCoverage(start/radius,profile.x));
+    float base=255.0-floor(255.0*brushGaussianCoverage(start,radius,profile.x));
     return floor(base+(255.0-base)*(distance-start)/(radius-start));
   }
-  return 255.0-floor(255.0*brushGaussianCoverage(distance/radius,profile.x));
+  return 255.0-floor(255.0*brushGaussianCoverage(distance,radius,profile.x));
 }
-float brushGaussianMask(vec2 point,mat2 worldToLocal,vec2 profile) {
-  float radius=1.0/length(vec2(worldToLocal[0].x,worldToLocal[1].x));
-  float aa=dot(worldToLocal[0],worldToLocal[0]);
-  float bb=dot(worldToLocal[0],worldToLocal[1]);
-  float dd=dot(worldToLocal[1],worldToLocal[1]);
-  float largestEigen=0.5*(aa+dd+sqrt((aa-dd)*(aa-dd)+4.0*bb*bb));
-  float diameter=2.0/sqrt(largestEigen);
-  float n=profile.y>0.5 && diameter<10.0 ? (diameter<1.0 ? 6.0 : 3.0) : 1.0;
-  if(n<1.5)return (255.0-brushGaussianTransparency(point,radius,profile))/255.0;
+float brushGaussianMask(vec2 pixel,mat2 pixelFrame,vec2 geometry,vec2 profile) {
+  float radius=geometry.x,n=geometry.y;
+  if(n<1.5)return (255.0-brushGaussianTransparency(pixelFrame*pixel,radius,profile))/255.0;
   float total=0.0;
   for(int y=0;y<6;y++)for(int x=0;x<6;x++) {
     if(float(x)<n && float(y)<n) {
       // Auto-brush hotspot includes -0.5: sample zero is the pixel centre.
       vec2 offset=vec2(float(x),float(y))/n;
-      total+=brushGaussianTransparency(point+worldToLocal*offset,radius,profile);
+      total+=brushGaussianTransparency(pixelFrame*(pixel+offset),radius,profile);
     }
   }
   return (255.0-floor(total/(n*n)))/255.0;

@@ -1,3 +1,4 @@
+import { gaussianSampleCount } from '../raster/gaussianTip'
 import { brushTipResource, brushTextureResourceKey } from './BrushPreparation'
 import type { MaterialTextureGroup } from '../presets/brushMaterialPacking'
 import { advanceWashOpacity } from '../presets/brushWash'
@@ -84,7 +85,7 @@ export class BrushBehaviorPainter {
     } | null
     this.stamp = createProgram(gl, DAB_VERT, BRUSH_STAMP_FRAG)
     this.composite = createProgram(gl, DAB_VERT, BRUSH_COMPOSITE_FRAG)
-    this.su = getUniforms(gl, this.stamp, ['u_tipProfile','u_dualProfile','u_wickPx','u_wickCap','u_tipPacking','u_dualTipPacking','u_lightnessMaterial','u_lightnessStrength','u_dualLightnessMaterial','u_textureApplication','u_textureMapping','u_dualTextureApplication','u_dualTextureMapping','u_alphaThreshold', 'u_dualAlphaThreshold', 'u_tipBounds', 'u_dualBounds', 'u_edgeBleed', 'u_ceilingPass', 'u_uniformCeiling', 'u_washMode', 'u_washFlow', 'u_washAverage', 'u_ceilingFallback', 'u_previousCeiling', 'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity', 'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure', 'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin', 'u_color', 'u_flip', 'u_grainTransform', 'u_grainTone', 'u_grainBlend', 'u_dual', 'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin', 'u_dualTexPeriod', 'u_dualTexStrength'])
+    this.su = getUniforms(gl, this.stamp, ['u_gaussianGeometry','u_tipProfile','u_dualProfile','u_wickPx','u_wickCap','u_tipPacking','u_dualTipPacking','u_lightnessMaterial','u_lightnessStrength','u_dualLightnessMaterial','u_textureApplication','u_textureMapping','u_dualTextureApplication','u_dualTextureMapping','u_alphaThreshold', 'u_dualAlphaThreshold', 'u_tipBounds', 'u_dualBounds', 'u_edgeBleed', 'u_ceilingPass', 'u_uniformCeiling', 'u_washMode', 'u_washFlow', 'u_washAverage', 'u_ceilingFallback', 'u_previousCeiling', 'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_opacity', 'u_paperHeightMap', 'u_tip', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize', 'u_tipKind', 'u_hardness', 'u_aaPx', 'u_ceiling', 'u_paper', 'u_paperPressure', 'u_texture', 'u_texStrength', 'u_texPeriod', 'u_texOrigin', 'u_color', 'u_flip', 'u_grainTransform', 'u_grainTone', 'u_grainBlend', 'u_dual', 'u_dualKind', 'u_dualBlend', 'u_dualTransform', 'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin', 'u_dualTexPeriod', 'u_dualTexStrength'])
     this.cu = getUniforms(gl, this.composite, ['u_physicalAccumulation','u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution', 'u_original', 'u_strokeCoverage', 'u_ceiling', 'u_opacity', 'u_blend', 'u_mode', 'u_burntEdge', 'u_burntBlend', 'u_edgePx', 'u_luminance', 'u_gammaCorrect', 'u_secondaryCoverage', 'u_secondaryMode', 'u_secondaryEnabled', 'u_surfaceCloud', 'u_surfaceGrain', 'u_surface', 'u_surfaceOrigin', 'u_screenOrigin', 'u_screentone', 'u_erase'])
     this.sp = gl.getAttribLocation(this.stamp, 'a_position')
     this.cp = gl.getAttribLocation(this.composite, 'a_position')
@@ -232,6 +233,7 @@ export class BrushBehaviorPainter {
       gl.uniform2f(u.u_tipProfile,brush.tip.profile?.fade ?? .5,brush.tip.profile?.antialias ? 1 : 0)
       gl.uniform2f(u.u_dualProfile,secondary?.tip.profile?.fade ?? .5,secondary?.tip.profile?.antialias ? 1 : 0)
       gl.uniform1f(u.u_wickCap,4)
+      gl.uniform1f(u.u_wickPx,brush.tip.profile || secondary?.tip.profile ? 1 : 0)
       gl.uniform1f(u.u_hardness, brush.tip.hardness)
       gl.uniform1f(u.u_aaPx, 1)
       gl.uniform1f(u.u_paper, brush.paperInteraction)
@@ -280,12 +282,18 @@ export class BrushBehaviorPainter {
           gl.uniform2f(u.u_dabCenter, s.x - tile.originX, s.y - tile.originY)
           gl.uniform2f(u.u_grainTone,g?.brightness??0,clamp((g?.contrast??0)+s.wetGrade,-1,1))
           gl.uniform1f(u.u_edgeBleed, s.edgeSoftness)
-          const gaussianFringe=brush.tip.profile?.antialias || secondary?.tip.profile?.antialias
-          gl.uniform1f(u.u_wickPx,gaussianFringe ? 1 : 0)
           gl.uniform1f(u.u_dabRadius, s.radius)
           gl.uniform1f(u.u_angle, s.angle)
           gl.uniform1f(u.u_aspectRatio, s.aspect)
           const ratio = secondary ? Math.max(0.01, curveAt(secondary.sizeByPressure, s.pressure) / Math.max(0.01, curveAt(brush.sizeByPressure, s.pressure)) * (secondary.scatter?.scale ?? 1)) : 1
+          if(brush.tip.profile || secondary?.tip.profile) {
+            const radius=Math.fround(s.radius),aspect=Math.fround(s.aspect)
+            const mainRadius=Math.fround(radius*aspect)
+            const childRadius=Math.fround(mainRadius*ratio/(1+s.edgeSoftness*.15))
+            const childAspect=(secondary?.tip.aspect ?? 1)/brush.tip.aspect*aspect
+            gl.uniform4f(u.u_gaussianGeometry,mainRadius,gaussianSampleCount(2*mainRadius/Math.max(1,aspect),!!brush.tip.profile?.antialias),
+              childRadius,gaussianSampleCount(2*childRadius/Math.max(1,childAspect),!!secondary?.tip.profile?.antialias))
+          }
           const dualAngle = (secondary?.tip.rotation === 'fixed' ? secondary.tip.angle : s.angle) - s.angle
           gl.uniform4f(u.u_dualTransform, (1+s.edgeSoftness*.15) / ratio, (1+s.edgeSoftness*.15)*(secondary?.tip.aspect ?? 1) / brush.tip.aspect / ratio, Math.cos(dualAngle), Math.sin(dualAngle))
           gl.uniform1f(u.u_dualStrength, secondary ? secondary.flow * curveAt(secondary.flowByPressure, s.pressure) * curveAt(secondary.opacityByPressure, s.pressure) : 1)

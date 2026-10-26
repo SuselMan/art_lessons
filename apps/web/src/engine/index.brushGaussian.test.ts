@@ -7,12 +7,12 @@ let ordinal=0
 function brush():BrushDescriptor {
  return {...digitalBrushFromPreset('hard-round'),id:`imported-${(++ordinal).toString(16).padStart(24,'d')}`,version:25,tip:{kind:'round',hardness:1,aspect:1,angle:0,rotation:'fixed',profile:{kind:'gaussian',fade:1e-6,antialias:true}},behavior:{version:2}}
 }
-function paint(descriptor:BrushDescriptor){
+function paint(descriptor:BrushDescriptor,size=4){
  installBrushLibrary({schemaVersion:1,brushes:[{name:'Authored Gaussian',source:'qa',warnings:[],descriptor}],assets:[],skipped:[]})
  const {engine}=createTestEngine({userId:'observer'},{width:32,height:32})
  try{
   engine.appendOperation(makeLayerAdd('peer','ink'))
-  engine.appendOperation(makeStroke('peer','ink',[dab(16,16,{size:4,pressure:1,opacity:1})],{tool:'digitalBrush',preset:`brush:${descriptor.id}@25`,strokeId:'gaussian',strokeEnd:true}),'remote')
+  engine.appendOperation(makeStroke('peer','ink',[dab(16,16,{size,angle:descriptor.tip.angle,pressure:1,opacity:1})],{tool:'digitalBrush',preset:`brush:${descriptor.id}@25`,strokeId:'gaussian',strokeEnd:true}),'remote')
   return brushDraws(engine).filter(d=>d.kind==='stamp' && d.uniforms.get('u_ceilingPass')===0).map(d=>d.uniforms)
  }finally{engine.destroy()}
 }
@@ -22,6 +22,7 @@ it('routes primary Gaussian parameters and allows the supersampled exterior pixe
  expect(draws[0].get('u_tipProfile')).toEqual([1e-6,1])
  expect(draws[0].get('u_wickPx')).toBe(1)
  expect(draws[0].get('u_dabRadius')).toBe(2)
+ expect(draws[0].get('u_gaussianGeometry')).toEqual([2,3,2,1])
 })
 it('uses the same profile for inline and independent child stamps',()=>{
  for(const sampling of ['primary','independent'] as const){
@@ -38,4 +39,14 @@ it('keeps legacy round dispatch and geometry unexpanded when profile is absent',
  const descriptor=brush();delete descriptor.tip.profile
  const draw=paint(descriptor)[0]
  expect(draw.get('u_tipKind')).toBe(0);expect(draw.get('u_wickPx')).toBe(0)
+})
+
+it('keeps circular effective diameter10 on the unsupersampled branch at any rotation',()=>{
+ for(const angle of [0,.1,Math.PI/4,Math.PI]){
+  const descriptor=brush();descriptor.tip.angle=angle
+  const draw=paint(descriptor,10)[0]
+  expect(draw.get('u_dabRadius')).toBe(5)
+  expect(draw.get('u_angle')).toBe(Math.fround(angle))
+  expect((draw.get('u_gaussianGeometry') as number[]).slice(0,2)).toEqual([5,1])
+ }
 })

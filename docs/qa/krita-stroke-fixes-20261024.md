@@ -596,3 +596,20 @@ CPUderivatives fe4f5d23:24tests/6filesPASS,31randomizedbytefixtures sizes2..512
 сравнили fusedRGBA с прежнимLA+pack накаждомLOD,sourceimmutability проверена.
 Discreteintegration подтверждает отсутствие лишнегоmipbuilder. GPU финальной
 сборки этихCPUправок покаpending; не заявляется улучшение preparetiming.
+
+
+## Gaussian26: промежуточный gate, ещё не принят
+
+0617f9fb source117GL0,12changed vs24:7Gaussian;9WASH;67/111tiny-admission.
+Все9WASHPNG совпали с independently tested candidate25PNG.67/111 совпали с
+compiled24bdf20b90 контрольнымэкспортом: изменилисьотtinyfix, неGaussianGLSL.
+7nativealphaL1 снизилась во всех3строках(192269→135204,82568→18510,
+106125→25741); totalalpha первойстроки приэтомсталачутьдальшеnative, это не
+полнаяидентичность.67/111контактыпросмотрены, новыхsevereнеобнаружено.
+
+66single-dabGPUwitnesses выявилиFAIL:AAtrueD10 ошибочновыбираетsmall-stencil
+из-за реконструкцииосиfloat32; maxalphaerror119. Естьnear-hardphaseerror2–4byte.
+Source40/80sameeffectiveD invariantPASS,GL0. Этиошибкинепринятыкакroundingtolerance;
+compiledcandidate26неактивирован,стендостаётсяна24. Полныеtypecheck/lint/map/build
+exit0,302webbrushTS+30sharedTS+152PythonPASS не заменяютэтотGPUFAIL. Исправление
+и повторныйGPUgate ещё выполняются.

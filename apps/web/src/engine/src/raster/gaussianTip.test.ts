@@ -1,5 +1,5 @@
 import { expect,it } from 'vitest'
-import { gaussianCoverage,gaussianMaskAlpha } from './gaussianTip'
+import { gaussianCoverage,gaussianMaskAlpha,gaussianSampleCount } from './gaussianTip'
 
 it('retains the erf radial profile independently of scale and authored diameter',()=>{
   expect(gaussianCoverage(.5,.85)*255).toBeCloseTo(101.54082,4)
@@ -23,4 +23,12 @@ it('switches the scalar pixel-centre stencil at the native size boundaries',()=>
   expect(gaussianMaskAlpha(0,0,.75,1e-6,true)).toBe(20)
   // AA disabled does not supersample, even below a pixel.
   expect(gaussianMaskAlpha(0,0,.75,1e-6,false)).toBe(255)
+})
+
+it('classifies exact physical diameter thresholds without reconstructing an inverse matrix',()=>{
+ expect(gaussianSampleCount(10,true)).toBe(1)
+ expect(gaussianSampleCount(9.99,true)).toBe(3)
+ expect(gaussianSampleCount(1,true)).toBe(3)
+ expect(gaussianSampleCount(.999,true)).toBe(6)
+ expect(gaussianSampleCount(.5,false)).toBe(1)
 })

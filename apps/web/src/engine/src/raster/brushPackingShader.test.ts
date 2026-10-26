@@ -12,5 +12,5 @@ it('keeps the unsupported-material wet program identical to source23',()=>{
 })
 it('pins the opt-in Gaussian stamp source independently of the unchanged wet source',()=>{
   // New source legitimately adds Gaussian dispatch; GPU equivalence is a separate gate.
-  expect(hash(BRUSH_STAMP_FRAG)).toBe('1c0e61196f843ff41125ae8b127ae53a702c56f5282085db54f5a4187749142f')
+  expect(hash(BRUSH_STAMP_FRAG)).toBe('7198de91c12dd2cae12ea0fde48c395bbce3673843719a602c4fd01ba39e3c63')
 })
