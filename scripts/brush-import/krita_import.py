@@ -796,13 +796,10 @@ def preset(data, name, catalog, external, depth=0):
         notes.append(compatibility('airbrush','Timed spraying is not reproduced.','unsupported'))
     if engine=='paintbrush':
         wash=depth>0 or params.get('PaintOpAction')=='2'
-        varying_color=d['tip'].get('material') or behavior.get('colorAdjustment') or any(key in behavior.get('dynamics',{}) or key in behavior.get('modulations',{}) for key in ('hue','saturation','brightness'))
         if not wash:
             behavior['rendering']['accumulation']='directOver'
-        elif not varying_color:
-            behavior['rendering']['accumulation']='alphaDarken'
         else:
-            notes.append(compatibility('washAccumulation','Varying material/color retains approximate stroke opacity; exact alpha-darken feedback is not enabled for this high-cost profile.'))
+            behavior['rendering']['accumulation']='alphaDarken'
     d['behavior']=behavior
     warnings.extend(n['feature']+': '+n['detail'] for n in notes if n['status']!='supported')
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}

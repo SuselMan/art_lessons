@@ -440,3 +440,19 @@ budget4MiB сохранены. У Impasto100 полный working set сокра
 с17.667 до15MiB, включая grain/surface assets. Wet renderer не использует
 material packing: его GLSL сохранён без изменений, потому что даже неиспользуемая
 ветка decoder меняла rounding на Adreno. GPU acceptance измеряется отдельно.
+
+
+## Varying pigment WASH25
+
+После residency24 снят converter gate, оставлявший9material/HSV WASHparents на
+приблизительном накоплении. Все paintbrush WASH используют один alphaDarken;
+material/color вычисляются перед creamy feedback. Per-dab regional copy остаётся
+необходимой для varying pigment, alpha и straightRGB имеют разные веса: Flow0
+меняет RGB существующего покрытия без изменения alpha. Упаковка каналов не
+меняет эти формулы. Это не снимает ограничения nativeU8straight vsRGBA8premul,
+Qt bitmap filters, RNG и недостающих движков.
+
+CPU derivative собирает RGBA напрямую без двух LA intermediate chains, сохраняя
+побайтно все округления каждого mip. Discrete grain получает только level0;
+исходные CAS planes не мутируются. Preparation wall-clock включает scheduler
+по одному ресурсу/rAF: его длительность не равна непрерывному main-thread stall.

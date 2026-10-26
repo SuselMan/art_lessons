@@ -572,3 +572,27 @@ filter передA-history, сохраняя geometry/RNG и whole/chunk semanti
 существующие7boundarywarnings не являются новыми errors. Compiled build exit0.
 Viewer оставляет23images, так какpacking24 их не меняет; добавлена измеренная
 runtime24annotation без заявления полнойидентичности/плавности. Работа продолжается.
+
+
+## Candidate25: varying-pigment WASH
+
+Все9 профилей сравнены как baseline/candidate новые IDs на одной frozen source
+bdf20b90 class.72Samsung ABBA trials=9×48/128×4,18matched comparisons:нет
+regression flags, candidatep95<=16.8ms, typed uploads послеprepare0,GL0.
+Raremaxдо167.1ms остаётся.18exports(9pairs)GL0 и все9Native/baseline/candidate
+контакты просмотрены:новых severe regressions не видно, сильные различия слабых
+акварельныхфактур113/114 иsourceRNG не исправлены этим изменением.
+
+48actual GPU witnessesPASS:8independent native creamy scalar recurrences с
+premulU8error<=2 +40exports(5frames RG/BA/RG/BA/LA, Bleed0/.6,globalopacity.35,
+Flow0seeded/empty).20pairs wholePNG byte-identical packed vsstaticLA; actual
+selectedframe+channel asserted. Flow0samegesture alpha byte-stable, RGBchanges;
+emptyF0transparent, nooutsideleak. Первыйзапускпрерванsleep/disconnectedbridge
+на13мcase, сохранёнкакinterrupted, затемпослеwake полный48exit0, безослабления
+assertions. Это не evidence второгоGPU. Converter gate снят после этихпроверок;
+обновлённыйcatalog/compiled25 ещё должны пройти отдельную acceptance.
+
+CPUderivatives fe4f5d23:24tests/6filesPASS,31randomizedbytefixtures sizes2..512
+сравнили fusedRGBA с прежнимLA+pack накаждомLOD,sourceimmutability проверена.
+Discreteintegration подтверждает отсутствие лишнегоmipbuilder. GPU финальной
+сборки этихCPUправок покаpending; не заявляется улучшение preparetiming.
