@@ -782,3 +782,29 @@ Checkpoint, gl.finish и компиляция программ в этом ок�
 своя Samsung вкладка3623 закрыта, forward19236 удалён. Существующая report3613
 обновлена и показывает Native/28/29; инструментация снята.
 Новых worktree и копий зависимостей нет. iPad не проверен.
+
+
+### Кандидат30: retry входа и транспорта
+
+Локальные коммитыb31cb774/1dd8feef: явный Retry создаёт fresh ordered gate
+и reconnect, а первый снимок хранит immutable compressed candidate с исходным
+seq; повторная отправка не читаетGPU и не сжимает заново. Кеш ограничен40MiB
+(conservative UTF16), изменённыйseq/engine требует нового capture. Тесты:15для
+roomSocket,63дляsnapshotSync/gate/emptyretry, webtypes/lint проходят.
+Первоначальный capture остаётся синхронным. Независимое ревью выявило зависание
+при бесконечном index GET после upload failure; дополнительный fix пока в работе.
+
+Собран и запущен dist-candidate30/source1dd8feef, frontendPID3550890,
+прежние backend4560/catalog40/Postgres. Галерея Native/28/29 сохранена без
+объявления новых эталонных изображений. 29b оставлена как rollback до приёмки.
+На Samsung compiled main-pu_b8xIw принудительный отказ двух metadata requests
+показал error+Retry; нажатие восстановило unlocked engine. Проверка идентичности
+preview пока FAIL: ранний hash после асинхронной restore отличается. Причина
+ещё не доказана, успешной приёмки изображения не заявляем. Счётчик getOperations
+не равен полной истории после restore из snapshot, поэтому не служит доказательством
+потери штрихов. Сохранены исходный неуспех и повторная диагностика.
+
+После этого Samsung ADB стал offline и bridge перестал отвечать; повторная
+проверка отложена. Своя вкладка3625 пока не закрыта из-за потери доступа;
+ADB forward19236 исчез вместе с подключением. Новых worktrees/dependencyкопий
+нет; сохранены две сборки30+29b, один QA frontend и общий backend.
