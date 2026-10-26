@@ -613,3 +613,39 @@ Source40/80sameeffectiveD invariantPASS,GL0. Этиошибкинепринят�
 compiledcandidate26неактивирован,стендостаётсяна24. Полныеtypecheck/lint/map/build
 exit0,302webbrushTS+30sharedTS+152PythonPASS не заменяютэтотGPUFAIL. Исправление
 и повторныйGPUgate ещё выполняются.
+
+
+## Финальный27: Gaussian и точный pixel copy
+
+9bcdeccc исправил выбор stencil из физических осей наCPU и вычисление профиля
+изpixelcentres gl_FragCoord. CatastrophicD10error119 устранена; оставшийсяPNGerror3
+локализован stage-readback: case28stamp/composite0,layer1,transparent2;case46
+stamp/composite1,layer2,transparent3. ПопыткаLAYERhighp6b7f0045 иQA DITHERoff не
+устранилиошибку. ScopedNEARESTвдвухexactcopy проходах дал72PASSmax1. Гипотеза
+highp отменена, end-to-end toleranceнеослаблен. a3b26422 используетсуществующий
+ownedbuffer.setPointSampling сединымphysical1:1критерием на5маршрутах иfinally
+restore; exportcompositepoint, previewreductionbufferslinearкакраньше.
+
+ActualSamsung a3b26422 безQAoverrides:72GaussianPASSmax1(AAon/off,D.5/.75/1/4/
+9.99/10/12/48,4phases,mediumfade.1/.5/.9,source40/80invariant);16inlinechild
+casesPASSmax0(ratio1/.5,rotation0/.37,AAon/off,standalonepair). Все117sourceGL0,
+12changedvs24(7;67/111tinyadmission;9varyingWASH), прочие105byte-identical.
+19compiledexports byte-identical source;actualmain-DpI4nlp7.js matched.
+7undo/redo и3actualcontextrestore(7/100/41) сохранилиPNG.316webTS/47suites,
+30sharedTS,152Python,fulltypecheck/lint/map/buildexit0. iPadнепроверен.
+
+Финальныйcompiledperf:7sizes4/12/48,100/101sizes48/128 — всеp95≈16.8ms,GL0,
+послеpreparetypeduploads0. Это7короткихпроб, неOSpenlatency; maxдо117.1ms.
+Readiness100≈283–292ms,101≈159–170ms; сниженияpreparationwallclock не заявляем.
+
+109slitошибочносчиталсянедостающейсемантикой: alphaвсех3nativePNGтожеимеетэтот
+провал. Nativecurve+subtractmask объясняетпозицию; внашейaccumulation/projection
+нового orderbugневыявлено. Свидетельстваanalysis-109-slit-v26.md иnativealpha
+columns сохранены. Неустранялиавторскуюкривуюподгонкой.
+
+Стендпереведённаcompiled27/catalogv38:117/244,manifest1627443B SHA256
+8ebd7533fda4775ac3b78ffbe81d04cfe8f84f048ff87d0717207db0f8e68991.
+Operator279/283сохранил108historyrefs(83roompinned+25operatorresolved).
+ViewerNative/23/27 опубликовансразунапрежнемcomparisonentry. Продолжается
+sourceaudit SizeValue: доказанпропущенныйconstantstrength у108child/113/114,
+следующаяправкаещёнеявляетсячастьюпроверенного27.
