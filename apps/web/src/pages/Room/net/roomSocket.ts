@@ -6,7 +6,7 @@ import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@gra
 import type { PencilEngineAPI } from '../../../engine'
 import { BANNED_ERROR_CODE, noteBanned } from '../../../lib/api/banned'
 import { prepareBrushPresets, setBrushRoomScope, loadBrushLibrary } from '../../../lib/api/brushLibrary'
-import { notifyError } from '../../../stores/noticeStore'
+import { dismissNotice, notifyError } from '../../../stores/noticeStore'
 import { createBoardEventHandlers } from './boardEvents'
 import { createConfirmedStreamHandler, type ConfirmedStreamDeps } from './confirmedStream'
 import { createJoinFlow, type JoinFlowDeps } from './joinFlow'
@@ -148,15 +148,33 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   const board = createBoardEventHandlers({ ...deps, maybeFollow })
   const control = createRoomControlEventHandlers({ ...deps, sessionId: id, requestFullResync })
 
-  const brushes = createOrderedBrushGate(prepareBrushPresets, error => {
-    console.error('Imported brush preparation failed', error)
+  let disposed = false
+  let brushFailed = false
+  let brushNotice: string | undefined
+  const retryBrushes = () => {
+    if (disposed || !brushFailed) return
+    brushFailed = false
+    // Failed gates deliberately discard their stream. Reconnect requests a
+    // fresh room_state; never resume a partially admitted old event queue.
+    brushes = createBrushGate()
+    if (brushNotice) dismissNotice(brushNotice)
+    brushNotice = undefined
+    socket.connect()
+  }
+  const createBrushGate = () => createOrderedBrushGate(prepareBrushPresets, error => {
+    console.error('Imported brush preparation failed', error instanceof Error ? `${error.name}: ${error.message}` : error)
+    brushFailed = true
     revival.cancel()
     onConnectionChange(false)
     deps.engineRef.current?.setLocked(true)
     deps.setRoomContentReady(false)
-    notifyError(deps.tRef.current('brushLibrary.error'), { key: 'brush-library', durationMs: null })
+    brushNotice = notifyError(deps.tRef.current('brushLibrary.error'), {
+      key: 'brush-library', durationMs: null,
+      action: { label: deps.tRef.current('common.retry'), onClick: retryBrushes },
+    })
     socket.disconnect()
   })
+  let brushes = createBrushGate()
   const ordered = <Args extends unknown[]>(
     apply: (...args: Args) => void | Promise<void>,
     presets: (...args: Args) => (string | undefined)[] = () => [],
@@ -195,6 +213,8 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   socket.on('connect_error',              handleConnectError)
 
   return () => {
+    disposed = true
+    if (brushNotice) dismissNotice(brushNotice)
     brushes.cancel()
     setBrushRoomScope(undefined)
     // Раньше `socket.disconnect()`: иначе запланированная попытка заведёт
