@@ -26,8 +26,12 @@ describe('brush library contract', () => {
     d.opacityByPressure=[[0,0],[1,1]];expect(isBrushLibrary(data)).toBe(false);d.opacityByPressure=[[0,1],[1,1]]
     d.tip.aspect=2;expect(isBrushLibrary(data)).toBe(false);d.tip.aspect=1
     d.model='mixer';expect(isBrushLibrary(data)).toBe(false);d.model='stamp'
+    d.behavior.dynamics={roundness:{control:'pressure',jitter:0,minimum:0}};expect(isBrushLibrary(data)).toBe(false);delete d.behavior.dynamics
+    d.behavior.rotation={follow:0,random:'none',projection:true};expect(isBrushLibrary(data)).toBe(false);delete d.behavior.rotation
     d.behavior.dual={brush:structuredClone(d),blendMode:'multiply'}
     expect(isBrushLibrary(data)).toBe(false);delete d.behavior.dual
+    const parent=library();parent.brushes[0].descriptor.behavior={version:2,dual:{brush:structuredClone(d),blendMode:'multiply'}}
+    expect(isBrushLibrary(parent)).toBe(false)
     Object.assign(d.tip.profile!,{extra:true});expect(isBrushLibrary(data)).toBe(false)
   })
 

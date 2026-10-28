@@ -371,7 +371,11 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         || (record(d.behavior) && ((record(d.behavior.dynamics) && (d.behavior.dynamics.flow!==undefined || d.behavior.dynamics.opacity!==undefined))
           || (record(d.behavior.modulations) && (d.behavior.modulations.flow!==undefined || d.behavior.modulations.opacity!==undefined))))
         || d.texture!==undefined || d.scatter!==undefined || d.wet!==undefined || d.mixer!==undefined
-        || (record(d.behavior) && (d.behavior.dual!==undefined || d.behavior.taper!==undefined))) return false
+        || (record(d.behavior) && (d.behavior.dual!==undefined || d.behavior.taper!==undefined
+          || (record(d.behavior.rotation) && d.behavior.rotation.projection===true)
+          || (record(d.behavior.scatter) && d.behavior.scatter.roundnessJitter!==undefined && d.behavior.scatter.roundnessJitter!==0)
+          || (record(d.behavior.dynamics) && d.behavior.dynamics.roundness!==undefined)
+          || (record(d.behavior.modulations) && d.behavior.modulations.roundness!==undefined)))) return false
     }
     if (d.tip.alphaThreshold !== undefined) {
       const threshold=d.tip.alphaThreshold
@@ -462,7 +466,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const secondary = d.behavior.dual?.brush
       if (secondary) {
         if (d.model !== 'stamp' && secondary.tip?.profile?.kind === 'gaussian') return false
-        if (secondary.behavior?.dual) return false
+        if (secondary.behavior?.dual || secondary.tip?.profile?.kind === 'circleBand') return false
         const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary }], skipped: [] }
         if (!isBrushLibrary(probe)) return false
       }
