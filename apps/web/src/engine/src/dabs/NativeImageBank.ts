@@ -46,10 +46,17 @@ export function nativeImageBank(id: TipMaskId, tip: BrushTip): readonly NativeIm
 
 export function nativeImageResource(id: TipMaskId, tip: BrushTip, physicalExtentX: number): NativeImageResource | undefined {
   if (!tip.imageSampling) return undefined
-  const selected = selectNativeImageLevel(tip.imageSampling.sourceRect, physicalExtentX)
-  const resource = nativeImageBank(id, tip).find(level => level.scale === selected.scale)
-  if (!resource) throw Error('Native image level is absent from its preparation bank')
-  return resource
+  if (!Number.isFinite(physicalExtentX) || physicalExtentX <= 0) throw new RangeError('Invalid physical image extent')
+  const rect = tip.imageSampling.sourceRect
+  const requested = physicalExtentX / Math.max(rect.width, rect.height)
+  const bank = nativeImageBank(id, tip)
+  let index = 0
+  while (index + 1 < bank.length) {
+    const next = bank[index + 1].scale
+    if (next > requested || Math.abs(next - requested) < 1e-6) index++
+    else break
+  }
+  return bank[index]
 }
 
 export function nativeImagePixels(resource: NativeImageResource, original: Uint8Array): Uint8Array {

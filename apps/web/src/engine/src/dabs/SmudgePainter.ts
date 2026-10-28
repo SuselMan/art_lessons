@@ -4,7 +4,7 @@ import { importedAssetPixels } from '../presets/importedBrushes'
 import { proceduralProfileUniforms, proceduralSampleCount } from '../raster/brushProcedural'
 import { canvasMeanDabRect, canvasMeanPlacedCenter, canvasMeanSourceRect } from '../raster/canvasMeanGeometry'
 import { brushTextureApplication } from './brushTextureApplication'
-import { assertNativeImageAdmission, brushPreparationResources, brushTextureLeaseResources, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
+import { assertNativeImageAdmission, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 // (#494) Smudge and the digital brush's mixer, out of PencilEngine (seam С15
 // of the survey). Both paint through one carried imprint per user: every dab
 // copies the canvas patch under it, refreshes the imprint from that patch
@@ -351,8 +351,9 @@ export class SmudgePainter {
     if (target instanceof AccumulationBuffer) return
     // An explicit prevDab means the caller *is* the continuation (the live
     // stroke's own next incremental batch), and nothing needs resolving.
-    if (paint?.brush) assertNativeImageAdmission(brushPreparationResources(paint.brush), this.imageDimensionLimit(paint.brush))
-    const releaseTextures = paint?.brush ? this.wetTextures.lease(brushTextureLeaseResources(paint.brush,'wet')) : () => {}
+    const resources = paint?.brush ? brushPreparationResources(paint.brush) : undefined
+    if (resources?.some(resource => resource.nativeImage)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
+    const releaseTextures = resources ? this.wetTextures.lease(brushTextureLeasePlan(resources, 'wet')) : () => {}
     try {
     let prev = prevDab ?? this.resumeGesture(userId, strokeId, dabs)
     for (const dab of dabs) {
@@ -797,8 +798,7 @@ export class SmudgePainter {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
-  private imageDimensionLimit(brush?: BrushDescriptor): number {
-    if (brush && !brushPreparationResources(brush).some(resource => resource.nativeImage)) return 0
+  private imageDimensionLimit(): number {
     return this.maximumImageSide ??= this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number
   }
 

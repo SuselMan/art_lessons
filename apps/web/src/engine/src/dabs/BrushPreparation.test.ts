@@ -1,7 +1,7 @@
 import { installBrushPixels } from '../presets/importedBrushes'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { digitalBrushFromPreset } from '../presets/digitalBrushPresets'
-import { BrushPreparation, brushPreparationBytes, brushPreparationResources, brushTextureResourceKey, brushTipResource } from './BrushPreparation'
+import { BrushPreparation, brushTextureLeaseResources, brushTextureLeasePlan, brushPreparationBytes, brushPreparationResources, brushTextureResourceKey, brushTipResource } from './BrushPreparation'
 
 let frames: Map<number, FrameRequestCallback>, ordinal: number
 const nextFrame = () => { const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(cb => cb(0)) }
@@ -102,4 +102,24 @@ it('rejects procedural masks on wet samplers before scheduling any upload',()=>{
   delete wet.tip.profile
   wet.behavior={version:2,dual:{brush,blendMode:'multiply'}}
   expect(()=>brushPreparationResources(wet)).toThrow('Procedural dual profile requires the stamp renderer')
+})
+
+it('reuses a paint-local plan for both roles while observing nested changes on the next paint', () => {
+  const brush = structuredClone(digitalBrushFromPreset('hard-round'))
+  brush.model = 'mixer'
+  brush.tip.mask = 'chalk'
+  const child = structuredClone(digitalBrushFromPreset('hard-round'))
+  child.tip.mask = 'rough'
+  brush.behavior = {version:2,dual:{brush:child,blendMode:'multiply',sampling:'independent'}}
+  const first = brushPreparationResources(brush)
+  expect(brushTextureLeasePlan(first,'wet')).toEqual(brushTextureLeaseResources(brush,'wet'))
+  expect(brushTextureLeasePlan(first,'stamp').some(r=>r.key==='t:rough')).toBe(true)
+  child.tip.mask = 'chalk'
+  brush.tip.mask = 'rough'
+  const second = brushPreparationResources(brush)
+  expect(brushTextureLeasePlan(first,'wet').some(r=>r.key==='t:chalk')).toBe(true)
+  expect(brushTextureLeasePlan(second,'wet').some(r=>r.key==='t:rough')).toBe(true)
+  expect(brushTextureLeasePlan(second,'stamp').some(r=>r.key==='t:chalk')).toBe(true)
+  const stampBrush = {...brush,model:'stamp' as const}
+  expect(brushTextureLeasePlan(brushPreparationResources(stampBrush),'stamp')).toEqual(brushTextureLeaseResources(brush,'stamp'))
 })

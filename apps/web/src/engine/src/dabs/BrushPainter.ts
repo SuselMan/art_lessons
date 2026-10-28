@@ -3,7 +3,7 @@ import { materialGroupMips, type MaterialTextureGroup } from '../presets/brushMa
 import { BrushMipCache } from './BrushMipCache'
 import { lightnessMaterialMips } from '../presets/lightnessMaterial'
 import { importedAssetPixels } from '../presets/importedBrushes'
-import { assertNativeImageAdmission, brushPreparationResources, brushTextureLeaseResources, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
+import { assertNativeImageAdmission, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 /** One digital-stamp renderer for built-in, imported and historical presets.
  * BrushBehaviorPainter owns deposition/composition; this facade owns texture LRU. */
 import type { Dab } from '@grafetto/shared'
@@ -41,7 +41,11 @@ export class BrushPainter {
     this.materialMips = ctx.brushMipCache ?? new BrushMipCache()
     this.ownsMipCache = !ctx.brushMipCache
     this.textures=new BrushTextureCache(ctx.gl)
-    this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native)=>this.tipTexture(id,gray,group,native),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),brush=>{ const resources=brushPreparationResources(brush); if(resources.some(resource=>resource.nativeImage))assertNativeImageAdmission(resources,this.imageDimensionLimit()); return this.textures.lease(brushTextureLeaseResources(brush,'stamp')) })
+    this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native)=>this.tipTexture(id,gray,group,native),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),brush => {
+      const resources = brushPreparationResources(brush.model === 'mixer' ? { ...brush, model: 'stamp' } : brush)
+      if (resources.some(resource => resource.nativeImage)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
+      return this.textures.lease(brushTextureLeasePlan(resources, 'stamp'))
+    })
   }
   initGL():void {this.maximumImageSide=undefined;this.textures.clear(true);this.behavior.initGL()}
   destroy():void {

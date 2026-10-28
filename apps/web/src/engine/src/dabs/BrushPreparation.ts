@@ -102,8 +102,12 @@ export function assertNativeImageAdmission(resources: readonly BrushPreparationR
 
 /** Cheap metadata-only batch pin plan; CPU mip arrays are not built here. */
 export function brushTextureLeaseResources(brush: BrushDescriptor, painter: 'stamp' | 'wet'): { key: string; bytes: number }[] {
-  return brushPreparationResources(painter === 'stamp' && brush.model === 'mixer' ? { ...brush, model: 'stamp' } : brush)
-    .filter(resource => resource.painter === painter)
+  return brushTextureLeasePlan(brushPreparationResources(painter === 'stamp' && brush.model === 'mixer' ? { ...brush, model: 'stamp' } : brush), painter)
+}
+
+/** Reuse a single paint-local plan for admission and pinning. */
+export function brushTextureLeasePlan(resources: readonly BrushPreparationResource[], painter: 'stamp' | 'wet'): { key: string; bytes: number }[] {
+  return resources.filter(resource => resource.painter === painter)
     .map(resource => ({ key: brushTextureResourceKey(resource), bytes: brushPreparationBytes([resource], id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256) }))
 }
 

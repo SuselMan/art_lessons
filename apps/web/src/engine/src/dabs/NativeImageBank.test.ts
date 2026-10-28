@@ -113,3 +113,26 @@ it('preserves the portrait D1 quarter-pixel phase and mirrors the inverse offset
   const domain = nativeImageDomain(value,.25,.25,.5,.5,0)
   expect(domain).toEqual({minX:-1,minY:-1,maxX:1,maxY:1})
 })
+
+it('selects existing bank entries identically to the independent level selector at every boundary', async () => {
+  const {selectNativeImageLevel} = await import('../raster/nativeImageLevel')
+  let random = 9137
+  const nextRandom = () => { random = (Math.imul(random,1664525)+1013904223) >>> 0; return random/4294967296 }
+  for (const [width,height] of [[3,5],[1,511],[511,1],[17,31],[512,512],[63,127]]) {
+    const value=tip()
+    value.imageSampling!.sourceRect={x:0,y:0,width,height}
+    const bank=nativeImageBank(id,value), longest=Math.max(width,height)
+    const extents=[1e-12,1e12]
+    for(const entry of bank) for(const delta of [-1.01e-6,-1e-6,-.99e-6,0,.99e-6,1e-6,1.01e-6]) {
+      const extent=(entry.scale+delta)*longest
+      if(extent>0)extents.push(extent)
+    }
+    for(let i=0;i<100;i++)extents.push(longest*Math.pow(2,nextRandom()*24-16))
+    for(const extent of extents) {
+      const selected=nativeImageResource(id,value,extent)!
+      expect(selected.scale).toBe(selectNativeImageLevel({width,height},extent).scale)
+      expect(bank.includes(selected)).toBe(true)
+    }
+    for(const extent of [0,-1,NaN,Infinity,-Infinity])expect(()=>nativeImageResource(id,value,extent)).toThrow('physical image extent')
+  }
+})
