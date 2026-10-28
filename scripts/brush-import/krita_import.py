@@ -197,6 +197,23 @@ def has_color(image):
     return ImageChops.difference(red,green).getbbox() is not None or ImageChops.difference(red,blue).getbbox() is not None
 
 
+def integer_image_sampling(image, application, asset_size):
+    """Only an unchanged opaque gray source can be recovered from coverage.
+
+    A bounded source domain admits a complete native level bank before a stroke;
+    colored/transparent/material and rescaled sources retain their old policy.
+    The renderer performs the final whole-brush residency admission separately.
+    """
+    if application != 0 or max(image.size) > 512 or has_color(image):
+        return None
+    if image.convert('RGBA').getchannel('A').getextrema() != (255, 255):
+        return None
+    width, height = image.size
+    return {'kind':'integer-pyramid', 'signal':'inverse-gray',
+            'sourceRect':{'x':(asset_size-width)//2, 'y':(asset_size-height)//2,
+                          'width':width, 'height':height}}
+
+
 def brush_application(definition, images):
     """KisPredefinedBrushFactory legacy precedence, independent format reader."""
     colorful=any(has_color(image) for image in images)
@@ -363,7 +380,7 @@ def preset(data, name, catalog, external, depth=0):
     warnings = []
     notes = [compatibility('kritaEngine', 'Krita '+engine+' settings translated to Grafetto; vendor pixel equivalence is not claimed.')]
     d = descriptor(data, '')
-    d['version']=26
+    d['version']=27
     source_size=None
     source_metric=None
     application=0
@@ -463,6 +480,11 @@ def preset(data, name, catalog, external, depth=0):
             else:
                 mask=image if filename.lower().endswith('.gbr') and image.mode=='L' else image_coverage(image,application)
             d['tip']['mask'],d['tip']['maskBounds']=tip_asset(mask,catalog,warnings)
+            if kind in ('png_brush','gbr_brush') and filename.lower().endswith(('.png','.gbr')) and not material_gray:
+                sampling=integer_image_sampling(image,application,catalog.assets[d['tip']['mask']]['size'])
+                if sampling:
+                    d['tip']['imageSampling']=sampling
+                    notes.append(compatibility('integerImagePyramid','Opaque grayscale source grid retained; native integer levels and bounded preparation replace padded trilinear masks. QPainter residual interpolation and transformed edge rounding still require comparison.'))
             if kind=='svg_brush':
                 notes.append(compatibility('svgRasterizer','Pinned official stock SVG rasterized on white at native1000px using librsvg; Qt SVG edge antialiasing may differ. General SVG uploads remain unsupported.'))
         # KisScalingSizeBrush::userEffectiveSize is longest native side * scale.

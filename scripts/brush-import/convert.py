@@ -591,6 +591,21 @@ def portable_bundle(path,catalog):
             bounds=tip['maskBounds']
             if not isinstance(bounds,dict) or set(bounds)!={'x','y','width','height'} or any(type(v) not in (int,float) or not math.isfinite(v) for v in bounds.values()): raise ValueError('Invalid portable mask bounds')
             if bounds['x']<0 or bounds['y']<0 or bounds['width']<=0 or bounds['width']!=bounds['height'] or bounds['x']+bounds['width']>1 or bounds['y']+bounds['height']>1: raise ValueError('Portable mask bounds outside asset')
+        if 'imageSampling' in tip:
+            sampling=tip['imageSampling']
+            if (tip.get('kind')!='bitmap' or 'material' in tip or not isinstance(sampling,dict)
+                    or set(sampling)!={'kind','signal','sourceRect'} or sampling['kind']!='integer-pyramid'
+                    or sampling['signal']!='inverse-gray' or not isinstance(sampling['sourceRect'],dict)):
+                raise ValueError('Invalid portable integer image policy')
+            rect=sampling['sourceRect']
+            if (set(rect)!={'x','y','width','height'} or any(type(v)!=int for v in rect.values())
+                    or not 0<=rect['x']<=2047 or not 0<=rect['y']<=2047
+                    or not 1<=rect['width']<=2048 or not 1<=rect['height']<=2048):
+                raise ValueError('Invalid portable integer image source rectangle')
+            frames=tip.get('animation',{}).get('frames',[tip.get('mask')])
+            if any(frame not in asset_sizes or rect['x']+rect['width']>asset_sizes[frame]
+                   or rect['y']+rect['height']>asset_sizes[frame] for frame in frames):
+                raise ValueError('Portable integer image source exceeds asset')
         if 'texture' in d and (not isinstance(d['texture'],dict) or d['texture'].get('id') not in ids): raise ValueError('Missing portable grain asset')
         behavior=d.get('behavior',{})
         if not isinstance(behavior,dict): raise ValueError('Invalid portable behavior')
