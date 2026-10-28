@@ -1,6 +1,5 @@
 import type { BrushTip, TipMaskId } from '@grafetto/shared'
 import { buildNativeImageLevel, selectNativeImageLevel, type NativeImageLevelSelection } from '../raster/nativeImageLevel'
-import { canvasMeanDabRect } from '../raster/canvasMeanGeometry'
 import type { WorldRect } from '../buffers/tileMath'
 
 type SourceRect = NonNullable<BrushTip['imageSampling']>['sourceRect']
@@ -71,9 +70,34 @@ export function nativeImageDomain(tip: BrushTip, x: number, y: number, radiusX: 
   const longest = Math.max(rect.width, rect.height)
   const width = 2 * radiusX * rect.width / longest, height = 2 * radiusY * rect.height / longest
   const c = Math.abs(Math.cos(angle)), s = Math.abs(Math.sin(angle))
-  return canvasMeanDabRect(x, y, c * width + s * height, s * width + c * height)
+  const axis = (center: number, extent: number) => {
+    const left = center - Math.max(1, extent) / 2
+    const whole = Math.floor(left)
+    let start = left - whole, span = extent
+    if (start < 1e-6) { span += start; start = 0 }
+    const rounded = Math.floor(span + .5)
+    if (Math.abs(span - rounded) < 1e-6) span = rounded
+    return [whole, whole + Math.max(1, Math.ceil(start + span))] as const
+  }
+  const [minX, maxX] = axis(x, c * width + s * height)
+  const [minY, maxY] = axis(y, s * width + c * height)
+  return { minX, minY, maxX, maxY }
 }
 
 export function nativeImageDomainUniform(domain: WorldRect, originX: number, originY: number, tileHeight: number): [number, number, number, number] {
   return [domain.minX - originX, tileHeight - (domain.maxY - originY), domain.maxX - originX, tileHeight - (domain.minY - originY)]
+}
+
+/** Hotspot is clamped in WORLD axes; the transformed source itself is not.
+ * Return a texture-coordinate translation after the tip's inverse rotation. */
+export function nativeImageUVShift(resource: NativeImageResource, radiusX: number, radiusY: number, angle: number, flipX = 1, flipY = 1): [number, number] {
+  const { width, height } = resource.rect
+  const longest = Math.max(width, height)
+  const c = Math.cos(angle), s = Math.sin(angle)
+  const w = 2 * radiusX * width / longest, h = 2 * radiusY * height / longest
+  const bx = Math.abs(c) * w + Math.abs(s) * h
+  const by = Math.abs(s) * w + Math.abs(c) * h
+  const dx = (bx - Math.max(1, bx)) / 2, dy = (by - Math.max(1, by)) / 2
+  return [-(c * dx + s * dy) / radiusX * .5 * resource.bounds.width * flipX || 0,
+    -(-s * dx + c * dy) / radiusY * .5 * resource.bounds.height * flipY || 0]
 }

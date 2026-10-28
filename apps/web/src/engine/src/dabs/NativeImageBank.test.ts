@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest'
 import type { BrushTip } from '@grafetto/shared'
 import { MockGL } from '../../testing/mockGL'
-import { nativeImageBank, nativeImageResource, nativeImagePixels, nativeImageDomain, nativeImageDomainUniform } from './NativeImageBank'
+import { nativeImageBank, nativeImageResource, nativeImagePixels, nativeImageDomain, nativeImageDomainUniform, nativeImageUVShift } from './NativeImageBank'
 import { assertNativeImageAdmission, brushPreparationBytes, brushPreparationPlan, brushTextureResourceKey } from './BrushPreparation'
 import { digitalBrushFromPreset } from '../presets/digitalBrushPresets'
 import { uploadBrushTexture } from './BrushTextureCache'
@@ -80,4 +80,36 @@ it('rejects over-budget complete banks and unsupported GPU dimensions before der
   const huge = nativeImageBank(id, large).map(nativeImage => ({ painter: 'stamp' as const, id, grain: false, nativeImage }))
   expect(() => assertNativeImageAdmission(huge, 16384)).toThrow('texture budget')
   expect(() => assertNativeImageAdmission([{ painter: 'stamp', id, grain: false }], NaN)).not.toThrow()
+})
+
+it('applies clamped hotspot in world axes without enlarging the physical source', () => {
+  const value = tip(), resource = nativeImageResource(id, value, 1)!
+  const shift = nativeImageUVShift(resource, .5, .5, 0)
+  expect(shift[0]).toBeCloseTo(.2 * resource.bounds.width)
+  expect(shift[1]).toBe(0)
+  expect(nativeImageDomain(value, .25, .25, .5, .5, 0)).toEqual({minX:-1,minY:-1,maxX:1,maxY:1})
+  expect(nativeImageUVShift(resource, 1, 1, 0)).toEqual([0,0])
+  const angle = .37, rx=.25, ry=.25
+  const w=.3, h=.5, c=Math.cos(angle), s=Math.sin(angle)
+  const dx=(c*w+s*h-1)/2, dy=(s*w+c*h-1)/2
+  const actual=nativeImageUVShift(resource,rx,ry,angle)
+  expect(actual[0]).toBeCloseTo(-(c*dx+s*dy)/rx*.5*resource.bounds.width)
+  expect(actual[1]).toBeCloseTo(-(-s*dx+c*dy)/ry*.5*resource.bounds.height)
+  const domain=nativeImageDomain(value,-2.75,-4.75,rx,ry,angle)
+  expect(domain.minX).toBe(-4)
+  expect(domain.minY).toBe(-6)
+})
+
+it('preserves the portrait D1 quarter-pixel phase and mirrors the inverse offset with the image', () => {
+  const value = tip()
+  value.imageSampling!.sourceRect = {x:0,y:0,width:1,height:3}
+  const resource = nativeImageResource(id,value,1)!
+  const shift = nativeImageUVShift(resource,.5,.5,0)
+  expect(shift[0]).toBeCloseTo(resource.bounds.width/3)
+  expect(shift[1]).toBe(0)
+  const flipped = nativeImageUVShift(resource,.5,.5,0,-1,1)
+  expect(flipped[0]).toBeCloseTo(-shift[0])
+  // Actual image left=-.25, width=1/3, not a one-pixel-wide source.
+  const domain = nativeImageDomain(value,.25,.25,.5,.5,0)
+  expect(domain).toEqual({minX:-1,minY:-1,maxX:1,maxY:1})
 })

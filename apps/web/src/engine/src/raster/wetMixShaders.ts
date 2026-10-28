@@ -342,8 +342,8 @@ export function wetTransferFragment(procedural = false, integerImages = false): 
   if(integerImages) {
     source=replace(source,' void main() {',`${INTEGER_IMAGE_SAMPLING_GLSL}
  void main() {`)
-    source=replace(source,'texture2D(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw)', 'integerImageSample(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw,u_tipImageEnabled,u_tipImageDomain)')
-    source=replace(source,'texture2D(u_dual,u_dualBounds.xy+(uv*0.5+0.5)*u_dualBounds.zw)', 'integerImageSample(u_dual,u_dualBounds.xy+(uv*0.5+0.5)*u_dualBounds.zw,u_dualImageEnabled,u_dualImageDomain)')
+    source=replace(source,'texture2D(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw)', 'integerImageSample(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw,u_tipImageEnabled,u_tipImageDomain,u_tipImageUVShift)')
+    source=replace(source,'texture2D(u_dual,u_dualBounds.xy+(uv*0.5+0.5)*u_dualBounds.zw)', 'integerImageSample(u_dual,u_dualBounds.xy+(uv*0.5+0.5)*u_dualBounds.zw,u_dualImageEnabled,u_dualImageDomain,u_dualImageUVShift)')
     source=replace(source,'float second=u_dualKind>1.5 ?', `if(u_dualImageEnabled>0.5) {
        vec2 pixel=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter;
        float c=cos(u_dualProceduralAngle),s=sin(u_dualProceduralAngle);

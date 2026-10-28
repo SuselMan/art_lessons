@@ -1,4 +1,4 @@
-import { nativeImageResource, nativeImagePixels, nativeImageDomain, nativeImageDomainUniform, type NativeImageResource } from './NativeImageBank'
+import { nativeImageResource, nativeImagePixels, nativeImageDomain, nativeImageDomainUniform, nativeImageUVShift, type NativeImageResource } from './NativeImageBank'
 import { BrushMipCache } from './BrushMipCache'
 import { importedAssetPixels } from '../presets/importedBrushes'
 import { proceduralProfileUniforms, proceduralSampleCount } from '../raster/brushProcedural'
@@ -808,7 +808,7 @@ export class SmudgePainter {
     const gl=this.gl, program=createProgram(gl,DAB_VERT,wetTransferFragment(true,true))
     this.imageTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
       'u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
-      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageDomain','u_dualImageDomain'])}
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain','u_dualImageDomain'])}
   }
 
   /** Compile once outside pointer input; initGL/forget invalidate this capability. */
@@ -908,6 +908,10 @@ export class SmudgePainter {
     if (binding === this.imageTransfer && binding) {
       gl.uniform1f(u.u_tipImageEnabled,mainImage ? 1 : 0)
       gl.uniform1f(u.u_dualImageEnabled,childImage ? 1 : 0)
+      const tipShift = mainImage ? nativeImageUVShift(mainImage, radius*(wet?.stamp.aspect ?? 1), radius, wet?.stamp.angle ?? 0, wet?.stamp.flipX ?? 1, wet?.stamp.flipY ?? 1) : [0,0] as const
+      gl.uniform2f(u.u_tipImageUVShift, tipShift[0], tipShift[1])
+      const dualShift = childImage && dual ? nativeImageUVShift(childImage, imageChildRx, imageChildRx/dual.brush.tip.aspect, dual.brush.tip.rotation==='fixed' ? dual.brush.tip.angle ?? 0 : wet?.stamp.angle ?? 0) : [0,0] as const
+      gl.uniform2f(u.u_dualImageUVShift, dualShift[0], dualShift[1])
       if(mainImage && brush) gl.uniform4f(u.u_tipImageDomain,...nativeImageDomainUniform(nativeImageDomain(brush.tip,dab.x,dab.y,radius*(wet?.stamp.aspect ?? 1),radius,wet?.stamp.angle ?? 0),tile.originX,tile.originY,buffer.height))
       if(childImage && dual) gl.uniform4f(u.u_dualImageDomain,...nativeImageDomainUniform(nativeImageDomain(dual.brush.tip,dab.x,dab.y,imageChildRx,imageChildRx/dual.brush.tip.aspect,dual.brush.tip.rotation==='fixed' ? dual.brush.tip.angle ?? 0 : wet?.stamp.angle ?? 0),tile.originX,tile.originY,buffer.height))
     }

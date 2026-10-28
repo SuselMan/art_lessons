@@ -1,4 +1,4 @@
-import { nativeImageResource, nativeImageDomain, nativeImageDomainUniform, type NativeImageResource } from './NativeImageBank'
+import { nativeImageResource, nativeImageDomain, nativeImageDomainUniform, nativeImageUVShift, type NativeImageResource } from './NativeImageBank'
 import { proceduralProfileUniforms, proceduralSampleCount } from '../raster/brushProcedural'
 import { gaussianSampleCount } from '../raster/gaussianTip'
 import { brushTipResource, brushTextureResourceKey } from './BrushPreparation'
@@ -36,7 +36,7 @@ const STAMP_UNIFORMS = [
   'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin',
   'u_dualTexPeriod', 'u_dualTexStrength', 'u_tipProcedural', 'u_dualProcedural',
   'u_tipProceduralGeometry', 'u_dualProceduralGeometry', 'u_dualProceduralAngle',
-  'u_tipImageEnabled', 'u_dualImageEnabled', 'u_tipImageDomain', 'u_dualImageDomain',
+  'u_tipImageEnabled', 'u_dualImageEnabled', 'u_tipImageUVShift','u_dualImageUVShift','u_tipImageDomain', 'u_dualImageDomain',
 ]
 type BrushTarget = Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>
 export interface BehaviorScratch extends BrushScratch {
@@ -341,9 +341,13 @@ export class BrushBehaviorPainter {
               gl.uniform4f(u.u_dualBounds, childBounds?.x ?? 0, childBounds?.y ?? 0, childBounds?.width ?? 1, childBounds?.height ?? 1)
               gl.uniform1f(u.u_tipImageEnabled, mainImage ? 1 : 0)
               gl.uniform1f(u.u_dualImageEnabled, dualImage ? 1 : 0)
+              const tipShift = mainImage ? nativeImageUVShift(mainImage, s.radius*s.aspect, s.radius, s.angle, s.flipX, s.flipY) : [0,0] as const
+              gl.uniform2f(u.u_tipImageUVShift, tipShift[0], tipShift[1])
+              gl.uniform2f(u.u_dualImageUVShift, 0, 0)
               if (mainImage) gl.uniform4f(u.u_tipImageDomain, ...nativeImageDomainUniform(nativeImageDomain(brush.tip,s.x,s.y,s.radius*s.aspect,s.radius,s.angle), tile.originX,tile.originY,coverage.height))
               if (dualImage && secondary) {
                 const childAngle = secondary.tip.rotation === 'fixed' ? secondary.tip.angle : s.angle
+                gl.uniform2f(u.u_dualImageUVShift, ...nativeImageUVShift(dualImage, childRadiusX, childRadiusX/secondary.tip.aspect, childAngle))
                 gl.uniform4f(u.u_dualImageDomain, ...nativeImageDomainUniform(nativeImageDomain(secondary.tip,s.x,s.y,childRadiusX,childRadiusX/secondary.tip.aspect,childAngle), tile.originX,tile.originY,coverage.height))
               }
             }
