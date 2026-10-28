@@ -32,7 +32,7 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
     } catch(error) {if((error as NodeJS.ErrnoException).code==='ENOENT') abandoned=Date.now()-info.mtimeMs>24*60*60*1000}
     if(abandoned) await rm(path,{recursive:true,force:true})
   }
-  if (operator.manifest.assets.length) storage.install('__operator__',operator.manifest,operator.assets)
+  if (operator.assets.size) storage.provision(operator.assets)
   operator.assets.clear()
   setBrushStorage(storage,operator.manifest)
   let closing=false

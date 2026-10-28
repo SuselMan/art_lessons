@@ -1,7 +1,9 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, mkdir, writeFile, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Fastify from 'fastify'
+import { createHash } from 'node:crypto'
+import { BrushStorage, empty } from './storage.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { registerBrushLibraryRoutes } from './routes.js'
 import { mayReadBoardContent } from '../rooms/boardContentAccess.js'
@@ -33,4 +35,35 @@ describe('brush resource HTTP authorization',()=> {
       expect((await server.inject('/api/brush-library/assets/'+'a'.repeat(64))).statusCode).toBe(404)
     } finally {await server.close()}
   })
+})
+
+
+it('provisions current operator CAS without reading or replacing the protected historical owner archive', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'brush-operator-'))
+  directories.push(directory)
+  const root = join(directory, 'storage'), operator = join(directory, 'operator')
+  const storage = new BrushStorage(root)
+  const archive = Buffer.from(JSON.stringify(empty()) + ' '.repeat(4 * 1024 * 1024))
+  // Historical archives are not part of the HTTP catalog; even a file above
+  // the personal reader limit must not be parsed/merged by operator startup.
+  await writeFile(storage.path('owners', '__operator__'), archive)
+  const bytes = Buffer.from([1, 2, 3, 4]), hash = createHash('sha256').update(bytes).digest('hex')
+  const manifest = empty()
+  manifest.assets.push({ id: `asset:${hash}`, size: 2, file: hash + '.bin' })
+  await mkdir(operator)
+  await writeFile(join(operator, 'manifest.json'), JSON.stringify(manifest))
+  await writeFile(join(operator, hash + '.bin'), bytes)
+  vi.stubEnv('GRAFETTO_BRUSH_STORAGE_DIR', root)
+  const server = Fastify()
+  server.addHook('onRequest', async request => { request.userId = 'alice' })
+  try {
+    await registerBrushLibraryRoutes(server, operator)
+    expect((await server.inject('/api/brush-library')).json()).toEqual(manifest)
+    const response = await server.inject('/api/brush-library/assets/' + hash)
+    expect(response.statusCode).toBe(200)
+    expect(response.rawPayload).toEqual(bytes)
+    const preserved = await readFile(storage.path('owners', '__operator__'))
+    expect(preserved.length).toBe(archive.length)
+    expect(createHash('sha256').update(preserved).digest('hex')).toBe(createHash('sha256').update(archive).digest('hex'))
+  } finally { await server.close() }
 })

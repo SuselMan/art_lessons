@@ -90,28 +90,52 @@ export class BrushStorage {
     if (bytes.length!==size*size || keyBytes(bytes)!==hash) throw Error('Corrupt brush asset')
     return bytes
   }
-  install(owner: string, library: BrushLibrary, assets: Map<string,Buffer>): BrushLibrary {
-    return this.mutate(()=> {
-      this.ensureCapacity([...assets.values()].reduce((sum,bytes)=>sum+bytes.length,0))
-      const next=merge(this.library('owners',owner),library)
-      const total=next.assets.reduce((sum,a)=>sum+a.size*a.size,0)
-      if (total>256*1024*1024 || !isBrushLibrary(next)) throw Error('Personal brush library quota exceeded (256 MiB / 512 brushes)')
-      for (const [hash,bytes] of assets) {
-        if (keyBytes(bytes)!==hash) throw Error('Corrupt brush asset')
-        const path=join(this.root,'assets',hash+'.bin')
-        const temporary=path+'.'+randomUUID()
-        try {
-          const fd=openSync(temporary,constants.O_CREAT|constants.O_EXCL|constants.O_WRONLY,0o600)
-          try {writeFileSync(fd,bytes);fsyncSync(fd)} finally {closeSync(fd)}
-          try {linkSync(temporary,path)} catch(e) {
-            if((e as NodeJS.ErrnoException).code!=='EEXIST') throw e
-            if(!boundedRead(path,bytes.length).equals(bytes)) throw Error('Immutable asset conflict')
-          }
-        } finally {rmSync(temporary,{force:true})} 
+  /** Publish immutable CAS only; operator catalogs are not personal history. */
+  provision(assets: Map<string, Buffer>): void {
+    this.mutate(() => this.provisionAssets(assets))
+  }
+
+  /** Called only under the writer lock; validate the entire batch before writes. */
+  private provisionAssets(assets: Map<string, Buffer>): void {
+    const missing: [string, Buffer][] = []
+    for (const [hash, bytes] of assets) {
+      if (!/^[a-f0-9]{64}$/.test(hash) || keyBytes(bytes) !== hash) throw Error('Corrupt brush asset')
+      const path = join(this.root, 'assets', hash + '.bin')
+      try {
+        const existing = boundedRead(path, bytes.length)
+        if (!existing.equals(bytes) || keyBytes(existing) !== hash) throw Error('Immutable asset conflict')
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+        missing.push([hash, bytes])
       }
-      const directory=openSync(join(this.root,'assets'),constants.O_RDONLY|constants.O_DIRECTORY)
-      try {fsyncSync(directory)} finally {closeSync(directory)}
-      this.atomic(this.path('owners',owner),next); return next
+    }
+    // Existing verified objects consume no additional quota on startup/import.
+    this.ensureCapacity(missing.reduce((sum, [, bytes]) => sum + bytes.length, 0))
+    for (const [hash, bytes] of missing) {
+      const path = join(this.root, 'assets', hash + '.bin')
+      const temporary = path + '.' + randomUUID()
+      try {
+        const fd = openSync(temporary, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, 0o600)
+        try { writeFileSync(fd, bytes); fsyncSync(fd) } finally { closeSync(fd) }
+        try { linkSync(temporary, path) } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+          const existing = boundedRead(path, bytes.length)
+          if (!existing.equals(bytes) || keyBytes(existing) !== hash) throw Error('Immutable asset conflict')
+        }
+      } finally { rmSync(temporary, { force: true }) }
+    }
+    const directory = openSync(join(this.root, 'assets'), constants.O_RDONLY | constants.O_DIRECTORY)
+    try { fsyncSync(directory) } finally { closeSync(directory) }
+  }
+
+  install(owner: string, library: BrushLibrary, assets: Map<string, Buffer>): BrushLibrary {
+    return this.mutate(() => {
+      const next = merge(this.library('owners', owner), library)
+      const total = next.assets.reduce((sum, asset) => sum + asset.size * asset.size, 0)
+      if (total > 256 * 1024 * 1024 || !isBrushLibrary(next)) throw Error('Personal brush library quota exceeded (256 MiB / 512 brushes)')
+      this.provisionAssets(assets)
+      this.atomic(this.path('owners', owner), next)
+      return next
     })
   }
   pin(room: string, owner: string, presets: string[], operator=empty()): void {

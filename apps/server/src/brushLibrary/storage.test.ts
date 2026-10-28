@@ -1,12 +1,12 @@
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BrushStorage, empty, merge } from './storage.js'
 const dirs:string[]=[]
 function fixture() { const dir=mkdtempSync(join(tmpdir(),'brush-storage-')); dirs.push(dir); return {dir,storage:new BrushStorage(dir)} }
-afterEach(()=>{for(const dir of dirs.splice(0)) rmSync(dir,{recursive:true,force:true})})
+afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();for(const dir of dirs.splice(0)) rmSync(dir,{recursive:true,force:true})})
 describe('persistent private brush resources',()=> {
   it('persists bytes and owner manifests across restart without exposing other owners',()=> {
     const {dir,storage}=fixture(), bytes=Buffer.from([1,2,3,4]), hash=createHash('sha256').update(bytes).digest('hex')
@@ -62,5 +62,71 @@ describe('persistent private brush resources',()=> {
     expect(()=>storage.mutate(()=>storage.mutate(()=>undefined))).toThrow()
     expect(storage.path('owners','../../private')).toMatch(/owners\/[a-f0-9]{64}\.json$/)
     expect(merge(empty(),empty())).toEqual(empty())
+  })
+})
+
+
+function resource(seed: number, letter: string) {
+  const bytes = Buffer.from([seed, seed + 1, seed + 2, seed + 3])
+  const hash = createHash('sha256').update(bytes).digest('hex')
+  const library = empty()
+  library.assets.push({ id: `asset:${hash}`, size: 2, file: hash + '.bin' })
+  library.brushes.push({ name: 'Authored CAS', source: 'qa', warnings: [], descriptor: {
+    id: 'imported-' + letter.repeat(16), version: 1, model: 'stamp', category: 'paint',
+    tip: { kind: 'bitmap', mask: `asset:${hash}`, hardness: 1, aspect: 1, rotation: 'fixed', angle: 0 },
+    paperInteraction: 0, spacing: .1, flow: 1, flowPer: 'pass', opacity: 1, pressureSmoothingPx: 0,
+    sizeByPressure: [[0, 1], [1, 1]], flowByPressure: [[0, 1], [1, 1]], opacityByPressure: [[0, 1], [1, 1]],
+  } })
+  return { bytes, hash, library, assets: new Map([[hash, bytes]]), token: `brush:imported-${letter.repeat(16)}@1` }
+}
+
+describe('CAS-only operator provisioning', () => {
+  it('preserves archive and old room pins byte-for-byte while making new operator resources pinnable', () => {
+    const { storage } = fixture(), old = resource(1, 'a'), next = resource(5, 'b')
+    storage.install('__operator__', old.library, old.assets)
+    storage.pin('old-room', '__operator__', [old.token])
+    const archive = readFileSync(storage.path('owners', '__operator__'))
+    const room = readFileSync(storage.path('rooms', 'old-room'))
+    storage.provision(next.assets)
+    expect(readFileSync(storage.path('owners', '__operator__'))).toEqual(archive)
+    expect(readFileSync(storage.path('rooms', 'old-room'))).toEqual(room)
+    storage.pin('new-room', 'alice', [next.token], next.library)
+    expect(storage.library('rooms', 'new-room')).toEqual(next.library)
+    expect(storage.asset(next.hash, 2)).toEqual(next.bytes)
+    expect(storage.asset(old.hash, 2)).toEqual(old.bytes)
+  })
+
+  it('charges zero additional bytes for verified existing CAS and only new bytes for a mixed batch', () => {
+    const { storage } = fixture(), old = resource(1, 'a'), next = resource(5, 'b')
+    storage.provision(old.assets)
+    const quota = vi.spyOn(storage, 'ensureCapacity')
+    storage.provision(old.assets)
+    expect(quota).toHaveBeenLastCalledWith(0)
+    storage.provision(new Map([...old.assets, ...next.assets]))
+    expect(quota).toHaveBeenLastCalledWith(next.bytes.length)
+    expect(existsSync(storage.path('owners', '__operator__'))).toBe(false)
+  })
+
+  it('preflights corrupt batches and rejects quota without writing new CAS or changing the archive', () => {
+    const { storage, dir } = fixture(), old = resource(1, 'a'), next = resource(5, 'b')
+    storage.install('__operator__', old.library, old.assets)
+    const archive = readFileSync(storage.path('owners', '__operator__'))
+    expect(() => storage.provision(new Map([...next.assets, ['a'.repeat(64), Buffer.from([0, 0, 0, 0])]]))).toThrow('Corrupt')
+    expect(existsSync(join(dir, 'assets', next.hash + '.bin'))).toBe(false)
+    vi.stubEnv('GRAFETTO_BRUSH_STORAGE_QUOTA_BYTES', '1')
+    expect(() => storage.provision(next.assets)).toThrow('quota')
+    expect(readFileSync(storage.path('owners', '__operator__'))).toEqual(archive)
+    expect(readdirSync(join(dir, 'assets'))).toEqual([old.hash + '.bin'])
+  })
+
+  it('refuses corrupt or symlinked existing CAS instead of replacing immutable files', () => {
+    const { storage, dir } = fixture(), next = resource(5, 'b')
+    const path = join(dir, 'assets', next.hash + '.bin')
+    writeFileSync(path, Buffer.from([0, 0, 0, 0]))
+    expect(() => storage.provision(next.assets)).toThrow('Immutable asset conflict')
+    expect(readFileSync(path)).toEqual(Buffer.from([0, 0, 0, 0]))
+    rmSync(path); writeFileSync(join(dir, 'private'), next.bytes); symlinkSync(join(dir, 'private'), path)
+    expect(() => storage.provision(next.assets)).toThrow()
+    expect(readFileSync(join(dir, 'private'))).toEqual(next.bytes)
   })
 })
