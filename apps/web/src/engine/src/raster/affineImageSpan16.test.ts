@@ -1,3 +1,4 @@
+import spans from './affineImageSpan16.qt-fixtures.json'
 import { expect, it } from 'vitest'
 import full from './affineImageSpan16.full-qt-fixtures.json'
 import type { InverseImageAffine } from './affineImageSpan'
@@ -27,6 +28,27 @@ it('bounds layouts and matrix work and rejects invalid premultiplication', () =>
   expect(()=>affineSpan16Straight(Uint16Array.of(65535,0,0,1))).toThrow('premultiplied')
 })
 
-it('explicitly rejects partial source alpha before unverified SIMD decode', () => {
-  expect(()=>sampleAffineImageSpan16(Uint8Array.of(20,20,20,127),1,1,[1,0,0,1,0,0],0,0,1)).toThrow('Partial source alpha')
+it('matches actual Qt straight-ARGB32 target with arbitrary source alpha on 90 covered-span cases', () => {
+  const source=Uint8Array.from(spans.sourceRGBA)
+  for(const example of spans.cases) for(let y=0;y<example.height;y++) {
+    const pm=sampleAffineImageSpan16(source,spans.sourceWidth,spans.sourceHeight,
+      example.inverse as unknown as InverseImageAffine,0,y,example.width)
+    expect([...affineSpan16Straight(pm)]).toEqual(example.straight.slice(y*example.width*4,(y+1)*example.width*4))
+    expect([...affineSpan16Mask(pm)]).toEqual(example.mask.slice(y*example.width,(y+1)*example.width))
+  }
+})
+
+it('matches actual Qt with AVX2 explicitly disabled, including narrow4 scalar decode tails', async () => {
+  const {default: fixture} = await import('./affineImageSpan16.sse4-qt-fixtures.json')
+  expect(fixture.disabledCpuFeatures).toBe('avx2')
+  expect(fixture.caseCount).toBe(spans.cases.length)
+  expect(fixture.overrides).toHaveLength(1)
+  const source=Uint8Array.from(spans.sourceRGBA)
+  for(const [index,example] of spans.cases.entries()) for(let y=0;y<example.height;y++) {
+    const expected=fixture.overrides.find(value=>value.index===index) ?? example
+    const pm=sampleAffineImageSpan16(source,spans.sourceWidth,spans.sourceHeight,
+      example.inverse as unknown as InverseImageAffine,0,y,example.width,'separate','narrow4')
+    expect([...affineSpan16Straight(pm)]).toEqual(expected.straight.slice(y*example.width*4,(y+1)*example.width*4))
+    expect([...affineSpan16Mask(pm)]).toEqual(expected.mask.slice(y*example.width,(y+1)*example.width))
+  }
 })

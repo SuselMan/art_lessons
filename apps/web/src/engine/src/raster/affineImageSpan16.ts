@@ -2,18 +2,17 @@ import type { InverseImageAffine } from './affineImageSpan'
 
 /** Experimental RGBA16 reference for straight-ARGB32 QPainter destinations.
  * Qt5.15 qdrawhelper.cpp fetchTransformedBilinear64_uint32 and qrgba64.h.
- * Initial verified source domain: alpha0/255 (opaque native-gray plus border).
+ * Source conversion models separately-selected wide8 or narrow4 SIMD groups.
  * Already-covered affine scanline only; no active renderer imports this file.
  * Separate high-word products model SSE2; summed products model NEON. */
 export function sampleAffineImageSpan16(
   straightRGBA: Uint8Array, width: number, height: number, inverse: InverseImageAffine,
-  x: number, y: number, length: number, products: 'separate' | 'summed' = 'separate',
+  x: number, y: number, length: number, products: 'separate' | 'summed' = 'separate', sourceDecode: 'wide8' | 'narrow4' | 'scalar' = 'wide8',
 ): Uint16Array {
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1
     || width * height > 4 * 1024 * 1024 || straightRGBA.length !== width * height * 4
     || !Number.isSafeInteger(x) || !Number.isSafeInteger(y) || !Number.isSafeInteger(length)
     || length < 1 || length > 2048 || inverse.some(v => !Number.isFinite(v))) throw RangeError('Invalid RGBA16 affine span')
-  for(let i=3;i<straightRGBA.length;i+=4) if(straightRGBA[i]!==0 && straightRGBA[i]!==255) throw RangeError('Partial source alpha is outside the verified decode domain')
   const [a,b,c,d,tx,ty] = inverse, fixed = 65536
   const normX = a*a+c*c, normY = b*b+d*d
   if (normX <= 1/fixed || normY <= 1/fixed || normX >= 1e4 || normY >= 1e4
@@ -22,13 +21,39 @@ export function sampleAffineImageSpan16(
   let fx = Math.trunc((c*(y+.5)+a*(x+.5)+tx-1/fixed)*fixed)-32768
   let fy = Math.trunc((d*(y+.5)+b*(x+.5)+ty-1/fixed)*fixed)-32768
   if ([fx,fy,fx+dx*length,fy+dy*length].some(v=>Math.abs(v)>=0x7fffffff)) throw RangeError('Affine fixed-point range exceeded')
-  const channelAt = (px: number, py: number, channel: number) => {
-    const offset = (Math.max(0,Math.min(height-1,py))*width+Math.max(0,Math.min(width-1,px)))*4
-    const alpha = straightRGBA[offset+3]*257
-    if (channel === 3) return alpha
-    const product = straightRGBA[offset+channel]*257*alpha
-    return Math.floor((product+Math.floor(product/fixed)+32768)/fixed)
+  // The fetcher materializes two adjacent texels per destination pixel.
+  // Conversion SIMD groups therefore span multiple destination pixels; a
+  // mixed-alpha neighbour changes even an opaque texel's rounding.
+  const fetchRow = (bottom: boolean) => {
+    const raw = new Uint8Array(length * 8)
+    for(let i=0;i<length;i++) {
+      const ix=Math.floor((fx+dx*i)/fixed), iy=Math.floor((fy+dy*i)/fixed)+(bottom ? 1 : 0)
+      for(let side=0;side<2;side++) {
+        const offset=(Math.max(0,Math.min(height-1,iy))*width+Math.max(0,Math.min(width-1,ix+side)))*4
+        raw.set(straightRGBA.subarray(offset,offset+4),(i*2+side)*4)
+      }
+    }
+    const result=new Uint16Array(raw.length), count=length*2
+    const groupSize=sourceDecode==='wide8' ? 8 : sourceDecode==='narrow4' ? 4 : 1
+    for(let start=0;start<count;start+=groupSize) {
+      const end=Math.min(count,start+groupSize)
+      const vector=sourceDecode==='wide8' || sourceDecode==='narrow4' && end-start===4
+      let opaque=true
+      for(let i=start;i<end;i++)if(raw[i*4+3]!==255)opaque=false
+      for(let i=start;i<end;i++) {
+        const alpha=raw[i*4+3]*257
+        result[i*4+3]=alpha
+        for(let channel=0;channel<3;channel++) {
+          const value=raw[i*4+channel]*257, product=value*alpha
+          const high=Math.floor(product/fixed)
+          result[i*4+channel]=opaque ? value : vector ? high+Math.floor(high/32768)
+            : Math.floor((product+high+32768)/fixed)
+        }
+      }
+    }
+    return result
   }
+  const top=fetchRow(false), bottom=fetchRow(true)
   const interpolate = (left: number, right: number, weight: number) => weight === 0 ? left
     : products === 'separate' ? Math.floor(left*(fixed-weight)/fixed)+Math.floor(right*weight/fixed)
       : Math.floor((left*(fixed-weight)+right*weight)/fixed)
@@ -37,8 +62,8 @@ export function sampleAffineImageSpan16(
     const ix=Math.floor(fx/fixed), iy=Math.floor(fy/fixed)
     const wx=fx-ix*fixed, wy=fy-iy*fixed
     for(let channel=0;channel<4;channel++) {
-      const left=interpolate(channelAt(ix,iy,channel),channelAt(ix,iy+1,channel),wy)
-      const right=interpolate(channelAt(ix+1,iy,channel),channelAt(ix+1,iy+1,channel),wy)
+      const left=interpolate(top[i*8+channel],bottom[i*8+channel],wy)
+      const right=interpolate(top[i*8+4+channel],bottom[i*8+4+channel],wy)
       result[i*4+channel]=interpolate(left,right,wx)
     }
   }
