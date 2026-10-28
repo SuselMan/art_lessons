@@ -28,9 +28,9 @@ export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): 
 /** Matches sampler routes, rather than uploading both formats for every tip. */
 export function brushPreparationPlan(brush: BrushDescriptor): {
   resources: BrushPreparationResource[]
-  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage')[]
+  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand')[]
 } {
-  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage'>()
+  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage' | 'stampCircleBand'>()
   const resources = new Map<string, BrushPreparationResource>()
   const add = (painter: 'stamp' | 'wet', id: TipMaskId | BrushTextureId | undefined, grain = false, discrete = false, gray?: string, tip?: BrushTip) => {
     if (id) {
@@ -46,12 +46,16 @@ export function brushPreparationPlan(brush: BrushDescriptor): {
     }
   }
   const visit = (b: BrushDescriptor, painter: 'stamp' | 'wet') => {
+    if (b.tip.profile?.kind === 'circleBand') {
+      if (painter !== 'stamp' || b.behavior?.rendering?.accumulation !== 'maxAlpha') throw Error('Circle band requires stamp max-alpha accumulation')
+      capabilities.add('stampCircleBand')
+    }
     if(b.tip.profile?.kind==='gaussian' && painter==='wet') throw Error('Procedural tip profile requires the stamp renderer')
     if(b.tip.material && painter==='wet') throw Error('Lightness tip material requires the stamp renderer')
     const inline = b.behavior?.dual?.sampling !== 'independent' ? b.behavior?.dual?.brush : undefined
     if (b.tip.imageSampling || inline?.tip.imageSampling) capabilities.add(painter === 'stamp' ? 'stampImage' : 'wetImage')
     if (painter === 'stamp'
-      ? b.tip.kind === 'procedural' || inline?.tip.kind === 'procedural'
+      ? b.tip.kind === 'procedural' && b.tip.profile?.kind !== 'circleBand' || inline?.tip.kind === 'procedural'
       : b.tip.profile?.kind === 'standard' || inline?.tip.profile?.kind === 'standard') capabilities.add(painter)
     const frames=b.tip.animation?.frames ?? (b.tip.mask ? [b.tip.mask] : [])
     frames.forEach((id,index)=>add(painter,id,false,false,b.tip.material?.grayFrames?.[index] ?? b.tip.material?.gray,b.tip))

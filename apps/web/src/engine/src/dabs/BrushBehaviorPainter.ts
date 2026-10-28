@@ -1,3 +1,5 @@
+import { CIRCLE_BAND_STAMP_FRAG } from '../raster/circleBandShaders'
+import { prepareCircleDifference, type CircleDifference } from '../raster/roundCoverage'
 import { nativeImageResource, nativeImageDomain, nativeImageDomainUniform, nativeImageUVShift, type NativeImageResource } from './NativeImageBank'
 import { proceduralProfileUniforms, proceduralSampleCount } from '../raster/brushProcedural'
 import { gaussianSampleCount } from '../raster/gaussianTip'
@@ -19,6 +21,7 @@ import { DAB_VERT } from '../raster/shaders'
 import { createProgram, getUniforms } from '../raster/utils'
 import type { BrushContext, BrushScratch } from './BrushPainter'
 const STAMP_UNIFORMS = [
+  'u_circleClipped', 'u_circleClip0', 'u_circleClip1', 'u_circleClip2', 'u_circleClip3',
   'u_gaussianGeometry', 'u_tipProfile', 'u_dualProfile', 'u_wickPx',
   'u_wickCap', 'u_tipPacking', 'u_dualTipPacking', 'u_lightnessMaterial',
   'u_lightnessStrength', 'u_dualLightnessMaterial', 'u_textureApplication', 'u_textureMapping',
@@ -69,6 +72,7 @@ const boundsCopyRect = (bounds: BrushBounds, tile: { originX: number; originY: n
 /** Uses the same frozen-original / coverage resources as the other digital brushes.
  * Only v2 descriptors opt into colour coverage and these equations. */
 export class BrushBehaviorPainter {
+  private circleStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private previewBounds = new WeakMap<BrushBehaviorState,BrushBounds>()
   private bindings = new WeakMap<BehaviorScratch, {
     target: BrushTarget
@@ -104,6 +108,7 @@ export class BrushBehaviorPainter {
     return {texture:this.tip(id,gray,resource.materialGroup,native),mode:resource.materialChannels==='rg' ? 1 : resource.materialChannels==='ba' ? 2 : 0}
   }
   initGL(): void {
+    this.circleStamp = undefined
     this.proceduralStamp = undefined
     this.imageStamp = undefined
     const gl = this.ctx.gl
@@ -119,6 +124,16 @@ export class BrushBehaviorPainter {
   }
   /** Compile the bounded profile capability during explicit brush readiness. */
   prepareProcedural(): void { this.stampFor(true) }
+
+  prepareCircleBand(): void { this.circleProgram() }
+
+  private circleProgram(): { program: WebGLProgram; uniforms: Uniforms; position: number } {
+    if (!this.circleStamp) {
+      const gl = this.ctx.gl, program = createProgram(gl, DAB_VERT, CIRCLE_BAND_STAMP_FRAG)
+      this.circleStamp = { program, uniforms: getUniforms(gl, program, STAMP_UNIFORMS), position: gl.getAttribLocation(program, 'a_position') }
+    }
+    return this.circleStamp
+  }
 
   prepareIntegerImages(): void { this.stampFor(true, true) }
 
@@ -142,7 +157,17 @@ export class BrushBehaviorPainter {
     const b = this.bindings.get(scratch); if (b)
       this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint)
   }
-  destroy(): void { const gl = this.ctx.gl; gl.deleteProgram(this.stamp); gl.deleteProgram(this.composite); if (this.proceduralStamp) gl.deleteProgram(this.proceduralStamp.program); this.proceduralStamp = undefined; if (this.imageStamp) gl.deleteProgram(this.imageStamp.program); this.imageStamp = undefined }
+  destroy(): void {
+    const gl = this.ctx.gl
+    if (this.circleStamp) gl.deleteProgram(this.circleStamp.program)
+    this.circleStamp = undefined
+    gl.deleteProgram(this.stamp)
+    gl.deleteProgram(this.composite)
+    if (this.proceduralStamp) gl.deleteProgram(this.proceduralStamp.program)
+    this.proceduralStamp = undefined
+    if (this.imageStamp) gl.deleteProgram(this.imageStamp.program)
+    this.imageStamp = undefined
+  }
   paint(target: BrushTarget, dabs: Dab[], preset: PencilPreset, brush: BrushDescriptor, pressure: BrushPressureSettings, color: [
     number,
     number,
@@ -170,6 +195,8 @@ export class BrushBehaviorPainter {
     }
 
     const accumulation=behavior.rendering?.accumulation
+    const circleBand = brush.tip.profile?.kind === 'circleBand'
+    if (circleBand !== (accumulation === 'maxAlpha')) throw Error('Circle band requires max-alpha accumulation')
     if(accumulation==='alphaDarken'){
       if(state.washColor && color.some((value,index)=>value!==state.washColor![index]))state.washVaryingPigment=true
       state.washColor??=[...color]
@@ -197,10 +224,22 @@ export class BrushBehaviorPainter {
         // it for the final composite instead imposes a whole-stroke ceiling.
         const ceiling=clamp(opacity*st.opacityScale*(accumulation==='directOver' ? state.opacity : 1))
         const wash=accumulation==='alphaDarken' ? advanceWashOpacity(state.washOpacity??=( {average:0,maximum:0} ),ceiling) : undefined
-        return {...st,radius:st.size*preset.sizeMultiplier*.5,flow:flow*st.flowScale,ceiling,pressure:dab.pressure,
+        return {...st,...(circleBand ? {aspect:1,angle:0} : {}),radius:st.size*preset.sizeMultiplier*.5,flow:flow*st.flowScale,ceiling,pressure:dab.pressure,
           ...(wash ? {washAverage:wash.average,washFeedback:!wash.canBlend || !constantPigment} : {})}
       })
     })
+    // Prepare once per admitted placed dab, before tile traversal. The same
+    // stroke state survives operation chunks; a new scratch starts a new disc.
+    const circleClips = new Map<BehaviorPlaced, CircleDifference>()
+    if (circleBand) {
+      let previous = state.previousCoverageCircle
+      for (const stamp of incoming) {
+        const current = { x: stamp.x, y: stamp.y, radius: stamp.radius }
+        circleClips.set(stamp, prepareCircleDifference(previous, current))
+        previous = current
+      }
+      if (previous) state.previousCoverageCircle = previous
+    }
     const all = [...(state.pending ?? []), ...incoming]
     const tail = splitBrushTail(all, state.distance, behavior.taper?.end ?? 0, finish, behavior.taper?.size, behavior.taper?.opacity)
     state.pending = tail.pending
@@ -238,7 +277,7 @@ export class BrushBehaviorPainter {
     const animated = !!brush.tip.animation || !!secondary?.tip.animation || integerImages
     protect(stamps[0]?.mask ?? brush.tip.mask,brush.texture?.id,stamps[0]?.dualMask ?? secondary?.tip.mask,secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,stamps[0]?.gray ?? brush.tip.material?.gray,stamps[0]?.dualGray ?? secondary?.tip.material?.gray)
     const procedural = brush.tip.kind === 'procedural' || secondary?.tip.kind === 'procedural' || integerImages
-    const selected = this.stampFor(procedural, integerImages)
+    const selected = circleBand ? this.circleProgram() : this.stampFor(procedural, integerImages)
     const mainView = !animated && brush.tip.mask ? this.tipView(brush.tip.mask,brush.tip.material?.gray,brush.tip) : {texture:paper.texture,mode:0}
     const mask=mainView.texture
     const texture = brush.texture ? this.grain(brush.texture.id,!!brush.texture.application) : paper.texture
@@ -284,7 +323,7 @@ export class BrushBehaviorPainter {
       gl.uniform2f(u.u_tipProfile,brush.tip.profile?.kind === 'gaussian' ? brush.tip.profile.fade : .5,brush.tip.profile?.antialias ? 1 : 0)
       gl.uniform2f(u.u_dualProfile,secondary?.tip.profile?.kind === 'gaussian' ? secondary.tip.profile.fade : .5,secondary?.tip.profile?.antialias ? 1 : 0)
       gl.uniform1f(u.u_wickCap,4)
-      if (procedural) {
+      if (procedural && !circleBand) {
         gl.uniform4f(u.u_tipProcedural, ...proceduralProfileUniforms(brush.tip.profile))
         gl.uniform4f(u.u_dualProcedural, ...proceduralProfileUniforms(secondary?.tip.profile))
       }
@@ -355,6 +394,27 @@ export class BrushBehaviorPainter {
           const footprint=brushFootprintBounds(s.x,s.y,s.radius,s.aspect,s.angle,1)
           if(!footprint || footprint.maxX<tile.originX || footprint.maxY<tile.originY || footprint.minX>tile.originX+coverage.width || footprint.minY>tile.originY+coverage.height) continue
           beforeStamp?.(s)
+          if (circleBand) {
+            const difference = circleClips.get(s)
+            gl.uniform2f(u.u_dabCenter, s.x - tile.originX, s.y - tile.originY)
+            gl.uniform1f(u.u_dabRadius, s.radius)
+            gl.uniform1f(u.u_angle, 0)
+            gl.uniform1f(u.u_aspectRatio, 1)
+            gl.uniform1f(u.u_wickPx, 1)
+            gl.uniform1f(u.u_wickCap, Math.max(4, 1 / s.radius))
+            gl.uniform3fv(u.u_color, s.color)
+            gl.uniform1f(u.u_circleClipped, difference?.clips.length ? 1 : 0)
+            const planes = difference?.clips.flat() ?? []
+            for (let i = 0; i < 4; i++) {
+              const plane = planes[i]
+              if (!plane) { gl.uniform3f(u[`u_circleClip${i}`], 0, 0, 0); continue }
+              const [a, b] = plane, dx = b.x - a.x, dy = b.y - a.y
+              // Local displacement keeps the plane stable across tile origins.
+              gl.uniform3f(u[`u_circleClip${i}`], -dy, dx, dx * (s.y - a.y) - dy * (s.x - a.x))
+            }
+            gl.drawArrays(gl.TRIANGLES, 0, 6)
+            continue
+          }
           gl.uniform2f(u.u_dabCenter, s.x - tile.originX, s.y - tile.originY)
           gl.uniform2f(u.u_grainTone,g?.brightness??0,clamp((g?.contrast??0)+s.wetGrade,-1,1))
           gl.uniform1f(u.u_edgeBleed, s.edgeSoftness)
@@ -437,12 +497,13 @@ export class BrushBehaviorPainter {
         gl.bindTexture(gl.TEXTURE_2D, paper.texture)
       }
       const drawPhysical=(list:BehaviorPlaced[]):void=>{
-        const copy=accumulation==='alphaDarken' && list.some(s=>s.washFeedback) ? ceiling : undefined
+        const copy=circleBand || accumulation==='alphaDarken' && list.some(s=>s.washFeedback) ? ceiling : undefined
         let fastBound=false, lastAverage:number|undefined
         // Preserve one uninterrupted render pass for ordinary OVER and rising
-        // constant-pigment Wash. Only a feedback dab needs a regional copy.
+        // constant-pigment Wash. Max-alpha always samples its previous stroke
+        // pixel; Wash needs feedback only on its explicitly selected dabs.
         drawStamps(list,false,false,item=>{
-          if(item.washFeedback && copy){
+          if((circleBand || item.washFeedback) && copy){
             const rect=brushFootprintCopyRect(item.x,item.y,item.radius,item.aspect,item.angle,tile.originX,tile.originY,coverage.width,coverage.height)
             if(!rect)return
             gl.activeTexture(gl.TEXTURE7)
@@ -462,7 +523,7 @@ export class BrushBehaviorPainter {
           }
         })
         coverage.endDraw()
-        gl.blendColor(0,0,0,0)
+        if (!circleBand) gl.blendColor(0,0,0,0)
         gl.activeTexture(gl.TEXTURE5);gl.bindTexture(gl.TEXTURE_2D,paper.texture)
       }
       if(accumulation)drawPhysical(tail.ready)

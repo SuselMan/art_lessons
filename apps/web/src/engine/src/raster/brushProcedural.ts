@@ -8,6 +8,7 @@ export function proceduralProfileUniforms(profile?: Profile): [
     number,
     number
 ] {
+    if (profile?.kind === 'circleBand') throw Error('Circle band uses a separate max-alpha program')
     if (!profile)
         return [-1, 0, 0, 0];
     return profile.kind === 'gaussian' ? [0, profile.fade, 0, profile.antialias ? 1 : 0]
@@ -46,6 +47,7 @@ function standardTransparency(x: number, y: number, rx: number, ry: number, prof
 /** Pixel-centre displacement in top-down canvas coordinates. Offset the
  * stencil in canvas space before inverse rotation, including anisotropic axes. */
 export function proceduralMaskAlpha(x: number, y: number, width: number, height: number, profile: Profile, angle = 0): number {
+    if (profile.kind === 'circleBand') throw Error('Circle band uses circleBandAlpha')
     if (![x, y, width, height, angle].every(Number.isFinite) || width <= 0 || height <= 0)
         return 0;
     const rx = width * .5, ry = height * .5, c = Math.cos(angle), s = Math.sin(angle);

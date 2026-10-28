@@ -1,3 +1,4 @@
+import { circleBandAlpha } from '../src/raster/roundCoverage'
 // A software WebGL1 mock, just faithful enough to exercise PencilEngine's
 // real pixel pipeline (dab painting, erase, layer compositing/merging) inside
 // vitest's plain 'node' environment — no browser, no GPU, no headless-gl
@@ -151,6 +152,12 @@ export class MockGL {
   readonly ALPHA = ENUM.ALPHA
   readonly TEXTURE0 = ENUM.TEXTURE0
   readonly TEXTURE1 = ENUM.TEXTURE1
+  readonly TEXTURE2 = ENUM.TEXTURE0 + 2
+  readonly TEXTURE3 = ENUM.TEXTURE0 + 3
+  readonly TEXTURE4 = ENUM.TEXTURE0 + 4
+  readonly TEXTURE5 = ENUM.TEXTURE0 + 5
+  readonly TEXTURE6 = ENUM.TEXTURE0 + 6
+  readonly TEXTURE7 = ENUM.TEXTURE0 + 7
   readonly REPEAT = ENUM.REPEAT
   readonly UNPACK_ALIGNMENT = ENUM.UNPACK_ALIGNMENT
   readonly ACTIVE_TEXTURE = ENUM.ACTIVE_TEXTURE
@@ -226,7 +233,7 @@ export class MockGL {
     // (#573) The digital brush's own two programs — each has one uniform no
     // other shader declares.
     if (source.includes('u_patchOrigin')) return 'smudge'
-    if (source.includes('u_tipKind')) return 'brushStamp'
+    if (source.includes('u_tipKind') || source.includes('u_circleClipped')) return 'brushStamp'
     if (source.includes('u_strokeCoverage')) return 'brushComposite'
     // Order matters against 'dab' above only: DAB_FRAG is caught by
     // u_eraseMode first, and these two names appear in no other shader.
@@ -1047,6 +1054,28 @@ export class MockGL {
     const { width, height, data } = info
     const [cx, cy] = (uniforms.get('u_dabCenter') as number[]) ?? [0, 0]
     const radius = (uniforms.get('u_dabRadius') as number) ?? 1
+    // This scalar mock can verify max-alpha geometry/replay, but cannot
+    // prove whole RGB pigment replacement. That requires the GPU witness.
+    if (uniforms.has('u_circleClipped')) {
+      const previousTexture = this._textureUnits[(uniforms.get('u_previousCeiling') as number) ?? 5]
+      const previous = previousTexture ? this._textureData.get(previousTexture) : undefined
+      if (!previous) throw Error('Circle band must read an explicit previous-stroke copy')
+      for (let py = Math.max(0, Math.floor(cy - radius - 1)); py < Math.min(height, Math.ceil(cy + radius + 1)); py++) {
+        for (let px = Math.max(0, Math.floor(cx - radius - 1)); px < Math.min(width, Math.ceil(cx + radius + 1)); px++) {
+          const x = px + .5 - cx, y = py + .5 - cy
+          if ((uniforms.get('u_circleClipped') as number) > .5) {
+            const inside = (i: number): boolean => {
+              const p = uniforms.get(`u_circleClip${i}`) as number[]
+              return p[0] * x + p[1] * y + p[2] >= 0
+            }
+            if (!(inside(0) && inside(1) || inside(2) && inside(3))) continue
+          }
+          const alpha = circleBandAlpha(x, y, radius), index = py * width + px
+          if (alpha > Math.round(previous.data[index] * 255)) data[index] = alpha / 255
+        }
+      }
+      return
+    }
     const hardness = (uniforms.get('u_hardness') as number) ?? 0.5
     const flow = (uniforms.get('u_opacity') as number) ?? 1
     const pad = radius + 2
@@ -1095,7 +1124,7 @@ export class MockGL {
         const idx = py * width + px
         const cov = coverage.data[idx] ?? 0
         if (cov <= 0) continue
-        const a = clamp(cov * opacity * (ceiling?.data[idx]??1), 0, 1)
+        const a = clamp(cov * opacity * ((uniforms.get('u_physicalAccumulation') as number) > .5 ? 1 : ceiling?.data[idx]??1), 0, 1)
         data[idx] = ((uniforms.get('u_erase') as number) > .5 ? 0 : a) + (1 - a) * (original.data[idx] ?? 0)
       }
     }

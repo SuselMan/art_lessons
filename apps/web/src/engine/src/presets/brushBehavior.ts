@@ -15,6 +15,8 @@ export interface BrushBehaviorState {
   directionSet?: boolean
   opacity: number
   previous?: Dab
+  /** Actual placed circle, cloned with scratch savepoints/prediction forks. */
+  previousCoverageCircle?: { x: number; y: number; radius: number }
   bounds?: {minX:number;minY:number;maxX:number;maxY:number}
 }
 

@@ -3426,7 +3426,8 @@ export class PencilEngine implements PencilEngineAPI {
     const missing = resources.filter(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))
     // Capabilities and textures share one traversal, including independent children.
     const programJobs = [...capabilities].map(painter => () => {
-      if (painter === 'stamp') this._brush.prepareProcedural()
+      if (painter === 'stampCircleBand') this._brush.prepareCircleBand()
+      else if (painter === 'stamp') this._brush.prepareProcedural()
       else if (painter === 'wet') this._smudge.prepareProcedural()
       else if (painter === 'stampImage') this._brush.prepareIntegerImages()
       else this._smudge.prepareIntegerImages()
