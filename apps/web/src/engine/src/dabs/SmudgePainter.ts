@@ -1,7 +1,10 @@
+import { nativeImageResource, nativeImagePixels, nativeImageDomain, nativeImageDomainUniform, type NativeImageResource } from './NativeImageBank'
+import { BrushMipCache } from './BrushMipCache'
+import { importedAssetPixels } from '../presets/importedBrushes'
 import { proceduralProfileUniforms, proceduralSampleCount } from '../raster/brushProcedural'
 import { canvasMeanDabRect, canvasMeanPlacedCenter, canvasMeanSourceRect } from '../raster/canvasMeanGeometry'
 import { brushTextureApplication } from './brushTextureApplication'
-import { brushTextureLeaseResources, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
+import { assertNativeImageAdmission, brushPreparationResources, brushTextureLeaseResources, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 // (#494) Smudge and the digital brush's mixer, out of PencilEngine (seam С15
 // of the survey). Both paint through one carried imprint per user: every dab
 // copies the canvas patch under it, refreshes the imprint from that patch
@@ -100,6 +103,7 @@ const MIXER_PRIME_LOAD = 0.85
  *  _initGL on a context restore. The paper is the engine's one PaperState,
  *  held by reference — its texture and catch change inside it. */
 export interface SmudgeContext {
+  readonly brushMipCache?: BrushMipCache
   createBrushScratch(): RibbonStrokeScratch
   paintBrushMask(target:Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>,dabs:Dab[],brush:BrushDescriptor,pressure:boolean,scratch:RibbonStrokeScratch,sizeMultiplier:number):void
   readonly gl: WebGLRenderingContext
@@ -192,6 +196,10 @@ export class SmudgePainter {
   // interleaving in the log would otherwise each reset the other.
   private readonly wetGestures = new Map<string, WetGesture>()
   private readonly wetTextures: BrushTextureCache
+  private readonly imageMips: BrushMipCache
+  private readonly ownsMipCache: boolean
+  private maximumImageSide?: number
+  private imageTransfer?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private readonly replayChunks = new Map<string, { strokeId: string; lastDab: Dab }>()
 
   // Smudge (#14) — paired with the existing DAB_VERT (see SMUDGE_TRANSFER_
@@ -218,6 +226,8 @@ export class SmudgePainter {
     this.ctx = ctx
     this.gl = ctx.gl
     this.wetTextures = new BrushTextureCache(ctx.gl)
+    this.imageMips = ctx.brushMipCache ?? new BrushMipCache()
+    this.ownsMipCache = !ctx.brushMipCache
     const { gl } = ctx
     this.scratchPool = new ScratchFreeList((w, h) => new AccumulationBuffer(gl, w, h, 'linear'), SMUDGE_IDLE_SCRATCH_BYTES)
   }
@@ -225,8 +235,10 @@ export class SmudgePainter {
   /** Builds both programs — from the engine's _initGL, at construction and
    *  again on every context restore (the old names died with the context). */
   initGL(): void {
+    this.maximumImageSide = undefined
     this.wetTextures.clear(true)
     this.proceduralTransfer = undefined
+    this.imageTransfer = undefined
     const { gl } = this
     this.transferProg = createProgram(gl, DAB_VERT, WET_TRANSFER_FRAG)
     this.pickupProg   = createProgram(gl, DISPLAY_VERT, WET_PICKUP_FRAG)
@@ -244,6 +256,7 @@ export class SmudgePainter {
   /** Context loss: every GL object held here is already dead. */
   forget(): void {
     this.proceduralTransfer = undefined
+    this.imageTransfer = undefined
     this.scratchPool.forget() // same reasoning as AreaOps' pool, see #14
     this.wetTextures.clear(true)
     for(const state of this.wetGestures.values()) state.secondary?.forget()
@@ -261,8 +274,11 @@ export class SmudgePainter {
     this.imprints.clear()
     this.replayChunks.clear()
     this.wetTextures.clear()
+    if (this.ownsMipCache) this.imageMips.clear()
     for(const state of this.wetGestures.values())state.secondary?.destroy()
     this.wetGestures.clear()
+    if (this.imageTransfer) gl.deleteProgram(this.imageTransfer.program)
+    this.imageTransfer = undefined
     if (this.proceduralTransfer) gl.deleteProgram(this.proceduralTransfer.program)
     this.proceduralTransfer = undefined
     gl.deleteProgram(this.transferProg)
@@ -335,6 +351,7 @@ export class SmudgePainter {
     if (target instanceof AccumulationBuffer) return
     // An explicit prevDab means the caller *is* the continuation (the live
     // stroke's own next incremental batch), and nothing needs resolving.
+    if (paint?.brush) assertNativeImageAdmission(brushPreparationResources(paint.brush), this.imageDimensionLimit(paint.brush))
     const releaseTextures = paint?.brush ? this.wetTextures.lease(brushTextureLeaseResources(paint.brush,'wet')) : () => {}
     try {
     let prev = prevDab ?? this.resumeGesture(userId, strokeId, dabs)
@@ -780,6 +797,20 @@ export class SmudgePainter {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
+  private imageDimensionLimit(brush?: BrushDescriptor): number {
+    if (brush && !brushPreparationResources(brush).some(resource => resource.nativeImage)) return 0
+    return this.maximumImageSide ??= this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number
+  }
+
+  prepareIntegerImages(): void {
+    this.imageDimensionLimit()
+    if (this.imageTransfer) return
+    const gl=this.gl, program=createProgram(gl,DAB_VERT,wetTransferFragment(true,true))
+    this.imageTransfer={program,position:gl.getAttribLocation(program,'a_position'),uniforms:getUniforms(gl,program,[...TRANSFER_UNIFORMS,
+      'u_tipProcedural','u_dualProcedural','u_tipProceduralGeometry','u_dualProceduralGeometry','u_dualProceduralAngle','u_wickPx','u_wickCap',
+      'u_tipImageEnabled','u_dualImageEnabled','u_tipImageDomain','u_dualImageDomain'])}
+  }
+
   /** Compile once outside pointer input; initGL/forget invalidate this capability. */
   prepareProcedural(): void {
     const gl = this.gl
@@ -820,10 +851,14 @@ export class SmudgePainter {
     const tip=wet?.stamp.mask ?? brush?.tip.mask
     const dualTip=wet?.secondary ? undefined : wet?.stamp.dualMask ?? dual?.brush.tip.mask
     const dualGrain = !wet?.secondary && dual?.brush.texture?.application ? dual.brush.texture : undefined
-    this.wetTextures.protect([...(tip ? [`t:${tip}`] : []),...(brush?.texture ? [brushTextureResourceKey({id:brush.texture.id,grain:true,discrete:brush.texture.application?true:undefined})] : []),...(dualTip ? [`t:${dualTip}`] : []),...(dualGrain ? [brushTextureResourceKey({id:dualGrain.id,grain:true,discrete:true})] : [])])
-    const tipTexture=tip ? this.wetTexture(tip,false) : paper.texture
+    const mainImage = tip && brush?.tip.imageSampling ? nativeImageResource(tip,brush.tip,2*radius*(wet?.stamp.aspect ?? 1)) : undefined
+    const imageRatio = dual && brush ? Math.max(.01,curveAt(dual.brush.sizeByPressure,dab.pressure)/Math.max(.01,curveAt(brush.sizeByPressure,dab.pressure))*(dual.brush.scatter?.scale ?? 1)) : 1
+    const imageChildRx = Math.fround(Math.fround(Math.fround(radius)*Math.fround(wet?.stamp.aspect ?? 1))*imageRatio/(1+(wet?.stamp.edgeSoftness ?? 0)*.15))
+    const childImage = dualTip && dual?.brush.tip.imageSampling ? nativeImageResource(dualTip,dual.brush.tip,2*imageChildRx) : undefined
+    this.wetTextures.protect([...(tip ? [brushTextureResourceKey({id:tip,grain:false,nativeImage:mainImage})] : []),...(brush?.texture ? [brushTextureResourceKey({id:brush.texture.id,grain:true,discrete:brush.texture.application?true:undefined})] : []),...(dualTip ? [brushTextureResourceKey({id:dualTip,grain:false,nativeImage:childImage})] : []),...(dualGrain ? [brushTextureResourceKey({id:dualGrain.id,grain:true,discrete:true})] : [])])
+    const tipTexture=tip ? this.wetTexture(tip,false,false,mainImage) : paper.texture
     const grainTexture=brush?.texture ? this.wetTexture(brush.texture.id,true,!!brush.texture.application) : paper.texture
-    const dualTexture=dualTip ? this.wetTexture(dualTip,false) : paper.texture
+    const dualTexture=dualTip ? this.wetTexture(dualTip,false,false,childImage) : paper.texture
     const dualGrainTexture=dualGrain ? this.wetTexture(dualGrain.id,true,true) : paper.texture
     if (wet) buffer.beginReplaceDraw()
     else if (mode === 'lay') buffer.beginAdditiveDraw()
@@ -833,7 +868,10 @@ export class SmudgePainter {
     const childProfile = !wet?.secondary && dual?.brush.tip.profile?.kind === 'standard'
       ? dual.brush.tip.profile : undefined
     let binding = this.proceduralTransfer
-    if (primaryProfile || childProfile) {
+    if (mainImage || childImage) {
+      this.prepareIntegerImages()
+      binding = this.imageTransfer
+    } else if (primaryProfile || childProfile) {
       this.prepareProcedural()
       binding = this.proceduralTransfer
     } else binding = undefined
@@ -863,9 +901,15 @@ export class SmudgePainter {
       // The stencil offsets lie in [0,1) on both world axes. A rotated
       // frame needs at most sqrt(2) local pixels on each axis. Retain the
       // nominal parent clipping quad when only its child is procedural.
-      const wick = primaryProfile ? Math.SQRT2 / Math.min(1, wet?.stamp.aspect ?? 1) : 0
+      const wick = primaryProfile || mainImage ? Math.SQRT2 / Math.min(1, wet?.stamp.aspect ?? 1) : 0
       gl.uniform1f(u.u_wickPx, wick)
       gl.uniform1f(u.u_wickCap, Math.max(4, wick / radius))
+    }
+    if (binding === this.imageTransfer && binding) {
+      gl.uniform1f(u.u_tipImageEnabled,mainImage ? 1 : 0)
+      gl.uniform1f(u.u_dualImageEnabled,childImage ? 1 : 0)
+      if(mainImage && brush) gl.uniform4f(u.u_tipImageDomain,...nativeImageDomainUniform(nativeImageDomain(brush.tip,dab.x,dab.y,radius*(wet?.stamp.aspect ?? 1),radius,wet?.stamp.angle ?? 0),tile.originX,tile.originY,buffer.height))
+      if(childImage && dual) gl.uniform4f(u.u_dualImageDomain,...nativeImageDomainUniform(nativeImageDomain(dual.brush.tip,dab.x,dab.y,imageChildRx,imageChildRx/dual.brush.tip.aspect,dual.brush.tip.rotation==='fixed' ? dual.brush.tip.angle ?? 0 : wet?.stamp.angle ?? 0),tile.originX,tile.originY,buffer.height))
     }
     gl.uniform2f(u.u_resolution, buffer.width, buffer.height)
     // Same world-space paper sampling every other dab shader uses — see
@@ -896,9 +940,9 @@ export class SmudgePainter {
     const threshold=brush?.tip.alphaThreshold, dualThreshold=brush?.behavior?.dual?.brush.tip.alphaThreshold
     gl.uniform3f(u.u_alphaThreshold,threshold?.value ?? 0,threshold?.softness ?? 0,threshold ? 1 : 0)
     gl.uniform3f(u.u_dualAlphaThreshold,dualThreshold?.value ?? 0,dualThreshold?.softness ?? 0,dualThreshold ? 1 : 0)
-    const tipBounds=brush?.tip.maskBounds
+    const tipBounds=mainImage?.bounds ?? brush?.tip.maskBounds
     gl.uniform4f(u.u_tipBounds,tipBounds?.x ?? 0,tipBounds?.y ?? 0,tipBounds?.width ?? 1,tipBounds?.height ?? 1)
-    const dualBounds=brush?.behavior?.dual?.brush.tip.maskBounds
+    const dualBounds=childImage?.bounds ?? brush?.behavior?.dual?.brush.tip.maskBounds
     gl.uniform4f(u.u_dualBounds,dualBounds?.x ?? 0,dualBounds?.y ?? 0,dualBounds?.width ?? 1,dualBounds?.height ?? 1)
     for (const [unit,texture,name] of [
       [2,tipTexture,'u_tip'],
@@ -977,14 +1021,21 @@ export class SmudgePainter {
   }
 
   prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {
+    if(group.some(entry=>entry.nativeImage)) assertNativeImageAdmission(group,this.imageDimensionLimit())
     this.wetTextures.protect(group.map(brushTextureResourceKey))
-    this.wetTexture(resource.id,resource.grain,!!resource.discrete)
+    this.wetTexture(resource.id,resource.grain,!!resource.discrete,resource.nativeImage)
   }
 
   /** Byte-bounded residency; active samplers remain protected across draws. */
-  private wetTexture(id: TipMaskId | BrushTextureId, grain: boolean, discrete = false): WebGLTexture {
-    const key = brushTextureResourceKey({id,grain,discrete:discrete?true:undefined}), cached = this.wetTextures.get(key)
+  private wetTexture(id: TipMaskId | BrushTextureId, grain: boolean, discrete = false, nativeImage?: NativeImageResource): WebGLTexture {
+    const key = brushTextureResourceKey({id,grain,discrete:discrete?true:undefined,nativeImage}), cached = this.wetTextures.get(key)
     if(cached)return cached
+    if(nativeImage) {
+      const pixels=this.imageMips.get(key,()=>[nativeImagePixels(nativeImage,importedAssetPixels(id))])[0]
+      const entry=uploadBrushTexture(this.gl,[pixels],this.gl.ALPHA,this.gl.CLAMP_TO_EDGE,false,nativeImage)
+      this.wetTextures.put(key,entry.texture,entry.bytes)
+      return entry.texture
+    }
     const levels=grain ? brushTextureMips(id as BrushTextureId) : tipMaskMips(id as TipMaskId)
     const entry=uploadBrushTexture(this.gl,levels,this.gl.ALPHA,this.gl.CLAMP_TO_EDGE,discrete)
     this.wetTextures.put(key,entry.texture,entry.bytes)

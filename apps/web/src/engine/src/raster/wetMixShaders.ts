@@ -1,3 +1,4 @@
+import { INTEGER_IMAGE_SAMPLING_GLSL } from './integerImageSampling'
 import { BRUSH_PROCEDURAL_GLSL } from './brushProcedural'
 import { BRUSH_ALPHA_THRESHOLD_GLSL } from '../presets/brushAlphaThreshold'
 import { CANVAS_MEAN_TAPS } from './canvasMeanSampling'
@@ -314,8 +315,8 @@ void main() {
 `
 
 /** Separate compiler input: legacy transfer must remain byte-identical. */
-export function wetTransferFragment(procedural = false): string {
-  if (!procedural) return WET_TRANSFER_FRAG
+export function wetTransferFragment(procedural = false, integerImages = false): string {
+  if (!procedural && !integerImages) return WET_TRANSFER_FRAG
   const replace = (source: string, from: string, to: string): string => {
     if (source.split(from).length !== 2) throw new Error('Wet procedural shader anchor changed')
     return source.replace(from, to)
@@ -338,5 +339,18 @@ export function wetTransferFragment(procedural = false): string {
   source = replace(source, 'if ((u_wetEnabled < 0.5 || u_tipKind < 0.5) && dist > 1.0 && u_edgeBleed<=0.0)', 'if (u_tipProcedural.x<0.0 && (u_wetEnabled < 0.5 || u_tipKind < 0.5) && dist > 1.0 && u_edgeBleed<=0.0)')
   source = replace(source, 'shape *= 1.0 - exp(-8.0 * (1.0 - dist));', 'shape *= 1.0 - exp(-8.0 * (1.0 - dist));\n    if(u_tipProcedural.x>=0.0) shape=wetProceduralMask(u_tipProceduralGeometry,u_tipProcedural,u_angle);')
   source = replace(source, 'if (abs(uv.x)>1.0 || abs(uv.y)>1.0) second=0.0;', 'if(u_dualProcedural.x>=0.0) second=wetProceduralMask(u_dualProceduralGeometry,u_dualProcedural,u_dualProceduralAngle);\n     else if (abs(uv.x)>1.0 || abs(uv.y)>1.0) second=0.0;')
+  if(integerImages) {
+    source=replace(source,' void main() {',`${INTEGER_IMAGE_SAMPLING_GLSL}
+ void main() {`)
+    source=replace(source,'texture2D(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw)', 'integerImageSample(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw,u_tipImageEnabled,u_tipImageDomain)')
+    source=replace(source,'texture2D(u_dual,u_dualBounds.xy+(uv*0.5+0.5)*u_dualBounds.zw)', 'integerImageSample(u_dual,u_dualBounds.xy+(uv*0.5+0.5)*u_dualBounds.zw,u_dualImageEnabled,u_dualImageDomain)')
+    source=replace(source,'float second=u_dualKind>1.5 ?', `if(u_dualImageEnabled>0.5) {
+       vec2 pixel=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter;
+       float c=cos(u_dualProceduralAngle),s=sin(u_dualProceduralAngle);
+       uv=mat2(c,-s,s,c)*pixel/u_dualProceduralGeometry.xy;
+     }
+     float second=u_dualKind>1.5 ?`)
+    source=replace(source,'else if (abs(uv.x)>1.0 || abs(uv.y)>1.0) second=0.0;', 'else if (u_dualImageEnabled<0.5 && (abs(uv.x)>1.0 || abs(uv.y)>1.0)) second=0.0;')
+  }
   return source
 }
