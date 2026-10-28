@@ -1,3 +1,4 @@
+import { nativeImageResource, nativeImageDomain, nativeImageDomainUniform, type NativeImageResource } from './NativeImageBank'
 import { proceduralProfileUniforms, proceduralSampleCount } from '../raster/brushProcedural'
 import { gaussianSampleCount } from '../raster/gaussianTip'
 import { brushTipResource, brushTextureResourceKey } from './BrushPreparation'
@@ -35,6 +36,7 @@ const STAMP_UNIFORMS = [
   'u_dualHardness', 'u_dualStrength', 'u_dualTexture', 'u_dualTexOrigin',
   'u_dualTexPeriod', 'u_dualTexStrength', 'u_tipProcedural', 'u_dualProcedural',
   'u_tipProceduralGeometry', 'u_dualProceduralGeometry', 'u_dualProceduralAngle',
+  'u_tipImageEnabled', 'u_dualImageEnabled', 'u_tipImageDomain', 'u_dualImageDomain',
 ]
 type BrushTarget = Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>
 export interface BehaviorScratch extends BrushScratch {
@@ -83,6 +85,7 @@ export class BrushBehaviorPainter {
     MAX_EXT: number
   } | null = null;
   private stamp!: WebGLProgram
+  private imageStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private proceduralStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private composite!: WebGLProgram
   private su!: Uniforms
@@ -90,17 +93,19 @@ export class BrushBehaviorPainter {
   private sp = -1;
   private cp = -1;
   private readonly ctx: BrushContext
-  private readonly tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup) => WebGLTexture
+  private readonly tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource) => WebGLTexture
   private readonly grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture
   private readonly protectTextures: (keys: readonly string[]) => void
   private readonly leaseTextures: (brush: BrushDescriptor) => () => void
-  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor) => () => void) { this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
-  private tipView(id: TipMaskId, gray?: string, tip?: BrushTip): {texture:WebGLTexture; mode:number} {
+  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor) => () => void) { this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
+  private tipView(id: TipMaskId, gray?: string, tip?: BrushTip, native?: NativeImageResource): {texture:WebGLTexture; mode:number} {
+    if (tip?.imageSampling && !native) throw Error('Native image lookup requires an explicit selected level')
     const resource=brushTipResource(id,gray,tip)
-    return {texture:this.tip(id,gray,resource.materialGroup),mode:resource.materialChannels==='rg' ? 1 : resource.materialChannels==='ba' ? 2 : 0}
+    return {texture:this.tip(id,gray,resource.materialGroup,native),mode:resource.materialChannels==='rg' ? 1 : resource.materialChannels==='ba' ? 2 : 0}
   }
   initGL(): void {
     this.proceduralStamp = undefined
+    this.imageStamp = undefined
     const gl = this.ctx.gl
     this.minmax = gl.getExtension('EXT_blend_minmax') as {
       MAX_EXT: number
@@ -115,7 +120,16 @@ export class BrushBehaviorPainter {
   /** Compile the bounded profile capability during explicit brush readiness. */
   prepareProcedural(): void { this.stampFor(true) }
 
-  private stampFor(procedural: boolean): { program: WebGLProgram; uniforms: Uniforms; position: number } {
+  prepareIntegerImages(): void { this.stampFor(true, true) }
+
+  private stampFor(procedural: boolean, integerImages = false): { program: WebGLProgram; uniforms: Uniforms; position: number } {
+    if (integerImages) {
+      if (!this.imageStamp) {
+        const gl = this.ctx.gl, program = createProgram(gl, DAB_VERT, createBrushStampFragment(true, true))
+        this.imageStamp = { program, uniforms: getUniforms(gl, program, STAMP_UNIFORMS), position: gl.getAttribLocation(program, 'a_position') }
+      }
+      return this.imageStamp
+    }
     if (!procedural) return { program: this.stamp, uniforms: this.su, position: this.sp }
     if (!this.proceduralStamp) {
       const gl = this.ctx.gl
@@ -128,7 +142,7 @@ export class BrushBehaviorPainter {
     const b = this.bindings.get(scratch); if (b)
       this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint)
   }
-  destroy(): void { const gl = this.ctx.gl; gl.deleteProgram(this.stamp); gl.deleteProgram(this.composite); if (this.proceduralStamp) gl.deleteProgram(this.proceduralStamp.program); this.proceduralStamp = undefined }
+  destroy(): void { const gl = this.ctx.gl; gl.deleteProgram(this.stamp); gl.deleteProgram(this.composite); if (this.proceduralStamp) gl.deleteProgram(this.proceduralStamp.program); this.proceduralStamp = undefined; if (this.imageStamp) gl.deleteProgram(this.imageStamp.program); this.imageStamp = undefined }
   paint(target: BrushTarget, dabs: Dab[], preset: PencilPreset, brush: BrushDescriptor, pressure: BrushPressureSettings, color: [
     number,
     number,
@@ -213,17 +227,18 @@ export class BrushBehaviorPainter {
     // scratch and the output tile; it does not require recompositing.
     const bounds = {minX:Math.floor(dirty.minX),minY:Math.floor(dirty.minY),maxX:Math.ceil(dirty.maxX),maxY:Math.ceil(dirty.maxY)}
     const secondary = independent ? undefined : behavior.dual?.brush
-    const protect=(tip?:TipMaskId,grain?:BrushTextureId,dual?:TipMaskId,dualGrain?:BrushTextureId,grid?:boolean,dualGrid?:boolean,gray?:string,dualGray?:string):void=>this.protectTextures([
+    const protect=(tip?:TipMaskId,grain?:BrushTextureId,dual?:TipMaskId,dualGrain?:BrushTextureId,grid?:boolean,dualGrid?:boolean,gray?:string,dualGray?:string,mainImage?:NativeImageResource,dualImage?:NativeImageResource):void=>this.protectTextures([
       'g:cloud','g:grit',
-      ...(tip ? [brushTextureResourceKey(brushTipResource(tip,gray,brush.tip))] : []),
-      ...(dual ? [brushTextureResourceKey(brushTipResource(dual,dualGray,secondary?.tip))] : []),
+      ...(tip && (!brush.tip.imageSampling || mainImage) ? [brushTextureResourceKey({...brushTipResource(tip,gray,brush.tip),nativeImage:mainImage})] : []),
+      ...(dual && (!secondary?.tip.imageSampling || dualImage) ? [brushTextureResourceKey({...brushTipResource(dual,dualGray,secondary?.tip),nativeImage:dualImage})] : []),
       ...(grain ? [brushTextureResourceKey({id:grain,grain:true,discrete:grid?true:undefined})] : []),
       ...(dualGrain ? [brushTextureResourceKey({id:dualGrain,grain:true,discrete:dualGrid?true:undefined})] : []),
     ])
-    const animated = !!brush.tip.animation || !!secondary?.tip.animation
+    const integerImages = !!brush.tip.imageSampling || !!secondary?.tip.imageSampling
+    const animated = !!brush.tip.animation || !!secondary?.tip.animation || integerImages
     protect(stamps[0]?.mask ?? brush.tip.mask,brush.texture?.id,stamps[0]?.dualMask ?? secondary?.tip.mask,secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,stamps[0]?.gray ?? brush.tip.material?.gray,stamps[0]?.dualGray ?? secondary?.tip.material?.gray)
-    const procedural = brush.tip.kind === 'procedural' || secondary?.tip.kind === 'procedural'
-    const selected = this.stampFor(procedural)
+    const procedural = brush.tip.kind === 'procedural' || secondary?.tip.kind === 'procedural' || integerImages
+    const selected = this.stampFor(procedural, integerImages)
     const mainView = !animated && brush.tip.mask ? this.tipView(brush.tip.mask,brush.tip.material?.gray,brush.tip) : {texture:paper.texture,mode:0}
     const mask=mainView.texture
     const texture = brush.texture ? this.grain(brush.texture.id,!!brush.texture.application) : paper.texture
@@ -305,16 +320,33 @@ export class BrushBehaviorPainter {
         for (const s of list) {
           if(animated) {
             const currentMask=s.mask ?? brush.tip.mask, currentDual=s.dualMask ?? secondary?.tip.mask
-            protect(currentMask,brush.texture?.id,currentDual,secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,s.gray ?? brush.tip.material?.gray,s.dualGray ?? secondary?.tip.material?.gray)
+            const imageRatio = secondary ? Math.max(0.01, curveAt(secondary.sizeByPressure, s.pressure) / Math.max(0.01, curveAt(brush.sizeByPressure, s.pressure)) * (secondary.scatter?.scale ?? 1)) : 1
+            const mainImage = currentMask && brush.tip.imageSampling ? nativeImageResource(currentMask, brush.tip, 2 * s.radius * s.aspect) : undefined
+            const childRadiusX = s.radius * s.aspect * imageRatio / (1 + s.edgeSoftness * .15)
+            const dualImage = currentDual && secondary?.tip.imageSampling ? nativeImageResource(currentDual, secondary.tip, 2 * childRadiusX) : undefined
+            protect(currentMask,brush.texture?.id,currentDual,secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,s.gray ?? brush.tip.material?.gray,s.dualGray ?? secondary?.tip.material?.gray,mainImage,dualImage)
             // Resolve the whole group before binding. Lazy upload restores GL
             // state and cannot evict another sampler in this protected group.
-            const mainView=currentMask ? this.tipView(currentMask,s.gray ?? brush.tip.material?.gray,brush.tip) : {texture:paper.texture,mode:0}
+            const mainView=currentMask ? this.tipView(currentMask,s.gray ?? brush.tip.material?.gray,brush.tip,mainImage) : {texture:paper.texture,mode:0}
             const mainTexture=mainView.texture
-            const secondView=currentDual ? this.tipView(currentDual,s.dualGray ?? secondary?.tip.material?.gray,secondary?.tip) : {texture:paper.texture,mode:0}
+            const secondView=currentDual ? this.tipView(currentDual,s.dualGray ?? secondary?.tip.material?.gray,secondary?.tip,dualImage) : {texture:paper.texture,mode:0}
             const secondTexture=secondView.texture
             gl.uniform1f(u.u_tipPacking,mainView.mode);gl.uniform1f(u.u_dualTipPacking,secondView.mode)
             gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,mainTexture)
             gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,secondTexture)
+            if (integerImages) {
+              const mainBounds = mainImage?.bounds ?? brush.tip.maskBounds
+              const childBounds = dualImage?.bounds ?? secondary?.tip.maskBounds
+              gl.uniform4f(u.u_tipBounds, mainBounds?.x ?? 0, mainBounds?.y ?? 0, mainBounds?.width ?? 1, mainBounds?.height ?? 1)
+              gl.uniform4f(u.u_dualBounds, childBounds?.x ?? 0, childBounds?.y ?? 0, childBounds?.width ?? 1, childBounds?.height ?? 1)
+              gl.uniform1f(u.u_tipImageEnabled, mainImage ? 1 : 0)
+              gl.uniform1f(u.u_dualImageEnabled, dualImage ? 1 : 0)
+              if (mainImage) gl.uniform4f(u.u_tipImageDomain, ...nativeImageDomainUniform(nativeImageDomain(brush.tip,s.x,s.y,s.radius*s.aspect,s.radius,s.angle), tile.originX,tile.originY,coverage.height))
+              if (dualImage && secondary) {
+                const childAngle = secondary.tip.rotation === 'fixed' ? secondary.tip.angle : s.angle
+                gl.uniform4f(u.u_dualImageDomain, ...nativeImageDomainUniform(nativeImageDomain(secondary.tip,s.x,s.y,childRadiusX,childRadiusX/secondary.tip.aspect,childAngle), tile.originX,tile.originY,coverage.height))
+              }
+            }
           }
           const footprint=brushFootprintBounds(s.x,s.y,s.radius,s.aspect,s.angle,1)
           if(!footprint || footprint.maxX<tile.originX || footprint.maxY<tile.originY || footprint.minX>tile.originX+coverage.width || footprint.minY>tile.originY+coverage.height) continue
@@ -339,7 +371,7 @@ export class BrushBehaviorPainter {
             const mainRy = Math.fround(s.radius)
             const childRx = Math.fround(mainRx * ratio / (1 + s.edgeSoftness * .15))
             const childRy = Math.fround(childRx / (secondary?.tip.aspect ?? 1))
-            const standard = brush.tip.profile?.kind === 'standard'
+            const standard = brush.tip.profile?.kind === 'standard' || !!brush.tip.imageSampling
             // A child profile does not expand a legacy parent's clipping quad.
             const wick = standard ? Math.SQRT2 / Math.min(1, s.aspect)
               : brush.tip.profile || secondary?.tip.profile?.kind === 'gaussian' ? 1 : 0

@@ -1,5 +1,6 @@
+import { BrushMipCache } from './src/dabs/BrushMipCache'
 import { hasValidStrokeEndSample } from '@grafetto/shared'
-import { BrushPreparation, brushPreparationPlan, brushPreparationBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
+import { BrushPreparation, assertNativeImageAdmission, brushPreparationPlan, brushPreparationBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
 import { importedAssetPixels } from './src/presets/importedBrushes'
 import { hasOpenBrushStroke } from './src/oplog/openBrushStroke'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
@@ -2074,6 +2075,7 @@ export class PencilEngine implements PencilEngineAPI {
   // BrushPainter.ts. Its programs are built by _initGL, like every other one.
   private _brushPreparationGeneration = 0
   private readonly _brushPreparation = new BrushPreparation()
+  private readonly _brushMipCache = new BrushMipCache()
   private readonly _brush: BrushPainter
 
   // (#494) Floating layer previews — the scratch tiles a gesture shows in
@@ -2422,6 +2424,7 @@ export class PencilEngine implements PencilEngineAPI {
     // built by _initGL below, like every other one.
     this._smudge = new SmudgePainter({
       gl,
+      brushMipCache: this._brushMipCache,
       createBrushScratch:()=>new RibbonStrokeScratch(this._ribbonScratchPool,false),
       paintBrushMask:(...args)=>this._brush.paintMask(...args),
       quadBuf: () => this._quadBuf,
@@ -2442,6 +2445,7 @@ export class PencilEngine implements PencilEngineAPI {
     // built by _initGL below too.
     this._brush = new BrushPainter({
       gl,
+      brushMipCache: this._brushMipCache,
       quadBuf: () => this._quadBuf,
       paper: this._paper,
       segmentLength: (dab, prev, radius) => this._markerSegmentLength(dab, prev, radius),
@@ -3415,6 +3419,7 @@ export class PencilEngine implements PencilEngineAPI {
     const generation = this._brushPreparationGeneration
     const descriptor = digitalBrushFromPreset(preset)
     const { resources, capabilities } = brushPreparationPlan(descriptor)
+    if (resources.some(resource => resource.nativeImage)) assertNativeImageAdmission(resources, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
     const bytes = brushPreparationBytes(resources,id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256)
     if (bytes > BRUSH_PREPARATION_BYTES) return { status: 'skipped' }
     const stamp = resources.filter(r => r.painter === 'stamp'), wet = resources.filter(r => r.painter === 'wet')
@@ -3422,7 +3427,9 @@ export class PencilEngine implements PencilEngineAPI {
     // Capabilities and textures share one traversal, including independent children.
     const programJobs = [...capabilities].map(painter => () => {
       if (painter === 'stamp') this._brush.prepareProcedural()
-      else this._smudge.prepareProcedural()
+      else if (painter === 'wet') this._smudge.prepareProcedural()
+      else if (painter === 'stampImage') this._brush.prepareIntegerImages()
+      else this._smudge.prepareIntegerImages()
     })
     const result = await this._brushPreparation.run([...programJobs, ...missing.map(resource => () => {
       if (resource.painter === 'stamp') this._brush.prepareTexture(stamp,resource)
@@ -3431,7 +3438,10 @@ export class PencilEngine implements PencilEngineAPI {
     if (generation !== this._brushPreparationGeneration || this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
     // Another peer's replay may have changed the protected cache group between
     // jobs. Do not claim residency or loop indefinitely under that workload.
-    if (result.status === 'ready' && resources.some(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))) return { status: 'skipped' }
+    if (result.status === 'ready' && resources.some(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))) {
+      if (resources.some(resource => resource.nativeImage)) throw Error('Native image bank lost residency during preparation')
+      return { status: 'skipped' }
+    }
     return result
   }
 
@@ -4178,6 +4188,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._smudge.destroy()
     this._stamps.destroy()
     this._brush.destroy()
+    this._brushMipCache.clear()
     this._ribbonPasses.destroy()
     this._watercolorPasses.destroy()
     // (#385) These two hand their buffers back to the pool rather than to the

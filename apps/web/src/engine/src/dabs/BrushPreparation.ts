@@ -1,11 +1,12 @@
+import { nativeImageBank, type NativeImageResource } from './NativeImageBank'
 import { materialPackingPlan, materialGroupBytes, type MaterialTextureGroup } from '../presets/brushMaterialPacking'
 import { importedAssetPixels } from '../presets/importedBrushes'
 import type { BrushDescriptor, BrushTip, BrushTextureId, TipMaskId } from '@grafetto/shared'
 
-export interface BrushPreparationResource { painter: 'stamp' | 'wet'; id: TipMaskId | BrushTextureId; grain: boolean; gray?: string; discrete?: true; materialGroup?: MaterialTextureGroup; materialChannels?: 'ra' | 'rg' | 'ba' }
+export interface BrushPreparationResource { painter: 'stamp' | 'wet'; id: TipMaskId | BrushTextureId; grain: boolean; gray?: string; discrete?: true; materialGroup?: MaterialTextureGroup; materialChannels?: 'ra' | 'rg' | 'ba'; nativeImage?: NativeImageResource }
 export interface BrushPreparationOptions { signal?: AbortSignal; onProgress?: (done: number, total: number) => void }
 export interface BrushPreparationResult { status: 'ready' | 'skipped' | 'cancelled' }
-export const brushTextureResourceKey = (resource: Pick<BrushPreparationResource,'id'|'grain'|'discrete'|'gray'|'materialGroup'>): string => resource.materialGroup?.key ?? (resource.gray ? `t:lightness:${resource.id}:${resource.gray}` : `${resource.grain ? resource.discrete ? 'g:grid' : 'g' : 't'}:${resource.id}`)
+export const brushTextureResourceKey = (resource: Pick<BrushPreparationResource,'id'|'grain'|'discrete'|'gray'|'materialGroup'|'nativeImage'>): string => resource.nativeImage?.key ?? resource.materialGroup?.key ?? (resource.gray ? `t:lightness:${resource.id}:${resource.gray}` : `${resource.grain ? resource.discrete ? 'g:grid' : 'g' : 't'}:${resource.id}`)
 export const BRUSH_PREPARATION_BYTES = 16 * 1024 * 1024
 
 const materialPlans = new WeakMap<BrushTip, ReturnType<typeof materialPackingPlan>>()
@@ -27,12 +28,19 @@ export function brushTipResource(id: TipMaskId, gray?: string, tip?: BrushTip): 
 /** Matches sampler routes, rather than uploading both formats for every tip. */
 export function brushPreparationPlan(brush: BrushDescriptor): {
   resources: BrushPreparationResource[]
-  capabilities: ('stamp' | 'wet')[]
+  capabilities: ('stamp' | 'wet' | 'stampImage' | 'wetImage')[]
 } {
-  const capabilities = new Set<'stamp' | 'wet'>()
+  const capabilities = new Set<'stamp' | 'wet' | 'stampImage' | 'wetImage'>()
   const resources = new Map<string, BrushPreparationResource>()
   const add = (painter: 'stamp' | 'wet', id: TipMaskId | BrushTextureId | undefined, grain = false, discrete = false, gray?: string, tip?: BrushTip) => {
     if (id) {
+      if (!grain && tip?.imageSampling) {
+        for (const nativeImage of nativeImageBank(id as TipMaskId, tip)) {
+          const resource: BrushPreparationResource = { painter, id, grain: false, nativeImage }
+          resources.set(`${painter}:${brushTextureResourceKey(resource)}`, resource)
+        }
+        return
+      }
       const resource:BrushPreparationResource={painter,...(grain ? {id,grain,...(discrete ? {discrete:true as const} : {})} : brushTipResource(id as TipMaskId,gray,tip))}
       resources.set(`${painter}:${brushTextureResourceKey(resource)}`,resource)
     }
@@ -41,6 +49,7 @@ export function brushPreparationPlan(brush: BrushDescriptor): {
     if(b.tip.profile?.kind==='gaussian' && painter==='wet') throw Error('Procedural tip profile requires the stamp renderer')
     if(b.tip.material && painter==='wet') throw Error('Lightness tip material requires the stamp renderer')
     const inline = b.behavior?.dual?.sampling !== 'independent' ? b.behavior?.dual?.brush : undefined
+    if (b.tip.imageSampling || inline?.tip.imageSampling) capabilities.add(painter === 'stamp' ? 'stampImage' : 'wetImage')
     if (painter === 'stamp'
       ? b.tip.kind === 'procedural' || inline?.tip.kind === 'procedural'
       : b.tip.profile?.kind === 'standard' || inline?.tip.profile?.kind === 'standard') capabilities.add(painter)
@@ -55,7 +64,7 @@ export function brushPreparationPlan(brush: BrushDescriptor): {
     else {
       if(dual.brush.tip.profile?.kind==='gaussian') throw Error('Procedural dual profile requires the stamp renderer')
       if(dual.brush.tip.material) throw Error('Lightness dual material requires the stamp renderer')
-      for (const id of dual.brush.tip.animation?.frames ?? (dual.brush.tip.mask ? [dual.brush.tip.mask] : [])) add('wet', id)
+      for (const id of dual.brush.tip.animation?.frames ?? (dual.brush.tip.mask ? [dual.brush.tip.mask] : [])) add('wet', id, false, false, undefined, dual.brush.tip)
       if(dual.brush.texture?.application)add('wet',dual.brush.texture.id,true,true)
     }
   }
@@ -69,11 +78,26 @@ export function brushPreparationResources(brush: BrushDescriptor): BrushPreparat
 
 export function brushPreparationBytes(resources: readonly BrushPreparationResource[], size: (id: string) => number): number {
   return resources.reduce((total, resource) => {
+    if (resource.nativeImage) return total + resource.nativeImage.width * resource.nativeImage.height * 4
     if(resource.materialGroup)return total+materialGroupBytes(resource.materialGroup).gpu
     let side = size(resource.id), bytes = 0
     while (side >= 1) { bytes += side * side * 4; if(resource.discrete)break; side = Math.floor(side / 2) }
     return total + bytes
   }, 0)
+}
+
+/** Native policy promises a complete finite working bank, never a legacy
+ * lazy-upload fallback after readiness reported an oversized skip. */
+export function assertNativeImageAdmission(resources: readonly BrushPreparationResource[], maximumTextureSide: number): void {
+  if (!resources.some(resource => resource.nativeImage)) return
+  const bytes = brushPreparationBytes(resources, id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256)
+  if (bytes > BRUSH_PREPARATION_BYTES) throw Error('Native image bank exceeds the brush texture budget')
+  for (const resource of resources) {
+    const image = resource.nativeImage
+    if (!image) continue
+    if (!Number.isFinite(maximumTextureSide) || image.width > maximumTextureSide || image.height > maximumTextureSide) throw Error('Native image bank exceeds the GPU texture dimension limit')
+    if (image.nativeWidth > 4096 || image.nativeHeight > 4096 || image.width * image.height > 4 * 1024 * 1024) throw Error('Native image bank exceeds the CPU derivative dimensions budget')
+  }
 }
 
 /** Cheap metadata-only batch pin plan; CPU mip arrays are not built here. */

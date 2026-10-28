@@ -1,3 +1,4 @@
+import { INTEGER_IMAGE_SAMPLING_GLSL } from './integerImageSampling'
 import { BRUSH_PROCEDURAL_GLSL } from './brushProcedural'
 import { BRUSH_GAUSSIAN_GLSL } from './gaussianTip'
 import { BRUSH_TIP_PACKING_GLSL } from '../presets/brushMaterialPacking'
@@ -424,8 +425,8 @@ void main() {
 
 /** One opt-in renderer capability. The immutable legacy shader text is kept
  * intact; both variants derive geometry and sampling from shared templates. */
-export function createBrushStampFragment(procedural = false): string {
-  if (!procedural) return BRUSH_STAMP_FRAG
+export function createBrushStampFragment(procedural = false, integerImages = false): string {
+  if (!procedural && !integerImages) return BRUSH_STAMP_FRAG
   let source = BRUSH_STAMP_FRAG
   const replace = (from: string, to: string): void => {
     if (source.split(from).length !== 2) throw new Error('Stamp procedural template replacement must match exactly once')
@@ -443,5 +444,19 @@ export function createBrushStampFragment(procedural = false): string {
     'brushProceduralMask(pixel,gaussianFrame,u_tipProceduralGeometry,u_tipProcedural)')
   replace('brushGaussianMask(vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter,dualRotation*dualScale*gaussianFrame,u_gaussianGeometry.zw,u_dualProfile)',
     'brushProceduralMask(vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter,mat2(cos(u_dualProceduralAngle),-sin(u_dualProceduralAngle),sin(u_dualProceduralAngle),cos(u_dualProceduralAngle)),u_dualProceduralGeometry,u_dualProcedural)')
+  if (integerImages) {
+    replace('uniform vec4 u_tipBounds;', `${INTEGER_IMAGE_SAMPLING_GLSL}\nuniform vec4 u_tipBounds;`)
+    replace('if(max(abs(p.x),abs(p.y))>=1.0) return 0.0;', 'if(u_tipImageEnabled<0.5 && max(abs(p.x),abs(p.y))>=1.0) return 0.0;')
+    replace('vec4 sampleValue=brushTipSample(tip,u_tipBounds.xy+(p*flip*0.5+0.5)*u_tipBounds.zw,u_tipPacking);',
+      'vec4 sampleValue=u_tipImageEnabled>0.5 ? integerImageSample(tip,u_tipBounds.xy+(p*flip*0.5+0.5)*u_tipBounds.zw,u_tipImageEnabled,u_tipImageDomain) : brushTipSample(tip,u_tipBounds.xy+(p*flip*0.5+0.5)*u_tipBounds.zw,u_tipPacking);')
+    replace('vec4 tipSample=brushTipSample(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw,u_tipPacking);',
+      'vec4 tipSample=u_tipImageEnabled>0.5 ? integerImageSample(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw,u_tipImageEnabled,u_tipImageDomain) : brushTipSample(u_tip,u_tipBounds.xy+(v_localUV*u_flip*0.5+0.5)*u_tipBounds.zw,u_tipPacking);')
+    replace('vec4 dualSample=brushTipSample(u_dual,u_dualBounds.xy+(dualUV*0.5+0.5)*u_dualBounds.zw,u_dualTipPacking);', `if(u_dualImageEnabled>0.5) {
+        vec2 pixel=vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter;
+        dualUV=mat2(cos(u_dualProceduralAngle),-sin(u_dualProceduralAngle),sin(u_dualProceduralAngle),cos(u_dualProceduralAngle))*pixel/u_dualProceduralGeometry.xy;
+      }
+      vec4 dualSample=u_dualImageEnabled>0.5 ? integerImageSample(u_dual,u_dualBounds.xy+(dualUV*0.5+0.5)*u_dualBounds.zw,u_dualImageEnabled,u_dualImageDomain) : brushTipSample(u_dual,u_dualBounds.xy+(dualUV*0.5+0.5)*u_dualBounds.zw,u_dualTipPacking);`)
+    replace('if (u_dualKind<2.5 && (abs(dualUV.x)>1.0 || abs(dualUV.y)>1.0)) secondary=0.0;', 'if (u_dualImageEnabled<0.5 && u_dualKind<2.5 && (abs(dualUV.x)>1.0 || abs(dualUV.y)>1.0)) secondary=0.0;')
+  }
   return source
 }

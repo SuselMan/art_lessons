@@ -69,7 +69,7 @@ export class BrushTextureCache {
 
 /** Upload does not bind an FBO or leave a different sampler/packing state.
  * Resolve the entire protected group before the caller binds it for drawing. */
-export function uploadBrushTexture(gl: WebGLRenderingContext, levels: readonly Uint8Array[], format: number, wrapMode: number, discrete = false): { texture: WebGLTexture; bytes: number } {
+export function uploadBrushTexture(gl: WebGLRenderingContext, levels: readonly Uint8Array[], format: number, wrapMode: number, discrete = false, plane?: { width: number; height: number }): { texture: WebGLTexture; bytes: number } {
   const active = gl.getParameter(gl.ACTIVE_TEXTURE) as number
   const previous = gl.getParameter(gl.TEXTURE_BINDING_2D) as WebGLTexture | null
   const unpack = gl.getParameter(gl.UNPACK_ALIGNMENT) as number
@@ -82,11 +82,13 @@ export function uploadBrushTexture(gl: WebGLRenderingContext, levels: readonly U
     for (const [level, pixels] of (discrete ? levels.slice(0,1) : levels).entries()) {
       const channels=format===gl.RGBA ? 4 : format===gl.LUMINANCE_ALPHA ? 2 : 1
       const size = Math.sqrt(pixels.length/channels)
-      if(!Number.isInteger(size)) throw Error('Invalid brush texture plane dimensions')
-      gl.texImage2D(gl.TEXTURE_2D, level, format, size, size, 0, format, gl.UNSIGNED_BYTE, pixels)
-      bytes += size * size * 4
+      const width = plane?.width ?? size, height = plane?.height ?? size
+      if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1
+        || pixels.length !== width * height * channels || plane && (levels.length !== 1 || level !== 0 || wrapMode !== gl.CLAMP_TO_EDGE)) throw Error('Invalid brush texture plane dimensions')
+      gl.texImage2D(gl.TEXTURE_2D, level, format, width, height, 0, format, gl.UNSIGNED_BYTE, pixels)
+      bytes += width * height * 4
     }
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, discrete ? gl.NEAREST : gl.LINEAR_MIPMAP_LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, plane ? gl.LINEAR : discrete ? gl.NEAREST : gl.LINEAR_MIPMAP_LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, discrete ? gl.NEAREST : gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapMode)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapMode)
