@@ -506,6 +506,12 @@ def validate_portable_profile(descriptor):
     authoritative whole-library validator before installation."""
     tip=descriptor['tip']
     profile=tip.get('profile')
+    behavior=descriptor.get('behavior',{})
+    maximum=(isinstance(behavior,dict) and isinstance(behavior.get('rendering'),dict)
+             and behavior['rendering'].get('accumulation')=='maxAlpha')
+    circle=isinstance(profile,dict) and profile.get('kind')=='circleBand'
+    if maximum != circle:
+        raise ValueError('Portable circle-band requires paired max-alpha rendering')
     if profile is None:
         if tip.get('kind')=='procedural': raise ValueError('Procedural tip requires profile')
         return
@@ -527,6 +533,28 @@ def validate_portable_profile(descriptor):
                 or tip.get('kind')!='procedural' or profile['shape'] not in ('ellipse','rectangle')
                 or any(not finite(profile.get(key),0,1) for key in ('horizontalFade','verticalFade'))):
             raise ValueError('Invalid portable standard profile')
+    elif circle:
+        def flat(curve):
+            return (isinstance(curve,list) and len(curve)>=2
+                    and all(isinstance(point,list) and len(point)==2 and type(point[0]) in (int,float) and math.isfinite(point[0]) and 0<=point[0]<=1
+                            and type(point[1]) in (int,float) and point[1]==1 for point in curve))
+        dynamics=behavior.get('dynamics',{})
+        modulations=behavior.get('modulations',{})
+        rotation=behavior.get('rotation',{})
+        scatter=behavior.get('scatter',{})
+        if (set(profile)!={'kind','antialias'} or profile['antialias'] is not True
+                or tip.get('kind')!='procedural' or type(tip.get('aspect')) not in (int,float) or tip.get('aspect')!=1
+                or descriptor.get('model')!='stamp' or type(descriptor.get('paperInteraction')) not in (int,float) or descriptor.get('paperInteraction')!=0
+                or any(key in tip for key in ('imageSampling','alphaThreshold'))
+                or type(descriptor.get('flow')) not in (int,float) or descriptor.get('flow')!=1 or descriptor.get('flowPer')!='stamp' or 'flowSpan' in descriptor
+                or not flat(descriptor.get('flowByPressure')) or not flat(descriptor.get('opacityByPressure'))
+                or any(key in descriptor for key in ('texture','scatter','wet','mixer'))
+                or any(key in behavior for key in ('dual','taper'))
+                or not all(isinstance(value,dict) for value in (dynamics,modulations,rotation,scatter))
+                or any(key in dynamics or key in modulations for key in ('flow','opacity','roundness'))
+                or rotation.get('projection') is True or scatter.get('roundnessJitter',0)!=0
+                or behavior.get('rendering',{}).get('mode')!='buildUp'):
+            raise ValueError('Invalid portable circle-band/max-alpha combination')
     else: raise ValueError('Unknown portable procedural profile')
 
 
