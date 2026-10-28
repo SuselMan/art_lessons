@@ -3,12 +3,16 @@ import type { BrushDescriptor, ImportedBrush, BrushLibrary } from '@grafetto/sha
 const brushes = new Map<string, ImportedBrush>()
 const assets = new Map<string, Uint8Array>()
 
-/** Immutable metadata; pixels arrive separately before a brush can render. */
+const descriptorJSON = (descriptor: BrushDescriptor): string => JSON.stringify(descriptor, (_key, value: unknown) =>
+  value && typeof value === 'object' && !Array.isArray(value)
+    ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) : value)
+
+/** Immutable rendering data; pixels arrive separately before a brush can render. */
 export function installBrushLibrary(library: BrushLibrary): void {
   for (const brush of library.brushes) {
     const key = `${brush.descriptor.id}@${brush.descriptor.version}`
     const previous = brushes.get(key)
-    if (previous && JSON.stringify(previous) !== JSON.stringify(brush)) throw new Error('Brush version cannot be replaced')
+    if (previous && descriptorJSON(previous.descriptor) !== descriptorJSON(brush.descriptor)) throw new Error('Brush version cannot be replaced')
   }
   for (const brush of library.brushes) {
     const copy: ImportedBrush = structuredClone(brush)
@@ -16,6 +20,9 @@ export function installBrushLibrary(library: BrushLibrary): void {
       for (const child of Object.values(v)) if (child && typeof child === 'object') freeze(child)
       Object.freeze(v)
     }
+    const previous = brushes.get(`${copy.descriptor.id}@${copy.descriptor.version}`)
+    // Metadata refresh must not invalidate renderer caches keyed by descriptor identity.
+    if (previous) copy.descriptor = previous.descriptor
     freeze(copy)
     brushes.set(`${copy.descriptor.id}@${copy.descriptor.version}`, copy)
   }

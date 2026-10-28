@@ -130,3 +130,51 @@ describe('CAS-only operator provisioning', () => {
     expect(readFileSync(join(dir, 'private'))).toEqual(next.bytes)
   })
 })
+
+
+describe('rendering identity versus import metadata', () => {
+  it('merges revised diagnostics with first-source metadata without changing inputs', () => {
+    const old = resource(1, 'a').library, current = structuredClone(old)
+    current.brushes[0].name = 'Updated label'
+    current.brushes[0].source = 'updated.abr'
+    current.brushes[0].warnings = ['Revised conversion diagnostics']
+    const before = JSON.stringify(old)
+    expect(merge(current, old).brushes[0]).toEqual(current.brushes[0])
+    expect(JSON.stringify(old)).toBe(before)
+    const reordered = structuredClone(current)
+    reordered.brushes[0].descriptor = Object.fromEntries(Object.entries(reordered.brushes[0].descriptor).reverse()) as typeof reordered.brushes[0]['descriptor']
+    expect(merge(current, reordered).brushes).toHaveLength(1)
+  })
+
+  it('updates owner metadata while preserving pinned rooms byte-for-byte across restart', () => {
+    const { dir, storage } = fixture(), original = resource(1, 'a'), additional = resource(5, 'b')
+    storage.install('alice', original.library, original.assets)
+    storage.pin('room', 'alice', [original.token])
+    const pin = readFileSync(storage.path('rooms', 'room'))
+    const revised = structuredClone(original.library)
+    revised.brushes[0].warnings = ['New metadata only']
+    storage.install('alice', revised, original.assets)
+    expect(storage.library('owners', 'alice')).toEqual(revised)
+    expect(readFileSync(storage.path('rooms', 'room'))).toEqual(pin)
+    storage.provision(additional.assets)
+    storage.pin('room', 'alice', [original.token, additional.token], merge(revised, additional.library))
+    const restarted = new BrushStorage(dir)
+    expect(restarted.library('rooms', 'room').brushes[0]).toEqual(original.library.brushes[0])
+    expect(restarted.library('rooms', 'room').brushes).toHaveLength(2)
+  })
+
+  it('rejects changed historical descriptors during merge, install and room pin without writes', () => {
+    const { storage } = fixture(), original = resource(1, 'a'), additional = resource(5, 'b')
+    storage.install('alice', original.library, original.assets)
+    storage.pin('room', 'alice', [original.token])
+    const changed = structuredClone(original.library)
+    changed.brushes[0].descriptor.flow = .5
+    expect(() => merge(changed, original.library)).toThrow('Immutable brush conflict')
+    const ownerBefore = readFileSync(storage.path('owners', 'alice'))
+    const pinBefore = readFileSync(storage.path('rooms', 'room'))
+    expect(() => storage.install('alice', changed, original.assets)).toThrow('Immutable brush conflict')
+    expect(() => storage.pin('room', 'alice', [additional.token], merge(changed, additional.library))).toThrow('Immutable brush conflict')
+    expect(readFileSync(storage.path('owners', 'alice'))).toEqual(ownerBefore)
+    expect(readFileSync(storage.path('rooms', 'room'))).toEqual(pinBefore)
+  })
+})

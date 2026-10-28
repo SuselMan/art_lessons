@@ -67,3 +67,37 @@ it('provisions current operator CAS without reading or replacing the protected h
     expect(createHash('sha256').update(preserved).digest('hex')).toBe(createHash('sha256').update(archive).digest('hex'))
   } finally { await server.close() }
 })
+
+it('serves refreshed operator diagnostics over old room pins without rewriting protected manifests', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'brush-metadata-refresh-'))
+  directories.push(directory)
+  const root = join(directory, 'storage'), operator = join(directory, 'operator')
+  const storage = new BrushStorage(root), old = empty()
+  old.brushes.push({ name: 'Old label', source: 'qa', warnings: ['v41 diagnostics'], descriptor: {
+    id: 'imported-' + 'c'.repeat(16), version: 1, model: 'stamp', category: 'paint',
+    tip: { kind: 'round', hardness: 1, aspect: 1, rotation: 'fixed', angle: 0 },
+    paperInteraction: 0, spacing: .1, flow: 1, flowPer: 'pass', opacity: 1, pressureSmoothingPx: 0,
+    sizeByPressure: [[0, 0], [1, 1]], flowByPressure: [[0, 0], [1, 1]], opacityByPressure: [[0, 0], [1, 1]],
+  } })
+  storage.install('alice', old, new Map())
+  storage.pin('room', 'alice', ['brush:' + old.brushes[0].descriptor.id + '@1'])
+  const room = await readFile(storage.path('rooms', 'room'))
+  const owner = await readFile(storage.path('owners', 'alice'))
+  const current = structuredClone(old)
+  current.brushes[0].warnings = ['v42 diagnostics']
+  current.brushes[0].name = 'Current label'
+  await mkdir(operator)
+  await writeFile(join(operator, 'manifest.json'), JSON.stringify(current))
+  vi.stubEnv('GRAFETTO_BRUSH_STORAGE_DIR', root)
+  vi.mocked(mayReadBoardContent).mockResolvedValue(true)
+  const server = Fastify()
+  server.addHook('onRequest', async request => { request.userId = 'alice' })
+  try {
+    await registerBrushLibraryRoutes(server, operator)
+    const response = await server.inject('/api/brush-library?roomId=room')
+    expect(response.statusCode).toBe(200)
+    expect(response.json().brushes).toEqual(current.brushes)
+    expect(await readFile(storage.path('rooms', 'room'))).toEqual(room)
+    expect(await readFile(storage.path('owners', 'alice'))).toEqual(owner)
+  } finally { await server.close() }
+})

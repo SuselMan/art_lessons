@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { isDeepStrictEqual } from 'node:util'
 import { mkdirSync, lstatSync, writeFileSync, renameSync, rmSync, constants, openSync, closeSync, fstatSync, readSync, readdirSync, fsyncSync, linkSync } from 'node:fs'
 import { resolve, join, parse } from 'node:path'
 import { isBrushLibrary, type BrushLibrary } from '@grafetto/shared'
@@ -19,12 +20,13 @@ export function boundedRead(path: string, limit: number): Buffer {
     return bytes
   } finally { closeSync(fd) }
 }
+/** First source owns display metadata; rendering descriptors remain immutable. */
 export function merge(...libraries: BrushLibrary[]): BrushLibrary {
   const result = empty()
   for (const library of libraries) {
     for (const brush of library.brushes) {
       const existing = result.brushes.find(b => b.descriptor.id === brush.descriptor.id && b.descriptor.version === brush.descriptor.version)
-      if (existing && JSON.stringify(existing) !== JSON.stringify(brush)) throw Error('Immutable brush conflict')
+      if (existing && !isDeepStrictEqual(existing.descriptor, brush.descriptor)) throw Error('Immutable brush conflict')
       if (!existing) result.brushes.push(brush)
     }
     for (const asset of library.assets) if (!result.assets.some(a => a.id === asset.id)) result.assets.push(asset)
@@ -130,7 +132,7 @@ export class BrushStorage {
 
   install(owner: string, library: BrushLibrary, assets: Map<string, Buffer>): BrushLibrary {
     return this.mutate(() => {
-      const next = merge(this.library('owners', owner), library)
+      const next = merge(library, this.library('owners', owner))
       const total = next.assets.reduce((sum, asset) => sum + asset.size * asset.size, 0)
       if (total > 256 * 1024 * 1024 || !isBrushLibrary(next)) throw Error('Personal brush library quota exceeded (256 MiB / 512 brushes)')
       this.provisionAssets(assets)
