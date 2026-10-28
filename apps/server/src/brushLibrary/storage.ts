@@ -5,6 +5,9 @@ import { resolve, join, parse } from 'node:path'
 import { isBrushLibrary, type BrushLibrary } from '@grafetto/shared'
 
 export const empty = (): BrushLibrary => ({ schemaVersion: 1, brushes: [], assets: [], skipped: [] })
+// Descriptors are JSON wire data: serialization normalizes signed zero, while
+// deep comparison remains independent of object property order.
+const wireDescriptor = (descriptor: BrushLibrary['brushes'][number]['descriptor']): unknown => JSON.parse(JSON.stringify(descriptor))
 const key = (s: string) => createHash('sha256').update(s).digest('hex')
 export function boundedRead(path: string, limit: number): Buffer {
   let cursor = parse(resolve(path)).root
@@ -26,7 +29,7 @@ export function merge(...libraries: BrushLibrary[]): BrushLibrary {
   for (const library of libraries) {
     for (const brush of library.brushes) {
       const existing = result.brushes.find(b => b.descriptor.id === brush.descriptor.id && b.descriptor.version === brush.descriptor.version)
-      if (existing && !isDeepStrictEqual(existing.descriptor, brush.descriptor)) throw Error('Immutable brush conflict')
+      if (existing && !isDeepStrictEqual(wireDescriptor(existing.descriptor), wireDescriptor(brush.descriptor))) throw Error('Immutable brush conflict')
       if (!existing) result.brushes.push(brush)
     }
     for (const asset of library.assets) if (!result.assets.some(a => a.id === asset.id)) result.assets.push(asset)

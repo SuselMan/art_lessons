@@ -178,3 +178,18 @@ describe('rendering identity versus import metadata', () => {
     expect(readFileSync(storage.path('rooms', 'room'))).toEqual(pinBefore)
   })
 })
+
+
+it('compares JSON rendering semantics across signed-zero serialization and nested settings', () => {
+  const authored = resource(1, 'a').library
+  authored.brushes[0].descriptor.tip.angle = -0
+  authored.brushes[0].descriptor.scatter = { count: 1, radius: -0, scale: 1, sizeJitter: 0, angleJitter: -0, flowJitter: 0 }
+  const pinned = JSON.parse(JSON.stringify(authored)) as typeof authored
+  expect(Object.is(authored.brushes[0].descriptor.tip.angle, -0)).toBe(true)
+  expect(Object.is(pinned.brushes[0].descriptor.tip.angle, -0)).toBe(false)
+  pinned.brushes[0].descriptor = Object.fromEntries(Object.entries(pinned.brushes[0].descriptor).reverse()) as typeof pinned.brushes[0]['descriptor']
+  expect(merge(authored, pinned).brushes).toHaveLength(1)
+  const changed = structuredClone(pinned)
+  changed.brushes[0].descriptor.scatter!.angleJitter = .01
+  expect(() => merge(authored, changed)).toThrow('Immutable brush conflict')
+})
