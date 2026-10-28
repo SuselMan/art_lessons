@@ -1,0 +1,133 @@
+{
+  "source": "Actual Qt5.15.13 CPU authored smear_phase_oracle.py, pinned KisDabCacheBase disables fractions, Krita bd6e8d061d2f0388c5b10278786cf0fe62e3135f",
+  "cases": [
+    {
+      "width": 3,
+      "height": 5,
+      "angle": 0,
+      "phase": 0.25,
+      "rect": {
+        "minX": 6,
+        "minY": 5,
+        "maxX": 9,
+        "maxY": 10
+      },
+      "placedCenter": {
+        "x": 7.5,
+        "y": 7.5
+      }
+    },
+    {
+      "width": 3,
+      "height": 5,
+      "angle": 0.37,
+      "phase": 0.25,
+      "rect": {
+        "minX": 5,
+        "minY": 5,
+        "maxX": 10,
+        "maxY": 11
+      },
+      "placedCenter": {
+        "x": 7.5,
+        "y": 8.0
+      }
+    },
+    {
+      "width": 3,
+      "height": 5,
+      "angle": 0,
+      "phase": 0.75,
+      "rect": {
+        "minX": 7,
+        "minY": 6,
+        "maxX": 10,
+        "maxY": 11
+      },
+      "placedCenter": {
+        "x": 8.5,
+        "y": 8.5
+      }
+    },
+    {
+      "width": 3,
+      "height": 5,
+      "angle": 0.37,
+      "phase": 0.75,
+      "rect": {
+        "minX": 6,
+        "minY": 5,
+        "maxX": 11,
+        "maxY": 11
+      },
+      "placedCenter": {
+        "x": 8.5,
+        "y": 8.0
+      }
+    },
+    {
+      "width": 4,
+      "height": 4,
+      "angle": 0,
+      "phase": 0.25,
+      "rect": {
+        "minX": 6,
+        "minY": 6,
+        "maxX": 10,
+        "maxY": 10
+      },
+      "placedCenter": {
+        "x": 8.0,
+        "y": 8.0
+      }
+    },
+    {
+      "width": 4,
+      "height": 4,
+      "angle": 0.37,
+      "phase": 0.25,
+      "rect": {
+        "minX": 5,
+        "minY": 5,
+        "maxX": 11,
+        "maxY": 11
+      },
+      "placedCenter": {
+        "x": 8.0,
+        "y": 8.0
+      }
+    },
+    {
+      "width": 4,
+      "height": 4,
+      "angle": 0,
+      "phase": 0.75,
+      "rect": {
+        "minX": 6,
+        "minY": 6,
+        "maxX": 10,
+        "maxY": 10
+      },
+      "placedCenter": {
+        "x": 8.0,
+        "y": 8.0
+      }
+    },
+    {
+      "width": 4,
+      "height": 4,
+      "angle": 0.37,
+      "phase": 0.75,
+      "rect": {
+        "minX": 6,
+        "minY": 6,
+        "maxX": 12,
+        "maxY": 12
+      },
+      "placedCenter": {
+        "x": 9.0,
+        "y": 9.0
+      }
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { smearPlacement, smearSourceShift, type SmearPlacement } from './SmearPlacement'
 import { nativeImageResource, nativeImagePixels, nativeImageDomain, nativeImageDomainUniform, nativeImageUVShift, type NativeImageResource } from './NativeImageBank'
 import { BrushMipCache } from './BrushMipCache'
 import { importedAssetPixels } from '../presets/importedBrushes'
@@ -45,7 +46,7 @@ import { wetMixStep, type WetMixStep, type WetMixState } from '../presets/wetMix
 import { tipMaskMips, brushTextureMips, type TipMaskId, type BrushTextureId } from '../presets/tipMasks'
 
 interface WetGesture extends WetMixState { behavior: BrushBehaviorState; secondary?: RibbonStrokeScratch; previousPlaced?: { x: number; y: number }; previousMeanPlaced?: {x:number;y:number} }
-interface WetStamp { samplingRadius?: number; foregroundRate?: number; secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
+interface WetStamp { smearPlacement?: SmearPlacement; samplingRadius?: number; foregroundRate?: number; secondary?: ReturnType<RibbonStrokeScratch['brushSecondary']>; seed: number; stamp: BehaviorStamp; step: WetMixStep; paint: MixerPaint }
 
 // Smudge (#14) tuning constants — picked by eye, not exposed as settings
 // (the tool's user-facing knobs are just size/pressure/strength, reusing the
@@ -410,8 +411,8 @@ export class SmudgePainter {
     }
     step.pickup = clampNum(step.pickup*pickupFactor,0,1)
     for (const stamp of behaviorStampsForDab(brush,dab,state.behavior,paint.color)) {
-      const shaped = {...dab,x:stamp.x,y:stamp.y,size:stamp.size,angle:stamp.angle}
-      const wetStamp = {samplingRadius,foregroundRate,secondary,seed:state.behavior.seed,stamp,step,paint}
+      let shaped = {...dab,x:stamp.x,y:stamp.y,size:stamp.size,angle:stamp.angle}
+      const wetStamp: WetStamp = {samplingRadius,foregroundRate,secondary,seed:state.behavior.seed,stamp,step,paint}
       if (brush.mixer?.source === 'previousCanvas') {
         if (this.radiusOf(shaped,paint) < 0.5) continue
         const mean=brush.mixer.sampling
@@ -421,7 +422,14 @@ export class SmudgePainter {
         if(mean){
           const bounds=brushFootprintBounds(shaped.x,shaped.y,this.radiusOf(shaped,paint),stamp.aspect,stamp.angle)!
           state.previousMeanPlaced=canvasMeanPlacedCenter(canvasMeanDabRect(shaped.x,shaped.y,bounds.maxX-bounds.minX,bounds.maxY-bounds.minY))
-        }else state.previousPlaced = {x:Math.round(shaped.x),y:Math.round(shaped.y)}
+        }else {
+          const radius=this.radiusOf(shaped,paint)
+          const placement=smearPlacement(brush.tip,shaped.x,shaped.y,radius*stamp.aspect,radius,stamp.angle)
+          wetStamp.smearPlacement=placement
+          state.previousPlaced=placement.placedCenter
+          shaped={...shaped,...placement.maskCenter}
+          wetStamp.stamp={...stamp,...placement.maskCenter}
+        }
         if (previousPlaced) this.applyDab(target,shaped,0,userId,paint,wetStamp,previousPlaced)
       } else this.applyDab(target,shaped,Math.max(travel,0.1),userId,paint,wetStamp)
     }
@@ -624,7 +632,9 @@ export class SmudgePainter {
     let original: AccumulationBuffer | undefined
     try {
       original = this.acquireScratch(patchSize)
-      const x = Math.round(previous.x-span/2), y = Math.round(previous.y-span/2)
+      const shift=wet.smearPlacement ? smearSourceShift(previous,wet.smearPlacement) : undefined
+      const x = shift ? rect.minX+shift.x : Math.round(previous.x-span/2)
+      const y = shift ? rect.minY+shift.y : Math.round(previous.y-span/2)
       const sourceRect = {minX:x,minY:y,maxX:x+span,maxY:y+span}
       // Resolve/gather source first: allocating distant destination tiles can
       // evict source tiles, whereas the already gathered snapshot is stable.
@@ -1015,7 +1025,18 @@ export class SmudgePainter {
     gl.uniform1f(u.u_dabRadius, radius)
     gl.uniform1f(u.u_angle, wet?.stamp.angle ?? 0)
     gl.uniform1f(u.u_aspectRatio, wet?.stamp.aspect ?? 1)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    if(wet?.smearPlacement) {
+      const rect=wet.smearPlacement.rect
+      const left=Math.max(0,rect.minX-tile.originX),right=Math.min(buffer.width,rect.maxX-tile.originX)
+      const bottom=Math.max(0,buffer.height-(rect.maxY-tile.originY)),top=Math.min(buffer.height,buffer.height-(rect.minY-tile.originY))
+      const enabled=gl.isEnabled(gl.SCISSOR_TEST)
+      const saved=enabled ? gl.getParameter(gl.SCISSOR_BOX) as Int32Array : undefined
+      const x=saved ? Math.max(left,saved[0]) : left,y=saved ? Math.max(bottom,saved[1]) : bottom
+      const x2=saved ? Math.min(right,saved[0]+saved[2]) : right,y2=saved ? Math.min(top,saved[1]+saved[3]) : top
+      gl.enable(gl.SCISSOR_TEST);gl.scissor(x,y,Math.max(0,x2-x),Math.max(0,y2-y))
+      try { gl.drawArrays(gl.TRIANGLES,0,6) }
+      finally { if(saved)gl.scissor(saved[0],saved[1],saved[2],saved[3]);if(!enabled)gl.disable(gl.SCISSOR_TEST) }
+    }else gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     buffer.endDraw()
   }
