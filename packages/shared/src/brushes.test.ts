@@ -15,6 +15,22 @@ function library(): BrushLibrary {
 }
 
 describe('brush library contract', () => {
+  it('requires the circular band and max-alpha accumulation together', () => {
+    const data=library(),d=data.brushes[0].descriptor
+    d.tip={kind:'procedural',profile:{kind:'circleBand',antialias:true},hardness:1,aspect:1,angle:0,rotation:'fixed'}
+    d.paperInteraction=0;d.flow=1;d.flowPer='stamp';d.flowByPressure=[[0,1],[1,1]];d.opacityByPressure=[[0,1],[1,1]]
+    expect(isBrushLibrary(data)).toBe(false)
+    d.behavior={version:2,rendering:{accumulation:'maxAlpha',mode:'buildUp',blendMode:'normal',wetEdges:0,burntEdges:0,burntEdgesMode:'multiply'}}
+    expect(isBrushLibrary(data)).toBe(true)
+    d.flow=.5;expect(isBrushLibrary(data)).toBe(false);d.flow=1
+    d.opacityByPressure=[[0,0],[1,1]];expect(isBrushLibrary(data)).toBe(false);d.opacityByPressure=[[0,1],[1,1]]
+    d.tip.aspect=2;expect(isBrushLibrary(data)).toBe(false);d.tip.aspect=1
+    d.model='mixer';expect(isBrushLibrary(data)).toBe(false);d.model='stamp'
+    d.behavior.dual={brush:structuredClone(d),blendMode:'multiply'}
+    expect(isBrushLibrary(data)).toBe(false);delete d.behavior.dual
+    Object.assign(d.tip.profile!,{extra:true});expect(isBrushLibrary(data)).toBe(false)
+  })
+
   it('bounds source spacing laws and responses independently of the legacy brush step', () => {
     const data=library(),d=data.brushes[0].descriptor
     d.behavior={version:2,spacing:{mode:'diameter',coefficient:.06,dynamics:[{control:'pressure',minimum:0,jitter:0,curve:[[0,1],[1,0]]}],isotropic:false}}

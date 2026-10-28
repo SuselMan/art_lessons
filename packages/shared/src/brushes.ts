@@ -48,6 +48,8 @@ export interface BrushTip {
    * Absence preserves legacy round/bitmap sampling. */
   profile?: { kind: 'gaussian'; fade: number; antialias: boolean }
     | { kind: 'standard'; shape: 'ellipse' | 'rectangle'; horizontalFade: number; verticalFade: number; antialias: boolean }
+    /** Opaque core plus a one-pixel outward band linear in squared distance. */
+    | { kind: 'circleBand'; antialias: true }
   /** Quantized mask operation before texture, flow and opacity. */
   alphaThreshold?: { value: number; softness: number }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
@@ -351,7 +353,25 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         if (d.tip.kind !== 'procedural' || !['ellipse','rectangle'].includes(String(profile.shape))
           || Object.keys(profile).some(key=>!['kind','shape','horizontalFade','verticalFade','antialias'].includes(key))
           || !numberIn(profile.horizontalFade,0,1) || !numberIn(profile.verticalFade,0,1)) return false
+      } else if (profile.kind === 'circleBand') {
+        if (d.tip.kind !== 'procedural' || profile.antialias!==true || Object.keys(profile).some(key=>!['kind','antialias'].includes(key))) return false
       } else return false
+    }
+    // Initial max-alpha primitive has a circular, untextured source. Its
+    // entire premultiplied pigment pixel changes only on strictly higher alpha.
+    const circleBand=record(d.tip.profile) && d.tip.profile.kind==='circleBand'
+    const maximumAlpha=record(d.behavior) && record(d.behavior.rendering) && d.behavior.rendering.accumulation==='maxAlpha'
+    if (circleBand || maximumAlpha) {
+      if (!circleBand || !maximumAlpha || d.model!=='stamp' || d.tip.aspect!==1 || d.paperInteraction!==0
+        || d.tip.mask!==undefined || d.tip.material!==undefined || d.tip.imageSampling!==undefined
+        || d.tip.animation!==undefined || d.tip.alphaThreshold!==undefined
+        || d.flow!==1 || d.flowPer!=='stamp' || d.flowSpan!==undefined
+        || !Array.isArray(d.flowByPressure) || d.flowByPressure.some(point=>!Array.isArray(point)||point[1]!==1)
+        || !Array.isArray(d.opacityByPressure) || d.opacityByPressure.some(point=>!Array.isArray(point)||point[1]!==1)
+        || (record(d.behavior) && ((record(d.behavior.dynamics) && (d.behavior.dynamics.flow!==undefined || d.behavior.dynamics.opacity!==undefined))
+          || (record(d.behavior.modulations) && (d.behavior.modulations.flow!==undefined || d.behavior.modulations.opacity!==undefined))))
+        || d.texture!==undefined || d.scatter!==undefined || d.wet!==undefined || d.mixer!==undefined
+        || (record(d.behavior) && (d.behavior.dual!==undefined || d.behavior.taper!==undefined))) return false
     }
     if (d.tip.alphaThreshold !== undefined) {
       const threshold=d.tip.alphaThreshold
