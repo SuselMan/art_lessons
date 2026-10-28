@@ -49,6 +49,7 @@ class TextureImportTests(unittest.TestCase):
             controls=b['descriptor']['behavior']['modulations']['grainDepth']
             self.assertEqual(controls[0]['control'],'pressure');self.assertEqual(len(controls[0]['curve']['samples']),256)
             self.assertLess(controls[0]['curve']['samples'][128],.3)
+            self.assertFalse(any(n['feature']=='activeDynamics' and 'PressureTexture/Strength/' in n['detail'] for n in b['compatibility']))
 
     def test_unchecked_strength_ignores_stale_curve_and_constant(self):
         # Rock/Spread-Pattern/Water-Pattern keep an identity pressure curve in
@@ -75,6 +76,11 @@ class TextureImportTests(unittest.TestCase):
             b,t,a,raw=self.imported(tmp,{'Texture/Pattern/TexturingMode':'12'})
             self.assertNotIn('application',t);self.assertNotIn('patternSize',t)
             self.assertTrue(any(n['feature']=='textureApplication' and n['status']=='unsupported' for n in b['compatibility']))
+
+    def test_unhandled_texture_strength_remains_reported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            b,t,a,raw=self.imported(tmp,{'Texture/Pattern/TexturingMode':'12','PressureTexture/Strength/':'true'})
+            self.assertTrue(any(n['feature']=='activeDynamics' and 'PressureTexture/Strength/' in n['detail'] for n in b['compatibility']))
 
     def test_resolution_cap_keeps_world_period(self):
         with tempfile.TemporaryDirectory() as tmp:
