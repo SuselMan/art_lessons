@@ -143,12 +143,13 @@ export function unpackDabs(packed: string): Dab[] {
  *  repeatedly (a peer's live-stroke reveal, which walks the array as time
  *  passes) holds its own reference to the result. */
 export function strokeDabs(op: StrokeOperation): Dab[] {
-  if (op.dabs) {
-    for(const dab of op.dabs){
+  const plain=op.dabs
+  if (plain) {
+    for(const dab of plain){
       const speed=dab.normalizedSpeed
       if(speed!==undefined && (!Number.isFinite(speed)||speed<0||speed>1))throw new Error('plain dabs: invalid normalized speed')
     }
-    return op.dabs
+    return plain
   }
   return op.dabsPacked ? unpackDabs(op.dabsPacked) : []
 }
