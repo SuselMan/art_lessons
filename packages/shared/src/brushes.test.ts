@@ -209,6 +209,39 @@ describe('Krita source rendering contracts', () => {
 })
 
 
+describe('integer image source grid', () => {
+  it('validates actual texel extents independently of the drawing crop', () => {
+    const data = library(), tip = data.brushes[0].descriptor.tip
+    tip.imageSampling = { kind: 'integer-pyramid', signal: 'inverse-gray', sourceRect: { x: 1, y: 0, width: 1, height: 2 } }
+    expect(isBrushLibrary(data)).toBe(true)
+    for (const rect of [
+      { x: 1, y: 0, width: 2, height: 2 },
+      { x: 0, y: 1, width: 1, height: 2 },
+      { x: .5, y: 0, width: 1, height: 2 },
+      { x: 0, y: 0, width: 0, height: 2 },
+      { x: 0, y: 0, width: 1, height: Infinity },
+    ]) {
+      tip.imageSampling.sourceRect = rect
+      expect(isBrushLibrary(data)).toBe(false)
+    }
+  })
+
+  it('does not interpret material or unknown signals as opaque gray', () => {
+    for (const patch of [
+      { signal: 'alpha' }, { kind: 'linear' }, { extra: true },
+      { sourceRect: { x: 0, y: 0, width: 2, height: 2, extra: true } },
+    ]) {
+      const data = library(), tip = data.brushes[0].descriptor.tip
+      Object.assign(tip, { imageSampling: { kind: 'integer-pyramid', signal: 'inverse-gray', sourceRect: { x: 0, y: 0, width: 2, height: 2 }, ...patch } })
+      expect(isBrushLibrary(data)).toBe(false)
+    }
+    const data = library(), tip = data.brushes[0].descriptor.tip
+    tip.imageSampling = { kind: 'integer-pyramid', signal: 'inverse-gray', sourceRect: { x: 0, y: 0, width: 2, height: 2 } }
+    tip.material = { kind: 'lightness', gray: data.assets[0].id, strength: 1 }
+    expect(isBrushLibrary(data)).toBe(false)
+  })
+})
+
 describe('tip alpha threshold', () => {
   it('accepts only a bounded complete threshold pair', () => {
     const data=library(),tip=data.brushes[0].descriptor.tip

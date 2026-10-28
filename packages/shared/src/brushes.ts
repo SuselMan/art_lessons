@@ -35,6 +35,15 @@ export interface BrushTip {
   mask?: TipMaskId
   /** Sample this square inside the padded asset, retaining the source tip size. */
   maskBounds?: { x: number; y: number; width: number; height: number }
+  /** Explicit integer source grid for an opaque grayscale image pyramid.
+   * Stored bytes are inverse gray coverage; resize brightness before inversion.
+   * Absence preserves the recorded padded-POT/trilinear sampler. The rectangle
+   * addresses actual source texels, independently of the square drawing crop. */
+  imageSampling?: {
+    kind: 'integer-pyramid'
+    signal: 'inverse-gray'
+    sourceRect: { x: number; y: number; width: number; height: number }
+  }
   /** Standard axial masks work with stamp and mixer; Gaussian remains stamp-only.
    * Absence preserves legacy round/bitmap sampling. */
   profile?: { kind: 'gaussian'; fade: number; antialias: boolean }
@@ -294,12 +303,13 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
   if (!record(value) || value.schemaVersion !== 1 || !Array.isArray(value.assets) || !Array.isArray(value.brushes)
     || !Array.isArray(value.skipped) || value.brushes.length > (limits.maxBrushes ?? 512) || value.assets.length > (limits.maxAssets ?? 1024)) return false
   const ids = new Set<string>()
+  const assetSizes = new Map<string, number>()
   let bytes = 0
   for (const a of value.assets) {
     if (!record(a) || typeof a.id !== 'string' || !ASSET.test(a.id) || ids.has(a.id)
       || !numberIn(a.size, 2, 2048) || !Number.isInteger(a.size) || (a.size & (a.size - 1)) !== 0
       || a.file !== `${a.id.slice(6)}.bin`) return false
-    ids.add(a.id); bytes += a.size * a.size
+    ids.add(a.id); assetSizes.set(a.id, a.size); bytes += a.size * a.size
   }
   if (bytes > (limits.maxBytes ?? 256 * 1024 * 1024)) return false
   const keys = new Set<string>()
@@ -354,6 +364,26 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         || !numberIn(bounds.x,0,1) || !numberIn(bounds.y,0,1)
         || !numberIn(bounds.width,1/2048,1) || !numberIn(bounds.height,1/2048,1)
         || bounds.x + bounds.width > 1 || bounds.y + bounds.height > 1) return false
+    }
+    if (d.tip.imageSampling !== undefined) {
+      const sampling = d.tip.imageSampling
+      if (d.tip.kind !== 'bitmap' || d.tip.material !== undefined || !record(sampling)
+        || Object.keys(sampling).some(key => !['kind','signal','sourceRect'].includes(key))
+        || sampling.kind !== 'integer-pyramid' || sampling.signal !== 'inverse-gray'
+        || !record(sampling.sourceRect)) return false
+      const rect = sampling.sourceRect
+      if (Object.keys(rect).some(key => !['x','y','width','height'].includes(key))
+        || !numberIn(rect.x,0,2047) || !Number.isInteger(rect.x)
+        || !numberIn(rect.y,0,2047) || !Number.isInteger(rect.y)
+        || !numberIn(rect.width,1,2048) || !Number.isInteger(rect.width)
+        || !numberIn(rect.height,1,2048) || !Number.isInteger(rect.height)) return false
+      const animation = record(d.tip.animation) ? d.tip.animation.frames : undefined
+      const frames = Array.isArray(animation) ? animation : [d.tip.mask]
+      const right = rect.x + rect.width, bottom = rect.y + rect.height
+      if (frames.some(id => {
+        const size = typeof id === 'string' ? assetSizes.get(id) : undefined
+        return size === undefined || right > size || bottom > size
+      })) return false
     }
     if (d.tip.animation !== undefined) {
       const animation = d.tip.animation
