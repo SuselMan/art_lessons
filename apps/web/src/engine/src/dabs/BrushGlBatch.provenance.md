@@ -57,14 +57,14 @@ order/thermal drift не позволяет обещать универсаль�
 556/449, getParameter6694/5410 против28404 на standalone; getTexParameter
 4084/3580 против4944. Общие maxrAF133.7ms/maxturn154.6ms включают standalone
 и cold work, поэтому не доказывают отзывчивость batch. Полный17-brush batch gate
-и отдельная оценка больших отпечатков ещё pending. Это standalone source proof,
+на момент первого brush84 gate ещё ожидался; дальнейшие результаты ниже. Это standalone source proof,
 не новая сборка активного приложения и не native fused arithmetic identity.
 Прежние isolated pass proofs
 1bc11f408 и a70d8c2e0 остаются привязаны к своим источникам/receipts; новый
 brush84 gate дополняет их, но не расширяет численный профиль или engine coverage.
 
 
-## Owned sampler capability: новый путь, GPU gate pending
+## Owned sampler capability
 
 `BrushGlBatchInfo.ownedPointSamplers` объявляет только внутренний owning service.
 Первый и единственный production producer — private prepass output slots,
@@ -90,4 +90,21 @@ Baseline guarded full17 Samsung gate относится к **15f484ede**, до c
 17presets/3256requests/203chunks, wrong0/GL[], hotuploads0,
 actualstateRestorationChecked/stateRestored/cleanup true. Receipt private
 R52/canonical-stock-full17-batch-guards-device-result.json. Accepted baseline
-не заменяет необходимый fresh owned-sampler GPU proof.
+не заменяет fresh owned-sampler GPU proof, приведённый ниже.
+
+Fresh source **bd9ea222e** independently passed Samsung SM-T970/Adreno650
+WebGL1 gates:17 canonical strokes/3256 draws/203 checkpoints;102 synthetic
+AlphaDarken trials;64 Over trials/192 draws. All final bytes/checkpoints exact,
+GL[], hot uploads0, actual caller-state restored, external sampler parameters
+and leases restored/balanced where measured. Composite phase sampler queries0;
+236 remaining queries belong to59 external outer calls (four each).
+
+Private R52/owned-sampler-gates-summary.json pins receipts and bundle hashes;
+canonical-stock-owned-sampler-full17-device-result.json,
+owned-sampler-canonical-composite-device-result.json and
+owned-sampler-composite-over-device-result.json are separate from older baselines.
+Owned child tabs/contexts/resources/jobs were closed, original parent restored.
+The17-stroke instrumented run total13.269s includes guards/readbacks/getter timing;
+it is not unbiased speedup evidence or a responsiveness pass. These scalar
+profiles remain isolated from active room storage/wire and installed fused
+scalar/vector dispatch, and prove neither all118 presets nor native identity.
