@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { isBrushLibrary, isSourceStampData, sourceStampDataBudget, MAX_SOURCE_STAMP_BUDGET, type BrushDescriptor, type SourceStampData } from '@grafetto/shared'
 import fixture from './fixtures/sourceStrokeAuthorDescriptor.imported.json'
+import compiledFixture from './fixtures/sourceStrokeAuthorDescriptor.compiled.json'
 import { sourceStrokeAuthorDescriptor, type SourceAuthorDescriptorContext } from './sourceStrokeAuthorDescriptor'
 import { SourceStrokeAuthor, type SourceAuthorPacket } from './sourceStrokeAuthor'
 
@@ -47,11 +48,12 @@ describe('real descriptor to source author, explicit capability boundary',()=>{
     }
   })
   it('retains raw nonlinear source data but cannot silently substitute the legacy uniform curve',()=>{
-    const d=descriptor()
+    const d=descriptor();d.sourceStamp!.options[0].checked=true
+    const before=structuredClone(d)
     expect(isSourceStampData(d.sourceStamp)).toBe(true)
     expect(d.sourceStamp!.options[0].commonCurve.text).toBe('0,0;0.5,0.2;1,1;')
     expect(sourceStrokeAuthorDescriptor(d,context)).toEqual({supported:false,reasons:['native-curve-compiler-unavailable:Size:0']})
-    expect(d).toEqual(fixture.descriptor)
+    expect(d).toEqual(before)
   })
   it('constructs the existing owner from identity native programs, saved scale/angle/spacing/precision and exact CAS grid',()=>{
     const d=identity(),result=sourceStrokeAuthorDescriptor(d,context)
@@ -71,7 +73,7 @@ describe('real descriptor to source author, explicit capability boundary',()=>{
     expect(state.roles[0].sequence).toBeGreaterThan(1)
   })
   it('accepts only explicit versioned polynomial capability with raw corner flags; no stock lookup',()=>{
-    const d=descriptor();Object.assign(d.sourceStamp!.options[0].sensors[0],{curve:{text:'0,0;1,0.5;',points:[{x:0,y:0,corner:true},{x:1,y:.5,corner:false}]}})
+    const d=descriptor();d.sourceStamp!.options[0].checked=true;Object.assign(d.sourceStamp!.options[0].sensors[0],{curve:{text:'0,0;1,0.5;',points:[{x:0,y:0,corner:true},{x:1,y:.5,corner:false}]}})
     // Fix the textual corner flag as an untrusted descriptor must retain exact text/points.
     Object.assign(d.sourceStamp!.options[0].sensors[0].curve,{text:'0,0,is_corner;1,0.5;'})
     d.sourceStamp!.options[0].commonCurve=d.sourceStamp!.options[0].sensors[0].curve
@@ -82,6 +84,39 @@ describe('real descriptor to source author, explicit capability boundary',()=>{
     }})
     expect(result.supported).toBe(true);expect(seen).toEqual(['0,0,is_corner;1,0.5;'])
     expect(sourceStrokeAuthorDescriptor(d,{...context,compileCurve:()=>({version:'native-sparselu-v1',coefficients:[]})}).supported).toBe(false)
+  })
+  it('consumes the production-imported pinned dictionary without a client compiler or fixture lookup',()=>{
+    const d=structuredClone(compiledFixture.descriptor) as unknown as Mutable<BrushDescriptor>
+    expect(isSourceStampData(d.sourceStamp)).toBe(true)
+    expect(d.sourceStamp!.compiled!.curves).toHaveLength(1)
+    const result=sourceStrokeAuthorDescriptor(d,context)
+    expect(result.supported).toBe(true)
+    if(!result.supported)throw Error('unreachable')
+    const expected=sourceStrokeAuthorDescriptor(d,{...context,compileCurve:curve=>({version:'native-sparselu-v1',coefficients:d.sourceStamp!.compiled!.curves.find(c=>c.source.text===curve.text)!.coefficients})})
+    expect(result).toEqual(expected)
+    const author=new SourceStrokeAuthor(result.program),stream=author.plan(author.createState(0,0,0),packet(0))
+    expect(stream.next().value).toBeDefined();stream.return(author.createState(0,0,0))
+    for(const edit of [(x:Mutable<NonNullable<BrushDescriptor['sourceStamp']>>)=>x.compiled!.curves.push(x.compiled!.curves[0]),
+      (x:Mutable<NonNullable<BrushDescriptor['sourceStamp']>>)=>{x.compiled!.curves[0].source.points[1].corner=true},
+      (x:Mutable<NonNullable<BrushDescriptor['sourceStamp']>>)=>Object.assign(x.compiled!,{profile:'fake'}),
+      (x:Mutable<NonNullable<BrushDescriptor['sourceStamp']>>)=>{x.options[0].checked=false}]) {
+      const invalid=structuredClone(d.sourceStamp!);edit(invalid);expect(isSourceStampData(invalid)).toBe(false)
+    }
+  })
+  it('never compiles or draws RNG for disabled saved nonlinear curves',()=>{
+    for(const guard of ['checked','useCurve'] as const) {
+      const d=identity(),option=d.sourceStamp!.options[0]
+      option.checked=true;option.useCurve=true;option[guard]=false
+      option.commonCurve={text:'0,0;1,0.5;',points:[{x:0,y:0,corner:false},{x:1,y:.5,corner:false}]}
+      option.sensors=[{id:'fuzzyPerDab',sourceId:'fuzzy',sourceSlot:9,curve:option.commonCurve}]
+      const result=sourceStrokeAuthorDescriptor(d,{...context,compileCurve:()=>{throw Error('disabled curve compiler called')}})
+      expect(result.supported).toBe(true)
+      if(!result.supported)throw Error('unreachable')
+      const author=new SourceStrokeAuthor(result.program)
+      const stream=author.plan(author.createState(0,0,0),packet(0))
+      while(true){const step=stream.next();if(step.done){expect(step.value.random.draws).toBe(0);break}}
+      expect(option.sensors[0].curve.text).toBe('0,0;1,0.5;')
+    }
   })
   it('keeps old descriptors on the old path and rejects material/child/CAS capabilities before execution',()=>{
     const legacy=identity();delete legacy.sourceStamp

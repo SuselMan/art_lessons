@@ -13,7 +13,7 @@ import struct
 import zipfile
 from sequential_xy import validate_policy as validate_sequential_xy_policy
 from stroke_input import validate_policy as validate_stroke_input_policy
-from source_stamp_data import validate_portable_source_stamp, source_stamp_budget, MAX_LIBRARY_SOURCE_STAMP_BUDGET
+from source_stamp_data import validate_source_stamp_shape, verify_compiled_source_stamp, source_stamp_budget, MAX_LIBRARY_SOURCE_STAMP_BUDGET
 from PIL import Image, ImageOps
 from brush_contract import Catalog, MAX_PIXELS, IMPORTER_SCHEMA_VERSION, IMPORTER_RENDERING_VERSION, number, clamp, descriptor, finalize_identity, compatibility
 
@@ -575,7 +575,7 @@ def validate_portable_profile(descriptor):
     else: raise ValueError('Unknown portable procedural profile')
 
 
-def portable_bundle(path,catalog):
+def portable_bundle(path,catalog,*,curve_compiler=None):
     # The runtime shared guard remains authoritative for descriptor semantics.
     if path.stat().st_size>360*1024*1024: raise ValueError('Portable bundle exceeds 360 MiB')
     data=json.loads(path.read_text(),parse_constant=lambda v: (_ for _ in ()).throw(ValueError('Nonfinite JSON number '+v)))
@@ -584,12 +584,13 @@ def portable_bundle(path,catalog):
     if not isinstance(library,dict) or library.get('schemaVersion')!=1 or not isinstance(payloads,dict): raise ValueError('Invalid portable library')
     assets=library.get('assets');brushes=library.get('brushes');skipped=library.get('skipped')
     if not isinstance(assets,list) or len(assets)>1024 or not isinstance(brushes,list) or len(brushes)>512 or not isinstance(skipped,list) or len(skipped)>1024: raise ValueError('Portable library item limit')
-    source_budget=0
+    source_budget=0;source_data=[]
     def preflight_source(d,depth=0):
         nonlocal source_budget
         if not isinstance(d,dict) or depth>1: raise ValueError('Invalid portable descriptor depth')
         if 'sourceStamp' in d:
-            validate_portable_source_stamp(d)
+            validate_source_stamp_shape(d)
+            source_data.append(d['sourceStamp'])
             source_budget+=source_stamp_budget(d['sourceStamp'])
             if source_budget>MAX_LIBRARY_SOURCE_STAMP_BUDGET: raise ValueError('Portable source stamp library budget exceeded')
         behavior=d.get('behavior',{})
@@ -598,6 +599,8 @@ def portable_bundle(path,catalog):
     for brush in brushes:
         if not isinstance(brush,dict): raise ValueError('Invalid portable brush')
         preflight_source(brush.get('descriptor'))
+    # A profile string is not attestation: recompute every bound dictionary.
+    for data in source_data: verify_compiled_source_stamp(data,curve_compiler)
     total=0;validated=[];ids=set()
     for asset in assets:
         if not isinstance(asset,dict): raise ValueError('Invalid portable asset')
@@ -735,14 +738,17 @@ def portable_bundle(path,catalog):
 
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument('sources',type=Path,nargs='+'); ap.add_argument('--output',type=Path,required=True)
-    args=ap.parse_args(); catalog=Catalog(args.output)
+    ap.add_argument('--native-curve-compiler',type=Path,help='Trusted absolute offline native coefficient compiler; never taken from brush data')
+    args=ap.parse_args()
+    if args.native_curve_compiler is not None and not args.native_curve_compiler.is_absolute(): ap.error('--native-curve-compiler must be absolute')
+    catalog=Catalog(args.output)
     for path in args.sources:
-        if path.name.endswith('.grafetto-brushes.json'): portable_bundle(path,catalog)
+        if path.name.endswith('.grafetto-brushes.json'): portable_bundle(path,catalog,curve_compiler=args.native_curve_compiler)
         elif path.suffix.lower()=='.abr': photoshop(path,catalog)
         elif path.suffix.lower() in ('.brush','.brushset'): procreate(path,catalog)
         elif path.suffix.lower() in ('.kpp','.bundle'):
             from krita_import import convert_krita
-            convert_krita(path,catalog)
+            convert_krita(path,catalog,curve_compiler=args.native_curve_compiler)
         else: ap.error('Unsupported extension: '+path.suffix)
     result=catalog.write();print(json.dumps({'brushes':len(result['brushes']),'assets':len(result['assets']),'skipped':len(result['skipped'])}))
 

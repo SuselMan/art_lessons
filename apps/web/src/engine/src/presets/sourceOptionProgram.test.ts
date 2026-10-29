@@ -43,6 +43,17 @@ describe('compiled native option programs from actual stock input data', () => {
     expect(programs[preset][rotation].bind(packets.cases[1].input).sensors.find(s => s.id === 'tiltDirection')?.kind).toBe('additive')
     expect(stock.presets.every(p => p.options.filter(o => ['Opacity', 'Flow'].includes(o.id)).every(o => o.checked))).toBe(true)
   })
+  it('binds missing inactive nonlinear transfers lazily but rejects accidental component use before RNG',()=>{
+    const base:SourceOptionProgramInput={id:'Size',checked:false,useCurve:true,curveMode:0,strength:1,min:0,max:1,
+      sensors:[{id:'fuzzyPerDab',curve:{points:[{x:0,y:0},{x:1,y:.5}]}}]}
+    const context={random:new KritaRandomSource(0),perStroke:new KritaPerStrokeRandomSource(0),hover:false}
+    const bound=compileSourceOptionProgram(base).bind(packets.cases[0].input)
+    expect(()=>sourceOptionComponents(bound,context)).toThrow('Inactive native curve transfer unavailable')
+    expect(context.random.snapshot().draws).toBe(0)
+    const disabled=compileSourceOptionProgram({...base,checked:true,useCurve:false}).bind(packets.cases[0].input)
+    expect(sourceSizeLike(sourceOptionComponents(disabled,context))).toBe(1)
+    expect(context.random.snapshot().draws).toBe(0)
+  })
   it('rejects missing solver output, unknown sensors and duplicate source slots before author RNG exists', () => {
     const base: SourceOptionProgramInput = { id: 'Size', checked: true, useCurve: true, curveMode: 0, strength: 1, min: 0, max: 1,
       sensors: [{ id: 'pressure', curve: { points: [{ x: 0, y: 0 }, { x: 1, y: .5 }] } }] }

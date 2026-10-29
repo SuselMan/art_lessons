@@ -24,7 +24,4 @@ export function sourceCurveTransfer(curve: SourceCurvePolynomial): readonly numb
 }
 /** KisCubicCurve::isIdentity ignores corner flags and uses Qt's relative
  * qFuzzyCompare ONLY for interior knots. Endpoints must match exactly. */
-export function sourceCurveIsIdentity(points: readonly SourceCurvePoint[]): boolean {
-  if (!points.length || points[0].x !== 0 || points[0].y !== 0 || points[points.length - 1].x !== 1 || points[points.length - 1].y !== 1) return false
-  return points.slice(1, -1).every(p => Math.abs(p.x - p.y) * 1e12 <= Math.min(Math.abs(p.x), Math.abs(p.y)))
-}
+export { sourceStampCurveIsIdentity as sourceCurveIsIdentity } from '@grafetto/shared'

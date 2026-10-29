@@ -343,3 +343,15 @@ recorded gesture seeds and source allocation metadata (`sourceSize`,
 `sourceScale`, codec3) supplied by the engine; the importer must not fabricate
 these from authored brush defaults. GPU oracle acceptance is required before
 emitting/activating a new stock catalog with this capability.
+
+### Optional native source-curve data
+
+Krita PNG/GBR imports retain bounded `sourceStamp` raw settings independently of existing rendering behavior. An explicit operator-configured compiler can add a versioned dictionary of native SparseLU coefficients:
+
+```sh
+python scripts/brush-import/convert.py input.kpp --output output --native-curve-compiler /absolute/trusted/compiler
+```
+
+There is no automatic compiler search/build/download and no executable path from brush data or environment. A missing/failed provider preserves raw candidate data with an explicit unsupported note for used nonlinear curves. Disabled curves remain retained without requiring coefficients. This does not activate native brush rendering.
+
+A portable bundle containing compiled dictionaries requires the same explicit trusted provider: import reconstructs raw data and recomputes coefficients before decoding/installing CAS assets. Profile metadata alone does not attest numerical correctness. Raw-only and old portable bundles keep their existing path. Provider limits are64 unique used curves/4096 knots per descriptor and15seconds per batch; source data is bounded to1MiB per descriptor/16MiB per library.

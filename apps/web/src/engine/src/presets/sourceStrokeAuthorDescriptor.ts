@@ -37,11 +37,11 @@ export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, contex
   try {
     for (const option of data.options) {
       const sensors=option.sensors.map(sensor=>{
-        const identity=sourceCurveIsIdentity(sensor.curve.points)
-        // Even checked=false options retain their source program. Future UI changes
-        // cannot accidentally activate a curve that was never compiled.
-        const compiled=identity ? undefined : context.compileCurve?.(sensor.curve)
-        if (!identity && (!compiled || compiled.version !== 'native-sparselu-v1')) throw new RangeError('native-curve-compiler-unavailable:'+option.id+':'+sensor.sourceSlot)
+        const needed=option.checked && option.useCurve && !sourceCurveIsIdentity(sensor.curve.points)
+        // Native apply guards skip unchecked/disabled curve consumers entirely.
+        const saved=data.compiled?.curves.find(c=>c.source.text===sensor.curve.text)
+        const compiled=needed ? context.compileCurve?.(sensor.curve) ?? (saved && {version:'native-sparselu-v1' as const,coefficients:saved.coefficients}) : undefined
+        if (needed && (!compiled || compiled.version !== 'native-sparselu-v1')) throw new RangeError('native-curve-compiler-unavailable:'+option.id+':'+sensor.sourceSlot)
         return {id:sensor.id,length:sensor.length,periodic:sensor.periodic,angleOffset:sensor.angleOffset,lockedAngle:sensor.lockedAngle,
           curve:{points:sensor.curve.points,coefficients:compiled?.coefficients}}
       })

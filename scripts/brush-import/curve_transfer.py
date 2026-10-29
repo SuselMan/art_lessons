@@ -31,6 +31,10 @@ def natural_run(points):
     return evaluate
 
 
+def native_curve_is_identity(points):
+    return bool(points) and points[0]==(0,0) and points[-1]==(1,1) and all(abs(x-y)*1e12<=min(abs(x),abs(y)) for x,y in points[1:-1])
+
+
 def native_transfer(text, sample_count=256):
     if type(sample_count) is not int or not 2<=sample_count<=40002:
         raise ValueError('Krita transfer resolution exceeds bounded offline limit')

@@ -31,7 +31,27 @@ export interface SourceStampOptionData {
   readonly max: number
   readonly sensors: readonly SourceStampSensorData[]
 }
+export const SOURCE_STAMP_COMPILER_PROFILE = 'eigen-3.4.0-sparselu-f64-no-fma-v1'
+export interface SourceStampCompiledData {
+  readonly version: 1
+  readonly reader: 'krita-bd6e8d0-v1'
+  readonly profile: typeof SOURCE_STAMP_COMPILER_PROFILE
+  readonly curves: readonly { readonly source: SourceStampCurveData; readonly coefficients: readonly (readonly [number,number,number,number])[] }[]
+}
+/** Existing native identity predicate, shared by required-data validation/compiler. */
+export function sourceStampCurveIsIdentity(points: readonly {readonly x:number;readonly y:number}[]): boolean {
+  if (!points.length || points[0].x !== 0 || points[0].y !== 0 || points[points.length-1].x !== 1 || points[points.length-1].y !== 1) return false
+  return points.slice(1,-1).every(p=>Math.abs(p.x-p.y)*1e12<=Math.min(Math.abs(p.x),Math.abs(p.y)))
+}
+export function sourceStampRequiredCurves(options: readonly SourceStampOptionData[]): readonly SourceStampCurveData[] {
+  const curves=new Map<string,SourceStampCurveData>()
+  for(const option of options)if(option.checked && option.useCurve)for(const sensor of option.sensors) {
+    if(!sourceStampCurveIsIdentity(sensor.curve.points) && !curves.has(sensor.curve.text))curves.set(sensor.curve.text,sensor.curve)
+  }
+  return [...curves.values()]
+}
 export interface SourceStampData {
+  readonly compiled?: SourceStampCompiledData
   readonly version: 1
   readonly reader: 'krita-bd6e8d0-v1'
   readonly role: 'primary' | 'mask'
@@ -85,6 +105,14 @@ export function sourceStampDataBudget(value: unknown): number {
       total+=64+utf8Size(sensor.sourceId)
     }
   }
+  if(value.compiled !== undefined) {
+    if(!record(value.compiled) || !Array.isArray(value.compiled.curves) || value.compiled.curves.length>64)return Infinity
+    for(const item of value.compiled.curves) {
+      if(!record(item) || !record(item.source) || typeof item.source.text!=='string' || item.source.text.length>65536
+        || !Array.isArray(item.source.points) || item.source.points.length>256 || !Array.isArray(item.coefficients) || item.coefficients.length>255)return Infinity
+      total+=64+utf8Size(item.source.text)+32*item.source.points.length+32*item.coefficients.length
+    }
+  }
   return total
 }
 const decimal = (s: string) => /^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$/.test(s.trim())
@@ -104,7 +132,7 @@ export function isSourceStampCurveData(v: unknown): v is SourceStampCurveData {
       && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1 && bool(p.corner) && (i === 0 || p.x > (v.points as {x:number}[])[i-1].x))
 }
 export function isSourceStampData(v: unknown): v is SourceStampData {
-  if (sourceStampDataBudget(v)>MAX_SOURCE_STAMP_BUDGET || !record(v) || !keys(v,['version','reader','role','settings','brush','spacing','timing','flags','precision','options','unsupported']) || v.version !== 1 || v.reader !== 'krita-bd6e8d0-v1'
+  if (sourceStampDataBudget(v)>MAX_SOURCE_STAMP_BUDGET || !record(v) || !keys(v,['version','reader','role','settings','brush','spacing','timing','flags','precision','options','unsupported','compiled']) || v.version !== 1 || v.reader !== 'krita-bd6e8d0-v1'
     || !['primary','mask'].includes(String(v.role)) || !record(v.settings) || Object.keys(v.settings).length > 256
     || Object.entries(v.settings).some(([k,s]) => !text(k,128) || !text(s,65536))
     || Object.entries(v.settings).reduce((n,[k,s]) => n+k.length+(s as string).length,0) > 1048576
@@ -117,7 +145,7 @@ export function isSourceStampData(v: unknown): v is SourceStampData {
     || !record(v.timing) || !keys(v.timing,['enabled','rate','ignoreDistance']) || !bool(v.timing.enabled) || !bool(v.timing.ignoreDistance) || !finite(v.timing.rate) || v.timing.rate <= 0
     || !record(v.flags) || !keys(v.flags,['scatterX','scatterY','mirrorX','mirrorY','indirectPainting','materialFixed1','textureEnabled']) || Object.keys(v.flags).length !== 7 || !Object.values(v.flags).every(bool)
     || !record(v.precision) || !keys(v.precision,['level','automatic']) || !Number.isInteger(v.precision.level) || (v.precision.level as number) < 1 || (v.precision.level as number) > 5 || !bool(v.precision.automatic)) return false
-  return v.options.every((o: unknown,index: number) => {
+  const validOptions=v.options.every((o: unknown,index: number) => {
     if (!record(o) || !keys(o,['id','checkable','checked','useCurve','useSameCurve','commonCurve','curveMode','strength','min','max','sensors'])
       || o.id !== SOURCE_STAMP_OPTIONS[index] || ![o.checkable,o.checked,o.useCurve,o.useSameCurve].every(bool)
       || (!o.checkable && !o.checked) || !isSourceStampCurveData(o.commonCurve) || !Number.isInteger(o.curveMode)
@@ -135,5 +163,18 @@ export function isSourceStampData(v: unknown): v is SourceStampData {
       if (s.id === 'drawingAngle') return finite(s.angleOffset) && bool(s.lockedAngle) && bool(s.fanCorners) && Number.isInteger(s.fanStep) && (s.fanStep as number) >= 1 && (s.fanStep as number) <= 360
       return s.angleOffset === undefined && s.lockedAngle === undefined && s.fanCorners === undefined && s.fanStep === undefined
     })
+  })
+  if(!validOptions)return false
+  if(v.compiled === undefined)return true
+  const compiled=v.compiled
+  if(!record(compiled) || !keys(compiled,['version','reader','profile','curves']) || compiled.version!==1 || compiled.reader!==v.reader || compiled.profile!==SOURCE_STAMP_COMPILER_PROFILE || !Array.isArray(compiled.curves))return false
+  const required=sourceStampRequiredCurves(v.options as unknown as readonly SourceStampOptionData[])
+  let knots=0
+  return compiled.curves.length===required.length && compiled.curves.every((entry:unknown,i:number)=>{
+    if(!record(entry) || !keys(entry,['source','coefficients']) || !isSourceStampCurveData(entry.source) || entry.source.text!==required[i].text
+      || !Array.isArray(entry.coefficients) || entry.coefficients.length!==Math.max(1,entry.source.points.length-1)
+      || entry.coefficients.some(c=>!Array.isArray(c) || c.length!==4 || !c.every(finite)))return false
+    knots+=entry.source.points.length
+    return knots<=4096
   })
 }

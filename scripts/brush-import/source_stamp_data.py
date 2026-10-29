@@ -6,6 +6,9 @@ Selected curve text/points/corner flags remain independent of any compiler.
 import math
 import re
 import struct
+from pathlib import Path
+from curve_transfer import native_curve_is_identity
+from native_curve_compile import compile_curves, PROFILE, MAX_CURVES, MAX_KNOTS
 
 OPTIONS=('Size','Rotation','Ratio','Scatter','Opacity','Flow','Mirror','Spacing','Rate')
 SOURCE_IDS=('pressure','pressurein','tangentialpressure','drawingangle','xtilt','ytilt','ascension','declination','rotation','fuzzy','fuzzystroke','speed','fade','distance','time','perspective')
@@ -29,7 +32,64 @@ def source_stamp_budget(data):
         for curve in [option['commonCurve']]+[s['curve'] for s in option['sensors']]:
             total+=len(curve['text'].encode('utf-8'))+32*len(curve['points'])
         total+=sum(64+len(s['sourceId'].encode('utf-8')) for s in option['sensors'])
+    if 'compiled' in data:
+        compiled=data['compiled']
+        if not isinstance(compiled,dict) or not isinstance(compiled.get('curves'),list) or len(compiled['curves'])>MAX_CURVES: raise ValueError('Invalid compiled source budget')
+        for entry in compiled['curves']:
+            source=entry['source'];coefficients=entry['coefficients']
+            if not isinstance(source.get('text'),str) or len(source['text'])>65536 or len(source['points'])>256 or len(coefficients)>255: raise ValueError('Invalid compiled curve budget')
+            total+=64+len(source['text'].encode('utf-8'))+32*len(source['points'])+32*len(coefficients)
     return total
+
+
+def required_source_curves(data):
+    curves={}
+    for option in data['options']:
+        if not option['checked'] or not option['useCurve']: continue
+        for sensor in option['sensors']:
+            curve=sensor['curve']
+            if not native_curve_is_identity([(p['x'],p['y']) for p in curve['points']]): curves.setdefault(curve['text'],curve)
+    return list(curves.values())
+
+
+def compile_source_stamp(data,executable):
+    if not isinstance(executable,(str,Path)) or not Path(executable).is_absolute(): raise ValueError('An explicit absolute native curve compiler is required')
+    curves=required_source_curves(data)
+    if len(curves)>MAX_CURVES or sum(len(c['points']) for c in curves)>MAX_KNOTS: raise ValueError('Source curve compiler work budget exceeded')
+    raw_budget=source_stamp_budget({k:v for k,v in data.items() if k!='compiled'})
+    extra=sum(64+len(c['text'].encode('utf-8'))+32*len(c['points'])+32*max(1,len(c['points'])-1) for c in curves)
+    if raw_budget+extra>MAX_SOURCE_STAMP_BUDGET: raise ValueError('Compiled source stamp aggregate budget exceeded')
+    coefficients=compile_curves([[[p['x'],p['y'],p['corner']] for p in c['points']] for c in curves],executable) if curves else []
+    result={'version':1,'reader':data['reader'],'profile':PROFILE,'curves':[{'source':source,'coefficients':pieces} for source,pieces in zip(curves,coefficients)]}
+    if source_stamp_budget({**data,'compiled':result})>MAX_SOURCE_STAMP_BUDGET: raise ValueError('Compiled source stamp aggregate budget exceeded')
+    return result
+
+
+def validate_compiled_source_shape(data):
+    if 'compiled' not in data: return
+    compiled=data['compiled'];required=required_source_curves(data)
+    if (not isinstance(compiled,dict) or set(compiled)!={'version','reader','profile','curves'} or type(compiled['version']) is not int or compiled['version']!=1
+            or compiled['reader']!=data['reader'] or compiled['profile']!=PROFILE or not isinstance(compiled['curves'],list) or len(compiled['curves'])!=len(required)
+            or len(required)>MAX_CURVES or sum(len(c['points']) for c in required)>MAX_KNOTS): raise ValueError('Invalid compiled source dictionary')
+    for entry,source in zip(compiled['curves'],required):
+        if not isinstance(entry,dict) or set(entry)!={'source','coefficients'} or not same_source_data(entry['source'],source): raise ValueError('Compiled curve differs from raw source binding')
+        pieces=entry['coefficients']
+        if not isinstance(pieces,list) or len(pieces)!=max(1,len(source['points'])-1) or any(not isinstance(p,list) or len(p)!=4 or any(type(v) not in (int,float) or not math.isfinite(v) for v in p) for p in pieces): raise ValueError('Invalid compiled source coefficients')
+
+
+def verify_compiled_source_stamp(data,executable):
+    if 'compiled' not in data: return
+    if executable is None: raise ValueError('An explicit trusted source curve compiler is required for compiled portable data')
+    expected=compile_source_stamp(data,executable)
+    if not same_source_data(data['compiled'],expected): raise ValueError('Portable source coefficients differ from native compiler')
+
+
+def same_source_data(a,b):
+    if isinstance(b,bool): return type(a) is bool and a==b
+    if isinstance(b,(int,float)): return type(a) in (int,float) and math.isfinite(a) and a==b
+    if isinstance(b,dict): return isinstance(a,dict) and set(a)==set(b) and all(same_source_data(a[k],v) for k,v in b.items())
+    if isinstance(b,list): return isinstance(a,list) and len(a)==len(b) and all(same_source_data(x,y) for x,y in zip(a,b))
+    return type(a) is type(b) and a==b
 
 
 def curve_data(text):
@@ -65,7 +125,7 @@ def option_data(params,name,xml,charge=None):
         if charge: charge(32*len(data['points']))
         return data
     # Primary paintbrush standard options: Opacity and Flow always checked.
-    # Mask checkability depends on extractedPrefix and is explicitly not compiled here.
+    # Mask master-size ownership remains explicit unsupported in retained data.
     raw=params.get(name+'Sensor','')
     sensors=[] if not raw else ([xml(raw)] if 'sensorslist' not in raw else list(xml(raw).findall('ChildSensor')))
     if len(sensors)>16: raise ValueError('Too many native sensors')
@@ -145,7 +205,7 @@ def retain_source_stamp(params,definition,width,height,xml,*,depth=0):
     return result
 
 
-def validate_portable_source_stamp(descriptor):
+def validate_source_stamp_shape(descriptor):
     if 'sourceStamp' not in descriptor: return
     data=descriptor['sourceStamp']
     if not isinstance(data,dict) or data.get('version')!=1 or data.get('reader')!='krita-bd6e8d0-v1' or data.get('role') not in ('primary','mask'): raise ValueError('Invalid portable source stamp')
@@ -159,11 +219,12 @@ def validate_portable_source_stamp(descriptor):
     definition=xml(settings.get('brush_definition',''))
     if definition.get('type') not in ('png_brush','gbr_brush'): raise ValueError('Unsupported raw source brush')
     expected=retain_source_stamp(settings,definition,brush['width'],brush['height'],xml,depth=int(data['role']=='mask'))
-    def same(a,b):
-        if isinstance(b,bool): return type(a) is bool and a==b
-        if isinstance(b,(int,float)): return type(a) in (int,float) and math.isfinite(a) and a==b
-        if isinstance(b,dict): return isinstance(a,dict) and set(a)==set(b) and all(same(a[k],v) for k,v in b.items())
-        if isinstance(b,list): return isinstance(a,list) and len(a)==len(b) and all(same(x,y) for x,y in zip(a,b))
-        return type(a) is type(b) and a==b
-    if not same(data,expected): raise ValueError('Portable source stamp differs from raw native settings')
+    if not same_source_data({k:v for k,v in data.items() if k!='compiled'},expected): raise ValueError('Portable source stamp differs from raw native settings')
     if not 1<=data['precision']['level']<=5 or data['spacing']['value']<0 or data['spacing']['coefficient']<0 or data['timing']['rate']<=0: raise ValueError('Invalid native source spacing/precision/rate')
+
+    validate_compiled_source_shape(data)
+
+
+def validate_portable_source_stamp(descriptor,curve_compiler=None):
+    validate_source_stamp_shape(descriptor)
+    if 'sourceStamp' in descriptor: verify_compiled_source_stamp(descriptor['sourceStamp'],curve_compiler)
