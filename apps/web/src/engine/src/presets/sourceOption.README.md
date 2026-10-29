@@ -53,3 +53,29 @@ The optional `SourceStampBoundary.sourceCache` path now uses these real branches
 Actual stock9 audit: all nine are PNG, brushIndex0, supportsCaching true, plain ColorSource. No GIH or per-worker frame selection. Mix/Darken/Sharpness are disabled; stored fuzzy HSV h/s are disabled, active v113/114 uses deterministic pressure. Softness84 is checked but useCurve false/value1; other Softness and all LightnessStrength are unchecked, hence both constructor arguments are1 with no random order dependency. Textures103/105/113 have random offsets disabled and deterministic strength. For these audited flags worker generation adds no RNG beyond material Mirror; shader/color/texture/pyramid filtering identity remains a separate pixel task. Different custom flags must not inherit this stock conclusion.
 
 Mask108 is separately source-audited: the native input segment paints the entire primary line first and the entire mask line second, with shared mutable/keyed random sources but separate dragDistance/cache state. It is not a per-parent-dab child interleave. The present helper does not integrate that scheduler or admit masking compatibility.116 remains outside this PNG planner.
+
+`sourcePngPyramid` models only PNG level metadata and level selection. All levels
+are resized from the original prepared image; rounded odd dimensions are retained,
+with a transparent one-pixel border. The selected image's actual dimensions determine
+each adjusted axis scale. Raster rotation is supplied explicitly and is distinct
+from positive logical mask/cache geometry. No QPainter filtering, alpha conversion,
+shader sampling or pixel-storage equivalence is implied. In particular, canonical
+native straight RGBA8 must not silently roundtrip through display premultiplied RGBA8.
+
+The 24-case / 408-query fixture compiles actual pinned Krita constructor, selector
+and append bodies using metadata-only QImage/QSize shims. Reference source is
+GPL-2.0-or-later; it remains private diagnostic compiler input. The application helper
+is an independent scalar re-expression and does not vendor native implementation.
+Qt reference interpolation tables and pixel kernels require separate conformance.
+
+`sourceImageScaleAxis` independently models the fixed-point coordinate and packed
+coverage tables used by Qt 5.15.7 smooth resize. Thirty cases / 4328 entries are
+checked against compiled actual `qimageCalcXPoints` / `qimageCalcApoints` methods,
+including negative destination-axis reversal. The declared input bounds avoid native
+signed-int overflow and bound table allocation; they are not a claim about Qt's
+maximum supported image size. Upsampling and downsampling require different pixel
+kernels; these tables do not implement either kernel. Native SIMD, rounding,
+premultiplication and QPainter transform sampling remain separate proof boundaries.
+Qt source carries LGPL3/GPL licensing (and additional historical notices); no Qt
+implementation text is bundled in the application helper. Fixture generators retain
+source hashes and compile private reference inputs only.
