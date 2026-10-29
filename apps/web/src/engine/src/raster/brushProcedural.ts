@@ -1,14 +1,19 @@
+import { radialCurveAlpha } from './radialCurve'
 import type { BrushTip } from '@grafetto/shared';
 import { BRUSH_GAUSSIAN_GLSL, gaussianSampleCount, gaussianTransparency, maskSamplingGLSL, maskStencilAlpha } from './gaussianTip';
 type Profile = NonNullable<BrushTip['profile']>;
 export const proceduralSampleCount = gaussianSampleCount;
-export function proceduralProfileUniforms(profile?: Profile): [
+export function proceduralProfileUniforms(profile?: Profile, lookupSide?: number): [
     number,
     number,
     number,
     number
 ] {
     if (profile?.kind === 'circleBand') throw Error('Circle band uses a separate max-alpha program')
+    if (profile?.kind === 'radialCurve') {
+        if (!lookupSide) throw Error('Radial curve requires its lookup resource')
+        return [3, profile.resolution, lookupSide, 0]
+    }
     if (!profile)
         return [-1, 0, 0, 0];
     return profile.kind === 'gaussian' ? [0, profile.fade, 0, profile.antialias ? 1 : 0]
@@ -46,8 +51,13 @@ function standardTransparency(x: number, y: number, rx: number, ry: number, prof
 }
 /** Pixel-centre displacement in top-down canvas coordinates. Offset the
  * stencil in canvas space before inverse rotation, including anisotropic axes. */
-export function proceduralMaskAlpha(x: number, y: number, width: number, height: number, profile: Profile, angle = 0): number {
+export function proceduralMaskAlpha(x: number, y: number, width: number, height: number, profile: Profile, angle = 0, lookup?: Uint8Array): number {
     if (profile.kind === 'circleBand') throw Error('Circle band uses circleBandAlpha')
+    if (profile.kind === 'radialCurve') {
+        if (!lookup) throw Error('Radial curve requires its lookup resource')
+        const c=Math.cos(angle),s=Math.sin(angle),u=(c*x+s*y)/(width*.5),v=(-s*x+c*y)/(height*.5)
+        return radialCurveAlpha(u*u+v*v,lookup,profile.resolution)
+    }
     if (![x, y, width, height, angle].every(Number.isFinite) || width <= 0 || height <= 0)
         return 0;
     const rx = width * .5, ry = height * .5, c = Math.cos(angle), s = Math.sin(angle);

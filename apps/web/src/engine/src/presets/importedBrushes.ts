@@ -1,3 +1,4 @@
+import { brushAssetIds } from '@grafetto/shared'
 import type { BrushDescriptor, ImportedBrush, BrushLibrary } from '@grafetto/shared'
 
 const brushes = new Map<string, ImportedBrush>()
@@ -60,8 +61,7 @@ export function isBrushAssetReady(id: string): boolean { return assets.has(id) }
 export function importedBrushAssets(preset: string | undefined): string[] {
   const b = importedBrushFromPreset(preset)
   if (!b) return []
-  const componentAssets = (brush: BrushDescriptor): (string | undefined)[] => [brush.tip.mask, ...(brush.tip.animation?.frames ?? []), brush.tip.material?.gray, ...(brush.tip.material?.grayFrames ?? []), brush.texture?.id, ...(brush.behavior?.dual ? componentAssets(brush.behavior.dual.brush) : [])]
-  return [...new Set(componentAssets(b))].filter((id): id is string & `asset:${string}` => !!id && id.startsWith('asset:'))
+  return brushAssetIds(b).filter(id => id.startsWith('asset:'))
 }
 
 /** Call only after all engines that can replay these resources have been destroyed. */

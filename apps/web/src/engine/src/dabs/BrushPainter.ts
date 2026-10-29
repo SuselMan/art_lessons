@@ -41,9 +41,9 @@ export class BrushPainter {
     this.materialMips = ctx.brushMipCache ?? new BrushMipCache()
     this.ownsMipCache = !ctx.brushMipCache
     this.textures=new BrushTextureCache(ctx.gl)
-    this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native)=>this.tipTexture(id,gray,group,native),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),brush => {
+    this.behavior=new BrushBehaviorPainter(ctx,(id,gray,group,native,lookup32)=>this.tipTexture(id,gray,group,native,lookup32),(id,discrete)=>this.brushTexture(id,discrete),keys=>this.textures.protect(keys),brush => {
       const resources = brushPreparationResources(brush.model === 'mixer' ? { ...brush, model: 'stamp' } : brush)
-      if (resources.some(resource => resource.nativeImage)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
+      if (resources.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.imageDimensionLimit())
       return this.textures.lease(brushTextureLeasePlan(resources, 'stamp'))
     })
   }
@@ -68,11 +68,12 @@ export class BrushPainter {
   prepareCircleBand(): void { this.behavior.prepareCircleBand() }
   prepareProcedural(): void { this.behavior.prepareProcedural() }
   private imageDimensionLimit(): number { return this.maximumImageSide ??= this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number }
+  prepareRadialCurves(): void { this.imageDimensionLimit(); this.behavior.prepareRadialCurves() }
   prepareIntegerImages(): void { this.imageDimensionLimit(); this.behavior.prepareIntegerImages() }
   prepareTexture(group: readonly BrushPreparationResource[], resource: BrushPreparationResource): void {
     this.textures.protect(group.map(brushTextureResourceKey))
     if (resource.grain) this.brushTexture(resource.id as BrushTextureId,resource.discrete)
-    else this.tipTexture(resource.id as TipMaskId,resource.gray,resource.materialGroup,resource.nativeImage)
+    else this.tipTexture(resource.id as TipMaskId,resource.gray,resource.materialGroup,resource.nativeImage,resource.lookup32)
   }
 
   private brushTexture(id: BrushTextureId, discrete = false): WebGLTexture {
@@ -83,9 +84,14 @@ export class BrushPainter {
     return entry.texture
   }
 
-  private tipTexture(id: TipMaskId, gray?: string, materialGroup?: MaterialTextureGroup, nativeImage?: NativeImageResource): WebGLTexture {
-    const key=brushTextureResourceKey({id,grain:false,gray,materialGroup,nativeImage}), cached=this.textures.get(key)
+  private tipTexture(id: TipMaskId, gray?: string, materialGroup?: MaterialTextureGroup, nativeImage?: NativeImageResource, lookup32?: true): WebGLTexture {
+    const key=brushTextureResourceKey({id,grain:false,gray,materialGroup,nativeImage,lookup32}), cached=this.textures.get(key)
     if(cached)return cached
+    if (lookup32) {
+      const entry=uploadBrushTexture(this.gl,[importedAssetPixels(id)],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,true)
+      this.textures.put(key,entry.texture,entry.bytes)
+      return entry.texture
+    }
     if (nativeImage) {
       const pixels = this.materialMips.get(key, () => [nativeImagePixels(nativeImage, importedAssetPixels(id))])[0]
       const entry = uploadBrushTexture(this.gl, [pixels], this.gl.LUMINANCE, this.gl.CLAMP_TO_EDGE, false, nativeImage)

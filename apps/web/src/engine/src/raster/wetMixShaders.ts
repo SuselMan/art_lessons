@@ -1,3 +1,4 @@
+import { BRUSH_RADIAL_CURVE_GLSL } from './radialCurve'
 import { INTEGER_IMAGE_SAMPLING_GLSL } from './integerImageSampling'
 import { BRUSH_PROCEDURAL_GLSL } from './brushProcedural'
 import { BRUSH_ALPHA_THRESHOLD_GLSL } from '../presets/brushAlphaThreshold'
@@ -315,8 +316,8 @@ void main() {
 `
 
 /** Separate compiler input: legacy transfer must remain byte-identical. */
-export function wetTransferFragment(procedural = false, integerImages = false): string {
-  if (!procedural && !integerImages) return WET_TRANSFER_FRAG
+export function wetTransferFragment(procedural = false, integerImages = false, radialCurves = false): string {
+  if (!procedural && !integerImages && !radialCurves) return WET_TRANSFER_FRAG
   const replace = (source: string, from: string, to: string): string => {
     if (source.split(from).length !== 2) throw new Error('Wet procedural shader anchor changed')
     return source.replace(from, to)
@@ -351,6 +352,13 @@ export function wetTransferFragment(procedural = false, integerImages = false): 
      }
      float second=u_dualKind>1.5 ?`)
     source=replace(source,'else if (abs(uv.x)>1.0 || abs(uv.y)>1.0) second=0.0;', 'else if (u_dualImageEnabled<0.5 && (abs(uv.x)>1.0 || abs(uv.y)>1.0)) second=0.0;')
+  }
+  if (radialCurves) {
+    source = replace(source, BRUSH_PROCEDURAL_GLSL, BRUSH_PROCEDURAL_GLSL + BRUSH_RADIAL_CURVE_GLSL)
+    source = replace(source, 'float wetProceduralMask(vec4 geometry, vec4 profile, float angle)', 'float wetProceduralMask(vec4 geometry, vec4 profile, float angle, sampler2D lookup)')
+    source = replace(source, 'return brushProceduralMask(pixel,mat2(c,-s,s,c),geometry,profile);', 'return brushProceduralMaskWithCurve(pixel,mat2(c,-s,s,c),geometry,profile,lookup);')
+    source = replace(source, 'wetProceduralMask(u_tipProceduralGeometry,u_tipProcedural,u_angle)', 'wetProceduralMask(u_tipProceduralGeometry,u_tipProcedural,u_angle,u_tip)')
+    source = replace(source, 'wetProceduralMask(u_dualProceduralGeometry,u_dualProcedural,u_dualProceduralAngle)', 'wetProceduralMask(u_dualProceduralGeometry,u_dualProcedural,u_dualProceduralAngle,u_dual)')
   }
   return source
 }

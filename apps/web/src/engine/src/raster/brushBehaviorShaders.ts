@@ -1,3 +1,4 @@
+import { BRUSH_RADIAL_CURVE_GLSL } from './radialCurve'
 import { INTEGER_IMAGE_SAMPLING_GLSL } from './integerImageSampling'
 import { BRUSH_PROCEDURAL_GLSL } from './brushProcedural'
 import { BRUSH_GAUSSIAN_GLSL } from './gaussianTip'
@@ -425,8 +426,8 @@ void main() {
 
 /** One opt-in renderer capability. The immutable legacy shader text is kept
  * intact; both variants derive geometry and sampling from shared templates. */
-export function createBrushStampFragment(procedural = false, integerImages = false): string {
-  if (!procedural && !integerImages) return BRUSH_STAMP_FRAG
+export function createBrushStampFragment(procedural = false, integerImages = false, radialCurves = false): string {
+  if (!procedural && !integerImages && !radialCurves) return BRUSH_STAMP_FRAG
   let source = BRUSH_STAMP_FRAG
   const replace = (from: string, to: string): void => {
     if (source.split(from).length !== 2) throw new Error('Stamp procedural template replacement must match exactly once')
@@ -457,6 +458,12 @@ export function createBrushStampFragment(procedural = false, integerImages = fal
       }
       vec4 dualSample=u_dualImageEnabled>0.5 ? integerImageSample(u_dual,u_dualBounds.xy+(dualUV*0.5+0.5)*u_dualBounds.zw,u_dualImageEnabled,u_dualImageDomain,u_dualImageUVShift) : brushTipSample(u_dual,u_dualBounds.xy+(dualUV*0.5+0.5)*u_dualBounds.zw,u_dualTipPacking);`)
     replace('if (u_dualKind<2.5 && (abs(dualUV.x)>1.0 || abs(dualUV.y)>1.0)) secondary=0.0;', 'if (u_dualImageEnabled<0.5 && u_dualKind<2.5 && (abs(dualUV.x)>1.0 || abs(dualUV.y)>1.0)) secondary=0.0;')
+  }
+  if (radialCurves) {
+    replace(BRUSH_PROCEDURAL_GLSL, BRUSH_PROCEDURAL_GLSL + BRUSH_RADIAL_CURVE_GLSL)
+    replace('brushProceduralMask(pixel,gaussianFrame,u_tipProceduralGeometry,u_tipProcedural)', 'brushProceduralMaskWithCurve(pixel,gaussianFrame,u_tipProceduralGeometry,u_tipProcedural,u_tip)')
+    replace('u_dualProceduralGeometry,u_dualProcedural)', 'u_dualProceduralGeometry,u_dualProcedural,u_dual)')
+    replace('brushProceduralMask(vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter,', 'brushProceduralMaskWithCurve(vec2(gl_FragCoord.x,u_resolution.y-gl_FragCoord.y)-u_dabCenter,')
   }
   return source
 }

@@ -3419,7 +3419,7 @@ export class PencilEngine implements PencilEngineAPI {
     const generation = this._brushPreparationGeneration
     const descriptor = digitalBrushFromPreset(preset)
     const { resources, capabilities } = brushPreparationPlan(descriptor)
-    if (resources.some(resource => resource.nativeImage)) assertNativeImageAdmission(resources, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
+    if (resources.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
     const bytes = brushPreparationBytes(resources,id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256)
     if (bytes > BRUSH_PREPARATION_BYTES) return { status: 'skipped' }
     const stamp = resources.filter(r => r.painter === 'stamp'), wet = resources.filter(r => r.painter === 'wet')
@@ -3427,6 +3427,8 @@ export class PencilEngine implements PencilEngineAPI {
     // Capabilities and textures share one traversal, including independent children.
     const programJobs = [...capabilities].map(painter => () => {
       if (painter === 'stampCircleBand') this._brush.prepareCircleBand()
+      else if (painter === 'stampCurve') this._brush.prepareRadialCurves()
+      else if (painter === 'wetCurve') this._smudge.prepareRadialCurves()
       else if (painter === 'stamp') this._brush.prepareProcedural()
       else if (painter === 'wet') this._smudge.prepareProcedural()
       else if (painter === 'stampImage') this._brush.prepareIntegerImages()
@@ -3440,7 +3442,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Another peer's replay may have changed the protected cache group between
     // jobs. Do not claim residency or loop indefinitely under that workload.
     if (result.status === 'ready' && resources.some(resource => resource.painter === 'stamp' ? !this._brush.hasPreparedTexture(resource) : !this._smudge.hasPreparedTexture(resource))) {
-      if (resources.some(resource => resource.nativeImage)) throw Error('Native image bank lost residency during preparation')
+      if (resources.some(resource => resource.nativeImage || resource.lookup32)) throw Error('Native image bank lost residency during preparation')
       return { status: 'skipped' }
     }
     return result

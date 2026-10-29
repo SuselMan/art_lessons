@@ -2,9 +2,9 @@ import { brushAlphaThresholdValue } from '../presets/brushAlphaThreshold'
 import { CIRCLE_BAND_STAMP_FRAG } from '../raster/circleBandShaders'
 import { prepareCircleDifference, type CircleDifference } from '../raster/roundCoverage'
 import { nativeImageResource, nativeImageDomain, nativeImageDomainUniform, nativeImageUVShift, type NativeImageResource } from './NativeImageBank'
-import { proceduralProfileUniforms, proceduralSampleCount } from '../raster/brushProcedural'
+import { proceduralSampleCount } from '../raster/brushProcedural'
 import { gaussianSampleCount } from '../raster/gaussianTip'
-import { brushTipResource, brushTextureResourceKey } from './BrushPreparation'
+import { brushTipSamplerId, brushTipProfileUniforms, brushTipResource, brushTextureResourceKey } from './BrushPreparation'
 import type { MaterialTextureGroup } from '../presets/brushMaterialPacking'
 import { advanceWashOpacity } from '../presets/brushWash'
 import { brushTextureApplication } from './brushTextureApplication'
@@ -90,6 +90,7 @@ export class BrushBehaviorPainter {
     MAX_EXT: number
   } | null = null;
   private stamp!: WebGLProgram
+  private curveStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private imageStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private proceduralStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private composite!: WebGLProgram
@@ -98,19 +99,20 @@ export class BrushBehaviorPainter {
   private sp = -1;
   private cp = -1;
   private readonly ctx: BrushContext
-  private readonly tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource) => WebGLTexture
+  private readonly tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture
   private readonly grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture
   private readonly protectTextures: (keys: readonly string[]) => void
   private readonly leaseTextures: (brush: BrushDescriptor) => () => void
-  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor) => () => void) { this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
+  constructor(ctx: BrushContext, tip: (id: TipMaskId, gray?: string, group?: MaterialTextureGroup, native?: NativeImageResource, lookup32?: true) => WebGLTexture, grain: (id: BrushTextureId, discrete?: boolean) => WebGLTexture, protectTextures: (keys: readonly string[]) => void, leaseTextures: (brush: BrushDescriptor) => () => void) { this.ctx = ctx; this.tip = tip; this.grain = grain; this.protectTextures = protectTextures; this.leaseTextures = leaseTextures }
   private tipView(id: TipMaskId, gray?: string, tip?: BrushTip, native?: NativeImageResource): {texture:WebGLTexture; mode:number} {
     if (tip?.imageSampling && !native) throw Error('Native image lookup requires an explicit selected level')
     const resource=brushTipResource(id,gray,tip)
-    return {texture:this.tip(id,gray,resource.materialGroup,native),mode:resource.materialChannels==='rg' ? 1 : resource.materialChannels==='ba' ? 2 : 0}
+    return {texture:this.tip(resource.id as TipMaskId,gray,resource.materialGroup,native,resource.lookup32),mode:resource.materialChannels==='rg' ? 1 : resource.materialChannels==='ba' ? 2 : 0}
   }
   initGL(): void {
     this.circleStamp = undefined
     this.proceduralStamp = undefined
+    this.curveStamp = undefined
     this.imageStamp = undefined
     const gl = this.ctx.gl
     this.minmax = gl.getExtension('EXT_blend_minmax') as {
@@ -136,9 +138,17 @@ export class BrushBehaviorPainter {
     return this.circleStamp
   }
 
+  prepareRadialCurves(): void { this.stampFor(true,true,true) }
   prepareIntegerImages(): void { this.stampFor(true, true) }
 
-  private stampFor(procedural: boolean, integerImages = false): { program: WebGLProgram; uniforms: Uniforms; position: number } {
+  private stampFor(procedural: boolean, integerImages = false, radialCurves = false): { program: WebGLProgram; uniforms: Uniforms; position: number } {
+    if (radialCurves) {
+      if (!this.curveStamp) {
+        const gl=this.ctx.gl,program=createProgram(gl,DAB_VERT,createBrushStampFragment(true,true,true))
+        this.curveStamp={program,uniforms:getUniforms(gl,program,STAMP_UNIFORMS),position:gl.getAttribLocation(program,'a_position')}
+      }
+      return this.curveStamp
+    }
     if (integerImages) {
       if (!this.imageStamp) {
         const gl = this.ctx.gl, program = createProgram(gl, DAB_VERT, createBrushStampFragment(true, true))
@@ -166,6 +176,8 @@ export class BrushBehaviorPainter {
     gl.deleteProgram(this.composite)
     if (this.proceduralStamp) gl.deleteProgram(this.proceduralStamp.program)
     this.proceduralStamp = undefined
+    if (this.curveStamp) gl.deleteProgram(this.curveStamp.program)
+    this.curveStamp=undefined
     if (this.imageStamp) gl.deleteProgram(this.imageStamp.program)
     this.imageStamp = undefined
   }
@@ -274,15 +286,16 @@ export class BrushBehaviorPainter {
       ...(grain ? [brushTextureResourceKey({id:grain,grain:true,discrete:grid?true:undefined})] : []),
       ...(dualGrain ? [brushTextureResourceKey({id:dualGrain,grain:true,discrete:dualGrid?true:undefined})] : []),
     ])
-    const integerImages = !!brush.tip.imageSampling || !!secondary?.tip.imageSampling
+    const curveProfiles = brush.tip.profile?.kind === 'radialCurve' || secondary?.tip.profile?.kind === 'radialCurve'
+    const integerImages = curveProfiles || !!brush.tip.imageSampling || !!secondary?.tip.imageSampling
     const animated = !!brush.tip.animation || !!secondary?.tip.animation || integerImages
-    protect(stamps[0]?.mask ?? brush.tip.mask,brush.texture?.id,stamps[0]?.dualMask ?? secondary?.tip.mask,secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,stamps[0]?.gray ?? brush.tip.material?.gray,stamps[0]?.dualGray ?? secondary?.tip.material?.gray)
+    protect(stamps[0]?.mask ?? brushTipSamplerId(brush.tip),brush.texture?.id,stamps[0]?.dualMask ?? brushTipSamplerId(secondary?.tip),secondary?.texture?.id,!!brush.texture?.application,!!secondary?.texture?.application,stamps[0]?.gray ?? brush.tip.material?.gray,stamps[0]?.dualGray ?? secondary?.tip.material?.gray)
     const procedural = brush.tip.kind === 'procedural' || secondary?.tip.kind === 'procedural' || integerImages
-    const selected = circleBand ? this.circleProgram() : this.stampFor(procedural, integerImages)
-    const mainView = !animated && brush.tip.mask ? this.tipView(brush.tip.mask,brush.tip.material?.gray,brush.tip) : {texture:paper.texture,mode:0}
+    const selected = circleBand ? this.circleProgram() : this.stampFor(procedural, integerImages, curveProfiles)
+    const mainView = !animated && brushTipSamplerId(brush.tip) ? this.tipView(brushTipSamplerId(brush.tip)!,brush.tip.material?.gray,brush.tip) : {texture:paper.texture,mode:0}
     const mask=mainView.texture
     const texture = brush.texture ? this.grain(brush.texture.id,!!brush.texture.application) : paper.texture
-    const dualView = !animated && secondary?.tip.mask ? this.tipView(secondary.tip.mask,secondary.tip.material?.gray,secondary.tip) : {texture:paper.texture,mode:0}
+    const dualView = !animated && brushTipSamplerId(secondary?.tip) ? this.tipView(brushTipSamplerId(secondary?.tip)!,secondary?.tip.material?.gray,secondary?.tip) : {texture:paper.texture,mode:0}
     const dualMask=dualView.texture
     const dualTexture = secondary?.texture ? this.grain(secondary.texture.id,!!secondary.texture.application) : paper.texture
     const dualPeriod = Math.max(0.5, secondary?.texture?.periodPx ?? 1)
@@ -325,8 +338,8 @@ export class BrushBehaviorPainter {
       gl.uniform2f(u.u_dualProfile,secondary?.tip.profile?.kind === 'gaussian' ? secondary.tip.profile.fade : .5,secondary?.tip.profile?.antialias ? 1 : 0)
       gl.uniform1f(u.u_wickCap,4)
       if (procedural && !circleBand) {
-        gl.uniform4f(u.u_tipProcedural, ...proceduralProfileUniforms(brush.tip.profile))
-        gl.uniform4f(u.u_dualProcedural, ...proceduralProfileUniforms(secondary?.tip.profile))
+        gl.uniform4f(u.u_tipProcedural, ...brushTipProfileUniforms(brush.tip))
+        gl.uniform4f(u.u_dualProcedural, ...brushTipProfileUniforms(secondary?.tip))
       }
       gl.uniform1f(u.u_wickPx,brush.tip.profile || secondary?.tip.profile ? 1 : 0)
       gl.uniform1f(u.u_hardness, brush.tip.hardness)
@@ -359,7 +372,7 @@ export class BrushBehaviorPainter {
         if(accumulation)gl.uniform1f(u.u_opacity,1)
         for (const s of list) {
           if(animated) {
-            const currentMask=s.mask ?? brush.tip.mask, currentDual=s.dualMask ?? secondary?.tip.mask
+            const currentMask=s.mask ?? brushTipSamplerId(brush.tip), currentDual=s.dualMask ?? brushTipSamplerId(secondary?.tip)
             const imageRatio = secondary ? Math.max(0.01, curveAt(secondary.sizeByPressure, s.pressure) / Math.max(0.01, curveAt(brush.sizeByPressure, s.pressure)) * (secondary.scatter?.scale ?? 1)) : 1
             const mainImage = currentMask && brush.tip.imageSampling ? nativeImageResource(currentMask, brush.tip, 2 * s.radius * s.aspect) : undefined
             const childRadiusX = s.radius * s.aspect * imageRatio / (1 + s.edgeSoftness * .15)
@@ -438,7 +451,7 @@ export class BrushBehaviorPainter {
             const mainRy = Math.fround(s.radius)
             const childRx = Math.fround(mainRx * ratio / (1 + s.edgeSoftness * .15))
             const childRy = Math.fround(childRx / (secondary?.tip.aspect ?? 1))
-            const standard = brush.tip.profile?.kind === 'standard' || !!brush.tip.imageSampling
+            const standard = (brush.tip.profile?.kind === 'standard' || brush.tip.profile?.kind === 'radialCurve') || !!brush.tip.imageSampling
             // A child profile does not expand a legacy parent's clipping quad.
             const wick = standard ? Math.SQRT2 / Math.min(1, s.aspect)
               : brush.tip.profile || secondary?.tip.profile?.kind === 'gaussian' ? 1 : 0
