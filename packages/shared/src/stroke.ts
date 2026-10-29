@@ -24,6 +24,12 @@ export type ToolType =
   | 'digitalBrush'
 
 export type Dab = {
+  /** Source allocation size before sensor dynamics, statically quantized by the
+   * opted-in source model before float32 recording. Not the visible diameter. */
+  sourceSize?: number
+  /** Recorded deterministic Size response, including user pressure override,
+   * before renderer minimum-size filters. Zero is an admitted recorded input. */
+  sourceScale?: number
   /** Captured input sensor, already normalized and rounded to float32.
    * Absent on historical strokes; zero is a real measurement. */
   normalizedSpeed?: number

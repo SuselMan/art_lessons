@@ -37,12 +37,14 @@ const BYTES_PER_DAB = FLOATS_PER_DAB * 4
 /** Maximum supported layout. Encoding remains v1 when speed is absent on all
  * dabs. V2 adds one float, with -1 meaning absent only on the wire (mixed data).
  * Zero means a measured zero and must never be treated as missing.
+ * V3 adds optional source allocation size and deterministic Size response.
+ * The two source channels use -1 for absence; encoding remains v1/v2 otherwise.
  * Bumped only if the layout above changes incompatibly. Written as a prefix
  *  on every packed payload so a client meeting an encoding it does not know
  *  says so instead of silently painting garbage — the log is permanent, and a
  *  room recorded today gets replayed by clients built much later. Costs two
  *  characters per stroke, not per dab. */
-export const DAB_PACK_VERSION = 2
+export const DAB_PACK_VERSION = 3
 
 // float32, not float64, and that is a real (if tiny) loss rather than pure
 // repacking: dab values are computed in double precision and rounded here.
@@ -76,10 +78,19 @@ function fromBase64(text: string): Uint8Array {
   return bytes
 }
 
+/** Optional recorded source request inputs; zero scale is distinct from absence. */
+export function isDabSourceSize(value: unknown): value is number {
+  return typeof value==='number' && Number.isFinite(value) && Math.fround(value)>0 && value<=100000
+}
+export function isDabSourceScale(value: unknown): value is number {
+  return typeof value==='number' && Number.isFinite(value) && value>=0 && value<=1
+}
+
 /** Packs dabs into the base64 form a StrokeOperation carries. */
 export function packDabs(dabs: Dab[]): string {
-  const extended=dabs.some(dab=>dab.normalizedSpeed!==undefined)
-  const stride=BYTES_PER_DAB+(extended?4:0)
+  const source=dabs.some(dab=>dab.sourceSize!==undefined || dab.sourceScale!==undefined)
+  const version=source?3:dabs.some(dab=>dab.normalizedSpeed!==undefined)?2:1
+  const stride=BYTES_PER_DAB+(version>=2?4:0)+(version>=3?8:0)
   const buffer = new ArrayBuffer(dabs.length * stride)
   const view = new DataView(buffer)
   let offset = 0
@@ -88,14 +99,20 @@ export function packDabs(dabs: Dab[]): string {
       view.setFloat32(offset, dab[field], LITTLE_ENDIAN)
       offset += 4
     }
-    if(extended){
+    if(version>=2){
       const speed=dab.normalizedSpeed
       if(speed!==undefined && (!Number.isFinite(speed)||speed<0||speed>1))throw new Error('packed dabs: invalid normalized speed')
       view.setFloat32(offset,speed??-1,LITTLE_ENDIAN)
       offset+=4
     }
+    if(version>=3){
+      if(dab.sourceSize!==undefined && !isDabSourceSize(dab.sourceSize))throw new Error('packed dabs: invalid source size')
+      if(dab.sourceScale!==undefined && !isDabSourceScale(dab.sourceScale))throw new Error('packed dabs: invalid source scale')
+      view.setFloat32(offset,dab.sourceSize??-1,LITTLE_ENDIAN);offset+=4
+      view.setFloat32(offset,dab.sourceScale??-1,LITTLE_ENDIAN);offset+=4
+    }
   }
-  return `${extended?DAB_PACK_VERSION:1}:${toBase64(new Uint8Array(buffer))}`
+  return `${version}:${toBase64(new Uint8Array(buffer))}`
 }
 
 /** Inverse of packDabs. Throws on a payload that is not a whole number of
@@ -104,11 +121,11 @@ export function packDabs(dabs: Dab[]): string {
 export function unpackDabs(packed: string): Dab[] {
   const separator = packed.indexOf(':')
   const version = separator === -1 ? NaN : Number(packed.slice(0, separator))
-  if (version !== 1 && version !== DAB_PACK_VERSION) {
+  if (version !== 1 && version !== 2 && version !== DAB_PACK_VERSION) {
     throw new Error(`packed dabs: unknown encoding version ${packed.slice(0, Math.max(separator, 0)) || '(none)'}`)
   }
   const bytes = fromBase64(packed.slice(separator + 1))
-  const stride=BYTES_PER_DAB+(version===2?4:0)
+  const stride=BYTES_PER_DAB+(version>=2?4:0)+(version>=3?8:0)
   if (bytes.length % stride !== 0) {
     throw new Error(`packed dabs: ${bytes.length} bytes is not a multiple of ${stride}`)
   }
@@ -121,12 +138,18 @@ export function unpackDabs(packed: string): Dab[] {
       dab[field] = view.getFloat32(offset, LITTLE_ENDIAN)
       offset += 4
     }
-    if(version===2){
+    if(version>=2){
       const speed=view.getFloat32(offset,LITTLE_ENDIAN);offset+=4
       if(speed!==-1){
         if(!Number.isFinite(speed)||speed<0||speed>1)throw new Error('packed dabs: invalid normalized speed')
         dab.normalizedSpeed=speed
       }
+    }
+    if(version>=3){
+      const size=view.getFloat32(offset,LITTLE_ENDIAN);offset+=4
+      const scale=view.getFloat32(offset,LITTLE_ENDIAN);offset+=4
+      if(size!==-1){if(!isDabSourceSize(size))throw new Error('packed dabs: invalid source size');dab.sourceSize=size}
+      if(scale!==-1){if(!isDabSourceScale(scale))throw new Error('packed dabs: invalid source scale');dab.sourceScale=scale}
     }
     dabs.push(dab)
   }
@@ -146,6 +169,8 @@ export function strokeDabs(op: StrokeOperation): Dab[] {
   const plain=op.dabs
   if (plain) {
     for(const dab of plain){
+      if(dab.sourceSize!==undefined && !isDabSourceSize(dab.sourceSize))throw new Error('plain dabs: invalid source size')
+      if(dab.sourceScale!==undefined && !isDabSourceScale(dab.sourceScale))throw new Error('plain dabs: invalid source scale')
       const speed=dab.normalizedSpeed
       if(speed!==undefined && (!Number.isFinite(speed)||speed<0||speed>1))throw new Error('plain dabs: invalid normalized speed')
     }

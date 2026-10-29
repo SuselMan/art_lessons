@@ -473,10 +473,11 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || (d.wet.bloom !== undefined && !numberIn(d.wet.bloom, 0, 1)) || (d.wet.feather !== undefined && !numberIn(d.wet.feather, 0, 1)))) return false
     if (d.behavior !== undefined) {
       if (!isBrushBehavior(d.behavior)) return false
+      if (d.behavior.sequentialRandom && !isBrushSequentialXYCompatible(d as unknown as BrushDescriptor)) return false
       const secondary = d.behavior.dual?.brush
       if (secondary) {
         if (d.model !== 'stamp' && secondary.tip?.profile?.kind === 'gaussian') return false
-        if (secondary.behavior?.dual || secondary.tip?.profile?.kind === 'circleBand') return false
+        if (secondary.behavior?.dual || secondary.behavior?.sequentialRandom || secondary.tip?.profile?.kind === 'circleBand') return false
         const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary }], skipped: [] }
         if (!isBrushLibrary(probe)) return false
       }
@@ -531,6 +532,7 @@ export function brushRequiresRandomContext(brush: BrushDescriptor): boolean {
     if (seen.has(b)) return false
     seen.add(b)
     const v = b.behavior
+    if(v?.sequentialRandom)return true
     const groups = [v?.modulations, v?.wetMix?.dynamics]
     const controls = [
       ...Object.values(v?.dynamics ?? {}), ...Object.values(v?.colorAdjustment ?? {}),
@@ -543,4 +545,32 @@ export function brushRequiresRandomContext(brush: BrushDescriptor): boolean {
     return controls.some(native) || !!(v?.dual && visit(v.dual.brush))
   }
   return visit(brush)
+}
+
+
+/** Semantic prerequisites of the versioned single-source XY request policy.
+ * This is not a preset-name gate or a claim of input-path parity with another app. */
+export function isBrushSequentialXYCompatible(brush: BrushDescriptor): boolean {
+  const v=brush.behavior,s=brush.scatter,tip=brush.tip
+  if(brush.paperInteraction!==0||v?.erase||v?.falloff!==undefined||brush.model!=='stamp'||brush.mixer||brush.wet||brush.texture||!v||v.dual||v.wetMix||v.grain||v.colorAdjustment||v.edgeBleed||v.taper)return false
+  if(tip.kind!=='round'||tip.profile?.kind!=='gaussian'||tip.profile.antialias||tip.aspect!==1||tip.rotation!=='fixed'||tip.mask||tip.animation||tip.material||tip.alphaThreshold)return false
+  if(!s||s.count!==1||s.scale!==1||s.sizeJitter!==0||s.angleJitter!==0||s.flowJitter!==0)return false
+  if(v.scatter?.placement!=='xyUniform'||!v.scatter.bothAxes||v.scatter.countJitter!==0||(v.scatter.roundnessJitter??0)!==0)return false
+  const r=v.rotation
+  if(r && (r.random!=='none'||r.composition||r.flipX||r.flipY||r.azimuth||r.projection))return false
+  if(v.rendering && (v.rendering.wetEdges!==0||v.rendering.burntEdges!==0))return false
+  const allowed=['scatter','opacity','flow']
+  if(Object.keys(v.dynamics??{}).some(k=>!allowed.includes(k))||Object.keys(v.modulations??{}).some(k=>!allowed.includes(k)))return false
+  if((v.spacing?.dynamics??[]).some(d=>d.control!=='pressure'&&d.control!=='off'))return false
+  const dynamics=[...Object.values(v.dynamics??{}),...Object.values(v.modulations??{}).flat(),...(v.spacing?.dynamics??[])]
+  return dynamics.every(d=>d.control!=='random'&&d.control!=='strokeRandom'&&d.jitter===0)
+}
+
+/** Recorded allocation input is mandatory for each opted-in logical request.
+ * Empty final chunks have no new request to validate; endpoint-only input does. */
+export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly import('./stroke.js').Dab[], endpoint?: import('./stroke.js').Dab): boolean {
+  if(!brush.behavior?.sequentialRandom)return true
+  const valid=(d: import('./stroke.js').Dab):boolean=>!!d&&Number.isInteger(d.sourceSize)&&d.sourceSize!>=1&&d.sourceSize!<=100000
+    &&typeof d.sourceScale==='number'&&Number.isFinite(d.sourceScale)&&d.sourceScale>=0&&d.sourceScale<=1
+  return dabs.every(valid)&&(!endpoint||valid(endpoint))
 }
