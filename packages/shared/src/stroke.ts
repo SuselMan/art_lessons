@@ -24,6 +24,9 @@ export type ToolType =
   | 'digitalBrush'
 
 export type Dab = {
+  /** Author elapsed milliseconds before float32 narrowing. Time-periodic sensors
+   * can cross a discontinuity if replay reconstructs this from the legacy t. */
+  sourceTime?: number
   /** Exact author-side raw direction (radians). Float64 preserves fan override
    * angles whose float32 rounding changes integer source allocation. */
   sourceAngle?: number

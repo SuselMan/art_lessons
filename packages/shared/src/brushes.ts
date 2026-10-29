@@ -1,3 +1,4 @@
+import { isDabSourceTime } from './dabCodec.js'
 import { isBrushCurve as curve, type BrushCurve } from './brushCurves.js'
 export type { BrushCurve } from './brushCurves.js'
 import { isBrushBehavior, type BrushBehavior, type BrushCompatibility, type BrushDynamic } from './brushBehavior.js'
@@ -477,7 +478,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const secondary = d.behavior.dual?.brush
       if (secondary) {
         if (d.model !== 'stamp' && secondary.tip?.profile?.kind === 'gaussian') return false
-        if (secondary.behavior?.dual || secondary.behavior?.sequentialRandom || secondary.behavior?.strokeInput || secondary.tip?.profile?.kind === 'circleBand') return false
+        if (secondary.behavior?.dual || secondary.behavior?.sequentialRandom || secondary.behavior?.strokeInput || secondary.behavior?.timing || secondary.tip?.profile?.kind === 'circleBand') return false
         const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary }], skipped: [] }
         if (!isBrushLibrary(probe)) return false
       }
@@ -523,6 +524,29 @@ export function brushAssetIds(brush: BrushDescriptor): AssetId[] {
   return [...ids]
 }
 
+/** Enumerate semantic sensor slots only; labels/compatibility notes are not input. */
+function brushDynamicInputs(b: BrushDescriptor): BrushDynamic[] {
+  const v=b.behavior, groups=[v?.modulations,v?.wetMix?.dynamics]
+  return [
+    ...Object.values(v?.dynamics??{}),...Object.values(v?.colorAdjustment??{}),
+    ...(v?.spacing?.dynamics??[]),...(v?.timing?.rateDynamics??[]),
+    ...(v?.rotation?.composition?.additive??[]),...(v?.rotation?.composition?.scaling??[]),
+    ...groups.flatMap(g=>Object.values(g??{}).flat()),
+    ...(b.mixer?.sampling?.radiusDynamics??[]),...(b.mixer?.foreground?.dynamics??[]),...(b.mixer?.pickupDynamics??[]),
+  ]
+}
+
+/** Time is resolved by the author once, including the clock inherited by a child. */
+export function brushRequiresSourceTime(brush: BrushDescriptor): boolean {
+  const seen=new Set<BrushDescriptor>()
+  const visit=(b: BrushDescriptor):boolean=>{
+    if(seen.has(b))return false
+    seen.add(b)
+    return !!b.behavior?.timing||brushDynamicInputs(b).some(d=>d.control==='time')||!!(b.behavior?.dual&&visit(b.behavior.dual.brush))
+  }
+  return visit(brush)
+}
+
 /** Whether execution requires an explicit recorded gesture random context.
  * Inspect only sensor-bearing fields; ordinary metadata must not opt in. */
 export function brushRequiresRandomContext(brush: BrushDescriptor): boolean {
@@ -533,15 +557,7 @@ export function brushRequiresRandomContext(brush: BrushDescriptor): boolean {
     seen.add(b)
     const v = b.behavior
     if(v?.sequentialRandom)return true
-    const groups = [v?.modulations, v?.wetMix?.dynamics]
-    const controls = [
-      ...Object.values(v?.dynamics ?? {}), ...Object.values(v?.colorAdjustment ?? {}),
-      ...(v?.spacing?.dynamics ?? []), ...(v?.rotation?.composition?.additive ?? []),
-      ...(v?.rotation?.composition?.scaling ?? []),
-      ...groups.flatMap(g => Object.values(g ?? {}).flat()),
-      ...(b.mixer?.sampling?.radiusDynamics ?? []), ...(b.mixer?.foreground?.dynamics ?? []),
-      ...(b.mixer?.pickupDynamics ?? []),
-    ]
+    const controls = brushDynamicInputs(b)
     return controls.some(native) || !!(v?.dual && visit(v.dual.brush))
   }
   return visit(brush)
@@ -569,9 +585,10 @@ export function isBrushSequentialXYCompatible(brush: BrushDescriptor): boolean {
 /** Recorded allocation input is mandatory for each opted-in logical request.
  * Empty final chunks have no new request to validate; endpoint-only input does. */
 export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly import('./stroke.js').Dab[], endpoint?: import('./stroke.js').Dab): boolean {
-  const allocation=!!brush.behavior?.sequentialRandom, direction=!!brush.behavior?.strokeInput
-  if(!allocation&&!direction)return true
+  const allocation=!!brush.behavior?.sequentialRandom, direction=!!brush.behavior?.strokeInput, time=brushRequiresSourceTime(brush)
+  if(!allocation&&!direction&&!time)return true
   const valid=(d: import('./stroke.js').Dab):boolean=>!!d
+    &&(!time||isDabSourceTime(d.sourceTime))
     &&(!direction||(typeof d.sourceAngle==='number'&&Number.isFinite(d.sourceAngle)))
     &&(!allocation||(Number.isInteger(d.sourceSize)&&d.sourceSize!>=1&&d.sourceSize!<=100000
       &&typeof d.sourceScale==='number'&&Number.isFinite(d.sourceScale)&&d.sourceScale>=0&&d.sourceScale<=1))

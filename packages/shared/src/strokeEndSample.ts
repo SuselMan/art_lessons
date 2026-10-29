@@ -1,4 +1,4 @@
-import { isDabSourceSize, isDabSourceScale, isDabSourceAngle, packDabs, unpackDabs, packEndpointBaseSize, unpackEndpointBaseSize } from './dabCodec.js'
+import { isDabSourceSize, isDabSourceScale, isDabSourceAngle, isDabSourceTime, packDabs, unpackDabs, packEndpointBaseSize, unpackEndpointBaseSize } from './dabCodec.js'
 import type { Dab, StrokeOperation } from './stroke.js'
 import type { Operation } from './operations.js'
 
@@ -6,7 +6,7 @@ import type { Operation } from './operations.js'
 export function isStrokeEndSample(value:unknown):value is Dab & {baseSize:number} {
   if(!value || typeof value!=='object' || Array.isArray(value))return false
   const v=value as Record<string,unknown>
-  const fields=['x','y','pressure','tiltX','tiltY','size','aspectRatio','angle','opacity','t','baseSize','normalizedSpeed','sourceSize','sourceScale','sourceAngle']
+  const fields=['x','y','pressure','tiltX','tiltY','size','aspectRatio','angle','opacity','t','baseSize','normalizedSpeed','sourceSize','sourceScale','sourceAngle','sourceTime']
   if(Object.keys(v).some(k=>!fields.includes(k)))return false
   const number=(key:string,min:number,max:number)=>typeof v[key]==='number' && Number.isFinite(v[key]) && v[key]>=min && v[key]<=max
   return number('x',-1e8,1e8) && number('y',-1e8,1e8) && number('pressure',0,1)
@@ -16,6 +16,7 @@ export function isStrokeEndSample(value:unknown):value is Dab & {baseSize:number
     && (v.normalizedSpeed===undefined || number('normalizedSpeed',0,1))
     && (v.sourceSize===undefined || isDabSourceSize(v.sourceSize))
     && (v.sourceAngle===undefined || isDabSourceAngle(v.sourceAngle))
+    && (v.sourceTime===undefined || isDabSourceTime(v.sourceTime))
     && (v.sourceScale===undefined || isDabSourceScale(v.sourceScale))
 }
 /** Decode at every semantic endpoint consumer; never infer precision from angle value. */
@@ -55,12 +56,12 @@ export function canonicalStrokeStorage(op: Operation): Operation {
   if(op.type!=='stroke')return op
   if(!hasValidStrokeEndSample(op))throw Error('endpoint: invalid operation')
   let result=op
-  if(op.dabs?.some(d=>d.sourceAngle!==undefined)) {
+  if(op.dabs?.some(d=>d.sourceAngle!==undefined||d.sourceTime!==undefined)) {
     if(op.dabsPacked!==undefined)throw Error('dabs: conflicting representations')
     const {dabs,...rest}=result
     result={...rest,dabsPacked:packDabs(dabs!)}
   }
-  if(op.strokeEndSample?.sourceAngle!==undefined){
+  if(op.strokeEndSample && (op.strokeEndSample.sourceAngle!==undefined||op.strokeEndSample.sourceTime!==undefined)){
     const {strokeEndSample:sample,...rest}=result
     result={...rest,strokeEndSamplePacked:packStrokeEndSample(sample!)}
   }

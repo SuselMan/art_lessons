@@ -3,14 +3,14 @@ import { isBrushCurve, type BrushCurve } from './brushCurves.js'
 import type { BrushDescriptor } from './brushes.js'
 
 export type BrushBlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'colorBurn' | 'linearBurn' | 'colorDodge' | 'add' | 'subtract' | 'difference' | 'exclusion' | 'softLight' | 'hardLight' | 'divide' | 'linearLight' | 'vividLight' | 'pinLight' | 'hardMix' | 'darkerColor' | 'lighterColor' | 'hue' | 'saturation' | 'color' | 'luminosity'
-export type BrushControl = 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection' | 'tiltElevation' | 'tiltX' | 'tiltY' | 'azimuth' | 'tiltDirection' | 'random' | 'strokeRandom' | 'dabProgress'
+export type BrushControl = 'off' | 'pressure' | 'tilt' | 'speed' | 'fade' | 'direction' | 'initialDirection' | 'tiltElevation' | 'tiltX' | 'tiltY' | 'azimuth' | 'tiltDirection' | 'random' | 'strokeRandom' | 'dabProgress' | 'time'
 export interface BrushDynamic {
   control: BrushControl
   /** Required option-keyed stream for a gesture-constant random sensor. */
   randomStream?: number
   /** Explicit native keyed sensor; mutually exclusive with legacy randomStream. */
   randomSource?: { kind: 'qt5Taus88'; key: string }
-  /** Logical emitted-dab count; independent of distance, animation and batches. */
+  /** Period in logical emitted dabs for dabProgress, milliseconds for time. */
   period?: number
   periodic?: boolean
   jitter: number
@@ -32,6 +32,9 @@ export interface BrushBehavior {
    * once; replay must not consult local cursor history or insert them again.
    * Absence preserves the legacy input pipeline. */
   strokeInput?: { version: 1; initialDirection: 'cursorHistory'; fanCorners?: { stepDegrees: number } }
+  /** Author distance/time request scheduling. Rate is dabs/second.
+   * Version1 admits deterministic pressure/off rate factors only. */
+  timing?: { version: 1; rate: number; ignoreDistanceSpacing: boolean; rateDynamics?: BrushDynamic[] }
   /** View/widget coordinates per millisecond; EMA is Grafetto's approximation
    * of the source input estimator. Captured once before geometry, then logged. */
   speedInput?: { version: 1; space: 'view'; maximum: number; estimator: 'grafettoEMA30ms' }
@@ -97,7 +100,7 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const n = (v: unknown, min = 0, max = 1): boolean => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max
   const keys = (v: Record<string, unknown>, allowed: string[]): boolean => Object.keys(v).every(k => allowed.includes(k))
   const blend = (v: unknown): boolean => BRUSH_BLEND_MODES.includes(v as BrushBlendMode)
-  if (!obj(value) || value.version !== 2 || !keys(value,['version','sequentialRandom','strokeInput','speedInput','colorAdjustment','spacing','edgeBleed','erase','falloff','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
+  if (!obj(value) || value.version !== 2 || !keys(value,['version','sequentialRandom','strokeInput','timing','speedInput','colorAdjustment','spacing','edgeBleed','erase','falloff','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
   const random=value.sequentialRandom
   if(random!==undefined && (!obj(random)||!keys(random,['version','kind','policy'])||random.version!==1||random.kind!=='qt5Taus88'||random.policy!=='scatterXY'))return false
   const input=value.strokeInput
@@ -105,6 +108,12 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
     if(!obj(input)||!keys(input,['version','initialDirection','fanCorners'])||input.version!==1||input.initialDirection!=='cursorHistory')return false
     const fan=input.fanCorners
     if(fan!==undefined&&(!obj(fan)||!keys(fan,['stepDegrees'])||!n(fan.stepDegrees,5,90)||!Number.isInteger(fan.stepDegrees)))return false
+  }
+  const timing=value.timing
+  if(timing!==undefined){
+    if(!obj(timing)||!keys(timing,['version','rate','ignoreDistanceSpacing','rateDynamics'])||timing.version!==1||!n(timing.rate,0,1000)||typeof timing.ignoreDistanceSpacing!=='boolean')return false
+    const factors=timing.rateDynamics
+    if(factors!==undefined&&(!Array.isArray(factors)||factors.length<1||factors.length>4||!factors.every(d=>obj(d)&&['pressure','off'].includes(String(d.control))&&d.jitter===0&&isBrushBehavior({version:2,dynamics:{size:d}}))))return false
   }
   const speed=value.speedInput
   if(speed!==undefined && (!obj(speed)||!keys(speed,['version','space','maximum','estimator'])||speed.version!==1||speed.space!=='view'||!n(speed.maximum,.001,1000)||speed.estimator!=='grafettoEMA30ms'))return false
@@ -130,7 +139,7 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const edge=value.edgeBleed
   if (edge !== undefined && (!obj(edge) || !keys(edge,['pressure','tilt','pressureCurve']) || !n(edge.pressure,-1,1) || !n(edge.tilt,-1,1) || (edge.pressureCurve !== undefined && !isBrushBehavior({version:2,dynamics:{size:{control:'pressure',minimum:0,jitter:0,curve:edge.pressureCurve}}})))) return false
   const d=value.dynamics
-  if (d !== undefined && (!obj(d) || !keys(d,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth','sharpness']) || !Object.values(d).every(v => obj(v) && keys(v,['control','randomStream','randomSource','period','periodic','jitter','minimum','fade','strength','curve']) && ['off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom','dabProgress'].includes(String(v.control)) && (v.control==='strokeRandom' ? (v.randomSource===undefined ? n(v.randomStream,0,4294967295) && Number.isInteger(v.randomStream) : v.randomStream===undefined && obj(v.randomSource) && keys(v.randomSource,['kind','key']) && v.randomSource.kind==='qt5Taus88' && typeof v.randomSource.key==='string' && v.randomSource.key.length>=1 && v.randomSource.key.length<=128 && !v.randomSource.key.includes('\0')) : v.randomStream===undefined && v.randomSource===undefined) && (v.control==='dabProgress' ? n(v.period,1,1000000) && Number.isInteger(v.period) && typeof v.periodic==='boolean' : v.period===undefined && v.periodic===undefined) && n(v.jitter) && n(v.minimum) && (v.fade === undefined || n(v.fade,0.001,100000)) && (v.strength === undefined || n(v.strength,-1,1)) && (v.curve === undefined || isBrushCurve(v.curve,1,256,true))))) return false
+  if (d !== undefined && (!obj(d) || !keys(d,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth','sharpness']) || !Object.values(d).every(v => obj(v) && keys(v,['control','randomStream','randomSource','period','periodic','jitter','minimum','fade','strength','curve']) && ['off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom','dabProgress','time'].includes(String(v.control)) && (v.control==='strokeRandom' ? (v.randomSource===undefined ? n(v.randomStream,0,4294967295) && Number.isInteger(v.randomStream) : v.randomStream===undefined && obj(v.randomSource) && keys(v.randomSource,['kind','key']) && v.randomSource.kind==='qt5Taus88' && typeof v.randomSource.key==='string' && v.randomSource.key.length>=1 && v.randomSource.key.length<=128 && !v.randomSource.key.includes('\0')) : v.randomStream===undefined && v.randomSource===undefined) && (v.control==='dabProgress'||v.control==='time' ? n(v.period,1,v.control==='time'?2147483647:1000000) && Number.isInteger(v.period) && typeof v.periodic==='boolean' : v.period===undefined && v.periodic===undefined) && n(v.jitter) && n(v.minimum) && (v.fade === undefined || n(v.fade,0.001,100000)) && (v.strength === undefined || n(v.strength,-1,1)) && (v.curve === undefined || isBrushCurve(v.curve,1,256,true))))) return false
   const mod=value.modulations
   if (mod !== undefined && (!obj(mod) || !keys(mod,['size','angle','roundness','scatter','count','flow','opacity','hue','saturation','brightness','grainDepth','sharpness']) || !Object.values(mod).every(list => Array.isArray(list) && list.length <= 4 && list.every(v => isBrushBehavior({version:2,dynamics:{size:v}}))))) return false
   const g=value.grain

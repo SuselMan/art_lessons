@@ -41,12 +41,14 @@ const BYTES_PER_DAB = FLOATS_PER_DAB * 4
  * The two source channels use -1 for absence; encoding remains v1/v2 otherwise.
  * V4 adds a float64 raw source angle; positive Infinity means absent only on
  * the wire. Every finite angle, including -1 and zero, remains representable.
+ * V5 adds float64 author elapsed milliseconds with the same absent sentinel.
+ * Versions 1–4 retain their exact layouts when no sourceTime is present.
  * Bumped only if the layout above changes incompatibly. Written as a prefix
  *  on every packed payload so a client meeting an encoding it does not know
  *  says so instead of silently painting garbage — the log is permanent, and a
  *  room recorded today gets replayed by clients built much later. Costs two
  *  characters per stroke, not per dab. */
-export const DAB_PACK_VERSION = 4
+export const DAB_PACK_VERSION = 5
 
 // float32, not float64, and that is a real (if tiny) loss rather than pure
 // repacking: dab values are computed in double precision and rounded here.
@@ -88,6 +90,9 @@ export function isDabSourceSize(value: unknown): value is number {
 export function isDabSourceAngle(value: unknown): value is number {
   return typeof value==='number' && Number.isFinite(value)
 }
+export function isDabSourceTime(value: unknown): value is number {
+  return typeof value==='number' && Number.isFinite(value) && value>=0 && value<=Number.MAX_SAFE_INTEGER
+}
 export function isDabSourceScale(value: unknown): value is number {
   return typeof value==='number' && Number.isFinite(value) && value>=0 && value<=1
 }
@@ -95,8 +100,8 @@ export function isDabSourceScale(value: unknown): value is number {
 /** Packs dabs into the base64 form a StrokeOperation carries. */
 export function packDabs(dabs: Dab[]): string {
   const source=dabs.some(dab=>dab.sourceSize!==undefined || dab.sourceScale!==undefined)
-  const version=dabs.some(dab=>dab.sourceAngle!==undefined)?4:source?3:dabs.some(dab=>dab.normalizedSpeed!==undefined)?2:1
-  const stride=BYTES_PER_DAB+(version>=2?4:0)+(version>=3?8:0)+(version>=4?8:0)
+  const version=dabs.some(dab=>dab.sourceTime!==undefined)?5:dabs.some(dab=>dab.sourceAngle!==undefined)?4:source?3:dabs.some(dab=>dab.normalizedSpeed!==undefined)?2:1
+  const stride=BYTES_PER_DAB+(version>=2?4:0)+(version>=3?8:0)+(version>=4?8:0)+(version>=5?8:0)
   const buffer = new ArrayBuffer(dabs.length * stride)
   const view = new DataView(buffer)
   let offset = 0
@@ -121,6 +126,10 @@ export function packDabs(dabs: Dab[]): string {
       if(dab.sourceAngle!==undefined && !isDabSourceAngle(dab.sourceAngle))throw new Error('packed dabs: invalid source angle')
       view.setFloat64(offset,dab.sourceAngle??Infinity,LITTLE_ENDIAN);offset+=8
     }
+    if(version>=5){
+      if(dab.sourceTime!==undefined && !isDabSourceTime(dab.sourceTime))throw new Error('packed dabs: invalid source time')
+      view.setFloat64(offset,dab.sourceTime??Infinity,LITTLE_ENDIAN);offset+=8
+    }
   }
   return `${version}:${toBase64(new Uint8Array(buffer))}`
 }
@@ -131,11 +140,11 @@ export function packDabs(dabs: Dab[]): string {
 export function unpackDabs(packed: string): Dab[] {
   const separator = packed.indexOf(':')
   const version = separator === -1 ? NaN : Number(packed.slice(0, separator))
-  if (version !== 1 && version !== 2 && version !== 3 && version !== DAB_PACK_VERSION) {
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== DAB_PACK_VERSION) {
     throw new Error(`packed dabs: unknown encoding version ${packed.slice(0, Math.max(separator, 0)) || '(none)'}`)
   }
   const bytes = fromBase64(packed.slice(separator + 1))
-  const stride=BYTES_PER_DAB+(version>=2?4:0)+(version>=3?8:0)+(version>=4?8:0)
+  const stride=BYTES_PER_DAB+(version>=2?4:0)+(version>=3?8:0)+(version>=4?8:0)+(version>=5?8:0)
   if (bytes.length % stride !== 0) {
     throw new Error(`packed dabs: ${bytes.length} bytes is not a multiple of ${stride}`)
   }
@@ -168,6 +177,13 @@ export function unpackDabs(packed: string): Dab[] {
         dab.sourceAngle=angle
       }
     }
+    if(version>=5){
+      const time=view.getFloat64(offset,LITTLE_ENDIAN);offset+=8
+      if(time!==Infinity){
+        if(!isDabSourceTime(time))throw new Error('packed dabs: invalid source time')
+        dab.sourceTime=time
+      }
+    }
     dabs.push(dab)
   }
   return dabs
@@ -186,6 +202,7 @@ export function strokeDabs(op: StrokeOperation): Dab[] {
   const plain=op.dabs
   if (plain) {
     for(const dab of plain){
+      if(dab.sourceTime!==undefined && !isDabSourceTime(dab.sourceTime))throw new Error('plain dabs: invalid source time')
       if(dab.sourceAngle!==undefined && !isDabSourceAngle(dab.sourceAngle))throw new Error('plain dabs: invalid source angle')
       if(dab.sourceSize!==undefined && !isDabSourceSize(dab.sourceSize))throw new Error('plain dabs: invalid source size')
       if(dab.sourceScale!==undefined && !isDabSourceScale(dab.sourceScale))throw new Error('plain dabs: invalid source scale')
