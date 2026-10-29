@@ -1,0 +1,130 @@
+{
+  "scope": "Original installed ARM64 pure geometry under Unicorn; constructed consumed ABI, original Qt/Bionic arithmetic; not full constructor/lifetime/GUI/physicalARM proof",
+  "libraries": [
+    {
+      "name": "lib/arm64-v8a/libQt5Core_arm64-v8a.so",
+      "bytes": 5518824,
+      "sha256": "78fc3da8d316ce7de1d957e3b20d7462b20245d4d797860f1946f797f7946ef9"
+    },
+    {
+      "name": "lib/arm64-v8a/libkritaimage_arm64-v8a.so",
+      "bytes": 7191128,
+      "sha256": "24d3f19d43650100bce51e8e941d66e3999eadee94e64e9f59dfe6c9ef86396d"
+    },
+    {
+      "name": "lib/arm64-v8a/libQt5Gui_arm64-v8a.so",
+      "bytes": 4907320,
+      "sha256": "52bf056960c13f88d50fc137bf7121756a1451c0b91be807af4b128f519cc1e9"
+    },
+    {
+      "name": "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so",
+      "bytes": 412384,
+      "sha256": "14a5c6db9f90b3695c8f20e85b82fa3bd5f263911bbdd3a10888ff7e64f5ac75"
+    },
+    {
+      "name": "/apex/com.android.runtime/lib64/bionic/libm.so",
+      "bytes": 229368,
+      "sha256": "aeb1ffb01b7f35e05f9d2aee945882415acd68014c367354d39858b3e146c614"
+    }
+  ],
+  "arithmeticHooks": 0,
+  "nativeCodeSHA256": {
+    "lib/arm64-v8a/libQt5Core_arm64-v8a.so:0x2d3958": "701448b14c3f8da0b74ceafd6cbe67ece347a7f83e1df4adce9d9d2580763fa4",
+    "lib/arm64-v8a/libQt5Core_arm64-v8a.so:0x30938c": "5ae8d433b72d4c8af7960d69ef2389abe45d692268c3f2fe515d19be1f825d36",
+    "lib/arm64-v8a/libkritaimage_arm64-v8a.so:0x539a0c": "b9f1ce0581f116b632229bc458b8e41f46628149ea2fd5bfb07476191dad9c6e",
+    "lib/arm64-v8a/libkritaimage_arm64-v8a.so:0x539af4": "fdeabbbc1a8a261748c23c07a3430f54a9726e6d35cf74c00b91226fcec0507c",
+    "lib/arm64-v8a/libkritaimage_arm64-v8a.so:0x539a18": "cba00a6989a7ced3969e12212a73cae944cdaee9816c94f810d0af2d37e7b61a",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b5be4": "3ee1d9a4eac0fca23033614c90e6b457a833947f435c62c3d2c62ca963bdc60f",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b47c4": "52bbde2c4ed5b681f3ae610648c4c0bacabe040c07aa89262a8980c75751bd8d",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b464c": "28935561aed4ed122f677d356aa6e12ac231210cc38039b76206c35b71db71a1",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b3e9c": "23b74a75634f49c486bc65109dff8a9e2952e198a1477f367f04fafeb4c072a0",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b42e8": "38f620236d8e0a1f4b3c45f67c80100b43172ed9c7c713f4a402c426f18eb323",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b42a8": "0f438dc0097a4805d66cb07993cbbe420d7c2c56d465eac66bdc365cec8fa721",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b4b60": "40878901b49baf2e3c39eca08bf2dc3cbd8d43507f62b83e8d886207dd597ae8",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b4ebc": "5576a3191e3c9032309d8db63f75a6afb58d46562b73f26d0641ea9c760ea227",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x367aac": "b1818dc71a935b6b67b177c0c3a77757a9550bdfefab19e6f95a8f2bfb006d01",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x37c418": "358db5524a9c872bc728c70ed265abaaac7bb7a9fa7dd51306881c6410fd1421",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b6d08": "a3f730fd63a3fbb9c3f4611f555ba706f3339fee9817e8ade228dee9044c1516",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b730c": "fae8926b7785956981b477a7bea9dfbc44341a5ff88fbea3dff3bf5f33a915c0",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b73ac": "b3b67f202b7c90368e2307b194eb4e06ca35e44e67d206263605d55f688a6afc",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b7570": "0b7efa0c497fefd2aaf73560eebef4981301dc8c3f7a8bf9e5f561b23aa316b3",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b7500": "72cd7d97f51445498a1ace63b8ef0b50324d95429d576f4d4b6e3dc0f2d9aa30",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b73f8": "3c255d03ee1193c63ad70272f66e1de402681e008fe22034807034ab519a29ea",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b7418": "9c925fc6bb9bd61658428e0b2f7ccef6310331839a70eaa68a3bb214dfd273d7",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b74b8": "1af1740e2624dadef31cbdb7c8d1ee033e07dec6bf43a85a56991c67cd908209",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b73b8": "14d2ea26e5e4dfcf46b6396a0c6370ec5310da5d974e4fd76f7c5cfaac7f9f3f",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b7488": "1800bf12feef7135e29fd56d27eceebfc7df38abda51ba9570624b3285060fe4",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b75a4": "adb90b15f60e29f78896ded6418f341043c9962815a9a0ae63f7462dfd269ead",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b75f4": "4a13a98ace378e6240c0a2fe29b887a7170e877e4332cc3da8fc1bbc8cf6dcfd",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b7460": "6ce6cb069a68cdbe1fde487396826eb0d16263b701f851a7da088a31f490454e",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b747c": "2fba7c9b6233421e7da76ab4b382abee54bb8c766175ca5189bb6213f25765f4",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b7364": "4ef6728760d8747f51358986220392b2e4b7cd77e0c8cde6cb4a8d18e8765652",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b74d4": "c51a7f13f26f9332e68f2673103568a719e15622a9ef35229148f84ab579c9c4",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b7324": "049c534194a6ed45de4a51226cdfc7ecf6f56618233af2e26d07c12100f3c26b",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b75d4": "34a1d40b191208a00460f0cc5dccf2ef8f529ff1c9334d017f2d69110c2a1a38",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b7434": "ea040544c29d598b4266929f887c440c1a382ed6642577aa313ee0b61c986163",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b7584": "cee2ad62176c7a79f3e8a2258800ed50505a6351dafe7f4eeb381ece26fbce05",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b7424": "754fbcddb997f5ecd6af0d1bb0e57f6869f29a6ee7940c83b58d72e384096a16",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b7514": "2311bc4972e7cd284eadf75c90b9e806c31a8f337b0e0c4a5b51e551c42c2bea",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b73a0": "697c2d2c9367cbdfa0bd08e03b3987f9811c9107fbf44496a09a1679cfcc07cf",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b75b0": "f6969095e04d15543722950a89daec9e13a19de282ea501393029423a9e8e48c",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b751c": "ad65cb5cbed1e47b009c48a6dc4d802436aa16bc8040a149c98004fd9fc13530",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b7534": "3df61352850c598ef777552ab98786655d4985f39fbc03229acb1c1176a294a4",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b74f0": "111aac98f45935f97be406709254a32f3d1808646617f44b62c279cea7f1abf7",
+    "lib/arm64-v8a/libQt5Gui_arm64-v8a.so:0x3b7454": "023587671e92cc3424caec3f16c4135a494880568ffb437e4b7b76605e419a63",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x2f600": "b1f30b25e7144ce8c3cf3419aa610274977ce895b32c74c2bb9b18170ce1ba8a",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x32acc": "b51e68dd775c510e45e0229110dc2dcc1cb292e057c184151cff4b20769b27c7",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x32a3c": "80c0c2388d503625600d2fa3246045dfaf8b9ac13f075f8e598573f7e33e9f2f",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x2f6a4": "65041706fcc65c78b8088e0dad11c893378d6013d4b1b3d4d8640c2359483a78",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x34da0": "7bec31c083209aaa1cce3985a0973f097dcf92ef843a13297ef7cb5e1a9f62b9",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x4fe98": "f6dfdd0fdcb9306d928f92a04cca57830f0e990a89423e955ace3cd51096c9c5",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x2f754": "6b7fa6e4b65a93f150ccfdfdfac2b5e83565a3cebc62417222b9814f89074bb0",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x4feb8": "bbf6741c8622cdd2463dcf1da7e1c3883aaecef38de38d386282e5509ae89a31",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x32a48": "1074aae49019ecf4bfec188424e40984c20ca4a080a37fb05b8acc7b046f7594",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x34cc8": "5fb158a139035b0e1ed971c063e4b915faad3284e31dfb677c81f3bd0d0804e4",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x50378": "0dc0c0e8af419f329ba8b0bff35d8bfadda5c46a984ce988969404967e9b47dc",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x34bfc": "e6195700a74118b5c7b1273af86852109c992ba1afb6e5592c26e59f1be0c87e",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x32a60": "fedfb09479bed55b3198887d33bb0dc78407b395b9396919f5700cc05d386045",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x502e0": "305f9542c0f8b8c63fe0711a0f49bdc5ad3d830015a900716b1e755a4dd9e137",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x32a54": "39b8dee565efa6748ae445ca29a7d79f3907bed447d3f4ab79bfbb0b6599d787",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x2f6b0": "4b4043ce346d7c050bdc8f58c9fc3120b48c1bcd1861218272601d054169f3e7",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x4fd20": "c1d33ffca3f840103b7051159c35e78c90886963760fc424a27708b8f381bf92",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x500b4": "c99b0d477d5f4d3e60524f3813264e3b01856bc5aed77d99968e7945facedc8c",
+    "/apex/com.android.runtime/lib64/bionic/libm.so:0x1d80c": "510d3f8edcbe6200b1fd3ccc7051490118b54bab1aa0e9b8fb9d36550cb398de",
+    "/apex/com.android.runtime/lib64/bionic/libm.so:0x22b74": "8e8097d30ae615e0e7450852b3012b19a67bddfebf1746bed415840cfee9b320",
+    "/apex/com.android.runtime/lib64/bionic/libm.so:0x15d40": "ee27fec2ab6be37ca21dcddb1bb94596fd39c21e71aa1ff782ada1b2068b25c8",
+    "/apex/com.android.runtime/lib64/bionic/libm.so:0x22474": "6dd4ba56a12ac339bbdff7cf2980df0ae43760b523de40c2629a51a38ff7f302",
+    "/apex/com.android.runtime/lib64/bionic/libm.so:0x1aaa0": "ed93abb527128f9676cdc0bd60c7bf1294c828c98582dae29024bff9505dce2c",
+    "/apex/com.android.runtime/lib64/bionic/libm.so:0x1ae78": "54e86910deee3ff5af137657075ab655f041fcfe6ff5dddc7f8c695cafa9d171",
+    "/apex/com.android.runtime/lib64/bionic/libm.so:0x1bca8": "c2da6f0093aece7dd1df9e398cbe7804b087880facff651a289535c4ea473380",
+    "/apex/com.android.runtime/lib64/bionic/libm.so:0x354c8": "442874844c07ce70dfcf5e3a507851a7b24e18c4756e5734a8e7363febfaa87f",
+    "/apex/com.android.runtime/lib64/bionic/libm.so:0x34804": "5c05cb91567b1a4012103d6e444b306218be9e32112b4465163199df05cba05f",
+    "/apex/com.android.runtime/lib64/bionic/libm.so:0x35854": "46afc465fc1ff7342148c8a2ef91bfee631108eff86a6e868a749f18a31873e4",
+    "/apex/com.android.runtime/lib64/bionic/libm.so:0x34e7c": "63a05017ed4f8d198a6fcc59a9af4705d6f437532e6c7c32d6f0c296a6d5d20d",
+    "/apex/com.android.runtime/lib64/bionic/libm.so:0x35d38": "800cd9f094fb7349cd84064033ec3de0ee97a5000d37a9439e9ff105027f26e5",
+    "/apex/com.android.runtime/lib64/bionic/libm.so:0x222d4": "7a881b2d5beb8dd21167040e4a7bded873fb6978811980093509a052aa20cb08",
+    "/apex/com.android.runtime/lib64/bionic/libm.so:0x247bc": "6cc476cbdbac87d2de2868a6c86f934a71acff6952299bc728414686f4d7cb43",
+    "/apex/com.android.runtime/lib64/bionic/libm.so:0x3611c": "35600dacf207536c148146bdc01df793576e8ab55740556d316971336569952c",
+    "/apex/com.android.runtime/lib64/bionic/libm.so:0x3614c": "345cdf209a8dcea2d5cd10809e1e3977fe8a06457fb01eeb3484c190376f3ea8"
+  },
+  "constructorSlices": {
+    "width": {
+      "start": "0x2e798",
+      "endExclusive": "0x2e7ac"
+    },
+    "height": {
+      "start": "0x2e7b8",
+      "endExclusive": "0x2e7cc"
+    },
+    "fullConstructorSHA256": "81b0851dfb882a8b146043dfd5a46bf72deb30d145e76576da2944b8ac641475"
+  },
+  "fixtureInputSHA256": "4cd0a1730dad8ebfffd23d750e32d38eb464c1773278451696165ee9f95f2d04",
+  "geometryReceiptSHA256": "ff57d982aef1a9176117a8c24c44708767277e782e446dc27cfff3fda92a40e3",
+  "mathReceiptSHA256": "e949449115899adda5e94624c6b4ad9b3cc69f40868fc37722aa78b58718be46",
+  "fmaInstruction": {
+    "address": "QtGui+0x3b5c54",
+    "bytes": "0104431f",
+    "semantics": "fmadd d1,d0,d3,d1"
+  },
+  "originalFilesNeverPersisted": true
+}
