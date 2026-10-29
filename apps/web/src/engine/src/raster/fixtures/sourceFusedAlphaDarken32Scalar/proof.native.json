@@ -1,0 +1,112 @@
+{
+  "scope": "Named scalar point diagnostic; no native packet/GUI/paintdevice/activehooks claim",
+  "gpu": {
+    "proof": {
+      "scope": "Diagnostic scalar fused AlphaDarken pixel graph vs exact CPU; no vectorpacket/nativeGUI/activehooks identity",
+      "fragmentSHA256": "2baf207dfd26da761b4b03770d388cf1d98e327588c1108990f15adbda690dad",
+      "primitiveSHA256": "d4d41285366611b80c18bb55f43669b6f02822c89c5d0d294e6e3f66ebfac82a",
+      "fragmentBytes": 9419,
+      "cases": 599
+    },
+    "hotMs": 0.19999998807907104,
+    "hotPixels": 32768,
+    "hotCase": {
+      "label": "alpha",
+      "values": [
+        [
+          11,
+          37,
+          181,
+          17
+        ],
+        [
+          53,
+          91,
+          7,
+          1
+        ],
+        [
+          0.36925598978996277,
+          0.8999999761581421,
+          0.4000000059604645,
+          0
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          12390175,
+          -25
+        ],
+        [
+          0,
+          13421773,
+          -25
+        ]
+      ],
+      "expected": 67852852
+    },
+    "hotReadback": 67852852,
+    "hotReadbackMatches": true,
+    "checked": 599,
+    "wrong": [],
+    "compileMs": 1417.2999999523163,
+    "runMs": 2481.300000011921,
+    "glError": 0,
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "precision": {
+      "precision": 23,
+      "rangeMin": 127,
+      "rangeMax": 127
+    }
+  },
+  "coldCompileMs": 4965.599999964237,
+  "inputCases": {
+    "baseline": 256,
+    "witness": 48,
+    "alphaBoundary": 95,
+    "independentTinyISA": 200
+  },
+  "tinyISA": {
+    "scope": "Execution of ORIGINAL installed ARM64 code under Unicorn; NOT physicalARM/activeGUI/nativepaintdevice equivalence",
+    "librarySHA256": "230ccf905226f4324ffdf8c7239e8be90f0506cfadda25393d1ba014ab0bb783",
+    "inputCorpusSHA256": "b1a6f847dda4ef9f89078064f83b8fa65e98600ce0db47aca23041870b8e2c9c",
+    "scriptSHA256": "b58d74a8bd4eff719083df8f2b0bbeda78a36e315ea88fc73f3e518adaf1ecbc",
+    "functionCodeSHA256": {
+      "0x302a4c": "b599204858fc89c9cab6ce4e91d53fe439ac44da3f0daa6ed8cc2b63d67e0b44",
+      "0x302a60": "7ba8d1ce5e0e1c948bf03edbb16bdcae8dcaea4bbd5dd637bee62e5bc245220f",
+      "0x303614": "edc08cd55bdbec28cb8fa7dcb0d9782563289ef29774f4888a5af13736ba5d5c",
+      "0x304138": "da44cb091415f6cd5c12fd715b243c39fe0ae758db7165a387ea2a7422edae01",
+      "0x30414c": "d149e6bd509eec58262a7c24b0ac3389ad49a0fb6b480b9db4cd9c04c8c392c0",
+      "0x304ca4": "133b32e388d36a01a71d05c22f0e75af986a0b43a5f49e45dfd57eaa662a6f39",
+      "0x305774": "c57ad60d92b70f979141f052f5db2bab82bcb10785a39a9e6127c01550c95fe1",
+      "0x305784": "477f1a81bf6f4ee830ba10c858b1ae431eefe5734ef6b3c015df2089ac8077f1",
+      "0x305a40": "828cb2ef9bf3d72b63cbd0d8165b8e6f17cc5fca13d4c0181aa56fd20071447b",
+      "0x305cd4": "ce4e45d1490a14fc411ceb673d248dd14e73963219d8a4c0f4a8be2d4916ef48",
+      "0x306b18": "91ccbdbd67a242d19f3ab7db5e6be5f63574d0d916398d1d6592272a94e81849"
+    },
+    "caseCount": 200,
+    "FPCR": 0,
+    "arithmeticHooks": 0
+  },
+  "tinyReportSHA256": "44c7c53e85721e6a8bb351636c0c4bf4c404dd6d6f79cd4a0ea348a49549faaa",
+  "runnerSHA256": "c662a908da6fb35a7e0eb5273f1b395013c2e9696e6d78bd2cee3ae3086617e7",
+  "cleanup": {
+    "ownChildContextGLObjectsClosed": true,
+    "originalThreeTabsPreserved": true,
+    "ownForwardRemoved": true,
+    "newRuntimeCreated": false
+  },
+  "performanceScope": "Uniform-input overwrite hot workload may be optimized; not shaded-pixel throughput/responsiveness proof.",
+  "nativeScalarMaskRangeProof": {
+    "scope": "Exhaustive IEEE F32 source coefficient math, not GPU instruction receipt",
+    "checked": 65536,
+    "minNonzero": 1.537870048196055e-05,
+    "max": 0.9999999403953552,
+    "lowerBound": 1.52587890625e-05,
+    "upperBound": 1,
+    "pass": true
+  }
+}
