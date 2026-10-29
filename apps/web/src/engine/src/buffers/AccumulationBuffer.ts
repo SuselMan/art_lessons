@@ -164,6 +164,9 @@ export class AccumulationBuffer {
    *  to, so a smudge scratch (created 'nearest') does not silently come back
    *  as LINEAR. */
   private readonly _baseFilter: 'linear' | 'nearest'
+
+  /** Immutable allocation sampling policy, also part of a pooled buffer's key. */
+  get samplingFilter(): 'linear' | 'nearest' { return this._baseFilter }
   private _pointSampling = false
 
   /** (#507) Forces exact-texel sampling for the next draw, and back again.

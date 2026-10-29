@@ -7,6 +7,7 @@ import { frameEdgeX, frameEdgeY, type CameraFrame } from './cameraFrame'
 import type { LayerPreviews, PreviewTile } from './layerPreviews'
 import { DISPLAY_VERT, LAYER_COMPOSITE_FRAG } from './shaders'
 import { createProgram, getUniforms } from './utils'
+import type { StraightLayerPresentation } from './StraightLayerPresentation'
 
 
 export interface CompositeItem {
@@ -46,6 +47,7 @@ export interface LayerMaterialPresentation {
 
 export interface LayerCompositorContext {
   readonly gl: WebGLRenderingContext
+  readonly straightPresentation?: StraightLayerPresentation
   screenBuf(): WebGLBuffer
   layers(): ReadonlyMap<string, ILayerBuffer>
   previews(): LayerPreviews
@@ -253,7 +255,14 @@ export class LayerCompositor {
     // Canonical straight storage is never a premultiplied display texture.
     // Its derived PM presentation must be supplied explicitly; hardware
     // filtering first and premultiplying later corrupts transparent edges.
-    if (buffer.pixelEncoding === 'straight-rgba8') throw new TypeError('Straight layer requires a premultiplied presentation raster')
+    if (buffer.pixelEncoding === 'straight-rgba8') {
+      const presentation = this.ctx.straightPresentation
+      if (!presentation) throw new TypeError('Straight layer requires a premultiplied presentation raster')
+      presentation.withTile(buffer, frame.scale * worldWidth / buffer.width, frame.scale * worldHeight / buffer.height, pm => {
+        this.drawBufferComposite(frame, pm, originX, originY, worldWidth, worldHeight, opacity, targetFbo, targetW, targetH)
+      })
+      return
+    }
     const point=frame.scale*worldWidth===buffer.width && frame.scale*worldHeight===buffer.height
       && frameEdgeX(frame,originX+worldWidth)-frameEdgeX(frame,originX)===buffer.width
       && frameEdgeY(frame,originY+worldHeight)-frameEdgeY(frame,originY)===buffer.height

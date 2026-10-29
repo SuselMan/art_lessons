@@ -12,7 +12,7 @@ function fixture(filter:'linear'|'nearest'='linear',encoding:RasterPixelEncoding
  const ctx={gl,previews:()=>previews,materialPresentations:()=>materials,layers:()=>new Map([['ink',layer]]),reveals:()=>new Map()} as unknown as LayerCompositorContext
  const compositor=new LayerCompositor(ctx),during:number[]=[]
  compositor.drawTileComposite=vi.fn(()=>{during.push(mock.getMinFilter(buffer.texture)!);})
- return {mock,buffer,tile,previews,materials,layer,compositor,during}
+ return {mock,buffer,tile,previews,materials,layer,compositor,during,ctx}
 }
 const frame=()=>exactFrame({x:0,y:0,width:16,height:16})
 const fbo={} as WebGLFramebuffer
@@ -94,4 +94,17 @@ it('rejects straight coarse inputs and outputs before changing GL state or gener
   expect(()=>f.compositor.downsampleTileInto(f.buffer,straight,0,0,8,8)).toThrow('premultiplied source and destination')
   expect(binds).not.toHaveBeenCalled();expect(mips).not.toHaveBeenCalled()
  }finally{straight.destroy();f.buffer.destroy()}
+})
+
+it('routes a straight tile through the owner presentation before PM composition',()=>{
+ const f=fixture('nearest','straight-rgba8'),gl=f.mock as unknown as WebGLRenderingContext
+ const pm=new AccumulationBuffer(gl,8,8,'linear'),calls:unknown[][]=[]
+ try{
+  Object.assign(f.ctx,{straightPresentation:{withTile:(source:AccumulationBuffer,sx:number,sy:number,draw:(b:AccumulationBuffer)=>void)=>{calls.push([source,sx,sy]);draw(pm)}}})
+  f.compositor.drawTileComposite=vi.fn()
+  draw(f,{...frame(),scale:.25})
+  expect(calls).toEqual([[f.buffer,.25,.25]])
+  expect(f.compositor.drawTileComposite).toHaveBeenCalledWith(expect.anything(),pm.texture,0,0,16,16,1,fbo,32,32)
+  expect(f.mock.getMinFilter(f.buffer.texture)).toBe(f.mock.NEAREST)
+ }finally{pm.destroy();f.buffer.destroy()}
 })

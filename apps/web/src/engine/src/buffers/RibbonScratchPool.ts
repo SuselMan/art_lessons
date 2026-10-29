@@ -53,15 +53,15 @@ export class RibbonScratchPool {
     return { live: this._allocatedBytes - this._freeBytes, free: this._freeBytes }
   }
 
-  acquire(width: number, height: number, pixelEncoding: RasterPixelEncoding = 'premultiplied-rgba8'): AccumulationBuffer {
-    const list = this._free.get(`${pixelEncoding}:${width}x${height}`)
+  acquire(width: number, height: number, pixelEncoding: RasterPixelEncoding = 'premultiplied-rgba8', filter: 'linear' | 'nearest' = 'nearest'): AccumulationBuffer {
+    if (filter !== 'linear' && filter !== 'nearest' || pixelEncoding === 'straight-rgba8' && filter !== 'nearest') throw new TypeError('Invalid pooled buffer sampling policy')
+    const list = this._free.get(`${pixelEncoding}:${filter}:${width}x${height}`)
     const reused = list?.pop()
     if (reused) { this._freeBytes -= width * height * 4; return reused }
-    // 'nearest' matches what RibbonStrokeScratch has always asked for — see
-    // its getOrCreate comment. The pool must never hand back a buffer built
-    // with a different filter or pixel encoding. Both encodings share this
-    // pool's existing live/free accounting and idle byte ceiling.
-    const created = new AccumulationBuffer(this.gl, width, height, 'nearest', pixelEncoding)
+    // Existing paint scratch keeps its nearest default. Derived PM presentation
+    // can request linear; neither policy may borrow the other's allocation.
+    // Every encoding/filter still shares this pool's ONE byte/idle ceiling.
+    const created = new AccumulationBuffer(this.gl, width, height, filter, pixelEncoding)
     this._allocatedBytes += width * height * 4
     return created
   }
@@ -86,7 +86,7 @@ export class RibbonScratchPool {
   }
 
   release(buf: AccumulationBuffer): void {
-    const key = `${buf.pixelEncoding}:${buf.width}x${buf.height}`
+    const key = `${buf.pixelEncoding}:${buf.samplingFilter}:${buf.width}x${buf.height}`
     const bytes = buf.width * buf.height * 4
     const list = this._free.get(key)
     if (this.holding) {

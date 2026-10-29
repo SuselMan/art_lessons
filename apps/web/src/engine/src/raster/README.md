@@ -64,3 +64,10 @@ centre и signed integer radius rectangle; `canvasMeanSampling.ts` — неза�
 отbrushRNG таблицу64 Halton2/3 координат. `CANVAS_MEAN_FRAG` вwetMixShaders усредняет premulRGBA
 одним1×1 pass, округляя storage лишь после суммы; native adaptive convergence и
 straight-byte colorspace rounding остаются явно указанными приближениями.
+
+`StraightLayerPresentation` преобразует один straight RGBA8 тайл в заимствованный
+PM тайл для `LayerCompositor`. Уменьшение выполняется ограниченной цепочкой 2×2;
+буферы берутся из общего `RibbonScratchPool` с учётом фильтра в ключе и предварительным
+резервированием памяти владельцем. Рабочее состояние GL восстанавливается перед
+отрисовкой на экран. Адаптер пока не подключён владельцем движка; открытие straight
+комнат закрыто. Границы доказательства — в соседнем provenance-файле.

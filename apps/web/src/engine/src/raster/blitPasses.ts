@@ -13,6 +13,7 @@ import { createProgram, getUniforms } from './utils'
 import { toMat3, type Matrix3 } from './matrix'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { WorldRect } from '../buffers/tileMath'
+import { saveBrushGlState } from '../dabs/BrushGlState'
 
 /** (#446) A selection's coverage mask on the GPU, with the world rect it
  *  spans — everything the two mask shaders need to place it. */
@@ -28,6 +29,9 @@ export class BlitPasses {
   // The full-screen quad every pass here draws — the engine's own, owned and
   // rebuilt by it.
   private readonly screenBuf: WebGLBuffer
+  private readonly presentationVao: WebGLVertexArrayObjectOES | null
+  private readonly vertexArrays: OES_vertex_array_object | null
+  private readonly instancing: ANGLE_instanced_arrays | null
 
   private readonly imageProg: WebGLProgram
   private readonly imageUni: Uniforms
@@ -50,6 +54,9 @@ export class BlitPasses {
   constructor(gl: WebGLRenderingContext, screenBuf: WebGLBuffer) {
     this.gl = gl
     this.screenBuf = screenBuf
+    this.vertexArrays = gl.getExtension('OES_vertex_array_object')
+    this.instancing = gl.getExtension('ANGLE_instanced_arrays')
+    this.presentationVao = this.vertexArrays?.createVertexArrayOES() ?? null
 
     this.imageProg         = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
     this.transformProg     = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
@@ -73,10 +80,29 @@ export class BlitPasses {
    *  already gone with the context, and _initGL simply builds a new one. */
   destroy(): void {
     const { gl } = this
+    if (this.presentationVao) this.vertexArrays?.deleteVertexArrayOES(this.presentationVao)
     gl.deleteProgram(this.imageProg)
     gl.deleteProgram(this.transformProg)
     gl.deleteProgram(this.areaTransformProg)
     gl.deleteProgram(this.areaMaskProg)
+  }
+
+  /** Synchronous derived-tile work. Preserve the visible target's scissor and
+   * state; replace draws never alter the caller's blend equation/functions.
+   * The optional cold VAO isolates NULL attribute pointers on WebGL1 too. */
+  withPresentationState<T>(work: () => T): T {
+    const { gl } = this
+    if (this.vertexArrays && !this.presentationVao) throw new Error('Presentation VAO allocation failed')
+    const restore = saveBrushGlState(gl, [this.transformPosLoc], this.instancing, this.vertexArrays, 1)
+    try {
+      if (this.presentationVao) this.vertexArrays!.bindVertexArrayOES(this.presentationVao)
+      this.instancing?.vertexAttribDivisorANGLE(this.transformPosLoc, 0)
+      for (const cap of [gl.SCISSOR_TEST, gl.DITHER, gl.CULL_FACE, gl.DEPTH_TEST, gl.STENCIL_TEST]) gl.disable(cap)
+      gl.colorMask(true, true, true, true)
+      // Allocation binds on the current unit; keep it inside the saved unit.
+      gl.activeTexture(gl.TEXTURE0)
+      return work()
+    } finally { restore() }
   }
 
   /** One IMAGE_BLIT_FRAG draw: a decoded, straight-alpha `texture` into the
@@ -109,7 +135,7 @@ export class BlitPasses {
    *  the real, smaller canvas-sized target; every other caller happens to
    *  use matching sizes, which this reduces to exactly as before).
    *
-   *  Never plain-replaces: every caller's target is either freshly cleared
+   *  Existing paint callers' targets are either freshly cleared
    *  (transparent) before its first draw here, or already holds content this
    *  draw belongs on top of. Which of the two blends applies is the `blend`
    *  argument, and the distinction is not cosmetic —
@@ -120,6 +146,8 @@ export class BlitPasses {
    *    copies (`_copyArea`, `_composeAreaFillPatch`) and the export rotate
    *    (`_finishInfiniteComposite`) draw disjoint regions onto a cleared
    *    target, where the two blends agree anyway.
+   *  - 'replace' disables blending for a complete derived presentation tile;
+   *    it does not mutate blend functions or require a clear.
    *  - 'add' (ONE, ONE): several *source tiles of one layer* stitched into
    *    one destination tile — the live gizmo preview (`previewLayerTransform`)
    *    and the bake (`AreaOps.bakeLayerTransform`). Their contributions are disjoint
@@ -140,14 +168,17 @@ export class BlitPasses {
   transform(
     source: AccumulationBuffer, matrixInv: Matrix3,
     dstW: number, dstH: number, targetFbo: WebGLFramebuffer | null,
-    blend: 'over' | 'add' = 'over',
+    blend: 'over' | 'add' | 'replace' = 'over',
   ): void {
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
     gl.viewport(0, 0, dstW, dstH)
-    gl.enable(gl.BLEND)
-    if (blend === 'add') gl.blendFunc(gl.ONE, gl.ONE)
-    else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    if (blend === 'replace') gl.disable(gl.BLEND)
+    else {
+      gl.enable(gl.BLEND)
+      if (blend === 'add') gl.blendFunc(gl.ONE, gl.ONE)
+      else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    }
     gl.useProgram(this.transformProg)
     const tu = this.transformUni
 
