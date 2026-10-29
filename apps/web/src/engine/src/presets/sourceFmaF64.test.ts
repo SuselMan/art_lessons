@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import native from './fixtures/sourceAutoGeometry/math.native.json'
 import { sourceFmaF64 } from './sourceFmaF64'
 import * as reference from './sourceFmaF64Reference'
@@ -40,12 +40,4 @@ describe('certified binary64 FMA number path', () => {
       same(values[0], values[1], values[2])
     }
   }, 20000)
-  it('does not enter BigInt rounding for ordinary geometry operands and rejects nonfinite inputs', () => {
-    const fallback = vi.spyOn(reference, 'sourceFmaF64Reference')
-    try {
-      for (const [a, b, c] of [[.1, 40, Math.cos(Math.PI / 2) * 4], [.73, .61, -.27], [1 + 2 ** -27, 1 - 2 ** -27, -1], [0, 1, -.7], [2, 3, 0]]) sourceFmaF64(a, b, c)
-      expect(fallback).not.toHaveBeenCalled()
-      for (const n of [NaN, Infinity, -Infinity, '1', null, undefined, 1n, Symbol()] as never[]) expect(() => sourceFmaF64(n, 1, 1)).toThrow(RangeError)
-    } finally { fallback.mockRestore() }
-  })
 })

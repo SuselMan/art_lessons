@@ -23,3 +23,10 @@ The old shared PNG evaluator has42/42 matching sample windows but9/42 nonidentic
 Own Capstone resources for coverage and geometry were disposed by standard locked QA finish with privileged strict /proc checks; `auto-geometry-disassembly-cleanup.json` records no references, removed=true. Existing parent-owned Unicorn remains for parent work, untouched. No own device context/tab/forward/process/runtime remains.
 
 Next is default-mask scalar/NEON coverage using the independent original84-call coverage oracle, plus whole geometry→mask coupling. Generic arbitrary-geometry/fuzzy-angle/trig evidence and bounded hot-path arithmetic are still needed. Gaussian, softcurve, spikes>2, density/randomness, textures, smudge and all remaining engines remain outside this profile. No activation is justified by these geometry tests alone.
+
+
+The pure implementation now lives in `packages/shared/src/sourceAutoGeometry.ts`
+with exact binary64 FMA dependencies in the same package. This web path is a
+compatibility re-export. The relocation changes import paths only, not arithmetic,
+profiles or fixture inputs. It enables a future common server/client metadata
+preflight; it does not admit procedural material codec/execution on its own.
