@@ -85,3 +85,20 @@ The first harness attempt rejected source upload before protection; the harness
 was corrected to protect the finite source group before cache.put, with no
 production code change. This proves this isolated prepass/composite path only,
 not current app PM storage, wire/replay, native vector dispatch or whole brushes.
+
+## Extended drawSource device gate
+
+Frozen a70d8c2e0 pass /3047f6635 prepass source on actual Samsung SM-T970,
+Adreno650 WebGL1 highp23:64 Over trials /192 draws, both explicit scalar
+profiles and maskRgb/straightRgba8 sources, both row orders, four mirrors,
+direct feedback and immutable-base repeated previews. All expected bytes exact,
+GL errors empty. LINEAR/REPEAT NPOT source sampler parameters and caller GL
+state restored; leases balanced; hot uploads0; cleanup GPU/CPU reservations0.
+The first harness attempt omitted required empty companions and rejected before
+GPU work; corrected harness passes[]. No production code change was needed.
+
+The prior102 AlphaDarken trials were rerun against this extended shared source
+template, again all432128 target pixels exact; state/cache/hot-upload checks pass.
+Private receipts: composite-over-3047f6635-device-result.json and
+canonical-composite-3047f6635-device-result.json. Native installed FMA/vector
+identity and active app PM integration are still outside these scalar gates.
