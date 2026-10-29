@@ -65,14 +65,16 @@ export function sourceEllipseContour(input: SourceEllipseInput): {
     [-rx, -ky], [-kx, -ry], [0, -ry], [kx, -ry], [rx, -ky], [rx, 0],
   ];
   const cosine = Math.cos(angle), sine = Math.sin(angle);
-  // Qt can classify nearly axis-aligned transforms as Scale/Translate/None.
-  // Our retained native fixtures do not cover that fuzzy classification seam.
-  if (angle !== 0 && Math.abs(sine) <= 1e-12
-    || angle === 0 && (x !== 0 || y !== 0) && Math.abs(x) <= 1e-12 && Math.abs(y) <= 1e-12) {
-    throw new RangeError('Fuzzy transform classification requires native oracle');
-  }
+  // Numerically negligible matrix terms select simpler native map categories.
+  const rotated = Math.abs(sine) > 1e-12;
+  const scaled = !rotated && Math.abs(cosine - 1) > 1e-12;
+  const translated = rotated || scaled || Math.abs(x) > 1e-12 || Math.abs(y) > 1e-12;
+  const mapX = (px: number, py: number) => rotated ? cosine * px + -sine * py + x
+    : scaled ? cosine * px + x : translated ? px + x : px;
+  const mapY = (px: number, py: number) => rotated ? sine * px + cosine * py + y
+    : scaled ? cosine * py + y : translated ? py + y : py;
   const elements: CubicPathElement[] = local.map(([px, py], i) => [
-    cosine * px + -sine * py + x, sine * px + cosine * py + y,
+    mapX(px, py), mapY(px, py),
     i === 0 ? 0 : i % 3 === 1 ? 2 : 3,
   ]);
   const xs: number[] = [], ys: number[] = [];

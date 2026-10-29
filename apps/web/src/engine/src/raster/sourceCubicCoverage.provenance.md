@@ -86,11 +86,22 @@ AA-off geometry/window is tested, raster remains explicitly unsupported.
 separate: raw addEllipse 0x0 is empty, while source-clamped zero-scale particles
 remain LOD×LOD. Zero in only one dimension is explicitly unsupported.
 
-Scope guards reject fuzzy-transform classification regimes not covered by the
-retained oracle: nonzero angles with abs(sin(angle))≤1e-12 (including pi), and
-angle0 with nonzero translations that are both ≤1e-12. Qt can classify these as
-Scale/Translate/None, discarding tiny matrix terms. Testing these requires actual
-new native fixtures before extending the contract. Extreme dimensions/coordinates
-are bounded explicitly. No native compile/download/extraction occurred for this
-stage. No proof is claimed for all possible JS/libm vs host-libm boundary ULPs;
-fixed-point tie cases deserve additional native probes before production use.
+The fuzzy-transform guard was replaced after an actual second narrow host Qt
+oracle run. Thirty-two new native cases cover sin near ±1e-12, exact pi/2pi and
+adjacent representable angles, zero/quarter centers and translations around
+±1e-12. They confirm the generic transformation categories: rotate when sine
+is not fuzzy-null; otherwise scale if cosine differs from1; otherwise translate
+or identity. Identity ignores fuzzy translations. Scale ignores fuzzy sine.
+This matters even though an ideal continuous affine formula looks equivalent.
+
+Current total:77 actual native cases,74 AA-on whole masks byteexact,3 AA-off
+explicit rejects;157 focused tests across both helpers. The one repeated matching
+header extraction was separately registered, used only for this oracle, and
+removed through standard locked cleanup after root strict /proc validation
+(receipt R49/native-qt-cleanup.json). No temporary resource remains. No production
+imports were added.
+
+Remaining limits: source operations and host/JS trigonometry are validated at
+these inputs, not every possible floating-point tie. Other degenerate contours,
+huge coordinates, negative sizes and nonfinite inputs fail explicit guards.
+No Android Qt-version, GPU-performance or legal-clearance claim follows.

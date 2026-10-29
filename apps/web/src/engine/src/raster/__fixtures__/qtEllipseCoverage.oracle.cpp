@@ -34,6 +34,12 @@ int main(int argc,char **argv){
  for(auto size:std::vector<QPointF>{{7.25,41.5},{43.75,3.125},{.375,1.75},{61,62}})
   for(double angle:std::vector<double>{-.71,.123456789,2.1})
    inputs.push_back({-7.375,9.8125,angle,1,1,true,false,17,13,size.x(),size.y()});
+ // Fuzzy transform classification boundaries, actual host Qt oracle.
+ for(double angle:std::vector<double>{-1.000000000001e-12,-1e-12,-.999999999999e-12,0,.999999999999e-12,1e-12,1.000000000001e-12,pi,std::nextafter(pi,0.),std::nextafter(pi,4.),2*pi,std::nextafter(2*pi,0.),std::nextafter(2*pi,7.)})
+  for(auto center:std::vector<QPointF>{{0,0},{-.25,.25}})
+   inputs.push_back({center.x(),center.y(),angle,1,1,true,false,25,22});
+ for(double shift:std::vector<double>{-1.000000000001e-12,-1e-12,-.999999999999e-12,.999999999999e-12,1e-12,1.000000000001e-12})
+  inputs.push_back({shift,-shift,0,1,1,true,false,25,22});
  int ordinal=0;
  for(const Case& c:inputs){
   const double width=c.sourceClamp?std::max(c.lod,c.shapeW*c.scale*c.lod):c.shapeW*c.scale*c.lod;

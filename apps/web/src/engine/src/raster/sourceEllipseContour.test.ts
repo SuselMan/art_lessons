@@ -29,7 +29,6 @@ describe('source ellipse from raw native parameters', () => {
     expect(sourceSprayEllipseSize(25, 22, 0, .25)).toEqual([.25, .25]);
     expect(() => sourceSprayEllipseSize(25, 22, 1, 0)).toThrow();
     expect(() => sourceEllipseContour({ x: 0, y: 0, width: 0, height: 1, angle: 0 })).toThrow('Degenerate');
-    expect(() => sourceEllipseContour({ x: 0, y: 0, width: 25, height: 22, angle: Math.PI })).toThrow('Fuzzy');
     expect(() => sourceEllipseContour({ x: NaN, y: 0, width: 1, height: 1, angle: 0 })).toThrow();
   });
 });
