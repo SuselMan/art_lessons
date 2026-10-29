@@ -49,6 +49,16 @@ one-capture, HIT/MISS, FBO/sampler query counts, exact caller pointer/divisor/VA
 restoration, owner callback mutation/failure, draw failure, reentry/thenable,
 context/cache/epoch/undeclared resource checks, bounded command/time crossing.
 Это lifecycle/state доказательство, не CPU shader mirror или GPU pixel oracle.
-Новый batch actual-device gate пока pending. Прежние isolated pass proofs
-1bc11f408 и a70d8c2e0 остаются привязаны к своим источникам/receipts; эта запись
-не выдаёт их за уже проверенный новый batching path.
+На Samsung SM-T970/Adreno650 новый batch прошёл отдельный brush84 ABBA gate
+(source15f484ede; private R52/canonical-stock-batch-device-result.json):
+standalone/batch/batch/standalone по1234 draws, все RGBA bytes exact, GL[],
+hotNoUploads/stateRestored/cleanup true. Total wall10477.7/5534.0/3347.3/17408.1ms;
+order/thermal drift не позволяет обещать универсальный коэффициент. Batch scopes
+556/449, getParameter6694/5410 против28404 на standalone; getTexParameter
+4084/3580 против4944. Общие maxrAF133.7ms/maxturn154.6ms включают standalone
+и cold work, поэтому не доказывают отзывчивость batch. Полный17-brush batch gate
+и отдельная оценка больших отпечатков ещё pending. Это standalone source proof,
+не новая сборка активного приложения и не native fused arithmetic identity.
+Прежние isolated pass proofs
+1bc11f408 и a70d8c2e0 остаются привязаны к своим источникам/receipts; новый
+brush84 gate дополняет их, но не расширяет численный профиль или engine coverage.
