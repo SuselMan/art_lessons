@@ -38,6 +38,9 @@ it('seeds inclusive undo5 before tail redo6 using actual engine history and pixe
   await restoreRoomState(target, { latestSnapshotSeq: 5, tailOperations: ops, participants: [], palette: [], frozen: false }, { mode: 'join', alreadyHadSeq: 0 }, deps)
   expect(deps.setRestoreFailure).not.toHaveBeenCalled()
   expect(applied).toEqual(['r6'])
+  // Ordinary backfill receives an inclusive snapshot seq; its hook converts
+  // that boundary to the exclusive history API cursor.
+  expect(deps.backfillHistory).toHaveBeenCalledWith('room', target, 5)
   expect([...readLayerPixels(target, 'L')!]).toEqual([...readLayerPixels(source, 'L')!])
   expect(target.getOperationsSinceRestore().map(op => op.id)).toEqual(['r6'])
 })

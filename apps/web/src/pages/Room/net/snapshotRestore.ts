@@ -391,7 +391,7 @@ export async function fetchHistoryPage(
   }
 }
 
-/** Walks the room's operation log backward from `fromSeq`, handing each page
+/** Walks the room's operation log backward below the exclusive `fromSeq`, handing each page
  *  to `onPage`, and stops `depth` operations short of it rather than running
  *  all the way to the start of the room (#291 — see Room's backfillHistory
  *  for the production incident that bound this, and spec v0.2 §7 for why
@@ -399,7 +399,7 @@ export async function fetchHistoryPage(
  *
  *  Each request asks only for what the window still needs: getOperationsBefore
  *  answers with the *newest* `limit` operations below the cursor, so capping
- *  the limit is what keeps the walk inside `(fromSeq - depth, fromSeq]`
+ *  the limit is what keeps the walk inside `[fromSeq - depth, fromSeq)`
  *  instead of over-fetching a full page and discarding most of it.
  *
  *  Injectable `fetchPage` is a test seam only — production callers use the

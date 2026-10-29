@@ -19,6 +19,9 @@ vi.mock('react', () => ({
 }))
 vi.mock('./net/snapshotRestore', () => ({ restoreLatestSnapshot: vi.fn(), walkHistoryBackward: vi.fn(async () => {}) }))
 import { useRemoteOperations } from './useRemoteOperations'
+import { walkHistoryBackward } from './net/snapshotRestore'
+import { createTestEngine, dab, makeStroke } from '../../engine/testing/engineTestUtils'
+import { createBrushRandomStrokeId } from '@grafetto/shared'
 
 describe('Room repair hook render identity', () => {
   it('keeps restore/backfill callbacks stable while calling the latest failure handler', async () => {
@@ -56,4 +59,35 @@ it('rejects invalid random metadata before dedupe and restores retryability when
  applyRemoteOp({...base,id:'retry'})
  expect(deps.appliedOpIdsRef.current.has('retry')).toBe(false)
  expect(failure).toHaveBeenCalledTimes(2)
+})
+
+it('includes the snapshot boundary in ordinary history backfill through the real exclusive walker', async () => {
+ hooks.slots=[];hooks.cursor=0
+ const {walkHistoryBackward: realWalk}=await vi.importActual<typeof import('./net/snapshotRestore')>('./net/snapshotRestore')
+ const {engine}=createTestEngine({userId:'observer'},{width:16,height:16})
+ const seeds={version:1 as const,sequentialSeed:0,strokeSeed:0xffffffff}
+ const strokeId=createBrushRandomStrokeId('history000',seeds)
+ const ops=[
+  {...makeStroke('author','L',[dab(4,4)],{tool:'digitalBrush',preset:'hard-round',strokeId,brushRandom:seeds}),id:'prefix',seq:1},
+  {...makeStroke('author','L',[],{tool:'digitalBrush',preset:'hard-round',strokeId,brushRandom:seeds,strokeEnd:true}),id:'snapshot-boundary-final',seq:2},
+  {...makeStroke('author','L',[dab(8,8)],{tool:'pencil',preset:'HB',strokeId:'tail'}),id:'tail',seq:3},
+ ]
+ const calls:Array<{beforeSeq:number;limit:number}>=[]
+ vi.mocked(walkHistoryBackward).mockImplementation((room,from,depth,onPage)=>realWalk(room,from,depth,onPage,async(_room,beforeSeq,limit=250)=>{
+  calls.push({beforeSeq,limit});return ops.filter(op=>op.seq<beforeSeq).slice(-limit)
+ }))
+ const noop=vi.fn(),deps={engineRef:{current:engine},boardId:'room',onHistoryRepairFailure:vi.fn(),
+ appliedOpIdsRef:{current:new Set<string>(['tail'])},deferredOpsQueueRef:{current:[]},restoredLayerStateRef:{current:null},
+ markActive:noop,resolveTransformCommit:noop,confirmOwnOperation:noop,noteOperationSeq:noop,syncFromLog:noop,checkSnapshotBoundary:noop} as RemoteOperationsDeps
+ try {
+  engine.setBaseLayers(['L']);engine.appendOperation(ops[2],'remote')
+  await useRemoteOperations(deps).backfillHistory('room',engine,2)
+  expect(calls[0].beforeSeq).toBe(3)
+  expect(engine.getOperations().map(op=>op.id)).toEqual(['prefix','snapshot-boundary-final','tail'])
+  expect(engine.getOperations()[1]).toMatchObject({strokeEnd:true,brushRandom:seeds,strokeId})
+  expect(deps.appliedOpIdsRef.current).toEqual(new Set(ops.map(op=>op.id)))
+  // Reconnect/backfill repeats the inclusive boundary; history merge stays idempotent.
+  await useRemoteOperations(deps).backfillHistory('room',engine,2)
+  expect(engine.getOperations().map(op=>op.id)).toEqual(['prefix','snapshot-boundary-final','tail'])
+ } finally {engine.destroy();vi.mocked(walkHistoryBackward).mockReset()}
 })

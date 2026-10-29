@@ -227,7 +227,10 @@ export function useRemoteOperations({
   const backfillHistory = useCallback(async (roomId: string, engine: PencilEngineAPI, fromSeq: number) => {
     const existing = ordinaryBackfills.current.get(engine)
     if (existing) return existing
-    const work = walkHistoryBackward(roomId, fromSeq, HISTORY_BACKFILL_DEPTH, page => {
+    // Snapshot coverage includes fromSeq; the history API/walker cursor is
+    // exclusive. Keep the conversion here: repair callers already pass their
+    // own exclusive cursor and must not include an extra operation.
+    const work = walkHistoryBackward(roomId, fromSeq + 1, HISTORY_BACKFILL_DEPTH, page => {
       if (engineRef.current !== engine) return
       engine.absorbHistoricalOperations(page)
       for (const op of page) appliedOpIdsRef.current.add(op.id)
