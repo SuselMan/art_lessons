@@ -91,3 +91,22 @@ it('includes the snapshot boundary in ordinary history backfill through the real
   expect(engine.getOperations().map(op=>op.id)).toEqual(['prefix','snapshot-boundary-final','tail'])
  } finally {engine.destroy();vi.mocked(walkHistoryBackward).mockReset()}
 })
+
+it('latches snapshot expected encoding from the engine before await and forwards decoded format',async()=>{
+ const {restoreLatestSnapshot}=await import('./net/snapshotRestore')
+ for(const [version,encoding] of [['legacy-pm8-v1','premultiplied-rgba8'],['straight-rgba8-v1','straight-rgba8']] as const){
+  hooks.slots=[];hooks.cursor=0
+  let currentVersion:string=version,reads=0,complete!:(value:{status:'none'})=>void
+  const restore=vi.fn(),noop=vi.fn()
+  const engine={get rasterVersion(){reads++;return currentVersion},restoreLayerFromSnapshot:restore,takeSnapshotRestoreAudit:()=>[],gpuInfo:()=>({})} as unknown as PencilEngineAPI
+  const deps={engineRef:{current:engine},boardId:'room',onHistoryRepairFailure:noop,appliedOpIdsRef:{current:new Set<string>()},deferredOpsQueueRef:{current:[]},restoredLayerStateRef:{current:null},markActive:noop,resolveTransformCommit:noop,confirmOwnOperation:noop,noteOperationSeq:noop,syncFromLog:noop,checkSnapshotBoundary:noop} as RemoteOperationsDeps
+  vi.mocked(restoreLatestSnapshot).mockImplementationOnce((_id,sink)=>{
+   expect(sink.expectedPixelEncoding).toBe(encoding)
+   return new Promise(resolve=>{complete=resolve;queueMicrotask(()=>sink.applyLayer('L',[],7,encoding))})
+  })
+  const pending=useRemoteOperations(deps).restoreFromSnapshot(engine,'room')
+  currentVersion=version==='legacy-pm8-v1'?'straight-rgba8-v1':'legacy-pm8-v1' // later room/ref changes cannot select this restore mode
+  await Promise.resolve();complete({status:'none'});expect(await pending).toBe('none')
+  expect(reads).toBe(1);expect(restore).toHaveBeenCalledWith('L',[],7,encoding)
+ }
+})

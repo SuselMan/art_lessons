@@ -2,7 +2,7 @@ import { notifyError } from '../../../stores/noticeStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { translate } from '../../../i18n/core/translate'
 import { prepareBrushPresets } from '../../../lib/api/brushLibrary'
-import { isLayerStateShape, type LayerState, type Operation, type SnapshotIndex } from '@grafetto/shared'
+import { isLayerStateShape, isRasterPixelEncoding, type RasterPixelEncoding, type LayerState, type Operation, type SnapshotIndex } from '@grafetto/shared'
 
 import { api, ApiError, apiPath } from '../../../lib/api/api'
 import { decodeLayerTiles, decompressLayerTiles, type SnapshotTile } from '../../../engine/snapshots'
@@ -25,6 +25,9 @@ export interface RestoredSnapshotHead {
  *  the iteration that decoded it, which is the leak this shape exists to make
  *  unexpressible. */
 export interface SnapshotRestoreSink {
+  /** Destination encoding pinned by the authoritative room/engine, never by blob tags.
+   * Omitted only for legacy callers; production always passes it explicitly. */
+  expectedPixelEncoding?: RasterPixelEncoding
   /** Called once, after every blob has arrived and before any pixels are
    *  applied, so the layers exist to receive them. */
   beginLayers: (layerState: LayerState, replayStructure?: boolean) => void
@@ -34,7 +37,7 @@ export interface SnapshotRestoreSink {
   /** Called once per covered layer, in index order. The tiles are views into a
    *  buffer released as soon as this returns — a caller that needs them later
    *  has to copy. */
-  applyLayer: (layerId: string, tiles: SnapshotTile[], coveredSeq: number) => void
+  applyLayer: (layerId: string, tiles: SnapshotTile[], coveredSeq: number, pixelEncoding: RasterPixelEncoding) => void
 }
 
 /** Stand-in for a blob already consumed, so the slot holds no bytes. */
@@ -268,6 +271,9 @@ export async function restoreLatestSnapshot(
   const appliedLayerIds: string[] = []
   const sleep = options.sleep ?? realSleep
   try {
+    const requestedEncoding = sink.expectedPixelEncoding
+    const expectedEncoding = requestedEncoding === undefined ? 'premultiplied-rgba8' : requestedEncoding
+    if (!isRasterPixelEncoding(expectedEncoding)) throw new TypeError('Unsupported expected snapshot pixel encoding')
     // 204 is the room's own answer that nothing was ever baked. A non-ok status
     // is a fault, and collapsing the two — as this did until #474 — spends the
     // one signal that says so. `null` is how the 204 leaves the retry loop:
@@ -355,7 +361,8 @@ export async function restoreLatestSnapshot(
       // copies what it needs into GL, which is what makes dropping the whole
       // thing at the end of this iteration a real release rather than a
       // hopeful one.
-      sink.applyLayer(layer.layerId, decodeLayerTiles(raw, 0).tiles, layer.seq)
+      const decoded = decodeLayerTiles(raw, 0, expectedEncoding)
+      sink.applyLayer(layer.layerId, decoded.tiles, layer.seq, decoded.pixelEncoding)
       appliedLayerIds.push(layer.layerId)
     }
 

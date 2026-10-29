@@ -1,4 +1,4 @@
-import { readRoomRasterVersion, LEGACY_ROOM_RASTER_VERSION, type RoomRasterVersion } from '@grafetto/shared'
+import { readRoomRasterVersion, roomRasterPixelEncoding, isRasterPixelEncoding, LEGACY_ROOM_RASTER_VERSION, type RasterPixelEncoding, type RoomRasterVersion } from '@grafetto/shared'
 import { AuthorTaskScheduler } from './src/input/AuthorTaskScheduler'
 import { AuthorInputFIFO } from './src/input/AuthorInputFIFO'
 import { createCursorHistory, pushCursorHistory, startCursorDirection } from './src/input/kritaStrokeInput'
@@ -730,7 +730,7 @@ export interface PencilEngineAPI {
   // isCoveredBySnapshot).
   // Omit it and nothing is treated as covered, which is what every caller
   // outside the snapshot-restore path wants.
-  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void
+  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number, pixelEncoding?: RasterPixelEncoding): void
   // (#474) What the restoreLayerFromSnapshot calls since the last drain
   // actually did — one record per call, in call order, emptied by reading.
   //
@@ -5715,7 +5715,8 @@ export class PencilEngine implements PencilEngineAPI {
     return this._snapshotIO.bakeByFullReplay(layerId)
   }
 
-  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
+  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number, pixelEncoding: RasterPixelEncoding = 'premultiplied-rgba8'): void {
+    if (!isRasterPixelEncoding(pixelEncoding) || pixelEncoding !== roomRasterPixelEncoding(this.rasterVersion)) throw new TypeError('Snapshot pixel encoding does not match the room')
     // Snapshot downloads can complete after their live/confirmed tail landed.
     // Preserve the visible buffer until the authoritative base and held tail
     // can be replayed together; never ask undo/redo to repair a late restore.
@@ -5723,7 +5724,7 @@ export class PencilEngine implements PencilEngineAPI {
     const knownTail = pixelIds && this._log.entries.some(entry => pixelIds.has(entry.op.id)
       && (entry.pending || entry.serverSeq !== undefined && entry.serverSeq > coveredSeq!))
     const installOnly = !!knownTail || this._hasUnrecordedInk(layerId)
-    this._snapshotIO.restore(layerId, tiles, coveredSeq, installOnly)
+    this._snapshotIO.restore(layerId, tiles, coveredSeq, installOnly, pixelEncoding)
     this._resolveSnapshotHistoryRepairs()
     if (installOnly && this._layers.has(layerId)) {
       this._unsettledLayers.add(layerId)

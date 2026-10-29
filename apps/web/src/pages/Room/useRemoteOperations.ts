@@ -1,7 +1,7 @@
 import { useCallback, useRef, type RefObject } from 'react'
 
 import type { LayerState, Operation } from '@grafetto/shared'
-import { hasValidBrushRandomContext, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
+import { hasValidBrushRandomContext, roomRasterPixelEncoding, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../engine'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
@@ -170,12 +170,16 @@ export function useRemoteOperations({
   const restoreFromSnapshot = useCallback(async (
     engine: PencilEngineAPI, roomId: string,
   ): Promise<SnapshotRestoreOutcome['status']> => {
+    // Constructor-latched room mode is the destination authority. Capture before
+    // any network await; a blob tag or later room metadata never selects it.
+    const expectedPixelEncoding = roomRasterPixelEncoding(engine.rasterVersion)
     const outcome = await restoreLatestSnapshot(roomId, {
+      expectedPixelEncoding,
       beginLayers: (layerState, replayStructure) => engine.setBaseLayers(
         replayStructure ? IMPLICIT_LAYER_IDS : Object.values(layerState.items).filter(item => item.kind === 'layer').map(item => item.id),
       ),
       restoreHistory: (operations, replayStructure) => engine.restoreHistoricalOperations(operations, replayStructure),
-      applyLayer: (layerId, tiles, coveredSeq) => engine.restoreLayerFromSnapshot(layerId, tiles, coveredSeq),
+      applyLayer: (layerId, tiles, coveredSeq, pixelEncoding) => engine.restoreLayerFromSnapshot(layerId, tiles, coveredSeq, pixelEncoding),
     })
     // (#474) Drained here and nowhere else, on every path including failure:
     // the audit is what the engine saw, and leaving it behind on a failed

@@ -596,3 +596,41 @@ it('restores structural prefix before safe bitmap handover, including a deleted 
   expect(order).toEqual(['base','prefix','safe-bitmap','pixel-reconcile'])
   expect(urls.find(url=>url.includes('beforeSeq=6'))).toContain('S')
 })
+
+describe('snapshot destination pixel encoding', () => {
+  const tile: SnapshotTile = {originX:0,originY:0,width:1,height:1,pixels:new Uint8Array([231,117,19,0])}
+  it('accepts tagged straight only for an explicit straight destination and forwards actual decoded format',async()=>{
+    const data=await compressLayerTiles(encodeLayerTiles([tile],'straight-rgba8'))
+    mockRestoreFetch({seq:3,layerState:ONE_LAYER_STATE,layers:[{layerId:'background',seq:3,hash:'straight'}]}, {'background/3':data})
+    const applyLayer=vi.fn(),beginLayers=vi.fn()
+    const outcome=await restoreLatestSnapshot('room',{expectedPixelEncoding:'straight-rgba8',applyLayer,beginLayers})
+    expect(outcome.status).toBe('restored');expect(applyLayer).toHaveBeenCalledOnce()
+    const args=applyLayer.mock.calls[0]
+    expect(args[0]).toBe('background');expect(args[2]).toBe(3);expect(args[3]).toBe('straight-rgba8')
+    expect([...args[1][0].pixels]).toEqual([...tile.pixels]) // hidden RGB is data, not PM conversion
+  })
+  for(const [expected,source] of [['premultiplied-rgba8','straight-rgba8'],['straight-rgba8','premultiplied-rgba8']] as const){
+    it(`rejects ${source} before layer apply/coverage in ${expected} destination`,async()=>{
+      const data=await compressLayerTiles(encodeLayerTiles([tile],source))
+      // An index's untrusted format claim must not select the destination.
+      mockRestoreFetch({seq:3,pixelEncoding:source,layerState:ONE_LAYER_STATE,layers:[{layerId:'background',seq:3,hash:'wrong'}]}, {'background/3':data})
+      const applyLayer=vi.fn(),beginLayers=vi.fn()
+      const outcome=await restoreLatestSnapshot('room',{expectedPixelEncoding:expected,applyLayer,beginLayers})
+      expect(outcome).toMatchObject({status:'failed',stage:'apply',appliedLayerIds:[]});expect(applyLayer).not.toHaveBeenCalled()
+    })
+  }
+  it('rejects an unknown destination before fetching or touching the sink',async()=>{
+    global.fetch=vi.fn();const beginLayers=vi.fn(),applyLayer=vi.fn()
+    for (const expected of [null,'future']) expect(await restoreLatestSnapshot('room',{expectedPixelEncoding:expected as never,beginLayers,applyLayer})).toMatchObject({status:'failed',stage:'index',appliedLayerIds:[]})
+    expect(global.fetch).not.toHaveBeenCalled();expect(beginLayers).not.toHaveBeenCalled();expect(applyLayer).not.toHaveBeenCalled()
+  })
+  it('preserves streaming partial-failure semantics when a later layer has the wrong format',async()=>{
+    decompressions.count=0
+    const valid=await compressLayerTiles(encodeLayerTiles([tile])),wrong=await compressLayerTiles(encodeLayerTiles([tile],'straight-rgba8'))
+    const layerState={...ONE_LAYER_STATE,items:{...ONE_LAYER_STATE.items,L:{...ONE_LAYER_STATE.items.background,id:'L'}},rootOrder:['background','L']}
+    mockRestoreFetch({seq:3,layerState,layers:[{layerId:'background',seq:3,hash:'good'},{layerId:'L',seq:3,hash:'wrong'}]}, {'background/3':valid,'L/3':wrong})
+    const {sink,applied}=recordingSink(),outcome=await restoreLatestSnapshot('room',sink)
+    expect(outcome).toMatchObject({status:'failed',stage:'apply',appliedLayerIds:['background']})
+    expect(applied.map(v=>v.layerId)).toEqual(['background']);expect(applied[0].decompressionsSoFar).toBe(1);expect(decompressions.count).toBe(2)
+  })
+})
