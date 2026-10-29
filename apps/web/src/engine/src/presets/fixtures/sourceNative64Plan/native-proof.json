@@ -1,0 +1,30 @@
+{
+  "scope": "Pure metadata selection + original compiled compositor-call validation. NOT actual native painter ABI/GUI scheduling trace",
+  "cases": 114,
+  "groups": 30,
+  "metadataRows": 180,
+  "pixels": 2682,
+  "bytes": 24408,
+  "wrong": 0,
+  "librarySHA256": "230ccf905226f4324ffdf8c7239e8be90f0506cfadda25393d1ba014ab0bb783",
+  "inputCorpusSHA256": "bba832118803b4900bc1136053aefa3b55c703eed4f9f85fae3e63e529dda333",
+  "originalOutputSHA256": "654d73240fac83abe70de6f787f4f2ddb41acc9c94814d552cacc2bf6e5c6e4a",
+  "scriptSHA256": "f34f8ad55e6a10b6e7c3bf66909cdd8c08db1c34ebf89f25cc2ab87bdd7663fd",
+  "isaGateSHA256": "c2f1b6c671bc53d3119bd0af94dc192f8b58c37b5706bb4b2d59ccdd5e3c3d6a",
+  "sourcePin": "bd6e8d061d2f0388c5b10278786cf0fe62e3135f",
+  "runnerProof": {
+    "baseScriptSHA256": "f1f6e48fe9a3b30ba64a1d2a54277101567d5abb271bf2edae1acf01f53202f1",
+    "scriptSHA256": "f34f8ad55e6a10b6e7c3bf66909cdd8c08db1c34ebf89f25cc2ab87bdd7663fd",
+    "scope": "Only input stride/admission/report labeling adapted; original installed ARM64 arithmetic unchanged, no hooks",
+    "output": "installed-kernel-native64-plan.json"
+  },
+  "lifecycle": {
+    "RAMReadFinishedUTC": "2026-10-29T22:17:06.380117+00:00",
+    "ownGPUContextsCreated": 0,
+    "ownForwardsCreated": 0,
+    "ELFOrAPKOnDisk": false,
+    "newRuntimeCreated": false,
+    "existingParentUnicorn": "retained by parent"
+  },
+  "sourceSHA256": "310b982a7cafacbb4cdb1b9ba9df22cd3b623be36c5af4a10c48d4a4ff92ad70"
+}
