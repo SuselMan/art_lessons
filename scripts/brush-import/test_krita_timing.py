@@ -58,3 +58,24 @@ class TimingTests(unittest.TestCase):
    self.assertTrue(any(n['feature']=='airbrush'and 'non-painting RNG event'in n['detail']and n['status']=='unsupported'for n in b['compatibility']))
    p[option+'UseCurve']='false'
    self.assertIn('timing',self.brush(p,True)['descriptor']['behavior'])
+
+ def test_mirror_refresh_checks_both_axes_before_random_sensor(self):
+  # Actual stock110 source shape: checked fuzzy mirror with BOTH axes enabled.
+  # Both axes toggling together cancels implicitFlipped, but the random draw
+  # still occurs before effectiveSpacing. Do not simplify that draw away.
+  base={'PaintOpSettings/isAirbrushing':'true','PressureMirror':'true','MirrorUseCurve':'true','MirrorSensor':'<params id="fuzzy"/>'}
+  for horizontal,vertical in (('true','true'),('true','false'),('false','true')):
+   p={**base,'HorizontalMirrorEnabled':horizontal,'VerticalMirrorEnabled':vertical}
+   b=self.brush(p,True)
+   self.assertNotIn('timing',b['descriptor']['behavior'])
+   self.assertTrue(any(n['feature']=='airbrush'and n['status']=='unsupported'and 'Mirror spacing-refresh' in n['detail']for n in b['compatibility']))
+  for overrides in ({},{'HorizontalMirrorEnabled':'false','VerticalMirrorEnabled':'false'},
+                    {'HorizontalMirrorEnabled':'true','PressureMirror':'false'},
+                    {'VerticalMirrorEnabled':'true','MirrorUseCurve':'false'}):
+   self.assertIn('timing',self.brush({**base,**overrides},True)['descriptor']['behavior'])
+
+ def test_mirror_guard_preserves_independent_time_sensor(self):
+  b=self.brush({'PaintOpSettings/isAirbrushing':'true','PressureMirror':'true','HorizontalMirrorEnabled':'true',
+    'MirrorSensor':'<params id="fuzzy"/>','PressureSize':'true','SizeSensor':'<params id="time" duration="720" periodic="1"/>'},True)
+  self.assertNotIn('timing',b['descriptor']['behavior'])
+  self.assertEqual(b['descriptor']['behavior']['modulations']['size'][0]['control'],'time')

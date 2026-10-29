@@ -946,7 +946,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             try:rate=float(params.get('PaintOpSettings/rate',20))
             except(ValueError,TypeError):rate=float('nan')
             refresh_random=[]
-            for option in ('Size','Rotation','Spacing'):
+            for option in ('Size','Rotation','Mirror','Spacing'):
+                # KisBrushBasedPaintOp::effectiveSpacing evaluates Mirror BEFORE
+                # Spacing, on both paint and non-painting refresh. Mirror.apply
+                # skips its sensors unless at least one native axis is enabled.
+                if option=='Mirror' and not (enabled(params.get('HorizontalMirrorEnabled'))or enabled(params.get('VerticalMirrorEnabled'))):continue
                 if not enabled(params.get('Pressure'+option))or not enabled(params.get(option+'UseCurve','true')):continue
                 sensor=xml(params.get(option+'Sensor','<params id="pressure"/>'))
                 sensors=list(sensor.findall('ChildSensor'))if sensor.get('id')=='sensorslist'else[sensor]
