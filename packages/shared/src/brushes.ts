@@ -377,6 +377,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
           || (record(d.behavior.dynamics) && d.behavior.dynamics.roundness!==undefined)
           || (record(d.behavior.modulations) && d.behavior.modulations.roundness!==undefined)))) return false
     }
+    if (record(d.behavior) && ((record(d.behavior.dynamics) && d.behavior.dynamics.sharpness!==undefined) || (record(d.behavior.modulations) && d.behavior.modulations.sharpness!==undefined)) && d.tip.alphaThreshold===undefined) return false
     if (d.tip.alphaThreshold !== undefined) {
       const threshold=d.tip.alphaThreshold
       if (!record(threshold) || Object.keys(threshold).some(key=>!['value','softness'].includes(key)) || !numberIn(threshold.value,0,1) || !numberIn(threshold.softness,0,1)) return false

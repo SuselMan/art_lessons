@@ -35,6 +35,16 @@ describe('brush library contract', () => {
     Object.assign(d.tip.profile!,{extra:true});expect(isBrushLibrary(data)).toBe(false)
   })
 
+  it('requires a threshold when sharpness is driven by sensors', () => {
+    const data=library(),d=data.brushes[0].descriptor
+    d.behavior={version:2,modulations:{sharpness:[{control:'pressure',minimum:0,jitter:0}]}}
+    expect(isBrushLibrary(data)).toBe(false)
+    d.tip.alphaThreshold={value:1,softness:0}
+    expect(isBrushLibrary(data)).toBe(true)
+    d.behavior.modulations!.sharpness![0].minimum=2
+    expect(isBrushLibrary(data)).toBe(false)
+  })
+
   it('bounds source spacing laws and responses independently of the legacy brush step', () => {
     const data=library(),d=data.brushes[0].descriptor
     d.behavior={version:2,spacing:{mode:'diameter',coefficient:.06,dynamics:[{control:'pressure',minimum:0,jitter:0,curve:[[0,1],[1,0]]}],isotropic:false}}
