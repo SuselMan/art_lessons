@@ -260,6 +260,10 @@ export class TiledLayerBuffer implements ILayerBuffer {
    *  see evictedTileCount for the latter. */
   get tileCount(): number { return this.tiles.size }
 
+  /** Authoritative fine grid for metadata-only admission before allocation. */
+  get tileWidth(): number { return this.tileW }
+  get tileHeight(): number { return this.tileH }
+
   /** Evicted-but-recoverable tile count — diagnostics/tests only, so a test
    *  can assert eviction actually happened rather than merely that
    *  tileCount stayed bounded (which alone can't distinguish "evicted
