@@ -83,3 +83,16 @@ describe('author timing capability', () => {
     expect(isBrushLibrary(library(parent))).toBe(false)
   })
 })
+
+
+describe('explicit native color stage', () => {
+  it('validates the model independently from semantic sensor slots', () => {
+    const value={control:'pressure',minimum:0,jitter:0} as const
+    expect(isBrushBehavior({version:2,colorAdjustment:{model:'hsvChromaRgba8',value}})).toBe(true)
+    for(const colorAdjustment of [{model:'hsv'}, {model:'hsvChromaRgba8'}, {model:42,value}, {model:'hsvChromaRgba8',value:'time'}]) {
+      expect(isBrushBehavior({version:2,colorAdjustment})).toBe(false)
+    }
+    expect(brushRequiresSourceTime(brush({version:2,colorAdjustment:{model:'hsvChromaRgba8',value}}))).toBe(false)
+    expect(brushRequiresSourceTime(brush({version:2,colorAdjustment:{model:'hsvChromaRgba8',value:clock}}))).toBe(true)
+  })
+})

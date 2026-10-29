@@ -528,7 +528,7 @@ export function brushAssetIds(brush: BrushDescriptor): AssetId[] {
 function brushDynamicInputs(b: BrushDescriptor): BrushDynamic[] {
   const v=b.behavior, groups=[v?.modulations,v?.wetMix?.dynamics]
   return [
-    ...Object.values(v?.dynamics??{}),...Object.values(v?.colorAdjustment??{}),
+    ...Object.values(v?.dynamics??{}),...([v?.colorAdjustment?.hue,v?.colorAdjustment?.saturation,v?.colorAdjustment?.value].filter((d):d is BrushDynamic=>d!==undefined)),
     ...(v?.spacing?.dynamics??[]),...(v?.timing?.rateDynamics??[]),
     ...(v?.rotation?.composition?.additive??[]),...(v?.rotation?.composition?.scaling??[]),
     ...groups.flatMap(g=>Object.values(g??{}).flat()),

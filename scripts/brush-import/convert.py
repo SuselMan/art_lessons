@@ -614,6 +614,11 @@ def portable_bundle(path,catalog):
                 raise ValueError('Missing or undersized portable radial lookup asset')
         behavior=d.get('behavior',{})
         if not isinstance(behavior,dict):raise ValueError('Invalid portable behavior')
+        color=behavior.get('colorAdjustment')
+        if color is not None:
+            if (not isinstance(color,dict) or set(color)-{'model','hue','saturation','value'}
+                    or ('model'in color and (color['model']!='hsvChromaRgba8' or not any(k in color for k in ('hue','saturation','value'))))):raise ValueError('Invalid portable color adjustment')
+            validate_portable_dynamics([color[k] for k in ('hue','saturation','value') if k in color])
         timing=behavior.get('timing')
         if timing is not None:
             if (depth>0 or not isinstance(timing,dict) or set(timing)-{'version','rate','ignoreDistanceSpacing','rateDynamics'}

@@ -747,3 +747,12 @@ packed до pin/relay/RAM/БД; старые записи без новых чи
 рендерер отпечатков. Native distance/time arbitration, reset обоих накопителей,
 обновления интервала между запросами и lifecycle требуют отдельных source/engine
 проверок. Это не утверждение об идентичности всего GUI freehand/smoothing Krita.
+
+
+### Native color quantization
+
+Descriptor version 36 may select `colorAdjustment.model: hsvChromaRgba8`.
+This evaluates the Krita stamp HSV/chroma transform with float32 intermediates
+and stores RGBA8 before blending. It does not select the distinct Spray HSL
+transform. Missing model retains the previous floating point path. This stage
+does not claim native random consumption or input sensor parity.

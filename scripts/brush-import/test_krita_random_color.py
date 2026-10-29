@@ -17,6 +17,11 @@ class RandomOptionTests(unittest.TestCase):
             catalog=convert.Catalog(Path(tmp)/'out');convert_krita(p,catalog)
             self.assertEqual(catalog.skipped,[]);return catalog.brushes[0]
 
+    def test_native_color_stage_is_versioned(self):
+        result=self.brush({'Pressurev':'true','vUseCurve':'true','vValue':'1','vSensor':'<params id="pressure"/>'})
+        self.assertEqual(result['descriptor']['version'],36)
+        self.assertEqual(result['descriptor']['behavior']['colorAdjustment']['model'],'hsvChromaRgba8')
+
     def test_pressure_and_fuzzy_responses_are_not_collapsed_into_pressure(self):
         sensor='<params id="sensorslist"><ChildSensor id="fuzzy"><curve>0,.2;1,1;</curve></ChildSensor><ChildSensor id="pressure"><curve>0,.2;1,1;</curve></ChildSensor></params>'
         b=self.brush({'PressureSize':'true','SizeUseCurve':'true','SizeSensor':sensor,'SizeUseSameCurve':'false'})['descriptor']

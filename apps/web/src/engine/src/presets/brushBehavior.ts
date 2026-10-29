@@ -1,3 +1,4 @@
+import { adjustHsvChromaRgba8 } from './sourceColorRgba8'
 import { brushRequestGeometry, placeBrushRequest } from './brushRequestGeometry'
 import { brushExecutionContext, assertBrushExecutionContext, assertBrushSourceInputs, type BrushExecutionContext } from './brushExecutionContext'
 import { KritaPerStrokeRandomSource, KritaRandomSource, type KritaRandomSnapshot } from './nativeRandom'
@@ -319,7 +320,14 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   }
   const opacityScale = dynamic('opacity', 15) * (t ? 1 - t.opacity * (1 - taper) : 1)
   const adjustment=behavior?.colorAdjustment
-  const adjustedColor=adjustment ? hsvAdjustColor(color,...(['hue','saturation','value'] as const).map((key,i)=>adjustment[key] ? 2*brushDynamicValue(adjustment[key],directionalDab,state,rand(0xc0000+i))-1 : 0) as [number,number,number]) : color
+  const colorControls=adjustment ? (['hue','saturation','value'] as const).map((key,i)=>adjustment[key] ? 2*brushDynamicValue(adjustment[key],directionalDab,state,rand(0xc0000+i))-1 : 0) as [number,number,number] : undefined
+  let adjustedColor=color
+  if(adjustment && colorControls) {
+    if(adjustment.model==='hsvChromaRgba8') {
+      const bytes=adjustHsvChromaRgba8([...color.map(c=>Math.round(Math.max(0,Math.min(1,c))*255)),255] as [number,number,number,number],...colorControls)
+      adjustedColor=[bytes[0]/255,bytes[1]/255,bytes[2]/255]
+    } else adjustedColor=hsvAdjustColor(color,...colorControls)
+  }
   const out = brushStampsForDab(configured, { ...dab, angle, size: dab.size * sizeScale }).map((stamp, i): BehaviorStamp => {
     let x = stamp.x, y = stamp.y
     const placement=behavior?.scatter?.placement

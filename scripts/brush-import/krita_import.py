@@ -687,9 +687,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 and numeric(params.get(option+'curveMode'),0)==0 and node.get('id') in ('fuzzy','pressure')):
             controls=sensor_controls(params,option,notes,allow_time=timed_input)
             if len(controls)==1:
-                behavior.setdefault('colorAdjustment',{})[target]=controls[0]
+                behavior.setdefault('colorAdjustment',{'model':'hsvChromaRgba8'})[target]=controls[0]
                 color_decoded.append('Pressure'+option)
-                notes.append(compatibility('hsvAdjustment.'+option,'Per-dab signed HSV adjustment retained for single pressure/random sensor and unit strength; U8 colorspace quantization and vendor random sequence remain approximate.'))
+                notes.append(compatibility('hsvAdjustment.'+option,'Per-dab signed HSV adjustment retained for single pressure/random sensor and unit strength; native HSV/chroma RGBA8 quantization precedes blending; sensor evaluation and vendor random sequence remain approximate.'))
     ratio_decoded=False
     if enabled(params.get('PressureRatio')):
         controls=size_like_controls(params,'Ratio',notes,allow_time=timed_input)
@@ -1011,6 +1011,10 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if isinstance(value,dict):return value.get('control')=='time' or 'timing'in value or any(source_clock(v)for v in value.values())
         return isinstance(value,list) and any(source_clock(v)for v in value)
     if source_clock(behavior):d['version']=35
+    def native_color(b):
+        if not b:return False
+        return b.get('colorAdjustment',{}).get('model')=='hsvChromaRgba8' or native_color(b.get('dual',{}).get('brush',{}).get('behavior',{}))
+    if native_color(behavior):d['version']=36
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     if source_size is not None:
         result['sourceDefaults']={'sizePx':clamp(source_size,.01,10000),'opacity':d['opacity'],'flow':d['flow']}

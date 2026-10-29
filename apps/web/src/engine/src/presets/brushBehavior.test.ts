@@ -11,6 +11,16 @@ const color: [
 const dabs: Dab[] = Array.from({ length: 48 }, (_, i) => ({ x: 20 + i * 4, y: 30 + Math.sin(i / 8) * 20, size: 30, pressure: 0.2 + i / 60, angle: i / 30, aspectRatio: 1, tiltX: 20, tiltY: 10, opacity: 0.6, t: i * 8 }))
 const brush: BrushDescriptor = { ...DIGITAL_BRUSHES[0], flowByPressure: [[0, 0.1], [1, 1]], scatter: { count: 16, radius: 0.3, scale: 0.8, sizeJitter: 0.2, angleJitter: 0.2, flowJitter: 0.1 }, behavior: { version: 2, rotation: { follow: 0.4, random: 'stroke', flipX: true, flipY: true }, scatter: { countJitter: 0.4, bothAxes: false, roundnessJitter: 0.3 }, dynamics: { size: { control: 'fade', fade: 30, minimum: 0.1, jitter: 0.2 }, hue: { control: 'pressure', minimum: 0, jitter: 0.3 }, flow: { control: 'speed', minimum: 0.3, jitter: 0.2 } } } }
 describe('v2 logical brush state', () => {
+  it('stores native HSV bytes before stamp blending while retaining the legacy path', () => {
+    const value={control:'off' as const,minimum:0,jitter:0,curve:[[0,.75],[1,.75]] as [number,number][]}
+    const native:BrushDescriptor={...DIGITAL_BRUSHES[0],behavior:{version:2,colorAdjustment:{model:'hsvChromaRgba8',value}}}
+    const legacy:BrushDescriptor={...native,behavior:{version:2,colorAdjustment:{value}}}
+    const nativeColor=behaviorStampsForDab(native,dabs[0],beginBrushBehavior(dabs[0]),[1,0,0])[0].color
+    const legacyColor=behaviorStampsForDab(legacy,dabs[0],beginBrushBehavior(dabs[0]),[1,0,0])[0].color
+    expect(nativeColor).toEqual([1,128/255,128/255])
+    expect(legacyColor).toEqual([1,.5,.5])
+  })
+
   it('uses signed HSV white/black mixing and a half-turn hue range', () => {
     expect(hsvAdjustColor([1,0,0],0,0,.5)).toEqual([1,.5,.5])
     expect(hsvAdjustColor([1,0,0],0,0,-.5)).toEqual([.5,0,0])

@@ -39,7 +39,7 @@ export interface BrushBehavior {
    * of the source input estimator. Captured once before geometry, then logged. */
   speedInput?: { version: 1; space: 'view'; maximum: number; estimator: 'grafettoEMA30ms' }
   /** Normalized per-dab HSV adjustment; .5 is neutral, decoded signed [-1,1]. */
-  colorAdjustment?: { hue?: BrushDynamic; saturation?: BrushDynamic; value?: BrushDynamic }
+  colorAdjustment?: { model?: 'hsvChromaRgba8'; hue?: BrushDynamic; saturation?: BrushDynamic; value?: BrushDynamic }
   /** Source step axes use actual diameter (or sqrt, linear below 1px).
    * Input responses scale the result before the per-axis .5px floor. */
   /** Axis scale affects source spacing only, independently of padded mask UVs.
@@ -126,7 +126,7 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   if(value.erase !== undefined && typeof value.erase !== 'boolean') return false
   if(value.falloff !== undefined && !n(value.falloff)) return false
   const color=value.colorAdjustment
-  if(color!==undefined && (!obj(color) || !keys(color,['hue','saturation','value']) || !Object.values(color).every(v=>isBrushBehavior({version:2,dynamics:{size:v}})))) return false
+  if(color!==undefined && (!obj(color) || !keys(color,['model','hue','saturation','value']) || (color.model!==undefined && (color.model!=='hsvChromaRgba8' || !['hue','saturation','value'].some(k=>color[k]!==undefined))) || !['hue','saturation','value'].every(k=>color[k]===undefined || isBrushBehavior({version:2,dynamics:{size:color[k]}})))) return false
   const r=value.rotation
   if (r !== undefined && (!obj(r) || !keys(r,['follow','random','flipX','flipY','azimuth','projection','composition']) || !n(r.follow,-1,1) || !['none','stroke','stamp'].includes(String(r.random)) || ['flipX','flipY','azimuth','projection'].some(k => r[k] !== undefined && typeof r[k] !== 'boolean'))) return false
   if(obj(r) && r.composition!==undefined) {

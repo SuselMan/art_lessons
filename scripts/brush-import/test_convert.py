@@ -182,6 +182,21 @@ class FidelityTests(unittest.TestCase):
             self.assertEqual(d['behavior']['dynamics']['hue']['jitter'],0.25)
 
 class PortableTests(unittest.TestCase):
+    def test_native_color_model_rejects_malformed_controls_atomically(self):
+        import base64,hashlib,copy
+        raw=bytes([0,128,128,255]);sha=hashlib.sha256(raw).hexdigest();aid='asset:'+sha
+        d=convert.finalize_identity(convert.descriptor(b'color',aid),b'color')
+        d['behavior']={'version':2,'colorAdjustment':{'model':'hsvChromaRgba8','value':{'control':'pressure','minimum':0,'jitter':0}}}
+        envelope={'library':{'schemaVersion':1,'brushes':[{'name':'Color','source':'test','warnings':[],'descriptor':d}],'assets':[{'id':aid,'size':2,'file':sha+'.bin'}],'skipped':[]},'assets':{aid:base64.b64encode(raw).decode()}}
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);path=root/'color.grafetto-brushes.json';path.write_text(json.dumps(envelope))
+            convert.portable_bundle(path,convert.Catalog(root/'valid'))
+            for i,color in enumerate([{'model':'other','value':d['behavior']['colorAdjustment']['value']},{'model':'hsvChromaRgba8'},{'model':'hsvChromaRgba8','value':'time'},{'value':None}]):
+                bad=copy.deepcopy(envelope);bad['library']['brushes'][0]['descriptor']['behavior']['colorAdjustment']=color
+                path.write_text(json.dumps(bad));out=convert.Catalog(root/f'bad{i}')
+                with self.assertRaises(ValueError):convert.portable_bundle(path,out)
+                self.assertEqual(list(out.output.iterdir()),[])
+
     def test_portable_integrity_and_atomic_rejection(self):
         import base64,hashlib
         raw=bytes([0,128,128,255]);sha=hashlib.sha256(raw).hexdigest();aid='asset:'+sha
