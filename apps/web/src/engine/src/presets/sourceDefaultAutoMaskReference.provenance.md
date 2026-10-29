@@ -1,0 +1,30 @@
+# Default auto coverage: independent CPU reference, inactive
+
+`sourceDefaultAutoMaskReference` is a generic source-informed mathematical evaluator of default circle/rectangle coverage. It does not import stock IDs or fixtures at runtime, create an image/CAS asset, choose the app's active factory, or integrate into author/schema/renderer. The two explicit profiles model different compiled arithmetic routes; neither is silently substituted for the other. It is an **off-path CPU reference**, not a performance-ready rasterizer. Allocated A8 output is caller-budgeted (up to4MiB), sampled work up to16Mi samples, all validated before allocation. Caller-provided cos/sin/center/window are material inputs; this API makes no implicit trig/geometry claim. Independent original42-call geometry evidence lives with `sourceAutoGeometry`.
+
+The TypeScript was independently written as mathematical evaluation based on source laws and original instruction order, not copied/adapted from an upstream function body. This is not a clean-room or legal-clearance assertion. Source licensing still matters for any future reuse of actual upstream code.
+
+## Pinned source laws
+
+Krita `bd6e8d061d2f0388c5b10278786cf0fe62e3135f`:
+
+- `libs/image/kis_base_mask_generator.cpp:117–124,214–224`: effective raw generator dimensions select AA3×3 below10 or6×6 below1. Logical brush dimensions truncated by the auto constructor do not replace raw generator geometry.
+- `libs/image/kis_circle_mask_generator.cpp:48–57,69–99`: squared normalized radius and faded radius; optional AA expands absolute coordinates by1 before fade evaluation. Original ARM64 compiled `valueAt` uses binary64 FMA for squared sums and returns U8 by truncation.
+- `libs/image/kis_rect_mask_generator.cpp:63–83,118–159`: per-axis box distances/fade and source selection order. Scalar rectangle and circle remain mathematically distinct default generators.
+- `libs/image/kis_brush_mask_scalar_applicator.h:44–77`: each sub-sample is quantized to U8 **before** integer sample-area averaging, followed by255−mean. Original compiled sample positions and rotation use F64 FMA, not a final float-average quantization.
+- [Pinned fast-row specializations](https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/image/kis_brush_mask_processor_factories.cpp): original installed ARM64 circle rotation is F32 fused in both coordinates, rectangle x uses rounded multiply then absolute difference while y is fused. Radius/fade squared sum is F32 fused. Division uses FRECPE+two FRECPS refinements. The implementation reuses existing independently proven `sourceArmFrecpe`/`sourceArmFmaF32`; it does not introduce reciprocal lookup/fits or exact-division substitutes.
+- `libs/pigment/KoAlphaMaskApplicator.h` compiled NEON64 plain-color fill: inverse float coverage is multiplied by255; complete4-lane groups use RNE `FCVTNS`, scalar tail uses truncating `FCVTZS`. This quantizer is separate from scalar mask processing.
+
+## Independent original-byte oracle
+
+Fixture `coverage.native.json`:84 calls, seven actual raw stock generators ×six arbitrary caller raster geometries ×two original compiled routes. Inputs include tiny/aspect/rotated/subpixel geometry. **All29,916 pixels are exact**, with16 actual vector calls and26 paired native scalar fallbacks. Scalar vs NEON differs676 pixels by1U8; the test deliberately preserves those differences. Profile selection is not based on matching final images.
+
+`native-proof.json` retains whole library hashes, per-function hashes, original runner SHA/input SHA and receipt SHA. Original image/pigment ELF members were streamed RAM-only from the installed Samsung APK into existing Unicorn2.1.4/A72, FPCR0. Scalar coverage was independently captured as the original U8 argument at `applyAlphaU8Mask`; vector coverage executes the original pigment quantizer. No arithmetic hooks. Neither physical ARM execution nor installed GUI active factory is claimed. Explicit cosine/sine values recreate original runner **input** values; no host trig implementation is being used as a pixel oracle.
+
+This fixture scope is **opaque255 coverage only**, not full color/ink-alpha composition. Original scalar `applyAlphaU8Mask` multiplies ink alpha; original optimized plain-color NEON fill replaces it. The helper returns coverage, and deliberately does not infer the renderer's ink-alpha handling. Softness1/spikes2/randomness0/density1 are explicit supported controls; Gaussian/softcurve, colored/animated tips, textures, other softness, stochastic density/randomness and background/old-source behaviors reject or remain outside this type.
+
+## Remaining gates
+
+Full raw input→native auto geometry→mask coupling needs its own independent whole-dab receipt; these84 cases use explicitly supplied raster windows/centers. Arbitrary/fuzzy trig and cross-browser identity are not proven. The finite intermediate range preflight is a conservative reference capability boundary, not a new preset admission policy. CPU BigInt FMA references must not be inserted into the drawing hot path. No canonical auto wire recipe/admission or GPU coverage kernel was added, and existing PNG behavior is unchanged.
+
+Own temporary Capstone resources are disposed with strict standard QA cleanup. Existing parent-owned Unicorn is retained untouched. No new runtime/device job/context/tab/forward or standalone dependency resource remains.
