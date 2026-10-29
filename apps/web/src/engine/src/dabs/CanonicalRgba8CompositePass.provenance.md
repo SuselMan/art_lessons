@@ -46,3 +46,19 @@ Meaningful CPU/MockGL regressions проверяют clip/subrect copy/relative 
 отсутствие двойного companion CPU charge, copy failure/retry, VAO и disposal/loss.
 Это не численный GPU oracle: combined prepass+pass и итоговый RGBA buffer должны
 дополнительно сравниваться root на реальном устройстве.
+
+## Joined device gate
+
+Actual Samsung SM-T970 / Adreno650 WebGL1 highp23:102 trials with306
+submitted sequential draws, including empty clips.98 material/profile cases
+and4 right-edge4096x8 targets;13 deduplicated prepared sources. CPU expected
+uses separately verified mask bytes and common scalar AlphaDarken32, not a
+duplicate GPU formula. All whole-target bytes exact; state restored, no hot
+uploads, cache hits no work, GL errors empty. All own GPU/cache/CPU reservations
+released in finally. Private reproduction: fixes-v52/run-canonical-composite.mts
+and canonical-composite-body.js; receipt canonical-composite-device-result.json.
+
+The first harness attempt rejected source upload before protection; the harness
+was corrected to protect the finite source group before cache.put, with no
+production code change. This proves this isolated prepass/composite path only,
+not current app PM storage, wire/replay, native vector dispatch or whole brushes.
