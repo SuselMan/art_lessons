@@ -1,3 +1,5 @@
+import type { AffineImageSourceDecode } from './affineImageSpan16'
+
 /** Profile proof only: existing affineImageSpan16 source-decode/interpolation,
  * with gray16/alpha16 returned as four RGBA8 bytes. No straight store, mask
  * conversion, renderer admission or device-dependent profile selection.
@@ -7,12 +9,12 @@ export interface SourceAffineGray16Row {
   readonly origin: readonly [number, number, number, number]
   readonly step: readonly [number, number, number, number]
   readonly length: number
-  readonly decode: 'wide8' | 'narrow4' | 'scalar'
+  readonly decode: AffineImageSourceDecode
   readonly products: 'separate' | 'summed'
 }
 export function assertSourceAffineGray16Row(row: SourceAffineGray16Row, precisionBits: number): void {
   if (precisionBits < 23 || !Number.isInteger(precisionBits) || !Number.isSafeInteger(row.length) || row.length < 1 || row.length > 2048
-    || !['wide8', 'narrow4', 'scalar'].includes(row.decode) || !['separate', 'summed'].includes(row.products)) throw new RangeError('Unverified affine16 shader profile')
+    || !['wide8', 'narrow4', 'scalar', 'neon4'].includes(row.decode) || !['separate', 'summed'].includes(row.products)) throw new RangeError('Unverified affine16 shader profile')
   for (const value of [row.origin, row.step]) {
     if (value.length !== 4 || value.some(v => !Number.isSafeInteger(v))
       || value[1] < 0 || value[1] > 65535 || value[3] < 0 || value[3] > 65535) throw new RangeError('Invalid split fixed16 row')
@@ -28,6 +30,8 @@ export function assertSourceAffineGray16Row(row: SourceAffineGray16Row, precisio
  * rounded float32 32-bit product. Admission additionally requires highp>=23
  * and actual GPU proof; minimum GLSL ES1.00 highp alone is not an exactness claim.
  * Source texture must be straight RGBA8 grayscale, NEAREST/CLAMP, with alpha.
+ * Decode modes:0 wide8,1 SSE narrow4,2 scalar,3 NEON4. NEON mixed groups
+ * multiply bytes before widening; incomplete groups retain scalar tail law.
  * Pixel index is relative to the complete native covered span, never the tile.
  */
 export const SOURCE_AFFINE_GRAY16_GLSL = `
@@ -50,22 +54,29 @@ vec2 affine16Raw(highp sampler2D image,vec2 size,vec4 origin,vec4 step,float ind
  vec2 texel=clamp(vec2(px.x+side,py.x+bottom),vec2(0.0),size-1.0);
  return floor(texture2D(image,(texel+0.5)/size).ra*255.0+0.5);
 }
-float affine16OpaqueGroup(highp sampler2D image,vec2 size,vec4 origin,vec4 step,float index,float bottom,float length,float groupSize) {
+vec2 affine16AlphaGroup(highp sampler2D image,vec2 size,vec4 origin,vec4 step,float index,float bottom,float length,float groupSize) {
  float start=floor(index*2.0/groupSize)*groupSize;
  float opaque=1.0;
+ float zero=1.0;
  for(int j=0;j<8;j++) {
   float lane=start+float(j);
   if(float(j)<groupSize && lane<length*2.0) {
    float alpha=affine16Raw(image,size,origin,step,floor(lane/2.0),mod(lane,2.0),bottom).y;
    if(alpha<255.0)opaque=0.0;
+   if(alpha>0.0)zero=0.0;
   }
  }
- return opaque;
+ return vec2(opaque,zero);
 }
-vec2 affine16Decode(vec2 bytes,float opaque,float vectorGroup) {
+vec2 affine16Decode(vec2 bytes,vec2 alphaGroup,float vectorGroup,float neonGroup) {
  float value=bytes.x*257.0;
  float alpha=bytes.y*257.0;
- if(opaque>0.5)return vec2(value,alpha);
+ if(alphaGroup.y>0.5)return vec2(0.0);
+ if(alphaGroup.x>0.5)return vec2(value,alpha);
+ if(neonGroup>0.5) {
+  float product8=bytes.x*bytes.y;
+  return vec2(product8+floor(product8/128.0),alpha);
+ }
  vec2 product=affine16Product(value,alpha);
  float gray=vectorGroup>0.5 ? product.x+floor(product.x/32768.0)
   : product.x+floor((product.y+product.x+32768.0)/65536.0);
@@ -83,16 +94,17 @@ vec2 affine16Lerp(vec2 a,vec2 b,float weight,float summed) {
 vec4 sourceAffineGray16Packed(highp sampler2D image,vec2 size,vec4 origin,vec4 step,float length,float index,float decodeMode,float summed) {
  vec2 px=affine16Position(index,origin.xy,step.xy);
  vec2 py=affine16Position(index,origin.zw,step.zw);
- float groupSize=decodeMode<0.5 ? 8.0 : decodeMode<1.5 ? 4.0 : 1.0;
+ float groupSize=decodeMode<0.5 ? 8.0 : decodeMode<1.5 || decodeMode>2.5 ? 4.0 : 1.0;
  float start=floor(index*2.0/groupSize)*groupSize;
  float count=min(groupSize,length*2.0-start);
  float vectorGroup=decodeMode<0.5 || (decodeMode<1.5 && count==4.0) ? 1.0 : 0.0;
- float topOpaque=groupSize>1.0 ? affine16OpaqueGroup(image,size,origin,step,index,0.0,length,groupSize) : 0.0;
- float bottomOpaque=groupSize>1.0 ? affine16OpaqueGroup(image,size,origin,step,index,1.0,length,groupSize) : 0.0;
- vec2 tl=affine16Decode(affine16Raw(image,size,origin,step,index,0.0,0.0),topOpaque,vectorGroup);
- vec2 tr=affine16Decode(affine16Raw(image,size,origin,step,index,1.0,0.0),topOpaque,vectorGroup);
- vec2 bl=affine16Decode(affine16Raw(image,size,origin,step,index,0.0,1.0),bottomOpaque,vectorGroup);
- vec2 br=affine16Decode(affine16Raw(image,size,origin,step,index,1.0,1.0),bottomOpaque,vectorGroup);
+ float neonGroup=decodeMode>2.5 && count==4.0 ? 1.0 : 0.0;
+ vec2 topAlpha=groupSize>1.0 ? affine16AlphaGroup(image,size,origin,step,index,0.0,length,groupSize) : vec2(0.0);
+ vec2 bottomAlpha=groupSize>1.0 ? affine16AlphaGroup(image,size,origin,step,index,1.0,length,groupSize) : vec2(0.0);
+ vec2 tl=affine16Decode(affine16Raw(image,size,origin,step,index,0.0,0.0),topAlpha,vectorGroup,neonGroup);
+ vec2 tr=affine16Decode(affine16Raw(image,size,origin,step,index,1.0,0.0),topAlpha,vectorGroup,neonGroup);
+ vec2 bl=affine16Decode(affine16Raw(image,size,origin,step,index,0.0,1.0),bottomAlpha,vectorGroup,neonGroup);
+ vec2 br=affine16Decode(affine16Raw(image,size,origin,step,index,1.0,1.0),bottomAlpha,vectorGroup,neonGroup);
  vec2 result=affine16Lerp(affine16Lerp(tl,bl,py.y,summed),affine16Lerp(tr,br,py.y,summed),px.y,summed);
  return vec4(floor(result.x/256.0),mod(result.x,256.0),floor(result.y/256.0),mod(result.y,256.0))/255.0;
 }
