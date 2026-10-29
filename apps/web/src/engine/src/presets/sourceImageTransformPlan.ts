@@ -10,7 +10,7 @@ const translation = (x: number, y: number): SourceImageMatrix => ({ a: 1, b: 0, 
 /** Raw effective raster shape: brush static scale/angle have already been applied;
  * rotation is the native NEGATIVE normalized angle, never normalized again here.
  * This plan owns geometry, not source decoding, interpolation or storage profiles. */
-export function sourceImageTransformPlan(originalWidth: number, originalHeight: number,
+export function sourceImageTransformMetadata(originalWidth: number, originalHeight: number,
   shape: SourceDabShape, subX: number, subY: number) {
   if (![originalWidth, originalHeight].every(v => Number.isSafeInteger(v) && v >= 1 && v <= 4096)
     || originalWidth * originalHeight > 1048576 || ![subX, subY].every(v => Number.isFinite(v) && v >= 0 && v < 1)
@@ -37,5 +37,14 @@ export function sourceImageTransformPlan(originalWidth: number, originalHeight: 
   const actualWidth = directCopy ? level.width : width, actualHeight = directCopy ? level.height : height
   return { index: adjusted.index, baseScale: level.scale, levelWidth: level.width, levelHeight: level.height,
     width: actualWidth, height: actualHeight, directCopy, iterations, transform: tuple(transform), forward: tuple(forward), inverse: tuple(inverse),
-    samplingInverse: tuple(samplingInverse), spans: directCopy ? [] : sourceImageTransformSpans(level.storedWidth, level.storedHeight, width, height, tuple(forward)) }
+    samplingInverse: tuple(samplingInverse) }
+}
+
+/** Allocate covered rows only after the caller has accepted aggregate work and
+ * residency budgets. Geometry/matrices share the metadata-only preflight owner. */
+export function sourceImageTransformPlan(originalWidth: number, originalHeight: number,
+  shape: SourceDabShape, subX: number, subY: number) {
+  const metadata = sourceImageTransformMetadata(originalWidth, originalHeight, shape, subX, subY)
+  return { ...metadata, spans: metadata.directCopy ? [] : sourceImageTransformSpans(
+    metadata.levelWidth + 2, metadata.levelHeight + 2, metadata.width, metadata.height, metadata.forward) }
 }
