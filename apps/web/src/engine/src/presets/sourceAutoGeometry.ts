@@ -1,5 +1,5 @@
 import { sourceImageAllocationExtent, type SourceImageRect } from '@grafetto/shared'
-import { sourceFmaF64Reference } from './sourceFmaF64Reference'
+import { sourceFmaF64 } from './sourceFmaF64'
 
 /** Geometry only: neither an image/CAS asset nor a procedural coverage recipe. */
 export interface SourceAutoGeometryTip {
@@ -29,8 +29,8 @@ function mapRect(m: Matrix, width: number, height: number): SourceImageRect {
   // then adds translation. In particular the opposite corner is not two
   // independently rounded products followed by addition.
   const point = (x: number, y: number): readonly [number, number] => [
-    sourceFmaF64Reference(m.a, x, m.c * y) + m.x,
-    sourceFmaF64Reference(m.b, x, m.d * y) + m.y,
+    sourceFmaF64(m.a, x, m.c * y) + m.x,
+    sourceFmaF64(m.b, x, m.d * y) + m.y,
   ]
   if (Math.abs(m.b) <= 1e-12 && Math.abs(m.c) <= 1e-12) {
     if (Math.abs(m.a - 1) <= 1e-12 && Math.abs(m.d - 1) <= 1e-12) return { x: m.x, y: m.y, width, height }
