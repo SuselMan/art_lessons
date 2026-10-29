@@ -24,6 +24,9 @@ export type ToolType =
   | 'digitalBrush'
 
 export type Dab = {
+  /** Exact author-side raw direction (radians). Float64 preserves fan override
+   * angles whose float32 rounding changes integer source allocation. */
+  sourceAngle?: number
   /** Source allocation size before sensor dynamics, statically quantized by the
    * opted-in source model before float32 recording. Not the visible diameter. */
   sourceSize?: number

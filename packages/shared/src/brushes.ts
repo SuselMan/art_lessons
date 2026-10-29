@@ -569,8 +569,11 @@ export function isBrushSequentialXYCompatible(brush: BrushDescriptor): boolean {
 /** Recorded allocation input is mandatory for each opted-in logical request.
  * Empty final chunks have no new request to validate; endpoint-only input does. */
 export function hasBrushSourceInputs(brush: BrushDescriptor, dabs: readonly import('./stroke.js').Dab[], endpoint?: import('./stroke.js').Dab): boolean {
-  if(!brush.behavior?.sequentialRandom)return true
-  const valid=(d: import('./stroke.js').Dab):boolean=>!!d&&Number.isInteger(d.sourceSize)&&d.sourceSize!>=1&&d.sourceSize!<=100000
-    &&typeof d.sourceScale==='number'&&Number.isFinite(d.sourceScale)&&d.sourceScale>=0&&d.sourceScale<=1
+  const allocation=!!brush.behavior?.sequentialRandom, direction=!!brush.behavior?.strokeInput
+  if(!allocation&&!direction)return true
+  const valid=(d: import('./stroke.js').Dab):boolean=>!!d
+    &&(!direction||(typeof d.sourceAngle==='number'&&Number.isFinite(d.sourceAngle)))
+    &&(!allocation||(Number.isInteger(d.sourceSize)&&d.sourceSize!>=1&&d.sourceSize!<=100000
+      &&typeof d.sourceScale==='number'&&Number.isFinite(d.sourceScale)&&d.sourceScale>=0&&d.sourceScale<=1))
   return dabs.every(valid)&&(!endpoint||valid(endpoint))
 }
