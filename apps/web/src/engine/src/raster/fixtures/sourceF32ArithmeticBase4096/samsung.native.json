@@ -1,0 +1,33 @@
+{
+  "proof": {
+    "scope": "Candidate portable GLSL100 finite multiply/add; expected from independently proven exact FMA reference, no active renderer",
+    "fragmentSHA256": "387bc2e4402b3afb9206c29d39344c5d6411d4c3993c86993ac0ba81df543f07",
+    "primitiveSHA256": "9cb4b3a3caa85f2fb2d939f8aec59dae0ac5235045ce2cf75e8c6150cb097e14",
+    "fragmentBytes": 7828,
+    "cases": 22400
+  },
+  "checked": 22400,
+  "wrong": [],
+  "compileMs": 10.199999988079071,
+  "runMs": 60969.80000001192,
+  "glError": 0,
+  "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+  "precision": {
+    "precision": 23,
+    "rangeMin": 127,
+    "rangeMax": 127
+  },
+  "inputCasesSHA256": "e5eef4670321f54ad6a0bc9a25799d7c41384ce450930903e81ed51b0e368174",
+  "cleanup": {
+    "targetIds": [
+      "3631",
+      "573622E9F2BBB7B3E19F08E294AC491D",
+      "CC2344F21941C3CBF117549F2225B2E0"
+    ],
+    "sameOriginalTabs": true,
+    "ownJobs": [],
+    "childContextClosedByFinally": true,
+    "forwardRemoved": true
+  },
+  "scope": "Finite GLSL100 add/multiply; expected from independent exact BigInt FMA reference on native corpus operands. Not unchanged native add/multiply or whole mask proof."
+}
