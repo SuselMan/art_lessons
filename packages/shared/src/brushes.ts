@@ -50,6 +50,8 @@ export interface BrushTip {
     | { kind: 'standard'; shape: 'ellipse' | 'rectangle'; horizontalFade: number; verticalFade: number; antialias: boolean }
     /** Opaque core plus a one-pixel outward band linear in squared distance. */
     | { kind: 'circleBand'; antialias: true }
+    /** Native radial response table, UNORM32 big-endian words in CAS bytes. */
+    | { kind: 'radialCurve'; lookup: AssetId; resolution: number; encoding: 'unorm32be'; antialias: false }
   /** Quantized mask operation before texture, flow and opacity. */
   alphaThreshold?: { value: number; softness: number }
   /** Equal-size image-pipe frames; one selection per logical dab, before scatter. */
@@ -353,6 +355,13 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
         if (d.tip.kind !== 'procedural' || !['ellipse','rectangle'].includes(String(profile.shape))
           || Object.keys(profile).some(key=>!['kind','shape','horizontalFade','verticalFade','antialias'].includes(key))
           || !numberIn(profile.horizontalFade,0,1) || !numberIn(profile.verticalFade,0,1)) return false
+      } else if (profile.kind === 'radialCurve') {
+        if (d.tip.kind !== 'procedural' || profile.antialias!==false || profile.encoding!=='unorm32be'
+          || Object.keys(profile).some(key=>!['kind','lookup','resolution','encoding','antialias'].includes(key))
+          || !ref(profile.lookup) || !numberIn(profile.resolution,1,40000) || !Number.isInteger(profile.resolution)
+          || (assetSizes.get(profile.lookup as string) ?? 0)<4
+          || ((assetSizes.get(profile.lookup as string) ?? 0)**2)<4*(profile.resolution+2)
+          || d.tip.imageSampling!==undefined || d.tip.alphaThreshold!==undefined) return false
       } else if (profile.kind === 'circleBand') {
         if (d.tip.kind !== 'procedural' || profile.antialias!==true || Object.keys(profile).some(key=>!['kind','antialias'].includes(key))) return false
       } else return false
@@ -491,4 +500,24 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
   }
   return value.skipped.length <= 1024 && value.skipped.every(s => record(s) && typeof s.name === 'string' && s.name.length <= 256
     && Array.isArray(s.reasons) && s.reasons.length <= 100 && s.reasons.every(r => typeof r === 'string' && r.length <= 2000))
+}
+
+/** Rendering resources referenced by an immutable descriptor, including children.
+ * Keep transport/preparation retention independent of each renderer's bindings. */
+export function brushAssetIds(brush: BrushDescriptor): AssetId[] {
+  const ids=new Set<AssetId>(),visited=new Set<BrushDescriptor>()
+  const add=(id: string | undefined): void => { if(id?.startsWith('asset:')) ids.add(id as AssetId) }
+  const visit=(value: BrushDescriptor): void => {
+    if(visited.has(value)) return
+    visited.add(value)
+    add(value.tip.mask)
+    for(const id of value.tip.animation?.frames ?? [])add(id)
+    add(value.tip.material?.gray)
+    for(const id of value.tip.material?.grayFrames ?? [])add(id)
+    add(value.texture?.id)
+    if(value.tip.profile?.kind==='radialCurve')add(value.tip.profile.lookup)
+    if(value.behavior?.dual)visit(value.behavior.dual.brush)
+  }
+  visit(brush)
+  return [...ids]
 }

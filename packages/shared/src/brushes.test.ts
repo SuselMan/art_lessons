@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isBrushLibrary, type BrushLibrary } from './brushes.js'
+import { brushAssetIds, isBrushLibrary, type BrushLibrary } from './brushes.js'
 
 function library(): BrushLibrary {
   const hash = 'a'.repeat(64)
@@ -43,6 +43,29 @@ describe('brush library contract', () => {
     expect(isBrushLibrary(data)).toBe(true)
     d.behavior.modulations!.sharpness![0].minimum=2
     expect(isBrushLibrary(data)).toBe(false)
+  })
+
+  it('bounds radial lookup bytes, encoding and supported combinations', () => {
+    const data=library(),d=data.brushes[0].descriptor
+    data.assets[0].size=4
+    d.tip={kind:'procedural',profile:{kind:'radialCurve',lookup:data.assets[0].id,resolution:2,encoding:'unorm32be',antialias:false},hardness:1,aspect:5,angle:0,rotation:'fixed'}
+    d.behavior={version:2}
+    expect(isBrushLibrary(data)).toBe(true)
+    if(d.tip.profile?.kind!=='radialCurve')throw new Error('Expected radial curve')
+    d.tip.profile.resolution=3;expect(isBrushLibrary(data)).toBe(false);d.tip.profile.resolution=2
+    d.tip.alphaThreshold={value:1,softness:0};expect(isBrushLibrary(data)).toBe(false);delete d.tip.alphaThreshold
+    Object.assign(d.tip.profile,{antialias:true});expect(isBrushLibrary(data)).toBe(false)
+  })
+  it('collects lookup and child resource references once without built-in tips', () => {
+    const data=library(),d=data.brushes[0].descriptor,lookup=data.assets[0].id
+    d.tip={kind:'procedural',profile:{kind:'radialCurve',lookup,resolution:2,encoding:'unorm32be',antialias:false},hardness:1,aspect:1,angle:0,rotation:'fixed'}
+    const child=structuredClone(d);child.tip={kind:'round',mask:'chalk',hardness:1,aspect:1,angle:0,rotation:'fixed'}
+    d.behavior={version:2,dual:{brush:child,blendMode:'multiply'}}
+    expect(brushAssetIds(d)).toEqual([lookup])
+    child.tip.mask=lookup
+    expect(brushAssetIds(d)).toEqual([lookup])
+    child.behavior={version:2,dual:{brush:d,blendMode:'multiply'}}
+    expect(brushAssetIds(d)).toEqual([lookup])
   })
 
   it('bounds source spacing laws and responses independently of the legacy brush step', () => {
