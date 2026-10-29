@@ -57,9 +57,9 @@ export class BlitPasses {
     this.areaMaskProg      = createProgram(gl, DISPLAY_VERT, AREA_MASK_FRAG)
 
     this.imageUni = getUniforms(gl, this.imageProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
-    this.transformUni = getUniforms(gl, this.transformProg, ['u_source', 'u_dstSize', 'u_srcSize', 'u_matrixInv'])
+    this.transformUni = getUniforms(gl, this.transformProg, ['u_source', 'u_sourceStraight', 'u_dstSize', 'u_srcSize', 'u_matrixInv'])
     this.areaTransformUni = getUniforms(gl, this.areaTransformProg, [
-      'u_source', 'u_mask', 'u_dstSize', 'u_srcSize', 'u_srcOrigin', 'u_maskRect', 'u_matrixInv',
+      'u_source', 'u_sourceStraight', 'u_mask', 'u_dstSize', 'u_srcSize', 'u_srcOrigin', 'u_maskRect', 'u_matrixInv',
     ])
     this.areaMaskUni = getUniforms(gl, this.areaMaskProg, ['u_mask', 'u_dstSize', 'u_dstOrigin', 'u_maskRect'])
 
@@ -129,6 +129,11 @@ export class BlitPasses {
    *    would scale the second pass down by the first's coverage and lose part
    *    of it, which is exactly the seam #507 was.
    *
+   *  Output is always PREMULTIPLIED. A straight source is converted per tap
+   *  BEFORE bilinear filtering, for presentation/export into a premultiplied
+   *  target. This is not a straight canonical transform writer; it deliberately
+   *  discards hidden RGB only in the derived presentation, never in the source.
+   *
    *  Every caller targets a buffer another pass reads from afterwards — since
    *  #301 the frame's last drawing step is _composePaperToScreen, which writes
    *  the screen through its own program rather than this one. */
@@ -156,16 +161,19 @@ export class BlitPasses {
     // sampler must not interpolate underneath it, and must not be left on a
     // mip filter by an earlier composite. See setPointSampling.
     source.setPointSampling(true)
-    gl.bindTexture(gl.TEXTURE_2D, source.texture)
-    gl.uniform1i(tu.u_source, 0)
-    gl.uniform2f(tu.u_dstSize, dstW, dstH)
-    gl.uniform2f(tu.u_srcSize, source.width, source.height)
-    gl.uniformMatrix3fv(tu.u_matrixInv, false, toMat3(matrixInv))
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    source.setPointSampling(false)
-
-    gl.disable(gl.BLEND)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    try {
+      gl.bindTexture(gl.TEXTURE_2D, source.texture)
+      gl.uniform1i(tu.u_source, 0)
+      gl.uniform1f(tu.u_sourceStraight, source.pixelEncoding === 'straight-rgba8' ? 1 : 0)
+      gl.uniform2f(tu.u_dstSize, dstW, dstH)
+      gl.uniform2f(tu.u_srcSize, source.width, source.height)
+      gl.uniformMatrix3fv(tu.u_matrixInv, false, toMat3(matrixInv))
+      gl.drawArrays(gl.TRIANGLES, 0, 6)
+    } finally {
+      source.setPointSampling(false)
+      gl.disable(gl.BLEND)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    }
   }
 
   /** One AREA_MASK_FRAG pass over a whole buffer — see that shader's comment
@@ -228,25 +236,28 @@ export class BlitPasses {
     // (#507) Same reason as `transform`'s: the shader filters by hand
     // from exact texel centres. See setPointSampling.
     source.setPointSampling(true)
-    gl.bindTexture(gl.TEXTURE_2D, source.texture)
-    gl.uniform1i(u.u_source, 0)
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, mask.tex)
-    gl.uniform1i(u.u_mask, 1)
-    gl.activeTexture(gl.TEXTURE0)
+    try {
+      gl.bindTexture(gl.TEXTURE_2D, source.texture)
+      gl.uniform1i(u.u_source, 0)
+      gl.uniform1f(u.u_sourceStraight, source.pixelEncoding === 'straight-rgba8' ? 1 : 0)
+      gl.activeTexture(gl.TEXTURE1)
+      gl.bindTexture(gl.TEXTURE_2D, mask.tex)
+      gl.uniform1i(u.u_mask, 1)
+      gl.activeTexture(gl.TEXTURE0)
 
-    gl.uniform2f(u.u_dstSize, dstW, dstH)
-    gl.uniform2f(u.u_srcSize, source.width, source.height)
-    gl.uniform2f(u.u_srcOrigin, srcOriginX, srcOriginY)
-    gl.uniform4f(
-      u.u_maskRect, mask.rect.minX, mask.rect.minY,
-      mask.rect.maxX - mask.rect.minX, mask.rect.maxY - mask.rect.minY,
-    )
-    gl.uniformMatrix3fv(u.u_matrixInv, false, toMat3(matrixInv))
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    source.setPointSampling(false)
-
-    gl.disable(gl.BLEND)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      gl.uniform2f(u.u_dstSize, dstW, dstH)
+      gl.uniform2f(u.u_srcSize, source.width, source.height)
+      gl.uniform2f(u.u_srcOrigin, srcOriginX, srcOriginY)
+      gl.uniform4f(
+        u.u_maskRect, mask.rect.minX, mask.rect.minY,
+        mask.rect.maxX - mask.rect.minX, mask.rect.maxY - mask.rect.minY,
+      )
+      gl.uniformMatrix3fv(u.u_matrixInv, false, toMat3(matrixInv))
+      gl.drawArrays(gl.TRIANGLES, 0, 6)
+    } finally {
+      source.setPointSampling(false)
+      gl.disable(gl.BLEND)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    }
   }
 }

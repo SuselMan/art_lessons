@@ -4083,11 +4083,17 @@ export const IMAGE_BLIT_FRAG = `
 // commit, not on the every-frame display path (#301's _composePaperToScreen
 // has its own shader).
 const TILE_BILINEAR = `
+  // Output of these resampling blits is always premultiplied. Convert EACH
+  // exact source tap before interpolation; converting the filtered straight
+  // colour would let hidden RGB bleed through a transparent neighbour.
+  uniform float u_sourceStraight;
   vec4 tapSource(vec2 texel) {
     if (texel.x < 0.0 || texel.y < 0.0 || texel.x > u_srcSize.x - 1.0 || texel.y > u_srcSize.y - 1.0)
       return vec4(0.0);
     vec2 uv = vec2((texel.x + 0.5) / u_srcSize.x, 1.0 - (texel.y + 0.5) / u_srcSize.y);
-    return texture2D(u_source, uv);
+    vec4 c = texture2D(u_source, uv);
+    if (u_sourceStraight > 0.5) c.rgb *= c.a;
+    return c;
   }
   vec4 sampleSource(vec2 srcXY) {
     vec2 p = srcXY - 0.5;
