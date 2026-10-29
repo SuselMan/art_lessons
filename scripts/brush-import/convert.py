@@ -12,6 +12,7 @@ import re
 import struct
 import zipfile
 from sequential_xy import validate_policy as validate_sequential_xy_policy
+from stroke_input import validate_policy as validate_stroke_input_policy
 from PIL import Image, ImageOps
 from brush_contract import Catalog, MAX_PIXELS, IMPORTER_SCHEMA_VERSION, IMPORTER_RENDERING_VERSION, number, clamp, descriptor, finalize_identity, compatibility
 
@@ -605,6 +606,7 @@ def portable_bundle(path,catalog):
         tip=d['tip']
         validate_portable_profile(d)
         validate_sequential_xy_policy(d,depth)
+        validate_stroke_input_policy(d,depth)
         profile=tip.get('profile',{})
         if profile.get('kind')=='radialCurve':
             size=asset_sizes.get(profile['lookup'],0)

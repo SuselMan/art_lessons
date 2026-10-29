@@ -15,6 +15,7 @@ from PIL import Image, ImageChops, PngImagePlugin
 from brush_contract import MAX_PIXELS, clamp, compatibility, descriptor, finalize_identity
 from curve_transfer import native_transfer,scaled_curve
 from sequential_xy import compatible as sequential_xy_compatible
+from stroke_input import source_policy as stroke_input_policy
 from krita_texture import preprocess_texture
 from krita_lightness import compile_lightness_planes
 
@@ -364,8 +365,9 @@ def size_like_controls(params, option, notes):
     return sensor_controls(params,option,notes)
 
 
-def preset(data, name, catalog, external, depth=0, *, sequential_xy=False):
+def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False):
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
+    if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
     if depth>1: raise ValueError('Nested Krita masking brushes exceed supported depth')
     PngImagePlugin.MAX_TEXT_CHUNK = MAX_XML
     PngImagePlugin.MAX_TEXT_MEMORY = MAX_XML * 2
@@ -904,8 +906,15 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False):
             if key.startswith(prefix): ET.SubElement(child_root,'param',{'name':key[len(prefix):]}).text=value
         child_png=io.BytesIO();meta=PngImagePlugin.PngInfo();meta.add_text('version','5.0');meta.add_text('preset',ET.tostring(child_root,encoding='unicode'),zip=True)
         Image.new('L',(1,1)).save(child_png,format='PNG',pnginfo=meta)
-        child_result=preset(child_png.getvalue(),name,catalog,resources,depth+1)
+        child_result=preset(child_png.getvalue(),name,catalog,resources,depth+1,stroke_input=False)
         notes.extend({**note,'feature':'masking.'+note['feature']} for note in child_result['compatibility'])
+        if stroke_input:
+            child_params={key[len(prefix):]:value for key,value in params.items() if key.startswith(prefix)}
+            try:
+                if stroke_input_policy(child_params,xml,native_transfer) is not None:
+                    notes.append(compatibility('masking.strokeInput','Independent child input law is not executed; source policy not emitted.','unsupported'))
+            except ValueError as error:
+                notes.append(compatibility('masking.strokeInput',str(error),'unsupported'))
         child=child_result['descriptor']
         ratio=numeric(params.get('MaskingBrush/MasterSizeCoeff'),1)
         if not enabled(params.get('MaskingBrush/UseMasterSize','true')):
@@ -933,6 +942,17 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False):
         else:
             behavior['rendering']['accumulation']='alphaDarken'
     d['behavior']=behavior
+    if stroke_input:
+        try:
+            input_policy=stroke_input_policy(params,xml,native_transfer)
+            if input_policy is not None:
+                # Do not opt in when the existing rendering lowering did not retain this source sensor.
+                if behavior.get('rotation') != {'follow':1,'random':'none'}:
+                    raise ValueError('Identity DrawingAngle rendering lowering is not available')
+                behavior['strokeInput']=input_policy
+                notes.append(compatibility('strokeInput','Explicit source input metadata retained; cursor-history/fan execution requires the matching engine capability.'))
+        except ValueError as error:
+            notes.append(compatibility('strokeInput',str(error),'unsupported'))
     warnings.extend(n['feature']+': '+n['detail'] for n in notes if n['status']!='supported')
     def native_keyed(value):
         if isinstance(value,dict):
@@ -943,17 +963,19 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False):
     if sequential_xy and depth==0 and sequential_xy_compatible(d):
         behavior['sequentialRandom']={'version':1,'kind':'qt5Taus88','policy':'scatterXY'}
         d['version']=33
+    if behavior.get('strokeInput'): d['version']=34
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     if source_size is not None:
         result['sourceDefaults']={'sizePx':clamp(source_size,.01,10000),'opacity':d['opacity'],'flow':d['flow']}
     return result
 
 
-def convert_krita(path, catalog, external=None, *, sequential_xy=False):
+def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_input=False):
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
+    if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
     if path.suffix.lower() == '.kpp':
         try:
-            catalog.brushes.append(preset(path.read_bytes(), path.name, catalog, external or {}, sequential_xy=sequential_xy))
+            catalog.brushes.append(preset(path.read_bytes(), path.name, catalog, external or {}, sequential_xy=sequential_xy,stroke_input=stroke_input))
         except (ValueError, ET.ParseError, OSError) as error:
             catalog.skipped.append({'name':path.stem,'reasons':[str(error)]})
         return
@@ -968,6 +990,6 @@ def convert_krita(path, catalog, external=None, *, sequential_xy=False):
         resources.update({n:(lambda entry=n: archive.read(entry)) for n in names if n.lower().endswith(('.gbr','.gih','.png','.pat','.jpg','.jpeg','.webp'))})
         for name in sorted(n for n in names if n.lower().endswith('.kpp')):
             try:
-                catalog.brushes.append(preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy))
+                catalog.brushes.append(preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy,stroke_input=stroke_input))
             except (ValueError, ET.ParseError, OSError) as error:
                 catalog.skipped.append({'name':PurePosixPath(name).stem,'reasons':[str(error)]})
