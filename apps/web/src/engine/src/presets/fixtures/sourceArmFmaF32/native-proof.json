@@ -1,0 +1,48 @@
+{
+  "scope": "Exact finitebinary32 BigInt VALUE baseline RNE; hoststd::fmaf oracle, NOT actualARM FMAinstruction/fullinstalledprofile",
+  "hostNativeCases": 11200,
+  "randomRawFiniteTriples": 8192,
+  "flags": [
+    "-std=c++17",
+    "-O2",
+    "-fno-fast-math",
+    "-ffp-contract=off",
+    "-frounding-math"
+  ],
+  "rounding": "FE_TONEAREST; gradual underflow independently covered by nativefixtures",
+  "compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+  "oracleBinarySha256": "d728c2856129a5be532d80cf049da77bc4b6947ac330bdf4ca55084cc88d3292",
+  "trueFmaCall": "objdump verifies call fmaf@GLIBC_2.2.5, no product/add substitute",
+  "hostCmathFloatFmaHeader": {
+    "path": "/usr/include/c++/13/cmath",
+    "sha256": "0f34f6dc8e8171e8b30dbd4b7975575b1b14a86fc5a7a490f74e85f2b5f3a696",
+    "lines": "2193-2195 float overload __builtin_fmaf"
+  },
+  "hostLibm": {
+    "path": "/lib/x86_64-linux-gnu/libm.so.6",
+    "sha256": "fce00b6f25f459cf4ae0b7fae4257909a1a8a86f9149e7c029a5d617baf1ccd0"
+  },
+  "files": {
+    "native.cpp": "84b3b9a87bec4ce5aaa9d827cabf8627bb0194521982fe5c2bb2bce956930d15",
+    "host-fma.native.json": "a9a4f63afc78eb9a6671fb29eb43310ebe530d410d96dd223fce8154e78842db",
+    "actual-frecps.native.json": "80ca3577bbe571302a38cf17c3cd07faee53d1c895f31978965b98ff74179b29",
+    "check-actual.cjs": "9201d46988628b03bb9125078a1f28de4f4be9345bf94ebd4241d25611be0e70"
+  },
+  "actualSamsungFrecps": {
+    "scope": "finite positive denominator/finite estimate only, fma(-denom,estimate,2); NOT actualFMAinstruction",
+    "checked": 147392,
+    "wrong": 0,
+    "compact": 1113,
+    "captureSha256": "cdfe52191e0e104297f13337adedc6fbab742149004ec1f18e30ad77047a2862",
+    "FPCR": 0
+  },
+  "mathematicalReference": {
+    "url": "https://documentation-service.arm.com/static/67e40f3398aa3c3b6eea6a85",
+    "bytes": 15314151,
+    "sha256": "b7baa6869789722df70da60170d999a62810409aaabbb6db1ef729ed68686bdf"
+  },
+  "inputs": "finite rawbinary32 only; reject NaN/Inf input classes; output overflowInf allowed",
+  "notHotRendererImplementation": true,
+  "mxcsr": 8064,
+  "moduleSha256": "85daea792e3f8900dd46f53f98937d1e57c43b252a1bb6c86eb7960824bab2aa"
+}
