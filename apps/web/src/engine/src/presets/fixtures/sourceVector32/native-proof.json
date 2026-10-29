@@ -1,0 +1,155 @@
+{
+  "profile": "optimized32-neon64-vector4-no-fma-v1",
+  "scope": "Unchanged native source stream/vector/scalar with HOSTtyped ARM instruction/IO semantic shims; NOT actualARM composite execution/installed factory",
+  "cases": 2688,
+  "byOperator": {
+    "0": {
+      "buffers": 896,
+      "paintPixels": 11008,
+      "scalarCalls": 5888,
+      "vectorCalls": 1280
+    },
+    "1": {
+      "buffers": 896,
+      "paintPixels": 11008,
+      "scalarCalls": 5888,
+      "vectorCalls": 1280
+    },
+    "2": {
+      "buffers": 896,
+      "paintPixels": 11008,
+      "scalarCalls": 5888,
+      "vectorCalls": 1280
+    }
+  },
+  "alignmentPairs": [
+    [
+      0,
+      0
+    ],
+    [
+      0,
+      4
+    ],
+    [
+      0,
+      8
+    ],
+    [
+      0,
+      12
+    ],
+    [
+      4,
+      0
+    ],
+    [
+      4,
+      4
+    ],
+    [
+      4,
+      8
+    ],
+    [
+      4,
+      12
+    ],
+    [
+      8,
+      0
+    ],
+    [
+      8,
+      4
+    ],
+    [
+      8,
+      8
+    ],
+    [
+      8,
+      12
+    ],
+    [
+      12,
+      0
+    ],
+    [
+      12,
+      4
+    ],
+    [
+      12,
+      8
+    ],
+    [
+      12,
+      12
+    ]
+  ],
+  "nativeSources": {
+    "math": {
+      "sha256": "eb224fd6fba0e8e938a7e72810bda8e00801541ef435e905a2f026353e197e91",
+      "bytes": 31064
+    },
+    "over": {
+      "sha256": "02c7ce4fbb60a821f6dc99e46dd0560dd4997cf6f38a1b066e9a5582bca2b8f6",
+      "bytes": 9054
+    },
+    "alpha": {
+      "sha256": "2025a1b2ba4b703ab1f38a61548d3bd7b1f99f60a5aa109ec1bcaddc27814c4d",
+      "bytes": 10269
+    },
+    "wrappers": {
+      "sha256": "da6641dab1dba47dd9710c402d3f2c08f74330ab51466407da95c687ce9c186b",
+      "bytes": 2124
+    },
+    "arithmetic": {
+      "sha256": "7837d7cfa4b9432703e0b9fbad334fc6f6e241456074a6dc00910423abe57299",
+      "bytes": 33806
+    },
+    "params": {
+      "sha256": "41af38ff0754f0c14b4634346a0682dceaa99a297fa7c75f48130c79505ac7c7",
+      "bytes": 5818
+    },
+    "qt": {
+      "sha256": "1cc403d67548c1b3174aee74a4cc4da47cd95bd64f2f78fbd87e9d9261ffd6f7",
+      "bytes": 46065
+    }
+  },
+  "files": {
+    "assemble.py": "64e37fe426785ec626f1bc38a521cfa6d5a87ff7c4ca0800cb745bd036bcefab",
+    "shim.cpp": "2d044cda3f0177cd224adef0a09facb2186df9b961b171e40a13c7872f43d513",
+    "whole-buffer.native.json": "a87876d2946d22c17ef8d8288a8808e9562422aa545c0641db77029920673e13",
+    "reciprocal-step.native.json": "06ef5c1bbca044297f027d6e488283f39e72453505b4b72effeae5749ec83259",
+    "capture-step.py": "a7d38d282283408363a97ad4152607dce928360f6e70fb4a21e268587ef69813"
+  },
+  "oracleCppSha256": "f7764148489b68228836eddf970913ffd038d0f6c608ba52bcb55231cc145695",
+  "compilerFlags": [
+    "-std=c++17",
+    "-O2",
+    "-fno-fast-math",
+    "-ffp-contract=off"
+  ],
+  "mxcsr": 8064,
+  "ISAProof": {
+    "captureSHA256": "cdfe52191e0e104297f13337adedc6fbab742149004ec1f18e30ad77047a2862",
+    "positiveFiniteInputPairs": 147405,
+    "FRECPSWrong": 0,
+    "refinedMultiplyWrong": 0,
+    "compactCases": 1126,
+    "FPCR": 0
+  },
+  "limits": {
+    "rows": 4096,
+    "cols": 4096,
+    "paintPixels": 1048576,
+    "perInputBytes": 4194304,
+    "maskAbsent": true,
+    "sourceStride0": "constantpixel",
+    "destinationStride0": "rejected",
+    "maskStride0": "repeatedmaskrow"
+  },
+  "sourceVersusInstalled": "Source enables ffp-contract=fast; rootactualreachableAPKdisassembly confirmsFMA. This noFMA profile is diagnosticbaseline ONLY, noactivation."
+}
