@@ -15,6 +15,7 @@ import zipfile
 from PIL import Image, ImageChops, PngImagePlugin
 from brush_contract import MAX_PIXELS, clamp, compatibility, descriptor, finalize_identity
 from curve_transfer import native_transfer,scaled_curve
+from source_stamp_data import retain_source_stamp
 from sequential_xy import compatible as sequential_xy_compatible
 from stroke_input import source_policy as stroke_input_policy
 from krita_texture import preprocess_texture
@@ -985,6 +986,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         else:
             behavior['rendering']['accumulation']='alphaDarken'
     d['behavior']=behavior
+    if engine=='paintbrush' and kind in ('png_brush','gbr_brush') and not filename.lower().endswith('.gih'):
+        try:
+            d['sourceStamp']=retain_source_stamp(params,definition,*source_metric,xml,depth=depth)
+        except (ValueError,OverflowError) as error:
+            notes.append(compatibility('sourceStampData',str(error),'unsupported'))
     if stroke_input:
         try:
             input_policy=stroke_input_policy(params,xml,native_transfer)

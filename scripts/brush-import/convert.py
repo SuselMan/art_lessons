@@ -13,6 +13,7 @@ import struct
 import zipfile
 from sequential_xy import validate_policy as validate_sequential_xy_policy
 from stroke_input import validate_policy as validate_stroke_input_policy
+from source_stamp_data import validate_portable_source_stamp, source_stamp_budget, MAX_LIBRARY_SOURCE_STAMP_BUDGET
 from PIL import Image, ImageOps
 from brush_contract import Catalog, MAX_PIXELS, IMPORTER_SCHEMA_VERSION, IMPORTER_RENDERING_VERSION, number, clamp, descriptor, finalize_identity, compatibility
 
@@ -583,6 +584,20 @@ def portable_bundle(path,catalog):
     if not isinstance(library,dict) or library.get('schemaVersion')!=1 or not isinstance(payloads,dict): raise ValueError('Invalid portable library')
     assets=library.get('assets');brushes=library.get('brushes');skipped=library.get('skipped')
     if not isinstance(assets,list) or len(assets)>1024 or not isinstance(brushes,list) or len(brushes)>512 or not isinstance(skipped,list) or len(skipped)>1024: raise ValueError('Portable library item limit')
+    source_budget=0
+    def preflight_source(d,depth=0):
+        nonlocal source_budget
+        if not isinstance(d,dict) or depth>1: raise ValueError('Invalid portable descriptor depth')
+        if 'sourceStamp' in d:
+            validate_portable_source_stamp(d)
+            source_budget+=source_stamp_budget(d['sourceStamp'])
+            if source_budget>MAX_LIBRARY_SOURCE_STAMP_BUDGET: raise ValueError('Portable source stamp library budget exceeded')
+        behavior=d.get('behavior',{})
+        if isinstance(behavior,dict) and isinstance(behavior.get('dual'),dict): preflight_source(behavior['dual'].get('brush'),depth+1)
+    # Before decoding/installing any CAS payloads; data-only normalization is bounded.
+    for brush in brushes:
+        if not isinstance(brush,dict): raise ValueError('Invalid portable brush')
+        preflight_source(brush.get('descriptor'))
     total=0;validated=[];ids=set()
     for asset in assets:
         if not isinstance(asset,dict): raise ValueError('Invalid portable asset')

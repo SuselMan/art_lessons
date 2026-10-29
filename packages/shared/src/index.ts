@@ -35,3 +35,5 @@ export * from './brushCurves.js'
 export * from './strokeEndSample.js'
 
 export * from './brushRandom.js'
+
+export * from './sourceStampData.js'

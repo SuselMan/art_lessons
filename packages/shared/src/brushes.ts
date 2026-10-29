@@ -1,3 +1,4 @@
+import { isSourceStampData, sourceStampDataBudget, MAX_LIBRARY_SOURCE_STAMP_BUDGET, type SourceStampData } from './sourceStampData.js'
 import { isDabSourceTime } from './dabCodec.js'
 import { isBrushCurve as curve, type BrushCurve } from './brushCurves.js'
 export type { BrushCurve } from './brushCurves.js'
@@ -121,6 +122,8 @@ export type BrushCategory = 'line' | 'paint' | 'wet' | 'soft' | 'texture' | 'sca
 export type BrushModel = 'ribbon' | 'stamp' | 'mixer'
 
 export interface BrushDescriptor {
+  /** Retained native author data; does not activate a renderer. */
+  sourceStamp?: SourceStampData
   behavior?: BrushBehavior
   /** Stable across versions — it is half of the recorded preset token. */
   id: string
@@ -307,6 +310,16 @@ const ASSET = /^asset:[a-f0-9]{64}$/
 export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxBrushes?: number; maxAssets?: number } = {}): value is BrushLibrary {
   if (!record(value) || value.schemaVersion !== 1 || !Array.isArray(value.assets) || !Array.isArray(value.brushes)
     || !Array.isArray(value.skipped) || value.brushes.length > (limits.maxBrushes ?? 512) || value.assets.length > (limits.maxAssets ?? 1024)) return false
+  let sourceBudget=0
+  for (const item of value.brushes) {
+    if (!record(item) || !record(item.descriptor)) return false
+    let descriptor: Record<string, unknown> | undefined=item.descriptor
+    for(let depth=0;descriptor && depth<2;depth++) {
+      if(descriptor.sourceStamp !== undefined)sourceBudget+=sourceStampDataBudget(descriptor.sourceStamp)
+      descriptor=record(descriptor.behavior) && record(descriptor.behavior.dual) && record(descriptor.behavior.dual.brush) ? descriptor.behavior.dual.brush : undefined
+    }
+    if(sourceBudget>MAX_LIBRARY_SOURCE_STAMP_BUDGET)return false
+  }
   const ids = new Set<string>()
   const assetSizes = new Map<string, number>()
   let bytes = 0
@@ -328,8 +341,9 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       || !numberIn(b.sourceDefaults.sizePx, 0.01, 10000)
       || !numberIn(b.sourceDefaults.opacity, 0, 1) || !numberIn(b.sourceDefaults.flow, 0, 1))) return false
     const d = b.descriptor
-    const descriptorKeys = ['id','version','model','category','tip','paperInteraction','spacing','flow','flowPer','flowSpan','sizeByPressure','flowByPressure','opacityByPressure','pressureSmoothingPx','opacity','scatter','texture','wet','behavior','mixer']
+    const descriptorKeys = ['id','version','model','category','tip','paperInteraction','spacing','flow','flowPer','flowSpan','sizeByPressure','flowByPressure','opacityByPressure','pressureSmoothingPx','opacity','scatter','texture','wet','behavior','mixer','sourceStamp']
     if (Object.keys(d).some(key => !descriptorKeys.includes(key))) return false
+    if (d.sourceStamp !== undefined && !isSourceStampData(d.sourceStamp)) return false
     if (typeof d.id !== 'string' || !/^imported-[a-f0-9]{16,64}$/.test(d.id) || !numberIn(d.version, 1, 10000)
       || !Number.isInteger(d.version) || !['stamp','mixer'].includes(String(d.model)) || !['line','paint','wet','soft','texture','scatter'].includes(String(d.category))
       || !record(d.tip) || !['round','bitmap','procedural'].includes(String(d.tip.kind))
