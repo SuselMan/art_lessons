@@ -65,7 +65,9 @@ export class BrushGlBatchFrame {
   beforeWork(): void {
     if (!this.opened) throw new Error('Closed brush GL batch')
     if (this.gl.isContextLost()) throw new Error('Brush GL batch context lost')
-    if (this.shouldYield) throw new Error('Brush GL batch budget exhausted; yield outside the frame')
+    // Time is cooperative: metadata between a caller check and this admission
+    // may cross 4ms. Reject only hard bounds; never drop an accepted request.
+    if (this.draws >= 8 || this.groupCount >= 8) throw new Error('Brush GL batch budget exhausted; yield outside the frame')
   }
   beginGroup(): symbol {
     this.beforeWork()

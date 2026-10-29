@@ -36,14 +36,15 @@ await запрещены контрактом. Lost context пропускает
 CPU reservations выполняется. Ошибка cleanup не заменяет первичную command error.
 
 Caller уступает event loop ПОСЛЕ batch. shouldYield сигнализирует >=8 submitted commands (включая empty clips),
->=8groups либо >=4ms после первой команды/группы. Следующая самостоятельная команда за пределами budget
-отклоняется. Уже admitted prepass group получает право завершить первый paired
+>=8groups либо >=4ms после первой команды/группы. Только hard8 command/group bounds отклоняют следующую команду.
+Wall-clock deadline кооперативный: metadata между caller shouldYield check и
+следующим beginGroup может пересечь4ms, но это не отказ/потеря команды. Уже admitted prepass group получает право завершить первый paired
 composite draw, даже если mask preparation пересекла soft4ms; hard8draw cap остаётся.
 Group token/release не затрагивает новое поколение. До8groups на batch; следующий
 resolveGroup требует release предыдущего. Незакрытая группа закрывается finally.
 Это bounded command submission, не гарантия завершения одного GPU draw за4ms.
 
-38 focused CPU/MockGL checks на момент реализации: common real prepass→composite
+39 focused CPU/MockGL checks на момент реализации: common real prepass→composite
 one-capture, HIT/MISS, FBO/sampler query counts, exact caller pointer/divisor/VAO
 restoration, owner callback mutation/failure, draw failure, reentry/thenable,
 context/cache/epoch/undeclared resource checks, bounded command/time crossing.

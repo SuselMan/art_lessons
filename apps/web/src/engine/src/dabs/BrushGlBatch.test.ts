@@ -67,7 +67,7 @@ describe('explicit synchronous brush GL batch', () => {
       expect(() => frame.assert(s.service, [])).toThrow('epoch')
     })
   })
-  it('enforces eight draws/4ms, and old frame/group releases cannot unlock a new frame', () => {
+  it('enforces eight draws, signals soft 4ms, and cleans up groups', () => {
     const now = vi.spyOn(performance, 'now').mockReturnValue(0), s = setup(), released = vi.fn()
     runBrushGlBatch({ participants: [s.service] }, frame => {
       frame.holdGroup(released)
@@ -78,7 +78,8 @@ describe('explicit synchronous brush GL batch', () => {
     expect(released).toHaveBeenCalledOnce()
     runBrushGlBatch({ participants: [s.service] }, frame => {
       frame.beginDraw(); now.mockReturnValue(4)
-      expect(() => frame.beforeWork()).toThrow('budget')
+      expect(frame.shouldYield).toBe(true)
+      expect(() => frame.beforeWork()).not.toThrow()
     })
   })
   it('restores the caller OES VAO once without probing unrelated attribs', () => {
@@ -103,7 +104,7 @@ it('finishes the paired first draw when admitted prepass work crosses the soft d
     expect(frame.shouldYield).toBe(true);
     expect(()=>frame.beginDraw()).not.toThrow();
     frame.endGroup(token);
-    expect(()=>frame.beginGroup()).toThrow('budget');
+    expect(()=>frame.beginGroup()).not.toThrow();
   });
 });
 it('refuses transient CPU overflow before acquisition and releases reservations after context loss',()=>{
@@ -128,6 +129,18 @@ it('signals yield after eight empty groups and after elapsed group work without 
   });
   runBrushGlBatch({participants:[s.service]},frame=>{
     const token=frame.beginGroup();frame.endGroup(token);clock.mockReturnValue(4);
+    expect(frame.shouldYield).toBe(true);
+  });
+});
+
+it('admits the next full request when metadata crosses the cooperative deadline after a caller check',()=>{
+  const clock=vi.spyOn(performance,'now').mockReturnValue(0),s=setup();
+  runBrushGlBatch({participants:[s.service]},frame=>{
+    frame.beginDraw();clock.mockReturnValue(3.9);
+    expect(frame.shouldYield).toBe(false);
+    clock.mockReturnValue(4.1); // CPU metadata of the next recorded request
+    const token=frame.beginGroup();
+    expect(()=>frame.beginDraw()).not.toThrow();frame.endGroup(token);
     expect(frame.shouldYield).toBe(true);
   });
 });
