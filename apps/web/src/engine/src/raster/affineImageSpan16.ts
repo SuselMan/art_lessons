@@ -96,6 +96,13 @@ export type AffineReciprocalEstimate = SourceImageReciprocalEstimate
  * For valid PM channels c<=a all integer products remain below2^48, exactly
  * representable by Number. No per-pixel BigInt or CPU-specific estimate table.
  */
+/** Finite mathematical factor shared by the CPU store and GPU profile table.
+ * Zero is a sentinel for transparent/opaque shortcuts, not their reciprocal. */
+export function rgba64UnpremultiplyFactor(alpha: number): number {
+  if (!Number.isInteger(alpha) || alpha < 0 || alpha > 65535) throw new RangeError('Invalid RGBA16 alpha')
+  return alpha && alpha !== 65535 ? Math.floor((0xffff00008000 + Math.floor(alpha / 2)) / alpha) : 0
+}
+
 export function affineSpan16StraightInteger64(premultiplied: Uint16Array): Uint8Array {
   if (!(premultiplied instanceof Uint16Array) || premultiplied.length > 4 * 1048576 || premultiplied.length % 4) throw new RangeError('Invalid RGBA16 layout')
   for (let i = 0; i < premultiplied.length; i += 4) {
@@ -105,7 +112,7 @@ export function affineSpan16StraightInteger64(premultiplied: Uint16Array): Uint8
   const result = new Uint8Array(premultiplied.length)
   for (let i = 0; i < premultiplied.length; i += 4) {
     const alpha = premultiplied[i + 3]!
-    const factor = alpha && alpha !== 65535 ? Math.floor((0xffff00008000 + Math.floor(alpha / 2)) / alpha) : 0
+    const factor = rgba64UnpremultiplyFactor(alpha)
     result[i + 3] = byteFrom16(alpha)
     for (let channel = 0; channel < 3; channel++) {
       const value = premultiplied[i + channel]!
