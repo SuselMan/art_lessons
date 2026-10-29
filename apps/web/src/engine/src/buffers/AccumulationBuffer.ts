@@ -9,8 +9,18 @@ function isPowerOfTwo(n: number): boolean {
 
 /** Contexts whose RGBA8 framebuffer completeness has been checked once. */
 const checkedContexts = new WeakSet<WebGLRenderingContext>()
+// No buffer/texture strong references. Explicit lifetime charges cover every
+// AccumulationBuffer in this context, including local export/rebuild scratch.
+const storageOwners = new WeakMap<WebGLRenderingContext, { bytes: number }>()
 
 export class AccumulationBuffer {
+  /** Requested texture storage only, excluding raw textures/driver overhead. */
+  static contextStorageByteLength(gl: WebGLRenderingContext): number { return storageOwners.get(gl)?.bytes ?? 0 }
+  /** Context loss releases all storage. Old objects retain an old owner epoch,
+   * so their eventual destroy cannot subtract from restored allocations. */
+  static forgetContextStorage(gl: WebGLRenderingContext): void { storageOwners.delete(gl) }
+  private readonly storageOwner: { bytes: number }
+  private accountedBytes: number
   readonly pixelEncoding: RasterPixelEncoding
   readonly gl: WebGLRenderingContext
   readonly width: number
@@ -48,6 +58,11 @@ export class AccumulationBuffer {
     // constructor body assigns width/height, so an initializer would have
     // silently read undefined and disabled mipmaps everywhere.
     this._mipCapable = isPowerOfTwo(width) && isPowerOfTwo(height)
+    let owner = storageOwners.get(gl)
+    if (!owner) { owner = { bytes: 0 }; storageOwners.set(gl, owner) }
+    this.storageOwner = owner
+    this.accountedBytes = width * height * 4
+    owner.bytes += this.accountedBytes
   }
 
   private _makeTexture(filter: 'linear' | 'nearest'): WebGLTexture {
@@ -163,6 +178,9 @@ export class AccumulationBuffer {
     gl.generateMipmap(gl.TEXTURE_2D)
     this._mipsValid = true
     this._mipStorageAllocated = true
+    const bytes = this.storageByteLength
+    this.storageOwner.bytes += bytes - this.accountedBytes
+    this.accountedBytes = bytes
     return true
   }
 
@@ -498,7 +516,11 @@ export class AccumulationBuffer {
   }
 
   destroy(): void {
-    this._destroyed = true
+    if (!this._destroyed) {
+      this.storageOwner.bytes -= this.accountedBytes
+      this.accountedBytes = 0
+      this._destroyed = true
+    }
     this.gl.deleteTexture(this._texture)
     this.gl.deleteFramebuffer(this._fbo)
   }

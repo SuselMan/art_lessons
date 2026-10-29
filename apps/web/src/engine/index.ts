@@ -441,6 +441,9 @@ export interface WatercolorPerf {
   settleOps: number
   /** (§17.70) The longest rebuild slice so far, ms (GPU included). */
   rebuildSliceMs: number
+  /** All explicitly owned AccumulationBuffer texture storage in this context;
+   * excludes raw brush/paper textures and driver overhead. */
+  bufferStorageMB?: number
   /** GPU memory held by the tool, MB: pooled scratch tiles (live and free),
    *  the diffusion field, the reveals' kept pictures. */
   scratchLiveMB: number
@@ -3623,6 +3626,7 @@ export class PencilEngine implements PencilEngineAPI {
       displayMs: pct(p.frameMs, 0.5),
       batchesPerSec: p.batchAt.length * 1000 / span, batchP50: pct(p.batchMs, 0.5), batchMax: pct(p.batchMs, 1),
       settleMs: p.settleMs, settleOps: p.settleOps, rebuildSliceMs: p.sliceWorst.ms,
+      bufferStorageMB: AccumulationBuffer.contextStorageByteLength(this.gl) * MB,
       scratchLiveMB: pool.live * MB, scratchFreeMB: pool.free * MB,
       fieldMB: this._fieldCache.reduce((n, f) => n + f.w * f.h * 4 * 10, 0) * MB,
       revealMB: revealBytes * MB,
@@ -4286,6 +4290,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._belowCache.destroy()
     this._aboveCache.destroy()
     this._assemblyFBO.destroy()
+    this._screenCache?.destroy()
+    this._screenCache = null
     this._passes.destroy()
     // (#155) The pool fields are the real owners now — _previewBuf/_tipBuf
     // are just a possibly-mid-stroke alias of the same object (see
@@ -5190,6 +5196,7 @@ export class PencilEngine implements PencilEngineAPI {
   // watchdog, especially with several full-size layer textures resident.
   private _handleContextLost = (e: Event): void => {
     this._contextLost=true
+    AccumulationBuffer.forgetContextStorage(this.gl)
     this._cancelOwnedAuthor(true)
     this._brushPreparationGeneration++
     this._brushPreparation.cancel()

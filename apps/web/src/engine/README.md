@@ -117,3 +117,10 @@ fixtures сохраняют реальные weighted-mix координаты/�
 Canonical native keys не подменяются legacy AirbrushOption aliases. Активный Softness
 sensor (например stock51) пока unsupported: его нельзя объявлять поддержанным через
 произвольный Sharpness target. Каталог активируется отдельно после native/device QA.
+
+`getWatercolorPerf().bufferStorageMB` показывает запрошенное хранилище всех
+`AccumulationBuffer` текущего WebGL-контекста с явным lifetime, включая локальные
+буферы экспорта и перестроения. Raw textures и VBO не включены; это не полный
+GPU budget и не измерение физической резидентности. Потеря контекста обнуляет
+эпоху учёта. Экранный кэш бумаги освобождается при `destroy`, как остальные
+буферы показа, и не должен переживать закрытие движка.
