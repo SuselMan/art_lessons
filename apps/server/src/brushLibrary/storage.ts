@@ -158,7 +158,7 @@ export class BrushStorage {
     const brush = find(this.library('rooms', room)) ?? find(this.library('owners', owner)) ?? find(operator)
     if (!brush) throw Error('Brush unavailable')
     if (brushRequiresRandomContext(brush.descriptor) && (op.brushRandom === undefined || !hasValidBrushRandomContext(op))) return false
-    if (!brush.descriptor.behavior?.sequentialRandom) return true
+    if (!brush.descriptor.behavior?.sequentialRandom && !brush.descriptor.behavior?.strokeInput) return true
     try { return hasBrushSourceInputs(brush.descriptor, strokeDabs(op), op.strokeEndSample) }
     catch { return false }
   }
