@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import { mkdirSync, lstatSync, writeFileSync, renameSync, rmSync, constants, openSync, closeSync, fstatSync, readSync, readdirSync, fsyncSync, linkSync } from 'node:fs'
 import { resolve, join, parse } from 'node:path'
-import { isBrushLibrary, type BrushLibrary } from '@grafetto/shared'
+import { brushAssetIds, isBrushLibrary, type BrushLibrary } from '@grafetto/shared'
 
 export const empty = (): BrushLibrary => ({ schemaVersion: 1, brushes: [], assets: [], skipped: [] })
 // Descriptors are JSON wire data: serialization normalizes signed zero, while
@@ -138,6 +138,13 @@ export class BrushStorage {
       const next = merge(library, this.library('owners', owner))
       const total = next.assets.reduce((sum, asset) => sum + asset.size * asset.size, 0)
       if (total > 256 * 1024 * 1024 || !isBrushLibrary(next)) throw Error('Personal brush library quota exceeded (256 MiB / 512 brushes)')
+      // Validate every declared resource before publishing any new CAS or manifest.
+      for (const asset of next.assets) {
+        const hash = asset.id.slice(6), incoming = assets.get(hash)
+        if (incoming) {
+          if (incoming.length !== asset.size * asset.size || keyBytes(incoming) !== hash) throw Error('Corrupt brush asset')
+        } else this.asset(hash, asset.size)
+      }
       this.provisionAssets(assets)
       this.atomic(this.path('owners', owner), next)
       return next
@@ -155,8 +162,8 @@ export class BrushStorage {
         if (!brush) throw Error('Brush unavailable')
         selected.brushes.push(brush)
       }
-      const serialized=JSON.stringify(selected.brushes)
-      selected.assets=available.assets.filter(a=>serialized.includes(a.id))
+      const referenced = new Set(selected.brushes.flatMap(brush => brushAssetIds(brush.descriptor)))
+      selected.assets=available.assets.filter(a=>referenced.has(a.id))
       for(const a of selected.assets) this.asset(a.id.slice(6),a.size)
       const next=merge(current,selected)
       if(!isBrushLibrary(next)) throw Error('Room brush library quota exceeded (256 MiB / 512 brushes)')

@@ -193,3 +193,86 @@ it('compares JSON rendering semantics across signed-zero serialization and neste
   changed.brushes[0].descriptor.scatter!.angleJitter = .01
   expect(() => merge(authored, changed)).toThrow('Immutable brush conflict')
 })
+
+function radialResources() {
+  const original = resource(1, 'a')
+  const primary = Buffer.alloc(64), secondary = Buffer.alloc(64)
+  primary.writeUInt32BE(0xffffffff, 4); secondary.writeUInt32BE(0x7fffffff, 4)
+  const hash = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex')
+  const first = hash(primary), second = hash(secondary)
+  const library = structuredClone(original.library)
+  const descriptor = library.brushes[0].descriptor
+  const tip = (lookup: `asset:${string}`): typeof descriptor.tip => ({ kind: 'procedural', hardness: 1, aspect: 1, rotation: 'fixed', angle: 0,
+    profile: { kind: 'radialCurve', lookup, resolution: 8, encoding: 'unorm32be', antialias: false } })
+  descriptor.tip = tip(`asset:${first}`)
+  const child = structuredClone(descriptor)
+  child.id = 'imported-' + 'b'.repeat(16)
+  child.tip = tip(`asset:${second}`)
+  child.behavior = { version: 2 }
+  descriptor.behavior = { version: 2, dual: { brush: child, blendMode: 'multiply' } }
+  library.assets.push(...[first, second].map(h => ({ id: `asset:${h}` as const, size: 8, file: h + '.bin' })))
+  // This declared image appears only in human diagnostics, never in rendering.
+  library.brushes[0].warnings = ['Unrelated source preview: ' + original.library.assets[0].id]
+  return { library, first, second, primary, secondary, token: original.token,
+    assets: new Map([...original.assets, [first, primary] as [string, Buffer], [second, secondary] as [string, Buffer]]) }
+}
+
+describe('radial curve room resource lifetime', () => {
+  it('pins primary and child lookup CAS across fork/restart without retaining warning references', () => {
+    const { dir, storage } = fixture(), radial = radialResources()
+    storage.install('alice', radial.library, radial.assets)
+    storage.pin('room', 'alice', [radial.token])
+    storage.copy('room', 'fork')
+    const restarted = new BrushStorage(dir)
+    expect(restarted.library('rooms', 'fork').assets.map(a => a.id).sort()).toEqual([`asset:${radial.first}`, `asset:${radial.second}`].sort())
+    expect(restarted.asset(radial.first, 8)).toEqual(radial.primary)
+    expect(restarted.asset(radial.second, 8)).toEqual(radial.secondary)
+  })
+
+  it('retains bitmap, image-pipe, material and grain roles together with a child lookup', () => {
+    const { storage } = fixture(), radial = radialResources()
+    const images = [resource(11, 'c'), resource(21, 'd'), resource(31, 'e'), resource(41, 'f'), resource(51, '9')]
+    const descriptor = radial.library.brushes[0].descriptor
+    const ids = images.map(image => image.library.assets[0].id)
+    descriptor.tip = { ...images[0].library.brushes[0].descriptor.tip,
+      animation: { mode: 'incremental', frames: [ids[0], ids[1]] },
+      material: { kind: 'lightness', gray: ids[2], grayFrames: [ids[2], ids[3]], strength: .5 } }
+    descriptor.texture = { id: ids[4], periodPx: 100, strength: .5 }
+    for (const image of images) {
+      radial.library.assets.push(...image.library.assets)
+      for (const [hash, bytes] of image.assets) radial.assets.set(hash, bytes)
+    }
+    storage.install('alice', radial.library, radial.assets)
+    storage.pin('room', 'alice', [radial.token])
+    expect(storage.library('rooms', 'room').assets.map(asset => asset.id).sort()).toEqual([...ids, `asset:${radial.second}`].sort())
+  })
+
+  it('provisions operator lookup bytes without rewriting protected historical archives or rooms', () => {
+    const { storage } = fixture(), old = resource(1, 'd'), radial = radialResources()
+    storage.install('__operator__', old.library, old.assets)
+    storage.pin('historical', '__operator__', [old.token])
+    const archive = readFileSync(storage.path('owners', '__operator__')), room = readFileSync(storage.path('rooms', 'historical'))
+    storage.provision(radial.assets)
+    storage.pin('new-room', 'alice', [radial.token], radial.library)
+    expect(storage.library('rooms', 'new-room').assets).toHaveLength(2)
+    expect(readFileSync(storage.path('owners', '__operator__'))).toEqual(archive)
+    expect(readFileSync(storage.path('rooms', 'historical'))).toEqual(room)
+  })
+
+  it('rejects missing lookup bytes and malformed manifests before publishing owner or room state', () => {
+    const { storage, dir } = fixture(), old = resource(1, 'd'), radial = radialResources()
+    storage.install('alice', old.library, old.assets)
+    storage.pin('room', 'alice', [old.token])
+    const owner = readFileSync(storage.path('owners', 'alice')), room = readFileSync(storage.path('rooms', 'room'))
+    const missing = new Map(radial.assets)
+    missing.delete(radial.second)
+    expect(() => storage.install('alice', radial.library, missing)).toThrow()
+    expect(existsSync(join(dir, 'assets', radial.first + '.bin'))).toBe(false)
+    expect(() => storage.pin('room', 'alice', [radial.token], radial.library)).toThrow()
+    const malformed = structuredClone(radial.library)
+    malformed.assets = malformed.assets.filter(a => a.id !== `asset:${radial.second}`)
+    expect(() => storage.install('alice', malformed, radial.assets)).toThrow()
+    expect(readFileSync(storage.path('owners', 'alice'))).toEqual(owner)
+    expect(readFileSync(storage.path('rooms', 'room'))).toEqual(room)
+  })
+})

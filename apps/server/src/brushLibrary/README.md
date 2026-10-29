@@ -11,7 +11,9 @@ uploads. Requests use the existing signed user identity, including guests. Room 
 use the same current durable content ACL as snapshots; a shared asset hash alone grants
 no access. Accepted imported strokes synchronously pin their exact version and assets
 before the operation log can accept them. Forks copy references before publishing the DB
-copy. No deletion/GC can remove historical assets; snapshots do not release references.
+copy. Retention uses the shared descriptor asset collector, including radial lookup
+tables and secondary brush resources; diagnostic text never creates references. Owner
+installation preflights resource bytes before publishing manifests. No deletion/GC can remove historical assets; snapshots do not release references.
 
 `GRAFETTO_BRUSH_LIBRARY_DIR` remains an explicit operator-only QA deployment option;
 leave unset in production. Without persistent storage imports return 503. The optional
