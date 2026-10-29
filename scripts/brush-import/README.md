@@ -287,3 +287,28 @@ explicit isotropic profile. Anisotropic characteristic dimensions, update clock
 and subpixel distance accumulation still need calibration. Portable profile
 validation checks dynamic bounds before any asset writes. Version15 scatter
 and soft-curve behavior is retained; no catalog is automatically activated.
+
+## Stage39: static radial curve lookup
+
+Circle soft generators with spikes2, randomness0, density1, AAfalse and unchecked
+Softness (missing means unchecked) compile to `tip.profile.kind: radialCurve`.
+An active Sharpness option retains the prior bitmap approximation instead of
+combining a threshold with this capability. Active Softness also retains that
+explicit unsupported fallback, even when its current strength is constant1.
+No material, animation or image-sampling combination is introduced.
+
+The LUT keeps source-authored `R=qRound(max(W,H)*4)` independently of effective
+child size. It contains R+2 clamped natural-cubic samples at j/(R+1), with corner
+runs and authored outer knots preserved. The sensor identity shortcut expands to
+an explicit table; sensor endpoint epsilon and sign semantics are absent.
+Samples are rounded to UNORM32 big-endian words, then stored as4bytes/sample in
+a zero-padded power-of-two byte square (minimum side4), using normal immutable
+CAS assets without resampling. Profile `encoding` is `unorm32be`, `antialias`
+is false. Portable validation requires an existing lookup asset with at least
+4*(R+2) bytes and recursively validates child descriptors before any file write.
+
+Affected descriptors and their containing parents use version31; other profile
+versions remain unchanged. Independent closed-form tests cover R4/5/220/240/300/
+440/2400, integer/half-step lookup positions, outer knots, corner rings, cubic
+curves, endpoint values and packed quantization. These are source-law witnesses;
+GPU precision, physical geometry and native pixel parity require separate QA.

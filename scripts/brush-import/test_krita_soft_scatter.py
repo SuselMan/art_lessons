@@ -42,15 +42,15 @@ class SoftScatterTests(unittest.TestCase):
         self.assertGreater(max(image.tobytes()),200)
         self.assertLess(image.getpixel((255,128)),30)
 
-    def test_supported_generator_routes_bitmap_and_unsupported_gates_are_visible(self):
+    def test_supported_generator_routes_radial_and_unsupported_gates_are_visible(self):
         def definition(shape='circle',spikes=2,aa=0,extra=''):
             return '<Brush type="auto_brush" '+extra+'><MaskGenerator id="soft" type="'+shape+'" diameter="60" ratio=".5" spikes="'+str(spikes)+'" antialiasEdges="'+str(aa)+'" softness_curve="0,0;.25,1,is_corner;1,0"/></Brush>'
         c=self.brush(definition());self.assertEqual(c.skipped,[])
-        d=c.brushes[0]['descriptor'];self.assertEqual(d['tip']['kind'],'bitmap');self.assertEqual(d['tip']['aspect'],2)
-        self.assertTrue(any(n['feature']=='softCurveGenerator' for n in c.brushes[0]['compatibility']))
+        d=c.brushes[0]['descriptor'];self.assertEqual(d['tip']['kind'],'procedural');self.assertEqual(d['tip']['aspect'],2)
+        self.assertTrue(any(n['feature']=='radialCurveProfile' for n in c.brushes[0]['compatibility']))
         for args in [('rect',2,0,''),('circle',3,0,''),('circle',2,1,''),('circle',2,0,'randomness=".2"'),('circle',2,0,'density=".5"')]:
             c=self.brush(definition(*args));self.assertEqual(c.skipped,[])
-            self.assertFalse(any(n['feature']=='softCurveGenerator' for n in c.brushes[0]['compatibility']))
+            self.assertFalse(any(n['feature']=='radialCurveProfile' for n in c.brushes[0]['compatibility']))
             self.assertTrue(any(n['feature']=='autoBrush' and n['status']=='unsupported' for n in c.brushes[0]['compatibility']))
 
     def test_malformed_and_singular_profiles_fail_without_fabricating_shape(self):

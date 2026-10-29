@@ -533,6 +533,14 @@ def validate_portable_profile(descriptor):
                 or tip.get('kind')!='procedural' or profile['shape'] not in ('ellipse','rectangle')
                 or any(not finite(profile.get(key),0,1) for key in ('horizontalFade','verticalFade'))):
             raise ValueError('Invalid portable standard profile')
+    elif profile.get('kind')=='radialCurve':
+        if (set(profile)!={'kind','lookup','resolution','encoding','antialias'}
+                or tip.get('kind')!='procedural' or profile['antialias'] is not False
+                or profile.get('encoding')!='unorm32be'
+                or not isinstance(profile.get('lookup'),str) or not re.fullmatch(r'asset:[a-f0-9]{64}',profile['lookup'])
+                or type(profile.get('resolution')) is not int or not 1<=profile['resolution']<=40000
+                or any(key in tip for key in ('imageSampling','alphaThreshold'))):
+            raise ValueError('Invalid portable radial curve profile')
     elif circle:
         def flat(curve):
             return (isinstance(curve,list) and len(curve)>=2
@@ -589,6 +597,11 @@ def portable_bundle(path,catalog):
         validate_portable_mixer(d)
         tip=d['tip']
         validate_portable_profile(d)
+        profile=tip.get('profile',{})
+        if profile.get('kind')=='radialCurve':
+            size=asset_sizes.get(profile['lookup'],0)
+            if size<4 or size*size<4*(profile['resolution']+2):
+                raise ValueError('Missing or undersized portable radial lookup asset')
         behavior=d.get('behavior',{})
         for section in ('dynamics','modulations'):
             controls=behavior.get(section,{}) if isinstance(behavior,dict) else {}

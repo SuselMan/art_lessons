@@ -74,6 +74,32 @@ def gaussian_circle(hfade, vfade, diameter, antialias=False, size=256):
     return Image.frombytes('L',(size,size),bytes(pixels))
 
 
+def radial_curve_samples(curve, diameter):
+    """Source-authored resolution is immutable when physical dab axes change."""
+    if type(diameter) not in (int,float) or not math.isfinite(diameter) or not 0<diameter<=10000:
+        raise ValueError('Invalid soft curve native diameter')
+    resolution=math.floor(diameter*4+.5)
+    if not 1<=resolution<=40000: raise ValueError('Singular soft curve native resolution')
+    transfer=native_transfer(curve,resolution+2)
+    # native_transfer's identity bypass belongs to sensors only. A mask always
+    # has R+2 values, sampled over R+1 intervals, without sensor epsilon/sign.
+    samples=([j/(resolution+1) for j in range(resolution+2)]
+             if isinstance(transfer,list) else transfer['samples'])
+    return resolution,samples
+
+
+def radial_curve_lookup(curve, diameter, catalog, warnings):
+    resolution,samples=radial_curve_samples(curve,diameter)
+    payload=b''.join(struct.pack('>I',math.floor(value*0xffffffff+.5)) for value in samples)
+    side=4
+    while side*side<len(payload): side*=2
+    raw=payload+bytes(side*side-len(payload))
+    # An exact square already at the destination POT size: no image resize,
+    # normalization or per-entry U8 quantization may touch these packed bytes.
+    lookup=catalog.asset(Image.frombytes('L',(side,side),raw),warnings,grain=True)
+    return {'kind':'radialCurve','lookup':lookup,'resolution':resolution,'encoding':'unorm32be','antialias':False}
+
+
 def soft_circle(curve='0,0;1,1', diameter=60, size=256):
     """Independent radial-squared curve coverage (native SoftId circle).
 
@@ -428,10 +454,22 @@ def preset(data, name, catalog, external, depth=0):
               and not enabled(generator.get('antialiasEdges')) and numeric(definition.get('randomness'))==0
               and numeric(definition.get('density'),1)==1)
         if soft:
-            mask=soft_circle(generator.get('softness_curve','0,0;1,1'),source_size)
-            d['tip']['kind']='bitmap';d['tip']['hardness']=1;d['tip']['mask']=catalog.asset(mask,warnings)
-            notes.append(compatibility('softCurveGenerator','Native author-diameter4x LUT with two extra samples retained at squared normalized radius in static256px mask; scale-dependent antialiasing, subpixel raster, resampling and scalar/SIMD rounding remain approximate.'))
-            if engine=='paintbrush' and enabled(params.get('PressureSoftness')):
+            curve=generator.get('softness_curve','0,0;1,1')
+            # Missing checkable Softness means unchecked in native Krita.
+            # Even an enabled constant option is outside this first capability.
+            procedural_soft=(not enabled(params.get('PressureSoftness'))
+                             and not enabled(params.get('PressureSharpness')))
+            if procedural_soft:
+                d['tip']['kind']='procedural';d['tip']['hardness']=1
+                authored_long_axis=max(source_size,source_size*numeric(generator.get('ratio'),1))
+                d['tip']['profile']=radial_curve_lookup(curve,authored_long_axis,catalog,warnings)
+                d['version']=31
+                notes.append(compatibility('radialCurveProfile','Native authored-diameter4x R+2 squared-radius LUT retained as packed UNORM32BE before mask quantization; physical geometry remains independent. GPU precision/subpixel and scalar/SIMD rounding require native comparison.'))
+            else:
+                mask=soft_circle(curve,source_size)
+                d['tip']['kind']='bitmap';d['tip']['hardness']=1;d['tip']['mask']=catalog.asset(mask,warnings)
+                notes.append(compatibility('softCurveGenerator','Static256px source curve fallback; active softness or threshold combinations are outside radialCurve capability.','unsupported'))
+            if enabled(params.get('PressureSoftness')):
                 notes.append(compatibility('softnessDynamics','Native softness transforms interior curve knots per dab; static base curve retained.','unsupported'))
         if (generator.get('id','default') != 'default' and not gaussian and not soft) or numeric(generator.get('spikes'),2) != 2 or numeric(definition.get('randomness')) or numeric(definition.get('density'),1) != 1:
             notes.append(compatibility('autoBrush','Gaussian/curve generator, spikes, randomness and density are not reproduced.','unsupported'))
@@ -874,6 +912,7 @@ def preset(data, name, catalog, external, depth=0):
         ratio=clamp(ratio,.01,8)
         child['sizeByPressure']=scaled_curve(child['sizeByPressure'],ratio)
         child=finalize_identity(child,child_png.getvalue())
+        if child['version']==31: d['version']=31
         mode=params.get('MaskingBrush/MaskingCompositeOp','multiply')
         combine=modes.get(mode,'multiply')
         if mode not in modes: notes.append(compatibility('maskingBlend','Unsupported Krita masking mode '+mode+'; multiply used.','unsupported'))
