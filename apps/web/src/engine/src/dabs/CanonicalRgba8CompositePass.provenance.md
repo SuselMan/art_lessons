@@ -127,3 +127,11 @@ FMA/SIMD or active PM storage/wire/undo identity. It is also not a responsivenes
 pass: heavily instrumented test took69.7s across17 strokes, maxrAF133.8ms,
 maxworkturn138.1ms. Separate phase/guard A/B profiling is required before
 attributing these timings to production engine work or claiming smoothness.
+
+## Optional synchronous batch (pending device gate)
+
+Второй аргумент drawSource(request,frame) использует общий BrushGlBatch capsule,
+predeclared owners/resources, once-per-source sampler journal и once-per-FBO
+validation. Прежний drawSource(request)/draw не пропускает защитные проверки.
+Численные shader strings и copy geometry прежние. Контракт и ограничения описаны
+в BrushGlBatch.provenance.md; предыдущие receipts не являются proof нового batch.

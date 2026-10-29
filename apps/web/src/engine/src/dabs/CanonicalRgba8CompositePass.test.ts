@@ -1,3 +1,4 @@
+import { runBrushGlBatch } from './BrushGlBatch';
 import { describe, expect, it, vi } from 'vitest';
 import { BrushMipCache } from './BrushMipCache';
 import { BrushTextureCache } from './BrushTextureCache';
@@ -247,6 +248,42 @@ describe('internal straight RGBA8 local alphaDarken pass', () => {
         s.gl.drawArrays.mockImplementationOnce(() => { throw new Error('authored draw failure'); });
         expect(() => s.pass.draw(s.view, s.target, [1, 2, 3], control)).toThrow('draw failure');
         expect(names.map(name => s.params.get(s.view.texture)?.get(name))).toEqual(original);
+        s.pass.reset();
+    });
+});
+
+describe('composite inside explicit GL batch', () => {
+    it('holds declared owners and validates FBO/samplers once across ordered draws', () => {
+        const clock = vi.spyOn(performance, 'now').mockReturnValue(100);
+        try {
+            const s = setup(); s.pass.prepare({width:16,height:16}, s.companion);
+            const release = vi.fn(), acquire = vi.fn(() => release);
+            const lifetime = {kind:'external' as const,owner:{},lease:acquire};
+            const target = {...s.target,lifetime};
+            const sampler = vi.spyOn(s.gl, 'getTexParameter'), fbo = vi.spyOn(s.gl, 'checkFramebufferStatus');
+            const before=s.snapshot();
+            runBrushGlBatch({participants:[s.pass],owners:[lifetime]}, frame => {
+                for(let i=0;i<3;i++)s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[198,36,90]},target,operation:{kind:'alphaDarken32',control}},frame);
+                expect(() => s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[1,2,3]},target,operation:{kind:'alphaDarken32',control}})).toThrow('identity');
+                expect(() => s.pass.reset()).toThrow('batch');
+            });
+            expect(sampler).toHaveBeenCalledTimes(4);expect(fbo).toHaveBeenCalledTimes(1);
+            expect(acquire).toHaveBeenCalledOnce();expect(release).toHaveBeenCalledOnce();
+            expect(s.gl.drawArrays).toHaveBeenCalledTimes(3);expect(s.snapshot()).toEqual(before);
+            s.pass.reset();
+        }finally{clock.mockRestore();}
+    });
+    it('restores original sampler/caller state on command failure and rejects undeclared owners before copy',()=>{
+        const s=setup();s.pass.prepare({width:16,height:16},s.companion);
+        const lifetime={kind:'external' as const,owner:{},lease:()=>()=>{}};
+        const target={...s.target,lifetime}, request={source:{kind:'maskRgb' as const,view:s.view,rgb:[1,2,3] as const},target,operation:{kind:'alphaDarken32' as const,control}};
+        expect(()=>runBrushGlBatch({participants:[s.pass]},frame=>s.pass.drawSource(request,frame))).toThrow('owner');
+        expect(s.gl.copyTexSubImage2D).not.toHaveBeenCalled();
+        const before=s.snapshot();s.gl.drawArrays.mockImplementationOnce(()=>{throw Error('GPU failure')});
+        expect(()=>runBrushGlBatch({participants:[s.pass],owners:[lifetime]},frame=>s.pass.drawSource(request,frame))).toThrow('GPU failure');
+        expect(s.snapshot()).toEqual(before);
+        const values=s.params.get(s.view.texture)!;
+        expect(values.get(s.gl.TEXTURE_MIN_FILTER)).toBe(s.gl.LINEAR);expect(values.get(s.gl.TEXTURE_WRAP_S)).toBe(s.gl.REPEAT);
         s.pass.reset();
     });
 });

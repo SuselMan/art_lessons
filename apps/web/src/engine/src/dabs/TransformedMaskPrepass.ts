@@ -1,3 +1,4 @@
+import type { BrushGlBatchFrame, BrushGlBatchInfo } from './BrushGlBatch';
 import { sourcePngPyramid } from '@grafetto/shared';
 import { saveBrushGlState } from './BrushGlState';
 import type { SourceDabMaterialSpec } from '../presets/sourceDabCache';
@@ -112,6 +113,7 @@ const safe = (v: number, low: number, high: number) => Number.isSafeInteger(v) &
 * memory allowance. Call prepare after assets and before input unlock.
 */
 export class TransformedMaskPrepass {
+  private batch?: BrushGlBatchFrame;
   private limits?: TransformedMaskLimits;
   private sources = new Map<string, number>();
   private sourceBindings = new Map<string, CanonicalMaskSourceBinding>();
@@ -146,6 +148,7 @@ export class TransformedMaskPrepass {
   * Caller accounts expansion scratch during source preparation separately.
   */
   prepare(limits: TransformedMaskLimits, sourceResources: readonly TransformedMaskPreparedSource[], signal?: AbortSignal): 'ready' | 'cancelled' {
+    if (this.batch) throw new Error('Cannot prepare inside an active brush GL batch');
     if (signal?.aborted)
       return 'cancelled';
     const budget = transformedMaskPrepassBudget(limits);
@@ -277,12 +280,25 @@ export class TransformedMaskPrepass {
   /** Holds all source/LUT/target entries through the caller's synchronous draw.
   * Caller MUST release in finally. No GL state is touched on a cache hit.
   */
-  resolveGroup(requests: readonly TransformedMaskRequest[]): {
+  brushGlBatchInfo(): BrushGlBatchInfo {
+    if (!this.isReady() || !this.workspace) throw new Error('Prepass is not prepared');
+    return { gl: this.gl, cache: this.cache, cpu: this.cpu, epoch: this.workspace, attributes: this.attributes, instancing: this.instancing, vertexArrays: this.vertexArrays,
+      resources: [...this.preparedResources(), ...[...this.sources].map(([key, bytes]) => ({ key, bytes }))] };
+  }
+  enterBrushGlBatch(frame: BrushGlBatchFrame): () => void {
+    frame.acceptParticipant(this);
+    if (this.batch || this.activeGroup) throw new Error('Prepass already has an active batch/group');
+    this.batch = frame;
+    return () => { if (this.batch === frame) this.batch = undefined; };
+  }
+  resolveGroup(requests: readonly TransformedMaskRequest[], frame?: BrushGlBatchFrame): {
     views: TransformedMaskView[];
     release: () => void;
   } {
+    if (this.batch !== frame) throw new Error('Prepass batch identity mismatch');
     if (this.activeGroup)
       throw new Error('Release the previous prepass group before resolving another');
+    const batchGroup = frame?.beginGroup();
     if (!this.isReady() || !this.limits || !this.workspace || !this.program || !this.staging)
       throw new Error('Prepass is not prepared');
     if (requests.length > this.limits.slots)
@@ -349,20 +365,23 @@ export class TransformedMaskPrepass {
       return { ...item, slot };
     });
     const resources = [{ key: this.workspaceKey, bytes: FACTOR_BYTES + this.staging.byteLength }, ...slots.map(s => ({ key: s.key, bytes: this.limits!.width * this.limits!.height * 4 })), ...[...this.sources].map(([key, bytes]) => ({ key, bytes }))];
+    frame?.assert(this, resources);
     this.cache.protect(resources.map(r => r.key));
-    const releaseResources = this.cache.lease(resources), token = Symbol('prepass-group');
+    const releaseResources = frame ? () => {} : this.cache.lease(resources), token = Symbol('prepass-group');
     this.activeGroup = token;
     let released = false;
     const release = () => {
       if (released) return;
       released = true;
       releaseResources();
+      if (batchGroup) frame!.endGroup(batchGroup);
       if (this.activeGroup === token) this.activeGroup = undefined;
     };
+    frame?.holdGroup(release);
     try {
       const misses = assigned.filter(item => item.slot.revision !== item.revision || item.slot.owner !== item.request.owner || item.slot.role !== item.request.role);
       if (misses.length) {
-        const restore = this.saveState(this.attributes);
+        const restore = frame ? () => {} : this.saveState(this.attributes);
         try {
           for (const item of misses) {
             item.slot.revision = undefined;
@@ -395,7 +414,7 @@ export class TransformedMaskPrepass {
       throw error;
     }
   }
-  releaseOwner(owner: object): void { for (const slot of this.slots)
+  releaseOwner(owner: object): void { if (this.batch) throw new Error('Cannot release owner inside active brush GL batch'); for (const slot of this.slots)
     if (slot?.owner === owner) {
       slot.owner = undefined;
       slot.role = undefined;
@@ -406,6 +425,7 @@ export class TransformedMaskPrepass {
       slot.profile = undefined;
     } }
   reset(lost = false): void {
+    if (this.batch && !lost) throw new Error('Cannot reset inside an active brush GL batch');
     // Old returned releases can never unlock a newly prepared group.
     this.activeGroup = undefined;
     for (const slot of [...this.slots])

@@ -1,3 +1,5 @@
+import { CanonicalRgba8CompositePass } from './CanonicalRgba8CompositePass';
+import { runBrushGlBatch } from './BrushGlBatch';
 import { describe, expect, it, vi } from 'vitest';
 import { BrushTextureCache } from './BrushTextureCache';
 import { BrushMipCache } from './BrushMipCache';
@@ -236,4 +238,62 @@ describe('canonical prepared bank binding', () => {
     expect(() => s.service.resolveGroup([{ ...s.request, material: { kind: 'savedSource', source: material() } }]).release()).not.toThrow();
     s.service.reset(); s.cache.clear();
   });
+});
+
+describe('prepass explicit synchronous batch', () => {
+  it('retains ordinary group lifetime while sharing one capture across misses and hits', () => {
+    const clock=vi.spyOn(performance,'now').mockReturnValue(0);
+    try {
+      const s=setup();s.gl.isContextLost=()=>false;
+      s.service.prepare({width:16,height:16,slots:2},s.resources);
+      const before=s.snapshot(), query=vi.spyOn(s.gl,'getParameter');let late:(()=>void)|undefined;
+      runBrushGlBatch({participants:[s.service]},frame=>{
+        const count=query.mock.calls.length;
+        const group=s.service.resolveGroup([s.request],frame);late=group.release;
+        expect(()=>s.service.resolveGroup([s.request],frame)).toThrow('previous');
+        group.release();
+        const hit=s.service.resolveGroup([s.request],frame);hit.release();
+        const changed={...s.request,owner:{}};
+        // Intentionally omit release: coordinator finally closes the final group.
+        s.service.resolveGroup([changed],frame);
+        expect(query.mock.calls.length).toBe(count);
+        expect(()=>s.service.prepare({width:16,height:16,slots:2},s.resources)).toThrow('batch');
+      });
+      expect(s.gl.drawArrays).toHaveBeenCalledTimes(2);expect(s.snapshot()).toEqual(before);
+      runBrushGlBatch({participants:[s.service]},frame=>{
+        const group=s.service.resolveGroup([s.request],frame);late!();
+        expect(()=>s.service.resolveGroup([s.request],frame)).toThrow('previous');group.release();
+      });
+      s.service.reset();
+    }finally{clock.mockRestore();}
+  });
+});
+
+it('shares one state capture for the real ordered prepass→composite services',()=>{
+  const clock=vi.spyOn(performance,'now').mockReturnValue(0);
+  try {
+    const s=setup();s.gl.isContextLost=()=>false;s.gl.STATIC_DRAW=9001;s.gl.TEXTURE1=s.gl.TEXTURE0+1;
+    s.gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME=9002;s.gl.copyTexSubImage2D=vi.fn();s.gl.uniform3f=vi.fn();s.gl.uniform4f=vi.fn();
+    const originalAttrib=s.gl.getAttribLocation;s.gl.getAttribLocation=(program:unknown,name:string)=>name==='position'?0:originalAttrib(program,name);
+    s.gl.getTexParameter=(_:number,p:number)=>p===s.gl.TEXTURE_MIN_FILTER||p===s.gl.TEXTURE_MAG_FILTER?s.gl.NEAREST:s.gl.CLAMP_TO_EDGE;
+    s.service.prepare({width:16,height:16,slots:2},s.resources);
+    const pass=new CanonicalRgba8CompositePass(s.gl,s.cache,s.cpu,'joined');
+    pass.prepare({width:16,height:16},[...s.resources,...s.service.preparedResources()],s.cpu.reservedBytes);
+    const release=vi.fn(),lifetime={kind:'external' as const,owner:{},lease:()=>release};
+    const target={brand:'canonical-straight-rgba8-v1' as const,texture:s.gl.createTexture(),framebuffer:s.gl.createFramebuffer(),width:32,height:32,originX:-100,originY:40,lifetime};
+    s.gl.getFramebufferAttachmentParameter=()=>target.texture;
+    const before=s.snapshot(),query=vi.spyOn(s.gl,'getParameter'),attrib=vi.spyOn(s.gl,'getVertexAttrib');
+    runBrushGlBatch({participants:[s.service,pass],owners:[lifetime]},frame=>{
+      const count=query.mock.calls.length;
+      for(let i=0;i<2;i++){
+        const group=s.service.resolveGroup([s.request],frame);
+        try{pass.drawSource({source:{kind:'maskRgb',view:group.views[0],rgb:[20,40,60]},target,operation:{kind:'alphaDarken32',control:{profile:'optimized32-scalar-f32-rne-v1',variant:'creamy',opacity:.8,averageOpacity:.8,flow:1}}},frame)}finally{group.release()}
+      }
+      expect(query.mock.calls.length).toBe(count);
+    });
+    expect(s.snapshot()).toEqual(before);expect(s.gl.drawArrays).toHaveBeenCalledTimes(3);
+    // Four unique attribs, once each, with the ANGLE divisor query.
+    expect(attrib).toHaveBeenCalledTimes(28);expect(release).toHaveBeenCalledOnce();
+    pass.reset();s.service.reset();
+  }finally{clock.mockRestore()}
 });

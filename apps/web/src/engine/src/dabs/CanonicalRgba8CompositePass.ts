@@ -1,3 +1,4 @@
+import type { BrushGlBatchFrame, BrushGlBatchInfo } from './BrushGlBatch';
 import type { SourceOver32ScalarControl } from '../presets/sourceOver32Scalar';
 import { SOURCE_OVER32_SCALAR_GLSL } from '../raster/sourceOver32ScalarShader';
 import type { SourceAlphaDarken32Control } from '../presets/sourceAlphaDarken32';
@@ -177,6 +178,7 @@ export class CanonicalRgba8CompositePass {
     private instancing: ANGLE_instanced_arrays | null = null;
     private vertexArrays: OES_vertex_array_object | null = null;
     private busy = false;
+    private batch?: BrushGlBatchFrame;
     constructor(gl: WebGLRenderingContext, cache: BrushTextureCache, cpu: BrushMipCache, prefix: string) {
         if (!prefix || prefix.includes('\0'))
             throw new RangeError('Invalid canonical composite scope');
@@ -189,6 +191,7 @@ export class CanonicalRgba8CompositePass {
      * companionCpuBytes is the total concurrent companion estimate: already held
      * reservations are included via max(), not charged for a second time. */
     prepare(limits: CanonicalCompositeLimits, companions: readonly Resource[], companionCpuBytes = 0, signal?: AbortSignal): 'ready' | 'cancelled' {
+        if (this.batch) throw new Error('Cannot prepare inside an active brush GL batch');
         if (signal?.aborted)
             return 'cancelled';
         const operations = operationsFor(limits);
@@ -307,7 +310,20 @@ export class CanonicalRgba8CompositePass {
         const owned: CanonicalOwnedRgba8Target = { ...target, lifetime: { kind: 'external', owner: target, lease: () => borrowedRelease } };
         return this.drawSource({ source: { kind: 'maskRgb', view, rgb }, target: owned, operation: { kind: 'alphaDarken32', control } });
     }
-    drawSource(request: CanonicalCompositeRequest): 'painted' | 'empty' {
+    brushGlBatchInfo(): BrushGlBatchInfo {
+        if (!this.isReady() || !this.workspace) throw new Error('Composite pass is not prepared');
+        return { gl: this.gl, cache: this.cache, cpu: this.cpu, epoch: this.workspace,
+            attributes: [...this.workspace.programs.values()].map(info => info.attribute), instancing: this.instancing, vertexArrays: this.vertexArrays,
+            resources: [...this.companions, ...this.preparedResources()] };
+    }
+    enterBrushGlBatch(frame: BrushGlBatchFrame): () => void {
+        frame.acceptParticipant(this);
+        if (this.batch || this.busy) throw new Error('Composite pass already has an active batch/draw');
+        this.batch = frame;
+        return () => { if (this.batch === frame) this.batch = undefined; };
+    }
+    drawSource(request: CanonicalCompositeRequest, frame?: BrushGlBatchFrame): 'painted' | 'empty' {
+        if (this.batch !== frame) throw new Error('Composite batch identity mismatch');
         if (this.busy)
             throw new Error('Composite draw is already active');
         if (!request || !request.source || !request.operation)
@@ -344,13 +360,16 @@ export class CanonicalRgba8CompositePass {
             return 'empty';
         if (clip.width > this.limits.width || clip.height > this.limits.height)
             throw new RangeError('Composite clip exceeds prepared capacity');
+        const declaredOwners = [target.lifetime, ...base === target ? [] : [base.lifetime], ...sampled.residency.kind === 'external' ? [sampled.residency] : []];
+        frame?.assert(this, resources, declaredOwners);
+        frame?.beginDraw();
         this.cache.protect([...unique.keys()]);
-        const release = this.cache.lease([...unique].map(([key, bytes]) => ({ key, bytes })));
-        const gl = this.gl, work = this.workspace, restore = saveBrushGlState(gl, [info.attribute], this.instancing, this.vertexArrays, 2), releases: (() => void)[] = [];
+        const release = frame ? () => {} : this.cache.lease([...unique].map(([key, bytes]) => ({ key, bytes })));
+        const gl = this.gl, work = this.workspace, restore = frame ? () => {} : saveBrushGlState(gl, [info.attribute], this.instancing, this.vertexArrays, 2), releases: (() => void)[] = [];
         this.busy = true;
         let restoreSampling: (() => void) | undefined, failure: unknown, failed = false;
         try {
-            for (const lifetime of [target.lifetime, ...base === target ? [] : [base.lifetime], ...sampled.residency.kind === 'external' ? [sampled.residency] : []]) {
+            for (const lifetime of frame ? [] : declaredOwners) {
                 const done = lifetime.lease();
                 if (typeof done !== 'function')
                     throw new Error('Invalid external resource lease');
@@ -358,8 +377,8 @@ export class CanonicalRgba8CompositePass {
             }
             if (this.workspace !== work || !this.limits)
                 throw new Error('Composite resources changed during owner acquisition');
-            this.bindTarget(target);
-            this.bindTarget(base);
+            if (frame) { frame.bindTarget(target); frame.bindTarget(base); }
+            else { this.bindTarget(target); this.bindTarget(base); }
             gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_2D, work.texture);
             gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, clip.x, clip.y, clip.width, clip.height);
@@ -377,7 +396,7 @@ export class CanonicalRgba8CompositePass {
             gl.vertexAttribPointer(info.attribute, 2, gl.FLOAT, false, 0, 0);
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, sampled.texture);
-            restoreSampling = this.pointSampling(sampled.texture);
+            restoreSampling = frame ? frame.pointSampling(sampled.texture) : this.pointSampling(sampled.texture);
             const u = info.uniforms;
             gl.uniform1i(u.sourceTexture, 0);
             gl.uniform1i(u.destinationTexture, 1);
@@ -442,6 +461,7 @@ export class CanonicalRgba8CompositePass {
         };
     }
     reset(lost = false): void {
+        if (this.batch && !lost) throw new Error('Cannot reset inside an active brush GL batch');
         if (this.busy && !lost)
             throw new Error('Cannot reset an active composite draw');
         this.cache.discard(this.key, lost);
