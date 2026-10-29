@@ -95,10 +95,10 @@ describe('canonical decoded frames over actual straight tiled layers', () => {
       expect(locals).toHaveLength(2)
       expect(locals.map(r => r.operation.kind === 'alphaDarken32' && r.operation.control.averageOpacity)).toEqual([Math.fround(.4), Math.fround(.4)])
       const base = first.find(r => r.readDestination)!.readDestination
-      expect(s.reserveTransient).toHaveBeenCalledExactlyOnceWith(4 * 4 * 8)
+      expect(s.reserveTransient.mock.calls).toEqual([[4 * 4 * 4], [4 * 4 * 8]])
       s.executor.enqueue(s.submit(decoded(1, 2, true, { phase: 'primary', group: 0 }), 1)); s.drain()
       expect(calls.mock.calls.filter(([r]) => r.readDestination).every(([r]) => r.readDestination!.texture === base!.texture)).toBe(true)
-      expect(s.reserveTransient).toHaveBeenCalledTimes(1)
+      expect(s.reserveTransient).toHaveBeenCalledTimes(3)
       expect(s.releases[0]).toHaveBeenCalledTimes(1)
       expect(s.scratch.bytes.live).toBe(0)
       expect(s.executor.checkpointReady).toBe(true)
@@ -174,7 +174,7 @@ describe('canonical decoded frames over actual straight tiled layers', () => {
       expect(local.map(r => [r.target.originX, r.target.originY])).toEqual([[0, 0], [4, 0], [0, 4], [4, 4]])
       expect(local.every(r => r.source.view.rect.x === 3)).toBe(true)
       expect(local.every(r => r.operation.kind === 'alphaDarken32' && r.operation.control.averageOpacity === Math.fround(.4))).toBe(true)
-      expect(s.reserveTransient).toHaveBeenCalledExactlyOnceWith(4 * 4 * 4 * 8)
+      expect(s.reserveTransient.mock.calls).toEqual([[4 * 4 * 4 * 4], [4 * 4 * 4 * 8]])
       expect(s.executor.checkpointReady).toBe(true)
     } finally { clock.mockRestore(); s.close() }
   })
@@ -231,13 +231,13 @@ describe('canonical decoded frames over actual straight tiled layers', () => {
     s.poison.mockImplementation(() => { throw notify })
     s.executor.enqueue(s.submit(decoded(1, 0, false)))
     s.executor.enqueue(s.submit(decoded(1, 8, true, { phase: 'primary', group: 0 }), 1))
-    s.releases[0].mockImplementation(() => { throw budget })
+    s.releases[1].mockImplementation(() => { throw budget })
     vi.spyOn(s.composite, 'drawSource').mockImplementation(() => { throw primary })
     try {
       expect(() => s.executor.advance()).toThrow(primary)
       expect(s.executor.cleanupFailures).toEqual([notify, pool, budget])
       expect(returned).toHaveBeenCalledTimes(2)
-      expect(s.releases[0]).toHaveBeenCalledTimes(1); expect(s.releases[1]).toHaveBeenCalledTimes(1)
+      for (const release of s.releases) expect(release).toHaveBeenCalledTimes(1)
       expect(s.scratch.bytes.live).toBe(0); expect(s.cpu.reservedBytes).toBe(baseline)
       expect(s.executor.pending).toBe(false); expect(s.executor.checkpointReady).toBe(false)
       expect(() => s.layer.clear()).not.toThrow()
@@ -294,5 +294,78 @@ it.each(['wash', 'buildup'] as const)('keeps the installed fused profile through
     } else expect(requests.every(r => r.operation.kind === 'over32FusedScalar')).toBe(true)
     expect(s.executor.checkpointReady).toBe(true)
     expect(s.poison).not.toHaveBeenCalled()
+  } finally { s.close() }
+})
+
+it.each(['wash', 'buildup'] as const)('reserves the complete %s target union before allocating any layer tiles', mode => {
+  const s = setup(mode), allocate = vi.spyOn(s.layer, 'resolveForPaint')
+  const baseline = s.cpu.reservedBytes
+  try {
+    s.reserveTransient.mockImplementationOnce(() => { throw new Error('target allocation fence') })
+    expect(() => s.executor.enqueue(s.submit(decoded(9)))).toThrow('target allocation fence')
+    expect(allocate).not.toHaveBeenCalled(); expect(s.layer.tileCount).toBe(0)
+    expect(s.cpu.reservedBytes).toBe(baseline); expect(s.executor.checkpointReady).toBe(true)
+    s.executor.enqueue(s.submit(decoded(9)))
+    expect(s.reserveTransient.mock.calls[1]).toEqual([3 * 4 * 4 * 4])
+    expect(allocate).not.toHaveBeenCalled()
+    expect(s.releases[0]).not.toHaveBeenCalled()
+    s.drain()
+    for (const release of s.releases) expect(release).toHaveBeenCalledTimes(1)
+    expect(s.executor.checkpointReady).toBe(true)
+  } finally { s.close() }
+})
+it('holds wash-pair headroom across chunks but releases target headroom after each frame', () => {
+  const s = setup('wash')
+  try {
+    s.executor.enqueue(s.submit(decoded(1, 0, false))); s.drain()
+    expect(s.releases[0]).toHaveBeenCalledTimes(1)
+    expect(s.releases[1]).not.toHaveBeenCalled()
+    s.executor.enqueue(s.submit(decoded(1, 0, true, { phase: 'primary', group: 0 }), 1))
+    expect(s.reserveTransient.mock.calls).toEqual([[64], [128], [64]])
+    s.drain()
+    for (const release of s.releases) expect(release).toHaveBeenCalledTimes(1)
+  } finally { s.close() }
+})
+it('rejects a new material profile before inspecting image assets or preparing targets', () => {
+  const s = setup(), input = s.submit()
+  try {
+    Object.assign(input.frame, { profile: 'default-auto-future-profile' })
+    Object.defineProperty(input, 'assets', { get: () => { throw new Error('image asset access forbidden') } })
+    expect(() => s.executor.enqueue(input)).toThrow('requires image material profile')
+    expect(s.reserveTransient).not.toHaveBeenCalled(); expect(s.layer.tileCount).toBe(0)
+  } finally { s.close() }
+})
+it('rejects an excessive frame target union before reserving or creating tiles', () => {
+  const s = setup('buildup'), input = s.submit(decoded(65))
+  try {
+    input.frame.draws.forEach((draw, i) => Object.assign(draw, { x: i * 4 }))
+    expect(() => s.executor.enqueue(input)).toThrow('bounded target union')
+    expect(s.reserveTransient).not.toHaveBeenCalled(); expect(s.layer.tileCount).toBe(0)
+    expect(s.executor.checkpointReady).toBe(true)
+  } finally { s.close() }
+})
+it('does not limit a buildup gesture to the target count of one frame', () => {
+  const s = setup('buildup'), first = s.submit(decoded(64, 0, false))
+  try {
+    first.frame.draws.forEach((draw, i) => Object.assign(draw, { x: i * 4 }))
+    s.executor.enqueue(first); s.drain()
+    expect(s.executor.checkpointReady).toBe(false)
+    s.executor.enqueue(s.submit(decoded(1, 256, true, { phase: 'primary', group: 0 }), 1)); s.drain()
+    expect(s.layer.tileCount).toBe(65)
+    expect(s.executor.checkpointReady).toBe(true)
+    expect(s.reserveTransient.mock.calls).toEqual([[4096], [64]])
+  } finally { s.close() }
+})
+it('reserves all accumulated wash targets for an empty commit tail', () => {
+  const s = setup('wash')
+  try {
+    s.executor.enqueue(s.submit(decoded(1, 0, false))); s.drain()
+    s.executor.enqueue(s.submit(decoded(1, 8, false, { phase: 'primary', group: 0 }), 1)); s.drain()
+    expect(s.reserveTransient.mock.calls).toEqual([[64], [128], [128], [128]])
+    s.executor.enqueue(s.submit(decoded(0, 0, true, { phase: 'primary', group: 0 }), 2))
+    expect(s.reserveTransient).toHaveBeenLastCalledWith(128)
+    s.drain()
+    expect(s.executor.checkpointReady).toBe(true)
+    for (const release of s.releases) expect(release).toHaveBeenCalledTimes(1)
   } finally { s.close() }
 })

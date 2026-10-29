@@ -1,4 +1,4 @@
-import { CANONICAL_STROKE_RASTER_PROFILE, type CanonicalMaterialAsset, type CanonicalMaterialFrame } from '@grafetto/shared'
+import { CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalMaterialAsset, type CanonicalMaterialFrame } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { PaintTarget } from '../buffers/ILayerBuffer'
 import { tilesOverlappingRect, tileWorldRect } from '../buffers/tileMath'
@@ -113,6 +113,7 @@ export class CanonicalFrameExecutor {
   enqueue(input: CanonicalFrameSubmission): void {
     if (this.failed || this.advancing) throw new Error('Canonical executor is poisoned or busy')
     if (this.queue.length >= 8) throw new RangeError('Canonical frame queue is full')
+    if (input?.frame?.profile !== CANONICAL_MATERIAL_PROFILE) throw new TypeError('Canonical executor requires image material profile')
     if (!input || !input.gestureId || !input.layerId || !int(input.layerEpoch) || !int(input.ordinal)
       || !Array.isArray(input.rgb) || input.rgb.length !== 3 || !input.rgb.every(n => int(n) && n <= 255)) throw new TypeError('Invalid canonical frame identity/pigment')
     const { buffer, epoch } = this.options.layer(input.layerId)
@@ -138,21 +139,31 @@ export class CanonicalFrameExecutor {
     // Decoder caps definitions/draws. Reserve retained DTO/plan metadata in the
     // EXISTING CPU cache (estimate, not a hard JavaScript-heap guarantee).
     const bytes = 1024 + input.frame.definitions.length * 1024 + input.frame.draws.length * 512 + input.frame.fences.length * 128 + input.assets.length * 256
-    const newTiles = new Map<string, TilePosition>()
+    const newTiles = new Map<string, TilePosition>(), frameTargets = new Map<string, TilePosition>()
+    // Wash presentation/commit revisits ALL accumulated tiles, including an
+    // empty gesture-end frame. Each can require recovery after a yield.
+    if (result.commands.length) for (const [k, tile] of this.admittedTiles) frameTargets.set(k, tile)
     for (const d of result.draws) {
       const recipe = input.frame.definitions[d.definition]
       const coordinates = tilesOverlappingRect({ minX: d.x, minY: d.y, maxX: d.x + recipe.width, maxY: d.y + recipe.height }, buffer.tileWidth, buffer.tileHeight)
       if (coordinates.length > 64) throw new RangeError('Canonical draw exceeds tile fanout')
-      if (input.composition.mode === 'wash') for (const c of coordinates) {
+      for (const c of coordinates) {
         const r = tileWorldRect(c.tileX, c.tileY, buffer.tileWidth, buffer.tileHeight)
         const t = { x: r.minX, y: r.minY, width: buffer.tileWidth, height: buffer.tileHeight }
-        if (!this.admittedTiles.has(key(t))) newTiles.set(key(t), t)
+        frameTargets.set(key(t), t)
+        if (frameTargets.size > 64) throw new RangeError('Canonical frame exceeds bounded target union')
+        if (input.composition.mode === 'wash' && !this.admittedTiles.has(key(t))) newTiles.set(key(t), t)
       }
     }
     if (newTiles.size + this.admittedTiles.size > 64) throw new RangeError('Canonical wash exceeds bounded tile count')
     const releaseMetadata = this.options.prepass.brushGlBatchInfo().cpu.reserve(bytes)
-    let releaseWashMetadata: (() => void) | undefined, releaseBudget: (() => void) | undefined
+    let releaseWashMetadata: (() => void) | undefined, releaseBudget: (() => void) | undefined, releaseTargetBudget: (() => void) | undefined
     try {
+      // Reserve an upper bound for the whole target union, not just wash pairs.
+      // Even currently resident targets may be evicted before this frame runs.
+      // The token lasts through this frame; actual target storage remains owned
+      // by the layer and must still be charged by the engine after release.
+      if (frameTargets.size) releaseTargetBudget = this.options.reserveTransient([...frameTargets.values()].reduce((sum, t) => sum + t.width * t.height * 4, 0))
       // Admit the entire frame union BEFORE any tile creation or pixel write.
       // Pool accounting stays authoritative; caller applies the existing fence.
       if (newTiles.size) {
@@ -165,7 +176,8 @@ export class CanonicalFrameExecutor {
       const resources = new Set([...info.resources, ...other.resources].map(r => r.key)).size
       if (info.cpu.reservedBytes + 65536 + resources * 128 > info.cpu.budgetBytes) throw new RangeError('Canonical queue exceeds shared CPU work headroom')
       const saved: CanonicalFrameSubmission = structuredClone(input)
-      this.queue.push({ input: saved, result, sourceKeys, draw: 0, tile: 0, present: 0, part: 0, releaseMetadata })
+      this.queue.push({ input: saved, result, sourceKeys, draw: 0, tile: 0, present: 0, part: 0,
+        releaseMetadata: () => { try { releaseMetadata() } finally { releaseTargetBudget?.() } } })
       for (const [k, tile] of newTiles) this.admittedTiles.set(k, tile)
       if (releaseBudget) {
         const gpu = releaseBudget, cpu = releaseWashMetadata!
@@ -174,6 +186,7 @@ export class CanonicalFrameExecutor {
       this.gesture ??= { id: input.gestureId, layerId: input.layerId, epoch: input.layerEpoch, buffer, rgb: [input.rgb[0], input.rgb[1], input.rgb[2]] }
       this.planned = result.state
     } catch (error) {
+      if (releaseTargetBudget) this.cleanup(releaseTargetBudget)
       if (releaseBudget) this.cleanup(releaseBudget)
       if (releaseWashMetadata) this.cleanup(releaseWashMetadata)
       this.cleanup(releaseMetadata)

@@ -116,3 +116,27 @@ receipt, host expected/source/bundle/config hashes, cleanup receipts and
 `canonical-executor-gates-summary.json`. Earlier accepted receipts were not
 replaced. These guard/readback-heavy runs are correctness gates, not performance
 acceptance, cross-GPU equality or engine/wire/undo/snapshot integration.
+
+## Target-allocation admission
+
+Each frame now reserves an upper bound for its complete target tile union before
+any layer resolution/allocation or pixel writes, in buildup as well as wash mode.
+Wash presentation/commit revisits all previously admitted wash tiles, including
+an empty gesture-end tail, so those targets enter this union too. Targets can be
+evicted between enqueue and execution; currently resident tiles are deliberately
+included. The frame token releases at finish/cancellation. Wash-pair tokens stay
+separate and survive until the gesture ends or is cancelled.
+
+At most 64 target coordinates are admitted per frame, matching the existing
+bounded target lifetime domain. This is not a 64-tile buildup gesture limit:
+subsequent frames can continue elsewhere, covered by the 65-tile regression.
+A caller must packetize long sparse strokes within this bound before UI activation.
+These are conservative reservations, not a claim that every target is newly
+allocated. Actual layer/pool storage must remain charged after token release;
+engine-global ownership/materialization accounting is still an activation gate.
+
+Negative tests cover both modes refusing a target reservation before allocation,
+queued token lifetimes, wash empty-tail targets, excessive frame unions and new
+material profiles rejected before image asset access. The successful pixel path
+is unchanged; older frozen device receipts do not certify this new admission
+policy. New source-material profiles still require their explicit resolver branch.
