@@ -1,20 +1,21 @@
-import { affineSpan16Straight, affineStraightMask, sampleAffineImageSpan16, type AffineReciprocalEstimate } from '../raster/affineImageSpan16'
+import { affineSpan16StraightInteger64, affineSpan16Straight, affineStraightMask, sampleAffineImageSpan16, type AffineReciprocalEstimate } from '../raster/affineImageSpan16'
 import { sourceImageScalePixels, sourceImageScaleStraightSse } from './sourceImageScalePixels'
 import type { SourceDabShape } from './sourcePngGeometry'
 import { sourceImageTransformPlan } from './sourceImageTransformPlan'
 
 /** Explicit CPU proof profile. No executing-device detection or wire admission.
  * Straight store selects the old division model or an explicit independently proven
- * SSE reciprocal backend. Android NEON store remains a separate source law. */
+ * SSE reciprocal backend, or the distinct generic Qt wordsize64 store.
+ * Decode/interpolation laws remain independently explicit; this is not CPU dispatch. */
 export interface SourceImageTransformProfile {
   readonly products: 'separate' | 'summed'
   readonly sourceDecode: 'wide8' | 'narrow4' | 'scalar'
-  readonly straightStore: 'sse4-model' | 'sse4-estimate'
+  readonly straightStore: 'sse4-model' | 'sse4-estimate' | 'qt-wordsize64'
   readonly reciprocalEstimate?: AffineReciprocalEstimate
 }
 
 function checkedProfile(profile: SourceImageTransformProfile): void {
-  if (!profile || !['sse4-model', 'sse4-estimate'].includes(profile.straightStore)
+  if (!profile || !['sse4-model', 'sse4-estimate', 'qt-wordsize64'].includes(profile.straightStore)
     || (profile.straightStore === 'sse4-estimate' ? typeof profile.reciprocalEstimate !== 'function' : profile.reciprocalEstimate !== undefined)
     || (profile.products !== 'separate' && profile.products !== 'summed')
     || !['wide8', 'narrow4', 'scalar'].includes(profile.sourceDecode)) throw new RangeError('Invalid affine image profile')
@@ -41,7 +42,8 @@ export function sourceImageTransformPixels(levelRGBA: Uint8Array, originalWidth:
   for (const span of plan.spans) {
     const sampled = sampleAffineImageSpan16(levelRGBA, sourceWidth, sourceHeight, plan.samplingInverse,
       span.x, span.y, span.length, profile.products, profile.sourceDecode, 'sampling')
-    pixels.set(affineSpan16Straight(sampled, profile.reciprocalEstimate), (span.y * plan.width + span.x) * 4)
+    pixels.set(profile.straightStore === 'qt-wordsize64' ? affineSpan16StraightInteger64(sampled)
+      : affineSpan16Straight(sampled, profile.reciprocalEstimate), (span.y * plan.width + span.x) * 4)
   }
   return pixels
 }

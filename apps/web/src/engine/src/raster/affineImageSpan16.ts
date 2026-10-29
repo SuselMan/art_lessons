@@ -77,6 +77,33 @@ const byteFrom16 = (value: number) => Math.floor((value+128-Math.floor((value+12
 
 export type AffineReciprocalEstimate = SourceImageReciprocalEstimate
 
+/** Qt's generic wordsize64 QRgba64::unpremultiplied -> 8-bit store.
+ * This is the RGBA64 store left installed by Qt5.15.7's NEON registration,
+ * distinct from its reciprocal-based ARGB32PM store. An explicit source law,
+ * not a claim about the executing application's selected fetch/store path.
+ * For valid PM channels c<=a all integer products remain below2^48, exactly
+ * representable by Number. No per-pixel BigInt or CPU-specific estimate table.
+ */
+export function affineSpan16StraightInteger64(premultiplied: Uint16Array): Uint8Array {
+  if (!(premultiplied instanceof Uint16Array) || premultiplied.length > 4 * 1048576 || premultiplied.length % 4) throw new RangeError('Invalid RGBA16 layout')
+  for (let i = 0; i < premultiplied.length; i += 4) {
+    const alpha = premultiplied[i + 3]!
+    if (premultiplied[i]! > alpha || premultiplied[i + 1]! > alpha || premultiplied[i + 2]! > alpha) throw new RangeError('Invalid premultiplied RGBA16 channel')
+  }
+  const result = new Uint8Array(premultiplied.length)
+  for (let i = 0; i < premultiplied.length; i += 4) {
+    const alpha = premultiplied[i + 3]!
+    const factor = alpha && alpha !== 65535 ? Math.floor((0xffff00008000 + Math.floor(alpha / 2)) / alpha) : 0
+    result[i + 3] = byteFrom16(alpha)
+    for (let channel = 0; channel < 3; channel++) {
+      const value = premultiplied[i + channel]!
+      const straight = factor ? Math.floor((value * factor + 0x80000000) / 0x100000000) : value
+      result[i + channel] = byteFrom16(straight)
+    }
+  }
+  return result
+}
+
 /** Optional source backend estimate, captured/compiled independently of images.
  * Validate and latch each distinct F32 input before allocating/writing result bytes.
  * This is SSE's normal finite-input relative-error domain, not a generic 1/a shim. */
