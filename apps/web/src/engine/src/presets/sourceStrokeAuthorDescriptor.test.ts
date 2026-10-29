@@ -124,7 +124,7 @@ describe('real descriptor to source author, explicit capability boundary',()=>{
     for(const edit of [(d:Mutable<BrushDescriptor>)=>{d.sourceStamp!.unsupported.push('unknown-reader-law')},(d:Mutable<BrushDescriptor>)=>{delete d.tip.imageSampling},(d:Mutable<BrushDescriptor>)=>{d.sourceStamp!.flags.textureEnabled=true},(d:Mutable<BrushDescriptor>)=>{d.sourceStamp!.role='mask'}]){
       const d=identity();edit(d);expect(sourceStrokeAuthorDescriptor(d,context).supported).toBe(false)
     }
-    expect(sourceStrokeAuthorDescriptor(identity(),{...context,asset:{...context.asset,size:2}}).supported).toBe(false)
+    expect(sourceStrokeAuthorDescriptor(identity(),{...context,asset:{...context.asset!,size:2}}).supported).toBe(false)
   })
   it('rejects malformed source slots, duplicate sensors, nonfinite data, mismatched text/corners and future schema',()=>{
     for(const edit of [(d:Mutable<SourceStampData>)=>Object.assign(d,{version:2}),(d:Mutable<SourceStampData>)=>d.options[0].sensors[0].sourceSlot=16,(d:Mutable<SourceStampData>)=>d.options[0].sensors.push(d.options[0].sensors[0]),(d:Mutable<SourceStampData>)=>d.brush.scale=NaN,(d:Mutable<SourceStampData>)=>d.options[0].sensors[0].curve.points[0].corner=true,(d:Mutable<SourceStampData>)=>d.options[0].sensors[0].sourceId='fuzzy',(d:Mutable<SourceStampData>)=>Object.assign(d.options[0],{extra:true})]){

@@ -1,5 +1,42 @@
 import { sourceOptionComponents, sourceSizeLike, type SourceOption, type SourceOptionContext } from './sourceOption'
-import { sourcePngHotSpot, sourcePngMaskExtent, sourceQRound, type SourceDabShape, type SourcePngBrush } from './sourcePngGeometry'
+import { sourceAutoGeometry } from './sourceAutoGeometry'
+import type { SourceDefaultAutoData } from '@grafetto/shared'
+import { sourcePngCharacteristicSize, sourcePngHotSpot, sourcePngMaskExtent, sourceQRound, type SourceDabShape, type SourcePngBrush } from './sourcePngGeometry'
+/** Pure data only; never contains callbacks, pixels, a CAS stand-in or RNG. */
+export interface SourceDabBrushMetrics { readonly width: number; readonly height: number; readonly scale: number; readonly angle: number }
+export type SourceDabGeometry = { readonly kind: 'image' } | {
+  readonly kind: 'defaultAuto'; readonly source: SourceDefaultAutoData
+  readonly coverageProfile: 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1'
+}
+function autoGeometry(brush: SourceDabBrushMetrics, geometry: Extract<SourceDabGeometry, {kind:'defaultAuto'}>, shape: SourceDabShape, subX=0, subY=0) {
+  const s=geometry.source
+  if (!s || s.kind!=='defaultAuto' || s.generator!=='default' || !['circle','rect'].includes(s.shape)
+    || s.spikes!==2 || s.randomness!==0 || s.density!==1 || typeof s.antialias!=='boolean'
+    || ![s.horizontalFade,s.verticalFade].every(v=>Number.isFinite(v)&&v>=0&&v<=1)
+    || !['scalar-f64-fma-v1','neon64-f32-fma-v1'].includes(geometry.coverageProfile)) throw new RangeError('Unsupported source auto geometry')
+  const result=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:s.diameter,ratio:s.ratio,spikes:2,scale:brush.scale,angle:brush.angle},shape,subX,subY)
+  if(result.brushSize[0]!==brush.width || result.brushSize[1]!==brush.height)throw new RangeError('Source auto brush metrics differ from generator')
+  return result
+}
+export function sourceDabCharacteristicSize(brush:SourceDabBrushMetrics,shape:SourceDabShape,geometry?:SourceDabGeometry):readonly[number,number] {
+  if(geometry?.kind==='defaultAuto')return autoGeometry(brush,geometry,shape).characteristicSize
+  if(geometry && geometry.kind!=='image')throw new RangeError('Unknown source geometry')
+  return sourcePngCharacteristicSize(brush,shape)
+}
+export function sourceDabHotSpot(brush:SourceDabBrushMetrics,shape:SourceDabShape,geometry?:SourceDabGeometry):readonly[number,number] {
+  if(geometry && !['image','defaultAuto'].includes(geometry.kind))throw new RangeError('Unknown source geometry')
+  return geometry?.kind==='defaultAuto'?autoGeometry(brush,geometry,shape).hotSpot:sourcePngHotSpot(brush,shape)
+}
+export function sourceDabMaskExtent(brush:SourceDabBrushMetrics,shape:SourceDabShape,subX=0,subY=0,geometry?:SourceDabGeometry):readonly[number,number] {
+  if(geometry && !['image','defaultAuto'].includes(geometry.kind))throw new RangeError('Unknown source geometry')
+  return geometry?.kind==='defaultAuto'?autoGeometry(brush,geometry,shape,subX,subY).maskSize:sourcePngMaskExtent(brush,shape,subX,subY)
+}
+export function sourceDabGeometryEqual(a:SourceDabGeometry|undefined,b:SourceDabGeometry|undefined):boolean {
+  if((a?.kind??'image')!==(b?.kind??'image'))return false
+  if(a?.kind!=='defaultAuto')return true
+  if(b?.kind!=='defaultAuto'||a.coverageProfile!==b.coverageProfile)return false
+  return Object.keys(a.source).length===Object.keys(b.source).length && Object.keys(a.source).every(k=>Object.is(a.source[k as keyof SourceDefaultAutoData],b.source[k as keyof SourceDefaultAutoData]))
+}
 export interface SourceMirrorBits { readonly horizontal: boolean; readonly vertical: boolean; readonly coordinateSystemFlipped: boolean }
 export interface SourceMirrorInput { readonly canvasH: boolean; readonly canvasV: boolean; readonly enableH: boolean; readonly enableV: boolean }
 export function sourceMirror(option: SourceOption, context: SourceOptionContext, input: SourceMirrorInput, onValue?: (value: number) => void): SourceMirrorBits {
@@ -70,7 +107,8 @@ export interface SourceDabCacheRequest {
 export interface SourceDabMaterialSpec {
   readonly sequence: number
   readonly brushIdentity: string
-  readonly brush: SourcePngBrush
+  readonly brush: SourceDabBrushMetrics
+  readonly geometry?: SourceDabGeometry
   readonly shape: SourceDabShape
   readonly key: SourceDabCacheKey
   readonly width: number
@@ -97,19 +135,21 @@ export interface SourceDabCacheResult {
   readonly type: 'Dab' | 'Postprocess' | 'Copy'
 }
 const fraction = (x: number): number => x - Math.floor(x)
-/** Bounded PNG-only material planner. Mirror is evaluated BEFORE hit testing;
+/** Common bounded material planner. Mirror is evaluated BEFORE hit testing;
  * hits retain the last generated bitmap/key instead of drifting the cache. */
-export function planSourcePngDab(brush: SourcePngBrush, request: SourceDabCacheRequest, state: SourceDabCacheState,
-  mirrorOption: SourceOption, context: SourceOptionContext, mirrorInput: SourceMirrorInput): SourceDabCacheResult {
+export function planSourceDab(brush: SourceDabBrushMetrics, request: SourceDabCacheRequest, state: SourceDabCacheState,
+  mirrorOption: SourceOption, context: SourceOptionContext, mirrorInput: SourceMirrorInput, geometry?: SourceDabGeometry): SourceDabCacheResult {
   if (!Number.isSafeInteger(state.nextSequence) || state.nextSequence < 0 || state.nextSequence >= Number.MAX_SAFE_INTEGER) throw new RangeError('Invalid source cache sequence')
   if (typeof request.brushIdentity !== 'string' || !request.brushIdentity.length) throw new RangeError('Missing native brush identity')
   if (!Number.isInteger(request.precisionLevel) || request.precisionLevel < 1 || request.precisionLevel > 5
     || ![request.x, request.y, request.softness, request.lightness].every(Number.isFinite)
     || (request.sharpnessChecked && (request.sharpness === undefined || !Number.isFinite(request.sharpness) || typeof request.sharpnessAlign !== 'boolean' || request.sharpnessStrength === undefined || !Number.isFinite(request.sharpnessStrength)))) throw new RangeError('Invalid source material request')
+  if(geometry?.kind==='defaultAuto')sourceDabCharacteristicSize(brush,{scale:1,ratio:1,rotation:0},geometry)
+  else if(geometry && geometry.kind!=='image')throw new RangeError('Unknown source geometry')
   let mirrorValue: number | undefined
   const mirror = sourceMirror(mirrorOption, context, mirrorInput, value => { mirrorValue = value })
   const shape = mirror.coordinateSystemFlipped ? { ...request.shape, rotation: 2 * Math.PI - request.shape.rotation } : request.shape
-  const [hotX, hotY] = sourcePngHotSpot(brush, shape)
+  const [hotX, hotY] = sourceDabHotSpot(brush, shape, geometry)
   let px = request.x - hotX, py = request.y - hotY
   if (request.sharpnessChecked && request.sharpnessAlign && request.sharpnessStrength! > 0) {
     const sharpness = request.sharpness!
@@ -122,25 +162,26 @@ export function planSourcePngDab(brush: SourcePngBrush, request: SourceDabCacheR
   }
   let x = Math.floor(px), y = Math.floor(py), subX = fraction(px), subY = fraction(py)
   if (request.disableSubpixel) { subX = 0; subY = 0 }
-  let [width, height] = sourcePngMaskExtent(brush, shape, subX, subY)
+  let [width, height] = sourceDabMaskExtent(brush, shape, subX, subY, geometry)
   if (mirror.horizontal) {
     subX = fraction(-(request.x + hotX))
-    width = sourcePngMaskExtent(brush, shape, subX, subY)[0]
+    width = sourceDabMaskExtent(brush, shape, subX, subY, geometry)[0]
     x = sourceQRound(request.x + subX + hotX) - width
   }
   if (mirror.vertical) {
     subY = fraction(-(request.y + hotY))
-    height = sourcePngMaskExtent(brush, shape, subX, subY)[1]
+    height = sourceDabMaskExtent(brush, shape, subX, subY, geometry)[1]
     y = sourceQRound(request.y + subY + hotY) - height
   }
-  const extent = sourcePngMaskExtent(brush, shape, subX, subY)
+  const extent = sourceDabMaskExtent(brush, shape, subX, subY, geometry)
   const key: SourceDabCacheKey = { color: request.color, angle: shape.rotation, width: extent[0], height: extent[1], subPixelX: subX, subPixelY: subY,
     softness: request.softness, lightness: request.lightness, ratio: shape.ratio, index: 0, mirrorH: mirror.horizontal, mirrorV: mirror.vertical }
   const effectivePrecision = request.autoPrecision ? Math.min(key.width, key.height) < 30 || !request.imprecisePosition ? 5 : 3 : request.precisionLevel
   const saved = state.saved
-  const hit = !!saved && saved.brushIdentity === request.brushIdentity && request.supportsCaching && request.solidColor && sourceDabKeysEqual(key, saved.key, effectivePrecision)
+  const hit = !!saved && sourceDabGeometryEqual(geometry,saved.geometry) && saved.brushIdentity === request.brushIdentity && request.supportsCaching && request.solidColor && sourceDabKeysEqual(key, saved.key, effectivePrecision)
   const requestedRect = { x, y, width, height }
   const resolvedSource: SourceDabMaterialSpec = hit ? saved : Object.freeze({
+    ...(geometry?.kind==='defaultAuto'?{geometry:Object.freeze({...geometry,source:Object.freeze({...geometry.source})})}:{}),
     sequence: state.nextSequence, brushIdentity: request.brushIdentity, brush: Object.freeze({ ...brush }),
     shape: Object.freeze({ ...shape }), key: Object.freeze({ ...key }), width: key.width, height: key.height,
     mirror: Object.freeze({ ...mirror }), position: Object.freeze({ x: request.x, y: request.y }),
@@ -150,4 +191,10 @@ export function planSourcePngDab(brush: SourcePngBrush, request: SourceDabCacheR
     type: !hit ? 'Dab' : request.textureEnabled || request.sharpnessChecked ? 'Postprocess' : 'Copy',
     state: Object.freeze({ nextSequence: state.nextSequence + 1, saved: resolvedSource }),
   }
+}
+
+/** Existing image-only API. Legacy fixtures and consumers remain byte-for-byte unchanged. */
+export function planSourcePngDab(brush:SourcePngBrush,request:SourceDabCacheRequest,state:SourceDabCacheState,
+  mirrorOption:SourceOption,context:SourceOptionContext,mirrorInput:SourceMirrorInput):SourceDabCacheResult {
+  return planSourceDab(brush,request,state,mirrorOption,context,mirrorInput)
 }

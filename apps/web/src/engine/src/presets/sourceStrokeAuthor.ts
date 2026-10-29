@@ -2,7 +2,7 @@ import { SourceDistanceTiming, sourceTimingInterval, type SourceSpacing } from '
 import { sourceDrawingDirection, sourceFanRequests, shortestSourceTurn } from '../input/kritaStrokeInput'
 import { KritaRandomSource, KritaPerStrokeRandomSource, type KritaRandomSnapshot, type KritaPerStrokeRandomSnapshot } from './nativeRandom'
 import { compileSourceOptionProgram, type SourceOptionProgram, type SourceOptionProgramInput } from './sourceOptionProgram'
-import { sourcePngCharacteristicSize, type SourcePngBrush } from './sourcePngGeometry'
+import { sourceDabCharacteristicSize, sourceDabMaskExtent, sourceDabGeometryEqual, type SourceDabGeometry, type SourceDabBrushMetrics } from './sourceDabCache'
 import type { SourceDabCacheRequest, SourceDabCacheState } from './sourceDabCache'
 import { SourceStampQueryExecutor, type SourceStampOptionId, type SourceStampOptions, type SourceStampResult } from './sourceStampQuery'
 
@@ -17,10 +17,11 @@ export interface SourceAuthorPacket {
 export interface SourceAuthorRoleProgram {
   readonly id: 'primary' | 'mask'
   readonly options: Readonly<Record<SourceStampOptionId, SourceOptionProgramInput>>
-  readonly brush: SourcePngBrush
+  readonly brush: SourceDabBrushMetrics
+  readonly geometry?: SourceDabGeometry
   readonly material: Omit<SourceDabCacheRequest, 'x' | 'y' | 'shape'>
   /** Current supported material law; active extra consumers must be rejected. */
-  readonly materialPolicy: 'png-fixed1-rng-free'
+  readonly materialPolicy: 'png-fixed1-rng-free' | 'default-auto-fixed1-rng-free'
   readonly lodScale: number
   readonly scatterX: boolean; readonly scatterY: boolean
   readonly mirrorX: boolean; readonly mirrorY: boolean; readonly indirectPainting: boolean
@@ -99,7 +100,7 @@ function spacing(program: SourceAuthorRoleProgram,r: SourceStampResult): SourceS
     // Native canPaintFor false uses1; tiny uses default enabled spacing0.
     return {enabled:true,isotropic:true,x:r.scale===undefined?1:0,y:r.scale===undefined?1:0,angle:0}
   }
-  const metric=sourcePngCharacteristicSize(program.brush,{scale:r.scale,ratio:1,rotation:0})
+  const metric=sourceDabCharacteristicSize(program.brush,{scale:r.scale,ratio:1,rotation:0},program.geometry)
   const auto=(v:number)=>program.spacing.coefficient*(v<1?v:Math.sqrt(v))
   let x:number,y:number
   if(program.spacing.isotropic){
@@ -128,7 +129,8 @@ export class SourceStrokeAuthor {
       || program.roles.length===2 && program.roles[1].id!=='mask') throw new RangeError('Invalid author source roles')
     this.program=freeze(structuredClone(program))
     this.options=this.program.roles.map(role=>{
-      if(role.materialPolicy!=='png-fixed1-rng-free' || role.material.softness!==1 || role.material.lightness!==1
+      if(!['png-fixed1-rng-free','default-auto-fixed1-rng-free'].includes(role.materialPolicy)
+        || (role.geometry?.kind==='defaultAuto')!==(role.materialPolicy==='default-auto-fixed1-rng-free') || role.material.softness!==1 || role.material.lightness!==1
         || role.material.sharpnessChecked || !Number.isFinite(role.lodScale) || role.lodScale<=0
         || ![role.spacing.value,role.spacing.coefficient,role.spacingRefreshMs,role.timingRefreshMs].every(v=>Number.isFinite(v)&&v>=0)
         || !Number.isFinite(role.timing.rate) || role.timing.rate<=0
@@ -138,7 +140,7 @@ export class SourceStrokeAuthor {
           role.timing.enabled,role.timing.ignoreDistance,role.material.autoPrecision,role.material.imprecisePosition,role.material.disableSubpixel,
           role.material.supportsCaching,role.material.solidColor,role.material.textureEnabled].some(v=>typeof v!=='boolean')
         || role.fanStepDegrees!==undefined && (!Number.isInteger(role.fanStepDegrees)||role.fanStepDegrees<5||role.fanStepDegrees>90)) throw new RangeError('Unsupported source material/scheduling program')
-      sourcePngCharacteristicSize(role.brush,{scale:1,ratio:1,rotation:0})
+      sourceDabCharacteristicSize(role.brush,{scale:1,ratio:1,rotation:0},role.geometry)
       return Object.fromEntries(IDS.map(id=>{
         const option=role.options[id]
         if(!option || option.id!==id)throw new RangeError('Missing source option program')
@@ -209,7 +211,16 @@ export class SourceStrokeAuthor {
           || ![saved.shape.rotation,saved.position.x,saved.position.y,key.angle,key.softness,key.lightness,key.ratio].every(Number.isFinite)
           || !count(key.index) || typeof key.color!=='string'
           || ![saved.mirror.horizontal,saved.mirror.vertical,saved.mirror.coordinateSystemFlipped,key.mirrorH,key.mirrorV].every(v=>typeof v==='boolean'))bad()
-        sourcePngCharacteristicSize(saved.brush,saved.shape)
+        if(!sourceDabGeometryEqual(saved.geometry,this.program.roles[index].geometry))bad()
+        sourceDabCharacteristicSize(saved.brush,saved.shape,saved.geometry)
+        if(saved.geometry?.kind==='defaultAuto'){
+          const expected=this.program.roles[index],extent=sourceDabMaskExtent(saved.brush,saved.shape,key.subPixelX,key.subPixelY,saved.geometry)
+          if(!['width','height','scale','angle'].every(k=>Object.is(saved.brush[k as keyof SourceDabBrushMetrics],expected.brush[k as keyof SourceDabBrushMetrics]))
+            || saved.width!==extent[0] || saved.height!==extent[1] || key.width!==saved.width || key.height!==saved.height
+            || !Object.is(key.angle,saved.shape.rotation) || !Object.is(key.ratio,saved.shape.ratio) || key.index!==0
+            || key.color!==expected.material.color || key.softness!==1 || key.lightness!==1
+            || key.mirrorH!==saved.mirror.horizontal || key.mirrorV!==saved.mirror.vertical)bad()
+        }
       }else if(role.cache.nextSequence!==0)bad()
     }
     if(state.cursor!==undefined){
@@ -289,7 +300,7 @@ export class SourceStrokeAuthor {
       const result=new SourceStampQueryExecutor(bound,context).execute(kind,{x:packet.x,y:packet.y,drawingAngle,canvasRotation:packet.canvasRotation,
         mirroredH:packet.mirroredH,mirroredV:packet.mirroredV},{canPaint:true,lodScale:program.lodScale,scatterX:program.scatterX,scatterY:program.scatterY,
         mirrorX:program.mirrorX,mirrorY:program.mirrorY,indirectPainting:program.indirectPainting,
-        sourceCache:{brush:program.brush,state:role.cache,request:program.material}})
+        sourceCache:{brush:program.brush,...(program.geometry?{geometry:program.geometry}:{}),state:role.cache,request:program.material}})
       let nextRole:SourceAuthorRoleState={...role}
       let nextCursor:Cursor
       if(kind==='paint'){

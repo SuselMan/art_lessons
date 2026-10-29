@@ -116,3 +116,7 @@ is not admission of its full saved master-size/curve/material configuration.
 - This is not Samsung/iPad performance or image parity proof. No legal clearance
   is asserted by source-informed mathematical orchestration. Upstream source
   excerpts remain in the native research evidence, not imported production code.
+
+## Default-auto geometry strategy
+
+The same owner now accepts explicit default-auto-fixed1-rng-free with tagged SourceDabGeometry; no image/CAS context or second scheduler. Virtual characteristic size/hotspot/mask extents dispatch through existing native-auto laws and saved generation data, preserving raw angles. Actual compiled stock7×30pressure packets resume identically at every yield; existing PNG native query/RNG/cache fixtures remain unchanged. See sourceDabCache.auto.provenance.md for exact cache source seams, independent proof boundary and image-only codec guards. This is author capability only, not activated canonical drawing or full-brush compatibility.

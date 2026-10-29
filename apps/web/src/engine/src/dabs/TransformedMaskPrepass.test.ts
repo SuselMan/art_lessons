@@ -43,6 +43,29 @@ describe('internal persistent transformed-mask service', () => {
     expect(s.gl.texImage2D).toHaveBeenCalledTimes(uploads);
     expect(s.snapshot()).toEqual(before);
   });
+  it('rejects auto material before a compatible preloaded image revision can reuse its cached PNG plan', () => {
+    const s = setup(), original = material()
+    s.service.prepare({ width: 16, height: 16, slots: 1 }, s.resources)
+    const first = s.service.resolveGroup([{ ...s.request, material: original }])
+    first.release()
+    const draws = s.gl.drawArrays.mock.calls.length, uploads = s.gl.texImage2D.mock.calls.length, before = s.snapshot()
+    const geometry = { kind: 'defaultAuto' as const, coverageProfile: 'neon64-f32-fma-v1' as const,
+      source: { kind: 'defaultAuto' as const, generator: 'default' as const, shape: 'circle' as const,
+        diameter: 2, ratio: .5, horizontalFade: 1, verticalFade: 1, antialias: false, spikes: 2, randomness: 0, density: 1 } }
+    // Every old revision component is identical; only the new source strategy
+    // differs. Without the early guard, previous.plan bypasses plan validation.
+    const auto = { ...original, geometry }
+    for (const m of [auto, { kind: 'savedSource' as const, source: auto }]) {
+      expect(() => s.service.resolveGroup([{ ...s.request, material: m }])).toThrow('Default auto')
+      expect(s.gl.drawArrays).toHaveBeenCalledTimes(draws)
+      expect(s.gl.texImage2D).toHaveBeenCalledTimes(uploads)
+      expect(s.snapshot()).toEqual(before)
+    }
+    const image = s.service.resolveGroup([{ ...s.request, material: original }])
+    image.release()
+    expect(image.views[0].texture).toBe(first.views[0].texture)
+    expect(s.gl.drawArrays).toHaveBeenCalledTimes(draws)
+  })
   it('keeps simultaneous primary/child masks distinct, reserves later hits and regenerates a replaced owner without RNG', () => {
     const s = setup();
     s.service.prepare({ width: 16, height: 16, slots: 2 }, s.resources);

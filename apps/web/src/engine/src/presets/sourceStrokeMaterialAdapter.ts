@@ -5,8 +5,10 @@ import {
 } from '@grafetto/shared'
 import type { SourceStrokeAuthorProgram, SourceStrokeAuthorState, SourceStrokeAuthorStep, SourceAuthorPacket } from './sourceStrokeAuthor'
 
+import type { SourceDabGeometry } from './sourceDabCache'
+
 type Draw=CanonicalMaterialBuildInput['draws'][number]
-export type SourceStrokeMaterialContext=Omit<CanonicalMaterialContext,'preflightDefinition'|'expectedDrawCount'|'expectedStrokeEnd'>
+export type SourceStrokeMaterialContext=Omit<CanonicalMaterialContext,'preflightDefinition'|'expectedDrawCount'|'expectedStrokeEnd'> & { readonly geometry?: SourceDabGeometry }
 export interface SourceStrokeMaterialInput {
   readonly packet:SourceAuthorPacket;readonly sourceAngle:number;readonly sourceTime:number
   readonly logicalSequence:number;readonly role:'primary'|'mask'
@@ -76,6 +78,8 @@ export class SourceStrokeMaterialAdapter {
   private pixels=0
 
   constructor(program:SourceStrokeAuthorProgram,context:SourceStrokeMaterialContext,source:SourceStrokeAuthorState,checkpoint?:SourceStrokeMaterialCheckpoint){
+    if(context.geometry?.kind==='defaultAuto')throw new RangeError('Default auto canonical material recipe is not implemented')
+    if(program.roles.some(r=>r.geometry?.kind==='defaultAuto'||r.materialPolicy==='default-auto-fixed1-rng-free'))throw new RangeError('Default auto canonical material recipe is not implemented')
     if(!program.id||program.id.length>256||program.roles.length<1||program.roles.length>2||program.roles[0].id!=='primary'||program.roles.length===2&&program.roles[1].id!=='mask')invalid()
     this.program={id:program.id,roles:program.roles.map(r=>({id:r.id,asset:r.material.brushIdentity}))}
     this.context={assets:structuredClone(context.assets),primaryAsset:context.primaryAsset,maskAsset:context.maskAsset,
@@ -140,6 +144,7 @@ export class SourceStrokeMaterialAdapter {
   }
   private material(step:SourceStrokeAuthorStep):Draw {
     const r=step.result!,m=r.material,s=m?.resolvedSource,role=step.role!
+    if(s?.geometry?.kind==='defaultAuto')throw new RangeError('Default auto canonical material recipe is not implemented')
     if(!m||!s||!r.painted||s.brushIdentity!==this.program.roles.find(p=>p.id===role)!.asset
       ||m.resolvedRect.width!==s.width||m.resolvedRect.height!==s.height
       ||typeof r.opacity!=='number'||!Number.isFinite(r.opacity)||r.opacity<0||r.opacity>1

@@ -1,5 +1,4 @@
-import { planSourcePngDab, sourceMirror, type SourceDabCacheRequest, type SourceDabCacheResult, type SourceDabCacheState, type SourceMirrorBits } from './sourceDabCache'
-import { sourcePngMaskExtent, type SourcePngBrush } from './sourcePngGeometry'
+import { planSourceDab, sourceDabMaskExtent, sourceMirror, type SourceDabGeometry, type SourceDabBrushMetrics, type SourceDabCacheRequest, type SourceDabCacheResult, type SourceDabCacheState, type SourceMirrorBits } from './sourceDabCache'
 import { sourceScatter } from './sourceScatter'
 import { sourceOptionComponents, sourceRotationLike, sourceSizeLike, sourceStandardOption, type SourceOption, type SourceOptionContext } from './sourceOption'
 
@@ -45,7 +44,8 @@ export interface SourceStampBoundary {
   maskExtent?(scale: number, ratio: number, rotation: number): readonly [number, number]
   /** Called in native addDab position; material source consumers share context. */
   readonly sourceCache?: {
-    readonly brush: SourcePngBrush
+    readonly brush: SourceDabBrushMetrics
+    readonly geometry?: SourceDabGeometry
     readonly state: SourceDabCacheState
     readonly request: Omit<SourceDabCacheRequest, 'x' | 'y' | 'shape'>
   }
@@ -121,7 +121,7 @@ export class SourceStampQueryExecutor {
     if (kind === 'spacing') return { painted: false, events, scale, rotation, spacing: spacing(), spacingMirror }
     const ratio = evaluate('Ratio')
     const extent = boundary.sourceCache
-      ? sourcePngMaskExtent(boundary.sourceCache.brush, { scale, ratio, rotation }, 0, 0)
+      ? sourceDabMaskExtent(boundary.sourceCache.brush, { scale, ratio, rotation }, 0, 0, boundary.sourceCache.geometry)
       : boundary.maskExtent?.(scale, ratio, rotation)
     if (!extent) throw new RangeError('Missing native mask geometry')
     const [width, height] = extent
@@ -134,9 +134,9 @@ export class SourceStampQueryExecutor {
     const flow = evaluate('Flow')
     if (boundary.sourceCache) {
       const before = this.context.random.snapshot().draws
-      material = planSourcePngDab(boundary.sourceCache.brush,
+      material = planSourceDab(boundary.sourceCache.brush,
         { ...boundary.sourceCache.request, x, y, shape: { scale, ratio, rotation } }, boundary.sourceCache.state,
-        this.options.Mirror, this.context, { canvasH: info.mirroredH, canvasV: info.mirroredV, enableH: boundary.mirrorX, enableV: boundary.mirrorY })
+        this.options.Mirror, this.context, { canvasH: info.mirroredH, canvasV: info.mirroredV, enableH: boundary.mirrorX, enableV: boundary.mirrorY }, boundary.sourceCache.geometry)
       if (material.mirrorValue !== undefined) events.push({ option: 'Mirror', stage: 'material', value: material.mirrorValue,
         drawsBefore: before, drawsAfter: this.context.random.snapshot().draws })
     } else boundary.material?.(this.context)

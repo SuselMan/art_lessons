@@ -1,0 +1,25 @@
+# One author/cache geometry strategy: default auto
+
+Independent data dispatch around the existing cache/query owner; no copied C++ implementation, second RNG/scheduler or image/CAS stand-in. `SourceDabGeometry` is structured-cloneable image/defaultAuto data. Legacy absence explicitly means image; new auto requires its raw SourceDefaultAutoData and explicit scalar-f64-fma-v1 or neon64-f32-fma-v1 coverage profile. Common brush metrics are initial integer dimensions/stored scale/angle, not an image identity. Auto brushIdentity is the immutable descriptorID@version. New image descriptors explicitly tag the role image; legacy native fixtures retain their original absent-tag representation.
+
+## Pinned source audit
+
+Krita bd6e8d061d2f0388c5b10278786cf0fe62e3135f, retained fixes-v42/source-pin/bd6e8d06-kis_dab_cache_base.cpp:
+
+- Lines115–138: getDabParameters calls virtual brush maskWidth/Height, stores RAW shape.rotation(), subpixels, softness/lightness, brushIndex and mirror properties. It does not substitute PNG dimensions or normalize the angle for cache comparison.
+- Lines173–228: calculateDabRect applies coordinateSystemFlipped via2π−rotation, obtains virtual hotSpot, splits cursor−hotspot, applies subpixel policy, and recomputes mirrored window/placement. The existing common planner retains that order; only the virtual geometry strategy differs.
+- Lines236–280: material Mirror precedes geometry/hit testing; effective precision uses minimum CURRENT mask dimension; compare is asymmetric in current size. Saved key updates only on MISS. The common planner still runs the same Mirror/components/RNG and precision comparison, not an auto-specific approximation.
+- kis_dab_cache.cpp:121–132 fetchFromCache corrects the CURRENT requested rectangle for SAVED bitmap size. Generated source shape/key/subpixels are not replaced by the current request on a hit. Destination placement is resolvedRect; saved.position is generation provenance only.
+- Retained kis_auto_brush.cpp:459 supportsCaching is density≈1 and randomness≈0; the closed profile is exactly density1/randomness0. kis_brush.cpp:516 brushIndex is0. Whole-wrapper56 and native auto geometry42 independently prove the underlying auto virtual geometry/coverage coupling on retained inputs. Those tests are not reinterpreted as an independent whole-stroke cache/RNG oracle.
+
+`sourceDabCharacteristicSize/HotSpot/MaskExtent` dispatch to the existing sourceAutoGeometry for auto and existing PNG kernels for images. Auto coverage receives raw saved shape.rotation+stored angle later; geometry performs its own source normalization internally. No early angle normalization, scale alias or rotated maskSize/2 hotspot is introduced. Existing PNG entrypoint planSourcePngDab remains a thin image wrapper around the SAME cache algorithm; its native640 geometry,56 cache transitions and query/RNG fixtures remain exact. Legacy image code avoids an additional geometry preflight call.
+
+## Actual importer integration and guards
+
+The real compiled stock7 descriptors4/8/17/18/19/21/67 now build SourceStrokeAuthor programs without asset context, under explicit default-auto-fixed1-rng-free. Existing nine option programs, distance/timing, sensor binding, shared sequential/per-stroke random state and primary/child ordering remain the same owner. The program and every saved auto generation contain data only, immutable and structured-cloneable. Restoring auto cache state checks source/profile binding, fixed brush metrics, native extent/key, raw angle/ratio and constant material/mirror identity BEFORE any random draw.
+
+Regression:30 identical pressure-varying packets per brush, negative positions and canvas mirror transitions. Draining normally versus closing/reconstructing the author at EVERY yield gives identical checkpoints, query events, source clocks and RNG. A separate actual Copy-hit regression changes current angle/subpixel/position while keeping the old generated raw angle/shape/key and A8 output; negative stored angle−.37 remains raw. Input/event/draw/state hashes are retained in ignored fixes-v52/auto-author-30-results.json. These are deterministic source-law composition tests, not independent native full-stroke pixel identity.
+
+Auto canonical recipes are deliberately unavailable in this commit. SourceStrokeMaterialAdapter and SourceCanonicalFrameEncoder explicitly reject auto before image assets/preflight; old TransformedMaskPlan and TransformedMaskPrepass reject before PNG math/revision/cache lookup. The latter test first preloads an image slot with otherwise identical old revision components, then verifies both bare and savedSource-wrapped auto requests reject without draws/uploads or cache mutation. This prevents a cached plan from bypassing the new profile guard.
+
+No shared codec/wire/server, active engine hooks, tip sampler uploads, cache/quota, resources, runtime or device jobs were added. Worker/scheduling/upload and real straight-layer auto drawing remain the next typed-recipe integration step. Universal Math.sin/cos versus Bionic identity remains outside the retained native oracle scope.

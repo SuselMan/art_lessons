@@ -1,4 +1,4 @@
-import { extractCanonicalSinglePngCapability, type BrushDescriptor, type SourceStampCurveData } from '@grafetto/shared'
+import { extractCanonicalSinglePngCapability, extractDefaultAutoSourceDataCapability, type BrushDescriptor, type SourceStampCurveData } from '@grafetto/shared'
 import { sourceCurveIsIdentity, type SourceCurvePolynomial } from './sourceCurve'
 import { compileSourceOptionProgram, type SourceOptionProgramInput } from './sourceOptionProgram'
 import { SourceStrokeAuthor, type SourceAuthorRoleProgram, type SourceStrokeAuthorProgram } from './sourceStrokeAuthor'
@@ -9,7 +9,8 @@ export interface SourceAuthorDescriptorContext {
   readonly lodScale: number
   /** Native effective brush scale captured at pen-down, if user changed size. */
   readonly scale?: number
-  readonly asset: { readonly id: string; readonly size: number }
+  readonly coverageProfile?: 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1'
+  readonly asset?: { readonly id: string; readonly size: number }
   /** Explicit compiler capability; absence rejects nonidentity curves.
    * Caller must bind its result to these exact points/corners/source reader. */
   readonly compileCurve?: (curve: SourceStampCurveData) => { readonly version: 'native-sparselu-v1'; readonly coefficients: SourceCurvePolynomial['coefficients'] } | undefined
@@ -18,9 +19,12 @@ export type SourceAuthorDescriptorResult = { readonly supported: true; readonly 
   | { readonly supported: false; readonly reasons: readonly string[] }
 export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, context: SourceAuthorDescriptorContext): SourceAuthorDescriptorResult {
   const data=descriptor.sourceStamp!
-  const material = extractCanonicalSinglePngCapability(descriptor, context.asset)
-  if (!material.supported) return material
   const reject=(reason:string):SourceAuthorDescriptorResult=>({supported:false,reasons:[reason]})
+  const auto=data?.version===2 && data.source?.kind==='defaultAuto'
+  const material = auto ? extractDefaultAutoSourceDataCapability(descriptor)
+    : context.asset ? extractCanonicalSinglePngCapability(descriptor, context.asset) : reject('image-source-asset-required')
+  if (!material.supported) return material
+  if(auto && !['scalar-f64-fma-v1','neon64-f32-fma-v1'].includes(context.coverageProfile??''))return reject('explicit-auto-coverage-profile-required')
   if (!Number.isFinite(context.lodScale) || context.lodScale <= 0 || typeof context.colorIdentity !== 'string' || !context.colorIdentity.length
     || context.scale !== undefined && (!Number.isFinite(context.scale) || context.scale <= 0)) return reject('invalid-author-context')
   const programs:Record<string,SourceOptionProgramInput>={}
@@ -44,10 +48,11 @@ export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, contex
     const fan=rotation.checked && rotation.useCurve ? rotation.sensors.find(s=>s.id==='drawingAngle' && s.fanCorners) : undefined
     const brush={...data.brush,scale:context.scale ?? data.brush.scale}
     const role:SourceAuthorRoleProgram={id:'primary',options:programs as unknown as SourceAuthorRoleProgram['options'],brush,
-      materialPolicy:'png-fixed1-rng-free',lodScale:context.lodScale,
+      ...(auto && data.version===2 && data.source.kind==='defaultAuto'?{geometry:{kind:'defaultAuto' as const,source:data.source,coverageProfile:context.coverageProfile!}}:data.version===2?{geometry:{kind:'image' as const}}:{}),
+      materialPolicy:auto?'default-auto-fixed1-rng-free':'png-fixed1-rng-free',lodScale:context.lodScale,
       scatterX:data.flags.scatterX,scatterY:data.flags.scatterY,mirrorX:data.flags.mirrorX,mirrorY:data.flags.mirrorY,indirectPainting:data.flags.indirectPainting,
       spacing:data.spacing,timing:data.timing,fanStepDegrees:fan?.fanStep,spacingRefreshMs:50,timingRefreshMs:50,
-      material:{brushIdentity:descriptor.tip.mask!,color:context.colorIdentity,softness:1,lightness:1,
+      material:{brushIdentity:auto?descriptor.id+'@'+descriptor.version:descriptor.tip.mask!,color:context.colorIdentity,softness:1,lightness:1,
         precisionLevel:data.precision.level,autoPrecision:data.precision.automatic,
         imprecisePosition:programs.Mirror.checked || programs.Scatter.checked || programs.Rotation.checked || data.timing.enabled,
         disableSubpixel:false,supportsCaching:true,solidColor:true,textureEnabled:false,sharpnessChecked:false}}
