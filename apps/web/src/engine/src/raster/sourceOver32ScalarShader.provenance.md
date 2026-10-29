@@ -1,4 +1,4 @@
-# Explicit scalar Over32 shader candidate
+# Explicit scalar Over32 shader
 
 `SOURCE_OVER32_SCALAR_GLSL` exports `sourceCompositeOver32Scalar(source,
 destination, controlValues, controlSelection)`, with integer-valued straight
@@ -60,3 +60,18 @@ No renderer, prepass, session, wire or policy is activated by this declaration.
 
 Initial candidate GLSL string SHA256:
 `e2963ec23ab7b1d5d6ea0c8f3ac702ea4de307940b875155a0d415dd6214ed5d`.
+
+## Samsung WebGL1 conformance
+
+Actual Samsung SM-T970 / Adreno650, WebGL1 highp23: 18944 whole-pixel
+cases exact, maxdelta0, GL errors empty. This includes2048 unchanged native
+ARM-body HOST SEMANTIC cases,512 old portable CPU regression outputs (including
+the documented two differences from SSE reciprocal),8192 deterministic stress
+cases per scalar profile. Native host semantics are not actual ARM whole-
+composite execution. This device proof does not claim native SIMD/factory
+dispatch, cross-vendor identity, active layer storage or a whole stroke.
+
+Reproduction: private fixes-v52/run-over32-scalar.mts and over32-scalar-body.js.
+Receipt: over32-scalar-device-result.json, prepared hashes in
+over32-scalar-prepared.json; GLSL SHA above unchanged. All own contexts and
+child tabs are disposed in finally; original report tab is restored.
