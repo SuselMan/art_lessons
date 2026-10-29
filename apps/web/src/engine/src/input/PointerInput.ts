@@ -131,11 +131,14 @@ export function smoothSpeed(prev: number, raw: number, dtMs: number): number {
 type PointerEventName = 'start' | 'move' | 'end'
 type PointerHandler = (data: PointerData) => void
 type PredictHandler = (data: PointerData[]) => void
+export interface CursorObservation { x: number; y: number; pointerType: string }
+type CursorObserver = (point: CursorObservation) => void
 
 export class PointerInput {
   private canvas: HTMLCanvasElement
   private _handlers: Partial<Record<PointerEventName, PointerHandler>>
   private _predictHandler?: PredictHandler
+  private _cursorObserver?: CursorObserver
   private _active: boolean
   // The last sample used as the speed reference: its own `timeStamp` (#532 —
   // not performance.now(), see this file's Speed section) and its canvas
@@ -251,6 +254,17 @@ export class PointerInput {
   onPredict(fn: PredictHandler): this {
     this._predictHandler = fn
     return this
+  }
+
+  /** Real cursor motion only: no pressure/speed extraction, no predictions. */
+  onCursor(fn: CursorObserver): this {
+    this._cursorObserver = fn
+    return this
+  }
+
+  private _observeCursor(e: PointerEvent): void {
+    if (!this._cursorObserver || (e.pointerType !== 'mouse' && e.pointerType !== 'pen')) return
+    this._cursorObserver({ ...this._toCanvasCoords(e), pointerType: e.pointerType })
   }
 
   // (#475) Installs the person's pressure calibration, already compiled to a
@@ -446,6 +460,8 @@ export class PointerInput {
 
   private _handleMove(e: PointerEvent): void {
     if (!this._active) {
+      const events = e.getCoalescedEvents?.()
+      for (const ev of events?.length ? events : [e]) this._observeCursor(ev)
       // (#517) A pen dragging across the canvas with its tip pressed
       // (buttons !== 0) while no stroke is open means the pointerdown that
       // should have opened one never reached this handler — the browser
@@ -474,12 +490,14 @@ export class PointerInput {
       return
     }
     // A hover may precede pointerup; it is not another contact sample.
-    if (e.buttons === 0 && e.pressure === 0) return
+    if (e.buttons === 0 && e.pressure === 0) { this._observeCursor(e); return }
     this._moveCount++
     const beforeX = this._lastX, beforeY = this._lastY, beforeT = this._lastT
     const events = e.getCoalescedEvents?.() ?? [e]
     for (const ev of events) {
-      if (ev.pointerId !== this._activePointerId || (ev.buttons === 0 && ev.pressure === 0)) continue
+      if (ev.pointerId !== this._activePointerId) continue
+      this._observeCursor(ev)
+      if (ev.buttons === 0 && ev.pressure === 0) continue
       this._emit('move', this._extract(ev))
     }
     // A big time gap since the last real sample, or an implausibly large

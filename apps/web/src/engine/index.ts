@@ -1,3 +1,4 @@
+import { createCursorHistory, pushCursorHistory, startCursorDirection } from './src/input/kritaStrokeInput'
 import { brushExecutionContext, assertBrushSourceInputs, assertBrushExecutionContext, type BrushExecutionContext } from './src/presets/brushExecutionContext'
 import { createBrushRandomContext, brushRandomMetadata, assertBrushRandomContext } from './src/oplog/brushRandomContext'
 import { BrushMipCache } from './src/dabs/BrushMipCache'
@@ -890,13 +891,13 @@ export interface PencilEngineAPI {
   // existing confirm, #171) to skip the dialog for a genuinely empty layer.
   hasLayerContent(layerId: string): boolean
   setViewport(cx: number, cy: number, zoom: number, angle: number): void
-  // Infinite canvas (#133 Phase 1) — camera-relative on-screen rendering.
+  // Camera-relative viewport rendering (bounded and infinite rooms).
   // (wx, wy) is the world point currently at screen center (unlike
   // setViewport's (cx, cy), a screen-space canvas-center position — there's
-  // no fixed canvas rect to recenter around here). Meaningless/never read
-  // for a bounded-canvas engine. Also updates the pointer transform, same
-  // as setViewport does, so drawing and camera movement share one call.
-  setInfiniteCamera(wx: number, wy: number, zoom: number, angle: number): void
+  // no fixed canvas rect to recenter around here). Also updates pointer input.
+  // Optional cssZoom is the viewport's nominal CSS/image scalar before backing
+  // store integer rounding; new source cursor-history policies use that resource.
+  setInfiniteCamera(wx: number, wy: number, zoom: number, angle: number, cssZoom?: number): void
   // Resizes the canvas backing buffer itself — the canvas element IS the
   // viewport, so it must track the viewport container's size. (#470) Both
   // kinds of room: a bounded room's canvas used to be its sheet, fixed for
@@ -2110,6 +2111,10 @@ export class PencilEngine implements PencilEngineAPI {
 
   // Infinite (tiled) canvas mode (#133 Phase 1) — see PencilEngineOptions.infinite.
   private readonly _infinite: boolean
+  private readonly _sourceCursorHistory=createCursorHistory()
+  private _boundedInputZoom=1
+  private _inputUsesCamera=false
+  private _sourceNominalZoom?:number
   // (#650) See PencilEngineOptions.diagLog.
   private readonly _diagLog: DiagLog
 
@@ -2511,6 +2516,10 @@ export class PencilEngine implements PencilEngineAPI {
       .on('start', e => this._onStart(e))
       .on('move',  e => this._onMove(e))
       .on('end',   e => this._onEnd(e))
+      .onCursor(point => {
+        const zoom=this._sourceInputZoom()
+        if(zoom!==undefined)pushCursorHistory(this._sourceCursorHistory,point,zoom)
+      })
 
     // Only registered when enabled — PointerInput never calls
     // getPredictedEvents() unless a 'predict' handler exists (see
@@ -2732,7 +2741,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom))
-      if(brush.behavior?.sequentialRandom) assertBrushSourceInputs(brush,strokeDabs(op),op.strokeEndSample)
+      if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput) assertBrushSourceInputs(brush,strokeDabs(op),op.strokeEndSample)
     }
     if(!hasValidStrokeEndSample(op)) throw new Error('Invalid stroke endpoint sample')
     // (#536, §17.58) A peer's watercolour operation arriving while a settle is
@@ -3706,6 +3715,9 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setViewport(cx: number, cy: number, zoom: number, angle: number): void {
+    this._boundedInputZoom=zoom
+    this._inputUsesCamera=false
+    this._sourceNominalZoom=undefined
     // #482: same reason as setInfiniteCamera's own assignment — a bounded room
     // rotates too, and the tilt reading is against the screen either way.
     this._dabs.cameraAngle = angle
@@ -3715,7 +3727,10 @@ export class PencilEngine implements PencilEngineAPI {
   /** See PencilEngineAPI's doc comment. The pointer transform is the exact
    *  inverse of the composite's world->screen math — see
    *  Camera.pointerTransform. */
-  setInfiniteCamera(wx: number, wy: number, zoom: number, angle: number): void {
+  setInfiniteCamera(wx: number, wy: number, zoom: number, angle: number, cssZoom?: number): void {
+    if(cssZoom!==undefined && (!Number.isFinite(cssZoom)||cssZoom<=0))throw Error('Invalid source input CSS zoom')
+    this._inputUsesCamera=true
+    this._sourceNominalZoom=cssZoom
     this._camera.set(wx, wy, zoom, angle)
     // #482: the frame the device's tilt reading has to be converted out of —
     // see DabSystem.cameraAngle. Assigned here rather than at stroke start so
@@ -3791,7 +3806,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom))
-      if(brush.behavior?.sequentialRandom) assertBrushSourceInputs(brush,strokeDabs(op),op.strokeEndSample)
+      if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput) assertBrushSourceInputs(brush,strokeDabs(op),op.strokeEndSample)
     }
     if (this.isSnapshotHistoryRepairPending(op.layerId)) { this._onPreviewApplied?.(op); return }
     if (this._contextLost || this.gl.isContextLost()) {
@@ -5744,7 +5759,7 @@ export class PencilEngine implements PencilEngineAPI {
     for (const op of pageOps) { assertBrushRandomContext(op); if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom))
-      if(brush.behavior?.sequentialRandom) assertBrushSourceInputs(brush,strokeDabs(op),op.strokeEndSample)
+      if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput) assertBrushSourceInputs(brush,strokeDabs(op),op.strokeEndSample)
     } }
     this._snapshotIO.absorbHistorical(pageOps)
     this._resolveSnapshotHistoryRepairs()
@@ -5983,6 +5998,11 @@ export class PencilEngine implements PencilEngineAPI {
     return this._ruler ? snapToRuler(x, y, this._ruler) : { x, y }
   }
 
+  private _sourceInputZoom(): number | undefined {
+    const zoom=this._inputUsesCamera ? this._camera.effectiveInputZoom(this._sourceNominalZoom) : this._boundedInputZoom
+    return zoom!==undefined && Number.isFinite(zoom) && zoom>0 ? zoom : undefined
+  }
+
   private _onStart(e: PointerData): void {
     // (§17.58) Peers' queued watercolour stays queued: landing it here was a
     // one-second hitch on the iPad right at the pen's touch. It lands after
@@ -6014,6 +6034,12 @@ export class PencilEngine implements PencilEngineAPI {
       })
       return
     }
+    const sourcePolicy=this._opts.tool==='digitalBrush' ? digitalBrushFromPreset(this._opts.pencilType).behavior?.strokeInput : undefined
+    const sourceZoom=this._sourceInputZoom()
+    if(sourcePolicy && sourceZoom===undefined)throw Error('Unsupported source input viewport')
+    // Native cursor history belongs to the freehand tool session, even between
+    // brushes without opt-in. Its result only changes new versioned policies.
+    const sourceInitial=sourceZoom===undefined ? 0 : startCursorDirection(this._sourceCursorHistory,e,sourceZoom,e.pointerType==='touch')
     // (#536, §17.52) Any tool: a settle spread over frames (a peer's
     // operation, or this author's own last wash) lands before this stroke
     // paints, or its copy-back would cover what the stroke lays under the
@@ -6195,6 +6221,8 @@ export class PencilEngine implements PencilEngineAPI {
     // Recorded strokes are unaffected: spacing is decided when the dabs are
     // made, and a replay paints the dabs the log holds.
     const spacingBrush = this._strokeTool === 'digitalBrush' ? digitalBrushFromPreset(this._opts.pencilType) : null
+    this._dabs.strokeInput=spacingBrush?.behavior?.strokeInput
+    this._dabs.initialDirection=sourceInitial
     this._dabs.captureSourceSize = !!spacingBrush?.behavior?.sequentialRandom
     const sourceSpacing = spacingBrush?.behavior?.spacing ?? (spacingBrush?.behavior?.sequentialRandom ? {mode:'diameter' as const,coefficient:spacingBrush.spacing} : undefined)
     this._dabs.autoSpacing = spacingBrush && sourceSpacing
@@ -6305,7 +6333,7 @@ export class PencilEngine implements PencilEngineAPI {
       const cfg = this._dwellCfg
       this._dwellTimer = setInterval(() => this._paintDwellDab(cfg), cfg.intervalMs)
     }
-    const dabs = this._dabs.startStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed,this._normalizedBrushSpeed(e))
+    const dabs = this._dabs.startStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed,this._normalizedBrushSpeed(e),e.timeStamp-this._strokeStartTimestamp)
     this._paintStrokeDabs(dabs, e.speed, 0)
     this._display()
     this._handlers.strokeStart?.(e)
@@ -6347,7 +6375,7 @@ export class PencilEngine implements PencilEngineAPI {
         this._dwellAnchorX = x; this._dwellAnchorY = y; this._dwellAnchorTimestamp = performance.now()
       }
     }
-    const dabs = this._dabs.continueStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed,this._normalizedBrushSpeed(e))
+    const dabs = this._dabs.continueStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed,this._normalizedBrushSpeed(e),e.timeStamp-this._strokeStartTimestamp)
     let painted = false
     if (dabs.length) {
       const t0 = performance.now()
@@ -6432,7 +6460,7 @@ export class PencilEngine implements PencilEngineAPI {
       // Ruler tool (#89): keep the speculative preview visually consistent
       // with the real path above, which snaps too.
       const { x, y } = this._snapPoint(s.x, s.y)
-      dabs.push(...fork.continueStroke(x, y, s.pressure, s.tiltX, s.tiltY, this._physicalSize, s.speed,this._normalizedBrushSpeed(s)))
+      dabs.push(...fork.continueStroke(x, y, s.pressure, s.tiltX, s.tiltY, this._physicalSize, s.speed,this._normalizedBrushSpeed(s),s.timeStamp-this._strokeStartTimestamp))
     }
     if (dabs.length) {
       this._bakeDabOpacity(dabs, samples[samples.length - 1].speed, this._strokeTool, this._strokePreset, this._opts.opacity)
@@ -6704,7 +6732,7 @@ export class PencilEngine implements PencilEngineAPI {
     // The *tail* taper stays a post-pass, in _onEnd, and that is a property of
     // drawing rather than an omission: "how far until the stroke ends" does not
     // exist until the pen is lifted.
-    for (const dab of dabs) dab.t = elapsedMs
+    if(!this._dabs.strokeInput) for (const dab of dabs) dab.t = elapsedMs
     // Smudge only (#14): the dab immediately before this call's own batch,
     // read *before* pushing this call's dabs onto _strokeDabs below — a
     // fresh stroke's very first _onStart call correctly sees undefined
@@ -7325,7 +7353,7 @@ export class PencilEngine implements PencilEngineAPI {
       const brush=digitalBrushFromPreset(presetName)
       assertBrushSourceInputs(brush,dabs,strokeEndSample)
       assertBrushExecutionContext(brush,execution)
-      if(brush.behavior?.sequentialRandom) {
+      if(brush.behavior?.sequentialRandom || brush.behavior?.strokeInput) {
         // The source response has the same canonical F32 boundary on sliced
         // rebuilds as on immediate/live painting. Never infer it from size.
         dabs=dabs.map(codecDab)

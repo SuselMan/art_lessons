@@ -1,4 +1,4 @@
-import { assertBrushExecutionContext, assertSameBrushExecutionContext, type BrushExecutionContext } from '../presets/brushExecutionContext'
+import { assertBrushSourceInputs, assertBrushExecutionContext, assertSameBrushExecutionContext, type BrushExecutionContext } from '../presets/brushExecutionContext'
 import { brushTipSamplerId, brushTipProfileUniforms } from './BrushPreparation'
 import { brushAlphaThresholdValue } from '../presets/brushAlphaThreshold'
 import { smearPlacement, smearSourceShift, type SmearPlacement } from './SmearPlacement'
@@ -358,7 +358,7 @@ export class SmudgePainter {
     // read+write WebGL1 forbids. A harmless no-op: the real dabs below
     // always paint straight into the real layer regardless (see
     // the engine's _paintDabs doc comment on this parameter).
-    if (paint?.brush) assertBrushExecutionContext(paint.brush,execution)
+    if (paint?.brush) { assertBrushExecutionContext(paint.brush,execution); assertBrushSourceInputs(paint.brush,dabs) }
     if (target instanceof AccumulationBuffer) return
     // An explicit prevDab means the caller *is* the continuation (the live
     // stroke's own next incremental batch), and nothing needs resolving.
@@ -396,7 +396,7 @@ export class SmudgePainter {
     }
     assertSameBrushExecutionContext(state.behavior.execution,execution)
     const travel = prev ? Math.hypot(dab.x-prev.x,dab.y-prev.y)/Math.max(0.5,this.radiusOf(dab,paint)) : 0
-    if (prev && travel < 1e-6 && brush.mixer?.source !== 'previousCanvas') { advanceBrushAnimation(brush,state.behavior); state.behavior.dabSequence=(state.behavior.dabSequence??0)+1; return }
+    if (!brush.behavior?.strokeInput && prev && travel < 1e-6 && brush.mixer?.source !== 'previousCanvas') { advanceBrushAnimation(brush,state.behavior); state.behavior.dabSequence=(state.behavior.dabSequence??0)+1; return }
     const dual=brush.behavior?.dual
     let secondary: ReturnType<RibbonStrokeScratch['brushSecondary']> | undefined
     if(dual?.sampling==='independent') {
@@ -407,7 +407,8 @@ export class SmudgePainter {
       this.ctx.paintBrushMask(maskTarget,secondaryBrushDabs(brush,dual.brush,[dab],secondary.sampling,true,undefined,execution),dual.brush,paint.pressure,secondary.scratch,paint.sizeMultiplier,execution)
     }
     const wet = brush.behavior?.wetMix
-    const directionalDab = {...dab,angle:prev && (prev.x!==dab.x || prev.y!==dab.y) ? Math.atan2(dab.y-prev.y,dab.x-prev.x) : dab.angle}
+    if(brush.behavior?.strokeInput && !prev)state.behavior.firstAngle=dab.sourceAngle!
+    const directionalDab = {...dab,angle:brush.behavior?.strokeInput ? dab.sourceAngle! : prev && (prev.x!==dab.x || prev.y!==dab.y) ? Math.atan2(dab.y-prev.y,dab.x-prev.x) : dab.angle}
     const pickupFactor = (brush.mixer?.pickupDynamics ?? []).reduce((value,control,index)=>value*brushDynamicValue(control,directionalDab,state.behavior,brushDabRandom(brushDabSeed(dab.x,dab.y,dab.pressure),0x60000+index)),1)
     // Evaluate source controls before behaviorStampsForDab advances distance,
     // direction and animation. Hash namespaces do not perturb old jitter streams.

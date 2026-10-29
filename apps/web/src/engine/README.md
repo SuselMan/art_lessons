@@ -63,3 +63,24 @@ GPU-проходы акварельного поля находятся в `rast
 камера, запись операций и жизненный цикл акварельных reveal остаются в движке.
 
 `brushLibrary.ts` — установка неизменяемых описаний импортированных кистей и проверенных CPU-ресурсов до их применения движком (ADR017).
+
+Для версионных кистей с `behavior.strokeInput` авторский ввод хранит историю
+реального курсора в image/world coordinates между жестами. `input/kritaStrokeInput`
+задаёт pure history/fan laws; `PointerInput.onCursor` наблюдает реальные hover/contact
+события без изменения скорости. Камерный viewport передаёт явный CSS/image zoom
+пятым аргументом `setInfiniteCamera`, до округления размеров backing store. История
+принадлежит экземпляру движка, а source
+paint-information/fan continuation — `DabSystem`; preview копирует его целиком.
+Fan — отдельный paint request, включая первый при t=0 на прежней позиции.
+
+`Dab.sourceAngle` хранит каноническое raw direction в Float64 до преобразования
+в brush rotation. `Dab.angle` сохраняет прежний Float32 формат; fixed tip shaping,
+position-derived direction и mixer controls не заменяют sourceAngle у новой policy.
+Fan insertion выполняется при авторском планировании, до source geometry/RNG,
+а peer/history/undo/rebuild исполняют уже записанные requests. Per-request время
+также сохраняется. Отсутствие policy оставляет прежний ввод и wire output.
+
+Opt-in не включён в stock-каталоге. Копия C++ source-law receipts проверяет history
+и fan math, но не полную Krita GUI/smoothing/distance pipeline. В частности текущий
+JS float atan2 adapter имеет известное отличие от native atan2f на один ULP;
+independent-child input policy и native tool sampling требуют отдельной проверки.

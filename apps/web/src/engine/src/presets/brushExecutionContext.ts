@@ -30,5 +30,5 @@ export function assertSameBrushExecutionContext(previous: BrushExecutionContext 
 /** Validate the entire logical batch before state, queue, log or GL effects. */
 export function assertBrushSourceInputs(brush: BrushDescriptor, dabs: readonly Dab[], endpoint?: Dab): void {
   if (!hasBrushSourceInputs(brush,dabs,endpoint))
-    throw Error('Sequential brush requires canonical sourceSize and sourceScale')
+    throw Error('Brush requires canonical sourceSize and sourceScale or sourceAngle for its active policy')
 }

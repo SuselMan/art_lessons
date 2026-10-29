@@ -251,7 +251,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
 ], options: {geometryOnly?:boolean} = {}): BehaviorStamp[] {
   const behavior = brush.behavior
   const native=!!behavior?.sequentialRandom
-  if(native) {
+  if(native || behavior?.strokeInput) {
     assertBrushExecutionContext(brush,state.execution)
     assertBrushSourceInputs(brush,[dab])
   }
@@ -265,11 +265,12 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const prev = state.previous
   if (prev)
     state.distance += Math.hypot(dab.x - prev.x, dab.y - prev.y) / Math.max(0.5, (dab.size + prev.size) * 0.5)
-  const direction = prev && (prev.x !== dab.x || prev.y !== dab.y) ? Math.atan2(dab.y - prev.y, dab.x - prev.x) : dab.angle
-  if (prev && !state.directionSet && (prev.x !== dab.x || prev.y !== dab.y)) {
+  const direction = behavior?.strokeInput ? dab.sourceAngle! : prev && (prev.x !== dab.x || prev.y !== dab.y) ? Math.atan2(dab.y - prev.y, dab.x - prev.x) : dab.angle
+  if (!behavior?.strokeInput && prev && !state.directionSet && (prev.x !== dab.x || prev.y !== dab.y)) {
     state.firstAngle = direction
     state.directionSet = true
   }
+  if(behavior?.strokeInput && !prev)state.firstAngle=direction
   const directionalDab = { ...dab, angle: direction }
   const seed = brushDabSeed(dab.x, dab.y, dab.pressure)
   const rand = (i: number): number => brushDabRandom(seed, i)
