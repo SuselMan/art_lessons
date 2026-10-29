@@ -1,0 +1,63 @@
+{
+  "scope": "Actual unmodified imported GitHEAD CanonicalRgba8CompositePass after sharedRGB integration, no private source transformation; scalarpoint profile only, no GUI/nativepacket claim",
+  "runs": {
+    "canonical-composite": {
+      "sourceHEAD": "1af700338c046ebad7587a949cfb6965435fc1bd",
+      "bundleSHA256": "d4f6619646d5ed348d3978ea345802ffc4ce044d83348077c073b62967b3c1d9",
+      "matchesPrivateTestedBundle": true,
+      "trials": 102,
+      "draws": 306,
+      "wrong": 0,
+      "maxDelta": 0,
+      "GL": [],
+      "prepareMs": 1114.699999988079,
+      "drawFinishMs": {
+        "p50": 2.5,
+        "p95": 6,
+        "max": 26.399999976158142
+      },
+      "cleanup": {
+        "ok": true,
+        "gpuBytes": 0,
+        "cpuReserved": 0
+      },
+      "stateRestored": true,
+      "hotNoUploads": true
+    },
+    "composite-over": {
+      "sourceHEAD": "1af700338c046ebad7587a949cfb6965435fc1bd",
+      "bundleSHA256": "e855fbd887a5fd6c9d5e422b6fa6ad076cae2a6f12092eb50b0eb6c0de596f50",
+      "matchesPrivateTestedBundle": true,
+      "trials": 64,
+      "draws": 192,
+      "wrong": 0,
+      "maxDelta": 0,
+      "GL": [],
+      "prepareMs": 1234.6000000238419,
+      "drawFinishMs": {
+        "p50": 4.900000035762787,
+        "p95": 8.799999952316284,
+        "max": 38
+      },
+      "cleanup": {
+        "ok": true,
+        "gpuBytes": 0,
+        "cpuReserved": 0
+      },
+      "stateRestored": true,
+      "hotNoUploads": true
+    }
+  },
+  "cleanup": {
+    "originalThreeTabsPreserved": true,
+    "ownJobs": 0,
+    "ownContextsClosed": true,
+    "ownGLDeleted": true,
+    "resource": "none created; parent Unicorn remains separately"
+  },
+  "checks": {
+    "focusedTests": 12,
+    "webAppTsc": "PASS",
+    "targetedLint": "PASS"
+  }
+}
