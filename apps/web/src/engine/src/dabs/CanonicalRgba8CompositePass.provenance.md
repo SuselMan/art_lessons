@@ -191,3 +191,21 @@ means an infinite page; viewport rectangles are never substituted for page bound
 The executor/room integration must use the same plan for admission and execution,
 handle empty draws, and pass the paint bound into drawSource. A standalone planner
 and optional compositor field do not establish complete page/room integration.
+
+### Samsung write-bound device gate (source 5e7573f6f)
+
+Actual SM-T970 / Adreno 650 / Chrome155 WebGL1: 64 combinations, 192 calls,
+zero differing bytes (maxDelta0). Independent host pixel intersection applies
+page bounds before original source/mirror indexing. Both Over32 profiles,
+maskRgb/straightRGBA, both source row orders, four mirrors, feedback/immutable
+preview, negative and ±2^40 origins are covered. Bounds cycle through inset,
+wholly outside and omitted. Pixels outside bounds retain their previous bytes.
+No hot uploads/VBO writes, sampler/state restoration and leases balanced; GL
+errors0, teardown GPUcache/CPU reservations0. Own child closed, original three
+tabs preserved, parent3631 restored, ADB forward removed.
+
+Receipts: fixes-v52/page-bound-composite-{prepared,device-result,device-cleanup,summary}.json;
+runner run-page-bound-composite.mts and page-bound-composite-body.js.
+Full result SHA256: f77c42dbb7f72d7420b807ea45a833cc28fed7f52d9e304fc0e288a656c0e143.
+This certifies the optional compositor clipping path, not whole-stroke room
+clipping, active renderer integration, native brush identity or responsiveness.
