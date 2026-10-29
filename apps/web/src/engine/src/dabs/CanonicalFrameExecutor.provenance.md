@@ -57,6 +57,10 @@ executor is poisoned. A genuine execution error/cancel calls `poison` to mark th
 layer unsettled and block checkpoints until the caller rebuilds from the trusted
 checkpoint plus ordered accepted journal. The executor drops its cursor and
 never retries against dirty pixels. A rebuilt layer uses a new executor.
+Cleanup detaches cursor/maps before callbacks, attempts every owned release even
+if another callback throws, and preserves the primary draw exception. Additional
+notification/release failures are exposed through bounded `cleanupFailures`;
+normal cancel reports the first cleanup failure only after attempting them all.
 
 Normal cancel returns scratch surfaces to their shared pool. `cancel(reason,
 {lost:true})` rejects while GL is live; on actual context loss it forgets own GPU

@@ -224,4 +224,39 @@ describe('canonical decoded frames over actual straight tiled layers', () => {
     } finally { s.close() }
   })
 
+  it('attempts every wash release when a callback throws and retains the primary draw error', () => {
+    const s = setup('wash'), primary = new Error('primary draw'), notify = new Error('poison callback'), budget = new Error('budget release'), pool = new Error('pool release')
+    const baseline = s.cpu.reservedBytes, actualRelease = s.scratch.release.bind(s.scratch)
+    const returned = vi.spyOn(s.scratch, 'release').mockImplementation(buffer => { actualRelease(buffer); if (returned.mock.calls.length === 1) throw pool })
+    s.poison.mockImplementation(() => { throw notify })
+    s.executor.enqueue(s.submit(decoded(1, 0, false)))
+    s.executor.enqueue(s.submit(decoded(1, 8, true, { phase: 'primary', group: 0 }), 1))
+    s.releases[0].mockImplementation(() => { throw budget })
+    vi.spyOn(s.composite, 'drawSource').mockImplementation(() => { throw primary })
+    try {
+      expect(() => s.executor.advance()).toThrow(primary)
+      expect(s.executor.cleanupFailures).toEqual([notify, pool, budget])
+      expect(returned).toHaveBeenCalledTimes(2)
+      expect(s.releases[0]).toHaveBeenCalledTimes(1); expect(s.releases[1]).toHaveBeenCalledTimes(1)
+      expect(s.scratch.bytes.live).toBe(0); expect(s.cpu.reservedBytes).toBe(baseline)
+      expect(s.executor.pending).toBe(false); expect(s.executor.checkpointReady).toBe(false)
+      expect(() => s.layer.clear()).not.toThrow()
+      s.executor.cancel(); expect(returned).toHaveBeenCalledTimes(2)
+    } finally { s.close() }
+  })
+  it('completes cancellation cleanup before reporting a callback failure', () => {
+    const s = setup('wash'), callback = new Error('release callback')
+    const baseline = s.cpu.reservedBytes
+    try {
+      s.executor.enqueue(s.submit(decoded(1, 0, false)))
+      s.executor.enqueue(s.submit(decoded(1, 8, true, { phase: 'primary', group: 0 }), 1))
+      s.releases[0].mockImplementation(() => { throw callback })
+      expect(() => s.executor.cancel()).toThrow(callback)
+      expect(s.releases[1]).toHaveBeenCalledTimes(1)
+      expect(s.cpu.reservedBytes).toBe(baseline)
+      expect(s.executor.poisoned).toBe(true); expect(s.executor.pending).toBe(false)
+      s.executor.cancel(); expect(s.releases[1]).toHaveBeenCalledTimes(1)
+    } finally { s.close() }
+  })
+
 })

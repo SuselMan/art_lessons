@@ -78,6 +78,7 @@ export class CanonicalFrameExecutor {
   private planned?: SourcePrimaryCompositionState
   private gesture?: { id: string; layerId: string; epoch: number; buffer: TiledLayerBuffer; rgb: readonly [number, number, number] }
   private failed = false
+  private readonly cleanupErrors: unknown[] = []
   private advancing = false
 
   constructor(options: CanonicalFrameExecutorOptions) {
@@ -93,6 +94,8 @@ export class CanonicalFrameExecutor {
   get pending(): boolean { return this.queue.length !== 0 }
   get checkpointReady(): boolean { return !this.failed && !this.pending && !this.gesture }
   get poisoned(): boolean { return this.failed }
+  /** Additional cleanup/notification errors never replace a primary draw error. */
+  get cleanupFailures(): readonly unknown[] { return Object.freeze([...this.cleanupErrors]) }
 
   /** Entire metadata admission before tile allocation, reservations or pixels.
    * At most eight accepted frames are retained. Inputs are copied, so later
@@ -156,11 +159,16 @@ export class CanonicalFrameExecutor {
       for (const [k, tile] of newTiles) this.admittedTiles.set(k, tile)
       if (releaseBudget) {
         const gpu = releaseBudget, cpu = releaseWashMetadata!
-        this.admissionReleases.add(() => { gpu(); cpu() })
+        this.admissionReleases.add(() => { try { gpu() } finally { cpu() } })
       }
       this.gesture ??= { id: input.gestureId, layerId: input.layerId, epoch: input.layerEpoch, buffer, rgb: [input.rgb[0], input.rgb[1], input.rgb[2]] }
       this.planned = result.state
-    } catch (error) { releaseBudget?.(); releaseWashMetadata?.(); releaseMetadata(); throw error }
+    } catch (error) {
+      if (releaseBudget) this.cleanup(releaseBudget)
+      if (releaseWashMetadata) this.cleanup(releaseWashMetadata)
+      this.cleanup(releaseMetadata)
+      throw error
+    }
 
   }
 
@@ -273,8 +281,8 @@ export class CanonicalFrameExecutor {
       this.washes.set(key(position), tile)
       return tile
     } catch (error) {
-      if (local) this.options.scratch.release(local)
-      if (original) this.options.scratch.release(original)
+      if (local) { const buffer = local; this.cleanup(() => this.options.scratch.release(buffer)) }
+      if (original) { const buffer = original; this.cleanup(() => this.options.scratch.release(buffer)) }
       throw error
     } finally { releaseTarget() }
   }
@@ -329,8 +337,11 @@ export class CanonicalFrameExecutor {
   private finish(work: Work): void {
     this.queue.shift(); work.releaseMetadata()
     if (work.result.state.ended) {
-      this.releaseWashes(); this.options.prepass.releaseOwner(this)
+      const before = this.cleanupErrors.length
+      this.releaseWashes()
+      this.cleanup(() => this.options.prepass.releaseOwner(this))
       this.gesture = undefined; this.planned = undefined
+      if (this.cleanupErrors.length > before) throw this.cleanupErrors[before]
     }
   }
 
@@ -339,29 +350,40 @@ export class CanonicalFrameExecutor {
   cancel(reason: unknown = new Error('Canonical execution cancelled'), options: { lost?: boolean } = {}): void {
     if (options.lost && !this.gl.isContextLost()) throw new Error('Cannot forget canonical resources on a live context')
     if (this.advancing) throw new Error('Cannot cancel inside a canonical GL batch')
-    if (this.gesture || this.pending) this.fail(reason, options.lost ?? this.gl.isContextLost())
+    if (this.gesture || this.pending) {
+      const before = this.cleanupErrors.length
+      this.fail(reason, options.lost ?? this.gl.isContextLost())
+      if (this.cleanupErrors.length > before) throw this.cleanupErrors[before]
+    }
   }
 
   private fail(reason: unknown, lost = false): void {
-    const layerId = this.gesture?.layerId
+    const layerId = this.gesture?.layerId, pending = this.queue.splice(0)
     this.failed = true
-    try { if (layerId) this.options.poison(layerId, reason) }
-    finally {
-      for (const work of this.queue.splice(0)) work.releaseMetadata()
-      this.releaseWashes(lost); this.options.prepass.releaseOwner(this)
-      this.gesture = undefined; this.planned = undefined
-    }
+    // Detach cursor ownership before invoking arbitrary notification/release
+    // callbacks. Reentrancy can never release one reservation a second time.
+    this.gesture = undefined; this.planned = undefined
+    if (layerId) this.cleanup(() => this.options.poison(layerId, reason))
+    for (const work of pending) this.cleanup(work.releaseMetadata)
+    this.releaseWashes(lost)
+    this.cleanup(() => this.options.prepass.releaseOwner(this))
+  }
+
+  private cleanup(action: () => void): void {
+    try { action() } catch (error) { this.cleanupErrors.push(error) }
   }
 
   private releaseWashes(lost = false): void {
-    for (const tile of this.washes.values()) {
+    const tiles = [...this.washes.values()], releases = [...this.admissionReleases]
+    this.washes.clear(); this.admittedTiles.clear(); this.admissionReleases.clear()
+    for (const tile of tiles) {
       // Lost handles are forgotten by the caller's ONE global pool.forget(),
       // after cancelling every owner, before recreating the context.
-      if (!lost) { this.options.scratch.release(tile.local); this.options.scratch.release(tile.original) }
+      if (!lost) {
+        this.cleanup(() => this.options.scratch.release(tile.local))
+        this.cleanup(() => this.options.scratch.release(tile.original))
+      }
     }
-    this.washes.clear()
-    this.admittedTiles.clear()
-    for (const release of this.admissionReleases) release()
-    this.admissionReleases.clear()
+    for (const release of releases) this.cleanup(release)
   }
 }
