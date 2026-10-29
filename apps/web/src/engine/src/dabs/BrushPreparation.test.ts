@@ -24,7 +24,7 @@ describe('selected brush preparation scheduler', () => {
   })
   it('cancels an old generation before a new selection can upload', async () => {
     const worker = new BrushPreparation(), stale = vi.fn(), current = vi.fn()
-    const old = worker.run([stale], {}, () => true), fresh = worker.run([current], {}, () => true)
+    const old = worker.run([stale], {}, () => true,'preset-a'), fresh = worker.run([current], {}, () => true,'preset-b')
     await expect(old).resolves.toEqual({ status: 'cancelled' })
     nextFrame(); await fresh
     expect(stale).not.toHaveBeenCalled(); expect(current).toHaveBeenCalledOnce()
@@ -122,4 +122,51 @@ it('reuses a paint-local plan for both roles while observing nested changes on t
   expect(brushTextureLeasePlan(second,'stamp').some(r=>r.key==='t:chalk')).toBe(true)
   const stampBrush = {...brush,model:'stamp' as const}
   expect(brushTextureLeasePlan(brushPreparationResources(stampBrush),'stamp')).toEqual(brushTextureLeaseResources(brush,'stamp'))
+})
+
+describe('shared same-preset preparation subscribers',()=>{
+  it('joins after one upload, sharing remaining work and independent progress snapshots',async()=>{
+    const worker=new BrushPreparation(),job=vi.fn(),firstProgress=vi.fn(),secondProgress=vi.fn()
+    const first=worker.run([job,job,job],{onProgress:firstProgress},()=>true,'preset-a')
+    nextFrame()
+    const second=worker.run([()=>{throw Error('Joined work must not replace the active bank')}],{onProgress:secondProgress},()=>true,'preset-a')
+    nextFrame();nextFrame()
+    await expect(first).resolves.toEqual({status:'ready'});await expect(second).resolves.toEqual({status:'ready'})
+    expect(job).toHaveBeenCalledTimes(3)
+    expect(firstProgress.mock.calls).toEqual([[1,3],[2,3],[3,3]])
+    expect(secondProgress.mock.calls).toEqual([[1,3],[2,3],[3,3]])
+  })
+  it.each([0,1])('aborts subscriber%s without cancelling the other or continuing its notifications',async aborted=>{
+    const worker=new BrushPreparation(),signals=[new AbortController(),new AbortController()],progress=[vi.fn(),vi.fn()],job=vi.fn()
+    const pending=signals.map((signal,i)=>worker.run([job,job],{signal:signal.signal,onProgress:progress[i]},()=>true,'preset-a'))
+    nextFrame();signals[aborted].abort();nextFrame()
+    expect(await Promise.all(pending)).toEqual(aborted===0?[{status:'cancelled'},{status:'ready'}]:[{status:'ready'},{status:'cancelled'}])
+    expect(progress[aborted]).toHaveBeenCalledTimes(1);expect(progress[1-aborted]).toHaveBeenCalledTimes(2)
+    expect(job).toHaveBeenCalledTimes(2)
+  })
+  it('removes the last scheduled frame when all subscribers abort and allows a fresh run',async()=>{
+    const worker=new BrushPreparation(),a=new AbortController(),b=new AbortController(),job=vi.fn()
+    const first=worker.run([job,job],{signal:a.signal},()=>true,'preset-a'),second=worker.run([job],{signal:b.signal},()=>true,'preset-a')
+    a.abort();expect(frames.size).toBe(1);b.abort();expect(frames.size).toBe(0)
+    expect(await Promise.all([first,second])).toEqual([{status:'cancelled'},{status:'cancelled'}])
+    nextFrame();expect(job).not.toHaveBeenCalled()
+    const retry=worker.run([job],{},()=>true,'preset-a');nextFrame();await expect(retry).resolves.toEqual({status:'ready'})
+    expect(job).toHaveBeenCalledOnce()
+  })
+  it('keeps other subscribers alive if a progress observer throws',async()=>{
+    const worker=new BrushPreparation(),job=vi.fn()
+    const bad=worker.run([job,job],{onProgress:()=>{throw Error('observer failed')}},()=>true,'preset-a')
+    const rejected=expect(bad).rejects.toThrow('observer failed')
+    const healthy=worker.run([job],{},()=>true,'preset-a')
+    nextFrame();nextFrame();await rejected;await expect(healthy).resolves.toEqual({status:'ready'})
+    expect(job).toHaveBeenCalledTimes(2)
+  })
+})
+
+it('cancels all shared subscribers when the preparation context becomes unavailable',async()=>{
+  const worker=new BrushPreparation(),job=vi.fn();let available=true
+  const first=worker.run([job,job],{},()=>available,'preset-a'),second=worker.run([job],{},()=>available,'preset-a')
+  available=false;nextFrame()
+  expect(await Promise.all([first,second])).toEqual([{status:'cancelled'},{status:'cancelled'}])
+  expect(frames.size).toBe(0);expect(job).not.toHaveBeenCalled()
 })

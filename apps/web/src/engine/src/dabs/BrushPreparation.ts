@@ -137,40 +137,94 @@ export function brushTextureLeasePlan(resources: readonly BrushPreparationResour
     .map(resource => ({ key: brushTextureResourceKey(resource), bytes: brushPreparationBytes([resource], id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256) }))
 }
 
-/** Only one CPU-mips/upload job per animation frame; no stroke state is touched. */
+type PreparationOutcome = { result: BrushPreparationResult } | { error: unknown }
+interface PreparationSubscriber {
+  finish: (outcome: PreparationOutcome) => void
+  progress?: (done: number, total: number) => void
+}
+interface PreparationRun {
+  key?: string
+  done: number
+  total: number
+  finished: boolean
+  subscribers: Set<PreparationSubscriber>
+  finish: (outcome: PreparationOutcome) => void
+}
+const cancelledPreparation: PreparationOutcome = { result: { status: 'cancelled' } }
+
+/** One upload per frame. A selected immutable preset may share its work, but
+ * each caller owns its cancellation/progress subscription. No stroke state.
+ */
 export class BrushPreparation {
-  private cancelPending: (() => void) | undefined
-  cancel(): void { this.cancelPending?.() }
-  run(jobs: readonly (() => void)[], options: BrushPreparationOptions, available: () => boolean): Promise<BrushPreparationResult> {
-    this.cancel()
+  private active?: PreparationRun
+  cancel(): void { this.active?.finish(cancelledPreparation) }
+
+  private subscribe(run: PreparationRun, options: BrushPreparationOptions): Promise<BrushPreparationResult> {
     return new Promise((resolve, reject) => {
-      let frame = 0, done = 0, finished = false
-      const finish = (result: BrushPreparationResult, error?: unknown) => {
-        if (finished) return
-        finished = true
-        if (frame) cancelAnimationFrame(frame)
-        options.signal?.removeEventListener('abort', cancel)
-        if (this.cancelPending === cancel) this.cancelPending = undefined
-        if (error !== undefined) reject(error); else resolve(result)
+      let settled = false
+      const finish = (outcome: PreparationOutcome) => {
+        if (settled) return
+        settled = true
+        options.signal?.removeEventListener('abort', abort)
+        run.subscribers.delete(subscriber)
+        if ('error' in outcome) reject(outcome.error); else resolve(outcome.result)
+        if (!run.finished && !run.subscribers.size) run.finish(cancelledPreparation)
       }
-      const cancel = () => finish({ status: 'cancelled' })
-      this.cancelPending = cancel
-      options.signal?.addEventListener('abort', cancel, { once: true })
-      const step = () => {
-        frame = 0
-        if (options.signal?.aborted || !available()) { cancel(); return }
-        try {
-          jobs[done]?.()
-          if (done < jobs.length) done++
-          options.onProgress?.(done, jobs.length)
-          if (finished) return
-          if (done === jobs.length) finish({ status: 'ready' })
-          else frame = requestAnimationFrame(step)
-        } catch (error) { finish({ status: 'cancelled' }, error) }
+      const abort = () => finish(cancelledPreparation)
+      const subscriber: PreparationSubscriber = { finish, progress: options.onProgress }
+      run.subscribers.add(subscriber)
+      if (options.signal?.aborted) { abort(); return }
+      options.signal?.addEventListener('abort', abort, { once: true })
+      // Late joiners see the actual shared bank's progress, not a second
+      // missing-resource plan's smaller total. An observer error is local.
+      if (run.done && subscriber.progress) {
+        try { subscriber.progress(run.done, run.total) }
+        catch (error) { finish({ error }) }
       }
-      if (options.signal?.aborted || !available()) cancel()
-      else if (!jobs.length) finish({ status: 'ready' })
-      else frame = requestAnimationFrame(step)
     })
+  }
+
+  run(jobs: readonly (() => void)[], options: BrushPreparationOptions, available: () => boolean, key?: string): Promise<BrushPreparationResult> {
+    if (options.signal?.aborted) return Promise.resolve({ status: 'cancelled' })
+    try { if (!available()) return Promise.resolve({ status: 'cancelled' }) }
+    catch (error) { return Promise.reject(error) }
+    if (key !== undefined && this.active?.key === key) return this.subscribe(this.active, options)
+    this.cancel()
+    let frame: number | undefined
+    const run: PreparationRun = {
+      key, done: 0, total: jobs.length, finished: false, subscribers: new Set(),
+      finish: outcome => {
+        if (run.finished) return
+        run.finished = true
+        if (frame !== undefined) cancelAnimationFrame(frame)
+        if (this.active === run) this.active = undefined
+        for (const subscriber of [...run.subscribers]) subscriber.finish(outcome)
+      },
+    }
+    this.active = run
+    const pending = this.subscribe(run, options)
+    const step = () => {
+      frame = undefined
+      if (run.finished) return
+      try {
+        if (!available()) { run.finish(cancelledPreparation); return }
+        jobs[run.done]?.()
+        if (run.done < jobs.length) run.done++
+        for (const subscriber of [...run.subscribers]) {
+          // A preceding callback may abort another subscriber or cancel all.
+          if (!run.subscribers.has(subscriber)) continue
+          try { subscriber.progress?.(run.done, jobs.length) }
+          catch (error) { subscriber.finish({ error }) }
+        }
+        if (run.finished) return
+        if (run.done === jobs.length) run.finish({ result: { status: 'ready' } })
+        else frame = requestAnimationFrame(step)
+      } catch (error) { run.finish({ error }) }
+    }
+    if (!run.finished) {
+      if (!jobs.length) run.finish({ result: { status: 'ready' } })
+      else frame = requestAnimationFrame(step)
+    }
+    return pending
   }
 }

@@ -2079,6 +2079,7 @@ export class PencilEngine implements PencilEngineAPI {
   // (#494) The digital brush's stamp model, its tips and textures — see
   // BrushPainter.ts. Its programs are built by _initGL, like every other one.
   private _brushPreparationGeneration = 0
+  private _brushPreparationPreset?: string
   private readonly _brushPreparation = new BrushPreparation()
   private readonly _brushMipCache = new BrushMipCache()
   private readonly _brush: BrushPainter
@@ -3436,10 +3437,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   async prepareBrush(preset: string, options: BrushPreparationOptions = {}): Promise<BrushPreparationResult> {
-    this._brushPreparationGeneration++
-    this._brushPreparation.cancel()
     if (this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
-    const generation = this._brushPreparationGeneration
     const descriptor = digitalBrushFromPreset(preset)
     const { resources, capabilities } = brushPreparationPlan(descriptor)
     if (resources.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
@@ -3457,10 +3455,20 @@ export class PencilEngine implements PencilEngineAPI {
       else if (painter === 'stampImage') this._brush.prepareIntegerImages()
       else this._smudge.prepareIntegerImages()
     })
+    // Resolve/admit the new plan before cancelling anyone else's valid work.
+    // Same immutable preset callers share one generation; raw aliases remain
+    // separate keys until their full preparation plans are proven equivalent.
+    if (this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
+    if (this._brushPreparationPreset !== preset) {
+      this._brushPreparationGeneration++
+      this._brushPreparation.cancel()
+      this._brushPreparationPreset = preset
+    }
+    const generation = this._brushPreparationGeneration
     const result = await this._brushPreparation.run([...programJobs, ...missing.map(resource => () => {
       if (resource.painter === 'stamp') this._brush.prepareTexture(stamp,resource)
       else this._smudge.prepareTexture(wet,resource)
-    })],options,() => !this._destroyed && !this._contextLost && !this.gl.isContextLost())
+    })],options,() => !this._destroyed && !this._contextLost && !this.gl.isContextLost(),preset)
     if (generation !== this._brushPreparationGeneration || this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
     // Another peer's replay may have changed the protected cache group between
     // jobs. Do not claim residency or loop indefinitely under that workload.

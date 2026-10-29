@@ -53,11 +53,11 @@ it.each(['destroy', 'context loss'] as const)('cancels preparation on %s with no
   const preset = fixture(), { engine } = createTestEngine({}, { width: 16, height: 16 })
   await paperReady(engine)
   const uploads = vi.spyOn(engine['gl'], 'texImage2D')
-  const pending = engine.prepareBrush(preset)
+  const pending = engine.prepareBrush(preset), joined=engine.prepareBrush(preset)
   if (reason === 'destroy') engine.destroy()
   else engine['_handleContextLost'](new Event('webglcontextlost', { cancelable: true }))
   try {
-    await expect(pending).resolves.toEqual({ status: 'cancelled' })
+    await expect(Promise.all([pending,joined])).resolves.toEqual([{status:'cancelled'},{status:'cancelled'}])
     await new Promise(resolve => setTimeout(resolve, 5))
     expect(uploads).not.toHaveBeenCalled()
   } finally { if (reason !== 'destroy') engine.destroy() }
@@ -77,14 +77,80 @@ it('preparation preserves the stamp inputs and animation order of the same recor
   } finally { cold.destroy(); warm.destroy() }
 })
 
-it('does not report a warm generation ready after a synchronous switch or destroy', async () => {
+it('shares warm same-preset readiness but cancels it after a distinct selection or destroy', async () => {
   const preset = fixture(), { engine } = createTestEngine({}, { width: 16, height: 16 })
   try {
     await paperReady(engine); await engine.prepareBrush(preset)
-    const stale = engine.prepareBrush(preset), current = engine.prepareBrush(preset)
+    const same = engine.prepareBrush(preset), joined = engine.prepareBrush(preset)
+    await expect(Promise.all([same,joined])).resolves.toEqual([{status:'ready'},{status:'ready'}])
+    const stale = engine.prepareBrush(preset), current = engine.prepareBrush(fixture(32,1))
     await expect(stale).resolves.toEqual({ status: 'cancelled' })
     await expect(current).resolves.toEqual({ status: 'ready' })
     const pending = engine.prepareBrush(preset); engine.destroy()
     await expect(pending).resolves.toEqual({ status: 'cancelled' })
   } finally { if (!engine['_destroyed']) engine.destroy() }
+})
+
+it('keeps UI preparation ready when a second same-preset caller joins during partial uploads',async()=>{
+  const preset=fixture(32,5),{engine}=createTestEngine()
+  try{
+    await paperReady(engine)
+    const secondProgress=vi.fn();let second:ReturnType<typeof engine.prepareBrush>|undefined
+    const first=engine.prepareBrush(preset,{onProgress:done=>{if(done===1)second=engine.prepareBrush(preset,{onProgress:secondProgress})}})
+    const firstResult=await first;expect(second).toBeDefined();const secondResult=await second!
+    expect(firstResult).toEqual({status:'ready'});expect(secondResult).toEqual({status:'ready'})
+    expect(secondProgress.mock.calls.at(-1)).toEqual([7,7])
+  }finally{engine.destroy()}
+})
+it.each([0,1])('independently aborts engine same-preset subscriber%s',async aborted=>{
+  const preset=fixture(32,3),{engine}=createTestEngine()
+  try{
+    await paperReady(engine);const controllers=[new AbortController(),new AbortController()]
+    const pending=controllers.map(c=>engine.prepareBrush(preset,{signal:c.signal}));controllers[aborted].abort()
+    expect(await Promise.all(pending)).toEqual(aborted===0?[{status:'cancelled'},{status:'ready'}]:[{status:'ready'},{status:'cancelled'}])
+  }finally{engine.destroy()}
+})
+it('does not cancel valid preparation for an invalid or already-aborted second request',async()=>{
+  const preset=fixture(32,3),{engine}=createTestEngine()
+  try{
+    await paperReady(engine)
+    const valid=engine.prepareBrush(preset)
+    await expect(engine.prepareBrush('brush:imported-deadbeef@999')).rejects.toThrow('unavailable')
+    const aborted=new AbortController();aborted.abort()
+    await expect(engine.prepareBrush(fixture(32,1),{signal:aborted.signal})).resolves.toEqual({status:'cancelled'})
+    await expect(valid).resolves.toEqual({status:'ready'})
+  }finally{engine.destroy()}
+})
+
+it('rechecks texture residency after a shared run completes instead of caching ready forever',async()=>{
+  const preset=fixture(32,3),{engine}=createTestEngine()
+  try{
+    await paperReady(engine)
+    const uploads=vi.spyOn(engine['gl'],'texImage2D')
+    await engine.prepareBrush(preset);const count=uploads.mock.calls.length
+    expect(count).toBeGreaterThan(0)
+    engine['_brush']['textures'].clear()
+    await expect(engine.prepareBrush(preset)).resolves.toEqual({status:'ready'})
+    expect(uploads.mock.calls.length).toBeGreaterThan(count)
+  }finally{engine.destroy()}
+})
+it('stops all pending engine subscribers after their last abort without any late upload',async()=>{
+  const preset=fixture(32,3),{engine}=createTestEngine()
+  try{
+    await paperReady(engine)
+    const uploads=vi.spyOn(engine['gl'],'texImage2D'),a=new AbortController(),b=new AbortController()
+    const pending=[engine.prepareBrush(preset,{signal:a.signal}),engine.prepareBrush(preset,{signal:b.signal})]
+    a.abort();b.abort()
+    expect(await Promise.all(pending)).toEqual([{status:'cancelled'},{status:'cancelled'}])
+    await new Promise(resolve=>setTimeout(resolve,5));expect(uploads).not.toHaveBeenCalled()
+  }finally{engine.destroy()}
+})
+it('keeps an admitted pending preset alive when a different oversized bank is skipped',async()=>{
+  const preset=fixture(32,3),oversized=fixture(2048,2),{engine}=createTestEngine()
+  try{
+    await paperReady(engine)
+    const first=engine.prepareBrush(preset)
+    await expect(engine.prepareBrush(oversized)).resolves.toEqual({status:'skipped'})
+    await expect(first).resolves.toEqual({status:'ready'})
+  }finally{engine.destroy()}
 })
