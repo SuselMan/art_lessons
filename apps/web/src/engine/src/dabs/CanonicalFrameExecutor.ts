@@ -1,7 +1,8 @@
-import { CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalMaterialAsset, type CanonicalMaterialFrame } from '@grafetto/shared'
+import { CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, canonicalDefaultAutoSourcePin, canonicalDefaultAutoCost, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalMaterialAsset, type CanonicalDefaultAutoSource, type AnyCanonicalMaterialFrame } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { PaintTarget } from '../buffers/ILayerBuffer'
-import { tilesOverlappingRect, tileWorldRect } from '../buffers/tileMath'
+import type { WorldRect } from '../buffers/tileMath'
+import { planCanonicalTargets } from './CanonicalTargetPlan'
 import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
 import type { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { advanceSourcePrimaryComposition, createSourcePrimaryComposition, type SourcePrimaryCompositionContext, type SourcePrimaryCompositionResult, type SourcePrimaryCompositionState } from '../presets/sourcePrimaryComposition'
@@ -11,7 +12,7 @@ import { bindCanonicalLayerTargets } from './CanonicalLayerTargets'
 import type { CanonicalMaskSourceBank } from './CanonicalMaskSourceBank'
 import type { CanonicalOwnedRgba8Target, CanonicalRgba8CompositePass, CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
 import { canonicalTransformedMaskMetadata } from './TransformedMaskPlan'
-import type { TransformedMaskPrepass } from './TransformedMaskPrepass'
+import type { AnyTransformedMaskRequest, TransformedMaskPrepass } from './TransformedMaskPrepass'
 
 /** Both authoring and history adapters submit the SAME already-decoded frame.
  * No pointer, sensor, author DTO, random source or mutable tool state enters here. */
@@ -20,7 +21,7 @@ export interface CanonicalFrameSubmission {
   readonly layerId: string
   readonly layerEpoch: number
   readonly ordinal: number
-  readonly frame: CanonicalMaterialFrame
+  readonly frame: AnyCanonicalMaterialFrame
   readonly assets: readonly CanonicalMaterialAsset[]
   readonly rgb: readonly [number, number, number]
   readonly composition: SourcePrimaryCompositionContext
@@ -32,6 +33,10 @@ export interface CanonicalFrameExecutorOptions {
   /** Pinned by the room/capability adapter, never selected from mutable tools.
    * No default: a caller must explicitly prepare the matching shader pair. */
   readonly rasterProfile: CanonicalExecutorRasterProfile
+  /** Trusted verified-descriptor binding, fixed for this executor; not a client grant. */
+  readonly autoSource?: CanonicalDefaultAutoSource
+  /** Authoritative room page, never viewport. Absent retains the closed infinite-page QA API. */
+  readonly pageBounds?: Readonly<WorldRect> | null
   readonly bank: CanonicalMaskSourceBank
   readonly prepass: TransformedMaskPrepass
   readonly composite: CanonicalRgba8CompositePass
@@ -47,7 +52,7 @@ export interface CanonicalFrameExecutorOptions {
    * The executor will never retry a possibly partly-written frame. */
   readonly poison: (layerId: string, reason: unknown) => void
 }
-interface TilePosition { x: number; y: number; width: number; height: number }
+interface TilePosition { x: number; y: number; width: number; height: number; writeBounds?: Readonly<WorldRect> }
 interface WashTile extends TilePosition {
   original: AccumulationBuffer
   local: AccumulationBuffer
@@ -56,7 +61,7 @@ interface WashTile extends TilePosition {
 interface Work {
   input: CanonicalFrameSubmission
   result: SourcePrimaryCompositionResult
-  sourceKeys: readonly string[]
+  sourceKeys: readonly (string | undefined)[]
   draw: number
   tile: number
   tiles?: readonly TilePosition[]
@@ -82,7 +87,7 @@ export class CanonicalFrameExecutor {
   private readonly admittedTiles = new Map<string, TilePosition>()
   private readonly admissionReleases = new Set<() => void>()
   private planned?: SourcePrimaryCompositionState
-  private gesture?: { id: string; layerId: string; epoch: number; buffer: TiledLayerBuffer; rgb: readonly [number, number, number] }
+  private gesture?: { id: string; layerId: string; epoch: number; buffer: TiledLayerBuffer; rgb: readonly [number, number, number]; profile: AnyCanonicalMaterialFrame['profile'] }
   private failed = false
   private readonly cleanupErrors: unknown[] = []
   private advancing = false
@@ -97,7 +102,8 @@ export class CanonicalFrameExecutor {
     if (!options.composite.supportsOperations(operations)) throw new Error('Canonical executor raster profile was not prepared')
     const a = options.prepass.brushGlBatchInfo(), b = options.composite.brushGlBatchInfo()
     if (a.gl !== b.gl || a.cache !== b.cache || a.cpu !== b.cpu) throw new Error('Canonical executor services must share budgets and context')
-    this.options = Object.freeze({ ...options, capacity: Object.freeze({ ...c }) })
+    planCanonicalTargets({minX:0,minY:0,maxX:0,maxY:0},options.pageBounds ?? null,1,1)
+    this.options = Object.freeze({ ...options, pageBounds: options.pageBounds ? Object.freeze({...options.pageBounds}) : null, autoSource: options.autoSource ? canonicalDefaultAutoSourcePin(options.autoSource) : undefined, capacity: Object.freeze({ ...c }) })
     this.gl = a.gl
   }
 
@@ -113,19 +119,29 @@ export class CanonicalFrameExecutor {
   enqueue(input: CanonicalFrameSubmission): void {
     if (this.failed || this.advancing) throw new Error('Canonical executor is poisoned or busy')
     if (this.queue.length >= 8) throw new RangeError('Canonical frame queue is full')
-    if (input?.frame?.profile !== CANONICAL_MATERIAL_PROFILE) throw new TypeError('Canonical executor requires image material profile')
+    if (![CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE].includes(input?.frame?.profile)) throw new TypeError('Canonical executor requires accepted material profile')
     if (!input || !input.gestureId || !input.layerId || !int(input.layerEpoch) || !int(input.ordinal)
       || !Array.isArray(input.rgb) || input.rgb.length !== 3 || !input.rgb.every(n => int(n) && n <= 255)) throw new TypeError('Invalid canonical frame identity/pigment')
     const { buffer, epoch } = this.options.layer(input.layerId)
     if (epoch !== input.layerEpoch || buffer.tileWidth > 4096 || buffer.tileHeight > 4096 || buffer.pixelEncoding !== 'straight-rgba8') throw new Error('Stale or non-straight canonical layer')
-    if (!this.options.bank.isReady() || !this.options.prepass.isReady() || !this.options.composite.isReady()) throw new Error('Canonical services are not prepared')
-    if (this.gesture && (this.gesture.id !== input.gestureId || this.gesture.layerId !== input.layerId || this.gesture.epoch !== input.layerEpoch
+    if (!this.options.prepass.isReady() || !this.options.composite.isReady()) throw new Error('Canonical services are not prepared')
+    if (this.gesture && (this.gesture.profile !== input.frame.profile || this.gesture.id !== input.gestureId || this.gesture.layerId !== input.layerId || this.gesture.epoch !== input.layerEpoch
       || this.gesture.rgb.some((n, i) => n !== input.rgb[i]) || !sameContext(this.planned!.context, input.composition))) throw new Error('Canonical gesture interleaving or context change')
     if (!input.frame || input.frame.draws.length > 800 || input.frame.definitions.length > 800 || input.frame.fences.length > 2404 || input.assets.length > 512) throw new RangeError('Canonical frame exceeds decoder limits')
     const initial = this.planned ?? createSourcePrimaryComposition(input.composition).state
     const result = advanceSourcePrimaryComposition(initial, { ordinal: input.ordinal, frame: input.frame })
-    const prepared = this.options.bank.preparedResources()
+    const hasImageDefinitions = input.frame.definitions.some(r => !('kind' in r) || r.kind !== 'defaultAuto')
+    const hasImage = hasImageDefinitions || input.frame.profile === CANONICAL_MATERIAL_PROFILE || (!input.frame.definitions.length && !this.options.autoSource)
+    if (hasImage && !this.options.bank.isReady()) throw new Error('Canonical image bank is not prepared')
+    if (!hasImage && input.assets.length) throw new TypeError('Auto-only frame must not supply image assets')
+    const prepared = hasImage ? this.options.bank.preparedResources() : []
     const sourceKeys = input.frame.definitions.map(recipe => {
+      if (recipe.width > this.options.capacity.width || recipe.height > this.options.capacity.height) throw new RangeError('Canonical material exceeds prepared capacity')
+      if ('kind' in recipe && recipe.kind === 'defaultAuto') {
+        if (!this.options.autoSource) throw new TypeError('Canonical auto source is not trusted')
+        canonicalDefaultAutoCost(recipe, this.options.autoSource)
+        return undefined
+      }
       const asset = input.assets.find(a => a.id === recipe.asset)
       if (!asset) throw new Error('Canonical frame asset is not pinned')
       const m = canonicalTransformedMaskMetadata(recipe, asset)
@@ -145,11 +161,7 @@ export class CanonicalFrameExecutor {
     if (result.commands.length) for (const [k, tile] of this.admittedTiles) frameTargets.set(k, tile)
     for (const d of result.draws) {
       const recipe = input.frame.definitions[d.definition]
-      const coordinates = tilesOverlappingRect({ minX: d.x, minY: d.y, maxX: d.x + recipe.width, maxY: d.y + recipe.height }, buffer.tileWidth, buffer.tileHeight)
-      if (coordinates.length > 64) throw new RangeError('Canonical draw exceeds tile fanout')
-      for (const c of coordinates) {
-        const r = tileWorldRect(c.tileX, c.tileY, buffer.tileWidth, buffer.tileHeight)
-        const t = { x: r.minX, y: r.minY, width: buffer.tileWidth, height: buffer.tileHeight }
+      for (const t of this.targetPositions({ minX: d.x, minY: d.y, maxX: d.x + recipe.width, maxY: d.y + recipe.height },buffer)) {
         frameTargets.set(key(t), t)
         if (frameTargets.size > 64) throw new RangeError('Canonical frame exceeds bounded target union')
         if (input.composition.mode === 'wash' && !this.admittedTiles.has(key(t))) newTiles.set(key(t), t)
@@ -174,7 +186,7 @@ export class CanonicalFrameExecutor {
       // commands. Never let queued DTOs predictably consume its next turn.
       const info = this.options.prepass.brushGlBatchInfo(), other = this.options.composite.brushGlBatchInfo()
       const resources = new Set([...info.resources, ...other.resources].map(r => r.key)).size
-      if (info.cpu.reservedBytes + 65536 + resources * 128 > info.cpu.budgetBytes) throw new RangeError('Canonical queue exceeds shared CPU work headroom')
+      if (info.cpu.reservedBytes + (input.frame.definitions.some(r => 'kind' in r && r.kind === 'defaultAuto') ? 82432 : 65536) + resources * 128 > info.cpu.budgetBytes) throw new RangeError('Canonical queue exceeds shared CPU work headroom')
       const saved: CanonicalFrameSubmission = structuredClone(input)
       this.queue.push({ input: saved, result, sourceKeys, draw: 0, tile: 0, present: 0, part: 0,
         releaseMetadata: () => { try { releaseMetadata() } finally { releaseTargetBudget?.() } } })
@@ -183,7 +195,7 @@ export class CanonicalFrameExecutor {
         const gpu = releaseBudget, cpu = releaseWashMetadata!
         this.admissionReleases.add(() => { try { gpu() } finally { cpu() } })
       }
-      this.gesture ??= { id: input.gestureId, layerId: input.layerId, epoch: input.layerEpoch, buffer, rgb: [input.rgb[0], input.rgb[1], input.rgb[2]] }
+      this.gesture ??= { id: input.gestureId, layerId: input.layerId, epoch: input.layerEpoch, buffer, rgb: [input.rgb[0], input.rgb[1], input.rgb[2]], profile: input.frame.profile }
       this.planned = result.state
     } catch (error) {
       if (releaseTargetBudget) this.cleanup(releaseTargetBudget)
@@ -203,7 +215,18 @@ export class CanonicalFrameExecutor {
     if (!work) return { pending: false, checkpointReady: this.checkpointReady }
     this.advancing = true
     try {
+      const turnStarted = performance.now();
       const layer = this.currentLayer(work)
+      // Logical composition was already advanced once at admission; clipping
+      // only removes pixel work, without inventing or dropping source inputs.
+      let clipped=0;
+      while (work.draw < work.result.draws.length) {
+        const d=work.result.draws[work.draw], r=work.input.frame.definitions[d.definition];
+        if (this.targetPositions({minX:d.x,minY:d.y,maxX:d.x+r.width,maxY:d.y+r.height},layer).length) break;
+        work.draw++; work.tile=0; work.tiles=undefined;
+        if (++clipped % 16 === 0 && performance.now()-turnStarted >= 4) return { pending:true, checkpointReady:false };
+      }
+      if (!this.prepareAuto(work,turnStarted) || performance.now()-turnStarted >= 4) return { pending: true, checkpointReady: false }
       // Resolve/copy may touch GL before entering a batch: retain and restore
       // the caller's complete state around the whole synchronous service turn.
       const info = this.options.prepass.brushGlBatchInfo()
@@ -223,6 +246,34 @@ export class CanonicalFrameExecutor {
     return { pending: this.pending, checkpointReady: this.checkpointReady }
   }
 
+  private targetPositions(footprint: Readonly<WorldRect>, layer: TiledLayerBuffer): TilePosition[] {
+    return planCanonicalTargets(footprint,this.options.pageBounds ?? null,layer.tileWidth,layer.tileHeight).tiles.map(t => ({
+      x:t.storage.minX,y:t.storage.minY,width:t.storage.maxX-t.storage.minX,height:t.storage.maxY-t.storage.minY,writeBounds:t.paint }));
+  }
+
+  private maskRequest(work: Work, draw: number): AnyTransformedMaskRequest {
+    const d = work.result.draws[draw], recipe = work.input.frame.definitions[d.definition];
+    const common = { owner: this, role: 'primary', rect: { x:d.x, y:d.y, width:recipe.width, height:recipe.height }, profile:'neon4-summed-wordsize64' as const };
+    if ('kind' in recipe && recipe.kind === 'defaultAuto') {
+      if (!this.options.autoSource) throw new TypeError('Canonical auto source is not trusted');
+      return { ...common, material: { kind:'canonicalAuto', recipe, trustedSource:this.options.autoSource } };
+    }
+    const source = this.options.bank.resources().find(s => s.key === work.sourceKeys[d.definition]);
+    const asset = work.input.assets.find(a => a.id === recipe.asset);
+    if (!source || !asset) throw new Error('Canonical prepared source was evicted');
+    return { ...common, material: { kind:'canonical', recipe, asset }, source };
+  }
+  private prepareAuto(work: Work, start: number): boolean {
+    if (work.draw >= work.result.draws.length) return true;
+    const d=work.result.draws[work.draw], recipe=work.input.frame.definitions[d.definition];
+    if (!('kind' in recipe) || recipe.kind !== 'defaultAuto') return true;
+    if (this.options.prepass.beginAutoGeneration(this.maskRequest(work,work.draw))) return performance.now()-start < 4;
+    if (performance.now()-start >= 4) return false;
+    do { if(this.options.prepass.advanceAutoGeneration(64).done) return performance.now()-start < 4; }
+    while(performance.now()-start < 4);
+    return false;
+  }
+
   private currentLayer(work: Work): TiledLayerBuffer {
     const current = this.options.layer(work.input.layerId)
     if (current.epoch !== work.input.layerEpoch || current.buffer !== this.gesture?.buffer || current.buffer.pixelEncoding !== 'straight-rgba8') throw new Error('Canonical layer changed while queued')
@@ -238,10 +289,12 @@ export class CanonicalFrameExecutor {
       let draw = work.draw, tile = work.tile, positions = work.tiles
       while (tasks.length < 8 && draw < work.result.draws.length) {
         const d = work.result.draws[draw], r = work.input.frame.definitions[d.definition]
+        const firstRecipe = work.input.frame.definitions[work.result.draws[work.draw].definition];
+        if (draw !== work.draw && (('kind' in r && r.kind === 'defaultAuto') || ('kind' in firstRecipe && firstRecipe.kind === 'defaultAuto'))) break;
         if (!positions) {
-          const coords = tilesOverlappingRect({ minX: d.x, minY: d.y, maxX: d.x + r.width, maxY: d.y + r.height }, layer.tileWidth, layer.tileHeight)
-          positions = coords.map(c => ({ x: c.tileX * layer.tileWidth, y: c.tileY * layer.tileHeight, width: layer.tileWidth, height: layer.tileHeight }))
+          positions = this.targetPositions({ minX:d.x,minY:d.y,maxX:d.x+r.width,maxY:d.y+r.height },layer)
         }
+        if (!positions.length) { draw++; tile=0; positions=undefined; continue; }
         const position = positions[tile], target = this.resolveTile(layer, position)
         const bound = bindCanonicalLayerTargets(layer, [target])[0]
         stagingReleases.push(bound.lifetime.lease())
@@ -249,18 +302,14 @@ export class CanonicalFrameExecutor {
         tasks.push({ draw, tile, tiles: positions, target, wash })
         if (++tile === positions.length) { draw++; tile = 0; positions = undefined }
       }
+      if (!tasks.length) return;
       const bound = bindCanonicalLayerTargets(layer, tasks.map(t => t.target))
-      const sources = this.options.bank.resources()
       runBrushGlBatch({ participants: [this.options.prepass, this.options.composite], owners: [bound[0].lifetime, ...tasks.flatMap(t => t.wash ? [t.wash.lifetime] : [])] }, frame => {
         for (let i = 0; i < tasks.length; i++) {
           if (this.currentLayer(work) !== layer) throw new Error('Canonical layer changed during batch')
           const task = tasks[i], d = work.result.draws[task.draw], recipe = work.input.frame.definitions[d.definition]
-          const source = sources.find(s => s.key === work.sourceKeys[d.definition])
-          const asset = work.input.assets.find(a => a.id === recipe.asset)!
-          if (!source) throw new Error('Canonical prepared source was evicted')
           const output = task.wash ? this.scratchTarget(task.wash.local, task.tiles[task.tile], task.wash.lifetime) : bound[i]
-          const group = this.options.prepass.resolveGroup([{ owner: this, role: 'primary', material: { kind: 'canonical', recipe, asset }, source,
-            rect: { x: d.x, y: d.y, width: recipe.width, height: recipe.height }, profile: 'neon4-summed-wordsize64' }], frame)
+          const group = this.options.prepass.resolveGroup([this.maskRequest(work,task.draw)], frame)
           try {
             const fused = this.options.rasterProfile === CANONICAL_STROKE_RASTER_PROFILE
             const operation = d.controls.kind === 'localAlphaDarken'
@@ -268,12 +317,12 @@ export class CanonicalFrameExecutor {
                 ? { kind: 'alphaDarken32FusedScalar' as const, control: { profile: CANONICAL_STROKE_RASTER_PROFILE, variant: d.controls.variant, opacity: d.controls.opacity, averageOpacity: d.controls.averageOpacity, flow: d.controls.flow } }
                 : { kind: 'alphaDarken32' as const, control: { profile: 'optimized32-scalar-f32-rne-v1' as const, variant: d.controls.variant, opacity: d.controls.opacity, averageOpacity: d.controls.averageOpacity, flow: d.controls.flow } }
               : this.overOperation(d.controls.opacity)
-            this.options.composite.drawSource({ source: { kind: 'maskRgb', view: group.views[0], rgb: work.input.rgb }, target: output, operation }, frame)
+            this.options.composite.drawSource({ source: { kind: 'maskRgb', view: group.views[0], rgb: work.input.rgb }, target: output, operation, writeBounds: task.tiles[task.tile].writeBounds }, frame)
             work.draw = task.draw; work.tiles = task.tiles; work.tile = task.tile + 1
             if (work.tile === task.tiles.length) { work.draw++; work.tile = 0; work.tiles = undefined }
           } finally { group.release() }
           if (!task.wash) {
-            layer.markContentPainted({ minX: d.x, minY: d.y, maxX: d.x + recipe.width, maxY: d.y + recipe.height })
+            layer.markContentPainted(task.tiles[task.tile].writeBounds ?? { minX: d.x, minY: d.y, maxX: d.x + recipe.width, maxY: d.y + recipe.height })
             this.options.changed(work.input.layerId)
           }
           if (frame.shouldYield) break
@@ -350,7 +399,7 @@ export class CanonicalFrameExecutor {
             bounds: { x: x / tile.width, y: (tile.height - y - h) / tile.height, width: w / tile.width, height: h / tile.height },
             mirror: { horizontal: false, vertical: false }, rowOrder: 'bottomAtV0', residency: tile.lifetime }
           this.options.composite.drawSource({ source: { kind: 'straightRgba8', view }, target: bound[i], readDestination: original,
-            operation: this.overOperation(command.opacity) }, frame)
+            operation: this.overOperation(command.opacity), writeBounds: this.options.pageBounds ?? undefined }, frame)
           work.present = task.index; work.part = task.part + 1
           if (work.part === task.rows * task.columns) { work.part = 0; work.present++ }
           layer.markContentPainted(rect(tile)); this.options.changed(work.input.layerId)

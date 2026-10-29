@@ -6,7 +6,7 @@ import { buildRgba64FactorLut } from '../raster/sourceRgba64StraightShader';
 import { SOURCE_TRANSFORMED_MASK_VERT, sourceTransformedMaskFragment } from '../raster/sourceTransformedMaskShader';
 import { BrushMipCache } from './BrushMipCache';
 import { BrushTextureCache } from './BrushTextureCache';
-import { resolvedTransformedMaskPlan, writeTransformedMaskVertices, type TransformedMaskPlan, type TransformedMaskMaterial, type CanonicalMaskSourceBinding, canonicalTransformedMaskMetadata, canonicalTransformedMaskPlan, canonicalMaskRevision } from './TransformedMaskPlan';
+import { resolvedTransformedMaskPlan, writeTransformedMaskVertices, type TransformedMaskPlan, type TransformedMaskMaterial, type CanonicalMaskSourceBinding, canonicalTransformedMaskMetadata, canonicalTransformedMaskPlan, canonicalMaskRevision, canonicalAutoMaskRevision, prepareCanonicalAutoMask, type CanonicalAutoMaskMaterial } from './TransformedMaskPlan';
 export interface TransformedMaskLimits {
   readonly width: number;
   readonly height: number;
@@ -70,6 +70,11 @@ export interface TransformedMaskRequest {
   };
   readonly profile: 'wide8-separate-wordsize64' | 'neon4-summed-wordsize64';
 }
+export type CanonicalAutoMaskRequest = Omit<TransformedMaskRequest, 'material' | 'source'> & {
+  readonly material: CanonicalAutoMaskMaterial;
+  readonly source?: never;
+};
+export type AnyTransformedMaskRequest = TransformedMaskRequest | CanonicalAutoMaskRequest;
 /** Borrowed output: its owning prepass retains immutable NEAREST/CLAMP sampler
  * configuration. Consumers/owner callbacks must not call texParameteri on it.
  * Sampling/view geometry is valid only while the returned group is leased. */
@@ -116,6 +121,13 @@ const safe = (v: number, low: number, high: number) => Number.isSafeInteger(v) &
 * memory allowance. Call prepare after assets and before input unlock.
 */
 export class TransformedMaskPrepass {
+  private pendingAuto?: {
+    readonly owner: object; readonly role: string; readonly revision: string; readonly slot: Slot;
+    readonly epoch: Workspace; readonly evaluator: ReturnType<typeof prepareCanonicalAutoMask>['evaluator'];
+    readonly material: CanonicalAutoMaskMaterial; readonly width: number; readonly height: number;
+    readonly a8: Uint8Array; readonly rgba: Uint8Array; readonly release: () => void;
+    filled: number; uploadedRows: number;
+  };
   private batch?: BrushGlBatchFrame;
   private limits?: TransformedMaskLimits;
   private sources = new Map<string, number>();
@@ -295,13 +307,14 @@ export class TransformedMaskPrepass {
     this.batch = frame;
     return () => { if (this.batch === frame) this.batch = undefined; };
   }
-  resolveGroup(requests: readonly TransformedMaskRequest[], frame?: BrushGlBatchFrame): {
+  resolveGroup(requests: readonly AnyTransformedMaskRequest[], frame?: BrushGlBatchFrame): {
     views: TransformedMaskView[];
     release: () => void;
   } {
     if (this.batch !== frame) throw new Error('Prepass batch identity mismatch');
     if (this.activeGroup)
       throw new Error('Release the previous prepass group before resolving another');
+    if (this.pendingAuto) throw new Error('Auto generation is incomplete');
     const batchGroup = frame?.beginGroup();
     if (!this.isReady() || !this.limits || !this.workspace || !this.program || !this.staging)
       throw new Error('Prepass is not prepared');
@@ -321,6 +334,16 @@ export class TransformedMaskPrepass {
       roles.add(request.role);
       const material = request.material, source = request.source, rect = request.rect;
       if (!material || typeof material !== 'object') throw new RangeError('Invalid prepass material');
+      if ('kind' in material && material.kind === 'canonicalAuto') {
+        const revision = canonicalAutoMaskRevision(material), { recipe } = material;
+        const slot = this.slots.find(s => s?.owner === request.owner && s.role === request.role && s.revision === revision);
+        if (!slot) throw new Error('Canonical auto generation must complete outside brush GL batch');
+        if (source || ![rect.x, rect.y, rect.width, rect.height].every(Number.isSafeInteger)
+          || rect.width !== recipe.width || rect.height !== recipe.height) throw new RangeError('Invalid canonical auto placement/source');
+        return { request, plan: undefined, revision, width: recipe.width, height: recipe.height,
+          mirror: { horizontal: recipe.mirrorH, vertical: recipe.mirrorV } };
+      }
+      if (!source) throw new RangeError('Image mask requires a prepared source');
       let revision: string, plan: TransformedMaskPlan;
       let mirror: { horizontal: boolean; vertical: boolean };
       if (canonicalMaterial(material)) {
@@ -354,7 +377,7 @@ export class TransformedMaskPrepass {
       // Validate every new native row before any GL ownership side effect.
       if (!this.slots.some(slot => slot?.owner === request.owner && slot.role === request.role && slot.revision === revision))
         writeTransformedMaskVertices(plan, this.staging!);
-      return { request, plan, revision, mirror };
+      return { request, plan, revision, mirror, width: plan.width, height: plan.height };
     });
     const slots = this.slots as Slot[], selected = new Set<Slot>();
     // Reserve all existing hits before choosing an LRU destination for misses.
@@ -392,13 +415,15 @@ export class TransformedMaskPrepass {
             item.slot.revision = undefined;
             item.slot.material = undefined;
             item.slot.plan = undefined;
-            this.draw(item.slot, item.request, item.plan);
+            if (!item.plan) throw new Error('Auto mask cannot be generated inside a GL batch');
+            if (!item.request.source) throw new Error('Image source missing');
+            this.draw(item.slot, item.request as TransformedMaskRequest, item.plan);
             item.slot.revision = item.revision;
             item.slot.owner = item.request.owner;
             item.slot.role = item.request.role;
             item.slot.material = item.request.material;
             item.slot.plan = item.plan;
-            item.slot.sourceKey = item.request.source.key;
+            item.slot.sourceKey = item.request.source?.key;
             item.slot.profile = item.request.profile;
           }
         }
@@ -406,10 +431,10 @@ export class TransformedMaskPrepass {
           restore();
         }
       }
-      const views = assigned.map(({ slot, request, plan, mirror }) => {
+      const views = assigned.map(({ slot, request, width, height, mirror }) => {
         slot.material = request.material;
         slot.used = ++this.clock;
-        return { key: slot.key, texture: slot.texture, rect: { ...request.rect }, bounds: { x: 0 as const, y: 0 as const, width: plan.width / this.limits!.width, height: plan.height / this.limits!.height },
+        return { key: slot.key, texture: slot.texture, rect: { ...request.rect }, bounds: { x: 0 as const, y: 0 as const, width: width / this.limits!.width, height: height / this.limits!.height },
           mirror, channel: 'r' as const };
       });
       return { views, release };
@@ -419,7 +444,88 @@ export class TransformedMaskPrepass {
       throw error;
     }
   }
-  releaseOwner(owner: object): void { if (this.batch) throw new Error('Cannot release owner inside active brush GL batch'); for (const slot of this.slots)
+  /** No pixels/GL on a hit. One continuation belongs to the existing executor cursor. */
+  beginAutoGeneration(request: AnyTransformedMaskRequest): boolean {
+    if (this.batch || this.activeGroup) throw new Error('Auto generation requires an idle prepass outside GL batch');
+    if (!this.isReady() || !this.limits || !this.workspace) throw new Error('Prepass is not prepared');
+    const material = request.material;
+    if (!('kind' in material) || material.kind !== 'canonicalAuto' || request.source
+      || !request.owner || typeof request.owner !== 'object' || !request.role) throw new RangeError('Invalid auto generation request');
+    const revision = canonicalAutoMaskRevision(material), { width, height } = material.recipe;
+    if (width > this.limits.width || height > this.limits.height) throw new RangeError('Auto mask exceeds prepared capacity');
+    if (this.pendingAuto) {
+      if (this.pendingAuto.owner !== request.owner || this.pendingAuto.role !== request.role || this.pendingAuto.revision !== revision)
+        throw new Error('Another auto generation is pending');
+      return false;
+    }
+    if (this.slots.some(s => s?.owner === request.owner && s.role === request.role && s.revision === revision)) return true;
+    const prepared = prepareCanonicalAutoMask(material);
+    const rows = Math.min(height, Math.max(1, Math.floor(16384 / width))), pixels = rows * width;
+    // Include bounded cursor/pin metadata alongside stripe storage.
+    const release = this.cpu.reserve(pixels * 5 + 512);
+    if (!release) throw new RangeError('Auto stripe CPU reservation exhausted');
+    try {
+      const a8 = new Uint8Array(pixels), rgba = new Uint8Array(pixels * 4);
+      const slot = (this.slots as Slot[]).slice().sort((a,b) => a.used-b.used)[0];
+      slot.revision = undefined; slot.plan = undefined; slot.material = undefined;
+      const captured = Object.freeze({ ...material, recipe: Object.freeze({ ...material.recipe, source: Object.freeze({ ...material.recipe.source }) }),
+        trustedSource: Object.freeze({ ...material.trustedSource, source: Object.freeze({ ...material.trustedSource.source }) }) });
+      this.pendingAuto = { owner: request.owner, role: request.role, revision, slot, epoch: this.workspace,
+        evaluator: prepared.evaluator, material: captured, width, height, a8, rgba, release, filled: 0, uploadedRows: 0 };
+      return false;
+    } catch (error) { prepared.evaluator.cancel(); release(); throw error; }
+  }
+  /** Advances <=maxSamples; at most one bounded stripe upload. Caller owns the
+   * cooperative time budget and yields without holding a GL batch/target lease. */
+  advanceAutoGeneration(maxSamples: number): { done: boolean; consumed: number; uploadedBytes: number } {
+    if (this.batch || this.activeGroup) throw new Error('Cannot advance auto generation inside GL batch/group');
+    const p = this.pendingAuto;
+    if (!p) throw new Error('No auto generation pending');
+    if (!this.isReady() || this.workspace !== p.epoch || this.cache.get(p.slot.key) !== p.slot.texture) {
+      this.cancelAutoGeneration(); throw new Error('Auto generation residency changed');
+    }
+    try {
+      const result = p.evaluator.advance(p.a8, p.filled, maxSamples);
+      const previousFilled = p.filled;
+      p.filled += result.written;
+      // Pack only this bounded sample quantum; no full-stripe packing burst.
+      for (let i=previousFilled; i<p.filled; i++) p.rgba.fill(p.a8[i], i*4, i*4+4);
+      let uploadedBytes = 0;
+      if (p.filled === p.a8.length || result.done) {
+        const rows = p.filled / p.width;
+        if (!Number.isSafeInteger(rows)) throw new Error('Auto stripe ended between rows');
+        const release = this.cache.lease([{ key: p.slot.key, bytes: this.limits!.width*this.limits!.height*4 }]);
+        const gl = this.gl;
+        let restore: (() => void) | undefined;
+        let flip: boolean | undefined, premultiply: boolean | undefined;
+        try {
+          restore = this.saveState([]);
+          flip = gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL); premultiply = gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL);
+          gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,p.slot.texture);
+          gl.pixelStorei(gl.UNPACK_ALIGNMENT,1); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
+          gl.texSubImage2D(gl.TEXTURE_2D,0,0,p.uploadedRows,p.width,rows,gl.RGBA,gl.UNSIGNED_BYTE,p.rgba.subarray(0,p.filled*4));
+        } finally {
+          try {
+            if (flip !== undefined) gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,flip);
+            if (premultiply !== undefined) gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,premultiply);
+            restore?.();
+          } finally { release(); }
+        }
+        p.uploadedRows += rows; uploadedBytes = p.filled*4; p.filled = 0;
+      }
+      if (result.done) {
+        p.slot.owner=p.owner; p.slot.role=p.role; p.slot.revision=p.revision; p.slot.material=p.material;
+        p.slot.sourceKey=undefined; p.slot.profile=undefined; p.slot.used=++this.clock;
+        p.release(); this.pendingAuto=undefined;
+      }
+      return { done: result.done, consumed: result.consumed, uploadedBytes };
+    } catch(error) { this.cancelAutoGeneration(); throw error; }
+  }
+  cancelAutoGeneration(): void {
+    const p=this.pendingAuto; this.pendingAuto=undefined;
+    if(p) { p.evaluator.cancel(); p.release(); }
+  }
+  releaseOwner(owner: object): void { if (this.batch) throw new Error('Cannot release owner inside active brush GL batch'); if (this.pendingAuto?.owner === owner) this.cancelAutoGeneration(); for (const slot of this.slots)
     if (slot?.owner === owner) {
       slot.owner = undefined;
       slot.role = undefined;
@@ -431,6 +537,7 @@ export class TransformedMaskPrepass {
     } }
   reset(lost = false): void {
     if (this.batch && !lost) throw new Error('Cannot reset inside an active brush GL batch');
+    this.cancelAutoGeneration();
     // Old returned releases can never unlock a newly prepared group.
     this.activeGroup = undefined;
     for (const slot of [...this.slots])
@@ -531,12 +638,12 @@ export class TransformedMaskPrepass {
       this.instancing?.vertexAttribDivisorANGLE(location, 0);
       gl.vertexAttribPointer(location, size, gl.FLOAT, false, 48, offset * 4);
     }
-    for (const [unit, texture, uniform] of [[0, request.source.texture, u.u_source], [1, workspace.low, u.u_factorLow], [2, workspace.high, u.u_factorHigh]] as const) {
+    for (const [unit, texture, uniform] of [[0, request.source!.texture, u.u_source], [1, workspace.low, u.u_factorLow], [2, workspace.high, u.u_factorHigh]] as const) {
       gl.activeTexture(gl.TEXTURE0 + unit);
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.uniform1i(uniform, unit);
     }
-    gl.uniform2f(u.u_sourceSize, request.source.width, request.source.height);
+    gl.uniform2f(u.u_sourceSize, request.source!.width, request.source!.height);
     gl.uniform2f(u.u_targetSize, plan.width, plan.height);
     gl.uniform1f(u.u_decode, request.profile.startsWith('neon4') ? 3 : 0);
     gl.uniform1f(u.u_summed, request.profile.startsWith('neon4') ? 1 : 0);

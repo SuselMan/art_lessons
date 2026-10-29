@@ -1,3 +1,5 @@
+import { canonicalDefaultAutoCost, type CanonicalDefaultAutoRecipe, type CanonicalDefaultAutoSource } from '@grafetto/shared';
+import { prepareSourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab';
 import type { CanonicalMaterialAsset, CanonicalMaterialRecipe } from '@grafetto/shared';
 import { sourceImageTransformMetadata } from '@grafetto/shared';
 import { sourceImageTransformSpans } from '../presets/sourceImageTransformSpans';
@@ -34,7 +36,32 @@ export interface CanonicalTransformedMaskMaterial {
   readonly recipe: CanonicalMaterialRecipe;
   readonly asset: CanonicalMaterialAsset;
 }
-export type TransformedMaskMaterial = SourceDabMaterialSpec | { readonly kind: 'savedSource'; readonly source: SourceDabMaterialSpec } | CanonicalTransformedMaskMaterial;
+export interface CanonicalAutoMaskMaterial {
+  readonly kind: 'canonicalAuto';
+  readonly recipe: CanonicalDefaultAutoRecipe;
+  readonly trustedSource: CanonicalDefaultAutoSource;
+}
+/** Caller supplies the already authenticated source pin; this is not an attestation. */
+export function prepareCanonicalAutoMask(material: CanonicalAutoMaskMaterial) {
+  const { recipe, trustedSource } = material;
+  canonicalDefaultAutoCost(recipe, trustedSource);
+  return prepareSourceDefaultAutoDab({ dialect: 'krita-default-auto-qt5-arm64-v1',
+    tip: { ...recipe.source, kind: 'auto', spikes: 2, softness: 1, randomness: 0, density: 1 },
+    storedScale: recipe.brushScale, storedAngle: recipe.brushAngle,
+    shape: { scale: recipe.scale, ratio: recipe.ratio, rotation: recipe.rotation },
+    subpixelX: recipe.subX, subpixelY: recipe.subY, coverageProfile: recipe.coverageProfile,
+    maxPixels: 1048576, maxWorkSamples: 16 * 1048576 });
+}
+export function canonicalAutoMaskRevision(material: CanonicalAutoMaskMaterial): string {
+  const { recipe: r, trustedSource: t } = material;
+  canonicalDefaultAutoCost(r, t);
+  return JSON.stringify(['canonical-auto-v2', t.descriptorId, t.descriptorVersion, t.descriptorSha256,
+    r.source.generator, r.source.shape, r.source.diameter, r.source.ratio, r.source.horizontalFade, r.source.verticalFade,
+    r.source.antialias, r.source.spikes, r.source.randomness, r.source.density, r.coverageProfile,
+    r.brushScale, r.brushAngle, r.scale, r.ratio, r.rotation, r.subX, r.subY, r.width, r.height]
+    .map(v => Object.is(v, -0) ? '-0' : v));
+}
+export type TransformedMaskMaterial = CanonicalAutoMaskMaterial | SourceDabMaterialSpec | { readonly kind: 'savedSource'; readonly source: SourceDabMaterialSpec } | CanonicalTransformedMaskMaterial;
 export function canonicalTransformedMaskMetadata(recipe: CanonicalMaterialRecipe, asset: CanonicalMaterialAsset) {
   if (!asset || !/^asset:[0-9a-f]{64}$/.test(asset.id) || ![asset.size, asset.width, asset.height].every(n => Number.isSafeInteger(n) && n > 0)
     || asset.size > 4096 || ![asset.x, asset.y].every(n => Number.isSafeInteger(n) && n >= 0)

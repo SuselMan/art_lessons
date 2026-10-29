@@ -140,3 +140,17 @@ queued token lifetimes, wash empty-tail targets, excessive frame unions and new
 material profiles rejected before image asset access. The successful pixel path
 is unchanged; older frozen device receipts do not certify this new admission
 policy. New source-material profiles still require their explicit resolver branch.
+
+
+## Closed incremental default-auto wire2 path
+
+The submission accepts shared-decoded V1 images or wire2 source frames. options.autoSource is fixed at construction from an already verified descriptor/room capability, normalized and copied before frame admission. Each auto definition is checked against that pin; a frame cannot self-grant a new source, size override or coverage profile. A gesture cannot switch wire profiles. Image definitions still require prepared CAS bank resources; true auto-only frames use no bank/CAS and must have assets[]. SourcePrimaryComposition widens only accepted framing, retaining the same opacity/order law.
+
+Before GL state capture and target resolution the existing work cursor advances one auto evaluator, checking its cooperative four-millisecond turn budget from BEFORE preparation. Sample quantum64 bounds arithmetic work, completed-pixel packing is incremental, and upload remains one bounded stripe. Queue admission retains headroom for the existing CPU budget's <=82432 byte stripe/cursor reservation; a generation/cache hit adds no new quota. Target leases and GL batches never cross yields. The next different auto definition waits for its own preparation; partially consumed recorded draws are not replayed or dropped.
+
+Authoritative pageBounds is copied at construction (absent retains prior closed infinite-page QA API). Both admission and execution use common planCanonicalTargets before enumerating/resolving tiles. Fully clipped draw pixel work is skipped while its logical composition update remains once per source draw. Full storage targets and original mask rects/UVs stay unchanged; tile/page intersections are passed as writeBounds to local composite and page bounds to wash preview/commit. Target-aware author packetization remains a separate UI activation gate.
+
+Host real7/pressure30, forged-pin, cooperative pending cancellation, native84/56 sample-range tests and page clipping/lifetime mocks do not constitute final GPU auto raster proof. No active painter/room/codec admission was enabled by this unit.
+
+
+Cooperative regressions also force a final upload to consume the remaining budget: the completed mask is retained, target resolution/compositing waits for the next turn, and the next turn is a zero-upload hit. Initial preparation/cache lookup consume the same turn budget. Long fully clipped scans check every16 draws and preserve the exact cursor on yield. These controls prevent stacking fresh GL work on spent CPU time; they cannot preempt a single allocation/upload/native call.

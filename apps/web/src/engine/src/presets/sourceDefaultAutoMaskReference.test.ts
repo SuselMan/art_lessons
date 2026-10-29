@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import native from './fixtures/sourceDefaultAutoMask/coverage.native.json'
-import { sourceDefaultAutoMaskReference, type SourceDefaultAutoMaskRequest } from './sourceDefaultAutoMaskReference'
+import { prepareSourceDefaultAutoMask, sourceDefaultAutoMaskReference, type SourceDefaultAutoMaskRequest } from './sourceDefaultAutoMaskReference'
 function request(index = 0): SourceDefaultAutoMaskRequest { return native.cases[index].request as SourceDefaultAutoMaskRequest }
 describe('sourceDefaultAutoMaskReference', () => {
   it('matches every byte of all 84 independent original scalar and NEON-dispatch calls', () => {
@@ -39,5 +39,44 @@ describe('sourceDefaultAutoMaskReference', () => {
     expect(() => sourceDefaultAutoMaskReference({ ...request(4), maxWorkSamples: 1 })).toThrow(RangeError)
     expect(() => sourceDefaultAutoMaskReference({ ...r, profile: 'guess' } as unknown as SourceDefaultAutoMaskRequest)).toThrow(RangeError)
     expect(() => sourceDefaultAutoMaskReference({ ...r, width: Infinity })).toThrow(RangeError)
+  })
+})
+
+
+describe('incremental full-geometry coverage cursor', () => {
+  it('matches all original native bytes across partial samples and awkward stripes', () => {
+    for (const c of native.cases) for (const quantum of [1, 17, 64]) {
+      const evaluator = prepareSourceDefaultAutoMask(c.request as SourceDefaultAutoMaskRequest)
+      const bytes: number[] = []
+      while (!evaluator.done) {
+        const stripe = new Uint8Array(7)
+        let offset = 0
+        while (offset < stripe.length && !evaluator.done) {
+          const step = evaluator.advance(stripe, offset, quantum)
+          expect(step.consumed).toBeLessThanOrEqual(quantum)
+          expect(step.consumed).toBeGreaterThan(0)
+          offset += step.written
+        }
+        bytes.push(...stripe.subarray(0, offset))
+      }
+      expect(Buffer.from(bytes).toString('base64'), `${c.index}/${quantum}`).toBe(c.expectedBase64)
+      expect(evaluator.workSamples).toBe(evaluator.pixels * evaluator.samplesPerPixel)
+    }
+  })
+  it('captures immutable parameters and does not consume on invalid output or cancellation', () => {
+    const r = structuredClone(request(4))
+    const evaluator = prepareSourceDefaultAutoMask(r)
+    ;(r.tip as { diameter: number }).diameter = 500
+    expect(() => evaluator.advance(new Uint8Array(1), -1, 1)).toThrow(RangeError)
+    expect(evaluator.workSamples).toBe(0)
+    const result = new Uint8Array(evaluator.pixels)
+    while (!evaluator.done) evaluator.advance(result, evaluator.completedPixels, 17)
+    expect(Buffer.from(result).toString('base64')).toBe(native.cases[4].expectedBase64)
+    const cancelled = prepareSourceDefaultAutoMask(request(4))
+    cancelled.advance(new Uint8Array(1), 0, 1)
+    const work = cancelled.workSamples
+    cancelled.cancel(); cancelled.cancel()
+    expect(() => cancelled.advance(new Uint8Array(1), 0, 1)).toThrow('cancelled')
+    expect(cancelled.workSamples).toBe(work)
   })
 })

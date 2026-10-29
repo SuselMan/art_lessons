@@ -53,7 +53,8 @@ function refinedDivision(numerator: number, denominator: number): number {
 }
 /** CPU reference with explicit allocation/work preflight. It does not select
  * the installed GUI factory, multiply ink alpha, or implement a hot GPU path. */
-export function sourceDefaultAutoMaskReference(request: SourceDefaultAutoMaskRequest): SourceDefaultAutoMaskResult {
+export function prepareSourceDefaultAutoMask(request: SourceDefaultAutoMaskRequest): SourceDefaultAutoMaskEvaluator {
+  request = Object.freeze({ ...request, tip: Object.freeze({ ...request.tip }) })
   const { tip, width, height } = request
   if (tip.kind !== 'auto' || tip.generator !== 'default' || !['circle', 'rect'].includes(tip.shape)
     || tip.spikes !== 2 || tip.softness !== 1 || tip.randomness !== 0 || tip.density !== 1 || typeof tip.antialias !== 'boolean'
@@ -85,7 +86,6 @@ export function sourceDefaultAutoMaskReference(request: SourceDefaultAutoMaskReq
     (rxBound + 1) * xFade, (ryBound + 1) * yFade)
   if (!Number.isFinite(coefficientBound) || coefficientBound > 2 ** (vector ? 60 : 500)
     || Math.max(rxBound, ryBound) > 2 ** (vector ? 120 : 500)) throw new RangeError('Auto mask intermediates exceed finite reference profile')
-  const mask = new Uint8Array(pixels)
   function scalarValue(rawX: number, rawY: number): number {
     const x = rectangle ? Math.abs(rawX) : rawX, y = Math.abs(rawY)
     const nx = x * xCoefficient, ny = y * yCoefficient
@@ -103,14 +103,15 @@ export function sourceDefaultAutoMaskReference(request: SourceDefaultAutoMaskReq
     const fadeRadius = fma64(fx, fx, fy * fy)
     return fadeRadius < 1 ? 0 : Math.trunc(((255 * radius) * (fadeRadius - 1)) / (fadeRadius - radius)) & 255
   }
+  function* evaluate(): Generator<number | null, void> {
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
     if (!vector) {
       let sum = 0
       for (let sy = 0; sy < samples; sy++) for (let sx = 0; sx < samples; sx++) {
         const px = fma64(sx, 1 / samples, x) - request.centerX, py = fma64(sy, 1 / samples, y) - request.centerY
         sum += scalarValue(fma64(request.cos, px, -(request.sin * py)), fma64(request.sin, px, request.cos * py))
+        yield sy === samples - 1 && sx === samples - 1 ? 255 - Math.trunc(sum / samplesPerPixel) : null
       }
-      mask[y * width + x] = 255 - Math.trunc(sum / samplesPerPixel)
       continue
     }
     const px = f(f(x) - f(request.centerX)), py = f(f(y) - f(request.centerY)), cos = f(request.cos), sin = f(request.sin)
@@ -139,7 +140,49 @@ export function sourceDefaultAutoMaskReference(request: SourceDefaultAutoMaskReq
       }
     }
     const alpha = f(f(1 - fade) * 255)
-    mask[y * width + x] = (x < Math.floor(width / 4) * 4 ? rne(alpha) : Math.trunc(alpha)) & 255
+    yield (x < Math.floor(width / 4) * 4 ? rne(alpha) : Math.trunc(alpha)) & 255
   }
-  return { mask, route: vector ? 'neon64-vector' : 'scalar', samplesPerPixel }
+  }
+  const stream = evaluate()
+  let completedPixels = 0, workSamples = 0, cancelled = false
+  return {
+    pixels, samplesPerPixel, route: vector ? 'neon64-vector' : 'scalar',
+    get completedPixels() { return completedPixels },
+    get workSamples() { return workSamples },
+    get done() { return completedPixels === pixels },
+    advance(target, offset, maxSamples) {
+      if (cancelled) throw new Error('Auto mask evaluator cancelled')
+      if (!(target instanceof Uint8Array) || !Number.isSafeInteger(offset) || offset < 0 || offset > target.length
+        || !Number.isSafeInteger(maxSamples) || maxSamples <= 0) throw new RangeError('Invalid auto mask continuation range')
+      let written = 0, consumed = 0
+      while (consumed < maxSamples && completedPixels < pixels && offset + written < target.length) {
+        const next = stream.next()
+        if (next.done) throw new Error('Auto mask evaluator ended before full geometry')
+        consumed++; workSamples++
+        if (next.value !== null) { target[offset + written++] = next.value; completedPixels++ }
+      }
+      return { written, consumed, done: completedPixels === pixels }
+    },
+    cancel() { cancelled = true; stream.return() },
+  }
+}
+
+/** One full-geometry cursor. Target buffers may be bounded stripes, never
+ * geometry stripes: global x/y and vector-tail decisions remain unchanged. */
+export interface SourceDefaultAutoMaskEvaluator {
+  readonly pixels: number
+  readonly route: 'scalar' | 'neon64-vector'
+  readonly samplesPerPixel: 1 | 9 | 36
+  readonly completedPixels: number
+  readonly workSamples: number
+  readonly done: boolean
+  advance(target: Uint8Array, offset: number, maxSamples: number): { written: number; consumed: number; done: boolean }
+  cancel(): void
+}
+
+export function sourceDefaultAutoMaskReference(request: SourceDefaultAutoMaskRequest): SourceDefaultAutoMaskResult {
+  const evaluator = prepareSourceDefaultAutoMask(request)
+  const mask = new Uint8Array(evaluator.pixels)
+  while (!evaluator.done) evaluator.advance(mask, evaluator.completedPixels, 65536)
+  return { mask, route: evaluator.route, samplesPerPixel: evaluator.samplesPerPixel }
 }

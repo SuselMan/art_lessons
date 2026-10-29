@@ -1,3 +1,4 @@
+import { prepareSourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab';
 import { CanonicalRgba8CompositePass } from './CanonicalRgba8CompositePass';
 import { runBrushGlBatch } from './BrushGlBatch';
 import { describe, expect, it, vi } from 'vitest';
@@ -15,6 +16,11 @@ function material(scale = .6) {
 }
 function setup(gpu = 2 * 1024 * 1024, cpuBudget = 2 * 1024 * 1024) {
   const { gl, snapshot } = recordingGL(), cache = new BrushTextureCache(gl, gpu), cpu = new BrushMipCache(cpuBudget), service = new TransformedMaskPrepass(gl, cache, cpu, 'test');
+  gl.texSubImage2D = vi.fn();
+  gl.UNPACK_FLIP_Y_WEBGL=9001; gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL=9002;
+  const pixelStore=gl.pixelStorei, getParameter=gl.getParameter, flags=new Map([[9001,true],[9002,true]]);
+  gl.pixelStorei=(key:number,value:number|boolean)=>flags.has(key)?flags.set(key,!!value):pixelStore(key,value);
+  gl.getParameter=(key:number)=>flags.has(key)?flags.get(key):getParameter(key);
   const m = material(), p = resolvedTransformedMaskPlan(m), source = { key: 'source', texture: gl.createTexture(), width: p.levelWidth + 2, height: p.levelHeight + 2 };
   const resources = [{ key: source.key, bytes: source.width * source.height * 4 }];
   cache.protect(['source']);
@@ -319,4 +325,72 @@ it('shares one state capture for the real ordered prepass→composite services',
     expect(attrib).toHaveBeenCalledTimes(28);expect(release).toHaveBeenCalledOnce();expect(sampler).not.toHaveBeenCalled();
     pass.reset();s.service.reset();
   }finally{clock.mockRestore()}
+});
+
+describe('canonical default-auto incremental slot generation', () => {
+  function autoRequest(owner = {}): import('./TransformedMaskPrepass').CanonicalAutoMaskRequest {
+    const source = { kind: 'defaultAuto' as const, generator: 'default' as const, shape: 'circle' as const,
+      diameter: 7, ratio: .5, horizontalFade: .7, verticalFade: .9, antialias: true, spikes: 2, randomness: 0, density: 1 };
+    const trustedSource = { kind: 'defaultAuto' as const, descriptorId: 'test-auto', descriptorVersion: 1,
+      descriptorSha256: 'a'.repeat(64), source, brushScale: 1, brushAngle: -.37, coverageProfile: 'neon64-f32-fma-v1' as const };
+    const raw = { dialect: 'krita-default-auto-qt5-arm64-v1' as const,
+      tip: { ...source, kind: 'auto' as const, softness: 1 as const, spikes: 2 as const, randomness: 0 as const, density: 1 as const }, storedScale: 1, storedAngle: -.37,
+      shape: { scale: .7, ratio: 1, rotation: .19 }, subpixelX: .25, subpixelY: .5,
+      coverageProfile: trustedSource.coverageProfile, maxPixels: 1048576, maxWorkSamples: 16*1048576 };
+    const geometry = prepareSourceDefaultAutoDab(raw).geometry;
+    const [width,height] = geometry.maskSize;
+    return { owner, role: 'primary', material: { kind: 'canonicalAuto', trustedSource,
+      recipe: {kind:'defaultAuto', source, coverageProfile:trustedSource.coverageProfile, brushScale:1,brushAngle:-.37,
+        scale:.7,ratio:1,rotation:.19,subX:.25,subY:.5,width,height,mirrorH:false,mirrorV:false}},
+      rect:{x:-9,y:17,width,height},profile:'neon4-summed-wordsize64' };
+  }
+  it('generates partial samples outside batches, publishes once and reuses at new placement/mirror', () => {
+    const s=setup(), request=autoRequest();
+    s.service.prepare({width:16,height:16,slots:1},[]);
+    const baseline=s.cpu.reservedBytes, before=s.snapshot();
+    expect(s.service.beginAutoGeneration(request)).toBe(false);
+    expect(s.cpu.reservedBytes).toBeGreaterThan(baseline);
+    expect(()=>s.service.resolveGroup([request])).toThrow('incomplete');
+    const uploads=s.gl.texSubImage2D.mock.calls.length;
+    let done=false,total=0;
+    while(!done){const step=s.service.advanceAutoGeneration(17);done=step.done;total+=step.consumed;expect(step.consumed).toBeLessThanOrEqual(17)}
+    expect(total).toBe(request.rect.width*request.rect.height*9);
+    expect(s.cpu.reservedBytes).toBe(baseline);
+    expect(s.gl.texSubImage2D.mock.calls.length).toBeGreaterThan(uploads);
+    expect(s.snapshot()).toEqual(before);
+    const first=s.service.resolveGroup([request]);first.release();
+    const moved={...request,rect:{...request.rect,x:456},material:{...request.material,recipe:{...request.material.recipe,mirrorH:true}}};
+    const uploadCount=s.gl.texSubImage2D.mock.calls.length;
+    expect(s.service.beginAutoGeneration(moved)).toBe(true);
+    const hit=s.service.resolveGroup([moved]);hit.release();
+    expect(hit.views[0].texture).toBe(first.views[0].texture);
+    expect(hit.views[0].mirror.horizontal).toBe(true);
+    expect(s.gl.texSubImage2D).toHaveBeenCalledTimes(uploadCount);
+    s.service.reset();expect(s.cpu.reservedBytes).toBe(0);
+  });
+  it('cancels incomplete generation on owner/reset/eviction and never exposes partial pixels', () => {
+    for(const mode of ['owner','reset','evict'] as const){
+      const s=setup(),r=autoRequest();s.service.prepare({width:16,height:16,slots:1},[]);
+      const baseline=s.cpu.reservedBytes;s.service.beginAutoGeneration(r);s.service.advanceAutoGeneration(1);
+      if(mode==='owner')s.service.releaseOwner(r.owner);
+      else if(mode==='reset')s.service.reset(true);
+      else {const entry=s.service.preparedResources()[1];s.cache.discard(entry.key);expect(()=>s.service.advanceAutoGeneration(1)).toThrow('residency')}
+      expect(s.cpu.reservedBytes).toBe(mode==='reset'?0:baseline);
+      expect(()=>s.service.resolveGroup([r])).toThrow();
+      s.service.reset();expect(s.cpu.reservedBytes).toBe(0);
+    }
+  });
+  it('rejects forged source and CPU budget before upload, and releases after upload failure', () => {
+    const s=setup(),r=autoRequest();s.service.prepare({width:16,height:16,slots:1},[]);
+    const before=s.cpu.reservedBytes,uploads=s.gl.texSubImage2D.mock.calls.length;
+    const exhaust=s.cpu.reserve(s.cpu.budgetBytes-before);
+    expect(()=>s.service.beginAutoGeneration(r)).toThrow('budget');
+    expect(s.gl.texSubImage2D).toHaveBeenCalledTimes(uploads);exhaust();
+    expect(()=>s.service.beginAutoGeneration({...r,material:{...r.material,recipe:{...r.material.recipe,source:{...r.material.recipe.source,diameter:8}}}})).toThrow();
+    expect(s.cpu.reservedBytes).toBe(before);expect(s.gl.texSubImage2D).toHaveBeenCalledTimes(uploads);
+    s.service.beginAutoGeneration(r);s.gl.texSubImage2D.mockImplementationOnce(()=>{throw Error('upload failure')});
+    expect(()=>{while(true)s.service.advanceAutoGeneration(64)}).toThrow('upload failure');
+    expect(s.cpu.reservedBytes).toBe(before);expect(()=>s.service.resolveGroup([r])).toThrow('complete');
+    s.service.reset();
+  });
 });

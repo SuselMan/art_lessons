@@ -1,4 +1,4 @@
-import { CANONICAL_MATERIAL_PROFILE, type CanonicalMaterialEntry, type CanonicalMaterialFrame, type CanonicalStrokeComposition } from '@grafetto/shared'
+import { CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, type CanonicalMaterialEntry, type AnyCanonicalMaterialFrame, type CanonicalStrokeComposition } from '@grafetto/shared'
 import { sourceBlendAverageOpacity } from './brushWash'
 import { normalizeSourcePainterOpacity, type SourcePainterOpacity } from './sourcePainterOpacity'
 
@@ -68,12 +68,12 @@ export function createSourcePrimaryComposition(c: SourcePrimaryCompositionContex
 /** Input must be the shared decoder's accepted frame, never pre-encode author
  * data. This layer rechecks capability/order, not CAS geometry/cost validation.
  * Pure all-or-nothing: rejection cannot advance state or issue renderer commands. */
-export function advanceSourcePrimaryComposition(s: SourcePrimaryCompositionState, input: { readonly ordinal: number; readonly frame: CanonicalMaterialFrame }): SourcePrimaryCompositionResult {
+export function advanceSourcePrimaryComposition(s: SourcePrimaryCompositionState, input: { readonly ordinal: number; readonly frame: AnyCanonicalMaterialFrame }): SourcePrimaryCompositionResult {
   validate(s)
   if (!input || s.ended || input.ordinal !== s.nextFrameOrdinal || !integer(input.ordinal)
     || !integer(s.nextFrameOrdinal + 1)) fail()
   const f = input.frame
-  if (!f || f.profile !== CANONICAL_MATERIAL_PROFILE || f.masked !== false || !Array.isArray(f.draws)
+  if (!f || ![CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE].includes(f.profile) || f.masked !== false || !Array.isArray(f.draws)
     || !Array.isArray(f.fences) || !Array.isArray(f.definitions)) fail()
   entry(f.entry)
   if (f.entry.phase !== s.entry.phase || f.entry.phase !== 'between' && (s.entry.phase === 'between' || f.entry.group !== s.entry.group)) fail()

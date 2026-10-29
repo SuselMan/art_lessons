@@ -1,5 +1,5 @@
 import { sourceAutoGeometry, type SourceAutoGeometry, type SourceAutoGeometryShape } from './sourceAutoGeometry'
-import { sourceDefaultAutoMaskReference, type SourceDefaultAutoMaskRequest, type SourceDefaultAutoMaskTip } from './sourceDefaultAutoMaskReference'
+import { prepareSourceDefaultAutoMask, type SourceDefaultAutoMaskRequest, type SourceDefaultAutoMaskTip } from './sourceDefaultAutoMaskReference'
 
 /** Closed default-auto profile, independent of image/CAS materials and PNG. */
 export interface SourceDefaultAutoDabRequest {
@@ -31,7 +31,7 @@ export interface SourceDefaultAutoDab {
 }
 /** Synchronous bounded CPU fallback. No cache, global state or quota ownership.
  * Math.sin/cos identity is proven only for retained native fixture inputs. */
-export function sourceDefaultAutoDab(request: SourceDefaultAutoDabRequest): SourceDefaultAutoDab {
+export function prepareSourceDefaultAutoDab(request: SourceDefaultAutoDabRequest) {
   const { tip, shape } = request
   if (request.dialect !== 'krita-default-auto-qt5-arm64-v1'
     || tip.kind !== 'auto' || tip.generator !== 'default' || !['circle', 'rect'].includes(tip.shape)
@@ -56,10 +56,19 @@ export function sourceDefaultAutoDab(request: SourceDefaultAutoDabRequest): Sour
   const center = [geometry.hotSpot[0] - .5 + request.subpixelX, geometry.hotSpot[1] - .5 + request.subpixelY] as const
   const generatorScale = [shape.scale, shape.scale * shape.ratio] as const
   const coverageAngle = shape.rotation + request.storedAngle
-  const result = sourceDefaultAutoMaskReference({ tip, profile: request.coverageProfile,
+  const evaluator = prepareSourceDefaultAutoMask({ tip, profile: request.coverageProfile,
     scaleX: generatorScale[0], scaleY: generatorScale[1], cos: Math.cos(coverageAngle), sin: Math.sin(coverageAngle),
     centerX: center[0], centerY: center[1], width, height,
     maxPixels: request.maxPixels, maxWorkSamples: request.maxWorkSamples })
   return { dialect: request.dialect, geometry, center, generatorScale, coverageAngle,
-    requestedProfile: request.coverageProfile, ...result }
+    requestedProfile: request.coverageProfile, evaluator }
+}
+
+
+/** Off-path convenience wrapper over the same incremental arithmetic cursor. */
+export function sourceDefaultAutoDab(request: SourceDefaultAutoDabRequest): SourceDefaultAutoDab {
+  const { evaluator, ...metadata } = prepareSourceDefaultAutoDab(request)
+  const mask = new Uint8Array(evaluator.pixels)
+  while (!evaluator.done) evaluator.advance(mask, evaluator.completedPixels, 65536)
+  return { ...metadata, mask, route: evaluator.route, samplesPerPixel: evaluator.samplesPerPixel }
 }

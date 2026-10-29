@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
 import native from './fixtures/sourceDefaultAutoWholePath/whole.native.json'
-import { sourceDefaultAutoDab, type SourceDefaultAutoDabRequest } from './sourceDefaultAutoDab'
+import { prepareSourceDefaultAutoDab, sourceDefaultAutoDab, type SourceDefaultAutoDabRequest } from './sourceDefaultAutoDab'
 function request(index = 0): SourceDefaultAutoDabRequest {
   const row = native.cases[index]
   return { dialect: 'krita-default-auto-qt5-arm64-v1', tip: { kind: 'auto', generator: 'default',
@@ -51,3 +51,18 @@ describe('sourceDefaultAutoDab whole-wrapper coupling', () => {
     expect(allocation).not.toHaveBeenCalled()
   })
 })
+
+
+it('keeps all56 independent native whole-wrapper bytes with partial samples and 13-byte stripes', () => {
+  for (const [index,row] of native.cases.entries()) {
+    const {evaluator,geometry}=prepareSourceDefaultAutoDab(request(index));
+    expect(geometry.maskSize).toEqual([row.width,row.height]);
+    const output:number[]=[];
+    while(!evaluator.done){
+      const stripe=new Uint8Array(13);let filled=0;
+      while(filled<stripe.length&&!evaluator.done)filled+=evaluator.advance(stripe,filled,17).written;
+      output.push(...stripe.subarray(0,filled));
+    }
+    expect(Buffer.from(output).toString('base64')).toBe(row.coverageBase64);
+  }
+});

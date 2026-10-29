@@ -1,5 +1,9 @@
+import { prepareSourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab'
+import stock from '../../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
+import { sourceStrokeAuthorDescriptor } from '../presets/sourceStrokeAuthorDescriptor'
+import { SourceStrokeAuthor, type SourceAuthorPacket } from '../presets/sourceStrokeAuthor'
 import { describe, expect, it, vi } from 'vitest'
-import { CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE, packCanonicalMaterial, unpackCanonicalMaterial, type BrushTip, type CanonicalMaterialFrame, type CanonicalMaterialRecipe, type TipMaskId } from '@grafetto/shared'
+import { CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE, packCanonicalMaterial, unpackCanonicalMaterial, canonicalDefaultAutoSourceBinding, buildCanonicalMaterial, type BrushDescriptor, type CanonicalDefaultAutoSource, type CanonicalDefaultAutoRecipe, type CanonicalMaterialContextV2, type BrushTip, type CanonicalMaterialFrame, type CanonicalMaterialRecipe, type TipMaskId } from '@grafetto/shared'
 import { recordingGL } from '../../testing/brushPassTestUtils'
 import { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { RibbonScratchPool } from '../buffers/RibbonScratchPool'
@@ -24,10 +28,11 @@ function decoded(count: number, x = 0, end = true, entry: CanonicalMaterialFrame
     preflightDefinition: () => ({ workUnits: 1, outputBytes: 1 }) }
   return unpackCanonicalMaterial(packCanonicalMaterial(frame, context), context)
 }
-function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4, tileBudget?: number, rasterProfile: CanonicalExecutorRasterProfile = 'reference-scalar-f32-rne-v1') {
+function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4, tileBudget?: number, rasterProfile: CanonicalExecutorRasterProfile = 'reference-scalar-f32-rne-v1', autoSource?: CanonicalDefaultAutoSource) {
   const { gl, snapshot } = recordingGL(), cache = new BrushTextureCache(gl), cpu = new BrushMipCache()
   gl.TEXTURE1 = gl.TEXTURE0 + 1; gl.STATIC_DRAW = 9001; gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME = 9002
   gl.LINEAR = 9010; gl.REPEAT = 9011
+  gl.texSubImage2D = vi.fn();
   gl.copyTexSubImage2D = vi.fn(); gl.copyTexImage2D = vi.fn(); gl.uniform3f = vi.fn(); gl.uniform4f = vi.fn()
   gl.isContextLost = () => false
   const attrib = gl.getAttribLocation
@@ -45,17 +50,18 @@ function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4,
   const tip: BrushTip = { kind: 'bitmap', mask: id as TipMaskId, hardness: 1, aspect: 1, angle: 0, rotation: 'fixed',
     imageSampling: { kind: 'integer-pyramid', signal: 'inverse-gray', sourceRect: { x: 0, y: 0, width: 1, height: 1 } } }
   const bank = new CanonicalMaskSourceBank(gl, cache, cpu, [{ id: id as TipMaskId, tip, assetSide: 1, readOriginalCoverage: () => new Uint8Array([255]) }], { gpuBytes: 0, cpuBytes: 0 })
-  bank.jobs.forEach((_, i) => bank.prepareJob(i))
+  if (!autoSource) bank.jobs.forEach((_, i) => bank.prepareJob(i))
+  const bankResources = autoSource ? [] : bank.preparedResources()
   const prepass = new TransformedMaskPrepass(gl, cache, cpu, 'executor-test')
-  prepass.prepare({ width: capacity, height: capacity, slots: 1 }, bank.preparedResources())
+  prepass.prepare({ width: capacity, height: capacity, slots: 1 }, bankResources)
   const composite = new CanonicalRgba8CompositePass(gl, cache, cpu, 'executor-composite-test')
-  composite.prepare({ width: capacity, height: capacity, operations: rasterProfile === CANONICAL_STROKE_RASTER_PROFILE ? ['alphaDarken32FusedScalar', 'over32FusedScalar'] : ['alphaDarken32', 'over32'] }, [...bank.preparedResources(), ...prepass.preparedResources()])
+  composite.prepare({ width: capacity, height: capacity, operations: rasterProfile === CANONICAL_STROKE_RASTER_PROFILE ? ['alphaDarken32FusedScalar', 'over32FusedScalar'] : ['alphaDarken32', 'over32'] }, [...bankResources, ...prepass.preparedResources()])
   const rebuild = vi.fn(() => ({ readPixels: () => null, destroy: vi.fn() }))
   const scratch = new RibbonScratchPool(gl), layer = new TiledLayerBuffer(gl, tileSize, tileSize, tileBudget ? rebuild : undefined, tileBudget ? tileBudget * tileSize * tileSize * 4 : undefined, undefined, 'straight-rgba8')
   let epoch = 0
   const releases: ReturnType<typeof vi.fn>[] = [], reserveTransient = vi.fn(() => { const r = vi.fn(); releases.push(r); return r })
   const changed = vi.fn(), poison = vi.fn()
-  const executor = new CanonicalFrameExecutor({ rasterProfile, bank, prepass, composite, scratch, capacity: { width: capacity, height: capacity },
+  const executor = new CanonicalFrameExecutor({ rasterProfile, autoSource, bank, prepass, composite, scratch, capacity: { width: capacity, height: capacity },
     layer: () => ({ buffer: layer, epoch }), reserveTransient, changed, poison })
   const submit = (frame = decoded(1), ordinal = 0): CanonicalFrameSubmission => ({ gestureId: 'gesture', layerId: 'layer', layerEpoch: 0, ordinal,
     frame, assets: [asset], rgb: [200, 20, 50], composition: { mode, alphaDarken: 'creamy', outerResourceOpacity: .8, outerBlend: 'over' } })
@@ -331,7 +337,7 @@ it('rejects a new material profile before inspecting image assets or preparing t
   try {
     Object.assign(input.frame, { profile: 'default-auto-future-profile' })
     Object.defineProperty(input, 'assets', { get: () => { throw new Error('image asset access forbidden') } })
-    expect(() => s.executor.enqueue(input)).toThrow('requires image material profile')
+    expect(() => s.executor.enqueue(input)).toThrow('requires accepted material profile')
     expect(s.reserveTransient).not.toHaveBeenCalled(); expect(s.layer.tileCount).toBe(0)
   } finally { s.close() }
 })
@@ -369,3 +375,139 @@ it('reserves all accumulated wash targets for an empty commit tail', () => {
     for (const release of s.releases) expect(release).toHaveBeenCalledTimes(1)
   } finally { s.close() }
 })
+
+
+it('executes actual seven imported auto sources through pressure30 author, decoded V2 and one incremental executor without a PNG bank', () => {
+  let totalDraws=0;
+  for(const row of stock.rows){
+    const descriptor=row.descriptor as unknown as BrushDescriptor, profile='neon64-f32-fma-v1' as const;
+    const compiled=sourceStrokeAuthorDescriptor(descriptor,{colorIdentity:'black',lodScale:1,coverageProfile:profile});
+    if(!compiled.supported)throw Error(compiled.reasons.join(','));
+    const pin=canonicalDefaultAutoSourceBinding(descriptor,'a'.repeat(64),profile);
+    const context:CanonicalMaterialContextV2={version:2,assets:[],primarySource:pin,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}};
+    const s=setup('buildup',512,512,undefined,'reference-scalar-f32-rne-v1',pin);
+    try{
+      expect(s.bank.isReady()).toBe(false);
+      const author=new SourceStrokeAuthor(compiled.program);let state=author.createState(4321,7654,.3);
+      for(let i=0;i<30;i++){
+        const packet:SourceAuthorPacket={x:20+i*.8,y:20+Math.sin(i/4)*5,t:i*17,pressure:.15+.8*(i%9)/8,
+          tiltX:0,tiltY:0,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,
+          mirroredH:i>=12&&i<22,mirroredV:false,tiltDirectionOffset:0,hover:false};
+        const iterator=author.plan(state,packet), draws: {recipe:CanonicalDefaultAutoRecipe;role:'primary';x:number;y:number;opacity:number;flow:number}[]=[];
+        while(true){const n=iterator.next();if(n.done){state=n.value;break}
+          const m=n.value.result?.material;if(!m)continue;
+          const saved=m.resolvedSource,g=saved.geometry;
+          if(g?.kind!=='defaultAuto')throw Error('Expected auto strategy');
+          const {opacity,flow}=n.value.result!;if(typeof opacity!=='number'||typeof flow!=='number')throw Error('Missing source strengths');
+          draws.push({recipe:{kind:'defaultAuto',source:g.source,coverageProfile:g.coverageProfile,
+            brushScale:saved.brush.scale,brushAngle:saved.brush.angle,scale:saved.shape.scale,ratio:saved.shape.ratio,rotation:saved.shape.rotation,
+            subX:saved.key.subPixelX,subY:saved.key.subPixelY,width:saved.width,height:saved.height,
+            mirrorH:saved.mirror.horizontal,mirrorV:saved.mirror.vertical},role:'primary',x:m.resolvedRect.x,y:m.resolvedRect.y,opacity,flow});
+        }
+        const packed=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws,
+          fences:[{kind:'segmentBegin',at:0,group:i},{kind:'primaryEnd',at:draws.length,group:i},{kind:'segmentEnd',at:draws.length,group:i},...(i===29?[{kind:'gestureEnd' as const,at:draws.length}]:[])]},context).packed;
+        const frame=unpackCanonicalMaterial(packed,context), input={...s.submit(undefined,i),frame,assets:[]};
+        s.executor.enqueue(input);s.drain();totalDraws+=draws.length;
+      }
+      expect(s.executor.checkpointReady).toBe(true);expect(s.poison).not.toHaveBeenCalled();
+      expect(s.gl.texSubImage2D.mock.calls.length).toBeGreaterThan(0);
+      expect(s.cpu.reservedBytes).toBeLessThan(s.cpu.budgetBytes);
+    } finally{s.close();expect(s.cpu.reservedBytes).toBe(0)}
+  }
+  expect(totalDraws).toBeGreaterThan(210);
+});
+
+
+for (const mode of ['wash','buildup'] as const) it(`clips ${mode} to trusted page before tile resolution while retaining original mask offsets`, () => {
+  const s=setup(mode,4,64), bounds={minX:1,minY:1,maxX:2,maxY:2};
+  const executor=new CanonicalFrameExecutor({...s.executor['options'],pageBounds:bounds});
+  const calls=vi.spyOn(s.composite,'drawSource'), resolve=vi.spyOn(s.layer,'resolveForPaint');
+  try {
+    const f=decoded(1,-20); Object.assign(f,{definitions:[{...recipe,scale:40,width:40,height:40}],draws:[{...f.draws[0],y:-20}]});
+    executor.enqueue({...s.submit(),frame:f});
+    let n=0;while(executor.pending&&n++<50)executor.advance();
+    expect(executor.checkpointReady).toBe(true);
+    expect(resolve.mock.calls.every(([r])=>r.minX===0&&r.minY===0&&r.maxX===4&&r.maxY===4)).toBe(true);
+    expect(calls.mock.calls[0][0].source.view.rect).toEqual({x:-20,y:-20,width:40,height:40});
+    for(const [r] of calls.mock.calls)expect(r.writeBounds).toEqual(bounds);
+  }finally{executor.cancel();s.close()}
+});
+
+it('skips fully clipped pixel work without allocating targets, changing source history or inventing endpoint dabs', () => {
+  const s=setup('wash'), executor=new CanonicalFrameExecutor({...s.executor['options'],pageBounds:{minX:1,minY:1,maxX:2,maxY:2}});
+  const resolve=vi.spyOn(s.layer,'resolveForPaint'), calls=vi.spyOn(s.composite,'drawSource');
+  try {
+    executor.enqueue(s.submit(decoded(1,999)));
+    while(executor.pending)executor.advance();
+    expect(executor.checkpointReady).toBe(true);expect(resolve).not.toHaveBeenCalled();expect(calls).not.toHaveBeenCalled();
+    expect(s.reserveTransient).not.toHaveBeenCalled();expect(s.changed).not.toHaveBeenCalled();
+  }finally{executor.cancel();s.close()}
+});
+
+
+function closedAutoFrame(pin:CanonicalDefaultAutoSource){
+  const r=prepareSourceDefaultAutoDab({dialect:'krita-default-auto-qt5-arm64-v1',tip:{...pin.source,kind:'auto',spikes:2,softness:1,randomness:0,density:1},
+    storedScale:pin.brushScale,storedAngle:pin.brushAngle,shape:{scale:1,ratio:1,rotation:0},subpixelX:0,subpixelY:0,
+    coverageProfile:pin.coverageProfile,maxPixels:1048576,maxWorkSamples:16*1048576});
+  const [width,height]=r.geometry.maskSize;
+  const def:CanonicalDefaultAutoRecipe={kind:'defaultAuto',source:pin.source,coverageProfile:pin.coverageProfile,
+    brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale:1,ratio:1,rotation:0,subX:0,subY:0,width,height,mirrorH:false,mirrorV:false};
+  const context:CanonicalMaterialContextV2={version:2,assets:[],primarySource:pin,budget:{workUnits:16*1048576,outputBytes:4*1048576,drawPixels:1048576}};
+  return unpackCanonicalMaterial(buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe:def,role:'primary',x:0,y:0,opacity:.5,flow:.7}],
+    fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:1,group:0},{kind:'segmentEnd',at:1,group:0},{kind:'gestureEnd',at:1}]},context).packed,context);
+}
+it('yields mid-generation before all GL/target work, then cancellation owns every reservation',()=>{
+  const pin=canonicalDefaultAutoSourceBinding(stock.rows[0].descriptor as unknown as BrushDescriptor,'b'.repeat(64),'neon64-f32-fma-v1');
+  const s=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin), resolve=vi.spyOn(s.layer,'resolveForPaint');
+  try{
+    const baseline=s.cpu.reservedBytes;s.executor.enqueue({...s.submit(),frame:closedAutoFrame(pin),assets:[]});
+    const getters=vi.spyOn(s.gl,'getParameter');getters.mockClear();
+    let clock=0;const now=vi.spyOn(performance,'now').mockImplementation(()=>clock+=5);
+    try{expect(s.executor.advance().pending).toBe(true)}finally{now.mockRestore()}
+    expect(getters).not.toHaveBeenCalled();expect(resolve).not.toHaveBeenCalled();expect(s.gl.texSubImage2D).not.toHaveBeenCalled();
+    expect(s.cpu.reservedBytes).toBeGreaterThan(baseline);
+    s.executor.cancel();expect(s.poison).toHaveBeenCalledTimes(1);expect(s.cpu.reservedBytes).toBe(baseline);
+  }finally{s.close()}
+});
+it('rejects a forged auto definition before reservations and never grants execution from frame metadata',()=>{
+  const pin=canonicalDefaultAutoSourceBinding(stock.rows[0].descriptor as unknown as BrushDescriptor,'b'.repeat(64),'neon64-f32-fma-v1');
+  const s=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin);
+  try{
+    const frame=closedAutoFrame(pin), first=frame.definitions[0];
+    if(first.kind!=='defaultAuto')throw Error('Expected auto fixture');
+    const forged={...frame,definitions:[{...first,source:{...first.source,diameter:first.source.diameter+1}}]};
+    const baseline=s.cpu.reservedBytes;
+    expect(()=>s.executor.enqueue({...s.submit(),frame:forged,assets:[]})).toThrow('mismatch');
+    expect(s.cpu.reservedBytes).toBe(baseline);expect(s.reserveTransient).not.toHaveBeenCalled();expect(s.executor.checkpointReady).toBe(true);
+    const noPin=new CanonicalFrameExecutor({...s.executor['options'],autoSource:undefined});
+    expect(()=>noPin.enqueue({...s.submit(),frame,assets:[]})).toThrow('trusted');
+    expect(s.reserveTransient).not.toHaveBeenCalled();noPin.cancel();
+  }finally{s.close()}
+});
+
+
+it('yields after completed upload consumes the budget, without stacking target/GL work onto that CPU turn',()=>{
+  const pin=canonicalDefaultAutoSourceBinding(stock.rows[0].descriptor as unknown as BrushDescriptor,'b'.repeat(64),'neon64-f32-fma-v1');
+  const s=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin), resolve=vi.spyOn(s.layer,'resolveForPaint');
+  let clock=0;const now=vi.spyOn(performance,'now').mockImplementation(()=>clock);
+  s.gl.texSubImage2D.mockImplementation(()=>{clock=5});
+  try{
+    s.executor.enqueue({...s.submit(),frame:closedAutoFrame(pin),assets:[]});
+    expect(s.executor.advance().pending).toBe(true);
+    expect(s.gl.texSubImage2D).toHaveBeenCalledTimes(1);expect(resolve).not.toHaveBeenCalled();
+    const uploads=s.gl.texSubImage2D.mock.calls.length;
+    s.drain();expect(s.executor.checkpointReady).toBe(true);expect(resolve).toHaveBeenCalled();
+    expect(s.gl.texSubImage2D).toHaveBeenCalledTimes(uploads);
+  }finally{now.mockRestore();s.close()}
+});
+it('bounds a long fully clipped frame scan and resumes its exact draw cursor',()=>{
+  const s=setup(),executor=new CanonicalFrameExecutor({...s.executor['options'],pageBounds:{minX:0,minY:0,maxX:1,maxY:1}});
+  const resolve=vi.spyOn(s.layer,'resolveForPaint');let clock=0;
+  try{
+    executor.enqueue(s.submit(decoded(100,100)));
+    const now=vi.spyOn(performance,'now').mockImplementation(()=>clock+=5);
+    try{expect(executor.advance().pending).toBe(true)}finally{now.mockRestore()}
+    expect(executor['queue'][0].draw).toBe(16);expect(resolve).not.toHaveBeenCalled();
+    while(executor.pending)executor.advance();expect(executor.checkpointReady).toBe(true);expect(resolve).not.toHaveBeenCalled();
+  }finally{executor.cancel();s.close()}
+});
