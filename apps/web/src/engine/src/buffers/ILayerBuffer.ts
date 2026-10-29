@@ -1,3 +1,4 @@
+import type { RasterPixelEncoding } from '@grafetto/shared'
 import type { AccumulationBuffer } from './AccumulationBuffer'
 import type { CoarseFactor, WorldRect } from './tileMath'
 
@@ -40,6 +41,8 @@ export interface PaintTarget {
 }
 
 export interface ILayerBuffer {
+  readonly pixelEncoding: RasterPixelEncoding
+
   /** Wipes all content — destroys every resident tile (a fresh tile painted
    *  on demand afterward starts cleared, same as AccumulationBuffer's own
    *  constructor+clear). */

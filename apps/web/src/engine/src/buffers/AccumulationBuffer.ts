@@ -1,3 +1,5 @@
+import { isRasterPixelEncoding, type RasterPixelEncoding } from '@grafetto/shared'
+
 // Persistent WebGL framebuffer that accumulates graphite over strokes.
 // Blending: ONE, ONE_MINUS_SRC_ALPHA  →  result = src + dst*(1-src.a)
 
@@ -9,6 +11,7 @@ function isPowerOfTwo(n: number): boolean {
 const checkedContexts = new WeakSet<WebGLRenderingContext>()
 
 export class AccumulationBuffer {
+  readonly pixelEncoding: RasterPixelEncoding
   readonly gl: WebGLRenderingContext
   readonly width: number
   readonly height: number
@@ -28,7 +31,10 @@ export class AccumulationBuffer {
   // real paint/composite/display content benefits from the smoothing and
   // was never part of that determinism class (see DAB_FRAG's own paper-catch
   // comment for what *is*).
-  constructor(gl: WebGLRenderingContext, width: number, height: number, filter: 'linear' | 'nearest' = 'linear') {
+  constructor(gl: WebGLRenderingContext, width: number, height: number, filter: 'linear' | 'nearest' = 'linear', pixelEncoding: RasterPixelEncoding = 'premultiplied-rgba8') {
+    if (!isRasterPixelEncoding(pixelEncoding)) throw new Error('Unknown buffer pixel encoding')
+    if (pixelEncoding === 'straight-rgba8' && filter !== 'nearest') throw new Error('Straight RGBA8 requires exact texel sampling')
+    this.pixelEncoding = pixelEncoding
     this.gl = gl
     this.width = width
     this.height = height
@@ -77,6 +83,10 @@ export class AccumulationBuffer {
 
   get texture(): WebGLTexture { return this._texture }
   get fbo(): WebGLFramebuffer { return this._fbo }
+
+  private _requirePremultiplied(): void {
+    if (this.pixelEncoding !== 'premultiplied-rgba8') throw new Error('Premultiplied writer cannot target straight RGBA8')
+  }
 
   /** (#365) Whether a mip chain can legally exist for this buffer at all.
    *  WebGL1 only allows mipmaps on power-of-two textures, and a texture whose
@@ -140,6 +150,7 @@ export class AccumulationBuffer {
    *  which is the common case: a still camera re-composites the same tiles
    *  every frame. */
   ensureMipmaps(): boolean {
+    if (this.pixelEncoding === 'straight-rgba8') return false // presentation must premultiply before filtering
     if (!this._mipCapable) return false
     if (this._mipsValid) return true
     const { gl } = this
@@ -202,6 +213,7 @@ export class AccumulationBuffer {
   }
 
   beginDraw(): void {
+    this._requirePremultiplied()
     this._invalidateMips()
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -211,6 +223,7 @@ export class AccumulationBuffer {
   }
 
   beginErase(): void {
+    this._requirePremultiplied()
     this._invalidateMips()
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -228,6 +241,7 @@ export class AccumulationBuffer {
    *  premultiplied colour — rgb and a scale together — so nothing on this path
    *  ever has to un-premultiply and re-premultiply around the mask. */
   beginKeepDraw(): void {
+    this._requirePremultiplied()
     this._invalidateMips()
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -245,6 +259,7 @@ export class AccumulationBuffer {
    *  happens later, once, in DAB_FRAG's composite branch
    *  (`1 - exp(-inkLoad * rate)`), not here. */
   beginAdditiveDraw(): void {
+    this._requirePremultiplied()
     this._invalidateMips()
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -293,6 +308,7 @@ export class AccumulationBuffer {
    *  FILM the brush leaves, and a film is as thick as the brush made it, not
    *  as thick as the number of stamps that happened to overlap there. */
   beginMaxDraw(ext: { MAX_EXT: number }): void {
+    this._requirePremultiplied()
     this._invalidateMips()
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -407,6 +423,7 @@ export class AccumulationBuffer {
   }
 
   copyTo(dest: AccumulationBuffer): void {
+    if (dest.pixelEncoding !== this.pixelEncoding) throw new Error('Raw copy pixel encoding mismatch')
     dest._invalidateMips() // copyTexImage2D redefines dest's level 0
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
@@ -445,6 +462,7 @@ export class AccumulationBuffer {
     srcGlX: number, srcGlY: number, destGlX: number, destGlY: number, w: number, h: number,
   ): void {
     if (w <= 0 || h <= 0) return
+    if (dest.pixelEncoding !== this.pixelEncoding) throw new Error('Raw copy pixel encoding mismatch')
     dest._invalidateMips() // copyTexSubImage2D writes dest's level 0
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)

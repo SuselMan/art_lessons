@@ -14,6 +14,7 @@ import type { MaterialPresentationExtent } from './WatercolorPresentationOwners'
 /** One fixed presentation allocation. The resolver cannot grow tiles outside
  * the owner budget. Coordinates here are projected raster pixels, not world. */
 class PresentationLayer implements ILayerBuffer {
+  get pixelEncoding() { return this.tile.buffer.pixelEncoding }
   readonly tile: PaintTarget
   constructor(buffer: AccumulationBuffer) { this.tile = { buffer, originX: 0, originY: 0, contentRect: null } }
   resolveForPaint(rect: WorldRect): PaintTarget[] {

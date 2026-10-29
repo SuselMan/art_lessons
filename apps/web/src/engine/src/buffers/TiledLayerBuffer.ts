@@ -1,3 +1,4 @@
+import { isRasterPixelEncoding, type RasterPixelEncoding } from '@grafetto/shared'
 import { AccumulationBuffer } from './AccumulationBuffer'
 import type { ILayerBuffer, PaintTarget } from './ILayerBuffer'
 import { COARSE_FACTORS, TILE_SIZE, coarseTileWorldRect, fineTileSlot, fineToCoarseTile, parseTileKey, tileKey, tileWorldRect, tilesOverlappingRect, worldToTile, type CoarseFactor, type WorldRect } from './tileMath'
@@ -16,13 +17,14 @@ import { COARSE_FACTORS, TILE_SIZE, coarseTileWorldRect, fineTileSlot, fineToCoa
  *  bridges when baking a transform; flipped here so the returned rect is in
  *  the same top-down convention every other WorldRect in this file uses. */
 function scanLocalContentRect(
-  pixels: Uint8Array, width: number, height: number,
+  pixels: Uint8Array, width: number, height: number, encoding: RasterPixelEncoding,
 ): { minX: number; minY: number; maxX: number; maxY: number } | null {
   let minX = width, maxX = -1, minRow = height, maxRow = -1
   for (let row = 0; row < height; row++) {
     const base = row * width
     for (let x = 0; x < width; x++) {
-      if (pixels[(base + x) * 4 + 3] === 0) continue
+      const at = (base + x) * 4
+      if (pixels[at + 3] === 0 && (encoding === 'premultiplied-rgba8' || (pixels[at] === 0 && pixels[at + 1] === 0 && pixels[at + 2] === 0))) continue
       if (x < minX) minX = x
       if (x > maxX) maxX = x
       if (row < minRow) minRow = row
@@ -159,6 +161,7 @@ export type TileDownsampler = (
  *  real correctness gap to lose (recovering one would need a rebuildTile
  *  they were never given). */
 export class TiledLayerBuffer implements ILayerBuffer {
+  readonly pixelEncoding: RasterPixelEncoding
   private readonly gl: WebGLRenderingContext
   private readonly tileW: number
   private readonly tileH: number
@@ -235,7 +238,11 @@ export class TiledLayerBuffer implements ILayerBuffer {
     // and thrown away, so neither has a coarse level to keep. Without one,
     // every coarse path below short-circuits.
     downsampleTile?: TileDownsampler,
+    pixelEncoding: RasterPixelEncoding = 'premultiplied-rgba8',
   ) {
+    if (!isRasterPixelEncoding(pixelEncoding)) throw new Error('Unknown layer pixel encoding')
+    if (pixelEncoding === 'straight-rgba8' && downsampleTile) throw new Error('Straight RGBA8 requires an explicit presentation downsampler')
+    this.pixelEncoding = pixelEncoding
     this.gl = gl
     this.tileW = tileW
     this.tileH = tileH
@@ -314,7 +321,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
     const level = this.levelFor(factor)
     let dest = level.get(coarseKey)
     if (!dest) {
-      dest = new AccumulationBuffer(this.gl, this.tileW, this.tileH)
+      dest = new AccumulationBuffer(this.gl, this.tileW, this.tileH, this.pixelEncoding === 'straight-rgba8' ? 'nearest' : 'linear', this.pixelEncoding)
       dest.clear()
       level.set(coarseKey, dest)
     }
@@ -509,7 +516,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
     for (const key of keys) {
       const { tileX, tileY } = parseTileKey(key)
       const rect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
-      const tile = new AccumulationBuffer(this.gl, this.tileW, this.tileH)
+      const tile = new AccumulationBuffer(this.gl, this.tileW, this.tileH, this.pixelEncoding === 'straight-rgba8' ? 'nearest' : 'linear', this.pixelEncoding)
       tile.clear()
       const pixels = session.readPixels(rect)
       // (#155 Tier 2) Recovery already has this tile's exact historical
@@ -519,7 +526,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
       // reads the result back for free instead of re-scanning.
       if (pixels) {
         tile.restorePixels(pixels)
-        this.contentRects.set(key, worldContentRect(rect, scanLocalContentRect(pixels, this.tileW, this.tileH)))
+        this.contentRects.set(key, worldContentRect(rect, scanLocalContentRect(pixels, this.tileW, this.tileH, this.pixelEncoding)))
       } else {
         this.contentRects.set(key, null)
       }
@@ -548,7 +555,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
     // called — see resolveForPaint) already recovered it, so it wouldn't
     // still be missing from `tiles`. Either way, a plain blank tile is
     // correct here.
-    const tile = new AccumulationBuffer(this.gl, this.tileW, this.tileH)
+    const tile = new AccumulationBuffer(this.gl, this.tileW, this.tileH, this.pixelEncoding === 'straight-rgba8' ? 'nearest' : 'linear', this.pixelEncoding)
     tile.clear()
     this.tiles.set(key, tile)
     // A genuinely brand-new tile (never seen this key before) starts with
@@ -703,7 +710,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
     // every caller, so it is the honest stride for both eras of snapshot.
     this.contentRects.set(
       key,
-      worldContentRect(rect, scanLocalContentRect(pixels, rect.maxX - rect.minX, rect.maxY - rect.minY)),
+      worldContentRect(rect, scanLocalContentRect(pixels, rect.maxX - rect.minX, rect.maxY - rect.minY, this.pixelEncoding)),
     )
   }
 
@@ -719,7 +726,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
       if (!this.contentRects.get(key)) continue
       const { tileX, tileY } = parseTileKey(key)
       const rect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
-      this.contentRects.set(key, worldContentRect(rect, scanLocalContentRect(tile.readPixels(), this.tileW, this.tileH)))
+      this.contentRects.set(key, worldContentRect(rect, scanLocalContentRect(tile.readPixels(), this.tileW, this.tileH, this.pixelEncoding)))
     }
   }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { MockGL } from '../../testing/mockGL'
+import { AccumulationBuffer } from './AccumulationBuffer'
 import { TiledLayerBuffer } from './TiledLayerBuffer'
 import { TILE_SIZE } from './tileMath'
 
@@ -66,4 +67,23 @@ describe('TiledLayerBuffer', () => {
     expect(buf.resolveVisible({ minX: 0, minY: 0, maxX: 10, maxY: 10 })).toHaveLength(0)
   })
 
+})
+
+
+it('keeps straight layer encoding through allocation and tracks hidden colour bounds', () => {
+  const buf = new TiledLayerBuffer(gl(), 4, 4, undefined, undefined, undefined, 'straight-rgba8')
+  const rect = { minX: 0, minY: 0, maxX: 4, maxY: 4 }
+  const target = buf.resolveForPaint(rect)[0]
+  expect(target.buffer.pixelEncoding).toBe('straight-rgba8')
+  const pixels = new Uint8Array(64)
+  pixels.set([17, 29, 41, 0], (1 * 4 + 2) * 4)
+  buf.restoreTileContent(rect, pixels)
+  expect(buf.getContentBoundsWorld()).toEqual({ minX: 2, minY: 2, maxX: 3, maxY: 3 })
+  expect(target.buffer.ensureMipmaps()).toBe(false)
+  expect(() => target.buffer.beginDraw()).toThrow('Premultiplied writer')
+  expect(() => target.buffer.beginErase()).toThrow('Premultiplied writer')
+  const pm = new AccumulationBuffer(target.buffer.gl, 4, 4)
+  expect(() => target.buffer.copyTo(pm)).toThrow('encoding mismatch')
+  expect(() => pm.copyRegionInto(target.buffer, 0, 0, 0, 0, 1, 1)).toThrow('encoding mismatch')
+  pm.destroy(); buf.destroy()
 })
