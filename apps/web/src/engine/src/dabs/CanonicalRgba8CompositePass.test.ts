@@ -36,6 +36,39 @@ function setup(gpu = 16 * 1024 * 1024, cpuBytes = 4 * 1024 * 1024) {
     return { gl, snapshot, cache, cpu, view, target, pass, companion, params };
 }
 describe('internal straight RGBA8 local alphaDarken pass', () => {
+    it('clips page writes without changing source offsets, target geometry or mirror policy', () => {
+        const s = setup(), before = s.snapshot();
+        s.pass.prepare({ width: 16, height: 16 }, s.companion);
+        const target: CanonicalOwnedRgba8Target = { ...s.target, lifetime: { kind: 'external', owner: {}, lease: () => () => {} } };
+        const view = { ...s.view, mirror: { horizontal: true, vertical: true } };
+        const viewport = vi.spyOn(s.gl, 'viewport'), uniform2f = vi.spyOn(s.gl, 'uniform2f');
+        const request: CanonicalCompositeRequest = { source: { kind: 'maskRgb', view, rgb: [198, 36, 90] }, target,
+            operation: { kind: 'alphaDarken32', control }, writeBounds: { minX: 11, minY: 21, maxX: 13, maxY: 24 } };
+        expect(s.pass.drawSource(request)).toBe('painted');
+        expect(s.gl.copyTexSubImage2D).toHaveBeenCalledWith(s.gl.TEXTURE_2D, 0, 0, 0, 1, 4, 2, 3);
+        expect(viewport).toHaveBeenCalledWith(1, 4, 2, 3);
+        expect(s.gl.uniform4f.mock.calls.find((r: any[]) => r[0].name === 'sourceGeometry').slice(1)).toEqual([3, 3, 6, 7]);
+        expect(uniform2f).toHaveBeenCalledWith(expect.objectContaining({ name: 'mirrorFlags' }), 1, 1);
+        expect(target.width).toBe(8); expect(view.rect).toEqual(s.view.rect);
+        expect(s.snapshot()).toEqual(before);
+        const copies = s.gl.copyTexSubImage2D.mock.calls.length, draws = s.gl.drawArrays.mock.calls.length;
+        for (const writeBounds of [{ minX: 0, minY: 0, maxX: 10, maxY: 20 }, { minX: 12, minY: 22, maxX: 12, maxY: 23 }])
+            expect(s.pass.drawSource({ ...request, writeBounds })).toBe('empty');
+        expect(s.gl.copyTexSubImage2D).toHaveBeenCalledTimes(copies);
+        expect(s.gl.drawArrays).toHaveBeenCalledTimes(draws);
+        expect(s.snapshot()).toEqual(before);
+    });
+    it('rejects malformed page write bounds before GL or target leases', () => {
+        const s = setup(), lease = vi.fn(() => () => {});
+        s.pass.prepare({ width: 16, height: 16 }, s.companion);
+        const target: CanonicalOwnedRgba8Target = { ...s.target, lifetime: { kind: 'external', owner: {}, lease } };
+        s.gl.copyTexSubImage2D.mockClear(); const getters = vi.spyOn(s.gl, 'getParameter');
+        for (const writeBounds of [{ minX: 0, minY: 0, maxX: NaN, maxY: 1 }, { minX: 0, minY: .5, maxX: 1, maxY: 1 }, { minX: 2, minY: 0, maxX: 1, maxY: 1 }])
+            expect(() => s.pass.drawSource({ source: { kind: 'maskRgb', view: s.view, rgb: [1, 2, 3] }, target,
+                operation: { kind: 'alphaDarken32', control }, writeBounds })).toThrow('write bounds');
+        expect(s.gl.copyTexSubImage2D).not.toHaveBeenCalled(); expect(getters).not.toHaveBeenCalled(); expect(lease).not.toHaveBeenCalled();
+    });
+
     it('copies only the intersecting native rectangle, retains mask offsets and restores GL state', () => {
         const s = setup(), before = s.snapshot();
         s.pass.prepare({ width: 16, height: 16 }, s.companion);

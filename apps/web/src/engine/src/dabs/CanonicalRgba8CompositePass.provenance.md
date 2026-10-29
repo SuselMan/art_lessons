@@ -170,3 +170,24 @@ GUI/vector packet dispatch, native64 partition or full118 compatibility.
 Primitive whole-pixel receipts801da9626/068961850 do NOT prove this joined pass.
 29 focused composite/batch lifecycle tests and webTSC/lint pass after integration;
 fresh joined Samsung pixel/state/cleanup gates are required before activation.
+
+## Authoritative page write bounds
+
+Optional request.writeBounds is an integer half-open world rectangle, validated
+before drawSource acquires source/target leases or performs GL work (an outer
+batch may already own its capsule and declared leases). The copy/draw rectangle is the intersection
+of source, full target storage and these bounds. SourceGeometry offsets remain
+relative to the ORIGINAL source rectangle and mirror remains a post-raster
+operation; neither target dimensions nor source UV geometry are shrunk. Empty
+intersections do not copy or draw. Existing calls without bounds use the previous
+source/target intersection. These host tests establish clip/offset/state control
+flow; the previous device receipts do not certify this added optional path.
+
+CanonicalTargetPlan provides matching pre-allocation geometry: authoritative page
+intersection precedes tile fanout computation and enumeration. It returns full
+storage rectangles and per-tile paint bounds separately. It rejects fanout above
+64 and unsafe outward tile extents before allocating a grid list. null explicitly
+means an infinite page; viewport rectangles are never substituted for page bounds.
+The executor/room integration must use the same plan for admission and execution,
+handle empty draws, and pass the paint bound into drawSource. A standalone planner
+and optional compositor field do not establish complete page/room integration.

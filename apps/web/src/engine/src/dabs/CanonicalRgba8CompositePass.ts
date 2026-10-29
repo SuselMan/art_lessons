@@ -9,6 +9,7 @@ import { saveBrushGlState } from './BrushGlState';
 import { BrushMipCache } from './BrushMipCache';
 import { BrushTextureCache } from './BrushTextureCache';
 import type { TransformedMaskView } from './TransformedMaskPrepass';
+import type { WorldRect } from '../buffers/tileMath';
 export interface CanonicalStraightRgba8Target {
     readonly brand: 'canonical-straight-rgba8-v1';
     readonly texture: WebGLTexture;
@@ -82,6 +83,8 @@ export interface CanonicalCompositeRequest {
     readonly operation: CanonicalCompositeOperation;
     /** Immutable base for repeated preview; default target means ordinary feedback. */
     readonly readDestination?: CanonicalOwnedRgba8Target;
+    /** Authoritative world pixel bounds, independent of viewport/source geometry. */
+    readonly writeBounds?: Readonly<WorldRect>;
 }
 export interface CanonicalCompositeLimits {
     readonly width: number;
@@ -350,6 +353,10 @@ export class CanonicalRgba8CompositePass {
         if (!request || !request.source || !request.operation)
             throw new RangeError('Missing composite request');
         const { source, target, operation } = request, base = request.readDestination ?? target;
+        const bounds = request.writeBounds;
+        if (bounds !== undefined && (!bounds || ![bounds.minX, bounds.minY, bounds.maxX, bounds.maxY].every(Number.isSafeInteger)
+            || bounds.maxX < bounds.minX || bounds.maxY < bounds.minY))
+            throw new RangeError('Invalid composite write bounds');
         const sampled = this.validateSource(source);
         this.validateTarget(target);
         this.validateTarget(base);
@@ -377,7 +384,7 @@ export class CanonicalRgba8CompositePass {
         if ([...unique.values()].reduce((a, b) => a + b, 0) > this.cache.budgetBytes)
             throw new RangeError('Composite draw exceeds GPU budget');
         const declaredOwners = [target.lifetime, ...base === target ? [] : [base.lifetime], ...sampled.residency.kind === 'external' ? [sampled.residency] : []];
-        const clip = this.clip(sampled.rect, target);
+        const clip = this.clip(sampled.rect, target, bounds);
         if (!clip) {
             frame?.assert(this, resources, declaredOwners);
             frame?.beginDraw();
@@ -575,8 +582,8 @@ export class CanonicalRgba8CompositePass {
         else if (operation.kind === 'over32FusedScalar' ? operation.control.profile !== 'installed-arm64-scalar-fused-fpcr0-v1' : operation.kind !== 'over32' || !['portable-f32-division-rne-v1', 'optimized32-neon64-scalar-frecpe-rne-v1'].includes(operation.control.profile))
             throw new RangeError('Invalid Over32 profile');
     }
-    private clip(rect: TransformedMaskView['rect'], target: CanonicalStraightRgba8Target): Clip | undefined {
-        const x = Math.max(rect.x, target.originX), y = Math.max(rect.y, target.originY), right = Math.min(rect.x + rect.width, target.originX + target.width), bottom = Math.min(rect.y + rect.height, target.originY + target.height);
+    private clip(rect: TransformedMaskView['rect'], target: CanonicalStraightRgba8Target, bounds?: Readonly<WorldRect>): Clip | undefined {
+        const x = Math.max(rect.x, target.originX, bounds?.minX ?? -Infinity), y = Math.max(rect.y, target.originY, bounds?.minY ?? -Infinity), right = Math.min(rect.x + rect.width, target.originX + target.width, bounds?.maxX ?? Infinity), bottom = Math.min(rect.y + rect.height, target.originY + target.height, bounds?.maxY ?? Infinity);
         if (right <= x || bottom <= y)
             return;
         return { x: x - target.originX, y: target.height - (bottom - target.originY), width: right - x, height: bottom - y, maskX: x - rect.x, maskY: y - rect.y };
