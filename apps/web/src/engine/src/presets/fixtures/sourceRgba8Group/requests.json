@@ -1,0 +1,1865 @@
+{
+  "qtCoverageInput": {
+    "path": "apps/web/src/engine/src/raster/__fixtures__/qtEllipseCoverage.native.json",
+    "sha256": "3fc767bcc4305e0cb54dd70a34cb94b06fcd7c946b4e1ec7120abb05c68cd65f",
+    "provenance": "Host Qt 5.15.13+dfsg-1ubuntu1 x86_64 QImage::Format_ARGB32_Premultiplied Raster paintEngine, native QPainter cubic path; no Android claim",
+    "indices": [
+      17,
+      19
+    ]
+  },
+  "cases": [
+    {
+      "name": "overlap-0",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              64,
+              32,
+              0
+            ],
+            "alphaOverride": 255
+          },
+          "opacity": 0,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "00e900001fe901013ee902805de903ff7ce904009be90501"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "over",
+        "opacity": 0,
+        "flow": 1,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-1",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              145,
+              64,
+              32,
+              1
+            ]
+          },
+          "opacity": 0,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "01e9130020e914013fe915805ee916ff7de917009ce91801"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "add",
+        "opacity": 0.5,
+        "flow": 0.35,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-2",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              162,
+              64,
+              32,
+              128
+            ]
+          },
+          "opacity": 0,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "02e9260021e9270140e928805fe929ff7ee92a009de92b01"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "alphaDarken",
+        "opacity": 1,
+        "flow": 1,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-3",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              179,
+              64,
+              32,
+              255
+            ]
+          },
+          "opacity": 0,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "03e9390022e93a0141e93b8060e93cff7fe93d009ee93e01"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "over",
+        "opacity": 0.6827,
+        "flow": 0.35,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-4",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              196,
+              64,
+              32,
+              0
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "04e94c0023e94d0142e94e8061e94fff80e950009fe95101"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "add",
+        "opacity": 0,
+        "flow": 1,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-5",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              213,
+              64,
+              32,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "05e95f0024e9600143e9618062e962ff81e96300a0e96401"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "alphaDarken",
+        "opacity": 0.5,
+        "flow": 0.35,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-6",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              230,
+              64,
+              32,
+              128
+            ],
+            "alphaOverride": 255
+          },
+          "opacity": 0.5,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "06e9720025e9730144e9748063e975ff82e97600a1e97701"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "over",
+        "opacity": 1,
+        "flow": 1,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-7",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              247,
+              64,
+              32,
+              255
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "07e9850026e9860145e9878064e988ff83e98900a2e98a01"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "add",
+        "opacity": 0.6827,
+        "flow": 0.35,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-8",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              8,
+              64,
+              32,
+              0
+            ]
+          },
+          "opacity": 1,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "08e9980027e9990146e99a8065e99bff84e99c00a3e99d01"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "alphaDarken",
+        "opacity": 0,
+        "flow": 1,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-9",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              25,
+              64,
+              32,
+              1
+            ]
+          },
+          "opacity": 1,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "09e9ab0028e9ac0147e9ad8066e9aeff85e9af00a4e9b001"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "over",
+        "opacity": 0.5,
+        "flow": 0.35,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-10",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              42,
+              64,
+              32,
+              128
+            ]
+          },
+          "opacity": 1,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "0ae9be0029e9bf0148e9c08067e9c1ff86e9c200a5e9c301"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "add",
+        "opacity": 1,
+        "flow": 1,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-11",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              59,
+              64,
+              32,
+              255
+            ]
+          },
+          "opacity": 1,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "0be9d1002ae9d20149e9d38068e9d4ff87e9d500a6e9d601"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "alphaDarken",
+        "opacity": 0.6827,
+        "flow": 0.35,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-12",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              76,
+              64,
+              32,
+              0
+            ],
+            "alphaOverride": 255
+          },
+          "opacity": 0.417239,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "0ce9e4002be9e5014ae9e68069e9e7ff88e9e800a7e9e901"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "over",
+        "opacity": 0,
+        "flow": 1,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-13",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              93,
+              64,
+              32,
+              1
+            ]
+          },
+          "opacity": 0.417239,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "0de9f7002ce9f8014be9f9806ae9faff89e9fb00a8e9fc01"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "add",
+        "opacity": 0.5,
+        "flow": 0.35,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-14",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              110,
+              64,
+              32,
+              128
+            ]
+          },
+          "opacity": 0.417239,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "0ee90a002de90b014ce90c806be90dff8ae90e00a9e90f01"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "alphaDarken",
+        "opacity": 1,
+        "flow": 1,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-15",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              127,
+              64,
+              32,
+              255
+            ]
+          },
+          "opacity": 0.417239,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "0fe91d002ee91e014de91f806ce920ff8be92100aae92201"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "over",
+        "opacity": 0.6827,
+        "flow": 0.35,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-16",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              144,
+              64,
+              32,
+              0
+            ]
+          },
+          "opacity": 0,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "10e930002fe931014ee932806de933ff8ce93400abe93501"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "add",
+        "opacity": 0,
+        "flow": 1,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-17",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              161,
+              64,
+              32,
+              1
+            ]
+          },
+          "opacity": 0,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "11e9430030e944014fe945806ee946ff8de94700ace94801"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "alphaDarken",
+        "opacity": 0.5,
+        "flow": 0.35,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-18",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              178,
+              64,
+              32,
+              128
+            ],
+            "alphaOverride": 255
+          },
+          "opacity": 0,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "12e9560031e9570150e958806fe959ff8ee95a00ade95b01"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "over",
+        "opacity": 1,
+        "flow": 1,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-19",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              195,
+              64,
+              32,
+              255
+            ]
+          },
+          "opacity": 0,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "13e9690032e96a0151e96b8070e96cff8fe96d00aee96e01"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "add",
+        "opacity": 0.6827,
+        "flow": 0.35,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-20",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              212,
+              64,
+              32,
+              0
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "14e97c0033e97d0152e97e8071e97fff90e98000afe98101"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "alphaDarken",
+        "opacity": 0,
+        "flow": 1,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-21",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              229,
+              64,
+              32,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "15e98f0034e9900153e9918072e992ff91e99300b0e99401"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "over",
+        "opacity": 0.5,
+        "flow": 0.35,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-22",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              246,
+              64,
+              32,
+              128
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "16e9a20035e9a30154e9a48073e9a5ff92e9a600b1e9a701"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "add",
+        "opacity": 1,
+        "flow": 1,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "overlap-23",
+      "destination": {
+        "x": -3,
+        "y": -2,
+        "width": 7,
+        "height": 6,
+        "pixelsHex": "00110000251135014a116a806f119fff9411d400b9110901de113e80031173ff2811a8004d11dd0172111280971147ffbc117c00e111b1010611e6802b111bff50115000751185019a11ba80bf11efffe4112400091159012e118e805311c3ff7811f8009d112d01c2116280e71197ff0c11cc0031110101561136807b116bffa011a000c511d501ea110a800f113fff341174005911a9017e11de80a31113ffc8114800ed117d01"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -1,
+          "width": 3,
+          "height": 2,
+          "material": {
+            "kind": "solid",
+            "color": [
+              7,
+              64,
+              32,
+              255
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "00017f80feff"
+        },
+        {
+          "x": -1,
+          "y": 0,
+          "width": 2,
+          "height": 3,
+          "material": {
+            "kind": "pixels",
+            "pixelsHex": "17e9b50036e9b60155e9b78074e9b8ff93e9b900b2e9ba01"
+          },
+          "opacity": 0.61,
+          "coverageHex": "ff807f0100fe"
+        },
+        {
+          "x": -4,
+          "y": -3,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              17,
+              250,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "alphaDarken",
+        "opacity": 0.6827,
+        "flow": 0.35,
+        "averageOpacity": 0.83
+      }
+    },
+    {
+      "name": "qt-coverage-input-0",
+      "destination": {
+        "x": -4,
+        "y": -4,
+        "width": 8,
+        "height": 8,
+        "pixelsHex": "29710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980"
+      },
+      "particles": [
+        {
+          "x": -3,
+          "y": -3,
+          "width": 6,
+          "height": 6,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              64,
+              32,
+              0
+            ],
+            "alphaOverride": 255
+          },
+          "opacity": 0.5,
+          "coverageHex": "00000000000000000c1500000018e1fa61000036ffffbc0000004e9d2100000000000000"
+        },
+        {
+          "x": -2,
+          "y": -2,
+          "width": 4,
+          "height": 4,
+          "material": {
+            "kind": "solid",
+            "color": [
+              19,
+              241,
+              73,
+              128
+            ]
+          },
+          "opacity": 1,
+          "coverageHex": "000000000005220000227f0000000000"
+        }
+      ],
+      "outer": {
+        "mode": "over",
+        "opacity": 0.71,
+        "flow": 0.47,
+        "averageOpacity": 0.84
+      },
+      "groupBounds": {
+        "x": -4,
+        "y": -4,
+        "width": 8,
+        "height": 8
+      }
+    },
+    {
+      "name": "qt-coverage-input-1",
+      "destination": {
+        "x": -4,
+        "y": -4,
+        "width": 8,
+        "height": 8,
+        "pixelsHex": "29710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980"
+      },
+      "particles": [
+        {
+          "x": -3,
+          "y": -3,
+          "width": 6,
+          "height": 6,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              64,
+              32,
+              0
+            ],
+            "alphaOverride": 255
+          },
+          "opacity": 0.5,
+          "coverageHex": "00000000000000000c1500000018e1fa61000036ffffbc0000004e9d2100000000000000"
+        },
+        {
+          "x": -2,
+          "y": -2,
+          "width": 4,
+          "height": 4,
+          "material": {
+            "kind": "solid",
+            "color": [
+              19,
+              241,
+              73,
+              128
+            ]
+          },
+          "opacity": 1,
+          "coverageHex": "000000000005220000227f0000000000"
+        }
+      ],
+      "outer": {
+        "mode": "add",
+        "opacity": 0.71,
+        "flow": 0.47,
+        "averageOpacity": 0.84
+      },
+      "groupBounds": {
+        "x": -4,
+        "y": -4,
+        "width": 8,
+        "height": 8
+      }
+    },
+    {
+      "name": "qt-coverage-input-2",
+      "destination": {
+        "x": -4,
+        "y": -4,
+        "width": 8,
+        "height": 8,
+        "pixelsHex": "29710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980297109802971098029710980"
+      },
+      "particles": [
+        {
+          "x": -3,
+          "y": -3,
+          "width": 6,
+          "height": 6,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              64,
+              32,
+              0
+            ],
+            "alphaOverride": 255
+          },
+          "opacity": 0.5,
+          "coverageHex": "00000000000000000c1500000018e1fa61000036ffffbc0000004e9d2100000000000000"
+        },
+        {
+          "x": -2,
+          "y": -2,
+          "width": 4,
+          "height": 4,
+          "material": {
+            "kind": "solid",
+            "color": [
+              19,
+              241,
+              73,
+              128
+            ]
+          },
+          "opacity": 1,
+          "coverageHex": "000000000005220000227f0000000000"
+        }
+      ],
+      "outer": {
+        "mode": "alphaDarken",
+        "opacity": 0.71,
+        "flow": 0.47,
+        "averageOpacity": 0.84
+      },
+      "groupBounds": {
+        "x": -4,
+        "y": -4,
+        "width": 8,
+        "height": 8
+      }
+    },
+    {
+      "name": "alpha1-no-premultiply",
+      "destination": {
+        "x": -1,
+        "y": -1,
+        "width": 1,
+        "height": 1,
+        "pixelsHex": "00000000"
+      },
+      "particles": [
+        {
+          "x": -1,
+          "y": -1,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              64,
+              32,
+              1
+            ]
+          },
+          "opacity": 0.5,
+          "coverageHex": "80"
+        }
+      ],
+      "outer": {
+        "mode": "over",
+        "opacity": 1
+      }
+    },
+    {
+      "name": "empty",
+      "destination": {
+        "x": 5,
+        "y": -8,
+        "width": 2,
+        "height": 1,
+        "pixelsHex": "8040200109120080"
+      },
+      "particles": [],
+      "outer": {
+        "mode": "over",
+        "opacity": 1
+      }
+    },
+    {
+      "name": "disjoint",
+      "destination": {
+        "x": 10,
+        "y": 10,
+        "width": 1,
+        "height": 1,
+        "pixelsHex": "80402001"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -2,
+          "width": 1,
+          "height": 1,
+          "material": {
+            "kind": "solid",
+            "color": [
+              255,
+              0,
+              0,
+              255
+            ]
+          },
+          "opacity": 1,
+          "coverageHex": "ff"
+        }
+      ],
+      "outer": {
+        "mode": "alphaDarken",
+        "opacity": 1
+      }
+    },
+    {
+      "name": "explicit-transparent-window",
+      "destination": {
+        "x": 0,
+        "y": 0,
+        "width": 2,
+        "height": 1,
+        "pixelsHex": "8040200001020300"
+      },
+      "particles": [],
+      "outer": {
+        "mode": "alphaDarken",
+        "opacity": 1
+      },
+      "groupBounds": {
+        "x": 0,
+        "y": 0,
+        "width": 2,
+        "height": 1
+      }
+    },
+    {
+      "name": "empty-particle",
+      "destination": {
+        "x": 0,
+        "y": 0,
+        "width": 1,
+        "height": 1,
+        "pixelsHex": "11223344"
+      },
+      "particles": [
+        {
+          "x": -2,
+          "y": -2,
+          "width": 0,
+          "height": 6,
+          "material": {
+            "kind": "solid",
+            "color": [
+              128,
+              64,
+              32,
+              1
+            ]
+          },
+          "opacity": 0,
+          "coverageHex": ""
+        }
+      ],
+      "outer": {
+        "mode": "over",
+        "opacity": 1
+      }
+    }
+  ]
+}

@@ -6,7 +6,7 @@ import type { Rgba8 } from './mixWeightedRgba8'
  */
 const f = Math.fround
 const clamp = (v: number): number => Math.max(0, Math.min(1, v))
-function pixel(p: Rgba8): void {
+export function validateRgba8Pixel(p: Rgba8): void {
   if (p.length !== 4 || p.some(v => !Number.isInteger(v) || v < 0 || v > 255)) throw new RangeError('Invalid RGBA8 pixel')
 }
 function unit(v: number): void {
@@ -33,7 +33,7 @@ const blend = (src: number, dst: number, alpha: number): number => {
  * equivalent alpha multiplier after quantization. Alpha replaces, not scales.
  */
 export function setRgba8Opacity(source: Rgba8, opacity: number): Rgba8 {
-  pixel(source); unit(opacity)
+  validateRgba8Pixel(source); unit(opacity)
   return [source[0], source[1], source[2], Math.trunc(opacity * 255 + .5)]
 }
 
@@ -43,7 +43,7 @@ export function setRgba8Opacity(source: Rgba8, opacity: number): Rgba8 {
  * Source byte conversions and intermediate float assignments are explicit.
  */
 export function adjustHslCompatibilityRgba8(source: Rgba8, hue: number, saturation: number, lightness: number): Rgba8 {
-  pixel(source)
+  validateRgba8Pixel(source)
   for (const v of [hue, saturation, lightness]) if (!Number.isFinite(v) || v < -1 || v > 1) throw new RangeError('Invalid signed HSL control')
   const r = f(source[0] / 255), g = f(source[1] / 255), b = f(source[2] / 255)
   const v = Math.max(r, g, b), m = Math.min(r, g, b), chroma = f(v - m)
@@ -79,7 +79,7 @@ export function adjustHslCompatibilityRgba8(source: Rgba8, hue: number, saturati
  * This is the sibling model selected by native ordinary brush HSV options.
  */
 export function adjustHsvChromaRgba8(source: Rgba8, hue: number, saturation: number, value: number): Rgba8 {
-  pixel(source)
+  validateRgba8Pixel(source)
   for (const v of [hue, saturation, value]) if (!Number.isFinite(v) || v < -1 || v > 1) throw new RangeError('Invalid signed HSV control')
   const dh = f(hue), ds = f(saturation), dv = f(value)
   const r = f(source[0] / 255), g = f(source[1] / 255), b = f(source[2] / 255)
@@ -122,13 +122,27 @@ export interface Rgba8CompositeControl {
   readonly flow?: number
   readonly averageOpacity?: number
 }
+/** Validate the complete control before a caller allocates/writes surfaces. */
+export function validateRgba8CompositeControl(control: Rgba8CompositeControl): void {
+  if (!control || !['over', 'add', 'alphaDarken'].includes(control.mode)) throw new RangeError('Unknown composite mode')
+  unit(control.opacity)
+  if (control.mask !== undefined && (!Number.isInteger(control.mask) || control.mask < 0 || control.mask > 255)) throw new RangeError('Invalid mask byte')
+  unit(control.flow ?? 1)
+  unit(control.averageOpacity ?? control.opacity)
+}
+/** Material alpha is stored in U8 before painter opacity. RGB stays straight,
+ * including hidden colour at alpha0. This is not a composite-mask parameter. */
+export function applyRgba8AlphaMask(source: Rgba8, mask: number): Rgba8 {
+  validateRgba8Pixel(source)
+  if (!Number.isInteger(mask) || mask < 0 || mask > 255) throw new RangeError('Invalid mask byte')
+  return [source[0], source[1], source[2], multiply(source[3], mask)]
+}
 /** Scalar byte composite, source/destination straight RGBA, all channels enabled.
  * A missing mask preserves the source's distinct two-factor Over path.
  * Alpha-darken uses the creamy policy; averageOpacity is explicit caller state.
  */
 export function compositeRgba8(source: Rgba8, destination: Rgba8, control: Rgba8CompositeControl): Rgba8 {
-  pixel(source); pixel(destination); unit(control.opacity)
-  if (control.mask !== undefined && (!Number.isInteger(control.mask) || control.mask < 0 || control.mask > 255)) throw new RangeError('Invalid mask byte')
+  validateRgba8Pixel(source); validateRgba8Pixel(destination); validateRgba8CompositeControl(control)
   const flow = control.flow ?? 1, average = control.averageOpacity ?? control.opacity
   unit(flow); unit(average)
   const mask = control.mask ?? 255, opacity = opacityByte(control.opacity), da = destination[3]
