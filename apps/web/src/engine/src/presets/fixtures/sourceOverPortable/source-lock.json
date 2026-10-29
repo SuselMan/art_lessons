@@ -1,0 +1,110 @@
+[
+  {
+    "path": "libs/pigment/compositeops/KoOptimizedCompositeOpOver32.h",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/pigment/compositeops/KoOptimizedCompositeOpOver32.h",
+    "sha256": "02c7ce4fbb60a821f6dc99e46dd0560dd4997cf6f38a1b066e9a5582bca2b8f6",
+    "bytes": 9054
+  },
+  {
+    "path": "libs/pigment/compositeops/KoStreamedMath.h",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/pigment/compositeops/KoStreamedMath.h",
+    "sha256": "eb224fd6fba0e8e938a7e72810bda8e00801541ef435e905a2f026353e197e91",
+    "bytes": 31064
+  },
+  {
+    "path": "libs/pigment/compositeops/KoOptimizedCompositeOpFactoryPerArch.h",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/pigment/compositeops/KoOptimizedCompositeOpFactoryPerArch.h",
+    "sha256": "7c2040b9d1b9f4aa4a6d4f91912457cfdbbe43e0249f4f42f6030bf7908cf2f6",
+    "bytes": 1426
+  },
+  {
+    "path": "libs/pigment/compositeops/KoOptimizedCompositeOpFactoryPerArch.cpp",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/pigment/compositeops/KoOptimizedCompositeOpFactoryPerArch.cpp",
+    "sha256": "893a7f2b54f94de6b1dcd0bbf16763b0301e21f27ebcbb5330ae2bd013ebb340",
+    "bytes": 3674
+  },
+  {
+    "path": "libs/pigment/compositeops/KoOptimizedCompositeOpFactory.cpp",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/pigment/compositeops/KoOptimizedCompositeOpFactory.cpp",
+    "sha256": "64dacb0a1e8466dad33a22e57cec5a8547729da24036b47240e7c461fe2fdbf0",
+    "bytes": 2857
+  },
+  {
+    "path": "libs/pigment/CMakeLists.txt",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/pigment/CMakeLists.txt",
+    "sha256": "36e28db95dde5fed9305d6d9052763548ce3890accf93fc3d024645a8f0c0791",
+    "bytes": 3854
+  },
+  {
+    "path": "libs/global/CMakeLists.txt",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/global/CMakeLists.txt",
+    "sha256": "5015bcc3c1c7e3bc1b287fd3cd02d04b9208bb6dfff304fe934355b111e3bd72",
+    "bytes": 3366
+  },
+  {
+    "path": "cmake/modules/MacroKritaAddBenchmark.cmake",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/cmake/modules/MacroKritaAddBenchmark.cmake",
+    "sha256": "5790a2bf13b3d268d005df7efc75abe29c09c394736563774095bcf376a853ad",
+    "bytes": 2449
+  },
+  {
+    "path": "libs/multiarch/KoMultiArchBuildSupport.h",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/multiarch/KoMultiArchBuildSupport.h",
+    "sha256": "810aca11ace3f447af25d77a6fc074eb4f3213000ecef90fa997fd972af97805",
+    "bytes": 2915
+  },
+  {
+    "path": "libs/multiarch/KoMultiArchBuildSupport.cpp",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/multiarch/KoMultiArchBuildSupport.cpp",
+    "sha256": "d4550ddcdb091a845f46728c938d4ab9631fdcfaff974652579d268b28e7d57f",
+    "bytes": 796
+  },
+  {
+    "path": "libs/multiarch/CMakeLists.txt",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/multiarch/CMakeLists.txt",
+    "sha256": "a80f245bcbd8aab48cb045d4f43f5f6c4b4c559766b0659c130260ab77d1b632",
+    "bytes": 769
+  },
+  {
+    "path": "libs/pigment/compositeops/KoOptimizedCompositeOpFactoryPerArch_Scalar.cpp",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/pigment/compositeops/KoOptimizedCompositeOpFactoryPerArch_Scalar.cpp",
+    "sha256": "ebf712cc9de63f8cbb0a608adf95cf8dab148b74a1179ce8bdb2aef3d1fb0f4d",
+    "bytes": 3423
+  },
+  {
+    "path": "libs/multiarch/KisSupportedArchitectures.cpp",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/multiarch/KisSupportedArchitectures.cpp",
+    "sha256": "af16c5c2b7388d01ed62f1bd70aeb291b55ac3e7052c026ee9574a508c1123a9",
+    "bytes": 2933
+  },
+  {
+    "path": "libs/multiarch/KisSupportedArchitectures.h",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/multiarch/KisSupportedArchitectures.h",
+    "sha256": "09f04f0eb3149044188dbe5804f1faae5d529ae627ef132110cb76f04c568955",
+    "bytes": 517
+  },
+  {
+    "path": "cmake/modules/Findxsimd.cmake",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/cmake/modules/Findxsimd.cmake",
+    "sha256": "cdaa072510fd402c00f6f48e7a3dc0ed3cc0865a775239e757121ecf21f5d82e",
+    "bytes": 629
+  },
+  {
+    "path": "cmake/modules/xsimd/xsimdAddCompilerFlag.cmake",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/cmake/modules/xsimd/xsimdAddCompilerFlag.cmake",
+    "sha256": "1c2a9a94941d1393045ab9294eba3cd92b9c7d318fb99d9e3fd850c1fc9f334f",
+    "bytes": 3710
+  },
+  {
+    "path": "cmake/modules/xsimd/xsimdMacros.cmake",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/cmake/modules/xsimd/xsimdMacros.cmake",
+    "sha256": "1aab213b3c71d39163bc56d4c67fdabd1f737aefdd1daa18ea77b65c3ce7e6f6",
+    "bytes": 13943
+  },
+  {
+    "path": "libs/multiarch/xsimd_extensions/xsimd.hpp",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/multiarch/xsimd_extensions/xsimd.hpp",
+    "sha256": "f0376fb880ee573280a992ce79a7bf053810f08e6c86b74726cc8c645cf30211",
+    "bytes": 427
+  }
+]
