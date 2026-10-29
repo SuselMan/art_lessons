@@ -14,6 +14,7 @@ import zipfile
 from PIL import Image, ImageChops, PngImagePlugin
 from brush_contract import MAX_PIXELS, clamp, compatibility, descriptor, finalize_identity
 from curve_transfer import native_transfer,scaled_curve
+from sequential_xy import compatible as sequential_xy_compatible
 from krita_texture import preprocess_texture
 from krita_lightness import compile_lightness_planes
 
@@ -363,7 +364,8 @@ def size_like_controls(params, option, notes):
     return sensor_controls(params,option,notes)
 
 
-def preset(data, name, catalog, external, depth=0):
+def preset(data, name, catalog, external, depth=0, *, sequential_xy=False):
+    if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if depth>1: raise ValueError('Nested Krita masking brushes exceed supported depth')
     PngImagePlugin.MAX_TEXT_CHUNK = MAX_XML
     PngImagePlugin.MAX_TEXT_MEMORY = MAX_XML * 2
@@ -937,16 +939,21 @@ def preset(data, name, catalog, external, depth=0):
             return value.get('control')=='strokeRandom' and 'randomSource' in value or any(native_keyed(v) for v in value.values())
         return isinstance(value,list) and any(native_keyed(v) for v in value)
     if native_keyed(d): d['version']=32
+    # Research readiness only: no CLI/stock default enables this capability.
+    if sequential_xy and depth==0 and sequential_xy_compatible(d):
+        behavior['sequentialRandom']={'version':1,'kind':'qt5Taus88','policy':'scatterXY'}
+        d['version']=33
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     if source_size is not None:
         result['sourceDefaults']={'sizePx':clamp(source_size,.01,10000),'opacity':d['opacity'],'flow':d['flow']}
     return result
 
 
-def convert_krita(path, catalog, external=None):
+def convert_krita(path, catalog, external=None, *, sequential_xy=False):
+    if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if path.suffix.lower() == '.kpp':
         try:
-            catalog.brushes.append(preset(path.read_bytes(), path.name, catalog, external or {}))
+            catalog.brushes.append(preset(path.read_bytes(), path.name, catalog, external or {}, sequential_xy=sequential_xy))
         except (ValueError, ET.ParseError, OSError) as error:
             catalog.skipped.append({'name':path.stem,'reasons':[str(error)]})
         return
@@ -961,6 +968,6 @@ def convert_krita(path, catalog, external=None):
         resources.update({n:(lambda entry=n: archive.read(entry)) for n in names if n.lower().endswith(('.gbr','.gih','.png','.pat','.jpg','.jpeg','.webp'))})
         for name in sorted(n for n in names if n.lower().endswith('.kpp')):
             try:
-                catalog.brushes.append(preset(archive.read(name),name,catalog,resources))
+                catalog.brushes.append(preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy))
             except (ValueError, ET.ParseError, OSError) as error:
                 catalog.skipped.append({'name':PurePosixPath(name).stem,'reasons':[str(error)]})

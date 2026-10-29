@@ -325,3 +325,21 @@ child containing it, advance to version32; all other descriptors remain stable.
 Portable validation accepts either the exact-key source or a historical numeric
 `randomStream`, never both, and neither on other control kinds. Native sequential
 per-dab RNG scheduling is not changed by this importer capability.
+
+## Stage43: sequential XY readiness, disabled by default
+
+`convert_krita(..., sequential_xy=False)` preserves existing output. Only an
+explicit Python keyword `sequential_xy=True` can opt a compatible top-level
+single Gaussian/XY-scatter descriptor into version33 and
+`behavior.sequentialRandom={version:1,kind:'qt5Taus88',policy:'scatterXY'}`.
+No CLI flag or stock build default enables it. The offline semantic mirror in
+`sequential_xy.py` follows shared `isBrushSequentialXYCompatible`; the runtime
+shared guard remains authoritative. Independent child policies and every other
+random consumer/effect family are excluded. Portable validation checks the
+strict policy and same semantic gate before writing output.
+
+This is readiness, not activation or native equivalence. Live requests require
+recorded gesture seeds and source allocation metadata (`sourceSize`,
+`sourceScale`, codec3) supplied by the engine; the importer must not fabricate
+these from authored brush defaults. GPU oracle acceptance is required before
+emitting/activating a new stock catalog with this capability.
