@@ -33,6 +33,7 @@ it('rejects oversized/truncated/misaligned inputs before output allocation or pa
  const q=input(native.cases[0])
  for(const patch of [{rows:4097},{cols:4097},{rows:4096,cols:4096},{destinationAlignment:1},{sourceStride:3},{destination:new Uint8Array(0)},{source:new Uint8Array(4194305)},{opacity:NaN},{flow:Infinity},{operator:'unknown'}])expect(()=>compositeSourceVector32({...q,...patch}as SourceVector32Input)).toThrow()
  for(const args of [[0,0,0],[4,3,0],[4097,0,0]])expect(()=>sourceVector32Partition(args[0],args[1],args[2],false)).toThrow()
+ expect(()=>compositeSourceVector32({...q,mask:q.destination,destinationStride:0})).toThrow()
  expect(()=>sourceVector32ReciprocalStep(0,1)).toThrow()
  expect(()=>sourceVector32ReciprocalStep(1,4)).toThrow()
  expect(()=>sourceVector32ReciprocalStep(1,NaN)).toThrow()

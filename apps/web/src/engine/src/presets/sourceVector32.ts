@@ -86,9 +86,9 @@ export function compositeSourceVector32(input:SourceVector32Input):{readonly pix
  if(!q||q.profile!=='optimized32-neon64-vector4-no-fma-v1'||!['over','alphaDarkenCreamy','alphaDarkenHard'].includes(q.operator))throw new RangeError('Invalid vector32 profile')
  const controls=normalizeSourcePainterOpacity(q)
  if(![q.cols,q.rows].every(v=>Number.isInteger(v)&&v>=1&&v<=4096)||q.cols*q.rows>1048576)throw new RangeError('Vector32 work budget exceeded')
- for(const [data,stride,width,constant]of [[q.source,q.sourceStride,q.cols*4,true],[q.destination,q.destinationStride,q.cols*4,false],[q.mask,q.maskStride,q.cols,false]]as const){
-  if(data===undefined){if(width===q.cols)continue;throw new RangeError('Missing vector32 pixels')}
-  if(!(data instanceof Uint8Array)||data.length>4194304||!Number.isSafeInteger(stride)||stride<0||(stride===0?!constant&&data!==q.mask:stride<width))throw new RangeError('Invalid vector32 buffer/stride')
+ for(const [role,data,stride,width,constant]of [['source',q.source,q.sourceStride,q.cols*4,true],['destination',q.destination,q.destinationStride,q.cols*4,false],['mask',q.mask,q.maskStride,q.cols,false]]as const){
+  if(data===undefined){if(role==='mask')continue;throw new RangeError('Missing vector32 pixels')}
+  if(!(data instanceof Uint8Array)||data.length>4194304||!Number.isSafeInteger(stride)||stride<0||(stride===0?!constant&&role!=='mask':stride<width))throw new RangeError('Invalid vector32 buffer/stride')
   const needed=stride===0?(constant?4:width):(q.rows-1)*stride+width
   if(!Number.isSafeInteger(needed)||needed>data.length)throw new RangeError('Truncated vector32 buffer')
  }
