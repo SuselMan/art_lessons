@@ -1,0 +1,23 @@
+{
+  "pin": "bd6e8d061d2f0388c5b10278786cf0fe62e3135f",
+  "sourcePath": "libs/image/kis_painter.cc",
+  "sourceSha256": "aba78347c7ff0585c65dc274aedac14c82f728fc61f68d2f914b8c82f9f5db2b",
+  "methodSha256": "0b4028f82cdb76a5f016178d57c9ee0bf4b2e0de2fb508f07fd30ce98f1a8a0e",
+  "methodUnchanged": true,
+  "qreal": "double",
+  "floatExponent": true,
+  "compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+  "flags": [
+    "-std=c++17",
+    "-O2",
+    "-fno-fast-math",
+    "-ffp-contract=off"
+  ],
+  "oracleCppSha256": "9349f254dc21fadc67e16773b1d93c460506b1d7cd44b34a224a5c7495105a97",
+  "generatorSha256": "60d8e379bcfe3af63e4f58e804297dcba1a29f2af39ab57b3fc53341e221f98b",
+  "driverSha256": "fc4eb9a0ff944d34119df530144de40827b8cf100fe93e819567ccbcfe15b667",
+  "fixtureSha256": "376c880ac68c2177b0a0050badccac949cc516e3aa3fa61896205549114ce669",
+  "nativeCalls": 640,
+  "differentFinalF32OldLaw": 7,
+  "scope": "Actual unchanged qreal method with types-only shim; no GUI/device/factory dispatch proof"
+}

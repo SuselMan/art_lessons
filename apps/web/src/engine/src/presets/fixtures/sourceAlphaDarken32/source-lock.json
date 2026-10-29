@@ -1,0 +1,32 @@
+[
+  {
+    "path": "libs/pigment/compositeops/KoOptimizedCompositeOpAlphaDarken32.h",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/pigment/compositeops/KoOptimizedCompositeOpAlphaDarken32.h",
+    "sha256": "2025a1b2ba4b703ab1f38a61548d3bd7b1f99f60a5aa109ec1bcaddc27814c4d",
+    "bytes": 10269
+  },
+  {
+    "path": "libs/pigment/compositeops/KoAlphaDarkenParamsWrapper.h",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/pigment/compositeops/KoAlphaDarkenParamsWrapper.h",
+    "sha256": "da6641dab1dba47dd9710c402d3f2c08f74330ab51466407da95c687ce9c186b",
+    "bytes": 2124
+  },
+  {
+    "path": "libs/pigment/compositeops/KoStreamedMath.h",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/pigment/compositeops/KoStreamedMath.h",
+    "sha256": "eb224fd6fba0e8e938a7e72810bda8e00801541ef435e905a2f026353e197e91",
+    "bytes": 31064
+  },
+  {
+    "path": "libs/pigment/KoColorSpaceMaths.h",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/pigment/KoColorSpaceMaths.h",
+    "sha256": "7837d7cfa4b9432703e0b9fbad334fc6f6e241456074a6dc00910423abe57299",
+    "bytes": 33806
+  },
+  {
+    "path": "libs/image/kis_painter.cc",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/image/kis_painter.cc",
+    "sha256": "aba78347c7ff0585c65dc274aedac14c82f728fc61f68d2f914b8c82f9f5db2b",
+    "bytes": 107396
+  }
+]
