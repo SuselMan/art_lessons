@@ -52,3 +52,5 @@ export * from './sourceImageTransformMetadata.js'
 export * from './sourceAffineImageSpan16Coordinates.js'
 
 export * from './canonicalMaterialGeometry.js'
+
+export * from './canonicalStrokeFrame.js'

@@ -1,13 +1,9 @@
-import { CANONICAL_MATERIAL_PROFILE, type CanonicalMaterialEntry, type CanonicalMaterialFrame } from '@grafetto/shared'
+import { CANONICAL_MATERIAL_PROFILE, type CanonicalMaterialEntry, type CanonicalMaterialFrame, type CanonicalStrokeComposition } from '@grafetto/shared'
 import { sourceBlendAverageOpacity } from './brushWash'
 import { normalizeSourcePainterOpacity, type SourcePainterOpacity } from './sourcePainterOpacity'
 
-export interface SourcePrimaryCompositionContext {
-  readonly mode: 'wash' | 'buildup'
-  readonly alphaDarken: 'creamy' | 'hard'
-  readonly outerResourceOpacity: number
-  readonly outerBlend: 'over'
-}
+export type SourcePrimaryCompositionContext = CanonicalStrokeComposition
+
 /** Pure resumable gesture state. Original pixels and temporary surface are owned
  * by the renderer, never serialized or read here. Source fences are input only. */
 export interface SourcePrimaryCompositionState {
