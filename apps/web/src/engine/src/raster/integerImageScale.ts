@@ -8,9 +8,11 @@
  * Four channels must already be premultiplied RGBA. No colorspace conversion,
  * premultiplication, border, aspect fitting or QPainter transform occurs here.
  * The older generic Qt up/up fallback has a different rounding order; this
- * function deliberately does not select behavior from the executing CPU.
+ * function never selects behavior from the executing CPU; default SIMD preserves
+ * existing outputs and an explicit scalar law supports native source conformance.
  */
 export interface IntegerImageSize { width: number; height: number }
+export type IntegerImageInterpolationLaw = 'scalar' | 'simd'
 
 const MAX_SIDE = 4096
 const MAX_PIXELS = 4 * 1024 * 1024
@@ -61,19 +63,35 @@ function scaleAxis(source: number, destination: number): ScaleAxis {
   return { shrinking, samples, taps }
 }
 
+function checkedPlan(sourceSize: IntegerImageSize, destinationSize: IntegerImageSize,
+  channels: 1 | 4, law: IntegerImageInterpolationLaw): { xAxis: ScaleAxis; yAxis: ScaleAxis } {
+  checkedPixels(sourceSize)
+  checkedPixels(destinationSize)
+  if ((channels !== 1 && channels !== 4) || (law !== 'scalar' && law !== 'simd')) throw new RangeError('Invalid integer scaling channel count or interpolation law')
+  const xAxis = scaleAxis(sourceSize.width, destinationSize.width)
+  const yAxis = scaleAxis(sourceSize.height, destinationSize.height)
+  if (xAxis.taps * yAxis.taps * channels > MAX_CHANNEL_SAMPLES) throw new RangeError('Integer image scaling work exceeds the budget')
+  return { xAxis, yAxis }
+}
+
+/** Shared admission for wrappers which must allocate/convert their source pixels
+ * before invoking the kernel. Does not allocate any image-sized pixel buffer. */
+export function assertIntegerImageScaleBudget(sourceSize: IntegerImageSize, destinationSize: IntegerImageSize,
+  channels: 1 | 4 = 1, law: IntegerImageInterpolationLaw = 'simd'): void {
+  checkedPlan(sourceSize, destinationSize, channels, law)
+}
+
 /** Returns fresh bytes; source bytes and both size objects remain untouched.
  * Rejects inputs requiring more than64M channel samples, rather than silently
  * changing the filter or allowing an unbounded preparation task. */
 export function scaleIntegerImageU8(
   source: Uint8Array, sourceSize: IntegerImageSize, destinationSize: IntegerImageSize,
-  channels: 1 | 4 = 1,
+  channels: 1 | 4 = 1, law: IntegerImageInterpolationLaw = 'simd',
 ): Uint8Array {
   const sourcePixels = checkedPixels(sourceSize), destinationPixels = checkedPixels(destinationSize)
-  if ((channels !== 1 && channels !== 4) || source.length !== sourcePixels * channels) throw new RangeError('Invalid integer image byte layout')
+  if ((channels !== 1 && channels !== 4) || (law !== 'scalar' && law !== 'simd') || source.length !== sourcePixels * channels) throw new RangeError('Invalid integer image byte layout')
   if (sourceSize.width === destinationSize.width && sourceSize.height === destinationSize.height) return new Uint8Array(source)
-  const xAxis = scaleAxis(sourceSize.width, destinationSize.width)
-  const yAxis = scaleAxis(sourceSize.height, destinationSize.height)
-  if (xAxis.taps * yAxis.taps * channels > MAX_CHANNEL_SAMPLES) throw new RangeError('Integer image scaling work exceeds the budget')
+  const { xAxis, yAxis } = checkedPlan(sourceSize, destinationSize, channels, law)
   const output = new Uint8Array(destinationPixels * channels)
   for (let y = 0; y < destinationSize.height; y++) {
     const vertical = yAxis.samples[y]
@@ -81,7 +99,17 @@ export function scaleIntegerImageU8(
       const horizontal = xAxis.samples[x]
       for (let channel = 0; channel < channels; channel++) {
         let value = 0
-        if (!xAxis.shrinking && !yAxis.shrinking) {
+        if (!xAxis.shrinking && !yAxis.shrinking && law === 'scalar') {
+          for (let iy = 0; iy < vertical.weights.length; iy++) {
+            let row = 0
+            for (let ix = 0; ix < horizontal.weights.length; ix++) {
+              const offset = ((vertical.start + iy) * sourceSize.width + horizontal.start + ix) * channels + channel
+              row += source[offset] * horizontal.weights[ix]
+            }
+            value += Math.floor(row / 256) * vertical.weights[iy]
+          }
+          value = Math.floor(value / 256)
+        } else if (!xAxis.shrinking && !yAxis.shrinking) {
           // SIMD Qt interpolates vertically first, truncating before X.
           for (let ix = 0; ix < horizontal.weights.length; ix++) {
             let column = 0

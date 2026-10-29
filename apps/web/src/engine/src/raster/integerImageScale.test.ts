@@ -68,3 +68,8 @@ it('preserves the Qt SIMD Y-before-X truncation order rather than interchangeabl
   const expected = fixture.outputBytesRGBA.filter((_value, index) => index % 4 === 0)
   expect([...wrongOrder]).not.toEqual(expected)
 })
+
+
+it('rejects unknown interpolation laws even for identity grids', () => {
+  expect(() => scaleIntegerImageU8(new Uint8Array(1), { width: 1, height: 1 }, { width: 1, height: 1 }, 1, 'auto' as 'simd')).toThrow(RangeError)
+})

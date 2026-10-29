@@ -79,3 +79,29 @@ premultiplication and QPainter transform sampling remain separate proof boundari
 Qt source carries LGPL3/GPL licensing (and additional historical notices); no Qt
 implementation text is bundled in the application helper. Fixture generators retain
 source hashes and compile private reference inputs only.
+
+`sourceImageScalePixels` is the bounded straight-RGBA8 adapter around the existing
+shared `raster/integerImageScale` kernel, not another resampler. It validates exact
+byte count, side/pixel limits and the common 64M-channel-sample work budget before
+allocating its premultiplied input. Its explicit scalar/SIMD law never depends on the
+executing device; the common kernel defaults to its previous SIMD law. Identity
+`QImage::scaled` retains original straight bytes, including hidden RGB under alpha0.
+Nonidentity scaling returns premultiplied bytes. Sixty whole-image cases cover both
+axes, anisotropic enlargement/reduction, odd sizes and alpha0/1/128/255/arbitrary.
+Actual compiled pinned Qt5.15.7 scalar/SSE4 bodies independently check both laws;
+actual host Qt5.15.13 `QImage::scaled` agrees with the SIMD result. Eight cases expose
+scalar-vs-SIMD bilinear rounding differences. Android NEON is source-audited, not
+executed by this CPU oracle.
+
+The subsequent conversion has a separate proof boundary. The explicitly named
+`sourceImageScaleStraightScalar` implements scalar qUnpremultiply and matches the
+host with SSE4.1/AVX2 conversion disabled. Default host SIMD ARGB32 conversion has
+observable differences (for example premultiplied channel64/alpha128 can become127,
+where scalar gives128) due to reciprocal-estimate/Newton and rounding. The fixture
+keeps both actual outputs. This adapter does not claim to implement host SSE or
+Android NEON unpremultiplication, nor to reconstruct lost straight channels.
+A future canonical material profile must fix interpolation AND conversion laws;
+peer-local feature detection cannot be a replay rule. No new profile is activated.
+This is source-informed mathematical implementation, not a clean-room provenance
+or licensing claim; verbatim Qt implementation stays in private diagnostic inputs
+with source notices and hashes. QPainter affine sampling remains unimplemented here.
