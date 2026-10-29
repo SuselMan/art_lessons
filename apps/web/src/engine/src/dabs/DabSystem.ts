@@ -1,3 +1,4 @@
+import { captureBrushSourceSize } from '../presets/brushRequestGeometry'
 import { assertBrushExecutionContext, brushExecutionContext, type BrushExecutionContext } from '../presets/brushExecutionContext'
 // Converts a pointer path into a series of brush dabs spaced along the stroke.
 // Uses a centripetal Catmull-Rom spline (see #91) with 1-event lag for true
@@ -147,6 +148,8 @@ export class DabSystem {
   spacingFactor: number
   /** Opt-in source spacing; latched per gesture, independent of nominal/floor/scallop rules. */
   autoSpacing: { mode?: 'kritaAuto' | 'diameter'; coefficient: number; dynamics?: BrushDynamic[]; isotropic?: boolean; axisScale?: { x:number; y:number }; angleOffset?:number; brush: BrushDescriptor; sizeMultiplier: number } | null = null
+  /** New source-request policies capture constructor size before F32/sensors. */
+  captureSourceSize = false
   brushExecution?: BrushExecutionContext
   private _spacingBehavior?: BrushBehaviorState
   private _spacingAxes?: { x: number; y: number; angle: number }
@@ -531,6 +534,7 @@ export class DabSystem {
     const fork = new DabSystem({ spacingFactor: this.spacingFactor, shaping: this._shaping })
     fork.curvatureTolerancePx = this.curvatureTolerancePx
     fork.footprint = this.footprint
+    fork.captureSourceSize = this.captureSourceSize
     fork.brushExecution = brushExecutionContext(this.brushExecution?.brushRandom)
     fork.autoSpacing = this.autoSpacing ? { ...this.autoSpacing, ...(this.autoSpacing.dynamics ? {dynamics:structuredClone(this.autoSpacing.dynamics)} : {}), ...(this.autoSpacing.axisScale ? {axisScale:{...this.autoSpacing.axisScale}} : {}) } : null
     fork._spacingBehavior = this._spacingBehavior ? structuredClone(this._spacingBehavior) : undefined
@@ -981,6 +985,7 @@ export class DabSystem {
     return {
       x: fp.x, y: fp.y, pressure, tiltX, tiltY,
       size: fp.size, aspectRatio: fp.aspectRatio, angle: fp.angle, opacity: 1, t: 0,
+      ...(this.captureSourceSize ? {sourceSize:captureBrushSourceSize(baseSize),sourceScale:Math.fround(this._shaping.size(pressure,tiltNormFrom(tiltX,tiltY)))} : {}),
       ...(normalizedSpeed===undefined?{}:{normalizedSpeed:Math.fround(normalizedSpeed)}),
     }
   }

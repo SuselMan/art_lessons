@@ -1,4 +1,4 @@
-import { isBrushRandomSeeds, brushRequiresRandomContext, type BrushDescriptor, type BrushRandomSeeds } from '@grafetto/shared'
+import { isBrushRandomSeeds, brushRequiresRandomContext, hasBrushSourceInputs, type BrushDescriptor, type BrushRandomSeeds, type Dab } from '@grafetto/shared'
 
 /** Plain gesture-owned data: safe across structuredClone, previews and queues. */
 export interface BrushExecutionContext {
@@ -25,4 +25,10 @@ export function assertBrushExecutionContext(brush: BrushDescriptor, context?: Br
 export function assertSameBrushExecutionContext(previous: BrushExecutionContext | undefined, incoming: BrushExecutionContext | undefined): void {
   const a = previous?.brushRandom, b = incoming?.brushRandom
   if(a && (!b || a.version !== b.version || a.strokeSeed !== b.strokeSeed || a.sequentialSeed !== b.sequentialSeed)) throw Error('Brush execution context changed during a gesture')
+}
+
+/** Validate the entire logical batch before state, queue, log or GL effects. */
+export function assertBrushSourceInputs(brush: BrushDescriptor, dabs: readonly Dab[], endpoint?: Dab): void {
+  if (!hasBrushSourceInputs(brush,dabs,endpoint))
+    throw Error('Sequential brush requires canonical sourceSize and sourceScale')
 }

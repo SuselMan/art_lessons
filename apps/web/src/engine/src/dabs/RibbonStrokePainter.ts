@@ -474,7 +474,10 @@ export class RibbonStrokePainter {
     // one dropped - by how many were dropped before it in THIS call, so a live
     // stroke and its one-batch replay read different paper under the same dab.
     const wetIndex = new Map<Dab, number>()
-    let drawable = floorPx === null
+    const nativeRequest = !!profile.brushStamp?.brush.behavior?.sequentialRandom
+    let drawable = nativeRequest
+      ? dabs.map((d,i)=>{wetIndex.set(d,i);return d})
+      : floorPx === null
       ? dabs.filter((d, i) => { wetIndex.set(d, i); return d.size * 0.5 * preset.sizeMultiplier >= 0.5 })
       : dabs.map((d, i) => {
         const half = d.size * 0.5 * preset.sizeMultiplier

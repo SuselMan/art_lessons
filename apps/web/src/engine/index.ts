@@ -1,4 +1,4 @@
-import { brushExecutionContext, assertBrushExecutionContext, type BrushExecutionContext } from './src/presets/brushExecutionContext'
+import { brushExecutionContext, assertBrushSourceInputs, assertBrushExecutionContext, type BrushExecutionContext } from './src/presets/brushExecutionContext'
 import { createBrushRandomContext, brushRandomMetadata, assertBrushRandomContext } from './src/oplog/brushRandomContext'
 import { BrushMipCache } from './src/dabs/BrushMipCache'
 import { hasValidStrokeEndSample, createBrushRandomStrokeId, type BrushRandomSeeds } from '@grafetto/shared'
@@ -2729,7 +2729,11 @@ export class PencilEngine implements PencilEngineAPI {
    *  'remote' so the op is not echoed back to the server. */
   appendOperation(op: Operation, source: OperationSource = 'local'): void {
     assertBrushRandomContext(op)
-    if(op.type==='stroke' && op.tool==='digitalBrush') assertBrushExecutionContext(digitalBrushFromPreset(op.preset),brushExecutionContext(op.brushRandom))
+    if(op.type==='stroke' && op.tool==='digitalBrush') {
+      const brush=digitalBrushFromPreset(op.preset)
+      assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom))
+      if(brush.behavior?.sequentialRandom) assertBrushSourceInputs(brush,strokeDabs(op),op.strokeEndSample)
+    }
     if(!hasValidStrokeEndSample(op)) throw new Error('Invalid stroke endpoint sample')
     // (#536, §17.58) A peer's watercolour operation arriving while a settle is
     // still spreading over frames waits its turn instead of forcing that
@@ -3780,7 +3784,11 @@ export class PencilEngine implements PencilEngineAPI {
    *  flight, otherwise it plays once the current head of the queue finishes. */
   previewOperation(op: StrokeOperation, rate = 1): void {
     assertBrushRandomContext(op)
-    if(op.type==='stroke' && op.tool==='digitalBrush') assertBrushExecutionContext(digitalBrushFromPreset(op.preset),brushExecutionContext(op.brushRandom))
+    if(op.type==='stroke' && op.tool==='digitalBrush') {
+      const brush=digitalBrushFromPreset(op.preset)
+      assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom))
+      if(brush.behavior?.sequentialRandom) assertBrushSourceInputs(brush,strokeDabs(op),op.strokeEndSample)
+    }
     if (this.isSnapshotHistoryRepairPending(op.layerId)) { this._onPreviewApplied?.(op); return }
     if (this._contextLost || this.gl.isContextLost()) {
       // This callback commits the confirmed operation, not just its preview.
@@ -3846,7 +3854,11 @@ export class PencilEngine implements PencilEngineAPI {
   /** See PencilEngineAPI's doc comment. */
   appendPeerLiveDabs(peerId: string, packet: PeerLivePacket, canonicalExecution = false): void {
     assertBrushRandomContext(packet)
-    if(packet.tool==='digitalBrush') assertBrushExecutionContext(digitalBrushFromPreset(packet.preset),brushExecutionContext(packet.brushRandom))
+    if(packet.tool==='digitalBrush') {
+      const brush=digitalBrushFromPreset(packet.preset)
+      assertBrushExecutionContext(brush,brushExecutionContext(packet.brushRandom))
+      assertBrushSourceInputs(brush,packet.dabs)
+    }
     if (this.isSnapshotHistoryRepairPending(packet.layerId)) return
     if (this._contextLost || this.gl.isContextLost()) return
     if (this._cancelledPeerStreams.has(liveStrokeKey(peerId, packet.strokeId, ''))) return
@@ -5713,7 +5725,11 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   absorbHistoricalOperations(pageOps: Operation[]): void {
-    for (const op of pageOps) { assertBrushRandomContext(op); if(op.type==='stroke' && op.tool==='digitalBrush') assertBrushExecutionContext(digitalBrushFromPreset(op.preset),brushExecutionContext(op.brushRandom)) }
+    for (const op of pageOps) { assertBrushRandomContext(op); if(op.type==='stroke' && op.tool==='digitalBrush') {
+      const brush=digitalBrushFromPreset(op.preset)
+      assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom))
+      if(brush.behavior?.sequentialRandom) assertBrushSourceInputs(brush,strokeDabs(op),op.strokeEndSample)
+    } }
     this._snapshotIO.absorbHistorical(pageOps)
     this._resolveSnapshotHistoryRepairs()
   }
@@ -6162,7 +6178,8 @@ export class PencilEngine implements PencilEngineAPI {
     // Recorded strokes are unaffected: spacing is decided when the dabs are
     // made, and a replay paints the dabs the log holds.
     const spacingBrush = this._strokeTool === 'digitalBrush' ? digitalBrushFromPreset(this._opts.pencilType) : null
-    const sourceSpacing = spacingBrush?.behavior?.spacing
+    this._dabs.captureSourceSize = !!spacingBrush?.behavior?.sequentialRandom
+    const sourceSpacing = spacingBrush?.behavior?.spacing ?? (spacingBrush?.behavior?.sequentialRandom ? {mode:'diameter' as const,coefficient:spacingBrush.spacing} : undefined)
     this._dabs.autoSpacing = spacingBrush && sourceSpacing
       ? { mode:sourceSpacing.mode, coefficient: sourceSpacing.coefficient, dynamics:sourceSpacing.dynamics, isotropic:sourceSpacing.isotropic, axisScale:sourceSpacing.axisScale, angleOffset:sourceSpacing.angleOffset, brush: { ...spacingBrush, scatter: undefined }, sizeMultiplier: this._dabSizeScale(this._strokeTool, this._opts.pencilType) }
       : null
@@ -7156,7 +7173,11 @@ export class PencilEngine implements PencilEngineAPI {
     strokeEndSample?:StrokeOperation['strokeEndSample'],
     execution?:BrushExecutionContext,
   ): ReadonlyMap<Dab, number> | undefined {
-    if (tool === 'digitalBrush') assertBrushExecutionContext(digitalBrushFromPreset(presetName),execution)
+    if (tool === 'digitalBrush') {
+      const brush=digitalBrushFromPreset(presetName)
+      assertBrushSourceInputs(brush,dabs,strokeEndSample)
+      assertBrushExecutionContext(brush,execution)
+    }
     if (!dabs.length && !strokeEndSample) return undefined
     // V2 dynamics hash recorded float32 inputs, including distance/speed across batches.
     if (tool === 'digitalBrush') {
@@ -7283,6 +7304,18 @@ export class PencilEngine implements PencilEngineAPI {
     // the identical structural reason. The real dabs always paint straight
     // into the real layer regardless (see _paintDabs' own doc comment on
     // `target`).
+    if(tool==='digitalBrush') {
+      const brush=digitalBrushFromPreset(presetName)
+      assertBrushSourceInputs(brush,dabs,strokeEndSample)
+      assertBrushExecutionContext(brush,execution)
+      if(brush.behavior?.sequentialRandom) {
+        // The source response has the same canonical F32 boundary on sliced
+        // rebuilds as on immediate/live painting. Never infer it from size.
+        dabs=dabs.map(codecDab)
+        if(prevDab)prevDab=codecDab(prevDab)
+        if(strokeEndSample)strokeEndSample={...codecDab(strokeEndSample),baseSize:Math.fround(strokeEndSample.baseSize)}
+      }
+    }
     if (target instanceof AccumulationBuffer) return undefined
     if(!dabs.length) {
       const open=strokeId ? this._replayRibbonChunks.get(strokeId) : undefined

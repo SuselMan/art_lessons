@@ -1,4 +1,4 @@
-import { assertBrushExecutionContext, assertSameBrushExecutionContext, type BrushExecutionContext } from '../presets/brushExecutionContext'
+import { assertBrushSourceInputs, assertBrushExecutionContext, assertSameBrushExecutionContext, type BrushExecutionContext } from '../presets/brushExecutionContext'
 import { brushAlphaThresholdValue } from '../presets/brushAlphaThreshold'
 import { CIRCLE_BAND_STAMP_FRAG } from '../raster/circleBandShaders'
 import { prepareCircleDifference, type CircleDifference } from '../raster/roundCoverage'
@@ -188,6 +188,7 @@ export class BrushBehaviorPainter {
     number,
     number
   ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext): void {
+    assertBrushSourceInputs(brush,dabs,endpoint)
     assertBrushExecutionContext(brush,execution)
     assertSameBrushExecutionContext(scratch.brushBehavior?.execution,execution)
     const { gl, paper } = this.ctx, behavior = brush.behavior!
@@ -236,7 +237,7 @@ export class BrushBehaviorPainter {
       // Only admitted paint dabs enter the native-style opacity history.
       // Geometry/RNG still advance above, but a discarded tiny footprint must
       // not leave a high average behind for the next visible low-opacity dab.
-      return behaviorStampsForDab(brush, dab, state, color).filter(st=>st.size*preset.sizeMultiplier*.5>=.25).map(st => {
+      return behaviorStampsForDab(brush, dab, state, color).filter(st=>brush.behavior?.sequentialRandom ? st.size>0 : st.size*preset.sizeMultiplier*.5>=.25).map(st => {
         // Native BuildUp OVER consumes the operation opacity per dab. Keeping
         // it for the final composite instead imposes a whole-stroke ceiling.
         const ceiling=clamp(opacity*st.opacityScale*(accumulation==='directOver' ? state.opacity : 1))

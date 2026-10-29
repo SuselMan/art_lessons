@@ -1,10 +1,13 @@
-import { brushExecutionContext, type BrushExecutionContext } from './brushExecutionContext'
-import { KritaPerStrokeRandomSource } from './nativeRandom'
+import { brushRequestGeometry, placeBrushRequest } from './brushRequestGeometry'
+import { brushExecutionContext, assertBrushExecutionContext, assertBrushSourceInputs, type BrushExecutionContext } from './brushExecutionContext'
+import { KritaPerStrokeRandomSource, KritaRandomSource, type KritaRandomSnapshot } from './nativeRandom'
 import type { BrushDescriptor, BrushDynamic, BrushDynamicTarget, Dab } from '@grafetto/shared'
 import { brushDabRandom, brushDabSeed, brushStampsForDab, curveAt, type BrushStamp } from './digitalBrushPresets'
 /** Logical gesture state: never derives randomness or dynamics from a frame/batch. */
 export interface BrushBehaviorState {
   execution?: BrushExecutionContext
+  /** Mutable source represented only by a cloneable value snapshot. */
+  sequentialRandom?: KritaRandomSnapshot
   /** Plain bounded cache, copied with preview/savepoints; never a native RNG instance. */
   strokeRandomCache?: {seed:number;values:[string,number][]}
   pending?: BehaviorPlaced[]
@@ -36,8 +39,14 @@ export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:Bru
   const {mode,coefficient,dynamics,isotropic,axisScale,angleOffset}=profile
   const seed=brushDabSeed(input.x,input.y,input.pressure)
   const factor=dynamics?.reduce((value,control,index)=>value*brushDynamicValue(control,{...input,angle:pathAngle},state,brushDabRandom(seed,0xa0000+index)),1) ?? 1
-  const stamp=behaviorStampsForDab(brush,input,state,[0,0,0])[0]
-  const diameter=stamp.size*sizeMultiplier/(1+stamp.edgeSoftness*.15)
+  // New request probes are pure: spacing never consumes placement draws or
+  // advances the gesture's previous-point/animation state.
+  const native = !!brush.behavior?.sequentialRandom
+  const stamp=behaviorStampsForDab(brush,input,native ? structuredClone(state) : state,[0,0,0],{geometryOnly:native})[0]
+  if (!stamp) return {x:.5,y:.5,angle:pathAngle}
+  const diameter=native
+    ? stamp.sourceDiameter!*(Math.abs(Math.cos(brush.tip.angle))+Math.abs(Math.sin(brush.tip.angle)))
+    : stamp.size*sizeMultiplier/(1+stamp.edgeSoftness*.15)
   const axis=(value:number):number=>{
     const actual=Math.max(0,value)
     return Math.max(.5,coefficient*factor*(mode==='diameter' ? actual : actual<1 ? actual : Math.sqrt(actual)))
@@ -80,6 +89,8 @@ export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescrip
   return result
 }
 export interface BehaviorStamp extends BrushStamp {
+  /** Native source metric for sampling; not the continuous rendered diameter. */
+  sourceDiameter?: number
   mask?: BrushDescriptor['tip']['mask']
   dualMask?: BrushDescriptor['tip']['mask']
   gray?: string
@@ -237,8 +248,13 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   number,
   number,
   number
-]): BehaviorStamp[] {
+], options: {geometryOnly?:boolean} = {}): BehaviorStamp[] {
   const behavior = brush.behavior
+  const native=!!behavior?.sequentialRandom
+  if(native) {
+    assertBrushExecutionContext(brush,state.execution)
+    assertBrushSourceInputs(brush,[dab])
+  }
   const ordinal = advanceBrushAnimation(brush, state)
   const index=brushAnimationIndex(brush.tip,state.seed,ordinal)
   const dualIndex=behavior?.dual ? brushAnimationIndex(behavior.dual.brush.tip,state.seed,ordinal,1) : undefined
@@ -263,7 +279,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const countScale = dynamic('count', 10) * (1 - (behavior?.scatter?.countJitter ?? 0) * rand(11))
   const count = Math.max(1, Math.round((brush.scatter?.count ?? 1) * countScale))
   const scatter = brush.scatter ? { ...brush.scatter, count, radius: brush.scatter.radius * dynamic('scatter', 12) } : undefined
-  const configured = scatter ? { ...brush, scatter } : brush
+  const configured = native ? {...brush,scatter:undefined} : scatter ? { ...brush, scatter } : brush
   const pen=penTilt(dab),tilt=Math.min(1.5,pen.angle)
   const penAngle = tilt > 0.001 ? pen.azimuth : direction
   const rotationAngle = rotation ? brush.tip.angle + (rotation.azimuth ? penAngle : direction * rotation.follow) + (rotation.random === 'none' ? 0 : randomRotation * Math.PI * 2) : dab.angle
@@ -282,13 +298,31 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const wetGrade=(behavior?.wetMix?.dynamics?.grade??[]).reduce((value,control,i)=>value*brushDynamicValue(control,directionalDab,state,rand(100+i)),behavior?.wetMix?.grade??0)
   const edgeSoftness=1-(1-bleed)*(1-(behavior?.rendering?.wetEdges ?? 0)*.5)
   const sizeScale = dynamic('size', 14) * (t ? 1 - t.size * (1 - taper) : 1)
+  let sourceDiameter: number | undefined
+  let nativePosition: {x:number;y:number} | undefined
+  if(native) {
+    const geometry=brushRequestGeometry(dab.sourceSize!,dab.sourceScale!*sizeScale,angle)
+    sourceDiameter=geometry.width
+    if(!geometry.admitted) {
+      state.previous={...dab}
+      return []
+    }
+    if(!options.geometryOnly) {
+      const snapshot=state.sequentialRandom ?? new KritaRandomSource(state.execution!.brushRandom!.sequentialSeed).snapshot()
+      const placed=placeBrushRequest(geometry,dab.x,dab.y,scatter?.radius ?? 0,snapshot)
+      state.sequentialRandom=placed.snapshot
+      nativePosition=placed
+    }
+  }
   const opacityScale = dynamic('opacity', 15) * (t ? 1 - t.opacity * (1 - taper) : 1)
   const adjustment=behavior?.colorAdjustment
   const adjustedColor=adjustment ? hsvAdjustColor(color,...(['hue','saturation','value'] as const).map((key,i)=>adjustment[key] ? 2*brushDynamicValue(adjustment[key],directionalDab,state,rand(0xc0000+i))-1 : 0) as [number,number,number]) : color
   const out = brushStampsForDab(configured, { ...dab, angle, size: dab.size * sizeScale }).map((stamp, i): BehaviorStamp => {
     let x = stamp.x, y = stamp.y
     const placement=behavior?.scatter?.placement
-    if(placement) {
+    if(native) {
+      x=nativePosition?.x ?? dab.x; y=nativePosition?.y ?? dab.y
+    } else if(placement) {
       // Explicit axis scatter is uniform in its native interval/square. The
       // diameter is the configured pre-scatter size, not jittered tip size.
       const extent=dab.size*sizeScale*(scatter?.radius ?? 0)
@@ -308,7 +342,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
     const roundness = Math.max(0.02, dynamic('roundness', 20 + i * 8) * (1 - (behavior?.scatter?.roundnessJitter ?? 0) * rand(21 + i * 8)))
     const hasColor = behavior?.dynamics?.hue || behavior?.dynamics?.saturation || behavior?.dynamics?.brightness
     return {
-      ...stamp, ...(gray ? {gray} : {}), ...(dualGray ? {dualGray} : {}), ...(mask ? { mask } : {}), ...(dualMask ? { dualMask } : {}), x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*roundness*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
+      ...stamp, ...(sourceDiameter===undefined ? {} : {sourceDiameter}), ...(gray ? {gray} : {}), ...(dualGray ? {dualGray} : {}), ...(mask ? { mask } : {}), ...(dualMask ? { dualMask } : {}), x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*roundness*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
       flowScale: stamp.flowScale * curveAt(brush.flowByPressure, dab.pressure) * dynamic('flow', 22 + i * 8) * Math.exp(-state.distance*(behavior?.falloff??0)*4),
       opacityScale, grainDepth: dynamic('grainDepth', 23 + i * 8),
       ...(behavior?.dynamics?.sharpness || behavior?.modulations?.sharpness?.length
