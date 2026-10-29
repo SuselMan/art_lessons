@@ -1,20 +1,50 @@
 import { sourceImageSseReciprocal, sourceImageRoundEven as roundEven, type SourceImageReciprocalEstimate } from '../presets/sourceImageTransformReciprocal'
 import type { InverseImageAffine } from './affineImageSpan'
 
+export type AffineImageSourceDecode = 'wide8' | 'narrow4' | 'neon4' | 'scalar'
+
+/** Source conversion only, before interpolation. NEON's four-pixel partial-alpha
+ * branch multiplies 8-bit channels before widening; it is not SSE narrow4.
+ * Group and scalar-tail boundaries belong to the fetched row, not source image. */
+export function decodeAffineImageSpan16(raw: Uint8Array, sourceDecode: AffineImageSourceDecode): Uint16Array {
+  if (!(raw instanceof Uint8Array) || raw.length % 4 || raw.length > 4096 * 4
+    || !['wide8', 'narrow4', 'neon4', 'scalar'].includes(sourceDecode)) throw new RangeError('Invalid RGBA16 source conversion')
+  const result=new Uint16Array(raw.length), count=raw.length/4, fixed=65536
+  const groupSize=sourceDecode==='wide8' ? 8 : sourceDecode==='narrow4' || sourceDecode==='neon4' ? 4 : 1
+  for(let start=0;start<count;start+=groupSize) {
+    const end=Math.min(count,start+groupSize)
+    const vector=sourceDecode==='wide8' || sourceDecode==='narrow4' && end-start===4
+    const neon=sourceDecode==='neon4' && end-start===4
+    let opaque=true
+    for(let i=start;i<end;i++)if(raw[i*4+3]!==255)opaque=false
+    for(let i=start;i<end;i++) {
+      const alpha=raw[i*4+3]*257
+      result[i*4+3]=alpha
+      for(let channel=0;channel<3;channel++) {
+        const value=raw[i*4+channel]*257, product=value*alpha
+        const high=Math.floor(product/fixed), product8=raw[i*4+channel]*raw[i*4+3]
+        result[i*4+channel]=opaque ? value : neon ? product8+Math.floor(product8/128)
+          : vector ? high+Math.floor(high/32768) : Math.floor((product+high+32768)/fixed)
+      }
+    }
+  }
+  return result
+}
+
 /** Experimental RGBA16 reference for straight-ARGB32 QPainter destinations.
  * Qt5.15 qdrawhelper.cpp fetchTransformedBilinear64_uint32 and qrgba64.h.
- * Source conversion models separately-selected wide8 or narrow4 SIMD groups.
+ * Source conversion pins wide8, SSE narrow4, NEON4 or scalar row groups.
  * Already-covered affine scanline only; no active renderer imports this file.
  * Separate high-word products model SSE2; summed products model NEON. */
 export function sampleAffineImageSpan16(
   straightRGBA: Uint8Array, width: number, height: number, inverse: InverseImageAffine,
-  x: number, y: number, length: number, products: 'separate' | 'summed' = 'separate', sourceDecode: 'wide8' | 'narrow4' | 'scalar' = 'wide8', inverseOrigin: 'unbiased' | 'sampling' = 'unbiased',
+  x: number, y: number, length: number, products: 'separate' | 'summed' = 'separate', sourceDecode: AffineImageSourceDecode = 'wide8', inverseOrigin: 'unbiased' | 'sampling' = 'unbiased',
 ): Uint16Array {
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1
     || width * height > 4 * 1024 * 1024 || straightRGBA.length !== width * height * 4
     || !Number.isSafeInteger(x) || !Number.isSafeInteger(y) || !Number.isSafeInteger(length)
     || length < 1 || length > 2048 || inverse.some(v => !Number.isFinite(v)) || (products !== 'separate' && products !== 'summed')
-    || !['wide8', 'narrow4', 'scalar'].includes(sourceDecode) || !['unbiased', 'sampling'].includes(inverseOrigin)) throw RangeError('Invalid RGBA16 affine span')
+    || !['wide8', 'narrow4', 'neon4', 'scalar'].includes(sourceDecode) || !['unbiased', 'sampling'].includes(inverseOrigin)) throw RangeError('Invalid RGBA16 affine span')
   const [a,b,c,d,tx,ty] = inverse, fixed = 65536
   const normX = a*a+c*c, normY = b*b+d*d
   if (normX <= 1/fixed || normY <= 1/fixed || normX >= 1e4 || normY >= 1e4
@@ -36,25 +66,7 @@ export function sampleAffineImageSpan16(
         raw.set(straightRGBA.subarray(offset,offset+4),(i*2+side)*4)
       }
     }
-    const result=new Uint16Array(raw.length), count=length*2
-    const groupSize=sourceDecode==='wide8' ? 8 : sourceDecode==='narrow4' ? 4 : 1
-    for(let start=0;start<count;start+=groupSize) {
-      const end=Math.min(count,start+groupSize)
-      const vector=sourceDecode==='wide8' || sourceDecode==='narrow4' && end-start===4
-      let opaque=true
-      for(let i=start;i<end;i++)if(raw[i*4+3]!==255)opaque=false
-      for(let i=start;i<end;i++) {
-        const alpha=raw[i*4+3]*257
-        result[i*4+3]=alpha
-        for(let channel=0;channel<3;channel++) {
-          const value=raw[i*4+channel]*257, product=value*alpha
-          const high=Math.floor(product/fixed)
-          result[i*4+channel]=opaque ? value : vector ? high+Math.floor(high/32768)
-            : Math.floor((product+high+32768)/fixed)
-        }
-      }
-    }
-    return result
+    return decodeAffineImageSpan16(raw, sourceDecode)
   }
   const top=fetchRow(false), bottom=fetchRow(true)
   const interpolate = (left: number, right: number, weight: number) => weight === 0 ? left

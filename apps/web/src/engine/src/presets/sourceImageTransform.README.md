@@ -95,3 +95,25 @@ is a separate boundary. The explicit host SSE profile is not an Android profile.
 Pinned Qt5.15.7 ARM64 uses the generic QRgba64 integer64 unpremultiplication
 store unless separately replaced by dispatch; its implementation/proof is a
 subsequent integration unit, not silently substituted here.
+
+`sourceDecode: 'neon4'` now explicitly models Qt5.15.7
+`convertARGB32ToRGBA64PM_neon`: four-pixel alphaSum branches preserve full
+opaque groups, zero all-transparent groups, and mixed groups use
+`p8=c8*a8; p16=p8+(p8>>7)`, restoring alpha16 independently. Scalar tails use
+the actual QRgba64 premultiplication law. Conversion boundaries follow each
+fetched row of paired texels; they do not follow original image row grouping.
+This differs from SSE narrow4 (even an opaque member of a mixed NEON group can
+be65533 rather than65535). The existing default remains wide8.
+
+Independent native-source evidence compiles the unchanged pinned Qt function
+with typed integer-intrinsic lane semantics and the unchanged QRgba64 public
+header; it does not execute ARM instructions or identify Krita's live dispatch.
+119 arbitrary-color cases cover lengths1..17, all-zero/all-opaque/mixed groups,
+scalar tails, both RGBA/ARGB source layouts and actual fetched-pair boundaries.
+A separate262144-pixel digest covers all65536 c8/a8 pairs in mixed groups.
+No reciprocal or floating estimate occurs in this conversion. The selected-level
+profile `{products:'summed',sourceDecode:'neon4',straightStore:'qt-wordsize64'}`
+can now be composed explicitly for further whole-path/device conformance; this
+unit alone does not establish that complete Android profile or change admission.
+The original-prepared convenience API still uses the separately proven SSE
+level-to-straight conversion and deliberately does not accept that new profile.

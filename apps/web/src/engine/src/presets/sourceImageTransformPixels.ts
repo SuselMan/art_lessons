@@ -1,4 +1,4 @@
-import { affineSpan16StraightInteger64, affineSpan16Straight, affineStraightMask, sampleAffineImageSpan16, type AffineReciprocalEstimate } from '../raster/affineImageSpan16'
+import { affineSpan16StraightInteger64, affineSpan16Straight, affineStraightMask, sampleAffineImageSpan16, type AffineReciprocalEstimate, type AffineImageSourceDecode } from '../raster/affineImageSpan16'
 import { sourceImageScalePixels, sourceImageScaleStraightSse } from './sourceImageScalePixels'
 import type { SourceDabShape } from './sourcePngGeometry'
 import { sourceImageTransformPlan } from './sourceImageTransformPlan'
@@ -9,7 +9,7 @@ import { sourceImageTransformPlan } from './sourceImageTransformPlan'
  * Decode/interpolation laws remain independently explicit; this is not CPU dispatch. */
 export interface SourceImageTransformProfile {
   readonly products: 'separate' | 'summed'
-  readonly sourceDecode: 'wide8' | 'narrow4' | 'scalar'
+  readonly sourceDecode: AffineImageSourceDecode
   readonly straightStore: 'sse4-model' | 'sse4-estimate' | 'qt-wordsize64'
   readonly reciprocalEstimate?: AffineReciprocalEstimate
 }
@@ -18,7 +18,7 @@ function checkedProfile(profile: SourceImageTransformProfile): void {
   if (!profile || !['sse4-model', 'sse4-estimate', 'qt-wordsize64'].includes(profile.straightStore)
     || (profile.straightStore === 'sse4-estimate' ? typeof profile.reciprocalEstimate !== 'function' : profile.reciprocalEstimate !== undefined)
     || (profile.products !== 'separate' && profile.products !== 'summed')
-    || !['wide8', 'narrow4', 'scalar'].includes(profile.sourceDecode)) throw new RangeError('Invalid affine image profile')
+    || !['wide8', 'narrow4', 'neon4', 'scalar'].includes(profile.sourceDecode)) throw new RangeError('Invalid affine image profile')
 }
 
 /** Consumes the selected prepared ARGB32 STRAIGHT level, INCLUDING its transparent
