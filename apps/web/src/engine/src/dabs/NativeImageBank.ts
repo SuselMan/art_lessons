@@ -1,6 +1,6 @@
 import type { BrushTip, TipMaskId } from '@grafetto/shared'
 import { assertNativeImageSourceSize, buildNativeImageLevel, type NativeImageLevelSelection } from '../raster/nativeImageLevel'
-import { sourcePngPyramid } from '../presets/sourcePngPyramid'
+import { sourcePngPyramid, sourcePngSelectLevel } from '../presets/sourcePngPyramid'
 import type { WorldRect } from '../buffers/tileMath'
 
 type SourceRect = NonNullable<BrushTip['imageSampling']>['sourceRect']
@@ -47,13 +47,7 @@ export function nativeImageResource(id: TipMaskId, tip: BrushTip, physicalExtent
   const rect = tip.imageSampling.sourceRect
   const requested = physicalExtentX / Math.max(rect.width, rect.height)
   const bank = nativeImageBank(id, tip)
-  let index = 0
-  while (index + 1 < bank.length) {
-    const next = bank[index + 1].scale
-    if (next > requested || Math.abs(next - requested) < 1e-6) index++
-    else break
-  }
-  return bank[index]
+  return bank[sourcePngSelectLevel({ levels: bank }, requested)]
 }
 
 export function nativeImagePixels(resource: NativeImageResource, original: Uint8Array): Uint8Array {

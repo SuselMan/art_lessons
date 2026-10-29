@@ -31,7 +31,7 @@ export function sourcePngPyramid(width: number, height: number, smoothEnlarging 
   for (let scale = .5; sourceQRound(width * scale) !== 0 && sourceQRound(height * scale) !== 0; scale *= .5) add(scale, 'smooth')
   return Object.freeze({ width, height, levels: Object.freeze(levels) })
 }
-export function sourcePngSelectLevel(pyramid: SourcePngPyramid, scale: number): number {
+export function sourcePngSelectLevel(pyramid: { readonly levels: readonly Pick<SourcePngLevel, 'scale'>[] }, scale: number): number {
   if (!Number.isFinite(scale) || scale < 0) throw new RangeError('Invalid PNG requested scale')
   let index = 0
   while (index < pyramid.levels.length - 1) {
