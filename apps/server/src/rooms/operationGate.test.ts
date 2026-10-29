@@ -136,3 +136,20 @@ describe('recorded brush random metadata', () => {
     }
   })
 })
+
+describe('closed durable operation discriminants', () => {
+  it('rejects unknown/reserved canonical types and legacy-canonical mixing before owner privileges', () => {
+    for (const type of ['canonical_stroke', 'canonical_stroke_live', 'future_unregistered', 'toString', 'constructor']) {
+      expect(reason(board(), lesson(), { ...stroke(OWNER), type } as unknown as Operation)).toBe('invalid_operation')
+    }
+    for (const patch of [{ frame: {} }, { canonicalFrame: {} }, { rasterProfile: 'installed-arm64-scalar-fused-fpcr0-v1' }, { materialPacked: '1|AAAA' }]) {
+      expect(reason(board(), lesson(), { ...stroke(OWNER), ...patch } as Operation)).toBe('invalid_operation')
+    }
+    expect(reason(board(), lesson(), stroke(OWNER))).toBeNull()
+  })
+  it('preserves the legitimate legacy shape frame and historical stroke fields', () => {
+    const shape = { ...base(OWNER), type: 'shape', layerId: 'layer-1', geometry: { kind: 'rectangle' }, frame: { x: 0, y: 0, width: 2, height: 3, rotation: 0 }, stroke: null, fill: null } as unknown as Operation
+    expect(reason(board(), lesson(), shape)).toBeNull()
+    expect(reason(board(), lesson(), { ...stroke(OWNER), smudgeLoadAtStart: .3, smudgeLoadAtEnd: .7 } as Operation)).toBeNull()
+  })
+})

@@ -681,3 +681,27 @@ it('refuses unsupported trusted room formats before loading snapshots or emittin
     expect(mockPrisma.operation.findMany).not.toHaveBeenCalled()
   }
 })
+
+it('rejects unregistered canonical operation/live claims before pin, persistence and relay', async () => {
+  const { teacher, student, lessonId } = await classroom()
+  const directory = mkdtempSync(joinPath(tmpdir(), 'closed-canonical-'))
+  const storage = new BrushStorage(directory), pin = vi.spyOn(storage, 'pin')
+  setBrushStorage(storage, empty())
+  try {
+    for (const patch of [{ type: 'canonical_stroke', frame: {} }, { type: 'future_unregistered' }, { canonicalFrame: {} }, { rasterProfile: 'installed-arm64-scalar-fused-fpcr0-v1' }, { materialPacked: '1|AAAA' }]) {
+      const quiet = silent(student, 'operation_confirmed', 30)
+      const operation = { ...stroke(fresh('closed-canonical'), 'teacher'), preset: 'brush:imported-' + 'a'.repeat(16) + '@1', ...patch }
+      const result = await new Promise<SendResult>(resolve => teacher.emit('operation', operation as never, resolve))
+      expect(result).toMatchObject({ ok: false, reason: 'invalid_operation' })
+      await quiet
+    }
+    for (const patch of [{ type: 'canonical_stroke_live', frame: {} }, { canonicalFrame: {} }, { materialPacked: '1|AAAA' }, { rasterProfile: 'installed-arm64-scalar-fused-fpcr0-v1' }]) {
+      const quiet = silent(student, 'peer_stroke_live', 30)
+      teacher.emit('stroke_live', { strokeId: 'closed', layerId: 'layer-1', tool: 'digitalBrush', preset: 'brush:imported-' + 'a'.repeat(16) + '@1', color: [0, 0, 0], dabsPacked: '', packetSeq: 0, ...patch } as never)
+      await quiet
+    }
+    await _flushPendingWrites(lessonId)
+    expect(pin).not.toHaveBeenCalled()
+    expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+  } finally { setBrushStorage(new BrushStorage(directory), empty()); rmSync(directory, { recursive: true, force: true }) }
+})

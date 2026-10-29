@@ -1,3 +1,4 @@
+import { hasReservedCanonicalFields } from './operationAdmissionShape.js'
 import { admitsStoredRoomRaster } from './roomRasterAdmission.js'
 import { hasRequiredOperationBrushContext, pinOperationBrush } from '../brushLibrary/storage.js'
 import type { Server, DefaultEventsMap } from 'socket.io'
@@ -674,7 +675,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // the void" failure of #254, with the void now visible to the whole room.
     // Keep packed source inputs for capability admission; permission checks do not decode them.
     socket.on('stroke_live', data => {
-      if (!hasValidBrushRandomContext(data)) return
+      if (hasReservedCanonicalFields(data) || !hasValidBrushRandomContext(data)) return
       const { roomId, userId } = socket.data
       if (!roomId || !userId) return
       const standIn: Operation = {
