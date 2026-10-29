@@ -7,19 +7,21 @@ import type { InverseImageAffine } from './affineImageSpan'
  * Separate high-word products model SSE2; summed products model NEON. */
 export function sampleAffineImageSpan16(
   straightRGBA: Uint8Array, width: number, height: number, inverse: InverseImageAffine,
-  x: number, y: number, length: number, products: 'separate' | 'summed' = 'separate', sourceDecode: 'wide8' | 'narrow4' | 'scalar' = 'wide8',
+  x: number, y: number, length: number, products: 'separate' | 'summed' = 'separate', sourceDecode: 'wide8' | 'narrow4' | 'scalar' = 'wide8', inverseOrigin: 'unbiased' | 'sampling' = 'unbiased',
 ): Uint16Array {
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1
     || width * height > 4 * 1024 * 1024 || straightRGBA.length !== width * height * 4
     || !Number.isSafeInteger(x) || !Number.isSafeInteger(y) || !Number.isSafeInteger(length)
-    || length < 1 || length > 2048 || inverse.some(v => !Number.isFinite(v))) throw RangeError('Invalid RGBA16 affine span')
+    || length < 1 || length > 2048 || inverse.some(v => !Number.isFinite(v)) || (products !== 'separate' && products !== 'summed')
+    || !['wide8', 'narrow4', 'scalar'].includes(sourceDecode) || !['unbiased', 'sampling'].includes(inverseOrigin)) throw RangeError('Invalid RGBA16 affine span')
   const [a,b,c,d,tx,ty] = inverse, fixed = 65536
   const normX = a*a+c*c, normY = b*b+d*d
   if (normX <= 1/fixed || normY <= 1/fixed || normX >= 1e4 || normY >= 1e4
     || Math.abs(tx) >= 1e4 || Math.abs(ty) >= 1e4) throw RangeError('Outside affine fast-matrix domain')
   const dx = Math.trunc(a*fixed), dy = Math.trunc(b*fixed)
-  let fx = Math.trunc((c*(y+.5)+a*(x+.5)+tx-1/fixed)*fixed)-32768
-  let fy = Math.trunc((d*(y+.5)+b*(x+.5)+ty-1/fixed)*fixed)-32768
+  const originBias = inverseOrigin === 'sampling' ? 0 : 1/fixed
+  let fx = Math.trunc((c*(y+.5)+a*(x+.5)+tx-originBias)*fixed)-32768
+  let fy = Math.trunc((d*(y+.5)+b*(x+.5)+ty-originBias)*fixed)-32768
   if ([fx,fy,fx+dx*length,fy+dy*length].some(v=>Math.abs(v)>=0x7fffffff)) throw RangeError('Affine fixed-point range exceeded')
   // The fetcher materializes two adjacent texels per destination pixel.
   // Conversion SIMD groups therefore span multiple destination pixels; a
