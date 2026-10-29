@@ -1,3 +1,4 @@
+import nativeClock from '../dabs/fixtures/sourceDistanceTiming.json'
 import { expect,it } from 'vitest'
 import type { Dab,BrushDescriptor } from '@grafetto/shared'
 import { digitalBrushFromPreset } from './digitalBrushPresets'
@@ -43,4 +44,14 @@ it('interpolates independent child sourceTime in F64 with its own period',()=>{
  expect(interpolated.sourceTime).toBeLessThan(end.sourceTime)
  expect(interpolated.sourceTime).not.toBe(Math.fround(interpolated.sourceTime!))
  expect(brushDynamicValue({control:'time',period:6340,periodic:true,minimum:0,jitter:0},interpolated,beginBrushBehavior(interpolated),0)).toBe(interpolated.sourceTime!/6340)
+})
+
+it('uses native weighted Float64 time mixture for independently sampled child requests',()=>{
+ const state:SecondarySamplingState={remaining:0}
+ const timedChild:BrushDescriptor={...child,spacing:.5,behavior:{version:2,spacing:{mode:'diameter',coefficient:.5}}}
+ const [a,b]=nativeClock.sourceTimeMix[0].input
+ const points=secondaryBrushDabs(primary,timedChild,[{...sample(0),sourceTime:a},{...sample(2),sourceTime:b}],state)
+ expect(points[1].x).toBe(.5)
+ expect(points[1].sourceTime).toBe(nativeClock.sourceTimeMix[0].result)
+ expect(points[1].sourceTime).not.toBe(a+(b-a)*.25)
 })
