@@ -101,14 +101,15 @@ class KritaTests(unittest.TestCase):
         self.assertEqual(image.tobytes(),image.transpose(Image.Transpose.FLIP_LEFT_RIGHT).tobytes())
         self.assertEqual(image.tobytes(),image.transpose(Image.Transpose.FLIP_TOP_BOTTOM).tobytes())
 
-    def test_gaussian_preset_routes_bitmap_and_keeps_fidelity_warning(self):
+    def test_gaussian_preset_routes_native_profile_and_keeps_fidelity_warning(self):
         definition='<Brush type="auto_brush"><MaskGenerator id="gauss" type="circle" ratio="1" hfade=".15" vfade=".15" diameter="10" spikes="2"/></Brush>'
         with tempfile.TemporaryDirectory() as tmp:
             p=Path(tmp)/'QA.kpp';p.write_bytes(kpp(definition));c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
             self.assertEqual(c.skipped,[])
             brush=c.brushes[0]
-            self.assertEqual(brush['descriptor']['tip']['kind'],'bitmap')
-            self.assertTrue(any(n['feature']=='gaussianGenerator' and n['status']=='approximate' for n in brush['compatibility']))
+            self.assertEqual(brush['descriptor']['tip']['kind'],'round')
+            self.assertEqual(brush['descriptor']['tip']['profile'],{'kind':'gaussian','fade':.85,'antialias':False})
+            self.assertTrue(any(n['feature']=='gaussianProcedural' and n['status']=='approximate' for n in brush['compatibility']))
 
     def test_legacy_bytearray_embedded_pattern_and_native_period(self):
         out=io.BytesIO();Image.new('L',(8,8),128).save(out,format='PNG')

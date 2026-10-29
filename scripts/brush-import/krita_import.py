@@ -401,17 +401,25 @@ def preset(data, name, catalog, external, depth=0):
         d['tip'] = {'kind':'round','hardness':hardness,'aspect':1/ratio,'angle':0,'rotation':'fixed'}
         gaussian=generator.get('id')=='gauss' and shape=='circle' and numeric(generator.get('spikes'),2)==2
         gaussian_aa=enabled(generator.get('antialiasEdges'))
-        hard_gaussian=(numeric(generator.get('hfade'),0)==1 and numeric(generator.get('vfade'),0)==1)
+        try:
+            hf=float(generator.get('hfade','0'));vf=float(generator.get('vfade','0'))
+        except (TypeError,ValueError): hf=vf=math.nan
+        valid_fade=all(math.isfinite(v) and 0<=v<=1 for v in (hf,vf))
+        native_fade=1-(hf+vf)/2 if valid_fade else math.nan
+        if native_fade==0: native_fade=1e-6
+        elif native_fade==1: native_fade=1-1e-6
+        representable_fade=valid_fade and 1e-6<=native_fade<=1-1e-6
+        hard_gaussian=hf==1 and vf==1
         procedural_gaussian=(gaussian and engine=='paintbrush' and ratio==1
-            and (gaussian_aa or hard_gaussian) and numeric(definition.get('randomness'))==0
+            and (gaussian_aa or representable_fade) and numeric(definition.get('randomness'))==0
             and numeric(definition.get('density'),1)==1)
         if procedural_gaussian:
             # Existing immutable Gaussian program/frame remains the round path.
             d['tip']['kind']='round'
-            d['tip']['profile']={'kind':'gaussian','fade':clamp(1-hardness,1e-6,1-1e-6),'antialias':gaussian_aa}
-            if not gaussian_aa: d['version']=29
+            d['tip']['profile']={'kind':'gaussian','fade':clamp(1-hardness,1e-6,1-1e-6) if gaussian_aa else native_fade,'antialias':gaussian_aa}
+            if not gaussian_aa: d['version']=29 if hard_gaussian else 30
             d['tip']['hardness']=1
-            notes.append(compatibility('gaussianProcedural','Erf radial parameters retained with native AA flag; enabled AA uses scale-aware1px fringe/U8 stencil, disabled hard-limit uses one sample without a bitmap halo. GPU erf precision, subpixel placement and scalar/SIMD rounding require comparison.'))
+            notes.append(compatibility('gaussianProcedural','Erf radial parameters retained with native AA flag; enabled AA uses scale-aware1px fringe/U8 stencil, disabled AA uses one native radial sample without a bitmap halo. GPU erf precision, subpixel placement and scalar/SIMD rounding require comparison.'))
         elif gaussian:
             mask=gaussian_circle(numeric(generator.get('hfade'),1),numeric(generator.get('vfade'),1),numeric(generator.get('diameter'),10),enabled(generator.get('antialiasEdges')))
             d['tip']['kind']='bitmap';d['tip']['hardness']=1;d['tip']['mask']=catalog.asset(mask,warnings)

@@ -26,11 +26,18 @@ class GaussianTests(unittest.TestCase):
   self.assertEqual(a['descriptor']['tip'],b['descriptor']['tip'])
   self.assertEqual(a['descriptor']['tip']['profile'],{'kind':'gaussian','fade':1e-6,'antialias':False})
   self.assertEqual(a['descriptor']['version'],29)
- def test_missing_or_soft_fade_does_not_enter_the_hard_limit(self):
-  for fades in ['', 'hfade=".8" vfade="1"']:
+ def test_non_antialiased_fades_match_native_defaults_and_average(self):
+  for fades,expected in [('',.999999),('hfade=".8" vfade="1"',.1),('hfade=".7" vfade=".9"',.2)]:
    definition=f'<Brush type="auto_brush"><MaskGenerator id="gauss" type="circle" ratio="1" diameter="40" spikes="2" antialiasEdges="0" {fades}/></Brush>'
    with tempfile.TemporaryDirectory() as tmp:
     p=Path(tmp)/'Authored.kpp';p.write_bytes(kpp(definition));c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
-    self.assertEqual(c.brushes[0]['descriptor']['tip']['kind'],'bitmap')
+    tip=c.brushes[0]['descriptor']['tip']
+    self.assertAlmostEqual(tip['profile']['fade'],expected)
+    self.assertFalse(tip['profile']['antialias']);self.assertNotIn('mask',tip)
+ def test_unrepresentable_near_endpoint_fade_keeps_explicit_fallback(self):
+  definition='<Brush type="auto_brush"><MaskGenerator id="gauss" type="circle" ratio="1" diameter="40" spikes="2" antialiasEdges="0" hfade=".9999995" vfade=".9999995"/></Brush>'
+  with tempfile.TemporaryDirectory() as tmp:
+   p=Path(tmp)/'Authored.kpp';p.write_bytes(kpp(definition));c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
+   self.assertEqual(c.brushes[0]['descriptor']['tip']['kind'],'bitmap')
 
 if __name__=='__main__':unittest.main()
