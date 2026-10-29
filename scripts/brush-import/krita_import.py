@@ -400,15 +400,18 @@ def preset(data, name, catalog, external, depth=0):
         ratio = clamp(numeric(generator.get('ratio'),1),0.0625,1)
         d['tip'] = {'kind':'round','hardness':hardness,'aspect':1/ratio,'angle':0,'rotation':'fixed'}
         gaussian=generator.get('id')=='gauss' and shape=='circle' and numeric(generator.get('spikes'),2)==2
+        gaussian_aa=enabled(generator.get('antialiasEdges'))
+        hard_gaussian=(numeric(generator.get('hfade'),0)==1 and numeric(generator.get('vfade'),0)==1)
         procedural_gaussian=(gaussian and engine=='paintbrush' and ratio==1
-            and enabled(generator.get('antialiasEdges')) and numeric(definition.get('randomness'))==0
+            and (gaussian_aa or hard_gaussian) and numeric(definition.get('randomness'))==0
             and numeric(definition.get('density'),1)==1)
         if procedural_gaussian:
             # Existing immutable Gaussian program/frame remains the round path.
             d['tip']['kind']='round'
-            d['tip']['profile']={'kind':'gaussian','fade':clamp(1-hardness,1e-6,1-1e-6),'antialias':True}
+            d['tip']['profile']={'kind':'gaussian','fade':clamp(1-hardness,1e-6,1-1e-6),'antialias':gaussian_aa}
+            if not gaussian_aa: d['version']=29
             d['tip']['hardness']=1
-            notes.append(compatibility('gaussianProcedural','Erf radial parameters retained with per-dab scale-aware 1px AA and U8 scalar3x3/6x6 sampling. GPU erf precision, subpixel placement and scalar/SIMD rounding require comparison.'))
+            notes.append(compatibility('gaussianProcedural','Erf radial parameters retained with native AA flag; enabled AA uses scale-aware1px fringe/U8 stencil, disabled hard-limit uses one sample without a bitmap halo. GPU erf precision, subpixel placement and scalar/SIMD rounding require comparison.'))
         elif gaussian:
             mask=gaussian_circle(numeric(generator.get('hfade'),1),numeric(generator.get('vfade'),1),numeric(generator.get('diameter'),10),enabled(generator.get('antialiasEdges')))
             d['tip']['kind']='bitmap';d['tip']['hardness']=1;d['tip']['mask']=catalog.asset(mask,warnings)
@@ -533,7 +536,7 @@ def preset(data, name, catalog, external, depth=0):
         if not dynamic or sharpness_controls:
             d['tip']['alphaThreshold']={'value':value,'softness':softness}
             notes.append(compatibility('maskThreshold','Native U8 alpha threshold retained before texture; supported sensor product evaluated per dab. Subpixel/filter quantization remains approximate.'))
-            if sharpness_controls: d['version']=28
+            if sharpness_controls: d['version']=max(d['version'],28)
         if enabled(params.get('Sharpness/alignoutline')):
             notes.append(compatibility('maskThresholdAlignment','Native outline pixel alignment is unsupported.','unsupported'))
     d['flow']=clamp(numeric(params.get('FlowValue'),1))

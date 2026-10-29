@@ -17,8 +17,20 @@ class GaussianTests(unittest.TestCase):
   self.assertNotIn('mask',a['descriptor']['tip'])
   self.assertEqual(a['descriptor']['tip']['profile'],{'kind':'gaussian','fade':1e-6,'antialias':True})
  def test_eligibility_preserves_legacy_gaussian_cases(self):
-  for kwargs in [{'ratio':.8},{'aa':0}]:
+  for kwargs in [{'ratio':.8}]:
    d=self.convert(**kwargs)['descriptor']['tip']
    self.assertEqual(d['kind'],'bitmap');self.assertNotIn('profile',d)
+
+ def test_hard_non_antialiased_profile_is_not_a_resampled_bitmap(self):
+  a=self.convert(1,aa=0);b=self.convert(80,aa=0)
+  self.assertEqual(a['descriptor']['tip'],b['descriptor']['tip'])
+  self.assertEqual(a['descriptor']['tip']['profile'],{'kind':'gaussian','fade':1e-6,'antialias':False})
+  self.assertEqual(a['descriptor']['version'],29)
+ def test_missing_or_soft_fade_does_not_enter_the_hard_limit(self):
+  for fades in ['', 'hfade=".8" vfade="1"']:
+   definition=f'<Brush type="auto_brush"><MaskGenerator id="gauss" type="circle" ratio="1" diameter="40" spikes="2" antialiasEdges="0" {fades}/></Brush>'
+   with tempfile.TemporaryDirectory() as tmp:
+    p=Path(tmp)/'Authored.kpp';p.write_bytes(kpp(definition));c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c)
+    self.assertEqual(c.brushes[0]['descriptor']['tip']['kind'],'bitmap')
 
 if __name__=='__main__':unittest.main()
