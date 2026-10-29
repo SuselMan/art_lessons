@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { brushAssetIds, isBrushLibrary, type BrushLibrary } from './brushes.js'
+import { brushAssetIds, brushRequiresRandomContext, isBrushLibrary, type BrushLibrary } from './brushes.js'
 
 function library(): BrushLibrary {
   const hash = 'a'.repeat(64)
@@ -15,6 +15,25 @@ function library(): BrushLibrary {
 }
 
 describe('brush library contract', () => {
+  it('requires recorded random context only for explicit native sensor capabilities', () => {
+    const parent=library().brushes[0].descriptor,child=structuredClone(parent)
+    const native={control:'strokeRandom' as const,minimum:0,jitter:0,randomSource:{kind:'qt5Taus88' as const,key:'RotationFuzzyStroke'}}
+    expect(brushRequiresRandomContext(parent)).toBe(false)
+    parent.behavior={version:2,dynamics:{angle:{control:'strokeRandom',minimum:0,jitter:0,randomStream:1}}}
+    expect(brushRequiresRandomContext(parent)).toBe(false)
+    child.behavior={version:2,rotation:{follow:0,random:'none',composition:{strength:1,additive:[native]}}}
+    parent.behavior.dual={brush:child,blendMode:'multiply',sampling:'independent'}
+    expect(brushRequiresRandomContext(parent)).toBe(true)
+    delete parent.behavior.dual
+    parent.model='mixer';parent.mixer={load:0,pickup:0,strength:1,pickupDynamics:[native]}
+    expect(brushRequiresRandomContext(parent)).toBe(true)
+    delete parent.mixer
+    parent.behavior.dual={brush:parent,blendMode:'multiply'}
+    expect(brushRequiresRandomContext(parent)).toBe(false)
+    parent.behavior.spacing={mode:'kritaAuto',coefficient:1,dynamics:[native]}
+    expect(brushRequiresRandomContext(parent)).toBe(true)
+  })
+
   it('requires the circular band and max-alpha accumulation together', () => {
     const data=library(),d=data.brushes[0].descriptor
     d.tip={kind:'procedural',profile:{kind:'circleBand',antialias:true},hardness:1,aspect:1,angle:0,rotation:'fixed'}

@@ -521,3 +521,26 @@ export function brushAssetIds(brush: BrushDescriptor): AssetId[] {
   visit(brush)
   return [...ids]
 }
+
+/** Whether execution requires an explicit recorded gesture random context.
+ * Inspect only sensor-bearing fields; ordinary metadata must not opt in. */
+export function brushRequiresRandomContext(brush: BrushDescriptor): boolean {
+  const seen = new Set<BrushDescriptor>()
+  const native = (d: BrushDynamic | undefined): boolean => d?.control === 'strokeRandom' && d.randomSource?.kind === 'qt5Taus88'
+  const visit = (b: BrushDescriptor): boolean => {
+    if (seen.has(b)) return false
+    seen.add(b)
+    const v = b.behavior
+    const groups = [v?.modulations, v?.wetMix?.dynamics]
+    const controls = [
+      ...Object.values(v?.dynamics ?? {}), ...Object.values(v?.colorAdjustment ?? {}),
+      ...(v?.spacing?.dynamics ?? []), ...(v?.rotation?.composition?.additive ?? []),
+      ...(v?.rotation?.composition?.scaling ?? []),
+      ...groups.flatMap(g => Object.values(g ?? {}).flat()),
+      ...(b.mixer?.sampling?.radiusDynamics ?? []), ...(b.mixer?.foreground?.dynamics ?? []),
+      ...(b.mixer?.pickupDynamics ?? []),
+    ]
+    return controls.some(native) || !!(v?.dual && visit(v.dual.brush))
+  }
+  return visit(brush)
+}
