@@ -2,7 +2,7 @@
  * Active draw-group resources may exceed the target; evicting one of those
  * would invalidate a bound sampler or re-upload the same working set forever. */
 export class BrushTextureCache {
-  private readonly entries = new Map<string, { texture: WebGLTexture; bytes: number }>()
+  private readonly entries = new Map<string, { texture: WebGLTexture; bytes: number; disposeCompanions?: (lost: boolean) => void }>()
   private protectedKeys = new Set<string>()
   private readonly leases = new Map<symbol, readonly { key: string; bytes: number }[]>()
   private usedBytes = 0
@@ -10,6 +10,7 @@ export class BrushTextureCache {
   private readonly targetBytes: number
   constructor(gl: WebGLRenderingContext, targetBytes = 16 * 1024 * 1024) { this.gl = gl; this.targetBytes = targetBytes }
   get bytes(): number { return this.usedBytes }
+  get budgetBytes(): number { return this.targetBytes }
   protect(keys: readonly string[]): void {
     this.protectedKeys = new Set(keys)
     this.trim()
@@ -18,6 +19,7 @@ export class BrushTextureCache {
    * target. It prevents a partially resident animation's sequential scan from
    * evicting its own later frames. No gesture/lifetime residency is promised. */
   lease(resources: readonly { key: string; bytes: number }[]): () => void {
+    for (const item of resources) if (!Number.isSafeInteger(item.bytes) || item.bytes < 0) throw new RangeError('Invalid GPU brush resource bytes')
     const union = new Map<string, number>()
     for (const group of this.leases.values()) for (const item of group) union.set(item.key,item.bytes)
     for (const item of resources) union.set(item.key,item.bytes)
@@ -28,21 +30,34 @@ export class BrushTextureCache {
     // it before loading; changing residency now could evict a live sampler.
     return () => { this.leases.delete(token); this.trim() }
   }
+  resourceBytes(key: string): number | undefined { return this.entries.get(key)?.bytes }
   get(key: string): WebGLTexture | undefined {
     const entry = this.entries.get(key)
     if (entry) { this.entries.delete(key); this.entries.set(key, entry) }
     return entry?.texture
   }
-  put(key: string, texture: WebGLTexture, bytes: number): void {
+  put(key: string, texture: WebGLTexture, bytes: number, disposeCompanions?: (lost: boolean) => void): void {
+    if (!Number.isSafeInteger(bytes) || bytes < 0) throw new RangeError('Invalid GPU brush resource bytes')
     if (!this.protectedKeys.has(key)) throw new Error('Resolve a protected brush group before uploading')
     const previous = this.entries.get(key)
     if (previous) throw new Error('Brush texture cache entry already exists')
-    this.entries.set(key, { texture, bytes })
+    this.entries.set(key, { texture, bytes, disposeCompanions })
     this.usedBytes += bytes
     this.trim()
   }
+  /** Explicit owner teardown; never an implicit render-time eviction policy. */
+  discard(key: string, lost = false): void {
+    const entry = this.entries.get(key)
+    if (!entry) return
+    this.entries.delete(key); this.usedBytes -= entry.bytes; this.protectedKeys.delete(key)
+    if (!lost) this.gl.deleteTexture(entry.texture)
+    entry.disposeCompanions?.(lost)
+  }
   clear(lost = false): void {
-    if (!lost) for (const entry of this.entries.values()) this.gl.deleteTexture(entry.texture)
+    for (const entry of this.entries.values()) {
+      if (!lost) this.gl.deleteTexture(entry.texture)
+      entry.disposeCompanions?.(lost)
+    }
     this.entries.clear(); this.protectedKeys.clear(); this.leases.clear(); this.usedBytes = 0
   }
   private trim(): void {
@@ -62,7 +77,7 @@ export class BrushTextureCache {
     for (const [key, entry] of this.entries) {
       if (this.usedBytes <= limit) break
       if (protectedKeys.has(key)) continue
-      this.gl.deleteTexture(entry.texture); this.entries.delete(key); this.usedBytes -= entry.bytes
+      this.gl.deleteTexture(entry.texture); entry.disposeCompanions?.(false); this.entries.delete(key); this.usedBytes -= entry.bytes
     }
   }
 }

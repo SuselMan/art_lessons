@@ -170,3 +170,27 @@ it('uploads packed premultiplied LA with explicit dimensions, old byte budget an
   expect(gl.getParameter(gl.TEXTURE_BINDING_2D)).toBe(previous)
   expect(gl.getParameter(gl.UNPACK_ALIGNMENT)).toBe(4)
 })
+
+describe('owned prepass companion resources', () => {
+  it('disposes companions on eviction/destroy exactly once and forgets lost objects without GL destruction', () => {
+    const { cache, deleted } = setup(20), a = texture(), b = texture(), dispose = vi.fn()
+    cache.protect(['a']); cache.put('a', a, 20, dispose)
+    cache.protect(['b']); cache.put('b', b, 20)
+    expect(dispose).toHaveBeenCalledExactlyOnceWith(false)
+    expect(deleted).toHaveBeenCalledWith(a)
+    cache.clear(); expect(dispose).toHaveBeenCalledTimes(1)
+    cache.protect(['a']); cache.put('a', a, 20, dispose); deleted.mockClear(); cache.clear(true)
+    expect(deleted).not.toHaveBeenCalled()
+    expect(dispose).toHaveBeenLastCalledWith(true)
+    expect(cache.budgetBytes).toBe(20)
+  })
+})
+
+it('rejects nonfinite/fractional custom GPU charges before cache mutation', () => {
+  const { cache } = setup(); cache.protect(['x'])
+  for (const bytes of [NaN, Infinity, -1, .5]) {
+    expect(() => cache.put('x', texture(), bytes)).toThrow('bytes')
+    expect(() => cache.lease([{ key: 'x', bytes }])).toThrow('bytes')
+  }
+  expect(cache.bytes).toBe(0)
+})

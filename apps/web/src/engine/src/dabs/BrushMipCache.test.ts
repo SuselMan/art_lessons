@@ -18,3 +18,16 @@ describe('bounded paired material derivatives',()=>{
     cache.get('huge',()=>make(11));expect(cache.bytes).toBe(8)
   })
 })
+
+describe('retained prepass workspace shares the derivative budget',()=>{
+  it('reserves before allocation, evicts derivatives and releases idempotently',()=>{
+    const cache=new BrushMipCache(100),make=vi.fn(()=>[new Uint8Array(60)])
+    cache.get('old',make);const release=cache.reserve(50)
+    expect(cache.bytes).toBe(0);expect(cache.reservedBytes).toBe(50)
+    cache.get('tooLargeToRetain',make);expect(cache.bytes).toBe(0)
+    expect(()=>cache.reserve(51)).toThrow('budget')
+    expect(cache.reservedBytes).toBe(50)
+    release();release();expect(cache.reservedBytes).toBe(0)
+    cache.get('new',make);expect(cache.bytes).toBe(60)
+  })
+})
