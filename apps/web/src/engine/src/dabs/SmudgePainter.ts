@@ -1,3 +1,4 @@
+import { assertBrushExecutionContext, assertSameBrushExecutionContext, type BrushExecutionContext } from '../presets/brushExecutionContext'
 import { brushTipSamplerId, brushTipProfileUniforms } from './BrushPreparation'
 import { brushAlphaThresholdValue } from '../presets/brushAlphaThreshold'
 import { smearPlacement, smearSourceShift, type SmearPlacement } from './SmearPlacement'
@@ -108,7 +109,7 @@ const MIXER_PRIME_LOAD = 0.85
 export interface SmudgeContext {
   readonly brushMipCache?: BrushMipCache
   createBrushScratch(): RibbonStrokeScratch
-  paintBrushMask(target:Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>,dabs:Dab[],brush:BrushDescriptor,pressure:boolean,scratch:RibbonStrokeScratch,sizeMultiplier:number):void
+  paintBrushMask(target:Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>,dabs:Dab[],brush:BrushDescriptor,pressure:boolean,scratch:RibbonStrokeScratch,sizeMultiplier:number,execution?:BrushExecutionContext):void
   readonly gl: WebGLRenderingContext
   /** DAB_VERT's -0.5..0.5 dab quad. */
   quadBuf(): WebGLBuffer
@@ -348,6 +349,7 @@ export class SmudgePainter {
     /** (#573) Set for the digital brush's mixer: the colour the brush is
      *  loaded with and how it lays it down. Absent for the smudge tool. */
     paint?: MixerPaint,
+    execution?: BrushExecutionContext,
   ): void {
     // Transient scratch targets (live-tip/prediction preview, a peer's
     // reveal buffer) are a single un-tiled buffer, freshly cleared before
@@ -356,6 +358,7 @@ export class SmudgePainter {
     // read+write WebGL1 forbids. A harmless no-op: the real dabs below
     // always paint straight into the real layer regardless (see
     // the engine's _paintDabs doc comment on this parameter).
+    if (paint?.brush) assertBrushExecutionContext(paint.brush,execution)
     if (target instanceof AccumulationBuffer) return
     // An explicit prevDab means the caller *is* the continuation (the live
     // stroke's own next incremental batch), and nothing needs resolving.
@@ -366,7 +369,7 @@ export class SmudgePainter {
     let prev = prevDab ?? this.resumeGesture(userId, strokeId, dabs)
     for (const dab of dabs) {
       if (paint?.brush) {
-        this.paintBehaviorDab(target, dab, prev, userId, paint)
+        this.paintBehaviorDab(target, dab, prev, userId, paint,execution)
         prev = dab
         continue
       }
@@ -383,14 +386,15 @@ export class SmudgePainter {
 
   /** Each logical dab advances dynamics exactly once, independent of live batches.
    * The imprint survives only the same user's same gesture/chunks. */
-  private paintBehaviorDab(target: ILayerBuffer, dab: Dab, prev: Dab | undefined, userId: string, paint: MixerPaint): void {
+  private paintBehaviorDab(target: ILayerBuffer, dab: Dab, prev: Dab | undefined, userId: string, paint: MixerPaint,execution?:BrushExecutionContext): void {
     const brush = paint.brush!
     let state = this.wetGestures.get(userId)
     if (!state || !prev) {
       state?.secondary?.destroy()
-      state = { charge: 1, behavior: beginBrushBehavior(dab) }
+      state = { charge: 1, behavior: beginBrushBehavior(dab,execution) }
       this.wetGestures.set(userId,state)
     }
+    assertSameBrushExecutionContext(state.behavior.execution,execution)
     const travel = prev ? Math.hypot(dab.x-prev.x,dab.y-prev.y)/Math.max(0.5,this.radiusOf(dab,paint)) : 0
     if (prev && travel < 1e-6 && brush.mixer?.source !== 'previousCanvas') { advanceBrushAnimation(brush,state.behavior); state.behavior.dabSequence=(state.behavior.dabSequence??0)+1; return }
     const dual=brush.behavior?.dual
@@ -400,7 +404,7 @@ export class SmudgePainter {
       secondary=state.secondary.brushSecondary()
       const owned=secondary
       const maskTarget:Pick<ILayerBuffer,'resolveForPaint'|'markContentPainted'>={resolveForPaint:bounds=>target.resolveForPaint(bounds).map(tile=>({...tile,buffer:owned.tile(tile.buffer)})),markContentPainted:()=>{}}
-      this.ctx.paintBrushMask(maskTarget,secondaryBrushDabs(brush,dual.brush,[dab],secondary.sampling),dual.brush,paint.pressure,secondary.scratch,paint.sizeMultiplier)
+      this.ctx.paintBrushMask(maskTarget,secondaryBrushDabs(brush,dual.brush,[dab],secondary.sampling,true,undefined,execution),dual.brush,paint.pressure,secondary.scratch,paint.sizeMultiplier,execution)
     }
     const wet = brush.behavior?.wetMix
     const directionalDab = {...dab,angle:prev && (prev.x!==dab.x || prev.y!==dab.y) ? Math.atan2(dab.y-prev.y,dab.x-prev.x) : dab.angle}

@@ -1,3 +1,4 @@
+import { brushExecutionContext, assertBrushExecutionContext, type BrushExecutionContext } from './src/presets/brushExecutionContext'
 import { createBrushRandomContext, brushRandomMetadata, assertBrushRandomContext } from './src/oplog/brushRandomContext'
 import { BrushMipCache } from './src/dabs/BrushMipCache'
 import { hasValidStrokeEndSample, createBrushRandomStrokeId, type BrushRandomSeeds } from '@grafetto/shared'
@@ -1854,7 +1855,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _wcAsyncLocalStroke: string | null = null
   private readonly _wcAsyncLocalTools = new Map<string, {
     layers: Map<string, { buffer: ILayerBuffer; copied: Set<string>; scratch: RibbonStrokeScratch }>
-    ended: boolean; queued: number
+    ended: boolean; queued: number; execution?:BrushExecutionContext
   }>()
   /** Default-OFF expedited Dry uses only owned scheduling/presentation metadata. */
   private _wcExpeditedDry = false
@@ -1945,7 +1946,7 @@ export class PencilEngine implements PencilEngineAPI {
     nibDrawCost: (tile, dab, preset) => this._nibDrawCost(tile, dab, preset),
     nibTouchesTile: (tile, dab, preset) => this._nibTouchesTile(tile, dab, preset),
     pageSize: () => this._pageSize(),
-    paintBrushStroke: (target, dabs, preset, stamp, color, scratch, prevDab) => this._paintBrushStroke(target, dabs, preset, stamp, color, scratch, prevDab),
+    paintBrushStroke: (target, dabs, preset, stamp, color, scratch, prevDab,execution) => this._paintBrushStroke(target, dabs, preset, stamp, color, scratch, prevDab,execution),
     resolveWithinSheet: (target, r) => this._resolveWithinSheet(target, r),
     revealAfterBatch: (tile, bounds, prev) => this._revealAfterBatch(tile, bounds, prev),
     revealBeforeBatch: (tile, bounds) => this._revealBeforeBatch(tile, bounds),
@@ -2728,6 +2729,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  'remote' so the op is not echoed back to the server. */
   appendOperation(op: Operation, source: OperationSource = 'local'): void {
     assertBrushRandomContext(op)
+    if(op.type==='stroke' && op.tool==='digitalBrush') assertBrushExecutionContext(digitalBrushFromPreset(op.preset),brushExecutionContext(op.brushRandom))
     if(!hasValidStrokeEndSample(op)) throw new Error('Invalid stroke endpoint sample')
     // (#536, §17.58) A peer's watercolour operation arriving while a settle is
     // still spreading over frames waits its turn instead of forcing that
@@ -2951,7 +2953,7 @@ export class PencilEngine implements PencilEngineAPI {
             this._paintOpOverFrames(buf, op, dabs) // (§17.72)
           } else {
             const standing = (dabs.length || op.strokeEndSample)
-              ? this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spread, op.strokeEnd, op.strokeEndSample)
+              ? this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spread, op.strokeEnd, op.strokeEndSample, brushExecutionContext(op.brushRandom))
               : undefined
             // A committed final op can contain only dabs already claimed by the live stream.
             if (op.strokeEnd && op.strokeId) {
@@ -3778,6 +3780,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  flight, otherwise it plays once the current head of the queue finishes. */
   previewOperation(op: StrokeOperation, rate = 1): void {
     assertBrushRandomContext(op)
+    if(op.type==='stroke' && op.tool==='digitalBrush') assertBrushExecutionContext(digitalBrushFromPreset(op.preset),brushExecutionContext(op.brushRandom))
     if (this.isSnapshotHistoryRepairPending(op.layerId)) { this._onPreviewApplied?.(op); return }
     if (this._contextLost || this.gl.isContextLost()) {
       // This callback commits the confirmed operation, not just its preview.
@@ -3843,6 +3846,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** See PencilEngineAPI's doc comment. */
   appendPeerLiveDabs(peerId: string, packet: PeerLivePacket, canonicalExecution = false): void {
     assertBrushRandomContext(packet)
+    if(packet.tool==='digitalBrush') assertBrushExecutionContext(digitalBrushFromPreset(packet.preset),brushExecutionContext(packet.brushRandom))
     if (this.isSnapshotHistoryRepairPending(packet.layerId)) return
     if (this._contextLost || this.gl.isContextLost()) return
     if (this._cancelledPeerStreams.has(liveStrokeKey(peerId, packet.strokeId, ''))) return
@@ -3909,10 +3913,7 @@ export class PencilEngine implements PencilEngineAPI {
     // deliberately left undefined for the same reason it is on the replay
     // path: both tools recover it from their own gesture state, and passing a
     // second, independently-tracked copy is how the two get to disagree.
-    const standing = this._paintDabs(
-      buf, dabs, packet.tool, packet.preset, packet.color, peerId,
-      undefined, undefined, packet.strokeId, packet.washId, wet,
-      mottleSeedFromStrokeId(packet.strokeId),
+    const standing = this._paintDabs(buf, dabs, packet.tool, packet.preset, packet.color, peerId, undefined, undefined, packet.strokeId, packet.washId, wet, mottleSeedFromStrokeId(packet.strokeId), undefined, undefined, undefined, brushExecutionContext(packet.brushRandom)
     )
     // (#536) A peer's water reaches this client's paper as they lay it, not
     // when their operation lands — the point of the live stream is that the
@@ -4095,7 +4096,7 @@ export class PencilEngine implements PencilEngineAPI {
         const waterOnly = watercolorMixFromPreset(op.preset).pigment <= 0
         const marks = due.map(d => ({ ...d, opacity: d.opacity * (waterOnly ? 0.12 : 0.5) }))
         this._stamps.paint(state.buf, this._translateDabs(marks, state.origin), op.tool, op.preset, waterOnly ? [0.5, 0.5, 0.5] : op.color)
-      } else this._paintDabs(state.buf, this._translateDabs(due, state.origin), op.tool, op.preset, op.color, op.userId)
+      } else this._paintDabs(state.buf, this._translateDabs(due, state.origin), op.tool, op.preset, op.color, op.userId, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, brushExecutionContext(op.brushRandom))
       // (#697) Every peer owns a reveal timer, but all peers share one
       // screen. Coalesce their composites without delaying log commits.
       this._scheduleDisplay()
@@ -4595,9 +4596,7 @@ export class PencilEngine implements PencilEngineAPI {
       const dabs = strokeDabs(op)
       p = job.part = {
         opId: op.id, dabs,
-        work: this._ribbonDabsWork(
-          job.fresh, dabs, op.tool, op.preset, op.color, undefined, undefined, op.strokeId, op.washId, op.wet,
-          mottleSeedFromStrokeId(op.strokeId), true, REBUILD_BAND_PIECE_TRIS, op.strokeEnd, op.strokeEndSample,
+        work: this._ribbonDabsWork(job.fresh, dabs, op.tool, op.preset, op.color, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), true, REBUILD_BAND_PIECE_TRIS, op.strokeEnd, op.strokeEndSample, brushExecutionContext(op.brushRandom)
         ),
       }
     }
@@ -4654,9 +4653,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  - spread as before. One operation drawn in one piece was up to 0.94 s of
    *  GPU on the Surface. */
   private _paintOpOverFrames(buf: ILayerBuffer, op: StrokeOperation, dabs: Dab[]): void {
-    const work = this._ribbonDabsWork(
-      buf, dabs, op.tool, op.preset, op.color, undefined, undefined, op.strokeId, op.washId, op.wet,
-      mottleSeedFromStrokeId(op.strokeId), true, REBUILD_BAND_PIECE_TRIS, op.strokeEnd, op.strokeEndSample,
+    const work = this._ribbonDabsWork(buf, dabs, op.tool, op.preset, op.color, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), true, REBUILD_BAND_PIECE_TRIS, op.strokeEnd, op.strokeEndSample, brushExecutionContext(op.brushRandom)
     )
     const land = (): void => {
       let r = work.next()
@@ -4863,7 +4860,7 @@ export class PencilEngine implements PencilEngineAPI {
         // Decoded once and shared: this is the hot path of every layer rebuild,
         // and strokeDabs unpacks the whole packed array each time it is called.
         const dabs = strokeDabs(op)
-        const standing = this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spreadSettle, op.strokeEnd, op.strokeEndSample)
+        const standing = this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId), spreadSettle, op.strokeEnd, op.strokeEndSample, brushExecutionContext(op.brushRandom))
         // (#536) Replaying the log restores the water too, for the handful of
         // strokes young enough to still be wet. That is what makes undo behave:
         // undo drops the layer's whole field (PaperWetness.forgetLayer, which
@@ -5716,7 +5713,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   absorbHistoricalOperations(pageOps: Operation[]): void {
-    for (const op of pageOps) assertBrushRandomContext(op)
+    for (const op of pageOps) { assertBrushRandomContext(op); if(op.type==='stroke' && op.tool==='digitalBrush') assertBrushExecutionContext(digitalBrushFromPreset(op.preset),brushExecutionContext(op.brushRandom)) }
     this._snapshotIO.absorbHistorical(pageOps)
     this._resolveSnapshotHistoryRepairs()
   }
@@ -6111,11 +6108,12 @@ export class PencilEngine implements PencilEngineAPI {
       this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
     }
     this._strokeBrushRandom = createBrushRandomContext(this._strokeTool)
+    this._dabs.brushExecution = brushExecutionContext(this._strokeBrushRandom)
     this._strokeId = this._strokeBrushRandom
       ? createBrushRandomStrokeId(nanoid(10), this._strokeBrushRandom)
       : nanoid(10)
     this._wcAsyncLocalStroke = this._wcAsyncFinish && this._strokeTool !== 'watercolor' ? this._strokeId : null
-    if (this._wcAsyncLocalStroke) this._wcAsyncLocalTools.set(this._wcAsyncLocalStroke, { layers: new Map(), ended: false, queued: 0 })
+    if (this._wcAsyncLocalStroke) this._wcAsyncLocalTools.set(this._wcAsyncLocalStroke, { layers: new Map(), ended: false, queued: 0, execution:brushExecutionContext(this._strokeBrushRandom) })
     // (#429) `_liveLastEmitAt = 0` on purpose, not `performance.now()`: it
     // makes the first packet of a gesture go out with the first dabs painted
     // rather than one interval later, so a peer sees the stroke begin as
@@ -6372,9 +6370,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._opts.opacity)
       // #138: translated into _tipBuf's own local space (see
       // _cameraCenteredOrigin/_translateDabs) — a no-op for bounded rooms.
-      this._paintDabs(
-        this._tipBuf, this._translateDabs(dabs, this._tipBufOrigin), this._strokeTool, this._strokePreset,
-        this._strokeColor, this._userId,
+      this._paintDabs(this._tipBuf, this._translateDabs(dabs, this._tipBufOrigin), this._strokeTool, this._strokePreset, this._strokeColor, this._userId, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, brushExecutionContext(this._strokeBrushRandom)
       )
     }
   }
@@ -6408,9 +6404,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._bakeDabOpacity(dabs, samples[samples.length - 1].speed, this._strokeTool, this._strokePreset, this._opts.opacity)
       // #138: translated into _previewBuf's own local space (see
       // _cameraCenteredOrigin/_translateDabs) — a no-op for bounded rooms.
-      this._paintDabs(
-        this._previewBuf, this._translateDabs(dabs, this._previewBufOrigin), this._strokeTool, this._strokePreset,
-        this._strokeColor, this._userId,
+      this._paintDabs(this._previewBuf, this._translateDabs(dabs, this._previewBufOrigin), this._strokeTool, this._strokePreset, this._strokeColor, this._userId, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, brushExecutionContext(this._strokeBrushRandom)
       )
     }
     this._scheduleDisplay()
@@ -6704,10 +6698,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._liveWetQueue += seen
       batchWet = seen
     }
-    const standing = this._paintDabs(
-      buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
-      this._strokeDabs.at(-1) ?? this._strokeChunkTail, this._ribbonStrokeScratch ?? undefined,
-      undefined, undefined, batchWet, mottleSeedFromStrokeId(this._strokeId ?? undefined),
+    const standing = this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId, this._strokeDabs.at(-1) ?? this._strokeChunkTail, this._ribbonStrokeScratch ?? undefined, undefined, undefined, batchWet, mottleSeedFromStrokeId(this._strokeId ?? undefined), undefined, undefined, undefined, brushExecutionContext(this._strokeBrushRandom)
     )
     this._paintExtraLayers(dabs)
     // …and this stroke's own water is *queued*, not laid. It reaches the paper
@@ -6790,7 +6781,7 @@ export class PencilEngine implements PencilEngineAPI {
     for (const id of this._strokeExtraLayerIds) {
       const buf = this._layers.get(id)
       if (!buf) continue
-      this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId)
+      this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, brushExecutionContext(this._strokeBrushRandom))
       this._snapshots.markDirty(id)
     }
     // #122: on every batch, not once when the gesture starts. The composite
@@ -6864,9 +6855,7 @@ export class PencilEngine implements PencilEngineAPI {
     const preset = this._resolvePreset(this._strokeTool, this._strokePreset)
     dab.opacity = preset.opacity * this._opts.opacity * linerTiltFlow(fp.tiltMag) * dwellFlow(elapsed, cfg)
 
-    this._paintDabs(
-      buf, [dab], this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
-      this._strokeDabs.at(-1) ?? this._strokeChunkTail, this._ribbonStrokeScratch ?? undefined,
+    this._paintDabs(buf, [dab], this._strokeTool, this._strokePreset, this._strokeColor, this._userId, this._strokeDabs.at(-1) ?? this._strokeChunkTail, this._ribbonStrokeScratch ?? undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, brushExecutionContext(this._strokeBrushRandom)
     )
     // (#520) A no-op today — only the liner dwells, and only the eraser goes
     // through layers — but a dwell dab is a real dab of this gesture (see the
@@ -7165,7 +7154,9 @@ export class PencilEngine implements PencilEngineAPI {
     spreadSettle = false,
     strokeEnd = false,
     strokeEndSample?:StrokeOperation['strokeEndSample'],
+    execution?:BrushExecutionContext,
   ): ReadonlyMap<Dab, number> | undefined {
+    if (tool === 'digitalBrush') assertBrushExecutionContext(digitalBrushFromPreset(presetName),execution)
     if (!dabs.length && !strokeEndSample) return undefined
     // V2 dynamics hash recorded float32 inputs, including distance/speed across batches.
     if (tool === 'digitalBrush') {
@@ -7184,7 +7175,7 @@ export class PencilEngine implements PencilEngineAPI {
     // tool below.
     if (tool === 'digitalBrush') {
       const paint = digitalBrushMixer(presetName, color)
-      if (paint) { this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
+      if (paint) { this._smudge.paint(target, dabs, userId, prevDab, strokeId, paint,execution); if(strokeEnd)this._smudge.finishGesture(userId,strokeId ?? null); return undefined }
     }
     // Marker (#250, ADR 004 §3; distance-normalized deposit added in
     // "Ревизия v1.5"): each dab needs its own coverage/inkLoad/composite
@@ -7204,7 +7195,7 @@ export class PencilEngine implements PencilEngineAPI {
       // Native input and decoded operations must enter CPU geometry at the
       // same codec precision. Keep the recorded dabs and standing keys intact.
       const canonical = dabs.map(codecDab)
-      const standing = this._paintRibbonDabs(target, canonical, tool, presetName, color, ribbonScratch, prevDab ? codecDab(prevDab) : undefined, strokeId, washId, wetProfile, strokeSeed, spreadSettle, strokeEnd, strokeEndSample)
+      const standing = this._paintRibbonDabs(target, canonical, tool, presetName, color, ribbonScratch, prevDab ? codecDab(prevDab) : undefined, strokeId, washId, wetProfile, strokeSeed, spreadSettle, strokeEnd, strokeEndSample, execution)
       if (!standing) return undefined
       const originalKeys = new Map(standing)
       for (let i = 0; i < canonical.length; i++) {
@@ -7214,7 +7205,7 @@ export class PencilEngine implements PencilEngineAPI {
       }
       return originalKeys
     }
-    if (isRibbonTool(tool)) return this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle, strokeEnd, strokeEndSample)
+    if (isRibbonTool(tool)) return this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle, strokeEnd, strokeEndSample, execution)
     // Everything else is a stamp tool — pencil, eraser, liner, charcoal.
     this._stamps.paint(target, dabs, tool, presetName, color)
     return undefined
@@ -7254,8 +7245,9 @@ export class PencilEngine implements PencilEngineAPI {
     spreadSettle = false,
     strokeEnd = false,
     strokeEndSample?:StrokeOperation['strokeEndSample'],
+    execution?:BrushExecutionContext,
   ): ReadonlyMap<Dab, number> | undefined {
-    const work = this._ribbonDabsWork(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle, 0, strokeEnd, strokeEndSample)
+    const work = this._ribbonDabsWork(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed, spreadSettle, 0, strokeEnd, strokeEndSample, execution)
     let r = work.next()
     while (!r.done) r = work.next()
     return r.value
@@ -7281,6 +7273,7 @@ export class PencilEngine implements PencilEngineAPI {
     pieceTris: number,
     strokeEnd = false,
     strokeEndSample?:StrokeOperation['strokeEndSample'],
+    execution?:BrushExecutionContext,
   ): Generator<number, ReadonlyMap<Dab, number> | undefined, void> {
     // Transient scratch targets (live-tip/prediction preview, a peer's
     // reveal buffer) have no resolveForPaint() (only a real ILayerBuffer
@@ -7355,7 +7348,7 @@ export class PencilEngine implements PencilEngineAPI {
     // (§17.52) A settle of this same wash still spread over frames lands
     // before anything is painted into it - replay order.
     if (!ribbonScratch && this._settle?.scratch === scratch) this._completeSettle()
-    yield* this._ribbonStrokeWork(target, dabs, preset, presetName, profile, color, scratch, prevDab ?? chunk?.prevDab, wetProfile, strokeSeed, !!ribbonScratch, pieceTris)
+    yield* this._ribbonStrokeWork(target, dabs, preset, presetName, profile, color, scratch, prevDab ?? chunk?.prevDab, wetProfile, strokeSeed, !!ribbonScratch, pieceTris, execution)
     if (strokeEnd || (!strokeId && !ribbonScratch)) this._brush.finish(scratch,strokeEndSample)
     // Replay finishes the stroke inside this call as far as it can know: a
     // one-shot has painted every dab there is, a chunk every dab of its own
@@ -7415,10 +7408,11 @@ export class PencilEngine implements PencilEngineAPI {
     deferComposite = false,
     /** (§17.70) See _ribbonDabsWork. */
     pieceTris = 0,
+    execution?:BrushExecutionContext,
   ): Generator<number, void, void> {
     const deferred = this._wcAsyncFinish && deferComposite && scratch === this._ribbonStrokeScratch
     yield* this._ribbonPainter.paint(target, dabs, preset, presetName, profile, color, scratch, prevDab, wetProfile, strokeSeed, deferComposite, pieceTris,
-      { waterOnly: false, segmented: false, ...(deferred ? { deferMaterial: request => {
+      { waterOnly: false, segmented: false, brushExecution:execution, ...(deferred ? { deferMaterial: request => {
         this._holdAsyncScratch(scratch)
         const presentation = this._showAsyncPresentation(scratch, request.metadata.gesture, request.presentationDabs, presetName, color)
         const owner = this
@@ -7442,9 +7436,9 @@ export class PencilEngine implements PencilEngineAPI {
   private _paintBrushStroke(
     target: ILayerBuffer, dabs: Dab[], preset: PencilPreset,
     stamp: { brush: BrushDescriptor; pressure: BrushPressureSettings },
-    color: [number, number, number], scratch: RibbonStrokeScratch, prevDab: Dab | undefined,
+    color: [number, number, number], scratch: RibbonStrokeScratch, prevDab: Dab | undefined,execution?:BrushExecutionContext,
   ): void {
-    this._brush.paint(target, dabs, preset, stamp, color, scratch, prevDab)
+    this._brush.paint(target, dabs, preset, stamp, color, scratch, prevDab,execution)
   }
 
   /** (#468 v6) One composite over everything the finished gesture touched, with
@@ -8337,7 +8331,7 @@ export class PencilEngine implements PencilEngineAPI {
       layer = { buffer, copied: new Set(), scratch: new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit) }
       held.layers.set(layerId, layer)
     }
-    this._paintDabs(layer.buffer, dabs, tool, preset, color, this._userId + ':async-preview', prev, layer.scratch, id + ':preview')
+    this._paintDabs(layer.buffer, dabs, tool, preset, color, this._userId + ':async-preview', prev, layer.scratch, id + ':preview', undefined, undefined, undefined, undefined, undefined, undefined, held.execution)
     this._invalidateSplitCache()
     this._scheduleDisplay()
   }

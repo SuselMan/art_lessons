@@ -1,7 +1,12 @@
+import { brushExecutionContext, type BrushExecutionContext } from './brushExecutionContext'
+import { KritaPerStrokeRandomSource } from './nativeRandom'
 import type { BrushDescriptor, BrushDynamic, BrushDynamicTarget, Dab } from '@grafetto/shared'
 import { brushDabRandom, brushDabSeed, brushStampsForDab, curveAt, type BrushStamp } from './digitalBrushPresets'
 /** Logical gesture state: never derives randomness or dynamics from a frame/batch. */
 export interface BrushBehaviorState {
+  execution?: BrushExecutionContext
+  /** Plain bounded cache, copied with preview/savepoints; never a native RNG instance. */
+  strokeRandomCache?: {seed:number;values:[string,number][]}
   pending?: BehaviorPlaced[]
   dabOrdinal?: number
   dabSequence?: number
@@ -43,7 +48,7 @@ export function brushSourceSpacingAxes(brush:BrushDescriptor,input:Dab,state:Bru
 export interface SecondarySamplingState { previous?: Dab; remaining: number; geometry?:BrushBehaviorState; axes?:BrushSpacingAxes; direction?:number }
 /** Resample the recorded centreline using the child's own source geometry.
  * The bounded segment loop and independent phase survive network chunks. */
-export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescriptor, dabs: readonly Dab[], state: SecondarySamplingState, sizePressure=true, endpoint?: Dab & {baseSize:number}): Dab[] {
+export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescriptor, dabs: readonly Dab[], state: SecondarySamplingState, sizePressure=true, endpoint?: Dab & {baseSize:number}, execution?: BrushExecutionContext): Dab[] {
   const result: Dab[] = []
   const baseSize=(d:Dab):number=>endpoint ? endpoint.baseSize : d.size/Math.max(.01,sizePressure?curveAt(primary.sizeByPressure,d.pressure):1)
   const size = (d:Dab):Dab=>({...d,opacity:child.opacity ?? 1,
@@ -51,7 +56,7 @@ export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescrip
     aspectRatio:child.tip.aspect,angle:child.tip.rotation==='fixed'?child.tip.angle:d.angle})
   const spacing=(dab:Dab,pathAngle:number):number=>{
     const profile=child.behavior?.spacing ?? {mode:'diameter' as const,coefficient:child.spacing}
-    const geometry=state.geometry ??= beginBrushBehavior(dab)
+    const geometry=state.geometry ??= beginBrushBehavior(dab,execution)
     state.axes=brushSourceSpacingAxes({...child,scatter:undefined},dab,geometry,profile,1/Math.max(child.tip.aspect,1),pathAngle)
     return brushSpacingStep(state.axes,pathAngle)
   }
@@ -124,13 +129,26 @@ export function splitBrushTail(stamps: BehaviorPlaced[], distance: number, end: 
   return { ready, pending, preview: pending.map(taper) }
 }
 const clamp = (v: number, lo = 0, hi = 1): number => Math.max(lo, Math.min(hi, v))
-export function beginBrushBehavior(dab: Dab): BrushBehaviorState {
-  return { charge: 1, seed: brushDabSeed(dab.x, dab.y, dab.pressure), distance: 0, firstAngle: dab.angle, opacity: dab.opacity }
+export function beginBrushBehavior(dab: Dab, execution?: BrushExecutionContext): BrushBehaviorState {
+  return { ...(execution ? {execution:brushExecutionContext(execution.brushRandom)} : {}), charge: 1, seed: brushDabSeed(dab.x, dab.y, dab.pressure), distance: 0, firstAngle: dab.angle, opacity: dab.opacity }
 }
 /** PointerEvent tilt axes describe slopes, not independent polar angles. */
 function penTilt(dab:Dab): {angle:number;azimuth:number} {
   const x=Math.tan(dab.tiltX*Math.PI/180),y=Math.tan(dab.tiltY*Math.PI/180)
   return {angle:Math.atan(Math.hypot(x,y)),azimuth:Math.atan2(y,x)}
+}
+function keyedStrokeValue(key: string, state: BrushBehaviorState): number {
+  const seeds=state.execution?.brushRandom
+  if (!seeds) throw Error('Keyed brush source requires an explicit gesture context')
+  const cache=state.strokeRandomCache?.seed===seeds.strokeSeed ? state.strokeRandomCache
+    : (state.strokeRandomCache={seed:seeds.strokeSeed,values:[]})
+  const known=cache.values.find(entry=>entry[0]===key)
+  if(known)return known[1]
+  const value=new KritaPerStrokeRandomSource(seeds.strokeSeed).generateNormalized(key)
+  // Overflow recomputes a pure keyed value; this is a residency bound, not a
+  // truncation of native controls or a mutable draw schedule.
+  if(cache.values.length<64)cache.values.push([key,value])
+  return value
 }
 export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: BrushBehaviorState, random: number): number {
   if (!d)
@@ -139,7 +157,7 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
   const travel = prev ? Math.hypot(dab.x - prev.x, dab.y - prev.y) : 0
   const speed = prev ? travel / Math.max(1, dab.t - prev.t) : 0
   const turn = (a: number): number => ((a / (Math.PI * 2)) % 1 + 1) % 1
-  const sensor = d.control === 'strokeRandom' ? brushDabRandom(state.seed,0xd0000+(d.randomStream ?? 0)) : d.control === 'random' ? clamp(random) : d.control === 'pressure' ? dab.pressure
+  const sensor = d.control === 'strokeRandom' ? d.randomSource ? keyedStrokeValue(d.randomSource.key,state) : brushDabRandom(state.seed,0xd0000+(d.randomStream ?? 0)) : d.control === 'random' ? clamp(random) : d.control === 'pressure' ? dab.pressure
     : d.control === 'tiltElevation' ? 1-clamp(penTilt(dab).angle/(Math.PI/2))
       : d.control === 'tiltX' ? clamp((dab.tiltX+90)/180)
       : d.control === 'tiltY' ? clamp((dab.tiltY+90)/180)

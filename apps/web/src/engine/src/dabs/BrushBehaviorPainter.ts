@@ -1,3 +1,4 @@
+import { assertBrushExecutionContext, assertSameBrushExecutionContext, type BrushExecutionContext } from '../presets/brushExecutionContext'
 import { brushAlphaThresholdValue } from '../presets/brushAlphaThreshold'
 import { CIRCLE_BAND_STAMP_FRAG } from '../raster/circleBandShaders'
 import { prepareCircleDifference, type CircleDifference } from '../raster/roundCoverage'
@@ -76,6 +77,7 @@ export class BrushBehaviorPainter {
   private circleStamp?: { program: WebGLProgram; uniforms: Uniforms; position: number }
   private previewBounds = new WeakMap<BrushBehaviorState,BrushBounds>()
   private bindings = new WeakMap<BehaviorScratch, {
+    execution?: BrushExecutionContext
     target: BrushTarget
     preset: PencilPreset
     brush: BrushDescriptor
@@ -166,7 +168,7 @@ export class BrushBehaviorPainter {
   }
   finish(scratch: BehaviorScratch, endpoint?: Dab & {baseSize:number}): void {
     const b = this.bindings.get(scratch); if (b)
-      this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint)
+      this.paint(b.target, [], b.preset, b.brush, b.pressure, b.color, scratch, true, endpoint, b.execution)
   }
   destroy(): void {
     const gl = this.ctx.gl
@@ -185,14 +187,16 @@ export class BrushBehaviorPainter {
     number,
     number,
     number
-  ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}): void {
+  ], scratch: BehaviorScratch, finish = false, endpoint?:Dab & {baseSize:number}, execution?:BrushExecutionContext): void {
+    assertBrushExecutionContext(brush,execution)
+    assertSameBrushExecutionContext(scratch.brushBehavior?.execution,execution)
     const { gl, paper } = this.ctx, behavior = brush.behavior!
     if (!dabs.length && !scratch.brushBehavior)
       return
     const releaseTextures = this.leaseTextures(brush)
     try {
-    this.bindings.set(scratch, { target, preset, brush, pressure, color })
-    const state = scratch.brushBehavior ?? (scratch.brushBehavior = beginBrushBehavior(dabs[0]))
+    this.bindings.set(scratch, { target, preset, brush, pressure, color, execution })
+    const state = scratch.brushBehavior ?? (scratch.brushBehavior = beginBrushBehavior(dabs[0],execution))
     const independent = behavior.dual?.sampling === 'independent' ? behavior.dual.brush : undefined
     const secondaryState = independent ? scratch.brushSecondary() : undefined
     let secondaryDirty: BrushBounds | undefined
@@ -204,7 +208,7 @@ export class BrushBehaviorPainter {
         markContentPainted:bounds=>{ secondaryDirty=unionBounds(secondaryDirty,bounds) },
       }
       const child={...independent,behavior:independent.behavior??{version:2 as const}}
-      this.paint(secondaryTarget, secondaryBrushDabs(brush,child,dabs,secondaryState.sampling,pressure.size,endpoint),{...preset,sizeMultiplier:1/Math.max(child.tip.aspect,1)},child,pressure,[1,1,1],secondaryState.scratch,finish)
+      this.paint(secondaryTarget, secondaryBrushDabs(brush,child,dabs,secondaryState.sampling,pressure.size,endpoint,execution),{...preset,sizeMultiplier:1/Math.max(child.tip.aspect,1)},child,pressure,[1,1,1],secondaryState.scratch,finish,undefined,execution)
     }
 
     const accumulation=behavior.rendering?.accumulation

@@ -1,4 +1,5 @@
-/** Isolated CPU compatibility primitive. Not selected by any shipped brush.
+/** CPU compatibility primitives. Only explicit per-control source capabilities
+ * select these; historical descriptors retain their original random policy.
  * Taus88 equations are defined by Boost.Random (BSL-1.0); see fixture provenance.
  * Explicit seeds only: choosing/transporting a native gesture seed is a separate policy.
  */

@@ -1,3 +1,4 @@
+import { assertBrushExecutionContext, brushExecutionContext, type BrushExecutionContext } from '../presets/brushExecutionContext'
 // Converts a pointer path into a series of brush dabs spaced along the stroke.
 // Uses a centripetal Catmull-Rom spline (see #91) with 1-event lag for true
 // C1 continuity (no kinks at sample points).
@@ -146,6 +147,7 @@ export class DabSystem {
   spacingFactor: number
   /** Opt-in source spacing; latched per gesture, independent of nominal/floor/scallop rules. */
   autoSpacing: { mode?: 'kritaAuto' | 'diameter'; coefficient: number; dynamics?: BrushDynamic[]; isotropic?: boolean; axisScale?: { x:number; y:number }; angleOffset?:number; brush: BrushDescriptor; sizeMultiplier: number } | null = null
+  brushExecution?: BrushExecutionContext
   private _spacingBehavior?: BrushBehaviorState
   private _spacingAxes?: { x: number; y: number; angle: number }
   private _pathAngle = 0
@@ -529,6 +531,7 @@ export class DabSystem {
     const fork = new DabSystem({ spacingFactor: this.spacingFactor, shaping: this._shaping })
     fork.curvatureTolerancePx = this.curvatureTolerancePx
     fork.footprint = this.footprint
+    fork.brushExecution = brushExecutionContext(this.brushExecution?.brushRandom)
     fork.autoSpacing = this.autoSpacing ? { ...this.autoSpacing, ...(this.autoSpacing.dynamics ? {dynamics:structuredClone(this.autoSpacing.dynamics)} : {}), ...(this.autoSpacing.axisScale ? {axisScale:{...this.autoSpacing.axisScale}} : {}) } : null
     fork._spacingBehavior = this._spacingBehavior ? structuredClone(this._spacingBehavior) : undefined
     fork._spacingAxes = this._spacingAxes ? { ...this._spacingAxes } : undefined
@@ -862,7 +865,8 @@ export class DabSystem {
   private _spacingAfter(dab: Dab, baseSize: number, maxSpacing: number): number {
     if (this.autoSpacing) {
       const { brush, sizeMultiplier } = this.autoSpacing
-      const state = this._spacingBehavior ??= beginBrushBehavior(dab)
+      assertBrushExecutionContext(brush,this.brushExecution)
+      const state = this._spacingBehavior ??= beginBrushBehavior(dab,this.brushExecution)
       const previous = state.previous
       // Input speed is canvas px/ms, already latched for this pointer batch.
       // Historical sensors used a synthetic local clock. New captured-speed
