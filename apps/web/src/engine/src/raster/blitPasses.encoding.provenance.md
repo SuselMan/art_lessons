@@ -13,7 +13,10 @@ straight destination writer. Output remains premultiplied; hidden RGB is discard
 only in the derived output. Canonical straight source pixels are never rewritten.
 Existing straight room activation remains closed. The common LayerCompositor's
 hardware mip/coarse/display paths still require their explicit presentation
-adapter; this change does not claim the whole display path is ready.
+adapter; this change does not claim the whole display path is ready. Owned-buffer
+display branches now reject raw straight sources instead of silently using PM
+blending, and coarse downsampling rejects straight inputs/outputs before GL or
+mipmap work. A derived PM raster can still use the existing presentation route.
 
 No new shader program, VBO, texture, framebuffer, cache, quota or runtime is added.
 The source is still point sampled only during the pass. A draw exception now

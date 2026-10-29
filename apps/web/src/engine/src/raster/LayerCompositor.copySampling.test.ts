@@ -1,11 +1,12 @@
+import type { RasterPixelEncoding } from '@grafetto/shared'
 import { expect,it,vi } from 'vitest'
 import { MockGL } from '../../testing/mockGL'
 import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import { LayerCompositor,type LayerCompositorContext } from './LayerCompositor'
 import { exactFrame,type CameraFrame } from './cameraFrame'
-function fixture(filter:'linear'|'nearest'='linear'){
+function fixture(filter:'linear'|'nearest'='linear',encoding:RasterPixelEncoding='premultiplied-rgba8'){
  const mock=new MockGL(),gl=mock as unknown as WebGLRenderingContext
- const buffer=new AccumulationBuffer(gl,16,16,filter),tile={originX:0,originY:0,buffer}
+ const buffer=new AccumulationBuffer(gl,16,16,filter,encoding),tile={originX:0,originY:0,buffer}
  const previews={tiles:new Map(),areaLayers:new Set<string>()},materials=new Map()
  const layer={resolveVisible:vi.fn(()=>[tile]),resolveCoarse:vi.fn(()=>[] as typeof tile[]),coarseWorldSize:()=>({w:32,h:32})}
  const ctx={gl,previews:()=>previews,materialPresentations:()=>materials,layers:()=>new Map([['ink',layer]]),reveals:()=>new Map()} as unknown as LayerCompositorContext
@@ -69,4 +70,28 @@ it('keeps linear upsampling and coarse reduction; genuine minification retains i
    expect(f.during,branch).toEqual([branch==='fineMinify'?f.mock.LINEAR_MIPMAP_LINEAR:f.mock.LINEAR])
   }finally{f.buffer.destroy()}
  }
+})
+
+it('rejects raw straight storage in every owned display branch instead of silently using PM blending',()=>{
+ for(const branch of ['material','preview','area','coarse','fine']){
+  const f=fixture('nearest','straight-rgba8');let camera=frame()
+  try{
+   if(branch==='material')f.materials.set('ink',{...f.tile,worldWidth:16,worldHeight:16})
+   if(branch==='preview')f.previews.tiles.set('ink',[f.tile])
+   if(branch==='area'){f.previews.tiles.set('ink',[]);f.previews.areaLayers.add('ink')}
+   if(branch==='coarse'){f.layer.resolveCoarse.mockReturnValue([f.tile]);camera={...frame(),scale:.5}}
+   expect(()=>draw(f,camera),branch).toThrow('premultiplied presentation')
+   expect(f.compositor.drawTileComposite,branch).not.toHaveBeenCalled()
+   expect(f.mock.getMinFilter(f.buffer.texture),branch).toBe(f.mock.NEAREST)
+  }finally{f.buffer.destroy()}
+ }
+})
+it('rejects straight coarse inputs and outputs before changing GL state or generating mipmaps',()=>{
+ const f=fixture(),gl=f.mock as unknown as WebGLRenderingContext,straight=new AccumulationBuffer(gl,16,16,'nearest','straight-rgba8')
+ const binds=vi.spyOn(f.mock,'bindFramebuffer'),mips=vi.spyOn(f.mock,'generateMipmap')
+ try{
+  expect(()=>f.compositor.downsampleTileInto(straight,f.buffer,0,0,8,8)).toThrow('premultiplied source and destination')
+  expect(()=>f.compositor.downsampleTileInto(f.buffer,straight,0,0,8,8)).toThrow('premultiplied source and destination')
+  expect(binds).not.toHaveBeenCalled();expect(mips).not.toHaveBeenCalled()
+ }finally{straight.destroy();f.buffer.destroy()}
 })

@@ -250,6 +250,10 @@ export class LayerCompositor {
     worldWidth:number, worldHeight:number, opacity:number, targetFbo:WebGLFramebuffer,
     targetW:number, targetH:number,
   ):void {
+    // Canonical straight storage is never a premultiplied display texture.
+    // Its derived PM presentation must be supplied explicitly; hardware
+    // filtering first and premultiplying later corrupts transparent edges.
+    if (buffer.pixelEncoding === 'straight-rgba8') throw new TypeError('Straight layer requires a premultiplied presentation raster')
     const point=frame.scale*worldWidth===buffer.width && frame.scale*worldHeight===buffer.height
       && frameEdgeX(frame,originX+worldWidth)-frameEdgeX(frame,originX)===buffer.width
       && frameEdgeY(frame,originY+worldHeight)-frameEdgeY(frame,originY)===buffer.height
@@ -302,6 +306,8 @@ export class LayerCompositor {
     x: number, y: number, w: number, h: number,
   ): void {
     const { gl } = this.ctx
+    if (source.pixelEncoding === 'straight-rgba8' || dest.pixelEncoding === 'straight-rgba8')
+      throw new TypeError('Coarse presentation requires premultiplied source and destination')
     // Always minifying by COARSE_FACTOR here, so this wants filtered levels
     // regardless of what the camera is doing.
     source.setMipSampling(source.ensureMipmaps())
