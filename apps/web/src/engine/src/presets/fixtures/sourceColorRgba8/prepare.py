@@ -35,9 +35,11 @@ part+='#define UNDEFINED_HUE -1\n'+function(conv,'void RGBToHSL(')+'\n'+function
 part+='template<typename T>\n'+function(glob,'typename std::enable_if<std::is_floating_point<T>::value, T>::type\nnormalizeAngleDegrees(')+'\n'
 part+='#define SCALE_TO_FLOAT(v) KoColorSpaceMaths<quint8,float>::scaleToA(v)\n#define SCALE_FROM_FLOAT(v) KoColorSpaceMaths<float,quint8>::scaleToA(v)\n'
 part+='template<class T>void clamp(float*,float*,float*);\n#define FLOAT_CLAMP(v) *v=(*v<0.0)?0.0:((*v>1.0)?1.0:*v)\ntemplate<>\n'+function(hsv,'void clamp<quint8>(')+'\n'
-part+='struct HSVPolicy{};struct HSLPolicy{};struct HCIPolicy{};struct HCYPolicy{HCYPolicy(double,double,double){}};\n'
-for name in ['HSVTransform','RGBToHSV','HSVToRGB','RGBToHCI','HCIToRGB','RGBToHCY','HCYToRGB','RGBToYUV','YUVToRGB']:
- part+=f'template<class...A>void {name}(A...){{assert(false&&"non-HSL transform path excluded");}}\n'
+part+='template<class T>T pow2(T value){return value*value;}\n'
+part+=hsv[hsv.index('static inline void writeRGBSimple'):hsv.index('template<typename _channel_type_,typename traits>')]
+
+for name in ['RGBToHSV','HSVToRGB','RGBToHCI','HCIToRGB','RGBToHCY','HCYToRGB','RGBToYUV','YUVToRGB']:
+ part+=f'template<class...A>void {name}(A...){{assert(false&&"non-selected transform path excluded");}}\n'
 part+='struct RGBTrait{struct Pixel{quint8 red,green,blue,alpha;};};struct ColorTransform{virtual void transform(const quint8*,quint8*,qint32)const=0;};\nstruct NativeHSL:ColorTransform{using _channel_type_=quint8;using RGBPixel=RGBTrait::Pixel;double m_adj_h=0,m_adj_s=0,m_adj_v=0,m_lumaRed=0,m_lumaGreen=0,m_lumaBlue=0;int m_type=1;bool m_colorize=false,m_compatibilityMode=true;\n'
 part+=function(hsv,'void transform(const quint8 *srcU8, quint8 *dstU8, qint32 nPixels) const override')+'\n};\n'
 part+='struct NativeAlpha{using channels_type=quint8;static constexpr int alpha_pos=3,pixelSize=4;static quint8*nativeArray(quint8*p){return p;}\n'+function(traits,'inline static void setOpacity(quint8 * pixels, qreal alpha, qint32 nPixels)')+'\n};\n'

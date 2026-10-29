@@ -18,7 +18,10 @@ copyright/SPDX notices. Source bodies remain in the offline C++ build, not in
 browser code. Type/interface shims are authored here; they do not replace the
 active byte operations. The LUT *storage* shim evaluates the unchanged native
 `KoIntegerToFloat` functor, i.e. the same float values as the precomputed table.
-Unselected HSV/HSI/HCY/YUV/colorize branches assert; only compatibility HSL runs.
+The actual `HSVTransform`/HSVPolicy source is compiled too. Selected modes are
+compatibility HSL and non-compatibility HSV; unused conversion/colorize branches
+assert. Mode0/non-compatibility does not call legacy RGBToHSV/HSVToRGB: its
+active algorithm is HSVTransform with HSVPolicy, retained unchanged here.
 
 `SprayBrush::paintImpl` calls parameter3=`1`, parameter4=`false`; transform
 constructor default compatibilityMode=`true`. Parameter3 selects **HSL**,
@@ -44,6 +47,9 @@ renderer, network service or native application process is needed.
 
 ## Coverage and exact scope
 
+- 560 HSV/chroma cases:256 use control ranges of current stock71/100/113/114,
+256 cover signed/achromatic/extreme colours and alpha0,48 exercise adjacent
+float controls at half-byte boundaries. Output is exact native RGBA8.
 - 384 HSL/alpha cases:256 use the four stock spray amplitude sets,128 authored
 signed/achromatic/extreme cases. Byte alpha is preserved by the transform.
 - 384 composites: Over, addition, creamy alphaDarken, with/without a mask,
@@ -73,3 +79,19 @@ caller state, not reconstructed from pixels. Existing normalized `brushWash`
 remains separate because it does not model integer intermediates. Existing
 `mixWeightedRgba8` supplies the shared RGBA8 type and continues to own weighted
 pickup mixing. No catalog/core/importer admission is implied by these units.
+
+## HSV versus legacy floating adjustment
+
+The source-defined HSV kernel keeps float32 intermediate operations and a byte
+store before coverage. In the authored560-case comparison, rounding the legacy
+`hsvAdjustColor` output only at the end differs in16 RGB channels, maximum1byte,
+all in the explicit boundary section. This is a bounded corpus observation, not
+a tolerance used to accept the native oracle: all560 native cases match exactly.
+
+A stock71-range witness has input[141,232,23,90], signed controls
+[.04559413333333333,0,.03328253333333333], native result[117,233,31,90].
+Using alpha128 over opaque black AFTER that byte store gives[59,117,16,255].
+Deferring the colour quantization through coverage gives[59,117,15]. Thus a
+normalized float HSV formula can be algebraically right and still store a
+different pixel because its quantization stage is misplaced. No GPU or full
+Krita renderer identity is inferred from this scalar witness.

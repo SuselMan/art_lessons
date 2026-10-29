@@ -73,6 +73,48 @@ export function adjustHslCompatibilityRgba8(source: Rgba8, hue: number, saturati
   return [floatByte(rgb[0]), floatByte(rgb[1]), floatByte(rgb[2]), source[3]]
 }
 
+/** Non-compatibility HSV/chroma adjustment, with float32 source arithmetic and
+ * a byte store BEFORE mask/material/composite stages. Hue/saturation/value are
+ * signed controls, not already normalized curves; alpha is preserved even at0.
+ * This is the sibling model selected by native ordinary brush HSV options.
+ */
+export function adjustHsvChromaRgba8(source: Rgba8, hue: number, saturation: number, value: number): Rgba8 {
+  pixel(source)
+  for (const v of [hue, saturation, value]) if (!Number.isFinite(v) || v < -1 || v > 1) throw new RangeError('Invalid signed HSV control')
+  const dh = f(hue), ds = f(saturation), dv = f(value)
+  const r = f(source[0] / 255), g = f(source[1] / 255), b = f(source[2] / 255)
+  let maximum = Math.max(r, g, b), chroma = f(maximum - Math.min(r, g, b)), h = 0
+  const epsilon = f(1e-9)
+  if (maximum <= epsilon) {
+    chroma = 0
+    maximum = dv < 0 ? f(maximum * f(dv + 1)) : f(maximum + f(dv * f(1 - maximum)))
+  } else {
+    if (chroma > epsilon) {
+      h = r === maximum ? f(f(g - b) / chroma)
+        : g === maximum ? f(2 + f(f(b - r) / chroma)) : f(4 + f(f(r - g) / chroma))
+      h = f(h * 60)
+      h = f(h + f(dh * 180))
+      if (h < 0) h = f(360 + h % 360)
+      if (h >= 360) h = f(h % 360)
+      chroma = ds > 0 ? Math.min(1, f(chroma * f(f(1 + ds) + f(2 * f(ds * ds))))) : f(chroma * f(ds + 1))
+    }
+    const movement = Math.abs(dv)
+    maximum = f(maximum + f(movement * f((dv > 0 ? 1 : 0) - maximum)))
+    chroma = f(chroma + f(movement * -chroma))
+    maximum = clamp(maximum)
+    chroma = Math.min(maximum, chroma)
+  }
+  if (maximum <= epsilon) return [0, 0, 0, source[3]]
+  h = f(h / 60)
+  const sextant = Math.trunc(h), fraction = f(h - sextant)
+  const x = sextant & 1 ? f(chroma - f(chroma * fraction)) : f(chroma * fraction)
+  const minimum = f(maximum - chroma), other = f(x + minimum)
+  const rgb = sextant === 0 ? [maximum, other, minimum] : sextant === 1 ? [other, maximum, minimum]
+    : sextant === 2 ? [minimum, maximum, other] : sextant === 3 ? [minimum, other, maximum]
+      : sextant === 4 ? [other, minimum, maximum] : [maximum, minimum, other]
+  return [floatByte(rgb[0]), floatByte(rgb[1]), floatByte(rgb[2]), source[3]]
+}
+
 export interface Rgba8CompositeControl {
   readonly mode: 'over' | 'add' | 'alphaDarken'
   readonly opacity: number
