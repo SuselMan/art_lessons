@@ -91,3 +91,28 @@ creation, engine replay/undo/checkpoint drain integration, concurrent writer
 rebasing or enabling straight rooms. These must bind accepted frame ordering,
 authoritative layer epochs, snapshot blocking and resource cleanup to this SAME
 service instead of constructing a second renderer path.
+
+
+## Actual Samsung service acceptance
+
+Executor `805614028` (base `a0526e129`), composite `d24c0d763`, original explicit
+scalar profiles: **17 presets /3256 logical draws /203 decoded frames** over real
+straight `TiledLayerBuffer`256×256 and shared format-aware scratch pool. Independent
+CPU expected final hashes match the previous accepted17-profile receipt. Every
+completed frame's output FNV32 matches; final512×256 RGBA compares all8,912,896
+bytes: wrong0/maxDelta0. GL[], hotUploads0, caller stateRestored, no poison,
+cleanuptrue; tracked texture/FBO/buffer/program/shader counts all0.
+
+That first crop is world[0,512)×[0,256);31 negative tile allocations alone do not
+prove out-of-crop pixels. A distinct supplemental gate repacks/decodes #28buildup
+and #84wash with integer translation(-512,-256), unchanged recipes/subpixels and
+translated seed viewport: **1310 draws /3frames**, entire negative crop
+world[-512,0)×[-256,0), all1,048,576 RGBA bytes exact0difference. GL[], hotUploads0,
+state/cleanuptrue. Device: Samsung SM-T970, Adreno650, Chrome155, WebGL1 highp23.
+
+Ignored evidence under `temp/device-runs/krita-stroke-20261024/fixes-v52/`:
+`canonical-stock-executor-full17-device-result.json`, corresponding negative
+receipt, host expected/source/bundle/config hashes, cleanup receipts and
+`canonical-executor-gates-summary.json`. Earlier accepted receipts were not
+replaced. These guard/readback-heavy runs are correctness gates, not performance
+acceptance, cross-GPU equality or engine/wire/undo/snapshot integration.
