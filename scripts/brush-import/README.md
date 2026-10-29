@@ -182,9 +182,9 @@ are not included in the spline solve. Unsupported sensor-combination modes remai
 explicit warnings. Version5 and older catalog IDs are never rewritten.
 
 Stock manifests use compact JSON without numeric rounding: version6 LUTs plus
-historical metadata can otherwise exceed the server2MiB file envelope through
-whitespace alone. The CLI validation reports file bytes and rejects catalogs
-over that existing quota; it never drops historical presets to fit.
+historical metadata can otherwise waste the bounded manifest envelope through
+whitespace alone. The CLI validation reports UTF-8 file bytes and rejects catalogs
+over the shared server quota; it never drops historical presets to fit.
 
 Krita rendering version7 resolves image-brush application from native/legacy
 flags. Plain ALPHAMASK PNGs use inverse integer Qt gray multiplied by alpha,
@@ -355,3 +355,12 @@ python scripts/brush-import/convert.py input.kpp --output output --native-curve-
 There is no automatic compiler search/build/download and no executable path from brush data or environment. A missing/failed provider preserves raw candidate data with an explicit unsupported note for used nonlinear curves. Disabled curves remain retained without requiring coefficients. This does not activate native brush rendering.
 
 A portable bundle containing compiled dictionaries requires the same explicit trusted provider: import reconstructs raw data and recomputes coefficients before decoding/installing CAS assets. Profile metadata alone does not attest numerical correctness. Raw-only and old portable bundles keep their existing path. Provider limits are64 unique used curves/4096 knots per descriptor and15seconds per batch; source data is bounded to1MiB per descriptor/16MiB per library.
+
+The operator catalog loader, catalog validator and durable owner/room libraries
+now share `BRUSH_LIBRARY_MANIFEST_MAX_BYTES` (4 MiB serialized UTF-8). The earlier
+operator-only2 MiB cap rejected the measured118-preset source-data candidate
+(2130221bytes) even though it fits the existing4 MiB durable reader. Descriptor
+source-data, CAS pixels/counts and disk quotas remain independent. Installation
+checks serialized metadata BEFORE publishing CAS, so a structurally valid but
+oversized library cannot become unreadable after restart. No source settings,
+curve coefficients or presets are removed to fit; values are not rounded.

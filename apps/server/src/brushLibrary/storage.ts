@@ -2,13 +2,18 @@ import { createHash, randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import { mkdirSync, lstatSync, writeFileSync, renameSync, rmSync, constants, openSync, closeSync, fstatSync, readSync, readdirSync, fsyncSync, linkSync } from 'node:fs'
 import { resolve, join, parse } from 'node:path'
-import { brushAssetIds, brushRequiresRandomContext, brushRequiresSourceTime, hasValidBrushRandomContext, hasBrushSourceInputs, strokeDabs, strokeEndSample, isBrushLibrary, type BrushLibrary, type Operation } from '@grafetto/shared'
+import { BRUSH_LIBRARY_MANIFEST_MAX_BYTES, brushAssetIds, brushRequiresRandomContext, brushRequiresSourceTime, hasValidBrushRandomContext, hasBrushSourceInputs, strokeDabs, strokeEndSample, isBrushLibrary, type BrushLibrary, type Operation } from '@grafetto/shared'
 
 export const empty = (): BrushLibrary => ({ schemaVersion: 1, brushes: [], assets: [], skipped: [] })
 // Descriptors are JSON wire data: serialization normalizes signed zero, while
 // deep comparison remains independent of object property order.
 const wireDescriptor = (descriptor: BrushLibrary['brushes'][number]['descriptor']): unknown => JSON.parse(JSON.stringify(descriptor))
 const key = (s: string) => createHash('sha256').update(s).digest('hex')
+function libraryText(library: BrushLibrary): string {
+  const text=JSON.stringify(library)
+  if(Buffer.byteLength(text,'utf8')>BRUSH_LIBRARY_MANIFEST_MAX_BYTES) throw Error('Brush library manifest quota exceeded')
+  return text
+}
 export function boundedRead(path: string, limit: number): Buffer {
   let cursor = parse(resolve(path)).root
   for (const part of resolve(path).slice(cursor.length).split('/').filter(Boolean).slice(0,-1)) {
@@ -48,14 +53,17 @@ export class BrushStorage {
   }
   path(kind: 'owners'|'rooms'|'jobs', id: string): string { return join(this.root,kind,key(id)+'.json') }
   library(kind: 'owners'|'rooms', id: string): BrushLibrary {
-    try { const value: unknown=JSON.parse(boundedRead(this.path(kind,id), 4*1024*1024).toString()); if (!isBrushLibrary(value)) throw Error('Invalid stored library'); return value }
+    try { const value: unknown=JSON.parse(boundedRead(this.path(kind,id), BRUSH_LIBRARY_MANIFEST_MAX_BYTES).toString()); if (!isBrushLibrary(value)) throw Error('Invalid stored library'); return value }
     catch(e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return empty(); throw e }
   }
   atomic(path: string, value: unknown): void {
+    this.atomicText(path,JSON.stringify(value))
+  }
+  private atomicText(path: string, text: string): void {
     const temp=path+'.'+randomUUID();
     try {
       const fd=openSync(temp,constants.O_CREAT|constants.O_EXCL|constants.O_WRONLY,0o600)
-      try { writeFileSync(fd,JSON.stringify(value));fsyncSync(fd) } finally {closeSync(fd)}
+      try { writeFileSync(fd,text);fsyncSync(fd) } finally {closeSync(fd)}
       renameSync(temp,path)
       const directory=openSync(join(path,'..'),constants.O_RDONLY|constants.O_DIRECTORY)
       try {fsyncSync(directory)} finally {closeSync(directory)}
@@ -138,6 +146,7 @@ export class BrushStorage {
       const next = merge(library, this.library('owners', owner))
       const total = next.assets.reduce((sum, asset) => sum + asset.size * asset.size, 0)
       if (total > 256 * 1024 * 1024 || !isBrushLibrary(next)) throw Error('Personal brush library quota exceeded (256 MiB / 512 brushes)')
+      const text=libraryText(next)
       // Validate every declared resource before publishing any new CAS or manifest.
       for (const asset of next.assets) {
         const hash = asset.id.slice(6), incoming = assets.get(hash)
@@ -146,7 +155,7 @@ export class BrushStorage {
         } else this.asset(hash, asset.size)
       }
       this.provisionAssets(assets)
-      this.atomic(this.path('owners', owner), next)
+      this.atomicText(this.path('owners', owner), text)
       return next
     })
   }
@@ -180,13 +189,13 @@ export class BrushStorage {
       for(const a of selected.assets) this.asset(a.id.slice(6),a.size)
       const next=merge(current,selected)
       if(!isBrushLibrary(next)) throw Error('Room brush library quota exceeded (256 MiB / 512 brushes)')
-      this.atomic(this.path('rooms',room),next)
+      this.atomicText(this.path('rooms',room),libraryText(next))
     })
   }
   copy(source: string, target: string): void { this.mutate(()=>{
     const library=this.library('rooms',source)
     if(!isBrushLibrary(library)) throw Error('Invalid source room brush library')
-    this.atomic(this.path('rooms',target),library)
+    this.atomicText(this.path('rooms',target),libraryText(library))
   }) }
 }
 function keyBytes(bytes: Buffer): string { return createHash('sha256').update(bytes).digest('hex') }

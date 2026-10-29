@@ -2,12 +2,36 @@ import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync, readFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
+import { BRUSH_LIBRARY_MANIFEST_MAX_BYTES, isBrushLibrary } from '@grafetto/shared'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BrushStorage, empty, merge } from './storage.js'
 const dirs:string[]=[]
 function fixture() { const dir=mkdtempSync(join(tmpdir(),'brush-storage-')); dirs.push(dir); return {dir,storage:new BrushStorage(dir)} }
 afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();for(const dir of dirs.splice(0)) rmSync(dir,{recursive:true,force:true})})
 describe('persistent private brush resources',()=> {
+  it('keeps large UTF-8 manifests readable through install, pin, fork and restart',()=> {
+    const {dir,storage}=fixture(), r=resource(30,'a'), library=metadataLibrary(r.library,12)
+    const size=Buffer.byteLength(JSON.stringify(library),'utf8')
+    expect(size).toBeGreaterThan(2*1024*1024)
+    expect(size).toBeLessThan(BRUSH_LIBRARY_MANIFEST_MAX_BYTES)
+    storage.install('owner',library,new Map([[r.hash,r.bytes]]))
+    storage.pin('room','owner',library.brushes.map(b=>'brush:'+b.descriptor.id+'@'+b.descriptor.version))
+    storage.copy('room','fork')
+    const restarted=new BrushStorage(dir)
+    expect(restarted.library('owners','owner')).toEqual(library)
+    expect(restarted.library('rooms','fork')).toEqual(library)
+  })
+  it('rejects unreadable metadata before publishing any asset or replacing an owner',()=> {
+    const {dir,storage}=fixture(), r=resource(40,'b'), library=metadataLibrary(r.library,24)
+    expect(isBrushLibrary(library)).toBe(true)
+    expect(JSON.stringify(library).length).toBeLessThan(BRUSH_LIBRARY_MANIFEST_MAX_BYTES)
+    expect(Buffer.byteLength(JSON.stringify(library),'utf8')).toBeGreaterThan(BRUSH_LIBRARY_MANIFEST_MAX_BYTES)
+    storage.install('owner',empty(),new Map())
+    const original=readFileSync(storage.path('owners','owner'))
+    expect(()=>storage.install('owner',library,new Map([[r.hash,r.bytes]]))).toThrow('manifest quota')
+    expect(readdirSync(join(dir,'assets'))).toEqual([])
+    expect(readFileSync(storage.path('owners','owner'))).toEqual(original)
+  })
   it('persists bytes and owner manifests across restart without exposing other owners',()=> {
     const {dir,storage}=fixture(), bytes=Buffer.from([1,2,3,4]), hash=createHash('sha256').update(bytes).digest('hex')
     const library=empty(); library.assets.push({id:`asset:${hash}`,size:2,file:hash+'.bin'})
@@ -64,6 +88,11 @@ describe('persistent private brush resources',()=> {
     expect(merge(empty(),empty())).toEqual(empty())
   })
 })
+
+function metadataLibrary(base: ReturnType<typeof empty>, count: number) {
+  return {...base,brushes:Array.from({length:count},(_,i)=>({...base.brushes[0],warnings:Array.from({length:100},()=> 'я'.repeat(900)),
+    descriptor:{...base.brushes[0].descriptor,id:'imported-'+i.toString(16).padStart(16,'0')}}))}
+}
 
 
 function resource(seed: number, letter: string) {

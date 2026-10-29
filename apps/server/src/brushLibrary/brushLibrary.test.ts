@@ -2,6 +2,7 @@ import { mkdtemp, rm, writeFile, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
+import { BRUSH_LIBRARY_MANIFEST_MAX_BYTES } from '@grafetto/shared'
 import Fastify from 'fastify'
 import { afterEach, describe, expect, it } from 'vitest'
 import { loadBrushLibrary } from './brushLibrary.js'
@@ -89,7 +90,12 @@ describe('read-only brush library', () => {
   })
   it('rejects oversized manifest before reading it', async () => {
     const f = await fixture()
-    await writeFile(join(f.directory, 'manifest.json'), Buffer.alloc(2 * 1024 * 1024 + 1))
+    await writeFile(join(f.directory, 'manifest.json'), Buffer.alloc(BRUSH_LIBRARY_MANIFEST_MAX_BYTES + 1))
     await expect(loadBrushLibrary(f.directory)).rejects.toThrow()
+  })
+  it('loads metadata above the old catalog envelope within the durable library bound', async () => {
+    const f = await fixture()
+    await writeFile(join(f.directory, 'manifest.json'), JSON.stringify(f.manifest)+' '.repeat(2*1024*1024))
+    expect((await loadBrushLibrary(f.directory)).manifest).toEqual(f.manifest)
   })
 })

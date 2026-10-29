@@ -7,6 +7,9 @@ import { isBrushBehavior, type BrushBehavior, type BrushCompatibility, type Brus
 export type AssetId = `asset:${string}`
 export type TipMaskId = 'chalk' | 'rough' | 'bristle' | 'speckle' | 'grass' | 'leaf' | 'clumps' | AssetId
 export type BrushTextureId = 'dry' | 'grit' | 'cloud' | AssetId
+/** Serialized UTF-8 metadata only, independent of CAS pixel/source-data quotas.
+ * Operator catalogs and durable owner/room libraries share the same envelope. */
+export const BRUSH_LIBRARY_MANIFEST_MAX_BYTES = 4 * 1024 * 1024
 
 /** How the footprint is oriented in the world.
  *

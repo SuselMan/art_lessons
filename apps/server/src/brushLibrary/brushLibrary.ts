@@ -2,9 +2,8 @@ import { constants } from 'node:fs'
 import { open, lstat } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { join, resolve, parse } from 'node:path'
-import { isBrushLibrary, type BrushLibrary } from '@grafetto/shared'
+import { BRUSH_LIBRARY_MANIFEST_MAX_BYTES, isBrushLibrary, type BrushLibrary } from '@grafetto/shared'
 
-const MAX_MANIFEST = 2 * 1024 * 1024
 const MAX_ASSETS = 256 * 1024 * 1024
 const empty = (): BrushLibrary => ({ schemaVersion: 1, brushes: [], assets: [], skipped: [] })
 function fail(): never { throw new Error('Invalid brush library') }
@@ -35,7 +34,7 @@ export async function readFile(path: string, limit: number): Promise<Buffer> {
 export async function loadBrushLibrary(directory?: string): Promise<{ manifest: BrushLibrary; assets: Map<string, Buffer> }> {
   if (!directory) return { manifest: empty(), assets: new Map() }
   await checkDirectory(directory)
-  const value: unknown = JSON.parse((await readFile(join(directory, 'manifest.json'), MAX_MANIFEST)).toString('utf8'))
+  const value: unknown = JSON.parse((await readFile(join(directory, 'manifest.json'), BRUSH_LIBRARY_MANIFEST_MAX_BYTES)).toString('utf8'))
   if (!isBrushLibrary(value)) fail()
   const assets = new Map<string, Buffer>()
   const manifest: BrushLibrary = empty()
