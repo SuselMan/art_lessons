@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import fixture from './fixtures/sourceCurves.native.json'
 import { sourceCurveIsIdentity, sourceCurveTransfer } from './sourceCurve'
 describe('native SparseLU polynomial sampling', () => {
-  it('matches every native256-sample table for all12 actual stock curve inputs exactly', () => {
+  it('matches every native256-sample table for all32 actual stock curve inputs exactly', () => {
     for (const curve of fixture.curves) {
       const points = curve.points.map(p => ({ x: p[0] as number, y: p[1] as number }))
       expect(sourceCurveTransfer({ points, coefficients: curve.coefficients as [number, number, number, number][] }), curve.text).toEqual(curve.samples)
