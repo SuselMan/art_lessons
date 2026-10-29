@@ -1,5 +1,6 @@
+import { SourceCanonicalFrameEncoder } from './sourceCanonicalFrameEncoder'
 import { describe,expect,it,vi } from 'vitest'
-import { assertPrimaryCanonicalMaterial,canonicalMaterialGeometryCost,unpackCanonicalMaterial } from '@grafetto/shared'
+import { assertPrimaryCanonicalMaterial,canonicalMaterialGeometryCost,unpackCanonicalMaterial,CANONICAL_STROKE_RASTER_PROFILE,decodeCanonicalStrokeFrame } from '@grafetto/shared'
 import { SourceStrokeMaterialAdapter,type SourceStrokeMaterialChunk,type SourceStrokeMaterialContext } from './sourceStrokeMaterialAdapter'
 import { SourceStrokeAuthor,type SourceStrokeAuthorProgram,type SourceAuthorPacket,type SourceAuthorRoleProgram,type SourceStrokeAuthorState,type SourceStrokeAuthorStep } from './sourceStrokeAuthor'
 import type { SourceOptionProgramInput } from './sourceOptionProgram'
@@ -127,4 +128,63 @@ describe('off-path actual source author to closed canonical material',()=>{
   expect(Object.is(chunks.flatMap(c=>c.inputs)[0]!.sourceAngle,-0)).toBe(true)
  })
 
+})
+
+// Exercise the live-frame boundary with the real author/adapter above. Explicit
+// cuts happen while the source cursor is still inside the primary pass.
+describe('source author chunks to pinned shared stroke envelopes', () => {
+ const context=()=>({brush:'brush:adapter-test@1',strokeId:'gesture',pigmentRgb8:[17,29,41] as [number,number,number],
+  composition:{mode:'wash' as const,alphaDarken:'hard' as const,outerResourceOpacity:.8,outerBlend:'over' as const},material:ctx()})
+ it('emits before pen-up and preserves exact whole versus every-yield traces through JSON',()=>{
+  const p=program(),packets=[packet(0),packet(20,15,20),packet(80,15,20)]
+  const whole=run(p,packets),cut=run(p,packets,ctx(),true),pinned=context()
+  const random=vi.spyOn(KritaRandomSource.prototype,'generate').mockImplementation(()=>{throw Error('encoder reran RNG')})
+  try{
+   const encode=(chunks:readonly SourceStrokeMaterialChunk[])=>{
+    const encoder=new SourceCanonicalFrameEncoder(pinned)
+    const encoded=chunks.map((chunk,i)=>{
+     const accepted=encoder.encode(chunk.packed)
+     expect(accepted.envelope.frameOrdinal).toBe(i)
+     expect(accepted.envelope.rasterProfile).toBe(CANONICAL_STROKE_RASTER_PROFILE)
+     const remote=decodeCanonicalStrokeFrame(JSON.parse(JSON.stringify(accepted.envelope)),{...pinned,frameOrdinal:i,material:{...pinned.material,preflightDefinition:canonicalMaterialGeometryCost}})
+     expect(remote.frame).toEqual(accepted.frame)
+     expect(Object.isFrozen(accepted.frame)).toBe(true)
+     return {...chunk,frame:accepted.frame}
+    })
+    expect(encoder.ended).toBe(true)
+    expect(encoder.nextFrameOrdinal).toBe(chunks.length)
+    expect(()=>encoder.encode(chunks.at(-1)!.packed)).toThrow('ended')
+    return encoded
+   }
+   expect(trace(encode(cut.chunks))).toEqual(trace(encode(whole.chunks)))
+   expect(cut.chunks.some(c=>c.frame.entry.phase==='primary')).toBe(true)
+   expect(cut.chunks.at(-1)!.frame.draws).toEqual([])
+   expect(random).not.toHaveBeenCalled()
+  }finally{random.mockRestore()}
+ })
+ it('keeps pinned colour/composition/CAS independent of later UI mutation and rejects bad bytes without advancing',()=>{
+  const pinned=context(),encoder=new SourceCanonicalFrameEncoder(pinned),chunk=run(program(),[packet(0)]).chunks[0]
+  pinned.pigmentRgb8[0]=255;pinned.composition.outerResourceOpacity=.1;Reflect.set(pinned.material.assets[0],'id','asset:'+'c'.repeat(64))
+  expect(()=>encoder.encode(chunk.packed.slice(0,-1))).toThrow()
+  expect(encoder.nextFrameOrdinal).toBe(0)
+  const accepted=encoder.encode(chunk.packed)
+  expect(accepted.envelope.pigmentRgb8).toEqual([17,29,41])
+  expect(accepted.envelope.composition.outerResourceOpacity).toBe(.8)
+  expect(accepted.envelope.frameOrdinal).toBe(0)
+ })
+ it('rejects reordered/repeated frames, unsupported mask capability and cold-budget violations atomically',()=>{
+  const chunks=run(program(),[packet(0),packet(20,15,20)],ctx(),true).chunks,encoder=new SourceCanonicalFrameEncoder(context())
+  expect(()=>encoder.encode(chunks[1].packed)).toThrow()
+  expect(encoder.nextFrameOrdinal).toBe(0)
+  encoder.encode(chunks[0].packed)
+  expect(()=>encoder.encode(chunks[0].packed)).toThrow()
+  expect(encoder.nextFrameOrdinal).toBe(1)
+  const dual=run(program([role(),role('mask')]),[packet(0)]).chunks[0],other=new SourceCanonicalFrameEncoder(context())
+  expect(()=>other.encode(dual.packed)).toThrow()
+  expect(other.nextFrameOrdinal).toBe(0)
+  const base=context(),low={...base,material:{...base.material,budget:{workUnits:0,outputBytes:0,drawPixels:0}}}
+  const limited=new SourceCanonicalFrameEncoder(low)
+  expect(()=>limited.encode(run(program(),[packet(0)]).chunks[0].packed)).toThrow()
+  expect(limited.nextFrameOrdinal).toBe(0)
+ })
 })
