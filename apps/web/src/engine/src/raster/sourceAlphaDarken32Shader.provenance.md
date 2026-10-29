@@ -73,3 +73,23 @@ before-struct receipt, diagnostic и isolation receipts. Root закрыл со�
 Это точное сравнение явного SCALAR F32/RNE numerical profile на проверенном
 устройстве/компиляторе, не vector packet/SIMD parity, не определение dispatch
 установленной Android Krita и не подключение shader к активному renderer.
+
+## Installed build arithmetic limitation
+
+Read-only static inspection of Samsung's installed Krita5.3.4.1
+libkritapigment ARM64 (SHA256
+230ccf905226f4324ffdf8c7239e8be90f0506cfadda25393d1ba014ab0bb783)
+identified Over32, creamy32 and hard32 via RTTI/relative-relocation/vtable
+links and verified FDE function bounds. Their composite entrypoints and
+direct callees contain actual FMADD/FMLA instructions (hard also FMSUB).
+Thus a separately rounded scalar/noFMA profile cannot claim this installed
+build's arithmetic identity. Active GUI factory choice, actual branch execution,
+paint-device partition and FPCR remain separate unproven gates.
+
+Private receipts: fixes-v52/installed-compositor-fma-receipt.json and
+installed-compositor-disassembly.json; reproducible read-only reader
+inspect-installed-compositors.py. No APK/library was retained or app launched;
+temporary disassembler wheel was removed by the registered cleanup guard.
+Existing device conformance above remains evidence for the explicit scalar
+profile only; the observed installed FMA graph requires its own implementation
+and validation.
