@@ -1,0 +1,10 @@
+#pragma once
+#include <cstdint>
+#include <cmath>
+#include <algorithm>
+#include <cassert>
+using qint8=int8_t;using quint8=uint8_t;using qint16=int16_t;using quint16=uint16_t;using qint32=int32_t;using quint32=uint32_t;using qint64=int64_t;using quint64=uint64_t;using qreal=double;
+template<class T>T qMin(T a,T b){return std::min(a,b);}template<class T>T qMax(T a,T b){return std::max(a,b);}template<class T>T qBound(T a,T b,T c){return std::clamp(b,a,c);}template<class T>T qAbs(T a){return std::abs(a);}template<class T>bool qFuzzyIsNull(T a){return std::abs(a)<1e-12;}template<class T>bool qFuzzyCompare(T a,T b){return std::abs(a-b)<1e-12;}
+#define Q_UNUSED(x) (void)x
+#define Q_ASSERT(x) assert(x)
+#define Q_ASSERT_X(x,a,b) assert(x)

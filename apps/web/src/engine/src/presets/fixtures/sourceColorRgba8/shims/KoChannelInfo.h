@@ -1,0 +1,2 @@
+#pragma once
+struct KoChannelInfo{enum enumChannelValueType{UINT8,UINT16,INT16,UINT32,FLOAT16,FLOAT32,FLOAT64};};
