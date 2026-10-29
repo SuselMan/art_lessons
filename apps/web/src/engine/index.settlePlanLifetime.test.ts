@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { createTestEngine, makeLayerAdd } from './testing/engineTestUtils'
+import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
 import { RibbonStrokeScratch } from './src/buffers/RibbonStrokeScratch'
 import { ribbonProfileFor } from './src/dabs/ribbonProfile'
 import { presetForTool } from './src/presets/resolvePreset'
@@ -63,9 +64,14 @@ it('forgets captured inputs before context-loss cancellation so dead names never
 it('healthy engine teardown cancels a still-running solver and destroys its checked-out inputs', () => {
   const { engine, pool, tile, scratch, inputs } = suspendedHalfResolution()
   const destroyed = inputs.map(b => vi.spyOn(b, 'destroy'))
+  const syntheticBuffers = new Set(Object.values(scratch.peek(tile)!).filter((value): value is AccumulationBuffer => value instanceof AccumulationBuffer))
   engine.destroy()
   for (const spy of destroyed) expect(spy).toHaveBeenCalledOnce()
   expect(engine['_settlePlan']['_ownedInputs'].size).toBe(0)
-  // The synthetic tile/scratch is not in an engine wash cache.
-  scratch.destroy(); tile.destroy(); pool.destroy()
+  // This synthetic scratch is outside registered engine owners. The pool is
+  // already destroyed: forget its bookkeeping, then destroy its borrowed
+  // handles directly instead of returning old-lifetime buffers to that pool.
+  scratch.forget()
+  for (const buffer of syntheticBuffers) buffer.destroy()
+  tile.destroy(); pool.destroy()
 })

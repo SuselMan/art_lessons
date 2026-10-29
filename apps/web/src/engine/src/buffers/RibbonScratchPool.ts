@@ -39,10 +39,9 @@ const SCRATCH_POOL_FREE_BYTES = 64 * 1024 * 1024
 export class RibbonScratchPool {
   private _free = new Map<string, AccumulationBuffer[]>()
   private readonly gl: WebGLRenderingContext
-  /** (#536, §17.22) Bytes of every buffer this pool has created and not yet
-   *  destroyed, and of those, the ones sitting free — for the perf readout. */
-  private _allocatedBytes = 0
-  private _freeBytes = 0
+  // Physical ownership, independent of the free-list indexing. Bytes are read
+  // from the buffer because mip storage may grow after acquire().
+  private readonly allocations = new Map<AccumulationBuffer, 'live' | 'free'>()
 
   constructor(gl: WebGLRenderingContext) {
     this.gl = gl
@@ -50,19 +49,31 @@ export class RibbonScratchPool {
 
   /** Live (handed out) and free bytes. */
   get bytes(): { live: number; free: number } {
-    return { live: this._allocatedBytes - this._freeBytes, free: this._freeBytes }
+    let live = 0, free = 0
+    for (const [buffer, state] of this.allocations) {
+      if (state === 'live') live += buffer.storageByteLength
+      else free += buffer.storageByteLength
+    }
+    return { live, free }
+  }
+
+  /** Metadata only: no recovery, GL queries or ownership transfer. Entries are
+   * unique actual allocations; returned records/array cannot mutate the ledger. */
+  gpuAllocationSnapshot(): ReadonlyArray<Readonly<{ buffer: AccumulationBuffer; state: 'live' | 'free'; bytes: number }>> {
+    return Object.freeze([...this.allocations].map(([buffer, state]) =>
+      Object.freeze({ buffer, state, bytes: buffer.storageByteLength })))
   }
 
   acquire(width: number, height: number, pixelEncoding: RasterPixelEncoding = 'premultiplied-rgba8', filter: 'linear' | 'nearest' = 'nearest'): AccumulationBuffer {
     if (filter !== 'linear' && filter !== 'nearest' || pixelEncoding === 'straight-rgba8' && filter !== 'nearest') throw new TypeError('Invalid pooled buffer sampling policy')
     const list = this._free.get(`${pixelEncoding}:${filter}:${width}x${height}`)
     const reused = list?.pop()
-    if (reused) { this._freeBytes -= width * height * 4; return reused }
+    if (reused) { this.allocations.set(reused, 'live'); return reused }
     // Existing paint scratch keeps its nearest default. Derived PM presentation
     // can request linear; neither policy may borrow the other's allocation.
     // Every encoding/filter still shares this pool's ONE byte/idle ceiling.
     const created = new AccumulationBuffer(this.gl, width, height, filter, pixelEncoding)
-    this._allocatedBytes += width * height * 4
+    this.allocations.set(created, 'live')
     return created
   }
 
@@ -73,59 +84,58 @@ export class RibbonScratchPool {
 
   /** (§17.70) Back to the usual ceilings once `holding` ends. */
   trimToCeiling(): void {
+    let freeBytes = this.bytes.free
     for (const [key, list] of this._free) {
-      while (list.length && (list.length > MARKER_SCRATCH_POOL_PER_SIZE || this._freeBytes > SCRATCH_POOL_FREE_BYTES)) {
+      while (list.length && (list.length > MARKER_SCRATCH_POOL_PER_SIZE || freeBytes > SCRATCH_POOL_FREE_BYTES)) {
         const b = list.pop()!
-        const bytes = b.width * b.height * 4
+        freeBytes -= b.storageByteLength
         b.destroy()
-        this._freeBytes -= bytes
-        this._allocatedBytes -= bytes
+        this.allocations.delete(b)
       }
       if (!list.length) this._free.delete(key)
     }
   }
 
   release(buf: AccumulationBuffer): void {
+    if (this.allocations.get(buf) !== 'live') throw new Error('Unknown or already released scratch buffer')
     const key = `${buf.pixelEncoding}:${buf.samplingFilter}:${buf.width}x${buf.height}`
-    const bytes = buf.width * buf.height * 4
+    const bytes = buf.storageByteLength
     const list = this._free.get(key)
     if (this.holding) {
       if (list) list.push(buf); else this._free.set(key, [buf])
-      this._freeBytes += bytes
+      this.allocations.set(buf, 'free')
       return
     }
-    if (!list && this._freeBytes + bytes > SCRATCH_POOL_FREE_BYTES) { buf.destroy(); this._allocatedBytes -= bytes; return }
-    if (!list) { this._free.set(key, [buf]); this._freeBytes += bytes; return }
+    if (!list && this.bytes.free + bytes > SCRATCH_POOL_FREE_BYTES) { buf.destroy(); this.allocations.delete(buf); return }
+    if (!list) { this._free.set(key, [buf]); this.allocations.set(buf, 'free'); return }
     // (#536, ADR 011 §17.50) ...and never more than SCRATCH_POOL_FREE_BYTES
     // held idle in all: on the iPad (Safari, 3 GB) 151 MB of idle buffers on
     // top of the live wash was enough for the tab to be killed and reloaded
     // at the next stroke.
-    if (list.length >= MARKER_SCRATCH_POOL_PER_SIZE || this._freeBytes + bytes > SCRATCH_POOL_FREE_BYTES) { buf.destroy(); this._allocatedBytes -= bytes; return }
+    if (list.length >= MARKER_SCRATCH_POOL_PER_SIZE || this.bytes.free + bytes > SCRATCH_POOL_FREE_BYTES) { buf.destroy(); this.allocations.delete(buf); return }
     list.push(buf)
-    this._freeBytes += bytes
+    this.allocations.set(buf, 'free')
   }
 
+  /** Destroys idle only, as before. Outstanding borrowers remain responsible
+   * for their handles; late release is rejected after ownership is forgotten. */
   destroy(): void {
     for (const list of this._free.values()) for (const b of list) b.destroy()
     this._free.clear()
-    this._allocatedBytes = 0
-    this._freeBytes = 0
+    this.allocations.clear()
   }
 
   /** (#536, §17.57) Gives every idle buffer back to the driver. */
   trimFree(): void {
-    for (const list of this._free.values()) for (const b of list) b.destroy()
+    for (const list of this._free.values()) for (const b of list) { b.destroy(); this.allocations.delete(b) }
     this._free.clear()
-    this._allocatedBytes -= this._freeBytes
-    this._freeBytes = 0
   }
 
   /** Context loss took every GL object with it — drop the handles without
    *  calling destroy() on them, same as every other pool in this file does. */
   forget(): void {
     this._free.clear()
-    this._allocatedBytes = 0
-    this._freeBytes = 0
+    this.allocations.clear()
   }
 }
 
