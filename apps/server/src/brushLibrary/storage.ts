@@ -213,3 +213,8 @@ export function pinOperationBrush(room: string, user: string, op: {type: string;
   active.pin(room,user,[op.preset],operatorLibrary)
 }
 export function copyRoomBrushes(source: string,target: string): void { active?.copy(source,target) }
+
+/** Internal server context, never populated from a socket/library payload. */
+export function canonicalBrushStorageContext(): { readonly storage: BrushStorage; readonly operator: BrushLibrary } | undefined {
+  return active ? { storage: active, operator: operatorLibrary } : undefined
+}

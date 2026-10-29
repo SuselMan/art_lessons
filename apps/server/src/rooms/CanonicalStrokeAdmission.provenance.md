@@ -1,11 +1,13 @@
 # Closed canonical admission prerequisite
 
-This service is deliberately NOT registered on a socket event, added to the
-shared Operation union or installed as an authorization policy. Current
-`roomRasterAdmission` admits legacy PM rooms only. `sourceStamp` is retained
-source data, explicitly not renderer capability. Current brush pin/context
-helpers inspect legacy `type:'stroke'`; using them as canonical authority would
-be fictitious authorization.
+This admission primitive is now used by `CanonicalRoomTransport`, with the
+concrete `CanonicalBrushCapabilityResolver`, shared canonical Operation and
+acknowledged begin/live/recorded wiring. See that coordinator's provenance for
+the current protocol and bounded persisted-prefix/duplicate preflight. Normal
+room creation/opening still admits legacy PM only; the old web renderer rejects
+canonical before effects. `sourceStamp` presence is never a grant. The original
+standalone prerequisite acceptance below remains historical, not proof that the
+whole straight-room writer is enabled.
 
 ## Trust and lifetime
 
@@ -14,8 +16,8 @@ pixel-owning board (not its lesson), authenticated user, writable layer, board
 revision, pinned descriptor SHA/preset, straight room encoding, the shared
 canonical fused profile, immutable pigment/composition and verified CAS/material
 budgets/preflight. Profile names, descriptor presence or client source metadata
-alone never authorize a frame. No resolver implementation/straight activation
-is supplied here.
+alone never authorize a frame. The concrete binder supplies these facts;
+straight room/render activation is still outside this admission primitive.
 
 The service admits only exact discriminated `canonical_stroke` (id/layer/frame)
 or `canonical_stroke_live` (layer/frame) candidates. Client identity, seq, dabs,
@@ -82,7 +84,7 @@ operation persistence or peer relay. Existing gate/socket regression suites run
 with the new exhaustive discriminant guard. No DB, server deployment, UI, GPU,
 new room format or engine/wire hooks are activated by this unit.
 
-Acceptance at this unit:45 focused admission/gate/real-Socket.IO tests and142
+Historical prerequisite acceptance:45 focused admission/gate/real-Socket.IO tests and142
 existing room regressions PASS; server typecheck and scoped lint PASS. Map check
 PASS, dependency rules0errors:11known warnings plus this intentionally inactive
 service and two other agents' not-yet-imported numerical helpers. No fake import

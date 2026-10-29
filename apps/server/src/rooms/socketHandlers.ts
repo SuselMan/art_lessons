@@ -1,4 +1,6 @@
-import { hasReservedCanonicalFields } from './operationAdmissionShape.js'
+import { rooms } from './roomRegistry.js'
+import { CanonicalRoomTransport } from './CanonicalRoomTransport.js'
+import { hasCompatibleLegacyWriter, hasKnownOperationDiscriminant, hasReservedCanonicalFields } from './operationAdmissionShape.js'
 import { admitsStoredRoomRaster } from './roomRasterAdmission.js'
 import { hasRequiredOperationBrushContext, pinOperationBrush } from '../brushLibrary/storage.js'
 import type { Server, DefaultEventsMap } from 'socket.io'
@@ -226,6 +228,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
   // (#480) Один на процесс, как и io: состояние в нём — «о чём по этой
   // комнате уже отчитались», и оно должно переживать отдельное соединение.
   const lagWatch = createSnapshotLagWatch()
+  const canonicalTransport = new CanonicalRoomTransport()
 
   /** Every student present gets a board in the assignment the class is on,
    *  if they have none yet — see givePersonalBoard. */
@@ -303,6 +306,37 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
   })
 
   io.on('connection', (socket) => {
+    // Bounded ordering across canonical begin/live/recorded on this socket.
+    // DB preflight may await; the mutation section itself never does.
+    let canonicalPending = 0, canonicalTail = Promise.resolve()
+    const enqueueCanonical = (work: () => Promise<void> | void, reject: () => void) => {
+      if (canonicalPending >= 8) { reject(); return }
+      canonicalPending++
+      canonicalTail = canonicalTail.then(work).catch(err => {
+        log.error({ err, socketId: socket.id }, 'canonical transport callback failed')
+        reject()
+      }).finally(() => { canonicalPending-- })
+    }
+    socket.on('canonical_stroke_begin', (data, ack) => {
+      const { roomId, userId } = socket.data
+      if (!roomId || !userId) { ack?.({ ok: false, reason: 'not_joined' }); return }
+      enqueueCanonical(async () => {
+        const result = await canonicalTransport.begin({ roomId, userId }, data,
+          () => socket.connected && socket.data.roomId === roomId && socket.data.userId === userId)
+        ack?.(result)
+      }, () => ack?.({ ok: false, reason: 'canonical_repair_required' }))
+    })
+    socket.on('canonical_stroke_live', (data, ack) => {
+      const { roomId, userId } = socket.data
+      if (!roomId || !userId) { ack?.({ ok: false, reason: 'not_joined' }); return }
+      enqueueCanonical(() => {
+        if (!socket.connected || socket.data.roomId !== roomId || socket.data.userId !== userId) { ack?.({ ok: false, reason: 'not_joined' }); return }
+        const { result, accepted } = canonicalTransport.live({ roomId, userId }, data)
+        ack?.(result)
+        if (accepted) socket.to(roomId).emit('peer_canonical_stroke_live', { ...accepted, userId })
+      }, () => ack?.({ ok: false, reason: 'canonical_repair_required' }))
+    })
+
     // (#480) Устройство здесь же, рядом с userId — см. clientDescription.ts:
     // до этого связать одно с другим можно было только склейкой с nginx по
     // времени хендшейка.
@@ -574,6 +608,21 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         ack?.({ ok: false, reason: 'not_joined' })
         return
       }
+
+      if (op?.type === 'canonical_stroke') {
+        enqueueCanonical(async () => {
+          const { result, accepted } = await canonicalTransport.recorded({ roomId, userId }, op,
+            () => socket.connected && socket.data.roomId === roomId && socket.data.userId === userId)
+          ack?.(result)
+          if (accepted) {
+            io.to(roomId).emit('operation_confirmed', { seq: accepted.seq!, operation: accepted })
+            if (accepted.seq! % SNAPSHOT_SEQ_INTERVAL === 0) checkSnapshotLag(roomId)
+          }
+        }, () => ack?.({ ok: false, reason: 'canonical_repair_required' }))
+        return
+      }
+
+      if (!hasKnownOperationDiscriminant(op) || !hasCompatibleLegacyWriter(rooms.get(roomId)?.room.rasterVersion, op)) { ack?.({ ok: false, reason: 'invalid_operation' }); return }
 
       try {
         const existing = findDuplicateOperation(roomId, op.id)

@@ -116,6 +116,10 @@ export function layerStateIdsOf(state: unknown): Set<string> | null {
  *  (#574) `layer_filter` for the same first reason, and it matters more here
  *  than anywhere: a filter reads the pixels it rewrites, so applying one a
  *  second time over a snapshot that already has it blurs the layer twice. */
+// Canonical wash frames can be previews with an immutable original/local pair.
+// They are NOT independently snapshot-coverable here. A future straight writer
+// must provide a trusted completed-gesture checkpoint boundary before this list
+// can include them; current snapshot/room opening remains legacy-only.
 const COVERABLE_OP_TYPES = [
   'stroke', 'image_import', 'layer_clear', 'area_transform', 'area_clear', 'area_paste', 'area_fill',
   'shape', 'layer_filter',

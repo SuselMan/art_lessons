@@ -2,22 +2,14 @@ import { createHash } from 'node:crypto'
 import {
   CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, STRAIGHT_ROOM_RASTER_VERSION,
   canonicalMaterialGeometryCost, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms,
-  type BrushLibrary, type CanonicalMaterialContext,
+  type BrushLibrary, type CanonicalMaterialContext, type CanonicalStrokeBegin,
 } from '@grafetto/shared'
 import { BrushStorage, merge } from '../brushLibrary/storage.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
 import type { CanonicalAdmissionIdentity, CanonicalCapabilityResolver, TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
 
-export interface CanonicalGestureBegin {
-  readonly layerId: string
-  readonly brush: string
-  readonly strokeId: string
-  /** Authenticated user-selected settings, accepted once, not repeated frame claims. */
-  readonly pigmentRgb8: readonly [number, number, number]
-  readonly outerResourceOpacity: number
-  readonly alphaDarken: 'creamy' | 'hard'
-}
+export type CanonicalGestureBegin = CanonicalStrokeBegin
 interface PinnedGesture { readonly board: RoomRecord; readonly lesson: RoomRecord; readonly grant: TrustedCanonicalGesture }
 const text = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 256 && !v.includes('\0')
 const key = (identity: CanonicalAdmissionIdentity, strokeId: string) => JSON.stringify([identity.roomId, identity.userId, strokeId])
@@ -77,6 +69,14 @@ export class CanonicalBrushCapabilityResolver {
    * Validates all settings/CAS/permission before changing binder state. No pin,
    * relay, DB write, RNG, geometry execution or descriptor mutation occurs. */
   beginGesture(identity: CanonicalAdmissionIdentity, input: CanonicalGestureBegin): TrustedCanonicalGesture {
+    const prepared = this.prepareBeginGesture(identity, input)
+    prepared.commit()
+    return prepared.grant
+  }
+
+  /** Transport pins the verified brush between prepare and commit, synchronously.
+   * A failed pin publishes no grant. No await/reentrant binder call is allowed. */
+  prepareBeginGesture(identity: CanonicalAdmissionIdentity, input: CanonicalGestureBegin): { readonly grant: TrustedCanonicalGesture; readonly commit: () => void } {
     if (!validIdentity(identity) || !input || Object.keys(input).length !== 6
       || !['layerId', 'brush', 'strokeId', 'pigmentRgb8', 'outerResourceOpacity', 'alphaDarken'].every(k => Object.hasOwn(input, k))
       || !text(input.layerId) || !text(input.brush) || !text(input.strokeId)
@@ -92,7 +92,10 @@ export class CanonicalBrushCapabilityResolver {
       if (previous.board !== current.board || previous.lesson !== current.lesson || g.layerId !== input.layerId
         || g.brush !== input.brush || g.pigmentRgb8.some((v, i) => v !== input.pigmentRgb8[i])
         || g.composition.outerResourceOpacity !== input.outerResourceOpacity || g.composition.alphaDarken !== input.alphaDarken) fail('gesture already pinned with different resources or lifetime')
-      return g
+      return Object.freeze({ grant: g, commit: () => {
+        const now = this.authorizedBoard(identity, input.layerId)
+        if (!now || now.board !== previous.board || now.lesson !== previous.lesson || this.gestures.get(identityKey) !== previous) fail('stale begin ticket')
+      } })
     }
     if (this.gestures.size >= this.maxGestures) fail('gesture capacity exhausted; rebuild prefix before clearing')
     const match = /^brush:([a-z0-9-]+)@([1-9][0-9]*)$/.exec(input.brush)
@@ -129,8 +132,14 @@ export class CanonicalBrushCapabilityResolver {
       pigmentRgb8: Object.freeze([input.pigmentRgb8[0], input.pigmentRgb8[1], input.pigmentRgb8[2]] as const),
       composition: Object.freeze({ mode: result.capability.mode, alphaDarken: input.alphaDarken,
         outerResourceOpacity: input.outerResourceOpacity, outerBlend: 'over' as const }), material })
-    this.gestures.set(identityKey, { ...current, grant })
-    return grant
+    let committed = false
+    return Object.freeze({ grant, commit: () => {
+      if (committed) return
+      const now = this.authorizedBoard(identity, grant.layerId)
+      if (!now || now.board !== current.board || now.lesson !== current.lesson || this.gestures.has(identityKey)
+        || this.gestures.size >= this.maxGestures) fail('stale begin ticket')
+      this.gestures.set(identityKey, { ...current, grant }); committed = true
+    } })
   }
 
   /** Trusted lifetime close only, paired with admission.clearRoom. Caller must

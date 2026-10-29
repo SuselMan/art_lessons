@@ -227,6 +227,8 @@ links:
       - { dir: '→', name: create_room, type: 'Room, JoinResult', note: 'ответ через ack' }
       - { dir: '→', name: join_room, type: 'JoinResult', note: 'в запросе — последний известный seq' }
       - { dir: '→', name: operation, type: 'Operation, SendResult', note: 'главный канал: штрихи и любые правки. Штрих — StrokeOperation: слой, инструмент, цвет и массив Dab — отпечатков кисти (координаты, нажим, наклон, размер), а не пиксели', runtime: 'права и заморозка проверяются, форма — нет' }
+      - { dir: '→', name: canonical_stroke_begin, type: 'CanonicalStrokeBegin', note: 'аутентифицированный begin закрепляет проверенный CAS и настройки; открытие straight-комнат закрыто' }
+      - { dir: '→', name: canonical_stroke_live, type: 'CanonicalStrokeLive', note: 'закреплённый контекст, ограниченная FIFO и проверка ordinal до рассылки' }
       - { dir: '→', name: stroke_live, type: 'StrokeLiveData', note: 'дабы, пока рука ещё ведёт' }
       - { dir: '→', name: stroke_live_end, type: 'strokeId' }
       - { dir: '→', name: cursor_move, type: 'CursorMoveData' }
@@ -244,6 +246,7 @@ links:
       - { dir: '→', name: set_class_visibility, type: 'ClassVisibility' }
       - { dir: '←', name: room_state, type: 'Room, Operation[], Participant[], LessonState', note: 'всё для входа: комната, хвост лога, участники' }
       - { dir: '←', name: operation_confirmed, type: 'seq, Operation', note: 'подтверждение — операция получила место в общем порядке' }
+      - { dir: '←', name: peer_canonical_stroke_live, type: 'CanonicalStrokeLive', note: 'проверенный кадр и серверный userId; старый renderer не активируется' }
       - { dir: '←', name: peer_stroke_live, type: 'StrokeLiveData' }
       - { dir: '←', name: peer_stroke_live_end, type: 'strokeId' }
       - { dir: '←', name: peer_cursor, type: 'CursorMoveData' }

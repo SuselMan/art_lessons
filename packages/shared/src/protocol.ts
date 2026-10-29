@@ -1,3 +1,4 @@
+import type { CanonicalStrokeBegin, CanonicalStrokeBeginResult, CanonicalStrokeLive, CanonicalStrokeLiveResult } from './canonicalStrokeOperation.js'
 import type { BrushRandomSeeds } from './brushRandom.js'
 import type { Operation } from './operations.js'
 import type {
@@ -226,6 +227,7 @@ export type RejectReason =
   // dropped packet: the sender waited out its timeout and retried forever.
   // See socketHandlers.ts's 'operation' handler.
   | 'not_joined'
+  | 'canonical_repair_required'
   // (#495) The server threw while recording or relaying this operation and
   // caught it. Not a verdict on the operation — nobody decided anything, the
   // attempt simply did not complete — so this is transient and the work is
@@ -254,7 +256,7 @@ export type RejectReason =
  *  contract: whether a rejection is final is a property of the reason, and
  *  the alternative — a client-side list of special cases — is how the next
  *  transient reason gets silently treated as final. See Outbox.runAttempt. */
-export const TRANSIENT_REJECT_REASONS = ['not_joined', 'server_error'] as const
+export const TRANSIENT_REJECT_REASONS = ['not_joined', 'server_error', 'canonical_repair_required'] as const
 
 export function isTransientReject(reason: RejectReason): boolean {
   return (TRANSIENT_REJECT_REASONS as readonly RejectReason[]).includes(reason)
@@ -312,6 +314,7 @@ export type ServerToClientEvents = {
   // StrokeLiveData. Sent via `socket.to`, not `io.to`: unlike
   // operation_confirmed, the author gains nothing from receiving their own
   // (their own ink is already on their own layer, painted at pen time).
+  peer_canonical_stroke_live: (data: CanonicalStrokeLive & { userId: string }) => void
   peer_stroke_live: (data: StrokeLiveData & { userId: string }) => void
   peer_stroke_live_end: (data: { userId: string; strokeId: string; cancelled?: boolean }) => void
   peer_cursor: (data: CursorMoveData & { userId: string }) => void
@@ -487,6 +490,8 @@ export type ClientToServerEvents = {
   // StrokeLiveData. No ack: this is not a record, and there is nothing the
   // sender would do differently on a failure. The gesture's real operation
   // follows through `operation` above.
+  canonical_stroke_begin: (data: CanonicalStrokeBegin, ack: (result: CanonicalStrokeBeginResult) => void) => void
+  canonical_stroke_live: (data: CanonicalStrokeLive, ack?: (result: CanonicalStrokeLiveResult) => void) => void
   stroke_live: (data: StrokeLiveData) => void
   // (#432) One round of clock estimation: the server answers with its own
   // Date.now(). The client times the round trip and keeps the fastest of a

@@ -127,7 +127,7 @@ describe('actual trusted board + immutable descriptor/CAS canonical binder (sock
     expect(bind(reordered).beginGesture(teacher, f.input).descriptorSha256).toBe(first.descriptorSha256)
     const changed = structuredClone(f.library); changed.brushes[0].descriptor.opacity = .5
     expect(bind(changed).beginGesture(teacher, f.input).descriptorSha256).not.toBe(first.descriptorSha256)
-    const uncompiled = structuredClone(f.library); delete uncompiled.brushes[0].descriptor.sourceStamp!.compiled
+    const uncompiled = structuredClone(f.library); Object.assign(uncompiled.brushes[0].descriptor.sourceStamp!, { compiled: undefined })
     expect(() => bind(uncompiled).beginGesture(teacher, f.input)).toThrow('curve programs unavailable')
   })
   it('feeds the real admission decoder through the binder and rejects later colour/composition/static geometry claims', () => {

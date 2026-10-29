@@ -28,7 +28,7 @@ describe('RejectReason: transient vs final', () => {
     const expected: Record<RejectReason, true> = {
       room_frozen: true, participant_frozen: true, layer_owner_locked: true,
       layer_locked: true, not_owner: true, room_closed: true, board_not_yours: true, target_gone: true,
-      not_joined: true, server_error: true, invalid_operation: true,
+      not_joined: true, server_error: true, invalid_operation: true, canonical_repair_required: true,
     }
     expect([...all].sort()).toEqual(Object.keys(expected).sort())
   })

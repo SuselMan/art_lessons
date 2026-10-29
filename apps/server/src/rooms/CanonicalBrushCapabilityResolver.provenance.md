@@ -1,10 +1,10 @@
 # Trusted single-PNG canonical gesture binding
 
-`CanonicalBrushCapabilityResolver` is an executable **uninstalled** server
-binder. It uses real resident `rooms` and `lessonRecordOf`, not payload authority.
+`CanonicalBrushCapabilityResolver` is the executable binder used by
+`CanonicalRoomTransport` for the guarded canonical protocol. It uses real resident `rooms` and `lessonRecordOf`, not payload authority.
 It does not open straight rooms, expand Operation, install socket handlers, pin
-assets, relay, or persist anything. Existing reserved-canonical rejection stays
-before pin/store/relay. This unit does not claim native GUI identity.
+assets, relay, or persist anything. Legacy channels still reject reserved canonical fields before side effects;
+new canonical channels use the concrete coordinator. Straight opening remains closed. This unit does not claim native GUI identity.
 
 The shared `extractCanonicalSinglePngCapability` is also called by the existing
 web author compiler. It extracts the structural single-primary, inverse-gray,

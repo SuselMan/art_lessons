@@ -10,6 +10,7 @@ import type {
 } from './layerOperations.js'
 import type { OperationBase } from './operationBase.js'
 import type { ShapeOperation } from './shapes.js'
+import type { CanonicalStrokeOperation } from './canonicalStrokeOperation.js'
 import type { StrokeOperation } from './stroke.js'
 
 // Operations (drawing actions — serializable, replayable).
@@ -70,6 +71,7 @@ export const WATERCOLOR_WET_DRY_MS = 120000
 
 export type Operation =
   | StrokeOperation
+  | CanonicalStrokeOperation
   | LayerAddOperation
   | ImageImportOperation
   | FolderAddOperation
@@ -124,6 +126,7 @@ export type Operation =
 export function paintedLayerIds(op: OperationDraft): string[] {
   switch (op.type) {
     case 'stroke':
+    case 'canonical_stroke':
     case 'image_import':
     case 'layer_clear':
     case 'area_transform':

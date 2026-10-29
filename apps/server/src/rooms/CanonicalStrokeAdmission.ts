@@ -54,8 +54,8 @@ const sameEntry = (a: CanonicalMaterialEntry, b: CanonicalMaterialEntry) => a.ph
 function fail(reason: string): never { throw new Error(`canonical admission: ${reason}`) }
 const fields = (v: Record<string, unknown>, expected: readonly string[]) => Object.keys(v).length === expected.length && expected.every(k => Object.hasOwn(v, k))
 
-/** Inactive until a real server policy installs a resolver and socket adapter.
- * This is admission state, not a second log or an authorization fallback. */
+/** Used by CanonicalRoomTransport with its concrete server-owned binder.
+ * This is admission state, not a second log or a legacy authorization fallback. */
 export class CanonicalStrokeAdmission {
   private readonly gestures = new Map<string, Gesture>()
   private revision = 0
@@ -74,6 +74,10 @@ export class CanonicalStrokeAdmission {
   }
 
   get size(): number { return this.gestures.size }
+  cursor(identity: CanonicalAdmissionIdentity, strokeId: string): { readonly recordedNext: number; readonly liveNext: number; readonly ended: boolean } {
+    const state = this.gestures.get(JSON.stringify([identity.roomId, identity.userId, strokeId]))
+    return Object.freeze({ recordedNext: state?.recordedNext ?? 0, liveNext: state?.liveNext ?? 0, ended: state?.ended ?? false })
+  }
 
   /** Recorded: prepare -> pin -> recordOperation(assign seq) -> commit -> ack/relay.
    * Live: prepare -> pin -> commit -> relay (skip duplicate tickets).

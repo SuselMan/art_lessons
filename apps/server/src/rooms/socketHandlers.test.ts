@@ -1,5 +1,8 @@
+import { createHash } from 'node:crypto'
+import { CANONICAL_MATERIAL_PROFILE, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, canonicalMaterialGeometryCost, sourceImageTransformMetadata, sourcePngRasterShape, packCanonicalMaterial, isBrushLibrary, type CanonicalStrokeBeginResult, type CanonicalStrokeLiveResult, type CanonicalStrokeOperation, type CanonicalMaterialFrame, type CanonicalStrokeSnapshot } from '@grafetto/shared'
+import { rooms } from './roomRegistry.js'
 import {canonicalStrokeStorage,strokeEndSample,strokeDabs,packStrokeEndSample} from '@grafetto/shared'
-import { mkdtempSync, rmSync, existsSync } from 'node:fs'
+import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join as joinPath } from 'node:path'
 import { BrushStorage, empty, setBrushStorage } from '../brushLibrary/storage.js'
@@ -26,7 +29,7 @@ const mockPrisma = vi.hoisted(() => ({
   roomLayerState: { findUnique: vi.fn() },
   assignment: { findMany: vi.fn() },
   roomLayerSnapshot: { groupBy: vi.fn(), findMany: vi.fn() },
-  operation: { create: vi.fn(), findMany: vi.fn(), aggregate: vi.fn(), groupBy: vi.fn() },
+  operation: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), count: vi.fn(), aggregate: vi.fn(), groupBy: vi.fn() },
   roomBlock: { findUnique: vi.fn() },
   roomInvite: { findUnique: vi.fn() },
   roomJoinRequest: { findUnique: vi.fn(), upsert: vi.fn() },
@@ -150,6 +153,8 @@ beforeEach(async () => {
   mockPrisma.roomLayerSnapshot.groupBy.mockResolvedValue([])
   mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([])
   mockPrisma.operation.findMany.mockResolvedValue([])
+  mockPrisma.operation.findUnique.mockResolvedValue(null)
+  mockPrisma.operation.count.mockResolvedValue(0)
   mockPrisma.operation.aggregate.mockResolvedValue({ _max: { seq: null } })
   mockPrisma.operation.groupBy.mockResolvedValue([])
   mockPrisma.roomPalette.findUnique.mockResolvedValue(null)
@@ -704,4 +709,220 @@ it('rejects unregistered canonical operation/live claims before pin, persistence
     expect(pin).not.toHaveBeenCalled()
     expect(mockPrisma.operation.create).not.toHaveBeenCalled()
   } finally { setBrushStorage(new BrushStorage(directory), empty()); rmSync(directory, { recursive: true, force: true }) }
+})
+
+
+/** Test-only authoritative room-format injection; production create/join still
+ * rejects straight rooms. The actual socket handlers/coordinator/storage run. */
+async function canonicalClassroom() {
+  const c = await classroom(), record = rooms.get(c.lessonId)!
+  record.room.rasterVersion = 'straight-rgba8-v1'
+  const dir = mkdtempSync(joinPath(tmpdir(), 'canonical-wire-'))
+  const storage = new BrushStorage(dir), bytes = Buffer.alloc(64, 127), hash = createHash('sha256').update(bytes).digest('hex')
+  const imported = JSON.parse(readFileSync(new URL('../../../web/src/engine/src/presets/fixtures/sourceStrokeAuthorDescriptor.compiled.json', import.meta.url), 'utf8'))
+  const descriptor = { ...imported.descriptor, tip: { ...imported.descriptor.tip, mask: `asset:${hash}` } }
+  const library: unknown = { schemaVersion: 1, assets: [{ id: `asset:${hash}`, size: 8, file: hash + '.bin' }], skipped: [],
+    brushes: [{ name: 'Authored', source: 'fixture.kpp', warnings: [], descriptor }] }
+  if (!isBrushLibrary(library)) throw Error('invalid fixture')
+  storage.provision(new Map([[hash, bytes]])); setBrushStorage(storage, library)
+  const begin = { layerId: 'layer-1', brush: `brush:${descriptor.id}@${descriptor.version}`, strokeId: fresh('canonical-gesture'),
+    pigmentRgb8: [31, 117, 203] as const, outerResourceOpacity: .63, alphaDarken: 'creamy' as const }
+  return { ...c, record, storage, library, descriptor, begin, cleanup: () => rmSync(dir, { recursive: true, force: true }) }
+}
+function canonicalFrames(snapshot: CanonicalStrokeSnapshot, descriptor: { sourceStamp: { brush: { width: number; height: number; scale: number; angle: number } } }) {
+  const brush = descriptor.sourceStamp.brush
+  const extent = sourceImageTransformMetadata(brush.width, brush.height, sourcePngRasterShape(brush, { scale: 1, ratio: 1, rotation: 0 }), 0, 0)
+  const recipe = { asset: snapshot.assets[0].id, brushScale: brush.scale, brushAngle: brush.angle, scale: 1, ratio: 1, rotation: 0,
+    subX: 0, subY: 0, width: extent.width, height: extent.height, mirrorH: false, mirrorV: false }
+  const context = { assets: snapshot.assets, primaryAsset: recipe.asset, preflightDefinition: canonicalMaterialGeometryCost, budget: CANONICAL_MATERIAL_LIMITS }
+  return [0, 1].map(ordinal => {
+    const material: CanonicalMaterialFrame = { profile: CANONICAL_MATERIAL_PROFILE, masked: false,
+      entry: ordinal ? { phase: 'primary', group: 0 } : { phase: 'between' }, definitions: [recipe],
+      draws: [{ definition: 0, role: 'primary', x: ordinal * 7 - 3, y: 5, opacity: .4, flow: .7 }],
+      fences: ordinal ? [{ at: 1, kind: 'primaryEnd', group: 0 }, { at: 1, kind: 'segmentEnd', group: 0 }, { at: 1, kind: 'gestureEnd' }]
+        : [{ at: 0, kind: 'segmentBegin', group: 0 }] }
+    return { version: 1 as const, rasterProfile: CANONICAL_STROKE_RASTER_PROFILE, brush: snapshot.brush, strokeId: snapshot.strokeId,
+      frameOrdinal: ordinal, pigmentRgb8: snapshot.pigmentRgb8, composition: snapshot.composition, materialPacked: packCanonicalMaterial(material, context) }
+  })
+}
+describe('canonical begin/live/recorded actual socket authority (straight creation remains closed)', () => {
+  it('rejects every canonical route in legacy rooms before pins, DB work or relay', async () => {
+    const c = await classroom(), pin = vi.spyOn(BrushStorage.prototype, 'pin')
+    try {
+      const denied = await new Promise<CanonicalStrokeBeginResult>(resolve => c.teacher.emit('canonical_stroke_begin', {
+        layerId: 'layer-1', brush: 'brush:imported-test@1', strokeId: 'g', pigmentRgb8: [1, 2, 3], outerResourceOpacity: 1, alphaDarken: 'creamy',
+      }, resolve))
+      expect(denied).toEqual({ ok: false, reason: 'invalid_operation' })
+      const frame = {} as CanonicalStrokeOperation['frame']
+      expect(await new Promise<CanonicalStrokeLiveResult>(resolve => c.teacher.emit('canonical_stroke_live', { layerId: 'layer-1', frame }, resolve))).toMatchObject({ ok: false })
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', { id: fresh('canonical'), type: 'canonical_stroke', userId: 'teacher', timestamp: 0, layerId: 'layer-1', frame }, resolve))).toMatchObject({ ok: false })
+      expect(pin).not.toHaveBeenCalled(); expect(mockPrisma.operation.count).not.toHaveBeenCalled(); expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+    } finally { pin.mockRestore() }
+  })
+  it('pins authenticated begin snapshot then shares immutable live/recorded frames, exact retries and total seq', async () => {
+    const c = await canonicalClassroom()
+    try {
+      const result = await new Promise<CanonicalStrokeBeginResult>(resolve => c.teacher.emit('canonical_stroke_begin', c.begin, resolve))
+      expect(result.ok).toBe(true); if (!result.ok) throw Error('begin failed')
+      expect(result.snapshot.pigmentRgb8).toEqual([31, 117, 203]); expect(result.snapshot.composition.outerResourceOpacity).toBe(.63)
+      expect(c.storage.library('rooms', c.lessonId).brushes).toHaveLength(1)
+      const [frame0, frame1] = canonicalFrames(result.snapshot, c.descriptor)
+      const live = next(c.student, 'peer_canonical_stroke_live')
+      expect(await new Promise<CanonicalStrokeLiveResult>(resolve => c.teacher.emit('canonical_stroke_live', { layerId: c.begin.layerId, frame: frame0 }, resolve))).toEqual({ ok: true, duplicate: false })
+      expect(await live).toMatchObject({ userId: 'teacher', frame: frame0 })
+      const quiet = silent(c.student, 'peer_canonical_stroke_live', 25)
+      expect(await new Promise<CanonicalStrokeLiveResult>(resolve => c.teacher.emit('canonical_stroke_live', { layerId: c.begin.layerId, frame: frame0 }, resolve))).toEqual({ ok: true, duplicate: true })
+      await quiet
+      const op: CanonicalStrokeOperation = { type: 'canonical_stroke', id: fresh('canonical-op'), userId: 'teacher', timestamp: 0, layerId: c.begin.layerId, frame: frame0 }
+      const confirmed = next(c.student, 'operation_confirmed')
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', op, resolve))).toEqual({ ok: true, seq: 1 })
+      expect(await confirmed).toMatchObject({ seq: 1, operation: { ...op, seq: 1 } })
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', op, resolve))).toEqual({ ok: true, seq: 1, duplicate: true })
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', { ...op, frame: { ...frame0, pigmentRgb8: [0, 0, 0] } }, resolve))).toMatchObject({ ok: false })
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', { ...op, id: fresh('canonical-final'), frame: frame1 }, resolve))).toEqual({ ok: true, seq: 2 })
+      await _flushPendingWrites(c.lessonId)
+      expect(mockPrisma.operation.create.mock.calls.filter(call => call[0].data.type === 'canonical_stroke')).toHaveLength(2)
+      expect(await new Promise<CanonicalStrokeBeginResult>(resolve => c.teacher.emit('canonical_stroke_begin', c.begin, resolve))).toMatchObject({ ok: true, recordedNext: 2 })
+    } finally { c.cleanup() }
+  })
+  it('preserves FIFO when ordinal0 duplicate preflight awaits; ordinal1 never overtakes it', async () => {
+    const c = await canonicalClassroom()
+    try {
+      const begin = await new Promise<CanonicalStrokeBeginResult>(resolve => c.teacher.emit('canonical_stroke_begin', c.begin, resolve))
+      if (!begin.ok) throw Error('begin failed')
+      const frames = canonicalFrames(begin.snapshot, c.descriptor)
+      let release!: (v: null) => void
+      mockPrisma.operation.findUnique.mockImplementationOnce(() => new Promise(resolve => { release = resolve }))
+      const op = (i: number): CanonicalStrokeOperation => ({ type: 'canonical_stroke', id: fresh('fifo'), userId: 'teacher', timestamp: 0, layerId: c.begin.layerId, frame: frames[i] })
+      const p0 = new Promise<SendResult>(resolve => c.teacher.emit('operation', op(0), resolve))
+      const p1 = new Promise<SendResult>(resolve => c.teacher.emit('operation', op(1), resolve))
+      await new Promise(resolve => setTimeout(resolve, 20))
+      expect(mockPrisma.operation.findUnique).toHaveBeenCalledTimes(1)
+      release(null)
+      expect(await p0).toEqual({ ok: true, seq: 1 }); expect(await p1).toEqual({ ok: true, seq: 2 })
+    } finally { c.cleanup() }
+  })
+  it('does not publish a begin on pin failure and rejects stale authority after async DB work', async () => {
+    const c = await canonicalClassroom(), pin = vi.spyOn(c.storage, 'pin')
+    try {
+      pin.mockImplementationOnce(() => { throw Error('quota failure') })
+      expect(await new Promise<CanonicalStrokeBeginResult>(resolve => c.teacher.emit('canonical_stroke_begin', c.begin, resolve))).toEqual({ ok: false, reason: 'server_error' })
+      pin.mockRestore()
+      const retry = await new Promise<CanonicalStrokeBeginResult>(resolve => c.teacher.emit('canonical_stroke_begin', { ...c.begin, pigmentRgb8: [7, 8, 9] }, resolve))
+      expect(retry.ok).toBe(true); if (!retry.ok) throw Error('retry failed')
+      expect(retry.snapshot.pigmentRgb8).toEqual([7, 8, 9]) // failed pin published no immutable gesture
+      const frames = canonicalFrames(retry.snapshot, c.descriptor)
+      let release!: (v: null) => void
+      mockPrisma.operation.findUnique.mockImplementationOnce(() => new Promise(resolve => { release = resolve }))
+      const pending = new Promise<SendResult>(resolve => c.teacher.emit('operation', { type: 'canonical_stroke', id: fresh('stale'), userId: 'teacher', timestamp: 0, layerId: c.begin.layerId, frame: frames[0] }, resolve))
+      await new Promise(resolve => setTimeout(resolve, 20)); c.record.sharedLockedLayerIds.add('layer-1'); release(null)
+      expect(await pending).toMatchObject({ ok: false }); expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+      c.record.sharedLockedLayerIds.clear()
+      const retryOp: CanonicalStrokeOperation = { type: 'canonical_stroke', id: fresh('db-retry'), userId: 'teacher', timestamp: 0, layerId: c.begin.layerId, frame: frames[0] }
+      mockPrisma.operation.findUnique.mockRejectedValueOnce(new Error('DB unavailable'))
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', retryOp, resolve))).toEqual({ ok: false, reason: 'server_error' })
+      expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', retryOp, resolve))).toEqual({ ok: true, seq: 1 })
+    } finally { pin.mockRestore(); c.cleanup() }
+  })
+  it('rehydrates a complete persisted prefix after resident replacement and deduplicates covered IDs without repinning', async () => {
+    const c = await canonicalClassroom()
+    try {
+      const begin = await new Promise<CanonicalStrokeBeginResult>(resolve => c.teacher.emit('canonical_stroke_begin', c.begin, resolve))
+      if (!begin.ok) throw Error('begin failed')
+      const frames = canonicalFrames(begin.snapshot, c.descriptor)
+      const prefix = frames.map((frame, i): CanonicalStrokeOperation => ({ type: 'canonical_stroke', id: fresh('persisted'), userId: 'teacher', timestamp: 0, layerId: c.begin.layerId, frame, seq: i + 1 }))
+      rooms.set(c.lessonId, { ...c.record, operations: [], operationsById: new Map(), nextSeq: 3 })
+      mockPrisma.operation.count.mockResolvedValue(2)
+      mockPrisma.operation.findMany.mockResolvedValue([...prefix].reverse().map(data => ({ data })))
+      const replay = await new Promise<CanonicalStrokeBeginResult>(resolve => c.teacher.emit('canonical_stroke_begin', c.begin, resolve))
+      expect(replay).toMatchObject({ ok: true, recordedNext: 2, liveNext: 2, ended: true })
+      mockPrisma.operation.findUnique.mockResolvedValue({ roomId: c.lessonId, userId: 'teacher', seq: 1, data: prefix[0] })
+      const pin = vi.spyOn(c.storage, 'pin')
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', prefix[0], resolve))).toEqual({ ok: true, seq: 1, duplicate: true })
+      expect(pin).not.toHaveBeenCalled(); pin.mockRestore()
+      expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+      expect(mockPrisma.operation.count).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ roomId: c.lessonId, userId: 'teacher', type: 'canonical_stroke', seq: { lte: 2 } }) }))
+    } finally { c.cleanup() }
+  })
+  it('rejects an incomplete bounded persisted prefix rather than granting a new ordinal0', async () => {
+    const c = await canonicalClassroom()
+    try {
+      mockPrisma.operation.count.mockResolvedValue(2)
+      mockPrisma.operation.findMany.mockResolvedValue([])
+      const pin = vi.spyOn(c.storage, 'pin')
+      expect(await new Promise<CanonicalStrokeBeginResult>(resolve => c.teacher.emit('canonical_stroke_begin', c.begin, resolve))).toEqual({ ok: false, reason: 'canonical_repair_required' })
+      expect(pin).not.toHaveBeenCalled(); pin.mockRestore()
+      expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+      expect(c.storage.library('rooms', c.lessonId).brushes).toEqual([])
+    } finally { c.cleanup() }
+  })
+  it('rejects persisted operation ID collisions and rechecks room identity after a delayed begin', async () => {
+    const c = await canonicalClassroom()
+    try {
+      const begin = await new Promise<CanonicalStrokeBeginResult>(resolve => c.teacher.emit('canonical_stroke_begin', c.begin, resolve))
+      if (!begin.ok) throw Error('begin failed')
+      const frames = canonicalFrames(begin.snapshot, c.descriptor)
+      const op: CanonicalStrokeOperation = { type: 'canonical_stroke', id: fresh('collision'), userId: 'teacher', timestamp: 0, layerId: c.begin.layerId, frame: frames[0] }
+      mockPrisma.operation.findUnique.mockResolvedValue({ roomId: 'another-room', data: op })
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', op, resolve))).toEqual({ ok: false, reason: 'invalid_operation' })
+      mockPrisma.operation.findUnique.mockResolvedValue({ roomId: c.lessonId, userId: 'another-user', seq: 1, data: { ...op, userId: 'another-user', seq: 1 } })
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', op, resolve))).toEqual({ ok: false, reason: 'invalid_operation' })
+      mockPrisma.operation.findUnique.mockResolvedValue({ roomId: c.lessonId, userId: 'teacher', seq: 1, data: { ...op, seq: 1, frame: { ...op.frame, pigmentRgb8: [1, 1, 1] } } })
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', op, resolve))).toEqual({ ok: false, reason: 'invalid_operation' })
+      let release!: (n: number) => void
+      mockPrisma.operation.count.mockImplementationOnce(() => new Promise(resolve => { release = resolve }))
+      const pin = vi.spyOn(c.storage, 'pin')
+      const pending = new Promise<CanonicalStrokeBeginResult>(resolve => c.teacher.emit('canonical_stroke_begin', { ...c.begin, strokeId: 'new-stroke' }, resolve))
+      await new Promise(resolve => setTimeout(resolve, 20))
+      rooms.set(c.lessonId, { ...c.record }); release(0)
+      expect(await pending).toMatchObject({ ok: false })
+      expect(pin).not.toHaveBeenCalled(); pin.mockRestore()
+      expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+    } finally { c.cleanup() }
+  })
+
+  it('bounds queued canonical work while preserving a fresh begin and rejects packets before their authority exists', async () => {
+    const c = await canonicalClassroom()
+    try {
+      let release!: (n: number) => void
+      mockPrisma.operation.count.mockImplementationOnce(() => new Promise(resolve => { release = resolve }))
+      const pin = vi.spyOn(c.storage, 'pin')
+      const requests = Array.from({ length: 9 }, (_, i) => new Promise<CanonicalStrokeBeginResult>(resolve => c.teacher.emit('canonical_stroke_begin', { ...c.begin, strokeId: 'bounded-' + i }, resolve)))
+      expect(await requests[8]).toEqual({ ok: false, reason: 'canonical_repair_required' })
+      expect(pin).not.toHaveBeenCalled()
+      release(0)
+      expect((await Promise.all(requests.slice(0, 8))).every(r => r.ok)).toBe(true)
+      pin.mockRestore()
+      expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+    } finally { c.cleanup() }
+  })
+
+  it('keeps old pixel writers closed in authoritative straight rooms before duplicates/pin while structural edits remain allowed', async () => {
+    const c = await canonicalClassroom(), pin = vi.spyOn(c.storage, 'pin')
+    try {
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', stroke(fresh('old-writer'), 'teacher'), resolve))).toEqual({ ok: false, reason: 'invalid_operation' })
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', { id: fresh('zero'), type: 'layer_clear', userId: 'teacher', timestamp: 0, layerId: 'layer-1' }, resolve))).toEqual({ ok: false, reason: 'invalid_operation' })
+      expect(pin).not.toHaveBeenCalled(); expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', { id: fresh('rename'), type: 'layer_rename', userId: 'teacher', timestamp: 0, layerId: 'layer-1', name: 'Renamed' }, resolve))).toEqual({ ok: true, seq: 1 })
+    } finally { pin.mockRestore(); c.cleanup() }
+  })
+
+  it('uses normal structural branch invalidation when canonical ink follows an undo', async () => {
+    const c = await canonicalClassroom()
+    try {
+      const add = { id: fresh('new-layer'), type: 'layer_add' as const, userId: 'teacher', timestamp: 0, layerId: 'branch-layer', name: 'Branch' }
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', add, resolve))).toMatchObject({ ok: true })
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', { id: fresh('undo-branch'), type: 'operation_undo', userId: 'teacher', timestamp: 0, targetOpId: add.id }, resolve))).toMatchObject({ ok: true })
+      expect(c.record.structuralLog.find(e => e.op.id === add.id)?.state).toBe('undone')
+      const begin = await new Promise<CanonicalStrokeBeginResult>(resolve => c.teacher.emit('canonical_stroke_begin', c.begin, resolve))
+      if (!begin.ok) throw Error('begin failed')
+      const frame = canonicalFrames(begin.snapshot, c.descriptor)[0]
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', { id: fresh('canonical-branch'), type: 'canonical_stroke', userId: 'teacher', timestamp: 0, layerId: c.begin.layerId, frame }, resolve))).toMatchObject({ ok: true })
+      expect(c.record.structuralLog.find(e => e.op.id === add.id)?.state).toBe('gone')
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', { id: fresh('redo-branch'), type: 'operation_redo', userId: 'teacher', timestamp: 0, targetOpId: add.id }, resolve))).toMatchObject({ ok: true })
+      expect(c.record.aliveIds.has('branch-layer')).toBe(false)
+    } finally { c.cleanup() }
+  })
+
 })

@@ -56,3 +56,5 @@ export * from './canonicalMaterialGeometry.js'
 export * from './canonicalStrokeFrame.js'
 
 export * from './canonicalBrushCapability.js'
+
+export * from './canonicalStrokeOperation.js'

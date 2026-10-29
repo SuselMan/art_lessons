@@ -56,7 +56,10 @@ export function persistOperation(roomId: string, op: Operation): void {
     data: {
       id: op.id, seq: op.seq ?? 0, type: op.type, roomId, userId: op.userId,
       layerId, tool: op.type === 'stroke' ? op.tool : null,
-      data: op,
+      // Prisma's JSON structural type does not accept interface-only envelopes.
+      // Project the already validated canonical wire header without copying the
+      // packed payload or widening every operation through an unchecked cast.
+      data: op.type === 'canonical_stroke' ? { ...op, frame: { ...op.frame, composition: { ...op.frame.composition } } } : op,
     },
   }))
 }

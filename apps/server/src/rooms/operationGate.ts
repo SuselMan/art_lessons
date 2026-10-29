@@ -9,11 +9,11 @@ import type { Operation, Participant, RejectReason, Room } from '@grafetto/share
 import { hasValidBrushRandomContext, hasValidStrokeEndSample, operationLayerIds, paintedLayerIds } from '@grafetto/shared'
 
 import { canDrawOnBoard } from './lessons.js'
-import { hasKnownOperationDiscriminant } from './operationAdmissionShape.js'
+import { hasCompatibleLegacyWriter, hasKnownOperationDiscriminant } from './operationAdmissionShape.js'
 
 /** What the gate reads off the board an operation targets. */
 export interface GateBoard {
-  room: Pick<Room, 'boardOwnerId'>
+  room: Pick<Room, 'boardOwnerId' | 'rasterVersion'>
   /** (#258) Layers the owner reserved. */
   lockedLayerIds: ReadonlySet<string>
   /** (#518) Layers anyone in the room locked. */
@@ -63,7 +63,7 @@ export interface GateLesson {
 export function operationRejectReason(
   record: GateBoard, lesson: GateLesson, userId: string, op: Operation,
 ): RejectReason | null {
-  if (!hasKnownOperationDiscriminant(op)) return 'invalid_operation'
+  if (!hasKnownOperationDiscriminant(op) || !hasCompatibleLegacyWriter(record.room.rasterVersion, op)) return 'invalid_operation'
   if (!hasValidBrushRandomContext(op) || !hasValidStrokeEndSample(op)) return 'invalid_operation'
   // (#176) Who is asking, whether the lesson is closed or frozen — the
   // lesson's; what the operation targets and whether that is locked or gone

@@ -8,7 +8,7 @@
 //            revoked it); can never return to `done`
 
 import type {
-  Operation, StrokeOperation, LayerClearOperation, LayerMergeOperation, LayerDuplicateOperation,
+  Operation, StrokeOperation, CanonicalStrokeOperation, LayerClearOperation, LayerMergeOperation, LayerDuplicateOperation,
   ImageImportOperation, LayerTransformOperation, AreaTransformOperation, AreaClearOperation,
   AreaPasteOperation, AreaFillOperation, ShapeOperation, LayerFilterOperation,
 } from '@grafetto/shared'
@@ -39,13 +39,13 @@ export type Placement =
   | { pending?: false; serverSeq?: number }
 
 /** Operations that change a layer's pixel buffer (as opposed to structure). */
-export type PixelOperation = StrokeOperation | LayerClearOperation | LayerMergeOperation
+export type PixelOperation = StrokeOperation | CanonicalStrokeOperation | LayerClearOperation | LayerMergeOperation
   | LayerDuplicateOperation | ImageImportOperation | LayerTransformOperation
   | AreaTransformOperation | AreaClearOperation | AreaPasteOperation | AreaFillOperation
   | ShapeOperation | LayerFilterOperation
 
 export function isPixelOperation(op: Operation): op is PixelOperation {
-  return op.type === 'stroke' || op.type === 'layer_clear' || op.type === 'layer_merge'
+  return op.type === 'stroke' || op.type === 'canonical_stroke' || op.type === 'layer_clear' || op.type === 'layer_merge'
     || op.type === 'layer_duplicate' || op.type === 'image_import' || op.type === 'layer_transform'
     // (#446) The selection operations paint one layer and change nothing
     // else, which is what "pixel operation" means here — they belong in
@@ -374,10 +374,10 @@ export class OperationLog {
    *  existed carry none, and undo one operation at a time as they always did. */
   private _gestureEntries(target: LogEntry, state: OperationState): LogEntry[] {
     const { op } = target
-    const strokeId = op.type === 'stroke' ? op.strokeId : undefined
+    const strokeId = op.type === 'stroke' ? op.strokeId : op.type === 'canonical_stroke' ? op.frame.strokeId : undefined
     if (!strokeId) return [target]
     return this._entries.filter(e =>
-      e.state === state && e.op.type === 'stroke' && e.op.userId === op.userId && e.op.strokeId === strokeId)
+      e.state === state && e.op.type === op.type && e.op.userId === op.userId && (e.op.type === 'stroke' ? e.op.strokeId : e.op.type === 'canonical_stroke' ? e.op.frame.strokeId : undefined) === strokeId)
   }
 
   /** (#520) Every layer the gesture `op` belongs to has pixels on — `op`'s own
@@ -397,7 +397,7 @@ export class OperationLog {
    *  them, and which side of the flip they are on says nothing about which
    *  layers need redrawing. */
   gestureLayerIds(op: Operation): string[] {
-    const strokeId = op.type === 'stroke' ? op.strokeId : undefined
+    const strokeId = op.type === 'stroke' ? op.strokeId : op.type === 'canonical_stroke' ? op.frame.strokeId : undefined
     // `typeof` and not just `in`: on the operations #412 gave a `layerIds`
     // list to, `layerId` is still declared, optional, and absent — so the
     // property test alone answers `string | undefined`.
@@ -405,7 +405,8 @@ export class OperationLog {
     if (!strokeId) return own
     const ids = new Set(own)
     for (const e of this._entries) {
-      if (e.op.type === 'stroke' && e.op.userId === op.userId && e.op.strokeId === strokeId) ids.add(e.op.layerId)
+      if (e.op.type === op.type && e.op.userId === op.userId && (e.op.type === 'stroke' || e.op.type === 'canonical_stroke')
+        && (e.op.type === 'stroke' ? e.op.strokeId : e.op.frame.strokeId) === strokeId) ids.add(e.op.layerId)
     }
     return [...ids]
   }
