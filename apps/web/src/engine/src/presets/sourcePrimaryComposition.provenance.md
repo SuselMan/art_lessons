@@ -45,7 +45,7 @@ input before returning any commands. Pure local calculations have no external ef
 on rejection. Returned state/output objects are copied/frozen and JSON-resumable.
 
 Source fences are INPUT framing, never compositing resets. Phase mask is accepted
-only as empty post-primary framing. Groups strictly increase across frames, empty
+only as empty post-primary framing. Groups start at0 and advance exactly+1 per native input, including empty inputs, across frames, empty
 final tails preserve history, and gestureEnd commits wash once without a fabricated
 endpoint dab. With draws and no gestureEnd, advance returns presentWash; gestureEnd
 returns commitWash, including a zero-draw tail. Per-frame definition indices remain

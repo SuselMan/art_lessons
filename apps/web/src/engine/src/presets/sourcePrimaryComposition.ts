@@ -95,7 +95,7 @@ export function advanceSourcePrimaryComposition(s: SourcePrimaryCompositionState
       } else {
         if (!integer(fence.group)) fail()
         if (fence.kind === 'segmentBegin') {
-          if (current.phase !== 'between' || fence.group <= lastGroup) fail()
+          if (current.phase !== 'between' || fence.group !== lastGroup + 1) fail()
           lastGroup = fence.group; current = { phase: 'primary', group: fence.group }
         } else if (fence.kind === 'primaryEnd') {
           if (current.phase !== 'primary' || current.group !== fence.group) fail()

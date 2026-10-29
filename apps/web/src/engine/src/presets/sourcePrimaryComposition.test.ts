@@ -16,8 +16,8 @@ function frame(opacities: number[], entry: CanonicalMaterialEntry, fences: Canon
     draws: opacities.map((opacity, x) => ({ definition: 0, role: 'primary', x, y: 0, opacity, flow })), fences }
   return unpackCanonicalMaterial(packCanonicalMaterial(f, codec), codec)
 }
-const begin = { kind: 'segmentBegin' as const, at: 0, group: 7 }
-const finish = (at: number) => [{ kind: 'primaryEnd' as const, at, group: 7 }, { kind: 'segmentEnd' as const, at, group: 7 }]
+const begin = { kind: 'segmentBegin' as const, at: 0, group: 0 }
+const finish = (at: number) => [{ kind: 'primaryEnd' as const, at, group: 0 }, { kind: 'segmentEnd' as const, at, group: 0 }]
 const end = (at: number) => ({ kind: 'gestureEnd' as const, at })
 const whole = (values: number[]) => frame(values, { phase: 'between' }, [begin, ...finish(values.length), end(values.length)])
 const step = (s: SourcePrimaryCompositionState, f: CanonicalMaterialFrame) => advance(s, { ordinal: s.nextFrameOrdinal, frame: f })
@@ -41,7 +41,7 @@ describe('decoded single-primary composition session (no renderer activation)', 
     const controls = []
     for (let i = 0; i < values.length; i++) {
       s = JSON.parse(JSON.stringify(s))
-      const f = frame([values[i]!], i === 0 ? { phase: 'between' } : { phase: 'primary', group: 7 },
+      const f = frame([values[i]!], i === 0 ? { phase: 'between' } : { phase: 'primary', group: 0 },
         [...(i === 0 ? [begin] : []), ...(i === values.length - 1 ? [...finish(1), end(1)] : [])])
       const r = step(s, f); controls.push(r.draws[0]!.controls); s = r.state
     }
@@ -55,17 +55,17 @@ describe('decoded single-primary composition session (no renderer activation)', 
   })
   it('counts zero-valued actual draws, never invents an endpoint dab or resets on source fences', () => {
     const first = step(create(wash).state, frame([1], { phase: 'between' }, [begin, ...finish(1)]))
-    const next = frame([0], { phase: 'between' }, [{ kind: 'segmentBegin', at: 0, group: 9 },
-      { kind: 'primaryEnd', at: 1, group: 9 }, { kind: 'segmentEnd', at: 1, group: 9 }, end(1)])
+    const next = frame([0], { phase: 'between' }, [{ kind: 'segmentBegin', at: 0, group: 1 },
+      { kind: 'primaryEnd', at: 1, group: 1 }, { kind: 'segmentEnd', at: 1, group: 1 }, end(1)])
     const result = step(first.state, next)
     expect(result.state.averageQreal).toBe(sourceBlendAverageOpacity(0, 1))
     expect(result.draws).toHaveLength(1); expect(result.draws[0]?.drawOrdinal).toBe(1)
     expect(result.state.drawCount).toBe(2)
   })
   it('keeps empty after-primary framing across chunks without masked execution', () => {
-    const first = step(create(wash).state, frame([.7], { phase: 'between' }, [begin, { kind: 'primaryEnd', at: 1, group: 7 }]))
-    expect(first.state.entry).toEqual({ phase: 'mask', group: 7 })
-    const tail = step(first.state, frame([], { phase: 'mask', group: 7 }, [{ kind: 'segmentEnd', at: 0, group: 7 }, end(0)]))
+    const first = step(create(wash).state, frame([.7], { phase: 'between' }, [begin, { kind: 'primaryEnd', at: 1, group: 0 }]))
+    expect(first.state.entry).toEqual({ phase: 'mask', group: 0 })
+    const tail = step(first.state, frame([], { phase: 'mask', group: 0 }, [{ kind: 'segmentEnd', at: 0, group: 0 }, end(0)]))
     expect(tail.draws).toHaveLength(0); expect(tail.commands[0]?.kind).toBe('commitWash')
   })
   it('keeps raw F32 controls for hard/creamy: no hard flow fold at session boundary', () => {
@@ -96,10 +96,29 @@ describe('decoded single-primary composition session (no renderer activation)', 
     const first = step(initial, frame([.8], { phase: 'between' }, [begin, ...finish(1)]))
     const snapshot = JSON.stringify(first.state)
     for (const ordinal of [0, 2, NaN]) expect(() => advance(first.state, { ordinal, frame: whole([.2]) })).toThrow()
-    expect(() => step(first.state, frame([.2], { phase: 'primary', group: 7 }, []))).toThrow()
+    expect(() => step(first.state, frame([.2], { phase: 'primary', group: 0 }, []))).toThrow()
     expect(() => step(first.state, whole([.2]))).toThrow()
     expect(JSON.stringify(first.state)).toBe(snapshot)
     expect(initial.drawCount).toBe(0)
+  })
+  it('requires every input group including empty inputs, starting at zero without gaps', () => {
+    const initial = create(wash).state
+    const arbitrary = frame([], { phase: 'between' }, [{ kind: 'segmentBegin', at: 0, group: 7 },
+      { kind: 'primaryEnd', at: 0, group: 7 }, { kind: 'segmentEnd', at: 0, group: 7 }])
+    expect(() => step(initial, arbitrary)).toThrow()
+    const empty = frame([], { phase: 'between' }, [begin, ...finish(0)])
+    const first = step(initial, empty)
+    expect(first.state.lastGroup).toBe(0); expect(first.draws).toEqual([]); expect(first.commands).toEqual([])
+    const missing = frame([], { phase: 'between' }, [{ kind: 'segmentBegin', at: 0, group: 2 },
+      { kind: 'primaryEnd', at: 0, group: 2 }, { kind: 'segmentEnd', at: 0, group: 2 }])
+    expect(() => step(first.state, missing)).toThrow()
+    const resumed: SourcePrimaryCompositionState = JSON.parse(JSON.stringify(first.state))
+    const next = frame([], { phase: 'between' }, [{ kind: 'segmentBegin', at: 0, group: 1 },
+      { kind: 'primaryEnd', at: 0, group: 1 }, { kind: 'segmentEnd', at: 0, group: 1 }, end(0)])
+    const final = step(resumed, next)
+    expect(final.state.lastGroup).toBe(1); expect(final.state.drawCount).toBe(0)
+    expect(final.commands[0]?.kind).toBe('commitWash')
+    expect(first.state.lastGroup).toBe(0)
   })
   it('rejects a late bad fence without changing previously consumed source state', () => {
     const s = create(wash).state, f = whole([.8, .2])
