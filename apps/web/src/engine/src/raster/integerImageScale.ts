@@ -1,3 +1,5 @@
+import { sourceImageScaleAxis } from '../presets/sourceImageScaleAxis'
+
 /** Deterministic U8 image scaling for a precomputed integer destination grid.
  * Independent arithmetic implementation of the behavior documented by Qt
  * 5.15.13 QImage::smoothScaled/qimagescale (SSE2/NEON interpolation order).
@@ -17,7 +19,6 @@ export type IntegerImageInterpolationLaw = 'scalar' | 'simd'
 const MAX_SIDE = 4096
 const MAX_PIXELS = 4 * 1024 * 1024
 const MAX_CHANNEL_SAMPLES = 64 * 1024 * 1024
-const PHASE_UNIT = 65536
 const AREA_UNIT = 16384
 
 interface AxisSample { start: number; weights: number[] }
@@ -32,19 +33,14 @@ function checkedPixels(size: IntegerImageSize): number {
 
 /** Fixed-point center positions for enlargement, footprint starts for reduction. */
 function scaleAxis(source: number, destination: number): ScaleAxis {
-  const shrinking = destination < source
-  const increment = Math.floor(source * PHASE_UNIT / destination)
-  let position = shrinking ? 0 : Math.floor(32768 * source / destination) - 32768
-  const fullWeight = Math.ceil(destination * AREA_UNIT / source)
+  const axis = sourceImageScaleAxis(source, destination), shrinking = !axis.up
   const samples: AxisSample[] = []
   let taps = 0
-  for (let i = 0; i < destination; i++, position += increment) {
-    const pixel = Math.floor(position / PHASE_UNIT)
-    const start = Math.max(0, pixel)
+  for (let i = 0; i < destination; i++) {
+    const start = axis.positions[i], packed = axis.weights[i]
     let weights: number[]
     if (shrinking) {
-      const fraction = position - pixel * PHASE_UNIT
-      const first = Math.floor((PHASE_UNIT - fraction) * fullWeight / PHASE_UNIT)
+      const fullWeight = Math.floor(packed / 65536), first = packed % 65536
       weights = [first]
       let remaining = AREA_UNIT - first
       while (remaining > 0) {
@@ -52,10 +48,7 @@ function scaleAxis(source: number, destination: number): ScaleAxis {
         weights.push(weight)
         remaining -= weight
       }
-    } else {
-      const fraction = pixel < 0 || pixel >= source - 1 ? 0 : Math.floor(position / 256) - pixel * 256
-      weights = fraction ? [256 - fraction, fraction] : [256]
-    }
+    } else weights = packed ? [256 - packed, packed] : [256]
     if (start + weights.length > source) throw new RangeError('Integer scaling footprint exceeds its source')
     taps += weights.length
     samples.push({ start, weights })
