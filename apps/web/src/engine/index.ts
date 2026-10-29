@@ -1,3 +1,4 @@
+import { AuthorTaskScheduler } from './src/input/AuthorTaskScheduler'
 import { AuthorInputFIFO } from './src/input/AuthorInputFIFO'
 import { createCursorHistory, pushCursorHistory, startCursorDirection } from './src/input/kritaStrokeInput'
 import { brushExecutionContext, assertBrushSourceInputs, assertBrushExecutionContext, type BrushExecutionContext } from './src/presets/brushExecutionContext'
@@ -2212,9 +2213,14 @@ export class PencilEngine implements PencilEngineAPI {
   private _authorSnapshot?: AuthorStartSnapshot
   private _authorProducer?: TimedAuthorSession
   private _authorInputError: unknown
+  private readonly _authorTasks = new AuthorTaskScheduler({
+    createChannel:typeof window!=='undefined' && typeof window.MessageChannel==='function' ? ()=>new window.MessageChannel():undefined,
+    scheduleFrame:callback=>requestAnimationFrame(callback),
+    cancelFrame:handle=>cancelAnimationFrame(handle),
+  })
   private readonly _authorInput = new AuthorInputFIFO({
-    schedule: callback => requestAnimationFrame(callback),
-    unschedule: handle => cancelAnimationFrame(handle),
+    schedule: callback => this._authorTasks.schedule(callback),
+    unschedule: handle => this._authorTasks.unschedule(handle),
     now: () => performance.now(),
     failed: error => { this._authorInputError=error; this._stopAirbrush(); this._diagLog('[engine] author input failed',error) },
   })
@@ -4239,6 +4245,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._destroyed=true
     if(typeof document!=='undefined' && typeof document.removeEventListener==='function')document.removeEventListener('visibilitychange',this._handleAuthorVisibility)
     this._cancelOwnedAuthor(false)
+    this._authorTasks.destroy()
     this._brushPreparationGeneration++
     this._brushPreparation.cancel()
     this._continuationGpuFence?.release()
@@ -6072,7 +6079,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
   private _cancelOwnedAuthor(lost:boolean,repair=false):void {
     const owned=!!this._authorSnapshot||!!this._authorProducer||this._authorInput.pending
-    this._stopAirbrush();this._authorInput.cancel()
+    this._stopAirbrush();this._authorInput.cancel();this._authorTasks.reset()
     if(!owned)return
     const id=this._strokeId,layers=this._strokeLayerId?[this._strokeLayerId,...this._strokeExtraLayerIds]:[]
     const scratch=this._ribbonStrokeScratch

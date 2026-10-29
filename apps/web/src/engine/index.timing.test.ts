@@ -213,3 +213,36 @@ it.each(['context','visibility','destroy'] as const)('preserves published chunks
   clock.mockRestore()
  }finally{engine.destroy();vi.useRealTimers()}
 })
+it('drains captured timed work through one browser macrotask channel without RAF advancement',async()=>{
+ const previousWindow=globalThis.window,deliveries:Array<()=>void>=[],ports:Array<{onmessage:((event:MessageEvent)=>unknown)|null;close:ReturnType<typeof vi.fn>}>=[]
+ let created=0
+ class BrowserChannel {
+  port1={onmessage:null as ((event:MessageEvent)=>unknown)|null,close:vi.fn(),postMessage(){}}
+  port2={onmessage:null,close:vi.fn(),postMessage:(token:number)=>{const handler=this.port1.onmessage;deliveries.push(()=>handler?.({data:token} as MessageEvent))}}
+  constructor(){created++;ports.push(this.port1,this.port2)}
+ }
+ vi.stubGlobal('window',{MessageChannel:BrowserChannel})
+ const engine=await setup(1000);vi.useFakeTimers({toFake:['setTimeout','clearTimeout','performance']})
+ try{
+  const clock=vi.spyOn(performance,'now').mockReturnValue(0)
+  expect(created).toBe(0)
+  engine['_onStart'](pointerSample(10,10,{pressure:1,timeStamp:0}))
+  clock.mockReturnValue(1000);engine['_onMove'](pointerSample(10,10,{pressure:1,timeStamp:1}))
+  engine['_onEnd'](pointerSample(10,10,{pressure:0,timeStamp:2}))
+  engine.setColor([0,1,0]);engine.setSize(21);engine['_onStart'](pointerSample(30,30,{pressure:1,timeStamp:3}));engine['_onEnd'](pointerSample(30,30,{pressure:0,timeStamp:4}))
+  expect(created).toBe(1);expect(engine['_authorInput'].pending).toBe(true)
+  while(deliveries.length)deliveries.shift()!()
+  const strokes=engine.getOperations().filter((o):o is StrokeOperation=>o.type==='stroke')
+  expect(strokes.filter(o=>o.strokeEnd)).toHaveLength(2)
+  expect(strokes.filter(o=>o.strokeId===strokes[0].strokeId).flatMap(strokeDabs)).toHaveLength(1001)
+  expect(strokes.at(-1)?.color).toEqual([0,1,0]);expect(engine['_authorInput'].pending).toBe(false)
+  // An idle channel is reused rather than leaked or recreated per gesture.
+  engine['_onStart'](pointerSample(40,40,{pressure:1,timeStamp:5}));clock.mockReturnValue(2000);engine['_onMove'](pointerSample(40,40,{pressure:1,timeStamp:6}))
+  expect(created).toBe(1)
+  const stale=deliveries.shift()!
+  engine['_handleContextLost']({preventDefault(){}} as Event)
+  expect(ports.every(p=>p.close.mock.calls.length===1)).toBe(true)
+  stale();expect(engine['_authorInput'].pending).toBe(false);expect(engine['_strokeLayerId']).toBeNull()
+  clock.mockRestore()
+ }finally{engine.destroy();vi.useRealTimers();vi.stubGlobal('window',previousWindow)}
+})
