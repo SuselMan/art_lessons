@@ -28,5 +28,17 @@
     "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/image/kis_painter.cc",
     "sha256": "aba78347c7ff0585c65dc274aedac14c82f728fc61f68d2f914b8c82f9f5db2b",
     "bytes": 107396
+  },
+  {
+    "path": "libs/pigment/KoCompositeOp.cpp",
+    "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/pigment/KoCompositeOp.cpp",
+    "sha256": "41af38ff0754f0c14b4634346a0682dceaa99a297fa7c75f48130c79505ac7c7",
+    "bytes": 5818
+  },
+  {
+    "path": "src/corelib/global/qglobal.h",
+    "url": "https://raw.githubusercontent.com/qt/qtbase/v5.15.7-lts-lgpl/src/corelib/global/qglobal.h",
+    "sha256": "1cc403d67548c1b3174aee74a4cc4da47cd95bd64f2f78fbd87e9d9261ffd6f7",
+    "bytes": 46065
   }
 ]

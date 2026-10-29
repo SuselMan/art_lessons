@@ -1,15 +1,18 @@
 """Assemble unchanged pinned source functions; traits/IO only are authored shims."""
 from pathlib import Path
 import argparse,hashlib,json
-p=argparse.ArgumentParser();p.add_argument('--repo',type=Path,required=True);p.add_argument('--output',type=Path,required=True);a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--repo',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--extend-source-lock',action='store_true');a=p.parse_args()
 r=Path(__file__).parent;root=a.repo/'temp/device-runs/krita-stroke-20261024'
-paths={'dark':root/'v21-sources/KoOptimizedCompositeOpAlphaDarken32.h','wrappers':root/'v20-sources/KoAlphaDarkenParamsWrapper.h','math':root/'fixes-v48/optimized-over-sources/KoStreamedMath.h','arithmetic':root/'fixes-v46/spray-color/source/KoColorSpaceMaths.h','painter':root/'fixes-v42/grid-sources/kis_painter.cc'}
-upstream={'dark':'libs/pigment/compositeops/KoOptimizedCompositeOpAlphaDarken32.h','wrappers':'libs/pigment/compositeops/KoAlphaDarkenParamsWrapper.h','math':'libs/pigment/compositeops/KoStreamedMath.h','arithmetic':'libs/pigment/KoColorSpaceMaths.h','painter':'libs/image/kis_painter.cc'}
+paths={'dark':root/'v21-sources/KoOptimizedCompositeOpAlphaDarken32.h','wrappers':root/'v20-sources/KoAlphaDarkenParamsWrapper.h','math':root/'fixes-v48/optimized-over-sources/KoStreamedMath.h','arithmetic':root/'fixes-v46/spray-color/source/KoColorSpaceMaths.h','painter':root/'fixes-v42/grid-sources/kis_painter.cc','params':root/'fixes-v52/param-info-sources/KoCompositeOp.cpp','qtGlobal':root/'fixes-v46/material-sources/qt5.15.7-qglobal.h'}
+upstream={'dark':'libs/pigment/compositeops/KoOptimizedCompositeOpAlphaDarken32.h','wrappers':'libs/pigment/compositeops/KoAlphaDarkenParamsWrapper.h','math':'libs/pigment/compositeops/KoStreamedMath.h','arithmetic':'libs/pigment/KoColorSpaceMaths.h','painter':'libs/image/kis_painter.cc','params':'libs/pigment/KoCompositeOp.cpp','qtGlobal':'src/corelib/global/qglobal.h'}
 pin='bd6e8d061d2f0388c5b10278786cf0fe62e3135f'
-lock=[{'path':upstream[k],'url':f'https://raw.githubusercontent.com/KDE/krita/{pin}/{upstream[k]}','sha256':hashlib.sha256(v.read_bytes()).hexdigest(),'bytes':v.stat().st_size}for k,v in paths.items()]
+lock=[{'path':upstream[k],'url':f'https://raw.githubusercontent.com/qt/qtbase/v5.15.7-lts-lgpl/{upstream[k]}'if k=='qtGlobal'else f'https://raw.githubusercontent.com/KDE/krita/{pin}/{upstream[k]}','sha256':hashlib.sha256(v.read_bytes()).hexdigest(),'bytes':v.stat().st_size}for k,v in paths.items()]
 existing=r/'source-lock.json'
 if existing.exists():
- old=json.loads(existing.read_text());assert old==lock,'Pinned input changed'
+ old=json.loads(existing.read_text())
+ if old!=lock:
+  assert a.extend_source_lock and old==lock[:len(old)],'Pinned input changed'
+  existing.write_text(json.dumps(lock,indent=2)+'\n')
 else:existing.write_text(json.dumps(lock,indent=2)+'\n')
 s={k:v.read_text()for k,v in paths.items()}
 def body(text,marker):
@@ -28,5 +31,7 @@ lerp='namespace Arithmetic{template<class T> T unionShapeOpacity(T,T);template<c
 stream='template<class _impl>struct KoStreamedMath{'+body(s['math'],'static inline quint8 round_float_to_u8(')+'\n'+body(s['math'],'static inline quint8 lerp_mixed_u8_float(')+'};\n'
 scalar='template<class channels_type,class pixel_type,class ParamsWrapper>struct NativeAlphaDarken{template<bool haveMask,class _impl>\n'+body(s['dark'],'static ALWAYS_INLINE void compositeOnePixelScalar(')+'};\n'
 average='struct KisPainter{static qreal blendAverageOpacity(qreal opacity,qreal averageOpacity);};\n'+body(s['painter'],'qreal KisPainter::blendAverageOpacity(')+'\n'
-source=source.replace('// NATIVE_BODIES',blend+lerp+wrap+s['math'][round_start:round_end]+stream+scalar+average)
+qt='template<class T>\n'+body(s['qtGlobal'],'Q_DECL_CONSTEXPR inline T qAbs(')+'\ntemplate<class T>\n'+body(s['qtGlobal'],'constexpr inline const T &qMin(')+'\n'+body(s['qtGlobal'],'Q_REQUIRED_RESULT Q_DECL_CONSTEXPR static inline Q_DECL_UNUSED bool qFuzzyCompare(float')+'\n'
+params=body(s['params'],'void KoCompositeOp::ParameterInfo::setOpacityAndAverage(')+'\n'
+source=source.replace('// NATIVE_BODIES',qt+params+blend+lerp+wrap+s['math'][round_start:round_end]+stream+scalar+average)
 a.output.write_text(source)

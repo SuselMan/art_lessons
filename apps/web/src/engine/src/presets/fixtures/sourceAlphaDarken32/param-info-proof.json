@@ -1,0 +1,36 @@
+{
+  "oracleCppSha256": "4bf5705e7c82ea4946c125c7691d22a5a44fb7832de9aa00632be272bb714445",
+  "generatorSha256": "bfd6eab302a8fd1b01b638e606cbd28be87450d5da29fcf4087b0899bb5d310e",
+  "driverSha256": "a76ae66cedf47528fcece72a274190b27c4f072959cc6e70e5071772b3fd59d2",
+  "fixtureSha256": "c5d052a5e676073b2010b7dbbe20ffaf51294a6373a142816a5ab8c8dcb38bda",
+  "nativeCases": 794,
+  "methodUnchanged": true,
+  "functions": {
+    "void KoCompositeOp::ParameterInfo::setOpacityAndAverage(": "a9f4a17fd89a27d90509584dba4fa2cbde8397261bbc92533ad0a4cc551973c7",
+    "Q_REQUIRED_RESULT Q_DECL_CONSTEXPR static inline Q_DECL_UNUSED bool qFuzzyCompare(float": "33ca50369fb4c3f6685eb1026375538abd902ffe3f8b1d3380d44e4a34e50499",
+    "Q_DECL_CONSTEXPR inline T qAbs(": "3c92183c449a8311a3dfa703062eaf4d778549759f146902e9703fe632f63080",
+    "constexpr inline const T &qMin(": "3b4b45bc5f76fe38b51ed104020e51c2be652ef4684c6920a33f7be52e7ffc24"
+  },
+  "officialSourcesVerified": [
+    {
+      "path": "libs/pigment/KoCompositeOp.cpp",
+      "url": "https://raw.githubusercontent.com/KDE/krita/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/pigment/KoCompositeOp.cpp",
+      "sha256": "41af38ff0754f0c14b4634346a0682dceaa99a297fa7c75f48130c79505ac7c7",
+      "bytes": 5818
+    },
+    {
+      "path": "src/corelib/global/qglobal.h",
+      "url": "https://raw.githubusercontent.com/qt/qtbase/v5.15.7-lts-lgpl/src/corelib/global/qglobal.h",
+      "sha256": "1cc403d67548c1b3174aee74a4cc4da47cd95bd64f2f78fbd87e9d9261ffd6f7",
+      "bytes": 46065
+    }
+  ],
+  "flags": [
+    "-std=c++17",
+    "-O2",
+    "-fno-fast-math",
+    "-ffp-contract=off"
+  ],
+  "mxcsr": 8064,
+  "scope": "Unchanged setter and float comparator, type/declaration shims only; no history update, GPU or installed dispatch claim"
+}

@@ -74,3 +74,23 @@ round header additionally retains upstream MIT sse2neon notice. Verbatim source
 bodies occur only in the disposable generated oracle, not the production helper.
 No SDK, Qt runtime, dependencies or original source/header copies are retained in
 the Git fixture directory. No renderer, wire or compositor policy is activated.
+
+## ParameterInfo float boundary and alias
+
+`param-info.native.json` retains794 actual unchanged ParameterInfo setter calls
+and Qt5.15.7 `qFuzzyCompare(float,float)` (including unchanged qAbs/qMin).
+The driver narrows raw qreal inputs BEFORE calling the float setter and records
+the actual selected pointer and output bits. Equal/zero/subnormal/neighbor and
+F64 threshold inputs cover the float subtract, float product and MIN-relative
+comparison.40 cases reject comparing raw doubles first;5 reject substituting a
+max-relative epsilon. Signed zero is retained through raw JSON.parse in tests,
+since bundler JSON module optimization may erase its sign.
+
+Reproduce with the SAME compiler command above, then `oracle --param-info`.
+`param-info-proof.json` pins unchanged method/function bodies, official inputs
+and generator; both preexisting output fixtures remain byte-identical after this
+producer extension. Qt qglobal retains its LGPL/GPL/commercial license notice;
+KoCompositeOp.cpp retains LGPL-2.1-or-later. Production helper is source-informed
+authored TypeScript, not a clean-room claim. It rejects nonfinite/out-of-unit
+inputs, performs only F32 normalization/alias selection, preserves independent
+flow, and does not update opacity history or choose a composite profile.

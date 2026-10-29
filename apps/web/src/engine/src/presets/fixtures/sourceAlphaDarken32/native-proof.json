@@ -6,10 +6,10 @@
     "libs/pigment/KoColorSpaceMaths.h",
     "libs/image/kis_painter.cc"
   ],
-  "oracleCppSha256": "9349f254dc21fadc67e16773b1d93c460506b1d7cd44b34a224a5c7495105a97",
+  "oracleCppSha256": "4bf5705e7c82ea4946c125c7691d22a5a44fb7832de9aa00632be272bb714445",
   "fixtureSha256": "7c4710559392483e484d39c1bff2868aa9b3150d9cac1473d15b1d2b581503d7",
-  "generatorSha256": "60d8e379bcfe3af63e4f58e804297dcba1a29f2af39ab57b3fc53341e221f98b",
-  "driverSha256": "fc4eb9a0ff944d34119df530144de40827b8cf100fe93e819567ccbcfe15b667",
+  "generatorSha256": "bfd6eab302a8fd1b01b638e606cbd28be87450d5da29fcf4087b0899bb5d310e",
+  "driverSha256": "a76ae66cedf47528fcece72a274190b27c4f072959cc6e70e5071772b3fd59d2",
   "compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
   "flags": [
     "-std=c++17",
@@ -21,5 +21,6 @@
   "scalarCases": 1280,
   "overlapCases": 1296,
   "mxcsr": 8064,
-  "scope": "Unchanged scalar function, wrapper constructors, float Arithmetic blend and native round; not SIMD/ARM/active dispatch"
+  "scope": "Unchanged scalar function, wrapper constructors, float Arithmetic blend and native round; not SIMD/ARM/active dispatch",
+  "previousFixtureByteExactAfterExtension": true
 }

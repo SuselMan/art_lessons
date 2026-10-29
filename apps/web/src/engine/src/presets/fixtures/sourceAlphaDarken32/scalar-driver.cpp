@@ -5,21 +5,38 @@
 #include <iostream>
 #include <iomanip>
 #include <array>
+#include <limits>
+#include <string>
 using quint8=uint8_t;using quint32=uint32_t;using qint32=int32_t;using qreal=double;
 #define ALWAYS_INLINE inline
 #define Q_UNUSED(v) (void)(v)
-struct KoCompositeOp {struct ParameterInfo {float opacity;float flow;const float*lastOpacity;};};
+#define Q_DECL_CONSTEXPR constexpr
+#define Q_REQUIRED_RESULT
+#define Q_DECL_UNUSED
+struct KoCompositeOp {struct ParameterInfo {float opacity{0};float flow{0};float _lastOpacityData{0};float*lastOpacity{0};void setOpacityAndAverage(float,float);};};
 // NATIVE_BODIES
 struct SseRoundReceipt{};
 void pixel(const quint8*p){std::cout<<'['<<int(p[0])<<','<<int(p[1])<<','<<int(p[2])<<','<<int(p[3])<<']';}
 template<class Wrapper>void emit(const char*variant,const quint8*src,quint8*dst,int selection,double opacity,double average,double flow){
- quint8 before[4];memcpy(before,dst,4);float avg=float(average);KoCompositeOp::ParameterInfo params{float(opacity),float(flow),&avg};Wrapper p(params);quint8 m=selection<0?0:selection;
+ quint8 before[4];memcpy(before,dst,4);float avg=float(average);KoCompositeOp::ParameterInfo params;params.opacity=float(opacity);params.flow=float(flow);params.lastOpacity=&avg;Wrapper p(params);quint8 m=selection<0?0:selection;
  if(selection<0)NativeAlphaDarken<quint8,quint32,Wrapper>::template compositeOnePixelScalar<false,SseRoundReceipt>(src,dst,nullptr,float(opacity),p);
  else NativeAlphaDarken<quint8,quint32,Wrapper>::template compositeOnePixelScalar<true,SseRoundReceipt>(src,dst,&m,float(opacity),p);
  std::cout<<"{\"variant\":\""<<variant<<"\",\"src\":";pixel(src);std::cout<<",\"dst\":";pixel(before);std::cout<<",\"mask\":"<<selection<<",\"opacity\":"<<opacity<<",\"averageOpacity\":"<<average<<",\"flow\":"<<flow<<",\"wrapped\":{\"opacity\":"<<p.opacity<<",\"averageOpacity\":"<<p.averageOpacity<<",\"flow\":"<<p.flow<<"},\"expected\":";pixel(dst);std::cout<<'}';
 }
 void emitCase(int variant,const quint8*src,quint8*dst,int selection,double opacity,double average,double flow){if(variant)emit<KoAlphaDarkenParamsWrapperHard>("hard",src,dst,selection,opacity,average,flow);else emit<KoAlphaDarkenParamsWrapperCreamy>("creamy",src,dst,selection,opacity,average,flow);}
-int main(int argc,char**){_mm_setcsr(0x1f80);std::cout<<std::setprecision(17);
+uint32_t bits(float f){uint32_t u;std::memcpy(&u,&f,4);return u;}
+void parameterCases(){std::cout<<"{\"source\":\"unchanged ParameterInfo::setOpacityAndAverage(float,float) + Qt5.15.7 qFuzzyCompare(float,float), qreal narrowed before compare, SSE noFMA\",\"cases\":[";bool first=true;
+auto emit=[&](const char*label,double opacity,double average,double flow){KoCompositeOp::ParameterInfo p;p.flow=float(flow);p.setOpacityAndAverage(float(opacity),float(average));if(!first)std::cout<<',';first=false;std::cout<<"{\"label\":\""<<label<<"\",\"raw\":{\"opacity\":"<<opacity<<",\"averageOpacity\":"<<average<<",\"flow\":"<<flow<<"},\"expected\":{\"opacity\":"<<p.opacity<<",\"averageOpacity\":"<<*p.lastOpacity<<",\"flow\":"<<p.flow<<",\"averageAliased\":"<<(p.lastOpacity==&p.opacity?"true":"false")<<"},\"bits\":{\"opacity\":"<<bits(p.opacity)<<",\"averageOpacity\":"<<bits(*p.lastOpacity)<<",\"flow\":"<<bits(p.flow)<<"}}";};
+for(float opacity:std::array<float,11>{std::ldexp(9999999.f,-24),0,std::numeric_limits<float>::denorm_min(),std::numeric_limits<float>::min(),.000001f,.01f,.1f,.25f,.5f,.99999f,1}){
+ for(double flow:std::array<double,3>{0,.4,1}){emit("equal",opacity,opacity,flow);emit("opacity-zero",0,opacity,flow);emit("average-zero",opacity,0,flow);}
+ for(int direction:std::array<int,2>{-1,1}){double target=direction<0?double(opacity)*100000.0/100001.0:double(opacity)*1.00001;float center=float(target);for(int n=-4;n<=4;n++){float average=center;for(int j=0;j<std::abs(n);j++)average=std::nextafter(average,n<0?0.f:std::numeric_limits<float>::infinity());if(average<0||average>1)continue;for(double flow:std::array<double,3>{0,.4,1})emit("f32-neighbor-threshold",opacity,average,flow);}
+  if(target>=0&&target<=1){emit("f64-before-narrow-down",std::nextafter(double(opacity),0.),std::nextafter(target,0.),.4);emit("f64-before-narrow-up",std::nextafter(double(opacity),1.),std::nextafter(target,1.),.4);}
+ }
+}
+for(double opacity:std::array<double,7>{0.,-0.,std::numeric_limits<double>::denorm_min(),double(std::numeric_limits<float>::denorm_min())/2,double(std::numeric_limits<float>::denorm_min()),.5,1.})for(double average:std::array<double,7>{0.,-0.,std::numeric_limits<double>::denorm_min(),double(std::numeric_limits<float>::denorm_min())/2,double(std::numeric_limits<float>::denorm_min()),.5,1.})for(double flow:std::array<double,2>{-0.,double(std::numeric_limits<float>::denorm_min())})emit("zero-subnormal-signedzero",opacity,average,flow);
+std::cout<<"]}\n";}
+int main(int argc,char**argv){_mm_setcsr(0x1f80);std::cout<<std::setprecision(17);
+ if(argc>1&&std::string(argv[1])=="--param-info"){parameterCases();return 0;}
  if(argc>1){std::cout<<"{\"source\":\"unchanged KisPainter::blendAverageOpacity qreal=double exponent=float0.1 noFMA\",\"sequences\":[";
  for(int series=0;series<5;++series){if(series)std::cout<<',';double avg=0;std::cout<<"{\"series\":"<<series<<",\"initial\":0,\"steps\":[";int count=series==1?512:32;for(int i=0;i<count;++i){double opacity=series==0?std::array<double,8>{1,.2,.4,0,.9,.1,1,0}[i%8]:series==1?(i==0?1:0):series==2?(double(i)/31):series==3?std::array<double,4>{.4999999850988388,.5000000298023224,.9999999701976776,1e-12}[i%4]:.6;double before=avg;avg=KisPainter::blendAverageOpacity(opacity,avg);if(i)std::cout<<',';std::cout<<"{\"opacity\":"<<opacity<<",\"before\":"<<before<<",\"expected\":"<<avg<<",\"floatExpected\":"<<float(avg)<<'}';}std::cout<<"]}";}std::cout<<"]}\n";return 0;}
  unsigned rng=0x19a5b31c;auto raw=[&](){rng^=rng<<13;rng^=rng>>17;rng^=rng<<5;return rng;};std::cout<<"{\"source\":\"unchanged optimizedAlphaDarken32 scalar+wrappers+Arithmetic float blend; hostSSE nearest-even noFMA, not SIMD/ARM dispatch\",\"mxcsr\":"<<_mm_getcsr()<<",\"cases\":[";
