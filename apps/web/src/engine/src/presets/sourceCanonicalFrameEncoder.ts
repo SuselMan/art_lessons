@@ -23,6 +23,7 @@ export class SourceCanonicalFrameEncoder {
   private state: SourcePrimaryCompositionState
 
   constructor(context: SourceCanonicalStrokeContext) {
+    if ('version' in context.material && context.material.version === 2) throw new RangeError('Source canonical encoder requires image material context')
     if(context.material.geometry?.kind==='defaultAuto')throw new RangeError('Default auto canonical material recipe is not implemented')
     // Do not keep mutable UI colour/composition/CAS arrays or accept a weaker
     // preflight callback. Exact recipes/cold-chunk budgets have one owner.

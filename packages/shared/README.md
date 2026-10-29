@@ -25,3 +25,11 @@ fallback имеют одну реализацию здесь. Старые web-�
 - Смысловые куски этой папки — группы карты (`docs/architecture/map.yaml` → `groupings`):
   shared-contract, shared-dab-codec. В коде этих групп нет; когда папку разложат по подпапкам,
   описание группы переедет в README новой подпапки.
+
+
+`canonicalMaterialCodec` wire2 описывает отдельные typed image/defaultAuto recipes.
+Auto не требует и не имитирует CAS; static zero нормализуется в +0, динамические
+F64-биты сохраняются. Trusted source context и общий metadata-preflight не являются
+разрешением renderer: старые image-only consumers отклоняют wire2 до работы с
+assets. Wire1 и его публичные image DTO сохранены. Точные границы — в
+`src/canonicalMaterialCodec.provenance.md`.

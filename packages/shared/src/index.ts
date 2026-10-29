@@ -62,3 +62,5 @@ export * from './canonicalStrokeOperation.js'
 export * from './sourceAutoGeometry.js'
 export * from './sourceFmaF64.js'
 export * from './sourceFmaF64Reference.js'
+
+export * from './canonicalDefaultAutoMaterial.js'

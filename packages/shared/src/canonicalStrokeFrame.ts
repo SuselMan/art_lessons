@@ -1,4 +1,4 @@
-import { unpackCanonicalMaterial, type CanonicalMaterialContext, type CanonicalMaterialFrame } from './canonicalMaterialCodec.js'
+import { unpackCanonicalMaterial, type CanonicalMaterialContext, type CanonicalMaterialFrame, type CanonicalMaterialContextV2, type CanonicalMaterialFrameV2, type AnyCanonicalMaterialContext } from './canonicalMaterialCodec.js'
 
 /** Stroke resource policy; frame fences never reset this state. */
 export interface CanonicalStrokeComposition {
@@ -29,6 +29,9 @@ export interface CanonicalStrokeFrameContext {
   readonly composition: CanonicalStrokeComposition
   readonly material: CanonicalMaterialContext
 }
+export interface CanonicalStrokeFrameContextV2 extends Omit<CanonicalStrokeFrameContext,'material'> {
+  readonly material:CanonicalMaterialContextV2
+}
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
 const text = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 256 && !value.includes('\0')
 const ordinal = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value < Number.MAX_SAFE_INTEGER
@@ -44,9 +47,10 @@ function composition(value: unknown): value is CanonicalStrokeComposition {
  * Descriptor capability and contiguous gesture/group ownership still belong to
  * the caller. Profile names alone never attest compatibility. No dabs/options,
  * author inputs, random journal or second colour authority can accompany it. */
-export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStrokeFrameContext): {
-  readonly envelope: CanonicalStrokeFrameEnvelope
-  readonly frame: CanonicalMaterialFrame
+export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStrokeFrameContextV2): {readonly envelope:CanonicalStrokeFrameEnvelope;readonly frame:CanonicalMaterialFrameV2}
+export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStrokeFrameContext): {readonly envelope:CanonicalStrokeFrameEnvelope;readonly frame:CanonicalMaterialFrame}
+export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStrokeFrameContext|CanonicalStrokeFrameContextV2): {
+  readonly envelope:CanonicalStrokeFrameEnvelope;readonly frame:CanonicalMaterialFrame|CanonicalMaterialFrameV2
 } {
   if (!trusted || !text(trusted.brush) || !text(trusted.strokeId) || !ordinal(trusted.frameOrdinal) || !rgb(trusted.pigmentRgb8) || !composition(trusted.composition))
     throw new TypeError('Invalid trusted canonical stroke context')
@@ -59,9 +63,10 @@ export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStr
     || value.pigmentRgb8.some((n, i) => n !== trusted.pigmentRgb8[i]) || c.mode !== expected.mode || c.alphaDarken !== expected.alphaDarken
     || c.outerResourceOpacity !== expected.outerResourceOpacity || c.outerBlend !== expected.outerBlend)
     throw new TypeError('Canonical stroke frame does not match the pinned gesture')
-  const frame = unpackCanonicalMaterial(value.materialPacked, trusted.material)
+  const frame = unpackCanonicalMaterial(value.materialPacked, trusted.material as AnyCanonicalMaterialContext)
   Object.freeze(frame.entry)
-  for (const item of [...frame.definitions, ...frame.draws, ...frame.fences]) Object.freeze(item)
+  for (const item of frame.definitions) { if ('kind' in item && item.kind==='defaultAuto') Object.freeze(item.source); Object.freeze(item) }
+  for (const item of [...frame.draws, ...frame.fences]) Object.freeze(item)
   Object.freeze(frame.definitions); Object.freeze(frame.draws); Object.freeze(frame.fences); Object.freeze(frame)
   const envelope: CanonicalStrokeFrameEnvelope = Object.freeze({ version: 1, rasterProfile: CANONICAL_STROKE_RASTER_PROFILE,
     brush: value.brush, strokeId: value.strokeId, frameOrdinal: value.frameOrdinal,

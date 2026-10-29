@@ -78,6 +78,7 @@ export class SourceStrokeMaterialAdapter {
   private pixels=0
 
   constructor(program:SourceStrokeAuthorProgram,context:SourceStrokeMaterialContext,source:SourceStrokeAuthorState,checkpoint?:SourceStrokeMaterialCheckpoint){
+    if ('version' in context && context.version === 2) throw new RangeError('Source material adapter requires image context')
     if(context.geometry?.kind==='defaultAuto')throw new RangeError('Default auto canonical material recipe is not implemented')
     if(program.roles.some(r=>r.geometry?.kind==='defaultAuto'||r.materialPolicy==='default-auto-fixed1-rng-free'))throw new RangeError('Default auto canonical material recipe is not implemented')
     if(!program.id||program.id.length>256||program.roles.length<1||program.roles.length>2||program.roles[0].id!=='primary'||program.roles.length===2&&program.roles[1].id!=='mask')invalid()

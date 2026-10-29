@@ -1,0 +1,87 @@
+import type { BrushDescriptor } from './brushes.js'
+import { extractDefaultAutoSourceDataCapability } from './canonicalBrushCapability.js'
+import type { SourceDefaultAutoData } from './sourceStampData.js'
+import { sourceAutoGeometry } from './sourceAutoGeometry.js'
+
+export type CanonicalAutoCoverageProfile = 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1'
+export interface CanonicalDefaultAutoRecipe {
+  readonly kind: 'defaultAuto'
+  readonly source: SourceDefaultAutoData
+  readonly coverageProfile: CanonicalAutoCoverageProfile
+  readonly brushScale: number; readonly brushAngle: number
+  readonly scale: number; readonly ratio: number; readonly rotation: number
+  readonly subX: number; readonly subY: number
+  readonly width: number; readonly height: number
+  readonly mirrorH: boolean; readonly mirrorV: boolean
+}
+/** Trusted caller binds VERIFIED descriptor identity; this DTO is not permission. */
+export interface CanonicalDefaultAutoSource {
+  readonly kind: 'defaultAuto'
+  readonly descriptorId: string; readonly descriptorVersion: number; readonly descriptorSha256: string
+  readonly source: SourceDefaultAutoData
+  readonly brushScale: number; readonly brushAngle: number
+  readonly coverageProfile: CanonicalAutoCoverageProfile
+}
+const fields = ['kind','generator','shape','diameter','ratio','horizontalFade','verticalFade','antialias','spikes','randomness','density'] as const
+const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+const zero = (n: number) => n === 0 ? 0 : n
+/** Explicit static-only zero policy: descriptor JSON need not preserve -0.
+ * Dynamic saved shape/subpixel channels NEVER pass through this helper. */
+export function canonicalDefaultAutoStatic(source: SourceDefaultAutoData, brushScale: number, brushAngle: number): {
+  source: SourceDefaultAutoData; brushScale: number; brushAngle: number
+} {
+  if (!source || Object.keys(source).length !== fields.length || !fields.every(k => Object.hasOwn(source, k))
+    || source.kind !== 'defaultAuto' || source.generator !== 'default' || !['circle','rect'].includes(source.shape)
+    || ![source.diameter,source.ratio,source.horizontalFade,source.verticalFade,brushScale,brushAngle].every(finite)
+    || source.diameter <= 0 || source.ratio <= 0 || source.spikes !== 2 || source.randomness !== 0 || source.density !== 1
+    || source.horizontalFade < 0 || source.horizontalFade > 1 || source.verticalFade < 0 || source.verticalFade > 1
+    || typeof source.antialias !== 'boolean' || brushScale < 0) throw new TypeError('Invalid default-auto static source')
+  return { source: Object.freeze({ ...source, diameter: zero(source.diameter), ratio: zero(source.ratio),
+    horizontalFade: zero(source.horizontalFade), verticalFade: zero(source.verticalFade), randomness: 0, density: 1 }),
+    brushScale: zero(brushScale), brushAngle: zero(brushAngle) }
+}
+/** Closed trusted-data validation and static normalization, reused by context,
+ * recipe checks and verified-descriptor extraction. Does not grant execution. */
+export function canonicalDefaultAutoSourcePin(trusted: CanonicalDefaultAutoSource): CanonicalDefaultAutoSource {
+  const allowed=['kind','descriptorId','descriptorVersion','descriptorSha256','source','brushScale','brushAngle','coverageProfile']
+  if (!trusted || Object.keys(trusted).length!==allowed.length || !allowed.every(k=>Object.hasOwn(trusted,k))
+    || trusted.kind !== 'defaultAuto' || typeof trusted.descriptorId!=='string' || !trusted.descriptorId || trusted.descriptorId.length > 256
+    || trusted.descriptorId.includes('\0') || !Number.isSafeInteger(trusted.descriptorVersion) || trusted.descriptorVersion < 1
+    || typeof trusted.descriptorSha256!=='string' || !/^[a-f0-9]{64}$/.test(trusted.descriptorSha256)
+    || !['scalar-f64-fma-v1','neon64-f32-fma-v1'].includes(trusted.coverageProfile)) throw new TypeError('Invalid trusted auto source')
+  return Object.freeze({...trusted,...canonicalDefaultAutoStatic(trusted.source,trusted.brushScale,trusted.brushAngle)})
+}
+export function canonicalDefaultAutoCost(recipe: CanonicalDefaultAutoRecipe, trusted: CanonicalDefaultAutoSource): { workUnits: number; outputBytes: number } {
+  const pin = canonicalDefaultAutoSourcePin(trusted)
+  const actual = canonicalDefaultAutoStatic(recipe.source, recipe.brushScale, recipe.brushAngle)
+  // Raw static -0 is not a canonical wire spelling. Trusted input is normalized
+  // independently; no descriptor JSON hash is claimed to attest float bits.
+  for (const k of ['diameter','ratio','horizontalFade','verticalFade','randomness'] as const)
+    if (!Object.is(recipe.source[k], actual.source[k]) || !Object.is(actual.source[k], pin.source[k])) throw new TypeError('Auto source static mismatch')
+  if (!Object.is(recipe.brushScale,actual.brushScale) || !Object.is(recipe.brushAngle,actual.brushAngle)
+    || !Object.is(actual.brushScale,pin.brushScale) || !Object.is(actual.brushAngle,pin.brushAngle)
+    || fields.some(k => typeof actual.source[k] !== 'number' && actual.source[k] !== pin.source[k])
+    || recipe.coverageProfile !== trusted.coverageProfile) throw new TypeError('Auto source policy mismatch')
+  const geometry = sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:actual.source.diameter,
+    ratio:actual.source.ratio,spikes:2,scale:actual.brushScale,angle:actual.brushAngle},
+  {scale:recipe.scale,ratio:recipe.ratio,rotation:recipe.rotation},recipe.subX,recipe.subY)
+  if (recipe.scale <= 0 || recipe.ratio <= 0 || geometry.maskSize[0] !== recipe.width || geometry.maskSize[1] !== recipe.height
+    || recipe.width > 4096 || recipe.height > 4096 || recipe.width * recipe.height > 1048576) throw new RangeError('Auto allocation mismatch')
+  // RGBA8 service output, not the smaller A8 reference array. Conservative 6x6
+  // AA work until common exact sample scheduling becomes a separate capability.
+  const workUnits=recipe.width * recipe.height * (actual.source.antialias ? 36 : 1)
+  if(workUnits>16*1024*1024)throw new RangeError('Auto recipe exceeds source evaluator work capacity')
+  return { workUnits, outputBytes: recipe.width * recipe.height * 4 }
+}
+
+/** Structural extraction from an already verified descriptor; caller still
+ * owns authentication, descriptor SHA verification and execution policy. */
+export function canonicalDefaultAutoSourceBinding(descriptor: BrushDescriptor, descriptorSha256: string,
+  coverageProfile: CanonicalAutoCoverageProfile): CanonicalDefaultAutoSource {
+  const result = extractDefaultAutoSourceDataCapability(descriptor)
+  if (!result.supported || !/^[a-f0-9]{64}$/.test(descriptorSha256)
+    || !['scalar-f64-fma-v1','neon64-f32-fma-v1'].includes(coverageProfile)) throw new TypeError('Default-auto source capability unavailable')
+  const normalized = canonicalDefaultAutoStatic(result.data.source, result.data.brush.scale, result.data.brush.angle)
+  return canonicalDefaultAutoSourcePin({kind:'defaultAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,
+    descriptorSha256, ...normalized, coverageProfile})
+}
