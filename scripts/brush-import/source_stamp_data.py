@@ -165,6 +165,13 @@ def option_data(params,name,xml,charge=None):
             'curveMode':integer(params.get(name+'curveMode',0)),'strength':strength,'min':0,'max':maximum,'sensors':records}
 
 
+def material_option_is_fixed_one(params,name):
+    # KisStandardOption::apply returns1 before curve/strength for unchecked data.
+    # computeValueComponents(useCurve=false) returns constant strength without
+    # sensor access/RNG; unit strength is exactly1 for Softness/Lightness ranges.
+    return not flag(params.get('Pressure'+name,'false')) or (not flag(params.get(name+'UseCurve','true')) and finite(params.get(name+'Value',1))==1)
+
+
 def retain_source_stamp(params,definition,width,height,xml,*,depth=0):
     # Preserve raw planner/material inputs, not embedded patterns/resources or thumbnail data.
     if not all(isinstance(k,str) and isinstance(v,str) for k,v in params.items()): raise ValueError('Invalid source setting key/value')
@@ -199,7 +206,8 @@ def retain_source_stamp(params,definition,width,height,xml,*,depth=0):
             'precision':{'level':integer(params.get('KisPrecisionOption/precisionLevel',5)),'automatic':flag(params.get('KisPrecisionOption/AutoPrecisionEnabled','false'))},
             'flags':{'scatterX':flag(params.get('Scattering/AxisX','true')),'scatterY':flag(params.get('Scattering/AxisY','true')),'mirrorX':flag(params.get('HorizontalMirrorEnabled','false')),'mirrorY':flag(params.get('VerticalMirrorEnabled','false')),
                      'indirectPainting':params.get('PaintOpAction')=='2' or bool(depth),'textureEnabled':flag(params.get('Texture/Pattern/Enabled','false')),
-                     'materialFixed1':not any(flag(params.get('Pressure'+key,'false')) for key in ('Sharpness','Softness','LightnessStrength','h','s','v','Darken','Mix'))},
+                     'materialFixed1':material_option_is_fixed_one(params,'Softness') and material_option_is_fixed_one(params,'LightnessStrength')
+                     and not any(flag(params.get('Pressure'+key,'false')) for key in ('Sharpness','h','s','v','Darken','Mix'))},
             'options':options,'unsupported':reasons}
     if source_stamp_budget(result)>MAX_SOURCE_STAMP_BUDGET: raise ValueError('Source stamp aggregate budget exceeded')
     return result

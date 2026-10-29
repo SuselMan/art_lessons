@@ -431,6 +431,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     source_metric=None
     application=0
     kind = definition.get('type')
+    source_tip_filename = definition.get('filename','')
+    source_static_image = False
     if kind == 'auto_brush':
         generator = definition.find('MaskGenerator')
         if generator is None:
@@ -515,7 +517,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if enabled(definition.get('useAutoSpacing')):
             notes.append(compatibility('autoSpacing','Krita adaptive spacing coefficient retained; anisotropic axis metrics and spacing sensors require separate calibration.'))
     elif kind in ('gbr_brush', 'png_brush', 'svg_brush', 'abr_brush'):
-        filename = definition.get('filename','')
+        filename = source_tip_filename
         material_gray=[]
         if filename.lower().endswith('.gih'):
             pipe=gih(resource(filename),preserve_color=True)
@@ -541,6 +543,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('gihColour','RGBA pipe colour is approximated as alpha coverage; coloured stamp pixels are not retained.','unsupported'))
         else:
             image=gbr(resource(filename),preserve_color=True) if filename.lower().endswith('.gbr') else raster(resource(filename),filename)
+            source_static_image = kind in ('png_brush','gbr_brush')
             adjustment_active=image.mode=='RGBA' if filename.lower().endswith('.gbr') else has_color(image) or image.convert('RGBA').getchannel('A').getextrema()[0]<255
             application=brush_application(definition,[image])
             if application==2 and engine=='paintbrush' and adjustment_active:
@@ -986,7 +989,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         else:
             behavior['rendering']['accumulation']='alphaDarken'
     d['behavior']=behavior
-    if engine=='paintbrush' and kind in ('png_brush','gbr_brush') and not filename.lower().endswith('.gih'):
+    # Capability comes from the decoded tip branch, never the later texture filename.
+    if engine=='paintbrush' and source_static_image:
         try:
             d['sourceStamp']=retain_source_stamp(params,definition,*source_metric,xml,depth=depth)
             if curve_compiler is not None:

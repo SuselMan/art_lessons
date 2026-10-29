@@ -1,5 +1,6 @@
 """Production raw native option retention, self-authored inputs only."""
 import io
+import struct
 import base64
 import json
 from pathlib import Path
@@ -42,6 +43,35 @@ class SourceStampDataTests(unittest.TestCase):
             bundle.write_text(json.dumps({'library':library,'assets':{}}))
             with patch('convert.base64.b64decode',side_effect=AssertionError('CAS decoded before source preflight')):
                 with self.assertRaisesRegex(ValueError,'library budget'):convert.portable_bundle(bundle,convert.Catalog(root/'out'))
+
+    def test_material_unit_constant_matches_native_standard_option_guard_only(self):
+        for option in ('Softness','LightnessStrength'):
+            disabled={'Pressure'+option:'false',option+'UseCurve':'true',option+'Value':'.2'}
+            self.assertTrue(data(disabled)['flags']['materialFixed1'])
+            constant={'Pressure'+option:'true',option+'UseCurve':'false',option+'Value':'1',option+'Sensor':'<params id="fuzzy"><curve>0,0;1,0.5;</curve></params>'}
+            self.assertTrue(data(constant)['flags']['materialFixed1'])
+            for changed in ({option+'UseCurve':'true'},{option+'Value':'.9'},{option+'Value':'2'}):
+                self.assertFalse(data({**constant,**changed})['flags']['materialFixed1'])
+        for option in ('Sharpness','h','s','v','Darken','Mix'):
+            self.assertFalse(data({'Pressure'+option:'true',option+'UseCurve':'false',option+'Value':'1'})['flags']['materialFixed1'])
+
+    def test_original_decoded_tip_scope_survives_png_texture_filename_shadow(self):
+        def frame(value):return struct.pack('>7I',29,2,3,3,1,0x47494d50,25)+b'\0'+bytes([value])*9
+        texture=io.BytesIO();Image.new('L',(4,4),127).save(texture,format='PNG')
+        settings='<param name="Texture/Pattern/Enabled">true</param><param name="Texture/Pattern/PatternFileName">paper.png</param>'
+        for count in (1,2):
+            with tempfile.TemporaryDirectory() as temp:
+                root=Path(temp);pipe=(f'Authored\n{count} dim:1 rank0:{count} sel0:random\n').encode()+b''.join(frame(64+i*64)for i in range(count))
+                path=root/'pipe.kpp';path.write_bytes(kpp('<Brush type="gbr_brush" filename="tip.gih" BrushVersion="2"/>',resources=settings))
+                catalog=convert.Catalog(root/'out');convert_krita(path,catalog,{'tip.gih':pipe,'paper.png':texture.getvalue()})
+                self.assertFalse(catalog.skipped);d=catalog.brushes[0]['descriptor'];self.assertNotIn('sourceStamp',d)
+                self.assertEqual(d['tip']['kind'],'bitmap');self.assertIn('texture',d)
+                self.assertEqual(len(d['tip'].get('animation',{}).get('frames',[d['tip']['mask']])),count)
+                path=root/'static.kpp';tip=io.BytesIO();Image.new('L',(3,5),0).save(tip,format='PNG')
+                path.write_bytes(kpp('<Brush type="png_brush" filename="tip.png" BrushVersion="2"/>',resources=settings))
+                static=convert.Catalog(root/'static');convert_krita(path,static,{'tip.png':tip.getvalue(),'paper.png':texture.getvalue()})
+                self.assertFalse(static.skipped);stamp=static.brushes[0]['descriptor']['sourceStamp']
+                self.assertEqual(stamp['brush']['width'],3);self.assertIn('filename="tip.png"',stamp['settings']['brush_definition']);self.assertTrue(stamp['flags']['textureEnabled'])
 
     def test_primary_source_slots_and_common_last_read_not_slot_order(self):
         raw='<params id="sensorslist"><ChildSensor id="fuzzy"><curve>0,0;1,1;</curve></ChildSensor><ChildSensor id="pressure"><curve>0,0;0.375,0.125,is_corner;1,1;</curve></ChildSensor></params>'
