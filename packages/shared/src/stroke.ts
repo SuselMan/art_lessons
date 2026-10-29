@@ -117,6 +117,8 @@ export type StrokeOperation = OperationBase & {
   /** Canonical centreline endpoint for independent secondary sampling only.
    * Not a primary dab. baseSize retains nominal size even at zero pressure. */
   strokeEndSample?: Dab & { baseSize: number }
+  /** Versioned binary endpoint; mutually exclusive with the legacy plain field. */
+  strokeEndSamplePacked?: string
   /** (#468 v7) Which *wash* this stroke belongs to — watercolor only.
    *
    *  A wash is several strokes laid in quick succession with the same paint on

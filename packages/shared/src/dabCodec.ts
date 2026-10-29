@@ -196,3 +196,15 @@ export function strokeDabs(op: StrokeOperation): Dab[] {
   }
   return op.dabsPacked ? unpackDabs(op.dabsPacked) : []
 }
+
+/** Binary scalar for endpoint metadata; uses the same explicit endian/base64 law. */
+export function packEndpointBaseSize(value: number): string {
+  const bytes=new Uint8Array(8)
+  new DataView(bytes.buffer).setFloat64(0,value,LITTLE_ENDIAN)
+  return toBase64(bytes)
+}
+export function unpackEndpointBaseSize(text: string): number {
+  const bytes=fromBase64(text)
+  if(bytes.length!==8 || toBase64(bytes)!==text)throw Error('endpoint: invalid scalar')
+  return new DataView(bytes.buffer).getFloat64(0,LITTLE_ENDIAN)
+}

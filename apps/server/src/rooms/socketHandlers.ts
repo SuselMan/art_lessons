@@ -2,7 +2,7 @@ import { hasRequiredOperationBrushContext, pinOperationBrush } from '../brushLib
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@grafetto/shared'
-import { hasValidBrushRandomContext, isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
+import { canonicalStrokeStorage, hasValidBrushRandomContext, isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import {
   abortAssignmentStart, beginAssignmentStart, canSeeLessonBoard, canSeeResidentBoard, getClassroom, getLessonStateFor,
@@ -584,6 +584,11 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
           return
         }
 
+        // Normalize new finite-F64 inputs before any pin, room mutation or relay.
+        try { op=canonicalStrokeStorage(op) } catch {
+          ack?.({ ok: false, reason: 'invalid_operation' })
+          return
+        }
         if (!hasRequiredOperationBrushContext(roomId, userId, op)) {
           ack?.({ ok: false, reason: 'invalid_operation' })
           return

@@ -1,5 +1,5 @@
 import { expect,it } from 'vitest'
-import { strokeDabs,type BrushDescriptor,type StrokeOperation } from '@grafetto/shared'
+import { strokeDabs,strokeEndSample,packStrokeEndSample,type BrushDescriptor,type StrokeOperation } from '@grafetto/shared'
 import { installBrushLibrary } from './brushLibrary'
 import { digitalBrushFromPreset } from './src/presets/digitalBrushPresets'
 import { brushDraws,createTestEngine,dab,makeLayerAdd,makeStroke,paperReady,pointerSample } from './testing/engineTestUtils'
@@ -20,7 +20,7 @@ it('replays endpoint-only final chunks through the same child sampler, without p
  engine.appendOperation(makeLayerAdd('peer','ink'))
  engine.appendOperation(makeStroke('peer','ink',input,{tool:'digitalBrush',preset,color:[.8,.2,.1],strokeId:'gesture'}),'remote')
  const before=stamps(engine).length
- const final=makeStroke('peer','ink',[],{tool:'digitalBrush',preset,color:[.8,.2,.1],strokeId:'gesture',strokeEnd:true,strokeEndSample:endSample})
+ const final=makeStroke('peer','ink',[],{tool:'digitalBrush',preset,color:[.8,.2,.1],strokeId:'gesture',strokeEnd:true,strokeEndSamplePacked:packStrokeEndSample(endSample)})
  engine.appendOperation(final,'remote')
  const tail=stamps(engine).slice(before)
  expect(tail).toContainEqual({x:9.5,white:true})
@@ -49,7 +49,8 @@ it('records a metadata-only pen-up after an exact chunk flush, retaining canonic
  const ops=engine['_log'].entries.map(e=>e.op).filter((op):op is StrokeOperation=>op.type==='stroke')
  expect(ops).toHaveLength(2)
  expect(ops[1].strokeEnd).toBe(true);expect(strokeDabs(ops[1])).toEqual([])
- expect(ops[1].strokeEndSample).toMatchObject({x:8.5,y:16,pressure:1,baseSize:1})
+ expect(ops[1].strokeEndSample).toBeUndefined()
+ expect(strokeEndSample(ops[1])).toMatchObject({x:8.5,y:16,pressure:1,baseSize:1})
  }finally{engine.destroy()}
 })
 it('retains the child tail through full replay and undo/redo of the gesture',()=>{
@@ -57,7 +58,7 @@ it('retains the child tail through full replay and undo/redo of the gesture',()=
  try{
  engine.appendOperation(makeLayerAdd('peer','ink'))
  const prefix=makeStroke('peer','ink',input,{tool:'digitalBrush',preset,color:[.8,.2,.1],strokeId:'undo-endpoint'})
- const final=makeStroke('peer','ink',[],{tool:'digitalBrush',preset,color:[.8,.2,.1],strokeId:'undo-endpoint',strokeEnd:true,strokeEndSample:endSample})
+ const final=makeStroke('peer','ink',[],{tool:'digitalBrush',preset,color:[.8,.2,.1],strokeId:'undo-endpoint',strokeEnd:true,strokeEndSamplePacked:packStrokeEndSample(endSample)})
  engine.appendOperation(prefix,'remote');engine.appendOperation(final,'remote')
  let before=stamps(engine).length
  engine.bakeLayerByFullReplay('ink')

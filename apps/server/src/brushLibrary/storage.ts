@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import { mkdirSync, lstatSync, writeFileSync, renameSync, rmSync, constants, openSync, closeSync, fstatSync, readSync, readdirSync, fsyncSync, linkSync } from 'node:fs'
 import { resolve, join, parse } from 'node:path'
-import { brushAssetIds, brushRequiresRandomContext, hasValidBrushRandomContext, hasBrushSourceInputs, strokeDabs, isBrushLibrary, type BrushLibrary, type Operation } from '@grafetto/shared'
+import { brushAssetIds, brushRequiresRandomContext, hasValidBrushRandomContext, hasBrushSourceInputs, strokeDabs, strokeEndSample, isBrushLibrary, type BrushLibrary, type Operation } from '@grafetto/shared'
 
 export const empty = (): BrushLibrary => ({ schemaVersion: 1, brushes: [], assets: [], skipped: [] })
 // Descriptors are JSON wire data: serialization normalizes signed zero, while
@@ -159,7 +159,7 @@ export class BrushStorage {
     if (!brush) throw Error('Brush unavailable')
     if (brushRequiresRandomContext(brush.descriptor) && (op.brushRandom === undefined || !hasValidBrushRandomContext(op))) return false
     if (!brush.descriptor.behavior?.sequentialRandom && !brush.descriptor.behavior?.strokeInput) return true
-    try { return hasBrushSourceInputs(brush.descriptor, strokeDabs(op), op.strokeEndSample) }
+    try { return hasBrushSourceInputs(brush.descriptor, strokeDabs(op), strokeEndSample(op)) }
     catch { return false }
   }
 

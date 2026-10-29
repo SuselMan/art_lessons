@@ -1,3 +1,4 @@
+import {canonicalStrokeStorage,strokeEndSample,strokeDabs,packStrokeEndSample} from '@grafetto/shared'
 import { mkdtempSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join as joinPath } from 'node:path'
@@ -486,9 +487,9 @@ describe('native XY source input admission', () => {
       for (const [index, operation] of accepted.entries()) expect(await new Promise<SendResult>(resolve => teacher.emit('operation', operation, resolve))).toMatchObject({ ok: true, seq: index + 1 })
       await _flushPendingWrites(lessonId)
       const stored = mockPrisma.operation.create.mock.calls.map(call => call[0].data.data)
-      expect(stored).toContainEqual(expect.objectContaining({ id: accepted[0].id, dabs: [valid] }))
+      expect(stored).toContainEqual(expect.objectContaining(canonicalStrokeStorage(accepted[0])))
       expect(stored).toContainEqual(expect.objectContaining({ id: accepted[1].id, dabsPacked: packed }))
-      expect(stored).toContainEqual(expect.objectContaining({ id: accepted[2].id, strokeEndSample: { ...valid, baseSize: 16 } }))
+      expect(stored).toContainEqual(expect.objectContaining(canonicalStrokeStorage(accepted[2])))
     } finally { rmSync(directory, { recursive: true, force: true }) }
   })
 })
@@ -562,9 +563,45 @@ describe.each([false, true])('native direction source input admission (sequentia
       for (const [index, operation] of accepted.entries()) expect(await new Promise<SendResult>(resolve => teacher.emit('operation', operation, resolve))).toMatchObject({ ok: true, seq: index + 1 })
       await _flushPendingWrites(lessonId)
       const stored = mockPrisma.operation.create.mock.calls.map(call => call[0].data.data)
-      expect(stored).toContainEqual(expect.objectContaining({ id: accepted[0].id, dabs: [valid] }))
+      expect(stored).toContainEqual(expect.objectContaining(canonicalStrokeStorage(accepted[0])))
       expect(stored).toContainEqual(expect.objectContaining({ id: accepted[1].id, dabsPacked: packed }))
-      expect(stored).toContainEqual(expect.objectContaining({ id: accepted[2].id, strokeEndSample: { ...valid, baseSize: 16 } }))
+      expect(stored).toContainEqual(expect.objectContaining(canonicalStrokeStorage(accepted[2])))
     } finally { rmSync(directory, { recursive: true, force: true }) }
   })
+})
+
+
+describe('lossless source-angle operation storage',()=>{
+ it('relays and stores opaque binary endpoints and canonicalizes new plain dabs',async()=>{
+  const {teacher,student,lessonId}=await classroom()
+  for(const [i,angle] of [3.1415927410125732,Math.PI/2,Math.PI,0,-0].entries()){
+   const sample={x:1,y:2,size:24,pressure:1,tiltX:0,tiltY:0,angle:0,aspectRatio:1,opacity:1,t:1,sourceAngle:angle}
+   const op:StrokeOperation={...stroke('lossless-'+i,'teacher'),tool:'digitalBrush',preset:'ink-round',strokeId:'exact-'+i,strokeEnd:true,dabs:[sample],strokeEndSample:{...sample,baseSize:24}}
+   const wire=Object.is(angle,-0)?canonicalStrokeStorage(op):op
+   const confirmed=next(student,'operation_confirmed')
+   expect(await new Promise<SendResult>(resolve=>teacher.emit('operation',wire,resolve))).toMatchObject({ok:true})
+   const peer=(await confirmed).operation as StrokeOperation
+   expect(peer.dabs).toBeUndefined();expect(peer.strokeEndSample).toBeUndefined()
+   await _flushPendingWrites(lessonId)
+   const saved=mockPrisma.operation.create.mock.calls.map(call=>call[0].data.data).find(value=>value.id===op.id) as StrokeOperation
+   // Opaque strings bypass the numeric JSON channel; a real DB check remains device QA.
+   const cold=JSON.parse(JSON.stringify(saved)) as StrokeOperation
+   for(const value of [peer,cold]){
+    expect(Object.is(strokeEndSample(value)?.sourceAngle,angle)).toBe(true)
+    expect(Object.is(strokeDabs(value)[0].sourceAngle,angle)).toBe(true)
+    expect(value.strokeEndSamplePacked).toBe(packStrokeEndSample(op.strokeEndSample!))
+   }
+  }
+ })
+ it('rejects malformed/dual binary endpoint before storage and relay',async()=>{
+  const {teacher,student}=await classroom()
+  const sample={x:1,y:2,size:24,pressure:1,tiltX:0,tiltY:0,angle:0,aspectRatio:1,opacity:1,t:1,baseSize:24,sourceAngle:Math.PI}
+  const packed=packStrokeEndSample(sample)
+  const quiet=silent(student,'operation_confirmed',100)
+  for(const [i,extra] of [{strokeEndSamplePacked:packed.slice(0,-1)},{strokeEndSamplePacked:packed,strokeEndSample:sample}].entries()){
+   expect(await new Promise<SendResult>(resolve=>teacher.emit('operation',{...stroke('bad-bin-'+i,'teacher'),tool:'digitalBrush',strokeId:'bad-bin',strokeEnd:true,...extra},resolve))).toEqual({ok:false,reason:'invalid_operation'})
+  }
+  await quiet
+  expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+ })
 })
