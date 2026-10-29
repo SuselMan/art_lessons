@@ -15,7 +15,7 @@ Batch predeclares prepared services, extra cached resources и exact external
 lifetime objects. Проверяется одна gl/cache/BrushMipCache/extensions identity,
 actual cache charges и GPU union<=существующего budget. Никаких GPU allocations.
 Transient CPU reservation из того же BrushMipCache:
-4096+96*resourceCount+128*ownerCount+256*participantCount bytes. Это conservative
+4096+96*resourceCount+96*ownedSamplerCount+128*ownerCount+256*participantCount bytes. Это conservative
 metadata estimate, не hard JS/driver heap guarantee. Reserve освобождается finally;
 новой квоты нет. Ограничения declarations:<=8participants,<=64owners,<=1024resources.
 
@@ -62,3 +62,32 @@ order/thermal drift не позволяет обещать универсаль�
 Прежние isolated pass proofs
 1bc11f408 и a70d8c2e0 остаются привязаны к своим источникам/receipts; новый
 brush84 gate дополняет их, но не расширяет численный профиль или engine coverage.
+
+
+## Owned sampler capability: новый путь, GPU gate pending
+
+`BrushGlBatchInfo.ownedPointSamplers` объявляет только внутренний owning service.
+Первый и единственный production producer — private prepass output slots,
+созданные factory NEAREST/NEAREST/CLAMP/CLAMP. View — immutable-sampler borrow:
+borrowers и external lease callbacks не вправе менять texParameteri этих slots.
+Это не caller flag, asset brand, format/vendor policy или cross-frame GL cache.
+
+Entry(key,texture,bytes,epoch) проверяется против exact prepared cache union,
+actual key/handle/charge и participant epoch до capture/acquisition. Два owners
+либо key/charge/epoch aliases одного handle отклоняются. На каждом skip sampler
+owner epoch и actual residency проверяются ещё раз; context/reset не сохраняет
+capability в следующем frame. Sampler metadata CPU map включён в тот же reserve.
+
+Только такой source не попадает в journal и не вызывает sampler query/set/restore.
+Внешние straightRGBA8, synthetic cached masks и все standalone APIs по-прежнему
+сохраняют4actual params, временно NEAREST/CLAMP и возвращают их даже при throw.
+Mixed regression показывает owned0query + external4queries/unique; exact real
+prepass→composite test подтверждает0samplerqueries на двух ordered draws. Stale
+owner epoch, wrong key/handle/charge и conflicting aliases reject до effects.
+43 focused tests PASS; это CPU/state checks, не device pixel receipt нового пути.
+
+Baseline guarded full17 Samsung gate относится к **15f484ede**, до capability:
+17presets/3256requests/203chunks, wrong0/GL[], hotuploads0,
+actualstateRestorationChecked/stateRestored/cleanup true. Receipt private
+R52/canonical-stock-full17-batch-guards-device-result.json. Accepted baseline
+не заменяет необходимый fresh owned-sampler GPU proof.

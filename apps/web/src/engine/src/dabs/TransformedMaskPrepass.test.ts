@@ -282,7 +282,7 @@ it('shares one state capture for the real ordered prepass→composite services',
     const release=vi.fn(),lifetime={kind:'external' as const,owner:{},lease:()=>release};
     const target={brand:'canonical-straight-rgba8-v1' as const,texture:s.gl.createTexture(),framebuffer:s.gl.createFramebuffer(),width:32,height:32,originX:-100,originY:40,lifetime};
     s.gl.getFramebufferAttachmentParameter=()=>target.texture;
-    const before=s.snapshot(),query=vi.spyOn(s.gl,'getParameter'),attrib=vi.spyOn(s.gl,'getVertexAttrib');
+    const before=s.snapshot(),query=vi.spyOn(s.gl,'getParameter'),attrib=vi.spyOn(s.gl,'getVertexAttrib'),sampler=vi.spyOn(s.gl,'getTexParameter');
     runBrushGlBatch({participants:[s.service,pass],owners:[lifetime]},frame=>{
       const count=query.mock.calls.length;
       for(let i=0;i<2;i++){
@@ -293,7 +293,7 @@ it('shares one state capture for the real ordered prepass→composite services',
     });
     expect(s.snapshot()).toEqual(before);expect(s.gl.drawArrays).toHaveBeenCalledTimes(3);
     // Four unique attribs, once each, with the ANGLE divisor query.
-    expect(attrib).toHaveBeenCalledTimes(28);expect(release).toHaveBeenCalledOnce();
+    expect(attrib).toHaveBeenCalledTimes(28);expect(release).toHaveBeenCalledOnce();expect(sampler).not.toHaveBeenCalled();
     pass.reset();s.service.reset();
   }finally{clock.mockRestore()}
 });

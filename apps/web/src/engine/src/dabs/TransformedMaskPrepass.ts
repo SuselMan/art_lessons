@@ -70,6 +70,9 @@ export interface TransformedMaskRequest {
   };
   readonly profile: 'wide8-separate-wordsize64' | 'neon4-summed-wordsize64';
 }
+/** Borrowed output: its owning prepass retains immutable NEAREST/CLAMP sampler
+ * configuration. Consumers/owner callbacks must not call texParameteri on it.
+ * Sampling/view geometry is valid only while the returned group is leased. */
 export interface TransformedMaskView {
   readonly key: string;
   readonly texture: WebGLTexture;
@@ -283,7 +286,8 @@ export class TransformedMaskPrepass {
   brushGlBatchInfo(): BrushGlBatchInfo {
     if (!this.isReady() || !this.workspace) throw new Error('Prepass is not prepared');
     return { gl: this.gl, cache: this.cache, cpu: this.cpu, epoch: this.workspace, attributes: this.attributes, instancing: this.instancing, vertexArrays: this.vertexArrays,
-      resources: [...this.preparedResources(), ...[...this.sources].map(([key, bytes]) => ({ key, bytes }))] };
+      resources: [...this.preparedResources(), ...[...this.sources].map(([key, bytes]) => ({ key, bytes }))],
+      ownedPointSamplers: this.slots.filter((slot): slot is Slot => !!slot).map(slot => ({ key: slot.key, texture: slot.texture, bytes: this.limits!.width * this.limits!.height * 4, epoch: this.workspace! })) };
   }
   enterBrushGlBatch(frame: BrushGlBatchFrame): () => void {
     frame.acceptParticipant(this);

@@ -163,3 +163,47 @@ it('preserves the draw failure while releasing every owner and group after clean
   expect(s.cpu.reservedBytes).toBe(0)
   runBrushGlBatch({ participants: [s.service] }, () => {})
 })
+
+it('omits sampler journal only for exact owner-attested prepared handles and still journals an external texture',()=>{
+  const s=setup(),info=s.service.brushGlBatchInfo(),owned=s.gl.createTexture(),external=s.gl.createTexture();
+  s.cache.protect(['owned']);s.cache.put('owned',owned,4);
+  s.service.brushGlBatchInfo=()=>({...info,resources:[{key:'owned',bytes:4}],ownedPointSamplers:[{key:'owned',bytes:4,texture:owned,epoch:info.epoch}]});
+  s.gl.getTexParameter=vi.fn((_:number,p:number)=>p===s.gl.TEXTURE_MIN_FILTER||p===s.gl.TEXTURE_MAG_FILTER?9010:9011);
+  const samplerWrites=s.gl.texParameteri.mock.calls.length,before=s.snapshot();
+  runBrushGlBatch({participants:[s.service]},frame=>{
+    s.gl.activeTexture(s.gl.TEXTURE0);s.gl.bindTexture(s.gl.TEXTURE_2D,owned);
+    frame.pointSampling(owned);frame.pointSampling(owned);
+    expect(s.gl.getTexParameter).not.toHaveBeenCalled();expect(s.gl.texParameteri.mock.calls.length).toBe(samplerWrites);
+    s.gl.bindTexture(s.gl.TEXTURE_2D,external);frame.pointSampling(external);frame.pointSampling(external);
+    expect(s.gl.getTexParameter).toHaveBeenCalledTimes(4);
+  });
+  expect(s.gl.texParameteri.mock.calls.slice(-4).map((call:number[])=>call[2])).toEqual([9010,9010,9011,9011]);
+  expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0);
+});
+it('rejects forged/stale owned sampler metadata and conflicting aliases before capture or ownership effects',()=>{
+  const s=setup(),info=s.service.brushGlBatchInfo(),texture=s.gl.createTexture(),other=s.gl.createTexture();
+  s.cache.protect(['first','alias']);s.cache.put('first',texture,4);s.cache.put('alias',texture,4);
+  const valid={key:'first',bytes:4,texture,epoch:info.epoch},resources=[{key:'first',bytes:4},{key:'alias',bytes:4}],acquire=vi.fn(()=>()=>{});
+  const query=vi.spyOn(s.gl,'getParameter');
+  for(const entry of [{...valid,key:'unknown'},{...valid,bytes:8},{...valid,texture:other},{...valid,epoch:{}}]){
+    s.service.brushGlBatchInfo=()=>({...info,resources,ownedPointSamplers:[entry]});
+    expect(()=>runBrushGlBatch({participants:[s.service],owners:[{owner:{},lease:acquire}]},()=>{})).toThrow('owned sampler');
+  }
+  s.service.brushGlBatchInfo=()=>({...info,resources,ownedPointSamplers:[valid,{...valid,key:'alias'}]});
+  expect(()=>runBrushGlBatch({participants:[s.service]},()=>{})).toThrow('Conflicting');
+  expect(query).not.toHaveBeenCalled();expect(acquire).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(0);
+});
+it('rechecks sampler owner epoch at use and restores only external sampler entries after a failed command',()=>{
+  const s=setup(),info=s.service.brushGlBatchInfo(),texture=s.gl.createTexture(),external=s.gl.createTexture();
+  s.cache.protect(['owned']);s.cache.put('owned',texture,4);
+  const prepared={...info,resources:[{key:'owned',bytes:4}],ownedPointSamplers:[{key:'owned',bytes:4,texture,epoch:info.epoch}]};
+  s.service.brushGlBatchInfo=()=>prepared;s.gl.getTexParameter=vi.fn(()=>9010);
+  const before=s.snapshot();
+  expect(()=>runBrushGlBatch({participants:[s.service]},frame=>{
+    s.gl.activeTexture(s.gl.TEXTURE0);s.gl.bindTexture(s.gl.TEXTURE_2D,texture);frame.pointSampling(texture);
+    s.gl.bindTexture(s.gl.TEXTURE_2D,external);frame.pointSampling(external);
+    s.service.brushGlBatchInfo=()=>({...prepared,epoch:{}});
+    frame.pointSampling(texture);
+  })).toThrow('epoch/residency');
+  expect(s.gl.getTexParameter).toHaveBeenCalledTimes(4);expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0);
+});

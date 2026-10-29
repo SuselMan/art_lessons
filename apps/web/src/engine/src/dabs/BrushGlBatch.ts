@@ -3,6 +3,13 @@ import type { BrushMipCache } from './BrushMipCache'
 import type { BrushTextureCache } from './BrushTextureCache'
 
 export interface BrushGlBatchResource { readonly key: string; readonly bytes: number }
+/** Immutable sampler ownership, advertised only by the service that creates
+ * and exclusively configures this prepared texture. Borrowers may sample it,
+ * never mutate its sampler, including in external lease callbacks. */
+export interface BrushGlBatchOwnedSampler extends BrushGlBatchResource {
+  readonly texture: WebGLTexture
+  readonly epoch: object
+}
 export interface BrushGlBatchLifetime { readonly owner: object; readonly lease: () => () => void }
 export interface BrushGlBatchInfo {
   readonly gl: WebGLRenderingContext
@@ -13,6 +20,7 @@ export interface BrushGlBatchInfo {
   readonly instancing: ANGLE_instanced_arrays | null
   readonly vertexArrays: OES_vertex_array_object | null
   readonly resources: readonly BrushGlBatchResource[]
+  readonly ownedPointSamplers?: readonly BrushGlBatchOwnedSampler[]
 }
 /** Internal services expose metadata, never a raw draw bypass. */
 export interface BrushGlBatchParticipant {
@@ -30,6 +38,7 @@ export class BrushGlBatchFrame {
   private readonly infos: Map<BrushGlBatchParticipant, BrushGlBatchInfo>
   private readonly owners: Set<BrushGlBatchLifetime>
   private readonly resources: Map<string, number>
+  private readonly ownedSamplers: Map<WebGLTexture, { participant: BrushGlBatchParticipant; sampler: BrushGlBatchOwnedSampler }>
   private readonly samplers = new Map<WebGLTexture, readonly number[]>()
   private readonly targets = new Map<WebGLFramebuffer, Target>()
   private readonly groups: (() => void)[] = []
@@ -41,9 +50,9 @@ export class BrushGlBatchFrame {
   private started = 0
   private readonly gl: WebGLRenderingContext
   private readonly cache: BrushTextureCache
-  constructor(key: symbol, infos: Map<BrushGlBatchParticipant, BrushGlBatchInfo>, owners: readonly BrushGlBatchLifetime[], resources: Map<string, number>) {
+  constructor(key: symbol, infos: Map<BrushGlBatchParticipant, BrushGlBatchInfo>, owners: readonly BrushGlBatchLifetime[], resources: Map<string, number>, ownedSamplers: Map<WebGLTexture, { participant: BrushGlBatchParticipant; sampler: BrushGlBatchOwnedSampler }>) {
     if (key !== authority) throw new Error('Brush GL batch frames require coordinator ownership')
-    this.infos = infos; this.owners = new Set(owners); this.resources = resources
+    this.infos = infos; this.owners = new Set(owners); this.resources = resources; this.ownedSamplers = ownedSamplers
     const first = infos.values().next().value!
     this.gl = first.gl; this.cache = first.cache
   }
@@ -88,6 +97,12 @@ export class BrushGlBatchFrame {
   holdGroup(release: () => void): void { if (!this.opened) throw new Error('Closed brush GL batch'); this.groups.push(release) }
   pointSampling(texture: WebGLTexture): () => void {
     if (!this.opened) throw new Error('Closed brush GL batch')
+    const owned = this.ownedSamplers.get(texture)
+    if (owned) {
+      const item = owned.sampler
+      if (owned.participant.brushGlBatchInfo().epoch !== item.epoch || this.cache.resourceBytes(item.key) !== item.bytes || this.cache.get(item.key) !== texture) throw new Error('Owned sampler epoch/residency changed')
+      return noop
+    }
     if (this.samplers.has(texture)) return noop
     const gl = this.gl, names = [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER, gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T]
     this.samplers.set(texture, names.map(name => gl.getTexParameter(gl.TEXTURE_2D, name) as number))
@@ -142,9 +157,19 @@ export function runBrushGlBatch(options: {
   }
   if (resources.size > 1024 || [...resources.values()].reduce((a, b) => a + b, 0) > first.cache.budgetBytes) throw new RangeError('Brush GL batch GPU budget exceeded')
   for (const owner of owners) if (!owner || !owner.owner || typeof owner.owner !== 'object' || typeof owner.lease !== 'function') throw new RangeError('Invalid batch owner lifetime')
-  const cpuBytes = 4096 + resources.size * 96 + owners.length * 128 + infos.size * 256
+  const ownedSamplers = new Map<WebGLTexture, { participant: BrushGlBatchParticipant; sampler: BrushGlBatchOwnedSampler }>()
+  for (const [participant, info] of infos) {
+    if ((info.ownedPointSamplers?.length ?? 0) > 8) throw new RangeError('Owned sampler declaration capacity exceeded')
+    for (const item of info.ownedPointSamplers ?? []) {
+      if (item.epoch !== info.epoch || resources.get(item.key) !== item.bytes || info.cache.resourceBytes(item.key) !== item.bytes || info.cache.get(item.key) !== item.texture) throw new Error('Invalid owned sampler identity/epoch/charge')
+      const previous = ownedSamplers.get(item.texture)
+      if (previous && (previous.participant !== participant || previous.sampler.key !== item.key || previous.sampler.bytes !== item.bytes || previous.sampler.epoch !== item.epoch)) throw new Error('Conflicting owned sampler metadata')
+      ownedSamplers.set(item.texture, { participant, sampler: { ...item } })
+    }
+  }
+  const cpuBytes = 4096 + ownedSamplers.size * 96 + resources.size * 96 + owners.length * 128 + infos.size * 256
   const releaseCpu = first.cpu.reserve(cpuBytes)
-  const frame = new BrushGlBatchFrame(authority, infos, owners, resources), releases: (() => void)[] = []
+  const frame = new BrushGlBatchFrame(authority, infos, owners, resources, ownedSamplers), releases: (() => void)[] = []
   let restore: (() => void) | undefined, failed = false, failure: unknown
   const cleanup = (fn: () => void) => { try { fn() } catch (error) { if (!failed) { failed = true; failure = error } } }
   try {
