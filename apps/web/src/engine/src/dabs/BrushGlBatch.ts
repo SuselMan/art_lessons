@@ -53,7 +53,7 @@ export class BrushGlBatchFrame {
   }
   /** @internal coordinator only */
   open(key: symbol): void { if (key !== authority) throw new Error('Invalid batch authority'); this.acquiring = false; this.opened = true; this.started = performance.now() }
-  get shouldYield(): boolean { return this.draws >= 8 || this.draws > 0 && performance.now() - this.started >= 4 }
+  get shouldYield(): boolean { return this.draws >= 8 || this.groupCount >= 8 || (this.draws > 0 || this.groupCount > 0) && performance.now() - this.started >= 4 }
   assert(participant: BrushGlBatchParticipant, resources: readonly BrushGlBatchResource[], owners: readonly BrushGlBatchLifetime[] = []): void {
     const saved = this.infos.get(participant)
     if (!this.opened || !saved) throw new Error('Closed or foreign brush GL batch')

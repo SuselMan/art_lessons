@@ -287,3 +287,17 @@ describe('composite inside explicit GL batch', () => {
         s.pass.reset();
     });
 });
+
+it('counts empty standalone batched submissions so outside-only batches remain bounded',()=>{
+  const clock=vi.spyOn(performance,'now').mockReturnValue(0);
+  try {
+    const s=setup();s.pass.prepare({width:16,height:16},s.companion);
+    const lifetime={kind:'external' as const,owner:{},lease:()=>()=>{}};
+    const request={source:{kind:'maskRgb' as const,view:{...s.view,rect:{...s.view.rect,x:-10000}},rgb:[1,2,3] as const},target:{...s.target,lifetime},operation:{kind:'alphaDarken32' as const,control}};
+    runBrushGlBatch({participants:[s.pass],owners:[lifetime]},frame=>{
+      for(let i=0;i<8;i++)expect(s.pass.drawSource(request,frame)).toBe('empty');
+      expect(frame.shouldYield).toBe(true);expect(()=>s.pass.drawSource(request,frame)).toThrow('budget');
+    });
+    expect(s.gl.drawArrays).not.toHaveBeenCalled();s.pass.reset();
+  }finally{clock.mockRestore()}
+});

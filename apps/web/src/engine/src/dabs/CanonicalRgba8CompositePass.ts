@@ -355,12 +355,15 @@ export class CanonicalRgba8CompositePass {
         const unique = new Map(resources.map(r => [r.key, r.bytes]));
         if ([...unique.values()].reduce((a, b) => a + b, 0) > this.cache.budgetBytes)
             throw new RangeError('Composite draw exceeds GPU budget');
+        const declaredOwners = [target.lifetime, ...base === target ? [] : [base.lifetime], ...sampled.residency.kind === 'external' ? [sampled.residency] : []];
         const clip = this.clip(sampled.rect, target);
-        if (!clip)
+        if (!clip) {
+            frame?.assert(this, resources, declaredOwners);
+            frame?.beginDraw();
             return 'empty';
+        }
         if (clip.width > this.limits.width || clip.height > this.limits.height)
             throw new RangeError('Composite clip exceeds prepared capacity');
-        const declaredOwners = [target.lifetime, ...base === target ? [] : [base.lifetime], ...sampled.residency.kind === 'external' ? [sampled.residency] : []];
         frame?.assert(this, resources, declaredOwners);
         frame?.beginDraw();
         this.cache.protect([...unique.keys()]);

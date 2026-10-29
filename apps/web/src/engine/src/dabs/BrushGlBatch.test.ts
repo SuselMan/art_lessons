@@ -119,3 +119,15 @@ it('refuses transient CPU overflow before acquisition and releases reservations 
   s.gl.isContextLost=()=>false;
   runBrushGlBatch({participants:[s.service]},()=>{});
 });
+
+it('signals yield after eight empty groups and after elapsed group work without a draw',()=>{
+  const clock=vi.spyOn(performance,'now').mockReturnValue(0),s=setup();
+  runBrushGlBatch({participants:[s.service]},frame=>{
+    for(let i=0;i<8;i++){const token=frame.beginGroup();frame.endGroup(token)}
+    expect(frame.shouldYield).toBe(true);expect(()=>frame.beginGroup()).toThrow('budget');
+  });
+  runBrushGlBatch({participants:[s.service]},frame=>{
+    const token=frame.beginGroup();frame.endGroup(token);clock.mockReturnValue(4);
+    expect(frame.shouldYield).toBe(true);
+  });
+});
