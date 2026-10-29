@@ -477,7 +477,7 @@ export function isBrushLibrary(value: unknown, limits: { maxBytes?: number; maxB
       const secondary = d.behavior.dual?.brush
       if (secondary) {
         if (d.model !== 'stamp' && secondary.tip?.profile?.kind === 'gaussian') return false
-        if (secondary.behavior?.dual || secondary.behavior?.sequentialRandom || secondary.tip?.profile?.kind === 'circleBand') return false
+        if (secondary.behavior?.dual || secondary.behavior?.sequentialRandom || secondary.behavior?.strokeInput || secondary.tip?.profile?.kind === 'circleBand') return false
         const probe = { schemaVersion: 1, assets: value.assets, brushes: [{ name: 'secondary', source: b.source, warnings: [], descriptor: secondary }], skipped: [] }
         if (!isBrushLibrary(probe)) return false
       }

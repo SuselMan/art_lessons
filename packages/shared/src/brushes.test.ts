@@ -15,6 +15,17 @@ function library(): BrushLibrary {
 }
 
 describe('brush library contract', () => {
+  it('admits author input on the primary component and rejects unsupported independent child input', () => {
+    const data=library(), parent=data.brushes[0].descriptor, child=structuredClone(parent)
+    const strokeInput={version:1,initialDirection:'cursorHistory'} as const
+    parent.behavior={version:2,strokeInput,dual:{brush:child,blendMode:'multiply',sampling:'independent'}}
+    expect(isBrushLibrary(data)).toBe(true)
+    child.behavior={version:2,strokeInput}
+    expect(isBrushLibrary(data)).toBe(false)
+    delete child.behavior.strokeInput
+    expect(isBrushLibrary(data)).toBe(true)
+  })
+
   it('requires recorded random context only for explicit native sensor capabilities', () => {
     const parent=library().brushes[0].descriptor,child=structuredClone(parent)
     const native={control:'strokeRandom' as const,minimum:0,jitter:0,randomSource:{kind:'qt5Taus88' as const,key:'RotationFuzzyStroke'}}
