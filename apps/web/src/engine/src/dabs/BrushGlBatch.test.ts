@@ -144,3 +144,22 @@ it('admits the next full request when metadata crosses the cooperative deadline 
     expect(frame.shouldYield).toBe(true);
   });
 });
+
+
+it('preserves the draw failure while releasing every owner and group after cleanup failures', () => {
+  const s = setup(), before = s.snapshot(), released: string[] = []
+  const owners = ['first', 'second'].map(name => ({
+    owner: {},
+    lease: () => () => { released.push(name); throw Error(`release ${name}`) },
+  }))
+  expect(() => runBrushGlBatch({ participants: [s.service], owners }, frame => {
+    frame.holdGroup(() => { released.push('group first'); throw Error('group cleanup') })
+    frame.holdGroup(() => { released.push('group second') })
+    s.gl.bindBuffer(s.gl.ARRAY_BUFFER, s.gl.createBuffer())
+    throw Error('original draw failure')
+  })).toThrow('original draw failure')
+  expect(released).toEqual(['group second', 'group first', 'second', 'first'])
+  expect(s.snapshot()).toEqual(before)
+  expect(s.cpu.reservedBytes).toBe(0)
+  runBrushGlBatch({ participants: [s.service] }, () => {})
+})
