@@ -1,3 +1,4 @@
+import type { RasterPixelEncoding } from '@grafetto/shared'
 import { AccumulationBuffer } from './AccumulationBuffer'
 
 // (#536, §17.44) 14, from 6: the half-resolution settle takes and gives back
@@ -52,16 +53,17 @@ export class RibbonScratchPool {
     return { live: this._allocatedBytes - this._freeBytes, free: this._freeBytes }
   }
 
-  acquire(width: number, height: number): AccumulationBuffer {
-    const list = this._free.get(`${width}x${height}`)
+  acquire(width: number, height: number, pixelEncoding: RasterPixelEncoding = 'premultiplied-rgba8'): AccumulationBuffer {
+    const list = this._free.get(`${pixelEncoding}:${width}x${height}`)
     const reused = list?.pop()
     if (reused) { this._freeBytes -= width * height * 4; return reused }
     // 'nearest' matches what RibbonStrokeScratch has always asked for — see
     // its getOrCreate comment. The pool must never hand back a buffer built
-    // with a different filter, which is why it is keyed by size alone and
-    // used by this one caller.
+    // with a different filter or pixel encoding. Both encodings share this
+    // pool's existing live/free accounting and idle byte ceiling.
+    const created = new AccumulationBuffer(this.gl, width, height, 'nearest', pixelEncoding)
     this._allocatedBytes += width * height * 4
-    return new AccumulationBuffer(this.gl, width, height, 'nearest')
+    return created
   }
 
   /** (§17.70) While set, released buffers are all kept: a rebuild on a
@@ -84,7 +86,7 @@ export class RibbonScratchPool {
   }
 
   release(buf: AccumulationBuffer): void {
-    const key = `${buf.width}x${buf.height}`
+    const key = `${buf.pixelEncoding}:${buf.width}x${buf.height}`
     const bytes = buf.width * buf.height * 4
     const list = this._free.get(key)
     if (this.holding) {
