@@ -1,0 +1,132 @@
+import { describe, expect, it } from 'vitest'
+import { CANONICAL_MATERIAL_PROFILE as profile, packCanonicalMaterial, unpackCanonicalMaterial,
+  type CanonicalMaterialContext, type CanonicalMaterialFrame, type CanonicalMaterialEntry } from '@grafetto/shared'
+import { advanceSourcePrimaryComposition as advance, createSourcePrimaryComposition as create,
+  type SourcePrimaryCompositionContext, type SourcePrimaryCompositionState } from './sourcePrimaryComposition'
+import { sourceBlendAverageOpacity } from './brushWash'
+import { normalizeSourcePainterOpacity } from './sourcePainterOpacity'
+const asset = 'asset:' + '1'.repeat(64)
+const codec: CanonicalMaterialContext = { assets: [{ id: asset, size: 1, x: 0, y: 0, width: 1, height: 1 }], primaryAsset: asset,
+  budget: { workUnits: 100, outputBytes: 100, drawPixels: 100 }, preflightDefinition: () => ({ workUnits: 1, outputBytes: 1 }) }
+const recipe = { asset, brushScale: 1, brushAngle: 0, scale: 1, ratio: 1, rotation: 0, subX: 0, subY: 0,
+  width: 1, height: 1, mirrorH: false, mirrorV: false }
+const wash: SourcePrimaryCompositionContext = { mode: 'wash', alphaDarken: 'creamy', outerResourceOpacity: .27, outerBlend: 'over' }
+function frame(opacities: number[], entry: CanonicalMaterialEntry, fences: CanonicalMaterialFrame['fences'], flow = .4): CanonicalMaterialFrame {
+  const f: CanonicalMaterialFrame = { profile, masked: false, entry, definitions: opacities.length ? [recipe] : [],
+    draws: opacities.map((opacity, x) => ({ definition: 0, role: 'primary', x, y: 0, opacity, flow })), fences }
+  return unpackCanonicalMaterial(packCanonicalMaterial(f, codec), codec)
+}
+const begin = { kind: 'segmentBegin' as const, at: 0, group: 7 }
+const finish = (at: number) => [{ kind: 'primaryEnd' as const, at, group: 7 }, { kind: 'segmentEnd' as const, at, group: 7 }]
+const end = (at: number) => ({ kind: 'gestureEnd' as const, at })
+const whole = (values: number[]) => frame(values, { phase: 'between' }, [begin, ...finish(values.length), end(values.length)])
+const step = (s: SourcePrimaryCompositionState, f: CanonicalMaterialFrame) => advance(s, { ordinal: s.nextFrameOrdinal, frame: f })
+
+describe('decoded single-primary composition session (no renderer activation)', () => {
+  it('creates one fresh wash target, previews against fixed original, commits once on empty tail', () => {
+    const initial = create(wash)
+    expect(initial.commands).toEqual([{ kind: 'beginWash', target: 'freshTransparentStroke' }])
+    const first = step(initial.state, frame([.8], { phase: 'between' }, [begin, ...finish(1)]))
+    expect(first.commands).toEqual([{ kind: 'presentWash', source: 'stroke', destination: 'originalLayer', originalLayer: 'preStrokeSnapshot', opacity: .27, blend: 'over' }])
+    const tail = step(first.state, frame([], { phase: 'between' }, [end(0)]))
+    expect(tail.draws).toEqual([]); expect(tail.state.drawCount).toBe(1)
+    expect(tail.state.averageQreal).toBe(first.state.averageQreal)
+    expect(tail.commands[0]?.kind).toBe('commitWash'); expect(tail.state.ended).toBe(true)
+    expect(() => step(tail.state, frame([], { phase: 'between' }, [end(0)]))).toThrow()
+  })
+  it('preserves qreal history and normalized controls through JSON resume and arbitrary frame splits', () => {
+    const values = [.934567891234, .12345678912, 0, .12345679, .9, .1]
+    const one = step(create(wash).state, whole(values))
+    let s = create(wash).state
+    const controls = []
+    for (let i = 0; i < values.length; i++) {
+      s = JSON.parse(JSON.stringify(s))
+      const f = frame([values[i]!], i === 0 ? { phase: 'between' } : { phase: 'primary', group: 7 },
+        [...(i === 0 ? [begin] : []), ...(i === values.length - 1 ? [...finish(1), end(1)] : [])])
+      const r = step(s, f); controls.push(r.draws[0]!.controls); s = r.state
+    }
+    expect(controls).toEqual(one.draws.map(d => d.controls))
+    expect(s.averageQreal).toBe(one.state.averageQreal)
+    expect(s.drawCount).toBe(values.length)
+    let average = 0
+    for (const opacity of values) average = sourceBlendAverageOpacity(opacity, average)
+    expect(s.averageQreal).toBe(average)
+    expect(s.averageQreal).not.toBe(Math.fround(average))
+  })
+  it('counts zero-valued actual draws, never invents an endpoint dab or resets on source fences', () => {
+    const first = step(create(wash).state, frame([1], { phase: 'between' }, [begin, ...finish(1)]))
+    const next = frame([0], { phase: 'between' }, [{ kind: 'segmentBegin', at: 0, group: 9 },
+      { kind: 'primaryEnd', at: 1, group: 9 }, { kind: 'segmentEnd', at: 1, group: 9 }, end(1)])
+    const result = step(first.state, next)
+    expect(result.state.averageQreal).toBe(sourceBlendAverageOpacity(0, 1))
+    expect(result.draws).toHaveLength(1); expect(result.draws[0]?.drawOrdinal).toBe(1)
+    expect(result.state.drawCount).toBe(2)
+  })
+  it('keeps empty after-primary framing across chunks without masked execution', () => {
+    const first = step(create(wash).state, frame([.7], { phase: 'between' }, [begin, { kind: 'primaryEnd', at: 1, group: 7 }]))
+    expect(first.state.entry).toEqual({ phase: 'mask', group: 7 })
+    const tail = step(first.state, frame([], { phase: 'mask', group: 7 }, [{ kind: 'segmentEnd', at: 0, group: 7 }, end(0)]))
+    expect(tail.draws).toHaveLength(0); expect(tail.commands[0]?.kind).toBe('commitWash')
+  })
+  it('keeps raw F32 controls for hard/creamy: no hard flow fold at session boundary', () => {
+    for (const alphaDarken of ['hard', 'creamy'] as const) {
+      const result = step(create({ ...wash, alphaDarken }).state, whole([.8, .2]))
+      const average = sourceBlendAverageOpacity(.2, .8)
+      expect(result.draws[1]!.controls).toEqual({ kind: 'localAlphaDarken', variant: alphaDarken,
+        ...normalizeSourcePainterOpacity({ opacity: .2, averageOpacity: average, flow: .4 }) })
+    }
+  })
+  it('retains Qt average aliasing after F32 narrowing without narrowing qreal history', () => {
+    const result = step(create(wash).state, whole([.50000001, .5]))
+    const p = result.draws[1]!.controls
+    expect(p.kind).toBe('localAlphaDarken')
+    if (p.kind !== 'localAlphaDarken') throw Error('wrong path')
+    expect(p.averageAliased).toBe(true); expect(p.averageOpacity).toBe(p.opacity)
+    expect(result.state.averageQreal).toBeGreaterThan(.5)
+  })
+  it('direct Over exposes opacity only, never flow or another outer opacity application', () => {
+    const initial = create({ ...wash, mode: 'buildup' })
+    expect(initial.commands).toEqual([])
+    const result = step(initial.state, whole([.8, .2]))
+    expect(result.draws.map(d => d.controls)).toEqual([.8, .2].map(opacity => ({ kind: 'directOver', opacity: Math.fround(opacity) })))
+    expect(result.commands).toEqual([])
+  })
+  it('rejects duplicate/gapped packet ordinals, entry mismatch and regressing groups atomically', () => {
+    const initial = create(wash).state
+    const first = step(initial, frame([.8], { phase: 'between' }, [begin, ...finish(1)]))
+    const snapshot = JSON.stringify(first.state)
+    for (const ordinal of [0, 2, NaN]) expect(() => advance(first.state, { ordinal, frame: whole([.2]) })).toThrow()
+    expect(() => step(first.state, frame([.2], { phase: 'primary', group: 7 }, []))).toThrow()
+    expect(() => step(first.state, whole([.2]))).toThrow()
+    expect(JSON.stringify(first.state)).toBe(snapshot)
+    expect(initial.drawCount).toBe(0)
+  })
+  it('rejects a late bad fence without changing previously consumed source state', () => {
+    const s = create(wash).state, f = whole([.8, .2])
+    const bad = { ...f, fences: [...f.fences, end(2)] }
+    expect(() => step(s, bad)).toThrow(); expect(s.averageQreal).toBe(0); expect(s.drawCount).toBe(0)
+    expect(step(s, f).draws).toHaveLength(2)
+  })
+  it('rejects unsupported policy, malformed checkpoint, mask and masked frames', () => {
+    for (const patch of [{ mode: 'other' }, { alphaDarken: 'other' }, { outerBlend: 'multiply' }, { outerResourceOpacity: NaN }]) {
+      expect(() => create({ ...wash, ...patch } as SourcePrimaryCompositionContext)).toThrow()
+    }
+    const initial = create(wash).state
+    for (const patch of [{ version: 2 }, { averageQreal: NaN }, { drawCount: -1 }, { nextFrameOrdinal: .5 }, { entry: { phase: 'primary', group: 3 } }]) {
+      expect(() => step({ ...initial, ...patch } as SourcePrimaryCompositionState, whole([.8]))).toThrow()
+    }
+    expect(() => step(initial, { ...whole([.8]), masked: true })).toThrow()
+    const f = whole([.8])
+    expect(() => step(initial, { ...f, draws: [{ ...f.draws[0]!, role: 'mask' }] })).toThrow()
+  })
+  it('copies and freezes context/state/outputs so later caller changes cannot leak policy', () => {
+    const c = { ...wash }, initial = create(c)
+    c.outerResourceOpacity = .9
+    expect(initial.state.context.outerResourceOpacity).toBe(.27)
+    expect(Object.isFrozen(initial.state.context)).toBe(true)
+    const result = step(initial.state, whole([.8]))
+    expect(result.commands[0]).toMatchObject({ opacity: .27 })
+    expect(Object.isFrozen(result.draws[0]!.controls)).toBe(true)
+    expect(Object.isFrozen(result.state.entry)).toBe(true)
+  })
+})
