@@ -1,10 +1,11 @@
+import { sourcePngPyramid } from '@grafetto/shared';
 import { saveBrushGlState } from './BrushGlState';
 import type { SourceDabMaterialSpec } from '../presets/sourceDabCache';
 import { buildRgba64FactorLut } from '../raster/sourceRgba64StraightShader';
 import { SOURCE_TRANSFORMED_MASK_VERT, sourceTransformedMaskFragment } from '../raster/sourceTransformedMaskShader';
 import { BrushMipCache } from './BrushMipCache';
 import { BrushTextureCache } from './BrushTextureCache';
-import { resolvedTransformedMaskPlan, writeTransformedMaskVertices, type TransformedMaskPlan } from './TransformedMaskPlan';
+import { resolvedTransformedMaskPlan, writeTransformedMaskVertices, type TransformedMaskPlan, type TransformedMaskMaterial, type CanonicalMaskSourceBinding, canonicalTransformedMaskMetadata, canonicalTransformedMaskPlan, canonicalMaskRevision } from './TransformedMaskPlan';
 export interface TransformedMaskLimits {
   readonly width: number;
   readonly height: number;
@@ -28,10 +29,37 @@ export interface TransformedMaskSource {
   readonly width: number;
   readonly height: number;
 }
+export interface TransformedMaskPreparedSource {
+  readonly key: string;
+  readonly bytes: number;
+  /** Trusted cold bank binding, copied before drawing. Legacy callers omit it. */
+  readonly canonical?: CanonicalMaskSourceBinding;
+}
+function savedMaterial(m: TransformedMaskMaterial): SourceDabMaterialSpec {
+  if ('kind' in m) {
+    if (m.kind === 'savedSource') return m.source;
+    throw new RangeError('Canonical material is not a saved source request');
+  }
+  return m;
+}
+function canonicalMaterial(m: TransformedMaskMaterial): m is Extract<TransformedMaskMaterial, { kind: 'canonical' }> {
+  return !!m && 'kind' in m && m.kind === 'canonical';
+}
+function checkedBinding(b: CanonicalMaskSourceBinding, bytes: number): CanonicalMaskSourceBinding {
+  const a = b?.asset;
+  if (!a || !/^asset:[0-9a-f]{64}$/.test(a.id) || ![a.size, a.width, a.height].every(n => Number.isSafeInteger(n) && n > 0)
+    || a.size > 4096 || ![a.x, a.y].every(n => Number.isSafeInteger(n) && n >= 0)
+    || a.x + a.width > a.size || a.y + a.height > a.size || !Number.isSafeInteger(b.index) || b.index < 0)
+    throw new RangeError('Invalid canonical prepared source binding');
+  const level = sourcePngPyramid(a.width, a.height).levels[b.index];
+  if (!level || b.baseScale !== level.scale || b.nativeWidth !== level.width || b.nativeHeight !== level.height
+    || bytes !== (level.width + 2) * (level.height + 2) * 4) throw new RangeError('Invalid canonical prepared level binding');
+  return Object.freeze({ ...b, asset: Object.freeze({ ...a }) });
+}
 export interface TransformedMaskRequest {
   readonly owner: object;
   readonly role: string;
-  readonly material: SourceDabMaterialSpec;
+  readonly material: TransformedMaskMaterial;
   readonly source: TransformedMaskSource;
   readonly rect: {
     readonly x: number;
@@ -65,7 +93,7 @@ interface Slot {
   owner?: object;
   role?: string;
   revision?: string;
-  material?: SourceDabMaterialSpec;
+  material?: TransformedMaskMaterial;
   plan?: TransformedMaskPlan;
   profile?: string;
   sourceKey?: string;
@@ -86,6 +114,7 @@ const safe = (v: number, low: number, high: number) => Number.isSafeInteger(v) &
 export class TransformedMaskPrepass {
   private limits?: TransformedMaskLimits;
   private sources = new Map<string, number>();
+  private sourceBindings = new Map<string, CanonicalMaskSourceBinding>();
   private workspace?: Workspace;
   private slots: (Slot | undefined)[] = [];
   private staging?: Float32Array;
@@ -116,14 +145,12 @@ export class TransformedMaskPrepass {
   * Source entries must already be prepared straight RGBA8 gray+alpha levels.
   * Caller accounts expansion scratch during source preparation separately.
   */
-  prepare(limits: TransformedMaskLimits, sourceResources: readonly {
-    key: string;
-    bytes: number;
-  }[], signal?: AbortSignal): 'ready' | 'cancelled' {
+  prepare(limits: TransformedMaskLimits, sourceResources: readonly TransformedMaskPreparedSource[], signal?: AbortSignal): 'ready' | 'cancelled' {
     if (signal?.aborted)
       return 'cancelled';
     const budget = transformedMaskPrepassBudget(limits);
     const sourceMap = new Map<string, number>();
+    const bindings = new Map<string, CanonicalMaskSourceBinding>();
     for (const source of sourceResources) {
       if (!source.key || source.key.startsWith(this.prefix + ':') || !safe(source.bytes, 1, Number.MAX_SAFE_INTEGER))
         throw new RangeError('Invalid prepared source budget');
@@ -132,6 +159,11 @@ export class TransformedMaskPrepass {
       if (this.cache.resourceBytes(source.key) !== source.bytes || !this.cache.get(source.key))
         throw new RangeError('Source bank must be prepared before the prepass');
       sourceMap.set(source.key, source.bytes);
+      if (source.canonical) {
+        const binding = checkedBinding(source.canonical, source.bytes), previous = bindings.get(source.key);
+        if (previous && JSON.stringify(previous) !== JSON.stringify(binding)) throw new RangeError('Conflicting canonical prepared binding');
+        bindings.set(source.key, binding);
+      }
     }
     const { vertexBytes, cpuBytes } = budget;
     const gpuBytes = budget.gpuBytes + [...sourceMap.values()].reduce((a, b) => a + b, 0);
@@ -145,7 +177,7 @@ export class TransformedMaskPrepass {
       if (this.limits.width !== limits.width || this.limits.height !== limits.height || this.limits.slots !== limits.slots)
         throw new Error('Reset prepass before changing prepared capacity');
       if (this.isReady()) {
-        this.sources = sourceMap;
+        this.sources = sourceMap; this.sourceBindings = bindings;
         return 'ready';
       }
       throw new Error('Reset and prepare evicted prepass resources before input');
@@ -220,7 +252,7 @@ export class TransformedMaskPrepass {
         return 'cancelled';
       }
       this.limits = { ...limits };
-      this.sources = sourceMap;
+      this.sources = sourceMap; this.sourceBindings = bindings;
       this.releaseCpu = release;
       this.reservedCpuBytes = cpuBytes;
       return 'ready';
@@ -267,25 +299,41 @@ export class TransformedMaskPrepass {
       if (roles.has(request.role))
         throw new RangeError('Duplicate prepass role');
       roles.add(request.role);
-      const material = request.material;
-      if (!material || !material.brush || !material.shape || !material.key || !material.mirror || typeof material.mirror.horizontal !== 'boolean' || typeof material.mirror.vertical !== 'boolean')
-        throw new RangeError('Invalid saved source material');
-      const immutable = Object.isFrozen(material) && Object.isFrozen(material.brush) && Object.isFrozen(material.shape) && Object.isFrozen(material.key);
-      const previous = this.slots.find(slot => slot?.owner === request.owner && slot.role === request.role && slot.material === material && slot.sourceKey === request.source.key && slot.profile === request.profile);
-      const source = request.source, rect = request.rect;
-      const k = material.key;
-      const revision = immutable && previous?.revision ? previous.revision : JSON.stringify([request.profile, source.key, material.brushIdentity, material.width, material.height, material.brush.width, material.brush.height, material.brush.scale, material.brush.angle, material.shape.scale, material.shape.ratio, material.shape.rotation, k.subPixelX, k.subPixelY, k.color, k.softness, k.lightness, k.index, k.mirrorH, k.mirrorV].map(v => Object.is(v, -0) ? '-0' : v));
-      const same = this.slots.find(slot => slot?.owner === request.owner && slot.role === request.role && slot.revision === revision);
-      const plan = same?.plan ?? resolvedTransformedMaskPlan(material);
+      const material = request.material, source = request.source, rect = request.rect;
+      if (!material || typeof material !== 'object') throw new RangeError('Invalid prepass material');
+      let revision: string, plan: TransformedMaskPlan;
+      let mirror: { horizontal: boolean; vertical: boolean };
+      if (canonicalMaterial(material)) {
+        const { recipe, asset } = material, metadata = canonicalTransformedMaskMetadata(recipe, asset), binding = this.sourceBindings.get(source.key);
+        if (!binding || ['id', 'size', 'x', 'y', 'width', 'height'].some(k => binding.asset[k as keyof typeof asset] !== asset[k as keyof typeof asset])
+          || binding.index !== metadata.index || binding.baseScale !== metadata.baseScale
+          || binding.nativeWidth !== metadata.levelWidth || binding.nativeHeight !== metadata.levelHeight)
+          throw new RangeError('Canonical mask differs from prepared source binding');
+        revision = canonicalMaskRevision(request.profile, source.key, recipe, asset);
+        const same = this.slots.find(slot => slot?.owner === request.owner && slot.role === request.role && slot.revision === revision);
+        plan = same?.plan ?? canonicalTransformedMaskPlan(recipe, asset);
+        mirror = { horizontal: recipe.mirrorH, vertical: recipe.mirrorV };
+      } else {
+        const saved = savedMaterial(material);
+        if (!saved || !saved.brush || !saved.shape || !saved.key || !saved.mirror || typeof saved.mirror.horizontal !== 'boolean' || typeof saved.mirror.vertical !== 'boolean')
+          throw new RangeError('Invalid saved source material');
+        const immutable = Object.isFrozen(saved) && Object.isFrozen(saved.brush) && Object.isFrozen(saved.shape) && Object.isFrozen(saved.key);
+        const previous = this.slots.find(slot => slot?.owner === request.owner && slot.role === request.role && slot.material === material && slot.sourceKey === source.key && slot.profile === request.profile);
+        const k = saved.key;
+        revision = immutable && previous?.revision ? previous.revision : JSON.stringify([request.profile, source.key, saved.brushIdentity, saved.width, saved.height, saved.brush.width, saved.brush.height, saved.brush.scale, saved.brush.angle, saved.shape.scale, saved.shape.ratio, saved.shape.rotation, k.subPixelX, k.subPixelY, k.color, k.softness, k.lightness, k.index, k.mirrorH, k.mirrorV].map(v => Object.is(v, -0) ? '-0' : v));
+        const same = this.slots.find(slot => slot?.owner === request.owner && slot.role === request.role && slot.revision === revision);
+        plan = same?.plan ?? resolvedTransformedMaskPlan(saved);
+        mirror = { horizontal: saved.mirror.horizontal, vertical: saved.mirror.vertical };
+      }
       if (plan.width > this.limits!.width || plan.height > this.limits!.height || plan.spans.length > this.limits!.height
         || !safe(source.width, 1, 4096) || !safe(source.height, 1, 4096) || source.width !== plan.levelWidth + 2 || source.height !== plan.levelHeight + 2
         || (this.sources.get(source.key) ?? 0) < source.width * source.height * 4 || this.cache.get(source.key) !== source.texture
         || ![rect.x, rect.y, rect.width, rect.height].every(Number.isSafeInteger) || rect.width !== plan.width || rect.height !== plan.height)
         throw new RangeError('Unprepared material geometry/source');
       // Validate every new native row before any GL ownership side effect.
-      if (!same)
+      if (!this.slots.some(slot => slot?.owner === request.owner && slot.role === request.role && slot.revision === revision))
         writeTransformedMaskVertices(plan, this.staging!);
-      return { request, plan, revision };
+      return { request, plan, revision, mirror };
     });
     const slots = this.slots as Slot[], selected = new Set<Slot>();
     // Reserve all existing hits before choosing an LRU destination for misses.
@@ -334,11 +382,11 @@ export class TransformedMaskPrepass {
           restore();
         }
       }
-      const views = assigned.map(({ slot, request, plan }) => {
+      const views = assigned.map(({ slot, request, plan, mirror }) => {
         slot.material = request.material;
         slot.used = ++this.clock;
         return { key: slot.key, texture: slot.texture, rect: { ...request.rect }, bounds: { x: 0 as const, y: 0 as const, width: plan.width / this.limits!.width, height: plan.height / this.limits!.height },
-          mirror: { horizontal: request.material.mirror.horizontal, vertical: request.material.mirror.vertical }, channel: 'r' as const };
+          mirror, channel: 'r' as const };
       });
       return { views, release };
     }
@@ -371,7 +419,7 @@ export class TransformedMaskPrepass {
     this.slots = [];
     this.staging = undefined;
     this.limits = undefined;
-    this.sources.clear();
+    this.sources.clear(); this.sourceBindings.clear();
     this.attributes = [];
     this.uniforms = {};
     this.instancing = null;

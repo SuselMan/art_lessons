@@ -1,8 +1,8 @@
-import type { BrushTip, TipMaskId } from '@grafetto/shared'
+import { sourcePngPyramid, type BrushTip, type TipMaskId } from '@grafetto/shared'
 import { nativeImageBank, nativeImagePixels, type NativeImageResource } from './NativeImageBank'
 import { BrushTextureCache, uploadBrushTexture } from './BrushTextureCache'
 import { BrushMipCache } from './BrushMipCache'
-import type { TransformedMaskSource } from './TransformedMaskPrepass'
+import type { TransformedMaskSource, TransformedMaskPreparedSource } from './TransformedMaskPrepass'
 
 /** Trusted imageSampling provenance: original opaque grayscale, unchanged crop.
  * Coverage with unknown original alpha/material conversion is NOT this input. */
@@ -146,6 +146,22 @@ export class CanonicalMaskSourceBank {
   resources(): readonly TransformedMaskSource[] {
     if (!this.isReady()) throw new Error('Canonical source bank is not prepared')
     return this.jobs.map(job => ({ key: job.key, texture: this.cache.get(job.key)!, width: job.resource.width, height: job.resource.height }))
+  }
+  /** Cold trusted metadata snapshot for prepass binding, no pixels/uploads.
+   * Includes finite per-level fields and one small crop record; these records
+   * and their prepass copies are covered by the existing 512B/job metadata charge.
+   * Old resources() texture API intentionally remains unchanged. */
+  preparedResources(): readonly TransformedMaskPreparedSource[] {
+    if (!this.isReady()) throw new Error('Canonical source bank is not prepared')
+    return this.jobs.map(job => {
+      const resource = job.resource, input = this.inputs.get(job.key)!;
+      const index = sourcePngPyramid(resource.rect.width, resource.rect.height).levels.findIndex(level => level.scale === resource.scale);
+      if (index < 0) throw new Error('Canonical source level metadata changed');
+      return Object.freeze({ key: job.key, bytes: job.bytes, canonical: Object.freeze({
+        asset: Object.freeze({ id: resource.id, size: input.assetSide, ...resource.rect }), index,
+        baseScale: resource.scale, nativeWidth: resource.nativeWidth, nativeHeight: resource.nativeHeight,
+      }) });
+    });
   }
   lease(): () => void {
     if (!this.isReady()) throw new Error('Canonical source bank is not prepared')

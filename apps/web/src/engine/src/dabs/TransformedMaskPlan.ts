@@ -1,3 +1,6 @@
+import type { CanonicalMaterialAsset, CanonicalMaterialRecipe } from '@grafetto/shared';
+import { sourceImageTransformMetadata } from '@grafetto/shared';
+import { sourceImageTransformSpans } from '../presets/sourceImageTransformSpans';
 import type { SourceDabMaterialSpec } from '../presets/sourceDabCache';
 import { sourcePngRasterShape } from '../presets/sourcePngGeometry';
 import { affineImageSpan16Coordinates } from '../raster/affineImageSpan16';
@@ -16,6 +19,45 @@ export function resolvedTransformedMaskPlan(source: SourceDabMaterialSpec): Tran
   if (plan.width !== source.width || plan.height !== source.height)
     throw new RangeError('Saved material allocation differs from its source plan');
   return plan;
+}
+/** Trusted prepare-time identity of one original CAS crop and selected level. */
+export interface CanonicalMaskSourceBinding {
+  readonly asset: CanonicalMaterialAsset;
+  readonly index: number;
+  readonly baseScale: number;
+  readonly nativeWidth: number;
+  readonly nativeHeight: number;
+}
+export interface CanonicalTransformedMaskMaterial {
+  readonly kind: 'canonical';
+  readonly recipe: CanonicalMaterialRecipe;
+  readonly asset: CanonicalMaterialAsset;
+}
+export type TransformedMaskMaterial = SourceDabMaterialSpec | { readonly kind: 'savedSource'; readonly source: SourceDabMaterialSpec } | CanonicalTransformedMaskMaterial;
+export function canonicalTransformedMaskMetadata(recipe: CanonicalMaterialRecipe, asset: CanonicalMaterialAsset) {
+  if (!asset || !/^asset:[0-9a-f]{64}$/.test(asset.id) || ![asset.size, asset.width, asset.height].every(n => Number.isSafeInteger(n) && n > 0)
+    || asset.size > 4096 || ![asset.x, asset.y].every(n => Number.isSafeInteger(n) && n >= 0)
+    || asset.x + asset.width > asset.size || asset.y + asset.height > asset.size
+    || !recipe || recipe.asset !== asset.id || typeof recipe.mirrorH !== 'boolean' || typeof recipe.mirrorV !== 'boolean')
+    throw new RangeError('Invalid canonical mask asset binding');
+  const shape = sourcePngRasterShape({ width: asset.width, height: asset.height, scale: recipe.brushScale, angle: recipe.brushAngle },
+    { scale: recipe.scale, ratio: recipe.ratio, rotation: recipe.rotation });
+  const metadata = sourceImageTransformMetadata(asset.width, asset.height, shape, recipe.subX, recipe.subY);
+  if (metadata.width !== recipe.width || metadata.height !== recipe.height)
+    throw new RangeError('Canonical mask allocation differs from source plan');
+  return metadata;
+}
+/** Metadata already admitted before deferred covered-row allocation. */
+export function canonicalTransformedMaskPlan(recipe: CanonicalMaterialRecipe, asset: CanonicalMaterialAsset): TransformedMaskPlan {
+  const m = canonicalTransformedMaskMetadata(recipe, asset);
+  return { ...m, spans: m.directCopy ? [] : sourceImageTransformSpans(m.levelWidth + 2, m.levelHeight + 2, m.width, m.height, m.forward) };
+}
+export function canonicalMaskRevision(profile: string, sourceKey: string, recipe: CanonicalMaterialRecipe, asset: CanonicalMaterialAsset): string {
+  // ECMAScript decimal number serialization is round-trip exact for finite F64;
+  // distinguish -0 explicitly. Placement and post-raster mirrors are not pixels.
+  return JSON.stringify(['canonical-v1', profile, sourceKey, asset.id, asset.size, asset.x, asset.y, asset.width, asset.height,
+    recipe.brushScale, recipe.brushAngle, recipe.scale, recipe.ratio, recipe.rotation, recipe.subX, recipe.subY, recipe.width, recipe.height]
+    .map(v => Object.is(v, -0) ? '-0' : v));
 }
 export function transformedMaskVertexCount(plan: TransformedMaskPlan): number {
   return (plan.directCopy ? 1 : plan.spans.length) * 6;

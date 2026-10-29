@@ -160,3 +160,19 @@ describe('finite opaque grayscale canonical source bank', () => {
   })
 
 })
+
+it('exports cold immutable CAS/crop/level bindings without new reads, uploads or changes to texture API', () => {
+  const s = setup(); expect(() => s.bank.preparedResources()).toThrow('prepared');
+  for (let i = 0; i < s.bank.jobs.length; i++) s.bank.prepareJob(i);
+  const reads = (s.source.readOriginalCoverage as ReturnType<typeof vi.fn>).mock.calls.length, uploads = s.gl.texImage2D.mock.calls.length;
+  const resources = s.bank.resources(), bindings = s.bank.preparedResources();
+  expect(bindings).toHaveLength(resources.length);
+  bindings.forEach((r, i) => {
+    expect(r.key).toBe(resources[i]!.key); expect(r.bytes).toBe(resources[i]!.width * resources[i]!.height * 4);
+    expect(r.canonical!.index).toBe(i); expect(r.canonical!.asset).toMatchObject({ id: 'chalk', x: 1, y: 1, width: 3, height: 5 });
+    expect(r.canonical!.baseScale).toBe(s.bank.jobs[i]!.resource.scale);
+    expect(Object.isFrozen(r.canonical!.asset)).toBe(true);
+  });
+  expect(s.source.readOriginalCoverage).toHaveBeenCalledTimes(reads); expect(s.gl.texImage2D).toHaveBeenCalledTimes(uploads);
+  expect('canonical' in resources[0]!).toBe(false); s.bank.reset();
+});

@@ -184,3 +184,56 @@ describe('internal persistent transformed-mask service', () => {
   });
 
 });
+
+describe('canonical prepared bank binding', () => {
+  function canonicalSetup() {
+    const s = setup(), m = material(), p = resolvedTransformedMaskPlan(m);
+    const asset = { id: 'asset:' + 'a'.repeat(64), size: 4, x: 1, y: 2, width: 2, height: 1 };
+    const recipe = { asset: asset.id, brushScale: m.brush.scale, brushAngle: m.brush.angle, scale: m.shape.scale, ratio: m.shape.ratio,
+      rotation: m.shape.rotation, subX: m.key.subPixelX, subY: m.key.subPixelY, width: m.width, height: m.height, mirrorH: false, mirrorV: false };
+    const binding = { asset: { ...asset }, index: p.index, baseScale: p.baseScale, nativeWidth: p.levelWidth, nativeHeight: p.levelHeight };
+    const request = { ...s.request, material: { kind: 'canonical' as const, recipe, asset } };
+    const resources = [{ ...s.resources[0]!, canonical: binding }];
+    s.service.prepare({ width: 16, height: 16, slots: 2 }, resources);
+    return { ...s, request, asset, recipe, binding };
+  }
+  it('hits across newly decoded objects and placement, mirrors view exactly once after raster', () => {
+    const s = canonicalSetup(), first = s.service.resolveGroup([s.request]), texture = first.views[0]!.texture;
+    first.release(); const draws = s.gl.drawArrays.mock.calls.length, uploads = s.gl.texImage2D.mock.calls.length;
+    const copy = structuredClone(s.request.material);
+    copy.recipe.mirrorH = true; copy.recipe.mirrorV = true;
+    const hit = s.service.resolveGroup([{ ...s.request, material: copy, rect: { ...s.request.rect, x: 1234567, y: -7654321 } }]);
+    expect(hit.views[0]!.texture).toBe(texture); expect(hit.views[0]!.mirror).toEqual({ horizontal: true, vertical: true });
+    expect(hit.views[0]!.rect.x).toBe(1234567); expect(s.gl.drawArrays).toHaveBeenCalledTimes(draws); expect(s.gl.texImage2D).toHaveBeenCalledTimes(uploads);
+    hit.release(); s.service.reset(); s.cache.clear();
+  });
+  it('rerasterizes changed exact recipe, but rejects wrong crop, level/source, handle and allocation before GL', () => {
+    const s = canonicalSetup(); s.service.resolveGroup([s.request]).release();
+    const changed = { ...s.request.material, recipe: { ...s.recipe, subX: s.recipe.subX + Number.EPSILON } };
+    const n = s.gl.drawArrays.mock.calls.length;
+    s.service.resolveGroup([{ ...s.request, material: changed }]).release(); expect(s.gl.drawArrays.mock.calls.length).toBeGreaterThan(n);
+    const before = s.snapshot(), draws = s.gl.drawArrays.mock.calls.length;
+    const otherLevel = material(.075);
+    for (const request of [
+      { ...s.request, material: { ...s.request.material, asset: { ...s.asset, x: 0 } } },
+      { ...s.request, material: { ...s.request.material, asset: { ...s.asset, id: 'asset:' + 'b'.repeat(64) } } },
+      { ...s.request, material: { ...s.request.material, recipe: { ...s.recipe, scale: s.recipe.scale / 8 } } },
+      { ...s.request, material: { ...s.request.material, recipe: { ...s.recipe, width: s.recipe.width + 1 } } },
+      { ...s.request, material: { ...s.request.material, recipe: { ...s.recipe, scale: .075, width: otherLevel.width, height: otherLevel.height } }, rect: { ...s.request.rect, width: otherLevel.width, height: otherLevel.height } },
+      { ...s.request, source: { ...s.request.source, key: 'unbound' } },
+      { ...s.request, source: { ...s.request.source, texture: {} as WebGLTexture } },
+    ]) expect(() => s.service.resolveGroup([request])).toThrow();
+    expect(s.snapshot()).toEqual(before); expect(s.gl.drawArrays).toHaveBeenCalledTimes(draws);
+    s.service.reset(); s.cache.clear();
+  });
+  it('snapshots cold metadata and refuses canonical replay with legacy unbound prepared resources', () => {
+    const s = canonicalSetup(); s.binding.asset.x = 0; s.binding.baseScale = 123;
+    expect(() => s.service.resolveGroup([s.request]).release()).not.toThrow();
+    s.service.reset(); s.service.prepare({ width: 16, height: 16, slots: 2 }, s.resources);
+    expect(() => s.service.resolveGroup([s.request])).toThrow('binding');
+    // Legacy source caller still works with the old texture resource API.
+    expect(() => s.service.resolveGroup([{ ...s.request, material: material() }]).release()).not.toThrow();
+    expect(() => s.service.resolveGroup([{ ...s.request, material: { kind: 'savedSource', source: material() } }]).release()).not.toThrow();
+    s.service.reset(); s.cache.clear();
+  });
+});

@@ -54,3 +54,28 @@ it('preserves the previous array writer byte for byte across whole native materi
     expect(new Uint8Array(actual.buffer)).toEqual(new Uint8Array(Float32Array.from(expected).buffer))
   }
 })
+
+import { canonicalTransformedMaskMetadata, canonicalTransformedMaskPlan, canonicalMaskRevision } from './TransformedMaskPlan';
+const canonicalCase = () => {
+  const s = spec(), asset = { id: 'asset:' + 'a'.repeat(64), size: 16, x: 2, y: 3, width: s.brush.width, height: s.brush.height };
+  const recipe = { asset: asset.id, brushScale: s.brush.scale, brushAngle: s.brush.angle, scale: s.shape.scale, ratio: s.shape.ratio,
+    rotation: s.shape.rotation, subX: s.key.subPixelX, subY: s.key.subPixelY, width: s.width, height: s.height, mirrorH: false, mirrorV: false };
+  return { s, asset, recipe };
+};
+describe('canonical decoded geometry without synthetic author cache inputs', () => {
+  it('matches saved-source plan exactly and binds allocation before covered-row work', () => {
+    const { s, asset, recipe } = canonicalCase();
+    expect(canonicalTransformedMaskPlan(recipe, asset)).toEqual(resolvedTransformedMaskPlan(s));
+    const m = canonicalTransformedMaskMetadata(recipe, asset);
+    expect('spans' in m).toBe(false);
+    expect(() => canonicalTransformedMaskPlan({ ...recipe, width: recipe.width + 1 }, asset)).toThrow('allocation');
+    expect(() => canonicalTransformedMaskPlan(recipe, { ...asset, id: 'asset:' + 'b'.repeat(64) })).toThrow('binding');
+  });
+  it('preserves F64 signed-zero revision and separates post-raster mirror from mask pixels', () => {
+    const { asset, recipe } = canonicalCase(), key = (r: typeof recipe) => canonicalMaskRevision('neon', 'source', r, asset);
+    expect(key({ ...recipe, rotation: 0 })).not.toBe(key({ ...recipe, rotation: -0 }));
+    expect(key(recipe)).not.toBe(key({ ...recipe, scale: recipe.scale + Number.EPSILON }));
+    expect(key(recipe)).toBe(key({ ...recipe, mirrorH: true, mirrorV: true }));
+    expect(canonicalTransformedMaskPlan(recipe, asset)).toEqual(canonicalTransformedMaskPlan({ ...recipe, mirrorH: true }, asset));
+  });
+});
