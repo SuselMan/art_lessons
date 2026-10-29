@@ -2468,6 +2468,6 @@
     "ownJobs": 0,
     "ownForwardRemoved": true,
     "ownGLHandles": 0,
-    "temporaryHostResource": "parent cleanup pending; no binary/config committed"
+    "temporaryHostResource": "removed through root strict /proc inspection + standard locked registry guard; no binary/config retained"
   }
 }
