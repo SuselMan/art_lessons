@@ -2,15 +2,25 @@
  * Source behavior: Krita bd6e8d0 KoAlphaDarkenParamsWrapper.h,
  * KoCompositeOpAlphaDarken.h and KisPainter::blendAverageOpacity.
  * No vendor implementation is copied. RGBA8 intermediate rounding is not modeled.
+ * Ordered opacity history does retain the source's float exponent and qreal
+ * arithmetic; the later ParameterInfo float narrowing is a separate boundary.
  */
 export interface WashOpacityState { average: number; maximum: number }
 export interface WashOpacityStep { average: number; maxPrev: number; canBlend: boolean }
 export type WashPixel = [number, number, number, number]
+const sourceAverageExponent = Math.fround(.1)
+
+/** qreal opacity/average with a float32 exponent, as in KisPainter. Rounding the
+ * average to float at each step or using double constants .1/.9 changes history.
+ * Call once per ordered actual dab; packet/tile boundaries never reset it. */
+export function sourceBlendAverageOpacity(opacity: number, average: number): number {
+  return average < opacity ? opacity : sourceAverageExponent * opacity + (1 - sourceAverageExponent) * average
+}
 
 /** Update once per ordered placed dab, outside tile/pixel loops. Inputs are 0..1. */
 export function advanceWashOpacity(state: WashOpacityState, opacity: number): WashOpacityStep {
   const maxPrev = state.maximum
-  const average = opacity > state.average ? opacity : .1 * opacity + .9 * state.average
+  const average = sourceBlendAverageOpacity(opacity, state.average)
   state.average = average
   state.maximum = Math.max(maxPrev, opacity)
   // Earlier scratch alpha is bounded by the previous maximum opacity. Only
