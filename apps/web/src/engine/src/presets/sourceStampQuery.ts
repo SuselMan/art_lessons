@@ -1,3 +1,4 @@
+import { sourceScatter } from './sourceScatter'
 import { sourceOptionComponents, sourceRotationLike, sourceSizeLike, sourceStandardOption, type SourceOption, type SourceOptionContext } from './sourceOption'
 
 export type SourceStampOptionId = 'Size' | 'Rotation' | 'Ratio' | 'Scatter' | 'Opacity' | 'Flow' | 'Mirror' | 'Spacing' | 'Rate'
@@ -99,21 +100,10 @@ export class SourceStampQueryExecutor {
     if (kind === 'spacing') return { painted: false, events, scale, rotation, spacing: spacing() }
     const ratio = evaluate('Ratio')
     const [width, height] = boundary.maskExtent(scale, ratio, rotation)
-    let x = info.x, y = info.y
-    const scatter = this.options.Scatter
-    if (scatter.checked && (boundary.scatterX || boundary.scatterY)) {
-      const amplitude = evaluate('Scatter')
-      const jitter = (2 * this.context.random.generateNormalized() - 1) * Math.max(width, height) * amplitude
-      if (boundary.scatterX && boundary.scatterY) {
-        x += jitter
-        y += (2 * this.context.random.generateNormalized() - 1) * Math.max(width, height) * amplitude
-      } else {
-        const dx = Math.fround(Math.cos(info.drawingAngle)), dy = Math.fround(Math.sin(info.drawingAngle))
-        const scalar = Math.fround(jitter)
-        x += Math.fround((boundary.scatterX ? dx : -dy) * scalar)
-        y += Math.fround((boundary.scatterX ? dy : dx) * scalar)
-      }
-    }
+    const [x, y] = sourceScatter({
+      x: info.x, y: info.y, angle: info.drawingAngle, width, height,
+      checked: this.options.Scatter.checked, axisX: boundary.scatterX, axisY: boundary.scatterY,
+    }, this.context.random, () => evaluate('Scatter'))
     const opacity = evaluate('Opacity', () => this.options.Opacity.checked
       ? sourceSizeLike(sourceOptionComponents(this.options.Opacity, this.context, !boundary.indirectPainting)) : 1)
     const flow = evaluate('Flow')
