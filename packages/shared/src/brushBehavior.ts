@@ -28,6 +28,10 @@ export interface BrushBehavior {
   /** Explicit per-logical-request XY source. Absence retains legacy coordinate hashing.
    * Recorded sourceSize/sourceScale describe allocation, independently of coverage. */
   sequentialRandom?: { version: 1; kind: 'qt5Taus88'; policy: 'scatterXY' }
+  /** Author-side input law. Raw direction and inserted corner requests are logged
+   * once; replay must not consult local cursor history or insert them again.
+   * Absence preserves the legacy input pipeline. */
+  strokeInput?: { version: 1; initialDirection: 'cursorHistory'; fanCorners?: { stepDegrees: number } }
   /** View/widget coordinates per millisecond; EMA is Grafetto's approximation
    * of the source input estimator. Captured once before geometry, then logged. */
   speedInput?: { version: 1; space: 'view'; maximum: number; estimator: 'grafettoEMA30ms' }
@@ -93,9 +97,15 @@ export function isBrushBehavior(value: unknown): value is BrushBehavior {
   const n = (v: unknown, min = 0, max = 1): boolean => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max
   const keys = (v: Record<string, unknown>, allowed: string[]): boolean => Object.keys(v).every(k => allowed.includes(k))
   const blend = (v: unknown): boolean => BRUSH_BLEND_MODES.includes(v as BrushBlendMode)
-  if (!obj(value) || value.version !== 2 || !keys(value,['version','sequentialRandom','speedInput','colorAdjustment','spacing','edgeBleed','erase','falloff','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
+  if (!obj(value) || value.version !== 2 || !keys(value,['version','sequentialRandom','strokeInput','speedInput','colorAdjustment','spacing','edgeBleed','erase','falloff','rotation','scatter','dynamics','modulations','grain','rendering','wetMix','taper','dual'])) return false
   const random=value.sequentialRandom
   if(random!==undefined && (!obj(random)||!keys(random,['version','kind','policy'])||random.version!==1||random.kind!=='qt5Taus88'||random.policy!=='scatterXY'))return false
+  const input=value.strokeInput
+  if(input!==undefined){
+    if(!obj(input)||!keys(input,['version','initialDirection','fanCorners'])||input.version!==1||input.initialDirection!=='cursorHistory')return false
+    const fan=input.fanCorners
+    if(fan!==undefined&&(!obj(fan)||!keys(fan,['stepDegrees'])||!n(fan.stepDegrees,5,90)||!Number.isInteger(fan.stepDegrees)))return false
+  }
   const speed=value.speedInput
   if(speed!==undefined && (!obj(speed)||!keys(speed,['version','space','maximum','estimator'])||speed.version!==1||speed.space!=='view'||!n(speed.maximum,.001,1000)||speed.estimator!=='grafettoEMA30ms'))return false
   if (value.spacing !== undefined && (!obj(value.spacing) || !keys(value.spacing,['mode','coefficient','dynamics','isotropic','axisScale','angleOffset'])
