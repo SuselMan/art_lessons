@@ -43,7 +43,10 @@ def verified_source(entry, commit, cache):
     return target
 
 
-def build(lock, cache, output, include_legacy=False):
+def build(lock, cache, output, include_legacy=False, *, sequential_xy=False, stroke_input=False, timed_input=False):
+    policies={'sequential_xy':sequential_xy,'stroke_input':stroke_input,'timed_input':timed_input}
+    if any(type(value)is not bool for value in policies.values()):raise ValueError('Stock source policy flags must be explicit booleans')
+    convert_options={key:value for key,value in policies.items()if value}
     catalog = Catalog(output)
     sources = []
     duplicates = []
@@ -66,14 +69,14 @@ def build(lock, cache, output, include_legacy=False):
                     external[path.name+'/'+name]=stock_svg(archive.read(name))
                 if name.lower().endswith(('.gbr','.gih','.png','.pat','.jpg','.jpeg','.webp')):
                     external[path.name+'/'+name]=lambda z=archive,n=name:z.read(n)
-        return _convert_selected(lock,output,include_legacy,catalog,sources,duplicates,seen,selected,paths,external)
+        return _convert_selected(lock,output,include_legacy,catalog,sources,duplicates,seen,selected,paths,external,convert_options)
 
 
-def _convert_selected(lock,output,include_legacy,catalog,sources,duplicates,seen,selected,paths,external):
+def _convert_selected(lock,output,include_legacy,catalog,sources,duplicates,seen,selected,paths,external,convert_options=None):
     for entry in selected:
         path = paths[entry['path']]
         before, skipped = len(catalog.brushes), len(catalog.skipped)
-        convert_krita(path, catalog, external)
+        convert_krita(path, catalog, external,**(convert_options or {}))
         incoming = catalog.brushes[before:]
         del catalog.brushes[before:]
         for brush in incoming:

@@ -81,7 +81,7 @@ export function secondaryBrushDabs(primary: BrushDescriptor, child: BrushDescrip
     while(travel<=length){
       const t=travel/length,lerp=(a:number,b:number):number=>Math.fround(a+(b-a)*t)
       const pressure=lerp(previous.pressure,raw.pressure)
-      const point:Dab={x:lerp(previous.x,raw.x),y:lerp(previous.y,raw.y),size:lerp(baseSize(previous),baseSize(raw))*curveAt(child.sizeByPressure,sizePressure?pressure:1),pressure,angle:child.tip.rotation==='fixed'?child.tip.angle:lerp(previous.angle,raw.angle),aspectRatio:child.tip.aspect,tiltX:lerp(previous.tiltX,dab.tiltX),tiltY:lerp(previous.tiltY,dab.tiltY),opacity:child.opacity ?? 1,t:lerp(previous.t,dab.t),...(previous.normalizedSpeed!==undefined && raw.normalizedSpeed!==undefined ? {normalizedSpeed:Math.fround(lerp(previous.normalizedSpeed,raw.normalizedSpeed))} : {})}
+      const point:Dab={x:lerp(previous.x,raw.x),y:lerp(previous.y,raw.y),size:lerp(baseSize(previous),baseSize(raw))*curveAt(child.sizeByPressure,sizePressure?pressure:1),pressure,angle:child.tip.rotation==='fixed'?child.tip.angle:lerp(previous.angle,raw.angle),aspectRatio:child.tip.aspect,tiltX:lerp(previous.tiltX,dab.tiltX),tiltY:lerp(previous.tiltY,dab.tiltY),opacity:child.opacity ?? 1,t:lerp(previous.t,dab.t),...(previous.sourceTime===undefined||raw.sourceTime===undefined?{}:{sourceTime:previous.sourceTime+(raw.sourceTime-previous.sourceTime)*t}),...(previous.normalizedSpeed!==undefined && raw.normalizedSpeed!==undefined ? {normalizedSpeed:Math.fround(lerp(previous.normalizedSpeed,raw.normalizedSpeed))} : {})}
       result.push(point);travel+=Math.max(stepFloor,spacing(point,direction))
     }
     state.remaining=travel-length;state.direction=direction;state.previous={...raw}
@@ -164,6 +164,7 @@ function keyedStrokeValue(key: string, state: BrushBehaviorState): number {
 export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: BrushBehaviorState, random: number): number {
   if (!d)
     return 1
+  if(d.control==='time' && (dab.sourceTime===undefined || !Number.isFinite(dab.sourceTime) || dab.sourceTime<0))throw Error('Missing or invalid sourceTime')
   const prev = state.previous
   const travel = prev ? Math.hypot(dab.x - prev.x, dab.y - prev.y) : 0
   const speed = prev ? travel / Math.max(1, dab.t - prev.t) : 0
@@ -178,6 +179,7 @@ export function brushDynamicValue(d: BrushDynamic | undefined, dab: Dab, state: 
       : d.control === 'tiltDirection' ? (Math.PI + (dab.tiltX === 0 && dab.tiltY === 0 ? -Math.PI / 2 : Math.atan2(-dab.tiltX,dab.tiltY))) / (2 * Math.PI)
     : d.control === 'tilt' ? clamp(penTilt(dab).angle/(Math.PI/2))
       : d.control === 'speed' ? dab.normalizedSpeed ?? clamp(speed / 2)
+        : d.control === 'time' ? d.periodic ? ((dab.sourceTime! % d.period!) / d.period!) : Math.min(dab.sourceTime!,d.period!)/d.period!
         : d.control === 'dabProgress' ? (d.periodic ? ((state.dabSequence ?? 0) % d.period!) / d.period! : clamp((state.dabSequence ?? 0) / d.period!))
         : d.control === 'fade' ? clamp(1 - state.distance / Math.max(0.001, d.fade ?? 1))
           : d.control === 'direction' ? turn(dab.angle)

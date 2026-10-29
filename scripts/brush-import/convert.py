@@ -448,13 +448,13 @@ def validate_portable_dynamics(controls):
                 and 1<=len(source['key'].encode('utf-16-le','surrogatepass'))//2<=128)
     for control in controls:
         if (not isinstance(control,dict) or set(control)-{'control','minimum','jitter','strength','fade','curve','randomStream','randomSource','period','periodic'}
-                or control.get('control') not in ('off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom','dabProgress')
+                or control.get('control') not in ('off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom','dabProgress','time')
                 or (control.get('control')=='strokeRandom' and not (
                     ('randomSource' not in control and type(control.get('randomStream')) is int and 0<=control['randomStream']<=4294967295)
                     or ('randomStream' not in control and keyed(control.get('randomSource')))))
                 or (control.get('control')!='strokeRandom' and ('randomStream' in control or 'randomSource' in control))
-                or (control.get('control')=='dabProgress' and (type(control.get('period')) is not int or not 1<=control['period']<=1000000 or type(control.get('periodic')) is not bool))
-                or (control.get('control')!='dabProgress' and ('period' in control or 'periodic' in control))
+                or (control.get('control')in('dabProgress','time') and (type(control.get('period')) is not int or not 1<=control['period']<=(2147483647 if control['control']=='time'else 1000000) or type(control.get('periodic')) is not bool))
+                or (control.get('control')not in('dabProgress','time') and ('period' in control or 'periodic' in control))
                 or not finite(control.get('minimum')) or not finite(control.get('jitter'))
                 or ('strength' in control and not finite(control['strength'],-1,1))
                 or ('fade' in control and not finite(control['fade'],.001,100000))):
@@ -613,6 +613,23 @@ def portable_bundle(path,catalog):
             if size<4 or size*size<4*(profile['resolution']+2):
                 raise ValueError('Missing or undersized portable radial lookup asset')
         behavior=d.get('behavior',{})
+        if not isinstance(behavior,dict):raise ValueError('Invalid portable behavior')
+        timing=behavior.get('timing')
+        if timing is not None:
+            if (depth>0 or not isinstance(timing,dict) or set(timing)-{'version','rate','ignoreDistanceSpacing','rateDynamics'}
+                    or type(timing.get('version'))is not int or timing['version']!=1
+                    or type(timing.get('rate'))not in(int,float) or not math.isfinite(timing['rate'])or not 0<=timing['rate']<=1000
+                    or type(timing.get('ignoreDistanceSpacing'))is not bool):raise ValueError('Invalid portable timing policy')
+            if 'rateDynamics'in timing:
+                validate_portable_dynamics(timing['rateDynamics'])
+                if not 1<=len(timing['rateDynamics'])<=4 or any(c['control']not in('pressure','off')or c['jitter']!=0 for c in timing['rateDynamics']):raise ValueError('Unsupported portable Rate controls')
+        def validate_times(value):
+            if isinstance(value,dict):
+                if value.get('control')=='time':validate_portable_dynamics([value])
+                for child in value.values():validate_times(child)
+            elif isinstance(value,list):
+                for child in value:validate_times(child)
+        validate_times(behavior)
         for section in ('dynamics','modulations'):
             controls=behavior.get(section,{}) if isinstance(behavior,dict) else {}
             if isinstance(controls,dict) and 'sharpness' in controls:

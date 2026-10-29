@@ -7,6 +7,7 @@ import base64
 import hashlib
 import io
 import math
+import re
 from pathlib import PurePosixPath
 import struct
 import xml.etree.ElementTree as ET
@@ -300,7 +301,7 @@ def raster(data, name, brush=False):
     return image
 
 
-def sensor_controls(params, option, notes):
+def sensor_controls(params, option, notes, *, allow_time=False):
     """Read Krita's single sensor or ChildSensor list into the shared product."""
     if not enabled(params.get(option+'UseCurve','true')):
         return []
@@ -326,22 +327,28 @@ def sensor_controls(params, option, notes):
     use_common=enabled(params.get(option+'UseSameCurve','true'))
     controls=[]
     supported={'pressure':'pressure','declination':'tiltElevation','xtilt':'tiltX','ytilt':'tiltY','ascension':'azimuth','speed':'speed','drawingangle':'direction','fuzzy':'random','fuzzystroke':'strokeRandom','fade':'dabProgress'}
+    if allow_time:supported['time']='time'
     for node in sensors:
         name=node.get('id','')
         if name not in supported:
             notes.append(compatibility(option+'Sensor','Unsupported Krita sensor '+name,'unsupported'));continue
-        if name=='fade':
-            raw=node.get('length','1000')
+        if name in ('fade','time'):
+            raw=node.get('duration','30') if name=='time' else node.get('length','1000')
             try: period=int(raw)
             except (ValueError,OverflowError): period=0
-            if not 1<=period<=1000000 or str(period)!=raw.strip():
-                notes.append(compatibility(option+'Sensor','Invalid or out-of-range dab fade length; sensor unsupported.','unsupported'));continue
+            if not 1<=period<=(2147483647 if name=='time' else 1000000) or (not re.fullmatch(r'[+-]?[0-9]+',raw.strip())if name=='time'else str(period)!=raw.strip()):
+                notes.append(compatibility(option+'Sensor','Invalid or out-of-range '+name+' duration/length; sensor unsupported.','unsupported'));continue
         curve=(common if use_common and common else node.findtext('curve')) or legacy_curve
         transfer=native_transfer(curve)
         if len(controls)>=4:
             notes.append(compatibility(option+'Sensor','More than four active supported sensors; excess controls unsupported.','unsupported'));continue
         controls.append({'control':supported[name],'minimum':0,'jitter':0,'curve':transfer})
-        if name=='fade': controls[-1].update(period=period,periodic=enabled(node.get('periodic','0')))
+        if name in ('fade','time'):
+            periodic=enabled(node.get('periodic','0'))
+            if name=='time':
+                try:periodic=int(node.get('periodic','0').strip())!=0
+                except(ValueError,TypeError):periodic=False
+            controls[-1].update(period=period,periodic=periodic)
         if name=='fuzzystroke':
             key=option+'FuzzyStroke'
             if not option or '\0' in key or len(key.encode('utf-16-le','surrogatepass'))//2>128:
@@ -354,7 +361,7 @@ def sensor_controls(params, option, notes):
     return controls
 
 
-def size_like_controls(params, option, notes):
+def size_like_controls(params, option, notes, *, allow_time=False):
     """Product-only subset; additive/absolute native sensors need other math."""
     if not enabled(params.get(option+'UseCurve','true')): return []
     sensor=xml(params.get(option+'Sensor') or '<params id="pressure"/>')
@@ -362,12 +369,13 @@ def size_like_controls(params, option, notes):
     if any(node.get('id') in ('ascension','rotation','drawingangle') for node in sensors):
         notes.append(compatibility(option+'SensorCombination','Additive or absolute native size-like sensor cannot be compiled as a product; constant rate retained.','unsupported'))
         return []
-    return sensor_controls(params,option,notes)
+    return sensor_controls(params,option,notes,allow_time=allow_time)
 
 
-def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False):
+def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False):
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
+    if type(timed_input) is not bool: raise ValueError('Timed input opt-in must be an explicit boolean')
     if depth>1: raise ValueError('Nested Krita masking brushes exceed supported depth')
     PngImagePlugin.MAX_TEXT_CHUNK = MAX_XML
     PngImagePlugin.MAX_TEXT_MEMORY = MAX_XML * 2
@@ -583,7 +591,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         dynamic=enabled(params.get('SharpnessUseCurve','true'))
         if dynamic:
             start=len(notes)
-            sharpness_controls=size_like_controls(params,'Sharpness',notes)
+            sharpness_controls=size_like_controls(params,'Sharpness',notes,allow_time=timed_input)
             if not sharpness_controls or any(n['status']=='unsupported' for n in notes[start:]):
                 sharpness_controls=[]
                 notes.append(compatibility('maskThreshold','Unsupported native Sharpness sensors; no constant threshold substituted.','unsupported'))
@@ -620,7 +628,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if auto_spacing and coefficient<.001:
             notes.append(compatibility('spacingCoefficient','Positive auto coefficient below bounded.001 was raised; native step may differ.','unsupported'))
         if spacing_checked:
-            controls=size_like_controls(params,'Spacing',notes)
+            controls=size_like_controls(params,'Spacing',notes,allow_time=timed_input)
             if controls: profile['dynamics']=controls
     if isotropic: profile['isotropic']=True
     behavior['spacing']=profile
@@ -656,7 +664,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         checked=size_checked if option=='Size' else enabled(params.get('Pressure'+option,params.get(option+'UseCurve','false')))
         if not checked:
             continue
-        controls=sensor_controls(params,option,notes)
+        controls=sensor_controls(params,option,notes,allow_time=timed_input)
         if controls:
             # Keep pressure in the canonical curves so dab spacing sees size
             # pressure before sampling; remaining sensors modulate the stamps.
@@ -677,14 +685,14 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         node=xml(params.get(option+'Sensor') or '<params id="pressure"/>')
         if (enabled(params.get(option+'UseCurve','true')) and numeric(params.get(option+'Value'),1)==1
                 and numeric(params.get(option+'curveMode'),0)==0 and node.get('id') in ('fuzzy','pressure')):
-            controls=sensor_controls(params,option,notes)
+            controls=sensor_controls(params,option,notes,allow_time=timed_input)
             if len(controls)==1:
                 behavior.setdefault('colorAdjustment',{})[target]=controls[0]
                 color_decoded.append('Pressure'+option)
                 notes.append(compatibility('hsvAdjustment.'+option,'Per-dab signed HSV adjustment retained for single pressure/random sensor and unit strength; U8 colorspace quantization and vendor random sequence remain approximate.'))
     ratio_decoded=False
     if enabled(params.get('PressureRatio')):
-        controls=size_like_controls(params,'Ratio',notes)
+        controls=size_like_controls(params,'Ratio',notes,allow_time=timed_input)
         value=clamp(numeric(params.get('RatioValue'),1))
         # Existing local-Y roundness divides the tip aspect, preserving the
         # native base generator ratio rather than applying it to diameter.
@@ -703,7 +711,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if (len(rotation_sensors)==1 and rotation_sensors[0].get('id')=='ascension'
                 and numeric(params.get('RotationcurveMode'),0)==0 and -1<=strength<=1):
             rotation_notes=[]
-            controls=sensor_controls(params,'Rotation',rotation_notes)
+            controls=sensor_controls(params,'Rotation',rotation_notes,allow_time=timed_input)
             notes.extend(note for note in rotation_notes if note['status']=='unsupported')
             if len(controls)==1:
                 control=controls[0];curve=control['curve']
@@ -754,7 +762,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             and enabled(params.get('RotationUseCurve','true')) and numeric(params.get('RotationcurveMode'),0)==0
             and -1<=strength<=1 and 1<=len(rotation_sensors)<=4
             and all(node.get('id') in ('fuzzy','fuzzystroke','pressure','declination','xtilt','ytilt','speed') for node in rotation_sensors)):
-        controls=sensor_controls(params,'Rotation',notes)
+        controls=sensor_controls(params,'Rotation',notes,allow_time=timed_input)
         if len(controls)==len(rotation_sensors):
             additive=[c for node,c in zip(rotation_sensors,controls) if node.get('id') in ('fuzzy','fuzzystroke')]
             scaling=[c for node,c in zip(rotation_sensors,controls) if node.get('id') not in ('fuzzy','fuzzystroke')]
@@ -831,7 +839,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('textureRandomOffset','Per-stroke pattern phase uses deterministic Grafetto RNG rather than Krita RNG.'))
             if enabled(params.get(prefix+'AutoInvertOnErase')):
                 notes.append(compatibility('textureEraseInvert','Automatic texture inversion on erasing is not implemented.','unsupported'))
-            controls=sensor_controls(params,'Texture/Strength/',notes) if texture_strength_enabled else []
+            controls=sensor_controls(params,'Texture/Strength/',notes,allow_time=timed_input) if texture_strength_enabled else []
             if controls: behavior.setdefault('modulations',{})['grainDepth']=controls
             notes.append(compatibility('texture','Native alpha-operation parameters and grid retained; GPU filtering/byte quantization require native comparison.'))
         else:
@@ -875,7 +883,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             behavior.get('modulations',{}).pop('flow',None)
             if color_rate>0:
                 foreground={'rate':clamp(max(1-raw_smudge_rate,.2)*color_rate)}
-                controls=size_like_controls(params,'ColorRate',notes)
+                controls=size_like_controls(params,'ColorRate',notes,allow_time=timed_input)
                 if controls: foreground['dynamics']=controls
                 d['mixer']['foreground']=foreground
             if numeric(params.get('SmudgeRateMode'),0)==1:
@@ -884,7 +892,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 radius=clamp(radius,0,3) if enabled(params.get('PressureSmudgeRadius')) else 0
                 d['mixer']['sampling']={'mode':'uniformMean','radius':radius}
                 if enabled(params.get('PressureSmudgeRadius')):
-                    controls=size_like_controls(params,'SmudgeRadius',notes)
+                    controls=size_like_controls(params,'SmudgeRadius',notes,allow_time=timed_input)
                     if controls: d['mixer']['sampling']['radiusDynamics']=controls
                 notes.append(compatibility('colorSmudge','Legacy normal ALPHAMASK dulling uses previous-canvas uniform mean and optional foreground: fixed64 Halton samples, bounded512px gather and premultiplied RGBA8 differ from native adaptive/colorspace rounding.'))
             else:
@@ -892,7 +900,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         else:
             notes.append(compatibility('colorSmudge','Unsupported native new-engine, non-ALPHAMASK, overlay, non-normal or unknown-mode strategy; carried-pigment approximation retained.','unsupported'))
         if enabled(params.get('PressureSmudgeRate')):
-            controls=size_like_controls(params,'SmudgeRate',notes)
+            controls=size_like_controls(params,'SmudgeRate',notes,allow_time=timed_input)
             if controls:
                 d['mixer']['pickupDynamics']=controls
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
@@ -906,7 +914,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if key.startswith(prefix): ET.SubElement(child_root,'param',{'name':key[len(prefix):]}).text=value
         child_png=io.BytesIO();meta=PngImagePlugin.PngInfo();meta.add_text('version','5.0');meta.add_text('preset',ET.tostring(child_root,encoding='unicode'),zip=True)
         Image.new('L',(1,1)).save(child_png,format='PNG',pnginfo=meta)
-        child_result=preset(child_png.getvalue(),name,catalog,resources,depth+1,stroke_input=False)
+        child_result=preset(child_png.getvalue(),name,catalog,resources,depth+1,stroke_input=False,timed_input=timed_input)
         notes.extend({**note,'feature':'masking.'+note['feature']} for note in child_result['compatibility'])
         if stroke_input:
             child_params={key[len(prefix):]:value for key,value in params.items() if key.startswith(prefix)}
@@ -934,7 +942,38 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         behavior['dual']={'brush':child,'blendMode':combine,'sampling':'independent'}
         notes.append(compatibility('maskingBrush','Independent masking spacing, dynamics and grain retained. Krita-specific edge/colour mixing formulas remain approximate.'))
     if enabled(params.get('PaintOpSettings/isAirbrushing',params.get('AirbrushOption/isAirbrushing'))):
-        notes.append(compatibility('airbrush','Timed spraying is not reproduced.','unsupported'))
+        if timed_input and depth==0 and enabled(params.get('PaintOpSettings/isAirbrushing')):
+            try:rate=float(params.get('PaintOpSettings/rate',20))
+            except(ValueError,TypeError):rate=float('nan')
+            refresh_random=[]
+            for option in ('Size','Rotation','Spacing'):
+                if not enabled(params.get('Pressure'+option))or not enabled(params.get(option+'UseCurve','true')):continue
+                sensor=xml(params.get(option+'Sensor','<params id="pressure"/>'))
+                sensors=list(sensor.findall('ChildSensor'))if sensor.get('id')=='sensorslist'else[sensor]
+                if any(node.get('id')=='fuzzy'for node in sensors):refresh_random.append(option)
+            rate_notes=[]
+            controls=size_like_controls(params,'Rate',rate_notes,allow_time=False) if enabled(params.get('PressureRate')) else []
+            try:value=float(params.get('RateValue',1)) if enabled(params.get('PressureRate')) else 1
+            except(ValueError,TypeError):value=float('nan')
+            if value!=1:controls.append({'control':'off','minimum':0,'jitter':0,'curve':[[0,value],[1,value]]})
+            valid=not refresh_random and math.isfinite(value) and 0<=value<=1 and len(controls)<=4 and math.isfinite(rate) and 0<=rate<=1000 and not any(n['status']=='unsupported'for n in rate_notes)
+            valid=valid and (not enabled(params.get('PressureRate')) or not enabled(params.get('RateUseCurve','true')) or bool(controls))
+            valid=valid and all(c['control']in('pressure','off') and c.get('jitter',0)==0 for c in controls)
+            if valid:
+                behavior['timing']={'version':1,'rate':rate,'ignoreDistanceSpacing':enabled(params.get('PaintOpSettings/ignoreSpacing'))}
+                if controls:behavior['timing']['rateDynamics']=controls
+                for note in notes:
+                    if note['feature']=='activeDynamics':
+                        remaining=[part for part in note['detail'].split(', ')if part!='PressureRate']
+                        note['detail']=', '.join(remaining)
+                notes[:]=[note for note in notes if note['feature']!='activeDynamics'or note['detail']]
+                notes.append(compatibility('airbrush','Native distance/time author request policy retained.'))
+            else:
+                detail='Native random '+', '.join(refresh_random)+' spacing-refresh queries require a canonical non-painting RNG event contract; timed policy not enabled.'if refresh_random else 'Unsupported native Rate value or controls; timed policy not enabled.'
+                notes.append(compatibility('airbrush',detail,'unsupported'))
+        elif timed_input and not enabled(params.get('PaintOpSettings/isAirbrushing')):
+            notes.append(compatibility('airbrush','Legacy alias does not enable timed painting in pinned native settings reader.'))
+        else:notes.append(compatibility('airbrush','Timed spraying is not reproduced.','unsupported'))
     if engine=='paintbrush':
         wash=depth>0 or params.get('PaintOpAction')=='2'
         if not wash:
@@ -964,18 +1003,23 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         behavior['sequentialRandom']={'version':1,'kind':'qt5Taus88','policy':'scatterXY'}
         d['version']=33
     if behavior.get('strokeInput'): d['version']=34
+    def source_clock(value):
+        if isinstance(value,dict):return value.get('control')=='time' or 'timing'in value or any(source_clock(v)for v in value.values())
+        return isinstance(value,list) and any(source_clock(v)for v in value)
+    if source_clock(behavior):d['version']=35
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     if source_size is not None:
         result['sourceDefaults']={'sizePx':clamp(source_size,.01,10000),'opacity':d['opacity'],'flow':d['flow']}
     return result
 
 
-def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_input=False):
+def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_input=False, timed_input=False):
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
+    if type(timed_input) is not bool: raise ValueError('Timed input opt-in must be an explicit boolean')
     if path.suffix.lower() == '.kpp':
         try:
-            catalog.brushes.append(preset(path.read_bytes(), path.name, catalog, external or {}, sequential_xy=sequential_xy,stroke_input=stroke_input))
+            catalog.brushes.append(preset(path.read_bytes(), path.name, catalog, external or {}, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input))
         except (ValueError, ET.ParseError, OSError) as error:
             catalog.skipped.append({'name':path.stem,'reasons':[str(error)]})
         return
@@ -990,6 +1034,6 @@ def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_i
         resources.update({n:(lambda entry=n: archive.read(entry)) for n in names if n.lower().endswith(('.gbr','.gih','.png','.pat','.jpg','.jpeg','.webp'))})
         for name in sorted(n for n in names if n.lower().endswith('.kpp')):
             try:
-                catalog.brushes.append(preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy,stroke_input=stroke_input))
+                catalog.brushes.append(preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input))
             except (ValueError, ET.ParseError, OSError) as error:
                 catalog.skipped.append({'name':PurePosixPath(name).stem,'reasons':[str(error)]})
