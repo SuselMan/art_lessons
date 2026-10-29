@@ -1,0 +1,153 @@
+{
+  "scope": "Actual Samsung WebGL1 finite component FMA primitive; not compositor/mask/app activation or iPad proof",
+  "primitiveSHA256": "162eb808439fea4e2599df78fd1319647f2ea9b462c233be848ec55e59cb072f",
+  "fragmentSHA256": "9e14844fb5a12746b7a87043090439d45b00d643571868a6612f008a8d2ae518",
+  "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+  "version": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+  "precision": {
+    "precision": 23,
+    "rangeMin": 127,
+    "rangeMax": 127
+  },
+  "valueRuns": [
+    {
+      "checked": 11200,
+      "wrong": [],
+      "glError": 0,
+      "compileMs": 5.600000023841858,
+      "readbackCorpusMsNotThroughput": 35664.60000002384
+    },
+    {
+      "checked": 1113,
+      "wrong": [],
+      "glError": 0,
+      "compileMs": 4.5,
+      "readbackCorpusMsNotThroughput": 2093.300000011921
+    }
+  ],
+  "corpora": [
+    {
+      "file": "host-fma.native.json",
+      "count": 11200,
+      "casesSHA256": "e5eef4670321f54ad6a0bc9a25799d7c41384ce450930903e81ed51b0e368174"
+    },
+    {
+      "file": "actual-frecps.native.json",
+      "count": 1113,
+      "casesSHA256": "f2250b949939e516c32f33ffc20f726fcec569b864f7c74b0551da2fef60f1c7"
+    }
+  ],
+  "perf": {
+    "proof": {
+      "scope": "Varying-perpixel finite FMA primitive only; blocking metric submitToReadComplete includes readPixels GPU+IPC, not pure CPU/GPU timestamp",
+      "width": 64,
+      "height": 64,
+      "repeats": 64,
+      "sequence": [
+        "byte80",
+        "base4096",
+        "base4096",
+        "byte80"
+      ],
+      "expectedSHA256": "c1bd643597d6bd56f4664b0d7e1f27d6899ebaf8643276f7631530b9ebc6c129",
+      "shaders": [
+        {
+          "name": "byte80",
+          "sha256": "4e4744b91777a2f12d3920bc6d82b1f4c330dba23bc65db84e72b5e4497420bc",
+          "bytes": 3698
+        },
+        {
+          "name": "base4096",
+          "sha256": "786a2ffcce4784eb0797c7c819755d973b80b17818f6434986a4accacdca71ec",
+          "bytes": 4060
+        }
+      ]
+    },
+    "programs": [
+      {
+        "name": "byte80",
+        "compileMs": 6.699999988079071
+      },
+      {
+        "name": "base4096",
+        "compileMs": 5
+      }
+    ],
+    "trials": [
+      {
+        "name": "byte80",
+        "submitAndFinishMs": 0.19999998807907104,
+        "readPixelsMs": 114.90000003576279,
+        "submitToReadCompleteMs": 115.10000002384186,
+        "validationMs": 4.800000011920929,
+        "wrong": 0,
+        "maxDelta": 0,
+        "pixels": 262144
+      },
+      {
+        "name": "base4096",
+        "submitAndFinishMs": 0.09999996423721313,
+        "readPixelsMs": 38.80000001192093,
+        "submitToReadCompleteMs": 38.89999997615814,
+        "validationMs": 2.600000023841858,
+        "wrong": 0,
+        "maxDelta": 0,
+        "pixels": 262144
+      },
+      {
+        "name": "base4096",
+        "submitAndFinishMs": 0.8999999761581421,
+        "readPixelsMs": 28.19999998807907,
+        "submitToReadCompleteMs": 29.099999964237213,
+        "validationMs": 0.5,
+        "wrong": 0,
+        "maxDelta": 0,
+        "pixels": 262144
+      },
+      {
+        "name": "byte80",
+        "submitAndFinishMs": 0.09999996423721313,
+        "readPixelsMs": 53.700000047683716,
+        "submitToReadCompleteMs": 53.80000001192093,
+        "validationMs": 0.19999998807907104,
+        "wrong": 0,
+        "maxDelta": 0,
+        "pixels": 262144
+      }
+    ],
+    "glError": 0,
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "version": "WebGL 1.0 (OpenGL ES 2.0 Chromium)",
+    "precision": {
+      "precision": 23,
+      "rangeMin": 127,
+      "rangeMax": 127
+    }
+  },
+  "cleanup": {
+    "sameOriginalTabs": true,
+    "tabs": [
+      {
+        "id": "3631",
+        "type": "page"
+      },
+      {
+        "id": "573622E9F2BBB7B3E19F08E294AC491D",
+        "type": "page"
+      },
+      {
+        "id": "CC2344F21941C3CBF117549F2225B2E0",
+        "type": "page"
+      }
+    ],
+    "parentForeground": "3631",
+    "ownJobs": [],
+    "contextAndGlCleanup": "perchild finally; childtargets absent",
+    "forwardRemoved": "verified by launcher immediately after receipt"
+  },
+  "receiptSHA256": {
+    "fma-base4096-host11200-device-result.json": "d57e138cd24e0bef7eeea51400c5d85b8a8bc62ce385efddd503a3c2232cb113",
+    "fma-base4096-actual1113-device-result.json": "6e9b3591b72c37931e252ea7a7314579397abb463c0117d1c77d76e93d8ef1e3",
+    "fma-base4096-perf-r64-device-result.json": "1dd6fed5b4728d37894e3ced5c10d96c53624186c0c92dd047c93ef07c1027db"
+  }
+}
