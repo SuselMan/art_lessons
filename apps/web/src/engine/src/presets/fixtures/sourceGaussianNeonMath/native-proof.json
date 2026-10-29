@@ -1,0 +1,40 @@
+{
+  "status": "PASS",
+  "scope": "Original ARM64FRSQRTE/FMUL/FRSQRTS instruction sequence frominstalledGaussian, registerrenamed, UnicornFPCR0; NOTphysicalCPUreceipt",
+  "arithmeticHooks": 0,
+  "scriptSHA256": "589ad800e9c23843849452162a0e4baf16adde46f20da5fbb0973d020dffb9f9",
+  "inputSHA256": "0b232730d9c7d474b104d27d3b93ebaead2936e4276fb8bba3f9bef139bc8923",
+  "instructionWords": [
+    "6ea1d801",
+    "6e21dc02",
+    "4ea1fc42",
+    "6e21dc41",
+    "6e21dc02",
+    "4ea1fc43",
+    "6e23dc43",
+    "d65f03c0"
+  ],
+  "seconds": 2.636188268661499,
+  "cases": 6144,
+  "bitMismatches": 0,
+  "originalInstructionSites": [
+    "0x542a00 FRSQRTE",
+    "0x542a04 FMUL",
+    "0x542a08 FRSQRTS",
+    "0x542a0c FMUL",
+    "0x542a10 FMUL",
+    "0x542a18 FRSQRTS",
+    "0x542a1c FMUL"
+  ],
+  "FPCR": 0,
+  "originalCodeLibrarySHA256": "24d3f19d43650100bce51e8e941d66e3999eadee94e64e9f59dfe6c9ef86396d",
+  "sourceSpec": "ARM8fraction-bit estimate mathematical integer threshold; positivefinite and canonical+0 only; no copied algorithm body or lookup",
+  "expDataByteProof": {
+    "actualAddress": "0xb0d8",
+    "nativeHeaderAndTableSHA256": "63d9afdbf38993f26824103ae150dd9db03af583e924c95b155a7c24139b8f96",
+    "tableWords": 256,
+    "candidateSourceTableByteMismatches": 0
+  },
+  "fixtureSHA256": "44fbdebe7ec24b22f6eb031f145c6934de48a19d94de66c40a22777599d61b74",
+  "resource": "No newdisposable; parentUnicorn reused; no APK/ELF files or ownGPU/forward."
+}
