@@ -70,6 +70,8 @@ export type PressureMap = (raw: number) => number
 //    batch's honest average speed, not an infinity to be clamped away.
 
 export interface PointerData {
+  /** Latched at native dispatch entry, before extracting/coalesced work. */
+  dispatchTime?: number
   x: number
   y: number
   pressure: number
@@ -86,6 +88,7 @@ export interface PointerData {
   // the time our handler runs there's already browser/OS event-dispatch
   // buffering between the two (#104). This is the correct clock to measure
   // genuine end-to-end input-to-paint latency against.
+  cancelled?:boolean
   timeStamp: number
 }
 
@@ -404,6 +407,7 @@ export class PointerInput {
    *  move; the move-path probes only speak when something is actually
    *  wrong. */
   private _handleDown(e: PointerEvent): void {
+    const dispatchTime=performance.now()
     // (#517) Both of these used to return in silence, which is exactly the
     // shape of the iPad report they exist for: a stroke that leaves *nothing*
     // cannot be an engine bug — DabSystem.startStroke unconditionally returns
@@ -455,10 +459,11 @@ export class PointerInput {
     this._speed = -1
     this._viewSpeed=-1
     this._lastClientX=e.clientX;this._lastClientY=e.clientY
-    this._emit('start', this._extract(e))
+    this._emit('start', {...this._extract(e),dispatchTime})
   }
 
   private _handleMove(e: PointerEvent): void {
+    const dispatchTime=performance.now()
     if (!this._active) {
       const events = e.getCoalescedEvents?.()
       for (const ev of events?.length ? events : [e]) this._observeCursor(ev)
@@ -498,7 +503,7 @@ export class PointerInput {
       if (ev.pointerId !== this._activePointerId) continue
       this._observeCursor(ev)
       if (ev.buttons === 0 && ev.pressure === 0) continue
-      this._emit('move', this._extract(ev))
+      this._emit('move', {...this._extract(ev),dispatchTime})
     }
     // A big time gap since the last real sample, or an implausibly large
     // jump in canvas-pixel coordinates, could independently produce a
@@ -530,6 +535,7 @@ export class PointerInput {
   }
 
   private _handleUp(e: PointerEvent): void {
+    const dispatchTime=performance.now()
     if (!this._active) {
       // (#517) Same reasoning as the orphan-move probe: an up for a pen whose
       // down was never seen is the signature of a lost pointerdown.
@@ -567,7 +573,7 @@ export class PointerInput {
     this._active = false
     this._activePointerId = null
     this._activePointerType = null
-    this._emit('end', this._extract(e))
+    this._emit('end', {...this._extract(e),dispatchTime,...(e.type==='pointercancel'?{cancelled:true}: {})})
   }
 
   destroy(): void {
