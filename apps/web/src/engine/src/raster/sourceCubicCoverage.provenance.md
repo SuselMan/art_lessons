@@ -59,3 +59,38 @@ Supported: single closed cubic contour, identity painter scale, integer raster
 translation, AA-on, nonzero fill, bounded finite coordinates/window. Other inputs
 fail explicitly. Native fixture comparison is independent of our renderer.
 No GPU throughput or production memory guarantee follows from these CPU tests.
+
+## Raw ellipse construction experiment
+
+`sourceEllipseContour.ts` adds raw center/full dimensions/radians → four cubic
+quarters → derivative extrema → floor/ceil integer raster window expanded by one.
+The mathematical quarter tangent coefficient is the **source decimal**
+`.5522847498`, not a fitted value or the higher precision ideal circle constant.
+The transformed ellipse is the cubic approximation, so perfect-ellipse analytic
+bounds are insufficient. Generic scalar cubic derivative roots and de Casteljau
+evaluation determine the bounds; source contours are not looked up by brush ID.
+
+Additional pinned source-law references: qstroker_p.h:113 decimal kappa;
+qstroker.cpp:852 full-arc contract; qpainterpath.cpp:1166 addEllipse,
+:1406 derivative coefficient definitions, :1427 extrema, :3543 path bounds;
+qtransform.cpp:69 mapping arithmetic, :741 rotateRadians, :1715 path map,
+:2135 fuzzy transform classification. New implementation text was written from
+mathematical laws; no Qt implementation text is copied. Existing licensing
+caveats still apply; no cleanroom/legal-clearance assertion is made.
+
+All45 retained raw fixture inputs independently produce the native integer window
+and corresponding transformed contour coordinates to 1e-12 absolute tolerance.
+All42 AA-on whole masks remain **byteexact** through our coverage kernel.
+AA-off geometry/window is tested, raster remains explicitly unsupported.
+`sourceSprayEllipseSize` keeps native minimum `max(LOD,base*randomScale*LOD)`
+separate: raw addEllipse 0x0 is empty, while source-clamped zero-scale particles
+remain LOD×LOD. Zero in only one dimension is explicitly unsupported.
+
+Scope guards reject fuzzy-transform classification regimes not covered by the
+retained oracle: nonzero angles with abs(sin(angle))≤1e-12 (including pi), and
+angle0 with nonzero translations that are both ≤1e-12. Qt can classify these as
+Scale/Translate/None, discarding tiny matrix terms. Testing these requires actual
+new native fixtures before extending the contract. Extreme dimensions/coordinates
+are bounded explicitly. No native compile/download/extraction occurred for this
+stage. No proof is claimed for all possible JS/libm vs host-libm boundary ULPs;
+fixed-point tie cases deserve additional native probes before production use.
