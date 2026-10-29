@@ -1,0 +1,60 @@
+{
+  "status": "PASS",
+  "scope": "Original installed Gaussian constructor and whole auto wrapper, Qt/Bionic geometry and mask arithmetic under Unicorn FPCR0; explicit applicator and owned fixed-device/PlainColor interfaces, opaque255 coverage; NOT GUI factory/lifetime/physicalARM identity",
+  "arithmeticHooks": 0,
+  "libraries": [
+    {
+      "name": "lib/arm64-v8a/libQt5Core_arm64-v8a.so",
+      "bytes": 5518824,
+      "sha256": "78fc3da8d316ce7de1d957e3b20d7462b20245d4d797860f1946f797f7946ef9"
+    },
+    {
+      "name": "lib/arm64-v8a/libkritaimage_arm64-v8a.so",
+      "bytes": 7191128,
+      "sha256": "24d3f19d43650100bce51e8e941d66e3999eadee94e64e9f59dfe6c9ef86396d"
+    },
+    {
+      "name": "lib/arm64-v8a/libQt5Gui_arm64-v8a.so",
+      "bytes": 4907320,
+      "sha256": "52bf056960c13f88d50fc137bf7121756a1451c0b91be807af4b128f519cc1e9"
+    },
+    {
+      "name": "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so",
+      "bytes": 412384,
+      "sha256": "14a5c6db9f90b3695c8f20e85b82fa3bd5f263911bbdd3a10888ff7e64f5ac75"
+    },
+    {
+      "name": "/apex/com.android.runtime/lib64/bionic/libm.so",
+      "bytes": 229368,
+      "sha256": "aeb1ffb01b7f35e05f9d2aee945882415acd68014c367354d39858b3e146c614"
+    },
+    {
+      "name": "lib/arm64-v8a/libkritapigment_arm64-v8a.so",
+      "bytes": 3694016,
+      "sha256": "230ccf905226f4324ffdf8c7239e8be90f0506cfadda25393d1ba014ab0bb783"
+    }
+  ],
+  "scriptSHA256": "2aa57568c8365404e53e8182ab7f870c62004b6b33e65773f8b8ab5b13646457",
+  "seconds": 85.3141188621521,
+  "cases": 104,
+  "pixels": 29098,
+  "candidateMismatches": 0,
+  "originalCoverageRecaptureMismatches": 0,
+  "originalFieldOffsets": {
+    "privateYcoef": 0,
+    "center": 16,
+    "distfactor": 24,
+    "alphafactor": 32,
+    "radius": 40,
+    "fadeStartValueU8": 48,
+    "fadeStart": 56,
+    "fadeCoeff": 64,
+    "antialiasU8": 72
+  },
+  "rawReportSHA256": "9badb5f109695f44b94e24f10bf4ac529ad6e8f6c7ce17b280f61332410e14c7",
+  "coefficientsFixtureSHA256": "1fbe885015cbee0c96ff82a22e88d112835e1219ecc083a8b0be6729dff11417",
+  "maskFixtureSHA256": "d7a282b6c18bb337006ffe7854e184e43f49bd17425e1518b5a09c0ba4da6827",
+  "inputAuthority": "These fields are direct original native memory reads at applicator boundary, not reconstructed using candidate erf",
+  "executionScope": "UnicornFPCR0 originalcode; no GUI/physical dispatch claim; noactivehooks",
+  "resource": "No ownnewdisposable orGPU/browser/forward; parentUnicorn reused"
+}
