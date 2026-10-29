@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import vectors from './fixtures/nativeRandom.vectors.json'
+import observed from './fixtures/nativeRandom.observed.json'
 import { KritaPerStrokeRandomSource, KritaRandomSource, qt5QStringHash } from './nativeRandom'
 
 const next = (source: KritaRandomSource, count: number): number[] => Array.from({ length: count }, () => source.generate())
@@ -94,4 +95,64 @@ describe('isolated Qt5 keyed per-stroke source', () => {
     duplicate.cache.push(duplicate.cache[0])
     expect(() => KritaPerStrokeRandomSource.restore(duplicate)).toThrow(RangeError)
   })
+})
+
+// Actual official Krita observations, separate from the synthetic C++ oracle above.
+// Labels record one instrumented Node.paintLine schedule, not a production policy.
+describe('actual pinned Krita RNG observations', () => {
+  const combined = observed.combined
+  it('matches every observed combined outcome and native state across planner/worker interleaving', () => {
+    const source = new KritaRandomSource(combined.seed)
+    expect(source.snapshot().state).toEqual(combined.initialState)
+    const nativeClone = source.clone()
+    expect(nativeClone.snapshot()).toEqual({ version: 1, draws: combined.nativeClone.draws, state: combined.nativeClone.state })
+    expect(combined.nativeClone.state).toEqual(combined.nativeClone.parentState)
+    for (const [cursor, row] of combined.draws.entries()) {
+      const [consumer, , raw, result, a, b, c] = row
+      expect(source.clone().generate(), `raw at cursor ${cursor}`).toBe(raw)
+      const actual = consumer >= 6
+        ? source.generate(combined.boundedRangeInclusive[0], combined.boundedRangeInclusive[1])
+        : source.generateNormalized()
+      expect(actual, `${combined.consumers[consumer]} at cursor ${cursor}`).toBe(result)
+      expect(source.snapshot()).toEqual({ version: 1, draws: cursor + 1, state: [a, b, c] })
+      // A worker scheduling boundary is still a plain serializable continuation.
+      if (consumer === 7) {
+        const restored = KritaRandomSource.restore(JSON.parse(JSON.stringify(source.snapshot())))
+        const nextRow = combined.draws[cursor + 1]
+        if (nextRow) expect(restored.generate()).toBe(nextRow[2])
+      }
+    }
+    // Native clone was created but unused: only its initial state was observed.
+    expect(nativeClone.snapshot()).toEqual({ version: 1, draws: 0, state: combined.nativeClone.state })
+  })
+  it('retains the observed conditional consumer receipt without promoting it to a universal policy', () => {
+    const expected = ['Size', 'Rotation', 'Scatter X', 'Scatter Y', 'Opacity', 'Flow', 'GIH plan']
+    const sequences = [...new Set(combined.draws.map(row => row[1]))]
+    expect(sequences).toEqual(Array.from({ length: 24 }, (_, i) => i))
+    for (const seq of sequences) {
+      const rows = combined.draws.filter(row => row[1] === seq)
+      expect(rows.filter(row => row[0] !== 7).map(row => combined.consumers[row[0]])).toEqual(expected)
+      expect(rows.filter(row => row[0] === 7)).toHaveLength(1)
+    }
+    expect(observed.provenance.kritaVersion).toBe('5.3.4.1')
+    expect(observed.provenance.qtRuntime).toBe('5.15.7')
+  })
+  for (const row of observed.keyedCorrelation) {
+    it(`matches observed same-key main/mask correlation: ${row.observation}`, () => {
+      const source = new KritaPerStrokeRandomSource(row.seed)
+      const sequential = new KritaRandomSource(combined.seed)
+      sequential.generate(); const before = sequential.snapshot()
+      expect(qt5QStringHash(row.key)).toBe(row.qtHash)
+      // Actual entry scopes: 11 first-painter and 128 second-painter lookups,
+      // sharing one source/key. Repeated lookup does not consume the other RNG.
+      for (const count of [row.firstPainterCalls, row.secondPainterCalls]) {
+        for (let i = 0; i < count; i++) expect(source.generateNormalized(row.key)).toBe(row.raw / 0xffffffff)
+      }
+      expect(source.snapshot().cache).toEqual([[row.key, row.raw]])
+      expect(sequential.snapshot()).toEqual(before)
+      const copy = source.clone()
+      expect(copy.generateNormalized(row.key)).toBe(row.raw / 0xffffffff)
+      expect(copy.snapshot()).toEqual(source.snapshot())
+    })
+  }
 })

@@ -27,3 +27,23 @@ assertion of full AppImage ABI or rendering equivalence.
 
 No active brush imports this primitive. Consumer ordering, gesture seed capture,
 main/mask scheduling and shared/network schema admission remain separate work.
+
+`nativeRandom.observed.json` contains numeric observations from the official pinned
+Krita 5.3.4.1 AppImage (Qt 5.15.7), rather than the standalone Boost/Qt oracle.
+Its provenance pins the source commit, AppImage and native DSO SHA256 hashes.
+No brush assets, object addresses, process/thread IDs, local paths or raw logs
+are included. `combined.draws` has 192 rows: consumer label index, logical dab
+sequence, raw word, native normalized/bounded result and native threeword state
+AFTER that draw. State before row zero is `initialState`; later rows continue
+from the preceding state. GIH bounds are inclusive. The clone snapshot was
+observed at construction; its unused continuation was not sampled natively.
+The two keyed cases retain the observed shared-key first/second-painter results.
+
+The labels describe ONE actual instrumented `Node.paintLine` schedule with
+Size/Rotation/scatterXY/Opacity/Flow/GIH. A diagnostic logging mutex serialized
+wrapped RNG calls and may alter planner/worker scheduling. These vectors are
+regression evidence for arithmetic, state continuation and same-key correlation;
+they neither select production consumers nor establish a universal live/paintAt
+schedule, geometry equality or seed-only pixel identity. The diagnostic process
+used a controlled exit after completed document work; normal Qt teardown is
+outside this fixture. No native runtime is required to run these tests.
