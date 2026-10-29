@@ -1,4 +1,4 @@
-import { normalizePaperType, type LessonState, type Room as RoomEntity } from '@grafetto/shared'
+import { readRoomRasterVersion, normalizePaperType, type LessonState, type Room as RoomEntity } from '@grafetto/shared'
 
 import type { RoomInfo } from '../../../stores/slices/roomSlice'
 
@@ -14,10 +14,11 @@ export const PLACEHOLDER_INFINITE_CANVAS_SIZE = 8192
 
 export function toRoomConfig(
   room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
-    & Partial<Pick<RoomEntity, 'closedAt' | 'accessMode' | 'enabledTools'>>,
+    & Partial<Pick<RoomEntity, 'rasterVersion' | 'closedAt' | 'accessMode' | 'enabledTools'>>,
 ): RoomInfo {
   return {
     id: room.id, name: room.name,
+    rasterVersion: readRoomRasterVersion(room.rasterVersion),
     // (#300) The wire carries whatever the database holds — including the
     // three pre-grid names. Normalising here, at the single point a room
     // enters the client, keeps every downstream consumer (engine, sound,

@@ -46,6 +46,7 @@ import type { ToggleableTool } from './toolset.js'
  *  идущий урок), этим гейтом не проверяется вовсе — участник такой комнаты
  *  ничего к куче не добавляет. */
 export type JoinDenial =
+  | 'unsupported_raster_version'
   | 'not_found'
   | 'wrong_password'
   | 'access_revoked'

@@ -1808,3 +1808,14 @@ describe('flushAllRoomWrites (#497)', () => {
     expect(pendingWriteCount()).toBe(1)
   })
 })
+
+it('pins new rooms to server legacy format even when a runtime payload claims another format', () => {
+  const id = freshRoomId()
+  const data = { id, name: 'Format', paper: 'coarse' as const, infinite: false, rasterVersion: 'straight-rgba8-v1' }
+  const first = createRoom(data, undefined, 'owner', 'Owner', 'socket-a')
+  expect(first.room.rasterVersion).toBe('legacy-pm8-v1')
+  const retryData = { ...data, rasterVersion: 'future' }
+  const retry = createRoom(retryData, undefined, 'owner', 'Owner', 'socket-b')
+  expect(retry.room).toBe(first.room)
+  expect(retry.room.rasterVersion).toBe('legacy-pm8-v1')
+})

@@ -34,6 +34,7 @@ export function joinGateStateFor(reason: JoinFailureReason): 'login' | 'pending'
     case 'server_busy': return null
     // (#595) Only ever asked for a board of a lesson one is already in — a
     // page turn, not an entrance. The page stays where it was.
+    case 'unsupported_raster_version':
     case 'board_not_visible': return null
   }
 }
@@ -63,6 +64,7 @@ export function canRetryJoinLater(reason: JoinFailureReason): boolean {
     case 'pending_approval': return false
     // (#595) Changes only when the teacher changes the lesson's visibility,
     // and that arrives on its own as `lesson_state`.
+    case 'unsupported_raster_version':
     case 'board_not_visible': return false
   }
 }
@@ -92,6 +94,8 @@ export function describeJoinError(reason: JoinFailureReason, t: TFunction): stri
     // ничего не сделал не так, и через минуту всё получится.
     case 'server_busy':
       return t('join.error.serverBusy')
+    case 'unsupported_raster_version':
+      return t('join.error.unsupportedRasterVersion')
     case 'board_not_visible':
       return t('join.error.boardNotVisible')
   }

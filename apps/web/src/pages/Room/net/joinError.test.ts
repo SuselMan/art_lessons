@@ -108,3 +108,9 @@ describe('joinAttemptOutcome', () => {
     expect(joinAttemptOutcome({ ok: false, error: 'server_busy' }, true)).toEqual({ kind: 'error', reason: 'server_busy' })
   })
 })
+
+it('does not retry unsupported raster metadata and explains the refusal', () => {
+  expect(canRetryJoinLater('unsupported_raster_version')).toBe(false)
+  expect(joinGateStateFor('unsupported_raster_version')).toBeNull()
+  expect(describeJoinError('unsupported_raster_version', en)).toMatch(/raster format/)
+})

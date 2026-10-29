@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
-import type { ApiOk, BoardSummary } from '@grafetto/shared'
+import { readRoomRasterVersion, type ApiOk, type BoardSummary } from '@grafetto/shared'
 
 import { apiRoute } from '../http/apiRoute.js'
 import { prisma } from '../db/prisma.js'
@@ -45,12 +45,13 @@ export type BoardNotifier = {
 }
 
 type LessonRow = {
+  rasterVersion?: string | null
   id: string; name: string; ownerId: string; paper: string; paperColor: string | null; infinite: boolean
   canvasWidth: number | null; canvasHeight: number | null; enabledTools: string[]; activeBoardId: string | null
 }
 
 const LESSON_SELECT = {
-  id: true, name: true, ownerId: true, lessonId: true, paper: true, paperColor: true, infinite: true,
+  id: true, name: true, ownerId: true, lessonId: true, rasterVersion: true, paper: true, paperColor: true, infinite: true,
   canvasWidth: true, canvasHeight: true, enabledTools: true, activeBoardId: true,
 } as const
 
@@ -123,6 +124,7 @@ export function registerBoardRoutes(app: FastifyInstance, notify?: BoardNotifier
         boardOrder,
         // Inherited from the lesson, as a fork inherits them: a page of the
         // same lesson is the same kind of sheet.
+        rasterVersion: readRoomRasterVersion(lesson.rasterVersion),
         paper: lesson.paper,
         paperColor: lesson.paperColor,
         infinite: lesson.infinite,

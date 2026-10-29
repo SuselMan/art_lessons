@@ -18,7 +18,7 @@ import { toAssignmentSummary } from './roomLoader.js'
  *  queries leave it out (boardRoutes.ts). */
 
 const LESSON_FIELDS = {
-  id: true, ownerId: true, paper: true, paperColor: true, infinite: true,
+  id: true, ownerId: true, rasterVersion: true, paper: true, paperColor: true, infinite: true,
   canvasWidth: true, canvasHeight: true, enabledTools: true,
 } as const
 

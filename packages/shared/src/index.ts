@@ -4,6 +4,7 @@
 export * from './layers.js'
 export * from './paper.js'
 export * from './room.js'
+export * from './roomRasterVersion.js'
 export * from './toolset.js'
 export * from './stroke.js'
 export * from './layerOperations.js'

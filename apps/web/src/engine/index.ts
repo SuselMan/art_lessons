@@ -1,3 +1,4 @@
+import { readRoomRasterVersion, LEGACY_ROOM_RASTER_VERSION, type RoomRasterVersion } from '@grafetto/shared'
 import { AuthorTaskScheduler } from './src/input/AuthorTaskScheduler'
 import { AuthorInputFIFO } from './src/input/AuthorInputFIFO'
 import { createCursorHistory, pushCursorHistory, startCursorDirection } from './src/input/kritaStrokeInput'
@@ -259,6 +260,7 @@ export function previewDabShape(
 const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 
 export interface PencilEngineOptions {
+  rasterVersion?: RoomRasterVersion
   /** (#728) Accept provisional pointer input while canonical wet material
    * finishes in FIFO order. Export/snapshot readiness waits for that queue.
    * Omitted, standalone callers retain synchronous completion. */
@@ -545,6 +547,7 @@ export interface StructuralUndoRedoPeek {
 }
 
 export interface PencilEngineAPI {
+  readonly rasterVersion: RoomRasterVersion
   initLayer(id: string): void
   /** (#486) Declares the restored snapshot's structure to be the whole
    *  pre-log layer set, retiring any earlier `initLayer` the snapshot has
@@ -1519,6 +1522,7 @@ interface CarriedWash { key: string; userId: string; washStrokeId: string | unde
 // ─── Engine ────────────────────────────────────────────────────────────────────
 
 export class PencilEngine implements PencilEngineAPI {
+  readonly rasterVersion: RoomRasterVersion
   private canvas: HTMLCanvasElement
   private gl: WebGLRenderingContext
   private _opts: EngineOpts
@@ -2298,6 +2302,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _dabs: DabSystem
 
   constructor(canvas: HTMLCanvasElement, options: PencilEngineOptions = {}) {
+    this.rasterVersion = readRoomRasterVersion(options.rasterVersion)
+    Object.defineProperty(this, 'rasterVersion', { writable: false, configurable: false })
+    if (this.rasterVersion !== LEGACY_ROOM_RASTER_VERSION) {
+      throw new Error('Room raster version is not supported by this renderer')
+    }
     this.canvas = canvas
     this._wcJoinedTouch = options.joinedTouch ?? false
     this._ribbonPainter.diagnosticBandBatch = options.bandBatch ?? false

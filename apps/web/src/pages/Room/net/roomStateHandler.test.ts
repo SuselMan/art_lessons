@@ -215,3 +215,16 @@ describe('a room_state for the board already held', () => {
     expect(deps.setRoomContentReady).not.toHaveBeenCalledWith(true)
   })
 })
+
+it('refuses unsupported raster metadata before any restore, board change or content readiness', async () => {
+  for (const rasterVersion of ['straight-rgba8-v1', 'future'] as const) {
+    const { deps, handle } = setup()
+    await handle(state('B2', { room: room('B2', { rasterVersion: rasterVersion as never }), latestSnapshotSeq: 40, tailOperations: [tailOp(41)] }))
+    expect(deps.reportJoinFailure).toHaveBeenCalledWith('unsupported_raster_version', 'room_state raster contract')
+    expect(deps.setRoomContentReady).toHaveBeenCalledWith(false)
+    expect(deps.restoreCatchup).not.toHaveBeenCalled()
+    expect(deps.enterBoard).not.toHaveBeenCalled()
+    expect(deps.pendingSnapshotRef.current).toBeNull()
+    expect(deps.latestKnownSeqRef.current).toBe(0)
+  }
+})

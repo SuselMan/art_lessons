@@ -51,6 +51,7 @@ const { _flushPendingWrites, isRoomResident } = await import('./rooms.js')
 const { noteBoardCreated } = await import('./classroom.js')
 
 type Row = {
+  rasterVersion?: string
   id: string; name: string; paper: string; paperColor: null; infinite: boolean; canvasWidth: number
   canvasHeight: number; passwordHash: null; accessMode: 'anyone_with_link'; enabledTools: string[]
   closedAt: null; parentRoomId: null; ownerId: string; createdAt: Date; thumbnail: null
@@ -663,4 +664,20 @@ describe.each(['timing', 'time', 'childTime'] as const)('author clock source adm
       expect(strokeEndSample(JSON.parse(JSON.stringify(stored)))?.sourceTime).toBe(valid.sourceTime)
     } finally { rmSync(directory, { recursive: true, force: true }) }
   })
+})
+
+it('refuses unsupported trusted room formats before loading snapshots or emitting pixels', async () => {
+  for (const rasterVersion of ['straight-rgba8-v1', 'unknown-future']) {
+    const roomId = fresh('format')
+    rows.set(roomId, row(roomId, { rasterVersion }))
+    const socket = client('teacher')
+    const emitted: unknown[] = []
+    socket.on('room_state', value => emitted.push(value))
+    const result = await new Promise(resolve => socket.emit('join_room', { roomId, name: 'Teacher' }, resolve))
+    expect(result).toEqual({ ok: false, error: 'unsupported_raster_version' })
+    expect(emitted).toEqual([])
+    expect(isRoomResident(roomId)).toBe(false)
+    expect(mockPrisma.roomLayerSnapshot.findMany).not.toHaveBeenCalled()
+    expect(mockPrisma.operation.findMany).not.toHaveBeenCalled()
+  }
 })

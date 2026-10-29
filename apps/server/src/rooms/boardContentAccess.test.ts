@@ -74,3 +74,11 @@ describe('HTTP board access independent of socket presence', () => {
     expect(await mayReadBoardContent('missing', 'student')).toBe(false)
   })
 })
+
+it('refuses an unsupported board format before membership or any content is read', async () => {
+  for (const rasterVersion of ['straight-rgba8-v1', 'future']) {
+    mocks.room.findUnique.mockResolvedValueOnce({ ...board, rasterVersion })
+    expect(await mayReadBoardContent('board', 'teacher')).toBe(false)
+  }
+  expect(mocks.roomParticipant.findUnique).not.toHaveBeenCalled()
+})

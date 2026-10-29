@@ -117,6 +117,7 @@ model LoginCode {
 }
 
 model Room {
+  rasterVersion      String              @default("legacy-pm8-v1")
   id                 String              @id
   name               String
   paper              String

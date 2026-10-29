@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs'
 import type {
   LessonState, Operation, Participant, Room, RoomAccessMode,
 } from '@grafetto/shared'
-import { DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS } from '@grafetto/shared'
+import { LEGACY_ROOM_RASTER_VERSION, DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS } from '@grafetto/shared'
 
 import { isCoveredBySnapshot } from './snapshotCoverage.js'
 import { lessonStateFor } from './classroom.js'
@@ -193,6 +193,8 @@ export function createRoom(
 
   const room: Room = {
     ...roomData,
+    // Creation is server-owned; straight writers are not admitted yet.
+    rasterVersion: LEGACY_ROOM_RASTER_VERSION,
     // (#595) Checked, like `accessMode`: the payload is a socket's claim.
     classVisibility: roomData.classVisibility === 'class' ? 'class' : 'teacher_only',
     hasPassword: !!password,

@@ -1,3 +1,4 @@
+import { readRoomRasterVersion } from '@grafetto/shared'
 import { copyRoomBrushes } from '../brushLibrary/storage.js'
 import { createHash, randomUUID } from 'node:crypto'
 import type { FastifyInstance } from 'fastify'
@@ -293,6 +294,7 @@ async function writeSeed(tx: Prisma.TransactionClient, forkId: string, seed: Boa
 /** The columns of a Room row a copy takes from its source board. Canvas
  *  shape has to match or the seeded snapshot wouldn't line up with it. */
 type SourceBoard = {
+  rasterVersion?: string | null
   id: string; name: string; paper: string; paperColor: string | null; infinite: boolean
   canvasWidth: number | null; canvasHeight: number | null; boardOrder: number
 }
@@ -301,6 +303,7 @@ function copiedBoardData(board: SourceBoard, forkId: string, name: string, owner
   return {
     id: forkId,
     name,
+    rasterVersion: readRoomRasterVersion(board.rasterVersion),
     paper: board.paper,
     paperColor: board.paperColor,
     infinite: board.infinite,

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import type { Operation, Room } from '@grafetto/shared'
+import { readRoomRasterVersion, type Operation, type Room } from '@grafetto/shared'
 
 import { prisma } from '../db/prisma.js'
 import { enqueueWrite } from './roomRegistry.js'
@@ -14,6 +14,7 @@ export function persistRoomCreate(room: Room, passwordHash: string | undefined):
   enqueueWrite(room.id, () => prisma.room.create({
     data: {
       id: room.id, name: room.name, paper: room.paper, paperColor: room.paperColor ?? null,
+      rasterVersion: readRoomRasterVersion(room.rasterVersion),
       infinite: room.infinite,
       canvasWidth: room.canvasWidth ?? null, canvasHeight: room.canvasHeight ?? null,
       passwordHash, accessMode: room.accessMode, ownerId: room.ownerId,

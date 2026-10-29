@@ -1,3 +1,4 @@
+import { LEGACY_ROOM_RASTER_VERSION, readRoomRasterVersion } from '@grafetto/shared'
 import type { RefObject } from 'react'
 
 import type { ClientToServerEvents, JoinDenial, Operation, Participant, ServerToClientEvents } from '@grafetto/shared'
@@ -73,6 +74,16 @@ export function createRoomStateHandler<Engine>({
   pendingSnapshotRef, latestKnownSeqRef, isOwnerRef, engineRef, snapshotGateRef,
 }: RoomStateDeps<Engine>): ServerToClientEvents['room_state'] {
   return async ({ room, latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen, lesson }) => {
+    // Validate trusted server metadata before storing/restoring any content.
+    try {
+      if (readRoomRasterVersion(room.rasterVersion) !== LEGACY_ROOM_RASTER_VERSION) {
+        throw new Error('Unsupported raster version')
+      }
+    } catch {
+      setRoomContentReady(false)
+      reportJoinFailure('unsupported_raster_version', 'room_state raster contract')
+      return
+    }
     const store = useRoomStore.getState()
     // (#176) The social half first, whichever board this is for: the
     // strip, the teacher's board and the lesson's roster (everyone in the

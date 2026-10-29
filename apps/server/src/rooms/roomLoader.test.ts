@@ -144,3 +144,14 @@ describe('what it does not load', () => {
     expect(await ensureRoomLoaded('never-created')).toBe(false)
   })
 })
+
+it('rejects unknown and not-yet-supported raster versions before operation or snapshot loading', async () => {
+  for (const rasterVersion of ['straight-rgba8-v1', 'future']) {
+    const id = `format-${nextId++}`
+    mockPrisma.room.findUnique.mockResolvedValueOnce({ ...row(id), rasterVersion })
+    expect(await ensureRoomLoaded(id)).toBe(false)
+    expect(rooms.has(id)).toBe(false)
+  }
+  expect(mockPrisma.operation.findMany).not.toHaveBeenCalled()
+  expect(mockPrisma.roomLayerSnapshot.groupBy).not.toHaveBeenCalled()
+})

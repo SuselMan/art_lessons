@@ -1,3 +1,4 @@
+import { admitsStoredRoomRaster } from './roomRasterAdmission.js'
 import { hasRequiredOperationBrushContext, pinOperationBrush } from '../brushLibrary/storage.js'
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
@@ -339,6 +340,9 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         ack({ ok: false, error: 'server_busy' })
         return
       }
+      if (!await admitsStoredRoomRaster(room.id)) {
+        ack({ ok: false, error: 'unsupported_raster_version' }); return
+      }
       await ensureRoomLoaded(room.id)
       // No one else is in the room yet, so there's no peer_joined broadcast
       // to make — unlike join_room below, the returned participant is unused.
@@ -391,6 +395,9 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       // first time this process has touched it this session — a cold server
       // start, or the room went idle and was evicted (see leaveRoom). A
       // no-op, synchronously fast, when the room's already live.
+      if (!await admitsStoredRoomRaster(roomId)) {
+        ack({ ok: false, error: 'unsupported_raster_version' }); return
+      }
       await ensureRoomLoaded(roomId)
 
       const displayName = name?.trim() || FALLBACK_PARTICIPANT_NAME

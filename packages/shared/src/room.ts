@@ -1,3 +1,4 @@
+import type { RoomRasterVersion } from './roomRasterVersion.js'
 import type { PaperType } from './paper.js'
 import type { ToggleableTool } from './toolset.js'
 
@@ -27,6 +28,8 @@ export function isRoomAccessMode(value: unknown): value is RoomAccessMode {
 }
 
 export type Room = {
+  /** Pinned pixel interpretation; absent historical metadata is legacy. */
+  rasterVersion?: RoomRasterVersion
   id: string
   name: string
   paper: PaperType

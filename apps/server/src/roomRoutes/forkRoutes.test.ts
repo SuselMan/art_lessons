@@ -194,8 +194,16 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
     expect(room.id).not.toBe(SOURCE.id)
     // The canvas has to match or the seeded snapshot wouldn't line up with it.
     expect(room).toMatchObject({ paper: 'coarse', paperColor: '#f5f0e6', infinite: false, canvasWidth: 1240, canvasHeight: 1754 })
+    expect(room.rasterVersion).toBe('legacy-pm8-v1')
     // (#548) And the assignment's toolset.
     expect(room.enabledTools).toEqual(['pencil'])
+  })
+
+  it('preserves the source board raster contract when copying stored pixels', async () => {
+    mockPrisma.room.findUnique.mockResolvedValue({ ...SOURCE, rasterVersion: 'straight-rgba8-v1' })
+    const res = await fork(buildApp('student'))
+    expect(res.statusCode).toBe(201)
+    expect(createdRoom().rasterVersion).toBe('straight-rgba8-v1')
   })
 
   it('files the copy in the folder the source is filed in (#552)', async () => {

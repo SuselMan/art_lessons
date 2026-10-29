@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand'
 import type {
-  AssignmentSummary, BoardSummary, ClassVisibility, LessonState, Participant, RoomAccessMode, ToggleableTool,
+  RoomRasterVersion, AssignmentSummary, BoardSummary, ClassVisibility, LessonState, Participant, RoomAccessMode, ToggleableTool,
 } from '@grafetto/shared'
 
 import { participantsReducer, type ParticipantsAction } from './participants'
@@ -17,6 +17,7 @@ import type { PaperType } from '@grafetto/shared'
 // via applyIdentity, read via getState() at use-sites, deliberately never
 // subscribed to reactively anywhere.
 export interface RoomInfo {
+  rasterVersion?: RoomRasterVersion
   id: string
   name: string
   paper: PaperType

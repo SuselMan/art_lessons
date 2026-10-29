@@ -1,4 +1,4 @@
-import type { ClassVisibility } from '@grafetto/shared'
+import { readRoomRasterVersion, type ClassVisibility } from '@grafetto/shared'
 
 /** (#176, ADR 014) The one resolution rule boards are built on.
  *
@@ -64,11 +64,13 @@ export function canDrawOnBoard(userId: string, board: { boardOwnerId?: string | 
  *  (forkRoutes.ts): a page of the same lesson is the same kind of sheet. Used
  *  by the strip's "+" (boardRoutes.ts) and by class mode's personal boards. */
 export function inheritedBoardFields(lesson: {
+  rasterVersion?: string | null
   id: string; ownerId: string; paper: string; paperColor: string | null; infinite: boolean
   canvasWidth: number | null; canvasHeight: number | null; enabledTools: string[]
 }) {
   return {
     lessonId: lesson.id,
+    rasterVersion: readRoomRasterVersion(lesson.rasterVersion),
     paper: lesson.paper,
     paperColor: lesson.paperColor,
     infinite: lesson.infinite,

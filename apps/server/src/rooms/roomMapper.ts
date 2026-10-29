@@ -1,4 +1,4 @@
-import { sanitizeEnabledTools, type ClassVisibility, type Room, type RoomAccessMode, type RoomFolder } from '@grafetto/shared'
+import { readRoomRasterVersion, sanitizeEnabledTools, type ClassVisibility, type Room, type RoomAccessMode, type RoomFolder } from '@grafetto/shared'
 
 /** (#627) What a Room row has to be read with for toWireRoom to give the full
  *  wire Room — the owner's name and the thumbnail's stamp. One constant, so a
@@ -12,6 +12,7 @@ export const ROOM_WIRE_INCLUDE = {
  *  from Postgres) so both map a Prisma `Room` row to the wire `Room` type
  *  identically. */
 export function toWireRoom(r: {
+  rasterVersion?: string | null
   id: string; name: string; paper: string; paperColor: string | null; infinite: boolean
   canvasWidth: number | null; canvasHeight: number | null
   passwordHash: string | null; ownerId: string; createdAt: Date
@@ -58,6 +59,7 @@ export function toWireRoom(r: {
   folderId?: string | null
 }): Room {
   return {
+    rasterVersion: readRoomRasterVersion(r.rasterVersion),
     id: r.id, name: r.name, paper: r.paper as Room['paper'], paperColor: r.paperColor ?? undefined,
     infinite: r.infinite,
     canvasWidth: r.canvasWidth ?? undefined, canvasHeight: r.canvasHeight ?? undefined,

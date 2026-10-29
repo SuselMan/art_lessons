@@ -1,3 +1,4 @@
+import { supportsCurrentRoomRaster } from './roomRasterAdmission.js'
 import { prisma } from '../db/prisma.js'
 import { canSeeBoard, lessonOf } from './lessons.js'
 import { passwordGrant } from './roomPersistence.js'
@@ -10,9 +11,9 @@ export async function mayReadBoardContent(roomId: string, userId: string): Promi
   await flushRoomWrites(roomId)
   const board = await prisma.room.findUnique({
     where: { id: roomId },
-    select: { id: true, lessonId: true, boardOwnerId: true },
+    select: { id: true, lessonId: true, boardOwnerId: true, rasterVersion: true },
   })
-  if (!board) return false
+  if (!board || !supportsCurrentRoomRaster(board.rasterVersion)) return false
   const lessonId = lessonOf(board)
   // Successful seating queues membership before announcing the snapshot.
   // Await that write rather than racing it on the first HTTP request.

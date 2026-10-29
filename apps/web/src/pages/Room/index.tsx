@@ -877,6 +877,7 @@ function RoomEditor() {
   // join lands), which is why the effects below can gate on the paper alone
   // instead of on `config` — referencing the object at all is what would put it
   // back in their dependency lists.
+  const engineRasterVersion = config?.rasterVersion
   const enginePaper = config?.paper
   // (#493) The sound's whole lifetime, out of line — see usePencilSound.
   const pencilSoundRef = usePencilSound(enginePaper)
@@ -966,6 +967,7 @@ function RoomEditor() {
     replayIncompleteRef.current = false
     snapshotGateRef.current = createSnapshotGate(reportInvariant)
     const engine = new PencilEngine(canvasRef.current, {
+      rasterVersion: engineRasterVersion,
       asyncFinish: false,
       joinedTouch: !import.meta.env.DEV || joinedTouchQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_TOUCH, location.search),
       bandBatch: import.meta.env.DEV && new URLSearchParams(location.search).get('qaBandBatch') === '1',
@@ -1033,7 +1035,7 @@ function RoomEditor() {
       retireEngine(engine, boardId, replayIncompleteRef, unhookPageHide)
     }
   }, [
-    boardId, enginePaper, enginePaperColor, engineInfinite,
+    boardId, engineRasterVersion, enginePaper, enginePaperColor, engineInfinite,
     markActive, applyRemoteOp, syncFromLog, engineDevOptions, checkSnapshotBoundary, restoreRoom, finishOpenTimer,
     isCreator, snapshotUploader, outbox,
     awaitPaper,

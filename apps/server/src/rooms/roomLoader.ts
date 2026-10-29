@@ -2,6 +2,7 @@ import type { AssignmentSummary, BoardSummary, Operation } from '@grafetto/share
 import { DEFAULT_PALETTE_COLORS } from '@grafetto/shared'
 
 import { prisma } from '../db/prisma.js'
+import { supportsCurrentRoomRaster } from './roomRasterAdmission.js'
 import { toWireRoom } from './roomMapper.js'
 import { rooms } from './roomRegistry.js'
 import { persistPalette } from './roomPersistence.js'
@@ -50,6 +51,7 @@ async function loadResidentOperations(
 export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   const resident = rooms.get(roomId)
   if (resident) {
+    if (!supportsCurrentRoomRaster(resident.room.rasterVersion)) return false
     // (#176) A board's residency is only worth anything with its lesson
     // beside it — see RoomRecord.lessonId. The lesson can go first (its own
     // eviction is deferred behind its own writes, the board's behind the
@@ -71,6 +73,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     include: { thumbnail: { select: { updatedAt: true } } },
   })
   if (!dbRoom) return false
+  if (!supportsCurrentRoomRaster(dbRoom.rasterVersion)) return false
 
   // (#176) Lesson first, always: the board's join gate, freeze and
   // participants are all read off the lesson's record, so a board resident

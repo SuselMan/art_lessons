@@ -341,6 +341,7 @@ export const en = {
   'join.error.accessRevoked': 'The host has removed your access to this project.',
   'join.error.loginRequired': 'This project is invite-only. Sign in with the address you were invited by.',
   'join.error.pendingApproval': 'Your request to join has been sent to the host. This page will let you in once they approve it.',
+  'join.error.unsupportedRasterVersion': 'This room uses a raster format this version cannot open.',
   'join.error.boardNotVisible': "This is a classmate's work, and the teacher hasn't opened the class's work to everyone.",
   'join.error.serverBusy': 'The server is at capacity right now. Wait a moment and try again — nothing of yours is lost.',
 
