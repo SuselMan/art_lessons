@@ -173,6 +173,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
   // not forgotten — recoverable on demand via rebuildTile. Never populated
   // when rebuildTile is undefined (see class docstring).
   private readonly evicted = new Set<string>()
+  private readonly retainedTargets = new Map<string, { buffer: AccumulationBuffer; count: number }>()
   // (#155 Tier 2) Real content bbox per tile ever created, world-space,
   // keyed the same as `tiles`/`evicted` — populated the moment a tile is
   // created and never removed except by clear()/destroy(), independent of
@@ -266,6 +267,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
   get evictedTileCount(): number { return this.evicted.size }
 
   clear(): void {
+    if (this.retainedTargets.size) throw new Error('Cannot clear retained layer targets')
     for (const tile of this.tiles.values()) tile.destroy()
     this.tiles.clear()
     this.evicted.clear()
@@ -274,6 +276,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
   }
 
   destroy(): void {
+    if (this.retainedTargets.size) throw new Error('Cannot destroy retained layer targets')
     for (const tile of this.tiles.values()) tile.destroy()
     this.tiles.clear()
     this.evicted.clear()
@@ -418,6 +421,43 @@ export class TiledLayerBuffer implements ILayerBuffer {
     return { w: this.tileW * factor, h: this.tileH * factor }
   }
 
+  /** Retains exact fine-tile identities for ONE synchronous draw batch.
+   * Borrowers must not destroy buffers or retain this scope across await/rAF.
+   * Unlike suspendEviction, other tiles still trim normally. Cancellation must
+   * release before clear/destroy. Release is metadata only: normal resolvers,
+   * not GL cleanup callbacks, perform any later budget sweep/replay. */
+  retainTargets(targets: readonly PaintTarget[]): () => void {
+    if (!Array.isArray(targets) || targets.length > 64) throw new RangeError('Invalid retained target capacity')
+    const unique = new Map<string, AccumulationBuffer>()
+    for (const target of targets) {
+      if (!target || !Number.isSafeInteger(target.originX) || !Number.isSafeInteger(target.originY)
+        || target.originX % this.tileW !== 0 || target.originY % this.tileH !== 0)
+        throw new Error('Foreign or stale retained layer target')
+      const key = tileKey(target.originX / this.tileW, target.originY / this.tileH)
+      const owned = this.tiles.get(key)
+      if (!owned || owned !== target.buffer) throw new Error('Foreign or stale retained layer target')
+      unique.set(key, target.buffer)
+    }
+    if (this.retainedTargets.size + [...unique.keys()].filter(key => !this.retainedTargets.has(key)).length > 64)
+      throw new RangeError('Retained layer target capacity exceeded')
+    const held: { key: string; entry: { buffer: AccumulationBuffer; count: number } }[] = []
+    for (const [key, buffer] of unique) {
+      let entry = this.retainedTargets.get(key)
+      if (!entry) { entry = { buffer, count: 0 }; this.retainedTargets.set(key, entry) }
+      entry.count++
+      held.push({ key, entry })
+    }
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      for (const { key, entry } of held) if (this.retainedTargets.get(key) === entry) {
+        entry.count--
+        if (entry.count === 0) this.retainedTargets.delete(key)
+      }
+    }
+  }
+
   /** Suspends eviction until a matching resumeEviction() — used by
    *  engine/index.ts's _replayInto while it's mid-way through repopulating
    *  this exact instance from a checkpoint plus tail ops. Without this, a
@@ -487,7 +527,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
     // touch() maintains as LRU order — so this still evicts oldest-first.
     for (const key of [...this.tiles.keys()]) {
       if (overBudget <= 0) break
-      if (inUse?.has(key)) continue
+      if (inUse?.has(key) || this.retainedTargets.has(key)) continue
       const victim = this.tiles.get(key)!
       // (#367) Its last chance to reach the levels — see foldBeforeEviction.
       this.foldBeforeEviction(key, victim)

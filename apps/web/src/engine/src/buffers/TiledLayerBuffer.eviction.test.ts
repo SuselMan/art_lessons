@@ -296,3 +296,59 @@ describe('TiledLayerBuffer: a view wider than the budget (#363)', () => {
     expect(buf.evictedTileCount).toBe(0)
   })
 })
+
+it('retains exact batch targets while unrelated LRU tiles still evict, then releases idempotently', () => {
+  const { rebuildTile, callCount } = makeFakeRebuilder(new Map())
+  const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H, rebuildTile, TILE_BYTES * 8)
+  const target = buf.resolveForPaint({ minX: 0, minY: 0, maxX: 1, maxY: 1 })[0]
+  const releaseA = buf.retainTargets([target, target]), releaseB = buf.retainTargets([target])
+  try {
+    for (let i = 1; i < 13; i++) paintTile(buf, i)
+    expect(buf.tileCount).toBe(8)
+    expect(buf.evictedTileCount).toBe(5)
+    expect(buf.resolveVisible({ minX: 0, minY: 0, maxX: 1, maxY: 1 })[0].buffer).toBe(target.buffer)
+    expect(callCount.value).toBe(0)
+    expect(() => buf.clear()).toThrow('retained')
+    expect(() => buf.destroy()).toThrow('retained')
+    releaseA(); releaseA()
+    expect(() => buf.clear()).toThrow('retained')
+    const before = callCount.value
+    releaseB()
+    expect(callCount.value).toBe(before) // cleanup never performs a replay/sweep
+    for (let i = 13; i < 26; i++) paintTile(buf, i)
+    expect(buf.tileCount).toBe(8)
+    expect(() => buf.retainTargets([target])).toThrow('stale')
+    buf.clear()
+    const fresh = buf.resolveForPaint({ minX: 0, minY: 0, maxX: 1, maxY: 1 })[0]
+    const releaseFresh = buf.retainTargets([fresh])
+    releaseA(); releaseB() // old releases cannot affect the new allocation
+    expect(() => buf.destroy()).toThrow('retained')
+    releaseFresh()
+  } finally { releaseA(); releaseB(); buf.destroy() }
+})
+
+it('validates every retained target before taking any ownership', () => {
+  const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H)
+  const other = new TiledLayerBuffer(gl(), TILE_W, TILE_H)
+  const rect = { minX: 0, minY: 0, maxX: 1, maxY: 1 }
+  const target = buf.resolveForPaint(rect)[0], foreign = other.resolveForPaint(rect)[0]
+  try {
+    expect(() => buf.retainTargets([target, foreign])).toThrow('Foreign')
+    expect(() => buf.retainTargets([{ ...target, originX: TILE_W, buffer: undefined as never }])).toThrow('Foreign')
+    expect(() => buf.retainTargets([{ ...target, originX: 1 }])).toThrow('Foreign')
+    expect(() => buf.retainTargets(Array.from({ length: 65 }, () => target))).toThrow('capacity')
+    expect(() => buf.clear()).not.toThrow()
+  } finally { buf.destroy(); other.destroy() }
+})
+
+
+it('bounds unique retained identities across overlapping scopes', () => {
+  const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H)
+  const targets = Array.from({ length: 65 }, (_, i) => buf.resolveForPaint({ minX: i * TILE_W, minY: 0, maxX: i * TILE_W + 1, maxY: 1 })[0])
+  const release = buf.retainTargets(targets.slice(0, 64))
+  try {
+    const duplicate = buf.retainTargets([targets[0]])
+    expect(() => buf.retainTargets([targets[64]])).toThrow('capacity')
+    duplicate()
+  } finally { release(); buf.destroy() }
+})
