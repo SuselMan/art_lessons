@@ -9,7 +9,7 @@ import { Server } from 'socket.io'
 import { io as connect, type Socket as ClientSocket } from 'socket.io-client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createBrushRandomStrokeId, type ClientToServerEvents, type ServerToClientEvents, type StrokeOperation, type SendResult } from '@grafetto/shared'
+import { createBrushRandomStrokeId, packDabs, type Dab, type ClientToServerEvents, type ServerToClientEvents, type StrokeOperation, type SendResult } from '@grafetto/shared'
 
 // (#176, ADR 014 §3) A real socket.io server + client pair, like
 // shutdown.test.ts and for the same reason: what is under test is which
@@ -422,6 +422,73 @@ describe('native brush capability admission', () => {
       expect(pinned.brushes[0].descriptor).toEqual(library.brushes[0].descriptor)
       const legacy = { ...stroke(fresh('legacy-good'), 'teacher'), tool: 'digitalBrush' as const, preset: 'brush:imported-' + 'c'.repeat(16) + '@1', strokeId: 'legacy-no-context' }
       expect(await new Promise<SendResult>(resolve => teacher.emit('operation', legacy, resolve))).toMatchObject({ ok: true, seq: 2 })
+    } finally { rmSync(directory, { recursive: true, force: true }) }
+  })
+})
+
+
+describe('native XY source input admission', () => {
+  it('validates all plain/packed batch dabs, live packets and endpoint-only finals before mutation', async () => {
+    const { lessonId, teacher, student } = await classroom()
+    const directory = mkdtempSync(joinPath(tmpdir(), 'native-xy-input-'))
+    const storage = new BrushStorage(directory), library = empty()
+    library.brushes.push({ name: 'generic xy', source: 'qa', warnings: [], descriptor: {
+      id: 'imported-' + 'e'.repeat(16), version: 1, model: 'stamp', category: 'paint',
+      tip: { kind: 'round', profile: { kind: 'gaussian', fade: .85, antialias: false }, hardness: 1, aspect: 1, rotation: 'fixed', angle: 0 },
+      paperInteraction: 0, spacing: .2, flow: 1, flowPer: 'stamp', opacity: 1, pressureSmoothingPx: 0,
+      sizeByPressure: [[0, 0], [1, 1]], flowByPressure: [[0, 1], [1, 1]], opacityByPressure: [[0, 1], [1, 1]],
+      scatter: { count: 1, radius: .09, scale: 1, sizeJitter: 0, angleJitter: 0, flowJitter: 0 },
+      behavior: { version: 2, sequentialRandom: { version: 1, kind: 'qt5Taus88', policy: 'scatterXY' }, scatter: { countJitter: 0, bothAxes: true, placement: 'xyUniform' } },
+    } })
+    setBrushStorage(storage, library)
+    const brushRandom = { version: 1 as const, sequentialSeed: 1, strokeSeed: 2 }
+    const base: StrokeOperation = { ...stroke(fresh('xy'), 'teacher'), tool: 'digitalBrush', preset: 'brush:' + library.brushes[0].descriptor.id + '@1',
+      strokeId: createBrushRandomStrokeId('native-xy-sources', brushRandom), brushRandom }
+    const dab: Dab = { x: 1, y: 2, size: 10, pressure: 1, tiltX: 0, tiltY: 0, angle: 0, aspectRatio: 1, opacity: 1, t: 0 }
+    const valid: Dab = { ...dab, sourceSize: 16, sourceScale: .5 }
+    const badOps: StrokeOperation[] = [
+      { ...base, dabs: [dab] },
+      { ...base, dabs: [valid, dab] },
+      { ...base, dabs: [{ ...valid, sourceSize: 1.5 }] },
+      { ...base, dabs: [{ ...valid, sourceSize: 0 }] },
+      { ...base, dabs: [{ ...valid, sourceScale: 1.01 }] },
+      { ...base, dabs: [{ ...valid, sourceScale: undefined }] },
+      { ...base, dabs: [{ ...valid, sourceScale: NaN }] },
+      { ...base, dabs: undefined, dabsPacked: packDabs([dab]) },
+      { ...base, dabs: undefined, dabsPacked: packDabs([valid, dab]) },
+      { ...base, dabs: undefined, dabsPacked: 'malformed' },
+      { ...base, dabs: [], strokeEnd: true, strokeEndSample: { ...dab, baseSize: 16 } },
+    ]
+    try {
+      const quiet = silent(student, 'operation_confirmed', 120)
+      for (const operation of badOps) {
+        const result = await new Promise<SendResult>(resolve => teacher.emit('operation', { ...operation, id: fresh('bad-xy') }, resolve))
+        expect(result).toEqual({ ok: false, reason: 'invalid_operation' })
+      }
+      await quiet
+      expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+      expect(existsSync(storage.path('rooms', lessonId))).toBe(false)
+      const quietLive = silent(student, 'peer_stroke_live', 70)
+      for (const dabsPacked of [packDabs([dab]), packDabs([valid, dab]), 'malformed']) {
+        teacher.emit('stroke_live', { strokeId: base.strokeId!, layerId: base.layerId, tool: base.tool, preset: base.preset, color: base.color, dabsPacked, packetSeq: 0, brushRandom })
+      }
+      await quietLive
+      expect(existsSync(storage.path('rooms', lessonId))).toBe(false)
+      const live = next(student, 'peer_stroke_live'), packed = packDabs([valid, { ...valid, sourceSize: 32, sourceScale: 0 }])
+      teacher.emit('stroke_live', { strokeId: base.strokeId!, layerId: base.layerId, tool: base.tool, preset: base.preset, color: base.color, dabsPacked: packed, packetSeq: 1, brushRandom })
+      expect(await live).toMatchObject({ dabsPacked: packed })
+      const accepted: StrokeOperation[] = [
+        { ...base, id: fresh('plain-xy'), dabs: [valid] },
+        { ...base, id: fresh('packed-xy'), dabs: undefined, dabsPacked: packed },
+        { ...base, id: fresh('endpoint-xy'), dabs: [], strokeEnd: true, strokeEndSample: { ...valid, baseSize: 16 } },
+        { ...base, id: fresh('empty-final-xy'), dabs: [], strokeEnd: true },
+      ]
+      for (const [index, operation] of accepted.entries()) expect(await new Promise<SendResult>(resolve => teacher.emit('operation', operation, resolve))).toMatchObject({ ok: true, seq: index + 1 })
+      await _flushPendingWrites(lessonId)
+      const stored = mockPrisma.operation.create.mock.calls.map(call => call[0].data.data)
+      expect(stored).toContainEqual(expect.objectContaining({ id: accepted[0].id, dabs: [valid] }))
+      expect(stored).toContainEqual(expect.objectContaining({ id: accepted[1].id, dabsPacked: packed }))
+      expect(stored).toContainEqual(expect.objectContaining({ id: accepted[2].id, strokeEndSample: { ...valid, baseSize: 16 } }))
     } finally { rmSync(directory, { recursive: true, force: true }) }
   })
 })

@@ -12,7 +12,9 @@ use the same current durable content ACL as snapshots; a shared asset hash alone
 no access. Accepted imported strokes synchronously pin their exact version and assets
 before the operation log can accept them. Native keyed-random descriptors also require
 a valid gesture-bound seed context before either pinning/sequence allocation or live relay;
-legacy descriptors keep their historical seedless admission. Forks copy references before publishing the DB
+legacy descriptors keep their historical seedless admission. Sequential XY requests additionally
+require validated sourceSize/sourceScale on every packed/plain dab and endpoint sample;
+malformed source inputs are refused before room pinning or history persistence. Forks copy references before publishing the DB
 copy. Retention uses the shared descriptor asset collector, including radial lookup
 tables and secondary brush resources; diagnostic text never creates references. Owner
 installation preflights resource bytes before publishing manifests. No deletion/GC can remove historical assets; snapshots do not release references.

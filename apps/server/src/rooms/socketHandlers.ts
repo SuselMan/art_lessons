@@ -660,14 +660,14 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // author's ink would still appear live on every peer's canvas and only
     // disappear once their operation came back rejected — the "drawing into
     // the void" failure of #254, with the void now visible to the whole room.
-    // The stand-in carries no dabs: nothing in that gate reads them.
+    // Keep packed source inputs for capability admission; permission checks do not decode them.
     socket.on('stroke_live', data => {
       if (!hasValidBrushRandomContext(data)) return
       const { roomId, userId } = socket.data
       if (!roomId || !userId) return
       const standIn: Operation = {
         id: data.strokeId, type: 'stroke', userId, timestamp: 0,
-        layerId: data.layerId, tool: data.tool, preset: data.preset, color: data.color, dabs: [],
+        layerId: data.layerId, tool: data.tool, preset: data.preset, color: data.color, dabsPacked: data.dabsPacked,
         strokeId: data.strokeId, ...(data.brushRandom ? { brushRandom: data.brushRandom } : {}),
       }
       if (getOperationRejectReason(roomId, userId, standIn)) return
