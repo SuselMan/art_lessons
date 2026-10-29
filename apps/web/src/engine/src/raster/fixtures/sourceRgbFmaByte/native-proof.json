@@ -1,0 +1,21 @@
+{
+  "scope": "CPU specialization vs ORIGINAL installed instruction outputs; no GPU performance claim. Host JS timing diagnostic only.",
+  "checked": 7961,
+  "wrong": [],
+  "fullNativeReportSHA256": "28622e2aa200ddaeaefa74a682fdaef0a4fe8437391611f0e3f9074cd45f45aa",
+  "modelSHA256": "ac16720f1905ed3137004044bf0cd324acb712fa182f812b033f8efb2abdd0a7",
+  "hostTiming": {
+    "pixelsPerRun": 4000,
+    "baselineMs": [
+      22.706709000000046,
+      18.479427999999984,
+      17.628801000000067
+    ],
+    "specializedMs": [
+      190.95899000000009,
+      189.63992900000005,
+      190.78720899999985
+    ],
+    "checksum": 4076904
+  }
+}
