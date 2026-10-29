@@ -1,13 +1,16 @@
 import {
-  buildCanonicalMaterial, canonicalMaterialGeometryCost, CANONICAL_STROKE_RASTER_PROFILE,
-  decodeCanonicalStrokeFrame, type CanonicalStrokeFrameContext,
+  buildCanonicalMaterial, CANONICAL_STROKE_RASTER_PROFILE,
+  decodeCanonicalStrokeFrame, type CanonicalStrokeFrameContext, type CanonicalStrokeFrameContextV2, type CanonicalMaterialFrameV2,
 } from '@grafetto/shared'
 import { advanceSourcePrimaryComposition, createSourcePrimaryComposition, type SourcePrimaryCompositionState } from './sourcePrimaryComposition'
-import type { SourceStrokeMaterialContext } from './sourceStrokeMaterialAdapter'
+import { copySourceMaterialContext, pinSourceMaterialTargets, assertSourceMaterialTargets, type SourceStrokeMaterialContext, type SourceStrokeMaterialContextV2, type SourceMaterialTargetGeometry } from './sourceStrokeMaterialAdapter'
 
 export type SourceCanonicalStrokeContext = Omit<CanonicalStrokeFrameContext, 'frameOrdinal' | 'material'> & {
   readonly material: SourceStrokeMaterialContext
 }
+export type SourceCanonicalStrokeContextV2 = Omit<CanonicalStrokeFrameContextV2, 'frameOrdinal' | 'material'> & {readonly material:SourceStrokeMaterialContextV2}
+type AnyContext=SourceCanonicalStrokeContext|SourceCanonicalStrokeContextV2
+type EncodedFor<C> = C extends SourceCanonicalStrokeContextV2 ? {readonly envelope:SourceCanonicalEncodedFrame['envelope'];readonly frame:CanonicalMaterialFrameV2} : SourceCanonicalEncodedFrame
 export type SourceCanonicalEncodedFrame = ReturnType<typeof decodeCanonicalStrokeFrame>
 
 /** Author-side bridge from adapter.flush().packed to the SAME shared decoder
@@ -18,31 +21,24 @@ export type SourceCanonicalEncodedFrame = ReturnType<typeof decodeCanonicalStrok
  * The caller obtains this pinned context from the descriptor/room capability.
  * This class is not a server authorization mechanism or native SIMD attestation.
  */
-export class SourceCanonicalFrameEncoder {
-  private readonly context: Omit<CanonicalStrokeFrameContext, 'frameOrdinal'>
+export class SourceCanonicalFrameEncoder<C extends AnyContext=SourceCanonicalStrokeContext> {
+  private readonly context: Omit<CanonicalStrokeFrameContext, 'frameOrdinal'>|Omit<CanonicalStrokeFrameContextV2, 'frameOrdinal'>
+  private readonly targets:Readonly<SourceMaterialTargetGeometry>|undefined
   private state: SourcePrimaryCompositionState
 
-  constructor(context: SourceCanonicalStrokeContext) {
-    if ('version' in context.material && context.material.version === 2) throw new RangeError('Source canonical encoder requires image material context')
-    if(context.material.geometry?.kind==='defaultAuto')throw new RangeError('Default auto canonical material recipe is not implemented')
-    // Do not keep mutable UI colour/composition/CAS arrays or accept a weaker
-    // preflight callback. Exact recipes/cold-chunk budgets have one owner.
-    this.context = {
-      brush: context.brush, strokeId: context.strokeId,
-      pigmentRgb8: Object.freeze([...context.pigmentRgb8] as [number, number, number]),
-      composition: Object.freeze({ ...context.composition }),
-      material: {
-        assets: structuredClone(context.material.assets), primaryAsset: context.material.primaryAsset,
-        maskAsset: context.material.maskAsset, budget: { ...context.material.budget },
-        preflightDefinition: canonicalMaterialGeometryCost,
-      },
-    }
+  constructor(context:C) {
+    this.targets=pinSourceMaterialTargets(context.material.targetGeometry)
+    const material=copySourceMaterialContext(context.material)
+    const common={brush:context.brush,strokeId:context.strokeId,
+      pigmentRgb8:Object.freeze([...context.pigmentRgb8] as [number,number,number]),
+      composition:Object.freeze({...context.composition})}
+    this.context='version' in material?{...common,material}:{...common,material}
     this.state = createSourcePrimaryComposition(this.context.composition).state
     // Validate identity, RGB and trusted material domain through the actual
     // shared boundary before any author input is consumed. This empty probe is
     // NOT an emitted frame and does not reserve an ordinal or start a gesture.
     const probe = buildCanonicalMaterial({ masked: false, entry: { phase: 'between' }, draws: [], fences: [] }, this.context.material)
-    decodeCanonicalStrokeFrame(this.envelope(probe.packed), { ...this.context, frameOrdinal: 0 })
+    this.decode(probe.packed,0)
   }
 
   get nextFrameOrdinal(): number { return this.state.nextFrameOrdinal }
@@ -52,14 +48,22 @@ export class SourceCanonicalFrameEncoder {
    * live send/log/retry. A failed call leaves ordinal and fence history intact.
    * Empty structural/final chunks must be passed too. No implicit pen-up/reset.
    */
-  encode(materialPacked: string): SourceCanonicalEncodedFrame {
+  encode(materialPacked: string): EncodedFor<C> {
     if (this.state.ended) throw new Error('Canonical source gesture has ended')
-    const accepted = decodeCanonicalStrokeFrame(this.envelope(materialPacked), { ...this.context, frameOrdinal: this.nextFrameOrdinal })
+    const accepted = this.decode(materialPacked,this.nextFrameOrdinal)
+    assertSourceMaterialTargets(accepted.frame,this.targets)
     // Primary-only execution capability/order is checked on decoded values.
     // In particular a structural dual-brush packet cannot enter this profile.
     const next = advanceSourcePrimaryComposition(this.state, { ordinal: this.nextFrameOrdinal, frame: accepted.frame }).state
     this.state = next
-    return accepted
+    return accepted as EncodedFor<C>
+  }
+
+  private decode(packed:string,ordinal:number) {
+    const context=this.context
+    return 'version' in context.material
+      ? decodeCanonicalStrokeFrame(this.envelope(packed),{...context,material:context.material,frameOrdinal:ordinal})
+      : decodeCanonicalStrokeFrame(this.envelope(packed),{...context,material:context.material,frameOrdinal:ordinal})
   }
 
   private envelope(materialPacked: string) {

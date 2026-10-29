@@ -188,3 +188,46 @@ describe('source author chunks to pinned shared stroke envelopes', () => {
   expect(limited.nextFrameOrdinal).toBe(0)
  })
 })
+
+it('cuts sparse logical requests by authoritative target union without dropping fences or draws',()=>{
+ const r=role(),p=program([{...r,timing:{enabled:true,rate:20,ignoreDistance:true}}])
+ const packets=Array.from({length:12},(_,i)=>packet(i*50,13+i*128,17))
+ const unbounded=run(p,packets)
+ const targetGeometry={pageBounds:null,tileWidth:64,tileHeight:64,maxTargets:2}
+ const bounded=run(p,packets,ctx({targetGeometry}))
+ expect(trace(bounded.chunks)).toEqual(trace(unbounded.chunks))
+ expect(bounded.chunks.length).toBeGreaterThan(unbounded.chunks.length)
+ for(const c of bounded.chunks){const keys=new Set(c.frame.draws.map(d=>Math.floor(d.x/64)+':'+Math.floor(d.y/64)));expect(keys.size).toBeLessThanOrEqual(2)}
+})
+
+it('pins room grid and rejects forged pending target checkpoint before replacing pending records',()=>{
+ const p=program(),author=new SourceStrokeAuthor(p),initial=author.createState(4321,7654,.3)
+ const geometry={pageBounds:null,tileWidth:64,tileHeight:64,maxTargets:64},context=ctx({targetGeometry:geometry})
+ const adapter=new SourceStrokeMaterialAdapter(p,context,initial);adapter.beginInput(initial)
+ const out=drain(author.plan(initial,packet(0)));for(const step of out.steps)adapter.accept(step)
+ const checkpoint=adapter.checkpoint();expect(checkpoint.version).toBe(2)
+ geometry.tileWidth=1
+ const correct=ctx({targetGeometry:{pageBounds:null,tileWidth:64,tileHeight:64,maxTargets:64}})
+ expect(()=>new SourceStrokeMaterialAdapter(p,correct,out.state,checkpoint)).not.toThrow()
+ expect(()=>new SourceStrokeMaterialAdapter(p,context,out.state,checkpoint)).toThrow()
+ expect(()=>new SourceStrokeMaterialAdapter(p,correct,out.state,{...checkpoint,pendingTargets:['forged']})).toThrow()
+ expect(adapter.checkpoint()).toEqual(checkpoint)
+})
+
+it('rejects one oversized request before flushing previously accepted fences or advancing counters',()=>{
+ const p=program(),author=new SourceStrokeAuthor(p),state=author.createState(4321,7654,.3)
+ const adapter=new SourceStrokeMaterialAdapter(p,ctx({targetGeometry:{pageBounds:null,tileWidth:1,tileHeight:1,maxTargets:1}}),state)
+ adapter.beginInput(state);const before=adapter.checkpoint(),step=drain(author.plan(state,packet(0))).steps.find(s=>s.kind==='material')!
+ expect(()=>adapter.accept(step)).toThrow('tile fanout');expect(adapter.checkpoint()).toEqual(before)
+})
+
+it('rechecks encoder room union before advancing ordinal and preserves off-page logical records',()=>{
+ const r=role(),p=program([{...r,timing:{enabled:true,rate:20,ignoreDistance:true}}]),packets=[packet(0),packet(50,2048,17)]
+ const chunks=run(p,packets).chunks
+ const encoder=new SourceCanonicalFrameEncoder({brush:'test@1',strokeId:'geometry-test',pigmentRgb8:[0,0,0],
+   composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'},
+   material:ctx({targetGeometry:{pageBounds:null,tileWidth:64,tileHeight:64,maxTargets:2}})})
+ expect(()=>encoder.encode(chunks[0].packed)).toThrow('target union');expect(encoder.nextFrameOrdinal).toBe(0)
+ const outside=run(p,packets,ctx({targetGeometry:{pageBounds:{minX:10000,minY:10000,maxX:10001,maxY:10001},tileWidth:64,tileHeight:64,maxTargets:1}}))
+ expect(trace(outside.chunks)).toEqual(trace(chunks))
+})

@@ -20,3 +20,40 @@ The incremental buffer checks trusted metadata work/output/draw-pixel budgets be
 Tests drive the REAL SourceStrokeAuthor, not fabricated material/phase yields: fixed primary and independent mask programs,50ms private refresh, saved MISS versus later slightly different cache-HIT request, zero-opacity paints, zero-paint mask role, fan0t requests, F64/signed-zero direction, budget cuts, cuts after every yield, and resume at every yield. Baseline and cut/resumed traces compare draw recipes, exact inputs and all fences. A throw-on-RNG spy checks adapter-only consumption makes no random calls. These are integration/glue tests; not a new native pixel receipt or a claim about installed Krita dispatch.
 
 Validation for this unit:4 focused files58 tests pass, real `tsc --noEmit -p apps/web/tsconfig.app.json` passes, targeted oxlint has no warnings. Earlier use of the reference-only tsconfig.json was insufficient and was replaced by the real app target. No device/process/service/runtime resources were created.
+
+## Typed wire2 and room-target packetization
+
+The same adapter and encoder now accept a typed wire2 context. Real default-auto
+roles require the verified descriptor binding, exact descriptor ID/version,
+coverage profile, canonical static source parameters and stored scale 1. This
+uses `canonicalDefaultAutoSourcePin` / `canonicalDefaultAutoCost`; it does not
+invent CAS assets or treat source presence as an execution grant. Static numeric
+zero normalization is the shared wire2 policy; dynamic shape/subpixel F64 values
+retain their bits. This is not Krita UI Size lowering: native UI size rewrites
+and serializes the generator, rather than granting a different stored scale.
+
+Optional authoritative `targetGeometry` is copied at construction and never
+comes from the viewport. Both image and auto use `planCanonicalTargets`, clipping
+to the page before enumeration. A chunk's union is bounded to at most 64 tile
+coordinates (or the smaller configured cap). Overflow cuts the previous chunk
+only after the new logical result passes cold material and target validation;
+one oversized dab fails without flushing or advancing counters. Invisible/off-page
+logical requests and all structural fences remain in the frame. The encoder
+rechecks the same grid before committing an ordinal; it is not another packetizer.
+
+Legacy image/no-target checkpoints retain version 1. Wire2 or a target-pinned
+adapter emits private checkpoint version 2, pins material version and room grid,
+and recomputes pending target keys from validated recipes on restore. Serialized
+keys cannot confer admission. No native query/RNG journal or additional renderer
+queue was introduced. Generic result typing follows the immutable constructor
+context version; the real shared builder still checks every recipe and produces
+the decoded frame consumed locally and remotely.
+
+Host integration tests cover seven real default-auto descriptors with 30 pressure
+inputs each, restore at every author yield with both pending and flushed packets,
+shared-envelope decode equality, sparse target cuts, page-clipped empty writes,
+forged checkpoints, immutable room grid, cold oversized-request rejection and
+encoder ordinal preservation. Existing legacy image traces/fences/byte semantics
+remain covered. This is author/wire glue proof, not native pixel identity, UI
+activation, server authorization, a new resource quota or straight-room opening.
+No device, server, dependency copy or runtime was created for this unit.
