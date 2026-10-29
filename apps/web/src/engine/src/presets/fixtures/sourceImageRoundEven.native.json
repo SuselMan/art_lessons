@@ -1,0 +1,104 @@
+{
+  "scope": "Original installed scalar FMADD/FRINTI/FCVTNS executed under Unicorn A72 FPCR0, no arithmetic hooks. NOT physicalCPU/activeGUI.",
+  "assemblySHA256": "c05afb4b85f50b62ca581980fca4f97627c26439e53d5bed4a6ada9dd34b7814",
+  "instructions": [
+    {
+      "at": "0x302ca0",
+      "bytes": "d866181f"
+    },
+    {
+      "at": "0x302cac",
+      "bytes": "189ba16e"
+    },
+    {
+      "at": "0x302cb0",
+      "bytes": "18ab214e"
+    }
+  ],
+  "codeSHA256": "6fc248262dac1c27d80e311e3f1a23615dde860daefa901779dc9976fe47c629",
+  "toolSharedSHA256": "ddb196ec82b52e502c18e4a34478bf7b9f61c83c2ebaa95c74d8ded45a95da9c",
+  "wheelSHA256": "a445476fff91e636b812d35ff1b0fb07f39ceaec0b3a86d246f7d431ff7766b3",
+  "scriptSHA256": "3032544a7fc7d657164f63a917c79bd0e593ee2730d69a383cbc1e4c37126427",
+  "FPCR": 0,
+  "arithmeticHooks": 0,
+  "cases": [
+    [
+      3279912960,
+      -256
+    ],
+    [
+      3279847424,
+      -254
+    ],
+    [
+      3271589888,
+      -128
+    ],
+    [
+      3271491584,
+      -128
+    ],
+    [
+      3227516928,
+      -4
+    ],
+    [
+      3223322624,
+      -2
+    ],
+    [
+      3217031168,
+      -2
+    ],
+    [
+      3204448256,
+      0
+    ],
+    [
+      0,
+      0
+    ],
+    [
+      1056964608,
+      0
+    ],
+    [
+      1069547520,
+      2
+    ],
+    [
+      1075838976,
+      2
+    ],
+    [
+      1080033280,
+      4
+    ],
+    [
+      1124007936,
+      128
+    ],
+    [
+      1124106240,
+      128
+    ],
+    [
+      1132363776,
+      254
+    ],
+    [
+      1132429312,
+      256
+    ],
+    [
+      1132478464,
+      256
+    ],
+    [
+      1140801536,
+      510
+    ]
+  ],
+  "installedLibrarySHA256": "230ccf905226f4324ffdf8c7239e8be90f0506cfadda25393d1ba014ab0bb783",
+  "producerScope": "Retained original selected instruction bytes, executed on existing registered Unicorn. Cases copied from independent output; not computed by sourceImageRoundEven."
+}

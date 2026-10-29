@@ -13,8 +13,9 @@ export function sourceImageSseReciprocal(alpha: number, estimate: number): numbe
   return Math.fround(twice - product)
 }
 
-/** Nonnegative source color channel, with the native nearest-even conversion. */
+/** Finite source color/intermediate, with native nearest-even conversion.
+ * Euclidean parity also handles negative half ties used by compositor packing. */
 export function sourceImageRoundEven(value: number): number {
   const floor = Math.floor(value), fraction = value - floor
-  return fraction < .5 ? floor : fraction > .5 ? floor + 1 : floor + (floor % 2)
+  return fraction < .5 ? floor : fraction > .5 ? floor + 1 : floor + (floor - 2 * Math.floor(floor / 2))
 }
