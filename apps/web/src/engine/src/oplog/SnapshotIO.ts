@@ -181,8 +181,9 @@ export class SnapshotIO {
     // (#373) Whatever the caller does with these bytes, this layer's current
     // pixels have now left the engine — anything that changes them after this
     // point is what makes it dirty again.
+    const encoded = encodeLayerTiles(tiles, buf.pixelEncoding)
     this.ctx.ledger.markPublished(layerId)
-    return encodeLayerTiles(tiles)
+    return encoded
   }
 
   /** PencilEngineAPI.bakeLayerByFullReplay — see its doc comment for why this
@@ -210,7 +211,7 @@ export class SnapshotIO {
       // on every room with a tile hanging off the sheet.
       const tiles = this._bakeTiles(scratch)
       if (!tiles.length) return null
-      return encodeLayerTiles(tiles)
+      return encodeLayerTiles(tiles, scratch.pixelEncoding)
     } finally {
       scratch.destroy()
     }

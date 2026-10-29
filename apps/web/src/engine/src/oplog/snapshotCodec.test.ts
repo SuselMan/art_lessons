@@ -75,3 +75,36 @@ describe('compressLayerTiles / decompressLayerTiles', () => {
     expect(tiles).toEqual([])
   })
 })
+
+
+it('keeps legacy bytes unchanged and requires the trusted encoding for straight snapshots', async () => {
+  const tile = makeTile({ width: 1, height: 1, pixels: new Uint8Array([37, 91, 203, 0]) })
+  const legacy = encodeLayerTiles([tile])
+  expect(new DataView(legacy.buffer).getUint32(0, true)).toBe(1)
+  expect(decodeLayerTiles(legacy, 0).pixelEncoding).toBe('premultiplied-rgba8')
+  const tagged = encodeLayerTiles([tile], 'straight-rgba8')
+  expect(() => decodeLayerTiles(tagged, 0)).toThrow('does not match')
+  expect(() => decodeLayerTiles(legacy, 0, 'straight-rgba8')).toThrow('does not match')
+  const framed = new Uint8Array(tagged.length + 3)
+  framed.set(tagged, 3)
+  const decoded = decodeLayerTiles(framed, 3, 'straight-rgba8')
+  expect(decoded.nextOffset).toBe(framed.length)
+  expect([...decoded.tiles[0].pixels]).toEqual([37, 91, 203, 0])
+  expect(decoded.tiles[0].pixels.buffer).toBe(framed.buffer)
+  const inflated = await decompressLayerTiles(await compressLayerTiles(tagged))
+  expect([...decodeLayerTiles(inflated, 0, 'straight-rgba8').tiles[0].pixels]).toEqual([37, 91, 203, 0])
+})
+
+it('rejects truncated, unknown and mismatched framing before exposing tile views', () => {
+  const tagged = encodeLayerTiles([makeTile()], 'straight-rgba8')
+  for (let length = 0; length < tagged.length; length++)
+    expect(() => decodeLayerTiles(tagged.subarray(0, length), 0, 'straight-rgba8')).toThrow()
+  for (const index of [4, 5, 6, 7]) {
+    const changed = tagged.slice(); changed[index] = 99
+    expect(() => decodeLayerTiles(changed, 0, 'straight-rgba8')).toThrow('envelope')
+  }
+  const forged = encodeLayerTiles([makeTile()])
+  new DataView(forged.buffer).setUint32(4 + 8, 0xffffffff, true)
+  expect(() => decodeLayerTiles(forged, 0)).toThrow()
+  expect(() => encodeLayerTiles([makeTile({ pixels: new Uint8Array(1) })])).toThrow('Invalid snapshot tile')
+})
