@@ -1,0 +1,32 @@
+{
+  "scope": "Original installed ARM64 machine-code emulation, FPCR0, Unicorn 2.1.4 A72; no arithmetic hooks. Not physical CPU/active GUI/paint-device equivalence.",
+  "runs": [
+    {
+      "report": "installed-kernel-all.json",
+      "reportSHA256": "e334b2bab358a2ccea8d9ce120e18df1b0f60cc65a6c1c0668440647d93de20e",
+      "fixture": "machine-corpus.native.json",
+      "caseCount": 2688,
+      "inputSHA256": "a87876d2946d22c17ef8d8288a8808e9562422aa545c0641db77029920673e13",
+      "runnerSHA256": "295d4014f513f1e4ebb4770624bced2b6532bcf969c7c7f8ef74552b0086c6b1",
+      "wrapperDirectEqual": true
+    },
+    {
+      "report": "installed-kernel-witness.json",
+      "reportSHA256": "4757d2d29bec6ddfee4c5ab930b29f80e6ce91bf6bf4ae923b53074a56015670",
+      "fixture": "machine-witness.native.json",
+      "caseCount": 72,
+      "inputSHA256": "dbd3e5453cd9c88ecc9556caa326b218e3b1c1d23ed577a9b318f7d1b0901664",
+      "runnerSHA256": "091d2ca18d2ff25017c962515684234a0c5e48dd1939035f7a34fc5a5d337e30",
+      "wrapperDirectEqual": true
+    },
+    {
+      "report": "installed-kernel-custom.json",
+      "reportSHA256": "0529638d988dd7752b072f458a7483290201566095d8a881a37f300431e3f091",
+      "fixture": "machine-alpha.native.json",
+      "caseCount": 137,
+      "inputSHA256": "c58b878b3fcf4c22a447bd654f36eb8d08a9120c0ff41fb518b1bcbc622f3a22",
+      "runnerSHA256": "f1f6e48fe9a3b30ba64a1d2a54277101567d5abb271bf2edae1acf01f53202f1",
+      "wrapperDirectEqual": true
+    }
+  ]
+}
