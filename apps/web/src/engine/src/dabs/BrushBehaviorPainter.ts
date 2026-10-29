@@ -1,3 +1,4 @@
+import { brushAlphaThresholdValue } from '../presets/brushAlphaThreshold'
 import { CIRCLE_BAND_STAMP_FRAG } from '../raster/circleBandShaders'
 import { prepareCircleDifference, type CircleDifference } from '../raster/roundCoverage'
 import { nativeImageResource, nativeImageDomain, nativeImageDomainUniform, nativeImageUVShift, type NativeImageResource } from './NativeImageBank'
@@ -394,6 +395,8 @@ export class BrushBehaviorPainter {
           const footprint=brushFootprintBounds(s.x,s.y,s.radius,s.aspect,s.angle,1)
           if(!footprint || footprint.maxX<tile.originX || footprint.maxY<tile.originY || footprint.minX>tile.originX+coverage.width || footprint.minY>tile.originY+coverage.height) continue
           beforeStamp?.(s)
+          if (s.sharpnessScale !== undefined) gl.uniform3f(u.u_alphaThreshold, brushAlphaThresholdValue(threshold, s.sharpnessScale), threshold?.softness ?? 0, threshold ? 1 : 0)
+          if (s.dualSharpnessScale !== undefined) gl.uniform3f(u.u_dualAlphaThreshold, brushAlphaThresholdValue(dualThreshold, s.dualSharpnessScale), dualThreshold?.softness ?? 0, dualThreshold ? 1 : 0)
           if (circleBand) {
             const difference = circleClips.get(s)
             gl.uniform2f(u.u_dabCenter, s.x - tile.originX, s.y - tile.originY)

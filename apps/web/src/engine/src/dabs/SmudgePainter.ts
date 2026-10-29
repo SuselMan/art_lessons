@@ -1,3 +1,4 @@
+import { brushAlphaThresholdValue } from '../presets/brushAlphaThreshold'
 import { smearPlacement, smearSourceShift, type SmearPlacement } from './SmearPlacement'
 import { nativeImageResource, nativeImagePixels, nativeImageDomain, nativeImageDomainUniform, nativeImageUVShift, type NativeImageResource } from './NativeImageBank'
 import { BrushMipCache } from './BrushMipCache'
@@ -952,8 +953,8 @@ export class SmudgePainter {
     gl.uniform1f(u.u_tipKind,brush?.tip.kind === 'bitmap' ? 1 : 0)
     gl.uniform1f(u.u_hardness, brush?.tip.hardness ?? SMUDGE_HARDNESS)
     const threshold=brush?.tip.alphaThreshold, dualThreshold=brush?.behavior?.dual?.brush.tip.alphaThreshold
-    gl.uniform3f(u.u_alphaThreshold,threshold?.value ?? 0,threshold?.softness ?? 0,threshold ? 1 : 0)
-    gl.uniform3f(u.u_dualAlphaThreshold,dualThreshold?.value ?? 0,dualThreshold?.softness ?? 0,dualThreshold ? 1 : 0)
+    gl.uniform3f(u.u_alphaThreshold,brushAlphaThresholdValue(threshold,wet?.stamp.sharpnessScale),threshold?.softness ?? 0,threshold ? 1 : 0)
+    gl.uniform3f(u.u_dualAlphaThreshold,brushAlphaThresholdValue(dualThreshold,wet?.stamp.dualSharpnessScale),dualThreshold?.softness ?? 0,dualThreshold ? 1 : 0)
     const tipBounds=mainImage?.bounds ?? brush?.tip.maskBounds
     gl.uniform4f(u.u_tipBounds,tipBounds?.x ?? 0,tipBounds?.y ?? 0,tipBounds?.width ?? 1,tipBounds?.height ?? 1)
     const dualBounds=childImage?.bounds ?? brush?.behavior?.dual?.brush.tip.maskBounds

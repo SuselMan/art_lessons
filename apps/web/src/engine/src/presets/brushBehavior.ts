@@ -84,6 +84,8 @@ export interface BehaviorStamp extends BrushStamp {
   bleed: number
   opacityScale: number
   grainDepth: number
+  sharpnessScale?: number
+  dualSharpnessScale?: number
   flipX: number
   flipY: number
   color: [
@@ -237,7 +239,7 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
   const directionalDab = { ...dab, angle: direction }
   const seed = brushDabSeed(dab.x, dab.y, dab.pressure)
   const rand = (i: number): number => brushDabRandom(seed, i)
-  const dynamic = (target: BrushDynamicTarget, i: number): number => brushDynamicValue(behavior?.dynamics?.[target], directionalDab, state, rand(i)) * (behavior?.modulations?.[target] ?? []).reduce((factor, control, index) => factor * brushDynamicValue(control, directionalDab, state, rand(i + 67 + index)), 1)
+  const dynamic = (target: BrushDynamicTarget, i: number, source = behavior): number => brushDynamicValue(source?.dynamics?.[target], directionalDab, state, rand(i)) * (source?.modulations?.[target] ?? []).reduce((factor, control, index) => factor * brushDynamicValue(control, directionalDab, state, rand(i + 67 + index)), 1)
   const rotation = behavior?.rotation
   const randomRotation = rotation?.random === 'stroke' ? brushDabRandom(state.seed, 9) : rand(9)
   const countScale = dynamic('count', 10) * (1 - (behavior?.scatter?.countJitter ?? 0) * rand(11))
@@ -291,6 +293,10 @@ export function behaviorStampsForDab(brush: BrushDescriptor, dab: Dab, state: Br
       ...stamp, ...(gray ? {gray} : {}), ...(dualGray ? {dualGray} : {}), ...(mask ? { mask } : {}), ...(dualMask ? { dualMask } : {}), x, y, bleed, wetGrade, edgeSoftness, size:stamp.size*roundness*(1+edgeSoftness*.15), aspect: clamp(stamp.aspect / roundness / (rotation?.projection ? Math.max(0.1, Math.cos(tilt)) : 1), 0.05, 20),
       flowScale: stamp.flowScale * curveAt(brush.flowByPressure, dab.pressure) * dynamic('flow', 22 + i * 8) * Math.exp(-state.distance*(behavior?.falloff??0)*4),
       opacityScale, grainDepth: dynamic('grainDepth', 23 + i * 8),
+      ...(behavior?.dynamics?.sharpness || behavior?.modulations?.sharpness?.length
+        ? { sharpnessScale: dynamic('sharpness', 4096 + i * 8) } : {}),
+      ...(behavior?.dual?.sampling !== 'independent' && (behavior?.dual?.brush.behavior?.dynamics?.sharpness || behavior?.dual?.brush.behavior?.modulations?.sharpness?.length)
+        ? { dualSharpnessScale: dynamic('sharpness', 8192 + i * 8, behavior.dual.brush.behavior) } : {}),
       flipX: rotation?.flipX && rand(24 + i * 8) < 0.5 ? -1 : 1,
       flipY: rotation?.flipY && rand(25 + i * 8) < 0.5 ? -1 : 1,
       color: hasColor ? shiftColor(adjustedColor, behavior.dynamics?.hue ? dynamic('hue', 26 + i * 8) : 0, dynamic('saturation', 27 + i * 8), dynamic('brightness', 28 + i * 8)) : adjustedColor,

@@ -1,5 +1,11 @@
 import type { BrushTip } from '@grafetto/shared'
 
+/** Per-dab control scales source threshold strength, never mask alpha/softness.
+ * No option means identity, preserving static and historical descriptors. */
+export function brushAlphaThresholdValue(settings?: BrushTip['alphaThreshold'], scale = 1): number {
+  return Math.max(0, Math.min(1, (settings?.value ?? 0) * scale))
+}
+
 /** Independently expressed U8 mask operation, before texture/flow/opacity.
  * Krita bd6e8d0 KisSharpnessOption::applyThreshold; normalized softness=percent/100.
  * Quantize the sampled mask to its native alpha byte before thresholding.
