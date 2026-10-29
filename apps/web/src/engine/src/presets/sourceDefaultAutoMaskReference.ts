@@ -1,5 +1,5 @@
 import { sourceFmaF64 as fma64 } from './sourceFmaF64'
-import { arm64FusedMultiplyAddF32 as fma32 } from './sourceArmFmaF32'
+import { sourceFmaF32 as fma32 } from './sourceFmaF32'
 import { arm64ReciprocalEstimateF32 } from './sourceArmFrecpe'
 
 export interface SourceDefaultAutoMaskTip {
