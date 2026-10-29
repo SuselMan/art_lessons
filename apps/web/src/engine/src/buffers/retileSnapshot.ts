@@ -68,6 +68,14 @@ export function isFullyTransparent(pixels: Uint8Array): boolean {
   return true
 }
 
+/** Snapshot/checkpoint emptiness is byte identity, not visual transparency.
+ * Straight RGBA may retain colour below zero alpha; later paint/smudge can
+ * observe it. Only an entirely zero payload is equivalent to an absent tile. */
+export function isZeroRgbaPixels(pixels: Uint8Array): boolean {
+  for (let i = 0; i < pixels.length; i++) if (pixels[i] !== 0) return false
+  return true
+}
+
 /** Re-slices `tiles` onto the `tileW` x `tileH` grid rooted at world origin.
  *
  *  The row arithmetic is the part worth reading twice. A tile's pixel array is

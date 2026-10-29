@@ -12,6 +12,7 @@ import {
   makeLayerAdd, makeLayerMerge, makeLayerDuplicate,
   makeStroke, readLayerPixels, readTilePixels, residentTileCount, paperReady, simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd,
 } from './testing/engineTestUtils'
+import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
 import { decodeLayerTiles } from './src/oplog/snapshotCodec'
 
 describe('bakeNetworkSnapshot (#149)', () => {
@@ -56,6 +57,26 @@ describe('bakeNetworkSnapshot (#149)', () => {
 })
 
 describe('restoreLayerFromSnapshot (#169)', () => {
+  it('retains zero-alpha RGB payloads in snapshot upload, checkpoint and bake admission', () => {
+    // MockGL models alpha only. Observe byte upload/readback at the buffer seam
+    // here; actual RGB storage requires the real-device gate.
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
+    const pixels = new Uint8Array(8 * 8 * 4)
+    pixels.set([37, 91, 203, 0], (2 * 8 + 3) * 4)
+    const upload = vi.spyOn(AccumulationBuffer.prototype, 'restorePixelsRect')
+    const readback = vi.spyOn(AccumulationBuffer.prototype, 'readPixels').mockReturnValue(pixels)
+    try {
+      engine.restoreLayerFromSnapshot('L', [{ originX: 0, originY: 0, width: 8, height: 8, pixels }], 2)
+      expect(residentTileCount(engine, 'L')).toBe(1)
+      expect(upload).toHaveBeenCalledWith(8, 8, pixels)
+      expect(checkpointCountFor(engine, 'L')).toBeGreaterThan(0)
+      const baked = engine.bakeNetworkSnapshot('L')
+      expect(baked).not.toBeNull()
+      expect([...decodeLayerTiles(baked!, 0).tiles[0].pixels]).toEqual([...pixels])
+    } finally { upload.mockRestore(); readback.mockRestore() }
+  })
+
   it('reproduces the exact pixels a fresh engine painted, without replaying any operations', () => {
     const { engine: source } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
     source.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')

@@ -21,7 +21,7 @@
 import type { Operation } from '@grafetto/shared'
 import type { ILayerBuffer } from '../buffers/ILayerBuffer'
 import { packTilePixels } from '../buffers/pinnedTiles'
-import { isFullyTransparent, retileSnapshotTiles } from '../buffers/retileSnapshot'
+import { isZeroRgbaPixels, retileSnapshotTiles } from '../buffers/retileSnapshot'
 import type { CheckpointStore } from './checkpointStore'
 import { OperationLog, type PixelOperation } from './OperationLog'
 import { hasOpenBrushStroke } from './openBrushStroke'
@@ -99,7 +99,7 @@ export class SnapshotIO {
    *  between the two would read as a determinism violation on every bounded
    *  room in existence.
    *
-   *  (#467) Fully transparent tiles are left out. Residency is not evidence of
+   *  (#467) Entirely zero RGBA tiles are left out. Residency is not evidence of
    *  content: `resolveForPaint` makes every tile a stroke's bounding rect
    *  touches resident whether or not a dab darkens it, and an erase empties a
    *  tile without releasing it. Storing those costs 4 MiB of somebody else's
@@ -119,7 +119,7 @@ export class SnapshotIO {
         ? buffer.readPixels()
         : buffer.readPixelsRegion(0, buffer.height - height, width, height)
       const tile = { originX, originY, width, height, pixels }
-      return isFullyTransparent(tile.pixels) ? [] : [tile]
+      return isZeroRgbaPixels(tile.pixels) ? [] : [tile]
     })
   }
 
@@ -284,9 +284,10 @@ export class SnapshotIO {
     // materialised them re-bakes them for the next joiner, forever.
     //
     // The scan is not free, but it is cheap against what it prevents: it exits
-    // on the first non-zero alpha, and a tile it does not exit early on is one
-    // whose 4 MiB upload it has just cancelled.
-    const painted = retiled.filter(t => !isFullyTransparent(t.pixels))
+    // on the first non-zero channel, and a tile it does not exit early on is one
+    // whose 4 MiB upload it has just cancelled. Hidden RGB under zero alpha
+    // is retained, as in pinnedTiles: visual transparency is not byte emptiness.
+    const painted = retiled.filter(t => !isZeroRgbaPixels(t.pixels))
     // Blank tiles are dropped from the upload only while the layer is
     // genuinely empty. Restoring onto a live buffer — a reconnect re-restoring
     // an engine that already holds pixels — is the one case where an
