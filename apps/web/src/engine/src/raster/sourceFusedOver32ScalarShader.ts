@@ -1,3 +1,4 @@
+import {SOURCE_RGB_FMA_BYTE_GLSL} from './sourceRgbFmaByteShader'
 import {sourceFiniteF32Components} from './sourceFmaF32Model'
 import {SOURCE_FMA_F32_GLSL} from './sourceFmaF32Shader'
 import {SOURCE_FMA_F32_NUMERIC_GLSL,SOURCE_FMA_F32_COMPOSE_GLSL} from './sourceFmaF32NumericShader'
@@ -6,7 +7,7 @@ import {SOURCE_OVER32_SCALAR_GLSL} from './sourceOver32ScalarShader'
  * hasMask explicit, opacityParts=(sign0,sig24,exp) from validated SAME opacity.
  * Tiny branch preserves exact native source-alpha zero/nonzero and hiddenRGB.
  * No packet/alignment/tile64/installed GUI or renderer activation is implied. */
-export const SOURCE_FUSED_OVER32_SCALAR_GLSL=SOURCE_FMA_F32_GLSL+SOURCE_FMA_F32_NUMERIC_GLSL+SOURCE_FMA_F32_COMPOSE_GLSL+SOURCE_OVER32_SCALAR_GLSL+/* glsl */`
+export const SOURCE_FUSED_OVER32_SCALAR_GLSL=SOURCE_FMA_F32_GLSL+SOURCE_FMA_F32_NUMERIC_GLSL+SOURCE_FMA_F32_COMPOSE_GLSL+SOURCE_OVER32_SCALAR_GLSL+SOURCE_RGB_FMA_BYTE_GLSL+/* glsl */`
 vec4 sourceCompositeFusedOver32Scalar(vec4 source,vec4 destination,highp vec2 values,float hasMask,vec3 opacityParts){
  const float reciprocalByte=0.003921568859368563;
  // Exact power2 domain split: opacity<2^-100, NOT an error tolerance.
@@ -27,7 +28,7 @@ vec4 sourceCompositeFusedOver32Scalar(vec4 source,vec4 destination,highp vec2 va
  vec3 color;
  if(blend==1.0)color=source.rgb;
  else if(blend==0.0)color=destination.rgb;
- else color=vec3(sourceOver32RoundEven(sourceFmaFiniteNumbers(blend,source.r-destination.r,destination.r)),sourceOver32RoundEven(sourceFmaFiniteNumbers(blend,source.g-destination.g,destination.g)),sourceOver32RoundEven(sourceFmaFiniteNumbers(blend,source.b-destination.b,destination.b)));
+ else color=sourceRgbFmaBytes(blend,sourceF32Decompose(blend,0.0).xyz,source.rgb,destination.rgb);
  // Native RNE byte pack keeps the low8 bits, rather than framebuffer clamp.
  return vec4(mod(color,256.0),mod(sourceOver32RoundEven(alpha),256.0));
 }

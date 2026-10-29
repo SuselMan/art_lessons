@@ -1,3 +1,4 @@
+import {SOURCE_RGB_FMA_BYTE_GLSL} from './sourceRgbFmaByteShader'
 import {normalizeSourcePainterOpacity,type SourcePainterOpacityInput} from '../presets/sourcePainterOpacity'
 import {sourceFiniteF32Components} from './sourceFmaF32Model'
 import {SOURCE_FMA_F32_GLSL} from './sourceFmaF32Shader'
@@ -15,7 +16,7 @@ export function prepareSourceFusedAlphaDarken32ScalarControls(variant:SourceScal
 }
 /** Explicit diagnostic SCALAR point graph. O/A already hard-folded ONCE onCPU.
  * No vectorpacket/alignment/tile/GUI/renderer activation claim. */
-export const SOURCE_FUSED_ALPHA_DARKEN32_SCALAR_GLSL=SOURCE_FMA_F32_GLSL+SOURCE_FMA_F32_NUMERIC_GLSL+SOURCE_FMA_F32_COMPOSE_GLSL+SOURCE_ALPHA_DARKEN32_GLSL+/* glsl */`
+export const SOURCE_FUSED_ALPHA_DARKEN32_SCALAR_GLSL=SOURCE_FMA_F32_GLSL+SOURCE_FMA_F32_NUMERIC_GLSL+SOURCE_FMA_F32_COMPOSE_GLSL+SOURCE_ALPHA_DARKEN32_GLSL+SOURCE_RGB_FMA_BYTE_GLSL+/* glsl */`
 vec4 sourceCompositeFusedAlphaDarken32Scalar(vec4 source,vec4 destination,highp vec4 values,vec2 selection,vec3 opacityParts,vec3 flowParts){
  const float reciprocalByte=0.003921568859368563;
  const float reciprocalByteSquared=0.00001537870048196055;
@@ -28,7 +29,7 @@ vec4 sourceCompositeFusedAlphaDarken32Scalar(vec4 source,vec4 destination,highp 
  float S=O*M;
  vec3 color;
  if(destination.a==0.0)color=source.rgb;
- else color=vec3(sourceAlphaDarken32RoundEven(sourceFmaFiniteNumbers(S,source.r-destination.r,destination.r)),sourceAlphaDarken32RoundEven(sourceFmaFiniteNumbers(S,source.g-destination.g,destination.g)),sourceAlphaDarken32RoundEven(sourceFmaFiniteNumbers(S,source.b-destination.b,destination.b)));
+ else color=sourceRgbFmaBytes(S,sourceF32Decompose(S,0.0).xyz,source.rgb,destination.rgb);
  // Creamy tinyflow only freezes alpha; opacity-driven RGB ABOVE remains.
  if(!hard&&flowParts.z< -123.0)return vec4(mod(color,256.0),destination.a);
  float full;
