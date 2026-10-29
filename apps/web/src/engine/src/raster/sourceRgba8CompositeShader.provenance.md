@@ -76,3 +76,27 @@ establish default optimized Over32 SIMD parity, pixel-format admission, brush
 group transfer/state parity or other GPU/device correctness. Production remains
 unconnected. The tested GLSL text is frozen; semantic edits require renewed GPU
 verification.
+
+
+## Separate portableF32 point operator
+
+`SOURCE_RGBA8_PORTABLE_OVER_GLSL` transports the independently authored
+`sourceOverPortable` point profile to GLSL ES3. Its input opacity remains float32;
+it does not reuse genericInteger byte opacity or collapse material mask storage.
+It deliberately lacks source CPU packet-wide shortcuts and hardware reciprocal
+estimates. It is **not** the default Krita optimized factory or a native packet
+operator. The existing integer shader snippet is unchanged.
+
+Actual Samsung SM-T970/Adreno650 isolated WebGL2 proof:512/512 outputs match
+portable CPU exactly. Native scalar SSE differs at the same two indices213/253,
+maximum one RGB byte; this residual is retained, not hidden by tolerance.
+An additional independent65536case opaque source/destination channel midpoint
+stress (opacity.5) matches integer nearest-even arithmetic exactly. GL0.
+GLSL SHA256 e65eaf0b66a220024ef7e270843c0fa57cfd7f126bdb828b51b6f0eb5989c7e3.
+Evidence: worktree temp/device-runs/krita-stroke-20261024/fixes-v49/
+portable-device-result.json and exact body/harness. Owncontext/tab/forward disposed.
+
+The current application engine requests WebGL1. These WebGL2 integer probes do
+not activate a backend, upgrade its context or establish a layer storage/memory
+policy. Packet geometry, reciprocal profile, WebGL2 engine integration and actual
+Android Krita whole-buffer parity remain separate gates.

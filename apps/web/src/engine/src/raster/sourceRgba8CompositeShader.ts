@@ -102,3 +102,41 @@ uvec4 sourceCompositeRgba8(uvec4 source, uvec4 destination, SourceRgba8Composite
     sourceRgba8AddChannel(source.b,destination.b,sa,da,alpha), alpha);
 }
 `;
+
+/** Isolated portable float32 point operator. It does not implement hardware
+ * reciprocal estimates or packet-wide SIMD shortcuts of Krita's factory.
+ * Source/destination are straight bytes; opacity stays float32 at this stage.
+ * Caller declares highp float/int; output belongs in an integer byte target.
+ */
+export const SOURCE_RGBA8_PORTABLE_OVER_GLSL = /* glsl */ `
+uvec4 sourcePortableF32Over(uvec4 source, uvec4 destination, float opacity, uint mask, bool hasMask) {
+  float reciprocalByte = uintBitsToFloat(0x3b808081u);
+  float sourceAlpha = float(source.a) * opacity;
+  if (hasMask) {
+    float maskFactor = float(mask) * reciprocalByte;
+    sourceAlpha = sourceAlpha * maskFactor;
+  }
+  if (sourceAlpha == 0.0) return destination;
+  float alpha = float(destination.a);
+  float factor;
+  if (destination.a == 255u) factor = sourceAlpha * reciprocalByte;
+  else if (destination.a == 0u) { alpha = sourceAlpha; factor = 1.0; }
+  else {
+    float remaining = 255.0 - alpha;
+    float dose = remaining * sourceAlpha;
+    float normalized = dose * reciprocalByte;
+    alpha = alpha + normalized;
+    factor = sourceAlpha / alpha;
+  }
+  uvec3 rgb;
+  if (factor == 1.0) rgb = source.rgb;
+  else if (factor == 0.0) rgb = destination.rgb;
+  else {
+    vec3 difference = vec3(source.rgb) - vec3(destination.rgb);
+    vec3 product = difference * factor;
+    vec3 value = product + vec3(destination.rgb);
+    rgb = uvec3(roundEven(value));
+  }
+  return uvec4(rgb, uint(roundEven(alpha)));
+}
+`;
