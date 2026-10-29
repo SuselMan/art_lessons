@@ -121,6 +121,8 @@ export default defineConfig(({ mode }) => {
       // nor call /api. Built alongside so its try-it sheet can share the
       // engine chunk instead of shipping a second copy.
       rollupOptions: {
+        // Keep required notices from source-defined math and bundled libraries.
+        output: { comments: { legal: true } },
         input: {
           main: fileURLToPath(new URL('./index.html', import.meta.url)),
           landing: fileURLToPath(new URL('./landing/index.html', import.meta.url)),
