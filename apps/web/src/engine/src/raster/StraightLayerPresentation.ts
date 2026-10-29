@@ -25,6 +25,9 @@ export function planStraightPresentation(width: number, height: number, scaleX: 
  * plan against its global LIVE+IDLE budget before any GL allocation. */
 export class StraightLayerPresentation {
   private busy = false
+  private _cleanupFailure: unknown
+  /** Cleanup error retained from the latest call; never replaces a primary draw error. */
+  get cleanupFailure(): unknown { return this._cleanupFailure }
   private readonly pool: RibbonScratchPool
   private readonly passes: BlitPasses
   private readonly reserveTransient: (bytes: number) => (() => void)
@@ -42,6 +45,10 @@ export class StraightLayerPresentation {
     const releaseReservation = this.reserveTransient(plan.reduce((bytes, level) => bytes + level.width * level.height * 4, 0))
     if (typeof releaseReservation !== 'function') throw new TypeError('Missing presentation reservation release')
     this.busy = true
+    this._cleanupFailure = undefined
+    let failed = false, failure: unknown
+    let cleanupFailed = false, cleanupError: unknown
+    let result: T | undefined
     let borrowed: AccumulationBuffer | undefined
     try {
       // Capture before acquire: allocation itself changes texture/FBO bindings.
@@ -53,18 +60,36 @@ export class StraightLayerPresentation {
             next.beginReplaceDraw()
             const matrix: Matrix3 = [input.width / level.width, 0, 0, 0, input.height / level.height, 0, 0, 0, 1]
             this.passes.transform(input, matrix, level.width, level.height, next.fbo, 'replace')
-          } catch (error) { this.pool.release(next); throw error }
-          if (borrowed) this.pool.release(borrowed)
+          } catch (error) {
+            try { this.pool.release(next) } catch (cleanup) { this._cleanupFailure = cleanup }
+            throw error
+          }
+          const previous = borrowed
           borrowed = next
           input = next
+          if (previous) {
+            try { this.pool.release(previous) }
+            catch (error) { this._cleanupFailure = error; throw error }
+          }
         }
       })
       // Original scissor/viewport/FBO are restored before the visible draw.
-      return draw(borrowed!)
+      result = draw(borrowed!)
+    } catch (error) {
+      failed = true
+      failure = error
     } finally {
-      if (borrowed) this.pool.release(borrowed)
+      try { if (borrowed) this.pool.release(borrowed) }
+      catch (error) { cleanupFailed = true; cleanupError = error }
+      // A pool error (including an epoch reset during draw) must not strand
+      // the reservation or keep this synchronous service permanently busy.
       this.busy = false
-      releaseReservation()
+      try { releaseReservation() }
+      catch (error) { if (!cleanupFailed) { cleanupFailed = true; cleanupError = error } }
+      if (cleanupFailed) this._cleanupFailure = cleanupError
     }
+    if (failed) throw failure
+    if (cleanupFailed) throw cleanupError
+    return result as T
   }
 }

@@ -121,3 +121,40 @@ it('keeps cold allocations off the caller active sampler unit', () => {
     expect(s.gl.getParameter(s.gl.TEXTURE_BINDING_2D)).toBe(sentinel)
   } finally { s.gl.deleteTexture(sentinel); s.close() }
 })
+
+it('attempts both cleanups, preserves the primary error and clears busy after cleanup errors', () => {
+  const s = setup(), primary = new Error('visible draw failed'), cleanup = new Error('pool cleanup failed')
+  try {
+    const release = s.pool.release.bind(s.pool)
+    vi.spyOn(s.pool, 'release').mockImplementationOnce(buffer => { release(buffer); throw cleanup })
+    s.release.mockImplementationOnce(() => { throw new Error('reservation cleanup failed') })
+    expect(() => s.presentation.withTile(s.source, 1, 1, () => { throw primary })).toThrow(primary)
+    expect(s.release).toHaveBeenCalledTimes(1)
+    expect(s.presentation.cleanupFailure).toBe(cleanup)
+    expect(s.pool.bytes.live).toBe(0)
+    s.presentation.withTile(s.source, 1, 1, () => {})
+    expect(s.presentation.cleanupFailure).toBeUndefined()
+    expect(s.release).toHaveBeenCalledTimes(2)
+  } finally { s.close() }
+})
+it('surfaces a reservation cleanup error after a successful draw and permits another call', () => {
+  const s = setup(), cleanup = new Error('reservation cleanup failed')
+  try {
+    s.release.mockImplementationOnce(() => { throw cleanup })
+    expect(() => s.presentation.withTile(s.source, 1, 1, () => {})).toThrow(cleanup)
+    expect(s.pool.bytes.live).toBe(0); expect(s.presentation.cleanupFailure).toBe(cleanup)
+    s.presentation.withTile(s.source, 1, 1, () => {})
+    expect(s.release).toHaveBeenCalledTimes(2)
+  } finally { s.close() }
+})
+it('keeps the new stage owned if releasing the preceding stage throws', () => {
+  const s = setup(), cleanup = new Error('preceding stage cleanup failed')
+  try {
+    const release = s.pool.release.bind(s.pool)
+    vi.spyOn(s.pool, 'release').mockImplementationOnce(buffer => { release(buffer); throw cleanup })
+    expect(() => s.presentation.withTile(s.source, .125, .125, () => {})).toThrow(cleanup)
+    expect(s.pool.bytes.live).toBe(0)
+    expect(s.release).toHaveBeenCalledTimes(1)
+    expect(s.presentation.cleanupFailure).toBe(cleanup)
+  } finally { s.close() }
+})

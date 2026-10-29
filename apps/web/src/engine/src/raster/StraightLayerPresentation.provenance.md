@@ -82,3 +82,13 @@ ADB forward were closed, the original three tabs and parent foreground restored;
 no device resource remains. An early QA comparator mistakenly treated the plain
 boolean COLOR_WRITEMASK array as a handle; correcting that comparator did not
 change production code or the frozen bundle.
+
+Cleanup hardening after the strict pool ownership guard: both pool release and
+reservation release are attempted even if one throws; busy state always clears.
+A primary stage/display error is preserved. Without a primary error, cleanup
+failure propagates, and one cleanup error remains available through
+`cleanupFailure` until the next call. During reduction the next stage becomes
+owned before releasing its predecessor, so a release exception cannot strand
+the newly allocated output. Fault-injection tests cover both cleanup failures,
+subsequent reuse, and predecessor release failure. This changes error paths only;
+the successful pixel path and frozen Samsung receipt above are unchanged.
