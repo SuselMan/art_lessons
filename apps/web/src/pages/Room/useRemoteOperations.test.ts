@@ -41,3 +41,19 @@ describe('Room repair hook render identity', () => {
     expect(firstFailure).not.toHaveBeenCalled()
   })
 })
+
+it('rejects invalid random metadata before dedupe and restores retryability when the engine rejects an operation', () => {
+ hooks.slots=[];hooks.cursor=0
+ const appendOperation=vi.fn(),failure=vi.fn(),noop=vi.fn()
+ const deps={engineRef:{current:{appendOperation} as unknown as PencilEngineAPI},boardId:'room',onHistoryRepairFailure:failure,
+ appliedOpIdsRef:{current:new Set<string>(['seen'])},deferredOpsQueueRef:{current:[]},restoredLayerStateRef:{current:null},
+ markActive:noop,resolveTransformCommit:noop,confirmOwnOperation:noop,noteOperationSeq:noop,syncFromLog:noop,checkSnapshotBoundary:noop} as RemoteOperationsDeps
+ const {applyRemoteOp}=useRemoteOperations(deps)
+ const base={id:'seen',type:'stroke' as const,userId:'peer',timestamp:0,layerId:'ink',tool:'digitalBrush' as const,preset:'hard-round',color:[0,0,0] as [number,number,number],dabs:[],strokeId:'legacy'}
+ applyRemoteOp({...base,brushRandom:{version:1,sequentialSeed:0,strokeSeed:1}})
+ expect(failure).toHaveBeenCalledTimes(1);expect(appendOperation).not.toHaveBeenCalled()
+ appendOperation.mockImplementation(()=>{throw new Error('Invalid brush random context')})
+ applyRemoteOp({...base,id:'retry'})
+ expect(deps.appliedOpIdsRef.current.has('retry')).toBe(false)
+ expect(failure).toHaveBeenCalledTimes(2)
+})

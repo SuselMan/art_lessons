@@ -1,5 +1,6 @@
+import { createBrushRandomContext, brushRandomMetadata, assertBrushRandomContext } from './src/oplog/brushRandomContext'
 import { BrushMipCache } from './src/dabs/BrushMipCache'
-import { hasValidStrokeEndSample } from '@grafetto/shared'
+import { hasValidStrokeEndSample, createBrushRandomStrokeId, type BrushRandomSeeds } from '@grafetto/shared'
 import { BrushPreparation, assertNativeImageAdmission, brushPreparationPlan, brushPreparationBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
 import { importedAssetPixels } from './src/presets/importedBrushes'
 import { hasOpenBrushStroke } from './src/oplog/openBrushStroke'
@@ -1127,6 +1128,7 @@ function blobToDataUrl(blob: Blob): Promise<string | null> {
  *  everywhere else, and keeping the unpacking at the socket seam means a test
  *  can drive this without going through the codec. */
 export interface PeerLivePacket {
+  brushRandom?: BrushRandomSeeds
   strokeId: string
   layerId: string
   tool: ToolType
@@ -1652,6 +1654,7 @@ export class PencilEngine implements PencilEngineAPI {
   // The gesture this stroke belongs to (StrokeOperation.strokeId) — one id
   // from pen-down to pen-up, stamped on every chunk _flushStrokeChunk emits
   // along the way as well as on the final op.
+  private _strokeBrushRandom?: BrushRandomSeeds
   private _strokeId: string | null = null
   /** Replay-side counterpart of _ribbonStrokeScratch: keeps one gesture's
    *  scratch alive across the several operations it was chunked into.
@@ -2724,6 +2727,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  applying a `room_state` snapshot or a `peer_operation` must pass
    *  'remote' so the op is not echoed back to the server. */
   appendOperation(op: Operation, source: OperationSource = 'local'): void {
+    assertBrushRandomContext(op)
     if(!hasValidStrokeEndSample(op)) throw new Error('Invalid stroke endpoint sample')
     // (#536, §17.58) A peer's watercolour operation arriving while a settle is
     // still spreading over frames waits its turn instead of forcing that
@@ -3773,6 +3777,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  starts the reveal loop immediately if this peer has nothing else in
    *  flight, otherwise it plays once the current head of the queue finishes. */
   previewOperation(op: StrokeOperation, rate = 1): void {
+    assertBrushRandomContext(op)
     if (this.isSnapshotHistoryRepairPending(op.layerId)) { this._onPreviewApplied?.(op); return }
     if (this._contextLost || this.gl.isContextLost()) {
       // This callback commits the confirmed operation, not just its preview.
@@ -3837,6 +3842,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   appendPeerLiveDabs(peerId: string, packet: PeerLivePacket, canonicalExecution = false): void {
+    assertBrushRandomContext(packet)
     if (this.isSnapshotHistoryRepairPending(packet.layerId)) return
     if (this._contextLost || this.gl.isContextLost()) return
     if (this._cancelledPeerStreams.has(liveStrokeKey(peerId, packet.strokeId, ''))) return
@@ -4201,6 +4207,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonStrokeScratch = null
     this._clearWash(false)
     this._strokeId = null
+    this._strokeBrushRandom = undefined
     for (const c of this._replayRibbonChunks.values()) c.scratch.destroy()
     this._replayRibbonChunks.clear()
     for (const w of this._spilledWashes.values()) w.spill.dispose()
@@ -5709,6 +5716,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   absorbHistoricalOperations(pageOps: Operation[]): void {
+    for (const op of pageOps) assertBrushRandomContext(op)
     this._snapshotIO.absorbHistorical(pageOps)
     this._resolveSnapshotHistoryRepairs()
   }
@@ -6102,7 +6110,10 @@ export class PencilEngine implements PencilEngineAPI {
       this._wash = null
       this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
     }
-    this._strokeId = nanoid(10)
+    this._strokeBrushRandom = createBrushRandomContext(this._strokeTool)
+    this._strokeId = this._strokeBrushRandom
+      ? createBrushRandomStrokeId(nanoid(10), this._strokeBrushRandom)
+      : nanoid(10)
     this._wcAsyncLocalStroke = this._wcAsyncFinish && this._strokeTool !== 'watercolor' ? this._strokeId : null
     if (this._wcAsyncLocalStroke) this._wcAsyncLocalTools.set(this._wcAsyncLocalStroke, { layers: new Map(), ended: false, queued: 0 })
     // (#429) `_liveLastEmitAt = 0` on purpose, not `performance.now()`: it
@@ -6520,6 +6531,7 @@ export class PencilEngine implements PencilEngineAPI {
           dabsPacked, timestamp: Date.now(), strokeEnd: true,
           ...(strokeEndSample ? {strokeEndSample} : {}),
           ...(this._strokeId ? { strokeId: this._strokeId } : {}),
+          ...brushRandomMetadata(this._strokeBrushRandom),
           ...(this._washId ? { washId: this._washId } : {}),
           // (#536) Only when there was something to see: most strokes land on
           // dry paper, and an all-zero profile is bytes spent saying nothing.
@@ -6555,6 +6567,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (localHeld) localHeld.ended = true
     this._wcAsyncLocalStroke = null
     this._strokeId = null
+    this._strokeBrushRandom = undefined
     this._strokeLayerId = null
     this._strokeExtraLayerIds = []
     this._strokeDabs = []
@@ -6911,6 +6924,7 @@ export class PencilEngine implements PencilEngineAPI {
         strokeId: this._strokeId, layerId,
         tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
         packetSeq, dabs,
+        ...brushRandomMetadata(this._strokeBrushRandom),
         // (#468) Decided at pen-down and constant for the gesture, so every
         // packet carries the same value the operation will.
         ...(this._washId ? { washId: this._washId } : {}),
@@ -6964,6 +6978,7 @@ export class PencilEngine implements PencilEngineAPI {
         layerId: targetId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
         dabsPacked, timestamp: Date.now(),
         ...(this._strokeId ? { strokeId: this._strokeId } : {}),
+        ...brushRandomMetadata(this._strokeBrushRandom),
         // (#536) The wash too, exactly as _onEnd stamps it: replay groups a
         // chunk by washId ?? strokeId, so a chunk without it landed in a
         // different scratch from the gesture's last chunk — and the halo
@@ -8523,7 +8538,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._wcAsyncLocalStroke) {
       const endedStroke = this._strokeId
       this._wcAsyncLocalStroke = null
-      this._strokeLayerId = null; this._strokeId = null; this._strokeDabs = []
+      this._strokeLayerId = null; this._strokeId = null; this._strokeBrushRandom = undefined; this._strokeDabs = []
       // Only the unrecorded tail is discarded. Confirmed chunks remain in
       // the journal; peers still need the matching ephemeral stream closed.
       if (endedStroke) this._onLiveStrokeEnd?.(endedStroke, true)
