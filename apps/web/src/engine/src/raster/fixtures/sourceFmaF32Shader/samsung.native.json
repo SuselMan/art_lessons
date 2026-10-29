@@ -1,0 +1,51 @@
+{
+  "scope": "Actual Samsung WebGL1 finite-FMA component primitive; NOT native compositor GPU/GUI/renderer activation",
+  "device": "SM-T970, verified serial R52RB0JXVSY",
+  "receipts": [
+    {
+      "proof": {
+        "scope": "Diagnostic finite FMA components GPU; not compositor/renderer/dispatch activation",
+        "fragmentSHA256": "bdae5b22ac8b1a6d2c7364d4063ae36a99e6984940e38d4f4b5fe5caddc67291",
+        "primitiveSHA256": "e1b4511b7d9a61a6b00ee7a74402044ed12786c41ee6c712f3e0e4d68af94015",
+        "fragmentBytes": 3635,
+        "cases": 11200
+      },
+      "checked": 11200,
+      "wrong": [],
+      "compileMs": 10.800000011920929,
+      "runMs": 41907.19999998808,
+      "glError": 0,
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "precision": {},
+      "inputFixture": "host-fma.native.json",
+      "inputSHA256": "a9a4f63afc78eb9a6671fb29eb43310ebe530d410d96dd223fce8154e78842db"
+    },
+    {
+      "proof": {
+        "scope": "Diagnostic finite FMA components GPU; not compositor/renderer/dispatch activation",
+        "fragmentSHA256": "bdae5b22ac8b1a6d2c7364d4063ae36a99e6984940e38d4f4b5fe5caddc67291",
+        "primitiveSHA256": "e1b4511b7d9a61a6b00ee7a74402044ed12786c41ee6c712f3e0e4d68af94015",
+        "fragmentBytes": 3635,
+        "cases": 1113
+      },
+      "checked": 1113,
+      "wrong": [],
+      "compileMs": 5.699999988079071,
+      "runMs": 3212.900000035763,
+      "glError": 0,
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+      "precision": {},
+      "inputFixture": "actual-frecps.native.json",
+      "inputSHA256": "80ca3577bbe571302a38cf17c3cd07faee53d1c895f31978965b98ff74179b29"
+    }
+  ],
+  "cleanup": {
+    "ownedTabsClosed": true,
+    "originalTabCountPreserved": 3,
+    "ownedContextLost": true,
+    "GLObjectsDeleted": true,
+    "ownForward19236Removed": true,
+    "temporaryRuntimeCreated": false
+  },
+  "runnerSHA256": "ac758192f33ddbc5069b579814c64d4678e260c948370522f53c2ace12eabccb"
+}
