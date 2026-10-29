@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Operation } from '@grafetto/shared'
+import { createBrushRandomStrokeId, type Operation } from '@grafetto/shared'
 
 import { operationRejectReason, type GateBoard, type GateLesson } from './operationGate.js'
 
@@ -110,4 +110,29 @@ it('rejects malformed endpoint metadata permanently, but accepts final endpoint-
  expect(reason(board(),lesson(),op)).toBeNull()
  expect(reason(board(),lesson(),{...op,strokeEndSample:{...sample,x:NaN}})).toBe('invalid_operation')
  expect(reason(board(),lesson(),{...op,strokeEnd:undefined})).toBe('invalid_operation')
+})
+
+describe('recorded brush random metadata', () => {
+  const seeds = { version: 1 as const, sequentialSeed: 0, strokeSeed: 0xffffffff }
+  const operation = (extra: Record<string, unknown> = {}): Operation => ({
+    ...stroke(OWNER), tool: 'digitalBrush', strokeId: createBrushRandomStrokeId('seed-gesture', seeds), brushRandom: seeds, ...extra,
+  } as Operation)
+  it('permits uint32 endpoints, legacy absence, and a valid empty pen-up operation', () => {
+    expect(reason(board(), lesson(), operation())).toBeNull()
+    expect(reason(board(), lesson(), stroke(OWNER))).toBeNull()
+    expect(reason(board(), lesson(), operation({ strokeEnd: true, dabsPacked: '', strokeEndSample: {
+      x: 1, y: 2, size: 3, opacity: 1, pressure: 0, tiltX: 0, tiltY: 0, angle: 0, aspectRatio: 1, baseSize: 4, t: 0,
+    } }))).toBeNull()
+  })
+  it('rejects malformed original metadata before owner and permission shortcuts', () => {
+    for (const extra of [
+      { brushRandom: undefined }, { brushRandom: { ...seeds, sequentialSeed: 1 } },
+      { brushRandom: null }, { brushRandom: { ...seeds, sequentialSeed: -1 } },
+      { brushRandom: { ...seeds, strokeSeed: 0x100000000 } }, { brushRandom: { ...seeds, strokeSeed: 1.5 } },
+      { brushRandom: { ...seeds, sequentialSeed: NaN } }, { brushRandom: { ...seeds, extra: 1 } },
+      { strokeId: '' }, { strokeId: undefined }, { tool: 'pencil' }, { type: 'layer_clear' },
+    ]) {
+      expect(reason(board(), lesson({ roomFrozen: true }), operation(extra))).toBe('invalid_operation')
+    }
+  })
 })

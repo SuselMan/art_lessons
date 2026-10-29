@@ -5,7 +5,7 @@ import { Server } from 'socket.io'
 import { io as connect, type Socket as ClientSocket } from 'socket.io-client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ClientToServerEvents, ServerToClientEvents, StrokeOperation } from '@grafetto/shared'
+import { createBrushRandomStrokeId, type ClientToServerEvents, type ServerToClientEvents, type StrokeOperation } from '@grafetto/shared'
 
 // (#176, ADR 014 §3) A real socket.io server + client pair, like
 // shutdown.test.ts and for the same reason: what is under test is which
@@ -295,4 +295,78 @@ describe('explicit cancellation of an ephemeral live tail', () => {
       expect(await received).toEqual({ userId: 'teacher', strokeId, ...(expected === true ? { cancelled: true } : {}) })
     }
   })
+})
+
+describe('explicit independent brush seeds transport', () => {
+  const brushRandom = { version: 1 as const, sequentialSeed: 0, strokeSeed: 0xffffffff }
+  const gestureId = createBrushRandomStrokeId('seed-gesture', brushRandom)
+  const packet = { strokeId: gestureId, layerId: 'layer-1', tool: 'digitalBrush' as const,
+    preset: 'brush:ink-round@2', color: [0, 0, 0] as [number, number, number], packetSeq: 0, dabsPacked: '', brushRandom }
+  it('forwards exact uint32 endpoints and keeps legacy packets without seeds', async () => {
+    const { teacher, student } = await classroom()
+    const received = next(student, 'peer_stroke_live')
+    teacher.emit('stroke_live', packet)
+    expect(await received).toMatchObject({ ...packet, userId: 'teacher' })
+    const { brushRandom: _unused, ...legacy } = packet
+    void _unused
+    const old = next(student, 'peer_stroke_live')
+    teacher.emit('stroke_live', { ...legacy, strokeId: 'legacy-gesture' })
+    expect(await old).not.toHaveProperty('brushRandom')
+  })
+  it('drops malformed original live metadata before constructing the stripped permission stand-in', async () => {
+    const { teacher, student } = await classroom()
+    for (const extra of [
+      { brushRandom: undefined }, { brushRandom: { ...brushRandom, sequentialSeed: 1 } },
+      { brushRandom: null }, { brushRandom: { ...brushRandom, strokeSeed: 0x100000000 } },
+      { brushRandom: { ...brushRandom, sequentialSeed: -1 } }, { brushRandom: { ...brushRandom, strokeSeed: true } },
+      { brushRandom: { ...brushRandom, extra: 1 } }, { strokeId: '' }, { tool: 'pencil' },
+    ]) {
+      const quiet = silent(student, 'peer_stroke_live', 35)
+      teacher.emit('stroke_live', { ...packet, ...extra } as never)
+      await quiet
+    }
+  })
+  it('confirms, persists and rejoins with seed metadata on every chunk including empty pen-up', async () => {
+    const { teacher, student, lessonId } = await classroom()
+    for (const [index, extra] of [{}, { strokeEnd: true as const, strokeEndSample: { x: 1, y: 2, size: 3, opacity: 1, pressure: 0, tiltX: 0, tiltY: 0, angle: 0, aspectRatio: 1, baseSize: 4, t: 0 } }].entries()) {
+      const op: StrokeOperation = { ...stroke(`seed-op-${index}`, 'teacher'), tool: 'digitalBrush',
+        preset: 'brush:ink-round@2', strokeId: gestureId, brushRandom, dabsPacked: '', ...extra }
+      const confirmed = next(student, 'operation_confirmed')
+      const result = await new Promise(resolve => teacher.emit('operation', op, resolve))
+      expect(result).toMatchObject({ ok: true })
+      expect((await confirmed).operation).toMatchObject({ id: op.id, brushRandom })
+    }
+    await _flushPendingWrites(lessonId)
+    const saved = mockPrisma.operation.create.mock.calls.map(call => call[0].data.data)
+      .filter((op: StrokeOperation) => op.strokeId === gestureId)
+    expect(saved).toHaveLength(2)
+    expect(saved.every((op: StrokeOperation) => JSON.stringify(op.brushRandom) === JSON.stringify(brushRandom))).toBe(true)
+    const late = client('seed-late')
+    const state = next(late, 'room_state')
+    await join(late, lessonId, 'Later')
+    const history = (await state).tailOperations.filter(op => op.type === 'stroke' && op.strokeId === gestureId)
+    expect(history).toHaveLength(2)
+    for (const op of history) expect(op).toHaveProperty('brushRandom', brushRandom)
+    const bad = { ...stroke('bad-final', 'teacher'), tool: 'digitalBrush', strokeId: gestureId, brushRandom: { ...brushRandom, strokeSeed: 1 }, dabsPacked: '', strokeEnd: true,
+      strokeEndSample: { x: 1, y: 2, size: 3, opacity: 1, pressure: 0, tiltX: 0, tiltY: 0, angle: 0, aspectRatio: 1, baseSize: 4, t: 0 } }
+    const rejected = await new Promise(resolve => teacher.emit('operation', bad as never, resolve))
+    expect(rejected).toEqual({ ok: false, reason: 'invalid_operation' })
+    const missing = await new Promise(resolve => teacher.emit('operation', { ...bad, id: 'missing-final', brushRandom: undefined, strokeEnd: true } as never, resolve))
+    expect(missing).toEqual({ ok: false, reason: 'invalid_operation' })
+  })
+})
+
+it('preserves explicit seeds from stored operation JSON on cold board history load', async () => {
+  const { teacher, boardId } = await classroom()
+  expect(isRoomResident(boardId)).toBe(false)
+  const saved: StrokeOperation = { ...stroke('stored-seeds', 'teacher'), seq: 1,
+    tool: 'digitalBrush', strokeId: createBrushRandomStrokeId('stored-gesture', { version: 1, sequentialSeed: 0xffffffff, strokeSeed: 0 }),
+    brushRandom: { version: 1, sequentialSeed: 0xffffffff, strokeSeed: 0 }, dabsPacked: '', strokeEnd: true }
+  mockPrisma.operation.findMany.mockResolvedValue([{ data: JSON.parse(JSON.stringify(saved)) }])
+  mockPrisma.operation.aggregate.mockResolvedValue({ _max: { seq: 1 } })
+  const state = next(teacher, 'room_state')
+  await join(teacher, boardId, 'Teacher')
+  const tail = (await state).tailOperations
+  expect(tail).toContainEqual(saved)
+  expect(tail.find(op => op.id === saved.id)).toHaveProperty('brushRandom', saved.brushRandom)
 })

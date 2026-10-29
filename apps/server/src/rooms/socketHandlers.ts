@@ -2,7 +2,7 @@ import { pinOperationBrush } from '../brushLibrary/storage.js'
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@grafetto/shared'
-import { isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
+import { hasValidBrushRandomContext, isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import {
   abortAssignmentStart, beginAssignmentStart, canSeeLessonBoard, canSeeResidentBoard, getClassroom, getLessonStateFor,
@@ -658,11 +658,13 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // the void" failure of #254, with the void now visible to the whole room.
     // The stand-in carries no dabs: nothing in that gate reads them.
     socket.on('stroke_live', data => {
+      if (!hasValidBrushRandomContext(data)) return
       const { roomId, userId } = socket.data
       if (!roomId || !userId) return
       const standIn: Operation = {
         id: data.strokeId, type: 'stroke', userId, timestamp: 0,
         layerId: data.layerId, tool: data.tool, preset: data.preset, color: data.color, dabs: [],
+        strokeId: data.strokeId, ...(data.brushRandom ? { brushRandom: data.brushRandom } : {}),
       }
       if (getOperationRejectReason(roomId, userId, standIn)) return
       try { pinOperationBrush(roomId,userId,standIn) } catch { return }
