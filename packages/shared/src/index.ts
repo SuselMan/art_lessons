@@ -37,3 +37,17 @@ export * from './strokeEndSample.js'
 export * from './brushRandom.js'
 
 export * from './sourceStampData.js'
+
+export * from './canonicalMaterialCodec.js'
+
+export * from './sourceImageTransformAffine.js'
+
+export * from './sourcePngGeometry.js'
+
+export * from './sourcePngPyramid.js'
+
+export * from './sourceImageTransformMetadata.js'
+
+export * from './sourceAffineImageSpan16Coordinates.js'
+
+export * from './canonicalMaterialGeometry.js'

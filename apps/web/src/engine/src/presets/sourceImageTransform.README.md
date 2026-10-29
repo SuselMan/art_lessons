@@ -5,7 +5,7 @@ The helpers are source-informed mathematical implementations, **not** clean-room
 provenance or license clearance. Actual Krita GPL-2.0-or-later implementation and
 Qt LGPL3/GPL reference text remain private diagnostic compiler inputs with notices.
 
-`sourceImageTransformAffine` centralizes existing positive logical PNG geometry
+`packages/shared/src/sourceImageTransformAffine` centralizes existing positive logical PNG geometry
 and raw-angle raster matrix arithmetic. `sourcePngGeometry` reuses it and retains
 its old API/output; `sourcePngCharacteristicSize` exposes continuous dimensions
 before hotspot min1 or integer allocation. Eighty actual pinned native Brush
@@ -117,3 +117,12 @@ can now be composed explicitly for further whole-path/device conformance; this
 unit alone does not establish that complete Android profile or change admission.
 The original-prepared convenience API still uses the separately proven SSE
 level-to-straight conversion and deliberately does not accept that new profile.
+
+The scalar affine, PNG geometry/pyramid, allocation metadata and fixed-point row
+seed calculations now live in `packages/shared`. Web wrappers retain consumed
+APIs; the unused affine wrapper was removed. Pixel sampling, covered-row
+enumeration and GPU execution remain in the engine. The canonical material codec
+uses the same metadata-only geometry preflight on client/server: asset binding,
+allocation, prepared source budget, verified row capacity and sampler domain.
+Its work weight is an admission bound, not a responsiveness measurement. This
+sharing activates no renderer/carrier and makes no additional compatibility claim.

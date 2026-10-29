@@ -82,3 +82,5 @@ export function sourceImageInverse(m: SourceImageMatrix): SourceImageMatrix {
   return { a: m.d * reciprocal, b: -m.b * reciprocal, c: -m.c * reciprocal, d: m.a * reciprocal,
     x: (m.c * m.y - m.d * m.x) * reciprocal, y: (m.b * m.x - m.a * m.y) * reciprocal }
 }
+
+export type SourceImageAffine = readonly [number, number, number, number, number, number]
