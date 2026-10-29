@@ -1,6 +1,6 @@
 import { scaleIntegerImageU8, type IntegerImageSize } from './integerImageScale'
+import { sourcePngPyramid, sourcePngSelectLevel } from '../presets/sourcePngPyramid'
 
-const SCALE_EPSILON = 1e-6
 const MAX_PLANE_BYTES = 4 * 1024 * 1024
 
 export interface NativeImageLevelSelection {
@@ -15,12 +15,11 @@ export interface NativeImageLevel extends NativeImageLevelSelection {
   pixels: Uint8Array
 }
 
-function checkSourceSize(size: IntegerImageSize): void {
+export function assertNativeImageSourceSize(size: IntegerImageSize): void {
   if (!Number.isSafeInteger(size.width) || !Number.isSafeInteger(size.height)
     || size.width < 1 || size.height < 1 || size.width > 4096 || size.height > 4096
     || size.width * size.height > MAX_PLANE_BYTES) throw new RangeError('Invalid native source image dimensions')
 }
-const roundedAxis = (size: number, scale: number) => Math.floor(size * scale + .5)
 
 /** Metadata-only selection matching pinned KisQImagePyramid's finite levels.
  * https://github.com/KDE/krita/blob/bd6e8d061d2f0388c5b10278786cf0fe62e3135f/libs/brush/kis_qimage_pyramid.cpp
@@ -28,26 +27,11 @@ const roundedAxis = (size: number, scale: number) => Math.floor(size * scale + .
  * Extra tip-ratio deformation/shear is not inferred from its bounding box.
  * The epsilon is absolute in source scale, not in pixels or log2 units. */
 export function selectNativeImageLevel(sourceSize: IntegerImageSize, physicalLongest: number): NativeImageLevelSelection {
-  checkSourceSize(sourceSize)
+  assertNativeImageSourceSize(sourceSize)
   if (!Number.isFinite(physicalLongest) || physicalLongest <= 0) throw new RangeError('Invalid physical image extent')
-  const requested = physicalLongest / Math.max(sourceSize.width, sourceSize.height)
-  const extent = (scale: number) => ({
-    scale, nativeWidth: roundedAxis(sourceSize.width, scale), nativeHeight: roundedAxis(sourceSize.height, scale),
-  })
-  let scale = 1
-  // Native enlargement is capped at8 and admitted when EITHER rounded axis
-  // fits512; a thin image may therefore have a much longer other axis.
-  for (const enlarged of [8, 4, 2]) {
-    const size = extent(enlarged)
-    if (size.nativeWidth <= 512 || size.nativeHeight <= 512) { scale = enlarged; break }
-  }
-  while (true) {
-    const next = extent(scale * .5)
-    if (!next.nativeWidth || !next.nativeHeight) break
-    if (next.scale > requested || Math.abs(next.scale - requested) < SCALE_EPSILON) scale = next.scale
-    else break
-  }
-  return extent(scale)
+  const pyramid = sourcePngPyramid(sourceSize.width, sourceSize.height)
+  const level = pyramid.levels[sourcePngSelectLevel(pyramid, physicalLongest / Math.max(sourceSize.width, sourceSize.height))]
+  return { scale: level.scale, nativeWidth: level.width, nativeHeight: level.height }
 }
 
 /** Build ONLY the requested grayscale coverage derivative, directly from the

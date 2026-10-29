@@ -1,4 +1,5 @@
 import { expect, it, vi } from 'vitest'
+import pyramidOracle from '../presets/fixtures/sourcePngPyramid.native.json'
 import type { BrushTip } from '@grafetto/shared'
 import { MockGL } from '../../testing/mockGL'
 import { nativeImageBank, nativeImageResource, nativeImagePixels, nativeImageDomain, nativeImageDomainUniform, nativeImageUVShift } from './NativeImageBank'
@@ -134,5 +135,25 @@ it('selects existing bank entries identically to the independent level selector 
       expect(bank.includes(selected)).toBe(true)
     }
     for(const extent of [0,-1,NaN,Infinity,-Infinity])expect(()=>nativeImageResource(id,value,extent)).toThrow('physical image extent')
+  }
+})
+
+
+it('uses the native metadata oracle for every bank level and positive scale query', () => {
+  for (const c of pyramidOracle.cases.filter(c=>c.smooth && c.width<=4096 && c.height<=4096 && c.width*c.height<=4*1024*1024)) {
+    const value=tip();value.imageSampling!.sourceRect={x:0,y:0,width:c.width,height:c.height}
+    const bank=nativeImageBank(id,value)
+    expect(bank.map(l=>[l.nativeWidth,l.nativeHeight,l.width,l.height])).toEqual(c.levels.map(l=>[l.width,l.height,l.storedWidth,l.storedHeight]))
+    for(const q of c.queries.filter(q=>q.scale>0)) {
+      const selected=nativeImageResource(id,value,Math.max(c.width,c.height)*q.scale)!
+      expect(selected).toBe(bank[q.index])
+      expect(selected.scale).toBe(q.baseScale)
+    }
+  }
+})
+it('rejects excessive source dimensions before planning derivatives', () => {
+  for(const [width,height]of [[4097,1],[4096,1025],[.5,1],[0,1]]) {
+    const value=tip();value.imageSampling!.sourceRect={x:0,y:0,width,height}
+    expect(()=>nativeImageBank(id,value)).toThrow('Invalid native source image dimensions')
   }
 })

@@ -1,5 +1,6 @@
 import type { BrushTip, TipMaskId } from '@grafetto/shared'
-import { buildNativeImageLevel, selectNativeImageLevel, type NativeImageLevelSelection } from '../raster/nativeImageLevel'
+import { assertNativeImageSourceSize, buildNativeImageLevel, type NativeImageLevelSelection } from '../raster/nativeImageLevel'
+import { sourcePngPyramid } from '../presets/sourcePngPyramid'
 import type { WorldRect } from '../buffers/tileMath'
 
 type SourceRect = NonNullable<BrushTip['imageSampling']>['sourceRect']
@@ -23,23 +24,19 @@ export function nativeImageBank(id: TipMaskId, tip: BrushTip): readonly NativeIm
   const cached = byFrame.get(id)
   if (cached) return cached
   const rect = policy.sourceRect, longest = Math.max(rect.width, rect.height)
-  const levels = new Map<number, NativeImageResource>()
-  for (let scale = 8; ; scale *= .5) {
-    const selected = selectNativeImageLevel(rect, longest * scale)
-    if (!levels.has(selected.scale)) {
-      const width = selected.nativeWidth + 2, height = selected.nativeHeight + 2
-      const spanX = longest / rect.width * selected.nativeWidth
-      const spanY = longest / rect.height * selected.nativeHeight
-      levels.set(selected.scale, {
-        ...selected, id, rect, width, height,
-        key: `t:integer-pyramid:inverse-gray:${id}:${rect.x},${rect.y},${rect.width},${rect.height}:${selected.scale}`,
-        bounds: { x: (1 + (selected.nativeWidth - spanX) / 2) / width,
-          y: (1 + (selected.nativeHeight - spanY) / 2) / height, width: spanX / width, height: spanY / height },
-      })
+  assertNativeImageSourceSize(rect)
+  const result = sourcePngPyramid(rect.width, rect.height).levels.map((level): NativeImageResource => {
+    const selected = { scale: level.scale, nativeWidth: level.width, nativeHeight: level.height }
+    const width = level.storedWidth, height = level.storedHeight
+    const spanX = longest / rect.width * selected.nativeWidth
+    const spanY = longest / rect.height * selected.nativeHeight
+    return {
+      ...selected, id, rect, width, height,
+      key: `t:integer-pyramid:inverse-gray:${id}:${rect.x},${rect.y},${rect.width},${rect.height}:${selected.scale}`,
+      bounds: { x: (1 + (selected.nativeWidth - spanX) / 2) / width,
+        y: (1 + (selected.nativeHeight - spanY) / 2) / height, width: spanX / width, height: spanY / height },
     }
-    if (Math.floor(rect.width * scale * .5 + .5) === 0 || Math.floor(rect.height * scale * .5 + .5) === 0) break
-  }
-  const result = [...levels.values()]
+  })
   byFrame.set(id, result)
   return result
 }
