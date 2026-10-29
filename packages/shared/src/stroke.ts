@@ -1,3 +1,4 @@
+import type { BrushRandomSeeds } from './brushRandom.js'
 import type { OperationBase } from './operationBase.js'
 
 /** (#613) The stroke: which tool, which dabs. Reading a stroke's dabs
@@ -46,6 +47,8 @@ export type Dab = {
 
 export type StrokeOperation = OperationBase & {
   type: 'stroke'
+  /** Explicit two-source context, shared by all chunks/layers of one gesture. */
+  brushRandom?: BrushRandomSeeds
   layerId: string
   tool: ToolType
   // 'HB'/'2B' etc for pencil, the liner's own size label, `${nib}:${size}`

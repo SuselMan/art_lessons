@@ -1,3 +1,4 @@
+import type { BrushRandomSeeds } from './brushRandom.js'
 import type { Operation } from './operations.js'
 import type {
   AssignmentSummary, BoardSummary, ClassVisibility, LessonState, Participant, Room, RoomAccessMode, RoomJoinRequest,
@@ -112,6 +113,8 @@ export type CursorMoveData = {
  *  belongs — the sender coalesces dabs into one packet per interval instead of
  *  emitting per frame. */
 export type StrokeLiveData = {
+  /** Same recorded context as the authoritative operation, repeated per packet. */
+  brushRandom?: BrushRandomSeeds
   strokeId: string
   layerId: string
   tool: ToolType
