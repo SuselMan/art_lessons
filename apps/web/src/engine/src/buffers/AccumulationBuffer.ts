@@ -111,6 +111,8 @@ export class AccumulationBuffer {
   // has generated it yet, and the constructor leaves the plain LINEAR min
   // filter in place, so the texture is complete from the moment it exists.
   private _mipsValid = false
+  private _mipStorageAllocated = false
+  private _destroyed = false
   // Whether the min filter is currently asking for mip levels. Tracked so
   // setMipSampling can skip redundant GL state changes on the per-draw path.
   private _mipSampling = false
@@ -160,7 +162,21 @@ export class AccumulationBuffer {
     gl.bindTexture(gl.TEXTURE_2D, this._texture)
     gl.generateMipmap(gl.TEXTURE_2D)
     this._mipsValid = true
+    this._mipStorageAllocated = true
     return true
+  }
+
+  /** Requested RGBA8 texture storage, not driver overhead or physical residency.
+   * Invalidating mip content does not release its allocated levels. No GL query. */
+  get storageByteLength(): number {
+    if (this._destroyed) return 0
+    let width = this.width, height = this.height, bytes = width * height * 4
+    if (this._mipStorageAllocated) while (width > 1 || height > 1) {
+      width = Math.max(1, Math.floor(width / 2))
+      height = Math.max(1, Math.floor(height / 2))
+      bytes += width * height * 4
+    }
+    return bytes
   }
 
   /** The filter this buffer was created with — what setPointSampling restores
@@ -482,6 +498,7 @@ export class AccumulationBuffer {
   }
 
   destroy(): void {
+    this._destroyed = true
     this.gl.deleteTexture(this._texture)
     this.gl.deleteFramebuffer(this._fbo)
   }

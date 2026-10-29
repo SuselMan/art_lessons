@@ -264,6 +264,16 @@ export class TiledLayerBuffer implements ILayerBuffer {
   get tileWidth(): number { return this.tileW }
   get tileHeight(): number { return this.tileH }
 
+  /** Actual currently owned fine+coarse allocations for the engine's memory
+   * owner. Unlike allResident(), this never recovers/touches tiles, flushes the
+   * pyramid or changes LRU/debt. Deduplicate buffers across owners by identity. */
+  gpuAllocationSnapshot(): ReadonlyArray<Readonly<{ buffer: AccumulationBuffer; factor: 1 | CoarseFactor; bytes: number }>> {
+    const entries: Array<Readonly<{ buffer: AccumulationBuffer; factor: 1 | CoarseFactor; bytes: number }>> = []
+    for (const buffer of this.tiles.values()) entries.push(Object.freeze({ buffer, factor: 1, bytes: buffer.storageByteLength }))
+    for (const [factor, level] of this.coarse) for (const buffer of level.values()) entries.push(Object.freeze({ buffer, factor, bytes: buffer.storageByteLength }))
+    return Object.freeze(entries)
+  }
+
   /** Evicted-but-recoverable tile count — diagnostics/tests only, so a test
    *  can assert eviction actually happened rather than merely that
    *  tileCount stayed bounded (which alone can't distinguish "evicted
