@@ -1,9 +1,9 @@
 import { expect,it } from 'vitest'
 import fixture from './fixtures/kritaInput.cpp.json'
 import { createCursorHistory,pushCursorHistory,sourceDrawingDirection,sourceFanRequests,startCursorDirection,type CursorHistory } from './kritaStrokeInput'
-it('matches the independent compiled C++ history/fan receipts, isolating the documented atan2f limitation',()=>{
+it('matches the independent compiled C++ history/fan receipts, including the previously differing initial direction',()=>{
  let state=createCursorHistory(),saved=structuredClone(state)
- let directions=0,fans=0,knownMismatch=0
+ let directions=0,fans=0,formerMismatch=0
  for(const test of fixture.cases){
   const a=test.args,e=test.expected
   if(test.op==='reset')state={first:{x:a[0],y:a[1]},second:{x:a[0],y:a[1]}}
@@ -13,8 +13,9 @@ it('matches the independent compiled C++ history/fan receipts, isolating the doc
   if(test.op==='start'){
    const direction=startCursorDirection(state,{x:a[0],y:a[1]},a[2],!!a[3]);directions++
    if(test.id===fixture.provenance.knownDirectionApproximationMismatch){
-    expect(direction).not.toBe(e.drawingAngle);expect(direction).toBe(.8039283156394958);knownMismatch++
-   }else expect(direction).toBe(e.drawingAngle)
+    expect(direction).not.toBe(.8039283156394958);formerMismatch++
+   }
+   expect(direction).toBe(e.drawingAngle)
   }
   expect([Object.values(state.first),Object.values(state.second)]).toEqual(e.state)
   if(test.op==='fan'){
@@ -24,7 +25,7 @@ it('matches the independent compiled C++ history/fan receipts, isolating the doc
    expect(actual).toEqual(e.fans?.map(r=>({angle:r.angle,position:r.position,pressure:r.pressure,time:r.time})));fans++
   }
  }
- expect(fixture.cases).toHaveLength(29);expect(directions).toBeGreaterThan(0);expect(fans).toBeGreaterThan(8);expect(knownMismatch).toBe(1)
+ expect(fixture.cases).toHaveLength(29);expect(directions).toBeGreaterThan(0);expect(fans).toBeGreaterThan(8);expect(formerMismatch).toBe(1)
  // DTO checkpoint genuinely detaches both history points.
  const copy:CursorHistory=structuredClone(state);copy.first.x++
  expect(copy.first.x).not.toBe(state.first.x)

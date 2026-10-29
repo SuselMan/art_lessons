@@ -21,9 +21,9 @@ describe('source cursor history and author-only fan laws',()=>{
     expect(state.first).toEqual(state.second)
     expect(sourceDrawingDirection({x:100,y:100},{x:100,y:100},.75)).toBe(.75)
   })
-  it('keeps the JS atan2f approximation limitation explicit rather than fitting the native value',()=>{
-    expect(sourceDrawingDirection({x:0,y:0},{x:82.75,y:85.875},0)).toBe(.8039283156394958)
-    expect(sourceDrawingDirection({x:0,y:0},{x:82.75,y:85.875},0)).not.toBe(.8039282560348511)
+  it('uses the source-version F32 law instead of the former host transcendental approximation',()=>{
+    expect(sourceDrawingDirection({x:0,y:0},{x:82.75,y:85.875},0)).toBe(.8039282560348511)
+    expect(sourceDrawingDirection({x:0,y:0},{x:82.75,y:85.875},0)).not.toBe(.8039283156394958)
   })
   it('retains strict threshold and the negative half-turn tie, including a zero-fraction first fan',()=>{
     expect(sourceFanRequests(sample(0),sample(Math.PI/2),90)).toEqual([])

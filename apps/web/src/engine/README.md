@@ -81,6 +81,7 @@ Fan insertion выполняется при авторском планиров�
 также сохраняется. Отсутствие policy оставляет прежний ввод и wire output.
 
 Opt-in не включён в stock-каталоге. Копия C++ source-law receipts проверяет history
-и fan math, но не полную Krita GUI/smoothing/distance pipeline. В частности текущий
-JS float atan2 adapter имеет известное отличие от native atan2f на один ULP;
-independent-child input policy и native tool sampling требуют отдельной проверки.
+и fan math, но не полную Krita GUI/smoothing/distance pipeline. `sourceAtan2F32` задаёт переносимый закон AOSP13/FreeBSD binary32 без FMA и
+проверен независимыми C++ fixtures. Он устраняет прежний host-Math.atan2 residual;
+точное совпадение с произвольным установленным libm binary не обещается.
+Independent-child input policy и native tool sampling требуют отдельной проверки.

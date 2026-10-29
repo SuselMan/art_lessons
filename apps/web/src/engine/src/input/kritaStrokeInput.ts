@@ -1,7 +1,8 @@
-/** Pinned bd6e8d0 input laws. These author requests; render/replay never calls them.
- * Direction uses a deterministic JS float approximation, not a claim of bit-exact
- * platform atan2f (the independent C++ oracle differs by one ULP in one fixture).
- */
+import { sourceAtan2F32 } from './sourceAtan2F32'
+
+/** Pinned bd6e8d0 history/fan laws with explicit AOSP13 source-version F32
+ * direction math. Authoring only: render/replay consumes recorded sourceAngle.
+ * This does not assert identity with every installed platform libm binary. */
 export interface CursorPoint { x: number; y: number }
 export interface CursorHistory { first: CursorPoint; second: CursorPoint }
 export function createCursorHistory(): CursorHistory {
@@ -23,7 +24,7 @@ function fuzzy(a: number, b: number): boolean {
 }
 export function sourceDrawingDirection(previous: CursorPoint, point: CursorPoint, fallback: number): number {
   return fuzzy(previous.x, point.x) && fuzzy(previous.y, point.y) ? fallback
-    : Math.fround(Math.atan2(Math.fround(point.y - previous.y), Math.fround(point.x - previous.x)))
+    : sourceAtan2F32(point.y - previous.y, point.x - previous.x)
 }
 export function startCursorDirection(state: CursorHistory, point: CursorPoint, zoom: number, touch = false): number {
   if (touch) state.first = state.second = { ...point }
