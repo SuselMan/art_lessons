@@ -18,7 +18,7 @@
 // No GL names are owned here: every buffer this touches is a layer's or a
 // throwaway scratch destroyed in the same call, so there is no forget().
 
-import type { Operation } from '@grafetto/shared'
+import { isRasterPixelEncoding, type RasterPixelEncoding, type Operation } from '@grafetto/shared'
 import type { ILayerBuffer } from '../buffers/ILayerBuffer'
 import { packTilePixels } from '../buffers/pinnedTiles'
 import { isZeroRgbaPixels, retileSnapshotTiles } from '../buffers/retileSnapshot'
@@ -245,7 +245,8 @@ export class SnapshotIO {
    *  historical ops eventually get backfilled in front of it: their presence
    *  shifts the current `ops` prefix, and the id-based prefix match in
    *  `CheckpointStore.best` stops matching this checkpoint on its own. */
-  restore(layerId: string, tiles: SnapshotTile[], coveredSeq?: number, installOnly = false): void {
+  restore(layerId: string, tiles: SnapshotTile[], coveredSeq?: number, installOnly = false, pixelEncoding: RasterPixelEncoding = 'premultiplied-rgba8'): void {
+    if (!isRasterPixelEncoding(pixelEncoding)) throw new TypeError('Unsupported snapshot pixel encoding')
     const { gl, ledger } = this.ctx
     // (#474) Counted before anything can return early, so a dropped restore
     // still reports the size of what it dropped.
@@ -258,6 +259,7 @@ export class SnapshotIO {
       })
       return
     }
+    if (buf.pixelEncoding !== pixelEncoding) throw new TypeError('Snapshot pixel encoding does not match the layer')
     // Restore may reuse this very buffer. Its old emptiness is no longer a
     // fact about these pixels, regardless of publication/coverage bookkeeping.
     this._emptyRevision.delete(buf)
