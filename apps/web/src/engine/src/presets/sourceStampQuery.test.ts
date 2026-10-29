@@ -64,6 +64,28 @@ describe('isolated stamp source query ordering', () => {
     expect(new SourceStampQueryExecutor(options(), restored).execute('paint', info, boundary)).toEqual(expected)
     expect(restored.random.snapshot()).toEqual(ctx.random.snapshot())
   })
+  it('executes actual PNG cache planning and both Mirror stages on the same source even on a hit', () => {
+    const base = options()
+    const o = Object.fromEntries(ids.map(id => [id, { ...base[id], checked: id !== 'Rotation', useCurve: false }])) as unknown as SourceStampOptions
+    const mirror = { ...o.Mirror, strength: 0, useCurve: true, sensors: [{ id: 'fuzzyPerDab' as const, kind: 'additive' as const }] }
+    const ctx = context(), executor = new SourceStampQueryExecutor({ ...o, Mirror: mirror }, ctx)
+    const request = { brushIdentity: 'fixture-png-100x80', color: 'native-black', softness: 1, lightness: 1, precisionLevel: 1, autoPrecision: false, imprecisePosition: true,
+      disableSubpixel: false, supportsCaching: true, solidColor: true, textureEnabled: false, sharpnessChecked: false }
+    const brush = { width: 100, height: 80, scale: 1, angle: 0 }
+    const configured = { ...boundary, scatterX: false, scatterY: false,
+      checkSizeTooSmall: () => { throw new Error('External size callback must not replace PNG source law') },
+      maskExtent: () => { throw new Error('External geometry callback must not replace PNG source law') },
+      sourceCache: { brush, state: { nextSequence: 0 }, request } }
+    const first = executor.execute('paint', info, configured)
+    expect(first.events.filter(v => v.option === 'Mirror').map(v => v.stage)).toEqual(['material', 'spacing'])
+    expect(first.material?.type).toBe('Dab')
+    const next = executor.execute('paint', info, { ...configured, sourceCache: { brush, state: first.material!.state, request } })
+    expect(next.material?.type).toBe('Copy')
+    expect(next.material?.sourceSequence).toBe(0)
+    expect(ctx.random.snapshot().draws).toBe(4)
+    expect(next.events.filter(v => v.option === 'Mirror').map(v => [v.stage, v.drawsBefore, v.drawsAfter])).toEqual([['material', 2, 3], ['spacing', 3, 4]])
+    expect(() => executor.execute('paint', info, { ...configured, material: () => {} })).toThrow('Ambiguous')
+  })
   it('material boundary consumes before Mirror/Spacing and wrapper Rate', () => {
     const ctx = context(), executor = new SourceStampQueryExecutor(options(), ctx)
     const result = executor.execute('paint', info, { ...boundary, material: source => { source.random.generateNormalized() } })

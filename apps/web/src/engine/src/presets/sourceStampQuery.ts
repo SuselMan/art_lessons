@@ -1,3 +1,5 @@
+import { planSourcePngDab, sourceMirror, type SourceDabCacheRequest, type SourceDabCacheResult, type SourceDabCacheState, type SourceMirrorBits } from './sourceDabCache'
+import { sourcePngMaskExtent, type SourcePngBrush } from './sourcePngGeometry'
 import { sourceScatter } from './sourceScatter'
 import { sourceOptionComponents, sourceRotationLike, sourceSizeLike, sourceStandardOption, type SourceOption, type SourceOptionContext } from './sourceOption'
 
@@ -12,6 +14,7 @@ export interface SourceStampInfo {
 }
 /** Internal CPU query stream only. No new persisted/wire event format. */
 export interface SourceStampEvent {
+  readonly stage?: 'material' | 'spacing'
   readonly option: SourceStampOptionId
   readonly value: number
   readonly drawsBefore: number
@@ -38,9 +41,14 @@ export interface SourceStampBoundary {
   readonly indirectPainting: boolean
   readonly mirrorX: boolean
   readonly mirrorY: boolean
-  checkSizeTooSmall(scale: number): boolean
-  maskExtent(scale: number, ratio: number, rotation: number): readonly [number, number]
+  checkSizeTooSmall?(scale: number): boolean
+  maskExtent?(scale: number, ratio: number, rotation: number): readonly [number, number]
   /** Called in native addDab position; material source consumers share context. */
+  readonly sourceCache?: {
+    readonly brush: SourcePngBrush
+    readonly state: SourceDabCacheState
+    readonly request: Omit<SourceDabCacheRequest, 'x' | 'y' | 'shape'>
+  }
   material?(context: SourceOptionContext): void
 }
 export interface SourceStampResult {
@@ -55,6 +63,8 @@ export interface SourceStampResult {
   readonly flow?: number
   readonly spacing?: number
   readonly rate?: number
+  readonly material?: SourceDabCacheResult
+  readonly spacingMirror?: SourceMirrorBits
 }
 
 /** Shared context is intentional: refresh and paint use the very same stream.
@@ -69,7 +79,10 @@ export class SourceStampQueryExecutor {
   }
 
   execute(kind: 'paint' | 'spacing' | 'timing', info: SourceStampInfo, boundary: SourceStampBoundary): SourceStampResult {
+    if (boundary.sourceCache && boundary.material) throw new RangeError('Ambiguous source material boundary')
     const events: SourceStampEvent[] = []
+    let spacingMirror: SourceMirrorBits | undefined
+    let material: SourceDabCacheResult | undefined
     const evaluate = (id: SourceStampOptionId, compute?: () => number): number => {
       const before = this.context.random.snapshot().draws
       const value = compute ? compute() : sourceStandardOption(this.options[id], this.context)
@@ -81,7 +94,11 @@ export class SourceStampQueryExecutor {
     // KisPaintOp::paintAt wrapper still calls updateTimingImpl after paintAt returns early.
     if (kind === 'paint' && !boundary.canPaint) return { painted: false, events, rate: rate() }
     const scale = evaluate('Size') * boundary.lodScale
-    if (kind === 'paint' && boundary.checkSizeTooSmall(scale)) return { painted: false, events, scale, rate: rate() }
+    const tiny = boundary.sourceCache
+      ? (scale * boundary.sourceCache.brush.scale) * boundary.sourceCache.brush.width < .01 || (scale * boundary.sourceCache.brush.scale) * boundary.sourceCache.brush.height < .01
+      : boundary.checkSizeTooSmall?.(scale)
+    if (tiny === undefined) throw new RangeError('Missing native size predicate')
+    if (kind === 'paint' && tiny) return { painted: false, events, scale, rate: rate() }
     const rotation = evaluate('Rotation', () => {
       const option = this.options.Rotation
       if (!option.checked) return info.canvasRotation * Math.PI / 180
@@ -94,12 +111,20 @@ export class SourceStampQueryExecutor {
       return angle
     })
     const spacing = (): number => {
-      if (this.options.Mirror.checked && (boundary.mirrorX || boundary.mirrorY)) evaluate('Mirror')
+      const before = this.context.random.snapshot().draws
+      spacingMirror = sourceMirror(this.options.Mirror, this.context,
+        { canvasH: info.mirroredH, canvasV: info.mirroredV, enableH: boundary.mirrorX, enableV: boundary.mirrorY }, value => {
+          events.push({ option: 'Mirror', value, drawsBefore: before, drawsAfter: this.context.random.snapshot().draws, ...(boundary.sourceCache ? { stage: 'spacing' as const } : {}) })
+        })
       return evaluate('Spacing')
     }
-    if (kind === 'spacing') return { painted: false, events, scale, rotation, spacing: spacing() }
+    if (kind === 'spacing') return { painted: false, events, scale, rotation, spacing: spacing(), spacingMirror }
     const ratio = evaluate('Ratio')
-    const [width, height] = boundary.maskExtent(scale, ratio, rotation)
+    const extent = boundary.sourceCache
+      ? sourcePngMaskExtent(boundary.sourceCache.brush, { scale, ratio, rotation }, 0, 0)
+      : boundary.maskExtent?.(scale, ratio, rotation)
+    if (!extent) throw new RangeError('Missing native mask geometry')
+    const [width, height] = extent
     const [x, y] = sourceScatter({
       x: info.x, y: info.y, angle: info.drawingAngle, width, height,
       checked: this.options.Scatter.checked, axisX: boundary.scatterX, axisY: boundary.scatterY,
@@ -107,8 +132,15 @@ export class SourceStampQueryExecutor {
     const opacity = evaluate('Opacity', () => this.options.Opacity.checked
       ? sourceSizeLike(sourceOptionComponents(this.options.Opacity, this.context, !boundary.indirectPainting)) : 1)
     const flow = evaluate('Flow')
-    boundary.material?.(this.context)
+    if (boundary.sourceCache) {
+      const before = this.context.random.snapshot().draws
+      material = planSourcePngDab(boundary.sourceCache.brush,
+        { ...boundary.sourceCache.request, x, y, shape: { scale, ratio, rotation } }, boundary.sourceCache.state,
+        this.options.Mirror, this.context, { canvasH: info.mirroredH, canvasV: info.mirroredV, enableH: boundary.mirrorX, enableV: boundary.mirrorY })
+      if (material.mirrorValue !== undefined) events.push({ option: 'Mirror', stage: 'material', value: material.mirrorValue,
+        drawsBefore: before, drawsAfter: this.context.random.snapshot().draws })
+    } else boundary.material?.(this.context)
     const spacingValue = spacing()
-    return { painted: true, events, scale, rotation, ratio, x, y, opacity, flow, spacing: spacingValue, rate: rate() }
+    return { painted: true, events, scale, rotation, ratio, x, y, opacity, flow, spacing: spacingValue, rate: rate(), spacingMirror, ...(material ? { material } : {}) }
   }
 }
