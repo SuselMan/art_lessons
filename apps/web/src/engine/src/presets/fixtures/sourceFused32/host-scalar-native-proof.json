@@ -1,0 +1,2473 @@
+{
+  "scope": "Independent host std::fma installed scalargraph oracle and actual Samsung CanonicalFrameExecutor fused17 diagnostic gate. No active renderer/nativeGUI/SIMD64paintdevice identity claim.",
+  "native": {
+    "scope": "host std::fma explicit installed scalar graph; original ISA scalar prefix/tail points only, vector outputs excluded; no active GUI/ARM execution claim",
+    "rows": [
+      {
+        "name": "baseline",
+        "cases": 2688,
+        "scalarPoints": 17664,
+        "vectorPointsExplicitlySkipped": 15360
+      },
+      {
+        "name": "witness",
+        "cases": 72,
+        "scalarPoints": 336,
+        "vectorPointsExplicitlySkipped": 336
+      },
+      {
+        "name": "alpha",
+        "cases": 137,
+        "scalarPoints": 546,
+        "vectorPointsExplicitlySkipped": 816
+      },
+      {
+        "name": "sourceFusedAlphaDarken32Scalar",
+        "cases": 200,
+        "scalarPoints": 200,
+        "vectorPointsExplicitlySkipped": 0
+      },
+      {
+        "name": "sourceFusedOver32Scalar",
+        "cases": 200,
+        "scalarPoints": 200,
+        "vectorPointsExplicitlySkipped": 0
+      },
+      {
+        "name": "overshoot",
+        "cases": 8,
+        "scalarPoints": 8,
+        "vectorPointsExplicitlySkipped": 0
+      }
+    ],
+    "scalarPoints": 18954,
+    "wrongCount": 0,
+    "examples": [],
+    "seconds": 0.01956189121119678,
+    "binarySHA256": "d5d8b144a69186cd1cedb2fb4dee72b88878ec9661f983083956fd05351cd046",
+    "sourceSHA256": "6de512a76d9b136170b4603182c45f33553c3a83e81b36352b28b568c5812402",
+    "outputSHA256": "9cd7e1cc2de27eaf1e5ce5996d180cbbb58ef3f9a38c0642072d2b2a4714df9b"
+  },
+  "parameter": {
+    "cases": 794,
+    "wrong": 0,
+    "signedZeroInputSignRecovery": 73,
+    "signRecoveryScope": "JSON raw numeric0 loses sign; preserved nativebits recovered zero input signs only, no arithmetic expected adaptation",
+    "scope": "native ParameterInfo rawqreal->F32->Qtfloatalias exact; recipealready-effective controls aliasdisabled"
+  },
+  "plane": {
+    "scope": "independent BigInt sourceFused32 scalar point reference vs host binary plane protocol: clipping/mirror/rowflip/Over/Creamy/Hard/washouter/fences",
+    "results": [
+      {
+        "wash": false,
+        "frames": 6,
+        "allFNVExact": true,
+        "finalRGBAExact": true
+      },
+      {
+        "wash": true,
+        "frames": 6,
+        "allFNVExact": true,
+        "finalRGBAExact": true
+      }
+    ]
+  },
+  "sourceProvenance": {
+    "sourcePin": "bd6e8d061d2f0388c5b10278786cf0fe62e3135f",
+    "scope": "source-informed diagnostic scalar graph; no unchanged-native-body or clean-room assertion",
+    "sources": [
+      {
+        "name": "KoOptimizedCompositeOpAlphaDarken32.h",
+        "sha256": "2025a1b2ba4b703ab1f38a61548d3bd7b1f99f60a5aa109ec1bcaddc27814c4d",
+        "SPDX": "LGPL-2.0-or-later"
+      },
+      {
+        "name": "KoOptimizedCompositeOpOver32.h",
+        "sha256": "02c7ce4fbb60a821f6dc99e46dd0560dd4997cf6f38a1b066e9a5582bca2b8f6",
+        "SPDX": "LGPL-2.0-or-later"
+      },
+      {
+        "name": "KoAlphaDarkenParamsWrapper.h",
+        "sha256": "da6641dab1dba47dd9710c402d3f2c08f74330ab51466407da95c687ce9c186b",
+        "SPDX": "GPL-2.0-or-later"
+      }
+    ],
+    "compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "flags": [
+      "-std=c++17",
+      "-O2",
+      "-ffp-contract=off",
+      "-fno-fast-math",
+      "-frounding-math"
+    ],
+    "sourceSHA256": "6de512a76d9b136170b4603182c45f33553c3a83e81b36352b28b568c5812402",
+    "binarySHA256": "d5d8b144a69186cd1cedb2fb4dee72b88878ec9661f983083956fd05351cd046"
+  },
+  "host": {
+    "scope": "HOST only independent scalar std::fma/FRECPE reference with existing source raster pipeline; no GPU/GUI/native packet dispatch claim",
+    "sourceSHA": "6de512a76d9b136170b4603182c45f33553c3a83e81b36352b28b568c5812402",
+    "strokeSHA": "03ff0e891712af6ac17cd66ca8f51d7887345de6d34a6941d6ca745d2ac96690",
+    "descriptorsSHA": "ccc118d8aeacd3ca99e0440f5d85153b5584366aa4aa5bcd5e6e9303a8055239",
+    "rows": [
+      {
+        "index": 9,
+        "mode": "wash",
+        "inputs": 40,
+        "chunks": 1,
+        "draws": 343,
+        "maskBuilds": 343,
+        "levels": 5,
+        "maxWidth": 12,
+        "maxHeight": 12,
+        "hostMs": 162.56268800000004,
+        "nativeMs": 12.88151599999992,
+        "recipeBytes": 561953,
+        "recipeSHA256": "14720a7a5b2edb9a0d80275c9ae9a38d528fd0903e7adc8de0580c6a80a0cb10",
+        "expectedSHA256": "088257bfb96ee069fa3c3c587f2c20d21abca7444c52ce9ee21060e42ceb67f3",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 343,
+            "commands": [
+              "commitWash"
+            ],
+            "localFNV32": 457428861,
+            "outputFNV32": 777401004
+          }
+        ]
+      },
+      {
+        "index": 24,
+        "mode": "wash",
+        "inputs": 40,
+        "chunks": 1,
+        "draws": 322,
+        "maskBuilds": 322,
+        "levels": 4,
+        "maxWidth": 17,
+        "maxHeight": 17,
+        "hostMs": 124.38220799999999,
+        "nativeMs": 11.825524000000087,
+        "recipeBytes": 580336,
+        "recipeSHA256": "7d0498dabeb27bccd04ba6e0f27201f88d45a5585e3ff138a1782e371a0fb679",
+        "expectedSHA256": "649a134ab21c80c94654fb4b92f32fcba0b12175225316029bab675087311f43",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 322,
+            "commands": [
+              "commitWash"
+            ],
+            "localFNV32": 3542233259,
+            "outputFNV32": 508809959
+          }
+        ]
+      },
+      {
+        "index": 25,
+        "mode": "wash",
+        "inputs": 40,
+        "chunks": 1,
+        "draws": 226,
+        "maskBuilds": 226,
+        "levels": 8,
+        "maxWidth": 57,
+        "maxHeight": 56,
+        "hostMs": 174.73449600000004,
+        "nativeMs": 17.597591999999963,
+        "recipeBytes": 699763,
+        "recipeSHA256": "2faff47adcd941613cb09473ed355c337abbd709cc843e87557d6f3e6b0592a7",
+        "expectedSHA256": "73a534bd37887a9126d6934d2fd388464b6eceb25489cb17a09080d8a85c6a95",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 226,
+            "commands": [
+              "commitWash"
+            ],
+            "localFNV32": 2107233552,
+            "outputFNV32": 1599103736
+          }
+        ]
+      },
+      {
+        "index": 26,
+        "mode": "wash",
+        "inputs": 40,
+        "chunks": 1,
+        "draws": 60,
+        "maskBuilds": 60,
+        "levels": 1,
+        "maxWidth": 111,
+        "maxHeight": 111,
+        "hostMs": 526.413229,
+        "nativeMs": 32.420459000000164,
+        "recipeBytes": 1112268,
+        "recipeSHA256": "97b016781e8df40646152f0810d195c1296820b7c0823b60d00562a8ba8a56b4",
+        "expectedSHA256": "d83675bf7ca41ee7da9feb1bb288f9f7bbc2fc5ec995130aab953ad1ac8c37ea",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 60,
+            "commands": [
+              "commitWash"
+            ],
+            "localFNV32": 2310534926,
+            "outputFNV32": 1906782244
+          }
+        ]
+      },
+      {
+        "index": 27,
+        "mode": "wash",
+        "inputs": 40,
+        "chunks": 1,
+        "draws": 159,
+        "maskBuilds": 1,
+        "levels": 1,
+        "maxWidth": 71,
+        "maxHeight": 71,
+        "hostMs": 53.59868800000004,
+        "nativeMs": 33.69230000000016,
+        "recipeBytes": 1335220,
+        "recipeSHA256": "fce651982b0dfa427df59234b6b9770881a88aa866204e5aabf34296efc44d91",
+        "expectedSHA256": "c26b0bfd9eafbece381c6fcd7722fcc4a28585fc5f58b253a3232ccbfd18dbb0",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 159,
+            "commands": [
+              "commitWash"
+            ],
+            "localFNV32": 4279890166,
+            "outputFNV32": 3068907614
+          }
+        ]
+      },
+      {
+        "index": 28,
+        "mode": "buildup",
+        "inputs": 40,
+        "chunks": 1,
+        "draws": 76,
+        "maskBuilds": 76,
+        "levels": 1,
+        "maxWidth": 69,
+        "maxHeight": 31,
+        "hostMs": 210.73018899999988,
+        "nativeMs": 14.601574000000028,
+        "recipeBytes": 690438,
+        "recipeSHA256": "b75951311d437a3e58b2f76bac96434fdfbb7c4bb8440447dac3c6c38ec96a36",
+        "expectedSHA256": "d3c62121e8355a18b064d370fdb2c36df6c08239ab84d8c8d3241c3b6befd84b",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 76,
+            "commands": [],
+            "localFNV32": 406825733,
+            "outputFNV32": 406825733
+          }
+        ]
+      },
+      {
+        "index": 74,
+        "mode": "wash",
+        "inputs": 40,
+        "chunks": 30,
+        "draws": 2,
+        "maskBuilds": 2,
+        "levels": 1,
+        "maxWidth": 462,
+        "maxHeight": 464,
+        "hostMs": 362.28794200000016,
+        "nativeMs": 82.86473699999988,
+        "recipeBytes": 912392,
+        "recipeSHA256": "4026c4ec10b3637fe711baa8d8a0f28226ba8bfbc0eddba396ce0f741d4d1135",
+        "expectedSHA256": "b703d54b77974ab4be1f7f87807d0157bc302a04ec62abefbb1333ebd4e1645d",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 2263080389,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 1,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2263080389,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 2,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2263080389,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 3,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2263080389,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 4,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2263080389,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 5,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2263080389,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 6,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2263080389,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 7,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2263080389,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 8,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2263080389,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 9,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2263080389,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 10,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2263080389,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 11,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2263080389,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 12,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2263080389,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 13,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2263080389,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 14,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2263080389,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 15,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2263080389,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 16,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 1695060421,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 17,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1695060421,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 18,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1695060421,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 19,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1695060421,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 20,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1695060421,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 21,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1695060421,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 22,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1695060421,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 23,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1695060421,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 24,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1695060421,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 25,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1695060421,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 26,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1695060421,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 27,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1695060421,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 28,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1695060421,
+            "outputFNV32": 1252029332
+          },
+          {
+            "ordinal": 29,
+            "draws": 0,
+            "commands": [
+              "commitWash"
+            ],
+            "localFNV32": 1695060421,
+            "outputFNV32": 1252029332
+          }
+        ]
+      },
+      {
+        "index": 75,
+        "mode": "wash",
+        "inputs": 40,
+        "chunks": 30,
+        "draws": 2,
+        "maskBuilds": 2,
+        "levels": 1,
+        "maxWidth": 245,
+        "maxHeight": 245,
+        "hostMs": 167.35361000000012,
+        "nativeMs": 85.34107799999992,
+        "recipeBytes": 618804,
+        "recipeSHA256": "302b0446bfb64a3f7ca4a82f51babfcea19fe41c5c88815c030bf4b28ddd7fe0",
+        "expectedSHA256": "a5f7302b96f2cf417d82a7bbb4eff7f283b1ad73e3b4c04a13c7bd1c342871a5",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 1,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 2,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 3,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 4,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 5,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 6,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 7,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 8,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 9,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 10,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 11,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 12,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 13,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 14,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 15,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 16,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4166860602,
+            "outputFNV32": 4147950897
+          },
+          {
+            "ordinal": 17,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 2792362968,
+            "outputFNV32": 846020211
+          },
+          {
+            "ordinal": 18,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2792362968,
+            "outputFNV32": 846020211
+          },
+          {
+            "ordinal": 19,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2792362968,
+            "outputFNV32": 846020211
+          },
+          {
+            "ordinal": 20,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2792362968,
+            "outputFNV32": 846020211
+          },
+          {
+            "ordinal": 21,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2792362968,
+            "outputFNV32": 846020211
+          },
+          {
+            "ordinal": 22,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2792362968,
+            "outputFNV32": 846020211
+          },
+          {
+            "ordinal": 23,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2792362968,
+            "outputFNV32": 846020211
+          },
+          {
+            "ordinal": 24,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2792362968,
+            "outputFNV32": 846020211
+          },
+          {
+            "ordinal": 25,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2792362968,
+            "outputFNV32": 846020211
+          },
+          {
+            "ordinal": 26,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2792362968,
+            "outputFNV32": 846020211
+          },
+          {
+            "ordinal": 27,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2792362968,
+            "outputFNV32": 846020211
+          },
+          {
+            "ordinal": 28,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2792362968,
+            "outputFNV32": 846020211
+          },
+          {
+            "ordinal": 29,
+            "draws": 0,
+            "commands": [
+              "commitWash"
+            ],
+            "localFNV32": 2792362968,
+            "outputFNV32": 846020211
+          }
+        ]
+      },
+      {
+        "index": 76,
+        "mode": "wash",
+        "inputs": 40,
+        "chunks": 1,
+        "draws": 87,
+        "maskBuilds": 87,
+        "levels": 2,
+        "maxWidth": 71,
+        "maxHeight": 69,
+        "hostMs": 244.52557799999977,
+        "nativeMs": 18.95392899999979,
+        "recipeBytes": 764011,
+        "recipeSHA256": "cde6715f3d715678b79df644e115a8d3f596a88cafe9116b50401d95fa842401",
+        "expectedSHA256": "f2ddd8c49d9744d446abb0740262d0a99e2b56e3bd1463063819e843665e69c7",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 87,
+            "commands": [
+              "commitWash"
+            ],
+            "localFNV32": 113071579,
+            "outputFNV32": 1757701849
+          }
+        ]
+      },
+      {
+        "index": 79,
+        "mode": "wash",
+        "inputs": 40,
+        "chunks": 24,
+        "draws": 10,
+        "maskBuilds": 10,
+        "levels": 2,
+        "maxWidth": 131,
+        "maxHeight": 56,
+        "hostMs": 123.47291899999982,
+        "nativeMs": 71.49835900000016,
+        "recipeBytes": 553851,
+        "recipeSHA256": "7af7de779310802809a1cd7daacc4dff9dce0da54eb4d833e3ea7c898a70a9f8",
+        "expectedSHA256": "51f01bcdf069977aad16d2dbe7b7f5f953c12413615b088bccc8b75f9943a290",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 3221165398,
+            "outputFNV32": 1367414460
+          },
+          {
+            "ordinal": 1,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 3221165398,
+            "outputFNV32": 1367414460
+          },
+          {
+            "ordinal": 2,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 3221165398,
+            "outputFNV32": 1367414460
+          },
+          {
+            "ordinal": 3,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 4039631023,
+            "outputFNV32": 3122215211
+          },
+          {
+            "ordinal": 4,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4039631023,
+            "outputFNV32": 3122215211
+          },
+          {
+            "ordinal": 5,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4039631023,
+            "outputFNV32": 3122215211
+          },
+          {
+            "ordinal": 6,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 4039631023,
+            "outputFNV32": 3122215211
+          },
+          {
+            "ordinal": 7,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 369544199,
+            "outputFNV32": 3121118682
+          },
+          {
+            "ordinal": 8,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 369544199,
+            "outputFNV32": 3121118682
+          },
+          {
+            "ordinal": 9,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 369544199,
+            "outputFNV32": 3121118682
+          },
+          {
+            "ordinal": 10,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 2790439394,
+            "outputFNV32": 1248815143
+          },
+          {
+            "ordinal": 11,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2790439394,
+            "outputFNV32": 1248815143
+          },
+          {
+            "ordinal": 12,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2790439394,
+            "outputFNV32": 1248815143
+          },
+          {
+            "ordinal": 13,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2790439394,
+            "outputFNV32": 1248815143
+          },
+          {
+            "ordinal": 14,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 3060601091,
+            "outputFNV32": 227702019
+          },
+          {
+            "ordinal": 15,
+            "draws": 2,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 2757365049,
+            "outputFNV32": 3534973987
+          },
+          {
+            "ordinal": 16,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2757365049,
+            "outputFNV32": 3534973987
+          },
+          {
+            "ordinal": 17,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2757365049,
+            "outputFNV32": 3534973987
+          },
+          {
+            "ordinal": 18,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2757365049,
+            "outputFNV32": 3534973987
+          },
+          {
+            "ordinal": 19,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 4003172952,
+            "outputFNV32": 1758320583
+          },
+          {
+            "ordinal": 20,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 147446631,
+            "outputFNV32": 1483554380
+          },
+          {
+            "ordinal": 21,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 147446631,
+            "outputFNV32": 1483554380
+          },
+          {
+            "ordinal": 22,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 147446631,
+            "outputFNV32": 1483554380
+          },
+          {
+            "ordinal": 23,
+            "draws": 1,
+            "commands": [
+              "commitWash"
+            ],
+            "localFNV32": 1979442807,
+            "outputFNV32": 44326682
+          }
+        ]
+      },
+      {
+        "index": 82,
+        "mode": "wash",
+        "inputs": 40,
+        "chunks": 27,
+        "draws": 6,
+        "maskBuilds": 6,
+        "levels": 1,
+        "maxWidth": 176,
+        "maxHeight": 174,
+        "hostMs": 180.67876400000023,
+        "nativeMs": 77.22035200000028,
+        "recipeBytes": 681457,
+        "recipeSHA256": "50335fa1b38bc6942f5b0ef6afcd0901f3118870390ad76471fbf066133a8668",
+        "expectedSHA256": "edd811bfd7f6eea173f53039894df36cb22cdcd8912463f9fb3b8cdc27ff4309",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 7538666,
+            "outputFNV32": 1639614762
+          },
+          {
+            "ordinal": 1,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 7538666,
+            "outputFNV32": 1639614762
+          },
+          {
+            "ordinal": 2,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 7538666,
+            "outputFNV32": 1639614762
+          },
+          {
+            "ordinal": 3,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 7538666,
+            "outputFNV32": 1639614762
+          },
+          {
+            "ordinal": 4,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 7538666,
+            "outputFNV32": 1639614762
+          },
+          {
+            "ordinal": 5,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 7538666,
+            "outputFNV32": 1639614762
+          },
+          {
+            "ordinal": 6,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 1159471509,
+            "outputFNV32": 1639614762
+          },
+          {
+            "ordinal": 7,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1159471509,
+            "outputFNV32": 1639614762
+          },
+          {
+            "ordinal": 8,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1159471509,
+            "outputFNV32": 1639614762
+          },
+          {
+            "ordinal": 9,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1159471509,
+            "outputFNV32": 1639614762
+          },
+          {
+            "ordinal": 10,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1159471509,
+            "outputFNV32": 1639614762
+          },
+          {
+            "ordinal": 11,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 408904154,
+            "outputFNV32": 2223261767
+          },
+          {
+            "ordinal": 12,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 408904154,
+            "outputFNV32": 2223261767
+          },
+          {
+            "ordinal": 13,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 408904154,
+            "outputFNV32": 2223261767
+          },
+          {
+            "ordinal": 14,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 408904154,
+            "outputFNV32": 2223261767
+          },
+          {
+            "ordinal": 15,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 2359788423,
+            "outputFNV32": 1000965252
+          },
+          {
+            "ordinal": 16,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2359788423,
+            "outputFNV32": 1000965252
+          },
+          {
+            "ordinal": 17,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2359788423,
+            "outputFNV32": 1000965252
+          },
+          {
+            "ordinal": 18,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2359788423,
+            "outputFNV32": 1000965252
+          },
+          {
+            "ordinal": 19,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2359788423,
+            "outputFNV32": 1000965252
+          },
+          {
+            "ordinal": 20,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2359788423,
+            "outputFNV32": 1000965252
+          },
+          {
+            "ordinal": 21,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2359788423,
+            "outputFNV32": 1000965252
+          },
+          {
+            "ordinal": 22,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 3426257508,
+            "outputFNV32": 125586841
+          },
+          {
+            "ordinal": 23,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 3426257508,
+            "outputFNV32": 125586841
+          },
+          {
+            "ordinal": 24,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 3426257508,
+            "outputFNV32": 125586841
+          },
+          {
+            "ordinal": 25,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 3426257508,
+            "outputFNV32": 125586841
+          },
+          {
+            "ordinal": 26,
+            "draws": 1,
+            "commands": [
+              "commitWash"
+            ],
+            "localFNV32": 3702709414,
+            "outputFNV32": 2529500302
+          }
+        ]
+      },
+      {
+        "index": 83,
+        "mode": "wash",
+        "inputs": 40,
+        "chunks": 26,
+        "draws": 8,
+        "maskBuilds": 8,
+        "levels": 3,
+        "maxWidth": 161,
+        "maxHeight": 161,
+        "hostMs": 139.05548799999997,
+        "nativeMs": 70.51742999999988,
+        "recipeBytes": 625382,
+        "recipeSHA256": "5cb46a87ae4fd8c77e7706bd6025cc30d2e4484947c578969898cb9928d76856",
+        "expectedSHA256": "5e7067bd366db2a23642846cc0fe6b89552f008ed85f33441f8800ddcd61ff49",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 565455261,
+            "outputFNV32": 1695867211
+          },
+          {
+            "ordinal": 1,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 565455261,
+            "outputFNV32": 1695867211
+          },
+          {
+            "ordinal": 2,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 565455261,
+            "outputFNV32": 1695867211
+          },
+          {
+            "ordinal": 3,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 2998984385,
+            "outputFNV32": 4021367805
+          },
+          {
+            "ordinal": 4,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2998984385,
+            "outputFNV32": 4021367805
+          },
+          {
+            "ordinal": 5,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2998984385,
+            "outputFNV32": 4021367805
+          },
+          {
+            "ordinal": 6,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 1582860221,
+            "outputFNV32": 1805026523
+          },
+          {
+            "ordinal": 7,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1582860221,
+            "outputFNV32": 1805026523
+          },
+          {
+            "ordinal": 8,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1582860221,
+            "outputFNV32": 1805026523
+          },
+          {
+            "ordinal": 9,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1582860221,
+            "outputFNV32": 1805026523
+          },
+          {
+            "ordinal": 10,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1582860221,
+            "outputFNV32": 1805026523
+          },
+          {
+            "ordinal": 11,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1582860221,
+            "outputFNV32": 1805026523
+          },
+          {
+            "ordinal": 12,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 364387227,
+            "outputFNV32": 1112695450
+          },
+          {
+            "ordinal": 13,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 364387227,
+            "outputFNV32": 1112695450
+          },
+          {
+            "ordinal": 14,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 364387227,
+            "outputFNV32": 1112695450
+          },
+          {
+            "ordinal": 15,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 2684934168,
+            "outputFNV32": 1112695450
+          },
+          {
+            "ordinal": 16,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2684934168,
+            "outputFNV32": 1112695450
+          },
+          {
+            "ordinal": 17,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 78843662,
+            "outputFNV32": 2670959746
+          },
+          {
+            "ordinal": 18,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 78843662,
+            "outputFNV32": 2670959746
+          },
+          {
+            "ordinal": 19,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 78843662,
+            "outputFNV32": 2670959746
+          },
+          {
+            "ordinal": 20,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 1938117281,
+            "outputFNV32": 3215210302
+          },
+          {
+            "ordinal": 21,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1938117281,
+            "outputFNV32": 3215210302
+          },
+          {
+            "ordinal": 22,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1938117281,
+            "outputFNV32": 3215210302
+          },
+          {
+            "ordinal": 23,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1938117281,
+            "outputFNV32": 3215210302
+          },
+          {
+            "ordinal": 24,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 3127506777,
+            "outputFNV32": 1975552956
+          },
+          {
+            "ordinal": 25,
+            "draws": 0,
+            "commands": [
+              "commitWash"
+            ],
+            "localFNV32": 3127506777,
+            "outputFNV32": 1975552956
+          }
+        ]
+      },
+      {
+        "index": 84,
+        "mode": "wash",
+        "inputs": 40,
+        "chunks": 2,
+        "draws": 1234,
+        "maskBuilds": 1234,
+        "levels": 8,
+        "maxWidth": 115,
+        "maxHeight": 115,
+        "hostMs": 2940.2357620000002,
+        "nativeMs": 164.30643400000008,
+        "recipeBytes": 5329177,
+        "recipeSHA256": "2746fbcfeb8ea739dca06ff2f8efbb77ffa23e1ae1982d4ecb7176ff7927b689",
+        "expectedSHA256": "f3cdc87a49040eb7f2bd9dd478701a9b5ad82d9427f5b809f93a3471242350fe",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 800,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 3346322346,
+            "outputFNV32": 1708823264
+          },
+          {
+            "ordinal": 1,
+            "draws": 434,
+            "commands": [
+              "commitWash"
+            ],
+            "localFNV32": 3004222172,
+            "outputFNV32": 455922244
+          }
+        ]
+      },
+      {
+        "index": 86,
+        "mode": "wash",
+        "inputs": 40,
+        "chunks": 23,
+        "draws": 11,
+        "maskBuilds": 11,
+        "levels": 5,
+        "maxWidth": 240,
+        "maxHeight": 246,
+        "hostMs": 224.35903099999996,
+        "nativeMs": 82.88642600000003,
+        "recipeBytes": 675605,
+        "recipeSHA256": "c44d2cde9c46bcdcbce8196284fd359a7ef1bf964f663c030801f0ef8e8630e9",
+        "expectedSHA256": "680e8547918863ea227f845083a372a6a45d6bee624c3be5e58292875195e3e1",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 2,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 2969502909,
+            "outputFNV32": 4014587257
+          },
+          {
+            "ordinal": 1,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 2433873683,
+            "outputFNV32": 2325314316
+          },
+          {
+            "ordinal": 2,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2433873683,
+            "outputFNV32": 2325314316
+          },
+          {
+            "ordinal": 3,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 2433873683,
+            "outputFNV32": 2325314316
+          },
+          {
+            "ordinal": 4,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2433873683,
+            "outputFNV32": 2325314316
+          },
+          {
+            "ordinal": 5,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2433873683,
+            "outputFNV32": 2325314316
+          },
+          {
+            "ordinal": 6,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 2047620790,
+            "outputFNV32": 1994215512
+          },
+          {
+            "ordinal": 7,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 2047620790,
+            "outputFNV32": 1994215512
+          },
+          {
+            "ordinal": 8,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 2047620790,
+            "outputFNV32": 1994215512
+          },
+          {
+            "ordinal": 9,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 403215182,
+            "outputFNV32": 4202813255
+          },
+          {
+            "ordinal": 10,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 403215182,
+            "outputFNV32": 4202813255
+          },
+          {
+            "ordinal": 11,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 3470695441,
+            "outputFNV32": 2500888385
+          },
+          {
+            "ordinal": 12,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 3470695441,
+            "outputFNV32": 2500888385
+          },
+          {
+            "ordinal": 13,
+            "draws": 2,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 1729285523,
+            "outputFNV32": 2938054145
+          },
+          {
+            "ordinal": 14,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1729285523,
+            "outputFNV32": 2938054145
+          },
+          {
+            "ordinal": 15,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1729285523,
+            "outputFNV32": 2938054145
+          },
+          {
+            "ordinal": 16,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1729285523,
+            "outputFNV32": 2938054145
+          },
+          {
+            "ordinal": 17,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1729285523,
+            "outputFNV32": 2938054145
+          },
+          {
+            "ordinal": 18,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1729285523,
+            "outputFNV32": 2938054145
+          },
+          {
+            "ordinal": 19,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 1081090937,
+            "outputFNV32": 2892103081
+          },
+          {
+            "ordinal": 20,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1081090937,
+            "outputFNV32": 2892103081
+          },
+          {
+            "ordinal": 21,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1081090937,
+            "outputFNV32": 2892103081
+          },
+          {
+            "ordinal": 22,
+            "draws": 0,
+            "commands": [
+              "commitWash"
+            ],
+            "localFNV32": 1081090937,
+            "outputFNV32": 2892103081
+          }
+        ]
+      },
+      {
+        "index": 95,
+        "mode": "wash",
+        "inputs": 40,
+        "chunks": 28,
+        "draws": 5,
+        "maskBuilds": 3,
+        "levels": 1,
+        "maxWidth": 71,
+        "maxHeight": 65,
+        "hostMs": 98.5268900000001,
+        "nativeMs": 79.27187500000036,
+        "recipeBytes": 547585,
+        "recipeSHA256": "7b8f176bdc83545cf7edb7863c6bef4383493f910d93155a8f7f5ade50303da5",
+        "expectedSHA256": "334f77549f6a4cb10341d719d0d4de9509d777881a88175ccb7287dfcf67601b",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 3442924434,
+            "outputFNV32": 4082707249
+          },
+          {
+            "ordinal": 1,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 3442924434,
+            "outputFNV32": 4082707249
+          },
+          {
+            "ordinal": 2,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 3442924434,
+            "outputFNV32": 4082707249
+          },
+          {
+            "ordinal": 3,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 3442924434,
+            "outputFNV32": 4082707249
+          },
+          {
+            "ordinal": 4,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 3442924434,
+            "outputFNV32": 4082707249
+          },
+          {
+            "ordinal": 5,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 3442924434,
+            "outputFNV32": 4082707249
+          },
+          {
+            "ordinal": 6,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 3442924434,
+            "outputFNV32": 4082707249
+          },
+          {
+            "ordinal": 7,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 1366470038,
+            "outputFNV32": 3332375789
+          },
+          {
+            "ordinal": 8,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1366470038,
+            "outputFNV32": 3332375789
+          },
+          {
+            "ordinal": 9,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1366470038,
+            "outputFNV32": 3332375789
+          },
+          {
+            "ordinal": 10,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1366470038,
+            "outputFNV32": 3332375789
+          },
+          {
+            "ordinal": 11,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1366470038,
+            "outputFNV32": 3332375789
+          },
+          {
+            "ordinal": 12,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1366470038,
+            "outputFNV32": 3332375789
+          },
+          {
+            "ordinal": 13,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 1366470038,
+            "outputFNV32": 3332375789
+          },
+          {
+            "ordinal": 14,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 321191971,
+            "outputFNV32": 2201323088
+          },
+          {
+            "ordinal": 15,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 321191971,
+            "outputFNV32": 2201323088
+          },
+          {
+            "ordinal": 16,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 321191971,
+            "outputFNV32": 2201323088
+          },
+          {
+            "ordinal": 17,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 321191971,
+            "outputFNV32": 2201323088
+          },
+          {
+            "ordinal": 18,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 321191971,
+            "outputFNV32": 2201323088
+          },
+          {
+            "ordinal": 19,
+            "draws": 1,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 570832980,
+            "outputFNV32": 2069628003
+          },
+          {
+            "ordinal": 20,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 570832980,
+            "outputFNV32": 2069628003
+          },
+          {
+            "ordinal": 21,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 570832980,
+            "outputFNV32": 2069628003
+          },
+          {
+            "ordinal": 22,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 570832980,
+            "outputFNV32": 2069628003
+          },
+          {
+            "ordinal": 23,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 570832980,
+            "outputFNV32": 2069628003
+          },
+          {
+            "ordinal": 24,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 570832980,
+            "outputFNV32": 2069628003
+          },
+          {
+            "ordinal": 25,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 570832980,
+            "outputFNV32": 2069628003
+          },
+          {
+            "ordinal": 26,
+            "draws": 0,
+            "commands": [],
+            "localFNV32": 570832980,
+            "outputFNV32": 2069628003
+          },
+          {
+            "ordinal": 27,
+            "draws": 1,
+            "commands": [
+              "commitWash"
+            ],
+            "localFNV32": 3545839759,
+            "outputFNV32": 3673794392
+          }
+        ]
+      },
+      {
+        "index": 111,
+        "mode": "wash",
+        "inputs": 40,
+        "chunks": 3,
+        "draws": 352,
+        "maskBuilds": 335,
+        "levels": 10,
+        "maxWidth": 492,
+        "maxHeight": 482,
+        "hostMs": 6321.033546999999,
+        "nativeMs": 253.82996000000094,
+        "recipeBytes": 11016698,
+        "recipeSHA256": "6b08ad914432ab00c54066d3b34340e63b82773dcf2cc0e36226cdb0e6ed77e9",
+        "expectedSHA256": "0aaddd7a48ed7c2354d2ec497ac01f1f46c331b8c99459b8f71bfc9a5e5f988f",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 169,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 596882513,
+            "outputFNV32": 3809576571
+          },
+          {
+            "ordinal": 1,
+            "draws": 157,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 2814533611,
+            "outputFNV32": 3983565472
+          },
+          {
+            "ordinal": 2,
+            "draws": 26,
+            "commands": [
+              "commitWash"
+            ],
+            "localFNV32": 275466651,
+            "outputFNV32": 2285710777
+          }
+        ]
+      },
+      {
+        "index": 112,
+        "mode": "wash",
+        "inputs": 40,
+        "chunks": 3,
+        "draws": 353,
+        "maskBuilds": 353,
+        "levels": 10,
+        "maxWidth": 559,
+        "maxHeight": 550,
+        "hostMs": 5123.192475,
+        "nativeMs": 252.26147499999934,
+        "recipeBytes": 10508498,
+        "recipeSHA256": "e37db9954362cefe6c24e358e6c2489fe61bddc35c0d941303a5376c4da80182",
+        "expectedSHA256": "3d102720a9542bf6fac5666a19e5a1d15e92de512261e70e72cdcd89d4ed49f7",
+        "checks": [
+          {
+            "ordinal": 0,
+            "draws": 130,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 3475138429,
+            "outputFNV32": 3432306754
+          },
+          {
+            "ordinal": 1,
+            "draws": 148,
+            "commands": [
+              "presentWash"
+            ],
+            "localFNV32": 79625660,
+            "outputFNV32": 3905984691
+          },
+          {
+            "ordinal": 2,
+            "draws": 75,
+            "commands": [
+              "commitWash"
+            ],
+            "localFNV32": 1186315629,
+            "outputFNV32": 1533922269
+          }
+        ]
+      }
+    ],
+    "hostMs": 17411.904617,
+    "peakRSS": 203898880
+  },
+  "GPU": {
+    "scope": "Actual CanonicalFrameExecutor and actual straight TiledLayerBuffer/shared scratch pool, same decoded frame API versus independent scalar std::fma/FRECPE expected. No engine/wire/index hooks or installed-native factory claim.",
+    "tileWidth": 256,
+    "tileHeight": 256,
+    "rows": [
+      {
+        "index": 9,
+        "mode": "wash",
+        "draws": 343,
+        "chunks": 1,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 146,
+        "changed": 4,
+        "tiles": 2,
+        "negativeTiles": 0,
+        "bankJobs": 10,
+        "bankReads": 10,
+        "hotUploads": 0,
+        "drawCalls": 690,
+        "originalCopies": 1,
+        "retains": 2527,
+        "gpuBrushBytes": 1247736,
+        "cpuReservedBytes": 713776,
+        "poolBytes": {
+          "live": 0,
+          "free": 1048576
+        },
+        "peakFenceBytes": 2820600,
+        "totalMs": 11510.699999988079
+      },
+      {
+        "index": 24,
+        "mode": "wash",
+        "draws": 322,
+        "chunks": 1,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 98,
+        "changed": 4,
+        "tiles": 2,
+        "negativeTiles": 0,
+        "bankJobs": 10,
+        "bankReads": 10,
+        "hotUploads": 0,
+        "drawCalls": 648,
+        "originalCopies": 1,
+        "retains": 1743,
+        "gpuBrushBytes": 1730044,
+        "cpuReservedBytes": 713776,
+        "poolBytes": {
+          "live": 0,
+          "free": 1048576
+        },
+        "peakFenceBytes": 3302908,
+        "totalMs": 6690.199999988079
+      },
+      {
+        "index": 25,
+        "mode": "wash",
+        "draws": 226,
+        "chunks": 1,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 44,
+        "changed": 4,
+        "tiles": 2,
+        "negativeTiles": 0,
+        "bankJobs": 10,
+        "bankReads": 10,
+        "hotUploads": 0,
+        "drawCalls": 456,
+        "originalCopies": 1,
+        "retains": 750,
+        "gpuBrushBytes": 1247736,
+        "cpuReservedBytes": 713776,
+        "poolBytes": {
+          "live": 0,
+          "free": 1048576
+        },
+        "peakFenceBytes": 3302908,
+        "totalMs": 3208.300000011921
+      },
+      {
+        "index": 26,
+        "mode": "wash",
+        "draws": 60,
+        "chunks": 1,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 12,
+        "changed": 4,
+        "tiles": 2,
+        "negativeTiles": 0,
+        "bankJobs": 11,
+        "bankReads": 11,
+        "hotUploads": 0,
+        "drawCalls": 124,
+        "originalCopies": 1,
+        "retains": 193,
+        "gpuBrushBytes": 2172472,
+        "cpuReservedBytes": 714288,
+        "poolBytes": {
+          "live": 0,
+          "free": 1048576
+        },
+        "peakFenceBytes": 3745336,
+        "totalMs": 2229.400000035763
+      },
+      {
+        "index": 27,
+        "mode": "wash",
+        "draws": 159,
+        "chunks": 1,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 27,
+        "changed": 4,
+        "tiles": 2,
+        "negativeTiles": 0,
+        "bankJobs": 11,
+        "bankReads": 11,
+        "hotUploads": 0,
+        "drawCalls": 164,
+        "originalCopies": 1,
+        "retains": 421,
+        "gpuBrushBytes": 2172472,
+        "cpuReservedBytes": 714288,
+        "poolBytes": {
+          "live": 0,
+          "free": 1048576
+        },
+        "peakFenceBytes": 3745336,
+        "totalMs": 2414.699999988079
+      },
+      {
+        "index": 28,
+        "mode": "buildup",
+        "draws": 76,
+        "chunks": 1,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 23,
+        "changed": 76,
+        "tiles": 2,
+        "negativeTiles": 0,
+        "bankJobs": 8,
+        "bankReads": 8,
+        "hotUploads": 0,
+        "drawCalls": 152,
+        "originalCopies": 0,
+        "retains": 404,
+        "gpuBrushBytes": 873532,
+        "cpuReservedBytes": 712752,
+        "poolBytes": {
+          "live": 0,
+          "free": 0
+        },
+        "peakFenceBytes": 3745336,
+        "totalMs": 2671
+      },
+      {
+        "index": 74,
+        "mode": "wash",
+        "draws": 2,
+        "chunks": 30,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 50,
+        "changed": 27,
+        "tiles": 9,
+        "negativeTiles": 5,
+        "bankJobs": 10,
+        "bankReads": 10,
+        "hotUploads": 0,
+        "drawCalls": 47,
+        "originalCopies": 9,
+        "retains": 202,
+        "gpuBrushBytes": 4329976,
+        "cpuReservedBytes": 1154608,
+        "poolBytes": {
+          "live": 0,
+          "free": 4718592
+        },
+        "peakFenceBytes": 11407864,
+        "totalMs": 2914.599999964237
+      },
+      {
+        "index": 75,
+        "mode": "wash",
+        "draws": 2,
+        "chunks": 30,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 45,
+        "changed": 36,
+        "tiles": 4,
+        "negativeTiles": 2,
+        "bankJobs": 11,
+        "bankReads": 11,
+        "hotUploads": 0,
+        "drawCalls": 43,
+        "originalCopies": 4,
+        "retains": 134,
+        "gpuBrushBytes": 2729860,
+        "cpuReservedBytes": 867792,
+        "poolBytes": {
+          "live": 0,
+          "free": 2097152
+        },
+        "peakFenceBytes": 11407864,
+        "totalMs": 4071.600000023842
+      },
+      {
+        "index": 76,
+        "mode": "wash",
+        "draws": 87,
+        "chunks": 1,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 34,
+        "changed": 4,
+        "tiles": 2,
+        "negativeTiles": 0,
+        "bankJobs": 10,
+        "bankReads": 10,
+        "hotUploads": 0,
+        "drawCalls": 178,
+        "originalCopies": 1,
+        "retains": 583,
+        "gpuBrushBytes": 1852368,
+        "cpuReservedBytes": 713776,
+        "poolBytes": {
+          "live": 0,
+          "free": 1048576
+        },
+        "peakFenceBytes": 11407864,
+        "totalMs": 3603.100000023842
+      },
+      {
+        "index": 79,
+        "mode": "wash",
+        "draws": 10,
+        "chunks": 24,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 35,
+        "changed": 36,
+        "tiles": 2,
+        "negativeTiles": 0,
+        "bankJobs": 11,
+        "bankReads": 11,
+        "hotUploads": 0,
+        "drawCalls": 56,
+        "originalCopies": 1,
+        "retains": 101,
+        "gpuBrushBytes": 4132748,
+        "cpuReservedBytes": 714288,
+        "poolBytes": {
+          "live": 0,
+          "free": 1048576
+        },
+        "peakFenceBytes": 11407864,
+        "totalMs": 2634
+      },
+      {
+        "index": 82,
+        "mode": "wash",
+        "draws": 6,
+        "chunks": 27,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 56,
+        "changed": 40,
+        "tiles": 3,
+        "negativeTiles": 1,
+        "bankJobs": 10,
+        "bankReads": 10,
+        "hotUploads": 0,
+        "drawCalls": 54,
+        "originalCopies": 2,
+        "retains": 217,
+        "gpuBrushBytes": 1576932,
+        "cpuReservedBytes": 774128,
+        "poolBytes": {
+          "live": 0,
+          "free": 1572864
+        },
+        "peakFenceBytes": 11407864,
+        "totalMs": 5956.400000035763
+      },
+      {
+        "index": 83,
+        "mode": "wash",
+        "draws": 8,
+        "chunks": 26,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 46,
+        "changed": 36,
+        "tiles": 2,
+        "negativeTiles": 0,
+        "bankJobs": 10,
+        "bankReads": 10,
+        "hotUploads": 0,
+        "drawCalls": 52,
+        "originalCopies": 1,
+        "retains": 136,
+        "gpuBrushBytes": 1957204,
+        "cpuReservedBytes": 757072,
+        "poolBytes": {
+          "live": 0,
+          "free": 1048576
+        },
+        "peakFenceBytes": 11407864,
+        "totalMs": 4107.100000023842
+      },
+      {
+        "index": 84,
+        "mode": "wash",
+        "draws": 1234,
+        "chunks": 2,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 308,
+        "changed": 56,
+        "tiles": 7,
+        "negativeTiles": 4,
+        "bankJobs": 10,
+        "bankReads": 10,
+        "hotUploads": 0,
+        "drawCalls": 2701,
+        "originalCopies": 7,
+        "retains": 5379,
+        "gpuBrushBytes": 1739396,
+        "cpuReservedBytes": 713776,
+        "poolBytes": {
+          "live": 0,
+          "free": 3670016
+        },
+        "peakFenceBytes": 11407864,
+        "totalMs": 12605.699999988079
+      },
+      {
+        "index": 86,
+        "mode": "wash",
+        "draws": 11,
+        "chunks": 23,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 110,
+        "changed": 180,
+        "tiles": 6,
+        "negativeTiles": 4,
+        "bankJobs": 10,
+        "bankReads": 10,
+        "hotUploads": 0,
+        "drawCalls": 208,
+        "originalCopies": 6,
+        "retains": 791,
+        "gpuBrushBytes": 2642484,
+        "cpuReservedBytes": 868592,
+        "poolBytes": {
+          "live": 0,
+          "free": 3145728
+        },
+        "peakFenceBytes": 11407864,
+        "totalMs": 5233.399999976158
+      },
+      {
+        "index": 95,
+        "mode": "wash",
+        "draws": 5,
+        "chunks": 28,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 41,
+        "changed": 20,
+        "tiles": 2,
+        "negativeTiles": 0,
+        "bankJobs": 10,
+        "bankReads": 10,
+        "hotUploads": 0,
+        "drawCalls": 28,
+        "originalCopies": 1,
+        "retains": 82,
+        "gpuBrushBytes": 1313016,
+        "cpuReservedBytes": 713776,
+        "poolBytes": {
+          "live": 0,
+          "free": 1048576
+        },
+        "peakFenceBytes": 11407864,
+        "totalMs": 3910.5
+      },
+      {
+        "index": 111,
+        "mode": "wash",
+        "draws": 352,
+        "chunks": 3,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 200,
+        "changed": 27,
+        "tiles": 9,
+        "negativeTiles": 5,
+        "bankJobs": 10,
+        "bankReads": 10,
+        "hotUploads": 0,
+        "drawCalls": 1152,
+        "originalCopies": 9,
+        "retains": 3382,
+        "gpuBrushBytes": 4490468,
+        "cpuReservedBytes": 1178224,
+        "poolBytes": {
+          "live": 0,
+          "free": 4718592
+        },
+        "peakFenceBytes": 11568356,
+        "totalMs": 13105.099999964237
+      },
+      {
+        "index": 112,
+        "mode": "wash",
+        "draws": 353,
+        "chunks": 3,
+        "wrong": 0,
+        "maxDelta": 0,
+        "examples": [],
+        "checksWrong": 0,
+        "turns": 247,
+        "changed": 55,
+        "tiles": 19,
+        "negativeTiles": 10,
+        "bankJobs": 10,
+        "bankReads": 10,
+        "hotUploads": 0,
+        "drawCalls": 1141,
+        "originalCopies": 19,
+        "retains": 4075,
+        "gpuBrushBytes": 5353724,
+        "cpuReservedBytes": 1267440,
+        "poolBytes": {
+          "live": 0,
+          "free": 9961472
+        },
+        "peakFenceBytes": 20295932,
+        "totalMs": 14187
+      }
+    ],
+    "wrong": 0,
+    "maxDelta": 0,
+    "GL": [],
+    "hotNoUploads": true,
+    "stateRestored": true,
+    "cleanupOk": true,
+    "poisoned": [],
+    "negativeOrigins": 31,
+    "highp": 23,
+    "remainingHandles": {
+      "Texture": 0,
+      "Framebuffer": 0,
+      "Buffer": 0,
+      "Program": 0,
+      "Shader": 0
+    }
+  },
+  "sourceHEAD": "558d7b0c7f71501220675baef550f2e7813ce9e2",
+  "bundleSHA256": "8f04bed659f0a02d726af790fb26463c0253221b38673bc99e12390da57cf178",
+  "bodySHA256": "b4c991f35d87e28dcf146e769374949df6a54cc9478c0cffeca7fff6dc61c205",
+  "configSHA256": "9253e355ce941856eaa26b6f14d784b75083a7a09e134e157d0c00f1b57251ca",
+  "cleanup": {
+    "ownChildClosed": true,
+    "parentRestored": true,
+    "originalThreeTabsPreserved": true,
+    "ownJobs": 0,
+    "ownForwardRemoved": true,
+    "ownGLHandles": 0,
+    "temporaryHostResource": "parent cleanup pending; no binary/config committed"
+  }
+}
