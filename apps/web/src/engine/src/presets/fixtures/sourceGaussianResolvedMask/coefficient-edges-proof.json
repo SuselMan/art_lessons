@@ -1,0 +1,49 @@
+{
+  "status": "PASS",
+  "scope": "Original Gaussian constructor and setScale ARM64 instructions, FPCR0; no arithmetic hooks, not GUI dispatch",
+  "arithmeticHooks": 0,
+  "libraries": [
+    {
+      "name": "lib/arm64-v8a/libQt5Core_arm64-v8a.so",
+      "bytes": 5518824,
+      "sha256": "78fc3da8d316ce7de1d957e3b20d7462b20245d4d797860f1946f797f7946ef9"
+    },
+    {
+      "name": "lib/arm64-v8a/libkritaimage_arm64-v8a.so",
+      "bytes": 7191128,
+      "sha256": "24d3f19d43650100bce51e8e941d66e3999eadee94e64e9f59dfe6c9ef86396d"
+    },
+    {
+      "name": "lib/arm64-v8a/libQt5Gui_arm64-v8a.so",
+      "bytes": 4907320,
+      "sha256": "52bf056960c13f88d50fc137bf7121756a1451c0b91be807af4b128f519cc1e9"
+    },
+    {
+      "name": "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so",
+      "bytes": 412384,
+      "sha256": "14a5c6db9f90b3695c8f20e85b82fa3bd5f263911bbdd3a10888ff7e64f5ac75"
+    },
+    {
+      "name": "/apex/com.android.runtime/lib64/bionic/libm.so",
+      "bytes": 229368,
+      "sha256": "aeb1ffb01b7f35e05f9d2aee945882415acd68014c367354d39858b3e146c614"
+    },
+    {
+      "name": "lib/arm64-v8a/libkritapigment_arm64-v8a.so",
+      "bytes": 3694016,
+      "sha256": "230ccf905226f4324ffdf8c7239e8be90f0506cfadda25393d1ba014ab0bb783"
+    }
+  ],
+  "scriptSHA256": "eb03cd18e39fc0f3c30664d83139d87c4b63c4ac31d7bace8463b9ee0f63b00c",
+  "inputSHA256": "38ff04437e73a5adc184f985bfa25323c801b4d8c2554a02fc3ae75a0a673f89",
+  "seconds": 0.7536327838897705,
+  "cases": 64,
+  "fieldComparisons": 512,
+  "mismatches": 0,
+  "originalCodeSHA256": {
+    "lib/arm64-v8a/libkritaimage_arm64-v8a.so:0x53cae4": "e8f729dda3e09c7f22f7c401ee3bd31d374b4f5b0d21fa943172ebf412f02626",
+    "lib/arm64-v8a/libkritaimage_arm64-v8a.so:0x53d670": "3041751c18f4a0dee91afef5575bd600f254337fdf0116c3f8924e146dc3884a"
+  },
+  "runnerSHA256": "eb03cd18e39fc0f3c30664d83139d87c4b63c4ac31d7bace8463b9ee0f63b00c",
+  "noAPKOrELFPersisted": true
+}
