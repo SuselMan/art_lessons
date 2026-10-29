@@ -515,23 +515,31 @@ def preset(data, name, catalog, external, depth=0):
     # Native brush angles are counterclockwise: pyramid negates the sum,
     # and auto brushes rotate destination coordinates back into the mask.
     d['tip']['angle']=math.remainder(-numeric(definition.get('angle')),2*math.pi)
+    sharpness_controls=[]
     if enabled(params.get('PressureSharpness')):
-        if enabled(params.get('SharpnessUseCurve','true')):
-            notes.append(compatibility('maskThreshold','Active Sharpness sensor response is unsupported; no constant threshold substituted.','unsupported'))
-        else:
-            value=numeric(params.get('SharpnessValue',params.get('Sharpness/factor',1)),1)
-            softness=numeric(params.get('Sharpness/softness'),0)/100
-            if 'SharpnessValue' not in params and 'Sharpness/factor' in params:
-                softness=value
-            if not 0<=value<=1 or not 0<=softness<=1:
-                raise ValueError('Native Sharpness value/softness outside0..1')
+        value=numeric(params.get('SharpnessValue',params.get('Sharpness/factor',1)),1)
+        softness=numeric(params.get('Sharpness/softness'),0)/100
+        if 'SharpnessValue' not in params and 'Sharpness/factor' in params:
+            softness=value
+        if not 0<=value<=1 or not 0<=softness<=1:
+            raise ValueError('Native Sharpness value/softness outside0..1')
+        dynamic=enabled(params.get('SharpnessUseCurve','true'))
+        if dynamic:
+            start=len(notes)
+            sharpness_controls=size_like_controls(params,'Sharpness',notes)
+            if not sharpness_controls or any(n['status']=='unsupported' for n in notes[start:]):
+                sharpness_controls=[]
+                notes.append(compatibility('maskThreshold','Unsupported native Sharpness sensors; no constant threshold substituted.','unsupported'))
+        if not dynamic or sharpness_controls:
             d['tip']['alphaThreshold']={'value':value,'softness':softness}
-            notes.append(compatibility('maskThreshold','Constant U8 alpha threshold retained before texture; subpixel/filter quantization remains approximate.'))
+            notes.append(compatibility('maskThreshold','Native U8 alpha threshold retained before texture; supported sensor product evaluated per dab. Subpixel/filter quantization remains approximate.'))
+            if sharpness_controls: d['version']=28
         if enabled(params.get('Sharpness/alignoutline')):
             notes.append(compatibility('maskThresholdAlignment','Native outline pixel alignment is unsupported.','unsupported'))
     d['flow']=clamp(numeric(params.get('FlowValue'),1))
     d['opacity']=clamp(numeric(params.get('OpacityValue'),1))
     behavior={'version':2,'speedInput':{'version':1,'space':'view','maximum':30,'estimator':'grafettoEMA30ms'},'rendering':{'opacityCeiling':'uniform','mode':'buildUp','blendMode':'normal','wetEdges':0,'burntEdges':0,'burntEdgesMode':'multiply'}}
+    if sharpness_controls: behavior.setdefault('modulations',{})['sharpness']=sharpness_controls
     spacing_checked=enabled(params.get('PressureSpacing'))
     auto_spacing=enabled(definition.get('useAutoSpacing'))
     isotropic=enabled(params.get('Spacing/Isotropic'))
@@ -831,7 +839,7 @@ def preset(data, name, catalog, external, depth=0):
             if controls:
                 d['mixer']['pickupDynamics']=controls
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source')=='previousCanvas') and not (k=='PressureTexture/Strength/' and d.get('texture',{}).get('application')) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and k not in color_decoded and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source')=='previousCanvas') and not (k=='PressureTexture/Strength/' and d.get('texture',{}).get('application')) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):

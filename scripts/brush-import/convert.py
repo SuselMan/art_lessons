@@ -589,6 +589,12 @@ def portable_bundle(path,catalog):
         validate_portable_mixer(d)
         tip=d['tip']
         validate_portable_profile(d)
+        behavior=d.get('behavior',{})
+        for section in ('dynamics','modulations'):
+            controls=behavior.get(section,{}) if isinstance(behavior,dict) else {}
+            if isinstance(controls,dict) and 'sharpness' in controls:
+                if 'alphaThreshold' not in tip: raise ValueError('Sharpness response requires alpha threshold')
+                validate_portable_dynamics([controls['sharpness']] if section=='dynamics' else controls['sharpness'])
         if tip.get('kind') not in ('bitmap','round','procedural') or (tip.get('kind')=='bitmap' and tip.get('mask') not in ids): raise ValueError('Missing portable tip asset')
         if 'alphaThreshold' in tip:
             threshold=tip['alphaThreshold']
