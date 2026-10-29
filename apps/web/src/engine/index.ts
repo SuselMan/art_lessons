@@ -3149,6 +3149,8 @@ export class PencilEngine implements PencilEngineAPI {
     const confirmed = this._log.confirm(opId, seq)
     if (!confirmed) return false
     this._noteOvertaken(confirmed.op, confirmed.overtaken)
+    this._snapshotIO.confirmCoverage(opId, seq)
+    this._resolveSnapshotHistoryRepairs()
     this._settleLayers()
     return true
   }
@@ -3238,11 +3240,13 @@ export class PencilEngine implements PencilEngineAPI {
   private _settleLayers(): void {
     if (this._wcAsyncFinish && (this._wcCanonical.pending || this._wcAsyncOwners.size > 0) && !this._contextLost && !this.gl.isContextLost()) { this._retrySettleIn(16); return }
     if (this._contextLost || this.gl.isContextLost()) return
-    if (!this._unsettledLayers.size || this._strokeLayerId) return
+    if (this._strokeLayerId) return
+    this._resolveSnapshotHistoryRepairs()
+    if (!this._unsettledLayers.size) return
     let settled = false
     for (const layerId of [...this._unsettledLayers]) {
       if (!this._layers.has(layerId)) { this._unsettledLayers.delete(layerId); this._cancelledPeerLayers.delete(layerId); continue }
-      if (this.isSnapshotHistoryRepairPending(layerId) || this._hasUnrecordedInk(layerId)) continue
+      if (this.isSnapshotHistoryRepairPending(layerId) || this._hasUnrecordedInk(layerId) || this._snapshotIO.hasAmbiguousPending(layerId)) continue
       // An explicitly cancelled stream owes no final operation. Repair its
       // landed tail once owners/other live ink are quiet, without waiting for
       // the accepted wash's usual joining window.
@@ -5624,7 +5628,19 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
-    this._snapshotIO.restore(layerId, tiles, coveredSeq)
+    // Snapshot downloads can complete after their live/confirmed tail landed.
+    // Preserve the visible buffer until the authoritative base and held tail
+    // can be replayed together; never ask undo/redo to repair a late restore.
+    const pixelIds = coveredSeq === undefined ? undefined : new Set(this._log.layerPixelOps(layerId).map(op => op.id))
+    const knownTail = pixelIds && this._log.entries.some(entry => pixelIds.has(entry.op.id)
+      && (entry.pending || entry.serverSeq !== undefined && entry.serverSeq > coveredSeq!))
+    const installOnly = !!knownTail || this._hasUnrecordedInk(layerId)
+    this._snapshotIO.restore(layerId, tiles, coveredSeq, installOnly)
+    this._resolveSnapshotHistoryRepairs()
+    if (installOnly && this._layers.has(layerId)) {
+      this._unsettledLayers.add(layerId)
+      this._settleLayers()
+    }
   }
 
   takeSnapshotRestoreAudit(): SnapshotRestoreAudit[] {
@@ -5716,7 +5732,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   private _resolveSnapshotHistoryRepairs(): void {
     if (this._destroyed || this._contextLost || this.gl.isContextLost()) return
-    for (const id of this._snapshotIO.resolveHistoryRepairs()) {
+    for (const id of this._snapshotIO.resolveHistoryRepairs(id => !this._strokeLayerId && !this._hasUnrecordedInk(id))) {
       this._snapshotRepairRebuilds.add(id)
       this._rebuildLayerOrDefer(id)
       if (!this._rebuildJobs.has(id) && !this._pendingRebuilds.has(id)) this._snapshotRepairRebuilds.delete(id)
@@ -5732,6 +5748,7 @@ export class PencilEngine implements PencilEngineAPI {
     } }
     this._snapshotIO.absorbHistorical(pageOps)
     this._resolveSnapshotHistoryRepairs()
+    this._settleLayers()
   }
 
   /** Restore dependency prefix without replaying already baked structure or
