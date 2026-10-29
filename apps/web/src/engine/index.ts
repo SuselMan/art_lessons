@@ -2791,6 +2791,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  applying a `room_state` snapshot or a `peer_operation` must pass
    *  'remote' so the op is not echoed back to the server. */
   appendOperation(op: Operation, source: OperationSource = 'local'): void {
+    this._assertRenderableOperation(op)
     assertBrushRandomContext(op)
     if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
@@ -2862,6 +2863,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _appendOperationNow(op: Operation, source: OperationSource, canonicalExecution = false, alreadyLogged = false): void {
+    this._assertRenderableOperation(op)
     if (this._wcAsyncFinish && source === 'local' && !canonicalExecution && this._wcCanonical.pending) {
       if (op.type === 'operation_undo' || op.type === 'operation_redo' || op.type === 'operation_revoke') this._cancelSettle()
       else if (op.type !== 'paper_dry') {
@@ -5829,7 +5831,16 @@ export class PencilEngine implements PencilEngineAPI {
     this._flushSnapshotDependentLayers()
   }
 
+  /** The current engine owns only legacy PM layers. The canonical stroke
+   * protocol must never enter its journal, pending queue or snapshot prefix
+   * while straight writers/presentation are not installed. Check whole history
+   * batches before the first mutation, not only at the eventual paint switch. */
+  private _assertRenderableOperation(op: Operation): void {
+    if ((op.type as string) === 'canonical_stroke') throw new TypeError('Canonical stroke operation is not supported by this renderer')
+  }
+
   absorbHistoricalOperations(pageOps: Operation[]): void {
+    for (const op of pageOps) this._assertRenderableOperation(op)
     for (const op of pageOps) { assertBrushRandomContext(op); if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
       assertBrushExecutionContext(brush,brushExecutionContext(op.brushRandom))
@@ -5846,6 +5857,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _replayRestoredStructure = false
 
   async restoreHistoricalOperations(ops: Operation[], replayStructure?: boolean): Promise<void> {
+    for (const op of ops) this._assertRenderableOperation(op)
     const affected = new Set<string>()
     for (const op of ops) for (const id of pixelWriteLayerIds(op)) {
       if (this._layers.has(id) && !this._snapshots.isCovered(id, op.seq)) affected.add(id)
