@@ -32,6 +32,8 @@ export class AccumulationBuffer {
   // was never part of that determinism class (see DAB_FRAG's own paper-catch
   // comment for what *is*).
   constructor(gl: WebGLRenderingContext, width: number, height: number, filter: 'linear' | 'nearest' = 'linear', pixelEncoding: RasterPixelEncoding = 'premultiplied-rgba8') {
+    if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1 || !Number.isSafeInteger(width * height * 4)) throw new RangeError('Invalid buffer dimensions')
+    if (filter !== 'linear' && filter !== 'nearest') throw new TypeError('Invalid buffer sampling filter')
     if (!isRasterPixelEncoding(pixelEncoding)) throw new Error('Unknown buffer pixel encoding')
     if (pixelEncoding === 'straight-rgba8' && filter !== 'nearest') throw new Error('Straight RGBA8 requires exact texel sampling')
     this.pixelEncoding = pixelEncoding
@@ -40,7 +42,8 @@ export class AccumulationBuffer {
     this.height = height
     this._baseFilter = filter
     this._texture = this._makeTexture(filter)
-    this._fbo     = this._makeFBO(this._texture)
+    try { this._fbo = this._makeFBO(this._texture) }
+    catch (error) { gl.deleteTexture(this._texture); throw error }
     // Computed here rather than as a field initializer: those run before the
     // constructor body assigns width/height, so an initializer would have
     // silently read undefined and disabled mipmaps everywhere.
@@ -50,35 +53,35 @@ export class AccumulationBuffer {
   private _makeTexture(filter: 'linear' | 'nearest'): WebGLTexture {
     const { gl, width, height } = this
     const glFilter = filter === 'nearest' ? gl.NEAREST : gl.LINEAR
-    const tex = gl.createTexture()!
-    gl.bindTexture(gl.TEXTURE_2D, tex)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, glFilter)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, glFilter)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-    return tex
+    const tex = gl.createTexture()
+    if (!tex) throw new Error('Buffer texture allocation failed')
+    try {
+      gl.bindTexture(gl.TEXTURE_2D, tex)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, glFilter)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, glFilter)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+      return tex
+    } catch (error) { gl.deleteTexture(tex); throw error }
   }
 
   private _makeFBO(texture: WebGLTexture): WebGLFramebuffer {
     const { gl } = this
-    const fbo = gl.createFramebuffer()!
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
-    // (#536, ADR 011 §17.49) Once per context, not per buffer: the status
-    // query is a pipeline sync - the CPU waits for every draw queued so far -
-    // and the watercolour now makes buffers mid-stroke (the settle field is
-    // sized to each settle), where a sync per texture was a dropped frame.
-    // The attachment is always this same RGBA/UNSIGNED_BYTE texture, which
-    // WebGL1 guarantees renderable; the first check still catches a context
-    // that breaks the promise.
-    if (!checkedContexts.has(gl)) {
-      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
-        throw new Error('Framebuffer incomplete')
-      checkedContexts.add(gl)
-    }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-    return fbo
+    const fbo = gl.createFramebuffer()
+    if (!fbo) throw new Error('Buffer framebuffer allocation failed')
+    try {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
+      // Check once per context: repeating this sync on every tile stalls tablets.
+      // Failed allocations never mark the context as successfully checked.
+      if (!checkedContexts.has(gl)) {
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Framebuffer incomplete')
+        checkedContexts.add(gl)
+      }
+      return fbo
+    } catch (error) { gl.deleteFramebuffer(fbo); throw error }
+    finally { gl.bindFramebuffer(gl.FRAMEBUFFER, null) }
   }
 
   get texture(): WebGLTexture { return this._texture }
