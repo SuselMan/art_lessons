@@ -1,0 +1,340 @@
+{
+  "scope": "Explicit scalar diagnostic GPU only; no native vectorpacket/paintdevice/GUI/renderer activation",
+  "gpu": {
+    "proof": {
+      "scope": "Diagnostic scalar fused Over pixel graph vs exact CPU; no vectorpacket/nativeGUI/activehooks identity",
+      "fragmentSHA256": "83c0c526c96ef92454ff2b199d5501d391d03e0cb52ce8d6d55b9b696a8d1b7c",
+      "primitiveSHA256": "7708900c5e9cd62f0d78bd5a9213e94ecdf80d379aa02dd4d66d69f3a2857c8f",
+      "fragmentBytes": 9213,
+      "cases": 522
+    },
+    "hotMs": 0.09999996423721313,
+    "hotPixels": 32768,
+    "hotCase": {
+      "label": "baseline",
+      "values": [
+        [
+          148,
+          230,
+          37,
+          247
+        ],
+        [
+          240,
+          93,
+          216,
+          207
+        ],
+        [
+          0.5,
+          152
+        ],
+        1,
+        [
+          0,
+          8388608,
+          -24
+        ]
+      ],
+      "expected": 3718024145
+    },
+    "hotReadback": 3718024145,
+    "hotReadbackMatches": true,
+    "checked": 522,
+    "wrong": [],
+    "compileMs": 2561.800000011921,
+    "runMs": 1767.800000011921,
+    "glError": 0,
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "precision": {}
+  },
+  "tinyISA": {
+    "scope": "Execution of ORIGINAL installed ARM64 code under Unicorn; NOT physicalARM/activeGUI/nativepaintdevice equivalence",
+    "librarySHA256": "230ccf905226f4324ffdf8c7239e8be90f0506cfadda25393d1ba014ab0bb783",
+    "inputCorpusSHA256": "159e60aa736ffbf6fb4e02136f4cc6eef8dba64b4b8fa269dea4b9eae26bc6cb",
+    "scriptSHA256": "80c1dfb4b4fd5a73f133327399ba9648da6e27f252e900da26ae47449e7d24bc",
+    "functionCodeSHA256": {
+      "0x302a4c": "b599204858fc89c9cab6ce4e91d53fe439ac44da3f0daa6ed8cc2b63d67e0b44",
+      "0x302a60": "7ba8d1ce5e0e1c948bf03edbb16bdcae8dcaea4bbd5dd637bee62e5bc245220f",
+      "0x303614": "edc08cd55bdbec28cb8fa7dcb0d9782563289ef29774f4888a5af13736ba5d5c",
+      "0x304138": "da44cb091415f6cd5c12fd715b243c39fe0ae758db7165a387ea2a7422edae01",
+      "0x30414c": "d149e6bd509eec58262a7c24b0ac3389ad49a0fb6b480b9db4cd9c04c8c392c0",
+      "0x304ca4": "133b32e388d36a01a71d05c22f0e75af986a0b43a5f49e45dfd57eaa662a6f39",
+      "0x305774": "c57ad60d92b70f979141f052f5db2bab82bcb10785a39a9e6127c01550c95fe1",
+      "0x305784": "477f1a81bf6f4ee830ba10c858b1ae431eefe5734ef6b3c015df2089ac8077f1",
+      "0x305a40": "828cb2ef9bf3d72b63cbd0d8165b8e6f17cc5fca13d4c0181aa56fd20071447b",
+      "0x305cd4": "ce4e45d1490a14fc411ceb673d248dd14e73963219d8a4c0f4a8be2d4916ef48",
+      "0x306b18": "91ccbdbd67a242d19f3ab7db5e6be5f63574d0d916398d1d6592272a94e81849"
+    },
+    "caseCount": 200,
+    "arithmeticHooks": 0,
+    "FPCR": 0
+  },
+  "tinyISAReportSHA256": "7342b25376d37280f9b076cd7ecf1042a28c0a289228865ef1c709ca1b9fa61c",
+  "tinyMultiplyTable": {
+    "scope": "Exact IEEE scalar sourceA/mask multiplication vs independently proven component-FMA multiplication; not native instruction execution",
+    "checked": 655360,
+    "wrong": 0,
+    "hiddenSource": 649340,
+    "hiddenDest": 6020,
+    "opacityBits": [
+      1,
+      2,
+      4194303,
+      8388607,
+      8388608,
+      8388609,
+      16777216,
+      134217728,
+      226492415,
+      226492416
+    ],
+    "corpusCases": 200,
+    "corpusSHA256": "159e60aa736ffbf6fb4e02136f4cc6eef8dba64b4b8fa269dea4b9eae26bc6cb"
+  },
+  "numericNormalProbe": {
+    "proof": {
+      "scope": "Diagnostic finite FMA components GPU; not compositor/renderer/dispatch activation",
+      "fragmentSHA256": "11ab590d0b74f03e1cca7b308144115c8eaaea2471b80531c150f3f31b4bacaa",
+      "primitiveSHA256": "0974936ea321fa001393e26eedee0d40d9510d2f32014b400f38504520ff0fe1",
+      "fragmentBytes": 1552,
+      "cases": 10527
+    },
+    "checked": 10527,
+    "wrongCount": 0,
+    "wrong": [],
+    "compileMs": 6.899999976158142,
+    "runMs": 23257.100000023842,
+    "glError": 0,
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "precision": {}
+  },
+  "numericRejectedBoundary": {
+    "proof": {
+      "scope": "Diagnostic finite FMA components GPU; not compositor/renderer/dispatch activation",
+      "fragmentSHA256": "11ab590d0b74f03e1cca7b308144115c8eaaea2471b80531c150f3f31b4bacaa",
+      "primitiveSHA256": "0974936ea321fa001393e26eedee0d40d9510d2f32014b400f38504520ff0fe1",
+      "fragmentBytes": 1552,
+      "cases": 17
+    },
+    "checked": 17,
+    "wrongCount": 7,
+    "wrong": [
+      {
+        "index": 2,
+        "values": [
+          [
+            0,
+            1.401298464324817e-45,
+            -149
+          ],
+          [
+            0,
+            1.401298464324817e-45,
+            -149
+          ],
+          [
+            0,
+            1.401298464324817e-45,
+            -149
+          ]
+        ],
+        "expected": 1,
+        "actual": 0,
+        "pixel": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "index": 3,
+        "values": [
+          [
+            1,
+            -1.401298464324817e-45,
+            -149
+          ],
+          [
+            0,
+            -1.401298464324817e-45,
+            -149
+          ],
+          [
+            0,
+            -1.401298464324817e-45,
+            -149
+          ]
+        ],
+        "expected": 2147483649,
+        "actual": 2147483648,
+        "pixel": [
+          0,
+          0,
+          0,
+          128
+        ]
+      },
+      {
+        "index": 4,
+        "values": [
+          [
+            0,
+            3.587324068671532e-43,
+            -149
+          ],
+          [
+            0,
+            3.587324068671532e-43,
+            -149
+          ],
+          [
+            0,
+            3.587324068671532e-43,
+            -149
+          ]
+        ],
+        "expected": 256,
+        "actual": 0,
+        "pixel": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "index": 5,
+        "values": [
+          [
+            0,
+            9.183549615799121e-41,
+            -149
+          ],
+          [
+            0,
+            9.183549615799121e-41,
+            -149
+          ],
+          [
+            0,
+            9.183549615799121e-41,
+            -149
+          ]
+        ],
+        "expected": 65536,
+        "actual": 0,
+        "pixel": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "index": 6,
+        "values": [
+          [
+            0,
+            5.877471754111438e-39,
+            -149
+          ],
+          [
+            0,
+            5.877471754111438e-39,
+            -149
+          ],
+          [
+            0,
+            5.877471754111438e-39,
+            -149
+          ]
+        ],
+        "expected": 4194304,
+        "actual": 0,
+        "pixel": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "index": 7,
+        "values": [
+          [
+            0,
+            1.1754942106924411e-38,
+            -149
+          ],
+          [
+            0,
+            1.1754942106924411e-38,
+            -149
+          ],
+          [
+            0,
+            1.1754942106924411e-38,
+            -149
+          ]
+        ],
+        "expected": 8388607,
+        "actual": 0,
+        "pixel": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "index": 8,
+        "values": [
+          [
+            1,
+            -1.1754942106924411e-38,
+            -149
+          ],
+          [
+            0,
+            -1.1754942106924411e-38,
+            -149
+          ],
+          [
+            0,
+            -1.1754942106924411e-38,
+            -149
+          ]
+        ],
+        "expected": 2155872255,
+        "actual": 2147483648,
+        "pixel": [
+          0,
+          0,
+          0,
+          128
+        ]
+      }
+    ],
+    "compileMs": 4.700000047683716,
+    "runMs": 18.100000023841858,
+    "glError": 0,
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "precision": {}
+  },
+  "negativeFZModel": {
+    "checked": 8232,
+    "differentRGBA": 98,
+    "allDifferences": "Over hiddenRGB destinationA0; no alpha differences",
+    "reportSHA256": "7ef1cbf6744deac2639451e21360d38ca3382d611992091f543c03c852089828"
+  },
+  "runnerSHA256": "2b2025ed243e3c6d77b7bab04c8d7606adc126a64368311975e993403668d95e",
+  "cleanup": {
+    "ownChildClosed": true,
+    "originalThreeTabsPreserved": true,
+    "GLObjectsAndContextReleased": true,
+    "ownForwardRemoved": true,
+    "newRuntimeCreated": false
+  }
+}
