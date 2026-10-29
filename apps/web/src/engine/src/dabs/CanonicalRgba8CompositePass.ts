@@ -1,3 +1,5 @@
+import { SOURCE_FUSED_OVER32_SCALAR_GLSL, prepareSourceFusedOver32ScalarControls } from '../raster/sourceFusedOver32ScalarShader';
+import { SOURCE_FUSED_ALPHA_DARKEN32_SCALAR_GLSL, prepareSourceFusedAlphaDarken32ScalarControls } from '../raster/sourceFusedAlphaDarken32ScalarShader';
 import type { BrushGlBatchFrame, BrushGlBatchInfo } from './BrushGlBatch';
 import type { SourceOver32ScalarControl } from '../presets/sourceOver32Scalar';
 import { SOURCE_OVER32_SCALAR_GLSL } from '../raster/sourceOver32ScalarShader';
@@ -66,6 +68,12 @@ export type CanonicalCompositeOperation = {
 } | {
     readonly kind: 'over32';
     readonly control: SourceOver32ScalarControl;
+} | {
+    readonly kind: 'alphaDarken32FusedScalar';
+    readonly control: Omit<SourceAlphaDarken32Control, 'profile'> & { readonly profile: 'installed-arm64-scalar-fused-fpcr0-v1' };
+} | {
+    readonly kind: 'over32FusedScalar';
+    readonly control: Omit<SourceOver32ScalarControl, 'profile'> & { readonly profile: 'installed-arm64-scalar-fused-fpcr0-v1' };
 };
 export type CanonicalCompositeOperationKind = CanonicalCompositeOperation['kind'];
 export interface CanonicalCompositeRequest {
@@ -97,9 +105,9 @@ const borrowedRelease = () => { };
 function operationsFor(limits: CanonicalCompositeLimits): readonly CanonicalCompositeOperationKind[] {
     const operations = limits.operations ?? ['alphaDarken32'];
     if (!Array.isArray(operations) || !operations.length || operations.length > 2
-        || operations.some(kind => kind !== 'alphaDarken32' && kind !== 'over32'))
+        || operations.some(kind => !['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar'].includes(kind)))
         throw new RangeError('Invalid composite operations');
-    return (['alphaDarken32', 'over32'] as const).filter(kind => operations.includes(kind));
+    return (['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar'] as const).filter(kind => operations.includes(kind));
 }
 const whole = (n: number, minimum = 0) => Number.isSafeInteger(n) && n >= minimum;
 const rectValid = (r: {
@@ -125,6 +133,12 @@ export function canonicalRgba8CompositeBudget(limits: CanonicalCompositeLimits):
 const VERTEX = 'attribute highp vec2 position;void main(){gl_Position=vec4(position,0.0,1.0);}';
 /** One source/geometry template; only the selected numerical kernel is included. */
 function fragmentFor(kind: CanonicalCompositeOperationKind): string {
+    const kernel = kind === 'alphaDarken32' ? SOURCE_ALPHA_DARKEN32_GLSL : kind === 'over32' ? SOURCE_OVER32_SCALAR_GLSL
+        : kind === 'alphaDarken32FusedScalar' ? SOURCE_FUSED_ALPHA_DARKEN32_SCALAR_GLSL : SOURCE_FUSED_OVER32_SCALAR_GLSL;
+    const apply = kind === 'alphaDarken32' ? 'sourceCompositeAlphaDarken32(source,destination,controls,policy)'
+        : kind === 'over32' ? 'sourceCompositeOver32Scalar(source,destination,controls.xw,policy)'
+        : kind === 'alphaDarken32FusedScalar' ? 'sourceCompositeFusedAlphaDarken32Scalar(source,destination,controls,policy,opacityParts,flowParts)'
+        : 'sourceCompositeFusedOver32Scalar(source,destination,controls.xw,policy.y,opacityParts)';
     return `precision highp float;
 uniform highp sampler2D sourceTexture;
 uniform highp sampler2D destinationTexture;
@@ -137,7 +151,9 @@ uniform highp vec2 scratchSize;
 uniform highp vec3 pigment;
 uniform highp vec4 controls;
 uniform highp vec2 policy;
-${kind === 'alphaDarken32' ? SOURCE_ALPHA_DARKEN32_GLSL : SOURCE_OVER32_SCALAR_GLSL}
+uniform highp vec3 opacityParts;
+uniform highp vec3 flowParts;
+${kernel}
 void main(){
   highp vec2 local=gl_FragCoord.xy-clipRect.xy;
   highp vec2 pixel=floor(vec2(sourceGeometry.x+local.x,sourceGeometry.y+clipRect.w-local.y));
@@ -148,7 +164,7 @@ void main(){
   highp vec4 sampled=floor(texture2D(sourceTexture,sourceUV)*255.0+0.5);
   highp vec4 source=sourcePolicy.x==0.0?vec4(pigment,sampled.r):sampled;
   highp vec4 destination=floor(texture2D(destinationTexture,local/scratchSize)*255.0+0.5);
-  gl_FragColor=${kind === 'alphaDarken32' ? 'sourceCompositeAlphaDarken32(source,destination,controls,policy)' : 'sourceCompositeOver32Scalar(source,destination,controls.xw,policy)'}/255.0;
+  gl_FragColor=${apply}/255.0;
 }`;
 }
 interface ProgramInfo {
@@ -415,8 +431,21 @@ export class CanonicalRgba8CompositePass {
                 number
             ]);
             const c = operation.control;
-            gl.uniform4f(u.controls, c.opacity, operation.kind === 'alphaDarken32' ? operation.control.averageOpacity : 0, operation.kind === 'alphaDarken32' ? operation.control.flow : 0, c.mask ?? 0);
-            gl.uniform2f(u.policy, operation.kind === 'alphaDarken32' ? (operation.control.variant === 'hard' ? 1 : 0) : (operation.control.profile === 'optimized32-neon64-scalar-frecpe-rne-v1' ? 1 : 0), c.mask === undefined ? 0 : 1);
+            if (operation.kind === 'alphaDarken32FusedScalar') {
+                const prepared = prepareSourceFusedAlphaDarken32ScalarControls(operation.control.variant, operation.control, c.mask);
+                gl.uniform4f(u.controls, ...prepared.values);
+                gl.uniform2f(u.policy, ...prepared.selection);
+                gl.uniform3f(u.opacityParts, ...prepared.opacityParts);
+                gl.uniform3f(u.flowParts, ...prepared.flowParts);
+            } else if (operation.kind === 'over32FusedScalar') {
+                const prepared = prepareSourceFusedOver32ScalarControls(c.opacity, c.mask);
+                gl.uniform4f(u.controls, prepared.values[0], 0, 0, prepared.values[1]);
+                gl.uniform2f(u.policy, 0, prepared.hasMask);
+                gl.uniform3f(u.opacityParts, ...prepared.opacityParts);
+            } else {
+                gl.uniform4f(u.controls, c.opacity, operation.kind === 'alphaDarken32' ? operation.control.averageOpacity : 0, operation.kind === 'alphaDarken32' ? operation.control.flow : 0, c.mask ?? 0);
+                gl.uniform2f(u.policy, operation.kind === 'alphaDarken32' ? (operation.control.variant === 'hard' ? 1 : 0) : (operation.control.profile === 'optimized32-neon64-scalar-frecpe-rne-v1' ? 1 : 0), c.mask === undefined ? 0 : 1);
+            }
             gl.drawArrays(gl.TRIANGLES, 0, 6);
         }
         catch (error) {
@@ -532,13 +561,13 @@ export class CanonicalRgba8CompositePass {
         const c = operation.control;
         if (!c || !Number.isFinite(c.opacity) || c.opacity < 0 || c.opacity > 1 || c.mask !== undefined && (!whole(c.mask) || c.mask > 255))
             throw new RangeError('Invalid composite controls');
-        if (operation.kind === 'alphaDarken32') {
+        if (operation.kind === 'alphaDarken32' || operation.kind === 'alphaDarken32FusedScalar') {
             const a = operation.control;
-            if (a.profile !== 'optimized32-scalar-f32-rne-v1' || !['creamy', 'hard'].includes(a.variant)
+            if (a.profile !== (operation.kind === 'alphaDarken32' ? 'optimized32-scalar-f32-rne-v1' : 'installed-arm64-scalar-fused-fpcr0-v1') || !['creamy', 'hard'].includes(a.variant)
                 || ![a.averageOpacity, a.flow].every(v => Number.isFinite(v) && v >= 0 && v <= 1))
                 throw new RangeError('Invalid local alphaDarken32 controls');
         }
-        else if (operation.kind !== 'over32' || !['portable-f32-division-rne-v1', 'optimized32-neon64-scalar-frecpe-rne-v1'].includes(operation.control.profile))
+        else if (operation.kind === 'over32FusedScalar' ? operation.control.profile !== 'installed-arm64-scalar-fused-fpcr0-v1' : operation.kind !== 'over32' || !['portable-f32-division-rne-v1', 'optimized32-neon64-scalar-frecpe-rne-v1'].includes(operation.control.profile))
             throw new RangeError('Invalid Over32 profile');
     }
     private clip(rect: TransformedMaskView['rect'], target: CanonicalStraightRgba8Target): Clip | undefined {
@@ -580,7 +609,7 @@ export class CanonicalRgba8CompositePass {
             if (attribute < 0)
                 throw new Error('Composite attribute unavailable');
             const uniforms: Record<string, WebGLUniformLocation | null> = {};
-            for (const name of ['sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment', 'controls', 'policy'])
+            for (const name of ['sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment', 'controls', 'policy', 'opacityParts', 'flowParts'])
                 uniforms[name] = gl.getUniformLocation(program, name);
             return { program, attribute, uniforms };
         }

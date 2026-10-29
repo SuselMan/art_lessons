@@ -151,3 +151,22 @@ receipt's negative first interval is a baseline artifact and remains preserved.
 Hot frame stalls remain (for example brush84 maxrAF100.3ms/maxturn67.1ms); this
 is not a responsiveness pass or proof for native fused arithmetic/active layer
 storage/undo/replay. Future sampler-ownership changes require their own gate.
+
+## Explicit fused scalar kernels (joined GPU gate pending)
+
+Opt-in operation kinds alphaDarken32FusedScalar/over32FusedScalar require profile
+installed-arm64-scalar-fused-fpcr0-v1. They reuse the identical geometry, source
+views, clipping, copy, state, residency and sampler paths above; only numerical
+program and validated flat-control upload differ. Old kinds/default preparation
+remain unchanged. At most TWO selected kernels may be prepared, with the same
+scratch/VBO and existing GPU/CPU accounting, never four programs/new quotas.
+
+Alpha upload performs ParameterInfo aliasing before the single CPU hard fold,
+then passes folded O/A plus opacity/flow components; shader does not fold again.
+Over passes the F32 opacity and its exact finite components, preserving tiny
+source-alpha classification. This is named scalar FPCR0 arithmetic, not installed
+GUI/vector packet dispatch, native64 partition or full118 compatibility.
+
+Primitive whole-pixel receipts801da9626/068961850 do NOT prove this joined pass.
+29 focused composite/batch lifecycle tests and webTSC/lint pass after integration;
+fresh joined Samsung pixel/state/cleanup gates are required before activation.

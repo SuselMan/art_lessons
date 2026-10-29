@@ -301,3 +301,21 @@ it('counts empty standalone batched submissions so outside-only batches remain b
     expect(s.gl.drawArrays).not.toHaveBeenCalled();s.pass.reset();
   }finally{clock.mockRestore()}
 });
+
+it('prepares explicit fused scalar kernels within the same two-program budget and uploads hard folding once', () => {
+    const s = setup(), operations = ['alphaDarken32FusedScalar', 'over32FusedScalar'] as const;
+    expect(canonicalRgba8CompositeBudget({ width: 16, height: 16, operations })).toEqual(canonicalRgba8CompositeBudget({ width: 16, height: 16, operations: ['alphaDarken32', 'over32'] }));
+    s.pass.prepare({ width: 16, height: 16, operations }, s.companion);
+    const before = s.snapshot(), target: CanonicalOwnedRgba8Target = { ...s.target, lifetime: { kind: 'external', owner: {}, lease: () => () => {} } };
+    s.pass.drawSource({ source: { kind: 'maskRgb', view: s.view, rgb: [17, 29, 41] }, target, operation: {
+        kind: 'alphaDarken32FusedScalar', control: { profile: 'installed-arm64-scalar-fused-fpcr0-v1', variant: 'hard', opacity: .1, averageOpacity: .3, flow: .4 },
+    } });
+    expect(s.gl.uniform4f).toHaveBeenCalledWith(expect.objectContaining({ name: 'controls' }), Math.fround(Math.fround(.4) * Math.fround(.1)), Math.fround(Math.fround(.4) * Math.fround(.3)), Math.fround(.4), 0);
+    s.pass.drawSource({ source: { kind: 'maskRgb', view: s.view, rgb: [17, 29, 41] }, target, operation: {
+        kind: 'over32FusedScalar', control: { profile: 'installed-arm64-scalar-fused-fpcr0-v1', opacity: 2 ** -149 },
+    } });
+    expect(s.gl.uniform3f).toHaveBeenCalledWith(expect.objectContaining({ name: 'opacityParts' }), 0, 1, -149);
+    expect(s.snapshot()).toEqual(before);
+    expect(() => s.pass.drawSource({ source: { kind: 'maskRgb', view: s.view, rgb: [17, 29, 41] }, target, operation: { kind: 'alphaDarken32', control } })).toThrow('not prepared');
+    s.pass.reset(); expect(s.cpu.reservedBytes).toBe(0);
+});
