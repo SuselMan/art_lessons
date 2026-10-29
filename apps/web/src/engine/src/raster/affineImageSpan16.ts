@@ -78,10 +78,35 @@ const roundEven = (value: number) => {
 }
 const byteFrom16 = (value: number) => Math.floor((value+128-Math.floor((value+128)/256))/256)
 
-/** Float32 division and nearest-even store model Qt's SSE4 ARGB32 conversion.
- * Alpha is quantized independently; do not first quantize premultiplied RGB. */
-export function affineSpan16Straight(premultiplied: Uint16Array): Uint8Array {
-  if(premultiplied.length%4) throw RangeError('Invalid RGBA16 layout')
+export type AffineReciprocalEstimate = (alpha16: number) => number
+
+/** Optional source backend estimate, captured/compiled independently of images.
+ * Validate and latch each distinct F32 input before allocating/writing result bytes.
+ * This is SSE's normal finite-input relative-error domain, not a generic 1/a shim. */
+function checkedReciprocals(pixels: Uint16Array, estimate: AffineReciprocalEstimate): Map<number, number> {
+  if (typeof estimate !== 'function') throw new RangeError('Invalid reciprocal backend')
+  const values = new Map<number, number>()
+  for (let i = 0; i < pixels.length; i += 4) {
+    const alpha = pixels[i + 3]!
+    if (pixels[i]! > alpha || pixels[i + 1]! > alpha || pixels[i + 2]! > alpha) throw new RangeError('Invalid premultiplied RGBA16 channel')
+    if (!alpha || alpha === 65535 || values.has(alpha)) continue
+    const value = estimate(alpha)
+    if (!Number.isFinite(value) || value <= 0 || Math.fround(value) !== value
+      || Math.abs(value * alpha - 1) > 1.5 / 4096) throw new RangeError('Invalid source reciprocal estimate')
+    const twice = Math.fround(value + value), squaredTimesAlpha = Math.fround(value * Math.fround(value * alpha))
+    values.set(alpha, Math.fround(twice - squaredTimesAlpha))
+  }
+  return values
+}
+
+/** Legacy Float32 division and nearest-even store is an approximate SSE4 model.
+ * Supplying an independently proven backend estimate follows actual reciprocal /
+ * Newton rounding instead. No device detection or silent exact-profile fallback.
+ * Alpha is quantized independently; do not first quantize premultiplied RGB.
+ */
+export function affineSpan16Straight(premultiplied: Uint16Array, reciprocalEstimate?: AffineReciprocalEstimate): Uint8Array {
+  if (!(premultiplied instanceof Uint16Array) || premultiplied.length > 4 * 1048576 || premultiplied.length%4) throw RangeError('Invalid RGBA16 layout')
+  const reciprocals = reciprocalEstimate === undefined ? undefined : checkedReciprocals(premultiplied, reciprocalEstimate)
   const result=new Uint8Array(premultiplied.length)
   const vectorEnd=Math.floor(premultiplied.length/16)*16
   for(let i=0;i<premultiplied.length;i+=4) {
@@ -90,19 +115,29 @@ export function affineSpan16Straight(premultiplied: Uint16Array): Uint8Array {
     for(let channel=0;channel<3;channel++) {
       const value=premultiplied[i+channel]
       if(value>alpha) throw RangeError('Invalid premultiplied RGBA16 channel')
+      const reciprocal = reciprocals?.get(alpha)
+      const multiplier = i < vectorEnd ? 255 : 65535
+      const factor = reciprocal === undefined ? Math.fround(multiplier / alpha) : Math.fround(reciprocal * multiplier)
       result[i+channel]=alpha===0 ? 0 : alpha===65535 ? byteFrom16(value)
-        : i<vectorEnd ? roundEven(Math.fround(Math.fround(value)*Math.fround(255/alpha)))
-          : byteFrom16(Math.min(65535,roundEven(Math.fround(Math.fround(value)*Math.fround(65535/alpha)))))
+        : i<vectorEnd ? roundEven(Math.fround(Math.fround(value)*factor))
+          : byteFrom16(Math.min(65535,roundEven(Math.fround(Math.fround(value)*factor))))
     }
   }
   return result
 }
 
-export function affineSpan16Mask(premultiplied: Uint16Array): Uint8Array {
-  const rgba=affineSpan16Straight(premultiplied), result=new Uint8Array(rgba.length/4)
+/** Final native inverse-red/alpha mask law from already-straight ARGB32 bytes.
+ * Keep after interpolation and straight conversion; never pre-invert a level. */
+export function affineStraightMask(rgba: Uint8Array): Uint8Array {
+  if (!(rgba instanceof Uint8Array) || rgba.length % 4 || rgba.length > 4 * 1048576) throw new RangeError('Invalid straight RGBA mask input')
+  const result = new Uint8Array(rgba.length / 4)
   for(let i=0;i<result.length;i++) {
     const product=(255-rgba[i*4])*rgba[i*4+3]+128
     result[i]=(product+(product>>>8))>>>8
   }
   return result
+}
+
+export function affineSpan16Mask(premultiplied: Uint16Array, reciprocalEstimate?: AffineReciprocalEstimate): Uint8Array {
+  return affineStraightMask(affineSpan16Straight(premultiplied, reciprocalEstimate))
 }

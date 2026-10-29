@@ -44,13 +44,35 @@ Independent proof:
 -Existing affine16 source-decode/store proofs (90 covered-span,90 AVX2-disabled,
  51 complete image cases) remain regressions, not Android execution claims.
 
-At this checkpoint the old mathematical-division SSE store model has one genuine
-new counterexample among128 images: two RGB bytes127 versus128 under output alpha0.
-All128 final inverse-red/alpha A8 masks are exact, but this does not establish full
-straightRGBA fidelity. The counterexample stays recorded; no tolerance or alpha
-case is discarded. Exact SSE reciprocal-estimate backend input is a separate
-bounded follow-up. Android NEON has distinct products/decode/store and needs its
-own actual execution receipts. Slow/perspective sampling and unproven fixed-point
-slope domains fail closed. Future canonical profiles must select laws once for all
-peers; local CPU detection is not a replay rule. Canonical straightRGBA8 storage
-must also remain distinct from lossy premultiplied display conversion.
+The earlier mathematical-division SSE store model has one genuine new
+counterexample among128 images: two RGB bytes127 versus128 under output alpha0.
+All128 final inverse-red/alpha A8 masks already matched, but full straightRGBA did
+not. The before-fix witness remains a negative test. An explicit optional
+`reciprocalEstimate(alpha16)` backend input now follows the actual SSE reciprocal /
+Newton F32 law, validates and latches each needed finite F32 estimate before output
+writes, and fixes the full128 RGBA cases. The default old division model remains
+unchanged and explicitly approximate; an exact profile never silently uses it.
+
+The fixture contains actual host RCPSS/RCPPS inputs for the finite16bit alpha domain
+(262144bytes, raw bits/hash/CPU provenance). All65536 lane inputs match between the
+two instruction forms on the recorded host.273 actual compiled Qt5.15.7 SSE4 store
+cases cover grouped vectors/tails/transparent/opaque/half-way colors. A further
+262140-pixel digest checks every finite alpha1..65535 against the actual source
+store. The table is diagnostic fixture input, not a selected production CPU profile
+or a universal Intel instruction specification. Future NEON refinement/order is a
+separate source law and cannot reuse the SSE callback by substituting a different
+estimate. No executing-device detection or profile admission is added.
+
+`sourceImageTransformPixels` joins computed matrices/covered rows with the existing
+RGBA16 sampler. `sourceImageTransformMask` applies the single shared inverse-red /
+alpha mask conversion to that straight result, without another premultiply stage.
+Actual complete native pyramid output and compiled KoIntegerMaths::UINT8_MULT check
+all128 RGBA/A8 images, including partial-alpha/color data. The96 opaque-gray cases
+also check original pixels through the common level resampler and transparent
+border; arbitrary originalRGBA level preparation remains a separate profile stage.
+
+Android NEON has distinct products/decode/store and needs its own actual execution
+receipts. Slow/perspective sampling and unproven fixed-point slope domains fail
+closed. Future canonical profiles must select laws once for all peers; local CPU
+detection is not a replay rule. Canonical straightRGBA8 storage must also remain
+distinct from lossy premultiplied display conversion.

@@ -13,7 +13,7 @@ it('matches actual complete pinned pyramid transform matrices, selection, origin
   for (const [index, c] of native.cases.entries()) {
     const plan = sourceImageTransformPlan(c.width, c.height, c.shape, c.subX, c.subY)
     const { spans: _spans, ...actual } = plan
-    const { rgba: _rgba, levelRGBA: _levelRGBA, ...expected } = c.expected
+    const { rgba: _rgba, mask: _mask, levelRGBA: _levelRGBA, ...expected } = c.expected
     for (const key of Object.keys(expected) as (keyof typeof expected)[]) {
       if (JSON.stringify(actual[key]) !== JSON.stringify(expected[key])) failures.push({ index, key, actual: actual[key], expected: expected[key] })
     }
