@@ -85,6 +85,20 @@ export function operationRejectReason(
   // resolve differently on different clients.
   if (hasMissingAliveTarget(record, op)) return 'target_gone'
 
+  return editingRejectReason(record, lesson, userId, op)
+}
+
+/** Canonical paint permission shares the existing policy body, without forging
+ * a legacy Operation or weakening its closed discriminant boundary. The caller
+ * must supply an authenticated joined participant, checked again here. */
+export function canonicalPaintRejectReason(record: GateBoard, lesson: GateLesson, userId: string, layerId: string): RejectReason | null {
+  if (!lesson.participants.has(userId)) return 'not_owner'
+  if (!record.aliveIds.has(layerId) || record.deletedIds.has(layerId)) return 'target_gone'
+  return editingRejectReason(record, lesson, userId, layerId)
+}
+
+function editingRejectReason(record: GateBoard, lesson: GateLesson, userId: string, target: Operation | string): RejectReason | null {
+  const isOwner = lesson.participants.get(userId)?.role === 'owner'
   // (#222) Checked *before* the owner short-circuit below — unlike every
   // other privilege here, closing binds the owner too. The point of a closed
   // lesson is that it has stopped changing: students fork it, and a fork is
@@ -113,13 +127,13 @@ export function operationRejectReason(
   // `isLockedAgainst`, which is what stops these ever being sent by a current
   // build. This check is for the ones that are not: an old tab, a replayed
   // packet, anything that has been out of the room while the lock went on.
-  if (sharedLockedTargets(record, op)) return 'layer_locked'
+  if (typeof target === 'string' ? record.sharedLockedLayerIds.has(target) : sharedLockedTargets(record, target)) return 'layer_locked'
 
   if (isOwner) return null
 
   if (lesson.roomFrozen) return 'room_frozen'
   if (lesson.frozenUserIds.has(userId)) return 'participant_frozen'
-  if (ownerLockedTargets(record, op)) return 'layer_owner_locked'
+  if (typeof target === 'string' ? record.lockedLayerIds.has(target) : ownerLockedTargets(record, target)) return 'layer_owner_locked'
   return null
 }
 
