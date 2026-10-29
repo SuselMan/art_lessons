@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { CANONICAL_MATERIAL_PROFILE, packCanonicalMaterial, unpackCanonicalMaterial, type BrushTip, type CanonicalMaterialFrame, type CanonicalMaterialRecipe, type TipMaskId } from '@grafetto/shared'
+import { CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE, packCanonicalMaterial, unpackCanonicalMaterial, type BrushTip, type CanonicalMaterialFrame, type CanonicalMaterialRecipe, type TipMaskId } from '@grafetto/shared'
 import { recordingGL } from '../../testing/brushPassTestUtils'
 import { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { RibbonScratchPool } from '../buffers/RibbonScratchPool'
@@ -9,7 +9,7 @@ import { BrushTextureCache } from './BrushTextureCache'
 import { CanonicalMaskSourceBank } from './CanonicalMaskSourceBank'
 import { TransformedMaskPrepass } from './TransformedMaskPrepass'
 import { CanonicalRgba8CompositePass } from './CanonicalRgba8CompositePass'
-import { CanonicalFrameExecutor, type CanonicalFrameSubmission } from './CanonicalFrameExecutor'
+import { CanonicalFrameExecutor, type CanonicalFrameSubmission, type CanonicalExecutorRasterProfile } from './CanonicalFrameExecutor'
 import { canonicalTransformedMaskMetadata } from './TransformedMaskPlan'
 const id = `asset:${'7'.repeat(64)}`
 const asset = { id, size: 1, x: 0, y: 0, width: 1, height: 1 }
@@ -24,7 +24,7 @@ function decoded(count: number, x = 0, end = true, entry: CanonicalMaterialFrame
     preflightDefinition: () => ({ workUnits: 1, outputBytes: 1 }) }
   return unpackCanonicalMaterial(packCanonicalMaterial(frame, context), context)
 }
-function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4, tileBudget?: number) {
+function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4, tileBudget?: number, rasterProfile: CanonicalExecutorRasterProfile = 'reference-scalar-f32-rne-v1') {
   const { gl, snapshot } = recordingGL(), cache = new BrushTextureCache(gl), cpu = new BrushMipCache()
   gl.TEXTURE1 = gl.TEXTURE0 + 1; gl.STATIC_DRAW = 9001; gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME = 9002
   gl.LINEAR = 9010; gl.REPEAT = 9011
@@ -49,13 +49,13 @@ function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4,
   const prepass = new TransformedMaskPrepass(gl, cache, cpu, 'executor-test')
   prepass.prepare({ width: capacity, height: capacity, slots: 1 }, bank.preparedResources())
   const composite = new CanonicalRgba8CompositePass(gl, cache, cpu, 'executor-composite-test')
-  composite.prepare({ width: capacity, height: capacity, operations: ['alphaDarken32', 'over32'] }, [...bank.preparedResources(), ...prepass.preparedResources()])
+  composite.prepare({ width: capacity, height: capacity, operations: rasterProfile === CANONICAL_STROKE_RASTER_PROFILE ? ['alphaDarken32FusedScalar', 'over32FusedScalar'] : ['alphaDarken32', 'over32'] }, [...bank.preparedResources(), ...prepass.preparedResources()])
   const rebuild = vi.fn(() => ({ readPixels: () => null, destroy: vi.fn() }))
   const scratch = new RibbonScratchPool(gl), layer = new TiledLayerBuffer(gl, tileSize, tileSize, tileBudget ? rebuild : undefined, tileBudget ? tileBudget * tileSize * tileSize * 4 : undefined, undefined, 'straight-rgba8')
   let epoch = 0
   const releases: ReturnType<typeof vi.fn>[] = [], reserveTransient = vi.fn(() => { const r = vi.fn(); releases.push(r); return r })
   const changed = vi.fn(), poison = vi.fn()
-  const executor = new CanonicalFrameExecutor({ bank, prepass, composite, scratch, capacity: { width: capacity, height: capacity },
+  const executor = new CanonicalFrameExecutor({ rasterProfile, bank, prepass, composite, scratch, capacity: { width: capacity, height: capacity },
     layer: () => ({ buffer: layer, epoch }), reserveTransient, changed, poison })
   const submit = (frame = decoded(1), ordinal = 0): CanonicalFrameSubmission => ({ gestureId: 'gesture', layerId: 'layer', layerEpoch: 0, ordinal,
     frame, assets: [asset], rgb: [200, 20, 50], composition: { mode, alphaDarken: 'creamy', outerResourceOpacity: .8, outerBlend: 'over' } })
@@ -259,4 +259,40 @@ describe('canonical decoded frames over actual straight tiled layers', () => {
     } finally { s.close() }
   })
 
+})
+
+it('requires an explicit prepared profile before any layer allocation or reservation', () => {
+  const s = setup()
+  try {
+    const options = { ...s.executor['options'] }, baseline = s.snapshot(), uploads = s.gl.texImage2D.mock.calls.length
+    for (const rasterProfile of [undefined, 'unknown', CANONICAL_STROKE_RASTER_PROFILE]) {
+      expect(() => new CanonicalFrameExecutor({ ...options, rasterProfile } as never)).toThrow()
+    }
+    expect(s.reserveTransient).not.toHaveBeenCalled()
+    expect(s.layer.allResident()).toEqual([])
+    expect(s.gl.texImage2D.mock.calls.length).toBe(uploads)
+    expect(s.snapshot()).toEqual(baseline)
+  } finally { s.close() }
+})
+it.each(['wash', 'buildup'] as const)('keeps the installed fused profile through %s local and outer commands across yields', mode => {
+  const s = setup(mode, 4, 2, undefined, CANONICAL_STROKE_RASTER_PROFILE), calls = vi.spyOn(s.composite, 'drawSource')
+  try {
+    s.executor.enqueue(s.submit(decoded(2, 0, false))); s.drain()
+    expect(s.executor.checkpointReady).toBe(false)
+    s.executor.enqueue(s.submit(decoded(1, 2, true, { phase: 'primary', group: 0 }), 1)); s.drain()
+    const requests = calls.mock.calls.map(([request]) => request)
+    expect(requests.length).toBeGreaterThanOrEqual(3)
+    expect(requests.every(r => r.operation.control.profile === CANONICAL_STROKE_RASTER_PROFILE)).toBe(true)
+    if (mode === 'wash') {
+      const local = requests.filter(r => r.operation.kind === 'alphaDarken32FusedScalar')
+      expect(local).toHaveLength(3)
+      expect(local.every(r => r.operation.kind === 'alphaDarken32FusedScalar' && r.operation.control.averageOpacity === Math.fround(.4))).toBe(true)
+      const outer = requests.filter(r => r.readDestination)
+      expect(outer.length).toBeGreaterThan(0)
+      expect(outer.every(r => r.operation.kind === 'over32FusedScalar')).toBe(true)
+      expect(new Set(outer.map(r => r.readDestination!.texture)).size).toBe(1)
+    } else expect(requests.every(r => r.operation.kind === 'over32FusedScalar')).toBe(true)
+    expect(s.executor.checkpointReady).toBe(true)
+    expect(s.poison).not.toHaveBeenCalled()
+  } finally { s.close() }
 })

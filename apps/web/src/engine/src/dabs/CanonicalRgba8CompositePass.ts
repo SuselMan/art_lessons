@@ -311,6 +311,11 @@ export class CanonicalRgba8CompositePass {
         }
     }
     isReady(): boolean { return !!this.workspace && !!this.limits && this.cache.get(this.key) === this.workspace.texture; }
+    /** Metadata admission before allocating/writing a layer target. No implicit
+     * shader preparation or alternative operation is permitted. */
+    supportsOperations(kinds: readonly CanonicalCompositeOperationKind[]): boolean {
+        return this.isReady() && kinds.every(kind => this.workspace!.programs.has(kind));
+    }
     preparedResources(): readonly Resource[] {
         if (!this.isReady())
             throw new Error('Composite pass is not prepared');

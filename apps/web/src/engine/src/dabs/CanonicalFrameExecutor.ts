@@ -1,4 +1,4 @@
-import type { CanonicalMaterialAsset, CanonicalMaterialFrame } from '@grafetto/shared'
+import { CANONICAL_STROKE_RASTER_PROFILE, type CanonicalMaterialAsset, type CanonicalMaterialFrame } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { PaintTarget } from '../buffers/ILayerBuffer'
 import { tilesOverlappingRect, tileWorldRect } from '../buffers/tileMath'
@@ -25,7 +25,13 @@ export interface CanonicalFrameSubmission {
   readonly rgb: readonly [number, number, number]
   readonly composition: SourcePrimaryCompositionContext
 }
+/** Reference profile is retained for recorded diagnostic corpora only. The
+ * shared canonical wire profile requires the installed fused scalar kernels. */
+export type CanonicalExecutorRasterProfile = 'reference-scalar-f32-rne-v1' | typeof CANONICAL_STROKE_RASTER_PROFILE
 export interface CanonicalFrameExecutorOptions {
+  /** Pinned by the room/capability adapter, never selected from mutable tools.
+   * No default: a caller must explicitly prepare the matching shader pair. */
+  readonly rasterProfile: CanonicalExecutorRasterProfile
   readonly bank: CanonicalMaskSourceBank
   readonly prepass: TransformedMaskPrepass
   readonly composite: CanonicalRgba8CompositePass
@@ -82,9 +88,13 @@ export class CanonicalFrameExecutor {
   private advancing = false
 
   constructor(options: CanonicalFrameExecutorOptions) {
+    if (options.rasterProfile !== 'reference-scalar-f32-rne-v1' && options.rasterProfile !== CANONICAL_STROKE_RASTER_PROFILE) throw new TypeError('Unsupported canonical executor raster profile')
     const c = options.capacity
     if (!c || !int(c.width, 1) || !int(c.height, 1) || c.width > 4096 || c.height > 4096
       || c.width * c.height > 1048576) throw new RangeError('Invalid canonical executor capacity')
+    const operations = options.rasterProfile === CANONICAL_STROKE_RASTER_PROFILE
+      ? ['alphaDarken32FusedScalar', 'over32FusedScalar'] as const : ['alphaDarken32', 'over32'] as const
+    if (!options.composite.supportsOperations(operations)) throw new Error('Canonical executor raster profile was not prepared')
     const a = options.prepass.brushGlBatchInfo(), b = options.composite.brushGlBatchInfo()
     if (a.gl !== b.gl || a.cache !== b.cache || a.cpu !== b.cpu) throw new Error('Canonical executor services must share budgets and context')
     this.options = Object.freeze({ ...options, capacity: Object.freeze({ ...c }) })
@@ -239,9 +249,12 @@ export class CanonicalFrameExecutor {
           const group = this.options.prepass.resolveGroup([{ owner: this, role: 'primary', material: { kind: 'canonical', recipe, asset }, source,
             rect: { x: d.x, y: d.y, width: recipe.width, height: recipe.height }, profile: 'neon4-summed-wordsize64' }], frame)
           try {
+            const fused = this.options.rasterProfile === CANONICAL_STROKE_RASTER_PROFILE
             const operation = d.controls.kind === 'localAlphaDarken'
-              ? { kind: 'alphaDarken32' as const, control: { profile: 'optimized32-scalar-f32-rne-v1' as const, variant: d.controls.variant, opacity: d.controls.opacity, averageOpacity: d.controls.averageOpacity, flow: d.controls.flow } }
-              : { kind: 'over32' as const, control: { profile: 'portable-f32-division-rne-v1' as const, opacity: d.controls.opacity } }
+              ? fused
+                ? { kind: 'alphaDarken32FusedScalar' as const, control: { profile: CANONICAL_STROKE_RASTER_PROFILE, variant: d.controls.variant, opacity: d.controls.opacity, averageOpacity: d.controls.averageOpacity, flow: d.controls.flow } }
+                : { kind: 'alphaDarken32' as const, control: { profile: 'optimized32-scalar-f32-rne-v1' as const, variant: d.controls.variant, opacity: d.controls.opacity, averageOpacity: d.controls.averageOpacity, flow: d.controls.flow } }
+              : this.overOperation(d.controls.opacity)
             this.options.composite.drawSource({ source: { kind: 'maskRgb', view: group.views[0], rgb: work.input.rgb }, target: output, operation }, frame)
             work.draw = task.draw; work.tiles = task.tiles; work.tile = task.tile + 1
             if (work.tile === task.tiles.length) { work.draw++; work.tile = 0; work.tiles = undefined }
@@ -324,7 +337,7 @@ export class CanonicalFrameExecutor {
             bounds: { x: x / tile.width, y: (tile.height - y - h) / tile.height, width: w / tile.width, height: h / tile.height },
             mirror: { horizontal: false, vertical: false }, rowOrder: 'bottomAtV0', residency: tile.lifetime }
           this.options.composite.drawSource({ source: { kind: 'straightRgba8', view }, target: bound[i], readDestination: original,
-            operation: { kind: 'over32', control: { profile: 'portable-f32-division-rne-v1', opacity: command.opacity } } }, frame)
+            operation: this.overOperation(command.opacity) }, frame)
           work.present = task.index; work.part = task.part + 1
           if (work.part === task.rows * task.columns) { work.part = 0; work.present++ }
           layer.markContentPainted(rect(tile)); this.options.changed(work.input.layerId)
@@ -332,6 +345,12 @@ export class CanonicalFrameExecutor {
         }
       })
     } finally { for (const release of releases.reverse()) release() }
+  }
+
+  private overOperation(opacity: number) {
+    return this.options.rasterProfile === CANONICAL_STROKE_RASTER_PROFILE
+      ? { kind: 'over32FusedScalar' as const, control: { profile: CANONICAL_STROKE_RASTER_PROFILE, opacity } }
+      : { kind: 'over32' as const, control: { profile: 'portable-f32-division-rne-v1' as const, opacity } }
   }
 
   private finish(work: Work): void {
