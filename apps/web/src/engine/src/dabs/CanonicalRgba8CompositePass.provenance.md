@@ -1,9 +1,9 @@
 # Внутренний local straight-RGBA8 composite pass
 
-Не подключён к старым painters/PM layers/wire. Единственный режим — local
-`optimized32-scalar-f32-rne-v1` alphaDarken creamy/hard через уже доказанный
-SOURCE_ALPHA_DARKEN32_GLSL. Его numerical string не изменён. Нет заявления о
-vector/native Android factory или outer Over/представлении результата.
+Не подключён к старым painters/PM layers/wire. Поддерживаются два конечных семейства: local alphaDarken creamy/hard и explicit
+Over32 scalar profiles. Используются уже доказанные SOURCE_ALPHA_DARKEN32_GLSL и
+SOURCE_OVER32_SCALAR_GLSL без изменения numerical strings. Нет заявления о
+vector/native Android factory или подключении к текущему frame pipeline.
 
 Target требует brand canonical-straight-rgba8-v1: texture/FBO RGBA8 со straight
 RGB, размеры и TOP-left world origin. GL row0 назначения — его логический низ.
@@ -21,7 +21,8 @@ pixel вычисляется по маленьким local coords: offset+(local
 затем mirror индексов и valid UV. Большие world origins не попадают в float uniforms.
 
 Подготовка — фиксированные W/H<=4096, area<=1M, одна scratchRGBA8 texture,
-VBO48bytes, одна программа/optional VAO. GPU charge=4WH+48, CPU reserve8240bytes
+VBO48bytes, одна программа на запрошенное семейство (максимум две)/optional VAO.
+GPU charge=4WH+48, CPU reserve=48+8192*число семейств (8240bytes по умолчанию)
 для staging/program/uniform/state metadata. Driver compiler/binary allocations
 непрозрачны: texture budget не является гарантией hard vendor driver heap cap.
 Ни полного tile copy, ни pixel CPU arrays/uploads/readback при draw нет.
@@ -47,7 +48,29 @@ Meaningful CPU/MockGL regressions проверяют clip/subrect copy/relative 
 Это не численный GPU oracle: combined prepass+pass и итоговый RGBA buffer должны
 дополнительно сравниваться root на реальном устройстве.
 
-## Joined device gate
+## Расширенный API: проверка устройства ещё требуется
+
+`drawSource` принимает maskRgb либо straightRgba8 view, операцию alphaDarken32
+либо over32 и optional immutable readDestination. Последний имеет ту же геометрию,
+что output; каждый preview копирует именно этот base, поэтому смена opacity не
+накапливает повторный Over. RGBA source сохраняет собственные RGB/A8, без ink-alpha
+множителя. Source==output запрещён; source==base при другом output допустим.
+Старый draw остаётся синхронным совместимым адаптером.
+
+RGBA view объявляет unscaled integer UV subrect, rowOrder и post-raster mirror.
+Cache residency проверяется по key/handle/actual bytes; external residency требует
+явного owner/lease. Output/base также держатся внешними leases до завершения draw.
+Straight RGBA8 brand — обязательный контракт владельца: WebGL1 attachment identity
+не доказывает internal format. Перед sampling сохраняются MIN/MAG/WRAP_S/WRAP_T,
+временно выставляются NEAREST/CLAMP и восстанавливаются до GL bindings и освобождения
+leases, включая draw failure; при context loss восстановления не выполняется.
+
+12 CPU/MockGL тестов включают две bounded программы, repeated immutable-base
+preview, alias/metadata rejection до lease/copy, source==base, byte controls,
+ориентацию и восстановление четырёх sampler parameters после success/error.
+Эти тесты не заменяют pending actual GPU gate расширенных веток.
+
+## Joined device gate (исходный pass 1bc11f408)
 
 Actual Samsung SM-T970 / Adreno650 WebGL1 highp23:102 trials with306
 submitted sequential draws, including empty clips.98 material/profile cases
