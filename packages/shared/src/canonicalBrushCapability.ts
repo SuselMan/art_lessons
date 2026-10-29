@@ -1,6 +1,6 @@
 import type { BrushDescriptor } from './brushes.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
-import { isSourceStampData, sourceStampRequiredCurves, type SourceStampData } from './sourceStampData.js'
+import { isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData } from './sourceStampData.js'
 
 /** A semantic material class, not permission, CAS verification, a compiler, or
  * an assertion that retained settings originated in an installed native app. */
@@ -26,6 +26,7 @@ export function extractCanonicalSinglePngCapability(
   const data = descriptor.sourceStamp
   if (data === undefined) return reject('legacy-descriptor-no-source-data')
   if (!isSourceStampData(data)) return reject('invalid-source-data')
+  if (sourceStampSourceKind(data) !== 'image') return reject('source-material-is-not-image')
   if (data.unsupported.length) return { supported: false, reasons: [...data.unsupported] }
   if (data.role !== 'primary' || descriptor.behavior?.dual) return reject('mask-master-size-unresolved')
   if (descriptor.model !== 'stamp' || descriptor.tip.kind !== 'bitmap' || descriptor.tip.animation || descriptor.tip.material) return reject('unsupported-source-material')
@@ -56,4 +57,28 @@ export function extractCanonicalSinglePngCapability(
  * coefficient dictionary. No second option compiler is implemented here. */
 export function hasCanonicalSourceCurvePrograms(data: SourceStampData): boolean {
   return sourceStampRequiredCurves(data.options).length === 0 || data.compiled !== undefined
+}
+
+/** Source DATA/compiler capability only. No auto author, material codec or
+ * executor is admitted by this result, even when every curve is compiled. */
+export function extractDefaultAutoSourceDataCapability(descriptor: BrushDescriptor):
+  { readonly supported: true; readonly status: 'source-data-only'; readonly rasterReady: false; readonly data: SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceDefaultAutoData } } |
+  { readonly supported: false; readonly reasons: readonly string[] } {
+  const reject = (reason: string) => ({ supported: false as const, reasons: [reason] })
+  const data = descriptor.sourceStamp
+  if (!isSourceStampData(data)) return reject('invalid-or-missing-source-data')
+  if (data.version !== 2 || data.source.kind !== 'defaultAuto') return reject('source-material-is-not-default-auto')
+  if (data.unsupported.length) return { supported: false, reasons: [...data.unsupported] }
+  if (data.role !== 'primary' || descriptor.behavior?.dual) return reject('mask-master-size-unresolved')
+  if (descriptor.model !== 'stamp' || descriptor.tip.kind !== 'procedural' || descriptor.tip.profile?.kind !== 'standard'
+    || descriptor.tip.mask || descriptor.tip.animation || descriptor.tip.imageSampling || descriptor.tip.material) return reject('inconsistent-default-auto-descriptor')
+  const source = data.source
+  if (source.spikes !== 2 || source.randomness !== 0 || source.density !== 1 || !data.flags.materialFixed1 || data.flags.textureEnabled
+    || descriptor.behavior?.colorAdjustment) return reject('unsupported-default-auto-material-consumer')
+  const p = descriptor.tip.profile
+  if (p.shape !== (source.shape === 'circle' ? 'ellipse' : 'rectangle') || p.horizontalFade !== source.horizontalFade
+    || p.verticalFade !== source.verticalFade || p.antialias !== source.antialias) return reject('inconsistent-default-auto-profile')
+  if (data.options.length !== 9 || !hasCanonicalSourceCurvePrograms(data)) return reject('native-option-program-unavailable')
+  return { supported: true, status: 'source-data-only', rasterReady: false,
+    data: data as SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceDefaultAutoData } }
 }

@@ -50,9 +50,17 @@ export function sourceStampRequiredCurves(options: readonly SourceStampOptionDat
   }
   return [...curves.values()]
 }
-export interface SourceStampData {
+export interface SourceDefaultAutoData {
+  readonly kind: 'defaultAuto'
+  readonly generator: 'default'
+  readonly shape: 'circle' | 'rect'
+  readonly diameter: number; readonly ratio: number
+  readonly horizontalFade: number; readonly verticalFade: number
+  readonly antialias: boolean; readonly spikes: number
+  readonly randomness: number; readonly density: number
+}
+interface SourceStampCommon {
   readonly compiled?: SourceStampCompiledData
-  readonly version: 1
   readonly reader: 'krita-bd6e8d0-v1'
   readonly role: 'primary' | 'mask'
   /** Lossless selected settings, including original sensor XML and numeric text.
@@ -66,6 +74,29 @@ export interface SourceStampData {
   readonly options: readonly SourceStampOptionData[]
   /** Missing material/compiler capabilities remain explicit; legacy behavior is retained. */
   readonly unsupported: readonly string[]
+}
+/** Missing tag is legacy IMAGE only. New payloads must carry an explicit tag. */
+export type SourceStampData = SourceStampCommon & (
+  { readonly version: 1; readonly source?: never } |
+  { readonly version: 2; readonly source: { readonly kind: 'image' } | SourceDefaultAutoData }
+)
+export function sourceStampSourceKind(data: SourceStampData): 'image' | 'defaultAuto' {
+  return data.version === 1 ? 'image' : data.source.kind
+}
+function sourceIdentity(v: Record<string, unknown>): boolean {
+  if (v.version === 1) return v.source === undefined
+  if (v.version !== 2 || !record(v.source)) return false
+  const s = v.source
+  if (s.kind === 'image') return keys(s, ['kind'])
+  if (s.kind !== 'defaultAuto' || !keys(s, ['kind','generator','shape','diameter','ratio','horizontalFade','verticalFade','antialias','spikes','randomness','density'])
+    || s.generator !== 'default' || !['circle','rect'].includes(String(s.shape)) || !bool(s.antialias)
+    || ![s.diameter,s.ratio,s.horizontalFade,s.verticalFade,s.spikes,s.randomness,s.density].every(finite)
+    || (s.diameter as number) <= 0 || (s.ratio as number) <= 0 || !Number.isInteger(s.spikes)
+    || (s.spikes as number) < 1 || (s.spikes as number) > 2147483647
+    || [s.horizontalFade,s.verticalFade,s.randomness,s.density].some(n => (n as number) < 0 || (n as number) > 1)
+    || !record(v.brush)) return false
+  const width = Math.trunc(Math.max(1, s.diameter as number)), height = Math.trunc(Math.max(1, (s.diameter as number) * (s.ratio as number)))
+  return v.brush.scale === 1 && width === v.brush.width && height === v.brush.height
 }
 export const MAX_SOURCE_STAMP_BUDGET = 1048576
 export const MAX_LIBRARY_SOURCE_STAMP_BUDGET = 16777216
@@ -132,7 +163,7 @@ export function isSourceStampCurveData(v: unknown): v is SourceStampCurveData {
       && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1 && bool(p.corner) && (i === 0 || p.x > (v.points as {x:number}[])[i-1].x))
 }
 export function isSourceStampData(v: unknown): v is SourceStampData {
-  if (sourceStampDataBudget(v)>MAX_SOURCE_STAMP_BUDGET || !record(v) || !keys(v,['version','reader','role','settings','brush','spacing','timing','flags','precision','options','unsupported','compiled']) || v.version !== 1 || v.reader !== 'krita-bd6e8d0-v1'
+  if (sourceStampDataBudget(v)>MAX_SOURCE_STAMP_BUDGET || !record(v) || !keys(v,['version','reader','role','settings','brush','spacing','timing','flags','precision','options','unsupported','compiled','source']) || !sourceIdentity(v) || v.reader !== 'krita-bd6e8d0-v1'
     || !['primary','mask'].includes(String(v.role)) || !record(v.settings) || Object.keys(v.settings).length > 256
     || Object.entries(v.settings).some(([k,s]) => !text(k,128) || !text(s,65536))
     || Object.entries(v.settings).reduce((n,[k,s]) => n+k.length+(s as string).length,0) > 1048576

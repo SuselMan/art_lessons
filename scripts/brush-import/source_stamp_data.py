@@ -172,6 +172,26 @@ def material_option_is_fixed_one(params,name):
     return not flag(params.get('Pressure'+name,'false')) or (not flag(params.get(name+'UseCurve','true')) and finite(params.get(name+'Value',1))==1)
 
 
+def source_identity(definition):
+    kind=definition.get('type')
+    if kind in ('png_brush','gbr_brush'): return {'kind':'image'}
+    if kind!='auto_brush': raise ValueError('Unsupported raw source brush')
+    generator=definition.find('MaskGenerator')
+    if generator is None or generator.get('id','default')!='default': raise ValueError('Unsupported native auto source generator')
+    # Pinned KisAutoBrushFactory reader: legacy radius takes precedence; all
+    # non-circle XML shape names map to Rectangle (including serialized rct).
+    def number(value):
+        if not DECIMAL.fullmatch(str(value).strip()): raise ValueError('Invalid native auto decimal')
+        return finite(value)
+    result={'kind':'defaultAuto','generator':'default','shape':'circle' if generator.get('type','circle')=='circle' else 'rect',
+            'diameter':number(generator.get('radius',generator.get('diameter',1))), 'ratio':number(generator.get('ratio',1)),
+            'horizontalFade':number(generator.get('hfade',0)), 'verticalFade':number(generator.get('vfade',0)),
+            'antialias':integer(generator.get('antialiasEdges',0))!=0,'spikes':integer(generator.get('spikes',2)),
+            'randomness':number(definition.get('randomness',0)), 'density':number(definition.get('density',1))}
+    if result['diameter']<=0 or result['ratio']<=0 or not 1<=result['spikes']<=2147483647 or any(not 0<=result[k]<=1 for k in ('horizontalFade','verticalFade','randomness','density')): raise ValueError('Invalid native auto source parameters')
+    return result
+
+
 def retain_source_stamp(params,definition,width,height,xml,*,depth=0):
     # Preserve raw planner/material inputs, not embedded patterns/resources or thumbnail data.
     if not all(isinstance(k,str) and isinstance(v,str) for k,v in params.items()): raise ValueError('Invalid source setting key/value')
@@ -188,20 +208,28 @@ def retain_source_stamp(params,definition,width,height,xml,*,depth=0):
         budget+=amount
         if budget>MAX_SOURCE_STAMP_BUDGET: raise ValueError('Source stamp aggregate budget exceeded')
     charge(0)
+    source=source_identity(definition)
+    auto=source['kind']=='defaultAuto'
+    if auto:
+        width=math.trunc(max(1,source['diameter']));height=math.trunc(max(1,source['diameter']*source['ratio']))
+        if not 1<=width<=32768 or not 1<=height<=32768: raise ValueError('Native auto initial dimensions exceed retained source bound')
     reasons=[];options=[]
+    if auto and (source['spikes']!=2 or source['randomness']!=0 or source['density']!=1): reasons.append('default-auto-mask-parameters-unavailable')
     if depth: reasons.append('mask-prefix-and-master-size-unresolved')
     if params.get('ColorSource/Type','plain')!='plain': reasons.append('source-color-provider-unresolved')
     if any(finite(definition.get(k,default))!=default for k,default in [('AdjustmentMidPoint',127),('BrightnessAdjustment',0),('ContrastAdjustment',0)]) or flag(definition.get('AutoAdjustMidPoint','false')):
         reasons.append('source-image-adjustments-unavailable')
     try: options=[option_data(params,name,xml,charge) for name in OPTIONS]
     except (ValueError,OverflowError) as error: reasons.append(str(error)[:256])
-    scale=finite(definition.get('scale',1))*(2 if definition.get('BrushVersion','1')=='1' else 1);angle=finite(definition.get('angle',0))
+    scale=1 if auto else finite(definition.get('scale',1))*(2 if definition.get('BrushVersion','1')=='1' else 1)
+    angle=finite(definition.get('angle',0))
+    spacing_default=1 if auto else .25
     if scale<=0: raise ValueError('Nonpositive native source scale')
     level=integer(params.get('KisPrecisionOption/precisionLevel',5))
-    if not 1<=level<=5 or finite(definition.get('spacing',.25))<0 or finite(definition.get('autoSpacingCoeff',1))<0 or finite(params.get('PaintOpSettings/rate',20))<=0: raise ValueError('Invalid native source spacing/precision/rate')
-    result={'version':1,'reader':'krita-bd6e8d0-v1','role':'mask' if depth else 'primary','settings':raw,
+    if not 1<=level<=5 or finite(definition.get('spacing',spacing_default))<0 or finite(definition.get('autoSpacingCoeff',1))<0 or finite(params.get('PaintOpSettings/rate',20))<=0: raise ValueError('Invalid native source spacing/precision/rate')
+    result={'version':2,'source':source,'reader':'krita-bd6e8d0-v1','role':'mask' if depth else 'primary','settings':raw,
             'brush':{'width':width,'height':height,'scale':scale,'angle':angle},
-            'spacing':{'value':finite(definition.get('spacing',.25)),'automatic':flag(definition.get('useAutoSpacing','false')),'coefficient':finite(definition.get('autoSpacingCoeff',1)),'isotropic':flag(params.get('Spacing/Isotropic','false'))},
+            'spacing':{'value':finite(definition.get('spacing',spacing_default)),'automatic':flag(definition.get('useAutoSpacing','false')),'coefficient':finite(definition.get('autoSpacingCoeff',1)),'isotropic':flag(params.get('Spacing/Isotropic','false'))},
             'timing':{'enabled':flag(params.get('PaintOpSettings/isAirbrushing','false')),'rate':finite(params.get('PaintOpSettings/rate',20)),'ignoreDistance':flag(params.get('PaintOpSettings/ignoreSpacing','false'))},
             'precision':{'level':integer(params.get('KisPrecisionOption/precisionLevel',5)),'automatic':flag(params.get('KisPrecisionOption/AutoPrecisionEnabled','false'))},
             'flags':{'scatterX':flag(params.get('Scattering/AxisX','true')),'scatterY':flag(params.get('Scattering/AxisY','true')),'mirrorX':flag(params.get('HorizontalMirrorEnabled','false')),'mirrorY':flag(params.get('VerticalMirrorEnabled','false')),
@@ -216,7 +244,7 @@ def retain_source_stamp(params,definition,width,height,xml,*,depth=0):
 def validate_source_stamp_shape(descriptor):
     if 'sourceStamp' not in descriptor: return
     data=descriptor['sourceStamp']
-    if not isinstance(data,dict) or data.get('version')!=1 or data.get('reader')!='krita-bd6e8d0-v1' or data.get('role') not in ('primary','mask'): raise ValueError('Invalid portable source stamp')
+    if not isinstance(data,dict) or data.get('version') not in (1,2) or data.get('reader')!='krita-bd6e8d0-v1' or data.get('role') not in ('primary','mask'): raise ValueError('Invalid portable source stamp')
     try:
         if source_stamp_budget(data)>MAX_SOURCE_STAMP_BUDGET: raise ValueError('Source stamp aggregate budget exceeded')
     except (KeyError,TypeError,AttributeError): raise ValueError('Invalid portable source stamp budget')
@@ -225,8 +253,10 @@ def validate_source_stamp_shape(descriptor):
     if set(brush)!={'width','height','scale','angle'} or any(type(brush.get(k)) is not int or not 1<=brush[k]<=32768 for k in ('width','height')): raise ValueError('Invalid source brush metric')
     from krita_import import xml
     definition=xml(settings.get('brush_definition',''))
-    if definition.get('type') not in ('png_brush','gbr_brush'): raise ValueError('Unsupported raw source brush')
+    if data['version']==1 and (definition.get('type') not in ('png_brush','gbr_brush') or 'source' in data): raise ValueError('Legacy source data is image-only')
     expected=retain_source_stamp(settings,definition,brush['width'],brush['height'],xml,depth=int(data['role']=='mask'))
+    if data['version']==1:
+        expected.pop('source');expected['version']=1
     if not same_source_data({k:v for k,v in data.items() if k!='compiled'},expected): raise ValueError('Portable source stamp differs from raw native settings')
     if not 1<=data['precision']['level']<=5 or data['spacing']['value']<0 or data['spacing']['coefficient']<0 or data['timing']['rate']<=0: raise ValueError('Invalid native source spacing/precision/rate')
 

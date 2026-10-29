@@ -439,8 +439,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             raise ValueError('Missing Krita auto-brush generator')
         source_size=numeric(generator.get('diameter'),1)
         shape = generator.get('type', 'circle')
-        if shape not in ('circle', 'rect'):
+        if shape not in ('circle', 'rect', 'rct'):
             raise ValueError('Unsupported Krita auto-brush shape: '+shape)
+        if shape=='rct': shape='rect'
         hardness = clamp((numeric(generator.get('hfade'),1)+numeric(generator.get('vfade'),1))/2)
         ratio = clamp(numeric(generator.get('ratio'),1),0.0625,1)
         d['tip'] = {'kind':'round','hardness':hardness,'aspect':1/ratio,'angle':0,'rotation':'fixed'}
@@ -990,9 +991,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             behavior['rendering']['accumulation']='alphaDarken'
     d['behavior']=behavior
     # Capability comes from the decoded tip branch, never the later texture filename.
-    if engine=='paintbrush' and source_static_image:
+    if engine=='paintbrush' and (source_static_image or kind=='auto_brush' and definition.find('MaskGenerator') is not None and definition.find('MaskGenerator').get('id','default')=='default'):
         try:
-            d['sourceStamp']=retain_source_stamp(params,definition,*source_metric,xml,depth=depth)
+            d['sourceStamp']=retain_source_stamp(params,definition,*(source_metric or (1,1)),xml,depth=depth)
             if curve_compiler is not None:
                 try: d['sourceStamp']['compiled']=compile_source_stamp(d['sourceStamp'],curve_compiler)
                 except ValueError as error: notes.append(compatibility('sourceStampCompiler',str(error),'unsupported'))
@@ -1000,6 +1001,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('sourceStampCompiler','Native nonlinear source curves retained; explicit compiler is not configured, native author candidate unavailable.','unsupported'))
         except (ValueError,OverflowError) as error:
             notes.append(compatibility('sourceStampData',str(error),'unsupported'))
+    if engine=='paintbrush' and kind=='auto_brush' and 'sourceStamp' not in d:
+        notes.append(compatibility('sourceStampData','Native auto source generator/data unsupported; no image source identity or author capability was created.','unsupported'))
     if stroke_input:
         try:
             input_policy=stroke_input_policy(params,xml,native_transfer)
@@ -1023,7 +1026,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         d['version']=33
     if behavior.get('strokeInput'): d['version']=34
     def source_clock(value):
-        if isinstance(value,dict):return value.get('control')=='time' or 'timing'in value or any(source_clock(v)for v in value.values())
+        if isinstance(value,dict):return value.get('control')=='time' or 'timing'in value or any(source_clock(v)for k,v in value.items() if k!='sourceStamp')
         return isinstance(value,list) and any(source_clock(v)for v in value)
     if source_clock(behavior):d['version']=35
     def native_color(b):

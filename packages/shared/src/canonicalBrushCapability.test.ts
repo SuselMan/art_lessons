@@ -18,6 +18,13 @@ function descriptor(): BrushDescriptor {
     sizeByPressure: [[0, 0], [1, 1]], flowByPressure: [[0, 1], [1, 1]], opacityByPressure: [[0, 1], [1, 1]], sourceStamp: data }
 }
 describe('shared single PNG execution material class, no permission or author execution', () => {
+  it('keeps new tagged image v2 and legacy image v1 capabilities identical', () => {
+    const d = descriptor(), legacy = extractCanonicalSinglePngCapability(d, asset)
+    Object.assign(d, { sourceStamp: { ...d.sourceStamp!, version: 2, source: { kind: 'image' } } })
+    expect(extractCanonicalSinglePngCapability(d, asset)).toEqual(legacy)
+    Object.assign(d.sourceStamp!, { version: 1 })
+    expect(extractCanonicalSinglePngCapability(d, asset).supported).toBe(false)
+  })
   it('copies exact source CAS crop, static geometry and native saved painting mode without mutating descriptors', () => {
     const d = descriptor(), before = structuredClone(d), result = extractCanonicalSinglePngCapability(d, asset)
     expect(result).toEqual({ supported: true, capability: { kind: 'single-inverse-gray-png-v1', brushId: d.id, brushVersion: 1,
