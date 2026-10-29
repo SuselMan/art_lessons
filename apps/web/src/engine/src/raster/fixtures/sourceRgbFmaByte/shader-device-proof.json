@@ -1,0 +1,165 @@
+{
+  "scope": "Private actual Samsung RGB-only specialization A/B, general alpha FMA unchanged. Same nonuniform texture trials; perdraw gl.finish includes pass/state overhead. Not active renderer, throughput or native packet identity. Sequential single-device order and driver cache affect times.",
+  "runs": {
+    "canonical-composite-rgb-fast-cold": {
+      "prepareMs": 9291.399999976158,
+      "drawFinishMs": {
+        "p50": 2.5,
+        "p95": 27.30000001192093,
+        "max": 37.69999998807907,
+        "count": 306
+      },
+      "wrong": 0,
+      "maxDelta": 0,
+      "GL": [],
+      "cleanup": {
+        "ok": true,
+        "gpuBytes": 0,
+        "cpuReserved": 0
+      },
+      "stateRestored": true,
+      "hotNoUploads": true,
+      "expectedSHA256": "fa3027eb01c4a225aa7f3c2849232c2ee00b71718f75801e7e5caf517fd5c5ec",
+      "sourceHEAD": "e76301b3f6d98c2d05a3a08c4efef65b4b9328dc",
+      "bundleSHA256": "d4f6619646d5ed348d3978ea345802ffc4ce044d83348077c073b62967b3c1d9"
+    },
+    "canonical-composite-rgb-fast-device-result": {
+      "prepareMs": 1298.3999999761581,
+      "drawFinishMs": {
+        "p50": 2.400000035762787,
+        "p95": 4.199999988079071,
+        "max": 16.5,
+        "count": 306
+      },
+      "wrong": 0,
+      "maxDelta": 0,
+      "GL": [],
+      "cleanup": {
+        "ok": true,
+        "gpuBytes": 0,
+        "cpuReserved": 0
+      },
+      "stateRestored": true,
+      "hotNoUploads": true,
+      "expectedSHA256": "fa3027eb01c4a225aa7f3c2849232c2ee00b71718f75801e7e5caf517fd5c5ec",
+      "sourceHEAD": "d654638746765ce52c987a42949294ea55739686",
+      "bundleSHA256": "d4f6619646d5ed348d3978ea345802ffc4ce044d83348077c073b62967b3c1d9"
+    },
+    "composite-over-rgb-fast-cached1": {
+      "prepareMs": 1162.6000000238419,
+      "drawFinishMs": {
+        "p50": 3,
+        "p95": 7.900000035762787,
+        "max": 23,
+        "count": 192
+      },
+      "wrong": 0,
+      "maxDelta": 0,
+      "GL": [],
+      "cleanup": {
+        "ok": true,
+        "gpuBytes": 0,
+        "cpuReserved": 0
+      },
+      "stateRestored": true,
+      "hotNoUploads": true,
+      "expectedSHA256": null,
+      "sourceHEAD": "09256c69d8f0c670d6f642b0dd9dafedcad4c8d5",
+      "bundleSHA256": "e855fbd887a5fd6c9d5e422b6fa6ad076cae2a6f12092eb50b0eb6c0de596f50"
+    },
+    "composite-over-rgb-fast-device-result": {
+      "prepareMs": 1409.800000011921,
+      "drawFinishMs": {
+        "p50": 3.700000047683716,
+        "p95": 8.699999988079071,
+        "max": 20.80000001192093,
+        "count": 192
+      },
+      "wrong": 0,
+      "maxDelta": 0,
+      "GL": [],
+      "cleanup": {
+        "ok": true,
+        "gpuBytes": 0,
+        "cpuReserved": 0
+      },
+      "stateRestored": true,
+      "hotNoUploads": true,
+      "expectedSHA256": null,
+      "sourceHEAD": "d654638746765ce52c987a42949294ea55739686",
+      "bundleSHA256": "e855fbd887a5fd6c9d5e422b6fa6ad076cae2a6f12092eb50b0eb6c0de596f50"
+    },
+    "canonical-composite-rgb-general-device-result": {
+      "prepareMs": 2212.900000035763,
+      "drawFinishMs": {
+        "p50": 3.100000023841858,
+        "p95": 7.800000011920929,
+        "max": 37.30000001192093,
+        "count": 306
+      },
+      "wrong": 0,
+      "maxDelta": 0,
+      "GL": [],
+      "cleanup": {
+        "ok": true,
+        "gpuBytes": 0,
+        "cpuReserved": 0
+      },
+      "stateRestored": true,
+      "hotNoUploads": true,
+      "expectedSHA256": "fa3027eb01c4a225aa7f3c2849232c2ee00b71718f75801e7e5caf517fd5c5ec",
+      "sourceHEAD": "09256c69d8f0c670d6f642b0dd9dafedcad4c8d5",
+      "bundleSHA256": "6b05f2ee1aae7b7db0a0f2e667f10efa86a8cadeec18553d49026c04c5a441ae"
+    },
+    "composite-over-rgb-general-device-result": {
+      "prepareMs": 2410,
+      "drawFinishMs": {
+        "p50": 4.899999976158142,
+        "p95": 25.69999998807907,
+        "max": 37.60000002384186,
+        "count": 192
+      },
+      "wrong": 0,
+      "maxDelta": 0,
+      "GL": [],
+      "cleanup": {
+        "ok": true,
+        "gpuBytes": 0,
+        "cpuReserved": 0
+      },
+      "stateRestored": true,
+      "hotNoUploads": true,
+      "expectedSHA256": null,
+      "sourceHEAD": "d654638746765ce52c987a42949294ea55739686",
+      "bundleSHA256": "b2d40fa386dee516d87f86317f821eed9bd2c948cef190825fd73b94eaf29fbe"
+    }
+  },
+  "standalone": {
+    "proof": {
+      "scope": "Exact specialized RGB FMA-to-byte GPU vs original instruction outputs, no active pass/profile",
+      "fragmentSHA256": "272f8088b314cf90487086276af65da3b26270071a8e3bc5c890bef15a92c402",
+      "primitiveSHA256": "130c94c791ca983609993ac4e5bbb81b5b61eeaf98bc7656070aaf1e8e5cf3dc",
+      "fragmentBytes": 3314,
+      "cases": 7961
+    },
+    "checked": 7961,
+    "wrongCount": 0,
+    "wrong": [],
+    "compileMs": 8,
+    "runMs": 28091.099999964237,
+    "glError": 0,
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+    "precision": {
+      "precision": 23,
+      "rangeMin": 127,
+      "rangeMax": 127
+    }
+  },
+  "cleanup": {
+    "originalThreeTabsPreserved": true,
+    "ownJobs": [],
+    "ownContextsClosed": true,
+    "allGpuReportsCleanupTrue": true,
+    "resource": "none created; parent Unicorn resource retained"
+  }
+}
