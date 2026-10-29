@@ -4,11 +4,13 @@ import { compositePortableF32Over } from './sourceOverPortable'
 import { applyRgba8AlphaMask, compositeRgba8 } from './sourceColorRgba8'
 import type { Rgba8 } from './mixWeightedRgba8'
 
+const tuple = (values: readonly number[]): Rgba8 => [values[0], values[1], values[2], values[3]]
+
 describe('explicit portable float32 Over profile', () => {
   it('bounds all 512 independent native scalar SSE receipts and records exact reciprocal residuals', () => {
     const residuals: number[] = []
     fixture.cases.forEach((row, index) => {
-      const output = compositePortableF32Over(row.src as Rgba8, row.dst as Rgba8, { profile: 'portableF32', opacity: row.opacity, mask: row.mask < 0 ? undefined : row.mask })
+      const output = compositePortableF32Over(tuple(row.src), tuple(row.dst), { profile: 'portableF32', opacity: row.opacity, mask: row.mask < 0 ? undefined : row.mask })
       if (output.some((v, channel) => v !== row.expected[channel])) residuals.push(index)
       expect(output[3]).toBe(row.expected[3])
       output.forEach((v, channel) => expect(Math.abs(v - row.expected[channel])).toBeLessThanOrEqual(1))
