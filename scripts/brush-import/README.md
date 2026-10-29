@@ -312,3 +312,16 @@ versions remain unchanged. Independent closed-form tests cover R4/5/220/240/300/
 440/2400, integer/half-step lookup positions, outer knots, corner rings, cubic
 curves, endpoint values and packed quantization. These are source-law witnesses;
 GPU precision, physical geometry and native pixel parity require separate QA.
+
+## Stage41: exact native fuzzy-stroke keys
+
+Active Krita `fuzzystroke` controls now carry
+`randomSource: {kind: 'qt5Taus88', key: '<option>FuzzyStroke'}`. The original
+QString text is retained (UTF-16 length1..128, no NUL); it is never reconstructed
+from the legacy32-bit SHA tag. Same-option primary/child controls carry the same
+key so the engine can preserve native keyed correlation. Disabled options still
+ignore stale sensor XML. Only descriptors containing this new control, or a
+child containing it, advance to version32; all other descriptors remain stable.
+Portable validation accepts either the exact-key source or a historical numeric
+`randomStream`, never both, and neither on other control kinds. Native sequential
+per-dab RNG scheduling is not changed by this importer capability.

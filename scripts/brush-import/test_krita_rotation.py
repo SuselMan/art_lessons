@@ -106,7 +106,7 @@ class RotationImportTests(unittest.TestCase):
             self.assertEqual(c['strength'],.31);self.assertEqual(c['additive'][0]['control'],'random');self.assertEqual(c['scaling'][0]['control'],'pressure')
         with tempfile.TemporaryDirectory() as tmp:
             b=self.brush(tmp,'1','<params id="fuzzystroke"/>')
-            c=b['descriptor']['behavior']['rotation']['composition'];self.assertEqual(c['additive'][0]['control'],'strokeRandom');self.assertIsInstance(c['additive'][0]['randomStream'],int)
+            c=b['descriptor']['behavior']['rotation']['composition'];self.assertEqual(c['additive'][0]['control'],'strokeRandom');self.assertEqual(c['additive'][0]['randomSource'],{'kind':'qt5Taus88','key':'RotationFuzzyStroke'});self.assertNotIn('randomStream',c['additive'][0])
 
     def test_other_sensors_combinations_disabled_curve_and_outside_strength_stay_unsupported(self):
         cases=[

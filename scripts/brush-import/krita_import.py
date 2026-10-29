@@ -340,7 +340,11 @@ def sensor_controls(params, option, notes):
             notes.append(compatibility(option+'Sensor','More than four active supported sensors; excess controls unsupported.','unsupported'));continue
         controls.append({'control':supported[name],'minimum':0,'jitter':0,'curve':transfer})
         if name=='fade': controls[-1].update(period=period,periodic=enabled(node.get('periodic','0')))
-        if name=='fuzzystroke': controls[-1]['randomStream']=int.from_bytes(hashlib.sha256(option.encode()).digest()[:4],'big')
+        if name=='fuzzystroke':
+            key=option+'FuzzyStroke'
+            if not option or '\0' in key or len(key.encode('utf-16-le','surrogatepass'))//2>128:
+                raise ValueError('Invalid native fuzzy-stroke option key')
+            controls[-1]['randomSource']={'kind':'qt5Taus88','key':key}
         if name!='pressure':
             notes.append(compatibility(option+'Sensor',
                 'Speed is captured in view/widget coordinates, normalized by native default30 and logged before geometry; Grafetto30ms EMA approximates the different native history estimator.' if name=='speed'
@@ -928,6 +932,11 @@ def preset(data, name, catalog, external, depth=0):
             behavior['rendering']['accumulation']='alphaDarken'
     d['behavior']=behavior
     warnings.extend(n['feature']+': '+n['detail'] for n in notes if n['status']!='supported')
+    def native_keyed(value):
+        if isinstance(value,dict):
+            return value.get('control')=='strokeRandom' and 'randomSource' in value or any(native_keyed(v) for v in value.values())
+        return isinstance(value,list) and any(native_keyed(v) for v in value)
+    if native_keyed(d): d['version']=32
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     if source_size is not None:
         result['sourceDefaults']={'sizePx':clamp(source_size,.01,10000),'opacity':d['opacity'],'flow':d['flow']}

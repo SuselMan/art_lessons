@@ -440,11 +440,17 @@ def validate_portable_dynamics(controls):
     def finite(value,low=0,high=1):
         return type(value) in (int,float) and math.isfinite(value) and low<=value<=high
     if not isinstance(controls,list) or len(controls)>4: raise ValueError('Invalid portable dynamic count')
+    def keyed(source):
+        return (isinstance(source,dict) and set(source)=={'kind','key'} and source.get('kind')=='qt5Taus88'
+                and isinstance(source.get('key'),str) and '\0' not in source['key']
+                and 1<=len(source['key'].encode('utf-16-le','surrogatepass'))//2<=128)
     for control in controls:
-        if (not isinstance(control,dict) or set(control)-{'control','minimum','jitter','strength','fade','curve','randomStream','period','periodic'}
+        if (not isinstance(control,dict) or set(control)-{'control','minimum','jitter','strength','fade','curve','randomStream','randomSource','period','periodic'}
                 or control.get('control') not in ('off','pressure','tilt','speed','fade','direction','initialDirection','tiltElevation','tiltX','tiltY','azimuth','tiltDirection','random','strokeRandom','dabProgress')
-                or (control.get('control')=='strokeRandom' and (type(control.get('randomStream')) is not int or not 0<=control['randomStream']<=4294967295))
-                or (control.get('control')!='strokeRandom' and 'randomStream' in control)
+                or (control.get('control')=='strokeRandom' and not (
+                    ('randomSource' not in control and type(control.get('randomStream')) is int and 0<=control['randomStream']<=4294967295)
+                    or ('randomStream' not in control and keyed(control.get('randomSource')))))
+                or (control.get('control')!='strokeRandom' and ('randomStream' in control or 'randomSource' in control))
                 or (control.get('control')=='dabProgress' and (type(control.get('period')) is not int or not 1<=control['period']<=1000000 or type(control.get('periodic')) is not bool))
                 or (control.get('control')!='dabProgress' and ('period' in control or 'periodic' in control))
                 or not finite(control.get('minimum')) or not finite(control.get('jitter'))
