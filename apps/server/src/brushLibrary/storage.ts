@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import { mkdirSync, lstatSync, writeFileSync, renameSync, rmSync, constants, openSync, closeSync, fstatSync, readSync, readdirSync, fsyncSync, linkSync } from 'node:fs'
 import { resolve, join, parse } from 'node:path'
-import { brushAssetIds, isBrushLibrary, type BrushLibrary } from '@grafetto/shared'
+import { brushAssetIds, brushRequiresRandomContext, hasValidBrushRandomContext, isBrushLibrary, type BrushLibrary, type Operation } from '@grafetto/shared'
 
 export const empty = (): BrushLibrary => ({ schemaVersion: 1, brushes: [], assets: [], skipped: [] })
 // Descriptors are JSON wire data: serialization normalizes signed zero, while
@@ -150,6 +150,16 @@ export class BrushStorage {
       return next
     })
   }
+  acceptsRandomContext(room: string, owner: string, op: Operation, operator=empty()): boolean {
+    if (op.type !== 'stroke' || !op.preset || !/^(brush:)?imported-/.test(op.preset)) return true
+    const token = /^brush:(imported-[a-f0-9]+)@(\d+)(?::[a-z0-9-]+)*$/.exec(op.preset)
+    const find = (library: BrushLibrary) => library.brushes.find(b => token ? b.descriptor.id === token[1] && b.descriptor.version === Number(token[2]) : b.descriptor.id === op.preset)
+    // A durable room pin is authoritative and avoids merging the whole catalog per live packet.
+    const brush = find(this.library('rooms', room)) ?? find(this.library('owners', owner)) ?? find(operator)
+    if (!brush) throw Error('Brush unavailable')
+    return !brushRequiresRandomContext(brush.descriptor) || op.brushRandom !== undefined && hasValidBrushRandomContext(op)
+  }
+
   pin(room: string, owner: string, presets: string[], operator=empty()): void {
     this.mutate(()=> {
       const current=this.library('rooms',room)
@@ -180,6 +190,11 @@ function keyBytes(bytes: Buffer): string { return createHash('sha256').update(by
 let active: BrushStorage | undefined
 let operatorLibrary=empty()
 export function setBrushStorage(storage: BrushStorage, operator: BrushLibrary): void { active=storage; operatorLibrary=operator }
+export function hasRequiredOperationBrushContext(room: string, user: string, op: Operation): boolean {
+  if (op.type !== 'stroke' || !op.preset || !/^(brush:)?imported-/.test(op.preset)) return true
+  if (!active) throw Error('Brush storage unavailable')
+  return active.acceptsRandomContext(room, user, op, operatorLibrary)
+}
 export function pinOperationBrush(room: string, user: string, op: {type: string; preset?: string}): void {
   if (op.type!=='stroke' || !op.preset || !/^(brush:)?imported-/.test(op.preset)) return
   if (!active) throw Error('Brush storage unavailable')

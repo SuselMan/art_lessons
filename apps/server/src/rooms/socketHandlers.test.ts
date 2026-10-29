@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync, existsSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join as joinPath } from 'node:path'
+import { BrushStorage, empty, setBrushStorage } from '../brushLibrary/storage.js'
 import { createServer, type Server as HttpServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import type { FastifyBaseLogger } from 'fastify'
@@ -5,7 +9,7 @@ import { Server } from 'socket.io'
 import { io as connect, type Socket as ClientSocket } from 'socket.io-client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createBrushRandomStrokeId, type ClientToServerEvents, type ServerToClientEvents, type StrokeOperation } from '@grafetto/shared'
+import { createBrushRandomStrokeId, type ClientToServerEvents, type ServerToClientEvents, type StrokeOperation, type SendResult } from '@grafetto/shared'
 
 // (#176, ADR 014 §3) A real socket.io server + client pair, like
 // shutdown.test.ts and for the same reason: what is under test is which
@@ -369,4 +373,55 @@ it('preserves explicit seeds from stored operation JSON on cold board history lo
   const tail = (await state).tailOperations
   expect(tail).toContainEqual(saved)
   expect(tail.find(op => op.id === saved.id)).toHaveProperty('brushRandom', saved.brushRandom)
+})
+
+
+describe('native brush capability admission', () => {
+  it.each([false, true])('rejects seedless native writes/live before pins and sequence allocation (child=%s)', async child => {
+    const { lessonId, teacher, student } = await classroom()
+    const directory = mkdtempSync(joinPath(tmpdir(), 'native-brush-gate-'))
+    const storage = new BrushStorage(directory), library = empty()
+    const descriptor = {
+      id: 'imported-' + 'a'.repeat(16), version: 1, model: 'stamp' as const, category: 'paint' as const,
+      tip: { kind: 'round' as const, hardness: 1, aspect: 1, rotation: 'fixed' as const, angle: 0 },
+      paperInteraction: 0, spacing: .1, flow: 1, flowPer: 'pass' as const, opacity: 1, pressureSmoothingPx: 0,
+      sizeByPressure: [[0, 0], [1, 1]] as const, flowByPressure: [[0, 0], [1, 1]] as const, opacityByPressure: [[0, 0], [1, 1]] as const,
+    }
+    const native = { version: 2 as const, dynamics: { angle: { control: 'strokeRandom' as const, minimum: 0, jitter: 0,
+      randomSource: { kind: 'qt5Taus88' as const, key: 'RotationFuzzyStrokeКлюч😀' } } } }
+    library.brushes.push({ name: 'native', source: 'qa', warnings: [], descriptor: { ...descriptor,
+      behavior: child ? { version: 2, dual: { brush: { ...descriptor, id: 'imported-' + 'b'.repeat(16), behavior: native }, blendMode: 'multiply' } } : native } })
+    library.brushes.push({ name: 'legacy', source: 'qa', warnings: [], descriptor: { ...descriptor, id: 'imported-' + 'c'.repeat(16),
+      behavior: { version: 2, dynamics: { angle: { control: 'strokeRandom', minimum: 0, jitter: 0, randomStream: 4 } } } } })
+    setBrushStorage(storage, library)
+    const preset = 'brush:' + descriptor.id + '@1'
+    const op: StrokeOperation = { ...stroke(fresh('native-bad'), 'teacher'), tool: 'digitalBrush', preset, strokeId: 'legacy-identity' }
+    try {
+      const quiet = silent(student, 'operation_confirmed', 45)
+      const result = await new Promise<SendResult>(resolve => teacher.emit('operation', op, resolve))
+      expect(result).toEqual({ ok: false, reason: 'invalid_operation' })
+      await quiet
+      expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+      expect(existsSync(storage.path('rooms', lessonId))).toBe(false)
+      const quietLive = silent(student, 'peer_stroke_live', 45)
+      teacher.emit('stroke_live', { strokeId: op.strokeId!, layerId: op.layerId, tool: op.tool, preset, color: op.color, dabsPacked: '', packetSeq: 0 })
+      await quietLive
+      expect(existsSync(storage.path('rooms', lessonId))).toBe(false)
+      const brushRandom = { version: 1 as const, sequentialSeed: 0xffffffff, strokeSeed: 0 }
+      const strokeId = createBrushRandomStrokeId('native-seeded-valid', brushRandom)
+      const received = next(student, 'peer_stroke_live')
+      teacher.emit('stroke_live', { strokeId, layerId: op.layerId, tool: op.tool, preset, color: op.color, dabsPacked: '', packetSeq: 1, brushRandom })
+      expect(await received).toMatchObject({ strokeId, brushRandom })
+      const good = { ...op, id: fresh('native-good'), strokeId, brushRandom }
+      const accepted = await new Promise<SendResult>(resolve => teacher.emit('operation', good, resolve))
+      expect(accepted).toMatchObject({ ok: true, seq: 1 })
+      await _flushPendingWrites(lessonId)
+      const stored = mockPrisma.operation.create.mock.calls.map(call => call[0].data.data)
+      expect(stored).toContainEqual(expect.objectContaining({ id: good.id, brushRandom }))
+      const pinned = storage.library('rooms', lessonId)
+      expect(pinned.brushes[0].descriptor).toEqual(library.brushes[0].descriptor)
+      const legacy = { ...stroke(fresh('legacy-good'), 'teacher'), tool: 'digitalBrush' as const, preset: 'brush:imported-' + 'c'.repeat(16) + '@1', strokeId: 'legacy-no-context' }
+      expect(await new Promise<SendResult>(resolve => teacher.emit('operation', legacy, resolve))).toMatchObject({ ok: true, seq: 2 })
+    } finally { rmSync(directory, { recursive: true, force: true }) }
+  })
 })

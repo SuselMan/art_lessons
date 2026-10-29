@@ -1,4 +1,4 @@
-import { pinOperationBrush } from '../brushLibrary/storage.js'
+import { hasRequiredOperationBrushContext, pinOperationBrush } from '../brushLibrary/storage.js'
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@grafetto/shared'
@@ -584,6 +584,10 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
           return
         }
 
+        if (!hasRequiredOperationBrushContext(roomId, userId, op)) {
+          ack?.({ ok: false, reason: 'invalid_operation' })
+          return
+        }
         pinOperationBrush(roomId, userId, op)
 
         // (#254/#258) Keeps the server's owner-lock mirror in sync the
@@ -667,7 +671,10 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         strokeId: data.strokeId, ...(data.brushRandom ? { brushRandom: data.brushRandom } : {}),
       }
       if (getOperationRejectReason(roomId, userId, standIn)) return
-      try { pinOperationBrush(roomId,userId,standIn) } catch { return }
+      try {
+        if (!hasRequiredOperationBrushContext(roomId, userId, standIn)) return
+        pinOperationBrush(roomId,userId,standIn)
+      } catch { return }
       socket.to(roomId).emit('peer_stroke_live', { ...data, userId })
     })
 
