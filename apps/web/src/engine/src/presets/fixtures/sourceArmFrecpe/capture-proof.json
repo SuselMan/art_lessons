@@ -1,0 +1,86 @@
+{
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.6/include/uapi/asm-generic/unistd.h",
+      "sha256": "026f4f7efe79d01bdcaacab2be80d14b15396839bd2f80957c8ad72357e459f9"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/torvalds/linux/v6.6/arch/arm64/include/uapi/asm/unistd.h",
+      "sha256": "a1d29b1442eab1f7fc50184df7ad7271c9d48fa1dabd0e413e88017a26a245cc"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ARM-software/abi-aa/2023Q3/aapcs64/aapcs64.rst",
+      "sha256": "24c02802b24aeceede750fdc40e3cd5912e6555177cdcfddb7a5ac00173590e9"
+    }
+  ],
+  "instructionReference": "https://documentation-service.arm.com/static/6245c734b059dc5ff9a8bdab",
+  "package": {
+    "url": "https://archive.ubuntu.com/ubuntu/pool/main/b/binutils/binutils-aarch64-linux-gnu_2.42-4ubuntu2.10_amd64.deb",
+    "bytes": 3710688,
+    "sha256": "6bb25a05c50681e240b453f6572d8066f2358dee984d0ff1dbcd08852642adf2",
+    "extractedBytesApprox": 9600000,
+    "installed": false
+  },
+  "files": {
+    "receipt.s": {
+      "bytes": 1563,
+      "sha256": "2a683f7c870f08f54b1a4eb410ffca30ecf1e00680ccb9fef61f2f9617bb047e"
+    },
+    "generate-inputs.py": {
+      "bytes": 1287,
+      "sha256": "aaacc3c16be48ccddaa64f741d0c63e09c739e3b2db8a0c50519622943fd23f9"
+    },
+    "inputs.bin": {
+      "bytes": 622544,
+      "sha256": "6337e7559d9263f50a3df67672d002f6c5c235ef093604e81c3ad391ed580ac4"
+    },
+    "frecpe-aarch64": {
+      "bytes": 624136,
+      "sha256": "e8b7e343b89d43ee565d12c295764ab172677222d6c67bd030fabcbdccce0a44"
+    }
+  },
+  "ELF": {
+    "machine": "AArch64",
+    "class": 64,
+    "littleEndian": true,
+    "type": "ET_EXEC",
+    "interpreter": null,
+    "entry": "0x4000e8",
+    "requirement": "Linux AArch64 EL0 AdvSIMD/FP enabled; read-only FPCR/FPSR; no libc/loader/runtime deps"
+  },
+  "output": {
+    "magic": "FRECPE49",
+    "version": 1,
+    "headerBytes": 64,
+    "recordBytes": 16,
+    "count": 155636,
+    "bytes": 2490240,
+    "fields": [
+      "inputBits",
+      "FRECPEbits",
+      "FRECPS(input,estimate)bits",
+      "FMUL(estimate,step)bits"
+    ],
+    "checksums": "u32 additive input/record words plus hostSHA256; input order exactcompare"
+  },
+  "instructionSource": {
+    "url": "https://documentation-service.arm.com/static/67e40f3398aa3c3b6eea6a85",
+    "bytes": 15314151,
+    "sha256": "b7baa6869789722df70da60170d999a62810409aaabbb6db1ef729ed68686bdf"
+  },
+  "emulatorReceipt": {
+    "n": 155636,
+    "errors": 0,
+    "examples": [],
+    "profile": "AArch64 FRECPE binary32 FPCR0; exact bits, not Krita factory",
+    "actualHelper": "sourceArmFrecpe.ts"
+  },
+  "nativeReceipt": {
+    "sha256": "cdfe52191e0e104297f13337adedc6fbab742149004ec1f18e30ad77047a2862",
+    "bytes": 2490240,
+    "count": 155636,
+    "FPCR": 0,
+    "FPSRbefore": 0,
+    "FPSRafter": 31
+  }
+}
