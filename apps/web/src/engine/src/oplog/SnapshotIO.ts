@@ -370,6 +370,12 @@ export class SnapshotIO {
     // Replaces any snapshot checkpoint this layer already had — see
     // CheckpointStore.pinSnapshot for why it is matched on `fromSnapshot`.
     this.ctx.checkpoints().pinSnapshot(layerId, held, coveredSeq)
+    // Reconnect/concurrent restore can replace this checkpoint AFTER history
+    // backfill has landed. Its pixels still contain that prefix. Reconcile
+    // from retained authoritative server ordering, never op.seq (local index).
+    this.ctx.checkpoints().markCovered(this.ctx.log().entries
+      .filter(entry => !entry.pending && entry.serverSeq !== undefined)
+      .map(entry => ({ id: entry.op.id, seq: entry.serverSeq })))
   }
 
   /** PencilEngineAPI.absorbHistoricalOperations — see its doc comment and
@@ -382,6 +388,9 @@ export class SnapshotIO {
    *  then merges them into the real log in one step. */
   absorbHistorical(pageOps: Operation[]): void {
     const log = this.ctx.log()
+    // Even an entirely duplicate page can follow a second snapshot restore.
+    // Coverage reconciliation must precede the no-new-IDs early return.
+    this.ctx.checkpoints().markCovered(pageOps)
     // (#536, §17.61) A backfill page is "everything below the snapshot's seq",
     // but since #372 the join tail is judged per layer: a layer with no pixel
     // snapshot of its own gets its whole history in the tail. So a page can
@@ -400,14 +409,6 @@ export class SnapshotIO {
     }
     log.prependHistorical(scratch.entries)
     this._historicalEntryCount += scratch.entries.length
-    // (#479) These operations are now in the log, and a restored layer's
-    // pinned checkpoint already holds the pixels of whichever of them predate
-    // its snapshot — record them so a later rebuild skips rather than repaints
-    // them. Read from `ops` rather than the log because only these copies
-    // still carry the server's seq: `OperationLog.append` renumbers entries to
-    // their array index (see SnapshotLedger.isCovered's own comment), so once they
-    // are in, "is this older than the snapshot?" is no longer answerable.
-    this.ctx.checkpoints().markCovered(ops)
     // (#398) Nothing is painted here — but an undo/redo later rebuilds a
     // layer from exactly these operations, and that rebuild is synchronous.
     // Decoding in the background now is what lets it find the image ready;
