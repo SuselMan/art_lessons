@@ -1,3 +1,4 @@
+import { saveBrushGlState } from './BrushGlState';
 import type { SourceDabMaterialSpec } from '../presets/sourceDabCache';
 import { buildRgba64FactorLut } from '../raster/sourceRgba64StraightShader';
 import { SOURCE_TRANSFORMED_MASK_VERT, sourceTransformedMaskFragment } from '../raster/sourceTransformedMaskShader';
@@ -8,6 +9,18 @@ export interface TransformedMaskLimits {
   readonly width: number;
   readonly height: number;
   readonly slots: number;
+}
+/** Metadata-only, same admitted workspace formulas used by prepare. */
+export function transformedMaskPrepassBudget(limits: TransformedMaskLimits): {
+  gpuBytes: number; cpuBytes: number; vertexBytes: number;
+} {
+  if (!Number.isSafeInteger(limits.width) || !Number.isSafeInteger(limits.height)
+    || !Number.isSafeInteger(limits.slots) || limits.width < 1 || limits.height < 1
+    || limits.width > 4096 || limits.height > 4096 || limits.width * limits.height > 1048576
+    || limits.slots < 1 || limits.slots > 8) throw new RangeError('Invalid prepass capacity');
+  const vertexBytes = limits.height * FLOATS_PER_ROW * 4;
+  return { vertexBytes, cpuBytes: vertexBytes + limits.height * PLAN_BYTES_PER_ROW * limits.slots * 2 + FACTOR_BYTES,
+    gpuBytes: FACTOR_BYTES + vertexBytes + limits.width * limits.height * 4 * limits.slots };
 }
 export interface TransformedMaskSource {
   readonly key: string;
@@ -109,8 +122,7 @@ export class TransformedMaskPrepass {
   }[], signal?: AbortSignal): 'ready' | 'cancelled' {
     if (signal?.aborted)
       return 'cancelled';
-    if (!safe(limits.width, 1, 4096) || !safe(limits.height, 1, 4096) || limits.width * limits.height > 1048576 || !safe(limits.slots, 1, 8))
-      throw new RangeError('Invalid prepass capacity');
+    const budget = transformedMaskPrepassBudget(limits);
     const sourceMap = new Map<string, number>();
     for (const source of sourceResources) {
       if (!source.key || source.key.startsWith(this.prefix + ':') || !safe(source.bytes, 1, Number.MAX_SAFE_INTEGER))
@@ -121,9 +133,8 @@ export class TransformedMaskPrepass {
         throw new RangeError('Source bank must be prepared before the prepass');
       sourceMap.set(source.key, source.bytes);
     }
-    const vertexBytes = limits.height * FLOATS_PER_ROW * 4;
-    const cpuBytes = vertexBytes + limits.height * PLAN_BYTES_PER_ROW * limits.slots * 2 + FACTOR_BYTES;
-    const gpuBytes = FACTOR_BYTES + vertexBytes + limits.width * limits.height * 4 * limits.slots + [...sourceMap.values()].reduce((a, b) => a + b, 0);
+    const { vertexBytes, cpuBytes } = budget;
+    const gpuBytes = budget.gpuBytes + [...sourceMap.values()].reduce((a, b) => a + b, 0);
     if (!Number.isSafeInteger(gpuBytes) || gpuBytes > this.cache.budgetBytes || cpuBytes + this.cpu.reservedBytes - this.reservedCpuBytes > this.cpu.budgetBytes)
       throw new RangeError('Prepass working set exceeds existing brush budgets');
     const precision = this.gl.getShaderPrecisionFormat(this.gl.FRAGMENT_SHADER, this.gl.HIGH_FLOAT);
@@ -225,6 +236,11 @@ export class TransformedMaskPrepass {
   }
   isReady(): boolean {
     return !!this.limits && !!this.workspace && this.cache.get(this.workspaceKey) === this.workspace.low && this.slots.length === this.limits.slots && this.slots.every(slot => !!slot && this.cache.get(slot.key) === slot.texture);
+  }
+  /** Cold/preflight metadata only. Source-bank resources are reported separately. */
+  preparedResources(): readonly { key: string; bytes: number }[] {
+    if (!this.isReady()) throw new Error('Prepass is not prepared');
+    return [this.workspaceKey, ...this.slots.map(slot => slot!.key)].map(key => ({ key, bytes: this.cache.resourceBytes(key)! }));
   }
   /** Holds all source/LUT/target entries through the caller's synchronous draw.
   * Caller MUST release in finally. No GL state is touched on a cache hit.
@@ -458,63 +474,6 @@ export class TransformedMaskPrepass {
     gl.drawArrays(gl.TRIANGLES, 0, count);
   }
   private saveState(attributes: readonly number[]): () => void {
-    const vaoExtension = this.vertexArrays;
-    const previousVao = vaoExtension ? this.gl.getParameter(vaoExtension.VERTEX_ARRAY_BINDING_OES) : null;
-    const gl = this.gl, active = gl.getParameter(gl.ACTIVE_TEXTURE), textures: (WebGLTexture | null)[] = [];
-    for (let i = 0; i < 3; i++) {
-      gl.activeTexture(gl.TEXTURE0 + i);
-      textures.push(gl.getParameter(gl.TEXTURE_BINDING_2D));
-    }
-    gl.activeTexture(active);
-    const framebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING), viewport = gl.getParameter(gl.VIEWPORT), program = gl.getParameter(gl.CURRENT_PROGRAM), array = gl.getParameter(gl.ARRAY_BUFFER_BINDING), unpack = gl.getParameter(gl.UNPACK_ALIGNMENT), color = gl.getParameter(gl.COLOR_CLEAR_VALUE), mask = gl.getParameter(gl.COLOR_WRITEMASK);
-    const caps = [gl.BLEND, gl.SCISSOR_TEST, gl.DITHER, gl.CULL_FACE, gl.DEPTH_TEST, gl.STENCIL_TEST].map(cap => [cap, gl.isEnabled(cap)] as const);
-    const attribs = (vaoExtension ? [] : attributes).map(index => ({ index, enabled: gl.getVertexAttrib(index, gl.VERTEX_ATTRIB_ARRAY_ENABLED), buffer: gl.getVertexAttrib(index, gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING), size: gl.getVertexAttrib(index, gl.VERTEX_ATTRIB_ARRAY_SIZE), type: gl.getVertexAttrib(index, gl.VERTEX_ATTRIB_ARRAY_TYPE), normalized: gl.getVertexAttrib(index, gl.VERTEX_ATTRIB_ARRAY_NORMALIZED), stride: gl.getVertexAttrib(index, gl.VERTEX_ATTRIB_ARRAY_STRIDE), offset: gl.getVertexAttribOffset(index, gl.VERTEX_ATTRIB_ARRAY_POINTER), divisor: this.instancing ? gl.getVertexAttrib(index, this.instancing.VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE) : 0 }));
-    return () => {
-      if (vaoExtension) vaoExtension.bindVertexArrayOES(previousVao);
-      for (const a of attribs) {
-        if (a.buffer && gl.isBuffer(a.buffer)) {
-          gl.bindBuffer(gl.ARRAY_BUFFER, a.buffer);
-          gl.vertexAttribPointer(a.index, a.size, a.type, a.normalized, a.stride, a.offset);
-        }
-        this.instancing?.vertexAttribDivisorANGLE(a.index, a.divisor);
-        if (a.enabled)
-          gl.enableVertexAttribArray(a.index);
-        else
-          gl.disableVertexAttribArray(a.index);
-      }
-      gl.bindBuffer(gl.ARRAY_BUFFER, array && gl.isBuffer(array) ? array : null);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-      gl.viewport(...viewport as [
-        number,
-        number,
-        number,
-        number
-      ]);
-      gl.useProgram(program);
-      gl.pixelStorei(gl.UNPACK_ALIGNMENT, unpack);
-      gl.clearColor(...color as [
-        number,
-        number,
-        number,
-        number
-      ]);
-      gl.colorMask(...mask as [
-        boolean,
-        boolean,
-        boolean,
-        boolean
-      ]);
-      for (const [cap, enabled] of caps)
-        if (enabled)
-          gl.enable(cap);
-        else
-          gl.disable(cap);
-      for (let i = 0; i < 3; i++) {
-        gl.activeTexture(gl.TEXTURE0 + i);
-        const texture = textures[i];
-        gl.bindTexture(gl.TEXTURE_2D, texture && gl.isTexture(texture) ? texture : null);
-      }
-      gl.activeTexture(active);
-    };
+    return saveBrushGlState(this.gl, attributes, this.instancing, this.vertexArrays, 3);
   }
 }
