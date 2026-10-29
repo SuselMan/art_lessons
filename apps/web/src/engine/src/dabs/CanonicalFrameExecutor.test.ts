@@ -49,9 +49,9 @@ function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4,
   gl.getTexParameter = (_: number, n: number) => parameters.get(gl.getParameter(gl.TEXTURE_BINDING_2D))?.get(n) ?? gl.NEAREST
   const tip: BrushTip = { kind: 'bitmap', mask: id as TipMaskId, hardness: 1, aspect: 1, angle: 0, rotation: 'fixed',
     imageSampling: { kind: 'integer-pyramid', signal: 'inverse-gray', sourceRect: { x: 0, y: 0, width: 1, height: 1 } } }
-  const bank = new CanonicalMaskSourceBank(gl, cache, cpu, [{ id: id as TipMaskId, tip, assetSide: 1, readOriginalCoverage: () => new Uint8Array([255]) }], { gpuBytes: 0, cpuBytes: 0 })
-  if (!autoSource) bank.jobs.forEach((_, i) => bank.prepareJob(i))
-  const bankResources = autoSource ? [] : bank.preparedResources()
+  const bank = autoSource ? undefined : new CanonicalMaskSourceBank(gl, cache, cpu, [{ id: id as TipMaskId, tip, assetSide: 1, readOriginalCoverage: () => new Uint8Array([255]) }], { gpuBytes: 0, cpuBytes: 0 })
+  bank?.jobs.forEach((_, i) => bank.prepareJob(i))
+  const bankResources = bank?.preparedResources() ?? []
   const prepass = new TransformedMaskPrepass(gl, cache, cpu, 'executor-test')
   prepass.prepare({ width: capacity, height: capacity, slots: 1 }, bankResources)
   const composite = new CanonicalRgba8CompositePass(gl, cache, cpu, 'executor-composite-test')
@@ -66,7 +66,7 @@ function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4,
   const submit = (frame = decoded(1), ordinal = 0): CanonicalFrameSubmission => ({ gestureId: 'gesture', layerId: 'layer', layerEpoch: 0, ordinal,
     frame, assets: [asset], rgb: [200, 20, 50], composition: { mode, alphaDarken: 'creamy', outerResourceOpacity: .8, outerBlend: 'over' } })
   const drain = () => { let n = 0; while (executor.pending && n++ < 200) executor.advance(); expect(n).toBeLessThan(200) }
-  const close = () => { executor.cancel(); layer.destroy(); scratch.destroy(); prepass.reset(); composite.reset(); bank.reset() }
+  const close = () => { executor.cancel(); layer.destroy(); scratch.destroy(); prepass.reset(); composite.reset(); bank?.reset() }
   return { gl, snapshot, cache, cpu, bank, prepass, composite, scratch, layer, executor, submit, drain, close, releases, reserveTransient, changed, poison, setEpoch: () => { epoch++ } }
 }
 
@@ -387,7 +387,7 @@ it('executes actual seven imported auto sources through pressure30 author, decod
     const context:CanonicalMaterialContextV2={version:2,assets:[],primarySource:pin,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}};
     const s=setup('buildup',512,512,undefined,'reference-scalar-f32-rne-v1',pin);
     try{
-      expect(s.bank.isReady()).toBe(false);
+      expect(s.bank).toBeUndefined();
       const author=new SourceStrokeAuthor(compiled.program);let state=author.createState(4321,7654,.3);
       for(let i=0;i<30;i++){
         const packet:SourceAuthorPacket={x:20+i*.8,y:20+Math.sin(i/4)*5,t:i*17,pressure:.15+.8*(i%9)/8,

@@ -368,6 +368,69 @@ describe('canonical default-auto incremental slot generation', () => {
     expect(s.gl.texSubImage2D).toHaveBeenCalledTimes(uploadCount);
     s.service.reset();expect(s.cpu.reservedBytes).toBe(0);
   });
+  it('captures only the five upload states, preserving all other GL state without framebuffer/vertex/program queries', () => {
+    const s=setup(),r=autoRequest();s.service.prepare({width:16,height:16,slots:1},[]);
+    s.service.beginAutoGeneration(r);
+    const before=s.snapshot(), getters=vi.spyOn(s.gl,'getParameter');
+    getters.mockClear();
+    expect(s.service.advanceAutoGeneration(65536).done).toBe(true);
+    expect(getters.mock.calls.map(([p])=>p)).toEqual([s.gl.ACTIVE_TEXTURE,s.gl.UNPACK_ALIGNMENT,
+      s.gl.UNPACK_FLIP_Y_WEBGL,s.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,s.gl.TEXTURE_BINDING_2D]);
+    expect(s.snapshot()).toEqual(before);
+    expect(s.gl.getParameter(s.gl.UNPACK_FLIP_Y_WEBGL)).toBe(true);
+    expect(s.gl.getParameter(s.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)).toBe(true);
+    s.service.reset();
+  });
+  it('restores active unit after a capture fault and all borrowed upload states after setter/upload faults', () => {
+    for(const fault of ['unpack-get','binding-get','bind','unpack-set','upload'] as const){
+      const s=setup(),r=autoRequest();s.service.prepare({width:16,height:16,slots:1},[]);
+      const baseline=s.cpu.reservedBytes,before=s.snapshot();s.service.beginAutoGeneration(r);
+      if(fault==='unpack-get'||fault==='binding-get'){
+        const original=s.gl.getParameter;let thrown=false;
+        s.gl.getParameter=(key:number)=>{
+          if(!thrown&&key===(fault==='binding-get'?s.gl.TEXTURE_BINDING_2D:s.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)){
+            thrown=true;throw Error('capture failure');
+          }
+          return original(key);
+        };
+      }else if(fault==='bind')vi.spyOn(s.gl,'bindTexture').mockImplementationOnce(()=>{throw Error('bind failure')});
+      else if(fault==='unpack-set')vi.spyOn(s.gl,'pixelStorei').mockImplementationOnce(()=>{throw Error('unpack failure')});
+      else s.gl.texSubImage2D.mockImplementationOnce(()=>{throw Error('upload failure')});
+      expect(()=>s.service.advanceAutoGeneration(65536)).toThrow('failure');
+      expect(s.snapshot(),fault).toEqual(before);
+      expect(s.gl.getParameter(s.gl.UNPACK_FLIP_Y_WEBGL)).toBe(true);
+      expect(s.gl.getParameter(s.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)).toBe(true);
+      expect(s.cpu.reservedBytes).toBe(baseline);
+      expect(s.cache['leases'].size).toBe(0);
+      expect(()=>s.service.resolveGroup([r])).toThrow('complete');
+      s.service.reset();expect(s.cpu.reservedBytes).toBe(0);
+    }
+  });
+  it('keeps the primary upload error and attempts flags/active restoration after a cleanup setter throws', () => {
+    for(const fault of ['restore-bind','restore-alignment'] as const){
+      const s=setup(),r=autoRequest();s.service.prepare({width:16,height:16,slots:1},[]);
+      const baseline=s.cpu.reservedBytes, before=s.snapshot(), primary=new Error('primary upload'), secondary=new Error('secondary restore');
+      s.service.beginAutoGeneration(r);
+      if(fault==='restore-bind'){
+        const bind=s.gl.bindTexture;let calls=0;
+        s.gl.bindTexture=vi.fn((target:number,texture:WebGLTexture|null)=>{if(++calls===2)throw secondary;bind(target,texture)});
+      }else{
+        const store=s.gl.pixelStorei;let thrown=false;
+        s.gl.pixelStorei=vi.fn((key:number,value:number|boolean)=>{
+          if(!thrown&&key===s.gl.UNPACK_ALIGNMENT&&value===before.unpack){thrown=true;throw secondary}
+          store(key,value);
+        });
+      }
+      s.gl.texSubImage2D.mockImplementationOnce(()=>{throw primary});
+      let received:unknown;try{s.service.advanceAutoGeneration(65536)}catch(error){received=error}
+      expect(received).toBe(primary);
+      expect(s.snapshot().active).toBe(before.active);
+      expect(s.gl.getParameter(s.gl.UNPACK_FLIP_Y_WEBGL)).toBe(true);
+      expect(s.gl.getParameter(s.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)).toBe(true);
+      expect(s.cpu.reservedBytes).toBe(baseline);expect(s.cache['leases'].size).toBe(0);
+      expect(()=>s.service.resolveGroup([r])).toThrow('complete');s.service.reset();
+    }
+  });
   it('cancels incomplete generation on owner/reset/eviction and never exposes partial pixels', () => {
     for(const mode of ['owner','reset','evict'] as const){
       const s=setup(),r=autoRequest();s.service.prepare({width:16,height:16,slots:1},[]);

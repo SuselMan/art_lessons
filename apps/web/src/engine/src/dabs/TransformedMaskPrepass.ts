@@ -497,20 +497,18 @@ export class TransformedMaskPrepass {
         const release = this.cache.lease([{ key: p.slot.key, bytes: this.limits!.width*this.limits!.height*4 }]);
         const gl = this.gl;
         let restore: (() => void) | undefined;
-        let flip: boolean | undefined, premultiply: boolean | undefined;
+        let failed=false, failure: unknown;
         try {
-          restore = this.saveState([]);
-          flip = gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL); premultiply = gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL);
+          restore = this.saveAutoUploadState();
           gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,p.slot.texture);
           gl.pixelStorei(gl.UNPACK_ALIGNMENT,1); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
           gl.texSubImage2D(gl.TEXTURE_2D,0,0,p.uploadedRows,p.width,rows,gl.RGBA,gl.UNSIGNED_BYTE,p.rgba.subarray(0,p.filled*4));
-        } finally {
-          try {
-            if (flip !== undefined) gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,flip);
-            if (premultiply !== undefined) gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,premultiply);
-            restore?.();
-          } finally { release(); }
+        } catch(error) { failed=true; failure=error; }
+        finally {
+          try { restore?.(); } catch(error) { if(!failed){failed=true;failure=error} }
+          try { release(); } catch(error) { if(!failed){failed=true;failure=error} }
         }
+        if(failed)throw failure;
         p.uploadedRows += rows; uploadedBytes = p.filled*4; p.filled = 0;
       }
       if (result.done) {
@@ -559,6 +557,34 @@ export class TransformedMaskPrepass {
     this.releaseCpu?.();
     this.releaseCpu = undefined;
     this.reservedCpuBytes = 0;
+  }
+  /** Stripe upload touches only unit0 and unpack state: no draw/program/FBO,
+   * vertex or capability state enters this capsule. Five synchronous queries. */
+  private saveAutoUploadState(): () => void {
+    const gl=this.gl;
+    const active=gl.getParameter(gl.ACTIVE_TEXTURE) as number;
+    const alignment=gl.getParameter(gl.UNPACK_ALIGNMENT) as number;
+    const flip=gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL) as boolean;
+    const premultiply=gl.getParameter(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL) as boolean;
+    let texture: WebGLTexture | null;
+    try {
+      gl.activeTexture(gl.TEXTURE0);
+      texture=gl.getParameter(gl.TEXTURE_BINDING_2D) as WebGLTexture | null;
+    } finally { gl.activeTexture(active); }
+    return () => {
+      // Synchronous owned upload cannot delete the borrowed original texture.
+      // Attempt independent restores even if a test/driver wrapper throws;
+      // active unit restoration is always last and cannot mask earlier errors.
+      let failed=false, failure: unknown, unitReady=false;
+      const attempt=(restore:()=>void)=>{try{restore()}catch(error){if(!failed){failed=true;failure=error}}};
+      attempt(()=>{gl.activeTexture(gl.TEXTURE0);unitReady=true});
+      if(unitReady)attempt(()=>gl.bindTexture(gl.TEXTURE_2D,texture));
+      attempt(()=>gl.pixelStorei(gl.UNPACK_ALIGNMENT,alignment));
+      attempt(()=>gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,flip));
+      attempt(()=>gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,premultiply));
+      attempt(()=>gl.activeTexture(active));
+      if(failed)throw failure;
+    };
   }
   private texture(width: number, height: number, data: Uint8Array | null): WebGLTexture {
     const gl = this.gl, texture = gl.createTexture();

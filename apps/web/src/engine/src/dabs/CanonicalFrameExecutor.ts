@@ -37,7 +37,7 @@ export interface CanonicalFrameExecutorOptions {
   readonly autoSource?: CanonicalDefaultAutoSource
   /** Authoritative room page, never viewport. Absent retains the closed infinite-page QA API. */
   readonly pageBounds?: Readonly<WorldRect> | null
-  readonly bank: CanonicalMaskSourceBank
+  readonly bank?: CanonicalMaskSourceBank
   readonly prepass: TransformedMaskPrepass
   readonly composite: CanonicalRgba8CompositePass
   readonly scratch: RibbonScratchPool
@@ -132,9 +132,9 @@ export class CanonicalFrameExecutor {
     const result = advanceSourcePrimaryComposition(initial, { ordinal: input.ordinal, frame: input.frame })
     const hasImageDefinitions = input.frame.definitions.some(r => !('kind' in r) || r.kind !== 'defaultAuto')
     const hasImage = hasImageDefinitions || input.frame.profile === CANONICAL_MATERIAL_PROFILE || (!input.frame.definitions.length && !this.options.autoSource)
-    if (hasImage && !this.options.bank.isReady()) throw new Error('Canonical image bank is not prepared')
+    if (hasImage && !this.options.bank?.isReady()) throw new Error('Canonical image bank is not prepared')
     if (!hasImage && input.assets.length) throw new TypeError('Auto-only frame must not supply image assets')
-    const prepared = hasImage ? this.options.bank.preparedResources() : []
+    const prepared = hasImage ? this.options.bank!.preparedResources() : []
     const sourceKeys = input.frame.definitions.map(recipe => {
       if (recipe.width > this.options.capacity.width || recipe.height > this.options.capacity.height) throw new RangeError('Canonical material exceeds prepared capacity')
       if ('kind' in recipe && recipe.kind === 'defaultAuto') {
@@ -258,6 +258,7 @@ export class CanonicalFrameExecutor {
       if (!this.options.autoSource) throw new TypeError('Canonical auto source is not trusted');
       return { ...common, material: { kind:'canonicalAuto', recipe, trustedSource:this.options.autoSource } };
     }
+    if (!this.options.bank?.isReady()) throw new Error('Canonical image bank is not prepared');
     const source = this.options.bank.resources().find(s => s.key === work.sourceKeys[d.definition]);
     const asset = work.input.assets.find(a => a.id === recipe.asset);
     if (!source || !asset) throw new Error('Canonical prepared source was evicted');

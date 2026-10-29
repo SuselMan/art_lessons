@@ -154,3 +154,6 @@ Host real7/pressure30, forged-pin, cooperative pending cancellation, native84/56
 
 
 Cooperative regressions also force a final upload to consume the remaining budget: the completed mask is retained, target resolution/compositing waits for the next turn, and the next turn is a zero-upload hit. Initial preparation/cache lookup consume the same turn budget. Long fully clipped scans check every16 draws and preserve the exact cursor on yield. These controls prevent stacking fresh GL work on spent CPU time; they cannot preempt a single allocation/upload/native call.
+
+
+The bank is now optional at construction: real seven-source routing tests construct NO image bank/CAS dummy. Auto-only recorded frames never access a bank; image/mixed frames require an actually prepared bank before target reservations or writes. V1 empty-tail frames keep their image readiness semantics. Missing auto authority still rejects before reservations. This is the same executor path, not an empty-bank implementation or a second resource budget.
