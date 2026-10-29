@@ -43,3 +43,31 @@ uploads; каждый повторный hit: ноль draws/uploads. Учтен
 Скопированного текста GPL-реализации здесь нет: используется существующий
 общий проектный численный слой, его provenance и лицензии сохраняются в
 соответствующих исходных файлах.
+
+## Подготовленный исходный банк
+
+`CanonicalMaskSourceBank` планирует все уровни через существующий NativeImageBank.
+Допустима только trusted imageSampling/inverse-gray provenance исходного
+непрозрачного серого изображения. Произвольная coverage с потерянной исходной
+alpha не подходит. NativeImagePixels сохраняет обратимость: brightness сначала
+масштабируется, потом инвертируется; восстанавливается только interior как
+RGB=255-L8, alpha255, а прозрачная рамка остаётся RGBA0.
+
+Uploaded bytes проверены на 104 существующих native fixtures (8 prepared grids
+Qt5.15.13, 96 pinned source-image opaque-gray levels): все 74 668 байт совпали.
+Подготовка банка — отдельный этап от native affine PM/store dispatch.
+
+Пик CPU — максимум двух фаз: generation (croppedN+brightnessN+scaledM+borderL8B
+и resize-axis heap estimate512 bytes per source/destination axis unit) либо
+expansion (borderL8B+RGBA4B). После возврата nativeImagePixels его временные
+массивы уже недостижимы; отложенный GC не является гарантией жёсткого heap cap.
+Reachable working-set дополняется metadata
+512 bytes/job и явно переданный companion prepass budget. Временный резерв
+берётся до crop/resize/expansion, cached L8 также остаётся в общем bounded cache;
+RGBA CPU копии не сохраняются. GL уровни NEAREST/CLAMP, без mipmaps.
+
+Metadata-only аудит 17 source-author кандидатов с companion128×128/2slots
+(692224 GPU и CPU bytes): 17 admitted. Источник153×64 с native максимальным
+уровнем1224×512 помещается по phase-lifetime budget; более крупные банки
+явно отклоняются до allocation. Уровни не пропускаются и fallback не включается. Это проверка возможностей внутреннего банка, не изменение
+поддержки каталога или активного renderer.
