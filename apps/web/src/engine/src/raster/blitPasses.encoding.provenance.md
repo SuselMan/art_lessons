@@ -31,3 +31,30 @@ execute the new bilinear conversion, so these results do not prove GPU pixels.
 A separate actual Samsung production-BlitPasses gate is required, including
 nonuniform hidden-RGB/half-texel cases and PM byte comparison against the original
 shader. No actual GPU or cross-device claim is made by this source change alone.
+
+## Actual Samsung primitive gate
+
+Production source `09256c69d` was checked on Samsung SM-T970 / Adreno 650,
+Chrome 155, WebGL1 fragment highp 23. The first 97 cases comprised 25 straight
+CPU-reference cases (declared tolerance 1 U8, actual maximum 0; no nonzero
+cases) and 72 strict PM GPU before/after cases against frozen class and shaders
+from `ee850a2a3` (maximum 0). Hidden green RGB beside opaque red at a half
+texel produced `[128, 0, 0, 128]`.
+
+A separate supplemental 96-case strict GPU A/B compared the new straight
+program with the frozen old PM program. Four nonuniform binary-RGB patterns
+used alpha 0/1/127/128/254/255, including hidden RGB. Reference PM bytes were
+formed independently: each RGB 255 becomes its alpha byte, each RGB 0 stays 0.
+Both entry points, six matrices, and area masks 0/128/255 were checked. Every
+byte matched (tolerance 0, maximum 0). Straight-to-PM flag reset was exercised
+in the same program. This avoids an early premultiplication quantization
+ambiguity and does not infer equality from the CPU tolerance.
+
+Both gates preserved source pixels and sampler settings, performed no hot
+texture upload/allocation or program creation, and reported no GL errors. Own
+contexts, GL handles, child tabs and ADB forward were removed; original tabs
+were preserved. Private receipts are `fixes-v52/blit-straight-resampling-` and
+`fixes-v52/blit-binary-straight-ab-` device-result/prepared/cleanup JSON files,
+with separate source, shader, bundle, body and config hashes. These are
+presentation-resampling primitive receipts, not whole-display readiness or
+canonical brush/native GUI identity.
