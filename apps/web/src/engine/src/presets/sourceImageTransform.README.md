@@ -69,10 +69,29 @@ alpha mask conversion to that straight result, without another premultiply stage
 Actual complete native pyramid output and compiled KoIntegerMaths::UINT8_MULT check
 all128 RGBA/A8 images, including partial-alpha/color data. The96 opaque-gray cases
 also check original pixels through the common level resampler and transparent
-border; arbitrary originalRGBA level preparation remains a separate profile stage.
+border. The follow-up explicit SSE straight converter now closes ALL128 original
+RGBA/color/partial-alpha inputs through selected levels, affine output and A8 mask.
+It shares one validated reciprocal/Newton primitive with the RGBA16 store and
+matches all60 preceding actual QImage::scaled→ARGB32 conversion cases. No pixel
+filter is duplicated, no additional premultiply is inserted, and original inputs
+remain immutable. `sourceImageTransformPreparedPixels/Mask` are closed CPU proof
+functions; production callers can cache selected levels and reuse the lower-level
+affine entry point instead of resizing the original on every dab.
 
 Android NEON has distinct products/decode/store and needs its own actual execution
 receipts. Slow/perspective sampling and unproven fixed-point slope domains fail
 closed. Future canonical profiles must select laws once for all peers; local CPU
 detection is not a replay rule. Canonical straightRGBA8 storage must also remain
 distinct from lossy premultiplied display conversion.
+
+The additional actual opaque-gray 2×1 halfway fixture is a deliberate negative
+proof: original grays127/128 with A255, subpixel (0.0117034912109375,
+0.996063232421875), produce native A8 `[1,1,0,126,127,1]`. Division-store
+produces0 at the second pixel instead of1. Thus the128 earlier matching A8
+fixtures do not establish a universal lookup-free native SSE A8 profile, even for
+opaque grayscale. Opaque original level preparation itself needs no reciprocal
+(alpha remains255 before adding the transparent border); affine edge storage
+is a separate boundary. The explicit host SSE profile is not an Android profile.
+Pinned Qt5.15.7 ARM64 uses the generic QRgba64 integer64 unpremultiplication
+store unless separately replaced by dispatch; its implementation/proof is a
+subsequent integration unit, not silently substituted here.

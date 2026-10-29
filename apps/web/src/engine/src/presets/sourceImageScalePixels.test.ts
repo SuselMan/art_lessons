@@ -1,7 +1,8 @@
 import { Buffer } from 'node:buffer'
 import { describe, expect, it } from 'vitest'
+import store from './fixtures/sourceImageTransformStore.native.json'
 import native from './fixtures/sourceImageScalePixels.native.json'
-import { sourceImageScalePixels, sourceImageScaleStraightScalar } from './sourceImageScalePixels'
+import { sourceImageScalePixels, sourceImageScaleStraightScalar, sourceImageScaleStraightSse } from './sourceImageScalePixels'
 
 describe('source-informed QImage smooth resize pixels', () => {
   it('matches actual compiled scalar and SSE kernels for every channel', () => {
@@ -50,4 +51,18 @@ describe('source-informed QImage smooth resize pixels', () => {
     expect(() => sourceImageScalePixels(new Uint8Array(4), 1, 1, 1, 1, 'unknown' as 'simd')).toThrow()
     expect(() => sourceImageScaleStraightScalar({ pixels: new Uint8Array([2, 0, 0, 1]), format: 'premultiplied' })).toThrow()
   })
+})
+
+it('matches actual host SSE ARGB32 conversion using the same source reciprocal primitive as affine16', () => {
+  const bytes = Buffer.from(store.estimatesF32LE, 'base64'), view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const estimate = (a: number): number => view.getFloat32(a * 4, true)
+  for (const c of native.cases) {
+    const scaled = sourceImageScalePixels(Uint8Array.from(c.input), c.width, c.height, c.targetWidth, c.targetHeight, 'simd')
+    expect([...sourceImageScaleStraightSse(scaled, estimate)]).toEqual(c.qtStraight)
+  }
+  const pixel = { pixels: Uint8Array.from([64, 0, 0, 128]), format: 'premultiplied' } as const
+  expect([...sourceImageScaleStraightSse(pixel, estimate)]).toEqual([127, 0, 0, 128])
+  expect([...sourceImageScaleStraightScalar(pixel)]).toEqual([128, 0, 0, 128])
+  expect(() => sourceImageScaleStraightSse(pixel, () => Infinity)).toThrow()
+  expect(() => sourceImageScaleStraightSse({ pixels: Uint8Array.from([2, 0, 0, 1]), format: 'premultiplied' }, estimate)).toThrow()
 })

@@ -1,3 +1,4 @@
+import { sourceImageSseReciprocal, sourceImageRoundEven as roundEven, type SourceImageReciprocalEstimate } from '../presets/sourceImageTransformReciprocal'
 import type { InverseImageAffine } from './affineImageSpan'
 
 /** Experimental RGBA16 reference for straight-ARGB32 QPainter destinations.
@@ -72,13 +73,9 @@ export function sampleAffineImageSpan16(
   return result
 }
 
-const roundEven = (value: number) => {
-  const floor=Math.floor(value), fraction=value-floor
-  return fraction<.5 ? floor : fraction>.5 ? floor+1 : floor+(floor%2)
-}
 const byteFrom16 = (value: number) => Math.floor((value+128-Math.floor((value+128)/256))/256)
 
-export type AffineReciprocalEstimate = (alpha16: number) => number
+export type AffineReciprocalEstimate = SourceImageReciprocalEstimate
 
 /** Optional source backend estimate, captured/compiled independently of images.
  * Validate and latch each distinct F32 input before allocating/writing result bytes.
@@ -90,11 +87,7 @@ function checkedReciprocals(pixels: Uint16Array, estimate: AffineReciprocalEstim
     const alpha = pixels[i + 3]!
     if (pixels[i]! > alpha || pixels[i + 1]! > alpha || pixels[i + 2]! > alpha) throw new RangeError('Invalid premultiplied RGBA16 channel')
     if (!alpha || alpha === 65535 || values.has(alpha)) continue
-    const value = estimate(alpha)
-    if (!Number.isFinite(value) || value <= 0 || Math.fround(value) !== value
-      || Math.abs(value * alpha - 1) > 1.5 / 4096) throw new RangeError('Invalid source reciprocal estimate')
-    const twice = Math.fround(value + value), squaredTimesAlpha = Math.fround(value * Math.fround(value * alpha))
-    values.set(alpha, Math.fround(twice - squaredTimesAlpha))
+    values.set(alpha, sourceImageSseReciprocal(alpha, estimate(alpha)))
   }
   return values
 }

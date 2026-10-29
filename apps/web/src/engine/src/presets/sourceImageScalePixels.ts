@@ -1,3 +1,4 @@
+import { sourceImageSseReciprocal, sourceImageRoundEven, type SourceImageReciprocalEstimate } from './sourceImageTransformReciprocal'
 import { assertIntegerImageScaleBudget, scaleIntegerImageU8, type IntegerImageInterpolationLaw } from '../raster/integerImageScale'
 
 /** Both laws occur in Qt: scalar bilinear rounds X then Y, SSE2/NEON Y then X.
@@ -51,6 +52,32 @@ export function sourceImageScaleStraightScalar(image: SourceScaledImage): Uint8A
       pixels[i + c] = a === 255 ? image.pixels[i + c]! : Math.floor((image.pixels[i + c]! * inverse + 32768) / 65536)
     }
     pixels[i + 3] = a
+  }
+  return pixels
+}
+
+/** Explicit SSE straight conversion for a backend with independently proven
+ * reciprocal estimates. Scalar conversion above remains a different source law.
+ * Callback values are validated/latching once per needed alpha before output.
+ * Identity straight input preserves all original bytes, including alpha0 RGB. */
+export function sourceImageScaleStraightSse(image: SourceScaledImage, estimate: SourceImageReciprocalEstimate): Uint8Array {
+  if (!(image.pixels instanceof Uint8Array) || image.pixels.length % 4 !== 0 || image.pixels.length > MAX_PIXELS * 4
+    || (image.format !== 'straight' && image.format !== 'premultiplied') || typeof estimate !== 'function') throw new RangeError('Invalid SSE scaled image profile')
+  if (image.format === 'straight') return new Uint8Array(image.pixels)
+  const factors = new Map<number, number>()
+  for (let i = 0; i < image.pixels.length; i += 4) {
+    const alpha = image.pixels[i + 3]!
+    if (image.pixels[i]! > alpha || image.pixels[i + 1]! > alpha || image.pixels[i + 2]! > alpha) throw new RangeError('Invalid premultiplied pixel')
+    if (!alpha || alpha === 255 || factors.has(alpha)) continue
+    factors.set(alpha, Math.fround(sourceImageSseReciprocal(alpha, estimate(alpha)) * 255))
+  }
+  const pixels = new Uint8Array(image.pixels.length)
+  for (let i = 0; i < pixels.length; i += 4) {
+    const alpha = image.pixels[i + 3]!
+    pixels[i + 3] = alpha
+    if (!alpha) continue
+    for (let c = 0; c < 3; c++) pixels[i + c] = alpha === 255 ? image.pixels[i + c]!
+      : sourceImageRoundEven(Math.fround(image.pixels[i + c]! * factors.get(alpha)!))
   }
   return pixels
 }

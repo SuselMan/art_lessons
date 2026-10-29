@@ -1,9 +1,10 @@
 import { Buffer } from 'node:buffer'
 import { expect, it } from 'vitest'
 import store from './fixtures/sourceImageTransformStore.native.json'
+import halfway from './fixtures/sourceImageTransformRcpA8.native.json'
 import native from './fixtures/sourceImageTransform.native.json'
 import { sourceImageScalePixels, sourceImageScaleStraightScalar } from './sourceImageScalePixels'
-import { sourceImageTransformMask, sourceImageTransformPixels } from './sourceImageTransformPixels'
+import { sourceImageTransformMask, sourceImageTransformPixels, sourceImageTransformPreparedPixels, sourceImageTransformPreparedMask } from './sourceImageTransformPixels'
 import { sourceImageTransformPlan } from './sourceImageTransformPlan'
 
 const bytes = Buffer.from(store.estimatesF32LE, 'base64')
@@ -50,4 +51,36 @@ it('rejects malformed level layouts and missing or invalid exact backend profile
 it('closes selected native material to exact A8 without another premultiplication', () => {
   for (const c of native.cases) expect([...sourceImageTransformMask(Uint8Array.from(c.expected.levelRGBA),
     c.width, c.height, c.shape, c.subX, c.subY, profile)]).toEqual(c.expected.mask)
+})
+
+it('closes every prepared original RGBA/partial-alpha image through level preparation and native RGBA/A8', () => {
+  for (const [index, c] of native.cases.entries()) {
+    const input = Uint8Array.from(c.input), before = input.slice()
+    expect([...sourceImageTransformPreparedPixels(input, c.width, c.height, c.shape, c.subX, c.subY, profile)], `whole prepared RGBA ${index}`).toEqual(c.expected.rgba)
+    expect([...sourceImageTransformPreparedMask(input, c.width, c.height, c.shape, c.subX, c.subY, profile)], `whole prepared A8 ${index}`).toEqual(c.expected.mask)
+    expect(input).toEqual(before)
+  }
+})
+
+it('rejects malformed original profiles before resize/conversion callbacks', () => {
+  const c = native.cases[110]!, input = Uint8Array.from(c.input)
+  let calls = 0
+  const invalid = { ...profile, sourceDecode: 'auto', reciprocalEstimate: () => { calls++; return .5 } }
+  expect(() => sourceImageTransformPreparedPixels(input, c.width, c.height, c.shape, c.subX, c.subY,
+    invalid as unknown as typeof profile)).toThrow(/profile/)
+  expect(calls).toBe(0)
+  expect([...input]).toEqual(c.input)
+  expect(() => sourceImageTransformPreparedPixels(input.subarray(1), c.width, c.height, c.shape, c.subX, c.subY, profile)).toThrow()
+})
+
+it('preserves an actual opaque-gray A8 counterexample to division-store identity', () => {
+  const c = halfway, level = Uint8Array.from(c.expected.levelRGBA)
+  const model = { products: 'separate', sourceDecode: 'wide8', straightStore: 'sse4-model' } as const
+  expect([...sourceImageTransformPreparedPixels(Uint8Array.from(c.input), c.width, c.height,
+    c.shape, c.subX, c.subY, profile)]).toEqual(c.expected.rgba)
+  expect([...sourceImageTransformMask(level, c.width, c.height, c.shape, c.subX, c.subY, profile)]).toEqual(c.expected.mask)
+  const approximate = sourceImageTransformMask(level, c.width, c.height, c.shape, c.subX, c.subY, model)
+  expect(approximate[1]).toBe(0)
+  expect(c.expected.mask[1]).toBe(1)
+  expect([...approximate]).not.toEqual(c.expected.mask)
 })

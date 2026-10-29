@@ -98,8 +98,10 @@ The subsequent conversion has a separate proof boundary. The explicitly named
 host with SSE4.1/AVX2 conversion disabled. Default host SIMD ARGB32 conversion has
 observable differences (for example premultiplied channel64/alpha128 can become127,
 where scalar gives128) due to reciprocal-estimate/Newton and rounding. The fixture
-keeps both actual outputs. This adapter does not claim to implement host SSE or
-Android NEON unpremultiplication, nor to reconstruct lost straight channels.
+keeps both actual outputs. The explicit `sourceImageScaleStraightSse` follow-up accepts an independently
+proven reciprocal backend and matches all60 actual host SSE conversion cases;
+scalar remains a separate law. Neither reconstructs lost straight channels, and
+Android NEON unpremultiplication remains a separate source backend.
 A future canonical material profile must fix interpolation AND conversion laws;
 peer-local feature detection cannot be a replay rule. No new profile is activated.
 This is source-informed mathematical implementation, not a clean-room provenance
