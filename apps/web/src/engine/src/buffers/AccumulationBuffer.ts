@@ -430,12 +430,16 @@ export class AccumulationBuffer {
 
   copyTo(dest: AccumulationBuffer): void {
     if (dest.pixelEncoding !== this.pixelEncoding) throw new Error('Raw copy pixel encoding mismatch')
-    dest._invalidateMips() // copyTexImage2D redefines dest's level 0
+    if (dest === this || dest.gl !== this.gl || dest.width !== this.width || dest.height !== this.height) throw new TypeError('Raw copy requires distinct same-context buffers of identical dimensions')
+    dest._invalidateMips()
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
-    gl.bindTexture(gl.TEXTURE_2D, dest._texture)
-    gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, this.width, this.height, 0)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    try {
+      gl.bindTexture(gl.TEXTURE_2D, dest._texture)
+      // Storage already exists. Redefining it could silently change a pooled
+      // allocation's dimensions and churn GPU allocations on every wash copy.
+      gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, this.width, this.height)
+    } finally { gl.bindFramebuffer(gl.FRAMEBUFFER, null) }
   }
 
   /** Like copyTo, but from an arbitrary sub-rect of this buffer into an
