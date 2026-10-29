@@ -1,4 +1,4 @@
-import { isSourceStampData, type BrushDescriptor, type SourceStampCurveData } from '@grafetto/shared'
+import { extractCanonicalSinglePngCapability, type BrushDescriptor, type SourceStampCurveData } from '@grafetto/shared'
 import { sourceCurveIsIdentity, type SourceCurvePolynomial } from './sourceCurve'
 import { compileSourceOptionProgram, type SourceOptionProgramInput } from './sourceOptionProgram'
 import { SourceStrokeAuthor, type SourceAuthorRoleProgram, type SourceStrokeAuthorProgram } from './sourceStrokeAuthor'
@@ -17,20 +17,10 @@ export interface SourceAuthorDescriptorContext {
 export type SourceAuthorDescriptorResult = { readonly supported: true; readonly program: SourceStrokeAuthorProgram }
   | { readonly supported: false; readonly reasons: readonly string[] }
 export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, context: SourceAuthorDescriptorContext): SourceAuthorDescriptorResult {
-  const data=descriptor.sourceStamp
+  const data=descriptor.sourceStamp!
+  const material = extractCanonicalSinglePngCapability(descriptor, context.asset)
+  if (!material.supported) return material
   const reject=(reason:string):SourceAuthorDescriptorResult=>({supported:false,reasons:[reason]})
-  if (data === undefined) return reject('legacy-descriptor-no-source-data')
-  if (!isSourceStampData(data)) return reject('invalid-source-data')
-  if (data.unsupported.length) return {supported:false,reasons:[...data.unsupported]}
-  if (data.role !== 'primary' || descriptor.behavior?.dual) return reject('mask-master-size-unresolved')
-  if (descriptor.model !== 'stamp' || descriptor.tip.kind !== 'bitmap' || descriptor.tip.animation || descriptor.tip.material) return reject('unsupported-source-material')
-  const sampling=descriptor.tip.imageSampling
-  if (!sampling || sampling.kind !== 'integer-pyramid' || sampling.signal !== 'inverse-gray' || descriptor.tip.mask !== context.asset.id
-    || sampling.sourceRect.width !== data.brush.width || sampling.sourceRect.height !== data.brush.height
-    || !Object.values(sampling.sourceRect).every(v=>Number.isInteger(v) && v>=0)
-    || !Number.isInteger(context.asset.size) || context.asset.size < 2 || context.asset.size > 2048
-    || sampling.sourceRect.x < 0 || sampling.sourceRect.y < 0 || sampling.sourceRect.x+data.brush.width > context.asset.size || sampling.sourceRect.y+data.brush.height > context.asset.size) return reject('native-cas-source-grid-unavailable')
-  if (!data.flags.materialFixed1 || data.flags.textureEnabled || descriptor.behavior?.colorAdjustment) return reject('unsupported-material-consumer')
   if (!Number.isFinite(context.lodScale) || context.lodScale <= 0 || typeof context.colorIdentity !== 'string' || !context.colorIdentity.length
     || context.scale !== undefined && (!Number.isFinite(context.scale) || context.scale <= 0)) return reject('invalid-author-context')
   const programs:Record<string,SourceOptionProgramInput>={}
