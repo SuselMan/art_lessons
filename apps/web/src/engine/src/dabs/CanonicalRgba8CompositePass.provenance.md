@@ -128,10 +128,26 @@ pass: heavily instrumented test took69.7s across17 strokes, maxrAF133.8ms,
 maxworkturn138.1ms. Separate phase/guard A/B profiling is required before
 attributing these timings to production engine work or claiming smoothness.
 
-## Optional synchronous batch (pending device gate)
+## Optional synchronous batch
 
 Второй аргумент drawSource(request,frame) использует общий BrushGlBatch capsule,
 predeclared owners/resources, once-per-source sampler journal и once-per-FBO
 validation. Прежний drawSource(request)/draw не пропускает защитные проверки.
 Численные shader strings и copy geometry прежние. Контракт и ограничения описаны
 в BrushGlBatch.provenance.md; предыдущие receipts не являются proof нового batch.
+
+Source15f484ede batch additionally passed the full17 canonical stroke gate on
+Samsung SM-T970/Adreno650:680 inputs,3256 draws,203 chunk checkpoints, finalRGBA
+and checkpoints exact, GL[], hotuploads0. The separate guarded receipt uses
+caller-state sentinels/snapshots outside each scope and proves restoration;
+all owned resources/leases/context/child tabs released. Receipts are private
+R52/canonical-stock-full17-batch[-guards]-device-result.json and paired cleanup
+receipts; summary canonical-stock-full17-batch-summary.md. Unguarded receipt's
+stateRestored field alone is not evidence of caller-state restoration.
+
+Guarded timings15.551s total include QA/browser/driver/readback overhead. Consecutive
+rAF timestamps per brush/phase exclude the first callback; the earlier unguarded
+receipt's negative first interval is a baseline artifact and remains preserved.
+Hot frame stalls remain (for example brush84 maxrAF100.3ms/maxturn67.1ms); this
+is not a responsiveness pass or proof for native fused arithmetic/active layer
+storage/undo/replay. Future sampler-ownership changes require their own gate.
