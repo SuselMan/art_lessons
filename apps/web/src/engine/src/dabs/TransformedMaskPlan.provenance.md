@@ -56,3 +56,28 @@ inputs/3256 draws/203 shared-decoded chunks pass exact production canonical
 metadata versus bank index/baseScale/native/bordered/CAScrop checks. It allocates
 no pixel planes and is not GPU/native-app identity evidence. Compact audit and
 full packed stream retained in QA fixes-v52; no huge fixture is copied into Git.
+
+## Real stock-author canonical whole-stroke device gate
+
+Actual Samsung SM-T970 / Adreno650 WebGL1 highp23, frozen3047f6635/a70d8c2e0
+geometry/composition sources:17 retained real descriptors,680 author inputs,
+203 decoded canonical chunks,3256 draws. Real original CAS bytes pass SHA/size
+validation; finite source banks are prepared, canonical recipes bind original
+crop and level. Sixteen wash strokes use local scalar AlphaDarken plus final
+portable scalar Over against immutable base; one buildup stroke uses Over.
+
+Every final512x256 RGBA target byte matches the independent host calculation;
+all per-chunk local FNV checkpoints agree (additional diagnostic, not a
+cryptographic equivalence claim). Hot uploads0, GL errors empty, GL state
+restored and leases balanced. Maximum tracked brush GPU4648212B and CPU
+reservations1267440B; external surfaces and driver allocations are separate.
+Cleanup releases all owned contexts/textures/reservations and restores original
+three Samsung tabs. Private scripts/receipts: fixes-v52/run-canonical-stock-
+strokes.mts, canonical-stock-strokes-body.js, canonical-stock-strokes-device-
+result.json, canonical-stock-device-cleanup.json.
+
+This is explicit scalar-profile end-to-end conformance, not installed native
+FMA/SIMD or active PM storage/wire/undo identity. It is also not a responsiveness
+pass: heavily instrumented test took69.7s across17 strokes, maxrAF133.8ms,
+maxworkturn138.1ms. Separate phase/guard A/B profiling is required before
+attributing these timings to production engine work or claiming smoothness.
