@@ -1,4 +1,5 @@
 import { readRoomRasterVersion, roomRasterPixelEncoding, isRasterPixelEncoding, LEGACY_ROOM_RASTER_VERSION, type RasterPixelEncoding, type RoomRasterVersion } from '@grafetto/shared'
+import { attachAccumStorage } from './src/buffers/ContextStorageOwner'
 import { distinctBrushStorageChargeBytes } from './src/dabs/BrushTextureCache'
 import { AuthorTaskScheduler } from './src/input/AuthorTaskScheduler'
 import { AuthorInputFIFO } from './src/input/AuthorInputFIFO'
@@ -2344,6 +2345,9 @@ export class PencilEngine implements PencilEngineAPI {
       antialias: false,
     })
     if (!gl) throw new Error('WebGL not supported')
+    // Diagnostic/incomplete Accum domain only. Finite engine admission stays
+    // closed until constructor rollback and raw storage ownership are migrated.
+    attachAccumStorage(gl, { limitBytes: Infinity })
     this.gl = gl
   this._compositor = new LayerCompositor({
     gl,

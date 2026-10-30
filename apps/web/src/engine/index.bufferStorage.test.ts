@@ -1,4 +1,6 @@
 import { expect, it } from 'vitest'
+import { PencilEngine } from './index'
+import { snapshotAccumStorage } from './src/buffers/ContextStorageOwner'
 import { createTestEngine } from './testing/engineTestUtils'
 import { AccumulationBuffer } from './src/buffers/AccumulationBuffer'
 
@@ -65,4 +67,21 @@ it('attributes two real painter caches without counting buffer/pool storage twic
     expect(engine.getWatercolorPerf().knownTrackedStorageMB).toBe(AccumulationBuffer.contextStorageByteLength(gl) / mb)
   } finally { engine.destroy() }
   expect(engine.getWatercolorPerf().knownTrackedStorageMB).toBe(0)
+})
+
+it('two actual engines sharing one context retain distinct allocations through healthy retirement', () => {
+  const { engine: first, canvas } = createTestEngine({ paper: 'flat' }, { width: 16, height: 16 })
+  const gl = first['gl'], before = snapshotAccumStorage(gl).residentBytes
+  const second = new PencilEngine(canvas as unknown as HTMLCanvasElement, { paper: 'flat' })
+  try {
+    const both = snapshotAccumStorage(gl).residentBytes
+    expect(both).toBeGreaterThan(before)
+    expect(snapshotAccumStorage(gl)).toMatchObject({ complete: false, reservedBytes: 0, limitBytes: Infinity })
+    first.destroy()
+    const remaining = snapshotAccumStorage(gl).residentBytes
+    expect(remaining).toBeGreaterThan(0)
+    expect(remaining).toBeLessThan(both)
+    second.destroy()
+    expect(snapshotAccumStorage(gl).residentBytes).toBe(0)
+  } finally { first.destroy(); second.destroy() }
 })

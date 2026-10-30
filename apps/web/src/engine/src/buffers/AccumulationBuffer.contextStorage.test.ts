@@ -43,13 +43,15 @@ it('separates contexts and ignores old epoch destruction after loss', () => {
   expect(AccumulationBuffer.contextStorageByteLength(other)).toBe(0)
 })
 
-it('does not charge mip storage if generation throws', () => {
+it('conservatively retains attempted mip storage if generation throws', () => {
   const mock = new MockGL(), gl = mock as unknown as WebGLRenderingContext
   const buffer = new AccumulationBuffer(gl, 8, 4)
   try {
     vi.spyOn(mock, 'generateMipmap').mockImplementationOnce(() => { throw new Error('mip generation failed') })
     expect(() => buffer.ensureMipmaps()).toThrow('mip generation failed')
-    expect(AccumulationBuffer.contextStorageByteLength(gl)).toBe(128)
+    // A throwing storage call may already have allocated levels; retain the
+    // conservative charge until this texture is deleted.
+    expect(AccumulationBuffer.contextStorageByteLength(gl)).toBe(172)
     buffer.ensureMipmaps()
     expect(AccumulationBuffer.contextStorageByteLength(gl)).toBe(172)
   } finally { buffer.destroy() }

@@ -1,4 +1,5 @@
 import { isRasterPixelEncoding, type RasterPixelEncoding } from '@grafetto/shared'
+import { chargeAccumOrphan, forgetAccumStorage, isAccumLeaseCurrent, materializeAccumStorage, releaseAccumLease, releaseAccumReservation, reserveAccumStorage, snapshotAccumStorage, validateAccumReservation, type StorageLease, type StorageReservation } from './ContextStorageOwner'
 
 // Persistent WebGL framebuffer that accumulates graphite over strokes.
 // Blending: ONE, ONE_MINUS_SRC_ALPHA  →  result = src + dst*(1-src.a)
@@ -11,21 +12,10 @@ function isPowerOfTwo(n: number): boolean {
 const checkedContexts = new WeakSet<WebGLRenderingContext>()
 // No buffer/texture strong references. Explicit lifetime charges cover every
 // AccumulationBuffer in this context, including local export/rebuild scratch.
-const storageOwners = new WeakMap<WebGLRenderingContext, { bytes: number }>()
-
 export class AccumulationBuffer {
-  /** Requested texture storage only, excluding raw textures/driver overhead. */
-  static contextStorageByteLength(gl: WebGLRenderingContext): number { return storageOwners.get(gl)?.bytes ?? 0 }
-  /** Context loss releases all storage. Old objects retain an old owner epoch,
-   * so their eventual destroy cannot subtract from restored allocations. */
-  static forgetContextStorage(gl: WebGLRenderingContext): void {
-    storageOwners.delete(gl)
-    // Restored storage belongs to a new driver generation, even on the same
-    // JS context object. Its first FBO must establish completeness again.
-    checkedContexts.delete(gl)
-  }
-  private readonly storageOwner: { bytes: number }
-  private accountedBytes: number
+  static contextStorageByteLength(gl: WebGLRenderingContext): number { return snapshotAccumStorage(gl).residentBytes }
+  static forgetContextStorage(gl: WebGLRenderingContext): void { forgetAccumStorage(gl); checkedContexts.delete(gl) }
+  private storageLeases: StorageLease[] = []
   readonly pixelEncoding: RasterPixelEncoding
   readonly gl: WebGLRenderingContext
   readonly width: number
@@ -46,7 +36,7 @@ export class AccumulationBuffer {
   // real paint/composite/display content benefits from the smoothing and
   // was never part of that determinism class (see DAB_FRAG's own paper-catch
   // comment for what *is*).
-  constructor(gl: WebGLRenderingContext, width: number, height: number, filter: 'linear' | 'nearest' = 'linear', pixelEncoding: RasterPixelEncoding = 'premultiplied-rgba8') {
+  constructor(gl: WebGLRenderingContext, width: number, height: number, filter: 'linear' | 'nearest' = 'linear', pixelEncoding: RasterPixelEncoding = 'premultiplied-rgba8', reservation?: StorageReservation) {
     if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1 || !Number.isSafeInteger(width * height * 4)) throw new RangeError('Invalid buffer dimensions')
     if (filter !== 'linear' && filter !== 'nearest') throw new TypeError('Invalid buffer sampling filter')
     if (!isRasterPixelEncoding(pixelEncoding)) throw new Error('Unknown buffer pixel encoding')
@@ -56,52 +46,55 @@ export class AccumulationBuffer {
     this.width = width
     this.height = height
     this._baseFilter = filter
-    this._texture = this._makeTexture(filter)
-    try { this._fbo = this._makeFBO(this._texture) }
-    catch (error) { gl.deleteTexture(this._texture); throw error }
-    // Computed here rather than as a field initializer: those run before the
-    // constructor body assigns width/height, so an initializer would have
-    // silently read undefined and disabled mipmaps everywhere.
-    this._mipCapable = isPowerOfTwo(width) && isPowerOfTwo(height)
-    let owner = storageOwners.get(gl)
-    if (!owner) { owner = { bytes: 0 }; storageOwners.set(gl, owner) }
-    this.storageOwner = owner
-    this.accountedBytes = width * height * 4
-    owner.bytes += this.accountedBytes
-  }
-
-  private _makeTexture(filter: 'linear' | 'nearest'): WebGLTexture {
-    const { gl, width, height } = this
-    const glFilter = filter === 'nearest' ? gl.NEAREST : gl.LINEAR
-    const tex = gl.createTexture()
-    if (!tex) throw new Error('Buffer texture allocation failed')
+    const amount = width * height * 4
+    const ticket = reservation ?? reserveAccumStorage(gl, amount)
     try {
-      gl.bindTexture(gl.TEXTURE_2D, tex)
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, glFilter)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, glFilter)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-      return tex
-    } catch (error) { gl.deleteTexture(tex); throw error }
-  }
-
-  private _makeFBO(texture: WebGLTexture): WebGLFramebuffer {
-    const { gl } = this
-    const fbo = gl.createFramebuffer()
-    if (!fbo) throw new Error('Buffer framebuffer allocation failed')
-    try {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
-      // Check once per context: repeating this sync on every tile stalls tablets.
-      // Failed allocations never mark the context as successfully checked.
-      if (!checkedContexts.has(gl)) {
-        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Framebuffer incomplete')
-        checkedContexts.add(gl)
+      validateAccumReservation(gl, ticket, amount)
+      if (gl.isContextLost()) throw new Error('Cannot allocate buffer in lost context')
+      this._checkColdError('preexisting')
+      let texture: WebGLTexture | null = null, fbo: WebGLFramebuffer | null = null
+      let attemptedStorage = false
+      try {
+        texture = gl.createTexture()
+        if (!texture) throw new Error('Buffer texture allocation failed')
+        gl.bindTexture(gl.TEXTURE_2D, texture)
+        attemptedStorage = true
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+        this._checkColdError('texture allocation')
+        const glFilter = filter === 'nearest' ? gl.NEAREST : gl.LINEAR
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, glFilter)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, glFilter)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+        fbo = gl.createFramebuffer()
+        if (!fbo) throw new Error('Buffer framebuffer allocation failed')
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
+        this._checkColdError('framebuffer allocation')
+        if (!checkedContexts.has(gl)) {
+          if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Framebuffer incomplete')
+          checkedContexts.add(gl)
+        }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        this.storageLeases.push(materializeAccumStorage(gl, ticket, amount))
+        this._texture = texture; this._fbo = fbo
+      } catch (primary) {
+        if (!gl.isContextLost()) {
+          if (fbo) try { gl.deleteFramebuffer(fbo) } catch { /* primary retained; FBO overhead outside migrated domain */ }
+          if (texture) try { gl.deleteTexture(texture) } catch { if (attemptedStorage) chargeAccumOrphan(gl, amount) }
+          if (fbo) try { gl.bindFramebuffer(gl.FRAMEBUFFER, null) } catch { /* retain primary after all cleanup attempts */ }
+        }
+        throw primary
       }
-      return fbo
-    } catch (error) { gl.deleteFramebuffer(fbo); throw error }
-    finally { gl.bindFramebuffer(gl.FRAMEBUFFER, null) }
+    } finally { if (!reservation) releaseAccumReservation(ticket) }
+    this._mipCapable = isPowerOfTwo(width) && isPowerOfTwo(height)
+  }
+
+  /** getError consumes one flag: preexisting errors are explicitly reported,
+   * never drained or misreported as allocation failures. Cold boundaries only. */
+  private _checkColdError(stage: string): void {
+    const error = this.gl.getError()
+    if (error !== this.gl.NO_ERROR) throw new Error(`Buffer ${stage} GL error ${error}`)
   }
 
   get texture(): WebGLTexture { return this._texture }
@@ -132,6 +125,7 @@ export class AccumulationBuffer {
   // filter in place, so the texture is complete from the moment it exists.
   private _mipsValid = false
   private _mipStorageAllocated = false
+  private _mipStorageConfirmed = false
   private _destroyed = false
   // Whether the min filter is currently asking for mip levels. Tracked so
   // setMipSampling can skip redundant GL state changes on the per-draw path.
@@ -179,13 +173,39 @@ export class AccumulationBuffer {
     if (!this._mipCapable) return false
     if (this._mipsValid) return true
     const { gl } = this
-    gl.bindTexture(gl.TEXTURE_2D, this._texture)
-    gl.generateMipmap(gl.TEXTURE_2D)
-    this._mipsValid = true
-    this._mipStorageAllocated = true
-    const bytes = this.storageByteLength
-    this.storageOwner.bytes += bytes - this.accountedBytes
-    this.accountedBytes = bytes
+    if (gl.isContextLost() || !isAccumLeaseCurrent(gl, this.storageLeases[0])) throw new Error('Cannot generate buffer mipmaps in expired context')
+    if (this._mipStorageConfirmed) {
+      gl.bindTexture(gl.TEXTURE_2D, this._texture)
+      gl.generateMipmap(gl.TEXTURE_2D)
+      this._mipsValid = true
+      return true
+    }
+    let width = this.width, height = this.height, amount = 0
+    while (width > 1 || height > 1) {
+      width = Math.max(1, Math.floor(width / 2)); height = Math.max(1, Math.floor(height / 2))
+      amount += width * height * 4
+    }
+    const ticket = this._mipStorageAllocated ? undefined : reserveAccumStorage(gl, amount)
+    let attempted = false
+    try {
+      this._checkColdError('preexisting')
+      gl.bindTexture(gl.TEXTURE_2D, this._texture)
+      attempted = true
+      gl.generateMipmap(gl.TEXTURE_2D)
+      this._checkColdError('mipmap allocation')
+      if (ticket) this.storageLeases.push(materializeAccumStorage(gl, ticket, amount))
+      this._mipStorageAllocated = true
+      this._mipStorageConfirmed = true
+      this._mipsValid = true
+    } catch (error) {
+      // Failed generateMipmap may still have allocated levels. They belong to
+      // this texture until deletion, so preserve a conservative lease charge.
+      if (ticket && attempted && !gl.isContextLost()) {
+        this.storageLeases.push(materializeAccumStorage(gl, ticket, amount))
+        this._mipStorageAllocated = true
+      }
+      throw error
+    } finally { if (ticket) releaseAccumReservation(ticket) }
     return true
   }
 
@@ -521,12 +541,16 @@ export class AccumulationBuffer {
   }
 
   destroy(): void {
-    if (!this._destroyed) {
-      this.storageOwner.bytes -= this.accountedBytes
-      this.accountedBytes = 0
-      this._destroyed = true
+    if (this._destroyed) return
+    this._destroyed = true
+    const current = isAccumLeaseCurrent(this.gl, this.storageLeases[0])
+    let failed = false, primary: unknown, deleted = false
+    if (current && !this.gl.isContextLost()) {
+      try { this.gl.deleteTexture(this._texture); deleted = true } catch (error) { failed = true; primary = error }
+      try { this.gl.deleteFramebuffer(this._fbo) } catch (error) { if (!failed) { failed = true; primary = error } }
     }
-    this.gl.deleteTexture(this._texture)
-    this.gl.deleteFramebuffer(this._fbo)
+    for (const lease of this.storageLeases) releaseAccumLease(lease, deleted)
+    this.storageLeases = []
+    if (failed) throw primary
   }
 }
