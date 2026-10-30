@@ -38,6 +38,8 @@ export interface CanonicalStrokeSnapshotV2 extends CanonicalStrokeSnapshotV1 {
   readonly material: CanonicalMaterialContextV2
 }
 export type CanonicalStrokeSnapshot = CanonicalStrokeSnapshotV1 | CanonicalStrokeSnapshotV2
+/** Resume state: ended describes the recorded prefix. A speculative live-only
+ * terminal frame does not establish a recorded end. */
 export type CanonicalStrokeBeginResult = { readonly ok: true; readonly snapshot: CanonicalStrokeSnapshot; readonly recordedNext: number; readonly liveNext: number; readonly ended: boolean }
   | { readonly ok: false; readonly reason: 'invalid_operation' | 'not_joined' | 'server_error' | 'canonical_repair_required' }
 export type CanonicalStrokeLiveResult = { readonly ok: true; readonly duplicate: boolean }
