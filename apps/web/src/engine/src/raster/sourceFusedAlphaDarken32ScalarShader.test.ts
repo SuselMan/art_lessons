@@ -1,3 +1,6 @@
+import instruction from './fixtures/sourceRgbFmaByte/instruction.native.json'
+import {arm64FusedMultiplyAddF32} from '../presets/sourceArmFmaF32'
+import {sourceVector32StoreByte} from '../presets/sourceVector32'
 import tiny from './fixtures/sourceFusedAlphaDarken32Scalar/tiny.native.json'
 import {compositeSourceFused32} from '../presets/sourceFused32'
 import {expect,it}from'vitest'
@@ -26,4 +29,29 @@ it('matches original installed scalar tiny-control outputs, including zero-mask/
   if(q.dst[3]===0)expect([...actual.slice(0,3)]).toEqual(q.src.slice(0,3))
  }
  expect(creamyTinyFlowRGB).toBeGreaterThan(0);expect(hardFoldSubnormal).toBeGreaterThan(0)
+})
+
+/** Arithmetic precondition proof, not a fake CPU execution of GLSL. Actual
+ * shortcut wiring/alpha noninterference requires the separate GPU old/new gate. */
+it('proves RGB unit coefficient and equal-byte identities against exact FMA and retained original ISA outputs',()=>{
+ let originalUnit=0
+ for(const [raw,source,destination,expected] of instruction.cases){
+  if(raw===0x3f800000){expect(expected).toBe(source);originalUnit++}
+  if(source===destination)expect(expected).toBe(destination)
+ }
+ expect(originalUnit).toBeGreaterThan(0)
+ // Both byte endpoints: every difference/addend is an EXACT integer in F32,
+ // including cancellation and negative product. No half-byte fit or epsilon.
+ for(let source=0;source<256;source++)for(let destination=0;destination<256;destination++){
+  const fused=arm64FusedMultiplyAddF32(1,source-destination,destination)
+  if(sourceVector32StoreByte(fused)!==source)throw Error('Unit RGB FMA identity failed')
+ }
+ const storage=new DataView(new ArrayBuffer(4));let state=0x52f1a409
+ for(let i=0;i<8192;i++){
+  state=(Math.imul(state,1664525)+1013904223)>>>0
+  // Finite nonnegative S<=1, including normal/subnormal/signed-zero boundary.
+  const raw=i<6?[0,0x80000000,1,0x7fffff,0x800000,0x3f800000][i]:state%0x3f800001
+  storage.setUint32(0,raw,true);const t=storage.getFloat32(0,true),value=(state>>>16)&255
+  expect(sourceVector32StoreByte(arm64FusedMultiplyAddF32(t,0,value))).toBe(value)
+ }
 })

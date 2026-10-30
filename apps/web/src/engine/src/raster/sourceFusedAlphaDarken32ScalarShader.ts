@@ -28,7 +28,10 @@ vec4 sourceCompositeFusedAlphaDarken32Scalar(vec4 source,vec4 destination,highp 
  if(selection.y!=0.0){float q=values.w*reciprocalByteSquared;M=q*source.a;}else M=source.a*reciprocalByte;
  float S=O*M;
  vec3 color;
- if(destination.a==0.0)color=source.rgb;
+ // Byte endpoints are exact FMA identities. Hoist BEFORE coefficient
+ // decomposition; alpha and the native D0 hidden-RGB rule are unchanged.
+ if(destination.a==0.0||S==1.0)color=source.rgb;
+ else if(all(equal(source.rgb,destination.rgb)))color=destination.rgb;
  else color=sourceRgbFmaBytes(S,sourceF32Decompose(S,0.0).xyz,source.rgb,destination.rgb);
  // Creamy tinyflow only freezes alpha; opacity-driven RGB ABOVE remains.
  if(!hard&&flowParts.z< -123.0)return vec4(mod(color,256.0),destination.a);

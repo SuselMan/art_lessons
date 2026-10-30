@@ -33,3 +33,52 @@ Only creamy D0 terminal `F*S` can yield a subnormal result on the ordinary path.
 Actual Samsung Adreno650/WebGL1 passes599 scalar point cases (256 baseline,48 fused witnesses,95 alpha-boundary controls,200 independent tiny cases) bit-exact RGBA, GL errors0. The final primitive and input/library/runner hashes are in `proof.native.json`. Complete fragment size9419 bytes; initial cold compile4.9656s, later cached compile1.14–1.42s. A warmed uniform-input overwrite workload with ordinary creamy O/A/F and the average FDIV branch reported about0.1–0.2ms for32768 logical pixels and exact corner readback. Uniform/overdraw optimization and coarse timing preclude a shaded-pixel throughput or responsiveness claim. No activation follows this diagnostic pass.
 
 All own child tabs, contexts, GL objects and forwarding were removed; the original three tabs and foreground parent3631 were preserved. No new runtime, SDK or dependency was created. Private producers/complete receipts remain in `temp/device-runs/krita-stroke-20261024/fixes-v52`.
+
+## RGB identity hoist — bounded old/new GPU proof
+
+The caller now checks two exact byte identities BEFORE coefficient decomposition:
+S==1 returns source RGB; all three equal source/destination byte channels return
+that RGB. Destination alpha0 remains the first native hidden-RGB shortcut, even
+with S0. Computing S, its operation order, hard preparation, tiny domains, full
+alpha/zero/flow graphs and low8 packing are unchanged. This is branch-only reuse
+of the same scalar profile, not relaxed precision or a new native dispatch claim.
+
+For S1, source-destination and the exact sum are integers in[-255,255] and[0,255],
+respectively. FMA(1,source-destination,destination) is EXACT source byte, so its
+F32 store, RNE and low8 pack are identical. For equal byte channels the difference
+is zero and FMA(S,0,destination) is that destination byte for every finite S in
+this profile, including signed zero. Alpha is intentionally not inferred from
+these RGB identities. Equality hoist avoids the currently redundant coefficient
+normalization before three internal per-channel equality returns.
+
+Host tests retain original ISA FMADD/FRINTI endpoint receipts, check every65536
+source/destination byte pair for S1 against the independently validated exact
+F32 FMA primitive, and8192 deterministic normal/subnormal/zero/unit equal-byte
+coefficients. Existing native tiny/full-Alpha fixtures remain tested. These
+establish arithmetic preconditions; they do NOT execute GLSL or substitute for
+the separate actual-Samsung gate below. The preceding599-case GPU receipt describes
+its frozen older source, not this hoist. No state, resource, shader family,
+compositor selection, room, renderer or author activation is added.
+
+### Actual old/new gate
+
+Root's physical Samsung gate passed14 trials ×512 points =7168 points PER mode,
+old and new independently compared with host CPU fused-scalar source-law expected.
+Both modes wrong0/maxDelta0; state/samplers/leases restored, hot uploads0, GL0 and
+GPU/CPU cleanup0. Cases combine creamy/hard, equalRGB/unitS/mixed RGB and normal,
+tiny and selection controls. Despite a reused runner label, this was AlphaDarken,
+NOT Over or a complete native GUI operation. It does not prove a speedup.
+
+Old module came RAM-only from `git show d8410945445de9521643c2f17a34541f7fe811a0`,
+source SHA256 `5786b5098ff7dbefbf0bfaf271e3173d19feebe11f49a3661123010e5248acd3`.
+New source SHA256 `3fc590497d7b4b9db800c12a941e650dc9b50a19323a2da889d437c9e87710b1`.
+Receipt `R52/alpha-rgb-hoist-device-result.json` SHA256
+`2e0dc3a2a0c0a4d433476ef2b4710b3df4b3fbbd38d703d0930a520c812ab81c`;
+body `85f125c5d735bb1123e1802f2f703095dd44993cfefb39976d79fd459b4a2caf`,
+config `e3439a38e6f72d287319d0c12858f8054f73a815c8a0dc2f69393920afe1d850`.
+Complete runner/body/cleanup retained privately next to the receipt. Root-owned
+child/context/GLobjects/forward were closed; no new service/dependency/runtime.
+Host14tests/3files, common actual web TSC49153 and scoped lint pass. Earlier599
+point proof remains associated with its older frozen source; this receipt adds
+only the exact hoist scope described here. Whole auto7 production-service proof
+and responsiveness measurements remain separate root-owned gates.
