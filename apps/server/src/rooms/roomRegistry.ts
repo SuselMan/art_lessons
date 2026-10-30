@@ -232,25 +232,28 @@ export function isIdle(record: RoomRecord): boolean {
 // back missing content that was never really lost, just not queryable yet.
 const pendingWrite = new Map<string, Promise<void>>()
 
-export function enqueueWrite(roomId: string, run: () => Promise<unknown>): void {
+/** A settled outcome is safe for existing fire-and-forget callers to ignore.
+ * Queue drain still means settled, NOT successful persistence. */
+export type RoomWriteOutcome<T = void> = { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly error: unknown }
+
+export function enqueueWrite<T>(roomId: string, run: () => Promise<T>): Promise<RoomWriteOutcome<T>> {
   const prior = pendingWrite.get(roomId) ?? Promise.resolve()
-  const next: Promise<void> = prior.then(run).then(
-    () => {},
-    err => { console.error(`failed to persist write for room ${roomId}`, err) },
-  ).finally(() => {
-    // (#292) Drop the entry once it's settled and nothing has chained onto
-    // it since. Without this the map only ever grew: one entry per room this
-    // process has *ever* written to, outliving the room's own eviction and
-    // living until restart. Individually tiny, but unbounded in count — and
-    // it kept the last write's whole closure reachable along with it.
-    //
-    // The identity check is what makes this safe: a write enqueued while
-    // this one was in flight has already replaced the entry with its own
-    // promise, and that one must survive so `leaveRoom` still defers
-    // eviction behind it.
+  const outcome: Promise<RoomWriteOutcome<T>> = prior.then(async () => {
+    try { return { ok: true, value: await run() } }
+    catch (error) {
+      // Logging must not turn an otherwise settled failure into an unhandled
+      // rejection for a legacy caller which intentionally ignores the outcome.
+      try { console.error(`failed to persist write for room ${roomId}`, error) } catch { /* diagnostic sink only */ }
+      return { ok: false, error }
+    }
+  })
+  const next: Promise<void> = outcome.then(() => {}).finally(() => {
+    // A later write owns the queue tail; an older completion cannot remove it.
     if (pendingWrite.get(roomId) === next) pendingWrite.delete(roomId)
   })
   pendingWrite.set(roomId, next)
+  return outcome
 }
 
 /** Waits out whatever writes are already queued for `roomId` (#317).

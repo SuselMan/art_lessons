@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto'
+import { isDeepStrictEqual } from 'node:util'
 import { readRoomRasterVersion, type Operation, type Room } from '@grafetto/shared'
 
 import { prisma } from '../db/prisma.js'
-import { enqueueWrite } from './roomRegistry.js'
+import { enqueueWrite, type RoomWriteOutcome } from './roomRegistry.js'
 
 /** (#612) The rows a live room writes as it goes — its creation, each
  *  participant, its palette, each operation. Every one is fire-and-forget
@@ -50,16 +51,50 @@ export function persistPalette(roomId: string, colors: string[]): void {
   }))
 }
 
-export function persistOperation(roomId: string, op: Operation): void {
+/** One immutable row projection shared by original insert and explicit repair. */
+function operationRow(roomId: string, op: Operation) {
   const layerId = 'layerId' in op ? op.layerId : null
-  enqueueWrite(roomId, () => prisma.operation.create({
-    data: {
-      id: op.id, seq: op.seq ?? 0, type: op.type, roomId, userId: op.userId,
-      layerId, tool: op.type === 'stroke' ? op.tool : null,
-      // Prisma's JSON structural type does not accept interface-only envelopes.
-      // Project the already validated canonical wire header without copying the
-      // packed payload or widening every operation through an unchecked cast.
-      data: op.type === 'canonical_stroke' ? { ...op, frame: { ...op.frame, composition: { ...op.frame.composition } } } : op,
-    },
-  }))
+  return {
+    id: op.id, seq: op.seq ?? 0, type: op.type, roomId, userId: op.userId,
+    layerId, tool: op.type === 'stroke' ? op.tool : null,
+    // Keep canonical interfaces acceptable to Prisma JSON without retaining a
+    // second packed payload or introducing a looser serialized identity.
+    data: op.type === 'canonical_stroke' ? { ...op, frame: { ...op.frame, composition: { ...op.frame.composition } } } : op,
+  }
+}
+
+export function persistOperation(roomId: string, op: Operation): Promise<RoomWriteOutcome<void>> {
+  return enqueueWrite(roomId, async () => {
+    await prisma.operation.create({ data: operationRow(roomId, op) })
+    // Deliberately do NOT return/retain the ORM's full operation JSON row.
+  })
+}
+
+/** Explicit canonical repair, not an upsert. The caller must hold the actual
+ * resident immutable operation identity; this function confers no authority.
+ * Each call schedules ONE attempt on the SAME existing room write queue. */
+export function retryCanonicalOperationWrite(roomId: string, op: Operation): Promise<RoomWriteOutcome<void>> {
+  if (op.type !== 'canonical_stroke' || !Number.isSafeInteger(op.seq) || op.seq! < 1)
+    throw new TypeError('Canonical persistence requires a stamped operation')
+  return enqueueWrite(roomId, async () => {
+    const expected = operationRow(roomId, op)
+    const read = () => prisma.operation.findUnique({ where: { id: op.id }, select: {
+      id: true, roomId: true, userId: true, seq: true, type: true, layerId: true, tool: true, data: true,
+    } })
+    const verify = (row: Awaited<ReturnType<typeof read>>) => {
+      if (!row || row.id !== expected.id || row.roomId !== expected.roomId || row.userId !== expected.userId
+        || row.seq !== expected.seq || row.type !== expected.type || row.layerId !== (expected.layerId ?? null)
+        || row.tool !== expected.tool || !isDeepStrictEqual(row.data, expected.data))
+        throw new Error('Canonical persistence immutable row conflict')
+    }
+    const row = await read()
+    if (row) { verify(row); return }
+    try { await prisma.operation.create({ data: expected }) }
+    catch (error) {
+      if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 'P2002') throw error
+      // A concurrent insert (or uncertain first response) is success ONLY when
+      // the complete indexed identity and immutable payload really match.
+      verify(await read())
+    }
+  })
 }

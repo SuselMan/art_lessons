@@ -45,6 +45,37 @@ describe('the write queue', () => {
   })
 })
 
+describe('settled write outcomes', () => {
+  it('reports a deferred result without changing the room queue order', async () => {
+    let resolve!: (value: number) => void
+    const order: string[] = []
+    const first=enqueueWrite('outcome-room',()=>new Promise<number>(r=>{resolve=r}))
+    const second=enqueueWrite('outcome-room',async()=>{order.push('second');return 2})
+    let settled=false;first.then(()=>{settled=true})
+    await Promise.resolve();expect(settled).toBe(false);expect(order).toEqual([])
+    resolve(17)
+    expect(await first).toEqual({ok:true,value:17})
+    expect(await second).toEqual({ok:true,value:2})
+    await flushRoomWrites('outcome-room');expect(order).toEqual(['second'])
+    expect(pendingWriteOf('outcome-room')).toBeUndefined()
+  })
+  it('returns failures as data, keeps later writes running, and ignored outcomes never reject', async () => {
+    const log=vi.spyOn(console,'error').mockImplementation(()=>{}),unhandled=vi.fn()
+    process.on('unhandledRejection',unhandled)
+    try {
+      const error=new Error('deferred write failed')
+      const failed=enqueueWrite('outcome-fail',()=>Promise.reject(error))
+      enqueueWrite('outcome-fail',()=>{throw new Error('ignored synchronous writer failure')})
+      const later=enqueueWrite('outcome-fail',async()=>42)
+      expect(await failed).toEqual({ok:false,error})
+      expect(await later).toEqual({ok:true,value:42})
+      await flushRoomWrites('outcome-fail');await new Promise(resolve=>setImmediate(resolve))
+      expect(unhandled).not.toHaveBeenCalled();expect(log).toHaveBeenCalledTimes(2)
+      expect(pendingWriteOf('outcome-fail')).toBeUndefined()
+    }finally{process.off('unhandledRejection',unhandled);log.mockRestore()}
+  })
+})
+
 describe('lessonRecordOf', () => {
   const record = (id: string, lessonId: string | null) => ({ room: { id }, lessonId }) as RoomRecord
 

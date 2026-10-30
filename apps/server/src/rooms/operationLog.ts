@@ -1,8 +1,8 @@
 import type { Operation, RejectReason } from '@grafetto/shared'
 
 import { operationRejectReason } from './operationGate.js'
-import { lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
-import { persistOperation } from './roomPersistence.js'
+import { lessonRecordOf, rooms, type RoomRecord, type RoomWriteOutcome } from './roomRegistry.js'
+import { persistOperation, retryCanonicalOperationWrite } from './roomPersistence.js'
 import { advanceStructuralLog, deriveLayerIds } from './structuralLog.js'
 
 /** (#612) A resident room's operation log, one operation at a time: whether it
@@ -84,6 +84,73 @@ export function findDuplicateOperation(roomId: string, operationId: string): Ope
   return rooms.get(roomId)?.operationsById.get(operationId)
 }
 
+export type CanonicalWriteStatus = 'pending' | 'succeeded' | 'failed'
+interface CanonicalWriteOwner { pending: number; failed: number }
+interface CanonicalWriteReceipt {
+  readonly owner: CanonicalWriteOwner
+  status: CanonicalWriteStatus
+  outcome: Promise<RoomWriteOutcome<void>>
+}
+// Ephemeron keys are actual resident objects, not a second ID/body journal.
+// Receipt owners contain ONLY counters, never a strong reference back to RoomRecord.
+const canonicalWrites = new WeakMap<Operation, CanonicalWriteReceipt>()
+const canonicalWriteOwners = new WeakMap<RoomRecord, CanonicalWriteOwner>()
+
+/** Counts tracked writes only. Zero is NOT proof that unknown/DB-loaded
+ * operations are durable, or that any historical wash prefix is closed. */
+export function canonicalWriteFence(record: RoomRecord): Readonly<{ pending: number; failed: number }> {
+  const owner = canonicalWriteOwners.get(record)
+  return Object.freeze({ pending: owner?.pending ?? 0, failed: owner?.failed ?? 0 })
+}
+
+/** Read-only status, not an authorization or reader/ACK gate. An unknown actual
+ * object (including an equal copy) has no receipt. */
+export function knownCanonicalWrite(op: Operation): Readonly<{ status: CanonicalWriteStatus; outcome: Promise<RoomWriteOutcome<void>> }> | undefined {
+  const receipt = canonicalWrites.get(op)
+  return receipt && Object.freeze({ status: receipt.status, outcome: receipt.outcome })
+}
+
+function startCanonicalWrite(receipt: CanonicalWriteReceipt, run: () => Promise<RoomWriteOutcome<void>>): Promise<RoomWriteOutcome<void>> {
+  if (receipt.status === 'failed') receipt.owner.failed--
+  receipt.status = 'pending'; receipt.owner.pending++
+  let settle!: (outcome: RoomWriteOutcome<void>) => void
+  // Publish the attempt synchronously BEFORE invoking enqueueWrite, so even a
+  // reentrant observer can only join this same attempt. Enqueue itself remains
+  // synchronous: deferring run() would reorder it behind a following write.
+  const outcome = new Promise<RoomWriteOutcome<void>>(resolve => { settle = resolve })
+  receipt.outcome = outcome
+  const done = (value: RoomWriteOutcome<void>) => {
+    receipt.owner.pending--
+    if (value?.ok === true) { receipt.status = 'succeeded'; settle({ ok: true, value: undefined }) }
+    else {
+      receipt.status = 'failed'; receipt.owner.failed++
+      settle({ ok: false, error: value?.ok === false ? value.error : new Error('Missing canonical persistence outcome') })
+    }
+  }
+  try { Promise.resolve(run()).then(done, error => done({ ok: false, error })) }
+  catch (error) { done({ ok: false, error }) }
+  return outcome
+}
+
+/** No new append/seq/pin. Only an explicit retryFailed request starts a single
+ * same-row repair; pending callers share its promise, success needs no DB I/O.
+ * This mechanism is intentionally NOT wired into transport or readers yet. */
+export function ensureCanonicalWrite(record: RoomRecord, op: Operation, options: { readonly retryFailed?: boolean } = {}): Promise<RoomWriteOutcome<void>> {
+  const receipt = canonicalWrites.get(op)
+  if (op.type !== 'canonical_stroke' || rooms.get(record.room.id) !== record || record.operationsById.get(op.id) !== op
+    || !receipt || canonicalWriteOwners.get(record) !== receipt.owner)
+    throw new Error('Canonical persistence unknown or stale operation owner')
+  if (receipt.status !== 'failed' || !options.retryFailed) return receipt.outcome
+  return startCanonicalWrite(receipt, () => retryCanonicalOperationWrite(record.room.id, op))
+}
+
+function immutableCanonicalOperation(op: Extract<Operation, { type: 'canonical_stroke' }>, seq: number): Operation {
+  return Object.freeze({ ...op, seq, frame: Object.freeze({ ...op.frame,
+    pigmentRgb8: Object.freeze([...op.frame.pigmentRgb8] as [number, number, number]),
+    composition: Object.freeze({ ...op.frame.composition }),
+  }) })
+}
+
 /** Appends an operation to the room's log (#34/#35), stamping it with the
  *  next `seq` — the server assigns total order per ADR 002, since clients
  *  only know their own local order. Returns the stamped copy; that copy (not
@@ -95,9 +162,18 @@ export function findDuplicateOperation(roomId: string, operationId: string): Ope
 export function recordOperation(roomId: string, op: Operation): Operation {
   const record = rooms.get(roomId)
   if (!record) throw new Error(`recordOperation: unknown room "${roomId}"`)
-  const stamped: Operation = { ...op, seq: record.nextSeq++ }
+  // Copy/freeze the small canonical header before any room mutation. Packed
+  // material is an immutable string; no duplicate body journal is retained.
+  const stamped: Operation = op.type === 'canonical_stroke' ? immutableCanonicalOperation(op, record.nextSeq) : { ...op, seq: record.nextSeq }
+  record.nextSeq++
   record.operations.push(stamped)
   record.operationsById.set(stamped.id, stamped)
-  persistOperation(roomId, stamped)
+  if (stamped.type === 'canonical_stroke') {
+    let owner = canonicalWriteOwners.get(record)
+    if (!owner) { owner = { pending: 0, failed: 0 }; canonicalWriteOwners.set(record, owner) }
+    const receipt: CanonicalWriteReceipt = { owner, status: 'succeeded', outcome: Promise.resolve({ ok: true, value: undefined }) }
+    canonicalWrites.set(stamped, receipt)
+    startCanonicalWrite(receipt, () => persistOperation(roomId, stamped))
+  } else persistOperation(roomId, stamped)
   return stamped
 }
