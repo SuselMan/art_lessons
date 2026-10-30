@@ -225,9 +225,22 @@ readbacks match the independent host source-law scalar composition oracle:
 all owned Texture/FBO/Buffer/Program/Shader handles0, CPU and reservation cleanup
 balanced. Both test children closed and parent3631 restored; forward19236 removed.
 
-Requested mask profile is NEON64 with its normal tiny-AA scalar fallback. Scalar
-requested-profile integration is covered by host tests, not a separate full7 GPU
-run here. Host oracle uses the existing Gaussian evaluator and source composition
+The first receipt requests NEON64 with its normal tiny-AA scalar fallback.
+A separate scalar-Bionic requested-profile run at `f9beaff76` now covers the SAME
+seven descriptors/compositor64 and largest two windows/compositor8. All9 final
+readbacks again have wrong0/maxDelta0, restored hostile GL state, GL[]/poison[],
+and zero owned Texture/FBO/Buffer/Program/Shader handles. Peak transient
+reservation49152B is a local reservation measurement, not global GPU residency.
+Both new children closed, original three tabs were preserved, parent3631 restored,
+and the QA marker and forward19236 were removed. Scalar receipts are
+`temp/device-runs/krita-stroke-20261024/fixes-v52/gaussian7-scalar-executor-{64,8}-{result,cleanup}.json`.
+
+Host oracle uses the existing Gaussian evaluator and source composition
 kernels; it is not an independent original Krita GUI stroke or UI-latency proof.
+In particular the tracked13 Gaussian descriptors use25 sensor compile requests
+with15 unique point/corner programs; these had no exact match in the earlier32
+native-curve corpus. Their independent installed Eigen5 coefficient audit remains
+required before claiming whole original stroke identity. The pixel receipts do
+not certify those sensor coefficients.
 Receipts contain exact source/bundle/fixture hashes:
 `temp/device-runs/krita-stroke-20261024/fixes-v52/gaussian7-executor-{64,8}-{result,cleanup}.json`.
