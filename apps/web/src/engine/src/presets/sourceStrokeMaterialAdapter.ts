@@ -134,6 +134,7 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
   private pixels=0
 
   constructor(program:SourceStrokeAuthorProgram,context:C,source:SourceStrokeAuthorState,checkpoint?:SourceStrokeMaterialCheckpoint){
+    if(program.roles.some(r=>r.geometry?.kind==='softAuto'))throw new RangeError('Soft auto requires a supported canonical material context')
     if(!version2(context)&&program.roles.some(r=>r.geometry?.kind==='defaultAuto'||r.geometry?.kind==='gaussianAuto'))throw new RangeError('Default auto requires a trusted wire2 source context')
     this.targets=pinSourceMaterialTargets(context.targetGeometry)
     this.context=copySourceMaterialContext(context)

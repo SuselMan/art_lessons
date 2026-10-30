@@ -1,6 +1,6 @@
 import { sourceOptionComponents, sourceSizeLike, type SourceOption, type SourceOptionContext } from './sourceOption'
 import { sourceAutoGeometry } from './sourceAutoGeometry'
-import type { SourceDefaultAutoData, SourceGaussianAutoData } from '@grafetto/shared'
+import { isSourceStampCurveData, type SourceSoftAutoData, type SourceDefaultAutoData, type SourceGaussianAutoData } from '@grafetto/shared'
 import { sourcePngCharacteristicSize, sourcePngHotSpot, sourcePngMaskExtent, sourceQRound, type SourceDabShape, type SourcePngBrush } from './sourcePngGeometry'
 /** Pure data only; never contains callbacks, pixels, a CAS stand-in or RNG. */
 export interface SourceDabBrushMetrics { readonly width: number; readonly height: number; readonly scale: number; readonly angle: number }
@@ -10,36 +10,51 @@ export type SourceDabGeometry = { readonly kind: 'image' } | {
 } | {
   readonly kind: 'gaussianAuto'; readonly source: SourceGaussianAutoData
   readonly coverageProfile: 'scalar-bionic-f64-fma-v1' | 'neon64-f32-fma-v1'
+} | {
+  readonly kind: 'softAuto'; readonly source: SourceSoftAutoData
+  readonly coverageProfile: 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1'
 }
 function autoGeometry(brush: SourceDabBrushMetrics, geometry: Exclude<SourceDabGeometry, {kind:'image'}>, shape: SourceDabShape, subX=0, subY=0) {
   const s=geometry.source
   if (!s || (geometry.kind==='defaultAuto' ? s.kind!=='defaultAuto' || s.generator!=='default' || !['circle','rect'].includes(s.shape)
-      : s.kind!=='gaussianAuto' || s.generator!=='gauss' || s.shape!=='circle' || s.ratio>1)
+      : geometry.kind==='gaussianAuto' ? s.kind!=='gaussianAuto' || s.generator!=='gauss' || s.shape!=='circle' || s.ratio>1
+      : s.kind!=='softAuto' || s.generator!=='soft' || s.shape!=='circle' || s.ratio>1 || s.antialias!==false || !isSourceStampCurveData(s.softnessCurve))
     || s.spikes!==2 || s.randomness!==0 || s.density!==1 || typeof s.antialias!=='boolean'
     || ![s.horizontalFade,s.verticalFade].every(v=>Number.isFinite(v)&&v>=0&&v<=1)
-    || !(geometry.kind==='defaultAuto'?['scalar-f64-fma-v1','neon64-f32-fma-v1']:['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1']).includes(geometry.coverageProfile)) throw new RangeError('Unsupported source auto geometry')
+    || !(geometry.kind!=='gaussianAuto'?['scalar-f64-fma-v1','neon64-f32-fma-v1']:['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1']).includes(geometry.coverageProfile)) throw new RangeError('Unsupported source auto geometry')
   const result=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:s.diameter,ratio:s.ratio,spikes:2,scale:brush.scale,angle:brush.angle},shape,subX,subY)
   if(result.brushSize[0]!==brush.width || result.brushSize[1]!==brush.height)throw new RangeError('Source auto brush metrics differ from generator')
   return result
 }
 export function sourceDabCharacteristicSize(brush:SourceDabBrushMetrics,shape:SourceDabShape,geometry?:SourceDabGeometry):readonly[number,number] {
-  if((geometry?.kind==='defaultAuto'||geometry?.kind==='gaussianAuto'))return autoGeometry(brush,geometry,shape).characteristicSize
+  if((geometry?.kind==='defaultAuto'||geometry?.kind==='gaussianAuto'||geometry?.kind==='softAuto'))return autoGeometry(brush,geometry,shape).characteristicSize
   if(geometry && geometry.kind!=='image')throw new RangeError('Unknown source geometry')
   return sourcePngCharacteristicSize(brush,shape)
 }
 export function sourceDabHotSpot(brush:SourceDabBrushMetrics,shape:SourceDabShape,geometry?:SourceDabGeometry):readonly[number,number] {
-  if(geometry && !['image','defaultAuto','gaussianAuto'].includes(geometry.kind))throw new RangeError('Unknown source geometry')
-  return (geometry?.kind==='defaultAuto'||geometry?.kind==='gaussianAuto')?autoGeometry(brush,geometry,shape).hotSpot:sourcePngHotSpot(brush,shape)
+  if(geometry && !['image','defaultAuto','gaussianAuto','softAuto'].includes(geometry.kind))throw new RangeError('Unknown source geometry')
+  return (geometry?.kind==='defaultAuto'||geometry?.kind==='gaussianAuto'||geometry?.kind==='softAuto')?autoGeometry(brush,geometry,shape).hotSpot:sourcePngHotSpot(brush,shape)
 }
 export function sourceDabMaskExtent(brush:SourceDabBrushMetrics,shape:SourceDabShape,subX=0,subY=0,geometry?:SourceDabGeometry):readonly[number,number] {
-  if(geometry && !['image','defaultAuto','gaussianAuto'].includes(geometry.kind))throw new RangeError('Unknown source geometry')
-  return (geometry?.kind==='defaultAuto'||geometry?.kind==='gaussianAuto')?autoGeometry(brush,geometry,shape,subX,subY).maskSize:sourcePngMaskExtent(brush,shape,subX,subY)
+  if(geometry && !['image','defaultAuto','gaussianAuto','softAuto'].includes(geometry.kind))throw new RangeError('Unknown source geometry')
+  return (geometry?.kind==='defaultAuto'||geometry?.kind==='gaussianAuto'||geometry?.kind==='softAuto')?autoGeometry(brush,geometry,shape,subX,subY).maskSize:sourcePngMaskExtent(brush,shape,subX,subY)
 }
 export function sourceDabGeometryEqual(a:SourceDabGeometry|undefined,b:SourceDabGeometry|undefined):boolean {
   if((a?.kind??'image')!==(b?.kind??'image'))return false
   if(!a || a.kind==='image')return true
   if(!b || b.kind==='image'||a.coverageProfile!==b.coverageProfile)return false
-  return Object.keys(a.source).length===Object.keys(b.source).length && Object.keys(a.source).every(k=>Object.is(a.source[k as keyof SourceDefaultAutoData],b.source[k as keyof SourceDefaultAutoData]))
+  if(a.kind==='softAuto'||b.kind==='softAuto') {
+    if(a.kind!=='softAuto'||b.kind!=='softAuto')return false
+    const ac=a.source.softnessCurve,bc=b.source.softnessCurve
+    if(!isSourceStampCurveData(ac)||!isSourceStampCurveData(bc)||ac.text!==bc.text || ac.points.some((p,i)=>!Object.is(p.x,bc.points[i].x)||!Object.is(p.y,bc.points[i].y)||p.corner!==bc.points[i].corner))return false
+  }
+  return Object.keys(a.source).length===Object.keys(b.source).length && Object.keys(a.source).every(k=>k==='softnessCurve'||Object.is(a.source[k as keyof SourceDefaultAutoData],b.source[k as keyof SourceDefaultAutoData]))
+}
+function freezeAutoGeometry(g:Exclude<SourceDabGeometry,{kind:'image'}>):SourceDabGeometry {
+  if(g.kind==='softAuto')return Object.freeze({...g,source:Object.freeze({...g.source,softnessCurve:Object.freeze({text:g.source.softnessCurve.text,
+    points:Object.freeze(g.source.softnessCurve.points.map(p=>Object.freeze({...p})))})})})
+  if(g.kind==='defaultAuto')return Object.freeze({...g,source:Object.freeze({...g.source})})
+  return Object.freeze({...g,source:Object.freeze({...g.source})})
 }
 export interface SourceMirrorBits { readonly horizontal: boolean; readonly vertical: boolean; readonly coordinateSystemFlipped: boolean }
 export interface SourceMirrorInput { readonly canvasH: boolean; readonly canvasV: boolean; readonly enableH: boolean; readonly enableV: boolean }
@@ -148,7 +163,7 @@ export function planSourceDab(brush: SourceDabBrushMetrics, request: SourceDabCa
   if (!Number.isInteger(request.precisionLevel) || request.precisionLevel < 1 || request.precisionLevel > 5
     || ![request.x, request.y, request.softness, request.lightness].every(Number.isFinite)
     || (request.sharpnessChecked && (request.sharpness === undefined || !Number.isFinite(request.sharpness) || typeof request.sharpnessAlign !== 'boolean' || request.sharpnessStrength === undefined || !Number.isFinite(request.sharpnessStrength)))) throw new RangeError('Invalid source material request')
-  if((geometry?.kind==='defaultAuto'||geometry?.kind==='gaussianAuto'))sourceDabCharacteristicSize(brush,{scale:1,ratio:1,rotation:0},geometry)
+  if((geometry?.kind==='defaultAuto'||geometry?.kind==='gaussianAuto'||geometry?.kind==='softAuto'))sourceDabCharacteristicSize(brush,{scale:1,ratio:1,rotation:0},geometry)
   else if(geometry && geometry.kind!=='image')throw new RangeError('Unknown source geometry')
   let mirrorValue: number | undefined
   const mirror = sourceMirror(mirrorOption, context, mirrorInput, value => { mirrorValue = value })
@@ -185,9 +200,7 @@ export function planSourceDab(brush: SourceDabBrushMetrics, request: SourceDabCa
   const hit = !!saved && sourceDabGeometryEqual(geometry,saved.geometry) && saved.brushIdentity === request.brushIdentity && request.supportsCaching && request.solidColor && sourceDabKeysEqual(key, saved.key, effectivePrecision)
   const requestedRect = { x, y, width, height }
   const resolvedSource: SourceDabMaterialSpec = hit ? saved : Object.freeze({
-    ...((geometry?.kind==='defaultAuto'||geometry?.kind==='gaussianAuto')?{geometry:Object.freeze(geometry.kind==='defaultAuto'
-      ? {...geometry,source:Object.freeze({...geometry.source})}
-      : {...geometry,source:Object.freeze({...geometry.source})})}:{}),
+    ...((geometry?.kind==='defaultAuto'||geometry?.kind==='gaussianAuto'||geometry?.kind==='softAuto')?{geometry:freezeAutoGeometry(geometry)}:{}),
     sequence: state.nextSequence, brushIdentity: request.brushIdentity, brush: Object.freeze({ ...brush }),
     shape: Object.freeze({ ...shape }), key: Object.freeze({ ...key }), width: key.width, height: key.height,
     mirror: Object.freeze({ ...mirror }), position: Object.freeze({ x: request.x, y: request.y }),

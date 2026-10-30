@@ -181,3 +181,37 @@ routes remain closed; only a typed recipe plus trusted source enters generation.
 Native104 original whole-wrapper Gaussian masks (29098 A8 bytes) pass this route
 into recorded RGBA stripe uploads byte-exact. This is host upload-layout evidence,
 not GPU readback or UI proof.
+
+## Soft geometry in the same author/cache owner
+
+The existing SourceDabGeometry union and SourceStrokeAuthor material-policy
+validation now retain an explicit softAuto shape. Geometry uses the SAME pinned
+auto metrics/hotspot/mask-extent evaluator; no alternate spacing/RNG/cache/author
+is introduced. Current domain is circle, spikes2, ratio<=1, AAoff, density1 and
+randomness0, with explicit scalar/NEON coverage identity. Retained curve text and
+points are validated and compared structurally (including signed-zero coordinates
+and corner flags), so structured clones match but a rebound saved curve cannot
+resume as the current program. Saved cache geometry deep-copies/freezes the nested
+curve instead of sharing a mutable input list.
+
+The new low-level program policy is soft-auto-fixed1-rng-free. This unit does not
+activate the descriptor extractor or a soft canonical material source: the
+existing material adapter explicitly rejects soft geometry before reading legacy
+assets. That frontier prevents source geometry from silently falling through to
+an image or another auto generator while the soft wire/executor branch is added.
+
+Tests match all40 independent original soft mask extents. All10 retained role
+geometries run through the same author and cache with every-yield structured-clone
+resume producing identical events/checkpoints. Those geometry tests deliberately
+use an existing Gaussian pressure program to isolate scheduling/geometry; they
+are NOT original soft option programs, color-smudge44 or mask52 composition proof.
+Rebound checkpoint curves and unsupported AA are rejected. Previous Gaussian,
+image/default and material/encoder regressions remain part of the host gate.
+Receipts: fixes-v52/soft-author-geometry-{tests,broader,tsc}.log. No runtime/device/
+dependency resource was created for this unit. No native GUI whole-stroke identity
+or editor/online activation is claimed.
+Final host gate:56 tests/6 author/material/encoder files passed, final isolated
+soft geometry4 tests passed, scoped lint/diff clean. Common web TSC76479 passed
+with root source frozen. Earlier13303/79959 runs captured in-flight Paper test
+API/overload typing and two root test-only typing errors; they are retained as
+failures, not counted as passes. No device or runtime resource was started.

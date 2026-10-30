@@ -21,7 +21,7 @@ export interface SourceAuthorRoleProgram {
   readonly geometry?: SourceDabGeometry
   readonly material: Omit<SourceDabCacheRequest, 'x' | 'y' | 'shape'>
   /** Current supported material law; active extra consumers must be rejected. */
-  readonly materialPolicy: 'png-fixed1-rng-free' | 'default-auto-fixed1-rng-free' | 'gaussian-auto-fixed1-rng-free'
+  readonly materialPolicy: 'png-fixed1-rng-free' | 'default-auto-fixed1-rng-free' | 'gaussian-auto-fixed1-rng-free' | 'soft-auto-fixed1-rng-free'
   readonly lodScale: number
   readonly scatterX: boolean; readonly scatterY: boolean
   readonly mirrorX: boolean; readonly mirrorY: boolean; readonly indirectPainting: boolean
@@ -129,9 +129,9 @@ export class SourceStrokeAuthor {
       || program.roles.length===2 && program.roles[1].id!=='mask') throw new RangeError('Invalid author source roles')
     this.program=freeze(structuredClone(program))
     this.options=this.program.roles.map(role=>{
-      if(!['png-fixed1-rng-free','default-auto-fixed1-rng-free','gaussian-auto-fixed1-rng-free'].includes(role.materialPolicy)
+      if(!['png-fixed1-rng-free','default-auto-fixed1-rng-free','gaussian-auto-fixed1-rng-free','soft-auto-fixed1-rng-free'].includes(role.materialPolicy)
         || (role.geometry?.kind==='defaultAuto')!==(role.materialPolicy==='default-auto-fixed1-rng-free')
-        || (role.geometry?.kind==='gaussianAuto')!==(role.materialPolicy==='gaussian-auto-fixed1-rng-free') || role.material.softness!==1 || role.material.lightness!==1
+        || (role.geometry?.kind==='gaussianAuto')!==(role.materialPolicy==='gaussian-auto-fixed1-rng-free') || (role.geometry?.kind==='softAuto')!==(role.materialPolicy==='soft-auto-fixed1-rng-free') || role.material.softness!==1 || role.material.lightness!==1
         || role.material.sharpnessChecked || !Number.isFinite(role.lodScale) || role.lodScale<=0
         || ![role.spacing.value,role.spacing.coefficient,role.spacingRefreshMs,role.timingRefreshMs].every(v=>Number.isFinite(v)&&v>=0)
         || !Number.isFinite(role.timing.rate) || role.timing.rate<=0
@@ -214,7 +214,7 @@ export class SourceStrokeAuthor {
           || ![saved.mirror.horizontal,saved.mirror.vertical,saved.mirror.coordinateSystemFlipped,key.mirrorH,key.mirrorV].every(v=>typeof v==='boolean'))bad()
         if(!sourceDabGeometryEqual(saved.geometry,this.program.roles[index].geometry))bad()
         sourceDabCharacteristicSize(saved.brush,saved.shape,saved.geometry)
-        if(saved.geometry?.kind==='defaultAuto'||saved.geometry?.kind==='gaussianAuto'){
+        if(saved.geometry?.kind==='defaultAuto'||saved.geometry?.kind==='gaussianAuto'||saved.geometry?.kind==='softAuto'){
           const expected=this.program.roles[index],extent=sourceDabMaskExtent(saved.brush,saved.shape,key.subPixelX,key.subPixelY,saved.geometry)
           if(!['width','height','scale','angle'].every(k=>Object.is(saved.brush[k as keyof SourceDabBrushMetrics],expected.brush[k as keyof SourceDabBrushMetrics]))
             || saved.width!==extent[0] || saved.height!==extent[1] || key.width!==saved.width || key.height!==saved.height
