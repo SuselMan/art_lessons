@@ -18,7 +18,12 @@ export class AccumulationBuffer {
   static contextStorageByteLength(gl: WebGLRenderingContext): number { return storageOwners.get(gl)?.bytes ?? 0 }
   /** Context loss releases all storage. Old objects retain an old owner epoch,
    * so their eventual destroy cannot subtract from restored allocations. */
-  static forgetContextStorage(gl: WebGLRenderingContext): void { storageOwners.delete(gl) }
+  static forgetContextStorage(gl: WebGLRenderingContext): void {
+    storageOwners.delete(gl)
+    // Restored storage belongs to a new driver generation, even on the same
+    // JS context object. Its first FBO must establish completeness again.
+    checkedContexts.delete(gl)
+  }
   private readonly storageOwner: { bytes: number }
   private accountedBytes: number
   readonly pixelEncoding: RasterPixelEncoding

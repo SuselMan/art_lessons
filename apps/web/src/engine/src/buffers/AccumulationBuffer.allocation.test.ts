@@ -37,3 +37,34 @@ it.each([[0, 8], [-1, 8], [8, 0], [1.5, 8], [NaN, 8], [Infinity, 8], [Number.MAX
   expect(() => new AccumulationBuffer(gl, width, height)).toThrow('dimensions')
   expect(create).not.toHaveBeenCalled()
 })
+
+it('rechecks framebuffer completeness after context loss without rechecking healthy allocations', () => {
+  const mock = new MockGL(), gl = mock as unknown as WebGLRenderingContext
+  const otherMock = new MockGL(), other = otherMock as unknown as WebGLRenderingContext
+  const status = vi.spyOn(mock, 'checkFramebufferStatus')
+  const otherStatus = vi.spyOn(otherMock, 'checkFramebufferStatus')
+  const first = new AccumulationBuffer(gl, 4, 4), second = new AccumulationBuffer(gl, 4, 4)
+  const foreign = new AccumulationBuffer(other, 2, 2)
+  const deleteTexture = vi.spyOn(mock, 'deleteTexture'), deleteFramebuffer = vi.spyOn(mock, 'deleteFramebuffer')
+  let restored: AccumulationBuffer | undefined, foreignSecond: AccumulationBuffer | undefined
+  try {
+    expect(status).toHaveBeenCalledTimes(1)
+    AccumulationBuffer.forgetContextStorage(gl)
+    status.mockReturnValueOnce(-1)
+    expect(() => new AccumulationBuffer(gl, 4, 4)).toThrow('Framebuffer incomplete')
+    expect(status).toHaveBeenCalledTimes(2)
+    expect(deleteTexture).toHaveBeenCalledTimes(1)
+    expect(deleteFramebuffer).toHaveBeenCalledTimes(1)
+    expect(AccumulationBuffer.contextStorageByteLength(gl)).toBe(0)
+    // A failed restored allocation cannot cache success for this new epoch.
+    restored = new AccumulationBuffer(gl, 4, 4)
+    expect(status).toHaveBeenCalledTimes(3)
+    expect(AccumulationBuffer.contextStorageByteLength(gl)).toBe(64)
+    foreignSecond = new AccumulationBuffer(other, 2, 2)
+    expect(otherStatus).toHaveBeenCalledTimes(1)
+    expect(AccumulationBuffer.contextStorageByteLength(other)).toBe(32)
+  } finally {
+    restored?.destroy(); foreignSecond?.destroy(); first.destroy(); second.destroy(); foreign.destroy()
+    vi.restoreAllMocks()
+  }
+})
