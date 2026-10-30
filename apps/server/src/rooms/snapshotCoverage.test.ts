@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Operation } from '@grafetto/shared'
+import { CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE, packCanonicalMaterial, type Operation, type CanonicalMaterialFrame } from '@grafetto/shared'
 
-import { isCoveredBySnapshot, layerStateIdsOf, residentOperationWhere } from './snapshotCoverage.js'
+import { deletableOperations, isCoveredBySnapshot, layerStateIdsOf, residentOperationWhere } from './snapshotCoverage.js'
 
 /** (#612) The coverage rule on its own. The per-type cases (duplicate,
  *  annotations) live in rooms.test.ts; what this file pins is the two halves
@@ -104,5 +104,45 @@ describe('residentOperationWhere', () => {
     const types = (where.NOT as { type: { in: string[] } }).type.in
     expect(types).toContain('stroke')
     expect(types).not.toContain('layer_add')
+  })
+})
+
+
+describe('canonical frames need a trusted closed pixel prefix', () => {
+  function canonical(seq: number, ended = false): Operation {
+    const asset = {id:`asset:${'1'.repeat(64)}`,size:1,x:0,y:0,width:1,height:1}
+    const material: CanonicalMaterialFrame = {profile:CANONICAL_MATERIAL_PROFILE,masked:false,entry:{phase:'between'},
+      definitions:[{asset:asset.id,brushScale:1,brushAngle:0,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:1,height:1,mirrorH:false,mirrorV:false}],
+      draws:[{role:'primary',definition:0,x:0,y:0,opacity:.5,flow:1}],fences:[{kind:'segmentBegin',at:0,group:0},
+        ...(ended?[{kind:'primaryEnd' as const,at:1,group:0},{kind:'segmentEnd' as const,at:1,group:0},{kind:'gestureEnd' as const,at:1}]:[])]}
+    return {...base(seq),type:'canonical_stroke',layerId:'layer-1',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,
+      brush:'brush:fixture@1',strokeId:`gesture${seq}`,frameOrdinal:0,pigmentRgb8:[30,80,190],
+      composition:{mode:'wash',alphaDarken:'creamy',outerResourceOpacity:.73,outerBlend:'over'},
+      materialPacked:packCanonicalMaterial(material,{assets:[asset],primaryAsset:asset.id,budget:{workUnits:10,outputBytes:10,drawPixels:10},preflightDefinition:()=>({workUnits:1,outputBytes:1})})}}
+  }
+  it('never substitutes layerState or a numeric pixel watermark for canonical closure', () => {
+    const covered=new Map([['layer-1',10]])
+    for(const seq of[5,10,11])for(const ended of[false,true]){
+      expect(isCoveredBySnapshot(covered,canonical(seq,ended),20,new Set(['layer-1']))).toBe(false)
+      expect(isCoveredBySnapshot(covered,canonical(seq,ended),20,new Set())).toBe(false)
+    }
+    // Other established single-layer writers retain their existing coverage.
+    expect(isCoveredBySnapshot(covered,stroke(5),20,new Set(['layer-1']))).toBe(true)
+    expect(isCoveredBySnapshot(covered,stroke(11),20,new Set(['layer-1']))).toBe(false)
+  })
+  it('retains undo/redo/revoke when their known target is a canonical frame', () => {
+    const target=canonical(2),targetOf=(id:string)=>id===target.id?target:undefined
+    for(const type of['operation_undo','operation_redo','operation_revoke'] as const){
+      const op:Operation={...base(6),type,targetOpId:target.id}
+      expect(isCoveredBySnapshot(new Map([['layer-1',100]]),op,100,new Set(['layer-1']),0,targetOf)).toBe(false)
+    }
+  })
+  it('does not drop canonical history while pruning a mixed structurally covered prefix', () => {
+    const history=[add(1),canonical(2),stroke(3),canonical(4,true),add(12)]
+    const deleted=deletableOperations(new Map([['layer-1',10]]),history,10,new Set(['layer-1','layer-2']))
+    expect(deleted.map(op=>op.id)).toEqual(['op1','op3'])
+    expect(history.filter(op=>!deleted.includes(op)).map(op=>op.id)).toEqual(['op2','op4','op12'])
+    const where=residentOperationWhere('room',new Map([['layer-1',10]]))
+    expect((where.NOT as {type:{in:string[]}}).type.in).not.toContain('canonical_stroke')
   })
 })
