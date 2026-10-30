@@ -21,8 +21,17 @@ use the existing scalar supersampling fallback. Math.sin/cos identity is proven
 for retained inputs, not as an exhaustive Bionic trigonometric equivalence claim.
 Finite coefficient validation and geometry/output/work reservation checks happen
 before the one fresh caller-owned A8 allocation. Caps:1MiB A8,4096 per dimension,
-16M work samples. The synchronous CPU fallback has no cache or lifecycle owner;
-an incremental cursor/cancellation can be added through the same arithmetic body
-later. No installed GUI factory selection or complete physical-device equivalence
+16M work samples. The synchronous CPU fallback has no cache or lifecycle owner.
+`prepareSourceGaussianDab` now retains a single full-geometry sample cursor;
+scalar supersample sums survive yields inside pixels, while vector-tail rounding
+uses original global x/width regardless of output stripe boundaries.
+The synchronous wrapper drains that SAME arithmetic stream. The cursor owns
+validated scalar/coefficient inputs, supports explicit cancellation and reserves
+no output plane itself. Each advance limits work samples and target capacity.
+A common sourceCoverageEvaluator lifecycle is shared with default-auto, with
+no shared coverage arithmetic. All104 native masks remain byte-exact through
+1/2/7/31-sample schedules and unaligned seven-byte output stripes; tests cover
+native1/36 routes and a synthetic9-sample continuation request (not a new native
+oracle), input mutation, invalid continuation and midpixel cancel. No installed GUI factory selection or complete physical-device equivalence
 is asserted. Source-informed GPL/elementary-function notices are in the reused
 modules and their provenance files.

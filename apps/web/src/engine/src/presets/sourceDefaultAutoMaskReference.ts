@@ -1,3 +1,4 @@
+import { sourceCoverageEvaluator, type SourceCoverageEvaluator } from './sourceCoverageEvaluator'
 import { sourceFmaF64 as fma64 } from './sourceFmaF64'
 import { sourceFmaF32 as fma32 } from './sourceFmaF32'
 import { arm64ReciprocalEstimateF32 } from './sourceArmFrecpe'
@@ -143,42 +144,10 @@ export function prepareSourceDefaultAutoMask(request: SourceDefaultAutoMaskReque
     yield (x < Math.floor(width / 4) * 4 ? rne(alpha) : Math.trunc(alpha)) & 255
   }
   }
-  const stream = evaluate()
-  let completedPixels = 0, workSamples = 0, cancelled = false
-  return {
-    pixels, samplesPerPixel, route: vector ? 'neon64-vector' : 'scalar',
-    get completedPixels() { return completedPixels },
-    get workSamples() { return workSamples },
-    get done() { return completedPixels === pixels },
-    advance(target, offset, maxSamples) {
-      if (cancelled) throw new Error('Auto mask evaluator cancelled')
-      if (!(target instanceof Uint8Array) || !Number.isSafeInteger(offset) || offset < 0 || offset > target.length
-        || !Number.isSafeInteger(maxSamples) || maxSamples <= 0) throw new RangeError('Invalid auto mask continuation range')
-      let written = 0, consumed = 0
-      while (consumed < maxSamples && completedPixels < pixels && offset + written < target.length) {
-        const next = stream.next()
-        if (next.done) throw new Error('Auto mask evaluator ended before full geometry')
-        consumed++; workSamples++
-        if (next.value !== null) { target[offset + written++] = next.value; completedPixels++ }
-      }
-      return { written, consumed, done: completedPixels === pixels }
-    },
-    cancel() { cancelled = true; stream.return() },
-  }
+  return sourceCoverageEvaluator({ pixels, samplesPerPixel, route: vector ? 'neon64-vector' : 'scalar', stream: evaluate() })
 }
 
-/** One full-geometry cursor. Target buffers may be bounded stripes, never
- * geometry stripes: global x/y and vector-tail decisions remain unchanged. */
-export interface SourceDefaultAutoMaskEvaluator {
-  readonly pixels: number
-  readonly route: 'scalar' | 'neon64-vector'
-  readonly samplesPerPixel: 1 | 9 | 36
-  readonly completedPixels: number
-  readonly workSamples: number
-  readonly done: boolean
-  advance(target: Uint8Array, offset: number, maxSamples: number): { written: number; consumed: number; done: boolean }
-  cancel(): void
-}
+export type SourceDefaultAutoMaskEvaluator = SourceCoverageEvaluator
 
 export function sourceDefaultAutoMaskReference(request: SourceDefaultAutoMaskRequest): SourceDefaultAutoMaskResult {
   const evaluator = prepareSourceDefaultAutoMask(request)

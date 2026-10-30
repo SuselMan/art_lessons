@@ -1,6 +1,6 @@
 import { sourceAutoGeometry, type SourceAutoGeometryShape } from './sourceAutoGeometry'
 import { sourceGaussianCoefficients } from './sourceGaussianCoefficients'
-import { sourceGaussianResolvedMaskReference, type SourceGaussianResolvedMaskRequest } from './sourceGaussianResolvedMaskReference'
+import { prepareSourceGaussianResolvedMask, type SourceGaussianResolvedMaskRequest } from './sourceGaussianResolvedMaskReference'
 
 export interface SourceGaussianTip {
   readonly kind: 'auto'; readonly generator: 'gauss'; readonly shape: 'circle'
@@ -18,7 +18,7 @@ export interface SourceGaussianDabRequest {
 /** Bounded, isolated CPU service. No descriptor/importer/author/cache admission.
  * Reuses the common original auto-brush geometry law; coverage consumes raw
  * angle and shape scale, whereas geometry also consumes stored brush scale. */
-export function sourceGaussianDab(request: SourceGaussianDabRequest) {
+export function prepareSourceGaussianDab(request: SourceGaussianDabRequest) {
   const { tip, shape } = request
   if (request.dialect !== 'krita-gaussian-auto-qt5-arm64-v1'
     || tip.kind !== 'auto' || tip.generator !== 'gauss' || tip.shape !== 'circle'
@@ -43,10 +43,18 @@ export function sourceGaussianDab(request: SourceGaussianDabRequest) {
   if (width > 4096 || height > 4096 || width * height > request.maxPixels) throw new RangeError('Gaussian dab exceeds reserved window')
   const center = [geometry.hotSpot[0] - .5 + request.subpixelX, geometry.hotSpot[1] - .5 + request.subpixelY] as const
   const coverageAngle = shape.rotation + request.storedAngle
-  const coverage = sourceGaussianResolvedMaskReference({ profile: request.coverageProfile, coefficients,
+  const evaluator = prepareSourceGaussianResolvedMask({ profile: request.coverageProfile, coefficients,
     effectiveWidth, effectiveHeight, antialias: tip.antialias,
     centerX: center[0], centerY: center[1], cos: Math.cos(coverageAngle), sin: Math.sin(coverageAngle),
     width, height, maxPixels: request.maxPixels, maxWorkSamples: request.maxWorkSamples })
   return { dialect: request.dialect, geometry, center, generatorScale, coverageAngle,
-    requestedProfile: request.coverageProfile, coefficients, ...coverage }
+    requestedProfile: request.coverageProfile, coefficients, evaluator }
+}
+
+/** Synchronous convenience path over the single bounded sample cursor. */
+export function sourceGaussianDab(request: SourceGaussianDabRequest) {
+  const { evaluator, ...metadata } = prepareSourceGaussianDab(request)
+  const mask = new Uint8Array(evaluator.pixels)
+  while (!evaluator.done) evaluator.advance(mask, evaluator.completedPixels, 65536)
+  return { ...metadata, mask, route: evaluator.route, samplesPerPixel: evaluator.samplesPerPixel }
 }
