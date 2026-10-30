@@ -91,3 +91,25 @@ export function extractDefaultAutoSourceDataCapability(descriptor: BrushDescript
   return { supported: true, status: 'source-data-only', rasterReady: false,
     data: data as SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceDefaultAutoData } }
 }
+
+/** Gaussian raw-source retention/compiler capability. Existing round/bitmap
+ * tips are legacy approximations; this result grants neither their execution
+ * nor a Gaussian author/material/wire path. */
+export function extractGaussianAutoSourceDataCapability(descriptor: BrushDescriptor):
+  { readonly supported: true; readonly status: 'source-data-only'; readonly rasterReady: false; readonly data: SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceGaussianAutoData } } |
+  { readonly supported: false; readonly reasons: readonly string[] } {
+  const reject = (reason: string) => ({ supported: false as const, reasons: [reason] })
+  const data = descriptor.sourceStamp
+  if (!isSourceStampData(data)) return reject('invalid-or-missing-source-data')
+  if (data.version !== 2 || data.source.kind !== 'gaussianAuto') return reject('source-material-is-not-gaussian-auto')
+  if (data.unsupported.length) return { supported: false, reasons: [...data.unsupported] }
+  if (data.role !== 'primary' || descriptor.behavior?.dual) return reject('mask-master-size-unresolved')
+  if (descriptor.model !== 'stamp') return reject('inconsistent-gaussian-auto-descriptor')
+  const source = data.source
+  if (source.shape !== 'circle' || source.spikes !== 2 || source.randomness !== 0 || source.density !== 1
+    || !data.flags.materialFixed1 || data.flags.textureEnabled || descriptor.behavior?.colorAdjustment) return reject('unsupported-gaussian-auto-material-consumer')
+  if (!sourceStampPaintingMode(data)) return reject('inconsistent-source-painting-mode')
+  if (data.options.length !== 9 || !hasCanonicalSourceCurvePrograms(data)) return reject('native-option-program-unavailable')
+  return { supported: true, status: 'source-data-only', rasterReady: false,
+    data: data as SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceGaussianAutoData } }
+}

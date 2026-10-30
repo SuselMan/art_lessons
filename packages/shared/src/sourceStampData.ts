@@ -59,6 +59,16 @@ export interface SourceDefaultAutoData {
   readonly antialias: boolean; readonly spikes: number
   readonly randomness: number; readonly density: number
 }
+/** Retained Gaussian inputs only. No renderer, material or wire grant. */
+export interface SourceGaussianAutoData {
+  readonly kind: 'gaussianAuto'
+  readonly generator: 'gauss'
+  readonly shape: 'circle'
+  readonly diameter: number; readonly ratio: number
+  readonly horizontalFade: number; readonly verticalFade: number
+  readonly antialias: boolean; readonly spikes: number
+  readonly randomness: number; readonly density: number
+}
 interface SourceStampCommon {
   readonly compiled?: SourceStampCompiledData
   readonly reader: 'krita-bd6e8d0-v1'
@@ -78,9 +88,9 @@ interface SourceStampCommon {
 /** Missing tag is legacy IMAGE only. New payloads must carry an explicit tag. */
 export type SourceStampData = SourceStampCommon & (
   { readonly version: 1; readonly source?: never } |
-  { readonly version: 2; readonly source: { readonly kind: 'image' } | SourceDefaultAutoData }
+  { readonly version: 2; readonly source: { readonly kind: 'image' } | SourceDefaultAutoData | SourceGaussianAutoData }
 )
-export function sourceStampSourceKind(data: SourceStampData): 'image' | 'defaultAuto' {
+export function sourceStampSourceKind(data: SourceStampData): 'image' | 'defaultAuto' | 'gaussianAuto' {
   return data.version === 1 ? 'image' : data.source.kind
 }
 function sourceIdentity(v: Record<string, unknown>): boolean {
@@ -88,8 +98,10 @@ function sourceIdentity(v: Record<string, unknown>): boolean {
   if (v.version !== 2 || !record(v.source)) return false
   const s = v.source
   if (s.kind === 'image') return keys(s, ['kind'])
-  if (s.kind !== 'defaultAuto' || !keys(s, ['kind','generator','shape','diameter','ratio','horizontalFade','verticalFade','antialias','spikes','randomness','density'])
-    || s.generator !== 'default' || !['circle','rect'].includes(String(s.shape)) || !bool(s.antialias)
+  const generatorIdentity = s.kind === 'defaultAuto' ? s.generator === 'default' && ['circle','rect'].includes(String(s.shape))
+    : s.kind === 'gaussianAuto' && s.generator === 'gauss' && s.shape === 'circle'
+  if (!generatorIdentity || !keys(s, ['kind','generator','shape','diameter','ratio','horizontalFade','verticalFade','antialias','spikes','randomness','density'])
+    || !bool(s.antialias)
     || ![s.diameter,s.ratio,s.horizontalFade,s.verticalFade,s.spikes,s.randomness,s.density].every(finite)
     || (s.diameter as number) <= 0 || (s.ratio as number) <= 0 || !Number.isInteger(s.spikes)
     || (s.spikes as number) < 1 || (s.spikes as number) > 2147483647

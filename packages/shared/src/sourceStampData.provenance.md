@@ -15,3 +15,26 @@ Those real inputs were compiled with the existing independently authored Eigen3.
 Portable source validation still reconstructs normalized data from raw settings through the existing bounded KPP XML reader before any CAS installation. Unknown/default-generator parameter capabilities fail closed without inventing another author DTO. New auto source metadata fits the existing2048byte fixed metadata allowance; variable raw settings/curves still use ≤1MiB per descriptor and ≤16MiB per library before asset loading. Disabled saved nonlinear curves remain retained without requesting unnecessary compiler work.
 
 The temporary compiler/header build was registered as disposable `auto-source-curve52-20261030`; it was removed by the standard privileged strict-reference cleanup after provider tests. Input/output hashes and receipt `auto-source-curve-resource-cleanup.json` are retained in ignored fixes-v52. The final decimal-only auto reader guard additionally rejects Python-only numeric spellings; all seven raw-source reconstructions were repeated unchanged after that guard. No new service/runtime, device/context/forward, author strategy, canonical codec or room activation was created by this unit.
+
+## Gaussian retention extension
+
+Version2 additionally retains explicit gaussianAuto/generator gauss/circle,
+with raw diameter, ratio, both fades, AA, spikes, randomness and density.
+Initial metrics and storedScale1 use the SAME auto factory reading law.
+The new extractor reports source-data-only/rasterReady false. Unsupported
+spikes/random/density, missing programs, texture/material consumers remain
+closed. Existing PNG/default-auto extractors reject Gaussian by identity; no
+new material tag, renderer policy, room grant or client-selected coefficients
+is introduced by this data slice. Legacy approximate round/bitmap descriptor
+shape is not treated as an exact Gaussian source or tool/eraser permission.
+
+The actual13 Gaussian fixture was generated from pinned original KPPs through
+production preset(), explicit unchanged Eigen3.4/off sensor compilation and
+independent portable recompile. It contains source/descriptor/compiler hashes;
+no coefficient lookup or Gaussian radial authority is implied. Required sensor
+program counts are3/1/2/2/3/3/1/3/2/2/2/0/1. All13 source payloads validate.
+Only #2/5/6/7/10/11/22 pass the conservative data capability. #12/68/70 retain
+material-consumer fences; #38/39/40 retain dual/mask fences. Legacy bitmap CAS
+planes are not copied into this source fixture. Nine asset-free round descriptors
+also pass library validation; all13 reject image/default-auto capabilities.
+No Gaussian author/wire/prepass grant is introduced yet.
