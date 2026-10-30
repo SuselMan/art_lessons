@@ -2,7 +2,7 @@ import type { Operation, RejectReason } from '@grafetto/shared'
 
 import { operationRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord, type RoomWriteOutcome } from './roomRegistry.js'
-import { persistOperation, retryCanonicalOperationWrite } from './roomPersistence.js'
+import { persistOperation, retryCanonicalOperationWrite, verifyCanonicalOperationRow, type CanonicalStoredOperationRow } from './roomPersistence.js'
 import { advanceStructuralLog, deriveLayerIds } from './structuralLog.js'
 
 /** (#612) A resident room's operation log, one operation at a time: whether it
@@ -108,6 +108,28 @@ export function canonicalWriteFence(record: RoomRecord): Readonly<{ pending: num
 export function knownCanonicalWrite(op: Operation): Readonly<{ status: CanonicalWriteStatus; outcome: Promise<RoomWriteOutcome<void>> }> | undefined {
   const receipt = canonicalWrites.get(op)
   return receipt && Object.freeze({ status: receipt.status, outcome: receipt.outcome })
+}
+
+/** Loader-only adoption of verified DB rows, never a completeness/authorization grant.
+ * All validation precedes receipt mutation; equal objects and losing loads cannot
+ * acquire provenance. Existing write attempts may not be overwritten. */
+export function adoptLoadedCanonicalWrites(record: RoomRecord, rows: readonly CanonicalStoredOperationRow[]): void {
+  if (rooms.get(record.room.id) !== record) throw new Error('Canonical loaded operation stale owner')
+  const seen = new Set<Operation>()
+  for (const row of rows) {
+    const op = row.data as Operation
+    if (row.type !== 'canonical_stroke' && op?.type !== 'canonical_stroke') continue
+    if (!op || record.operationsById.get(op.id) !== op || seen.has(op))
+      throw new Error('Canonical loaded operation unknown actual object')
+    verifyCanonicalOperationRow(record.room.id, op, row)
+    if (canonicalWrites.has(op)) throw new Error('Canonical loaded operation already has write receipt')
+    seen.add(op)
+  }
+  let owner = canonicalWriteOwners.get(record)
+  if (!owner && seen.size) { owner = { pending: 0, failed: 0 }; canonicalWriteOwners.set(record, owner) }
+  for (const op of seen) canonicalWrites.set(op, {
+    owner: owner!, status: 'succeeded', outcome: Promise.resolve({ ok: true, value: undefined }),
+  })
 }
 
 function startCanonicalWrite(receipt: CanonicalWriteReceipt, run: () => Promise<RoomWriteOutcome<void>>): Promise<RoomWriteOutcome<void>> {

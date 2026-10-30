@@ -4,8 +4,9 @@ import { DEFAULT_PALETTE_COLORS } from '@grafetto/shared'
 import { prisma } from '../db/prisma.js'
 import { supportsCurrentRoomRaster } from './roomRasterAdmission.js'
 import { toWireRoom } from './roomMapper.js'
-import { rooms } from './roomRegistry.js'
-import { persistPalette } from './roomPersistence.js'
+import { rooms, type RoomRecord } from './roomRegistry.js'
+import { canonicalOperationRowSelect, verifyCanonicalOperationRow, persistPalette } from './roomPersistence.js'
+import { adoptLoadedCanonicalWrites } from './operationLog.js'
 import { layerStateIdsOf, residentOperationWhere } from './snapshotCoverage.js'
 import { loadCoveredSeqByLayer } from './snapshotStore.js'
 import { buildStructuralLog, deriveLayerIds, META_OP_TYPES, type StructuralEntry } from './structuralLog.js'
@@ -36,10 +37,14 @@ import { buildStructuralLog, deriveLayerIds, META_OP_TYPES, type StructuralEntry
  *  nothing to exclude and loads in full. */
 async function loadResidentOperations(
   roomId: string, coveredSeqByLayer: ReadonlyMap<string, number>,
-): Promise<Operation[]> {
+) {
   const where = residentOperationWhere(roomId, coveredSeqByLayer)
-  const rows = await prisma.operation.findMany({ where, orderBy: { seq: 'asc' }, select: { data: true } })
-  return rows.map(row => row.data as Operation)
+  const rows = await prisma.operation.findMany({ where, orderBy: { seq: 'asc' }, select: canonicalOperationRowSelect })
+  for (const row of rows) {
+    const op = row.data as Operation
+    if (row.type === 'canonical_stroke' || op?.type === 'canonical_stroke') verifyCanonicalOperationRow(roomId, op, row)
+  }
+  return rows
 }
 
 /** Repopulates the in-memory Map for `roomId` from Postgres if it isn't
@@ -88,7 +93,8 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   ])
   // Sequenced after coverage rather than alongside it: which operations are
   // resident is decided by that map (#372).
-  const operations = await loadResidentOperations(roomId, coveredSeqByLayer)
+  const operationRows = await loadResidentOperations(roomId, coveredSeqByLayer)
+  const operations = operationRows.map(row => row.data as Operation)
 
   // (#292) Read from Postgres rather than from `operations`: the resident
   // set is now a *window*, so its own highest seq is not necessarily the
@@ -149,7 +155,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   // it.)
   if (rooms.has(roomId)) return true
 
-  rooms.set(roomId, {
+  const loaded: RoomRecord = {
     room: toWireRoom(dbRoom),
     lessonId: dbRoom.lessonId,
     sockets: new Set(),
@@ -175,7 +181,10 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     deletedIds,
     operationsById: new Map(operations.map(op => [op.id, op])),
     structuralLog,
-  })
+  }
+  rooms.set(roomId, loaded)
+  try { adoptLoadedCanonicalWrites(loaded, operationRows) }
+  catch (error) { rooms.delete(roomId); throw error }
   return true
 }
 

@@ -63,6 +63,24 @@ function operationRow(roomId: string, op: Operation) {
   }
 }
 
+/** Indexed columns accompany DB JSON at the loader/repair authority boundary. */
+export const canonicalOperationRowSelect = {
+  id: true, roomId: true, userId: true, seq: true, type: true, layerId: true, tool: true, data: true,
+} as const
+export interface CanonicalStoredOperationRow {
+  readonly id: string; readonly roomId: string; readonly userId: string; readonly seq: number
+  readonly type: string; readonly layerId: string | null; readonly tool: string | null; readonly data: unknown
+}
+export function verifyCanonicalOperationRow(roomId: string, op: Operation, row: CanonicalStoredOperationRow | null): void {
+  if (op?.type !== 'canonical_stroke' || !Number.isSafeInteger(op.seq) || op.seq! < 1)
+    throw new TypeError('Canonical persistence requires a stamped operation')
+  const expected = operationRow(roomId, op)
+  if (!row || row.id !== expected.id || row.roomId !== expected.roomId || row.userId !== expected.userId
+    || row.seq !== expected.seq || row.type !== expected.type || row.layerId !== (expected.layerId ?? null)
+    || row.tool !== expected.tool || !isDeepStrictEqual(row.data, expected.data))
+    throw new Error('Canonical persistence immutable row conflict')
+}
+
 export function persistOperation(roomId: string, op: Operation): Promise<RoomWriteOutcome<void>> {
   return enqueueWrite(roomId, async () => {
     await prisma.operation.create({ data: operationRow(roomId, op) })
@@ -74,19 +92,12 @@ export function persistOperation(roomId: string, op: Operation): Promise<RoomWri
  * resident immutable operation identity; this function confers no authority.
  * Each call schedules ONE attempt on the SAME existing room write queue. */
 export function retryCanonicalOperationWrite(roomId: string, op: Operation): Promise<RoomWriteOutcome<void>> {
-  if (op.type !== 'canonical_stroke' || !Number.isSafeInteger(op.seq) || op.seq! < 1)
+  if (op?.type !== 'canonical_stroke' || !Number.isSafeInteger(op.seq) || op.seq! < 1)
     throw new TypeError('Canonical persistence requires a stamped operation')
   return enqueueWrite(roomId, async () => {
     const expected = operationRow(roomId, op)
-    const read = () => prisma.operation.findUnique({ where: { id: op.id }, select: {
-      id: true, roomId: true, userId: true, seq: true, type: true, layerId: true, tool: true, data: true,
-    } })
-    const verify = (row: Awaited<ReturnType<typeof read>>) => {
-      if (!row || row.id !== expected.id || row.roomId !== expected.roomId || row.userId !== expected.userId
-        || row.seq !== expected.seq || row.type !== expected.type || row.layerId !== (expected.layerId ?? null)
-        || row.tool !== expected.tool || !isDeepStrictEqual(row.data, expected.data))
-        throw new Error('Canonical persistence immutable row conflict')
-    }
+    const read = () => prisma.operation.findUnique({ where: { id: op.id }, select: canonicalOperationRowSelect })
+    const verify = (row: Awaited<ReturnType<typeof read>>) => verifyCanonicalOperationRow(roomId, op, row)
     const row = await read()
     if (row) { verify(row); return }
     try { await prisma.operation.create({ data: expected }) }

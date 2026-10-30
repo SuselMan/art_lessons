@@ -62,3 +62,31 @@ confirm successfully repaired duplicates idempotently, and prevent different-
 gesture failed-seq gaps from becoming falsely complete room state. Prefix,
 loader/fork/snapshot fences and authoritative close remain explicit consumers,
 not claims made by these primitives.
+
+## Verified cold-loader provenance (separate from read readiness)
+
+`roomPersistence.verifyCanonicalOperationRow` is shared by same-row repair and
+cold load: positive safe sequence plus full indexed id/room/user/sequence/type/
+layer/tool and JSON identity against the one existing insert projection.
+`canonicalOperationRowSelect` adds indexed metadata without a second body read.
+Legacy data-only test rows retain their existing behavior.
+
+`adoptLoadedCanonicalWrites(record, rows)` is server-internal loader authority,
+not a client grant. It requires the actual current resident record and exact
+`row.data === record.operationsById.get(id)` identities, validates all canonical
+rows before receipt changes, rejects duplicate inputs and ALL existing receipts
+(including pending/failed), and registers succeeded receipts on the SAME numeric
+owner. No row/ID/body journal is retained. The cold loader selects its winning
+record and adopts synchronously; a losing cold load never marks its objects.
+Malformed indexed/header rows reject before resident publication. Failed adoption
+removes its just-created candidate; no asynchronous publication window exists.
+
+Focused loader/log/persistence tests: 27 passed; existing room/snapshot regression
+suite: 203 passed. Cases include equal-copy refusal, atomic mixed-row conflict,
+replacement owner, pending/failed overwrite refusal, and deferred two-loader
+race with only the winner known durable. These are mocked DB provenance tests,
+not an actual database or publication gate receipt.
+
+A zero numeric fence STILL does not prove cold-prefix completeness, historical
+wash closure, or reader readiness. No join/fork/HTTP/snapshot gates are activated
+by this slice; unknown historical objects remain unknown.

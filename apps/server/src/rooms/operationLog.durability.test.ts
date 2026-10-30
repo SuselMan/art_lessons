@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE, packCanonicalMaterial, type CanonicalStrokeOperation, type Operation } from '@grafetto/shared'
 const db=vi.hoisted(()=>({operation:{create:vi.fn(),findUnique:vi.fn()}}))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
-import { canonicalWriteFence, ensureCanonicalWrite, knownCanonicalWrite, recordOperation } from './operationLog.js'
+import { adoptLoadedCanonicalWrites, canonicalWriteFence, ensureCanonicalWrite, knownCanonicalWrite, recordOperation } from './operationLog.js'
 import { rooms, flushRoomWrites, type RoomRecord } from './roomRegistry.js'
 import { CanonicalStrokeAdmission, type TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
 const asset={id:`asset:${'1'.repeat(64)}`,size:1,x:0,y:0,width:1,height:1}
@@ -14,7 +14,7 @@ function resident(id='room'):RoomRecord{
   rooms.set(id,record);return record
 }
 function deferred<T>(){let resolve!:(v:T)=>void,reject!:(error:unknown)=>void;const promise=new Promise<T>((a,b)=>{resolve=a;reject=b});return{promise,resolve,reject}}
-const stored=(roomId:string,op:Operation)=>({id:op.id,roomId,userId:op.userId,seq:op.seq,type:op.type,layerId:'layerId'in op?op.layerId:null,tool:null,data:structuredClone(op)})
+const stored=(roomId:string,op:Operation)=>({id:op.id,roomId,userId:op.userId,seq:op.seq!,type:op.type,layerId:'layerId'in op?(op.layerId??null):null,tool:null,data:structuredClone(op)})
 beforeEach(()=>{db.operation.create.mockReset().mockResolvedValue({});db.operation.findUnique.mockReset().mockResolvedValue(null)})
 afterEach(async()=>{for(const id of rooms.keys())await flushRoomWrites(id);rooms.clear();vi.restoreAllMocks()})
 
@@ -96,5 +96,34 @@ describe('actual-object canonical write receipts (no transport activation)',()=>
     first.resolve();await knownCanonicalWrite(oldOp)!.outcome;await knownCanonicalWrite(newOp)!.outcome
     expect(canonicalWriteFence(old)).toEqual({pending:0,failed:0});expect(canonicalWriteFence(current)).toEqual({pending:0,failed:0})
     expect(()=>ensureCanonicalWrite(old,oldOp)).toThrow(/stale/)
+  })
+})
+
+
+describe('verified loader provenance',()=>{
+  function loaded(r:RoomRecord,id='loaded') { const op={...candidate(id),seq:1};r.operations.push(op);r.operationsById.set(id,op);return op }
+  it('adopts only actual indexed DB objects, without scheduling a write or claiming completeness',async()=>{
+    const r=resident(),op=loaded(r),row={...stored('room',op),data:op}
+    adoptLoadedCanonicalWrites(r,[row])
+    expect(knownCanonicalWrite(op)?.status).toBe('succeeded')
+    expect(await ensureCanonicalWrite(r,op)).toEqual({ok:true,value:undefined})
+    expect(knownCanonicalWrite(structuredClone(op))).toBeUndefined()
+    expect(db.operation.create).not.toHaveBeenCalled();expect(db.operation.findUnique).not.toHaveBeenCalled()
+  })
+  it('rejects equal copies, stale owners and malformed rows atomically',()=>{
+    const r=resident(),a=loaded(r,'a'),b=loaded(r,'b'),ra={...stored('room',a),data:a},rb={...stored('room',b),data:b}
+    expect(()=>adoptLoadedCanonicalWrites(r,[ra,{...rb,seq:99}])).toThrow('conflict')
+    expect(knownCanonicalWrite(a)).toBeUndefined();expect(knownCanonicalWrite(b)).toBeUndefined()
+    expect(()=>adoptLoadedCanonicalWrites(r,[stored('room',a)])).toThrow('actual object')
+    resident('room');expect(()=>adoptLoadedCanonicalWrites(r,[ra])).toThrow('stale owner')
+  })
+  it('never converts a pending or failed attempt into loaded success',async()=>{
+    const r=resident(),gate=deferred<void>();db.operation.create.mockReturnValueOnce(gate.promise)
+    const op=recordOperation('room',candidate()),row={...stored('room',op),data:op}
+    expect(()=>adoptLoadedCanonicalWrites(r,[row])).toThrow('already has')
+    expect(knownCanonicalWrite(op)?.status).toBe('pending')
+    const log=vi.spyOn(console,'error').mockImplementation(()=>{});gate.reject(new Error('offline'));await flushRoomWrites('room')
+    expect(()=>adoptLoadedCanonicalWrites(r,[row])).toThrow('already has')
+    expect(knownCanonicalWrite(op)?.status).toBe('failed');expect(canonicalWriteFence(r)).toEqual({pending:0,failed:1});log.mockRestore()
   })
 })

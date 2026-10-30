@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { DEFAULT_PALETTE_COLORS, type Operation } from '@grafetto/shared'
+import { CANONICAL_STROKE_RASTER_PROFILE, DEFAULT_PALETTE_COLORS, type Operation } from '@grafetto/shared'
 
 /** (#612) The cold load on its own: what a room that was not in memory comes
  *  back as. Everything synchronous downstream assumes these mirrors are right,
@@ -20,7 +20,7 @@ const mockPrisma = vi.hoisted(() => ({
 vi.mock('../db/prisma.js', () => ({ prisma: mockPrisma }))
 
 const { _flushPendingWrites, getRoomSnapshot, joinRoom } = await import('./rooms.js')
-const { getOperationRejectReason, recordOperation, updateAliveIds } = await import('./operationLog.js')
+const { knownCanonicalWrite, ensureCanonicalWrite, getOperationRejectReason, recordOperation, updateAliveIds } = await import('./operationLog.js')
 const { ensureRoomLoaded } = await import('./roomLoader.js')
 const { isLayerLocked, isLayerOwnerLocked } = await import('./ownerControls.js')
 const { rooms } = await import('./roomRegistry.js')
@@ -154,4 +154,30 @@ it('rejects unknown and not-yet-supported raster versions before operation or sn
   }
   expect(mockPrisma.operation.findMany).not.toHaveBeenCalled()
   expect(mockPrisma.roomLayerSnapshot.groupBy).not.toHaveBeenCalled()
+})
+
+
+function canonicalLoaded(id:string):Operation {
+  return {id,userId:OWNER,timestamp:0,seq:1,type:'canonical_stroke',layerId:'layer-1',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:'brush:x@1',strokeId:'g',frameOrdinal:0,pigmentRgb8:[1,2,3],composition:{mode:'wash',alphaDarken:'creamy',outerResourceOpacity:1,outerBlend:'over'},materialPacked:'fixture'}} as Operation
+}
+const indexed=(roomId:string,data:Operation)=>({id:data.id,roomId,userId:data.userId,seq:data.seq,type:data.type,layerId:'layer-1',tool:null,data})
+it('adopts verified canonical DB rows only for the actual cold-load winner',async()=>{
+  const a=canonicalLoaded('loaded-a'),b=canonicalLoaded('loaded-b'),id=seed([])
+  let release!:()=>void;const gate=new Promise<void>(r=>{release=r});let calls=0
+  mockPrisma.operation.findMany.mockImplementation(async()=>{
+    if(++calls===2){await gate;return[indexed(id,b)]}return[indexed(id,a)]
+  })
+  const first=ensureRoomLoaded(id),second=ensureRoomLoaded(id);await first
+  const winner=rooms.get(id)!
+  expect(winner.operationsById.get(a.id)).toBe(a);expect(knownCanonicalWrite(a)?.status).toBe('succeeded')
+  expect(await ensureCanonicalWrite(winner,a)).toEqual({ok:true,value:undefined})
+  release();await second
+  expect(rooms.get(id)).toBe(winner);expect(knownCanonicalWrite(b)).toBeUndefined()
+  expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+})
+it('rejects canonical DB indexed/header conflicts without adopting a room',async()=>{
+  const op=canonicalLoaded('bad'),id=seed([])
+  mockPrisma.operation.findMany.mockResolvedValue([{...indexed(id,op),userId:'different'}])
+  await expect(ensureRoomLoaded(id)).rejects.toThrow('immutable row conflict')
+  expect(rooms.has(id)).toBe(false);expect(knownCanonicalWrite(op)).toBeUndefined()
 })
