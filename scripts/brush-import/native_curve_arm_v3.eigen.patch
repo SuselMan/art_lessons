@@ -1,0 +1,230 @@
+--- a/Eigen/src/SparseLU/SparseLU_kernel_bmod.h
++++ b/Eigen/src/SparseLU/SparseLU_kernel_bmod.h
+@@ -1,3 +1,5 @@
++// Grafetto mapped arithmetic/closed-branch guards; MPL-2.0 upstream license retained.
++#define GRAFETTO_CURVE_ARM_SPARSELU_KERNEL_BMOD 1
+ // This file is part of Eigen, a lightweight C++ template library
+ // for linear algebra.
+ //
+@@ -45,6 +47,8 @@
+                                                                  const Index lda, const Index nrow, IndexVector& lsub,
+                                                                  const Index lptr, const Index no_zeros) {
+   typedef typename ScalarVector::Scalar Scalar;
++  ::grafetto_curve_arm::branch("dynamic-lu",segsize,nrow);
++  if(segsize<2 || segsize>4 || nrow<0 || nrow>1) ::grafetto_curve_arm::reject("dynamic-lu-dimensions");
+   // First, copy U[*,j] segment from dense(*) to tempv(*)
+   // The result of triangular solve is in tempv[*];
+   // The result of matric-vector update is in dense[*]
+@@ -76,7 +80,7 @@
+   Map<Matrix<Scalar, Dynamic, 1>, 0, OuterStride<> > l(tempv.data() + segsize + aligned_offset + aligned_with_B_offset,
+                                                        nrow, OuterStride<>(ldl));
+ 
+-  l.noalias() = B * u;
++  ::grafetto_curve_arm::oneRowDot(B,u,l);
+ 
+   // Scatter tempv[] into SPA dense[] as a temporary storage
+   isub = lptr + no_zeros;
+@@ -107,6 +111,8 @@
+                                               const Index no_zeros) {
+   typedef typename ScalarVector::Scalar Scalar;
+   typedef typename IndexVector::Scalar StorageIndex;
++  ::grafetto_curve_arm::branch("lu1",1,nrow);
++  if(nrow<0) ::grafetto_curve_arm::reject("lu1-negative-rows");
+   Scalar f = dense(lsub(lptr + no_zeros));
+   luptr += lda * no_zeros + no_zeros + 1;
+   const Scalar* a(lusup.data() + luptr);
+@@ -119,12 +125,12 @@
+     Scalar a1 = *(a++);
+     Scalar d0 = dense.coeff(i0);
+     Scalar d1 = dense.coeff(i1);
+-    d0 -= f * a0;
+-    d1 -= f * a1;
++    d0 = ::grafetto_curve_arm::fusedSubtractProduct(d0,f,a0);
++    d1 = ::grafetto_curve_arm::fusedSubtractProduct(d1,f,a1);
+     dense.coeffRef(i0) = d0;
+     dense.coeffRef(i1) = d1;
+   }
+-  if (i < nrow) dense.coeffRef(*(irow++)) -= f * *(a++);
++  if (i < nrow) { const auto row=*(irow++); dense.coeffRef(row)=::grafetto_curve_arm::fusedSubtractProduct(dense.coeff(row),f,*(a++)); }
+ }
+ 
+ }  // end namespace internal
+--- a/Eigen/src/SparseLU/SparseLU_SupernodalMatrix.h
++++ b/Eigen/src/SparseLU/SparseLU_SupernodalMatrix.h
+@@ -1,3 +1,5 @@
++// Grafetto mapped arithmetic/closed-branch guards; MPL-2.0 upstream license retained.
++#define GRAFETTO_CURVE_ARM_SPARSELU_SUPERNODALMATRIX 1
+ // This file is part of Eigen, a lightweight C++ template library
+ // for linear algebra.
+ //
+@@ -210,7 +212,9 @@
+     Index istart = rowIndexPtr()[fsupc];              // Pointer index to the subscript of the current column
+     Index nsupr = rowIndexPtr()[fsupc + 1] - istart;  // Number of rows in the current supernode
+     Index nsupc = supToCol()[k + 1] - fsupc;          // Number of columns in the current supernode
+-    Index nrow = nsupr - nsupc;                       // Number of rows in the non-diagonal part of the supernode
++    Index nrow = nsupr - nsupc;
++    ::grafetto_curve_arm::branch("lsolve-supernode",nsupc,nrow);
++    if(nrhs!=1 || nsupc<1 || nsupc>4 || nrow<0 || nrow>n-nsupc || (nsupc>1 && nrow>1)) ::grafetto_curve_arm::reject("lsolve-supernode-dimensions");                       // Number of rows in the non-diagonal part of the supernode
+     Index irow;                                       // Current index row
+ 
+     if (nsupc == 1) {
+@@ -219,7 +223,8 @@
+         ++it;  // Skip the diagonal element
+         for (; it; ++it) {
+           irow = it.row();
+-          X(irow, j) -= X(fsupc, j) * it.value();
++          ::grafetto_curve_arm::branch("lsolve-single-update",nsupc,nrhs);
++          X(irow, j)=::grafetto_curve_arm::fusedSubtractProduct(X(irow,j),X(fsupc,j),it.value());
+         }
+       }
+     } else {
+@@ -235,7 +240,8 @@
+       // Matrix-vector product
+       new (&A) Map<const Matrix<Scalar, Dynamic, Dynamic, ColMajor>, 0, OuterStride<> >(&(Lval[luptr + nsupc]), nrow,
+                                                                                         nsupc, OuterStride<>(lda));
+-      work.topRows(nrow).noalias() = A * U;
++      auto targetWork=work.topRows(nrow);
++      ::grafetto_curve_arm::oneRowDot(A,U,targetWork);
+ 
+       // Begin Scatter
+       for (Index j = 0; j < nrhs; j++) {
+--- a/Eigen/src/SparseLU/SparseLU.h
++++ b/Eigen/src/SparseLU/SparseLU.h
+@@ -1,3 +1,5 @@
++// Grafetto mapped arithmetic/closed-branch guards; MPL-2.0 upstream license retained.
++#define GRAFETTO_CURVE_ARM_SPARSELU 1
+ // This file is part of Eigen, a lightweight C++ template library
+ // for linear algebra.
+ //
+@@ -347,12 +349,16 @@
+     // this ugly const_cast_derived() helps to detect aliasing when applying the permutations
+     for (Index j = 0; j < B.cols(); ++j) X.col(j) = rowsPermutation() * B.const_cast_derived().col(j);
+ 
++    ::grafetto_curve_arm::solveCheckpoint("after-permutation",X);
+     // Forward substitution with L
+     this->matrixL().solveInPlace(X);
++    ::grafetto_curve_arm::solveCheckpoint("after-L",X);
+     this->matrixU().solveInPlace(X);
++    ::grafetto_curve_arm::solveCheckpoint("after-U",X);
+ 
+     // Permute back the solution
+     for (Index j = 0; j < B.cols(); ++j) X.col(j) = colsPermutation().inverse() * X.col(j);
++    ::grafetto_curve_arm::solveCheckpoint("after-inversePc",X);
+ 
+     return true;
+   }
+@@ -778,6 +784,7 @@
+         return;
+       }
+ 
++      ::grafetto_curve_arm::columnCheckpoint(jj,m_glu,m_perm_r.indices());
+       // Update the determinant of the row permutation matrix
+       // FIXME: the following test is not correct, we should probably take iperm_c into account and pivrow is not
+       // directly the row pivot.
+@@ -890,7 +897,7 @@
+           typename MatrixUType::InnerIterator it(m_mapU, jcol);
+           for (; it; ++it) {
+             Index irow = it.index();
+-            X(irow, j) -= X(jcol, j) * it.value();
++            X(irow, j) = ::grafetto_curve_arm::fusedSubtractProduct(X(irow,j),X(jcol,j),it.value());
+           }
+         }
+       }
+--- a/Eigen/src/Core/products/TriangularSolverVector.h
++++ b/Eigen/src/Core/products/TriangularSolverVector.h
+@@ -1,3 +1,5 @@
++// Grafetto mapped arithmetic/closed-branch guards; MPL-2.0 upstream license retained.
++#define GRAFETTO_CURVE_ARM_TRIANGULARSOLVERVECTOR 1
+ // This file is part of Eigen, a lightweight C++ template library
+ // for linear algebra.
+ //
+@@ -45,7 +47,7 @@
+       Index actualPanelWidth = (std::min)(IsLower ? size - pi : pi, PanelWidth);
+ 
+       Index r = IsLower ? pi : size - pi;  // remaining size
+-      if (r > 0) {
++      if (r > 0) { ::grafetto_curve_arm::reject("trsv-outside-panel-unproved");
+         // let's directly call the low level product function because:
+         // 1 - it is faster to compile
+         // 2 - it is slightly faster at runtime
+@@ -61,6 +63,7 @@
+       for (Index k = 0; k < actualPanelWidth; ++k) {
+         Index i = IsLower ? pi + k : pi - k - 1;
+         Index s = IsLower ? pi : i + 1;
++        if (k > 0) ::grafetto_curve_arm::reject("trsv-row-reduction-unproved");
+         if (k > 0)
+           rhs[i] -= (cjLhs.row(i).segment(s, k).transpose().cwiseProduct(
+                          Map<const Matrix<RhsScalar, Dynamic, 1> >(rhs + s, k)))
+@@ -98,11 +101,11 @@
+ 
+           Index r = actualPanelWidth - k - 1;  // remaining size
+           Index s = IsLower ? i + 1 : i - r;
+-          if (r > 0) Map<Matrix<RhsScalar, Dynamic, 1> >(rhs + s, r) -= rhs[i] * cjLhs.col(i).segment(s, r);
++          if (r > 0) { ::grafetto_curve_arm::branch("trsv-col-update",size,r); if((size<2 || size>4) || r<1 || r>=size || !((IsLower && (Mode & UnitDiag)) || (!IsLower && !(Mode & UnitDiag))) || Conjugate) ::grafetto_curve_arm::reject("trsv-col-packet-or-scalar-unproved"); for(Index lane=0;lane<r;++lane) rhs[s+lane]=::grafetto_curve_arm::separateSubtractProduct(rhs[s+lane],rhs[i],cjLhs(s+lane,i)); }
+         }
+       }
+       Index r = IsLower ? size - endBlock : startBlock;  // remaining size
+-      if (r > 0) {
++      if (r > 0) { ::grafetto_curve_arm::reject("trsv-col-outside-panel-unproved");
+         // let's directly call the low level product function because:
+         // 1 - it is faster to compile
+         // 2 - it is slightly faster at runtime
+--- a/Eigen/src/Core/products/TriangularSolverMatrix.h
++++ b/Eigen/src/Core/products/TriangularSolverMatrix.h
+@@ -1,3 +1,5 @@
++// Grafetto mapped arithmetic/closed-branch guards; MPL-2.0 upstream license retained.
++#define GRAFETTO_CURVE_ARM_TRIANGULARSOLVERMATRIX 1
+ // This file is part of Eigen, a lightweight C++ template library
+ // for linear algebra.
+ //
+@@ -50,6 +52,8 @@
+   enum { IsLower = (Mode & Lower) == Lower };
+   conj_if<Conjugate> conj;
+ 
++  ::grafetto_curve_arm::branch("trsm-left",size,otherSize);
++  if(TriStorageOrder!=ColMajor || !IsLower || !(Mode & UnitDiag) || Conjugate || OtherInnerStride!=1 || size<1 || size>4 || otherSize<1 || otherSize>3) ::grafetto_curve_arm::reject("trsm-left-profile");
+   // tr solve
+   for (Index k = 0; k < size; ++k) {
+     // TODO write a small kernel handling this (can be shared with trsv)
+@@ -72,7 +76,7 @@
+         Scalar b = otherij;
+         typename OtherMapper::LinearMapper r = other.getLinearMapper(s, j);
+         typename TriMapper::LinearMapper l = tri.getLinearMapper(s, i);
+-        for (Index i3 = 0; i3 < rs; ++i3) r(i3) -= b * conj(l(i3));
++        for (Index i3 = 0; i3 < rs; ++i3) r(i3) = ::grafetto_curve_arm::fusedSubtractProduct(r(i3), b, conj(l(i3)));
+       }
+     }
+   }
+--- a/Eigen/src/SparseLU/SparseLU_column_bmod.h
++++ b/Eigen/src/SparseLU/SparseLU_column_bmod.h
+@@ -1,3 +1,5 @@
++// Grafetto mapped arithmetic/closed-branch guards; MPL-2.0 upstream license retained.
++#define GRAFETTO_CURVE_ARM_SPARSELU_COLUMN_BMOD 1
+ // This file is part of Eigen, a lightweight C++ template library
+ // for linear algebra.
+ //
+@@ -165,7 +167,7 @@
+ 
+     new (&A) MappedMatrixBlock(&(glu.lusup.data()[luptr + nsupc]), nrow, nsupc, OuterStride<>(lda));
+     VectorBlock<ScalarVector> l(glu.lusup, ufirst + nsupc, nrow);
+-    l.noalias() -= A * u;
++    ::grafetto_curve_arm::columnUpdate(A,u,l);
+ 
+   }  // End if fst_col
+   return 0;
+--- a/Eigen/src/SparseLU/SparseLU_panel_bmod.h
++++ b/Eigen/src/SparseLU/SparseLU_panel_bmod.h
+@@ -1,3 +1,5 @@
++// Grafetto mapped arithmetic/closed-branch guards; MPL-2.0 upstream license retained.
++#define GRAFETTO_CURVE_ARM_SPARSELU_PANEL_BMOD 1
+ // This file is part of Eigen, a lightweight C++ template library
+ // for linear algebra.
+ //
+@@ -143,6 +145,7 @@
+       Index offset = (PacketSize - internal::first_default_aligned(B.data(), PacketSize)) % PacketSize;
+       MappedMatrixBlock L(tempv.data() + w * ldu + offset, nrow, u_cols, OuterStride<>(ldl));
+ 
++    ::grafetto_curve_arm::reject("panel-bmod-product-unproved");
+       L.noalias() = B * U;
+ 
+       // scatter U and L
