@@ -11,6 +11,7 @@ import { CanonicalStrokeAdmission, decodeTrustedCanonicalFrame, type CanonicalAd
 import { CANONICAL_ROOM_EXECUTION_POLICY, freezeCanonicalAutoPolicies, type CanonicalRoomExecutionPolicy } from './canonicalExecutionPolicy.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { canonicalWriteFence, ensureCanonicalWrite, findDuplicateOperation, knownCanonicalWrite, recordOperation, updateAliveIds } from './operationLog.js'
+import { canonicalOperationRowSelect, verifyCanonicalOperationRow } from './roomPersistence.js'
 import { flushRoomWrites, lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
 import { getOperationsBefore } from './snapshotStore.js'
 
@@ -143,12 +144,11 @@ export class CanonicalRoomTransport {
       if (!existing) {
         // Unknown IDs may be snapshot-covered. Validate authoritative uniqueness
         // BEFORE entering the synchronous mutation section; no second journal.
-        const row = await prisma.operation.findUnique({ where: { id: op.id }, select: { id: true, roomId: true, userId: true, seq: true, type: true, layerId: true, tool: true, data: true } })
+        const row = await prisma.operation.findUnique({ where: { id: op.id }, select: canonicalOperationRowSelect })
         if (row) {
           if (row.roomId !== identity.roomId || row.userId !== identity.userId) fail('invalid_operation')
           const stored = canonicalOperation(row.data, identity, true)
-          if (!Number.isSafeInteger(row.seq) || stored.seq !== row.seq || row.id !== stored.id
-            || row.type !== stored.type || row.layerId !== stored.layerId || row.tool !== null) fail('canonical_repair_required')
+          try { verifyCanonicalOperationRow(identity.roomId, stored, row) } catch { fail('canonical_repair_required') }
           existing = stored
         }
       }

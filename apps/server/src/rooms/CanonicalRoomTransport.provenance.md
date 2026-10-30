@@ -161,7 +161,9 @@ An exact resident duplicate joins the pending receipt or explicitly retries the
 SAME indexed row/ID/seq; it never allocates another sequence. A successful repaired
 duplicate returns the verified accepted operation too, for at-least-once peer
 confirmation through existing ID/seq deduplication. Unknown resident provenance
-fails closed pending the verified loader adoption seam.
+fails closed. The verified loader adoption seam registers only the actual frozen
+objects in the winning resident record; indexed DB duplicate lookup now reuses
+the SAME row projection/verifier as loader adoption and same-row repair.
 
 Each session keeps only durableRecordedNext and its actual recorded tail object.
 A new ordinal waits for its recorded predecessor, then rechecks lifetime/session,
