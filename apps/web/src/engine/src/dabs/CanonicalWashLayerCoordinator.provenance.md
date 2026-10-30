@@ -79,3 +79,42 @@ completion, while the stale-original A preview would erase B. No numerical
 shader law is changed. These are host ownership/order tests, NOT new native or
 Samsung whole-layer/device pixel proof. Prior executor actual-device receipts
 remain limited to their frozen exclusive source.
+
+## Actual Samsung default-auto whole-layer gate
+
+Frozen **`62c133fda`** engine/shared modules were loaded from Git into RAM by
+esbuild, with no worktree/runtime copy. All80 dependency hashes were rechecked
+against that same immutable commit after the run. The receipt does NOT certify
+later Gaussian executor changes or active room/engine wiring.
+
+`fixes-v52/wash-coordinator-device-result.json` covers8 trials: actual retained
+circle40 and rectangle60/ratio.7 default-auto source recipes, same versus different
+pigments, creamy/hard controls, outer opacity `.73`, prepass64 and compositor64
+or8. There is NO image bank/CAS stand-in. Real packed V2 material frames feed the
+real coordinator, deposition executor, two straight Tiled64 layers, scratch pool,
+prepass and compositor. A0 is unfinished, the full B ends before A, then remaining
+A frames close the ordered frontier. Stable and derived64x64 surfaces are read at
+all3 boundaries: **48 surface observations /196608 pixels /786432 channels,
+wrong0/maxDelta0**. While A is open stable stays unchanged, derived includes B;
+completed stable/derived equal the independent raw-local A→B fold once. Host
+expected uses the already proved sourceDefaultAutoDab and fused scalar CPU point
+laws, NOT an opacity-applied preview, GPU output, or native GUI reference.
+
+Actual highp23/Adreno650; GL errors[], poisoned[]. Strict before/after state checks
+include active texture3, bindings and all4 sampler parameters, hostile render
+flags/color mask, blend equations/functions, VAO/attributes/ANGLE divisors.
+Repeated idle advances have no uploads/draws. No raw lease survives an advance
+(max simultaneous2); all owned Texture/FBO/Buffer/Program/Shader/VAO counts end0,
+CPU/cache/pool/reservations balance, peak reservation81920B (NOT global storage).
+Maximum observed advance77ms is explicitly NOT a UI responsiveness guarantee.
+Own child/context closed, original3 tabs preserved, parent restored, own forward
+removed and job cleared. Initial harness-only missing-sequence and A0-only phase
+counter runs are retained separately and are NOT the accepted full proof.
+
+Bundle SHA256 `d832fbee005e3d6d4f916c9b1221c2008d9c3a2ee03221917713b2044ac6a592`;
+body `0839f18610a95e9e220ba9c1a0bf1fb28d535533b5486c2d690b06658d273b4c`;
+fixture `5a828f9f2d24a11234f070ef47a55ca8f910747d5bf50c64cb6806aa4d1f636c`;
+result `6ec527fd6a9cad2a03aa98b465edbea71709df315291c879a1aba3168d3ff384`;
+cleanup `17bd1c708682192a1c78cc7344c1384eee334000fe86fe82ba97b0c13d636a96`.
+The private generator/runner/body, compact expected input, source snapshots and
+summary remain reproducible under fixes-v52; no GPU pixel dump/runtime is kept.
