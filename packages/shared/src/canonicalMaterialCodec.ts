@@ -1,4 +1,4 @@
-import { canonicalDefaultAutoCost, canonicalDefaultAutoStatic, canonicalDefaultAutoSourcePin, type CanonicalDefaultAutoRecipe, type CanonicalDefaultAutoSource } from './canonicalDefaultAutoMaterial.js'
+import { canonicalAutoCost, canonicalDefaultAutoStatic, canonicalDefaultAutoSourcePin, canonicalGaussianAutoStatic, canonicalGaussianAutoSourcePin, type CanonicalAutoRecipe, type CanonicalAutoSource } from './canonicalDefaultAutoMaterial.js'
 import { canonicalMaterialGeometryCost } from './canonicalMaterialGeometry.js'
 /** Pure, opt-in source-material transport. Not imported by the operation/wire API.
  * Fences are source INPUT framing, never native composite/reset commands.
@@ -59,12 +59,12 @@ export interface CanonicalMaterialBuildInput {
 }
 /** v1 image DTOs remain source-compatible. NEW wire2 definitions are tagged. */
 export const CANONICAL_SOURCE_MATERIAL_PROFILE = 'canonical-source-material-v2' as const
-export type CanonicalSourceMaterialRecipe = (CanonicalMaterialRecipe & { readonly kind:'image' }) | CanonicalDefaultAutoRecipe
+export type CanonicalSourceMaterialRecipe = (CanonicalMaterialRecipe & { readonly kind:'image' }) | CanonicalAutoRecipe
 export interface CanonicalMaterialContextV2 {
   readonly version:2
   readonly assets:readonly CanonicalMaterialAsset[]
-  readonly primarySource:CanonicalMaterialImageSource | CanonicalDefaultAutoSource
-  readonly maskSource?:CanonicalMaterialImageSource | CanonicalDefaultAutoSource
+  readonly primarySource:CanonicalMaterialImageSource | CanonicalAutoSource
+  readonly maskSource?:CanonicalMaterialImageSource | CanonicalAutoSource
   readonly budget:CanonicalMaterialCost & {readonly drawPixels:number}
   readonly expectedDrawCount?:number
   readonly expectedStrokeEnd?:boolean
@@ -84,9 +84,11 @@ export type AnyCanonicalMaterialContext = CanonicalMaterialContext | CanonicalMa
 export type AnyCanonicalMaterialFrame = CanonicalMaterialFrame | CanonicalMaterialFrameV2
 export type AnyCanonicalMaterialRecipe = CanonicalMaterialRecipe | CanonicalSourceMaterialRecipe
 const isV2 = (c:AnyCanonicalMaterialContext):c is CanonicalMaterialContextV2 => 'version' in c && c.version===2
-const auto = (r:AnyCanonicalMaterialRecipe):r is CanonicalDefaultAutoRecipe => 'kind' in r && r.kind==='defaultAuto'
+const auto = (r:AnyCanonicalMaterialRecipe):r is CanonicalAutoRecipe => 'kind' in r && (r.kind==='defaultAuto'||r.kind==='gaussianAuto')
 function normalized(r:AnyCanonicalMaterialRecipe):AnyCanonicalMaterialRecipe {
-  return auto(r)?{...r,...canonicalDefaultAutoStatic(r.source,r.brushScale,r.brushAngle)}:r
+  if (r && 'kind' in r && r.kind==='defaultAuto') return {...r,...canonicalDefaultAutoStatic(r.source,r.brushScale,r.brushAngle)}
+  if (r && 'kind' in r && r.kind==='gaussianAuto') return {...r,...canonicalGaussianAutoStatic(r.source,r.brushScale,r.brushAngle)}
+  return r
 }
 const HEADER=24, ASSET=40, DEFINITION=64, DEFINITION2=96, DRAW=32, FENCE=16
 const FLOATS=['brushScale','brushAngle','scale','ratio','rotation','subX','subY'] as const
@@ -112,6 +114,8 @@ function context(c:AnyCanonicalMaterialContext):void {
         if(!ids.has(source.asset)||!number(source.brushScale,Number.MIN_VALUE,1e6)||!number(source.brushAngle,-1e6,1e6))fail()
       } else if(source.kind==='defaultAuto') {
         canonicalDefaultAutoSourcePin(source)
+      } else if(source.kind==='gaussianAuto') {
+        canonicalGaussianAutoSourcePin(source)
       } else fail()
     }
   }
@@ -128,8 +132,8 @@ function recipe(r:AnyCanonicalMaterialRecipe,c:AnyCanonicalMaterialContext):Cano
   if(auto(r)) {
     if(!isV2(c))return fail()
     let found:CanonicalMaterialCost|undefined
-    for(const source of [c.primarySource,c.maskSource])if(source?.kind==='defaultAuto') {
-      try { found=canonicalDefaultAutoCost(r,source);break } catch { /* another role may own this exact static definition */ }
+    for(const source of [c.primarySource,c.maskSource])if(source?.kind==='defaultAuto'||source?.kind==='gaussianAuto') {
+      try { found=canonicalAutoCost(r,source);break } catch { /* another role may own this exact static definition */ }
     }
     if(!found)return fail();cost=found
   } else {
@@ -143,7 +147,7 @@ function roleMatches(r:AnyCanonicalMaterialRecipe,role:'primary'|'mask',c:AnyCan
   if(!isV2(c))return !auto(r)&&r.asset===(role==='primary'?c.primaryAsset:c.maskAsset)
   const source=role==='primary'?c.primarySource:c.maskSource
   if(!source)return false
-  if(auto(r)) {if(source.kind!=='defaultAuto')return false;try {canonicalDefaultAutoCost(r,source);return true}catch{return false}}
+  if(auto(r)) {if(source.kind!=='defaultAuto'&&source.kind!=='gaussianAuto')return false;try {canonicalAutoCost(r,source);return true}catch{return false}}
   return source.kind==='image'&&r.asset===source.asset&&Object.is(r.brushScale,source.brushScale)&&Object.is(r.brushAngle,source.brushAngle)
 }
 
@@ -158,7 +162,7 @@ function entry(e:CanonicalMaterialEntry):void {
  * deliberately canonicalize -0 to +0 through integer wire encoding. */
 function recipeKey(r:AnyCanonicalMaterialRecipe):string {
   const view=new DataView(new ArrayBuffer(8))
-  const identity=auto(r)?'defaultAuto:'+r.coverageProfile+':'+r.source.shape+':'+Number(r.source.antialias)+':'+[r.source.diameter,r.source.ratio,r.source.horizontalFade,r.source.verticalFade].map(n=>{view.setFloat64(0,n,true);return view.getBigUint64(0,true).toString(16)}).join(':'):r.asset
+  const identity=auto(r)?r.kind+':'+r.coverageProfile+':'+r.source.shape+':'+Number(r.source.antialias)+':'+[r.source.diameter,r.source.ratio,r.source.horizontalFade,r.source.verticalFade].map(n=>{view.setFloat64(0,n,true);return view.getBigUint64(0,true).toString(16)}).join(':'):r.asset
   return identity+':'+r.width+':'+r.height+':'+Number(r.mirrorH)+Number(r.mirrorV)+':'+FLOATS.map(k=>{view.setFloat64(0,r[k],true);return view.getUint32(0,true).toString(16).padStart(8,'0')+view.getUint32(4,true).toString(16).padStart(8,'0')}).join('')
 }
 interface FrameReader {
@@ -246,8 +250,8 @@ export function packCanonicalMaterial(f:AnyCanonicalMaterialFrame,c:AnyCanonical
       bytes[offset]=ids.indexOf(d.asset);bytes[offset+1]=Number(d.mirrorH)|Number(d.mirrorV)<<1
       FLOATS.forEach((k,j)=>v.setFloat64(offset+8+j*8,d[k],true))
     } else {
-      bytes[offset]=auto(d)?(d.source.shape==='circle'?1:2):0
-      bytes[offset+1]=auto(d)?(d.coverageProfile==='scalar-f64-fma-v1'?1:2):0
+      bytes[offset]=auto(d)?(d.kind==='gaussianAuto'?3:d.source.shape==='circle'?1:2):0
+      bytes[offset+1]=auto(d)?(d.coverageProfile==='neon64-f32-fma-v1'?2:1):0
       bytes[offset+2]=Number(d.mirrorH)|Number(d.mirrorV)<<1|(auto(d)&&d.source.antialias?4:0)
       bytes[offset+3]=auto(d)?0:ids.indexOf(d.asset)
       const values=auto(d)?[d.source.diameter,d.source.ratio,d.source.horizontalFade,d.source.verticalFade,...FLOATS.map(k=>d[k])]:FLOATS.map(k=>d[k])
@@ -289,7 +293,7 @@ export function unpackCanonicalMaterial(text:string,c:AnyCanonicalMaterialContex
   let nextAsset=0
   for(let i=0;i<dc;i++){
     const o=defOffset+i*definitionBytes,tag=version===1?0:u8(o)
-    if(version===2&&(tag>2||u8(o+1)>(tag?2:0)||tag&&u8(o+1)===0||u8(o+2)>(tag?7:3)))fail()
+    if(version===2&&(tag>3||u8(o+1)>(tag?2:0)||tag&&u8(o+1)===0||u8(o+2)>(tag?7:3)))fail()
     if(version===1&& (u8(o+1)>3||u16(o+2)!==0))fail()
     if(tag) {if(u8(o+3)!==0)fail()}
     else {const ai=version===1?u8(o):u8(o+3);if(ai>nextAsset||ai>=ac)fail();if(ai===nextAsset)nextAsset++}
@@ -299,10 +303,12 @@ export function unpackCanonicalMaterial(text:string,c:AnyCanonicalMaterialContex
   const readDefinition=(i:number):AnyCanonicalMaterialRecipe=>{
     const o=defOffset+i*definitionBytes,tag=version===1?0:u8(o),flags=u8(o+(version===1?1:2))
     const common={width:u16(o+4),height:u16(o+6),mirrorH:!!(flags&1),mirrorV:!!(flags&2)}
-    if(tag) return {...common,kind:'defaultAuto',coverageProfile:u8(o+1)===1?'scalar-f64-fma-v1':'neon64-f32-fma-v1',
-      source:{kind:'defaultAuto',generator:'default',shape:tag===1?'circle':'rect',diameter:v.getFloat64(o+8,true),ratio:v.getFloat64(o+16,true),
-        horizontalFade:v.getFloat64(o+24,true),verticalFade:v.getFloat64(o+32,true),antialias:!!(flags&4),spikes:2,randomness:0,density:1},
-      brushScale:v.getFloat64(o+40,true),brushAngle:v.getFloat64(o+48,true),scale:v.getFloat64(o+56,true),ratio:v.getFloat64(o+64,true),rotation:v.getFloat64(o+72,true),subX:v.getFloat64(o+80,true),subY:v.getFloat64(o+88,true)}
+    if(tag) {
+      const values={...common,brushScale:v.getFloat64(o+40,true),brushAngle:v.getFloat64(o+48,true),scale:v.getFloat64(o+56,true),ratio:v.getFloat64(o+64,true),rotation:v.getFloat64(o+72,true),subX:v.getFloat64(o+80,true),subY:v.getFloat64(o+88,true)}
+      const source={diameter:v.getFloat64(o+8,true),ratio:v.getFloat64(o+16,true),horizontalFade:v.getFloat64(o+24,true),verticalFade:v.getFloat64(o+32,true),antialias:!!(flags&4),spikes:2,randomness:0,density:1}
+      return tag===3 ? {...values,kind:'gaussianAuto',coverageProfile:u8(o+1)===1?'scalar-bionic-f64-fma-v1':'neon64-f32-fma-v1',source:{...source,kind:'gaussianAuto',generator:'gauss',shape:'circle'}}
+        : {...values,kind:'defaultAuto',coverageProfile:u8(o+1)===1?'scalar-f64-fma-v1':'neon64-f32-fma-v1',source:{...source,kind:'defaultAuto',generator:'default',shape:tag===1?'circle':'rect'}}
+    }
     const image={asset:id(u8(o+(version===1?0:3))),...common,brushScale:v.getFloat64(o+8,true),brushAngle:v.getFloat64(o+16,true),scale:v.getFloat64(o+24,true),ratio:v.getFloat64(o+32,true),rotation:v.getFloat64(o+40,true),subX:v.getFloat64(o+48,true),subY:v.getFloat64(o+56,true)}
     return version===1?image:{...image,kind:'image'}
   }

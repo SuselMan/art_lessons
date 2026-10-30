@@ -171,3 +171,17 @@ it('publishes neither begin grant nor live/record ordinal after pin failures and
  await flushRoomWrites('board');pin.mockClear();db.operation.count.mockResolvedValue(33)
  expect(await new CanonicalRoomTransport(policy).begin(identity,input,()=>true)).toEqual({ok:false,reason:'canonical_repair_required'});expect(pin).not.toHaveBeenCalled()
 })
+
+it('does not grant Gaussian descriptors through the default-auto execution policy',async()=>{
+ const {default:gaussian}=await import(new URL('../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.native.ts',import.meta.url).href)
+ for(const index of [2,5,6,7,10,11,22]){
+  const row=gaussian.rows.find((r:{index:number})=>r.index===index)!
+  const f=setup(row.descriptor as BrushDescriptor),pin=vi.spyOn(f.storage,'pin'),asset=vi.spyOn(f.storage,'asset')
+  expect(await new CanonicalRoomTransport(policy).begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'invalid_operation'})
+  expect(pin).not.toHaveBeenCalled();expect(asset).not.toHaveBeenCalled()
+  expect(f.board.operations).toEqual([]);expect(f.board.nextSeq).toBe(1)
+  expect(f.storage.library('rooms','board')).toEqual(empty())
+  rooms.clear()
+ }
+ expect(db.operation.create).not.toHaveBeenCalled()
+})

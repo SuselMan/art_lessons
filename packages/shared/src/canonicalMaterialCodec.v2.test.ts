@@ -130,3 +130,9 @@ it('keeps the closed per-definition work cap distinct from the larger frame budg
   c.primarySource={...c.primarySource,source:noAA} as typeof c.primarySource
   expect(()=>buildCanonicalMaterial(input(recipe({source:noAA,width:1024,height:1024})),c)).not.toThrow()
 })
+
+it('preserves default V2 bytes frozen before Gaussian tag3',()=>{
+  // bdfadbf77 codec+material loaded from Git into an in-memory bundle;
+  // source hashes and independent generation retained in R52/default-wire-before-gaussian.json.
+  expect(buildCanonicalMaterial(input(recipe()),context()).packed).toBe("2|Q01BVAIBAAABAAEAAAAAAAAAAAAAAPA/AQEAAAgABAAAAAAAAAAgQAAAAAAAAOA/MzMzMzMz0z8zMzMzMzPjPwAAAAAAAPA/AAAAAAAAAAAAAAAAAADwPwAAAAAAAPA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPb////s////MzMzMzMz0z9mZmZmZmbmPwAAAAA=")
+})

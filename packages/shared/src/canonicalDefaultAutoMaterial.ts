@@ -1,6 +1,6 @@
 import type { BrushDescriptor } from './brushes.js'
-import { extractDefaultAutoSourceDataCapability } from './canonicalBrushCapability.js'
-import type { SourceDefaultAutoData } from './sourceStampData.js'
+import { extractDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability } from './canonicalBrushCapability.js'
+import type { SourceDefaultAutoData, SourceGaussianAutoData } from './sourceStampData.js'
 import { sourceAutoGeometry } from './sourceAutoGeometry.js'
 
 export type CanonicalAutoCoverageProfile = 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1'
@@ -22,38 +22,53 @@ export interface CanonicalDefaultAutoSource {
   readonly brushScale: number; readonly brushAngle: number
   readonly coverageProfile: CanonicalAutoCoverageProfile
 }
+export type CanonicalGaussianCoverageProfile = 'scalar-bionic-f64-fma-v1' | 'neon64-f32-fma-v1'
+export interface CanonicalGaussianAutoRecipe extends Omit<CanonicalDefaultAutoRecipe, 'kind'|'source'|'coverageProfile'> {
+  readonly kind: 'gaussianAuto'
+  readonly source: SourceGaussianAutoData
+  readonly coverageProfile: CanonicalGaussianCoverageProfile
+}
+export interface CanonicalGaussianAutoSource extends Omit<CanonicalDefaultAutoSource, 'kind'|'source'|'coverageProfile'> {
+  readonly kind: 'gaussianAuto'
+  readonly source: SourceGaussianAutoData
+  readonly coverageProfile: CanonicalGaussianCoverageProfile
+}
+export type CanonicalAutoRecipe = CanonicalDefaultAutoRecipe | CanonicalGaussianAutoRecipe
+export type CanonicalAutoSource = CanonicalDefaultAutoSource | CanonicalGaussianAutoSource
 const fields = ['kind','generator','shape','diameter','ratio','horizontalFade','verticalFade','antialias','spikes','randomness','density'] as const
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const zero = (n: number) => n === 0 ? 0 : n
 /** Explicit static-only zero policy: descriptor JSON need not preserve -0.
  * Dynamic saved shape/subpixel channels NEVER pass through this helper. */
-export function canonicalDefaultAutoStatic(source: SourceDefaultAutoData, brushScale: number, brushAngle: number): {
-  source: SourceDefaultAutoData; brushScale: number; brushAngle: number
+function autoStatic<S extends SourceDefaultAutoData | SourceGaussianAutoData>(source: S, brushScale: number, brushAngle: number): {
+  source: S; brushScale: number; brushAngle: number
 } {
   if (!source || Object.keys(source).length !== fields.length || !fields.every(k => Object.hasOwn(source, k))
-    || source.kind !== 'defaultAuto' || source.generator !== 'default' || !['circle','rect'].includes(source.shape)
+    || !(source.kind === 'defaultAuto' && source.generator === 'default' && ['circle','rect'].includes(source.shape)
+      || source.kind === 'gaussianAuto' && source.generator === 'gauss' && source.shape === 'circle' && source.ratio <= 1)
     || ![source.diameter,source.ratio,source.horizontalFade,source.verticalFade,brushScale,brushAngle].every(finite)
     || source.diameter <= 0 || source.ratio <= 0 || source.spikes !== 2 || source.randomness !== 0 || source.density !== 1
     || source.horizontalFade < 0 || source.horizontalFade > 1 || source.verticalFade < 0 || source.verticalFade > 1
     || typeof source.antialias !== 'boolean' || brushScale < 0) throw new TypeError('Invalid default-auto static source')
-  return { source: Object.freeze({ ...source, diameter: zero(source.diameter), ratio: zero(source.ratio),
+  return { source: Object.freeze<S>({ ...source, diameter: zero(source.diameter), ratio: zero(source.ratio),
     horizontalFade: zero(source.horizontalFade), verticalFade: zero(source.verticalFade), randomness: 0, density: 1 }),
     brushScale: zero(brushScale), brushAngle: zero(brushAngle) }
 }
 /** Closed trusted-data validation and static normalization, reused by context,
  * recipe checks and verified-descriptor extraction. Does not grant execution. */
-export function canonicalDefaultAutoSourcePin(trusted: CanonicalDefaultAutoSource): CanonicalDefaultAutoSource {
+function autoSourcePin<T extends CanonicalAutoSource>(trusted: T): T {
   const allowed=['kind','descriptorId','descriptorVersion','descriptorSha256','source','brushScale','brushAngle','coverageProfile']
   if (!trusted || Object.keys(trusted).length!==allowed.length || !allowed.every(k=>Object.hasOwn(trusted,k))
-    || trusted.kind !== 'defaultAuto' || typeof trusted.descriptorId!=='string' || !trusted.descriptorId || trusted.descriptorId.length > 256
+    || !['defaultAuto','gaussianAuto'].includes(trusted.kind) || trusted.source?.kind !== trusted.kind || typeof trusted.descriptorId!=='string' || !trusted.descriptorId || trusted.descriptorId.length > 256
     || trusted.descriptorId.includes('\0') || !Number.isSafeInteger(trusted.descriptorVersion) || trusted.descriptorVersion < 1
     || typeof trusted.descriptorSha256!=='string' || !/^[a-f0-9]{64}$/.test(trusted.descriptorSha256)
-    || !['scalar-f64-fma-v1','neon64-f32-fma-v1'].includes(trusted.coverageProfile)) throw new TypeError('Invalid trusted auto source')
-  return Object.freeze({...trusted,...canonicalDefaultAutoStatic(trusted.source,trusted.brushScale,trusted.brushAngle)})
+    || !(trusted.kind === 'defaultAuto' ? ['scalar-f64-fma-v1','neon64-f32-fma-v1'] : ['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1']).includes(trusted.coverageProfile)) throw new TypeError('Invalid trusted auto source')
+  return Object.freeze<T>({...trusted,...autoStatic(trusted.source,trusted.brushScale,trusted.brushAngle)})
 }
-export function canonicalDefaultAutoCost(recipe: CanonicalDefaultAutoRecipe, trusted: CanonicalDefaultAutoSource): { workUnits: number; outputBytes: number } {
-  const pin = canonicalDefaultAutoSourcePin(trusted)
-  const actual = canonicalDefaultAutoStatic(recipe.source, recipe.brushScale, recipe.brushAngle)
+export function canonicalAutoCost(recipe: CanonicalAutoRecipe, trusted: CanonicalAutoSource): { workUnits: number; outputBytes: number } {
+  const pin = autoSourcePin(trusted)
+  if (recipe.kind !== pin.kind || recipe.source?.kind !== recipe.kind) throw new TypeError('Auto generator mismatch')
+  const actual = autoStatic(recipe.source, recipe.brushScale, recipe.brushAngle)
   // Raw static -0 is not a canonical wire spelling. Trusted input is normalized
   // independently; no descriptor JSON hash is claimed to attest float bits.
   for (const k of ['diameter','ratio','horizontalFade','verticalFade','randomness'] as const)
@@ -84,4 +99,37 @@ export function canonicalDefaultAutoSourceBinding(descriptor: BrushDescriptor, d
   const normalized = canonicalDefaultAutoStatic(result.data.source, result.data.brush.scale, result.data.brush.angle)
   return canonicalDefaultAutoSourcePin({kind:'defaultAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,
     descriptorSha256, ...normalized, coverageProfile})
+}
+
+
+export function canonicalDefaultAutoStatic(source: SourceDefaultAutoData, brushScale: number, brushAngle: number) {
+  if (source?.kind !== 'defaultAuto') throw new TypeError('Expected default auto')
+  return autoStatic(source, brushScale, brushAngle)
+}
+export function canonicalGaussianAutoStatic(source: SourceGaussianAutoData, brushScale: number, brushAngle: number) {
+  if (source?.kind !== 'gaussianAuto') throw new TypeError('Expected Gaussian auto')
+  return autoStatic(source, brushScale, brushAngle)
+}
+export function canonicalDefaultAutoSourcePin(source: CanonicalDefaultAutoSource): CanonicalDefaultAutoSource {
+  if (source?.kind !== 'defaultAuto') throw new TypeError('Expected default auto')
+  return autoSourcePin(source)
+}
+export function canonicalGaussianAutoSourcePin(source: CanonicalGaussianAutoSource): CanonicalGaussianAutoSource {
+  if (source?.kind !== 'gaussianAuto') throw new TypeError('Expected Gaussian auto')
+  return autoSourcePin(source)
+}
+export function canonicalDefaultAutoCost(recipe: CanonicalDefaultAutoRecipe, source: CanonicalDefaultAutoSource) {
+  if (recipe?.kind !== 'defaultAuto' || source?.kind !== 'defaultAuto') throw new TypeError('Expected default auto')
+  return canonicalAutoCost(recipe, source)
+}
+export function canonicalGaussianAutoCost(recipe: CanonicalGaussianAutoRecipe, source: CanonicalGaussianAutoSource) {
+  if (recipe?.kind !== 'gaussianAuto' || source?.kind !== 'gaussianAuto') throw new TypeError('Expected Gaussian auto')
+  return canonicalAutoCost(recipe, source)
+}
+export function canonicalGaussianAutoSourceBinding(descriptor: BrushDescriptor, descriptorSha256: string,
+  coverageProfile: CanonicalGaussianCoverageProfile): CanonicalGaussianAutoSource {
+  const result = extractGaussianAutoSourceDataCapability(descriptor)
+  if (!result.supported) throw new TypeError('Gaussian source capability unavailable')
+  return canonicalGaussianAutoSourcePin({kind:'gaussianAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,
+    descriptorSha256,...canonicalGaussianAutoStatic(result.data.source,result.data.brush.scale,result.data.brush.angle),coverageProfile})
 }

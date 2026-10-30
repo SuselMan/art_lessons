@@ -28,9 +28,10 @@ describe('Gaussian retained source identity', () => {
       expect(result.status).toBe('source-data-only')
       expect(result.rasterReady).toBe(false)
     }
-    for (const patch of [{ spikes: 9 }, { randomness: .1 }, { density: .8 }]) {
+    for (const patch of [{ spikes: 9 }, { randomness: .1 }, { density: .8 }, { ratio: 2 }]) {
       const d = structuredClone(descriptor)
       Object.assign(d.sourceStamp!.version === 2 ? d.sourceStamp!.source : {}, patch)
+      if ('ratio' in patch) Object.assign(d.sourceStamp!.brush, { height: Math.trunc(Math.max(1, d.sourceStamp!.version === 2 && d.sourceStamp!.source.kind === 'gaussianAuto' ? d.sourceStamp!.source.diameter * patch.ratio! : 1)) })
       expect(extractGaussianAutoSourceDataCapability(d).supported).toBe(false)
     }
     const missing = { ...stock.rows[1].descriptor, sourceStamp: { ...gaussianData(), options: stock.rows[1].descriptor.sourceStamp.options, compiled: undefined } } as unknown as BrushDescriptor

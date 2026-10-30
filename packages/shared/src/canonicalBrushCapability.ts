@@ -106,7 +106,7 @@ export function extractGaussianAutoSourceDataCapability(descriptor: BrushDescrip
   if (data.role !== 'primary' || descriptor.behavior?.dual) return reject('mask-master-size-unresolved')
   if (descriptor.model !== 'stamp') return reject('inconsistent-gaussian-auto-descriptor')
   const source = data.source
-  if (source.shape !== 'circle' || source.spikes !== 2 || source.randomness !== 0 || source.density !== 1
+  if (source.shape !== 'circle' || source.ratio > 1 || source.spikes !== 2 || source.randomness !== 0 || source.density !== 1
     || !data.flags.materialFixed1 || data.flags.textureEnabled || descriptor.behavior?.colorAdjustment) return reject('unsupported-gaussian-auto-material-consumer')
   if (!sourceStampPaintingMode(data)) return reject('inconsistent-source-painting-mode')
   if (data.options.length !== 9 || !hasCanonicalSourceCurvePrograms(data)) return reject('native-option-program-unavailable')

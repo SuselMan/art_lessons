@@ -87,3 +87,30 @@ layer/bank/cache resolution; image transformed-mask guards remain in place. The
 negative alias test sends valid v2 auto bytes to a legacy image context and proves
 its custom image preflight is never invoked. No straight room is opened, no
 renderer branch or author adapter is enabled by these overloads.
+
+## Gaussian source material, version2 tag3
+
+The96-byte V2 definition keeps tags0=image,1=default circle,2=default rectangle;
+new tag3 means Gaussian circle. Tag-local profile1 means Bionic/scalarF64FMA
+for Gaussian, while default profile1 remains its existing scalarF64FMA law.
+Profile2 remains explicitly generator-bound NEON64/F32FMA. Unknown tags/profiles,
+source-generator mismatches, forged static fields, CAS references on auto and
+wrong reconstructed extents reject before material-array/pixel work. Existing
+V1 and defaultV2 bytes are unchanged; a defaultV2 golden is independently frozen
+from Git bdfadbf77 source in R52/default-wire-before-gaussian.json.
+
+Default and Gaussian share ONE allocation-free auto source geometry/cost and
+static normalization implementation. Their typed wrappers and trusted pins stay
+separate and reject cross-generator use. Dynamic shape/subpixels retain F64 bits
+including negative zero; only static descriptor zeros normalize to positive0.
+Cost remains conservative AA36, with unchanged frame and per-definition ceilings.
+No Gaussian coefficients are supplied by the client or serialized: the eventual
+raster service must derive them from retained raw generator inputs and the SAVED
+shape. The shared parser is a data contract, not renderer/server room admission.
+
+Seven currently data-ready original Gaussian KPP sources roundtrip both profiles
+through builder/pack/unpack/envelope decode with noCAS and frozen source records.
+Six unresolved material/dual candidates remain rejected at descriptor binding.
+Tests cover tag/default-profile spoofing, wrong geometry/static generator, budgets,
+exact signedzero preservation, olddefault/image framing and immutable envelopes.
+Actual author→adapter→prepass→GPU Gaussian integration remains a separate gate.

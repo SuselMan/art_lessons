@@ -65,7 +65,7 @@ export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStr
     throw new TypeError('Canonical stroke frame does not match the pinned gesture')
   const frame = unpackCanonicalMaterial(value.materialPacked, trusted.material as AnyCanonicalMaterialContext)
   Object.freeze(frame.entry)
-  for (const item of frame.definitions) { if ('kind' in item && item.kind==='defaultAuto') Object.freeze(item.source); Object.freeze(item) }
+  for (const item of frame.definitions) { if ('kind' in item && (item.kind==='defaultAuto'||item.kind==='gaussianAuto')) Object.freeze(item.source); Object.freeze(item) }
   for (const item of [...frame.draws, ...frame.fences]) Object.freeze(item)
   Object.freeze(frame.definitions); Object.freeze(frame.draws); Object.freeze(frame.fences); Object.freeze(frame)
   const envelope: CanonicalStrokeFrameEnvelope = Object.freeze({ version: 1, rasterProfile: CANONICAL_STROKE_RASTER_PROFILE,
