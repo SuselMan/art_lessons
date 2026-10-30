@@ -1,15 +1,15 @@
 import { createHash } from 'node:crypto'
 import {
   CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, STRAIGHT_ROOM_RASTER_VERSION,
-  canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, extractDefaultAutoSourceDataCapability, sourceStampPaintingMode,
-  type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalAutoCoverageProfile,
+  canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, sourceStampPaintingMode,
+  type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin,
 } from '@grafetto/shared'
+import { freezeCanonicalAutoPolicies, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
 import { BrushStorage, merge } from '../brushLibrary/storage.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
 import type { CanonicalAdmissionIdentity, CanonicalCapabilityResolver, TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
 
-export interface CanonicalDefaultAutoExecutionPolicy {readonly coverageProfile:CanonicalAutoCoverageProfile;readonly storedScale:1}
 export type CanonicalGestureBegin = CanonicalStrokeBegin
 interface PinnedGesture { readonly board: RoomRecord; readonly lesson: RoomRecord; readonly grant: TrustedCanonicalGesture }
 const text = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 256 && !v.includes('\0')
@@ -46,7 +46,7 @@ export class CanonicalBrushCapabilityResolver {
   private readonly operator: () => BrushLibrary
   private readonly variants: ReadonlySet<'creamy' | 'hard'>
   private readonly maxGestures: number
-  private readonly defaultAuto:Readonly<CanonicalDefaultAutoExecutionPolicy>|false
+  private readonly autoSources:Readonly<CanonicalAutoExecutionPolicies>
   private readonly gestures = new Map<string, PinnedGesture>()
   private readonly epochs = new WeakMap<RoomRecord, { readonly lesson: RoomRecord; readonly value: number }>()
   private nextEpoch = 0
@@ -68,7 +68,7 @@ export class CanonicalBrushCapabilityResolver {
     /** Explicit server execution/config policy, never inferred from saved KPP. */
     readonly alphaDarkenVariants: readonly ('creamy' | 'hard')[]
     readonly maxGestures: number
-    readonly defaultAuto?:CanonicalDefaultAutoExecutionPolicy|false
+    readonly autoSources?:CanonicalAutoExecutionPolicies|false
   }) {
     if (!(options.storage instanceof BrushStorage) || typeof options.operator !== 'function'
       || options.rasterProfile !== CANONICAL_STROKE_RASTER_PROFILE
@@ -76,12 +76,7 @@ export class CanonicalBrushCapabilityResolver {
       || !Array.isArray(options.alphaDarkenVariants) || options.alphaDarkenVariants.length < 1 || options.alphaDarkenVariants.length > 2
       || options.alphaDarkenVariants.some(v => v !== 'creamy' && v !== 'hard')
       || new Set(options.alphaDarkenVariants).size !== options.alphaDarkenVariants.length) fail('invalid explicit execution policy')
-    const auto=options.defaultAuto
-    if(auto!==undefined&&auto!==false
-      &&(!auto||typeof auto!=='object'||Object.keys(auto).length!==2
-      ||!['coverageProfile','storedScale'].every(k=>Object.hasOwn(auto!,k))||auto.storedScale!==1
-      ||!['scalar-f64-fma-v1','neon64-f32-fma-v1'].includes(auto.coverageProfile)))fail('invalid explicit auto policy')
-    this.defaultAuto=auto?Object.freeze({...auto}):false
+    this.autoSources=freezeCanonicalAutoPolicies(options.autoSources)
     this.storage = options.storage; this.operator = options.operator
     this.maxGestures = options.maxGestures; this.variants = new Set(options.alphaDarkenVariants)
   }
@@ -132,14 +127,14 @@ export class CanonicalBrushCapabilityResolver {
     const descriptorSha256 = createHash('sha256').update(JSON.stringify(normalizedDescriptor(descriptor))).digest('hex')
     let material:AnyCanonicalMaterialContext, mode:'wash'|'buildup'
     const budget=Object.freeze({workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels})
-    if(descriptor.sourceStamp?.version===2 && descriptor.sourceStamp.source.kind==='defaultAuto'){
-      if(!this.defaultAuto)fail('default-auto execution policy disabled')
-      const data=extractDefaultAutoSourceDataCapability(descriptor)
-      if(!data.supported)fail(data.reasons.join(','))
-      const savedMode=sourceStampPaintingMode(data.data)
+    if(descriptor.sourceStamp.version===2 && (descriptor.sourceStamp.source.kind==='defaultAuto'||descriptor.sourceStamp.source.kind==='gaussianAuto')){
+      const kind=descriptor.sourceStamp.source.kind
+      const pin=kind==='defaultAuto'
+        ? this.autoSources.defaultAuto ? canonicalDefaultAutoSourceBinding(descriptor,descriptorSha256,this.autoSources.defaultAuto.coverageProfile) : fail('default-auto execution policy disabled')
+        : this.autoSources.gaussianAuto ? canonicalGaussianAutoSourceBinding(descriptor,descriptorSha256,this.autoSources.gaussianAuto.coverageProfile) : fail('Gaussian execution policy disabled')
+      const savedMode=sourceStampPaintingMode(descriptor.sourceStamp)
       if(!savedMode)fail('inconsistent-source-painting-mode')
-      const pin=canonicalDefaultAutoSourceBinding(descriptor,descriptorSha256,this.defaultAuto.coverageProfile)
-      if(pin.brushScale!==this.defaultAuto.storedScale)fail('unsupported stored auto scale')
+      if(pin.brushScale!==1)fail('unsupported stored auto scale')
       mode=savedMode
       material=Object.freeze({version:2,assets:Object.freeze([]),primarySource:pin,budget})
     }else{

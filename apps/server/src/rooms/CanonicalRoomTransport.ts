@@ -8,7 +8,7 @@ import { canonicalBrushStorageContext } from '../brushLibrary/storage.js'
 import { prisma } from '../db/prisma.js'
 import { CanonicalBrushCapabilityResolver } from './CanonicalBrushCapabilityResolver.js'
 import { CanonicalStrokeAdmission, decodeTrustedCanonicalFrame, type CanonicalAdmissionIdentity, type TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
-import { CANONICAL_ROOM_EXECUTION_POLICY,type CanonicalRoomExecutionPolicy } from './canonicalExecutionPolicy.js'
+import { CANONICAL_ROOM_EXECUTION_POLICY, freezeCanonicalAutoPolicies, type CanonicalRoomExecutionPolicy } from './canonicalExecutionPolicy.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { findDuplicateOperation, recordOperation, updateAliveIds } from './operationLog.js'
 import { flushRoomWrites, lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
@@ -30,7 +30,7 @@ interface RoomLifetime { readonly record: RoomRecord; readonly lesson: RoomRecor
 export class CanonicalRoomTransport {
   private readonly policy:CanonicalRoomExecutionPolicy
   constructor(policy:CanonicalRoomExecutionPolicy=CANONICAL_ROOM_EXECUTION_POLICY){
-    this.policy=Object.freeze({...policy,alphaDarkenVariants:Object.freeze([...policy.alphaDarkenVariants]),defaultAuto:policy.defaultAuto?Object.freeze({...policy.defaultAuto}):false})
+    this.policy=Object.freeze({...policy,alphaDarkenVariants:Object.freeze([...policy.alphaDarkenVariants]),autoSources:freezeCanonicalAutoPolicies(policy.autoSources)})
   }
   private context: ReturnType<typeof canonicalBrushStorageContext>
   private binder?: CanonicalBrushCapabilityResolver

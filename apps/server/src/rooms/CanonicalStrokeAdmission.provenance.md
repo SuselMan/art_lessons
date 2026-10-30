@@ -114,3 +114,9 @@ codec goldens),12 existing actual Socket.IO canonical tests, shared build, serve
 TSC and common web TSC5428 pass. Scoped lint/map:check/diff pass; map:rules reports
 0 errors with15 existing orphan/cycle warnings. Test stores and write queues are
 closed/drained in finally; no service, device, dependency or runtime remains.
+
+V2 trusted-source admission now accepts the two explicit auto-generator pins
+(defaultAuto and gaussianAuto), validates each with its distinct shared pin
+validator, and retains the SAME full immutable material signature, descriptor
+SHA/version/ID binding, frame/group cursors and decode/work budgets. No client
+profile self-grant, CAS fallback or preflight callback is introduced.

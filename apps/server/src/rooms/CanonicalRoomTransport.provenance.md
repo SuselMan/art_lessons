@@ -138,3 +138,14 @@ codec goldens),12 existing actual Socket.IO canonical tests, shared build, serve
 TSC and common web TSC5428 pass. Scoped lint/map:check/diff pass; map:rules reports
 0 errors with15 existing orphan/cycle warnings. Test stores and write queues are
 closed/drained in finally; no service, device, dependency or runtime remains.
+
+Gaussian uses the SAME V2 begin/live/record/dedupe/reconnect and persisted-prefix
+reconstruction path under an explicit server autoSources.gaussianAuto policy.
+Actual six paint KPP descriptors, both scalar-Bionic and NEON profiles, pass
+actual author/adapter/encoder packets through live, duplicate record, mid-prefix
+cold reconstruction and final ended replay. Missing prefix rejects as repair.
+No CAS reads occur. Normalized auto policy is deep-copied/frozen at construction,
+while startup's default map remains empty. Existing image/default socket
+regressions are retained. DB mocks prove ordering/admission, not actual durable
+write success: awaited persistence outcomes and authoritative partial-close
+remain separately open gates. No live room or renderer activation here.

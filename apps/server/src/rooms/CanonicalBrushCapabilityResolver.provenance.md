@@ -112,3 +112,18 @@ setting now fails before binder state, pixels, CAS, room seq or history changes.
 Existing actual image and seven default-auto begin/live/record/reconnect tests
 remain green. Gaussian server admission is still off (including its soft eraser),
 while its closed mask/GPU diagnostics are source/composition evidence only.
+
+## Generator policy unification
+
+Server config now uses one immutable `autoSources` map keyed by defaultAuto or
+gaussianAuto. Both are absent/disabled in the actual default policy; this is
+not a room opener, deployment or editor switch. Each entry pins storedScale1
+and its generator-specific arithmetic profile. Unknown/inherited policy fields,
+default scalar used for Gaussian and Bionic scalar used for default reject.
+
+The binder uses the existing verified descriptor/curve extraction and the same
+V2 no-CAS context. Six ordinary Gaussian paint sources pass under explicit test
+policy; the Gaussian soft eraser still fails outer-Over admission. Material/dual
+candidates remain excluded by source binding. Source-data readiness and the
+closed GPU diagnostic seven-source corpus are deliberately broader than this
+Over-only server permission.

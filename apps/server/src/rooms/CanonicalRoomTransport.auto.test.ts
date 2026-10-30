@@ -27,7 +27,7 @@ function resident():RoomRecord{
  record.participants.set('author',{userId:'author',name:'A',role:'owner',color:'#000000',frozen:false,boardId:'board'});rooms.set('board',record);return record
 }
 const identity={roomId:'board',userId:'author'}
-const policy={rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,alphaDarkenVariants:['creamy','hard'] as const,defaultAuto:{coverageProfile:'neon64-f32-fma-v1' as const,storedScale:1 as const}}
+const policy={rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,alphaDarkenVariants:['creamy','hard'] as const,autoSources:{defaultAuto:{coverageProfile:'neon64-f32-fma-v1' as const,storedScale:1 as const}}}
 function setup(descriptor=stock.rows[0].descriptor as unknown as BrushDescriptor){
  const dir=mkdtempSync(join(tmpdir(),'server-auto-v2-'));dirs.push(dir);const storage=new BrushStorage(dir)
  const library={schemaVersion:1,brushes:[{name:'Actual auto',source:'fixture.kpp',warnings:[],descriptor}],assets:[],skipped:[]}
@@ -38,7 +38,8 @@ function setup(descriptor=stock.rows[0].descriptor as unknown as BrushDescriptor
 }
 function snapshot(result:CanonicalStrokeBeginResult):CanonicalStrokeSnapshotV2{if(!result.ok||!('materialVersion'in result.snapshot))throw Error(JSON.stringify(result));return result.snapshot}
 function frames(descriptor:BrushDescriptor,s:CanonicalStrokeSnapshotV2){
- const compiled=sourceStrokeAuthorDescriptor(descriptor,{colorIdentity:'native-black',lodScale:1,coverageProfile:'neon64-f32-fma-v1'})
+ if(s.material.primarySource.kind==='image')throw Error('Expected procedural source')
+ const compiled=sourceStrokeAuthorDescriptor(descriptor,{colorIdentity:'native-black',lodScale:1,coverageProfile:s.material.primarySource.coverageProfile})
  if(!compiled.supported)throw Error(compiled.reasons.join(','))
  const author=new SourceStrokeAuthor(compiled.program);let state=author.createState(4321,7654,.3)
  const material={...s.material,targetGeometry:{pageBounds:{minX:0,minY:0,maxX:64,maxY:64},tileWidth:64,tileHeight:64,maxTargets:64}}
@@ -115,10 +116,10 @@ it('rejects inconsistent saved auto data and nonexplicit policies without CAS, p
   expect(pin).not.toHaveBeenCalled();expect(asset).not.toHaveBeenCalled();expect(f.board.operations).toEqual([])
  }
  const f=setup(),pin=vi.spyOn(f.storage,'pin')
- expect(await new CanonicalRoomTransport({...policy,defaultAuto:{coverageProfile:'unknown' as never,storedScale:1}}).begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'invalid_operation'})
+ expect(()=>new CanonicalRoomTransport({...policy,autoSources:{defaultAuto:{coverageProfile:'unknown' as never,storedScale:1}}})).toThrow('explicit auto policy')
  expect(await new CanonicalRoomTransport(policy).begin(identity,{...f.input,sourceProfile:'neon64-f32-fma-v1'} as never,()=>true)).toEqual({ok:false,reason:'invalid_operation'})
  const inherited=Object.create({coverageProfile:'neon64-f32-fma-v1'});inherited.storedScale=1;inherited.extra=true
- expect(()=>new CanonicalBrushCapabilityResolver({storage:f.storage,operator:empty,...policy,defaultAuto:inherited,maxGestures:4})).toThrow('explicit auto policy')
+ expect(()=>new CanonicalBrushCapabilityResolver({storage:f.storage,operator:empty,...policy,autoSources:{defaultAuto:inherited},maxGestures:4})).toThrow('explicit auto policy')
  expect(pin).not.toHaveBeenCalled();expect(db.operation.count).not.toHaveBeenCalled()
 })
 it('rejects changed live/record pigment, recipe profile and malformed packed frames before pin/store',async()=>{
@@ -184,4 +185,55 @@ it('does not grant Gaussian descriptors through the default-auto execution polic
   rooms.clear()
  }
  expect(db.operation.create).not.toHaveBeenCalled()
+})
+
+
+it.each(['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1'] as const)('binds six Gaussian paint sources through the SAME live/record/reconnect lane: %s',async coverageProfile=>{
+ const {default:gaussian}=await import(new URL('../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.native.ts',import.meta.url).href)
+ const selected={...policy,autoSources:{...policy.autoSources,gaussianAuto:{coverageProfile,storedScale:1 as const}}}
+ for(const index of [5,6,7,10,11,22]){
+  const row=gaussian.rows.find((r:{index:number})=>r.index===index)!,f=setup(row.descriptor as BrushDescriptor)
+  const asset=vi.spyOn(f.storage,'asset'),pin=vi.spyOn(f.storage,'pin')
+  let transport=new CanonicalRoomTransport(selected)
+  const begin=await transport.begin(identity,f.input,()=>true),s=snapshot(begin)
+  expect(s.material.primarySource.kind).toBe('gaussianAuto');expect(s.material.assets).toEqual([]);expect(s.assets).toEqual([])
+  if(s.material.primarySource.kind!=='gaussianAuto')throw Error('Expected Gaussian pin')
+  expect(s.material.primarySource.coverageProfile).toBe(coverageProfile)
+  const packets=frames(f.descriptor,s),prefix:CanonicalStrokeOperation[]=[]
+  for(let i=0;i<packets.length;i++){
+   expect(transport.live(identity,{layerId:'layer',frame:packets[i]}).result).toEqual({ok:true,duplicate:false})
+   const op:CanonicalStrokeOperation={type:'canonical_stroke',id:'gauss-'+i,userId:'author',timestamp:i,layerId:'layer',frame:packets[i]}
+   const saved=await transport.recorded(identity,op,()=>true);expect(saved.result).toMatchObject({ok:true,seq:i+1});prefix.push(saved.accepted!)
+   expect((await transport.recorded(identity,op,()=>true)).result).toMatchObject({ok:true,duplicate:true,seq:i+1})
+   if(i===1){
+    await flushRoomWrites('board');db.operation.count.mockResolvedValue(prefix.length);history.rows=[...prefix]
+    transport=new CanonicalRoomTransport(selected)
+    expect(await transport.begin(identity,f.input,()=>true)).toMatchObject({ok:true,recordedNext:2,liveNext:2,ended:false})
+   }
+  }
+  await flushRoomWrites('board');db.operation.count.mockResolvedValue(prefix.length);history.rows=prefix
+  const cold=await new CanonicalRoomTransport(selected).begin(identity,f.input,()=>true)
+  expect(cold).toMatchObject({ok:true,ended:true,recordedNext:packets.length,liveNext:packets.length})
+  expect(snapshot(cold).material).toEqual(s.material)
+  expect(asset).not.toHaveBeenCalled();expect(pin).toHaveBeenCalled()
+  history.rows=prefix.slice(1)
+  expect(await new CanonicalRoomTransport(selected).begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'canonical_repair_required'})
+  db.operation.count.mockResolvedValue(0);history.rows=[];asset.mockRestore();pin.mockRestore();rooms.clear()
+ }
+})
+it('keeps Gaussian erase/effects and both generator policies explicitly closed',async()=>{
+ const {default:gaussian}=await import(new URL('../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.native.ts',import.meta.url).href)
+ const erase=gaussian.rows.find((r:{index:number})=>r.index===2)!,f=setup(erase.descriptor as BrushDescriptor)
+ const pin=vi.spyOn(f.storage,'pin'),asset=vi.spyOn(f.storage,'asset')
+ const selected={...policy,autoSources:{gaussianAuto:{coverageProfile:'neon64-f32-fma-v1' as const,storedScale:1 as const}}}
+ expect(await new CanonicalRoomTransport(selected).begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'invalid_operation'})
+ expect(pin).not.toHaveBeenCalled();expect(asset).not.toHaveBeenCalled();expect(f.board.operations).toEqual([]);expect(f.board.nextSeq).toBe(1)
+ for(const autoSources of [
+  {gaussianAuto:{coverageProfile:'scalar-f64-fma-v1',storedScale:1}},
+  {defaultAuto:{coverageProfile:'scalar-bionic-f64-fma-v1',storedScale:1}},
+  {gaussianAuto:{coverageProfile:'neon64-f32-fma-v1',storedScale:2}},
+  {gaussianAuto:{coverageProfile:'neon64-f32-fma-v1',storedScale:1,extra:true}},
+  {unknown:{coverageProfile:'neon64-f32-fma-v1',storedScale:1}},
+  Object.create({gaussianAuto:{coverageProfile:'neon64-f32-fma-v1',storedScale:1}}),
+ ])expect(()=>new CanonicalRoomTransport({...policy,autoSources} as never)).toThrow('explicit auto policy')
 })
