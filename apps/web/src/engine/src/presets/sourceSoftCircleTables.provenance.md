@@ -36,3 +36,15 @@ then a separate add of d. All3610 captured F64 values match by Object.is. The
 profile never claims to compile arbitrary points through a portable SparseLU
 solver. Nonunit softness/curve knot mutation needs its own native solve authority.
 No descriptor/importer/author/render/wire activation is added.
+
+The retained original KPP fixture sourceSoftAutoData/stock.native.ts now closes
+an additional data seam in sourceSoftCircleTables.test.ts: all10 roles' raw
+curve text/points and diameter/ratio/fades/AA/spikes/randomness/density are matched
+to the five independent original native constructors. The SAME existing program
+compiler consumes retained geometry/points with explicit native test coefficients;
+every dense table entry matches the captured original F64 value by Object.is.
+This is a test authority supply, not production fixture lookup or arbitrary
+points compilation. It does not activate source options, author, renderer or wire;
+the reproducible guarded provider and source/profile binding remain necessary.
+Evidence: fixes-v52/soft-raw-to-native-table-tests.log (11 tests/2 files) and
+soft-raw-table-web-tsc.log. No new runtime/dependency/device resource was created.
