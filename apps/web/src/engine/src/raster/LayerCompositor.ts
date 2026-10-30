@@ -63,15 +63,33 @@ export interface LayerCompositorContext {
 
 export class LayerCompositor {
   private readonly ctx: LayerCompositorContext
-  private _compositeProg!: WebGLProgram
+  private _compositeProg: WebGLProgram | null = null
   private _compositeUni!: Record<string, WebGLUniformLocation | null>
   private _compositePosLoc!: number
   private _splitCacheDirty = true
   constructor(ctx: LayerCompositorContext) { this.ctx = ctx }
   // Separate stages keep the engine's existing GL initialization order.
   initProgram(): void { this._compositeProg = createProgram(this.ctx.gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG) }
-  initUniforms(): void { this._compositeUni = getUniforms(this.ctx.gl, this._compositeProg, ['u_layer', 'u_opacity']) }
-  initAttributes(): void { this._compositePosLoc = this.ctx.gl.getAttribLocation(this._compositeProg, 'a_position') }
+  initUniforms(): void { this._compositeUni = getUniforms(this.ctx.gl, this._compositeProg!, ['u_layer', 'u_opacity']) }
+  initAttributes(): void { this._compositePosLoc = this.ctx.gl.getAttribLocation(this._compositeProg!, 'a_position') }
+
+  /** Retires only our program; shared buffers/textures remain borrowed. */
+  destroy(contextLost = false): void {
+    const program = this._compositeProg
+    // A failed deletion must not be retried by a second retirement.
+    this._compositeProg = null
+    if (!program || contextLost || this.ctx.gl.isContextLost()) return
+    const { gl } = this.ctx
+    let failed = false
+    let firstError: unknown
+    try {
+      if (gl.getParameter(gl.CURRENT_PROGRAM) === program) gl.useProgram(null)
+    } catch (error) { failed = true; firstError = error }
+    try { gl.deleteProgram(program) } catch (error) {
+      if (!failed) { failed = true; firstError = error }
+    }
+    if (failed) throw firstError
+  }
 
   compositeTextures(
     items: Array<{ texture: WebGLTexture; opacity: number }>,

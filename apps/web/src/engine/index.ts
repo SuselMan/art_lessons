@@ -4278,125 +4278,142 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   destroy(): void {
-    if(this._destroyed)return
-    this._destroyed=true
-    if(typeof document!=='undefined' && typeof document.removeEventListener==='function')document.removeEventListener('visibilitychange',this._handleAuthorVisibility)
-    this._cancelOwnedAuthor(false)
-    this._authorTasks.destroy()
-    this._brushPreparationGeneration++
-    this._brushPreparation.cancel()
-    this._continuationGpuFence?.release()
-    this._continuationGpuFence = null
-    this._opQueue = [] // (§17.58)
-    if (this._opDrainRaf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._opDrainRaf)
+    if (this._destroyed) return
     this._destroyed = true
-    this._cancelSettle() // Close suspended drawing/auxiliary generators before their pool.
-    this._cancelSpillJob()
-    this._paper.destroy()
-    for (const id of [...this._rebuildJobs.keys()]) this._cancelRebuildJob(id) // (§17.53)
-    this._dropWashBoundaries() // (§17.55)
-    // Dwell (#245): the one non-rAF timer this engine owns — must not
-    // outlive destroy() (e.g. a component unmounting mid-stroke).
-    this._stopAirbrush()
-    if (this._dwellTimer) { clearInterval(this._dwellTimer); this._dwellTimer = null }
-    if (this._settleRetryTimer !== null) { clearTimeout(this._settleRetryTimer); this._settleRetryTimer = null }
+    // Complete-engine retirement only: each independent owner is attempted,
+    // in borrower-before-pool order. A nested destructor remains responsible
+    // for its own children. This is not safe partial-constructor rollback.
+    let failed = false
+    let firstError: unknown
+    const retire = (cleanup: () => void): void => {
+      try { cleanup() } catch (error) {
+        if (!failed) { failed = true; firstError = error }
+      }
+    }
+    retire(() => {
+      if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
+        document.removeEventListener('visibilitychange', this._handleAuthorVisibility)
+      }
+    })
+    retire(() => this._cancelOwnedAuthor(false))
+    retire(() => this._authorTasks.destroy())
+    this._brushPreparationGeneration++
+    retire(() => this._brushPreparation.cancel())
+    const fence = this._continuationGpuFence
+    this._continuationGpuFence = null
+    retire(() => fence?.release())
+    this._opQueue = []
+    if (this._opDrainRaf && typeof cancelAnimationFrame === 'function') retire(() => cancelAnimationFrame(this._opDrainRaf))
+    this._opDrainRaf = 0
+    retire(() => this._cancelSettle())
+    retire(() => this._cancelSpillJob())
+    retire(() => this._paper.destroy())
+    for (const id of [...this._rebuildJobs.keys()]) retire(() => this._cancelRebuildJob(id))
+    retire(() => this._dropWashBoundaries())
+    retire(() => this._stopAirbrush())
+    if (this._dwellTimer) { const timer = this._dwellTimer; this._dwellTimer = null; retire(() => clearInterval(timer)) }
+    if (this._settleRetryTimer !== null) { const timer = this._settleRetryTimer; this._settleRetryTimer = null; retire(() => clearTimeout(timer)) }
     this._unsettledLayers.clear()
     this._cancelledPeerLayers.clear()
-    cancelAnimationFrame(this._raf)
-    if (this._displayRafId !== null) cancelAnimationFrame(this._displayRafId)
-    this.canvas.removeEventListener('webglcontextlost', this._handleContextLost)
-    this.canvas.removeEventListener('webglcontextrestored', this._handleContextRestored)
-    this._pointer.destroy()
-    this._layers.forEach(buf => buf.destroy())
-    this._compositeFBO.destroy()
-    this._belowCache.destroy()
-    this._aboveCache.destroy()
-    this._assemblyFBO.destroy()
-    this._screenCache?.destroy()
+    retire(() => cancelAnimationFrame(this._raf))
+    if (this._displayRafId !== null) { const raf = this._displayRafId; this._displayRafId = null; retire(() => cancelAnimationFrame(raf)) }
+    retire(() => this.canvas.removeEventListener('webglcontextlost', this._handleContextLost))
+    retire(() => this.canvas.removeEventListener('webglcontextrestored', this._handleContextRestored))
+    retire(() => this._pointer.destroy())
+    for (const buf of this._layers.values()) retire(() => buf.destroy())
+    retire(() => this._compositeFBO.destroy())
+    retire(() => this._belowCache.destroy())
+    retire(() => this._aboveCache.destroy())
+    retire(() => this._assemblyFBO.destroy())
+    const screenCache = this._screenCache
     this._screenCache = null
-    this._passes.destroy()
-    // (#155) The pool fields are the real owners now — _previewBuf/_tipBuf
-    // are just a possibly-mid-stroke alias of the same object (see
-    // ScratchSlot), so destroying via the pool alone avoids a
-    // double-destroy of the same GL object.
-    this._previewBufPool.destroy()
+    retire(() => screenCache?.destroy())
+    retire(() => this._passes.destroy())
+    // ScratchSlot owns these buffers; preview/tip fields are borrowed aliases.
+    retire(() => this._previewBufPool.destroy())
     this._previewBuf = null
-    this._tipBufPool.destroy()
+    retire(() => this._tipBufPool.destroy())
     this._tipBuf = null
-    this._area.destroy()
-    this._shapes.destroy()
-    this._exporter.destroy()
-    this._smudge.destroy()
-    this._stamps.destroy()
-    this._brush.destroy()
-    this._brushMipCache.clear()
-    this._ribbonPasses.destroy()
-    this._watercolorPasses.destroy()
-    // (#385) These two hand their buffers back to the pool rather than to the
-    // driver, so the pool has to be drained *after* them — draining first
-    // would leave exactly the buffers they are still holding behind.
-    this._ribbonStrokeScratch?.destroy()
+    retire(() => this._area.destroy())
+    retire(() => this._shapes.destroy())
+    retire(() => this._exporter.destroy())
+    retire(() => this._smudge.destroy())
+    retire(() => this._stamps.destroy())
+    retire(() => this._brush.destroy())
+    retire(() => this._brushMipCache.clear())
+    retire(() => this._ribbonPasses.destroy())
+    retire(() => this._watercolorPasses.destroy())
+    // These owners return buffers to the ribbon pool: retire them first.
+    const ribbonScratch = this._ribbonStrokeScratch
     this._ribbonStrokeScratch = null
-    this._clearWash(false)
+    retire(() => ribbonScratch?.destroy())
+    retire(() => this._clearWash(false))
     this._strokeId = null
     this._strokeBrushRandom = undefined
-    for (const c of this._replayRibbonChunks.values()) c.scratch.destroy()
+    for (const c of this._replayRibbonChunks.values()) retire(() => c.scratch.destroy())
     this._replayRibbonChunks.clear()
-    for (const w of this._spilledWashes.values()) w.spill.dispose()
+    for (const w of this._spilledWashes.values()) retire(() => w.spill.dispose())
     this._spilledWashes.clear()
     this._lostWashes.clear()
-    this._ribbonPainter.releaseWaterSources()
-    this._ribbonScratchPool.destroy()
-    if (this._dryingTimer) { clearTimeout(this._dryingTimer); this._dryingTimer = 0 }
-    if (this._budgetTimer) { clearTimeout(this._budgetTimer); this._budgetTimer = 0 }
-    if (this._wetTex) { this.gl.deleteTexture(this._wetTex); this._wetTex = null }
+    retire(() => this._ribbonPainter.releaseWaterSources())
+    retire(() => this._ribbonScratchPool.destroy())
+    if (this._dryingTimer) { const timer = this._dryingTimer; this._dryingTimer = 0; retire(() => clearTimeout(timer)) }
+    if (this._budgetTimer) { const timer = this._budgetTimer; this._budgetTimer = 0; retire(() => clearTimeout(timer)) }
+    const wetTex = this._wetTex
+    this._wetTex = null
+    if (wetTex) retire(() => this.gl.deleteTexture(wetTex))
     this._wetOverlayWorkspace = null
-    this._paperWet.clear()
+    retire(() => this._paperWet.clear())
     for (const { buf, timer } of this._peerPreviews.values()) {
-      if (timer !== null) clearTimeout(timer)
-      buf.destroy()
+      if (timer !== null) retire(() => clearTimeout(timer))
+      retire(() => buf.destroy())
     }
     this._peerPreviews.clear()
     this._peerLiveStrokes.clear()
     this._cancelledPeerStreams.clear()
-    this._previews.clear()
-    this._checkpoints.clear()
-    // (#381) Nothing left to rebuild into — the buffers are gone.
+    retire(() => this._previews.clear())
+    retire(() => this._checkpoints.clear())
     this._pendingRebuilds.clear()
-    // (#522) Nor is there a layer left to refuse to publish; whatever restores
-    // into this engine next is what it will have to answer for.
-    this._snapshots.clearRefusals()
-    // (#536, §17.69) ...and the rest of what the watercolour holds on the
-    // GPU. A room left without a page reload (the app's own navigation) keeps
-    // the WebGL context alive until the browser collects it, and all of this
-    // with it: the settle field alone is up to 90 MB. The iPad, moved from
-    // room to room between test runs, died early in a run at 338 MB of this
-    // engine's own textures.
-    if (this._fieldReleaseTimer) { clearTimeout(this._fieldReleaseTimer); this._fieldReleaseTimer = 0 }
-    for (const f of this._fieldCache) destroyField(f)
+    retire(() => this._snapshots.clearRefusals())
+    if (this._fieldReleaseTimer) { const timer = this._fieldReleaseTimer; this._fieldReleaseTimer = 0; retire(() => clearTimeout(timer)) }
+    for (const f of this._fieldCache) retire(() => destroyField(f))
     this._fieldCache = []
-    for (const r of this._washReveals.values()) { r.before.destroy(); r.pending?.destroy(); r.wetMask?.destroy() }
+    for (const r of this._washReveals.values()) {
+      retire(() => r.before.destroy())
+      retire(() => r.pending?.destroy())
+      retire(() => r.wetMask?.destroy())
+    }
     this._washReveals.clear()
-    for (const b of this._revealPool) b.destroy()
+    for (const b of this._revealPool) retire(() => b.destroy())
     this._revealPool = []
-    this._settlePlan.destroyTextures()
-    this.gl.deleteTexture(this._paperTex)
+    retire(() => this._settlePlan.destroyTextures())
+    retire(() => this.gl.deleteTexture(this._paperTex))
+    retire(() => this._compositor.destroy(this._contextLost))
+    // Deleting a bound program only retires it after unbinding. Touch only
+    // our three programs; a new engine/foreign current program is borrowed.
+    if (!this._contextLost) retire(() => {
+      if (this.gl.isContextLost()) return
+      const programs = [this._revealProg, this._screenBlitProg, this._paperComposeProg]
+      retire(() => {
+        if (programs.includes(this.gl.getParameter(this.gl.CURRENT_PROGRAM))) this.gl.useProgram(null)
+      })
+      for (const program of programs) retire(() => this.gl.deleteProgram(program))
+    })
     // Borrowers above never own these two shared engine VBOs. A lost
     // generation has no live storage/name to delete (including event delay).
-    if (!this._contextLost && !this.gl.isContextLost()) {
-      this.gl.deleteBuffer(this._quadBuf)
-      this.gl.deleteBuffer(this._screenBuf)
-    }
+    const quad = this._quadBuf, screen = this._screenBuf
     this._quadBuf = null
     this._screenBuf = null
-    // (#536, §17.69) And the context itself, when its canvas has already left
-    // the page (the room was closed; React removes the element before the
-    // engine is retired). Left to the collector, a phone moving from room to
-    // room piled them up until a new engine's programs no longer linked
-    // ("Program link error:" with an empty log, the Android tab after four
-    // rooms). A canvas still on the page is kept: a board switch builds the
-    // next engine on the same element, and a lost context would be its.
-    if (this.canvas.isConnected === false) this.gl.getExtension('WEBGL_lose_context')?.loseContext()
+    if (!this._contextLost) retire(() => {
+      if (this.gl.isContextLost()) return
+      retire(() => this.gl.deleteBuffer(quad))
+      retire(() => this.gl.deleteBuffer(screen))
+    })
+    // Preserve the existing detached-canvas policy. Never forget/reset the
+    // shared context ledger as a substitute for deleting this engine's names.
+    if (this.canvas.isConnected === false) retire(() => this.gl.getExtension('WEBGL_lose_context')?.loseContext())
+    this._layers.clear()
+    if (failed) throw firstError
   }
 
   // ─── History / replay ────────────────────────────────────────────────────────
@@ -5225,6 +5242,7 @@ export class PencilEngine implements PencilEngineAPI {
   // there) stalling the GPU pipeline long enough to trip a mobile browser's
   // watchdog, especially with several full-size layer textures resident.
   private _handleContextLost = (e: Event): void => {
+    if (this._destroyed) return
     this._contextLost=true
     this._quadBuf = null
     this._screenBuf = null
@@ -5262,6 +5280,7 @@ export class PencilEngine implements PencilEngineAPI {
   // let _syncBuffersToLog do exactly what it already does for a layer
   // add/delete — recreate and replay each live layer from the log.
   private _handleContextRestored = (): void => {
+    if (this._destroyed) return
     this._continuationGpuFence?.forget()
     // The replacement GL scene is rebuilt from the accepted journal.
     this._cancelledPeerLayers.clear()
@@ -9825,7 +9844,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _display(): void {
-    if (this._contextLost || this.gl.isContextLost()) return
+    if (this._destroyed || this._contextLost || this.gl.isContextLost()) return
     // (#470) One path for both kinds of room. A bounded room used to take a
     // screen-locked DISPLAY_FRAG pass over a sheet-sized _compositeFBO, which
     // only worked because its canvas *was* the sheet; now that the camera
