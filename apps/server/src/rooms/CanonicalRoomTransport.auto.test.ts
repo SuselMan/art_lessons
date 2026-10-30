@@ -79,6 +79,23 @@ it('binds actual seven no-CAS descriptors, accepts actual adapter/encoder live+r
   db.operation.count.mockResolvedValue(0);history.rows=[];asset.mockRestore();pin.mockRestore();await flushRoomWrites('board');rooms.clear()
  }
 })
+it('repeated begin exposes only recorded closure after actual seven live terminal frames',async()=>{
+ for(const row of stock.rows){
+  const f=setup(row.descriptor as unknown as BrushDescriptor),transport=new CanonicalRoomTransport(policy)
+  const s=snapshot(await transport.begin(identity,f.input,()=>true)),packets=frames(f.descriptor,s)
+  expect(packets.length).toBeGreaterThanOrEqual(2)
+  for(let i=0;i<packets.length;i++){
+   expect(transport.live(identity,{layerId:'layer',frame:packets[i]}).result.ok).toBe(true)
+   if(i===packets.length-2)expect(transport.live(identity,{layerId:'layer',frame:packets[i+1]}).result.ok).toBe(true)
+   // The terminal live frame is already known, but the last record is absent.
+   if(i===packets.length-1)expect(await transport.begin(identity,f.input,()=>true)).toMatchObject({ok:true,ended:false,recordedNext:i})
+   const op:CanonicalStrokeOperation={type:'canonical_stroke',id:'closure-'+i,userId:'author',timestamp:i,layerId:'layer',frame:packets[i]}
+   expect((await transport.recorded(identity,op,()=>true)).result.ok).toBe(true)
+  }
+  expect(await transport.begin(identity,f.input,()=>true)).toMatchObject({ok:true,ended:true,recordedNext:packets.length})
+  await flushRoomWrites('board');rooms.clear();db.operation.count.mockResolvedValue(0);history.rows=[]
+ }
+})
 it('defaults auto OFF and rejects legacy rooms, malformed material policies and changed permissions before pin/store',async()=>{
  const f=setup(),pin=vi.spyOn(f.storage,'pin'),asset=vi.spyOn(f.storage,'asset')
  expect(await new CanonicalRoomTransport().begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'invalid_operation'})

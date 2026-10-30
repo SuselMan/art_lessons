@@ -120,3 +120,26 @@ V2 trusted-source admission now accepts the two explicit auto-generator pins
 validator, and retains the SAME full immutable material signature, descriptor
 SHA/version/ID binding, frame/group cursors and decode/work budgets. No client
 profile self-grant, CAS fallback or preflight callback is introduced.
+
+## Recorded closure versus speculative end
+
+Admission retains two tiny booleans: `ended` seals the unique cross-lane frame
+stream as soon as ANY lane commits gestureEnd; `recordedEnded` is set only when
+an admitted recorded frame containing gestureEnd commits, including the matching
+previously accepted live fingerprint. `cursor().ended` exposes recordedEnded.
+A live-only end therefore cannot make repeated begin advertise recorded closure,
+and an open recorded cursor never reopens unique admission after speculative end.
+No wire change, persisted close event, partial-close policy, or snapshot grant.
+
+Focused regressions cover live0/live1-end followed by recorded0 (cursor open),
+recorded1-end (closed), abandoned end tickets, fresh-ordinal refusal while cursor
+is open, recorded-first hydration, retained duplicate end, and expired older
+fingerprints. Existing transport hydration tests exercise persisted-ended replay.
+Transport durability still controls whether recorded closure can be published;
+this boolean is admission metadata, not an independent DB-success assertion.
+
+Actual seven adapter/encoder transport regression also checks repeated begin:
+terminal live frame is known before the final record; begin remains ended:false
+until that final record succeeds, then reports true. 29 focused tests pass.
+Server TSC passed before this assertion-only transport test addition; the added
+code reuses the existing typed begin/live/recorded calls without new API types.

@@ -50,6 +50,7 @@ interface Gesture {
   entry: CanonicalMaterialEntry
   lastGroup: number
   ended: boolean
+  recordedEnded: boolean
   fingerprints: Map<number, Fingerprint>
 }
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
@@ -81,7 +82,7 @@ export class CanonicalStrokeAdmission {
   get size(): number { return this.gestures.size }
   cursor(identity: CanonicalAdmissionIdentity, strokeId: string): { readonly recordedNext: number; readonly liveNext: number; readonly ended: boolean } {
     const state = this.gestures.get(JSON.stringify([identity.roomId, identity.userId, strokeId]))
-    return Object.freeze({ recordedNext: state?.recordedNext ?? 0, liveNext: state?.liveNext ?? 0, ended: state?.ended ?? false })
+    return Object.freeze({ recordedNext: state?.recordedNext ?? 0, liveNext: state?.liveNext ?? 0, ended: state?.recordedEnded ?? false })
   }
 
   /** Recorded: prepare -> pin -> recordOperation(assign seq) -> commit -> ack/relay.
@@ -129,7 +130,7 @@ export class CanonicalStrokeAdmission {
     if (previous && (previous.signature !== signature || previous.preflight !== preflight)) fail('immutable gesture capability changed')
     if (!previous && (ordinal !== 0 || this.gestures.size >= this.maxGestures)) fail('missing prefix or bounded gesture capacity')
     const state: Gesture = previous ?? { signature, preflight, liveNext: 0, recordedNext: 0, uniqueNext: 0,
-      entry: { phase: 'between' }, lastGroup: -1, ended: false, fingerprints: new Map() }
+      entry: { phase: 'between' }, lastGroup: -1, ended: false, recordedEnded: false, fingerprints: new Map() }
     const live = value.type === 'canonical_stroke_live', next = live ? state.liveNext : state.recordedNext
     const old = state.fingerprints.get(ordinal)
     if (!live && [...state.fingerprints].some(([n, item]) => n !== ordinal && item.operationId === value.id)) fail('operation ID reused across frames')
@@ -169,7 +170,10 @@ export class CanonicalStrokeAdmission {
       // Authoritative records may progress without live traffic. Old live frames
       // beyond this retained digest window require the normal receiver resync.
       for (const n of fingerprints.keys()) if (n < recordedNext - this.window) fingerprints.delete(n)
-      this.gestures.set(key, { ...state, fingerprints, liveNext, recordedNext, uniqueNext: old ? state.uniqueNext : ordinal + 1, entry, lastGroup, ended })
+      this.gestures.set(key, { ...state, fingerprints, liveNext, recordedNext, uniqueNext: old ? state.uniqueNext : ordinal + 1, entry, lastGroup, ended,
+        // A speculative end seals unique admission, but only a committed record
+        // seals the cursor returned by begin/reconnect (also for a known live hash).
+        recordedEnded: state.recordedEnded || !live && decoded.frame.fences.some(fence => fence.kind === 'gestureEnd') })
       this.revision++; committed = true
     } })
   }
