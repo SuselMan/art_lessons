@@ -84,3 +84,31 @@ attempts migrated cache cleanup after earlier behavior/scratch failure and retai
 the original error. Whole-engine constructor/destroy rollback remains separate.
 Scoped lint has no errors (existing engine warnings), map/check and diff/check
 passed. No new GPU execution or physical-residency measurement is claimed.
+
+
+## Samsung total-ledger regression at 01bb746b4
+
+The new isolated runner uses snapshotContextStorage rather than the historical
+Accum-only projection. On SM-T970 / Chrome155 / Adreno650, all seven Gaussian
+fixtures at composite64 and the two largest at composite8 produced zero differing
+RGBA bytes against the same frozen host source-law expected images. GL error and
+poison lists were empty, sentinel state restored, and actual texture/FBO/buffer/
+program/shader handle sets empty after cleanup.
+
+Snapshots before preparation completion and after execution observed positive
+resident charge in all three domains. Every trial cleanup and final snapshot had
+zero resident, reserved and orphan bytes in each domain and context total.
+An initial harness gate failed because it sampled only before lazy Accum creation;
+its original receipt is retained. Adding a post-execution observation fixed that
+evidence gap without changing production code or expected pixels.
+
+Durable reproducible inputs and source/body/bundle hashes are in fixes-v52/
+run-gaussian7-raw-owner-device.mts, gaussian7-raw-owner-executor-body.js and
+Gaussian receipts gaussian7-raw-owner-executor-{64,8}-{result,cleanup}.json;
+gaussian7-raw-owner-device-summary.json records both outcomes and the initial
+observation failure. Test children closed, original tabs restored, QA markers and
+ADB forward19236 removed. No service or dependency copy was created.
+
+This tests migrated allocation/cleanup paths and pixel-preserving ownership;
+it does not establish physical GPU residency, original GUI stroke identity,
+active pointer responsiveness, iPad behavior, or a safe finite global cap.
