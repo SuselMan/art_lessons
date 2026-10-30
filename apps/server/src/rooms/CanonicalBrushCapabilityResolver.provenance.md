@@ -57,3 +57,42 @@ explicit alpha policy, bounded capacity and actual CanonicalStrokeAdmission
 shared-frame decoding. The full existing room/socket suites check that factoring
 permissions does not change the legacy gate or activate canonical transport.
 Tests clean their own temporary directories; no server/device/runtime is started.
+
+## Explicit no-CAS default-auto V2 binding (default disabled)
+
+The same binder now has optional server-owned `defaultAuto` policy with exact own
+keys coverageProfile/storedScale1. Absent/false disables auto; the actual default
+CANONICAL_ROOM_EXECUTION_POLICY remains false. No client field/profile/source
+presence enables this branch, and canonical begin retains its original six
+fields. All existing room/lesson/layer permission, resident epoch, capacity and
+prepare/pin/commit lifetime checks remain in force.
+
+A validated default-auto descriptor uses the shared DATA-only extractor, retained
+curve capability and canonicalDefaultAutoSourceBinding with the same normalized
+descriptor SHA. The shared extractor remains source-data-only/rasterReady:false;
+the explicit server policy supplies the separate execution decision. Static
+stored scale must1; this is not UI Size lowering. `sourceStampPaintingMode` is the
+ONE moved PaintOpAction reader law: absent is incremental and saved flags must
+agree; both PNG and auto use it. PNG CAS verification/V1 context remain intact.
+Auto grant is closed material context2 with assets[], a normalized descriptor/
+static/coverage pin and existing bounded costs, never a fabricated PNG/CAS ID.
+
+JSON descriptor SHA is metadata provenance, not a signed-zero bit witness.
+Both trusted auto bindings normalize static zero using the existing shared owner;
+dynamic packed recipe F64/sign-zero values retain their own wire semantics.
+Malformed runtime source data is guarded before kind dereference; the existing
+merged-library validator also rejects malformed operator callback results before
+CAS/pin/state. Policy keys must be own properties, not inherited options.
+
+Actual7 tests install retained descriptors in NEW isolated test stores and call
+the real binder/coordinator, never a mocked capability resolver. They verify no
+asset lookup, descriptor room pin despite no assets, immutable profile/static
+context, default-off/legacy/permission failures and retained curve/mode/schema
+failures. No protected storage, DB migration, room creation/opening, runtime,
+server restart, UI/renderer activation or native GUI dispatch claim is involved.
+
+Validation for this extension:74 focused tests/7files (including existing V1/V2
+codec goldens),12 existing actual Socket.IO canonical tests, shared build, server
+TSC and common web TSC5428 pass. Scoped lint/map:check/diff pass; map:rules reports
+0 errors with15 existing orphan/cycle warnings. Test stores and write queues are
+closed/drained in finally; no service, device, dependency or runtime remains.

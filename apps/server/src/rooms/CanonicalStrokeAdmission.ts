@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
-import { CANONICAL_STROKE_RASTER_PROFILE, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame,
-  type CanonicalMaterialContext, type CanonicalMaterialEntry, type CanonicalMaterialFrame,
+import { CANONICAL_STROKE_RASTER_PROFILE, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame, canonicalDefaultAutoSourcePin,
+  type CanonicalMaterialContext, type AnyCanonicalMaterialContext, type CanonicalMaterialEntry, type AnyCanonicalMaterialFrame,
   type CanonicalStrokeComposition, type CanonicalStrokeFrameEnvelope } from '@grafetto/shared'
 
 export interface CanonicalAdmissionIdentity { readonly roomId: string; readonly userId: string }
@@ -20,7 +20,12 @@ export interface TrustedCanonicalGesture {
   readonly strokeId: string
   readonly pigmentRgb8: readonly [number, number, number]
   readonly composition: CanonicalStrokeComposition
-  readonly material: CanonicalMaterialContext
+  readonly material: AnyCanonicalMaterialContext
+}
+/** One typed decoder seam used by live, record, durable retry and hydration. */
+export function decodeTrustedCanonicalFrame(value:unknown,grant:TrustedCanonicalGesture,ordinal:number){
+  const material=grant.material,common={brush:grant.brush,strokeId:grant.strokeId,frameOrdinal:ordinal,pigmentRgb8:grant.pigmentRgb8,composition:grant.composition}
+  return 'version' in material?decodeCanonicalStrokeFrame(value,{...common,material}):decodeCanonicalStrokeFrame(value,{...common,material})
 }
 export type CanonicalCapabilityResolver = (identity: CanonicalAdmissionIdentity, selector: { readonly layerId: string; readonly brush: string; readonly strokeId: string }) => TrustedCanonicalGesture | undefined
 export type CanonicalFrameCandidate = {
@@ -31,14 +36,14 @@ export type CanonicalFrameCandidate = {
 export interface AcceptedCanonicalFrame {
   readonly identity: CanonicalAdmissionIdentity
   readonly candidate: CanonicalFrameCandidate
-  readonly decoded: CanonicalMaterialFrame
+  readonly decoded: AnyCanonicalMaterialFrame
   readonly descriptorSha256: string
   readonly boardEpoch: number
 }
 interface Fingerprint { hash: string; operationId?: string; live: boolean; recorded: boolean }
 interface Gesture {
   signature: string
-  preflight: CanonicalMaterialContext['preflightDefinition']
+  preflight: CanonicalMaterialContext['preflightDefinition']|undefined
   liveNext: number
   recordedNext: number
   uniqueNext: number
@@ -103,25 +108,33 @@ export class CanonicalStrokeAdmission {
       || grant.brush !== brush || grant.strokeId !== strokeId || !integer(grant.boardEpoch)
       || grant.roomRasterVersion !== STRAIGHT_ROOM_RASTER_VERSION || grant.rasterProfile !== CANONICAL_STROKE_RASTER_PROFILE
       || !/^[0-9a-f]{64}$/.test(grant.descriptorSha256)) fail('trusted board/brush capability unavailable')
-    // First service supports only the executor's single-primary material class.
-    if (!grant.material || !Array.isArray(grant.material.assets) || grant.material.maskAsset !== undefined || grant.material.assets.length > 16) fail('unsupported trusted material capability')
-    const m = grant.material
+    if(!grant.material||!Array.isArray(grant.material.assets)||grant.material.assets.length>16)fail('unsupported trusted material capability')
+    const m=grant.material
+    let preflight:CanonicalMaterialContext['preflightDefinition']|undefined,materialSignature:unknown
+    if('version' in m){
+      if(Object.keys(m).some(k=>!['version','assets','primarySource','maskSource','budget','expectedDrawCount','expectedStrokeEnd'].includes(k))||m.version!==2||m.assets.length!==0||m.maskSource!==undefined||m.primarySource?.kind!=='defaultAuto')fail('unsupported trusted material capability')
+      const pin=canonicalDefaultAutoSourcePin(m.primarySource)
+      if(pin.brushScale!==1||pin.descriptorSha256!==grant.descriptorSha256||grant.brush!==`brush:${pin.descriptorId}@${pin.descriptorVersion}`)fail('trusted auto descriptor binding mismatch')
+      preflight=undefined
+      materialSignature={...m,primarySource:pin}
+    }else{
+      if(m.maskAsset!==undefined)fail('unsupported trusted material capability')
+      preflight=m.preflightDefinition
+      materialSignature={assets:m.assets,primaryAsset:m.primaryAsset,maskAsset:m.maskAsset,budget:m.budget,expectedDrawCount:m.expectedDrawCount,expectedStrokeEnd:m.expectedStrokeEnd}
+    }
     const signature = JSON.stringify({ roomId: grant.roomId, userId: grant.userId, layerId: grant.layerId, boardEpoch: grant.boardEpoch,
       roomRasterVersion: grant.roomRasterVersion, rasterProfile: grant.rasterProfile, descriptorSha256: grant.descriptorSha256,
-      brush: grant.brush, strokeId: grant.strokeId, pigmentRgb8: grant.pigmentRgb8, composition: grant.composition,
-      material: { assets: m.assets, primaryAsset: m.primaryAsset, maskAsset: m.maskAsset, budget: m.budget,
-        expectedDrawCount: m.expectedDrawCount, expectedStrokeEnd: m.expectedStrokeEnd } })
+      brush: grant.brush, strokeId: grant.strokeId, pigmentRgb8: grant.pigmentRgb8, composition: grant.composition,material:materialSignature })
     const key = JSON.stringify([scope.roomId, scope.userId, strokeId]), previous = this.gestures.get(key)
-    if (previous && (previous.signature !== signature || previous.preflight !== grant.material.preflightDefinition)) fail('immutable gesture capability changed')
+    if (previous && (previous.signature !== signature || previous.preflight !== preflight)) fail('immutable gesture capability changed')
     if (!previous && (ordinal !== 0 || this.gestures.size >= this.maxGestures)) fail('missing prefix or bounded gesture capacity')
-    const state: Gesture = previous ?? { signature, preflight: grant.material.preflightDefinition, liveNext: 0, recordedNext: 0, uniqueNext: 0,
+    const state: Gesture = previous ?? { signature, preflight, liveNext: 0, recordedNext: 0, uniqueNext: 0,
       entry: { phase: 'between' }, lastGroup: -1, ended: false, fingerprints: new Map() }
     const live = value.type === 'canonical_stroke_live', next = live ? state.liveNext : state.recordedNext
     const old = state.fingerprints.get(ordinal)
     if (!live && [...state.fingerprints].some(([n, item]) => n !== ordinal && item.operationId === value.id)) fail('operation ID reused across frames')
     if (ordinal > next || ordinal < next && !old || live && ordinal >= state.recordedNext + this.window) fail('noncontiguous or expired frame ordinal')
-    const decoded = decodeCanonicalStrokeFrame(f, { brush: grant.brush, strokeId: grant.strokeId, frameOrdinal: ordinal,
-      pigmentRgb8: grant.pigmentRgb8, composition: grant.composition, material: grant.material })
+    const decoded=decodeTrustedCanonicalFrame(f,grant,ordinal)
     if (decoded.frame.masked) fail('masked executor not admitted')
     const hash = createHash('sha256').update(JSON.stringify(decoded.envelope)).digest('hex')
     if (old && (old.hash !== hash || !live && old.operationId !== undefined && old.operationId !== value.id)) fail('frame identity conflicts with accepted lane')

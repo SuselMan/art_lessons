@@ -1,14 +1,15 @@
 import { createHash } from 'node:crypto'
 import {
   CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, STRAIGHT_ROOM_RASTER_VERSION,
-  canonicalMaterialGeometryCost, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms,
-  type BrushLibrary, type CanonicalMaterialContext, type CanonicalStrokeBegin,
+  canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, extractDefaultAutoSourceDataCapability, sourceStampPaintingMode,
+  type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalAutoCoverageProfile,
 } from '@grafetto/shared'
 import { BrushStorage, merge } from '../brushLibrary/storage.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
 import type { CanonicalAdmissionIdentity, CanonicalCapabilityResolver, TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
 
+export interface CanonicalDefaultAutoExecutionPolicy {readonly coverageProfile:CanonicalAutoCoverageProfile;readonly storedScale:1}
 export type CanonicalGestureBegin = CanonicalStrokeBegin
 interface PinnedGesture { readonly board: RoomRecord; readonly lesson: RoomRecord; readonly grant: TrustedCanonicalGesture }
 const text = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 256 && !v.includes('\0')
@@ -21,7 +22,7 @@ function normalizedDescriptor(value: unknown): unknown {
   return value
 }
 
-/** Executable server-owned binder; deliberately NOT installed in socket routes.
+/** Server-owned binder used by CanonicalRoomTransport; auto defaults disabled.
  * Epochs identify resident record lifetimes only. Reconnect/restart must rebuild
  * persisted gesture prefixes before new admission; this is not durable history.
  * Descriptor/CAS semantics are verified here; a sourceStamp/profile claim alone
@@ -31,6 +32,7 @@ export class CanonicalBrushCapabilityResolver {
   private readonly operator: () => BrushLibrary
   private readonly variants: ReadonlySet<'creamy' | 'hard'>
   private readonly maxGestures: number
+  private readonly defaultAuto:Readonly<CanonicalDefaultAutoExecutionPolicy>|false
   private readonly gestures = new Map<string, PinnedGesture>()
   private readonly epochs = new WeakMap<RoomRecord, { readonly lesson: RoomRecord; readonly value: number }>()
   private nextEpoch = 0
@@ -52,6 +54,7 @@ export class CanonicalBrushCapabilityResolver {
     /** Explicit server execution/config policy, never inferred from saved KPP. */
     readonly alphaDarkenVariants: readonly ('creamy' | 'hard')[]
     readonly maxGestures: number
+    readonly defaultAuto?:CanonicalDefaultAutoExecutionPolicy|false
   }) {
     if (!(options.storage instanceof BrushStorage) || typeof options.operator !== 'function'
       || options.rasterProfile !== CANONICAL_STROKE_RASTER_PROFILE
@@ -59,6 +62,12 @@ export class CanonicalBrushCapabilityResolver {
       || !Array.isArray(options.alphaDarkenVariants) || options.alphaDarkenVariants.length < 1 || options.alphaDarkenVariants.length > 2
       || options.alphaDarkenVariants.some(v => v !== 'creamy' && v !== 'hard')
       || new Set(options.alphaDarkenVariants).size !== options.alphaDarkenVariants.length) fail('invalid explicit execution policy')
+    const auto=options.defaultAuto
+    if(auto!==undefined&&auto!==false
+      &&(!auto||typeof auto!=='object'||Object.keys(auto).length!==2
+      ||!['coverageProfile','storedScale'].every(k=>Object.hasOwn(auto!,k))||auto.storedScale!==1
+      ||!['scalar-f64-fma-v1','neon64-f32-fma-v1'].includes(auto.coverageProfile)))fail('invalid explicit auto policy')
+    this.defaultAuto=auto?Object.freeze({...auto}):false
     this.storage = options.storage; this.operator = options.operator
     this.maxGestures = options.maxGestures; this.variants = new Set(options.alphaDarkenVariants)
   }
@@ -103,34 +112,46 @@ export class CanonicalBrushCapabilityResolver {
     const library = merge(this.operator(), this.storage.library('owners', identity.userId), this.storage.library('rooms', identity.roomId))
     const descriptor = library.brushes.find(b => b.descriptor.id === match[1] && b.descriptor.version === Number(match[2]))?.descriptor
     if (!descriptor) fail('brush unavailable')
-    const asset = library.assets.find(a => a.id === descriptor.tip.mask)
-    if (!asset) fail('source CAS metadata unavailable')
-    const result = extractCanonicalSinglePngCapability(descriptor, asset)
-    if (!result.supported) fail(result.reasons.join(','))
-    if (!hasCanonicalSourceCurvePrograms(descriptor.sourceStamp!)) fail('retained native curve programs unavailable')
-    // Verify original CAS before publishing capability. No per-frame reread or
-    // claim that inverse-gray bytes prove provenance in an installed native app.
-    this.storage.asset(asset.id.slice(6), asset.size)
+    if(!isSourceStampData(descriptor.sourceStamp))fail('invalid or missing retained source data')
     const descriptorSha256 = createHash('sha256').update(JSON.stringify(normalizedDescriptor(descriptor))).digest('hex')
+    let material:AnyCanonicalMaterialContext, mode:'wash'|'buildup'
+    const budget=Object.freeze({workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels})
+    if(descriptor.sourceStamp?.version===2 && descriptor.sourceStamp.source.kind==='defaultAuto'){
+      if(!this.defaultAuto)fail('default-auto execution policy disabled')
+      const data=extractDefaultAutoSourceDataCapability(descriptor)
+      if(!data.supported)fail(data.reasons.join(','))
+      const savedMode=sourceStampPaintingMode(data.data)
+      if(!savedMode)fail('inconsistent-source-painting-mode')
+      const pin=canonicalDefaultAutoSourceBinding(descriptor,descriptorSha256,this.defaultAuto.coverageProfile)
+      if(pin.brushScale!==this.defaultAuto.storedScale)fail('unsupported stored auto scale')
+      mode=savedMode
+      material=Object.freeze({version:2,assets:Object.freeze([]),primarySource:pin,budget})
+    }else{
+      const asset=library.assets.find(a=>a.id===descriptor.tip.mask)
+      if(!asset)fail('source CAS metadata unavailable')
+      const result=extractCanonicalSinglePngCapability(descriptor,asset)
+      if(!result.supported)fail(result.reasons.join(','))
+      if(!hasCanonicalSourceCurvePrograms(descriptor.sourceStamp!))fail('retained native curve programs unavailable')
+      this.storage.asset(asset.id.slice(6),asset.size)
+      const capability=result.capability
+      const preflightDefinition:CanonicalMaterialContext['preflightDefinition']=(recipe,source)=>{
+        if(recipe.brushScale!==capability.brushScale||recipe.brushAngle!==capability.brushAngle)fail('source brush geometry changed')
+        return canonicalMaterialGeometryCost(recipe,source)
+      }
+      mode=capability.mode
+      material=Object.freeze({assets:Object.freeze([capability.asset]),primaryAsset:asset.id,preflightDefinition,budget})
+    }
     const priorEpoch = this.epochs.get(current.board)
     let boardEpoch = priorEpoch?.lesson === current.lesson ? priorEpoch.value : undefined
     if (boardEpoch === undefined) {
       if (this.nextEpoch >= Number.MAX_SAFE_INTEGER) fail('resident epoch exhausted')
       boardEpoch = this.nextEpoch++; this.epochs.set(current.board, { lesson: current.lesson, value: boardEpoch })
     }
-    const capability = result.capability
-    const preflightDefinition: CanonicalMaterialContext['preflightDefinition'] = (recipe, source) => {
-      if (recipe.brushScale !== capability.brushScale || recipe.brushAngle !== capability.brushAngle) fail('source brush geometry changed')
-      return canonicalMaterialGeometryCost(recipe, source)
-    }
-    const material = Object.freeze({ assets: Object.freeze([result.capability.asset]), primaryAsset: asset.id,
-      preflightDefinition, budget: Object.freeze({ workUnits: CANONICAL_MATERIAL_LIMITS.workUnits,
-        outputBytes: CANONICAL_MATERIAL_LIMITS.outputBytes, drawPixels: CANONICAL_MATERIAL_LIMITS.drawPixels }) })
     const grant: TrustedCanonicalGesture = Object.freeze({ roomId: identity.roomId, userId: identity.userId, layerId: input.layerId,
       boardEpoch, roomRasterVersion: STRAIGHT_ROOM_RASTER_VERSION, rasterProfile: CANONICAL_STROKE_RASTER_PROFILE,
       descriptorSha256, brush: input.brush, strokeId: input.strokeId,
       pigmentRgb8: Object.freeze([input.pigmentRgb8[0], input.pigmentRgb8[1], input.pigmentRgb8[2]] as const),
-      composition: Object.freeze({ mode: result.capability.mode, alphaDarken: input.alphaDarken,
+      composition: Object.freeze({ mode, alphaDarken: input.alphaDarken,
         outerResourceOpacity: input.outerResourceOpacity, outerBlend: 'over' as const }), material })
     let committed = false
     return Object.freeze({ grant, commit: () => {

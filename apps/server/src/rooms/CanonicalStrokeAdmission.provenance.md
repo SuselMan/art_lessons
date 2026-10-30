@@ -90,3 +90,27 @@ PASS, dependency rules0errors:11known warnings plus this intentionally inactive
 service and two other agents' not-yet-imported numerical helpers. No fake import
 was added to make the closed service appear active. Test HTTP/socket instances
 are ephemeral and closed by the harness; no persistent server or DB changes.
+
+## Closed auto recipe2 context
+
+Trusted gesture material is now the explicit V1/V2 union; accepted decoded frame
+is the corresponding shared union. V2 admits only one primary defaultAuto pin,
+assets[], no maskSource and no extra context/callback keys. Descriptor ID/version/
+SHA, storedScale1 and coverage/static profile are checked before state mutation.
+The immutable signature includes the ENTIRE normalized V2 context/version/source
+and budgets/constraints. V1 retains its old asset/static callback identity check;
+there is no V2 callback fallback. Shared recipe cost and matching decoder overload
+remain the single wire/geometry validation owner.
+
+Actual server tests feed real SourceStrokeAuthor→SourceStrokeMaterialAdapterV2→
+SourceCanonicalFrameEncoder packets from seven retained descriptors, then exercise
+live/record lanes, exact retries, changed source/profile/material-version claims,
+static zero normalization and packed dynamic negative zero across JSON transport.
+Prefix/fence/ordinal/retained-window rules are unchanged. Admission of a frame
+still does not assert a stable pixel checkpoint for an unfinished wash gesture.
+
+Validation for this extension:74 focused tests/7files (including existing V1/V2
+codec goldens),12 existing actual Socket.IO canonical tests, shared build, server
+TSC and common web TSC5428 pass. Scoped lint/map:check/diff pass; map:rules reports
+0 errors with15 existing orphan/cycle warnings. Test stores and write queues are
+closed/drained in finally; no service, device, dependency or runtime remains.

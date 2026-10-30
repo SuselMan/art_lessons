@@ -1,14 +1,14 @@
 import { isDeepStrictEqual } from 'node:util'
 import {
-  STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame,
+  STRAIGHT_ROOM_RASTER_VERSION,
   type CanonicalStrokeBegin, type CanonicalStrokeBeginResult, type CanonicalStrokeLive, type CanonicalStrokeLiveResult,
   type CanonicalStrokeOperation, type CanonicalStrokeSnapshot, type SendResult,
 } from '@grafetto/shared'
 import { canonicalBrushStorageContext } from '../brushLibrary/storage.js'
 import { prisma } from '../db/prisma.js'
 import { CanonicalBrushCapabilityResolver } from './CanonicalBrushCapabilityResolver.js'
-import { CanonicalStrokeAdmission, type CanonicalAdmissionIdentity, type TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
-import { CANONICAL_ROOM_EXECUTION_POLICY } from './canonicalExecutionPolicy.js'
+import { CanonicalStrokeAdmission, decodeTrustedCanonicalFrame, type CanonicalAdmissionIdentity, type TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
+import { CANONICAL_ROOM_EXECUTION_POLICY,type CanonicalRoomExecutionPolicy } from './canonicalExecutionPolicy.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { findDuplicateOperation, recordOperation, updateAliveIds } from './operationLog.js'
 import { flushRoomWrites, lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
@@ -28,6 +28,10 @@ interface RoomLifetime { readonly record: RoomRecord; readonly lesson: RoomRecor
  * room opener, or renderer activation. Async DB checks end BEFORE the existing
  * synchronous prepare -> pin -> record(seq) -> commit -> ack/relay section. */
 export class CanonicalRoomTransport {
+  private readonly policy:CanonicalRoomExecutionPolicy
+  constructor(policy:CanonicalRoomExecutionPolicy=CANONICAL_ROOM_EXECUTION_POLICY){
+    this.policy=Object.freeze({...policy,alphaDarkenVariants:Object.freeze([...policy.alphaDarkenVariants]),defaultAuto:policy.defaultAuto?Object.freeze({...policy.defaultAuto}):false})
+  }
   private context: ReturnType<typeof canonicalBrushStorageContext>
   private binder?: CanonicalBrushCapabilityResolver
   private readonly lifetimes = new Map<string, RoomLifetime>()
@@ -121,7 +125,7 @@ export class CanonicalRoomTransport {
     try {
       const raw = canonicalOperation(value, identity, true), lifetime = this.authorized(identity, raw.layerId)
       const session = this.session(lifetime, identity, raw.frame.strokeId)
-      const decoded = decodeCanonicalStrokeFrame(raw.frame, { ...session.grant, frameOrdinal: raw.frame.frameOrdinal })
+      const decoded = decodeTrustedCanonicalFrame(raw.frame,session.grant,raw.frame.frameOrdinal)
       const op: CanonicalStrokeOperation = Object.freeze({ type: 'canonical_stroke', id: raw.id, userId: identity.userId,
         timestamp: raw.timestamp, layerId: raw.layerId, frame: decoded.envelope, ...(raw.seq === undefined ? {} : { seq: raw.seq }) })
       let existing = findDuplicateOperation(identity.roomId, op.id)
@@ -144,7 +148,7 @@ export class CanonicalRoomTransport {
       if (existing) {
         const stored = canonicalOperation(existing, identity, true)
         if (!stored.seq || !sameOperation(op, stored) || op.seq !== undefined && op.seq !== stored.seq) fail('invalid_operation')
-        decodeCanonicalStrokeFrame(op.frame, { ...session.grant, frameOrdinal: op.frame.frameOrdinal })
+        decodeTrustedCanonicalFrame(op.frame,session.grant,op.frame.frameOrdinal)
         return { result: { ok: true, seq: stored.seq, duplicate: true } }
       }
       if (op.seq !== undefined) fail('invalid_operation')
@@ -171,7 +175,7 @@ export class CanonicalRoomTransport {
     if (!this.binder || this.context?.storage !== context.storage || this.context.operator !== context.operator) {
       this.context = context; this.lifetimes.clear()
       this.binder = new CanonicalBrushCapabilityResolver({ storage: context.storage, operator: () => context.operator,
-        ...CANONICAL_ROOM_EXECUTION_POLICY, maxGestures: MAX_GESTURES })
+        ...this.policy, maxGestures: MAX_GESTURES })
     }
     return this.binder
   }
@@ -204,7 +208,8 @@ export class CanonicalRoomTransport {
 function snapshot(session: Session): CanonicalStrokeBeginResult {
   const g = session.grant
   const value: CanonicalStrokeSnapshot = Object.freeze({ layerId: g.layerId, brush: g.brush, strokeId: g.strokeId, boardEpoch: g.boardEpoch,
-    descriptorSha256: g.descriptorSha256, rasterProfile: g.rasterProfile, pigmentRgb8: g.pigmentRgb8, composition: g.composition, assets: g.material.assets })
+    descriptorSha256: g.descriptorSha256, rasterProfile: g.rasterProfile, pigmentRgb8: g.pigmentRgb8, composition: g.composition, assets: g.material.assets,
+    ...('version' in g.material?{materialVersion:2 as const,material:g.material}:{}) })
   return { ok: true, snapshot: value, ...session.admission.cursor(g, g.strokeId) }
 }
 function reason(error: unknown): TransportFailure['reason'] {

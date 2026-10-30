@@ -103,3 +103,38 @@ legacy and other-author controls. Existing room, socket, log and layer suites
 remain regression gates. These are host/protocol tests, not GPU/native identity
 or end-to-end straight-room rendering proof. Test sockets/servers and temporary
 CAS directories are closed in cleanup; no persistent service/device is started.
+
+## Auto V2 transport slice, policy remains OFF by default
+
+The existing coordinator accepts an explicit immutable server execution policy;
+the default keeps defaultAuto:false. There is no new route or optional bypass.
+It uses the same concrete binder/admission, authenticated begin, bounded persisted
+prefix reader and synchronous prepare→descriptor pin→record(seq)→commit→ack/relay
+section. Auto's descriptor still gets pinned, but its assets[] requires no CAS
+lookup. Shared snapshot gains a tagged V2 variant containing the pure server-pinned
+material context; original V1 snapshot fields/shape remain unchanged. A snapshot
+or source echo from the client is never authority.
+
+The one typed trusted decoder seam covers live/record, durable duplicate checking
+and cold prefix hydration. Existing MAX_ROOMS/MAX_GESTURES/MAX_BEGIN_JOBS and
+PREFIX_WINDOW64/PREFIX_FRAMES32/PREFIX_BYTES4MiB are unchanged. After awaits, same
+board/lesson/storage/authenticated session/permissions are rechecked. A missing,
+clipped or incompatible prefix returns repair-required; it cannot create a fresh
+stroke0. Hydration advances both recorded/live cursors without replay relay.
+
+Host tests cover actual7 descriptors, three pressure/mirror packets each through
+the actual author/adapter/encoder, live+record+duplicates, partial-prefix cold begin
+and continuation, completed replay, missing-prefix rejection, pin failures in
+begin/live/record without ghost grant/ordinal/seq, default-off/legacy/permission
+rejection before effects, and bounded33-frame denial. DB operations are a bounded
+in-memory test double; real coordinator/storage/operation seq/write queue execute.
+Test-only dynamic imports exercise web author glue without making server
+production modules depend on web code. Existing actual Socket.IO V1 tests remain
+green. No service/process/device resource, persistent data migration, room opening
+or client renderer/author hook activation was created.
+
+Validation for this extension:74 focused tests/7files (including existing V1/V2
+codec goldens),12 existing actual Socket.IO canonical tests, shared build, server
+TSC and common web TSC5428 pass. Scoped lint/map:check/diff pass; map:rules reports
+0 errors with15 existing orphan/cycle warnings. Test stores and write queues are
+closed/drained in finally; no service, device, dependency or runtime remains.

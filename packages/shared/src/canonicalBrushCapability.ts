@@ -2,6 +2,16 @@ import type { BrushDescriptor } from './brushes.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
 import { isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData } from './sourceStampData.js'
 
+/** Saved reader law shared by image/auto capability binding. Undefined action
+ * means incremental; conflicting or malformed retained flags fail closed. */
+export function sourceStampPaintingMode(data: SourceStampData): 'wash'|'buildup'|undefined {
+  const action=data.settings.PaintOpAction
+  const indirect=action!==undefined && Number(action)!==1
+  if(action!==undefined && (!/^[+-]?\d+$/.test(action)||!Number.isSafeInteger(Number(action)))
+    ||indirect!==data.flags.indirectPainting)return undefined
+  return indirect?'wash':'buildup'
+}
+
 /** A semantic material class, not permission, CAS verification, a compiler, or
  * an assertion that retained settings originated in an installed native app. */
 export interface CanonicalSinglePngCapability {
@@ -43,13 +53,11 @@ export function extractCanonicalSinglePngCapability(
   if (fan && (fan.fanStep! < 5 || fan.fanStep! > 90)) return reject('unsupported-source-fan-step')
   // This is the retained source reader's mode, not descriptor rendering or the
   // opacity option. Missing PaintOpAction is incremental in brush settings.
-  const action = data.settings.PaintOpAction
-  const indirect = action !== undefined && Number(action) !== 1
-  if (action !== undefined && (!/^[+-]?\d+$/.test(action) || !Number.isSafeInteger(Number(action)))
-    || indirect !== data.flags.indirectPainting) return reject('inconsistent-source-painting-mode')
+  const mode=sourceStampPaintingMode(data)
+  if(!mode)return reject('inconsistent-source-painting-mode')
   const rect = sampling.sourceRect
   return { supported: true, capability: Object.freeze({ kind: 'single-inverse-gray-png-v1', brushId: descriptor.id,
-    brushVersion: descriptor.version, brushScale: data.brush.scale, brushAngle: data.brush.angle, asset: Object.freeze({ id: asset.id, size: asset.size, ...rect }), mode: indirect ? 'wash' : 'buildup' }) }
+    brushVersion: descriptor.version, brushScale: data.brush.scale, brushAngle: data.brush.angle, asset: Object.freeze({ id: asset.id, size: asset.size, ...rect }), mode }) }
 }
 
 /** Local callers may supply a curve compiler. A server binding cannot, and
@@ -78,6 +86,7 @@ export function extractDefaultAutoSourceDataCapability(descriptor: BrushDescript
   const p = descriptor.tip.profile
   if (p.shape !== (source.shape === 'circle' ? 'ellipse' : 'rectangle') || p.horizontalFade !== source.horizontalFade
     || p.verticalFade !== source.verticalFade || p.antialias !== source.antialias) return reject('inconsistent-default-auto-profile')
+  if (!sourceStampPaintingMode(data)) return reject('inconsistent-source-painting-mode')
   if (data.options.length !== 9 || !hasCanonicalSourceCurvePrograms(data)) return reject('native-option-program-unavailable')
   return { supported: true, status: 'source-data-only', rasterReady: false,
     data: data as SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceDefaultAutoData } }

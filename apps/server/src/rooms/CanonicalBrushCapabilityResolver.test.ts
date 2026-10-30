@@ -132,6 +132,7 @@ describe('actual trusted board + immutable descriptor/CAS canonical binder (sock
   })
   it('feeds the real admission decoder through the binder and rejects later colour/composition/static geometry claims', () => {
     const f = fixture(), grant = f.binder.beginGesture(f.identity, f.input)
+    if('version' in grant.material)throw Error('Expected image fixture context')
     const admission = new CanonicalStrokeAdmission({ resolve: f.binder.resolve, maxGestures: 4, retainedFrames: 8 })
     const source = f.library.brushes[0].descriptor.sourceStamp!.brush
     const extent = sourceImageTransformMetadata(source.width, source.height, sourcePngRasterShape(source, { scale: 1, ratio: 1, rotation: 0 }), 0, 0)
@@ -153,8 +154,9 @@ describe('actual trusted board + immutable descriptor/CAS canonical binder (sock
     expect(admission.size).toBe(0)
     admission.prepare(f.identity, candidate).commit()
     expect(admission.prepare(f.identity, candidate).duplicate).toBe(true)
-    expect(() => grant.material.preflightDefinition({ asset: grant.material.primaryAsset, brushScale: 999, brushAngle: .25, scale: 1,
-      ratio: 1, rotation: 0, subX: 0, subY: 0, width: 3, height: 5, mirrorH: false, mirrorV: false }, grant.material.assets[0])).toThrow('geometry changed')
+    const image=grant.material
+    expect(() => image.preflightDefinition({ asset: image.primaryAsset, brushScale: 999, brushAngle: .25, scale: 1,
+      ratio: 1, rotation: 0, subX: 0, subY: 0, width: 3, height: 5, mirrorH: false, mirrorV: false }, image.assets[0])).toThrow('geometry changed')
     expect(f.board.operations).toEqual([])
   })
 })

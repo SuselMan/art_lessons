@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { BrushDescriptor } from './brushes.js'
 import type { SourceStampData } from './sourceStampData.js'
 import { SOURCE_STAMP_OPTIONS, SOURCE_STAMP_COMPILER_PROFILE } from './sourceStampData.js'
-import { extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms } from './canonicalBrushCapability.js'
+import { extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, sourceStampPaintingMode } from './canonicalBrushCapability.js'
 const asset = { id: `asset:${'a'.repeat(64)}` as const, size: 8 }
 function descriptor(): BrushDescriptor {
   const curve = { text: '0,0;1,1;', points: [{ x: 0, y: 0, corner: false }, { x: 1, y: 1, corner: false }] }
@@ -60,4 +60,12 @@ describe('shared single PNG execution material class, no permission or author ex
     expect(extractCanonicalSinglePngCapability(d, asset).supported).toBe(true)
     expect(hasCanonicalSourceCurvePrograms(data)).toBe(true)
   })
+})
+
+it('uses one saved PaintOpAction law: absent is incremental and inconsistent flags never confer a mode',()=>{
+ const data=descriptor().sourceStamp!
+ for(const [action,flag,expected]of [[undefined,false,'buildup'],['1',false,'buildup'],['2',true,'wash'],['0',true,'wash'],['+01',false,'buildup'],['1.0',false,undefined],['bad',true,undefined],['1',true,undefined],[undefined,true,undefined],['9007199254740992',true,undefined]] as const){
+  const settings={...data.settings};if(action===undefined)delete settings.PaintOpAction;else settings.PaintOpAction=action
+  expect(sourceStampPaintingMode({...data,settings,flags:{...data.flags,indirectPainting:flag}})).toBe(expected)
+ }
 })
