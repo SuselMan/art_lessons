@@ -181,3 +181,15 @@ Nested canonical ownership during target history recovery rejects before any com
 
 
 Fresh Samsung `auto7-one-turn-{64,8}-result.json` certifies this one-capture executor snapshot `285be6a1170e511a9ad6af66df3891aa3357f137622f64295f916137031d40f5`: full seven-source/89-frame61-dab gate and two actual large-mask/pass8 cases remain pixel-exact to host source-law expected, with state/GL/poison/handle cleanup checks. See BrushGlBatch.provenance for bundle/body/fixture hashes and honest profiling: full-capture queries halved, but a sequential cold timing did NOT show lower inclusive latency. No active UI/room admission was enabled; arbitrary reentrant history recovery remains a separate activation gate.
+
+## Explicit deposition-only ownership for recorded concurrent washes
+
+An opt-in `washMode: 'deposition-only'` retains each transparent raw local without
+capturing an immutable visible original or writing outer preview into the stable
+layer. Default `exclusive` behavior and existing numerical controls stay intact.
+The raw borrow/one-time sealed transfer API moves actual scratch/reservation
+ownership to the layer coordinator, never an opacity-applied preview or a GL
+lease. Its own checkpoint flag cannot authorize checkpoints for a transferred
+owner; `CanonicalWashLayerCoordinator.checkpointReady` must govern that lane.
+See the coordinator provenance for first-recorded commit order, derived view,
+cleanup tests and the explicit no-activation/no-new-GPU-proof limits.

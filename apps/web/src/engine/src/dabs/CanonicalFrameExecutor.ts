@@ -28,7 +28,21 @@ export interface CanonicalFrameSubmission {
 /** Reference profile is retained for recorded diagnostic corpora only. The
  * shared canonical wire profile requires the installed fused scalar kernels. */
 export type CanonicalExecutorRasterProfile = 'reference-scalar-f32-rne-v1' | typeof CANONICAL_STROKE_RASTER_PROFILE
+export interface CanonicalWashLocalTile {
+  readonly x: number
+  readonly y: number
+  readonly width: number
+  readonly height: number
+  /** Immutable raw local, BEFORE outer opacity. Borrow only while owner lives. */
+  readonly view: CanonicalRgba8SourceView
+}
+export interface CanonicalWashOwnership {
+  readonly tiles: readonly CanonicalWashLocalTile[]
+  /** Idempotent. No leases may span this release; lost requires actual loss. */
+  release(options?: { lost?: boolean }): void
+}
 export interface CanonicalFrameExecutorOptions {
+  readonly washMode?: 'exclusive' | 'deposition-only'
   /** Pinned by the room/capability adapter, never selected from mutable tools.
    * No default: a caller must explicitly prepare the matching shader pair. */
   readonly rasterProfile: CanonicalExecutorRasterProfile
@@ -51,7 +65,7 @@ export interface CanonicalFrameExecutorOptions {
 }
 interface TilePosition { x: number; y: number; width: number; height: number; writeBounds?: Readonly<WorldRect> }
 interface WashTile extends TilePosition {
-  original: AccumulationBuffer
+  original?: AccumulationBuffer
   local: AccumulationBuffer
   lifetime: CanonicalOwnedRgba8Target['lifetime']
 }
@@ -91,8 +105,13 @@ export class CanonicalFrameExecutor {
   private failed = false
   private readonly cleanupErrors: unknown[] = []
   private advancing = false
+  private rawComplete = false
+  private rawTransferred = false
+  private readonly rawOwner = { alive: true, leases: 0 }
+  private washLayerId?: string
 
   constructor(options: CanonicalFrameExecutorOptions) {
+    if (options.washMode !== undefined && options.washMode !== 'exclusive' && options.washMode !== 'deposition-only') throw new TypeError('Invalid wash ownership mode')
     if (options.rasterProfile !== 'reference-scalar-f32-rne-v1' && options.rasterProfile !== CANONICAL_STROKE_RASTER_PROFILE) throw new TypeError('Unsupported canonical executor raster profile')
     const operations = options.rasterProfile === CANONICAL_STROKE_RASTER_PROFILE
       ? ['alphaDarken32FusedScalar', 'over32FusedScalar'] as const : ['alphaDarken32', 'over32'] as const
@@ -107,7 +126,9 @@ export class CanonicalFrameExecutor {
   }
 
   get pending(): boolean { return this.queue.length !== 0 }
-  get checkpointReady(): boolean { return !this.failed && !this.pending && !this.gesture }
+  get checkpointReady(): boolean { return !this.failed && !this.pending && !this.gesture && (!this.rawComplete || this.rawTransferred) }
+  get pendingFrameCount(): number { return this.queue.length }
+  get rawWashSealed(): boolean { return this.options.washMode === 'deposition-only' && this.rawComplete && !this.rawTransferred && !this.failed }
   get poisoned(): boolean { return this.failed }
   /** Additional cleanup/notification errors never replace a primary draw error. */
   get cleanupFailures(): readonly unknown[] { return Object.freeze([...this.cleanupErrors]) }
@@ -116,11 +137,14 @@ export class CanonicalFrameExecutor {
    * At most eight accepted frames are retained. Inputs are copied, so later
    * caller mutation cannot relabel a queued definition, pigment or opacity. */
   enqueue(input: CanonicalFrameSubmission): void {
-    if (this.failed || this.advancing) throw new Error('Canonical executor is poisoned or busy')
+    if (this.failed || this.advancing || this.rawOwner.leases) throw new Error('Canonical executor is poisoned or busy')
+    if (this.rawComplete) throw new Error('Canonical deposition gesture has ended')
+    if (this.options.washMode === 'deposition-only' && input?.composition?.mode !== 'wash') throw new TypeError('Deposition-only requires wash')
     if (this.queue.length >= 8) throw new RangeError('Canonical frame queue is full')
     if (![CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE].includes(input?.frame?.profile)) throw new TypeError('Canonical executor requires accepted material profile')
     if (!input || !input.gestureId || !input.layerId || !int(input.layerEpoch) || !int(input.ordinal)
       || !Array.isArray(input.rgb) || input.rgb.length !== 3 || !input.rgb.every(n => int(n) && n <= 255)) throw new TypeError('Invalid canonical frame identity/pigment')
+    if (input.frame.definitions.some(r => 'kind' in r && r.kind === 'gaussianAuto')) throw new TypeError('Gaussian source data is not a canonical executor raster grant')
     this.assertPrepared();
     const { buffer, epoch } = this.options.layer(input.layerId)
     if (epoch !== input.layerEpoch || buffer.tileWidth > 4096 || buffer.tileHeight > 4096 || buffer.pixelEncoding !== 'straight-rgba8') throw new Error('Stale or non-straight canonical layer')
@@ -136,6 +160,7 @@ export class CanonicalFrameExecutor {
     if (!hasImage && input.assets.length) throw new TypeError('Auto-only frame must not supply image assets')
     const prepared = hasImage ? this.options.bank!.preparedResources() : []
     const sourceKeys = input.frame.definitions.map(recipe => {
+      if ('kind' in recipe && recipe.kind === 'gaussianAuto') throw new TypeError('Gaussian material raster is not admitted')
       if (recipe.width > this.maskCapacity.width || recipe.height > this.maskCapacity.height) throw new RangeError('Canonical material exceeds prepared capacity')
       if ('kind' in recipe && recipe.kind === 'defaultAuto') {
         if (!this.options.autoSource) throw new TypeError('Canonical auto source is not trusted')
@@ -175,11 +200,14 @@ export class CanonicalFrameExecutor {
       // Even currently resident targets may be evicted before this frame runs.
       // The token lasts through this frame; actual target storage remains owned
       // by the layer and must still be charged by the engine after release.
-      if (frameTargets.size) releaseTargetBudget = this.options.reserveTransient([...frameTargets.values()].reduce((sum, t) => sum + t.width * t.height * 4, 0))
+      if (frameTargets.size&&this.options.washMode!=='deposition-only') releaseTargetBudget = this.options.reserveTransient([...frameTargets.values()].reduce((sum, t) => sum + t.width * t.height * 4, 0))
       // Admit the entire frame union BEFORE any tile creation or pixel write.
       // Pool accounting stays authoritative; caller applies the existing fence.
       if (newTiles.size) {
         releaseWashMetadata = this.options.prepass.brushGlBatchInfo().cpu.reserve(newTiles.size * 512)
+        // Exclusive: captured original4 + raw local4. Deposition-only: raw
+        // local4 + potential stable target4, still resolved by the SAME paint
+        // cursor. No duplicate original buffer is allocated in that mode.
         releaseBudget = this.options.reserveTransient([...newTiles.values()].reduce((sum, t) => sum + t.width * t.height * 8, 0))
       }
       // Leave bounded headroom for the existing batch capsule plus <=8 staged
@@ -196,6 +224,7 @@ export class CanonicalFrameExecutor {
         this.admissionReleases.add(() => { try { gpu() } finally { cpu() } })
       }
       this.gesture ??= { id: input.gestureId, layerId: input.layerId, epoch: input.layerEpoch, buffer, rgb: [input.rgb[0], input.rgb[1], input.rgb[2]], profile: input.frame.profile }
+      this.washLayerId=input.layerId
       this.planned = result.state
     } catch (error) {
       if (releaseTargetBudget) this.cleanup(releaseTargetBudget)
@@ -210,7 +239,7 @@ export class CanonicalFrameExecutor {
   /** One synchronous cooperative batch. Call again from the existing engine
    * drain after yielding; this service creates no RAF, promise or scheduler. */
   advance(): { pending: boolean; checkpointReady: boolean } {
-    if (this.failed || this.advancing) throw new Error('Canonical executor is poisoned or busy')
+    if (this.failed || this.advancing || this.rawOwner.leases) throw new Error('Canonical executor is poisoned or busy')
     const work = this.queue[0]
     if (!work) return { pending: false, checkpointReady: this.checkpointReady }
     this.advancing = true
@@ -227,7 +256,7 @@ export class CanonicalFrameExecutor {
         work.draw++; work.tile=0; work.paintPart=0; work.tiles=undefined;
         if (++clipped % 16 === 0 && performance.now()-turnStarted >= 4) return { pending:true, checkpointReady:false };
       }
-      if (work.draw === work.result.draws.length && (!work.result.commands.length || !this.washes.size)) {
+      if (work.draw === work.result.draws.length && (this.options.washMode==='deposition-only'||!work.result.commands.length || !this.washes.size)) {
         // Source framing/opacity history was advanced at admission. No target
         // exists to present/commit: finish only ledger/reservation ownership.
         this.finish(work);
@@ -240,7 +269,7 @@ export class CanonicalFrameExecutor {
         this.gl.activeTexture(this.gl.TEXTURE0)
         if(work.draw<work.result.draws.length)this.paint(work,layer,turn)
         else this.present(work,layer,turn)
-        if(work.draw===work.result.draws.length&&(!work.result.commands.length||work.presentTiles&&work.present===work.presentTiles.length))this.finish(work)
+        if(work.draw===work.result.draws.length&&(this.options.washMode==='deposition-only'||!work.result.commands.length||work.presentTiles&&work.present===work.presentTiles.length))this.finish(work)
       })
     } catch (error) {
       this.fail(error, this.gl.isContextLost())
@@ -264,6 +293,7 @@ export class CanonicalFrameExecutor {
 
   private maskRequest(work: Work, draw: number): AnyTransformedMaskRequest {
     const d = work.result.draws[draw], recipe = work.input.frame.definitions[d.definition];
+    if ('kind' in recipe && recipe.kind === 'gaussianAuto') throw new TypeError('Gaussian material raster is not admitted')
     const common = { owner: this, role: 'primary', rect: { x:d.x, y:d.y, width:recipe.width, height:recipe.height }, profile:'neon4-summed-wordsize64' as const };
     if ('kind' in recipe && recipe.kind === 'defaultAuto') {
       if (!this.options.autoSource) throw new TypeError('Canonical auto source is not trusted');
@@ -342,6 +372,7 @@ export class CanonicalFrameExecutor {
               if (work.tile === task.tiles.length) { work.draw++; work.tile = 0; work.tiles = undefined }
             }
           } finally { group.release() }
+          if(task.wash&&this.options.washMode==='deposition-only')this.options.changed(work.input.layerId)
           if (!task.wash) {
             layer.markContentPainted(task.writeBounds)
             this.options.changed(work.input.layerId)
@@ -367,13 +398,13 @@ export class CanonicalFrameExecutor {
     let original: AccumulationBuffer | undefined, local: AccumulationBuffer | undefined
     const releaseTarget = bound.lifetime.lease()
     try {
-      original = this.options.scratch.acquire(position.width, position.height, 'straight-rgba8')
+      if(this.options.washMode!=='deposition-only')original = this.options.scratch.acquire(position.width, position.height, 'straight-rgba8')
       local = this.options.scratch.acquire(position.width, position.height, 'straight-rgba8')
-      target.buffer.copyTo(original)
+      if(original)target.buffer.copyTo(original)
       const gl = this.options.prepass.brushGlBatchInfo().gl
       gl.disable(gl.SCISSOR_TEST); gl.colorMask(true, true, true, true)
       local.clear()
-      const tile = { ...position, original, local, lifetime: { kind: 'external' as const, owner: {}, lease: () => () => {} } }
+      const tile = { ...position, original, local, lifetime: this.options.washMode==='deposition-only'?this.rawLifetime():{ kind: 'external' as const, owner: {}, lease: () => () => {} } }
       this.washes.set(key(position), tile)
       return tile
     } catch (error) {
@@ -414,7 +445,7 @@ export class CanonicalFrameExecutor {
           const task = tasks[i], tile = task.tile
           const x = task.part % task.columns * this.compositeCapacity.width, y = Math.floor(task.part / task.columns) * this.compositeCapacity.height
           const w = Math.min(this.compositeCapacity.width, tile.width - x), h = Math.min(this.compositeCapacity.height, tile.height - y)
-          const original = this.scratchTarget(tile.original, tile, tile.lifetime)
+          const original = this.scratchTarget(tile.original!, tile, tile.lifetime)
           const view: CanonicalRgba8SourceView = { brand: 'canonical-straight-rgba8-view-v1', texture: tile.local.texture,
             textureWidth: tile.width, textureHeight: tile.height, rect: { x: tile.x + x, y: tile.y + y, width: w, height: h },
             bounds: { x: x / tile.width, y: (tile.height - y - h) / tile.height, width: w / tile.width, height: h / tile.height },
@@ -440,7 +471,8 @@ export class CanonicalFrameExecutor {
     this.queue.shift(); work.releaseMetadata()
     if (work.result.state.ended) {
       const before = this.cleanupErrors.length
-      this.releaseWashes()
+      if (this.options.washMode === 'deposition-only') this.rawComplete = true
+      else this.releaseWashes()
       this.cleanup(() => this.options.prepass.releaseOwner(this))
       this.gesture = undefined; this.planned = undefined
       if (this.cleanupErrors.length > before) throw this.cleanupErrors[before]
@@ -451,8 +483,8 @@ export class CanonicalFrameExecutor {
    * particular turn had not yet written: earlier preview may already be visible. */
   cancel(reason: unknown = new Error('Canonical execution cancelled'), options: { lost?: boolean } = {}): void {
     if (options.lost && !this.gl.isContextLost()) throw new Error('Cannot forget canonical resources on a live context')
-    if (this.advancing) throw new Error('Cannot cancel inside a canonical GL batch')
-    if (this.gesture || this.pending) {
+    if (this.advancing || this.rawOwner.leases) throw new Error('Cannot cancel inside a canonical GL batch')
+    if (this.gesture || this.pending || (this.washes.size && !this.rawTransferred)) {
       const before = this.cleanupErrors.length
       this.fail(reason, options.lost ?? this.gl.isContextLost())
       if (this.cleanupErrors.length > before) throw this.cleanupErrors[before]
@@ -460,7 +492,7 @@ export class CanonicalFrameExecutor {
   }
 
   private fail(reason: unknown, lost = false): void {
-    const layerId = this.gesture?.layerId, pending = this.queue.splice(0)
+    const layerId = this.gesture?.layerId ?? this.washLayerId, pending = this.queue.splice(0)
     this.failed = true
     // Detach cursor ownership before invoking arbitrary notification/release
     // callbacks. Reentrancy can never release one reservation a second time.
@@ -471,19 +503,63 @@ export class CanonicalFrameExecutor {
     this.cleanup(() => this.options.prepass.releaseOwner(this))
   }
 
+  private rawLifetime(): CanonicalOwnedRgba8Target['lifetime'] {
+    const owner = this.rawOwner
+    return { kind: 'external', owner, lease: () => {
+      if (!owner.alive || this.gl.isContextLost()) throw new Error('Stale canonical raw wash')
+      owner.leases++
+      let held = true
+      return () => { if (held) { held = false; owner.leases-- } }
+    } }
+  }
+
+  rawWashTiles(): readonly CanonicalWashLocalTile[] {
+    if (this.options.washMode !== 'deposition-only' || this.rawTransferred || this.failed) throw new Error('Raw wash ownership unavailable')
+    return Object.freeze([...this.washes.values()].map(t => Object.freeze({
+      x: t.x, y: t.y, width: t.width, height: t.height,
+      view: Object.freeze({
+        brand: 'canonical-straight-rgba8-view-v1' as const, texture: t.local.texture, textureWidth: t.width, textureHeight: t.height,
+        rect: Object.freeze({ x: t.x, y: t.y, width: t.width, height: t.height }),
+        bounds: Object.freeze({ x: 0, y: 0, width: 1, height: 1 }),
+        mirror: Object.freeze({ horizontal: false, vertical: false }), rowOrder: 'bottomAtV0' as const, residency: t.lifetime,
+      }),
+    })))
+  }
+
+  /** Transfers pool + reservation ownership exactly once, never GL leases. */
+  takeRawWash(): CanonicalWashOwnership {
+    if (!this.rawWashSealed || this.pending || this.rawOwner.leases) throw new Error('Raw wash is not sealed or is leased')
+    const tiles = this.rawWashTiles(), owned = [...this.washes.values()], releases = [...this.admissionReleases], owner = this.rawOwner
+    this.washes.clear(); this.admittedTiles.clear(); this.admissionReleases.clear(); this.rawTransferred = true
+    let alive = true
+    return Object.freeze({ tiles, release: (options: { lost?: boolean } = {}) => {
+      if (!alive) return
+      if (options.lost && !this.gl.isContextLost()) throw new Error('Cannot forget raw wash on live context')
+      if (owner.leases) throw new Error('Raw wash still leased')
+      const lost = options.lost ?? this.gl.isContextLost()
+      alive = false; owner.alive = false
+      const errors: unknown[] = []
+      const clean = (f: () => void) => { try { f() } catch (e) { errors.push(e) } }
+      for (const t of owned) if (!lost) clean(() => this.options.scratch.release(t.local))
+      for (const release of releases) clean(release)
+      if (errors.length) throw errors[0]
+    } })
+  }
+
   private cleanup(action: () => void): void {
     try { action() } catch (error) { this.cleanupErrors.push(error) }
   }
 
   private releaseWashes(lost = false): void {
     const tiles = [...this.washes.values()], releases = [...this.admissionReleases]
+    this.rawOwner.alive = false
     this.washes.clear(); this.admittedTiles.clear(); this.admissionReleases.clear()
     for (const tile of tiles) {
       // Lost handles are forgotten by the caller's ONE global pool.forget(),
       // after cancelling every owner, before recreating the context.
       if (!lost) {
         this.cleanup(() => this.options.scratch.release(tile.local))
-        this.cleanup(() => this.options.scratch.release(tile.original))
+        if(tile.original)this.cleanup(() => this.options.scratch.release(tile.original!))
       }
     }
     for (const release of releases) this.cleanup(release)

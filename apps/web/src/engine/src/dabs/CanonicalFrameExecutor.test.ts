@@ -1,3 +1,8 @@
+import { CanonicalWashLayerCoordinator } from './CanonicalWashLayerCoordinator'
+import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
+import { compositeSourceAlphaDarken32 } from '../presets/sourceAlphaDarken32'
+import { compositeSourceOver32Scalar } from '../presets/sourceOver32Scalar'
+import type { Rgba8 } from '../presets/mixWeightedRgba8'
 import { saveBrushGlState } from './BrushGlState'
 import { runBrushGlTurn } from './BrushGlBatch'
 import { prepareSourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab'
@@ -30,7 +35,7 @@ function decoded(count: number, x = 0, end = true, entry: CanonicalMaterialFrame
     preflightDefinition: () => ({ workUnits: 1, outputBytes: 1 }) }
   return unpackCanonicalMaterial(packCanonicalMaterial(frame, context), context)
 }
-function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4, tileBudget?: number, rasterProfile: CanonicalExecutorRasterProfile = 'reference-scalar-f32-rne-v1', autoSource?: CanonicalDefaultAutoSource, compositeCapacity = capacity) {
+function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4, tileBudget?: number, rasterProfile: CanonicalExecutorRasterProfile = 'reference-scalar-f32-rne-v1', autoSource?: CanonicalDefaultAutoSource, compositeCapacity = capacity, washMode?: 'exclusive' | 'deposition-only') {
   const { gl, snapshot } = recordingGL(), cache = new BrushTextureCache(gl), cpu = new BrushMipCache()
   gl.TEXTURE1 = gl.TEXTURE0 + 1; gl.STATIC_DRAW = 9001; gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME = 9002
   gl.LINEAR = 9010; gl.REPEAT = 9011
@@ -63,7 +68,7 @@ function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4,
   let epoch = 0
   const releases: ReturnType<typeof vi.fn>[] = [], reserveTransient = vi.fn(() => { const r = vi.fn(); releases.push(r); return r })
   const changed = vi.fn(), poison = vi.fn()
-  const executor = new CanonicalFrameExecutor({ rasterProfile, autoSource, bank, prepass, composite, scratch,
+  const executor = new CanonicalFrameExecutor({ washMode, rasterProfile, autoSource, bank, prepass, composite, scratch,
     layer: () => ({ buffer: layer, epoch }), reserveTransient, changed, poison })
   const submit = (frame = decoded(1), ordinal = 0): CanonicalFrameSubmission => ({ gestureId: 'gesture', layerId: 'layer', layerEpoch: 0, ordinal,
     frame, assets: [asset], rgb: [200, 20, 50], composition: { mode, alphaDarken: 'creamy', outerResourceOpacity: .8, outerBlend: 'over' } })
@@ -630,3 +635,218 @@ it('fails closed when target preparation reenters canonical state ownership, bef
     expect(s.cache['leases'].size).toBe(0);for(const release of s.releases)expect(release).toHaveBeenCalledOnce();
   }finally{s.close()}
 });
+
+
+describe('Gaussian data-only boundary',()=>{
+  it('rejects the new Gaussian tag before layer/assets/preparation/reservations',()=>{
+    const s=setup(),snapshot=s.snapshot(), target=vi.spyOn(s.layer,'resolveForPaint'), bank=vi.spyOn(s.bank!,'preparedResources'), prepared=vi.spyOn(s.prepass,'preparedCapacity')
+    try{
+      const f=decoded(1)
+      const input={...s.submit(f),frame:{...f,definitions:[{kind:'gaussianAuto'}]} as unknown as CanonicalFrameSubmission['frame']}
+      expect(()=>s.executor.enqueue(input)).toThrow(/not a canonical executor raster grant/)
+      expect(target).not.toHaveBeenCalled();expect(bank).not.toHaveBeenCalled();expect(prepared).not.toHaveBeenCalled()
+      expect(s.reserveTransient).not.toHaveBeenCalled();expect(s.executor.pending).toBe(false)
+      expect(s.snapshot()).toEqual(snapshot)
+    }finally{s.close()}
+  })
+})
+
+describe('deposition-only wash ownership', () => {
+  const raw = () => setup('wash', 4, 4, undefined, 'reference-scalar-f32-rne-v1', undefined, 4, 'deposition-only')
+  it('keeps raw local separate from stable pixels and transfers sealed ownership once', () => {
+    const s = raw(), calls = vi.spyOn(s.composite, 'drawSource')
+    let ownership: ReturnType<CanonicalFrameExecutor['takeRawWash']> | undefined
+    try {
+      s.executor.enqueue(s.submit(decoded(1, 0, false))); s.drain()
+      expect(calls.mock.calls.every(([r]) => r.operation.kind === 'alphaDarken32')).toBe(true)
+      expect(calls.mock.calls.every(([r]) => r.target.texture !== s.layer.resolveForPaint({minX:0,minY:0,maxX:1,maxY:1})[0].buffer.texture)).toBe(true)
+      expect(s.executor.rawWashTiles()).toHaveLength(1)
+      expect(s.executor.checkpointReady).toBe(false)
+      expect(() => s.executor.takeRawWash()).toThrow(/sealed/)
+      s.executor.enqueue(s.submit(decoded(0, 0, true, {phase:'primary',group:0}), 1)); s.drain()
+      expect(s.executor.rawWashSealed).toBe(true)
+      expect(s.scratch.bytes.live).toBe(64) // ONE raw local, no captured original
+      ownership = s.executor.takeRawWash()
+      expect(ownership.tiles).toHaveLength(1)
+      expect(s.executor.checkpointReady).toBe(true)
+      expect(() => s.executor.takeRawWash()).toThrow()
+      expect(s.releases.every(r => r.mock.calls.length === 0)).toBe(true)
+      ownership.release(); ownership.release()
+      expect(s.scratch.bytes.live).toBe(0)
+      expect(s.releases.every(r => r.mock.calls.length === 1)).toBe(true)
+      expect(() => ownership!.tiles[0].view.residency.kind === 'external' && ownership!.tiles[0].view.residency.lease()).toThrow(/Stale/)
+    } finally { ownership?.release(); s.close() }
+  })
+  it('rejects mutations while borrowed and rejects pretend context loss before releasing', () => {
+    const s = raw()
+    let ownership: ReturnType<CanonicalFrameExecutor['takeRawWash']> | undefined
+    try {
+      s.executor.enqueue(s.submit()); s.drain()
+      const view=s.executor.rawWashTiles()[0].view
+      if(view.residency.kind!=='external')throw new Error('expected raw owner')
+      const release=view.residency.lease()
+      expect(()=>s.executor.cancel()).toThrow(/batch/)
+      expect(()=>s.executor.takeRawWash()).toThrow(/leased/)
+      release();release();ownership=s.executor.takeRawWash()
+      expect(()=>ownership!.release({lost:true})).toThrow(/live/)
+      expect(s.scratch.bytes.live).toBe(64)
+      ownership.release()
+    } finally { ownership?.release();s.close() }
+  })
+})
+
+
+describe('recorded same-layer concurrent wash lane', () => {
+  function lane(tileSize=1,capacity=1) {
+    const s=setup('wash',tileSize,capacity), derived=new TiledLayerBuffer(s.gl,tileSize,tileSize,undefined,undefined,undefined,'straight-rgba8')
+    const pixels=new Map<WebGLTexture,Rgba8>()
+    const copy=AccumulationBuffer.prototype.copyTo, clear=AccumulationBuffer.prototype.clear
+    const copySpy=vi.spyOn(AccumulationBuffer.prototype,'copyTo').mockImplementation(function(this:AccumulationBuffer, destination:AccumulationBuffer){
+      copy.call(this,destination);pixels.set(destination.texture,[...(pixels.get(this.texture)??[0,0,0,0])] as Rgba8)
+    })
+    const clearSpy=vi.spyOn(AccumulationBuffer.prototype,'clear').mockImplementation(function(this:AccumulationBuffer){
+      clear.call(this);pixels.set(this.texture,[0,0,0,0])
+    })
+    const draw=s.composite.drawSource.bind(s.composite)
+    const calls=vi.spyOn(s.composite,'drawSource').mockImplementation((request,frame)=>{
+      const result=draw(request,frame)
+      if(result==='empty')return result
+      const dst=pixels.get((request.readDestination??request.target).texture)??[0,0,0,0]
+      const src:Rgba8=request.source.kind==='maskRgb'?[...request.source.rgb,255]:pixels.get(request.source.view.texture)??[0,0,0,0]
+      if(request.operation.kind==='alphaDarken32')pixels.set(request.target.texture,compositeSourceAlphaDarken32(src,dst,request.operation.control))
+      else if(request.operation.kind==='over32')pixels.set(request.target.texture,compositeSourceOver32Scalar(src,dst,request.operation.control))
+      else throw new Error('reference numerical profile expected')
+      return result
+    })
+    const source=vi.fn(()=>({bank:s.bank}))
+    const coordinator=new CanonicalWashLayerCoordinator({rasterProfile:'reference-scalar-f32-rne-v1',layerId:'layer',layerEpoch:0,maxGestures:4,
+      prepass:s.prepass,composite:s.composite,scratch:s.scratch,layer:()=>({buffer:s.layer,epoch:0}),presentation:()=>({buffer:derived,epoch:0}),
+      source,reserveTransient:s.reserveTransient,changed:s.changed,poison:s.poison})
+    const frame=(id:string,opacity:number,end:boolean,ordinal=0):CanonicalFrameSubmission=>{
+      const f=structuredClone(decoded(1,0,end,ordinal?{phase:'primary',group:0}:{phase:'between'}))
+      const frame={...f,draws:f.draws.map(d=>({...d,opacity,flow:1}))}
+      return {...s.submit(frame,ordinal),gestureId:id,rgb:id==='A'?[255,0,0]:[0,0,255],composition:{mode:'wash',alphaDarken:'creamy',outerResourceOpacity:1,outerBlend:'over'}}
+    }
+    const drain=()=>{let n=0;while(coordinator.pending&&n++<300)coordinator.advance();expect(n).toBeLessThan(300)}
+    const pixel=(layer:TiledLayerBuffer)=>pixels.get(layer.resolveForPaint({minX:0,minY:0,maxX:1,maxY:1})[0].buffer.texture)??[0,0,0,0]
+    const close=()=>{coordinator.cancel();calls.mockRestore();copySpy.mockRestore();clearSpy.mockRestore();derived.destroy();s.close()}
+    return {...s,coordinator,derived,pixels,calls,frame,drain,pixel,close,source}
+  }
+  it('rebases A0/B0/A1 from stable and commits A then sealed B even when B ends first',()=>{
+    const s=lane()
+    try{
+      s.coordinator.enqueue(s.frame('A',128/255,false),1);s.drain()
+      expect(s.pixel(s.layer)).toEqual([0,0,0,0])
+      expect(s.pixel(s.derived)).toEqual([255,0,0,128])
+      s.coordinator.enqueue(s.frame('B',128/255,true),2);s.drain()
+      expect(s.pixel(s.layer)).toEqual([0,0,0,0]) // B is sealed, frontier A is open
+      expect(s.pixel(s.derived)).toEqual([85,0,170,192])
+      expect(s.coordinator.checkpointReady).toBe(false)
+      s.coordinator.enqueue(s.frame('A',192/255,true,1),3);s.drain()
+      expect(s.pixel(s.layer)).toEqual([109,0,146,224])
+      expect(s.pixel(s.derived)).toEqual(s.pixel(s.layer))
+      expect(s.coordinator.checkpointReady).toBe(true)
+      expect(s.scratch.bytes.live).toBe(0)
+      expect(()=>s.coordinator.enqueue(s.frame('A',1,true),4)).toThrow(/sealed/)
+    }finally{s.close()}
+  })
+  it('queued interleaving produces the same final bytes as incremental recorded replay',()=>{
+    const s=lane()
+    try{
+      s.coordinator.enqueue(s.frame('A',128/255,false),1)
+      s.coordinator.enqueue(s.frame('B',128/255,true),2)
+      s.coordinator.enqueue(s.frame('A',192/255,true,1),3)
+      s.drain()
+      expect(s.pixel(s.layer)).toEqual([109,0,146,224])
+      expect(s.coordinator.checkpointReady).toBe(true)
+      expect(s.poison).not.toHaveBeenCalled()
+    }finally{s.close()}
+  })
+  it('validates monotonic sequence and reservations before changing the lane',()=>{
+    const s=lane()
+    try{
+      s.reserveTransient.mockImplementationOnce(()=>{throw new Error('fence denied')})
+      expect(()=>s.coordinator.enqueue(s.frame('A',.5,false),1)).toThrow(/denied/)
+      expect(s.coordinator.pending).toBe(false)
+      expect(s.layer.gpuAllocationSnapshot()).toHaveLength(0)
+      s.coordinator.enqueue(s.frame('A',.5,false),1);s.drain()
+      const before=s.pixel(s.derived)
+      expect(()=>s.coordinator.enqueue(s.frame('B',.5,true),1)).toThrow(/order/)
+      expect(s.pixel(s.derived)).toEqual(before)
+    }finally{s.close()}
+  })
+  it('applies outer opacity once on each fresh rebase, never over its previous preview',()=>{
+    const s=lane()
+    try{
+      const a0=s.frame('A',128/255,false),a={...a0,composition:{...a0.composition,outerResourceOpacity:.5}}
+      const b0=s.frame('B',128/255,true),b={...b0,composition:{...b0.composition,outerResourceOpacity:.5}}
+      s.coordinator.enqueue(a,1);s.drain();s.coordinator.enqueue(b,2);s.drain()
+      const expected=compositeSourceOver32Scalar([0,0,255,128],compositeSourceOver32Scalar([255,0,0,128],[0,0,0,0],{profile:'portable-f32-division-rne-v1',opacity:.5}),{profile:'portable-f32-division-rne-v1',opacity:.5})
+      expect(s.pixel(s.derived)).toEqual(expected)
+      const before=s.calls.mock.calls.length;s.coordinator.advance();s.coordinator.advance()
+      expect(s.calls.mock.calls.length).toBe(before)
+      expect(s.pixel(s.derived)).toEqual(expected)
+      const last=s.frame('A',192/255,true,1),end={...last,composition:{...last.composition,outerResourceOpacity:.5}}
+      s.coordinator.enqueue(end,3);s.drain()
+      const final=compositeSourceOver32Scalar([0,0,255,128],compositeSourceOver32Scalar([255,0,0,192],[0,0,0,0],{profile:'portable-f32-division-rne-v1',opacity:.5}),{profile:'portable-f32-division-rne-v1',opacity:.5})
+      expect(s.pixel(s.layer)).toEqual(final);expect(s.pixel(s.derived)).toEqual(final)
+    }finally{s.close()}
+  })
+  it('poisons and releases every local/reservation after a partial draw failure even when notification throws',()=>{
+    const s=lane()
+    try{
+      s.coordinator.enqueue(s.frame('A',.5,false),1);s.drain()
+      s.coordinator.enqueue(s.frame('B',.5,true),2)
+      s.poison.mockImplementation(()=>{throw new Error('notification failed')})
+      s.calls.mockImplementationOnce(()=>{throw new Error('pixel failed')})
+      expect(()=>s.coordinator.advance()).toThrow('pixel failed')
+      expect(s.coordinator.poisoned).toBe(true)
+      expect(s.coordinator.checkpointReady).toBe(false)
+      expect(s.scratch.bytes.live).toBe(0)
+      expect(s.releases.every(r=>r.mock.calls.length===1)).toBe(true)
+      expect(s.coordinator.cleanupFailures.length).toBeGreaterThan(0)
+      expect(()=>s.coordinator.advance()).toThrow(/poisoned/)
+    }finally{s.close()}
+  })
+  it('does not release lost-context handles to the pool and rejects fake loss before changing ownership',()=>{
+    const s=lane()
+    try{
+      s.coordinator.enqueue(s.frame('A',.5,false),1);s.drain()
+      expect(()=>s.coordinator.cancel(undefined,{lost:true})).toThrow(/live/)
+      expect(s.coordinator.poisoned).toBe(false)
+      const release=vi.spyOn(s.scratch,'release'),deleteTexture=s.gl.deleteTexture.mock.calls.length
+      s.gl.isContextLost=()=>true
+      s.coordinator.cancel(undefined,{lost:true})
+      expect(release).not.toHaveBeenCalled()
+      expect(s.gl.deleteTexture.mock.calls.length).toBe(deleteTexture)
+      expect(s.releases.every(r=>r.mock.calls.length===1)).toBe(true)
+      s.scratch.forget();s.gl.isContextLost=()=>false
+    }finally{s.close()}
+  })
+
+  it('preserves partial commit/rebase cursors across bounded turns without duplicate tile parts',()=>{
+    const s=lane(4,1)
+    try{
+      const snapshot=s.snapshot()
+      s.coordinator.enqueue(s.frame('A',.5,true),1);s.drain()
+      const stable=s.layer.resolveForPaint({minX:0,minY:0,maxX:1,maxY:1})[0].buffer.texture
+      const parts=s.calls.mock.calls.filter(([r])=>r.source.kind==='straightRgba8'&&r.target.texture===stable).map(([r])=>`${r.source.view.rect.x}:${r.source.view.rect.y}`)
+      expect(parts).toHaveLength(16);expect(new Set(parts).size).toBe(16)
+      expect(s.coordinator.checkpointReady).toBe(true)
+      expect(s.snapshot()).toEqual(snapshot)
+    }finally{s.close()}
+  })
+  it('prevents admission reentry from trusted binding callbacks without consuming the sequence',()=>{
+    const s=lane()
+    try{
+      s.source.mockImplementationOnce(()=>{
+        expect(()=>s.coordinator.enqueue(s.frame('B',.5,true),1)).toThrow(/busy/)
+        return{bank:s.bank}
+      })
+      s.coordinator.enqueue(s.frame('A',.5,true),1);s.drain()
+      expect(s.source).toHaveBeenCalledTimes(1)
+      expect(s.coordinator.checkpointReady).toBe(true)
+    }finally{s.close()}
+  })
+
+})
