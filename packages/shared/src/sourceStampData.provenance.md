@@ -66,3 +66,16 @@ web tsconfig.app typecheck passed. The initial noEmit command against the root w
 references-only tsconfig is NOT counted as source typechecking. Durable receipts
 are fixes-v52/soft-retention-{python-full,tests,shared-build,web-app-tsc}.log.
 No new runtime, dependency copy or device context was created for this unit.
+
+Original soft stock retention witness: stock.native.ts in sourceSoftAutoData
+contains10 roles (primary3/44/47/59–63/72, masking52) reconstructed from SHA-verified
+original KPP PNG metadata in pinned bundles/files, not reconstructed from legacy
+bitmap tips. Mask52 uses the actual MaskingBrush/Preset/ prefix settings. All10
+pass portable raw-settings reconstruction and the shared validator; Python and TS
+budget counts match exactly (largest8189bytes). Color-smudge44 is a raw common
+reader witness only; the paintbrush importer does not acquire a color-smudge
+source author capability. Source payloads preserve flags without asserting they
+are implemented. No original pixels or KPP archives are embedded in this fixture.
+Source inputs are Krita GPL-2.0-or-later at the pin in the fixture. Reproduction:
+fixes-v52/retain-soft-stock52.py; original KPP hashes, reader hash and plan hash
+are retained in fixture/proof. soft-stock-shared.log covers all4 tests in this file.

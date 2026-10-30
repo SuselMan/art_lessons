@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import original from './fixtures/sourceSoftAutoData/stock.native.js'
 import stock from './fixtures/sourceDefaultAutoData/stock.native.js'
 import { isSourceStampData, sourceStampDataBudget, sourceStampSourceKind } from './sourceStampData.js'
 import { extractCanonicalSinglePngCapability, extractDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability } from './canonicalBrushCapability.js'
@@ -39,6 +40,24 @@ describe('raw soft source retention',()=>{
     for(const curve of [{...softnessCurve,text:'x'.repeat(65537)},{...softnessCurve,points:Array(257).fill(softnessCurve.points[0])}]) {
       expect(sourceStampDataBudget({...data,source:{...data.source,softnessCurve:curve}})).toBe(Infinity)
       expect(isSourceStampData({...data,source:{...data.source,softnessCurve:curve}})).toBe(false)
+    }
+  })
+})
+
+describe('original stock soft KPPs at the shared boundary',()=>{
+  it('validates all10 original roles with matching Python/TS budget and no image downgrade',()=>{
+    expect(original.rows.map(r=>[r.index,r.role])).toEqual([[3,'primary'],[44,'primary'],[47,'primary'],[52,'mask'],[59,'primary'],[60,'primary'],[61,'primary'],[62,'primary'],[63,'primary'],[72,'primary']])
+    for(const row of original.rows) {
+      expect(row.kppSHA256).toMatch(/^[a-f0-9]{64}$/)
+      expect(isSourceStampData(row.sourceStamp),row.name).toBe(true)
+      expect(sourceStampDataBudget(row.sourceStamp),row.name).toBe(row.budget)
+      expect(row.sourceStamp.source.kind).toBe('softAuto')
+      expect(row.sourceStamp.unsupported).toContain('soft-auto-raster-author-unavailable')
+      expect(row.sourceStamp.role).toBe(row.role)
+      const descriptor={...stock.rows[0].descriptor,sourceStamp:row.sourceStamp} as unknown as BrushDescriptor
+      expect(extractCanonicalSinglePngCapability(descriptor,{id:'asset:'+'a'.repeat(64),size:64}).supported).toBe(false)
+      expect(extractDefaultAutoSourceDataCapability(descriptor).supported).toBe(false)
+      expect(extractGaussianAutoSourceDataCapability(descriptor).supported).toBe(false)
     }
   })
 })
