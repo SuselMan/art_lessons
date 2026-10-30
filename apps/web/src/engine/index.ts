@@ -1,4 +1,5 @@
 import { readRoomRasterVersion, roomRasterPixelEncoding, isRasterPixelEncoding, LEGACY_ROOM_RASTER_VERSION, type RasterPixelEncoding, type RoomRasterVersion } from '@grafetto/shared'
+import { distinctBrushStorageChargeBytes } from './src/dabs/BrushTextureCache'
 import { AuthorTaskScheduler } from './src/input/AuthorTaskScheduler'
 import { AuthorInputFIFO } from './src/input/AuthorInputFIFO'
 import { createCursorHistory, pushCursorHistory, startCursorDirection } from './src/input/kritaStrokeInput'
@@ -444,6 +445,13 @@ export interface WatercolorPerf {
   /** All explicitly owned AccumulationBuffer texture storage in this context;
    * excludes raw brush/paper textures and driver overhead. */
   bufferStorageMB?: number
+  /** Distinct live painter caches; conservative RGBA/VBO charge, not physical bytes. */
+  rawBrushCacheChargeMB?: number
+  /** Context Accum storage + distinct painter-cache charge; no pool/layer double count. */
+  knownTrackedStorageMB?: number
+  /** Paper, volatile raw textures, other VBOs and driver storage are not covered. */
+  knownStorageComplete?: false
+  storageContextLost?: boolean
   /** GPU memory held by the tool, MB: pooled scratch tiles (live and free),
    *  the diffusion field, the reveals' kept pictures. */
   scratchLiveMB: number
@@ -3621,12 +3629,22 @@ export class PencilEngine implements PencilEngineAPI {
       if (r.wetMask) revealBytes += r.wetMask.width * r.wetMask.height * 4 * 4 / 3
     }
     for (const b of this._revealPool) revealBytes += b.width * b.height * 4 * 4 / 3
+    // A lost context may retain cache metadata until restore; those names no
+    // longer represent live storage. Pool/layer attribution is already counted
+    // once by AccumulationBuffer.contextStorageByteLength.
+    const rawBrushCacheCharge = this._contextLost ? 0 : distinctBrushStorageChargeBytes([
+      this._brush.storageChargeSnapshot(), this._smudge.storageChargeSnapshot(),
+    ])
     return {
       frameP50: pct(intervals, 0.5), frameP95: pct(intervals, 0.95), frames: p.frameAt.length,
       displayMs: pct(p.frameMs, 0.5),
       batchesPerSec: p.batchAt.length * 1000 / span, batchP50: pct(p.batchMs, 0.5), batchMax: pct(p.batchMs, 1),
       settleMs: p.settleMs, settleOps: p.settleOps, rebuildSliceMs: p.sliceWorst.ms,
       bufferStorageMB: AccumulationBuffer.contextStorageByteLength(this.gl) * MB,
+      rawBrushCacheChargeMB: rawBrushCacheCharge * MB,
+      knownTrackedStorageMB: (AccumulationBuffer.contextStorageByteLength(this.gl) + rawBrushCacheCharge) * MB,
+      knownStorageComplete: false,
+      storageContextLost: this._contextLost,
       scratchLiveMB: pool.live * MB, scratchFreeMB: pool.free * MB,
       fieldMB: this._fieldCache.reduce((n, f) => n + f.w * f.h * 4 * 10, 0) * MB,
       revealMB: revealBytes * MB,

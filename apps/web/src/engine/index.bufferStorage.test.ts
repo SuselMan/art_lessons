@@ -41,3 +41,28 @@ it('retiring an engine preserves another live owner in the same context', () => 
   } finally { otherOwner.destroy(); engine.destroy() }
   expect(AccumulationBuffer.contextStorageByteLength(gl)).toBe(0)
 })
+
+it('attributes two real painter caches without counting buffer/pool storage twice across loss and destroy', () => {
+  const { engine } = createTestEngine({ paper: 'flat' }, { width: 16, height: 16 })
+  const brush = engine['_brush']['textures'], smudge = engine['_smudge']['wetTextures']
+  const mb = 1024 * 1024, gl = engine['gl']
+  try {
+    brush.protect(['brush']); brush.put('brush', gl.createTexture()!, 32)
+    smudge.protect(['smudge']); smudge.put('smudge', gl.createTexture()!, 48)
+    const before = AccumulationBuffer.contextStorageByteLength(gl)
+    const perf = engine.getWatercolorPerf()
+    expect(perf.rawBrushCacheChargeMB).toBe(80 / mb)
+    expect(perf.knownTrackedStorageMB).toBe((before + 80) / mb)
+    expect(perf.knownStorageComplete).toBe(false)
+    expect(perf.storageContextLost).toBe(false)
+    engine['_handleContextLost'](new Event('webglcontextlost', { cancelable: true }))
+    expect(brush.bytes).toBe(32) // stale names remain until restore; diagnostic excludes them
+    expect(engine.getWatercolorPerf().rawBrushCacheChargeMB).toBe(0)
+    expect(engine.getWatercolorPerf().knownTrackedStorageMB).toBe(0)
+    expect(engine.getWatercolorPerf().storageContextLost).toBe(true)
+    engine['_handleContextRestored']()
+    expect(engine.getWatercolorPerf().rawBrushCacheChargeMB).toBe(0)
+    expect(engine.getWatercolorPerf().knownTrackedStorageMB).toBe(AccumulationBuffer.contextStorageByteLength(gl) / mb)
+  } finally { engine.destroy() }
+  expect(engine.getWatercolorPerf().knownTrackedStorageMB).toBe(0)
+})

@@ -28,7 +28,7 @@ import { assertNativeImageAdmission, brushPreparationResources, brushTextureLeas
 // restore as objects; forget() drops what they hold, because every GL name
 // in them is dead.
 
-import { BrushTextureCache, uploadBrushTexture } from './BrushTextureCache'
+import { BrushTextureCache, uploadBrushTexture, type BrushStorageCharge } from './BrushTextureCache'
 import { brushFootprintBounds } from './brushFootprint'
 import { BRUSH_BLEND_MODES, type Dab } from '@grafetto/shared'
 import type { BrushDescriptor } from '@grafetto/shared'
@@ -227,6 +227,7 @@ export class SmudgePainter {
   private transferPosLoc = -1
   private pickupPosLoc = -1
 
+  storageChargeSnapshot(): BrushStorageCharge { return this.wetTextures.storageChargeSnapshot() }
   constructor(ctx: SmudgeContext) {
     this.ctx = ctx
     this.gl = ctx.gl

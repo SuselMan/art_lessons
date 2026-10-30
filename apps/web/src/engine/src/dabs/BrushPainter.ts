@@ -15,7 +15,7 @@ import type { BrushDescriptor, BrushPressureSettings } from '../presets/digitalB
 import { normalizeBrush } from '../presets/brushNormalization'
 import type { PencilPreset } from '../presets/pencilPresets'
 import { brushTextureMips, brushTexturePixels, tipMaskMips, type BrushTextureId, type TipMaskId } from '../presets/tipMasks'
-import { BrushTextureCache, uploadBrushTexture } from './BrushTextureCache'
+import { BrushTextureCache, uploadBrushTexture, type BrushStorageCharge } from './BrushTextureCache'
 import { BrushBehaviorPainter, type BehaviorScratch } from './BrushBehaviorPainter'
 
 export interface BrushContext {
@@ -37,6 +37,7 @@ export class BrushPainter {
   private readonly ownsMipCache: boolean
   private maximumImageSide: number | undefined
   private readonly textures: BrushTextureCache
+  storageChargeSnapshot(): BrushStorageCharge { return this.textures.storageChargeSnapshot() }
   constructor(ctx: BrushContext) {
     this.gl=ctx.gl
     this.materialMips = ctx.brushMipCache ?? new BrushMipCache()

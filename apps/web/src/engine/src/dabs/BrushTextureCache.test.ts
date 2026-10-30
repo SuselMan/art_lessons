@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { MockGL } from '../../testing/mockGL'
-import { BrushTextureCache, uploadBrushTexture } from './BrushTextureCache'
+import { BrushTextureCache, uploadBrushTexture, distinctBrushStorageChargeBytes } from './BrushTextureCache'
 
 const texture = (): WebGLTexture => ({} as WebGLTexture)
 const rgbaMipBytes = (size: number): number => {
@@ -194,3 +194,25 @@ it('rejects nonfinite/fractional custom GPU charges before cache mutation', () =
   }
   expect(cache.bytes).toBe(0)
 })
+
+ it('reports opaque immutable owner charges once, without GL queries or residency changes', () => {
+  const a = setup(20), b = setup(20)
+  a.cache.protect(['a']); a.cache.put('a', texture(), 12)
+  b.cache.protect(['b']); b.cache.put('b', texture(), 7)
+  const queries = vi.spyOn(a.gl, 'getParameter')
+  const one = a.cache.storageChargeSnapshot(), shared = a.cache.storageChargeSnapshot()
+  expect(one.owner).toBe(shared.owner)
+  expect(one.owner).not.toBe(a.cache)
+  expect(Object.isFrozen(one)).toBe(true)
+  expect(Object.keys(one.owner)).toEqual([])
+  expect(distinctBrushStorageChargeBytes([one, shared, b.cache.storageChargeSnapshot()])).toBe(19)
+  const release = a.cache.lease([{key:'a',bytes:12}])
+  expect(a.cache.storageChargeSnapshot().chargeBytes).toBe(12)
+  release()
+  expect(queries).not.toHaveBeenCalled()
+  a.cache.protect(['c']); a.cache.put('c',texture(),15)
+  expect(a.cache.storageChargeSnapshot().chargeBytes).toBe(15)
+  a.cache.discard('c'); expect(a.cache.storageChargeSnapshot().chargeBytes).toBe(0)
+  b.cache.clear(true); expect(b.cache.storageChargeSnapshot().chargeBytes).toBe(0)
+  expect(one.chargeBytes).toBe(12)
+ })

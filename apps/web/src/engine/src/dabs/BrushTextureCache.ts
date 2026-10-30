@@ -1,3 +1,21 @@
+/** Conservative cache charge, not physical GPU memory. The opaque identity
+ * permits deduplication when several services share this cache. No GL handles. */
+export interface BrushStorageCharge {
+  readonly owner: object
+  readonly chargeBytes: number
+}
+
+export function distinctBrushStorageChargeBytes(snapshots: readonly BrushStorageCharge[]): number {
+  const owners = new Set<object>()
+  let bytes = 0
+  for (const snapshot of snapshots) {
+    if (owners.has(snapshot.owner)) continue
+    owners.add(snapshot.owner)
+    bytes += snapshot.chargeBytes
+  }
+  return bytes
+}
+
 /** Per-painter GPU residency, conservatively charged as RGBA including mips.
  * Active draw-group resources may exceed the target; evicting one of those
  * would invalidate a bound sampler or re-upload the same working set forever. */
@@ -5,11 +23,16 @@ export class BrushTextureCache {
   private readonly entries = new Map<string, { texture: WebGLTexture; bytes: number; disposeCompanions?: (lost: boolean) => void }>()
   private protectedKeys = new Set<string>()
   private readonly leases = new Map<symbol, readonly { key: string; bytes: number }[]>()
+  private readonly storageOwner = Object.freeze({})
   private usedBytes = 0
   private readonly gl: WebGLRenderingContext
   private readonly targetBytes: number
   constructor(gl: WebGLRenderingContext, targetBytes = 16 * 1024 * 1024) { this.gl = gl; this.targetBytes = targetBytes }
   get bytes(): number { return this.usedBytes }
+  /** Metadata only. Caller must exclude a lost context's invalidated storage. */
+  storageChargeSnapshot(): BrushStorageCharge {
+    return Object.freeze({ owner: this.storageOwner, chargeBytes: this.usedBytes })
+  }
   get budgetBytes(): number { return this.targetBytes }
   protect(keys: readonly string[]): void {
     this.protectedKeys = new Set(keys)
