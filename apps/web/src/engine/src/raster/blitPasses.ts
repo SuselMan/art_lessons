@@ -33,6 +33,8 @@ export class BlitPasses {
   private readonly vertexArrays: OES_vertex_array_object | null
   private readonly instancing: ANGLE_instanced_arrays | null
 
+  private destroyed = false
+
   private readonly imageProg: WebGLProgram
   private readonly imageUni: Uniforms
   private readonly imagePosLoc: number
@@ -57,34 +59,66 @@ export class BlitPasses {
     this.vertexArrays = gl.getExtension('OES_vertex_array_object')
     this.instancing = gl.getExtension('ANGLE_instanced_arrays')
     this.presentationVao = this.vertexArrays?.createVertexArrayOES() ?? null
+    if (this.vertexArrays && !this.presentationVao) throw new Error('Presentation VAO allocation failed')
+    const programs: WebGLProgram[] = []
+    const ownProgram = (vert: string, frag: string): WebGLProgram => {
+      const program = createProgram(gl, vert, frag)
+      programs.push(program)
+      return program
+    }
+    try {
+      this.imageProg         = ownProgram(DISPLAY_VERT, IMAGE_BLIT_FRAG)
+      this.transformProg     = ownProgram(DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
+      this.areaTransformProg = ownProgram(DISPLAY_VERT, AREA_TRANSFORM_FRAG)
+      this.areaMaskProg      = ownProgram(DISPLAY_VERT, AREA_MASK_FRAG)
 
-    this.imageProg         = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
-    this.transformProg     = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
-    this.areaTransformProg = createProgram(gl, DISPLAY_VERT, AREA_TRANSFORM_FRAG)
-    this.areaMaskProg      = createProgram(gl, DISPLAY_VERT, AREA_MASK_FRAG)
+      this.imageUni = getUniforms(gl, this.imageProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
+      this.transformUni = getUniforms(gl, this.transformProg, ['u_source', 'u_sourceStraight', 'u_dstSize', 'u_srcSize', 'u_matrixInv'])
+      this.areaTransformUni = getUniforms(gl, this.areaTransformProg, [
+        'u_source', 'u_sourceStraight', 'u_mask', 'u_dstSize', 'u_srcSize', 'u_srcOrigin', 'u_maskRect', 'u_matrixInv',
+      ])
+      this.areaMaskUni = getUniforms(gl, this.areaMaskProg, ['u_mask', 'u_dstSize', 'u_dstOrigin', 'u_maskRect'])
 
-    this.imageUni = getUniforms(gl, this.imageProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
-    this.transformUni = getUniforms(gl, this.transformProg, ['u_source', 'u_sourceStraight', 'u_dstSize', 'u_srcSize', 'u_matrixInv'])
-    this.areaTransformUni = getUniforms(gl, this.areaTransformProg, [
-      'u_source', 'u_sourceStraight', 'u_mask', 'u_dstSize', 'u_srcSize', 'u_srcOrigin', 'u_maskRect', 'u_matrixInv',
-    ])
-    this.areaMaskUni = getUniforms(gl, this.areaMaskProg, ['u_mask', 'u_dstSize', 'u_dstOrigin', 'u_maskRect'])
-
-    this.imagePosLoc         = gl.getAttribLocation(this.imageProg, 'a_position')
-    this.transformPosLoc     = gl.getAttribLocation(this.transformProg, 'a_position')
-    this.areaTransformPosLoc = gl.getAttribLocation(this.areaTransformProg, 'a_position')
-    this.areaMaskPosLoc      = gl.getAttribLocation(this.areaMaskProg, 'a_position')
+      this.imagePosLoc         = gl.getAttribLocation(this.imageProg, 'a_position')
+      this.transformPosLoc     = gl.getAttribLocation(this.transformProg, 'a_position')
+      this.areaTransformPosLoc = gl.getAttribLocation(this.areaTransformProg, 'a_position')
+      this.areaMaskPosLoc      = gl.getAttribLocation(this.areaMaskProg, 'a_position')
+    } catch (error) {
+      // No useProgram/buffer mutation happened during construction: do not
+      // unbind a foreign program or delete the borrowed screen quad.
+      if (this.presentationVao) {
+        try { this.vertexArrays!.deleteVertexArrayOES(this.presentationVao) } catch { /* Preserve primary. */ }
+      }
+      for (const program of programs) {
+        try { gl.deleteProgram(program) } catch { /* Attempt every owned name. */ }
+      }
+      throw error
+    }
   }
 
-  /** Frees the four programs. Not for a context loss — those names are
-   *  already gone with the context, and _initGL simply builds a new one. */
+  /** Frees owned programs/VAO once. The engine's screen VBO is borrowed. */
   destroy(): void {
+    if (this.destroyed) return
+    this.destroyed = true
     const { gl } = this
-    if (this.presentationVao) this.vertexArrays?.deleteVertexArrayOES(this.presentationVao)
-    gl.deleteProgram(this.imageProg)
-    gl.deleteProgram(this.transformProg)
-    gl.deleteProgram(this.areaTransformProg)
-    gl.deleteProgram(this.areaMaskProg)
+    let failed = false
+    let firstError: unknown
+    const attempt = (work: () => void): void => {
+      try { work() } catch (error) {
+        if (!failed) { failed = true; firstError = error }
+      }
+    }
+    let lost = false
+    attempt(() => { lost = gl.isContextLost() })
+    if (!lost) {
+      const programs = [this.imageProg, this.transformProg, this.areaTransformProg, this.areaMaskProg]
+      attempt(() => {
+        if (programs.includes(gl.getParameter(gl.CURRENT_PROGRAM))) gl.useProgram(null)
+      })
+      if (this.presentationVao) attempt(() => this.vertexArrays!.deleteVertexArrayOES(this.presentationVao!))
+      for (const program of programs) attempt(() => gl.deleteProgram(program))
+    }
+    if (failed) throw firstError
   }
 
   /** Synchronous derived-tile work. Preserve the visible target's scissor and
