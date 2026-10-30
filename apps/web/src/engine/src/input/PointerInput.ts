@@ -143,6 +143,7 @@ export class PointerInput {
   private _predictHandler?: PredictHandler
   private _cursorObserver?: CursorObserver
   private _active: boolean
+  private _destroyed = false
   // The last sample used as the speed reference: its own `timeStamp` (#532 —
   // not performance.now(), see this file's Speed section) and its canvas
   // coordinates. Advanced only by a sample that had real time between it and
@@ -224,24 +225,39 @@ export class PointerInput {
     this._move   = this._handleMove.bind(this)
     this._up     = this._handleUp.bind(this)
 
-    canvas.addEventListener('pointerdown',   this._down)
-    // (#517) Capture phase on window, so it runs before the event reaches any
-    // target at all and sees presses this canvas never gets. See
-    // _handleWindowDown for what question that answers.
-    //
-    // Guarded, unlike the canvas listeners above: the engine's own tests build
-    // a PencilEngine around a mock canvas under node, where `canvas` supplies
-    // addEventListener but there is no DOM global at all. Everything this
-    // probe answers is about a real browser, so having it simply not exist
-    // off one is correct rather than a compromise.
-    canvas.addEventListener('pointermove',   this._move)
-    canvas.addEventListener('pointerup',     this._up)
-    canvas.addEventListener('pointercancel', this._up)
-    canvas.style.touchAction = 'none'
-    // (#517) See _handleCanvasTouchStart. `passive: false` is the whole point:
-    // a passive listener may not preventDefault, and preventDefault is the
-    // entire content of this subscription.
-    canvas.addEventListener('touchstart', this._canvasTouchStart, { passive: false })
+    // Only successful registrations enter this constructor-local undo list.
+    // It never removes another consumer's listener or survives construction.
+    const undo: Array<() => void> = []
+    const listen = <K extends keyof HTMLElementEventMap>(
+      type: K, listener: (event: HTMLElementEventMap[K]) => void, options?: AddEventListenerOptions,
+    ): void => {
+      canvas.addEventListener(type, listener, options)
+      undo.push(() => canvas.removeEventListener(type, listener, options))
+    }
+    let previousTouchAction = ''
+    let touchActionAttempted = false
+    try {
+      listen('pointerdown', this._down)
+      listen('pointermove', this._move)
+      listen('pointerup', this._up)
+      listen('pointercancel', this._up)
+      previousTouchAction = canvas.style.touchAction
+      touchActionAttempted = previousTouchAction !== 'none'
+      canvas.style.touchAction = 'none'
+      // (#517) Non-passive touchstart is required for iPad contact routing.
+      listen('touchstart', this._canvasTouchStart, { passive: false })
+    } catch (error) {
+      this._deactivate()
+      for (const remove of undo.reverse()) {
+        try { remove() } catch { /* Preserve the registration/style failure. */ }
+      }
+      // Do not overwrite a value installed by another consumer during failure.
+      // A throwing CSS setter may already have applied our value.
+      if (touchActionAttempted) {
+        try { if (canvas.style.touchAction === 'none') canvas.style.touchAction = previousTouchAction } catch { /* Preserve primary. */ }
+      }
+      throw error
+    }
   }
 
   on(event: PointerEventName, fn: PointerHandler): this {
@@ -266,8 +282,9 @@ export class PointerInput {
   }
 
   private _observeCursor(e: PointerEvent): void {
-    if (!this._cursorObserver || (e.pointerType !== 'mouse' && e.pointerType !== 'pen')) return
-    this._cursorObserver({ ...this._toCanvasCoords(e), pointerType: e.pointerType })
+    if (this._destroyed || !this._cursorObserver || (e.pointerType !== 'mouse' && e.pointerType !== 'pen')) return
+    const point = this._toCanvasCoords(e)
+    if (!this._destroyed) this._cursorObserver?.({ ...point, pointerType: e.pointerType })
   }
 
   // (#475) Installs the person's pressure calibration, already compiled to a
@@ -293,6 +310,7 @@ export class PointerInput {
   }
 
   private _emit(event: PointerEventName, data: PointerData): void {
+    if (this._destroyed) return
     this._handlers[event]?.(data)
   }
 
@@ -385,6 +403,7 @@ export class PointerInput {
    *  Pinned by PointerInput.touchDefault.test.ts, which exists because this is
    *  precisely the shape of code a later cleanup deletes as a no-op. */
   private _handleCanvasTouchStart(e: TouchEvent): void {
+    if (this._destroyed) return
     e.preventDefault()
   }
 
@@ -407,6 +426,7 @@ export class PointerInput {
    *  move; the move-path probes only speak when something is actually
    *  wrong. */
   private _handleDown(e: PointerEvent): void {
+    if (this._destroyed) return
     const dispatchTime=performance.now()
     // (#517) Both of these used to return in silence, which is exactly the
     // shape of the iPad report they exist for: a stroke that leaves *nothing*
@@ -435,12 +455,15 @@ export class PointerInput {
       // A fresh down from that same pointer still recovers a missed up.
       if (e.pointerId !== this._activePointerId) return
     }
+    if (this._destroyed) return
     this._log('[PointerInput] down', {
       pointerId: e.pointerId, pointerType: e.pointerType,
       clientX: Math.round(e.clientX), clientY: Math.round(e.clientY),
       pressure: e.pressure, buttons: e.buttons, isPrimary: e.isPrimary,
     })
+    if (this._destroyed) return
     try { this.canvas.setPointerCapture(e.pointerId) } catch { /* context loss */ }
+    if (this._destroyed) return
     this._active = true
     this._moveCount = 0
     this._downAt = performance.now()
@@ -453,6 +476,7 @@ export class PointerInput {
     // Without this the first move of a stroke would measure its distance from
     // wherever the *previous* stroke ended, i.e. from across the canvas.
     const down = this._toCanvasCoords(e)
+    if (this._destroyed) return
     this._lastT = e.timeStamp
     this._lastX = down.x
     this._lastY = down.y
@@ -463,10 +487,15 @@ export class PointerInput {
   }
 
   private _handleMove(e: PointerEvent): void {
+    if (this._destroyed) return
     const dispatchTime=performance.now()
     if (!this._active) {
       const events = e.getCoalescedEvents?.()
-      for (const ev of events?.length ? events : [e]) this._observeCursor(ev)
+      for (const ev of events?.length ? events : [e]) {
+        if (this._destroyed) return
+        this._observeCursor(ev)
+      }
+      if (this._destroyed) return
       // (#517) A pen dragging across the canvas with its tip pressed
       // (buttons !== 0) while no stroke is open means the pointerdown that
       // should have opened one never reached this handler — the browser
@@ -500,11 +529,14 @@ export class PointerInput {
     const beforeX = this._lastX, beforeY = this._lastY, beforeT = this._lastT
     const events = e.getCoalescedEvents?.() ?? [e]
     for (const ev of events) {
+      if (this._destroyed) return
       if (ev.pointerId !== this._activePointerId) continue
       this._observeCursor(ev)
+      if (this._destroyed) return
       if (ev.buttons === 0 && ev.pressure === 0) continue
       this._emit('move', {...this._extract(ev),dispatchTime})
     }
+    if (this._destroyed) return
     // A big time gap since the last real sample, or an implausibly large
     // jump in canvas-pixel coordinates, could independently produce a
     // visible break — logging both to see whether either actually happens,
@@ -517,6 +549,7 @@ export class PointerInput {
         dtMs: Math.round(dt), pointerId: e.pointerId, pointerType: e.pointerType,
       })
     }
+    if (this._destroyed) return
     const jumpPx = Math.hypot(this._lastX - beforeX, this._lastY - beforeY)
     if (jumpPx > 400) {
       this._log('[PointerInput] large coordinate jump since last move sample', {
@@ -528,13 +561,21 @@ export class PointerInput {
     // Prediction is opt-in and additive: only touched at all when a caller
     // registered onPredict() (see PencilEngineOptions.predictPointer), so
     // there is no cost here otherwise.
-    if (this._predictHandler) {
+    if (!this._destroyed && this._predictHandler) {
       const predicted = e.getPredictedEvents?.() ?? []
-      if (predicted.length) this._predictHandler(predicted.map(p => this._extractPredicted(p)))
+      if (predicted.length) {
+        const data: PointerData[] = []
+        for (const sample of predicted) {
+          if (this._destroyed) return
+          data.push(this._extractPredicted(sample))
+        }
+        if (!this._destroyed) this._predictHandler?.(data)
+      }
     }
   }
 
   private _handleUp(e: PointerEvent): void {
+    if (this._destroyed) return
     const dispatchTime=performance.now()
     if (!this._active) {
       // (#517) Same reasoning as the orphan-move probe: an up for a pen whose
@@ -570,18 +611,43 @@ export class PointerInput {
       // report — whatever ink landed is the single touch-down dab.
       moves: this._moveCount, durationMs: Math.round(performance.now() - this._downAt),
     })
+    if (this._destroyed) return
     this._active = false
     this._activePointerId = null
     this._activePointerType = null
     this._emit('end', {...this._extract(e),dispatchTime,...(e.type==='pointercancel'?{cancelled:true}: {})})
   }
 
+  private _deactivate(): void {
+    this._destroyed = true
+    this._active = false
+    this._activePointerId = null
+    this._activePointerType = null
+    this._handlers = {}
+    this._predictHandler = undefined
+    this._cursorObserver = undefined
+    this._pressureMap = null
+    this._transform = null
+  }
+
   destroy(): void {
+    if (this._destroyed) return
+    // Invalidate before removal: a failed remove can leave DOM callbacks alive.
+    this._deactivate()
     const c = this.canvas
-    c.removeEventListener('pointerdown',   this._down)
-    c.removeEventListener('touchstart', this._canvasTouchStart)
-    c.removeEventListener('pointermove',   this._move)
-    c.removeEventListener('pointerup',     this._up)
-    c.removeEventListener('pointercancel', this._up)
+    let failed = false
+    let firstError: unknown
+    const remove = <K extends keyof HTMLElementEventMap>(type: K, listener: (event: HTMLElementEventMap[K]) => void): void => {
+      try { c.removeEventListener(type, listener) } catch (error) {
+        if (!failed) { failed = true; firstError = error }
+      }
+    }
+    remove('pointerdown', this._down)
+    remove('touchstart', this._canvasTouchStart)
+    remove('pointermove', this._move)
+    remove('pointerup', this._up)
+    remove('pointercancel', this._up)
+    // Normal retirement deliberately preserves the existing touchAction CSS.
+    if (failed) throw firstError
   }
 }
