@@ -5,14 +5,22 @@ import noiseAsset from './watercolorNoise.txt?raw'
 export function createWatercolorNoiseTexture(gl: WebGLRenderingContext): WebGLTexture {
   const binary = atob(noiseAsset)
   const pixels = Uint8Array.from(binary, c => c.charCodeAt(0))
-  const texture = gl.createTexture()!
-  gl.bindTexture(gl.TEXTURE_2D, texture)
-  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 251, 251, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, pixels)
-  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-  return texture
+  const texture = gl.createTexture()
+  if (!texture) throw new Error('Watercolor noise texture allocation failed')
+  try {
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 251, 251, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, pixels)
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    return texture
+  } catch (error) {
+    let lost = false
+    try { lost = gl.isContextLost() } catch { /* Still attempt owned deletion. */ }
+    if (!lost) { try { gl.deleteTexture(texture) } catch { /* Preserve primary. */ } }
+    throw error
+  }
 }

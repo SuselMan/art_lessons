@@ -68,9 +68,9 @@ export class StampPainter {
 
   // The plain per-dab program (DAB_VERT + DAB_FRAG) — shared with the ribbon
   // passes, see the file comment and program/uniforms/positionLoc below.
-  private noiseTexture!: WebGLTexture
+  private noiseTexture: WebGLTexture | null = null
 
-  private dabProg!: WebGLProgram
+  private dabProg: WebGLProgram | null = null
   private dabUni!: Uniforms
   private dabPosLoc!: number
 
@@ -81,13 +81,13 @@ export class StampPainter {
   // back to the original per-dab-uniform loop via dabProg/DAB_VERT
   // unchanged. See paintInstanced for the correctness reasoning re:
   // preserving sequential per-dab blend order.
-  private instProg!: WebGLProgram
+  private instProg: WebGLProgram | null = null
   private instUni!: Uniforms
   private instPosLoc!: number
   private instALoc!: number
   private instBLoc!: number
   private instOpacityLoc!: number
-  private instBuf!: WebGLBuffer
+  private instBuf: WebGLBuffer | null = null
   private instanced: InstancedArraysExt | null = null
   // Reused/grown scratch buffer for the per-dab instance data upload — no
   // per-stroke-segment allocation, same pattern as DabSystem's #125 fix.
@@ -99,7 +99,7 @@ export class StampPainter {
   }
 
   /** DAB_VERT + DAB_FRAG, for the ribbon passes that draw through it. */
-  get program(): WebGLProgram { return this.dabProg }
+  get program(): WebGLProgram { return this.dabProg! }
   get uniforms(): Uniforms { return this.dabUni }
   get positionLoc(): number { return this.dabPosLoc }
 
@@ -107,76 +107,95 @@ export class StampPainter {
    *  from the engine's _initGL, at construction and on a context restore. */
   initGL(): void {
     const { gl } = this
-    this.noiseTexture = createWatercolorNoiseTexture(gl)
-    this.dabProg  = createProgram(gl, DAB_VERT, DAB_FRAG)
-    this.instProg = createProgram(gl, DAB_VERT_INSTANCED, DAB_FRAG)
+    let noiseTexture: WebGLTexture | null = null
+    let dabProg: WebGLProgram | null = null
+    let instProg: WebGLProgram | null = null
+    let instBuf: WebGLBuffer | null = null
+    try {
+      noiseTexture = createWatercolorNoiseTexture(gl)
+      dabProg = createProgram(gl, DAB_VERT, DAB_FRAG)
+      instProg = createProgram(gl, DAB_VERT_INSTANCED, DAB_FRAG)
 
-    this.dabUni = getUniforms(gl, this.dabProg, [
-      'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
-      'u_wcNoiseTex', 'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_pressure', 'u_tiltX', 'u_tiltY', 'u_hardness', 'u_opacity',
-      'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
-      'u_rectComposite',
-      // Liner only (#452, ADR 003 §4) — how far past its own radius a dab's
-      // quad is grown so the absorbed band has somewhere to land, and the cap
-      // on that. Set to 0 by every other draw through this program (marker's
-      // two passes included), not just left unset: a program's uniforms
-      // persist across draws, so a liner stroke would otherwise leak its band
-      // into whatever drew next.
-      'u_wickPx', 'u_wickCap',
-      // Charcoal only (#304, ADR 005) — per-preset, so needed by both this
-      // program and the instanced one below (unlike marker's three samplers,
-      // which never draw through the batched path).
-      'u_charcoalTooth', 'u_charcoalCrumble', 'u_charcoalDust',
-      'u_charcoalBroadAspect', 'u_charcoalBroadGrain',
-      'u_charcoalPressFloor', 'u_charcoalPressGamma', 'u_charcoalSkipFloor', 'u_charcoalGateRelief', 'u_charcoalGrainDepth',
-      // Ribbon tools only (#250, follow-up; #454 widened this from "marker" to
-      // "marker and brush pen") — only ever set by their own draws, which
-      // always use this non-instanced program; not added to instUni below
-      // since nothing ever draws a ribbon stroke through it.
-      'u_original', 'u_strokeCoverage', 'u_inkLoad',
-      // #330 stage 2/3 — the ribbon nib's own geometry: edge ramp width in canvas
-      // px, which outline the nib is, its corner radius, and how much the ink
-      // eases off at the rim. #454: plus how strongly paper grain acts on a
-      // ribbon tool's rim — outward for the brush pen, inward for watercolor,
-      // see RibbonProfile.paperRim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_inkClip', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_washWater', 'u_puddle', 'u_poolBlot', 'u_waterRetain', 'u_inkStrength', 'u_depthWrite', 'u_tau', 'u_inkColor', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
-      // #468, ADR 011 §3 — watercolor's own four. Read by the u_inkMode=9
-      // branch alone, and set to 0 by every other ribbon composite (see
-      // _drawRibbonCompositeDab) rather than left unset, for the reason
-      // u_wickPx above already documents: uniforms persist across draws on a
-      // shared program.
-      'u_wetEdge', 'u_wetEdgeRadiusPx', 'u_granulation', 'u_saturateInk', 'u_bristleCombs', 'u_bristleInk', 'u_wcDebugView',
-      // #468 v2 — the wash's own geometry and coarse structure (ADR 011 §3.5-3.6).
-      'u_spreadPx', 'u_cloud', 'u_fieldOffset',
-      // #468 v4 — the brush model (ADR 011 §4). u_inkWater rides the ink pass;
-      // the rest are read by the composite.
-      'u_inkWater', 'u_water', 'u_dryContact', 'u_edgeSoft', 'u_edgeWander', 'u_strokeDir',
-      'u_tideLo', 'u_tideHi',
-      // #468 v5 — how covering the paint is (watercolorPigments.ts).
-      'u_pigmentOpacity',
-      // #468 v6 — the dab spacing, the period of the deposit's own ripple.
-      'u_inkSmoothPx',
-      // #468 v11 — pigment transport (ADR 011 §11).
-      'u_migrate', 'u_migratePx', 'u_migrateLo', 'u_migrateHi',
-    ])
-    this.instUni = getUniforms(gl, this.instProg, [
-      'u_wcNoiseTex', 'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
-      'u_wickPx', 'u_wickCap', // #452 — see dabUni's own comment
-      'u_charcoalTooth', 'u_charcoalCrumble', 'u_charcoalDust',
-      'u_charcoalBroadAspect', 'u_charcoalBroadGrain',
-      'u_charcoalPressFloor', 'u_charcoalPressGamma', 'u_charcoalSkipFloor', 'u_charcoalGateRelief', 'u_charcoalGrainDepth',
-    ])
+      const dabUni = getUniforms(gl, dabProg, [
+        'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
+        'u_wcNoiseTex', 'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
+        'u_pressure', 'u_tiltX', 'u_tiltY', 'u_hardness', 'u_opacity',
+        'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
+        'u_rectComposite',
+        // Liner only (#452, ADR 003 §4) — how far past its own radius a dab's
+        // quad is grown so the absorbed band has somewhere to land, and the cap
+        // on that. Set to 0 by every other draw through this program (marker's
+        // two passes included), not just left unset: a program's uniforms
+        // persist across draws, so a liner stroke would otherwise leak its band
+        // into whatever drew next.
+        'u_wickPx', 'u_wickCap',
+        // Charcoal only (#304, ADR 005) — per-preset, so needed by both this
+        // program and the instanced one below (unlike marker's three samplers,
+        // which never draw through the batched path).
+        'u_charcoalTooth', 'u_charcoalCrumble', 'u_charcoalDust',
+        'u_charcoalBroadAspect', 'u_charcoalBroadGrain',
+        'u_charcoalPressFloor', 'u_charcoalPressGamma', 'u_charcoalSkipFloor', 'u_charcoalGateRelief', 'u_charcoalGrainDepth',
+        // Ribbon tools only (#250, follow-up; #454 widened this from "marker" to
+        // "marker and brush pen") — only ever set by their own draws, which
+        // always use this non-instanced program; not added to instUni below
+        // since nothing ever draws a ribbon stroke through it.
+        'u_original', 'u_strokeCoverage', 'u_inkLoad',
+        // #330 stage 2/3 — the ribbon nib's own geometry: edge ramp width in canvas
+        // px, which outline the nib is, its corner radius, and how much the ink
+        // eases off at the rim. #454: plus how strongly paper grain acts on a
+        // ribbon tool's rim — outward for the brush pen, inward for watercolor,
+        // see RibbonProfile.paperRim.
+        'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_inkClip', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_washWater', 'u_puddle', 'u_poolBlot', 'u_waterRetain', 'u_inkStrength', 'u_depthWrite', 'u_tau', 'u_inkColor', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
+        // #468, ADR 011 §3 — watercolor's own four. Read by the u_inkMode=9
+        // branch alone, and set to 0 by every other ribbon composite (see
+        // _drawRibbonCompositeDab) rather than left unset, for the reason
+        // u_wickPx above already documents: uniforms persist across draws on a
+        // shared program.
+        'u_wetEdge', 'u_wetEdgeRadiusPx', 'u_granulation', 'u_saturateInk', 'u_bristleCombs', 'u_bristleInk', 'u_wcDebugView',
+        // #468 v2 — the wash's own geometry and coarse structure (ADR 011 §3.5-3.6).
+        'u_spreadPx', 'u_cloud', 'u_fieldOffset',
+        // #468 v4 — the brush model (ADR 011 §4). u_inkWater rides the ink pass;
+        // the rest are read by the composite.
+        'u_inkWater', 'u_water', 'u_dryContact', 'u_edgeSoft', 'u_edgeWander', 'u_strokeDir',
+        'u_tideLo', 'u_tideHi',
+        // #468 v5 — how covering the paint is (watercolorPigments.ts).
+        'u_pigmentOpacity',
+        // #468 v6 — the dab spacing, the period of the deposit's own ripple.
+        'u_inkSmoothPx',
+        // #468 v11 — pigment transport (ADR 011 §11).
+        'u_migrate', 'u_migratePx', 'u_migrateLo', 'u_migrateHi',
+      ])
+      const instUni = getUniforms(gl, instProg, [
+        'u_wcNoiseTex', 'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
+        'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
+        'u_wickPx', 'u_wickCap', // #452 — see dabUni's own comment
+        'u_charcoalTooth', 'u_charcoalCrumble', 'u_charcoalDust',
+        'u_charcoalBroadAspect', 'u_charcoalBroadGrain',
+        'u_charcoalPressFloor', 'u_charcoalPressGamma', 'u_charcoalSkipFloor', 'u_charcoalGateRelief', 'u_charcoalGrainDepth',
+      ])
 
-    this.dabPosLoc      = gl.getAttribLocation(this.dabProg, 'a_position')
-    this.instPosLoc     = gl.getAttribLocation(this.instProg, 'a_position')
-    this.instALoc       = gl.getAttribLocation(this.instProg, 'a_instA')
-    this.instBLoc       = gl.getAttribLocation(this.instProg, 'a_instB')
-    this.instOpacityLoc = gl.getAttribLocation(this.instProg, 'a_opacity')
+      const dabPosLoc = gl.getAttribLocation(dabProg, 'a_position')
+      const instPosLoc = gl.getAttribLocation(instProg, 'a_position')
+      const instALoc = gl.getAttribLocation(instProg, 'a_instA')
+      const instBLoc = gl.getAttribLocation(instProg, 'a_instB')
+      const instOpacityLoc = gl.getAttribLocation(instProg, 'a_opacity')
 
-    this.instBuf = gl.createBuffer()!
-    this.instanced = gl.getExtension('ANGLE_instanced_arrays') as InstancedArraysExt | null
+      instBuf = gl.createBuffer()
+      if (!instBuf) throw new Error('Stamp instance buffer allocation failed')
+      const instanced = gl.getExtension('ANGLE_instanced_arrays') as InstancedArraysExt | null
+      const oldNoise = this.noiseTexture, oldDab = this.dabProg, oldInst = this.instProg, oldBuffer = this.instBuf
+      this.noiseTexture = noiseTexture; this.dabProg = dabProg; this.instProg = instProg; this.instBuf = instBuf
+      this.dabUni = dabUni; this.instUni = instUni; this.dabPosLoc = dabPosLoc
+      this.instPosLoc = instPosLoc; this.instALoc = instALoc; this.instBLoc = instBLoc; this.instOpacityLoc = instOpacityLoc
+      this.instanced = instanced
+      // Published names are no longer rollback locals. Retire the former
+      // generation only after the complete replacement has been accepted.
+      noiseTexture = null; dabProg = null; instProg = null; instBuf = null
+      this.release(oldNoise, oldDab, oldInst, oldBuffer)
+    } catch (error) {
+      try { this.release(noiseTexture, dabProg, instProg, instBuf) } catch { /* Preserve primary. */ }
+      throw error
+    }
   }
 
   /** Shared with the ribbon and water-front programs, like the dab program.
@@ -190,11 +209,48 @@ export class StampPainter {
   }
 
   destroy(): void {
+    const noise = this.noiseTexture, dab = this.dabProg, inst = this.instProg, buffer = this.instBuf
+    this.noiseTexture = null; this.dabProg = null; this.instProg = null; this.instBuf = null
+    this.instanced = null
+    this.release(noise, dab, inst, buffer)
+  }
+
+  /** Cold ownership boundary: old context-generation names are invalid after
+   * restore. Never reset the borrowed context or inspect draw-time state. */
+  private release(noise: WebGLTexture | null, dab: WebGLProgram | null, inst: WebGLProgram | null, buffer: WebGLBuffer | null): void {
+    if (!noise && !dab && !inst && !buffer) return
     const { gl } = this
-    gl.deleteTexture(this.noiseTexture)
-    gl.deleteProgram(this.dabProg)
-    gl.deleteProgram(this.instProg)
-    gl.deleteBuffer(this.instBuf)
+    let failed = false, firstError: unknown
+    const attempt = (work: () => void): void => {
+      try { work() } catch (error) {
+        if (!failed) { failed = true; firstError = error }
+      }
+    }
+    let lost = false
+    attempt(() => { lost = gl.isContextLost() })
+    if (!lost) {
+      attempt(() => {
+        const current = gl.getParameter(gl.CURRENT_PROGRAM)
+        if (current && (current === dab || current === inst)) gl.useProgram(null)
+      })
+      // A failed validity query must not suppress the deletion attempt.
+      if (noise) {
+        let valid = true
+        attempt(() => { valid = gl.isTexture?.(noise) !== false })
+        if (valid) attempt(() => gl.deleteTexture(noise))
+      }
+      for (const program of [dab, inst]) if (program) {
+        let valid = true
+        attempt(() => { valid = gl.isProgram?.(program) !== false })
+        if (valid) attempt(() => gl.deleteProgram(program))
+      }
+      if (buffer) {
+        let valid = true
+        attempt(() => { valid = gl.isBuffer?.(buffer) !== false })
+        if (valid) attempt(() => gl.deleteBuffer(buffer))
+      }
+    }
+    if (failed) throw firstError
   }
 
   /** Paints one batch of stamp dabs into `target` — see the engine's
