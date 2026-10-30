@@ -52,6 +52,38 @@ soft-circle roles, while integrating those stock descriptors is a separate step.
 Closed domain: circle/spikes2, softness1, randomness0, density1, AAoff (all10 actual
 stock roles meet it). AA/nonunit softness need separate independent gates. Fresh
 caller-owned output, maximum1MiB A8,4096 per side and16M sample budget; all geometry,
-finite-intermediate and caller reservation checks precede A8 allocation. No cache,
-GPU lifecycle or cancellation API is added; future incremental execution must reuse
-this arithmetic body. Native/tool/source identities are in fixtures/sourceSoftCircle.
+finite-intermediate and caller reservation checks precede A8 allocation. No cache
+or GPU lifecycle is added. Native/tool/source identities are in fixtures/sourceSoftCircle.
+
+## Incremental mask over the same sample cursor
+
+prepareSourceSoftCircleDab validates the same request/owned compiled program and
+returns the existing SourceCoverageEvaluator. Preparation allocates no A8 mask.
+The original scalar/NEON pixel body is now one lazy row-major stream, one sample
+per pixel. Global full-width x/y and the original vector-tail boundary are
+unchanged even when the caller supplies tiny output stripes. The synchronous
+sourceSoftCircleDab API drains this SAME cursor into a fresh full mask; it has no
+second arithmetic implementation. Input scalars are captured before yielding;
+mutating request/shape or returned descriptive metadata cannot change later ink.
+Cancellation closes the same stream without additional samples or output writes.
+
+Host regression uses all40 independent original native masks under sample quanta
+1/3/63/64/65 and arbitrary stripe boundaries (40,864 A8 bytes per quantum).
+The full600 native mask is also verified through64-sample stripes without an A8
+allocation during preparation; all360,000 bytes match. Quota validation, caller
+capacity, sentinels, zero-space/no-progress, input mutation and cancellation are
+checked. This is a bounded primitive, not an active editor time scheduler or
+responsiveness claim. Native coefficient provenance, new provider admission,
+author/material/wire/prepass integration and active editor proof remain separate.
+
+Actual Samsung SM-T970 Chrome155 CPU proof (`soft-incremental-device-result.json`)
+compiles the five supplied original native coefficient programs and compares all
+3610 table values exactly. All40 resized masks plus the full600 native mask run
+through64-sample stripes: 41 cases/400864 A8 pixels, wrong0/maxDelta0. The largest
+observed advance call is3ms; total4.862s includes cooperative rAF yields. These
+timings are one primitive run, not an active-pointer/UI or GPU performance result.
+The fixture uses explicit original coefficients, not a new production compiler
+grant. Exact source/bundle/body/fixture hashes and per-case timings are retained
+in fixes-v52/soft-incremental-device-{result,summary}.json. Child closed, original
+three tabs preserved, parent restored, QA marker and forward19236 removed;
+cleanup receipt is soft-incremental-device-cleanup.json.

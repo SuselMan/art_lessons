@@ -1,4 +1,5 @@
 import { sourceAutoGeometry, type SourceAutoGeometryShape } from './sourceAutoGeometry'
+import { sourceCoverageEvaluator } from './sourceCoverageEvaluator'
 import { sourceCurveTransfer, type SourceCurvePolynomial } from './sourceCurve'
 import { sourceFmaF64 as fma64 } from './sourceFmaF64'
 import { sourceFmaF32 as fma32 } from './sourceFmaF32'
@@ -52,7 +53,7 @@ export interface SourceSoftCircleDabRequest {
 const f = Math.fround
 /** One bounded CPU coverage body for scalar/NEON, reused by the whole-dab API.
  * OFF from author/importer/renderer/wire. AA and nonunit softness are not admitted. */
-export function sourceSoftCircleDab(request: SourceSoftCircleDabRequest) {
+export function prepareSourceSoftCircleDab(request: SourceSoftCircleDabRequest) {
   const { program, shape } = request
   if (request.dialect !== 'krita-soft-circle-qt5-arm64-v1' || !ownedPrograms.has(program)
     || !['scalar-f64-fma-v1', 'neon64-f32-fma-v1'].includes(request.coverageProfile)
@@ -75,34 +76,46 @@ export function sourceSoftCircleDab(request: SourceSoftCircleDabRequest) {
   const bound = (Math.abs(center[0]) + width + Math.abs(center[1]) + height + 1) * Math.max(xcoef, ycoef)
   if (![xcoef, ycoef, cos, sin, bound].every(Number.isFinite) || xcoef <= 0 || ycoef <= 0
     || bound > 2 ** (vector ? 60 : 400) || (vector && ![xcoef, ycoef].every(v => Number.isFinite(f(v))))) throw new RangeError('Soft-circle intermediates outside finite domain')
-  const mask = new Uint8Array(pixels), table = program.table, resolution = program.resolution
-  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
-    let alpha: number
-    if (!vector) {
-      const px = x - center[0], py = y - center[1]
-      const rx = fma64(cos, px, -(sin * py)) * xcoef, ry = fma64(sin, px, cos * py) * ycoef
-      const distance = fma64(rx, rx, ry * ry)
-      if (distance > 1) alpha = 0
-      else {
-        const scaled = distance * resolution, index = Math.trunc(scaled), fraction = scaled - index
-        const full = fma64(fraction, table[index + 1], (1 - fraction) * table[index])
-        alpha = (255 - Math.trunc((1 - full) * 255)) & 255
+  const table = program.table, resolution = program.resolution
+  // Numeric copies keep returned metadata mutation from changing a continuation.
+  const centerX = center[0], centerY = center[1]
+  function* evaluate(): Generator<number | null, void> {
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      let alpha: number
+      if (!vector) {
+        const px = x - centerX, py = y - centerY
+        const rx = fma64(cos, px, -(sin * py)) * xcoef, ry = fma64(sin, px, cos * py) * ycoef
+        const distance = fma64(rx, rx, ry * ry)
+        if (distance > 1) alpha = 0
+        else {
+          const scaled = distance * resolution, index = Math.trunc(scaled), fraction = scaled - index
+          const full = fma64(fraction, table[index + 1], (1 - fraction) * table[index])
+          alpha = (255 - Math.trunc((1 - full) * 255)) & 255
+        }
+      } else {
+        const px = f(f(x) - f(centerX)), py = f(f(y) - f(centerY))
+        const rx = f(fma32(px, f(cos), -f(f(sin) * py)) * f(xcoef))
+        const ry = f(fma32(px, f(sin), f(f(cos) * py)) * f(ycoef))
+        const distance = fma32(rx, rx, f(ry * ry))
+        if (distance > 1) alpha = 0
+        else {
+          const scaled = f(distance * f(resolution)), index = Math.trunc(scaled), fraction = f(scaled - f(index))
+          const full = Math.max(0, fma32(fraction, f(table[index + 1]), f(f(1 - fraction) * f(table[index]))))
+          const fade = full >= 1 ? 0 : f(1 - full), value = f(f(1 - fade) * 255)
+          alpha = (x < Math.floor(width / 4) * 4 ? sourceImageRoundEven(value) : Math.trunc(value)) & 255
+        }
       }
-    } else {
-      const px = f(f(x) - f(center[0])), py = f(f(y) - f(center[1]))
-      const rx = f(fma32(px, f(cos), -f(f(sin) * py)) * f(xcoef))
-      const ry = f(fma32(px, f(sin), f(f(cos) * py)) * f(ycoef))
-      const distance = fma32(rx, rx, f(ry * ry))
-      if (distance > 1) alpha = 0
-      else {
-        const scaled = f(distance * f(resolution)), index = Math.trunc(scaled), fraction = f(scaled - f(index))
-        const full = Math.max(0, fma32(fraction, f(table[index + 1]), f(f(1 - fraction) * f(table[index]))))
-        const fade = full >= 1 ? 0 : f(1 - full), value = f(f(1 - fade) * 255)
-        alpha = (x < Math.floor(width / 4) * 4 ? sourceImageRoundEven(value) : Math.trunc(value)) & 255
-      }
+      yield alpha
     }
-    mask[y * width + x] = alpha
   }
-  return { dialect: request.dialect, geometry, center, generatorScale, coverageAngle,
-    route: vector ? 'neon64-vector' as const : 'scalar' as const, samplesPerPixel: 1 as const, mask }
+  const evaluator = sourceCoverageEvaluator({ pixels, route: vector ? 'neon64-vector' : 'scalar', samplesPerPixel: 1, stream: evaluate() })
+  return { dialect: request.dialect, geometry, center, generatorScale, coverageAngle, evaluator }
+}
+
+/** Whole-dab convenience path over the same bounded arithmetic stream. */
+export function sourceSoftCircleDab(request: SourceSoftCircleDabRequest) {
+  const { evaluator, ...metadata } = prepareSourceSoftCircleDab(request)
+  const mask = new Uint8Array(evaluator.pixels)
+  while (!evaluator.done) evaluator.advance(mask, evaluator.completedPixels, 65536)
+  return { ...metadata, route: evaluator.route, samplesPerPixel: 1 as const, mask }
 }
