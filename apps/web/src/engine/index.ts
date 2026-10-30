@@ -1947,7 +1947,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   private readonly _watercolorPasses = new WatercolorPasses({
     gl: () => this.gl,
-    screenBuf: () => this._screenBuf,
+    screenBuf: () => this._screenBuf!,
     paperTex: () => this._paperTex,
     paperScale: () => this._opts.paperScale,
     paperWorldSize: () => this._paperWorldSize(),
@@ -1958,7 +1958,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl: () => this.gl,
     stamps: () => this._stamps,
     paperTex: () => this._paperTex,
-    quadBuf: () => this._quadBuf,
+    quadBuf: () => this._quadBuf!,
     minmaxExt: () => this._minmaxExt,
     paperFillThreshold: () => this._paperFillThreshold,
     paperFillCap: () => this._paperFillCap,
@@ -2016,8 +2016,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _fieldCache: Array<SettleField> = []
   // (#494) The transform, selection and image blits — see blitPasses.ts.
   private _passes!: BlitPasses
-  private _quadBuf!: WebGLBuffer
-  private _screenBuf!: WebGLBuffer
+  private _quadBuf: WebGLBuffer | null = null
+  private _screenBuf: WebGLBuffer | null = null
   private _compositeFBO!: AccumulationBuffer
   // Layer composition reads the current buffers on every call: resize and
   // context restore replace their GL handles without changing this owner.
@@ -2347,7 +2347,7 @@ export class PencilEngine implements PencilEngineAPI {
     this.gl = gl
   this._compositor = new LayerCompositor({
     gl,
-    screenBuf: () => this._screenBuf,
+    screenBuf: () => this._screenBuf!,
     layers: () => this._layers,
     previews: () => this._previews,
     transientPreviews: () => this._asyncLocalPreviewTiles(),
@@ -2417,7 +2417,7 @@ export class PencilEngine implements PencilEngineAPI {
       gl,
       infinite: this._infinite,
       previews: this._previews,
-      screenBuf: () => this._screenBuf,
+      screenBuf: () => this._screenBuf!,
       layer: id => this._layers.get(id),
       tileSize: () => this._tileSize(),
       pageSize: () => this._paper.pageSize(),
@@ -2429,7 +2429,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._exporter = new Exporter({
       gl,
       infinite: this._infinite,
-      screenBuf: () => this._screenBuf,
+      screenBuf: () => this._screenBuf!,
       pageSize: () => this._paper.pageSize(),
       compositeOrder: () => this._compositeOrder,
       contentBounds: id => this.getContentBounds(id),
@@ -2500,8 +2500,8 @@ export class PencilEngine implements PencilEngineAPI {
       brushMipCache: this._brushMipCache,
       createBrushScratch:()=>new RibbonStrokeScratch(this._ribbonScratchPool,false),
       paintBrushMask:(...args)=>this._brush.paintMask(...args),
-      quadBuf: () => this._quadBuf,
-      screenBuf: () => this._screenBuf,
+      quadBuf: () => this._quadBuf!,
+      screenBuf: () => this._screenBuf!,
       paper: this._paper,
     })
     // (#494) The dab stamps — pencil, eraser, liner, charcoal. See
@@ -2509,7 +2509,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._stamps = new StampPainter({
       gl,
       infinite: this._infinite,
-      quadBuf: () => this._quadBuf,
+      quadBuf: () => this._quadBuf!,
       paper: this._paper,
       grainMode: charcoal => this._resolveGrainMode(charcoal),
     })
@@ -2519,7 +2519,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._brush = new BrushPainter({
       gl,
       brushMipCache: this._brushMipCache,
-      quadBuf: () => this._quadBuf,
+      quadBuf: () => this._quadBuf!,
       paper: this._paper,
       segmentLength: (dab, prev, radius) => this._markerSegmentLength(dab, prev, radius),
     })
@@ -4377,6 +4377,14 @@ export class PencilEngine implements PencilEngineAPI {
     this._revealPool = []
     this._settlePlan.destroyTextures()
     this.gl.deleteTexture(this._paperTex)
+    // Borrowers above never own these two shared engine VBOs. A lost
+    // generation has no live storage/name to delete (including event delay).
+    if (!this._contextLost && !this.gl.isContextLost()) {
+      this.gl.deleteBuffer(this._quadBuf)
+      this.gl.deleteBuffer(this._screenBuf)
+    }
+    this._quadBuf = null
+    this._screenBuf = null
     // (#536, §17.69) And the context itself, when its canvas has already left
     // the page (the room was closed; React removes the element before the
     // engine is retired). Left to the collector, a phone moving from room to
@@ -5214,6 +5222,8 @@ export class PencilEngine implements PencilEngineAPI {
   // watchdog, especially with several full-size layer textures resident.
   private _handleContextLost = (e: Event): void => {
     this._contextLost=true
+    this._quadBuf = null
+    this._screenBuf = null
     AccumulationBuffer.forgetContextStorage(this.gl)
     this._cancelOwnedAuthor(true)
     this._brushPreparationGeneration++
