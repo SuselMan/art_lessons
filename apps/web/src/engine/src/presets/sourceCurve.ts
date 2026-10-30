@@ -13,16 +13,20 @@ export interface SourceCurveDenseLayout {
   readonly resolution: number
   readonly arithmetic: 'installed-arm64-fused-v1'
 }
+export interface SourceCurveSensorLayout {
+  readonly layout: 'sensor'
+  readonly arithmetic: 'installed-arm64-fused-v1'
+}
 /** The exact polynomial evaluation/sampling law, not an alternative spline
  * solver. Arbitrary control-point compilation still needs native SparseLU. */
-export function sourceCurveTransfer(curve: SourceCurvePolynomial, dense?: SourceCurveDenseLayout): readonly number[] {
+export function sourceCurveTransfer(curve: SourceCurvePolynomial, dense?: SourceCurveDenseLayout | SourceCurveSensorLayout): readonly number[] {
   const { points, coefficients } = curve
   if (points.length < 1 || points.length > 256 || coefficients.length !== Math.max(1, points.length - 1)
     || points.some((p, i) => !Number.isFinite(p.x) || !Number.isFinite(p.y) || p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1 || (i > 0 && p.x <= points[i - 1].x))
     || coefficients.some(c => c.length !== 4 || !c.every(Number.isFinite))) throw new RangeError('Invalid native spline program')
-  if (dense !== undefined && (dense.layout !== 'soft-mask' || dense.arithmetic !== 'installed-arm64-fused-v1'
-    || !Number.isSafeInteger(dense.resolution) || dense.resolution < 0 || dense.resolution > 16382)) throw new RangeError('Invalid native radial curve layout')
-  const size = dense === undefined ? 256 : dense.resolution + 2
+  if (dense !== undefined && (dense.arithmetic !== 'installed-arm64-fused-v1' || !['soft-mask','sensor'].includes(dense.layout)
+    || dense.layout === 'soft-mask' && (!Number.isSafeInteger(dense.resolution) || dense.resolution < 0 || dense.resolution > 16382))) throw new RangeError('Invalid native radial curve layout')
+  const size = dense === undefined || dense.layout === 'sensor' ? 256 : dense.resolution + 2
   const end = 1 / (size - 1)
   return Array.from({ length: size }, (_, i) => {
     const x = Math.max(points[0].x, Math.min(i * end, points[points.length - 1].x))

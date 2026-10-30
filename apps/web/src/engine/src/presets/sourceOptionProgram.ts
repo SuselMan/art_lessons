@@ -9,7 +9,7 @@ export interface SourceProgramSensor {
   readonly angleOffset?: number
   readonly lockedAngle?: boolean
   /** Already selected native common/per-sensor curve after settings reader. */
-  readonly curve: { readonly points: readonly SourceCurvePoint[]; readonly coefficients?: SourceCurvePolynomial['coefficients'] }
+  readonly curve: { readonly points: readonly SourceCurvePoint[]; readonly coefficients?: SourceCurvePolynomial['coefficients']; readonly arithmetic?: 'installed-arm64-fused-v1' }
 }
 export interface SourceOptionProgramInput {
   readonly id: string
@@ -36,10 +36,11 @@ export function compileSourceOptionProgram(input: SourceOptionProgramInput): Sou
     if (!SOURCE_SENSOR_ORDER.includes(sensor.id) || seen.has(sensor.id)) throw new RangeError('Unknown or duplicate native sensor program')
     seen.add(sensor.id)
     const kind: SourceSensor['kind'] = additive.has(sensor.id) ? 'additive' : sensor.id === 'drawingAngle' ? 'absolute' : 'scaling'
+    if(sensor.curve.arithmetic!==undefined && sensor.curve.arithmetic!=='installed-arm64-fused-v1')throw new RangeError('Unsupported native sensor curve arithmetic')
     const identity=sourceCurveIsIdentity(sensor.curve.points)
     const unavailable=!identity && sensor.curve.coefficients === undefined && (!input.checked || !input.useCurve)
     const transfer=identity || unavailable ? undefined
-      : sourceCurveTransfer({ points: sensor.curve.points, coefficients: sensor.curve.coefficients ?? [] })
+      : sourceCurveTransfer({ points: sensor.curve.points, coefficients: sensor.curve.coefficients ?? [] },sensor.curve.arithmetic===undefined?undefined:{layout:'sensor',arithmetic:sensor.curve.arithmetic})
     if (sensor.id === 'time' || sensor.id === 'fade' || sensor.id === 'distance') {
       if (!Number.isInteger(sensor.length) || sensor.length! < 1 || sensor.length! > 2147483647 || typeof sensor.periodic !== 'boolean') throw new RangeError('Invalid native sensor length program')
     }
