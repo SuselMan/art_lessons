@@ -474,8 +474,12 @@ export class TransformedMaskPrepass {
       const a8 = new Uint8Array(pixels), rgba = new Uint8Array(pixels * 4);
       const slot = (this.slots as Slot[]).slice().sort((a,b) => a.used-b.used)[0];
       slot.revision = undefined; slot.plan = undefined; slot.material = undefined;
-      const captured = Object.freeze({ ...material, recipe: Object.freeze({ ...material.recipe, source: Object.freeze({ ...material.recipe.source }) }),
-        trustedSource: Object.freeze({ ...material.trustedSource, source: Object.freeze({ ...material.trustedSource.source }) }) });
+      const captured = Object.freeze({ ...material, recipe: material.recipe.kind === 'defaultAuto'
+        ? Object.freeze({ ...material.recipe, source: Object.freeze({ ...material.recipe.source }) })
+        : Object.freeze({ ...material.recipe, source: Object.freeze({ ...material.recipe.source }) }),
+        trustedSource: material.trustedSource.kind === 'defaultAuto'
+        ? Object.freeze({ ...material.trustedSource, source: Object.freeze({ ...material.trustedSource.source }) })
+        : Object.freeze({ ...material.trustedSource, source: Object.freeze({ ...material.trustedSource.source }) }) });
       this.pendingAuto = { owner: request.owner, role: request.role, revision, slot, epoch: this.workspace,
         evaluator: prepared.evaluator, material: captured, width, height, a8, rgba, release, filled: 0, uploadedRows: 0 };
       return false;

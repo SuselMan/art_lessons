@@ -1,5 +1,5 @@
 import {
-  buildCanonicalMaterial, canonicalMaterialGeometryCost, canonicalDefaultAutoCost, canonicalDefaultAutoStatic, canonicalDefaultAutoSourcePin, CANONICAL_MATERIAL_LIMITS,
+  buildCanonicalMaterial, canonicalMaterialGeometryCost, canonicalAutoCost, canonicalDefaultAutoStatic, canonicalDefaultAutoSourcePin, canonicalGaussianAutoStatic, canonicalGaussianAutoSourcePin, CANONICAL_MATERIAL_LIMITS,
   type CanonicalMaterialBuildInput, type CanonicalMaterialContext, type CanonicalMaterialEntry,
   type CanonicalMaterialFence, type CanonicalMaterialFrame, type CanonicalMaterialContextV2, type CanonicalMaterialFrameV2, type AnyCanonicalMaterialRecipe, type AnyCanonicalMaterialFrame, type AnyCanonicalMaterialContext, type CanonicalMaterialBuildInputV2,
 } from '@grafetto/shared'
@@ -37,7 +37,7 @@ export function pinSourceMaterialTargets(g:SourceMaterialTargetGeometry|undefine
 }
 export function copySourceMaterialContext(c:AnySourceStrokeMaterialContext):AnyCanonicalMaterialContext {
   if('version' in c&&c.version===2){
-    const binding=(s:CanonicalMaterialContextV2['primarySource'])=>s?.kind==='defaultAuto'?canonicalDefaultAutoSourcePin(s):freeze({...s})
+    const binding=(s:CanonicalMaterialContextV2['primarySource'])=>s?.kind==='defaultAuto'?canonicalDefaultAutoSourcePin(s):s?.kind==='gaussianAuto'?canonicalGaussianAutoSourcePin(s):freeze({...s})
     const primarySource=binding(c.primarySource),maskSource=c.maskSource===undefined?undefined:binding(c.maskSource)
     return freeze({version:2,assets:structuredClone(c.assets),primarySource,...maskSource?{maskSource}:{},budget:{...c.budget}})
   }
@@ -134,9 +134,7 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
   private pixels=0
 
   constructor(program:SourceStrokeAuthorProgram,context:C,source:SourceStrokeAuthorState,checkpoint?:SourceStrokeMaterialCheckpoint){
-    if(version2(context)&&(context.primarySource.kind==='gaussianAuto'||context.maskSource?.kind==='gaussianAuto'))throw new RangeError('Gaussian auto material integration unavailable')
-    if(!version2(context)&&program.roles.some(r=>r.geometry?.kind==='defaultAuto'))throw new RangeError('Default auto requires a trusted wire2 source context')
-    if(program.roles.some(r=>r.geometry?.kind==='gaussianAuto'))throw new RangeError('Gaussian auto material integration unavailable')
+    if(!version2(context)&&program.roles.some(r=>r.geometry?.kind==='defaultAuto'||r.geometry?.kind==='gaussianAuto'))throw new RangeError('Default auto requires a trusted wire2 source context')
     this.targets=pinSourceMaterialTargets(context.targetGeometry)
     this.context=copySourceMaterialContext(context)
     buildAdapterMaterial({masked:program.roles.length===2,entry:{phase:'between'},draws:[],fences:[]},this.context)
@@ -146,13 +144,17 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
       if(version2(this.context)){
         const pin=r.id==='primary'?this.context.primarySource:this.context.maskSource
         if(!pin)invalid()
-        if(pin.kind==='gaussianAuto')throw new RangeError('Gaussian auto material integration unavailable')
-        if(pin.kind==='defaultAuto'){
+        if(pin.kind==='defaultAuto'||pin.kind==='gaussianAuto'){
           const g=r.geometry
-          if(g?.kind!=='defaultAuto'||r.materialPolicy!=='default-auto-fixed1-rng-free'||pin.brushScale!==1
+          const policy=pin.kind==='defaultAuto'?'default-auto-fixed1-rng-free':'gaussian-auto-fixed1-rng-free'
+          if(!g||g.kind!==pin.kind||r.materialPolicy!==policy||pin.brushScale!==1
             ||r.material.brushIdentity!==pin.descriptorId+'@'+pin.descriptorVersion
-            ||g.coverageProfile!==pin.coverageProfile
-            ||!sameData(canonicalDefaultAutoStatic(g.source,r.brush.scale,r.brush.angle),canonicalDefaultAutoStatic(pin.source,pin.brushScale,pin.brushAngle)))invalid()
+            ||g.coverageProfile!==pin.coverageProfile)invalid()
+          const actual=g.kind==='defaultAuto'?canonicalDefaultAutoStatic(g.source,r.brush.scale,r.brush.angle)
+            :g.kind==='gaussianAuto'?canonicalGaussianAutoStatic(g.source,r.brush.scale,r.brush.angle):invalid()
+          const expected=pin.kind==='defaultAuto'?canonicalDefaultAutoStatic(pin.source,pin.brushScale,pin.brushAngle)
+            :canonicalGaussianAutoStatic(pin.source,pin.brushScale,pin.brushAngle)
+          if(!sameData(actual,expected))invalid()
         } else {
           const a=this.context.assets.find(a=>a.id===pin.asset)
           if(r.geometry?.kind==='defaultAuto'||r.materialPolicy!=='png-fixed1-rng-free'||r.material.brushIdentity!==pin.asset||!a
@@ -225,7 +227,6 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
       ||!Number.isSafeInteger(m.resolvedRect.x)||!Number.isSafeInteger(m.resolvedRect.y)
       ||Math.abs(m.resolvedRect.x)>1e8||Math.abs(m.resolvedRect.y)>1e8
       ||Math.abs(m.resolvedRect.x+s.width)>1e8||Math.abs(m.resolvedRect.y+s.height)>1e8)invalid()
-    if(s.geometry?.kind==='gaussianAuto')throw new RangeError('Gaussian auto material integration unavailable')
     const common={brushScale:s.brush.scale,brushAngle:s.brush.angle,
       scale:s.shape.scale,ratio:s.shape.ratio,rotation:s.shape.rotation,subX:s.key.subPixelX,subY:s.key.subPixelY,
       width:s.width,height:s.height,mirrorH:s.mirror.horizontal,mirrorV:s.mirror.vertical}
@@ -234,18 +235,21 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
       if(!version2(this.context))invalid()
       recipe={...common,kind:'defaultAuto',coverageProfile:s.geometry.coverageProfile,
         ...canonicalDefaultAutoStatic(s.geometry.source,s.brush.scale,s.brush.angle)}
+    }else if(s.geometry?.kind==='gaussianAuto'){
+      if(!version2(this.context))invalid()
+      recipe={...common,kind:'gaussianAuto',coverageProfile:s.geometry.coverageProfile,
+        ...canonicalGaussianAutoStatic(s.geometry.source,s.brush.scale,s.brush.angle)}
     }else recipe=version2(this.context)?{...common,kind:'image',asset:s.brushIdentity}:{...common,asset:s.brushIdentity}
     // Saved source shape already consumed coordinateSystemFlipped. Bitmap flips
     // are saved mirror bits; NEVER use the second, spacing-only Mirror result.
     return{recipe,role,x:m.resolvedRect.x,y:m.resolvedRect.y,opacity:r.opacity,flow:r.flow} as Draw
   }
   private cost(draw:Draw){
-    if('kind' in draw.recipe&&draw.recipe.kind==='gaussianAuto')throw new RangeError('Gaussian auto material integration unavailable')
-    if('kind' in draw.recipe&&draw.recipe.kind==='defaultAuto'){
+    if('kind' in draw.recipe&&(draw.recipe.kind==='defaultAuto'||draw.recipe.kind==='gaussianAuto')){
       if(!version2(this.context))invalid()
       const pin=draw.role==='primary'?this.context.primarySource:this.context.maskSource
-      if(pin?.kind!=='defaultAuto')invalid()
-      return canonicalDefaultAutoCost(draw.recipe,pin)
+      if(!pin||pin.kind!==draw.recipe.kind)invalid()
+      return canonicalAutoCost(draw.recipe,pin)
     }
     const recipe=draw.recipe
     if(!('asset' in recipe))return invalid()

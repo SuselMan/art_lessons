@@ -39,3 +39,45 @@ Supplementary `auto-prepass-narrow-profile-64-result.json`/`run-auto-prepass-nar
 
 
 The added preparedCapacity metadata getter changes this whole-file SHA to `2b555d0e2b695caa81f6b5863dd153a804b4c80648347ed8cab9dda4051f66f5`; it does not alter arithmetic/upload code. New actual Samsung `auto7-derived-capacity-{64,8}-result.json` snapshots retain that SHA and cover full author→decoded executor pixels with actual independent prepass/compositor capacities. Prior narrow56 and200² receipts remain historical frozen-source proofs, not rewritten attestations for a changed file.
+
+
+## Gaussian typed recipe continuation (host scope)
+
+CanonicalAutoMaskMaterial now accepts shared default|Gaussian recipe/source data.
+Shared canonicalAutoCost validates kind, generator, profile, source pin and window
+before cache reuse or allocation. Revision includes source generator and profile;
+valid default/Gaussian recipes with identical windows never alias, nor do the two
+Gaussian profiles. Placement/mirror stays outside the raster revision.
+
+prepareCanonicalAutoMask dispatches to the existing incremental services. No new
+arithmetic body, queue, cache, CAS asset or quota. Gaussian coefficients are eight
+fixed scalar fields in the cursor closure, not a per-pixel table. Existing fixed
+cursor/pin metadata and bounded A8+RGBA stripe charges remain; advance uses the
+same caller sample quantum and upload/failure/lifetime machinery.
+
+Host tests cover native104 whole-wrapper masks/29098 A8 bytes replicated into all
+four uploaded channels. Actual ready7×2profiles×30pressure author→adapter→wire
+recipes (220 draws) reach prepass without a bank; moved/mirrored hits upload zero
+bytes. Valid generator/profile changes miss the warmed cache; invalid ones fail
+before upload. Owner release, reset(true) context forget and eviction cancel
+pending generation and balance reservations. This is CPU/native-oracle plus
+recording-GL evidence, not device execution or UI latency. Prior device receipts
+above remain unchanged historical-source proofs.
+
+
+Root's actual Samsung continuation proof (requested Gaussian NEON profile only;
+scalar device coverage is not claimed, same production hashes) is retained as
+`fixes-v52/gaussian7-executor-64-result.json` (all7) and
+`gaussian7-executor-8-result.json` (largest2, real prepass64/compositor8).
+Both report wrong0/maxDelta0, caller state restored, GL[], cleanupOk=true and
+zero handles. They run actual author/adapter/encoder V2 packets through executor,
+Tiled buffers, scratch, this prepass and composite against a source-law CPU oracle;
+this is NOT independent native GUI whole-stroke identity or active UI latency.
+
+Adapter SHA256 `56edf7f629f85b26d94a101f5a6f96bb8f2a8464faae28f4d5dc2f8c48a58e48`;
+Plan `3de3684fdc3142415fc94624c27a258b6d6a155711e078d1849ffb2274a9f8c7`;
+Prepass `26bd4099b5d56de526485a7e69984d483025d31b08e7e00ee9711fe103571a1e`.
+64 bundle `0bf650079f90d21ac6adfb34c866c294a949ed928da2380026813c319b6bd2da`;
+8 bundle `0bf650079f90d21ac6adfb34c866c294a949ed928da2380026813c319b6bd2da`. Body, fixture and complete source snapshots
+are in the unchanged receipts. These three current production files were checked
+against the stored source hashes before this provenance append.

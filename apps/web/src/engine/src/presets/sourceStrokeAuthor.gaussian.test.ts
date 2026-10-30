@@ -121,9 +121,9 @@ describe('Gaussian source data in the existing author/query/cache owner',()=>{
     }
     expect(hits).toBeGreaterThan(0);expect(drift).toBeGreaterThan(0)
   })
-  it('rejects material/PNG fallthrough before asset reads and keeps generator/profile distinct in cache',()=>{
+  it('rejects legacy/PNG fallthrough before asset reads and keeps generator/profile distinct in cache',()=>{
     const p=program(5),author=new SourceStrokeAuthor(p),state=author.createState(1,2,0),assetRead=vi.fn(()=>[])
-    expect(()=>new SourceStrokeMaterialAdapter(p,{get assets(){return assetRead()},primaryAsset:'fake',budget:{workUnits:100000,outputBytes:100000,drawPixels:100000}},state)).toThrow(/Gaussian auto material integration/)
+    expect(()=>new SourceStrokeMaterialAdapter(p,{get assets(){return assetRead()},primaryAsset:'fake',budget:{workUnits:100000,outputBytes:100000,drawPixels:100000}},state)).toThrow(/trusted wire2/)
     expect(assetRead).not.toHaveBeenCalled()
     expect(()=>new SourceCanonicalFrameEncoder({material:{geometry:p.roles[0].geometry}} as never)).toThrow('trusted wire2')
     expect(()=>resolvedTransformedMaskPlan({geometry:p.roles[0].geometry} as never)).toThrow('typed procedural')

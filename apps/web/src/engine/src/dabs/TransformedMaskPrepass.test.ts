@@ -1,3 +1,8 @@
+import { GAUSSIAN_READY_STOCK, sourceGaussianCanonicalFixture } from '../../testing/sourceGaussianCanonicalFixture';
+import gaussianNative from '../presets/fixtures/sourceGaussianWholePath/whole.native.json';
+import { sourceGaussianDab } from '../presets/sourceGaussianDab';
+import { canonicalAutoMaskRevision } from './TransformedMaskPlan';
+import type { CanonicalGaussianAutoRecipe, CanonicalGaussianAutoSource } from '@grafetto/shared';
 import { prepareSourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab';
 import { CanonicalRgba8CompositePass } from './CanonicalRgba8CompositePass';
 import { runBrushGlBatch } from './BrushGlBatch';
@@ -450,7 +455,9 @@ describe('canonical default-auto incremental slot generation', () => {
     const exhaust=s.cpu.reserve(s.cpu.budgetBytes-before);
     expect(()=>s.service.beginAutoGeneration(r)).toThrow('budget');
     expect(s.gl.texSubImage2D).toHaveBeenCalledTimes(uploads);exhaust();
-    expect(()=>s.service.beginAutoGeneration({...r,material:{...r.material,recipe:{...r.material.recipe,source:{...r.material.recipe.source,diameter:8}}}})).toThrow();
+    const forged:typeof r={...r,material:{...r.material,recipe:structuredClone(r.material.recipe)}};Object.assign(forged.material.recipe.source,{diameter:8});
+    expect(forged.material.recipe.source).not.toBe(forged.material.trustedSource.source);
+    expect(()=>s.service.beginAutoGeneration(forged)).toThrow('source static mismatch');
     expect(s.cpu.reservedBytes).toBe(before);expect(s.gl.texSubImage2D).toHaveBeenCalledTimes(uploads);
     s.service.beginAutoGeneration(r);s.gl.texSubImage2D.mockImplementationOnce(()=>{throw Error('upload failure')});
     expect(()=>{while(true)s.service.advanceAutoGeneration(64)}).toThrow('upload failure');
@@ -458,3 +465,107 @@ describe('canonical default-auto incremental slot generation', () => {
     s.service.reset();
   });
 });
+
+
+describe('Gaussian in the same incremental prepass slot and cache',()=>{
+  function requestFor(recipe:CanonicalGaussianAutoRecipe,trustedSource:CanonicalGaussianAutoSource,owner:object={}):import('./TransformedMaskPrepass').CanonicalAutoMaskRequest {
+    return {owner,role:'primary',material:{kind:'canonicalAuto',recipe,trustedSource},rect:{x:-9,y:17,width:recipe.width,height:recipe.height},profile:'neon4-summed-wordsize64'}
+  }
+  function capture(s:ReturnType<typeof setup>,width:number,height:number) {
+    const pixels=new Uint8Array(width*height)
+    s.gl.texSubImage2D.mockImplementation((...args:unknown[])=>{
+      const y=args[3] as number,w=args[4] as number,h=args[5] as number,bytes=args[8] as Uint8Array
+      expect(w).toBe(width)
+      for(let i=0;i<w*h;i++) {
+        const b=bytes[i*4];if(bytes[i*4+1]!==b||bytes[i*4+2]!==b||bytes[i*4+3]!==b)throw Error('A8 replication differs');pixels[y*width+i]=b
+      }
+    })
+    return pixels
+  }
+  function drain(s:ReturnType<typeof setup>,r:import('./TransformedMaskPrepass').CanonicalAutoMaskRequest) {
+    if(s.service.beginAutoGeneration(r))return true
+    let done=false
+    while(!done){const step=s.service.advanceAutoGeneration(64);expect(step.consumed).toBeLessThanOrEqual(64);done=step.done}
+    return false
+  }
+  it('uploads all104 original whole-Gaussian masks byte-exact through the same64sample cursor and RGBA stripe layout',()=>{
+    const s=setup();s.cache.clear();const owner={}
+    const maxWidth=Math.max(...gaussianNative.cases.map(c=>c.width)),maxHeight=Math.max(...gaussianNative.cases.map(c=>c.height))
+    s.service.prepare({width:maxWidth,height:maxHeight,slots:1},[])
+    const baseline=s.cpu.reservedBytes;let total=0,lastRevision='',lastMask=new Uint8Array()
+    try {for(const c of gaussianNative.cases) {
+      const g=c.generator,source={kind:'gaussianAuto' as const,generator:'gauss' as const,shape:'circle' as const,diameter:+g.diameter,ratio:+g.ratio,
+        horizontalFade:+g.hfade,verticalFade:+g.vfade,antialias:g.antialiasEdges!=='0',spikes:2,randomness:0,density:1}
+      const profile=c.mode==='scalar-common'?'scalar-bionic-f64-fma-v1' as const:'neon64-f32-fma-v1' as const
+      const pin:CanonicalGaussianAutoSource={kind:'gaussianAuto',descriptorId:'native-original-ABI-state',descriptorVersion:1,descriptorSha256:'a'.repeat(64),source,brushScale:c.storedScale,brushAngle:c.storedAngle,coverageProfile:profile}
+      const recipe:CanonicalGaussianAutoRecipe={kind:'gaussianAuto',source,coverageProfile:profile,brushScale:c.storedScale,brushAngle:c.storedAngle,
+        ...c.shape,subX:c.subpixelX,subY:c.subpixelY,width:c.width,height:c.height,mirrorH:false,mirrorV:false}
+      const r=requestFor(recipe,pin,owner),mask=capture(s,c.width,c.height),revision=canonicalAutoMaskRevision(r.material)
+      const hit=drain(s,r)
+      const expected=Uint8Array.from(Buffer.from(c.coverageBase64,'base64'))
+      expect(hit).toBe(revision===lastRevision)
+      expect(hit?lastMask:mask).toEqual(expected)
+      const group=s.service.resolveGroup([r]);group.release()
+      expect(s.cpu.reservedBytes).toBe(baseline)
+      lastRevision=revision;lastMask=expected;total+=expected.length
+    }}finally{s.service.reset()}
+    expect(total).toBe(29098);expect(s.cpu.reservedBytes).toBe(0)
+  })
+  const streams=GAUSSIAN_READY_STOCK.flatMap(index=>(['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1'] as const).map(profile=>[index,profile] as const))
+  it.each(streams)('takes actual#%i %s author→adapter→wire recipes without a source bank or hot hit upload',(index,profile)=>{
+    let draws=0
+    {
+      const fixture=sourceGaussianCanonicalFixture(index,profile,false),all=fixture.accepted.flatMap(a=>a.frame.definitions)
+      const s=setup();s.cache.clear();s.service.prepare({width:Math.max(...all.map(d=>d.width)),height:Math.max(...all.map(d=>d.height)),slots:1},[])
+      const owner={},baseline=s.cpu.reservedBytes
+      try {for(const accepted of fixture.accepted)for(const draw of accepted.frame.draws) {
+        const recipe=accepted.frame.definitions[draw.definition];if(recipe.kind!=='gaussianAuto')throw Error('Missing Gaussian recipe')
+        const r={...requestFor(recipe,fixture.pin,owner),rect:{x:draw.x,y:draw.y,width:recipe.width,height:recipe.height}}
+        const mask=capture(s,recipe.width,recipe.height),hit=drain(s,r)
+        if(!hit) {
+          const raw=sourceGaussianDab({dialect:'krita-gaussian-auto-qt5-arm64-v1',tip:{...recipe.source,kind:'auto',spikes:2,softness:1,randomness:0,density:1},
+            storedScale:recipe.brushScale,storedAngle:recipe.brushAngle,shape:{scale:recipe.scale,ratio:recipe.ratio,rotation:recipe.rotation},subpixelX:recipe.subX,subpixelY:recipe.subY,
+            coverageProfile:recipe.coverageProfile,maxPixels:1048576,maxWorkSamples:16*1048576})
+          expect(mask).toEqual(raw.mask)
+        }
+        const group=s.service.resolveGroup([r]);group.release()
+        const uploads=s.gl.texSubImage2D.mock.calls.length,moved={...r,rect:{...r.rect,x:234},material:{...r.material,recipe:{...recipe,mirrorH:!recipe.mirrorH}}}
+        expect(s.service.beginAutoGeneration(moved)).toBe(true)
+        const copy=s.service.resolveGroup([moved]);copy.release()
+        expect(copy.views[0].texture).toBe(group.views[0].texture)
+        expect(s.gl.texSubImage2D).toHaveBeenCalledTimes(uploads);expect(s.cpu.reservedBytes).toBe(baseline);draws++
+      }}finally{s.service.reset()}
+      expect(s.cpu.reservedBytes).toBe(0);expect(s.cache.bytes).toBe(0)
+    }
+    expect(draws).toBeGreaterThan(0)
+  })
+  it('binds generator/profile in cache and trusted source, and cancels on owner release, reset/context loss or residency loss',()=>{
+    const fixture=sourceGaussianCanonicalFixture(5,'neon64-f32-fma-v1',false),recipe=fixture.accepted.flatMap(a=>a.frame.definitions).find(d=>d.kind==='gaussianAuto')!
+    if(recipe.kind!=='gaussianAuto')throw Error('Missing Gaussian')
+    for(const mode of ['owner','reset','evict'] as const) {
+      const s=setup();s.cache.clear();const r=requestFor(recipe,fixture.pin);s.service.prepare({width:64,height:64,slots:1},[])
+      const baseline=s.cpu.reservedBytes;s.service.beginAutoGeneration(r);s.service.advanceAutoGeneration(1)
+      if(mode==='owner')s.service.releaseOwner(r.owner)
+      else if(mode==='reset')s.service.reset(true)
+      else {s.cache.discard(s.service.preparedResources()[1].key);expect(()=>s.service.advanceAutoGeneration(1)).toThrow('residency')}
+      expect(s.cpu.reservedBytes).toBe(mode==='reset'?0:baseline);expect(()=>s.service.resolveGroup([r])).toThrow();s.service.reset();expect(s.cpu.reservedBytes).toBe(0)
+    }
+    const s=setup();s.cache.clear();s.service.prepare({width:64,height:64,slots:1},[]);const r=requestFor(recipe,fixture.pin),before=s.snapshot()
+    const invalid={...r,material:{...r.material,recipe:{...recipe,coverageProfile:'scalar-bionic-f64-fma-v1' as const}}}
+    expect(()=>s.service.beginAutoGeneration(invalid)).toThrow('policy');expect(s.snapshot()).toEqual(before)
+    const wrongGenerator={...r,material:{...r.material,recipe:{...recipe,source:{...recipe.source,generator:'default'}}}}
+    expect(()=>s.service.beginAutoGeneration(wrongGenerator as never)).toThrow();expect(s.snapshot()).toEqual(before)
+    drain(s,r);const initialUploads=s.gl.texSubImage2D.mock.calls.length
+    const scalar={...r,material:{...r.material,recipe:{...recipe,coverageProfile:'scalar-bionic-f64-fma-v1' as const},trustedSource:{...fixture.pin,coverageProfile:'scalar-bionic-f64-fma-v1' as const}}}
+    expect(s.service.beginAutoGeneration(scalar)).toBe(false)
+    while(!s.service.advanceAutoGeneration(64).done){}
+    expect(s.gl.texSubImage2D.mock.calls.length).toBeGreaterThan(initialUploads)
+    const uploads=s.gl.texSubImage2D.mock.calls.length
+    const source={...recipe.source,kind:'defaultAuto' as const,generator:'default' as const},defaultRequest={...r,material:{kind:'canonicalAuto' as const,
+      recipe:{...recipe,kind:'defaultAuto' as const,source,coverageProfile:'neon64-f32-fma-v1' as const},trustedSource:{...fixture.pin,kind:'defaultAuto' as const,source,coverageProfile:'neon64-f32-fma-v1' as const}}}
+    expect(s.service.beginAutoGeneration(defaultRequest)).toBe(false)
+    while(!s.service.advanceAutoGeneration(64).done){}
+    expect(s.gl.texSubImage2D.mock.calls.length).toBeGreaterThan(uploads)
+    s.service.reset();expect(s.cpu.reservedBytes).toBe(0)
+  })
+})

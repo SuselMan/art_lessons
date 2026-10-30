@@ -1,4 +1,5 @@
-import { canonicalDefaultAutoCost, type CanonicalDefaultAutoRecipe, type CanonicalDefaultAutoSource } from '@grafetto/shared';
+import { canonicalAutoCost, type CanonicalAutoRecipe, type CanonicalAutoSource } from '@grafetto/shared';
+import { prepareSourceGaussianDab } from '../presets/sourceGaussianDab';
 import { prepareSourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab';
 import type { CanonicalMaterialAsset, CanonicalMaterialRecipe } from '@grafetto/shared';
 import { sourceImageTransformMetadata } from '@grafetto/shared';
@@ -38,23 +39,28 @@ export interface CanonicalTransformedMaskMaterial {
 }
 export interface CanonicalAutoMaskMaterial {
   readonly kind: 'canonicalAuto';
-  readonly recipe: CanonicalDefaultAutoRecipe;
-  readonly trustedSource: CanonicalDefaultAutoSource;
+  readonly recipe: CanonicalAutoRecipe;
+  readonly trustedSource: CanonicalAutoSource;
 }
 /** Caller supplies the already authenticated source pin; this is not an attestation. */
 export function prepareCanonicalAutoMask(material: CanonicalAutoMaskMaterial) {
   const { recipe, trustedSource } = material;
-  canonicalDefaultAutoCost(recipe, trustedSource);
-  return prepareSourceDefaultAutoDab({ dialect: 'krita-default-auto-qt5-arm64-v1',
-    tip: { ...recipe.source, kind: 'auto', spikes: 2, softness: 1, randomness: 0, density: 1 },
+  canonicalAutoCost(recipe, trustedSource);
+  const common = {
     storedScale: recipe.brushScale, storedAngle: recipe.brushAngle,
     shape: { scale: recipe.scale, ratio: recipe.ratio, rotation: recipe.rotation },
-    subpixelX: recipe.subX, subpixelY: recipe.subY, coverageProfile: recipe.coverageProfile,
-    maxPixels: 1048576, maxWorkSamples: 16 * 1048576 });
+    subpixelX: recipe.subX, subpixelY: recipe.subY,
+    maxPixels: 1048576, maxWorkSamples: 16 * 1048576,
+  };
+  if (recipe.kind === 'gaussianAuto') return prepareSourceGaussianDab({ ...common,
+    dialect: 'krita-gaussian-auto-qt5-arm64-v1', coverageProfile: recipe.coverageProfile,
+    tip: { ...recipe.source, kind: 'auto', spikes: 2, softness: 1, randomness: 0, density: 1 } });
+  return prepareSourceDefaultAutoDab({ ...common, dialect: 'krita-default-auto-qt5-arm64-v1', coverageProfile: recipe.coverageProfile,
+    tip: { ...recipe.source, kind: 'auto', spikes: 2, softness: 1, randomness: 0, density: 1 } });
 }
 export function canonicalAutoMaskRevision(material: CanonicalAutoMaskMaterial): string {
   const { recipe: r, trustedSource: t } = material;
-  canonicalDefaultAutoCost(r, t);
+  canonicalAutoCost(r, t);
   return JSON.stringify(['canonical-auto-v2', t.descriptorId, t.descriptorVersion, t.descriptorSha256,
     r.source.generator, r.source.shape, r.source.diameter, r.source.ratio, r.source.horizontalFade, r.source.verticalFade,
     r.source.antialias, r.source.spikes, r.source.randomness, r.source.density, r.coverageProfile,

@@ -150,9 +150,34 @@ brush storedScale remains1; this is not a UI effective-size override proof.
 The Gaussian coverage profile is closed to raw generator ratio <=1 (larger raw
 ratios may be retained as data but are rejected before author RNG).
 
-No material/codec/prepass execution is activated here. Adapter rejects Gaussian
+At the initial fb16cdfb5 slice, no material/codec/prepass execution was activated. Adapter rejected Gaussian
 programs and trusted pins before asset lookup/build, and rejects injected Gaussian
 material recipes. Old saved-source PNG plan/prepass routes reject the tag before
 PNG geometry and before compatible warmed cache hits. Existing image/default
 fixtures must remain unchanged. Gaussian mask pixel identity remains the scope of
 the independently retained whole-wrapper104 fixture, not these author tests.
+
+
+## Gaussian typed material continuation
+
+The current V2 adapter copies validated typed Gaussian source pins and emits
+recipes from SAVED cache-generation shape/brush/subpixel values. Shared
+canonicalAutoCost and the existing encoder/target packetizer remain the owners.
+Legacy image contexts still reject procedural geometry. No Gaussian source is
+cast to a PNG asset; no author/RNG query runs in the raster service.
+
+Actual ready7 descriptors, both explicit profiles and30pressure inputs pass one
+adapter and the same decoded encoder (220 actual draws for these fixed inputs),
+with identical output under every-yield structured-clone author/adapter resume.
+This count is a deterministic host fixture result, not a claim about a GUI trace.
+Trusted descriptor binding remains a caller authorization boundary; these tests
+do not grant room admission or native erase/dual-brush semantics.
+
+TransformedMaskPlan validates shared cost before dispatch to the existing
+prepareSourceGaussianDab or prepareSourceDefaultAutoDab. Both provide the SAME
+SourceCoverageEvaluator. Prepass retains one cursor, existing slots, CPU stripe
+reservation, narrow upload capsule and LRU owner semantics. Raw saved-source PNG
+routes remain closed; only a typed recipe plus trusted source enters generation.
+Native104 original whole-wrapper Gaussian masks (29098 A8 bytes) pass this route
+into recorded RGBA stripe uploads byte-exact. This is host upload-layout evidence,
+not GPU readback or UI proof.
