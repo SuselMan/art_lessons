@@ -802,6 +802,28 @@ describe('canonical begin/live/recorded actual socket authority (straight creati
       expect(await p0).toEqual({ ok: true, seq: 1 }); expect(await p1).toEqual({ ok: true, seq: 2 })
     } finally { c.cleanup() }
   })
+  it('ACKs and relays a canonical frame only after durable insert or verified same-ID repair', async () => {
+    const c = await canonicalClassroom(), log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const begin = await new Promise<CanonicalStrokeBeginResult>(resolve => c.teacher.emit('canonical_stroke_begin', c.begin, resolve))
+      if (!begin.ok) throw Error('begin failed')
+      const op: CanonicalStrokeOperation = { type: 'canonical_stroke', id: fresh('durable'), userId: 'teacher', timestamp: 0, layerId: c.begin.layerId, frame: canonicalFrames(begin.snapshot, c.descriptor)[0] }
+      let reject!: (error: Error) => void
+      mockPrisma.operation.create.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail }))
+      const settled = vi.fn(), quiet = silent(c.student, 'operation_confirmed', 40)
+      const pending = new Promise<SendResult>(resolve => c.teacher.emit('operation', op, resolve)); void pending.then(settled)
+      await vi.waitFor(() => expect(c.record.operations).toHaveLength(1))
+      await quiet; expect(settled).not.toHaveBeenCalled()
+      reject(new Error('insert failed after append'))
+      expect(await pending).toEqual({ ok: false, reason: 'canonical_repair_required' })
+      expect(c.record.nextSeq).toBe(2)
+      const confirmed = next(c.student, 'operation_confirmed')
+      expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', op, resolve))).toEqual({ ok: true, seq: 1, duplicate: true })
+      expect(await confirmed).toMatchObject({ seq: 1, operation: { ...op, seq: 1 } })
+      expect(c.record.nextSeq).toBe(2); expect(c.record.operations).toHaveLength(1)
+      expect(mockPrisma.operation.create).toHaveBeenCalledTimes(2)
+    } finally { log.mockRestore(); c.cleanup() }
+  })
   it('does not publish a begin on pin failure and rejects stale authority after async DB work', async () => {
     const c = await canonicalClassroom(), pin = vi.spyOn(c.storage, 'pin')
     try {
@@ -837,7 +859,7 @@ describe('canonical begin/live/recorded actual socket authority (straight creati
       mockPrisma.operation.findMany.mockResolvedValue([...prefix].reverse().map(data => ({ data })))
       const replay = await new Promise<CanonicalStrokeBeginResult>(resolve => c.teacher.emit('canonical_stroke_begin', c.begin, resolve))
       expect(replay).toMatchObject({ ok: true, recordedNext: 2, liveNext: 2, ended: true })
-      mockPrisma.operation.findUnique.mockResolvedValue({ roomId: c.lessonId, userId: 'teacher', seq: 1, data: prefix[0] })
+      mockPrisma.operation.findUnique.mockResolvedValue({ id: prefix[0].id, roomId: c.lessonId, userId: 'teacher', seq: 1, type: 'canonical_stroke', layerId: c.begin.layerId, tool: null, data: prefix[0] })
       const pin = vi.spyOn(c.storage, 'pin')
       expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', prefix[0], resolve))).toEqual({ ok: true, seq: 1, duplicate: true })
       expect(pin).not.toHaveBeenCalled(); pin.mockRestore()
@@ -868,7 +890,7 @@ describe('canonical begin/live/recorded actual socket authority (straight creati
       expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', op, resolve))).toEqual({ ok: false, reason: 'invalid_operation' })
       mockPrisma.operation.findUnique.mockResolvedValue({ roomId: c.lessonId, userId: 'another-user', seq: 1, data: { ...op, userId: 'another-user', seq: 1 } })
       expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', op, resolve))).toEqual({ ok: false, reason: 'invalid_operation' })
-      mockPrisma.operation.findUnique.mockResolvedValue({ roomId: c.lessonId, userId: 'teacher', seq: 1, data: { ...op, seq: 1, frame: { ...op.frame, pigmentRgb8: [1, 1, 1] } } })
+      mockPrisma.operation.findUnique.mockResolvedValue({ id: op.id, roomId: c.lessonId, userId: 'teacher', seq: 1, type: 'canonical_stroke', layerId: op.layerId, tool: null, data: { ...op, seq: 1, frame: { ...op.frame, pigmentRgb8: [1, 1, 1] } } })
       expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', op, resolve))).toEqual({ ok: false, reason: 'invalid_operation' })
       let release!: (n: number) => void
       mockPrisma.operation.count.mockImplementationOnce(() => new Promise(resolve => { release = resolve }))

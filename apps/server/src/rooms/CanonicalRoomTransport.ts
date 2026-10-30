@@ -10,7 +10,7 @@ import { CanonicalBrushCapabilityResolver } from './CanonicalBrushCapabilityReso
 import { CanonicalStrokeAdmission, decodeTrustedCanonicalFrame, type CanonicalAdmissionIdentity, type TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
 import { CANONICAL_ROOM_EXECUTION_POLICY, freezeCanonicalAutoPolicies, type CanonicalRoomExecutionPolicy } from './canonicalExecutionPolicy.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
-import { findDuplicateOperation, recordOperation, updateAliveIds } from './operationLog.js'
+import { canonicalWriteFence, ensureCanonicalWrite, findDuplicateOperation, knownCanonicalWrite, recordOperation, updateAliveIds } from './operationLog.js'
 import { flushRoomWrites, lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
 import { getOperationsBefore } from './snapshotStore.js'
 
@@ -22,11 +22,17 @@ function fail(reason: TransportFailure['reason']): never { throw new TransportFa
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 const text = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 256 && !v.includes('\0')
 const gestureKey = (i: CanonicalAdmissionIdentity, strokeId: string) => JSON.stringify([i.roomId, i.userId, strokeId])
-interface Session { readonly grant: TrustedCanonicalGesture; readonly admission: CanonicalStrokeAdmission }
+interface Session {
+  readonly grant: TrustedCanonicalGesture
+  readonly admission: CanonicalStrokeAdmission
+  durableRecordedNext: number
+  recordedTail?: CanonicalStrokeOperation
+}
 interface RoomLifetime { readonly record: RoomRecord; readonly lesson: RoomRecord; readonly sessions: Map<string, Session> }
 /** Actual protocol coordinator. No author/RNG execution, second log, straight
  * room opener, or renderer activation. Async DB checks end BEFORE the existing
- * synchronous prepare -> pin -> record(seq) -> commit -> ack/relay section. */
+ * synchronous prepare -> pin -> record(seq) -> commit section. Durable ACK/relay
+ * waits for the SAME write queue outcome after that section. */
 export class CanonicalRoomTransport {
   private readonly policy:CanonicalRoomExecutionPolicy
   constructor(policy:CanonicalRoomExecutionPolicy=CANONICAL_ROOM_EXECUTION_POLICY){
@@ -65,7 +71,11 @@ export class CanonicalRoomTransport {
     isCurrent: () => boolean): Promise<CanonicalStrokeBeginResult> {
     const key = gestureKey(identity, input.strokeId), previous = lifetime.sessions.get(key), context = this.context!
     if (previous) {
+      await this.durablePrefix(lifetime, previous)
       if (!isCurrent()) fail('not_joined')
+      this.sameLifetime(identity, input.layerId, lifetime)
+      if (lifetime.sessions.get(key) !== previous || this.binder !== binder) fail('canonical_repair_required')
+      this.requireHealthyWrites(lifetime)
       context.storage.pin(identity.roomId, identity.userId, [prepared.grant.brush], context.operator)
       prepared.commit()
       return snapshot(previous)
@@ -74,6 +84,7 @@ export class CanonicalRoomTransport {
     // Drain the existing persistence queue; still cross-check resident history,
     // because a failed background DB write is not proof that a gesture is new.
     await flushRoomWrites(identity.roomId)
+    this.requireHealthyWrites(lifetime)
     const count = await prisma.operation.count({ where: { roomId: identity.roomId, userId: identity.userId, type: 'canonical_stroke',
       seq: { lte: watermark }, data: { path: ['frame', 'strokeId'], equals: input.strokeId } } })
     if (!Number.isSafeInteger(count) || count < 0 || count > PREFIX_FRAMES) fail('canonical_repair_required')
@@ -105,7 +116,7 @@ export class CanonicalRoomTransport {
     this.sameLifetime(identity, input.layerId, lifetime)
     context.storage.pin(identity.roomId, identity.userId, [prepared.grant.brush], context.operator)
     prepared.commit(); hydrating = false
-    const session = { grant: prepared.grant, admission }
+    const session: Session = { grant: prepared.grant, admission, durableRecordedNext: prefix.length }
     lifetime.sessions.set(key, session)
     return snapshot(session)
   }
@@ -132,11 +143,12 @@ export class CanonicalRoomTransport {
       if (!existing) {
         // Unknown IDs may be snapshot-covered. Validate authoritative uniqueness
         // BEFORE entering the synchronous mutation section; no second journal.
-        const row = await prisma.operation.findUnique({ where: { id: op.id }, select: { roomId: true, userId: true, seq: true, data: true } })
+        const row = await prisma.operation.findUnique({ where: { id: op.id }, select: { id: true, roomId: true, userId: true, seq: true, type: true, layerId: true, tool: true, data: true } })
         if (row) {
           if (row.roomId !== identity.roomId || row.userId !== identity.userId) fail('invalid_operation')
           const stored = canonicalOperation(row.data, identity, true)
-          if (!Number.isSafeInteger(row.seq) || stored.seq !== row.seq) fail('canonical_repair_required')
+          if (!Number.isSafeInteger(row.seq) || stored.seq !== row.seq || row.id !== stored.id
+            || row.type !== stored.type || row.layerId !== stored.layerId || row.tool !== null) fail('canonical_repair_required')
           existing = stored
         }
       }
@@ -145,13 +157,17 @@ export class CanonicalRoomTransport {
       if (lifetime.sessions.get(gestureKey(identity, op.frame.strokeId)) !== session || !this.binder?.resolve(identity, { layerId: op.layerId, brush: op.frame.brush, strokeId: op.frame.strokeId })) fail('canonical_repair_required')
       // Another request can have committed while the ID lookup awaited.
       existing = findDuplicateOperation(identity.roomId, op.id) ?? existing
-      if (existing) {
-        const stored = canonicalOperation(existing, identity, true)
-        if (!stored.seq || !sameOperation(op, stored) || op.seq !== undefined && op.seq !== stored.seq) fail('invalid_operation')
-        decodeTrustedCanonicalFrame(op.frame,session.grant,op.frame.frameOrdinal)
-        return { result: { ok: true, seq: stored.seq, duplicate: true } }
-      }
+      if (existing) return await this.durableDuplicate(identity, op, existing, lifetime, session, isCurrent)
       if (op.seq !== undefined) fail('invalid_operation')
+      await this.durablePrefix(lifetime, session)
+      if (!isCurrent()) fail('not_joined')
+      this.sameLifetime(identity, op.layerId, lifetime)
+      if (lifetime.sessions.get(gestureKey(identity, op.frame.strokeId)) !== session) fail('canonical_repair_required')
+      this.requireHealthyWrites(lifetime)
+      // A different socket may have appended this ID while awaiting a pending
+      // prefix. Retrying enters the exact duplicate path, never allocates seq2.
+      const raced = findDuplicateOperation(identity.roomId, op.id)
+      if (raced) return await this.durableDuplicate(identity, op, raced, lifetime, session, isCurrent)
       const ticket = session.admission.prepare(identity, { type: 'canonical_stroke', id: op.id, layerId: op.layerId, frame: op.frame })
       if (ticket.duplicate) fail('canonical_repair_required')
       this.context!.storage.pin(identity.roomId, identity.userId, [session.grant.brush], this.context!.operator)
@@ -159,8 +175,50 @@ export class CanonicalRoomTransport {
       updateAliveIds(identity.roomId, canonical)
       const accepted = recordOperation(identity.roomId, canonical) as CanonicalStrokeOperation
       ticket.commit()
+      session.recordedTail = accepted
+      const outcome = await ensureCanonicalWrite(lifetime.record, accepted)
+      if (!outcome.ok) fail('canonical_repair_required')
+      session.durableRecordedNext = Math.max(session.durableRecordedNext, accepted.frame.frameOrdinal + 1)
+      if (!isCurrent()) fail('not_joined')
+      this.sameLifetime(identity, op.layerId, lifetime)
+      if (lifetime.sessions.get(gestureKey(identity, op.frame.strokeId)) !== session) fail('canonical_repair_required')
+      this.requireHealthyWrites(lifetime)
       return { result: { ok: true, seq: accepted.seq! }, accepted }
     } catch (error) { return { result: { ok: false, reason: reason(error) } } }
+  }
+
+  private async durableDuplicate(identity: CanonicalAdmissionIdentity, op: CanonicalStrokeOperation, existing: unknown, lifetime: RoomLifetime, session: Session, isCurrent: () => boolean): Promise<{ readonly result: SendResult; readonly accepted?: CanonicalStrokeOperation }> {
+    const stored = canonicalOperation(existing, identity, true)
+    if (!stored.seq || !sameOperation(op, stored) || op.seq !== undefined && op.seq !== stored.seq) fail('invalid_operation')
+    decodeTrustedCanonicalFrame(op.frame,session.grant,op.frame.frameOrdinal)
+    // An equal RAM object is not proof of a successful insert. Pending
+    // attempts join; a failed immutable row gets one explicit same-ID retry.
+    if (lifetime.record.operationsById.get(stored.id) === existing) {
+      if (!knownCanonicalWrite(stored)) fail('canonical_repair_required')
+      const outcome = await ensureCanonicalWrite(lifetime.record, stored, { retryFailed: true })
+      if (!outcome.ok) fail('canonical_repair_required')
+    }
+    if (!isCurrent()) fail('not_joined')
+    this.sameLifetime(identity, op.layerId, lifetime)
+    if (lifetime.sessions.get(gestureKey(identity, op.frame.strokeId)) !== session) fail('canonical_repair_required')
+    this.requireHealthyWrites(lifetime)
+    if (session.recordedTail === existing) session.durableRecordedNext = Math.max(session.durableRecordedNext, stored.frame.frameOrdinal + 1)
+    // Repaired confirmations are at-least-once. The existing client log
+    // deduplicates ID/seq; otherwise an initial failed insert loses relay.
+    return { result: { ok: true, seq: stored.seq, duplicate: true }, accepted: stored }
+  }
+
+  private requireHealthyWrites(lifetime: RoomLifetime): void {
+    if (canonicalWriteFence(lifetime.record).failed) fail('canonical_repair_required')
+  }
+  private async durablePrefix(lifetime: RoomLifetime, session: Session): Promise<void> {
+    const tail = session.recordedTail
+    if (tail && session.durableRecordedNext <= tail.frame.frameOrdinal) {
+      const outcome = await ensureCanonicalWrite(lifetime.record, tail)
+      if (!outcome.ok || session.recordedTail !== tail) fail('canonical_repair_required')
+      session.durableRecordedNext = tail.frame.frameOrdinal + 1
+    }
+    if (session.durableRecordedNext !== session.admission.cursor(session.grant, session.grant.strokeId).recordedNext) fail('canonical_repair_required')
   }
 
   private session(lifetime: RoomLifetime, identity: CanonicalAdmissionIdentity, strokeId: unknown): Session {

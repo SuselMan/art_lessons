@@ -237,3 +237,62 @@ it('keeps Gaussian erase/effects and both generator policies explicitly closed',
   Object.create({gaussianAuto:{coverageProfile:'neon64-f32-fma-v1',storedScale:1}}),
  ])expect(()=>new CanonicalRoomTransport({...policy,autoSources} as never)).toThrow('explicit auto policy')
 })
+
+function deferredWrite(){let resolve!:()=>void,reject!:(error:Error)=>void;const promise=new Promise<void>((a,b)=>{resolve=a;reject=b});return{promise,resolve,reject}}
+function operation(frame:CanonicalStrokeFrameEnvelope,id='durable'):CanonicalStrokeOperation{return{type:'canonical_stroke',id,userId:'author',timestamp:0,layerId:'layer',frame}}
+it.each(['defaultAuto','gaussianAuto'] as const)('withholds %s ACK/confirmation until DB success and repairs the SAME failed row',async kind=>{
+ const {default:gaussian}=await import(new URL('../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.native.ts',import.meta.url).href)
+ const descriptor=kind==='defaultAuto'?stock.rows[0].descriptor:gaussian.rows.find((r:{index:number})=>r.index===5)!.descriptor
+ const f=setup(descriptor as BrushDescriptor),selected={...policy,autoSources:{...policy.autoSources,gaussianAuto:{coverageProfile:'neon64-f32-fma-v1' as const,storedScale:1 as const}}}
+ const transport=new CanonicalRoomTransport(selected),s=snapshot(await transport.begin(identity,f.input,()=>true)),packets=frames(f.descriptor,s)
+ const pin=vi.spyOn(f.storage,'pin'),first=deferredWrite(),log=vi.spyOn(console,'error').mockImplementation(()=>{})
+ db.operation.create.mockReturnValueOnce(first.promise)
+ const op=operation(packets[0]),pending=transport.recorded(identity,op,()=>true),settled=vi.fn();void pending.then(settled)
+ await vi.waitFor(()=>expect(f.board.operations).toHaveLength(1))
+ expect(settled).not.toHaveBeenCalled();expect(f.board.nextSeq).toBe(2)
+ const duplicate=transport.recorded(identity,op,()=>true),begin=transport.begin(identity,f.input,()=>true)
+ const next=transport.recorded(identity,operation(packets[1],'next'),()=>true)
+ first.reject(new Error('insert failed after admission seal'))
+ for(const result of await Promise.all([pending,duplicate,next]))expect(result).toEqual({result:{ok:false,reason:'canonical_repair_required'}})
+ expect(await begin).toEqual({ok:false,reason:'canonical_repair_required'})
+ expect(f.board.operations).toHaveLength(1);expect(f.board.nextSeq).toBe(2);expect(db.operation.create).toHaveBeenCalledTimes(1)
+ expect(await new CanonicalRoomTransport(selected).begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'canonical_repair_required'})
+ const repair=deferredWrite(),pins=pin.mock.calls.length;db.operation.create.mockReturnValueOnce(repair.promise)
+ const a=transport.recorded(identity,op,()=>true),b=transport.recorded(identity,op,()=>true)
+ await vi.waitFor(()=>expect(db.operation.create).toHaveBeenCalledTimes(2));expect(pin).toHaveBeenCalledTimes(pins)
+ repair.resolve()
+ for(const result of await Promise.all([a,b])){
+  expect(result.result).toEqual({ok:true,seq:1,duplicate:true});expect(result.accepted).toBe(f.board.operations[0])
+  expect(result.accepted!.frame.materialPacked).toBe(op.frame.materialPacked)
+ }
+ expect(f.board.nextSeq).toBe(2);expect(f.board.operations).toHaveLength(1)
+ expect(await transport.recorded(identity,operation(packets[1],'next'),()=>true)).toMatchObject({result:{ok:true,seq:2}})
+ expect(db.operation.create).toHaveBeenCalledTimes(3);log.mockRestore()
+})
+it('does not publish a later gesture merely because its insert succeeded after an earlier failed row',async()=>{
+ const f=setup(),transport=new CanonicalRoomTransport(policy)
+ const a=snapshot(await transport.begin(identity,f.input,()=>true)),b=snapshot(await transport.begin(identity,{...f.input,strokeId:'gestureB'},()=>true))
+ const first=deferredWrite(),second=deferredWrite(),log=vi.spyOn(console,'error').mockImplementation(()=>{})
+ db.operation.create.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+ const opA=operation(frames(f.descriptor,a)[0],'A'),opB=operation(frames(f.descriptor,b)[0],'B')
+ const pendingA=transport.recorded(identity,opA,()=>true),pendingB=transport.recorded(identity,opB,()=>true)
+ await vi.waitFor(()=>expect(f.board.operations).toHaveLength(2))
+ first.reject(new Error('earlier sequence failed'));expect(await pendingA).toEqual({result:{ok:false,reason:'canonical_repair_required'}})
+ second.resolve();expect(await pendingB).toEqual({result:{ok:false,reason:'canonical_repair_required'}})
+ expect(f.board.nextSeq).toBe(3)
+ expect(await transport.recorded(identity,opA,()=>true)).toMatchObject({result:{ok:true,duplicate:true,seq:1},accepted:{id:'A'}})
+ expect(await transport.recorded(identity,opB,()=>true)).toMatchObject({result:{ok:true,duplicate:true,seq:2},accepted:{id:'B'}})
+ expect(db.operation.create).toHaveBeenCalledTimes(3);expect(f.board.nextSeq).toBe(3);log.mockRestore()
+})
+it.each(['disconnect','replacement'] as const)('does not publish stale %s confirmation after persistence completes',async change=>{
+ const f=setup(),transport=new CanonicalRoomTransport(policy),s=snapshot(await transport.begin(identity,f.input,()=>true)),write=deferredWrite()
+ db.operation.create.mockReturnValueOnce(write.promise)
+ let current=true
+ const pending=transport.recorded(identity,operation(frames(f.descriptor,s)[0]),()=>current)
+ await vi.waitFor(()=>expect(f.board.operations).toHaveLength(1))
+ if(change==='disconnect')current=false;else resident()
+ write.resolve()
+ expect(await pending).toEqual({result:{ok:false,reason:change==='disconnect'?'not_joined':'canonical_repair_required'}})
+ expect(f.board.operations).toHaveLength(1);expect(f.board.nextSeq).toBe(2)
+ if(change==='replacement')expect(rooms.get('board')!.operations).toEqual([])
+})

@@ -149,3 +149,35 @@ while startup's default map remains empty. Existing image/default socket
 regressions are retained. DB mocks prove ordering/admission, not actual durable
 write success: awaited persistence outcomes and authoritative partial-close
 remain separately open gates. No live room or renderer activation here.
+
+## Durable canonical confirmation on the existing write queue
+
+The current transport supersedes the earlier immediate ACK after resident seal.
+prepare→descriptor pin→append(seq)→admission.commit is still synchronous; only
+after that section does it await the actual stamped object's persistence receipt.
+Pending writes produce no accepted confirmation. Failure returns transient
+canonical_repair_required without rolling back seq, pin, immutable body or cursor.
+An exact resident duplicate joins the pending receipt or explicitly retries the
+SAME indexed row/ID/seq; it never allocates another sequence. A successful repaired
+duplicate returns the verified accepted operation too, for at-least-once peer
+confirmation through existing ID/seq deduplication. Unknown resident provenance
+fails closed pending the verified loader adoption seam.
+
+Each session keeps only durableRecordedNext and its actual recorded tail object.
+A new ordinal waits for its recorded predecessor, then rechecks lifetime/session,
+permissions and admission before any pin or seq. The room's known failed-write
+fence also prevents a different gesture's successful insert from falsely
+confirming a room with an earlier failed slot. Current identity is rechecked after
+the write settles; disconnect/replacement cannot publish a stale confirmation.
+Already appended durable history is retained even if its requester leaves.
+
+Actual default/Gaussian author-generated V2 tests exercise deferred inserts,
+pending duplicate/begin/next ordinal, failed seal, coalesced explicit repair,
+unchanged packed bytes/ID/seq/pin, next ordinal after repair, cross-gesture failure
+and stale caller/room replacement. An actual Socket.IO test proves no ACK/peer
+event while create is pending and confirms same-ID repair at its original seq.
+DB outcomes are controlled Prisma mocks: these tests prove transport handling of
+outcomes, not physical DB durability, arbitrary cold history completeness,
+room_state/fork/snapshot readiness, authoritative close or renderer activation.
+Those separate gates remain closed. No persistent service/device/DB resource was
+created; test servers/stores close and their existing write queues drain.
