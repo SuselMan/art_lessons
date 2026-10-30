@@ -59,6 +59,39 @@ class SourceAutoRetentionTests(unittest.TestCase):
                     self.assertNotIn('sourceStamp',d)
                     self.assertTrue(any(n['feature']=='sourceStampData' and n['status']=='unsupported' for n in row['compatibility']))
 
+    def test_gaussian_circle_retains_raw_geometry_options_and_portable_binding(self):
+        raw=definition('gauss',brush='scale="9" BrushVersion="1" angle=".3"').replace('type="rect"','type="circle"')
+        data=retain_source_stamp({'brush_definition':raw},xml(raw),123,456,xml)
+        self.assertEqual(data['source']['kind'],'gaussianAuto')
+        self.assertEqual(data['source']['generator'],'gauss')
+        self.assertEqual(data['brush'],{'width':7,'height':3,'scale':1,'angle':.3})
+        self.assertEqual(len(data['options']),9)
+        self.assertEqual(data['unsupported'],[])
+        validate_source_stamp_shape({'sourceStamp':data})
+        for edit in (lambda d:d['source'].update(generator='default'),lambda d:d['source'].update(kind='defaultAuto'),lambda d:d['source'].update(horizontalFade=.8),lambda d:d['brush'].update(height=4)):
+            forged=copy.deepcopy(data);edit(forged)
+            with self.assertRaisesRegex(ValueError,'differs from raw'):validate_source_stamp_shape({'sourceStamp':forged})
+        with self.assertRaisesRegex(ValueError,'Gaussian auto shape'):
+            retain_source_stamp({'brush_definition':definition('gauss')},xml(definition('gauss')),1,1,xml)
+
+    def test_actual_gaussian_importer_retains_source_and_exception_without_material_grant(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            for spikes in (2,9):
+                raw=definition('gauss').replace('type="rect"','type="circle"').replace('spikes="2"',f'spikes="{spikes}"')
+                path=root/(str(spikes)+'.kpp');path.write_bytes(kpp(raw,resources='<param name="PressureSoftness">true</param><param name="SoftnessUseCurve">false</param><param name="SoftnessValue">.1</param>' if spikes==9 else ''))
+                catalog=convert.Catalog(root/('out-'+str(spikes)));convert_krita(path,catalog)
+                self.assertFalse(catalog.skipped)
+                descriptor=catalog.brushes[0]['descriptor'];data=descriptor['sourceStamp']
+                self.assertEqual(data['source']['kind'],'gaussianAuto')
+                self.assertEqual(data['source']['spikes'],spikes)
+                self.assertNotIn('coverageProfile',data)
+                validate_source_stamp_shape(descriptor)
+                if spikes==9:
+                    self.assertIn('gaussian-auto-mask-parameters-unavailable',data['unsupported'])
+                    self.assertFalse(data['flags']['materialFixed1'])
+                else:self.assertEqual(data['unsupported'],[])
+
     @unittest.skipUnless(os.environ.get('GRAFETTO_NATIVE_CURVE_COMPILER'),'explicit trusted native compiler integration')
     def test_all_seven_actual_stock_descriptors_recompile_and_forged_auto_coefficients_reject(self):
         fixture=Path(__file__).resolve().parents[2]/'packages/shared/src/fixtures/sourceDefaultAutoData/stock.native.ts'
@@ -69,3 +102,23 @@ class SourceAutoRetentionTests(unittest.TestCase):
         validate_source_stamp_shape(forged)
         with patch('convert.base64.b64decode',side_effect=AssertionError('forged auto reached asset decode')):
             with self.assertRaisesRegex(ValueError,'differ from native compiler'):validate_portable_source_stamp(forged,executable)
+
+    @unittest.skipUnless(os.environ.get('GRAFETTO_NATIVE_CURVE_COMPILER'),'explicit trusted native compiler integration')
+    def test_actual_thirteen_gaussian_descriptors_recompile_and_reject_forged_data(self):
+        fixture=Path(__file__).resolve().parents[2]/'packages/shared/src/fixtures/sourceGaussianAutoData/stock.native.ts'
+        rows=json.loads(fixture.read_text().removeprefix('export default '))['rows']
+        self.assertEqual([r['index'] for r in rows],[2,5,6,7,10,11,12,22,38,39,40,68,70])
+        compiler=os.environ['GRAFETTO_NATIVE_CURVE_COMPILER']
+        for row in rows:
+            d=row['descriptor'];data=d['sourceStamp']
+            self.assertEqual(data['source']['kind'],'gaussianAuto')
+            self.assertEqual(data['unsupported'],[])
+            self.assertEqual(len(data['options']),9)
+            validate_portable_source_stamp(d,compiler)
+        forged=copy.deepcopy(rows[0]['descriptor'])
+        forged['sourceStamp']['compiled']['curves'][0]['coefficients'][0][0]+=1e-7
+        validate_source_stamp_shape(forged)
+        with patch('convert.base64.b64decode',side_effect=AssertionError('forged Gaussian reached asset decode')):
+            with self.assertRaisesRegex(ValueError,'differ from native compiler'):validate_portable_source_stamp(forged,compiler)
+        forged=copy.deepcopy(rows[0]['descriptor']);forged['sourceStamp']['source']['generator']='default'
+        with self.assertRaisesRegex(ValueError,'differs from raw'):validate_portable_source_stamp(forged,compiler)

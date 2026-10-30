@@ -991,7 +991,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             behavior['rendering']['accumulation']='alphaDarken'
     d['behavior']=behavior
     # Capability comes from the decoded tip branch, never the later texture filename.
-    if engine=='paintbrush' and (source_static_image or kind=='auto_brush' and definition.find('MaskGenerator') is not None and definition.find('MaskGenerator').get('id','default')=='default'):
+    if engine=='paintbrush' and (source_static_image or kind=='auto_brush' and definition.find('MaskGenerator') is not None and definition.find('MaskGenerator').get('id','default') in ('default','gauss')):
         try:
             d['sourceStamp']=retain_source_stamp(params,definition,*(source_metric or (1,1)),xml,depth=depth)
             if curve_compiler is not None:
