@@ -1,3 +1,4 @@
+import { ownedBrushFixture } from '../../testing/ownedBrushFixture'
 import { describe, expect, it, vi } from 'vitest'
 import type { BrushTip, TipMaskId } from '@grafetto/shared'
 import levels from '../raster/fixtures/nativeImageLevel.qt51513.json'
@@ -12,6 +13,7 @@ function mockGL() {
   const gl: any = { MAX_TEXTURE_SIZE: 1, TEXTURE_2D: 2, TEXTURE_BINDING_2D: 3, ACTIVE_TEXTURE: 4,
     UNPACK_ALIGNMENT: 5, RGBA: 6, LUMINANCE_ALPHA: 7, UNSIGNED_BYTE: 8, CLAMP_TO_EDGE: 9,
     NEAREST: 10, LINEAR: 11, TEXTURE_MIN_FILTER: 12, TEXTURE_MAG_FILTER: 13, TEXTURE_WRAP_S: 14, TEXTURE_WRAP_T: 15 }
+  gl.NO_ERROR=0;gl.getError=()=>0;gl.isContextLost=()=>false
   gl.createTexture = vi.fn(() => ({ id: ++id }))
   gl.deleteTexture = vi.fn((texture: object) => images.delete(texture))
   gl.getParameter = (name: number) => name === gl.MAX_TEXTURE_SIZE ? 16384 : name === gl.TEXTURE_BINDING_2D ? bound : name === gl.UNPACK_ALIGNMENT ? unpack : 100
@@ -130,8 +132,8 @@ describe('finite opaque grayscale canonical source bank', () => {
     s.bank.reset()
   })
   it('cleans a failed upload, leaves other entries intact and permits an explicit retry', () => {
-    const s = setup(), other = s.gl.createTexture()
-    s.cache.protect(['other']); s.cache.put('other', other, 4)
+    const s = setup(), otherOwned=ownedBrushFixture(s.gl,4),other=otherOwned.texture
+    s.cache.protect(['other']);s.cache.putOwned('other',otherOwned)
     s.gl.texImage2D.mockImplementationOnce(() => { throw new Error('authored upload failure') })
     expect(() => s.bank.prepareJob(0)).toThrow('upload failure')
     expect(s.gl.deleteTexture).toHaveBeenCalledTimes(1); expect(s.cache.get('other')).toBe(other)

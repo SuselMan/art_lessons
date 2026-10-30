@@ -1,3 +1,4 @@
+import { ownedBrushFixture } from '../../testing/ownedBrushFixture';
 import { runBrushGlBatch } from './BrushGlBatch';
 import { describe, expect, it, vi } from 'vitest';
 import { BrushMipCache } from './BrushMipCache';
@@ -26,13 +27,15 @@ function setup(gpu = 16 * 1024 * 1024, cpuBytes = 4 * 1024 * 1024) {
         entry = new Map();
         params.set(texture, entry);
     } entry.set(name, value); };
-    const view: TransformedMaskView = { key: 'mask', texture: gl.createTexture(), rect: { x: 8, y: 18, width: 6, height: 7 }, bounds: { x: 0, y: 0, width: 6 / 16, height: 7 / 16 }, mirror: { horizontal: false, vertical: false }, channel: 'r' };
+    const mask=ownedBrushFixture(gl,1024);
+    const view: TransformedMaskView = { key: 'mask', texture: mask.texture, rect: { x: 8, y: 18, width: 6, height: 7 }, bounds: { x: 0, y: 0, width: 6 / 16, height: 7 / 16 }, mirror: { horizontal: false, vertical: false }, channel: 'r' };
     cache.protect(['mask']);
-    cache.put('mask', view.texture, 16 * 16 * 4);
+    cache.putOwned('mask',mask);
     const target: CanonicalStraightRgba8Target = { brand: 'canonical-straight-rgba8-v1', texture: gl.createTexture(), framebuffer: gl.createFramebuffer(), width: 8, height: 8, originX: 10, originY: 20 };
     gl.getFramebufferAttachmentParameter = () => target.texture;
     const pass = new CanonicalRgba8CompositePass(gl, cache, cpu, 'local');
     const companion = [{ key: 'mask', bytes: 1024 }];
+    gl.texImage2D.mockClear();gl.bufferData.mockClear();
     return { gl, snapshot, cache, cpu, view, target, pass, companion, params };
 }
 describe('internal straight RGBA8 local alphaDarken pass', () => {
@@ -248,10 +251,11 @@ describe('internal straight RGBA8 local alphaDarken pass', () => {
     it('allows source==base with a separate output, checks cached sources and changes storage orientation once', () => {
         const s = setup(), lifetime = { kind: 'external' as const, owner: {}, lease: () => () => { } };
         const target: CanonicalOwnedRgba8Target = { ...s.target, lifetime };
-        const base: CanonicalOwnedRgba8Target = { ...target, texture: s.gl.createTexture(), framebuffer: s.gl.createFramebuffer() };
+        const rgba=ownedBrushFixture(s.gl,256);
+        const base: CanonicalOwnedRgba8Target = { ...target, texture: rgba.texture, framebuffer: s.gl.createFramebuffer() };
         const view: CanonicalRgba8SourceView = { brand: 'canonical-straight-rgba8-view-v1', texture: base.texture, textureWidth: 8, textureHeight: 8, rect: { x: 10, y: 20, width: 8, height: 8 }, bounds: { x: 0, y: 0, width: 1, height: 1 }, mirror: { horizontal: true, vertical: true }, rowOrder: 'topAtV0', residency: { kind: 'cache', key: 'rgba', bytes: 256 } };
         s.cache.protect(['mask', 'rgba']);
-        s.cache.put('rgba', base.texture, 256);
+        s.cache.putOwned('rgba',rgba);
         const companions = [...s.companion, { key: 'rgba', bytes: 256 }];
         s.pass.prepare({ width: 16, height: 16, operations: ['over32'] }, companions);
         s.gl.getFramebufferAttachmentParameter = () => s.gl.getParameter(s.gl.FRAMEBUFFER_BINDING) === base.framebuffer ? base.texture : target.texture;

@@ -1,6 +1,7 @@
+import { reserveContextStorage, releaseStorageReservation } from '../buffers/ContextStorageOwner'
 import { sourcePngPyramid, type BrushTip, type TipMaskId } from '@grafetto/shared'
 import { nativeImageBank, nativeImagePixels, type NativeImageResource } from './NativeImageBank'
-import { BrushTextureCache, uploadBrushTexture } from './BrushTextureCache'
+import { BrushTextureCache, uploadBrushTexture, releaseUnpublishedBrushResource, type OwnedBrushResource } from './BrushTextureCache'
 import { BrushMipCache } from './BrushMipCache'
 import type { TransformedMaskSource, TransformedMaskPreparedSource } from './TransformedMaskPrepass'
 
@@ -102,17 +103,18 @@ export class CanonicalMaskSourceBank {
     const extraMetadata = this.releaseMetadata ? 0 : this.metadataCpuBytes
     if (this.cpu.reservedBytes + extraMetadata + (existing ? 0 : job.transientCpuBytes + this.companion.cpuBytes) > this.cpu.budgetBytes)
       throw new RangeError('Canonical source job exceeds the shared CPU budget')
-    if (!this.releaseMetadata) this.releaseMetadata = this.cpu.reserve(this.metadataCpuBytes)
-    if (existing) return 'ready'
-    // Reserve companion even if not yet allocated: bank preparation cannot steal
-    // the future prepass peak. Once its own reservation exists, counting it twice
-    // is deliberately conservative; callers prepare source bank BEFORE prepass.
-    const releaseCpu = this.cpu.reserve(job.transientCpuBytes + this.companion.cpuBytes)
-    const resources = this.jobs.map(({ key, bytes }) => ({ key, bytes }))
-    this.cache.protect(resources.map(item => item.key))
-    const releaseGpu = this.cache.lease(resources), generation = this.generation
-    let uploaded: WebGLTexture | undefined
+    if(existing){if(!this.releaseMetadata)this.releaseMetadata=this.cpu.reserve(this.metadataCpuBytes);return 'ready'}
+    const storage=reserveContextStorage(this.gl,job.bytes,'brush-texture-rgba-equivalent')
+    let releaseCpu=()=>{},releaseGpu=()=>{},restoreSource:(()=>void)|undefined,uploaded:OwnedBrushResource|undefined
+    let failed=false,failure:unknown,result:'ready'|'cancelled'='cancelled'
+    const attempt=(cleanup:()=>void)=>{try{cleanup()}catch(error){if(!failed){failed=true;failure=error}}}
     try {
+      if(!this.releaseMetadata){this.releaseMetadata=this.cpu.reserve(this.metadataCpuBytes)}
+      releaseCpu=this.cpu.reserve(job.transientCpuBytes+this.companion.cpuBytes)
+      const resources=this.jobs.map(({key,bytes})=>({key,bytes}))
+      this.cache.protect(resources.map(item=>item.key));releaseGpu=this.cache.lease(resources)
+      const generation=this.generation
+      result=(()=>{
       const input = this.inputs.get(job.key)!, original = input.readOriginalCoverage()
       if (!(original instanceof Uint8Array) || original.length !== input.assetSide * input.assetSide)
         throw new RangeError('Canonical source asset layout changed')
@@ -126,20 +128,26 @@ export class CanonicalMaskSourceBank {
         rgba[offset] = rgba[offset + 1] = rgba[offset + 2] = byte; rgba[offset + 3] = 255
       }
       if (signal?.aborted || generation !== this.generation) return 'cancelled'
-      const result = uploadBrushTexture(this.gl, [rgba], this.gl.RGBA, this.gl.CLAMP_TO_EDGE, true, { width, height })
-      uploaded = result.texture
+      const result = uploadBrushTexture(this.gl, [rgba], this.gl.RGBA, this.gl.CLAMP_TO_EDGE, true, { width, height },storage)
+      uploaded = result
       // Existing rectangular uploader intentionally defaults LINEAR minification;
       // canonical prepared source is sampled explicitly at NEAREST texel centres.
       const previous = this.gl.getParameter(this.gl.TEXTURE_BINDING_2D) as WebGLTexture | null
-      try { this.gl.bindTexture(this.gl.TEXTURE_2D, uploaded); this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST) }
-      finally { this.gl.bindTexture(this.gl.TEXTURE_2D, previous) }
+      restoreSource=()=>this.gl.bindTexture(this.gl.TEXTURE_2D,previous)
+      this.gl.bindTexture(this.gl.TEXTURE_2D,uploaded.texture);this.gl.texParameteri(this.gl.TEXTURE_2D,this.gl.TEXTURE_MIN_FILTER,this.gl.NEAREST)
+      restoreSource();restoreSource=undefined
       if (signal?.aborted || generation !== this.generation) return 'cancelled'
-      this.cache.put(job.key, uploaded, job.bytes); this.owned.add(job.key); uploaded = undefined
+      this.owned.add(job.key);this.cache.putOwned(job.key,uploaded!);uploaded=undefined
       return 'ready'
-    } finally {
-      if (uploaded) this.gl.deleteTexture(uploaded)
-      releaseGpu(); releaseCpu()
+      })()
+    }catch(error){failed=true;failure=error}
+    finally {
+      if(restoreSource)attempt(restoreSource)
+      if(uploaded)attempt(()=>releaseUnpublishedBrushResource(uploaded!))
+      attempt(()=>releaseStorageReservation(storage));attempt(releaseGpu);attempt(releaseCpu)
     }
+    if(failed)throw failure
+    return result
   }
 
   isReady(): boolean { return this.jobs.every(job => this.cache.resourceBytes(job.key) === job.bytes && !!this.cache.get(job.key)) }
@@ -169,7 +177,11 @@ export class CanonicalMaskSourceBank {
   }
   reset(lost = false): void {
     this.generation++
-    for (const key of this.owned) this.cache.discard(key, lost)
-    this.owned.clear(); this.releaseMetadata?.(); this.releaseMetadata = undefined
+    let failed=false,primary:unknown
+    for(const key of this.owned)try{this.cache.discard(key,lost)}catch(error){if(!failed){failed=true;primary=error}}
+    this.owned.clear()
+    try{this.releaseMetadata?.()}catch(error){if(!failed){failed=true;primary=error}}
+    this.releaseMetadata=undefined
+    if(failed)throw primary
   }
 }

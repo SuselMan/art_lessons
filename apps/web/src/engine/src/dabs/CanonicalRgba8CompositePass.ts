@@ -7,7 +7,8 @@ import type { SourceAlphaDarken32Control } from '../presets/sourceAlphaDarken32'
 import { SOURCE_ALPHA_DARKEN32_GLSL } from '../raster/sourceAlphaDarken32Shader';
 import { saveBrushGlState } from './BrushGlState';
 import { BrushMipCache } from './BrushMipCache';
-import { BrushTextureCache } from './BrushTextureCache';
+import { BrushTextureCache, allocateOwnedBrushTexture, allocateOwnedBrushBuffer, combineOwnedBrushResources, releaseUnpublishedBrushResource, type OwnedBrushResource, type OwnedBrushBuffer } from './BrushTextureCache';
+import { reserveContextStorage, releaseStorageReservation, type StorageReservation } from '../buffers/ContextStorageOwner';
 import type { TransformedMaskView } from './TransformedMaskPrepass';
 import type { WorldRect } from '../buffers/tileMath';
 export interface CanonicalStraightRgba8Target {
@@ -239,80 +240,53 @@ export class CanonicalRgba8CompositePass {
         }
         if (this.cache.resourceBytes(this.key) !== undefined)
             throw new Error('Canonical composite resource scope is already owned');
-        const releaseCpu = this.cpu.reserve(budget.cpuBytes);
-        this.instancing = this.gl.getExtension('ANGLE_instanced_arrays');
-        this.vertexArrays = this.gl.getExtension('OES_vertex_array_object');
-        const restore = saveBrushGlState(this.gl, [], this.instancing, this.vertexArrays, 2);
-        let texture: WebGLTexture | undefined, buffer: WebGLBuffer | null = null, programs = new Map<CanonicalCompositeOperationKind, ProgramInfo>(), vao: WebGLVertexArrayObjectOES | null = null;
+        const textureStorage=reserveContextStorage(this.gl,limits.width*limits.height*4,'brush-texture-rgba-equivalent');
+        let bufferStorage:StorageReservation;
+        try{bufferStorage=reserveContextStorage(this.gl,VBO_BYTES,'brush-buffer')}catch(error){releaseStorageReservation(textureStorage);throw error}
+        let releaseCpu=()=>{},restore=()=>{},retainedCpu=false,failed=false,failure:unknown,cancelled=false;
+        const loose:(OwnedBrushResource|OwnedBrushBuffer)[]=[],programs=new Map<CanonicalCompositeOperationKind,ProgramInfo>();
+        let vao:WebGLVertexArrayObjectOES|null=null,auxTransferred=false;
+        const attempt=(cleanup:()=>void)=>{try{cleanup()}catch(error){if(!failed){failed=true;failure=error}}};
         try {
-            const gl = this.gl;
-            this.cache.protect([...group.keys(), this.key]);
-            gl.activeTexture(gl.TEXTURE0);
-            // Null storage allocates no width*height CPU buffer.
-            texture = gl.createTexture() ?? undefined;
-            if (!texture)
-                throw new Error('Composite scratch allocation failed');
-            gl.bindTexture(gl.TEXTURE_2D, texture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, limits.width, limits.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-            for (const name of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER])
-                gl.texParameteri(gl.TEXTURE_2D, name, gl.NEAREST);
-            for (const name of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T])
-                gl.texParameteri(gl.TEXTURE_2D, name, gl.CLAMP_TO_EDGE);
-            for (const kind of operations)
-                programs.set(kind, this.compile(kind));
-            buffer = gl.createBuffer();
-            if (!buffer)
-                throw new Error('Composite VBO allocation failed');
-            gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
-            vao = this.vertexArrays?.createVertexArrayOES() ?? null;
-            if (this.vertexArrays && !vao)
-                throw new Error('Composite VAO allocation failed');
-            const owned: Workspace = { texture, buffer, programs, ...vao ? { vao } : {} };
-            const arrays = this.vertexArrays;
-            this.cache.put(this.key, texture, budget.gpuBytes, lost => {
-                if (!lost) {
-                    gl.deleteBuffer(owned.buffer);
-                    for (const info of owned.programs.values())
-                        gl.deleteProgram(info.program);
-                    if (owned.vao)
-                        arrays!.deleteVertexArrayOES(owned.vao);
-                }
-                if (this.workspace === owned)
-                    this.workspace = undefined;
-            });
-            this.workspace = owned;
-            texture = undefined;
-            buffer = null;
-            programs = new Map();
-            vao = null;
-            this.limits = { ...limits, operations };
-            this.companions = [...group].map(([key, bytes]) => ({ key, bytes }));
-            this.releaseCpu = releaseCpu;
-            this.reservedCpuBytes = budget.cpuBytes;
-            if (signal?.aborted) {
-                this.reset();
-                return 'cancelled';
-            }
-            return 'ready';
+            releaseCpu=this.cpu.reserve(budget.cpuBytes);
+            this.instancing=this.gl.getExtension('ANGLE_instanced_arrays');this.vertexArrays=this.gl.getExtension('OES_vertex_array_object');
+            restore=saveBrushGlState(this.gl,[],this.instancing,this.vertexArrays,2);
+            const gl=this.gl;
+            this.cache.protect([...group.keys(),this.key]);gl.activeTexture(gl.TEXTURE0);
+            const texture=allocateOwnedBrushTexture(gl,limits.width*limits.height*4,(handle,mark)=>{
+                gl.bindTexture(gl.TEXTURE_2D,handle);mark(limits.width*limits.height*4);
+                gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,limits.width,limits.height,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+                for(const name of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,name,gl.NEAREST);
+                for(const name of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,name,gl.CLAMP_TO_EDGE);
+            },textureStorage);loose.push(texture);
+            for(const kind of operations)programs.set(kind,this.compile(kind));
+            const buffer=allocateOwnedBrushBuffer(gl,VBO_BYTES,(handle,mark)=>{gl.bindBuffer(gl.ARRAY_BUFFER,handle);mark(VBO_BYTES);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW)},bufferStorage);loose.push(buffer);
+            vao=this.vertexArrays?.createVertexArrayOES()??null;
+            if(this.vertexArrays&&!vao)throw new Error('Composite VAO allocation failed');
+            const owned:Workspace={texture:texture.texture,buffer:buffer.buffer,programs,...vao?{vao}:{}};
+            const arrays=this.vertexArrays;
+            const bundle=combineOwnedBrushResources(texture,[buffer],lost=>{
+                let bad=false,first:unknown;
+                for(const cleanup of [...[...owned.programs.values()].map(info=>()=>{if(!lost)gl.deleteProgram(info.program)}),()=>{if(!lost&&owned.vao)arrays!.deleteVertexArrayOES(owned.vao)}])try{cleanup()}catch(error){if(!bad){bad=true;first=error}}
+                if(this.workspace===owned)this.workspace=undefined;
+                if(bad)throw first;
+            });loose.push(bundle);auxTransferred=true;
+            this.workspace=owned;this.cache.putOwned(this.key,bundle);
+            this.limits={...limits,operations};this.companions=[...group].map(([key,bytes])=>({key,bytes}));
+            this.releaseCpu=releaseCpu;this.reservedCpuBytes=budget.cpuBytes;retainedCpu=true;cancelled=!!signal?.aborted;
+        }catch(error){failed=true;failure=error}
+        finally{
+            attempt(restore);
+            if(failed||cancelled)attempt(()=>this.reset());
+            for(const resource of loose)attempt(()=>releaseUnpublishedBrushResource(resource));
+            if(!auxTransferred){for(const info of programs.values())attempt(()=>this.gl.deleteProgram(info.program));if(vao)attempt(()=>this.vertexArrays?.deleteVertexArrayOES(vao!))}
+            if(!retainedCpu)attempt(releaseCpu);
+            attempt(()=>releaseStorageReservation(textureStorage));attempt(()=>releaseStorageReservation(bufferStorage));
         }
-        catch (error) {
-            if (texture)
-                this.gl.deleteTexture(texture);
-            if (buffer)
-                this.gl.deleteBuffer(buffer);
-            for (const info of programs.values())
-                this.gl.deleteProgram(info.program);
-            if (vao)
-                this.vertexArrays?.deleteVertexArrayOES(vao);
-            this.reset();
-            releaseCpu();
-            throw error;
-        }
-        finally {
-            restore();
-        }
+        if(failed)throw failure;
+        return cancelled?'cancelled':'ready';
     }
+
     isReady(): boolean { return !!this.workspace && !!this.limits && this.cache.get(this.key) === this.workspace.texture; }
     /** Actual compositing scratch capacity; not a brush/mask maximum.
      * Metadata-only epoch binds queued execution to this preparation. */
@@ -514,16 +488,14 @@ export class CanonicalRgba8CompositePass {
         if (this.batch && !lost) throw new Error('Cannot reset inside an active brush GL batch');
         if (this.busy && !lost)
             throw new Error('Cannot reset an active composite draw');
-        this.cache.discard(this.key, lost);
-        this.workspace = undefined;
-        this.limits = undefined;
-        this.companions = [];
-        this.releaseCpu?.();
-        this.releaseCpu = undefined;
-        this.reservedCpuBytes = 0;
-        this.instancing = null;
-        this.vertexArrays = null;
+        let failed=false,primary:unknown;
+        try{this.cache.discard(this.key,lost)}catch(error){failed=true;primary=error}
+        this.workspace=undefined;this.limits=undefined;this.companions=[];
+        try{this.releaseCpu?.()}catch(error){if(!failed){failed=true;primary=error}}
+        this.releaseCpu=undefined;this.reservedCpuBytes=0;this.instancing=null;this.vertexArrays=null;
+        if(failed)throw primary;
     }
+
     private validateSource(source: CanonicalCompositeSource): {
         texture: WebGLTexture;
         rect: TransformedMaskView['rect'];

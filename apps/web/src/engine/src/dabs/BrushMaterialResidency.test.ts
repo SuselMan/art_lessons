@@ -1,3 +1,4 @@
+import { ownedBrushFixture } from '../../testing/ownedBrushFixture'
 import { describe, expect, it } from 'vitest'
 import { MockGL } from '../../testing/mockGL'
 import { digitalBrushFromPreset } from '../presets/digitalBrushPresets'
@@ -19,13 +20,13 @@ describe('physical material group residency',()=>{
     const resources=brushPreparationResources(parent),leaseResources=brushTextureLeaseResources(parent,'stamp')
     expect(brushPreparationBytes(resources,id=>id.startsWith('asset:')?512:256)).toBe(15*1024*1024-16)
     expect(new Set(leaseResources.map(r=>r.key)).size).toBe(leaseResources.length)
-    const cache=new BrushTextureCache(new MockGL() as unknown as WebGLRenderingContext)
+    const gl=new MockGL() as unknown as WebGLRenderingContext,cache=new BrushTextureCache(gl)
     const release=cache.lease(leaseResources)
     let uploads=0
     for(const resource of resources){
       const key=brushTextureResourceKey(resource)
       cache.protect([key])
-      if(!cache.get(key)){uploads++;cache.put(key,{} as WebGLTexture,leaseResources.find(r=>r.key===key)!.bytes)}
+      if(!cache.get(key)){uploads++;cache.putOwned(key,ownedBrushFixture(gl,leaseResources.find(r=>r.key===key)!.bytes))}
     }
     const warmed=uploads
     for(let i=0;i<200;i++){

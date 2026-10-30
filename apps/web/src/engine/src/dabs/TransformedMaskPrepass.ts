@@ -5,7 +5,8 @@ import type { SourceDabMaterialSpec } from '../presets/sourceDabCache';
 import { buildRgba64FactorLut } from '../raster/sourceRgba64StraightShader';
 import { SOURCE_TRANSFORMED_MASK_VERT, sourceTransformedMaskFragment } from '../raster/sourceTransformedMaskShader';
 import { BrushMipCache } from './BrushMipCache';
-import { BrushTextureCache } from './BrushTextureCache';
+import { BrushTextureCache, allocateOwnedBrushTexture, allocateOwnedBrushBuffer, combineOwnedBrushResources, releaseUnpublishedBrushResource, type OwnedBrushResource, type OwnedBrushBuffer } from './BrushTextureCache';
+import { reserveContextStorage, releaseStorageReservation, type StorageReservation } from '../buffers/ContextStorageOwner';
 import { resolvedTransformedMaskPlan, writeTransformedMaskVertices, type TransformedMaskPlan, type TransformedMaskMaterial, type CanonicalMaskSourceBinding, canonicalTransformedMaskMetadata, canonicalTransformedMaskPlan, canonicalMaskRevision, canonicalAutoMaskRevision, prepareCanonicalAutoMask, type CanonicalAutoMaskMaterial } from './TransformedMaskPlan';
 export interface TransformedMaskLimits {
   readonly width: number;
@@ -202,88 +203,49 @@ export class TransformedMaskPrepass {
     }
     this.instancing = this.gl.getExtension('ANGLE_instanced_arrays');
     this.vertexArrays = this.gl.getExtension('OES_vertex_array_object');
-    const release = this.cpu.reserve(cpuBytes);
-    const group = [...sourceMap.keys(), this.workspaceKey, ...Array.from({ length: limits.slots }, (_, i) => `${this.prefix}:slot:${i}`)];
-    const restore = this.saveState([]);
+    const textureStorage=reserveContextStorage(this.gl,budget.gpuBytes-vertexBytes,'brush-texture-rgba-equivalent');
+    let bufferStorage:StorageReservation;
+    try{bufferStorage=reserveContextStorage(this.gl,vertexBytes,'brush-buffer')}catch(error){releaseStorageReservation(textureStorage);throw error}
+    let release=()=>{},restore=()=>{},retainedCpu=false,failed=false,failure:unknown,cancelled=false;
+    const loose:(OwnedBrushResource|OwnedBrushBuffer)[]=[];
+    const attempt=(cleanup:()=>void)=>{try{cleanup()}catch(error){if(!failed){failed=true;failure=error}}};
     try {
-      this.cache.protect(group);
-      this.gl.activeTexture(this.gl.TEXTURE0);
-      this.staging = new Float32Array(limits.height * FLOATS_PER_ROW);
-      this.compile();
-      const lut = buildRgba64FactorLut(), low = this.texture(256, 256, lut.low);
-      let high: WebGLTexture | undefined, buffer: WebGLBuffer | null = null;
-      try {
-        high = this.texture(256, 256, lut.high);
-        buffer = this.gl.createBuffer();
-        if (!buffer)
-          throw new Error('Prepass VBO allocation failed');
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, vertexBytes, this.gl.STREAM_DRAW);
-        const vaoExtension = this.vertexArrays;
-        const vao = vaoExtension?.createVertexArrayOES() ?? undefined;
-        if (vaoExtension && !vao) throw new Error('Prepass VAO allocation failed');
-        const workspace: Workspace = { low, high, buffer, vao };
-        this.cache.put(this.workspaceKey, low, FACTOR_BYTES + vertexBytes, lost => {
-          if (!lost) {
-            this.gl.deleteTexture(workspace.high);
-            this.gl.deleteBuffer(workspace.buffer);
-            if (workspace.vao) vaoExtension!.deleteVertexArrayOES(workspace.vao);
-          }
-          if (this.workspace === workspace)
-            this.workspace = undefined;
-        });
-        this.workspace = workspace;
+      release=this.cpu.reserve(cpuBytes);
+      restore=this.saveState([]);
+      const group=[...sourceMap.keys(),this.workspaceKey,...Array.from({length:limits.slots},(_,i)=>`${this.prefix}:slot:${i}`)];
+      this.cache.protect(group);this.gl.activeTexture(this.gl.TEXTURE0);
+      this.staging=new Float32Array(limits.height*FLOATS_PER_ROW);this.compile();
+      const lut=buildRgba64FactorLut(),low=this.texture(256,256,lut.low,textureStorage);loose.push(low);
+      const high=this.texture(256,256,lut.high,textureStorage);loose.push(high);
+      const buffer=allocateOwnedBrushBuffer(this.gl,vertexBytes,(handle,mark)=>{this.gl.bindBuffer(this.gl.ARRAY_BUFFER,handle);mark(vertexBytes);this.gl.bufferData(this.gl.ARRAY_BUFFER,vertexBytes,this.gl.STREAM_DRAW)},bufferStorage);loose.push(buffer);
+      const vaoExtension=this.vertexArrays,vao=vaoExtension?.createVertexArrayOES()??undefined;
+      if(vaoExtension&&!vao)throw new Error('Prepass VAO allocation failed');
+      const workspace:Workspace={low:low.texture,high:high.texture,buffer:buffer.buffer,vao};
+      const owned=combineOwnedBrushResources(low,[high,buffer],lost=>{try{if(!lost&&workspace.vao)vaoExtension!.deleteVertexArrayOES(workspace.vao)}finally{if(this.workspace===workspace)this.workspace=undefined}});loose.push(owned);
+      this.workspace=workspace;this.cache.putOwned(this.workspaceKey,owned);
+      for(let i=0;i<limits.slots;i++){
+        const texture=this.texture(limits.width,limits.height,null,textureStorage);loose.push(texture);
+        const framebuffer=this.gl.createFramebuffer();if(!framebuffer)throw new Error('Prepass FBO allocation failed');
+        const slot:Slot={key:`${this.prefix}:slot:${i}`,texture:texture.texture,framebuffer,used:0};
+        const ownedSlot=combineOwnedBrushResources(texture,[],lost=>{try{if(!lost)this.gl.deleteFramebuffer(framebuffer)}finally{if(this.slots[i]===slot)this.slots[i]=undefined}});loose.push(ownedSlot);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER,framebuffer);this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER,this.gl.COLOR_ATTACHMENT0,this.gl.TEXTURE_2D,texture.texture,0);
+        if(this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER)!==this.gl.FRAMEBUFFER_COMPLETE)throw new Error('Prepass FBO incomplete');
+        this.slots[i]=slot;this.cache.putOwned(slot.key,ownedSlot);
       }
-      catch (error) {
-        this.gl.deleteTexture(low);
-        if (high)
-          this.gl.deleteTexture(high);
-        if (buffer)
-          this.gl.deleteBuffer(buffer);
-        throw error;
-      }
-      for (let i = 0; i < limits.slots; i++) {
-        const texture = this.texture(limits.width, limits.height, null), framebuffer = this.gl.createFramebuffer();
-        if (!framebuffer) {
-          this.gl.deleteTexture(texture);
-          throw new Error('Prepass FBO allocation failed');
-        }
-        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
-        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, texture, 0);
-        if (this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER) !== this.gl.FRAMEBUFFER_COMPLETE) {
-          this.gl.deleteFramebuffer(framebuffer);
-          this.gl.deleteTexture(texture);
-          throw new Error('Prepass FBO incomplete');
-        }
-        const slot: Slot = { key: `${this.prefix}:slot:${i}`, texture, framebuffer, used: 0 };
-        this.slots[i] = slot;
-        this.cache.put(slot.key, texture, limits.width * limits.height * 4, lost => {
-          if (!lost)
-            this.gl.deleteFramebuffer(slot.framebuffer);
-          if (this.slots[i] === slot)
-            this.slots[i] = undefined;
-        });
-      }
-      if (signal?.aborted) {
-        this.reset(false);
-        release();
-        return 'cancelled';
-      }
-      this.limits = { ...limits };
-      this.sources = sourceMap; this.sourceBindings = bindings;
-      this.releaseCpu = release;
-      this.reservedCpuBytes = cpuBytes;
-      return 'ready';
+      cancelled=!!signal?.aborted;
+      if(!cancelled){this.limits={...limits};this.sources=sourceMap;this.sourceBindings=bindings;this.releaseCpu=release;this.reservedCpuBytes=cpuBytes;retainedCpu=true}
+    }catch(error){failed=true;failure=error}
+    finally{
+      attempt(restore);
+      if(failed||cancelled)attempt(()=>this.reset(false));
+      for(const resource of loose)attempt(()=>releaseUnpublishedBrushResource(resource));
+      if(!retainedCpu)attempt(release);
+      attempt(()=>releaseStorageReservation(textureStorage));attempt(()=>releaseStorageReservation(bufferStorage));
     }
-    catch (error) {
-      this.reset(false);
-      release();
-      throw error;
-    }
-    finally {
-      restore();
-    }
+    if(failed)throw failure;
+    return cancelled?'cancelled':'ready';
   }
+
   isReady(): boolean {
     return !!this.limits && !!this.workspace && this.cache.get(this.workspaceKey) === this.workspace.low && this.slots.length === this.limits.slots && this.slots.every(slot => !!slot && this.cache.get(slot.key) === slot.texture);
   }
@@ -545,28 +507,16 @@ export class TransformedMaskPrepass {
     } }
   reset(lost = false): void {
     if (this.batch && !lost) throw new Error('Cannot reset inside an active brush GL batch');
-    this.cancelAutoGeneration();
-    // Old returned releases can never unlock a newly prepared group.
-    this.activeGroup = undefined;
-    for (const slot of [...this.slots])
-      if (slot)
-        this.cache.discard(slot.key, lost);
-    this.cache.discard(this.workspaceKey, lost);
-    if (this.program && !lost)
-      this.gl.deleteProgram(this.program);
-    this.program = undefined;
-    this.workspace = undefined;
-    this.slots = [];
-    this.staging = undefined;
-    this.limits = undefined;
-    this.sources.clear(); this.sourceBindings.clear();
-    this.attributes = [];
-    this.uniforms = {};
-    this.instancing = null;
-    this.vertexArrays = null;
-    this.releaseCpu?.();
-    this.releaseCpu = undefined;
-    this.reservedCpuBytes = 0;
+    let failed=false,primary:unknown;
+    const attempt=(cleanup:()=>void)=>{try{cleanup()}catch(error){if(!failed){failed=true;primary=error}}};
+    attempt(()=>this.cancelAutoGeneration());this.activeGroup=undefined;
+    for(const slot of [...this.slots])if(slot)attempt(()=>this.cache.discard(slot.key,lost));
+    attempt(()=>this.cache.discard(this.workspaceKey,lost));
+    if(this.program&&!lost)attempt(()=>this.gl.deleteProgram(this.program!));
+    this.program=undefined;this.workspace=undefined;this.slots=[];this.staging=undefined;this.limits=undefined;
+    this.sources.clear();this.sourceBindings.clear();this.attributes=[];this.uniforms={};this.instancing=null;this.vertexArrays=null;
+    attempt(()=>this.releaseCpu?.());this.releaseCpu=undefined;this.reservedCpuBytes=0;
+    if(failed)throw primary;
   }
   /** Stripe upload touches only unit0 and unpack state: no draw/program/FBO,
    * vertex or capability state enters this capsule. Five synchronous queries. */
@@ -596,24 +546,14 @@ export class TransformedMaskPrepass {
       if(failed)throw failure;
     };
   }
-  private texture(width: number, height: number, data: Uint8Array | null): WebGLTexture {
-    const gl = this.gl, texture = gl.createTexture();
-    if (!texture)
-      throw new Error('Prepass texture allocation failed');
-    try {
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      return texture;
-    }
-    catch (error) {
-      gl.deleteTexture(texture);
-      throw error;
-    }
+  private texture(width:number,height:number,data:Uint8Array|null,reservation:StorageReservation):OwnedBrushResource {
+    const gl=this.gl;
+    return allocateOwnedBrushTexture(gl,width*height*4,(texture,mark)=>{
+      gl.bindTexture(gl.TEXTURE_2D,texture);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);mark(width*height*4);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,width,height,0,gl.RGBA,gl.UNSIGNED_BYTE,data);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    },reservation);
   }
   private compile(): void {
     const gl = this.gl, shaders: WebGLShader[] = [];

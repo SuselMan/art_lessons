@@ -1,5 +1,5 @@
 import { readRoomRasterVersion, roomRasterPixelEncoding, isRasterPixelEncoding, LEGACY_ROOM_RASTER_VERSION, type RasterPixelEncoding, type RoomRasterVersion } from '@grafetto/shared'
-import { attachAccumStorage } from './src/buffers/ContextStorageOwner'
+import { attachContextStorage, snapshotContextStorage } from './src/buffers/ContextStorageOwner'
 import { distinctBrushStorageChargeBytes } from './src/dabs/BrushTextureCache'
 import { AuthorTaskScheduler } from './src/input/AuthorTaskScheduler'
 import { AuthorInputFIFO } from './src/input/AuthorInputFIFO'
@@ -2347,7 +2347,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (!gl) throw new Error('WebGL not supported')
     // Diagnostic/incomplete Accum domain only. Finite engine admission stays
     // closed until constructor rollback and raw storage ownership are migrated.
-    attachAccumStorage(gl, { limitBytes: Infinity })
+    attachContextStorage(gl, { limitBytes: Infinity })
     this.gl = gl
   this._compositor = new LayerCompositor({
     gl,
@@ -3646,7 +3646,7 @@ export class PencilEngine implements PencilEngineAPI {
       settleMs: p.settleMs, settleOps: p.settleOps, rebuildSliceMs: p.sliceWorst.ms,
       bufferStorageMB: AccumulationBuffer.contextStorageByteLength(this.gl) * MB,
       rawBrushCacheChargeMB: rawBrushCacheCharge * MB,
-      knownTrackedStorageMB: (AccumulationBuffer.contextStorageByteLength(this.gl) + rawBrushCacheCharge) * MB,
+      knownTrackedStorageMB: snapshotContextStorage(this.gl).residentBytes * MB,
       knownStorageComplete: false,
       storageContextLost: this._contextLost,
       scratchLiveMB: pool.live * MB, scratchFreeMB: pool.free * MB,

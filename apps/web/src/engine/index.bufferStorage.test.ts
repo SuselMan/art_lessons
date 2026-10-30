@@ -1,3 +1,4 @@
+import { ownedBrushFixture } from './testing/ownedBrushFixture'
 import { expect, it } from 'vitest'
 import { PencilEngine } from './index'
 import { snapshotAccumStorage } from './src/buffers/ContextStorageOwner'
@@ -49,8 +50,8 @@ it('attributes two real painter caches without counting buffer/pool storage twic
   const brush = engine['_brush']['textures'], smudge = engine['_smudge']['wetTextures']
   const mb = 1024 * 1024, gl = engine['gl']
   try {
-    brush.protect(['brush']); brush.put('brush', gl.createTexture()!, 32)
-    smudge.protect(['smudge']); smudge.put('smudge', gl.createTexture()!, 48)
+    brush.protect(['brush']); brush.putOwned('brush',ownedBrushFixture(gl,32))
+    smudge.protect(['smudge']); smudge.putOwned('smudge',ownedBrushFixture(gl,48))
     const before = AccumulationBuffer.contextStorageByteLength(gl)
     const perf = engine.getWatercolorPerf()
     expect(perf.rawBrushCacheChargeMB).toBe(80 / mb)

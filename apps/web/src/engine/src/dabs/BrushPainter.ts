@@ -1,10 +1,11 @@
+import { reserveContextStorage, releaseStorageReservation } from '../buffers/ContextStorageOwner'
 import type { BrushExecutionContext } from '../presets/brushExecutionContext'
 import { nativeImagePixels, type NativeImageResource } from './NativeImageBank'
 import { materialGroupMips, type MaterialTextureGroup } from '../presets/brushMaterialPacking'
 import { BrushMipCache } from './BrushMipCache'
 import { lightnessMaterialMips } from '../presets/lightnessMaterial'
 import { importedAssetPixels } from '../presets/importedBrushes'
-import { assertNativeImageAdmission, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
+import { assertNativeImageAdmission, brushPreparationBytes, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 /** One digital-stamp renderer for built-in, imported and historical presets.
  * BrushBehaviorPainter owns deposition/composition; this facade owns texture LRU. */
 import type { Dab } from '@grafetto/shared'
@@ -15,7 +16,7 @@ import type { BrushDescriptor, BrushPressureSettings } from '../presets/digitalB
 import { normalizeBrush } from '../presets/brushNormalization'
 import type { PencilPreset } from '../presets/pencilPresets'
 import { brushTextureMips, brushTexturePixels, tipMaskMips, type BrushTextureId, type TipMaskId } from '../presets/tipMasks'
-import { BrushTextureCache, uploadBrushTexture, type BrushStorageCharge } from './BrushTextureCache'
+import { BrushTextureCache, uploadBrushTexture, publishOwnedBrushResource, type BrushStorageCharge } from './BrushTextureCache'
 import { BrushBehaviorPainter, type BehaviorScratch } from './BrushBehaviorPainter'
 
 export interface BrushContext {
@@ -51,9 +52,9 @@ export class BrushPainter {
   }
   initGL():void {this.maximumImageSide=undefined;this.textures.clear(true);this.behavior.initGL()}
   destroy():void {
-    this.behavior.destroy()
-    this.textures.clear()
-    if (this.ownsMipCache) this.materialMips.clear()
+    let failed=false,primary:unknown
+    for(const cleanup of [()=>this.behavior.destroy(),()=>this.textures.clear(),()=>{if(this.ownsMipCache)this.materialMips.clear()}])try{cleanup()}catch(error){if(!failed){failed=true;primary=error}}
+    if(failed)throw primary
   }
   finish(scratch:BehaviorScratch,endpoint?:Dab & {baseSize:number}):void {this.behavior.finish(scratch,endpoint)}
   paint(target:ILayerBuffer,dabs:Dab[],preset:PencilPreset,stamp:{brush:BrushDescriptor;pressure:BrushPressureSettings},color:[number,number,number],scratch:BehaviorScratch,_previous:Dab|undefined,execution?:BrushExecutionContext):void {
@@ -81,30 +82,38 @@ export class BrushPainter {
   private brushTexture(id: BrushTextureId, discrete = false): WebGLTexture {
     const key=brushTextureResourceKey({id,grain:true,discrete:discrete?true:undefined}), cached=this.textures.get(key)
     if(cached)return cached
-    const entry=uploadBrushTexture(this.gl,discrete ? [brushTexturePixels(id)] : brushTextureMips(id),this.gl.LUMINANCE,this.gl.REPEAT,discrete)
-    this.textures.put(key,entry.texture,entry.bytes)
+    const bytes=brushPreparationBytes([{painter:'stamp',id,grain:true,discrete:discrete?true:undefined}],sourceId=>sourceId.startsWith('asset:')?Math.sqrt(importedAssetPixels(sourceId).length):256)
+    const storage=reserveContextStorage(this.gl,bytes,'brush-texture-rgba-equivalent')
+    try {
+    const entry=uploadBrushTexture(this.gl,discrete ? [brushTexturePixels(id)] : brushTextureMips(id),this.gl.LUMINANCE,this.gl.REPEAT,discrete,undefined,storage)
+    publishOwnedBrushResource(this.textures,key,entry)
     return entry.texture
+    }finally{releaseStorageReservation(storage)}
   }
 
   private tipTexture(id: TipMaskId, gray?: string, materialGroup?: MaterialTextureGroup, nativeImage?: NativeImageResource, lookup32?: true): WebGLTexture {
     const key=brushTextureResourceKey({id,grain:false,gray,materialGroup,nativeImage,lookup32}), cached=this.textures.get(key)
     if(cached)return cached
+    const bytes=brushPreparationBytes([{painter:'stamp',id,grain:false,gray,materialGroup,nativeImage,lookup32}],sourceId=>sourceId.startsWith('asset:')?Math.sqrt(importedAssetPixels(sourceId).length):256)
+    const storage=reserveContextStorage(this.gl,bytes,'brush-texture-rgba-equivalent')
+    try {
     if (lookup32) {
-      const entry=uploadBrushTexture(this.gl,[importedAssetPixels(id)],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,true)
-      this.textures.put(key,entry.texture,entry.bytes)
+      const entry=uploadBrushTexture(this.gl,[importedAssetPixels(id)],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,true,undefined,storage)
+      publishOwnedBrushResource(this.textures,key,entry)
       return entry.texture
     }
     if (nativeImage) {
       const pixels = this.materialMips.get(key, () => [nativeImagePixels(nativeImage, importedAssetPixels(id))])[0]
-      const entry = uploadBrushTexture(this.gl, [pixels], this.gl.LUMINANCE, this.gl.CLAMP_TO_EDGE, false, nativeImage)
-      this.textures.put(key, entry.texture, entry.bytes)
+      const entry = uploadBrushTexture(this.gl, [pixels], this.gl.LUMINANCE, this.gl.CLAMP_TO_EDGE, false, nativeImage,storage)
+      publishOwnedBrushResource(this.textures,key,entry)
       return entry.texture
     }
     const levels=materialGroup ? this.materialMips.get(key,()=>materialGroupMips(materialGroup,importedAssetPixels) )
       : gray ? this.materialMips.get(key,()=>lightnessMaterialMips(importedAssetPixels(id),importedAssetPixels(gray))) : tipMaskMips(id)
     const format=materialGroup?.format==='rgba' ? this.gl.RGBA : gray ? this.gl.LUMINANCE_ALPHA : this.gl.LUMINANCE
-    const entry=uploadBrushTexture(this.gl,levels,format,this.gl.CLAMP_TO_EDGE)
-    this.textures.put(key,entry.texture,entry.bytes)
+    const entry=uploadBrushTexture(this.gl,levels,format,this.gl.CLAMP_TO_EDGE,false,undefined,storage)
+    publishOwnedBrushResource(this.textures,key,entry)
     return entry.texture
+    }finally{releaseStorageReservation(storage)}
   }
 }

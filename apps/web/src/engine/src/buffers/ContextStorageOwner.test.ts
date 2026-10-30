@@ -14,7 +14,7 @@ it('transfers a partial promise exactly once and rejects unknown, foreign and ex
   const lease = materializeAccumStorage(gl, ticket, 64)
   expect(snapshotAccumStorage(gl)).toMatchObject({ residentBytes: 64, reservedBytes: 64, complete: false })
   expect(() => validateAccumReservation(other, ticket, 1)).toThrow('Invalid')
-  expect(() => validateAccumReservation(gl, { kind: 'accum-storage-reservation' }, 0)).toThrow('Invalid')
+  expect(() => validateAccumReservation(gl, { kind: 'context-storage-reservation' }, 0)).toThrow('Invalid')
   releaseAccumReservation(ticket); releaseAccumReservation(ticket)
   expect(() => materializeAccumStorage(gl, ticket, 1)).toThrow('Invalid')
   releaseAccumLease(lease, true); releaseAccumLease(lease, true)

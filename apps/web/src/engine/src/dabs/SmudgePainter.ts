@@ -1,3 +1,4 @@
+import { reserveContextStorage, releaseStorageReservation } from '../buffers/ContextStorageOwner'
 import { assertBrushSourceInputs, assertBrushExecutionContext, assertSameBrushExecutionContext, type BrushExecutionContext } from '../presets/brushExecutionContext'
 import { brushTipSamplerId, brushTipProfileUniforms } from './BrushPreparation'
 import { brushAlphaThresholdValue } from '../presets/brushAlphaThreshold'
@@ -8,7 +9,7 @@ import { importedAssetPixels } from '../presets/importedBrushes'
 import { proceduralSampleCount } from '../raster/brushProcedural'
 import { canvasMeanDabRect, canvasMeanPlacedCenter, canvasMeanSourceRect } from '../raster/canvasMeanGeometry'
 import { brushTextureApplication } from './brushTextureApplication'
-import { assertNativeImageAdmission, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
+import { assertNativeImageAdmission, brushPreparationBytes, brushPreparationResources, brushTextureLeasePlan, brushTextureResourceKey, type BrushPreparationResource } from './BrushPreparation'
 // (#494) Smudge and the digital brush's mixer, out of PencilEngine (seam С15
 // of the survey). Both paint through one carried imprint per user: every dab
 // copies the canvas patch under it, refreshes the imprint from that patch
@@ -28,7 +29,7 @@ import { assertNativeImageAdmission, brushPreparationResources, brushTextureLeas
 // restore as objects; forget() drops what they hold, because every GL name
 // in them is dead.
 
-import { BrushTextureCache, uploadBrushTexture, type BrushStorageCharge } from './BrushTextureCache'
+import { BrushTextureCache, uploadBrushTexture, publishOwnedBrushResource, type BrushStorageCharge } from './BrushTextureCache'
 import { brushFootprintBounds } from './brushFootprint'
 import { BRUSH_BLEND_MODES, type Dab } from '@grafetto/shared'
 import type { BrushDescriptor } from '@grafetto/shared'
@@ -274,26 +275,23 @@ export class SmudgePainter {
   }
 
   destroy(): void {
-    const { gl } = this
-    this.scratchPool.destroy()
-    // A live imprint's buffer was spliced *out* of the scratch pool drained
-    // above and is held only here, so it needs destroying on its own.
-    for (const imprint of this.imprints.values()) imprint.buf?.destroy()
-    this.imprints.clear()
-    this.replayChunks.clear()
-    this.wetTextures.clear()
-    if (this.ownsMipCache) this.imageMips.clear()
-    for(const state of this.wetGestures.values())state.secondary?.destroy()
+    const {gl}=this
+    let failed=false,primary:unknown
+    const attempt=(cleanup:()=>void)=>{try{cleanup()}catch(error){if(!failed){failed=true;primary=error}}}
+    attempt(()=>this.scratchPool.destroy())
+    // Live imprints were removed from the scratch pool and remain individually owned.
+    for(const imprint of this.imprints.values())attempt(()=>imprint.buf?.destroy())
+    this.imprints.clear();this.replayChunks.clear()
+    attempt(()=>this.wetTextures.clear())
+    if(this.ownsMipCache)attempt(()=>this.imageMips.clear())
+    for(const state of this.wetGestures.values())attempt(()=>state.secondary?.destroy())
     this.wetGestures.clear()
-    if (this.curveTransfer) gl.deleteProgram(this.curveTransfer.program)
-    if (this.imageTransfer) gl.deleteProgram(this.imageTransfer.program)
-    this.curveTransfer = undefined
-    this.imageTransfer = undefined
-    if (this.proceduralTransfer) gl.deleteProgram(this.proceduralTransfer.program)
-    this.proceduralTransfer = undefined
-    gl.deleteProgram(this.transferProg)
-    gl.deleteProgram(this.pickupProg)
-    gl.deleteProgram(this.meanProg)
+    if(this.curveTransfer)attempt(()=>gl.deleteProgram(this.curveTransfer!.program))
+    if(this.imageTransfer)attempt(()=>gl.deleteProgram(this.imageTransfer!.program))
+    if(this.proceduralTransfer)attempt(()=>gl.deleteProgram(this.proceduralTransfer!.program))
+    this.curveTransfer=undefined;this.imageTransfer=undefined;this.proceduralTransfer=undefined
+    for(const program of [this.transferProg,this.pickupProg,this.meanProg])attempt(()=>gl.deleteProgram(program))
+    if(failed)throw primary
   }
 
   /** Release a presentation-only owner without touching a newer gesture. */
@@ -1080,21 +1078,25 @@ export class SmudgePainter {
   private wetTexture(id: TipMaskId | BrushTextureId, grain: boolean, discrete = false, nativeImage?: NativeImageResource, lookup32?: true): WebGLTexture {
     const key = brushTextureResourceKey({id,grain,discrete:discrete?true:undefined,nativeImage,lookup32}), cached = this.wetTextures.get(key)
     if(cached)return cached
+    const bytes=brushPreparationBytes([{painter:'wet',id,grain,discrete:discrete?true:undefined,nativeImage,lookup32}],sourceId=>sourceId.startsWith('asset:')?Math.sqrt(importedAssetPixels(sourceId).length):256)
+    const storage=reserveContextStorage(this.gl,bytes,'brush-texture-rgba-equivalent')
+    try {
     if (lookup32) {
-      const entry=uploadBrushTexture(this.gl,[importedAssetPixels(id)],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,true)
-      this.wetTextures.put(key,entry.texture,entry.bytes)
+      const entry=uploadBrushTexture(this.gl,[importedAssetPixels(id)],this.gl.RGBA,this.gl.CLAMP_TO_EDGE,true,undefined,storage)
+      publishOwnedBrushResource(this.wetTextures,key,entry)
       return entry.texture
     }
     if(nativeImage) {
       const pixels=this.imageMips.get(key,()=>[nativeImagePixels(nativeImage,importedAssetPixels(id))])[0]
-      const entry=uploadBrushTexture(this.gl,[pixels],this.gl.ALPHA,this.gl.CLAMP_TO_EDGE,false,nativeImage)
-      this.wetTextures.put(key,entry.texture,entry.bytes)
+      const entry=uploadBrushTexture(this.gl,[pixels],this.gl.ALPHA,this.gl.CLAMP_TO_EDGE,false,nativeImage,storage)
+      publishOwnedBrushResource(this.wetTextures,key,entry)
       return entry.texture
     }
     const levels=grain ? brushTextureMips(id as BrushTextureId) : tipMaskMips(id as TipMaskId)
-    const entry=uploadBrushTexture(this.gl,levels,this.gl.ALPHA,this.gl.CLAMP_TO_EDGE,discrete)
-    this.wetTextures.put(key,entry.texture,entry.bytes)
+    const entry=uploadBrushTexture(this.gl,levels,this.gl.ALPHA,this.gl.CLAMP_TO_EDGE,discrete,undefined,storage)
+    publishOwnedBrushResource(this.wetTextures,key,entry)
     return entry.texture
+    }finally{releaseStorageReservation(storage)}
   }
 
   /** Smudge's own size-keyed free list (patches *and* imprints — both are

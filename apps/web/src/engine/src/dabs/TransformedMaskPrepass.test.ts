@@ -1,3 +1,4 @@
+import { allocateOwnedBrushTexture } from './BrushTextureCache';
 import { GAUSSIAN_READY_STOCK, sourceGaussianCanonicalFixture } from '../../testing/sourceGaussianCanonicalFixture';
 import gaussianNative from '../presets/fixtures/sourceGaussianWholePath/whole.native.json';
 import { sourceGaussianDab } from '../presets/sourceGaussianDab';
@@ -26,11 +27,13 @@ function setup(gpu = 2 * 1024 * 1024, cpuBudget = 2 * 1024 * 1024) {
   const pixelStore=gl.pixelStorei, getParameter=gl.getParameter, flags=new Map([[9001,true],[9002,true]]);
   gl.pixelStorei=(key:number,value:number|boolean)=>flags.has(key)?flags.set(key,!!value):pixelStore(key,value);
   gl.getParameter=(key:number)=>flags.has(key)?flags.get(key):getParameter(key);
-  const m = material(), p = resolvedTransformedMaskPlan(m), source = { key: 'source', texture: gl.createTexture(), width: p.levelWidth + 2, height: p.levelHeight + 2 };
+  const m = material(), p = resolvedTransformedMaskPlan(m), source = { key: 'source', texture: null as unknown as WebGLTexture, width: p.levelWidth + 2, height: p.levelHeight + 2 };
   const resources = [{ key: source.key, bytes: source.width * source.height * 4 }];
   cache.protect(['source']);
-  cache.put('source', source.texture, resources[0].bytes);
+  const owned=allocateOwnedBrushTexture(gl,resources[0].bytes,(texture,mark)=>{gl.bindTexture(gl.TEXTURE_2D,texture);mark(resources[0].bytes);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,source.width,source.height,0,gl.RGBA,gl.UNSIGNED_BYTE,null)});source.texture=owned.texture;
+  cache.putOwned('source',owned);
   const owner = {}, request: TransformedMaskRequest = { owner, role: 'primary', material: m, source, rect: { x: -90, y: 45, width: m.width, height: m.height }, profile: 'neon4-summed-wordsize64' };
+  gl.texImage2D.mockClear();gl.bufferData.mockClear();
   return { gl, snapshot, cache, cpu, service, resources, request };
 }
 describe('internal persistent transformed-mask service', () => {
@@ -155,7 +158,8 @@ describe('internal persistent transformed-mask service', () => {
     expect(s.cpu.reservedBytes).toBe(0);
     expect(() => s.service.resolveGroup([s.request])).toThrow('prepared');
     s.cache.protect(['source']);
-    s.cache.put('source', s.request.source.texture, s.resources[0].bytes);
+    const renewed=allocateOwnedBrushTexture(s.gl,s.resources[0].bytes,(texture,mark)=>{s.gl.bindTexture(s.gl.TEXTURE_2D,texture);mark(s.resources[0].bytes);s.gl.texImage2D(s.gl.TEXTURE_2D,0,s.gl.RGBA,s.request.source.width,s.request.source.height,0,s.gl.RGBA,s.gl.UNSIGNED_BYTE,null)});
+    s.request={...s.request,source:{...s.request.source,texture:renewed.texture}};s.cache.putOwned('source',renewed);
     s.service.prepare({ width: 16, height: 16, slots: 2 }, s.resources);
     s.service.reset();
     s.service.reset();

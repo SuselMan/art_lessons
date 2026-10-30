@@ -1,41 +1,44 @@
+import { ownedBrushFixture } from '../../testing/ownedBrushFixture'
 import { describe, expect, it, vi } from 'vitest'
 import { MockGL } from '../../testing/mockGL'
-import { BrushTextureCache, uploadBrushTexture, distinctBrushStorageChargeBytes } from './BrushTextureCache'
+import { BrushTextureCache, combineOwnedBrushResources, uploadBrushTexture, distinctBrushStorageChargeBytes } from './BrushTextureCache'
 
-const texture = (): WebGLTexture => ({} as WebGLTexture)
+let fixtureGL:WebGLRenderingContext
+const texture = (bytes=10,auxiliary?:(lost:boolean)=>void) => ownedBrushFixture(fixtureGL,bytes,auxiliary)
 const rgbaMipBytes = (size: number): number => {
   let bytes = 0
   for (let side = size; side >= 1; side = Math.floor(side / 2)) bytes += side * side * 4
   return bytes
 }
 function setup(budget = 100) {
-  const gl = new MockGL(), deleted = vi.spyOn(gl, 'deleteTexture')
+  const gl = new MockGL(); fixtureGL=gl as unknown as WebGLRenderingContext
+  const deleted = vi.spyOn(gl, 'deleteTexture')
   return { gl, deleted, cache: new BrushTextureCache(gl as unknown as WebGLRenderingContext, budget) }
 }
 
 describe('byte-bounded brush texture residency', () => {
   it('evicts the least-recent inactive resource rather than a currently used sampler', () => {
     const { cache, deleted } = setup(20), a = texture(), b = texture(), c = texture()
-    cache.protect(['a']); cache.put('a', a, 10)
-    cache.protect(['b']); cache.put('b', b, 10)
-    expect(cache.get('a')).toBe(a)
-    cache.protect(['c']); cache.put('c', c, 10)
-    expect(deleted.mock.calls.map(call => call[0])).toEqual([b])
-    expect(cache.get('a')).toBe(a); expect(cache.get('c')).toBe(c)
+    cache.protect(['a']); cache.putOwned('a', a)
+    cache.protect(['b']); cache.putOwned('b', b)
+    expect(cache.get('a')).toBe(a.texture)
+    cache.protect(['c']); cache.putOwned('c', c)
+    expect(deleted.mock.calls.map(call => call[0])).toEqual([b.texture])
+    expect(cache.get('a')).toBe(a.texture); expect(cache.get('c')).toBe(c.texture)
     expect(cache.bytes).toBe(20)
   })
 
   it('holds an oversized active group and shrinks only when its working set changes', () => {
-    const { cache, deleted } = setup(100), old = texture(), a = texture(), b = texture()
-    cache.protect(['old']); cache.put('old', old, 40)
-    cache.protect(['a', 'b']); cache.put('a', a, 80); cache.put('b', b, 80)
+    const { cache, deleted } = setup(100), old = texture(40), a = texture(80), b = texture(80)
+    cache.protect(['old']); cache.putOwned('old', old)
+    cache.protect(['a', 'b']); cache.putOwned('a', a); cache.putOwned('b', b)
     expect(cache.bytes).toBe(160)
-    expect(cache.get('a')).toBe(a); expect(cache.get('b')).toBe(b)
-    expect(deleted.mock.calls.map(call => call[0])).toEqual([old])
+    expect(cache.get('a')).toBe(a.texture); expect(cache.get('b')).toBe(b.texture)
+    expect(deleted.mock.calls.map(call => call[0])).toEqual([old.texture])
     cache.protect(['a', 'b'])
     expect(cache.bytes).toBe(160)
     cache.protect(['a'])
-    expect(cache.bytes).toBe(80); expect(cache.get('a')).toBe(a); expect(cache.get('b')).toBeUndefined()
+    expect(cache.bytes).toBe(80); expect(cache.get('a')).toBe(a.texture); expect(cache.get('b')).toBeUndefined()
   })
 
   it.each([{ count: 9, side: 512 }, { count: 23, side: 256 }])('keeps a $count-frame $side-pixel pipe warm beyond old count limits', ({ count, side }) => {
@@ -44,7 +47,7 @@ describe('byte-bounded brush texture residency', () => {
     for (let dab = 0; dab < count * 4; dab++) {
       const key = `frame-${dab % count}`
       cache.protect([key])
-      if (!cache.get(key)) { uploads++; cache.put(key, texture(), rgbaMipBytes(side)) }
+      if (!cache.get(key)) { uploads++; cache.putOwned(key, texture(rgbaMipBytes(side))) }
     }
     expect(uploads).toBe(count)
     expect(deleted).not.toHaveBeenCalled()
@@ -53,28 +56,28 @@ describe('byte-bounded brush texture residency', () => {
 
   it('protects a full legacy2048px primary/grain/dual group even above the target', () => {
     const { cache, deleted } = setup(16 * 1024 * 1024)
-    const group = ['primary', 'grain', 'dual'], resources = group.map(texture)
+    const group = ['primary', 'grain', 'dual'], resources = group.map(()=>texture(rgbaMipBytes(2048)))
     cache.protect(group)
-    group.forEach((key, index) => cache.put(key, resources[index], rgbaMipBytes(2048)))
+    group.forEach((key, index) => cache.putOwned(key, resources[index]))
     expect(cache.bytes).toBe(rgbaMipBytes(2048) * 3)
     for (let pass = 0; pass < 3; pass++) {
       cache.protect(group)
-      group.forEach((key, index) => expect(cache.get(key)).toBe(resources[index]))
+      group.forEach((key, index) => expect(cache.get(key)).toBe(resources[index].texture))
     }
     expect(deleted).not.toHaveBeenCalled()
   })
 
   it('releases resources on destroy and forgets dead objects without GL calls on context loss', () => {
     const { cache, deleted } = setup()
-    cache.protect(['a']); cache.put('a', texture(), 40); cache.clear(true)
+    cache.protect(['a']); cache.putOwned('a', texture(40)); cache.clear(true)
     expect(cache.bytes).toBe(0); expect(deleted).not.toHaveBeenCalled()
-    cache.protect(['a']); cache.put('a', texture(), 40); cache.clear()
+    cache.protect(['a']); cache.putOwned('a', texture(40)); cache.clear()
     expect(cache.bytes).toBe(0); expect(deleted).toHaveBeenCalledTimes(1)
   })
 
   it('rejects an unprotected upload before it could return an immediately evicted texture', () => {
     const { cache } = setup()
-    expect(() => cache.put('unresolved', texture(), 200)).toThrow('protected')
+    expect(() => cache.putOwned('unresolved', texture(200))).toThrow('protected')
   })
 })
 
@@ -116,7 +119,7 @@ describe('short paint-batch leases', () => {
           // Ceiling then coverage: same recorded stamp order, never regrouped.
           for (let pass = 0; pass < 2; pass++) for (const key of keys) {
             cache.protect([key])
-            if (!cache.get(key)) { uploads++; cache.put(key, texture(), 10) }
+            if (!cache.get(key)) { uploads++; cache.putOwned(key, texture(10)) }
             peak = Math.max(peak, cache.bytes)
           }
         } finally { release() }
@@ -130,22 +133,22 @@ describe('short paint-batch leases', () => {
   it('rejects oversized/nested lease unions and releases pins after the batch', () => {
     const { cache, deleted } = setup(20), a = texture(), b = texture(), c = texture()
     const releaseA = cache.lease([{ key: 'a', bytes: 10 }])
-    cache.protect(['a']); cache.put('a', a, 10)
+    cache.protect(['a']); cache.putOwned('a', a)
     const rejected = cache.lease([{ key: 'b', bytes: 20 }])
-    cache.protect(['b']); cache.put('b', b, 10)
-    cache.protect(['c']); cache.put('c', c, 10)
-    expect(cache.get('a')).toBe(a); expect(cache.get('b')).toBeUndefined()
+    cache.protect(['b']); cache.putOwned('b', b)
+    cache.protect(['c']); cache.putOwned('c', c)
+    expect(cache.get('a')).toBe(a.texture); expect(cache.get('b')).toBeUndefined()
     releaseA(); rejected(); cache.get('c')
-    cache.protect(['d']); cache.put('d', texture(), 10)
-    expect(deleted.mock.calls.map(call => call[0])).toContain(a)
+    cache.protect(['d']); cache.putOwned('d', texture(10))
+    expect(deleted.mock.calls.map(call => call[0])).toContain(a.texture)
     expect(cache.bytes).toBe(20)
   })
 
   it('preempts optional batch pins rather than exceeding the original oversized-draw bound', () => {
     const { cache } = setup(20)
     const release = cache.lease([{ key: 'small', bytes: 10 }])
-    cache.protect(['small']); cache.put('small', texture(), 10)
-    cache.protect(['large']); cache.put('large', texture(), 40)
+    cache.protect(['small']); cache.putOwned('small', texture(10))
+    cache.protect(['large']); cache.putOwned('large', texture(40))
     expect(cache.bytes).toBe(40); expect(cache.get('small')).toBeUndefined()
     release(); expect(cache.bytes).toBe(40)
   })
@@ -173,13 +176,13 @@ it('uploads packed premultiplied LA with explicit dimensions, old byte budget an
 
 describe('owned prepass companion resources', () => {
   it('disposes companions on eviction/destroy exactly once and forgets lost objects without GL destruction', () => {
-    const { cache, deleted } = setup(20), a = texture(), b = texture(), dispose = vi.fn()
-    cache.protect(['a']); cache.put('a', a, 20, dispose)
-    cache.protect(['b']); cache.put('b', b, 20)
+    const { cache, deleted } = setup(20), a = texture(20), b = texture(20), dispose = vi.fn()
+    cache.protect(['a']); cache.putOwned('a', combineOwnedBrushResources(a,[],dispose))
+    cache.protect(['b']); cache.putOwned('b', b)
     expect(dispose).toHaveBeenCalledExactlyOnceWith(false)
-    expect(deleted).toHaveBeenCalledWith(a)
+    expect(deleted).toHaveBeenCalledWith(a.texture)
     cache.clear(); expect(dispose).toHaveBeenCalledTimes(1)
-    cache.protect(['a']); cache.put('a', a, 20, dispose); deleted.mockClear(); cache.clear(true)
+    cache.protect(['a']); cache.putOwned('a', texture(20,dispose)); deleted.mockClear(); cache.clear(true)
     expect(deleted).not.toHaveBeenCalled()
     expect(dispose).toHaveBeenLastCalledWith(true)
     expect(cache.budgetBytes).toBe(20)
@@ -189,7 +192,7 @@ describe('owned prepass companion resources', () => {
 it('rejects nonfinite/fractional custom GPU charges before cache mutation', () => {
   const { cache } = setup(); cache.protect(['x'])
   for (const bytes of [NaN, Infinity, -1, .5]) {
-    expect(() => cache.put('x', texture(), bytes)).toThrow('bytes')
+    expect(() => cache.putOwned('x', texture(bytes))).toThrow('bytes')
     expect(() => cache.lease([{ key: 'x', bytes }])).toThrow('bytes')
   }
   expect(cache.bytes).toBe(0)
@@ -197,8 +200,8 @@ it('rejects nonfinite/fractional custom GPU charges before cache mutation', () =
 
  it('reports opaque immutable owner charges once, without GL queries or residency changes', () => {
   const a = setup(20), b = setup(20)
-  a.cache.protect(['a']); a.cache.put('a', texture(), 12)
-  b.cache.protect(['b']); b.cache.put('b', texture(), 7)
+  a.cache.protect(['a']); a.cache.putOwned('a', ownedBrushFixture(a.gl as unknown as WebGLRenderingContext,12))
+  b.cache.protect(['b']); b.cache.putOwned('b', ownedBrushFixture(b.gl as unknown as WebGLRenderingContext,7))
   const queries = vi.spyOn(a.gl, 'getParameter')
   const one = a.cache.storageChargeSnapshot(), shared = a.cache.storageChargeSnapshot()
   expect(one.owner).toBe(shared.owner)
@@ -210,7 +213,7 @@ it('rejects nonfinite/fractional custom GPU charges before cache mutation', () =
   expect(a.cache.storageChargeSnapshot().chargeBytes).toBe(12)
   release()
   expect(queries).not.toHaveBeenCalled()
-  a.cache.protect(['c']); a.cache.put('c',texture(),15)
+  a.cache.protect(['c']); a.cache.putOwned('c',ownedBrushFixture(a.gl as unknown as WebGLRenderingContext,15))
   expect(a.cache.storageChargeSnapshot().chargeBytes).toBe(15)
   a.cache.discard('c'); expect(a.cache.storageChargeSnapshot().chargeBytes).toBe(0)
   b.cache.clear(true); expect(b.cache.storageChargeSnapshot().chargeBytes).toBe(0)
