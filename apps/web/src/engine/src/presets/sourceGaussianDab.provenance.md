@@ -35,3 +35,11 @@ native1/36 routes and a synthetic9-sample continuation request (not a new native
 oracle), input mutation, invalid continuation and midpixel cancel. No installed GUI factory selection or complete physical-device equivalence
 is asserted. Source-informed GPL/elementary-function notices are in the reused
 modules and their provenance files.
+
+Samsung SM-T970 / Chrome155 browser CPU continuation check uses the same104
+original frozen masks and1/2/7/31-sample schedule with unaligned seven-byte
+stripes. All29,098 A8 bytes and29,518 samples match;0 mismatches. This is an
+actual browser arithmetic check, not a GPU, pointer-latency or UI throughput
+measurement. The test child was closed, parent restored and ADB forward removed.
+Compact receipts and source/bundle/fixture hashes:
+`temp/device-runs/krita-stroke-20261024/fixes-v52/gaussian-incremental-device-{result,cleanup}.json`.
