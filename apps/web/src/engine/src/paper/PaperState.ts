@@ -108,7 +108,12 @@ export class PaperState implements PaperRead {
   // swapped for the real baked texture once load()'s async upload resolves.
   // _ready lets a caller (tests, Room.tsx's history-replay sites) await that
   // swap deterministically instead of guessing tick counts.
-  private _texture!: WebGLTexture
+  // Sole texture owner; the engine getter/painter contexts only borrow it.
+  private _texture: WebGLTexture | null = null
+  private _contextActive = false
+  private _generation = 0
+  private _request = 0
+  private _loadedType: PaperType | null = null
   private _ready: Promise<void> = Promise.resolve()
   // True once the real (non-placeholder) paper texture has loaded at least
   // once — false right after construction and right after a context-restore
@@ -134,7 +139,7 @@ export class PaperState implements PaperRead {
   // restore) and never assumed — see generatePaperMipmaps for why a driver
   // can legitimately refuse.
   private _mipsReady = false
-  // Set by destroy() — guards load()'s async continuation (its
+  // Set by deactivate()/destroy() — guards load()'s async continuation (its
   // getPaperBytes() await can still resolve after the engine was destroyed)
   // from touching a dead gl context.
   private _destroyed = false
@@ -153,7 +158,10 @@ export class PaperState implements PaperRead {
     this.onLoaded = opts.onLoaded
   }
 
-  get texture(): WebGLTexture { return this._texture }
+  get texture(): WebGLTexture {
+    if (!this._texture) throw new Error('Paper texture unavailable')
+    return this._texture
+  }
   /** See the _loaded field comment. */
   get loaded(): boolean { return this._loaded }
   get type(): PaperType { return this._type }
@@ -172,68 +180,140 @@ export class PaperState implements PaperRead {
    *  cache (paperLoader caches by PaperType, not by gl context, so this never
    *  re-fetches over the network — see getPaperBytes). */
   init(): void {
-    this._texture = createPlaceholderPaperTexture(this.gl)
-    this._mipsReady = generatePaperMipmaps(this.gl, this._texture)
-    this._loaded = false
-    this.start(this._type)
+    this.requireLiveOwner()
+    if (this.gl.isContextLost()) { this.contextLost(); throw new Error('Paper context lost') }
+    const generation = ++this._generation, request = ++this._request
+    let candidate: WebGLTexture | null = null
+    try {
+      candidate = createPlaceholderPaperTexture(this.gl)
+      const mipsReady = generatePaperMipmaps(this.gl, candidate)
+      if (this._destroyed || generation !== this._generation || request !== this._request) throw new Error('Paper initialization cancelled')
+      if (this.gl.isContextLost()) { this.contextLost(); throw new Error('Paper context lost') }
+      const old = this._texture
+      this._texture = candidate
+      candidate = null // Publication transfers ownership; later failure cannot roll it back.
+      this._contextActive = true
+      this._mipsReady = mipsReady
+      this._loaded = false
+      this._loadedType = null
+      if (old) this.deleteTexture(old)
+      this.start(this._type)
+    } catch (error) {
+      try { if (this.gl.isContextLost()) this.contextLost() } catch { /* Preserve primary. */ }
+      if (candidate) { try { this.deleteTexture(candidate) } catch { /* Preserve primary. */ } }
+      throw error
+    }
   }
 
-  /** See PencilEngineAPI.paperReady. */
+  /** Latest attempt, not a permission to use a later/destroyed GL generation. */
   ready(): Promise<void> { return this._ready }
 
-  /** See PencilEngineAPI.retryPaper. */
   retry(): Promise<void> {
-    // Not merely an optimization: re-running the load for a texture that is
-    // already bound would swap a live texture out from under whatever is
-    // mid-composite, to arrive at exactly the state it is already in.
-    if (this._loaded) return this._ready
+    this.requireLiveOwner()
+    if (!this._contextActive) throw new Error('Paper context unavailable')
+    if (this._loaded && this._loadedType === this._type) return this._ready
     return this.start(this._type)
   }
 
-  /** Switches the paper type; the previous texture stays bound until the new
-   *  one has loaded. */
+  /** The old real texture remains valid while a different type is loading. */
   setType(type: PaperType): void {
+    this.requireLiveOwner()
     this._type = type
-    this.start(type)
+    if (this._contextActive) this.start(type)
+    else ++this._request // Record the desired type without uploading into a lost context.
   }
 
-  destroy(): void {
+  /** Early engine teardown: invalidate work, retain texture until borrowers retire. */
+  deactivate(): void {
+    if (this._destroyed) return
     this._destroyed = true
+    ++this._generation
+    ++this._request
+    this._loaded = false
+    this._loadedType = null
   }
 
-  /** The one place `_ready` is assigned. Keeps a no-op handler attached
-   *  to every attempt: the real consumers (Room's replay sites) await it,
-   *  but they attach *later* — a creator's own await does not happen until a
-   *  socket round-trip has completed — and a rejection with no handler yet
-   *  attached is reported as an unhandled rejection, i.e. as a crash in
-   *  Sentry rather than as the handled failure it is. The returned promise is
-   *  the original, so every real caller still sees the rejection. */
+  /** Actual loss fence only: names are dead, shared context/byte cache is not ours. */
+  contextLost(): void {
+    if (this._destroyed) return
+    ++this._generation
+    ++this._request
+    this._contextActive = false
+    this._texture = null
+    this._loaded = false
+    this._loadedType = null
+    this._mipsReady = false
+  }
+
+  /** Sole terminal owner; engine and painter texture getters are borrowers. */
+  destroy(): void {
+    this.deactivate()
+    const texture = this._texture
+    this._texture = null
+    this._contextActive = false
+    this._mipsReady = false
+    if (texture) this.deleteTexture(texture)
+  }
+
+  private requireLiveOwner(): void {
+    if (this._destroyed) throw new Error('PaperState destroyed')
+  }
+
+  private deleteTexture(texture: WebGLTexture): void {
+    // Query failure must not make an independent owned deletion unreachable.
+    let lost = false, failed = false
+    let firstError: unknown
+    try { lost = this.gl.isContextLost() } catch (error) { failed = true; firstError = error }
+    if (!lost) {
+      try { this.gl.deleteTexture(texture) } catch (error) {
+        if (!failed) { failed = true; firstError = error }
+      }
+    }
+    if (failed) throw firstError
+  }
+
+  private current(generation: number, request: number): boolean {
+    if (this._destroyed || !this._contextActive || generation !== this._generation || request !== this._request) return false
+    if (this.gl.isContextLost()) { this.contextLost(); return false }
+    return true
+  }
+
+  /** Shared bytes are never cancelled/cleared by a single owner. Observe each
+   * rejection immediately, but preserve the original promise for consumers. */
   private start(type: PaperType): Promise<void> {
-    this._ready = this.load(type)
+    this.requireLiveOwner()
+    const generation = this._generation, request = ++this._request
+    this._ready = this.load(type, generation, request)
     void this._ready.catch(() => {})
     return this._ready
   }
 
-  // Awaits the shared byte cache (getPaperBytes — a network fetch only on
-  // the very first call for a given PaperType, an already-resolved promise
-  // on every later one, see paperLoader.ts), then uploads and swaps in the
-  // real texture, replacing whatever placeholder or previous paper texture
-  // was bound before. Guarded by _destroyed since the await can still
-  // resolve after destroy() ran. Both bounded and infinite rooms go through
-  // this same path and end up with the exact same 2048px REPEAT texture —
-  // see worldSize()'s own comment for why unifying them is safe.
-  private async load(type: PaperType): Promise<void> {
+  private async load(type: PaperType, generation: number, request: number): Promise<void> {
     const bytes = await getPaperBytes(type)
-    if (this._destroyed) return
-    const gl = this.gl
-    const newTex = uploadPaperTexture(gl, bytes)
-    const mipsReady = generatePaperMipmaps(gl, newTex)
-    const old = this._texture
-    this._texture = newTex
-    this._mipsReady = mipsReady
-    this._loaded = true
-    gl.deleteTexture(old)
-    this.onLoaded()
+    if (!this.current(generation, request)) return
+    let candidate: WebGLTexture | null = null
+    try {
+      candidate = uploadPaperTexture(this.gl, bytes)
+      const mipsReady = generatePaperMipmaps(this.gl, candidate)
+      if (!this.current(generation, request)) {
+        const obsolete = candidate
+        candidate = null
+        this.deleteTexture(obsolete)
+        return
+      }
+      const old = this._texture
+      this._texture = candidate
+      candidate = null
+      this._mipsReady = mipsReady
+      this._loaded = true
+      this._loadedType = type
+      if (old) this.deleteTexture(old)
+      if (this.current(generation, request)) this.onLoaded()
+    } catch (error) {
+      try { if (this.gl.isContextLost()) this.contextLost() } catch { /* Preserve primary. */ }
+      if (candidate) { try { this.deleteTexture(candidate) } catch { /* Preserve primary. */ } }
+      throw error
+    }
   }
 
   /** The sheet's size in world units. Falls back to the canvas for a caller
@@ -337,7 +417,7 @@ export class PaperState implements PaperRead {
   bindForCompose(texelsPerPixel: number): void {
     const { gl } = this
     gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.bindTexture(gl.TEXTURE_2D, this.texture)
     // (#470) Mips only once the paper is genuinely being shrunk past two
     // texels a pixel. This used to switch them on for every composed frame,
     // and with viewport rendering that meant every frame at any zoom below
@@ -363,7 +443,7 @@ export class PaperState implements PaperRead {
     if (!this._mipsReady) return
     // Always back to plain LINEAR, whichever filter the bind above chose.
     gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.bindTexture(gl.TEXTURE_2D, this.texture)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
   }
 }

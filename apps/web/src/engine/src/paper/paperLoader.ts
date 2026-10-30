@@ -355,34 +355,23 @@ export function getPaperBytes(type: PaperType): Promise<Uint8Array> {
   return cacheEvictingRejection(byteCache, type, () => loadPaperBytesImpl(type))
 }
 
-/** (#365) Builds a mip chain for the paper texture currently bound to
- *  TEXTURE_2D, reporting whether it worked. Callers must leave the min filter
- *  at LINEAR (setPaperTextureParams does) and only switch to a mip filter
- *  where this returned true — a texture asking for levels it lacks is
- *  incomplete and samples as opaque black.
- *
- *  The paper texture is baked offline and uploaded once, so unlike a tile
- *  this chain can never go stale: generated here, at load, and never again.
- *
- *  Verified through getError rather than by checking the format up front,
- *  which is unusual in this codebase and deliberate. WebGL1's paper texture
- *  is LUMINANCE_ALPHA, and whether generateMipmap accepts that is exactly the
- *  kind of thing implementations disagree on: GLES 2.0 rejects only
- *  compressed and non-power-of-two level-0 arrays, while the stricter GLES
- *  3.0 rule (color-renderable AND texture-filterable, which LUMINANCE_ALPHA
- *  is not) is what some drivers actually enforce. Guessing which applies on a
- *  given device would be wrong somewhere; asking costs one synchronous
- *  getError, once per paper load, on a path that already awaits a network
- *  fetch. A device that refuses simply keeps today's unfiltered sampling
- *  rather than rendering a black sheet.
- *
- *  Clears any error already pending first, so this reports on its own call
- *  rather than inheriting one from unrelated earlier GL work. */
+/** Cold checks consume one GL error flag and report it, never drain/hide it.
+ * A prior failure is not evidence that this allocation or mip probe failed. */
+function requireCleanPaperGl(gl: WebGLRenderingContext, stage: string): void {
+  const error = gl.getError()
+  if (error !== gl.NO_ERROR) throw new Error(`Paper ${stage} prior GL error: ${error}`)
+  if (gl.isContextLost()) throw new Error('Paper context lost')
+}
+
+/** LA mip support varies by device. Own refusal keeps the valid LINEAR base;
+ * pre-existing errors and lost context must not masquerade as that fallback. */
 export function generatePaperMipmaps(gl: WebGLRenderingContext, tex: WebGLTexture): boolean {
+  requireCleanPaperGl(gl, 'mipmap')
   gl.bindTexture(gl.TEXTURE_2D, tex)
-  while (gl.getError() !== gl.NO_ERROR) { /* drain */ }
   gl.generateMipmap(gl.TEXTURE_2D)
-  return gl.getError() === gl.NO_ERROR
+  const error = gl.getError()
+  if (error === gl.CONTEXT_LOST_WEBGL || gl.isContextLost()) throw new Error('Paper context lost')
+  return error === gl.NO_ERROR
 }
 
 function setPaperTextureParams(gl: WebGLRenderingContext): void {
@@ -392,37 +381,44 @@ function setPaperTextureParams(gl: WebGLRenderingContext): void {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT)
 }
 
-// A flat mid-gray/mid-catch 1x1 texture bound the instant an engine is
-// constructed, before any real paper bytes have loaded — so every paint
-// call in the gap between construction and load-completion still binds a
-// valid texture. 1x1 is a legal WebGL1 REPEAT target (power-of-two).
-export function createPlaceholderPaperTexture(gl: WebGLRenderingContext): WebGLTexture {
-  const tex = gl.createTexture()!
-  gl.bindTexture(gl.TEXTURE_2D, tex)
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, 1, 1, 0, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, new Uint8Array([128, 128]))
-  setPaperTextureParams(gl)
-  return tex
+/** Local allocation remains ours until the complete upload/parameter check. */
+function createPaperTexture(gl: WebGLRenderingContext, res: number, upload: () => void): WebGLTexture {
+  requireCleanPaperGl(gl, 'texture')
+  const max = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number
+  if (!Number.isSafeInteger(max) || res > max) throw new Error('Invalid paper texture dimensions')
+  const tex = gl.createTexture()
+  if (!tex) throw new Error('Paper texture allocation failed')
+  try {
+    gl.bindTexture(gl.TEXTURE_2D, tex)
+    upload()
+    setPaperTextureParams(gl)
+    const error = gl.getError()
+    if (error !== gl.NO_ERROR) throw new Error(`Paper texture upload GL error: ${error}`)
+    return tex
+  } catch (error) {
+    let lost = false
+    try { lost = gl.isContextLost() } catch { /* Still attempt the owned deletion. */ }
+    if (!lost) { try { gl.deleteTexture(tex) } catch { /* Preserve primary. */ } }
+    throw error
+  }
 }
 
-// bytes must be PAPER_BAKE_RESOLUTION*PAPER_BAKE_RESOLUTION interleaved
-// LUMINANCE_ALPHA pairs (i.e. exactly what getPaperBytes() resolves to —
-// see bakePaperTextures.ts's own byte layout comment).
+// A flat 1x1 mid-gray/mid-catch placeholder; legal WebGL1 REPEAT dimensions.
+export function createPlaceholderPaperTexture(gl: WebGLRenderingContext): WebGLTexture {
+  return createPaperTexture(gl, 1, () => {
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, 1, 1, 0, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, new Uint8Array([128, 128]))
+  })
+}
+
+// Real textures are interleaved height/catch LA. Flat paper is 2x2; ordinary
+// bakes are PAPER_BAKE_RESOLUTION square. No image decode/conversion/copy.
 export function uploadPaperTexture(gl: WebGLRenderingContext, bytes: Uint8Array): WebGLTexture {
-  const tex = gl.createTexture()!
-  gl.bindTexture(gl.TEXTURE_2D, tex)
-  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-  // (#300) Derived from the payload rather than assumed to be
-  // PAPER_BAKE_RESOLUTION: `flat` ships a 2x2 constant instead of a ~4 MB
-  // baked tile (see FLAT_PAPER_BYTES), and passing the wrong dimensions for
-  // the byte count is a GL error, not a stretch.
   const res = Math.sqrt(bytes.length / 2)
-  gl.texImage2D(
-    gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA,
-    res, res, 0,
-    gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, bytes,
-  )
-  setPaperTextureParams(gl)
-  return tex
+  if (!Number.isSafeInteger(res) || res < 1 || Math.log2(res) % 1 !== 0) throw new Error('Invalid paper texture dimensions')
+  return createPaperTexture(gl, res, () => {
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA, res, res, 0, gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, bytes)
+  })
 }
 
 // The manifest fetch lives *below* this seam, inside fetchPaperBytes — never

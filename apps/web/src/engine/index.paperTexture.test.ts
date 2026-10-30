@@ -23,7 +23,7 @@
 //     tile boundary. Still relevant: the texture is a pure function of its
 //     input UV, so it still needs the true world position, not a
 //     tile-local one, to stay continuous across tile boundaries.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   createTestEngine, dab, lastPaperDabUniform, makeLayerAdd, makeStroke,
@@ -348,5 +348,60 @@ describe('paper texture: async load (placeholder, cache, context-restore)', () =
     } finally {
       __resetPaperLoaderForTesting()
     }
+  })
+})
+
+
+// Lifecycle B3: actual engine is only a borrower of PaperState's texture.
+describe('paper owner engine lifecycle', () => {
+  it('keeps paper alive through borrower cleanup and deletes its own texture once at the late boundary', async () => {
+    __setPaperLoaderForTesting(async () => new Uint8Array(8).fill(128))
+    const { engine } = createTestEngine({ paper: 'flat' })
+    const gl = engine['gl']
+    try {
+      await engine.paperReady()
+      const paper = engine['_paper'], texture = paper.texture, foreign = gl.createTexture()
+      const deleted = vi.spyOn(gl, 'deleteTexture'), destroyBrush = engine['_brush'].destroy.bind(engine['_brush'])
+      const borrowed = vi.spyOn(engine['_brush'], 'destroy').mockImplementation(() => {
+        expect(paper.texture).toBe(texture)
+        expect(deleted.mock.calls.some(([tex]) => tex === texture)).toBe(false)
+        destroyBrush()
+      })
+      const destroyPaper = vi.spyOn(paper, 'destroy')
+      engine.destroy(); engine.destroy()
+      expect(borrowed.mock.invocationCallOrder[0]).toBeLessThan(destroyPaper.mock.invocationCallOrder[0]!)
+      expect(deleted.mock.calls.filter(([tex]) => tex === texture)).toHaveLength(1)
+      expect(deleted.mock.calls.some(([tex]) => tex === foreign)).toBe(false)
+      expect(() => paper.texture).toThrow('Paper texture unavailable')
+      if (foreign) gl.deleteTexture(foreign)
+    } finally { engine.destroy(); vi.restoreAllMocks(); __resetPaperLoaderForTesting() }
+  })
+  it('retires the late paper owner even when an earlier independent engine cleanup throws', async () => {
+    __setPaperLoaderForTesting(async () => new Uint8Array(8).fill(128))
+    const { engine, canvas } = createTestEngine({ paper: 'flat' })
+    try {
+      await engine.paperReady()
+      const texture = engine['_paper'].texture, deleted = vi.spyOn(engine['gl'], 'deleteTexture'), primary = new Error('remove listener')
+      vi.spyOn(canvas, 'removeEventListener').mockImplementationOnce(() => { throw primary })
+      let failure: unknown
+      try { engine.destroy() } catch (error) { failure = error }
+      expect(failure).toBe(primary)
+      expect(deleted.mock.calls.filter(([tex]) => tex === texture)).toHaveLength(1)
+    } finally { engine.destroy(); vi.restoreAllMocks(); __resetPaperLoaderForTesting() }
+  })
+  it('invalidates paper at loss before cancellation callbacks can fail', async () => {
+    let resolve!: (bytes: Uint8Array) => void
+    __setPaperLoaderForTesting(() => new Promise<Uint8Array>(yes => { resolve = yes }))
+    const { engine } = createTestEngine({ paper: 'flat' })
+    try {
+      const ready = engine.paperReady(), primary = new Error('author cancel'), gl = engine['gl']
+      const callbacks = engine as unknown as { _cancelOwnedAuthor(lost: boolean): void; _display(): void }
+      vi.spyOn(callbacks, '_cancelOwnedAuthor').mockImplementationOnce(() => { throw primary })
+      expect(() => engine['_handleContextLost'](new Event('webglcontextlost', { cancelable: true }))).toThrow(primary)
+      const upload = vi.spyOn(gl, 'texImage2D'), display = vi.spyOn(callbacks, '_display')
+      resolve(new Uint8Array(8).fill(128)); await ready
+      expect(upload).not.toHaveBeenCalled(); expect(display).not.toHaveBeenCalled()
+      expect(engine['_paper'].loaded).toBe(false)
+    } finally { engine.destroy(); vi.restoreAllMocks(); __resetPaperLoaderForTesting() }
   })
 })

@@ -4307,7 +4307,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._opDrainRaf = 0
     retire(() => this._cancelSettle())
     retire(() => this._cancelSpillJob())
-    retire(() => this._paper.destroy())
+    retire(() => this._paper.deactivate())
     for (const id of [...this._rebuildJobs.keys()]) retire(() => this._cancelRebuildJob(id))
     retire(() => this._dropWashBoundaries())
     retire(() => this._stopAirbrush())
@@ -4387,7 +4387,7 @@ export class PencilEngine implements PencilEngineAPI {
     for (const b of this._revealPool) retire(() => b.destroy())
     this._revealPool = []
     retire(() => this._settlePlan.destroyTextures())
-    retire(() => this.gl.deleteTexture(this._paperTex))
+    retire(() => this._paper.destroy())
     retire(() => this._compositor.destroy(this._contextLost))
     // Deleting a bound program only retires it after unbinding. Touch only
     // our three programs; a new engine/foreign current program is borrowed.
@@ -5244,6 +5244,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleContextLost = (e: Event): void => {
     if (this._destroyed) return
     this._contextLost=true
+    this._paper.contextLost()
     this._quadBuf = null
     this._screenBuf = null
     AccumulationBuffer.forgetContextStorage(this.gl)
