@@ -11,3 +11,17 @@ Context loss invalidates the old owner and FBO-completeness epoch. Stale reserva
 Evidence: fixes-v52/accum-owner-{focused,buffer-regressions,final-focused,final-regressions,common-web-tsc,lint}.log. Host MockGL integration tests verify actual constructors, scratch pool reuse/trim, two real engines sharing one context, external ticket consumption, resize peak, unknown/foreign/stale tokens, allocation GL errors, partial cleanup and numeric orphan semantics. These tests do not establish driver memory use or prevention of browser tab OOM. No device/runtime/dependency resource was created for this unit.
 
 Final host gate: 172 tests across 20 buffer/engine ownership files passed, including repeated void mip OOM→retry→success and constructor framebuffer cleanup despite deletion faults. Common web typecheck and scoped lint are recorded alongside the tests; no device performance claim.
+
+Subsequent actual Samsung SM-T970/Adreno650/Chrome155 regression uses source
+at51cb40a57: seven Gaussian author/adapter/packed V2 paths through the actual
+executor/Tiled/scratch/prepass/composite64, plus largest two masks/composite8.
+All9 final64×64 surfaces match host source-law expected (wrong0/maxDelta0),
+hostile GL state is restored, GL[]/poison[], and all owned GL handles are zero.
+The actual context ledger is observed after every trial cleanup: resident,
+reserved and orphan bytes are all zero, with complete=false. Infinity is serialized
+as null in numeric JSON snapshots; no finite engine policy was activated.
+This proves the tested allocation/cleanup paths, not original GUI identity,
+physical GPU residency, tablet OOM prevention or UI latency. Both children closed,
+original three tabs preserved, parent restored, forward19236 and job markers
+removed. Durable receipts: fixes-v52/gaussian7-owner-executor-device-summary.json
+and gaussian7-owner-executor-{64,8}-{result,cleanup}.json (source/bundle/body hashes).
