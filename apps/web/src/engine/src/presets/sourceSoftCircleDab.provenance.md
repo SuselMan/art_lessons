@@ -41,7 +41,12 @@ All40 original whole-wrapper cases match all40,864 A8 bytes exactly, including
 20 native NEON branches, anisotropic tips, nonzero first knots, rotations and
 subpixel placements. Original600px curve resolution2400/table2402 remains intact;
 mask geometry in this corpus is explicitly resized to a64px base window. The
-fixture does not claim full saved600×600 coverage. Five curves cover all10 stock
+40-case fixture itself does not claim full saved600×600 coverage; the separate
+full600.native.json supplement executes ONE original saved600×600 NEON wholemask.
+It completes within the explicit75s/10M instruction caps (48.14s,6,664,930
+instructions), preserves the original2402-value table byte-for-byte, and all360,000
+A8 bytes match CPU exactly. This is one full-size input, not an exhaustive size
+or GUI dispatch claim. Five curves cover all10 stock
 soft-circle roles, while integrating those stock descriptors is a separate step.
 
 Closed domain: circle/spikes2, softness1, randomness0, density1, AAoff (all10 actual

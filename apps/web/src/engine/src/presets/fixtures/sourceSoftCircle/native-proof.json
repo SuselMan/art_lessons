@@ -65,5 +65,21 @@
   "seconds": 27.50005555152893,
   "maxWholeInstructions": 616049,
   "scalarFactoryBoundary": "image0x5464fc, validateGENpointer, returnownedAPP; actualprocessmethodsvtables selectedexplicitly for eachcase",
-  "noLibraryPersisted": true
+  "noLibraryPersisted": true,
+  "full600Supplement": {
+    "status": "PASS",
+    "runnerSHA256": "d075dbdf6f562d0166e46d5367c73a8a4fe58ac1990c3479e64427842d1093dc",
+    "wholeCalls": 1,
+    "coverageBytes": 360000,
+    "nativeInstructions": 6664930,
+    "seconds": 48.140122413635254,
+    "instructionCap": 10000000,
+    "timeoutSeconds": 75,
+    "coverageSHA256": "f6f0a7e51e6ce862d468e200f7ebf16a73830b436c82343f18eea8c2ba274e8b",
+    "originalTableSHA256": "41a7d6cc24714cdea00e090a8e30c385a1132a355a7a8a16310e854ce9021ca3",
+    "nativeTableValues": 2402,
+    "tableByteEqualToFiveCurveFixture": true,
+    "CPUComparisonWrongBytes": 0,
+    "CPUHostMillisecondsDiagnostic": 129.558578
+  }
 }

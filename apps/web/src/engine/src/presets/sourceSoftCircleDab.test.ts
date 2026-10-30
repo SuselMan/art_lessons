@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import tables from './fixtures/sourceSoftCircle/tables.native.json'
+import full600 from './fixtures/sourceSoftCircle/full600.native.json'
 import whole from './fixtures/sourceSoftCircle/whole.native.json'
 import { compileSourceSoftCircleProgram, sourceSoftCircleDab, type SourceSoftCircleDabRequest, type SourceSoftCircleProgram } from './sourceSoftCircleDab'
 function compile(row = tables.constructors[0]): SourceSoftCircleProgram {
@@ -31,6 +32,13 @@ describe('compiled original-resolution soft-circle CPU dab', () => {
       pixels += actual.mask.length; vectors += +(actual.route === 'neon64-vector')
     }
     expect(pixels).toBe(40864); expect(vectors).toBe(20)
+  })
+  it('matches all360000 A8 bytes of the independent full saved600x600 native NEON mask', () => {
+    const row = full600.case, actual = sourceSoftCircleDab(request(row, compile()))
+    expect(actual.geometry.maskSize).toEqual([600, 600])
+    expect(actual.center).toEqual([299.5, 299.5])
+    expect(actual.route).toBe('neon64-vector')
+    expect(Buffer.from(actual.mask).toString('base64')).toBe(row.coverageBase64)
   })
   it('compiles once at original600px resolution and deeply owns the immutable program', () => {
     const native = tables.constructors[0]
