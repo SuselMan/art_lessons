@@ -28,7 +28,7 @@ function decoded(count: number, x = 0, end = true, entry: CanonicalMaterialFrame
     preflightDefinition: () => ({ workUnits: 1, outputBytes: 1 }) }
   return unpackCanonicalMaterial(packCanonicalMaterial(frame, context), context)
 }
-function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4, tileBudget?: number, rasterProfile: CanonicalExecutorRasterProfile = 'reference-scalar-f32-rne-v1', autoSource?: CanonicalDefaultAutoSource) {
+function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4, tileBudget?: number, rasterProfile: CanonicalExecutorRasterProfile = 'reference-scalar-f32-rne-v1', autoSource?: CanonicalDefaultAutoSource, compositeCapacity = capacity) {
   const { gl, snapshot } = recordingGL(), cache = new BrushTextureCache(gl), cpu = new BrushMipCache()
   gl.TEXTURE1 = gl.TEXTURE0 + 1; gl.STATIC_DRAW = 9001; gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME = 9002
   gl.LINEAR = 9010; gl.REPEAT = 9011
@@ -55,13 +55,13 @@ function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4,
   const prepass = new TransformedMaskPrepass(gl, cache, cpu, 'executor-test')
   prepass.prepare({ width: capacity, height: capacity, slots: 1 }, bankResources)
   const composite = new CanonicalRgba8CompositePass(gl, cache, cpu, 'executor-composite-test')
-  composite.prepare({ width: capacity, height: capacity, operations: rasterProfile === CANONICAL_STROKE_RASTER_PROFILE ? ['alphaDarken32FusedScalar', 'over32FusedScalar'] : ['alphaDarken32', 'over32'] }, [...bankResources, ...prepass.preparedResources()])
+  composite.prepare({ width: compositeCapacity, height: compositeCapacity, operations: rasterProfile === CANONICAL_STROKE_RASTER_PROFILE ? ['alphaDarken32FusedScalar', 'over32FusedScalar'] : ['alphaDarken32', 'over32'] }, [...bankResources, ...prepass.preparedResources()])
   const rebuild = vi.fn(() => ({ readPixels: () => null, destroy: vi.fn() }))
   const scratch = new RibbonScratchPool(gl), layer = new TiledLayerBuffer(gl, tileSize, tileSize, tileBudget ? rebuild : undefined, tileBudget ? tileBudget * tileSize * tileSize * 4 : undefined, undefined, 'straight-rgba8')
   let epoch = 0
   const releases: ReturnType<typeof vi.fn>[] = [], reserveTransient = vi.fn(() => { const r = vi.fn(); releases.push(r); return r })
   const changed = vi.fn(), poison = vi.fn()
-  const executor = new CanonicalFrameExecutor({ rasterProfile, autoSource, bank, prepass, composite, scratch, capacity: { width: capacity, height: capacity },
+  const executor = new CanonicalFrameExecutor({ rasterProfile, autoSource, bank, prepass, composite, scratch,
     layer: () => ({ buffer: layer, epoch }), reserveTransient, changed, poison })
   const submit = (frame = decoded(1), ordinal = 0): CanonicalFrameSubmission => ({ gestureId: 'gesture', layerId: 'layer', layerEpoch: 0, ordinal,
     frame, assets: [asset], rgb: [200, 20, 50], composition: { mode, alphaDarken: 'creamy', outerResourceOpacity: .8, outerBlend: 'over' } })
@@ -435,12 +435,14 @@ for (const mode of ['wash','buildup'] as const) it(`clips ${mode} to trusted pag
 
 it('skips fully clipped pixel work without allocating targets, changing source history or inventing endpoint dabs', () => {
   const s=setup('wash'), executor=new CanonicalFrameExecutor({...s.executor['options'],pageBounds:{minX:1,minY:1,maxX:2,maxY:2}});
-  const resolve=vi.spyOn(s.layer,'resolveForPaint'), calls=vi.spyOn(s.composite,'drawSource');
+  const resolve=vi.spyOn(s.layer,'resolveForPaint'), calls=vi.spyOn(s.composite,'drawSource'), getters=vi.spyOn(s.gl,'getParameter'), lease=vi.spyOn(s.cache,'lease');
   try {
+    getters.mockClear();lease.mockClear();
     executor.enqueue(s.submit(decoded(1,999)));
     while(executor.pending)executor.advance();
     expect(executor.checkpointReady).toBe(true);expect(resolve).not.toHaveBeenCalled();expect(calls).not.toHaveBeenCalled();
     expect(s.reserveTransient).not.toHaveBeenCalled();expect(s.changed).not.toHaveBeenCalled();
+    expect(getters).not.toHaveBeenCalled();expect(lease).not.toHaveBeenCalled();
   }finally{executor.cancel();s.close()}
 });
 
@@ -510,4 +512,92 @@ it('bounds a long fully clipped frame scan and resumes its exact draw cursor',()
     expect(executor['queue'][0].draw).toBe(16);expect(resolve).not.toHaveBeenCalled();
     while(executor.pending)executor.advance();expect(executor.checkpointReady).toBe(true);expect(resolve).not.toHaveBeenCalled();
   }finally{executor.cancel();s.close()}
+});
+
+it('finishes empty source framing without GL queries, target leases or batches while preserving the gesture and ordinal',()=>{
+  const s=setup('wash'), getters=vi.spyOn(s.gl,'getParameter'), lease=vi.spyOn(s.cache,'lease'), resolve=vi.spyOn(s.layer,'resolveForPaint'), draw=vi.spyOn(s.composite,'drawSource');
+  const frames:CanonicalMaterialFrame[]=[
+    {profile:CANONICAL_MATERIAL_PROFILE,masked:false,entry:{phase:'between'},definitions:[],draws:[],fences:[{kind:'segmentBegin',at:0,group:0}]},
+    {profile:CANONICAL_MATERIAL_PROFILE,masked:false,entry:{phase:'primary',group:0},definitions:[],draws:[],fences:[{kind:'primaryEnd',at:0,group:0}]},
+    {profile:CANONICAL_MATERIAL_PROFILE,masked:false,entry:{phase:'mask',group:0},definitions:[],draws:[],fences:[{kind:'segmentEnd',at:0,group:0}]},
+    {profile:CANONICAL_MATERIAL_PROFILE,masked:false,entry:{phase:'between'},definitions:[],draws:[],fences:[{kind:'gestureEnd',at:0}]},
+  ];
+  try{
+    getters.mockClear();lease.mockClear();
+    for(const [ordinal,frame] of frames.entries()){
+      s.executor.enqueue({...s.submit(),frame,ordinal});
+      expect(s.executor.advance()).toEqual({pending:false,checkpointReady:ordinal===3});
+      if(ordinal<3)expect(s.executor['planned']!.nextFrameOrdinal).toBe(ordinal+1);
+    }
+    expect(getters).not.toHaveBeenCalled();expect(lease).not.toHaveBeenCalled();expect(resolve).not.toHaveBeenCalled();expect(draw).not.toHaveBeenCalled();
+    expect(s.poison).not.toHaveBeenCalled();expect(s.releases).toHaveLength(0);
+  }finally{s.close()}
+});
+
+it('uses actual composite capacity for presentation independently of a small mask workspace',()=>{
+  const s=setup('wash',8,2,undefined,'reference-scalar-f32-rne-v1',undefined,8), calls=vi.spyOn(s.composite,'drawSource');
+  try{
+    const gets=vi.spyOn(s.gl,'getParameter');gets.mockClear();
+    const mask=s.prepass.preparedCapacity(),composite=s.composite.preparedCapacity();
+    expect(Object.isFrozen(mask)).toBe(true);expect(Object.isFrozen(composite)).toBe(true);
+    expect(mask.width).toBe(2);expect(composite.width).toBe(8);expect(gets).not.toHaveBeenCalled();
+    s.executor.enqueue(s.submit());s.drain();
+    const presentations=calls.mock.calls.map(([r])=>r).filter(r=>r.source.kind==='straightRgba8');
+    expect(presentations).toHaveLength(1);expect(presentations[0].source.view.rect).toEqual({x:0,y:0,width:8,height:8});
+  }finally{s.close()}
+});
+
+for(const mode of ['wash','buildup'] as const)it(`splits ${mode} local pixels by actual pass capacity with mirrored full mask, negative coordinates and short page edges`,()=>{
+  const s=setup(mode,8,32,undefined,'reference-scalar-f32-rne-v1',undefined,4);
+  const executor=new CanonicalFrameExecutor({...s.executor['options'],pageBounds:{minX:-6,minY:-5,maxX:7,maxY:3}});
+  const calls=vi.spyOn(s.composite,'drawSource');
+  try{
+    const f=decoded(1,-9);Object.assign(f,{definitions:[{...recipe,scale:17,ratio:11/17,width:17,height:11,mirrorH:true,mirrorV:true}],draws:[{...f.draws[0],y:-7}]});
+    executor.enqueue({...s.submit(),frame:f});let n=0;while(executor.pending&&n++<100)executor.advance();expect(n).toBeLessThan(100);
+    expect(executor.checkpointReady).toBe(true);
+    const requests=calls.mock.calls.map(([r])=>r).filter(r=>r.source.kind==='maskRgb'), coverage=new Map<string,number>();
+    expect(requests.length).toBeGreaterThan(4);
+    for(const r of requests){
+      expect(r.source.view.rect).toEqual({x:-9,y:-7,width:17,height:11});expect(r.source.view.mirror).toEqual({horizontal:true,vertical:true});
+      expect(r.target.width).toBe(8);expect(r.target.height).toBe(8);
+      const b=r.writeBounds!;expect(b.maxX-b.minX).toBeLessThanOrEqual(4);expect(b.maxY-b.minY).toBeLessThanOrEqual(4);
+      for(let y=b.minY;y<b.maxY;y++)for(let x=b.minX;x<b.maxX;x++){const k=`${x},${y}`;coverage.set(k,(coverage.get(k)??0)+1)}
+    }
+    expect(coverage.size).toBe(13*8);for(let y=-5;y<3;y++)for(let x=-6;x<7;x++)expect(coverage.get(`${x},${y}`)).toBe(1);
+    expect(new Set(requests.map(r=>JSON.stringify(r.operation))).size).toBe(1);
+    expect(requests.some(r=>r.writeBounds!.maxX-r.writeBounds!.minX<4||r.writeBounds!.maxY-r.writeBounds!.minY<4)).toBe(true);
+  }finally{executor.cancel();s.close()}
+});
+
+it('retains and cancels one local part cursor without rerunning the logical source draw',()=>{
+  const s=setup('wash',32,32,undefined,'reference-scalar-f32-rne-v1',undefined,4), actual=s.composite.drawSource.bind(s.composite);
+  let clock=0;const now=vi.spyOn(performance,'now').mockImplementation(()=>clock);
+  const calls=vi.spyOn(s.composite,'drawSource').mockImplementation((r,frame)=>{const out=actual(r,frame);clock+=5;return out});
+  try{
+    const baseline=s.cpu.reservedBytes,f=decoded(1);Object.assign(f,{definitions:[{...recipe,scale:17,ratio:11/17,width:17,height:11}]});
+    s.executor.enqueue({...s.submit(),frame:f});expect(s.executor['planned']!.drawCount).toBe(1);
+    s.executor.advance();expect(s.executor['queue'][0].draw).toBe(0);expect(s.executor['queue'][0].paintPart).toBe(1);expect(calls).toHaveBeenCalledTimes(1);
+    s.executor.advance();expect(s.executor['queue'][0].draw).toBe(0);expect(s.executor['queue'][0].paintPart).toBe(2);expect(calls).toHaveBeenCalledTimes(2);
+    const a=calls.mock.calls[0][0].writeBounds!,b=calls.mock.calls[1][0].writeBounds!;expect(a.maxX).toBe(b.minX);
+    s.executor.cancel();expect(s.executor.poisoned).toBe(true);expect(s.poison).toHaveBeenCalledTimes(1);
+    expect(s.cpu.reservedBytes).toBe(baseline);for(const release of s.releases)expect(release).toHaveBeenCalledTimes(1);
+    expect(()=>s.executor.advance()).toThrow('poisoned');expect(calls).toHaveBeenCalledTimes(2);
+  }finally{now.mockRestore();s.close()}
+});
+
+for(const service of ['mask-new-size','mask-new-epoch','pass-new-size','pass-new-epoch'] as const)it(`rejects changed ${service} before queued pixel work or target resolution`,()=>{
+  const s=setup(),resolve=vi.spyOn(s.layer,'resolveForPaint'),draw=vi.spyOn(s.composite,'drawSource');
+  try{
+    s.executor.enqueue(s.submit());
+    if(service.startsWith('mask')){
+      s.prepass.reset();const size=service.endsWith('size')?8:4;
+      s.prepass.prepare({width:size,height:size,slots:1},s.bank!.preparedResources());
+    }else{
+      s.composite.reset();const size=service.endsWith('size')?8:4;
+      s.composite.prepare({width:size,height:size,operations:['alphaDarken32','over32']},[...s.bank!.preparedResources(),...s.prepass.preparedResources()]);
+    }
+    const getters=vi.spyOn(s.gl,'getParameter');getters.mockClear();
+    expect(()=>s.executor.advance()).toThrow('capacity/epoch');expect(resolve).not.toHaveBeenCalled();expect(draw).not.toHaveBeenCalled();expect(getters).not.toHaveBeenCalled();
+    expect(s.executor.poisoned).toBe(true);expect(s.poison).toHaveBeenCalledTimes(1);expect(s.executor.pending).toBe(false);
+  }finally{s.close()}
 });

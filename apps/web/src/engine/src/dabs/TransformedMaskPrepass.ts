@@ -287,6 +287,12 @@ export class TransformedMaskPrepass {
   isReady(): boolean {
     return !!this.limits && !!this.workspace && this.cache.get(this.workspaceKey) === this.workspace.low && this.slots.length === this.limits.slots && this.slots.every(slot => !!slot && this.cache.get(slot.key) === slot.texture);
   }
+  /** Actual prepared storage, independent of the next brush's tiny footprint.
+   * Opaque epoch binds queued work to this preparation without GL queries. */
+  preparedCapacity(): Readonly<{ width: number; height: number; epoch: object }> {
+    if (!this.isReady() || !this.limits || !this.workspace) throw new Error('Prepass is not prepared');
+    return Object.freeze({ width:this.limits.width, height:this.limits.height, epoch:this.workspace });
+  }
   /** Cold/preflight metadata only. Source-bank resources are reported separately. */
   preparedResources(): readonly { key: string; bytes: number }[] {
     if (!this.isReady()) throw new Error('Prepass is not prepared');

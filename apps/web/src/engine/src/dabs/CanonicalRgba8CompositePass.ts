@@ -314,6 +314,12 @@ export class CanonicalRgba8CompositePass {
         }
     }
     isReady(): boolean { return !!this.workspace && !!this.limits && this.cache.get(this.key) === this.workspace.texture; }
+    /** Actual compositing scratch capacity; not a brush/mask maximum.
+     * Metadata-only epoch binds queued execution to this preparation. */
+    preparedCapacity(): Readonly<{ width: number; height: number; epoch: object }> {
+        if (!this.isReady() || !this.limits || !this.workspace) throw new Error('Composite pass is not prepared');
+        return Object.freeze({ width:this.limits.width, height:this.limits.height, epoch:this.workspace });
+    }
     /** Metadata admission before allocating/writing a layer target. No implicit
      * shader preparation or alternative operation is permitted. */
     supportsOperations(kinds: readonly CanonicalCompositeOperationKind[]): boolean {
