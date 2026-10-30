@@ -116,3 +116,13 @@ Scoped lint/diff passed. Initial root common22456 failed on in-flight Pointer
 DOM typing; it is not counted as a pass. The CLI test first looked for library.json
 instead of the real manifest.json; that harness typo was corrected and full suite
 rerun. No new service/device context or dependency runtime copy was introduced.
+
+Soft data readiness is exposed separately by extractSoftAutoSourceDataCapability.
+It requires the schema-bound mapped v2 radial entry even when no sensor curve
+requires compilation, and retains source-data-only/rasterReady=false. Historical
+unsupported reasons, mask/dual sources, AA, texture, nonunit material controls,
+randomness/density and unsupported tool consumers remain closed. This structural
+check is neither compiler attestation nor author/material/wire/server permission;
+it does not remove the historical soft frontier or activate editor rendering.
+Tests use explicitly synthetic dictionaries for readiness and preserve rejection
+of all ten historical original source roles.

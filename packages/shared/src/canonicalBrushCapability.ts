@@ -113,3 +113,25 @@ export function extractGaussianAutoSourceDataCapability(descriptor: BrushDescrip
   return { supported: true, status: 'source-data-only', rasterReady: false,
     data: data as SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceGaussianAutoData } }
 }
+
+/** Soft data readiness only. Schema validation binds the mapped radial entry
+ * to the retained raw curve; it does not attest the compiler or admit pixels. */
+export function extractSoftAutoSourceDataCapability(descriptor: BrushDescriptor):
+  { readonly supported: true; readonly status: 'source-data-only'; readonly rasterReady: false; readonly data: SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceSoftAutoData } } |
+  { readonly supported: false; readonly reasons: readonly string[] } {
+  const reject = (reason: string) => ({ supported: false as const, reasons: [reason] })
+  const data = descriptor.sourceStamp
+  if (!isSourceStampData(data)) return reject('invalid-or-missing-source-data')
+  if (data.version !== 2 || data.source.kind !== 'softAuto') return reject('source-material-is-not-soft-auto')
+  if (data.unsupported.length) return { supported: false, reasons: [...data.unsupported] }
+  if (data.role !== 'primary' || descriptor.behavior?.dual) return reject('mask-master-size-unresolved')
+  if (descriptor.model !== 'stamp') return reject('inconsistent-soft-auto-descriptor')
+  const source = data.source
+  if (source.ratio > 1 || source.spikes !== 2 || source.antialias || source.randomness !== 0 || source.density !== 1
+    || !data.flags.materialFixed1 || data.flags.textureEnabled || descriptor.behavior?.colorAdjustment) return reject('unsupported-soft-auto-material-consumer')
+  if (!sourceStampPaintingMode(data)) return reject('inconsistent-source-painting-mode')
+  if (data.options.length !== 9 || !hasCanonicalSourceCurvePrograms(data)) return reject('native-option-program-unavailable')
+  if (data.compiled?.version !== 2 || !data.compiled.radialCurve) return reject('native-radial-program-unavailable')
+  return { supported: true, status: 'source-data-only', rasterReady: false,
+    data: data as SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceSoftAutoData } }
+}
