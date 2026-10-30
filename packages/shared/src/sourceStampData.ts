@@ -69,6 +69,12 @@ export interface SourceGaussianAutoData {
   readonly antialias: boolean; readonly spikes: number
   readonly randomness: number; readonly density: number
 }
+/** Raw radial curve retention only; no compiler or raster admission. */
+export interface SourceSoftAutoData extends Omit<SourceGaussianAutoData, 'kind' | 'generator'> {
+  readonly kind: 'softAuto'
+  readonly generator: 'soft'
+  readonly softnessCurve: SourceStampCurveData
+}
 interface SourceStampCommon {
   readonly compiled?: SourceStampCompiledData
   readonly reader: 'krita-bd6e8d0-v1'
@@ -88,9 +94,9 @@ interface SourceStampCommon {
 /** Missing tag is legacy IMAGE only. New payloads must carry an explicit tag. */
 export type SourceStampData = SourceStampCommon & (
   { readonly version: 1; readonly source?: never } |
-  { readonly version: 2; readonly source: { readonly kind: 'image' } | SourceDefaultAutoData | SourceGaussianAutoData }
+  { readonly version: 2; readonly source: { readonly kind: 'image' } | SourceDefaultAutoData | SourceGaussianAutoData | SourceSoftAutoData }
 )
-export function sourceStampSourceKind(data: SourceStampData): 'image' | 'defaultAuto' | 'gaussianAuto' {
+export function sourceStampSourceKind(data: SourceStampData): 'image' | 'defaultAuto' | 'gaussianAuto' | 'softAuto' {
   return data.version === 1 ? 'image' : data.source.kind
 }
 function sourceIdentity(v: Record<string, unknown>): boolean {
@@ -99,8 +105,9 @@ function sourceIdentity(v: Record<string, unknown>): boolean {
   const s = v.source
   if (s.kind === 'image') return keys(s, ['kind'])
   const generatorIdentity = s.kind === 'defaultAuto' ? s.generator === 'default' && ['circle','rect'].includes(String(s.shape))
-    : s.kind === 'gaussianAuto' && s.generator === 'gauss' && s.shape === 'circle'
-  if (!generatorIdentity || !keys(s, ['kind','generator','shape','diameter','ratio','horizontalFade','verticalFade','antialias','spikes','randomness','density'])
+    : s.kind === 'gaussianAuto' ? s.generator === 'gauss' && s.shape === 'circle'
+    : s.kind === 'softAuto' && s.generator === 'soft' && s.shape === 'circle' && isSourceStampCurveData(s.softnessCurve)
+  if (!generatorIdentity || !keys(s, ['kind','generator','shape','diameter','ratio','horizontalFade','verticalFade','antialias','spikes','randomness','density',...(s.kind==='softAuto'?['softnessCurve']:[])])
     || !bool(s.antialias)
     || ![s.diameter,s.ratio,s.horizontalFade,s.verticalFade,s.spikes,s.randomness,s.density].every(finite)
     || (s.diameter as number) <= 0 || (s.ratio as number) <= 0 || !Number.isInteger(s.spikes)
@@ -131,6 +138,11 @@ function utf8Size(s: string): number {
 export function sourceStampDataBudget(value: unknown): number {
   if(!record(value) || !record(value.settings) || Object.keys(value.settings).length>256 || !Array.isArray(value.options) || value.options.length>9 || !Array.isArray(value.unsupported) || value.unsupported.length>32)return Infinity
   let total=2048
+  if(record(value.source) && value.source.kind==='softAuto') {
+    const curve=value.source.softnessCurve
+    if(!record(curve) || typeof curve.text!=='string' || curve.text.length>65536 || !Array.isArray(curve.points) || curve.points.length<1 || curve.points.length>256)return Infinity
+    total+=utf8Size(curve.text)+32*curve.points.length
+  }
   for(const [key,text] of Object.entries(value.settings)) {
     if(typeof text!=='string' || key.length>128 || text.length>65536)return Infinity
     total+=utf8Size(key)+utf8Size(text)

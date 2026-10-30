@@ -26,7 +26,11 @@ def source_stamp_budget(data):
         if not isinstance(option,dict) or not isinstance(option.get('sensors'),list) or len(option['sensors'])>16: raise ValueError('Invalid source stamp sensor budget')
         for curve in [option.get('commonCurve')]+[s.get('curve') for s in option['sensors']]:
             if not isinstance(curve,dict) or not isinstance(curve.get('text'),str) or len(curve['text'])>65536 or not isinstance(curve.get('points'),list) or len(curve['points'])>256: raise ValueError('Invalid source stamp curve budget')
+    radial=data.get('source',{}).get('softnessCurve')
+    if data.get('source',{}).get('kind')=='softAuto':
+        if not isinstance(radial,dict) or not isinstance(radial.get('text'),str) or len(radial['text'])>65536 or not isinstance(radial.get('points'),list) or not 1<=len(radial['points'])<=256: raise ValueError('Invalid soft source curve budget')
     total=2048+sum(len((k+v).encode('utf-8')) for k,v in data['settings'].items())+sum(len(s.encode('utf-8')) for s in data['unsupported'])
+    if radial is not None: total+=len(radial['text'].encode('utf-8'))+32*len(radial['points'])
     for option in data['options']:
         total+=64
         for curve in [option['commonCurve']]+[s['curve'] for s in option['sensors']]:
@@ -177,20 +181,22 @@ def source_identity(definition):
     if kind in ('png_brush','gbr_brush'): return {'kind':'image'}
     if kind!='auto_brush': raise ValueError('Unsupported raw source brush')
     generator=definition.find('MaskGenerator')
-    if generator is None or generator.get('id','default') not in ('default','gauss'): raise ValueError('Unsupported native auto source generator')
+    if generator is None or generator.get('id','default') not in ('default','gauss','soft'): raise ValueError('Unsupported native auto source generator')
     # Pinned KisAutoBrushFactory reader: legacy radius takes precedence; all
     # non-circle XML shape names map to Rectangle (including serialized rct).
     def number(value):
         if not DECIMAL.fullmatch(str(value).strip()): raise ValueError('Invalid native auto decimal')
         return finite(value)
     generator_id=generator.get('id','default')
-    result={'kind':'gaussianAuto' if generator_id=='gauss' else 'defaultAuto','generator':generator_id,'shape':'circle' if generator.get('type','circle')=='circle' else 'rect',
+    result={'kind':{'gauss':'gaussianAuto','soft':'softAuto','default':'defaultAuto'}[generator_id],'generator':generator_id,'shape':'circle' if generator.get('type','circle')=='circle' else 'rect',
             'diameter':number(generator.get('radius',generator.get('diameter',1))), 'ratio':number(generator.get('ratio',1)),
             'horizontalFade':number(generator.get('hfade',0)), 'verticalFade':number(generator.get('vfade',0)),
             'antialias':integer(generator.get('antialiasEdges',0))!=0,'spikes':integer(generator.get('spikes',2)),
             'randomness':number(definition.get('randomness',0)), 'density':number(definition.get('density',1))}
-    if generator_id=='gauss' and result['shape']!='circle': raise ValueError('Unsupported native Gaussian auto shape')
+    if generator_id in ('gauss','soft') and result['shape']!='circle': raise ValueError('Unsupported native '+('Gaussian' if generator_id=='gauss' else 'soft')+' auto shape')
     if result['diameter']<=0 or result['ratio']<=0 or not 1<=result['spikes']<=2147483647 or any(not 0<=result[k]<=1 for k in ('horizontalFade','verticalFade','randomness','density')): raise ValueError('Invalid native auto source parameters')
+    if generator_id=='soft':
+        result['softnessCurve']=curve_data(generator.get('softness_curve') or '0,1;1,0')
     return result
 
 
@@ -211,11 +217,12 @@ def retain_source_stamp(params,definition,width,height,xml,*,depth=0):
         if budget>MAX_SOURCE_STAMP_BUDGET: raise ValueError('Source stamp aggregate budget exceeded')
     charge(0)
     source=source_identity(definition)
-    auto=source['kind'] in ('defaultAuto','gaussianAuto')
+    auto=source['kind'] in ('defaultAuto','gaussianAuto','softAuto')
+    if source['kind']=='softAuto': charge(len(source['softnessCurve']['text'].encode('utf-8'))+32*len(source['softnessCurve']['points']))
     if auto:
         width=math.trunc(max(1,source['diameter']));height=math.trunc(max(1,source['diameter']*source['ratio']))
         if not 1<=width<=32768 or not 1<=height<=32768: raise ValueError('Native auto initial dimensions exceed retained source bound')
-    reasons=[];options=[]
+    reasons=['soft-auto-raster-author-unavailable'] if source['kind']=='softAuto' else [];options=[]
     if auto and (source['spikes']!=2 or source['randomness']!=0 or source['density']!=1): reasons.append(('gaussian' if source['kind']=='gaussianAuto' else 'default')+'-auto-mask-parameters-unavailable')
     if depth: reasons.append('mask-prefix-and-master-size-unresolved')
     if params.get('ColorSource/Type','plain')!='plain': reasons.append('source-color-provider-unresolved')

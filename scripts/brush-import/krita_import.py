@@ -104,7 +104,7 @@ def radial_curve_lookup(curve, diameter, catalog, warnings):
     return {'kind':'radialCurve','lookup':lookup,'resolution':resolution,'encoding':'unorm32be','antialias':False}
 
 
-def soft_circle(curve='0,0;1,1', diameter=60, size=256):
+def soft_circle(curve='0,1;1,0', diameter=60, size=256):
     """Independent radial-squared curve coverage (native SoftId circle).
 
     References: pinned kis_curve_circle_mask_generator.{h,cpp}: norme is r²,
@@ -474,7 +474,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
               and not enabled(generator.get('antialiasEdges')) and numeric(definition.get('randomness'))==0
               and numeric(definition.get('density'),1)==1)
         if soft:
-            curve=generator.get('softness_curve','0,0;1,1')
+            curve=generator.get('softness_curve') or '0,1;1,0'
             # Missing checkable Softness means unchecked in native Krita.
             # Even an enabled constant option is outside this first capability.
             procedural_soft=(not enabled(params.get('PressureSoftness'))
@@ -991,7 +991,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             behavior['rendering']['accumulation']='alphaDarken'
     d['behavior']=behavior
     # Capability comes from the decoded tip branch, never the later texture filename.
-    if engine=='paintbrush' and (source_static_image or kind=='auto_brush' and definition.find('MaskGenerator') is not None and definition.find('MaskGenerator').get('id','default') in ('default','gauss')):
+    if engine=='paintbrush' and (source_static_image or kind=='auto_brush' and definition.find('MaskGenerator') is not None and definition.find('MaskGenerator').get('id','default') in ('default','gauss','soft')):
         try:
             d['sourceStamp']=retain_source_stamp(params,definition,*(source_metric or (1,1)),xml,depth=depth)
             if curve_compiler is not None:

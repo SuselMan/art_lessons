@@ -15,8 +15,8 @@ class SoftScatterTests(unittest.TestCase):
             p=Path(tmp)/'Unrelated.kpp';p.write_bytes(kpp(definition,resources=extra,engine='colorsmudge'))
             c=convert.Catalog(Path(tmp)/'out');convert_krita(p,c);return c
 
-    def test_default_curve_is_coverage_squared_radius_not_inverse(self):
-        mask=soft_circle(diameter=60,size=257)
+    def test_explicit_identity_curve_is_coverage_squared_radius_not_inverse(self):
+        mask=soft_circle('0,0;1,1',diameter=60,size=257)
         self.assertEqual(mask.getpixel((128,128)),0)
         self.assertEqual(mask.getpixel((0,0)),0)
         # Point32px fromcenter inradius128.5: q=r². Native curve table242,

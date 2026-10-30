@@ -20,6 +20,14 @@ function identity(){
 const packet=(t:number,x=0):SourceAuthorPacket=>({x,y:0,t,pressure:.5,tiltX:0,tiltY:0,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false})
 
 describe('real descriptor to source author, explicit capability boundary',()=>{
+  it('does not reinterpret retained soft source as an image author even with a valid asset',()=>{
+    const d=identity()
+    Object.assign(d.sourceStamp!,{version:2,source:{kind:'softAuto',generator:'soft',shape:'circle',diameter:3,ratio:5/3,horizontalFade:0,verticalFade:0,antialias:false,spikes:2,randomness:0,density:1,softnessCurve:{text:'0,1;1,0',points:[{x:0,y:1,corner:false},{x:1,y:0,corner:false}]}}})
+    Object.assign(d.sourceStamp!.brush,{scale:1})
+    expect(isSourceStampData(d.sourceStamp)).toBe(true)
+    expect(sourceStrokeAuthorDescriptor(d,context)).toEqual({supported:false,reasons:['soft-auto-raster-author-unavailable']})
+  })
+
   it('passes the production shared library boundary with source data and rejects a corrupt retained slot',()=>{
     const d=descriptor(),library={schemaVersion:1,assets:[{...fixture.asset,file:fixture.asset.id.slice(6)+'.bin'}],skipped:[],brushes:[{name:'Authored',source:'authored.kpp',warnings:[],descriptor:d}]}
     expect(isBrushLibrary(library)).toBe(true)

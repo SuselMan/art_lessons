@@ -20,6 +20,7 @@ export type SourceAuthorDescriptorResult = { readonly supported: true; readonly 
 export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, context: SourceAuthorDescriptorContext): SourceAuthorDescriptorResult {
   const data=descriptor.sourceStamp!
   const reject=(reason:string):SourceAuthorDescriptorResult=>({supported:false,reasons:[reason]})
+  if(data?.version===2 && data.source?.kind==='softAuto')return reject('soft-auto-raster-author-unavailable')
   const gaussian=data?.version===2 && data.source?.kind==='gaussianAuto'
   const auto=data?.version===2 && (data.source?.kind==='defaultAuto'||gaussian)
   const material = gaussian ? extractGaussianAutoSourceDataCapability(descriptor) : auto ? extractDefaultAutoSourceDataCapability(descriptor)

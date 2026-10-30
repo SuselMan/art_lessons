@@ -38,3 +38,31 @@ material-consumer fences; #38/39/40 retain dual/mask fences. Legacy bitmap CAS
 planes are not copied into this source fixture. Nine asset-free round descriptors
 also pass library validation; all13 reject image/default-auto capabilities.
 No Gaussian author/wire/prepass grant is introduced yet.
+
+## Soft-circle raw retention
+
+Version2 adds explicit softAuto/generator soft/circle with the same auto geometry
+and a bounded softnessCurve text/points/corner payload. Python and TS account its
+UTF8 text plus32bytes/knot in the existing descriptor/library budget. Portable
+Python validation reconstructs it from raw brush_definition; malformed curve,
+unknown identity/shape and metric changes fail closed. Source kind is never
+inferred from a bitmap fallback. Existing image/default/Gaussian predicates do
+not admit this new kind; sourceStrokeAuthorDescriptor explicitly rejects it with
+soft-auto-raster-author-unavailable before any image fallback. Old sensor compiled
+profile is unchanged and does not claim to compile the radial source curve.
+
+Pinned kis_auto_brush_factory.cpp read/create law retains radius precedence and
+uses0,1;1,0 when curveString is empty. Both the new reader and existing legacy soft
+mask path now use this fallback (previous legacy default0,0;1,1 was reversed).
+The earlier identity-coverage test now specifies0,0;1,1 explicitly, preserving its
+independent squared-radius arithmetic witness; a separate fallback test checks
+the factory curve and center-to-edge coverage direction. Authored nonempty curves
+are unchanged. This is data retention and fallback correction, not an exact soft
+raster/compiler/room activation grant.
+
+Tests: full Python259 total,252 passed/7 provider-dependent skips after original
+tools cleanup; focused shared/author26 tests5files passed; shared build and actual
+web tsconfig.app typecheck passed. The initial noEmit command against the root web
+references-only tsconfig is NOT counted as source typechecking. Durable receipts
+are fixes-v52/soft-retention-{python-full,tests,shared-build,web-app-tsc}.log.
+No new runtime, dependency copy or device context was created for this unit.
