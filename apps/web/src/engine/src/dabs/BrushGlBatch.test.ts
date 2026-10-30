@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { recordingGL } from '../../testing/brushPassTestUtils'
 import { BrushMipCache } from './BrushMipCache'
 import { BrushTextureCache } from './BrushTextureCache'
-import { runBrushGlBatch, type BrushGlBatchFrame, type BrushGlBatchInfo, type BrushGlBatchParticipant } from './BrushGlBatch'
+import { runBrushGlTurn, type BrushGlTurn, runBrushGlBatch, type BrushGlBatchFrame, type BrushGlBatchInfo, type BrushGlBatchParticipant } from './BrushGlBatch'
 function setup() {
   const { gl, snapshot } = recordingGL()
   gl.isContextLost = () => false
@@ -206,4 +206,118 @@ it('rechecks sampler owner epoch at use and restores only external sampler entri
     frame.pointSampling(texture);
   })).toThrow('epoch/residency');
   expect(s.gl.getTexParameter).toHaveBeenCalledTimes(4);expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0);
+});
+
+
+describe('one owned synchronous preparation/draw capture',()=>{
+  it('captures once before preparation and shares one4096base reservation through inner and outer restoration',()=>{
+    const s=setup(), before=s.snapshot(), query=vi.spyOn(s.gl,'getParameter'), cpu=new BrushMipCache(4500), info=s.service.brushGlBatchInfo();
+    s.service.brushGlBatchInfo=()=>({...info,cpu});
+    let queries=0;
+    const release=vi.fn(()=>{expect(s.snapshot()).toEqual(before);s.gl.activeTexture(s.gl.TEXTURE0+2);s.gl.disable(s.gl.BLEND)});
+    runBrushGlTurn({participants:[s.service]},turn=>{
+      expect(cpu.reservedBytes).toBe(4096);queries=query.mock.calls.length;expect(queries).toBeGreaterThan(0);
+      // Target allocation/copy callbacks are covered by the capture too.
+      s.gl.bindFramebuffer(s.gl.FRAMEBUFFER,s.gl.createFramebuffer());s.gl.bindBuffer(s.gl.ARRAY_BUFFER,s.gl.createBuffer());
+      s.gl.vertexAttribPointer(0,2,s.gl.FLOAT,false,8,0);
+      runBrushGlBatch({turn,participants:[s.service],owners:[{owner:{},lease:()=>release}]},frame=>{
+        expect(cpu.reservedBytes).toBe(4096+256+128);frame.beginDraw();s.gl.colorMask(true,true,true,true);
+        expect(query.mock.calls.length).toBe(queries);
+      });
+      expect(cpu.reservedBytes).toBe(4096);expect(release).toHaveBeenCalledOnce();
+      s.gl.bindFramebuffer(s.gl.FRAMEBUFFER,s.gl.createFramebuffer()); // preparation finally/cleanup mutation
+    });
+    expect(query.mock.calls.length).toBe(queries);expect(s.snapshot()).toEqual(before);expect(cpu.reservedBytes).toBe(0);
+  });
+  it('rejects unknown, expired, double-use and nested authority before GL or participant acquisition',()=>{
+    const s=setup(),foreign=setup(), query=vi.spyOn(s.gl,'getParameter'), otherQuery=vi.spyOn(foreign.gl,'getParameter');
+    const info=vi.spyOn(s.service,'brushGlBatchInfo'),acquire=vi.spyOn(s.service,'enterBrushGlBatch');let retained:BrushGlTurn|undefined;
+    expect(()=>runBrushGlBatch({turn:{} as BrushGlTurn,participants:[s.service]},()=>{})).toThrow('Unknown');
+    expect(info).not.toHaveBeenCalled();expect(query).not.toHaveBeenCalled();
+    runBrushGlTurn({participants:[s.service]},turn=>{
+      retained=turn;query.mockClear();info.mockClear();
+      expect(()=>runBrushGlTurn({participants:[s.service]},()=>{})).toThrow('Nested');
+      expect(()=>runBrushGlBatch({participants:[s.service]},()=>{})).toThrow('requires its owned turn');
+      expect(()=>runBrushGlBatch({turn,participants:[foreign.service]},()=>{})).toThrow('Foreign');
+      expect(query).not.toHaveBeenCalled();expect(otherQuery).not.toHaveBeenCalled();expect(acquire).not.toHaveBeenCalled();
+      runBrushGlBatch({turn,participants:[s.service]},frame=>frame.beginDraw());
+      query.mockClear();info.mockClear();
+      expect(()=>runBrushGlBatch({turn,participants:[s.service]},()=>{})).toThrow('reused');
+      expect(info).not.toHaveBeenCalled();expect(query).not.toHaveBeenCalled();
+    });
+    query.mockClear();info.mockClear();
+    expect(()=>runBrushGlBatch({turn:retained!,participants:[s.service]},()=>{})).toThrow('Unknown');
+    expect(info).not.toHaveBeenCalled();expect(query).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(0);
+  });
+  it('rejects participant, epoch and declared-attribute drift before owner callbacks or another capture',()=>{
+    for(const field of ['epoch','attributes','vertexArrays'] as const){
+      const s=setup(),original=s.service.brushGlBatchInfo(),query=vi.spyOn(s.gl,'getParameter'),acquire=vi.fn(()=>()=>{});
+      runBrushGlTurn({participants:[s.service]},turn=>{
+        query.mockClear();
+        s.service.brushGlBatchInfo=()=>({...original,...(field==='epoch'?{epoch:{}}:field==='attributes'?{attributes:[0,1]}:{vertexArrays:{} as OES_vertex_array_object})});
+        expect(()=>runBrushGlBatch({turn,participants:[s.service],owners:[{owner:{},lease:acquire}]},()=>{})).toThrow('changed');
+        expect(acquire).not.toHaveBeenCalled();expect(query).not.toHaveBeenCalled();
+      });
+      expect(s.cpu.reservedBytes).toBe(0);
+    }
+  });
+  it('rechecks declared state after owner acquisition before opening pixel work',()=>{
+    const s=setup(),original=s.service.brushGlBatchInfo(),draw=vi.fn(),release=vi.fn();
+    expect(()=>runBrushGlTurn({participants:[s.service]},turn=>runBrushGlBatch({turn,participants:[s.service],
+      owners:[{owner:{},lease:()=>{s.service.brushGlBatchInfo=()=>({...original,attributes:[0]});return release}}]},()=>draw()))).toThrow('changed during acquisition');
+    expect(draw).not.toHaveBeenCalled();expect(release).toHaveBeenCalledOnce();expect(s.cpu.reservedBytes).toBe(0);
+  });
+  it('restores target preparation failures and refuses a reentrant target rebuild without leaking authority',()=>{
+    const s=setup(),before=s.snapshot(),draw=vi.fn();let retained:BrushGlTurn|undefined;
+    expect(()=>runBrushGlTurn({participants:[s.service]},turn=>{
+      retained=turn;s.gl.bindFramebuffer(s.gl.FRAMEBUFFER,s.gl.createFramebuffer());
+      // A canonical history rebuild cannot silently acquire a second owner.
+      runBrushGlTurn({participants:[s.service]},()=>draw());
+    })).toThrow('Nested');
+    expect(draw).not.toHaveBeenCalled();expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0);
+    expect(()=>runBrushGlBatch({turn:retained!,participants:[s.service]},()=>{})).toThrow('Unknown');
+    runBrushGlTurn({participants:[s.service]},turn=>runBrushGlBatch({turn,participants:[s.service]},()=>{}));
+    expect(s.snapshot()).toEqual(before);
+  });
+  it('preserves primary draw failure through group/owner/first-restore failures and still restores outer state',()=>{
+    const s=setup(),before=s.snapshot(),primary=new Error('primary draw'),group=vi.fn(()=>{throw Error('group cleanup')}),owner=vi.fn(()=>{s.gl.disable(s.gl.BLEND);throw Error('owner cleanup')});
+    const store=s.gl.pixelStorei;let thrown=false;
+    s.gl.pixelStorei=(p:number,v:number)=>{store(p,v);if(!thrown&&v===before.unpack){thrown=true;throw Error('first restore')}};
+    let received:unknown;
+    try{runBrushGlTurn({participants:[s.service]},turn=>{
+      runBrushGlBatch({turn,participants:[s.service],owners:[{owner:{},lease:()=>owner}]},frame=>{
+        frame.holdGroup(group);frame.beginDraw();s.gl.viewport(0,0,1,1);throw primary;
+      });
+    })}catch(error){received=error}
+    expect(received).toBe(primary);expect(group).toHaveBeenCalledOnce();expect(owner).toHaveBeenCalledOnce();
+    expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0);
+  });
+  it('does not restore lost GL, releases all reservations, rejects async authority and permits a new healthy turn',()=>{
+    const s=setup(),release=vi.fn(),restore=vi.spyOn(s.gl,'useProgram');let retained:BrushGlTurn|undefined;
+    expect(()=>runBrushGlTurn({participants:[s.service]},turn=>{
+      retained=turn;runBrushGlBatch({turn,participants:[s.service],owners:[{owner:{},lease:()=>release}]},frame=>{
+        s.gl.isContextLost=()=>true;frame.beginDraw();
+      });
+    })).toThrow('context lost');
+    expect(restore).not.toHaveBeenCalled();expect(release).toHaveBeenCalledOnce();expect(s.cpu.reservedBytes).toBe(0);
+    s.gl.isContextLost=()=>false;
+    expect(()=>runBrushGlBatch({turn:retained!,participants:[s.service]},()=>{})).toThrow('Unknown');
+    expect(()=>runBrushGlTurn({participants:[s.service]},()=>Promise.resolve())).toThrow('synchronous');
+    runBrushGlTurn({participants:[s.service]},()=>{});expect(s.cpu.reservedBytes).toBe(0);
+  });
+  it('refuses outer CPU overflow before capture and attempts every external sampler restore after a setter failure',()=>{
+    const s=setup(),query=vi.spyOn(s.gl,'getParameter'),release=s.cpu.reserve(s.cpu.budgetBytes-4000);
+    expect(()=>runBrushGlTurn({participants:[s.service]},()=>{})).toThrow('budget');expect(query).not.toHaveBeenCalled();release();
+    const before=s.snapshot(),primary=new Error('draw'),textureA=s.gl.createTexture(),textureB=s.gl.createTexture();s.gl.getTexParameter=()=>9900;
+    let cleanup=false;const set=s.gl.texParameteri;
+    s.gl.texParameteri=vi.fn((target:number,p:number,value:number)=>{if(cleanup&&p===s.gl.TEXTURE_MIN_FILTER)throw Error('sampler restore');set(target,p,value)});
+    let received:unknown;
+    try{runBrushGlTurn({participants:[s.service]},turn=>runBrushGlBatch({turn,participants:[s.service]},frame=>{
+      s.gl.activeTexture(s.gl.TEXTURE0);for(const texture of [textureA,textureB]){s.gl.bindTexture(s.gl.TEXTURE_2D,texture);frame.pointSampling(texture)}
+      frame.beginDraw();cleanup=true;throw primary;
+    }))}catch(error){received=error}
+    expect(received).toBe(primary);
+    expect(s.gl.texParameteri.mock.calls.filter((c:unknown[])=>c[2]===9900)).toHaveLength(8);
+    expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0);
+  });
 });

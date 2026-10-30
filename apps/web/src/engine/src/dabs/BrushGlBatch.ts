@@ -67,7 +67,7 @@ export class BrushGlBatchFrame {
     const saved = this.infos.get(participant)
     if (!this.opened || !saved) throw new Error('Closed or foreign brush GL batch')
     const current = participant.brushGlBatchInfo()
-    if (current.epoch !== saved.epoch || current.gl !== this.gl || current.cache !== this.cache) throw new Error('Brush GL batch service epoch changed')
+    if (!sameParticipantBinding(current,saved)) throw new Error('Brush GL batch service binding/epoch changed')
     for (const item of resources) if (this.resources.get(item.key) !== item.bytes || this.cache.resourceBytes(item.key) !== item.bytes || !this.cache.get(item.key)) throw new Error('Undeclared or changed batch resource')
     for (const owner of owners) if (!this.owners.has(owner)) throw new Error('Undeclared batch owner')
   }
@@ -130,24 +130,99 @@ export class BrushGlBatchFrame {
     for (const release of this.groups.reverse()) try { release() } catch (error) { if (!failed) { failed = true; failure = error } }
     if (!this.gl.isContextLost()) {
       const gl = this.gl, names = [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER, gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T]
-      gl.activeTexture(gl.TEXTURE0)
-      for (const [texture, values] of this.samplers) {
-        gl.bindTexture(gl.TEXTURE_2D, texture)
-        for (let i = 0; i < names.length; i++) gl.texParameteri(gl.TEXTURE_2D, names[i], values[i])
+      const cleanup=(fn:()=>void)=>{try{fn()}catch(error){if(!failed){failed=true;failure=error}}}
+      let unitReady=false
+      cleanup(()=>{gl.activeTexture(gl.TEXTURE0);unitReady=true})
+      if(unitReady)for(const [texture,values] of this.samplers){
+        let bound=false
+        cleanup(()=>{gl.bindTexture(gl.TEXTURE_2D,texture);bound=true})
+        if(bound)for(let i=0;i<names.length;i++)cleanup(()=>gl.texParameteri(gl.TEXTURE_2D,names[i],values[i]))
       }
     }
     if (failed) throw failure
   }
 }
 
+/** Synchronous runtime authority, never serializable author/wire data. */
+declare const turnBrand: unique symbol
+export interface BrushGlTurn { readonly [turnBrand]: true }
+interface TurnRecord {
+  readonly infos: Map<BrushGlBatchParticipant, BrushGlBatchInfo>
+  readonly restore: () => void
+  active: boolean
+  claimed: boolean
+}
+// Authority/reentry bookkeeping only: no implicit current token or ambient GL
+// state cache. A batch must receive its genuine caller-owned token explicitly.
+const turns = new WeakMap<BrushGlTurn, TurnRecord>()
+const turnContexts = new WeakSet<WebGLRenderingContext>()
+function participantInfos(participants: readonly BrushGlBatchParticipant[]): Map<BrushGlBatchParticipant, BrushGlBatchInfo> {
+  if (!participants.length || participants.length > 8) throw new RangeError('Invalid brush GL batch participants')
+  const infos=new Map(participants.map(p=>[p,p.brushGlBatchInfo()])), first=infos.values().next().value!
+  for(const [p,info] of infos){
+    if(info.gl!==first.gl||info.cache!==first.cache||info.cpu!==first.cpu||info.instancing!==first.instancing||info.vertexArrays!==first.vertexArrays)
+      throw new Error('Brush GL batch context/cache mismatch')
+    if(!Array.isArray(info.attributes)||info.attributes.length>32||info.attributes.some(a=>!Number.isSafeInteger(a)||a<0||a>31))
+      throw new RangeError('Invalid brush GL batch attributes')
+    infos.set(p,{...info,attributes:Object.freeze([...info.attributes])})
+  }
+  return infos
+}
+function sameAttributes(a:readonly number[],b:readonly number[]):boolean {
+  const x=new Set(a),y=new Set(b);return x.size===y.size&&[...x].every(n=>y.has(n))
+}
+function sameParticipantBinding(current:BrushGlBatchInfo,pinned:BrushGlBatchInfo):boolean {
+  return pinned.gl===current.gl&&pinned.cache===current.cache&&pinned.cpu===current.cpu&&pinned.epoch===current.epoch
+    &&pinned.instancing===current.instancing&&pinned.vertexArrays===current.vertexArrays&&sameAttributes(pinned.attributes,current.attributes)
+}
+/** One full capture BEFORE direct target allocation/copy and owner callbacks.
+ * One inner batch may borrow it. The SAME snapshot is restored inside that
+ * batch before owner releases and again here after preparation cleanup. */
+export function runBrushGlTurn(options:{readonly participants:readonly BrushGlBatchParticipant[]},execute:(turn:BrushGlTurn)=>void):void {
+  const infos=participantInfos(options.participants),first=infos.values().next().value!
+  if(turnContexts.has(first.gl))throw new Error('Nested brush GL turn is forbidden')
+  if(first.gl.isContextLost())throw new Error('Brush GL turn context lost')
+  const releaseCpu=first.cpu.reserve(4096)
+  let restore:(()=>void)|undefined,record:TurnRecord|undefined,token:BrushGlTurn|undefined,failed=false,failure:unknown
+  const cleanup=(fn:()=>void)=>{try{fn()}catch(error){if(!failed){failed=true;failure=error}}}
+  turnContexts.add(first.gl)
+  try{
+    const attributes=[...new Set([...infos.values()].flatMap(i=>[...i.attributes]))]
+    restore=saveBrushGlState(first.gl,attributes,first.instancing,first.vertexArrays,3)
+    token=Object.freeze({}) as BrushGlTurn
+    record={infos,restore,active:true,claimed:false};turns.set(token,record)
+    const value:unknown=execute(token)
+    if(value&&typeof(value as {then?:unknown}).then==='function')throw new Error('Brush GL turn callback must be synchronous')
+  }catch(error){failed=true;failure=error}
+  finally{
+    if(record)record.active=false
+    if(token)turns.delete(token) // retained expired tokens must not retain GL snapshots
+    if(restore)cleanup(()=>{if(!first.gl.isContextLost())restore!()})
+    cleanup(releaseCpu)
+    turnContexts.delete(first.gl)
+  }
+  if(failed)throw failure
+}
+
 export function runBrushGlBatch(options: {
   readonly participants: readonly BrushGlBatchParticipant[]
   readonly owners?: readonly BrushGlBatchLifetime[]
   readonly resources?: readonly BrushGlBatchResource[]
+  readonly turn?: BrushGlTurn
 }, execute: (frame: BrushGlBatchFrame) => void): void {
-  if (!options.participants.length || options.participants.length > 8) throw new RangeError('Invalid brush GL batch participants')
-  const infos = new Map(options.participants.map(p => [p, p.brushGlBatchInfo()])), first = infos.values().next().value!
-  if (first.gl.isContextLost()) throw new Error('Brush GL batch context lost')
+  const borrowed=options.turn===undefined?undefined:turns.get(options.turn)
+  if(options.turn!==undefined&&(!borrowed||!borrowed.active||borrowed.claimed))throw new Error('Unknown, closed or reused brush GL turn')
+  const infos=participantInfos(options.participants),first=infos.values().next().value!
+  if(borrowed){
+    if(borrowed.infos.size!==infos.size)throw new Error('Foreign brush GL turn participants')
+    for(const [p,current] of infos){
+      const pinned=borrowed.infos.get(p)
+      if(!pinned||!sameParticipantBinding(current,pinned))
+        throw new Error('Foreign or changed brush GL turn participant/epoch/attributes')
+    }
+    borrowed.claimed=true
+  }else if(turnContexts.has(first.gl))throw new Error('Nested brush GL batch requires its owned turn')
+  if(first.gl.isContextLost())throw new Error('Brush GL batch context lost')
   const resources = new Map<string, number>(), owners = [...new Set(options.owners ?? [])]
   if (owners.length > 64 || (options.resources?.length ?? 0) > 1024) throw new RangeError('Brush GL batch declarations exceed capacity')
   for (const info of infos.values()) if (info.gl !== first.gl || info.cache !== first.cache || info.cpu !== first.cpu || info.instancing !== first.instancing || info.vertexArrays !== first.vertexArrays) throw new Error('Brush GL batch context/cache mismatch')
@@ -167,31 +242,31 @@ export function runBrushGlBatch(options: {
       ownedSamplers.set(item.texture, { participant, sampler: { ...item } })
     }
   }
-  const cpuBytes = 4096 + ownedSamplers.size * 96 + resources.size * 96 + owners.length * 128 + infos.size * 256
+  const cpuBytes = (borrowed ? 0 : 4096) + ownedSamplers.size * 96 + resources.size * 96 + owners.length * 128 + infos.size * 256
   const releaseCpu = first.cpu.reserve(cpuBytes)
   const frame = new BrushGlBatchFrame(authority, infos, owners, resources, ownedSamplers), releases: (() => void)[] = []
-  let restore: (() => void) | undefined, failed = false, failure: unknown
+  let restore: (() => void) | undefined = borrowed?.restore, failed = false, failure: unknown
   const cleanup = (fn: () => void) => { try { fn() } catch (error) { if (!failed) { failed = true; failure = error } } }
   try {
     for (const participant of infos.keys()) releases.push(participant.enterBrushGlBatch(frame))
     first.cache.protect([...resources.keys()])
     releases.push(first.cache.lease([...resources].map(([key, bytes]) => ({ key, bytes }))))
     const attributes = [...new Set([...infos.values()].flatMap(info => [...info.attributes]))]
-    restore = saveBrushGlState(first.gl, attributes, first.instancing, first.vertexArrays, 3)
+    if(!borrowed)restore = saveBrushGlState(first.gl, attributes, first.instancing, first.vertexArrays, 3)
     for (const owner of owners) {
       const release = owner.lease()
       if (typeof release !== 'function') throw new Error('Invalid batch owner release')
       releases.push(release)
     }
     // Owner callbacks may touch GL: capture precedes them, including failure paths.
-    for (const [participant, info] of infos) if (participant.brushGlBatchInfo().epoch !== info.epoch) throw new Error('Brush GL batch service changed during acquisition')
+    for (const [participant, info] of infos) if (!sameParticipantBinding(participant.brushGlBatchInfo(),info)) throw new Error('Brush GL batch service changed during acquisition')
     frame.open(authority)
     const value: unknown = execute(frame)
     if (value && typeof (value as { then?: unknown }).then === 'function') throw new Error('Brush GL batch callback must be synchronous')
   } catch (error) { failed = true; failure = error }
   finally {
     cleanup(() => frame.close(authority))
-    if (restore && !first.gl.isContextLost()) cleanup(restore)
+    if (restore) cleanup(() => { if (!first.gl.isContextLost()) restore!() })
     for (const release of releases.reverse()) cleanup(release)
     cleanup(releaseCpu)
   }

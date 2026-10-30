@@ -1,3 +1,5 @@
+import { saveBrushGlState } from './BrushGlState'
+import { runBrushGlTurn } from './BrushGlBatch'
 import { prepareSourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab'
 import stock from '../../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
 import { sourceStrokeAuthorDescriptor } from '../presets/sourceStrokeAuthorDescriptor'
@@ -599,5 +601,32 @@ for(const service of ['mask-new-size','mask-new-epoch','pass-new-size','pass-new
     const getters=vi.spyOn(s.gl,'getParameter');getters.mockClear();
     expect(()=>s.executor.advance()).toThrow('capacity/epoch');expect(resolve).not.toHaveBeenCalled();expect(draw).not.toHaveBeenCalled();expect(getters).not.toHaveBeenCalled();
     expect(s.executor.poisoned).toBe(true);expect(s.poison).toHaveBeenCalledTimes(1);expect(s.executor.pending).toBe(false);
+  }finally{s.close()}
+});
+
+
+it('captures one union state before real target preparation instead of recapturing inside its draw batch',()=>{
+  const s=setup(),info=s.prepass.brushGlBatchInfo(),other=s.composite.brushGlBatchInfo(),query=vi.spyOn(s.gl,'getParameter');
+  try{
+    const restore=saveBrushGlState(s.gl,[...new Set([...info.attributes,...other.attributes])],info.instancing,info.vertexArrays,3);
+    const captureOnly=(calls:unknown[][])=>calls.map(c=>c[0]).filter(k=>k!==s.gl.TEXTURE_BINDING_2D&&k!==s.gl.FRAMEBUFFER_BINDING);
+    const expected=captureOnly(query.mock.calls);restore();query.mockClear();
+    const before=s.snapshot();s.executor.enqueue(s.submit());s.drain();
+    // This mock implements getTexParameter/FBO attachment queries through
+    // getParameter(binding); those identity checks are not extra full captures.
+    expect(captureOnly(query.mock.calls)).toEqual(expected);expect(s.snapshot()).toEqual(before);
+  }finally{s.close()}
+});
+it('fails closed when target preparation reenters canonical state ownership, before pixels or escaped leases',()=>{
+  const s=setup(),before=s.snapshot(),draw=vi.spyOn(s.composite,'drawSource'),baseline=s.cpu.reservedBytes;
+  const resolve=vi.spyOn(s.layer,'resolveForPaint').mockImplementation(()=>{
+    s.gl.bindFramebuffer(s.gl.FRAMEBUFFER,s.gl.createFramebuffer());
+    runBrushGlTurn({participants:[s.prepass,s.composite]},()=>{});return [];
+  });
+  try{
+    s.executor.enqueue(s.submit());expect(()=>s.executor.advance()).toThrow('Nested');
+    expect(resolve).toHaveBeenCalledOnce();expect(draw).not.toHaveBeenCalled();expect(s.executor.poisoned).toBe(true);
+    expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(baseline);
+    expect(s.cache['leases'].size).toBe(0);for(const release of s.releases)expect(release).toHaveBeenCalledOnce();
   }finally{s.close()}
 });

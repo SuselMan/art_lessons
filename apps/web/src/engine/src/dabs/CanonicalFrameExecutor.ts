@@ -6,8 +6,7 @@ import { planCanonicalTargets } from './CanonicalTargetPlan'
 import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
 import type { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { advanceSourcePrimaryComposition, createSourcePrimaryComposition, type SourcePrimaryCompositionContext, type SourcePrimaryCompositionResult, type SourcePrimaryCompositionState } from '../presets/sourcePrimaryComposition'
-import { runBrushGlBatch } from './BrushGlBatch'
-import { saveBrushGlState } from './BrushGlState'
+import { runBrushGlBatch, runBrushGlTurn, type BrushGlTurn } from './BrushGlBatch'
 import { bindCanonicalLayerTargets } from './CanonicalLayerTargets'
 import type { CanonicalMaskSourceBank } from './CanonicalMaskSourceBank'
 import type { CanonicalOwnedRgba8Target, CanonicalRgba8CompositePass, CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
@@ -235,18 +234,14 @@ export class CanonicalFrameExecutor {
         return { pending:this.pending, checkpointReady:this.checkpointReady };
       }
       if (!this.prepareAuto(work,turnStarted) || performance.now()-turnStarted >= 4) return { pending: true, checkpointReady: false }
-      // Resolve/copy may touch GL before entering a batch: retain and restore
-      // the caller's complete state around the whole synchronous service turn.
-      const info = this.options.prepass.brushGlBatchInfo()
-      const restore = saveBrushGlState(info.gl, info.attributes, info.instancing, info.vertexArrays, 3)
-      try {
-        info.gl.activeTexture(info.gl.TEXTURE0)
-        // Tile resolution/allocation happens outside the GL batch. The batch
-        // then acquires exact current target handles and releases before yield.
-        if (work.draw < work.result.draws.length) this.paint(work, layer)
-        else this.present(work, layer)
-      } finally { if (!this.gl.isContextLost()) restore() }
-      if (work.draw === work.result.draws.length && (!work.result.commands.length || work.presentTiles && work.present === work.presentTiles.length)) this.finish(work)
+      // One owned capture covers direct target preparation, inner batch and
+      // its release callbacks; no GL state or lease survives this turn.
+      runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},turn=>{
+        this.gl.activeTexture(this.gl.TEXTURE0)
+        if(work.draw<work.result.draws.length)this.paint(work,layer,turn)
+        else this.present(work,layer,turn)
+        if(work.draw===work.result.draws.length&&(!work.result.commands.length||work.presentTiles&&work.present===work.presentTiles.length))this.finish(work)
+      })
     } catch (error) {
       this.fail(error, this.gl.isContextLost())
       throw error
@@ -297,7 +292,7 @@ export class CanonicalFrameExecutor {
     return current.buffer
   }
 
-  private paint(work: Work, layer: TiledLayerBuffer): void {
+  private paint(work: Work, layer: TiledLayerBuffer, turn: BrushGlTurn): void {
     // Plan at most eight commands before entering the synchronous capsule.
     // These temporary handles are retained only for this turn, never a yield.
     const tasks: { draw: number; tile: number; part: number; parts: number; writeBounds: Readonly<WorldRect>; tiles: readonly TilePosition[]; target: PaintTarget; wash?: WashTile }[] = []
@@ -327,7 +322,7 @@ export class CanonicalFrameExecutor {
       }
       if (!tasks.length) return;
       const bound = bindCanonicalLayerTargets(layer, tasks.map(t => t.target))
-      runBrushGlBatch({ participants: [this.options.prepass, this.options.composite], owners: [bound[0].lifetime, ...tasks.flatMap(t => t.wash ? [t.wash.lifetime] : [])] }, frame => {
+      runBrushGlBatch({ turn, participants: [this.options.prepass, this.options.composite], owners: [bound[0].lifetime, ...tasks.flatMap(t => t.wash ? [t.wash.lifetime] : [])] }, frame => {
         for (let i = 0; i < tasks.length; i++) {
           if (this.currentLayer(work) !== layer) throw new Error('Canonical layer changed during batch')
           const task = tasks[i], d = work.result.draws[task.draw]
@@ -394,7 +389,7 @@ export class CanonicalFrameExecutor {
       lifetime }
   }
 
-  private present(work: Work, layer: TiledLayerBuffer): void {
+  private present(work: Work, layer: TiledLayerBuffer, turn: BrushGlTurn): void {
     if (!work.result.commands.length) return
     work.presentTiles ??= [...this.washes.values()]
     const command = work.result.commands[0]
@@ -413,7 +408,7 @@ export class CanonicalFrameExecutor {
       }
       if (!tasks.length) return
       const bound = bindCanonicalLayerTargets(layer, tasks.map(t => t.target))
-      runBrushGlBatch({ participants: [this.options.prepass, this.options.composite], owners: [bound[0].lifetime, ...tasks.map(t => t.tile.lifetime)] }, frame => {
+      runBrushGlBatch({ turn, participants: [this.options.prepass, this.options.composite], owners: [bound[0].lifetime, ...tasks.map(t => t.tile.lifetime)] }, frame => {
         for (let i = 0; i < tasks.length; i++) {
           if (this.currentLayer(work) !== layer) throw new Error('Canonical layer changed during batch')
           const task = tasks[i], tile = task.tile
