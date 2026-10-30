@@ -13,7 +13,7 @@ export const TRANSFORMED_MASK_VERTEX_FLOATS = 12;
 * ONCE then negate; normalizing the negative raster angle loses source phase.
 */
 export function resolvedTransformedMaskPlan(source: SourceDabMaterialSpec): TransformedMaskPlan {
-  if(source?.geometry?.kind==='defaultAuto')throw new RangeError('Default auto requires a typed procedural material resolver');
+  if(source?.geometry?.kind==='defaultAuto'||source?.geometry?.kind==='gaussianAuto')throw new RangeError('Default auto requires a typed procedural material resolver');
   if (!source || !source.brush || !source.shape || !source.key || !Number.isSafeInteger(source.width) || !Number.isSafeInteger(source.height)
     || source.width < 1 || source.height < 1 || source.width !== source.key.width || source.height !== source.key.height)
     throw new RangeError('Invalid saved source material');

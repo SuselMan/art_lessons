@@ -120,3 +120,39 @@ is not admission of its full saved master-size/curve/material configuration.
 ## Default-auto geometry strategy
 
 The same owner now accepts explicit default-auto-fixed1-rng-free with tagged SourceDabGeometry; no image/CAS context or second scheduler. Virtual characteristic size/hotspot/mask extents dispatch through existing native-auto laws and saved generation data, preserving raw angles. Actual compiled stock7×30pressure packets resume identically at every yield; existing PNG native query/RNG/cache fixtures remain unchanged. See sourceDabCache.auto.provenance.md for exact cache source seams, independent proof boundary and image-only codec guards. This is author capability only, not activated canonical drawing or full-brush compatibility.
+
+
+## Gaussian author/query/cache extension (source-data only)
+
+The `gaussianAuto` geometry tag uses the SAME author cursor, nine compiled option
+programs, source stamp query executor, distance/timing owner and dab cache.
+There is no Gaussian-specific random stream or query schedule. SourceStampQuery
+already passes the tagged SourceDabGeometry through; its arithmetic is unchanged.
+Default material policy stays `default-auto-fixed1-rng-free`; the explicit Gaussian
+policy is `gaussian-auto-fixed1-rng-free`. Scalar profiles remain distinct:
+`scalar-bionic-f64-fma-v1` is Gaussian, `scalar-f64-fma-v1` is default.
+
+Geometry calls reuse sourceAutoGeometry's proved auto-brush window law; the profile
+name of that common law does not assert default-generator coverage. Original
+Gaussian whole-wrapper104 fixtures separately prove this reuse and Gaussian
+raw-angle processing. Cache equality binds kind, source fields and coverage profile;
+cache hits retain SAVED source shape/angle/subpixel inputs rather than current
+request values. Checkpoint validation checks the tag/profile/window before RNG.
+
+Actual imported fixture13 has only seven source-data author-capable descriptors
+(#2,5,6,7,10,11,22). Three material consumers (#12,68,70) and three dual brushes
+(#38,39,40) retain their capability fences. Geometry is generic for all13, which
+does not grant those six author programs or eraser/renderer semantics. Tests run
+both supported coverage profiles, thirty pressure-varying packets, whole versus
+structured-clone resume at EVERY yield, and compare all steps/RNG events. Actual
+brush storedScale remains1; this is not a UI effective-size override proof.
+
+The Gaussian coverage profile is closed to raw generator ratio <=1 (larger raw
+ratios may be retained as data but are rejected before author RNG).
+
+No material/codec/prepass execution is activated here. Adapter rejects Gaussian
+programs and trusted pins before asset lookup/build, and rejects injected Gaussian
+material recipes. Old saved-source PNG plan/prepass routes reject the tag before
+PNG geometry and before compatible warmed cache hits. Existing image/default
+fixtures must remain unchanged. Gaussian mask pixel identity remains the scope of
+the independently retained whole-wrapper104 fixture, not these author tests.

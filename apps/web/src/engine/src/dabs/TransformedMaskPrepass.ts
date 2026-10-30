@@ -364,7 +364,7 @@ export class TransformedMaskPrepass {
         mirror = { horizontal: recipe.mirrorH, vertical: recipe.mirrorV };
       } else {
         const saved = savedMaterial(material);
-        if(saved?.geometry?.kind==='defaultAuto')throw new RangeError('Default auto requires a typed procedural material resolver');
+        if(saved?.geometry?.kind==='defaultAuto'||saved?.geometry?.kind==='gaussianAuto')throw new RangeError('Default auto requires a typed procedural material resolver');
         if (!saved || !saved.brush || !saved.shape || !saved.key || !saved.mirror || typeof saved.mirror.horizontal !== 'boolean' || typeof saved.mirror.vertical !== 'boolean')
           throw new RangeError('Invalid saved source material');
         const immutable = Object.isFrozen(saved) && Object.isFrozen(saved.brush) && Object.isFrozen(saved.shape) && Object.isFrozen(saved.key);

@@ -42,7 +42,7 @@ export function copySourceMaterialContext(c:AnySourceStrokeMaterialContext):AnyC
     return freeze({version:2,assets:structuredClone(c.assets),primarySource,...maskSource?{maskSource}:{},budget:{...c.budget}})
   }
   const legacy=c as SourceStrokeMaterialContext
-  if(legacy.geometry?.kind==='defaultAuto')throw new RangeError('Default auto requires a trusted wire2 source context')
+  if(legacy.geometry?.kind==='defaultAuto'||legacy.geometry?.kind==='gaussianAuto')throw new RangeError('Default auto requires a trusted wire2 source context')
   return freeze({assets:structuredClone(legacy.assets),primaryAsset:legacy.primaryAsset,maskAsset:legacy.maskAsset,budget:{...legacy.budget},preflightDefinition:canonicalMaterialGeometryCost})
 }
 function targetKeys(d:Pick<Draw,'x'|'y'|'recipe'>,g:SourceMaterialTargetGeometry|undefined):readonly string[]{
@@ -134,6 +134,9 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
   private pixels=0
 
   constructor(program:SourceStrokeAuthorProgram,context:C,source:SourceStrokeAuthorState,checkpoint?:SourceStrokeMaterialCheckpoint){
+    if(version2(context)&&(context.primarySource.kind==='gaussianAuto'||context.maskSource?.kind==='gaussianAuto'))throw new RangeError('Gaussian auto material integration unavailable')
+    if(!version2(context)&&program.roles.some(r=>r.geometry?.kind==='defaultAuto'))throw new RangeError('Default auto requires a trusted wire2 source context')
+    if(program.roles.some(r=>r.geometry?.kind==='gaussianAuto'))throw new RangeError('Gaussian auto material integration unavailable')
     this.targets=pinSourceMaterialTargets(context.targetGeometry)
     this.context=copySourceMaterialContext(context)
     buildAdapterMaterial({masked:program.roles.length===2,entry:{phase:'between'},draws:[],fences:[]},this.context)
@@ -143,6 +146,7 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
       if(version2(this.context)){
         const pin=r.id==='primary'?this.context.primarySource:this.context.maskSource
         if(!pin)invalid()
+        if(pin.kind==='gaussianAuto')throw new RangeError('Gaussian auto material integration unavailable')
         if(pin.kind==='defaultAuto'){
           const g=r.geometry
           if(g?.kind!=='defaultAuto'||r.materialPolicy!=='default-auto-fixed1-rng-free'||pin.brushScale!==1
@@ -221,6 +225,7 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
       ||!Number.isSafeInteger(m.resolvedRect.x)||!Number.isSafeInteger(m.resolvedRect.y)
       ||Math.abs(m.resolvedRect.x)>1e8||Math.abs(m.resolvedRect.y)>1e8
       ||Math.abs(m.resolvedRect.x+s.width)>1e8||Math.abs(m.resolvedRect.y+s.height)>1e8)invalid()
+    if(s.geometry?.kind==='gaussianAuto')throw new RangeError('Gaussian auto material integration unavailable')
     const common={brushScale:s.brush.scale,brushAngle:s.brush.angle,
       scale:s.shape.scale,ratio:s.shape.ratio,rotation:s.shape.rotation,subX:s.key.subPixelX,subY:s.key.subPixelY,
       width:s.width,height:s.height,mirrorH:s.mirror.horizontal,mirrorV:s.mirror.vertical}
@@ -235,6 +240,7 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
     return{recipe,role,x:m.resolvedRect.x,y:m.resolvedRect.y,opacity:r.opacity,flow:r.flow} as Draw
   }
   private cost(draw:Draw){
+    if('kind' in draw.recipe&&draw.recipe.kind==='gaussianAuto')throw new RangeError('Gaussian auto material integration unavailable')
     if('kind' in draw.recipe&&draw.recipe.kind==='defaultAuto'){
       if(!version2(this.context))invalid()
       const pin=draw.role==='primary'?this.context.primarySource:this.context.maskSource

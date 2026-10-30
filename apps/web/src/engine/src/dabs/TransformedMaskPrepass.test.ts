@@ -61,7 +61,8 @@ describe('internal persistent transformed-mask service', () => {
     // Every old revision component is identical; only the new source strategy
     // differs. Without the early guard, previous.plan bypasses plan validation.
     const auto = { ...original, geometry }
-    for (const m of [auto, { kind: 'savedSource' as const, source: auto }]) {
+    const gaussian = { ...original, geometry: { ...geometry, kind: 'gaussianAuto' as const, source: { ...geometry.source, kind: 'gaussianAuto' as const, generator: 'gauss' as const } } }
+    for (const m of [auto, { kind: 'savedSource' as const, source: auto }, gaussian, { kind: 'savedSource' as const, source: gaussian }]) {
       expect(() => s.service.resolveGroup([{ ...s.request, material: m }])).toThrow('Default auto')
       expect(s.gl.drawArrays).toHaveBeenCalledTimes(draws)
       expect(s.gl.texImage2D).toHaveBeenCalledTimes(uploads)

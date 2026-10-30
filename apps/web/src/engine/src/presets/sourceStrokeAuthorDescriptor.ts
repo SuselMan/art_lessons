@@ -1,4 +1,4 @@
-import { extractCanonicalSinglePngCapability, extractDefaultAutoSourceDataCapability, type BrushDescriptor, type SourceStampCurveData } from '@grafetto/shared'
+import { extractCanonicalSinglePngCapability, extractDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability, type BrushDescriptor, type SourceStampCurveData } from '@grafetto/shared'
 import { sourceCurveIsIdentity, type SourceCurvePolynomial } from './sourceCurve'
 import { compileSourceOptionProgram, type SourceOptionProgramInput } from './sourceOptionProgram'
 import { SourceStrokeAuthor, type SourceAuthorRoleProgram, type SourceStrokeAuthorProgram } from './sourceStrokeAuthor'
@@ -9,7 +9,7 @@ export interface SourceAuthorDescriptorContext {
   readonly lodScale: number
   /** Native effective brush scale captured at pen-down, if user changed size. */
   readonly scale?: number
-  readonly coverageProfile?: 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1'
+  readonly coverageProfile?: 'scalar-f64-fma-v1' | 'scalar-bionic-f64-fma-v1' | 'neon64-f32-fma-v1'
   readonly asset?: { readonly id: string; readonly size: number }
   /** Explicit compiler capability; absence rejects nonidentity curves.
    * Caller must bind its result to these exact points/corners/source reader. */
@@ -20,11 +20,12 @@ export type SourceAuthorDescriptorResult = { readonly supported: true; readonly 
 export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, context: SourceAuthorDescriptorContext): SourceAuthorDescriptorResult {
   const data=descriptor.sourceStamp!
   const reject=(reason:string):SourceAuthorDescriptorResult=>({supported:false,reasons:[reason]})
-  const auto=data?.version===2 && data.source?.kind==='defaultAuto'
-  const material = auto ? extractDefaultAutoSourceDataCapability(descriptor)
+  const gaussian=data?.version===2 && data.source?.kind==='gaussianAuto'
+  const auto=data?.version===2 && (data.source?.kind==='defaultAuto'||gaussian)
+  const material = gaussian ? extractGaussianAutoSourceDataCapability(descriptor) : auto ? extractDefaultAutoSourceDataCapability(descriptor)
     : context.asset ? extractCanonicalSinglePngCapability(descriptor, context.asset) : reject('image-source-asset-required')
   if (!material.supported) return material
-  if(auto && !['scalar-f64-fma-v1','neon64-f32-fma-v1'].includes(context.coverageProfile??''))return reject('explicit-auto-coverage-profile-required')
+  if(auto && !(gaussian?['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1']:['scalar-f64-fma-v1','neon64-f32-fma-v1']).includes(context.coverageProfile??''))return reject('explicit-auto-coverage-profile-required')
   if (!Number.isFinite(context.lodScale) || context.lodScale <= 0 || typeof context.colorIdentity !== 'string' || !context.colorIdentity.length
     || context.scale !== undefined && (!Number.isFinite(context.scale) || context.scale <= 0)) return reject('invalid-author-context')
   const programs:Record<string,SourceOptionProgramInput>={}
@@ -48,8 +49,8 @@ export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, contex
     const fan=rotation.checked && rotation.useCurve ? rotation.sensors.find(s=>s.id==='drawingAngle' && s.fanCorners) : undefined
     const brush={...data.brush,scale:context.scale ?? data.brush.scale}
     const role:SourceAuthorRoleProgram={id:'primary',options:programs as unknown as SourceAuthorRoleProgram['options'],brush,
-      ...(auto && data.version===2 && data.source.kind==='defaultAuto'?{geometry:{kind:'defaultAuto' as const,source:data.source,coverageProfile:context.coverageProfile!}}:data.version===2?{geometry:{kind:'image' as const}}:{}),
-      materialPolicy:auto?'default-auto-fixed1-rng-free':'png-fixed1-rng-free',lodScale:context.lodScale,
+      ...(data.version===2 && data.source.kind==='gaussianAuto'?{geometry:{kind:'gaussianAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-bionic-f64-fma-v1'|'neon64-f32-fma-v1'}}:data.version===2 && data.source.kind==='defaultAuto'?{geometry:{kind:'defaultAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-f64-fma-v1'|'neon64-f32-fma-v1'}}:data.version===2?{geometry:{kind:'image' as const}}:{}),
+      materialPolicy:gaussian?'gaussian-auto-fixed1-rng-free':auto?'default-auto-fixed1-rng-free':'png-fixed1-rng-free',lodScale:context.lodScale,
       scatterX:data.flags.scatterX,scatterY:data.flags.scatterY,mirrorX:data.flags.mirrorX,mirrorY:data.flags.mirrorY,indirectPainting:data.flags.indirectPainting,
       spacing:data.spacing,timing:data.timing,fanStepDegrees:fan?.fanStep,spacingRefreshMs:50,timingRefreshMs:50,
       material:{brushIdentity:auto?descriptor.id+'@'+descriptor.version:descriptor.tip.mask!,color:context.colorIdentity,softness:1,lightness:1,
