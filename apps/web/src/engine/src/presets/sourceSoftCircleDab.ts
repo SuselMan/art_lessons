@@ -1,6 +1,6 @@
 import { sourceAutoGeometry, type SourceAutoGeometryShape } from './sourceAutoGeometry'
 import { sourceCoverageEvaluator } from './sourceCoverageEvaluator'
-import { sourceCurveTransfer, type SourceCurvePolynomial } from './sourceCurve'
+import { prepareSourceCurveTransfer, type SourceCurvePolynomial } from './sourceCurve'
 import { sourceFmaF64 as fma64 } from './sourceFmaF64'
 import { sourceFmaF32 as fma32 } from './sourceFmaF32'
 import { sourceImageRoundEven } from './sourceImageTransformReciprocal'
@@ -20,7 +20,7 @@ export interface SourceSoftCircleProgram {
 const ownedPrograms = new WeakSet<SourceSoftCircleProgram>()
 /** Compile the original-resolution table ONCE. This is not raw-points admission
  * or a lookup of static stock tables. Caller supplies authoritative coefficients. */
-export function compileSourceSoftCircleProgram(tip: SourceSoftCircleTip, nativeCurve: SourceCurvePolynomial, maxTableValues: number): SourceSoftCircleProgram {
+export function prepareSourceSoftCircleProgram(tip: SourceSoftCircleTip, nativeCurve: SourceCurvePolynomial, maxTableValues: number) {
   if (tip.kind !== 'auto' || tip.generator !== 'soft' || tip.shape !== 'circle'
     || tip.spikes !== 2 || tip.softness !== 1 || tip.randomness !== 0 || tip.density !== 1 || tip.antialias !== false
     || ![tip.diameter, tip.ratio, tip.horizontalFade, tip.verticalFade].every(Number.isFinite)
@@ -31,17 +31,46 @@ export function compileSourceSoftCircleProgram(tip: SourceSoftCircleTip, nativeC
   // dominates original height. Physical/request scale never changes this size.
   const resolution = Math.floor(tip.diameter * 4 + .5)
   if (!Number.isSafeInteger(resolution) || resolution + 2 > maxTableValues) throw new RangeError('Soft-circle table exceeds reserved budget')
-  const values = sourceCurveTransfer(nativeCurve, { layout: 'soft-mask', resolution, arithmetic: 'installed-arm64-fused-v1' })
-  if (!values.every(Number.isFinite)) throw new RangeError('Soft-circle table outside finite domain')
-  const table = Object.freeze(values)
-  const curve = Object.freeze({
-    points: Object.freeze(nativeCurve.points.map(p => Object.freeze({ x: p.x, y: p.y }))),
-    coefficients: Object.freeze(nativeCurve.coefficients.map(c => Object.freeze([c[0], c[1], c[2], c[3]] as const))),
+  const transfer=prepareSourceCurveTransfer(nativeCurve,{layout:'soft-mask',resolution,arithmetic:'installed-arm64-fused-v1'})
+  const ownedTip=Object.freeze({...tip}),values:number[]=[],staging=new Float64Array(64)
+  let cancelled=false,program:SourceSoftCircleProgram|undefined
+  return Object.freeze({
+    resolution,tableValues:transfer.size,
+    get completedValues(){return transfer.completedValues},
+    get done(){return transfer.done},
+    advance(maxValues:number) {
+      if(cancelled)throw new Error('Soft-circle preparation cancelled')
+      if(!Number.isSafeInteger(maxValues)||maxValues<=0)throw new RangeError('Invalid soft-circle preparation budget')
+      let written=0
+      while(written<maxValues&&!transfer.done) {
+        const step=transfer.advance(staging,0,Math.min(64,maxValues-written))
+        for(let i=0;i<step.written;i++) {
+          if(!Number.isFinite(staging[i]))throw new RangeError('Soft-circle table outside finite domain')
+          values.push(staging[i])
+        }
+        written+=step.written
+      }
+      return {written,done:transfer.done}
+    },
+    finish():SourceSoftCircleProgram {
+      if(cancelled)throw new Error('Soft-circle preparation cancelled')
+      if(!transfer.done)throw new Error('Soft-circle preparation incomplete')
+      if(!program) {
+        program=Object.freeze({tip:ownedTip,curve:transfer.curve,resolution,table:Object.freeze(values)})
+        ownedPrograms.add(program)
+      }
+      return program
+    },
+    cancel(){cancelled=true;transfer.cancel();if(!program)values.length=0},
   })
-  const program = Object.freeze({ tip: Object.freeze({ ...tip }), curve, resolution, table })
-  ownedPrograms.add(program)
-  return program
 }
+/** Synchronous compatibility API drains the SAME bounded preparation body. */
+export function compileSourceSoftCircleProgram(tip:SourceSoftCircleTip,nativeCurve:SourceCurvePolynomial,maxTableValues:number):SourceSoftCircleProgram {
+  const prepared=prepareSourceSoftCircleProgram(tip,nativeCurve,maxTableValues)
+  prepared.advance(prepared.tableValues)
+  return prepared.finish()
+}
+
 export interface SourceSoftCircleDabRequest {
   readonly dialect: 'krita-soft-circle-qt5-arm64-v1'
   readonly program: SourceSoftCircleProgram

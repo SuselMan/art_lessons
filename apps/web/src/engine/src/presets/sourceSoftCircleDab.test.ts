@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import tables from './fixtures/sourceSoftCircle/tables.native.json'
 import full600 from './fixtures/sourceSoftCircle/full600.native.json'
 import whole from './fixtures/sourceSoftCircle/whole.native.json'
-import { compileSourceSoftCircleProgram, prepareSourceSoftCircleDab, sourceSoftCircleDab, type SourceSoftCircleDabRequest, type SourceSoftCircleProgram } from './sourceSoftCircleDab'
+import { compileSourceSoftCircleProgram, prepareSourceSoftCircleProgram, prepareSourceSoftCircleDab, sourceSoftCircleDab, type SourceSoftCircleDabRequest, type SourceSoftCircleProgram } from './sourceSoftCircleDab'
 function compile(row = tables.constructors[0]): SourceSoftCircleProgram {
   const g = row.generator
   return compileSourceSoftCircleProgram({ kind: 'auto', generator: 'soft', shape: 'circle', diameter: +g.diameter,
@@ -131,5 +131,41 @@ describe('compiled original-resolution soft-circle CPU dab', () => {
     finally { vi.unstubAllGlobals() }
     expect(allocations).toBe(0); expect(errors).toHaveLength(invalid.length)
     for (const error of errors) expect(error).toBeInstanceOf(RangeError)
+  })
+})
+
+
+describe('bounded native soft table preparation',()=>{
+  it('matches allfive original tables at arbitrary yield boundaries',()=>{
+    for(const quantum of [1,7,64,257])for(const row of tables.constructors) {
+      const basis=compile(row)
+      const prepared=prepareSourceSoftCircleProgram(basis.tip,basis.curve,row.values.length)
+      expect(prepared.completedValues).toBe(0)
+      expect(()=>prepared.finish()).toThrow('incomplete')
+      while(!prepared.done) {
+        const before=prepared.completedValues,result=prepared.advance(quantum)
+        expect(result.written).toBeLessThanOrEqual(quantum)
+        expect(prepared.completedValues-before).toBe(result.written)
+      }
+      const actual=prepared.finish()
+      for(let i=0;i<actual.table.length;i++)expect(Object.is(actual.table[i],row.values[i]),row.index+'/'+i).toBe(true)
+      expect(prepared.finish()).toBe(actual)
+      prepared.cancel() // does not mutate the published frozen table
+      expect(actual.table).toEqual(row.values)
+    }
+  })
+  it('owns the selected source before yielding and cancels without publishing',()=>{
+    const row=tables.constructors[0],basis=compile(row),tip={...basis.tip}
+    const curve={points:row.points.map(p=>({...p})),coefficients:row.coefficients.map((c):[number,number,number,number]=>[c[0],c[1],c[2],c[3]])}
+    const prepared=prepareSourceSoftCircleProgram(tip,curve,row.values.length)
+    Object.assign(tip,{diameter:1});curve.points[0].y=.99;curve.coefficients[0][0]=123
+    expect(()=>prepared.advance(0)).toThrow(RangeError)
+    prepared.advance(3);prepared.advance(row.values.length)
+    expect(prepared.finish().tip.diameter).toBe(basis.tip.diameter)
+    expect(prepared.finish().table).toEqual(row.values)
+    const cancelled=prepareSourceSoftCircleProgram(basis.tip,basis.curve,row.values.length)
+    cancelled.advance(3);cancelled.cancel()
+    expect(()=>cancelled.advance(1)).toThrow('cancelled')
+    expect(()=>cancelled.finish()).toThrow('cancelled')
   })
 })

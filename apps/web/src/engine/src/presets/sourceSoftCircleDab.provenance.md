@@ -87,3 +87,20 @@ grant. Exact source/bundle/body/fixture hashes and per-case timings are retained
 in fixes-v52/soft-incremental-device-{result,summary}.json. Child closed, original
 three tabs preserved, parent restored, QA marker and forward19236 removed;
 cleanup receipt is soft-incremental-device-cleanup.json.
+
+## Bounded table preparation
+
+prepareSourceCurveTransfer captures validated immutable points and coefficients,
+then evaluates only the caller's requested number of global table indices into
+caller-owned Float64 storage. The synchronous transfer API and this cursor use
+the same polynomial evaluation body, including the installed ARM fused law.
+prepareSourceSoftCircleProgram drains that cursor through a fixed 64-value staging
+buffer; finish publishes the same immutable owned program only after completion.
+Cancellation stops unfinished work and never mutates an already published table.
+
+Regression compares every value of the five original radial tables (3610 values)
+with quanta 1/7/64/257, and all fifteen sensor tables (3840 values) through offset
+caller buffers. Input mutation, sentinels, progress, premature finish and cancellation
+are covered. Final scoped run: 25 tests in five files pass; web typecheck and scoped
+lint pass. This supplies bounded preparation, not an active editor scheduler, a CPU
+storage reservation policy, or a new tablet responsiveness measurement.

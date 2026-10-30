@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import native from './fixtures/sourceCurveSensorFused.native.json'
 import identity from './fixtures/sourceCurveIdentityFused.native.json'
 import packets from './fixtures/sourceSensors.native.json'
-import { sourceCurveTransfer, sourceCurveIsIdentity, type SourceCurvePolynomial } from './sourceCurve'
+import { sourceCurveTransfer, prepareSourceCurveTransfer, sourceCurveIsIdentity, type SourceCurvePolynomial } from './sourceCurve'
 import { compileSourceOptionProgram, type SourceOptionProgramInput } from './sourceOptionProgram'
 const curve=(row:typeof native.curves[number]):SourceCurvePolynomial=>({points:row.points,coefficients:row.coefficients.map(c=>[c[0],c[1],c[2],c[3]] as const)})
 
@@ -43,5 +43,21 @@ describe('installed ARM sensor transfer arithmetic',()=>{
       }
     }
     expect(identity.cases.some(r=>r.nativeIdentity && r.nativeTableIdentityDifferenceCount>0)).toBe(true)
+  })
+})
+
+
+describe('bounded sensor table cursor',()=>{
+  it('uses the same original F64 samples with caller-owned bounded targets',()=>{
+    for(const row of native.curves) {
+      const cursor=prepareSourceCurveTransfer(curve(row),{layout:'sensor',arithmetic:'installed-arm64-fused-v1'})
+      const stripe=new Float64Array(9).fill(-99),actual:number[]=[]
+      while(!cursor.done) {
+        const result=cursor.advance(stripe,1,7)
+        expect(stripe[0]).toBe(-99);expect(stripe[8]).toBe(-99)
+        actual.push(...stripe.subarray(1,1+result.written))
+      }
+      for(let i=0;i<actual.length;i++)expect(Object.is(actual[i],row.samples[i])).toBe(true)
+    }
   })
 })
