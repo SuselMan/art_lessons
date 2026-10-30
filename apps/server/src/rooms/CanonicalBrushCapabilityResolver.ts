@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import {
   CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, STRAIGHT_ROOM_RASTER_VERSION,
   canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, extractDefaultAutoSourceDataCapability, sourceStampPaintingMode,
-  type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalAutoCoverageProfile,
+  type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalAutoCoverageProfile,
 } from '@grafetto/shared'
 import { BrushStorage, merge } from '../brushLibrary/storage.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
@@ -20,6 +20,20 @@ function normalizedDescriptor(value: unknown): unknown {
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)
     .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([k, v]) => [k, normalizedDescriptor(v)]))
   return value
+}
+
+/** The implemented frame composer has one outer Over operation. Retaining a
+ * source mask or author program cannot grant unsupported destination/effect law. */
+function outerExecutionReject(descriptor: BrushDescriptor): string | undefined {
+  const behavior = descriptor.behavior, rendering = behavior?.rendering
+  if (behavior?.erase) return 'erase'
+  if (rendering && (rendering.mode !== 'buildUp' || rendering.opacityCeiling === 'shape' || rendering.accumulation === 'maxAlpha')) return 'stroke-rendering-mode'
+  if (rendering && rendering.blendMode !== 'normal') return 'outer-blend'
+  if (rendering && (rendering.wetEdges !== 0 || rendering.burntEdges !== 0)) return 'edge-effect'
+  if (rendering?.gammaCorrect || rendering?.luminance) return 'color-effect'
+  if (descriptor.tip.alphaThreshold) return 'mask-threshold'
+  if (behavior?.wetMix || behavior?.edgeBleed || behavior?.grain || behavior?.taper) return 'brush-effect'
+  return undefined
 }
 
 /** Server-owned binder used by CanonicalRoomTransport; auto defaults disabled.
@@ -113,6 +127,8 @@ export class CanonicalBrushCapabilityResolver {
     const descriptor = library.brushes.find(b => b.descriptor.id === match[1] && b.descriptor.version === Number(match[2]))?.descriptor
     if (!descriptor) fail('brush unavailable')
     if(!isSourceStampData(descriptor.sourceStamp))fail('invalid or missing retained source data')
+    const unsupportedOuter = outerExecutionReject(descriptor)
+    if (unsupportedOuter) fail('unsupported canonical Over execution: ' + unsupportedOuter)
     const descriptorSha256 = createHash('sha256').update(JSON.stringify(normalizedDescriptor(descriptor))).digest('hex')
     let material:AnyCanonicalMaterialContext, mode:'wash'|'buildup'
     const budget=Object.freeze({workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels})

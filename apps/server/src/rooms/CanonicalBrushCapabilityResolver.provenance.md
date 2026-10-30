@@ -96,3 +96,19 @@ codec goldens),12 existing actual Socket.IO canonical tests, shared build, serve
 TSC and common web TSC5428 pass. Scoped lint/map:check/diff pass; map:rules reports
 0 errors with15 existing orphan/cycle warnings. Test stores and write queues are
 closed/drained in finally; no service, device, dependency or runtime remains.
+
+## Outer-operation admission is distinct from source data
+
+The actual binder now rejects descriptor erase, non-normal outer blending,
+non-buildUp/shape-ceiling/maxAlpha rendering, wet/burnt edges, gamma/luminance
+transforms, mask threshold and unimplemented wet/grain/taper/bleed effects BEFORE
+constructing a gesture grant or reading/pinning CAS. The current frame protocol
+has only outer Over; a valid retained source/option dictionary cannot silently
+reinterpret these additional destination/effect laws as Over. The source-data
+extractors and raw settings remain available; no effect support is invented.
+
+An independent verified operator manifest with each schema-valid unsupported
+setting now fails before binder state, pixels, CAS, room seq or history changes.
+Existing actual image and seven default-auto begin/live/record/reconnect tests
+remain green. Gaussian server admission is still off (including its soft eraser),
+while its closed mask/GPU diagnostics are source/composition evidence only.

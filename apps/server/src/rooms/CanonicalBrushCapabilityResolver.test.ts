@@ -160,3 +160,32 @@ describe('actual trusted board + immutable descriptor/CAS canonical binder (sock
     expect(f.board.operations).toEqual([])
   })
 })
+
+
+it('never turns retained mask data into an unsupported Over/erase/effect execution grant', () => {
+  const f=fixture(), teacher={...f.identity,userId:'teacher'}
+  const changes: ((descriptor: typeof f.library.brushes[number]['descriptor'])=>void)[] = [
+    d=>{d.behavior={...d.behavior!,erase:true}},
+    d=>{d.behavior!.rendering!.mode='uniformGlaze';delete d.behavior!.rendering!.accumulation},
+    d=>{d.behavior!.rendering!.opacityCeiling='shape'},
+    d=>{d.behavior!.rendering!.blendMode='multiply'},
+    d=>{d.behavior!.rendering!.wetEdges=.2},
+    d=>{d.behavior!.rendering!.burntEdges=.2},
+    d=>{d.behavior!.rendering!.gammaCorrect=true},
+    d=>{d.behavior!.rendering!.luminance=true},
+    d=>{d.tip.alphaThreshold={value:.5,softness:0}},
+    d=>{d.behavior!.edgeBleed={pressure:.2,tilt:0}},
+    d=>{d.behavior!.taper={start:1,end:1,size:1,opacity:1,pressure:true};delete d.behavior!.rendering!.accumulation},
+  ]
+  const asset=vi.spyOn(f.storage,'asset'), pin=vi.spyOn(f.storage,'pin')
+  for(const [index, change] of changes.entries()){
+    const library=structuredClone(f.library);change(library.brushes[0].descriptor)
+    expect(isBrushLibrary(library), `schema case ${index}`).toBe(true)
+    const binder=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:()=>library,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,alphaDarkenVariants:['creamy'],maxGestures:4})
+    expect(()=>binder.prepareBeginGesture(teacher,f.input)).toThrow('unsupported canonical Over execution')
+    expect(binder.size).toBe(0)
+    expect(binder.resolve(teacher,f.input)).toBeUndefined()
+    expect(asset).not.toHaveBeenCalled();expect(pin).not.toHaveBeenCalled()
+    expect(f.board.operations).toEqual([]);expect(f.board.nextSeq).toBe(1)
+  }
+})
