@@ -239,8 +239,12 @@ Host oracle uses the existing Gaussian evaluator and source composition
 kernels; it is not an independent original Krita GUI stroke or UI-latency proof.
 In particular the tracked13 Gaussian descriptors use25 sensor compile requests
 with15 unique point/corner programs; these had no exact match in the earlier32
-native-curve corpus. Their independent installed Eigen5 coefficient audit remains
-required before claiming whole original stroke identity. The pixel receipts do
-not certify those sensor coefficients.
+native-curve corpus. A subsequent independent installed ARM64 constructor audit
+(`gaussian13-native-sensor-comparison.json`) covers all15: the diagnostic mapped
+Eigen5 candidate matches120/120 coefficients, while the currently stored Eigen3.4
+programs differ at55/120. The old production compiler/profile was deliberately
+not relabelled. Promoting the verified new compiler and regenerating bound sensor
+programs remains required before claiming whole original stroke identity. The
+pixel receipts do not certify the original sensor coefficients.
 Receipts contain exact source/bundle/fixture hashes:
 `temp/device-runs/krita-stroke-20261024/fixes-v52/gaussian7-executor-{64,8}-{result,cleanup}.json`.
