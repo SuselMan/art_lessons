@@ -193,3 +193,41 @@ lease. Its own checkpoint flag cannot authorize checkpoints for a transferred
 owner; `CanonicalWashLayerCoordinator.checkpointReady` must govern that lane.
 See the coordinator provenance for first-recorded commit order, derived view,
 cleanup tests and the explicit no-activation/no-new-GPU-proof limits.
+
+## Gaussian in the same incremental procedural branch
+
+The executor accepts an explicit trusted CanonicalAutoSource union, freezes its
+generator-specific pin and compares EVERY definition using shared canonicalAutoCost.
+Gaussian/default source/profile swaps fail before reservations or pixels; auto-only
+frames continue to require zero image assets and no source bank. No new queue,
+cache, raster math, CPU headroom cap or target allocator is added.
+
+Both generator tags use the SAME prepareAuto sample64 cursor and4ms deadline,
+including the completion-to-yield check, one-auto-draw staging boundary and
+prepared prepass/composite capacities. The prepass supplies the generator-specific
+coverage evaluator; RGB/AlphaDarken/outer Over still use the existing composition.
+
+Focused executor54 tests include ready7 real imported Gaussian sources under
+both scalar-Bionic and NEON profiles, decoded trusted V2 material through the
+actual no-bank prepass/executor/Tiled pool and composite8 partitions. Uploaded
+RGBA stripes match each sourceGaussianDab CPU reference, sample-deadline yields
+before target/upload, and final CPU reservations/raw locals are released. This
+is integration evidence, not a new native GUI stroke or GPU receipt. All52 prior
+executor/coordinator tests remain green. Editor, server Gaussian policy, live
+confirmation, global memory owner and stable snapshot gates remain closed.
+
+Samsung SM-T970/Adreno650/Chrome155 closed-service proof now runs all seven
+Gaussian source descriptors through actual author/adapter/packed-envelope decode,
+actual no-bank executor/Tiled/scratch/prepass/composite64. The two largest mask
+windows are repeated with the SAME prepass but compositor8. All9 final64×64
+readbacks match the independent host source-law scalar composition oracle:
+0 wrong channels/maxDelta0, exact hostile GL restoration, noGL errors/poison,
+all owned Texture/FBO/Buffer/Program/Shader handles0, CPU and reservation cleanup
+balanced. Both test children closed and parent3631 restored; forward19236 removed.
+
+Requested mask profile is NEON64 with its normal tiny-AA scalar fallback. Scalar
+requested-profile integration is covered by host tests, not a separate full7 GPU
+run here. Host oracle uses the existing Gaussian evaluator and source composition
+kernels; it is not an independent original Krita GUI stroke or UI-latency proof.
+Receipts contain exact source/bundle/fixture hashes:
+`temp/device-runs/krita-stroke-20261024/fixes-v52/gaussian7-executor-{64,8}-{result,cleanup}.json`.

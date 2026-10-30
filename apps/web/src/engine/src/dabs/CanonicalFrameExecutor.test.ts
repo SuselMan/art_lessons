@@ -1,3 +1,6 @@
+import gaussianStock from '../../../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.native'
+import { sourceGaussianDab } from '../presets/sourceGaussianDab'
+import { canonicalGaussianAutoSourceBinding, type CanonicalAutoSource, type CanonicalGaussianAutoRecipe } from '@grafetto/shared'
 import { CanonicalWashLayerCoordinator } from './CanonicalWashLayerCoordinator'
 import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import { compositeSourceAlphaDarken32 } from '../presets/sourceAlphaDarken32'
@@ -35,7 +38,7 @@ function decoded(count: number, x = 0, end = true, entry: CanonicalMaterialFrame
     preflightDefinition: () => ({ workUnits: 1, outputBytes: 1 }) }
   return unpackCanonicalMaterial(packCanonicalMaterial(frame, context), context)
 }
-function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4, tileBudget?: number, rasterProfile: CanonicalExecutorRasterProfile = 'reference-scalar-f32-rne-v1', autoSource?: CanonicalDefaultAutoSource, compositeCapacity = capacity, washMode?: 'exclusive' | 'deposition-only') {
+function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4, tileBudget?: number, rasterProfile: CanonicalExecutorRasterProfile = 'reference-scalar-f32-rne-v1', autoSource?: CanonicalAutoSource, compositeCapacity = capacity, washMode?: 'exclusive' | 'deposition-only') {
   const { gl, snapshot } = recordingGL(), cache = new BrushTextureCache(gl), cpu = new BrushMipCache()
   gl.TEXTURE1 = gl.TEXTURE0 + 1; gl.STATIC_DRAW = 9001; gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME = 9002
   gl.LINEAR = 9010; gl.REPEAT = 9011
@@ -643,7 +646,7 @@ describe('Gaussian data-only boundary',()=>{
     try{
       const f=decoded(1)
       const input={...s.submit(f),frame:{...f,definitions:[{kind:'gaussianAuto'}]} as unknown as CanonicalFrameSubmission['frame']}
-      expect(()=>s.executor.enqueue(input)).toThrow(/not a canonical executor raster grant/)
+      expect(()=>s.executor.enqueue(input)).toThrow(/requires a trusted canonical executor raster grant/)
       expect(target).not.toHaveBeenCalled();expect(bank).not.toHaveBeenCalled();expect(prepared).not.toHaveBeenCalled()
       expect(s.reserveTransient).not.toHaveBeenCalled();expect(s.executor.pending).toBe(false)
       expect(s.snapshot()).toEqual(snapshot)
@@ -849,4 +852,50 @@ describe('recorded same-layer concurrent wash lane', () => {
     }finally{s.close()}
   })
 
+})
+
+
+describe('Gaussian through the SAME bounded frame executor', () => {
+  for (const profile of ['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1'] as const) it(`executes ready7 actual sources without an image bank under ${profile}`, () => {
+    for (const index of [2,5,6,7,10,11,22]) {
+      const row=gaussianStock.rows.find(r=>r.index===index)!
+      const pin=canonicalGaussianAutoSourceBinding(row.descriptor as unknown as BrushDescriptor,row.descriptorSHA256,profile)
+      // Explicit diagnostic captured shape, not the native UI Size setter law.
+      const scale=Math.min(.2,24/pin.source.diameter)
+      const expected=sourceGaussianDab({dialect:'krita-gaussian-auto-qt5-arm64-v1',tip:{...pin.source,kind:'auto',spikes:2,softness:1,randomness:0,density:1},storedScale:pin.brushScale,storedAngle:pin.brushAngle,shape:{scale,ratio:1,rotation:0},subpixelX:0,subpixelY:0,coverageProfile:profile,maxPixels:1048576,maxWorkSamples:16777216})
+      const [width,height]=expected.geometry.maskSize
+      const r:CanonicalGaussianAutoRecipe={kind:'gaussianAuto',source:pin.source,coverageProfile:profile,brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale,ratio:1,rotation:0,subX:0,subY:0,width,height,mirrorH:false,mirrorV:false}
+      const context:CanonicalMaterialContextV2={version:2,assets:[],primarySource:pin,budget:{workUnits:16777216,outputBytes:4194304,drawPixels:1048576}}
+      const frame=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe:r,role:'primary',x:0,y:0,opacity:.5,flow:.7}],fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:1,group:0},{kind:'segmentEnd',at:1,group:0},{kind:'gestureEnd',at:1}]},context).frame
+      const s=setup('wash',64,64,undefined,CANONICAL_STROKE_RASTER_PROFILE,pin,8)
+      const uploaded:number[]=[], calls=vi.spyOn(s.composite,'drawSource')
+      s.gl.texSubImage2D.mockImplementation((...args:unknown[])=>{const bytes=args[8];if(bytes instanceof Uint8Array)uploaded.push(...bytes)})
+      try {
+        const baseline=s.cpu.reservedBytes
+        expect(s.bank).toBeUndefined()
+        s.executor.enqueue({...s.submit(),frame,assets:[]})
+        const target=vi.spyOn(s.layer,'resolveForPaint')
+        let clock=0
+        const now=vi.spyOn(performance,'now').mockImplementation(()=>clock+=5)
+        try { expect(s.executor.advance().pending).toBe(true) } finally { now.mockRestore() }
+        expect(target).not.toHaveBeenCalled();expect(uploaded).toEqual([])
+        let count=0
+        while(s.executor.pending&&count++<1000)s.executor.advance()
+        expect(count).toBeLessThan(1000)
+        expect(s.executor.checkpointReady).toBe(true)
+        expect(s.executor.poisoned).toBe(false)
+        expect(uploaded).toEqual([...expected.mask].flatMap(alpha=>[alpha,alpha,alpha,alpha]))
+        expect(calls.mock.calls.length).toBeGreaterThan(0)
+        for(const [call] of calls.mock.calls) {
+          const b=call.writeBounds
+          // Deposition clips the full original mask; presentation uses a local
+          // source view whose rectangle itself is partitioned by pass capacity.
+          expect(b ? b.maxX-b.minX : call.source.view.rect.width).toBeLessThanOrEqual(8)
+          expect(b ? b.maxY-b.minY : call.source.view.rect.height).toBeLessThanOrEqual(8)
+        }
+        expect(s.cpu.reservedBytes).toBe(baseline)
+        expect(s.scratch.bytes.live).toBe(0)
+      } finally {s.close()}
+    }
+  })
 })

@@ -3,7 +3,9 @@
 `sourceGaussianDab` composes existing sourceAutoGeometry, the generic native-law
 sourceGaussianCoefficients constructor, and the single resolved Gaussian coverage
 body. It introduces no second geometry, coefficient, or mask implementation.
-It remains off importer, descriptor, author, cache, wire and GPU hooks.
+It is now consumed by the opt-in canonical auto prepass through the existing
+author/material/decoder path. Gaussian room/server and editor activation remain
+closed; this arithmetic module itself grants no execution permission.
 
 The geometric function's existing `default-auto-qt5-arm64-f64-v1` identifier is
 preserved. That function describes the common original KisAutoBrush whole-dab

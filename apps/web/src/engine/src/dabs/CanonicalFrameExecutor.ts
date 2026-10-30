@@ -1,4 +1,4 @@
-import { CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, canonicalDefaultAutoSourcePin, canonicalDefaultAutoCost, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalMaterialAsset, type CanonicalDefaultAutoSource, type AnyCanonicalMaterialFrame } from '@grafetto/shared'
+import { CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalAutoCost, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalMaterialAsset, type CanonicalAutoSource, type AnyCanonicalMaterialFrame } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { PaintTarget } from '../buffers/ILayerBuffer'
 import type { WorldRect } from '../buffers/tileMath'
@@ -47,7 +47,7 @@ export interface CanonicalFrameExecutorOptions {
    * No default: a caller must explicitly prepare the matching shader pair. */
   readonly rasterProfile: CanonicalExecutorRasterProfile
   /** Trusted verified-descriptor binding, fixed for this executor; not a client grant. */
-  readonly autoSource?: CanonicalDefaultAutoSource
+  readonly autoSource?: CanonicalAutoSource
   /** Authoritative room page, never viewport. Absent retains the closed infinite-page QA API. */
   readonly pageBounds?: Readonly<WorldRect> | null
   readonly bank?: CanonicalMaskSourceBank
@@ -121,7 +121,7 @@ export class CanonicalFrameExecutor {
     planCanonicalTargets({minX:0,minY:0,maxX:0,maxY:0},options.pageBounds ?? null,1,1)
     this.maskCapacity=options.prepass.preparedCapacity();
     this.compositeCapacity=options.composite.preparedCapacity();
-    this.options = Object.freeze({ ...options, pageBounds: options.pageBounds ? Object.freeze({...options.pageBounds}) : null, autoSource: options.autoSource ? canonicalDefaultAutoSourcePin(options.autoSource) : undefined })
+    this.options = Object.freeze({ ...options, pageBounds: options.pageBounds ? Object.freeze({...options.pageBounds}) : null, autoSource: options.autoSource ? (options.autoSource.kind === 'defaultAuto' ? canonicalDefaultAutoSourcePin(options.autoSource) : canonicalGaussianAutoSourcePin(options.autoSource)) : undefined })
     this.gl = a.gl
   }
 
@@ -144,7 +144,7 @@ export class CanonicalFrameExecutor {
     if (![CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE].includes(input?.frame?.profile)) throw new TypeError('Canonical executor requires accepted material profile')
     if (!input || !input.gestureId || !input.layerId || !int(input.layerEpoch) || !int(input.ordinal)
       || !Array.isArray(input.rgb) || input.rgb.length !== 3 || !input.rgb.every(n => int(n) && n <= 255)) throw new TypeError('Invalid canonical frame identity/pigment')
-    if (input.frame.definitions.some(r => 'kind' in r && r.kind === 'gaussianAuto')) throw new TypeError('Gaussian source data is not a canonical executor raster grant')
+    if (input.frame.definitions.some(r => 'kind' in r && r.kind === 'gaussianAuto') && this.options.autoSource?.kind !== 'gaussianAuto') throw new TypeError('Gaussian source data requires a trusted canonical executor raster grant')
     this.assertPrepared();
     const { buffer, epoch } = this.options.layer(input.layerId)
     if (epoch !== input.layerEpoch || buffer.tileWidth > 4096 || buffer.tileHeight > 4096 || buffer.pixelEncoding !== 'straight-rgba8') throw new Error('Stale or non-straight canonical layer')
@@ -154,17 +154,16 @@ export class CanonicalFrameExecutor {
     if (!input.frame || input.frame.draws.length > 800 || input.frame.definitions.length > 800 || input.frame.fences.length > 2404 || input.assets.length > 512) throw new RangeError('Canonical frame exceeds decoder limits')
     const initial = this.planned ?? createSourcePrimaryComposition(input.composition).state
     const result = advanceSourcePrimaryComposition(initial, { ordinal: input.ordinal, frame: input.frame })
-    const hasImageDefinitions = input.frame.definitions.some(r => !('kind' in r) || r.kind !== 'defaultAuto')
+    const hasImageDefinitions = input.frame.definitions.some(r => !('kind' in r) || (r.kind !== 'defaultAuto' && r.kind !== 'gaussianAuto'))
     const hasImage = hasImageDefinitions || input.frame.profile === CANONICAL_MATERIAL_PROFILE || (!input.frame.definitions.length && !this.options.autoSource)
     if (hasImage && !this.options.bank?.isReady()) throw new Error('Canonical image bank is not prepared')
     if (!hasImage && input.assets.length) throw new TypeError('Auto-only frame must not supply image assets')
     const prepared = hasImage ? this.options.bank!.preparedResources() : []
     const sourceKeys = input.frame.definitions.map(recipe => {
-      if ('kind' in recipe && recipe.kind === 'gaussianAuto') throw new TypeError('Gaussian material raster is not admitted')
       if (recipe.width > this.maskCapacity.width || recipe.height > this.maskCapacity.height) throw new RangeError('Canonical material exceeds prepared capacity')
-      if ('kind' in recipe && recipe.kind === 'defaultAuto') {
+      if ('kind' in recipe && (recipe.kind === 'defaultAuto' || recipe.kind === 'gaussianAuto')) {
         if (!this.options.autoSource) throw new TypeError('Canonical auto source is not trusted')
-        canonicalDefaultAutoCost(recipe, this.options.autoSource)
+        canonicalAutoCost(recipe, this.options.autoSource)
         return undefined
       }
       const asset = input.assets.find(a => a.id === recipe.asset)
@@ -214,7 +213,7 @@ export class CanonicalFrameExecutor {
       // commands. Never let queued DTOs predictably consume its next turn.
       const info = this.options.prepass.brushGlBatchInfo(), other = this.options.composite.brushGlBatchInfo()
       const resources = new Set([...info.resources, ...other.resources].map(r => r.key)).size
-      if (info.cpu.reservedBytes + (input.frame.definitions.some(r => 'kind' in r && r.kind === 'defaultAuto') ? 82432 : 65536) + resources * 128 > info.cpu.budgetBytes) throw new RangeError('Canonical queue exceeds shared CPU work headroom')
+      if (info.cpu.reservedBytes + (input.frame.definitions.some(r => 'kind' in r && (r.kind === 'defaultAuto' || r.kind === 'gaussianAuto')) ? 82432 : 65536) + resources * 128 > info.cpu.budgetBytes) throw new RangeError('Canonical queue exceeds shared CPU work headroom')
       const saved: CanonicalFrameSubmission = structuredClone(input)
       this.queue.push({ input: saved, result, sourceKeys, draw: 0, tile: 0, paintPart: 0, present: 0, part: 0,
         releaseMetadata: () => { try { releaseMetadata() } finally { releaseTargetBudget?.() } } })
@@ -293,9 +292,8 @@ export class CanonicalFrameExecutor {
 
   private maskRequest(work: Work, draw: number): AnyTransformedMaskRequest {
     const d = work.result.draws[draw], recipe = work.input.frame.definitions[d.definition];
-    if ('kind' in recipe && recipe.kind === 'gaussianAuto') throw new TypeError('Gaussian material raster is not admitted')
     const common = { owner: this, role: 'primary', rect: { x:d.x, y:d.y, width:recipe.width, height:recipe.height }, profile:'neon4-summed-wordsize64' as const };
-    if ('kind' in recipe && recipe.kind === 'defaultAuto') {
+    if ('kind' in recipe && (recipe.kind === 'defaultAuto' || recipe.kind === 'gaussianAuto')) {
       if (!this.options.autoSource) throw new TypeError('Canonical auto source is not trusted');
       return { ...common, material: { kind:'canonicalAuto', recipe, trustedSource:this.options.autoSource } };
     }
@@ -308,7 +306,7 @@ export class CanonicalFrameExecutor {
   private prepareAuto(work: Work, start: number): boolean {
     if (work.draw >= work.result.draws.length) return true;
     const d=work.result.draws[work.draw], recipe=work.input.frame.definitions[d.definition];
-    if (!('kind' in recipe) || recipe.kind !== 'defaultAuto') return true;
+    if (!('kind' in recipe) || (recipe.kind !== 'defaultAuto' && recipe.kind !== 'gaussianAuto')) return true;
     if (this.options.prepass.beginAutoGeneration(this.maskRequest(work,work.draw))) return performance.now()-start < 4;
     if (performance.now()-start >= 4) return false;
     do { if(this.options.prepass.advanceAutoGeneration(64).done) return performance.now()-start < 4; }
@@ -332,7 +330,7 @@ export class CanonicalFrameExecutor {
       while (tasks.length < 8 && draw < work.result.draws.length) {
         const d = work.result.draws[draw], r = work.input.frame.definitions[d.definition]
         const firstRecipe = work.input.frame.definitions[work.result.draws[work.draw].definition];
-        if (draw !== work.draw && (('kind' in r && r.kind === 'defaultAuto') || ('kind' in firstRecipe && firstRecipe.kind === 'defaultAuto'))) break;
+        if (draw !== work.draw && (('kind' in r && (r.kind === 'defaultAuto' || r.kind === 'gaussianAuto')) || ('kind' in firstRecipe && (firstRecipe.kind === 'defaultAuto' || firstRecipe.kind === 'gaussianAuto')))) break;
         if (!positions) {
           positions = this.targetPositions({ minX:d.x,minY:d.y,maxX:d.x+r.width,maxY:d.y+r.height },layer)
         }
