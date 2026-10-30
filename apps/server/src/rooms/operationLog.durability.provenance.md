@@ -90,3 +90,17 @@ not an actual database or publication gate receipt.
 A zero numeric fence STILL does not prove cold-prefix completeness, historical
 wash closure, or reader readiness. No join/fork/HTTP/snapshot gates are activated
 by this slice; unknown historical objects remain unknown.
+
+
+### Immutable loaded identity follow-up
+
+Cold load now reuses `immutableCanonicalOperation`, the SAME small-header
+copy/freeze boundary as live `recordOperation`, after verifying the original DB
+row projection. The replacement row points at that exact frozen resident
+operation for adoption. The original mutable DB JSON is not retained; packed
+material remains the same immutable string, not another body journal. Header,
+frame, RGB tuple and composition are frozen. Legacy loaded objects stay mutable.
+The authoritative identity check is the existing resident `operationsById` map;
+it is not a second log scan or a claim to validate arbitrary caller log mutation.
+Regression mutates original DB JSON after load and checks succeeded actual
+operation is unchanged, frozen nested headers, and unchanged legacy identity.

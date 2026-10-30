@@ -169,8 +169,10 @@ it('adopts verified canonical DB rows only for the actual cold-load winner',asyn
   })
   const first=ensureRoomLoaded(id),second=ensureRoomLoaded(id);await first
   const winner=rooms.get(id)!
-  expect(winner.operationsById.get(a.id)).toBe(a);expect(knownCanonicalWrite(a)?.status).toBe('succeeded')
-  expect(await ensureCanonicalWrite(winner,a)).toEqual({ok:true,value:undefined})
+  const actual=winner.operationsById.get(a.id)!
+  expect(actual).not.toBe(a);expect(actual).toEqual(a);expect(knownCanonicalWrite(actual)?.status).toBe('succeeded')
+  expect(knownCanonicalWrite(a)).toBeUndefined()
+  expect(await ensureCanonicalWrite(winner,actual)).toEqual({ok:true,value:undefined})
   release();await second
   expect(rooms.get(id)).toBe(winner);expect(knownCanonicalWrite(b)).toBeUndefined()
   expect(mockPrisma.operation.create).not.toHaveBeenCalled()
@@ -180,4 +182,23 @@ it('rejects canonical DB indexed/header conflicts without adopting a room',async
   mockPrisma.operation.findMany.mockResolvedValue([{...indexed(id,op),userId:'different'}])
   await expect(ensureRoomLoaded(id)).rejects.toThrow('immutable row conflict')
   expect(rooms.has(id)).toBe(false);expect(knownCanonicalWrite(op)).toBeUndefined()
+})
+
+it('copies and freezes the same small canonical header as live append, leaving legacy mutable',async()=>{
+  const original=canonicalLoaded('immutable-db'),legacy=stroke(2),id=seed([legacy])
+  mockPrisma.operation.findMany.mockResolvedValue([indexed(id,original),{data:legacy}])
+  await ensureRoomLoaded(id)
+  const actual=rooms.get(id)!.operationsById.get(original.id)!
+  if(actual.type!=='canonical_stroke'||original.type!=='canonical_stroke')throw new Error('fixture')
+  const before=structuredClone(actual)
+  expect(Object.isFrozen(actual)).toBe(true);expect(Object.isFrozen(actual.frame)).toBe(true)
+  expect(Object.isFrozen(actual.frame.pigmentRgb8)).toBe(true);expect(Object.isFrozen(actual.frame.composition)).toBe(true)
+  original.timestamp=77
+  expect(Reflect.set(original.frame,'materialPacked','changed')).toBe(true)
+  expect(Reflect.set(original.frame.pigmentRgb8,0,255)).toBe(true)
+  expect(Reflect.set(original.frame.composition,'outerResourceOpacity',.2)).toBe(true)
+  expect(actual).toEqual(before);expect(knownCanonicalWrite(actual)?.status).toBe('succeeded')
+  expect(knownCanonicalWrite(original)).toBeUndefined()
+  expect(rooms.get(id)!.operationsById.get(legacy.id)).toBe(legacy)
+  expect(Object.isFrozen(legacy)).toBe(false)
 })

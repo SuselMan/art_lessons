@@ -6,7 +6,7 @@ import { supportsCurrentRoomRaster } from './roomRasterAdmission.js'
 import { toWireRoom } from './roomMapper.js'
 import { rooms, type RoomRecord } from './roomRegistry.js'
 import { canonicalOperationRowSelect, verifyCanonicalOperationRow, persistPalette } from './roomPersistence.js'
-import { adoptLoadedCanonicalWrites } from './operationLog.js'
+import { adoptLoadedCanonicalWrites, immutableCanonicalOperation } from './operationLog.js'
 import { layerStateIdsOf, residentOperationWhere } from './snapshotCoverage.js'
 import { loadCoveredSeqByLayer } from './snapshotStore.js'
 import { buildStructuralLog, deriveLayerIds, META_OP_TYPES, type StructuralEntry } from './structuralLog.js'
@@ -40,11 +40,16 @@ async function loadResidentOperations(
 ) {
   const where = residentOperationWhere(roomId, coveredSeqByLayer)
   const rows = await prisma.operation.findMany({ where, orderBy: { seq: 'asc' }, select: canonicalOperationRowSelect })
-  for (const row of rows) {
+  return rows.map(row => {
     const op = row.data as Operation
-    if (row.type === 'canonical_stroke' || op?.type === 'canonical_stroke') verifyCanonicalOperationRow(roomId, op, row)
-  }
-  return rows
+    if (row.type !== 'canonical_stroke' && op?.type !== 'canonical_stroke') return row
+    // Verify the actual DB projection before copying. The replacement row's
+    // data becomes the actual resident object; original mutable JSON is not
+    // retained by a receipt, loader journal, or the candidate record.
+    verifyCanonicalOperationRow(roomId, op, row)
+    if (op.type !== 'canonical_stroke') throw new Error('Canonical loaded row discriminator conflict')
+    return { ...row, data: immutableCanonicalOperation(op, op.seq!) }
+  })
 }
 
 /** Repopulates the in-memory Map for `roomId` from Postgres if it isn't

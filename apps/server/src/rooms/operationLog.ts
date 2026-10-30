@@ -166,7 +166,8 @@ export function ensureCanonicalWrite(record: RoomRecord, op: Operation, options:
   return startCanonicalWrite(receipt, () => retryCanonicalOperationWrite(record.room.id, op))
 }
 
-function immutableCanonicalOperation(op: Extract<Operation, { type: 'canonical_stroke' }>, seq: number): Operation {
+/** Shared live/DB boundary: copy only the small header; packed material stays a string. */
+export function immutableCanonicalOperation(op: Extract<Operation, { type: 'canonical_stroke' }>, seq: number): Operation {
   return Object.freeze({ ...op, seq, frame: Object.freeze({ ...op.frame,
     pigmentRgb8: Object.freeze([...op.frame.pigmentRgb8] as [number, number, number]),
     composition: Object.freeze({ ...op.frame.composition }),
