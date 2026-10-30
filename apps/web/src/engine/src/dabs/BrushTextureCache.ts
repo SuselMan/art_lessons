@@ -325,17 +325,34 @@ function uploadManifest(gl: WebGLRenderingContext, levels: readonly Uint8Array[]
     width: number;
     height: number;
 }) {
-    if (format !== gl.RGBA && format !== gl.LUMINANCE_ALPHA && format !== gl.LUMINANCE && format !== gl.ALPHA)
+    if (typeof format !== 'number' || format !== gl.RGBA && format !== gl.LUMINANCE_ALPHA && format !== gl.LUMINANCE && format !== gl.ALPHA)
         throw new Error('Unsupported brush texture format');
+    if(typeof wrapMode!=='number'||wrapMode!==gl.CLAMP_TO_EDGE&&wrapMode!==gl.REPEAT&&wrapMode!==gl.MIRRORED_REPEAT)throw new Error('Unsupported brush texture wrap mode');
+    if(typeof discrete!=='boolean')throw new Error('Invalid brush texture sampling mode');
     const selected = discrete ? levels.slice(0, 1) : levels, channels = format === gl.RGBA ? 4 : format === gl.LUMINANCE_ALPHA ? 2 : 1;
     if (!selected.length)
         throw new Error('Empty brush texture levels');
-    return selected.map((pixels, level) => {
+    const manifest=selected.map((pixels, level) => {
         const size = Math.sqrt(pixels.length / channels), width = plane?.width ?? size, height = plane?.height ?? size;
         if (!(pixels instanceof Uint8Array) || !Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1 || !Number.isSafeInteger(width * height * 4) || pixels.length !== width * height * channels || plane && (levels.length !== 1 || level !== 0 || wrapMode !== gl.CLAMP_TO_EDGE))
             throw new Error('Invalid brush texture plane dimensions');
         return { pixels, width, height, level, bytes: width * height * 4 };
     });
+    if(!plane){
+        const side=manifest[0].width,pot=(side&(side-1))===0;
+        if(discrete){if(!pot&&wrapMode!==gl.CLAMP_TO_EDGE)throw new Error('NPOT brush texture requires CLAMP_TO_EDGE')}
+        else{
+            if(!pot)throw new Error('Mipmapped brush texture requires POT dimensions');
+            let expected=side;
+            for(let index=0;index<manifest.length;index++){
+                const item=manifest[index];
+                if(item.width!==expected||item.height!==expected||expected===1&&index!==manifest.length-1)throw new Error('Invalid complete brush mip chain');
+                expected=Math.max(1,expected/2);
+            }
+            if(manifest[manifest.length-1].width!==1)throw new Error('Incomplete brush mip chain');
+        }
+    }
+    return manifest;
 }
 /** Existing sampler/unpack contract, now with explicit unpublished ownership. */
 export function uploadBrushTexture(gl: WebGLRenderingContext, levels: readonly Uint8Array[], format: number, wrapMode: number, discrete = false, plane?: {

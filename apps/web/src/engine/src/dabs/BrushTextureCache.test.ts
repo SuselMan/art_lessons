@@ -99,7 +99,7 @@ describe('cold brush upload GL state', () => {
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, previous)
     vi.spyOn(gl, 'texImage2D').mockImplementationOnce(() => { throw new Error('own upload failure') })
     const deleted = vi.spyOn(gl, 'deleteTexture')
-    expect(() => uploadBrushTexture(gl as unknown as WebGLRenderingContext, [new Uint8Array(4)], gl.ALPHA, gl.CLAMP_TO_EDGE)).toThrow('upload failure')
+    expect(() => uploadBrushTexture(gl as unknown as WebGLRenderingContext, [new Uint8Array(4),new Uint8Array(1)], gl.ALPHA, gl.CLAMP_TO_EDGE)).toThrow('upload failure')
     expect(deleted).toHaveBeenCalledTimes(1)
     expect(gl.getParameter(gl.ACTIVE_TEXTURE)).toBe(gl.TEXTURE1)
     expect(gl.getParameter(gl.TEXTURE_BINDING_2D)).toBe(previous)

@@ -15,8 +15,8 @@ it('validates every selected level before any GL query, allocation or promise mu
     expect(create).not.toHaveBeenCalled();
     expect(query).not.toHaveBeenCalled();
     expect(snapshotContextStorage(gl)).toMatchObject({ residentBytes: 0, reservedBytes: 0 });
-    const wrong = reserveContextStorage(gl, 64, 'accum-rgba8');
-    expect(() => uploadBrushTexture(gl, [new Uint8Array(16)], gl.LUMINANCE, gl.CLAMP_TO_EDGE, false, undefined, wrong)).toThrow('domain');
+    const wrong = reserveContextStorage(gl, 84, 'accum-rgba8');
+    expect(() => uploadBrushTexture(gl, [new Uint8Array(16),new Uint8Array(4),new Uint8Array(1)], gl.LUMINANCE, gl.CLAMP_TO_EDGE, false, undefined, wrong)).toThrow('domain');
     expect(query).not.toHaveBeenCalled();
     releaseStorageReservation(wrong);
 });
@@ -147,4 +147,36 @@ it('rejects stale/fresh merges before consuming either owner and never exposes c
     releaseUnpublishedBrushResource(fresh);
     expect(bufferDelete).toHaveBeenCalledTimes(1);
     expect(snapshotContextStorage(gl).residentBytes).toBe(0);
+});
+
+it.each([
+    { name:'unknown wrap', sizes:[4,1], wrap:123456, discrete:false },
+    { name:'missing tail', sizes:[16,4], wrap:0x812f, discrete:false },
+    { name:'skipped level', sizes:[16,1], wrap:0x812f, discrete:false },
+    { name:'duplicate final', sizes:[4,1,1], wrap:0x812f, discrete:false },
+    { name:'increasing level', sizes:[4,16,1], wrap:0x812f, discrete:false },
+    { name:'NPOT mip base', sizes:[9,1], wrap:0x812f, discrete:false },
+    { name:'repeated NPOT base', sizes:[9], wrap:0x2901, discrete:true },
+    { name:'mirrored NPOT base', sizes:[9], wrap:0x8370, discrete:true },
+    { name:'repeated rectangular plane',sizes:[15],wrap:0x2901,discrete:true,plane:{width:3,height:5} },
+])('rejects $name manifest before any GL call or storage promise',({sizes,wrap,discrete,plane})=>{
+    const mock=new MockGL(),gl=mock as unknown as WebGLRenderingContext;
+    Object.defineProperty(mock,'MIRRORED_REPEAT',{value:0x8370});
+    const repeat=wrap===0x812f?gl.CLAMP_TO_EDGE:wrap===0x2901?gl.REPEAT:wrap;
+    const create=vi.spyOn(mock,'createTexture'),query=vi.spyOn(mock,'getParameter'),error=vi.spyOn(mock,'getError'),upload=vi.spyOn(mock,'texImage2D');
+    expect(()=>uploadBrushTexture(gl,sizes.map(size=>new Uint8Array(size)),gl.LUMINANCE,repeat,discrete,plane)).toThrow();
+    expect(create).not.toHaveBeenCalled();expect(query).not.toHaveBeenCalled();expect(error).not.toHaveBeenCalled();expect(upload).not.toHaveBeenCalled();
+    expect(snapshotContextStorage(gl)).toMatchObject({residentBytes:0,reservedBytes:0});
+});
+it('accepts complete POT edge chains, NPOT discrete clamp and the existing rectangular NPOT plane',()=>{
+    const mock=new MockGL(),gl=mock as unknown as WebGLRenderingContext;
+    Object.defineProperty(mock,'MIRRORED_REPEAT',{value:0x8370});
+    const cases=[
+        {sizes:[1],wrap:gl.REPEAT,discrete:false},
+        {sizes:[16,4,1],wrap:gl.MIRRORED_REPEAT,discrete:false},
+        {sizes:[9,7],wrap:gl.CLAMP_TO_EDGE,discrete:true}, // unused discrete level is intentionally not uploaded
+        {sizes:[15],wrap:gl.CLAMP_TO_EDGE,discrete:false,plane:{width:3,height:5}},
+    ];
+    for(const row of cases){const resource=uploadBrushTexture(gl,row.sizes.map(size=>new Uint8Array(size)),gl.LUMINANCE,row.wrap,row.discrete,row.plane);releaseUnpublishedBrushResource(resource)}
+    expect(snapshotContextStorage(gl)).toMatchObject({residentBytes:0,reservedBytes:0});
 });

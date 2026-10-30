@@ -112,3 +112,24 @@ ADB forward19236 removed. No service or dependency copy was created.
 This tests migrated allocation/cleanup paths and pixel-preserving ownership;
 it does not establish physical GPU residency, original GUI stroke identity,
 active pointer responsiveness, iPad behavior, or a safe finite global cap.
+
+### Upload manifest completeness follow-up
+
+Before creating a local storage promise or making GL calls, the uploader now
+rejects unknown wrap enums and WebGL1-incomplete layouts. Non-plane filtered
+textures require a full square POT halving chain through one 1x1 level; discrete
+selection uses only level0 and permits NPOT only with CLAMP_TO_EDGE. Existing
+single rectangular NPOT planes remain supported with CLAMP_TO_EDGE and their
+unchanged non-mip filter. MIRRORED_REPEAT is supported for POT textures.
+Caller audit: built-in masks/grains have full256 chains; installBrushPixels
+accepts only POT2..2048 assets; paired LA/RGBA material builders emit full chains;
+lookup32 uses discrete clamp; native/canonical bank uses the explicit plane path.
+Focused invalid/valid manifests and the existing source-backed bank/mask/composite
+regressions are recorded in fixes-v52/raw-manifest-followup.log. The Samsung proof
+above remains pinned to01bb746b4; this follow-up changes metadata admission only,
+not uploaded valid pixel data or shader math, and has no new device claim.
+Follow-up final gates: 452 tests/36 dabs files passed; common web typecheck76411,
+scoped lint and diff/check passed. Valid 1x1/full POT chains, POT mirrored wrap,
+discrete NPOT clamp with intentionally unused derivative data, and rectangular
+NPOT clamp are covered; invalid wrap, missing/skipped/duplicate/increasing mip
+levels and NPOT repeat/mip layouts are rejected before GL/query/allocation.
