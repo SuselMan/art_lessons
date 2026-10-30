@@ -39,7 +39,9 @@ def source_stamp_budget(data):
     if 'compiled' in data:
         compiled=data['compiled']
         if not isinstance(compiled,dict) or not isinstance(compiled.get('curves'),list) or len(compiled['curves'])>MAX_CURVES: raise ValueError('Invalid compiled source budget')
-        for entry in compiled['curves']:
+        entries=compiled['curves']+([compiled['radialCurve']] if 'radialCurve' in compiled else [])
+        if len(entries)>MAX_CURVES: raise ValueError('Invalid compiled source budget')
+        for entry in entries:
             source=entry['source'];coefficients=entry['coefficients']
             if not isinstance(source.get('text'),str) or len(source['text'])>65536 or len(source['points'])>256 or len(coefficients)>255: raise ValueError('Invalid compiled curve budget')
             total+=64+len(source['text'].encode('utf-8'))+32*len(source['points'])+32*len(coefficients)
@@ -71,7 +73,12 @@ def compile_source_stamp(data,executable):
 
 def validate_compiled_source_shape(data):
     if 'compiled' not in data: return
-    compiled=data['compiled'];required=required_source_curves(data)
+    compiled=data['compiled']
+    if isinstance(compiled,dict) and compiled.get('version')==2:
+        from source_stamp_mapped import validate_mapped_source_stamp_shape
+        validate_mapped_source_stamp_shape(data,compiled)
+        return
+    required=required_source_curves(data)
     if (not isinstance(compiled,dict) or set(compiled)!={'version','reader','profile','curves'} or type(compiled['version']) is not int or compiled['version']!=1
             or compiled['reader']!=data['reader'] or compiled['profile']!=PROFILE or not isinstance(compiled['curves'],list) or len(compiled['curves'])!=len(required)
             or len(required)>MAX_CURVES or sum(len(c['points']) for c in required)>MAX_KNOTS): raise ValueError('Invalid compiled source dictionary')
@@ -81,8 +88,12 @@ def validate_compiled_source_shape(data):
         if not isinstance(pieces,list) or len(pieces)!=max(1,len(source['points'])-1) or any(not isinstance(p,list) or len(p)!=4 or any(type(v) not in (int,float) or not math.isfinite(v) for v in p) for p in pieces): raise ValueError('Invalid compiled source coefficients')
 
 
-def verify_compiled_source_stamp(data,executable):
+def verify_compiled_source_stamp(data,executable,*,mapped_curve_provider=None):
     if 'compiled' not in data: return
+    if data['compiled'].get('version')==2:
+        from source_stamp_mapped import verify_mapped_source_stamp
+        verify_mapped_source_stamp(data,data['compiled'],mapped_curve_provider)
+        return
     if executable is None: raise ValueError('An explicit trusted source curve compiler is required for compiled portable data')
     expected=compile_source_stamp(data,executable)
     if not same_source_data(data['compiled'],expected): raise ValueError('Portable source coefficients differ from native compiler')
@@ -272,6 +283,7 @@ def validate_source_stamp_shape(descriptor):
     validate_compiled_source_shape(data)
 
 
-def validate_portable_source_stamp(descriptor,curve_compiler=None):
+def validate_portable_source_stamp(descriptor,curve_compiler=None,*,mapped_curve_provider=None):
     validate_source_stamp_shape(descriptor)
-    if 'sourceStamp' in descriptor: verify_compiled_source_stamp(descriptor['sourceStamp'],curve_compiler)
+    if 'sourceStamp' in descriptor:
+        verify_compiled_source_stamp(descriptor['sourceStamp'],curve_compiler,mapped_curve_provider=mapped_curve_provider)

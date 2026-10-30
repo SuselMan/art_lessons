@@ -79,3 +79,40 @@ are implemented. No original pixels or KPP archives are embedded in this fixture
 Source inputs are Krita GPL-2.0-or-later at the pin in the fixture. Reproduction:
 fixes-v52/retain-soft-stock52.py; original KPP hashes, reader hash and plan hash
 are retained in fixture/proof. soft-stock-shared.log covers all4 tests in this file.
+
+## Distinct mapped dictionary admission
+
+Compiled version2 binds eigen-5.0.1-mapped-arm64-f64-v3 and a64hex buildId to
+stable required sensor sources, plus a mandatory separate radialCurve for soft
+sources. Raw sensor identity bypass remains separate from radial compilation.
+All source text/point/corner bindings, interval counts,2..9knot/end-corner grammar,
+64curve/4096knot limits and aggregate source budgets are checked in Python and TS.
+The original version1/3.4 profile remains unchanged. Shape validation is not
+compiler attestation: portable import regenerates through an explicit trusted
+MappedCurveProvider and compares coefficient bits, including signed zero, before
+CAS payload decoding/installation. Unknown fields/build mismatch/nonfinite or
+changed coefficients fail closed; no old-provider fallback is performed.
+
+The existing author descriptor adapter selects installed-arm64-fused-v1 sensor
+arithmetic from the actual selected coefficient origin. Mapped retained entries
+or an explicit mapped callback use the proven fused law; a legacy callback that
+overrides a mapped saved entry keeps its declared separate law. No arithmetic is
+inferred just from the descriptor source kind. Real Gaussian descriptor inputs
+exercise this path against independently captured original sensor samples.
+
+KPP, bundle, nested masking import and portable_bundle accept explicit mapped
+provider configuration. CLI requires both --mapped-curve-compiler ABSOLUTE_PATH
+and --mapped-curve-build-id HEX64, mutually exclusive with the old compiler flag.
+Brush data/environment never select an executable. Default conversion, active
+room policy and QA49 deployment are unchanged; soft author/material remains
+closed despite its independently verified radial coefficients.
+
+Gates: mapped-profile-tests.log29tests6files PASS; shared TSC97435 PASS; actual
+common web TSC9249 PASS includes this frozen unit and Pointer lifecycle changes.
+Full Python278total/271passed/7 explicit old-provider skips with actual mapped
+provider; includes all10 original soft raw role portable verifications, actual
+KPP/CLI/portable roundtrip and coefficient forgery rejected before CAS decoding.
+Scoped lint/diff passed. Initial root common22456 failed on in-flight Pointer
+DOM typing; it is not counted as a pass. The CLI test first looked for library.json
+instead of the real manifest.json; that harness typo was corrected and full suite
+rerun. No new service/device context or dependency runtime copy was introduced.

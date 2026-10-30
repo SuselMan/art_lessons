@@ -575,7 +575,8 @@ def validate_portable_profile(descriptor):
     else: raise ValueError('Unknown portable procedural profile')
 
 
-def portable_bundle(path,catalog,*,curve_compiler=None):
+def portable_bundle(path,catalog,*,curve_compiler=None,mapped_curve_provider=None):
+    if curve_compiler is not None and mapped_curve_provider is not None: raise ValueError('Choose one explicit curve compiler profile')
     # The runtime shared guard remains authoritative for descriptor semantics.
     if path.stat().st_size>360*1024*1024: raise ValueError('Portable bundle exceeds 360 MiB')
     data=json.loads(path.read_text(),parse_constant=lambda v: (_ for _ in ()).throw(ValueError('Nonfinite JSON number '+v)))
@@ -600,7 +601,7 @@ def portable_bundle(path,catalog,*,curve_compiler=None):
         if not isinstance(brush,dict): raise ValueError('Invalid portable brush')
         preflight_source(brush.get('descriptor'))
     # A profile string is not attestation: recompute every bound dictionary.
-    for data in source_data: verify_compiled_source_stamp(data,curve_compiler)
+    for data in source_data: verify_compiled_source_stamp(data,curve_compiler,mapped_curve_provider=mapped_curve_provider)
     total=0;validated=[];ids=set()
     for asset in assets:
         if not isinstance(asset,dict): raise ValueError('Invalid portable asset')
@@ -738,17 +739,26 @@ def portable_bundle(path,catalog,*,curve_compiler=None):
 
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument('sources',type=Path,nargs='+'); ap.add_argument('--output',type=Path,required=True)
-    ap.add_argument('--native-curve-compiler',type=Path,help='Trusted absolute offline native coefficient compiler; never taken from brush data')
+    providers=ap.add_mutually_exclusive_group()
+    providers.add_argument('--native-curve-compiler',type=Path,help='Trusted absolute offline native coefficient compiler; never taken from brush data')
+    providers.add_argument('--mapped-curve-compiler',type=Path,help='Trusted absolute mapped ARM compiler; requires its expected build ID')
+    ap.add_argument('--mapped-curve-build-id',help='Trusted immutable expected mapped compiler build ID')
     args=ap.parse_args()
+    if (args.mapped_curve_compiler is None)!=(args.mapped_curve_build_id is None): ap.error('Mapped compiler and build ID must be supplied together')
+    mapped_provider=None
+    if args.mapped_curve_compiler is not None:
+        from native_curve_arm_v3 import MappedCurveProvider
+        try: mapped_provider=MappedCurveProvider(args.mapped_curve_compiler,args.mapped_curve_build_id)
+        except ValueError as error: ap.error(str(error))
     if args.native_curve_compiler is not None and not args.native_curve_compiler.is_absolute(): ap.error('--native-curve-compiler must be absolute')
     catalog=Catalog(args.output)
     for path in args.sources:
-        if path.name.endswith('.grafetto-brushes.json'): portable_bundle(path,catalog,curve_compiler=args.native_curve_compiler)
+        if path.name.endswith('.grafetto-brushes.json'): portable_bundle(path,catalog,curve_compiler=args.native_curve_compiler,mapped_curve_provider=mapped_provider)
         elif path.suffix.lower()=='.abr': photoshop(path,catalog)
         elif path.suffix.lower() in ('.brush','.brushset'): procreate(path,catalog)
         elif path.suffix.lower() in ('.kpp','.bundle'):
             from krita_import import convert_krita
-            convert_krita(path,catalog,curve_compiler=args.native_curve_compiler)
+            convert_krita(path,catalog,curve_compiler=args.native_curve_compiler,mapped_curve_provider=mapped_provider)
         else: ap.error('Unsupported extension: '+path.suffix)
     result=catalog.write();print(json.dumps({'brushes':len(result['brushes']),'assets':len(result['assets']),'skipped':len(result['skipped'])}))
 

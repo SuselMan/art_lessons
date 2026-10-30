@@ -2,8 +2,8 @@
 
 `source_stamp_mapped.compile_mapped_source_stamp(data, provider)` uses the trusted
 `MappedCurveProvider` API and the existing raw source reader. It emits a distinct
-version2/profile/buildId dictionary; the current shared portable schema and
-importer do not yet admit that dictionary. It never relabels old3.4 output.
+version2/profile/buildId dictionary. Shared validation checks its shape; portable
+import regenerates it through the explicitly configured trusted provider. It never relabels old3.4 output.
 
 Inputs are independently copied and reconstructed from raw settings before
 compiler work. Required sensor curves retain their stable ordering and identity
@@ -30,5 +30,14 @@ this test does not independently prove each sensor against original ARM output.
 Receipts: fixes-v52/mapped-source-binding-{tests,native-tests,full-python}.log.
 The native provider executable is an explicitly supplied temporary test resource,
 not committed or inferred from a brush/environment by production import code.
-Sensor arithmetic migration, shared version2 admission, canonical author/material
-integration and actual-device/UI verification remain subsequent gates.
+The author adapter selects explicit fused sensor arithmetic for the mapped
+dictionary and preserves separate arithmetic for legacy dictionaries/callbacks.
+Soft author/material integration and actual-device/UI verification remain gates.
+
+CLI selection: --mapped-curve-compiler ABSOLUTE_PATH --mapped-curve-build-id HEX64.
+Both flags are required together and are mutually exclusive with the old
+--native-curve-compiler. Programmatic KPP/bundle import and portable_bundle accept
+mapped_curve_provider=MappedCurveProvider(path, build_id). Neither KPP settings
+nor environment variables select a production executable. Compilation failures
+retain explicit unsupported compiler notes; no fallback to the old provider.
+The default conversion mode remains unchanged until this configuration is chosen.

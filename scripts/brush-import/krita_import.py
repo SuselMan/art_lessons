@@ -373,7 +373,8 @@ def size_like_controls(params, option, notes, *, allow_time=False):
     return sensor_controls(params,option,notes,allow_time=allow_time)
 
 
-def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, curve_compiler=None):
+def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, curve_compiler=None, mapped_curve_provider=None):
+    if curve_compiler is not None and mapped_curve_provider is not None: raise ValueError('Choose one explicit curve compiler profile')
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
     if type(timed_input) is not bool: raise ValueError('Timed input opt-in must be an explicit boolean')
@@ -919,7 +920,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if key.startswith(prefix): ET.SubElement(child_root,'param',{'name':key[len(prefix):]}).text=value
         child_png=io.BytesIO();meta=PngImagePlugin.PngInfo();meta.add_text('version','5.0');meta.add_text('preset',ET.tostring(child_root,encoding='unicode'),zip=True)
         Image.new('L',(1,1)).save(child_png,format='PNG',pnginfo=meta)
-        child_result=preset(child_png.getvalue(),name,catalog,resources,depth+1,stroke_input=False,timed_input=timed_input,curve_compiler=curve_compiler)
+        child_result=preset(child_png.getvalue(),name,catalog,resources,depth+1,stroke_input=False,timed_input=timed_input,curve_compiler=curve_compiler,mapped_curve_provider=mapped_curve_provider)
         notes.extend({**note,'feature':'masking.'+note['feature']} for note in child_result['compatibility'])
         if stroke_input:
             child_params={key[len(prefix):]:value for key,value in params.items() if key.startswith(prefix)}
@@ -994,7 +995,11 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     if engine=='paintbrush' and (source_static_image or kind=='auto_brush' and definition.find('MaskGenerator') is not None and definition.find('MaskGenerator').get('id','default') in ('default','gauss','soft')):
         try:
             d['sourceStamp']=retain_source_stamp(params,definition,*(source_metric or (1,1)),xml,depth=depth)
-            if curve_compiler is not None:
+            if mapped_curve_provider is not None:
+                from source_stamp_mapped import compile_mapped_source_stamp
+                try: d['sourceStamp']['compiled']=compile_mapped_source_stamp(d['sourceStamp'],mapped_curve_provider)
+                except ValueError as error: notes.append(compatibility('sourceStampCompiler',str(error),'unsupported'))
+            elif curve_compiler is not None:
                 try: d['sourceStamp']['compiled']=compile_source_stamp(d['sourceStamp'],curve_compiler)
                 except ValueError as error: notes.append(compatibility('sourceStampCompiler',str(error),'unsupported'))
             elif required_source_curves(d['sourceStamp']):
@@ -1039,13 +1044,14 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     return result
 
 
-def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_input=False, timed_input=False, curve_compiler=None):
+def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_input=False, timed_input=False, curve_compiler=None, mapped_curve_provider=None):
+    if curve_compiler is not None and mapped_curve_provider is not None: raise ValueError('Choose one explicit curve compiler profile')
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
     if type(timed_input) is not bool: raise ValueError('Timed input opt-in must be an explicit boolean')
     if path.suffix.lower() == '.kpp':
         try:
-            catalog.brushes.append(preset(path.read_bytes(), path.name, catalog, external or {}, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,curve_compiler=curve_compiler))
+            catalog.brushes.append(preset(path.read_bytes(), path.name, catalog, external or {}, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,curve_compiler=curve_compiler,mapped_curve_provider=mapped_curve_provider))
         except (ValueError, ET.ParseError, OSError) as error:
             catalog.skipped.append({'name':path.stem,'reasons':[str(error)]})
         return
@@ -1060,6 +1066,6 @@ def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_i
         resources.update({n:(lambda entry=n: archive.read(entry)) for n in names if n.lower().endswith(('.gbr','.gih','.png','.pat','.jpg','.jpeg','.webp'))})
         for name in sorted(n for n in names if n.lower().endswith('.kpp')):
             try:
-                catalog.brushes.append(preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,curve_compiler=curve_compiler))
+                catalog.brushes.append(preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,curve_compiler=curve_compiler,mapped_curve_provider=mapped_curve_provider))
             except (ValueError, ET.ParseError, OSError) as error:
                 catalog.skipped.append({'name':PurePosixPath(name).stem,'reasons':[str(error)]})

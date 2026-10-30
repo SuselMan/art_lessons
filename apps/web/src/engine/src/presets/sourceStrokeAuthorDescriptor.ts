@@ -13,7 +13,7 @@ export interface SourceAuthorDescriptorContext {
   readonly asset?: { readonly id: string; readonly size: number }
   /** Explicit compiler capability; absence rejects nonidentity curves.
    * Caller must bind its result to these exact points/corners/source reader. */
-  readonly compileCurve?: (curve: SourceStampCurveData) => { readonly version: 'native-sparselu-v1'; readonly coefficients: SourceCurvePolynomial['coefficients'] } | undefined
+  readonly compileCurve?: (curve: SourceStampCurveData) => { readonly version: 'native-sparselu-v1' | 'mapped-arm64-v3'; readonly coefficients: SourceCurvePolynomial['coefficients'] } | undefined
 }
 export type SourceAuthorDescriptorResult = { readonly supported: true; readonly program: SourceStrokeAuthorProgram }
   | { readonly supported: false; readonly reasons: readonly string[] }
@@ -36,10 +36,10 @@ export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, contex
         const needed=option.checked && option.useCurve && !sourceCurveIsIdentity(sensor.curve.points)
         // Native apply guards skip unchecked/disabled curve consumers entirely.
         const saved=data.compiled?.curves.find(c=>c.source.text===sensor.curve.text)
-        const compiled=needed ? context.compileCurve?.(sensor.curve) ?? (saved && {version:'native-sparselu-v1' as const,coefficients:saved.coefficients}) : undefined
-        if (needed && (!compiled || compiled.version !== 'native-sparselu-v1')) throw new RangeError('native-curve-compiler-unavailable:'+option.id+':'+sensor.sourceSlot)
+        const compiled=needed ? context.compileCurve?.(sensor.curve) ?? (saved && {version:data.compiled?.version===2?'mapped-arm64-v3' as const:'native-sparselu-v1' as const,coefficients:saved.coefficients}) : undefined
+        if (needed && (!compiled || !['native-sparselu-v1','mapped-arm64-v3'].includes(compiled.version))) throw new RangeError('native-curve-compiler-unavailable:'+option.id+':'+sensor.sourceSlot)
         return {id:sensor.id,length:sensor.length,periodic:sensor.periodic,angleOffset:sensor.angleOffset,lockedAngle:sensor.lockedAngle,
-          curve:{points:sensor.curve.points,coefficients:compiled?.coefficients}}
+          curve:{points:sensor.curve.points,coefficients:compiled?.coefficients,...(compiled?.version==='mapped-arm64-v3'?{arithmetic:'installed-arm64-fused-v1' as const}:{})}}
       })
       const program={id:option.id,checked:option.checked,useCurve:option.useCurve,curveMode:option.curveMode,strength:option.strength,min:option.min,max:option.max,sensors}
       compileSourceOptionProgram(program)

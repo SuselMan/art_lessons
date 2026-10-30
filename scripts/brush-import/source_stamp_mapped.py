@@ -1,11 +1,12 @@
-"""Explicit offline source binding for the mapped compiler; no importer activation.
+"""Explicit offline source binding for the mapped compiler.
 
-The returned version2 dictionary is not admitted by the current shared schema.
-Sensor evaluation/profile migration and soft author/material integration remain
-separate gates. Never reinterpret these coefficients as the old3.4 profile.
+Version2 binds the distinct compiler profile/build to sensor and radial sources.
+Importer selection requires an explicit trusted provider; soft author/material
+integration and editor activation remain separate gates. Never reinterpret these coefficients as the old3.4 profile.
 """
 import copy
 import math
+import re
 import struct
 from native_curve_compile import _number
 from native_curve_arm_v3 import MappedCurveProvider, PROFILE, compile_curves_arm_v3
@@ -73,7 +74,7 @@ def _same(a, b):
     return type(a) is type(b) and a == b
 
 
-def verify_mapped_source_stamp(data, compiled, provider):
+def validate_mapped_source_stamp_shape(data, compiled):
     # Check structural work/size bounds before invoking a trusted child.
     raw = _raw(data)
     sensors, radial = _sources(raw)
@@ -81,8 +82,8 @@ def verify_mapped_source_stamp(data, compiled, provider):
             | ({'radialCurve'} if radial is not None else set())):
         raise ValueError('Invalid mapped source dictionary')
     if (type(compiled['version']) is not int or compiled['version'] != 2
-            or type(provider) is not MappedCurveProvider or compiled['profile'] != PROFILE
-            or compiled['buildId'] != provider.expected_build_id or compiled['reader'] != raw['reader']
+            or compiled['profile'] != PROFILE
+            or type(compiled['buildId']) is not str or not re.fullmatch(r'[0-9a-f]{64}',compiled['buildId']) or compiled['reader'] != raw['reader']
             or type(compiled['curves']) is not list or len(compiled['curves']) != len(sensors)):
         raise ValueError('Mapped source profile/build binding differs')
     entries = compiled['curves'] + ([] if radial is None else [compiled['radialCurve']])
@@ -94,6 +95,20 @@ def verify_mapped_source_stamp(data, compiled, provider):
                 or any(type(piece) is not list or len(piece) != 4
                        or any(not _number(v) for v in piece) for piece in pieces)):
             raise ValueError('Invalid mapped source coefficients')
-    expected = compile_mapped_source_stamp(raw, provider)
+    sources=sensors+([] if radial is None else [radial])
+    if len(sources)>64 or sum(len(source['points']) for source in sources)>4096:
+        raise ValueError('Mapped source compiler work budget exceeded')
+    for source in sources:
+        if not 2<=len(source['points'])<=9 or source['points'][0]['corner'] or source['points'][-1]['corner']:
+            raise ValueError('Unsupported mapped source curve grammar')
+    if source_stamp_budget(raw)+sum(map(_entry_budget,sources))>MAX_SOURCE_STAMP_BUDGET:
+        raise ValueError('Mapped compiled source aggregate budget exceeded')
+
+
+def verify_mapped_source_stamp(data, compiled, provider):
+    validate_mapped_source_stamp_shape(data,compiled)
+    if type(provider) is not MappedCurveProvider or compiled['buildId']!=provider.expected_build_id:
+        raise ValueError('Mapped source profile/build binding differs')
+    expected = compile_mapped_source_stamp(data, provider)
     if not _same(compiled, expected):
         raise ValueError('Mapped source coefficients differ from trusted compiler')

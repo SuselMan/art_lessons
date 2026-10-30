@@ -32,11 +32,23 @@ export interface SourceStampOptionData {
   readonly sensors: readonly SourceStampSensorData[]
 }
 export const SOURCE_STAMP_COMPILER_PROFILE = 'eigen-3.4.0-sparselu-f64-no-fma-v1'
-export interface SourceStampCompiledData {
+export const SOURCE_STAMP_MAPPED_COMPILER_PROFILE = 'eigen-5.0.1-mapped-arm64-f64-v3'
+export interface SourceStampCompiledCurve {
+  readonly source: SourceStampCurveData
+  readonly coefficients: readonly (readonly [number,number,number,number])[]
+}
+export type SourceStampCompiledData = {
   readonly version: 1
   readonly reader: 'krita-bd6e8d0-v1'
   readonly profile: typeof SOURCE_STAMP_COMPILER_PROFILE
-  readonly curves: readonly { readonly source: SourceStampCurveData; readonly coefficients: readonly (readonly [number,number,number,number])[] }[]
+  readonly curves: readonly SourceStampCompiledCurve[]
+} | {
+  readonly version: 2
+  readonly reader: 'krita-bd6e8d0-v1'
+  readonly profile: typeof SOURCE_STAMP_MAPPED_COMPILER_PROFILE
+  readonly buildId: string
+  readonly curves: readonly SourceStampCompiledCurve[]
+  readonly radialCurve?: SourceStampCompiledCurve
 }
 /** Existing native identity predicate, shared by required-data validation/compiler. */
 export function sourceStampCurveIsIdentity(points: readonly {readonly x:number;readonly y:number}[]): boolean {
@@ -162,7 +174,9 @@ export function sourceStampDataBudget(value: unknown): number {
   }
   if(value.compiled !== undefined) {
     if(!record(value.compiled) || !Array.isArray(value.compiled.curves) || value.compiled.curves.length>64)return Infinity
-    for(const item of value.compiled.curves) {
+    const entries=[...value.compiled.curves,...(value.compiled.radialCurve===undefined?[]:[value.compiled.radialCurve])]
+    if(entries.length>64)return Infinity
+    for(const item of entries) {
       if(!record(item) || !record(item.source) || typeof item.source.text!=='string' || item.source.text.length>65536
         || !Array.isArray(item.source.points) || item.source.points.length>256 || !Array.isArray(item.coefficients) || item.coefficients.length>255)return Infinity
       total+=64+utf8Size(item.source.text)+32*item.source.points.length+32*item.coefficients.length
@@ -222,13 +236,23 @@ export function isSourceStampData(v: unknown): v is SourceStampData {
   if(!validOptions)return false
   if(v.compiled === undefined)return true
   const compiled=v.compiled
-  if(!record(compiled) || !keys(compiled,['version','reader','profile','curves']) || compiled.version!==1 || compiled.reader!==v.reader || compiled.profile!==SOURCE_STAMP_COMPILER_PROFILE || !Array.isArray(compiled.curves))return false
-  const required=sourceStampRequiredCurves(v.options as unknown as readonly SourceStampOptionData[])
+  if(!record(compiled) || compiled.reader!==v.reader || !Array.isArray(compiled.curves))return false
+  const mapped=compiled.version===2
+  const radial=v.version===2 && record(v.source) && v.source.kind==='softAuto' ? v.source.softnessCurve : undefined
+  if(mapped) {
+    if(!keys(compiled,['version','reader','profile','buildId','curves','radialCurve'])
+      || compiled.profile!==SOURCE_STAMP_MAPPED_COMPILER_PROFILE || typeof compiled.buildId!=='string' || !/^[0-9a-f]{64}$/.test(compiled.buildId)
+      || (radial===undefined)!==(compiled.radialCurve===undefined))return false
+  } else if(!keys(compiled,['version','reader','profile','curves']) || compiled.version!==1 || compiled.profile!==SOURCE_STAMP_COMPILER_PROFILE)return false
+  const required=[...sourceStampRequiredCurves(v.options as unknown as readonly SourceStampOptionData[]),...(mapped && radial!==undefined?[radial]:[])]
+  const entries=[...compiled.curves,...(mapped && compiled.radialCurve!==undefined?[compiled.radialCurve]:[])]
+  if(entries.length>64)return false
   let knots=0
-  return compiled.curves.length===required.length && compiled.curves.every((entry:unknown,i:number)=>{
-    if(!record(entry) || !keys(entry,['source','coefficients']) || !isSourceStampCurveData(entry.source) || entry.source.text!==required[i].text
+  return entries.length===required.length && entries.every((entry:unknown,i:number)=>{
+    if(!record(entry) || !keys(entry,['source','coefficients']) || !isSourceStampCurveData(entry.source) || !isSourceStampCurveData(required[i]) || entry.source.text!==required[i].text
       || !Array.isArray(entry.coefficients) || entry.coefficients.length!==Math.max(1,entry.source.points.length-1)
       || entry.coefficients.some(c=>!Array.isArray(c) || c.length!==4 || !c.every(finite)))return false
+    if(mapped && (entry.source.points.length<2 || entry.source.points.length>9 || entry.source.points[0].corner || entry.source.points[entry.source.points.length-1].corner))return false
     knots+=entry.source.points.length
     return knots<=4096
   })
