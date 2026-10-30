@@ -1,0 +1,69 @@
+{
+  "status": "PASS",
+  "sourceCommit": "bd6e8d061d2f0388c5b10278786cf0fe62e3135f",
+  "scope": "Original installed instructions under Unicorn FPCR0; original SparseLU/table and original scalar/NEON mask, selected explicitownedapplicator, no physicalGUI factory claim",
+  "arithmeticHooks": 0,
+  "libraries": [
+    {
+      "name": "lib/arm64-v8a/libQt5Core_arm64-v8a.so",
+      "bytes": 5518824,
+      "sha256": "78fc3da8d316ce7de1d957e3b20d7462b20245d4d797860f1946f797f7946ef9"
+    },
+    {
+      "name": "lib/arm64-v8a/libkritaimage_arm64-v8a.so",
+      "bytes": 7191128,
+      "sha256": "24d3f19d43650100bce51e8e941d66e3999eadee94e64e9f59dfe6c9ef86396d"
+    },
+    {
+      "name": "lib/arm64-v8a/libQt5Gui_arm64-v8a.so",
+      "bytes": 4907320,
+      "sha256": "52bf056960c13f88d50fc137bf7121756a1451c0b91be807af4b128f519cc1e9"
+    },
+    {
+      "name": "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so",
+      "bytes": 412384,
+      "sha256": "14a5c6db9f90b3695c8f20e85b82fa3bd5f263911bbdd3a10888ff7e64f5ac75"
+    },
+    {
+      "name": "/apex/com.android.runtime/lib64/bionic/libm.so",
+      "bytes": 229368,
+      "sha256": "aeb1ffb01b7f35e05f9d2aee945882415acd68014c367354d39858b3e146c614"
+    },
+    {
+      "name": "lib/arm64-v8a/libkritapigment_arm64-v8a.so",
+      "bytes": 3694016,
+      "sha256": "230ccf905226f4324ffdf8c7239e8be90f0506cfadda25393d1ba014ab0bb783"
+    },
+    {
+      "name": "lib/arm64-v8a/libc++_shared.so",
+      "bytes": 1292904,
+      "sha256": "f4e1e97c1943e60311e47e8b024d78f5b3b7229b3ccc65feb33af83d6025a670"
+    }
+  ],
+  "tool": {
+    "extractedBytes": 24704674,
+    "wheelSHA256": "a445476fff91e636b812d35ff1b0fb07f39ceaec0b3a86d246f7d431ff7766b3",
+    "officialURL": "https://files.pythonhosted.org/packages/a5/e0/42118abb27edb1c69ef9c93b42358ecce2bff345e95b4ae3ae72822d2c9a/unicorn-2.1.4-py2-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl",
+    "archivePersisted": false
+  },
+  "runnerSHA256": "45d5ede6a6df64ecb0fe1657809269b76ea9200013e868cd791abd62c9deb9ee",
+  "nativeCodeSHA256": {
+    "lib/arm64-v8a/libkritaimage_arm64-v8a.so:0x546158": "554e9fcb3b2275ab712cd7d156671087371853f41f286ef72f92dbdd4a742e29",
+    "lib/arm64-v8a/libkritaimage_arm64-v8a.so:0x429ab8": "eba256bf88a211a7f873f238cd756f53dc4c7fc94775ee4cb35db762ea7bdf04",
+    "lib/arm64-v8a/libkritaimage_arm64-v8a.so:0x5402cc": "02428746d9e21de09135ba61464f71f30bbe84cabcd6fcc3abfd1206eab32a49",
+    "lib/arm64-v8a/libkritaimage_arm64-v8a.so:0x544ba8": "788f1512f26f87f558ccda89030f23036527961be061f31e047ad5b93b8aafe2",
+    "lib/arm64-v8a/libkritaimage_arm64-v8a.so:0x5464fc": "743ad959b9094839e59cd050d229139d04d70b76dd922490c83ee2685b9670c5",
+    "lib/arm64-v8a/libkritaimage_arm64-v8a.so:0x425298": "caa2b97d248e65889cf55ad2f09df54ef54e167991a8c78cbc13a33afe5b07b6",
+    "lib/arm64-v8a/libkritaimage_arm64-v8a.so:0x429d3c": "388d3c0d6e8692536d495e843bea6f135c3cb9619348d1702bf4a45602d0d30a",
+    "lib/arm64-v8a/libkritaimage_arm64-v8a.so:0x540824": "9c05c5672f7fa0316f0150eb423a9ef095228837b337ed86f46f3698998a58ed",
+    "lib/arm64-v8a/libkritalibbrush_arm64-v8a.so:0x2f7e0": "7c69c96e5309c34c8e556a9bd86e96b776ad318555ca52c2613170c6b4bd25e7"
+  },
+  "wholeCalls": 40,
+  "coverageBytes": 40864,
+  "nativeVectorBranches": 20,
+  "nativeTableValues": 3610,
+  "seconds": 27.50005555152893,
+  "maxWholeInstructions": 616049,
+  "scalarFactoryBoundary": "image0x5464fc, validateGENpointer, returnownedAPP; actualprocessmethodsvtables selectedexplicitly for eachcase",
+  "noLibraryPersisted": true
+}
