@@ -151,69 +151,79 @@ export class ImageImport {
   ): void {
     const { gl } = this.ctx
 
-    const texture = gl.createTexture()!
-    gl.bindTexture(gl.TEXTURE_2D, texture)
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-
-    // Fixed-canvas rooms (op.x/op.y absent): unchanged fit-center-within-
-    // the-canvas behavior. Infinite-canvas rooms (op.x/op.y present, world-
-    // space top-left — see the shared type's doc comment): natural size,
-    // placed wherever the caller chose (current camera center at import
-    // time, today) — there's no fixed rect to fit-center within.
-    let drawX: number, drawY: number, drawW: number, drawH: number
-    if (op.x !== undefined && op.y !== undefined) {
-      drawX = op.x; drawY = op.y; drawW = op.width; drawH = op.height
-    } else {
-      // (#470) Fit-centred within the sheet, which is what this always meant
-      // — it read the canvas only because the canvas was the sheet.
-      const { w: pageW, h: pageH } = this.ctx.pageSize()
-      const scale = Math.min(pageW / op.width, pageH / op.height)
-      drawW = op.width * scale
-      drawH = op.height * scale
-      drawX = (pageW - drawW) / 2
-      drawY = (pageH - drawH) / 2
+    let texture: WebGLTexture | null = null
+    let flipDirty = false, failed = false, failure: unknown
+    const attempt = (cleanup: () => void): void => {
+      try { cleanup() } catch (error) { if (!failed) { failed = true; failure = error } }
     }
+    try {
+      texture = gl.createTexture()
+      if (!texture) throw new Error('Image import texture allocation failed')
+      gl.bindTexture(gl.TEXTURE_2D, texture)
+      flipDirty = true
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+      flipDirty = false
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
-    if (wireMatrix) {
-      const matrix = toHomography(wireMatrix)
-      const rect = { x: drawX, y: drawY, width: drawW, height: drawH }
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-      for (const [cx, cy] of [
-        [drawX, drawY], [drawX + drawW, drawY], [drawX, drawY + drawH], [drawX + drawW, drawY + drawH],
-      ] as Array<[number, number]>) {
-        const [tx, ty] = applyMatrix(matrix, cx, cy)
-        minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
-        minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
+      // Fixed-canvas rooms (op.x/op.y absent): unchanged fit-center-within-
+      // the-canvas behavior. Infinite-canvas rooms (op.x/op.y present, world-
+      // space top-left — see the shared type's doc comment): natural size,
+      // placed wherever the caller chose (current camera center at import
+      // time, today) — there's no fixed rect to fit-center within.
+      let drawX: number, drawY: number, drawW: number, drawH: number
+      if (op.x !== undefined && op.y !== undefined) {
+        drawX = op.x; drawY = op.y; drawW = op.width; drawH = op.height
+      } else {
+        // (#470) Fit-centred within the sheet, which is what this always meant
+        // — it read the canvas only because the canvas was the sheet.
+        const { w: pageW, h: pageH } = this.ctx.pageSize()
+        const scale = Math.min(pageW / op.width, pageH / op.height)
+        drawW = op.width * scale
+        drawH = op.height * scale
+        drawX = (pageW - drawW) / 2
+        drawY = (pageH - drawH) / 2
       }
-      if (Number.isFinite(minX + minY + maxX + maxY) && maxX > minX && maxY > minY) {
-        const moved: WorldRect = { minX, minY, maxX, maxY }
-        for (const { buffer, originX, originY } of layerBuf.resolveForPaint(moved)) {
-          this.ctx.drawThroughMatrix(buffer, originX, originY, img, rect, matrix)
+
+      if (wireMatrix) {
+        const matrix = toHomography(wireMatrix)
+        const rect = { x: drawX, y: drawY, width: drawW, height: drawH }
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+        for (const [cx, cy] of [
+          [drawX, drawY], [drawX + drawW, drawY], [drawX, drawY + drawH], [drawX + drawW, drawY + drawH],
+        ] as Array<[number, number]>) {
+          const [tx, ty] = applyMatrix(matrix, cx, cy)
+          minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
+          minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
         }
-        layerBuf.markContentPainted(moved)
+        if (Number.isFinite(minX + minY + maxX + maxY) && maxX > minX && maxY > minY) {
+          const moved: WorldRect = { minX, minY, maxX, maxY }
+          for (const { buffer, originX, originY } of layerBuf.resolveForPaint(moved)) {
+            this.ctx.drawThroughMatrix(buffer, originX, originY, img, rect, matrix)
+          }
+          layerBuf.markContentPainted(moved)
+        }
+      } else {
+        const worldRect: WorldRect = { minX: drawX, minY: drawY, maxX: drawX + drawW, maxY: drawY + drawH }
+        const passes = this.ctx.passes()
+        for (const { buffer, originX, originY } of layerBuf.resolveForPaint(worldRect)) {
+          buffer.beginDraw()
+          passes.image(texture, buffer.width, buffer.height, drawX - originX, drawY - originY, drawW, drawH)
+          buffer.endDraw()
+        }
+        // (#155 Tier 2) See the engine's _paintDabs' identical call for why.
+        layerBuf.markContentPainted(worldRect)
       }
-      gl.deleteTexture(texture)
-      this.ctx.layerPainted(op.layerId)
-      return
+    } catch (error) { failed = true; failure = error }
+    finally {
+      if (flipDirty) attempt(() => gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false))
+      if (texture) attempt(() => { if (!gl.isContextLost()) gl.deleteTexture(texture) })
     }
-
-    const worldRect: WorldRect = { minX: drawX, minY: drawY, maxX: drawX + drawW, maxY: drawY + drawH }
-    const passes = this.ctx.passes()
-    for (const { buffer, originX, originY } of layerBuf.resolveForPaint(worldRect)) {
-      buffer.beginDraw()
-      passes.image(texture, buffer.width, buffer.height, drawX - originX, drawY - originY, drawW, drawH)
-      buffer.endDraw()
-    }
-    // (#155 Tier 2) See the engine's _paintDabs' identical call for why.
-    layerBuf.markContentPainted(worldRect)
-
-    gl.deleteTexture(texture)
+    if (failed) throw failure
     // #122: single choke point for both callers (appendOperation's live
     // path and _applyPixelOp's replay path) — an image_import can target
     // any layer, so only invalidate when it isn't the active one.

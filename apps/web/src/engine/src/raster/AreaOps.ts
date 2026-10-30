@@ -798,36 +798,56 @@ export class AreaOps {
     const w = Math.max(1, Math.round(rect.width))
     const h = Math.max(1, Math.round(rect.height))
     const scratch = this.acquireScratch(w, h)
-    scratch.clear()
+    let texture: WebGLTexture | null = null
+    let flipDirty = false, failed = false, failure: unknown
+    const releaseTexture = (): void => {
+      const owned = texture
+      texture = null
+      if (owned && !gl.isContextLost()) gl.deleteTexture(owned)
+    }
+    const attempt = (cleanup: () => void): void => {
+      try { cleanup() } catch (error) { if (!failed) { failed = true; failure = error } }
+    }
+    try {
+      scratch.clear()
 
-    const texture = gl.createTexture()!
-    gl.bindTexture(gl.TEXTURE_2D, texture)
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+      texture = gl.createTexture()
+      if (!texture) throw new Error('Area image texture allocation failed')
+      gl.bindTexture(gl.TEXTURE_2D, texture)
+      flipDirty = true
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+      flipDirty = false
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
-    scratch.beginDraw()
-    this.ctx.passes().image(texture, w, h, 0, 0, w, h)
-    scratch.endDraw()
-    gl.deleteTexture(texture)
+      scratch.beginDraw()
+      this.ctx.passes().image(texture, w, h, 0, 0, w, h)
+      scratch.endDraw()
+      releaseTexture()
 
-    // target-local -> world -> pre-matrix world -> scratch-local (the rect's
-    // own origin). Same composition the masked transform builds, with the
-    // raster's rect standing in for a source tile.
-    const toWorld = translationMatrix(originX, originY)
-    const toRectLocal = translationMatrix(-rect.x, -rect.y)
-    const mc = composeMatrix(toRectLocal, composeMatrix(invertMatrix(matrix), toWorld))
-    // (#714) This is a write to a resident tile too, not just a fresh preview.
-    // beginDraw invalidates its old mip chain; binding the FBO in transform
-    // alone leaves zoomed-out display sampling the pixels before this paste.
-    target.beginDraw()
-    this.ctx.passes().transform(scratch, mc, target.width, target.height, target.fbo)
-    target.endDraw()
-    this.releaseScratch(scratch)
+      // target-local -> world -> pre-matrix world -> scratch-local (the rect's
+      // own origin). Same composition the masked transform builds, with the
+      // raster's rect standing in for a source tile.
+      const toWorld = translationMatrix(originX, originY)
+      const toRectLocal = translationMatrix(-rect.x, -rect.y)
+      const mc = composeMatrix(toRectLocal, composeMatrix(invertMatrix(matrix), toWorld))
+      // (#714) This is a write to a resident tile too, not just a fresh preview.
+      // beginDraw invalidates its old mip chain; binding the FBO in transform
+      // alone leaves zoomed-out display sampling the pixels before this paste.
+      target.beginDraw()
+      this.ctx.passes().transform(scratch, mc, target.width, target.height, target.fbo)
+      target.endDraw()
+    } catch (error) { failed = true; failure = error }
+    finally {
+      if (flipDirty) attempt(() => gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false))
+      attempt(releaseTexture)
+      attempt(() => this.releaseScratch(scratch))
+    }
+    if (failed) throw failure
   }
 
   /** See PencilEngineAPI's doc comment. */
