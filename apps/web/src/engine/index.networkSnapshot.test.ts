@@ -456,27 +456,28 @@ describe('takeSnapshotRestoreAudit (#474)', () => {
     const { engine, canvas } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
     engine.appendOperation(makeLayerAdd('user-a', 'L'), 'remote')
     engine.initLayer('L')
-    const gl = canvas.getContext('webgl') as unknown as { getError: () => number }
+    const gl = canvas.getContext('webgl')
+    if (!gl) throw new Error('Missing test GL')
     const real = gl.getError.bind(gl)
-    // Raises GL_OUT_OF_MEMORY exactly once, on the read that follows the drain,
-    // then hands the queue back — i.e. an error raised *by this restore*, which
-    // is the only kind worth reporting. Deliberately not a stub that answers
-    // 0x0505 forever: generatePaperMipmaps drains with `while (getError() !==
-    // NO_ERROR)`, and a permanently angry mock hangs it.
-    //
-    // Counted rather than flagged because the drain's length is observable:
-    // answering NO_ERROR on the first call ends it in exactly one read, so the
-    // second call is the one whose answer reaches the audit.
-    let calls = 0
+    const upload = gl.texImage2D.bind(gl)
+    // Raise once after the actual pixel payload upload, independently of
+    // cold allocation/preexisting-error checks before that upload.
+    let pending = false
+    const uploads = vi.spyOn(gl, 'texImage2D').mockImplementation((...args: Parameters<typeof upload>) => {
+      upload(...args)
+      if (args[8] === TILE.pixels) pending = true
+    })
     gl.getError = () => {
-      calls++
-      if (calls === 1) return 0
-      if (calls === 2) return 0x0505
+      if (pending) { pending = false; return 0x0505 }
       return real()
     }
-
-    engine.restoreLayerFromSnapshot('L', [TILE], 100)
-    gl.getError = real
+    try {
+      engine.restoreLayerFromSnapshot('L', [TILE], 100)
+      expect(uploads.mock.calls.some(args => args[8] === TILE.pixels)).toBe(true)
+    } finally {
+      gl.getError = real
+      uploads.mockRestore()
+    }
 
     expect(engine.takeSnapshotRestoreAudit()[0].glError).toBe(0x0505)
   })
