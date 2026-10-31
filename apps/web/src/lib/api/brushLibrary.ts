@@ -1,4 +1,4 @@
-import { isBrushLibrary, type BrushLibrary, type BrushImportJob } from '@grafetto/shared'
+import { CANONICAL_RECORDED_ATTACHMENT_LIMITS, isBrushLibrary, type CanonicalMaterialAsset, type BrushLibrary, type BrushImportJob } from '@grafetto/shared'
 import { installBrushLibrary, installBrushPixels, retainImportedBrushResources, importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
 import { apiResponse, apiPath, api } from './api'
 import { cachedBrushAsset, cacheBrushAsset } from './brushAssetCache'
@@ -108,6 +108,62 @@ async function fetchAsset(id: string): Promise<void> {
   })().finally(() => pending.delete(key))
   pending.set(key, work)
   return work
+}
+
+/** Prepare availability only. The caller must close assertCurrent over the
+ * original read and exact captured scope; this function creates no read grant. */
+export async function prepareCanonicalImageAssets(
+  roomId: string,
+  assets: readonly Pick<CanonicalMaterialAsset, 'id' | 'size'>[],
+  assertCurrent: () => void,
+): Promise<void> {
+  if (typeof roomId !== 'string' || !roomId || roomId.length > 256 || typeof assertCurrent !== 'function' ||
+      !Array.isArray(assets) || assets.length > CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities) throw new TypeError('Invalid canonical image resources')
+  const selectors = new Map<string, number>()
+  for (let i = 0; i < assets.length; i++) {
+    const item = Object.getOwnPropertyDescriptor(assets, String(i))
+    if (!item || !('value' in item) || !item.value || typeof item.value !== 'object') throw new TypeError('Invalid canonical image resource')
+    const idField = Object.getOwnPropertyDescriptor(item.value, 'id'), sideField = Object.getOwnPropertyDescriptor(item.value, 'size')
+    if (!idField || !('value' in idField) || !sideField || !('value' in sideField)) throw new TypeError('Invalid canonical image resource')
+    const id: unknown = idField.value, side: unknown = sideField.value
+    if (typeof id !== 'string' || !/^asset:[a-f0-9]{64}$/.test(id) || typeof side !== 'number' ||
+        !Number.isInteger(side) || side < 2 || side > 2048 || (side & (side - 1)) !== 0) throw new TypeError('Invalid canonical image resource')
+    const previous = selectors.get(id)
+    if (previous !== undefined && previous !== side) throw new TypeError('Conflicting canonical image resource side')
+    selectors.set(id, side)
+  }
+  const checkCurrent = () => {
+    if (roomScope !== roomId) throw new DOMException('Brush room changed during preparation', 'AbortError')
+    assertCurrent()
+    if (roomScope !== roomId) throw new DOMException('Brush room changed during preparation', 'AbortError')
+  }
+  const available = () => {
+    const catalog = scopedLibraries.get(roomId)
+    for (const [id, side] of selectors) if (!catalog?.assets.some(a => a.id === id && a.size === side)) return false
+    return true
+  }
+  checkCurrent()
+  if (selectors.size && !available()) {
+    const existing = metadataWork.get(roomId)
+    await (existing ?? loadBrushLibrary())
+    checkCurrent()
+    if (existing && !available()) {
+      await loadBrushLibrary()
+      checkCurrent()
+    }
+  }
+  if (!available()) throw new Error('Canonical image resource unavailable')
+  for (const [id, side] of selectors) {
+    checkCurrent()
+    if (!available()) throw new Error('Canonical image resource unavailable')
+    if (isBrushAssetReady(id) && !isBrushAssetReady(id, side)) throw new Error('Canonical image resource side mismatch')
+    await fetchAsset(id)
+    checkCurrent()
+    if (!available() || !isBrushAssetReady(id, side)) throw new Error('Canonical image resource unavailable')
+  }
+  checkCurrent()
+  if (!available()) throw new Error('Canonical image resource unavailable')
+  for (const [id, side] of selectors) if (!isBrushAssetReady(id, side)) throw new Error('Canonical image resource unavailable')
 }
 
 /** Built-ins keep their synchronous event path. Unknown imported versions first

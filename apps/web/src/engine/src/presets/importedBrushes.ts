@@ -57,7 +57,10 @@ export function installBrushPixels(id: string, data: Uint8Array): void {
   if (previous && (previous.length !== data.length || previous.some((v, i) => v !== data[i]))) throw new Error('Brush asset cannot be replaced')
   assets.set(id, data.slice())
 }
-export function isBrushAssetReady(id: string): boolean { return assets.has(id) }
+export function isBrushAssetReady(id: string, expectedSide?: number): boolean {
+  const data = assets.get(id)
+  return data !== undefined && (expectedSide === undefined || data.length === expectedSide * expectedSide)
+}
 export function importedBrushAssets(preset: string | undefined): string[] {
   const b = importedBrushFromPreset(preset)
   if (!b) return []
