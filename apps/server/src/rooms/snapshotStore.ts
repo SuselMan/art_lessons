@@ -7,7 +7,7 @@ import { pipeline } from 'node:stream/promises'
 import {CANONICAL_RECORDED_ATTACHMENT_LIMITS} from '@grafetto/shared'
 import type { Operation, RecordedCanonicalStrokeCloseOperation,CanonicalStrokeOperation } from '@grafetto/shared'
 
-import { canonicalOperationRowSelect,verifyCanonicalOperationRow,projectCanonicalIndexedOperation,projectCanonicalIndexedCloseOperation,type CanonicalStoredOperationRow } from './roomPersistence.js'
+import { canonicalOperationRowSelect,captureCanonicalMetadata,verifyCanonicalMetadataRow,verifyCanonicalOperationRow,projectCanonicalIndexedOperation,projectCanonicalIndexedCloseOperation,type CanonicalStoredOperationRow } from './roomPersistence.js'
 import { immutableCanonicalOperation } from './operationLog.js'
 import { prisma } from '../db/prisma.js'
 import { rooms, type RoomRecord } from './roomRegistry.js'
@@ -476,10 +476,21 @@ export async function getCanonicalGesturePrefixWithRows(roomId:string,selector:{
 /** Actual all-global-row range evidence under a captured single-writer cut.
  * No source/read grant: the owning transport still verifies each material prefix. */
 export interface CanonicalFullHistoryRows {readonly operations:readonly CanonicalStrokeOperation[];readonly canonicalRows:readonly CanonicalStoredOperationRow[];readonly throughSeq:number}
-export async function getCanonicalFullHistoryWithRows(roomId:string,throughSeq:number,afterRead:()=>Promise<void>):Promise<CanonicalFullHistoryRows> {
+export interface CanonicalMixedFullHistoryRows {
+ readonly kind:'mixed-canonical-history-v2'
+ readonly operations:readonly Operation[]
+ /** Only source frames go to the existing material attachment binder. */
+ readonly canonicalRows:readonly CanonicalStoredOperationRow[]
+ /** Every global row, in the same order as operations. */
+ readonly orderedRows:readonly CanonicalStoredOperationRow[]
+ readonly throughSeq:number
+}
+export function getCanonicalFullHistoryWithRows(roomId:string,throughSeq:number,afterRead:()=>Promise<void>,format:'mixed-v2'):Promise<CanonicalMixedFullHistoryRows>
+export function getCanonicalFullHistoryWithRows(roomId:string,throughSeq:number,afterRead:()=>Promise<void>):Promise<CanonicalFullHistoryRows>
+export async function getCanonicalFullHistoryWithRows(roomId:string,throughSeq:number,afterRead:()=>Promise<void>,format:'frames-v1'|'mixed-v2'='frames-v1'):Promise<CanonicalFullHistoryRows|CanonicalMixedFullHistoryRows> {
  const fail=():never=>{throw new Error('Canonical full history unavailable')}
- if(!roomId||!Number.isSafeInteger(throughSeq)||throughSeq<0||throughSeq>=Number.MAX_SAFE_INTEGER)return fail()
- const operations:CanonicalStrokeOperation[]=[],canonicalRows:CanonicalStoredOperationRow[]=[],ids=new Set<string>(),gestures=new Set<string>()
+ if((format!=='frames-v1'&&format!=='mixed-v2')||!roomId||!Number.isSafeInteger(throughSeq)||throughSeq<0||throughSeq>=Number.MAX_SAFE_INTEGER)return fail()
+ const operations:Operation[]=[],canonicalRows:CanonicalStoredOperationRow[]=[],orderedRows:CanonicalStoredOperationRow[]=[],ids=new Set<string>(),gestures=new Set<string>()
  let previous=0,bytes=0
  while(true){
   const rows=await prisma.operation.findMany({where:{roomId,seq:{gt:previous,lte:throughSeq}},orderBy:{seq:'asc'},take:64,select:canonicalOperationRowSelect})
@@ -487,16 +498,28 @@ export async function getCanonicalFullHistoryWithRows(roomId:string,throughSeq:n
   if(rows.length>64)return fail()
   if(!rows.length){if(previous!==throughSeq)return fail();break}
   for(const row of rows){
-   if(row.type!=='canonical_stroke'||row.seq!==previous+1||row.seq>throughSeq||ids.has(row.id)||operations.length>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)return fail()
-   const projected=projectCanonicalIndexedOperation(roomId,row),op=projected.operation
-   if(op.frame.materialPacked.startsWith('1|'))return fail()
-   bytes+=projected.bytes
-   const key=JSON.stringify([op.userId,op.frame.strokeId]);gestures.add(key)
+   if(row.seq!==previous+1||row.seq>throughSeq||ids.has(row.id)||operations.length>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)return fail()
+   let op:Operation
+   if(row.type==='canonical_stroke'){
+    const projected=projectCanonicalIndexedOperation(roomId,row)
+    if(projected.operation.frame.materialPacked.startsWith('1|'))return fail()
+    bytes+=projected.bytes;op=projected.operation
+    gestures.add(JSON.stringify([op.userId,op.frame.strokeId]))
+   }else if(format==='mixed-v2'&&row.type==='canonical_stroke_close'){
+    const projected=projectCanonicalIndexedCloseOperation(roomId,row);bytes+=projected.bytes;op=projected.operation
+   }else if(format==='mixed-v2'&&(row.type==='operation_undo'||row.type==='operation_redo')){
+    op=captureCanonicalMetadata(row.data,true);verifyCanonicalMetadataRow(roomId,op,row)
+    bytes+=Buffer.byteLength(JSON.stringify(op),'utf8')
+   }else return fail()
    if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes||gestures.size>CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)return fail()
-   const copy=immutableCanonicalOperation(op,op.seq!)
-   if(copy.type!=='canonical_stroke')return fail()
-   operations.push(copy);canonicalRows.push(Object.freeze({...row,data:copy}));ids.add(copy.id);previous=row.seq
+   const copy=op.type==='canonical_stroke'?immutableCanonicalOperation(op,op.seq!):op
+   const retained=Object.freeze({...row,data:copy})
+   operations.push(copy);orderedRows.push(retained)
+   if(copy.type==='canonical_stroke')canonicalRows.push(retained)
+   ids.add(copy.id);previous=row.seq
   }
  }
- return Object.freeze({throughSeq,operations:Object.freeze(operations),canonicalRows:Object.freeze(canonicalRows)})
+ if(format==='mixed-v2')return Object.freeze({kind:'mixed-canonical-history-v2',throughSeq,operations:Object.freeze(operations),canonicalRows:Object.freeze(canonicalRows),orderedRows:Object.freeze(orderedRows)})
+ const frames=operations.map(op=>{if(op.type!=='canonical_stroke')return fail();return op})
+ return Object.freeze({throughSeq,operations:Object.freeze(frames),canonicalRows:Object.freeze(canonicalRows)})
 }

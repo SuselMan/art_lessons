@@ -37,3 +37,27 @@ it.each(['operations','capabilities','bytes'] as const)('bounds aggregate %s bef
  db.operation.findMany.mockImplementation(async({where,take})=>rows.filter(r=>r.seq>where.seq.gt&&r.seq<=where.seq.lte).slice(0,take))
  await expect(getCanonicalFullHistoryWithRows('room',count,async()=>{})).rejects.toThrow()
 })
+
+it('keeps the default frame-only contract closed while explicit mixed-v2 retains every ordered row',async()=>{
+ const first=row(op(1)),close={type:'canonical_stroke_close' as const,id:'close',userId:'A',timestamp:1,seq:2,layerId:'L',targetUserId:'A',strokeId:'S',disposition:'commitPartial' as const,recordedNext:1,firstFrameOpId:first.id,lastFrameOpId:first.id}
+ const undo={type:'operation_undo' as const,id:'undo',userId:'A',timestamp:2,seq:3,targetOpId:first.id}
+ const redo={type:'operation_redo' as const,id:'redo',userId:'A',timestamp:3,seq:4,targetOpId:undo.id}
+ const metadataRow=(data:typeof close|typeof undo|typeof redo)=>({id:data.id,seq:data.seq,roomId:'room',userId:data.userId,type:data.type,layerId:'layerId'in data?data.layerId:null,tool:null,data})
+ const rows=[first,metadataRow(close),metadataRow(undo),metadataRow(redo)]
+ db.operation.findMany.mockImplementation(async({where,take})=>rows.filter(r=>r.seq>where.seq.gt&&r.seq<=where.seq.lte).slice(0,take))
+ await expect(getCanonicalFullHistoryWithRows('room',4,async()=>{})).rejects.toThrow()
+ const result=await getCanonicalFullHistoryWithRows('room',4,async()=>{},'mixed-v2')
+ expect(result.kind).toBe('mixed-canonical-history-v2');expect(result.operations.map(o=>o.type)).toEqual(['canonical_stroke','canonical_stroke_close','operation_undo','operation_redo'])
+ expect(result.canonicalRows).toHaveLength(1);expect(result.orderedRows.map(r=>r.id)).toEqual(result.operations.map(o=>o.id))
+ expect(Object.isFrozen(result.operations)).toBe(true);expect(result.operations.every(Object.isFrozen)).toBe(true)
+ expect(result.orderedRows.every((r,i)=>r.data===result.operations[i])).toBe(true)
+})
+it.each(['gap','identity','unsupported'] as const)('refuses mixed-v2 %s without skipping or repairing global sequence',async kind=>{
+ const data={type:'operation_undo' as const,id:'undo',userId:'A',timestamp:2,seq:2,targetOpId:'frame1'}
+ const meta={id:data.id,seq:data.seq,roomId:'room',userId:data.userId,type:data.type as string,layerId:null,tool:null,data}
+ if(kind==='gap')meta.seq=3
+ if(kind==='identity')meta.userId='other'
+ if(kind==='unsupported')meta.type='paper_dry'
+ db.operation.findMany.mockResolvedValueOnce([row(op(1)),meta]).mockResolvedValue([])
+ await expect(getCanonicalFullHistoryWithRows('room',kind==='gap'?3:2,async()=>{},'mixed-v2')).rejects.toThrow()
+})

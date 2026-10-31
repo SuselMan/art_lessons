@@ -75,3 +75,4 @@ export * from './canonicalRecordedPrefix.js'
 export * from './canonicalStrokeClose.js'
 
 export * from './canonicalEmptyHistoryBase.js'
+export * from './canonicalFullHistoryBase.js'
