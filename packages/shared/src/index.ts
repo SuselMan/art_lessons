@@ -70,3 +70,5 @@ export * from './canonicalSoftAutoMaterial.js'
 export * from './canonicalRecordedAttachment.js'
 
 export * from './canonicalRecordedPrefix.js'
+
+export * from './canonicalStrokeClose.js'

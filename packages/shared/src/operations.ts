@@ -10,6 +10,7 @@ import type {
 } from './layerOperations.js'
 import type { OperationBase } from './operationBase.js'
 import type { ShapeOperation } from './shapes.js'
+import type { CanonicalStrokeCloseOperation } from './canonicalStrokeClose.js'
 import type { CanonicalStrokeOperation } from './canonicalStrokeOperation.js'
 import type { StrokeOperation } from './stroke.js'
 
@@ -72,6 +73,7 @@ export const WATERCOLOR_WET_DRY_MS = 120000
 export type Operation =
   | StrokeOperation
   | CanonicalStrokeOperation
+  | CanonicalStrokeCloseOperation
   | LayerAddOperation
   | ImageImportOperation
   | FolderAddOperation

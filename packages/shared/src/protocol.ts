@@ -1,3 +1,4 @@
+import type { CanonicalStrokeCloseRequest } from './canonicalStrokeClose.js'
 import type { CanonicalRecordedAttachmentV1, CanonicalRecordedReadScope } from './canonicalRecordedAttachment.js'
 import type { CanonicalStrokeBegin, CanonicalStrokeBeginResult, CanonicalStrokeLive, CanonicalStrokeLiveResult } from './canonicalStrokeOperation.js'
 import type { BrushRandomSeeds } from './brushRandom.js'
@@ -494,6 +495,7 @@ export type ClientToServerEvents = {
   // StrokeLiveData. No ack: this is not a record, and there is nothing the
   // sender would do differently on a failure. The gesture's real operation
   // follows through `operation` above.
+  canonical_stroke_close: (data: CanonicalStrokeCloseRequest, ack: (result: SendResult) => void) => void
   canonical_stroke_begin: (data: CanonicalStrokeBegin, ack: (result: CanonicalStrokeBeginResult) => void) => void
   canonical_stroke_live: (data: CanonicalStrokeLive, ack?: (result: CanonicalStrokeLiveResult) => void) => void
   stroke_live: (data: StrokeLiveData) => void

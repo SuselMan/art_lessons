@@ -4,7 +4,7 @@ import { readRoomRasterVersion, type Operation } from '@grafetto/shared'
  * field/codec variants keep their type; there is no arbitrary unknown-type
  * extension contract. New types must add a real admission path deliberately. */
 const known: Record<Operation['type'], true> = {
-  canonical_stroke: true, stroke: true, layer_add: true, image_import: true, folder_add: true,
+  canonical_stroke_close:true, canonical_stroke: true, stroke: true, layer_add: true, image_import: true, folder_add: true,
   layer_delete: true, layer_move: true, layer_opacity: true, layer_visibility: true,
   layer_rename: true, layer_owner_lock: true, layer_lock: true, layer_clear: true,
   layer_merge: true, layer_duplicate: true, layer_transform: true,
@@ -18,7 +18,7 @@ const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v ===
  * ride a legacy stroke/live packet to bypass that gate. Canonical routes use their
  * concrete coordinator, never this legacy discriminant guard. */
 export function hasReservedCanonicalFields(value: unknown): boolean {
-  return object(value) && (value.type === 'canonical_stroke' || value.type === 'canonical_stroke_live'
+  return object(value) && (value.type === 'canonical_stroke_close' || value.type === 'canonical_stroke' || value.type === 'canonical_stroke_live'
     || ['canonicalFrame', 'materialPacked', 'rasterProfile'].some(key => Object.hasOwn(value, key))
     || Object.hasOwn(value, 'frame') && value.type !== 'shape')
 }
