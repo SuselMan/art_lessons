@@ -19,6 +19,11 @@ export interface CanonicalMaskAssetSourceInput {
   readonly asset: CanonicalMaterialAsset
   readonly readOriginalCoverage: () => Uint8Array
 }
+/** Internal warm selection only; original pyramid indices, never a source grant. */
+export interface CanonicalMaskSourceLevelRequirement {
+  readonly asset: CanonicalMaterialAsset
+  readonly indexes: readonly number[]
+}
 export interface CanonicalMaskSourceJob {
   readonly key: string
   readonly resource: NativeImageResource
@@ -38,14 +43,45 @@ function ownData(value:unknown,fields:readonly string[]):Record<string,unknown> 
   for(const key of fields){const d=Object.getOwnPropertyDescriptor(value,key);if(!d||!Object.hasOwn(d,'value'))throw new TypeError('Invalid canonical image resource data');result[key]=d.value}
   return result
 }
-function captureAssetInput(value:unknown):CanonicalMaskAssetSourceInput {
-  const input=ownData(value,['asset','readOriginalCoverage']),a=ownData(input.asset,['id','size','x','y','width','height'])
-  const {id,size,x,y,width,height}=a
-  if(typeof input.readOriginalCoverage!=='function'||typeof id!=='string'||!/^asset:[a-f0-9]{64}$/.test(id)
+function captureAsset(value:unknown):CanonicalMaterialAsset {
+  const {id,size,x,y,width,height}=ownData(value,['id','size','x','y','width','height'])
+  if(typeof id!=='string'||!/^asset:[a-f0-9]{64}$/.test(id)
     ||typeof size!=='number'||!integer(size,1)||size>4096||typeof x!=='number'||!integer(x)||typeof y!=='number'||!integer(y)
     ||typeof width!=='number'||!integer(width,1)||typeof height!=='number'||!integer(height,1)
     ||width*height>1048576||x+width>size||y+height>size||[size,x,y,width,height].some(v=>Object.is(v,-0)))throw new TypeError('Invalid canonical image resource data')
-  return Object.freeze({asset:Object.freeze({id,size,x,y,width,height}),readOriginalCoverage:input.readOriginalCoverage as ()=>Uint8Array})
+  return Object.freeze({id,size,x,y,width,height})
+}
+function captureAssetInput(value:unknown):CanonicalMaskAssetSourceInput {
+  const input=ownData(value,['asset','readOriginalCoverage']),asset=captureAsset(input.asset)
+  if(typeof input.readOriginalCoverage!=='function')throw new TypeError('Invalid canonical image resource data')
+  return Object.freeze({asset,readOriginalCoverage:input.readOriginalCoverage as ()=>Uint8Array})
+}
+const assetKey=(a:CanonicalMaterialAsset)=>JSON.stringify([a.id,a.size,a.x,a.y,a.width,a.height])
+function captureIndexes(value:unknown,length:number):readonly number[] {
+  if(!Array.isArray(value)||!value.length||value.length>length)throw new RangeError('Invalid canonical source level indexes')
+  const indexes:number[]=[],seen=new Set<number>()
+  for(let i=0;i<value.length;i++){
+    const d=Object.getOwnPropertyDescriptor(value,String(i)),index=d&&Object.hasOwn(d,'value')?d.value:undefined
+    if(typeof index!=='number'||!integer(index)||Object.is(index,-0)||index>=length||seen.has(index))throw new RangeError('Invalid canonical source level indexes')
+    seen.add(index);indexes.push(index)
+  }
+  return Object.freeze(indexes.sort((a,b)=>a-b))
+}
+function captureRequirements(value:unknown):ReadonlyMap<string,ReadonlySet<number>>|undefined {
+  if(value===undefined)return undefined
+  if(!Array.isArray(value)||!value.length||value.length>256)throw new RangeError('Invalid canonical source level requirements')
+  const result=new Map<string,ReadonlySet<number>>()
+  let count=0
+  for(let i=0;i<value.length;i++){
+    const field=Object.getOwnPropertyDescriptor(value,String(i))
+    if(!field||!Object.hasOwn(field,'value'))throw new TypeError('Invalid canonical source level requirements')
+    const item=ownData(field.value,['asset','indexes']),asset=captureAsset(item.asset),key=assetKey(asset)
+    if(result.has(key))throw new RangeError('Duplicate canonical source level requirement')
+    const indexes=captureIndexes(item.indexes,sourcePngPyramid(asset.width,asset.height).levels.length)
+    count+=indexes.length;if(count>4096)throw new RangeError('Canonical source level requirements exceed budget')
+    result.set(key,new Set(indexes))
+  }
+  return result
 }
 
 /** Existing nativeImagePixels may simultaneously hold croppedN, brightnessN,
@@ -69,8 +105,9 @@ function transientBytes(resource: NativeImageResource): number {
 type BankInput = CanonicalMaskSourceInput | CanonicalMaskAssetSourceInput
 type BankReader = Readonly<Pick<CanonicalMaskSourceInput,'assetSide'|'readOriginalCoverage'>>
 interface BankPlan { readonly jobs: readonly CanonicalMaskSourceJob[]; readonly inputs: ReadonlyMap<string,BankReader> }
-function planInputs(inputs:readonly BankInput[]):BankPlan {
+function planInputs(inputs:readonly BankInput[],requiredLevels?:readonly CanonicalMaskSourceLevelRequirement[]):BankPlan {
   if(!Array.isArray(inputs)||inputs.length<1||inputs.length>256)throw new RangeError('Invalid canonical bank plan')
+  const required=captureRequirements(requiredLevels),used=new Set<string>()
   const plannedInputs=new Map<string,BankReader>()
     const jobs = new Map<string, CanonicalMaskSourceJob>()
     for (let i=0;i<inputs.length;i++) {
@@ -93,7 +130,11 @@ function planInputs(inputs:readonly BankInput[]):BankPlan {
         assetSide=input.assetSide;readOriginalCoverage=input.readOriginalCoverage
         resources=nativeImageBank(input.id,input.tip)
       }
-      for (const originalResource of resources) {
+      const originalAsset={id:resources[0].id,size:assetSide,...resources[0].rect},selectionKey=assetKey(originalAsset),indexes=required?.get(selectionKey)
+      if(required&&!indexes)throw new RangeError('Missing canonical source level requirement')
+      if(required)used.add(selectionKey)
+      for (const [index,originalResource] of resources.entries()) {
+        if(indexes&&!indexes.has(index))continue
         const resource = Object.freeze({ ...originalResource, rect: Object.freeze({ ...originalResource.rect }), bounds: Object.freeze({ ...originalResource.bounds }) })
         const key = `canonical-mask:straight-gray-rgba8:${resource.key}`
         const job = Object.freeze({ key, resource, bytes: resource.width * resource.height * 4, transientCpuBytes: transientBytes(resource) })
@@ -103,6 +144,7 @@ function planInputs(inputs:readonly BankInput[]):BankPlan {
         if (!prior) { jobs.set(key, job); plannedInputs.set(key,Object.freeze({assetSide,readOriginalCoverage})) }
       }
     }
+  if(required&&used.size!==required.size)throw new RangeError('Unknown canonical source level requirement')
   return {jobs:Object.freeze([...jobs.values()]),inputs:plannedInputs}
 }
 function jobBudget(jobs:readonly CanonicalMaskSourceJob[]){
@@ -110,9 +152,9 @@ function jobBudget(jobs:readonly CanonicalMaskSourceJob[]){
     maximumTransientCpuBytes:Math.max(...jobs.map(j=>j.transientCpuBytes))}
 }
 /** Same finite metadata planner as the bank constructor; never calls readers or GL. */
-export function canonicalMaskSourceBankBudget(inputs:readonly BankInput[]){
+export function canonicalMaskSourceBankBudget(inputs:readonly BankInput[],requiredLevels?:readonly CanonicalMaskSourceLevelRequirement[]){
   if(!Array.isArray(inputs)||inputs.length<1||inputs.length>256)throw new RangeError('Invalid canonical bank plan')
-  const plan=planInputs(inputs)
+  const plan=planInputs(inputs,requiredLevels)
   if(!plan.jobs.length||plan.jobs.length>4096)throw new RangeError('Invalid canonical bank plan')
   return Object.freeze({...jobBudget(plan.jobs),maximumSourceCpuBytes:Math.max(...[...plan.inputs.values()].map(input=>input.assetSide*input.assetSide)),
     resources:Object.freeze(plan.jobs.map(({key,bytes})=>Object.freeze({key,bytes})))})
@@ -132,7 +174,8 @@ export interface CanonicalMaskSourceExtension {
 }
 
 /** Finite source bank only. No active painter/descriptor hooks or new allowance.
- * Every reachable level is planned before reading/cropping/resizing any image.
+ * Every selected original level is planned before reading/cropping/resizing.
+ * Omitted selection preserves full-pyramid planning for existing callers.
  * Caller schedules one prepareJob per existing BrushPreparation job/frame. */
 export class CanonicalMaskSourceBank {
   private _jobs: readonly CanonicalMaskSourceJob[]
@@ -153,13 +196,13 @@ export class CanonicalMaskSourceBank {
   private readonly ownerProof:Readonly<{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache}>
 
   constructor(gl: WebGLRenderingContext, cache: BrushTextureCache, cpu: BrushMipCache,
-    inputs: readonly (CanonicalMaskSourceInput|CanonicalMaskAssetSourceInput)[], companion: CanonicalMaskCompanionBudget) {
+    inputs: readonly (CanonicalMaskSourceInput|CanonicalMaskAssetSourceInput)[], companion: CanonicalMaskCompanionBudget,requiredLevels?:readonly CanonicalMaskSourceLevelRequirement[]) {
     this.gl = gl; this.cache = cache; this.cpu = cpu
     this.ownerProof=Object.freeze({gl,cache,cpu})
     if (!companion || !integer(companion.gpuBytes) || !integer(companion.cpuBytes)
       || !Array.isArray(inputs) || inputs.length < 1 || inputs.length > 256) throw new RangeError('Invalid canonical bank plan')
     this.companion = { ...companion }
-    const plan=planInputs(inputs)
+    const plan=planInputs(inputs,requiredLevels)
     this._jobs=plan.jobs;this.inputs=new Map(plan.inputs)
     const maximum = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number
     if (!integer(maximum, 1) || !this.jobs.length || this.jobs.length > 4096 || !integer(this.gpuBytes)
@@ -173,13 +216,13 @@ export class CanonicalMaskSourceBank {
 
   /** Add resources without replacing committed keys, readers or hot generation.
    * Call lazily from the creator's first preparation job, never before run(). */
-  beginExtension(inputs:readonly BankInput[],peakCompanion:CanonicalMaskCompanionBudget):CanonicalMaskSourceExtension {
+  beginExtension(inputs:readonly BankInput[],peakCompanion:CanonicalMaskCompanionBudget,requiredLevels?:readonly CanonicalMaskSourceLevelRequirement[]):CanonicalMaskSourceExtension {
     const generation=this.generation
     this.assertCurrentOwners(generation)
     if(this.pending||!this.isReady())throw new Error('Canonical bank extension unavailable')
     const c=ownData(peakCompanion,['gpuBytes','cpuBytes'])
     if(typeof c.gpuBytes!=='number'||!integer(c.gpuBytes)||typeof c.cpuBytes!=='number'||!integer(c.cpuBytes))throw new RangeError('Invalid canonical companion budget')
-    const companion=Object.freeze({gpuBytes:c.gpuBytes,cpuBytes:c.cpuBytes}),incoming=planInputs(inputs)
+    const companion=Object.freeze({gpuBytes:c.gpuBytes,cpuBytes:c.cpuBytes}),incoming=planInputs(inputs,requiredLevels)
     const union=new Map(this.jobs.map(j=>[j.key,j])),readers=new Map(this.inputs),added:CanonicalMaskSourceJob[]=[]
     for(const job of incoming.jobs){
       const input=incoming.inputs.get(job.key)!
@@ -265,6 +308,21 @@ export class CanonicalMaskSourceBank {
       this.pending=extension
       return extension
     }catch(error){try{extension.cancel()}catch{/* Preserve admission failure. */}throw error}
+  }
+
+  /** Explicit subset query. Does not claim the theoretical full pyramid is ready. */
+  assertRequiredSourceBinding(value:CanonicalMaterialAsset,indexes:readonly number[],owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache}):number {
+    const generation=this.generation,asset=captureAsset(value),levels=sourcePngPyramid(asset.width,asset.height).levels,required=captureIndexes(indexes,levels.length)
+    this.assertCurrentOwners(generation)
+    if(owners.gl!==this.gl||owners.cache!==this.cache||owners.cpu!==this.cpu||!this.isReady())throw new Error('Canonical bank owner/source unavailable')
+    const sources=this.preparedResources().filter(s=>s.canonical&&assetKey(s.canonical.asset)===assetKey(asset))
+    for(const index of required){
+      const matches=sources.filter(s=>s.canonical!.index===index),source=matches[0],m=source?.canonical,level=levels[index]
+      if(matches.length!==1||!m||m.baseScale!==level.scale||m.nativeWidth!==level.width||m.nativeHeight!==level.height
+        ||source.bytes!==level.storedWidth*level.storedHeight*4)throw new Error('Canonical required source binding missing or changed')
+    }
+    this.assertCurrentOwners(generation)
+    return generation
   }
 
   /** Cold binding of an already normalized original snapshot asset. No pixels,
