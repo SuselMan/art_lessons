@@ -1,5 +1,5 @@
 import type { BrushGlBatchFrame, BrushGlBatchInfo } from './BrushGlBatch';
-import { sourcePngPyramid } from '@grafetto/shared';
+import { canonicalSoftAutoSourcePin, canonicalSoftAutoStatic, sourcePngPyramid } from '@grafetto/shared';
 import { saveBrushGlState } from './BrushGlState';
 import type { SourceDabMaterialSpec } from '../presets/sourceDabCache';
 import { buildRgba64FactorLut } from '../raster/sourceRgba64StraightShader';
@@ -7,7 +7,7 @@ import { SOURCE_TRANSFORMED_MASK_VERT, sourceTransformedMaskFragment } from '../
 import { BrushMipCache } from './BrushMipCache';
 import { BrushTextureCache, allocateOwnedBrushTexture, allocateOwnedBrushBuffer, combineOwnedBrushResources, releaseUnpublishedBrushResource, type OwnedBrushResource, type OwnedBrushBuffer } from './BrushTextureCache';
 import { reserveContextStorage, releaseStorageReservation, type StorageReservation } from '../buffers/ContextStorageOwner';
-import { resolvedTransformedMaskPlan, writeTransformedMaskVertices, type TransformedMaskPlan, type TransformedMaskMaterial, type CanonicalMaskSourceBinding, canonicalTransformedMaskMetadata, canonicalTransformedMaskPlan, canonicalMaskRevision, canonicalAutoMaskRevision, prepareCanonicalAutoMask, type CanonicalAutoMaskMaterial } from './TransformedMaskPlan';
+import { resolvedTransformedMaskPlan, writeTransformedMaskVertices, type TransformedMaskPlan, type TransformedMaskMaterial, type CanonicalMaskSourceBinding, canonicalTransformedMaskMetadata, canonicalTransformedMaskPlan, canonicalMaskRevision, canonicalAutoMaskRevision, prepareCanonicalAutoMask, isCanonicalSoftAutoMaterial, type CanonicalAutoMaskMaterial } from './TransformedMaskPlan';
 export interface TransformedMaskLimits {
   readonly width: number;
   readonly height: number;
@@ -428,24 +428,37 @@ export class TransformedMaskPrepass {
     }
     if (this.slots.some(s => s?.owner === request.owner && s.role === request.role && s.revision === revision)) return true;
     const prepared = prepareCanonicalAutoMask(material);
-    const rows = Math.min(height, Math.max(1, Math.floor(16384 / width))), pixels = rows * width;
-    // Include bounded cursor/pin metadata alongside stripe storage.
-    const release = this.cpu.reserve(pixels * 5 + 512);
-    if (!release) throw new RangeError('Auto stripe CPU reservation exhausted');
+    let releaseStripe: (() => void) | undefined;
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      let failed = false, primary: unknown;
+      for (const cleanup of [releaseStripe, prepared.releaseProgram]) try { cleanup?.(); }
+      catch (error) { if (!failed) { failed = true; primary = error; } }
+      if (failed) throw primary;
+    };
     try {
+      const rows = Math.min(height, Math.max(1, Math.floor(16384 / width))), pixels = rows * width;
+      // The fixed table owner has already reserved its resident metadata/table.
+      releaseStripe = this.cpu.reserve(pixels * 5 + 512);
       const a8 = new Uint8Array(pixels), rgba = new Uint8Array(pixels * 4);
       const slot = (this.slots as Slot[]).slice().sort((a,b) => a.used-b.used)[0];
+      const captured: CanonicalAutoMaskMaterial = isCanonicalSoftAutoMaterial(material)
+        ? Object.freeze({ ...material, recipe: Object.freeze({ ...material.recipe,
+          ...canonicalSoftAutoStatic(material.recipe.source, material.recipe.brushScale, material.recipe.brushAngle) }),
+          trustedSource: canonicalSoftAutoSourcePin(material.trustedSource) })
+        : Object.freeze({ ...material, recipe: Object.freeze({ ...material.recipe, source: Object.freeze({ ...material.recipe.source }) }),
+          trustedSource: Object.freeze({ ...material.trustedSource, source: Object.freeze({ ...material.trustedSource.source }) }) }) as CanonicalAutoMaskMaterial;
       slot.revision = undefined; slot.plan = undefined; slot.material = undefined;
-      const captured = Object.freeze({ ...material, recipe: material.recipe.kind === 'defaultAuto'
-        ? Object.freeze({ ...material.recipe, source: Object.freeze({ ...material.recipe.source }) })
-        : Object.freeze({ ...material.recipe, source: Object.freeze({ ...material.recipe.source }) }),
-        trustedSource: material.trustedSource.kind === 'defaultAuto'
-        ? Object.freeze({ ...material.trustedSource, source: Object.freeze({ ...material.trustedSource.source }) })
-        : Object.freeze({ ...material.trustedSource, source: Object.freeze({ ...material.trustedSource.source }) }) });
       this.pendingAuto = { owner: request.owner, role: request.role, revision, slot, epoch: this.workspace,
         evaluator: prepared.evaluator, material: captured, width, height, a8, rgba, release, filled: 0, uploadedRows: 0 };
       return false;
-    } catch (error) { prepared.evaluator.cancel(); release(); throw error; }
+    } catch (error) {
+      try { prepared.evaluator.cancel(); } catch { /* Preserve preparation failure. */ }
+      try { release(); } catch { /* Preserve preparation failure. */ }
+      throw error;
+    }
   }
   /** Advances <=maxSamples; at most one bounded stripe upload. Caller owns the
    * cooperative time budget and yields without holding a GL batch/target lease. */
@@ -486,16 +499,25 @@ export class TransformedMaskPrepass {
       if (result.done) {
         p.slot.owner=p.owner; p.slot.role=p.role; p.slot.revision=p.revision; p.slot.material=p.material;
         p.slot.sourceKey=undefined; p.slot.profile=undefined; p.slot.used=++this.clock;
-        p.release(); this.pendingAuto=undefined;
+        this.pendingAuto=undefined; p.release();
       }
       return { done: result.done, consumed: result.consumed, uploadedBytes };
-    } catch(error) { this.cancelAutoGeneration(); throw error; }
+    } catch(error) { try { this.cancelAutoGeneration(); } catch { /* Preserve generation failure. */ } throw error; }
   }
   cancelAutoGeneration(): void {
     const p=this.pendingAuto; this.pendingAuto=undefined;
-    if(p) { p.evaluator.cancel(); p.release(); }
+    if(p) {
+      let failed=false, primary:unknown;
+      for(const cleanup of [()=>p.evaluator.cancel(),p.release]) try { cleanup(); }
+      catch(error) { if(!failed){failed=true;primary=error} }
+      if(failed)throw primary;
+    }
   }
-  releaseOwner(owner: object): void { if (this.batch) throw new Error('Cannot release owner inside active brush GL batch'); if (this.pendingAuto?.owner === owner) this.cancelAutoGeneration(); for (const slot of this.slots)
+  releaseOwner(owner: object): void {
+    if (this.batch) throw new Error('Cannot release owner inside active brush GL batch');
+    let failed=false, primary:unknown;
+    if (this.pendingAuto?.owner === owner) try { this.cancelAutoGeneration(); } catch(error) { failed=true; primary=error; }
+    for (const slot of this.slots)
     if (slot?.owner === owner) {
       slot.owner = undefined;
       slot.role = undefined;
@@ -504,7 +526,9 @@ export class TransformedMaskPrepass {
       slot.plan = undefined;
       slot.sourceKey = undefined;
       slot.profile = undefined;
-    } }
+    }
+    if(failed)throw primary;
+  }
   reset(lost = false): void {
     if (this.batch && !lost) throw new Error('Cannot reset inside an active brush GL batch');
     let failed=false,primary:unknown;

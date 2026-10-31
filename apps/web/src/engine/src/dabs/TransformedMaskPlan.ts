@@ -1,3 +1,6 @@
+import { canonicalSoftAutoCost, canonicalSoftAutoSourcePin, canonicalSoftAutoDataEqual, type CanonicalSoftAutoRecipe, type CanonicalSoftAutoSource } from '@grafetto/shared';
+import { prepareSourceSoftCircleDab } from '../presets/sourceSoftCircleDab';
+import { CanonicalSoftCircleProgramOwner } from './CanonicalSoftCircleProgramOwner';
 import { canonicalAutoCost, type CanonicalAutoRecipe, type CanonicalAutoSource } from '@grafetto/shared';
 import { prepareSourceGaussianDab } from '../presets/sourceGaussianDab';
 import { prepareSourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab';
@@ -14,6 +17,7 @@ export const TRANSFORMED_MASK_VERTEX_FLOATS = 12;
 * ONCE then negate; normalizing the negative raster angle loses source phase.
 */
 export function resolvedTransformedMaskPlan(source: SourceDabMaterialSpec): TransformedMaskPlan {
+  if(source?.geometry?.kind==='softAuto')throw new RangeError('Soft auto requires a typed procedural material resolver');
   if(source?.geometry?.kind==='defaultAuto'||source?.geometry?.kind==='gaussianAuto')throw new RangeError('Default auto requires a typed procedural material resolver');
   if (!source || !source.brush || !source.shape || !source.key || !Number.isSafeInteger(source.width) || !Number.isSafeInteger(source.height)
     || source.width < 1 || source.height < 1 || source.width !== source.key.width || source.height !== source.key.height)
@@ -37,28 +41,52 @@ export interface CanonicalTransformedMaskMaterial {
   readonly recipe: CanonicalMaterialRecipe;
   readonly asset: CanonicalMaterialAsset;
 }
-export interface CanonicalAutoMaskMaterial {
-  readonly kind: 'canonicalAuto';
-  readonly recipe: CanonicalAutoRecipe;
-  readonly trustedSource: CanonicalAutoSource;
+export type CanonicalAutoMaskMaterial = {
+  readonly kind: 'canonicalAuto'; readonly recipe: CanonicalAutoRecipe; readonly trustedSource: CanonicalAutoSource;
+} | {
+  readonly kind: 'canonicalAuto'; readonly recipe: CanonicalSoftAutoRecipe; readonly trustedSource: CanonicalSoftAutoSource;
+  readonly programOwner: CanonicalSoftCircleProgramOwner;
+};
+export function isCanonicalSoftAutoMaterial(m: CanonicalAutoMaskMaterial): m is Extract<CanonicalAutoMaskMaterial, { programOwner: CanonicalSoftCircleProgramOwner }> {
+  return m.recipe.kind === 'softAuto';
 }
 /** Caller supplies the already authenticated source pin; this is not an attestation. */
 export function prepareCanonicalAutoMask(material: CanonicalAutoMaskMaterial) {
-  const { recipe, trustedSource } = material;
-  canonicalAutoCost(recipe, trustedSource);
+  const recipe = material.recipe;
   const common = {
     storedScale: recipe.brushScale, storedAngle: recipe.brushAngle,
     shape: { scale: recipe.scale, ratio: recipe.ratio, rotation: recipe.rotation },
     subpixelX: recipe.subX, subpixelY: recipe.subY,
     maxPixels: 1048576, maxWorkSamples: 16 * 1048576,
   };
-  if (recipe.kind === 'gaussianAuto') return prepareSourceGaussianDab({ ...common,
-    dialect: 'krita-gaussian-auto-qt5-arm64-v1', coverageProfile: recipe.coverageProfile,
-    tip: { ...recipe.source, kind: 'auto', spikes: 2, softness: 1, randomness: 0, density: 1 } });
-  return prepareSourceDefaultAutoDab({ ...common, dialect: 'krita-default-auto-qt5-arm64-v1', coverageProfile: recipe.coverageProfile,
-    tip: { ...recipe.source, kind: 'auto', spikes: 2, softness: 1, randomness: 0, density: 1 } });
+  if (isCanonicalSoftAutoMaterial(material)) {
+    canonicalSoftAutoCost(material.recipe, material.trustedSource);
+    const pin = canonicalSoftAutoSourcePin(material.trustedSource), lease = material.programOwner.acquire();
+    try {
+      const expectedTip = { kind: 'auto', generator: 'soft', shape: 'circle', diameter: pin.source.diameter,
+        ratio: pin.source.ratio, horizontalFade: pin.source.horizontalFade, verticalFade: pin.source.verticalFade,
+        spikes: 2, softness: 1, randomness: 0, density: 1, antialias: false };
+      const expectedCurve = { points: pin.radialCurve.source.points.map(p => ({ x: p.x, y: p.y })), coefficients: pin.radialCurve.coefficients };
+      if (!canonicalSoftAutoDataEqual(lease.program.tip, expectedTip) || !canonicalSoftAutoDataEqual(lease.program.curve, expectedCurve))
+        throw new TypeError('Soft program differs from trusted source');
+      return { ...prepareSourceSoftCircleDab({ ...common, dialect: 'krita-soft-circle-qt5-arm64-v1',
+        coverageProfile: material.recipe.coverageProfile, program: lease.program }), releaseProgram: lease.release };
+    } catch (error) { try { lease.release(); } catch { /* Preserve preparation failure. */ } throw error; }
+  }
+  canonicalAutoCost(material.recipe, material.trustedSource);
+  const r = material.recipe, releaseProgram = () => {};
+  if (r.kind === 'gaussianAuto') return { ...prepareSourceGaussianDab({ ...common,
+    dialect: 'krita-gaussian-auto-qt5-arm64-v1', coverageProfile: r.coverageProfile,
+    tip: { ...r.source, kind: 'auto', spikes: 2, softness: 1, randomness: 0, density: 1 } }), releaseProgram };
+  return { ...prepareSourceDefaultAutoDab({ ...common, dialect: 'krita-default-auto-qt5-arm64-v1', coverageProfile: r.coverageProfile,
+    tip: { ...r.source, kind: 'auto', spikes: 2, softness: 1, randomness: 0, density: 1 } }), releaseProgram };
 }
 export function canonicalAutoMaskRevision(material: CanonicalAutoMaskMaterial): string {
+  if (isCanonicalSoftAutoMaterial(material)) {
+    canonicalSoftAutoCost(material.recipe, material.trustedSource);
+    return JSON.stringify(['canonical-soft-auto-v1', canonicalSoftAutoSourcePin(material.trustedSource), material.recipe],
+      (_key, value: unknown) => typeof value === 'number' && Object.is(value, -0) ? '-0' : value);
+  }
   const { recipe: r, trustedSource: t } = material;
   canonicalAutoCost(r, t);
   return JSON.stringify(['canonical-auto-v2', t.descriptorId, t.descriptorVersion, t.descriptorSha256,
