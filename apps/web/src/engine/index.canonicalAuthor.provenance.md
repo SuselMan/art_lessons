@@ -1,62 +1,80 @@
-# Source pointer author on the existing engine FIFO
+# Source pointer author and same-owner local preview
 
-The explicit canonicalAuthor BEGIN service is CPU authoring transport, not pixel
-permission. The constructor still requires the original canonical empty-room read
-and original tail. Without the service, straight pointer entry remains inert;
-legacy pixel writer guards remain closed even when the service is supplied and
-pointer input is unlocked. Ordinary Room does not install this option yet.
+The explicit canonicalAuthor BEGIN service remains CPU authoring transport. The
+constructor requires the original canonical room read and original tail; ordinary
+Room does not install this option yet. Legacy pixel-writer guards remain closed,
+even when this explicit source pointer route is unlocked.
 
-prepareBrush resolves the installed immutable imported descriptor, compiles the
-existing source author program, hashes the shared canonicalBrushDescriptorJSON
-bytes through Web Crypto and binds the existing shared source/profile law. Pure
-material, fixed source geometry and companion CPU/GPU admission precede BEGIN.
-The existing BrushPreparation owner prepares the same persistent layer prepass
-and composite resources; completed gestures keep these kernels warm. One selected
-program record and each gesture/input own reservations in the existing CPU cache.
-No second scheduler, input queue, pending operation journal or renderer is added.
+prepareBrush resolves the installed immutable descriptor, compiles the existing
+source author program, hashes canonicalBrushDescriptorJSON through Web Crypto and
+binds the shared source/profile/effect law. Fixed geometry and existing companion
+CPU/GPU budgets precede BEGIN. The persistent layer owner retains warm prepass and
+composite kernels across gestures; source author/session/captured inputs use the
+same CPU owner, FIFO and scheduler. No additional queue/journal/renderer is added.
 
-This first input domain is non-timed primary source auto wash at its native size,
-fixed shape transforms and an unrotated camera, without ruler, mask or images.
-Active size/ratio/rotation/scatter/mirror options and unrepresented speed/twist/
-tangential/perspective sensors reject before BEGIN. Pressure and captured tilt
-packets use the existing native freehand author. Timed airbrush and broader input
-semantics remain explicit prerequisites, not silently approximated behavior.
+The bounded domain remains non-timed primary source auto wash at native size,
+fixed shape transforms and unrotated camera, without ruler/mask/image. Unsupported
+active transforms/sensors/effects reject before BEGIN/preparation. Pressure and
+captured tilt use the existing freehand author. No broader brush support is
+silently approximated.
 
-DOWN captures input/style/identity/generation before asynchronous BEGIN. MOVE and
-UP retain their captured inputs in the same AuthorInputFIFO with owned releases.
-The accepted snapshot must match the captured local descriptor hash, full source
-pin, layer/profile/pigment/composition and fresh cursors. The same SourceStrokeAuthor,
-SourceStrokeMaterialAdapter and SourceCanonicalFrameEncoder generate immutable
-canonical operations through the existing onLocalOperation callback. They have no
-invented seq and do not append the engine journal or paint locally. Original
-confirmed delivery is the sole render input. This recorded-first lane depends on
-round-trip/persistence latency and is not the final responsive online solution.
+DOWN captures input/style/identity before asynchronous BEGIN. MOVE/UP retain their
+captured inputs in AuthorInputFIFO. The snapshot must match descriptor hash, pin,
+layer/profile/pigment/composition and fresh cursors. Existing author/adapter/encoder
+produce immutable operations without seq. The same coordinator admits local
+material before the operation reaches the existing Outbox callback; its derived
+presentation becomes visible while the actual operation journal remains empty.
+The original recorded delivery alone advances the authoritative journal and
+permits stable commit. Matching confirmation promotes existing raw wash without
+re-authoring or re-depositing. No guessed server sequence or fake END is used.
 
-Before any emission, cancellation aborts BEGIN and retires queued CPU ownership
-without poisoning the valid image. After emission, failure/cancellation preserves
-already handed-off operations and the confirmed journal; it closes the source/layer
-and requests repair once after retirement. It never fabricates gestureEnd or a
-commitPartial prefix. Correct user-friendly partial cancellation depends on the
-original confirmed prefix/close controller in D. A dropped old UP behind another
-queued gesture is detected by each FIFO job's completion status and encoder.ended.
-The initial accepted recovery cut becomes stale at first immutable emission,
-including before confirmation, so loss cannot publish an old empty image as ready.
+An eight-frame full deposition queue yields the existing source generator with
+ONE charged immutable encoded operation. The same RebuildJob/scheduler progresses
+the painter; retries retain the same object/id/ordinal. No Outbox emission happens
+before local admission. Cancellation closes the queued generator and releases
+this temporary CPU ownership as well as all retained receipts before repair.
 
-Host tests use the installed native Basic2Opacity original40 descriptor, shared
-canonical hash/binding and real engine pointer methods, services and FIFO. Nine
-cases cover deferred BEGIN, captured input mutation, seq-absent immutable output,
-no local GL/log mutation, abort/late reply, native size/writer refusal, mismatched
-snapshot, post-emission cancellation, actual unsupported stock size sensor, bounded
-captured-input overflow, rapid two-gesture cancellation and stale recovery refusal.
-The original read-only/timing regression batch passes. Hardware/UI activation and
-smoothness are not claimed. No device/service/runtime dependency was created.
+The local source lease captures only immutable accepted snapshot/pin and actual
+layer/generation/read owner. Normal CPU author UP/AbortSignal retirement and later
+brush selection changes do not revoke already admitted local pixels. Original
+confirmation remains valid. Cancelled/emitted speculative prefixes request repair
+once after ownership retirement; confirmed journal and already sent operations
+remain intact. Fresh original full-history reconciliation is required for pending
+context recovery and final partial-cancellation UX.
 
-Final host matrix has ten passing author cases, including a real gamma-correction
-consumer refused by the shared canonicalSourceEffectReject also used by the server.
-The existing read-only/timing regression batch has 21 passing cases. Rapid gesture
-cancellation checks that a dropped old UP never becomes a fabricated successful end.
-Final scoped lint has no errors; private test observations supplement MockGL only.
+Final host matrix: 16 passing actual-engine author cases. The native Basic2Opacity
+fixture verifies before-BEGIN no drawing; captured packet mutation; after-UP local
+draw/derived with journal zero and checkpoint closed; abort/late reply; unsupported
+size/effect; mismatched snapshot; input CPU overflow; rapid two-gesture cancel;
+old-empty-cut recovery refusal; promotion of all actual outgoing frames through
+the real attachment/original delivery preparers; UP-signal retirement plus selection
+change; and actual eight-frame pressure with resume/cancel. Promotion adds neither
+source upload nor kernel compilation; destroy leaves CPU reservations zero.
 
-Joint app/SW typecheck 33101 passes after shared effect-policy extraction and the
-source adapter V2/unknown-error type corrections. Ordinary Room activation and
-unsequenced local feedback remain outside this author-only prerequisite.
+Recording GL proves engine ownership/control flow, not GPU pixels, online latency
+or final UI activation. Device/services/runtime dependencies were not created.
+
+Fault coverage additionally exercises the interval between local admission and
+Outbox emission: a failing first RebuildJob wake retires speculative storage,
+leaves no journal/output, and requests repair only after CPU zero. localAdmitted
+and recoveryDirty are set before that wake, independently of the emission count.
+
+An actual local draw failure originally reported repair with 85,912 CPU bytes and
+pending author input. The engine now latches one first repair reason, retires the
+same layer/prepared/FIFO owners and counts outstanding source lifetimes with one
+integer. Nested poisoning coalesces; notification waits for zero holds outside
+cleanup. A failure inside active FIFO .next(), after executor metadata admission,
+is also covered: existing generator release finishes before the external callback.
+Both tests capture state inside the callback and assert outside (callback errors
+are intentionally swallowed by production). They observe CPU/holds/jobs zero,
+no pending FIFO and the exact first error. All source owners reach zero on destroy.
+No new notification queue, registry, scheduler or pixel pipeline was introduced.
+
+hasActiveCanonicalAuthor reads the same source lifetime count: true while BEGIN
+is pending, false after normal UP CPU retirement even with unconfirmed visible
+preview; cancelled/faulted input also returns false. This distinguishes CPU
+continuations from pending Outbox/preview state for full-room replacement guards.
+
+Final type gates: app3722 PASS after the combined14348 found only the unrelated
+Room/Color fixture errors; SW graph unchanged from45674 PASS. The final app graph
+includes local lease retirement, source hold/repair cleanup and these16 cases.
