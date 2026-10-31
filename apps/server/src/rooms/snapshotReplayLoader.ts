@@ -1,3 +1,4 @@
+import type {CanonicalFullHistoryRows} from './snapshotStore.js'
 import {isDeepStrictEqual} from 'node:util'
 import { IMPLICIT_LAYER_IDS, CANONICAL_RECORDED_ATTACHMENT_LIMITS, type CanonicalStrokeOperation, type verifyCanonicalRecordedPrefix, type Operation } from '@grafetto/shared'
 
@@ -14,7 +15,8 @@ const STRUCTURE_TYPES = ['layer_add', 'folder_add', 'layer_delete', 'layer_merge
 export interface CanonicalPrefixRequest {readonly anchor:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly throughSeq:number;readonly purpose:'read'|'undo-redo'}
 export interface PreparedCanonicalPrefix {readonly operations:readonly CanonicalStrokeOperation[];readonly canonicalRows:readonly CanonicalStoredOperationRow[];readonly summary:ReturnType<typeof verifyCanonicalRecordedPrefix>}
 export type CanonicalPrefixPreparer=(input:CanonicalPrefixRequest)=>Promise<PreparedCanonicalPrefix>
-export interface SnapshotReplayPreparation {readonly prepareCanonicalPrefix?:CanonicalPrefixPreparer}
+export interface CanonicalFullHistoryReceipt extends CanonicalFullHistoryRows {assertCurrent(this:CanonicalFullHistoryReceipt):void}
+export interface SnapshotReplayPreparation {readonly prepareCanonicalPrefix?:CanonicalPrefixPreparer;readonly canonicalFloor?:number;readonly prepareFullCanonicalHistory?:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>}
 
 export interface PreparedSnapshotReplay extends SnapshotReplayPlan {
   index: { seq: number; layerState: unknown; layers: SnapshotCandidate[]; replayStructure?: true; historyLayers?: string[] } | null
@@ -22,6 +24,7 @@ export interface PreparedSnapshotReplay extends SnapshotReplayPlan {
   canonicalRows: readonly CanonicalStoredOperationRow[]
   historicalIds: Set<string>
   watermark: number
+  readonly fullCanonicalHistory?:CanonicalFullHistoryReceipt
 }
 
 /** One computed selection serves both Socket.io tail and HTTP index. It does
@@ -36,6 +39,17 @@ export async function prepareSnapshotReplay(roomId: string,preparation?:Snapshot
       prisma.roomLayerState.findUnique({ where: { roomId }, select: { seq: true, state: true } }),
       prisma.roomLayerSnapshot.findMany({ where: { roomId }, orderBy: { seq: 'desc' }, select: { layerId: true, seq: true, hash: true } }),
     ])
+    if(preparation?.prepareFullCanonicalHistory){
+      if(stored||rows.length||!record||preparation.canonicalFloor!==0)throw Error('Canonical full baseline unavailable')
+      const receipt=await preparation.prepareFullCanonicalHistory({throughSeq:watermark,floor:preparation.canonicalFloor})
+      receipt.assertCurrent()
+      if(receipt.throughSeq!==watermark||rooms.get(roomId)!==record||record.nextSeq-1!==watermark)throw Error('Canonical full baseline changed')
+      const known=new Map(receipt.operations.map(op=>[op.id,op]))
+      for(const op of record.operations)if(!isDeepStrictEqual(known.get(op.id),op))throw Error('Canonical resident history missing or changed')
+      const plan=planSnapshotReplay([], [...receipt.operations],record.aliveIds)
+      if(plan.unresolvedTargets.size)throw Error('Unresolved canonical full history')
+      return {...plan,index:null,operations:[...receipt.operations],canonicalRows:receipt.canonicalRows,historicalIds:new Set(),watermark,fullCanonicalHistory:receipt}
+    }
     const live = stored ? layerStateIdsOf(stored.state) : null
     const candidates = rows.filter(row => live === null || live.has(row.layerId))
     const canonicalRows = new Map<string,CanonicalStoredOperationRow>()

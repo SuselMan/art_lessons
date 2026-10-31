@@ -4,6 +4,7 @@ import { isDeepStrictEqual } from 'node:util'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
+import {CANONICAL_RECORDED_ATTACHMENT_LIMITS} from '@grafetto/shared'
 import type { Operation, RecordedCanonicalStrokeCloseOperation,CanonicalStrokeOperation } from '@grafetto/shared'
 
 import { canonicalOperationRowSelect,verifyCanonicalOperationRow,projectCanonicalIndexedOperation,projectCanonicalIndexedCloseOperation,type CanonicalStoredOperationRow } from './roomPersistence.js'
@@ -470,4 +471,32 @@ export async function getCanonicalGesturePrefixWithRows(roomId:string,selector:{
  }
  if(!anchored)return fail()
  return {operations,canonicalRows,...close?{close}:{}}
+}
+
+/** Actual all-global-row range evidence under a captured single-writer cut.
+ * No source/read grant: the owning transport still verifies each material prefix. */
+export interface CanonicalFullHistoryRows {readonly operations:readonly CanonicalStrokeOperation[];readonly canonicalRows:readonly CanonicalStoredOperationRow[];readonly throughSeq:number}
+export async function getCanonicalFullHistoryWithRows(roomId:string,throughSeq:number,afterRead:()=>Promise<void>):Promise<CanonicalFullHistoryRows> {
+ const fail=():never=>{throw new Error('Canonical full history unavailable')}
+ if(!roomId||!Number.isSafeInteger(throughSeq)||throughSeq<0||throughSeq>=Number.MAX_SAFE_INTEGER)return fail()
+ const operations:CanonicalStrokeOperation[]=[],canonicalRows:CanonicalStoredOperationRow[]=[],ids=new Set<string>(),gestures=new Set<string>()
+ let previous=0,bytes=0
+ while(true){
+  const rows=await prisma.operation.findMany({where:{roomId,seq:{gt:previous,lte:throughSeq}},orderBy:{seq:'asc'},take:64,select:canonicalOperationRowSelect})
+  await afterRead()
+  if(rows.length>64)return fail()
+  if(!rows.length){if(previous!==throughSeq)return fail();break}
+  for(const row of rows){
+   if(row.type!=='canonical_stroke'||row.seq!==previous+1||row.seq>throughSeq||ids.has(row.id)||operations.length>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)return fail()
+   const projected=projectCanonicalIndexedOperation(roomId,row),op=projected.operation
+   if(op.frame.materialPacked.startsWith('1|'))return fail()
+   bytes+=projected.bytes
+   const key=JSON.stringify([op.userId,op.frame.strokeId]);gestures.add(key)
+   if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes||gestures.size>CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)return fail()
+   const copy=immutableCanonicalOperation(op,op.seq!)
+   if(copy.type!=='canonical_stroke')return fail()
+   operations.push(copy);canonicalRows.push(Object.freeze({...row,data:copy}));ids.add(copy.id);previous=row.seq
+  }
+ }
+ return Object.freeze({throughSeq,operations:Object.freeze(operations),canonicalRows:Object.freeze(canonicalRows)})
 }

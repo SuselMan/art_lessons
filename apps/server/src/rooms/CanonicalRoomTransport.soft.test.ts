@@ -13,17 +13,18 @@ const {SourceCanonicalFrameEncoder}=await import(new URL('../../../web/src/engin
 import {BrushStorage,empty,setBrushStorage} from '../brushLibrary/storage.js'
 import {rooms,flushRoomWrites,type RoomRecord} from './roomRegistry.js'
 import {CanonicalRoomTransport} from './CanonicalRoomTransport.js'
+import {prepareSnapshotReplay} from './snapshotReplayLoader.js'
 import {getCanonicalGesturePrefixWithRows} from './snapshotStore.js'
 import {CanonicalBrushCapabilityResolver} from './CanonicalBrushCapabilityResolver.js'
 import {CanonicalStrokeAdmission} from './CanonicalStrokeAdmission.js'
-const db=vi.hoisted(()=>({operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn()}}))
+const db=vi.hoisted(()=>({operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn()},roomLayerState:{findUnique:vi.fn()},roomLayerSnapshot:{findMany:vi.fn()}}))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
 const history=vi.hoisted(()=>({rows:[] as unknown[],canonicalRows:[] as unknown[],close:undefined as import('./snapshotStore.js').CanonicalIndexedCloseEvidence|undefined}))
 vi.mock('./snapshotStore.js',async importOriginal=>({...await importOriginal<typeof import('./snapshotStore.js')>(),getCanonicalGesturePrefixWithRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows,...history.close?{close:history.close}:{}})),getOperationsBefore:vi.fn(async()=>history.rows),getOperationsBeforeWithCanonicalRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows}))}))
 const readAccess=vi.hoisted(()=>({allowed:true,gate:undefined as Promise<void>|undefined,calls:[] as [string,string][]}))
 vi.mock('./boardContentAccess.js',()=>({mayReadBoardContent:vi.fn(async(roomId:string,userId:string)=>{readAccess.calls.push([roomId,userId]);await readAccess.gate;return readAccess.allowed})}))
 const dirs:string[]=[]
-beforeEach(()=>{readAccess.allowed=true;readAccess.gate=undefined;readAccess.calls=[];db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[];history.canonicalRows=[];history.close=undefined})
+beforeEach(()=>{db.roomLayerState.findUnique.mockResolvedValue(null);db.roomLayerSnapshot.findMany.mockResolvedValue([]);readAccess.allowed=true;readAccess.gate=undefined;readAccess.calls=[];db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[];history.canonicalRows=[];history.close=undefined})
 afterEach(async()=>{for(const id of rooms.keys())await flushRoomWrites(id);rooms.clear();for(const d of dirs.splice(0))rmSync(d,{recursive:true,force:true});vi.restoreAllMocks();vi.clearAllMocks()})
 function resident():RoomRecord{
  const record:RoomRecord={room:{id:'board',name:'Board',ownerId:'author',paper:'coarse',infinite:false,canvasWidth:64,canvasHeight:64,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-29T00:00:00Z',rasterVersion:'straight-rgba8-v1'},lessonId:null,sockets:new Set(),boards:[],assignments:[],activeAssignmentId:null,spotlightBoardId:null,handsRaised:new Set(),assignmentStarting:false,passwordHash:undefined,operations:[],participants:new Map(),nextSeq:1,layerStateSeq:null,layerStateIds:null,coveredSeqByLayer:new Map(),palette:[],roomFrozen:false,frozenUserIds:new Set(),lockedLayerIds:new Set(),sharedLockedLayerIds:new Set(),aliveIds:new Set(['layer']),deletedIds:new Set(),operationsById:new Map(),structuralLog:[]}
@@ -651,4 +652,87 @@ it('keeps source execution/read/begin closed on actual indexed close presence, i
   const projected=await actual.getCanonicalGesturePrefixWithRows('board',{userId:'author',strokeId:'gesture'},f.board.nextSeq-1,f.operations.at(-1)!)
   expect(knownCanonicalWrite(projected.close!.operation)).toBeUndefined()
  }finally{query.mockImplementation(previous)}
+})
+
+it('builds internal full empty-baseline evidence from actual DB rows including an entirely omitted source gesture',async()=>{
+ const f=await metadataFixture(),pin=vi.spyOn(f.storage,'pin')
+ history.rows=[];history.canonicalRows=[]
+ const hiddenInput={...f.input,strokeId:'hidden'}
+ const bound=snapshot(await f.transport.begin(identity,hiddenInput,()=>true))
+ const packet={...frames(f.descriptor,bound)[0],strokeId:'hidden'}
+ const hidden=(await f.transport.recorded(identity,{type:'canonical_stroke',id:'entire-hidden-gesture',userId:'author',timestamp:100,layerId:'layer',frame:packet},()=>true)).accepted!
+ await flushRoomWrites('board')
+ const rows=db.operation.create.mock.calls.map(([q])=>q.data),cut=f.board.nextSeq-1,writes=db.operation.create.mock.calls.length,pins=pin.mock.calls.length
+ f.board.operations=f.board.operations.filter(op=>op.id!==hidden.id);f.board.operationsById.delete(hidden.id)
+ db.operation.findMany.mockImplementation(async({where,take})=>rows.filter(r=>r.seq>where.seq.gt&&r.seq<=where.seq.lte).slice(0,take))
+ const read=await f.transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)
+ const replay=await prepareSnapshotReplay('board',{canonicalFloor:0,prepareFullCanonicalHistory:read.prepareFullHistory})
+ expect(replay.watermark).toBe(cut);expect(replay.operations.map(op=>op.id)).toContain(hidden.id)
+ expect(replay.fullCanonicalHistory).toBeDefined();expect(replay.index).toBeNull()
+ const fields=read.finish(replay.operations,replay.canonicalRows,replay.fullCanonicalHistory)
+ expect(fields.canonicalCapabilities?.bindings).toHaveLength(rows.length)
+ expect(Object.keys(fields)).not.toContain('canonicalHistoryBase');expect(Object.keys(fields)).not.toContain('fullCanonicalHistory')
+ expect(pin).toHaveBeenCalledTimes(pins);expect(db.operation.create).toHaveBeenCalledTimes(writes)
+ expect(()=>read.finish(replay.operations.slice(1),replay.canonicalRows,replay.fullCanonicalHistory)).toThrow()
+ expect(()=>read.finish(replay.operations,replay.canonicalRows,{...replay.fullCanonicalHistory!})).toThrow()
+})
+it('requires actual empty-query evidence at cut zero and refuses stale/copy/foreign read-owner receipts',async()=>{
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected)
+ db.operation.findMany.mockResolvedValue([])
+ const read=await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true),request={throughSeq:0,floor:0},receipt=await read.prepareFullHistory(request)
+ request.floor=1 // The receipt owns the captured floor, not this caller object.
+ expect(db.operation.findMany).toHaveBeenCalledTimes(1);expect(read.finish([],[],receipt).canonicalCapabilities).toBeUndefined()
+ const other=await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)
+ expect(()=>other.finish([],[],receipt)).toThrow();expect(()=>read.finish([],[],{...receipt})).toThrow()
+ f.board.nextSeq=2;expect(()=>read.finish([],[],receipt)).toThrow()
+})
+it('refuses partial-floor, snapshot-covered and unsupported interleaved-writer baseline requests before publication',async()=>{
+ const f=await metadataFixture(),rows=db.operation.create.mock.calls.map(([q])=>q.data),read=await f.transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true),cut=f.board.nextSeq-1
+ db.operation.findMany.mockImplementation(async({where,take})=>rows.filter(r=>r.seq>where.seq.gt&&r.seq<=where.seq.lte).slice(0,take))
+ await expect(read.prepareFullHistory({throughSeq:cut,floor:1})).rejects.toThrow();expect(db.operation.findMany).not.toHaveBeenCalled()
+ f.board.layerStateSeq=1;await expect(read.prepareFullHistory({throughSeq:cut,floor:0})).rejects.toThrow();f.board.layerStateSeq=null
+ rows.push({id:'legacy-writer',seq:f.board.nextSeq++,roomId:'board',userId:'author',type:'stroke',layerId:'layer',tool:'pencil',data:{type:'stroke'}})
+ await expect(read.prepareFullHistory({throughSeq:cut+1,floor:0})).rejects.toThrow()
+})
+it('rechecks cut and authorization after DB awaits and refuses loader full readiness on nonzero floor',async()=>{
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected),read=await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)
+ db.operation.findMany.mockImplementationOnce(async()=>{f.board.nextSeq=2;return []})
+ await expect(read.prepareFullHistory({throughSeq:0,floor:0})).rejects.toThrow()
+ f.board.nextSeq=1;db.operation.findMany.mockImplementationOnce(async()=>{readAccess.allowed=false;return []})
+ await expect(read.prepareFullHistory({throughSeq:0,floor:0})).rejects.toThrow()
+ readAccess.allowed=true
+ await expect(prepareSnapshotReplay('board',{canonicalFloor:1,prepareFullCanonicalHistory:read.prepareFullHistory})).rejects.toThrow()
+})
+
+it('keeps full baseline readiness unavailable for stored snapshot metadata and missing indexed frames',async()=>{
+ const f=await metadataFixture(),rows=db.operation.create.mock.calls.map(([q])=>q.data),read=await f.transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)
+ db.roomLayerState.findUnique.mockResolvedValueOnce({seq:1,state:{}})
+ await expect(prepareSnapshotReplay('board',{canonicalFloor:0,prepareFullCanonicalHistory:read.prepareFullHistory})).rejects.toThrow()
+ db.operation.findMany.mockResolvedValue([])
+ await expect(prepareSnapshotReplay('board',{canonicalFloor:0,prepareFullCanonicalHistory:read.prepareFullHistory})).rejects.toThrow()
+ db.operation.findMany.mockImplementation(async({where,take})=>rows.filter(r=>r.seq>where.seq.gt&&r.seq<=where.seq.lte).slice(0,take))
+ const replay=await prepareSnapshotReplay('board',{canonicalFloor:0,prepareFullCanonicalHistory:read.prepareFullHistory})
+ const alternate=await read.prepareFullHistory({throughSeq:replay.watermark,floor:0})
+ expect(()=>read.finish([...alternate.operations],alternate.canonicalRows,replay.fullCanonicalHistory)).toThrow()
+ f.board.coveredSeqByLayer.set('layer',1)
+ expect(()=>read.finish(replay.operations,replay.canonicalRows,replay.fullCanonicalHistory)).toThrow()
+})
+
+it('checks the captured operator owner after full-history DB awaits, not a freshly blessed read owner',async()=>{
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected),read=await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)
+ db.operation.findMany.mockImplementationOnce(async()=>{setBrushStorage(f.storage,empty());return []})
+ await expect(read.prepareFullHistory({throughSeq:0,floor:0})).rejects.toThrow()
+})
+
+it('waits for the existing durable queue before querying a complete cut and never invents pending-row evidence',async()=>{
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected),s=snapshot(await transport.begin(identity,f.input,()=>true)),write=deferredWrite()
+ db.operation.create.mockReturnValueOnce(write.promise)
+ const saving=transport.recorded(identity,{type:'canonical_stroke',id:'pending-full-frame',userId:'author',timestamp:0,layerId:'layer',frame:frames(f.descriptor,s)[0]},()=>true)
+ await vi.waitFor(()=>expect(db.operation.create).toHaveBeenCalledTimes(1))
+ const rows=db.operation.create.mock.calls.map(([q])=>q.data)
+ db.operation.findMany.mockImplementation(async({where,take})=>rows.filter(r=>r.seq>where.seq.gt&&r.seq<=where.seq.lte).slice(0,take))
+ const read=await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true),preparing=read.prepareFullHistory({throughSeq:1,floor:0})
+ await Promise.resolve();expect(db.operation.findMany).not.toHaveBeenCalled()
+ write.resolve();expect((await saving).result.ok).toBe(true)
+ const receipt=await preparing;expect(receipt.operations).toHaveLength(1);expect(read.finish(receipt.operations,receipt.canonicalRows,receipt).canonicalCapabilities?.bindings).toHaveLength(1)
 })

@@ -265,7 +265,7 @@ it.each(['ready','failed','stale'] as const)('pairs canonical snapshot-index pre
  const owner=new CanonicalRoomTransport(),preparePrefix=vi.fn<import('../rooms/snapshotReplayLoader.js').CanonicalPrefixPreparer>(),scope={roomId:'room-1',boardEpoch:2}
  let current:(()=>boolean)|undefined
  const read=vi.spyOn(owner,'prepareReadDelivery').mockImplementation(async(_identity,isCurrent)=>{
-  current=isCurrent;return {scope,preparePrefix,finish:()=>({canonicalReadScope:scope})}
+  current=isCurrent;return {scope,preparePrefix,prepareFullHistory:async()=>{throw Error('Full readiness not requested by index route')},finish:()=>({canonicalReadScope:scope})}
  })
  const index={seq:3,layerState:{},layers:[]}
  mockRooms.getSnapshotIndex.mockImplementation(async(roomId,preparation)=>{
@@ -309,7 +309,7 @@ it.each(['operator','storage'] as const)('refuses an empty canonical index after
 it('rechecks read permission after canonical index preparation and publishes no index after revocation',async()=>{
  const {rooms}=await import('../rooms/roomRegistry.js'),record=canonicalIndexRecord();rooms.set('room-1',record)
  const owner=new CanonicalRoomTransport(),finish=vi.fn(()=>({canonicalReadScope:{roomId:'room-1',boardEpoch:2}}))
- vi.spyOn(owner,'prepareReadDelivery').mockResolvedValue({scope:{roomId:'room-1',boardEpoch:2},preparePrefix:vi.fn(),finish})
+ vi.spyOn(owner,'prepareReadDelivery').mockResolvedValue({scope:{roomId:'room-1',boardEpoch:2},preparePrefix:vi.fn(),prepareFullHistory:async()=>{throw Error('Full readiness not requested by index route')},finish})
  mockRooms.getSnapshotIndex.mockImplementation(async()=>{mockRooms.mayReadBoardContent.mockResolvedValueOnce(false);return {seq:3,layerState:{},layers:[]}})
  const app=buildApp(owner)
  try{

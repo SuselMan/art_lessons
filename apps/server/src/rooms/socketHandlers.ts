@@ -482,11 +482,11 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, cano
         if (rooms.get(roomId)?.room.rasterVersion === STRAIGHT_ROOM_RASTER_VERSION) {
           readDelivery = await canonicalTransport.prepareJoinReadDelivery(access.preparation, isCurrent)
         }
-        replay = await prepareSnapshotReplay(roomId,readDelivery?{prepareCanonicalPrefix:readDelivery.preparePrefix}:undefined)
+        replay = await prepareSnapshotReplay(roomId,readDelivery?{prepareCanonicalPrefix:readDelivery.preparePrefix,canonicalFloor:lastKnownSeq??0}:undefined)
         access.preparation.assertCurrent()
         const candidate = getRoomSnapshot(roomId, lastKnownSeq, userId, replay)
         if (!candidate) throw Error('Join snapshot unavailable')
-        readFields = readDelivery?.finish(candidate.tailOperations, replay.canonicalRows.filter(row => candidate.tailOperations.some(op => op.id === row.id)))
+        readFields = readDelivery?.finish(candidate.tailOperations, replay.canonicalRows.filter(row => candidate.tailOperations.some(op => op.id === row.id)),replay.fullCanonicalHistory)
         access.preparation.assertCurrent()
       } catch (err) {
         if (isCurrent()) releaseRoomIfUnused(roomId)
