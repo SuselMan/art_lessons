@@ -1374,7 +1374,20 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
  if(read.assertCurrent()!==scope)throw new Error('Canonical baseline scope changed')
  return Object.freeze({read,tail,scope,inputs:Object.freeze(inputs),profile:read.authorRasterProfile,mask:Object.freeze(mask),composite:Object.freeze(composite),gestures:prefixes.size,logicalBytes,page:Object.freeze(page),tileWidth,tileHeight})
 }
+interface CanonicalAcceptedBaseline {
+ readonly plan:CanonicalEmptyPlan;readonly revision:number;readonly entries:OperationLog['entries'];readonly originalEntries:OperationLog['entries'];readonly originalOperations:readonly Operation[];readonly originalReads:readonly OperationLog['entries'][number]['canonicalRead'][];readonly generation:number
+}
+function canonicalAcceptedJournalValid(accepted:CanonicalAcceptedBaseline,log:OperationLog):boolean {
+ const entries=log.entries
+ return log.revision===accepted.revision&&entries===accepted.entries&&entries.length===accepted.plan.inputs.length&&entries.length===accepted.originalEntries.length&&accepted.originalEntries.every((entry,i)=>{
+  const input=accepted.plan.inputs[i],operation=entry.op,original=input.operation
+  // OperationLog normalizes canonicalRead; retain its proven wrapper identity,
+  // alongside the exact original canonicalInput, without creating new authority.
+  return entries[i]===entry&&entry.state==='done'&&!entry.pending&&entry.serverSeq===input.operation.seq&&entry.canonicalInput===input&&!!input.read&&!!entry.canonicalRead&&entry.canonicalRead===accepted.originalReads[i]&&entry.op===accepted.originalOperations[i]&&operation.type==='canonical_stroke'&&original.type==='canonical_stroke'&&operation.id===original.id&&operation.userId===original.userId&&operation.layerId===original.layerId&&operation.frame===original.frame
+ })
+}
 interface CanonicalEmptyTransaction {
+ readonly generation:number;readonly recovery?:CanonicalAcceptedBaseline;rollbackGL?:()=>void
  readonly plan:CanonicalEmptyPlan;readonly old:Map<string,ILayerBuffer>;readonly revision:number;readonly staged:OperationLog
  readonly candidate:Map<string,ILayerBuffer>;readonly jobs:CanonicalEmptyJob[];readonly oldEntries:readonly (readonly [string,ILayerBuffer])[]
  readonly resolve:(result:CanonicalEmptyRoomRestoreResult)=>void;readonly reject:(error:unknown)=>void
@@ -1605,6 +1618,11 @@ export class PencilEngine implements PencilEngineAPI {
   readonly rasterVersion: RoomRasterVersion
   private readonly _canonicalEmptyAdmission?:CanonicalEmptyPlan
   private _canonicalEmptyTransaction?:CanonicalEmptyTransaction
+  private _canonicalAccepted?:CanonicalAcceptedBaseline
+  private _canonicalPixelsReady=false
+  private _physicalGeneration=0
+  private _glSceneGeneration=0
+  private _glInitializedGeneration=-1
   private canvas: HTMLCanvasElement
   private gl: WebGLRenderingContext
   private _opts: EngineOpts
@@ -2424,7 +2442,7 @@ export class PencilEngine implements PencilEngineAPI {
     // closed until constructor rollback and raw storage ownership are migrated.
     attachContextStorage(gl, { limitBytes: Infinity })
     this.gl = gl
-    const currentPresentation = () => this._destroyed || this._contextLost ? undefined : this._straightPresentation
+    const currentPresentation = () => this._destroyed || this._contextLost || !this._canonicalReadable() ? undefined : this._straightPresentation
   this._compositor = new LayerCompositor({
     gl,
     get straightPresentation() {
@@ -3826,6 +3844,7 @@ export class PencilEngine implements PencilEngineAPI {
    *      loop). No code change needed here — see #145's issue thread for the
    *      export-side fix, which *does* need one. */
   pickColor(canvasX: number, canvasY: number): [number, number, number] | null {
+    if(!this._canonicalReadReady())return null
     const { gl, canvas } = this
     // (#470) The arguments are world units (canvas pixels for a bounded room,
     // which used to be the same thing as screen pixels and is not any more).
@@ -4364,27 +4383,36 @@ export class PencilEngine implements PencilEngineAPI {
    *  3 baked assets are small and prefetched from construction — but a
    *  slow/offline first load makes the gap real. */
   async exportPNG(transparent = false): Promise<Blob | null> {
+    if(!this._canonicalReadReady())return null
     await this._paper.ready()
+    if(!this._canonicalReadReady())return null
     if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._strokeLayerId) return null
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || !await this._wcCanonical.ready() || this._wcAsyncError !== null || this._strokeLayerId)) return null
+    if(!this._canonicalReadReady())return null
     return this._exporter.exportPNG(transparent)
   }
 
   async exportReviewImage(): Promise<import('./src/export/Exporter').ReviewExport | null> {
+    if(!this._canonicalReadReady())return null
     await this._paper.ready()
+    if(!this._canonicalReadReady())return null
     if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._strokeLayerId) return null
     if (this._destroyed || this._contextLost) return null
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || !await this._wcCanonical.ready() || this._wcAsyncError !== null || this._strokeLayerId)) return null
+    if(!this._canonicalReadReady())return null
     return this._exporter.exportReviewImage()
   }
 
   /** See PencilEngineAPI's doc comment, and ADR 015 §5 for why it exists;
    *  the work is Exporter's (#494). */
   async bakePreview(maxSide = 320): Promise<Blob | null> {
+    if(!this._canonicalReadReady())return null
     await this._paper.ready()
+    if(!this._canonicalReadReady())return null
     if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._strokeLayerId) return null
     if (this._destroyed || this._contextLost) return null
     if (this._wcAsyncFinish && (this._wcAsyncError !== null || !await this._wcCanonical.ready() || this._wcAsyncError !== null || this._strokeLayerId)) return null
+    if(!this._canonicalReadReady())return null
     return this._exporter.bakePreview(maxSide)
   }
 
@@ -5370,12 +5398,14 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleContextLost = (e: Event): void => {
     if (this._destroyed) return
     this._contextLost=true
+    this._physicalGeneration++
+    this._canonicalPixelsReady=false
+    AccumulationBuffer.forgetContextStorage(this.gl)
     if(this._canonicalEmptyTransaction)this._failCanonicalEmpty(this._canonicalEmptyTransaction,new Error('Canonical baseline context lost'))
     this._straightPresentation=undefined
     this._paper.contextLost()
     this._quadBuf = null
     this._screenBuf = null
-    AccumulationBuffer.forgetContextStorage(this.gl)
     this._cancelOwnedAuthor(true)
     this._brushPreparationGeneration++
     this._brushPreparation.cancel()
@@ -5411,8 +5441,13 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleContextRestored = (): void => {
     if (this._destroyed) return
     if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION){
-      this._contextLost=true
-      try{this._diagLog('[engine] canonical baseline recovery required')}catch{/* diagnostics cannot reopen an invalid generation */}
+      if(!this._contextLost||this._canonicalEmptyTransaction)return
+      // Physical GL availability is distinct from accepted pixel readiness.
+      this._contextLost=false
+      this._canonicalPixelsReady=false
+      const accepted=this._canonicalAccepted
+      if(!accepted){try{this._diagLog('[engine] canonical baseline recovery required')}catch{};return}
+      void this.restoreCanonicalEmptyRoom(accepted.plan.read,accepted.plan.tail).catch(error=>{try{this._diagLog('[engine] canonical baseline recovery failed',error)}catch{}})
       return
     }
     this._continuationGpuFence?.forget()
@@ -6030,6 +6065,12 @@ export class PencilEngine implements PencilEngineAPI {
    * protocol must never enter its journal, pending queue or snapshot prefix
    * while straight writers/presentation are not installed. Check whole history
    * batches before the first mutation, not only at the eventual paint switch. */
+  private _canonicalReadReady():boolean {
+    return !this._destroyed&&!this._contextLost&&this._canonicalReadable()&&(this.rasterVersion===LEGACY_ROOM_RASTER_VERSION||!this.gl.isContextLost())
+  }
+  private _canonicalReadable():boolean {
+    return this.rasterVersion===LEGACY_ROOM_RASTER_VERSION||this._canonicalPixelsReady
+  }
   private _assertLegacyWriter():void {
     if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)throw new TypeError('Canonical straight engine is read-only')
   }
@@ -6039,16 +6080,28 @@ export class PencilEngine implements PencilEngineAPI {
       if(!admission||admission.read!==read||admission.tail!==originalTail||this._canonicalEmptyTransaction||this._destroyed||this._contextLost||this.gl.isContextLost())throw new Error('Canonical baseline admission unavailable')
       // Original pointers/immutable admission are never reconstructed from atoms.
       const plan=planCanonicalEmptyRoom(read,originalTail,admission.page.maxX,admission.page.maxY)
+      const accepted=this._canonicalAccepted
+      if(accepted){
+        if(this._canonicalPixelsReady||accepted.generation>=this._physicalGeneration||this._rebuildJobs.size||this._pendingRebuilds.size)throw new Error('Canonical recovery unavailable')
+        if(accepted.plan.read!==read||accepted.plan.tail!==originalTail||!canonicalAcceptedJournalValid(accepted,this._log))throw new Error('Canonical accepted journal changed')
+        return this._beginCanonicalEmpty(plan,old,accepted.revision,new OperationLog(),accepted)
+      }
       if(this._log.entries.length||this._log.revision!==revision||this._layers!==old||this._rebuildJobs.size||this._pendingRebuilds.size||this._opQueue.length||this._strokeLayerId||this._wash||this._settle||this._replayRibbonChunks.size||this._peerPreviews.size||this._peerLiveStrokes.size||this._previews.tiles.size||this._wcCanonical.pending||this._wcAsyncOwners.size||this._wcAsyncLocalTools.size||this._wcAsyncPeerStreams.size||this._wcAsyncPresentations.size||this._wcMaterialOwners.layers.size||this._washReveals.size||this._checkpoints.all().length)throw new Error('Canonical baseline requires an idle empty journal')
       if(old.size!==IMPLICIT_LAYER_IDS.length||this._baseLayerIds.size!==IMPLICIT_LAYER_IDS.length||IMPLICIT_LAYER_IDS.some(id=>!old.has(id)||!this._baseLayerIds.has(id)))throw new Error('Canonical baseline requires registered implicit layers')
       if(plan.logicalBytes>this._gpuBudget)throw new RangeError('Canonical baseline exceeds existing logical GPU allowance')
       const staged=new OperationLog()
       for(const input of plan.inputs)staged.append(input.operation,{serverSeq:input.operation.seq,canonicalRead:input.read,canonicalInput:input})
       if(this._log.revision!==revision||this._log.entries.length||this._layers!==old)throw new Error('Canonical baseline journal changed')
-      return new Promise((resolve,reject)=>{
-        const tx:CanonicalEmptyTransaction={plan,old,revision,staged,candidate:new Map(),jobs:[],oldEntries:[...old],resolve,reject,committed:false,finished:false,failures:[]}
+      return this._beginCanonicalEmpty(plan,old,revision,staged)
+    }catch(error){return Promise.reject(error)}
+  }
+  private _beginCanonicalEmpty(plan:CanonicalEmptyPlan,old:Map<string,ILayerBuffer>,revision:number,staged:OperationLog,recovery?:CanonicalAcceptedBaseline):Promise<CanonicalEmptyRoomRestoreResult> {
+    return new Promise((resolve,reject)=>{
+        const tx:CanonicalEmptyTransaction={plan,old,revision,staged,generation:this._physicalGeneration,recovery,candidate:new Map(),jobs:[],oldEntries:[...old],resolve,reject,committed:false,finished:false,failures:[]}
         this._canonicalEmptyTransaction=tx
         try{
+          this._assertCanonicalEmptyCurrent(tx)
+          if(recovery||this._glInitializedGeneration!==this._physicalGeneration){this._ribbonScratchPool.forget();tx.rollbackGL=this._initGL()}
           for(const id of IMPLICIT_LAYER_IDS)tx.candidate.set(id,this._makeLayerBuffer())
           const stable=tx.candidate.get(INITIAL_LAYER_ID) as TiledLayerBuffer,derived=this._makeLayerBuffer() as TiledLayerBuffer
           const cache=new BrushTextureCache(this.gl),prepass=new TransformedMaskPrepass(this.gl,cache,this._brushMipCache,'engine-empty-mask'),composite=new CanonicalRgba8CompositePass(this.gl,cache,this._brushMipCache,'engine-empty-composite')
@@ -6061,13 +6114,13 @@ export class PencilEngine implements PencilEngineAPI {
           job.timer=setTimeout(()=>this._stepRebuildJob(job),0)
         }catch(error){this._failCanonicalEmpty(tx,error)}
       })
-    }catch(error){return Promise.reject(error)}
   }
   private _assertCanonicalEmptyCurrent(tx:CanonicalEmptyTransaction):void {
     // Authority may invoke application callbacks; finish with pure owner checks.
     tx.plan.read.assertEmptyHistoryBase(tx.plan.tail)
     const scope=tx.plan.read.assertCurrent(),lost=this.gl.isContextLost(),size=this._tileSize(),page=this._pageSize()
-    if(scope!==tx.plan.scope||tx.finished||this._canonicalEmptyTransaction!==tx||this._destroyed||this._contextLost||lost||this._log.revision!==tx.revision||this._log.entries.length||this._layers!==tx.old||tx.old.size!==tx.oldEntries.length||tx.oldEntries.some(([id,buffer])=>tx.old.get(id)!==buffer)||tx.jobs.some(c=>this._rebuildJobs.get(INITIAL_LAYER_ID)?.canonical!==c)||page.w!==tx.plan.page.maxX||page.h!==tx.plan.page.maxY||size.w!==tx.plan.tileWidth||size.h!==tx.plan.tileHeight)throw new Error('Canonical baseline owner changed')
+    const accepted=tx.recovery,journalValid=accepted?this._canonicalAccepted===accepted&&canonicalAcceptedJournalValid(accepted,this._log):this._log.entries.length===0
+    if(scope!==tx.plan.scope||tx.finished||this._canonicalEmptyTransaction!==tx||this._destroyed||this._contextLost||lost||this._physicalGeneration!==tx.generation||this._log.revision!==tx.revision||!journalValid||this._layers!==tx.old||tx.old.size!==tx.oldEntries.length||tx.oldEntries.some(([id,buffer])=>tx.old.get(id)!==buffer)||tx.jobs.some(c=>this._rebuildJobs.get(INITIAL_LAYER_ID)?.canonical!==c)||page.w!==tx.plan.page.maxX||page.h!==tx.plan.page.maxY||size.w!==tx.plan.tileWidth||size.h!==tx.plan.tileHeight)throw new Error('Canonical baseline owner changed')
   }
   private _retireCanonicalEmptyJob(c:CanonicalEmptyJob,lost:boolean):unknown[] {
     c.retiring=true;const failures:unknown[]=[],attempt=(fn:()=>void)=>{try{fn()}catch(error){failures.push(error)}}
@@ -6082,10 +6135,11 @@ export class PencilEngine implements PencilEngineAPI {
     if(tx.finished)return
     tx.finished=true
     if(this._canonicalEmptyTransaction===tx)this._canonicalEmptyTransaction=undefined
-    let lost=false;try{lost=this._contextLost||this.gl.isContextLost()}catch(error){tx.failures.push(error)}
+    let lost=false;try{lost=tx.generation!==this._physicalGeneration||this._contextLost||this.gl.isContextLost()}catch(error){tx.failures.push(error)}
     for(const [id,job]of this._rebuildJobs)if(job.canonical?.transaction===tx){if(job.timer)clearTimeout(job.timer);this._rebuildJobs.delete(id)}
     for(const c of tx.jobs)tx.failures.push(...this._retireCanonicalEmptyJob(c,lost))
     for(const buffer of tx.candidate.values())try{buffer.destroy()}catch(error){tx.failures.push(error)}
+    const rollback=tx.rollbackGL;tx.rollbackGL=undefined;if(rollback)try{rollback()}catch(error){tx.failures.push(error)}
     tx.reject(primary)
   }
   private _stepCanonicalEmpty(job:RebuildJob):void {
@@ -6117,9 +6171,13 @@ export class PencilEngine implements PencilEngineAPI {
     this._assertCanonicalEmptyCurrent(tx)
     for(const c of tx.jobs){if(!c.complete)throw new Error('Canonical baseline incomplete');const failures=this._retireCanonicalEmptyJob(c,false);if(failures.length)throw failures[0]}
     this._assertCanonicalEmptyCurrent(tx)
-    // Whole journal CAS and one map pointer publication: no GL/callback between.
-    this._log.prependHistorical(tx.staged.entries,tx.revision,()=>{this._assertCanonicalEmptyCurrent(tx);return undefined})
+    if(tx.rollbackGL){this._paper.init();this._assertCanonicalEmptyCurrent(tx)}
+    // Initial journal CAS or unchanged accepted journal, then one map publication.
+    if(!tx.recovery)this._log.prependHistorical(tx.staged.entries,tx.revision,()=>{this._assertCanonicalEmptyCurrent(tx);return undefined})
     this._layers=tx.candidate
+    this._canonicalAccepted={plan:tx.plan,revision:this._log.revision,entries:this._log.entries,originalEntries:tx.recovery?.originalEntries??Object.freeze([...this._log.entries]),originalOperations:tx.recovery?.originalOperations??Object.freeze(this._log.entries.map(entry=>entry.op)),originalReads:tx.recovery?.originalReads??Object.freeze(this._log.entries.map(entry=>entry.canonicalRead)),generation:tx.generation}
+    this._canonicalPixelsReady=true
+    tx.rollbackGL=undefined
     tx.committed=true;tx.finished=true;this._canonicalEmptyTransaction=undefined
     for(const [id,job]of this._rebuildJobs)if(job.canonical?.transaction===tx)this._rebuildJobs.delete(id)
     const attempt=(fn:()=>void)=>{try{fn()}catch(error){tx.failures.push(error)}}
@@ -6239,6 +6297,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   private _initGL(): () => void {
     const { gl, canvas } = this
+    const physicalGeneration=this._physicalGeneration,sceneGeneration=++this._glSceneGeneration
     this._straightPresentation = undefined
     // Local initialization transaction only. No persistent second owner and no
     // shared-context reset; successful initialization keeps existing owners.
@@ -6247,6 +6306,8 @@ export class PencilEngine implements PencilEngineAPI {
     const rollback = () => {
       if (retired) return
       retired = true
+      if(physicalGeneration!==this._physicalGeneration||sceneGeneration!==this._glSceneGeneration)return
+      this._glInitializedGeneration=-1
       for (let i = owned.length - 1; i >= 0; i--) {
         try { owned[i]() } catch { /* Preserve the initialization failure and attempt every owner. */ }
       }
@@ -6344,6 +6405,7 @@ export class PencilEngine implements PencilEngineAPI {
     const presentation = new StraightLayerPresentation(this._ribbonScratchPool, passes)
     this._straightPresentation = presentation
     owned.push(() => { if (this._straightPresentation === presentation) this._straightPresentation = undefined })
+    this._glInitializedGeneration=physicalGeneration
     return rollback
     } catch (error) { rollback(); throw error }
   }
@@ -9996,11 +10058,13 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   readAreaImage(layerId: string, selection: SelectionShape): Promise<AreaImage | null> {
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return Promise.resolve(null)
     return this._area.readAreaImage(layerId, selection)
   }
 
   /** See PencilEngineAPI's doc comment. */
   computeAreaFill(request: AreaFillRequest): Promise<AreaFillRaster | null> {
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return Promise.resolve(null)
     return this._area.computeAreaFill(request)
   }
 
@@ -10137,7 +10201,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _display(): void {
-    if (this._destroyed || this._contextLost || this.gl.isContextLost()) return
+    if (this._destroyed || this._contextLost || this.gl.isContextLost() || !this._canonicalReadable()) return
     // (#470) One path for both kinds of room. A bounded room used to take a
     // screen-locked DISPLAY_FRAG pass over a sheet-sized _compositeFBO, which
     // only worked because its canvas *was* the sheet; now that the camera

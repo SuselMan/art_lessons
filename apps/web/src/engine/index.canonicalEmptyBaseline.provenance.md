@@ -27,11 +27,12 @@ commit, retirement is all-attempt and diagnostics return alongside
 
 Stable straight tiles use the actual engine-owned straight-to-PM display seam.
 Public legacy pixel writers remain independently closed for this storage;
-pointer methods stay inert and unlocking cannot grant writing. Context restore
-is explicitly recovery-required in this first slice: it retains the accepted
-journal, stays lost/read-only, and never substitutes the legacy replay path or
-claims a successfully restored blank image. Full nonempty-journal recovery is a
-separate required follow-up before ordinary activation.
+pointer methods stay inert and unlocking cannot grant writing. Accepted ended
+history now recovers through the same RebuildJob after physical context restore,
+with a separate canonical readiness gate. Its exact journal array, entries,
+original input references and revision are never replaced or republished. The
+ordinary room path and unsupported legacy PM area-read interpretation stay closed.
+
 
 Validation (2026-10-31): 11 actual-engine tests pass: genuine empty cut; copied
 owner refusal with zero canvas access; real source frame through real job and
@@ -56,3 +57,57 @@ follow-up (1826 also passed before it). Architecture map check passed for 1494
 files; boundary rules report zero errors and 24 existing warnings.
 No device, runtime, background service, forward or browser child was created by
 this unit. No push or ordinary room/socket/controller activation.
+
+## Accepted-prefix context recovery follow-up
+
+Physical loss increments an engine generation and forgets dead ledger ownership
+before candidate cleanup. Restored physical GL availability does not grant pixel
+readiness. Accepted metadata retains original read/tail, journal revision, array
+and entry identities, and accepted generation. Duplicate restored events cannot
+initialize another scene. A new scene is built by the same transaction and job;
+only the layer map is published after final original callbacks and pure journal/
+generation/job/map checks. Recovery calls no journal mutator, including empty
+prepend or confirm.
+
+Initialization rollback captures both physical generation and scene identity;
+a stale closure cannot destroy mutable owners in a replacement scene. Healthy
+allocation/draw failure deletes current resources and closes plans before a caller
+can explicitly retry the same original owner. No automatic healthy-failure retry
+is scheduled. An interrupted uncommitted initial restore stays closed until an
+explicit retry reinitializes the missing physical scene. Paper retains ownership
+of a successfully initialized live placeholder on later authority failure.
+
+Display/compositor, pickColor and export/preview entry and asynchronous resumes
+require accepted pixels; public straight reads also check actual physical loss.
+Legacy PM area-read/fill semantics remain unavailable. Snapshot/replay bakes stay
+closed independently. Public pixel-writing policy remains unchanged.
+
+Tests-first recovery witnesses failed before implementation. Final host validation:
+98 tests across six suites pass (18 actual baseline/recovery tests, the independent
+8 read-only tests, 8 actual display tests, and existing PM network snapshot/export/
+preview suites), plus 181 regressions across ten suites. Recovery cases cover
+unchanged real journal identity/revision/entries; duplicate restored; stale owner
+before any allocation; pending read/export/display closure; healthy allocation
+rollback with all newly created programs retired; real composite draw then throw;
+explicit same-owner retry; repeated loss; invoking an unretired successful old
+rollback after scene replacement; and interrupted initial restore retry.
+Lint has zero errors (existing index warnings); diff check passes. No hardware
+pixel/context-recovery claim is made by these MockGL lifecycle tests. No device
+resources or background runtime were created.
+
+Final review added pure accepted-entry checks at admission and after original
+authority callbacks: done/nonpending state, server sequence, exact canonicalInput,
+the actual saved normalized canonicalRead wrapper, saved op reference and original
+frame/id/user/layer identity. OperationLog deliberately normalizes canonicalRead,
+so its proven wrapper is retained rather than falsely requiring it to equal the
+input read object. No journal JSON reconstruction grants authority. Actual
+original-owner callbacks mutate state/serverSeq/frame without bumping revision;
+all six preallocation/final-publication witnesses refuse the mutation.
+
+The final interrupted-initial-restore retry also proves paper.init runs exactly
+once and owns a non-null texture before readiness. It uses the same fresh-scene
+rollback marker as accepted recovery, not only the accepted-history mode flag.
+Latest own actual-engine fault suite: 24 passing tests. Earlier six-suite matrix
+98 and ten-suite regressions 181 passed before these narrow final witnesses; no
+blanket hardware or smoothness claim follows. Joint app/SW 81467 passed; the final
+app-only check 96250 after mutable-entry/paper fixes passed.

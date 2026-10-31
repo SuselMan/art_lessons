@@ -97,24 +97,21 @@ it('returns a committed result with cleanup diagnostics and attempts all old own
  }finally{engine.destroy()}
 })
 
-it('keeps a committed original prefix closed after context restoration instead of silently running legacy replay',async()=>{
+it('keeps legacy tile replay closed while the accepted original prefix recovers',async()=>{
  const p=original(),{engine}=engineFor(p)
  try{
   await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
-  const replay=vi.spyOn(engine,'_syncBuffersToLog' as never),init=vi.spyOn(engine,'_initGL' as never),texture=vi.spyOn(engine['gl'],'deleteTexture'),framebuffer=vi.spyOn(engine['gl'],'deleteFramebuffer')
-  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}))
-  vi.spyOn(engine['gl'],'isTexture').mockReturnValue(false);Object.assign(engine['gl'],{isProgram:()=>false});vi.spyOn(engine['gl'],'isBuffer').mockReturnValue(false)
-  engine['_handleContextRestored']()
-  expect(engine['_contextLost']).toBe(true);expect(init).not.toHaveBeenCalled();expect(replay).not.toHaveBeenCalled()
+  const replay=vi.spyOn(engine,'_syncBuffersToLog' as never),init=vi.spyOn(engine,'_initGL' as never)
+  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));engine['_handleContextRestored']()
+  expect(engine['_canonicalPixelsReady']).toBe(false);expect(init).toHaveBeenCalledOnce();expect(replay).not.toHaveBeenCalled()
   expect(engine['_log'].entries[0].serverSeq).toBe(1);expect(engine.bakeNetworkSnapshot('layer-1')).toBeNull()
   expect(()=>engine['_makeTileRebuilder']('layer-1')()).toThrow('recovery required')
-  texture.mockClear();framebuffer.mockClear();engine.destroy()
-  expect(texture.mock.calls.every(([name])=>name===null)).toBe(true);expect(framebuffer.mock.calls.every(([name])=>name===null)).toBe(true)
+  await vi.waitFor(()=>expect(engine['_canonicalPixelsReady']).toBe(true))
  }finally{engine.destroy()}
 })
 it('preserves a real GPU draw failure and retires partially written unpublished storage before rejecting',async()=>{
  const p=original(),{engine}=engineFor(p),old=engine['_layers'],primary=new Error('canonical draw failed')
- await engine.paperReady
+ await engine.paperReady()
  const draw=CanonicalRgba8CompositePass.prototype.drawSource
  vi.spyOn(CanonicalRgba8CompositePass.prototype,'drawSource').mockImplementationOnce(function(this:CanonicalRgba8CompositePass,...args){draw.apply(this,args);throw primary})
  try{
@@ -131,5 +128,122 @@ it('retires an adopted first candidate when creating the second implicit layer f
   await expect(engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)).rejects.toBe(primary)
   expect(destroy).toHaveBeenCalledOnce();expect(engine['_layers']).toBe(old);expect(engine['_log'].entries).toHaveLength(0)
   expect(engine['_rebuildJobs'].size).toBe(0);expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
+ }finally{engine.destroy()}
+})
+it('recovers the accepted original prefix through the same job without changing journal, revision or entry identities',async()=>{
+ const p=original(),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const log=engine['_log'],entries=log.entries,revision=log.revision,entry=entries[0],old=engine['_layers'],init=vi.spyOn(engine,'_initGL' as never),finish=vi.spyOn(engine['gl'],'finish')
+  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));engine['_handleContextRestored']();engine['_handleContextRestored']()
+  await vi.waitFor(()=>expect(engine['_layers']).not.toBe(old))
+  expect(engine['_log']).toBe(log);expect(log.entries).toBe(entries);expect(log.revision).toBe(revision);expect(log.entries[0]).toBe(entry)
+  expect(init).toHaveBeenCalledOnce();expect(finish).not.toHaveBeenCalled();expect(engine['_contextLost']).toBe(false)
+  expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
+ }finally{engine.destroy()}
+})
+it('closes read/export/display while a fresh recovered generation is pending',async()=>{
+ const p=original(),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));engine['_handleContextRestored']()
+  const read=vi.spyOn(engine['gl'],'readPixels'),draw=vi.spyOn(engine['gl'],'drawArrays'),exported=vi.spyOn(engine['_exporter'],'exportPNG'),area=vi.spyOn(engine['_area'],'readAreaImage')
+  expect(engine.pickColor(1,1)).toBeNull();expect(await engine.exportPNG()).toBeNull();expect(await engine.bakePreview()).toBeNull();expect(await engine.readAreaImage('layer-1',{points:[0,0,8,0,8,8,0,8]})).toBeNull();expect(area).not.toHaveBeenCalled()
+  engine['_display']();expect(read).not.toHaveBeenCalled();expect(draw).not.toHaveBeenCalled();expect(exported).not.toHaveBeenCalled()
+ }finally{engine.destroy()}
+})
+it('rejects stale original authority before allocating any restored scene',async()=>{
+ let current=true;const p=original(false,true,()=>current),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));current=false
+  const allocate=vi.spyOn(engine['gl'],'createTexture'),init=vi.spyOn(engine,'_initGL' as never)
+  engine['_handleContextRestored']()
+  expect(init).not.toHaveBeenCalled();expect(allocate).not.toHaveBeenCalled();expect(engine['_log'].entries[0].serverSeq).toBe(1)
+  expect(engine.pickColor(1,1)).toBeNull()
+ }finally{engine.destroy()}
+})
+it('retires a healthy failed restored allocation before allowing only an explicit original-owner retry',async()=>{
+ const p=original(),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);await engine.paperReady()
+  const entries=engine['_log'].entries,old=engine['_layers'],primary=new Error('healthy restored allocation failed'),programs=new Set<WebGLProgram>(),gl=engine['gl'],create=gl.createProgram.bind(gl),remove=gl.deleteProgram.bind(gl)
+  vi.spyOn(gl,'createProgram').mockImplementation(()=>{const value=create();if(value)programs.add(value);return value})
+  const deleted=vi.spyOn(gl,'deleteProgram').mockImplementation(value=>{if(value)programs.delete(value);remove(value)})
+  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}))
+  vi.spyOn(engine['gl'],'createFramebuffer').mockImplementationOnce(()=>{throw primary})
+  engine['_handleContextRestored']()
+  expect(engine['_canonicalEmptyTransaction']).toBeUndefined();expect(engine['_canonicalPixelsReady']).toBe(false);expect(engine['_contextLost']).toBe(false)
+  expect(engine['_layers']).toBe(old);expect(engine['_log'].entries).toBe(entries);expect(deleted).toHaveBeenCalled();expect(programs.size).toBe(0)
+  const init=vi.spyOn(engine,'_initGL' as never);engine['_handleContextRestored']();expect(init).not.toHaveBeenCalled()
+  expect((await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)).committed).toBe(true)
+  expect(engine['_log'].entries).toBe(entries);expect(engine['_canonicalPixelsReady']).toBe(true)
+  expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
+ }finally{engine.destroy()}
+})
+it('retires a partially drawn recovered candidate on healthy failure and preserves the accepted journal',async()=>{
+ const p=original(),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);await engine.paperReady()
+  const entries=engine['_log'].entries,revision=engine['_log'].revision,old=engine['_layers'],draw=CanonicalRgba8CompositePass.prototype.drawSource,primary=new Error('recovery draw failed')
+  vi.spyOn(CanonicalRgba8CompositePass.prototype,'drawSource').mockImplementationOnce(function(this:CanonicalRgba8CompositePass,...args){draw.apply(this,args);throw primary})
+  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));engine['_handleContextRestored']()
+  await vi.waitFor(()=>expect(engine['_canonicalEmptyTransaction']).toBeUndefined())
+  expect(engine['_canonicalPixelsReady']).toBe(false);expect(engine['_layers']).toBe(old);expect(engine['_log'].entries).toBe(entries);expect(engine['_log'].revision).toBe(revision)
+  expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
+  expect((await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)).committed).toBe(true)
+ }finally{engine.destroy()}
+})
+it('invalidates a pending recovery on repeated physical loss and never lets its stale init rollback delete the next scene',async()=>{
+ const p=original(),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const entries=engine['_log'].entries,revision=engine['_log'].revision,init=engine['_initGL'].bind(engine);let stale:(()=>void)|undefined
+  engine['_initGL']=()=>{const rollback=init();stale??=rollback;return rollback}
+  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));engine['_handleContextRestored']()
+  await vi.waitFor(()=>expect(engine['_canonicalPixelsReady']).toBe(true))
+  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));engine['_handleContextRestored']()
+  expect(engine['_canonicalEmptyTransaction']).toBeDefined()
+  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));expect(engine['_canonicalEmptyTransaction']).toBeUndefined()
+  engine['_handleContextRestored']();await vi.waitFor(()=>expect(engine['_canonicalPixelsReady']).toBe(true))
+  const destroy=vi.spyOn(engine['_passes'],'destroy');stale!();expect(destroy).not.toHaveBeenCalled()
+  expect(engine['_log'].entries).toBe(entries);expect(engine['_log'].revision).toBe(revision)
+  expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
+ }finally{engine.destroy()}
+})
+
+it('cleans interrupted initial history and reinitializes its physical scene only for explicit original-owner retry',async()=>{
+ const p=original(),{engine}=engineFor(p)
+ try{
+  const pending=engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations),rejected=expect(pending).rejects.toThrow('context lost')
+  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));await rejected
+  engine['_handleContextRestored']();expect(engine['_canonicalEmptyTransaction']).toBeUndefined();expect(engine['_canonicalPixelsReady']).toBe(false);expect(engine['_log'].entries).toHaveLength(0)
+  const init=vi.spyOn(engine,'_initGL' as never),paper=vi.spyOn(engine['_paper'],'init')
+  expect((await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)).committed).toBe(true)
+  expect(init).toHaveBeenCalledOnce();expect(paper).toHaveBeenCalledOnce();expect(engine['_paper'].texture).not.toBeNull();expect(engine['_canonicalPixelsReady']).toBe(true);expect(engine['_log'].entries[0].canonicalInput).toBe(p.canonicalRead.preparedAtoms[0])
+ }finally{engine.destroy()}
+})
+it.each(['state','serverSeq','frame'] as const)('rejects an accepted entry %s mutation from original authority before restored allocation',async field=>{
+ let mutate=()=>{};const p=original(false,true,()=>{mutate();return true}),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const entry=engine['_log'].entries[0],revision=engine['_log'].revision
+  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}))
+  mutate=()=>{if(field==='state')entry.state='undone';else if(field==='serverSeq')entry.serverSeq=99;else if(entry.op.type==='canonical_stroke')entry.op.frame={...entry.op.frame,strokeId:'forged'}}
+  const allocate=vi.spyOn(engine['gl'],'createTexture')
+  engine['_handleContextRestored']()
+  expect(allocate).not.toHaveBeenCalled();expect(engine['_canonicalPixelsReady']).toBe(false);expect(engine['_log'].revision).toBe(revision)
+ }finally{engine.destroy()}
+})
+it.each(['state','serverSeq','frame'] as const)('rechecks accepted mutable %s after final original callbacks before map publication',async field=>{
+ let mutate=()=>{};const p=original(false,true,()=>{mutate();return true}),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const entry=engine['_log'].entries[0],entries=engine['_log'].entries,revision=engine['_log'].revision,old=engine['_layers'],publish=engine['_publishCanonicalEmpty'].bind(engine)
+  engine['_publishCanonicalEmpty']=tx=>{mutate=()=>{if(field==='state')entry.state='undone';else if(field==='serverSeq')entry.serverSeq=99;else if(entry.op.type==='canonical_stroke')entry.op.frame={...entry.op.frame,strokeId:'forged'}};publish(tx)}
+  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));engine['_handleContextRestored']()
+  await vi.waitFor(()=>expect(engine['_canonicalEmptyTransaction']).toBeUndefined())
+  expect(engine['_canonicalPixelsReady']).toBe(false);expect(engine['_layers']).toBe(old);expect(engine['_log'].entries).toBe(entries);expect(engine['_log'].revision).toBe(revision)
+  expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
  }finally{engine.destroy()}
 })
