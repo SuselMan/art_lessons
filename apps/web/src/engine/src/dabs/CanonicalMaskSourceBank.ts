@@ -1,5 +1,5 @@
 import { reserveContextStorage, releaseStorageReservation } from '../buffers/ContextStorageOwner'
-import { sourcePngPyramid, type BrushTip, type TipMaskId } from '@grafetto/shared'
+import { sourcePngPyramid, type BrushTip, type TipMaskId, type CanonicalMaterialAsset } from '@grafetto/shared'
 import { nativeImageBank, nativeImagePixels, type NativeImageResource } from './NativeImageBank'
 import { BrushTextureCache, uploadBrushTexture, releaseUnpublishedBrushResource, type OwnedBrushResource } from './BrushTextureCache'
 import { BrushMipCache } from './BrushMipCache'
@@ -49,7 +49,7 @@ export class CanonicalMaskSourceBank {
   readonly gpuBytes: number
   readonly maximumTransientCpuBytes: number
   readonly metadataCpuBytes: number
-  private readonly inputs = new Map<string, CanonicalMaskSourceInput>()
+  private readonly inputs = new Map<string, Readonly<Pick<CanonicalMaskSourceInput,'assetSide'|'readOriginalCoverage'>>>()
   private readonly owned = new Set<string>()
   private readonly gl: WebGLRenderingContext
   private readonly cache: BrushTextureCache
@@ -57,10 +57,13 @@ export class CanonicalMaskSourceBank {
   private readonly companion: CanonicalMaskCompanionBudget
   private releaseMetadata?: () => void
   private generation = 0
+  private readonly originalOwner=this
+  private readonly ownerProof:Readonly<{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache}>
 
   constructor(gl: WebGLRenderingContext, cache: BrushTextureCache, cpu: BrushMipCache,
     inputs: readonly CanonicalMaskSourceInput[], companion: CanonicalMaskCompanionBudget) {
     this.gl = gl; this.cache = cache; this.cpu = cpu
+    this.ownerProof=Object.freeze({gl,cache,cpu})
     if (!companion || !integer(companion.gpuBytes) || !integer(companion.cpuBytes)
       || !Array.isArray(inputs) || inputs.length < 1 || inputs.length > 256) throw new RangeError('Invalid canonical bank plan')
     this.companion = { ...companion }
@@ -77,7 +80,7 @@ export class CanonicalMaskSourceBank {
         const resource = Object.freeze({ ...originalResource, rect: Object.freeze({ ...originalResource.rect }), bounds: Object.freeze({ ...originalResource.bounds }) })
         const key = `canonical-mask:straight-gray-rgba8:${resource.key}`
         const job = Object.freeze({ key, resource, bytes: resource.width * resource.height * 4, transientCpuBytes: transientBytes(resource) })
-        if (!jobs.has(key)) { jobs.set(key, job); this.inputs.set(key, { ...input }) }
+        if (!jobs.has(key)) { jobs.set(key, job); this.inputs.set(key,Object.freeze({assetSide:input.assetSide,readOriginalCoverage:input.readOriginalCoverage})) }
       }
     }
     this.jobs = Object.freeze([...jobs.values()])
@@ -92,6 +95,31 @@ export class CanonicalMaskSourceBank {
         || job.resource.nativeWidth > 4096 || job.resource.nativeHeight > 4096
         || job.resource.width * job.resource.height > 4 * 1024 * 1024))
       throw new RangeError('Canonical source bank exceeds existing brush budgets')
+  }
+
+  /** Cold binding of an already normalized original snapshot asset. No pixels,
+   * GL queries or new source authority; inspect the finite immutable plan once. */
+  assertSourceBinding(asset:CanonicalMaterialAsset,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache}):number {
+    const generation=this.generation
+    this.assertCurrentOwners(generation)
+    if(owners.gl!==this.gl||owners.cache!==this.cache||owners.cpu!==this.cpu||!this.isReady())throw new Error('Canonical bank owner/source unavailable')
+    const sources=this.preparedResources().filter(s=>s.canonical&&['id','size','x','y','width','height'].every(k=>s.canonical!.asset[k as keyof CanonicalMaterialAsset]===asset[k as keyof CanonicalMaterialAsset]))
+    if(!sources.length)throw new Error('Canonical bank asset binding missing')
+    const levels=sourcePngPyramid(asset.width,asset.height).levels
+    if(sources.length!==levels.length)throw new Error('Canonical bank levels incomplete')
+    for(const [index,level] of levels.entries()){
+      const matches=sources.filter(s=>s.canonical!.index===index),source=matches[0],m=source?.canonical
+      if(matches.length!==1||!m||m.baseScale!==level.scale||m.nativeWidth!==level.width||m.nativeHeight!==level.height
+        ||source.bytes!==level.storedWidth*level.storedHeight*4)throw new Error('Canonical bank level binding mismatch')
+    }
+    this.assertCurrentOwners(generation)
+    return generation
+  }
+  /** Hot original-owner/generation check. No resource scan, arrays or GL calls.
+   * Actual cache handles/bindings remain executor/prepass-owned checks on use. */
+  assertCurrentOwners(generation:number):void {
+    if(this.originalOwner!==this||this.gl!==this.ownerProof.gl||this.cache!==this.ownerProof.cache||this.cpu!==this.ownerProof.cpu
+      ||generation!==this.generation||!this.releaseMetadata)throw new Error('Canonical bank owner/generation changed')
   }
 
   /** No CPU image bytes retained here: only the existing bounded L8 mip cache. */

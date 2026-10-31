@@ -1,4 +1,5 @@
-import {advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,decodeCanonicalStrokeFrame,prepareCanonicalRecordedAttachment,verifyCanonicalRecordedClose,canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin,canonicalSoftAutoSourcePin,type CanonicalMaterialPrefixState,type CanonicalStrokeSnapshotV2,type CanonicalRecordedReadScope,type CanonicalStrokeOperation} from '@grafetto/shared'
+import {canonicalImageMaterialPin,canonicalStrokeSnapshotV2,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,decodeCanonicalStrokeFrame,prepareCanonicalRecordedAttachment,verifyCanonicalRecordedClose,canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin,canonicalSoftAutoSourcePin,type CanonicalMaterialPrefixState,type CanonicalStrokeSnapshotV2,type CanonicalRecordedReadScope,type CanonicalStrokeOperation} from '@grafetto/shared'
+import type {CanonicalMaskSourceBank} from './CanonicalMaskSourceBank'
 import type {CanonicalRecordedInput,CanonicalRecordedLifetime} from '../oplog/CanonicalRecordedDelivery'
 import { CANONICAL_STROKE_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
@@ -59,6 +60,7 @@ interface RecordedPrefix {
  readonly sealed:boolean
 }
 interface Entry {
+  image?:Readonly<{bank:CanonicalMaskSourceBank;generation:number}>
   recorded?:RecordedPrefix
   local?:LocalPrefix
   readonly id: string
@@ -170,7 +172,7 @@ export class CanonicalWashLayerCoordinator {
       capabilities:[read.capability],bindings:[{operationId:op.id,sequence:op.seq,originalUserId:op.userId,capability:0}]},[op],scope)[0]
     const snapshot=accepted.read!.capability.snapshot
     if(read.rasterProfile!==snapshot.rasterProfile)throw new TypeError('Recorded source profile mismatch')
-    if(snapshot.material.maskSource||snapshot.material.primarySource.kind==='image'||snapshot.rasterProfile!==this.options.rasterProfile
+    if(snapshot.material.maskSource||snapshot.rasterProfile!==this.options.rasterProfile
       ||snapshot.layerId!==this.options.layerId)throw new TypeError('Unsupported recorded source context')
     const id=JSON.stringify([scope.roomId,scope.boardEpoch,op.userId,snapshot.strokeId])
     const existing=this.entries.find(e=>e.id===id),old=existing?.recorded
@@ -227,7 +229,7 @@ export class CanonicalWashLayerCoordinator {
     if(author.lifetime.assertCurrent()!==scope||!Object.isFrozen(op)||Object.hasOwn(op,'seq')
       ||op.type!=='canonical_stroke'||op.userId!==author.userId||op.layerId!==this.options.layerId
       ||snapshot.layerId!==op.layerId||snapshot.boardEpoch!==scope.boardEpoch||snapshot.rasterProfile!==this.options.rasterProfile
-      ||snapshot.material.maskSource||snapshot.material.primarySource.kind==='image')throw new TypeError('Invalid local source envelope/context')
+      ||snapshot.material.maskSource)throw new TypeError('Invalid local source envelope/context')
     const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,
       frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,material:snapshot.material})
     const id=JSON.stringify([scope.roomId,scope.boardEpoch,author.userId,snapshot.strokeId]),entry=this.entries.find(e=>e.id===id)
@@ -271,7 +273,7 @@ export class CanonicalWashLayerCoordinator {
   }
 
   private assertRecordedCurrent():void {
-    for(const e of this.entries){if(e.local)this.assertLocal(e.local);if(e.recorded&&e.recorded.lifetime.assertCurrent()!==e.recorded.scope)throw new Error('Recorded scope replaced')}
+    for(const e of this.entries){e.image?.bank.assertCurrentOwners(e.image.generation);if(e.local)this.assertLocal(e.local);if(e.recorded&&e.recorded.lifetime.assertCurrent()!==e.recorded.scope)throw new Error('Recorded scope replaced')}
   }
 
   /** Sequence is from authoritative recorded history, never a guessed local
@@ -304,6 +306,7 @@ export class CanonicalWashLayerCoordinator {
     }
     let acceptedWork=false
     let candidate: CanonicalFrameExecutor | undefined,publishCandidate:(()=>void)|undefined
+    let imageBinding:Entry['image']
     let releaseGpu: (() => void) | undefined, releaseCpu: (() => void) | undefined, releaseEntry: (() => void) | undefined
     try {
       if (fresh.size) {
@@ -315,10 +318,17 @@ export class CanonicalWashLayerCoordinator {
         let published=false;publishCandidate=()=>{published=true}
         const source=local?this.options.source(input.gestureId,undefined,local.author):this.options.source(input.gestureId,origin?.input)
         if(origin||local){
-          const expected=(origin?.recorded.snapshot??local!.author.snapshot).material.primarySource,actual=source.autoSource
-          if(!actual||expected.kind==='image')throw new TypeError('Recorded source binding missing')
-          const normalize=(pin:typeof actual)=>pin.kind==='softAuto'?canonicalSoftAutoSourcePin(pin):pin.kind==='gaussianAuto'?canonicalGaussianAutoSourcePin(pin):canonicalDefaultAutoSourcePin(pin)
-          if(JSON.stringify(normalize(actual))!==JSON.stringify(expected))throw new TypeError('Recorded source binding mismatch')
+          const snapshot=origin?.recorded.snapshot??canonicalStrokeSnapshotV2(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile),expected=snapshot.material.primarySource,actual=source.autoSource
+          if(snapshot.rasterProfile!==this.options.rasterProfile)throw new TypeError('Recorded source profile mismatch')
+          if(expected.kind==='image'){
+            if(!source.bank||actual||source.softProgramOwner)throw new TypeError('Recorded image bank binding missing')
+            const image=canonicalImageMaterialPin(expected,snapshot.material.assets)
+            imageBinding=Object.freeze({bank:source.bank,generation:source.bank.assertSourceBinding(image.assets[0],this.options.prepass.brushGlBatchInfo())})
+          }else{
+            if(!actual)throw new TypeError('Recorded source binding missing')
+            const normalize=(pin:typeof actual)=>pin.kind==='softAuto'?canonicalSoftAutoSourcePin(pin):pin.kind==='gaussianAuto'?canonicalGaussianAutoSourcePin(pin):canonicalDefaultAutoSourcePin(pin)
+            if(JSON.stringify(normalize(actual))!==JSON.stringify(expected))throw new TypeError('Recorded source binding mismatch')
+          }
           if(local)this.assertLocal(local)
           origin?.input.delivery.assertCurrent(origin.input)
           if(origin&&origin.recorded.lifetime.assertCurrent()!==origin.recorded.scope)throw new Error('Recorded scope replaced')
@@ -326,13 +336,17 @@ export class CanonicalWashLayerCoordinator {
         const executor = candidate = new CanonicalFrameExecutor({ ...this.options, ...source, washMode: 'deposition-only',
           changed: (_id, bounds) => this.invalidate(bounds), // The lane retires ALL storage pins before external poison/undo.
           poison: () => {if(published)this.failed=true} })
-        entry = { id: input.gestureId, firstSequence: recordedSequence, executor, opacity: input.composition.outerResourceOpacity, blend: input.composition.outerBlend,
+        entry = { image:imageBinding,id: input.gestureId, firstSequence: recordedSequence, executor, opacity: input.composition.outerResourceOpacity, blend: input.composition.outerBlend,
           committed: false, tile: 0, part: 0, releaseMetadata: releaseEntry }
       }
       entry.executor.enqueue(input);acceptedWork=true
       if(local){this.assertLocal(local);this.assertLayers()}
+      if(entry.image){
+        if(origin){origin.input.delivery.assertCurrent(origin.input);if(origin.recorded.lifetime.assertCurrent()!==origin.recorded.scope)throw new Error('Recorded scope replaced');this.assertLayers()}
+        entry.image.bank.assertCurrentOwners(entry.image.generation)
+      }
     } catch (error) {
-      if(local&&acceptedWork&&!candidate)this.failed=true
+      if((local||origin&&entry?.image)&&acceptedWork&&!candidate)this.failed=true
       if (candidate) this.clean(() => candidate!.cancel(error, { lost: this.cleanupContextLost() }))
       if (releaseGpu) this.clean(releaseGpu)
       if (releaseCpu) this.clean(releaseCpu)
