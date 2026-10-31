@@ -64,3 +64,37 @@ it.each(['layer','brush','stroke','RGB','opacity','alpha','epoch','SHA','profile
  if(field==='cursor')Object.assign(result,{recordedNext:-1})
  const pending=sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true});const rejected=expect(pending).rejects.toThrow();s.ack(result);await rejected;expect(s.listeners.size).toBe(0)
 })
+it.each(['disconnect','abort'] as const)('stops registration after synchronous %s reentry',async kind=>{
+ const s=socket(),controller=new AbortController(),remove=vi.spyOn(controller.signal,'removeEventListener')
+ if(kind==='disconnect')s.emitter.on=(_event,listener)=>{s.listeners.add(listener);listener()}
+ else {
+  const add=controller.signal.addEventListener.bind(controller.signal)
+  vi.spyOn(controller.signal,'addEventListener').mockImplementation((...args)=>{add(...args);controller.abort()})
+ }
+ await expect(sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true,signal:controller.signal})).rejects.toThrow()
+ expect(s.emitter.emit).not.toHaveBeenCalled();expect(s.listeners.size).toBe(0);expect(vi.getTimerCount()).toBe(0)
+ if(kind==='abort')expect(remove).toHaveBeenCalled()
+})
+it.each([0,-1,.5,Infinity,2147483648,Number.MAX_SAFE_INTEGER])('rejects invalid timeout %s before registration or emission',async timeoutMs=>{
+ const s=socket();await expect(sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true,timeoutMs})).rejects.toThrow('lifetime')
+ expect(s.emitter.emit).not.toHaveBeenCalled();expect(s.listeners.size).toBe(0)
+})
+it.each(['coefficients','extraSnapshot','extraResult'] as const)('rejects invalid %s before cloning ACK data',async kind=>{
+ const s=socket(),result=structuredClone(answer());if(!result.ok||!('materialVersion' in result.snapshot))throw Error('Expected V2')
+ if(kind==='coefficients'){
+  const pin=result.snapshot.material.primarySource;if(pin.kind!=='softAuto')throw Error('Expected soft')
+  Object.assign(pin.radialCurve,{coefficients:Array.from({length:10000},()=>[0,0,0,0])})
+ }else if(kind==='extraSnapshot')Object.assign(result.snapshot,{foo:new Uint8Array(10000)})
+ else Object.assign(result,{foo:new Uint8Array(10000)})
+ const clone=vi.spyOn(globalThis,'structuredClone')
+ try{
+  const pending=sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true}),rejected=expect(pending).rejects.toThrow()
+  s.ack(result);await rejected;expect(clone).not.toHaveBeenCalled();expect(s.listeners.size).toBe(0)
+ }finally{clone.mockRestore()}
+})
+it('accepts a recorded-only resumed prefix with recorded cursor ahead of live',async()=>{
+ const s=socket(),result=answer();if(!result.ok)throw Error('Expected success')
+ Object.assign(result,{recordedNext:12,liveNext:0,ended:true})
+ const pending=sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true});s.ack(result)
+ await expect(pending).resolves.toMatchObject({ok:true,recordedNext:12,liveNext:0,ended:true})
+})

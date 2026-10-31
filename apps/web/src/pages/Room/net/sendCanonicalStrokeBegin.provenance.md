@@ -23,3 +23,12 @@ server refusals and corrupt selector/epoch/SHA/profile/radial/mask/version/curso
 capabilities. This emitter does not activate pointer painting or room readers.
 Peer/cold historical capability delivery, recorded application, lifecycle,
 undo/replay and active device QA remain separate open integration gates.
+
+ACK verdict/snapshot own fields close before any deep copy. The original
+material goes through the shared bounded validation first; only accepted data is
+cloned. Invalid radial coefficient arrays and unknown snapshot/verdict fields
+never reach structuredClone. Registration boundaries check synchronous close
+reentry before registering further listeners/timers or emitting. Timeout is a
+positive safe integer at most 2147483647, avoiding platform timer overflow.
+Recorded-only resume may have recordedNext ahead of liveNext; the eight-frame
+speculative live bound does not require those cursors to be equal.
