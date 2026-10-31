@@ -1,4 +1,5 @@
 import { canonicalImageMaterialPin, type CanonicalMaterialAsset, type TipMaskId } from '@grafetto/shared'
+import {canonicalAutoMaskCapacity,assertCanonicalAutoRecipeCapacity} from './src/dabs/canonicalAutoCapacity'
 import { canonicalImageMaskCapacity, assertCanonicalImageRecipeCapacity } from './src/dabs/canonicalImageCapacity'
 import {nativeImageBankFromRect} from './src/dabs/NativeImageBank'
 import { CanonicalMaskSourceBank,canonicalMaskSourceBankBudget, type CanonicalMaskSourceExtension } from './src/dabs/CanonicalMaskSourceBank'
@@ -1418,7 +1419,7 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
    imageGestures.add(JSON.stringify([op.userId,s.strokeId]));fixed=canonicalImageMaskCapacity(source,pin.assets)
   }else{
    if(s.material.assets.length||s.assets.length)throw new TypeError('Unsupported canonical baseline source assets')
-   fixed=canonicalLayerMaskCapacity(source)
+   fixed=canonicalAutoMaskCapacity(source)
   }
   maskWidth=Math.max(maskWidth,fixed.width);maskHeight=Math.max(maskHeight,fixed.height)
   const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:s.material}).frame
@@ -1428,7 +1429,7 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
    if(source.kind==='image'){
     if(!('kind'in recipe)||recipe.kind!=='image')throw new TypeError('Unsupported canonical baseline image material')
     assertCanonicalImageRecipeCapacity(recipe,source,s.material.assets,fixed)
-   }else if(!('kind'in recipe)||!['defaultAuto','gaussianAuto','softAuto'].includes(recipe.kind)||!Number.isFinite(recipe.scale)||recipe.scale<=0||recipe.scale>1||recipe.ratio!==1||recipe.rotation!==0||recipe.mirrorH||recipe.mirrorV||recipe.width>fixed.width||recipe.height>fixed.height)throw new TypeError('Unsupported canonical baseline material')
+   }else assertCanonicalAutoRecipeCapacity(recipe,source,fixed)
    maskWidth=Math.max(maskWidth,recipe.width);maskHeight=Math.max(maskHeight,recipe.height)
   }
   for(const d of decoded.draws){const recipe=decoded.definitions[d.definition];for(const t of planCanonicalTargets({minX:d.x,minY:d.y,maxX:d.x+recipe.width,maxY:d.y+recipe.height},page,tileWidth,tileHeight).tiles){const id=JSON.stringify([t.storage.minX,t.storage.minY]);tiles.add(id);used.add(id)}}
@@ -6574,8 +6575,8 @@ export class PencilEngine implements PencilEngineAPI {
       const image=pin.kind==='image'?canonicalImageMaterialPin(pin,snapshot.material.assets):undefined
       if(image&&!owner.bank||!image&&(snapshot.material.assets.length||snapshot.assets.length))throw new TypeError('Unsupported fixed canonical layer assets')
       if(image)for(const asset of image.assets)owner.bank!.assertSourceBinding(asset,{gl:this.gl,cache:owner.cache,cpu:this._brushMipCache})
-      const capacity=pin.kind==='image'?canonicalImageMaskCapacity(pin,image!.assets):canonicalLayerMaskCapacity(pin),decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,material:snapshot.material}).frame
-      for(const recipe of decoded.definitions)if(image){if(!('kind'in recipe)||recipe.kind!=='image')throw new TypeError('Image source requires an image recipe');assertCanonicalImageRecipeCapacity(recipe,image.primarySource,image.assets,owner.mask)}else if(!('kind'in recipe)||!['defaultAuto','gaussianAuto','softAuto'].includes(recipe.kind)||!Number.isFinite(recipe.scale)||recipe.scale<=0||recipe.scale>1||recipe.ratio!==1||recipe.rotation!==0||recipe.mirrorH||recipe.mirrorV||recipe.width>capacity.width||recipe.height>capacity.height)throw new TypeError('Unsupported fixed canonical layer transform')
+      const capacity=pin.kind==='image'?canonicalImageMaskCapacity(pin,image!.assets):canonicalAutoMaskCapacity(pin),decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,material:snapshot.material}).frame
+      for(const recipe of decoded.definitions)if(image){if(!('kind'in recipe)||recipe.kind!=='image')throw new TypeError('Image source requires an image recipe');assertCanonicalImageRecipeCapacity(recipe,image.primarySource,image.assets,owner.mask)}else if(pin.kind!=='image')assertCanonicalAutoRecipeCapacity(recipe,pin,capacity)
       if(owner.prepared&&(capacity.width>owner.mask.width||capacity.height>owner.mask.height))throw new RangeError('Canonical source exceeds warm workspace; full resync required')
       const mask=owner.prepared?owner.mask:capacity,maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(owner.plan.composite)
       const metadata=CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities*(1024+1024+4096+64*512)+64*256+82432

@@ -1,3 +1,4 @@
+import {PencilEngine} from './index'
 import {createHash} from 'node:crypto'
 import {attachCanonicalRecordedDelivery} from '../pages/Room/net/canonicalRecordedDelivery'
 import {parseCanonicalStrokeCloseOperation,prepareCanonicalRecordedAttachment,canonicalDefaultAutoSourceBinding,type BrushDescriptor} from '@grafetto/shared'
@@ -8,13 +9,13 @@ import {sourceAutoGeometry,canonicalSoftAutoSourcePin,buildCanonicalMaterial,CAN
 import {prepareCanonicalRoomState} from '../pages/Room/net/canonicalRoomState'
 import {createTestEngine} from './testing/engineTestUtils'
 afterEach(()=>vi.restoreAllMocks())
-function fixture(ended=true,diameter=8,angle=0,subX=0,subY=0){
+function fixture(ended=true,diameter=8,angle=0,subX=0,subY=0,rotation=0,ratio=1,mirrorH=false){
  const curve={text:'0,1;1,0',points:[{x:0,y:1,corner:false},{x:1,y:0,corner:false}]}
  const primarySource=canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:0,descriptorId:'soft',descriptorVersion:1,descriptorSha256:'a'.repeat(64),source:{kind:'softAuto',generator:'soft',shape:'circle',diameter,ratio:1,horizontalFade:1,verticalFade:1,antialias:false,spikes:2,randomness:0,density:1,softnessCurve:curve},brushScale:1,brushAngle:angle,coverageProfile:'neon64-f32-fma-v1',reader:'krita-bd6e8d0-v1',compilerProfile:'eigen-5.0.1-mapped-arm64-f64-v3',buildId:'b'.repeat(64),radialCurve:{source:curve,coefficients:[[0,0,-1,1]]}})
  const material={version:2 as const,assets:[],primarySource,budget:{workUnits:10000,outputBytes:40000,drawPixels:10000}}
  const snapshot:CanonicalStrokeSnapshotV2={layerId:'layer-1',brush:'brush:soft@1',strokeId:'S',boardEpoch:2,descriptorSha256:'a'.repeat(64),rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,pigmentRgb8:[1,2,3],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'},assets:[],materialVersion:2,material}
- const geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter,ratio:1,spikes:2,scale:1,angle},{scale:1,ratio:1,rotation:0},subX,subY)
- const recipe={kind:'softAuto' as const,sourceSlot:0 as const,source:primarySource.source,coverageProfile:primarySource.coverageProfile,brushScale:1,brushAngle:angle,scale:1,ratio:1,rotation:0,subX,subY,width:geometry.maskSize[0],height:geometry.maskSize[1],mirrorH:false,mirrorV:false}
+ const geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter,ratio:1,spikes:2,scale:1,angle},{scale:1,ratio,rotation},subX,subY)
+ const recipe={kind:'softAuto' as const,sourceSlot:0 as const,source:primarySource.source,coverageProfile:primarySource.coverageProfile,brushScale:1,brushAngle:angle,scale:1,ratio,rotation,subX,subY,width:geometry.maskSize[0],height:geometry.maskSize[1],mirrorH,mirrorV:false}
  const packed=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:0,y:0,opacity:1,flow:1}],fences:[{at:0,kind:'segmentBegin',group:0},{at:1,kind:'primaryEnd',group:0},{at:1,kind:'segmentEnd',group:0},...(ended?[{at:1,kind:'gestureEnd' as const}]:[])]},material).packed
  const op:CanonicalStrokeOperation={id:'op',userId:'author',timestamp:0,seq:1,type:'canonical_stroke',layerId:'layer-1',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:snapshot.brush,strokeId:'S',frameOrdinal:0,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
  const attachment:CanonicalRecordedAttachmentV1={version:1,roomId:'room',boardEpoch:2,capabilities:[{originalUserId:'author',snapshot}],bindings:[{operationId:'op',sequence:1,originalUserId:'author',capability:0}]}
@@ -78,7 +79,8 @@ it('uses derived tiles only for actual display and stable tiles for export while
   engine['_drawCompositeItem'](frame,'layer-1',1,engine['_assemblyFBO'].fbo,8,8)
   expect(transform).toHaveBeenCalled();expect(transform.mock.calls[0][0]).toBe(owner.derived!.resolveVisible({minX:0,minY:0,maxX:8,maxY:8})[0].buffer)
   transform.mockClear();engine['_drawCompositeItem'](frame,'layer-1',1,engine['_assemblyFBO'].fbo,8,8,false)
-  expect(transform).toHaveBeenCalled();expect(transform.mock.calls[0][0]).toBe(owner.stable.resolveVisible({minX:0,minY:0,maxX:8,maxY:8})[0].buffer)
+  expect(owner.stable.resolveVisible({minX:0,minY:0,maxX:8,maxY:8})[0].contentRect).toBeNull()
+  expect(transform).not.toHaveBeenCalled() // Known-blank stable target: OPEN ink lives only in derived.
  }finally{engine.destroy()}
 })
 it('rejects copied delivery before journal mutation and refuses stale initial recovery after new confirmed pixels',async()=>{
@@ -319,4 +321,14 @@ it('does not display an idle original control-only frame without a published pre
   expect(engine['_canonicalLayerOwner']!.coordinator!.publishedPresentationReady).toBe(false)
   expect(display).not.toHaveBeenCalled();expect(engine['_log'].entries).toHaveLength(1)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('keeps legacy rotated/anisotropic/mirrored originals closed before canvas admission',()=>{
+ for(const transform of [{rotation:.4,ratio:1,mirrorH:false},{rotation:0,ratio:.5,mirrorH:false},{rotation:0,ratio:1,mirrorH:true}]){
+  const f=fixture(true,8,0,0,0,transform.rotation,transform.ratio,transform.mirrorH),wire=state().state
+  wire.tailOperations=[f.op];wire.canonicalCapabilities=f.attachment;wire.canonicalHistoryBase={kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:2,throughSeq:1,operationCount:1}
+  const p=prepareCanonicalRoomState(wire,{expectedBoardId:'room',isCurrent:()=>true}),get=vi.fn(()=>{throw Error('Canvas touched')}),canvas=new Proxy({} as HTMLCanvasElement,{get})
+  expect(()=>new PencilEngine(canvas,{rasterVersion:'straight-rgba8-v1',pageWidth:8,pageHeight:8,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations}})).toThrow('Unsupported fixed canonical layer transform')
+  expect(get).not.toHaveBeenCalled()
+ }
 })
