@@ -1,5 +1,5 @@
 import {canonicalRecordedRasterProfiles,parseCanonicalStrokeCloseOperation,type CanonicalPreparedRecordedOperation,type CanonicalRecordedReadScope} from '@grafetto/shared'
-import type {CanonicalRecordedDelivery,CanonicalRecordedInput,CanonicalRecordedLifetime} from '../../../engine/src/oplog/CanonicalRecordedDelivery'
+import type {CanonicalRecordedDelivery,CanonicalRecordedInput,CanonicalRecordedLifetime} from '../../../engine'
 
 type LocalScope=CanonicalRecordedReadScope&{readonly isCurrent:()=>boolean}
 const origin:unique symbol=Symbol('original-recorded-read-lifetime')

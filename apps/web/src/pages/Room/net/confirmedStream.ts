@@ -1,5 +1,5 @@
 import {attachCanonicalRecordedDelivery} from './canonicalRecordedDelivery'
-import type {CanonicalRecordedInput} from '../../../engine/src/oplog/CanonicalRecordedDelivery'
+import type {CanonicalRecordedInput} from '../../../engine'
 import type { ReplayGate, ReplayGateDelivery } from '../replayGate'
 import type { RefObject } from 'react'
 

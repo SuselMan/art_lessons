@@ -1,5 +1,5 @@
 import {captureCanonicalLocalReadScope,attachCanonicalRecordedDelivery} from './canonicalRecordedDelivery'
-import type {CanonicalRecordedLifetime} from '../../../engine/src/oplog/CanonicalRecordedDelivery'
+import type {CanonicalRecordedLifetime} from '../../../engine'
 import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_RECORDED_ATTACHMENT_LIMITS,LEGACY_ROOM_RASTER_VERSION,STRAIGHT_ROOM_RASTER_VERSION,readRoomRasterVersion,canonicalRecordedRasterProfiles,prepareCanonicalRecordedAttachment,verifyCanonicalEmptyHistoryBase,type CanonicalEmptyHistoryBaseV1,type CanonicalPreparedRecordedOperation,type CanonicalStrokeRasterProfile,type Operation,type ServerToClientEvents} from '@grafetto/shared'
 import {type CanonicalHistoryScope} from './canonicalHistoryPage'
 
