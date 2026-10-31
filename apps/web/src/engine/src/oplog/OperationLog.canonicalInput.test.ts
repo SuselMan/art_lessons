@@ -131,3 +131,37 @@ describe('initial historical journal compare-and-publish',()=>{
   expect(log.revision).toBe(0);expect(log.entries).toHaveLength(0)
  })
 })
+
+
+describe('late initial historical publication validator',()=>{
+ it('checks candidate lifetime after every original delivery callback and preserves its exact rejection',()=>{
+  const log=new OperationLog();let armed=false,current=true
+  const f=fixture(()=>{if(armed)current=false}),scratch=new OperationLog()
+  for(const input of f.inputs)scratch.append(input.operation,{serverSeq:input.read!.sequence,canonicalInput:input})
+  const error=new Error('candidate layer/context replaced'),validate=vi.fn(()=>{if(!current)throw error;return undefined});armed=true
+  expect(()=>log.prependHistorical(scratch.entries,0,validate)).toThrow(error)
+  expect(validate).toHaveBeenCalledOnce();expect(current).toBe(false)
+  expect(log.entries).toHaveLength(0);expect(log.revision).toBe(0);expect(log.pixelOpDoneCount('layer')).toBe(0)
+ })
+ it('compares the real journal again after the late validator returns',()=>{
+  const f=fixture(),log=new OperationLog(),scratch=new OperationLog(),input=f.inputs[0]
+  scratch.append(input.operation,{serverSeq:input.read!.sequence,canonicalInput:input})
+  const validate=vi.fn(()=>{log.append({type:'layer_clear',id:'live',userId:'peer',timestamp:1,layerId:'layer'});return undefined})
+  expect(()=>log.prependHistorical(scratch.entries,0,validate)).toThrow(/journal changed/)
+  expect(validate).toHaveBeenCalledOnce();expect(log.entries.map(e=>e.op.id)).toEqual(['live']);expect(log.revision).toBe(1)
+ })
+ it('never executes a publication validator without an initial empty-journal precondition',()=>{
+  const validate=vi.fn(),log=new OperationLog()
+  expect(()=>log.prependHistorical([],undefined,validate)).toThrow()
+  expect(validate).not.toHaveBeenCalled();expect(log.revision).toBe(0)
+ })
+})
+
+it('rejects async and value-returning publication validators without inspecting thenables or publishing',()=>{
+ const f=fixture(),log=new OperationLog(),scratch=new OperationLog(),input=f.inputs[0]
+ scratch.append(input.operation,{serverSeq:input.read!.sequence,canonicalInput:input})
+ const then=vi.fn(),opaque=Object.defineProperty({},'then',{get:then})
+ // Exercise malformed JavaScript callers beyond the undefined-only TS contract.
+ for(const validate of [async()=>undefined,()=>opaque,()=>7])expect(()=>Reflect.apply(log.prependHistorical,log,[scratch.entries,0,validate])).toThrow(/synchronous/)
+ expect(then).not.toHaveBeenCalled();expect(log.entries).toHaveLength(0);expect(log.revision).toBe(0)
+})

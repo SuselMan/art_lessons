@@ -39,3 +39,25 @@ numbering and pixel counters; repeated publication and invalid/stale revisions
 reject. Existing historical calls and original-input tests remain unchanged.
 These are host lifecycle proofs, not device pixels or a completed engine
 transaction. No device/service/temporary runtime resources are created.
+
+
+A guarded initial publication may additionally receive `beforePublish`, a local
+candidate validator, invoked ONCE after all original-delivery callbacks/copies
+and counter preparation. It can reject a replaced layer/context before journal
+publication. It must finish its own authority callbacks before pure owner checks.
+The SAME journal revision/empty comparison runs AGAIN after this validator,
+preventing its own reentry from bypassing the CAS. Undefined-revision callers
+cannot supply it; it is not a general notification hook. Three tests first failed
+against the previous method and now pass: original callback invalidates a
+candidate without changing the journal, the final validator reenters via a real
+append, and an unguarded validator is rejected without invocation. This adds no
+source authority or full engine publication by itself.
+
+The late validator's TypeScript return type is `undefined`, and runtime rejects
+ANY non-undefined return before CAS/publication, including a Promise, without
+reading thenable properties. This excludes accidentally deferred validation.
+The actual engine validator is synchronous. A malformed-caller test failed before
+this check and now passes for async, opaque thenable and numeric returns; its
+throwing/observable `then` getter is never invoked. This does not cancel arbitrary
+side effects of an invalid local callback; callers must obey the synchronous
+validator contract. Final focused16 tests and prior68 oplog regressions pass.

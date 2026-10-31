@@ -612,7 +612,9 @@ export class OperationLog {
    *  local seq has always meant "array index" (see append()), this keeps
    *  that invariant true across the splice. O(n) in the log's total size;
    *  fine for a background, few-times-per-session operation. */
-  prependHistorical(entries: readonly LogEntry[], expectedEmptyRevision?: number): void {
+  prependHistorical(entries: readonly LogEntry[], expectedEmptyRevision?: number, beforePublish?: () => undefined): void {
+    if (beforePublish !== undefined && (typeof beforePublish !== 'function' || expectedEmptyRevision === undefined))
+      throw new TypeError('A publication validator requires the empty-journal precondition')
     // Local publication precondition, NOT source/read authority. An initial
     // baseline may publish only into the SAME still-empty journal it captured.
     // Delivery validation below can call an original owner's lifetime callback.
@@ -659,6 +661,10 @@ export class OperationLog {
       const layerIds = op.type === 'layer_transform' ? op.transforms.map(t => t.layerId) : [op.layerId]
       for (const layerId of layerIds) initialPixelCounts.set(layerId, (initialPixelCounts.get(layerId) ?? 0) + 1)
     }
+    // Recheck the caller-owned candidate AFTER original delivery callbacks.
+    // The validator must finish with pure layer/context/job checks. It may
+    // throw before publication; its own reentry cannot bypass the final CAS.
+    if (beforePublish && beforePublish() !== undefined) throw new TypeError('Publication validator must be synchronous and return undefined')
     // No callbacks/copies remain between this comparison and publication.
     assertExpectedJournal()
     this._revision++
