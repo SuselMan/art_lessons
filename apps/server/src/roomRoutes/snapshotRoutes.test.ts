@@ -1,3 +1,4 @@
+import { CanonicalRoomTransport } from '../rooms/CanonicalRoomTransport.js'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 
@@ -12,7 +13,7 @@ const mockRooms = vi.hoisted(() => ({
   mayReadBoardContent: vi.fn(),
   getSnapshotIndex: vi.fn(),
   getLayerSnapshot: vi.fn(),
-  getOperationsBefore: vi.fn(),
+  getOperationsBeforeWithCanonicalRows: vi.fn(),
   saveSnapshot: vi.fn(),
   // (#595) Every board in these tests is a shared one.
   canSeeResidentBoard: () => true,
@@ -24,10 +25,10 @@ vi.mock('../rooms/snapshotStore.js', () => mockRooms)
 const HASH = 'sha256-of-decompressed-pixels'
 const BLOB = Buffer.from([0x1f, 0x8b, 0x08, 0x00, 0xde, 0xad, 0xbe, 0xef])
 
-function buildApp(): FastifyInstance {
+function buildApp(transport?:CanonicalRoomTransport): FastifyInstance {
   const app = Fastify()
   app.addHook('preHandler', async request => { request.userId = 'student' })
-  registerSnapshotRoutes(app)
+  registerSnapshotRoutes(app,transport)
   return app
 }
 
@@ -227,13 +228,32 @@ describe('POST /api/rooms/:roomId/snapshots', () => {
 
 describe('scoped dependency history HTTP query', () => {
   it('passes only validated layer ids and preserves the inclusive caller cursor', async () => {
-    mockRooms.getOperationsBefore.mockResolvedValue([])
+    mockRooms.getOperationsBeforeWithCanonicalRows.mockResolvedValue({operations:[],canonicalRows:[]})
     const response = await buildApp().inject({ method: 'GET', url: '/api/rooms/room-1/operations?beforeSeq=6&limit=500&layerIds=L,S' })
     expect(response.statusCode).toBe(200)
-    expect(mockRooms.getOperationsBefore).toHaveBeenCalledWith('room-1', 6, 500, ['L', 'S'])
+    expect(mockRooms.getOperationsBeforeWithCanonicalRows).toHaveBeenCalledWith('room-1', 6, 500, ['L', 'S'])
   })
   it('refuses empty layer identifiers', async () => {
     const response = await buildApp().inject({ method: 'GET', url: '/api/rooms/room-1/operations?beforeSeq=6&layerIds=L,' })
     expect(response.statusCode).toBe(400)
   })
+})
+
+describe('canonical history remains closed until paired whole-page reader activation',()=>{
+ it('keeps V1 material array bytes unchanged and does not consult V2 owner',async()=>{
+  const operations=[{type:'canonical_stroke',id:'historical-png',frame:{materialPacked:'1|historical-png-material'}}]
+  mockRooms.getOperationsBeforeWithCanonicalRows.mockResolvedValue({operations,canonicalRows:[]})
+  const owner=new CanonicalRoomTransport(),project=vi.spyOn(owner,'prepareHistoryPage')
+  const response=await buildApp(owner).inject({method:'GET',url:'/api/rooms/room-1/operations?beforeSeq=6'})
+  expect(response.statusCode).toBe(200);expect(response.body).toBe(JSON.stringify(operations));expect(project).not.toHaveBeenCalled()
+ })
+ it('uses the explicitly injected owner for V2 and refuses delivery instead of publishing an unbound array',async()=>{
+  const operations=[{type:'canonical_stroke',id:'v2',frame:{materialPacked:'2|source-material'}}],page={operations,canonicalRows:[]}
+  mockRooms.getOperationsBeforeWithCanonicalRows.mockResolvedValue(page)
+  const owner=new CanonicalRoomTransport(),project=vi.spyOn(owner,'prepareHistoryPage').mockRejectedValue(Error('policy OFF'))
+  const response=await buildApp(owner).inject({method:'GET',url:'/api/rooms/room-1/operations?beforeSeq=6'})
+  expect(response.statusCode).toBe(409);expect(response.json()).toEqual({error:'canonical_history_unavailable'})
+  expect(project).toHaveBeenCalledWith({roomId:'room-1',userId:'student'},page,expect.any(Function))
+  expect(response.body).not.toContain('source-material')
+ })
 })

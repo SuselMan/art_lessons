@@ -101,3 +101,20 @@ it('refuses an unknown snapshot-only structural base instead of manufacturing la
   mocks.operations.mockResolvedValue([{data:del},{data:u}])
   await expect(prepareSnapshotReplay('room')).rejects.toThrow('structural base cannot be reconstructed')
 })
+
+it('retains verified actual indexed evidence for recovered canonical dependencies before immutable copying',async()=>{
+ const {CANONICAL_STROKE_RASTER_PROFILE}=await import('@grafetto/shared')
+ const op:Operation={type:'canonical_stroke',id:'cold-canonical',seq:3,userId:'original-author',timestamp:0,layerId:'L',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:'brush:fixture@1',strokeId:'S',frameOrdinal:0,pigmentRgb8:[1,2,3],composition:{mode:'wash',alphaDarken:'creamy',outerResourceOpacity:1,outerBlend:'over'},materialPacked:'bounded-test-payload'}}
+ const row={id:op.id,roomId:'room',userId:op.userId,seq:3,type:op.type,layerId:'L',tool:null,data:op}
+ const u:Operation={...undo,targetOpId:op.id},r:Operation={...redo,targetOpId:op.id}
+ mocks.rooms.get('room').operations=[r]
+ mocks.operations.mockImplementation(async({where})=>where.id?[row]:[row,{data:u},{data:r}])
+ const prepared=await prepareSnapshotReplay('room'),copy=prepared.operations.find(o=>o.id===op.id)!
+ expect(prepared.canonicalRows).toHaveLength(1);expect(prepared.canonicalRows[0].data).toBe(copy)
+ expect(copy).not.toBe(op);expect(Object.isFrozen(copy)).toBe(true)
+ if(copy.type!=='canonical_stroke')throw Error('Expected canonical')
+ Object.assign(op.frame,{pigmentRgb8:[9,9,9]});expect(copy.frame.pigmentRgb8).toEqual([1,2,3])
+ expect(mocks.operations).toHaveBeenCalledWith(expect.objectContaining({select:expect.objectContaining({id:true,roomId:true,userId:true,seq:true,type:true,layerId:true,tool:true,data:true})}))
+ mocks.operations.mockResolvedValue([{...row,userId:'different-author'}])
+ await expect(prepareSnapshotReplay('room')).rejects.toThrow('immutable row conflict')
+})

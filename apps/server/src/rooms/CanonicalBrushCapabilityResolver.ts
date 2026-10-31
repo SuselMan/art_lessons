@@ -224,6 +224,23 @@ export class CanonicalBrushCapabilityResolver {
     return attachment
   }
 
+  /** Transient delivery may combine exact resident receipts with actual rows
+   * recovered by the SAME replay query. A row never mints a resident receipt. */
+  prepareMixedRecordedAttachment(input:{readonly roomId:string;readonly boardEpoch:number;readonly operations:readonly Operation[];readonly rows:readonly CanonicalStoredOperationRow[]}):CanonicalRecordedAttachmentV1 {
+    if(!Array.isArray(input.rows)||input.rows.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)fail('recorded attachment row capacity exceeded')
+    const rows=new Map<string,CanonicalStoredOperationRow>()
+    for(const row of input.rows){if(!row||rows.has(row.id))fail('duplicate recorded attachment row');rows.set(row.id,row)}
+    const attachment=this.projectRecordedAttachment(input,op=>{
+      const row=rows.get(op.id)
+      if(row){rows.delete(op.id);verifyCanonicalOperationRow(input.roomId,op,row);return ()=>this.readRecordedCapability({roomId:input.roomId,boardEpoch:input.boardEpoch,operation:op,row})}
+      const board=rooms.get(input.roomId)
+      if(!board||!hasSucceededCanonicalWrite(board,op))fail('recorded resident receipt unavailable')
+      return ()=>this.readResidentRecordedCapability({roomId:input.roomId,boardEpoch:input.boardEpoch,operation:op})
+    })
+    if(rows.size)fail('recorded attachment row closure mismatch')
+    return attachment
+  }
+
   prepareResidentRecordedAttachment(input:{readonly roomId:string;readonly boardEpoch:number;readonly operations:readonly Operation[]}):CanonicalRecordedAttachmentV1 {
     return this.projectRecordedAttachment(input,op=>{
       const board=rooms.get(input.roomId)

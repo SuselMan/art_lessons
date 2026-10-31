@@ -1,5 +1,7 @@
 import { IMPLICIT_LAYER_IDS, type Operation } from '@grafetto/shared'
 
+import { canonicalOperationRowSelect,verifyCanonicalOperationRow,type CanonicalStoredOperationRow } from './roomPersistence.js'
+import { immutableCanonicalOperation } from './operationLog.js'
 import { prisma } from '../db/prisma.js'
 import { flushRoomWrites, rooms } from './roomRegistry.js'
 import { layerStateIdsOf } from './snapshotCoverage.js'
@@ -11,6 +13,7 @@ const STRUCTURE_TYPES = ['layer_add', 'folder_add', 'layer_delete', 'layer_merge
 export interface PreparedSnapshotReplay extends SnapshotReplayPlan {
   index: { seq: number; layerState: unknown; layers: SnapshotCandidate[]; replayStructure?: true; historyLayers?: string[] } | null
   operations: Operation[]
+  canonicalRows: readonly CanonicalStoredOperationRow[]
   historicalIds: Set<string>
   watermark: number
 }
@@ -29,10 +32,20 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
     ])
     const live = stored ? layerStateIdsOf(stored.state) : null
     const candidates = rows.filter(row => live === null || live.has(row.layerId))
+    const canonicalRows = new Map<string,CanonicalStoredOperationRow>()
+    const acceptRow = (row:CanonicalStoredOperationRow):Operation => {
+      const op=row.data as Operation
+      if(row.type!=='canonical_stroke'&&op?.type!=='canonical_stroke')return op
+      verifyCanonicalOperationRow(roomId,op,row)
+      if(op.type!=='canonical_stroke')throw Error('Canonical replay row discriminator conflict')
+      const copy=immutableCanonicalOperation(op,op.seq!)
+      canonicalRows.set(copy.id,Object.freeze({...row,data:copy}))
+      return copy
+    }
     const byId = new Map((record?.operations ?? []).map(op => [op.id, op]))
     if (!stored) {
       if (record && ((rooms.get(roomId)?.nextSeq ?? 1) - 1 !== watermark)) continue
-      return { snapshots: [], coverage: new Map(), historyLayers: new Set(), unresolvedTargets: new Set(), index: null, operations: [...byId.values()], historicalIds: new Set(), watermark }
+      return { snapshots: [], coverage: new Map(), historyLayers: new Set(), unresolvedTargets: new Set(), index: null, operations: [...byId.values()], canonicalRows: [], historicalIds: new Set(), watermark }
     }
     const queried = new Set<string>()
     // Targets may have left resident RAM at snapshot upload/cold load. Resolve
@@ -43,16 +56,16 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
         .flatMap(op => 'targetOpId' in op && !byId.has(op.targetOpId) && !queried.has(op.targetOpId) ? [op.targetOpId] : [])
       if (!missing.length) break
       for (const id of missing) queried.add(id)
-      const targets = await prisma.operation.findMany({ where: { roomId, id: { in: missing } }, select: { data: true } })
-      for (const { data } of targets) { const op = data as Operation; byId.set(op.id, op) }
+      const targets = await prisma.operation.findMany({ where: { roomId, id: { in: missing } }, select: canonicalOperationRowSelect })
+      for (const row of targets) { const op = acceptRow(row); byId.set(op.id, op) }
     }
     let plan = planSnapshotReplay(candidates, [...byId.values()], record?.aliveIds, stored.seq)
     if (plan.replayStructure) {
       const prefix = await prisma.operation.findMany({
         where: { roomId, type: { in: [...HISTORY_TYPES, ...STRUCTURE_TYPES] }, seq: { lte: watermark } },
-        orderBy: { seq: 'asc' }, select: { data: true },
+        orderBy: { seq: 'asc' }, select: canonicalOperationRowSelect,
       })
-      for (const { data } of prefix) { const op = data as Operation; byId.set(op.id, op) }
+      for (const row of prefix) { const op = acceptRow(row); byId.set(op.id, op) }
       // Legacy snapshot-only roots have no recoverable original structural
       // base. Never guess that base from currently alive layers.
       const created = new Set(IMPLICIT_LAYER_IDS)
@@ -74,10 +87,10 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
       for (const id of next) loadedLayers.add(id)
       const history = await prisma.operation.findMany({
         where: { roomId, OR: [{ layerId: { in: next } }, { type: { in: [...HISTORY_TYPES, ...STRUCTURE_TYPES, 'paper_dry'] } }] },
-        orderBy: { seq: 'asc' }, select: { data: true },
+        orderBy: { seq: 'asc' }, select: canonicalOperationRowSelect,
       })
-      for (const { data } of history) {
-        const op = data as Operation
+      for (const row of history) {
+        const op = acceptRow(row)
         byId.set(op.id, op)
         if ((op.seq ?? 0) <= (stored?.seq ?? 0)) historicalIds.add(op.id)
       }
@@ -86,7 +99,7 @@ export async function prepareSnapshotReplay(roomId: string): Promise<PreparedSna
     if (plan.unresolvedTargets.size) throw new Error('Unresolved snapshot history dependency')
     if (record && ((rooms.get(roomId)?.nextSeq ?? 1) - 1 !== watermark)) continue
     return { ...plan, index: stored ? { seq: stored.seq, layerState: stored.state, layers: plan.snapshots, ...(plan.replayStructure ? { replayStructure: true as const, historyLayers: [...plan.historyLayers] } : {}) } : null,
-      operations: [...byId.values()].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0)), historicalIds, watermark }
+      operations: [...byId.values()].sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0)), canonicalRows: Object.freeze([...canonicalRows.values()]), historicalIds, watermark }
   }
   throw new Error('Snapshot history changed during join preparation')
 }

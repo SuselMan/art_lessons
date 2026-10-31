@@ -1,3 +1,4 @@
+import type { CanonicalRecordedAttachmentV1 } from './canonicalRecordedAttachment.js'
 import type { BrushImportJob } from './brushBehavior.js'
 import type { BrushLibrary } from './brushes.js'
 import type {
@@ -9,6 +10,14 @@ import type { RoomOpenMeasurement } from './roomOpen.js'
 import type {
   BoardSummary, Room, RoomAccessInfo, RoomAccessMode, RoomFolder, RoomInvite,
 } from './room.js'
+
+/** Capability-bearing V2 history is one atomic delivered page. Legacy/V1
+ * continues to use the historical array response. */
+export interface CanonicalRecordedHistoryPage {
+  readonly operations: Operation[]
+  readonly canonicalCapabilities: CanonicalRecordedAttachmentV1
+}
+export type OperationHistoryResponse = Operation[] | CanonicalRecordedHistoryPage
 
 /** (#623) The REST half of the contract between web and server.
  *
@@ -200,7 +209,7 @@ export interface ApiRoutes {
     params: { roomId: string; layerId: string; seq: string | number }; response: ApiBinary
   }
   'GET /api/rooms/:roomId/operations': {
-    params: { roomId: string }; query: { beforeSeq: number; limit?: number; layerIds?: string }; response: Operation[]
+    params: { roomId: string }; query: { beforeSeq: number; limit?: number; layerIds?: string }; response: OperationHistoryResponse
   }
 
   // A review image is a view of the board, never a layer snapshot.

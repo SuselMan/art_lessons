@@ -1,9 +1,11 @@
+import { rooms,lessonRecordOf } from '../rooms/roomRegistry.js'
+import { CanonicalRoomTransport } from '../rooms/CanonicalRoomTransport.js'
 import type { FastifyInstance } from 'fastify'
 import type { SnapshotUploadResult } from '@grafetto/shared'
 
 import { apiRoute } from '../http/apiRoute.js'
 import { mayReadBoardContent } from '../rooms/boardContentAccess.js'
-import { getLayerSnapshot, getOperationsBefore, getSnapshotIndex, saveSnapshot } from '../rooms/snapshotStore.js'
+import { getLayerSnapshot, getOperationsBeforeWithCanonicalRows, getSnapshotIndex, saveSnapshot } from '../rooms/snapshotStore.js'
 
 const MAX_BACKFILL_PAGE_SIZE = 500
 // Fastify's default bodyLimit is 1MB — comfortably too small for a gzipped,
@@ -12,7 +14,7 @@ const MAX_BACKFILL_PAGE_SIZE = 500
 const SNAPSHOT_UPLOAD_BODY_LIMIT_BYTES = 20 * 1024 * 1024
 
 /** Snapshot HTTP access is a durable join permission, independent of sockets. */
-export function registerSnapshotRoutes(app: FastifyInstance): void {
+export function registerSnapshotRoutes(app: FastifyInstance, canonicalTransport = new CanonicalRoomTransport()): void {
   apiRoute(app, 'POST /api/rooms/:roomId/snapshots',
     { bodyLimit: SNAPSHOT_UPLOAD_BODY_LIMIT_BYTES },
     async (request, reply) => {
@@ -152,7 +154,18 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
       if (layerIds && (layerIds.length > 200 || layerIds.some(id => !id || id.length > 100))) {
         return reply.code(400).send({ error: 'bad_request' })
       }
-      return await getOperationsBefore(roomId, beforeSeq, limit, layerIds)
+      const record=rooms.get(roomId),lesson=record&&lessonRecordOf(record)
+      const page=await getOperationsBeforeWithCanonicalRows(roomId, beforeSeq, limit, layerIds)
+      const operations=page.operations
+      // V1 keeps the historical array lane. V2 needs the paired whole-page
+      // reader before this route may publish a capability-bearing response.
+      if(operations.some(op=>op.type==='canonical_stroke'&&!op.frame.materialPacked.startsWith('1|'))) {
+        try {
+          await canonicalTransport.prepareHistoryPage({roomId,userId:request.userId},page,()=>!!record&&rooms.get(roomId)===record&&lessonRecordOf(record)===lesson)
+        } catch { return reply.code(409).send({error:'canonical_history_unavailable'}) }
+        return reply.code(409).send({error:'canonical_history_reader_unavailable'})
+      }
+      return operations
     },
   )
 }

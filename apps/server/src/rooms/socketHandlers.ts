@@ -224,11 +224,10 @@ export async function announceBoardThumbnail(
  *  having to. */
 const personalBoardsInFlight = new Set<string>()
 
-export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): void {
+export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, canonicalTransport = new CanonicalRoomTransport()): void {
   // (#480) Один на процесс, как и io: состояние в нём — «о чём по этой
   // комнате уже отчитались», и оно должно переживать отдельное соединение.
   const lagWatch = createSnapshotLagWatch()
-  const canonicalTransport = new CanonicalRoomTransport()
 
   /** Every student present gets a board in the assignment the class is on,
    *  if they have none yet — see givePersonalBoard. */
@@ -486,7 +485,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         access.preparation.assertCurrent()
         const candidate = getRoomSnapshot(roomId, lastKnownSeq, userId, replay)
         if (!candidate) throw Error('Join snapshot unavailable')
-        readFields = readDelivery?.finish(candidate.tailOperations)
+        readFields = readDelivery?.finish(candidate.tailOperations, replay.canonicalRows.filter(row => candidate.tailOperations.some(op => op.id === row.id)))
         access.preparation.assertCurrent()
       } catch (err) {
         if (isCurrent()) releaseRoomIfUnused(roomId)

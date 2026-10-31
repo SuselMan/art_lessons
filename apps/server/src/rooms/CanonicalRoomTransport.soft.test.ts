@@ -254,3 +254,33 @@ it('denies reader policy and captured lifetime changes across asynchronous read 
  const rejected=expect(pending).rejects.toThrow('not_joined');current=false;gate.resolve();await rejected
  expect(f.board.operations).toHaveLength(0)
 })
+
+it('projects cold row and resident receipt in the SAME read epoch without adopting synthetic resident authority',async()=>{
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected)
+ const s=snapshot(await transport.begin(identity,f.input,()=>true)),packets=frames(f.descriptor,s)
+ const operations:CanonicalStrokeOperation[]=[]
+ for(let i=0;i<2;i++){
+  const recorded=await transport.recorded(identity,{type:'canonical_stroke',id:'mixed-'+i,userId:'author',timestamp:i,layerId:'layer',frame:packets[i]},()=>true)
+  if(!recorded.accepted)throw Error('Expected durable recorded');operations.push(recorded.accepted)
+ }
+ const cold=structuredClone(operations[1]),row=db.operation.create.mock.calls[1][0].data
+ const read=await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)
+ expect(read.scope.boardEpoch).toBe(s.boardEpoch)
+ const legacyLane=structuredClone(operations[0]);Object.assign(legacyLane.frame,{materialPacked:'1|historical-closed-lane'})
+ expect(read.finish([legacyLane])).not.toHaveProperty('canonicalCapabilities')
+ expect(()=>read.finish([legacyLane,cold],[row])).toThrow() // never grants a partial V2 batch
+ const mixed=read.finish([operations[0],cold],[row])
+ expect(mixed.canonicalCapabilities?.capabilities).toHaveLength(1)
+ expect(mixed.canonicalCapabilities?.bindings.map(b=>b.operationId)).toEqual(['mixed-0','mixed-1'])
+ expect(()=>read.finish([cold])).toThrow('receipt unavailable')
+ expect(()=>read.finish([operations[0],cold],[{...row,userId:'reader'}])).toThrow('immutable row conflict')
+ expect(()=>read.finish([operations[0],cold],[row,row])).toThrow('duplicate')
+ expect(()=>read.finish([operations[0]],[row])).toThrow('row closure')
+ const page=await transport.prepareHistoryPage({roomId:'board',userId:'reader'},{operations:[structuredClone(operations[0]),cold],canonicalRows:db.operation.create.mock.calls.map(([request])=>request.data)},()=>true)
+ expect(page.canonicalCapabilities).toEqual(mixed.canonicalCapabilities)
+ expect(Object.isFrozen(page)).toBe(true)
+ const denied=new CanonicalRoomTransport({...selected,autoSources:{}})
+ await expect(denied.prepareHistoryPage({roomId:'board',userId:'reader'},{operations:[cold],canonicalRows:[row]},()=>true)).rejects.toThrow()
+ let current=true;const pending=transport.prepareHistoryPage({roomId:'board',userId:'reader'},{operations:[cold],canonicalRows:[row]},()=>current)
+ current=false;await expect(pending).rejects.toThrow('not_joined')
+})

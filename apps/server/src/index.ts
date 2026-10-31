@@ -1,3 +1,4 @@
+import { CanonicalRoomTransport } from './rooms/CanonicalRoomTransport.js'
 // (#177) Deliberately the first import in the file, and deliberately also
 // loaded through node's `--import` in production (see package.json's start
 // script and the Dockerfile). The flag is what gets the SDK up before
@@ -130,7 +131,8 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents, DefaultEventsM
 // Room state (#32), operation relay + log (#34/#35), room_state snapshot
 // (#36), teacher/student roles (#39), and operation_revoke authorization
 // (#73) all live in socketHandlers.ts / rooms.ts — see those for details.
-registerRoomHandlers(io, app.log)
+const canonicalRoomTransport = new CanonicalRoomTransport()
+registerRoomHandlers(io, app.log, canonicalRoomTransport)
 
 // The HTTP routes come after `io` exists, not because Fastify needs it to,
 // but because one of them does: closing a room for editing (#222) is a REST
@@ -175,7 +177,7 @@ registerBoardRoutes(app, {
   evacuateBoard: (lessonId, boardId) => evacuateBoard(io, lessonId, boardId).catch(err =>
     app.log.error({ err, lessonId, boardId }, 'failed to move sockets off a deleted board')),
 })
-registerSnapshotRoutes(app)
+registerSnapshotRoutes(app, canonicalRoomTransport)
 // (#595) A stored preview is announced live to whoever may see that board —
 // the strip and the class grid both refresh from it.
 registerReviewRoutes(app)

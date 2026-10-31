@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from 'node:util'
 import {
   STRAIGHT_ROOM_RASTER_VERSION,
   type CanonicalStrokeBegin, type CanonicalStrokeBeginResult, type CanonicalStrokeLive, type CanonicalStrokeLiveResult,
-  type CanonicalStrokeOperation, type CanonicalStrokeSnapshot, type SendResult, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadScope, type Operation, CANONICAL_RECORDED_ATTACHMENT_LIMITS, prepareCanonicalRecordedAttachment,
+  type CanonicalStrokeOperation, type CanonicalStrokeSnapshot, type SendResult, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadScope, type CanonicalRecordedHistoryPage, type Operation, CANONICAL_RECORDED_ATTACHMENT_LIMITS, prepareCanonicalRecordedAttachment,
 } from '@grafetto/shared'
 import { canonicalBrushStorageContext } from '../brushLibrary/storage.js'
 import { prisma } from '../db/prisma.js'
@@ -13,7 +13,7 @@ import { assertPreparedAuthorizedJoinRead,type PreparedAuthorizedJoin } from './
 import { mayReadBoardContent } from './boardContentAccess.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { canonicalWriteFence, ensureCanonicalWrite, findDuplicateOperation, knownCanonicalWrite, recordOperation, updateAliveIds } from './operationLog.js'
-import { canonicalOperationRowSelect, verifyCanonicalOperationRow } from './roomPersistence.js'
+import { canonicalOperationRowSelect, verifyCanonicalOperationRow,type CanonicalStoredOperationRow } from './roomPersistence.js'
 import { flushRoomWrites, lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
 import { getOperationsBefore } from './snapshotStore.js'
 
@@ -127,7 +127,7 @@ export class CanonicalRoomTransport {
   /** Two-phase reader preparation. Caller awaits BEFORE channel join, then
    * calls finish(snapshot.tailOperations) synchronously before join+state emit.
    * No await/queue/registry survives finish; no paint permission is inferred. */
-  prepareReadDelivery(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly finish:(operations:readonly Operation[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
+  prepareReadDelivery(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
     const captured={roomId:identity.roomId,userId:identity.userId}
     return this.prepareReadContext(captured,isCurrent,()=>mayReadBoardContent(captured.roomId,captured.userId),()=>{})
   }
@@ -135,14 +135,14 @@ export class CanonicalRoomTransport {
   /** Genuine prepared join can read its exact target BEFORE membership exists.
    * Its private lexical proof comes from the same block/password/invite gate;
    * no caller ok:true object or fabricated durable participation is accepted. */
-  prepareJoinReadDelivery(preparation:PreparedAuthorizedJoin,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly finish:(operations:readonly Operation[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
+  prepareJoinReadDelivery(preparation:PreparedAuthorizedJoin,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
     const identity={roomId:preparation.roomId,userId:preparation.userId}
     const assert=()=>assertPreparedAuthorizedJoinRead(preparation,identity.roomId,identity.userId)
     assert()
     return this.prepareReadContext(identity,isCurrent,async()=>{assert();return true},assert)
   }
 
-  private async prepareReadContext(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean,authorize:()=>Promise<boolean>,assertAuthorization:()=>void):Promise<{readonly scope:CanonicalRecordedReadScope;readonly finish:(operations:readonly Operation[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
+  private async prepareReadContext(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean,authorize:()=>Promise<boolean>,assertAuthorization:()=>void):Promise<{readonly scope:CanonicalRecordedReadScope;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
     if(!text(identity?.roomId)||!text(identity.userId))fail('not_joined')
     const {roomId}=identity
     const record=rooms.get(roomId)
@@ -158,14 +158,27 @@ export class CanonicalRoomTransport {
     if(!await authorize())fail('not_joined')
     current()
     const scope=binder.captureReadScope(roomId)
-    return Object.freeze({scope,finish:(operations:readonly Operation[])=>{
+    return Object.freeze({scope,finish:(operations:readonly Operation[],rows:readonly CanonicalStoredOperationRow[]=[])=>{
       current()
       if(!Array.isArray(operations)||operations.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)fail('canonical_repair_required')
-      const canonical=operations.some(op=>op.type==='canonical_stroke')
-      const canonicalCapabilities=canonical?binder.prepareResidentRecordedAttachment({roomId:scope.roomId,boardEpoch:scope.boardEpoch,operations}):undefined
+      if(!Array.isArray(rows)||rows.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings||(!operations.some(op=>op.type==='canonical_stroke')&&rows.length))fail('canonical_repair_required')
+      // Material codec version, independently of the raster envelope version.
+      // Historical V1 remains its old closed lane; a mixed V1/V2 batch goes
+      // through whole-batch V2 preparation and is refused atomically.
+      const canonical=operations.some(op=>op.type==='canonical_stroke'&&!op.frame.materialPacked.startsWith('1|'))
+      const canonicalCapabilities=canonical?binder.prepareMixedRecordedAttachment({roomId:scope.roomId,boardEpoch:scope.boardEpoch,operations,rows}):undefined
       current()
       return Object.freeze({canonicalReadScope:scope,...canonicalCapabilities?{canonicalCapabilities}:{}})
     }})
+  }
+
+  /** Same owner/epoch as room_state; actual query rows supply only read
+   * provenance. The route must capture its lifetime before its awaited query. */
+  async prepareHistoryPage(identity:CanonicalAdmissionIdentity,page:{readonly operations:Operation[];readonly canonicalRows:readonly CanonicalStoredOperationRow[]},isCurrent:()=>boolean):Promise<CanonicalRecordedHistoryPage> {
+    const read=await this.prepareReadDelivery(identity,isCurrent)
+    const fields=read.finish(page.operations,page.canonicalRows)
+    if(!fields.canonicalCapabilities)fail('invalid_operation')
+    return Object.freeze({operations:[...page.operations],canonicalCapabilities:fields.canonicalCapabilities})
   }
 
   live(identity: CanonicalAdmissionIdentity, value: CanonicalStrokeLive): { readonly result: CanonicalStrokeLiveResult; readonly accepted?: CanonicalStrokeLive } {
