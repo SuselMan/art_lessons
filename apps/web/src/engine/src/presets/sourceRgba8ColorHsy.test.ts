@@ -31,3 +31,22 @@ it('keeps the source-only HSY profile closed from GLSL SC IDs and wrong profiles
   expect(() => canonicalizeSourceRgba8Control(control)).toThrow('no GPU mode')
   expect(() => compositeRgba8([0, 0, 0, 255], [0, 0, 0, 255], { ...control, profile: SOURCE_RGBA8_GENERIC_SC_PROFILE } as never)).toThrow('HSY')
 })
+
+it('matches original installed ARM64 full-vtable Color and captured fused CF bits', async () => {
+  const { default: native } = await import('./fixtures/sourceRgba8ColorHsy/installed-arm64.native.json')
+  const { SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE: profile } = await import('./sourceColorRgba8')
+  const view = new DataView(new ArrayBuffer(4))
+  for (const [i, row] of native.cases.entries()) {
+    const source = pixel(row.src), destination = pixel(row.dst)
+    const cf = sourceRgba8ColorHsyChannels(source, destination, profile)
+    const bits = cf.map(n => { view.setFloat32(0, n, true); return view.getUint32(0, true) })
+    if (row.colorF32Bits) expect(bits, `installed CF ${i}`).toEqual(row.colorF32Bits)
+    const control = { mode: 'colorHsy', profile, opacity: row.opacity, ...(row.mask < 0 ? {} : { mask: row.mask }) } as const
+    expect(compositeRgba8(source, destination, control), `installed RGBA ${i}`).toEqual(row.expected)
+    if ('separateExpected' in row) {
+      expect(compositeRgba8(source, destination, { ...control, profile: SOURCE_RGBA8_COLOR_HSY_PROFILE })).toEqual(row.separateExpected)
+      expect(row.expected).not.toEqual(row.separateExpected)
+    }
+    expect(() => canonicalizeSourceRgba8Control(control)).toThrow('no GPU mode')
+  }
+})

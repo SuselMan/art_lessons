@@ -63,3 +63,51 @@ Source attribution: Silvio Heinrich2011, Generic/functions LGPL-2.1-or-later;
 Cyrille Berger2006/2007/2010, Maths LGPL-2.1-or-later; Adrian Page2005,
 IntegerMaths LGPL-2.0-or-later; Dmitry Kazakov2024, FunctorBase/ClampPolicy
 GPL-2.0-or-later. Native extracted source retains its original SPDX notices.
+
+Installed ARM64 profile (separate explicit CPU profile)
+-----------------------------------------------------
+
+`krita-installed-arm64-generic-hsy-u8-fused-fpcr0-v1` preserves the earlier
+source-based separate-F32 profile. The installed BgrU8 Color/HSY RTTI is
+`30KoCompositeOpGenericHSLFunctorI13KoBgrU8Traits7CFColorI7HSYTypehEE`;
+vtable slot2 enters RVA0x2a7ea4, unlocked kernel RVA0x2a9074. Original ELF
+instructions execute in Unicorn2.1.4 with FPCR0 (not a physical ARM/GUI test).
+Pigment SHA256230ccf905226f4324ffdf8c7239e8be90f0506cfadda25393d1ba014ab0bb783,
+3694016bytes; QtCore SHA25678fc3da8d316ce7de1d957e3b20d7462b20245d4d797860f1946f797f7946ef9,
+5518824bytes. Both ELFs are fetched into RAM from the serial-verified installed
+APK, mapped with original relocations, and discarded; no library copy persists.
+
+The original Maths `.init_array` constructor RVA0x10be94 executes107072
+instructions and allocates263200bytes including its U16 LUT. Its332code
+bytes hash192ea58b33f899c9b6edd9ec78e224243703109dc97702afb64253669d99156d.
+All256 actual U8 LUT values match F32(i/255); their1024bytes hash
+010413efe9fc4438fee48de66c4d09f377b28af6a9fe2522201e8c1dbb831fc8.
+Only bounded libc malloc/new/free/memset hooks are supplied. Original Qt
+QBitArray executes; no Qt or arithmetic hooks and no host-injected LUT values.
+Initializer-only writes are allowed to audited half-trait/KoLuts globals
+RVA0x38dbd0..0x38dc00; afterward only owned stack/heap and four destination
+bytes are writable. Source and destination canaries remain unchanged.
+
+Installed luminance executes G*.587 rounded, then R*.299 FMADD into that
+term, then B*.114 FMADD. Each tone-map difference/product rounds before its
+reciprocal FMADD into luminance. All12 FMADD boundaries use the existing exact
+`sourceFmaF32`; no unrounded JS multiply-add substitutes them. Original l/n/x
+and all GenericHSL byte-stage laws/zero-alpha witnesses remain unchanged.
+
+`installed-arm64.native.json` records266 original full-vtable results and
+captured RGB F32 bits (readonly hook at RVA0x2a922c). The first258 have identical
+RGBA to the source-separated oracle but96 differ in CF bits. A deterministic
+xorshift32 seed0x12345678 search found8 byte-boundary candidates in63242 host
+inputs; all8 then execute through the original full vtable and exactly match
+the installed profile, differing from the separate profile in final RGBA.
+Example src[130,191,28,255], dst[60,145,216,255], opacity1, absentmask:
+installed[104,165,1,255], separate[104,165,2,255]. These are native invocation
+witnesses, not guessed source contraction or active-brush/GUI fidelity claims.
+The full composite path invokes the original outer Base loop, not just CF.
+
+Reproduction/audit harnesses and receipts are in fixes-v52:
+`run-installed-color-hsy.py`, `search-color-hsy-boundaries.ts`,
+`installed-color-hsy-execution.json`, `installed-color-hsy-boundary-execution.json`.
+The fixture pins runner/shared-loader hashes and original inputs/results.
+GPU admission remains closed for both Color profiles. No browser, device
+forward, process, service, native build directory or temporary library remains.

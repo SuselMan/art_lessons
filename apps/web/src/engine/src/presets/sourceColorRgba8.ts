@@ -1,3 +1,4 @@
+import { sourceFmaF32 } from './sourceFmaF32'
 import type { Rgba8 } from './mixWeightedRgba8'
 
 /** Pure straight RGBA8 operations in the already selected RGB color space.
@@ -116,6 +117,7 @@ export function adjustHsvChromaRgba8(source: Rgba8, hue: number, saturation: num
 }
 
 /** Generic SC integer source law, separate from optimized F32 Over/AlphaDarken. */
+export const SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE = 'krita-installed-arm64-generic-hsy-u8-fused-fpcr0-v1' as const
 export const SOURCE_RGBA8_COLOR_HSY_PROFILE = 'krita-generic-hsy-u8-separate-f32-bd6e8d0-v1' as const
 export const SOURCE_RGBA8_GENERIC_SC_PROFILE = 'krita-generic-sc-u8-bd6e8d0-v1' as const
 export type SourceRgba8SeparableMode = 'multiply' | 'lighten' | 'colorDodge' | 'overlay'
@@ -128,7 +130,7 @@ interface Rgba8CompositeParameters {
 export type Rgba8CompositeControl = Rgba8CompositeParameters & (
   { readonly mode: 'over' | 'add' | 'alphaDarken'; readonly profile?: never } |
   { readonly mode: SourceRgba8SeparableMode; readonly profile: typeof SOURCE_RGBA8_GENERIC_SC_PROFILE } |
-  { readonly mode: 'colorHsy'; readonly profile: typeof SOURCE_RGBA8_COLOR_HSY_PROFILE }
+  { readonly mode: 'colorHsy'; readonly profile: typeof SOURCE_RGBA8_COLOR_HSY_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE }
 )
 export const SOURCE_RGBA8_COMPOSITE_MODES = ['over', 'add', 'alphaDarken', 'multiply', 'lighten', 'colorDodge', 'overlay'] as const
 export function sourceRgba8CompositeModeId(mode: Rgba8CompositeControl['mode']): 0 | 1 | 2 | 3 | 4 | 5 | 6 {
@@ -153,10 +155,11 @@ function separableChannel(mode: SourceRgba8SeparableMode, source: number, destin
   const doubled = destination * 2 - 255
   return doubled + source - multiply(doubled, source)
 }
-/** Source-based separate-F32 HSY graph. This does not assert installed ARM
- * contraction/FP behavior. Keep original ToneMapping l/n/x across both passes. */
-function colorHsyChannels(source: Rgba8, destination: Rgba8): [number, number, number] {
-  const lum = (r: number, g: number, b: number) => f(f(f(f(.299) * r) + f(f(.587) * g)) + f(f(.114) * b))
+/** Pinned HSY graph with explicit separate or installed ARM64 contraction.
+ * Installed luminance has G*MUL then R/B FMADD; tone-map product is rounded
+ * before reciprocal FMADD. Keep original ToneMapping l/n/x across both passes. */
+function colorHsyChannels(source: Rgba8, destination: Rgba8, fused = false): [number, number, number] {
+  const lum = (r: number, g: number, b: number) => fused ? sourceFmaF32(b, f(.114), sourceFmaF32(r, f(.299), f(g * f(.587)))) : f(f(f(f(.299) * r) + f(f(.587) * g)) + f(f(.114) * b))
   const src = [f(source[0] / 255), f(source[1] / 255), f(source[2] / 255)]
   const light = lum(f(destination[0] / 255), f(destination[1] / 255), f(destination[2] / 255))
   const delta = f(light - lum(src[0], src[1], src[2]))
@@ -167,9 +170,9 @@ function colorHsyChannels(source: Rgba8, destination: Rgba8): [number, number, n
     if (l <= f(.00001) || stretch < 2 ** -23) r = g = b = 0
     else {
       const iln = f(1 / stretch)
-      r = f(l + f(f(f(r - l) * l) * iln))
-      g = f(l + f(f(f(g - l) * l) * iln))
-      b = f(l + f(f(f(b - l) * l) * iln))
+      r = fused ? sourceFmaF32(f(f(r - l) * l), iln, l) : f(l + f(f(f(r - l) * l) * iln))
+      g = fused ? sourceFmaF32(f(f(g - l) * l), iln, l) : f(l + f(f(f(g - l) * l) * iln))
+      b = fused ? sourceFmaF32(f(f(b - l) * l), iln, l) : f(l + f(f(f(b - l) * l) * iln))
     }
   }
   if (x > 1) {
@@ -177,17 +180,18 @@ function colorHsyChannels(source: Rgba8, destination: Rgba8): [number, number, n
     if (l > 1 || stretch < 2 ** -23) r = g = b = 1
     else {
       const il = f(1 - l), ixl = f(1 / stretch)
-      r = f(l + f(f(f(r - l) * il) * ixl))
-      g = f(l + f(f(f(g - l) * il) * ixl))
-      b = f(l + f(f(f(b - l) * il) * ixl))
+      r = fused ? sourceFmaF32(f(f(r - l) * il), ixl, l) : f(l + f(f(f(r - l) * il) * ixl))
+      g = fused ? sourceFmaF32(f(f(g - l) * il), ixl, l) : f(l + f(f(f(g - l) * il) * ixl))
+      b = fused ? sourceFmaF32(f(f(b - l) * il), ixl, l) : f(l + f(f(f(b - l) * il) * ixl))
     }
   }
   // possiblyFixNegativeValuesNearZeroPoint<quint8> is deliberately a no-op.
   return [r, g, b]
 }
-export function sourceRgba8ColorHsyChannels(source: Rgba8, destination: Rgba8): readonly [number, number, number] {
+export function sourceRgba8ColorHsyChannels(source: Rgba8, destination: Rgba8, profile: typeof SOURCE_RGBA8_COLOR_HSY_PROFILE | typeof SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE = SOURCE_RGBA8_COLOR_HSY_PROFILE): readonly [number, number, number] {
   validateRgba8Pixel(source); validateRgba8Pixel(destination)
-  return colorHsyChannels(source, destination)
+  if (profile !== SOURCE_RGBA8_COLOR_HSY_PROFILE && profile !== SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE) throw new RangeError('Unknown HSY profile')
+  return colorHsyChannels(source, destination, profile === SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE)
 }
 /** Same generic-SC branch/narrowing body used by addition and separable ops. */
 function genericScChannel(source: number, destination: number, sa: number, da: number, alpha: number, cf: number): number {
@@ -201,7 +205,7 @@ function genericScChannel(source: number, destination: number, sa: number, da: n
 export function validateRgba8CompositeControl(control: Rgba8CompositeControl): void {
   if (!control || !['over', 'add', 'alphaDarken', 'colorHsy', ...separableModes].includes(control.mode)) throw new RangeError('Unknown composite mode')
   if (separableModes.includes(control.mode) && control.profile !== SOURCE_RGBA8_GENERIC_SC_PROFILE) throw new RangeError('Missing generic SC U8 profile')
-  if (control.mode === 'colorHsy' && control.profile !== SOURCE_RGBA8_COLOR_HSY_PROFILE) throw new RangeError('Missing separate-F32 HSY source profile')
+  if (control.mode === 'colorHsy' && control.profile !== SOURCE_RGBA8_COLOR_HSY_PROFILE && control.profile !== SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE) throw new RangeError('Missing explicit HSY profile')
   unit(control.opacity)
   if (control.mask !== undefined && (!Number.isInteger(control.mask) || control.mask < 0 || control.mask > 255)) throw new RangeError('Invalid mask byte')
   unit(control.flow ?? 1)
@@ -240,7 +244,7 @@ export function compositeRgba8(source: Rgba8, destination: Rgba8, control: Rgba8
   if (control.mode === 'colorHsy') {
     const sa = multiply3(source[3], mask, opacity), alpha = sa + da - multiply(sa, da)
     if (alpha === 0) return [destination[0], destination[1], destination[2], alpha]
-    const cf = colorHsyChannels(source, destination).map(floatByte)
+    const cf = colorHsyChannels(source, destination, control.profile === SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE).map(floatByte)
     const channel = (i: 0 | 1 | 2) => divide((multiply3(255 - sa, da, destination[i])
       + multiply3(255 - da, sa, source[i]) + multiply3(da, sa, cf[i])) & 255, alpha) & 255
     // GenericHSLFunctor has NONE of GenericSC's source/full/empty-alpha shortcuts.
