@@ -1438,7 +1438,7 @@ interface CanonicalLayerOwner {
  readonly plan:CanonicalEmptyPlan;readonly stable:TiledLayerBuffer;readonly generation:number
  readonly cache:BrushTextureCache;readonly prepass:TransformedMaskPrepass;readonly composite:CanonicalRgba8CompositePass
  mask:TransformedMaskLimits;prepared:boolean;proof:CanonicalJournalProof;inputs:readonly CanonicalRecordedInput[]
- derived?:TiledLayerBuffer;coordinator?:CanonicalWashLayerCoordinator;job?:RebuildJob;wake?:number
+ derived?:TiledLayerBuffer;coordinator?:CanonicalWashLayerCoordinator;job?:RebuildJob;wake?:number;orderParked?:boolean
  accepting:boolean;retiring:boolean;failed:boolean;outstanding:number;readonly logicalBytes:number
 }
 interface CanonicalEmptyTransaction {
@@ -6354,7 +6354,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _wakeCanonicalLayer(owner:CanonicalLayerOwner):void {
     if(!owner.job){
       const job:RebuildJob={layerId:INITIAL_LAYER_ID,fresh:owner.stable,chunks:new Map(),cp:null,start:0,applied:[],timer:0,part:null,canonicalLayer:owner}
-      owner.job=job;this._rebuildJobs.set(INITIAL_LAYER_ID,job);this._scheduleCanonicalRebuild(job)
+      owner.orderParked=false;owner.job=job;this._rebuildJobs.set(INITIAL_LAYER_ID,job);this._scheduleCanonicalRebuild(job)
+    }else if(owner.orderParked){
+      // Confirmation resumes the SAME parked job. CPU author input remains on
+      // its independent existing FIFO and can hand off the missing frame.
+      owner.orderParked=false;this._scheduleCanonicalRebuild(owner.job)
     }
   }
   private _publishCanonicalLayerInput(owner:CanonicalLayerOwner,input:CanonicalRecordedInput):void {
@@ -6377,6 +6381,7 @@ export class PencilEngine implements PencilEngineAPI {
     try{
       this._assertCanonicalLayerCurrent(owner)
       owner.coordinator!.advance();this._assertCanonicalLayerCurrent(owner)
+      if(owner.coordinator!.awaitingRecordedOrder){owner.orderParked=true;return}
       if(!owner.coordinator!.pending&&owner.coordinator!.presentationReady){
         if(owner.coordinator!.checkpointReady){const errors=this._retireCanonicalLayerCycle(owner,false);if(errors.length)throw errors[0]}
         this._rebuildJobs.delete(job.layerId);owner.job=undefined

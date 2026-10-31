@@ -142,6 +142,11 @@ export class CanonicalWashLayerCoordinator {
   }
 
   get queuedFrameCount():number { return this.queue.length }
+  /** A partially published stable commit cannot be shown through a raw-wash
+   * rebase while a later local gesture still lacks its recorded order. */
+  get awaitingRecordedOrder():boolean {
+    return !this.commitFrontier()&&this.entries.some(entry=>!entry.committed&&!!entry.ownership&&!!(entry.targetPlan||entry.tile||entry.part))
+  }
   get poisoned(): boolean { return this.failed }
   get pending(): boolean { return !!this.queue.length || !!this.dirty.size || !!this.work || !!this.commitFrontier()?.ownership }
   get presentationReady(): boolean { return !this.failed && !this.closed && !this.dirty.size && !this.work }
@@ -385,6 +390,7 @@ export class CanonicalWashLayerCoordinator {
       // before either presentation or commit attempts another admission.
       if(preparing>=0)this.advanceEntry(this.queue[preparing],preparing)
       else if (frontier?.ownership) this.commit(frontier,turnStarted)
+      else if(this.awaitingRecordedOrder)return
       else if (this.dirty.size) this.present(turnStarted)
       else if (this.queue.length)this.advanceEntry(this.queue[0],0)
     } catch (error) {

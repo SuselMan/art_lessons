@@ -10,8 +10,8 @@ import {createTestEngine} from './testing/engineTestUtils'
 import type {ServerToClientEvents} from '@grafetto/shared'
 import type {PointerData} from './src/input/PointerInput'
 afterEach(()=>vi.restoreAllMocks())
-function original(){
- const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:8,canvasHeight:8,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:2},canonicalHistoryBase:{kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:2,throughSeq:0,operationCount:0}}
+function original(width=8){
+ const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:width,canvasHeight:8,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:2},canonicalHistoryBase:{kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:2,throughSeq:0,operationCount:0}}
  return prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent:()=>true})
 }
 const descriptor=stock.rows.find(row=>row.index===4)!.descriptor as unknown as BrushDescriptor
@@ -20,11 +20,11 @@ const sha=createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).
 const pin=canonicalDefaultAutoSourceBinding(descriptor,sha,'neon64-f32-fma-v1')
 function verdict(request:CanonicalStrokeBegin):CanonicalStrokeBeginResult{return{ok:true,recordedNext:0,liveNext:0,ended:false,snapshot:{layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,pigmentRgb8:request.pigmentRgb8,boardEpoch:2,descriptorSha256:sha,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,composition:{mode:'wash',alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity,outerBlend:'over'},assets:[],materialVersion:2,material:{version:2,assets:[],primarySource:pin,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}}}}}
 function packet(x:number,timeStamp:number):PointerData{return{x,y:2,pressure:.5,tiltX:0,tiltY:0,speed:0,pointerType:'pen',timeStamp,dispatchTime:timeStamp}}
-async function harness(begin:(request:CanonicalStrokeBegin,lifetime:{signal:AbortSignal;isCurrent:()=>boolean})=>Promise<CanonicalStrokeBeginResult>,selected=descriptor){
+async function harness(begin:(request:CanonicalStrokeBegin,lifetime:{signal:AbortSignal;isCurrent:()=>boolean})=>Promise<CanonicalStrokeBeginResult>,selected=descriptor,width=8){
  installBrushLibrary({schemaVersion:1,brushes:[{descriptor:selected,name:'native Basic2Opacity',source:'native',warnings:[]}],assets:[],skipped:[]})
  const snapshots=new Map<string,CanonicalStrokeSnapshotV2>()
  const acceptedBegin=async(request:CanonicalStrokeBegin,lifetime:{signal:AbortSignal;isCurrent:()=>boolean})=>{const reply=await begin(request,lifetime);if(reply.ok&&'materialVersion'in reply.snapshot&&reply.snapshot.materialVersion===2)snapshots.set(request.strokeId,reply.snapshot);return reply}
- const p=original(),operations:Operation[]=[],r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:8,pageHeight:8,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations},canonicalAuthor:{begin:acceptedBegin},onLocalOperation:op=>operations.push(op)},{width:8,height:8}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
+ const p=original(width),operations:Operation[]=[],r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:width,pageHeight:8,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations},canonicalAuthor:{begin:acceptedBegin},onLocalOperation:op=>operations.push(op)},{width,height:8}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
  Object.assign(gl,{getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,8,8]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
  engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil('brush:'+selected.id+'@'+selected.version);engine.setSize(40);engine.setLocked(false)
  await engine.paperReady();await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
@@ -157,4 +157,52 @@ it('does not confuse an undefined handoff failure with an absent cancellation se
   await vi.waitFor(()=>expect(repair).toHaveBeenCalledOnce())
   expect(engine['_canonicalLayerOwner']).toBeUndefined();expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(engine['_brushMipCache'].reservedBytes).toBe(0)
  }finally{engine.destroy()}
+})
+
+it('does not present an earlier raw wash over its partially committed stable pixels when a later local gesture is unconfirmed',async()=>{
+ const h=await harness(async r=>verdict(r),descriptor,1025),{engine,operations}=h,step=engine['_stepCanonicalLayer'],owner=engine['_canonicalLayerOwner']!
+ let clock=0,hold=false,partial=false
+ const now=vi.spyOn(performance,'now').mockImplementation(()=>clock),draw=owner.composite.drawSource.bind(owner.composite)
+ vi.spyOn(owner.composite,'drawSource').mockImplementation((request,frame)=>{
+  const result=draw(request,frame)
+  if(request.source.kind==='straightRgba8'&&[...owner.stable['tiles'].values()].some(buffer=>buffer.texture===request.target.texture))clock+=5
+  return result
+ })
+ engine['_stepCanonicalLayer']=job=>{
+  if(hold){engine['_scheduleCanonicalRebuild'](job);return}
+  step.call(engine,job)
+  const first=owner.coordinator?.['entries'][0]
+  if(!partial&&first?.ownership&&first.tile>0){partial=true;hold=true}
+ }
+ try{
+  await engine.prepareBrush(preset);engine['_onStart'](packet(1020,100));engine['_onEnd'](packet(1020,110))
+  await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false))
+  const firstFrames=operations.slice()
+  for(let i=0;i<firstFrames.length;i++)engine.appendOriginalRecorded(confirmed(h,firstFrames[i],i+1))
+  await vi.waitFor(()=>expect(partial).toBe(true),{timeout:5000})
+  const coordinator=owner.coordinator!,entry=coordinator['entries'][0],raw=entry.ownership!.tiles[0].view.texture
+  expect(entry.committed).toBe(false);expect(entry.tile).toBe(1)
+  engine['_onStart'](packet(1020,200));engine['_onEnd'](packet(1020,210));await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false))
+  expect(operations.length).toBeGreaterThan(firstFrames.length)
+  expect(coordinator['entries'].some(e=>e.firstSequence===undefined)).toBe(true)
+  const replay=vi.spyOn(owner.composite,'drawSource'),job=owner.job!,schedule=vi.spyOn(engine['_authorTasks'],'schedule')
+  replay.mockClear();hold=false
+  await vi.waitFor(()=>expect(owner.orderParked).toBe(true))
+  expect(owner.job).toBe(job);expect(owner.wake).toBeUndefined();expect(coordinator.presentationReady).toBe(false)
+  expect(coordinator.checkpointReady).toBe(false);expect(coordinator.pending).toBe(true);expect(await engine.exportPNG()).toBeNull()
+  const calls=schedule.mock.calls.length
+  // One event-loop interval proves this is parked, not a polling render loop.
+  await new Promise(resolve=>setTimeout(resolve,30))
+  expect(schedule).toHaveBeenCalledTimes(calls)
+  const duplicate=replay.mock.calls.filter(([request])=>request.source.kind==='straightRgba8'&&request.source.view.texture===raw)
+  expect(duplicate).toHaveLength(0)
+  expect(engine.hasActiveCanonicalAuthor()).toBe(false)
+  const second=operations.slice(firstFrames.length)
+  engine.appendOriginalRecorded(confirmed(h,second[0],firstFrames.length+1))
+  expect(owner.job).toBe(job);expect(owner.orderParked).toBe(false);expect(owner.wake).toBeDefined()
+  await vi.waitFor(()=>expect(entry.committed).toBe(true),{timeout:5000})
+  for(let i=1;i<second.length;i++)engine.appendOriginalRecorded(confirmed(h,second[i],firstFrames.length+i+1))
+  await vi.waitFor(()=>expect(owner.coordinator).toBeUndefined(),{timeout:5000})
+  expect(engine['_log'].entries.map(e=>e.op.id)).toEqual(operations.map(op=>op.id));expect(engine['_canonicalPixelsReady']).toBe(true)
+ }finally{hold=false;engine['_stepCanonicalLayer']=step;now.mockRestore();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
