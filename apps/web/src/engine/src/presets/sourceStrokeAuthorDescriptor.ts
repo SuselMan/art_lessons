@@ -1,3 +1,4 @@
+import { SOURCE_LONG_TIME } from '../dabs/sourceDistanceTiming'
 import { extractCanonicalSinglePngCapability, extractDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability, extractSoftAutoSourceDataCapability, type BrushDescriptor, type SourceStampCurveData } from '@grafetto/shared'
 import { sourceCurveIsIdentity, type SourceCurvePolynomial } from './sourceCurve'
 import { compileSourceOptionProgram, type SourceOptionProgramInput } from './sourceOptionProgram'
@@ -31,6 +32,16 @@ export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, contex
   if(auto && !(gaussian?['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1']:['scalar-f64-fma-v1','neon64-f32-fma-v1']).includes(context.coverageProfile??''))return reject('explicit-auto-coverage-profile-required')
   if (!Number.isFinite(context.lodScale) || context.lodScale <= 0 || typeof context.colorIdentity !== 'string' || !context.colorIdentity.length
     || context.scale !== undefined && (!Number.isFinite(context.scale) || context.scale <= 0)) return reject('invalid-author-context')
+  let spacingRefreshMs=50,timingRefreshMs=50
+  if(context.inputProfile==='krita-freehand-no-smoothing-v1'){
+    const spacingFlag=data.settings['PaintOpSettings/updateSpacingBetweenDabs']
+    const airbrushFlag=data.settings['PaintOpSettings/isAirbrushing']
+    if([spacingFlag,airbrushFlag].some(value=>value!==undefined&&value!=='true'&&value!=='false'))return reject('invalid-author-refresh-setting')
+    const airbrushing=airbrushFlag==='true'
+    if(airbrushing!==data.timing.enabled)return reject('inconsistent-author-airbrush-setting')
+    spacingRefreshMs=spacingFlag==='true'?50:SOURCE_LONG_TIME
+    timingRefreshMs=airbrushing?50:SOURCE_LONG_TIME
+  }
   const programs:Record<string,SourceOptionProgramInput>={}
   try {
     for (const option of data.options) {
@@ -55,7 +66,7 @@ export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, contex
       ...(data.version===2 && data.source.kind==='softAuto'?{geometry:{kind:'softAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-f64-fma-v1'|'neon64-f32-fma-v1'}}:data.version===2 && data.source.kind==='gaussianAuto'?{geometry:{kind:'gaussianAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-bionic-f64-fma-v1'|'neon64-f32-fma-v1'}}:data.version===2 && data.source.kind==='defaultAuto'?{geometry:{kind:'defaultAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-f64-fma-v1'|'neon64-f32-fma-v1'}}:data.version===2?{geometry:{kind:'image' as const}}:{}),
       materialPolicy:soft?'soft-auto-fixed1-rng-free':gaussian?'gaussian-auto-fixed1-rng-free':auto?'default-auto-fixed1-rng-free':'png-fixed1-rng-free',lodScale:context.lodScale,
       scatterX:data.flags.scatterX,scatterY:data.flags.scatterY,mirrorX:data.flags.mirrorX,mirrorY:data.flags.mirrorY,indirectPainting:data.flags.indirectPainting,
-      spacing:data.spacing,timing:data.timing,fanStepDegrees:fan?.fanStep,spacingRefreshMs:50,timingRefreshMs:50,
+      spacing:data.spacing,timing:data.timing,fanStepDegrees:fan?.fanStep,spacingRefreshMs,timingRefreshMs,
       material:{brushIdentity:auto?descriptor.id+'@'+descriptor.version:descriptor.tip.mask!,color:context.colorIdentity,softness:1,lightness:1,
         precisionLevel:data.precision.level,autoPrecision:data.precision.automatic,
         imprecisePosition:programs.Mirror.checked || programs.Scatter.checked || programs.Rotation.checked || data.timing.enabled,

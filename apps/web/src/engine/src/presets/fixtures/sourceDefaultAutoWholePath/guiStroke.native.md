@@ -30,7 +30,7 @@ stock params**. Собственный векторный контроль, KRA 
 предыдущих неудачных диагностик Airbrush; новых повторных 512-картинок в Git нет.
 
 SAME SourceStrokeAuthor с explicit native startup profile → MaterialAdapter →
-CanonicalFrameEncoder даёт 20 отпечатков и 185 кадров. Существующие DefaultAuto
+CanonicalFrameEncoder даёт 20 отпечатков и 143 кадров. Существующие DefaultAuto
 mask и fused32 creamy CPU composition дают SHA всех 1 048 576 RGBA bytes,
 равный независимому GUI PNG:
 `c97295e475d5df31db93c4b2c68a52d962b4c01096bc4866270e5eb8fd6c4c33`.
@@ -48,3 +48,5 @@ helper и зарегистрированная сборка удалены. Own 
 stock Airbrush600/All/Basic/Snap и rotation free/1/0 восстановлены. Оставшийся
 собственный cached процесс Krita после закрытия документа остановлен; Chrome
 и пользовательские документы не изменялись. Lifecycle cleanupComplete=true.
+
+После исправления native refresh-policy источник больше не делает выключенные в KPP spacing/timing queries: текущее число кадров 143, прежнее 185 относится к старому diagnostic packing. Исходные Android packets, KPP/provider и native RGBA SHA не изменены; число отпечатков и весь native рисунок перепроверены.

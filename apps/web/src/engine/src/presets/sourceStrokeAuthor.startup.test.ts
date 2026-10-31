@@ -69,7 +69,7 @@ describe('explicit native freehand startup, separate from historical paintAt inp
     }
     if(row.id==='pressure57'){
       expect(painted).toHaveLength(9)
-      expect(result.frames).toHaveLength(198)
+      expect(result.frames).toHaveLength(132)
       expect(result.draws[0].controls.opacity).toBe(0.09316679835319519)
       expect(result.draws.at(-1)!.controls.opacity).toBe(0.23457030951976776)
       expect(row.packets.filter((_,i)=>[0,40,80,120].includes(i)).map(p=>fromBits(p[4]))).toEqual([.25,.5,1,.25])

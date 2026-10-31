@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { isBrushLibrary, isSourceStampData, sourceStampDataBudget, MAX_SOURCE_STAMP_BUDGET, type BrushDescriptor, type SourceStampData } from '@grafetto/shared'
 import fixture from './fixtures/sourceStrokeAuthorDescriptor.imported.json'
 import compiledFixture from './fixtures/sourceStrokeAuthorDescriptor.compiled.json'
@@ -138,5 +138,41 @@ describe('real descriptor to source author, explicit capability boundary',()=>{
     for(const edit of [(d:Mutable<SourceStampData>)=>Object.assign(d,{version:2}),(d:Mutable<SourceStampData>)=>d.options[0].sensors[0].sourceSlot=16,(d:Mutable<SourceStampData>)=>d.options[0].sensors.push(d.options[0].sensors[0]),(d:Mutable<SourceStampData>)=>d.brush.scale=NaN,(d:Mutable<SourceStampData>)=>d.options[0].sensors[0].curve.points[0].corner=true,(d:Mutable<SourceStampData>)=>d.options[0].sensors[0].sourceId='fuzzy',(d:Mutable<SourceStampData>)=>Object.assign(d.options[0],{extra:true})]){
       const d=structuredClone(identity().sourceStamp!);edit(d);expect(isSourceStampData(d)).toBe(false)
     }
+  })
+})
+
+
+describe('native GUI refresh policy from retained settings',()=>{
+  const native={...context,inputProfile:'krita-freehand-no-smoothing-v1' as const}
+  it.each([false,true] as const)('derives spacing refresh from native flag %s independently of timing',enabled=>{
+    const d=identity();d.sourceStamp!.settings['PaintOpSettings/updateSpacingBetweenDabs']=String(enabled)
+    d.sourceStamp!.settings['PaintOpSettings/isAirbrushing']='false';d.sourceStamp!.timing.enabled=false
+    const result=sourceStrokeAuthorDescriptor(d,native);if(!result.supported)throw Error(result.reasons.join(','))
+    expect(result.program.roles[0].spacingRefreshMs).toBe(enabled?50:320000000000)
+    expect(result.program.roles[0].timingRefreshMs).toBe(320000000000)
+  })
+  it.each([false,true] as const)('derives timing refresh from native airbrush flag %s independently of spacing',enabled=>{
+    const d=identity();d.sourceStamp!.settings['PaintOpSettings/updateSpacingBetweenDabs']='false'
+    d.sourceStamp!.settings['PaintOpSettings/isAirbrushing']=String(enabled);d.sourceStamp!.timing.enabled=enabled
+    const result=sourceStrokeAuthorDescriptor(d,native);if(!result.supported)throw Error(result.reasons.join(','))
+    expect(result.program.roles[0].spacingRefreshMs).toBe(320000000000)
+    expect(result.program.roles[0].timingRefreshMs).toBe(enabled?50:320000000000)
+  })
+  it('uses native absent-property defaultfalse while preserving historical undefined-profile50/50',()=>{
+    const d=identity();delete d.sourceStamp!.settings['PaintOpSettings/updateSpacingBetweenDabs'];delete d.sourceStamp!.settings['PaintOpSettings/isAirbrushing'];d.sourceStamp!.timing.enabled=false
+    for(const [ctx,expected]of [[native,320000000000],[context,50]] as const){
+      const result=sourceStrokeAuthorDescriptor(d,ctx);if(!result.supported)throw Error(result.reasons.join(','))
+      expect([result.program.roles[0].spacingRefreshMs,result.program.roles[0].timingRefreshMs]).toEqual([expected,expected])
+    }
+  })
+  it.each(['PaintOpSettings/updateSpacingBetweenDabs','PaintOpSettings/isAirbrushing'])('rejects malformed %s before native curve compilation',key=>{
+    const d=descriptor();d.sourceStamp!.settings[key]='yes'
+    const compileCurve=vi.fn(()=>{throw Error('compiler must not run')})
+    expect(sourceStrokeAuthorDescriptor(d,{...native,compileCurve}).supported).toBe(false)
+    expect(compileCurve).not.toHaveBeenCalled()
+  })
+  it('rejects a normalized airbrush flag inconsistent with its retained source setting',()=>{
+    const d=identity();d.sourceStamp!.settings['PaintOpSettings/isAirbrushing']='false';d.sourceStamp!.timing.enabled=true
+    expect(sourceStrokeAuthorDescriptor(d,native).supported).toBe(false)
   })
 })

@@ -29,7 +29,7 @@ Mode/outerBlend выведены из source PaintOpAction; creamy и глоба
 штриха в том же процессе совпал со **всеми 169 stock params**.
 
 SAME native-profile SourceStrokeAuthor → MaterialAdapter → CanonicalFrameEncoder
-создают 36 отпечатков и 183 кадра. Затем существующие GaussianDab NEON и fused32
+создают 36 отпечатков и 159 кадра. Затем существующие GaussianDab NEON и fused32
 creamy CPU kernels дают SHA полного native GUI PNG:
 `916578fc7da45da333e8507dfddb2b1f0e4d1086211792f8dc51f727584a3e7a`.
 Различий всех 1 048 576 RGBA bytes — **0**, maxDelta0. 5041 видимый пиксель
@@ -47,3 +47,5 @@ Stock Airbrush600/All/Basic/Snap и rotation free/1/0 восстановлены
 отсутствует, пользовательские документы и Chrome tabs сохранены. Полные компактные
 receipts: R52 `native-gui-stroke52/gaussian59-whole-native-proof.json`,
 `gaussian59-lifecycle.json` (`cleanupComplete=true`), `source-author-receipt-gaussian59.json`.
+
+После исправления native refresh-policy источник больше не делает выключенные в KPP spacing/timing queries: текущее число кадров 159, прежнее 183 относится к старому diagnostic packing. Исходные Android packets, KPP/provider и native RGBA SHA не изменены; число отпечатков и весь native рисунок перепроверены.
