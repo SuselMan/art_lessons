@@ -21,6 +21,7 @@ export type SidePanelId = 'layers' | 'color' | 'participants' | 'toolSettings'
 type ClassView = ReturnType<typeof useClassView>
 
 export interface RoomSidePanelProps {
+  canonicalAvailability?:ComponentProps<typeof ToolSettingsTab>['canonicalAvailability']
   /** Minimal UI's hidden chrome (#99). */
   uiHidden: boolean
   active: SidePanelId | null
@@ -55,7 +56,7 @@ export interface RoomSidePanelProps {
  *  What the store owns — the layer state and solo, the roster, the lesson's
  *  boards and assignments — is read here; what Room derives comes in. */
 export function RoomSidePanel({
-  uiHidden, active, onSelect, isOwner, dispatchOp, layerPanelBridge, onOpenFilters, colorContent, joinQueue,
+  canonicalAvailability,uiHidden, active, onSelect, isOwner, dispatchOp, layerPanelBridge, onOpenFilters, colorContent, joinQueue,
   drawingIds, classView, selectBoard, toggleRoomFrozen, toggleParticipantFrozen, onExpandColor, onShapeFrameChange,
 }: RoomSidePanelProps) {
   const t = useT()
@@ -198,7 +199,7 @@ export function RoomSidePanel({
             // quick-access row uses (#196) — this tab just renders every
             // field, not only the quickAccess-flagged ones.
             id: 'toolSettings', icon: 'tune', title: t('room.panel.toolSettings'),
-            content: <ToolSettingsTab onExpandColor={onExpandColor} onShapeFrameChange={onShapeFrameChange} />,
+            content: <ToolSettingsTab canonicalAvailability={canonicalAvailability} onExpandColor={onExpandColor} onShapeFrameChange={onShapeFrameChange} />,
           },
         ]}
       />

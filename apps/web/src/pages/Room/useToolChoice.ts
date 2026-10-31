@@ -14,6 +14,7 @@ import {
   isPrimaryDrawingTool, PRIMARY_DRAWING_TOOLS, type EditorTool, type PrimaryDrawingTool,
 } from '../../stores/slices/toolSlice'
 import { drawingGroupToolFor, fallbackToolFor, toggledTool } from './tools/toolChoice'
+import {canonicalToolOffered,type CanonicalToolAvailability} from '../../lib/tools/canonicalToolAvailability'
 import { useRememberedTool } from './useRememberedTool'
 
 /** (#493) Which tools this room offers, every way a tool gets into a hand, and
@@ -28,11 +29,12 @@ import { useRememberedTool } from './useRememberedTool'
  *  does not render those buttons at all; this is the backstop for the paths
  *  with no button to hide — a hotkey, a floating-panel slot assigned before the
  *  tool was switched off. */
-export function useToolChoice(roomId: string | undefined) {
+export function useToolChoice(roomId: string | undefined, availability?:CanonicalToolAvailability) {
   // (#682) First, before the reads below: a remembered tool has to be in the
   // store by the time this render — and Room's, which builds the engine from
   // it — reads `tool`.
   useRememberedTool(roomId)
+  const automaticHand=useRef(false)
   const t = useT()
   // (#548) `undefined` for all tools, which is what every room says until
   // someone restricts it. Read straight off the room rather than mirrored into
@@ -50,8 +52,8 @@ export function useToolChoice(roomId: string | undefined) {
   /** Whether the room offers this tool at all. The toolbar asks it per button
    *  (a tool the room does not offer has no button). */
   const toolOffered = useCallback(
-    (candidate: EditorTool) => isToolEnabledInRoom(enabledTools, candidate),
-    [enabledTools],
+    (candidate: EditorTool) => isToolEnabledInRoom(enabledTools, candidate)&&canonicalToolOffered(availability,candidate),
+    [enabledTools,availability],
   )
   const fallbackTool = useMemo(() => fallbackToolFor(enabledTools), [enabledTools])
 
@@ -64,9 +66,10 @@ export function useToolChoice(roomId: string | undefined) {
   // pencil for charcoal, liner and marker, so the same gesture landed
   // somewhere different depending on which button you pressed.
   const selectTool = useCallback((next: EditorTool) => {
-    if (!isToolEnabledInRoom(enabledTools, next)) return
+    if (!toolOffered(next)) return
+    automaticHand.current=false
     setTool(next)
-  }, [setTool, enabledTools])
+  }, [setTool, toolOffered])
 
   // (#544) Picking one member out of a group's fan in the floating panel. The
   // two groups differ exactly here and nowhere the panel can see: a material
@@ -74,10 +77,11 @@ export function useToolChoice(roomId: string | undefined) {
   // taken as well. Routed through `selectTool` like every other path into a
   // hand, so the toolset gate applies here too.
   const selectGroupMember = useCallback((group: SlotGroup, value: string) => {
+    if(availability&&group!=='drawing'&&!toolOffered('shape'))return
     if (group === 'drawing') { selectTool(value as EditorTool); return }
     setToolSetting('shape', 'kind', value)
     selectTool('shape')
-  }, [selectTool, setToolSetting])
+  }, [selectTool, setToolSetting,toolOffered,availability])
 
   // The toggle survives, but only on the *keys*. "Press E, do a correction,
   // press E again" is a real one-handed affordance that a key can offer and a
@@ -85,9 +89,10 @@ export function useToolChoice(roomId: string | undefined) {
   // claiming otherwise. Both halves route through here so a second press
   // always lands on the tool you were drawing with, whichever key it was.
   const toggleTool = useCallback((next: EditorTool) => {
-    if (!isToolEnabledInRoom(enabledTools, next)) return
-    setTool(prev => toggledTool(prev, next, drawingTool, enabledTools))
-  }, [setTool, drawingTool, enabledTools])
+    if (!toolOffered(next)) return
+    automaticHand.current=false
+    setTool(prev => {const target=toggledTool(prev,next,drawingTool,enabledTools);return toolOffered(target)?target:prev})
+  }, [setTool, drawingTool, enabledTools,toolOffered])
 
   // (#548) The hand that was holding a tool the room has just stopped
   // offering. Every other path is closed by `selectTool` above, but this one
@@ -109,13 +114,20 @@ export function useToolChoice(roomId: string | undefined) {
   const roomKnown = useRoomStore(s => s.room !== null)
   const toolsetSeenRef = useRef(false)
   useEffect(() => {
+    if(availability){
+      const state=useRoomStore.getState()
+      if(!availability.options.length&&state.tool!=='hand')automaticHand.current=true
+      state.normalizeCanonicalTool(availability.options,automaticHand.current&&availability.status==='ready')
+      if(availability.status==='ready')automaticHand.current=false
+      return
+    }
     if (!roomKnown) return
     const announce = toolsetSeenRef.current
     toolsetSeenRef.current = true
     if (isToolEnabledInRoom(enabledTools, tool)) return
     setTool(fallbackTool)
     if (announce) notifyWarning(t('toolset.withdrawn'), { key: 'toolset-withdrawn' })
-  }, [roomKnown, enabledTools, tool, fallbackTool, setTool, t])
+  }, [roomKnown, enabledTools, tool, fallbackTool, setTool, t,availability,toolSettings.digitalBrush.brush,toolSettings.digitalBrush.size])
 
   // (#544) The three things the rail's one drawing button needs: its options,
   // what it wears (see drawingGroupToolFor), and whether it is lit.
@@ -128,8 +140,8 @@ export function useToolChoice(roomId: string | undefined) {
     [toolOffered, t],
   )
   const drawingGroupTool = useMemo<PrimaryDrawingTool>(
-    () => drawingGroupToolFor(lastDrawingTool, enabledTools),
-    [lastDrawingTool, enabledTools],
+    () => availability?'digitalBrush':drawingGroupToolFor(lastDrawingTool, enabledTools),
+    [lastDrawingTool, enabledTools,availability],
   )
   // Lit when any material is in hand — not when `tool` happens to equal the
   // one the button is wearing. The eraser and the smudge are their own buttons

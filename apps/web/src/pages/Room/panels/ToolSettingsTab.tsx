@@ -1,3 +1,5 @@
+import type {CanonicalToolAvailability} from '../../../lib/tools/canonicalToolAvailability'
+import {CanonicalBrushSize,CanonicalBrushStatus} from './CanonicalBrushStatus'
 import type { ShapeFrame } from '@grafetto/shared'
 
 import { SettingField } from '../../../components/SettingField'
@@ -9,6 +11,7 @@ import styles from '../Room.module.css'
 import { BrushLibraryControls } from './BrushLibraryControls'
 
 export interface ToolSettingsTabProps {
+  canonicalAvailability?:CanonicalToolAvailability
   /** Opens the colour flyout on the rail's well for this colour field. */
   onExpandColor: (key: string) => void
   /** Resizes the open shape (#530). */
@@ -20,7 +23,7 @@ export interface ToolSettingsTabProps {
  *  column uses (#196) — this one renders all of them, not only the
  *  quick-access ones. Out of Room's render; the tool and its settings come
  *  from the store. */
-export function ToolSettingsTab({ onExpandColor, onShapeFrameChange }: ToolSettingsTabProps): React.JSX.Element {
+export function ToolSettingsTab({ canonicalAvailability,onExpandColor, onShapeFrameChange }: ToolSettingsTabProps): React.JSX.Element {
   const t = useT()
   // (#391/#405) Whose settings the quick-access column and the "Tool settings"
   // tab are showing: the selected tool, full stop. This used to be
@@ -39,11 +42,12 @@ export function ToolSettingsTab({ onExpandColor, onShapeFrameChange }: ToolSetti
   const setToolSetting = useRoomStore(s => s.setToolSetting)
   const shapeFrame = useRoomStore(s => s.shapeFrame)
 
-  return Object.keys(TOOL_SCHEMAS[settingsToolId]).length === 0 ? (
+  const schema=canonicalAvailability&&settingsToolId==='digitalBrush'?canonicalAvailability.schema:TOOL_SCHEMAS[settingsToolId]
+  return Object.keys(schema).length === 0&&!canonicalAvailability ? (
     <p className={styles.noToolSettings}>{t('room.noToolSettings')}</p>
   ) : (
     <div className={styles.toolSettingsPanel}>
-      {Object.entries(TOOL_SCHEMAS[settingsToolId])
+      {Object.entries(schema)
         .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[settingsToolId]))
         .map(([key, descriptor]) => (
         <SettingField
@@ -67,7 +71,9 @@ export function ToolSettingsTab({ onExpandColor, onShapeFrameChange }: ToolSetti
           once, and the rail is for what a hand reaches for
           mid-gesture. Only while a shape is open — they resize
           that shape, not the tool. */}
-      {settingsToolId === 'digitalBrush' && <BrushLibraryControls />}
+      {canonicalAvailability&&<CanonicalBrushStatus availability={canonicalAvailability}/>}
+      {canonicalAvailability&&settingsToolId==='digitalBrush'&&<CanonicalBrushSize availability={canonicalAvailability}/>}
+      {(settingsToolId === 'digitalBrush'||canonicalAvailability)&&<BrushLibraryControls/>}
       {shapeFrame && <ShapeRatioPresets frame={shapeFrame} onChange={onShapeFrameChange} />}
     </div>
   )

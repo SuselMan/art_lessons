@@ -1,3 +1,4 @@
+import type {CanonicalToolAvailability} from '../../lib/tools/canonicalToolAvailability'
 import {STRAIGHT_ROOM_RASTER_VERSION} from '@grafetto/shared'
 import { prepareBrushPresets, publishBrushPresets } from '../../lib/api/brushLibrary'
 import { importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
@@ -22,6 +23,7 @@ export interface ToolSyncDeps {
   engineEpoch: number
   canvasRef: RefObject<HTMLCanvasElement | null>
   /** Existing baseline gate; omitted legacy callers retain eager preparation. */
+  availability?:CanonicalToolAvailability
   roomContentReady?:boolean
 }
 
@@ -33,7 +35,7 @@ export interface ToolSyncDeps {
  *
  *  Out of Room — the first step #493's own plan names. What comes back is
  *  what the brush-ring cursor draws with. */
-export function useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady=true }: ToolSyncDeps) {
+export function useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady=true,availability }: ToolSyncDeps) {
   const toolSettings = useRoomStore(s => s.toolSettings)
   const drawingTool = useRoomStore(s => s.drawingTool)
   // (#405) `drawingTool`, not `tool`: these are the size/opacity/colour the
@@ -65,7 +67,7 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady
   // one it was actually drawn with so a later retune of that brush cannot
   // repaint it. digitalBrushFromPreset resolves a bare id for exactly this
   // hand-off.
-  useRoomStore(s => s.brushLibraryRevision)
+  const libraryRevision=useRoomStore(s => s.brushLibraryRevision)
   const digitalBrushId = toolSettings.digitalBrush.brush as string
   // #547, #573 — the two pressure switches ride the same token as modifiers.
   // They change the mark, so they have to be recorded: a peer replaying the
@@ -94,9 +96,10 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady
       canvas?.removeEventListener('webglcontextrestored', invalidate)
     }
   }, [canvasRef, engineEpoch])
-  const preparationReady=engineRef.current?.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION||roomContentReady
-  const preparationKey = `${engineEpoch}:${preparationEpoch}:${digitalBrushPresetName ?? digitalBrushId}${preparationReady?'':':restoring'}`
-  const brushResourcesReady = drawingTool !== 'digitalBrush' || (preparedKey === preparationKey && digitalBrushPresetName !== undefined && importedBrushAssets(digitalBrushPresetName).every(isBrushAssetReady))
+  const eligibleSource=!availability||(availability.status==='ready'&&availability.options.some(o=>o.id===digitalBrushId&&o.sizePx===toolSettings.digitalBrush.size))
+  const preparationReady=eligibleSource&&(engineRef.current?.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION||roomContentReady)
+  const preparationKey = `${engineEpoch}:${preparationEpoch}:${availability?libraryRevision:0}:${digitalBrushPresetName ?? digitalBrushId}${preparationReady?'':':restoring'}`
+  const brushResourcesReady = eligibleSource&&(drawingTool !== 'digitalBrush' || (preparedKey === preparationKey && digitalBrushPresetName !== undefined && importedBrushAssets(digitalBrushPresetName).every(isBrushAssetReady)))
   useEffect(() => {
     if (drawingTool !== 'digitalBrush') { setPreparedKey(''); return }
     const engine = engineRef.current
@@ -233,6 +236,7 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady
     // §2) — they still do, but the nib no longer does, so the same slot now
     // carries both halves and _resolvePreset reads the type out of field 0.
     const markerPreset = `${markerNib}:${markerSize}`
+    if(!eligibleSource)return
     if (drawingTool === 'digitalBrush' && digitalBrushPresetName === undefined) return
     engine?.setPencil(
       drawingTool === 'liner' ? linerSize
@@ -243,7 +247,7 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady
         : drawingTool === 'digitalBrush' ? (digitalBrushPresetName ?? 'hard-round')
         : pencilGrade,
     )
-  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalPreset, brushPenResponse, watercolorPreset, digitalBrushPresetName, engineEpoch, engineRef])
+  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalPreset, brushPenResponse, watercolorPreset, digitalBrushPresetName, engineEpoch, engineRef,eligibleSource])
   // (#405) Every line in this block reads `drawingTool` rather than the
   // selection: `setTool` takes a `ToolType`, and the four non-painting tools
   // are deliberately not one (toolSlice). Leaving the engine configured with
@@ -254,8 +258,8 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady
   // "which tools can draw" living in here.
   useEffect(() => {
     const engine = engineRef.current
-    engine?.setTool(drawingTool)
-  }, [drawingTool, engineEpoch, engineRef])
+    if(eligibleSource)engine?.setTool(drawingTool)
+  }, [drawingTool, engineEpoch, engineRef,eligibleSource])
   // Liner's own 'size' field is a fixed-label enum (ADR 003), not a plain px
   // number like every other tool's (marker included, since it dropped its
   // own ladder for a plain px slider) — see linerSizeToPx's own comment for
@@ -266,12 +270,13 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady
     : (activeCfg.size as number)
   useEffect(() => {
     const engine = engineRef.current
+    if(!eligibleSource)return
     engine?.setSize(sizePx)
     // (#468 v4) Watercolor has no opacity field: its Pigment slider *is* that
     // axis, and a second control for it would be two knobs over one quantity.
     // Falls back to 1 rather than passing undefined through to the engine.
     engine?.setOpacity((activeCfg.opacity as number | undefined) ?? 1)
-  }, [sizePx, activeCfg, engineEpoch, engineRef])
+  }, [sizePx, activeCfg, engineEpoch, engineRef,eligibleSource])
 
   return { brushResourcesReady, cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx }
 }

@@ -11,14 +11,15 @@ vi.mock('../../lib/api/brushLibrary',()=>({prepareBrushPresets:vi.fn(()=>null),p
 vi.mock('../../stores/noticeStore',()=>({notifyError:vi.fn()}))
 vi.mock('../../i18n',()=>({useT:()=>translate}))
 const translate=(key:string)=>key
-import {useToolSync} from './useToolSync'
+import {useToolSync,type ToolSyncDeps} from './useToolSync'
+import type {CanonicalToolAvailability} from '../../lib/tools/canonicalToolAvailability'
 import {resetRoomStore,useRoomStore} from '../../stores/roomStore'
 import type {PencilEngineAPI} from '../../engine'
 beforeEach(()=>{hooks.cursor=0;hooks.slots=[];hooks.effects=[];resetRoomStore();useRoomStore.getState().setTool('digitalBrush')})
 function setup(rasterVersion:'straight-rgba8-v1'|'legacy-premul-v1'){
  const prepare=vi.fn(async(_preset:string,_options?:unknown)=>({status:'ready'})),noop=vi.fn()
  const engine={rasterVersion,prepareBrush:prepare,setNibAngle:noop,setTiltResponse:noop,setPressureMap:noop,setPencil:noop,setTool:noop,setSize:noop,setOpacity:noop}as unknown as PencilEngineAPI
- const props={engineRef:{current:engine},engineEpoch:1,canvasRef:{current:null},roomContentReady:false}
+ const props:ToolSyncDeps={engineRef:{current:engine},engineEpoch:1,canvasRef:{current:null},roomContentReady:false}
  const useRender=()=>{hooks.cursor=0;const result=useToolSync(props);for(const effect of hooks.effects.splice(0))effect();return result}
  const cleanup=()=>{for(const slot of hooks.slots)slot.cleanup?.()}
  return {props,prepare,render:useRender,cleanup}
@@ -40,5 +41,32 @@ it('preserves legacy preparation while room content is still loading',async()=>{
  try{
   f.render();await vi.waitFor(()=>expect(f.prepare).toHaveBeenCalledOnce())
   f.props.roomContentReady=true;f.render();expect(f.prepare).toHaveBeenCalledOnce()
+ }finally{f.cleanup()}
+})
+
+const noSource:CanonicalToolAvailability={status:'empty',options:[],schema:{}}
+it('does not prepare medium-round in an empty or late canonical library, even when hand retains digitalBrush behind it',async()=>{
+ const f=setup('straight-rgba8-v1');f.props.roomContentReady=true;f.props.availability=noSource
+ try{
+  useRoomStore.getState().setTool('hand')
+  expect(f.render().brushResourcesReady).toBe(false)
+  await Promise.resolve();expect(f.prepare).not.toHaveBeenCalled()
+  const id=String(useRoomStore.getState().toolSettings.digitalBrush.brush)
+  f.props.availability={status:'ready',options:[{id,sizePx:40}],schema:{}}
+  expect(f.render().brushResourcesReady).toBe(false);expect(f.prepare).not.toHaveBeenCalled()
+  useRoomStore.getState().normalizeCanonicalTool(f.props.availability.options,true)
+  f.render();await vi.waitFor(()=>expect(f.prepare).toHaveBeenCalledOnce())
+  expect(f.render().brushResourcesReady).toBe(true)
+  f.props.availability=noSource;expect(f.render().brushResourcesReady).toBe(false)
+ }finally{f.cleanup()}
+})
+it('rejects stale preparation completion after original-profile availability changes',async()=>{
+ const f=setup('straight-rgba8-v1');f.props.roomContentReady=true
+ let complete:((result:{status:string})=>void)|undefined
+ f.prepare.mockImplementationOnce(()=>new Promise(resolve=>{complete=resolve}))
+ try{
+  f.render();expect(f.prepare).toHaveBeenCalledOnce()
+  f.props.availability=noSource;f.render();complete?.({status:'ready'});await Promise.resolve();await Promise.resolve()
+  expect(f.render().brushResourcesReady).toBe(false);expect(f.prepare).toHaveBeenCalledOnce()
  }finally{f.cleanup()}
 })

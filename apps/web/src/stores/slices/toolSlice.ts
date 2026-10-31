@@ -191,6 +191,7 @@ export interface ToolSlice {
     key: string,
     value: SettingDescriptor['default'] | ((prev: SettingDescriptor['default']) => SettingDescriptor['default']),
   ) => void
+  normalizeCanonicalTool: (options: readonly {readonly id:string;readonly sizePx:number}[], activate?:boolean) => void
   setAllToolSettings: (settings: ToolSettingsMap) => void
 }
 
@@ -203,6 +204,12 @@ export interface ToolSlice {
 function moveToFront<T>(list: readonly T[], item: T): readonly T[] {
   if (list[0] === item) return list
   return [item, ...list.filter(existing => existing !== item)]
+}
+
+/** One defaults law for ordinary selection and canonical normalization. */
+function brushSetting(settings:ToolSettingsMap,toolId:UiToolId,key:string,next:SettingDescriptor['default'],nativeSize?:number):ToolSettingsMap {
+ const defaults=toolId==='digitalBrush'&&key==='brush'&&next!==settings.digitalBrush.brush?importedBrushes().find(b=>b.descriptor.id===next)?.sourceDefaults:undefined
+ return {...settings,[toolId]:{...settings[toolId],[key]:next,...(nativeSize!==undefined?{size:nativeSize}:defaults?{size:defaults.sizePx}:{})}}
 }
 
 export const createToolSlice: StateCreator<ToolSlice> = set => ({
@@ -237,19 +244,16 @@ export const createToolSlice: StateCreator<ToolSlice> = set => ({
     const next = typeof value === 'function'
       ? (value as (prev: SettingDescriptor['default']) => SettingDescriptor['default'])(state.toolSettings[toolId][key])
       : value
-    const defaults = toolId === 'digitalBrush' && key === 'brush' && next !== state.toolSettings.digitalBrush.brush
-      ? importedBrushes().find(b => b.descriptor.id === next)?.sourceDefaults
-      : undefined
-    return { toolSettings: {
-      ...state.toolSettings,
-      [toolId]: {
-        ...state.toolSettings[toolId],
-        [key]: next,
-        // Source opacity/flow already live in the descriptor. Applying them
-        // here again would multiply the preset's paint strength twice.
-        ...(defaults ? { size: defaults.sizePx } : {}),
-      },
-    } }
+    return {toolSettings:brushSetting(state.toolSettings,toolId,key,next)}
+  }),
+  normalizeCanonicalTool: (options,activate=false) => set(state => {
+    const current=options.find(o=>o.id===state.toolSettings.digitalBrush.brush),selected=current??options[0]
+    const tool=state.tool==='hand'&&!activate?'hand':selected?'digitalBrush':'hand'
+    if(!selected)return state.tool===tool?state:{tool}
+    const settings=brushSetting(state.toolSettings,'digitalBrush','brush',selected.id,selected.sizePx)
+    if(state.tool===tool&&state.drawingTool==='digitalBrush'&&state.toolSettings.digitalBrush.brush===selected.id&&state.toolSettings.digitalBrush.size===selected.sizePx)return state
+    const recentDrawingTools=moveToFront(state.recentDrawingTools,'digitalBrush')
+    return {tool,drawingTool:'digitalBrush',lastDrawingTool:recentDrawingTools[0],recentDrawingTools,toolSettings:settings}
   }),
   setAllToolSettings: settings => set({ toolSettings: settings }),
 })

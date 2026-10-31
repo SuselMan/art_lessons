@@ -1,3 +1,5 @@
+import {importedBrushes} from '../../engine/brushLibrary'
+import {canonicalToolAvailability} from '../../lib/tools/canonicalToolAvailability'
 import {canonicalBootstrapOf,stageCanonicalRoomReplacement,createCanonicalRoomAuthor,createCanonicalRoomVerdicts,restoreCanonicalRoomBaseline,createCanonicalRecoveryControl} from './canonicalRoomController'
 import {prepareCanonicalRoomState} from './net/canonicalRoomState'
 import type {CanonicalRoomStateRead} from './net/canonicalRoomState'
@@ -10,7 +12,7 @@ import type {
   Operation,
   ClientToServerEvents, ServerToClientEvents,
 } from '@grafetto/shared'
-import { BACKGROUND_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION } from '@grafetto/shared'
+import { BACKGROUND_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,isToolEnabledInRoom } from '@grafetto/shared'
 import {
   PencilEngine, type PencilEngineAPI, type PencilGradeName, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, type AreaImage,
 } from '../../engine'
@@ -315,7 +317,16 @@ function RoomEditor() {
       })
     }
   })
+  const [connected,setConnected]=useState(false)
   const config = useRoomStore(s => s.room)
+  const [engineEpoch,setEngineEpoch]=useState(0)
+  const installedCanonicalReadRef=useRef<CanonicalRoomStateRead|undefined>(undefined)
+  const brushLibraryRevision=useRoomStore(s=>s.brushLibraryRevision)
+  const canonicalAvailability=useMemo(()=>{
+    // These existing owners invalidate mutable ref/library reads, without mirroring them.
+    void engineEpoch;void brushLibraryRevision;void connected
+    return canonicalToolAvailability(config?.rasterVersion===STRAIGHT_ROOM_RASTER_VERSION,roomContentReady,installedCanonicalReadRef.current,isToolEnabledInRoom(config?.enabledTools,'digitalBrush')?importedBrushes():[])
+  },[config?.rasterVersion,config?.enabledTools,roomContentReady,engineEpoch,brushLibraryRevision,connected])
   // (#548) Which tools this room offers — `undefined` for all of them, which
   // is what every room says until someone restricts it. Read straight off the
   // room rather than mirrored into a field of its own: it arrives inside
@@ -327,7 +338,7 @@ function RoomEditor() {
   const {
     toolOffered, selectTool, selectGroupMember, toggleTool, drawingGroupOptions, drawingGroupTool,
     drawingGroupActive, shapeKind, shapeKindOptions, panelGroups, floatingSlotTool,
-  } = useToolChoice(id)
+  } = useToolChoice(id,canonicalAvailability)
   // (#405) The one selected tool — a drawing tool, or one of the four that
   // paint nothing (eyedropper, ruler, transform, grid). Exactly one at a time:
   // there is no second "mode" axis over it any more.
@@ -502,7 +513,6 @@ function RoomEditor() {
   const [activePanel, setActivePanel] = useState<'layers' | 'color' | 'participants' | 'toolSettings' | null>('layers')
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
-  const [connected,   setConnected]   = useState(false)
   // Whether the socket has ever completed a connection on this mount. The
   // distinction `connected` alone cannot make: "still opening" and "was open,
   // dropped" both read as false, and only the second is worth warning about
@@ -637,7 +647,6 @@ function RoomEditor() {
   // handing that one value over at construction. This is the general form of
   // the same fix, so the next setting added here inherits it instead of
   // rediscovering it.
-  const [engineEpoch, setEngineEpoch] = useState(0)
   const glLost = useGlContextLost(canvasRef, engineEpoch) // (#536, §17.50) see GlLostOverlay
   const initialToolRef = useRef({
     pencil: toolSettings.pencil.grade as PencilGradeName,
@@ -677,7 +686,6 @@ function RoomEditor() {
   // operations/participants are stashed here and replayed once the engine is
   // up, instead of being dropped.
   const pendingSnapshotRef = useRef<RoomStatePayload | null>(null)
-  const installedCanonicalReadRef=useRef<CanonicalRoomStateRead|undefined>(undefined)
   const [canonicalMountRevision,setCanonicalMountRevision]=useState(0)
   const canonicalRecorded=useMemo(()=>({apply:(engine:PencilEngineAPI,input:import('../../engine').CanonicalRecordedInput)=>engine.appendOriginalRecorded(input)}),[])
   const requestRoomResync=useCallback(()=>requestFullResyncRef.current?.(),[])
@@ -1116,7 +1124,7 @@ function RoomEditor() {
   // ── sync tool → engine ────────────────────────────────────────────────────────
   // (#493) Every engine.setX that reflects the tool in hand — see useToolSync.
   const { brushResourcesReady, cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx } =
-    useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady })
+    useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady,availability:canonicalAvailability })
   useWatercolorDevFlags(engineRef, engineEpoch) // (#536) dev views and A/B switches
   // (#493) Whose colour the controls edit, what the engine draws with, the
   // well, the room palette and the flyout — see useToolColor.
@@ -1480,7 +1488,11 @@ function RoomEditor() {
     redo: () => { void handleRedo() },
     zoomBy, resetZoom,
     rotateView: radians => setVp(v => ({ ...v, angle: radians === null ? 0 : v.angle + radians })),
-    toggleTool, setTool, setToolSetting,
+    toggleTool, setTool:canonicalAvailability?selectTool:setTool,
+    setToolSetting:(toolId,key,value)=>{
+      if(canonicalAvailability&&(toolId!=='digitalBrush'||!['brush','color','opacity'].includes(key)))return
+      setToolSetting(toolId,key,value)
+    },
   })
 
   // ── Space = hold to pan (#319, ADR 007 §4) ────────────────────────────────
@@ -1624,6 +1636,7 @@ function RoomEditor() {
 
         {/* (#493) The quick-settings column — see QuickSettingsBar. */}
         <QuickSettingsBar
+        canonicalAvailability={canonicalAvailability}
           uiHidden={uiHidden} compact={compact} onShapeFrameChange={shape.setFrame}
           paintTargetId={paintTargetId} paintTargetLocked={paintTargetLocked}
           copySelection={() => { void copySelection() }} cutSelection={() => { void cutSelection() }}
@@ -1779,6 +1792,7 @@ function RoomEditor() {
             not even a two-finger pan. */}
         {!compact && (
           <RoomSidePanel
+          canonicalAvailability={canonicalAvailability}
             uiHidden={uiHidden} active={activePanel} onSelect={setActivePanel}
             isOwner={isOwner} dispatchOp={dispatchOp} layerPanelBridge={layerPanelBridge}
             onOpenFilters={setFilterLayerId} colorContent={colorContent} joinQueue={joinQueue} drawingIds={drawingIds}

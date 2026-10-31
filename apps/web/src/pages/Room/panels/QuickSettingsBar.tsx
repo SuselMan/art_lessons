@@ -1,3 +1,5 @@
+import type {CanonicalToolAvailability} from '../../../lib/tools/canonicalToolAvailability'
+import {CanonicalBrushSize} from './CanonicalBrushStatus'
 import clsx from 'clsx'
 
 import type { ShapeFrame } from '@grafetto/shared'
@@ -13,6 +15,7 @@ import { TOOL_SCHEMAS, type UiToolId } from '../../../lib/tools/toolSchemas'
 import styles from '../Room.module.css'
 
 export interface QuickSettingsBarProps {
+  canonicalAvailability?:CanonicalToolAvailability
   uiHidden: boolean
   /** The phone-sized "annotations only" shell (#512). */
   compact: boolean
@@ -45,7 +48,7 @@ export interface QuickSettingsBarProps {
  *  Out of Room's render. The tool, its settings, the open shape, the
  *  selection and the clipboard are read from the stores. */
 export function QuickSettingsBar({
-  uiHidden, compact, onShapeFrameChange, paintTargetId, paintTargetLocked,
+  canonicalAvailability,uiHidden, compact, onShapeFrameChange, paintTargetId, paintTargetLocked,
   copySelection, cutSelection, pasteClipboard, deleteSelectionContents, onWatercolorDry,
 }: QuickSettingsBarProps): React.JSX.Element {
   const t = useT()
@@ -68,7 +71,7 @@ export function QuickSettingsBar({
       uiHidden && (compact ? styles.uiHidden : styles.quickSettingsBarMinimal),
       styles.strokeBlockable,
     )}>
-      {Object.entries(TOOL_SCHEMAS[settingsToolId])
+      {Object.entries(canonicalAvailability&&settingsToolId==='digitalBrush'?canonicalAvailability.schema:TOOL_SCHEMAS[settingsToolId])
         .filter(([, descriptor]) => descriptor.quickAccess)
         // (#542) No colour in this column at all any more — every colour a
         // tool carries is drawn by the pinned well in the rail to the left.
@@ -88,6 +91,7 @@ export function QuickSettingsBar({
             layout="toolbar"
           />
         ))}
+      {canonicalAvailability&&settingsToolId==='digitalBrush'&&<CanonicalBrushSize availability={canonicalAvailability}/>}
       {/* (#530) The numbers behind the drag, and only while a shape is
           open: they edit *this* shape, not the tool. For a frame around a
           thumbnail sketch this is arguably more of the tool than the drag

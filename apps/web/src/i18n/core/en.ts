@@ -38,6 +38,10 @@ export const en = {
   'brushLibrary.unsupported': 'Unavailable',
   'brushLibrary.tooLarge': 'Choose a file smaller than 512 MB.',
   'brushLibrary.importFailed': 'Could not import this file. Check the format, size and connection, then try again.',
+  'brushLibrary.refresh': 'Refresh library',
+  'brushLibrary.nativeSize': 'Source size: {size} px',
+  'brushLibrary.sourceRestoring': 'Brushes will be available after the room is restored. You can pan meanwhile.',
+  'brushLibrary.noEligibleSource': 'No compatible source brush. Import a brush or refresh the library; panning remains available.',
   'brushLibrary.error': 'Could not load the brush resources. Check your connection and try again.',
   'common.retry': 'Retry',
   // (#48) The service worker found a newer deploy. Deliberately an offer and
