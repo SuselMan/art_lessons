@@ -1,3 +1,6 @@
+import { canonicalImageMaterialPin, type CanonicalMaterialAsset } from '@grafetto/shared'
+import { canonicalImageMaskCapacity, assertCanonicalImageRecipeCapacity } from './src/dabs/canonicalImageCapacity'
+import { CanonicalMaskSourceBank } from './src/dabs/CanonicalMaskSourceBank'
 import {canonicalSourceAuthorAdmission} from './src/presets/sourceCanonicalAuthorAdmission'
 import {canonicalExecutorOperations} from './src/dabs/CanonicalFrameExecutor'
 import { CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_STROKE_RASTER_PROFILE,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalGaussianAutoSourceBinding,canonicalSoftAutoSourceBinding,canonicalSoftAutoDataEqual,canonicalSourceComposition,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,sourceAutoGeometry,CANONICAL_RECORDED_ATTACHMENT_LIMITS,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,IMPLICIT_LAYER_IDS,INITIAL_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,verifyCanonicalFullHistoryBase,verifyCanonicalEmptyHistoryBase,decodeCanonicalStrokeFrame,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalStrokeRasterProfile,type CanonicalAutoSource,type CanonicalSoftAutoSource } from '@grafetto/shared'
@@ -23,7 +26,7 @@ import {SourceStrokeAuthor,type SourceStrokeAuthorProgram,type SourceStrokeAutho
 import {sourceStrokeAuthorDescriptor} from './src/presets/sourceStrokeAuthorDescriptor'
 import {copySourceMaterialContext,SourceStrokeMaterialAdapter,type SourceStrokeMaterialContextV2} from './src/presets/sourceStrokeMaterialAdapter'
 import {SourceCanonicalFrameEncoder} from './src/presets/sourceCanonicalFrameEncoder'
-import { importedBrushFromPreset,importedAssetPixels } from './src/presets/importedBrushes'
+import { importedBrushFromPreset,importedAssetPixels,isBrushAssetReady } from './src/presets/importedBrushes'
 import { hasOpenBrushStroke } from './src/oplog/openBrushStroke'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './src/watercolor/WatercolorPresentationOwners'
@@ -1366,6 +1369,7 @@ interface CanonicalEmptyPlan {
  readonly scope:ReturnType<CanonicalRecordedEmptyRoomRead['assertCurrent']>
  readonly inputs:readonly CanonicalRecordedInput[];readonly paintInputs:readonly CanonicalRecordedInput[];readonly hiddenFrameIds:readonly string[];readonly full:boolean;readonly open:boolean;readonly profile:CanonicalStrokeRasterProfile
  readonly mask:TransformedMaskLimits;readonly composite:CanonicalCompositeLimits
+ readonly imageAssets:readonly CanonicalMaterialAsset[]
  readonly gestures:number;readonly logicalBytes:number;readonly page:Readonly<WorldRect>;readonly tileWidth:number;readonly tileHeight:number
 }
 function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonly Operation[],width?:number,height?:number,infinite=false):CanonicalEmptyPlan {
@@ -1381,6 +1385,7 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
  const visible=full?new Set(full.gestures.filter(g=>g.visible).flatMap(g=>g.frameOperationIds)):undefined
  const open=!!full?.gestures.some(g=>g.visible&&!g.ended&&!g.sealed)
  const paintInputs:CanonicalRecordedInput[]=[],hiddenFrameIds:string[]=full?.gestures.filter(g=>!g.visible).map(g=>g.frameOperationIds[0])??[],inputs:CanonicalRecordedInput[]=[],prefixes=new Map<string,CanonicalMaterialPrefixState>(),tiles=new Set<string>(),gestureTiles=new Map<string,Set<string>>()
+ const imageAssets=new Map<string,CanonicalMaterialAsset>(),imageGestures=new Set<string>()
  let maskWidth=1,maskHeight=1
  for(let i=0;i<read.preparedAtoms.length;i++){
   const atom=read.preparedAtoms[i],delivery=Object.getOwnPropertyDescriptor(atom,'delivery')
@@ -1397,16 +1402,36 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
   if(full&&(op.type==='operation_undo'||op.type==='operation_redo'))continue
   if(op.type!=='canonical_stroke'||!r||op.layerId!==INITIAL_LAYER_ID)throw new TypeError('Unsupported canonical baseline writer/layer')
   const s=r.capability.snapshot,source=s.material.primarySource
-  if(s.materialVersion!==2||s.material.maskSource||source.kind==='image'||s.composition.mode!=='wash'||s.rasterProfile!==read.authorRasterProfile||s.material.assets.length)throw new TypeError('Unsupported canonical baseline source/profile')
-  const fixed=canonicalLayerMaskCapacity(source);maskWidth=Math.max(maskWidth,fixed.width);maskHeight=Math.max(maskHeight,fixed.height)
+  if(s.materialVersion!==2||s.material.maskSource||s.composition.mode!=='wash'||s.rasterProfile!==read.authorRasterProfile)throw new TypeError('Unsupported canonical baseline source/profile')
+  let fixed:TransformedMaskLimits
+  if(source.kind==='image'){
+   if(Object.hasOwn(source,'frames'))throw new TypeError('Animated canonical image baseline unsupported')
+   const pin=canonicalImageMaterialPin(source,s.material.assets),asset=pin.assets[0]
+   if(s.assets.length!==1||['id','size','x','y','width','height'].some(k=>s.assets[0][k as keyof CanonicalMaterialAsset]!==asset[k as keyof CanonicalMaterialAsset]))throw new TypeError('Canonical baseline image asset binding mismatch')
+   if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical baseline image asset unavailable')
+   for(const old of imageAssets.values())if(old.id===asset.id&&old.size!==asset.size)throw new TypeError('Canonical baseline image asset side conflict')
+   imageAssets.set(JSON.stringify([asset.id,asset.size,asset.x,asset.y,asset.width,asset.height]),asset)
+   imageGestures.add(JSON.stringify([op.userId,s.strokeId]));fixed=canonicalImageMaskCapacity(source,asset)
+  }else{
+   if(s.material.assets.length||s.assets.length)throw new TypeError('Unsupported canonical baseline source assets')
+   fixed=canonicalLayerMaskCapacity(source)
+  }
+  maskWidth=Math.max(maskWidth,fixed.width);maskHeight=Math.max(maskHeight,fixed.height)
   const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:s.material}).frame
   const key=JSON.stringify([op.userId,s.strokeId]),next=advanceCanonicalMaterialPrefix(prefixes.get(key)??CANONICAL_MATERIAL_PREFIX_START,op.frame.frameOrdinal,decoded)
   prefixes.set(key,next);let used=gestureTiles.get(key);if(!used){used=new Set();gestureTiles.set(key,used)}
-  for(const recipe of decoded.definitions){if(!('kind'in recipe)||!['defaultAuto','gaussianAuto','softAuto'].includes(recipe.kind)||!Number.isFinite(recipe.scale)||recipe.scale<=0||recipe.scale>1||recipe.ratio!==1||recipe.rotation!==0||recipe.mirrorH||recipe.mirrorV||recipe.width>fixed.width||recipe.height>fixed.height)throw new TypeError('Unsupported canonical baseline material');maskWidth=Math.max(maskWidth,recipe.width);maskHeight=Math.max(maskHeight,recipe.height)}
+  for(const recipe of decoded.definitions){
+   if(source.kind==='image'){
+    if(!('kind'in recipe)||recipe.kind!=='image')throw new TypeError('Unsupported canonical baseline image material')
+    assertCanonicalImageRecipeCapacity(recipe,source,s.material.assets[0],fixed)
+   }else if(!('kind'in recipe)||!['defaultAuto','gaussianAuto','softAuto'].includes(recipe.kind)||!Number.isFinite(recipe.scale)||recipe.scale<=0||recipe.scale>1||recipe.ratio!==1||recipe.rotation!==0||recipe.mirrorH||recipe.mirrorV||recipe.width>fixed.width||recipe.height>fixed.height)throw new TypeError('Unsupported canonical baseline material')
+   maskWidth=Math.max(maskWidth,recipe.width);maskHeight=Math.max(maskHeight,recipe.height)
+  }
   for(const d of decoded.draws){const recipe=decoded.definitions[d.definition];for(const t of planCanonicalTargets({minX:d.x,minY:d.y,maxX:d.x+recipe.width,maxY:d.y+recipe.height},page,tileWidth,tileHeight).tiles){const id=JSON.stringify([t.storage.minX,t.storage.minY]);tiles.add(id);used.add(id)}}
   if(tiles.size>64||used.size>64)throw new RangeError('Canonical baseline exceeds target union')
   if(!visible||visible.has(op.id))paintInputs.push(input)
  }
+ if([...imageGestures].some(key=>!prefixes.get(key)?.ended))throw new TypeError('Open canonical image baseline unsupported')
  if(!full&&[...prefixes.values()].some(p=>!p.ended))throw new TypeError('Open canonical baseline prefix unsupported')
  const mask={width:maskWidth,height:maskHeight,slots:1},composite:CanonicalCompositeLimits={width:tileWidth,height:tileHeight,operations:canonicalExecutorOperations(read.authorRasterProfile)}
  const maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(composite)
@@ -1414,7 +1439,7 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
  const logicalBytes=(tiles.size+2*[...gestureTiles.values()].reduce((n,t)=>n+t.size,0))*tileWidth*tileHeight*4
  if(!Number.isSafeInteger(logicalBytes))throw new RangeError('Invalid canonical logical admission')
  if(read.assertCurrent()!==scope)throw new Error('Canonical baseline scope changed')
- return Object.freeze({read,tail,scope,inputs:Object.freeze(inputs),paintInputs:Object.freeze(paintInputs),hiddenFrameIds:Object.freeze(hiddenFrameIds),full:!!full,open,profile:read.authorRasterProfile,mask:Object.freeze(mask),composite:Object.freeze(composite),gestures:prefixes.size,logicalBytes,page:Object.freeze(page),tileWidth,tileHeight})
+ return Object.freeze({read,tail,scope,imageAssets:Object.freeze([...imageAssets.values()]),inputs:Object.freeze(inputs),paintInputs:Object.freeze(paintInputs),hiddenFrameIds:Object.freeze(hiddenFrameIds),full:!!full,open,profile:read.authorRasterProfile,mask:Object.freeze(mask),composite:Object.freeze(composite),gestures:prefixes.size,logicalBytes,page:Object.freeze(page),tileWidth,tileHeight})
 }
 interface CanonicalJournalProof {
  readonly revision:number;readonly entries:OperationLog['entries'];readonly originalEntries:OperationLog['entries'];readonly originalOperations:readonly Operation[];readonly originalReads:readonly OperationLog['entries'][number]['canonicalRead'][];readonly originalStates:readonly OperationLog['entries'][number]['state'][]
@@ -1439,6 +1464,7 @@ function canonicalLayerMaskCapacity(pin:CanonicalAutoSource|CanonicalSoftAutoSou
 interface CanonicalLayerOwner {
  readonly plan:CanonicalEmptyPlan;readonly stable:TiledLayerBuffer;readonly generation:number
  readonly cache:BrushTextureCache;readonly prepass:TransformedMaskPrepass;readonly composite:CanonicalRgba8CompositePass
+ bank?:CanonicalMaskSourceBank
  mask:TransformedMaskLimits;prepared:boolean;proof:CanonicalJournalProof;inputs:readonly CanonicalRecordedInput[]
  derived?:TiledLayerBuffer;coordinator?:CanonicalWashLayerCoordinator;job?:RebuildJob;wake?:number;orderParked?:boolean;lastDisplayedPresentationRevision?:number
  accepting:boolean;retiring:boolean;failed:boolean;outstanding:number;readonly logicalBytes:number
@@ -1453,6 +1479,7 @@ interface CanonicalEmptyTransaction {
 interface CanonicalEmptyJob {
  readonly transaction:CanonicalEmptyTransaction;readonly stable:TiledLayerBuffer;readonly derived:TiledLayerBuffer
  readonly cache:BrushTextureCache;readonly prepass:TransformedMaskPrepass;readonly composite:CanonicalRgba8CompositePass
+ bank?:CanonicalMaskSourceBank;imageNext:number
  coordinator?:CanonicalWashLayerCoordinator;publishedOwner?:CanonicalLayerOwner;stage:number;next:number;outstanding:number;retiring:boolean;complete:boolean
  releaseMetadata?:()=>void
  wake?:number
@@ -6206,7 +6233,7 @@ export class PencilEngine implements PencilEngineAPI {
           for(const id of IMPLICIT_LAYER_IDS)tx.candidate.set(id,this._makeLayerBuffer())
           const stable=tx.candidate.get(INITIAL_LAYER_ID) as TiledLayerBuffer,derived=this._makeLayerBuffer() as TiledLayerBuffer
           const cache=new BrushTextureCache(this.gl),prepass=new TransformedMaskPrepass(this.gl,cache,this._brushMipCache,'engine-empty-mask'),composite=new CanonicalRgba8CompositePass(this.gl,cache,this._brushMipCache,'engine-empty-composite')
-          const canonical:CanonicalEmptyJob={transaction:tx,stable,derived,cache,prepass,composite,stage:0,next:0,outstanding:0,retiring:false,complete:false}
+          const canonical:CanonicalEmptyJob={transaction:tx,stable,derived,cache,prepass,composite,imageNext:0,stage:0,next:0,outstanding:0,retiring:false,complete:false}
           tx.jobs.push(canonical)
           canonical.releaseMetadata=this._brushMipCache.reserve(1024+plan.inputs.length*128+plan.gestures*512)
           const job:RebuildJob={layerId:INITIAL_LAYER_ID,fresh:stable,chunks:new Map(),cp:null,start:0,applied:[],timer:0,part:null,canonical}
@@ -6235,7 +6262,7 @@ export class PencilEngine implements PencilEngineAPI {
     c.retiring=true;const failures:unknown[]=[],attempt=(fn:()=>void)=>{try{fn()}catch(error){failures.push(error)}}
     const coordinator=c.coordinator;c.coordinator=undefined
     if(coordinator){attempt(()=>coordinator.cancel(new Error('Canonical baseline candidate retired'),{lost}));failures.push(...coordinator.cleanupFailures)}
-    if(!keepResources){attempt(()=>c.prepass.reset(lost));attempt(()=>c.composite.reset(lost));attempt(()=>c.cache.clear(lost))}
+    if(!keepResources){attempt(()=>c.prepass.reset(lost));attempt(()=>c.composite.reset(lost));const bank=c.bank;c.bank=undefined;attempt(()=>bank?.reset(lost));attempt(()=>c.cache.clear(lost))}
     attempt(()=>c.derived.destroy())
     const release=c.releaseMetadata;c.releaseMetadata=undefined;if(release)attempt(release)
     if(c.outstanding!==0)failures.push(new Error('Canonical logical reservation leaked'))
@@ -6269,13 +6296,29 @@ export class PencilEngine implements PencilEngineAPI {
       this._assertCanonicalEmptyCurrent(tx)
       if(this._rebuildJobs.get(job.layerId)!==job)throw new Error('Canonical rebuild job changed')
       if(!plan.paintInputs.length){c.complete=true;this._publishCanonicalEmpty(tx);return}
-      if(c.stage===0){c.prepass.prepare(plan.mask,[]);c.stage=1}
-      else if(c.stage===1){c.composite.prepare(plan.composite,c.prepass.preparedResources(),transformedMaskPrepassBudget(plan.mask).cpuBytes);c.stage=2}
+      if(c.stage===0&&plan.imageAssets.length){
+        if(!c.bank){
+          const mask=transformedMaskPrepassBudget(plan.mask),composite=canonicalRgba8CompositeBudget(plan.composite),sourceBytes=Math.max(...plan.imageAssets.map(asset=>asset.size*asset.size))
+          c.bank=new CanonicalMaskSourceBank(this.gl,c.cache,this._brushMipCache,plan.imageAssets.map(asset=>({asset,readOriginalCoverage:()=>{
+            this._assertCanonicalEmptyCoordinatorCurrent(c)
+            if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical baseline image asset unavailable')
+            return importedAssetPixels(asset.id)
+          }})),{gpuBytes:mask.gpuBytes+composite.gpuBytes,cpuBytes:mask.cpuBytes+composite.cpuBytes+sourceBytes})
+          if(this._brushMipCache.reservedBytes+c.bank.metadataCpuBytes+c.bank.maximumTransientCpuBytes+mask.cpuBytes+composite.cpuBytes+sourceBytes>this._brushMipCache.budgetBytes)throw new RangeError('Canonical image baseline exceeds shared CPU budget')
+          this._assertCanonicalEmptyCurrent(tx)
+        }
+        if(c.imageNext<c.bank.jobs.length){
+          if(c.bank.prepareJob(c.imageNext)!=='ready')throw new Error('Canonical baseline image preparation cancelled')
+          c.imageNext++;this._assertCanonicalEmptyCurrent(tx);this._scheduleCanonicalRebuild(job);return
+        }
+      }
+      if(c.stage===0){c.prepass.prepare(plan.mask,c.bank?.preparedResources()??[]);c.stage=1}
+      else if(c.stage===1){c.composite.prepare(plan.composite,[...(c.bank?.preparedResources()??[]),...c.prepass.preparedResources()],transformedMaskPrepassBudget(plan.mask).cpuBytes);c.stage=2}
       else{
         if(!c.coordinator){
           c.coordinator=new CanonicalWashLayerCoordinator({rasterProfile:plan.profile,layerId:INITIAL_LAYER_ID,layerEpoch:plan.scope.boardEpoch,maxGestures:CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities,pageBounds:plan.page,prepass:c.prepass,composite:c.composite,scratch:this._ribbonScratchPool,
             layer:()=>({buffer:c.stable,epoch:plan.scope.boardEpoch}),presentation:()=>({buffer:c.derived,epoch:plan.scope.boardEpoch}),
-            source:(_id,input,local)=>{this._assertCanonicalEmptyCoordinatorCurrent(c);if(local){if(!c.publishedOwner)throw new Error('Canonical candidate cannot accept local input');local.assertCurrent(local);if(local.lifetime!==plan.read)throw new Error('Foreign canonical author lease')}else{if(!input||input.delivery.lifetime!==plan.read||!input.read)throw new Error('Foreign canonical source owner');input.delivery.assertCurrent(input)}const source=local?local.snapshot.material.primarySource:input!.read!.capability.snapshot.material.primarySource;if(source.kind==='image')throw new Error('Image canonical baseline unsupported');return{autoSource:source}},
+            source:(_id,input,local)=>{this._assertCanonicalEmptyCoordinatorCurrent(c);if(local){if(!c.publishedOwner)throw new Error('Canonical candidate cannot accept local input');local.assertCurrent(local);if(local.lifetime!==plan.read)throw new Error('Foreign canonical author lease')}else{if(!input||input.delivery.lifetime!==plan.read||!input.read)throw new Error('Foreign canonical source owner');input.delivery.assertCurrent(input)}const source=local?local.snapshot.material.primarySource:input!.read!.capability.snapshot.material.primarySource;if(source.kind==='image'){const bank=c.publishedOwner?.bank??c.bank;if(local||!bank)throw new Error('Image canonical author unsupported');return{bank}}return{autoSource:source}},
             reserveTransient:bytes=>{this._assertCanonicalEmptyCoordinatorCurrent(c);const account=c.publishedOwner??c,limit=c.publishedOwner?.logicalBytes??plan.logicalBytes;if(!Number.isSafeInteger(bytes)||bytes<0||account.outstanding+bytes>Math.min(limit,this._gpuBudget))throw new RangeError('Canonical logical allowance exceeded');account.outstanding+=bytes;let released=false;return()=>{if(!released){released=true;(c.publishedOwner??c).outstanding-=bytes}}},
             changed:()=>{if(!c.retiring&&!c.publishedOwner?.retiring)this._assertCanonicalEmptyCoordinatorCurrent(c)},poison:(_id,reason)=>{if(c.publishedOwner){if(!c.publishedOwner.retiring)this._poisonCanonicalLayer(reason)}else if(!c.retiring)tx.failures.push(reason)}})
         }
@@ -6302,7 +6345,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._layers=tx.candidate
     this._canonicalAccepted={plan:tx.plan,revision:this._log.revision,entries:this._log.entries,originalEntries:tx.recovery?.originalEntries??Object.freeze([...this._log.entries]),originalOperations:tx.recovery?.originalOperations??Object.freeze(this._log.entries.map(entry=>entry.op)),originalReads:tx.recovery?.originalReads??Object.freeze(this._log.entries.map(entry=>entry.canonicalRead)),originalStates:tx.recovery?.originalStates??Object.freeze(this._log.entries.map(entry=>entry.state)),generation:tx.generation}
     const resources=tx.jobs[0],maxTiles=Math.min(64,Math.ceil(tx.plan.page.maxX/tx.plan.tileWidth)*Math.ceil(tx.plan.page.maxY/tx.plan.tileHeight))
-    this._canonicalLayerOwner={plan:tx.plan,stable:resources.stable,generation:tx.generation,cache:resources.cache,prepass:resources.prepass,composite:resources.composite,mask:tx.plan.mask,prepared:!!tx.plan.paintInputs.length,proof:this._canonicalAccepted,inputs:tx.plan.inputs,accepting:false,retiring:false,failed:false,outstanding:0,logicalBytes:(maxTiles+2*maxTiles*CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)*tx.plan.tileWidth*tx.plan.tileHeight*4}
+    this._canonicalLayerOwner={plan:tx.plan,stable:resources.stable,generation:tx.generation,cache:resources.cache,prepass:resources.prepass,composite:resources.composite,bank:resources.bank,mask:tx.plan.mask,prepared:!!tx.plan.paintInputs.length,proof:this._canonicalAccepted,inputs:tx.plan.inputs,accepting:false,retiring:false,failed:false,outstanding:0,logicalBytes:(maxTiles+2*maxTiles*CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)*tx.plan.tileWidth*tx.plan.tileHeight*4}
+    resources.bank=undefined;resources.publishedOwner=this._canonicalLayerOwner
     if(tx.plan.open){
       // Transfer the charged account once. Existing release closures resolve
       // this same owner after publication, including cancellation/context loss.
@@ -6417,6 +6461,7 @@ export class PencilEngine implements PencilEngineAPI {
    * by the same layer; an open/unconfirmed wash is never discarded to resize. */
   private _prepareCanonicalLayerWorkspace(owner:CanonicalLayerOwner,requested:TransformedMaskLimits):void {
     this._assertCanonicalLayerCurrent(owner)
+    if(owner.bank)throw new TypeError('Canonical image baseline workspace replacement unavailable')
     if(owner.prepared&&requested.width<=owner.mask.width&&requested.height<=owner.mask.height&&requested.slots<=owner.mask.slots)return
     const growing=owner.prepared
     const mask=Object.freeze({width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots)})
@@ -6533,7 +6578,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(owner.job&&this._rebuildJobs.get(INITIAL_LAYER_ID)===owner.job)this._rebuildJobs.delete(INITIAL_LAYER_ID)
     owner.job=undefined
     errors.push(...this._retireCanonicalLayerCycle(owner,lost))
-    attempt(()=>owner.prepass.reset(lost));attempt(()=>owner.composite.reset(lost));attempt(()=>owner.cache.clear(lost));attempt(()=>this._authorTasks.resetIfIdle())
+    attempt(()=>owner.prepass.reset(lost));attempt(()=>owner.composite.reset(lost));const bank=owner.bank;owner.bank=undefined;attempt(()=>bank?.reset(lost));attempt(()=>owner.cache.clear(lost));attempt(()=>this._authorTasks.resetIfIdle())
     return errors
   }
   private _poisonCanonicalLayer(error:unknown):void {
@@ -6881,6 +6926,7 @@ export class PencilEngine implements PencilEngineAPI {
     const owner=this._canonicalLayerOwner,descriptor=importedBrushFromPreset(preset)
     if(!this._canonicalAuthorService||!this._onLocalOperation||!owner||!descriptor)throw new Error('Canonical source author services unavailable')
     this._assertCanonicalLayerCurrent(owner)
+    if(owner.bank)throw new TypeError('Canonical image baseline author preparation unavailable')
     const admission=canonicalSourceAuthorAdmission(descriptor,owner.plan.profile)
     if(!admission.supported)throw new Error(admission.reason)
     const data=admission.data
