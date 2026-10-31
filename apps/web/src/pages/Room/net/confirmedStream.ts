@@ -42,6 +42,8 @@ export interface ConfirmedStreamDeps {
   syncFromLog: () => void
   checkSnapshotBoundary: () => void
   requestFullResync: () => void
+  /** Only an original recorded sink failure may defer through its current owner. */
+  requestCanonicalRecovery?:()=>void
   /** (#536, ADR 011 §17.49) Holds arrivals while a restore's tail replay
    *  yields - see replayGate.ts. */
   replayGate?: Pick<ReplayGate<ConfirmedPayload>, 'hold' | 'setHandler'>
@@ -63,7 +65,7 @@ type HeldCanonicalPayload=ConfirmedPayload&{readonly [replayAuthority]?:(candida
 export function createConfirmedStreamHandler({
   engineRef, lastConfirmedSeqRef, latestKnownSeqRef, appliedOpIdsRef, pendingPreviewsRef,
   catchingUpRef, streamedStrokeIdsRef, deferredOpsQueueRef, previewScheduleRef,
-  confirmOwnOperation, markLayerActive, applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,
+  confirmOwnOperation, markLayerActive, applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,requestCanonicalRecovery,
   replayGate, canonicalReadScope: readScope,
 }: ConfirmedStreamDeps): ServerToClientEvents['operation_confirmed'] {
   const canonicalReadScope = readScope ? Object.freeze({
@@ -159,9 +161,10 @@ export function createConfirmedStreamHandler({
     if(scopedCanonical){
       // A source-only layer cannot commit a legacy reveal as a side effect of
       // a failed source admission. Own and peer source frames use ONE receiver.
+      if(pendingPreviewsRef.current.size!==0){requestFullResync();return}
       try{
-        if(pendingPreviewsRef.current.size!==0||applyRemoteOp(op,read,recorded)!==true)throw new Error('Canonical recorded admission failed')
-      }catch{requestFullResync();return}
+        if(applyRemoteOp(op,read,recorded)!==true)throw new Error('Canonical recorded admission failed')
+      }catch{(requestCanonicalRecovery??requestFullResync)();return}
       useRoomStore.getState().observeReviewOperation({...op,seq})
       lastConfirmedSeqRef.current=Math.max(lastConfirmedSeqRef.current,seq)
       latestKnownSeqRef.current=Math.max(latestKnownSeqRef.current,seq)

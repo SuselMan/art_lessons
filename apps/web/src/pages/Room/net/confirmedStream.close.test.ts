@@ -4,6 +4,7 @@ import {createReplayGate} from '../replayGate'
 import type {CanonicalRecordedInput} from '../../../engine'
 import {expect,it,vi} from 'vitest'
 vi.mock('@sentry/react',()=>({captureException:vi.fn()}))
+vi.mock('../../../lib/observability/reportInvariant',()=>({reportInvariant:vi.fn()}))
 import {sourceAutoGeometry,canonicalSoftAutoSourcePin,buildCanonicalMaterial,CANONICAL_STROKE_RASTER_PROFILE,type CanonicalStrokeOperation,type CanonicalStrokeSnapshotV2,type CanonicalRecordedAttachmentV1,type ServerToClientEvents,type Operation} from '@grafetto/shared'
 import {prepareCanonicalRoomState} from './canonicalRoomState'
 function fixture(ended=true){
@@ -94,4 +95,34 @@ it.each(['operation_undo','operation_redo','operation_revoke','layer_clear']as c
   expect(f.deps.applyRemoteOp).not.toHaveBeenCalled();expect(f.deps.confirmOwnOperation).not.toHaveBeenCalled()
   f.gate.end(ticket);expect(f.deps.requestFullResync).toHaveBeenCalledOnce();expect(f.deps.applyRemoteOp).not.toHaveBeenCalled()
  }finally{observe.mockRestore()}
+})
+
+it.each(['false','throw']as const)('defers original recorded admission %s through the same repair latch until final Outbox settlement',async kind=>{
+ const {createCanonicalRecoveryControl,createCanonicalRoomVerdicts}=await import('../canonicalRoomController')
+ const f=receiver();let pending=1,ack=1
+ const engine={setLocked:vi.fn(),hasActiveCanonicalAuthor:()=>false}as unknown as import('../../../engine').PencilEngineAPI
+ const control=createCanonicalRecoveryControl({getEngine:()=>engine,getBoard:()=> 'room',hasPendingLocals:()=>pending!==0,canRequest:()=>true,resync:()=>{expect(ack).toBe(2);f.deps.requestFullResync()},onWaiting:vi.fn()})
+ control.bind(engine,'room');control.restored(engine)
+ const repair=()=>control.request(engine,'room')
+ f.deps.applyRemoteOp.mockImplementation((_op,_read,input)=>{(input as CanonicalRecordedInput).delivery.assertCurrent(input as CanonicalRecordedInput);if(kind==='throw')throw Error('original receiver fault');return false})
+ const handler=createConfirmedStreamHandler({...f.deps,requestCanonicalRecovery:repair}),op=close()
+ handler({seq:2,operation:op})
+ expect(engine.setLocked).toHaveBeenCalledOnce();expect(f.deps.requestFullResync).not.toHaveBeenCalled()
+ expect(f.deps.lastConfirmedSeqRef.current).toBe(1);expect(f.deps.latestKnownSeqRef.current).toBe(1)
+ expect(f.deps.syncFromLog).not.toHaveBeenCalled();expect(f.deps.checkSnapshotBoundary).not.toHaveBeenCalled()
+ pending=0;expect(f.deps.requestFullResync).not.toHaveBeenCalled()
+ ack=2
+ if(op.type!=='canonical_stroke_close')throw Error('Expected typed seal')
+ createCanonicalRoomVerdicts({repair,isReplacing:control.isReplacing,drain:control.drain}).onSettled(op,{ok:true,seq:2})
+ expect(f.deps.requestFullResync).toHaveBeenCalledOnce()
+})
+
+it.each(['wire','gap','pending']as const)('keeps %s failure on generic resync even with an explicit canonical recovery sink',kind=>{
+ const f=receiver(),repair=vi.fn(),op=close()
+ if(kind==='wire')op.seq=3
+ if(kind==='gap')op.seq=3
+ if(kind==='pending')f.deps.pendingPreviewsRef.current.add('legacy-preview',1)
+ createConfirmedStreamHandler({...f.deps,requestCanonicalRecovery:repair})({seq:kind==='gap'?3:2,operation:op})
+ expect(f.deps.requestFullResync).toHaveBeenCalledOnce();expect(repair).not.toHaveBeenCalled()
+ expect(f.deps.applyRemoteOp).not.toHaveBeenCalled();expect(f.deps.lastConfirmedSeqRef.current).toBe(1)
 })

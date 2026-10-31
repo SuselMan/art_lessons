@@ -32,3 +32,17 @@ Live undo/redo, Room handlers/socket activation и source grants не расши
 Проверка: `confirmed-close-restore-final.log` — 69 tests / 4 files PASS,
 включая реальный hook→engine close после seal prerequisite. Scoped oxlint и
 `git diff --check` PASS. Числовой native/GPU результат этим тестом не заявляется.
+
+Recorded-admission recovery pairing: an optional requestCanonicalRecovery callback
+uses the same current-engine/board control latch ONLY after the original recorded
+sink returns false or throws. Room passes its stable callback through the existing
+RoomSocketDeps spread. Missing callbacks keep the previous generic-resync behavior.
+Pending previews, invalid wire metadata and sequence gaps stay on generic resync;
+no new live writer or metadata authority is admitted. Tests use an actual original
+read/delivery and the real control latch: source sink failure with pending Outbox
+cannot join or advance cursors; final settlement after the ACK watermark drains
+one join. The three generic failure categories never call that optional sink.
+Tests-first failure: canonical-admission-recovery-red.log.
+Validation: canonical-admission-recovery-final.log passes 93 tests / 6 files,
+maxWorkers=2 and host testTimeout=30000. Scoped lint has no errors; existing Room
+mount dependency warning is unchanged. Final typing is coordinated by ROOT.

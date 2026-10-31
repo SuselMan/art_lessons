@@ -1415,7 +1415,7 @@ function RoomEditor() {
       firstRoomStateReceivedRef, awaitingSeededBoardStateRef, pendingSnapshotRef, snapshotGateRef, previewScheduleRef,
       replaceUrl: path => navigateRef.current(path, { replace: true }),
       holdReviewArrivals: () => replayGateRef.current.begin(),
-      applyIdentity, setRoomContentReady, enterBoard,replaceCanonicalRoom, awaitPaper, markJoinRestoreDone,
+      applyIdentity, setRoomContentReady, enterBoard,replaceCanonicalRoom,requestCanonicalRecovery, awaitPaper, markJoinRestoreDone,
       clearRestoreFailure: () => setRestoreFailure(null),
       // Shared with the engine's mount effect — see useRoomRestore. The open
       // is not being timed any more, hence the no-op finisher: a real one here
@@ -1435,7 +1435,7 @@ function RoomEditor() {
       replayGate: replayGateRef.current,
     })
   }, [
-    sessionId, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary, markJoinRestoreDone,replaceCanonicalRoom,
+    sessionId, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary, markJoinRestoreDone,replaceCanonicalRoom,requestCanonicalRecovery,
     restoreRoom, confirmOwnOperation, enterBoard,
     // (#429) Used by the live-stroke handler, markLayerActive too. Both are
     // useCallback with no dependencies (see their definitions), so they are
