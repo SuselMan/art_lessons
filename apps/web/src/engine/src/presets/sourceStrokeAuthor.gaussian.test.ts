@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { BrushDescriptor } from '@grafetto/shared'
-import stock from '../../../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.native'
+import historical from '../../../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.native'
+import mapped from '../../../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.mapped.native'
 import { sourceStrokeAuthorDescriptor } from './sourceStrokeAuthorDescriptor'
 import { SourceStrokeAuthor, type SourceAuthorPacket, type SourceStrokeAuthorProgram, type SourceStrokeAuthorStep } from './sourceStrokeAuthor'
 import { sourceGaussianDab } from './sourceGaussianDab'
@@ -15,7 +16,7 @@ const ready = [2,5,6,7,10,11,22]
 const packet = (i:number):SourceAuthorPacket => ({x:-8+i*.8,y:-4+Math.sin(i/4)*5,t:i*17,pressure:.15+.8*(i%9)/8,
   tiltX:0,tiltY:0,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,
   mirroredH:i>=12&&i<22,mirroredV:false,tiltDirectionOffset:0,hover:false})
-function program(index:number,coverageProfile:'scalar-bionic-f64-fma-v1'|'neon64-f32-fma-v1'='neon64-f32-fma-v1') {
+function authorProgram(stock:{readonly rows:readonly {readonly index:number;readonly descriptor:unknown}[]},index:number,coverageProfile:'scalar-bionic-f64-fma-v1'|'neon64-f32-fma-v1'='neon64-f32-fma-v1') {
   const row=stock.rows.find(r=>r.index===index)!
   const result=sourceStrokeAuthorDescriptor(row.descriptor as unknown as BrushDescriptor,{colorIdentity:'opaque-native-black',lodScale:1,coverageProfile})
   if(!result.supported)throw new Error(result.reasons.join(','))
@@ -39,7 +40,8 @@ function run(p:SourceStrokeAuthorProgram,resume:boolean) {
   }
   return {steps,state}
 }
-describe('Gaussian source data in the existing author/query/cache owner',()=>{
+describe.each([{name:'historical separate compiler',stock:historical},{name:'mapped installed compiler',stock:mapped}])('Gaussian source data in the existing author/query/cache owner: $name',({stock})=>{
+  const program=(index:number,profile:'scalar-bionic-f64-fma-v1'|'neon64-f32-fma-v1'='neon64-f32-fma-v1')=>authorProgram(stock,index,profile)
   it('runs actual ready7 at30pressure inputs identically across every-yield structured-clone resume',()=>{
     for(const index of ready)for(const profile of ['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1'] as const) {
       const p=program(index,profile),whole=run(p,false),resumed=run(p,true)
