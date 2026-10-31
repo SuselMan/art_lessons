@@ -229,6 +229,7 @@ links:
       - { dir: '→', name: operation, type: 'Operation, SendResult', note: 'главный канал: штрихи и любые правки. Штрих — StrokeOperation: слой, инструмент, цвет и массив Dab — отпечатков кисти (координаты, нажим, наклон, размер), а не пиксели', runtime: 'права и заморозка проверяются, форма — нет' }
       - { dir: '→', name: canonical_stroke_begin, type: 'CanonicalStrokeBegin', note: 'аутентифицированный begin закрепляет проверенный CAS и настройки; открытие straight-комнат закрыто' }
       - { dir: '→', name: canonical_stroke_live, type: 'CanonicalStrokeLive', note: 'закреплённый контекст, ограниченная FIFO и проверка ordinal до рассылки' }
+      - { dir: '→', name: canonical_stroke_close, type: 'CanonicalStrokeCloseRequest, SendResult', note: 'контракт закрытия записанного префикса; socket producer и исполнение в редакторе ещё не включены' }
       - { dir: '→', name: stroke_live, type: 'StrokeLiveData', note: 'дабы, пока рука ещё ведёт' }
       - { dir: '→', name: stroke_live_end, type: 'strokeId' }
       - { dir: '→', name: cursor_move, type: 'CursorMoveData' }
