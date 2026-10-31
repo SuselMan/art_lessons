@@ -66,3 +66,29 @@ it('waits for lower persistence before emitting either frame and keeps close beh
  put0.resolve();await zero;await flush();expect(sent).toEqual(['f0','f1']);answers[0].resolve({ok:true,seq:1});await flush();expect(sent).toEqual(['f0','f1'])
  answers[1].resolve({ok:true,seq:2});await flush();expect(sent).toEqual(['f0','f1','close']);expect(box.pendingCount).toBe(0);box.dispose()
 })
+
+it('retains predecessor emission provenance when both ACKed attempts wait for deletion',async()=>{
+ const lineage=scope(),sent:number[]=[],answers=Array.from({length:4},()=>defer<SendResult>()),deletes=[defer<void>(),defer<void>()],memory=createInMemoryOutboxStorage()
+ const box=new Outbox({roomId:'room',storage:{...memory,delete:async id=>{const n=Number(id.slice(1));if(n<2)await deletes[n].promise;await memory.delete(id)}},getCanonicalSendLineage:()=>lineage,send:(op,emitted)=>{const n=Number(op.id.slice(1));sent.push(n);emitted?.();return answers[n].promise}})
+ for(let n=0;n<4;n++)await box.enqueue(frame(n));expect(sent).toEqual([0,1])
+ answers[0].resolve({ok:true,seq:1});answers[1].resolve({ok:true,seq:2});await flush();expect(box.pendingCount).toBe(2)
+ deletes[0].resolve();deletes[1].resolve();await flush();expect(sent).toEqual([0,1,2,3])
+ answers[2].resolve({ok:true,seq:3});answers[3].resolve({ok:true,seq:4});await flush();expect(box.pendingCount).toBe(0);box.dispose()
+})
+it.each(['connection','mutable','fault']as const)('never revives retained predecessor proof after %s change',async change=>{
+ let lineage=scope();const sent:number[]=[],answers=Array.from({length:4},()=>defer<SendResult>()),deletes=[defer<void>(),defer<void>()],memory=createInMemoryOutboxStorage()
+ const box=new Outbox({roomId:'room',storage:{...memory,delete:async id=>{const n=Number(id.slice(1));if(n<2)await deletes[n].promise;await memory.delete(id)}},getCanonicalSendLineage:()=>lineage,send:(op,emitted)=>{const n=Number(op.id.slice(1));sent.push(n);emitted?.();return answers[n].promise}})
+ for(let n=0;n<4;n++)await box.enqueue(frame(n))
+ answers[0].resolve(change==='fault'?{ok:false,reason:'invalid_operation'}:{ok:true,seq:1});answers[1].resolve({ok:true,seq:2});await flush()
+ if(change==='connection')lineage={...lineage,connectionId:'next-connection'}
+ if(change==='mutable')lineage.connectionId='mutated-connection'
+ deletes[0].resolve();deletes[1].resolve();await flush();expect(sent).toEqual([0,1,2])
+ answers[2].resolve({ok:true,seq:3});await flush();expect(sent).toEqual([0,1,2,3]);answers[3].resolve({ok:true,seq:4});await flush();box.dispose()
+})
+
+it('does not restore successor provenance from a late emit notification after a permanent fault',async()=>{
+ const lineage=scope(),sent:number[]=[],answers=Array.from({length:4},()=>defer<SendResult>());let emitOne:(()=>void)|undefined
+ const box=new Outbox({roomId:'room',storage:createInMemoryOutboxStorage(),getCanonicalSendLineage:()=>lineage,send:(op,emitted)=>{const n=Number(op.id.slice(1));sent.push(n);if(n===1)emitOne=emitted;else emitted?.();return answers[n].promise}})
+ for(let n=0;n<4;n++)await box.enqueue(frame(n));answers[0].resolve({ok:false,reason:'invalid_operation'});await flush();emitOne?.();answers[1].resolve({ok:true,seq:2});await flush()
+ expect(sent).toEqual([0,1,2]);answers[2].resolve({ok:true,seq:3});await flush();expect(sent).toEqual([0,1,2,3]);answers[3].resolve({ok:true,seq:4});await flush();box.dispose()
+})

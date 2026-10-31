@@ -47,7 +47,7 @@ export interface CanonicalSendLineage {
   readonly boardId: string
   readonly originalRead: object
 }
-type PendingEntry=OutboxEntry&{canonicalSerialOnly?:true;canonicalFreshStart?:true}
+type PendingEntry=OutboxEntry&{canonicalSerialOnly?:true;canonicalFreshStart?:true;canonicalPredecessor?:CanonicalSendLineage}
 type Attempt={readonly entry:PendingEntry;phase:'reserved'|'emitted'|'settling';lineage?:CanonicalSendLineage;pipeline:boolean;canonicalSerialOnly?:true}
 const sameLineage=(a:CanonicalSendLineage|undefined,b:CanonicalSendLineage|undefined)=>!!a&&!!b&&a.socket===b.socket&&a.connectionId===b.connectionId&&a.boardId===b.boardId&&a.originalRead===b.originalRead
 
@@ -242,6 +242,11 @@ export class Outbox {
     const order=canonicalOrder(op),entry:PendingEntry={op,roomId:this.roomId,attempts:0,nextRetryAt:this.now()}
     if(order?.kind==='frame'&&order.ordinal===0&&!this.pending.has(op.id))entry.canonicalFreshStart=true
     if(order?.key&&[...this.pending.values(),...Array.from(this.inFlight.values(),a=>a.entry)].some(e=>e.canonicalSerialOnly&&canonicalOrder(e.op)?.key===order.key))entry.canonicalSerialOnly=true
+    if(order?.kind==='frame'&&!entry.canonicalSerialOnly){
+      const lineage=this.currentLineage()
+      const prior=Array.from(this.inFlight.values()).find(a=>{const o=canonicalOrder(a.entry.op);return o?.kind==='frame'&&o.key===order.key&&o.ordinal===order.ordinal!-1&&a.phase==='emitted'&&a.pipeline&&!a.canonicalSerialOnly&&!a.entry.canonicalSerialOnly&&sameLineage(a.lineage,lineage)})
+      if(prior&&lineage)entry.canonicalPredecessor=lineage
+    }
     this.pending.set(op.id, entry)
     this.onPendingChange?.(this.pending.size, this.stalled.size)
     await this.persist(entry)
@@ -393,20 +398,20 @@ export class Outbox {
       const [opId]=this.waiting.splice(at,1)
       const entry=this.pending.get(opId)!,order=canonicalOrder(entry.op),lineage=this.currentLineage()
       const prior=order?.kind==='frame'&&order.key?Array.from(this.inFlight.values()).find(a=>{const o=canonicalOrder(a.entry.op);return o?.kind==='frame'&&o.key===order.key&&o.ordinal===order.ordinal!-1&&a.phase==='emitted'&&a.pipeline&&!a.canonicalSerialOnly&&sameLineage(a.lineage,lineage)}):undefined
-      const attempt:Attempt={entry,phase:'reserved',lineage,pipeline:!!lineage&&!entry.canonicalSerialOnly&&(!!entry.canonicalFreshStart||!!prior),canonicalSerialOnly:entry.canonicalSerialOnly}
+      const attempt:Attempt={entry,phase:'reserved',lineage,pipeline:!!lineage&&!entry.canonicalSerialOnly&&(!!entry.canonicalFreshStart||sameLineage(entry.canonicalPredecessor,lineage)||!!prior),canonicalSerialOnly:entry.canonicalSerialOnly}
       this.inFlight.set(opId,attempt)
       void this.runAttempt(opId,attempt)
     }
   }
 
   private currentLineage():CanonicalSendLineage|undefined {
-    try{const value=this.getCanonicalSendLineage?.();return value&&value.boardId===this.roomId&&value.connectionId?{socket:value.socket,connectionId:value.connectionId,boardId:value.boardId,originalRead:value.originalRead}:undefined}catch{return undefined}
+    try{const value=this.getCanonicalSendLineage?.();return value&&value.boardId===this.roomId&&value.connectionId?Object.freeze({socket:value.socket,connectionId:value.connectionId,boardId:value.boardId,originalRead:value.originalRead}):undefined}catch{return undefined}
   }
   private serialOnly(entry:PendingEntry):void {
     const key=canonicalOrder(entry.op)?.key
     if(!key)return
-    for(const e of this.pending.values())if(canonicalOrder(e.op)?.key===key)e.canonicalSerialOnly=true
-    for(const a of this.inFlight.values())if(canonicalOrder(a.entry.op)?.key===key){a.canonicalSerialOnly=true;a.entry.canonicalSerialOnly=true;a.pipeline=false}
+    for(const e of this.pending.values())if(canonicalOrder(e.op)?.key===key){e.canonicalSerialOnly=true;delete e.canonicalPredecessor}
+    for(const a of this.inFlight.values())if(canonicalOrder(a.entry.op)?.key===key){a.canonicalSerialOnly=true;a.entry.canonicalSerialOnly=true;delete a.entry.canonicalPredecessor;a.pipeline=false}
   }
   private async runAttempt(opId: string,attempt:Attempt): Promise<void> {
     // `inFlight` must stay set for this entry's entire attempt duration —
@@ -421,8 +426,18 @@ export class Outbox {
       try {
         const result = await this.send(entry.op,()=>{
           if(this.disposed||this.inFlight.get(opId)!==attempt||this.pending.get(opId)!==entry||attempt.phase!=='reserved')return
+          const lineage=this.currentLineage()
+          // The getter can reenter: never revive a retired or faulted attempt.
+          if(this.disposed||this.inFlight.get(opId)!==attempt||this.pending.get(opId)!==entry||attempt.phase!=='reserved')return
           attempt.phase='emitted'
-          if(!sameLineage(attempt.lineage,this.currentLineage()))attempt.pipeline=false
+          if(!sameLineage(attempt.lineage,lineage)||attempt.canonicalSerialOnly||entry.canonicalSerialOnly)attempt.pipeline=false
+          if(attempt.pipeline&&lineage){
+            const order=canonicalOrder(entry.op)
+            if(order?.kind==='frame')for(const next of this.pending.values()){
+              const target=canonicalOrder(next.op)
+              if(target?.kind==='frame'&&target.key===order.key&&target.ordinal===order.ordinal!+1&&!next.canonicalSerialOnly)next.canonicalPredecessor=lineage
+            }
+          }
           this.pump()
         })
         attempt.phase='settling'
