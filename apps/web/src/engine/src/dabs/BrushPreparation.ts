@@ -161,6 +161,10 @@ const cancelledPreparation: BrushPreparationOutcome = { result: { status: 'cance
  */
 export class BrushPreparation {
   private active?: PreparationRun
+  private finishing = 0
+  /** One passive barrier per busy interval; never a work subscription. */
+  private idleBarrier?: { promise: Promise<void>; resolve: () => void }
+  whenIdle(): Promise<void> { return this.idleBarrier?.promise ?? Promise.resolve() }
   /** Read-only scheduling hint, not a reservation or execution grant. */
   canRunWithoutReplacing(key?: string): boolean { return !this.active || key !== undefined && this.active.key === key }
   cancel(): void { this.active?.finish(cancelledPreparation) }
@@ -222,21 +226,35 @@ export class BrushPreparation {
       key, done: 0, total: jobs.length, finished: false, subscribers: new Set(),
       finish: outcome => {
         if (run.finished) return
-        run.finished = true
-        const pendingFrame = frame; frame = undefined
-        if (this.active === run) this.active = undefined
-        let terminal = outcome
-        const fail = (error: unknown) => { if (!('error' in terminal)) terminal = { error } }
-        if (pendingFrame !== undefined) {
-          try { cancelAnimationFrame(pendingFrame) } catch (error) { fail(error) }
-        }
+        this.finishing++
         try {
-          const view: BrushPreparationOutcome = 'error' in terminal
-            ? Object.freeze({ error: terminal.error }) : Object.freeze({ result: Object.freeze({ ...terminal.result }) })
-          if (finalize?.(view) !== undefined) throw new TypeError('Brush preparation finalizer must return undefined synchronously')
-        } catch (error) { fail(error) }
-        for (const subscriber of [...run.subscribers]) subscriber.settle(terminal)
+          run.finished = true
+          const pendingFrame = frame; frame = undefined
+          if (this.active === run) this.active = undefined
+          let terminal = outcome
+          const fail = (error: unknown) => { if (!('error' in terminal)) terminal = { error } }
+          if (pendingFrame !== undefined) {
+            try { cancelAnimationFrame(pendingFrame) } catch (error) { fail(error) }
+          }
+          try {
+            const view: BrushPreparationOutcome = 'error' in terminal
+              ? Object.freeze({ error: terminal.error }) : Object.freeze({ result: Object.freeze({ ...terminal.result }) })
+            if (finalize?.(view) !== undefined) throw new TypeError('Brush preparation finalizer must return undefined synchronously')
+          } catch (error) { fail(error) }
+          for (const subscriber of [...run.subscribers]) subscriber.settle(terminal)
+        } finally {
+          this.finishing--
+          if (!this.active && this.finishing === 0) {
+            const idle = this.idleBarrier; this.idleBarrier = undefined
+            idle?.resolve()
+          }
+        }
       },
+    }
+    if (!this.idleBarrier) {
+      let resolve!: () => void
+      const promise = new Promise<void>(settle => { resolve = settle })
+      this.idleBarrier = { promise, resolve }
     }
     this.active = run
     const pending = this.subscribe(run, options)

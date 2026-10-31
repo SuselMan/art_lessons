@@ -136,3 +136,67 @@ it('reports replacement safety from only the existing active key without running
  expect(job).not.toHaveBeenCalled();expect(progress).not.toHaveBeenCalled();expect(finish).toHaveBeenCalledOnce();tick();await expect(keyed).resolves.toEqual({status:'ready'})
  expect(worker.canRunWithoutReplacing()).toBe(true);expect(worker.canRunWithoutReplacing('b')).toBe(true);expect(job).toHaveBeenCalledOnce();expect(progress).toHaveBeenCalledOnce();expect(finish).toHaveBeenCalledTimes(2)
 })
+
+it('shares a passive idle barrier without owning jobs or preventing last real abort',async()=>{
+ const worker=new BrushPreparation(),abort=new AbortController(),job=vi.fn(),hook=vi.fn()
+ const run=worker.run([job,job],{signal:abort.signal},()=>true,'actual',hook)
+ const a=worker.whenIdle(),b=worker.whenIdle();expect(a).toBe(b)
+ let woke=false;void a.then(()=>{woke=true})
+ tick();await Promise.resolve();expect(woke).toBe(false)
+ abort.abort();await expect(run).resolves.toEqual({status:'cancelled'});await a
+ expect(woke).toBe(true);expect(job).toHaveBeenCalledTimes(1);expect(hook).toHaveBeenCalledOnce();expect(frames.size).toBe(0)
+})
+it('does not wake passive callers when only one actual subscriber withdraws',async()=>{
+ const worker=new BrushPreparation(),abort=new AbortController()
+ const a=worker.run([()=>{},()=>{}],{signal:abort.signal},()=>true,'same')
+ const b=worker.run([],{},()=>true,'same'),idle=worker.whenIdle();let woke=false;void idle.then(()=>{woke=true})
+ abort.abort();await a;expect(woke).toBe(false);tick();expect(woke).toBe(false);tick()
+ await b;await idle;expect(woke).toBe(true)
+})
+it('keeps the passive barrier through creator finalization and a newer reentrant run',async()=>{
+ const worker=new BrushPreparation();let inside:Promise<void>|undefined,newer:Promise<BrushPreparationResult>|undefined,woke=false
+ const run=worker.run([()=>{}],{},()=>true,'old',()=>{
+  inside=worker.whenIdle();void inside.then(()=>{woke=true})
+  newer=worker.run([()=>{}],{},()=>true,'new')
+ })
+ const idle=worker.whenIdle();tick();await run
+ expect(inside).toBe(idle);expect(woke).toBe(false);expect(worker.canRunWithoutReplacing()).toBe(false)
+ tick();await newer;await idle;expect(woke).toBe(true)
+})
+it('wakes after error cleanup without changing exact thrown work errors, including undefined',async()=>{
+ for(const failure of [Error('job'),undefined]){
+  const worker=new BrushPreparation(),cleanup=vi.fn(()=>{throw Error('cleanup')})
+  const run=worker.run([()=>{throw failure}],{},()=>true,'error',cleanup)
+  const outcome=run.then(()=>({ok:true}),error=>({ok:false,error})),idle=worker.whenIdle()
+  tick();await idle;expect(await outcome).toEqual({ok:false,error:failure});expect(cleanup).toHaveBeenCalledOnce()
+ }
+})
+it('handles idle, early return, zero jobs, cancellation and post-resolution contention without a grant',async()=>{
+ const worker=new BrushPreparation();await worker.whenIdle()
+ const early=new AbortController();early.abort()
+ await worker.run([], {signal:early.signal},()=>true);await worker.whenIdle()
+ await worker.run([],{},()=>false);await worker.whenIdle()
+ let inside:Promise<void>|undefined,hookRan=false
+ await worker.run([],{},()=>true,'empty',()=>{inside=worker.whenIdle();hookRan=true})
+ await inside;expect(hookRan).toBe(true)
+ const first=worker.run([()=>{}],{},()=>true,'first'),idle=worker.whenIdle();worker.cancel()
+ const next=worker.run([()=>{}],{},()=>true,'next')
+ await first;await idle;expect(worker.canRunWithoutReplacing('foreign')).toBe(false)
+ worker.cancel();await next;await worker.whenIdle();expect(frames.size).toBe(0)
+})
+it('publishes passive idle only after the ready hook and terminal subscriber settlement',async()=>{
+ const worker=new BrushPreparation(),events:string[]=[]
+ const run=worker.run([()=>{}],{},()=>true,'ready',()=>{events.push('hook')}).then(()=>{events.push('subscriber')})
+ const idle=worker.whenIdle().then(()=>{events.push('idle')})
+ tick();await Promise.all([run,idle]);expect(events).toEqual(['hook','subscriber','idle'])
+})
+it('does not publish idle from a nested synchronous zero-job finalizer before outer subscribers',async()=>{
+ const worker=new BrushPreparation(),events:string[]=[]
+ const run=worker.run([()=>{}],{},()=>true,'outer',()=>{
+  events.push('outer-hook')
+  void worker.run([],{},()=>true,'inner',()=>{events.push('inner-hook')})
+ }).then(()=>{events.push('outer-subscriber')})
+ const idle=worker.whenIdle().then(()=>{events.push('idle')})
+ tick();await Promise.all([run,idle])
+ expect(events).toEqual(['outer-hook','inner-hook','outer-subscriber','idle'])
+})

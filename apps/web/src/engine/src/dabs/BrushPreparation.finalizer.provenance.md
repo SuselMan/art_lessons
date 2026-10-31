@@ -29,3 +29,34 @@ Final gate receipt from ROOT: after separate architecture documentation repairs,
 map:check and map:rules56021 pass (0 errors,24 warnings,11 known ignored).
 Full app/SW24042 already passed; production sources unchanged, no repeated TSC.
 Architecture documentation fixes are excluded from this unit commit.
+
+## Passive idle barrier (separate unit)
+
+`whenIdle()` returns the one current busy-interval promise, without registering
+as a work subscriber. The barrier exists before active work is exposed, so even
+a creator hook calling whenIdle after active detachment cannot observe premature
+idle. finish resolves it only after synchronous finalizer and all work subscriber
+settlements, and only if a newer reentrant run has not become active. Reentrant
+new run shares the same unresolved busy barrier; no per-waiter list, counter,
+queue, jobs, source or GL lease is added. Idle promises are a scheduling wakeup,
+not a reservation/publication grant. Consumers must reassert original scope and
+canRunWithoutReplacing after await; a new run may win before their microtask.
+No new AbortSignal ownership is introduced. Existing cancel/context teardown
+uses the same terminal finish; passive waiters never keep work alive.
+
+Tests-first RED5/prior23 PASS; final45 tests/2 suites PASS with maxWorkers1,
+including six passive tests plus all previous scheduler/resource/finalizer tests.
+Witnesses: shared promise, last actual abort despite passive waiters, one-of-two
+actual abort stays busy, hook-time waiting and newer reentrant run, job failure
+including undefined plus cleanup throw, early return/jobs0/cancel, contention
+following idle resolution, and hook→subscriber→idle notification order. Scoped
+lint and diff check pass. Logs R52/brush-preparation-passive-{first-red,regression}.log.
+Final app typecheck is coordinated by ROOT separately; no new runtime resources.
+
+Nested finalization correction: a synchronous zero-job run inside the old hook
+can finish while no active run remains but the outer finish still owes subscriber
+settlement. A private finishing nesting counter is incremented before detach and
+callbacks, decremented in finally after settlement; barrier resolves only with
+no active run AND nesting0. No waiter queue or generation counter is added.
+Tests-first nested RED1/prior29 PASS; final46/2 suites PASS, maxWorkers1, scoped
+lint/diff PASS. Old app snapshot predates this fix; fresh app gate required.
