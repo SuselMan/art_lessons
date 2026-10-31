@@ -91,8 +91,9 @@ it('transports synthetic mapped soft through SAME snapshot/author/encoder/live/r
 it('pins full soft compiler/radial signature and rejects trusted mutations without admission advance',()=>{
  const f=setup(softDescriptor()),binder=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:empty,...selected,maxGestures:4})
  const grant=binder.beginGesture(identity,f.input)
- if(!('version' in grant.material)||grant.material.primarySource.kind!=='softAuto')throw Error('Expected soft')
+ if(!('version' in grant.material))throw Error('Expected wire2')
  const material=grant.material,pin=material.primarySource
+ if(pin.kind!=='softAuto')throw Error('Expected soft')
  const s={materialVersion:2,material,brush:grant.brush,strokeId:grant.strokeId,pigmentRgb8:grant.pigmentRgb8,composition:grant.composition} as CanonicalStrokeSnapshotV2
  const packets=frames(f.descriptor,s)
  let current=grant
