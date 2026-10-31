@@ -984,7 +984,19 @@ it('delivers durable V2 confirmation and rejoined closed undo prefix atomically 
   const persisted=mockPrisma.operation.create.mock.calls.find(([request])=>request.data.id===op.id)![0].data
   mockPrisma.operation.findMany.mockImplementation(async({where})=>where.type==='canonical_stroke'?[persisted]:[])
   const undo={id:fresh('closed-source-undo'),type:'operation_undo' as const,userId:'teacher',timestamp:1,targetOpId:op.id}
-  expect(await new Promise<SendResult>(resolve=>c.teacher.emit('operation',undo,resolve))).toMatchObject({ok:true})
+  let rejectUndo!:(error:Error)=>void
+  mockPrisma.operation.create.mockReturnValueOnce(new Promise<void>((_,reject)=>{rejectUndo=reject}))
+  const undoConfirmed=next(c.student,'operation_confirmed'),undoQuiet=silent(c.student,'operation_confirmed',40),undoSettled=vi.fn()
+  const undoPending=new Promise<SendResult>(resolve=>c.teacher.emit('operation',undo,resolve));void undoPending.then(undoSettled)
+  await vi.waitFor(()=>expect(c.record.operationsById.has(undo.id)).toBe(true));await undoQuiet
+  expect(undoSettled).not.toHaveBeenCalled()
+  const undoSeq=c.record.operationsById.get(undo.id)!.seq!,nextSeq=c.record.nextSeq
+  const log=vi.spyOn(console,'error').mockImplementation(()=>{})
+  try{rejectUndo(new Error('metadata insert failed'));expect(await undoPending).toEqual({ok:false,reason:'canonical_repair_required'})}finally{log.mockRestore()}
+  const failedQuiet=silent(c.student,'operation_confirmed',40);await failedQuiet
+  expect(await new Promise<SendResult>(resolve=>c.teacher.emit('operation',undo,resolve))).toEqual({ok:true,seq:undoSeq,duplicate:true})
+  expect((await undoConfirmed).operation.id).toBe(undo.id)
+  expect(c.record.nextSeq).toBe(nextSeq);expect(c.record.operations.filter(entry=>entry.id===undo.id)).toHaveLength(1)
   await _flushPendingWrites(c.lessonId)
   const state=next(c.student,'room_state')
   expect(await new Promise(resolve=>c.student.emit('join_room',{roomId:c.lessonId,name:'Student'},resolve))).toMatchObject({ok:true})

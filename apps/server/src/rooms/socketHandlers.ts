@@ -1,3 +1,4 @@
+import { captureCanonicalMetadata } from './roomPersistence.js'
 import { rooms } from './roomRegistry.js'
 import { CanonicalRoomTransport } from './CanonicalRoomTransport.js'
 import { hasCompatibleLegacyWriter, hasKnownOperationDiscriminant, hasReservedCanonicalFields } from './operationAdmissionShape.js'
@@ -18,7 +19,7 @@ import {
   leaveRoom, releaseRoomIfUnused, removePaletteColor,
 } from './rooms.js'
 import { getRoomBacklog } from './roomStats.js'
-import { findDuplicateOperation, getOperationRejectReason, recordOperation, updateAliveIds } from './operationLog.js'
+import { knownCanonicalWrite,findDuplicateOperation, getOperationRejectReason, recordOperation, updateAliveIds } from './operationLog.js'
 import { ensureRoomLoaded } from './roomLoader.js'
 import { prepareSnapshotReplay } from './snapshotReplayLoader.js'
 import {
@@ -627,6 +628,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, cano
         return
       }
 
+      const legacy=()=>{
       if (!hasKnownOperationDiscriminant(op) || !hasCompatibleLegacyWriter(rooms.get(roomId)?.room.rasterVersion, op)) { ack?.({ ok: false, reason: 'invalid_operation' }); return }
 
       try {
@@ -704,6 +706,26 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, cano
         reportException(err, context)
         ack?.({ ok: false, reason: 'server_error' })
       }
+      }
+      if((op?.type==='operation_undo'||op?.type==='operation_redo')
+        &&(rooms.get(roomId)?.room.rasterVersion===STRAIGHT_ROOM_RASTER_VERSION
+          ||!!knownCanonicalWrite(findDuplicateOperation(roomId,op.id)!))){
+        let captured:ReturnType<typeof captureCanonicalMetadata>
+        try{captured=captureCanonicalMetadata(op,true)}catch{ack?.({ok:false,reason:'invalid_operation'});return}
+        enqueueCanonical(async()=>{
+          const reply=await canonicalTransport.metadata({roomId,userId},captured,
+            ()=>socket.connected&&socket.data.roomId===roomId&&socket.data.userId===userId)
+          if('legacy'in reply){op=captured;legacy();return}
+          ack?.(reply.result)
+          if(reply.accepted){
+            io.to(roomId).emit('operation_confirmed',{seq:reply.accepted.seq!,operation:reply.accepted})
+            if(reply.accepted.seq!%SNAPSHOT_SEQ_INTERVAL===0)checkSnapshotLag(roomId)
+          }
+        },()=>ack?.({ok:false,reason:'canonical_repair_required'}))
+        return
+      }
+      legacy()
+
     })
 
     // (#429) Live stroke relay. Deliberately the thinnest handler in this

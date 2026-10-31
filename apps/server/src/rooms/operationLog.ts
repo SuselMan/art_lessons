@@ -2,7 +2,7 @@ import type { Operation, RejectReason } from '@grafetto/shared'
 
 import { operationRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord, type RoomWriteOutcome } from './roomRegistry.js'
-import { persistOperation, retryCanonicalOperationWrite, verifyCanonicalOperationRow, type CanonicalStoredOperationRow } from './roomPersistence.js'
+import { captureCanonicalMetadata,type CanonicalMetadataOperation, persistOperation, retryCanonicalOperationWrite, verifyCanonicalOperationRow, type CanonicalStoredOperationRow } from './roomPersistence.js'
 import { advanceStructuralLog, deriveLayerIds } from './structuralLog.js'
 
 /** (#612) A resident room's operation log, one operation at a time: whether it
@@ -167,7 +167,7 @@ function startCanonicalWrite(receipt: CanonicalWriteReceipt, run: () => Promise<
  * This mechanism is intentionally NOT wired into transport or readers yet. */
 export function ensureCanonicalWrite(record: RoomRecord, op: Operation, options: { readonly retryFailed?: boolean } = {}): Promise<RoomWriteOutcome<void>> {
   const receipt = canonicalWrites.get(op)
-  if (op.type !== 'canonical_stroke' || rooms.get(record.room.id) !== record || record.operationsById.get(op.id) !== op
+  if ((op.type !== 'canonical_stroke' && op.type!=='operation_undo'&&op.type!=='operation_redo') || rooms.get(record.room.id) !== record || record.operationsById.get(op.id) !== op
     || !receipt || canonicalWriteOwners.get(record) !== receipt.owner)
     throw new Error('Canonical persistence unknown or stale operation owner')
   if (receipt.status !== 'failed' || !options.retryFailed) return receipt.outcome
@@ -190,16 +190,21 @@ export function immutableCanonicalOperation(op: Extract<Operation, { type: 'cano
  *  ever called for a room a socket has already successfully joined, so an
  *  unknown roomId here indicates a caller bug, not a normal runtime
  *  condition. */
-export function recordOperation(roomId: string, op: Operation): Operation {
+export function recordOperation(roomId:string,op:Operation):Operation {return appendOperation(roomId,op,false)}
+/** Internal canonical transport only: same queue/receipt, never a wire opt-in. */
+export function recordCanonicalMetadataOperation(roomId:string,op:CanonicalMetadataOperation):CanonicalMetadataOperation {
+ return appendOperation(roomId,captureCanonicalMetadata(op),true) as CanonicalMetadataOperation
+}
+function appendOperation(roomId: string, op: Operation, trackedMetadata:boolean): Operation {
   const record = rooms.get(roomId)
   if (!record) throw new Error(`recordOperation: unknown room "${roomId}"`)
   // Copy/freeze the small canonical header before any room mutation. Packed
   // material is an immutable string; no duplicate body journal is retained.
-  const stamped: Operation = op.type === 'canonical_stroke' ? immutableCanonicalOperation(op, record.nextSeq) : { ...op, seq: record.nextSeq }
+  const stamped: Operation = op.type === 'canonical_stroke' ? immutableCanonicalOperation(op, record.nextSeq) : trackedMetadata?Object.freeze({...op,seq:record.nextSeq}):{ ...op, seq: record.nextSeq }
   record.nextSeq++
   record.operations.push(stamped)
   record.operationsById.set(stamped.id, stamped)
-  if (stamped.type === 'canonical_stroke') {
+  if (stamped.type === 'canonical_stroke'||trackedMetadata) {
     let owner = canonicalWriteOwners.get(record)
     if (!owner) { owner = { pending: 0, failed: 0 }; canonicalWriteOwners.set(record, owner) }
     const receipt: CanonicalWriteReceipt = { owner, status: 'succeeded', outcome: Promise.resolve({ ok: true, value: undefined }) }

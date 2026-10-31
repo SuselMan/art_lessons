@@ -11,7 +11,7 @@ const mockPrisma = vi.hoisted(() => ({
 vi.mock('../db/prisma.js', () => ({ prisma: mockPrisma }))
 
 const { flushRoomWrites } = await import('./roomRegistry.js')
-const { persistOperation, retryCanonicalOperationWrite, persistParticipant, projectCanonicalIndexedOperation, persistRoomCreate, passwordGrant } = await import('./roomPersistence.js')
+const { captureCanonicalMetadata, verifyCanonicalMetadataRow, persistOperation, retryCanonicalOperationWrite, persistParticipant, projectCanonicalIndexedOperation, persistRoomCreate, passwordGrant } = await import('./roomPersistence.js')
 
 /** (#612) The rows a live room writes, by shape. Nothing else pins them: the
  *  room tests mock Prisma and look at memory. The columns matter beyond the
@@ -133,4 +133,36 @@ describe('canonical persistence outcome and immutable row repair',()=>{
       expect(await retryCanonicalOperationWrite('r',op)).toMatchObject({ok:false})
     }finally{log.mockRestore()}
   })
+})
+
+
+describe('closed canonical undo metadata indexed repair',()=>{
+ const op={type:'operation_undo' as const,id:'undo',userId:'actor',timestamp:4,targetOpId:'frame',seq:9}
+ const row=()=>({id:op.id,roomId:'r',userId:op.userId,seq:9,type:op.type,layerId:null,tool:null,data:{...op}})
+ it('bounds known fields before copying and verifies every indexed column/body',()=>{
+  const projected=captureCanonicalMetadata(op,true)
+  expect(projected).toEqual(op);expect(Object.isFrozen(projected)).toBe(true)
+  for(const bad of [{...op,extra:'x'.repeat(1000000)},{...op,targetOpId:'x'.repeat(257)},{...op,userId:''},{...op,timestamp:NaN},{...op,seq:0}])expect(()=>captureCanonicalMetadata(bad,true)).toThrow()
+  expect(()=>captureCanonicalMetadata(op)).toThrow()
+  for(const patch of [{id:'other'},{roomId:'other'},{userId:'other'},{seq:10},{type:'operation_redo'},{layerId:'layer'},{tool:'pencil'},{data:{...op,targetOpId:'other'}}])expect(()=>verifyCanonicalMetadataRow('r',op,{...row(),...patch})).toThrow()
+ })
+ it('repairs only same immutable metadata, including a verified concurrent insert',async()=>{
+  mockPrisma.operation.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(row())
+  mockPrisma.operation.create.mockRejectedValueOnce({code:'P2002'})
+  expect(await retryCanonicalOperationWrite('r',op)).toEqual({ok:true,value:undefined})
+  expect(mockPrisma.operation.create.mock.calls[0][0].data).toEqual(row())
+  const log=vi.spyOn(console,'error').mockImplementation(()=>{})
+  try{
+   mockPrisma.operation.findUnique.mockResolvedValueOnce({...row(),data:{...op,targetOpId:'foreign'}})
+   expect(await retryCanonicalOperationWrite('r',op)).toMatchObject({ok:false})
+  }finally{log.mockRestore()}
+ })
+})
+
+it('captures bounded metadata before its repair waits on the existing queue',async()=>{
+ const op={type:'operation_undo' as const,id:'queued-metadata',userId:'actor',timestamp:1,targetOpId:'original-target',seq:8}
+ const pending=retryCanonicalOperationWrite('r',op)
+ op.targetOpId='mutated-after-request'
+ expect(await pending).toEqual({ok:true,value:undefined})
+ expect(mockPrisma.operation.create.mock.calls[0][0].data.data.targetOpId).toBe('original-target')
 })

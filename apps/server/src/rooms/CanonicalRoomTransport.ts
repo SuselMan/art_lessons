@@ -11,9 +11,10 @@ import { CanonicalStrokeAdmission, decodeTrustedCanonicalFrame, type CanonicalAd
 import { CANONICAL_ROOM_EXECUTION_POLICY, freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy, type CanonicalRoomExecutionPolicy } from './canonicalExecutionPolicy.js'
 import { assertPreparedAuthorizedJoinRead,type PreparedAuthorizedJoin } from './roomAccess.js'
 import { mayReadBoardContent } from './boardContentAccess.js'
+import { hasKnownOperationDiscriminant } from './operationAdmissionShape.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
-import { canonicalWriteFence, ensureCanonicalWrite, findDuplicateOperation, knownCanonicalWrite, recordOperation, updateAliveIds } from './operationLog.js'
-import { canonicalOperationRowSelect, verifyCanonicalOperationRow,type CanonicalStoredOperationRow } from './roomPersistence.js'
+import { canonicalWriteFence, ensureCanonicalWrite, findDuplicateOperation, knownCanonicalWrite, hasSucceededCanonicalWrite,recordOperation, recordCanonicalMetadataOperation,getOperationRejectReason,updateAliveIds } from './operationLog.js'
+import { captureCanonicalMetadata,verifyCanonicalMetadataRow,verifyIndexedOperationRow,projectCanonicalIndexedOperation,type CanonicalMetadataOperation,canonicalOperationRowSelect, verifyCanonicalOperationRow,type CanonicalStoredOperationRow } from './roomPersistence.js'
 import { flushRoomWrites, lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
 import type {CanonicalPrefixPreparer} from './snapshotReplayLoader.js'
 import { CanonicalGesturePrefixError, getCanonicalGesturePrefixWithRows } from './snapshotStore.js'
@@ -264,6 +265,133 @@ export class CanonicalRoomTransport {
       this.requireHealthyWrites(lifetime)
       return { result: { ok: true, seq: accepted.seq! }, accepted, ...this.recordedAttachment(accepted,session) }
     } catch (error) { return { result: { ok: false, reason: reason(error) } } }
+  }
+
+  /** Existing operation event, canonical metadata lane only. Explicit legacy is
+   * returned solely after a proven legacy terminal; unknown is never fallback. */
+  async metadata(identity:CanonicalAdmissionIdentity,value:unknown,isCurrent:()=>boolean):Promise<
+    {readonly legacy:true}|{readonly result:SendResult;readonly accepted?:CanonicalMetadataOperation}> {
+   try {
+    const request=captureCanonicalMetadata(value,true)
+    const {seq:requestedSeq,...body}=request,input=captureCanonicalMetadata(body)
+    if(input.userId!==identity.userId)fail('invalid_operation')
+    const record=rooms.get(identity.roomId)
+    if(!record)fail('not_joined')
+    const lesson=lessonRecordOf(record),context=canonicalBrushStorageContext()
+    const residentChain:{operation:Operation;snapshot:CanonicalMetadataOperation}[]=[]
+    let targetLayer:string|undefined
+    const current=()=>{
+     const actual=canonicalBrushStorageContext()
+     if(!isCurrent()||!lesson.participants.has(identity.userId))fail('not_joined')
+     if(rooms.get(identity.roomId)!==record||lessonRecordOf(record)!==lesson||actual?.storage!==context?.storage||actual?.operator!==context?.operator)fail('canonical_repair_required')
+     if(getOperationRejectReason(identity.roomId,identity.userId,input)||targetLayer!==undefined&&canonicalPaintRejectReason(record,lesson,identity.userId,targetLayer))fail('invalid_operation')
+     for(const member of residentChain)if(record.operationsById.get(member.operation.id)!==member.operation||!isDeepStrictEqual(captureCanonicalMetadata(member.operation,true),member.snapshot))fail('canonical_repair_required')
+    }
+    current()
+    const same=(op:Operation)=>(requestedSeq===undefined||requestedSeq===op.seq)&&op.type===input.type&&isDeepStrictEqual(captureCanonicalMetadata(op,true),{...input,seq:op.seq})
+    const durable=async(op:Operation,duplicate:boolean)=>{
+     if(!same(op))fail('invalid_operation')
+     const outcome=await ensureCanonicalWrite(record,op,{retryFailed:duplicate})
+     if(!outcome.ok)fail('canonical_repair_required')
+     current()
+     if(canonicalWriteFence(record).failed)fail('canonical_repair_required')
+     return {result:{ok:true as const,seq:op.seq!,...duplicate?{duplicate:true}:{}},accepted:op as CanonicalMetadataOperation}
+    }
+    let existing=findDuplicateOperation(identity.roomId,input.id)
+    // SAME-ID receipts precede ANY legacy classification/duplicate success.
+    const tracked=existing&&knownCanonicalWrite(existing)?existing:undefined
+    if(tracked&&!same(tracked))fail('invalid_operation')
+    if(record.room.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION){if(tracked)fail('canonical_repair_required');return {legacy:true}}
+    const cut=record.nextSeq-1
+    let existingRow:CanonicalStoredOperationRow|null=null
+    if(!existing){
+     existingRow=await prisma.operation.findUnique({where:{id:input.id},select:canonicalOperationRowSelect})
+     if(existingRow){
+      const op=captureCanonicalMetadata(existingRow.data,true)
+      try{verifyCanonicalMetadataRow(identity.roomId,op,existingRow)}catch{fail('canonical_repair_required')};existing=op
+     }
+    }
+    current()
+    if(existing&&!same(existing))fail('invalid_operation')
+    if(existing&&(!Number.isSafeInteger(existing.seq)||existing.seq!<1||existing.seq!>cut))fail('canonical_repair_required')
+    let id=input.targetOpId,lastSeq=existing?.seq??cut+1
+    const seen=new Set<string>()
+    let anchor:CanonicalStrokeOperation|undefined,anchorRow:CanonicalStoredOperationRow|undefined
+    for(let hop=0;hop<64;hop++){
+     if(seen.has(id))fail('canonical_repair_required');seen.add(id)
+     let op=record.operationsById.get(id),row:CanonicalStoredOperationRow|null=null
+     if(!op){
+      row=await prisma.operation.findUnique({where:{id},select:canonicalOperationRowSelect});current()
+      if(!row)fail('canonical_repair_required')
+      op=row.data as Operation
+      if(!op||typeof op!=='object'||op.id!==id)fail('canonical_repair_required')
+      try{verifyIndexedOperationRow(identity.roomId,op,row)}catch{fail('canonical_repair_required')}
+     }
+     if(!Number.isSafeInteger(op.seq)||op.seq!<1||op.seq!>=lastSeq||op.seq!>cut||op.userId!==identity.userId)fail('canonical_repair_required')
+     lastSeq=op.seq!
+     if(op.type==='operation_undo'||op.type==='operation_redo'){
+      const metadata=captureCanonicalMetadata(op,true)
+      if(row)try{verifyCanonicalMetadataRow(identity.roomId,metadata,row)}catch{fail('canonical_repair_required')}
+      else{
+       residentChain.push({operation:op,snapshot:metadata})
+       if(knownCanonicalWrite(op)){
+        const outcome=await ensureCanonicalWrite(record,op);current()
+        if(!outcome.ok)fail('canonical_repair_required')
+       }else{
+        const actual=await prisma.operation.findUnique({where:{id:metadata.id},select:canonicalOperationRowSelect});current()
+        try{verifyCanonicalMetadataRow(identity.roomId,metadata,actual)}catch{fail('canonical_repair_required')}
+       }
+      }
+      id=metadata.targetOpId;continue
+     }
+     if(op.type==='canonical_stroke'){
+      if(typeof op.frame?.materialPacked!=='string')fail('canonical_repair_required')
+      if(op.frame.materialPacked.startsWith('1|')){if(tracked)fail('canonical_repair_required');return {legacy:true}}
+      anchor=row?projectCanonicalIndexedOperation(identity.roomId,row).operation:op
+      anchorRow=row??undefined;break
+     }
+     if(!hasKnownOperationDiscriminant(op)||tracked)fail('canonical_repair_required')
+     return {legacy:true}
+    }
+    if(!anchor)fail('canonical_repair_required')
+    targetLayer=anchor.layerId;current()
+    // Cold resident copies intentionally have no adopted receipt. Obtain the
+    // actual indexed row before either fresh prefix proof or SAME-ID repair.
+    if(!anchorRow&&!hasSucceededCanonicalWrite(record,anchor)){
+     const residentAnchor=anchor
+     const row=await prisma.operation.findUnique({where:{id:anchor.id},select:canonicalOperationRowSelect});current()
+     if(record.operationsById.get(residentAnchor.id)!==residentAnchor)fail('canonical_repair_required')
+     try{verifyCanonicalOperationRow(identity.roomId,residentAnchor,row)}catch{fail('canonical_repair_required')}
+     if(!row)fail('canonical_repair_required')
+     anchor=projectCanonicalIndexedOperation(identity.roomId,row).operation;anchorRow=row
+    }
+    if(tracked){
+     // Original acceptance proved the complete ended prefix. Only its exact
+     // receipt is repaired; current target/layer authority is checked again.
+     return await durable(tracked,true)
+    }
+    const read=await this.prepareReadDelivery(identity,isCurrent)
+    try{await read.preparePrefix({anchor,row:anchorRow,throughSeq:cut,purpose:'undo-redo'})}
+    catch(error){if(error instanceof TransportFailure)throw error;fail('canonical_repair_required')}
+    current();read.finish([],[])
+    const raced=findDuplicateOperation(identity.roomId,input.id)
+    if(raced&&knownCanonicalWrite(raced))return await durable(raced,true)
+    existing=raced??existing
+    if(existing){
+     if(!same(existing))fail('invalid_operation')
+     // Untracked resident equality is not durable proof: read its actual row.
+     const row=existingRow??await prisma.operation.findUnique({where:{id:input.id},select:canonicalOperationRowSelect})
+     current();read.finish([],[])
+     if(!same(existing))fail('canonical_repair_required')
+     try{verifyCanonicalMetadataRow(identity.roomId,captureCanonicalMetadata(existing,true),row)}catch{fail('canonical_repair_required')}
+     return {result:{ok:true,seq:existing.seq!,duplicate:true},accepted:captureCanonicalMetadata(existing,true)}
+    }
+    if(requestedSeq!==undefined)fail('invalid_operation')
+    // No await between last authority checks, mirror update and SAME receipt.
+    updateAliveIds(identity.roomId,input)
+    const accepted=recordCanonicalMetadataOperation(identity.roomId,input)
+    return await durable(accepted,false)
+   }catch(error){return {result:{ok:false,reason:reason(error)}}}
   }
 
   private async durableDuplicate(identity: CanonicalAdmissionIdentity, op: CanonicalStrokeOperation, existing: unknown, lifetime: RoomLifetime, session: Session, isCurrent: () => boolean): Promise<{ readonly result: SendResult; readonly accepted?: CanonicalStrokeOperation; readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1 }> {

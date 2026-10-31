@@ -74,11 +74,34 @@ export interface CanonicalStoredOperationRow {
 export function verifyCanonicalOperationRow(roomId: string, op: Operation, row: CanonicalStoredOperationRow | null): void {
   if (op?.type !== 'canonical_stroke' || !Number.isSafeInteger(op.seq) || op.seq! < 1)
     throw new TypeError('Canonical persistence requires a stamped operation')
+  verifyIndexedOperationRow(roomId,op,row)
+}
+
+/** Exact indexed identity only; does not grant read/append or receipt adoption. */
+export function verifyIndexedOperationRow(roomId:string,op:Operation,row:CanonicalStoredOperationRow|null):void {
   const expected = operationRow(roomId, op)
   if (!row || row.id !== expected.id || row.roomId !== expected.roomId || row.userId !== expected.userId
     || row.seq !== expected.seq || row.type !== expected.type || row.layerId !== (expected.layerId ?? null)
     || row.tool !== expected.tool || !isDeepStrictEqual(row.data, expected.data))
     throw new Error('Canonical persistence immutable row conflict')
+}
+
+export type CanonicalMetadataOperation=Extract<Operation,{type:'operation_undo'|'operation_redo'}>
+/** Closed bounded metadata copy, no target authority inferred from its ID. */
+export function captureCanonicalMetadata(value:unknown,allowSeq=false):CanonicalMetadataOperation {
+ const v=value as CanonicalMetadataOperation
+ const text=(x:unknown):x is string=>typeof x==='string'&&x.length>0&&x.length<=256&&!x.includes('\0')
+ if(!v||typeof v!=='object'||Array.isArray(v)||(v.type!=='operation_undo'&&v.type!=='operation_redo')
+  ||!text(v.id)||!text(v.userId)||!text(v.targetOpId)||!Number.isFinite(v.timestamp)||v.timestamp<0
+  ||Object.keys(v).some(k=>!['type','id','userId','timestamp','targetOpId',...(allowSeq?['seq']:[])].includes(k))
+  ||!['type','id','userId','timestamp','targetOpId'].every(k=>Object.hasOwn(v,k))
+  ||v.seq!==undefined&&(!allowSeq||!Number.isSafeInteger(v.seq)||v.seq<1))throw new TypeError('Invalid canonical metadata operation')
+ return Object.freeze({type:v.type,id:v.id,userId:v.userId,timestamp:v.timestamp,targetOpId:v.targetOpId,...v.seq===undefined?{}:{seq:v.seq}})
+}
+export function verifyCanonicalMetadataRow(roomId:string,op:CanonicalMetadataOperation,row:CanonicalStoredOperationRow|null):void {
+ captureCanonicalMetadata(op,true)
+ if(!Number.isSafeInteger(op.seq)||op.seq!<1)throw new TypeError('Canonical metadata requires stamped operation')
+ verifyIndexedOperationRow(roomId,op,row)
 }
 
 export function persistOperation(roomId: string, op: Operation): Promise<RoomWriteOutcome<void>> {
@@ -92,12 +115,12 @@ export function persistOperation(roomId: string, op: Operation): Promise<RoomWri
  * resident immutable operation identity; this function confers no authority.
  * Each call schedules ONE attempt on the SAME existing room write queue. */
 export function retryCanonicalOperationWrite(roomId: string, op: Operation): Promise<RoomWriteOutcome<void>> {
-  if (op?.type !== 'canonical_stroke' || !Number.isSafeInteger(op.seq) || op.seq! < 1)
-    throw new TypeError('Canonical persistence requires a stamped operation')
+  if(op?.type!=='canonical_stroke')op=captureCanonicalMetadata(op,true)
+  if(!Number.isSafeInteger(op.seq)||op.seq!<1)throw new TypeError('Canonical persistence requires a stamped operation')
   return enqueueWrite(roomId, async () => {
     const expected = operationRow(roomId, op)
     const read = () => prisma.operation.findUnique({ where: { id: op.id }, select: canonicalOperationRowSelect })
-    const verify = (row: Awaited<ReturnType<typeof read>>) => verifyCanonicalOperationRow(roomId, op, row)
+    const verify = (row: Awaited<ReturnType<typeof read>>) => op.type==='canonical_stroke'?verifyCanonicalOperationRow(roomId,op,row):verifyCanonicalMetadataRow(roomId,op as CanonicalMetadataOperation,row)
     const row = await read()
     if (row) { verify(row); return }
     try { await prisma.operation.create({ data: expected }) }

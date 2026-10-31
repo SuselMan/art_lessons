@@ -391,3 +391,209 @@ it('prepares complete read and closed undo prefixes from actual query rows and R
   expect(pin).not.toHaveBeenCalled();expect(db.operation.create).toHaveBeenCalledTimes(writes)
  }finally{query.mockImplementation(previous)}
 })
+
+it('classifies canonical undo before legacy duplicates and waits for the SAME durable metadata receipt',async()=>{
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected)
+ const s=snapshot(await transport.begin(identity,f.input,()=>true)),packets=frames(f.descriptor,s)
+ const prefix:CanonicalStrokeOperation[]=[]
+ for(let i=0;i<packets.length;i++)prefix.push((await transport.recorded(identity,{type:'canonical_stroke',id:'undo-frame-'+i,userId:'author',timestamp:i,layerId:'layer',frame:packets[i]},()=>true)).accepted!)
+ history.rows=prefix;history.canonicalRows=db.operation.create.mock.calls.map(([request])=>request.data)
+ const undo={type:'operation_undo' as const,id:'durable-undo',userId:'author',timestamp:99,targetOpId:prefix.at(-1)!.id}
+ const write=deferredWrite();db.operation.create.mockReturnValueOnce(write.promise)
+ const settled=vi.fn(),pending=transport.metadata(identity,undo,()=>true);void pending.then(settled)
+ await vi.waitFor(()=>expect(f.board.operationsById.has(undo.id)).toBe(true))
+ const accepted=f.board.operationsById.get(undo.id)!,seq=f.board.nextSeq
+ expect(Object.isFrozen(accepted)).toBe(true);expect(settled).not.toHaveBeenCalled()
+ const again=transport.metadata(identity,undo,()=>true)
+ write.resolve()
+ expect(await pending).toMatchObject({result:{ok:true,seq:accepted.seq},accepted})
+ expect(await again).toMatchObject({result:{ok:true,seq:accepted.seq,duplicate:true}})
+ expect(f.board.nextSeq).toBe(seq)
+ expect(await transport.metadata(identity,{...undo,targetOpId:'different'},()=>true)).toMatchObject({result:{ok:false,reason:'invalid_operation'}})
+})
+it('rejects unresolved, cyclic and open canonical targets without legacy fallback or append',async()=>{
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected)
+ const s=snapshot(await transport.begin(identity,f.input,()=>true)),packet=frames(f.descriptor,s)[0]
+ const frame=(await transport.recorded(identity,{type:'canonical_stroke',id:'open-target',userId:'author',timestamp:0,layerId:'layer',frame:packet},()=>true)).accepted!
+ history.rows=[frame];history.canonicalRows=db.operation.create.mock.calls.map(([request])=>request.data)
+ const undo={type:'operation_undo' as const,id:'denied-undo',userId:'author',timestamp:99,targetOpId:frame.id},count=f.board.operations.length
+ expect(await transport.metadata(identity,undo,()=>true)).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
+ expect(await transport.metadata(identity,{...undo,targetOpId:'missing'},()=>true)).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
+ const cyclic={...undo,id:'cycle',targetOpId:'cycle',seq:1};f.board.operationsById.set('cycle',cyclic)
+ db.operation.findUnique.mockImplementation(async({where})=>where.id==='cycle'?{id:cyclic.id,roomId:'board',userId:cyclic.userId,type:cyclic.type,seq:cyclic.seq,layerId:null,tool:null,data:cyclic}:null)
+ expect(await transport.metadata(identity,{...undo,targetOpId:'cycle'},()=>true)).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
+ expect(f.board.operations).toHaveLength(count)
+})
+
+async function metadataFixture(){
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected)
+ const s=snapshot(await transport.begin(identity,f.input,()=>true)),packets=frames(f.descriptor,s),prefix:CanonicalStrokeOperation[]=[]
+ for(let i=0;i<packets.length;i++)prefix.push((await transport.recorded(identity,{type:'canonical_stroke',id:'metadata-frame-'+i,userId:'author',timestamp:i,layerId:'layer',frame:packets[i]},()=>true)).accepted!)
+ history.rows=prefix;history.canonicalRows=db.operation.create.mock.calls.map(([request])=>request.data)
+ const undo={type:'operation_undo' as const,id:'metadata-undo',userId:'author',timestamp:99,targetOpId:prefix.at(-1)!.id}
+ return{...f,transport,prefix,undo}
+}
+it('repairs failed canonical undo in place; conflicting immutable DB metadata never succeeds',async()=>{
+ const f=await metadataFixture(),pin=vi.spyOn(f.storage,'pin'),write=deferredWrite(),log=vi.spyOn(console,'error').mockImplementation(()=>{})
+ db.operation.create.mockReturnValueOnce(write.promise)
+ const pending=f.transport.metadata(identity,f.undo,()=>true)
+ await vi.waitFor(()=>expect(f.board.operationsById.has(f.undo.id)).toBe(true));const seq=f.board.nextSeq
+ write.reject(new Error('undo insert failed'))
+ expect(await pending).toEqual({result:{ok:false,reason:'canonical_repair_required'}})
+ const op=f.board.operationsById.get(f.undo.id)!,row={id:op.id,roomId:'board',userId:op.userId,type:op.type,seq:op.seq!,layerId:null,tool:null,data:op}
+ const queries=db.operation.findUnique.mock.calls.length
+ f.board.sharedLockedLayerIds.add('layer')
+ expect(await f.transport.metadata(identity,f.undo,()=>true)).toEqual({result:{ok:false,reason:'invalid_operation'}})
+ expect(db.operation.findUnique).toHaveBeenCalledTimes(queries)
+ f.board.sharedLockedLayerIds.delete('layer')
+ db.operation.findUnique.mockResolvedValueOnce({...row,userId:'foreign'})
+ expect(await f.transport.metadata(identity,f.undo,()=>true)).toEqual({result:{ok:false,reason:'canonical_repair_required'}})
+ db.operation.findUnique.mockResolvedValueOnce(row)
+ expect(await f.transport.metadata(identity,f.undo,()=>true)).toMatchObject({result:{ok:true,duplicate:true,seq:op.seq},accepted:op})
+ expect(f.board.nextSeq).toBe(seq);expect(f.board.operations.filter(o=>o.id===op.id)).toEqual([op]);expect(pin).not.toHaveBeenCalled();log.mockRestore()
+})
+it.each(['disconnect','room','operator','closed','layer-locked','layer-deleted'])('publishes no durable metadata success after %s changes during the write',async kind=>{
+ const f=await metadataFixture(),write=deferredWrite();db.operation.create.mockReturnValueOnce(write.promise)
+ let current=true;const pending=f.transport.metadata(identity,f.undo,()=>current)
+ await vi.waitFor(()=>expect(f.board.operationsById.has(f.undo.id)).toBe(true))
+ if(kind==='disconnect')current=false
+ else if(kind==='room')rooms.set('board',{...f.board})
+ else if(kind==='operator')setBrushStorage(f.storage,empty())
+ else if(kind==='layer-locked')f.board.sharedLockedLayerIds.add('layer')
+ else if(kind==='layer-deleted'){f.board.aliveIds.delete('layer');f.board.deletedIds.add('layer')}
+ else f.board.room.closedAt='2026-10-31T00:00:00Z'
+ write.resolve();expect(await pending).toMatchObject({result:{ok:false}})
+ expect(f.board.operations.filter(o=>o.id===f.undo.id)).toHaveLength(1)
+})
+it('binds cold indexed chain without adoption and rejects indexed identity tampering',async()=>{
+ const f=await metadataFixture(),anchor=f.prefix.at(-1)!,canonicalRow=history.canonicalRows.at(-1)!
+ f.board.operationsById.delete(anchor.id)
+ const chain={type:'operation_undo' as const,id:'indexed-undo',seq:f.board.nextSeq++,userId:'author',timestamp:90,targetOpId:anchor.id}
+ const chainRow={id:chain.id,roomId:'board',userId:chain.userId,type:chain.type,seq:chain.seq,layerId:null,tool:null,data:chain}
+ const redo={...f.undo,type:'operation_redo' as const,targetOpId:chain.id}
+ db.operation.findUnique.mockImplementation(async({where})=>where.id===chain.id?{...chainRow,seq:chain.seq+1}:where.id===anchor.id?canonicalRow:null)
+ expect(await f.transport.metadata(identity,redo,()=>true)).toMatchObject({result:{ok:false}})
+ db.operation.findUnique.mockImplementation(async({where})=>where.id===chain.id?chainRow:where.id===anchor.id?canonicalRow:null)
+ expect(await f.transport.metadata(identity,redo,()=>true)).toMatchObject({result:{ok:true}})
+ expect(f.board.operationsById.has(anchor.id)).toBe(false);expect(f.board.operationsById.has(chain.id)).toBe(false)
+})
+it('preserves explicit V1 and legacy classification but refuses missing or excessive target chains',async()=>{
+ const f=await metadataFixture(),anchor=f.prefix[0]
+ f.board.operationsById.set('v1',{...anchor,id:'v1',frame:{...anchor.frame,materialPacked:'1|historical'}})
+ expect(await f.transport.metadata(identity,{...f.undo,targetOpId:'v1'},()=>true)).toEqual({legacy:true})
+ f.board.operationsById.set('legacy',{type:'layer_add',id:'legacy',seq:1,userId:'author',timestamp:0,layerId:'layer',name:'Layer'})
+ expect(await f.transport.metadata(identity,{...f.undo,targetOpId:'legacy'},()=>true)).toEqual({legacy:true})
+ for(let i=0;i<65;i++)f.board.operationsById.set('chain-'+i,{type:'operation_undo',id:'chain-'+i,userId:'author',timestamp:i,seq:i+1,targetOpId:i?'chain-'+(i-1):'legacy'})
+ f.board.nextSeq=100
+ db.operation.findUnique.mockImplementation(async({where})=>{const op=f.board.operationsById.get(where.id);return op?{id:op.id,roomId:'board',userId:op.userId,type:op.type,seq:op.seq,layerId:null,tool:null,data:op}:null})
+ const queriesBefore=db.operation.findUnique.mock.calls.length
+ expect(await f.transport.metadata(identity,{...f.undo,targetOpId:'chain-64'},()=>true)).toEqual({result:{ok:false,reason:'canonical_repair_required'}})
+ expect(db.operation.findUnique.mock.calls.length-queriesBefore).toBe(65)
+})
+it('rechecks actor policy after awaited read proof and never treats a query error as legacy',async()=>{
+ const f=await metadataFixture(),count=f.board.operations.length
+ let release!:()=>void;readAccess.gate=new Promise<void>(resolve=>{release=resolve})
+ const pending=f.transport.metadata(identity,f.undo,()=>true)
+ await vi.waitFor(()=>expect(readAccess.calls.length).toBeGreaterThan(0))
+ f.board.room.closedAt='2026-10-31T00:00:00Z';release()
+ expect(await pending).toMatchObject({result:{ok:false,reason:'invalid_operation'}})
+ expect(f.board.operations).toHaveLength(count)
+ f.board.room.closedAt=undefined;readAccess.gate=undefined
+ db.operation.findUnique.mockRejectedValueOnce(new Error('actual query failed'))
+ expect(await f.transport.metadata(identity,{...f.undo,targetOpId:'unknown'},()=>true)).toEqual({result:{ok:false,reason:'server_error'}})
+ expect(f.board.operations).toHaveLength(count)
+})
+it('does not grant canonical metadata through read policy OFF or another actor target',async()=>{
+ const f=await metadataFixture(),count=f.board.operations.length
+ expect(await new CanonicalRoomTransport(policy).metadata(identity,f.undo,()=>true)).toMatchObject({result:{ok:false}})
+ f.board.participants.set('other',{userId:'other',name:'Other',role:'owner',color:'#000000',frozen:false,boardId:'board'})
+ expect(await f.transport.metadata({roomId:'board',userId:'other'},{...f.undo,userId:'other'},()=>true)).toMatchObject({result:{ok:false}})
+ expect(f.board.operations).toHaveLength(count)
+})
+it('rejects a changed resident target chain while prefix proof awaits',async()=>{
+ const f=await metadataFixture(),chain={type:'operation_undo' as const,id:'resident-chain',seq:f.board.nextSeq++,timestamp:98,userId:'author',targetOpId:f.prefix.at(-1)!.id}
+ f.board.operationsById.set(chain.id,chain)
+ db.operation.findUnique.mockImplementation(async({where})=>where.id===chain.id?{id:chain.id,roomId:'board',userId:chain.userId,type:chain.type,seq:chain.seq,layerId:null,tool:null,data:{...chain}}:null)
+ let release!:()=>void;readAccess.gate=new Promise<void>(resolve=>{release=resolve})
+ const count=f.board.operations.length,pending=f.transport.metadata(identity,{...f.undo,type:'operation_redo',targetOpId:chain.id},()=>true)
+ await vi.waitFor(()=>expect(readAccess.calls.length).toBeGreaterThan(0))
+ chain.targetOpId='other';release()
+ expect(await pending).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
+ expect(f.board.operations).toHaveLength(count)
+})
+
+it.each(['locked','deleted'])('rechecks verified target layer %s after indexed metadata duplicate await',async kind=>{
+ const f=await metadataFixture(),stored={...f.undo,seq:f.board.nextSeq++}
+ f.board.operations.push(stored);f.board.operationsById.set(stored.id,stored)
+ const row={id:stored.id,roomId:'board',userId:stored.userId,type:stored.type,seq:stored.seq,layerId:null,tool:null,data:stored}
+ let resolve!:(value:typeof row)=>void,entered=false
+ db.operation.findUnique.mockImplementation(async()=>{entered=true;return new Promise<typeof row>(done=>{resolve=done})})
+ const pending=f.transport.metadata(identity,f.undo,()=>true)
+ await vi.waitFor(()=>expect(entered).toBe(true))
+ if(kind==='locked')f.board.sharedLockedLayerIds.add('layer')
+ else{f.board.aliveIds.delete('layer');f.board.deletedIds.add('layer')}
+ resolve(row)
+ expect(await pending).toEqual({result:{ok:false,reason:'invalid_operation'}})
+ expect(f.board.operations.filter(op=>op.id===stored.id)).toEqual([stored])
+})
+it('projects verified untracked indexed metadata immutably without adopting a receipt',async()=>{
+ const f=await metadataFixture(),stored={...f.undo,seq:f.board.nextSeq++}
+ f.board.operations.push(stored);f.board.operationsById.set(stored.id,stored)
+ db.operation.findUnique.mockResolvedValueOnce({id:stored.id,roomId:'board',userId:stored.userId,type:stored.type,seq:stored.seq,layerId:null,tool:null,data:{...stored}})
+ const result=await f.transport.metadata(identity,f.undo,()=>true)
+ if('legacy'in result||!result.accepted)throw Error('Expected verified metadata duplicate')
+ expect(result.result).toMatchObject({ok:true,duplicate:true});expect(Object.isFrozen(result.accepted)).toBe(true)
+ expect(result.accepted).not.toBe(stored)
+ stored.targetOpId='changed-after-read';expect(result.accepted.targetOpId).toBe(f.undo.targetOpId)
+ const {knownCanonicalWrite}=await import('./operationLog.js')
+ expect(knownCanonicalWrite(stored)).toBeUndefined();expect(knownCanonicalWrite(result.accepted)).toBeUndefined()
+})
+it.each(['valid','missing','tampered'])('uses actual indexed proof for a fresh undo after cold resident hydration (%s)',async kind=>{
+ const f=await metadataFixture(),anchor=f.prefix.at(-1)!,cold=structuredClone(anchor),index=f.board.operations.indexOf(anchor)
+ f.board.operations[index]=cold;f.board.operationsById.set(cold.id,cold)
+ const row=history.canonicalRows.at(-1) as {id:string;roomId:string;userId:string;seq:number;type:string;layerId:string;tool:null;data:unknown}
+ db.operation.findUnique.mockImplementation(async({where})=>where.id===cold.id?(kind==='missing'?null:kind==='tampered'?{...row,userId:'foreign'}:row):null)
+ const count=f.board.operations.length,transport=new CanonicalRoomTransport(selected)
+ const result=await transport.metadata(identity,f.undo,()=>true)
+ expect(result).toMatchObject(kind==='valid'?{result:{ok:true}}:{result:{ok:false,reason:'canonical_repair_required'}})
+ expect(f.board.operations).toHaveLength(count+(kind==='valid'?1:0))
+ const {knownCanonicalWrite}=await import('./operationLog.js')
+ expect(f.board.operationsById.get(cold.id)).toBe(cold);expect(knownCanonicalWrite(cold)).toBeUndefined()
+})
+it('rejects a verified cold indexed metadata duplicate whose target is not earlier than that metadata',async()=>{
+ const f=await metadataFixture(),anchor=f.prefix.at(-1)!,stored={...f.undo,seq:anchor.seq!}
+ const row={id:stored.id,roomId:'board',userId:stored.userId,type:stored.type,seq:stored.seq,layerId:null,tool:null,data:stored}
+ db.operation.findUnique.mockImplementation(async({where})=>where.id===stored.id?row:null)
+ const count=f.board.operations.length,result=await f.transport.metadata(identity,f.undo,()=>true)
+ expect(result).toEqual({result:{ok:false,reason:'canonical_repair_required'}})
+ expect(f.board.operations).toHaveLength(count);expect(f.board.operationsById.has(stored.id)).toBe(false)
+ const {knownCanonicalWrite}=await import('./operationLog.js')
+ expect(knownCanonicalWrite(stored)).toBeUndefined()
+})
+
+it.each(['valid','missing','tampered'])('requires actual indexed durability for an untracked intermediate resident undo (%s)',async kind=>{
+ const f=await metadataFixture(),chain={...f.undo,id:'untracked-intermediate',seq:f.board.nextSeq++}
+ f.board.operations.push(chain);f.board.operationsById.set(chain.id,chain)
+ const row={id:chain.id,roomId:'board',userId:chain.userId,type:chain.type,seq:chain.seq,layerId:null,tool:null,data:{...chain}}
+ db.operation.findUnique.mockImplementation(async({where})=>where.id===chain.id?(kind==='missing'?null:kind==='tampered'?{...row,data:{...chain,targetOpId:'foreign'}}:row):null)
+ const count=f.board.operations.length,result=await f.transport.metadata(identity,{...f.undo,id:'new-redo',type:'operation_redo',targetOpId:chain.id},()=>true)
+ expect(result).toMatchObject(kind==='valid'?{result:{ok:true}}:{result:{ok:false,reason:'canonical_repair_required'}})
+ expect(f.board.operations).toHaveLength(count+(kind==='valid'?1:0))
+ const {knownCanonicalWrite}=await import('./operationLog.js');expect(knownCanonicalWrite(chain)).toBeUndefined()
+})
+it('awaits a pending intermediate metadata outcome and never repairs its failed different ID',async()=>{
+ const f=await metadataFixture(),write=deferredWrite(),log=vi.spyOn(console,'error').mockImplementation(()=>{})
+ db.operation.create.mockReturnValueOnce(write.promise)
+ const undo=f.transport.metadata(identity,f.undo,()=>true)
+ await vi.waitFor(()=>expect(f.board.operationsById.has(f.undo.id)).toBe(true))
+ const nextSeq=f.board.nextSeq,redo={...f.undo,id:'dependent-redo',type:'operation_redo' as const,targetOpId:f.undo.id}
+ const settled=vi.fn(),pending=f.transport.metadata(identity,redo,()=>true);void pending.then(settled)
+ await new Promise<void>(resolve=>setTimeout(resolve,10));expect(settled).not.toHaveBeenCalled();expect(f.board.operationsById.has(redo.id)).toBe(false)
+ write.reject(new Error('intermediate undo failed'))
+ expect(await undo).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
+ expect(await pending).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
+ const writes=db.operation.create.mock.calls.length
+ expect(await f.transport.metadata(identity,redo,()=>true)).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
+ expect(db.operation.create).toHaveBeenCalledTimes(writes);expect(f.board.nextSeq).toBe(nextSeq)
+ log.mockRestore()
+})

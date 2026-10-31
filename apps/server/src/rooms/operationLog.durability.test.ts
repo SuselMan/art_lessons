@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE, packCanonicalMaterial, type CanonicalStrokeOperation, type Operation } from '@grafetto/shared'
 const db=vi.hoisted(()=>({operation:{create:vi.fn(),findUnique:vi.fn()}}))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
-import { adoptLoadedCanonicalWrites, canonicalWriteFence, ensureCanonicalWrite, knownCanonicalWrite, recordOperation } from './operationLog.js'
+import { adoptLoadedCanonicalWrites, canonicalWriteFence, ensureCanonicalWrite, knownCanonicalWrite, recordCanonicalMetadataOperation,recordOperation } from './operationLog.js'
 import { rooms, flushRoomWrites, type RoomRecord } from './roomRegistry.js'
 import { CanonicalStrokeAdmission, type TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
 const asset={id:`asset:${'1'.repeat(64)}`,size:1,x:0,y:0,width:1,height:1}
@@ -126,4 +126,19 @@ describe('verified loader provenance',()=>{
     expect(()=>adoptLoadedCanonicalWrites(r,[row])).toThrow('already has')
     expect(knownCanonicalWrite(op)?.status).toBe('failed');expect(canonicalWriteFence(r)).toEqual({pending:0,failed:1});log.mockRestore()
   })
+})
+
+it('tracks only explicit immutable canonical metadata through SAME receipt owner and queue',async()=>{
+ const r=resident(),write=deferred<void>(),input={type:'operation_undo' as const,id:'undo-meta',userId:'author',timestamp:1,targetOpId:'frame'}
+ db.operation.create.mockReturnValueOnce(write.promise)
+ const op=recordCanonicalMetadataOperation('room',input),receipt=knownCanonicalWrite(op)!
+ input.targetOpId='mutated'
+ expect(Object.isFrozen(op)).toBe(true);expect(op.targetOpId).toBe('frame');expect(op.seq).toBe(1)
+ expect(receipt.status).toBe('pending');expect(canonicalWriteFence(r)).toEqual({pending:1,failed:0})
+ expect(()=>ensureCanonicalWrite(r,{...op})).toThrow('unknown or stale')
+ const legacy=recordOperation('room',{...input,id:'legacy-undo'})
+ expect(knownCanonicalWrite(legacy)).toBeUndefined()
+ write.resolve();expect(await ensureCanonicalWrite(r,op)).toEqual({ok:true,value:undefined})
+ await flushRoomWrites('room');expect(db.operation.create.mock.calls.map(([request])=>request.data.id)).toEqual(['undo-meta','legacy-undo'])
+ rooms.set('room',{...r});expect(()=>ensureCanonicalWrite(r,op)).toThrow('unknown or stale')
 })
