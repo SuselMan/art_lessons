@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import { MockGL } from '../../testing/mockGL'
+import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { bindCanonicalLayerTargets } from './CanonicalLayerTargets'
 
@@ -35,4 +36,17 @@ it('refuses PM storage and foreign tiles before creating a canonical binding', (
     expect(() => bindCanonicalLayerTargets(a, b.resolveForPaint(rect))).toThrow('Foreign')
     expect(() => a.clear()).not.toThrow()
   } finally { pm.destroy(); a.destroy(); b.destroy() }
+})
+
+it('publishes unique cold certificates only for actual retained targets',()=>{
+  const gl=new MockGL() as unknown as WebGLRenderingContext,layer=new TiledLayerBuffer(gl,4,4,undefined,undefined,undefined,'straight-rgba8')
+  try{
+    const target=layer.resolveForPaint({minX:0,minY:0,maxX:1,maxY:1})[0],bound=bindCanonicalLayerTargets(layer,[target,target])
+    const layouts=bound[0].lifetime.ownedFramebufferLayouts!
+    expect(layouts).toHaveLength(1);expect(Object.isFrozen(layouts)).toBe(true);expect(Object.isFrozen(layouts[0])).toBe(true)
+    expect(layouts[0].source).toBe(target.buffer);expect(layouts[0].certificate).toBe(target.buffer.verifiedFramebufferLayout)
+    expect(layouts[0].originX).toBe(0);expect(layouts[0].originY).toBe(0)
+    AccumulationBuffer.forgetContextStorage(gl) // isolated MockGL generation only
+    expect(()=>bindCanonicalLayerTargets(layer,[target])).toThrow(/certificate/)
+  }finally{layer.destroy()}
 })

@@ -380,3 +380,65 @@ it('preserves the first owner failure, rejects reentry and does not use an owned
   const execute=vi.fn();expect(()=>runBrushGlBatch({participants:[s.service],owners:[o]},execute)).toThrow(/context lost/)
   expect(execute).not.toHaveBeenCalled();expect(o.released).toHaveBeenCalledTimes(1);expect(s.cpu.reservedBytes).toBe(0)
 })
+
+function fixedFramebufferOwner(s:ReturnType<typeof setup>){
+  const certificate=Object.freeze({gl:s.gl,texture:s.gl.createTexture(),framebuffer:s.gl.createFramebuffer(),width:4,height:4})
+  const source:{verifiedFramebufferLayout:typeof certificate|undefined}={verifiedFramebufferLayout:certificate},owner={},released=vi.fn(),lease=vi.fn(()=>released)
+  const declaration:{source:typeof source;certificate:typeof certificate;originX:number;originY:number}=Object.freeze({source,certificate,originX:8,originY:12})
+  const lifetime={owner,ownedFramebufferLayouts:Object.freeze([declaration]),lease}
+  const target={texture:certificate.texture,framebuffer:certificate.framebuffer,width:4,height:4,originX:8,originY:12,lifetime}
+  return{source,certificate,lifetime,target,released,lease}
+}
+it('uses an exact cold-certified fixed target and keeps hardware guards for a foreign target',()=>{
+  const s=setup(),o=fixedFramebufferOwner(s),foreign={texture:s.gl.createTexture(),framebuffer:s.gl.createFramebuffer(),width:4,height:4,originX:8,originY:12}
+  const attachments=new Map([[o.target.framebuffer,o.target.texture],[foreign.framebuffer,foreign.texture]])
+  s.gl.getFramebufferAttachmentParameter=vi.fn(()=>attachments.get(s.gl.getParameter(s.gl.FRAMEBUFFER_BINDING)))
+  const status=vi.spyOn(s.gl,'checkFramebufferStatus'),before=s.snapshot()
+  runBrushGlBatch({participants:[s.service],owners:[o.lifetime]},frame=>{
+    frame.bindTarget(o.target);frame.bindTarget(o.target)
+    expect(status).not.toHaveBeenCalled();expect(s.gl.getFramebufferAttachmentParameter).not.toHaveBeenCalled()
+    frame.bindTarget(foreign);expect(status).toHaveBeenCalledTimes(1);expect(s.gl.getFramebufferAttachmentParameter).toHaveBeenCalledTimes(1)
+  })
+  expect(o.lease).toHaveBeenCalledTimes(1);expect(o.released).toHaveBeenCalledTimes(1);expect(s.snapshot()).toEqual(before)
+  attachments.set(foreign.framebuffer,o.target.texture)
+  expect(()=>runBrushGlBatch({participants:[s.service]},frame=>frame.bindTarget(foreign))).toThrow(/attachment/)
+  expect(status).toHaveBeenCalledTimes(2);expect(s.cpu.reservedBytes).toBe(0)
+})
+for(const drift of ['certificate','list','geometry','context'] as const)it(`refuses fixed target ${drift} drift before ownership`,()=>{
+  const s=setup(),o=fixedFramebufferOwner(s),query=vi.spyOn(s.gl,'getParameter')
+  const d=o.lifetime.ownedFramebufferLayouts[0]
+  if(drift==='certificate')o.source.verifiedFramebufferLayout=undefined
+  else if(drift==='list')o.lifetime.ownedFramebufferLayouts=null as never
+  else if(drift==='geometry')o.lifetime.ownedFramebufferLayouts=[{...d,originX:NaN}]
+  else{o.source.verifiedFramebufferLayout=Object.freeze({...o.certificate,gl:recordingGL().gl});o.lifetime.ownedFramebufferLayouts=[{...d,certificate:o.source.verifiedFramebufferLayout}]}
+  expect(()=>runBrushGlBatch({participants:[s.service],owners:[o.lifetime]},()=>{})).toThrow(/framebuffer/)
+  expect(o.lease).not.toHaveBeenCalled();expect(query).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(0)
+})
+it('rechecks fixed certificates after acquisition and before each bind without leaking owners',()=>{
+  const s=setup(),o=fixedFramebufferOwner(s),before=s.snapshot(),work=vi.fn()
+  o.lease.mockImplementation(()=>{o.source.verifiedFramebufferLayout=undefined;return o.released})
+  expect(()=>runBrushGlBatch({participants:[s.service],owners:[o.lifetime]},work)).toThrow(/framebuffer/)
+  expect(work).not.toHaveBeenCalled();expect(o.released).toHaveBeenCalledTimes(1);expect(s.snapshot()).toEqual(before)
+  o.source.verifiedFramebufferLayout=o.certificate;o.lease.mockImplementation(()=>o.released)
+  expect(()=>runBrushGlBatch({participants:[s.service],owners:[o.lifetime]},frame=>{frame.bindTarget(o.target);o.source.verifiedFramebufferLayout=undefined;frame.bindTarget(o.target)})).toThrow(/framebuffer/)
+  expect(o.released).toHaveBeenCalledTimes(2);expect(s.cpu.reservedBytes).toBe(0)
+})
+it('does not grant fixed framebuffer authority to another lifetime or target geometry',()=>{
+  const s=setup(),o=fixedFramebufferOwner(s)
+  for(const bad of [{...o.target,lifetime:{owner:{},lease:()=>()=>{}}},{...o.target,width:3},{...o.target,texture:s.gl.createTexture()}])
+    expect(()=>runBrushGlBatch({participants:[s.service],owners:[o.lifetime]},frame=>frame.bindTarget(bad))).toThrow(/framebuffer|identity/)
+  expect(o.released).toHaveBeenCalledTimes(3);expect(s.cpu.reservedBytes).toBe(0)
+})
+
+for(const drift of ['epoch','list-size'] as const)it(`rejects fixed framebuffer ${drift} drift after owner acquisition`,()=>{
+  const s=setup(),o=fixedFramebufferOwner(s),before=s.snapshot()
+  o.lifetime.ownedFramebufferLayouts=[...o.lifetime.ownedFramebufferLayouts]
+  o.lease.mockImplementation(()=>{if(drift==='epoch')o.lifetime.owner={};else Reflect.apply(Array.prototype.push,o.lifetime.ownedFramebufferLayouts,[o.lifetime.ownedFramebufferLayouts[0]]);return o.released})
+  expect(()=>runBrushGlBatch({participants:[s.service],owners:[o.lifetime]},()=>{})).toThrow(/framebuffer/)
+  expect(o.released).toHaveBeenCalledTimes(1);expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0)
+})
+it('charges each unique admitted fixed framebuffer in the existing frame metadata allowance',()=>{
+  const s=setup(),o=fixedFramebufferOwner(s)
+  runBrushGlBatch({participants:[s.service],owners:[o.lifetime,o.lifetime]},()=>{expect(s.cpu.reservedBytes).toBe(4096+256+128+96)})
+  expect(o.lease).toHaveBeenCalledTimes(1);expect(o.released).toHaveBeenCalledTimes(1);expect(s.cpu.reservedBytes).toBe(0)
+})

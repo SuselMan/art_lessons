@@ -457,7 +457,7 @@ export class CanonicalFrameExecutor {
       const gl = this.options.prepass.brushGlBatchInfo().gl
       gl.disable(gl.SCISSOR_TEST); gl.colorMask(true, true, true, true)
       local.clear()
-      const tile = { ...position, original, local, lifetime: this.options.washMode==='deposition-only'?this.rawLifetime(local):{ kind: 'external' as const, owner: {}, lease: () => () => {} } }
+      const tile = { ...position, original, local, lifetime: this.options.washMode==='deposition-only'?this.rawLifetime(local,position):{ kind: 'external' as const, owner: {}, lease: () => () => {} } }
       this.washes.set(key(position), tile)
       return tile
     } catch (error) {
@@ -563,12 +563,14 @@ export class CanonicalFrameExecutor {
     if(this.ownsSoftProgram)this.cleanup(()=>this.softProgram!.retire())
   }
 
-  private rawLifetime(local:AccumulationBuffer): CanonicalOwnedRgba8Target['lifetime'] {
+  private rawLifetime(local:AccumulationBuffer,position:TilePosition): CanonicalOwnedRgba8Target['lifetime'] {
     const owner = this.rawOwner,texture=local.texture
     // Pool admission enforces straight/nearest; this exclusive raw-local borrow
     // never changes its constructor clamp sampler or lends it to other writers.
-    const ownedPointSampler=Object.freeze({texture,source:local,epoch:owner})
-    return { kind: 'external', owner, ownedPointSampler, lease: () => {
+    const ownedPointSampler=Object.freeze({texture,source:local,epoch:owner}),certificate=local.verifiedFramebufferLayout
+    if(!certificate)throw new Error('Stale canonical raw wash framebuffer certificate')
+    const ownedFramebufferLayouts=Object.freeze([Object.freeze({source:local,certificate,originX:position.x,originY:position.y})])
+    return { kind: 'external', owner, ownedPointSampler, ownedFramebufferLayouts, lease: () => {
       if (!owner.alive || !local.storageOwnerCurrent || local.texture!==texture || this.gl.isContextLost()) throw new Error('Stale canonical raw wash')
       owner.leases++
       let held = true

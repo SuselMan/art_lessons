@@ -708,6 +708,10 @@ describe('deposition-only wash ownership', () => {
       s.executor.enqueue(s.submit());s.drain()
       const view=s.executor.rawWashTiles()[0].view,owner=view.residency
       if(owner.kind!=='external')throw Error('Expected raw owner')
+      const fixed=owner.ownedFramebufferLayouts!
+      expect(fixed).toHaveLength(1);expect(Object.isFrozen(fixed)).toBe(true)
+      expect(fixed[0].certificate.texture).toBe(view.texture);expect(fixed[0].source.verifiedFramebufferLayout).toBe(fixed[0].certificate)
+      expect(fixed[0].originX).toBe(view.rect.x);expect(fixed[0].originY).toBe(view.rect.y)
       const sampler=owner.ownedPointSampler!
       expect(Object.isFrozen(sampler)).toBe(true);expect(sampler.texture).toBe(view.texture)
       expect(sampler.source.texture).toBe(view.texture);expect(sampler.epoch).toBe(owner.owner);expect(sampler.epoch.alive).toBe(true)

@@ -19,10 +19,20 @@ export interface BrushGlBatchLifetimePointSampler {
   readonly source: { readonly texture: WebGLTexture; readonly gl: WebGLRenderingContext }
   readonly epoch: { readonly alive: boolean }
 }
+export interface BrushGlBatchFramebufferLayout {
+  readonly gl:WebGLRenderingContext;readonly texture:WebGLTexture;readonly framebuffer:WebGLFramebuffer;readonly width:number;readonly height:number
+}
+/** Only a real cold-verified fixed buffer can publish this internal promise. */
+export interface BrushGlBatchLifetimeFramebuffer {
+  readonly source:{readonly verifiedFramebufferLayout:Readonly<BrushGlBatchFramebufferLayout>|undefined}
+  readonly certificate:Readonly<BrushGlBatchFramebufferLayout>
+  readonly originX:number;readonly originY:number
+}
 export interface BrushGlBatchLifetime {
   readonly owner: object
   readonly lease: () => () => void
   readonly ownedPointSampler?: BrushGlBatchLifetimePointSampler
+  readonly ownedFramebufferLayouts?:readonly BrushGlBatchLifetimeFramebuffer[]
 }
 type OwnedSamplerBinding = { readonly participant: BrushGlBatchParticipant; readonly sampler: BrushGlBatchOwnedSampler }
   | { readonly lifetime: BrushGlBatchLifetime; readonly declaration: BrushGlBatchLifetimePointSampler; readonly sampler: BrushGlBatchLifetimePointSampler }
@@ -48,7 +58,19 @@ export interface BrushGlBatchParticipant {
   brushGlBatchInfo(): BrushGlBatchInfo
   enterBrushGlBatch(frame: BrushGlBatchFrame): () => void
 }
-interface Target { readonly texture: WebGLTexture; readonly framebuffer: WebGLFramebuffer; readonly width: number; readonly height: number; readonly originX: number; readonly originY: number }
+interface Target { readonly texture: WebGLTexture; readonly framebuffer: WebGLFramebuffer; readonly width: number; readonly height: number; readonly originX: number; readonly originY: number;readonly lifetime?:BrushGlBatchLifetime }
+interface FixedFramebufferBinding {
+  readonly lifetime:BrushGlBatchLifetime;readonly epoch:object;readonly list:readonly BrushGlBatchLifetimeFramebuffer[];readonly index:number;readonly count:number
+  readonly declaration:BrushGlBatchLifetimeFramebuffer;readonly saved:BrushGlBatchLifetimeFramebuffer
+}
+interface TargetBinding {readonly target:Target;readonly fixed?:FixedFramebufferBinding}
+function assertFixedFramebuffer(binding:FixedFramebufferBinding,gl:WebGLRenderingContext):void{
+  const {lifetime,list,index,declaration,saved}=binding,c=saved.certificate
+  if(lifetime.owner!==binding.epoch || lifetime.ownedFramebufferLayouts!==list || list[index]!==declaration
+    || list.length!==binding.count || declaration.source!==saved.source || declaration.certificate!==c
+    || declaration.originX!==saved.originX || declaration.originY!==saved.originY
+    || c.gl!==gl || saved.source.verifiedFramebufferLayout!==c)throw new Error('Stale or changed fixed framebuffer certificate/identity')
+}
 const noop = () => {}
 const authority = Symbol('brush-gl-batch')
 
@@ -61,7 +83,7 @@ export class BrushGlBatchFrame {
   private readonly resources: Map<string, number>
   private readonly ownedSamplers: Map<WebGLTexture, OwnedSamplerBinding>
   private readonly samplers = new Map<WebGLTexture, readonly number[]>()
-  private readonly targets = new Map<WebGLFramebuffer, Target>()
+  private readonly targets:Map<WebGLFramebuffer,TargetBinding>
   private readonly groups: (() => void)[] = []
   private opened = false
   private acquiring = true
@@ -71,9 +93,9 @@ export class BrushGlBatchFrame {
   private started = 0
   private readonly gl: WebGLRenderingContext
   private readonly cache: BrushTextureCache
-  constructor(key: symbol, infos: Map<BrushGlBatchParticipant, BrushGlBatchInfo>, owners: readonly BrushGlBatchLifetime[], resources: Map<string, number>, ownedSamplers: Map<WebGLTexture, OwnedSamplerBinding>) {
+  constructor(key: symbol, infos: Map<BrushGlBatchParticipant, BrushGlBatchInfo>, owners: readonly BrushGlBatchLifetime[], resources: Map<string, number>, ownedSamplers: Map<WebGLTexture, OwnedSamplerBinding>,targets:Map<WebGLFramebuffer,TargetBinding>) {
     if (key !== authority) throw new Error('Brush GL batch frames require coordinator ownership')
-    this.infos = infos; this.owners = new Set(owners); this.resources = resources; this.ownedSamplers = ownedSamplers
+    this.infos = infos; this.owners = new Set(owners); this.resources = resources; this.ownedSamplers = ownedSamplers;this.targets=targets
     const first = infos.values().next().value!
     this.gl = first.gl; this.cache = first.cache
   }
@@ -132,15 +154,23 @@ export class BrushGlBatchFrame {
   }
   bindTarget(target: Target): void {
     if (!this.opened) throw new Error('Closed brush GL batch')
-    const gl = this.gl
-    gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer)
-    const previous = this.targets.get(target.framebuffer)
-    if (previous) {
-      if (previous.texture !== target.texture || previous.width !== target.width || previous.height !== target.height || previous.originX !== target.originX || previous.originY !== target.originY) throw new Error('Batch framebuffer attachment identity changed')
+    const gl=this.gl,binding=this.targets.get(target.framebuffer)
+    if(binding){
+      const previous=binding.target
+      if(previous.texture!==target.texture || previous.width!==target.width || previous.height!==target.height || previous.originX!==target.originX || previous.originY!==target.originY)
+        throw new Error('Batch framebuffer attachment identity changed')
+      if(binding.fixed){
+        if(target.lifetime!==binding.fixed.lifetime || !this.owners.has(binding.fixed.lifetime))throw new Error('Fixed framebuffer lifetime identity mismatch')
+        assertFixedFramebuffer(binding.fixed,gl)
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER,target.framebuffer)
+      if(binding.fixed)assertFixedFramebuffer(binding.fixed,gl)
       return
     }
-    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE || gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME) !== target.texture) throw new Error('Canonical target attachment does not match its declared texture')
-    this.targets.set(target.framebuffer, { ...target })
+    gl.bindFramebuffer(gl.FRAMEBUFFER,target.framebuffer)
+    if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE || gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME)!==target.texture)
+      throw new Error('Canonical target attachment does not match its declared texture')
+    this.targets.set(target.framebuffer,{target:{...target}})
   }
   /** @internal coordinator only; owners remain leased until after state restore. */
   close(key: symbol): void {
@@ -273,9 +303,28 @@ export function runBrushGlBatch(options: {
     if(ownedSamplers.has(saved.texture))throw new Error('Conflicting lifetime owned sampler metadata')
     ownedSamplers.set(saved.texture,{lifetime:owner,declaration,sampler:saved})
   }
-  const cpuBytes = (borrowed ? 0 : 4096) + ownedSamplers.size * 96 + resources.size * 96 + owners.length * 128 + infos.size * 256
+  // Same per-frame target dictionary: certified fixed bindings and old guarded
+  // foreign bindings share one lifetime, not a persistent handle registry.
+  const targets=new Map<WebGLFramebuffer,TargetBinding>()
+  for(const lifetime of owners){
+    const list=lifetime.ownedFramebufferLayouts
+    if(list===undefined)continue
+    if(!Array.isArray(list)||list.length>64)throw new Error('Invalid fixed framebuffer declaration capacity')
+    for(let index=0;index<list.length;index++){
+      const declaration=list[index],c=declaration?.certificate
+      if(!declaration||!declaration.source||!c||!Object.isFrozen(c)||!c.texture||!c.framebuffer
+        || ![c.width,c.height,declaration.originX,declaration.originY].every(Number.isSafeInteger)||c.width<1||c.height<1)
+        throw new Error('Invalid fixed framebuffer certificate metadata')
+      const saved={source:declaration.source,certificate:c,originX:declaration.originX,originY:declaration.originY}
+      const fixed={lifetime,epoch:lifetime.owner,list,index,count:list.length,declaration,saved}
+      assertFixedFramebuffer(fixed,first.gl)
+      if(targets.has(c.framebuffer))throw new Error('Conflicting fixed framebuffer certificate identity')
+      targets.set(c.framebuffer,{fixed,target:{texture:c.texture,framebuffer:c.framebuffer,width:c.width,height:c.height,originX:saved.originX,originY:saved.originY,lifetime}})
+    }
+  }
+  const cpuBytes = (borrowed ? 0 : 4096) + ownedSamplers.size * 96 + targets.size * 96 + resources.size * 96 + owners.length * 128 + infos.size * 256
   const releaseCpu = first.cpu.reserve(cpuBytes)
-  const frame = new BrushGlBatchFrame(authority, infos, owners, resources, ownedSamplers), releases: (() => void)[] = []
+  const frame = new BrushGlBatchFrame(authority, infos, owners, resources, ownedSamplers,targets), releases: (() => void)[] = []
   let restore: (() => void) | undefined = borrowed?.restore, failed = false, failure: unknown
   const cleanup = (fn: () => void) => { try { fn() } catch (error) { if (!failed) { failed = true; failure = error } } }
   try {
@@ -292,6 +341,7 @@ export function runBrushGlBatch(options: {
     // Metadata was admitted before ownership effects; callbacks cannot replace
     // a declared buffer/epoch/sampler while acquiring another owner.
     for(const binding of ownedSamplers.values())if('lifetime' in binding)assertLifetimeSampler(binding.lifetime,binding.sampler,binding.declaration,first.gl)
+    for(const binding of targets.values())if(binding.fixed)assertFixedFramebuffer(binding.fixed,first.gl)
     if(first.gl.isContextLost())throw new Error('Brush GL batch context lost during acquisition')
     // Owner callbacks may touch GL: capture precedes them, including failure paths.
     for (const [participant, info] of infos) if (!sameParticipantBinding(participant.brushGlBatchInfo(),info)) throw new Error('Brush GL batch service changed during acquisition')

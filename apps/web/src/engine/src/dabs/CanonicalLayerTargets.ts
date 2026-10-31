@@ -1,5 +1,6 @@
 import type { PaintTarget } from '../buffers/ILayerBuffer'
 import type { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
+import type { BrushGlBatchLifetimeFramebuffer } from './BrushGlBatch'
 import type { CanonicalOwnedRgba8Target } from './CanonicalRgba8CompositePass'
 
 /** Metadata-only binding to real, authoritative straight layer tiles. A binding
@@ -16,7 +17,13 @@ export function bindCanonicalLayerTargets(layer: TiledLayerBuffer, targets: read
   // Validate the whole set before exposing target handles; this is metadata
   // only and deliberately does not trigger an eviction sweep on release.
   layer.retainTargets(snapshot)()
-  const lifetime = Object.freeze({ kind: 'external' as const, owner: Object.freeze({}), lease: () => layer.retainTargets(snapshot) })
+  const layouts=new Map<PaintTarget['buffer'],BrushGlBatchLifetimeFramebuffer>()
+  for(const {buffer,originX,originY}of snapshot){
+    const certificate=buffer.verifiedFramebufferLayout
+    if(!certificate)throw new Error('Canonical layer target lacks a current fixed framebuffer certificate')
+    if(!layouts.has(buffer))layouts.set(buffer,Object.freeze({source:buffer,certificate,originX,originY}))
+  }
+  const lifetime = Object.freeze({ kind: 'external' as const, owner: Object.freeze({}), ownedFramebufferLayouts:Object.freeze([...layouts.values()]), lease: () => layer.retainTargets(snapshot) })
   return Object.freeze(snapshot.map(({ buffer, originX, originY }) => Object.freeze({
     brand: 'canonical-straight-rgba8-v1' as const,
     texture: buffer.texture, framebuffer: buffer.fbo, width: buffer.width, height: buffer.height,
