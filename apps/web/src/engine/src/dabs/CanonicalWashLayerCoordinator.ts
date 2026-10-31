@@ -116,6 +116,7 @@ export class CanonicalWashLayerCoordinator {
     this.stable = stable.buffer; this.derived = derived.buffer; this.derivedEpoch = derived.epoch
   }
 
+  get queuedFrameCount():number { return this.queue.length }
   get poisoned(): boolean { return this.failed }
   get pending(): boolean { return !!this.queue.length || !!this.dirty.size || !!this.entries.find(e => !e.committed)?.ownership }
   get presentationReady(): boolean { return !this.failed && !this.closed && !this.dirty.size && !this.work }

@@ -1,3 +1,10 @@
+import { IMPLICIT_LAYER_IDS,INITIAL_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,verifyCanonicalEmptyHistoryBase,decodeCanonicalStrokeFrame,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalStrokeRasterProfile,type CanonicalAutoSource,type CanonicalSoftAutoSource } from '@grafetto/shared'
+import {BrushTextureCache} from './src/dabs/BrushTextureCache'
+import {TransformedMaskPrepass,transformedMaskPrepassBudget,type TransformedMaskLimits} from './src/dabs/TransformedMaskPrepass'
+import {CanonicalRgba8CompositePass,canonicalRgba8CompositeBudget,type CanonicalCompositeLimits} from './src/dabs/CanonicalRgba8CompositePass'
+import {CanonicalWashLayerCoordinator} from './src/dabs/CanonicalWashLayerCoordinator'
+import {planCanonicalTargets} from './src/dabs/CanonicalTargetPlan'
+import type {CanonicalRecordedEmptyRoomRead,CanonicalRecordedInput} from './src/oplog/CanonicalRecordedDelivery'
 import { readRoomRasterVersion, roomRasterPixelEncoding, isRasterPixelEncoding, LEGACY_ROOM_RASTER_VERSION, type RasterPixelEncoding, type RoomRasterVersion } from '@grafetto/shared'
 import { attachContextStorage, snapshotContextStorage } from './src/buffers/ContextStorageOwner'
 import { distinctBrushStorageChargeBytes } from './src/dabs/BrushTextureCache'
@@ -17,7 +24,7 @@ import { WatercolorPresentationRaster } from './src/watercolor/WatercolorPresent
 import { hasActiveWater, wetReplayOperationIds } from './src/oplog/hasActiveWater'
 import { LayerCompositor, type CompositeItem, type WashReveal } from './src/raster/LayerCompositor'
 import { StraightLayerPresentation } from './src/raster/StraightLayerPresentation'
-export type { CanonicalRecordedLifetime, CanonicalRecordedDelivery, CanonicalRecordedInput } from './src/oplog/CanonicalRecordedDelivery'
+export type { CanonicalRecordedLifetime, CanonicalRecordedDelivery, CanonicalRecordedInput, CanonicalRecordedEmptyRoomRead } from './src/oplog/CanonicalRecordedDelivery'
 export type { CompositeItem } from './src/raster/LayerCompositor'
 import { pureWaterLayerProof } from './src/watercolor/pureWaterLayerProof'
 import { WatercolorSettlePlan, type WatercolorSettlePreview } from './src/raster/WatercolorSettlePlan'
@@ -265,6 +272,7 @@ const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 
 export interface PencilEngineOptions {
   rasterVersion?: RoomRasterVersion
+  canonicalEmptyRoom?:{readonly read:CanonicalRecordedEmptyRoomRead;readonly tail:readonly Operation[]}
   /** (#728) Accept provisional pointer input while canonical wet material
    * finishes in FIFO order. Export/snapshot readiness waits for that queue.
    * Omitted, standalone callers retain synchronous completion. */
@@ -562,6 +570,7 @@ export interface StructuralUndoRedoPeek {
 
 export interface PencilEngineAPI {
   readonly rasterVersion: RoomRasterVersion
+  restoreCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonly Operation[]):Promise<CanonicalEmptyRoomRestoreResult>
   initLayer(id: string): void
   /** (#486) Declares the restored snapshot's structure to be the whole
    *  pre-log layer set, retiring any earlier `initLayer` the snapshot has
@@ -1322,6 +1331,62 @@ interface PeerPreviewState {
   waitingCanonical?: boolean
 }
 
+export interface CanonicalEmptyRoomRestoreResult {readonly committed:true;readonly cleanupFailures:readonly unknown[]}
+interface CanonicalEmptyPlan {
+ readonly read:CanonicalRecordedEmptyRoomRead;readonly tail:readonly Operation[]
+ readonly scope:ReturnType<CanonicalRecordedEmptyRoomRead['assertCurrent']>
+ readonly inputs:readonly CanonicalRecordedInput[];readonly profile:CanonicalStrokeRasterProfile
+ readonly mask:TransformedMaskLimits;readonly composite:CanonicalCompositeLimits
+ readonly gestures:number;readonly logicalBytes:number;readonly page:Readonly<WorldRect>;readonly tileWidth:number;readonly tileHeight:number
+}
+function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonly Operation[],width?:number,height?:number,infinite=false):CanonicalEmptyPlan {
+ if(!read||infinite)throw new TypeError('Unsupported canonical empty room')
+ const base=read.assertEmptyHistoryBase(tail),scope=read.assertCurrent()
+ if(read.scope!==scope||read.tailOperations!==tail||read.preparedAtoms.length!==tail.length)throw new TypeError('Foreign canonical empty room owner')
+ if(!read.roomGeometry||read.roomGeometry.width!==width||read.roomGeometry.height!==height||read.roomGeometry.infinite!==infinite)throw new TypeError('Canonical original room geometry mismatch')
+ verifyCanonicalEmptyHistoryBase(base,read.preparedAtoms,scope)
+ if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width!<=0||height!<=0)throw new TypeError('Canonical baseline requires explicit page geometry')
+ const page={minX:0,minY:0,maxX:width!,maxY:height!},tileWidth=Math.min(TILE_SIZE,width!),tileHeight=Math.min(TILE_SIZE,height!)
+ const inputs:CanonicalRecordedInput[]=[],prefixes=new Map<string,CanonicalMaterialPrefixState>(),tiles=new Set<string>(),gestureTiles=new Map<string,Set<string>>()
+ let maskWidth=1,maskHeight=1,generic=false
+ for(let i=0;i<read.preparedAtoms.length;i++){
+  const atom=read.preparedAtoms[i],delivery=Object.getOwnPropertyDescriptor(atom,'delivery')
+  if(!delivery||!Object.hasOwn(delivery,'value')||!delivery.value||delivery.value.lifetime!==read||atom.operation!==tail[i])throw new TypeError('Original canonical input required')
+  const input=atom as CanonicalRecordedInput;input.delivery.assertCurrent(input)
+  const op=input.operation,r=input.read
+  if(op.type!=='canonical_stroke'||!r||op.layerId!==INITIAL_LAYER_ID||op.seq!==i+1)throw new TypeError('Unsupported canonical baseline writer/layer')
+  const s=r.capability.snapshot,source=s.material.primarySource
+  if(s.materialVersion!==2||s.material.maskSource||source.kind==='image'||s.composition.mode!=='wash'||s.rasterProfile!==read.authorRasterProfile||s.material.assets.length)throw new TypeError('Unsupported canonical baseline source/profile')
+  const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:s.material}).frame
+  const key=JSON.stringify([op.userId,s.strokeId]),next=advanceCanonicalMaterialPrefix(prefixes.get(key)??CANONICAL_MATERIAL_PREFIX_START,op.frame.frameOrdinal,decoded)
+  prefixes.set(key,next);let used=gestureTiles.get(key);if(!used){used=new Set();gestureTiles.set(key,used)}
+  for(const recipe of decoded.definitions){if(!('kind'in recipe)||!['defaultAuto','gaussianAuto','softAuto'].includes(recipe.kind))throw new TypeError('Unsupported canonical baseline material');maskWidth=Math.max(maskWidth,recipe.width);maskHeight=Math.max(maskHeight,recipe.height)}
+  for(const d of decoded.draws){const recipe=decoded.definitions[d.definition];for(const t of planCanonicalTargets({minX:d.x,minY:d.y,maxX:d.x+recipe.width,maxY:d.y+recipe.height},page,tileWidth,tileHeight).tiles){const id=JSON.stringify([t.storage.minX,t.storage.minY]);tiles.add(id);used.add(id)}}
+  if(tiles.size>64||used.size>64)throw new RangeError('Canonical baseline exceeds target union')
+  generic ||= s.composition.outerBlend!=='over';inputs.push(input)
+ }
+ if([...prefixes.values()].some(p=>!p.ended))throw new TypeError('Open canonical baseline prefix unsupported')
+ const mask={width:maskWidth,height:maskHeight,slots:1},composite:CanonicalCompositeLimits={width:tileWidth,height:tileHeight,operations:['alphaDarken32FusedScalar','over32FusedScalar',...(generic?['genericSCU8' as const]:[])]}
+ const maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(composite)
+ if(maskCost.gpuBytes+compositeCost.gpuBytes>16*1024*1024||maskCost.cpuBytes+compositeCost.cpuBytes+1024+inputs.length*128+prefixes.size*512+82432>4*1024*1024)throw new RangeError('Canonical baseline workspace exceeds existing brush budgets')
+ const logicalBytes=(tiles.size+2*[...gestureTiles.values()].reduce((n,t)=>n+t.size,0))*tileWidth*tileHeight*4
+ if(!Number.isSafeInteger(logicalBytes))throw new RangeError('Invalid canonical logical admission')
+ if(read.assertCurrent()!==scope)throw new Error('Canonical baseline scope changed')
+ return Object.freeze({read,tail,scope,inputs:Object.freeze(inputs),profile:read.authorRasterProfile,mask:Object.freeze(mask),composite:Object.freeze(composite),gestures:prefixes.size,logicalBytes,page:Object.freeze(page),tileWidth,tileHeight})
+}
+interface CanonicalEmptyTransaction {
+ readonly plan:CanonicalEmptyPlan;readonly old:Map<string,ILayerBuffer>;readonly revision:number;readonly staged:OperationLog
+ readonly candidate:Map<string,ILayerBuffer>;readonly jobs:CanonicalEmptyJob[];readonly oldEntries:readonly (readonly [string,ILayerBuffer])[]
+ readonly resolve:(result:CanonicalEmptyRoomRestoreResult)=>void;readonly reject:(error:unknown)=>void
+ committed:boolean;finished:boolean;readonly failures:unknown[]
+}
+interface CanonicalEmptyJob {
+ readonly transaction:CanonicalEmptyTransaction;readonly stable:TiledLayerBuffer;readonly derived:TiledLayerBuffer
+ readonly cache:BrushTextureCache;readonly prepass:TransformedMaskPrepass;readonly composite:CanonicalRgba8CompositePass
+ coordinator?:CanonicalWashLayerCoordinator;stage:number;next:number;outstanding:number;retiring:boolean;complete:boolean
+ releaseMetadata?:()=>void
+}
+
 /** (#536, ADR 011 §17.53) A layer rebuild in progress: the layer's done pixel
  *  operations replayed into a FRESH buffer a slice at a time, the old buffer
  *  on screen meanwhile, swapped in whole when the replay has caught up. */
@@ -1340,6 +1405,7 @@ interface RebuildJob {
    *  one lesson-sized operation is up to 1.3 s of GPU in one draw on the
    *  Surface, past what a frame - or Windows' GPU watchdog - tolerates. */
   part: { opId: string; dabs: Dab[]; work: Generator<number, ReadonlyMap<Dab, number> | undefined, void> } | null
+  canonical?:CanonicalEmptyJob
 }
 
 // Pixel snapshot of a layer after its first `opIds.length` pixel operations.
@@ -1537,6 +1603,8 @@ interface CarriedWash { key: string; userId: string; washStrokeId: string | unde
 
 export class PencilEngine implements PencilEngineAPI {
   readonly rasterVersion: RoomRasterVersion
+  private readonly _canonicalEmptyAdmission?:CanonicalEmptyPlan
+  private _canonicalEmptyTransaction?:CanonicalEmptyTransaction
   private canvas: HTMLCanvasElement
   private gl: WebGLRenderingContext
   private _opts: EngineOpts
@@ -2319,7 +2387,11 @@ export class PencilEngine implements PencilEngineAPI {
   constructor(canvas: HTMLCanvasElement, options: PencilEngineOptions = {}) {
     this.rasterVersion = readRoomRasterVersion(options.rasterVersion)
     Object.defineProperty(this, 'rasterVersion', { writable: false, configurable: false })
-    if (this.rasterVersion !== LEGACY_ROOM_RASTER_VERSION) {
+    if(options.canonicalEmptyRoom!==undefined){
+      if(this.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION)throw new Error('Canonical empty baseline requires explicit straight storage')
+      this._canonicalEmptyAdmission=planCanonicalEmptyRoom(options.canonicalEmptyRoom.read,options.canonicalEmptyRoom.tail,options.pageWidth,options.pageHeight,!!options.infinite)
+      if(this._canonicalEmptyAdmission.logicalBytes>this._gpuBudget)throw new RangeError('Canonical baseline exceeds existing logical GPU allowance')
+    }else if (this.rasterVersion !== LEGACY_ROOM_RASTER_VERSION) {
       throw new Error('Room raster version is not supported by this renderer')
     }
     this.canvas = canvas
@@ -2581,7 +2653,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._baseLayerIds    = new Set()
     this._compositeOrder  = []
     this._activeId        = null
-    this._locked          = false
+    this._locked          = this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION
     this._log             = new OperationLog()
     this._checkpoints     = new CheckpointStore(CHECKPOINT_BUDGET_BYTES)
     this._strokeLayerId   = null
@@ -2629,6 +2701,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** Registers a pre-log base layer (background, initial layer). Layers created
    *  during the session enter through `layer_add` / `layer_merge` operations. */
   initLayer(id: string): void {
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION&&!IMPLICIT_LAYER_IDS.includes(id))throw new TypeError('Unknown canonical initial layer');
     this._baseLayerIds.add(id)
     this._createBuffer(id)
   }
@@ -2664,6 +2737,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  layer missing from the snapshot's structure is therefore one the structure
    *  outlived, never one created after it. */
   setBaseLayers(ids: readonly string[]): void {
+    this._assertLegacyWriter();
     this._replayRestoredStructure = false
     const next = new Set(ids)
     for (const id of this._baseLayerIds) {
@@ -2689,7 +2763,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setLocked(locked: boolean): void {
-    this._locked = locked
+    this._locked = locked || this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION
   }
 
   setPaperFillThreshold(threshold: number): void {
@@ -3250,6 +3324,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   confirmOperation(opId: string, seq: number): boolean {
+    this._assertLegacyWriter();
     const confirmed = this._log.confirm(opId, seq)
     if (!confirmed) return false
     this._noteOvertaken(confirmed.op, confirmed.overtaken)
@@ -3261,6 +3336,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   discardOperation(opId: string): boolean {
+    this._assertLegacyWriter();
     if (!this._log.isPending(opId)) return false
     const target = this._log.revoke(opId)
     if (!target) return false
@@ -3410,6 +3486,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  everyone else's canvas from this one. Returns the affected operation
    *  (e.g. the stroke), same contract as before. */
   undo(): Operation | null {
+    this._assertLegacyWriter();
     if (this._wcAsyncFinish && this._strokeLayerId) return null
     const target = this._log.undoTarget(this._userId)
     if (!target) return null
@@ -3432,6 +3509,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Symmetric with `undo()` — see its docstring. */
   redo(): Operation | null {
+    this._assertLegacyWriter();
     if (this._wcAsyncFinish && this._strokeLayerId) return null
     const target = this._log.redoTarget(this._userId)
     if (!target) return null
@@ -3506,6 +3584,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Clears the active layer — a logged, undoable operation. */
   clear(): void {
+    this._assertLegacyWriter();
     const id = this._activeId
     if (!id || this._locked || !this._layers.has(id)) return
     this.appendOperation({
@@ -3906,11 +3985,13 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Live gizmo-drag preview (#120) — see AreaOps.previewLayerTransform. */
   previewLayerTransform(transforms: Array<{ layerId: string; matrix: LayerTransformMatrix }>): void {
+    this._assertLegacyWriter();
     this._area.previewLayerTransform(transforms)
   }
 
   /** Ends a gizmo-drag preview — see AreaOps.clearLayerTransformPreview. */
   clearLayerTransformPreview(): void {
+    this._assertLegacyWriter();
     this._area.clearLayerTransformPreview()
   }
 
@@ -3918,6 +3999,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  starts the reveal loop immediately if this peer has nothing else in
    *  flight, otherwise it plays once the current head of the queue finishes. */
   previewOperation(op: StrokeOperation, rate = 1): void {
+    this._assertLegacyWriter();
     assertBrushRandomContext(op)
     if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
@@ -3958,6 +4040,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  it), or a later redo would find nothing to bring back. Cancelling the
    *  reveal only ever affects the animation, never the operation data. */
   dropPendingPreview(opId: string): StrokeOperation | null {
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return null;
     for (const [peerId, state] of this._peerPreviews) {
       const idx = state.queue.findIndex(item => item.op.id === opId)
       if (idx === -1) continue
@@ -3977,6 +4060,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   flushPeerPreview(peerId: string): StrokeOperation[] {
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return [];
     const state = this._peerPreviews.get(peerId)
     if (!state) return []
     if (state.timer !== null) clearTimeout(state.timer)
@@ -3988,6 +4072,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   appendPeerLiveDabs(peerId: string, packet: PeerLivePacket, canonicalExecution = false): void {
+    this._assertLegacyWriter();
     assertBrushRandomContext(packet)
     if(packet.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(packet.preset)
@@ -4073,6 +4158,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   endPeerLiveStroke(peerId: string, strokeId?: string, cancelled = false): number {
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return 0;
     this._smudge.finishSecondary(peerId,false,strokeId)
     if (cancelled && !strokeId) return 0
     if (cancelled && strokeId) {
@@ -4143,6 +4229,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   resetPeerLiveStrokes(): void {
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return;
     for (const held of this._wcAsyncPeerStreams.values()) {
       held.cancelled = true
       if (held.buf && !this._contextLost && !this.gl.isContextLost()) held.buf.destroy()
@@ -4304,6 +4391,7 @@ export class PencilEngine implements PencilEngineAPI {
   destroy(): void {
     if (this._destroyed) return
     this._destroyed = true
+    if(this._canonicalEmptyTransaction)this._failCanonicalEmpty(this._canonicalEmptyTransaction,new Error('Engine destroyed'))
     this._straightPresentation = undefined
     // Complete-engine retirement only: each independent owner is attempted,
     // in borrower-before-pool order. A nested destructor remains responsible
@@ -4647,6 +4735,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _cancelRebuildJob(layerId: string, restarting = false): void {
     const job = this._rebuildJobs.get(layerId)
     if (!job) return
+    if(job.canonical){this._failCanonicalEmpty(job.canonical.transaction,new Error('Canonical rebuild cancelled'));return}
     if (job.timer) clearTimeout(job.timer)
     this._rebuildJobs.delete(layerId)
     if (this._settle && this._jobOwnsSettle(job)) this._completeSettle()
@@ -4708,6 +4797,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  restarts it), replay for ~12 ms, and swap once caught up. */
   private _stepRebuildJob(job: RebuildJob): void {
     job.timer = 0
+    if(job.canonical){this._stepCanonicalEmpty(job);return}
     if (this._rebuildJobs.get(job.layerId) !== job || this._destroyed) return
     if (this._contextLost) { job.timer = setTimeout(() => this._stepRebuildJob(job), 100); return }
     const ops = this._log.layerPixelOps(job.layerId)
@@ -5206,6 +5296,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  TiledLayerBuffer.recoverTiles), not one replay per tile. */
   private _makeTileRebuilder(layerId: string): TileRebuilder {
     return (): TileRebuildSession => {
+      if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)throw new Error('Canonical baseline recovery required')
       const scratch = this._makeLayerBuffer()
       try {
         this._replayInto(scratch, layerId, this._log.layerPixelOps(layerId))
@@ -5279,6 +5370,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleContextLost = (e: Event): void => {
     if (this._destroyed) return
     this._contextLost=true
+    if(this._canonicalEmptyTransaction)this._failCanonicalEmpty(this._canonicalEmptyTransaction,new Error('Canonical baseline context lost'))
     this._straightPresentation=undefined
     this._paper.contextLost()
     this._quadBuf = null
@@ -5318,6 +5410,11 @@ export class PencilEngine implements PencilEngineAPI {
   // add/delete — recreate and replay each live layer from the log.
   private _handleContextRestored = (): void => {
     if (this._destroyed) return
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION){
+      this._contextLost=true
+      try{this._diagLog('[engine] canonical baseline recovery required')}catch{/* diagnostics cannot reopen an invalid generation */}
+      return
+    }
     this._continuationGpuFence?.forget()
     // The replacement GL scene is rebuilt from the accepted journal.
     this._cancelledPeerLayers.clear()
@@ -5757,6 +5854,7 @@ export class PencilEngine implements PencilEngineAPI {
   // may be baked right now stays here (its quiet/settled context functions):
   // that is the replay and wash machinery's question, not the snapshot's.
   bakeNetworkSnapshot(layerId: string): Uint8Array | null {
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return null;
     if (this._wcJoinedDeferred || this._wcJoinedRecoveryLayers.has(layerId)) return null
     return this._snapshotIO.bake(layerId)
   }
@@ -5808,11 +5906,13 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   bakeLayerByFullReplay(layerId: string): Uint8Array | null {
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return null;
     if (this._wcJoinedDeferred || this._wcJoinedDeferredError !== null || this._wcJoinedRecoveryLayers.size || this._wcJoinedTouchLease && this._strokeLayerId) return null
     return this._snapshotIO.bakeByFullReplay(layerId)
   }
 
   restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number, pixelEncoding: RasterPixelEncoding = 'premultiplied-rgba8'): void {
+    this._assertLegacyWriter();
     if (!isRasterPixelEncoding(pixelEncoding) || pixelEncoding !== roomRasterPixelEncoding(this.rasterVersion)) throw new TypeError('Snapshot pixel encoding does not match the room')
     // Snapshot downloads can complete after their live/confirmed tail landed.
     // Preserve the visible buffer until the authoritative base and held tail
@@ -5930,11 +6030,113 @@ export class PencilEngine implements PencilEngineAPI {
    * protocol must never enter its journal, pending queue or snapshot prefix
    * while straight writers/presentation are not installed. Check whole history
    * batches before the first mutation, not only at the eventual paint switch. */
+  private _assertLegacyWriter():void {
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)throw new TypeError('Canonical straight engine is read-only')
+  }
+  restoreCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,originalTail:readonly Operation[]):Promise<CanonicalEmptyRoomRestoreResult> {
+    try{
+      const admission=this._canonicalEmptyAdmission,revision=this._log.revision,old=this._layers
+      if(!admission||admission.read!==read||admission.tail!==originalTail||this._canonicalEmptyTransaction||this._destroyed||this._contextLost||this.gl.isContextLost())throw new Error('Canonical baseline admission unavailable')
+      // Original pointers/immutable admission are never reconstructed from atoms.
+      const plan=planCanonicalEmptyRoom(read,originalTail,admission.page.maxX,admission.page.maxY)
+      if(this._log.entries.length||this._log.revision!==revision||this._layers!==old||this._rebuildJobs.size||this._pendingRebuilds.size||this._opQueue.length||this._strokeLayerId||this._wash||this._settle||this._replayRibbonChunks.size||this._peerPreviews.size||this._peerLiveStrokes.size||this._previews.tiles.size||this._wcCanonical.pending||this._wcAsyncOwners.size||this._wcAsyncLocalTools.size||this._wcAsyncPeerStreams.size||this._wcAsyncPresentations.size||this._wcMaterialOwners.layers.size||this._washReveals.size||this._checkpoints.all().length)throw new Error('Canonical baseline requires an idle empty journal')
+      if(old.size!==IMPLICIT_LAYER_IDS.length||this._baseLayerIds.size!==IMPLICIT_LAYER_IDS.length||IMPLICIT_LAYER_IDS.some(id=>!old.has(id)||!this._baseLayerIds.has(id)))throw new Error('Canonical baseline requires registered implicit layers')
+      if(plan.logicalBytes>this._gpuBudget)throw new RangeError('Canonical baseline exceeds existing logical GPU allowance')
+      const staged=new OperationLog()
+      for(const input of plan.inputs)staged.append(input.operation,{serverSeq:input.operation.seq,canonicalRead:input.read,canonicalInput:input})
+      if(this._log.revision!==revision||this._log.entries.length||this._layers!==old)throw new Error('Canonical baseline journal changed')
+      return new Promise((resolve,reject)=>{
+        const tx:CanonicalEmptyTransaction={plan,old,revision,staged,candidate:new Map(),jobs:[],oldEntries:[...old],resolve,reject,committed:false,finished:false,failures:[]}
+        this._canonicalEmptyTransaction=tx
+        try{
+          for(const id of IMPLICIT_LAYER_IDS)tx.candidate.set(id,this._makeLayerBuffer())
+          const stable=tx.candidate.get(INITIAL_LAYER_ID) as TiledLayerBuffer,derived=this._makeLayerBuffer() as TiledLayerBuffer
+          const cache=new BrushTextureCache(this.gl),prepass=new TransformedMaskPrepass(this.gl,cache,this._brushMipCache,'engine-empty-mask'),composite=new CanonicalRgba8CompositePass(this.gl,cache,this._brushMipCache,'engine-empty-composite')
+          const canonical:CanonicalEmptyJob={transaction:tx,stable,derived,cache,prepass,composite,stage:0,next:0,outstanding:0,retiring:false,complete:false}
+          tx.jobs.push(canonical)
+          canonical.releaseMetadata=this._brushMipCache.reserve(1024+plan.inputs.length*128+plan.gestures*512)
+          const job:RebuildJob={layerId:INITIAL_LAYER_ID,fresh:stable,chunks:new Map(),cp:null,start:0,applied:[],timer:0,part:null,canonical}
+          this._rebuildJobs.set(INITIAL_LAYER_ID,job)
+          this._assertCanonicalEmptyCurrent(tx)
+          job.timer=setTimeout(()=>this._stepRebuildJob(job),0)
+        }catch(error){this._failCanonicalEmpty(tx,error)}
+      })
+    }catch(error){return Promise.reject(error)}
+  }
+  private _assertCanonicalEmptyCurrent(tx:CanonicalEmptyTransaction):void {
+    // Authority may invoke application callbacks; finish with pure owner checks.
+    tx.plan.read.assertEmptyHistoryBase(tx.plan.tail)
+    const scope=tx.plan.read.assertCurrent(),lost=this.gl.isContextLost(),size=this._tileSize(),page=this._pageSize()
+    if(scope!==tx.plan.scope||tx.finished||this._canonicalEmptyTransaction!==tx||this._destroyed||this._contextLost||lost||this._log.revision!==tx.revision||this._log.entries.length||this._layers!==tx.old||tx.old.size!==tx.oldEntries.length||tx.oldEntries.some(([id,buffer])=>tx.old.get(id)!==buffer)||tx.jobs.some(c=>this._rebuildJobs.get(INITIAL_LAYER_ID)?.canonical!==c)||page.w!==tx.plan.page.maxX||page.h!==tx.plan.page.maxY||size.w!==tx.plan.tileWidth||size.h!==tx.plan.tileHeight)throw new Error('Canonical baseline owner changed')
+  }
+  private _retireCanonicalEmptyJob(c:CanonicalEmptyJob,lost:boolean):unknown[] {
+    c.retiring=true;const failures:unknown[]=[],attempt=(fn:()=>void)=>{try{fn()}catch(error){failures.push(error)}}
+    const coordinator=c.coordinator;c.coordinator=undefined
+    if(coordinator){attempt(()=>coordinator.cancel(new Error('Canonical baseline candidate retired'),{lost}));failures.push(...coordinator.cleanupFailures)}
+    attempt(()=>c.prepass.reset(lost));attempt(()=>c.composite.reset(lost));attempt(()=>c.cache.clear(lost));attempt(()=>c.derived.destroy())
+    const release=c.releaseMetadata;c.releaseMetadata=undefined;if(release)attempt(release)
+    if(c.outstanding!==0)failures.push(new Error('Canonical logical reservation leaked'))
+    return failures
+  }
+  private _failCanonicalEmpty(tx:CanonicalEmptyTransaction,primary:unknown):void {
+    if(tx.finished)return
+    tx.finished=true
+    if(this._canonicalEmptyTransaction===tx)this._canonicalEmptyTransaction=undefined
+    let lost=false;try{lost=this._contextLost||this.gl.isContextLost()}catch(error){tx.failures.push(error)}
+    for(const [id,job]of this._rebuildJobs)if(job.canonical?.transaction===tx){if(job.timer)clearTimeout(job.timer);this._rebuildJobs.delete(id)}
+    for(const c of tx.jobs)tx.failures.push(...this._retireCanonicalEmptyJob(c,lost))
+    for(const buffer of tx.candidate.values())try{buffer.destroy()}catch(error){tx.failures.push(error)}
+    tx.reject(primary)
+  }
+  private _stepCanonicalEmpty(job:RebuildJob):void {
+    const c=job.canonical!,tx=c.transaction,plan=tx.plan
+    try{
+      this._assertCanonicalEmptyCurrent(tx)
+      if(this._rebuildJobs.get(job.layerId)!==job)throw new Error('Canonical rebuild job changed')
+      if(!plan.inputs.length){c.complete=true;this._publishCanonicalEmpty(tx);return}
+      if(c.stage===0){c.prepass.prepare(plan.mask,[]);c.stage=1}
+      else if(c.stage===1){c.composite.prepare(plan.composite,c.prepass.preparedResources(),transformedMaskPrepassBudget(plan.mask).cpuBytes);c.stage=2}
+      else{
+        if(!c.coordinator){
+          c.coordinator=new CanonicalWashLayerCoordinator({rasterProfile:plan.profile,layerId:INITIAL_LAYER_ID,layerEpoch:plan.scope.boardEpoch,maxGestures:plan.gestures,pageBounds:plan.page,prepass:c.prepass,composite:c.composite,scratch:this._ribbonScratchPool,
+            layer:()=>({buffer:c.stable,epoch:plan.scope.boardEpoch}),presentation:()=>({buffer:c.derived,epoch:plan.scope.boardEpoch}),
+            source:(_id,input)=>{this._assertCanonicalEmptyCurrent(tx);if(!input||input.delivery.lifetime!==plan.read||!input.read)throw new Error('Foreign canonical source owner');input.delivery.assertCurrent(input);const source=input.read.capability.snapshot.material.primarySource;if(source.kind==='image')throw new Error('Image canonical baseline unsupported');return{autoSource:source as CanonicalAutoSource|CanonicalSoftAutoSource}},
+            reserveTransient:bytes=>{this._assertCanonicalEmptyCurrent(tx);if(!Number.isSafeInteger(bytes)||bytes<0||c.outstanding+bytes>Math.min(plan.logicalBytes,this._gpuBudget))throw new RangeError('Canonical logical allowance exceeded');c.outstanding+=bytes;let released=false;return()=>{if(!released){released=true;c.outstanding-=bytes}}},
+            changed:()=>{if(!c.retiring)this._assertCanonicalEmptyCurrent(tx)},poison:(_id,reason)=>{if(!c.retiring)tx.failures.push(reason)}})
+        }
+        if(c.next<plan.inputs.length&&c.coordinator.queuedFrameCount===0){c.coordinator.enqueueRecorded(plan.inputs[c.next]);c.next++}
+        c.coordinator.advance()
+        this._assertCanonicalEmptyCurrent(tx)
+        if(c.next===plan.inputs.length&&c.coordinator.checkpointReady){c.complete=true;this._publishCanonicalEmpty(tx);return}
+      }
+      this._assertCanonicalEmptyCurrent(tx)
+      job.timer=setTimeout(()=>this._stepRebuildJob(job),0)
+    }catch(error){this._failCanonicalEmpty(tx,error)}
+  }
+  private _publishCanonicalEmpty(tx:CanonicalEmptyTransaction):void {
+    this._assertCanonicalEmptyCurrent(tx)
+    for(const c of tx.jobs){if(!c.complete)throw new Error('Canonical baseline incomplete');const failures=this._retireCanonicalEmptyJob(c,false);if(failures.length)throw failures[0]}
+    this._assertCanonicalEmptyCurrent(tx)
+    // Whole journal CAS and one map pointer publication: no GL/callback between.
+    this._log.prependHistorical(tx.staged.entries,tx.revision,()=>{this._assertCanonicalEmptyCurrent(tx);return undefined})
+    this._layers=tx.candidate
+    tx.committed=true;tx.finished=true;this._canonicalEmptyTransaction=undefined
+    for(const [id,job]of this._rebuildJobs)if(job.canonical?.transaction===tx)this._rebuildJobs.delete(id)
+    const attempt=(fn:()=>void)=>{try{fn()}catch(error){tx.failures.push(error)}}
+    attempt(()=>this._invalidateSplitCache())
+    for(const [,buffer] of tx.oldEntries)attempt(()=>buffer.destroy())
+    for(const id of IMPLICIT_LAYER_IDS)attempt(()=>this._snapshots.refusePublishing(id))
+    attempt(()=>this._displayIfNotSuspended())
+    tx.resolve(Object.freeze({committed:true,cleanupFailures:Object.freeze([...tx.failures])}))
+  }
+
   private _assertRenderableOperation(op: Operation): void {
+    this._assertLegacyWriter();
     if ((op.type as string) === 'canonical_stroke' || (op.type as string) === 'canonical_stroke_close') throw new TypeError('Canonical stroke operation is not supported by this renderer')
   }
 
   absorbHistoricalOperations(pageOps: Operation[]): void {
+    this._assertLegacyWriter();
     for (const op of pageOps) this._assertRenderableOperation(op)
     for (const op of pageOps) { assertBrushRandomContext(op); if(op.type==='stroke' && op.tool==='digitalBrush') {
       const brush=digitalBrushFromPreset(op.preset)
@@ -5952,6 +6154,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _replayRestoredStructure = false
 
   async restoreHistoricalOperations(ops: Operation[], replayStructure?: boolean): Promise<void> {
+    this._assertLegacyWriter();
     for (const op of ops) this._assertRenderableOperation(op)
     const affected = new Set<string>()
     for (const op of ops) for (const id of pixelWriteLayerIds(op)) {
@@ -6307,6 +6510,7 @@ export class PencilEngine implements PencilEngineAPI {
       extraLayerIds:[...this._eraseThroughIds],dispatchNow:now}
   }
   private _onStart(e:PointerData):void {
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return;
     const now=e.dispatchTime ?? performance.now(),snapshot=this._captureAuthorStart(e,now)
     if(!snapshot)return
     const input={...e,...this._snapPoint(e.x,e.y)}
@@ -6321,6 +6525,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(timed){this._airbrushInput={...input};this._scheduleAirbrush()}
   }
   private _onMove(e:PointerData):void {
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return;
     if(this._authorInputError!==undefined)return
     const now=e.dispatchTime ?? performance.now(),session=this._authorProducer
     if(!session){this._executeAuthorMove(e);return}
@@ -6340,6 +6545,7 @@ export class PencilEngine implements PencilEngineAPI {
     })
   }
   private _onEnd(e:PointerData):void {
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return;
     if(this._authorInputError!==undefined)return
     const now=e.dispatchTime ?? performance.now(),session=this._authorProducer
     if(!session){this._executeAuthorEnd(e);return}
@@ -6821,6 +7027,7 @@ export class PencilEngine implements PencilEngineAPI {
   // layer's real buffer, never appended to `_strokeDabs`, so predictions can
   // never reach the recorded Operation or onLocalOperation/broadcast.
   private _onPredict(samples: PointerData[]): void {
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return;
     if(this._authorInput.pending)return
     if (this._wcAsyncLocalStroke) return
     if (!this._strokeLayerId || !this._previewBuf) return
@@ -7499,11 +7706,13 @@ export class PencilEngine implements PencilEngineAPI {
     layerId: string, geometry: ShapeGeometry, frame: ShapeFrame,
     stroke: ShapeStroke | null, fill: ShapeFill | null,
   ): void {
+    this._assertLegacyWriter();
     this._shapes.preview(layerId, geometry, frame, stroke, fill)
   }
 
   /** See PencilEngineAPI's doc comment. */
   previewLayerFilter(layerId: string, filter: LayerFilter | null): void {
+    this._assertLegacyWriter();
     this._filters.preview(layerId, filter)
   }
 
@@ -8210,6 +8419,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  the tiles keep the result as their settled deposit. Synchronous: this
    *  is a dev probe run by the rig after a replay, not a frame's work. */
   watercolorDryWash(): number {
+    this._assertLegacyWriter();
     if (this._settle) this._completeSettle()
     const scratches = new Set<RibbonStrokeScratch>()
     if (this._wash) scratches.add(this._wash.scratch)
@@ -8224,11 +8434,13 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setUnpaintedInBatch(ids: ReadonlySet<string> | null): void {
+    this._assertLegacyWriter();
     this._unpaintedInBatch = ids && ids.size ? ids : null
     if (!ids) this._skippedInBatch.clear()
   }
 
   watercolorDryAll(): void {
+    this._assertLegacyWriter();
     if (this._wcAsyncFinish && this._wcCanonical.pending) for (const scratch of this._wcAsyncOwners.keys()) this._wcAsyncDryTo.set(scratch, scratch.gesture)
     if (this._wcExpeditedDry && this._wcAsyncFinish && this._settle) {
       const scratch = this._settle.scratch
@@ -9772,11 +9984,13 @@ export class PencilEngine implements PencilEngineAPI {
     rect: { x: number; y: number; width: number; height: number },
     wireMatrix: LayerTransformMatrix,
   ): void {
+    this._assertLegacyWriter();
     this._area.previewAreaPaste(layerId, image, rect, wireMatrix)
   }
 
   /** See PencilEngineAPI's doc comment. */
   previewAreaTransform(layerId: string, selection: SelectionShape, matrix: LayerTransformMatrix): void {
+    this._assertLegacyWriter();
     this._area.previewAreaTransform(layerId, selection, matrix)
   }
 
