@@ -62,3 +62,32 @@ it('rejects a retained-target fanout overflow before allocating a missing tile',
  expect(()=>s.layer.withPaintTargets({minX:256,minY:0,maxX:260,maxY:4},()=>{})).toThrow('capacity')
  expect(upload).not.toHaveBeenCalled();release();s.layer.destroy()
 })
+
+it('reserves a sparse union once without allocating the distant gap or charging overlapping footprints twice',()=>{
+ const s=setup(128),far={minX:4000000,minY:0,maxX:4000004,maxY:4}
+ s.layer.withPaintTargetRects([box,box,far],targets=>{expect(targets.map(t=>t.originX)).toEqual([0,4000000]);expect(snapshotContextStorage(s.gl)).toMatchObject({residentBytes:128,reservedBytes:0});expect(()=>s.layer.clear()).toThrow('retained')})
+ expect(s.layer.tileCount).toBe(2);s.layer.destroy();expect(snapshotContextStorage(s.gl).residentBytes).toBe(0)
+})
+it('rejects a sparse union above the shared target bound before allocation, including individually small footprints',()=>{
+ const s=setup(Infinity),upload=vi.spyOn(s.mock,'texImage2D');upload.mockClear()
+ const bounds=Array.from({length:33},(_,i)=>({minX:i*16,minY:0,maxX:i*16+8,maxY:4}))
+ expect(()=>s.layer.withPaintTargetRects(bounds,()=>{})).toThrow('fanout')
+ expect(upload).not.toHaveBeenCalled();expect(s.layer.tileCount).toBe(0)
+ s.layer.destroy()
+})
+it('protects early newly allocated sparse targets from eviction while later targets resolve in the same borrow',()=>{
+ const s=setup(576),layer=new TiledLayerBuffer(s.gl,4,4,()=>({readPixels:()=>null,destroy:()=>{}}),512)
+ const bounds=Array.from({length:9},(_,i)=>({minX:i*4,minY:0,maxX:i*4+1,maxY:1}))
+ layer.withPaintTargetRects(bounds,targets=>{expect(targets).toHaveLength(9);expect(layer.evictedTileCount).toBe(0);for(const target of targets)expect(target.buffer.storageOwnerCurrent).toBe(true)})
+ layer.destroy();s.layer.destroy();expect(snapshotContextStorage(s.gl).residentBytes).toBe(0)
+})
+
+it('recovers a sparse requested prefix in one shared rebuild session before any eviction of its results',()=>{
+ const s=setup(640),session={readPixels:vi.fn(()=>new Uint8Array(64).fill(9)),destroy:vi.fn()},rebuild=vi.fn(()=>session)
+ const layer=new TiledLayerBuffer(s.gl,4,4,rebuild,512)
+ for(let x=0;x<10;x++)layer.resolveForPaint({minX:x*4,minY:0,maxX:x*4+1,maxY:1})
+ expect(layer.evictedTileCount).toBe(2)
+ layer.withPaintTargetRects([box,{minX:4,minY:0,maxX:8,maxY:4}],targets=>{expect(targets).toHaveLength(2);expect(targets.every(t=>t.buffer.storageOwnerCurrent)).toBe(true)})
+ expect(rebuild).toHaveBeenCalledOnce();expect(session.readPixels).toHaveBeenCalledTimes(2);expect(session.destroy).toHaveBeenCalledOnce()
+ layer.destroy();s.layer.destroy();expect(snapshotContextStorage(s.gl).residentBytes).toBe(0)
+})

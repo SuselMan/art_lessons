@@ -625,38 +625,62 @@ export class TiledLayerBuffer implements ILayerBuffer {
    * missing direct tile bytes before recovery/allocation; no scope crosses await.
    * Rebuild/coarse helper allocations retain their existing independent charges. */
   withPaintTargets<T>(worldRect: Readonly<WorldRect>, draw: (targets: readonly PaintTarget[]) => T): T {
-    if (!worldRect || ![worldRect.minX,worldRect.minY,worldRect.maxX,worldRect.maxY].every(Number.isSafeInteger)
-      || worldRect.maxX < worldRect.minX || worldRect.maxY < worldRect.minY
+    return this.withPaintTargetRects([worldRect], draw)
+  }
+
+  /** Sparse bounded target union; distant footprints never allocate the gap. */
+  withPaintTargetRects<T>(worldRects: readonly Readonly<WorldRect>[], draw: (targets: readonly PaintTarget[]) => T): T {
+    if (!Array.isArray(worldRects) || worldRects.length > 64 || typeof draw !== 'function'
       || !Number.isSafeInteger(this.tileW) || !Number.isSafeInteger(this.tileH)
-      || this.tileW < 1 || this.tileH < 1 || this.tileW > 4096 || this.tileH > 4096 || typeof draw !== 'function') throw new RangeError('Invalid admitted layer target geometry')
-    const bounds = {minX:worldRect.minX,minY:worldRect.minY,maxX:worldRect.maxX,maxY:worldRect.maxY}
-    if (bounds.maxX > bounds.minX && bounds.maxY > bounds.minY) {
+      || this.tileW < 1 || this.tileH < 1 || this.tileW > 4096 || this.tileH > 4096) throw new RangeError('Invalid admitted layer target geometry')
+    const union = new Map<string, {tileX:number;tileY:number}>()
+    for (const input of worldRects) {
+      if (!input || ![input.minX,input.minY,input.maxX,input.maxY].every(Number.isSafeInteger)
+        || input.maxX < input.minX || input.maxY < input.minY) throw new RangeError('Invalid admitted layer target geometry')
+      const bounds = {minX:input.minX,minY:input.minY,maxX:input.maxX,maxY:input.maxY}
+      if (bounds.maxX <= bounds.minX || bounds.maxY <= bounds.minY) continue
       const left=Math.floor(bounds.minX/this.tileW),right=Math.ceil(bounds.maxX/this.tileW)
       const top=Math.floor(bounds.minY/this.tileH),bottom=Math.ceil(bounds.maxY/this.tileH)
       const columns=right-left,rows=bottom-top
-      if (!Number.isSafeInteger(columns) || !Number.isSafeInteger(rows) || columns>64 || rows>Math.floor(64/columns)
+      if (!Number.isSafeInteger(columns) || !Number.isSafeInteger(rows) || columns<1 || rows<1 || columns>64 || rows>Math.floor(64/columns)
         || ![left*this.tileW,right*this.tileW,top*this.tileH,bottom*this.tileH].every(Number.isSafeInteger)) throw new RangeError('Admitted layer target fanout exceeds bounds')
+      for (const coord of tilesOverlappingRect(bounds,this.tileW,this.tileH)) {
+        union.set(tileKey(coord.tileX,coord.tileY),coord)
+        if(union.size>64)throw new RangeError('Admitted layer target fanout exceeds bounds')
+      }
     }
-    const coords=tilesOverlappingRect(bounds,this.tileW,this.tileH),resident:PaintTarget[]=[]
-    if(this.retainedTargets.size+coords.filter(({tileX,tileY})=>!this.retainedTargets.has(tileKey(tileX,tileY))).length>64)throw new RangeError('Retained layer target capacity exceeded')
+    if(this.retainedTargets.size+[...union.keys()].filter(key=>!this.retainedTargets.has(key)).length>64)throw new RangeError('Retained layer target capacity exceeded')
+    const resident:PaintTarget[]=[]
     let missing=0
-    for(const {tileX,tileY} of coords){
-      const buffer=this.tiles.get(tileKey(tileX,tileY))
+    for(const [key,{tileX,tileY}] of union){
+      const buffer=this.tiles.get(key)
       if(buffer){
         if(!buffer.storageOwnerCurrent)throw new Error('Stale admitted layer storage owner')
-        resident.push({buffer,originX:tileX*this.tileW,originY:tileY*this.tileH,contentRect:this.contentRects.get(tileKey(tileX,tileY))??null})
+        resident.push({buffer,originX:tileX*this.tileW,originY:tileY*this.tileH,contentRect:this.contentRects.get(key)??null})
       } else missing+=this.tileW*this.tileH*4
     }
     const releaseResident=this.retainTargets(resident)
-    let ticket:StorageReservation|undefined,releaseTargets:(()=>void)|undefined,result!:T
+    let ticket:StorageReservation|undefined,result!:T
+    const targetReleases:Array<()=>void>=[]
     let failed=false,firstError:unknown
     try {
       ticket=reserveAccumStorage(this.gl,missing)
-      const targets=this.resolvePaint(bounds,ticket)
-      releaseTargets=this.retainTargets(targets)
+      // Recover the entire requested evicted set in ONE historical rebuild,
+      // then protect it before per-coordinate resolution can trim unrelated tiles.
+      const recovering=[...union.keys()].filter(key=>!this.tiles.has(key)&&this.evicted.has(key))
+      this.recoverTiles(recovering,ticket)
+      const recovered:PaintTarget[]=[]
+      for(const key of recovering){const buffer=this.tiles.get(key);if(buffer){const {tileX,tileY}=union.get(key)!;recovered.push({buffer,originX:tileX*this.tileW,originY:tileY*this.tileH,contentRect:this.contentRects.get(key)??null})}}
+      if(recovered.length)targetReleases.push(this.retainTargets(recovered))
+      const targets:PaintTarget[]=[]
+      for(const {tileX,tileY} of union.values()){
+        const resolved=this.resolvePaint(tileWorldRect(tileX,tileY,this.tileW,this.tileH),ticket)
+        targetReleases.push(this.retainTargets(resolved))
+        targets.push(...resolved)
+      }
       result=draw(targets)
     } catch(error){failed=true;firstError=error}
-    for(const cleanup of [releaseTargets,releaseResident,ticket?()=>releaseAccumReservation(ticket!):undefined])if(cleanup){
+    for(const cleanup of [...targetReleases.reverse(),releaseResident,ticket?()=>releaseAccumReservation(ticket!):undefined])if(cleanup){
       try{cleanup()}catch(error){if(!failed){failed=true;firstError=error}}
     }
     if(failed)throw firstError
