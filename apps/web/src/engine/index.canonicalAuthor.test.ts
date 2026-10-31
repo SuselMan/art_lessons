@@ -249,3 +249,50 @@ it('defers repair until active FIFO next unwinds after accepted executor metadat
   expect(engine['_canonicalLayerOwner']).toBeUndefined();expect(engine['_log'].entries).toHaveLength(0)
  }finally{engine['_assertCanonicalLayerCurrent']=original;engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)}
 })
+
+it('keeps an already presented open local wash unchanged on matching original confirmations, then displays the stable END handoff',async()=>{
+ const h=await harness(async request=>verdict(request)),{engine,operations}=h
+ try{
+  await engine.prepareBrush(preset);engine['_onStart'](packet(1,100));engine['_onMove'](packet(5,110))
+  await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false),{timeout:5000})
+  await vi.waitFor(()=>expect(engine['_rebuildJobs'].size).toBe(0),{timeout:5000})
+  const owner=engine['_canonicalLayerOwner']!,coordinator=owner.coordinator!
+  expect(operations.length).toBeGreaterThan(0);expect(coordinator.publishedPresentationReady).toBe(true)
+  const revision=coordinator.completedPresentationRevision,display=vi.fn(engine['_displayIfNotSuspended'].bind(engine)),invalidate=vi.fn(engine['_invalidateSplitCache'].bind(engine))
+  engine['_displayIfNotSuspended']=display;engine['_invalidateSplitCache']=invalidate
+  const count=operations.length
+  for(let i=0;i<count;i++)engine.appendOriginalRecorded(confirmed(h,operations[i],i+1))
+  await vi.waitFor(()=>expect(engine['_rebuildJobs'].size).toBe(0),{timeout:5000})
+  expect(owner.coordinator).toBe(coordinator);expect(coordinator.completedPresentationRevision).toBe(revision)
+  expect(display).not.toHaveBeenCalled();expect(invalidate).not.toHaveBeenCalled()
+  expect(engine['_log'].entries).toHaveLength(count)
+  engine['_onEnd'](packet(5,120))
+  await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false),{timeout:5000})
+  for(let i=count;i<operations.length;i++)engine.appendOriginalRecorded(confirmed(h,operations[i],i+1))
+  await vi.waitFor(()=>expect(owner.coordinator).toBeUndefined(),{timeout:5000})
+  expect(display).toHaveBeenCalled();expect(invalidate).toHaveBeenCalled();expect(engine['_canonicalExportReady']()).toBe(true)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('still displays when original order reverses two actually prepared local washes',async()=>{
+ const h=await harness(async request=>verdict(request)),{engine,operations}=h
+ try{
+  await engine.prepareBrush(preset)
+  for(let n=0;n<2;n++){
+   engine['_onStart'](packet(1+n,100+n*100));engine['_onMove'](packet(5+n,110+n*100));engine['_onEnd'](packet(5+n,120+n*100))
+   await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false),{timeout:5000})
+   await vi.waitFor(()=>expect(engine['_rebuildJobs'].size).toBe(0),{timeout:5000})
+  }
+  const owner=engine['_canonicalLayerOwner']!,coordinator=owner.coordinator!,revision=coordinator.completedPresentationRevision
+  const ids=[...new Set(operations.filter(op=>op.type==='canonical_stroke').map(op=>op.frame.strokeId))]
+  expect(ids).toHaveLength(2)
+  const first=operations.filter(op=>op.type==='canonical_stroke'&&op.frame.strokeId===ids[0]),second=operations.filter(op=>op.type==='canonical_stroke'&&op.frame.strokeId===ids[1])
+  const display=vi.fn(engine['_displayIfNotSuspended'].bind(engine));engine['_displayIfNotSuspended']=display
+  for(let i=0;i<second.length;i++)engine.appendOriginalRecorded(confirmed(h,second[i],i+1))
+  await vi.waitFor(()=>expect(engine['_rebuildJobs'].size).toBe(0),{timeout:5000})
+  expect(owner.coordinator).toBe(coordinator);expect(coordinator.completedPresentationRevision).toBeGreaterThan(revision);expect(display).toHaveBeenCalled()
+  for(let i=0;i<first.length;i++)engine.appendOriginalRecorded(confirmed(h,first[i],second.length+i+1))
+  await vi.waitFor(()=>expect(owner.coordinator).toBeUndefined(),{timeout:5000})
+  expect(engine['_canonicalExportReady']()).toBe(true)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})

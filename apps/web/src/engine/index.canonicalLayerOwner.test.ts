@@ -209,8 +209,10 @@ it('publishes an actual original partial seal through the existing journal and r
   engine.appendOriginalRecorded(recorded(p,1,'first',false))
   await vi.waitFor(()=>expect(engine['_rebuildJobs'].size).toBe(0))
   const owner=engine['_canonicalLayerOwner']!,stable=owner.stable,prepass=owner.prepass,seal=recordedSeal(p),program=vi.spyOn(engine['gl'],'createProgram')
+  const display=vi.fn(engine['_displayIfNotSuspended'].bind(engine));engine['_displayIfNotSuspended']=display
   engine.appendOriginalRecorded(seal)
   await vi.waitFor(()=>expect(owner.coordinator).toBeUndefined())
+  expect(display).toHaveBeenCalled()
   expect(owner.stable).toBe(stable);expect(owner.prepass).toBe(prepass);expect(program).not.toHaveBeenCalled()
   expect(engine['_log'].entries.map(e=>e.op.type)).toEqual(['canonical_stroke','canonical_stroke_close'])
   expect(engine['_log'].entries[1].canonicalInput).toBe(seal);expect(engine['_log'].entries[1].canonicalRead).toBeUndefined()
@@ -303,5 +305,18 @@ it('rechecks the same owner after intermediate display reenters context loss and
   expect(displayed).toBe(true);const calls=schedule.mock.calls.length
   expect(engine['_canonicalLayerOwner']).toBeUndefined();expect(engine['_rebuildJobs'].size).toBe(0);expect(engine['_canonicalPixelsReady']).toBe(false);expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_log'].entries).toHaveLength(2)
   await Promise.resolve();expect(schedule).toHaveBeenCalledTimes(calls)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('does not display an idle original control-only frame without a published presentation',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.paperReady();await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  await new Promise<void>(done=>requestAnimationFrame(()=>done()))
+  const display=vi.fn(engine['_displayIfNotSuspended'].bind(engine));engine['_displayIfNotSuspended']=display
+  engine.appendOriginalRecorded(recorded(p,1,'control',false,0,8,0,0,0,true))
+  await vi.waitFor(()=>expect(engine['_rebuildJobs'].size).toBe(0))
+  expect(engine['_canonicalLayerOwner']!.coordinator!.publishedPresentationReady).toBe(false)
+  expect(display).not.toHaveBeenCalled();expect(engine['_log'].entries).toHaveLength(1)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })

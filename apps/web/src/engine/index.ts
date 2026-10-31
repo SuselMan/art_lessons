@@ -6407,9 +6407,14 @@ export class PencilEngine implements PencilEngineAPI {
       owner.coordinator!.advance();this._assertCanonicalLayerCurrent(owner)
       if(owner.coordinator!.awaitingRecordedOrder){owner.orderParked=true;return}
       if(!owner.coordinator!.pending&&owner.coordinator!.presentationReady){
-        if(owner.coordinator!.checkpointReady){const errors=this._retireCanonicalLayerCycle(owner,false);if(errors.length)throw errors[0]}
+        const coordinator=owner.coordinator!,retired=coordinator.checkpointReady
+        const changed=coordinator.publishedPresentationReady&&owner.lastDisplayedPresentationRevision!==coordinator.completedPresentationRevision
+        if(retired){const errors=this._retireCanonicalLayerCycle(owner,false);if(errors.length)throw errors[0]}
         this._rebuildJobs.delete(job.layerId);owner.job=undefined
-        this._invalidateSplitCache();this._displayIfNotSuspended();this._authorTasks.resetIfIdle();return
+        // Matching confirmations can drain without changing the published raw
+        // wash. Retirement still switches the display from derived to stable.
+        if(changed||retired){owner.lastDisplayedPresentationRevision=coordinator.completedPresentationRevision;this._invalidateSplitCache();this._displayIfNotSuspended()}
+        this._authorTasks.resetIfIdle();return
       }
       const coordinator=owner.coordinator!
       if(coordinator.publishedPresentationReady&&owner.lastDisplayedPresentationRevision!==coordinator.completedPresentationRevision){

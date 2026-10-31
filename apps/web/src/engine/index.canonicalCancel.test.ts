@@ -118,7 +118,7 @@ it('poisons the layer if the close handoff callback throws after normal cancella
  }finally{engine.destroy()}
 })
 
-it('finishes the same executor cold target admission before original confirmation invalidates presentation',async()=>{
+it('finishes the same executor cold target admission after matching confirmations and a partial seal',async()=>{
  const h=await harness(async r=>verdict(r)),{engine,operations}=h,repair=vi.fn(),step=engine['_stepCanonicalLayer']
  let clock=0,hold=false,cold=true
  const now=vi.spyOn(performance,'now').mockImplementation(()=>clock)
@@ -142,7 +142,7 @@ it('finishes the same executor cold target admission before original confirmatio
   for(let i=0;i<frames.length;i++)engine.appendOriginalRecorded(confirmed(h,frames[i],i+1))
   const input=attachCanonicalRecordedDelivery({operation:parseCanonicalStrokeCloseOperation({...close,seq:frames.length+1})},h.p.canonicalRead.scope)
   if(!('delivery'in input))throw Error('Missing delivery')
-  engine.appendOriginalRecorded(input);expect(owner.coordinator!['dirty'].size).toBeGreaterThan(0)
+  engine.appendOriginalRecorded(input);expect(owner.coordinator!['dirty'].size).toBe(0)
   hold=false
   await vi.waitFor(()=>expect(owner.coordinator).toBeUndefined(),{timeout:5000})
   expect(repair).not.toHaveBeenCalled();expect(engine['_canonicalPixelsReady']).toBe(true)
