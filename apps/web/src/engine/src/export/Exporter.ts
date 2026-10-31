@@ -182,13 +182,12 @@ export class Exporter {
     const { gl } = this
     const { width: w, height: h } = buffer
 
-    const out = new AccumulationBuffer(gl, w, h)
-    if (transparent) this.renderTransparentInto(buffer.texture, out.fbo, w, h)
-    else this.ctx.composePaper(buffer.texture, out.fbo, w, h, bounds)
-
-    const pixels = out.readPixels()
-    buffer.destroy()
-    out.destroy()
+    const pixels = this.withBuffers([buffer], (own) => {
+      const out = own(new AccumulationBuffer(gl, w, h))
+      if (transparent) this.renderTransparentInto(buffer.texture, out.fbo, w, h)
+      else this.ctx.composePaper(buffer.texture, out.fbo, w, h, bounds)
+      return out.readPixels()
+    })
 
     return this.ctx.encode(pixels, w, h)
   }
@@ -200,15 +199,11 @@ export class Exporter {
     const composite = this.buildContentComposite(rect)
     if (!composite) return null
     const { bounds, buffer } = composite
-    const out = new AccumulationBuffer(this.gl, buffer.width, buffer.height)
-    let pixels: Uint8Array
-    try {
+    const pixels = this.withBuffers([buffer], (own) => {
+      const out = own(new AccumulationBuffer(this.gl, buffer.width, buffer.height))
       this.ctx.composePaper(buffer.texture, out.fbo, buffer.width, buffer.height, bounds)
-      pixels = out.readPixels()
-    } finally {
-      buffer.destroy()
-      out.destroy()
-    }
+      return out.readPixels()
+    })
     const blob = await this.ctx.encode(pixels, bounds.width, bounds.height)
     return blob ? { blob, bounds } : null
   }
@@ -237,20 +232,18 @@ export class Exporter {
     const { bounds, buffer } = composite
     const { gl } = this
     const { width: w, height: h } = buffer
-    let current = new AccumulationBuffer(gl, w, h)
-    this.ctx.composePaper(buffer.texture, current.fbo, w, h, bounds)
-    buffer.destroy()
-
-    for (const step of previewDownscaleChain(w, h, Math.max(1, Math.floor(maxSide)))) {
-      const next = new AccumulationBuffer(gl, step.width, step.height)
-      this.renderDownsampleInto(current.texture, next.fbo, step.width, step.height)
-      current.destroy()
-      current = next
-    }
-
-    const pixels = current.readPixels()
-    const { width: pw, height: ph } = current
-    current.destroy()
+    const { pixels, pw, ph } = this.withBuffers([buffer], (own, release) => {
+      let current = own(new AccumulationBuffer(gl, w, h))
+      this.ctx.composePaper(buffer.texture, current.fbo, w, h, bounds)
+      release(buffer)
+      for (const step of previewDownscaleChain(w, h, Math.max(1, Math.floor(maxSide)))) {
+        const next = own(new AccumulationBuffer(gl, step.width, step.height))
+        this.renderDownsampleInto(current.texture, next.fbo, step.width, step.height)
+        release(current)
+        current = next
+      }
+      return { pixels: current.readPixels(), pw: current.width, ph: current.height }
+    })
     return this.ctx.encode(pixels, pw, ph, 'image/webp', 0.8)
   }
 
@@ -288,14 +281,39 @@ export class Exporter {
     // This returned composite is sampled texel-for-texel by the finishing
     // transparent/paper pass. Preview reduction owns separate linear buffers.
     const buffer = new AccumulationBuffer(this.gl, width, height, 'nearest')
-    buffer.clear()
-
-    const frame = exactFrame(bounds)
-    for (const { id, opacity } of this.ctx.compositeOrder()) {
-      this.ctx.drawLayer(frame, id, opacity, buffer.fbo, width, height)
+    try {
+      buffer.clear()
+      const frame = exactFrame(bounds)
+      for (const { id, opacity } of this.ctx.compositeOrder()) {
+        this.ctx.drawLayer(frame, id, opacity, buffer.fbo, width, height)
+      }
+    } catch (error) {
+      // The unpublished buffer stays here; preserve the rendering failure.
+      try { buffer.destroy() } catch { /* cleanup must not mask the primary error */ }
+      throw error
     }
 
     return { bounds, buffer }
+  }
+
+  /** Call-local ownership only: no temporary GL buffer crosses the encode await. */
+  private withBuffers<T>(initial: AccumulationBuffer[], run: (
+    own: (buffer: AccumulationBuffer) => AccumulationBuffer,
+    release: (buffer: AccumulationBuffer) => void,
+  ) => T): T {
+    const owned = new Set(initial)
+    const own = (buffer: AccumulationBuffer) => { owned.add(buffer); return buffer }
+    const release = (buffer: AccumulationBuffer) => {
+      if (owned.delete(buffer)) buffer.destroy()
+    }
+    let failed = false, primary: unknown
+    let result!: T
+    try { result = run(own, release) } catch (error) { failed = true; primary = error }
+    for (const buffer of owned) {
+      try { release(buffer) } catch (error) { if (!failed) { failed = true; primary = error } }
+    }
+    if (failed) throw primary
+    return result
   }
 
   private sheetRect(): ExportRect {
