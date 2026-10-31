@@ -5199,7 +5199,14 @@ export class PencilEngine implements PencilEngineAPI {
   private _makeTileRebuilder(layerId: string): TileRebuilder {
     return (): TileRebuildSession => {
       const scratch = this._makeLayerBuffer()
-      this._replayInto(scratch, layerId, this._log.layerPixelOps(layerId))
+      try {
+        this._replayInto(scratch, layerId, this._log.layerPixelOps(layerId))
+      } catch (error) {
+        // No session owner has been published yet. Retire its scratch even
+        // when replay/log preparation fails, preserving the primary failure.
+        try { scratch.destroy() } catch { /* replay failure remains primary */ }
+        throw error
+      }
       return {
         readPixels: rect => {
           const found = scratch.resolveVisible(rect)[0]
