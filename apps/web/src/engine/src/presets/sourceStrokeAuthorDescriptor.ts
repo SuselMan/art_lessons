@@ -12,7 +12,7 @@ export interface SourceAuthorDescriptorContext {
   readonly lodScale: number
   /** Native effective brush scale captured at pen-down, if user changed size. */
   readonly scale?: number
-  readonly coverageProfile?: 'scalar-f64-fma-v1' | 'scalar-bionic-f64-fma-v1' | 'neon64-f32-fma-v1'
+  readonly coverageProfile?: 'scalar-f64-fma-v1' | 'scalar-bionic-f64-fma-v1' | 'neon64-f32-fma-v1' | 'browser-number-coverage-v1'
   readonly asset?: { readonly id: string; readonly size: number }
   readonly assets?: readonly {readonly id:string;readonly size:number}[]
   /** Explicit compiler capability; absence rejects nonidentity curves.
@@ -31,7 +31,7 @@ export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, contex
   const material = soft ? extractSoftAutoSourceDataCapability(descriptor) : gaussian ? extractGaussianAutoSourceDataCapability(descriptor) : auto ? extractDefaultAutoSourceDataCapability(descriptor)
     : pipe && context.assets ? (descriptor.tip.animation!.mode==='random'?extractCanonicalRandomImagePipeCapability(descriptor,context.assets):extractCanonicalIncrementalImagePipeCapability(descriptor,context.assets)) : context.asset ? extractCanonicalSinglePngCapability(descriptor, context.asset) : reject('image-source-asset-required')
   if (!material.supported) return material
-  if(auto && !(gaussian?['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1']:['scalar-f64-fma-v1','neon64-f32-fma-v1']).includes(context.coverageProfile??''))return reject('explicit-auto-coverage-profile-required')
+  if(auto && !(gaussian?['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1','browser-number-coverage-v1']:['scalar-f64-fma-v1','neon64-f32-fma-v1','browser-number-coverage-v1']).includes(context.coverageProfile??''))return reject('explicit-auto-coverage-profile-required')
   if (!Number.isFinite(context.lodScale) || context.lodScale <= 0 || typeof context.colorIdentity !== 'string' || !context.colorIdentity.length
     || context.scale !== undefined && (!Number.isFinite(context.scale) || context.scale <= 0)) return reject('invalid-author-context')
   let spacingRefreshMs=50,timingRefreshMs=50
@@ -65,7 +65,7 @@ export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, contex
     const fan=rotation.checked && rotation.useCurve ? rotation.sensors.find(s=>s.id==='drawingAngle' && s.fanCorners) : undefined
     const brush={...data.brush,scale:context.scale ?? data.brush.scale}
     const role:SourceAuthorRoleProgram={id:'primary',...(pipe?{imagePipe:{mode:descriptor.tip.animation!.mode,frames:descriptor.tip.animation!.frames}}:{}),options:programs as unknown as SourceAuthorRoleProgram['options'],brush,
-      ...(data.version===2 && data.source.kind==='softAuto'?{geometry:{kind:'softAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-f64-fma-v1'|'neon64-f32-fma-v1'}}:data.version===2 && data.source.kind==='gaussianAuto'?{geometry:{kind:'gaussianAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-bionic-f64-fma-v1'|'neon64-f32-fma-v1'}}:data.version===2 && data.source.kind==='defaultAuto'?{geometry:{kind:'defaultAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-f64-fma-v1'|'neon64-f32-fma-v1'}}:data.version===2?{geometry:{kind:'image' as const}}:{}),
+      ...(data.version===2 && data.source.kind==='softAuto'?{geometry:{kind:'softAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-f64-fma-v1'|'neon64-f32-fma-v1'|'browser-number-coverage-v1'}}:data.version===2 && data.source.kind==='gaussianAuto'?{geometry:{kind:'gaussianAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-bionic-f64-fma-v1'|'neon64-f32-fma-v1'|'browser-number-coverage-v1'}}:data.version===2 && data.source.kind==='defaultAuto'?{geometry:{kind:'defaultAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-f64-fma-v1'|'neon64-f32-fma-v1'|'browser-number-coverage-v1'}}:data.version===2?{geometry:{kind:'image' as const}}:{}),
       materialPolicy:soft?'soft-auto-fixed1-rng-free':gaussian?'gaussian-auto-fixed1-rng-free':auto?'default-auto-fixed1-rng-free':'png-fixed1-rng-free',lodScale:context.lodScale,
       scatterX:data.flags.scatterX,scatterY:data.flags.scatterY,mirrorX:data.flags.mirrorX,mirrorY:data.flags.mirrorY,indirectPainting:data.flags.indirectPainting,
       spacing:data.spacing,timing:data.timing,fanStepDegrees:fan?.fanStep,spacingRefreshMs,timingRefreshMs,

@@ -1,5 +1,5 @@
 import { sourceFmaF64 } from './sourceFmaF64'
-import { sourceGaussianBionicErf } from './sourceGaussianBionicErf'
+import { sourceGaussianBionicErf, sourceGaussianBrowserErf } from './sourceGaussianBionicErf'
 import type { SourceGaussianResolvedCoefficients } from './sourceGaussianResolvedMaskReference'
 
 /** Isolated installed ARM64 coefficient law; no descriptor or renderer admission. */
@@ -11,11 +11,14 @@ export interface SourceGaussianCoefficientInput {
   scaleX: number
   scaleY: number
 }
-export function sourceGaussianCoefficients(input: SourceGaussianCoefficientInput): {
+export function sourceGaussianCoefficients(input: SourceGaussianCoefficientInput, arithmetic:'native'|'browser-number'='native'): {
   coefficients: SourceGaussianResolvedCoefficients
   effectiveWidth: number
   effectiveHeight: number
 } {
+  if(arithmetic!=='native'&&arithmetic!=='browser-number')throw new RangeError('Unknown Gaussian coefficient arithmetic')
+  const mulAdd=arithmetic==='browser-number'?(a:number,b:number,c:number)=>a*b+c:sourceFmaF64
+  const erf=arithmetic==='browser-number'?sourceGaussianBrowserErf:sourceGaussianBionicErf
   const { diameter, ratio, horizontalFade: fh, verticalFade: fv, scaleX, scaleY } = input
   if (![diameter, ratio, fh, fv, scaleX, scaleY].every(Number.isFinite)
     || diameter <= 0 || ratio <= 0 || ratio > 1 || scaleX <= 0 || scaleY <= 0
@@ -23,8 +26,8 @@ export function sourceGaussianCoefficients(input: SourceGaussianCoefficientInput
   let fade = 1 - (fh + fv) / 2
   if (fade === 0) fade = 1e-6
   else if (fade === 1) fade = 1 - 1e-6
-  const center = (sourceFmaF64(fade, 6761, -10000) * 2.5) / (fade * (Math.SQRT2 * 6761))
-  const alphafactor = 255 / (2 * sourceGaussianBionicErf(center))
+  const center = (mulAdd(fade, 6761, -10000) * 2.5) / (fade * (Math.SQRT2 * 6761))
+  const alphafactor = 255 / (2 * erf(center))
   const effectiveWidth = diameter * scaleX
   const effectiveHeight = (diameter * ratio) * scaleY
   const ycoef = scaleX / (scaleY * ratio)
@@ -32,7 +35,7 @@ export function sourceGaussianCoefficients(input: SourceGaussianCoefficientInput
   const radius = .5 * effectiveWidth
   const fadeStart = Math.max(0, radius - 1)
   const dist = fadeStart * distfactor
-  const raw = alphafactor * (sourceGaussianBionicErf(dist + center) - sourceGaussianBionicErf(dist - center))
+  const raw = alphafactor * (erf(dist + center) - erf(dist - center))
   const fadeStartValue = 255 - (Math.trunc(raw) & 255)
   const fadeCoeff = Math.max(0, 255 - fadeStartValue) / (radius - fadeStart)
   const coefficients = { ycoef, center, distfactor, alphafactor, radius, fadeStartValue, fadeStart, fadeCoeff }

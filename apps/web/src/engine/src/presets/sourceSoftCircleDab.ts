@@ -76,7 +76,7 @@ export interface SourceSoftCircleDabRequest {
   readonly program: SourceSoftCircleProgram
   readonly storedScale: number; readonly storedAngle: number; readonly shape: SourceAutoGeometryShape
   readonly subpixelX: number; readonly subpixelY: number
-  readonly coverageProfile: 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1'
+  readonly coverageProfile: 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1' | 'browser-number-coverage-v1'
   readonly maxPixels: number; readonly maxWorkSamples: number
 }
 const f = Math.fround
@@ -85,7 +85,7 @@ const f = Math.fround
 export function prepareSourceSoftCircleDab(request: SourceSoftCircleDabRequest) {
   const { program, shape } = request
   if (request.dialect !== 'krita-soft-circle-qt5-arm64-v1' || !ownedPrograms.has(program)
-    || !['scalar-f64-fma-v1', 'neon64-f32-fma-v1'].includes(request.coverageProfile)
+    || !['scalar-f64-fma-v1', 'neon64-f32-fma-v1', 'browser-number-coverage-v1'].includes(request.coverageProfile)
     || ![request.storedScale, request.storedAngle, shape.scale, shape.ratio, shape.rotation, request.subpixelX, request.subpixelY].every(Number.isFinite)
     || request.storedScale < 0 || shape.scale <= 0 || shape.ratio <= 0
     || request.subpixelX < 0 || request.subpixelX >= 1 || request.subpixelY < 0 || request.subpixelY >= 1
@@ -101,6 +101,8 @@ export function prepareSourceSoftCircleDab(request: SourceSoftCircleDabRequest) 
   const generatorScale = [shape.scale, shape.scale * shape.ratio] as const
   const xcoef = 2 / (tip.diameter * generatorScale[0]), ycoef = 2 / ((tip.diameter * tip.ratio) * generatorScale[1])
   const coverageAngle = shape.rotation + request.storedAngle, cos = Math.cos(coverageAngle), sin = Math.sin(coverageAngle)
+  const browser=request.coverageProfile==='browser-number-coverage-v1'
+  const mulAdd=browser?(a:number,b:number,c:number)=>a*b+c:fma64
   const vector = request.coverageProfile === 'neon64-f32-fma-v1'
   const bound = (Math.abs(center[0]) + width + Math.abs(center[1]) + height + 1) * Math.max(xcoef, ycoef)
   if (![xcoef, ycoef, cos, sin, bound].every(Number.isFinite) || xcoef <= 0 || ycoef <= 0
@@ -113,12 +115,12 @@ export function prepareSourceSoftCircleDab(request: SourceSoftCircleDabRequest) 
       let alpha: number
       if (!vector) {
         const px = x - centerX, py = y - centerY
-        const rx = fma64(cos, px, -(sin * py)) * xcoef, ry = fma64(sin, px, cos * py) * ycoef
-        const distance = fma64(rx, rx, ry * ry)
+        const rx = mulAdd(cos, px, -(sin * py)) * xcoef, ry = mulAdd(sin, px, cos * py) * ycoef
+        const distance = mulAdd(rx, rx, ry * ry)
         if (distance > 1) alpha = 0
         else {
           const scaled = distance * resolution, index = Math.trunc(scaled), fraction = scaled - index
-          const full = fma64(fraction, table[index + 1], (1 - fraction) * table[index])
+          const full = mulAdd(fraction, table[index + 1], (1 - fraction) * table[index])
           alpha = (255 - Math.trunc((1 - full) * 255)) & 255
         }
       } else {
@@ -137,7 +139,7 @@ export function prepareSourceSoftCircleDab(request: SourceSoftCircleDabRequest) 
       yield alpha
     }
   }
-  const evaluator = sourceCoverageEvaluator({ pixels, route: vector ? 'neon64-vector' : 'scalar', samplesPerPixel: 1, stream: evaluate() })
+  const evaluator = sourceCoverageEvaluator({ pixels, route: browser ? 'browser-number' : vector ? 'neon64-vector' : 'scalar', samplesPerPixel: 1, stream: evaluate() })
   return { dialect: request.dialect, geometry, center, generatorScale, coverageAngle, evaluator }
 }
 

@@ -6,13 +6,13 @@ import { sourcePngCharacteristicSize, sourcePngHotSpot, sourcePngMaskExtent, sou
 export interface SourceDabBrushMetrics { readonly width: number; readonly height: number; readonly scale: number; readonly angle: number }
 export type SourceDabGeometry = { readonly kind: 'image' } | {
   readonly kind: 'defaultAuto'; readonly source: SourceDefaultAutoData
-  readonly coverageProfile: 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1'
+  readonly coverageProfile: 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1' | 'browser-number-coverage-v1'
 } | {
   readonly kind: 'gaussianAuto'; readonly source: SourceGaussianAutoData
-  readonly coverageProfile: 'scalar-bionic-f64-fma-v1' | 'neon64-f32-fma-v1'
+  readonly coverageProfile: 'scalar-bionic-f64-fma-v1' | 'neon64-f32-fma-v1' | 'browser-number-coverage-v1'
 } | {
   readonly kind: 'softAuto'; readonly source: SourceSoftAutoData
-  readonly coverageProfile: 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1'
+  readonly coverageProfile: 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1' | 'browser-number-coverage-v1'
 }
 function autoGeometry(brush: SourceDabBrushMetrics, geometry: Exclude<SourceDabGeometry, {kind:'image'}>, shape: SourceDabShape, subX=0, subY=0) {
   const s=geometry.source
@@ -21,7 +21,7 @@ function autoGeometry(brush: SourceDabBrushMetrics, geometry: Exclude<SourceDabG
       : s.kind!=='softAuto' || s.generator!=='soft' || s.shape!=='circle' || s.ratio>1 || s.antialias!==false || !isSourceStampCurveData(s.softnessCurve))
     || s.spikes!==2 || s.randomness!==0 || s.density!==1 || typeof s.antialias!=='boolean'
     || ![s.horizontalFade,s.verticalFade].every(v=>Number.isFinite(v)&&v>=0&&v<=1)
-    || !(geometry.kind!=='gaussianAuto'?['scalar-f64-fma-v1','neon64-f32-fma-v1']:['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1']).includes(geometry.coverageProfile)) throw new RangeError('Unsupported source auto geometry')
+    || !(geometry.kind!=='gaussianAuto'?['scalar-f64-fma-v1','neon64-f32-fma-v1','browser-number-coverage-v1']:['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1','browser-number-coverage-v1']).includes(geometry.coverageProfile)) throw new RangeError('Unsupported source auto geometry')
   const result=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:s.diameter,ratio:s.ratio,spikes:2,scale:brush.scale,angle:brush.angle},shape,subX,subY)
   if(result.brushSize[0]!==brush.width || result.brushSize[1]!==brush.height)throw new RangeError('Source auto brush metrics differ from generator')
   return result

@@ -2,7 +2,7 @@
  * geometry stripes: global x/y and vector-tail decisions remain unchanged. */
 export interface SourceCoverageEvaluator {
   readonly pixels: number
-  readonly route: 'scalar' | 'neon64-vector'
+  readonly route: 'scalar' | 'neon64-vector' | 'browser-number'
   readonly samplesPerPixel: 1 | 9 | 36
   readonly completedPixels: number
   readonly workSamples: number

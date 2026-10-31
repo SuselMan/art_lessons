@@ -74,7 +74,10 @@ function poly(value: number, coefficients: readonly number[]): number {
 }
 /** Explicit finite Bionic scalar-value candidate. Native conformance is
  * required before this can be used as coefficient authority or admission. */
-export function sourceGaussianBionicErf(value: number): number {
+export function sourceGaussianBionicErf(value: number): number { return gaussianErf(value,sourceGaussianBionicExp) }
+/** Browser arithmetic uses the same erf rational polynomial with host exp. */
+export function sourceGaussianBrowserErf(value:number):number { return gaussianErf(value,Math.exp) }
+function gaussianErf(value:number,exp:(x:number)=>number):number {
   if (!Number.isFinite(value)) throw new RangeError('Gaussian erf reference requires finite input')
   const high = highWord(value), absoluteHigh = high & 0x7fffffff, negative = (high >>> 31) !== 0
   if (absoluteHigh < 0x3feb0000) {
@@ -102,6 +105,6 @@ export function sourceGaussianBionicErf(value: number): number {
     ? poly(s, [1, c.sa1, c.sa2, c.sa3, c.sa4, c.sa5, c.sa6, c.sa7, c.sa8])
     : poly(s, [1, c.sb1, c.sb2, c.sb3, c.sb4, c.sb5, c.sb6, c.sb7])
   const z = clearLowWord(x)
-  const exponential = sourceGaussianBionicExp(-z * z - .5625) * sourceGaussianBionicExp((z - x) * (z + x) + r / denominator)
+  const exponential = exp(-z * z - .5625) * exp((z - x) * (z + x) + r / denominator)
   return negative ? exponential / x - 1 : 1 - exponential / x
 }

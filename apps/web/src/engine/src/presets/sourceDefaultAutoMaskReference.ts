@@ -19,7 +19,7 @@ export interface SourceDefaultAutoMaskTip {
 }
 export interface SourceDefaultAutoMaskRequest {
   readonly tip: SourceDefaultAutoMaskTip
-  readonly profile: 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1'
+  readonly profile: 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1' | 'browser-number-coverage-v1'
   readonly scaleX: number
   readonly scaleY: number
   readonly cos: number
@@ -34,7 +34,7 @@ export interface SourceDefaultAutoMaskRequest {
 }
 export interface SourceDefaultAutoMaskResult {
   readonly mask: Uint8Array
-  readonly route: 'scalar' | 'neon64-vector'
+  readonly route: 'scalar' | 'neon64-vector' | 'browser-number'
   readonly samplesPerPixel: 1 | 9 | 36
 }
 const f = Math.fround
@@ -59,7 +59,7 @@ export function prepareSourceDefaultAutoMask(request: SourceDefaultAutoMaskReque
   const { tip, width, height } = request
   if (tip.kind !== 'auto' || tip.generator !== 'default' || !['circle', 'rect'].includes(tip.shape)
     || tip.spikes !== 2 || tip.softness !== 1 || tip.randomness !== 0 || tip.density !== 1 || typeof tip.antialias !== 'boolean'
-    || !['scalar-f64-fma-v1', 'neon64-f32-fma-v1'].includes(request.profile)
+    || !['scalar-f64-fma-v1', 'neon64-f32-fma-v1', 'browser-number-coverage-v1'].includes(request.profile)
     || ![tip.diameter, tip.ratio, tip.horizontalFade, tip.verticalFade, request.scaleX, request.scaleY,
       request.cos, request.sin, request.centerX, request.centerY].every(Number.isFinite)
     || tip.diameter <= 0 || tip.ratio <= 0 || request.scaleX <= 0 || request.scaleY <= 0
@@ -87,6 +87,8 @@ export function prepareSourceDefaultAutoMask(request: SourceDefaultAutoMaskReque
     (rxBound + 1) * xFade, (ryBound + 1) * yFade)
   if (!Number.isFinite(coefficientBound) || coefficientBound > 2 ** (vector ? 60 : 500)
     || Math.max(rxBound, ryBound) > 2 ** (vector ? 120 : 500)) throw new RangeError('Auto mask intermediates exceed finite reference profile')
+  const browser=request.profile==='browser-number-coverage-v1'
+  const mulAdd=browser?(a:number,b:number,c:number)=>a*b+c:fma64
   function scalarValue(rawX: number, rawY: number): number {
     const x = rectangle ? Math.abs(rawX) : rawX, y = Math.abs(rawY)
     const nx = x * xCoefficient, ny = y * yCoefficient
@@ -98,10 +100,10 @@ export function prepareSourceDefaultAutoMask(request: SourceDefaultAutoMaskReque
       if (vx < vy && fy > 1) value = vy
       return Math.trunc(value * 255) & 255
     }
-    const radius = fma64(nx, nx, ny * ny)
+    const radius = mulAdd(nx, nx, ny * ny)
     if (radius > 1) return 255
     const fx = (tip.antialias ? Math.abs(x) + 1 : x) * xFade, fy = (tip.antialias ? y + 1 : y) * yFade
-    const fadeRadius = fma64(fx, fx, fy * fy)
+    const fadeRadius = mulAdd(fx, fx, fy * fy)
     return fadeRadius < 1 ? 0 : Math.trunc(((255 * radius) * (fadeRadius - 1)) / (fadeRadius - radius)) & 255
   }
   function* evaluate(): Generator<number | null, void> {
@@ -109,8 +111,8 @@ export function prepareSourceDefaultAutoMask(request: SourceDefaultAutoMaskReque
     if (!vector) {
       let sum = 0
       for (let sy = 0; sy < samples; sy++) for (let sx = 0; sx < samples; sx++) {
-        const px = fma64(sx, 1 / samples, x) - request.centerX, py = fma64(sy, 1 / samples, y) - request.centerY
-        sum += scalarValue(fma64(request.cos, px, -(request.sin * py)), fma64(request.sin, px, request.cos * py))
+        const px = mulAdd(sx, 1 / samples, x) - request.centerX, py = mulAdd(sy, 1 / samples, y) - request.centerY
+        sum += scalarValue(mulAdd(request.cos, px, -(request.sin * py)), mulAdd(request.sin, px, request.cos * py))
         yield sy === samples - 1 && sx === samples - 1 ? 255 - Math.trunc(sum / samplesPerPixel) : null
       }
       continue
@@ -144,7 +146,7 @@ export function prepareSourceDefaultAutoMask(request: SourceDefaultAutoMaskReque
     yield (x < Math.floor(width / 4) * 4 ? rne(alpha) : Math.trunc(alpha)) & 255
   }
   }
-  return sourceCoverageEvaluator({ pixels, samplesPerPixel, route: vector ? 'neon64-vector' : 'scalar', stream: evaluate() })
+  return sourceCoverageEvaluator({ pixels, samplesPerPixel, route: browser ? 'browser-number' : vector ? 'neon64-vector' : 'scalar', stream: evaluate() })
 }
 
 export type SourceDefaultAutoMaskEvaluator = SourceCoverageEvaluator

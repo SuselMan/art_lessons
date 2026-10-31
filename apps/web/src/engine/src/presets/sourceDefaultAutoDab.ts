@@ -23,7 +23,7 @@ export interface SourceDefaultAutoDab {
   readonly generatorScale: readonly [number, number]
   readonly coverageAngle: number
   readonly requestedProfile: SourceDefaultAutoMaskRequest['profile']
-  readonly route: 'scalar' | 'neon64-vector'
+  readonly route: 'scalar' | 'neon64-vector' | 'browser-number'
   readonly samplesPerPixel: 1 | 9 | 36
   /** Fresh caller-owned A8 plane, row0 corresponds to native local y0.
    * Coverage only: neither ink alpha nor destination/color composition. */
@@ -36,7 +36,7 @@ export function prepareSourceDefaultAutoDab(request: SourceDefaultAutoDabRequest
   if (request.dialect !== 'krita-default-auto-qt5-arm64-v1'
     || tip.kind !== 'auto' || tip.generator !== 'default' || !['circle', 'rect'].includes(tip.shape)
     || tip.spikes !== 2 || tip.softness !== 1 || tip.randomness !== 0 || tip.density !== 1 || typeof tip.antialias !== 'boolean'
-    || !['scalar-f64-fma-v1', 'neon64-f32-fma-v1'].includes(request.coverageProfile)
+    || !['scalar-f64-fma-v1', 'neon64-f32-fma-v1', 'browser-number-coverage-v1'].includes(request.coverageProfile)
     || ![tip.diameter, tip.ratio, tip.horizontalFade, tip.verticalFade, request.storedScale, request.storedAngle,
       shape.scale, shape.ratio, shape.rotation, request.subpixelX, request.subpixelY].every(Number.isFinite)
     || tip.diameter <= 0 || tip.ratio <= 0 || request.storedScale < 0 || shape.scale <= 0 || shape.ratio <= 0

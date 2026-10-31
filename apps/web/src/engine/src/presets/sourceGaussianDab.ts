@@ -23,7 +23,7 @@ export function prepareSourceGaussianDab(request: SourceGaussianDabRequest) {
   if (request.dialect !== 'krita-gaussian-auto-qt5-arm64-v1'
     || tip.kind !== 'auto' || tip.generator !== 'gauss' || tip.shape !== 'circle'
     || tip.spikes !== 2 || tip.softness !== 1 || tip.randomness !== 0 || tip.density !== 1 || typeof tip.antialias !== 'boolean'
-    || !['scalar-bionic-f64-fma-v1', 'neon64-f32-fma-v1'].includes(request.coverageProfile)
+    || !['scalar-bionic-f64-fma-v1', 'neon64-f32-fma-v1', 'browser-number-coverage-v1'].includes(request.coverageProfile)
     || ![request.storedScale, request.storedAngle, shape.scale, shape.ratio, shape.rotation, request.subpixelX, request.subpixelY].every(Number.isFinite)
     || request.storedScale < 0 || shape.scale <= 0 || shape.ratio <= 0
     || request.subpixelX < 0 || request.subpixelX >= 1 || request.subpixelY < 0 || request.subpixelY >= 1
@@ -33,7 +33,7 @@ export function prepareSourceGaussianDab(request: SourceGaussianDabRequest) {
   const { coefficients, effectiveWidth, effectiveHeight } = sourceGaussianCoefficients({
     diameter: tip.diameter, ratio: tip.ratio, horizontalFade: tip.horizontalFade, verticalFade: tip.verticalFade,
     scaleX: generatorScale[0], scaleY: generatorScale[1],
-  })
+  },request.coverageProfile==='browser-number-coverage-v1'?'browser-number':'native')
   // The profile name is preserved: this is reuse of an existing geometric law,
   // not a claim that the Gaussian generator is a default-mask generator.
   const geometry = sourceAutoGeometry({ kind: 'auto', profile: 'default-auto-qt5-arm64-f64-v1',
