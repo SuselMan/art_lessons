@@ -165,3 +165,53 @@ marker-pointer-leaf-targeted.log and marker-pointer-leaf-lint.log.
 Leaf5 final gate:34 tests/2files PASS (1worker), targeted35424 PASS, scoped
 oxlint0/diff-check PASS. No dependencies/services/device or temporary QA resource
 created. HOLD uncommitted until ROOT paired author review/release; no activation.
+
+## O1 — original recorded resource preparation, idle growth
+
+Original resource preparation is separate from the pointer data query and server
+BEGIN. It validates the exact original delivery/read/lifetime, owner profile,
+V2 wash source, shared trusted frame decode and full-pin recipe capacities BEFORE
+capacity waiting, CPU reservations, asset readers or candidate allocation. An
+empty/control frame uses its captured source; no recipe/coverage lookahead or
+selected-author fallback. Typed closes remain source-less controls.
+
+The same finite BrushPreparation and G2 workspace/image transaction may prepare
+an initial source or grow an idle owner. D original source reserves its full
+54-square rotation envelope. Image sources retain the full ordered unique pin
+and existing required-level suffix bank; no full-chain or selected-frame-only
+warming. Original preparation changes no author selection/generation/program,
+no log/ACK/pixel publication. The synchronous original sink revalidates again.
+OPEN/unconfirmed growth fails before allocation; it never waits for END behind
+an ingress head. Fitting ready sources retain the existing capacity barrier.
+
+Tests cover cold and warm Basic6 control (five required levels), original D
+29 controls/17 physical draws on cold/idle Basic2, actual Mountains full four-asset
+44-level source, OPEN refusal, stale/abort/upload rollback and existing ordered
+resource liveness. Recording GL establishes resource ownership and submitted work,
+not actual GPU pixel equality or first-ink latency. The unchanged pre-O1 index
+fails the new source-control witnesses (three failures; already-fitting Basic6
+passes), retained in original-capacity-o1-red.log in R52.
+
+Two existing expectations track the changed contract: OPEN still rejects with
+workspace-busy before resources; after a cancelled initial local image candidate,
+a successful original native prepare now really owns a ready41 workspace and no
+image bank, rather than deferring preparation to append. Stale job availability
+returns the existing cancelled verdict and never ready. No quota or OPEN growth
+frontier is relaxed by these test updates.
+
+Cold initialization now uses an existing-type owner-local resource ticket in
+owner.resourceCandidate; owner.prepared remains false until the final original
+current check and pure publication. The same slot rejects synchronous original
+append and makes a concurrent original prepare await the finite existing work.
+Cancellation retires only newly created prepass/composite resources. Existing
+compiled composite storage and companion bindings are retained by the same cache
+lease and restored via the existing companion transaction; an already prepared
+prepass uses the existing G2 capacity ticket, including captured oldPrepared.
+The complete old/new finite union is checked before allocation, without charging
+a second physical quota. The ticket retires resources all-attempt on exception,
+reentry or physical generation loss. No long-lived GL borrow is retained.
+
+Meaningful cold tests inject abort/stale from onProgress AFTER the first actual
+resource job. They cover no previous services, composite already ready, both
+services already ready, unchanged old program/resources/epoch/CPU on cancellation,
+and a second original waiter that succeeds after the first subscriber cancels.

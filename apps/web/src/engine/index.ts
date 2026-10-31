@@ -6486,20 +6486,54 @@ export class PencilEngine implements PencilEngineAPI {
     if(!owner||input.delivery.lifetime!==owner.plan.read||scope!==owner.plan.scope)throw new Error('Canonical original layer owner unavailable')
     const current=()=>{input.delivery.assertCurrent(input);this._assertCanonicalLayerCurrent(owner);if(input.delivery.lifetime.assertCurrent()!==scope)throw new Error('Canonical resource lifetime changed')}
     current()
+    if(options.signal?.aborted)return{status:'cancelled'}
+    if(op.type==='canonical_stroke_close'){
+      while(!owner.prepared&&owner.resourceCandidate){await this._brushPreparation.whenIdle();current();if(options.signal?.aborted)return{status:'cancelled'}}
+      return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
+    }
+    if(op.type!=='canonical_stroke'||!input.read||op.layerId!==INITIAL_LAYER_ID)throw new TypeError('Unsupported canonical resource operation')
+    const snapshot=input.read.capability.snapshot,source=snapshot.material.primarySource
+    if(snapshot.materialVersion!==2||snapshot.material.maskSource||snapshot.rasterProfile!==owner.plan.profile||snapshot.composition.mode!=='wash')throw new TypeError('Unsupported canonical resource material')
+    // Decode under the original captured source even for an empty/control frame,
+    // before capacity, readers, reservations or a resource candidate exist.
+    const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,material:snapshot.material}).frame
+    const pin=source.kind==='image'?canonicalImageMaterialPin(source,snapshot.material.assets):undefined
+    if(!pin&&(snapshot.material.assets.length||snapshot.assets.length))throw new TypeError('Unsupported canonical resource assets')
+    const capacity=pin?canonicalImageMaskCapacity(pin.primarySource,pin.assets):source.kind!=='image'?canonicalAutoMaskCapacity(source):undefined
+    if(!capacity)throw new TypeError('Unsupported canonical resource source')
+    for(const recipe of decoded.definitions)if(pin){if(!('kind'in recipe)||recipe.kind!=='image')throw new TypeError('Image source requires an image recipe');assertCanonicalImageRecipeCapacity(recipe,pin.primarySource,pin.assets,capacity)}else if(source.kind!=='image')assertCanonicalAutoRecipeCapacity(recipe,source,capacity)
     while(!owner.prepared&&owner.resourceCandidate){
       await this._brushPreparation.whenIdle();current()
       if(options.signal?.aborted)return{status:'cancelled'}
     }
-    if(options.signal?.aborted)return{status:'cancelled'}
-    if(op.type==='canonical_stroke_close')return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
-    if(op.type!=='canonical_stroke'||!input.read||op.layerId!==INITIAL_LAYER_ID)throw new TypeError('Unsupported canonical resource operation')
-    const snapshot=input.read.capability.snapshot,source=snapshot.material.primarySource
-    if(snapshot.materialVersion!==2||snapshot.material.maskSource||snapshot.rasterProfile!==owner.plan.profile)throw new TypeError('Unsupported canonical resource material')
-    if(source.kind!=='image')return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
-    const pin=canonicalImageMaterialPin(source,snapshot.material.assets),capacity=canonicalImageMaskCapacity(source,pin.assets)
-    if(!owner.prepared||capacity.width>owner.mask.width||capacity.height>owner.mask.height)throw new RangeError('Canonical source exceeds warm workspace; growth unsupported')
-    if(this._canonicalImageSourceReady(owner,pin,current))return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
-    const result=await this._prepareCanonicalImageResources(owner,pin,current,options)
+    const replace=!owner.prepared||capacity.width>owner.mask.width||capacity.height>owner.mask.height||capacity.slots>owner.mask.slots
+    if(replace&&!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical workspace busy; original growth requires an idle owner')
+    if(!pin){
+      if(!replace)return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
+      const key='recorded-auto:'+JSON.stringify(source),generation=this._brushPreparationGeneration
+      while(!this._brushPreparation.canRunWithoutReplacing(key)){await this._brushPreparation.whenIdle();current();if(options.signal?.aborted)return{status:'cancelled'}}
+      let update:CanonicalPreparedResourceUpdate|undefined,cancelled=false,candidate:NonNullable<CanonicalLayerOwner['resourceCandidate']>|undefined
+      const available=()=>{try{current();return !cancelled&&generation===this._brushPreparationGeneration&&this._canonicalWorkspaceIdle(owner)&&this._brushPreparation.canRunWithoutReplacing(key)}catch{return false}}
+      const result=await this._brushPreparation.run([()=>{
+        current()
+        if(owner.resourceCandidate)throw new Error('Canonical resource candidate already active')
+        candidate={cancel:()=>{cancelled=true;update?.cancel()}}
+        owner.resourceCandidate=candidate
+        update=this._prepareCanonicalOriginalAutoWorkspace(owner,capacity)
+      }],options,available,key,outcome=>{
+        try{
+          if('result'in outcome&&outcome.result.status==='ready'){
+            try{current();if(cancelled||owner.resourceCandidate!==candidate||generation!==this._brushPreparationGeneration)throw new Error('Canonical resource preparation changed');update?.assertCurrent();update?.publish();update?.finalizeCleanup()}
+            catch(error){try{update?.cancel()}catch{/* Preserve publication error. */}throw error}
+          }else update?.cancel()
+        }finally{if(owner.resourceCandidate===candidate)owner.resourceCandidate=undefined}
+        return undefined
+      })
+      if(result.status==='ready'){current();return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)}
+      return result
+    }
+    if(!replace&&this._canonicalImageSourceReady(owner,pin,current))return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
+    const result=await this._prepareCanonicalImageResources(owner,pin,current,options,replace?capacity:undefined)
     if(result.status==='ready')return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
     return result
   }
@@ -6683,13 +6717,49 @@ export class PencilEngine implements PencilEngineAPI {
     })
     this._assertCanonicalLayerCurrent(owner)
   }
+  /** Original cold initialization is a resource ticket too: existing compiled
+   * composite resources/companions stay live until its pure publication. */
+  private _prepareCanonicalOriginalAutoWorkspace(owner:CanonicalLayerOwner,requested:TransformedMaskLimits):CanonicalPreparedResourceUpdate|undefined {
+    if(owner.prepared)return this._prepareCanonicalLayerWorkspace(owner,requested)
+    this._assertCanonicalLayerCurrent(owner)
+    if(owner.bank||!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical cold auto workspace unavailable')
+    const oldMask=owner.mask,oldPrepassReady=owner.prepass.isReady(),oldCompositeReady=owner.composite.isReady(),generation=owner.generation
+    let inner:CanonicalPreparedResourceUpdate|undefined,releaseExisting:undefined|(()=>void),newPrepass=false,newComposite=false,state:'pending'|'published'|'cancelled'='pending',checked=false,cleaned=false
+    const mask=Object.freeze({width:Math.max(oldMask.width,requested.width),height:Math.max(oldMask.height,requested.height),slots:Math.max(oldMask.slots,requested.slots)})
+    const all=(tasks:(()=>void)[])=>{let failed=false,primary:unknown;for(const task of tasks)try{task()}catch(error){if(!failed){failed=true;primary=error}}if(failed)throw primary}
+    const lost=()=>generation!==this._physicalGeneration||this._contextLost
+    const retire=()=>all([()=>inner?.cancel(),()=>{if(newPrepass)owner.prepass.reset(lost())},()=>{if(newComposite)owner.composite.reset(lost())},()=>{const release=releaseExisting;releaseExisting=undefined;release?.()}])
+    try{
+      const existing=[...(oldPrepassReady?owner.prepass.preparedResources():[]),...(oldCompositeReady?owner.composite.preparedResources():[])],unique=new Map(existing.map(resource=>[resource.key,resource]))
+      if(!oldPrepassReady&&[...unique.values()].reduce((n,r)=>n+r.bytes,0)+transformedMaskPrepassBudget(mask).gpuBytes+(oldCompositeReady?0:canonicalRgba8CompositeBudget(owner.plan.composite).gpuBytes)>owner.cache.budgetBytes)throw new RangeError('Canonical cold resource union exceeds budget')
+      releaseExisting=owner.cache.lease([...unique.values()])
+      if(oldPrepassReady){
+        if(!oldCompositeReady){newComposite=true;owner.composite.prepare(owner.plan.composite,owner.prepass.preparedResources(),transformedMaskPrepassBudget(oldMask).cpuBytes)}
+        inner=this._prepareCanonicalLayerWorkspace(owner,mask)
+      }else{
+        newPrepass=true;owner.prepass.prepare(mask,[])
+        if(oldCompositeReady)inner=owner.composite.prepareCompanionUpdate(owner.prepass.preparedResources(),transformedMaskPrepassBudget(mask).cpuBytes)
+        else{newComposite=true;owner.composite.prepare(owner.plan.composite,owner.prepass.preparedResources(),transformedMaskPrepassBudget(mask).cpuBytes)}
+      }
+      const assert=(receiver:unknown)=>{if(receiver!==ticket||state!=='pending'||owner.prepared||owner.mask!==oldMask||owner.generation!==generation)throw new Error('Canonical cold resource ticket changed')}
+      const origin=Object.freeze({engine:this})
+      const ticket:CanonicalPreparedResourceUpdate=Object.freeze({
+        get status(){return state},
+        assertCurrent(){assert(this);checked=false;origin.engine._assertCanonicalLayerCurrent(owner);if(!origin.engine._canonicalWorkspaceIdle(owner))throw new Error('Canonical workspace busy');inner?.assertCurrent();if(!owner.prepass.isReady()||!owner.composite.isReady())throw new Error('Canonical cold resources unavailable');checked=true},
+        publish(){assert(this);if(!checked)throw new Error('Canonical cold publication not checked');inner?.publish();owner.mask=mask;owner.prepared=true;state='published';return undefined},
+        cancel(){if(this!==ticket)throw new Error('Canonical cold ticket receiver changed');if(state!=='pending')return undefined;state='cancelled';retire();return undefined},
+        finalizeCleanup(){if(this!==ticket||state==='pending')throw new Error('Canonical cold ticket not published');if(cleaned||state==='cancelled')return undefined;cleaned=true;all([()=>inner?.finalizeCleanup(),()=>{const release=releaseExisting;releaseExisting=undefined;release?.()}]);return undefined},
+      })
+      return ticket
+    }catch(error){try{retire()}catch{/* Preserve initial resource failure. */}throw error}
+  }
   /** A larger source may replace only an idle mask workspace. The layer,
    * journal, cache, prepass object and expensive composite programs stay owned
    * by the same layer; an open/unconfirmed wash is never discarded to resize. */
   private _prepareCanonicalLayerWorkspace(owner:CanonicalLayerOwner,requested:TransformedMaskLimits):CanonicalPreparedResourceUpdate|undefined {
     this._assertCanonicalLayerCurrent(owner)
     if(owner.prepared&&requested.width<=owner.mask.width&&requested.height<=owner.mask.height&&requested.slots<=owner.mask.slots)return
-    const growing=owner.prepared
+    const oldPrepared=owner.prepared,growing=owner.prepared||owner.prepass.isReady()&&owner.composite.isReady()
     if(growing){
       if(!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical workspace busy; finish and confirm the current gesture before changing brush')
       const mask=Object.freeze({width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots)}),sources=owner.bank?.preparedResources()??[]
@@ -6702,13 +6772,13 @@ export class PencilEngine implements PencilEngineAPI {
         release=owner.cache.lease([...union].map(([key,bytes])=>({key,bytes})))
         const previous=owner.releaseResources,oldMask=owner.mask
         let state:'pending'|'published'|'cancelled'='pending',checked=false,cleaned=false
-        const assert=(receiver:unknown)=>{if(receiver!==transaction||state!=='pending'||owner.mask!==oldMask||owner.releaseResources!==previous)throw new Error('Canonical workspace transaction changed')}
+        const assert=(receiver:unknown)=>{if(receiver!==transaction||state!=='pending'||owner.prepared!==oldPrepared||owner.mask!==oldMask||owner.releaseResources!==previous)throw new Error('Canonical workspace transaction changed')}
         const attemptAll=(callbacks:(()=>void)[])=>{let failed=false,error:unknown;for(const callback of callbacks)try{callback()}catch(e){if(!failed){failed=true;error=e}}if(failed)throw error}
         const origin=Object.freeze({engine:this})
         const transaction:CanonicalPreparedResourceUpdate=Object.freeze({
           get status(){return state},
           assertCurrent(){assert(this);checked=false;origin.engine._assertCanonicalLayerCurrent(owner);if(!origin.engine._canonicalWorkspaceIdle(owner))throw new Error('Canonical workspace busy');update!.assertPreparedPublication();companions!.assertCurrent();checked=true},
-          publish(){assert(this);if(!checked)throw new Error('Canonical workspace publication not checked');update!.publish();companions!.publish();owner.mask=mask;owner.releaseResources=release;release=undefined;published=true;state='published';return undefined},
+          publish(){assert(this);if(!checked)throw new Error('Canonical workspace publication not checked');update!.publish();companions!.publish();owner.mask=mask;owner.prepared=true;owner.releaseResources=release;release=undefined;published=true;state='published';return undefined},
           cancel(){if(this!==transaction)throw new Error('Canonical workspace transaction receiver changed');if(state!=='pending')return undefined;state='cancelled';const lease=release;release=undefined;attemptAll([()=>companions!.cancel(),()=>update!.cancel(),()=>lease?.()]);return undefined},
           finalizeCleanup(){if(this!==transaction)throw new Error('Canonical workspace transaction receiver changed');if(state==='pending')throw new Error('Canonical workspace transaction not published');if(cleaned||state==='cancelled')return undefined;cleaned=true;attemptAll([()=>update!.finalizeCleanup(),()=>companions!.finalizeCleanup(),()=>previous?.()]);return undefined},
         })
