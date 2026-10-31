@@ -209,3 +209,12 @@ runner run-page-bound-composite.mts and page-bound-composite-body.js.
 Full result SHA256: f77c42dbb7f72d7420b807ea45a833cc28fed7f52d9e304fc0e288a656c0e143.
 This certifies the optional compositor clipping path, not whole-stroke room
 clipping, active renderer integration, native brush identity or responsiveness.
+
+When readDestination defaults to the exact target object, validate/bind that
+object once. Standalone draws save one framebuffer completeness and one
+attachment query; the existing batch already deduplicates those queries, so its
+change saves only a redundant framebuffer bind. Distinct destination objects
+still validate both attachments. Every new standalone call/batch rechecks
+foreign attachment changes; no cross-turn authority or GL state cache is added.
+Target identity/query-count/state-restore tests cover these boundaries. This
+small reduction is not evidence of a general warm executor latency improvement.

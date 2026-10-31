@@ -339,7 +339,7 @@ export class CanonicalRgba8CompositePass {
             throw new RangeError('Invalid composite write bounds');
         const sampled = this.validateSource(source);
         this.validateTarget(target);
-        this.validateTarget(base);
+        if (base !== target) this.validateTarget(base);
         this.validateOperation(operation);
         if (base.width !== target.width || base.height !== target.height || base.originX !== target.originX || base.originY !== target.originY)
             throw new RangeError('Immutable destination geometry must match the output target');
@@ -388,8 +388,8 @@ export class CanonicalRgba8CompositePass {
             }
             if (this.workspace !== work || !this.limits)
                 throw new Error('Composite resources changed during owner acquisition');
-            if (frame) { frame.bindTarget(target); frame.bindTarget(base); }
-            else { this.bindTarget(target); this.bindTarget(base); }
+            if (frame) { frame.bindTarget(target); if (base !== target) frame.bindTarget(base); }
+            else { this.bindTarget(target); if (base !== target) this.bindTarget(base); }
             gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_2D, work.texture);
             gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, clip.x, clip.y, clip.width, clip.height);

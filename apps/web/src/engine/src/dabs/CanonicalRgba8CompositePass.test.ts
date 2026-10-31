@@ -356,3 +356,39 @@ it('prepares explicit fused scalar kernels within the same two-program budget an
     expect(() => s.pass.drawSource({ source: { kind: 'maskRgb', view: s.view, rgb: [17, 29, 41] }, target, operation: { kind: 'alphaDarken32', control } })).toThrow('not prepared');
     s.pass.reset(); expect(s.cpu.reservedBytes).toBe(0);
 });
+
+it('validates an aliased destination once per standalone call and rechecks foreign changes',()=>{
+ const s=setup();s.pass.prepare({width:16,height:16},s.companion);
+ const before=s.snapshot(),status=vi.spyOn(s.gl,'checkFramebufferStatus'),attachment=vi.spyOn(s.gl,'getFramebufferAttachmentParameter');
+ expect(s.pass.draw(s.view,s.target,[1,2,3],control)).toBe('painted');
+ expect(status).toHaveBeenCalledTimes(1);expect(attachment).toHaveBeenCalledTimes(1);expect(s.snapshot()).toEqual(before);
+ attachment.mockReturnValueOnce(s.view.texture);
+ expect(()=>s.pass.draw(s.view,s.target,[1,2,3],control)).toThrow('attachment');
+ expect(status).toHaveBeenCalledTimes(2);expect(attachment).toHaveBeenCalledTimes(2);expect(s.snapshot()).toEqual(before);
+ status.mockReturnValueOnce(0);
+ expect(()=>s.pass.draw(s.view,s.target,[1,2,3],control)).toThrow('attachment');
+ expect(status).toHaveBeenCalledTimes(3);expect(s.snapshot()).toEqual(before);s.pass.reset();
+});
+it('checks both distinct destination attachments and rejects a changed read destination',()=>{
+ const s=setup();s.pass.prepare({width:16,height:16},s.companion);
+ const lifetime={kind:'external' as const,owner:{},lease:()=>()=>{}},target={...s.target,lifetime};
+ const base={...target,texture:s.gl.createTexture(),framebuffer:s.gl.createFramebuffer()};
+ const attached=new Map([[target.framebuffer,target.texture],[base.framebuffer,base.texture]]);
+ s.gl.getFramebufferAttachmentParameter=()=>attached.get(s.gl.getParameter(s.gl.FRAMEBUFFER_BINDING));
+ const before=s.snapshot(),status=vi.spyOn(s.gl,'checkFramebufferStatus'),attachment=vi.spyOn(s.gl,'getFramebufferAttachmentParameter');
+ const request:CanonicalCompositeRequest={source:{kind:'maskRgb',view:s.view,rgb:[1,2,3]},target,readDestination:base,operation:{kind:'alphaDarken32',control}};
+ expect(s.pass.drawSource(request)).toBe('painted');expect(status).toHaveBeenCalledTimes(2);expect(attachment).toHaveBeenCalledTimes(2);expect(s.snapshot()).toEqual(before);
+ attached.set(base.framebuffer,s.view.texture);
+ expect(()=>s.pass.drawSource(request)).toThrow('attachment');expect(status).toHaveBeenCalledTimes(4);expect(attachment).toHaveBeenCalledTimes(4);expect(s.snapshot()).toEqual(before);s.pass.reset();
+});
+it('keeps one attachment query for repeated batched alias draws and rechecks the next batch',()=>{
+ const s=setup();s.pass.prepare({width:16,height:16},s.companion);
+ const lifetime={kind:'external' as const,owner:{},lease:()=>()=>{}},target={...s.target,lifetime};
+ const before=s.snapshot(),status=vi.spyOn(s.gl,'checkFramebufferStatus'),attachment=vi.spyOn(s.gl,'getFramebufferAttachmentParameter');
+ const request:CanonicalCompositeRequest={source:{kind:'maskRgb',view:s.view,rgb:[1,2,3]},target,operation:{kind:'alphaDarken32',control}};
+ runBrushGlBatch({participants:[s.pass],owners:[lifetime]},frame=>{s.pass.drawSource(request,frame);s.pass.drawSource(request,frame)});
+ expect(status).toHaveBeenCalledTimes(1);expect(attachment).toHaveBeenCalledTimes(1);expect(s.snapshot()).toEqual(before);
+ attachment.mockReturnValueOnce(s.view.texture);
+ expect(()=>runBrushGlBatch({participants:[s.pass],owners:[lifetime]},frame=>s.pass.drawSource(request,frame))).toThrow('attachment');
+ expect(status).toHaveBeenCalledTimes(2);expect(attachment).toHaveBeenCalledTimes(2);expect(s.snapshot()).toEqual(before);s.pass.reset();
+});
