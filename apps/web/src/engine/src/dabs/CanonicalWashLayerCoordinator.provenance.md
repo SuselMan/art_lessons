@@ -118,3 +118,14 @@ result `6ec527fd6a9cad2a03aa98b465edbea71709df315291c879a1aba3168d3ff384`;
 cleanup `17bd1c708682192a1c78cc7344c1384eee334000fe86fe82ba97b0c13d636a96`.
 The private generator/runner/body, compact expected input, source snapshots and
 summary remain reproducible under fixes-v52; no GPU pixel dump/runtime is kept.
+
+Executor construction now retains a fixed soft source CPU owner. A newly created
+executor remains a local candidate until its initial enqueue succeeds. Failed
+admission cancels only that unpublished candidate, attempts every reservation
+release and preserves the original error; an existing accepted executor survives
+a rejected later frame. Coordinator disposal cancels every executor, including
+entries whose raw wash ownership was transferred or committed, so fixed source
+owners retire too. External borrowed source owners remain caller-owned under the
+executor contract. Native-soft lifecycle tests cover repeated forged admission,
+source callback failure, secondary cleanup failure, accepted-entry recovery and
+post-commit CPU baseline restoration.

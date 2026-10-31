@@ -9,13 +9,13 @@ import { CanonicalFrameExecutor, type CanonicalFrameExecutorOptions, type Canoni
 import { planCanonicalTargets } from './CanonicalTargetPlan'
 import type { CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
 
-export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFrameExecutorOptions, 'washMode' | 'autoSource' | 'bank' | 'changed' | 'poison'> {
+export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFrameExecutorOptions, 'washMode' | 'autoSource' | 'bank' | 'softProgramOwner' | 'changed' | 'poison'> {
   readonly layerId: string
   readonly layerEpoch: number
   /** Distinct derived straight layer; the coordinator never owns/destroys it. */
   readonly presentation: () => { readonly buffer: TiledLayerBuffer; readonly epoch: number }
   /** Trusted gesture source binding, NOT data selected by a material frame. */
-  readonly source: (gestureId: string) => Pick<CanonicalFrameExecutorOptions, 'autoSource' | 'bank'>
+  readonly source: (gestureId: string) => Pick<CanonicalFrameExecutorOptions, 'autoSource' | 'bank' | 'softProgramOwner'>
   /** Explicit caller capacity; no implicit queue, expiry or GPU quota. Includes
    * completed IDs until this coordinator is discarded after trusted rebuild. */
   readonly maxGestures: number
@@ -112,6 +112,7 @@ export class CanonicalWashLayerCoordinator {
         if (!this.positions.has(key(p))) fresh.set(key(p), p)
       }
     }
+    let candidate: CanonicalFrameExecutor | undefined
     let releaseGpu: (() => void) | undefined, releaseCpu: (() => void) | undefined, releaseEntry: (() => void) | undefined
     try {
       if (fresh.size) {
@@ -120,13 +121,14 @@ export class CanonicalWashLayerCoordinator {
       }
       if (!entry) {
         releaseEntry = this.options.prepass.brushGlBatchInfo().cpu.reserve(1024)
-        const executor = new CanonicalFrameExecutor({ ...this.options, ...this.options.source(input.gestureId), washMode: 'deposition-only',
+        const executor = candidate = new CanonicalFrameExecutor({ ...this.options, ...this.options.source(input.gestureId), washMode: 'deposition-only',
           changed: () => this.invalidate(), poison: (_id, reason) => this.notifyPoison(reason) })
         entry = { id: input.gestureId, firstSequence: recordedSequence, executor, opacity: input.composition.outerResourceOpacity,
           committed: false, tile: 0, part: 0, releaseMetadata: releaseEntry }
       }
       entry.executor.enqueue(input)
     } catch (error) {
+      if (candidate) this.clean(() => candidate!.cancel(error, { lost: this.options.prepass.brushGlBatchInfo().gl.isContextLost() }))
       if (releaseGpu) this.clean(releaseGpu)
       if (releaseCpu) this.clean(releaseCpu)
       if (releaseEntry) this.clean(releaseEntry)
@@ -273,7 +275,7 @@ export class CanonicalWashLayerCoordinator {
     this.queue.length = 0; this.dirty.clear(); this.work = undefined
     for (const e of this.entries) {
       if (e.ownership) { const owned = e.ownership; e.ownership = undefined; this.clean(() => owned.release({ lost })) }
-      else if (!e.committed) this.clean(() => e.executor.cancel(new Error('Canonical wash lane cancelled'), { lost }))
+      this.clean(() => e.executor.cancel(new Error('Canonical wash lane cancelled'), { lost }))
       this.clean(e.releaseMetadata)
     }
     const releases = this.reservations.splice(0)
