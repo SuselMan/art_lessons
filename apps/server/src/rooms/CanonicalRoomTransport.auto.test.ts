@@ -13,12 +13,14 @@ const {SourceCanonicalFrameEncoder}=await import(new URL('../../../web/src/engin
 import {BrushStorage,empty,setBrushStorage} from '../brushLibrary/storage.js'
 import {rooms,flushRoomWrites,type RoomRecord} from './roomRegistry.js'
 import {CanonicalRoomTransport} from './CanonicalRoomTransport.js'
+import {getCanonicalGesturePrefixWithRows} from './snapshotStore.js'
+import {recordOperation} from './operationLog.js'
 import {CanonicalBrushCapabilityResolver} from './CanonicalBrushCapabilityResolver.js'
 import {CanonicalStrokeAdmission} from './CanonicalStrokeAdmission.js'
-const db=vi.hoisted(()=>({operation:{count:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn()}}))
+const db=vi.hoisted(()=>({operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn()}}))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
 const history=vi.hoisted(()=>({rows:[] as unknown[],canonicalRows:[] as unknown[]}))
-vi.mock('./snapshotStore.js',()=>({getOperationsBeforeWithCanonicalRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows}))}))
+vi.mock('./snapshotStore.js',async importOriginal=>({...await importOriginal<typeof import('./snapshotStore.js')>(),getCanonicalGesturePrefixWithRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows})),getOperationsBeforeWithCanonicalRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows}))}))
 const dirs:string[]=[]
 beforeEach(()=>{db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[];history.canonicalRows=[]})
 afterEach(async()=>{for(const id of rooms.keys())await flushRoomWrites(id);rooms.clear();for(const d of dirs.splice(0))rmSync(d,{recursive:true,force:true});vi.restoreAllMocks();vi.clearAllMocks()})
@@ -37,7 +39,7 @@ function setup(descriptor=stock.rows[0].descriptor as unknown as BrushDescriptor
  return{storage,library,board,input,descriptor}
 }
 function snapshot(result:CanonicalStrokeBeginResult):CanonicalStrokeSnapshotV2{if(!result.ok||!('materialVersion'in result.snapshot))throw Error(JSON.stringify(result));return result.snapshot}
-function frames(descriptor:BrushDescriptor,s:CanonicalStrokeSnapshotV2){
+function frames(descriptor:BrushDescriptor,s:CanonicalStrokeSnapshotV2,inputCount=3){
  if(s.material.primarySource.kind==='image')throw Error('Expected procedural source')
  const compiled=sourceStrokeAuthorDescriptor(descriptor,{colorIdentity:'native-black',lodScale:1,coverageProfile:s.material.primarySource.coverageProfile})
  if(!compiled.supported)throw Error(compiled.reasons.join(','))
@@ -46,8 +48,8 @@ function frames(descriptor:BrushDescriptor,s:CanonicalStrokeSnapshotV2){
  const adapter=new SourceStrokeMaterialAdapter(compiled.program,material,state),encoder=new SourceCanonicalFrameEncoder({brush:s.brush,strokeId:s.strokeId,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material})
  const result:CanonicalStrokeFrameEnvelope[]=[]
  const collect=(chunks:readonly{packed:string}[])=>{for(const c of chunks)result.push(encoder.encode(c.packed).envelope)}
- for(let i=0;i<3;i++){
-  collect(adapter.beginInput(state));const packet={x:25+i*3.25,y:29+i*1.5,t:i*19,pressure:[.25,.65,1][i],tiltX:0,tiltY:0,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:i===2,mirroredV:false,tiltDirectionOffset:0,hover:false}
+ for(let i=0;i<inputCount;i++){
+  collect(adapter.beginInput(state));const packet={x:25+(i%3)*3.25,y:29+(i%3)*1.5,t:i*19,pressure:[.25,.65,1][i%3],tiltX:0,tiltY:0,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:i===2,mirroredV:false,tiltDirectionOffset:0,hover:false}
   const iterator=author.plan(state,packet);while(true){const n=iterator.next();if(n.done){state=n.value;break}collect(adapter.accept(n.value));const cut=adapter.flush();if(cut)collect([cut])}
  }
  collect(adapter.finish(state));expect(encoder.ended).toBe(true);return result
@@ -58,7 +60,6 @@ it('binds actual seven no-CAS descriptors, accepts actual adapter/encoder live+r
   let transport=new CanonicalRoomTransport(policy)
   const s=snapshot(await transport.begin(identity,f.input,()=>true));expect(s.material.assets).toEqual([]);expect(s.assets).toEqual([]);expect(asset).not.toHaveBeenCalled()
   const packets=frames(f.descriptor,s),prefix:CanonicalStrokeOperation[]=[]
-  expect(packets.length).toBeLessThanOrEqual(32)
   for(let i=0;i<packets.length;i++){
    const live=transport.live(identity,{layerId:'layer',frame:packets[i]});expect(live.result).toEqual({ok:true,duplicate:false})
    expect(transport.live(identity,{layerId:'layer',frame:packets[i]}).result).toEqual({ok:true,duplicate:true})
@@ -101,7 +102,7 @@ it('defaults auto OFF and rejects legacy rooms, malformed material policies and 
  expect(await new CanonicalRoomTransport().begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'invalid_operation'})
  expect(db.operation.create).not.toHaveBeenCalled();expect(pin).not.toHaveBeenCalled();expect(asset).not.toHaveBeenCalled()
  f.board.room.rasterVersion='legacy-pm8-v1';expect(await new CanonicalRoomTransport(policy).begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'invalid_operation'});expect(pin).not.toHaveBeenCalled()
- f.board.room.rasterVersion='straight-rgba8-v1';db.operation.count.mockImplementationOnce(async()=>{f.board.aliveIds.delete('layer');return 0})
+ f.board.room.rasterVersion='straight-rgba8-v1';vi.mocked(getCanonicalGesturePrefixWithRows).mockImplementationOnce(async()=>{f.board.aliveIds.delete('layer');return {operations:[],canonicalRows:[]}})
  expect(await new CanonicalRoomTransport(policy).begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'invalid_operation'});expect(pin).not.toHaveBeenCalled()
 })
 it('pins full auto context/profile/version immutably across lanes, with no assets or weak callback fallback',()=>{
@@ -174,7 +175,7 @@ it('preserves packed dynamic negative zero/F64 through server decode while norma
  const after=decodeCanonicalStrokeFrame(JSON.parse(JSON.stringify(accepted.accepted!.frame)),{...s,frameOrdinal:0}).frame.definitions[0]
  expect(Object.is(after.rotation,-0)).toBe(true);expect(Object.is(after.subX,-0)).toBe(true)
 })
-it('publishes neither begin grant nor live/record ordinal after pin failures and preserves existing prefix bounds',async()=>{
+it('publishes neither grant nor lane progress after pin failures and rejects a missing known resident prefix',async()=>{
  const f=setup(),transport=new CanonicalRoomTransport(policy),pin=vi.spyOn(f.storage,'pin')
  pin.mockImplementationOnce(()=>{throw Error('injected pin failure')})
  expect(await transport.begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'server_error'})
@@ -186,7 +187,7 @@ it('publishes neither begin grant nor live/record ordinal after pin failures and
  pin.mockImplementationOnce(()=>{throw Error('injected record pin failure')})
  expect((await transport.recorded(identity,op,()=>true)).result).toEqual({ok:false,reason:'server_error'});expect(f.board.operations).toEqual([]);expect(f.board.nextSeq).toBe(1)
  expect((await transport.recorded(identity,op,()=>true)).result).toMatchObject({ok:true,seq:1})
- await flushRoomWrites('board');pin.mockClear();db.operation.count.mockResolvedValue(33)
+ await flushRoomWrites('board');pin.mockClear() // Known resident frame is absent from the query mock; it must not become fresh0.
  expect(await new CanonicalRoomTransport(policy).begin(identity,input,()=>true)).toEqual({ok:false,reason:'canonical_repair_required'});expect(pin).not.toHaveBeenCalled()
 })
 
@@ -312,4 +313,43 @@ it.each(['disconnect','replacement'] as const)('does not publish stale %s confir
  expect(await pending).toEqual({result:{ok:false,reason:change==='disconnect'?'not_joined':'canonical_repair_required'}})
  expect(f.board.operations).toHaveLength(1);expect(f.board.nextSeq).toBe(2)
  if(change==='replacement')expect(rooms.get('board')!.operations).toEqual([])
+})
+
+it('recovers a legal >32 forced-cut author stream through the REAL paged indexed query, then detects prefix holes at the same durable cut',async()=>{
+ const f=setup(),transport=new CanonicalRoomTransport(policy)
+ const query=vi.mocked(getCanonicalGesturePrefixWithRows),previous=query.getMockImplementation()!
+ const actual=await vi.importActual<typeof import('./snapshotStore.js')>('./snapshotStore.js')
+ const persisted:import('./roomPersistence.js').CanonicalStoredOperationRow[]=[]
+ db.operation.create.mockImplementation(async({data})=>{persisted.push(data);return {}})
+ db.operation.findMany.mockImplementation(async({where,take})=>persisted.filter(row=>{
+  const op=row.data as import('@grafetto/shared').Operation
+  return row.roomId===where.roomId&&row.userId===where.userId&&row.type===where.type&&row.seq>where.seq.gt&&row.seq<=where.seq.lte
+   &&op.type==='canonical_stroke'&&op.frame.strokeId===where.data.equals
+ }).slice(0,take))
+ query.mockImplementation(actual.getCanonicalGesturePrefixWithRows)
+ try{
+  const s=snapshot(await transport.begin(identity,f.input,()=>true)),packets=frames(f.descriptor,s,100)
+  expect(packets.length).toBeGreaterThan(32)
+  const save=async(owner:CanonicalRoomTransport,n:number)=>{
+   recordOperation('board',{id:'unrelated'+n,type:'paper_dry',userId:'author',timestamp:n})
+   const op:CanonicalStrokeOperation={id:'paged'+n,type:'canonical_stroke',userId:'author',timestamp:n,layerId:'layer',frame:packets[n]}
+   expect((await owner.recorded(identity,op,()=>true)).result).toMatchObject({ok:true})
+  }
+  for(let n=0;n<packets.length-1;n++)await save(transport,n)
+  await flushRoomWrites('board');db.operation.findMany.mockClear()
+  const resumed=new CanonicalRoomTransport(policy),open=await resumed.begin(identity,f.input,()=>true)
+  expect(open).toMatchObject({ok:true,recordedNext:packets.length-1,ended:false})
+  expect(db.operation.findMany.mock.calls.length).toBeGreaterThan(1)
+  await save(resumed,packets.length-1);await flushRoomWrites('board')
+  expect(await new CanonicalRoomTransport(policy).begin(identity,f.input,()=>true)).toMatchObject({ok:true,recordedNext:packets.length,ended:true})
+  const canonical=persisted.filter(row=>row.type==='canonical_stroke')
+  expect(Buffer.byteLength(JSON.stringify(canonical),'utf8')).toBeLessThan(4*1024*1024)
+  for(const missing of [canonical[0],canonical[Math.floor(canonical.length/2)],canonical.at(-1)!]){
+   const at=persisted.indexOf(missing);persisted.splice(at,1)
+   expect(await new CanonicalRoomTransport(policy).begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'canonical_repair_required'})
+   persisted.splice(at,0,missing)
+  }
+  db.operation.findMany.mockImplementationOnce(async()=>[canonical[1],canonical[0]])
+  expect(await new CanonicalRoomTransport(policy).begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'canonical_repair_required'})
+ }finally{query.mockImplementation(previous)}
 })

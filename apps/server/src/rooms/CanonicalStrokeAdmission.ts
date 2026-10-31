@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin,
+import { advanceCanonicalMaterialPrefix, CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin,
   type CanonicalMaterialContext, type AnyCanonicalMaterialContext, type CanonicalMaterialEntry, type AnyCanonicalMaterialFrame,
   type CanonicalStrokeComposition, type CanonicalStrokeFrameEnvelope } from '@grafetto/shared'
 
@@ -56,7 +56,6 @@ interface Gesture {
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 const text = (v: unknown): v is string => typeof v === 'string' && !!v.length && v.length <= 256 && !v.includes('\0')
 const integer = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 && v < Number.MAX_SAFE_INTEGER
-const sameEntry = (a: CanonicalMaterialEntry, b: CanonicalMaterialEntry) => a.phase === b.phase && (a.phase === 'between' || b.phase !== 'between' && a.group === b.group)
 function fail(reason: string): never { throw new Error(`canonical admission: ${reason}`) }
 const fields = (v: Record<string, unknown>, expected: readonly string[]) => Object.keys(v).length === expected.length && expected.every(k => Object.hasOwn(v, k))
 
@@ -145,15 +144,10 @@ export class CanonicalStrokeAdmission {
     if (ordinal < next && !duplicate) fail('noncontiguous lane')
     let entry = state.entry, lastGroup = state.lastGroup, ended = state.ended
     if (!old) {
-      if (ordinal !== state.uniqueNext || ended || !sameEntry(decoded.frame.entry, entry)) fail('missing cross-frame fence prefix')
-      for (const fence of decoded.frame.fences) {
-        if (fence.kind === 'segmentBegin') {
-          if (fence.group !== lastGroup + 1) fail('noncontiguous segment group')
-          lastGroup = fence.group; entry = { phase: 'primary', group: fence.group }
-        } else if (fence.kind === 'primaryEnd') entry = { phase: 'mask', group: fence.group }
-        else if (fence.kind === 'segmentEnd') entry = { phase: 'between' }
-        else ended = true
-      }
+      try {
+        const prefix=advanceCanonicalMaterialPrefix({nextOrdinal:state.uniqueNext,entry,lastGroup,ended},ordinal,decoded.frame)
+        entry=prefix.entry;lastGroup=prefix.lastGroup;ended=prefix.ended
+      } catch { fail('missing cross-frame fence prefix') }
     }
     const candidate: CanonicalFrameCandidate = value.type === 'canonical_stroke'
       ? Object.freeze({ type: 'canonical_stroke', id: value.id as string, layerId, frame: decoded.envelope })

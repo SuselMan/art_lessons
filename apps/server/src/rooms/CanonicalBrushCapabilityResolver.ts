@@ -129,11 +129,11 @@ export class CanonicalBrushCapabilityResolver {
    * profile selector. ROOM pin is the sole descriptor authority on resume. */
   prepareResumeGesture(identity:CanonicalAdmissionIdentity,input:CanonicalGestureBegin,prefix:{readonly operations:readonly CanonicalStrokeOperation[];readonly rows:readonly CanonicalStoredOperationRow[]}):{readonly grant:TrustedCanonicalGesture;readonly commit:()=>void} {
     const captured=this.captureBeginInput(identity,input),ops=prefix.operations,rows=prefix.rows
-    if(!Array.isArray(ops)||ops.length<1||ops.length>32||!Array.isArray(rows)||rows.length!==ops.length)fail('invalid stored resume prefix')
+    if(!Array.isArray(ops)||ops.length<1||!Array.isArray(rows)||rows.length!==ops.length)fail('invalid stored resume prefix')
     verifyCanonicalOperationRow(identity.roomId,ops[0],rows[0])
     const profile=ops[0].frame.rasterProfile
     if(!this.recordedProfiles.includes(profile))fail('stored resume profile policy mismatch')
-    let lastSeq=0
+    let lastSeq=0,bytes=0
     for(let i=0;i<ops.length;i++){
       const op:CanonicalStrokeOperation=ops[i]
       if(i>0)verifyCanonicalOperationRow(identity.roomId,op,rows[i])
@@ -141,6 +141,8 @@ export class CanonicalBrushCapabilityResolver {
         ||op.frame.brush!==captured.brush||op.frame.strokeId!==captured.strokeId||op.frame.rasterProfile!==profile
         ||op.frame.pigmentRgb8.some((v,j)=>v!==captured.pigmentRgb8[j])||op.frame.composition.alphaDarken!==captured.alphaDarken
         ||op.frame.composition.outerResourceOpacity!==captured.outerResourceOpacity)fail('stored resume resources changed')
+      bytes+=Buffer.byteLength(JSON.stringify(op),'utf8')
+      if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('stored resume prefix byte budget exceeded')
       lastSeq=op.seq!
     }
     return this.prepareGesture(identity,captured,profile,true)

@@ -1,9 +1,10 @@
 import { createGunzip } from 'node:zlib'
 import { createHash } from 'node:crypto'
+import { isDeepStrictEqual } from 'node:util'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
-import type { Operation } from '@grafetto/shared'
+import type { Operation, CanonicalStrokeOperation } from '@grafetto/shared'
 
 import { canonicalOperationRowSelect,verifyCanonicalOperationRow,type CanonicalStoredOperationRow } from './roomPersistence.js'
 import { immutableCanonicalOperation } from './operationLog.js'
@@ -415,4 +416,52 @@ export async function getOperationsBeforeWithCanonicalRows(roomId:string,beforeS
     }else operations.push(op)
   }
   return {operations,canonicalRows}
+}
+
+/** Total normalized evidence retained for one cold gesture, not a frame-count
+ * or minimum-packing contract. Page size bounds query batches only. */
+export const CANONICAL_GESTURE_PREFIX_BYTES=4*1024*1024
+const CANONICAL_GESTURE_QUERY_PAGE=64
+export class CanonicalGesturePrefixError extends Error { constructor(){super('Canonical gesture prefix requires repair')} }
+/** Internal indexed evidence reader. Caller captures a durable room/lifetime
+ * cut before awaiting and rechecks it before publication. No receipt adoption,
+ * permission, material binding, sorting-to-proof, or completeness registry.
+ * A known actual operation/read-cap anchor must be present exactly. */
+export async function getCanonicalGesturePrefixWithRows(roomId:string,selector:{readonly userId:string;readonly strokeId:string},throughSeq:number,requiredFrame?:CanonicalStrokeOperation):Promise<{operations:CanonicalStrokeOperation[];canonicalRows:CanonicalStoredOperationRow[]}> {
+ const fail=():never=>{throw new CanonicalGesturePrefixError()}
+ const text=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.length<=256&&!v.includes('\0')
+ if(!text(roomId)||!text(selector?.userId)||!text(selector.strokeId)||!Number.isSafeInteger(throughSeq)||throughSeq<0||throughSeq>=Number.MAX_SAFE_INTEGER)return fail()
+ if(requiredFrame&&(requiredFrame.type!=='canonical_stroke'||requiredFrame.userId!==selector.userId||requiredFrame.frame.strokeId!==selector.strokeId
+  ||!Number.isSafeInteger(requiredFrame.seq)||requiredFrame.seq!<1||requiredFrame.seq!>throughSeq))return fail()
+ const operations:CanonicalStrokeOperation[]=[],canonicalRows:CanonicalStoredOperationRow[]=[],ids=new Set<string>()
+ let previous=0,size=0,anchored=!requiredFrame
+ while(true){
+  const rows=await prisma.operation.findMany({where:{roomId,userId:selector.userId,type:'canonical_stroke',seq:{gt:previous,lte:throughSeq},data:{path:['frame','strokeId'],equals:selector.strokeId}},orderBy:{seq:'asc'},take:CANONICAL_GESTURE_QUERY_PAGE,select:canonicalOperationRowSelect})
+  if(rows.length>CANONICAL_GESTURE_QUERY_PAGE)return fail()
+  for(const row of rows){
+   const op=row.data as Operation
+   try { verifyCanonicalOperationRow(roomId,op,row) } catch { return fail() }
+   if(op.type!=='canonical_stroke'||op.userId!==selector.userId||op.seq!<=previous||op.seq!>throughSeq||ids.has(op.id)
+    ||!text(op.id)||!text(op.userId)||!text(op.layerId)||!Number.isFinite(op.timestamp)||!op.frame||op.frame.strokeId!==selector.strokeId
+    ||!text(op.frame.brush)||!text(op.frame.rasterProfile)||(op.frame.version!==1&&op.frame.version!==2)||!Number.isSafeInteger(op.frame.frameOrdinal)||op.frame.frameOrdinal!==operations.length
+    ||!Array.isArray(op.frame.pigmentRgb8)||op.frame.pigmentRgb8.length!==3||op.frame.pigmentRgb8.some(v=>!Number.isInteger(v)||v<0||v>255)
+    ||!op.frame.composition||!text(op.frame.composition.mode)||!text(op.frame.composition.alphaDarken)||!text(op.frame.composition.outerBlend)||!Number.isFinite(op.frame.composition.outerResourceOpacity)
+    ||typeof op.frame.materialPacked!=='string'||Buffer.byteLength(op.frame.materialPacked,'utf8')>CANONICAL_GESTURE_PREFIX_BYTES)return fail()
+   if(Object.keys(op).some(k=>!['id','userId','timestamp','seq','type','layerId','frame'].includes(k))
+    ||Object.keys(op.frame).some(k=>!['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked'].includes(k))
+    ||Object.keys(op.frame.composition).some(k=>!['mode','alphaDarken','outerResourceOpacity','outerBlend'].includes(k)))return fail()
+   // Project bounded known fields BEFORE any size walk or immutable copy. The
+   // SAME shared material decoder/binder validates their domain afterwards.
+   const projected:CanonicalStrokeOperation={id:op.id,userId:op.userId,timestamp:op.timestamp,seq:op.seq,type:'canonical_stroke',layerId:op.layerId,frame:{...op.frame,
+    pigmentRgb8:[op.frame.pigmentRgb8[0],op.frame.pigmentRgb8[1],op.frame.pigmentRgb8[2]],composition:{mode:op.frame.composition.mode,alphaDarken:op.frame.composition.alphaDarken,outerResourceOpacity:op.frame.composition.outerResourceOpacity,outerBlend:op.frame.composition.outerBlend},materialPacked:op.frame.materialPacked}}
+   size+=Buffer.byteLength(JSON.stringify(projected),'utf8');if(size>CANONICAL_GESTURE_PREFIX_BYTES)return fail()
+   const copy=immutableCanonicalOperation(projected,op.seq!)
+   if(copy.type!=='canonical_stroke')return fail()
+   if(requiredFrame&&op.id===requiredFrame.id){if(!isDeepStrictEqual(copy,requiredFrame))return fail();anchored=true}
+   operations.push(copy);canonicalRows.push(Object.freeze({...row,data:copy}));ids.add(op.id);previous=op.seq!
+  }
+  if(rows.length<CANONICAL_GESTURE_QUERY_PAGE)break
+ }
+ if(!anchored)return fail()
+ return {operations,canonicalRows}
 }

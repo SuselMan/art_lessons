@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from 'node:util'
 import {
   STRAIGHT_ROOM_RASTER_VERSION,CANONICAL_STROKE_RASTER_PROFILE,
-  type CanonicalStrokeBegin, type CanonicalStrokeBeginResult, type CanonicalStrokeLive, type CanonicalStrokeLiveResult,
+  verifyCanonicalRecordedPrefix, type CanonicalStrokeBegin, type CanonicalStrokeBeginResult, type CanonicalStrokeLive, type CanonicalStrokeLiveResult,
   type CanonicalStrokeOperation, type CanonicalStrokeSnapshot, type SendResult, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadScope, type CanonicalRecordedHistoryPage, type Operation, CANONICAL_RECORDED_ATTACHMENT_LIMITS, prepareCanonicalRecordedAttachment,
 } from '@grafetto/shared'
 import { canonicalBrushStorageContext } from '../brushLibrary/storage.js'
@@ -15,9 +15,9 @@ import { canonicalPaintRejectReason } from './operationGate.js'
 import { canonicalWriteFence, ensureCanonicalWrite, findDuplicateOperation, knownCanonicalWrite, recordOperation, updateAliveIds } from './operationLog.js'
 import { canonicalOperationRowSelect, verifyCanonicalOperationRow,type CanonicalStoredOperationRow } from './roomPersistence.js'
 import { flushRoomWrites, lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
-import { getOperationsBeforeWithCanonicalRows } from './snapshotStore.js'
+import { CanonicalGesturePrefixError, getCanonicalGesturePrefixWithRows } from './snapshotStore.js'
 
-const MAX_ROOMS = 64, MAX_GESTURES = 1024, MAX_BEGIN_JOBS = 4, PREFIX_WINDOW = 64, PREFIX_FRAMES = 32, PREFIX_BYTES = 4 * 1024 * 1024
+const MAX_ROOMS = 64, MAX_GESTURES = 1024, MAX_BEGIN_JOBS = 4
 class TransportFailure extends Error {
   constructor(readonly reason: 'invalid_operation' | 'not_joined' | 'canonical_repair_required' | 'server_error') { super(reason) }
 }
@@ -87,33 +87,37 @@ export class CanonicalRoomTransport {
     // because a failed background DB write is not proof that a gesture is new.
     await flushRoomWrites(identity.roomId)
     this.requireHealthyWrites(lifetime)
-    const count = await prisma.operation.count({ where: { roomId: identity.roomId, userId: identity.userId, type: 'canonical_stroke',
-      seq: { lte: watermark }, data: { path: ['frame', 'strokeId'], equals: input.strokeId } } })
-    if (!Number.isSafeInteger(count) || count < 0 || count > PREFIX_FRAMES) fail('canonical_repair_required')
-    const historyPage = count ? await getOperationsBeforeWithCanonicalRows(identity.roomId, watermark + 1, PREFIX_WINDOW) : {operations:[],canonicalRows:[]}
-    const history=historyPage.operations
+    const resident = lifetime.record.operations.filter((op):op is CanonicalStrokeOperation=>op.type === 'canonical_stroke' && op.userId === identity.userId && op.frame.strokeId === input.strokeId && (op.seq ?? Infinity) <= watermark)
+    const anchor=resident.reduce<CanonicalStrokeOperation|undefined>((last,op)=>!last||op.seq!>last.seq!?op:last,undefined)
+    const historyPage=await getCanonicalGesturePrefixWithRows(identity.roomId,{userId:identity.userId,strokeId:input.strokeId},watermark,anchor)
+    const prefix=historyPage.operations
     if (!isCurrent()) fail('not_joined')
     this.sameLifetime(identity, input.layerId, lifetime)
     if (this.binder !== binder || canonicalBrushStorageContext()?.storage !== context.storage) fail('canonical_repair_required')
-    if (Buffer.byteLength(JSON.stringify(history), 'utf8') > PREFIX_BYTES) fail('canonical_repair_required')
-    const prefix = history.filter((op):op is CanonicalStrokeOperation => op.type === 'canonical_stroke' && op.userId === identity.userId && op.frame.strokeId === input.strokeId)
-    const resident = lifetime.record.operations.filter(op => op.type === 'canonical_stroke' && op.userId === identity.userId && op.frame.strokeId === input.strokeId && (op.seq ?? Infinity) <= watermark)
-    if (prefix.length !== count || resident.some(op => !prefix.some(p => p.id === op.id && isDeepStrictEqual(p, op)))) fail('canonical_repair_required')
-    const prepared=prefix.length?binder.prepareResumeGesture(identity,input,{operations:prefix,rows:historyPage.canonicalRows.filter(row=>prefix.some(op=>op.id===row.id))}):binder.prepareBeginGesture(identity,input)
+    const byId=new Map(prefix.map(op=>[op.id,op]))
+    if (resident.some(op => !isDeepStrictEqual(byId.get(op.id),op))) fail('canonical_repair_required')
+    const prepared=prefix.length?binder.prepareResumeGesture(identity,input,{operations:prefix,rows:historyPage.canonicalRows}):binder.prepareBeginGesture(identity,input)
     let hydrating = true
     const admission = new CanonicalStrokeAdmission({ maxGestures: 1, retainedFrames: 8, resolve: (i, s) => hydrating
       ? i.roomId === identity.roomId && i.userId === identity.userId && s.layerId === input.layerId && s.brush === input.brush && s.strokeId === input.strokeId ? prepared.grant : undefined
       : binder.resolve(i, s) })
     try {
       let lastSeq = 0
+      const verified=[]
       for (const value of prefix) {
         const op = canonicalOperation(value, identity, true)
         if (!op.seq || op.seq <= lastSeq || op.seq > watermark) fail('canonical_repair_required')
         lastSeq = op.seq
-        admission.prepare(identity, { type: 'canonical_stroke', id: op.id, layerId: op.layerId, frame: op.frame }).commit()
+        const accepted=admission.prepare(identity, { type: 'canonical_stroke', id: op.id, layerId: op.layerId, frame: op.frame })
+        verified.push({operationId:op.id,sequence:op.seq!,frameOrdinal:op.frame.frameOrdinal,decoded:{entry:accepted.value.decoded.entry,fences:accepted.value.decoded.fences}})
+        accepted.commit()
         // Reconstructed old live traffic is never relayed. Advance both lanes so
         // reconnect can start the next live ordinal without replaying old ink.
         admission.prepare(identity, { type: 'canonical_stroke_live', layerId: op.layerId, frame: op.frame }).commit()
+      }
+      if(verified.length){
+        const checked=verifyCanonicalRecordedPrefix(verified),cursor=admission.cursor(identity,input.strokeId)
+        if(checked.recordedNext!==cursor.recordedNext||checked.ended!==cursor.ended)fail('canonical_repair_required')
       }
     } catch { fail('canonical_repair_required') }
     // No await or arbitrary callback after this recheck through pin/publication.
@@ -351,6 +355,7 @@ function snapshot(session: Session): CanonicalStrokeBeginResult {
 }
 function reason(error: unknown): TransportFailure['reason'] {
   if (error instanceof TransportFailure) return error.reason
+  if (error instanceof CanonicalGesturePrefixError) return 'canonical_repair_required'
   if (error instanceof TypeError || error instanceof RangeError || error instanceof Error
     && /^(canonical capability:|canonical admission:|canonical material:|Canonical stroke frame)/.test(error.message)) return 'invalid_operation'
   return 'server_error'

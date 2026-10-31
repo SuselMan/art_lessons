@@ -68,3 +68,5 @@ export * from './canonicalDefaultAutoMaterial.js'
 export * from './canonicalSoftAutoMaterial.js'
 
 export * from './canonicalRecordedAttachment.js'
+
+export * from './canonicalRecordedPrefix.js'
