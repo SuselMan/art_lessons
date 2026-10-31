@@ -3,7 +3,7 @@ import { GAUSSIAN_READY_STOCK, sourceGaussianCanonicalFixture } from '../../test
 import gaussianNative from '../presets/fixtures/sourceGaussianWholePath/whole.native.json';
 import { sourceGaussianDab } from '../presets/sourceGaussianDab';
 import { canonicalAutoMaskRevision } from './TransformedMaskPlan';
-import type { CanonicalGaussianAutoRecipe, CanonicalGaussianAutoSource } from '@grafetto/shared';
+import type { CanonicalGaussianAutoRecipe, CanonicalGaussianAutoSource, CanonicalDefaultAutoRecipe, CanonicalDefaultAutoSource, CanonicalAutoRecipe, CanonicalAutoSource } from '@grafetto/shared';
 import { prepareSourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab';
 import { CanonicalRgba8CompositePass } from './CanonicalRgba8CompositePass';
 import { runBrushGlBatch } from './BrushGlBatch';
@@ -14,6 +14,9 @@ import { TransformedMaskPrepass, transformedMaskPrepassBudget, type TransformedM
 import { resolvedTransformedMaskPlan } from './TransformedMaskPlan';
 import { sourcePngMaskExtent } from '../presets/sourcePngGeometry';
 import { recordingGL } from '../../testing/brushPassTestUtils';
+type AutoTestRequest<R extends CanonicalAutoRecipe,S extends CanonicalAutoSource> = Omit<import('./TransformedMaskPrepass').CanonicalAutoMaskRequest,'material'> & {
+  readonly material:{readonly kind:'canonicalAuto';readonly recipe:R;readonly trustedSource:S}
+};
 
 function material(scale = .6) {
   const brush = Object.freeze({ width: 2, height: 1, scale: 1, angle: 0 }), shape = Object.freeze({ scale, ratio: 1, rotation: .37 });
@@ -338,7 +341,7 @@ it('shares one state capture for the real ordered prepass→composite services',
 });
 
 describe('canonical default-auto incremental slot generation', () => {
-  function autoRequest(owner = {}): import('./TransformedMaskPrepass').CanonicalAutoMaskRequest {
+  function autoRequest(owner = {}): AutoTestRequest<CanonicalDefaultAutoRecipe,CanonicalDefaultAutoSource> {
     const source = { kind: 'defaultAuto' as const, generator: 'default' as const, shape: 'circle' as const,
       diameter: 7, ratio: .5, horizontalFade: .7, verticalFade: .9, antialias: true, spikes: 2, randomness: 0, density: 1 };
     const trustedSource = { kind: 'defaultAuto' as const, descriptorId: 'test-auto', descriptorVersion: 1,
@@ -472,7 +475,7 @@ describe('canonical default-auto incremental slot generation', () => {
 
 
 describe('Gaussian in the same incremental prepass slot and cache',()=>{
-  function requestFor(recipe:CanonicalGaussianAutoRecipe,trustedSource:CanonicalGaussianAutoSource,owner:object={}):import('./TransformedMaskPrepass').CanonicalAutoMaskRequest {
+  function requestFor(recipe:CanonicalGaussianAutoRecipe,trustedSource:CanonicalGaussianAutoSource,owner:object={}):AutoTestRequest<CanonicalGaussianAutoRecipe,CanonicalGaussianAutoSource> {
     return {owner,role:'primary',material:{kind:'canonicalAuto',recipe,trustedSource},rect:{x:-9,y:17,width:recipe.width,height:recipe.height},profile:'neon4-summed-wordsize64'}
   }
   function capture(s:ReturnType<typeof setup>,width:number,height:number) {

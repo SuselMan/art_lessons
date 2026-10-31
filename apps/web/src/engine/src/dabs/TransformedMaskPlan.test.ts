@@ -11,6 +11,14 @@ const spec = (): SourceDabMaterialSpec => {
     mirror: { horizontal: false, vertical: false, coordinateSystemFlipped: false } };
 };
 describe('saved material to one-pass transform boundary', () => {
+  it('rejects saved soft source before consulting legacy image geometry', () => {
+    const saved:SourceDabMaterialSpec={...spec(),geometry:{kind:'softAuto',coverageProfile:'scalar-f64-fma-v1',source:{
+      kind:'softAuto',generator:'soft',shape:'circle',diameter:5,ratio:1,horizontalFade:1,verticalFade:1,
+      antialias:false,spikes:2,randomness:0,density:1,
+      softnessCurve:{text:'0,1;1,0',points:[{x:0,y:1,corner:false},{x:1,y:0,corner:false}]}}}}
+    Object.defineProperty(saved,'brush',{get(){throw new Error('Legacy image geometry accessed')}})
+    expect(()=>resolvedTransformedMaskPlan(saved)).toThrow('Soft auto requires a typed procedural')
+  });
   it('uses saved logical/static shape and raw negative normalization exactly once', () => {
     const s = spec(), p = resolvedTransformedMaskPlan(s);
     expect(p).toEqual(sourceImageTransformPlan(5, 3, { scale: .9 * .63, ratio: .7, rotation: -(.17 + .8) }, .25, .75));

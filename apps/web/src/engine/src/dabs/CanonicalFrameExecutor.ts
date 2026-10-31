@@ -1,4 +1,5 @@
-import { CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalAutoCost, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalMaterialAsset, type CanonicalAutoSource, type AnyCanonicalMaterialFrame } from '@grafetto/shared'
+import { CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, canonicalAutoCost, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalMaterialAsset, type CanonicalAutoSource, type CanonicalSoftAutoSource, type CanonicalAutoRecipe, type CanonicalSoftAutoRecipe, type AnyCanonicalMaterialRecipe, type AnyCanonicalMaterialFrame } from '@grafetto/shared'
+import { CanonicalSoftCircleProgramOwner } from './CanonicalSoftCircleProgramOwner'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { PaintTarget } from '../buffers/ILayerBuffer'
 import type { WorldRect } from '../buffers/tileMath'
@@ -12,6 +13,9 @@ import type { CanonicalMaskSourceBank } from './CanonicalMaskSourceBank'
 import type { CanonicalOwnedRgba8Target, CanonicalRgba8CompositePass, CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
 import { canonicalTransformedMaskMetadata } from './TransformedMaskPlan'
 import type { AnyTransformedMaskRequest, TransformedMaskPrepass } from './TransformedMaskPrepass'
+
+const autoRecipe = (recipe:AnyCanonicalMaterialRecipe):recipe is CanonicalAutoRecipe|CanonicalSoftAutoRecipe =>
+  'kind' in recipe && (recipe.kind==='defaultAuto'||recipe.kind==='gaussianAuto'||recipe.kind==='softAuto')
 
 /** Both authoring and history adapters submit the SAME already-decoded frame.
  * No pointer, sensor, author DTO, random source or mutable tool state enters here. */
@@ -47,7 +51,7 @@ export interface CanonicalFrameExecutorOptions {
    * No default: a caller must explicitly prepare the matching shader pair. */
   readonly rasterProfile: CanonicalExecutorRasterProfile
   /** Trusted verified-descriptor binding, fixed for this executor; not a client grant. */
-  readonly autoSource?: CanonicalAutoSource
+  readonly autoSource?: CanonicalAutoSource | CanonicalSoftAutoSource
   /** Authoritative room page, never viewport. Absent retains the closed infinite-page QA API. */
   readonly pageBounds?: Readonly<WorldRect> | null
   readonly bank?: CanonicalMaskSourceBank
@@ -109,6 +113,8 @@ export class CanonicalFrameExecutor {
   private rawTransferred = false
   private readonly rawOwner = { alive: true, leases: 0 }
   private washLayerId?: string
+  private readonly softProgram?: CanonicalSoftCircleProgramOwner
+  private sourceRetired = false
 
   constructor(options: CanonicalFrameExecutorOptions) {
     if (options.washMode !== undefined && options.washMode !== 'exclusive' && options.washMode !== 'deposition-only') throw new TypeError('Invalid wash ownership mode')
@@ -121,8 +127,17 @@ export class CanonicalFrameExecutor {
     planCanonicalTargets({minX:0,minY:0,maxX:0,maxY:0},options.pageBounds ?? null,1,1)
     this.maskCapacity=options.prepass.preparedCapacity();
     this.compositeCapacity=options.composite.preparedCapacity();
-    this.options = Object.freeze({ ...options, pageBounds: options.pageBounds ? Object.freeze({...options.pageBounds}) : null, autoSource: options.autoSource ? (options.autoSource.kind === 'defaultAuto' ? canonicalDefaultAutoSourcePin(options.autoSource) : canonicalGaussianAutoSourcePin(options.autoSource)) : undefined })
+    this.options = Object.freeze({ ...options, pageBounds: options.pageBounds ? Object.freeze({...options.pageBounds}) : null, autoSource: options.autoSource ? (options.autoSource.kind === 'defaultAuto' ? canonicalDefaultAutoSourcePin(options.autoSource) : options.autoSource.kind === 'gaussianAuto' ? canonicalGaussianAutoSourcePin(options.autoSource) : canonicalSoftAutoSourcePin(options.autoSource)) : undefined })
     this.gl = a.gl
+    const source=this.options.autoSource
+    if(source?.kind==='softAuto') {
+      if(source.sourceSlot!==0)throw new TypeError('Canonical executor requires a primary soft source')
+      const s=source.source
+      this.softProgram=new CanonicalSoftCircleProgramOwner(a.cpu,
+        {kind:'auto',generator:'soft',shape:'circle',diameter:s.diameter,ratio:s.ratio,horizontalFade:s.horizontalFade,verticalFade:s.verticalFade,
+          spikes:2,softness:1,randomness:0,density:1,antialias:false},
+        {points:source.radialCurve.source.points,coefficients:source.radialCurve.coefficients},Math.floor(source.source.diameter*4+.5)+2)
+    }
   }
 
   get pending(): boolean { return this.queue.length !== 0 }
@@ -137,13 +152,14 @@ export class CanonicalFrameExecutor {
    * At most eight accepted frames are retained. Inputs are copied, so later
    * caller mutation cannot relabel a queued definition, pigment or opacity. */
   enqueue(input: CanonicalFrameSubmission): void {
-    if (this.failed || this.advancing || this.rawOwner.leases) throw new Error('Canonical executor is poisoned or busy')
+    if (this.failed || this.sourceRetired || this.advancing || this.rawOwner.leases) throw new Error('Canonical executor is poisoned or busy')
     if (this.rawComplete) throw new Error('Canonical deposition gesture has ended')
     if (this.options.washMode === 'deposition-only' && input?.composition?.mode !== 'wash') throw new TypeError('Deposition-only requires wash')
     if (this.queue.length >= 8) throw new RangeError('Canonical frame queue is full')
     if (![CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE].includes(input?.frame?.profile)) throw new TypeError('Canonical executor requires accepted material profile')
     if (!input || !input.gestureId || !input.layerId || !int(input.layerEpoch) || !int(input.ordinal)
       || !Array.isArray(input.rgb) || input.rgb.length !== 3 || !input.rgb.every(n => int(n) && n <= 255)) throw new TypeError('Invalid canonical frame identity/pigment')
+    if (input.frame.definitions.some(r => 'kind' in r && r.kind === 'softAuto') && this.options.autoSource?.kind !== 'softAuto') throw new TypeError('Soft source data requires a trusted canonical executor raster grant')
     if (input.frame.definitions.some(r => 'kind' in r && r.kind === 'gaussianAuto') && this.options.autoSource?.kind !== 'gaussianAuto') throw new TypeError('Gaussian source data requires a trusted canonical executor raster grant')
     this.assertPrepared();
     const { buffer, epoch } = this.options.layer(input.layerId)
@@ -154,15 +170,20 @@ export class CanonicalFrameExecutor {
     if (!input.frame || input.frame.draws.length > 800 || input.frame.definitions.length > 800 || input.frame.fences.length > 2404 || input.assets.length > 512) throw new RangeError('Canonical frame exceeds decoder limits')
     const initial = this.planned ?? createSourcePrimaryComposition(input.composition).state
     const result = advanceSourcePrimaryComposition(initial, { ordinal: input.ordinal, frame: input.frame })
-    const hasImageDefinitions = input.frame.definitions.some(r => !('kind' in r) || (r.kind !== 'defaultAuto' && r.kind !== 'gaussianAuto'))
+    const hasImageDefinitions = input.frame.definitions.some(r => !autoRecipe(r))
     const hasImage = hasImageDefinitions || input.frame.profile === CANONICAL_MATERIAL_PROFILE || (!input.frame.definitions.length && !this.options.autoSource)
     if (hasImage && !this.options.bank?.isReady()) throw new Error('Canonical image bank is not prepared')
     if (!hasImage && input.assets.length) throw new TypeError('Auto-only frame must not supply image assets')
     const prepared = hasImage ? this.options.bank!.preparedResources() : []
     const sourceKeys = input.frame.definitions.map(recipe => {
       if (recipe.width > this.maskCapacity.width || recipe.height > this.maskCapacity.height) throw new RangeError('Canonical material exceeds prepared capacity')
+      if ('kind' in recipe && recipe.kind === 'softAuto') {
+        if(this.options.autoSource?.kind!=='softAuto')throw new TypeError('Canonical soft source is not trusted')
+        canonicalSoftAutoCost(recipe,this.options.autoSource)
+        return undefined
+      }
       if ('kind' in recipe && (recipe.kind === 'defaultAuto' || recipe.kind === 'gaussianAuto')) {
-        if (!this.options.autoSource) throw new TypeError('Canonical auto source is not trusted')
+        if (!this.options.autoSource || this.options.autoSource.kind==='softAuto') throw new TypeError('Canonical auto source is not trusted')
         canonicalAutoCost(recipe, this.options.autoSource)
         return undefined
       }
@@ -213,7 +234,7 @@ export class CanonicalFrameExecutor {
       // commands. Never let queued DTOs predictably consume its next turn.
       const info = this.options.prepass.brushGlBatchInfo(), other = this.options.composite.brushGlBatchInfo()
       const resources = new Set([...info.resources, ...other.resources].map(r => r.key)).size
-      if (info.cpu.reservedBytes + (input.frame.definitions.some(r => 'kind' in r && (r.kind === 'defaultAuto' || r.kind === 'gaussianAuto')) ? 82432 : 65536) + resources * 128 > info.cpu.budgetBytes) throw new RangeError('Canonical queue exceeds shared CPU work headroom')
+      if (info.cpu.reservedBytes + (input.frame.definitions.some(autoRecipe) ? 82432 : 65536) + resources * 128 > info.cpu.budgetBytes) throw new RangeError('Canonical queue exceeds shared CPU work headroom')
       const saved: CanonicalFrameSubmission = structuredClone(input)
       this.queue.push({ input: saved, result, sourceKeys, draw: 0, tile: 0, paintPart: 0, present: 0, part: 0,
         releaseMetadata: () => { try { releaseMetadata() } finally { releaseTargetBudget?.() } } })
@@ -293,8 +314,12 @@ export class CanonicalFrameExecutor {
   private maskRequest(work: Work, draw: number): AnyTransformedMaskRequest {
     const d = work.result.draws[draw], recipe = work.input.frame.definitions[d.definition];
     const common = { owner: this, role: 'primary', rect: { x:d.x, y:d.y, width:recipe.width, height:recipe.height }, profile:'neon4-summed-wordsize64' as const };
+    if ('kind' in recipe && recipe.kind === 'softAuto') {
+      if(this.options.autoSource?.kind!=='softAuto'||!this.softProgram)throw new TypeError('Canonical soft source is not trusted');
+      return {...common,material:{kind:'canonicalAuto',recipe,trustedSource:this.options.autoSource,programOwner:this.softProgram}};
+    }
     if ('kind' in recipe && (recipe.kind === 'defaultAuto' || recipe.kind === 'gaussianAuto')) {
-      if (!this.options.autoSource) throw new TypeError('Canonical auto source is not trusted');
+      if (!this.options.autoSource || this.options.autoSource.kind==='softAuto') throw new TypeError('Canonical auto source is not trusted');
       return { ...common, material: { kind:'canonicalAuto', recipe, trustedSource:this.options.autoSource } };
     }
     if (!this.options.bank?.isReady()) throw new Error('Canonical image bank is not prepared');
@@ -306,7 +331,14 @@ export class CanonicalFrameExecutor {
   private prepareAuto(work: Work, start: number): boolean {
     if (work.draw >= work.result.draws.length) return true;
     const d=work.result.draws[work.draw], recipe=work.input.frame.definitions[d.definition];
-    if (!('kind' in recipe) || (recipe.kind !== 'defaultAuto' && recipe.kind !== 'gaussianAuto')) return true;
+    if (!autoRecipe(recipe)) return true;
+    if(recipe.kind==='softAuto') {
+      if(!this.softProgram)throw new TypeError('Canonical soft source is not trusted');
+      while(!this.softProgram.done) {
+        this.softProgram.advance(64);
+        if(performance.now()-start>=4)return false;
+      }
+    }
     if (this.options.prepass.beginAutoGeneration(this.maskRequest(work,work.draw))) return performance.now()-start < 4;
     if (performance.now()-start >= 4) return false;
     do { if(this.options.prepass.advanceAutoGeneration(64).done) return performance.now()-start < 4; }
@@ -330,7 +362,7 @@ export class CanonicalFrameExecutor {
       while (tasks.length < 8 && draw < work.result.draws.length) {
         const d = work.result.draws[draw], r = work.input.frame.definitions[d.definition]
         const firstRecipe = work.input.frame.definitions[work.result.draws[work.draw].definition];
-        if (draw !== work.draw && (('kind' in r && (r.kind === 'defaultAuto' || r.kind === 'gaussianAuto')) || ('kind' in firstRecipe && (firstRecipe.kind === 'defaultAuto' || firstRecipe.kind === 'gaussianAuto')))) break;
+        if (draw !== work.draw && (autoRecipe(r) || autoRecipe(firstRecipe))) break;
         if (!positions) {
           positions = this.targetPositions({ minX:d.x,minY:d.y,maxX:d.x+r.width,maxY:d.y+r.height },layer)
         }
@@ -482,11 +514,15 @@ export class CanonicalFrameExecutor {
   cancel(reason: unknown = new Error('Canonical execution cancelled'), options: { lost?: boolean } = {}): void {
     if (options.lost && !this.gl.isContextLost()) throw new Error('Cannot forget canonical resources on a live context')
     if (this.advancing || this.rawOwner.leases) throw new Error('Cannot cancel inside a canonical GL batch')
-    if (this.gesture || this.pending || (this.washes.size && !this.rawTransferred)) {
-      const before = this.cleanupErrors.length
-      this.fail(reason, options.lost ?? this.gl.isContextLost())
-      if (this.cleanupErrors.length > before) throw this.cleanupErrors[before]
+    const before = this.cleanupErrors.length
+    if(this.softProgram) {
+      this.sourceRetired=true
+      this.cleanup(()=>this.softProgram!.retire())
     }
+    if (this.gesture || this.pending || (this.washes.size && !this.rawTransferred)) {
+      this.fail(reason, options.lost ?? this.gl.isContextLost())
+    }
+    if (this.cleanupErrors.length > before) throw this.cleanupErrors[before]
   }
 
   private fail(reason: unknown, lost = false): void {
@@ -499,6 +535,7 @@ export class CanonicalFrameExecutor {
     for (const work of pending) this.cleanup(work.releaseMetadata)
     this.releaseWashes(lost)
     this.cleanup(() => this.options.prepass.releaseOwner(this))
+    if(this.softProgram){this.sourceRetired=true;this.cleanup(()=>this.softProgram!.retire())}
   }
 
   private rawLifetime(): CanonicalOwnedRgba8Target['lifetime'] {

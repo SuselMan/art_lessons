@@ -248,3 +248,26 @@ programs remains required before claiming whole original stroke identity. The
 pixel receipts do not certify the original sensor coefficients.
 Receipts contain exact source/bundle/fixture hashes:
 `temp/device-runs/krita-stroke-20261024/fixes-v52/gaussian7-executor-{64,8}-{result,cleanup}.json`.
+
+## Fixed primary soft source in the same executor
+
+The explicit trusted auto source union now includes softAuto primary slot0. The
+constructor snapshots the complete pin and reserves one soft program through the
+existing CPU brush allowance. Its table is evaluated in at most64-value quanta
+inside the same4ms cooperative prepare cursor, outside target leases/GL batches.
+Each mask borrows that completed program through the existing prepass. Tables
+survive completed gestures for reuse; explicit cancel or executor failure retires
+the source and eventually returns its CPU reservation after any active borrow.
+Cancel also retires a source that never accepted a frame. No new renderer/cache
+allowance or active tool/server permission is introduced.
+
+Decoded soft recipes must match that primary source before queue reservations or
+target resolution. They use the same prepass masks, tiled wash/buildup composition,
+frame cursor, mirrors and checkpoint gates as existing procedural definitions.
+Tests feed an original native radial basis and independently recorded19x23 A8
+mask through wire2 and the actual executor/prepass for both wash and buildup;
+all uploaded RGBA replicas match the437 native pixels exactly. Forced time cuts
+prove table preparation yields before GL/target access; a second gesture reuses
+the same table without another advance. Untrusted/forged source slot rejects and
+cold cancellation returns the source charge. This is host/MockGL integration,
+not native GUI whole-stroke equivalence or tablet pointer responsiveness proof.

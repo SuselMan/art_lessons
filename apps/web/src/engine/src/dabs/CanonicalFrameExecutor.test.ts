@@ -25,6 +25,9 @@ import { TransformedMaskPrepass } from './TransformedMaskPrepass'
 import { CanonicalRgba8CompositePass } from './CanonicalRgba8CompositePass'
 import { CanonicalFrameExecutor, type CanonicalFrameSubmission, type CanonicalExecutorRasterProfile } from './CanonicalFrameExecutor'
 import { canonicalTransformedMaskMetadata } from './TransformedMaskPlan'
+import { canonicalSoftAutoSourcePin, type CanonicalSoftAutoSource, type CanonicalSoftAutoRecipe } from '@grafetto/shared'
+import softTables from '../presets/fixtures/sourceSoftCircle/tables.native.json'
+import softMasks from '../presets/fixtures/sourceSoftCircle/whole.native.json'
 const id = `asset:${'7'.repeat(64)}`
 const asset = { id, size: 1, x: 0, y: 0, width: 1, height: 1 }
 const recipe: CanonicalMaterialRecipe = { asset: id, brushScale: 1, brushAngle: 0, scale: 1, ratio: 1, rotation: 0, subX: 0, subY: 0,
@@ -38,7 +41,7 @@ function decoded(count: number, x = 0, end = true, entry: CanonicalMaterialFrame
     preflightDefinition: () => ({ workUnits: 1, outputBytes: 1 }) }
   return unpackCanonicalMaterial(packCanonicalMaterial(frame, context), context)
 }
-function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4, tileBudget?: number, rasterProfile: CanonicalExecutorRasterProfile = 'reference-scalar-f32-rne-v1', autoSource?: CanonicalAutoSource, compositeCapacity = capacity, washMode?: 'exclusive' | 'deposition-only') {
+function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4, tileBudget?: number, rasterProfile: CanonicalExecutorRasterProfile = 'reference-scalar-f32-rne-v1', autoSource?: CanonicalAutoSource|CanonicalSoftAutoSource, compositeCapacity = capacity, washMode?: 'exclusive' | 'deposition-only') {
   const { gl, snapshot } = recordingGL(), cache = new BrushTextureCache(gl), cpu = new BrushMipCache()
   gl.TEXTURE1 = gl.TEXTURE0 + 1; gl.STATIC_DRAW = 9001; gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME = 9002
   gl.LINEAR = 9010; gl.REPEAT = 9011
@@ -898,4 +901,57 @@ describe('Gaussian through the SAME bounded frame executor', () => {
       } finally {s.close()}
     }
   })
+})
+
+function nativeSoftFrame() {
+  const sample=softMasks.cases.find(r=>r.index===72&&r.variant===3&&r.mode==='neon64-auto-dispatch')!,row=softTables.constructors.find(r=>r.index===72)!,g=row.generator
+  const softnessCurve={text:g.softness_curve,points:row.points}
+  const pin=canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:0,descriptorId:'native-soft-72',descriptorVersion:1,descriptorSha256:'a'.repeat(64),
+    source:{kind:'softAuto',generator:'soft',shape:'circle',diameter:+g.diameter,ratio:+g.ratio,horizontalFade:+g.hfade,verticalFade:+g.vfade,
+      antialias:false,spikes:2,randomness:0,density:1,softnessCurve},
+    brushScale:sample.storedScale,brushAngle:sample.storedAngle,coverageProfile:'neon64-f32-fma-v1',reader:'krita-bd6e8d0-v1',
+    compilerProfile:'eigen-5.0.1-mapped-arm64-f64-v3',buildId:'b'.repeat(64),
+    radialCurve:{source:softnessCurve,coefficients:row.coefficients.map(c=>[c[0],c[1],c[2],c[3]] as const)}})
+  const recipe:CanonicalSoftAutoRecipe={kind:'softAuto',sourceSlot:0,source:pin.source,coverageProfile:pin.coverageProfile,
+    brushScale:pin.brushScale,brushAngle:pin.brushAngle,...sample.shape,subX:sample.subpixelX,subY:sample.subpixelY,
+    width:sample.width,height:sample.height,mirrorH:true,mirrorV:true}
+  const context:CanonicalMaterialContextV2={version:2,assets:[],primarySource:pin,budget:{workUnits:1048576,outputBytes:4*1048576,drawPixels:1048576}}
+  const built=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:-3,y:-5,opacity:.5,flow:.7}],
+    fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:1,group:0},{kind:'segmentEnd',at:1,group:0},{kind:'gestureEnd',at:1}]},context)
+  return {pin,sample,frame:unpackCanonicalMaterial(built.packed,context)}
+}
+for(const mode of ['wash','buildup'] as const)it(`executes a decoded native soft mask through the SAME ${mode} queue and bounded prepass`,()=>{
+  const {pin,sample,frame}=nativeSoftFrame(),s=setup(mode,64,64,undefined,'reference-scalar-f32-rne-v1',pin),uploads:Uint8Array[]=[]
+  s.gl.texSubImage2D.mockImplementation((...args:unknown[])=>uploads.push(new Uint8Array(args[8] as Uint8Array)))
+  const baseline=s.cpu.reservedBytes
+  try {
+    const resolve=vi.spyOn(s.layer,'resolveForPaint'),table=s.executor['softProgram']!,advance=vi.spyOn(table,'advance')
+    s.executor.enqueue({...s.submit(),frame,assets:[]})
+    let clock=0;const now=vi.spyOn(performance,'now').mockImplementation(()=>clock+=5)
+    try{expect(s.executor.advance().pending).toBe(true)}finally{now.mockRestore()}
+    expect(resolve).not.toHaveBeenCalled();expect(uploads).toHaveLength(0)
+    expect(advance).toHaveBeenCalledWith(64)
+    s.drain()
+    const rgba=Uint8Array.from(uploads.flatMap(a=>Array.from(a))),expected=Uint8Array.from(atob(sample.coverageBase64),c=>c.charCodeAt(0))
+    expect(rgba.length).toBe(expected.length*4)
+    for(let i=0;i<expected.length;i++)expect(Array.from(rgba.subarray(i*4,i*4+4))).toEqual([expected[i],expected[i],expected[i],expected[i]])
+    expect(s.executor.checkpointReady).toBe(true);expect(s.cpu.reservedBytes).toBe(baseline)
+    const preparedCalls=advance.mock.calls.length
+    s.executor.enqueue({...s.submit(),gestureId:'second-soft-gesture',frame,assets:[]});s.drain()
+    expect(advance.mock.calls.length).toBe(preparedCalls)
+    s.executor.cancel();expect(s.cpu.reservedBytes).toBe(baseline-table.estimatedCpuBytes)
+  }finally{s.close()}
+})
+it('rejects untrusted soft frames before target access and releases a never-used source on cancellation',()=>{
+  const {pin,frame}=nativeSoftFrame(),s=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin)
+  const own=s.executor['softProgram']!,before=s.cpu.reservedBytes,resolve=vi.spyOn(s.layer,'resolveForPaint')
+  try {
+    const noPin=new CanonicalFrameExecutor({...s.executor['options'],autoSource:undefined})
+    expect(()=>noPin.enqueue({...s.submit(),frame,assets:[]})).toThrow('trusted');noPin.cancel()
+    const r=frame.definitions[0];if(r.kind!=='softAuto')throw Error('Expected soft recipe')
+    expect(()=>s.executor.enqueue({...s.submit(),frame:{...frame,definitions:[{...r,sourceSlot:1}]},assets:[]})).toThrow()
+    expect(s.cpu.reservedBytes).toBe(before);expect(resolve).not.toHaveBeenCalled();expect(s.reserveTransient).not.toHaveBeenCalled()
+    s.executor.cancel();s.executor.cancel();expect(s.cpu.reservedBytes).toBe(before-own.estimatedCpuBytes)
+    expect(()=>s.executor.enqueue({...s.submit(),frame,assets:[]})).toThrow('poisoned')
+  }finally{s.close()}
 })
