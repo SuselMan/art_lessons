@@ -168,3 +168,49 @@ Final receipt SHA2562a6fe39d707d4201e5b99a38d743729e6120fe683f65f5cdeb39e6949b93
 The approved existing-device lifecycle used one child/forward at a time,
 write:false memory builds, five-minute owner receipts and strict finally cleanup.
 No temporary process, browser child, forward, build directory or service remains.
+
+Thin opt-in export and current device limitation
+-----------------------------------------------
+
+The opt-in HSY export now shares only the existing byte-control struct and
+MULT/MULT3/DIVIDE/WRAP helpers. Unused generic Over/Add/AlphaDarken/separable
+functions are excluded. Generic WebGL1 output remains4692bytes with SHA256
+8909b212340044edd584a4c251fc1c6e662760f64f2ccf3980fdf91b95da7a36;
+generic WebGL2 remains4132bytes with SHA256
+4552bb5a0f41f366a1a2ad07b93d22d2dda126757a5d479d10aec30648bbb424.
+Both default shader strings are byte-for-byte identical before/after factoring.
+HSY drops15964→12067bytes (-3897/-24.4%), without numerical graph changes.
+
+`samsung-thin.native.json` records the fresh working-source/bundle/body hashes
+and separate phase outcomes. Both WebGL versions again match266 native RGBA
+results,238 native CF triples and all256 LUT entries. The existing full pass
+again matches266 cases through both source kinds:532 draws/2128RGBA bytes,
+all state/sampler/lease/hot-upload/error checks pass. These are numerical and
+point-pass proofs, not complete large-batch fidelity or room/UI admission.
+
+No compile-speed improvement is established: numerical compile+link was
+WebGL1 6579.7ms and WebGL2 9909.8ms, versus6517.6/8715.0ms in the earlier
+fixed-stage probe. Full-pass preparation3312.5ms likewise does not improve
+3297.4ms materially. The source-size reduction is the measured result.
+
+The subsequent existing runBrushGlTurn/runBrushGlBatch workload passed both
+64-crop feedback snapshots and the final256 snapshot. The600 final snapshot
+failed with zero RGBA (1397017 wrong bytes), despite state/sampler/lease/error
+checks and cleanup passing. The receipt is explicitly FAILED, not an admitted
+large-batch proof. A sibling's next fresh about:blank WebGL context allocation
+returned null before any shader call. Cause remains undetermined: driver/context
+unavailability is not established as a production batch/math defect. This
+synchronous diagnostic did not await a later animation frame for delayed context-
+loss delivery. No successful600 batch result or reliable GPU latency is claimed.
+
+Sibling metadata SHA256
+35fc6f93bee695b7a811a0204e7fb0a53c917eebc78744baa4c7403fe2fb6560
+records KHR_parallel_shader_compile listed=false/available=false in actual
+Samsung WebGL1. The proposed asynchronous owner API therefore was not implemented
+as a purported Samsung fix; no synchronous fallback was introduced. Existing
+async-seam audit is retained in fixes-v52 for future reviewed device support.
+
+All owned GL objects/contexts/children/forward were closed, original tabs
+preserved, and device scope handed to the sibling before further diagnostics.
+No resource, process, build or service remains owned by this phase. The1265
+focused host tests and lint pass; shared web TSC remains a coordinated gate.

@@ -110,7 +110,7 @@ vec3 sourceInstalledHsyColor(vec3 source,vec3 destination){
  * This is the generic scalar law, not optimized native packet/Over32 dispatch.
  * No blend state, destination storage or profile admission is implied here.
  */
-export const SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL = /* glsl */ `
+const SOURCE_RGBA8_BYTE_CONTROLS_GLSL = /* glsl */ `
 struct SourceRgba8CompositeControl {
   float mode;
   float opacity;
@@ -134,12 +134,14 @@ float sourceRgba8Divide(float a, float b) {
   float residual = numerator - quotient * b;
   return residual < 0.0 ? quotient - 1.0 : residual >= b ? quotient + 1.0 : quotient;
 }
-float sourceRgba8Blend(float source, float destination, float alpha) {
+`;
+const SOURCE_RGBA8_BYTE_WRAP_GLSL = /* glsl */ `float sourceRgba8Wrap(float value) { return value - floor(value * (1.0/256.0)) * 256.0; }
+`;
+export const SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL = SOURCE_RGBA8_BYTE_CONTROLS_GLSL + /* glsl */ `float sourceRgba8Blend(float source, float destination, float alpha) {
   float t = (source - destination) * alpha + 128.0;
   return floor((floor(t * (1.0/256.0)) + t) * (1.0/256.0)) + destination;
 }
-float sourceRgba8Wrap(float value) { return value - floor(value * (1.0/256.0)) * 256.0; }
-// Closed IDs: 0 Over, 1 Add, 2 AlphaDarken, 3 Multiply, 4 Lighten,
+` + SOURCE_RGBA8_BYTE_WRAP_GLSL + /* glsl */ `// Closed IDs: 0 Over, 1 Add, 2 AlphaDarken, 3 Multiply, 4 Lighten,
 // 5 ColorDodge, 6 Overlay. New IDs require the explicit host generic-SC profile.
 float sourceRgba8SeparableChannel(float mode, float source, float destination) {
   if (mode == 3.0) return sourceRgba8Multiply(source, destination);
@@ -202,7 +204,7 @@ vec4 sourceCompositeRgba8(vec4 source, vec4 destination, SourceRgba8CompositeCon
 `;
 
 /** Opt-in installed profile only; generic0..6 stays lightweight. */
-export const SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL = SOURCE_RGBA8_INSTALLED_HSY_GLSL + SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL + /* glsl */ `
+export const SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL = SOURCE_RGBA8_INSTALLED_HSY_GLSL + SOURCE_RGBA8_BYTE_CONTROLS_GLSL + SOURCE_RGBA8_BYTE_WRAP_GLSL + /* glsl */ `
 vec4 sourceCompositeInstalledHsyRgba8(vec4 source,vec4 destination,SourceRgba8CompositeControl control){
   float da=destination.a;
     float sa = sourceRgba8Multiply3(source.a, control.mask, control.opacity);
