@@ -253,3 +253,55 @@ it('continues the same source lane after restoring an original full history with
   expect(engine['_canonicalLayerOwner']?.coordinator).toBeUndefined()
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
+it('shows a completed derived prefix while later frames remain queued, but never an empty or partial presentation',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.paperReady();await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  await new Promise<void>(done=>requestAnimationFrame(()=>done()))
+  const stable=engine['_canonicalLayerOwner']!.stable,target=stable.resolveForPaint({minX:0,minY:0,maxX:8,maxY:8})[0]
+  target.buffer.restorePixels(Uint8Array.from({length:256},(_,i)=>[17,81,133,151][i%4]));stable.markContentPainted({minX:0,minY:0,maxX:8,maxY:8})
+  engine['_scheduleCanonicalRebuild']=()=>{}
+  const actualDisplay=engine['_display'].bind(engine),display=vi.fn(actualDisplay);engine['_display']=display
+  engine.appendOriginalRecorded(recorded(p,1,'A',false));engine.appendOriginalRecorded(recorded(p,2,'B',false))
+  const owner=engine['_canonicalLayerOwner']!,coordinator=owner.coordinator!,job=owner.job!
+  engine['_display']();expect(display).toHaveBeenCalledOnce();display.mockClear()
+  const compose=vi.spyOn(engine['_compositor'],'runComposite')
+  // No completed fold exists yet: the explicit display call must leave the
+  // current screen intact instead of sampling the just-created empty derived.
+  engine['_display']();expect(compose).not.toHaveBeenCalled();display.mockClear()
+  let progressed=false,sawIncomplete=false
+  for(let turn=0;turn<400;turn++){
+   const before=display.mock.calls.length
+   engine['_stepCanonicalLayer'](job)
+   await new Promise<void>(done=>requestAnimationFrame(()=>done()))
+   if(!coordinator.presentationReady){sawIncomplete=true;expect(display).toHaveBeenCalledTimes(before)}
+   if(coordinator.queuedFrameCount>0&&display.mock.calls.length){progressed=true;break}
+  }
+  expect(progressed).toBe(true);expect(sawIncomplete).toBe(true);expect(coordinator.presentationReady).toBe(true);expect(coordinator.queuedFrameCount).toBeGreaterThan(0);expect(compose).toHaveBeenCalled();expect(owner.job).toBe(job);expect(engine['_rebuildJobs'].get('layer-1')).toBe(job)
+  expect(engine.pickColor(1,1)).toBeNull();expect(engine.bakeNetworkSnapshot('layer-1')).toBeNull();expect(engine['_canonicalReadReady']()).toBe(false)
+  const displayed=display.mock.calls.length
+  // A physical/preparation-only turn cannot redisplay the same publication.
+  const advance=coordinator.advance.bind(coordinator);coordinator.advance=()=>{}
+  engine['_stepCanonicalLayer'](job);expect(display).toHaveBeenCalledTimes(displayed);coordinator.advance=advance
+  const lost=vi.spyOn(engine['gl'],'isContextLost').mockReturnValue(true)
+  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));lost.mockReturnValue(false)
+  expect(engine['_canonicalPixelsReady']).toBe(false);expect(engine['_canonicalLayerOwner']).toBeUndefined();expect(engine['_brushMipCache'].reservedBytes).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('rechecks the same owner after intermediate display reenters context loss and never schedules stale work',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.paperReady();await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  await new Promise<void>(done=>requestAnimationFrame(()=>done()))
+  const schedule=vi.fn();engine['_scheduleCanonicalRebuild']=schedule
+  engine.appendOriginalRecorded(recorded(p,1,'A',false));engine.appendOriginalRecorded(recorded(p,2,'B',false))
+  const owner=engine['_canonicalLayerOwner']!,job=owner.job!,actualDisplay=engine['_display'].bind(engine),lost=vi.spyOn(engine['gl'],'isContextLost').mockReturnValue(false)
+  let displayed=false
+  engine['_display']=()=>{actualDisplay();displayed=true;lost.mockReturnValue(true);engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}))}
+  for(let n=0;n<400&&!displayed;n++){engine['_stepCanonicalLayer'](job);await new Promise<void>(done=>requestAnimationFrame(()=>done()))}
+  expect(displayed).toBe(true);const calls=schedule.mock.calls.length
+  expect(engine['_canonicalLayerOwner']).toBeUndefined();expect(engine['_rebuildJobs'].size).toBe(0);expect(engine['_canonicalPixelsReady']).toBe(false);expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_log'].entries).toHaveLength(2)
+  await Promise.resolve();expect(schedule).toHaveBeenCalledTimes(calls)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})

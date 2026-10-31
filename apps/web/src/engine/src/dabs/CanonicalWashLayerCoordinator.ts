@@ -119,6 +119,7 @@ export class CanonicalWashLayerCoordinator {
   private readonly errors: unknown[] = []
   private work?: PresentationWork
   private revision = 0
+  private completedPresentation = -1
   private lastSequence = 0
   private busy = false
   private failed = false
@@ -150,6 +151,9 @@ export class CanonicalWashLayerCoordinator {
   get poisoned(): boolean { return this.failed }
   get pending(): boolean { return !!this.queue.length || !!this.dirty.size || !!this.work || !!this.commitFrontier()?.ownership }
   get presentationReady(): boolean { return !this.failed && !this.closed && !this.dirty.size && !this.work }
+  /** Visual publication exists only after every dirty position has finished. */
+  get publishedPresentationReady():boolean { return this.presentationReady&&this.completedPresentation>=0 }
+  get completedPresentationRevision():number { return this.completedPresentation }
   get checkpointReady(): boolean { return this.presentationReady && !this.queue.length && this.entries.every(e => e.committed) }
   get cleanupFailures(): readonly unknown[] { return Object.freeze([...this.errors]) }
 
@@ -561,7 +565,9 @@ export class CanonicalWashLayerCoordinator {
     if (work.stage === this.entries.length) {
       Object.assign(p.presentation!,{stable:work.stableBuffer,derived:work.buffer,stableTexture:work.stableTexture,derivedTexture:work.texture})
       this.closePresentationPlans(work)
-      this.dirty.delete(k); this.work = undefined; this.options.changed(this.options.layerId)
+      this.dirty.delete(k); this.work = undefined;
+      if(!this.dirty.size)this.completedPresentation=this.revision
+      this.options.changed(this.options.layerId)
     }
   }
 

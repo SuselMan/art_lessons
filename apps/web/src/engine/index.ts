@@ -1438,7 +1438,7 @@ interface CanonicalLayerOwner {
  readonly plan:CanonicalEmptyPlan;readonly stable:TiledLayerBuffer;readonly generation:number
  readonly cache:BrushTextureCache;readonly prepass:TransformedMaskPrepass;readonly composite:CanonicalRgba8CompositePass
  mask:TransformedMaskLimits;prepared:boolean;proof:CanonicalJournalProof;inputs:readonly CanonicalRecordedInput[]
- derived?:TiledLayerBuffer;coordinator?:CanonicalWashLayerCoordinator;job?:RebuildJob;wake?:number;orderParked?:boolean
+ derived?:TiledLayerBuffer;coordinator?:CanonicalWashLayerCoordinator;job?:RebuildJob;wake?:number;orderParked?:boolean;lastDisplayedPresentationRevision?:number
  accepting:boolean;retiring:boolean;failed:boolean;outstanding:number;readonly logicalBytes:number
 }
 interface CanonicalEmptyTransaction {
@@ -2508,7 +2508,7 @@ export class PencilEngine implements PencilEngineAPI {
     // closed until constructor rollback and raw storage ownership are migrated.
     attachContextStorage(gl, { limitBytes: Infinity })
     this.gl = gl
-    const currentPresentation = () => this._destroyed || this._contextLost || !this._canonicalReadable() ? undefined : this._straightPresentation
+    const currentPresentation = () => this._destroyed || this._contextLost || !this._canonicalDisplayReady() ? undefined : this._straightPresentation
   this._compositor = new LayerCompositor({
     gl,
     get straightPresentation() {
@@ -2519,7 +2519,7 @@ export class PencilEngine implements PencilEngineAPI {
     displayLayer:id=>{
       const owner=this._canonicalLayerOwner
       if(id!==INITIAL_LAYER_ID||!owner?.coordinator)return undefined
-      if(owner.failed||owner.generation!==this._physicalGeneration||this._layers.get(id)!==owner.stable||!owner.coordinator.presentationReady||owner.coordinator.queuedFrameCount)throw new Error('Canonical display presentation is pending or stale')
+      if(owner.failed||owner.generation!==this._physicalGeneration||this._layers.get(id)!==owner.stable||!owner.coordinator.publishedPresentationReady)throw new Error('Canonical display presentation is pending or stale')
       return owner.derived
     },
     previews: () => this._previews,
@@ -6160,6 +6160,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _canonicalExportReady():boolean {
     return this._canonicalReadReady()&&(!this._canonicalLayerOwner?.coordinator||this._canonicalLayerOwner.coordinator.checkpointReady)
   }
+  /** Display may show the last fully folded prefix while later work queues;
+   * read/export continue to require their original complete-prefix guards. */
+  private _canonicalDisplayReady():boolean {
+    return this.rasterVersion===LEGACY_ROOM_RASTER_VERSION||this._canonicalPixelsReady&&(!this._canonicalLayerOwner?.coordinator||this._canonicalLayerOwner.coordinator.publishedPresentationReady)
+  }
   private _canonicalReadable():boolean {
     return this.rasterVersion===LEGACY_ROOM_RASTER_VERSION||this._canonicalPixelsReady&&(!this._canonicalLayerOwner?.coordinator||this._canonicalLayerOwner.coordinator.presentationReady&&this._canonicalLayerOwner.coordinator.queuedFrameCount===0)
   }
@@ -6359,6 +6364,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
   private _ensureCanonicalLayerCoordinator(owner:CanonicalLayerOwner):CanonicalWashLayerCoordinator {
     if(!owner.coordinator){
+        owner.lastDisplayedPresentationRevision=undefined
         owner.derived=this._makeLayerBuffer() as TiledLayerBuffer
         owner.coordinator=new CanonicalWashLayerCoordinator({rasterProfile:owner.plan.profile,layerId:INITIAL_LAYER_ID,layerEpoch:owner.plan.scope.boardEpoch,maxGestures:CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities,pageBounds:owner.plan.page,prepass:owner.prepass,composite:owner.composite,scratch:this._ribbonScratchPool,
           layer:()=>({buffer:owner.stable,epoch:owner.plan.scope.boardEpoch}),presentation:()=>({buffer:owner.derived!,epoch:owner.plan.scope.boardEpoch}),
@@ -6403,6 +6409,11 @@ export class PencilEngine implements PencilEngineAPI {
         if(owner.coordinator!.checkpointReady){const errors=this._retireCanonicalLayerCycle(owner,false);if(errors.length)throw errors[0]}
         this._rebuildJobs.delete(job.layerId);owner.job=undefined
         this._invalidateSplitCache();this._displayIfNotSuspended();this._authorTasks.resetIfIdle();return
+      }
+      const coordinator=owner.coordinator!
+      if(coordinator.publishedPresentationReady&&owner.lastDisplayedPresentationRevision!==coordinator.completedPresentationRevision){
+        owner.lastDisplayedPresentationRevision=coordinator.completedPresentationRevision
+        this._invalidateSplitCache();this._displayIfNotSuspended();this._assertCanonicalLayerCurrent(owner)
       }
       this._scheduleCanonicalRebuild(job)
     }catch(error){this._poisonCanonicalLayer(error)}
@@ -10698,7 +10709,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _display(): void {
-    if (this._destroyed || this._contextLost || this.gl.isContextLost() || !this._canonicalReadable()) return
+    if (this._destroyed || this._contextLost || this.gl.isContextLost() || !this._canonicalDisplayReady()) return
     // (#470) One path for both kinds of room. A bounded room used to take a
     // screen-locked DISPLAY_FRAG pass over a sheet-sized _compositeFBO, which
     // only worked because its canvas *was* the sheet; now that the camera
