@@ -72,3 +72,16 @@ it('closes every coupled owner after a partial scratch failure and preserves the
  expect(()=>plan.close()).toThrow(first);expect(spy).toHaveBeenCalledTimes(2);expect(()=>layer.clear()).not.toThrow()
  plan.close();spy.mockRestore();pool.destroy();layer.destroy()
 })
+
+it('tracks resident-only target and scratch takes in the same coupled ownership for cancellation',()=>{
+ const gl=new MockGL() as unknown as WebGLRenderingContext,layer=new TiledLayerBuffer(gl,4,4,undefined,undefined,undefined,'straight-rgba8'),pool=new RibbonScratchPool(gl)
+ attachContextStorage(gl,{limitBytes:192})
+ const resident=layer.resolveForPaint({minX:0,minY:0,maxX:4,maxY:4})[0],idle=pool.acquire(4,4,'straight-rgba8');pool.release(idle)
+ const plan=prepareCanonicalLayerFrame(layer,pool,[{minX:0,minY:0,maxX:8,maxY:4}],[{width:4,height:4,pixelEncoding:'straight-rgba8'}])
+ try{
+  expect(plan.takeResidentTarget(0)?.buffer).toBe(resident.buffer);expect(plan.takeResidentTarget(1)).toBeUndefined()
+  expect(plan.takeResidentScratch(0)).toBe(idle);expect(plan.scratchAt(0)).toBe(idle)
+  expect(()=>plan.takeResidentScratch(0)).toThrow();expect(snapshotContextStorage(gl)).toMatchObject({residentBytes:128,reservedBytes:64})
+ }finally{plan.close();pool.destroy();layer.destroy()}
+ expect(snapshotContextStorage(gl)).toMatchObject({residentBytes:0,reservedBytes:0})
+})

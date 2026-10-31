@@ -21,6 +21,7 @@ export interface RibbonScratchRequest {
 export interface RibbonScratchAcquisition {
   readonly length: number
   take(index: number): AccumulationBuffer
+  takeResident(index: number): AccumulationBuffer | undefined
   close(): void
 }
 
@@ -131,13 +132,16 @@ export class RibbonScratchPool {
       try { close() } catch (cleanup) { throw new AggregateError([primary, cleanup], 'Scratch admission and cleanup failed') }
       throw primary
     }
-    return Object.freeze({ length: plan.length, close, take: (index: number) => {
+    const take = (index: number, residentOnly: boolean) => {
       try {
         if (closed || this.epoch !== epoch || !Number.isInteger(index) || index < 0 || index >= plan.length || taken[index])
           throw new Error('Invalid or stale scratch acquisition')
         validateAccumReservation(this.gl, ticket!, 0)
+        for (let i = 0; i < held.length; i++) if (held[i] && !taken[i] && !held[i]!.storageOwnerCurrent)
+          throw new Error('Stale held scratch storage owner')
         let buffer = held[index]
         if (!buffer) {
+          if (residentOnly) return undefined
           const request = plan[index]
           buffer = new AccumulationBuffer(this.gl, request.width, request.height, request.filter, request.pixelEncoding, ticket)
           this.allocations.set(buffer, 'live')
@@ -150,7 +154,10 @@ export class RibbonScratchPool {
         try { close() } catch (cleanup) { throw new AggregateError([primary, cleanup], 'Scratch acquisition and cleanup failed') }
         throw primary
       }
-    } })
+    }
+    return Object.freeze({ length: plan.length, close,
+      take: (index: number) => take(index, false)!,
+      takeResident: (index: number) => take(index, true) })
   }
 
   acquire(width: number, height: number, pixelEncoding: RasterPixelEncoding = 'premultiplied-rgba8', filter: 'linear' | 'nearest' = 'nearest'): AccumulationBuffer {

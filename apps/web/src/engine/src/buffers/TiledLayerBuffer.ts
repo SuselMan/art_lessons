@@ -164,6 +164,7 @@ export type TileDownsampler = (
 export interface PreparedLayerTargets {
   readonly length:number
   take(index:number):PaintTarget
+  takeResident(index:number):PaintTarget|undefined
   close():void
 }
 
@@ -687,16 +688,20 @@ export class TiledLayerBuffer implements ILayerBuffer {
       validateAccumReservation(this.gl,ticket!,0)
       for(const {key,entry}of entries)if(this.retainedTargets.get(key)!==entry||this.tiles.get(key)!==entry.buffer||entry.buffer&&!entry.buffer.storageOwnerCurrent)throw new Error('Stale layer storage admission')
     }
-    return Object.freeze({length:entries.length,close,take:(index:number)=>{
+    const take=(index:number,residentOnly:boolean)=>{
       validate()
       if(!Number.isInteger(index)||index<0||index>=entries.length)throw new RangeError('Invalid layer storage admission index')
       const {key,tileX,tileY,entry}=entries[index]
       if(!entry.buffer){
+        if(residentOnly)return undefined
         const buffer=this.createClearedTile(ticket)
         entry.buffer=buffer;this.tiles.set(key,buffer);this.contentRects.set(key,null)
       }
       return {buffer:entry.buffer,originX:tileX*this.tileW,originY:tileY*this.tileH,contentRect:this.contentRects.get(key)??null}
-    }})
+    }
+    return Object.freeze({length:entries.length,close,
+      take:(index:number)=>take(index,false)!,
+      takeResident:(index:number)=>take(index,true)})
   }
 
   /** Sparse bounded target union; distant footprints never allocate the gap. */

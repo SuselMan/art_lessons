@@ -47,7 +47,9 @@ export function prepareCanonicalLayerFrame(layer:TiledLayerBuffer,pool:RibbonScr
   const current=()=>{if(closed)throw new Error('Closed canonical layer frame')}
   return Object.freeze({targetCount:targets.length,scratchCount:requests.length,
     takeTarget(index:number){current();return targets.take(index)},
+    takeResidentTarget(index:number){current();return targets.takeResident(index)},
     takeScratch(index:number){current();if(owned.has(index))throw new Error('Scratch admission already taken');const buffer=scratch!.take(index);owned.set(index,buffer);return buffer},
+    takeResidentScratch(index:number){current();if(owned.has(index))throw new Error('Scratch admission already taken');const buffer=scratch!.takeResident(index);if(buffer)owned.set(index,buffer);return buffer},
     scratchAt(index:number){current();const buffer=owned.get(index);if(!buffer)throw new Error('Scratch admission not owned');return buffer},
     transferScratch(index:number){current();const buffer=owned.get(index);if(!buffer)throw new Error('Scratch admission not owned');owned.delete(index);return buffer},
     close(options:{lost?:boolean}={}){if(closed)return;closed=true;let failed=false,error:unknown
@@ -60,7 +62,9 @@ export interface CanonicalLayerFrame {
  readonly targetCount:number
  readonly scratchCount:number
  takeTarget(index:number):PaintTarget
+ takeResidentTarget(index:number):PaintTarget|undefined
  takeScratch(index:number):AccumulationBuffer
+ takeResidentScratch(index:number):AccumulationBuffer|undefined
  scratchAt(index:number):AccumulationBuffer
  transferScratch(index:number):AccumulationBuffer
  close(options?:{lost?:boolean}):void

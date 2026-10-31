@@ -225,9 +225,12 @@ export class CanonicalWashLayerCoordinator {
     this.closePresentationPlans(previous)
   }
   private locals(entry: Entry): readonly CanonicalWashLocalTile[] { return entry.ownership?.tiles ?? (entry.committed ? [] : entry.executor.rawWashTiles()) }
-  private target(plan:PreparedLayerTargets,p:Position):PaintTarget {
+  private target(plan:PreparedLayerTargets,p:Position,residentOnly:true):PaintTarget|undefined
+  private target(plan:PreparedLayerTargets,p:Position,residentOnly?:false):PaintTarget
+  private target(plan:PreparedLayerTargets,p:Position,residentOnly=false):PaintTarget|undefined {
     if(plan.length!==1)throw new Error('Canonical wash target geometry changed')
-    const target=plan.take(0)
+    const target=residentOnly?plan.takeResident(0):plan.take(0)
+    if(!target)return undefined
     if(target.originX!==p.x||target.originY!==p.y||target.buffer.width!==p.width||target.buffer.height!==p.height)throw new Error('Canonical wash target geometry changed')
     return target
   }
@@ -250,6 +253,8 @@ export class CanonicalWashLayerCoordinator {
     if(entry.tile<tiles.length){
       const tile=tiles[entry.tile]
       entry.targetPlan??=this.stable.preparePaintTargetRects([rect(tile)])
+      if(!entry.commitTarget)entry.commitTarget=this.target(entry.targetPlan,tile,true)
+      if(performance.now()-turnStarted>=4)return
       if(!entry.commitTarget){
         runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{
           const gl=this.options.prepass.brushGlBatchInfo().gl;gl.activeTexture(gl.TEXTURE0)
@@ -298,6 +303,10 @@ export class CanonicalWashLayerCoordinator {
       try{work.derivedPlan=this.derived.preparePaintTargetRects([rect(p)]);work.stablePlan=stable}
       catch(primary){try{stable.close()}catch{/* Preserve admission failure. */}throw primary}
     }
+    if(!work.stableTarget)work.stableTarget=this.target(work.stablePlan!,p,true)
+    if(performance.now()-turnStarted>=4)return
+    if(!work.derivedTarget)work.derivedTarget=this.target(work.derivedPlan!,p,true)
+    if(performance.now()-turnStarted>=4)return
     if(!work.stableTarget||!work.derivedTarget){
       runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{
         const gl=this.options.prepass.brushGlBatchInfo().gl;gl.activeTexture(gl.TEXTURE0)

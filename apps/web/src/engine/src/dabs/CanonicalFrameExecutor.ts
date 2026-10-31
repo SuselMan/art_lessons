@@ -347,7 +347,7 @@ export class CanonicalFrameExecutor {
       }
       this.preparePhysicalPlan(work,layer)
       if (!this.prepareAuto(work,turnStarted) || performance.now()-turnStarted >= 4) return { pending: true, checkpointReady: false }
-      if (!this.preparePhysical(work,layer)) return {pending:true,checkpointReady:false}
+      if (!this.preparePhysical(work,layer,turnStarted)) return {pending:true,checkpointReady:false}
       // One owned capture covers direct target preparation, inner batch and
       // its release callbacks; no GL state or lease survives this turn.
       runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},turn=>{
@@ -363,8 +363,8 @@ export class CanonicalFrameExecutor {
     return { pending: this.pending, checkpointReady: this.checkpointReady }
   }
 
-  /** One accepted materialization per turn; even a resident/idle take is a
-   * bounded step. The actual layer/pool tickets reserve missing bytes once. */
+  /** At most one actual materialization per turn. Resident metadata takes use
+   * the same turn clock; layer/pool tickets reserve missing bytes once. */
   private preparePhysicalPlan(work:Work,layer:TiledLayerBuffer):void {
     const perTile=this.options.washMode==='deposition-only'?1:2
     if(!work.physical){
@@ -372,10 +372,24 @@ export class CanonicalFrameExecutor {
       work.physical=prepareCanonicalLayerFrame(layer,this.options.scratch,work.frameTargets.map(rect),requests)
     }
   }
-  private preparePhysical(work:Work,layer:TiledLayerBuffer):boolean {
+  private preparePhysical(work:Work,layer:TiledLayerBuffer,turnStarted:number):boolean {
     const perTile=this.options.washMode==='deposition-only'?1:2,plan=work.physical!
-    if(work.targetCursor<plan.targetCount){runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{this.gl.activeTexture(this.gl.TEXTURE0);return plan.takeTarget(work.targetCursor)});work.targetCursor++;return false}
-    if(work.scratchCursor<plan.scratchCount){runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{this.gl.activeTexture(this.gl.TEXTURE0);return plan.takeScratch(work.scratchCursor)});work.scratchCursor++;return false}
+    while(work.targetCursor<plan.targetCount){
+      if(plan.takeResidentTarget(work.targetCursor)){
+        work.targetCursor++;if(performance.now()-turnStarted>=4)return false
+      }else{
+        runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{this.gl.activeTexture(this.gl.TEXTURE0);return plan.takeTarget(work.targetCursor)})
+        work.targetCursor++;return false
+      }
+    }
+    while(work.scratchCursor<plan.scratchCount){
+      if(plan.takeResidentScratch(work.scratchCursor)){
+        work.scratchCursor++;if(performance.now()-turnStarted>=4)return false
+      }else{
+        runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{this.gl.activeTexture(this.gl.TEXTURE0);return plan.takeScratch(work.scratchCursor)})
+        work.scratchCursor++;return false
+      }
+    }
     if(work.washCursor<work.newTiles.length){
       const position=work.newTiles[work.washCursor],base=work.washCursor*perTile
       // All allocation is complete. Only the synchronous copy/clear operation

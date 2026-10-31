@@ -85,3 +85,21 @@ it('preserves uncertain driver storage as an orphan charge and prevents retry af
  expect(()=>plan.take(0)).toThrow('stale');expect(()=>s.pool.prepareAcquisition([{width:4,height:4}])).toThrow('admission')
  plan.close();s.pool.destroy();AccumulationBuffer.forgetContextStorage(s.gl)
 })
+
+it('transfers an admitted idle scratch exactly once without GL and leaves a missing slot reserved',()=>{
+ const s=setup(128),idle=s.pool.acquire(4,4);s.pool.release(idle)
+ const plan=s.pool.prepareAcquisition([{width:4,height:4},{width:4,height:4}]),upload=vi.spyOn(s.gl,'texImage2D'),query=vi.spyOn(s.gl,'getParameter');upload.mockClear();query.mockClear()
+ try{
+  const before=snapshotAccumStorage(s.gl)
+  expect(plan.takeResident(1)).toBeUndefined();expect(snapshotAccumStorage(s.gl)).toEqual(before)
+  expect(plan.takeResident(0)).toBe(idle);expect(upload).not.toHaveBeenCalled();expect(query).not.toHaveBeenCalled()
+  expect(()=>plan.takeResident(0)).toThrow();expect(()=>plan.take(0)).toThrow()
+ }finally{plan.close();s.pool.release(idle);s.pool.destroy()}
+ expect(()=>plan.takeResident(1)).toThrow()
+})
+it('rejects stale held scratch metadata instead of returning healthy-missing undefined',()=>{
+ const s=setup(128),idle=s.pool.acquire(4,4);s.pool.release(idle)
+ const plan=s.pool.prepareAcquisition([{width:4,height:4},{width:4,height:4}]),upload=vi.spyOn(s.gl,'texImage2D');upload.mockClear()
+ try{expect(typeof plan.takeResident).toBe('function');AccumulationBuffer.forgetContextStorage(s.gl);expect(()=>plan.takeResident(0)).toThrow();expect(()=>plan.takeResident(1)).toThrow();expect(upload).not.toHaveBeenCalled()}
+ finally{plan.close();s.pool.destroy()}
+})

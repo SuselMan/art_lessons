@@ -967,6 +967,19 @@ describe('recorded same-layer concurrent wash lane', () => {
       expect(s.coordinator['positions'].size).toBe(1);s.drain()
     }finally{s.close()}
   })
+  it('presents two resident targets in one guarded pixel turn with no warm preparation-only turns',()=>{
+    const s=lane(4,4),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+    try{
+      const box={minX:0,minY:0,maxX:4,maxY:4},stable=s.layer.resolveForPaint(box)[0],derived=s.derived.resolveForPaint(box)[0]
+      s.pixels.set(stable.buffer.texture,[31,42,53,199]);s.pixels.set(derived.buffer.texture,[1,2,3,4])
+      s.coordinator['positions'].set('0:0',{x:0,y:0,width:4,height:4,presentation:{}});s.coordinator['invalidate']()
+      const uploads=s.gl.texImage2D.mock.calls.length,before=s.snapshot(),copy=vi.spyOn(stable.buffer,'copyTo')
+      s.coordinator.advance()
+      expect(copy).toHaveBeenCalledOnce();expect(s.coordinator.presentationReady).toBe(true)
+      expect(s.pixel(s.derived)).toEqual([31,42,53,199]);expect(s.gl.texImage2D).toHaveBeenCalledTimes(uploads)
+      expect(s.snapshot()).toEqual(before);expect(s.layer['retainedTargets'].size+s.derived['retainedTargets'].size).toBe(0)
+    }finally{clock.mockRestore();s.close()}
+  })
   it('materializes cold stable and preview targets in separate turns before copying authoritative pixels',()=>{
     const s=lane(4,4),clock=vi.spyOn(performance,'now').mockReturnValue(0)
     try{
@@ -1005,7 +1018,7 @@ describe('recorded same-layer concurrent wash lane', () => {
   it('closes both preview plans before poisoning after the second target take fails',()=>{
     const s=lane(4,4),clock=vi.spyOn(performance,'now').mockReturnValue(0),primary=new Error('derived allocation failed')
     const prepare=s.derived.preparePaintTargetRects.bind(s.derived)
-    vi.spyOn(s.derived,'preparePaintTargetRects').mockImplementation(rects=>{const plan=prepare(rects);return{length:plan.length,take:()=>{throw primary},close:()=>plan.close()}})
+    vi.spyOn(s.derived,'preparePaintTargetRects').mockImplementation(rects=>{const plan=prepare(rects);return{...plan,take:()=>{throw primary}}})
     try{
       s.coordinator['positions'].set('0:0',{x:0,y:0,width:4,height:4,presentation:{}});s.coordinator['invalidate']()
       s.coordinator.advance();s.poison.mockImplementation(()=>{s.layer.clear();s.derived.clear()})
@@ -1034,8 +1047,8 @@ describe('recorded same-layer concurrent wash lane', () => {
   it('preserves a primary preview-copy error while attempting both plan closes before external poison',()=>{
     const s=lane(4,4),primary=new Error('preview copy failed'),secondary=new Error('stable pin close failed'),clock=vi.spyOn(performance,'now').mockReturnValue(0)
     const stable=s.layer.preparePaintTargetRects.bind(s.layer),derived=s.derived.preparePaintTargetRects.bind(s.derived),derivedClosed=vi.fn()
-    vi.spyOn(s.layer,'preparePaintTargetRects').mockImplementation(rects=>{const p=stable(rects);return{length:p.length,take:(i:number)=>p.take(i),close:()=>{p.close();throw secondary}}})
-    vi.spyOn(s.derived,'preparePaintTargetRects').mockImplementation(rects=>{const p=derived(rects);return{length:p.length,take:(i:number)=>p.take(i),close:()=>{p.close();derivedClosed()}}})
+    vi.spyOn(s.layer,'preparePaintTargetRects').mockImplementation(rects=>{const p=stable(rects);return{...p,close:()=>{p.close();throw secondary}}})
+    vi.spyOn(s.derived,'preparePaintTargetRects').mockImplementation(rects=>{const p=derived(rects);return{...p,close:()=>{p.close();derivedClosed()}}})
     try{
       s.coordinator['positions'].set('0:0',{x:0,y:0,width:4,height:4,presentation:{}});s.coordinator['invalidate']()
       s.coordinator.advance();s.coordinator.advance()
@@ -1102,7 +1115,7 @@ describe('recorded same-layer concurrent wash lane', () => {
       const layer=phase==='commit'?s.layer:s.derived,prepare=layer.preparePaintTargetRects.bind(layer)
       const cold=vi.spyOn(layer,'preparePaintTargetRects').mockImplementation(rects=>{
         const plan=prepare(rects)
-        return {length:plan.length,take:(index:number)=>{const target=plan.take(index);clock+=5;takes++;return target},close:()=>plan.close()}
+        return {...plan,take:(index:number)=>{const target=plan.take(index);clock+=5;takes++;return target}}
       })
       s.calls.mockClear()
       while(!takes){s.coordinator.advance();expect(++turns).toBeLessThan(100)}
@@ -1629,5 +1642,39 @@ it('seals an empty open tail without adding unadmitted presentation after target
   expect(s.gl.texImage2D).toHaveBeenCalledTimes(uploads);expect(s.gl.drawArrays).toHaveBeenCalledTimes(draws)
   expect(s.reserveTransient).toHaveBeenCalledTimes(reservations);expect(s.layer.evictedTileCount).toBeGreaterThan(0)
   expect(s.executor.checkpointReady).toBe(true);expect(s.executor.poisoned).toBe(false)
+ }finally{clock.mockRestore();s.close()}
+})
+
+
+it('paints an already resident buildup target in its first ordinary guarded turn',()=>{
+ const s=setup('buildup'),clock=vi.spyOn(performance,'now').mockReturnValue(0),draw=vi.spyOn(s.composite,'drawSource')
+ try{
+  s.layer.resolveForPaint({minX:0,minY:0,maxX:1,maxY:1});const uploads=s.gl.texImage2D.mock.calls.length,before=s.snapshot()
+  s.executor.enqueue(s.submit());expect(s.executor.advance().pending).toBe(false)
+  expect(draw).toHaveBeenCalledOnce();expect(s.gl.texImage2D).toHaveBeenCalledTimes(uploads);expect(s.snapshot()).toEqual(before)
+ }finally{clock.mockRestore();s.close()}
+})
+it('takes resident target and idle original/local before the same guarded initialization copy',()=>{
+ const s=setup('wash'),clock=vi.spyOn(performance,'now').mockReturnValue(0),copy=vi.spyOn(AccumulationBuffer.prototype,'copyTo')
+ try{
+  s.layer.resolveForPaint({minX:0,minY:0,maxX:1,maxY:1})
+  const a=s.scratch.acquire(4,4,'straight-rgba8'),b=s.scratch.acquire(4,4,'straight-rgba8');s.scratch.release(a);s.scratch.release(b)
+  const uploads=s.gl.texImage2D.mock.calls.length,before=s.snapshot();s.executor.enqueue(s.submit())
+  s.executor.advance();expect(copy).toHaveBeenCalledOnce();expect(s.scratch.bytes.live).toBe(128)
+  expect(s.gl.texImage2D).toHaveBeenCalledTimes(uploads);expect(s.snapshot()).toEqual(before)
+  s.drain()
+ }finally{clock.mockRestore();copy.mockRestore();s.close()}
+})
+it('charges resident metadata progress to the same advance clock before any GL capsule',()=>{
+ const s=setup('buildup');let now=0
+ const clock=vi.spyOn(performance,'now').mockImplementation(()=>now),prepare=s.layer.preparePaintTargetRects.bind(s.layer)
+ try{
+  s.layer.resolveForPaint({minX:0,minY:0,maxX:12,maxY:4})
+  const takes=vi.fn(),spy=vi.spyOn(s.layer,'preparePaintTargetRects').mockImplementation(rects=>{const plan=prepare(rects);return{...plan,takeResident:(i:number)=>{const target=plan.takeResident(i);takes(i);now+=2;return target}}})
+  const frame=decoded(3);frame.draws.forEach((d,i)=>Object.assign(d,{x:i*4}));s.executor.enqueue(s.submit(frame))
+  const queries=vi.spyOn(s.gl,'getParameter'),draw=vi.spyOn(s.composite,'drawSource');queries.mockClear()
+  expect(s.executor.advance().pending).toBe(true);expect(takes.mock.calls.map(c=>c[0])).toEqual([0,1])
+  expect(queries).not.toHaveBeenCalled();expect(draw).not.toHaveBeenCalled()
+  spy.mockRestore();s.drain()
  }finally{clock.mockRestore();s.close()}
 })

@@ -141,3 +141,26 @@ it('validates every retained identity before incrementing an earlier valid draw 
  expect(s.layer['retainedTargets'].has('0,0')).toBe(false)
  s.layer['retainedTargets'].delete('1,0');expect(stale.buffer.storageOwnerCurrent).toBe(true);s.layer.destroy()
 })
+
+it('takes a pinned resident target as repeatable metadata and leaves missing-only admission untouched',()=>{
+ const s=setup(128),resident=s.layer.resolveForPaint(box)[0].buffer,plan=s.layer.preparePaintTargetRects([two])
+ const calls=['getParameter','getError','texImage2D','clear','bindFramebuffer'] as const
+ const spies=calls.map(name=>vi.spyOn(s.mock,name));const before=snapshotContextStorage(s.gl)
+ try{
+  expect(plan.takeResident(0)?.buffer).toBe(resident);expect(plan.takeResident(0)?.buffer).toBe(resident)
+  expect(plan.takeResident(1)).toBeUndefined();expect(plan.takeResident(1)).toBeUndefined()
+  expect(snapshotContextStorage(s.gl)).toEqual(before);for(const spy of spies)expect(spy).not.toHaveBeenCalled()
+  expect(()=>s.layer.clear()).toThrow('retained')
+ }finally{plan.close();s.layer.destroy()}
+ expect(()=>plan.takeResident(0)).toThrow('Stale')
+})
+it('never treats invalid or stale resident target metadata as permission to allocate',()=>{
+ const s=setup(128);s.layer.resolveForPaint(box);const plan=s.layer.preparePaintTargetRects([two]),upload=vi.spyOn(s.mock,'texImage2D');upload.mockClear()
+ try{
+  expect(typeof plan.takeResident).toBe('function')
+  for(const index of [-1,2,NaN])expect(()=>plan.takeResident(index)).toThrow()
+  AccumulationBuffer.forgetContextStorage(s.gl)
+  for(const index of [0,1])expect(()=>plan.takeResident(index)).toThrow()
+  expect(upload).not.toHaveBeenCalled()
+ }finally{plan.close();s.layer.destroy()}
+})
