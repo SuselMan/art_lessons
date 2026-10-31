@@ -103,6 +103,10 @@ export function createConfirmedStreamHandler({
     // Nothing, including review state and the existing replay queue, sees an
     // invalid or stale capability. Expected epoch comes from room-state scope.
     if (canonicalReadScope && !canonicalReadScope.isCurrent()) return
+    // This first live source domain admits only original frame/seal resources.
+    // Undo and other legacy writers require an authoritative full replacement;
+    // they must not publish review/cursors before a legacy sink rejects them.
+    if(canonicalReadScope&&op.type!=='canonical_stroke'&&!close){requestFullResync();return}
     if (!recorded&&!read&&(close||payload.canonicalCapabilities !== undefined || canonicalReadScope && op.type === 'canonical_stroke')) {
       try {
         if (!canonicalReadScope || op.seq !== seq) throw new TypeError('Missing canonical recorded read scope')

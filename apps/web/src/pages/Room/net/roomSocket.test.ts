@@ -1,6 +1,6 @@
 import {prepareCanonicalRoomState} from './canonicalRoomState'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ServerToClientEvents } from '@grafetto/shared'
+import type { CanonicalStrokeOperation,CanonicalStrokeSnapshotV2,CanonicalRecordedAttachmentV1,ServerToClientEvents } from '@grafetto/shared'
 import type { QueryClient } from '@tanstack/react-query'
 
 import type { PencilEngineAPI } from '../../../engine'
@@ -306,5 +306,71 @@ it('rejects a preparer substituting its own lifetime callback',()=>{
   Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
   expect(setBrushRoomScope).not.toHaveBeenCalled();expect(loadBrushLibrary).not.toHaveBeenCalled()
   expect(deps.enterBoard).not.toHaveBeenCalled()
+ }finally{close()}
+})
+
+it('publishes one typed join wrapper and pins requested board before state, independently of later ACK',()=>{
+ const {deps,fake,listeners}=sourceSetup(),joinRoomRef:{current:import('@grafetto/shared').ClientToServerEvents['join_room']|null}={current:null},reads:ReturnType<typeof prepareCanonicalRoomState>['canonicalRead'][]=[]
+ deps.joinRoomRef=joinRoomRef
+ deps.prepareCanonicalRoomState=(s,lifetime)=>{
+  if(!lifetime.expectedBoardId)throw Error('Missing requested board')
+  const result=prepareCanonicalRoomState(s,{expectedBoardId:lifetime.expectedBoardId,isCurrent:lifetime.isCurrent});reads.push(result.canonicalRead);return result
+ }
+ const close=connectRoomSocket(deps),ack=vi.fn()
+ try{
+  expect(joinRoomRef.current).not.toBeNull()
+  joinRoomRef.current!({roomId:'B2',name:'Ann'},ack)
+  expect(deps.wantedBoardRef.current).toBe('B2');expect(fake.emit).toHaveBeenLastCalledWith('join_room',{roomId:'B2',name:'Ann'},ack)
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
+  expect(reads).toHaveLength(1);expect(reads[0].scope.isCurrent()).toBe(true)
+  ack({ok:true,userId:'reader'});expect(reads[0].scope.isCurrent()).toBe(true)
+  joinRoomRef.current!({roomId:'other',name:'Ann'},vi.fn())
+  expect(reads[0].scope.isCurrent()).toBe(false)
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
+  expect(reads).toHaveLength(1)
+ }finally{close()}
+ expect(joinRoomRef.current).toBeNull()
+})
+
+async function gateFrameFixture(ended=true){
+ const {sourceAutoGeometry,canonicalSoftAutoSourcePin,buildCanonicalMaterial,CANONICAL_STROKE_RASTER_PROFILE}=await import('@grafetto/shared')
+ const curve={text:'0,1;1,0',points:[{x:0,y:1,corner:false},{x:1,y:0,corner:false}]}
+ const primarySource=canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:0,descriptorId:'soft',descriptorVersion:1,descriptorSha256:'a'.repeat(64),source:{kind:'softAuto',generator:'soft',shape:'circle',diameter:8,ratio:1,horizontalFade:1,verticalFade:1,antialias:false,spikes:2,randomness:0,density:1,softnessCurve:curve},brushScale:1,brushAngle:0,coverageProfile:'neon64-f32-fma-v1',reader:'krita-bd6e8d0-v1',compilerProfile:'eigen-5.0.1-mapped-arm64-f64-v3',buildId:'b'.repeat(64),radialCurve:{source:curve,coefficients:[[0,0,-1,1]]}})
+ const material={version:2 as const,assets:[],primarySource,budget:{workUnits:10000,outputBytes:40000,drawPixels:10000}}
+ const snapshot:CanonicalStrokeSnapshotV2={layerId:'L',brush:'brush:soft@1',strokeId:'S',boardEpoch:2,descriptorSha256:'a'.repeat(64),rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,pigmentRgb8:[1,2,3],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'},assets:[],materialVersion:2,material}
+ const geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:8,ratio:1,spikes:2,scale:1,angle:0},{scale:1,ratio:1,rotation:0},0,0)
+ const recipe={kind:'softAuto' as const,sourceSlot:0 as const,source:primarySource.source,coverageProfile:primarySource.coverageProfile,brushScale:1,brushAngle:0,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:geometry.maskSize[0],height:geometry.maskSize[1],mirrorH:false,mirrorV:false}
+ const packed=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:0,y:0,opacity:1,flow:1}],fences:[{at:0,kind:'segmentBegin',group:0},{at:1,kind:'primaryEnd',group:0},{at:1,kind:'segmentEnd',group:0},...(ended?[{at:1,kind:'gestureEnd' as const}]:[])]},material).packed
+ const op:CanonicalStrokeOperation={id:'op',userId:'author',timestamp:0,seq:1,type:'canonical_stroke',layerId:'L',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:snapshot.brush,strokeId:'S',frameOrdinal:0,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
+ const attachment:CanonicalRecordedAttachmentV1={version:1,roomId:'room',boardEpoch:2,capabilities:[{originalUserId:'author',snapshot}],bindings:[{operationId:'op',sequence:1,originalUserId:'author',capability:0}]}
+ return {attachment,op,expected:{roomId:'room',boardEpoch:2}}
+}
+it('holds new-scope frame and close before mount, seeds baseline IDs before release and never appends its frame twice',async()=>{
+ const {createReplayGate}=await import('../replayGate'),{OperationLog}=await import('../../../engine/src/oplog/OperationLog')
+ const f=await gateFrameFixture(false),{deps,listeners,reads}=sourceSetup(),gate=createReplayGate<Parameters<ServerToClientEvents['operation_confirmed']>[0]>(),log=new OperationLog(),ids=new Set<string>()
+ let mounted=false,commits=0
+ deps.replayGate=gate;deps.holdReviewArrivals=()=>{gate.begin()}
+ deps.applyRemoteOp=(op,_read,input)=>{
+  if(!mounted)throw Error('New scope reached the old engine')
+  if(!input)throw Error('Missing original delivery')
+  if(ids.has(op.id))return true
+  log.append(op,{serverSeq:op.seq,canonicalInput:input});ids.add(op.id);commits++;return true
+ }
+ const wire=emptyCanonicalState();wire.tailOperations=[f.op];wire.canonicalCapabilities={...f.attachment,roomId:'B2'}
+ wire.canonicalHistoryBase={kind:'full-room-prefix-v2',roomId:'B2',boardEpoch:2,throughSeq:1,operationCount:1}
+ const close=connectRoomSocket(deps)
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[wire])
+  Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:1,operation:f.op,canonicalCapabilities:{...f.attachment,roomId:'B2'}}])
+  Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:2,operation:{type:'canonical_stroke_close',id:'seal',userId:'author',timestamp:2,seq:2,layerId:'L',targetUserId:'author',strokeId:'S',disposition:'commitPartial',recordedNext:1,firstFrameOpId:'op',lastFrameOpId:'op'}}])
+  expect(commits).toBe(0);expect(log.entries).toHaveLength(0);expect(deps.lastConfirmedSeqRef.current).toBe(0)
+  expect(deps.latestKnownSeqRef.current).toBe(0)
+  expect(reads[0].scope.isCurrent()).toBe(true)
+  const original=reads[0].preparedAtoms[0] as import('../../../engine').CanonicalRecordedInput
+  log.append(original.operation,{serverSeq:1,canonicalInput:original});ids.add(original.operation.id)
+  mounted=true
+  const restoreTicket=gate.begin();expect(gate.end(restoreTicket)).toBe(true)
+  expect(commits).toBe(1);expect(log.entries.map(e=>e.op.id)).toEqual(['op','seal'])
+  expect(deps.lastConfirmedSeqRef.current).toBe(2);expect(ids).toEqual(new Set(['op','seal']))
  }finally{close()}
 })

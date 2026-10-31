@@ -1,3 +1,4 @@
+import {STRAIGHT_ROOM_RASTER_VERSION} from '@grafetto/shared'
 import { prepareBrushPresets, publishBrushPresets } from '../../lib/api/brushLibrary'
 import { importedBrushAssets, isBrushAssetReady } from '../../engine/brushLibrary'
 import { notifyError } from '../../stores/noticeStore'
@@ -20,6 +21,8 @@ export interface ToolSyncDeps {
   /** Bumped when a new engine exists to sync to — see engineEpoch in Room. */
   engineEpoch: number
   canvasRef: RefObject<HTMLCanvasElement | null>
+  /** Existing baseline gate; omitted legacy callers retain eager preparation. */
+  roomContentReady?:boolean
 }
 
 /** (#493) The tool in hand, pushed into the engine: preset, tool, size and
@@ -30,7 +33,7 @@ export interface ToolSyncDeps {
  *
  *  Out of Room — the first step #493's own plan names. What comes back is
  *  what the brush-ring cursor draws with. */
-export function useToolSync({ engineRef, engineEpoch, canvasRef }: ToolSyncDeps) {
+export function useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady=true }: ToolSyncDeps) {
   const toolSettings = useRoomStore(s => s.toolSettings)
   const drawingTool = useRoomStore(s => s.drawingTool)
   // (#405) `drawingTool`, not `tool`: these are the size/opacity/colour the
@@ -91,12 +94,14 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef }: ToolSyncDeps)
       canvas?.removeEventListener('webglcontextrestored', invalidate)
     }
   }, [canvasRef, engineEpoch])
-  const preparationKey = `${engineEpoch}:${preparationEpoch}:${digitalBrushPresetName ?? digitalBrushId}`
+  const preparationReady=engineRef.current?.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION||roomContentReady
+  const preparationKey = `${engineEpoch}:${preparationEpoch}:${digitalBrushPresetName ?? digitalBrushId}${preparationReady?'':':restoring'}`
   const brushResourcesReady = drawingTool !== 'digitalBrush' || (preparedKey === preparationKey && digitalBrushPresetName !== undefined && importedBrushAssets(digitalBrushPresetName).every(isBrushAssetReady))
   useEffect(() => {
     if (drawingTool !== 'digitalBrush') { setPreparedKey(''); return }
     const engine = engineRef.current
     if (!engine) return
+    if(!preparationReady){setPreparedKey('');return}
     const controller = new AbortController()
     const roomId = useRoomStore.getState().boardId
     const preset = digitalBrushPresetName ?? digitalBrushId
@@ -116,7 +121,7 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef }: ToolSyncDeps)
       }
     })
     return () => controller.abort()
-  }, [drawingTool, digitalBrushPresetName, digitalBrushId, preparationKey, engineEpoch, engineRef, t])
+  }, [drawingTool, digitalBrushPresetName, digitalBrushId, preparationKey,preparationReady, engineEpoch, engineRef, t])
   // #468 v4 — the whole watercolor mix rides the one preset slot as
   // `response:water:pigment` (watercolorPresetString). Same trick the marker
   // plays with `${nib}:${size}`, and for the same reason: #366 exists to shrink

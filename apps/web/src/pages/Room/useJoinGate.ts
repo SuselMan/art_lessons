@@ -22,6 +22,7 @@ export interface JoinGateDeps {
   outbox: Pick<Outbox, 'resendAll'>
   /** (#487) Starts timing the open — from the press, not from the send. */
   startOpenTimer: () => void
+  joinRoomRef?:RefObject<import('@grafetto/shared').ClientToServerEvents['join_room']|null>
 }
 
 /** (#493) The joiner's gate on the Room side: what is in the form, which
@@ -35,7 +36,7 @@ export interface JoinGateDeps {
  *  time the retry's identity changes. */
 export function useJoinGate({
   id, myDisplayName, socketRef, latestKnownSeqRef, lastJoinAttemptRef, hasJoinedRef,
-  applyIdentity, outbox, startOpenTimer,
+  applyIdentity, outbox, startOpenTimer,joinRoomRef,
 }: JoinGateDeps) {
   const t = useT()
   // Prefilled, not fixed: the joiner can overwrite it in the gate, and what
@@ -66,8 +67,9 @@ export function useJoinGate({
     // (#487) Отсюда, а не с отправки в сокет: замеряем ожидание человека.
     startOpenTimer()
     lastJoinAttemptRef.current = { name, password }
-    socketRef.current?.emit(
-      'join_room',
+    const join=joinRoomRef?.current??(!joinRoomRef&&socketRef.current?((data,ack)=>socketRef.current!.emit('join_room',data,ack)) as import('@grafetto/shared').ClientToServerEvents['join_room']:undefined)
+    if(!join){setJoinSubmitting(false);return}
+    join(
       { roomId: id, name, password, lastKnownSeq: latestKnownSeqRef.current || undefined },
       result => {
         setJoinSubmitting(false)
@@ -97,7 +99,7 @@ export function useJoinGate({
         }
       },
     )
-  }, [id, applyIdentity, outbox, t, startOpenTimer, socketRef, latestKnownSeqRef, lastJoinAttemptRef, hasJoinedRef])
+  }, [id, applyIdentity, outbox, t, startOpenTimer, socketRef, latestKnownSeqRef, lastJoinAttemptRef, hasJoinedRef,joinRoomRef])
 
   // Submits the join gate's form. The name is validated here rather than in
   // `attemptJoin`, which is also called with credentials already known good

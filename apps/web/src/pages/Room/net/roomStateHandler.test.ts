@@ -239,3 +239,20 @@ it('preserves the exact prepared room-state owner through the existing pending s
  expect(deps.pendingSnapshotRef.current?.canonicalRead).toBe(prepared.canonicalRead)
  expect(deps.pendingSnapshotRef.current?.tailOperations).toBe(prepared.tailOperations)
 })
+
+it('routes a same-board original full baseline to fresh-engine replacement before catchup or cursor publication',async()=>{
+ useRoomStore.getState().setBoardId('B2')
+ const replace=vi.fn(),{deps,handle}=setup({replaceCanonicalRoom:replace}),wire=state('B2',{room:room('B2',{rasterVersion:'straight-rgba8-v1'}),canonicalReadScope:{roomId:'B2',boardEpoch:2},canonicalHistoryBase:{kind:'full-room-prefix-v2',roomId:'B2',boardEpoch:2,throughSeq:0,operationCount:0}})
+ const prepared=prepareCanonicalRoomState(wire,{expectedBoardId:'B2',isCurrent:()=>true})
+ await handle(prepared)
+ expect(replace).toHaveBeenCalledOnce()
+ expect(replace.mock.calls[0][1].canonicalRead).toBe(prepared.canonicalRead);expect(replace.mock.calls[0][1].tailOperations).toBe(prepared.tailOperations)
+ expect(deps.restoreCatchup).not.toHaveBeenCalled();expect(deps.latestKnownSeqRef.current).toBe(0);expect(deps.awaitPaper).not.toHaveBeenCalled()
+})
+it('does not fall back to partial replay if fresh canonical replacement rejects pending work',async()=>{
+ useRoomStore.getState().setBoardId('B2')
+ const {deps,handle}=setup({replaceCanonicalRoom:()=>{throw Error('pending locals')}}),wire=state('B2',{room:room('B2',{rasterVersion:'straight-rgba8-v1'}),canonicalReadScope:{roomId:'B2',boardEpoch:2},canonicalHistoryBase:{kind:'full-room-prefix-v2',roomId:'B2',boardEpoch:2,throughSeq:0,operationCount:0}})
+ await handle(prepareCanonicalRoomState(wire,{expectedBoardId:'B2',isCurrent:()=>true}))
+ expect(deps.restoreCatchup).not.toHaveBeenCalled();expect(deps.latestKnownSeqRef.current).toBe(0)
+ expect(deps.setRoomContentReady).toHaveBeenCalledWith(false);expect(deps.reportJoinFailure).toHaveBeenCalledWith('unsupported_raster_version','canonical full replacement failed')
+})

@@ -37,6 +37,7 @@ export interface RoomStateDeps<Engine> {
   maybeFollow: () => void
   /** Swaps in a fresh engine for another board — see enterBoard in Room. */
   enterBoard: (board: string, stash: RoomStateStash) => void
+  replaceCanonicalRoom?:(board:string,stash:RoomStateStash)=>void
   /** Waits for the paper texture; false means it failed and the room says so. */
   awaitPaper: (engine: Engine | null) => Promise<boolean>
   holdReviewArrivals?: () => void
@@ -70,7 +71,7 @@ export interface RoomStateDeps<Engine> {
  *  whichever board this is for. */
 export function createRoomStateHandler<Engine>({
   id, isCreator, replaceUrl, joinRoom, joinCredentials, applyIdentity, reportJoinFailure,
-  requestFullResync, maybeFollow, enterBoard, awaitPaper, markJoinRestoreDone, setRoomContentReady,
+  requestFullResync, maybeFollow, enterBoard,replaceCanonicalRoom, awaitPaper, markJoinRestoreDone, setRoomContentReady,
   clearRestoreFailure, restoreCatchup, holdReviewArrivals,
   socketBoardRef, wantedBoardRef, firstRoomStateReceivedRef, awaitingSeededBoardStateRef,
   pendingSnapshotRef, latestKnownSeqRef, isOwnerRef, engineRef, snapshotGateRef,
@@ -173,6 +174,17 @@ export function createRoomStateHandler<Engine>({
       return
     }
     wantedBoardRef.current = null
+    if(canonicalRead?.fullHistoryBase){
+      maybeFollow()
+      if(wantedBoardRef.current!==null&&wantedBoardRef.current!==arrivedBoard)return
+      if(!replaceCanonicalRoom){setRoomContentReady(false);reportJoinFailure('unsupported_raster_version','canonical full replacement unavailable');return}
+      try{
+        assertCanonicalRoomStateRead(canonicalRead,tailOperations,arrivedBoard)
+        replaceCanonicalRoom(arrivedBoard,{latestSnapshotSeq,tailOperations,participants:roomParticipants,palette,frozen,canonicalRead})
+        awaitingSeededBoardStateRef.current=false
+      }catch{setRoomContentReady(false);reportJoinFailure('unsupported_raster_version','canonical full replacement failed')}
+      return
+    }
 
     // What this socket already had *before* this room_state's own tail —
     // the reconnect fast-path check below needs this, not the value after

@@ -28,7 +28,7 @@ export type RoomSocketDeps =
     | 'myDisplayNameRef' | 'outboxRef' | 'wantedBoardRef' | 'boardIdRef' | 'socketBoardRef' | 'isOwnerRef' | 'tRef'>
   & Pick<RoomStateDeps<PencilEngineAPI>,
     | 'holdReviewArrivals' | 'replaceUrl' | 'enterBoard' | 'awaitPaper' | 'markJoinRestoreDone' | 'clearRestoreFailure' | 'restoreCatchup'
-    | 'firstRoomStateReceivedRef' | 'awaitingSeededBoardStateRef' | 'pendingSnapshotRef' | 'snapshotGateRef'>
+    | 'replaceCanonicalRoom' | 'firstRoomStateReceivedRef' | 'awaitingSeededBoardStateRef' | 'pendingSnapshotRef' | 'snapshotGateRef'>
   & Omit<ConfirmedStreamDeps, 'engineRef' | 'confirmOwnOperation' | 'requestFullResync'>
   & Pick<PeerEventDeps, 'roomContentReadyRef' | 'markActive' | 'forgetDrawingActivity'>
   & Pick<RoomControlEventDeps, 'queryClient' | 'retryJoinRef' | 'setJoinState'>
@@ -50,6 +50,7 @@ export type RoomSocketDeps =
     confirmOwnOperation: (op: Operation, seq: number) => void
     /** Explicit preparer; omission keeps canonical room admission OFF. */
     prepareCanonicalRoomState?:CanonicalRoomStatePreparer
+    joinRoomRef?:RefObject<ClientToServerEvents['join_room']|null>
     /** The socket is connected (true) or has dropped (false). */
     onConnectionChange: (connected: boolean) => void
   }
@@ -92,7 +93,8 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   // перечень случаев, и почему у страницы комнаты нет законной причины
   // принять такой ответ.
   const revival = createSocketRevival(socket)
-  const joinRoom: ClientToServerEvents['join_room'] = (data, ack) => { invalidateRead();socket.emit('join_room', data, ack) }
+  const joinRoom: ClientToServerEvents['join_room'] = (data, ack) => { invalidateRead();if(deps.prepareCanonicalRoomState)wantedBoardRef.current=data.roomId;socket.emit('join_room', data, ack) }
+  if(deps.joinRoomRef)deps.joinRoomRef.current=joinRoom
 
   // (#493) Joining and staying joined — create/rejoin, page turns,
   // following, gap resync — see joinFlow.ts. Handed the two joining emits
@@ -101,7 +103,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
     joinCredentials, reportJoinFailure, handleConnect, switchBoard, maybeFollow, requestFullResync:resync,
   } = createJoinFlow({
     ...deps, id, joinRoom,
-    createRoom: (data, ack) => { invalidateRead();socket.emit('create_room', data, ack) },
+    createRoom: (data, ack) => { invalidateRead();if(deps.prepareCanonicalRoomState)wantedBoardRef.current=data.room.id;socket.emit('create_room', data, ack) },
     isCurrentSocket: () => socket === socketRef.current,
     noteConnected: () => {
       onConnectionChange(true)
@@ -219,8 +221,15 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
       const before=readGeneration,target=requestedBoard(),after=before+1
       let published=false
       const isCurrent=()=>socket===socketRef.current&&socket.connected&&requestedBoard()===target&&readGeneration===(published?after:before)
-      const accepted=preflightRoomStateDelivery(state,deps.prepareCanonicalRoomState,{isCurrent})
+      const accepted=preflightRoomStateDelivery(state,deps.prepareCanonicalRoomState,{isCurrent,expectedBoardId:target})
       if(!isCurrent()||accepted.canonicalRead&&accepted.canonicalRead.scope.roomId!==target)throw Error('Stale canonical connection target')
+      // Close the EXISTING replay gate before React/brush preparation can yield.
+      // The baseline restore replaces its ticket but retains that same queue.
+      if(accepted.canonicalRead?.fullHistoryBase){
+        if(!deps.holdReviewArrivals)throw Error('Canonical bootstrap replay gate unavailable')
+        deps.holdReviewArrivals()
+        if(!isCurrent())throw Error('Canonical bootstrap gate replaced its origin')
+      }
       // No await or arbitrary callback between publication and dispatch.
       readGeneration=after;published=true
       handleOperationConfirmed=createConfirmedStreamHandler({...deps,confirmOwnOperation,requestFullResync,canonicalReadScope:accepted.canonicalRead?.scope})
@@ -264,6 +273,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
     socketRef.current = null
     requestFullResyncRef.current = null
     switchBoardRef.current = null
+    if(deps.joinRoomRef?.current===joinRoom)deps.joinRoomRef.current=null
     socketBoardRef.current = null
     wantedBoardRef.current = null
   }

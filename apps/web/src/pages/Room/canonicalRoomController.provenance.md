@@ -1,0 +1,81 @@
+# Actual Room canonical bootstrap
+
+Room activates the original full-room-prefix-v2 path through its existing socket,
+pendingSnapshotRef, engine effect, outbox and restore sink. No alternate engine,
+queue, runtime or server policy is introduced.
+
+The socket-owned typed joinRoom wrapper is published to useJoinGate. It captures
+the requested board in the existing wantedBoardRef before emitting and advances
+the existing readGeneration. The preparer receives expectedBoardId independently
+of received state.room.id. Server currently seats exactly the requested board;
+room_state is emitted before the join ACK, whose success only includes userId.
+The client entryBoard rule may issue a second request for the teacher's active
+board. This remains the same socket and typed wrapper. Legacy callers without
+an injected preparer retain their previous behavior.
+
+Straight engines require the original V2 read and exact tail before construction.
+A fresh same-board full state stages the same pending slot and increments one
+mount revision; publishing engineEpoch is not a mount dependency. An installed
+read is only an identity/lifetime reference, not a second payload queue. The
+existing openParkedRoomState consumes the original slot and passes it to the
+same atomic baseline sink. Superseded canonical cleanup suppresses thumbnails.
+Unexpected remount without a fresh original stash requests the existing resync.
+
+Replacement never discards pending locals. Existing Outbox pending entries,
+pending IDs, pointer activity and engine hasActiveCanonicalAuthor() protect the
+BEGIN/CPU interval. Once these settle, the new original full cut must cover the
+latest accepted ACK watermark before retirement. No local coordinator checkpoint
+is mistaken for a durable journal cut.
+
+The stable recorded facade calls engine.appendOriginalRecorded. The per-engine
+BEGIN service reuses sendCanonicalStrokeBegin and combines original read, socket,
+engine, caller signal/lifetime and captured author/response profile policy.
+Successful operation ACK is bookkeeping (already handled by existing verdicts),
+not a read grant or a reason to resync before the subsequent confirmed broadcast.
+Reject/stall uses existing repair; ongoing replacement suppresses resync loops.
+
+Host tests execute actual preparer, socket wrapper, join hook and state handler,
+plus actual PencilEngine construction/restoration through the same pending stash.
+They cover stale/copied read, same-board stage once, ACK ordering, pending local
+and cut rejection, source begin abort/stale engine/socket with listener cleanup,
+and ordinary legacy regressions. They are not device/UI performance proof.
+No device, service or disposable runtime was created by this unit.
+
+Validation: R52/canonical-room-controller-red.log records tests-first missing
+controller; canonical-room-bootstrap-full-focused.log passes 120 tests / 8 files.
+Scoped oxlint reports no errors (the existing mount effect dependency warning
+remains); git diff --check passes. Common app/SW typing is coordinated separately
+by ROOT. The new sink updates the existing applied IDs only after the original
+baseline commit and same-engine/lifetime revalidation, including hidden metadata.
+
+Pre-mount arrival race: canonical-pre-mount-gate-red.log reproduces an early
+confirmed frame reaching the not-yet-mounted sink and invalidating the original
+read through resync. Full V2 receipt now requires closing the EXISTING replay gate
+before publication/rebind/ordered brush dispatch. The later restore begins a new
+ticket on the same retained queue. canonical-pre-mount-gate-green.log passes
+47 tests / 3 files, including actual ReplayGate + original ingress + OperationLog:
+frame and close arrive before mount, baseline IDs are seeded before release,
+the already-recorded frame is not appended twice and the close commits once.
+
+Live non-frame/non-close operations under explicit canonical scope request the
+existing full resync before review, held delivery or cursors. Tests-first
+canonical-live-metadata-red.log captures four previous failures; the four-suite
+canonical-live-metadata-green.log passes 54 tests. This does not grant live undo.
+
+Cold/rejoin tool preparation: engineEpoch can publish before async full baseline
+commit. useToolSync now receives existing roomContentReady; only straight engines
+wait for that baseline gate. Its existing preparation key/effect retries the same
+preset on readiness without a new epoch or reselection, and aborts superseded
+preparation normally. Legacy readiness changes do not restart preparation.
+canonical-tool-ready-red.log records premature source prepareBrush; the hook's
+actual effects/dependencies under the ref/state model pass same-preset restore
+and unchanged legacy behavior. canonical-tool-ready-green.log: 30 tests / 3 files,
+scoped lint/diff checks pass. No new readiness event, scheduler or queue.
+
+Final typing: app-only tsc passes (canonical-room-bootstrap-final-app-tsc.log,
+exit 0); unchanged service-worker typing is covered by the previous coordinated
+app/SW gate. Final 13-file regression initially hit two 5s host import timeouts
+while TSC ran concurrently (175 assertions/cases passed). The identical source
+rerun after TSC, maxWorkers=2 and host testTimeout=30000, passes all 177 tests in
+15.21s: canonical-room-bootstrap-final-regression-30s.log. This timeout adjustment
+is only test-run configuration, not a production latency limit or code change.

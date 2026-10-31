@@ -19,7 +19,7 @@ export interface CanonicalRoomStateRead extends CanonicalRecordedLifetime {
 }
 export type PreparedCanonicalRoomState=WireState&{readonly canonicalRead:CanonicalRoomStateRead}
 export type RoomStateDelivery=WireState&{readonly canonicalRead?:CanonicalRoomStateRead}
-export type CanonicalRoomStatePreparer=(state:WireState,lifetime:{readonly isCurrent:()=>boolean})=>PreparedCanonicalRoomState
+export type CanonicalRoomStatePreparer=(state:WireState,lifetime:{readonly isCurrent:()=>boolean;readonly expectedBoardId?:string})=>PreparedCanonicalRoomState
 /** Internal exact lexical resource: a network object or copied internal marker
  * cannot authorize a raw tail, another board or an expired socket lifetime. */
 export function assertCanonicalRoomStateRead(value:CanonicalRoomStateRead,operations:readonly Operation[],boardId:string):void {
@@ -83,7 +83,7 @@ export function prepareCanonicalRoomState(state:WireState,lifetime:{readonly exp
 }
 /** Runs before ordered brush loading, review stores, refs or replay queues.
  * No injected preparer means the existing legacy-only lane remains closed. */
-export function preflightRoomStateDelivery(state:WireState,prepare?:CanonicalRoomStatePreparer,lifetime?:{readonly isCurrent:()=>boolean}):RoomStateDelivery {
+export function preflightRoomStateDelivery(state:WireState,prepare?:CanonicalRoomStatePreparer,lifetime?:{readonly isCurrent:()=>boolean;readonly expectedBoardId?:string}):RoomStateDelivery {
  const version=readRoomRasterVersion(state.room.rasterVersion)
  if(version===LEGACY_ROOM_RASTER_VERSION){
   if(state.tailOperations?.some(op=>(op.type as string)==='canonical_stroke_close'))throw Error('Canonical close requires a recorded seal owner')

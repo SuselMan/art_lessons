@@ -1,3 +1,6 @@
+import {canonicalBootstrapOf,stageCanonicalRoomReplacement,createCanonicalRoomAuthor,createCanonicalRoomVerdicts,restoreCanonicalRoomBaseline} from './canonicalRoomController'
+import {prepareCanonicalRoomState} from './net/canonicalRoomState'
+import type {CanonicalRoomStateRead} from './net/canonicalRoomState'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -7,7 +10,7 @@ import type {
   Operation,
   ClientToServerEvents, ServerToClientEvents,
 } from '@grafetto/shared'
-import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
+import { BACKGROUND_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION } from '@grafetto/shared'
 import {
   PencilEngine, type PencilEngineAPI, type PencilGradeName, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, type AreaImage,
 } from '../../engine'
@@ -203,6 +206,7 @@ function RoomEditor() {
   const socketBoardRef = useRef<string | null>(null)
   /** Published by the socket effect (it needs that effect's own socket and
    *  credentials) for the strip, the chip and the follow logic to call. */
+  const joinRoomRef=useRef<ClientToServerEvents['join_room']|null>(null)
   const switchBoardRef = useRef<((next: string) => void) | null>(null)
 
   // Captured once, at mount: CreateRoom hands the freshly-created room's
@@ -673,6 +677,16 @@ function RoomEditor() {
   // operations/participants are stashed here and replayed once the engine is
   // up, instead of being dropped.
   const pendingSnapshotRef = useRef<RoomStatePayload | null>(null)
+  const installedCanonicalReadRef=useRef<CanonicalRoomStateRead|undefined>(undefined)
+  const [canonicalMountRevision,setCanonicalMountRevision]=useState(0)
+  const canonicalRecorded=useMemo(()=>({apply:(engine:PencilEngineAPI,input:import('../../engine').CanonicalRecordedInput)=>engine.appendOriginalRecorded(input)}),[])
+  const requestCanonicalRepair=useCallback(()=>requestFullResyncRef.current?.(),[])
+  const canonicalVerdicts=useMemo(()=>createCanonicalRoomVerdicts({
+    repair:()=>requestFullResyncRef.current?.(),
+    isReplacing:()=>pendingSnapshotRef.current?.canonicalRead!==undefined||!roomContentReadyRef.current,
+  }),[])
+  const restoreCanonicalBaseline=useCallback((engine:PencilEngineAPI,read:CanonicalRoomStateRead,tail:readonly Operation[])=>restoreCanonicalRoomBaseline(engine,read,tail,()=>engineRef.current,appliedOpIdsRef.current),[appliedOpIdsRef])
+
   // True once this session's `handleRoomState` has processed its very first
   // `room_state` — governs "initial handshake" vs. "genuine reconnect" there.
   // Deliberately a dedicated ref rather than checking `!useRoomStore.getState().room`:
@@ -716,7 +730,7 @@ function RoomEditor() {
     verdicts: {
       pendingIdsRef, latestKnownSeqRef, checkSnapshotBoundary,
       confirmOperation: confirmOwnOperationFromAck, discardOperation: discardOwnOperation,
-      resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,
+      resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,canonicalVerdicts,requestFullResync:requestCanonicalRepair,
     },
   })
   // The credentials a joiner's gate submission used, replayed verbatim on a
@@ -853,6 +867,7 @@ function RoomEditor() {
   const { applyRemoteOp, restoreFromSnapshot, backfillHistory, repairSnapshotHistory } = useRemoteOperations({
     engineRef, appliedOpIdsRef, deferredOpsQueueRef, restoredLayerStateRef, markActive, resolveTransformCommit,
     confirmOwnOperation, noteOperationSeq, syncFromLog, checkSnapshotBoundary,
+    canonicalRecorded,
     boardId: boardId ?? id ?? '', onHistoryRepairFailure: () => setRestoreFailure('transfer'),
   })
 
@@ -925,6 +940,9 @@ function RoomEditor() {
    *  decide whether its canvas may be published as the board's preview, and
    *  React runs that cleanup before the next mount's body. */
   const enterBoard = useCallback((board: string, stash: NonNullable<typeof pendingSnapshotRef.current>) => {
+    if(engineRef.current?.hasActiveCanonicalAuthor()||stash.canonicalRead&&(outboxRef.current.pendingCount!==0||pendingIdsRef.current.size!==0||strokeActiveRef.current)){
+      engineRef.current?.setLocked(true);setRoomContentReady(false);setRestoreFailure('transfer');return
+    }
     resetStream()
     resetLayerSeqs()
     resetDrawingActivity()
@@ -947,27 +965,49 @@ function RoomEditor() {
   // (#493) Stable: a `useCallback` with no dependencies inside useDrawingActivity,
   // so naming it keeps this callback exactly as stable as it was with the
   // bare state setter it replaces.
-  }, [resetStream, resetDrawingActivity, restoredLayerStateRef, resetLayerSeqs, resetLostWork])
+  }, [resetStream, resetDrawingActivity, restoredLayerStateRef, resetLayerSeqs, resetLostWork,outboxRef,pendingIdsRef])
 
   // (#493) restoreRoomState with what its two callers — the mount effect and
   // the socket's catch-up — share bound once. See useRoomRestore.
   const restoreRoom = useRoomRestore({
-    restoreFromSnapshot, backfillHistory, applyRemoteOp, syncFromLogNow, markJoinRestoreDone, dispatchParticipants,
+    restoreFromSnapshot, backfillHistory, applyRemoteOp,restoreCanonicalEmptyRoom:restoreCanonicalBaseline, syncFromLogNow, markJoinRestoreDone, dispatchParticipants,
     setRestoreFailure, setRoomContentReady, latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef,
     replayGate: replayGateRef.current,
   })
+
+  const replaceCanonicalRoom=useCallback((board:string,stash:RoomStatePayload)=>{
+    try{
+      stageCanonicalRoomReplacement(stash,{boardId:board,minimumSequence:latestKnownSeqRef.current,pending:pendingSnapshotRef,installedRead:installedCanonicalReadRef.current,
+        hasPendingLocals:()=>outboxRef.current.pendingCount!==0||pendingIdsRef.current.size!==0||strokeActiveRef.current||!!engineRef.current?.hasActiveCanonicalAuthor(),
+        retire:()=>{engineRef.current?.setLocked(true);replayIncompleteRef.current=true;resetStream();resetLayerSeqs();restoredLayerStateRef.current=null;setRestoreFailure(null);setRoomContentReady(false)},
+        bump:()=>setCanonicalMountRevision(n=>n+1)})
+    }catch(error){engineRef.current?.setLocked(true);setRestoreFailure('transfer');setRoomContentReady(false);throw error}
+  },[outboxRef,pendingIdsRef,replayIncompleteRef,resetStream,resetLayerSeqs,restoredLayerStateRef,latestKnownSeqRef])
 
   // ── mount engine ──────────────────────────────────────────────────────────────
   useEffect(() => {
     // (#176) No board, no engine: a joiner has nothing to build for until the
     // first `room_state` says which board they are on.
     if (enginePaper === undefined || boardId === null || !canvasRef.current) return
+    const requiredCanonical=engineRasterVersion===STRAIGHT_ROOM_RASTER_VERSION
+    if(requiredCanonical&&!pendingSnapshotRef.current?.canonicalRead){
+      if(installedCanonicalReadRef.current){setRoomContentReady(false);requestCanonicalRepair()}
+      return
+    }
+    let bootstrap:ReturnType<typeof canonicalBootstrapOf>
+    try{bootstrap=canonicalBootstrapOf(pendingSnapshotRef.current,boardId,requiredCanonical)}
+    catch{setRestoreFailure('transfer');setRoomContentReady(false);return}
+    const capturedSocket=socketRef.current
+    if(bootstrap&&!capturedSocket){setRestoreFailure('transfer');return}
+    let constructed:PencilEngineAPI|undefined
+    const canonicalAuthor=bootstrap&&capturedSocket?createCanonicalRoomAuthor(bootstrap.read,capturedSocket,()=>socketRef.current,()=>engineRef.current===constructed):undefined
     // Per mount, not per board — see enterBoard's doc comment on why these two
     // are reset here rather than there.
     replayIncompleteRef.current = false
     snapshotGateRef.current = createSnapshotGate(reportInvariant)
     const engine = new PencilEngine(canvasRef.current, {
       rasterVersion: engineRasterVersion,
+      ...bootstrap?{canonicalEmptyRoom:bootstrap,canonicalAuthor}:{},
       asyncFinish: false,
       joinedTouch: !import.meta.env.DEV || joinedTouchQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_TOUCH, location.search),
       bandBatch: import.meta.env.DEV && new URLSearchParams(location.search).get('qaBandBatch') === '1',
@@ -1000,6 +1040,8 @@ function RoomEditor() {
       // (#493) The developer switches — see useEngineDevOptions.
       ...engineDevOptions,
     })
+    constructed=engine
+    installedCanonicalReadRef.current=bootstrap?.read
     engineRef.current = engine
     exposeEngineForDev(engine)
     // Tells every engine-sync effect below that there is now an engine to sync
@@ -1030,12 +1072,13 @@ function RoomEditor() {
 
     const unhookPageHide = releaseOnPageHide(engine) // (§17.73)
     return () => {
+      if(bootstrap)replayIncompleteRef.current=true
       engineRef.current = null
       // (#493) Final thumbnail, then destroy: `engine`, not the nulled ref.
       retireEngine(engine, boardId, replayIncompleteRef, unhookPageHide)
     }
   }, [
-    boardId, engineRasterVersion, enginePaper, enginePaperColor, engineInfinite,
+    boardId,canonicalMountRevision,requestCanonicalRepair, engineRasterVersion, enginePaper, enginePaperColor, engineInfinite,
     markActive, applyRemoteOp, syncFromLog, engineDevOptions, checkSnapshotBoundary, restoreRoom, finishOpenTimer,
     isCreator, snapshotUploader, outbox,
     awaitPaper,
@@ -1049,7 +1092,7 @@ function RoomEditor() {
   // ── sync tool → engine ────────────────────────────────────────────────────────
   // (#493) Every engine.setX that reflects the tool in hand — see useToolSync.
   const { brushResourcesReady, cursorPresetName, nibAnchor, nibCanvasAngleRadians, tiltResponse, sizePx } =
-    useToolSync({ engineRef, engineEpoch, canvasRef })
+    useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady })
   useWatercolorDevFlags(engineRef, engineEpoch) // (#536) dev views and A/B switches
   // (#493) Whose colour the controls edit, what the engine draws with, the
   // well, the room palette and the flyout — see useToolColor.
@@ -1308,7 +1351,7 @@ function RoomEditor() {
     joinState, setJoinState, joinPasswordAsked, handleJoinSubmit, retryJoin, retryJoinRef,
   } = useJoinGate({
     id, myDisplayName, socketRef, latestKnownSeqRef, lastJoinAttemptRef, hasJoinedRef,
-    applyIdentity, outbox, startOpenTimer,
+    applyIdentity, outbox, startOpenTimer,joinRoomRef,
   })
 
   const copyingRoom = useCopyRoomEntry(location.state, roomContentReady, connected, retryJoin, config !== null)
@@ -1329,7 +1372,11 @@ function RoomEditor() {
     // see connectRoomSocket. What stays here is what it is handed, and the
     // dependency list below that decides when it is rebuilt.
     return connectRoomSocket({
-      sessionId, isCreator, creatorDraft,
+      sessionId, isCreator, creatorDraft,joinRoomRef,
+      prepareCanonicalRoomState:(state,lifetime)=>{
+        if(!lifetime.expectedBoardId)throw Error('Canonical requested board unavailable')
+        return prepareCanonicalRoomState(state,{expectedBoardId:lifetime.expectedBoardId,isCurrent:lifetime.isCurrent})
+      },
       // Same-origin: the Vite dev server proxies /socket.io to apps/server
       // (see vite.config.ts) — works under both `npm run dev` (https, needed
       // for AudioWorklet-based sound experiments) and `npm run dev:http`.
@@ -1344,7 +1391,7 @@ function RoomEditor() {
       firstRoomStateReceivedRef, awaitingSeededBoardStateRef, pendingSnapshotRef, snapshotGateRef, previewScheduleRef,
       replaceUrl: path => navigateRef.current(path, { replace: true }),
       holdReviewArrivals: () => replayGateRef.current.begin(),
-      applyIdentity, setRoomContentReady, enterBoard, awaitPaper, markJoinRestoreDone,
+      applyIdentity, setRoomContentReady, enterBoard,replaceCanonicalRoom, awaitPaper, markJoinRestoreDone,
       clearRestoreFailure: () => setRestoreFailure(null),
       // Shared with the engine's mount effect — see useRoomRestore. The open
       // is not being timed any more, hence the no-op finisher: a real one here
@@ -1364,7 +1411,7 @@ function RoomEditor() {
       replayGate: replayGateRef.current,
     })
   }, [
-    sessionId, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary, markJoinRestoreDone,
+    sessionId, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary, markJoinRestoreDone,replaceCanonicalRoom,
     restoreRoom, confirmOwnOperation, enterBoard,
     // (#429) Used by the live-stroke handler, markLayerActive too. Both are
     // useCallback with no dependencies (see their definitions), so they are

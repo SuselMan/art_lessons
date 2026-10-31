@@ -83,3 +83,15 @@ it.each(['false','throw','pending','gap','capability','badSeq','extra','dataOnly
  expect(f.deps.previewScheduleRef.current.noteOperation).not.toHaveBeenCalled()
  if(kind!=='false'&&kind!=='throw')expect(f.deps.applyRemoteOp).not.toHaveBeenCalled()
 })
+
+it.each(['operation_undo','operation_redo','operation_revoke','layer_clear']as const)('rejects live %s in explicit source scope before review, held queue and cursors',async type=>{
+ const {useRoomStore}=await import('../../../stores/roomStore'),observe=vi.spyOn(useRoomStore.getState(),'observeReviewOperation')
+ const f=receiver(),ticket=f.gate.begin(),base={id:'metadata',userId:'author',timestamp:2,seq:2}
+ const operation:Operation=type==='layer_clear'?{...base,type,layerId:'L'}:{...base,type,targetOpId:'op'}
+ try{
+  f.handler({seq:2,operation});expect(f.deps.requestFullResync).toHaveBeenCalledOnce()
+  expect(observe).not.toHaveBeenCalled();expect(f.deps.lastConfirmedSeqRef.current).toBe(1);expect(f.deps.latestKnownSeqRef.current).toBe(1)
+  expect(f.deps.applyRemoteOp).not.toHaveBeenCalled();expect(f.deps.confirmOwnOperation).not.toHaveBeenCalled()
+  f.gate.end(ticket);expect(f.deps.requestFullResync).toHaveBeenCalledOnce();expect(f.deps.applyRemoteOp).not.toHaveBeenCalled()
+ }finally{observe.mockRestore()}
+})
