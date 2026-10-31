@@ -56,6 +56,21 @@ function validate(s: SourcePrimaryCompositionState): void {
 function state(s: SourcePrimaryCompositionState): SourcePrimaryCompositionState {
   return Object.freeze({ ...s, context: Object.freeze({ ...s.context }), entry: Object.freeze({ ...s.entry }) })
 }
+function washCommand(c: SourcePrimaryCompositionContext, kind: 'presentWash' | 'commitWash'): SourcePrimaryCompositionCommand {
+  return Object.freeze({kind,source:'stroke',destination:'originalLayer',originalLayer:'preStrokeSnapshot',opacity:c.outerResourceOpacity,blend:c.outerBlend})
+}
+
+/** Pure closure of an already recorded prefix. Caller must establish genuine
+ * prefix ownership and reconcile any live-only tail BEFORE using the result.
+ * This scalar transition grants no source, history or renderer authority. It
+ * consumes neither an authored frame ordinal nor a draw or material fence. */
+export function sealSourcePrimaryComposition(s: SourcePrimaryCompositionState, recordedNext: number): SourcePrimaryCompositionResult {
+  validate(s)
+  if (s.ended || !integer(recordedNext,1) || recordedNext !== s.nextFrameOrdinal) fail()
+  return Object.freeze({state:state({...s,entry:{phase:'between'},ended:true}),draws:Object.freeze([]),
+    commands:Object.freeze(s.context.mode === 'wash' ? [washCommand(s.context,'commitWash')] : [])})
+}
+
 /** Caller creates once at gesture start. beginWash allocates a fresh transparent
  * stroke surface. Preview and final commit must use the SAME pre-stroke snapshot. */
 export function createSourcePrimaryComposition(c: SourcePrimaryCompositionContext): SourcePrimaryCompositionResult {
@@ -119,8 +134,7 @@ export function advanceSourcePrimaryComposition(s: SourcePrimaryCompositionState
   if (fi !== f.fences.length) fail()
   const commands: SourcePrimaryCompositionCommand[] = []
   if (s.context.mode === 'wash' && (ended || draws.length > 0)) {
-    commands.push(Object.freeze({ kind: ended ? 'commitWash' : 'presentWash', source: 'stroke', destination: 'originalLayer',
-      originalLayer: 'preStrokeSnapshot', opacity: s.context.outerResourceOpacity, blend: s.context.outerBlend }))
+    commands.push(washCommand(s.context,ended ? 'commitWash' : 'presentWash'))
   }
   return Object.freeze({ state: state({ ...s, entry: current, lastGroup, nextFrameOrdinal: s.nextFrameOrdinal + 1,
     drawCount: count, averageQreal: average, ended }), draws: Object.freeze(draws), commands: Object.freeze(commands) })

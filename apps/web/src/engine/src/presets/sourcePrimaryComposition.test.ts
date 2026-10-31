@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CANONICAL_MATERIAL_PROFILE as profile, packCanonicalMaterial, unpackCanonicalMaterial,
   type CanonicalMaterialContext, type CanonicalMaterialFrame, type CanonicalMaterialEntry } from '@grafetto/shared'
-import { advanceSourcePrimaryComposition as advance, createSourcePrimaryComposition as create,
+import { advanceSourcePrimaryComposition as advance, sealSourcePrimaryComposition as seal, createSourcePrimaryComposition as create,
   type SourcePrimaryCompositionContext, type SourcePrimaryCompositionState } from './sourcePrimaryComposition'
 import { sourceBlendAverageOpacity } from './brushWash'
 import { normalizeSourcePainterOpacity } from './sourcePainterOpacity'
@@ -158,4 +158,35 @@ for(const outerBlend of ['multiply','lighten','colorDodge','overlay'] as const) 
  expect(commit.commands[0]).toMatchObject({kind:'commitWash',blend:outerBlend,opacity:.27})
  expect(step(initial.state,original).draws).toEqual(step(create(wash).state,original).draws)
  expect(()=>create({...wash,mode:'buildup',outerBlend})).toThrow()
+})
+
+
+describe('explicit recorded metadata closure (pure state only, no renderer authority)',()=>{
+ it.each(['primary','mask','between'] as const)('closes %s without inventing an authored frame or draw',phase=>{
+  const fences=[begin,...phase==='primary'?[]:phase==='mask'?[{kind:'primaryEnd' as const,at:1,group:0}]:finish(1)]
+  const open=step(create(wash).state,frame([.8],{phase:'between'},fences)).state
+  const result=seal(open,open.nextFrameOrdinal)
+  expect(result.state).toEqual({...open,entry:{phase:'between'},ended:true})
+  expect(open.ended).toBe(false);expect(open.entry.phase).toBe(phase)
+  expect(result.draws).toEqual([])
+  expect(result.commands).toEqual([{kind:'commitWash',source:'stroke',destination:'originalLayer',originalLayer:'preStrokeSnapshot',opacity:.27,blend:'over'}])
+  expect(Object.isFrozen(result)).toBe(true);expect(Object.isFrozen(result.state.entry)).toBe(true)
+  expect(()=>seal(result.state,result.state.nextFrameOrdinal)).toThrow()
+ })
+ it('rejects a begin-only session, mismatched recorded count and invalid state without advancing the prefix',()=>{
+  const initial=create(wash).state
+  expect(()=>seal(initial,0)).toThrow();expect(()=>seal(initial,1)).toThrow()
+  const open=step(initial,frame([.5],{phase:'between'},[begin])).state
+  for(const n of [0,2,NaN,Infinity,1.5])expect(()=>seal(open,n)).toThrow()
+  expect(()=>seal({...open,averageQreal:2},1)).toThrow()
+  expect(open.nextFrameOrdinal).toBe(1);expect(open.ended).toBe(false)
+ })
+ it('preserves an empty recorded prefix and emits no pigment command for buildup',()=>{
+  const buildup={...wash,mode:'buildup' as const}
+  const open=step(create(buildup).state,frame([],{phase:'between'},[])).state
+  const result=seal(open,1)
+  expect(result.state.nextFrameOrdinal).toBe(1);expect(result.state.drawCount).toBe(0)
+  expect(result.state.averageQreal).toBe(0);expect(result.state.lastGroup).toBe(-1)
+  expect(result.state.ended).toBe(true);expect(result.commands).toEqual([])
+ })
 })
