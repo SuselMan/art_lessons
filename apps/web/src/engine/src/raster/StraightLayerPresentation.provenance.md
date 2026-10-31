@@ -107,3 +107,16 @@ cleanup, nesting and reuse cases still pass. Historical Samsung receipt above
 predates this handoff and is not relabeled as testing the changed lifecycle.
 Engine factory activation and a fresh physical-device handoff proof remain gates.
 No runtime processes, service or disposable builds were created by this unit.
+
+2026-10-31 fresh hardware lifecycle check after0a1dc30b1: current two-argument
+service plus SAME RibbonScratchPool.prepareAcquisition ran48 cold/warm cases
+on Samsung Adreno650/Chrome156. Independent CPU stored-PM box reference permits
+1byte tolerance; actual differing bytes0/maxDelta0. Source unchanged, hostile
+caller state restored, warm no-upload/no-new-program path, injected second-stage
+and display-callback failures all PASS. No hardware mipmaps; remaining textures,
+FBOs, buffers, shaders, programs and VAOs all0. Own child/forward closed and all3
+original tabs preserved. The context used DEFAULT physical policy, so this is
+not a finite whole-GPU budget proof or editor/native-brush fidelity claim.
+Compact receipt: fixes-v52/straight-presentation-current-proof.json, bundle
+499705c9a3167f3a21df3de5ef79ed22ff2dc152fdcf7e4aafbcd1bef95ca0e2;
+source-module hashes are retained there. Bundle was RAM-only; no service started.
