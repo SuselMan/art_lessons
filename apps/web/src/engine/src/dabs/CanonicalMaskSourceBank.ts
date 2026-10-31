@@ -214,7 +214,9 @@ export class CanonicalMaskSourceBank {
         // GL query occurs between the last identity check and these assignments.
         owner.bank._jobs=jobs;owner.bank.inputs=readers;owner.bank.companion=companion
         owner.bank.releaseMetadata=combinedRelease
-        releaseDelta=noRelease;state='committed';if(newJobs.length)owner.bank.generation++
+        // Addition preserves every old immutable key/binding. Only reset advances
+        // the epoch captured by already admitted coordinator entries.
+        releaseDelta=noRelease;state='committed'
         return undefined
       },
       finalizeCleanup(){

@@ -59,3 +59,9 @@ existing native author/empty-baseline tests and capacity thresholds. Lint permit
 only existing index warnings. Coordinated joint31013 passed app/SW/server-source/map:check/map:rules after
 shared GIH source/build freeze. Image frames still refuse before canvas.
 No device/services/DB/runtime resources were created by this unit.
+
+Follow-up original receiver: OPEN single-image is accepted only under the genuine
+full-history owner; the old empty-history lane still rejects it before canvas.
+See index.canonicalImagePreparation.provenance.md for the paired original append,
+typed close, same-capacity additive preparation and context recovery witnesses.
+Image author preparation/growth/animated sources and Room activation stay closed.

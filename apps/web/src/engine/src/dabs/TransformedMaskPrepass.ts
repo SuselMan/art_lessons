@@ -190,19 +190,22 @@ export class TransformedMaskPrepass {
     return {sourceMap,bindings}
   }
   /** Candidate maps only. No active maps change until pure publish(). */
-  prepareSourceUpdate(sourceResources:readonly TransformedMaskPreparedSource[]):CanonicalPreparedResourceUpdate {
-    if(this.sourceUpdate||!this.workspace||!this.limits||this.batch||this.activeGroup||this.pendingAuto)throw new Error('Prepass source update unavailable')
+  prepareSourceUpdate(sourceResources:readonly TransformedMaskPreparedSource[],options?:{readonly additive:true}):CanonicalPreparedResourceUpdate {
+    if(options!==undefined&&(!options||options.additive!==true||Reflect.ownKeys(options).some(key=>key!=='additive')))throw new TypeError('Invalid additive source update')
+    const additive=options?.additive===true
+    if(this.sourceUpdate||!this.workspace||!this.limits||this.batch||this.activeGroup||this.pendingAuto&&(!additive||this.pendingAuto.flushing))throw new Error('Prepass source update unavailable')
     if(!Array.isArray(sourceResources)||sourceResources.length>4096)throw new RangeError('Invalid prepared source count')
     const owner=Object.freeze({pass:this}),epoch=this.workspace,limits=this.limits
     let oldSources:Map<string,number>|undefined=this.sources,oldBindings:Map<string,CanonicalMaskSourceBinding>|undefined=this.sourceBindings
     let releaseNew=this.cpu.reserve(sourceResources.length*512),releaseOld:undefined|(()=>void),state:'pending'|'published'|'cancelled'='pending',createdUpdate:CanonicalPreparedResourceUpdate|undefined
     try{
       let plan:ReturnType<TransformedMaskPrepass['checkedSources']>|undefined=this.checkedSources(sourceResources)
+      if(additive&&([...oldSources].some(([key,bytes])=>plan!.sourceMap.get(key)!==bytes)||[...oldBindings].some(([key,binding])=>JSON.stringify(plan!.bindings.get(key))!==JSON.stringify(binding))))throw new Error('Prepass additive source update must preserve every old binding')
       const budget=transformedMaskPrepassBudget(limits)
       if(budget.gpuBytes+[...plan.sourceMap.values()].reduce((a,b)=>a+b,0)>this.cache.budgetBytes)throw new RangeError('Prepass working set exceeds existing brush budgets')
       const maximum=this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number,precision=this.gl.getShaderPrecisionFormat(this.gl.FRAGMENT_SHADER,this.gl.HIGH_FLOAT)
       if(!precision||precision.precision<23||Math.max(256,limits.width,limits.height)>maximum)throw new RangeError('Unverified prepass GPU capability')
-      const scalar=()=>state==='pending'&&owner.pass.sourceUpdate===update&&owner.pass.workspace===epoch&&owner.pass.limits===limits&&owner.pass.sources===oldSources&&owner.pass.sourceBindings===oldBindings&&!owner.pass.batch&&!owner.pass.activeGroup&&!owner.pass.pendingAuto
+      const scalar=()=>state==='pending'&&owner.pass.sourceUpdate===update&&owner.pass.workspace===epoch&&owner.pass.limits===limits&&owner.pass.sources===oldSources&&owner.pass.sourceBindings===oldBindings&&!owner.pass.batch&&!owner.pass.activeGroup&&(!owner.pass.pendingAuto||additive&&!owner.pass.pendingAuto.flushing)
       const assert=(receiver:unknown)=>{if(receiver!==update||!scalar())throw new Error('Prepass source update changed')}
       const update:CanonicalPreparedResourceUpdate=Object.freeze({
         get status(){return state},
@@ -222,7 +225,7 @@ export class TransformedMaskPrepass {
         },
       })
       createdUpdate=update
-      if(this.sourceUpdate||this.workspace!==epoch||this.limits!==limits||this.sources!==oldSources||this.sourceBindings!==oldBindings||this.batch||this.activeGroup||this.pendingAuto)throw new Error('Prepass source update changed')
+      if(this.sourceUpdate||this.workspace!==epoch||this.limits!==limits||this.sources!==oldSources||this.sourceBindings!==oldBindings||this.batch||this.activeGroup||this.pendingAuto&&(!additive||this.pendingAuto.flushing))throw new Error('Prepass source update changed')
       this.sourceUpdate=update
       update.assertCurrent()
       return update

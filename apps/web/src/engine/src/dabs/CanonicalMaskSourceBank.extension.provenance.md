@@ -46,3 +46,11 @@ validates readiness before pure publication; commit preserves the
 original one-call behavior. Reset after publish owns lease cleanup and committed
 resources. See CanonicalWorkspacePublication.provenance.md for accounting,
 no-callback boundary and validation evidence. Engine integration remains separate.
+
+Hot-union follow-up: generation is explicitly reset-only. Complete additive
+publication preserves all old keys/readers and the epoch captured by an existing
+coordinator entry; reset still expires that receipt. This is immutable resource
+residency, not read/source authority. The engine's original-delivery admission and
+exact asset/crop checks remain mandatory. image-hot-union-resource-red.log records
+the old generation failure and image-hot-union-resource-green.log records 26 PASS
+including pending-auto additive publication; engine pairing has separate evidence.

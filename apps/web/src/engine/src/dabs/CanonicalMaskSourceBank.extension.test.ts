@@ -17,7 +17,7 @@ it('keeps committed resources and generation ready until complete additive publi
  const s=setup(),old=s.bank.preparedResources(),gen=s.bank.assertSourceBinding(s.a.asset,s),b=input('b'),oldReserved=s.cpu.reservedBytes
  const ext=s.bank.beginExtension([b],{gpuBytes:0,cpuBytes:0})
  try{expect(s.bank.preparedResources()).toEqual(old);ext.jobs.forEach((_,i)=>ext.prepareJob(i));expect(ext.preparedResources()).toHaveLength(old.length+ext.jobs.length)
-  s.bank.assertCurrentOwners(gen);expect(s.bank.preparedResources()).toEqual(old);ext.commit();expect(()=>s.bank.assertCurrentOwners(gen)).toThrow();expect(s.bank.assertSourceBinding(b.asset,s)).toBeTypeOf('number')
+  s.bank.assertCurrentOwners(gen);expect(s.bank.preparedResources()).toEqual(old);ext.commit();expect(()=>s.bank.assertCurrentOwners(gen)).not.toThrow();expect(s.bank.assertSourceBinding(b.asset,s)).toBeTypeOf('number')
   ext.cancel();expect(s.bank.isReady()).toBe(true);expect(s.cpu.reservedBytes).toBeGreaterThan(oldReserved)
  }finally{s.bank.reset();s.cache.clear()}expect(s.cpu.reservedBytes).toBe(0)
 })

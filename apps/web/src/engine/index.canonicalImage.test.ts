@@ -59,10 +59,10 @@ it('restores actual Basic6 original163 envelopes using one bank and retains ever
   const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,first=bank.jobs[0];owner.cache.discard(first.key);expect(bank.prepareJob(0)).toBe('ready');expect(bank.assertSourceBinding(asset,{gl:engine['gl'],cache:owner.cache,cpu:engine['_brushMipCache']})).toBeTypeOf('number')
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },15000)
-it.each(['open','missingCAS']as const)('rejects %s image baseline before canvas access',kind=>{
- const p=original(()=>true,kind==='open');if(kind==='missingCAS')clearImportedBrushPixels()
+it.each(['missingCAS']as const)('rejects %s image baseline before canvas access',kind=>{
+ const p=original();if(kind==='missingCAS')clearImportedBrushPixels()
  const get=vi.fn(()=>{throw Error('Canvas touched')}),canvas=new Proxy({}as HTMLCanvasElement,{get})
- expect(()=>new PencilEngine(canvas,{rasterVersion:'straight-rgba8-v1',pageWidth:512,pageHeight:512,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations}})).toThrow(kind==='open'?'Open canonical image baseline unsupported':'Canonical baseline image asset unavailable');expect(get).not.toHaveBeenCalled()
+ expect(()=>new PencilEngine(canvas,{rasterVersion:'straight-rgba8-v1',pageWidth:512,pageHeight:512,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations}})).toThrow('Canonical baseline image asset unavailable');expect(get).not.toHaveBeenCalled()
 })
 it.each(['stale','upload']as const)('rolls back %s between source jobs without publishing journal or layer map',async kind=>{
  let current=true;const p=original(()=>current),{engine}=engineFor(p),old=engine['_layers'],prepare=CanonicalMaskSourceBank.prototype.prepareJob;let jobs=0

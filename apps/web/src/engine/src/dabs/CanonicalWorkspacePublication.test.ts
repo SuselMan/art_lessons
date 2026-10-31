@@ -1,3 +1,4 @@
+import {prepareSourceDefaultAutoDab} from '../presets/sourceDefaultAutoDab'
 import {expect,it,vi} from 'vitest'
 import {recordingGL} from '../../testing/brushPassTestUtils'
 import {CanonicalMaskSourceBank} from './CanonicalMaskSourceBank'
@@ -58,4 +59,22 @@ it.each(['prepass','composite']as const)('retains adopted %s metadata after supe
 it('refuses oversized staged maps before traversing attacker-controlled entries or reserving metadata',()=>{
  const s=setup(),get=vi.fn(),tooMany=Array(4106);Object.defineProperty(tooMany,'0',{get});const charge=s.cpu.reservedBytes
  expect(()=>s.prepass.prepareSourceUpdate(tooMany)).toThrow();expect(()=>s.composite.prepareCompanionUpdate(tooMany)).toThrow();expect(get).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(charge);s.cleanup()
+})
+
+it('keeps a real pending auto evaluator and its slot across an additive image-source publication',()=>{
+ const s=setup(),source={kind:'defaultAuto' as const,generator:'default' as const,shape:'circle' as const,diameter:7,ratio:1,horizontalFade:1,verticalFade:1,antialias:true,spikes:2,randomness:0,density:1}
+ const trustedSource={kind:'defaultAuto' as const,descriptorId:'open-auto',descriptorVersion:1,descriptorSha256:'a'.repeat(64),source,brushScale:1,brushAngle:0,coverageProfile:'neon64-f32-fma-v1' as const}
+ const [width,height]=prepareSourceDefaultAutoDab({dialect:'krita-default-auto-qt5-arm64-v1',tip:{...source,kind:'auto',softness:1,spikes:2,randomness:0,density:1},storedScale:1,storedAngle:0,shape:{scale:1,ratio:1,rotation:0},subpixelX:0,subpixelY:0,coverageProfile:trustedSource.coverageProfile,maxPixels:1048576,maxWorkSamples:16*1048576}).geometry.maskSize
+ const request={owner:{},role:'primary',material:{kind:'canonicalAuto' as const,trustedSource,recipe:{kind:'defaultAuto' as const,source,coverageProfile:trustedSource.coverageProfile,brushScale:1,brushAngle:0,scale:1,ratio:1,rotation:0,subX:0,subY:0,width,height,mirrorH:false,mirrorV:false}},rect:{x:0,y:0,width,height},profile:'neon4-summed-wordsize64' as const}
+ try{
+  s.prepass.beginAutoGeneration(request);s.prepass.advanceAutoGeneration(1)
+  const pending=s.prepass['pendingAuto']!,workspace=s.prepass.preparedCapacity().epoch
+  expect(pending).toBeDefined();expect(s.prepass['activeGroup']).toBeUndefined()
+  const ext=s.bank.beginExtension([input('b')],{gpuBytes:0,cpuBytes:0});ext.jobs.forEach((_,i)=>ext.prepareJob(i))
+  const resources=ext.preparedResources(),update=s.prepass.prepareSourceUpdate(resources,{additive:true})
+  ext.assertPreparedPublication();update.assertCurrent();ext.publish();update.publish();update.finalizeCleanup();ext.finalizeCleanup()
+  expect(s.prepass['pendingAuto']).toBe(pending);expect(s.prepass.preparedCapacity().epoch).toBe(workspace)
+  expect(()=>s.prepass.prepareSourceUpdate([],{additive:true})).toThrow('additive')
+  expect(()=>s.prepass.advanceAutoGeneration(1)).not.toThrow()
+ }finally{s.cleanup()}
 })
