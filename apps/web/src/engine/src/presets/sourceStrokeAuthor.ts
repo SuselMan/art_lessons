@@ -33,6 +33,8 @@ export interface SourceAuthorRoleProgram {
 export interface SourceStrokeAuthorProgram {
   /** Caller supplies immutable descriptor identity. Not a new wire hash. */
   readonly id: string
+  /** Undefined preserves historical explicit paintAt input fixtures. */
+  readonly inputProfile?: 'krita-freehand-no-smoothing-v1'
   readonly roles: readonly SourceAuthorRoleProgram[]
 }
 type DistanceState = Pick<SourceDistanceTiming, 'x' | 'y' | 'time' | 'spacingElapsed' | 'timingElapsed'>
@@ -48,7 +50,7 @@ export interface SourceAuthorRoleState {
   readonly lastPaint?: Request
 }
 interface Cursor {
-  readonly kind: 'start' | 'segment'
+  readonly kind: 'start' | 'segment' | 'finish'
   readonly endpoint: SourceAuthorPacket
   readonly roleIndex: number
   readonly current: SourceAuthorPacket
@@ -57,6 +59,8 @@ interface Cursor {
 }
 export interface SourceStrokeAuthorState {
   readonly version: 1; readonly programId: string
+  readonly inputProfile?: 'krita-freehand-no-smoothing-v1'
+  readonly ended?: boolean
   readonly random: KritaRandomSnapshot; readonly perStroke: KritaPerStrokeRandomSnapshot
   readonly roles: readonly SourceAuthorRoleState[]
   readonly initialAngle: number
@@ -127,6 +131,9 @@ export class SourceStrokeAuthor {
   constructor(program: SourceStrokeAuthorProgram) {
     if(!program.id || program.roles.length<1 || program.roles.length>2 || program.roles[0].id!=='primary'
       || program.roles.length===2 && program.roles[1].id!=='mask') throw new RangeError('Invalid author source roles')
+    if(program.inputProfile!==undefined && (program.inputProfile!=='krita-freehand-no-smoothing-v1' || program.roles.length!==1)) {
+      throw new RangeError('Unsupported native freehand input profile/roles')
+    }
     this.program=freeze(structuredClone(program))
     this.options=this.program.roles.map(role=>{
       if(!['png-fixed1-rng-free','default-auto-fixed1-rng-free','gaussian-auto-fixed1-rng-free','soft-auto-fixed1-rng-free'].includes(role.materialPolicy)
@@ -151,12 +158,13 @@ export class SourceStrokeAuthor {
   }
   createState(sequentialSeed:number,perStrokeSeed:number,initialAngle:number):SourceStrokeAuthorState {
     if(!Number.isFinite(initialAngle))throw new RangeError('Invalid source initial angle')
-    return freeze({version:1,programId:this.program.id,random:new KritaRandomSource(sequentialSeed).snapshot(),
+    return freeze({version:1,programId:this.program.id,...(this.program.inputProfile?{inputProfile:this.program.inputProfile,ended:false}:{}),random:new KritaRandomSource(sequentialSeed).snapshot(),
       perStroke:new KritaPerStrokeRandomSource(perStrokeSeed).snapshot(),roles:[],initialAngle,inputOrdinal:0,eventOrdinal:0})
   }
   /** Validation precedes any restored RNG draw or mutation; input state is never modified. */
   *plan(state:SourceStrokeAuthorState,packet:SourceAuthorPacket):Generator<SourceStrokeAuthorStep,SourceStrokeAuthorState> {
     this.validateState(state);validatePacket(packet)
+    if(state.ended)throw new RangeError('Source author already ended')
     if(state.cursor)throw new RangeError('Pending source input must be resumed first')
     if(state.inputOrdinal===Number.MAX_SAFE_INTEGER)throw new RangeError('Source author input counter exhausted')
     if(state.lastInput && (packet.t<state.lastInput.t || packet.rotation!==state.lastInput.rotation
@@ -166,9 +174,27 @@ export class SourceStrokeAuthor {
     const roles=start?this.program.roles.map(()=>({distance:distanceState(new SourceDistanceTiming()),
       spacing:{enabled:true,isotropic:true,x:0,y:0,angle:0},cache:{nextSequence:0},sequence:0,totalDistance:0,maxPressure:0,
       lastPosition:{x:packet.x,y:packet.y},lastAngle:owned.initialAngle})):owned.roles
+    // Native initPaint only paints immediately for airbrushing. Otherwise its
+    // default zero spacing is consumed by DistanceTiming's source .5 clamp on
+    // the first nonzero MOVE. A tap is handled separately by endPaint below.
+    const eager=start && (!this.program.inputProfile || this.program.roles[0].timing.enabled)
     const cursor:Cursor={kind:start?'start':'segment',endpoint:structuredClone(packet),roleIndex:0,
-      current:owned.lastInput??structuredClone(packet),phase:start?'paint':'distance',requests:start?[{...packet,drawingAngle:owned.initialAngle}]:[]}
+      current:owned.lastInput??structuredClone(packet),phase:start?(eager?'paint':'nextRole'):'distance',requests:eager?[{...packet,drawingAngle:owned.initialAngle}]:[]}
     return yield* this.run(freeze({...owned,roles,cursor}))
+  }
+  /** Caller wraps this ending event with adapter.beginInput, drains all yields,
+   * then calls adapter.finish. UP is not also planned as a pressure-zero point.
+   * Native helper paintLine marks painting dispatched even if the distance
+   * iterator emits no dab. Thus only DOWN with no following MOVE can fall back.
+   */
+  *finish(state:SourceStrokeAuthorState):Generator<SourceStrokeAuthorStep,SourceStrokeAuthorState> {
+    this.validateState(state)
+    if(!this.program.inputProfile || state.ended || !state.lastInput || state.cursor)throw new RangeError('Invalid source author finish')
+    if(state.inputOrdinal===Number.MAX_SAFE_INTEGER)throw new RangeError('Source author input counter exhausted')
+    const owned=structuredClone(state),endpoint=owned.lastInput!,role=owned.roles[0],paint=owned.inputOrdinal===1 && role.lastPaint===undefined
+    const cursor:Cursor={kind:'finish',endpoint,current:endpoint,roleIndex:0,phase:paint?'paint':'nextRole',
+      requests:paint?[{...endpoint,drawingAngle:role.lastAngle}]:[]}
+    return yield* this.run(freeze({...owned,cursor}))
   }
   *resume(state:SourceStrokeAuthorState):Generator<SourceStrokeAuthorStep,SourceStrokeAuthorState> {
     this.validateState(state)
@@ -181,6 +207,8 @@ export class SourceStrokeAuthor {
     const count=(v:number)=>Number.isSafeInteger(v)&&v>=0
     if(!state || state.version!==1 || state.programId!==this.program.id || !Array.isArray(state.roles)
       || !count(state.inputOrdinal) || !count(state.eventOrdinal) || !Number.isFinite(state.initialAngle))bad()
+    if(state.inputProfile!==this.program.inputProfile || (this.program.inputProfile?typeof state.ended!=='boolean':state.ended!==undefined)
+      || state.ended && (!state.lastInput || state.cursor))bad()
     const started=state.lastInput!==undefined||state.cursor!==undefined
     if(state.roles.length!==(started?this.program.roles.length:0))bad()
     if(state.lastInput!==undefined)validatePacket(state.lastInput)
@@ -227,10 +255,11 @@ export class SourceStrokeAuthor {
     if(state.cursor!==undefined){
       if(!state.cursor)bad()
       const c=state.cursor
-      if(!['start','segment'].includes(c.kind) || !['distance','paint','spacing','timing','nextRole'].includes(c.phase)
+      if(!['start','segment','finish'].includes(c.kind) || !['distance','paint','spacing','timing','nextRole'].includes(c.phase)
         || !Number.isInteger(c.roleIndex) || c.roleIndex<0 || c.roleIndex>=state.roles.length
         || !Array.isArray(c.requests) || c.requests.length>65 || (c.phase==='paint'?c.requests.length===0:c.requests.length!==0)
-        || (c.kind==='segment')!==!!state.lastInput)bad()
+        || (c.kind!=='start')!==!!state.lastInput
+        || c.kind==='finish' && (!this.program.inputProfile || !['paint','nextRole'].includes(c.phase)))bad()
       validatePacket(c.endpoint);validatePacket(c.current)
       if(state.lastInput && (c.endpoint.t<state.lastInput.t || c.endpoint.rotation!==state.lastInput.rotation || c.endpoint.hover!==state.lastInput.hover))bad()
       for(const request of c.requests){
@@ -253,7 +282,8 @@ export class SourceStrokeAuthor {
       const cursor=state.cursor,index=cursor.roleIndex,program=this.program.roles[index],role=state.roles[index]
       if(cursor.phase==='nextRole'){
         if(index+1===this.program.roles.length){
-          state=freeze({...state,cursor:undefined,lastInput:cursor.endpoint,inputOrdinal:state.inputOrdinal+1})
+          state=freeze({...state,cursor:undefined,lastInput:cursor.endpoint,inputOrdinal:state.inputOrdinal+1,
+            ...(cursor.kind==='finish'?{ended:true}:{})})
           yield freeze({kind:'inputComplete',state});break
         }
         const next=state.roles[index+1]
@@ -311,7 +341,7 @@ export class SourceStrokeAuthor {
           maxPressure:Math.max(role.maxPressure,packet.pressure),lastPosition:{x:packet.x,y:packet.y},lastAngle:drawingAngle,
           lockedAngle:packet.hover?role.lockedAngle:role.lockedAngle??drawingAngle,lastPaint:{...packet,drawingAngle}}
         const requests=cursor.requests.slice(1)
-        nextCursor={...cursor,requests,phase:requests.length?'paint':cursor.kind==='start'?'nextRole':'distance'}
+        nextCursor={...cursor,requests,phase:requests.length?'paint':cursor.kind==='segment'?'distance':'nextRole'}
       }else if(kind==='spacing'){
         distance.updateSpacing();nextRole={...role,spacing:spacing(program,result),distance:distanceState(distance)}
         nextCursor={...cursor,phase:'timing'}

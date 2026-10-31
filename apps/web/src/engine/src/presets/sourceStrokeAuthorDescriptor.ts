@@ -5,6 +5,8 @@ import { SourceStrokeAuthor, type SourceAuthorRoleProgram, type SourceStrokeAuth
 
 /** No XML parsing, asset loading, stock table, or approximate curve solver here. */
 export interface SourceAuthorDescriptorContext {
+  /** Explicit GUI input law; absent means historical explicit paintAt inputs. */
+  readonly inputProfile?: 'krita-freehand-no-smoothing-v1'
   readonly colorIdentity: string
   readonly lodScale: number
   /** Native effective brush scale captured at pen-down, if user changed size. */
@@ -58,7 +60,7 @@ export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, contex
         precisionLevel:data.precision.level,autoPrecision:data.precision.automatic,
         imprecisePosition:programs.Mirror.checked || programs.Scatter.checked || programs.Rotation.checked || data.timing.enabled,
         disableSubpixel:false,supportsCaching:true,solidColor:true,textureEnabled:false,sharpnessChecked:false}}
-    const program={id:descriptor.id+':'+descriptor.version,roles:[role]}
+    const program={id:descriptor.id+':'+descriptor.version,...(context.inputProfile!==undefined?{inputProfile:context.inputProfile}:{}),roles:[role]}
     // Same owner preflight as the eventual caller; no RNG/state mutation.
     new SourceStrokeAuthor(program)
     return {supported:true,program}
