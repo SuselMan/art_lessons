@@ -168,7 +168,7 @@ it('never turns retained mask data into an unsupported Over/erase/effect executi
     d=>{d.behavior={...d.behavior!,erase:true}},
     d=>{d.behavior!.rendering!.mode='uniformGlaze';delete d.behavior!.rendering!.accumulation},
     d=>{d.behavior!.rendering!.opacityCeiling='shape'},
-    d=>{d.behavior!.rendering!.blendMode='multiply'},
+    ...(['multiply','overlay','lighten','colorDodge','color'] as const).map(blendMode=>(d:typeof f.library.brushes[number]['descriptor'])=>{d.behavior!.rendering!.blendMode=blendMode}),
     d=>{d.behavior!.rendering!.wetEdges=.2},
     d=>{d.behavior!.rendering!.burntEdges=.2},
     d=>{d.behavior!.rendering!.gammaCorrect=true},

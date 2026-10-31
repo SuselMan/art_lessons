@@ -135,3 +135,23 @@ it('withholds soft ACK until durability and repairs the identical failed frame w
  expect(await transport.recorded(identity,operation(1),()=>true)).toMatchObject({result:{ok:true,seq:2}})
  expect(db.operation.create).toHaveBeenCalledTimes(3);log.mockRestore()
 })
+
+it('rejects unsupported outer composition for every auto family before pin or asset access',async()=>{
+ const {default:gaussian}=await import(new URL('../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.native.ts',import.meta.url).href)
+ const policies={...policy,autoSources:{...policy.autoSources,...selected.autoSources,gaussianAuto:{coverageProfile:'neon64-f32-fma-v1' as const,storedScale:1 as const}}}
+ const descriptors=[stock.rows[0].descriptor,gaussian.rows.find((r:{index:number})=>r.index===5)!.descriptor,softDescriptor()] as BrushDescriptor[]
+ for(const original of descriptors){
+  for(const mode of ['normal','multiply','overlay','lighten','colorDodge','color','erase','burnt']){
+   const descriptor=structuredClone(original),rendering=descriptor.behavior?.rendering
+   if(!rendering)throw Error('Expected explicit rendering')
+   if(mode==='erase')Object.assign(descriptor.behavior!,{erase:true})
+   else if(mode==='burnt')Object.assign(rendering,{burntEdges:.2})
+   else Object.assign(rendering,{blendMode:mode})
+   const f=setup(descriptor),asset=vi.spyOn(f.storage,'asset'),pin=vi.spyOn(f.storage,'pin'),transport=new CanonicalRoomTransport(policies)
+   const result=await transport.begin(identity,f.input,()=>true)
+   if(mode==='normal')expect(result.ok).toBe(true)
+   else {expect(result).toEqual({ok:false,reason:'invalid_operation'});expect(pin).not.toHaveBeenCalled();expect(f.board.operations).toEqual([]);expect(f.board.nextSeq).toBe(1)}
+   expect(asset).not.toHaveBeenCalled();asset.mockRestore();pin.mockRestore();rooms.clear()
+  }
+ }
+})

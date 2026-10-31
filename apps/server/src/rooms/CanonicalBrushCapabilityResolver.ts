@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import {
   CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, STRAIGHT_ROOM_RASTER_VERSION,
-  canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, sourceStampPaintingMode,
+  canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, sourceStampPaintingMode, hasCanonicalOverComposition,
   type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin,
 } from '@grafetto/shared'
 import { freezeCanonicalAutoPolicies, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
@@ -26,10 +26,8 @@ function normalizedDescriptor(value: unknown): unknown {
  * source mask or author program cannot grant unsupported destination/effect law. */
 function outerExecutionReject(descriptor: BrushDescriptor): string | undefined {
   const behavior = descriptor.behavior, rendering = behavior?.rendering
-  if (behavior?.erase) return 'erase'
+  if (!hasCanonicalOverComposition(descriptor)) return 'outer-composition'
   if (rendering && (rendering.mode !== 'buildUp' || rendering.opacityCeiling === 'shape' || rendering.accumulation === 'maxAlpha')) return 'stroke-rendering-mode'
-  if (rendering && rendering.blendMode !== 'normal') return 'outer-blend'
-  if (rendering && (rendering.wetEdges !== 0 || rendering.burntEdges !== 0)) return 'edge-effect'
   if (rendering?.gammaCorrect || rendering?.luminance) return 'color-effect'
   if (descriptor.tip.alphaThreshold) return 'mask-threshold'
   if (behavior?.wetMix || behavior?.edgeBleed || behavior?.grain || behavior?.taper) return 'brush-effect'

@@ -136,3 +136,12 @@ and pins the descriptor digest, coverage profile, compiler/build identity and
 radial coefficients. No source descriptor, policy, or author request can turn a
 soft source into a PNG capability. Primary source slot 0 is the only admitted
 soft execution role.
+
+The common verified-descriptor gate now reuses shared
+hasCanonicalOverComposition for erase, non-normal blend and nonzero wet/burnt
+edges before choosing PNG/default/Gaussian/soft material branches. Existing
+stroke-mode, opacity-ceiling, gamma/luminance and other effect restrictions
+remain in place. Source-data readiness does not override this execution gate.
+Verified-storage tests cover normal admission and unsupported composition across
+all three auto families, plus the PNG composition rejection matrix, before pin,
+asset reads or room operation mutation. The global execution policy stays OFF.
