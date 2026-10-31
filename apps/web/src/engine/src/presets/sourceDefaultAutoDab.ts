@@ -72,3 +72,47 @@ export function sourceDefaultAutoDab(request: SourceDefaultAutoDabRequest): Sour
   while (!evaluator.done) evaluator.advance(mask, evaluator.completedPixels, 65536)
   return { ...metadata, mask, route: evaluator.route, samplesPerPixel: evaluator.samplesPerPixel }
 }
+
+/** Opt-in scalar density stage over an already quantized, exclusively borrowed
+ * A8 plane. Not admitted by the default-auto descriptor/profile. The caller owns
+ * the sampler state and must not mutate this plane until the cursor finishes.
+ * Native applicator RNG is separate from the stroke option RNG; this API makes
+ * no claim of reproducing its seed or random realization. No allocation/cache. */
+export function prepareSourceDefaultAutoDensity(mask: Uint8Array, density: number, sample: () => number) {
+  if (!(mask instanceof Uint8Array) || mask.length > 1024 * 1024
+    || !Number.isFinite(density) || density < 0 || density > 1 || typeof sample !== 'function') {
+    throw new RangeError('Invalid default auto density plane')
+  }
+  let completedPixels = 0
+  let failed = false
+  let busy = false
+  let failure: unknown
+  return {
+    get completedPixels() { return completedPixels },
+    get done() { return completedPixels === mask.length && !failed },
+    advance(maxPixels: number): boolean {
+      if (failed) throw failure
+      if (busy) throw new Error('Density cursor is already advancing')
+      if (!Number.isSafeInteger(maxPixels) || maxPixels <= 0) throw new RangeError('Invalid density work bound')
+      const end = completedPixels + Math.min(maxPixels, mask.length - completedPixels)
+      busy = true
+      try {
+        while (completedPixels < end) {
+          if (density !== 1 && mask[completedPixels] !== 0) {
+            const value = sample()
+            if (!Number.isFinite(value) || value < 0 || value > 1) throw new RangeError('Invalid density sample')
+            if (!(density >= value)) mask[completedPixels] = 0
+          }
+          completedPixels++
+        }
+      } catch (error) {
+        failed = true
+        failure = error
+        throw error
+      } finally {
+        busy = false
+      }
+      return completedPixels === mask.length
+    },
+  }
+}
