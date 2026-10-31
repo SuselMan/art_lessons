@@ -126,3 +126,42 @@ describe('ordered brush gate', () => {
     expect(fail).toHaveBeenCalledOnce()
   })
 })
+
+it('prepares current image resources at the SAME queue head after legacy work, before any later apply',async()=>{
+ const legacy=deferred(),image=deferred(),events:string[]=[],resource=vi.fn(()=>{events.push('resource');return image.promise})
+ const gate=createOrderedBrushGate(vi.fn().mockReturnValueOnce(legacy.promise).mockReturnValue(null),vi.fn())
+ gate.dispatch([],()=>events.push('first'),()=>true,resource)
+ gate.dispatch([],()=>events.push('later'))
+ expect(resource).not.toHaveBeenCalled();legacy.resolve();await legacy.promise
+ expect(events).toEqual(['resource']);image.resolve();await image.promise
+ expect(events).toEqual(['resource','first','later'])
+})
+it.each(['legacy','image'] as const)('drops stale %s rejection without failing or applying the newer room',async stage=>{
+ const load=deferred(),fail=vi.fn(),old=vi.fn(),next=vi.fn(),resource=vi.fn(()=>stage==='image'?load.promise:null)
+ let current=true
+ const gate=createOrderedBrushGate(()=>stage==='legacy'&&current?load.promise:null,fail)
+ gate.dispatch([],old,()=>current,resource);gate.dispatch([],next)
+ current=false;load.reject(new Error('old owner expired'));await load.promise.catch(()=>{})
+ expect(fail).not.toHaveBeenCalled();expect(old).not.toHaveBeenCalled();expect(next).toHaveBeenCalledOnce()
+})
+it('does not start a stale resource getter after a legacy await, and current resource failure still closes once',async()=>{
+ const load=deferred(),resource=vi.fn(()=>null),fail=vi.fn();let current=true
+ const gate=createOrderedBrushGate(vi.fn().mockReturnValueOnce(load.promise).mockReturnValue(null),fail)
+ gate.dispatch([],vi.fn(),()=>current,resource);current=false;load.resolve();await load.promise
+ expect(resource).not.toHaveBeenCalled()
+ const failure=new Error('missing actual CAS'),apply=vi.fn()
+ gate.dispatch([],apply,()=>true,()=>{throw failure});expect(fail).toHaveBeenCalledExactlyOnceWith(failure);expect(apply).not.toHaveBeenCalled()
+})
+it('does not apply after resource getter reentry invalidates its lifetime',()=>{
+ let current=true;const apply=vi.fn(),next=vi.fn(),fail=vi.fn(),gate=createOrderedBrushGate(()=>null,fail)
+ gate.dispatch([],apply,()=>current,()=>{current=false;return null});gate.dispatch([],next)
+ expect(apply).not.toHaveBeenCalled();expect(next).toHaveBeenCalledOnce();expect(fail).not.toHaveBeenCalled()
+})
+it.each(['legacy','image'] as const)('observes a %s Promise rejected after its getter synchronously expires the item',async stage=>{
+ const load=deferred(),fail=vi.fn(),apply=vi.fn(),next=vi.fn();let current=true
+ const expire=()=>{current=false;return load.promise}
+ const gate=createOrderedBrushGate(()=>stage==='legacy'&&current?expire():null,fail)
+ gate.dispatch([],apply,()=>current,()=>stage==='image'?expire():null);gate.dispatch([],next)
+ load.reject(new Error('stale getter'));await load.promise.catch(()=>{})
+ expect(fail).not.toHaveBeenCalled();expect(apply).not.toHaveBeenCalled();expect(next).toHaveBeenCalledOnce()
+})

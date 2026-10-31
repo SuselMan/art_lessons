@@ -1,4 +1,5 @@
-import {preflightRoomStateDelivery,type CanonicalRoomStatePreparer,type RoomStateDelivery} from './canonicalRoomState'
+import {prepareCanonicalRecordedImageResources} from './canonicalRecordedDelivery'
+import {preflightRoomStateDelivery,type CanonicalRoomStatePreparer,type CanonicalRoomStateRead,type RoomStateDelivery} from './canonicalRoomState'
 import type { RefObject } from 'react'
 import type { Socket } from 'socket.io-client'
 
@@ -9,7 +10,7 @@ import { BANNED_ERROR_CODE, noteBanned } from '../../../lib/api/banned'
 import { prepareBrushPresets, setBrushRoomScope, loadBrushLibrary } from '../../../lib/api/brushLibrary'
 import { dismissNotice, notifyError } from '../../../stores/noticeStore'
 import { createBoardEventHandlers } from './boardEvents'
-import { createConfirmedStreamHandler, type ConfirmedStreamDeps } from './confirmedStream'
+import { createConfirmedStreamHandler, type ConfirmedStreamDeps,type PreparedConfirmedDelivery } from './confirmedStream'
 import { createJoinFlow, type JoinFlowDeps } from './joinFlow'
 import { createPeerEventHandlers, type PeerEventDeps } from './peerEvents'
 import { createRoomControlEventHandlers, type RoomControlEventDeps } from './roomControlEvents'
@@ -122,6 +123,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
     ...deps, id, joinRoom, joinCredentials, reportJoinFailure, requestFullResync, maybeFollow,
   })
   // (#493) Out of line — see confirmedStream.ts.
+  let confirmedScope:CanonicalRoomStateRead['scope']|undefined
   let handleOperationConfirmed = createConfirmedStreamHandler({ ...deps,canonicalReadScope:undefined, confirmOwnOperation, requestFullResync })
 
   // (#152) peer_cursor itself is not handled here at all — Room had nothing to
@@ -191,10 +193,11 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
     apply: (...args: Args) => void | Promise<void>,
     presets: (...args: Args) => (string | undefined)[] = () => [],
     isCurrent?: (...args: Args) => boolean,
+    resources?: (...args: Args) => Promise<void>|null,
   ) => (...args: Args): void => {
     const current = isCurrent ? () => isCurrent(...args) : undefined
     if (current && !current()) return
-    brushes.dispatch(current ? () => presets(...args) : presets(...args), () => apply(...args), current)
+    brushes.dispatch(current ? () => presets(...args) : presets(...args), () => apply(...args), current, resources?()=>resources(...args):undefined)
   }
   const presetFor = (operation: Operation): string | undefined => 'preset' in operation ? operation.preset : undefined
 
@@ -215,7 +218,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
     setBrushRoomScope(state.room.id)
     void loadBrushLibrary().catch(error=>console.warn('Room brush metadata unavailable',error))
     return state.tailOperations.map(presetFor)
-  }, state => !state.canonicalRead || state.canonicalRead.scope.isCurrent())
+  }, state => !state.canonicalRead || state.canonicalRead.scope.isCurrent(),state=>state.canonicalRead?prepareCanonicalRecordedImageResources(state.canonicalRead.preparedAtoms,state.canonicalRead.scope):null)
   socket.on('room_state',state=>{
     try{
       const before=readGeneration,target=requestedBoard(),after=before+1
@@ -232,17 +235,27 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
       }
       // No await or arbitrary callback between publication and dispatch.
       readGeneration=after;published=true
-      handleOperationConfirmed=createConfirmedStreamHandler({...deps,confirmOwnOperation,requestFullResync,canonicalReadScope:accepted.canonicalRead?.scope})
+      confirmedScope=accepted.canonicalRead?.scope
+      handleOperationConfirmed=createConfirmedStreamHandler({...deps,confirmOwnOperation,requestFullResync,canonicalReadScope:confirmedScope})
       dispatchRoomState(accepted)
     }
     catch{deps.setRoomContentReady(false);reportJoinFailure('unsupported_raster_version','room_state canonical contract')}
   })
   socket.on('operation_confirmed',message=>{
-    const handler=handleOperationConfirmed,generation=readGeneration
-    ordered((payload:typeof message)=>{
-      if(deps.prepareCanonicalRoomState&&generation!==readGeneration)return
-      handler(payload)
-    },payload=>[presetFor(payload.operation)],deps.prepareCanonicalRoomState?()=>generation===readGeneration:undefined)(message)
+    const handler=handleOperationConfirmed,generation=readGeneration,scope=confirmedScope
+    let prepared:PreparedConfirmedDelivery|undefined
+    const isCurrent=()=>!deps.prepareCanonicalRoomState||generation===readGeneration&&(!scope||scope.isCurrent())
+    ordered(()=>{
+      if(!isCurrent())return
+      if(prepared)handler(prepared.payload)
+    },()=>{
+      prepared=handler.prepare(message)
+      return prepared?[presetFor(prepared.payload.operation)]:[]
+    },isCurrent,()=>{
+      if(!prepared?.recorded)return null
+      if(!scope)throw Error('Missing original canonical resource scope')
+      return prepareCanonicalRecordedImageResources([prepared.recorded],scope)
+    })()
   })
   socket.on('peer_joined',                ordered(peer.peer_joined))
   socket.on('peer_left',                  ordered(peer.peer_left))

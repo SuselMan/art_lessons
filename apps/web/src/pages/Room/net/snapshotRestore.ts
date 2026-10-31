@@ -1,3 +1,4 @@
+import {prepareCanonicalRecordedImageResources} from './canonicalRecordedDelivery'
 import { notifyError } from '../../../stores/noticeStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { translate } from '../../../i18n/core/translate'
@@ -478,6 +479,11 @@ async function fetchBrushHistory(roomId: string, query: { beforeSeq: number; lim
   const page = prepareCanonicalHistoryPage(response, roomId, captured)
   const operations = Array.isArray(page) ? page : page.operations
   try {
+    if(!Array.isArray(page)&&captured){
+      const resources=prepareCanonicalRecordedImageResources(page.prepared,captured)
+      if(resources)await resources
+      assertCanonicalHistoryCurrent(captured)
+    }
     await prepareBrushPresets(operations.map(op => op.type === 'stroke' ? op.preset : undefined))
   } catch (error) {
     notifyError(translate(useSettingsStore.getState().locale, 'brushLibrary.error'), { key: 'brush-library-history', durationMs: null })

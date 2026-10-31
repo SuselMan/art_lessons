@@ -4,7 +4,7 @@ import type { CanonicalStrokeOperation,CanonicalStrokeSnapshotV2,CanonicalRecord
 import type { QueryClient } from '@tanstack/react-query'
 
 import type { PencilEngineAPI } from '../../../engine'
-import { prepareBrushPresets,setBrushRoomScope,loadBrushLibrary } from '../../../lib/api/brushLibrary'
+import { prepareCanonicalImageAssets,prepareBrushPresets,setBrushRoomScope,loadBrushLibrary } from '../../../lib/api/brushLibrary'
 import { dismissNotice, notifyError } from '../../../stores/noticeStore'
 import { noteBanned } from '../../../lib/api/banned'
 import { createPendingPreviews } from './pendingPreviews'
@@ -12,9 +12,9 @@ import { connectRoomSocket, type RoomSocket, type RoomSocketDeps } from './roomS
 
 vi.mock('../../../lib/api/banned', () => ({ BANNED_ERROR_CODE: 'banned', noteBanned: vi.fn() }))
 
-vi.mock('../../../lib/api/brushLibrary', () => ({ prepareBrushPresets: vi.fn(() => null), setBrushRoomScope: vi.fn(), loadBrushLibrary: vi.fn(async () => {}) }))
+vi.mock('../../../lib/api/brushLibrary', () => ({ prepareCanonicalImageAssets:vi.fn(async()=>{}), prepareBrushPresets: vi.fn(() => null), setBrushRoomScope: vi.fn(), loadBrushLibrary: vi.fn(async () => {}) }))
 vi.mock('../../../stores/noticeStore', () => ({ notifyError: vi.fn(() => 'brush-notice'), dismissNotice: vi.fn() }))
-beforeEach(() => { vi.mocked(prepareBrushPresets).mockReset().mockReturnValue(null) })
+beforeEach(() => { vi.mocked(prepareBrushPresets).mockReset().mockReturnValue(null);vi.mocked(prepareCanonicalImageAssets).mockReset().mockResolvedValue(undefined) })
 
 /** (#493) The room socket's own lifecycle — what is wired, what a teardown
  *  undoes, how a refused handshake is read. The handlers themselves have their
@@ -373,4 +373,70 @@ it('holds new-scope frame and close before mount, seeds baseline IDs before rele
   expect(commits).toBe(1);expect(log.entries.map(e=>e.op.id)).toEqual(['op','seal'])
   expect(deps.lastConfirmedSeqRef.current).toBe(2);expect(ids).toEqual(new Set(['op','seal']))
  }finally{close()}
+})
+
+async function imageWireState(){
+ const {canonicalImageMaterialPin,buildCanonicalMaterial,CANONICAL_STROKE_RASTER_PROFILE}=await import('@grafetto/shared')
+ const binding=canonicalImageMaterialPin({kind:'image',asset:'asset:'+'a'.repeat(64),brushScale:.05,brushAngle:0},[{id:'asset:'+'a'.repeat(64),size:256,x:53,y:53,width:150,height:150}])
+ const material={version:2 as const,...binding,budget:{workUnits:10000,outputBytes:40000,drawPixels:10000}}
+ const snapshot:CanonicalStrokeSnapshotV2={layerId:'L',brush:'brush:original@1',strokeId:'S',boardEpoch:2,descriptorSha256:'a'.repeat(64),rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,pigmentRgb8:[0,0,0],composition:{mode:'wash',alphaDarken:'creamy',outerResourceOpacity:1,outerBlend:'over'},assets:material.assets,materialVersion:2,material}
+ const packed=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[{at:0,kind:'gestureEnd'}]},material).packed
+ const op:CanonicalStrokeOperation={id:'image',userId:'author',timestamp:0,seq:1,type:'canonical_stroke',layerId:'L',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:snapshot.brush,strokeId:'S',frameOrdinal:0,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
+ const state=emptyCanonicalState();state.tailOperations=[op];state.canonicalCapabilities={version:1,roomId:'B2',boardEpoch:2,capabilities:[{originalUserId:'author',snapshot}],bindings:[{operationId:'image',sequence:1,originalUserId:'author',capability:0}]}
+ return state
+}
+it('prepares original room image resources before ANY lesson/store/stash/engine publication',async()=>{
+ const {deps,listeners,reads}=sourceSetup(),state=await imageWireState();let resolve!:()=>void
+ const pending=new Promise<void>(r=>{resolve=r});vi.mocked(prepareCanonicalImageAssets).mockReturnValueOnce(pending)
+ const {useRoomStore}=await import('../../../stores/roomStore'),lesson=vi.spyOn(useRoomStore.getState(),'setLesson'),close=connectRoomSocket(deps)
+ lesson.mockClear()
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[state])
+  expect(prepareCanonicalImageAssets).toHaveBeenCalledOnce();expect(lesson).not.toHaveBeenCalled();expect(deps.enterBoard).not.toHaveBeenCalled();expect(deps.pendingSnapshotRef.current).toBeNull()
+  const assert=vi.mocked(prepareCanonicalImageAssets).mock.calls[0][2];assert();resolve();await pending
+  await vi.waitFor(()=>expect(deps.enterBoard).toHaveBeenCalledOnce())
+  const stash=vi.mocked(deps.enterBoard).mock.calls[0][1];expect(stash.canonicalRead).toBe(reads[0]);expect(stash.tailOperations).toBe(reads[0].tailOperations)
+ }finally{close();lesson.mockRestore()}
+})
+it('drops stale failed room-image work without locking/disconnecting the newer original room',async()=>{
+ const {deps,listeners,fake,reads}=sourceSetup(),state=await imageWireState();let reject!:(e:Error)=>void
+ const pending=new Promise<void>((_,r)=>{reject=r});vi.mocked(prepareCanonicalImageAssets).mockReturnValueOnce(pending)
+ const close=connectRoomSocket(deps)
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[state]);Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
+  expect(reads[0].scope.isCurrent()).toBe(false);reject(new Error('old asset failed'));await pending.catch(()=>{})
+  await vi.waitFor(()=>expect(deps.enterBoard).toHaveBeenCalledOnce())
+  expect(vi.mocked(deps.enterBoard).mock.calls[0][1].canonicalRead).toBe(reads[1]);expect(fake.disconnect).not.toHaveBeenCalled()
+ }finally{close()}
+})
+it('serializes original confirmed image CAS before the sink/cursors and captures the original input once',async()=>{
+ const {deps,listeners}=sourceSetup(),state=await imageWireState();let resolve!:()=>void
+ const pending=new Promise<void>(r=>{resolve=r}),apply=vi.fn<RoomSocketDeps['applyRemoteOp']>(()=>true);deps.applyRemoteOp=apply
+ const close=connectRoomSocket(deps)
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()]);vi.mocked(prepareCanonicalImageAssets).mockReturnValueOnce(pending)
+  Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:1,operation:state.tailOperations[0],canonicalCapabilities:state.canonicalCapabilities}])
+  expect(prepareCanonicalImageAssets).toHaveBeenCalledOnce();expect(apply).not.toHaveBeenCalled();expect(deps.lastConfirmedSeqRef.current).toBe(0)
+  resolve();await pending;await vi.waitFor(()=>expect(apply).toHaveBeenCalledOnce())
+  const input=apply.mock.calls[0][2];expect(input?.operation).toBe(apply.mock.calls[0][0]);expect(input?.read).toBe(apply.mock.calls[0][1]);expect(deps.lastConfirmedSeqRef.current).toBe(1)
+ }finally{close()}
+})
+it('drops a confirmed image CAS result if a newer same-epoch room arrived during its wait',async()=>{
+ const {deps,listeners,fake}=sourceSetup(),state=await imageWireState();let reject!:(e:Error)=>void
+ const pending=new Promise<void>((_,r)=>{reject=r});const close=connectRoomSocket(deps)
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()]);vi.mocked(prepareCanonicalImageAssets).mockReturnValueOnce(pending)
+  Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:1,operation:state.tailOperations[0],canonicalCapabilities:state.canonicalCapabilities}])
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()]);reject(new Error('old read gone'));await pending.catch(()=>{})
+  expect(deps.applyRemoteOp).not.toHaveBeenCalled();expect(deps.lastConfirmedSeqRef.current).toBe(0);expect(fake.disconnect).not.toHaveBeenCalled()
+ }finally{close()}
+})
+it('rejects malformed original confirmed capability before even legacy resource selection or cursors',async()=>{
+ const {deps,listeners,fake}=sourceSetup(),state=await imageWireState(),close=connectRoomSocket(deps)
+ const log=vi.spyOn(console,'error').mockImplementation(()=>{})
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()]);vi.mocked(prepareBrushPresets).mockClear();vi.mocked(prepareCanonicalImageAssets).mockClear()
+  Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:1,operation:{...state.tailOperations[0],preset:'brush:imported-a@1'},canonicalCapabilities:{...state.canonicalCapabilities!,roomId:'foreign'}}])
+  expect(prepareBrushPresets).not.toHaveBeenCalled();expect(prepareCanonicalImageAssets).not.toHaveBeenCalled();expect(deps.applyRemoteOp).not.toHaveBeenCalled();expect(deps.lastConfirmedSeqRef.current).toBe(0);expect(fake.disconnect).toHaveBeenCalledOnce()
+ }finally{close();log.mockRestore()}
 })

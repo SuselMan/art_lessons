@@ -1,4 +1,5 @@
-import {captureCanonicalFullHistoryMetadata,canonicalRecordedRasterProfiles,parseCanonicalStrokeCloseOperation,type CanonicalPreparedRecordedOperation,type CanonicalRecordedReadScope} from '@grafetto/shared'
+import {prepareCanonicalImageAssets} from '../../../lib/api/brushLibrary'
+import {CANONICAL_RECORDED_ATTACHMENT_LIMITS,captureCanonicalFullHistoryMetadata,canonicalRecordedRasterProfiles,parseCanonicalStrokeCloseOperation,type CanonicalMaterialAsset,type CanonicalPreparedRecordedOperation,type CanonicalRecordedReadScope} from '@grafetto/shared'
 import type {CanonicalRecordedDelivery,CanonicalRecordedInput,CanonicalRecordedLifetime} from '../../../engine'
 
 type LocalScope=CanonicalRecordedReadScope&{readonly isCurrent:()=>boolean}
@@ -65,4 +66,37 @@ export function attachCanonicalRecordedDelivery(atom:CanonicalPreparedRecordedOp
  input=Object.freeze(Object.defineProperty({...atom,operation},'delivery',{value:delivery})) as CanonicalRecordedInput
  delivery.assertCurrent(input)
  return input
+}
+
+/** Availability preparation only, attached to the SAME original ingress atoms.
+ * Native-only items retain their synchronous path. No source owner is minted. */
+export function prepareCanonicalRecordedImageResources(atoms:readonly CanonicalPreparedRecordedOperation[],scope:LocalScope):Promise<void>|null {
+ if(atoms.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)throw new RangeError('Canonical resource atom limit')
+ if(!atoms.some(atom=>atom.read?.capability.snapshot.materialVersion===2&&atom.read.capability.snapshot.material.primarySource.kind==='image'))return null
+ const lifetime=canonicalRecordedLifetimeOf(scope)
+ if(!lifetime)return fail()
+ const originalScope=lifetime.assertCurrent(),inputs:CanonicalRecordedInput[]=[],contexts=new Set<object>(),assets=new Map<string,CanonicalMaterialAsset>()
+ for(const atom of atoms){
+  const field=Object.getOwnPropertyDescriptor(atom,'delivery')
+  if(!field||!Object.hasOwn(field,'value'))return fail()
+  const input=atom as CanonicalRecordedInput
+  if(input.delivery.lifetime!==lifetime)return fail()
+  input.delivery.assertCurrent(input);inputs.push(input)
+  if(!input.read)continue
+  contexts.add(input.read.capability)
+  if(contexts.size>CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)throw new RangeError('Canonical resource capability limit')
+  const snapshot=input.read.capability.snapshot
+  if(snapshot.materialVersion!==2||snapshot.material.primarySource.kind!=='image')continue
+  for(const asset of snapshot.material.assets){
+   const previous=assets.get(asset.id)
+   if(previous&&previous.size!==asset.size)throw new TypeError('Conflicting original image resource side')
+   assets.set(asset.id,asset)
+  }
+ }
+ const assertCurrent=()=>{
+  if(canonicalRecordedLifetimeOf(scope)!==lifetime||lifetime.assertCurrent()!==originalScope)return fail()
+  for(const input of inputs)input.delivery.assertCurrent(input)
+ }
+ assertCurrent()
+ return prepareCanonicalImageAssets(scope.roomId,[...assets.values()],assertCurrent)
 }

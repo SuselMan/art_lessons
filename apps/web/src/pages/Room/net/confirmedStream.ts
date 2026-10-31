@@ -14,6 +14,8 @@ import { commitRevealsBelow as commitRevealsBelowShared, type PendingPreviews } 
 /** The part of the engine the confirmed stream drives. */
 type ConfirmedPayload = Parameters<ServerToClientEvents['operation_confirmed']>[0]
 type CanonicalRead = CanonicalPreparedRecordedOperation['read']
+export interface PreparedConfirmedDelivery { readonly payload:ConfirmedPayload;readonly recorded?:CanonicalRecordedInput }
+export type ConfirmedStreamHandler=((payload:ConfirmedPayload,delivery?:ReplayGateDelivery)=>void)&{prepare:(payload:ConfirmedPayload)=>PreparedConfirmedDelivery|undefined}
 
 export type ConfirmedStreamEngine = Pick<PencilEngineAPI, 'previewOperation' | 'dropPendingPreview'>
 
@@ -67,7 +69,7 @@ export function createConfirmedStreamHandler({
   catchingUpRef, streamedStrokeIdsRef, deferredOpsQueueRef, previewScheduleRef,
   confirmOwnOperation, markLayerActive, applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,requestCanonicalRecovery,
   replayGate, canonicalReadScope: readScope,
-}: ConfirmedStreamDeps): ServerToClientEvents['operation_confirmed'] {
+}: ConfirmedStreamDeps): ConfirmedStreamHandler {
   const canonicalReadScope = readScope ? Object.freeze({
     roomId: readScope.roomId, boardEpoch: readScope.boardEpoch,
     allowedRasterProfiles: canonicalRecordedRasterProfiles(readScope),
@@ -87,7 +89,7 @@ export function createConfirmedStreamHandler({
   const commitRevealsBelow = (seq: number): boolean =>
     commitRevealsBelowShared(seq, pendingPreviewsRef.current, engineRef.current, applyRemoteOp)
 
-  const handler = (payload: ConfirmedPayload, delivery?: ReplayGateDelivery): void => {
+  const prepare = (payload:ConfirmedPayload):PreparedConfirmedDelivery|undefined => {
     // A gate can replace its handler while held messages survive. The
     // ORIGINAL local lifetime must authorize release before a new scope sees it.
     const held=payload as HeldCanonicalPayload
@@ -108,9 +110,8 @@ export function createConfirmedStreamHandler({
     // This first live source domain admits only original frame/seal resources.
     // Undo and other legacy writers require an authoritative full replacement;
     // they must not publish review/cursors before a legacy sink rejects them.
-    if(canonicalReadScope&&op.type!=='canonical_stroke'&&!close){requestFullResync();return}
+    if(canonicalReadScope&&op.type!=='canonical_stroke'&&!close)throw new TypeError('Unsupported canonical stream writer')
     if (!recorded&&!read&&(close||payload.canonicalCapabilities !== undefined || canonicalReadScope && op.type === 'canonical_stroke')) {
-      try {
         if (!canonicalReadScope || op.seq !== seq) throw new TypeError('Missing canonical recorded read scope')
         if(close&&payload.canonicalCapabilities!==undefined)throw new TypeError('Close cannot carry frame capability')
         if(!close&&op.type!=='canonical_stroke')throw new TypeError('Unsupported recorded operation')
@@ -135,16 +136,21 @@ export function createConfirmedStreamHandler({
             return Object.freeze({read:originalRead,...originalRecorded?{recorded:originalRecorded}:{}})
           } })
         acceptedPayload=accepted
-      } catch {
-        requestFullResync()
-        return
-      }
     }
-    if(recorded){try{recorded.delivery.assertCurrent(recorded)}catch{requestFullResync();return}}
+    if(recorded)recorded.delivery.assertCurrent(recorded)
     const scopedCanonical=(op.type==='canonical_stroke'||close)&&(read!==undefined||recorded!==undefined||canonicalReadScope!==undefined)
     if(scopedCanonical&&(!recorded||recorded.operation!==op||recorded.read!==read||(close?read!==undefined:!read))){
-      requestFullResync();return
+      throw new TypeError('Missing original canonical stream input')
     }
+    return Object.freeze({payload:acceptedPayload,...recorded?{recorded}:{}})
+  }
+  const handler = (payload:ConfirmedPayload,delivery?:ReplayGateDelivery):void => {
+    let prepared:PreparedConfirmedDelivery|undefined
+    try{prepared=prepare(payload)}catch{requestFullResync();return}
+    if(!prepared)return
+    const acceptedPayload=prepared.payload,op=acceptedPayload.operation,seq=acceptedPayload.seq,recorded=prepared.recorded,read=recorded?.read
+    const close=op.type==='canonical_stroke_close'
+    const scopedCanonical=(op.type==='canonical_stroke'||close)&&(read!==undefined||recorded!==undefined||canonicalReadScope!==undefined)
     if(!scopedCanonical)useRoomStore.getState().observeReviewOperation({ ...op, seq })
     if (replayGate?.hold(acceptedPayload, delivery)) return
     // (#289 §12) A gap in this stream is impossible on an unbroken
@@ -271,5 +277,5 @@ export function createConfirmedStreamHandler({
   }
   // Held arrivals come back through this same handler once the gate opens.
   replayGate?.setHandler(handler)
-  return handler
+  return Object.assign(handler,{prepare})
 }

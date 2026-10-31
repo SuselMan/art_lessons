@@ -1,0 +1,107 @@
+import {expect,it,vi,afterEach} from 'vitest'
+import {buildCanonicalMaterial,canonicalImageSourceBinding,canonicalBrushDescriptorJSON,CANONICAL_STROKE_RASTER_PROFILE,type BrushDescriptor,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type ServerToClientEvents} from '@grafetto/shared'
+import type {CanonicalRecordedInput} from '../../../engine'
+import {createHash} from 'node:crypto'
+import fixture from '../../../engine/src/presets/fixtures/sourcePngWholePath/guiStroke.native.json'
+import {createConfirmedStreamHandler,type ConfirmedStreamDeps} from './confirmedStream'
+import {prepareCanonicalRecordedImageResources} from './canonicalRecordedDelivery'
+import {prepareCanonicalRoomState} from './canonicalRoomState'
+import {createPendingPreviews} from './pendingPreviews'
+import {createReplayGate} from '../replayGate'
+import {useRoomStore} from '../../../stores/roomStore'
+import {prepareCanonicalImageAssets,prepareBrushPresets} from '../../../lib/api/brushLibrary'
+import {fetchHistoryPage} from './snapshotRestore'
+import {api} from '../../../lib/api/api'
+vi.mock('../../../lib/api/api',async original=>({...await original<typeof import('../../../lib/api/api')>(),api:vi.fn()}))
+vi.mock('@sentry/react',()=>({captureException:vi.fn()}))
+vi.mock('../../../lib/api/brushLibrary',()=>({prepareCanonicalImageAssets:vi.fn(async()=>{}),prepareBrushPresets:vi.fn(()=>null)}))
+vi.mock('../../../lib/observability/reportInvariant',()=>({reportInvariant:vi.fn()}))
+afterEach(()=>{vi.restoreAllMocks();vi.mocked(prepareCanonicalImageAssets).mockClear();vi.mocked(prepareBrushPresets).mockClear();vi.mocked(api).mockReset()})
+function original(){
+ let current=true
+ const descriptor=fixture.descriptor as unknown as BrushDescriptor,binding=canonicalImageSourceBinding(descriptor,fixture.asset)
+ const material={version:2 as const,...binding,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}}
+ const snapshot:CanonicalStrokeSnapshotV2={layerId:'L',brush:`brush:${descriptor.id}@${descriptor.version}`,strokeId:'S',boardEpoch:1,descriptorSha256:createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex'),rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,pigmentRgb8:[0,0,0],composition:{mode:'wash',alphaDarken:'creamy',outerResourceOpacity:1,outerBlend:'over'},assets:material.assets,materialVersion:2,material}
+ const packed=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[{at:0,kind:'gestureEnd'}]},material).packed
+ const op:CanonicalStrokeOperation={id:'op',userId:'author',timestamp:0,seq:1,type:'canonical_stroke',layerId:'L',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:snapshot.brush,strokeId:'S',frameOrdinal:0,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
+ const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:512,canvasHeight:512,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:1},canonicalHistoryBase:{kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:1,throughSeq:0,operationCount:0}}
+ const read=prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent:()=>current}).canonicalRead
+ const payload={seq:1,operation:op,canonicalCapabilities:{version:1 as const,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot}],bindings:[{operationId:'op',sequence:1,originalUserId:'author',capability:0}]}}
+ const deps:ConfirmedStreamDeps={engineRef:{current:null},lastConfirmedSeqRef:{current:0},latestKnownSeqRef:{current:0},appliedOpIdsRef:{current:new Set()},pendingPreviewsRef:{current:createPendingPreviews()},catchingUpRef:{current:false},streamedStrokeIdsRef:{current:new Set()},deferredOpsQueueRef:{current:[]},previewScheduleRef:{current:null},confirmOwnOperation:vi.fn(),markLayerActive:vi.fn(),applyRemoteOp:vi.fn(()=>true),syncFromLog:vi.fn(),checkSnapshotBoundary:vi.fn(),requestFullResync:vi.fn(),canonicalReadScope:read.scope}
+ return{read,payload,deps,stale:()=>{current=false}}
+}
+it('prepares image input without review/hold/cursor/sink effects then reuses exact original input through replay',()=>{
+ const f=original(),gate=createReplayGate<Parameters<ServerToClientEvents['operation_confirmed']>[0]>(),ticket=gate.begin()
+ const hold=vi.spyOn(gate,'hold'),handler=createConfirmedStreamHandler({...f.deps,replayGate:gate}),review=vi.spyOn(useRoomStore.getState(),'observeReviewOperation');review.mockClear()
+ const prepared=handler.prepare(f.payload)
+ if(!prepared?.recorded)throw Error('Missing original input')
+ expect(prepared.recorded.delivery.lifetime).toBe(f.read);expect(prepared.recorded.operation).toBe(prepared.payload.operation)
+ expect(review).not.toHaveBeenCalled();expect(f.deps.applyRemoteOp).not.toHaveBeenCalled();expect(hold).not.toHaveBeenCalled()
+ expect(f.deps.lastConfirmedSeqRef.current).toBe(0);expect(f.deps.requestFullResync).not.toHaveBeenCalled()
+ handler(prepared.payload);expect(hold).toHaveBeenCalledOnce();gate.end(ticket)
+ expect(f.deps.applyRemoteOp).toHaveBeenCalledWith(prepared.payload.operation,prepared.recorded.read,prepared.recorded)
+})
+it('pure malformed preflight throws before resource/review/resync effects; direct callable preserves resync',()=>{
+ const f=original(),handler=createConfirmedStreamHandler(f.deps),bad={...f.payload,canonicalCapabilities:{...f.payload.canonicalCapabilities,roomId:'foreign'}}
+ expect(()=>handler.prepare(bad)).toThrow();expect(f.deps.requestFullResync).not.toHaveBeenCalled();expect(prepareCanonicalImageAssets).not.toHaveBeenCalled()
+ expect(f.deps.applyRemoteOp).not.toHaveBeenCalled();handler(bad);expect(f.deps.requestFullResync).toHaveBeenCalledOnce()
+})
+it('does not remint copied or stale accepted payload and cannot relabel it to another same-epoch owner',()=>{
+ const f=original(),handler=createConfirmedStreamHandler(f.deps),p=handler.prepare(f.payload)
+ if(!p?.recorded)throw Error('Missing original input')
+ expect(handler.prepare({...p.payload})).toBeUndefined()
+ const next=original(),other=createConfirmedStreamHandler(next.deps)
+ expect(other.prepare(p.payload)).toBeUndefined();other(p.payload);expect(next.deps.applyRemoteOp).not.toHaveBeenCalled()
+ f.stale();expect(handler.prepare(p.payload)).toBeUndefined();handler(p.payload);expect(f.deps.applyRemoteOp).not.toHaveBeenCalled()
+})
+it('resource preparation holds only genuine original inputs and rechecks their exact original scope after await',async()=>{
+ const f=original(),p=createConfirmedStreamHandler(f.deps).prepare(f.payload)
+ if(!p?.recorded)throw Error('Missing original input')
+ await prepareCanonicalRecordedImageResources([p.recorded],f.read.scope)
+ expect(prepareCanonicalImageAssets).toHaveBeenCalledWith('room',p.recorded.read!.capability.snapshot.assets,expect.any(Function))
+ const callback=vi.mocked(prepareCanonicalImageAssets).mock.calls[0][2];callback();f.stale();expect(callback).toThrow()
+})
+it('rejects forged/copied inputs and data-only scope before loading while native empty remains synchronous',()=>{
+ const f=original(),p=createConfirmedStreamHandler(f.deps).prepare(f.payload)
+ if(!p?.recorded)throw Error('Missing original input')
+ const input=p.recorded
+ expect(prepareCanonicalRecordedImageResources([],f.read.scope)).toBeNull()
+ expect(()=>prepareCanonicalRecordedImageResources([{...input}],f.read.scope)).toThrow()
+ expect(()=>prepareCanonicalRecordedImageResources([input],{roomId:'room',boardEpoch:1,isCurrent:()=>true})).toThrow()
+ expect(prepareCanonicalImageAssets).not.toHaveBeenCalled()
+})
+it('counts closed capability contexts, not assets or frame count, and retains the original input lifetime',async()=>{
+ const f=original(),p=createConfirmedStreamHandler(f.deps).prepare(f.payload)
+ if(!p?.recorded)throw Error('Missing original input')
+ await prepareCanonicalRecordedImageResources(Array(1024).fill(p.recorded),f.read.scope)
+ expect(prepareCanonicalImageAssets).toHaveBeenCalledTimes(1)
+ const inputs:CanonicalRecordedInput[]=[]
+ for(let i=0;i<65;i++){
+  const payload={...f.payload,operation:{...f.payload.operation,id:'op'+i,frame:{...f.payload.operation.frame,strokeId:'S'+i}},canonicalCapabilities:{...f.payload.canonicalCapabilities,capabilities:[{originalUserId:'author',snapshot:{...f.payload.canonicalCapabilities.capabilities[0].snapshot,strokeId:'S'+i}}],bindings:[{...f.payload.canonicalCapabilities.bindings[0],operationId:'op'+i}]}}
+  const next=createConfirmedStreamHandler(f.deps).prepare(payload);if(!next?.recorded)throw Error('Missing input');inputs.push(next.recorded)
+ }
+ expect(()=>prepareCanonicalRecordedImageResources(inputs,f.read.scope)).toThrow();expect(prepareCanonicalImageAssets).toHaveBeenCalledTimes(1)
+})
+
+it('holds an original image history page before preset preparation/page publication and preserves original lifetime',async()=>{
+ const f=original();let resolve!:()=>void
+ const pending=new Promise<void>(r=>{resolve=r});vi.mocked(prepareCanonicalImageAssets).mockReturnValueOnce(pending)
+ vi.mocked(api).mockResolvedValue({operations:[f.payload.operation],canonicalCapabilities:f.payload.canonicalCapabilities})
+ let published=false
+ const work=fetchHistoryPage('room',2,1,f.read.scope).then(page=>{published=true;return page})
+ await vi.waitFor(()=>expect(prepareCanonicalImageAssets).toHaveBeenCalledOnce())
+ expect(published).toBe(false);expect(prepareBrushPresets).not.toHaveBeenCalled()
+ resolve();const page=await work
+ if(Array.isArray(page))throw Error('Missing original history page')
+ const input=page.prepared[0] as import('../../../engine').CanonicalRecordedInput
+ expect(input.delivery.lifetime).toBe(f.read);expect(input.operation).toBe(page.operations[0])
+})
+it.each(['failure','expired'] as const)('never publishes or prepares presets for an image page with %s resource work',async kind=>{
+ const f=original();let resolve!:()=>void,reject!:(e:Error)=>void
+ const pending=new Promise<void>((yes,no)=>{resolve=yes;reject=no});vi.mocked(prepareCanonicalImageAssets).mockReturnValueOnce(pending)
+ vi.mocked(api).mockResolvedValue({operations:[f.payload.operation],canonicalCapabilities:f.payload.canonicalCapabilities})
+ const sink=vi.fn(),work=fetchHistoryPage('room',2,1,f.read.scope).then(sink)
+ await vi.waitFor(()=>expect(prepareCanonicalImageAssets).toHaveBeenCalledOnce())
+ if(kind==='failure')reject(new Error('missing CAS'));else{f.stale();resolve()}
+ await expect(work).rejects.toThrow();expect(sink).not.toHaveBeenCalled();expect(prepareBrushPresets).not.toHaveBeenCalled()
+})
