@@ -1,5 +1,6 @@
 import { CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,canonicalStrokeCoverageMatches,canonicalRecordedRasterProfiles, type CanonicalStrokeRasterProfile, type CanonicalAutoCoverageProfile, type CanonicalGaussianCoverageProfile } from '@grafetto/shared'
-export interface CanonicalDefaultAutoExecutionPolicy { readonly coverageProfile:CanonicalAutoCoverageProfile; readonly storedScale:1 }
+/** Seeded density requires a separately admitted consumer; keep current policy closed. */
+export interface CanonicalDefaultAutoExecutionPolicy { readonly coverageProfile:Exclude<CanonicalAutoCoverageProfile,'neon64-f32-fma-seeded-density-v1'>; readonly storedScale:1 }
 export interface CanonicalGaussianAutoExecutionPolicy { readonly coverageProfile:CanonicalGaussianCoverageProfile; readonly storedScale:1 }
 /** One server-owned generator policy. Absence/false means disabled. */
 export interface CanonicalAutoExecutionPolicies {

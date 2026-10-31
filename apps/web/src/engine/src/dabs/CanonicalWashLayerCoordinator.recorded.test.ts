@@ -35,7 +35,7 @@ function fixture(){
  composite.prepare({width:4,height:4,operations:['alphaDarken32FusedScalar','over32FusedScalar']},prepass.preparedResources())
  const scratch=new RibbonScratchPool(gl)
  const pin=canonicalDefaultAutoSourceBinding(stock.rows[0].descriptor as unknown as BrushDescriptor,'b'.repeat(64),'neon64-f32-fma-v1')
- const nativeCoverage=pin.coverageProfile;if(nativeCoverage==='browser-number-coverage-v1')throw Error('Native fixture coverage required')
+ const nativeCoverage=pin.coverageProfile;if(nativeCoverage==='browser-number-coverage-v1'||nativeCoverage==='neon64-f32-fma-seeded-density-v1')throw Error('Native fixture coverage required')
  const material={version:2 as const,assets:[],primarySource:pin,budget:{workUnits:1048576,outputBytes:1048576,drawPixels:1048576}}
  const snapshot:CanonicalStrokeSnapshotV2={materialVersion:2,material,assets:[],layerId:'layer',brush:'brush:'+pin.descriptorId+'@'+pin.descriptorVersion,strokeId:'same',boardEpoch:1,descriptorSha256:pin.descriptorSha256,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,pigmentRgb8:[0,0,0],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'}}
  const scope=Object.freeze({roomId:'room',boardEpoch:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE})

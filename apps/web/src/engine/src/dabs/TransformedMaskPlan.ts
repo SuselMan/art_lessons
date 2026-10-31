@@ -1,7 +1,7 @@
 import { canonicalSoftAutoCost, canonicalSoftAutoSourcePin, canonicalSoftAutoDataEqual, type CanonicalSoftAutoRecipe, type CanonicalSoftAutoSource } from '@grafetto/shared';
 import { prepareSourceSoftCircleDab } from '../presets/sourceSoftCircleDab';
 import { CanonicalSoftCircleProgramOwner } from './CanonicalSoftCircleProgramOwner';
-import { canonicalAutoCost, type CanonicalAutoRecipe, type CanonicalAutoSource } from '@grafetto/shared';
+import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, canonicalAutoCost, type CanonicalAutoRecipe, type CanonicalAutoSource } from '@grafetto/shared';
 import { prepareSourceGaussianDab } from '../presets/sourceGaussianDab';
 import { prepareSourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab';
 import type { CanonicalMaterialAsset, CanonicalMaterialRecipe } from '@grafetto/shared';
@@ -53,6 +53,7 @@ export function isCanonicalSoftAutoMaterial(m: CanonicalAutoMaskMaterial): m is 
 /** Caller supplies the already authenticated source pin; this is not an attestation. */
 export function prepareCanonicalAutoMask(material: CanonicalAutoMaskMaterial) {
   const recipe = material.recipe;
+  if(recipe.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)throw new TypeError('Seeded density execution is not prepared');
   const common = {
     storedScale: recipe.brushScale, storedAngle: recipe.brushAngle,
     shape: { scale: recipe.scale, ratio: recipe.ratio, rotation: recipe.rotation },
@@ -78,6 +79,7 @@ export function prepareCanonicalAutoMask(material: CanonicalAutoMaskMaterial) {
   if (r.kind === 'gaussianAuto') return { ...prepareSourceGaussianDab({ ...common,
     dialect: 'krita-gaussian-auto-qt5-arm64-v1', coverageProfile: r.coverageProfile,
     tip: { ...r.source, kind: 'auto', spikes: 2, softness: 1, randomness: 0, density: 1 } }), releaseProgram };
+  if(r.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)throw new TypeError('Seeded density execution is not prepared');
   return { ...prepareSourceDefaultAutoDab({ ...common, dialect: 'krita-default-auto-qt5-arm64-v1', coverageProfile: r.coverageProfile,
     tip: { ...r.source, kind: 'auto', spikes: 2, softness: 1, randomness: 0, density: 1 } }), releaseProgram };
 }

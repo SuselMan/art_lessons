@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { SourceDabMaterialSpec } from '../presets/sourceDabCache';
 import { sourcePngMaskExtent } from '../presets/sourcePngGeometry';
 import { sourceImageTransformPlan } from '../presets/sourceImageTransformPlan';
-import { resolvedTransformedMaskPlan, transformedMaskVertexCount, writeTransformedMaskVertices } from './TransformedMaskPlan';
+import { prepareCanonicalAutoMask, resolvedTransformedMaskPlan, transformedMaskVertexCount, writeTransformedMaskVertices } from './TransformedMaskPlan';
 const spec = (): SourceDabMaterialSpec => {
   const brush = { width: 5, height: 3, scale: .9, angle: .17 }, shape = { scale: .63, ratio: .7, rotation: .8 };
   const [width, height] = sourcePngMaskExtent(brush, shape, .25, .75);
@@ -87,3 +87,10 @@ describe('canonical decoded geometry without synthetic author cache inputs', () 
     expect(canonicalTransformedMaskPlan(recipe, asset)).toEqual(canonicalTransformedMaskPlan({ ...recipe, mirrorH: true }, asset));
   });
 });
+
+it('fails closed for the new density profile before old evaluator metadata or pixels',()=>{
+  const source={kind:'defaultAuto',generator:'default',shape:'rect',diameter:8,ratio:.5,horizontalFade:.9,verticalFade:.9,antialias:false,spikes:2,randomness:0,density:.8} as const
+  const recipe={kind:'defaultAuto',source,coverageProfile:'neon64-f32-fma-seeded-density-v1',brushScale:1,brushAngle:0,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:8,height:4,mirrorH:false,mirrorV:false} as const
+  Object.defineProperty(recipe,'brushScale',{get(){throw Error('Old evaluator metadata accessed')}})
+  expect(()=>prepareCanonicalAutoMask({kind:'canonicalAuto',recipe,trustedSource:{kind:'defaultAuto',descriptorId:'closed',descriptorVersion:1,descriptorSha256:'a'.repeat(64),source,coverageProfile:recipe.coverageProfile,brushScale:1,brushAngle:0}})).toThrow('Seeded density execution is not prepared')
+})
