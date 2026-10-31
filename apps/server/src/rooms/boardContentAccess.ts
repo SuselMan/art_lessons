@@ -7,13 +7,13 @@ import { flushRoomWrites } from './roomRegistry.js'
 /** A cookie identifies the caller; a successful join grants content access.
  * Read current policy from storage, including when the last socket and resident
  * room have gone away. No live-participant shortcut may bypass a revocation. */
-export async function mayReadBoardContent(roomId: string, userId: string): Promise<boolean> {
+export async function mayReadBoardContent(roomId: string, userId: string,fullHistoryFormat:'frames-v1'|'mixed-v2'='frames-v1'): Promise<boolean> {
   await flushRoomWrites(roomId)
   const board = await prisma.room.findUnique({
     where: { id: roomId },
     select: { id: true, lessonId: true, boardOwnerId: true, rasterVersion: true },
   })
-  if (!board || !supportsCurrentRoomRaster(board.rasterVersion)) return false
+  if (!board || !supportsCurrentRoomRaster(board.rasterVersion,fullHistoryFormat)) return false
   const lessonId = lessonOf(board)
   // Successful seating queues membership before announcing the snapshot.
   // Await that write rather than racing it on the first HTTP request.

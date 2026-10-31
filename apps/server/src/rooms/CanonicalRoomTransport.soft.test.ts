@@ -934,3 +934,76 @@ it('refuses accessor close requests without invoking them or resolving any datab
  expect((await f.transport.close(identity,request,()=>true)).result.ok).toBe(false)
  expect(read).not.toHaveBeenCalled();expect(db.operation.findUnique).not.toHaveBeenCalled();expect(db.operation.create).toHaveBeenCalledTimes(writes)
 })
+
+it('admits own undo/redo over the actual indexed partial-close seal without opening generic prefix reads',async()=>{
+ const f=await recordedCloseReadFixture(),transport=new CanonicalRoomTransport({...selected,fullHistoryFormat:'mixed-v2'}),undo={type:'operation_undo' as const,id:'sealed-undo',userId:'author',timestamp:200,targetOpId:f.operations[0].id}
+ const writes=db.operation.create.mock.calls.length,pin=vi.spyOn(f.storage,'pin')
+ expect(await transport.metadata(identity,undo,()=>true)).toMatchObject({result:{ok:true},accepted:{type:'operation_undo'}})
+ expect(await transport.metadata(identity,{...undo,id:'sealed-redo',type:'operation_redo',targetOpId:undo.id},()=>true)).toMatchObject({result:{ok:true}})
+ expect(db.operation.create).toHaveBeenCalledTimes(writes+2);expect(pin).not.toHaveBeenCalled()
+ const read=await transport.prepareReadDelivery(identity,()=>true)
+ await expect(read.preparePrefix({anchor:f.operations.at(-1)!,row:f.canonicalRows.at(-1)!,throughSeq:f.board.nextSeq-1,purpose:'undo-redo'})).rejects.toThrow()
+ expect(()=>read.finish([])).toThrow()
+})
+it.each(['noClose','tamperedClose','revoked','layerLock','failedFence']as const)('refuses unproved private sealed undo (%s) without a new write or a different-ID repair',async kind=>{
+ const f=await recordedCloseReadFixture(),transport=new CanonicalRoomTransport({...selected,fullHistoryFormat:'mixed-v2'}),writes=db.operation.create.mock.calls.length
+ if(kind==='noClose')history.close=undefined
+ if(kind==='tamperedClose'){const operation={...f.close,recordedNext:f.operations.length+1};history.close={operation,row:{...f.closeRow,data:operation}}}
+ if(kind==='revoked')readAccess.allowed=false
+ let restoreQuery:(()=>void)|undefined
+ if(kind==='layerLock'){const query=vi.mocked(getCanonicalGesturePrefixWithRows),original=query.getMockImplementation();if(!original)throw Error('Missing actual query fixture');query.mockImplementation(async()=>{f.board.sharedLockedLayerIds.add('layer');return{operations:f.operations,canonicalRows:f.canonicalRows,close:{operation:f.close,row:f.closeRow}}});restoreQuery=()=>{query.mockReset().mockImplementation(original)}}
+ if(kind==='failedFence'){
+  // Existing failed work fences new metadata; it is never repaired by undo ID.
+  const {recordCanonicalMetadataOperation}=await import('./operationLog.js'),log=vi.spyOn(console,'error').mockImplementation(()=>{})
+  db.operation.create.mockRejectedValueOnce(new Error('other durable write failed'))
+  recordCanonicalMetadataOperation('board',{type:'operation_undo',id:'other-failed',userId:'author',timestamp:100,targetOpId:f.operations[0].id});await flushRoomWrites('board');log.mockRestore()
+ }
+ try{
+  expect((await transport.metadata(identity,{type:'operation_undo',id:'blocked-sealed-undo',userId:'author',timestamp:200,targetOpId:f.operations[0].id},()=>true))).toMatchObject({result:{ok:false}})
+  expect(db.operation.create).toHaveBeenCalledTimes(writes+(kind==='failedFence'?1:0))
+ }finally{restoreQuery?.()}
+})
+
+it('does not justify an existing indexed undo using a close from AFTER its actual server placement',async()=>{
+ const f=await recordedCloseReadFixture(),transport=new CanonicalRoomTransport({...selected,fullHistoryFormat:'mixed-v2'})
+ const operation={type:'operation_undo' as const,id:'before-seal-undo',userId:'author',timestamp:100,seq:f.close.seq,targetOpId:f.operations[0].id}
+ const close={...f.close,seq:f.close.seq+1},closeRow={...f.closeRow,seq:close.seq,data:close}
+ f.board.operations=[...f.operations];f.board.operationsById.delete(f.close.id);f.board.nextSeq=close.seq+1
+ db.operation.findUnique.mockResolvedValue({id:operation.id,roomId:'board',userId:'author',type:operation.type,seq:operation.seq,layerId:null,tool:null,data:operation})
+ const query=vi.mocked(getCanonicalGesturePrefixWithRows),original=query.getMockImplementation();if(!original)throw Error('Missing query fixture')
+ query.mockImplementation(async(_room,_selector,cut)=>({operations:f.operations.filter(op=>op.seq!<=cut),canonicalRows:f.canonicalRows.filter(row=>row.seq<=cut),...close.seq<=cut?{close:{operation:close,row:closeRow}}:{}}))
+ const writes=db.operation.create.mock.calls.length
+ try{
+  expect(await transport.metadata(identity,operation,()=>true)).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
+  expect(query).toHaveBeenLastCalledWith('board',{userId:'author',strokeId:'gesture'},operation.seq-1,expect.objectContaining({id:f.operations[0].id}))
+  expect(db.operation.create).toHaveBeenCalledTimes(writes);expect(f.board.operationsById.has(operation.id)).toBe(false)
+ }finally{query.mockReset().mockImplementation(original)}
+})
+it('repairs a failed private sealed undo in place without repairing another operation or allocating seq2',async()=>{
+ const f=await recordedCloseReadFixture(),transport=new CanonicalRoomTransport({...selected,fullHistoryFormat:'mixed-v2'}),undo={type:'operation_undo' as const,id:'sealed-failed-undo',userId:'author',timestamp:200,targetOpId:f.operations[0].id}
+ const log=vi.spyOn(console,'error').mockImplementation(()=>{})
+ try{
+  db.operation.create.mockRejectedValueOnce(new Error('sealed undo write failed'))
+  expect(await transport.metadata(identity,undo,()=>true)).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
+  const next=f.board.nextSeq,writes=db.operation.create.mock.calls.length
+  expect(await transport.metadata(identity,undo,()=>true)).toMatchObject({result:{ok:true,seq:next-1,duplicate:true}})
+  expect(f.board.nextSeq).toBe(next);expect(db.operation.create).toHaveBeenCalledTimes(writes+1)
+ }finally{log.mockRestore()}
+})
+it('reauthorizes private sealed metadata after the indexed query instead of trusting a resident participant',async()=>{
+ const f=await recordedCloseReadFixture(),transport=new CanonicalRoomTransport({...selected,fullHistoryFormat:'mixed-v2'}),query=vi.mocked(getCanonicalGesturePrefixWithRows),original=query.getMockImplementation();if(!original)throw Error('Missing query fixture')
+ query.mockImplementation(async()=>{readAccess.allowed=false;return{operations:f.operations,canonicalRows:f.canonicalRows,close:{operation:f.close,row:f.closeRow}}})
+ const writes=db.operation.create.mock.calls.length
+ try{
+  expect(await transport.metadata(identity,{type:'operation_undo',id:'revoked-after-query',userId:'author',timestamp:100,targetOpId:f.operations[0].id},()=>true)).toMatchObject({result:{ok:false,reason:'not_joined'}})
+  expect(f.board.participants.has('author')).toBe(true);expect(db.operation.create).toHaveBeenCalledTimes(writes)
+ }finally{query.mockReset().mockImplementation(original)}
+})
+
+it('never classifies a canonical close as a legacy undo terminal or appends poison to the full-history domain',async()=>{
+ const f=await closeWriterFixture(),closed=await f.transport.close(identity,f.request,()=>true)
+ if(!closed.accepted)throw Error('Missing actual typed close')
+ const writes=db.operation.create.mock.calls.length,next=f.board.nextSeq
+ expect(await new CanonicalRoomTransport({...selected,fullHistoryFormat:'mixed-v2'}).metadata(identity,{type:'operation_undo',id:'undo-close-meta',userId:'author',timestamp:200,targetOpId:closed.accepted.id},()=>true)).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
+ expect(db.operation.create).toHaveBeenCalledTimes(writes);expect(f.board.nextSeq).toBe(next)
+})

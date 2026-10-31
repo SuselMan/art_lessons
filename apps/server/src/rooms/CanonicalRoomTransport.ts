@@ -141,7 +141,7 @@ export class CanonicalRoomTransport {
    * No await/queue/registry survives finish; no paint permission is inferred. */
   prepareReadDelivery(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly fullHistoryFormat:'frames-v1'|'mixed-v2';readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
     const captured={roomId:identity.roomId,userId:identity.userId}
-    return this.prepareReadContext(captured,isCurrent,()=>mayReadBoardContent(captured.roomId,captured.userId),()=>{})
+    return this.prepareReadContext(captured,isCurrent,()=>mayReadBoardContent(captured.roomId,captured.userId,this.fullHistoryFormat),()=>{})
   }
 
   /** Genuine prepared join can read its exact target BEFORE membership exists.
@@ -505,10 +505,25 @@ export class CanonicalRoomTransport {
      // receipt is repaired; current target/layer authority is checked again.
      return await durable(tracked,true)
     }
-    const read=await this.prepareReadDelivery(identity,isCurrent)
-    try{await read.preparePrefix({anchor,row:anchorRow,throughSeq:cut,purpose:'undo-redo'})}
-    catch(error){if(error instanceof TransportFailure)throw error;fail('canonical_repair_required')}
-    current();read.finish([],[])
+    let assertPrefixCurrent:()=>void
+    if(this.fullHistoryFormat==='mixed-v2'){
+      // Existing metadata must be justified by history BEFORE its actual seq,
+      // never by a close/end appended later in the room's current tail.
+      let prefixCut=cut
+      if(existing){
+        existingRow=existingRow??await prisma.operation.findUnique({where:{id:input.id},select:canonicalOperationRowSelect});current()
+        const captured=captureCanonicalMetadata(existing,true)
+        try{verifyCanonicalMetadataRow(identity.roomId,captured,existingRow)}catch{fail('canonical_repair_required')}
+        prefixCut=captured.seq!-1
+      }
+      assertPrefixCurrent=await this.prepareMetadataPrefix(identity,anchor,anchorRow,prefixCut,current)
+    }else{
+      const read=await this.prepareReadDelivery(identity,isCurrent)
+      try{await read.preparePrefix({anchor,row:anchorRow,throughSeq:cut,purpose:'undo-redo'})}
+      catch(error){if(error instanceof TransportFailure)throw error;fail('canonical_repair_required')}
+      assertPrefixCurrent=()=>{current();read.finish([],[])}
+    }
+    assertPrefixCurrent()
     const raced=findDuplicateOperation(identity.roomId,input.id)
     if(raced&&knownCanonicalWrite(raced))return await durable(raced,true)
     existing=raced??existing
@@ -516,7 +531,7 @@ export class CanonicalRoomTransport {
      if(!same(existing))fail('invalid_operation')
      // Untracked resident equality is not durable proof: read its actual row.
      const row=existingRow??await prisma.operation.findUnique({where:{id:input.id},select:canonicalOperationRowSelect})
-     current();read.finish([],[])
+     assertPrefixCurrent()
      if(!same(existing))fail('canonical_repair_required')
      try{verifyCanonicalMetadataRow(identity.roomId,captureCanonicalMetadata(existing,true),row)}catch{fail('canonical_repair_required')}
      return {result:{ok:true,seq:existing.seq!,duplicate:true},accepted:captureCanonicalMetadata(existing,true)}
@@ -527,6 +542,29 @@ export class CanonicalRoomTransport {
     const accepted=recordCanonicalMetadataOperation(identity.roomId,input)
     return await durable(accepted,false)
    }catch(error){return {result:{ok:false,reason:reason(error)}}}
+  }
+
+  /** Private write-purpose proof; never widens generic reader/suffix grants. */
+  private async prepareMetadataPrefix(identity:CanonicalAdmissionIdentity,anchor:CanonicalStrokeOperation,row:CanonicalStoredOperationRow|undefined,cut:number,assertActor:()=>void):Promise<()=>void>{
+    const binder=this.currentBinder(),context=this.context!,record=rooms.get(identity.roomId),format=this.fullHistoryFormat
+    if(!record)fail('not_joined')
+    const scope=binder.captureReadScope(identity.roomId)
+    const current=()=>{
+      assertActor()
+      const actual=canonicalBrushStorageContext()
+      if(!actual||rooms.get(identity.roomId)!==record||this.binder!==binder||actual.storage!==context.storage||actual.operator!==context.operator||canonicalWriteFence(record).failed)fail('canonical_repair_required')
+    }
+    const authorize=async()=>{if(!await mayReadBoardContent(identity.roomId,identity.userId,format))fail('not_joined');current()}
+    current();await authorize()
+    if(row)binder.readRecordedCapability({roomId:identity.roomId,boardEpoch:scope.boardEpoch,operation:anchor,row})
+    else binder.readResidentRecordedCapability({roomId:identity.roomId,boardEpoch:scope.boardEpoch,operation:anchor})
+    await flushRoomWrites(identity.roomId);current()
+    try{
+      const prefix=await getCanonicalGesturePrefixWithRows(identity.roomId,{userId:anchor.userId,strokeId:anchor.frame.strokeId},cut,anchor)
+      current();await authorize()
+      binder.readRecordedPrefix({roomId:identity.roomId,boardEpoch:scope.boardEpoch,anchor,row,operations:prefix.operations,rows:prefix.canonicalRows,purpose:'undo-redo',...prefix.close?{close:prefix.close}:{}})
+    }catch(error){if(error instanceof TransportFailure)throw error;fail('canonical_repair_required')}
+    current();return current
   }
 
   private async durableDuplicate(identity: CanonicalAdmissionIdentity, op: CanonicalStrokeOperation, existing: unknown, lifetime: RoomLifetime, session: Session, isCurrent: () => boolean): Promise<{ readonly result: SendResult; readonly accepted?: CanonicalStrokeOperation; readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1 }> {

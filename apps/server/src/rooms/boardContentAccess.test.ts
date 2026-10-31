@@ -82,3 +82,14 @@ it('refuses an unsupported board format before membership or any content is read
   }
   expect(mocks.roomParticipant.findUnique).not.toHaveBeenCalled()
 })
+
+it('uses explicit trusted mixed read format while preserving current DB block and membership policy',async()=>{
+ mocks.room.findUnique.mockImplementation(async({where})=>where.id==='board'?{...board,rasterVersion:'straight-rgba8-v1'}:lesson)
+ expect(await mayReadBoardContent('board','student')).toBe(false)
+ expect(await mayReadBoardContent('board','student','mixed-v2')).toBe(true)
+ mocks.roomBlock.findUnique.mockResolvedValue({id:'blocked'})
+ expect(await mayReadBoardContent('board','student','mixed-v2')).toBe(false)
+ mocks.roomBlock.findUnique.mockResolvedValue(null);mocks.roomParticipant.findUnique.mockResolvedValue(null)
+ expect(await mayReadBoardContent('board','student','mixed-v2')).toBe(false)
+ expect(await mayReadBoardContent('board','teacher')).toBe(false)
+})

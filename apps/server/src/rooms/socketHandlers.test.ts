@@ -1070,7 +1070,7 @@ it('orders typed close on the SAME canonical socket queue and confirms only its 
   const request={operationId:fresh('typed-close'),layerId:op.layerId,targetUserId:'teacher',strokeId:s.strokeId,disposition:'commitPartial' as const,expectedRecordedNext:1,expectedLastFrameOpId:op.id}
   const persisted:typeof mockPrisma.operation.create.mock.calls[number][0]['data'][]=[]
   mockPrisma.operation.create.mockImplementation(async q=>{persisted.push(q.data)})
-  mockPrisma.operation.findMany.mockImplementation(async({where})=>persisted.filter(row=>row.seq>where.seq.gt&&row.seq<=where.seq.lte))
+  mockPrisma.operation.findMany.mockImplementation(async({where})=>persisted.filter(row=>row.seq>where.seq.gt&&row.seq<=where.seq.lte&&(!where.OR||row.type==='canonical_stroke'||row.type==='canonical_stroke_close')))
   await _flushPendingWrites(c.lessonId)
   const frameWrite=new Promise<void>(resolve=>{release=resolve})
   mockPrisma.operation.create.mockImplementationOnce(async q=>{await frameWrite;persisted.push(q.data)})
@@ -1107,7 +1107,7 @@ async function typedCloseClassroom(){
  const persisted:typeof mockPrisma.operation.create.mock.calls[number][0]['data'][]=[]
  await _flushPendingWrites(c.lessonId)
  mockPrisma.operation.create.mockImplementation(async q=>{persisted.push(q.data)})
- mockPrisma.operation.findMany.mockImplementation(async({where})=>persisted.filter(row=>row.seq>where.seq.gt&&row.seq<=where.seq.lte))
+ mockPrisma.operation.findMany.mockImplementation(async({where})=>persisted.filter(row=>row.seq>where.seq.gt&&row.seq<=where.seq.lte&&(!where.OR||row.type==='canonical_stroke'||row.type==='canonical_stroke_close')))
  const confirmed=next(c.student,'operation_confirmed')
  expect(await new Promise<SendResult>(resolve=>c.teacher.emit('operation',op,resolve))).toMatchObject({ok:true})
  expect((await confirmed).operation.id).toBe(op.id)
@@ -1182,5 +1182,23 @@ it('preserves the complete mixed source/close tail on explicit bootstrap and ref
   mockPrisma.operation.findMany.mockResolvedValue([])
   expect(await new Promise(resolve=>outsider.emit('join_room',{roomId:c.lessonId,name:'Other'},resolve))).toMatchObject({ok:false,error:'server_busy'})
   await noState;expect(c.record.participants.has('outsider')).toBe(false)
+ }finally{await _flushPendingWrites(c.lessonId);c.cleanup()}
+})
+
+it('durably relays private undo/redo over a typed partial close under explicit mixed policy',async()=>{
+ await mixedFullHistoryServer();const c=await typedCloseClassroom()
+ try{
+  const closeConfirmed=next(c.student,'operation_confirmed')
+  expect(await new Promise<SendResult>(resolve=>c.teacher.emit('canonical_stroke_close',c.request,resolve))).toMatchObject({ok:true})
+  expect((await closeConfirmed).operation.id).toBe(c.request.operationId)
+  const undo={id:fresh('partial-close-undo'),type:'operation_undo' as const,userId:'teacher',timestamp:1,targetOpId:c.op.id}
+  const undoConfirmed=next(c.student,'operation_confirmed')
+  expect(await new Promise<SendResult>(resolve=>c.teacher.emit('operation',undo,resolve))).toMatchObject({ok:true})
+  expect((await undoConfirmed).operation.id).toBe(undo.id)
+  const redo={...undo,id:fresh('partial-close-redo'),type:'operation_redo' as const,targetOpId:undo.id}
+  const redoConfirmed=next(c.student,'operation_confirmed')
+  expect(await new Promise<SendResult>(resolve=>c.teacher.emit('operation',redo,resolve))).toMatchObject({ok:true})
+  expect((await redoConfirmed).operation.id).toBe(redo.id)
+  expect(c.record.operationsById.get(redo.id)).toMatchObject(redo)
  }finally{await _flushPendingWrites(c.lessonId);c.cleanup()}
 })
