@@ -1,5 +1,6 @@
-import type { RasterPixelEncoding } from '@grafetto/shared'
+import { isRasterPixelEncoding, type RasterPixelEncoding } from '@grafetto/shared'
 import { AccumulationBuffer } from './AccumulationBuffer'
+import { reserveAccumStorage, releaseAccumReservation, validateAccumReservation, type StorageReservation } from './ContextStorageOwner'
 
 // (#536, §17.44) 14, from 6: the half-resolution settle takes and gives back
 // a snapshot pair and a temporary per tile of a big wash (six tiles on a
@@ -9,6 +10,19 @@ import { AccumulationBuffer } from './AccumulationBuffer'
 const MARKER_SCRATCH_POOL_PER_SIZE = 24
 /** (#536, §17.50) Ceiling on idle pooled scratch, all sizes. */
 const SCRATCH_POOL_FREE_BYTES = 64 * 1024 * 1024
+
+export interface RibbonScratchRequest {
+  readonly width: number
+  readonly height: number
+  readonly pixelEncoding?: RasterPixelEncoding
+  readonly filter?: 'linear' | 'nearest'
+}
+/** Bounded ownership transaction in the existing pool, not a second pool. */
+export interface RibbonScratchAcquisition {
+  readonly length: number
+  take(index: number): AccumulationBuffer
+  close(): void
+}
 
 /** (#385) Free list for RibbonStrokeScratch's buffers, so a gesture ending and
  *  the next one starting reuses GL objects instead of deleting three and
@@ -42,6 +56,8 @@ export class RibbonScratchPool {
   // Physical ownership, independent of the free-list indexing. Bytes are read
   // from the buffer because mip storage may grow after acquire().
   private readonly allocations = new Map<AccumulationBuffer, 'live' | 'free'>()
+  private epoch = 0
+  private lostEpoch = -1
 
   constructor(gl: WebGLRenderingContext) {
     this.gl = gl
@@ -62,6 +78,79 @@ export class RibbonScratchPool {
   gpuAllocationSnapshot(): ReadonlyArray<Readonly<{ buffer: AccumulationBuffer; state: 'live' | 'free'; bytes: number }>> {
     return Object.freeze([...this.allocations].map(([buffer, state]) =>
       Object.freeze({ buffer, state, bytes: buffer.storageByteLength })))
+  }
+
+  /** Claims idle matches before yielding and reserves ONLY missing physical
+   * storage in the same context owner. Call close in finally; taken buffers
+   * remain normal caller-owned pool borrows. No GL allocation during prepare. */
+  prepareAcquisition(requests: readonly RibbonScratchRequest[]): RibbonScratchAcquisition {
+    if (!Array.isArray(requests) || !requests.length || requests.length > 128)
+      throw new RangeError('Invalid scratch acquisition count')
+    const plan = Array.from(requests, request => {
+      if (!request || !Number.isSafeInteger(request.width) || !Number.isSafeInteger(request.height)
+        || request.width < 1 || request.height < 1 || request.width > 4096 || request.height > 4096)
+        throw new RangeError('Invalid scratch acquisition size')
+      const pixelEncoding = request.pixelEncoding === undefined ? 'premultiplied-rgba8' : request.pixelEncoding
+      const filter = request.filter === undefined ? 'nearest' : request.filter
+      if (!isRasterPixelEncoding(pixelEncoding) || filter !== 'linear' && filter !== 'nearest'
+        || pixelEncoding === 'straight-rgba8' && filter !== 'nearest') throw new TypeError('Invalid scratch acquisition policy')
+      return { width: request.width, height: request.height, pixelEncoding, filter,
+        key: `${pixelEncoding}:${filter}:${request.width}x${request.height}` }
+    })
+    const epoch = this.epoch, held: Array<AccumulationBuffer | undefined> = [], taken = plan.map(() => false)
+    let missing = 0, ticket: StorageReservation | undefined, closed = false
+    const close = () => {
+      if (closed) return
+      closed = true
+      let failed = false, failure: unknown, contextCurrent = true
+      if (ticket) try { validateAccumReservation(this.gl, ticket, 0) } catch { contextCurrent = false }
+      for (let i = 0; i < held.length; i++) {
+        const buffer = held[i]
+        if (!buffer || taken[i]) continue
+        held[i] = undefined
+        try {
+          if (this.epoch === epoch && contextCurrent) this.release(buffer)
+          else if (this.lostEpoch <= epoch) { buffer.destroy(); this.allocations.delete(buffer) }
+          // An actual lost-context epoch is forgotten by the context owner;
+          // never issue GL deletion from a stale plan after pool.forget().
+        } catch (error) { if (!failed) { failed = true; failure = error } }
+      }
+      try { if (ticket) releaseAccumReservation(ticket) }
+      catch (error) { if (!failed) { failed = true; failure = error } }
+      if (failed) throw failure
+    }
+    try {
+      for (const request of plan) {
+        const existing = this._free.get(request.key)?.pop()
+        held.push(existing)
+        if (existing) this.allocations.set(existing, 'live')
+        else missing += request.width * request.height * 4
+      }
+      ticket = reserveAccumStorage(this.gl, missing)
+    } catch (primary) {
+      try { close() } catch (cleanup) { throw new AggregateError([primary, cleanup], 'Scratch admission and cleanup failed') }
+      throw primary
+    }
+    return Object.freeze({ length: plan.length, close, take: (index: number) => {
+      try {
+        if (closed || this.epoch !== epoch || !Number.isInteger(index) || index < 0 || index >= plan.length || taken[index])
+          throw new Error('Invalid or stale scratch acquisition')
+        validateAccumReservation(this.gl, ticket!, 0)
+        let buffer = held[index]
+        if (!buffer) {
+          const request = plan[index]
+          buffer = new AccumulationBuffer(this.gl, request.width, request.height, request.filter, request.pixelEncoding, ticket)
+          this.allocations.set(buffer, 'live')
+        }
+        taken[index] = true
+        return buffer
+      } catch (primary) {
+        // Never retry an allocation against a ticket after an uncertain driver
+        // failure: orphan storage must continue to consume the context budget.
+        try { close() } catch (cleanup) { throw new AggregateError([primary, cleanup], 'Scratch acquisition and cleanup failed') }
+        throw primary
+      }
+    } })
   }
 
   acquire(width: number, height: number, pixelEncoding: RasterPixelEncoding = 'premultiplied-rgba8', filter: 'linear' | 'nearest' = 'nearest'): AccumulationBuffer {
@@ -120,6 +209,7 @@ export class RibbonScratchPool {
   /** Destroys idle only, as before. Outstanding borrowers remain responsible
    * for their handles; late release is rejected after ownership is forgotten. */
   destroy(): void {
+    this.epoch++
     for (const list of this._free.values()) for (const b of list) b.destroy()
     this._free.clear()
     this.allocations.clear()
@@ -134,6 +224,7 @@ export class RibbonScratchPool {
   /** Context loss took every GL object with it — drop the handles without
    *  calling destroy() on them, same as every other pool in this file does. */
   forget(): void {
+    this.lostEpoch = ++this.epoch
     this._free.clear()
     this.allocations.clear()
   }
