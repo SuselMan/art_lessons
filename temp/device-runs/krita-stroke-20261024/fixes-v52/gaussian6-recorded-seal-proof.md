@@ -1,0 +1,11 @@
+# Recorded-prefix closure: actual Samsung executor proof
+
+Code72dfe2eec, shared composition8407ceb92. Samsung SM-T970 / Adreno650, existing Chrome child only. Actual6 mapped Gaussian descriptors, unchanged source-author/material V2 prefix records,3 closure modes each: primary work still queued, zero-draw structural tail queued, whole prefix already drained.18 complete64square RGBA surfaces equal the original full-gesture CPU oracle:0 differing bytes/max0. Admission adds no draw/upload/frame. Actual source modules, body, fixture and RAM bundle SHA256 are in gaussian6-recorded-seal-device-proof.json.
+
+Host119executor+21composition tests/common app+SW59285/lint/diff passed. Independent review found empty open tails had no presentation target admission; preserving their empty commands closes metadata after previous previews drain. Eviction witness failed before fix, passes without target allocation/rebuild/draw. Same last real Work, state/commands only, no additional material frame/fence/ordinal/queue. Existing coordinator retains first-recorded peer ordering and cleanup on failure.
+
+Hardware GL errors0, hostile state preserved, all tracked Texture/Framebuffer/Buffer/Program/Shader names and ContextStorageOwner resident/reserved/orphan bytes0 after cleanup. Own child/forward closed; original3 tabs preserved. Registered disposable recorded-seal-20261031 removed after strict privileged proc inspection with standard cleanup guard; compact receipt retained. No service/stand/dependency runtime created.
+
+Limits: isolated executor; no server close producer/editor activation, genuine indexed-prefix owner or live-only tail reconciliation claim. CPU source-law oracle is not independent native GUI whole-stroke identity. Default physical policy is Infinity/partial ledger; no finite total GPU guarantee or4ms responsiveness claim.
+
+Reproduce from brush-import: create/register temp/qa-disposable/recorded-seal-20261031 with qa-cleanup.py TTL2h, then run run-gaussian6-recorded-seal.mts (--prepare is host-only) with npx tsx. Native-device use requires exclusive handoff first. Original input gaussian6-mapped-executor-host.json is retained locally with hash in proof; scripts build only in RAM. Condense result+strict cleanup before finish removes output.

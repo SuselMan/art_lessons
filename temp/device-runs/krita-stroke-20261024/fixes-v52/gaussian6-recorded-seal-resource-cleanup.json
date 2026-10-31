@@ -1,0 +1,10 @@
+{
+  "id": "recorded-seal-20261031",
+  "removed": true,
+  "privilegedStrictProcInspection": true,
+  "actualReferences": false,
+  "standardGuardUsed": true,
+  "registryOwner": 1000,
+  "registryMode": "0o600",
+  "compactHardwareProofRetained": true
+}

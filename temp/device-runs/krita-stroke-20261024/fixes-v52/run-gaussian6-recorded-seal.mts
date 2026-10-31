@@ -1,0 +1,38 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import {createHash} from 'node:crypto'
+import {execFileSync} from 'node:child_process'
+import {build} from 'esbuild'
+import WebSocket from 'ws'
+import {connect} from '../fixes-v29/cdp-20261028.mjs'
+const root=new URL('./',import.meta.url),prefix='gaussian6-recorded-seal',hash=(v:string|Buffer)=>createHash('sha256').update(v).digest('hex'),adb='/home/suselman/tools/platform-tools/adb',port=19236
+const outputRoot=new URL('../../../qa-disposable/recorded-seal-20261031/',root);fs.mkdirSync(outputRoot,{recursive:true})
+const capacity=64,host=JSON.parse(fs.readFileSync(new URL('gaussian6-mapped-executor-host.json',root),'utf8')),fixture=JSON.stringify({width:64,height:64,compositeSize:capacity,trials:host.cases.flatMap((c:any)=>['primary-queued','empty-tail-queued','drained'].map(closeMode=>({...c,closeMode,originalFrameCount:c.frames.length,frames:c.frames.slice(0,-(closeMode==='primary-queued'?2:1))})))}),body=fs.readFileSync(new URL('gaussian6-recorded-seal-body.js',root),'utf8'),sourceSnapshot:Record<string,string>={}
+for(const c of host.cases){
+ const tail=c.frames.at(-1).decodedInspection,structural=c.frames.at(-2).decodedInspection,draw=c.frames.at(-3).decodedInspection;
+ if(tail.draws.length||tail.fences.length!==1||tail.fences[0].kind!=='gestureEnd'||structural.draws.length||structural.entry.phase!=='primary'
+   ||structural.fences.map((f:any)=>f.kind).join(',')!=='primaryEnd,segmentEnd'||!draw.draws.length)throw Error('Unexpected actual host prefix tail '+c.brush)
+}
+const entry="export {snapshotAccumStorage,attachAccumStorage} from './apps/web/src/engine/src/buffers/ContextStorageOwner';export {CanonicalFrameExecutor} from './apps/web/src/engine/src/dabs/CanonicalFrameExecutor';export {TiledLayerBuffer} from './apps/web/src/engine/src/buffers/TiledLayerBuffer';export {RibbonScratchPool} from './apps/web/src/engine/src/buffers/RibbonScratchPool';export {TransformedMaskPrepass} from './apps/web/src/engine/src/dabs/TransformedMaskPrepass';export {CanonicalRgba8CompositePass} from './apps/web/src/engine/src/dabs/CanonicalRgba8CompositePass';export {BrushTextureCache} from './apps/web/src/engine/src/dabs/BrushTextureCache';export {BrushMipCache} from './apps/web/src/engine/src/dabs/BrushMipCache';export {decodeCanonicalStrokeFrame} from './packages/shared/src/index';"
+const b=await build({stdin:{contents:entry,resolveDir:process.cwd()},bundle:true,write:false,format:'iife',globalName:'STOCK_SERVICE',platform:'browser',alias:{'@grafetto/shared':path.resolve('packages/shared/src/index.ts')},plugins:[{name:'capture-current-source',setup(build){build.onLoad({filter:/\.(?:ts|mts|js)$/},args=>{const bytes=fs.readFileSync(args.path);sourceSnapshot[path.relative(process.cwd(),args.path)]=hash(bytes);return undefined})}}]})
+for(const[p,h]of Object.entries(sourceSnapshot))if(hash(fs.readFileSync(p))!==h)throw Error('Source mutated during memory bundle '+p)
+const code=b.outputFiles[0].text,proof={capacity,capacityScope:"Diagnostic caller parameter only; no activeproductionchooser/UIperformance claim",head:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),fixtureSHA256:hash(fixture),bodySHA256:hash(body),bundleSHA256:hash(code),sourceSnapshot,physicalPolicy:"defaultInfinity; partialledgeronly, nofinitetotalGPUclaim",headroomLimitBytes:8*1048576,scope:'Actual6 mapped Gaussian descriptors x3 explicit recorded-prefix closure modes, unchanged decoded prefix records vs original full CPU pixel oracle. Current isolated executor only; no server/source-prefix provenance/live reconciliation/editor activation claim.'}
+fs.writeFileSync(new URL(prefix+'-build-proof.json',outputRoot),JSON.stringify(proof,null,2)+'\n')
+if(process.argv.includes('--prepare')){console.log(JSON.stringify({prepared:true,sourceModules:Object.keys(sourceSnapshot).length,bundleBytes:code.length,fixtureBytes:fixture.length,proof:{...proof,sourceSnapshot:undefined}}));process.exit(0)}
+const devices=execFileSync(adb,['devices','-l'],{encoding:'utf8'}),line=devices.split('\n').find(s=>s.includes('model:SM_T970')&&/\sdevice\s/.test(s));if(!line)throw Error('Verified Samsung serial not connected');const serial=line.split(/\s/)[0];if(execFileSync(adb,['-s',serial,'shell','getprop','ro.serialno'],{encoding:'utf8'}).trim()!=='R52RB0JXVSY')throw Error('Samsung serial identity mismatch')
+if(execFileSync(adb,['forward','--list'],{encoding:'utf8'}).includes('tcp:'+port))throw Error('Own forward port already used')
+const job=new URL(prefix+'-job.json',outputRoot),cleanup:any={forwardRemoved:false,childClosed:false,tabsPreserved:false,errors:[]};let browser:WebSocket|undefined,c:any,child:string|undefined,before:any[]=[],forward=false,seq=0;const pending=new Map<number,any>()
+function call(method:string,params:any={}){return new Promise<any>((resolve,reject)=>{const id=++seq,t=setTimeout(()=>{pending.delete(id);reject(Error(method+' timeout'))},15000);pending.set(id,(m:any)=>{clearTimeout(t);m.error?reject(Error(JSON.stringify(m.error))):resolve(m.result)});browser!.send(JSON.stringify({id,method,params}))})}
+fs.writeFileSync(job,JSON.stringify({pid:process.pid,owner:'root',command:process.argv,expires:new Date(Date.now()+600000).toISOString(),status:'running',serial},null,2))
+try{
+execFileSync(adb,['-s',serial,'forward','--no-rebind','tcp:'+port,'localabstract:chrome_devtools_remote']);forward=true;
+before=await(await fetch(`http://127.0.0.1:${port}/json/list`)).json();fs.writeFileSync(new URL(prefix+'-tabs-before.json',outputRoot),JSON.stringify(before.map(t=>({id:t.id,url:t.url,type:t.type})),null,2));
+const version=await(await fetch(`http://127.0.0.1:${port}/json/version`)).json();browser=new WebSocket(version.webSocketDebuggerUrl);await new Promise((r,j)=>{browser!.once('open',r);browser!.once('error',j)});browser.on('message',raw=>{const m=JSON.parse(raw.toString());if(m.id){pending.get(m.id)?.(m);pending.delete(m.id)}});child=(await call('Target.createTarget',{url:'about:blank'})).targetId;c=await connect(child);await c.call('Page.bringToFront');
+const data=await c.ev(`(()=>{${code};const CONFIG=JSON.parse(${JSON.stringify(fixture)},(_k,v)=>v&&v.__qaF64NegativeZero===true?-0:v);return ${body}})()`,240000);
+fs.writeFileSync(new URL(prefix+'-result.json',outputRoot),JSON.stringify({proof,...data},null,2)+'\n');console.log(JSON.stringify({...data,rows:data.rows?.length,proof:{...proof,sourceSnapshot:undefined}}));if(data.error||data.wrong||data.GL.length||!data.stateRestored||!data.cleanupOk||data.rows.length!==18||data.poisoned.length)throw Error('Samsung actual source gate failed')
+}finally{
+try{if(child&&browser)cleanup.childClosed=(await call('Target.closeTarget',{targetId:child})).success===true}catch(e){cleanup.errors.push(String(e))}
+c?.ws.close();browser?.close();try{if(forward){const after=await(await fetch(`http://127.0.0.1:${port}/json/list`)).json();cleanup.tabsPreserved=JSON.stringify(before.map(t=>[t.id,t.url]).sort())===JSON.stringify(after.map((t:any)=>[t.id,t.url]).sort());cleanup.after=after.map((t:any)=>({id:t.id,url:t.url}))}}catch(e){cleanup.errors.push(String(e))}
+try{if(forward){execFileSync(adb,['-s',serial,'forward','--remove','tcp:'+port]);cleanup.forwardRemoved=true}}catch(e){cleanup.errors.push(String(e))}
+fs.writeFileSync(new URL(prefix+'-cleanup.json',outputRoot),JSON.stringify(cleanup,null,2)+'\n');fs.writeFileSync(job,JSON.stringify({...JSON.parse(fs.readFileSync(job,'utf8')),status:'finished'},null,2));if(cleanup.errors.length||!cleanup.childClosed||!cleanup.forwardRemoved||!cleanup.tabsPreserved)throw Error('Own device cleanup failed')
+}
