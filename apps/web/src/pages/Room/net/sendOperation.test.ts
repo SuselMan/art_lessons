@@ -10,9 +10,9 @@ function emitter(answer?: SendResult): OperationEmitter & { sent: Operation[] } 
   const sent: Operation[] = []
   return {
     sent,
-    emit: (_event, sentOp, ack) => {
-      sent.push(sentOp)
-      if (answer) ack(answer)
+    emit: (...args) => {
+      if(args[0]==='operation')sent.push(args[1])
+      if(answer)args[2](answer)
     },
   }
 }
@@ -37,4 +37,26 @@ describe('sendOperationWithTimeout', () => {
     vi.advanceTimersByTime(5000)
     await verdict
   })
+})
+
+it('maps an outbox close to the existing typed request without client placement or first-frame authority',async()=>{
+ const close:Extract<Operation,{type:'canonical_stroke_close'}>={type:'canonical_stroke_close',id:'close',userId:'author',timestamp:99,seq:123,layerId:'L',targetUserId:'author',strokeId:'S',disposition:'commitPartial',recordedNext:2,firstFrameOpId:'client-first',lastFrameOpId:'last'}
+ const emit=vi.fn((...args:Parameters<OperationEmitter['emit']>)=>{args[2]({ok:true,seq:8})})
+ await expect(sendOperationWithTimeout({emit},close)).resolves.toEqual({ok:true,seq:8})
+ expect(emit).toHaveBeenCalledWith('canonical_stroke_close',{operationId:'close',layerId:'L',targetUserId:'author',strokeId:'S',disposition:'commitPartial',expectedRecordedNext:2,expectedLastFrameOpId:'last'},expect.any(Function))
+ expect(close.seq).toBe(123);expect(close.firstFrameOpId).toBe('client-first')
+})
+it('does not invoke close ordering accessors or emit a malformed typed request',async()=>{
+ const close:Extract<Operation,{type:'canonical_stroke_close'}>={type:'canonical_stroke_close',id:'close',userId:'author',timestamp:0,layerId:'L',targetUserId:'author',strokeId:'S',disposition:'commitPartial',recordedNext:2,firstFrameOpId:'first',lastFrameOpId:'last'}
+ const get=vi.fn(()=>2),emit=vi.fn()
+ Object.defineProperty(close,'recordedNext',{get})
+ await expect(sendOperationWithTimeout({emit},close,10)).rejects.toThrow()
+ expect(get).not.toHaveBeenCalled();expect(emit).not.toHaveBeenCalled()
+})
+it('clears its timeout when the captured emitter throws synchronously',async()=>{
+ vi.useFakeTimers()
+ try{
+  await expect(sendOperationWithTimeout({emit:()=>{throw Error('emit failed')}},op)).rejects.toThrow('emit failed')
+  expect(vi.getTimerCount()).toBe(0)
+ }finally{vi.useRealTimers()}
 })
