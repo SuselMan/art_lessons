@@ -16,7 +16,7 @@ import stock from '../../../../../../packages/shared/src/fixtures/sourceDefaultA
 import { sourceStrokeAuthorDescriptor } from '../presets/sourceStrokeAuthorDescriptor'
 import { SourceStrokeAuthor, type SourceAuthorPacket } from '../presets/sourceStrokeAuthor'
 import { describe, expect, it, vi } from 'vitest'
-import { CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, packCanonicalMaterial, unpackCanonicalMaterial, canonicalDefaultAutoSourceBinding, buildCanonicalMaterial, type BrushDescriptor, type CanonicalDefaultAutoSource, type CanonicalDefaultAutoRecipe, type CanonicalMaterialContextV2, type BrushTip, type CanonicalMaterialFrame, type CanonicalMaterialRecipe, type TipMaskId } from '@grafetto/shared'
+import { CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE, CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, packCanonicalMaterial, unpackCanonicalMaterial, canonicalDefaultAutoSourceBinding, buildCanonicalMaterial, type BrushDescriptor, type CanonicalDefaultAutoSource, type CanonicalDefaultAutoRecipe, type CanonicalMaterialContextV2, type BrushTip, type CanonicalMaterialFrame, type CanonicalMaterialRecipe, type TipMaskId } from '@grafetto/shared'
 import { recordingGL } from '../../testing/brushPassTestUtils'
 import { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { RibbonScratchPool } from '../buffers/RibbonScratchPool'
@@ -26,7 +26,7 @@ import { BrushTextureCache } from './BrushTextureCache'
 import { CanonicalMaskSourceBank } from './CanonicalMaskSourceBank'
 import { TransformedMaskPrepass } from './TransformedMaskPrepass'
 import { CanonicalRgba8CompositePass } from './CanonicalRgba8CompositePass'
-import { CanonicalFrameExecutor, type CanonicalFrameSubmission, type CanonicalExecutorRasterProfile } from './CanonicalFrameExecutor'
+import { canonicalExecutorOperations, CanonicalFrameExecutor, type CanonicalFrameSubmission, type CanonicalExecutorRasterProfile } from './CanonicalFrameExecutor'
 import { canonicalTransformedMaskMetadata } from './TransformedMaskPlan'
 import { canonicalSoftAutoSourcePin, type CanonicalSoftAutoSource, type CanonicalSoftAutoRecipe } from '@grafetto/shared'
 import softTables from '../presets/fixtures/sourceSoftCircle/tables.native.json'
@@ -71,7 +71,7 @@ function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4,
   const prepass = new TransformedMaskPrepass(gl, cache, cpu, 'executor-test')
   prepass.prepare({ width: capacity, height: capacity, slots: 1 }, bankResources)
   const composite = new CanonicalRgba8CompositePass(gl, cache, cpu, 'executor-composite-test')
-  composite.prepare({ width: compositeCapacity, height: compositeCapacity, operations: rasterProfile === CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE ? ['alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8'] : rasterProfile === CANONICAL_STROKE_RASTER_PROFILE ? ['alphaDarken32FusedScalar', 'over32FusedScalar'] : ['alphaDarken32', 'over32'] }, [...bankResources, ...prepass.preparedResources()])
+  composite.prepare({ width: compositeCapacity, height: compositeCapacity, operations: canonicalExecutorOperations(rasterProfile) }, [...bankResources, ...prepass.preparedResources()])
   const rebuild = vi.fn(() => ({ readPixels: () => null, destroy: vi.fn() }))
   const scratch = new RibbonScratchPool(gl), layer = new TiledLayerBuffer(gl, tileSize, tileSize, tileBudget ? rebuild : undefined, tileBudget ? tileBudget * tileSize * tileSize * 4 : undefined, undefined, 'straight-rgba8')
   let epoch = 0
@@ -773,6 +773,8 @@ describe('recorded same-layer concurrent wash lane', () => {
       const src:Rgba8=request.source.kind==='maskRgb'?[...request.source.rgb,255]:pixels.get(request.source.view.texture)??[0,0,0,0]
       if(request.operation.kind==='alphaDarken32')pixels.set(request.target.texture,compositeSourceAlphaDarken32(src,dst,request.operation.control))
       else if(request.operation.kind==='over32')pixels.set(request.target.texture,compositeSourceOver32Scalar(src,dst,request.operation.control))
+      else if(request.operation.kind==='alphaDarkenBrowserFloat')pixels.set(request.target.texture,compositeSourceAlphaDarken32(src,dst,{...request.operation.control,profile:'optimized32-scalar-f32-rne-v1'}))
+      else if(request.operation.kind==='overBrowserFloat')pixels.set(request.target.texture,compositeSourceOver32Scalar(src,dst,{...request.operation.control,profile:'portable-f32-division-rne-v1'}))
       else if(request.operation.kind==='genericSCU8')pixels.set(request.target.texture,compositeRgba8(src,dst,request.operation.control))
       else if(request.operation.kind==='alphaDarken32FusedScalar'||request.operation.kind==='over32FusedScalar'){
         const c=request.operation.control,operator=request.operation.kind==='over32FusedScalar'?'over':'variant' in c&&c.variant==='hard'?'alphaDarkenHard':'alphaDarkenCreamy'
@@ -795,6 +797,21 @@ describe('recorded same-layer concurrent wash lane', () => {
     const close=()=>{coordinator.cancel();calls.mockRestore();copySpy.mockRestore();clearSpy.mockRestore();derived.destroy();s.close()}
     return {...s,coordinator,derived,pixels,calls,frame,drain,pixel,close,source}
   }
+  it('browser profile folds open preview and stable close using ordinary CPU composition over a nontransparent target',()=>{
+    const s=lane(1,1,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)
+    try{
+      const base:Rgba8=[17,81,133,151],tile=s.layer.resolveForPaint({minX:0,minY:0,maxX:1,maxY:1})[0]
+      s.pixels.set(tile.buffer.texture,base)
+      s.coordinator.enqueue(s.frame('A',.5,false),1);s.drain()
+      const local=compositeSourceAlphaDarken32([255,0,0,255],[0,0,0,0],{profile:'optimized32-scalar-f32-rne-v1',variant:'creamy',opacity:.5,averageOpacity:.5,flow:1})
+      const expected=compositeSourceOver32Scalar(local,base,{profile:'portable-f32-division-rne-v1',opacity:1})
+      expect(s.pixel(s.derived)).toEqual(expected);expect(s.pixel(s.layer)).toEqual(base)
+      expect(s.calls.mock.calls.some(([r])=>r.operation.kind==='alphaDarkenBrowserFloat')).toBe(true)
+      expect(s.calls.mock.calls.some(([r])=>r.operation.kind==='overBrowserFloat')).toBe(true)
+      expect(s.calls.mock.calls.some(([r])=>r.operation.kind==='alphaDarken32FusedScalar'||r.operation.kind==='over32FusedScalar')).toBe(false)
+      s.coordinator.enqueueRecordedClose('A',1,2);s.drain();expect(s.pixel(s.layer)).toEqual(expected);expect(s.coordinator.checkpointReady).toBe(true)
+    }finally{s.close()}
+  })
   for(const drained of [false,true])it(`closes recorded peers in first-recorded order without a tail frame (drained=${drained})`,()=>{
     const s=lane()
     try{

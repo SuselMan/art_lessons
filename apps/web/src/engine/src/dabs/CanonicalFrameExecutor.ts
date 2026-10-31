@@ -1,4 +1,4 @@
-import { CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, canonicalAutoCost, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition, type CanonicalStrokeRasterProfile, type CanonicalMaterialAsset, type CanonicalAutoSource, type CanonicalSoftAutoSource, type CanonicalAutoRecipe, type CanonicalSoftAutoRecipe, type AnyCanonicalMaterialRecipe, type AnyCanonicalMaterialFrame } from '@grafetto/shared'
+import { CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE, CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, canonicalAutoCost, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition, type CanonicalStrokeRasterProfile, type CanonicalMaterialAsset, type CanonicalAutoSource, type CanonicalSoftAutoSource, type CanonicalAutoRecipe, type CanonicalSoftAutoRecipe, type AnyCanonicalMaterialRecipe, type AnyCanonicalMaterialFrame } from '@grafetto/shared'
 import { SOURCE_RGBA8_GENERIC_SC_PROFILE } from '../presets/sourceColorRgba8'
 import { CanonicalSoftCircleProgramOwner } from './CanonicalSoftCircleProgramOwner'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
@@ -11,7 +11,7 @@ import { advanceSourcePrimaryComposition, createSourcePrimaryComposition, sealSo
 import { runBrushGlBatch, runBrushGlTurn, type BrushGlTurn } from './BrushGlBatch'
 import { bindCanonicalLayerTargets,prepareCanonicalLayerFrame,type CanonicalLayerFrame } from './CanonicalLayerTargets'
 import type { CanonicalMaskSourceBank } from './CanonicalMaskSourceBank'
-import type { CanonicalOwnedRgba8Target, CanonicalRgba8CompositePass, CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
+import type { CanonicalCompositeOperationKind, CanonicalOwnedRgba8Target, CanonicalRgba8CompositePass, CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
 import { canonicalTransformedMaskMetadata } from './TransformedMaskPlan'
 import type { AnyTransformedMaskRequest, TransformedMaskPrepass } from './TransformedMaskPrepass'
 
@@ -35,11 +35,20 @@ export interface CanonicalFrameSubmission {
 export type CanonicalExecutorRasterProfile = 'reference-scalar-f32-rne-v1' | CanonicalStrokeRasterProfile
 /** Same operation selector for exclusive wash and recorded-layer fold. Local
  * deposition remains the installed fused law under the V2 pipeline profile. */
+/** One closed operation manifest, shared by engine admission and executor. */
+export function canonicalExecutorOperations(profile:CanonicalExecutorRasterProfile):readonly CanonicalCompositeOperationKind[]{
+ if(profile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)return Object.freeze(['alphaDarkenBrowserFloat','overBrowserFloat','genericSCU8'] as const)
+ if(profile===CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)return Object.freeze(['alphaDarken32FusedScalar','over32FusedScalar','genericSCU8'] as const)
+ if(profile===CANONICAL_STROKE_RASTER_PROFILE)return Object.freeze(['alphaDarken32FusedScalar','over32FusedScalar'] as const)
+ if(profile==='reference-scalar-f32-rne-v1')return Object.freeze(['alphaDarken32','over32'] as const)
+ throw new TypeError('Unsupported canonical executor raster profile')
+}
 export function canonicalWashOuterOperation(profile: CanonicalExecutorRasterProfile, blend: CanonicalStrokeComposition['outerBlend'], opacity: number) {
   if (blend !== 'over') {
-    if (profile !== CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE) throw new TypeError('GenericSC outer composition requires its pinned raster profile')
+    if (profile !== CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE && profile !== CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE) throw new TypeError('GenericSC outer composition requires its pinned raster profile')
     return { kind: 'genericSCU8' as const, control: { mode: blend, profile: SOURCE_RGBA8_GENERIC_SC_PROFILE, opacity } }
   }
+  if(profile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)return {kind:'overBrowserFloat' as const,control:{profile:CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,opacity}}
   return profile === 'reference-scalar-f32-rne-v1'
     ? { kind: 'over32' as const, control: { profile: 'portable-f32-division-rne-v1' as const, opacity } }
     : { kind: 'over32FusedScalar' as const, control: { profile: CANONICAL_STROKE_RASTER_PROFILE, opacity } }
@@ -143,11 +152,7 @@ export class CanonicalFrameExecutor {
   constructor(options: CanonicalFrameExecutorOptions) {
     if(options.softProgramOwner && options.autoSource?.kind!=='softAuto')throw new TypeError('A soft program owner requires a trusted soft source')
     if (options.washMode !== undefined && options.washMode !== 'exclusive' && options.washMode !== 'deposition-only') throw new TypeError('Invalid wash ownership mode')
-    if (options.rasterProfile !== 'reference-scalar-f32-rne-v1' && options.rasterProfile !== CANONICAL_STROKE_RASTER_PROFILE && options.rasterProfile !== CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE) throw new TypeError('Unsupported canonical executor raster profile')
-    const operations = options.rasterProfile === CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE
-      ? ['alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8'] as const
-      : options.rasterProfile === CANONICAL_STROKE_RASTER_PROFILE
-        ? ['alphaDarken32FusedScalar', 'over32FusedScalar'] as const : ['alphaDarken32', 'over32'] as const
+    const operations = canonicalExecutorOperations(options.rasterProfile)
     if (!options.composite.supportsOperations(operations)) throw new Error('Canonical executor raster profile was not prepared')
     const a = options.prepass.brushGlBatchInfo(), b = options.composite.brushGlBatchInfo()
     if (a.gl !== b.gl || a.cache !== b.cache || a.cpu !== b.cpu) throw new Error('Canonical executor services must share budgets and context')
@@ -536,7 +541,9 @@ export class CanonicalFrameExecutor {
           try {
             const fused = this.options.rasterProfile !== 'reference-scalar-f32-rne-v1'
             const operation = d.controls.kind === 'localAlphaDarken'
-              ? fused
+              ? this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE
+                ? {kind:'alphaDarkenBrowserFloat' as const,control:{profile:CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,variant:d.controls.variant,opacity:d.controls.opacity,averageOpacity:d.controls.averageOpacity,flow:d.controls.flow}}
+                : fused
                 ? { kind: 'alphaDarken32FusedScalar' as const, control: { profile: CANONICAL_STROKE_RASTER_PROFILE, variant: d.controls.variant, opacity: d.controls.opacity, averageOpacity: d.controls.averageOpacity, flow: d.controls.flow } }
                 : { kind: 'alphaDarken32' as const, control: { profile: 'optimized32-scalar-f32-rne-v1' as const, variant: d.controls.variant, opacity: d.controls.opacity, averageOpacity: d.controls.averageOpacity, flow: d.controls.flow } }
               : this.overOperation(d.controls.opacity)

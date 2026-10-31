@@ -1,5 +1,5 @@
 import {
-  buildCanonicalMaterial, CANONICAL_STROKE_RASTER_PROFILE,
+  buildCanonicalMaterial, canonicalStrokeRasterContract, CANONICAL_STROKE_RASTER_PROFILE,
   decodeCanonicalStrokeFrame, type CanonicalStrokeFrameContext, type CanonicalStrokeFrameContextV2, type CanonicalMaterialFrameV2,
 } from '@grafetto/shared'
 import { advanceSourcePrimaryComposition, createSourcePrimaryComposition, type SourcePrimaryCompositionState } from './sourcePrimaryComposition'
@@ -69,7 +69,7 @@ export class SourceCanonicalFrameEncoder<C extends AnyContext=SourceCanonicalStr
   private envelope(materialPacked: string) {
     const rasterProfile=this.context.rasterProfile === undefined ? CANONICAL_STROKE_RASTER_PROFILE : this.context.rasterProfile
     return {
-      version: rasterProfile===CANONICAL_STROKE_RASTER_PROFILE?1:2, rasterProfile,
+      version: canonicalStrokeRasterContract(rasterProfile).envelopeVersion, rasterProfile,
       brush: this.context.brush, strokeId: this.context.strokeId, frameOrdinal: this.nextFrameOrdinal,
       pigmentRgb8: this.context.pigmentRgb8, composition: this.context.composition, materialPacked,
     }

@@ -1,4 +1,5 @@
-import { CANONICAL_STROKE_RASTER_PROFILE,canonicalSourceEffectReject,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalGaussianAutoSourceBinding,canonicalSoftAutoSourceBinding,canonicalSoftAutoDataEqual,canonicalSourceComposition,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,sourceAutoGeometry,CANONICAL_RECORDED_ATTACHMENT_LIMITS,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,IMPLICIT_LAYER_IDS,INITIAL_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,verifyCanonicalFullHistoryBase,verifyCanonicalEmptyHistoryBase,decodeCanonicalStrokeFrame,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalStrokeRasterProfile,type CanonicalAutoSource,type CanonicalSoftAutoSource } from '@grafetto/shared'
+import {canonicalExecutorOperations} from './src/dabs/CanonicalFrameExecutor'
+import { CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_STROKE_RASTER_PROFILE,canonicalSourceEffectReject,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalGaussianAutoSourceBinding,canonicalSoftAutoSourceBinding,canonicalSoftAutoDataEqual,canonicalSourceComposition,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,sourceAutoGeometry,CANONICAL_RECORDED_ATTACHMENT_LIMITS,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,IMPLICIT_LAYER_IDS,INITIAL_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,verifyCanonicalFullHistoryBase,verifyCanonicalEmptyHistoryBase,decodeCanonicalStrokeFrame,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalStrokeRasterProfile,type CanonicalAutoSource,type CanonicalSoftAutoSource } from '@grafetto/shared'
 import {BrushTextureCache} from './src/dabs/BrushTextureCache'
 import {TransformedMaskPrepass,transformedMaskPrepassBudget,type TransformedMaskLimits} from './src/dabs/TransformedMaskPrepass'
 import {CanonicalRgba8CompositePass,canonicalRgba8CompositeBudget,type CanonicalCompositeLimits} from './src/dabs/CanonicalRgba8CompositePass'
@@ -1367,7 +1368,7 @@ interface CanonicalEmptyPlan {
 }
 function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonly Operation[],width?:number,height?:number,infinite=false):CanonicalEmptyPlan {
  if(!read||infinite)throw new TypeError('Unsupported canonical empty room')
- if(read.authorRasterProfile!==CANONICAL_STROKE_RASTER_PROFILE&&read.authorRasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)throw new TypeError('Canonical runtime raster profile unavailable')
+ if(read.authorRasterProfile!==CANONICAL_STROKE_RASTER_PROFILE&&read.authorRasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&read.authorRasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)throw new TypeError('Canonical runtime raster profile unavailable')
  const full=read.assertFullHistoryBase?.(tail),base=full?undefined:read.assertEmptyHistoryBase(tail),scope=read.assertCurrent()
  if(read.scope!==scope||read.tailOperations!==tail||read.preparedAtoms.length!==tail.length)throw new TypeError('Foreign canonical empty room owner')
  if(!read.roomGeometry||read.roomGeometry.width!==width||read.roomGeometry.height!==height||read.roomGeometry.infinite!==infinite)throw new TypeError('Canonical original room geometry mismatch')
@@ -1378,7 +1379,7 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
  const visible=full?new Set(full.gestures.filter(g=>g.visible).flatMap(g=>g.frameOperationIds)):undefined
  if(full?.gestures.some(g=>!g.ended&&!g.sealed))throw new TypeError('Open canonical full baseline prefix unsupported')
  const paintInputs:CanonicalRecordedInput[]=[],hiddenFrameIds:string[]=full?.gestures.filter(g=>!g.visible).map(g=>g.frameOperationIds[0])??[],inputs:CanonicalRecordedInput[]=[],prefixes=new Map<string,CanonicalMaterialPrefixState>(),tiles=new Set<string>(),gestureTiles=new Map<string,Set<string>>()
- let maskWidth=1,maskHeight=1,generic=read.authorRasterProfile===CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE
+ let maskWidth=1,maskHeight=1
  for(let i=0;i<read.preparedAtoms.length;i++){
   const atom=read.preparedAtoms[i],delivery=Object.getOwnPropertyDescriptor(atom,'delivery')
   if(!delivery||!Object.hasOwn(delivery,'value')||!delivery.value||delivery.value.lifetime!==read||atom.operation!==tail[i])throw new TypeError('Original canonical input required')
@@ -1402,11 +1403,10 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
   for(const recipe of decoded.definitions){if(!('kind'in recipe)||!['defaultAuto','gaussianAuto','softAuto'].includes(recipe.kind))throw new TypeError('Unsupported canonical baseline material');maskWidth=Math.max(maskWidth,recipe.width);maskHeight=Math.max(maskHeight,recipe.height)}
   for(const d of decoded.draws){const recipe=decoded.definitions[d.definition];for(const t of planCanonicalTargets({minX:d.x,minY:d.y,maxX:d.x+recipe.width,maxY:d.y+recipe.height},page,tileWidth,tileHeight).tiles){const id=JSON.stringify([t.storage.minX,t.storage.minY]);tiles.add(id);used.add(id)}}
   if(tiles.size>64||used.size>64)throw new RangeError('Canonical baseline exceeds target union')
-  generic ||= s.composition.outerBlend!=='over'
   if(!visible||visible.has(op.id))paintInputs.push(input)
  }
  if(!full&&[...prefixes.values()].some(p=>!p.ended))throw new TypeError('Open canonical baseline prefix unsupported')
- const mask={width:maskWidth,height:maskHeight,slots:1},composite:CanonicalCompositeLimits={width:tileWidth,height:tileHeight,operations:['alphaDarken32FusedScalar','over32FusedScalar',...(generic?['genericSCU8' as const]:[])]}
+ const mask={width:maskWidth,height:maskHeight,slots:1},composite:CanonicalCompositeLimits={width:tileWidth,height:tileHeight,operations:canonicalExecutorOperations(read.authorRasterProfile)}
  const maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(composite)
  if(maskCost.gpuBytes+compositeCost.gpuBytes>16*1024*1024||maskCost.cpuBytes+compositeCost.cpuBytes+1024+inputs.length*128+prefixes.size*512+82432>4*1024*1024)throw new RangeError('Canonical baseline workspace exceeds existing brush budgets')
  const logicalBytes=(tiles.size+2*[...gestureTiles.values()].reduce((n,t)=>n+t.size,0))*tileWidth*tileHeight*4
@@ -6767,12 +6767,13 @@ export class PencilEngine implements PencilEngineAPI {
     const release=this._brushMipCache.reserve(charge)
     let accepted=false
     try{
-      const compiled=sourceStrokeAuthorDescriptor(descriptor,{inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-canonical-pigment',lodScale:1,coverageProfile:'neon64-f32-fma-v1'})
+      const coverageProfile=owner.plan.profile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:'neon64-f32-fma-v1'
+      const compiled=sourceStrokeAuthorDescriptor(descriptor,{inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-canonical-pigment',lodScale:1,coverageProfile})
       if(!compiled.supported)throw new Error(compiled.reasons.join(','))
       const digest=await crypto.subtle.digest('SHA-256',bytes),sha=Array.from(new Uint8Array(digest),v=>v.toString(16).padStart(2,'0')).join('')
       this._assertCanonicalLayerCurrent(owner)
       if(options.signal?.aborted||this._opts.pencilType!==preset)return{status:'cancelled'}
-      const pin=data.source.kind==='softAuto'?canonicalSoftAutoSourceBinding(descriptor,sha,'neon64-f32-fma-v1',0,owner.plan.profile):data.source.kind==='gaussianAuto'?canonicalGaussianAutoSourceBinding(descriptor,sha,'neon64-f32-fma-v1',owner.plan.profile):canonicalDefaultAutoSourceBinding(descriptor,sha,'neon64-f32-fma-v1',owner.plan.profile)
+      const pin=data.source.kind==='softAuto'?canonicalSoftAutoSourceBinding(descriptor,sha,coverageProfile,0,owner.plan.profile):data.source.kind==='gaussianAuto'?canonicalGaussianAutoSourceBinding(descriptor,sha,coverageProfile,owner.plan.profile):canonicalDefaultAutoSourceBinding(descriptor,sha,coverageProfile,owner.plan.profile)
       const mask=canonicalLayerMaskCapacity(pin),maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(owner.plan.composite)
       if(owner.prepared&&(mask.width>owner.mask.width||mask.height>owner.mask.height))throw new RangeError('Canonical source exceeds warm workspace')
       if(maskCost.gpuBytes+compositeCost.gpuBytes>16*1024*1024||maskCost.cpuBytes+compositeCost.cpuBytes+charge>this._brushMipCache.budgetBytes)throw new RangeError('Canonical source workspace companions exceed budget')

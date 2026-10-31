@@ -1,0 +1,11 @@
+# Целый browser профиль в существующем engine
+
+Client integration после CPU b80f30d99/GPU 0feac7883: original read.authorRasterProfile выбирает один operation manifest для pure engine admission и executor. Browser local deposition использует alphaDarkenBrowserFloat, wash fold/preview overBrowserFloat; разрешённые outer GenericSC используют существующий integer operation. Native и reference defaults сохраняются. Encoder берёт envelopeVersion из общего shared closed mapping. Brush author capture получает browser coverage из original layer owner и передаёт одно значение в descriptor compiler и source binding.
+
+Настоящий constructor-frontier тест преобразован из отказа неподготовленного renderer в положительный original browser room + отрицательный geometry mismatch до canvas. Pixel writer/read-only и original owner gates не сняты. Actual pointer40 test использует retained Basic2 descriptor, реальный BEGIN snapshot, author/adapter/encoder, SAME coordinator и journal: local ink до original confirmation, promotion без повторной deposition, stable end, cancel before BEGIN emission и native-coverage substitution refusal. Выходящие подтверждения теста имеют исходный full-prefix контракт seq1; это не доказательство публичной SQL/REST проекции sequence.
+
+Recovery проверяет закрытие устаревшего initial prefix, затем отдельный свежий original full-prefix read с реальными исходящими кадрами: после loss/restored сохраняются SAME journal entries/revision и browser profile, без gl.finish. Numeric test existing executor/coordinator suite проверяет ordinary AlphaDarken/portableOver fold на nontransparent target и равенство derived preview/stable close; actual-engine MockGL тесты проверяют маршрутизацию/владение, а не hardware пиксели или плавность UI.
+
+Tests-first: прежний runtime reject ломал оба новых actual constructor cases; после реализации 237 тестов/7 suites проходят (engine author/owner/baseline, encoder, executor, recorded coordinator). Lint/diff-check выполняются точечно. Общий TSC и hardware gate согласуются отдельно. Server/Room policy не включены, новых очередей, фабрик, кешей или ресурсов устройства не создано.
+
+Общий app+SW TSC40346: PASS0 на замороженном графе; 237 focused/regression тестов и точечный lint/diff PASS (index historical warnings сохранены).
