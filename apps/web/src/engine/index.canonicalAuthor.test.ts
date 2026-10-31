@@ -90,9 +90,10 @@ it('poisons an emitted prefix on tool change and requests repair only after all 
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)}
 })
 
-it('refuses an active size sensor in the installed source before kernel preparation or BEGIN',async()=>{
- const selected=stock.rows.find(row=>row.index===8)!.descriptor as unknown as BrushDescriptor
- expect(selected.sourceStamp!.options.find(option=>option.id==='Size')!.checked).toBe(true)
+it('refuses Ratio dynamics before kernel preparation or BEGIN',async()=>{
+ const base=stock.rows.find(row=>row.index===8)!.descriptor as unknown as BrushDescriptor
+ const selected:BrushDescriptor={...base,id:base.id+'a',sourceStamp:{...base.sourceStamp!,options:base.sourceStamp!.options.map(option=>option.id==='Ratio'?{...option,checked:true}:option)}}
+ expect(selected.sourceStamp!.options.find(option=>option.id==='Ratio')!.checked).toBe(true)
  const begin=vi.fn(async(r:CanonicalStrokeBegin)=>verdict(r)),{engine}=await harness(begin,selected)
  try{
   const draw=vi.spyOn(engine['gl'],'drawArrays'),compile=vi.spyOn(engine['gl'],'createProgram'),bytes=engine['_brushMipCache'].reservedBytes

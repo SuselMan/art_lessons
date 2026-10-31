@@ -1400,7 +1400,7 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
   const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:s.material}).frame
   const key=JSON.stringify([op.userId,s.strokeId]),next=advanceCanonicalMaterialPrefix(prefixes.get(key)??CANONICAL_MATERIAL_PREFIX_START,op.frame.frameOrdinal,decoded)
   prefixes.set(key,next);let used=gestureTiles.get(key);if(!used){used=new Set();gestureTiles.set(key,used)}
-  for(const recipe of decoded.definitions){if(!('kind'in recipe)||!['defaultAuto','gaussianAuto','softAuto'].includes(recipe.kind))throw new TypeError('Unsupported canonical baseline material');maskWidth=Math.max(maskWidth,recipe.width);maskHeight=Math.max(maskHeight,recipe.height)}
+  for(const recipe of decoded.definitions){if(!('kind'in recipe)||!['defaultAuto','gaussianAuto','softAuto'].includes(recipe.kind)||!Number.isFinite(recipe.scale)||recipe.scale<=0||recipe.scale>1||recipe.ratio!==1||recipe.rotation!==0||recipe.mirrorH||recipe.mirrorV||recipe.width>fixed.width||recipe.height>fixed.height)throw new TypeError('Unsupported canonical baseline material');maskWidth=Math.max(maskWidth,recipe.width);maskHeight=Math.max(maskHeight,recipe.height)}
   for(const d of decoded.draws){const recipe=decoded.definitions[d.definition];for(const t of planCanonicalTargets({minX:d.x,minY:d.y,maxX:d.x+recipe.width,maxY:d.y+recipe.height},page,tileWidth,tileHeight).tiles){const id=JSON.stringify([t.storage.minX,t.storage.minY]);tiles.add(id);used.add(id)}}
   if(tiles.size>64||used.size>64)throw new RangeError('Canonical baseline exceeds target union')
   if(!visible||visible.has(op.id))paintInputs.push(input)
@@ -6347,7 +6347,7 @@ export class PencilEngine implements PencilEngineAPI {
       const snapshot=read.capability.snapshot,pin=snapshot.material.primarySource
       if(snapshot.materialVersion!==2||snapshot.material.maskSource||snapshot.material.assets.length||snapshot.assets.length||pin.kind==='image'||snapshot.rasterProfile!==owner.plan.profile||snapshot.composition.mode!=='wash')throw new TypeError('Unsupported fixed canonical layer material')
       const capacity=canonicalLayerMaskCapacity(pin),decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,material:snapshot.material}).frame
-      for(const recipe of decoded.definitions)if(!('kind'in recipe)||!['defaultAuto','gaussianAuto','softAuto'].includes(recipe.kind)||recipe.scale!==1||recipe.ratio!==1||recipe.rotation!==0||recipe.width>capacity.width||recipe.height>capacity.height)throw new TypeError('Unsupported fixed canonical layer transform')
+      for(const recipe of decoded.definitions)if(!('kind'in recipe)||!['defaultAuto','gaussianAuto','softAuto'].includes(recipe.kind)||!Number.isFinite(recipe.scale)||recipe.scale<=0||recipe.scale>1||recipe.ratio!==1||recipe.rotation!==0||recipe.mirrorH||recipe.mirrorV||recipe.width>capacity.width||recipe.height>capacity.height)throw new TypeError('Unsupported fixed canonical layer transform')
       if(owner.prepared&&(capacity.width>owner.mask.width||capacity.height>owner.mask.height))throw new RangeError('Canonical source exceeds warm workspace; full resync required')
       const mask=owner.prepared?owner.mask:capacity,maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(owner.plan.composite)
       const metadata=CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities*(1024+1024+4096+64*512)+64*256+82432
@@ -6788,7 +6788,9 @@ export class PencilEngine implements PencilEngineAPI {
     if(unsupported)throw new Error('Unsupported canonical source effect: '+unsupported)
     const policy=canonicalSourceComposition(descriptor,owner.plan.profile),data=descriptor.sourceStamp
     if(policy?.mode!=='wash'||!data||data.version!==2||!['defaultAuto','gaussianAuto','softAuto'].includes(data.source.kind)||data.timing.enabled)throw new Error('Unsupported canonical pointer material/timing')
-    if(data.options.some(option=>['Size','Ratio','Rotation','Scatter','Mirror'].includes(option.id)&&option.checked)
+    const sizeOption=data.options.find(option=>option.id==='Size')
+    if(sizeOption?.checked&&(!Number.isFinite(sizeOption.min)||!Number.isFinite(sizeOption.max)||sizeOption.min<0||sizeOption.max>1||sizeOption.sensors.length!==1||sizeOption.sensors[0].id!=='pressure'))throw new Error('Unsupported canonical pointer transform/sensor')
+    if(data.options.some(option=>['Ratio','Rotation','Scatter','Mirror'].includes(option.id)&&option.checked)
       ||data.options.some(option=>option.checked&&option.useCurve&&option.sensors.some(sensor=>['rotation','tangentialPressure','perspective','speed'].includes(sensor.id))))throw new Error('Unsupported canonical pointer transform/sensor')
     const json=canonicalBrushDescriptorJSON(descriptor),bytes=new TextEncoder().encode(json),charge=bytes.length*8+8192
     if(charge>this._brushMipCache.budgetBytes)throw new RangeError('Canonical source program exceeds CPU budget')
