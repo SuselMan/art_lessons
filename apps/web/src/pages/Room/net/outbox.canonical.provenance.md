@@ -1,0 +1,13 @@
+# Canonical gesture heads in SAME Outbox
+
+Ordering metadata only: tuple(original userId,layerId,strokeId), or targetUserId for close. Ordering scalar descriptors are read as own data without invoking malformed ordering accessors; this is not a closed parser for all operation fields. No material parser, source/read/execution grant or assertion of complete prefix is introduced. Already-ACKed/missing ordinals cannot be inferred from this queue; server admission remains authoritative.
+
+SAME pending Map is authoritative for scheduling: a lower pending ordinal blocks higher frames even when initial persistence is unresolved, waiting-list entry is absent during backoff, head is stalled or in flight. Close waits all pending frames of its target gesture. Reversed persisted insertion order selects the lowest known ordinal. MAX_CONCURRENT_SENDS2 and existing legacy send/retry/room lifecycle remain. Other gestures/legacy use remaining slots. Analysis uses transient grouped heads/ordinal sets, linear in pending entries per available slot (MAX2); no retained second queue/map/registry.
+
+Malformed canonical metadata never falls through as legacy. Recoverable tuple with invalid ordinal, duplicate ordinal IDs, conflicting close ordinal bound or duplicate closes stalls its entire known group. Unrecoverable identity stalls that entry. Existing stalled Set owns status; entries remain pending/persisted, onStalled fires once per entry per stall period, and whenIdle uses existing all-stalled semantics. Explicit resendAll re-arms the period and reclassifies invalid data; no hidden discard. An already in-flight send cannot be cancelled retroactively if a conflict arrives later; its eventual terminal verdict removes its own pending/stalled identity, while unresolved conflicting entries remain stalled.
+
+Tests-first7RED thenGREEN. Coverage: reversed initial persist completion, reversed hydrate +teacher close target namespace, transient head retry, MAX_ATTEMPTS stalled head, MAX2 independent gesture slots, author/layer namespace, visible retained duplicate ordinals/close, malformed accessor untouched, and conflict discovered after head already in flight with coherent settled counts. Existing37legacy tests remain regressions. No Room dispatch/ACK/controller integration or producer activation in this unit.
+
+Late scheduled retries after a successful resend are pruned by linear in-place compaction of SAME waiting array. Tests-first stale-ID witness RED1→GREEN; valid blocked entries retain their order.
+
+Final checks:48tests/2suites (11canonical+37legacy) PASS98670, scoped oxlint/diff PASS. Root final app TypeScript48716 PASS includes late compaction; unchanged SW20733 PASS. No physical IndexedDB/online-room claim.

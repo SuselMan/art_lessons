@@ -21,6 +21,25 @@ const MAX_CONCURRENT_SENDS = 2
 // in the background; losing the drawing instead would be the worse failure.
 const MAX_ATTEMPTS = 12
 
+/** Ordering metadata only, never material/source/append authority. Inspect own
+ * scalar data without invoking an accessor from a malformed persisted record. */
+type CanonicalOrder={readonly key?:string;readonly kind:'frame'|'close'|'invalid';readonly ordinal?:number}
+function canonicalOrder(op:Operation):CanonicalOrder|undefined {
+  const data=(value:unknown,key:string):unknown=>{
+    if(!value||typeof value!=='object')return undefined
+    const descriptor=Object.getOwnPropertyDescriptor(value,key)
+    return descriptor&&Object.hasOwn(descriptor,'value')?descriptor.value:undefined
+  }
+  const type=data(op,'type')
+  if(type!=='canonical_stroke'&&type!=='canonical_stroke_close')return type===undefined?{kind:'invalid'}:undefined
+  const frame=data(op,'frame'),user=data(op,type==='canonical_stroke'?'userId':'targetUserId'),layer=data(op,'layerId'),stroke=data(type==='canonical_stroke'?frame:op,'strokeId')
+  const text=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.length<=256&&!v.includes('\0')
+  if(!text(user)||!text(layer)||!text(stroke))return{kind:'invalid'}
+  const key=JSON.stringify([user,layer,stroke]),ordinal=data(type==='canonical_stroke'?frame:op,type==='canonical_stroke'?'frameOrdinal':'recordedNext')
+  if(typeof ordinal!=='number'||!Number.isSafeInteger(ordinal)||ordinal<(type==='canonical_stroke'?0:1))return{key,kind:'invalid'}
+  return{key,kind:type==='canonical_stroke'?'frame':'close',ordinal}
+}
+
 export interface OutboxDeps {
   storage: OutboxStorage
   // (#358) The room this queue belongs to. One Outbox serves exactly one
@@ -291,12 +310,64 @@ export class Outbox {
    *  the whole queue while `canSend` says the socket cannot record anything
    *  yet — entries stay in `waiting`, and the resendAll that follows a
    *  successful join releases them. */
+  /** Transient analysis of SAME pending entries, never a second retained queue.
+   * A non-waiting head still blocks its gesture during persistence/backoff/stall. */
+  private canonicalHeads():{eligible:Set<string>;invalid:OutboxEntry[]} {
+    const eligible=new Set<string>(),invalid:OutboxEntry[]=[]
+    const groups=new Map<string,{entries:OutboxEntry[];ordinals:Set<number>;head?:OutboxEntry;minimum:number;close?:OutboxEntry;closeNext?:number;bad:boolean}>()
+    for(const entry of this.pending.values()){
+      const order=canonicalOrder(entry.op)
+      if(!order){eligible.add(entry.op.id);continue}
+      if(!order.key){invalid.push(entry);continue}
+      let group=groups.get(order.key)
+      if(!group){group={entries:[],ordinals:new Set(),minimum:Infinity,bad:false};groups.set(order.key,group)}
+      group.entries.push(entry)
+      if(order.kind==='invalid'){group.bad=true;continue}
+      if(order.kind==='close'){
+        if(group.close)group.bad=true
+        group.close=entry;group.closeNext=order.ordinal!;continue
+      }
+      if(group.ordinals.has(order.ordinal!))group.bad=true
+      group.ordinals.add(order.ordinal!)
+      if(order.ordinal!<group.minimum){group.minimum=order.ordinal!;group.head=entry}
+    }
+    for(const group of groups.values()){
+      if(group.closeNext!==undefined&&[...group.ordinals].some(ordinal=>ordinal>=group.closeNext!))group.bad=true
+      if(group.bad)invalid.push(...group.entries)
+      else if(group.head)eligible.add(group.head.op.id)
+      else if(group.close)eligible.add(group.close.op.id)
+    }
+    return{eligible,invalid}
+  }
+
+  private stallEntries(entries:readonly OutboxEntry[]):boolean {
+    const notices:OutboxEntry[]=[]
+    // Classify the whole ambiguous group before any external UI callback.
+    for(const entry of entries)if(!this.disposed&&this.pending.get(entry.op.id)===entry&&!this.stalled.has(entry.op.id)){
+      this.stalled.add(entry.op.id);notices.push(entry)
+    }
+    if(notices.length)this.onPendingChange?.(this.pending.size,this.stalled.size)
+    for(const entry of notices)if(!this.disposed&&this.pending.get(entry.op.id)===entry&&this.stalled.has(entry.op.id))this.onStalled?.(entry.op)
+    this.settleIdleWaiters()
+    return notices.length>0
+  }
+
   private pump(): void {
     if (this.disposed) return
+    // Late scheduled retries can outlive a terminal resend. Compact this SAME
+    // array in linear time, preserving valid blocked heads and their order.
+    let write=0
+    for(const id of this.waiting)if(this.pending.has(id)&&!this.inFlight.has(id))this.waiting[write++]=id
+    this.waiting.length=write
     while (this.inFlight.size < MAX_CONCURRENT_SENDS && this.waiting.length > 0) {
-      if (this.canSend && !this.canSend()) return
-      const opId = this.waiting.shift()!
-      if (!this.pending.has(opId) || this.inFlight.has(opId)) continue
+      const {eligible,invalid}=this.canonicalHeads()
+      const notified=this.stallEntries(invalid)
+      // Stall callbacks can reenter. Recompute from the actual pending owner.
+      if(notified)continue
+      if (this.canSend && !this.canSend() || this.disposed) return
+      const at=this.waiting.findIndex(id=>this.pending.has(id)&&!this.inFlight.has(id)&&!this.stalled.has(id)&&eligible.has(id))
+      if(at<0)return
+      const [opId]=this.waiting.splice(at,1)
       this.inFlight.add(opId)
       void this.runAttempt(opId)
     }
@@ -332,6 +403,7 @@ export class Outbox {
         // costs somebody a stroke.
         if (!result.ok && isTransientReject(result.reason)) throw new Error(result.reason)
         this.pending.delete(opId)
+        this.stalled.delete(opId) // a conflict may have classified an already in-flight head
         this.onPendingChange?.(this.pending.size, this.stalled.size)
         this.settleIdleWaiters()
         try {
@@ -350,10 +422,7 @@ export class Outbox {
           // Stop retrying on our own — but keep it queued and persisted, so
           // the next reconnect/join gets to try again rather than the work
           // being thrown away. See MAX_ATTEMPTS.
-          this.stalled.add(opId)
-          this.onPendingChange?.(this.pending.size, this.stalled.size)
-          this.onStalled?.(entry.op)
-          this.settleIdleWaiters()
+          this.stallEntries([entry])
           return
         }
         const delay = Math.min(INITIAL_BACKOFF_MS * 2 ** (entry.attempts - 1), MAX_BACKOFF_MS)
