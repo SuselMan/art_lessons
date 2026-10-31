@@ -1,7 +1,8 @@
 import {afterEach,expect,it,vi} from 'vitest'
 import {createHash} from 'node:crypto'
-import {CANONICAL_STROKE_RASTER_PROFILE,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,prepareCanonicalRecordedAttachment,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type BrushDescriptor,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type Operation} from '@grafetto/shared'
+import {CANONICAL_STROKE_RASTER_PROFILE,isBrushLibrary,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,prepareCanonicalRecordedAttachment,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type BrushDescriptor,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type Operation} from '@grafetto/shared'
 import stock from '../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
+import mappedGaussian from '../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.mapped.native'
 import {installBrushLibrary} from './src/presets/importedBrushes'
 import {attachCanonicalRecordedDelivery} from '../pages/Room/net/canonicalRecordedDelivery'
 import {prepareCanonicalRoomState} from '../pages/Room/net/canonicalRoomState'
@@ -10,9 +11,9 @@ import {createTestEngine} from './testing/engineTestUtils'
 import type {ServerToClientEvents} from '@grafetto/shared'
 import type {PointerData} from './src/input/PointerInput'
 afterEach(()=>vi.restoreAllMocks())
-function original(){
+function original(isCurrent=()=>true){
  const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:8,canvasHeight:8,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:2},canonicalHistoryBase:{kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:2,throughSeq:0,operationCount:0}}
- return prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent:()=>true})
+ return prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent})
 }
 const descriptor=stock.rows.find(row=>row.index===4)!.descriptor as unknown as BrushDescriptor
 const preset='brush:'+descriptor.id+'@'+descriptor.version
@@ -20,11 +21,11 @@ const sha=createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).
 const pin=canonicalDefaultAutoSourceBinding(descriptor,sha,'neon64-f32-fma-v1')
 function verdict(request:CanonicalStrokeBegin):CanonicalStrokeBeginResult{return{ok:true,recordedNext:0,liveNext:0,ended:false,snapshot:{layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,pigmentRgb8:request.pigmentRgb8,boardEpoch:2,descriptorSha256:sha,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,composition:{mode:'wash',alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity,outerBlend:'over'},assets:[],materialVersion:2,material:{version:2,assets:[],primarySource:pin,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}}}}}
 function packet(x:number,timeStamp:number):PointerData{return{x,y:2,pressure:.5,tiltX:0,tiltY:0,speed:0,pointerType:'pen',timeStamp,dispatchTime:timeStamp}}
-async function harness(begin:(request:CanonicalStrokeBegin,lifetime:{signal:AbortSignal;isCurrent:()=>boolean})=>Promise<CanonicalStrokeBeginResult>,selected=descriptor){
+async function harness(begin:(request:CanonicalStrokeBegin,lifetime:{signal:AbortSignal;isCurrent:()=>boolean})=>Promise<CanonicalStrokeBeginResult>,selected=descriptor,isCurrent=()=>true){
  installBrushLibrary({schemaVersion:1,brushes:[{descriptor:selected,name:'native Basic2Opacity',source:'native',warnings:[]}],assets:[],skipped:[]})
  const snapshots=new Map<string,CanonicalStrokeSnapshotV2>()
  const acceptedBegin=async(request:CanonicalStrokeBegin,lifetime:{signal:AbortSignal;isCurrent:()=>boolean})=>{const reply=await begin(request,lifetime);if(reply.ok&&'materialVersion'in reply.snapshot&&reply.snapshot.materialVersion===2)snapshots.set(request.strokeId,reply.snapshot);return reply}
- const p=original(),operations:Operation[]=[],r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:8,pageHeight:8,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations},canonicalAuthor:{begin:acceptedBegin},onLocalOperation:op=>operations.push(op)},{width:8,height:8}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
+ const p=original(isCurrent),operations:Operation[]=[],r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:8,pageHeight:8,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations},canonicalAuthor:{begin:acceptedBegin},onLocalOperation:op=>operations.push(op)},{width:8,height:8}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
  Object.assign(gl,{getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,8,8]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
  engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil('brush:'+selected.id+'@'+selected.version);engine.setSize(40);engine.setLocked(false)
  await engine.paperReady();await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
@@ -294,5 +295,94 @@ it('still displays when original order reverses two actually prepared local wash
   for(let i=0;i<first.length;i++)engine.appendOriginalRecorded(confirmed(h,first[i],second.length+i+1))
   await vi.waitFor(()=>expect(owner.coordinator).toBeUndefined(),{timeout:5000})
   expect(engine['_canonicalExportReady']()).toBe(true)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+function actualBasic5(){
+ const row=mappedGaussian.rows.find(r=>r.index===7);if(!row)throw Error('Missing actual mapped Basic5 SizeOpacity')
+ const candidate:unknown={schemaVersion:1,brushes:[{descriptor:row.descriptor,name:'Basic5',source:'native.kpp',warnings:[]}],assets:[],skipped:[]}
+ if(!isBrushLibrary(candidate))throw Error('Invalid real Basic5 metadata')
+ installBrushLibrary(candidate)
+ const brush=candidate.brushes[0].descriptor,data=brush.sourceStamp
+ if(data?.version!==2||data.source.kind==='image')throw Error('Expected real auto source')
+ return{preset:'brush:'+brush.id+'@'+brush.version,diameter:data.source.diameter}
+}
+it('grows the SAME warm workspace from actual Basic2 to Basic5 after a durable completed stroke without recompiling composite',async()=>{
+ const h=await harness(async request=>verdict(request)),{engine,operations}=h
+ try{
+  await engine.prepareBrush(preset)
+  engine['_onStart'](packet(1,100));engine['_onMove'](packet(5,110));engine['_onEnd'](packet(5,120))
+  await vi.waitFor(()=>expect(engine.hasActiveCanonicalAuthor()).toBe(false))
+  for(const [index,op] of operations.entries())engine.appendOriginalRecorded(confirmed(h,op,index+1))
+  await vi.waitFor(()=>expect(engine['_canonicalExportReady']()).toBe(true),{timeout:5000})
+  const owner=engine['_canonicalLayerOwner'];if(!owner)throw Error('Missing actual owner')
+  const journal=engine['_log'].entries,revision=engine['_log'].revision,stable=owner.stable,composite=owner.composite,prepass=owner.prepass,resources=composite.preparedResources(),oldWidth=owner.mask.width,epoch=owner.prepass.preparedCapacity().epoch,compile=vi.spyOn(engine['gl'],'createProgram')
+  const {preset:newPreset,diameter}=actualBasic5()
+  engine.setPencil(newPreset);engine.setSize(diameter)
+  expect(await engine.prepareBrush(newPreset)).toEqual({status:'ready'})
+  expect(engine['_canonicalLayerOwner']).toBe(owner);expect(owner.prepass).toBe(prepass);expect(owner.composite).toBe(composite);expect(owner.stable).toBe(stable)
+  expect(owner.mask.width).toBeGreaterThan(oldWidth);expect(owner.prepass.preparedCapacity().epoch).not.toBe(epoch);expect(composite.preparedResources()).toEqual(resources)
+  expect(compile).toHaveBeenCalledTimes(1) // Only the small transformed-mask program; composite stays warm.
+  expect(engine['_log'].entries).toBe(journal);expect(engine['_log'].revision).toBe(revision);expect(engine['_canonicalExportReady']()).toBe(true)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('rejects growth while a real unconfirmed local wash is retained, preserving its owner, program and original prefix',async()=>{
+ const h=await harness(async request=>verdict(request)),{engine,operations}=h,repair=vi.fn();engine['_onCanonicalRecoveryRequired']=repair
+ try{
+  await engine.prepareBrush(preset);const owner=engine['_canonicalLayerOwner'];if(!owner)throw Error('Owner missing')
+  engine['_onStart'](packet(1,100));engine['_onMove'](packet(5,110));engine['_onEnd'](packet(5,120))
+  await vi.waitFor(()=>expect(engine.hasActiveCanonicalAuthor()).toBe(false))
+  const coordinator=owner.coordinator,author=engine['_canonicalPreparedAuthor'],journal=engine['_log'].entries,resources=owner.prepass.preparedResources(),reset=vi.spyOn(owner.prepass,'reset'),bytes=engine['_brushMipCache'].reservedBytes,next=actualBasic5()
+  engine.setPencil(next.preset);engine.setSize(next.diameter)
+  await expect(engine.prepareBrush(next.preset)).rejects.toThrow('workspace busy')
+  expect(reset).not.toHaveBeenCalled();expect(engine['_canonicalLayerOwner']).toBe(owner);expect(owner.coordinator).toBe(coordinator);expect(owner.prepass.preparedResources()).toEqual(resources);expect(engine['_canonicalPreparedAuthor']).toBe(author)
+  expect(engine['_log'].entries).toBe(journal);expect(engine['_brushMipCache'].reservedBytes).toBe(bytes);expect(repair).not.toHaveBeenCalled()
+  for(const [index,op] of operations.entries())engine.appendOriginalRecorded(confirmed(h,op,index+1))
+  await vi.waitFor(()=>expect(engine['_canonicalExportReady']()).toBe(true),{timeout:5000})
+  expect(await engine.prepareBrush(next.preset)).toEqual({status:'ready'});expect(engine['_canonicalLayerOwner']).toBe(owner)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('keeps stable and composite alive after growth allocation failure, clears readiness and permits one explicit retry',async()=>{
+ const {engine}=await harness(async request=>verdict(request))
+ try{
+  await engine.prepareBrush(preset);const owner=engine['_canonicalLayerOwner'];if(!owner)throw Error('Owner missing')
+  const stable=owner.stable,journal=engine['_log'].entries,composite=owner.composite.preparedResources(),error=new Error('growth allocation'),next=actualBasic5(),allocate=vi.spyOn(engine['gl'],'createTexture').mockImplementationOnce(()=>{throw error})
+  engine.setPencil(next.preset);engine.setSize(next.diameter)
+  await expect(engine.prepareBrush(next.preset)).rejects.toBe(error)
+  expect(engine['_canonicalLayerOwner']).toBe(owner);expect(owner.stable).toBe(stable);expect(engine['_log'].entries).toBe(journal);expect(owner.prepared).toBe(false);expect(engine['_canonicalPreparedAuthor']).toBeUndefined();expect(owner.prepass.isReady()).toBe(false);expect(owner.composite.preparedResources()).toEqual(composite)
+  expect(await engine.prepareBrush(next.preset)).toEqual({status:'ready'});expect(allocate).toHaveBeenCalled();expect(owner.composite.preparedResources()).toEqual(composite)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('does not publish ready when the original lifetime expires after actual larger prepass allocation',async()=>{
+ let current=true
+ const {engine}=await harness(async request=>verdict(request),descriptor,()=>current)
+ try{
+  await engine.prepareBrush(preset);const owner=engine['_canonicalLayerOwner'];if(!owner)throw Error('Owner missing')
+  const prepare=owner.prepass.prepare.bind(owner.prepass),composite=owner.composite.preparedResources(),next=actualBasic5()
+  vi.spyOn(owner.prepass,'prepare').mockImplementationOnce((...args)=>{const result=prepare(...args);current=false;return result})
+  engine.setPencil(next.preset);engine.setSize(next.diameter)
+  await expect(engine.prepareBrush(next.preset)).rejects.toThrow()
+  expect(owner.prepared).toBe(false);expect(engine['_canonicalPreparedAuthor']).toBeUndefined();expect(owner.prepass.isReady()).toBe(false);expect(owner.composite.preparedResources()).toEqual(composite)
+  current=true;expect(await engine.prepareBrush(next.preset)).toEqual({status:'ready'})
+ }finally{current=true;engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('requires the same idle boundary on explicit retry after a failed growth, before touching any still-owned workspace',async()=>{
+ const {engine}=await harness(async request=>verdict(request))
+ try{
+  await engine.prepareBrush(preset);const owner=engine['_canonicalLayerOwner'];if(!owner)throw Error('Owner missing')
+  const next=actualBasic5(),error=new Error('first allocation'),composite=owner.composite.preparedResources(),journal=engine['_log'].entries
+  vi.spyOn(engine['gl'],'createTexture').mockImplementationOnce(()=>{throw error})
+  engine.setPencil(next.preset);engine.setSize(next.diameter);await expect(engine.prepareBrush(next.preset)).rejects.toBe(error)
+  expect(owner.prepared).toBe(false)
+  // Actual existing admission seam creates the same coordinator/derived owner;
+  // a retry cannot assume prepared=false means that these owners are absent.
+  expect(()=>engine['_ensureCanonicalLayerCoordinator'](owner)).toThrow('Prepass is not prepared')
+  const derived=owner.derived,reset=vi.spyOn(owner.prepass,'reset');expect(derived).toBeDefined()
+  await expect(engine.prepareBrush(next.preset)).rejects.toThrow('workspace busy')
+  expect(reset).not.toHaveBeenCalled();expect(owner.derived).toBe(derived);expect(owner.composite.preparedResources()).toEqual(composite);expect(engine['_log'].entries).toBe(journal)
+  expect(engine['_retireCanonicalLayerCycle'](owner,false)).toEqual([])
+  expect(await engine.prepareBrush(next.preset)).toEqual({status:'ready'})
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })

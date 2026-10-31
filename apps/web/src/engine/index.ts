@@ -6363,6 +6363,48 @@ export class PencilEngine implements PencilEngineAPI {
       this._publishCanonicalLayerInput(owner,input)
     }catch(error){this._poisonCanonicalLayer(error);throw error}finally{owner.accepting=false}
   }
+  /** A larger source may replace only an idle mask workspace. The layer,
+   * journal, cache, prepass object and expensive composite programs stay owned
+   * by the same layer; an open/unconfirmed wash is never discarded to resize. */
+  private _prepareCanonicalLayerWorkspace(owner:CanonicalLayerOwner,requested:TransformedMaskLimits):void {
+    this._assertCanonicalLayerCurrent(owner)
+    if(owner.prepared&&requested.width<=owner.mask.width&&requested.height<=owner.mask.height&&requested.slots<=owner.mask.slots)return
+    const growing=owner.prepared
+    const mask=Object.freeze({width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots)})
+    const cost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(owner.plan.composite),compositeReady=owner.composite.isReady()
+    const replacing=growing||compositeReady
+    const oldMaskCpu=growing?transformedMaskPrepassBudget(owner.mask).cpuBytes:0
+    const oldAuthorCpu=replacing&&this._canonicalPreparedAuthor?.owner===owner?this._canonicalPreparedAuthor.bytes:0
+    // Candidate source CPU is already reserved by the caller. Subtract only
+    // the owners actually retired below; companion storage is never charged twice.
+    if(cost.gpuBytes+compositeCost.gpuBytes>owner.cache.budgetBytes||this._brushMipCache.reservedBytes-oldMaskCpu-oldAuthorCpu+cost.cpuBytes+(compositeReady?0:compositeCost.cpuBytes)>this._brushMipCache.budgetBytes)throw new RangeError('Canonical source workspace companions exceed budget')
+    const assertIdle=()=>{
+      if(this._canonicalSourceLifetimeHolds||this._authorInput.pending||this._authorProducer||owner.accepting||owner.job||owner.wake!==undefined||owner.orderParked||owner.coordinator||owner.derived||owner.outstanding||this._rebuildJobs.has(INITIAL_LAYER_ID))throw new Error('Canonical workspace busy; finish and confirm the current gesture before changing brush')
+    }
+    if(replacing){
+      assertIdle()
+      this._releaseCanonicalPreparedAuthor()
+      this._assertCanonicalLayerCurrent(owner);assertIdle()
+    }
+    owner.prepared=false
+    try{
+      if(replacing){owner.prepass.reset(false);this._assertCanonicalLayerCurrent(owner);assertIdle()}
+      owner.prepass.prepare(mask,[])
+      this._assertCanonicalLayerCurrent(owner)
+      if(replacing)assertIdle()
+      // Same capacity/operations: refresh companions without recompiling or
+      // replacing the composite workspace, programs or current stable pixels.
+      owner.composite.prepare(owner.plan.composite,owner.prepass.preparedResources(),cost.cpuBytes)
+      this._assertCanonicalLayerCurrent(owner)
+      if(replacing)assertIdle()
+      owner.mask=mask;owner.prepared=true
+    }catch(error){
+      owner.prepared=false
+      const lost=this._contextLost||owner.generation!==this._physicalGeneration
+      for(const cleanup of [()=>owner.prepass.reset(lost),()=>{if(!compositeReady)owner.composite.reset(lost)}])try{cleanup()}catch{/* Preserve the first allocation/authority failure. */}
+      throw error
+    }
+  }
   private _ensureCanonicalLayerCoordinator(owner:CanonicalLayerOwner):CanonicalWashLayerCoordinator {
     if(!owner.coordinator){
         owner.lastDisplayedPresentationRevision=undefined
@@ -6806,16 +6848,12 @@ export class PencilEngine implements PencilEngineAPI {
       if(options.signal?.aborted||this._opts.pencilType!==preset)return{status:'cancelled'}
       const pin=data.source.kind==='softAuto'?canonicalSoftAutoSourceBinding(descriptor,sha,coverageProfile,0,owner.plan.profile):data.source.kind==='gaussianAuto'?canonicalGaussianAutoSourceBinding(descriptor,sha,coverageProfile,owner.plan.profile):canonicalDefaultAutoSourceBinding(descriptor,sha,coverageProfile,owner.plan.profile)
       const mask=canonicalLayerMaskCapacity(pin),maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(owner.plan.composite)
-      if(owner.prepared&&(mask.width>owner.mask.width||mask.height>owner.mask.height))throw new RangeError('Canonical source exceeds warm workspace')
       if(maskCost.gpuBytes+compositeCost.gpuBytes>16*1024*1024||maskCost.cpuBytes+compositeCost.cpuBytes+charge>this._brushMipCache.budgetBytes)throw new RangeError('Canonical source workspace companions exceed budget')
       if(this._brushPreparationPreset!==preset){this._brushPreparationGeneration++;this._brushPreparation.cancel();this._brushPreparationPreset=preset}
       const generation=this._brushPreparationGeneration
       const result=await this._brushPreparation.run([()=>{
         this._assertCanonicalLayerCurrent(owner)
-        if(!owner.prepared){
-          try{owner.prepass.prepare(mask,[]);owner.composite.prepare(owner.plan.composite,owner.prepass.preparedResources(),maskCost.cpuBytes);owner.mask=Object.freeze(mask);owner.prepared=true}
-          catch(error){for(const cleanup of [()=>owner.prepass.reset(),()=>owner.composite.reset(),()=>owner.cache.clear()])try{cleanup()}catch{/* preserve prepare failure */}throw error}
-        }
+        this._prepareCanonicalLayerWorkspace(owner,mask)
       }],options,()=>!this._destroyed&&!this._contextLost&&this._canonicalLayerOwner===owner,preset)
       if(result.status!=='ready'||generation!==this._brushPreparationGeneration||options.signal?.aborted||this._opts.pencilType!==preset)return{status:'cancelled'}
       this._assertCanonicalLayerCurrent(owner)
