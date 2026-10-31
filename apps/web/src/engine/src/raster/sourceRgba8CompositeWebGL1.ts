@@ -38,15 +38,33 @@ float sourceRgba8Blend(float source, float destination, float alpha) {
   return floor((floor(t * (1.0/256.0)) + t) * (1.0/256.0)) + destination;
 }
 float sourceRgba8Wrap(float value) { return value - floor(value * (1.0/256.0)) * 256.0; }
-float sourceRgba8AddChannel(float source, float destination, float sa, float da, float alpha) {
-  float sum = min(255.0, source + destination);
+// Closed IDs: 0 Over, 1 Add, 2 AlphaDarken, 3 Multiply, 4 Lighten,
+// 5 ColorDodge, 6 Overlay. New IDs require the explicit host generic-SC profile.
+float sourceRgba8SeparableChannel(float mode, float source, float destination) {
+  if (mode == 3.0) return sourceRgba8Multiply(source, destination);
+  if (mode == 4.0) return max(source, destination);
+  if (mode == 5.0) return source == 255.0 ? (destination == 0.0 ? 0.0 : 255.0)
+    : min(255.0, sourceRgba8Divide(destination, 255.0-source));
+  if (destination == 127.0) return source;
+  if (destination < 127.0) return sourceRgba8Multiply(2.0*destination, source);
+  float doubled = 2.0*destination-255.0;
+  return doubled+source-sourceRgba8Multiply(doubled, source);
+}
+float sourceRgba8GenericScChannel(float source, float destination, float sa, float da, float alpha, float cf) {
   if (da == 0.0) return source;
-  if (da == 255.0) return sourceRgba8Blend(sum, destination, sa);
-  if (sa == 255.0) return sourceRgba8Blend(sum, source, da);
+  if (da == 255.0) return sourceRgba8Blend(cf, destination, sa);
+  if (sa == 255.0) return sourceRgba8Blend(cf, source, da);
   float premultiplied = sourceRgba8Wrap(sourceRgba8Multiply3(255.0-sa, da, destination)
     + sourceRgba8Multiply3(255.0-da, sa, source)
-    + sourceRgba8Multiply3(da, sa, sum));
+    + sourceRgba8Multiply3(da, sa, cf));
   return sourceRgba8Wrap(sourceRgba8Divide(premultiplied, alpha));
+}
+float sourceRgba8AddChannel(float source, float destination, float sa, float da, float alpha) {
+  return sourceRgba8GenericScChannel(source, destination, sa, da, alpha, min(255.0, source+destination));
+}
+float sourceRgba8GenericScModeChannel(float mode, float source, float destination, float sa, float da, float alpha) {
+  float cf = mode == 1.0 ? min(255.0, source+destination) : sourceRgba8SeparableChannel(mode, source, destination);
+  return sourceRgba8GenericScChannel(source, destination, sa, da, alpha, cf);
 }
 vec4 sourceCompositeRgba8(vec4 source, vec4 destination, SourceRgba8CompositeControl control) {
   float da = destination.a;
@@ -76,8 +94,8 @@ vec4 sourceCompositeRgba8(vec4 source, vec4 destination, SourceRgba8CompositeCon
   float sa = sourceRgba8Multiply3(source.a, control.mask, control.opacity);
   if (sa == 0.0) return destination;
   float alpha = sa + da - sourceRgba8Multiply(sa, da);
-  return vec4(sourceRgba8AddChannel(source.r,destination.r,sa,da,alpha),
-    sourceRgba8AddChannel(source.g,destination.g,sa,da,alpha),
-    sourceRgba8AddChannel(source.b,destination.b,sa,da,alpha), alpha);
+  return vec4(sourceRgba8GenericScModeChannel(control.mode,source.r,destination.r,sa,da,alpha),
+    sourceRgba8GenericScModeChannel(control.mode,source.g,destination.g,sa,da,alpha),
+    sourceRgba8GenericScModeChannel(control.mode,source.b,destination.b,sa,da,alpha), alpha);
 }
 `;

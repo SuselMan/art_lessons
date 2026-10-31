@@ -115,16 +115,54 @@ export function adjustHsvChromaRgba8(source: Rgba8, hue: number, saturation: num
   return [floatByte(rgb[0]), floatByte(rgb[1]), floatByte(rgb[2]), source[3]]
 }
 
-export interface Rgba8CompositeControl {
-  readonly mode: 'over' | 'add' | 'alphaDarken'
+/** Generic SC integer source law, separate from optimized F32 Over/AlphaDarken. */
+export const SOURCE_RGBA8_GENERIC_SC_PROFILE = 'krita-generic-sc-u8-bd6e8d0-v1' as const
+export type SourceRgba8SeparableMode = 'multiply' | 'lighten' | 'colorDodge' | 'overlay'
+interface Rgba8CompositeParameters {
   readonly opacity: number
   readonly mask?: number
   readonly flow?: number
   readonly averageOpacity?: number
 }
+export type Rgba8CompositeControl = Rgba8CompositeParameters & (
+  { readonly mode: 'over' | 'add' | 'alphaDarken'; readonly profile?: never } |
+  { readonly mode: SourceRgba8SeparableMode; readonly profile: typeof SOURCE_RGBA8_GENERIC_SC_PROFILE }
+)
+export const SOURCE_RGBA8_COMPOSITE_MODES = ['over', 'add', 'alphaDarken', 'multiply', 'lighten', 'colorDodge', 'overlay'] as const
+export function sourceRgba8CompositeModeId(mode: Rgba8CompositeControl['mode']): 0 | 1 | 2 | 3 | 4 | 5 | 6 {
+  const index = SOURCE_RGBA8_COMPOSITE_MODES.indexOf(mode)
+  if (index < 0) throw new RangeError('Unknown RGBA8 composite mode')
+  return index as 0 | 1 | 2 | 3 | 4 | 5 | 6
+}
+const separableModes: readonly string[] = ['multiply', 'lighten', 'colorDodge', 'overlay']
+/** Closed byte-channel functions from the pinned generic SC functors. */
+export function sourceRgba8SeparableChannel(mode: SourceRgba8SeparableMode, source: number, destination: number): number {
+  if (!Number.isInteger(source) || source < 0 || source > 255 || !Number.isInteger(destination) || destination < 0 || destination > 255)
+    throw new RangeError('Invalid separable byte channel')
+  return separableChannel(mode, source, destination)
+}
+function separableChannel(mode: SourceRgba8SeparableMode, source: number, destination: number): number {
+  if (mode === 'multiply') return multiply(source, destination)
+  if (mode === 'lighten') return Math.max(source, destination)
+  if (mode === 'colorDodge') return source === 255 ? destination === 0 ? 0 : 255 : Math.min(255, divide(destination, 255 - source))
+  if (mode !== 'overlay') throw new RangeError('Unknown separable byte operation')
+  if (destination === 127) return source
+  if (destination < 127) return multiply(destination * 2, source)
+  const doubled = destination * 2 - 255
+  return doubled + source - multiply(doubled, source)
+}
+/** Same generic-SC branch/narrowing body used by addition and separable ops. */
+function genericScChannel(source: number, destination: number, sa: number, da: number, alpha: number, cf: number): number {
+  if (!da) return source
+  if (da === 255) return blend(cf, destination, sa)
+  if (sa === 255) return blend(cf, source, da)
+  const premul = (multiply3(255 - sa, da, destination) + multiply3(255 - da, sa, source) + multiply3(da, sa, cf)) & 255
+  return divide(premul, alpha) & 255
+}
 /** Validate the complete control before a caller allocates/writes surfaces. */
 export function validateRgba8CompositeControl(control: Rgba8CompositeControl): void {
-  if (!control || !['over', 'add', 'alphaDarken'].includes(control.mode)) throw new RangeError('Unknown composite mode')
+  if (!control || !['over', 'add', 'alphaDarken', ...separableModes].includes(control.mode)) throw new RangeError('Unknown composite mode')
+  if (separableModes.includes(control.mode) && control.profile !== SOURCE_RGBA8_GENERIC_SC_PROFILE) throw new RangeError('Missing generic SC U8 profile')
   unit(control.opacity)
   if (control.mask !== undefined && (!Number.isInteger(control.mask) || control.mask < 0 || control.mask > 255)) throw new RangeError('Invalid mask byte')
   unit(control.flow ?? 1)
@@ -160,18 +198,11 @@ export function compositeRgba8(source: Rgba8, destination: Rgba8, control: Rgba8
     const a = f(flow) === 1 ? full : blend(full, da, opacityByte(flow))
     return [da ? blend(source[0], destination[0], sa) : source[0], da ? blend(source[1], destination[1], sa) : source[1], da ? blend(source[2], destination[2], sa) : source[2], a]
   }
-  if (control.mode !== 'add') throw new RangeError('Unknown composite mode')
   const sa = multiply3(source[3], mask, opacity)
   if (!sa) return [...destination]
   const a = sa + da - multiply(sa, da)
-  const channel = (i: 0 | 1 | 2): number => {
-    const sum = Math.min(255, source[i] + destination[i])
-    if (!da) return source[i]
-    if (da === 255) return blend(sum, destination[i], sa)
-    if (sa === 255) return blend(sum, source[i], da)
-    const premul = (multiply3(255 - sa, da, destination[i]) + multiply3(255 - da, sa, source[i]) + multiply3(da, sa, sum)) & 255
-    return divide(premul, a) & 255
-  }
+  const channel = (i: 0 | 1 | 2): number => genericScChannel(source[i], destination[i], sa, da, a,
+    control.mode === 'add' ? Math.min(255, source[i] + destination[i]) : separableChannel(control.mode, source[i], destination[i]))
   return [channel(0), channel(1), channel(2), a]
 }
 

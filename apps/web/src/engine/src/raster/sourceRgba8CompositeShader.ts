@@ -1,8 +1,8 @@
-import type { Rgba8CompositeControl } from '../presets/sourceColorRgba8';
+import { sourceRgba8CompositeModeId, validateRgba8CompositeControl, type Rgba8CompositeControl } from '../presets/sourceColorRgba8';
 
 /** Host-resolved bytes; no shader float quantization or implicit mask collapse. */
 export interface SourceRgba8CompositeBytes {
-  readonly mode: 0 | 1 | 2; // Over, Add, creamy AlphaDarken
+  readonly mode: 0 | 1 | 2 | 3 | 4 | 5 | 6; // Existing0/1/2; generic SC Multiply/Lighten/Dodge/Overlay3..6
   readonly opacity: number;
   readonly mask: number;
   readonly hasMask: boolean;
@@ -20,8 +20,8 @@ export function canonicalizeSourceRgba8Control(control: Rgba8CompositeControl): 
     || control.mask !== undefined && (!Number.isInteger(control.mask) || control.mask < 0 || control.mask > 255)) {
     throw new RangeError('Invalid RGBA8 composite controls');
   }
-  const mode = control.mode === 'over' ? 0 : control.mode === 'add' ? 1 : control.mode === 'alphaDarken' ? 2 : undefined;
-  if (mode === undefined) throw new RangeError('Unknown RGBA8 composite mode');
+  validateRgba8CompositeControl(control);
+  const mode = sourceRgba8CompositeModeId(control.mode);
   const byte = (v: number) => Math.trunc(Math.fround(Math.fround(Math.fround(v) * 255) + .5));
   return { mode, opacity: byte(control.opacity), mask: control.mask ?? 255,
     hasMask: control.mask !== undefined, flow: byte(flow), average: byte(average),
@@ -58,15 +58,31 @@ uint sourceRgba8Blend(uint source, uint destination, uint alpha) {
   int t = (int(source) - int(destination)) * int(alpha) + 128;
   return uint((((t >> 8) + t) >> 8) + int(destination));
 }
-uint sourceRgba8AddChannel(uint source, uint destination, uint sa, uint da, uint alpha) {
-  uint sum = min(255u, source + destination);
+uint sourceRgba8SeparableChannel(uint mode, uint source, uint destination) {
+  if (mode == 3u) return sourceRgba8Multiply(source, destination);
+  if (mode == 4u) return max(source, destination);
+  if (mode == 5u) return source == 255u ? (destination == 0u ? 0u : 255u)
+    : min(255u, sourceRgba8Divide(destination, 255u-source));
+  if (destination == 127u) return source;
+  if (destination < 127u) return sourceRgba8Multiply(2u*destination, source);
+  uint doubled = 2u*destination-255u;
+  return doubled+source-sourceRgba8Multiply(doubled, source);
+}
+uint sourceRgba8GenericScChannel(uint source, uint destination, uint sa, uint da, uint alpha, uint cf) {
   if (da == 0u) return source;
-  if (da == 255u) return sourceRgba8Blend(sum, destination, sa);
-  if (sa == 255u) return sourceRgba8Blend(sum, source, da);
+  if (da == 255u) return sourceRgba8Blend(cf, destination, sa);
+  if (sa == 255u) return sourceRgba8Blend(cf, source, da);
   uint premultiplied = (sourceRgba8Multiply3(255u-sa, da, destination)
     + sourceRgba8Multiply3(255u-da, sa, source)
-    + sourceRgba8Multiply3(da, sa, sum)) & 255u;
+    + sourceRgba8Multiply3(da, sa, cf)) & 255u;
   return sourceRgba8Divide(premultiplied, alpha) & 255u;
+}
+uint sourceRgba8AddChannel(uint source, uint destination, uint sa, uint da, uint alpha) {
+  return sourceRgba8GenericScChannel(source, destination, sa, da, alpha, min(255u, source+destination));
+}
+uint sourceRgba8GenericScModeChannel(uint mode, uint source, uint destination, uint sa, uint da, uint alpha) {
+  uint cf = mode == 1u ? min(255u, source+destination) : sourceRgba8SeparableChannel(mode, source, destination);
+  return sourceRgba8GenericScChannel(source, destination, sa, da, alpha, cf);
 }
 uvec4 sourceCompositeRgba8(uvec4 source, uvec4 destination, SourceRgba8CompositeControl control) {
   uint da = destination.a;
@@ -93,13 +109,13 @@ uvec4 sourceCompositeRgba8(uvec4 source, uvec4 destination, SourceRgba8Composite
       da == 0u ? source.g : sourceRgba8Blend(source.g,destination.g,sa),
       da == 0u ? source.b : sourceRgba8Blend(source.b,destination.b,sa), alpha);
   }
-  // Valid host-preflight mode1 only. No undefined-mode fallback contract.
+  // Valid host-preflight generic SC modes1/3/4/5/6 only.
   uint sa = sourceRgba8Multiply3(source.a, control.mask, control.opacity);
   if (sa == 0u) return destination;
   uint alpha = sa + da - sourceRgba8Multiply(sa, da);
-  return uvec4(sourceRgba8AddChannel(source.r,destination.r,sa,da,alpha),
-    sourceRgba8AddChannel(source.g,destination.g,sa,da,alpha),
-    sourceRgba8AddChannel(source.b,destination.b,sa,da,alpha), alpha);
+  return uvec4(sourceRgba8GenericScModeChannel(control.mode,source.r,destination.r,sa,da,alpha),
+    sourceRgba8GenericScModeChannel(control.mode,source.g,destination.g,sa,da,alpha),
+    sourceRgba8GenericScModeChannel(control.mode,source.b,destination.b,sa,da,alpha), alpha);
 }
 `;
 
