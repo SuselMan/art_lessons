@@ -1,0 +1,5 @@
+# Typed canonical close socket delivery
+
+The existing typed `canonical_stroke_close` event now uses the same bounded per-socket canonical queue as BEGIN/live/recorded. It captures the room, actor and join generation, calls the existing durable transport close writer, and publishes only its accepted metadata through the board's `operation_confirmed` channel. The confirmation has no frame capability. Generic `operation` close remains rejected, V1 is not widened, and default auto-source execution policy stays OFF.
+
+Actual Socket.IO server/client tests with mocked indexed storage first failed for the missing typed ACK, then passed for frame-before-close ordering, ACK/relay only after durability, exact-ID failed-write repair without seq2, different actor/generic route rejection, pre-join rejection and disconnect during the indexed prefix query. The source fixture is V2; its frame confirmation is drained before close-silence assertions. Cleanup closes test sockets/server and removes fixture storage. These tests do not claim physical database durability or an enabled ordinary Room UI.

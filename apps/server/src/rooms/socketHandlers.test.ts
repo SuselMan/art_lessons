@@ -1054,3 +1054,92 @@ it('failed snapshot preflight keeps the original seat and writes no successful p
  expect(rooms.get(lessonId)!.participants.get('student')!.boardId).toBe(lessonId)
  expect(mockPrisma.roomParticipant.upsert).not.toHaveBeenCalled();expect(states).toEqual([])
 })
+
+it('orders typed close on the SAME canonical socket queue and confirms only its durable metadata',async()=>{
+ const c=await canonicalClassroom();let release:()=>void=()=>{}
+ try{
+  const {default:stock}=await import(new URL('../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native.ts',import.meta.url).href)
+  const descriptor=stock.rows[0].descriptor
+  setBrushStorage(c.storage,{schemaVersion:1,assets:[],skipped:[],brushes:[{name:'Auto',source:'native.kpp',warnings:[],descriptor}]})
+  const begin={...c.begin,brush:`brush:${descriptor.id}@${descriptor.version}`},response=await new Promise<CanonicalStrokeBeginResult>(resolve=>c.teacher.emit('canonical_stroke_begin',begin,resolve))
+  if(!response.ok||!('materialVersion'in response.snapshot))throw Error('Expected actual V2 source')
+  const s=response.snapshot
+  if(s.rasterProfile!==CANONICAL_STROKE_RASTER_PROFILE)throw Error('Expected captured old profile')
+  const materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},s.material).packed
+  const op:CanonicalStrokeOperation={type:'canonical_stroke',id:fresh('close-source'),userId:'teacher',timestamp:0,layerId:begin.layerId,frame:{version:1,rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked}}
+  const request={operationId:fresh('typed-close'),layerId:op.layerId,targetUserId:'teacher',strokeId:s.strokeId,disposition:'commitPartial' as const,expectedRecordedNext:1,expectedLastFrameOpId:op.id}
+  const persisted:typeof mockPrisma.operation.create.mock.calls[number][0]['data'][]=[]
+  mockPrisma.operation.create.mockImplementation(async q=>{persisted.push(q.data)})
+  mockPrisma.operation.findMany.mockImplementation(async({where})=>persisted.filter(row=>row.seq>where.seq.gt&&row.seq<=where.seq.lte))
+  await _flushPendingWrites(c.lessonId)
+  const frameWrite=new Promise<void>(resolve=>{release=resolve})
+  mockPrisma.operation.create.mockImplementationOnce(async q=>{await frameWrite;persisted.push(q.data)})
+  const frameAck=new Promise<SendResult>(resolve=>c.teacher.emit('operation',op,resolve)),closeAck=new Promise<SendResult>(resolve=>c.teacher.emit('canonical_stroke_close',request,resolve)),settled=vi.fn();void closeAck.then(settled)
+  await vi.waitFor(()=>expect(c.record.operationsById.has(op.id)).toBe(true));await new Promise(resolve=>setTimeout(resolve,30))
+  expect(settled).not.toHaveBeenCalled();expect(c.record.operationsById.has(request.operationId)).toBe(false)
+  const confirmed:Parameters<ServerToClientEvents['operation_confirmed']>[0][]=[]
+  c.student.on('operation_confirmed',payload=>confirmed.push(payload))
+  release();expect(await frameAck).toMatchObject({ok:true})
+  expect(await Promise.race([closeAck,new Promise(resolve=>setTimeout(()=>resolve('missing typed close ACK'),500))])).toMatchObject({ok:true})
+  await vi.waitFor(()=>expect(confirmed.some(p=>p.operation.id===request.operationId)).toBe(true))
+  const event=confirmed.find(p=>p.operation.id===request.operationId)!
+  expect(event.operation).toMatchObject({type:'canonical_stroke_close',recordedNext:1,firstFrameOpId:op.id,lastFrameOpId:op.id,seq:event.seq})
+  expect(event).not.toHaveProperty('canonicalCapabilities')
+  const nextSeq=c.record.nextSeq,writes=mockPrisma.operation.create.mock.calls.length
+  expect(await new Promise<SendResult>(resolve=>c.teacher.emit('canonical_stroke_close',request,resolve))).toEqual({ok:true,seq:event.seq,duplicate:true})
+  expect(c.record.nextSeq).toBe(nextSeq);expect(mockPrisma.operation.create).toHaveBeenCalledTimes(writes)
+  expect(await new Promise<SendResult>(resolve=>c.student.emit('canonical_stroke_close',request,resolve))).toMatchObject({ok:false})
+  expect(await new Promise<SendResult>(resolve=>c.teacher.emit('operation',event.operation,resolve))).toMatchObject({ok:false})
+ }finally{release();await _flushPendingWrites(c.lessonId);c.cleanup()}
+})
+
+async function typedCloseClassroom(){
+ const c=await canonicalClassroom()
+ const {default:stock}=await import(new URL('../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native.ts',import.meta.url).href)
+ const descriptor=stock.rows[0].descriptor
+ setBrushStorage(c.storage,{schemaVersion:1,assets:[],skipped:[],brushes:[{name:'Auto',source:'native.kpp',warnings:[],descriptor}]})
+ const response=await new Promise<CanonicalStrokeBeginResult>(resolve=>c.teacher.emit('canonical_stroke_begin',{...c.begin,brush:`brush:${descriptor.id}@${descriptor.version}`},resolve))
+ if(!response.ok||!('materialVersion'in response.snapshot))throw Error('Expected actual V2 source')
+ const s=response.snapshot
+ if(s.rasterProfile!==CANONICAL_STROKE_RASTER_PROFILE)throw Error('Expected captured old profile')
+ const materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},s.material).packed
+ const op:CanonicalStrokeOperation={type:'canonical_stroke',id:fresh('typed-open'),userId:'teacher',timestamp:0,layerId:c.begin.layerId,frame:{version:1,rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked}}
+ const persisted:typeof mockPrisma.operation.create.mock.calls[number][0]['data'][]=[]
+ await _flushPendingWrites(c.lessonId)
+ mockPrisma.operation.create.mockImplementation(async q=>{persisted.push(q.data)})
+ mockPrisma.operation.findMany.mockImplementation(async({where})=>persisted.filter(row=>row.seq>where.seq.gt&&row.seq<=where.seq.lte))
+ const confirmed=next(c.student,'operation_confirmed')
+ expect(await new Promise<SendResult>(resolve=>c.teacher.emit('operation',op,resolve))).toMatchObject({ok:true})
+ expect((await confirmed).operation.id).toBe(op.id)
+ return{...c,op,request:{operationId:fresh('typed-close'),layerId:op.layerId,targetUserId:'teacher',strokeId:s.strokeId,disposition:'commitPartial' as const,expectedRecordedNext:1,expectedLastFrameOpId:op.id}}
+}
+it('does not ACK or relay typed close before durability and repairs its exact failed ID',async()=>{
+ const c=await typedCloseClassroom();let reject:(error:Error)=>void=()=>{}
+ const log=vi.spyOn(console,'error').mockImplementation(()=>{})
+ try{
+  mockPrisma.operation.create.mockReturnValueOnce(new Promise<void>((_,r)=>{reject=r}))
+  const quiet=silent(c.student,'operation_confirmed',50),settled=vi.fn(),pending=new Promise<SendResult>(resolve=>c.teacher.emit('canonical_stroke_close',c.request,resolve));void pending.then(settled)
+  await vi.waitFor(()=>expect(c.record.operationsById.has(c.request.operationId)).toBe(true));await quiet;expect(settled).not.toHaveBeenCalled()
+  const seq=c.record.operationsById.get(c.request.operationId)!.seq!,nextSeq=c.record.nextSeq
+  reject(new Error('typed close durable failure'))
+  expect(await pending).toEqual({ok:false,reason:'canonical_repair_required'});await silent(c.student,'operation_confirmed',30)
+  const confirmed=next(c.student,'operation_confirmed')
+  expect(await new Promise<SendResult>(resolve=>c.teacher.emit('canonical_stroke_close',c.request,resolve))).toEqual({ok:true,seq,duplicate:true})
+  expect((await confirmed).operation.id).toBe(c.request.operationId);expect(c.record.nextSeq).toBe(nextSeq)
+ }finally{reject(new Error('test cleanup'));await _flushPendingWrites(c.lessonId);log.mockRestore();c.cleanup()}
+})
+it('rejects typed close before join and after its captured socket disconnects during prefix lookup',async()=>{
+ const unjoined=client('unjoined'),request={operationId:'none',layerId:'layer-1',targetUserId:'unjoined',strokeId:'S',disposition:'commitPartial' as const,expectedRecordedNext:1,expectedLastFrameOpId:'last'}
+ expect(await new Promise<SendResult>(resolve=>unjoined.emit('canonical_stroke_close',request,resolve))).toEqual({ok:false,reason:'not_joined'})
+ const c=await typedCloseClassroom();let release:(rows:unknown[])=>void=()=>{}
+ try{
+  const quiet=silent(c.student,'operation_confirmed',100),query=new Promise<unknown[]>(resolve=>{release=resolve})
+  mockPrisma.operation.findMany.mockClear();mockPrisma.operation.findMany.mockReturnValueOnce(query)
+  c.teacher.emit('canonical_stroke_close',c.request,()=>{})
+  await vi.waitFor(()=>expect(mockPrisma.operation.findMany).toHaveBeenCalled())
+  const frameRow=mockPrisma.operation.create.mock.calls.find(([q])=>q.data.id===c.op.id)![0].data
+  c.teacher.disconnect();await vi.waitFor(()=>expect(c.record.sockets.size).toBe(1));release([frameRow])
+  await quiet;await _flushPendingWrites(c.lessonId)
+  expect(c.record.operationsById.has(c.request.operationId)).toBe(false)
+ }finally{release([]);await _flushPendingWrites(c.lessonId);c.cleanup()}
+})

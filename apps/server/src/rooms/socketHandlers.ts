@@ -338,6 +338,20 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, cano
       }, () => ack?.({ ok: false, reason: 'canonical_repair_required' }))
     })
 
+    socket.on('canonical_stroke_close',(data,ack)=>{
+      const {roomId,userId}=socket.data,generation=joinGeneration
+      if(!roomId||!userId){ack?.({ok:false,reason:'not_joined'});return}
+      enqueueCanonical(async()=>{
+        const {result,accepted}=await canonicalTransport.close({roomId,userId},data,
+          ()=>socket.connected&&socket.data.roomId===roomId&&socket.data.userId===userId&&joinGeneration===generation)
+        ack?.(result)
+        if(accepted){
+          io.to(roomId).emit('operation_confirmed',{seq:accepted.seq,operation:accepted})
+          if(accepted.seq%SNAPSHOT_SEQ_INTERVAL===0)checkSnapshotLag(roomId)
+        }
+      },()=>ack?.({ok:false,reason:'canonical_repair_required'}))
+    })
+
     // (#480) Устройство здесь же, рядом с userId — см. clientDescription.ts:
     // до этого связать одно с другим можно было только склейкой с nginx по
     // времени хендшейка.
