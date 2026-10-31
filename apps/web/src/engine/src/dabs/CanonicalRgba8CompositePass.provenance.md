@@ -235,3 +235,13 @@ mask presence/zero, state restoration and invalid profile rejection; scoped
 oxlint and common app+service-worker TypeScript checks passed. Source-header
 C++ oracle provenance lives in presets/fixtures/sourceRgba8Separable. This unit
 alone is not actual GPU, original ARM, full brush or active editor evidence.
+
+
+The subsequent actual Samsung gate is committed as 197a6cce1:
+fixes-v52/generic-sc-u8-samsung-proof.md and result/cleanup receipts. This same
+WebGL1 pass produced 528 exact results (260 source-header vectors plus four
+MULT3 witnesses through both straightRGBA and maskRgb source lanes); the
+existing WebGL2 integer helper separately produced 264 exact results. No GL
+errors/state drift, hot uploads or outstanding charges/leases; own browser child
+and ADB forward removed, original tabs preserved. This upgrades the GPU gate,
+not installed ARM identity or canonical room admission.
