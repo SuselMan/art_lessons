@@ -30,3 +30,13 @@ export function sourceDefaultAutoDensitySeed(input: unknown): number {
 export function createSourceDefaultAutoDensityRandom(input: unknown): KritaRandomSource {
   return new KritaRandomSource(sourceDefaultAutoDensitySeed(input))
 }
+
+/** Brush data identity, not a room/read lifetime or execution grant. */
+export interface SourceDefaultAutoDensityStrokeIdentity { readonly strokeId: string }
+export function captureSourceDefaultAutoDensityStrokeIdentity(input: unknown): Readonly<SourceDefaultAutoDensityStrokeIdentity> {
+  if (!input || typeof input !== 'object' || ![Object.prototype,null].includes(Object.getPrototypeOf(input))) throw new TypeError('Invalid density stroke identity')
+  const keys=Reflect.ownKeys(input), property=Object.getOwnPropertyDescriptor(input,'strokeId')
+  if(keys.length!==1 || keys[0]!=='strokeId' || !property || !Object.hasOwn(property,'value')
+    || typeof property.value!=='string' || !property.value.length || property.value.length>256 || property.value.includes('\0')) throw new TypeError('Invalid density stroke identity')
+  return Object.freeze({strokeId:property.value})
+}

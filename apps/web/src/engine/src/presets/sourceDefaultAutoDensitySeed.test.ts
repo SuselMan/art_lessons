@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sourceDefaultAutoDensitySeed, createSourceDefaultAutoDensityRandom } from './sourceDefaultAutoDensitySeed'
+import { captureSourceDefaultAutoDensityStrokeIdentity, sourceDefaultAutoDensitySeed, createSourceDefaultAutoDensityRandom } from './sourceDefaultAutoDensitySeed'
 import { KritaRandomSource } from './nativeRandom'
 import { prepareSourceDefaultAutoDensity } from './sourceDefaultAutoDab'
 
@@ -47,4 +47,10 @@ describe('explicit request-owned density seed behavior',()=>{
       {...identity,drawOrdinal:.5},{...identity,drawOrdinal:Number.MAX_SAFE_INTEGER+1},
     ])expect(()=>sourceDefaultAutoDensitySeed(input)).toThrow()
   })
+})
+
+it('captures only bounded immutable stroke data without invoking accessors',()=>{
+ const original={strokeId:'marker-dry-normal68-host'},captured=captureSourceDefaultAutoDensityStrokeIdentity(original)
+ original.strokeId='changed';expect(captured.strokeId).toBe('marker-dry-normal68-host');expect(Object.isFrozen(captured)).toBe(true)
+ for(const value of [undefined,{}, {strokeId:''},{strokeId:'x'.repeat(257)},{strokeId:'x\0'}, {strokeId:'s',roomId:'r'},Object.defineProperty({},'strokeId',{get(){throw Error('must not invoke')}})])expect(()=>captureSourceDefaultAutoDensityStrokeIdentity(value)).toThrow()
 })

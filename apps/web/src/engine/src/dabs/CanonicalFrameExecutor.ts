@@ -1,3 +1,4 @@
+import { captureSourceDefaultAutoDensityStrokeIdentity, type SourceDefaultAutoDensityStrokeIdentity } from '../presets/sourceDefaultAutoDensitySeed'
 import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE, CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, canonicalAutoCost, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition, type CanonicalStrokeRasterProfile, type CanonicalMaterialAsset, type CanonicalAutoSource, type CanonicalSoftAutoSource, type CanonicalAutoRecipe, type CanonicalSoftAutoRecipe, type AnyCanonicalMaterialRecipe, type AnyCanonicalMaterialFrame } from '@grafetto/shared'
 import { SOURCE_RGBA8_GENERIC_SC_PROFILE } from '../presets/sourceColorRgba8'
 import { CanonicalSoftCircleProgramOwner } from './CanonicalSoftCircleProgramOwner'
@@ -22,6 +23,8 @@ const autoRecipe = (recipe:AnyCanonicalMaterialRecipe):recipe is CanonicalAutoRe
  * No pointer, sensor, author DTO, random source or mutable tool state enters here. */
 export interface CanonicalFrameSubmission {
   readonly gestureId: string
+  /** Required brush-data identity for seeded coverage; independent of authority namespace. */
+  readonly densityStrokeIdentity?: Readonly<SourceDefaultAutoDensityStrokeIdentity>
   readonly layerId: string
   readonly layerEpoch: number
   readonly ordinal: number
@@ -137,7 +140,7 @@ export class CanonicalFrameExecutor {
   private readonly admittedTiles = new Map<string, TilePosition>()
   private readonly admissionReleases = new Set<() => void>()
   private planned?: SourcePrimaryCompositionState
-  private gesture?: { id: string; layerId: string; epoch: number; buffer: TiledLayerBuffer; rgb: readonly [number, number, number]; profile: AnyCanonicalMaterialFrame['profile'] }
+  private gesture?: { densityStrokeIdentity?: Readonly<SourceDefaultAutoDensityStrokeIdentity>; id: string; layerId: string; epoch: number; buffer: TiledLayerBuffer; rgb: readonly [number, number, number]; profile: AnyCanonicalMaterialFrame['profile'] }
   private failed = false
   private readonly cleanupErrors: unknown[] = []
   private advancing = false
@@ -202,6 +205,10 @@ export class CanonicalFrameExecutor {
       || !Array.isArray(input.rgb) || input.rgb.length !== 3 || !input.rgb.every(n => int(n) && n <= 255)) throw new TypeError('Invalid canonical frame identity/pigment')
     if (input.frame.definitions.some(r => 'kind' in r && r.kind === 'softAuto') && this.options.autoSource?.kind !== 'softAuto') throw new TypeError('Soft source data requires a trusted canonical executor raster grant')
     if (input.frame.definitions.some(r => 'kind' in r && r.kind === 'gaussianAuto') && this.options.autoSource?.kind !== 'gaussianAuto') throw new TypeError('Gaussian source data requires a trusted canonical executor raster grant')
+    const seeded=this.options.autoSource?.kind==='defaultAuto' && this.options.autoSource.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
+    const identityProperty=Object.getOwnPropertyDescriptor(input,'densityStrokeIdentity')
+    const densityStrokeIdentity=seeded ? captureSourceDefaultAutoDensityStrokeIdentity(identityProperty && Object.hasOwn(identityProperty,'value') ? identityProperty.value : undefined) : undefined
+    if(this.gesture && this.gesture.densityStrokeIdentity?.strokeId!==densityStrokeIdentity?.strokeId)throw new TypeError('Density stroke identity changed')
     this.assertPrepared();
     const { buffer, epoch } = this.options.layer(input.layerId)
     if (epoch !== input.layerEpoch || buffer.tileWidth > 4096 || buffer.tileHeight > 4096 || buffer.pixelEncoding !== 'straight-rgba8') throw new Error('Stale or non-straight canonical layer')
@@ -254,7 +261,10 @@ export class CanonicalFrameExecutor {
       }
     }
     if (newTiles.size + this.admittedTiles.size > 64) throw new RangeError('Canonical wash exceeds bounded tile count')
-    const releaseMetadata = this.options.prepass.brushGlBatchInfo().cpu.reserve(bytes+frameTargets.size*128)
+    // Queued copy and resident brush identity use the SAME existing CPU owner.
+    // Each 1024-byte estimate covers at most 256 UTF16 units plus bounded metadata.
+    const releaseMetadata = this.options.prepass.brushGlBatchInfo().cpu.reserve(bytes+frameTargets.size*128+(densityStrokeIdentity?1024:0))
+    let releaseDensityIdentity:(()=>void)|undefined
     let releaseWashMetadata: (() => void) | undefined, releaseBudget: (() => void) | undefined, releaseTargetBudget: (() => void) | undefined
     try {
       // Reserve an upper bound for the whole target union, not just wash pairs.
@@ -275,8 +285,9 @@ export class CanonicalFrameExecutor {
       // commands. Never let queued DTOs predictably consume its next turn.
       const info = this.options.prepass.brushGlBatchInfo(), other = this.options.composite.brushGlBatchInfo()
       const resources = new Set([...info.resources, ...other.resources].map(r => r.key)).size
+      if(densityStrokeIdentity&&!this.gesture)releaseDensityIdentity=info.cpu.reserve(1024)
       if (info.cpu.reservedBytes + (input.frame.definitions.some(autoRecipe) ? 82432 : 65536) + resources * 128 > info.cpu.budgetBytes) throw new RangeError('Canonical queue exceeds shared CPU work headroom')
-      const saved: CanonicalFrameSubmission = structuredClone(input)
+      const saved: CanonicalFrameSubmission = structuredClone(seeded?{gestureId:input.gestureId,densityStrokeIdentity,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition}:input)
       this.queue.push({ input: saved, result, sourceKeys, draw: 0, tile: 0, paintPart: 0, present: 0, part: 0, frameTargets:[...frameTargets.values()],newTiles:[...newTiles.values()],targetCursor:0,scratchCursor:0,washCursor:0,
         releaseMetadata: () => { try { releaseMetadata() } finally { releaseTargetBudget?.() } } })
       for (const [k, tile] of newTiles) this.admittedTiles.set(k, tile)
@@ -287,13 +298,15 @@ export class CanonicalFrameExecutor {
       // Accepted new gesture gets a new epoch; never revive bindings to names
       // returned to the pool by an earlier completed exclusive gesture.
       if(!this.gesture&&!this.rawOwner.alive)this.rawOwner={alive:true,leases:0}
-      this.gesture ??= { id: input.gestureId, layerId: input.layerId, epoch: input.layerEpoch, buffer, rgb: [input.rgb[0], input.rgb[1], input.rgb[2]], profile: input.frame.profile }
+      this.gesture ??= { densityStrokeIdentity, id: input.gestureId, layerId: input.layerId, epoch: input.layerEpoch, buffer, rgb: [input.rgb[0], input.rgb[1], input.rgb[2]], profile: input.frame.profile }
+      if(releaseDensityIdentity)this.admissionReleases.add(releaseDensityIdentity)
       this.washLayerId=input.layerId
       this.planned = result.state
     } catch (error) {
       if (releaseTargetBudget) this.cleanup(releaseTargetBudget)
       if (releaseBudget) this.cleanup(releaseBudget)
       if (releaseWashMetadata) this.cleanup(releaseWashMetadata)
+      if(releaseDensityIdentity)this.cleanup(releaseDensityIdentity)
       this.cleanup(releaseMetadata)
       throw error
     }
@@ -471,7 +484,7 @@ export class CanonicalFrameExecutor {
       if (!this.options.autoSource || this.options.autoSource.kind==='softAuto') throw new TypeError('Canonical auto source is not trusted');
       if(recipe.kind==='defaultAuto'&&recipe.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE){
         if(this.options.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||this.options.autoSource.kind!=='defaultAuto')throw new TypeError('Density executor profile mismatch');
-        return {...common,material:{kind:'canonicalAuto',recipe,trustedSource:this.options.autoSource,densityIdentity:Object.freeze({gestureId:work.input.gestureId,descriptorSha256:this.options.autoSource.descriptorSha256,role:'primary',drawOrdinal:d.drawOrdinal})}};
+        return {...common,material:{kind:'canonicalAuto',recipe,trustedSource:this.options.autoSource,densityIdentity:Object.freeze({gestureId:captureSourceDefaultAutoDensityStrokeIdentity(work.input.densityStrokeIdentity).strokeId,descriptorSha256:this.options.autoSource.descriptorSha256,role:'primary',drawOrdinal:d.drawOrdinal})}};
       }
       return { ...common, material: { kind:'canonicalAuto', recipe, trustedSource:this.options.autoSource } };
     }
@@ -647,6 +660,7 @@ export class CanonicalFrameExecutor {
   private finishGesture(state: SourcePrimaryCompositionState): void {
     if (state.ended) {
       const before = this.cleanupErrors.length
+      if(this.gesture)this.gesture.densityStrokeIdentity=undefined
       if (this.options.washMode === 'deposition-only') this.rawComplete = true
       else this.releaseWashes()
       this.cleanup(() => this.options.prepass.releaseOwner(this))

@@ -77,7 +77,7 @@ describe('seeded density actual stripe material consumer',()=>{
 })
 
 it('derives the replayed physical ordinal before clipping in the actual executor across empty frames',()=>{
- const run=(empty:boolean)=>{
+ const run=(empty:boolean,invalid?:'missing'|'changed'|'accessor'|'reserve'|'cleanup')=>{
   const {gl}=recordingGL(),cpu=new BrushMipCache(),cache=new BrushTextureCache(gl),m=material(),captured:number[]=[]
   gl.TEXTURE1=gl.TEXTURE0+1;gl.STATIC_DRAW=9001;gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME=9002;gl.LINEAR=9010;gl.REPEAT=9011
   gl.copyTexSubImage2D=vi.fn();gl.copyTexImage2D=vi.fn();gl.uniform3f=vi.fn();gl.uniform4f=vi.fn();gl.isContextLost=()=>false
@@ -95,16 +95,28 @@ it('derives the replayed physical ordinal before clipping in the actual executor
   const executor=new CanonicalFrameExecutor({rasterProfile:G,autoSource:m.trustedSource,prepass,composite,scratch,pageBounds:{minX:0,minY:0,maxX:256,maxY:256},layer:()=>({buffer:layer,epoch:0}),reserveTransient:()=>()=>{},changed:()=>{},poison:()=>{}})
   const context={version:2 as const,assets:[],primarySource:m.trustedSource,budget:CANONICAL_MATERIAL_LIMITS}
   let ordinal=0
+  const reserve=cpu.reserve.bind(cpu),failure=new Error('identity owner failure');let reserves=0
+  if(invalid==='reserve'||invalid==='cleanup')vi.spyOn(cpu,'reserve').mockImplementation(bytes=>{
+   const index=++reserves;if(invalid==='reserve'&&index===2)throw failure
+   const release=reserve(bytes);return()=>{release();if(invalid==='cleanup'&&index===2)throw failure}
+  })
   const submit=(x:number|undefined,begin:boolean,end:boolean)=>{
    const count=x===undefined?0:1
    const frame=buildCanonicalMaterial({masked:false,entry:begin?{phase:'between'}:{phase:'primary',group:0},draws:x===undefined?[]:[{recipe:m.recipe,role:'primary',x,y:0,opacity:1,flow:1}],fences:[...(begin?[{at:0,kind:'segmentBegin' as const,group:0}]:[]),...(end?[{at:count,kind:'primaryEnd' as const,group:0},{at:count,kind:'segmentEnd' as const,group:0},{at:count,kind:'gestureEnd' as const}]:[])]},context).frame
-   executor.enqueue({gestureId:identity().gestureId,layerId:'layer',layerEpoch:0,ordinal:ordinal++,frame,assets:[],rgb:[0,0,0],composition:{mode:'buildup',alphaDarken:'creamy',outerResourceOpacity:1,outerBlend:'over'}})
+   const input={densityStrokeIdentity:{strokeId:identity().gestureId},gestureId:identity().gestureId,layerId:'layer',layerEpoch:0,ordinal:ordinal++,frame,assets:[],rgb:[0,0,0] as const,composition:{mode:'buildup' as const,alphaDarken:'creamy' as const,outerResourceOpacity:1,outerBlend:'over' as const}}
+   if(invalid && invalid!=='cleanup' && (invalid!=='changed'||!begin)){
+    const before=cpu.reservedBytes
+    if(invalid==='reserve'){expect(()=>executor.enqueue(input)).toThrow(failure);expect(cpu.reservedBytes).toBe(before);return}
+    const bad=invalid==='missing'?{...input,densityStrokeIdentity:undefined}:invalid==='changed'?{...input,densityStrokeIdentity:{strokeId:'different'}}:Object.defineProperty({...input},'densityStrokeIdentity',{get(){throw Error('Getter invoked')}})
+    expect(()=>executor.enqueue(bad)).toThrow(/density|Density/);expect(cpu.reservedBytes).toBe(before);return
+   }
+   executor.enqueue(input)
    let turns=0;while(executor.pending){if(++turns>10000)throw Error('stalled');executor.advance()}
   }
-  try{submit(-1000,true,false);if(empty)submit(undefined,false,false);submit(0,false,true);expect(executor.checkpointReady).toBe(true);return new Uint8Array(captured)}
+  try{if(invalid==='cleanup'){submit(undefined,true,false);expect(()=>executor.cancel()).toThrow(failure);return new Uint8Array()}if(invalid==='missing'||invalid==='accessor'||invalid==='reserve'){submit(undefined,true,false);return new Uint8Array()}submit(-1000,true,false);if(invalid==='changed'){submit(undefined,false,false);return new Uint8Array()}if(empty)submit(undefined,false,false);submit(0,false,true);expect(executor.checkpointReady).toBe(true);return new Uint8Array(captured)}
   finally{executor.cancel();layer.destroy();scratch.destroy();prepass.reset();composite.reset();cache.clear();expect(cpu.reservedBytes).toBe(0)}
  }
- expect(run(false)).toEqual(expected(1));expect(run(true)).toEqual(expected(1))
+ expect(run(false)).toEqual(expected(1));expect(run(true)).toEqual(expected(1));run(false,'missing');run(false,'changed');run(false,'accessor');run(false,'reserve');run(false,'cleanup')
 })
 it('cancels pending quantized spans and rejects retargeting without publishing unthinned pixels',()=>{
  const a=prepareSourceSeededDefaultAutoDab(request(),identity()).evaluator,target=new Uint8Array(7)
