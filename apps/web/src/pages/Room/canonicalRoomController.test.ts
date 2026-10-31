@@ -248,3 +248,54 @@ it.each(['joining','stale','failed']as const)('does not turn %s into success for
  f.prepare.mockRejectedValue(fault);f.deps.recovery.whenRetiredTransition.mockResolvedValue(outcome)
  await expect(prepareCanonicalRoomRecordedInput(f.engine,f.input,f.deps)).rejects.toBe(fault);expect(f.prepare).toHaveBeenCalledOnce()
 })
+
+it('classifies controls only from the original bootstrap/read and actual constructed socket/engine',async()=>{
+ const {createCanonicalControlCapture}=await import('./canonicalRoomController')
+ const {stash}=state(),bootstrap=canonicalBootstrapOf(stash,'B',true)!,socket={connected:true}
+ let installed=bootstrap.read,activeSocket:typeof socket|null=socket,currentEngine=true,joined=true,board='B'
+ const deps={socket,getSocket:()=>activeSocket,getInstalledRead:()=>installed,isEngineCurrent:()=>currentEngine,isJoined:()=>joined,getBoard:()=>board}
+ const capture=createCanonicalControlCapture(bootstrap.read,bootstrap.tail,'B',deps)
+ expect(capture()).toBe('canonical-control-v1')
+ currentEngine=false;expect(capture).toThrow();currentEngine=true
+ installed=state().stash.canonicalRead;expect(capture).toThrow();installed=bootstrap.read
+ activeSocket={connected:true};expect(capture).toThrow();activeSocket=socket
+ socket.connected=false;expect(capture).toThrow();socket.connected=true
+ joined=false;expect(capture).toThrow();joined=true
+ board='other';expect(capture).toThrow();board='B'
+ expect(capture()).toBe('canonical-control-v1')
+ expect(()=>createCanonicalControlCapture({...bootstrap.read},bootstrap.tail,'B',deps)).toThrow()
+ expect(()=>createCanonicalControlCapture(bootstrap.read,[],'B',deps)).toThrow()
+})
+it('keeps a stale/offline original classifier present and never blesses a fresh latest read',async()=>{
+ const {createCanonicalControlCapture}=await import('./canonicalRoomController')
+ const f=state(),bootstrap=canonicalBootstrapOf(f.stash,'B',true)!,fresh=state().stash.canonicalRead
+ const capture=createCanonicalControlCapture(bootstrap.read,bootstrap.tail,'B',{socket:null,getSocket:()=>null,getInstalledRead:()=>fresh,isEngineCurrent:()=>true,isJoined:()=>false,getBoard:()=> 'B'})
+ expect(typeof capture).toBe('function');expect(capture).toThrow();f.expire();expect(capture).toThrow()
+})
+
+it('carries genuine bootstrap classification through SAME Outbox without changing the actual engine journal',async()=>{
+ const {createCanonicalControlCapture}=await import('./canonicalRoomController')
+ const {createTestEngine}=await import('../../engine/testing/engineTestUtils')
+ const {createEngineNetworkCallbacks}=await import('./engineNetwork')
+ const {Outbox}=await import('./net/outbox'),{createInMemoryOutboxStorage}=await import('./net/outboxStorage')
+ const {createOutboxVerdicts}=await import('./net/outboxVerdict'),{createPendingPreviews}=await import('./net/pendingPreviews')
+ const {IMPLICIT_LAYER_IDS}=await import('@grafetto/shared')
+ const f=state(),bootstrap=canonicalBootstrapOf(f.stash,'B',true)!,options={rasterVersion:'straight-rgba8-v1' as const,pageWidth:8,pageHeight:8,canonicalEmptyRoom:bootstrap}
+ const first=createTestEngine(options,{width:8,height:8}),second=createTestEngine(options,{width:8,height:8}),socket={connected:true}
+ let current:typeof first.engine|null=first.engine
+ const applied={current:new Set<string>()},pending={current:new Set<string>()},watermark={current:0},confirm=vi.fn(),discard=vi.fn(),snapshot=vi.fn(),settled=vi.fn(),sent:string[]=[]
+ const verdicts=createOutboxVerdicts({pendingIdsRef:pending,latestKnownSeqRef:watermark,confirmOperation:confirm,discardOperation:discard,checkSnapshotBoundary:snapshot,resolveTransformCommit:vi.fn(),scheduleLostWorkRecovery:vi.fn(),setLostWork:vi.fn(),canonicalVerdicts:{onSettled:settled,onStalled:vi.fn()}})
+ const box=new Outbox({roomId:'B',storage:createInMemoryOutboxStorage(),...verdicts,getCanonicalSendLineage:()=>({socket,connectionId:'actual-test-connection',boardId:'B',originalRead:bootstrap.read}),send:async op=>{sent.push(JSON.stringify(op));return{ok:true,seq:1}}})
+ try{
+  for(const id of IMPLICIT_LAYER_IDS)first.engine.initLayer(id)
+  await first.engine.restoreCanonicalEmptyRoom(bootstrap.read,bootstrap.tail)
+  const capture=createCanonicalControlCapture(bootstrap.read,bootstrap.tail,'B',{socket,getSocket:()=>socket,getInstalledRead:()=>bootstrap.read,isEngineCurrent:()=>current===first.engine,isJoined:()=>true,getBoard:()=> 'B'})
+  const on=createEngineNetworkCallbacks({engineRef:{current:first.engine},appliedOpIdsRef:applied,pendingIdsRef:pending,outbox:box,captureCanonicalControl:capture,markActive:vi.fn(),pendingPreviewsRef:{current:createPendingPreviews()},applyRemoteOp:vi.fn(),syncFromLog:vi.fn(),checkSnapshotBoundary:snapshot,editingBlockedRef:{current:false},sendLive:vi.fn(),sendLiveEnd:vi.fn()})
+  const op={id:'metadata',type:'operation_undo' as const,userId:'U',timestamp:0,targetOpId:'frame'}
+  on.onLocalOperation(op);for(let i=0;i<25;i++)await Promise.resolve()
+  expect(sent).toEqual([JSON.stringify(op)]);expect(watermark.current).toBe(1);expect(settled).toHaveBeenCalledWith(op,{ok:true,seq:1},{roomId:'B',deliveryLane:'canonical-control-v1',lineage:{socket,connectionId:'actual-test-connection',boardId:'B',originalRead:bootstrap.read}})
+  expect(first.engine.getOperations()).toEqual([]);expect(applied.current.size).toBe(0);expect(pending.current.size).toBe(0);expect(confirm).not.toHaveBeenCalled();expect(discard).not.toHaveBeenCalled();expect(snapshot).not.toHaveBeenCalled()
+  current=second.engine;expect(()=>on.onLocalOperation({...op,id:'stale-engine'})).toThrow();expect(sent).toHaveLength(1)
+  current=first.engine;f.expire();expect(()=>on.onLocalOperation({...op,id:'expired-read'})).toThrow();expect(sent).toHaveLength(1)
+ }finally{box.dispose();first.engine.destroy();second.engine.destroy()}
+},15000)

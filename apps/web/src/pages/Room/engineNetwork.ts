@@ -6,6 +6,7 @@ import type { PencilEngineAPI, PencilEngineOptions } from '../../engine'
 import { liveTiming } from '../../lib/observability/liveLatency'
 import { useRoomStore } from '../../stores/roomStore'
 import type { Outbox } from './net/outbox'
+import type {LocalDeliveryLane} from './net/outboxStorage'
 import { commitRevealsBelow, type PendingPreviews } from './net/pendingPreviews'
 
 export type EngineNetworkCallbacks = Required<Pick<PencilEngineOptions,
@@ -19,6 +20,9 @@ export interface EngineNetworkDeps {
   /** Ids this client created and the server has not confirmed yet. */
   pendingIdsRef: RefObject<Set<string>>
   outbox: Pick<Outbox, 'enqueue'>
+  /** Present for every constructed canonical bootstrap, including stale/offline.
+   * Classification only; a failing origin must never fall back to legacy. */
+  captureCanonicalControl?:()=>LocalDeliveryLane
   markActive: (userId: string) => void
   pendingPreviewsRef: RefObject<PendingPreviews>
   applyRemoteOp: (op: Operation) => void
@@ -37,7 +41,7 @@ export interface EngineNetworkDeps {
  *  these were inline options of `new PencilEngine`. */
 export function createEngineNetworkCallbacks({
   engineRef, appliedOpIdsRef, pendingIdsRef, outbox, markActive, pendingPreviewsRef,
-  applyRemoteOp, syncFromLog, checkSnapshotBoundary, editingBlockedRef, sendLive, sendLiveEnd,
+  applyRemoteOp, syncFromLog, checkSnapshotBoundary, editingBlockedRef, sendLive, sendLiveEnd,captureCanonicalControl,
 }: EngineNetworkDeps): EngineNetworkCallbacks {
   return {
     // Broadcast-loop fix (#84): only genuinely local appends (layer-panel
@@ -58,6 +62,12 @@ export function createEngineNetworkCallbacks({
     onLocalOperation: op => {
       // Authored canonical packets have no confirmed journal/pixel placement.
       // The authoritative recorded delivery, never an ACK, supplies that later.
+      if((op.type==='operation_undo'||op.type==='operation_redo')&&captureCanonicalControl){
+        const deliveryLane=captureCanonicalControl()
+        if(deliveryLane!=='canonical-control-v1')throw Error('Canonical control classification unavailable')
+        void outbox.enqueue(op,{deliveryLane})
+        return
+      }
       if(op.type==='canonical_stroke'||op.type==='canonical_stroke_close'){
         void outbox.enqueue(op)
         return

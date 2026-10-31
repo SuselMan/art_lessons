@@ -1,6 +1,6 @@
 import {importedBrushes,importedBrushAssetMetadata} from '../../engine/brushLibrary'
 import {canonicalToolAvailability} from '../../lib/tools/canonicalToolAvailability'
-import {canonicalBootstrapOf,stageCanonicalRoomReplacement,createCanonicalRoomAuthor,createCanonicalRoomVerdicts,restoreCanonicalRoomBaseline,createCanonicalRecoveryControl,prepareCanonicalRoomRecordedInput} from './canonicalRoomController'
+import {canonicalBootstrapOf,stageCanonicalRoomReplacement,createCanonicalRoomAuthor,createCanonicalControlCapture,createCanonicalRoomVerdicts,restoreCanonicalRoomBaseline,createCanonicalRecoveryControl,prepareCanonicalRoomRecordedInput} from './canonicalRoomController'
 import {prepareCanonicalRoomState} from './net/canonicalRoomState'
 import type {CanonicalRoomStateRead} from './net/canonicalRoomState'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
@@ -1032,6 +1032,7 @@ function RoomEditor() {
     if(bootstrap&&!capturedSocket){setRestoreFailure('transfer');return}
     let constructed:PencilEngineAPI|undefined
     const canonicalAuthor=bootstrap&&capturedSocket?createCanonicalRoomAuthor(bootstrap.read,capturedSocket,()=>socketRef.current,()=>engineRef.current===constructed):undefined
+    const captureCanonicalControl=bootstrap?createCanonicalControlCapture(bootstrap.read,bootstrap.tail,boardId,{socket:capturedSocket,getSocket:()=>socketRef.current,getInstalledRead:()=>installedCanonicalReadRef.current,isEngineCurrent:()=>constructed!==undefined&&engineRef.current===constructed,isJoined:()=>hasJoinedRef.current,getBoard:()=>socketBoardRef.current}):undefined
     // Per mount, not per board — see enterBoard's doc comment on why these two
     // are reset here rather than there.
     replayIncompleteRef.current = false
@@ -1061,7 +1062,7 @@ function RoomEditor() {
       // channel — see engineNetwork.ts.
       ...createEngineNetworkCallbacks({
         engineRef, appliedOpIdsRef, pendingIdsRef, outbox, markActive, pendingPreviewsRef,
-        applyRemoteOp, syncFromLog, checkSnapshotBoundary, editingBlockedRef,
+        applyRemoteOp, syncFromLog, checkSnapshotBoundary, editingBlockedRef,captureCanonicalControl,
         sendLive: data => { socketRef.current?.emit('stroke_live', data) },
         sendLiveEnd: data => { socketRef.current?.emit('stroke_live_end', data) },
       }),

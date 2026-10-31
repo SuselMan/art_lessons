@@ -178,3 +178,22 @@ it('sends independent random metadata without changing packed dab payload', () =
  expect(sent.brushRandom).toEqual(seeds); expect(sent.brushRandom).not.toBe(seeds)
  expect(unpackDabs(sent.dabsPacked)).toEqual([])
 })
+
+describe('captured canonical control classification without command activation',()=>{
+  const op={id:'undo',type:'operation_undo' as const,userId:'me',timestamp:0,targetOpId:'frame'}
+  it.each(['operation_undo','operation_redo'] as const)('queues %s with local lane but no applied/pending-log effects',type=>{
+    const {deps}=setup(),captureCanonicalControl=vi.fn(()=>'canonical-control-v1' as const)
+    const on=createEngineNetworkCallbacks({...deps,captureCanonicalControl})
+    on.onLocalOperation({...op,type})
+    expect(captureCanonicalControl).toHaveBeenCalledOnce();expect(deps.outbox.enqueue).toHaveBeenCalledWith({...op,type},{deliveryLane:'canonical-control-v1'})
+    expect(deps.appliedOpIdsRef.current.size).toBe(0);expect(deps.pendingIdsRef.current.size).toBe(0);expect(deps.syncFromLog).not.toHaveBeenCalled();expect(deps.checkSnapshotBoundary).not.toHaveBeenCalled()
+  })
+  it('never falls back to legacy when the constructed canonical classifier throws',()=>{
+    const {deps}=setup(),on=createEngineNetworkCallbacks({...deps,captureCanonicalControl:()=>{throw Error('Original owner stale')}})
+    expect(()=>on.onLocalOperation(op)).toThrow('Original owner stale');expect(deps.outbox.enqueue).not.toHaveBeenCalled();expect(deps.appliedOpIdsRef.current.size).toBe(0)
+  })
+  it('keeps unclassified historical metadata legacy and does not classify ordinary operations',()=>{
+    const {deps,on}=setup();on.onLocalOperation(op);expect(deps.appliedOpIdsRef.current.has(op.id)).toBe(true);expect(deps.outbox.enqueue).toHaveBeenCalledWith(op)
+    const captureCanonicalControl=vi.fn(()=>'canonical-control-v1' as const),second=createEngineNetworkCallbacks({...deps,captureCanonicalControl});second.onLocalOperation(stroke('legacy'));expect(captureCanonicalControl).not.toHaveBeenCalled()
+  })
+})

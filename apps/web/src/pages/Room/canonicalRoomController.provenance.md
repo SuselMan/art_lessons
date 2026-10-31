@@ -111,3 +111,44 @@ Deferred repair validation: canonical-recovery-regression.log passes 183 tests /
 only the existing mount dependency warning. Coordinated app+SW 99580 passes the
 frozen control with CPU/GPU author and healthy-pointercancel changes. The raw
 confirmed-receiver admission-failure repair path is a separate follow-on seam.
+
+## U2b: captured local control classification, commands still disabled
+
+The optional engine-network classifier is created from `canonicalBootstrapOf`'s
+ORIGINAL read and ORIGINAL tail, the captured socket, and the lexical constructed
+engine. Its creation verifies the genuine read/tail and existing full-history
+base. Each capture reasserts that original read, socket identity/connected state,
+joined board, installed-read identity and constructed-engine identity. Callback
+references are captured once. A fresh latest read never refreshes an old origin.
+Copied reads/tails are rejected by the existing private original-read law.
+
+Room supplies this callback for EVERY canonical bootstrap, rather than deciding
+whether it is present from current connectivity. A stale/offline callback throws;
+it cannot accidentally choose historical legacy behavior. Only emitted undo/redo
+metadata consults it. Successful capture supplies U2a's local outer lane and
+returns before touching applied IDs, pending-layer IDs or journal/snapshot
+bookkeeping. Other operations and all legacy constructors retain their previous
+behavior. No marker/context is added to operation JSON or the Socket.IO protocol.
+
+No engine undo/redo command, UI action, healthy metadata replacement/rejoin or
+fault workaround is enabled by this leaf. Server validation and subsequent
+genuine full reads remain the only source of actual ordered history/visibility.
+The generic recovery callback is not newly used as a metadata replacement owner.
+
+Tests first RED5/prior49PASS, then55 focused tests pass. The integration witness
+uses actual `prepareCanonicalRoomState`, actual canonical `PencilEngine` empty
+baseline, the original bootstrap, the SAME Outbox and actual verdict reducer.
+Manual callback invocation tests classification, **not** successful server undo:
+a mocked ACK advances the watermark while the real journal/applied IDs remain
+empty; replacing the actual engine or expiring the read prevents further send.
+Negative tests cover copied tail/read, new installed read, board switch, replaced
+socket, offline/not-joined origin and throwing classifier. Legacy metadata and
+ordinary operations remain regression coverage. No fake original delivery or
+private raster-version mutation is used.
+
+Targeted TypeScript includes Room/index.tsx and both owned source/test pairs under
+the actual web app options/globals (R52/outbox-control-u2b.tsconfig.json): PASS.
+Scoped lint:0 errors, one preexisting mount-effect dependency warning. Diffcheck
+PASS. Coordinated full-app verification remains parent-owned. No browser/device,
+service, dependency copy or long-lived process was created; compact ignored host
+logs/config are retained in R52.

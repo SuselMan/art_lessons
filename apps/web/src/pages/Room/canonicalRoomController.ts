@@ -1,5 +1,6 @@
 import {assertCanonicalRoomStateRead,type CanonicalRoomStateRead} from './net/canonicalRoomState'
 import type {RoomStatePayload} from './restoreRoomState'
+import type {LocalDeliveryLane} from './net/outboxStorage'
 import type {CanonicalOutboxVerdicts} from './net/outboxVerdict'
 import {sendCanonicalStrokeBegin,type CanonicalBeginEmitter} from './net/sendCanonicalStrokeBegin'
 import type {CanonicalSourceAuthorService,CanonicalRecordedInput,PencilEngineAPI} from '../../engine'
@@ -28,6 +29,29 @@ export function createCanonicalRoomAuthor(read:CanonicalRoomStateRead,socket:Can
   authorRasterProfile:read.authorRasterProfile,responseRasterProfiles:read.scope.allowedRasterProfiles??(read.scope.rasterProfile?[read.scope.rasterProfile]:undefined),signal:lifetime.signal,
   isCurrent:()=>{try{read.assertCurrent();return getSocket()===socket&&isEngineCurrent()&&lifetime.isCurrent()}catch{return false}}})}
  return Object.freeze(service)
+}
+/** Captured local classification only, never read/undo/append permission.
+ * A canonical constructor keeps this callback even when its origin is offline. */
+export function createCanonicalControlCapture(read:CanonicalRoomStateRead,tail:RoomStatePayload['tailOperations'],boardId:string,deps:{
+ readonly socket:{readonly connected:boolean}|null
+ readonly getSocket:()=>{readonly connected:boolean}|null
+ readonly getInstalledRead:()=>CanonicalRoomStateRead|undefined
+ readonly isEngineCurrent:()=>boolean
+ readonly isJoined:()=>boolean
+ readonly getBoard:()=>string|null
+}):()=>LocalDeliveryLane {
+ assertCanonicalRoomStateRead(read,tail,boardId)
+ if(!read.fullHistoryBase||!read.assertFullHistoryBase)throw Error('Full canonical control bootstrap required')
+ read.assertFullHistoryBase(tail)
+ const {socket,getSocket,getInstalledRead,isEngineCurrent,isJoined,getBoard}=deps
+ const current=()=>!!socket&&getSocket()===socket&&socket.connected&&isJoined()&&getBoard()===boardId&&getInstalledRead()===read&&isEngineCurrent()
+ return ()=>{
+  assertCanonicalRoomStateRead(read,tail,boardId)
+  if(!current())throw Error('Original canonical control owner unavailable')
+  read.assertCurrent()
+  if(!current())throw Error('Original canonical control owner unavailable')
+  return 'canonical-control-v1'
+ }
 }
 /** Stable control facade, not a recorded-read factory. ACK precedes broadcast. */
 export function createCanonicalRoomVerdicts({repair,isReplacing,drain}:{readonly repair:()=>void;readonly isReplacing:()=>boolean;readonly drain?:()=>unknown}):CanonicalOutboxVerdicts{
