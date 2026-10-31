@@ -91,3 +91,53 @@ it('recovers a sparse requested prefix in one shared rebuild session before any 
  expect(rebuild).toHaveBeenCalledOnce();expect(session.readPixels).toHaveBeenCalledTimes(2);expect(session.destroy).toHaveBeenCalledOnce()
  layer.destroy();s.layer.destroy();expect(snapshotContextStorage(s.gl).residentBytes).toBe(0)
 })
+
+it('prepares sparse resident/new storage without GL then materializes one tile per explicit take',()=>{
+ const s=setup(192);const original=s.layer.resolveForPaint(box)[0].buffer,upload=vi.spyOn(s.mock,'texImage2D');upload.mockClear()
+ const plan=s.layer.preparePaintTargetRects([two,{minX:400,maxX:404,minY:0,maxY:4}])
+ expect(upload).not.toHaveBeenCalled();expect(snapshotContextStorage(s.gl)).toMatchObject({residentBytes:64,reservedBytes:128})
+ expect(plan.take(0).buffer).toBe(original);expect(upload).not.toHaveBeenCalled()
+ plan.take(1);expect(upload).toHaveBeenCalledTimes(1);expect(snapshotContextStorage(s.gl)).toMatchObject({residentBytes:128,reservedBytes:64})
+ expect(()=>s.layer.clear()).toThrow('retained');plan.close();plan.close();s.layer.destroy()
+ expect(snapshotContextStorage(s.gl)).toMatchObject({residentBytes:0,reservedBytes:0});expect(()=>plan.take(2)).toThrow('Stale')
+})
+it('rejects cooperative historical recovery before reservation or replay while preserving synchronous recovery',()=>{
+ const s=setup(640),rebuild=vi.fn(()=>({readPixels:()=>null,destroy:()=>{}})),layer=new TiledLayerBuffer(s.gl,4,4,rebuild,512)
+ for(let x=0;x<9;x++)layer.resolveForPaint({minX:x*4,minY:0,maxX:x*4+1,maxY:1})
+ const before=snapshotContextStorage(s.gl),upload=vi.spyOn(s.mock,'texImage2D');upload.mockClear()
+ expect(()=>layer.preparePaintTargetRects([box])).toThrow('recovery required');expect(rebuild).not.toHaveBeenCalled();expect(upload).not.toHaveBeenCalled();expect(snapshotContextStorage(s.gl)).toEqual(before)
+ layer.withPaintTargets(box,()=>{});expect(rebuild).toHaveBeenCalledOnce();layer.destroy();s.layer.destroy()
+})
+it('blocks ordinary writers on pending new storage before GL and releases the pin after cancellation',()=>{
+ const s=setup(128),plan=s.layer.preparePaintTargetRects([box]),upload=vi.spyOn(s.mock,'texImage2D');upload.mockClear()
+ for(const write of [()=>s.layer.resolveForPaint(box),()=>s.layer.withPaintTargets(box,()=>{})])expect(write).toThrow('pending storage')
+ expect(upload).not.toHaveBeenCalled();expect(snapshotContextStorage(s.gl)).toMatchObject({residentBytes:0,reservedBytes:64})
+ plan.close();s.layer.resolveForPaint(box);s.layer.destroy()
+})
+it('keeps resident storage pins distinct from short draw leases across unrelated trimming',()=>{
+ const s=setup(640),layer=new TiledLayerBuffer(s.gl,4,4,()=>({readPixels:()=>null,destroy:()=>{}}),512),target=layer.resolveForPaint(box)[0]
+ const plan=layer.preparePaintTargetRects([box]),release=layer.retainTargets([target]);release()
+ for(let i=1;i<10;i++)layer.resolveForPaint({minX:i*4,minY:0,maxX:i*4+1,maxY:1})
+ expect(plan.take(0).buffer).toBe(target.buffer);expect(target.buffer.storageOwnerCurrent).toBe(true)
+ expect(()=>layer.clear()).toThrow('retained');plan.close();layer.clear();s.layer.destroy()
+})
+it('rejects a retired ledger between cooperative steps and closes every storage pin',()=>{
+ const s=setup(128),plan=s.layer.preparePaintTargetRects([two]);plan.take(0)
+ AccumulationBuffer.forgetContextStorage(s.gl)
+ expect(()=>plan.take(1)).toThrow();plan.close();expect(()=>s.layer.clear()).not.toThrow()
+})
+it('releases all cooperative pins on physical admission failure or an unpublished clear failure',()=>{
+ const denied=setup(63)
+ expect(()=>denied.layer.preparePaintTargetRects([box])).toThrow('admission');expect(denied.layer['retainedTargets'].size).toBe(0);denied.layer.destroy()
+ const s=setup(64),primary=new Error('candidate clear'),plan=s.layer.preparePaintTargetRects([box])
+ vi.spyOn(s.mock,'clear').mockImplementationOnce(()=>{throw primary})
+ expect(()=>plan.take(0)).toThrow(primary);expect(s.layer.tileCount).toBe(0)
+ plan.close();expect(snapshotContextStorage(s.gl)).toMatchObject({residentBytes:0,reservedBytes:0});expect(()=>s.layer.destroy()).not.toThrow()
+})
+it('validates every retained identity before incrementing an earlier valid draw lease',()=>{
+ const s=setup(128),targets=s.layer.resolveForPaint(two),stale=targets[1]
+ s.layer['retainedTargets'].set('1,0',{buffer:undefined,count:0,storagePins:1})
+ expect(()=>s.layer.retainTargets(targets)).toThrow('stale')
+ expect(s.layer['retainedTargets'].has('0,0')).toBe(false)
+ s.layer['retainedTargets'].delete('1,0');expect(stale.buffer.storageOwnerCurrent).toBe(true);s.layer.destroy()
+})

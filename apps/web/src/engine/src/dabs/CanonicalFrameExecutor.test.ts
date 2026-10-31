@@ -80,9 +80,10 @@ function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4,
     layer: () => ({ buffer: layer, epoch }), reserveTransient, changed, poison })
   const submit = (frame = decoded(1), ordinal = 0): CanonicalFrameSubmission => ({ gestureId: 'gesture', layerId: 'layer', layerEpoch: 0, ordinal,
     frame, assets: [asset], rgb: [200, 20, 50], composition: { mode, alphaDarken: 'creamy', outerResourceOpacity: .8, outerBlend: 'over' } })
+  const prepareStorage=()=>{let n=0;while(executor.pending){const w=executor['queue'][0],p=w.physical;if(p&&w.targetCursor===p.targetCount&&w.scratchCursor===p.scratchCount&&w.washCursor===w.newTiles.length)break;executor.advance();expect(++n).toBeLessThan(400)}}
   const drain = () => { let n = 0; while (executor.pending && n++ < 200) executor.advance(); expect(n).toBeLessThan(200) }
   const close = () => { executor.cancel(); layer.destroy(); scratch.destroy(); prepass.reset(); composite.reset(); bank?.reset() }
-  return { gl, snapshot, cache, cpu, bank, prepass, composite, scratch, layer, executor, submit, drain, close, releases, reserveTransient, changed, poison, setEpoch: () => { epoch++ } }
+  return { gl, snapshot, cache, cpu, bank, prepass, composite, scratch, layer, executor, submit, prepareStorage, drain, close, releases, reserveTransient, changed, poison, setEpoch: () => { epoch++ } }
 }
 
 describe('canonical decoded frames over actual straight tiled layers', () => {
@@ -186,6 +187,7 @@ describe('canonical decoded frames over actual straight tiled layers', () => {
       Object.assign(input.frame.draws[0], { x: 3, y: 3 })
       s.executor.enqueue(input)
       Object.assign(input.frame.draws[0], { x: 100 }) // accepted DTO is immutable to its caller
+      s.prepareStorage()
       for (let i = 0; i < 4; i++) {
         s.executor.advance()
         expect(calls.mock.calls.filter(([r]) => r.operation.kind === 'alphaDarken32')).toHaveLength(i + 1)
@@ -255,6 +257,7 @@ describe('canonical decoded frames over actual straight tiled layers', () => {
     s.releases[1].mockImplementation(() => { throw budget })
     vi.spyOn(s.composite, 'drawSource').mockImplementation(() => { throw primary })
     try {
+      s.prepareStorage()
       expect(() => s.executor.advance()).toThrow(primary)
       expect(s.executor.cleanupFailures).toEqual([notify, pool, budget])
       expect(returned).toHaveBeenCalledTimes(2)
@@ -590,7 +593,7 @@ it('retains and cancels one local part cursor without rerunning the logical sour
   const calls=vi.spyOn(s.composite,'drawSource').mockImplementation((r,frame)=>{const out=actual(r,frame);clock+=5;return out});
   try{
     const baseline=s.cpu.reservedBytes,f=decoded(1);Object.assign(f,{definitions:[{...recipe,scale:17,ratio:11/17,width:17,height:11}]});
-    s.executor.enqueue({...s.submit(),frame:f});expect(s.executor['planned']!.drawCount).toBe(1);
+    s.executor.enqueue({...s.submit(),frame:f});expect(s.executor['planned']!.drawCount).toBe(1);s.prepareStorage();
     s.executor.advance();expect(s.executor['queue'][0].draw).toBe(0);expect(s.executor['queue'][0].paintPart).toBe(1);expect(calls).toHaveBeenCalledTimes(1);
     s.executor.advance();expect(s.executor['queue'][0].draw).toBe(0);expect(s.executor['queue'][0].paintPart).toBe(2);expect(calls).toHaveBeenCalledTimes(2);
     const a=calls.mock.calls[0][0].writeBounds!,b=calls.mock.calls[1][0].writeBounds!;expect(a.maxX).toBe(b.minX);
@@ -624,7 +627,7 @@ it('captures one union state before real target preparation instead of recapturi
     const restore=saveBrushGlState(s.gl,[...new Set([...info.attributes,...other.attributes])],info.instancing,info.vertexArrays,3);
     const captureOnly=(calls:unknown[][])=>calls.map(c=>c[0]).filter(k=>k!==s.gl.TEXTURE_BINDING_2D&&k!==s.gl.FRAMEBUFFER_BINDING);
     const expected=captureOnly(query.mock.calls);restore();query.mockClear();
-    const before=s.snapshot();s.executor.enqueue(s.submit());s.drain();
+    s.executor.enqueue(s.submit());s.prepareStorage();query.mockClear();const before=s.snapshot();s.drain();
     // This mock implements getTexParameter/FBO attachment queries through
     // getParameter(binding); those identity checks are not extra full captures.
     expect(captureOnly(query.mock.calls)).toEqual(expected);expect(s.snapshot()).toEqual(before);
@@ -632,12 +635,13 @@ it('captures one union state before real target preparation instead of recapturi
 });
 it('fails closed when target preparation reenters canonical state ownership, before pixels or escaped leases',()=>{
   const s=setup(),before=s.snapshot(),draw=vi.spyOn(s.composite,'drawSource'),baseline=s.cpu.reservedBytes;
+  s.executor.enqueue(s.submit());s.prepareStorage()
   const resolve=vi.spyOn(s.layer,'resolveForPaint').mockImplementation(()=>{
     s.gl.bindFramebuffer(s.gl.FRAMEBUFFER,s.gl.createFramebuffer());
     runBrushGlTurn({participants:[s.prepass,s.composite]},()=>{});return [];
   });
   try{
-    s.executor.enqueue(s.submit());expect(()=>s.executor.advance()).toThrow('Nested');
+    expect(()=>s.executor.advance()).toThrow('Nested');
     expect(resolve).toHaveBeenCalledOnce();expect(draw).not.toHaveBeenCalled();expect(s.executor.poisoned).toBe(true);
     expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(baseline);
     expect(s.cache['leases'].size).toBe(0);for(const release of s.releases)expect(release).toHaveBeenCalledOnce();
@@ -975,7 +979,7 @@ describe('recorded same-layer concurrent wash lane', () => {
       // Freeze the turn clock so the injected pixel failure is reached in this
       // call even when concurrent typechecking/JIT work exhausted wall time.
       const now=vi.spyOn(performance,'now').mockReturnValue(0)
-      try{expect(()=>s.coordinator.advance()).toThrow('pixel failed')}finally{now.mockRestore()}
+      try{expect(()=>{for(let n=0;n<100;n++)s.coordinator.advance()}).toThrow('pixel failed')}finally{now.mockRestore()}
       expect(s.coordinator.poisoned).toBe(true)
       expect(s.coordinator.checkpointReady).toBe(false)
       expect(s.scratch.bytes.live).toBe(0)
@@ -1135,7 +1139,7 @@ it('charges target preparation to the SAME turn budget before planning more tile
   try {
     const input=decoded(1)
     const frame={...input,definitions:[{...recipe,width:9,height:9,scale:9,ratio:1}]}
-    s.executor.enqueue({...s.submit(),frame})
+    s.executor.enqueue({...s.submit(),frame});s.prepareStorage()
     expect(s.executor.advance().pending).toBe(true)
     expect(prepare).toHaveBeenCalledTimes(1);expect(composite).toHaveBeenCalledTimes(1)
     expect(s.executor['queue'][0].tile).toBe(1)
@@ -1234,4 +1238,74 @@ it('refuses the actual Gaussian2 eraser as a paint source without normalizing it
  expect(descriptor.behavior?.erase).toBe(true);expect(descriptor.behavior?.rendering?.blendMode).toBe('normal')
  expect(()=>canonicalGaussianAutoSourceBinding(descriptor,row.descriptorSHA256,'scalar-bionic-f64-fma-v1')).toThrow('outer composition')
  expect(()=>canonicalGaussianAutoSourceBinding(descriptor,row.descriptorSHA256,'scalar-bionic-f64-fma-v1',CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toThrow('outer composition')
+})
+
+it('materializes a 64-tile frame one allocation per advance without pixel commands or escaped GL state during preparation',()=>{
+ const s=setup('buildup'),draw=vi.spyOn(s.composite,'drawSource'),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const frame=decoded(64);frame.draws.forEach((d,i)=>Object.assign(d,{x:i*4}))
+  const before=s.snapshot(),initial=s.gl.texImage2D.mock.calls.length
+  s.executor.enqueue(s.submit(frame));expect(s.gl.texImage2D).toHaveBeenCalledTimes(initial)
+  for(let i=0;i<64;i++){
+   const uploads=s.gl.texImage2D.mock.calls.length
+   expect(s.executor.advance().pending).toBe(true)
+   expect(s.gl.texImage2D.mock.calls.length-uploads).toBe(1)
+   expect(draw).not.toHaveBeenCalled();expect(s.snapshot()).toEqual(before)
+   expect(s.layer['retainedTargets'].size).toBe(64)
+   expect([...s.layer['retainedTargets'].values()].every(e=>e.count===0&&e.storagePins===1)).toBe(true)
+  }
+  s.drain();expect(draw).toHaveBeenCalledTimes(64);expect(s.layer['retainedTargets'].size).toBe(0)
+ }finally{clock.mockRestore();s.close()}
+})
+it('cancels partially taken scratch before poison can undo the layer and releases every physical ticket',()=>{
+ const s=setup('wash'),baseline=s.cpu.reservedBytes,release=vi.spyOn(s.scratch,'release')
+ try{
+  s.executor.enqueue(s.submit());s.executor.advance();s.executor.advance() // target then original; local still reserved
+  expect(s.scratch.bytes.live).toBe(64);expect(s.layer['retainedTargets'].size).toBe(1)
+  s.poison.mockImplementation(()=>{expect(()=>s.layer.clear()).not.toThrow()})
+  s.executor.cancel();expect(release).toHaveBeenCalledOnce();expect(s.scratch.bytes.live).toBe(0)
+  expect(s.cpu.reservedBytes).toBe(baseline);expect(s.layer['retainedTargets'].size).toBe(0)
+  s.executor.cancel();expect(release).toHaveBeenCalledOnce()
+ }finally{s.close()}
+})
+it('rejects a replaced layer epoch between storage steps before another allocation or pixel',()=>{
+ const s=setup('wash'),draw=vi.spyOn(s.composite,'drawSource')
+ try{
+  s.executor.enqueue(s.submit());s.executor.advance();const uploads=s.gl.texImage2D.mock.calls.length
+  s.setEpoch();expect(()=>s.executor.advance()).toThrow('changed')
+  expect(s.gl.texImage2D).toHaveBeenCalledTimes(uploads);expect(draw).not.toHaveBeenCalled()
+  expect(s.layer['retainedTargets'].size).toBe(0);expect(s.scratch.bytes.live).toBe(0);expect(s.poison).toHaveBeenCalledOnce()
+ }finally{s.close()}
+})
+it('refuses evicted cooperative targets before invoking historical recovery or allocating scratch',()=>{
+ const s=setup('wash',4,4,8),draw=vi.spyOn(s.composite,'drawSource')
+ try{
+  for(let i=0;i<9;i++)s.layer.resolveForPaint({minX:i*4,minY:0,maxX:i*4+1,maxY:1})
+  expect(s.layer.evictedTileCount).toBe(1)
+  const acquire=vi.spyOn(s.scratch,'prepareAcquisition'),uploads=s.gl.texImage2D.mock.calls.length
+  s.executor.enqueue(s.submit());expect(()=>s.executor.advance()).toThrow('recovery required')
+  expect(acquire).not.toHaveBeenCalled();expect(s.gl.texImage2D).toHaveBeenCalledTimes(uploads);expect(draw).not.toHaveBeenCalled();expect(s.executor.poisoned).toBe(true)
+ }finally{s.close()}
+})
+it('restores an undeclared active texture unit through every cold allocation and original-copy preparation turn',()=>{
+ const s=setup('wash'),foreign=s.gl.createTexture(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  s.gl.activeTexture(s.gl.TEXTURE0+5);s.gl.bindTexture(s.gl.TEXTURE_2D,foreign)
+  const before=s.snapshot();s.executor.enqueue(s.submit())
+  for(let i=0;i<4;i++){s.executor.advance();expect(s.snapshot()).toEqual(before)}
+  expect(s.gl.copyTexSubImage2D).toHaveBeenCalledOnce();s.drain();expect(s.snapshot()).toEqual(before)
+ }finally{clock.mockRestore();s.close();s.gl.deleteTexture(foreign)}
+})
+it('forgets partially taken plan scratch through the one global pool owner after actual context loss',()=>{
+ const s=setup('wash'),release=vi.spyOn(s.scratch,'release'),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  s.executor.enqueue(s.submit());s.executor.advance();s.executor.advance()
+  expect(s.scratch.bytes.live).toBe(64)
+  const deleted=s.gl.deleteTexture.mock.calls.length
+  s.gl.isContextLost=()=>true;s.executor.cancel('lost',{lost:true})
+  expect(release).not.toHaveBeenCalled();expect(s.gl.deleteTexture).toHaveBeenCalledTimes(deleted)
+  expect(s.executor['queue']).toHaveLength(0);expect(s.layer['retainedTargets'].size).toBe(0)
+  s.scratch.forget();AccumulationBuffer.forgetContextStorage(s.gl) // isolated recording GL: global context owner retires this generation
+  expect(s.scratch.bytes).toEqual({live:0,free:0});s.scratch.destroy();expect(s.gl.deleteTexture).toHaveBeenCalledTimes(deleted)
+ }finally{clock.mockRestore();s.close()}
 })

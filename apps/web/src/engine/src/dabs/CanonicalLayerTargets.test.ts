@@ -1,8 +1,10 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { MockGL } from '../../testing/mockGL'
 import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
-import { bindCanonicalLayerTargets } from './CanonicalLayerTargets'
+import { RibbonScratchPool } from '../buffers/RibbonScratchPool'
+import {attachContextStorage,snapshotContextStorage} from '../buffers/ContextStorageOwner'
+import { bindCanonicalLayerTargets,prepareCanonicalLayerFrame } from './CanonicalLayerTargets'
 
 it('binds actual straight tile handles to one validated batch lifetime, and rejects stale re-acquisition', () => {
   const gl = new MockGL() as unknown as WebGLRenderingContext
@@ -49,4 +51,24 @@ it('publishes unique cold certificates only for actual retained targets',()=>{
     AccumulationBuffer.forgetContextStorage(gl) // isolated MockGL generation only
     expect(()=>bindCanonicalLayerTargets(layer,[target])).toThrow(/certificate/)
   }finally{layer.destroy()}
+})
+
+it('couples missing-only layer and same-pool admission without eager allocations or double physical charge',()=>{
+ const gl=new MockGL() as unknown as WebGLRenderingContext,layer=new TiledLayerBuffer(gl,4,4,undefined,undefined,undefined,'straight-rgba8'),pool=new RibbonScratchPool(gl)
+ attachContextStorage(gl,{limitBytes:192})
+ const resident=layer.resolveForPaint({minX:0,minY:0,maxX:4,maxY:4})[0],idle=pool.acquire(4,4,'straight-rgba8');pool.release(idle)
+ const plan=prepareCanonicalLayerFrame(layer,pool,[{minX:0,minY:0,maxX:8,maxY:4}],[{width:4,height:4,pixelEncoding:'straight-rgba8'}])
+ expect(snapshotContextStorage(gl)).toMatchObject({residentBytes:128,reservedBytes:64})
+ expect(plan.takeTarget(0).buffer).toBe(resident.buffer);expect(plan.takeScratch(0)).toBe(idle)
+ plan.takeTarget(1);expect(snapshotContextStorage(gl)).toMatchObject({residentBytes:192,reservedBytes:0})
+ plan.close();pool.destroy();layer.destroy();expect(snapshotContextStorage(gl)).toMatchObject({residentBytes:0,reservedBytes:0})
+})
+
+it('closes every coupled owner after a partial scratch failure and preserves the first exact cleanup error',()=>{
+ const gl=new MockGL() as unknown as WebGLRenderingContext,layer=new TiledLayerBuffer(gl,4,4,undefined,undefined,undefined,'straight-rgba8'),pool=new RibbonScratchPool(gl)
+ const plan=prepareCanonicalLayerFrame(layer,pool,[{minX:0,minY:0,maxX:4,maxY:4}],Array.from({length:2},()=>({width:4,height:4,pixelEncoding:'straight-rgba8' as const})))
+ plan.takeTarget(0);plan.takeScratch(0);plan.takeScratch(1)
+ const first=new Error('release first'),release=pool.release.bind(pool),spy=vi.spyOn(pool,'release').mockImplementation(buffer=>{release(buffer);throw first})
+ expect(()=>plan.close()).toThrow(first);expect(spy).toHaveBeenCalledTimes(2);expect(()=>layer.clear()).not.toThrow()
+ plan.close();spy.mockRestore();pool.destroy();layer.destroy()
 })

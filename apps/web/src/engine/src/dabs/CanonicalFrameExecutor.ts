@@ -9,7 +9,7 @@ import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
 import type { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { advanceSourcePrimaryComposition, createSourcePrimaryComposition, type SourcePrimaryCompositionContext, type SourcePrimaryCompositionResult, type SourcePrimaryCompositionState } from '../presets/sourcePrimaryComposition'
 import { runBrushGlBatch, runBrushGlTurn, type BrushGlTurn } from './BrushGlBatch'
-import { bindCanonicalLayerTargets } from './CanonicalLayerTargets'
+import { bindCanonicalLayerTargets,prepareCanonicalLayerFrame,type CanonicalLayerFrame } from './CanonicalLayerTargets'
 import type { CanonicalMaskSourceBank } from './CanonicalMaskSourceBank'
 import type { CanonicalOwnedRgba8Target, CanonicalRgba8CompositePass, CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
 import { canonicalTransformedMaskMetadata } from './TransformedMaskPlan'
@@ -74,7 +74,9 @@ export interface CanonicalFrameExecutorOptions {
   readonly composite: CanonicalRgba8CompositePass
   readonly scratch: RibbonScratchPool
   readonly layer: (id: string) => { readonly buffer: TiledLayerBuffer; readonly epoch: number }
-  /** Existing engine GPU fence. Account scratch-pool live AND idle bytes there;
+  /** Logical engine GPU-fence upper bound, NOT a second physical storage ticket.
+   * ContextStorageOwner physical admission is handed through layer/pool plans.
+   * Account scratch-pool live AND idle bytes in the engine fence;
    * release removes this reservation, not the pool's actual allocation charge. */
   readonly reserveTransient: (bytes: number) => () => void
   readonly changed: (layerId: string, bounds?: Readonly<WorldRect>) => void
@@ -100,6 +102,12 @@ interface Work {
   part: number
   presentTiles?: readonly WashTile[]
   releaseMetadata: () => void
+  frameTargets:readonly TilePosition[]
+  newTiles:readonly TilePosition[]
+  physical?:CanonicalLayerFrame
+  targetCursor:number
+  scratchCursor:number
+  washCursor:number
 }
 const int = (n: number, min = 0) => Number.isSafeInteger(n) && n >= min
 const sameContext = (a: SourcePrimaryCompositionContext, b: SourcePrimaryCompositionContext) =>
@@ -235,7 +243,7 @@ export class CanonicalFrameExecutor {
       }
     }
     if (newTiles.size + this.admittedTiles.size > 64) throw new RangeError('Canonical wash exceeds bounded tile count')
-    const releaseMetadata = this.options.prepass.brushGlBatchInfo().cpu.reserve(bytes)
+    const releaseMetadata = this.options.prepass.brushGlBatchInfo().cpu.reserve(bytes+frameTargets.size*128)
     let releaseWashMetadata: (() => void) | undefined, releaseBudget: (() => void) | undefined, releaseTargetBudget: (() => void) | undefined
     try {
       // Reserve an upper bound for the whole target union, not just wash pairs.
@@ -258,7 +266,7 @@ export class CanonicalFrameExecutor {
       const resources = new Set([...info.resources, ...other.resources].map(r => r.key)).size
       if (info.cpu.reservedBytes + (input.frame.definitions.some(autoRecipe) ? 82432 : 65536) + resources * 128 > info.cpu.budgetBytes) throw new RangeError('Canonical queue exceeds shared CPU work headroom')
       const saved: CanonicalFrameSubmission = structuredClone(input)
-      this.queue.push({ input: saved, result, sourceKeys, draw: 0, tile: 0, paintPart: 0, present: 0, part: 0,
+      this.queue.push({ input: saved, result, sourceKeys, draw: 0, tile: 0, paintPart: 0, present: 0, part: 0, frameTargets:[...frameTargets.values()],newTiles:[...newTiles.values()],targetCursor:0,scratchCursor:0,washCursor:0,
         releaseMetadata: () => { try { releaseMetadata() } finally { releaseTargetBudget?.() } } })
       for (const [k, tile] of newTiles) this.admittedTiles.set(k, tile)
       if (releaseBudget) {
@@ -304,7 +312,9 @@ export class CanonicalFrameExecutor {
         this.finish(work);
         return { pending:this.pending, checkpointReady:this.checkpointReady };
       }
+      this.preparePhysicalPlan(work,layer)
       if (!this.prepareAuto(work,turnStarted) || performance.now()-turnStarted >= 4) return { pending: true, checkpointReady: false }
+      if (!this.preparePhysical(work,layer)) return {pending:true,checkpointReady:false}
       // One owned capture covers direct target preparation, inner batch and
       // its release callbacks; no GL state or lease survives this turn.
       runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},turn=>{
@@ -318,6 +328,41 @@ export class CanonicalFrameExecutor {
       throw error
     } finally { this.advancing = false }
     return { pending: this.pending, checkpointReady: this.checkpointReady }
+  }
+
+  /** One accepted materialization per turn; even a resident/idle take is a
+   * bounded step. The actual layer/pool tickets reserve missing bytes once. */
+  private preparePhysicalPlan(work:Work,layer:TiledLayerBuffer):void {
+    const perTile=this.options.washMode==='deposition-only'?1:2
+    if(!work.physical){
+      const requests=work.newTiles.flatMap(t=>Array.from({length:perTile},()=>({width:t.width,height:t.height,pixelEncoding:'straight-rgba8' as const})))
+      work.physical=prepareCanonicalLayerFrame(layer,this.options.scratch,work.frameTargets.map(rect),requests)
+    }
+  }
+  private preparePhysical(work:Work,layer:TiledLayerBuffer):boolean {
+    const perTile=this.options.washMode==='deposition-only'?1:2,plan=work.physical!
+    if(work.targetCursor<plan.targetCount){runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{this.gl.activeTexture(this.gl.TEXTURE0);return plan.takeTarget(work.targetCursor)});work.targetCursor++;return false}
+    if(work.scratchCursor<plan.scratchCount){runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{this.gl.activeTexture(this.gl.TEXTURE0);return plan.takeScratch(work.scratchCursor)});work.scratchCursor++;return false}
+    if(work.washCursor<work.newTiles.length){
+      const position=work.newTiles[work.washCursor],base=work.washCursor*perTile
+      // All allocation is complete. Only the synchronous copy/clear operation
+      // borrows GL state; no draw lease survives the return to the engine drain.
+      runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{
+        this.gl.activeTexture(this.gl.TEXTURE0)
+        const target=this.resolveTile(layer,position),bound=bindCanonicalLayerTargets(layer,[target])[0],release=bound.lifetime.lease()
+        try{
+          const original=perTile===2?plan.scratchAt(base):undefined,local=plan.scratchAt(base+perTile-1)
+          if(original)target.buffer.copyTo(original)
+          this.gl.disable(this.gl.SCISSOR_TEST);this.gl.colorMask(true,true,true,true);local.clear()
+          const lifetime=this.options.washMode==='deposition-only'?this.rawLifetime(local,position):{kind:'external' as const,owner:{},lease:()=>()=>{}}
+          this.washes.set(key(position),{...position,original,local,lifetime})
+          for(let i=0;i<perTile;i++)plan.transferScratch(base+i)
+          work.washCursor++
+        }finally{release()}
+      })
+      return false
+    }
+    return true
   }
 
   private assertPrepared(): void {
@@ -393,7 +438,7 @@ export class CanonicalFrameExecutor {
         const position = positions[tile], target = this.resolveTile(layer, position)
         const bound = bindCanonicalLayerTargets(layer, [target])[0]
         stagingReleases.push(bound.lifetime.lease())
-        const wash = d.controls.kind === 'localAlphaDarken' ? this.washTile(position, target, bound) : undefined
+        const wash = d.controls.kind === 'localAlphaDarken' ? this.washTile(position) : undefined
         const paint=position.writeBounds ?? rect(position);
         const columns=Math.ceil((paint.maxX-paint.minX)/this.compositeCapacity.width);
         const rows=Math.ceil((paint.maxY-paint.minY)/this.compositeCapacity.height), parts=columns*rows;
@@ -443,28 +488,12 @@ export class CanonicalFrameExecutor {
     return target
   }
 
-  private washTile(position: TilePosition, target: PaintTarget, bound: CanonicalOwnedRgba8Target): WashTile {
+  private washTile(position: TilePosition): WashTile {
     const existing = this.washes.get(key(position))
     if (existing) return existing
     if (this.washes.size >= 64) throw new RangeError('Canonical wash exceeds bounded tile count')
     if (!this.admittedTiles.has(key(position))) throw new Error('Canonical wash tile was not admitted')
-    let original: AccumulationBuffer | undefined, local: AccumulationBuffer | undefined
-    const releaseTarget = bound.lifetime.lease()
-    try {
-      if(this.options.washMode!=='deposition-only')original = this.options.scratch.acquire(position.width, position.height, 'straight-rgba8')
-      local = this.options.scratch.acquire(position.width, position.height, 'straight-rgba8')
-      if(original)target.buffer.copyTo(original)
-      const gl = this.options.prepass.brushGlBatchInfo().gl
-      gl.disable(gl.SCISSOR_TEST); gl.colorMask(true, true, true, true)
-      local.clear()
-      const tile = { ...position, original, local, lifetime: this.options.washMode==='deposition-only'?this.rawLifetime(local,position):{ kind: 'external' as const, owner: {}, lease: () => () => {} } }
-      this.washes.set(key(position), tile)
-      return tile
-    } catch (error) {
-      if (local) { const buffer = local; this.cleanup(() => this.options.scratch.release(buffer)) }
-      if (original) { const buffer = original; this.cleanup(() => this.options.scratch.release(buffer)) }
-      throw error
-    } finally { releaseTarget() }
+    throw new Error('Canonical wash physical preparation incomplete')
   }
 
   private scratchTarget(buffer: AccumulationBuffer, t: TilePosition, lifetime: CanonicalOwnedRgba8Target['lifetime']): CanonicalOwnedRgba8Target {
@@ -520,7 +549,10 @@ export class CanonicalFrameExecutor {
   }
 
   private finish(work: Work): void {
-    this.queue.shift(); work.releaseMetadata()
+    this.queue.shift();
+    let failed=false,failure:unknown
+    for(const release of [()=>work.physical?.close(),work.releaseMetadata])try{release()}catch(error){if(!failed){failed=true;failure=error}}
+    if(failed)throw failure
     if (work.result.state.ended) {
       const before = this.cleanupErrors.length
       if (this.options.washMode === 'deposition-only') this.rawComplete = true
@@ -550,8 +582,11 @@ export class CanonicalFrameExecutor {
     // Detach cursor ownership before invoking arbitrary notification/release
     // callbacks. Reentrancy can never release one reservation a second time.
     this.gesture = undefined; this.planned = undefined
+    // Storage pins must be gone before the poison callback can undo/clear the
+    // authoritative layer. Draw leases were already released synchronously.
+    for(const work of pending)this.cleanup(()=>work.physical?.close({lost}))
     if (layerId) this.cleanup(() => this.options.poison(layerId, reason))
-    for (const work of pending) this.cleanup(work.releaseMetadata)
+    for (const work of pending)this.cleanup(work.releaseMetadata)
     this.releaseWashes(lost)
     this.cleanup(() => this.options.prepass.releaseOwner(this))
     this.retireSoftProgram()

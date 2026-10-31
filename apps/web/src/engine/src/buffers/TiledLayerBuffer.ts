@@ -1,6 +1,6 @@
 import { isRasterPixelEncoding, type RasterPixelEncoding } from '@grafetto/shared'
 import { AccumulationBuffer } from './AccumulationBuffer'
-import { reserveAccumStorage, releaseAccumReservation, type StorageReservation } from './ContextStorageOwner'
+import { reserveAccumStorage, releaseAccumReservation, validateAccumReservation, type StorageReservation } from './ContextStorageOwner'
 import type { ILayerBuffer, PaintTarget } from './ILayerBuffer'
 import { COARSE_FACTORS, TILE_SIZE, coarseTileWorldRect, fineTileSlot, fineToCoarseTile, parseTileKey, tileKey, tileWorldRect, tilesOverlappingRect, worldToTile, type CoarseFactor, type WorldRect } from './tileMath'
 
@@ -161,6 +161,12 @@ export type TileDownsampler = (
  *  after the one operation that made them, so there's nothing to gain and a
  *  real correctness gap to lose (recovering one would need a rebuildTile
  *  they were never given). */
+export interface PreparedLayerTargets {
+  readonly length:number
+  take(index:number):PaintTarget
+  close():void
+}
+
 export class TiledLayerBuffer implements ILayerBuffer {
   readonly pixelEncoding: RasterPixelEncoding
   private readonly gl: WebGLRenderingContext
@@ -174,7 +180,8 @@ export class TiledLayerBuffer implements ILayerBuffer {
   // not forgotten — recoverable on demand via rebuildTile. Never populated
   // when rebuildTile is undefined (see class docstring).
   private readonly evicted = new Set<string>()
-  private readonly retainedTargets = new Map<string, { buffer: AccumulationBuffer; count: number }>()
+  private readonly retainedTargets = new Map<string, { buffer: AccumulationBuffer | undefined; count: number; storagePins: number }>()
+  private storageEpoch = 0
   // (#155 Tier 2) Real content bbox per tile ever created, world-space,
   // keyed the same as `tiles`/`evicted` — populated the moment a tile is
   // created and never removed except by clear()/destroy(), independent of
@@ -294,6 +301,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
   /** Forget ownership before retirement, attempt every fine/coarse child once.
    * The coarse pyramid is derived and cannot survive a clear of its source. */
   private retireOwnedTiles(): void {
+    this.storageEpoch++
     const owned = [...this.tiles.values(), ...[...this.coarse.values()].flatMap(level => [...level.values()])]
     this.tiles.clear()
     this.evicted.clear()
@@ -451,15 +459,15 @@ export class TiledLayerBuffer implements ILayerBuffer {
         throw new Error('Foreign or stale retained layer target')
       const key = tileKey(target.originX / this.tileW, target.originY / this.tileH)
       const owned = this.tiles.get(key)
-      if (!owned || owned !== target.buffer) throw new Error('Foreign or stale retained layer target')
+      if (!owned || owned !== target.buffer || this.retainedTargets.has(key)&&this.retainedTargets.get(key)!.buffer!==owned) throw new Error('Foreign or stale retained layer target')
       unique.set(key, target.buffer)
     }
     if (this.retainedTargets.size + [...unique.keys()].filter(key => !this.retainedTargets.has(key)).length > 64)
       throw new RangeError('Retained layer target capacity exceeded')
-    const held: { key: string; entry: { buffer: AccumulationBuffer; count: number } }[] = []
+    const held: { key: string; entry: { buffer: AccumulationBuffer | undefined; count: number; storagePins: number } }[] = []
     for (const [key, buffer] of unique) {
       let entry = this.retainedTargets.get(key)
-      if (!entry) { entry = { buffer, count: 0 }; this.retainedTargets.set(key, entry) }
+      if (!entry) { entry = { buffer, count: 0, storagePins: 0 }; this.retainedTargets.set(key, entry) }
       entry.count++
       held.push({ key, entry })
     }
@@ -469,7 +477,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
       released = true
       for (const { key, entry } of held) if (this.retainedTargets.get(key) === entry) {
         entry.count--
-        if (entry.count === 0) this.retainedTargets.delete(key)
+        if (entry.count === 0 && entry.storagePins === 0) this.retainedTargets.delete(key)
       }
     }
   }
@@ -603,6 +611,8 @@ export class TiledLayerBuffer implements ILayerBuffer {
   }
 
   private getOrCreateTile(tileX: number, tileY: number, reservation?: StorageReservation): AccumulationBuffer {
+    const pending=this.retainedTargets.get(tileKey(tileX,tileY))
+    if(pending&&!pending.buffer)throw new Error('Layer target has a pending storage admission')
     const key = tileKey(tileX, tileY)
     const existing = this.tiles.get(key)
     if (existing) { this.touch(key, existing); return existing }
@@ -628,9 +638,8 @@ export class TiledLayerBuffer implements ILayerBuffer {
     return this.withPaintTargetRects([worldRect], draw)
   }
 
-  /** Sparse bounded target union; distant footprints never allocate the gap. */
-  withPaintTargetRects<T>(worldRects: readonly Readonly<WorldRect>[], draw: (targets: readonly PaintTarget[]) => T): T {
-    if (!Array.isArray(worldRects) || worldRects.length > 64 || typeof draw !== 'function'
+  private paintTargetUnion(worldRects: readonly Readonly<WorldRect>[]): Map<string,{tileX:number;tileY:number}> {
+    if (!Array.isArray(worldRects) || worldRects.length > 64
       || !Number.isSafeInteger(this.tileW) || !Number.isSafeInteger(this.tileH)
       || this.tileW < 1 || this.tileH < 1 || this.tileW > 4096 || this.tileH > 4096) throw new RangeError('Invalid admitted layer target geometry')
     const union = new Map<string, {tileX:number;tileY:number}>()
@@ -650,10 +659,55 @@ export class TiledLayerBuffer implements ILayerBuffer {
       }
     }
     if(this.retainedTargets.size+[...union.keys()].filter(key=>!this.retainedTargets.has(key)).length>64)throw new RangeError('Retained layer target capacity exceeded')
+    return union
+  }
+
+  /** Resident metadata pins may cross turns; draw leases may not. Recovery is
+   * deliberately closed here: the historical rebuilder is synchronous. */
+  preparePaintTargetRects(worldRects:readonly Readonly<WorldRect>[]): PreparedLayerTargets {
+    const union=this.paintTargetUnion(worldRects),epoch=this.storageEpoch
+    // Check the ENTIRE plan before claiming any pin or physical reservation.
+    for(const [key] of union){
+      if(this.evicted.has(key))throw new Error('Canonical layer recovery required')
+      const buffer=this.tiles.get(key),entry=this.retainedTargets.get(key)
+      if(buffer&&!buffer.storageOwnerCurrent)throw new Error('Stale admitted layer storage owner')
+      if(entry&&entry.buffer!==buffer || entry&&!entry.buffer)throw new Error('Layer target already has a pending storage admission')
+    }
+    const entries=[...union].map(([key,coord])=>({key,...coord,entry:this.retainedTargets.get(key)??{buffer:this.tiles.get(key),count:0,storagePins:0}}))
+    let ticket:StorageReservation|undefined,closed=false
+    const close=()=>{
+      if(closed)return;closed=true
+      for(const {key,entry}of entries)if(this.retainedTargets.get(key)===entry){entry.storagePins--;if(!entry.storagePins&&!entry.count)this.retainedTargets.delete(key)}
+      if(ticket)releaseAccumReservation(ticket)
+    }
+    for(const {key,entry}of entries){entry.storagePins++;this.retainedTargets.set(key,entry)}
+    try{ticket=reserveAccumStorage(this.gl,entries.filter(p=>!p.entry.buffer).length*this.tileW*this.tileH*4)}catch(error){close();throw error}
+    const validate=()=>{
+      if(closed||epoch!==this.storageEpoch)throw new Error('Stale layer storage admission')
+      validateAccumReservation(this.gl,ticket!,0)
+      for(const {key,entry}of entries)if(this.retainedTargets.get(key)!==entry||this.tiles.get(key)!==entry.buffer||entry.buffer&&!entry.buffer.storageOwnerCurrent)throw new Error('Stale layer storage admission')
+    }
+    return Object.freeze({length:entries.length,close,take:(index:number)=>{
+      validate()
+      if(!Number.isInteger(index)||index<0||index>=entries.length)throw new RangeError('Invalid layer storage admission index')
+      const {key,tileX,tileY,entry}=entries[index]
+      if(!entry.buffer){
+        const buffer=this.createClearedTile(ticket)
+        entry.buffer=buffer;this.tiles.set(key,buffer);this.contentRects.set(key,null)
+      }
+      return {buffer:entry.buffer,originX:tileX*this.tileW,originY:tileY*this.tileH,contentRect:this.contentRects.get(key)??null}
+    }})
+  }
+
+  /** Sparse bounded target union; distant footprints never allocate the gap. */
+  withPaintTargetRects<T>(worldRects: readonly Readonly<WorldRect>[], draw: (targets: readonly PaintTarget[]) => T): T {
+    if(typeof draw!=='function')throw new TypeError('Invalid target callback')
+    const union=this.paintTargetUnion(worldRects)
     const resident:PaintTarget[]=[]
     let missing=0
     for(const [key,{tileX,tileY}] of union){
       const buffer=this.tiles.get(key)
+      if(!buffer&&this.retainedTargets.has(key))throw new Error('Layer target has a pending storage admission')
       if(buffer){
         if(!buffer.storageOwnerCurrent)throw new Error('Stale admitted layer storage owner')
         resident.push({buffer,originX:tileX*this.tileW,originY:tileY*this.tileH,contentRect:this.contentRects.get(key)??null})
