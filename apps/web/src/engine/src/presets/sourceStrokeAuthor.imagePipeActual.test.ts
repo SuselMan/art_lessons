@@ -5,7 +5,7 @@ import {canonicalImagePipeSourceBinding,CANONICAL_MATERIAL_LIMITS,CANONICAL_STRO
 import fixture from'./fixtures/sourceImagePipe/mountains.native.json'
 import {sourceStrokeAuthorDescriptor}from'./sourceStrokeAuthorDescriptor'
 import {SourceStrokeAuthor,type SourceStrokeAuthorState,type SourceStrokeAuthorStep}from'./sourceStrokeAuthor'
-import {SourceStrokeMaterialAdapter}from'./sourceStrokeMaterialAdapter'
+import {SourceStrokeMaterialAdapter,type SourceStrokeMaterialContext,type SourceStrokeMaterialContextV2}from'./sourceStrokeMaterialAdapter'
 import {SourceCanonicalFrameEncoder,type SourceCanonicalStrokeContext}from'./sourceCanonicalFrameEncoder'
 import {nativeImageBank,nativeImagePixels}from'../dabs/NativeImageBank'
 const descriptor=fixture.descriptor as unknown as BrushDescriptor
@@ -14,9 +14,11 @@ function run(resume:boolean,v2=false){
  const compiled=sourceStrokeAuthorDescriptor(descriptor,{assets:fixture.assets,colorIdentity:'black',lodScale:1,inputProfile:'krita-freehand-no-smoothing-v1'})
  if(!compiled.supported)throw Error(compiled.reasons.join(','))
  const p=compiled.program,author=new SourceStrokeAuthor(p);let state=author.createState(1,2,0)
- const frames=descriptor.tip.animation!.frames,assets=fixture.assets.map(({id,size,x,y,width,height})=>({id,size,x,y,width,height})),context=v2?{version:2 as const,...canonicalImagePipeSourceBinding(descriptor,assets),budget:CANONICAL_MATERIAL_LIMITS}:{assets,primaryAsset:frames[0],primaryImageFrames:frames,budget:CANONICAL_MATERIAL_LIMITS},adapter=new SourceStrokeMaterialAdapter(p,context,state),policy=canonicalSourceComposition(descriptor)!
+ const frames=descriptor.tip.animation!.frames,assets=fixture.assets.map(({id,size,x,y,width,height})=>({id,size,x,y,width,height}))
+ const context:SourceStrokeMaterialContext|SourceStrokeMaterialContextV2=v2?{version:2 as const,...canonicalImagePipeSourceBinding(descriptor,assets),budget:CANONICAL_MATERIAL_LIMITS}:{assets,primaryAsset:frames[0],primaryImageFrames:frames,budget:CANONICAL_MATERIAL_LIMITS}
+ const adapter=new SourceStrokeMaterialAdapter(p,context,state),policy=canonicalSourceComposition(descriptor)!
  const common:Omit<SourceCanonicalStrokeContext,'material'>={rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:descriptor.id+'@'+descriptor.version,strokeId:'actual-incremental-pipe',pigmentRgb8:[0,0,0],composition:{...policy,alphaDarken:'creamy',outerResourceOpacity:1}}
- const encoder='version' in context&&context.version===2?new SourceCanonicalFrameEncoder({...common,material:context}):new SourceCanonicalFrameEncoder({...common,material:context})
+ const encoder='version' in context?new SourceCanonicalFrameEncoder({...common,material:context}):new SourceCanonicalFrameEncoder({...common,material:context})
  const steps:SourceStrokeAuthorStep[]=[],accepted:ReturnType<typeof encoder.encode>[]=[]
  const accept=(chunks:ReturnType<typeof adapter.finish>)=>{for(const c of chunks)accepted.push(encoder.encode(c.packed))}
  const consume=(iter:Generator<SourceStrokeAuthorStep,SourceStrokeAuthorState>)=>{while(true){const n=iter.next();if(n.done){state=n.value;return}steps.push(n.value);accept(adapter.accept(n.value));const c=adapter.flush();if(c)accept([c]);if(resume){const saved=structuredClone(n.value.state);iter.return(saved);if(!saved.cursor){state=saved;return}iter=new SourceStrokeAuthor(structuredClone(p)).resume(saved)}}}
