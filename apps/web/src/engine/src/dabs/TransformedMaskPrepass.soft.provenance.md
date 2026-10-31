@@ -61,3 +61,30 @@ retain their IDs/URLs, parent restored, job marker removed. No frontend/backend,
 service, dependency or disk bundle was created. This proves the isolated native
 basis executor path, not active UI/author compilation or native GUI whole-stroke
 identity.
+
+## Shared turn budget: actual multi-target Samsung comparison
+
+Scheduler source commit `7f7fc418d` (executor body SHA256
+`30c926a0b033273513f83428e01b94ed23d36d97abd05af68f8c45515e9e0abb`)
+was compared with executor-only source from `ad5923fbd` (body SHA256
+`7713595943316a3de47fd0b800b519b3af149437f128ce5a2918bde09396d9e7`).
+The before executor was overridden only in esbuild memory; checkout and every
+other source remained identical. Same fixture/body hashes are in the compact
+R52/soft-multitarget-comparison-receipt.json receipt.
+
+Two NEON cases (wash/buildup), three gestures each, place the unchanged native
+19x23mask at60,60 across four64x64tiles on a128x128page. Before cold allocation
+creates four new layer targets in one executor turn per case; after allocates
+one new target per turn, four turns per case. Both allocate exactly four targets,
+retain four resident tiles and preserve all131072 final RGBA bytes across the two
+outputs. Native mask replicas, incoming GL state, cold source cancellation,
+second/third gesture table reuse and all cleanup gates pass for both versions.
+
+Last instrumented pass: all-turn median/max15.9/42.0ms before and9.7/26.9ms
+after; cold11.0/42.0→10.7/26.9ms; warm17.2/27.1→8.6/11.7ms. Another multi-target
+pass varied, including buildup maximum30.5→36.2ms. The earlier single-target
+comparison showed no overall win (all-turn max37.6→47.9ms). The demonstrated
+improvement is cooperative cold allocation granularity4→1, not an overall speedup
+or hard4ms guarantee: driver calls cannot be interrupted. Measurements include
+instrumentation and are not active UI frame timings. All own children/contexts,
+forward19236 and job markers were removed; original three tabs retained IDs/URLs.
