@@ -2,6 +2,7 @@ import { expect, it, vi } from 'vitest'
 import { MockGL } from '../../testing/mockGL'
 import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import { RibbonScratchPool } from '../buffers/RibbonScratchPool'
+import { attachAccumStorage, snapshotAccumStorage } from '../buffers/ContextStorageOwner'
 import { BlitPasses } from './blitPasses'
 import { planStraightPresentation, StraightLayerPresentation } from './StraightLayerPresentation'
 
@@ -36,8 +37,13 @@ function setup() {
   const mock = new StateGL(), gl = mock as unknown as WebGLRenderingContext
   const source = new AccumulationBuffer(gl, 8, 8, 'nearest', 'straight-rgba8')
   const quad = gl.createBuffer()!, passes = new BlitPasses(gl, quad), pool = new RibbonScratchPool(gl)
-  const release = vi.fn(), reserve = vi.fn((_bytes: number) => release)
-  const presentation = new StraightLayerPresentation(pool, passes, reserve)
+  const release = vi.fn()
+  const prepare = pool.prepareAcquisition.bind(pool)
+  const reserve = vi.spyOn(pool, 'prepareAcquisition').mockImplementation(requests => {
+    const acquisition = prepare(requests)
+    return { ...acquisition, close: () => { acquisition.close(); release() } }
+  })
+  const presentation = new StraightLayerPresentation(pool, passes)
   const close = () => { pool.destroy(); passes.destroy(); source.destroy(); gl.deleteBuffer(quad) }
   return { mock, gl, source, passes, pool, reserve, release, presentation, close }
 }
@@ -49,7 +55,8 @@ it('reserves before allocation, restores crop before display and reuses ONE pool
     s.gl.colorMask(false, true, false, true)
     const blend = vi.spyOn(s.mock, 'blendFunc'), mipmaps = vi.spyOn(s.mock, 'generateMipmap')
     const matrices = vi.spyOn(s.mock, 'uniformMatrix3fv'), upload = vi.spyOn(s.mock, 'texImage2D')
-    s.reserve.mockImplementation(bytes => { expect(upload).not.toHaveBeenCalled(); expect(bytes).toBe(80); return s.release })
+    const originalPrepare = s.reserve.getMockImplementation()!
+    s.reserve.mockImplementation(requests => { expect(upload).not.toHaveBeenCalled(); expect(requests).toEqual([{width:4,height:4,pixelEncoding:'premultiplied-rgba8',filter:'linear'},{width:2,height:2,pixelEncoding:'premultiplied-rgba8',filter:'linear'}]); return originalPrepare(requests) })
     s.presentation.withTile(s.source, 0.125, 0.125, buffer => {
       expect(buffer.width).toBe(2); expect(buffer.samplingFilter).toBe('linear')
       expect(buffer.pixelEncoding).toBe('premultiplied-rgba8')
@@ -61,7 +68,7 @@ it('reserves before allocation, restores crop before display and reuses ONE pool
     expect(matrices.mock.calls.map(([, , matrix]) => Array.from(matrix as Float32Array))).toEqual([[2, 0, 0, 0, 2, 0, 0, 0, 1], [2, 0, 0, 0, 2, 0, 0, 0, 1]])
     expect(blend).not.toHaveBeenCalled(); expect(mipmaps).not.toHaveBeenCalled()
     expect(s.pool.bytes).toEqual({ live: 0, free: 80 }); expect(s.release).toHaveBeenCalledTimes(1)
-    s.reserve.mockImplementation(() => s.release)
+    s.reserve.mockImplementation(originalPrepare)
     upload.mockClear()
     s.presentation.withTile(s.source, 0.125, 0.125, () => {})
     expect(upload).not.toHaveBeenCalled(); expect(s.release).toHaveBeenCalledTimes(2)
@@ -84,10 +91,11 @@ it('rejects budget failure before GL allocation and forbids nested tile borrowin
   const s = setup()
   try {
     const upload = vi.spyOn(s.mock, 'texImage2D')
+    const originalPrepare = s.reserve.getMockImplementation()!
     s.reserve.mockImplementation(() => { throw new Error('budget denied') })
     expect(() => s.presentation.withTile(s.source, 1, 1, () => {})).toThrow('budget denied')
     expect(upload).not.toHaveBeenCalled(); expect(s.pool.bytes.live).toBe(0)
-    s.reserve.mockImplementation(() => s.release)
+    s.reserve.mockImplementation(originalPrepare)
     s.presentation.withTile(s.source, 1, 1, () => {
       expect(() => s.presentation.withTile(s.source, 1, 1, () => {})).toThrow('already active')
     })
@@ -157,4 +165,28 @@ it('keeps the new stage owned if releasing the preceding stage throws', () => {
     expect(s.release).toHaveBeenCalledTimes(1)
     expect(s.presentation.cleanupFailure).toBe(cleanup)
   } finally { s.close() }
+})
+
+it('admits existing resident presentation stages at an exact finite physical cap without double charging',()=>{
+ const s=setup()
+ try {
+  // Existing source is adopted once; only the two PM stages need new storage.
+  attachAccumStorage(s.gl,{limitBytes:336})
+  const observe=()=>expect(snapshotAccumStorage(s.gl)).toMatchObject({residentBytes:336,reservedBytes:0})
+  s.presentation.withTile(s.source,.125,.125,observe)
+  const upload=vi.spyOn(s.mock,'texImage2D');upload.mockClear()
+  s.presentation.withTile(s.source,.125,.125,observe)
+  expect(upload).not.toHaveBeenCalled();expect(s.pool.bytes).toEqual({live:0,free:80})
+ } finally {s.close()}
+ expect(snapshotAccumStorage(s.gl)).toMatchObject({residentBytes:0,reservedBytes:0})
+})
+it('rejects missing physical stage storage before GL allocation at a finite cap',()=>{
+ const s=setup()
+ try {
+  attachAccumStorage(s.gl,{limitBytes:335})
+  const upload=vi.spyOn(s.mock,'texImage2D');upload.mockClear()
+  expect(()=>s.presentation.withTile(s.source,.125,.125,()=>{})).toThrow('admission')
+  expect(upload).not.toHaveBeenCalled();expect(s.pool.bytes).toEqual({live:0,free:0})
+  expect(snapshotAccumStorage(s.gl)).toMatchObject({residentBytes:256,reservedBytes:0})
+ } finally {s.close()}
 })

@@ -26,8 +26,11 @@ are unchanged.
 All derived buffers use the ONE existing RibbonScratchPool with its common
 live/idle accounting and idle ceiling. Pool keys now include immutable allocation
 filter as well as encoding and size, so linear presentation cannot borrow nearest
-paint scratch. The owner must reserve the sum of all plan buffers against its
-global live+idle budget before any GL allocation. At most two stages are borrowed
+paint scratch. The same pool now prepares the complete bounded acquisition, claims
+resident stages and reserves only missing bytes in ContextStorageOwner before
+GL allocation. Each stage is taken from that exact ticket, with no parallel
+numeric callback or second charge. This physical domain remains complete:false;
+it does not represent a whole-GPU budget. At most two stages are borrowed
 at once; earlier stages become counted idle entries. No retained mirror, second
 quota, asynchronous queue or per-frame hardware mip cache is introduced.
 
@@ -92,3 +95,15 @@ owned before releasing its predecessor, so a release exception cannot strand
 the newly allocated output. Fault-injection tests cover both cleanup failures,
 subsequent reuse, and predecessor release failure. This changes error paths only;
 the successful pixel path and frozen Samsung receipt above are unchanged.
+
+## Same-owner admission handoff (2026-10-31)
+
+The numeric reserveTransient constructor callback was removed. The service uses
+RibbonScratchPool.prepareAcquisition, closes its plan in finally and preserves
+primary/cleanup failure ordering. Unit tests12 PASS include exact finite cap336
+(256 resident source+80 derived stages), warm zero-allocation reuse at that cap,
+and cap335 denial before allocation. Existing hostile-state, stage/display fault,
+cleanup, nesting and reuse cases still pass. Historical Samsung receipt above
+predates this handoff and is not relabeled as testing the changed lifecycle.
+Engine factory activation and a fresh physical-device handoff proof remain gates.
+No runtime processes, service or disposable builds were created by this unit.

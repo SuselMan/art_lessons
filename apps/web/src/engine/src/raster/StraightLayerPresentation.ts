@@ -21,8 +21,8 @@ export function planStraightPresentation(width: number, height: number, scaleX: 
 }
 
 /** Derived presentation only. No canonical writes, retained mirror, mipmaps,
- * hidden queue or second scratch pool. The engine owner must reserve the total
- * plan against its global LIVE+IDLE budget before any GL allocation. */
+ * hidden queue or second scratch pool. The SAME pool claims reusable storage
+ * and reserves only missing physical bytes before any GL allocation. */
 export class StraightLayerPresentation {
   private busy = false
   private _cleanupFailure: unknown
@@ -30,11 +30,9 @@ export class StraightLayerPresentation {
   get cleanupFailure(): unknown { return this._cleanupFailure }
   private readonly pool: RibbonScratchPool
   private readonly passes: BlitPasses
-  private readonly reserveTransient: (bytes: number) => (() => void)
-  constructor(pool: RibbonScratchPool, passes: BlitPasses, reserveTransient: (bytes: number) => (() => void)) {
+  constructor(pool: RibbonScratchPool, passes: BlitPasses) {
     this.pool = pool
     this.passes = passes
-    this.reserveTransient = reserveTransient
   }
 
   /** The PM result is borrowed only for this synchronous callback. */
@@ -42,8 +40,7 @@ export class StraightLayerPresentation {
     if (source.pixelEncoding !== 'straight-rgba8') throw new TypeError('Expected straight canonical tile')
     if (this.busy) throw new Error('Presentation is already active')
     const plan = planStraightPresentation(source.width, source.height, scaleX, scaleY)
-    const releaseReservation = this.reserveTransient(plan.reduce((bytes, level) => bytes + level.width * level.height * 4, 0))
-    if (typeof releaseReservation !== 'function') throw new TypeError('Missing presentation reservation release')
+    const acquisition = this.pool.prepareAcquisition(plan.map(level => ({ ...level, pixelEncoding: 'premultiplied-rgba8', filter: 'linear' })))
     this.busy = true
     this._cleanupFailure = undefined
     let failed = false, failure: unknown
@@ -54,8 +51,9 @@ export class StraightLayerPresentation {
       // Capture before acquire: allocation itself changes texture/FBO bindings.
       this.passes.withPresentationState(() => {
         let input = source
-        for (const level of plan) {
-          const next = this.pool.acquire(level.width, level.height, 'premultiplied-rgba8', 'linear')
+        for (let index = 0; index < plan.length; index++) {
+          const level = plan[index]
+          const next = acquisition.take(index)
           try {
             next.beginReplaceDraw()
             const matrix: Matrix3 = [input.width / level.width, 0, 0, 0, input.height / level.height, 0, 0, 0, 1]
@@ -84,7 +82,7 @@ export class StraightLayerPresentation {
       // A pool error (including an epoch reset during draw) must not strand
       // the reservation or keep this synchronous service permanently busy.
       this.busy = false
-      try { releaseReservation() }
+      try { acquisition.close() }
       catch (error) { if (!cleanupFailed) { cleanupFailed = true; cleanupError = error } }
       if (cleanupFailed) this._cleanupFailure = cleanupError
     }
