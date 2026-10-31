@@ -42,3 +42,13 @@ This bridge has no active pointer, engine, Operation, Socket or server hook.
 Trusted server capability, operation ordering/repair and straight room/writer
 activation remain separate work. These tests are not a native pixel or device
 performance receipt.
+
+## Explicit V2 outer composition
+
+The existing encoder now copies the trusted rasterProfile into its pinned context.
+Omission preserves the exact legacy version1/Over output. Only the explicit new
+whole-pipeline profile emits version2; its four non-Over modes require wash. The
+same constructor probe/shared decoder and ordinal cursor are retained. New tests
+mutate caller profile/composition after construction and reject truncated/repeated
+chunks without ordinal advance, including empty terminal chunks for each mode.
+Material bytes, author evaluation, FIFO/transport and room activation are unchanged.

@@ -60,3 +60,13 @@ Tests use actual shared pack/decode for accepted inputs, then verify split/resum
 history and controls, late rejection atomicity, zero-valued records, no fence reset,
 empty after-primary/final tails, exact aliasing, direct flow omission and immutable
 policy. They prove orchestration only, not native raster pixels or active renderer.
+
+## Four-mode V2 wash policy
+
+Wash present/commit commands retain the immutable selected outer blend rather than
+hardcoding Over. All actual draw averaging, local AlphaDarken controls, fences,
+resume state and draw ordinals are unchanged. The closed shared composition law
+rejects non-Over buildup before issuing commands. This pure composition helper
+validates a law, not room/profile authority: encoder/executor additionally check
+their explicit trusted raster profile. Tests compare identical local traces and
+selected preview/final blend for all four modes; historical Over regressions remain.

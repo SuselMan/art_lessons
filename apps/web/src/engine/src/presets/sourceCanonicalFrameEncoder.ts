@@ -29,7 +29,7 @@ export class SourceCanonicalFrameEncoder<C extends AnyContext=SourceCanonicalStr
   constructor(context:C) {
     this.targets=pinSourceMaterialTargets(context.material.targetGeometry)
     const material=copySourceMaterialContext(context.material)
-    const common={brush:context.brush,strokeId:context.strokeId,
+    const common={brush:context.brush,strokeId:context.strokeId,rasterProfile:context.rasterProfile === undefined ? CANONICAL_STROKE_RASTER_PROFILE : context.rasterProfile,
       pigmentRgb8:Object.freeze([...context.pigmentRgb8] as [number,number,number]),
       composition:Object.freeze({...context.composition})}
     this.context='version' in material?{...common,material}:{...common,material}
@@ -67,8 +67,9 @@ export class SourceCanonicalFrameEncoder<C extends AnyContext=SourceCanonicalStr
   }
 
   private envelope(materialPacked: string) {
+    const rasterProfile=this.context.rasterProfile === undefined ? CANONICAL_STROKE_RASTER_PROFILE : this.context.rasterProfile
     return {
-      version: 1, rasterProfile: CANONICAL_STROKE_RASTER_PROFILE,
+      version: rasterProfile===CANONICAL_STROKE_RASTER_PROFILE?1:2, rasterProfile,
       brush: this.context.brush, strokeId: this.context.strokeId, frameOrdinal: this.nextFrameOrdinal,
       pigmentRgb8: this.context.pigmentRgb8, composition: this.context.composition, materialPacked,
     }

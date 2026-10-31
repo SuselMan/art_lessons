@@ -127,7 +127,7 @@ describe('decoded single-primary composition session (no renderer activation)', 
     expect(step(s, f).draws).toHaveLength(2)
   })
   it('rejects unsupported policy, malformed checkpoint, mask and masked frames', () => {
-    for (const patch of [{ mode: 'other' }, { alphaDarken: 'other' }, { outerBlend: 'multiply' }, { outerResourceOpacity: NaN }]) {
+    for (const patch of [{ mode: 'other' }, { alphaDarken: 'other' }, { outerBlend: 'screen' }, { outerResourceOpacity: NaN }]) {
       expect(() => create({ ...wash, ...patch } as SourcePrimaryCompositionContext)).toThrow()
     }
     const initial = create(wash).state
@@ -148,4 +148,14 @@ describe('decoded single-primary composition session (no renderer activation)', 
     expect(Object.isFrozen(result.draws[0]!.controls)).toBe(true)
     expect(Object.isFrozen(result.state.entry)).toBe(true)
   })
+})
+
+for(const outerBlend of ['multiply','lighten','colorDodge','overlay'] as const) it(`carries ${outerBlend} through wash previews and terminal commit without changing deposition history`,()=>{
+ const original=whole([.8,.2]), initial=create({...wash,outerBlend})
+ const preview=step(initial.state,frame([.8],{phase:'between'},[begin,...finish(1)]))
+ const commit=step(preview.state,frame([],{phase:'between'},[end(0)]))
+ expect(preview.commands[0]).toMatchObject({kind:'presentWash',blend:outerBlend,opacity:.27})
+ expect(commit.commands[0]).toMatchObject({kind:'commitWash',blend:outerBlend,opacity:.27})
+ expect(step(initial.state,original).draws).toEqual(step(create(wash).state,original).draws)
+ expect(()=>create({...wash,mode:'buildup',outerBlend})).toThrow()
 })

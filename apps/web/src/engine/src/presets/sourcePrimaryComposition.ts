@@ -1,4 +1,4 @@
-import { CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, type CanonicalMaterialEntry, type AnyCanonicalMaterialFrame, type CanonicalStrokeComposition } from '@grafetto/shared'
+import { CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalMaterialEntry, type AnyCanonicalMaterialFrame, type CanonicalStrokeComposition } from '@grafetto/shared'
 import { sourceBlendAverageOpacity } from './brushWash'
 import { normalizeSourcePainterOpacity, type SourcePainterOpacity } from './sourcePainterOpacity'
 
@@ -18,7 +18,7 @@ export interface SourcePrimaryCompositionState {
 }
 export type SourcePrimaryCompositionCommand =
   | { readonly kind: 'beginWash'; readonly target: 'freshTransparentStroke' }
-  | { readonly kind: 'presentWash' | 'commitWash'; readonly source: 'stroke'; readonly destination: 'originalLayer'; readonly originalLayer: 'preStrokeSnapshot'; readonly opacity: number; readonly blend: 'over' }
+  | { readonly kind: 'presentWash' | 'commitWash'; readonly source: 'stroke'; readonly destination: 'originalLayer'; readonly originalLayer: 'preStrokeSnapshot'; readonly opacity: number; readonly blend: CanonicalStrokeComposition['outerBlend'] }
 export type SourcePrimaryCompositionControls =
   | ({ readonly kind: 'localAlphaDarken'; readonly variant: 'creamy' | 'hard' } & SourcePainterOpacity)
   | { readonly kind: 'directOver'; readonly opacity: number }
@@ -39,8 +39,7 @@ const fail = (): never => { throw new RangeError('source primary composition: in
 const unit = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1
 const integer = (n: unknown, min = 0): n is number => typeof n === 'number' && Number.isSafeInteger(n) && n >= min
 function context(c: SourcePrimaryCompositionContext): void {
-  if (!c || !['wash', 'buildup'].includes(c.mode) || !['creamy', 'hard'].includes(c.alphaDarken)
-    || !unit(c.outerResourceOpacity) || c.outerBlend !== 'over') fail()
+  if (!isCanonicalStrokeComposition(c, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)) fail()
 }
 function entry(e: CanonicalMaterialEntry): void {
   if (!e || !['between', 'primary', 'mask'].includes(e.phase) || e.phase !== 'between' && !integer(e.group)) fail()
@@ -121,7 +120,7 @@ export function advanceSourcePrimaryComposition(s: SourcePrimaryCompositionState
   const commands: SourcePrimaryCompositionCommand[] = []
   if (s.context.mode === 'wash' && (ended || draws.length > 0)) {
     commands.push(Object.freeze({ kind: ended ? 'commitWash' : 'presentWash', source: 'stroke', destination: 'originalLayer',
-      originalLayer: 'preStrokeSnapshot', opacity: s.context.outerResourceOpacity, blend: 'over' }))
+      originalLayer: 'preStrokeSnapshot', opacity: s.context.outerResourceOpacity, blend: s.context.outerBlend }))
   }
   return Object.freeze({ state: state({ ...s, entry: current, lastGroup, nextFrameOrdinal: s.nextFrameOrdinal + 1,
     drawCount: count, averageQreal: average, ended }), draws: Object.freeze(draws), commands: Object.freeze(commands) })

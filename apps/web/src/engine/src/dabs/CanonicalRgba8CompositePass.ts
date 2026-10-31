@@ -115,7 +115,7 @@ const VBO_BYTES = 48, PROGRAM_CPU_BYTES = 8192;
 const borrowedRelease = () => { };
 function operationsFor(limits: CanonicalCompositeLimits): readonly CanonicalCompositeOperationKind[] {
     const operations = limits.operations ?? ['alphaDarken32'];
-    if (!Array.isArray(operations) || !operations.length || operations.length > 2
+    if (!Array.isArray(operations) || !operations.length || operations.length > 3
         || operations.some(kind => !['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8'].includes(kind)))
         throw new RangeError('Invalid composite operations');
     return (['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8'] as const).filter(kind => operations.includes(kind));

@@ -46,3 +46,37 @@ it('delegates trusted CAS, byte budgets and end fences to the shared material de
   expect(() => decodeCanonicalStrokeFrame(value, { ...trusted, material: { ...trusted.material, expectedStrokeEnd: false } })).toThrow()
   expect(() => decodeCanonicalStrokeFrame({ ...value, materialPacked: value.materialPacked.slice(0, -1) }, trusted)).toThrow()
 })
+
+const genericProfile = 'installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2' as const
+for (const outerBlend of ['over','multiply','lighten','colorDodge','overlay'] as const) it(`admits V2 ${outerBlend} only against an explicit trusted whole-pipeline profile`, () => {
+  const { trusted, value } = fixture()
+  const composition = { ...trusted.composition, outerBlend }
+  const context = { ...trusted, rasterProfile: genericProfile, composition }
+  const input = { ...value, version: 2, rasterProfile: genericProfile, composition }
+  const accepted = decodeCanonicalStrokeFrame(input, context)
+  expect(accepted.envelope).toEqual(input)
+  expect(accepted.envelope.materialPacked).toBe(value.materialPacked)
+  expect(Object.isFrozen(accepted.envelope.composition)).toBe(true)
+  expect(() => decodeCanonicalStrokeFrame(input, { ...trusted, composition })).toThrow()
+})
+it('rejects cross-version/profile, forged trusted policy and non-over buildup before material work', () => {
+  const { trusted, value, preflightDefinition } = fixture()
+  const composition = { ...trusted.composition, outerBlend: 'multiply' as const }
+  const context = { ...trusted, rasterProfile: genericProfile, composition }
+  const input = { ...value, version: 2, rasterProfile: genericProfile, composition }
+  for (const patch of [{version:1}, {rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}, {composition:{...composition,outerBlend:'screen'}},
+    {composition:{...composition,mode:'buildup'}}]) expect(() => decodeCanonicalStrokeFrame({...input,...patch},context)).toThrow()
+  expect(() => decodeCanonicalStrokeFrame({...value,composition}, {...trusted,composition})).toThrow()
+  for(const rasterProfile of ['forged',null]){
+    const forged={...context};Reflect.set(forged,'rasterProfile',rasterProfile)
+    expect(() => decodeCanonicalStrokeFrame(input,forged)).toThrow()
+  }
+  const coercion=()=>{throw Error('mode coercion forbidden')}
+  expect(()=>decodeCanonicalStrokeFrame({...input,composition:{...composition,outerBlend:{toString:coercion}}},context)).toThrow('Invalid canonical stroke frame envelope')
+  expect(preflightDefinition).not.toHaveBeenCalled()
+})
+it('retains the exact legacy envelope serialization and optional old trusted profile', () => {
+  const {trusted,value}=fixture(), bytes=JSON.stringify(value)
+  expect(JSON.stringify(decodeCanonicalStrokeFrame(value,trusted).envelope)).toBe(bytes)
+  expect(JSON.stringify(decodeCanonicalStrokeFrame(value,{...trusted,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}).envelope)).toBe(bytes)
+})

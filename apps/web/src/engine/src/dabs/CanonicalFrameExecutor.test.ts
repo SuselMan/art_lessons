@@ -1,3 +1,5 @@
+import {compositeSourceFused32} from '../presets/sourceFused32'
+import {compositeRgba8,SOURCE_RGBA8_GENERIC_SC_PROFILE} from '../presets/sourceColorRgba8'
 import gaussianStock from '../../../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.native'
 import { sourceGaussianDab } from '../presets/sourceGaussianDab'
 import { canonicalGaussianAutoSourceBinding, type CanonicalAutoSource, type CanonicalGaussianAutoRecipe } from '@grafetto/shared'
@@ -13,7 +15,7 @@ import stock from '../../../../../../packages/shared/src/fixtures/sourceDefaultA
 import { sourceStrokeAuthorDescriptor } from '../presets/sourceStrokeAuthorDescriptor'
 import { SourceStrokeAuthor, type SourceAuthorPacket } from '../presets/sourceStrokeAuthor'
 import { describe, expect, it, vi } from 'vitest'
-import { CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE, packCanonicalMaterial, unpackCanonicalMaterial, canonicalDefaultAutoSourceBinding, buildCanonicalMaterial, type BrushDescriptor, type CanonicalDefaultAutoSource, type CanonicalDefaultAutoRecipe, type CanonicalMaterialContextV2, type BrushTip, type CanonicalMaterialFrame, type CanonicalMaterialRecipe, type TipMaskId } from '@grafetto/shared'
+import { CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, packCanonicalMaterial, unpackCanonicalMaterial, canonicalDefaultAutoSourceBinding, buildCanonicalMaterial, type BrushDescriptor, type CanonicalDefaultAutoSource, type CanonicalDefaultAutoRecipe, type CanonicalMaterialContextV2, type BrushTip, type CanonicalMaterialFrame, type CanonicalMaterialRecipe, type TipMaskId } from '@grafetto/shared'
 import { recordingGL } from '../../testing/brushPassTestUtils'
 import { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { RibbonScratchPool } from '../buffers/RibbonScratchPool'
@@ -68,7 +70,7 @@ function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4,
   const prepass = new TransformedMaskPrepass(gl, cache, cpu, 'executor-test')
   prepass.prepare({ width: capacity, height: capacity, slots: 1 }, bankResources)
   const composite = new CanonicalRgba8CompositePass(gl, cache, cpu, 'executor-composite-test')
-  composite.prepare({ width: compositeCapacity, height: compositeCapacity, operations: rasterProfile === CANONICAL_STROKE_RASTER_PROFILE ? ['alphaDarken32FusedScalar', 'over32FusedScalar'] : ['alphaDarken32', 'over32'] }, [...bankResources, ...prepass.preparedResources()])
+  composite.prepare({ width: compositeCapacity, height: compositeCapacity, operations: rasterProfile === CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE ? ['alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8'] : rasterProfile === CANONICAL_STROKE_RASTER_PROFILE ? ['alphaDarken32FusedScalar', 'over32FusedScalar'] : ['alphaDarken32', 'over32'] }, [...bankResources, ...prepass.preparedResources()])
   const rebuild = vi.fn(() => ({ readPixels: () => null, destroy: vi.fn() }))
   const scratch = new RibbonScratchPool(gl), layer = new TiledLayerBuffer(gl, tileSize, tileSize, tileBudget ? rebuild : undefined, tileBudget ? tileBudget * tileSize * tileSize * 4 : undefined, undefined, 'straight-rgba8')
   let epoch = 0
@@ -293,8 +295,8 @@ it('requires an explicit prepared profile before any layer allocation or reserva
     expect(s.snapshot()).toEqual(baseline)
   } finally { s.close() }
 })
-it.each(['wash', 'buildup'] as const)('keeps the installed fused profile through %s local and outer commands across yields', mode => {
-  const s = setup(mode, 4, 2, undefined, CANONICAL_STROKE_RASTER_PROFILE), calls = vi.spyOn(s.composite, 'drawSource')
+for(const rasterProfile of [CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE] as const)it.each(['wash', 'buildup'] as const)(`keeps the installed fused Over law through %s commands under ${rasterProfile}`, mode => {
+  const s = setup(mode, 4, 2, undefined, rasterProfile), calls = vi.spyOn(s.composite, 'drawSource')
   try {
     s.executor.enqueue(s.submit(decoded(2, 0, false))); s.drain()
     expect(s.executor.checkpointReady).toBe(false)
@@ -703,8 +705,8 @@ describe('deposition-only wash ownership', () => {
 
 
 describe('recorded same-layer concurrent wash lane', () => {
-  function lane(tileSize=1,capacity=1) {
-    const s=setup('wash',tileSize,capacity), derived=new TiledLayerBuffer(s.gl,tileSize,tileSize,undefined,undefined,undefined,'straight-rgba8')
+  function lane(tileSize=1,capacity=1,rasterProfile:CanonicalExecutorRasterProfile='reference-scalar-f32-rne-v1') {
+    const s=setup('wash',tileSize,capacity,undefined,rasterProfile), derived=new TiledLayerBuffer(s.gl,tileSize,tileSize,undefined,undefined,undefined,'straight-rgba8')
     const pixels=new Map<WebGLTexture,Rgba8>()
     const copy=AccumulationBuffer.prototype.copyTo, clear=AccumulationBuffer.prototype.clear
     const copySpy=vi.spyOn(AccumulationBuffer.prototype,'copyTo').mockImplementation(function(this:AccumulationBuffer, destination:AccumulationBuffer){
@@ -721,11 +723,16 @@ describe('recorded same-layer concurrent wash lane', () => {
       const src:Rgba8=request.source.kind==='maskRgb'?[...request.source.rgb,255]:pixels.get(request.source.view.texture)??[0,0,0,0]
       if(request.operation.kind==='alphaDarken32')pixels.set(request.target.texture,compositeSourceAlphaDarken32(src,dst,request.operation.control))
       else if(request.operation.kind==='over32')pixels.set(request.target.texture,compositeSourceOver32Scalar(src,dst,request.operation.control))
-      else throw new Error('reference numerical profile expected')
+      else if(request.operation.kind==='genericSCU8')pixels.set(request.target.texture,compositeRgba8(src,dst,request.operation.control))
+      else if(request.operation.kind==='alphaDarken32FusedScalar'||request.operation.kind==='over32FusedScalar'){
+        const c=request.operation.control,operator=request.operation.kind==='over32FusedScalar'?'over':'variant' in c&&c.variant==='hard'?'alphaDarkenHard':'alphaDarkenCreamy'
+        const out=compositeSourceFused32({profile:'installed-arm64-vector32-fused-fpcr0-v1',operator,source:Uint8Array.from(src),destination:Uint8Array.from(dst),cols:1,rows:1,sourceStride:4,destinationStride:4,maskStride:0,sourceAlignment:0,destinationAlignment:0,opacity:c.opacity,averageOpacity:'averageOpacity' in c?c.averageOpacity:c.opacity,flow:'flow'in c?c.flow:1}).pixels
+        pixels.set(request.target.texture,[out[0],out[1],out[2],out[3]])
+      }else throw new Error('unsupported numerical profile')
       return result
     })
     const source=vi.fn(()=>({bank:s.bank}))
-    const coordinator=new CanonicalWashLayerCoordinator({rasterProfile:'reference-scalar-f32-rne-v1',layerId:'layer',layerEpoch:0,maxGestures:4,
+    const coordinator=new CanonicalWashLayerCoordinator({rasterProfile,layerId:'layer',layerEpoch:0,maxGestures:4,
       prepass:s.prepass,composite:s.composite,scratch:s.scratch,layer:()=>({buffer:s.layer,epoch:0}),presentation:()=>({buffer:derived,epoch:0}),
       source,reserveTransient:s.reserveTransient,changed:s.changed,poison:s.poison})
     const frame=(id:string,opacity:number,end:boolean,ordinal=0):CanonicalFrameSubmission=>{
@@ -738,6 +745,36 @@ describe('recorded same-layer concurrent wash lane', () => {
     const close=()=>{coordinator.cancel();calls.mockRestore();copySpy.mockRestore();clearSpy.mockRestore();derived.destroy();s.close()}
     return {...s,coordinator,derived,pixels,calls,frame,drain,pixel,close,source}
   }
+  for(const [outerBlend,peerBlend] of [['multiply','lighten'],['lighten','overlay'],['colorDodge','multiply'],['overlay','colorDodge']] as const)it(`uses ${outerBlend}/${peerBlend} identically for ordered previews and stable commits over existing pixels`,()=>{
+    const s=lane(1,1,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE), original:Rgba8=[27,143,209,177]
+    const blend=(src:Rgba8,dst:Rgba8,mode:'multiply'|'lighten'|'colorDodge'|'overlay')=>compositeRgba8(src,dst,{mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:.63})
+    const input=(id:string,opacity:number,end:boolean,ordinal:number,outerBlend:'multiply'|'lighten'|'colorDodge'|'overlay')=>{const f=s.frame(id,opacity,end,ordinal);return{...f,composition:{...f.composition,outerBlend,outerResourceOpacity:.63}}}
+    try{
+      const target=s.layer.resolveForPaint({minX:0,minY:0,maxX:1,maxY:1})[0];s.pixels.set(target.buffer.texture,original)
+      const a=input('A',128/255,false,0,outerBlend);s.coordinator.enqueue(a,1);Reflect.set(a.composition,'outerBlend','over');s.drain()
+      expect(s.pixel(s.layer)).toEqual(original);expect(s.pixel(s.derived)).toEqual(blend([255,0,0,128],original,outerBlend))
+      s.coordinator.enqueue(input('B',128/255,true,0,peerBlend),2);s.drain()
+      expect(s.pixel(s.layer)).toEqual(original)
+      expect(s.pixel(s.derived)).toEqual(blend([0,0,255,128],blend([255,0,0,128],original,outerBlend),peerBlend))
+      s.coordinator.enqueue(input('A',192/255,true,1,outerBlend),3);s.drain()
+      const expected=blend([0,0,255,128],blend([255,0,0,192],original,outerBlend),peerBlend)
+      expect(s.pixel(s.layer)).toEqual(expected);expect(s.pixel(s.derived)).toEqual(expected);expect(s.coordinator.checkpointReady).toBe(true)
+      const requests=s.calls.mock.calls.map(([r])=>r)
+      expect(requests.filter(r=>r.source.kind==='maskRgb').every(r=>r.operation.kind==='alphaDarken32FusedScalar')).toBe(true)
+      expect(requests.filter(r=>r.source.kind==='straightRgba8').every(r=>r.operation.kind==='genericSCU8'&&r.operation.control.profile===SOURCE_RGBA8_GENERIC_SC_PROFILE&&!('mask'in r.operation.control))).toBe(true)
+      expect(s.scratch.bytes.live).toBe(0);expect(s.poison).not.toHaveBeenCalled();s.coordinator.cancel();expect(s.releases.every(r=>r.mock.calls.length===1)).toBe(true)
+    }finally{s.close()}
+  })
+  it('rejects legacy-profile GenericSC before layer resolution, source binding or transient reservations',()=>{
+    const s=lane(),resolve=vi.spyOn(s.layer,'resolveForPaint'),baseline=s.cpu.reservedBytes
+    try{
+      const f=s.frame('A',.5,true);const input={...f,composition:{...f.composition,outerBlend:'multiply' as const}}
+      expect(()=>s.coordinator.enqueue(input,1)).toThrow(/pinned raster profile/)
+      expect(resolve).not.toHaveBeenCalled();expect(s.source).not.toHaveBeenCalled();expect(s.reserveTransient).not.toHaveBeenCalled()
+      expect(s.cpu.reservedBytes).toBe(baseline);expect(s.coordinator.pending).toBe(false)
+      s.coordinator.enqueue(f,1);s.drain();expect(s.coordinator.checkpointReady).toBe(true)
+    }finally{s.close()}
+  })
   it('rebases A0/B0/A1 from stable and commits A then sealed B even when B ends first',()=>{
     const s=lane()
     try{
@@ -805,7 +842,10 @@ describe('recorded same-layer concurrent wash lane', () => {
       s.coordinator.enqueue(s.frame('B',.5,true),2)
       s.poison.mockImplementation(()=>{throw new Error('notification failed')})
       s.calls.mockImplementationOnce(()=>{throw new Error('pixel failed')})
-      expect(()=>s.coordinator.advance()).toThrow('pixel failed')
+      // Freeze the turn clock so the injected pixel failure is reached in this
+      // call even when concurrent typechecking/JIT work exhausted wall time.
+      const now=vi.spyOn(performance,'now').mockReturnValue(0)
+      try{expect(()=>s.coordinator.advance()).toThrow('pixel failed')}finally{now.mockRestore()}
       expect(s.coordinator.poisoned).toBe(true)
       expect(s.coordinator.checkpointReady).toBe(false)
       expect(s.scratch.bytes.live).toBe(0)
@@ -1023,4 +1063,38 @@ it('rejects a source reservation from another CPU owner before accepting frames'
     expect(()=>new CanonicalFrameExecutor({...a.executor['options'],softProgramOwner:b.executor['softProgram']})).toThrow('share the CPU owner')
     expect(a.cpu.reservedBytes).toBe(beforeA);expect(b.cpu.reservedBytes).toBe(beforeB)
   }finally{a.close();b.close()}
+})
+
+for(const outerBlend of ['multiply','lighten','colorDodge','overlay'] as const)it(`executes exclusive V2 ${outerBlend} wash across clipped tiled/yielded parts without changing local deposition`,()=>{
+ const s=setup('wash',8,32,undefined,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,undefined,2)
+ const executor=new CanonicalFrameExecutor({...s.executor['options'],pageBounds:{minX:-2,minY:0,maxX:5,maxY:2}}),actual=s.composite.drawSource.bind(s.composite),calls=vi.spyOn(s.composite,'drawSource')
+ let clock=0;const now=vi.spyOn(performance,'now').mockImplementation(()=>clock)
+ calls.mockImplementation((r,frame)=>{const result=actual(r,frame);clock+=5;return result})
+ try{
+  const f=decoded(1,-3,false);Object.assign(f,{definitions:[{...recipe,scale:9,ratio:1/3,width:9,height:3}]})
+  const composition={...s.submit().composition,outerBlend}
+  executor.enqueue({...s.submit(f),composition});Reflect.set(composition,'outerBlend','over')
+  let n=0;while(executor.pending&&n++<200)executor.advance();expect(n).toBeLessThan(200)
+  const preview=calls.mock.calls.map(([r])=>r).filter(r=>r.readDestination)
+  expect(preview.length).toBeGreaterThan(1);expect(preview.every(r=>r.operation.kind==='genericSCU8'&&r.operation.control.mode===outerBlend&&r.operation.control.opacity===.8)).toBe(true)
+  expect(calls.mock.calls.filter(([r])=>r.source.kind==='maskRgb').every(([r])=>r.operation.kind==='alphaDarken32FusedScalar')).toBe(true)
+  const before=calls.mock.calls.length
+  executor.enqueue({...s.submit(decoded(0,0,true,{phase:'primary',group:0}),1),composition:{...s.submit().composition,outerBlend}})
+  n=0;while(executor.pending&&n++<200)executor.advance();expect(n).toBeLessThan(200)
+  const commit=calls.mock.calls.slice(before).map(([r])=>r)
+  expect(commit.every(r=>r.operation.kind==='genericSCU8'&&r.operation.control.mode===outerBlend)).toBe(true)
+  expect(commit.map(r=>r.operation)).toEqual(preview.map(r=>r.operation))
+  expect(executor.checkpointReady).toBe(true);expect(s.poison).not.toHaveBeenCalled()
+ }finally{now.mockRestore();executor.cancel();s.close()}
+})
+it('requires prepared V2 operations and rejects non-over buildup before services or target mutation',()=>{
+ const legacy=setup('wash'),s=setup('buildup',4,4,undefined,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
+ try{
+  expect(()=>new CanonicalFrameExecutor({...legacy.executor['options'],rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE})).toThrow(/not prepared/)
+  const layer=vi.fn(()=>{throw Error('layer must not be touched')}),executor=new CanonicalFrameExecutor({...s.executor['options'],layer}),cpu=s.cpu.reservedBytes
+  try{
+   expect(()=>executor.enqueue({...s.submit(),composition:{...s.submit().composition,outerBlend:'multiply'}})).toThrow(/pinned raster profile/)
+   expect(layer).not.toHaveBeenCalled();expect(s.reserveTransient).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(cpu);expect(executor.pending).toBe(false)
+  }finally{executor.cancel()}
+ }finally{legacy.close();s.close()}
 })

@@ -1,11 +1,11 @@
-import { CANONICAL_STROKE_RASTER_PROFILE } from '@grafetto/shared'
+import { CANONICAL_STROKE_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { PaintTarget } from '../buffers/ILayerBuffer'
 import type { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import type { WorldRect } from '../buffers/tileMath'
 import { runBrushGlBatch, runBrushGlTurn } from './BrushGlBatch'
 import { bindCanonicalLayerTargets } from './CanonicalLayerTargets'
-import { CanonicalFrameExecutor, type CanonicalFrameExecutorOptions, type CanonicalFrameSubmission, type CanonicalWashLocalTile, type CanonicalWashOwnership } from './CanonicalFrameExecutor'
+import { CanonicalFrameExecutor, canonicalWashOuterOperation, type CanonicalFrameExecutorOptions, type CanonicalFrameSubmission, type CanonicalWashLocalTile, type CanonicalWashOwnership } from './CanonicalFrameExecutor'
 import { planCanonicalTargets } from './CanonicalTargetPlan'
 import type { CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
 
@@ -27,6 +27,7 @@ interface Entry {
   readonly firstSequence: number
   readonly executor: CanonicalFrameExecutor
   readonly opacity: number
+  readonly blend: CanonicalStrokeComposition['outerBlend']
   readonly releaseMetadata: () => void
   ownership?: CanonicalWashOwnership
   committed: boolean
@@ -98,6 +99,7 @@ export class CanonicalWashLayerCoordinator {
     try {
     if (!Number.isSafeInteger(recordedSequence) || recordedSequence <= this.lastSequence || input.layerId !== this.options.layerId
       || input.layerEpoch !== this.options.layerEpoch || input.composition.mode !== 'wash') throw new Error('Invalid recorded wash lane order/context')
+    if (!isCanonicalStrokeComposition(input.composition, this.options.rasterProfile === 'reference-scalar-f32-rne-v1' ? CANONICAL_STROKE_RASTER_PROFILE : this.options.rasterProfile)) throw new TypeError('Invalid recorded wash composition for pinned raster profile')
     if (this.queue.length >= 8) throw new RangeError('Canonical wash lane queue is full')
     this.assertLayers()
     let entry = this.entries.find(e => e.id === input.gestureId)
@@ -123,7 +125,7 @@ export class CanonicalWashLayerCoordinator {
         releaseEntry = this.options.prepass.brushGlBatchInfo().cpu.reserve(1024)
         const executor = candidate = new CanonicalFrameExecutor({ ...this.options, ...this.options.source(input.gestureId), washMode: 'deposition-only',
           changed: () => this.invalidate(), poison: (_id, reason) => this.notifyPoison(reason) })
-        entry = { id: input.gestureId, firstSequence: recordedSequence, executor, opacity: input.composition.outerResourceOpacity,
+        entry = { id: input.gestureId, firstSequence: recordedSequence, executor, opacity: input.composition.outerResourceOpacity, blend: input.composition.outerBlend,
           committed: false, tile: 0, part: 0, releaseMetadata: releaseEntry }
       }
       entry.executor.enqueue(input)
@@ -170,11 +172,6 @@ export class CanonicalWashLayerCoordinator {
     this.work = undefined
   }
   private locals(entry: Entry): readonly CanonicalWashLocalTile[] { return entry.ownership?.tiles ?? (entry.committed ? [] : entry.executor.rawWashTiles()) }
-  private over(opacity: number) {
-    return this.options.rasterProfile === CANONICAL_STROKE_RASTER_PROFILE
-      ? { kind: 'over32FusedScalar' as const, control: { profile: CANONICAL_STROKE_RASTER_PROFILE, opacity } }
-      : { kind: 'over32' as const, control: { profile: 'portable-f32-division-rne-v1' as const, opacity } }
-  }
   private resolve(layer: TiledLayerBuffer, p: Position): PaintTarget {
     const target = layer.resolveForPaint(rect(p)).find(t => t.originX === p.x && t.originY === p.y)
     if (!target || target.buffer.width !== p.width || target.buffer.height !== p.height) throw new Error('Canonical wash target geometry changed')
@@ -203,7 +200,7 @@ export class CanonicalWashLayerCoordinator {
         while(draws++<8){
           this.assertLayers()
           const part = this.part(tile.view, entry.part)
-          this.options.composite.drawSource({ source: { kind: 'straightRgba8', view: part.view }, target: bound, operation: this.over(entry.opacity), writeBounds: this.options.pageBounds ?? undefined }, frame)
+          this.options.composite.drawSource({ source: { kind: 'straightRgba8', view: part.view }, target: bound, operation: canonicalWashOuterOperation(this.options.rasterProfile, entry.blend, entry.opacity), writeBounds: this.options.pageBounds ?? undefined }, frame)
           entry.committingBuffer = target.buffer; entry.part++
           this.stable.markContentPainted(rect(tile))
           if(entry.part===part.count){entry.part=0;entry.tile++;entry.committingBuffer=undefined;break}
@@ -248,7 +245,7 @@ export class CanonicalWashLayerCoordinator {
           if(entry.committed||!tile){work.stage++;work.part=0;continue}
           this.assertLayers()
           const part=this.part(tile.view,work.part)
-          this.options.composite.drawSource({source:{kind:'straightRgba8',view:part.view},target:bound,operation:this.over(entry.opacity),writeBounds:this.options.pageBounds??undefined},frame)
+          this.options.composite.drawSource({source:{kind:'straightRgba8',view:part.view},target:bound,operation:canonicalWashOuterOperation(this.options.rasterProfile, entry.blend, entry.opacity),writeBounds:this.options.pageBounds??undefined},frame)
           work.part++;draws++
           if(work.part===part.count){work.part=0;work.stage++}
           if(frame.shouldYield)break

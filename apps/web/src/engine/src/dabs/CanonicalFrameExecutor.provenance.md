@@ -296,3 +296,20 @@ constructed source is retired by the executor. The caller retires a shared basis
 after all consuming executors stop. Tests reuse one table for two executors with
 no extra reservation or table evaluation, and verify coordinator candidate rollback
 and teardown return source charges even for unaccepted/committed gestures.
+
+## Explicit GenericSC outer pipeline V2
+
+The new pinned whole-pipeline profile requires three prepared operations in the
+same existing composite pass: fused AlphaDarken, fused Over and GenericSC U8.
+Local deposition remains exactly the old fused law. A shared operation selector
+in this module is used by exclusive wash presentation and recorded-layer folds;
+GenericSC receives the fixed source-law kernel profile and no composite-mask
+uniform. Historical/default Over still selects the existing fused kernel; the
+reference profile remains diagnostic/Over-only.
+
+Enqueue rejects mismatched profile/composition and non-Over buildup before layer
+lookup, metadata admission, transient reservations or pixels. Tests execute actual
+prepass/composite services through clipped tiled/yielded parts for every mode,
+check identical preview/final operations and frozen caller policy, and cover new
+profile Over wash/buildup plus unchanged legacy behavior. Room/editor admission
+and server capability activation remain closed.

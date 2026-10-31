@@ -245,3 +245,13 @@ existing WebGL2 integer helper separately produced 264 exact results. No GL
 errors/state drift, hot uploads or outstanding charges/leases; own browser child
 and ADB forward removed, original tabs preserved. This upgrades the GPU gate,
 not installed ARM identity or canonical room admission.
+
+## Three-operation V2 preparation
+
+Preparation's existing operation-list limit expands from two to three, allowing
+fused AlphaDarken/Over plus GenericSC U8 in one pass. Defaults and shader arithmetic
+are unchanged. Existing per-unique-operation manifest charges each program8192
+CPU estimate bytes; scratch GPU bytes remain shared. Tests establish the exact
+third-program charge, three real program allocations/state restoration/teardown,
+and rejection of a fourth operation before allocation. Duplicate-list behavior
+continues to use the existing deduplication policy.

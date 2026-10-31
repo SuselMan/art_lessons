@@ -129,3 +129,18 @@ owners retire too. External borrowed source owners remain caller-owned under the
 executor contract. Native-soft lifecycle tests cover repeated forged admission,
 source callback failure, secondary cleanup failure, accepted-entry recovery and
 post-commit CPU baseline restoration.
+
+## Selected outer blend in recorded folds
+
+Each entry now retains its first accepted immutable outer blend beside opacity.
+Both derived presentation and stable commit call the SAME existing-pass operation
+selector as exclusive wash. Deposition-only executors still produce raw local
+surfaces before outer opacity. No new renderer, lane, sequence or queue exists.
+
+Numerical tests exercise A0/B0/A1 over nontransparent existing pixels with different
+mode pairs covering all four GenericSC modes, B sealed before A, copied caller
+policy, preview/final byte equality, fused local deposition and post-cancel release
+of all lifetime reservations. Legacy-profile GenericSC rejection happens before
+binding, layer lookup or transient reservations. Existing cursor/order/fault/loss
+and reference-Over tests remain active. Stable metadata headroom intentionally
+remains owned until coordinator cancellation, even after checkpoint readiness.

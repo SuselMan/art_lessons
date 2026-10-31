@@ -420,3 +420,18 @@ it('refuses a missing or mismatched GenericSC profile before destination work',(
  }
  expect(get).not.toHaveBeenCalled();expect(lease).not.toHaveBeenCalled();s.pass.reset();
 });
+
+it('prepares the three-operation V2 pipeline with exact per-program charges and rejects a fourth before allocations',()=>{
+ const s=setup(),operations=['alphaDarken32FusedScalar','over32FusedScalar','genericSCU8'] as const
+ const pair=canonicalRgba8CompositeBudget({width:16,height:16,operations:operations.slice(0,2)}),triple=canonicalRgba8CompositeBudget({width:16,height:16,operations})
+ expect(triple.gpuBytes).toBe(pair.gpuBytes);expect(triple.cpuBytes-pair.cpuBytes).toBe(8192)
+ const baseline=s.cpu.reservedBytes,programs=s.gl.createProgram.mock.calls.length,before=s.snapshot()
+ try{
+  expect(()=>s.pass.prepare({width:16,height:16,operations:[...operations,'over32']},s.companion)).toThrow(/operations/)
+  expect(s.gl.createProgram.mock.calls.length).toBe(programs);expect(s.cpu.reservedBytes).toBe(baseline)
+  s.pass.prepare({width:16,height:16,operations},s.companion)
+  expect(s.pass.supportsOperations(operations)).toBe(true);expect(s.gl.createProgram.mock.calls.length-programs).toBe(3)
+  expect(s.cpu.reservedBytes-baseline).toBe(triple.cpuBytes);expect(s.snapshot()).toEqual(before)
+ }finally{s.pass.reset();s.cache.clear()}
+ expect(s.cpu.reservedBytes).toBe(baseline)
+})
