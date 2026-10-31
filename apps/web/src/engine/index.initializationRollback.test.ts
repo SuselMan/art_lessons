@@ -39,8 +39,8 @@ it('detaches every subscription and retires local GPU owners after final schedul
  const programs=vi.spyOn(gl,'createProgram'),deletedPrograms=vi.spyOn(gl,'deleteProgram'),deletedTextures=vi.spyOn(gl,'deleteTexture')
  const paperInit=PaperState.prototype.init,brushDestroy=BrushPainter.prototype.destroy,papers:PaperState[]=[]
  let published:WebGLTexture|undefined,seenByBorrower:WebGLTexture|undefined
- vi.spyOn(PaperState.prototype,'init').mockImplementation(function(){paperInit.call(this);papers.push(this);published=this.texture})
- vi.spyOn(BrushPainter.prototype,'destroy').mockImplementation(function(){seenByBorrower=papers[0].texture;brushDestroy.call(this)})
+ vi.spyOn(PaperState.prototype,'init').mockImplementation(function(this:PaperState){paperInit.call(this);papers.push(this);published=this.texture})
+ vi.spyOn(BrushPainter.prototype,'destroy').mockImplementation(function(this:BrushPainter){seenByBorrower=papers[0].texture;brushDestroy.call(this)})
  const primary=new Error('frame scheduling failed')
  vi.spyOn(globalThis,'requestAnimationFrame').mockImplementationOnce(()=>{throw primary})
  expect(()=>new PencilEngine(canvas as unknown as HTMLCanvasElement,{paper:'flat'})).toThrow(primary)
