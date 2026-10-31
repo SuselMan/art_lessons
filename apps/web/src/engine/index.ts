@@ -2610,8 +2610,9 @@ export class PencilEngine implements PencilEngineAPI {
       attempt(() => canvas.removeEventListener('webglcontextlost', this._handleContextLost))
       attempt(() => canvas.removeEventListener('webglcontextrestored', this._handleContextRestored))
       attempt(() => initializedPointer?.destroy())
-      attempt(() => this._paper.destroy())
+      attempt(() => this._paper.deactivate())
       attempt(() => rollbackGL?.())
+      attempt(() => this._paper.destroy())
       throw error
     }
   }

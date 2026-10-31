@@ -4,6 +4,7 @@ import {MockGL} from './testing/mockGL'
 import {snapshotContextStorage} from './src/buffers/ContextStorageOwner'
 import {PencilEngine} from './index'
 import {PaperState} from './src/paper/PaperState'
+import {BrushPainter} from './src/dabs/BrushPainter'
 
 afterEach(()=>vi.restoreAllMocks())
 
@@ -36,9 +37,14 @@ it('detaches every subscription and retires local GPU owners after final schedul
  const gl=canvas.getContext('webgl')!,foreignTexture=gl.createTexture(),foreignProgram=gl.createProgram()
  const add=vi.spyOn(canvas,'addEventListener'),remove=vi.spyOn(canvas,'removeEventListener')
  const programs=vi.spyOn(gl,'createProgram'),deletedPrograms=vi.spyOn(gl,'deleteProgram'),deletedTextures=vi.spyOn(gl,'deleteTexture')
+ const paperInit=PaperState.prototype.init,brushDestroy=BrushPainter.prototype.destroy,papers:PaperState[]=[]
+ let published:WebGLTexture|undefined,seenByBorrower:WebGLTexture|undefined
+ vi.spyOn(PaperState.prototype,'init').mockImplementation(function(){paperInit.call(this);papers.push(this);published=this.texture})
+ vi.spyOn(BrushPainter.prototype,'destroy').mockImplementation(function(){seenByBorrower=papers[0].texture;brushDestroy.call(this)})
  const primary=new Error('frame scheduling failed')
  vi.spyOn(globalThis,'requestAnimationFrame').mockImplementationOnce(()=>{throw primary})
  expect(()=>new PencilEngine(canvas as unknown as HTMLCanvasElement,{paper:'flat'})).toThrow(primary)
+ expect(seenByBorrower).toBe(published);expect(published).toBeDefined()
  expect(add.mock.calls.length).toBeGreaterThan(2)
  for(const subscription of add.mock.calls as unknown[][])expect((remove.mock.calls as unknown[][]).some(removal=>removal[0]===subscription[0]&&removal[1]===subscription[1])).toBe(true)
  for(const result of programs.mock.results)if(result.type==='return')expect(deletedPrograms.mock.calls.filter(([value])=>value===result.value)).toHaveLength(1)
