@@ -1,17 +1,25 @@
 /** Actual imported source-data fixture, test-only. No assets or pixel planes. */
 import type { BrushDescriptor } from '@grafetto/shared'
-import { canonicalGaussianAutoSourceBinding } from '@grafetto/shared'
+import { canonicalGaussianAutoSourceBinding,canonicalGaussianAutoSourcePin,canonicalGaussianAutoStatic,extractGaussianAutoSourceDataCapability } from '@grafetto/shared'
 import stock from '../../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.native'
 import { SourceStrokeAuthor, type SourceAuthorPacket } from '../src/presets/sourceStrokeAuthor'
 import { sourceStrokeAuthorDescriptor } from '../src/presets/sourceStrokeAuthorDescriptor'
 import { SourceStrokeMaterialAdapter, type SourceStrokeMaterialContextV2 } from '../src/presets/sourceStrokeMaterialAdapter'
 import { SourceCanonicalFrameEncoder } from '../src/presets/sourceCanonicalFrameEncoder'
-export const GAUSSIAN_READY_STOCK = [2,5,6,7,10,11,22] as const
-export function sourceGaussianCanonicalFixture(index:number,profile:'scalar-bionic-f64-fma-v1'|'neon64-f32-fma-v1',resume:boolean) {
+/** Paint-capable fixtures remain strict; native#2 is an eraser despite normal blend. */
+export const GAUSSIAN_READY_STOCK = [5,6,7,10,11,22] as const
+export const GAUSSIAN_DATA_STOCK = [2,...GAUSSIAN_READY_STOCK] as const
+export function sourceGaussianCanonicalFixture(index:number,profile:'scalar-bionic-f64-fma-v1'|'neon64-f32-fma-v1',resume:boolean,{dataOnly=false}:{readonly dataOnly?:boolean}={}) {
   const row=stock.rows.find(r=>r.index===index)!,descriptor=row.descriptor as unknown as BrushDescriptor
   const compiled=sourceStrokeAuthorDescriptor(descriptor,{colorIdentity:'native-black',lodScale:1,coverageProfile:profile})
   if(!compiled.supported)throw Error(compiled.reasons.join(','))
-  const pin=canonicalGaussianAutoSourceBinding(descriptor,row.descriptorSHA256,profile)
+  // Primitive numerical coverage only: this explicit opt-in pins retained
+  // source data; it does NOT grant painting or normalize native erase metadata.
+  const data=dataOnly?extractGaussianAutoSourceDataCapability(descriptor):undefined
+  if(data&&!data.supported)throw Error('Gaussian source data unavailable')
+  const pin=data?.supported?canonicalGaussianAutoSourcePin({kind:'gaussianAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,
+    descriptorSha256:row.descriptorSHA256,...canonicalGaussianAutoStatic(data.data.source,data.data.brush.scale,data.data.brush.angle),coverageProfile:profile})
+    :canonicalGaussianAutoSourceBinding(descriptor,row.descriptorSHA256,profile)
   const context:SourceStrokeMaterialContextV2={version:2,assets:[],primarySource:pin,
     budget:{workUnits:64*1024*1024,outputBytes:16*1024*1024,drawPixels:16*1024*1024},
     targetGeometry:{pageBounds:null,tileWidth:256,tileHeight:256,maxTargets:64}}

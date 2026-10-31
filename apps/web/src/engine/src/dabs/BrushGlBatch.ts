@@ -10,7 +10,28 @@ export interface BrushGlBatchOwnedSampler extends BrushGlBatchResource {
   readonly texture: WebGLTexture
   readonly epoch: object
 }
-export interface BrushGlBatchLifetime { readonly owner: object; readonly lease: () => () => void }
+/** Trusted INTERNAL resource-owner promise, never received frame/material data.
+ * The actual source getter and alive epoch bind one immutable nearest/clamp
+ * sampler to the exclusive borrow. Neither caller nor lease callbacks may mutate
+ * that sampler until release. No global GL-state or handle registry is kept. */
+export interface BrushGlBatchLifetimePointSampler {
+  readonly texture: WebGLTexture
+  readonly source: { readonly texture: WebGLTexture; readonly gl: WebGLRenderingContext }
+  readonly epoch: { readonly alive: boolean }
+}
+export interface BrushGlBatchLifetime {
+  readonly owner: object
+  readonly lease: () => () => void
+  readonly ownedPointSampler?: BrushGlBatchLifetimePointSampler
+}
+type OwnedSamplerBinding = { readonly participant: BrushGlBatchParticipant; readonly sampler: BrushGlBatchOwnedSampler }
+  | { readonly lifetime: BrushGlBatchLifetime; readonly declaration: BrushGlBatchLifetimePointSampler; readonly sampler: BrushGlBatchLifetimePointSampler }
+function assertLifetimeSampler(owner:BrushGlBatchLifetime, saved:BrushGlBatchLifetimePointSampler, declaration:BrushGlBatchLifetimePointSampler, gl:WebGLRenderingContext):void {
+  const current=owner.ownedPointSampler
+  if(current!==declaration || !current || current.texture!==saved.texture || current.source!==saved.source || current.epoch!==saved.epoch
+    || current.epoch!==owner.owner || current.epoch.alive!==true || current.source.texture!==saved.texture || current.source.gl!==gl)
+    throw new Error('Stale or changed lifetime owned sampler identity/epoch')
+}
 export interface BrushGlBatchInfo {
   readonly gl: WebGLRenderingContext
   readonly cache: BrushTextureCache
@@ -38,7 +59,7 @@ export class BrushGlBatchFrame {
   private readonly infos: Map<BrushGlBatchParticipant, BrushGlBatchInfo>
   private readonly owners: Set<BrushGlBatchLifetime>
   private readonly resources: Map<string, number>
-  private readonly ownedSamplers: Map<WebGLTexture, { participant: BrushGlBatchParticipant; sampler: BrushGlBatchOwnedSampler }>
+  private readonly ownedSamplers: Map<WebGLTexture, OwnedSamplerBinding>
   private readonly samplers = new Map<WebGLTexture, readonly number[]>()
   private readonly targets = new Map<WebGLFramebuffer, Target>()
   private readonly groups: (() => void)[] = []
@@ -50,7 +71,7 @@ export class BrushGlBatchFrame {
   private started = 0
   private readonly gl: WebGLRenderingContext
   private readonly cache: BrushTextureCache
-  constructor(key: symbol, infos: Map<BrushGlBatchParticipant, BrushGlBatchInfo>, owners: readonly BrushGlBatchLifetime[], resources: Map<string, number>, ownedSamplers: Map<WebGLTexture, { participant: BrushGlBatchParticipant; sampler: BrushGlBatchOwnedSampler }>) {
+  constructor(key: symbol, infos: Map<BrushGlBatchParticipant, BrushGlBatchInfo>, owners: readonly BrushGlBatchLifetime[], resources: Map<string, number>, ownedSamplers: Map<WebGLTexture, OwnedSamplerBinding>) {
     if (key !== authority) throw new Error('Brush GL batch frames require coordinator ownership')
     this.infos = infos; this.owners = new Set(owners); this.resources = resources; this.ownedSamplers = ownedSamplers
     const first = infos.values().next().value!
@@ -99,8 +120,8 @@ export class BrushGlBatchFrame {
     if (!this.opened) throw new Error('Closed brush GL batch')
     const owned = this.ownedSamplers.get(texture)
     if (owned) {
-      const item = owned.sampler
-      if (owned.participant.brushGlBatchInfo().epoch !== item.epoch || this.cache.resourceBytes(item.key) !== item.bytes || this.cache.get(item.key) !== texture) throw new Error('Owned sampler epoch/residency changed')
+      if('lifetime' in owned)assertLifetimeSampler(owned.lifetime,owned.sampler,owned.declaration,this.gl)
+      else if (owned.participant.brushGlBatchInfo().epoch !== owned.sampler.epoch || this.cache.resourceBytes(owned.sampler.key) !== owned.sampler.bytes || this.cache.get(owned.sampler.key) !== texture) throw new Error('Owned sampler epoch/residency changed')
       return noop
     }
     if (this.samplers.has(texture)) return noop
@@ -232,15 +253,25 @@ export function runBrushGlBatch(options: {
   }
   if (resources.size > 1024 || [...resources.values()].reduce((a, b) => a + b, 0) > first.cache.budgetBytes) throw new RangeError('Brush GL batch GPU budget exceeded')
   for (const owner of owners) if (!owner || !owner.owner || typeof owner.owner !== 'object' || typeof owner.lease !== 'function') throw new RangeError('Invalid batch owner lifetime')
-  const ownedSamplers = new Map<WebGLTexture, { participant: BrushGlBatchParticipant; sampler: BrushGlBatchOwnedSampler }>()
+  const ownedSamplers = new Map<WebGLTexture, OwnedSamplerBinding>()
   for (const [participant, info] of infos) {
     if ((info.ownedPointSamplers?.length ?? 0) > 8) throw new RangeError('Owned sampler declaration capacity exceeded')
     for (const item of info.ownedPointSamplers ?? []) {
       if (item.epoch !== info.epoch || resources.get(item.key) !== item.bytes || info.cache.resourceBytes(item.key) !== item.bytes || info.cache.get(item.key) !== item.texture) throw new Error('Invalid owned sampler identity/epoch/charge')
       const previous = ownedSamplers.get(item.texture)
-      if (previous && (previous.participant !== participant || previous.sampler.key !== item.key || previous.sampler.bytes !== item.bytes || previous.sampler.epoch !== item.epoch)) throw new Error('Conflicting owned sampler metadata')
+      if (previous && (!('participant' in previous) || previous.participant !== participant || previous.sampler.key !== item.key || previous.sampler.bytes !== item.bytes || previous.sampler.epoch !== item.epoch)) throw new Error('Conflicting owned sampler metadata')
       ownedSamplers.set(item.texture, { participant, sampler: { ...item } })
     }
+  }
+  for(const owner of owners){
+    const declaration=owner.ownedPointSampler
+    if(declaration===undefined)continue
+    if(!declaration || !declaration.texture || typeof declaration.texture!=='object' || !declaration.source || typeof declaration.source!=='object'
+      || !declaration.epoch || typeof declaration.epoch!=='object')throw new Error('Invalid lifetime owned sampler metadata')
+    const saved={texture:declaration.texture,source:declaration.source,epoch:declaration.epoch}
+    assertLifetimeSampler(owner,saved,declaration,first.gl)
+    if(ownedSamplers.has(saved.texture))throw new Error('Conflicting lifetime owned sampler metadata')
+    ownedSamplers.set(saved.texture,{lifetime:owner,declaration,sampler:saved})
   }
   const cpuBytes = (borrowed ? 0 : 4096) + ownedSamplers.size * 96 + resources.size * 96 + owners.length * 128 + infos.size * 256
   const releaseCpu = first.cpu.reserve(cpuBytes)
@@ -258,6 +289,10 @@ export function runBrushGlBatch(options: {
       if (typeof release !== 'function') throw new Error('Invalid batch owner release')
       releases.push(release)
     }
+    // Metadata was admitted before ownership effects; callbacks cannot replace
+    // a declared buffer/epoch/sampler while acquiring another owner.
+    for(const binding of ownedSamplers.values())if('lifetime' in binding)assertLifetimeSampler(binding.lifetime,binding.sampler,binding.declaration,first.gl)
+    if(first.gl.isContextLost())throw new Error('Brush GL batch context lost during acquisition')
     // Owner callbacks may touch GL: capture precedes them, including failure paths.
     for (const [participant, info] of infos) if (!sameParticipantBinding(participant.brushGlBatchInfo(),info)) throw new Error('Brush GL batch service changed during acquisition')
     frame.open(authority)

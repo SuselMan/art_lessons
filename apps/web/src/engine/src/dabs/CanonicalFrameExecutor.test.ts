@@ -9,7 +9,7 @@ import { compositeSourceAlphaDarken32 } from '../presets/sourceAlphaDarken32'
 import { compositeSourceOver32Scalar } from '../presets/sourceOver32Scalar'
 import type { Rgba8 } from '../presets/mixWeightedRgba8'
 import { saveBrushGlState } from './BrushGlState'
-import { runBrushGlTurn } from './BrushGlBatch'
+import { runBrushGlTurn, runBrushGlBatch } from './BrushGlBatch'
 import { prepareSourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab'
 import stock from '../../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
 import { sourceStrokeAuthorDescriptor } from '../presets/sourceStrokeAuthorDescriptor'
@@ -684,6 +684,22 @@ describe('deposition-only wash ownership', () => {
       expect(s.releases.every(r => r.mock.calls.length === 1)).toBe(true)
       expect(() => ownership!.tiles[0].view.residency.kind === 'external' && ownership!.tiles[0].view.residency.lease()).toThrow(/Stale/)
     } finally { ownership?.release(); s.close() }
+  })
+  it('declares only the actual live nearest pool local as a lifetime-owned point sampler',()=>{
+    const s=raw()
+    try{
+      s.executor.enqueue(s.submit());s.drain()
+      const view=s.executor.rawWashTiles()[0].view,owner=view.residency
+      if(owner.kind!=='external')throw Error('Expected raw owner')
+      const sampler=owner.ownedPointSampler!
+      expect(Object.isFrozen(sampler)).toBe(true);expect(sampler.texture).toBe(view.texture)
+      expect(sampler.source.texture).toBe(view.texture);expect(sampler.epoch).toBe(owner.owner);expect(sampler.epoch.alive).toBe(true)
+      const query=vi.spyOn(s.gl,'getTexParameter')
+      runBrushGlBatch({participants:[s.prepass,s.composite],owners:[owner]},frame=>{s.gl.activeTexture(s.gl.TEXTURE0);s.gl.bindTexture(s.gl.TEXTURE_2D,view.texture);frame.pointSampling(view.texture)})
+      expect(query).not.toHaveBeenCalled();s.executor.cancel();expect(sampler.epoch.alive).toBe(false)
+      expect(()=>runBrushGlBatch({participants:[s.prepass,s.composite],owners:[owner]},()=>{})).toThrow(/owned sampler/)
+      expect(s.scratch.bytes.live).toBe(0)
+    }finally{s.close()}
   })
   it('rejects mutations while borrowed and rejects pretend context loss before releasing', () => {
     const s = raw()

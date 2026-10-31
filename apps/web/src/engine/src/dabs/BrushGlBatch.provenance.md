@@ -128,3 +128,39 @@ Actual Samsung ONEcapture gate: `fixes-v52/auto7-one-turn-64-result.json` covers
 ONEcapture source SHA256 `5d2ae3d172059b7e2db0d94e91467f9f33d1cfb545aba699dbaf5d104d7ef73e`; executor `285be6a1170e511a9ad6af66df3891aa3357f137622f64295f916137031d40f5`. Bundle `4c10a9a743fbe9417d9fe9aca5f565eba4a63d932be3da377af70f8f5d5d3358`. Pixel body `a5d02e683e9fabebd13f351ac6d288bb6288475f915dbfef45ef785f88698382`; fixture64 `dd2eaea13f86e76fc5fd02b62f70f21b9f8d65d5e105d028f65fd685b1cf602c`, fixture8 `ec0ea4076013155aa559644457dfd4289d49e2d496b2f03b7342fdcae88976a1`. Runners `run-auto7-one-turn.mts` and `run-auto7-one-turn-phase-profile.mts`; snapshots retained in each result.
 
 The closest structural baseline `auto7-derived-phase-profile-result.json` versus `auto7-one-turn-phase-profile-result.json` confirms full-capture getParameter744→372 and isEnabled372→186;75 upload queries are unchanged. HOWEVER cold sequential35-advance inclusive CPU/GLIPC time211.2→246.1ms did not improve. Earlier baseline234.8ms/780+390 included three extra empty-frame capsules. No latency/speedup or shader-throughput claim is supported: paired warm measurements and further profiling are required. Profile body `15ca6c22545815ab44a05ae239af4a4cad738ea5f316a9540e0f7641248ef390`, fixture `bbb838719397f0072f4ff2d183cc61a7abb7bd50944ff12829562a6fc8f65eb5`; same frozen bundle/source, pixel errors0.
+
+## 2026-10-31: lifetime-owned raw-local point sampler
+
+The existing synchronous frame ownedSamplers dictionary now accepts one optional
+point sampler declaration on an existing lifetime. This is a TRUSTED INTERNAL
+owner promise, never decoded material/profile/wire authority: immutable nearest
+and clamp sampling for the exclusive borrow. The declaration pins actual buffer
+source getter, texture, same GL context and the owner's alive epoch. Its identity
+is checked before ownership effects, after all acquisition callbacks and at each
+fast-path use. Replacement, epoch retirement, alias conflict, metadata drift and
+foreign context refuse the declaration. Acquisition context loss refuses work.
+
+The actual deposition-only executor supplies a frozen declaration ONLY for its
+straight/nearest pooled raw local. Existing pool/AccumulationBuffer contracts
+prohibit straight-linear buffers and straight mip sampling; exclusive raw-local
+borrowers do not modify constructor clamp sampling. Existing cache-owned sampler
+validation remains. Undeclared/foreign samplers still query, set and restore all
+four parameters; standalone composite calls deliberately ignore this fast path.
+The promise is NOT a sampler attestation against arbitrary malicious internal GL
+mutation. Such mutation violates the exclusive owner contract.
+
+No global state mirror, handle journal, queue, quota, renderer or room activation
+was added. The existing frame dictionary,64-owner limit, per-sampler96B estimate
+and owner128B estimate apply. Existing full GL state capsules, FBO attachment
+checks, all-attempt release/first-error handling and source numerical profiles stay.
+
+Seven tests-first feature failures and one foreign-context failure were recorded.
+Tests cover malformed/retired/conflicting metadata, identity drift in acquisition,
+texture replacement at use, release after errors, first exact failure, reentry,
+loss, retained foreign sampler restore, actual raw-local producer and standalone
+fallback.134 focused tests/3files +56 regressions/5files, lint and combined app/SW
+TSC pass. R52/generic-sc4-owned-sampler-proof.json pins exact device source bytes.
+Actual Samsung same5 NEW descriptors80 full64² surface observations remain exact;
+non-observer sampler queries1676→0, instrumented worst70→41.2ms, clean sampled
+worst83.1→36.2ms. These are JS/API wall-time samples, NOT GPU timings or a4ms
+latency guarantee. General state/FBO synchronous-query delays remain possible.

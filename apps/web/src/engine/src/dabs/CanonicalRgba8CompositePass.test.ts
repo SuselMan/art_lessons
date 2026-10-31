@@ -435,3 +435,15 @@ it('prepares the three-operation V2 pipeline with exact per-program charges and 
  }finally{s.pass.reset();s.cache.clear()}
  expect(s.cpu.reservedBytes).toBe(baseline)
 })
+
+it('keeps standalone foreign sampler query/restore even when a source advertises internal owned metadata',()=>{
+ const s=setup();s.pass.prepare({width:16,height:16,operations:['over32']},s.companion)
+ const epoch={alive:true},source={texture:s.gl.createTexture(),gl:s.gl},release=vi.fn(),lifetime={kind:'external' as const,owner:epoch,ownedPointSampler:{texture:source.texture,source,epoch},lease:()=>release}
+ const target:CanonicalOwnedRgba8Target={...s.target,lifetime:{kind:'external',owner:{},lease:()=>()=>{}}}
+ const view:CanonicalRgba8SourceView={brand:'canonical-straight-rgba8-view-v1',texture:source.texture,textureWidth:8,textureHeight:8,rect:{x:10,y:20,width:8,height:8},bounds:{x:0,y:0,width:1,height:1},mirror:{horizontal:false,vertical:false},rowOrder:'bottomAtV0',residency:lifetime}
+ const before=s.snapshot(),query=vi.spyOn(s.gl,'getTexParameter')
+ expect(s.pass.drawSource({source:{kind:'straightRgba8',view},target,operation:{kind:'over32',control:{profile:'portable-f32-division-rne-v1',opacity:.63}}})).toBe('painted')
+ expect(query).toHaveBeenCalledTimes(4);expect(release).toHaveBeenCalledTimes(1)
+ expect(s.params.get(source.texture)?.get(s.gl.TEXTURE_MIN_FILTER)).toBe(s.gl.LINEAR);expect(s.params.get(source.texture)?.get(s.gl.TEXTURE_WRAP_S)).toBe(s.gl.REPEAT)
+ expect(s.snapshot()).toEqual(before);s.pass.reset()
+})

@@ -3,7 +3,7 @@ import { SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL, SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_G
 import { canonicalizeSourceRgba8Control, canonicalizeSourceInstalledHsyControl } from '../raster/sourceRgba8CompositeShader';
 import { SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE, SOURCE_RGBA8_GENERIC_SC_PROFILE, validateRgba8CompositeControl, type Rgba8CompositeControl } from '../presets/sourceColorRgba8';
 import { SOURCE_FUSED_ALPHA_DARKEN32_SCALAR_GLSL, prepareSourceFusedAlphaDarken32ScalarControls } from '../raster/sourceFusedAlphaDarken32ScalarShader';
-import type { BrushGlBatchFrame, BrushGlBatchInfo } from './BrushGlBatch';
+import type { BrushGlBatchFrame, BrushGlBatchInfo, BrushGlBatchLifetime } from './BrushGlBatch';
 import type { SourceOver32ScalarControl } from '../presets/sourceOver32Scalar';
 import { SOURCE_OVER32_SCALAR_GLSL } from '../raster/sourceOver32ScalarShader';
 import type { SourceAlphaDarken32Control } from '../presets/sourceAlphaDarken32';
@@ -24,7 +24,7 @@ export interface CanonicalStraightRgba8Target {
     readonly originX: number;
     readonly originY: number;
 }
-export interface CanonicalExternalLifetime {
+export interface CanonicalExternalLifetime extends BrushGlBatchLifetime {
     readonly kind: 'external';
     /** Identifies the retained resource scope, not ambient/global renderer state. */
     readonly owner: object;

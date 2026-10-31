@@ -322,3 +322,61 @@ describe('one owned synchronous preparation/draw capture',()=>{
     expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0);
   });
 });
+
+function externalPointOwner(s:ReturnType<typeof setup>){
+  const epoch={alive:true},source={texture:s.gl.createTexture(),gl:s.gl},released=vi.fn(),lease=vi.fn(()=>released)
+  return{owner:epoch,ownedPointSampler:{texture:source.texture,source,epoch},lease,released,source}
+}
+it('borrows an exact lifetime-owned point sampler without querying it, while preserving foreign sampler restoration',()=>{
+  const s=setup(),o=externalPointOwner(s),foreign=s.gl.createTexture(),before=s.snapshot();s.gl.getTexParameter=vi.fn(()=>9011)
+  const writes=s.gl.texParameteri.mock.calls.length
+  runBrushGlBatch({participants:[s.service],owners:[o]},frame=>{
+    s.gl.activeTexture(s.gl.TEXTURE0);s.gl.bindTexture(s.gl.TEXTURE_2D,o.source.texture)
+    frame.pointSampling(o.source.texture);frame.pointSampling(o.source.texture)
+    expect(s.gl.getTexParameter).not.toHaveBeenCalled();expect(s.gl.texParameteri.mock.calls.length).toBe(writes)
+    s.gl.bindTexture(s.gl.TEXTURE_2D,foreign);frame.pointSampling(foreign)
+    expect(s.gl.getTexParameter).toHaveBeenCalledTimes(4)
+  })
+  expect(o.lease).toHaveBeenCalledTimes(1);expect(o.released).toHaveBeenCalledTimes(1)
+  expect(s.gl.texParameteri.mock.calls.slice(-4).map((a:number[])=>a[2])).toEqual([9011,9011,9011,9011])
+  expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0)
+})
+it('rejects stale, forged or conflicting lifetime point metadata before ownership effects',()=>{
+  const s=setup(),o=externalPointOwner(s),valid=o.ownedPointSampler,query=vi.spyOn(s.gl,'getParameter')
+  for(const bad of [{...valid,epoch:{alive:true}},{...valid,texture:s.gl.createTexture()},{...valid,source:null},null]){
+    expect(()=>runBrushGlBatch({participants:[s.service],owners:[{...o,ownedPointSampler:bad} as never]},()=>{})).toThrow(/owned sampler/)
+  }
+  o.owner.alive=false;expect(()=>runBrushGlBatch({participants:[s.service],owners:[o]},()=>{})).toThrow(/owned sampler/);o.owner.alive=true
+  const other={...o,owner:{alive:true}};other.ownedPointSampler={...valid,epoch:other.owner}
+  expect(()=>runBrushGlBatch({participants:[s.service],owners:[o,other]},()=>{})).toThrow(/owned sampler/)
+  expect(o.lease).not.toHaveBeenCalled();expect(query).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(0)
+})
+for(const mutation of ['epoch','texture','declaration'] as const)it(`rejects ${mutation} drift caused by owner acquisition and releases every acquired owner`,()=>{
+  const s=setup(),o=externalPointOwner(s),before=s.snapshot(),execute=vi.fn()
+  o.lease.mockImplementation(()=>{s.gl.bindFramebuffer(s.gl.FRAMEBUFFER,s.gl.createFramebuffer());if(mutation==='epoch')o.owner.alive=false;else if(mutation==='texture')o.source.texture=s.gl.createTexture();else o.ownedPointSampler={...o.ownedPointSampler};return o.released})
+  expect(()=>runBrushGlBatch({participants:[s.service],owners:[o]},execute)).toThrow(/owned sampler/)
+  expect(execute).not.toHaveBeenCalled();expect(o.released).toHaveBeenCalledTimes(1);expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0)
+})
+it('refuses a foreign-context buffer promise before acquiring its owner',()=>{
+  const s=setup(),o=externalPointOwner(s);o.source.gl=recordingGL().gl
+  expect(()=>runBrushGlBatch({participants:[s.service],owners:[o]},()=>{})).toThrow(/owned sampler/)
+  expect(o.lease).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(0)
+})
+it('rechecks lifetime epoch and buffer texture identity at each owned sampler use',()=>{
+  const s=setup(),o=externalPointOwner(s),foreign=s.gl.createTexture(),before=s.snapshot();s.gl.getTexParameter=vi.fn(()=>9010)
+  expect(()=>runBrushGlBatch({participants:[s.service],owners:[o]},frame=>{
+    s.gl.activeTexture(s.gl.TEXTURE0);s.gl.bindTexture(s.gl.TEXTURE_2D,o.source.texture);frame.pointSampling(o.source.texture)
+    s.gl.bindTexture(s.gl.TEXTURE_2D,foreign);frame.pointSampling(foreign)
+    o.source.texture=foreign;frame.pointSampling(o.ownedPointSampler.texture)
+  })).toThrow(/owned sampler/)
+  expect(s.gl.getTexParameter).toHaveBeenCalledTimes(4);expect(o.released).toHaveBeenCalledTimes(1);expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0)
+})
+it('preserves the first owner failure, rejects reentry and does not use an owned sampler after context loss',()=>{
+  const s=setup(),o=externalPointOwner(s),before=s.snapshot(),failure=Error('owner acquire failed'),laterRelease=vi.fn(()=>{throw Error('cleanup failed')})
+  o.lease.mockImplementation(()=>{expect(()=>runBrushGlBatch({participants:[s.service]},()=>{})).toThrow(/active/);return laterRelease})
+  expect(()=>runBrushGlBatch({participants:[s.service],owners:[o,{owner:{},lease:()=>{throw failure}}]},()=>{})).toThrow(failure)
+  expect(laterRelease).toHaveBeenCalledTimes(1);expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(0)
+  let lost=false;s.gl.isContextLost=()=>lost;o.lease.mockImplementation(()=>{lost=true;return o.released})
+  const execute=vi.fn();expect(()=>runBrushGlBatch({participants:[s.service],owners:[o]},execute)).toThrow(/context lost/)
+  expect(execute).not.toHaveBeenCalled();expect(o.released).toHaveBeenCalledTimes(1);expect(s.cpu.reservedBytes).toBe(0)
+})

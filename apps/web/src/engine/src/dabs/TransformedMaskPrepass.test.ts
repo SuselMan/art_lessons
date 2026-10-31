@@ -1,5 +1,5 @@
 import { allocateOwnedBrushTexture } from './BrushTextureCache';
-import { GAUSSIAN_READY_STOCK, sourceGaussianCanonicalFixture } from '../../testing/sourceGaussianCanonicalFixture';
+import { GAUSSIAN_DATA_STOCK, sourceGaussianCanonicalFixture } from '../../testing/sourceGaussianCanonicalFixture';
 import gaussianNative from '../presets/fixtures/sourceGaussianWholePath/whole.native.json';
 import { sourceGaussianDab } from '../presets/sourceGaussianDab';
 import { canonicalAutoMaskRevision } from './TransformedMaskPlan';
@@ -518,11 +518,15 @@ describe('Gaussian in the same incremental prepass slot and cache',()=>{
     }}finally{s.service.reset()}
     expect(total).toBe(29098);expect(s.cpu.reservedBytes).toBe(0)
   })
-  const streams=GAUSSIAN_READY_STOCK.flatMap(index=>(['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1'] as const).map(profile=>[index,profile] as const))
-  it.each(streams)('takes actual#%i %s author→adapter→wire recipes without a source bank or hot hit upload',(index,profile)=>{
+  it('retains native eraser#2 source coverage but refuses the default painting fixture',()=>{
+    expect(GAUSSIAN_DATA_STOCK).toContain(2)
+    expect(()=>sourceGaussianCanonicalFixture(2,'neon64-f32-fma-v1',false)).toThrow(/outer composition/)
+  })
+  const streams=GAUSSIAN_DATA_STOCK.flatMap(index=>(['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1'] as const).map(profile=>[index,profile] as const))
+  it.each(streams)('takes actual#%i %s data-only author→adapter→wire recipes without a paint grant or hot hit upload',(index,profile)=>{
     let draws=0
     {
-      const fixture=sourceGaussianCanonicalFixture(index,profile,false),all=fixture.accepted.flatMap(a=>a.frame.definitions)
+      const fixture=sourceGaussianCanonicalFixture(index,profile,false,{dataOnly:true}),all=fixture.accepted.flatMap(a=>a.frame.definitions)
       const s=setup();s.cache.clear();s.service.prepare({width:Math.max(...all.map(d=>d.width)),height:Math.max(...all.map(d=>d.height)),slots:1},[])
       const owner={},baseline=s.cpu.reservedBytes
       try {for(const accepted of fixture.accepted)for(const draw of accepted.frame.draws) {

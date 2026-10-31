@@ -255,3 +255,9 @@ CPU estimate bytes; scratch GPU bytes remain shared. Tests establish the exact
 third-program charge, three real program allocations/state restoration/teardown,
 and rejection of a fourth operation before allocation. Duplicate-list behavior
 continues to use the existing deduplication policy.
+
+2026-10-31: CanonicalExternalLifetime now extends the existing batch lifetime type
+so the real executor can advertise a lifetime-bound raw-local point sampler.
+This pass's runtime and standalone foreign sampler query/restore path are unchanged.
+A new standalone regression explicitly advertises metadata while retaining an
+original LINEAR/REPEAT sampler and proves all four queries/restoration still occur.

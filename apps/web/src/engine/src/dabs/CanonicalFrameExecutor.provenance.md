@@ -335,3 +335,14 @@ unchanged. Full seal/commit invalidation remains conservative. See coordinator
 provenance and R52/generic-sc4-advance-proof.json for independent multi-gesture
 pixel tests and actual Samsung before/after measurements; remaining rare83.1ms
 query hitch is explicitly unresolved.
+
+## 2026-10-31: live raw-local sampler ownership
+
+Only deposition-only raw lifetime creation now pins its actual straight/nearest
+pool buffer and texture in an immutable internal ownedPointSampler declaration.
+The same rawOwner alive epoch and existing lease guard reject stale texture or
+retired ownership. The batch revalidates same-context/texture/epoch binding before
+and after acquisition and before owned sampling. No shader, source generation,
+composition, deposition controls or physical ownership changes. The standalone
+composite path preserves foreign queries/restoration. See BrushGlBatch provenance
+and the compact owned-sampler Samsung receipt for tests and measured query removal.
