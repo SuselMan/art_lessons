@@ -13,7 +13,7 @@ import type {
   ImageImportOperation, LayerTransformOperation, AreaTransformOperation, AreaClearOperation,
   AreaPasteOperation, AreaFillOperation, ShapeOperation, LayerFilterOperation,
 } from '@grafetto/shared'
-import { parseCanonicalStrokeCloseOperation, operationLayerIds, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation } from '@grafetto/shared'
+import { captureCanonicalFullHistoryMetadata, parseCanonicalStrokeCloseOperation, operationLayerIds, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation } from '@grafetto/shared'
 
 /** Restore only the authoritative sequence, preserving every own descriptor so
  * the shared closed parser still rejects hidden extras and accessors. */
@@ -25,6 +25,14 @@ function captureCloseForPlacement(op: Operation, serverSeq: number | undefined):
     throw new TypeError('Invalid canonical stroke close metadata')
   if (serverSeq !== undefined) descriptors.seq = {value: serverSeq, enumerable: true}
   return parseCanonicalStrokeCloseOperation(Object.create(null, descriptors))
+}
+
+/** Compare bounded metadata after restoring only its authoritative sequence. */
+function captureMetadataForPlacement(op:Operation,serverSeq:number|undefined){
+  const descriptors=Object.getOwnPropertyDescriptors(op)
+  if(Reflect.ownKeys(op).some(key=>!Object.hasOwn(descriptors[key as string],'value')))throw new TypeError('Invalid canonical history metadata')
+  if(serverSeq!==undefined)descriptors.seq={value:serverSeq,enumerable:true}
+  return captureCanonicalFullHistoryMetadata(Object.create(null,descriptors))
 }
 
 export type OperationState = 'done' | 'undone' | 'gone'
@@ -257,6 +265,8 @@ export class OperationLog {
         if(read.rasterProfile!==normalized.read!.rasterProfile||JSON.stringify(normalized.operation)!==JSON.stringify(normalize(op).operation))throw new TypeError('Canonical delivery body changed')
       }else if(original.type==='canonical_stroke_close'){
         if(candidate.read||JSON.stringify(parseCanonicalStrokeCloseOperation(original))!==JSON.stringify(captureCloseForPlacement(op,serverSeq)))throw new TypeError('Canonical close delivery changed')
+      }else if(original.type==='operation_undo'||original.type==='operation_redo'){
+        if(candidate.read||JSON.stringify(captureCanonicalFullHistoryMetadata(original))!==JSON.stringify(captureMetadataForPlacement(op,serverSeq)))throw new TypeError('Canonical history metadata delivery changed')
       }else throw new TypeError('Unsupported canonical delivery operation')
       candidate.delivery.assertCurrent(candidate)
       if(lifetime.assertCurrent()!==scope)throw new TypeError('Canonical delivery scope replaced')
@@ -264,12 +274,12 @@ export class OperationLog {
     }
     const origin=validate(input)
     const identity=(operation:Operation)=>operation.type==='canonical_stroke'?[operation.userId,operation.frame.strokeId]:operation.type==='canonical_stroke_close'?[operation.targetUserId,operation.strokeId]:undefined
-    const target=identity(input.operation)!
+    const target=identity(input.operation)
     for(const entry of basis){
       const previous=canonicalInputOf(entry)
       if(!previous)continue
       const key=identity(previous.operation)
-      if(!key||key[0]!==target[0]||key[1]!==target[1])continue
+      if(!target||!key||key[0]!==target[0]||key[1]!==target[1])continue
       previous.delivery.assertCurrent(previous)
       if(previous.delivery.lifetime!==origin.lifetime||previous.delivery.lifetime.assertCurrent()!==origin.scope)throw new TypeError('Canonical gesture lifetime refresh requires authoritative rebuild')
     }

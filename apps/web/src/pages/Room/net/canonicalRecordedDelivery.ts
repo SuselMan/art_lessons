@@ -1,4 +1,4 @@
-import {canonicalRecordedRasterProfiles,parseCanonicalStrokeCloseOperation,type CanonicalPreparedRecordedOperation,type CanonicalRecordedReadScope} from '@grafetto/shared'
+import {captureCanonicalFullHistoryMetadata,canonicalRecordedRasterProfiles,parseCanonicalStrokeCloseOperation,type CanonicalPreparedRecordedOperation,type CanonicalRecordedReadScope} from '@grafetto/shared'
 import type {CanonicalRecordedDelivery,CanonicalRecordedInput,CanonicalRecordedLifetime} from '../../../engine'
 
 type LocalScope=CanonicalRecordedReadScope&{readonly isCurrent:()=>boolean}
@@ -36,11 +36,19 @@ export function canonicalRecordedLifetimeOf(scope:LocalScope):CanonicalRecordedL
 /** Immutable per-delivery lexical resource. A data-only scope, a copied atom
  * or copied method receiver cannot manufacture the original input lifetime. */
 export function attachCanonicalRecordedDelivery(atom:CanonicalPreparedRecordedOperation,scope:LocalScope):CanonicalPreparedRecordedOperation|CanonicalRecordedInput {
- if(atom.operation.type!=='canonical_stroke'&&atom.operation.type!=='canonical_stroke_close')return atom
+ const metadata=atom.operation.type==='operation_undo'||atom.operation.type==='operation_redo'
+ if(atom.operation.type!=='canonical_stroke'&&atom.operation.type!=='canonical_stroke_close'&&!metadata)return atom
  const lifetime=canonicalRecordedLifetimeOf(scope)
  if(!lifetime)return atom
  const originalScope=lifetime.assertCurrent()
  const operation=atom.operation
+ if(metadata){
+  // Only the original full-history owner may lend metadata delivery authority.
+  const full=lifetime as CanonicalRecordedLifetime&{readonly assertFullHistoryBase?:unknown;readonly tailOperations?:readonly unknown[]}
+  if(typeof full.assertFullHistoryBase!=='function'||atom.read||!full.tailOperations?.includes(operation))return fail()
+  captureCanonicalFullHistoryMetadata(operation)
+  if(!Object.isFrozen(operation))return fail()
+ }
  if(operation.type==='canonical_stroke_close'){
   // Validate the closed scalar schema, but keep the original normalized atom.
   // Mutable wire metadata must first be captured by its full-history owner.
