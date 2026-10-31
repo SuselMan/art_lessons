@@ -1,6 +1,6 @@
 import type { RefObject } from 'react'
 
-import { canonicalRecordedRasterProfiles, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation, type CanonicalRecordedReadScope, type Operation, type ServerToClientEvents } from '@grafetto/shared'
+import { canonicalRecordedRasterProfiles, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation, type CanonicalRecordedReadScope,type CanonicalStrokeRasterProfile, type Operation, type ServerToClientEvents } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../../engine'
 import { useRoomStore } from '../../../stores/roomStore'
@@ -50,6 +50,11 @@ export interface ConfirmedStreamDeps {
   canonicalReadScope?: CanonicalRecordedReadScope & { readonly isCurrent: () => boolean }
 }
 
+type ScopeOwner=NonNullable<ConfirmedStreamDeps['canonicalReadScope']>
+type CapturedScope=ScopeOwner&{readonly allowedRasterProfiles:readonly CanonicalStrokeRasterProfile[]}
+const replayAuthority:unique symbol=Symbol('canonical-confirmed-replay-lifetime')
+type HeldCanonicalPayload=ConfirmedPayload&{readonly [replayAuthority]?:(candidate:unknown,owner:ScopeOwner|undefined,policy:CapturedScope|undefined)=>{readonly read:NonNullable<CanonicalRead>}|undefined}
+
 /** (#493) `operation_confirmed` — the room's one ordered stream of what
  *  happened, for every operation including this client's own. Out of Room's
  *  socket effect; every branch below is a rule about *how* an arrival lands
@@ -81,24 +86,44 @@ export function createConfirmedStreamHandler({
     commitRevealsBelowShared(seq, pendingPreviewsRef.current, engineRef.current, applyRemoteOp)
 
   const handler: ServerToClientEvents['operation_confirmed'] = payload => {
+    // A gate can replace its handler while held messages survive. The
+    // ORIGINAL local lifetime must authorize release before a new scope sees it.
+    const held=payload as HeldCanonicalPayload
+    let read:CanonicalRead
+    if(Object.hasOwn(held,replayAuthority)){
+      const proof=held[replayAuthority]
+      if(typeof proof!=='function')return
+      const original=proof(payload,readScope,canonicalReadScope)
+      if(!original)return
+      read=original.read
+    }
     const { seq } = payload
     let op = payload.operation, acceptedPayload = payload
-    let read: CanonicalRead
     // Nothing, including review state and the existing replay queue, sees an
     // invalid or stale capability. Expected epoch comes from room-state scope.
     if (canonicalReadScope && !canonicalReadScope.isCurrent()) return
-    if (payload.canonicalCapabilities !== undefined || canonicalReadScope && op.type === 'canonical_stroke') {
+    if (!read&&(payload.canonicalCapabilities !== undefined || canonicalReadScope && op.type === 'canonical_stroke')) {
       try {
         if (!canonicalReadScope || op.type !== 'canonical_stroke' || op.seq !== seq) throw new TypeError('Missing canonical recorded read scope')
         const prepared = prepareCanonicalRecordedAttachment(payload.canonicalCapabilities, [op], canonicalReadScope)[0]
         read = prepared.read
         if (!read || !canonicalReadScope.isCurrent()) return
         op = prepared.operation
-        acceptedPayload = Object.freeze({ seq, operation: op, canonicalCapabilities: Object.freeze({
+        const originalRead=read,origin=canonicalReadScope,owner=readScope
+        let accepted:HeldCanonicalPayload
+        accepted = Object.freeze({ seq, operation: op, canonicalCapabilities: Object.freeze({
           version: 1 as const, roomId: read.roomId, boardEpoch: read.boardEpoch,
           capabilities: Object.freeze([read.capability]), bindings: Object.freeze([Object.freeze({
             operationId: read.operationId, sequence: read.sequence,
-            originalUserId: read.capability.originalUserId, capability: 0 })]) }) })
+            originalUserId: read.capability.originalUserId, capability: 0 })]) }),
+          [replayAuthority]:(candidate:unknown,currentOwner:ScopeOwner|undefined,policy:CapturedScope|undefined)=>{
+            if(candidate!==accepted||currentOwner!==owner||!origin.isCurrent()||!policy
+              ||policy.roomId!==origin.roomId||policy.boardEpoch!==origin.boardEpoch||policy.isCurrent!==origin.isCurrent
+              ||policy.allowedRasterProfiles.length!==origin.allowedRasterProfiles.length
+              ||policy.allowedRasterProfiles.some((p,i)=>p!==origin.allowedRasterProfiles[i]))return undefined
+            return Object.freeze({read:originalRead})
+          } })
+        acceptedPayload=accepted
       } catch {
         requestFullResync()
         return

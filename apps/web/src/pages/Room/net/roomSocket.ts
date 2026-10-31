@@ -1,4 +1,4 @@
-import {preflightRoomStateDelivery,type CanonicalRoomStatePreparer} from './canonicalRoomState'
+import {preflightRoomStateDelivery,type CanonicalRoomStatePreparer,type RoomStateDelivery} from './canonicalRoomState'
 import type { RefObject } from 'react'
 import type { Socket } from 'socket.io-client'
 
@@ -82,6 +82,9 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
 
   const socket = openSocket()
   socketRef.current = socket
+  let readGeneration=0
+  const invalidateRead=()=>{readGeneration++}
+  const requestedBoard=()=>wantedBoardRef.current??socketBoardRef.current??id
 
   // (#504) socket.io переподключается само — кроме двух случаев, в которых
   // оно объявляет, что больше не пытается, и тогда открытая комната висит на
@@ -89,23 +92,24 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   // перечень случаев, и почему у страницы комнаты нет законной причины
   // принять такой ответ.
   const revival = createSocketRevival(socket)
-  const joinRoom: ClientToServerEvents['join_room'] = (data, ack) => { socket.emit('join_room', data, ack) }
+  const joinRoom: ClientToServerEvents['join_room'] = (data, ack) => { invalidateRead();socket.emit('join_room', data, ack) }
 
   // (#493) Joining and staying joined — create/rejoin, page turns,
   // following, gap resync — see joinFlow.ts. Handed the two joining emits
   // rather than the socket.
   const {
-    joinCredentials, reportJoinFailure, handleConnect, switchBoard, maybeFollow, requestFullResync,
+    joinCredentials, reportJoinFailure, handleConnect, switchBoard, maybeFollow, requestFullResync:resync,
   } = createJoinFlow({
     ...deps, id, joinRoom,
-    createRoom: (data, ack) => { socket.emit('create_room', data, ack) },
+    createRoom: (data, ack) => { invalidateRead();socket.emit('create_room', data, ack) },
     isCurrentSocket: () => socket === socketRef.current,
     noteConnected: () => {
       onConnectionChange(true)
       revival.noteConnect()
     },
   })
-  switchBoardRef.current = next => { void switchBoard(next) }
+  const requestFullResync=()=>{invalidateRead();resync()}
+  switchBoardRef.current = next => { invalidateRead();void switchBoard(next) }
   // (#346) Published for the paper retry, which lives outside this function —
   // see requestFullResyncRef's own comment in Room.
   requestFullResyncRef.current = requestFullResync
@@ -116,7 +120,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
     ...deps, id, joinRoom, joinCredentials, reportJoinFailure, requestFullResync, maybeFollow,
   })
   // (#493) Out of line — see confirmedStream.ts.
-  const handleOperationConfirmed = createConfirmedStreamHandler({ ...deps, confirmOwnOperation, requestFullResync })
+  let handleOperationConfirmed = createConfirmedStreamHandler({ ...deps,canonicalReadScope:undefined, confirmOwnOperation, requestFullResync })
 
   // (#152) peer_cursor itself is not handled here at all — Room had nothing to
   // do with it beyond forwarding into Room-level state (which is exactly what
@@ -125,6 +129,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   // Room's render tree.
 
   const handleDisconnect = (reason: string) => {
+    invalidateRead()
     onConnectionChange(false)
     revival.noteDisconnect(reason)
   }
@@ -137,6 +142,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   // Оживлять такой сокет — значит стучаться в сервер раз в пять секунд до
   // закрытия вкладки; вместо этого всё приложение уходит на экран бана.
   const handleConnectError = (err: Error) => {
+    invalidateRead()
     if (err.message === BANNED_ERROR_CODE) {
       noteBanned()
       return
@@ -155,6 +161,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   let brushFailed = false
   let brushNotice: string | undefined
   const retryBrushes = () => {
+    invalidateRead()
     if (disposed || !brushFailed) return
     brushFailed = false
     // Failed gates deliberately discard their stream. Reconnect requests a
@@ -181,7 +188,12 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   const ordered = <Args extends unknown[]>(
     apply: (...args: Args) => void | Promise<void>,
     presets: (...args: Args) => (string | undefined)[] = () => [],
-  ) => (...args: Args): void => { brushes.dispatch(presets(...args), () => apply(...args)) }
+    isCurrent?: (...args: Args) => boolean,
+  ) => (...args: Args): void => {
+    const current = isCurrent ? () => isCurrent(...args) : undefined
+    if (current && !current()) return
+    brushes.dispatch(current ? () => presets(...args) : presets(...args), () => apply(...args), current)
+  }
   const presetFor = (operation: Operation): string | undefined => 'preset' in operation ? operation.preset : undefined
 
   socket.on('lesson_state',               ordered(board.lesson_state))
@@ -194,16 +206,35 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   socket.on('boards_reordered',           ordered(board.boards_reordered))
   socket.on('board_deleted',              ordered(board.board_deleted))
   socket.on('connect',                    handleConnect)
-  const dispatchRoomState=ordered(handleRoomState,state=>{
+  const dispatchRoomState=ordered((state:RoomStateDelivery)=>{
+    if(state.canonicalRead&&!state.canonicalRead.scope.isCurrent())return
+    return handleRoomState(state)
+  },state=>{
     setBrushRoomScope(state.room.id)
     void loadBrushLibrary().catch(error=>console.warn('Room brush metadata unavailable',error))
     return state.tailOperations.map(presetFor)
-  })
+  }, state => !state.canonicalRead || state.canonicalRead.scope.isCurrent())
   socket.on('room_state',state=>{
-    try{dispatchRoomState(preflightRoomStateDelivery(state,deps.prepareCanonicalRoomState))}
+    try{
+      const before=readGeneration,target=requestedBoard(),after=before+1
+      let published=false
+      const isCurrent=()=>socket===socketRef.current&&socket.connected&&requestedBoard()===target&&readGeneration===(published?after:before)
+      const accepted=preflightRoomStateDelivery(state,deps.prepareCanonicalRoomState,{isCurrent})
+      if(!isCurrent()||accepted.canonicalRead&&accepted.canonicalRead.scope.roomId!==target)throw Error('Stale canonical connection target')
+      // No await or arbitrary callback between publication and dispatch.
+      readGeneration=after;published=true
+      handleOperationConfirmed=createConfirmedStreamHandler({...deps,confirmOwnOperation,requestFullResync,canonicalReadScope:accepted.canonicalRead?.scope})
+      dispatchRoomState(accepted)
+    }
     catch{deps.setRoomContentReady(false);reportJoinFailure('unsupported_raster_version','room_state canonical contract')}
   })
-  socket.on('operation_confirmed',        ordered(handleOperationConfirmed, message => [presetFor(message.operation)]))
+  socket.on('operation_confirmed',message=>{
+    const handler=handleOperationConfirmed,generation=readGeneration
+    ordered((payload:typeof message)=>{
+      if(deps.prepareCanonicalRoomState&&generation!==readGeneration)return
+      handler(payload)
+    },payload=>[presetFor(payload.operation)],deps.prepareCanonicalRoomState?()=>generation===readGeneration:undefined)(message)
+  })
   socket.on('peer_joined',                ordered(peer.peer_joined))
   socket.on('peer_left',                  ordered(peer.peer_left))
   socket.on('peer_stroke_live',           ordered(peer.peer_stroke_live, data => [data.preset]))
@@ -215,11 +246,13 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   socket.on('participant_frozen_changed', ordered(control.participant_frozen_changed))
   socket.on('join_request_created',       ordered(control.join_request_created))
   socket.on('join_request_resolved',      ordered(control.join_request_resolved))
-  socket.on('kicked',                     ordered(control.kicked))
+  const handleKicked=ordered(control.kicked)
+  socket.on('kicked',message=>{invalidateRead();handleKicked(message)})
   socket.on('disconnect',                 handleDisconnect)
   socket.on('connect_error',              handleConnectError)
 
   return () => {
+    invalidateRead()
     disposed = true
     if (brushNotice) dismissNotice(brushNotice)
     brushes.cancel()

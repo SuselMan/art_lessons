@@ -37,3 +37,29 @@ scope/sink forwarding; legacy room socket/restore/hook regressions.
 
 Это тестовая source/read preparation, не активный straight editor, native GUI,
 realDB или device proof. Сервисы/browser/runtime/dependency copies не создавались.
+
+Connection lifetime (2026-10-31): existing roomSocket owns a scalar generation,
+not a room/epoch registry. A source preparer receives the exact connection-owned
+isCurrent closure; replacing it is refused. Whole-state preflight runs before
+publication or brush loading. Failed preflight leaves the previous owner current;
+a successfully prepared newer state supersedes the older owner even for the same
+room and numeric server epoch. Switch, rejoin/create emit, full resync, disconnect,
+connect failure, kick, retry and teardown invalidate the captured owner.
+
+The existing orderedBrushGate accepts optional lazy preset extraction and a
+lifetime guard. It checks before extraction/preparation and again after awaited
+preparation, dropping expired work while continuing the same queue. Legacy array
+calls retain their behavior. Confirmed callbacks capture the fixed handler and
+local generation at wire arrival, before any brush wait. ReplayGate-held canonical
+payloads additionally carry an internal lexical proof: only the exact prepared
+payload and original scope owner/current policy may release the original prepared
+atom. Spread copies and replacement handlers/scopes cannot relabel stale data.
+
+78 focused tests across six suites PASS, including failed preflight preservation,
+same-epoch replacement, stale queued state with no brushscope/library effects,
+wire-time confirmation capture, disconnect/switch/resync/kick invalidation,
+foreign lifetime callback rejection, copied/expired/replaced replay proof and
+same-owner handler rebuild. Actual editor/source activation remains OFF. No new
+runtime resources, services, dependencies, browser contexts or registries created.
+Combined web app + service-worker TypeScript gate: PASS
+(R52/connection-read-lifetime-final-web-tsc.log). Scoped oxlint/diff check PASS.

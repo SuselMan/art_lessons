@@ -99,3 +99,33 @@ it('captures the receiver allowset before caller mutation and rejects ambiguous 
  expect(s.deps.applyRemoteOp).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}))
  expect(()=>createConfirmedStreamHandler({...s.deps,canonicalReadScope:{...s.scope,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,allowedRasterProfiles:profiles}})).toThrow()
 })
+it.each(['expired','differentOwner','unscoped','copy','changedPolicy','changedCallback'] as const)('refuses held %s before any replacement handler state effect even with identical numeric epoch',kind=>{
+ const old=current(),next=current(),gate=createReplayGate<typeof old.payload>();gate.begin()
+ let captured:typeof old.payload|undefined
+ const hold=gate.hold.bind(gate);vi.spyOn(gate,'hold').mockImplementation(payload=>{captured=payload;return hold(payload)})
+ createConfirmedStreamHandler({...old.deps,canonicalReadScope:old.scope,replayGate:gate})(old.payload)
+ if(!captured)throw Error('Expected held payload')
+ if(kind==='expired')old.scope.isCurrent.mockReturnValue(false)
+ let scope:typeof old.scope|undefined=kind==='unscoped'?undefined:kind==='changedPolicy'||kind==='changedCallback'?old.scope:next.scope
+ if(kind==='changedPolicy')old.scope.boardEpoch=99
+ if(kind==='changedCallback')old.scope.isCurrent=vi.fn(()=>true)
+ const handler=createConfirmedStreamHandler({...next.deps,canonicalReadScope:scope,replayGate:gate})
+ const observe=vi.spyOn(useRoomStore.getState(),'observeReviewOperation');observe.mockClear()
+ try{
+  if(kind==='copy')handler({...captured}) // spread preserves private Symbols but is not the original
+  else gate.end()
+  expect(observe).not.toHaveBeenCalled();expect(next.deps.lastConfirmedSeqRef.current).toBe(2)
+  expect(next.deps.latestKnownSeqRef.current).toBe(2);expect(next.deps.applyRemoteOp).not.toHaveBeenCalled();expect(next.deps.confirmOwnOperation).not.toHaveBeenCalled()
+  expect(next.deps.requestFullResync).not.toHaveBeenCalled()
+ }finally{observe.mockRestore()}
+})
+it('accepts the same original held atom after same-owner handler rebuild without relabelling its prepared read',()=>{
+ const s=current(),gate=createReplayGate<typeof s.payload>();gate.begin()
+ createConfirmedStreamHandler({...s.deps,canonicalReadScope:s.scope,replayGate:gate})(s.payload)
+ createConfirmedStreamHandler({...s.deps,canonicalReadScope:s.scope,replayGate:gate})
+ gate.end()
+ expect(s.deps.applyRemoteOp).toHaveBeenCalledOnce()
+ const read=s.deps.applyRemoteOp.mock.calls[0][1]
+ expect(read.capability.snapshot.boardEpoch).toBe(2);expect(read.capability.originalUserId).toBe('author')
+ expect(s.deps.lastConfirmedSeqRef.current).toBe(3)
+})

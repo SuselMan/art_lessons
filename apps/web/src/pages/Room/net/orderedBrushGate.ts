@@ -2,12 +2,13 @@
  * Built-in-only events stay synchronous. A failed or cancelled gate never resumes. */
 const MAX_QUEUED_EVENTS = 512
 type Apply = () => unknown
+type Presets = (string | undefined)[] | (() => (string | undefined)[])
 
 export function createOrderedBrushGate(
   prepare: (presets: (string | undefined)[]) => Promise<void> | null,
   onError: (error: unknown) => void,
-): { dispatch: (presets: (string | undefined)[], apply: Apply) => void; cancel: () => void } {
-  const queue: { presets: (string | undefined)[]; apply: Apply }[] = []
+): { dispatch: (presets: Presets, apply: Apply, isCurrent?: () => boolean) => void; cancel: () => void } {
+  const queue: { presets: Presets; apply: Apply; isCurrent?: () => boolean }[] = []
   let active = true
   let waiting = false
   const fail = (error: unknown) => {
@@ -27,27 +28,30 @@ export function createOrderedBrushGate(
     while (active && queue.length > 0) {
       const event = queue[0]
       let pending: Promise<void> | null
-      try { pending = prepare(event.presets) } catch (error) { fail(error); return }
+      try {
+        if (event.isCurrent && !event.isCurrent()) { queue.shift(); continue }
+        pending = prepare(typeof event.presets === 'function' ? event.presets() : event.presets)
+      } catch (error) { fail(error); return }
       if (pending) {
         waiting = true
         void pending.then(() => {
           waiting = false
           if (!active) return
           queue.shift()
-          applyEvent(event.apply)
+          applyEvent(() => { if (!event.isCurrent || event.isCurrent()) return event.apply() })
           drain()
         }, fail)
         return
       }
       queue.shift()
-      applyEvent(event.apply)
+      applyEvent(() => { if (!event.isCurrent || event.isCurrent()) return event.apply() })
     }
   }
   return {
-    dispatch: (presets, apply) => {
+    dispatch: (presets, apply, isCurrent) => {
       if (!active) return
       if (queue.length >= MAX_QUEUED_EVENTS) { fail(new Error('Brush event queue overflow')); return }
-      queue.push({ presets, apply })
+      queue.push({ presets, apply, isCurrent })
       drain()
     },
     cancel: () => { active = false; queue.length = 0 },

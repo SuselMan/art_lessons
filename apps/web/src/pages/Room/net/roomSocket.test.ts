@@ -225,3 +225,86 @@ it('rejects a wrong room-state capability before brush scope/load, queues, refs 
   expect(deps.enterBoard).not.toHaveBeenCalled();expect(deps.restoreCatchup).not.toHaveBeenCalled();expect(deps.setRoomContentReady).toHaveBeenCalledWith(false)
  }finally{close()}
 })
+
+function emptyCanonicalState():Parameters<ServerToClientEvents['room_state']>[0]{return {room:{id:'B2',lessonId:'L',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:64,canvasHeight:64,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'L',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'B2',boardEpoch:2},canonicalCapabilities:{version:1,roomId:'B2',boardEpoch:2,capabilities:[],bindings:[]}}}
+function sourceSetup(){
+ const setupResult=setup(),reads:ReturnType<typeof prepareCanonicalRoomState>['canonicalRead'][]=[]
+ setupResult.fake.connected=true
+ setupResult.deps.prepareCanonicalRoomState=(state,lifetime)=>{
+  const prepared=prepareCanonicalRoomState(state,{expectedBoardId:'B2',isCurrent:lifetime.isCurrent})
+  reads.push(prepared.canonicalRead);return prepared
+ }
+ return {...setupResult,reads}
+}
+it('publishes a fresh same-epoch owner and preserves the previous owner after failed preflight',()=>{
+ const {deps,listeners,reads}=sourceSetup(),close=connectRoomSocket(deps)
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
+  expect(reads[0].scope.isCurrent()).toBe(true)
+  const invalid=emptyCanonicalState();invalid.canonicalCapabilities={...invalid.canonicalCapabilities!,roomId:'foreign'}
+  Reflect.apply(listeners.get('room_state')!,null,[invalid])
+  expect(reads[0].scope.isCurrent()).toBe(true)
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
+  expect(reads[0].scope.isCurrent()).toBe(false);expect(reads[1].scope.isCurrent()).toBe(true)
+ }finally{close()}
+ expect(reads[1].scope.isCurrent()).toBe(false)
+})
+it('drops superseded queued room states before brush scope and metadata loading',async()=>{
+ const {deps,listeners,reads}=sourceSetup()
+ let resolve!:()=>void
+ const pending=new Promise<void>(yes=>{resolve=yes})
+ vi.mocked(prepareBrushPresets).mockReturnValueOnce(pending)
+ const close=connectRoomSocket(deps)
+ try{
+  Reflect.apply(listeners.get('peer_stroke_live')!,null,[{preset:'blocking'}])
+  vi.mocked(setBrushRoomScope).mockClear();vi.mocked(loadBrushLibrary).mockClear()
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
+  expect(reads[0].scope.isCurrent()).toBe(false)
+  expect(setBrushRoomScope).not.toHaveBeenCalled();expect(loadBrushLibrary).not.toHaveBeenCalled()
+  resolve();await pending
+  expect(setBrushRoomScope).toHaveBeenCalledExactlyOnceWith('B2')
+  expect(loadBrushLibrary).toHaveBeenCalledOnce()
+ }finally{close()}
+})
+it.each(['disconnect','switch','resync','kicked'] as const)('invalidates captured source lifetime on %s',action=>{
+ const {deps,listeners,reads}=sourceSetup(),close=connectRoomSocket(deps)
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
+  expect(reads[0].scope.isCurrent()).toBe(true)
+  if(action==='switch')deps.switchBoardRef.current?.('next')
+  else if(action==='resync')deps.requestFullResyncRef.current?.()
+  else Reflect.apply(listeners.get(action)!,null,[action==='disconnect'?'transport close':{reason:'removed'}])
+  expect(reads[0].scope.isCurrent()).toBe(false)
+ }finally{close()}
+})
+it('captures confirmation lifetime at wire arrival before the brush queue waits',async()=>{
+ const {deps,listeners}=sourceSetup(),close=connectRoomSocket(deps)
+ let resolve!:()=>void
+ const pending=new Promise<void>(yes=>{resolve=yes})
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
+  vi.mocked(prepareBrushPresets).mockReturnValueOnce(pending)
+  Reflect.apply(listeners.get('peer_stroke_live')!,null,[{preset:'blocking'}])
+  const message:Parameters<ServerToClientEvents['operation_confirmed']>[0]={seq:1,operation:{id:'old-wire',userId:'author',timestamp:0,seq:1,type:'layer_clear',layerId:'layer'}}
+  Reflect.apply(listeners.get('operation_confirmed')!,null,[message])
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
+  vi.mocked(prepareBrushPresets).mockClear()
+  resolve();await pending
+  expect(prepareBrushPresets).toHaveBeenCalledExactlyOnceWith([])
+  expect(deps.confirmOwnOperation).not.toHaveBeenCalled()
+  expect(deps.appliedOpIdsRef.current.has('old-wire')).toBe(false)
+  expect(deps.lastConfirmedSeqRef.current).toBe(0)
+ }finally{close()}
+})
+it('rejects a preparer substituting its own lifetime callback',()=>{
+ const {deps,listeners,fake}=setup();fake.connected=true
+ deps.prepareCanonicalRoomState=state=>prepareCanonicalRoomState(state,{expectedBoardId:'B2',isCurrent:()=>true})
+ const close=connectRoomSocket(deps)
+ vi.mocked(setBrushRoomScope).mockClear();vi.mocked(loadBrushLibrary).mockClear()
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
+  expect(setBrushRoomScope).not.toHaveBeenCalled();expect(loadBrushLibrary).not.toHaveBeenCalled()
+  expect(deps.enterBoard).not.toHaveBeenCalled()
+ }finally{close()}
+})

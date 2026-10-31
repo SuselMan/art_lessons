@@ -12,7 +12,7 @@ export interface CanonicalRoomStateRead {
 }
 export type PreparedCanonicalRoomState=WireState&{readonly canonicalRead:CanonicalRoomStateRead}
 export type RoomStateDelivery=WireState&{readonly canonicalRead?:CanonicalRoomStateRead}
-export type CanonicalRoomStatePreparer=(state:WireState)=>PreparedCanonicalRoomState
+export type CanonicalRoomStatePreparer=(state:WireState,lifetime:{readonly isCurrent:()=>boolean})=>PreparedCanonicalRoomState
 /** Internal exact lexical resource: a network object or copied internal marker
  * cannot authorize a raw tail, another board or an expired socket lifetime. */
 export function assertCanonicalRoomStateRead(value:CanonicalRoomStateRead,operations:readonly Operation[],boardId:string):void {
@@ -46,14 +46,15 @@ export function prepareCanonicalRoomState(state:WireState,lifetime:{readonly exp
 }
 /** Runs before ordered brush loading, review stores, refs or replay queues.
  * No injected preparer means the existing legacy-only lane remains closed. */
-export function preflightRoomStateDelivery(state:WireState,prepare?:CanonicalRoomStatePreparer):RoomStateDelivery {
+export function preflightRoomStateDelivery(state:WireState,prepare?:CanonicalRoomStatePreparer,lifetime?:{readonly isCurrent:()=>boolean}):RoomStateDelivery {
  const version=readRoomRasterVersion(state.room.rasterVersion)
  if(version===LEGACY_ROOM_RASTER_VERSION){
   if(state.canonicalReadScope!==undefined||state.canonicalAuthorRasterProfile!==undefined||state.canonicalCapabilities!==undefined||Object.hasOwn(state,'canonicalRead'))throw Error('Unexpected canonical legacy room state')
   return state
  }
  if(version!==STRAIGHT_ROOM_RASTER_VERSION||!prepare)throw Error('Unsupported canonical room state')
- const result=prepare(state)
+ const result=prepare(state,lifetime??{isCurrent:()=>true})
+ if(lifetime&&result.canonicalRead.scope.isCurrent!==lifetime.isCurrent)throw Error('Foreign canonical connection lifetime')
  if(result.room.id!==state.room.id||readRoomRasterVersion(result.room.rasterVersion)!==STRAIGHT_ROOM_RASTER_VERSION)throw Error('Foreign prepared room metadata')
  assertCanonicalRoomStateRead(result.canonicalRead,result.tailOperations,state.room.id)
  return result
