@@ -73,3 +73,47 @@ describe('inactive seeded default-auto density contract',()=>{
    expect(()=>unpackCanonicalMaterial(mutate(p,fn),c)).toThrow()
  })
 })
+
+/** Historical tag covers three independent unsupported native parameters. */
+function taggedDensity(density=.8,spikes=2,randomness=0,reasons=['default-auto-mask-parameters-unavailable']) {
+ const library:unknown={schemaVersion:1,assets:[],skipped:[],brushes:[{descriptor:structuredClone(stock.rows[0].descriptor),name:'synthetic-frontier',source:'fixture',warnings:[]}]}
+ if(!isBrushLibrary(library))throw Error('fixture library')
+ const descriptor=library.brushes[0].descriptor,data=descriptor.sourceStamp
+ if(data?.version!==2||data.source.kind!=='defaultAuto')throw Error('fixture default')
+ descriptor.sourceStamp={...data,source:{...data.source,density,spikes,randomness},unsupported:reasons}
+ return descriptor
+}
+it('interprets only the sole historical density frontier without erasing original source data',()=>{
+ for(const density of [0,.8]){
+  const descriptor=taggedDensity(density),before=structuredClone(descriptor)
+  Object.freeze(descriptor.sourceStamp!.unsupported)
+  const result=extractSeededDensityDefaultAutoSourceDataCapability(descriptor)
+  expect(result.supported).toBe(true)
+  if(!result.supported)throw Error('new explicit data capability rejected')
+  expect(result.data).toBe(descriptor.sourceStamp);expect(result.rasterReady).toBe(false)
+  expect(result.data.unsupported).toEqual(['default-auto-mask-parameters-unavailable'])
+  expect(descriptor).toEqual(before)
+  expect(extractDefaultAutoSourceDataCapability(descriptor).supported).toBe(false)
+  expect(canonicalDefaultAutoSourceBinding(descriptor,'a'.repeat(64),D,G).source.density).toBe(density)
+ }
+})
+it('does not retire the same tag for spikes, randomness, density one or any additional reason',()=>{
+ for(const descriptor of [taggedDensity(1),taggedDensity(.8,3),taggedDensity(.8,2,.1),
+  taggedDensity(.8,2,0,['default-auto-mask-parameters-unavailable','source-color-provider-unresolved']),
+  taggedDensity(.8,2,0,['default-auto-mask-parameters-unavailable','default-auto-mask-parameters-unavailable']),
+  taggedDensity(.8,2,0,['gaussian-auto-mask-parameters-unavailable']),
+  taggedDensity(.8,2,0,['unknown-future-frontier'])]){
+  const before=structuredClone(descriptor)
+  expect(extractSeededDensityDefaultAutoSourceDataCapability(descriptor).supported).toBe(false)
+  expect(()=>canonicalDefaultAutoSourceBinding(descriptor,'a'.repeat(64),D,G)).toThrow()
+  expect(descriptor).toEqual(before)
+ }
+})
+it('does not let a retired parameter tag bypass material, role or source profile closure',()=>{
+ const descriptor=taggedDensity(),data=descriptor.sourceStamp!
+ const altered=[{...descriptor,sourceStamp:{...data,flags:{...data.flags,textureEnabled:true}}},
+  {...descriptor,sourceStamp:{...data,role:'mask' as const}},
+  {...descriptor,sourceStamp:{...data,flags:{...data.flags,materialFixed1:false}}},
+  {...descriptor,tip:{...descriptor.tip,profile:{kind:'standard' as const,shape:'ellipse' as const,horizontalFade:.1,verticalFade:.1,antialias:false}}}]
+ for(const value of altered)expect(extractSeededDensityDefaultAutoSourceDataCapability(value).supported).toBe(false)
+})

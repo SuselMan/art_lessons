@@ -64,3 +64,34 @@ Latest full app snapshot is not PASS (unrelated Stamp fixture failure); no overa
 app compatibility claim. Engine old-evaluator boundary explicitly rejects seeded
 density until a real consumer exists; server execution policy retains its original
 coverage domain. Runtime activation remains closed.
+
+## Historical density-only frontier interpretation (separate source-only unit)
+
+The Python native reader emits default-auto-mask-parameters-unavailable for ANY
+spikes!=2 OR randomness!=0 OR density!=1. Thus this tag alone is insufficient.
+After all existing shape/material/role/effect/painting-mode/compiler checks, the
+NEW explicit density capability interprets only a SINGLE exact tag with actual
+validated default source spikes2/randomness0/density<1. Original unsupported array
+is retained verbatim and returned with the same source data identity. Old extractor
+still rejects historical tag before other checks, unchanged. Duplicate/additional/
+unknown/Gaussian reasons, density1 with stale tag, spikes/randomness or other
+material/profile/role failures remain closed. No importer/schema rewrite, no
+server/Room policy activation and no shared DIST change in this unit.
+
+Tests-first RED1/prior7 PASS, then final37 tests/3 suites PASS, maxWorkers1;
+shared source noEmit/lint0/diff PASS. Synthetic tagged stock variations test the
+frontier law without claiming a new native Marker_Dry whole-preset proof. Actual
+original raw Marker receipt remains R52/marker-dry-raw-source-preflight.json:
+exact169 parameters, density.8, sole exact tag, two required nonidentity curves.
+Mapped provider is still a separate prerequisite; no old3.4 coefficients substituted.
+Logs R52/density-frontier-{first-red,regression,source-tsc}.log. Shared build held
+until ROOT cue; current immutable QA runtime is unaffected.
+
+Provider follow-up: original Marker_Dry two mapped curves compiled successfully
+with pinned provider67, full build/profile/source receipt retained; all disposable
+archive/408headers/overlay/tool/catalog files removed by standard cleanup after
+runner termination. SourceData validates and preserves original sole tag. Actual
+normal importer still emits its historical BITMAP fallback tip for density.8;
+therefore the strict new capability correctly rejects that descriptor. No tip
+projection or source-data mutation is used to fabricate readiness. Explicit normal
+importer source-density lowering remains a separately reviewed prerequisite.

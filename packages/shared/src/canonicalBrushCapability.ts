@@ -179,7 +179,7 @@ function extractDefaultAutoData(descriptor: BrushDescriptor, seededDensity: bool
   const data = descriptor.sourceStamp
   if (!isSourceStampData(data)) return reject('invalid-or-missing-source-data')
   if (data.version !== 2 || data.source.kind !== 'defaultAuto') return reject('source-material-is-not-default-auto')
-  if (data.unsupported.length) return { supported: false, reasons: [...data.unsupported] }
+  if (!seededDensity && data.unsupported.length) return { supported: false, reasons: [...data.unsupported] }
   if (data.role !== 'primary' || descriptor.behavior?.dual) return reject('mask-master-size-unresolved')
   if (descriptor.model !== 'stamp' || descriptor.tip.kind !== 'procedural' || descriptor.tip.profile?.kind !== 'standard'
     || descriptor.tip.mask || descriptor.tip.animation || descriptor.tip.imageSampling || descriptor.tip.material) return reject('inconsistent-default-auto-descriptor')
@@ -191,6 +191,13 @@ function extractDefaultAutoData(descriptor: BrushDescriptor, seededDensity: bool
     || p.verticalFade !== source.verticalFade || p.antialias !== source.antialias) return reject('inconsistent-default-auto-profile')
   if (!sourceStampPaintingMode(data)) return reject('inconsistent-source-painting-mode')
   if (data.options.length !== 9 || !hasCanonicalSourceCurvePrograms(data)) return reject('native-option-program-unavailable')
+  // The historical tag conflates spikes, randomness and density. Only the
+  // density-only frontier is retired, AFTER every source/material/program check.
+  // Retain the original tag/data; never normalize unrelated unsupported reasons.
+  if (data.unsupported.length && !(seededDensity && source.density < 1
+    && data.unsupported.length === 1 && data.unsupported[0] === 'default-auto-mask-parameters-unavailable')) {
+    return { supported: false, reasons: [...data.unsupported] }
+  }
   return { supported: true, status: 'source-data-only', rasterReady: false,
     data: data as SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceDefaultAutoData } }
 }
