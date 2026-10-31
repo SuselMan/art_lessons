@@ -57,3 +57,13 @@ encoder ordinal preservation. Existing legacy image traces/fences/byte semantics
 remain covered. This is author/wire glue proof, not native pixel identity, UI
 activation, server authorization, a new resource quota or straight-room opening.
 No device, server, dependency copy or runtime was created for this unit.
+
+Soft auto off-path bridge: descriptor readiness selects an explicit coverage
+profile and the existing soft geometry/material policy. Wire2 context pins the
+separate mapped radial dictionary via canonicalSoftAutoSourcePin, including deep
+immutable coefficient copies. Adapter recipes read resolvedSource (the saved
+cache generation), bind primary/mask sourceSlot 0/1 and use canonicalSoftAutoCost
+before the common codec and encoder. No image fallback, new packetizer or render
+formula is added. sourceStrokeMaterialAdapter.soft.test.ts uses explicitly
+synthetic mapped coefficients; native fixtures and their unsupported reasons
+remain intact. This does not prove native whole-stroke rendering equivalence.

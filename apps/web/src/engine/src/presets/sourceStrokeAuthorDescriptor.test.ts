@@ -25,7 +25,7 @@ describe('real descriptor to source author, explicit capability boundary',()=>{
     Object.assign(d.sourceStamp!,{version:2,source:{kind:'softAuto',generator:'soft',shape:'circle',diameter:3,ratio:5/3,horizontalFade:0,verticalFade:0,antialias:false,spikes:2,randomness:0,density:1,softnessCurve:{text:'0,1;1,0',points:[{x:0,y:1,corner:false},{x:1,y:0,corner:false}]}}})
     Object.assign(d.sourceStamp!.brush,{scale:1})
     expect(isSourceStampData(d.sourceStamp)).toBe(true)
-    expect(sourceStrokeAuthorDescriptor(d,context)).toEqual({supported:false,reasons:['soft-auto-raster-author-unavailable']})
+    expect(sourceStrokeAuthorDescriptor(d,context)).toEqual({supported:false,reasons:['unsupported-soft-auto-material-consumer']})
   })
 
   it('passes the production shared library boundary with source data and rejects a corrupt retained slot',()=>{

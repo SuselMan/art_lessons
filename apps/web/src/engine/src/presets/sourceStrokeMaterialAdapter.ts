@@ -1,5 +1,5 @@
 import {
-  buildCanonicalMaterial, canonicalMaterialGeometryCost, canonicalAutoCost, canonicalDefaultAutoStatic, canonicalDefaultAutoSourcePin, canonicalGaussianAutoStatic, canonicalGaussianAutoSourcePin, CANONICAL_MATERIAL_LIMITS,
+  buildCanonicalMaterial, canonicalMaterialGeometryCost, canonicalAutoCost, canonicalDefaultAutoStatic, canonicalDefaultAutoSourcePin, canonicalGaussianAutoStatic, canonicalGaussianAutoSourcePin, canonicalSoftAutoStatic, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, CANONICAL_MATERIAL_LIMITS,
   type CanonicalMaterialBuildInput, type CanonicalMaterialContext, type CanonicalMaterialEntry,
   type CanonicalMaterialFence, type CanonicalMaterialFrame, type CanonicalMaterialContextV2, type CanonicalMaterialFrameV2, type AnyCanonicalMaterialRecipe, type AnyCanonicalMaterialFrame, type AnyCanonicalMaterialContext, type CanonicalMaterialBuildInputV2,
 } from '@grafetto/shared'
@@ -37,12 +37,12 @@ export function pinSourceMaterialTargets(g:SourceMaterialTargetGeometry|undefine
 }
 export function copySourceMaterialContext(c:AnySourceStrokeMaterialContext):AnyCanonicalMaterialContext {
   if('version' in c&&c.version===2){
-    const binding=(s:CanonicalMaterialContextV2['primarySource'])=>s?.kind==='defaultAuto'?canonicalDefaultAutoSourcePin(s):s?.kind==='gaussianAuto'?canonicalGaussianAutoSourcePin(s):freeze({...s})
+    const binding=(s:CanonicalMaterialContextV2['primarySource'])=>s?.kind==='defaultAuto'?canonicalDefaultAutoSourcePin(s):s?.kind==='gaussianAuto'?canonicalGaussianAutoSourcePin(s):s?.kind==='softAuto'?canonicalSoftAutoSourcePin(s):freeze({...s})
     const primarySource=binding(c.primarySource),maskSource=c.maskSource===undefined?undefined:binding(c.maskSource)
     return freeze({version:2,assets:structuredClone(c.assets),primarySource,...maskSource?{maskSource}:{},budget:{...c.budget}})
   }
   const legacy=c as SourceStrokeMaterialContext
-  if(legacy.geometry?.kind==='defaultAuto'||legacy.geometry?.kind==='gaussianAuto')throw new RangeError('Default auto requires a trusted wire2 source context')
+  if(legacy.geometry?.kind==='defaultAuto'||legacy.geometry?.kind==='gaussianAuto'||legacy.geometry?.kind==='softAuto')throw new RangeError('Default auto requires a trusted wire2 source context')
   return freeze({assets:structuredClone(legacy.assets),primaryAsset:legacy.primaryAsset,maskAsset:legacy.maskAsset,budget:{...legacy.budget},preflightDefinition:canonicalMaterialGeometryCost})
 }
 function targetKeys(d:Pick<Draw,'x'|'y'|'recipe'>,g:SourceMaterialTargetGeometry|undefined):readonly string[]{
@@ -134,8 +134,7 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
   private pixels=0
 
   constructor(program:SourceStrokeAuthorProgram,context:C,source:SourceStrokeAuthorState,checkpoint?:SourceStrokeMaterialCheckpoint){
-    if(program.roles.some(r=>r.geometry?.kind==='softAuto'))throw new RangeError('Soft auto requires a supported canonical material context')
-    if(!version2(context)&&program.roles.some(r=>r.geometry?.kind==='defaultAuto'||r.geometry?.kind==='gaussianAuto'))throw new RangeError('Default auto requires a trusted wire2 source context')
+    if(!version2(context)&&program.roles.some(r=>r.geometry?.kind==='defaultAuto'||r.geometry?.kind==='gaussianAuto'||r.geometry?.kind==='softAuto'))throw new RangeError('Default auto requires a trusted wire2 source context')
     this.targets=pinSourceMaterialTargets(context.targetGeometry)
     this.context=copySourceMaterialContext(context)
     buildAdapterMaterial({masked:program.roles.length===2,entry:{phase:'between'},draws:[],fences:[]},this.context)
@@ -145,16 +144,17 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
       if(version2(this.context)){
         const pin=r.id==='primary'?this.context.primarySource:this.context.maskSource
         if(!pin)invalid()
-        if(pin.kind==='defaultAuto'||pin.kind==='gaussianAuto'){
+        if(pin.kind==='defaultAuto'||pin.kind==='gaussianAuto'||pin.kind==='softAuto'){
           const g=r.geometry
-          const policy=pin.kind==='defaultAuto'?'default-auto-fixed1-rng-free':'gaussian-auto-fixed1-rng-free'
+          const policy=pin.kind==='softAuto'?'soft-auto-fixed1-rng-free':pin.kind==='defaultAuto'?'default-auto-fixed1-rng-free':'gaussian-auto-fixed1-rng-free'
+          if(pin.kind==='softAuto'&&pin.sourceSlot!==(r.id==='primary'?0:1))invalid()
           if(!g||g.kind!==pin.kind||r.materialPolicy!==policy||pin.brushScale!==1
             ||r.material.brushIdentity!==pin.descriptorId+'@'+pin.descriptorVersion
             ||g.coverageProfile!==pin.coverageProfile)invalid()
           const actual=g.kind==='defaultAuto'?canonicalDefaultAutoStatic(g.source,r.brush.scale,r.brush.angle)
-            :g.kind==='gaussianAuto'?canonicalGaussianAutoStatic(g.source,r.brush.scale,r.brush.angle):invalid()
+            :g.kind==='gaussianAuto'?canonicalGaussianAutoStatic(g.source,r.brush.scale,r.brush.angle):g.kind==='softAuto'?canonicalSoftAutoStatic(g.source,r.brush.scale,r.brush.angle):invalid()
           const expected=pin.kind==='defaultAuto'?canonicalDefaultAutoStatic(pin.source,pin.brushScale,pin.brushAngle)
-            :canonicalGaussianAutoStatic(pin.source,pin.brushScale,pin.brushAngle)
+            :pin.kind==='gaussianAuto'?canonicalGaussianAutoStatic(pin.source,pin.brushScale,pin.brushAngle):canonicalSoftAutoStatic(pin.source,pin.brushScale,pin.brushAngle)
           if(!sameData(actual,expected))invalid()
         } else {
           const a=this.context.assets.find(a=>a.id===pin.asset)
@@ -240,12 +240,22 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
       if(!version2(this.context))invalid()
       recipe={...common,kind:'gaussianAuto',coverageProfile:s.geometry.coverageProfile,
         ...canonicalGaussianAutoStatic(s.geometry.source,s.brush.scale,s.brush.angle)}
+    }else if(s.geometry?.kind==='softAuto'){
+      if(!version2(this.context))invalid()
+      recipe={...common,kind:'softAuto',sourceSlot:role==='primary'?0:1,coverageProfile:s.geometry.coverageProfile,
+        ...canonicalSoftAutoStatic(s.geometry.source,s.brush.scale,s.brush.angle)}
     }else recipe=version2(this.context)?{...common,kind:'image',asset:s.brushIdentity}:{...common,asset:s.brushIdentity}
     // Saved source shape already consumed coordinateSystemFlipped. Bitmap flips
     // are saved mirror bits; NEVER use the second, spacing-only Mirror result.
     return{recipe,role,x:m.resolvedRect.x,y:m.resolvedRect.y,opacity:r.opacity,flow:r.flow} as Draw
   }
   private cost(draw:Draw){
+    if('kind' in draw.recipe&&draw.recipe.kind==='softAuto'){
+      if(!version2(this.context))invalid()
+      const pin=draw.role==='primary'?this.context.primarySource:this.context.maskSource
+      if(!pin||pin.kind!=='softAuto')invalid()
+      return canonicalSoftAutoCost(draw.recipe,pin)
+    }
     if('kind' in draw.recipe&&(draw.recipe.kind==='defaultAuto'||draw.recipe.kind==='gaussianAuto')){
       if(!version2(this.context))invalid()
       const pin=draw.role==='primary'?this.context.primarySource:this.context.maskSource
