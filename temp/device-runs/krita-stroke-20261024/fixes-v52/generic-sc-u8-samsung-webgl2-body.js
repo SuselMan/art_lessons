@@ -1,0 +1,20 @@
+(()=>{
+const canvas=document.createElement('canvas');canvas.width=CONFIG.rows.length;canvas.height=1;document.body.append(canvas);
+const gl=canvas.getContext('webgl2',{antialias:false,premultipliedAlpha:false});if(!gl){canvas.remove();return{available:false}}
+const result={available:true,cases:CONFIG.rows.length,wrong:0,maxDelta:0,examples:[],GL:[],cleanup:false},textures=[],shaders=[];let program,fbo,vao;
+try{
+ const compile=(type,source)=>{const shader=gl.createShader(type);shaders.push(shader);gl.shaderSource(shader,source);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(shader));return shader};
+ const vs=compile(gl.VERTEX_SHADER,'#version 300 es\nvoid main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Position=vec4(p*2.0-1.0,0,1);}');
+ const fs=compile(gl.FRAGMENT_SHADER,'#version 300 es\nprecision highp float;precision highp int;uniform highp usampler2D sourceTex;uniform highp usampler2D destinationTex;uniform highp usampler2D controlsTex;layout(location=0) out highp uvec4 outputPixel;\n'+GENERIC_SC.SOURCE_RGBA8_COMPOSITE_GLSL+'\nvoid main(){ivec2 at=ivec2(int(gl_FragCoord.x),0);uvec4 s=texelFetch(sourceTex,at,0),d=texelFetch(destinationTex,at,0),c=texelFetch(controlsTex,at,0);outputPixel=sourceCompositeRgba8(s,d,SourceRgba8CompositeControl(c.x,c.y,c.z,c.w!=0u,255u,255u,true));}');
+ program=gl.createProgram();gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));gl.useProgram(program);
+ function texture(data,unit){const t=gl.createTexture();textures.push(t);gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,t);gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA8UI,CONFIG.rows.length,1,0,gl.RGBA_INTEGER,gl.UNSIGNED_BYTE,data);for(const p of [gl.TEXTURE_MIN_FILTER,gl.TEXTURE_MAG_FILTER])gl.texParameteri(gl.TEXTURE_2D,p,gl.NEAREST);return t}
+ texture(Uint8Array.from(CONFIG.rows.flatMap(r=>r.src)),0);texture(Uint8Array.from(CONFIG.rows.flatMap(r=>r.dst)),1);texture(Uint8Array.from(CONFIG.rows.flatMap(r=>[r.prepared.mode,r.prepared.opacity,r.prepared.mask,+r.prepared.hasMask])),2);
+ const target=texture(null,3);fbo=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,target,0);if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('Integer output incomplete');
+ gl.uniform1i(gl.getUniformLocation(program,'sourceTex'),0);gl.uniform1i(gl.getUniformLocation(program,'destinationTex'),1);gl.uniform1i(gl.getUniformLocation(program,'controlsTex'),2);
+ vao=gl.createVertexArray();gl.bindVertexArray(vao);gl.viewport(0,0,CONFIG.rows.length,1);gl.disable(gl.BLEND);gl.disable(gl.DITHER);gl.drawArrays(gl.TRIANGLES,0,3);
+ const actual=new Uint8Array(CONFIG.rows.length*4);gl.readPixels(0,0,CONFIG.rows.length,1,gl.RGBA_INTEGER,gl.UNSIGNED_BYTE,actual);
+ for(let i=0;i<actual.length;i++){const expected=CONFIG.rows[Math.floor(i/4)].expected[i%4],delta=Math.abs(actual[i]-expected);if(delta){result.wrong++;if(result.examples.length<12)result.examples.push({case:Math.floor(i/4),channel:i%4,actual:actual[i],expected})}result.maxDelta=Math.max(result.maxDelta,delta)}
+ result.output=[...actual];const debug=gl.getExtension('WEBGL_debug_renderer_info');result.renderer=debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER);let e;while((e=gl.getError())!==gl.NO_ERROR)result.GL.push(e);
+}finally{gl.useProgram(null);gl.bindFramebuffer(gl.FRAMEBUFFER,null);if(fbo)gl.deleteFramebuffer(fbo);if(vao)gl.deleteVertexArray(vao);if(program)gl.deleteProgram(program);for(const s of shaders)gl.deleteShader(s);for(const t of textures)gl.deleteTexture(t);let e;while((e=gl.getError())!==gl.NO_ERROR)result.GL.push(e);result.cleanup=true;gl.getExtension('WEBGL_lose_context')?.loseContext();canvas.remove()}
+return result;
+})()

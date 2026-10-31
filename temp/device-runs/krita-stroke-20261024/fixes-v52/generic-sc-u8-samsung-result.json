@@ -1,0 +1,57 @@
+{
+  "proof": {
+    "sourceSHA": "72d8396299bfe8d0536ad45cf247536ab0ae6797",
+    "fixtureSHA256": "18d7b0fc73797ae2f5e863808eb04c9e0a83d058a1da4be2b2e8ce77dc1501b7",
+    "bundleSHA256": "db835355c1f73ab3b19824a7943c16fd60c0dc39539e8537d71aa0de6eba4f0f",
+    "body1SHA256": "6c7cec8e73f53670ea9a3a27f58b0931264e9d3f232d413e403762edda97d62b",
+    "body2SHA256": "d0e141efe8b1712f6f12b07f4c83166ca7455404ebf520f04ce99c940c47338e",
+    "fixtureCases": 260,
+    "additionalMULT3Witnesses": 4,
+    "webgl1Draws": 528,
+    "scope": "Unchanged pinned GenericSC/Base/Maths/IntegerMaths and extracted native functor bodies, existing interface shims, additive RGBA8 all channels/unlocked. Native C++ source-law oracle, not original installed ARM/GUI."
+  },
+  "webgl1": {
+    "wrong": 0,
+    "maxDelta": 0,
+    "stateRestored": true,
+    "samplersRestored": true,
+    "leasesBalanced": true,
+    "hotNoUploads": true,
+    "GL": [],
+    "cleanup": {
+      "ok": true,
+      "gpuBytes": 0,
+      "cpuReserved": 0
+    },
+    "scope": "Samsung actual GenericSC U8 CanonicalRgba8CompositePass, pinned source-law fixture; no ARM/GUI/room grant",
+    "device": {
+      "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+      "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)"
+    },
+    "highp": 23,
+    "gpuBytes": 52,
+    "cpuReserved": 8240,
+    "trialsSummary": {
+      "total": 528,
+      "straightRgba8": 264,
+      "maskRgb": 264,
+      "badTrials": []
+    }
+  },
+  "webgl2": {
+    "available": true,
+    "cases": 264,
+    "wrong": 0,
+    "maxDelta": 0,
+    "examples": [],
+    "GL": [],
+    "cleanup": true,
+    "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)"
+  },
+  "productionFilesSHA256": {
+    "apps/web/src/engine/src/dabs/CanonicalRgba8CompositePass.ts": "99452d657b4b8b5064ce9485a8a2382a3330f4e1bfb6ef714e6da80ea1c1ca4c",
+    "apps/web/src/engine/src/raster/sourceRgba8CompositeShader.ts": "914eeea522579f5a079c4b818701b6242e376c2c9d456911df65f4a55f8313fa",
+    "apps/web/src/engine/src/raster/sourceRgba8CompositeWebGL1.ts": "1f61bf127ce634f7595d77ae455d081890248e51231515a7794ee8cb624463fc",
+    "apps/web/src/engine/src/presets/sourceColorRgba8.ts": "075ced96a665709c622601d6f58408e7d6535efda1cdc6c2a687e7f052135218"
+  }
+}
