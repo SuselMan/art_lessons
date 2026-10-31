@@ -1,6 +1,10 @@
+import originalSoft from './fixtures/sourceSoftAutoData/stock.native.js'
+import originalDefault from './fixtures/sourceDefaultAutoData/stock.native.js'
+import type { BrushDescriptor } from './brushes.js'
+import { isSourceStampData, sourceStampRequiredCurves, SOURCE_STAMP_MAPPED_COMPILER_PROFILE, type SourceStampCurveData } from './sourceStampData.js'
 import { expect, it } from 'vitest'
 import { buildCanonicalMaterial, unpackCanonicalMaterial, packCanonicalMaterial, type CanonicalMaterialContextV2, type CanonicalMaterialBuildInputV2 } from './canonicalMaterialCodec.js'
-import { canonicalSoftAutoSourcePin, canonicalSoftAutoCost, canonicalSoftAutoDataEqual, type CanonicalSoftAutoSource, type CanonicalSoftAutoRecipe } from './canonicalSoftAutoMaterial.js'
+import { canonicalSoftAutoSourceBinding, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, canonicalSoftAutoDataEqual, type CanonicalSoftAutoSource, type CanonicalSoftAutoRecipe } from './canonicalSoftAutoMaterial.js'
 import { decodeCanonicalStrokeFrame, CANONICAL_STROKE_RASTER_PROFILE } from './canonicalStrokeFrame.js'
 import { sourceAutoGeometry } from './sourceAutoGeometry.js'
 
@@ -149,4 +153,46 @@ it('keeps tags1/2/3 exact 96-byte legacy layouts and their byte+3 reserved-zero 
     expect(built.packed).toBe('2|'+btoa(String.fromCharCode(...bytes)))
     expect(()=>unpackCanonicalMaterial(mutate(built.packed,v=>v.setUint8(27,1)),context)).toThrow()
   }
+})
+
+// Synthetic mapped coefficients prove binding only, never native pixels.
+function bindingDescriptor():BrushDescriptor {
+  const data:unknown=structuredClone(originalSoft.rows.find(r=>r.index===72)!.sourceStamp)
+  if(!isSourceStampData(data)||data.version!==2||data.source.kind!=='softAuto')throw Error('Invalid soft fixture')
+  const entry=(source:SourceStampCurveData)=>({source,coefficients:Array.from({length:source.points.length-1},()=>[0,0,0,0] as const)})
+  return {...originalDefault.rows[0].descriptor,sourceStamp:{...data,role:'primary',unsupported:[],
+    flags:{...data.flags,materialFixed1:true,textureEnabled:false},
+    source:{...data.source,ratio:1,spikes:2,antialias:false,randomness:0,density:1},
+    compiled:{version:2,reader:data.reader,profile:SOURCE_STAMP_MAPPED_COMPILER_PROFILE,buildId:'c'.repeat(64),
+      curves:sourceStampRequiredCurves(data.options).map(entry),radialCurve:entry(data.source.softnessCurve)}}} as unknown as BrushDescriptor
+}
+it.each(['scalar-f64-fma-v1','neon64-f32-fma-v1'] as const)('binds primary mapped source under %s and owns immutable provenance',profile=>{
+  const descriptor=bindingDescriptor(),pin=canonicalSoftAutoSourceBinding(descriptor,'a'.repeat(64),profile)
+  expect(pin.sourceSlot).toBe(0);expect(pin.descriptorId).toBe(descriptor.id);expect(pin.descriptorVersion).toBe(descriptor.version)
+  expect(pin.descriptorSha256).toBe('a'.repeat(64));expect(pin.coverageProfile).toBe(profile)
+  expect(pin.reader).toBe('krita-bd6e8d0-v1');expect(pin.compilerProfile).toBe(SOURCE_STAMP_MAPPED_COMPILER_PROFILE);expect(pin.buildId).toBe('c'.repeat(64))
+  const data=descriptor.sourceStamp
+  if(data?.version!==2||data.source.kind!=='softAuto'||data.compiled?.version!==2||!data.compiled.radialCurve)throw Error('Expected soft')
+  expect(pin.source).not.toBe(data.source);expect(pin.radialCurve).not.toBe(data.compiled.radialCurve)
+  expect(Object.isFrozen(pin.radialCurve.coefficients[0])).toBe(true);expect(Object.isFrozen(pin.source.softnessCurve.points[0])).toBe(true)
+  Object.assign(data.compiled.radialCurve.coefficients[0],{0:123});Object.assign(data.source.softnessCurve.points[0],{y:.5})
+  expect(pin.radialCurve.coefficients[0][0]).toBe(0);expect(pin.source.softnessCurve.points[0].y).not.toBe(.5)
+})
+it('rejects mask slots, bad SHA/profile before descriptor work',()=>{
+  let reads=0
+  const descriptor=bindingDescriptor()
+  Object.defineProperty(descriptor,'sourceStamp',{get(){reads++;throw Error('Descriptor must not be read')}})
+  expect(()=>canonicalSoftAutoSourceBinding(descriptor,'a'.repeat(64),'scalar-f64-fma-v1',1)).toThrow('capability unavailable')
+  expect(()=>canonicalSoftAutoSourceBinding(descriptor,'bad','scalar-f64-fma-v1')).toThrow('capability unavailable')
+  expect(()=>canonicalSoftAutoSourceBinding(descriptor,'a'.repeat(64),'legacy' as never)).toThrow('capability unavailable')
+  expect(reads).toBe(0)
+})
+it('preserves missing-program, dual/mask, unsupported and historical frontiers',()=>{
+  const unsupported=bindingDescriptor();Object.assign(unsupported.sourceStamp!,{unsupported:['historical-soft-author-unavailable']})
+  const mask=bindingDescriptor();Object.assign(mask.sourceStamp!,{role:'mask'})
+  const missing=bindingDescriptor();Reflect.deleteProperty(missing.sourceStamp!,'compiled')
+  const noRadial=bindingDescriptor();if(noRadial.sourceStamp?.compiled?.version===2)Reflect.deleteProperty(noRadial.sourceStamp.compiled,'radialCurve')
+  const dual=bindingDescriptor();Object.assign(dual,{behavior:{...dual.behavior,dual:{}}})
+  for(const descriptor of [unsupported,mask,missing,noRadial,dual])expect(()=>canonicalSoftAutoSourceBinding(descriptor,'a'.repeat(64),'scalar-f64-fma-v1')).toThrow()
+  for(const row of originalSoft.rows)expect(()=>canonicalSoftAutoSourceBinding({...bindingDescriptor(),sourceStamp:row.sourceStamp} as unknown as BrushDescriptor,'a'.repeat(64),'scalar-f64-fma-v1')).toThrow()
 })

@@ -1,3 +1,5 @@
+import type { BrushDescriptor } from './brushes.js'
+import { extractSoftAutoSourceDataCapability } from './canonicalBrushCapability.js'
 import type { SourceSoftAutoData, SourceStampCompiledCurve } from './sourceStampData.js'
 import { isSourceStampCurveData, SOURCE_STAMP_MAPPED_COMPILER_PROFILE } from './sourceStampData.js'
 import { sourceAutoGeometry } from './sourceAutoGeometry.js'
@@ -74,4 +76,20 @@ export function canonicalSoftAutoCost(recipe:CanonicalSoftAutoRecipe,trusted:Can
     {scale:recipe.scale,ratio:recipe.ratio,rotation:recipe.rotation},recipe.subX,recipe.subY)
   if(geometry.maskSize[0]!==recipe.width||geometry.maskSize[1]!==recipe.height||recipe.width<1||recipe.height<1||recipe.width>4096||recipe.height>4096||recipe.width*recipe.height>1048576)fail()
   return {workUnits:recipe.width*recipe.height,outputBytes:recipe.width*recipe.height*4}
+}
+
+/** Structural binding from an already verified descriptor. Data readiness is
+ * not execution authorization or native compiler/raster attestation. */
+export function canonicalSoftAutoSourceBinding(descriptor:BrushDescriptor,descriptorSha256:string,
+  coverageProfile:CanonicalSoftAutoSource['coverageProfile'],sourceSlot:0|1=0):CanonicalSoftAutoSource {
+  // Reject unsupported policy before inspecting the descriptor or its programs.
+  if(sourceSlot!==0||typeof descriptorSha256!=='string'||!/^[a-f0-9]{64}$/.test(descriptorSha256)
+    ||!['scalar-f64-fma-v1','neon64-f32-fma-v1'].includes(coverageProfile))throw new TypeError('Soft-auto source capability unavailable')
+  const result=extractSoftAutoSourceDataCapability(descriptor)
+  if(!result.supported)throw new TypeError('Soft-auto source capability unavailable')
+  const {data}=result,compiled=data.compiled
+  if(compiled?.version!==2||!compiled.radialCurve)throw new TypeError('Soft-auto mapped radial program unavailable')
+  return canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot,descriptorId:descriptor.id,descriptorVersion:descriptor.version,descriptorSha256,
+    source:data.source,brushScale:data.brush.scale,brushAngle:data.brush.angle,coverageProfile,reader:data.reader,
+    compilerProfile:compiled.profile,buildId:compiled.buildId,radialCurve:compiled.radialCurve})
 }
