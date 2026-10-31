@@ -66,6 +66,38 @@ def soft_source_material_domain(data):
                  or action in ('1','2') and flags.get('indirectPainting')==(action=='2')))
 
 
+SEEDED_DEFAULT_AUTO_PROFILE='neon64-f32-fma-seeded-density-v1'
+
+
+def seeded_default_auto_material_domain(data):
+    """Data eligibility only; caller separately binds a real mapped provider.
+
+    Preserve the historical reason array. Its sole density tag is meaningful
+    only after raw settings, full programs and every material parameter agree.
+    """
+    try:
+        validate_source_stamp_shape({'sourceStamp':data})
+        source=data['source'];flags=data['flags'];settings=data['settings']
+        compiled=data['compiled']
+        if (data['version']!=2 or data['role']!='primary' or source['kind']!='defaultAuto'
+                or source['generator']!='default' or source['shape'] not in ('circle','rect')
+                or source['spikes']!=2 or source['randomness']!=0
+                or not 0<source['diameter']<=4096 or not .0625<=source['ratio']<=1
+                or not 0<=source['density']<=1 or not flags['materialFixed1'] or flags['textureEnabled']
+                or settings.get('ColorSource/Type','plain')!='plain'
+                or len(data['options'])!=9 or compiled['version']!=2
+                or compiled['profile']!='eigen-5.0.1-mapped-arm64-f64-v3'):
+            return False
+        action=settings.get('PaintOpAction')
+        if not (action is None and not flags['indirectPainting']
+                or action in ('1','2') and flags['indirectPainting']==(action=='2')):
+            return False
+        reasons=data['unsupported']
+        return not reasons or (source['density']<1 and reasons==['default-auto-mask-parameters-unavailable'])
+    except (KeyError,TypeError,ValueError,OverflowError):
+        return False
+
+
 def mapped_soft_frontier_retired(data):
     """Recognize a derived data spelling, NOT provider/compiler attestation.
 

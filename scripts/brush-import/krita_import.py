@@ -15,7 +15,7 @@ import zipfile
 from PIL import Image, ImageChops, PngImagePlugin
 from brush_contract import MAX_PIXELS, clamp, compatibility, descriptor, finalize_identity
 from curve_transfer import native_transfer,scaled_curve
-from source_stamp_data import retain_source_stamp, compile_source_stamp, required_source_curves, soft_source_material_domain
+from source_stamp_data import retain_source_stamp, compile_source_stamp, required_source_curves, soft_source_material_domain, seeded_default_auto_material_domain, SEEDED_DEFAULT_AUTO_PROFILE
 from sequential_xy import compatible as sequential_xy_compatible
 from stroke_input import source_policy as stroke_input_policy
 from krita_texture import preprocess_texture
@@ -385,8 +385,10 @@ def _new_mapped_soft_material_supported(d, engine, depth):
             and soft_source_material_domain(d['sourceStamp']))
 
 
-def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, curve_compiler=None, mapped_curve_provider=None):
+def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, curve_compiler=None, mapped_curve_provider=None, source_material_profile=None):
     if curve_compiler is not None and mapped_curve_provider is not None: raise ValueError('Choose one explicit curve compiler profile')
+    if source_material_profile is not None and (type(source_material_profile) is not str or source_material_profile!=SEEDED_DEFAULT_AUTO_PROFILE): raise ValueError('Unsupported explicit source material profile')
+    if source_material_profile is not None and (mapped_curve_provider is None or curve_compiler is not None): raise ValueError('Seeded source material requires an explicit mapped provider')
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
     if type(timed_input) is not bool: raise ValueError('Timed input opt-in must be an explicit boolean')
@@ -432,6 +434,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if any(value != matches[0][1] for _, value in matches):
             raise ValueError('Ambiguous Krita resource: '+filename)
         return matches[0][1]
+    if source_material_profile is not None and (engine!='paintbrush' or depth!=0 or eraser or enabled(params.get('MaskingBrush/Enabled'))):
+        raise ValueError('Seeded source material requires a primary plain paintbrush')
     if engine == 'roundmarker':
         from krita_round import roundmarker_preset
         return roundmarker_preset(data, root, params, name)
@@ -446,6 +450,19 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
     kind = definition.get('type')
     source_tip_filename = definition.get('filename','')
     source_static_image = False
+    seeded_source=None
+    if source_material_profile is not None:
+        # Compile original settings BEFORE any fallback asset is allocated. This
+        # opt-in never converts a historical bitmap DTO into a procedural one.
+        from source_stamp_mapped import compile_mapped_source_stamp, validate_mapped_source_stamp_shape
+        seeded_source=retain_source_stamp(params,definition,1,1,xml,depth=depth)
+        compiled=compile_mapped_source_stamp(seeded_source,mapped_curve_provider)
+        validate_mapped_source_stamp_shape(seeded_source,compiled)
+        if compiled['buildId']!=mapped_curve_provider.expected_build_id:
+            raise ValueError('Mapped source profile/build binding differs')
+        seeded_source['compiled']=compiled
+        if not seeded_default_auto_material_domain(seeded_source):
+            raise ValueError('Unsupported seeded default-auto source material')
     if kind == 'auto_brush':
         generator = definition.find('MaskGenerator')
         if generator is None:
@@ -504,14 +521,14 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 notes.append(compatibility('softCurveGenerator','Static256px source curve fallback; active softness or threshold combinations are outside radialCurve capability.','unsupported'))
             if enabled(params.get('PressureSoftness')):
                 notes.append(compatibility('softnessDynamics','Native softness transforms interior curve knots per dab; static base curve retained.','unsupported'))
-        if (generator.get('id','default') != 'default' and not gaussian and not soft) or numeric(generator.get('spikes'),2) != 2 or numeric(definition.get('randomness')) or numeric(definition.get('density'),1) != 1:
+        if seeded_source is None and ((generator.get('id','default') != 'default' and not gaussian and not soft) or numeric(generator.get('spikes'),2) != 2 or numeric(definition.get('randomness')) or numeric(definition.get('density'),1) != 1):
             notes.append(compatibility('autoBrush','Gaussian/curve generator, spikes, randomness and density are not reproduced.','unsupported'))
         default_generator=generator.get('id','default')=='default'
         softness_checked=enabled(params.get('PressureSoftness'))
         constant_softness=(not softness_checked or
             (not enabled(params.get('SoftnessUseCurve','true')) and numeric(params.get('SoftnessValue'),1)==1))
         standard=(default_generator and shape in ('circle','rect') and numeric(generator.get('spikes'),2)==2
-            and numeric(definition.get('randomness'))==0 and numeric(definition.get('density'),1)==1
+            and numeric(definition.get('randomness'))==0 and (numeric(definition.get('density'),1)==1 or seeded_source is not None)
             and constant_softness)
         if standard:
             horizontal=numeric(generator.get('hfade'),0)
@@ -926,7 +943,9 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             if controls:
                 d['mixer']['pickupDynamics']=controls
                 notes.append(compatibility('SmudgeRateCurve','Native smudge-rate natural-cubic response compiled to256-sample transfer; sensor normalization remains subject to calibration.'))
-    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source')=='previousCanvas') and not (k=='PressureTexture/Strength/' and d.get('texture',{}).get('application')) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
+    active=[k for k in params if k.startswith('Pressure') and enabled(params[k]) and k not in ('PressureSize','PressureOpacity','PressureFlow','PressureScatter','PressureSmudgeRate') and not (k=='PressureSmudgeRadius' and 'sampling' in d.get('mixer',{})) and not (k=='PressureColorRate' and d.get('mixer',{}).get('source')=='previousCanvas') and not (k=='PressureTexture/Strength/' and (d.get('texture',{}).get('application') or seeded_source is not None and not enabled(params.get('Texture/Pattern/Enabled')))) and not (k=='PressureSpacing' and 'spacing' in behavior) and not (k=='PressureRotation' and rotation_decoded) and not (k=='PressureRatio' and ratio_decoded) and not (k=='PressureSharpness' and d['tip'].get('alphaThreshold')) and k not in color_decoded and not (k=='PressureLightnessStrength' and d['tip'].get('material'))]
+    if seeded_source is not None and enabled(params.get('PressureTexture/Strength/')):
+        notes.append(compatibility('inactiveTextureStrength','Pattern is disabled in original settings; texture strength is not evaluated.'))
     if active:
         notes.append(compatibility('activeDynamics',', '.join(sorted(active)),'unsupported'))
     if enabled(params.get('MaskingBrush/Enabled')):
@@ -1008,7 +1027,26 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             behavior['rendering']['accumulation']='alphaDarken'
     d['behavior']=behavior
     # Capability comes from the decoded tip branch, never the later texture filename.
-    if engine=='paintbrush' and (source_static_image or kind=='auto_brush' and definition.find('MaskGenerator') is not None and definition.find('MaskGenerator').get('id','default') in ('default','gauss','soft')):
+    if seeded_source is not None:
+        d['sourceStamp']=seeded_source
+        behavior=d.get('behavior',{})
+        rendering=behavior.get('rendering',{})
+        source=seeded_source['source'];tip=d['tip'];profile=tip.get('profile',{})
+        if (tip.get('kind')!='procedural' or profile.get('kind')!='standard'
+                or profile.get('shape')!=('ellipse' if source['shape']=='circle' else 'rectangle')
+                or profile.get('horizontalFade')!=source['horizontalFade']
+                or profile.get('verticalFade')!=source['verticalFade']
+                or profile.get('antialias')!=source['antialias']
+                or tip.get('aspect')!=1/source['ratio'] or source_size!=source['diameter']):
+            raise ValueError('Inconsistent seeded default-auto material lowering')
+        if (d.get('model')!='stamp' or 'dual' in behavior or 'colorAdjustment' in behavior
+                or 'texture' in d or eraser or rendering.get('blendMode')!='normal'
+                or rendering.get('wetEdges',0)!=0 or rendering.get('burntEdges',0)!=0
+                or any(n['status']=='unsupported' for n in notes)
+                or not seeded_default_auto_material_domain(seeded_source)):
+            raise ValueError('Unsupported seeded default-auto descriptor consumer')
+        notes.append(compatibility('seededDensity','Explicit deterministic per-dab density behavior; native random-stream identity is not claimed.'))
+    elif engine=='paintbrush' and (source_static_image or kind=='auto_brush' and definition.find('MaskGenerator') is not None and definition.find('MaskGenerator').get('id','default') in ('default','gauss','soft')):
         try:
             d['sourceStamp']=retain_source_stamp(params,definition,*(source_metric or (1,1)),xml,depth=depth)
             if mapped_curve_provider is not None:
@@ -1063,20 +1101,24 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if not b:return False
         return b.get('colorAdjustment',{}).get('model')=='hsvChromaRgba8' or native_color(b.get('dual',{}).get('brush',{}).get('behavior',{}))
     if native_color(behavior):d['version']=36
+    if seeded_source is not None and any(n['status']=='unsupported' for n in notes):
+        raise ValueError('Unsupported seeded default-auto final lowering')
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
     if source_size is not None:
         result['sourceDefaults']={'sizePx':clamp(source_size,.01,10000),'opacity':d['opacity'],'flow':d['flow']}
     return result
 
 
-def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_input=False, timed_input=False, curve_compiler=None, mapped_curve_provider=None):
+def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_input=False, timed_input=False, curve_compiler=None, mapped_curve_provider=None, source_material_profile=None):
     if curve_compiler is not None and mapped_curve_provider is not None: raise ValueError('Choose one explicit curve compiler profile')
+    if source_material_profile is not None and (type(source_material_profile) is not str or source_material_profile!=SEEDED_DEFAULT_AUTO_PROFILE): raise ValueError('Unsupported explicit source material profile')
+    if source_material_profile is not None and (mapped_curve_provider is None or curve_compiler is not None): raise ValueError('Seeded source material requires an explicit mapped provider')
     if type(sequential_xy) is not bool: raise ValueError('Sequential XY opt-in must be an explicit boolean')
     if type(stroke_input) is not bool: raise ValueError('Stroke input opt-in must be an explicit boolean')
     if type(timed_input) is not bool: raise ValueError('Timed input opt-in must be an explicit boolean')
     if path.suffix.lower() == '.kpp':
         try:
-            catalog.brushes.append(preset(path.read_bytes(), path.name, catalog, external or {}, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,curve_compiler=curve_compiler,mapped_curve_provider=mapped_curve_provider))
+            catalog.brushes.append(preset(path.read_bytes(), path.name, catalog, external or {}, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,curve_compiler=curve_compiler,mapped_curve_provider=mapped_curve_provider,source_material_profile=source_material_profile))
         except (ValueError, ET.ParseError, OSError) as error:
             catalog.skipped.append({'name':path.stem,'reasons':[str(error)]})
         return
@@ -1091,6 +1133,6 @@ def convert_krita(path, catalog, external=None, *, sequential_xy=False, stroke_i
         resources.update({n:(lambda entry=n: archive.read(entry)) for n in names if n.lower().endswith(('.gbr','.gih','.png','.pat','.jpg','.jpeg','.webp'))})
         for name in sorted(n for n in names if n.lower().endswith('.kpp')):
             try:
-                catalog.brushes.append(preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,curve_compiler=curve_compiler,mapped_curve_provider=mapped_curve_provider))
+                catalog.brushes.append(preset(archive.read(name),name,catalog,resources, sequential_xy=sequential_xy,stroke_input=stroke_input,timed_input=timed_input,curve_compiler=curve_compiler,mapped_curve_provider=mapped_curve_provider,source_material_profile=source_material_profile))
             except (ValueError, ET.ParseError, OSError) as error:
                 catalog.skipped.append({'name':PurePosixPath(name).stem,'reasons':[str(error)]})
