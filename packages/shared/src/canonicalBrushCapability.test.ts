@@ -1,4 +1,4 @@
-import {canonicalSourceComposition} from './canonicalBrushCapability.js'
+import {canonicalSourceComposition,extractCanonicalIncrementalImagePipeCapability} from './canonicalBrushCapability.js'
 import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE} from './canonicalStrokeFrame.js'
 import { describe, expect, it } from 'vitest'
 import type { BrushDescriptor } from './brushes.js'
@@ -87,4 +87,24 @@ it('keeps unsupported native effects/color and malformed/unknown profile outside
  }
  const d=descriptor();Object.defineProperty(d,'sourceStamp',{get(){throw Error('profile must reject before source read')}})
  for(const profile of ['foreign',null])expect(canonicalSourceComposition(d,profile as never)).toBeUndefined()
+})
+
+
+describe('incremental image pipe material support',()=>{
+ const second={id:`asset:${'b'.repeat(64)}` as const,size:8}
+ const pipe=()=>{const d=descriptor();d.tip.animation={mode:'incremental',frames:[asset.id,second.id,asset.id]};return d}
+ it('preserves ordered repeated frames and shares the unchanged image crop/material checks',()=>{
+  const d=pipe(),before=structuredClone(d),result=extractCanonicalIncrementalImagePipeCapability(d,[second,asset])
+  expect(result.supported).toBe(true)
+  if(!result.supported)throw Error('Pipe unavailable')
+  expect(result.capability).toEqual({kind:'incremental-inverse-gray-pipe-v1',brushId:d.id,brushVersion:1,assets:[{...asset,x:1,y:2,width:3,height:5},{...second,x:1,y:2,width:3,height:5},{...asset,x:1,y:2,width:3,height:5}],mode:'wash',brushScale:.7,brushAngle:.25})
+  expect(Object.isFrozen(result.capability.assets)).toBe(true);expect(result.capability.assets.every(Object.isFrozen)).toBe(true)
+  expect(d).toEqual(before);expect(extractCanonicalSinglePngCapability(d,asset).supported).toBe(false)
+ })
+ it('rejects missing or ambiguous assets, unequal grids, unsupported selection and material consumers',()=>{
+  for(const assets of [[asset],[asset,second,second],[asset,{...second,size:16}]])expect(extractCanonicalIncrementalImagePipeCapability(pipe(),assets).supported).toBe(false)
+  const edits:((d:BrushDescriptor)=>void)[]=[d=>{d.tip.animation!.mode='random'},d=>{d.tip.animation!.frames=[asset.id]},d=>{d.tip.animation!.frames=Array(257).fill(asset.id)},d=>{d.tip.mask=second.id},d=>{Object.assign(d.sourceStamp!.flags,{textureEnabled:true})},d=>{d.tip.imageSampling!.sourceRect.y=7}]
+  for(const edit of edits){const d=pipe();edit(d);expect(extractCanonicalIncrementalImagePipeCapability(d,[asset,second]).supported).toBe(false)}
+  expect(extractCanonicalIncrementalImagePipeCapability(descriptor(),[asset,second]).supported).toBe(false)
+ })
 })

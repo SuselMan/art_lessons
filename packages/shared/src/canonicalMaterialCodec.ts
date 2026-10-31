@@ -43,6 +43,9 @@ export interface CanonicalMaterialContext {
    * bound by the caller to the operation's immutable admitted descriptor. */
   readonly assets:readonly CanonicalMaterialAsset[]
   readonly primaryAsset:string; readonly maskAsset?:string
+  /** Explicit ordered frame identities from the pinned incremental image pipe.
+   * Ordinary static contexts omit this; available assets alone never grant a role. */
+  readonly primaryImageFrames?:readonly string[]
   /** REQUIRED trusted metadata-only estimator. No image allocation, span
    * enumeration, RNG, asset fetch or GPU work. The engine adapter will reuse
    * common matrix/extent metadata, reject recipe allocation/domain mismatches,
@@ -106,7 +109,12 @@ function context(c:AnyCanonicalMaterialContext):void {
     ||c.expectedDrawCount!==undefined&&!integer(c.expectedDrawCount,0,800)||c.expectedStrokeEnd!==undefined&&typeof c.expectedStrokeEnd!=='boolean')fail()
   const ids=new Set<string>()
   for(const a of c.assets){keys(a,['id','size','x','y','width','height']);if(!assetId(a.id)||!integer(a.size,1,4096)||!integer(a.width,1,4096)||!integer(a.height,1,4096)||a.width*a.height>1048576||!integer(a.x,0,a.size-a.width)||!integer(a.y,0,a.size-a.height)||ids.has(a.id))fail();ids.add(a.id)}
-  if(!isV2(c)){if(!ids.has(c.primaryAsset)||c.maskAsset!==undefined&&!ids.has(c.maskAsset))fail()}
+  if(!isV2(c)){
+    if(!ids.has(c.primaryAsset)||c.maskAsset!==undefined&&!ids.has(c.maskAsset))fail()
+    const frames=c.primaryImageFrames
+    if(frames!==undefined&&(!Array.isArray(frames)||frames.length<2||frames.length>256
+      ||frames[0]!==c.primaryAsset||frames.some(id=>!assetId(id)||!ids.has(id))))fail()
+  }
   else {
     keys(c,['version','assets','primarySource','maskSource','budget','expectedDrawCount','expectedStrokeEnd'])
     for(const [sourceSlot,source] of [c.primarySource,c.maskSource].entries()) {
@@ -155,7 +163,9 @@ function recipe(r:AnyCanonicalMaterialRecipe,c:AnyCanonicalMaterialContext):Cano
   return cost
 }
 function roleMatches(r:AnyCanonicalMaterialRecipe,role:'primary'|'mask',c:AnyCanonicalMaterialContext):boolean {
-  if(!isV2(c))return !auto(r)&&r.asset===(role==='primary'?c.primaryAsset:c.maskAsset)
+  if(!isV2(c))return !auto(r)&&(role==='primary'
+    ?c.primaryImageFrames?c.primaryImageFrames.includes(r.asset):r.asset===c.primaryAsset
+    :r.asset===c.maskAsset)
   const source=role==='primary'?c.primarySource:c.maskSource
   if(!source)return false
   if(r && 'kind' in r && r.kind==='softAuto') {

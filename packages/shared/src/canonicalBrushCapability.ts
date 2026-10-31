@@ -64,6 +64,13 @@ export type CanonicalSinglePngResult = { readonly supported: true; readonly capa
 export function extractCanonicalSinglePngCapability(
   descriptor: BrushDescriptor, asset: { readonly id: string; readonly size: number },
 ): CanonicalSinglePngResult {
+  return extractImageFrameCapability(descriptor,asset)
+}
+
+function extractImageFrameCapability(
+  descriptor:BrushDescriptor,asset:{readonly id:string;readonly size:number},
+  animation?:NonNullable<BrushDescriptor['tip']['animation']>,
+):CanonicalSinglePngResult {
   const reject = (reason: string): CanonicalSinglePngResult => ({ supported: false, reasons: [reason] })
   const data = descriptor.sourceStamp
   if (data === undefined) return reject('legacy-descriptor-no-source-data')
@@ -71,9 +78,9 @@ export function extractCanonicalSinglePngCapability(
   if (sourceStampSourceKind(data) !== 'image') return reject('source-material-is-not-image')
   if (data.unsupported.length) return { supported: false, reasons: [...data.unsupported] }
   if (data.role !== 'primary' || descriptor.behavior?.dual) return reject('mask-master-size-unresolved')
-  if (descriptor.model !== 'stamp' || descriptor.tip.kind !== 'bitmap' || descriptor.tip.animation || descriptor.tip.material) return reject('unsupported-source-material')
+  if (descriptor.model !== 'stamp' || descriptor.tip.kind !== 'bitmap' || descriptor.tip.animation !== animation || descriptor.tip.material) return reject('unsupported-source-material')
   const sampling = descriptor.tip.imageSampling
-  if (!sampling || sampling.kind !== 'integer-pyramid' || sampling.signal !== 'inverse-gray' || descriptor.tip.mask !== asset.id
+  if (!sampling || sampling.kind !== 'integer-pyramid' || sampling.signal !== 'inverse-gray' || descriptor.tip.mask !== (animation?.frames[0] ?? asset.id)
     || !/^asset:[a-f0-9]{64}$/.test(asset.id) || !Number.isInteger(asset.size) || asset.size < 2 || asset.size > 2048
     || !Object.values(sampling.sourceRect).every(v => Number.isInteger(v) && v >= 0)
     || sampling.sourceRect.width !== data.brush.width || sampling.sourceRect.height !== data.brush.height
@@ -90,6 +97,45 @@ export function extractCanonicalSinglePngCapability(
   const rect = sampling.sourceRect
   return { supported: true, capability: Object.freeze({ kind: 'single-inverse-gray-png-v1', brushId: descriptor.id,
     brushVersion: descriptor.version, brushScale: data.brush.scale, brushAngle: data.brush.angle, asset: Object.freeze({ id: asset.id, size: asset.size, ...rect }), mode }) }
+}
+
+/** Ordered image frames share the existing image recipe and asset bank.
+ * Selection belongs to the author; recorded replay never selects a frame.
+ * Structural material support only, not room execution permission. */
+export interface CanonicalIncrementalImagePipeCapability {
+  readonly kind:'incremental-inverse-gray-pipe-v1'
+  readonly brushId:string
+  readonly brushVersion:number
+  readonly assets:readonly CanonicalMaterialAsset[]
+  readonly mode:'wash'|'buildup'
+  readonly brushScale:number
+  readonly brushAngle:number
+}
+export type CanonicalIncrementalImagePipeResult=
+  {readonly supported:true;readonly capability:CanonicalIncrementalImagePipeCapability}|
+  {readonly supported:false;readonly reasons:readonly string[]}
+export function extractCanonicalIncrementalImagePipeCapability(
+  descriptor:BrushDescriptor,available:readonly {readonly id:string;readonly size:number}[],
+):CanonicalIncrementalImagePipeResult {
+  const reject=(reason:string):CanonicalIncrementalImagePipeResult=>({supported:false,reasons:[reason]})
+  const animation=descriptor.tip.animation
+  if(descriptor.tip.kind!=='bitmap'||!animation||animation.mode!=='incremental'
+    ||animation.frames.length<2||animation.frames.length>256)return reject('unsupported-image-pipe-selection')
+  const metadata=new Map<string,{readonly id:string;readonly size:number}>()
+  for(const asset of available){if(metadata.has(asset.id))return reject('ambiguous-image-pipe-asset');metadata.set(asset.id,asset)}
+  const frames:CanonicalMaterialAsset[]=[]
+  let first:CanonicalSinglePngCapability|undefined
+  for(const id of animation.frames){
+    const asset=metadata.get(id)
+    if(!asset)return reject('image-pipe-frame-unavailable')
+    const frame=extractImageFrameCapability(descriptor,asset,animation)
+    if(!frame.supported)return frame
+    if(first&&first.asset.size!==asset.size)return reject('image-pipe-frame-grid-mismatch')
+    first??=frame.capability;frames.push(frame.capability.asset)
+  }
+  return {supported:true,capability:Object.freeze({kind:'incremental-inverse-gray-pipe-v1',brushId:descriptor.id,
+    brushVersion:descriptor.version,assets:Object.freeze(frames),mode:first!.mode,
+    brushScale:first!.brushScale,brushAngle:first!.brushAngle})}
 }
 
 /** Local callers may supply a curve compiler. A server binding cannot, and

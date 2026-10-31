@@ -160,3 +160,17 @@ describe('closed canonical source material codec, not activated on the wire',()=
  })
 
 })
+
+
+it('binds incremental image frame roles to an explicit bounded list rather than every available asset',()=>{
+ const c=context(),f=frame();f.definitions[0]=recipe({asset:mask,width:32,height:16})
+ expect(()=>packCanonicalMaterial(f,c)).toThrow()
+ const pipe={...c,primaryImageFrames:[primary,mask,primary]}
+ const packed=packCanonicalMaterial(f,pipe)
+ expect(unpackCanonicalMaterial(packed,pipe)).toEqual(f)
+ expect(()=>unpackCanonicalMaterial(packed,c)).toThrow()
+ for(const frames of [[],[primary],[mask,primary],[primary,'asset:'+'3'.repeat(64)],Array(257).fill(primary)])expect(()=>packCanonicalMaterial(f,{...c,primaryImageFrames:frames})).toThrow()
+ // A secondary frame is not implicitly authorized as the mask role.
+ f.masked=true;f.draws[0].role='mask';f.definitions[0]=recipe()
+ expect(()=>packCanonicalMaterial(f,pipe)).toThrow()
+})
