@@ -13,7 +13,7 @@ it('pages exact indexed target at one captured cut without imposing a32-frame ca
  db.operation.findMany.mockImplementation(async({where,take})=>rows.filter(r=>r.seq>where.seq.gt&&r.seq<=where.seq.lte).slice(0,take))
  const result=await getCanonicalGesturePrefixWithRows('room',selector,403,operations[201])
  expect(result.operations).toHaveLength(202);expect(db.operation.findMany).toHaveBeenCalledTimes(4)
- for(const [query] of db.operation.findMany.mock.calls)expect(query).toMatchObject({where:{roomId:'room',userId:'author',type:'canonical_stroke',seq:{lte:403},data:{path:['frame','strokeId'],equals:'S'}},orderBy:{seq:'asc'},take:64,select:canonicalOperationRowSelect})
+ for(const [query] of db.operation.findMany.mock.calls)expect(query).toMatchObject({where:{roomId:'room',seq:{lte:403},OR:[{userId:'author',type:'canonical_stroke',data:{path:['frame','strokeId'],equals:'S'}},{type:'canonical_stroke_close',AND:[{data:{path:['targetUserId'],equals:'author'}},{data:{path:['strokeId'],equals:'S'}}]}]},orderBy:{seq:'asc'},take:64,select:canonicalOperationRowSelect})
  expect(db.operation.findMany.mock.calls.map(([query])=>query.where.seq.gt)).toEqual([0,127,255,383])
  expect(result.canonicalRows[201].data).toBe(result.operations[201]);expect(result.operations[201]).not.toBe(operations[201])
  expect(Object.isFrozen(result.operations[0].frame)).toBe(true)

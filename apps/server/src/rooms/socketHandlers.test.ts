@@ -869,7 +869,7 @@ describe('canonical begin/live/recorded actual socket authority (straight creati
       expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', prefix[0], resolve))).toEqual({ ok: true, seq: 1, duplicate: true })
       expect(pin).not.toHaveBeenCalled(); pin.mockRestore()
       expect(mockPrisma.operation.create).not.toHaveBeenCalled()
-      expect(mockPrisma.operation.findMany).toHaveBeenCalledWith(expect.objectContaining({where:{roomId:c.lessonId,userId:'teacher',type:'canonical_stroke',seq:{gt:0,lte:2},data:{path:['frame','strokeId'],equals:c.begin.strokeId}},orderBy:{seq:'asc'},take:64}))
+      expect(mockPrisma.operation.findMany).toHaveBeenCalledWith(expect.objectContaining({where:{roomId:c.lessonId,seq:{gt:0,lte:2},OR:[{userId:'teacher',type:'canonical_stroke',data:{path:['frame','strokeId'],equals:c.begin.strokeId}},{type:'canonical_stroke_close',AND:[{data:{path:['targetUserId'],equals:'teacher'}},{data:{path:['strokeId'],equals:c.begin.strokeId}}]}]},orderBy:{seq:'asc'},take:64}))
     } finally { c.cleanup() }
   })
   it('rejects an incomplete bounded persisted prefix rather than granting a new ordinal0', async () => {
@@ -982,7 +982,7 @@ it('delivers durable V2 confirmation and rejoined closed undo prefix atomically 
   expect(event.operation.frame.materialPacked).toBe(materialPacked)
   expect(prepareCanonicalRecordedAttachment(event.canonicalCapabilities,[event.operation],{roomId:c.lessonId,boardEpoch:s.boardEpoch})).toHaveLength(1)
   const persisted=mockPrisma.operation.create.mock.calls.find(([request])=>request.data.id===op.id)![0].data
-  mockPrisma.operation.findMany.mockImplementation(async({where})=>where.type==='canonical_stroke'?[persisted]:[])
+  mockPrisma.operation.findMany.mockImplementation(async({where})=>where.OR?.some((branch:{type?:string})=>branch.type==='canonical_stroke')?[persisted]:[])
   const undo={id:fresh('closed-source-undo'),type:'operation_undo' as const,userId:'teacher',timestamp:1,targetOpId:op.id}
   let rejectUndo!:(error:Error)=>void
   mockPrisma.operation.create.mockReturnValueOnce(new Promise<void>((_,reject)=>{rejectUndo=reject}))

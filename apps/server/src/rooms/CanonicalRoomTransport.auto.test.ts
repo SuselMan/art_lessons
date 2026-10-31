@@ -323,8 +323,9 @@ it('recovers a legal >32 forced-cut author stream through the REAL paged indexed
  db.operation.create.mockImplementation(async({data})=>{persisted.push(data);return {}})
  db.operation.findMany.mockImplementation(async({where,take})=>persisted.filter(row=>{
   const op=row.data as import('@grafetto/shared').Operation
-  return row.roomId===where.roomId&&row.userId===where.userId&&row.type===where.type&&row.seq>where.seq.gt&&row.seq<=where.seq.lte
-   &&op.type==='canonical_stroke'&&op.frame.strokeId===where.data.equals
+  const frameBranch=where.OR.find((branch:{type:string})=>branch.type==='canonical_stroke')
+  return row.roomId===where.roomId&&row.userId===frameBranch.userId&&row.type===frameBranch.type&&row.seq>where.seq.gt&&row.seq<=where.seq.lte
+   &&op.type==='canonical_stroke'&&op.frame.strokeId===frameBranch.data.equals
  }).slice(0,take))
  query.mockImplementation(actual.getCanonicalGesturePrefixWithRows)
  try{

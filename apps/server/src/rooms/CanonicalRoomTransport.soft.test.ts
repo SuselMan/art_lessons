@@ -18,12 +18,12 @@ import {CanonicalBrushCapabilityResolver} from './CanonicalBrushCapabilityResolv
 import {CanonicalStrokeAdmission} from './CanonicalStrokeAdmission.js'
 const db=vi.hoisted(()=>({operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn()}}))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
-const history=vi.hoisted(()=>({rows:[] as unknown[],canonicalRows:[] as unknown[]}))
-vi.mock('./snapshotStore.js',async importOriginal=>({...await importOriginal<typeof import('./snapshotStore.js')>(),getCanonicalGesturePrefixWithRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows})),getOperationsBefore:vi.fn(async()=>history.rows),getOperationsBeforeWithCanonicalRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows}))}))
+const history=vi.hoisted(()=>({rows:[] as unknown[],canonicalRows:[] as unknown[],close:undefined as import('./snapshotStore.js').CanonicalIndexedCloseEvidence|undefined}))
+vi.mock('./snapshotStore.js',async importOriginal=>({...await importOriginal<typeof import('./snapshotStore.js')>(),getCanonicalGesturePrefixWithRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows,...history.close?{close:history.close}:{}})),getOperationsBefore:vi.fn(async()=>history.rows),getOperationsBeforeWithCanonicalRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows}))}))
 const readAccess=vi.hoisted(()=>({allowed:true,gate:undefined as Promise<void>|undefined,calls:[] as [string,string][]}))
 vi.mock('./boardContentAccess.js',()=>({mayReadBoardContent:vi.fn(async(roomId:string,userId:string)=>{readAccess.calls.push([roomId,userId]);await readAccess.gate;return readAccess.allowed})}))
 const dirs:string[]=[]
-beforeEach(()=>{readAccess.allowed=true;readAccess.gate=undefined;readAccess.calls=[];db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[];history.canonicalRows=[]})
+beforeEach(()=>{readAccess.allowed=true;readAccess.gate=undefined;readAccess.calls=[];db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[];history.canonicalRows=[];history.close=undefined})
 afterEach(async()=>{for(const id of rooms.keys())await flushRoomWrites(id);rooms.clear();for(const d of dirs.splice(0))rmSync(d,{recursive:true,force:true});vi.restoreAllMocks();vi.clearAllMocks()})
 function resident():RoomRecord{
  const record:RoomRecord={room:{id:'board',name:'Board',ownerId:'author',paper:'coarse',infinite:false,canvasWidth:64,canvasHeight:64,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-29T00:00:00Z',rasterVersion:'straight-rgba8-v1'},lessonId:null,sockets:new Set(),boards:[],assignments:[],activeAssignmentId:null,spotlightBoardId:null,handsRaised:new Set(),assignmentStarting:false,passwordHash:undefined,operations:[],participants:new Map(),nextSeq:1,layerStateSeq:null,layerStateIds:null,coveredSeqByLayer:new Map(),palette:[],roomFrozen:false,frozenUserIds:new Set(),lockedLayerIds:new Set(),sharedLockedLayerIds:new Set(),aliveIds:new Set(['layer']),deletedIds:new Set(),operationsById:new Map(),structuralLog:[]}
@@ -596,4 +596,59 @@ it('awaits a pending intermediate metadata outcome and never repairs its failed 
  expect(await f.transport.metadata(identity,redo,()=>true)).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
  expect(db.operation.create).toHaveBeenCalledTimes(writes);expect(f.board.nextSeq).toBe(nextSeq)
  log.mockRestore()
+})
+
+
+async function recordedCloseReadFixture(){
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected),s=snapshot(await transport.begin(identity,f.input,()=>true)),all=frames(f.descriptor,s),operations:CanonicalStrokeOperation[]=[]
+ for(let n=0;n<all.length-1;n++){
+  const result=await transport.recorded(identity,{type:'canonical_stroke',id:'close-prefix-'+n,userId:'author',timestamp:n,layerId:'layer',frame:all[n]},()=>true)
+  if(!result.accepted)throw Error('Expected real persisted source prefix');operations.push(result.accepted)
+ }
+ const {recordCanonicalCloseOperation,ensureCanonicalWrite}=await import('./operationLog.js')
+ const close=recordCanonicalCloseOperation('board',{type:'canonical_stroke_close',id:'read-close',userId:'owner',timestamp:99,layerId:'layer',targetUserId:'author',strokeId:'gesture',disposition:'commitPartial',recordedNext:operations.length,firstFrameOpId:operations[0].id,lastFrameOpId:operations.at(-1)!.id})
+ expect(await ensureCanonicalWrite(f.board,close)).toMatchObject({ok:true})
+ const rows=db.operation.create.mock.calls.map(([request])=>request.data),canonicalRows=rows.filter(row=>row.type==='canonical_stroke'),closeRow=rows.find(row=>row.id===close.id)!
+ history.rows=operations;history.canonicalRows=canonicalRows;history.close={operation:close,row:closeRow}
+ return{...f,transport,operations,canonicalRows,close,closeRow,all}
+}
+it('binds actual ROOM source prefix plus a distinct metadata seal without author grant, fake end or personal lookup',async()=>{
+ const f=await recordedCloseReadFixture(),binder=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:empty,...selected,maxGestures:4})
+ f.board.participants.delete('author')
+ const personal=structuredClone(f.library);personal.brushes[0].descriptor.opacity=.123;f.storage.install('reader',personal,new Map())
+ const library=vi.spyOn(f.storage,'library'),pin=vi.spyOn(f.storage,'pin'),writes=db.operation.create.mock.calls.length,scope=binder.captureReadScope('board')
+ const input={roomId:'board',boardEpoch:scope.boardEpoch,anchor:f.operations.at(-1)!,row:f.canonicalRows.at(-1)!,operations:f.operations,rows:f.canonicalRows,purpose:'undo-redo' as const,close:history.close}
+ const summary=binder.readRecordedPrefix(input)
+ expect(summary.ended).toBe(false);expect(summary.endSeq).toBeUndefined();expect(summary.closeSeal).toMatchObject({recordedNext:f.operations.length,closeOperationId:f.close.id,closeSeq:f.close.seq})
+ expect(Object.isFrozen(summary.closeSeal)).toBe(true);expect(binder.size).toBe(0)
+ expect(binder.resolve({roomId:'board',userId:'reader'},{layerId:'layer',brush:f.input.brush,strokeId:'gesture'})).toBeUndefined()
+ expect(library.mock.calls.every(([kind])=>kind==='rooms')).toBe(true);expect(pin).not.toHaveBeenCalled();expect(db.operation.create).toHaveBeenCalledTimes(writes)
+ for(const operation of [{...f.close,recordedNext:f.operations.length+1},{...f.close,seq:f.operations.at(-1)!.seq!},{...f.close,targetUserId:'reader'}])expect(()=>binder.readRecordedPrefix({...input,close:{operation,row:{...f.closeRow,data:operation,seq:operation.seq!}}})).toThrow()
+ expect(()=>new CanonicalBrushCapabilityResolver({storage:f.storage,operator:empty,...policy,maxGestures:4}).readRecordedPrefix(input)).toThrow()
+})
+it('keeps source execution/read/begin closed on actual indexed close presence, including existing session and metadata-only finish',async()=>{
+ const f=await recordedCloseReadFixture(),query=vi.mocked(getCanonicalGesturePrefixWithRows),previous=query.getMockImplementation()!,actual=await vi.importActual<typeof import('./snapshotStore.js')>('./snapshotStore.js')
+ const rows=db.operation.create.mock.calls.map(([request])=>request.data)
+ db.operation.findMany.mockImplementation(async({where,take})=>rows.filter(row=>row.seq>where.seq.gt&&row.seq<=where.seq.lte).slice(0,take))
+ query.mockImplementation(actual.getCanonicalGesturePrefixWithRows)
+ const pin=vi.spyOn(f.storage,'pin'),writes=db.operation.create.mock.calls.length
+ try{
+  expect(await f.transport.begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'canonical_repair_required'})
+  await expect(f.transport.prepareReadDelivery(identity,()=>true)).rejects.toThrow('canonical_repair_required')
+  readAccess.allowed=false
+  await expect(f.transport.prepareReadDelivery(identity,()=>true)).rejects.toThrow('not_joined')
+  readAccess.allowed=true
+  // Cold/nonresident close is actual indexed evidence, never a receipt adoption.
+  f.board.operations=f.board.operations.filter(op=>op.id!==f.close.id);f.board.operationsById.delete(f.close.id)
+  expect(await new CanonicalRoomTransport(selected).begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'canonical_repair_required'})
+  const read=await f.transport.prepareReadDelivery(identity,()=>true)
+  await expect(read.preparePrefix({anchor:f.operations.at(-1)!,row:f.canonicalRows.at(-1)!,throughSeq:f.board.nextSeq-1,purpose:'read'})).rejects.toThrow('canonical_repair_required')
+  expect(()=>read.finish([f.close])).toThrow('canonical_repair_required')
+  f.board.operations.push(f.close);f.board.operationsById.set(f.close.id,f.close)
+  expect(()=>read.finish([])).toThrow('canonical_repair_required')
+  expect(pin).not.toHaveBeenCalled();expect(db.operation.create).toHaveBeenCalledTimes(writes)
+  const {knownCanonicalWrite}=await import('./operationLog.js')
+  const projected=await actual.getCanonicalGesturePrefixWithRows('board',{userId:'author',strokeId:'gesture'},f.board.nextSeq-1,f.operations.at(-1)!)
+  expect(knownCanonicalWrite(projected.close!.operation)).toBeUndefined()
+ }finally{query.mockImplementation(previous)}
 })

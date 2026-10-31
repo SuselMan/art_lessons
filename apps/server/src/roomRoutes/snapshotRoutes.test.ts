@@ -317,3 +317,49 @@ it('rechecks read permission after canonical index preparation and publishes no 
   expect(result.statusCode).toBe(403);expect(result.json()).toEqual({error:'forbidden'});expect(finish).not.toHaveBeenCalled()
  }finally{rooms.delete('room-1');await app.close()}
 })
+
+it.each(['only','V1','V2'])('refuses close-bearing HTTP history before either array or scoped publication (%s)',async mode=>{
+ const close={type:'canonical_stroke_close',id:'close',userId:'owner',timestamp:1,seq:2,layerId:'layer',targetUserId:'author',strokeId:'gesture',disposition:'commitPartial',recordedNext:1,firstFrameOpId:'frame',lastFrameOpId:'frame'}
+ const operations=mode==='only'?[close]:[{type:'canonical_stroke',id:'frame',frame:{materialPacked:mode==='V1'?'1|old':'2|source'}},close]
+ mockRooms.getOperationsBeforeWithCanonicalRows.mockResolvedValue({operations,canonicalRows:[]})
+ const owner=new CanonicalRoomTransport(),project=vi.spyOn(owner,'prepareHistoryPage'),app=buildApp(owner)
+ try{
+  const response=await app.inject({method:'GET',url:'/api/rooms/room-1/operations?beforeSeq=6'})
+  expect(response.statusCode).toBe(409);expect(response.json()).toEqual({error:'canonical_history_unavailable'})
+  expect(project).not.toHaveBeenCalled();expect(response.body).not.toContain('commitPartial')
+ }finally{await app.close()}
+})
+
+it.each([true,false])('never publishes an empty index for resident close-only history; permission wins first (%s)',async allowed=>{
+ const {rooms}=await import('../rooms/roomRegistry.js'),storageModule=await import('../brushLibrary/storage.js')
+ const {mkdtempSync,rmSync}=await import('node:fs'),{tmpdir}=await import('node:os'),{join}=await import('node:path')
+ const dir=mkdtempSync(join(tmpdir(),'canonical-close-index-')),record=canonicalIndexRecord()
+ const close:import('@grafetto/shared').RecordedCanonicalStrokeCloseOperation={type:'canonical_stroke_close',id:'resident-close',seq:2,userId:'owner',timestamp:1,layerId:'L',targetUserId:'author',strokeId:'gesture',disposition:'commitPartial',recordedNext:1,firstFrameOpId:'missing-frame',lastFrameOpId:'missing-frame'}
+ record.operations=[close];record.operationsById.set(close.id,close);record.nextSeq=3;rooms.set('room-1',record)
+ const context=vi.spyOn(storageModule,'canonicalBrushStorageContext').mockReturnValue({storage:new storageModule.BrushStorage(dir),operator:storageModule.empty()})
+ mockRooms.mayReadBoardContent.mockResolvedValue(allowed);mockRooms.getSnapshotIndex.mockResolvedValue({seq:3,layerState:{},layers:[]})
+ const app=buildApp(new CanonicalRoomTransport())
+ try{
+  const response=await app.inject({method:'GET',url:'/api/rooms/room-1/snapshots/index'})
+  expect(response.statusCode).toBe(allowed?409:403);expect(response.json()).toEqual({error:allowed?'canonical_history_unavailable':'forbidden'})
+  expect(mockRooms.getSnapshotIndex).not.toHaveBeenCalled()
+ }finally{context.mockRestore();rooms.delete('room-1');await app.close();rmSync(dir,{recursive:true,force:true})}
+})
+
+it('returns permission revocation403 before the close-page readiness refusal after the awaited query',async()=>{
+ mockRooms.getOperationsBeforeWithCanonicalRows.mockImplementation(async()=>{mockRooms.mayReadBoardContent.mockResolvedValueOnce(false);return{operations:[{type:'canonical_stroke_close'}],canonicalRows:[]}})
+ const app=buildApp()
+ try{
+  const response=await app.inject({method:'GET',url:'/api/rooms/room-1/operations?beforeSeq=6'})
+  expect(response.statusCode).toBe(403);expect(response.json()).toEqual({error:'forbidden'})
+ }finally{await app.close()}
+})
+
+it('does not publish a legacy array or false empty success when indexed history projection rejects corruption',async()=>{
+ mockRooms.getOperationsBeforeWithCanonicalRows.mockRejectedValueOnce(new Error('Canonical persistence immutable row conflict'))
+ const owner=new CanonicalRoomTransport(),project=vi.spyOn(owner,'prepareHistoryPage'),app=buildApp(owner)
+ try{
+  const response=await app.inject({method:'GET',url:'/api/rooms/room-1/operations?beforeSeq=6'})
+  expect(response.statusCode).toBe(500);expect(response.body).not.toBe('[]');expect(response.body).not.toContain('materialPacked');expect(project).not.toHaveBeenCalled()
+ }finally{await app.close()}
+})

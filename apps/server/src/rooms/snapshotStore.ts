@@ -4,9 +4,9 @@ import { isDeepStrictEqual } from 'node:util'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
-import type { Operation, CanonicalStrokeOperation } from '@grafetto/shared'
+import type { Operation, RecordedCanonicalStrokeCloseOperation,CanonicalStrokeOperation } from '@grafetto/shared'
 
-import { canonicalOperationRowSelect,verifyCanonicalOperationRow,projectCanonicalIndexedOperation,type CanonicalStoredOperationRow } from './roomPersistence.js'
+import { canonicalOperationRowSelect,verifyCanonicalOperationRow,projectCanonicalIndexedOperation,projectCanonicalIndexedCloseOperation,type CanonicalStoredOperationRow } from './roomPersistence.js'
 import { immutableCanonicalOperation } from './operationLog.js'
 import { prisma } from '../db/prisma.js'
 import { rooms, type RoomRecord } from './roomRegistry.js'
@@ -408,7 +408,11 @@ export async function getOperationsBeforeWithCanonicalRows(roomId:string,beforeS
   const operations:Operation[]=[],canonicalRows:CanonicalStoredOperationRow[]=[]
   for(const row of rows.reverse()){
     const op=row.data as Operation
-    if(row.type==='canonical_stroke'||op?.type==='canonical_stroke'){
+    if(row.type==='canonical_stroke_close'||op?.type==='canonical_stroke_close'){
+      // Column OR JSON discriminator reserves close even when one is corrupt.
+      // Generic pages must not launder indexed close as a legacy body.
+      operations.push(projectCanonicalIndexedCloseOperation(roomId,row).operation)
+    }else if(row.type==='canonical_stroke'||op?.type==='canonical_stroke'){
       verifyCanonicalOperationRow(roomId,op,row)
       if(op.type!=='canonical_stroke')throw Error('Canonical history row discriminator conflict')
       const copy=immutableCanonicalOperation(op,op.seq!)
@@ -427,18 +431,31 @@ export class CanonicalGesturePrefixError extends Error { constructor(){super('Ca
  * cut before awaiting and rechecks it before publication. No receipt adoption,
  * permission, material binding, sorting-to-proof, or completeness registry.
  * A known actual operation/read-cap anchor must be present exactly. */
-export async function getCanonicalGesturePrefixWithRows(roomId:string,selector:{readonly userId:string;readonly strokeId:string},throughSeq:number,requiredFrame?:CanonicalStrokeOperation):Promise<{operations:CanonicalStrokeOperation[];canonicalRows:CanonicalStoredOperationRow[]}> {
+export interface CanonicalIndexedCloseEvidence {readonly operation:RecordedCanonicalStrokeCloseOperation;readonly row:CanonicalStoredOperationRow}
+export interface CanonicalGesturePrefixRead {readonly operations:CanonicalStrokeOperation[];readonly canonicalRows:CanonicalStoredOperationRow[];readonly close?:CanonicalIndexedCloseEvidence}
+export async function getCanonicalGesturePrefixWithRows(roomId:string,selector:{readonly userId:string;readonly strokeId:string},throughSeq:number,requiredFrame?:CanonicalStrokeOperation):Promise<CanonicalGesturePrefixRead> {
  const fail=():never=>{throw new CanonicalGesturePrefixError()}
  const text=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.length<=256&&!v.includes('\0')
  if(!text(roomId)||!text(selector?.userId)||!text(selector.strokeId)||!Number.isSafeInteger(throughSeq)||throughSeq<0||throughSeq>=Number.MAX_SAFE_INTEGER)return fail()
  if(requiredFrame&&(requiredFrame.type!=='canonical_stroke'||requiredFrame.userId!==selector.userId||requiredFrame.frame.strokeId!==selector.strokeId
   ||!Number.isSafeInteger(requiredFrame.seq)||requiredFrame.seq!<1||requiredFrame.seq!>throughSeq))return fail()
  const operations:CanonicalStrokeOperation[]=[],canonicalRows:CanonicalStoredOperationRow[]=[],ids=new Set<string>()
- let previous=0,size=0,anchored=!requiredFrame
+ let previous=0,size=0,anchored=!requiredFrame,close:CanonicalIndexedCloseEvidence|undefined
  while(true){
-  const rows=await prisma.operation.findMany({where:{roomId,userId:selector.userId,type:'canonical_stroke',seq:{gt:previous,lte:throughSeq},data:{path:['frame','strokeId'],equals:selector.strokeId}},orderBy:{seq:'asc'},take:CANONICAL_GESTURE_QUERY_PAGE,select:canonicalOperationRowSelect})
+  const rows=await prisma.operation.findMany({where:{roomId,seq:{gt:previous,lte:throughSeq},OR:[{userId:selector.userId,type:'canonical_stroke',data:{path:['frame','strokeId'],equals:selector.strokeId}},{type:'canonical_stroke_close',AND:[{data:{path:['targetUserId'],equals:selector.userId}},{data:{path:['strokeId'],equals:selector.strokeId}}]}]},orderBy:{seq:'asc'},take:CANONICAL_GESTURE_QUERY_PAGE,select:canonicalOperationRowSelect})
   if(rows.length>CANONICAL_GESTURE_QUERY_PAGE)return fail()
   for(const row of rows){
+   if(row.type==='canonical_stroke_close'){
+    let projected:ReturnType<typeof projectCanonicalIndexedCloseOperation>
+    try{projected=projectCanonicalIndexedCloseOperation(roomId,row)}catch{return fail()}
+    const op=projected.operation,first=operations[0],last=operations.at(-1)
+    if(close||!first||!last||op.targetUserId!==selector.userId||op.strokeId!==selector.strokeId||op.layerId!==first.layerId
+      ||op.recordedNext!==operations.length||op.firstFrameOpId!==first.id||op.lastFrameOpId!==last.id||op.seq<=previous||op.seq>throughSeq||ids.has(op.id))return fail()
+    size+=projected.bytes;if(size>CANONICAL_GESTURE_PREFIX_BYTES)return fail()
+    close=Object.freeze({operation:op,row:Object.freeze({...row,data:op})});ids.add(op.id);previous=op.seq
+    continue
+   }
+   if(close)return fail()
    let projected:CanonicalStrokeOperation,bytes:number
    try { ({operation:projected,bytes}=projectCanonicalIndexedOperation(roomId,row)) } catch { return fail() }
    const op=projected
@@ -452,5 +469,5 @@ export async function getCanonicalGesturePrefixWithRows(roomId:string,selector:{
   if(rows.length<CANONICAL_GESTURE_QUERY_PAGE)break
  }
  if(!anchored)return fail()
- return {operations,canonicalRows}
+ return {operations,canonicalRows,...close?{close}:{}}
 }

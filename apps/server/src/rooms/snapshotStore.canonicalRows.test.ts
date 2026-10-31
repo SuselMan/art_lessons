@@ -31,3 +31,20 @@ it.each(['id','seq','roomId','userId','type','layerId','tool'] as const)('reject
  db.operation.findMany.mockResolvedValueOnce([row])
  await expect(getOperationsBeforeWithCanonicalRows('room',3,500)).rejects.toThrow()
 })
+
+it.each(['valid','column-close-body-legacy','column-legacy-body-close','actor','room','seq','layer','tool'])('projects or refuses close in generic history before retention (%s)',async kind=>{
+ const close={type:'canonical_stroke_close' as const,id:'close',seq:2,userId:'owner',timestamp:1,layerId:'L',targetUserId:'author',strokeId:'S',disposition:'commitPartial' as const,recordedNext:1,firstFrameOpId:'frame',lastFrameOpId:'frame'}
+ const row={id:close.id,roomId:'room',seq:close.seq,userId:close.userId,type:close.type as string,layerId:'L' as string|null,tool:null as string|null,data:close as unknown}
+ if(kind==='column-close-body-legacy')row.data={type:'layer_add',id:row.id,userId:row.userId,seq:row.seq,timestamp:1,layerId:'L',name:'Laundered legacy'}
+ if(kind==='column-legacy-body-close')row.type='layer_add'
+ if(kind==='actor')row.userId='other'
+ if(kind==='room')row.roomId='other'
+ if(kind==='seq')row.seq=3
+ if(kind==='layer')row.layerId=null
+ if(kind==='tool')row.tool='pencil'
+ db.operation.findMany.mockResolvedValueOnce([row])
+ const result=getOperationsBeforeWithCanonicalRows('room',4,500)
+ if(kind==='valid'){
+  const page=await result;expect(page.operations).toEqual([close]);expect(Object.isFrozen(page.operations[0])).toBe(true);expect(page.canonicalRows).toEqual([])
+ }else await expect(result).rejects.toThrow()
+})

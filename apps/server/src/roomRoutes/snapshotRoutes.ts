@@ -170,6 +170,12 @@ export function registerSnapshotRoutes(app: FastifyInstance, canonicalTransport 
       const record=rooms.get(roomId),lesson=record&&lessonRecordOf(record)
       const page=await getOperationsBeforeWithCanonicalRows(roomId, beforeSeq, limit, layerIds)
       const operations=page.operations
+      // Recorded close execution/read ownership is still OFF, including a
+      // metadata-only legacy-shaped page which would bypass V2 preparation.
+      if(operations.some(op=>op.type==='canonical_stroke_close')){
+        if(!await mayReadBoardContent(roomId,request.userId))return reply.code(403).send({error:'forbidden'})
+        return reply.code(409).send({error:'canonical_history_unavailable'})
+      }
       // V1 keeps the historical array lane. V2 is one bounded atomic page
       // for the paired whole-page reader, with this SAME epoch owner.
       if(operations.some(op=>op.type==='canonical_stroke'&&!op.frame.materialPacked.startsWith('1|'))) {

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import {
-  verifyCanonicalRecordedPrefix, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION,
+  verifyCanonicalRecordedClose,parseCanonicalStrokeCloseOperation,verifyCanonicalRecordedPrefix, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION,
   canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, canonicalSourceComposition,
   type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalStrokeOperation, type CanonicalMaterialContextV2, decodeCanonicalStrokeFrame,
   prepareCanonicalRecordedAttachment, CANONICAL_RECORDED_ATTACHMENT_LIMITS, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadCapability, type Operation,
@@ -11,7 +11,8 @@ import { BrushStorage, merge } from '../brushLibrary/storage.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
 import { hasSucceededCanonicalWrite } from './operationLog.js'
-import { verifyCanonicalOperationRow, projectCanonicalIndexedOperation, type CanonicalStoredOperationRow } from './roomPersistence.js'
+import { verifyCanonicalOperationRow, projectCanonicalIndexedOperation,projectCanonicalIndexedCloseOperation, type CanonicalStoredOperationRow } from './roomPersistence.js'
+import type {CanonicalIndexedCloseEvidence} from './snapshotStore.js'
 import type { CanonicalAdmissionIdentity, CanonicalCapabilityResolver, TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
 
 export type CanonicalGestureBegin = CanonicalStrokeBegin
@@ -202,7 +203,7 @@ export class CanonicalBrushCapabilityResolver {
 
   /** Pure ROOM-only read-prefix binding. Caller owns read permission, actual
    * indexed-query provenance and current lifetime; never an append grant. */
-  readRecordedPrefix(input:{readonly roomId:string;readonly boardEpoch:number;readonly anchor:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly operations:readonly CanonicalStrokeOperation[];readonly rows:readonly CanonicalStoredOperationRow[];readonly purpose:'read'|'undo-redo'}){
+  readRecordedPrefix(input:{readonly roomId:string;readonly boardEpoch:number;readonly anchor:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly operations:readonly CanonicalStrokeOperation[];readonly rows:readonly CanonicalStoredOperationRow[];readonly purpose:'read'|'undo-redo';readonly close?:CanonicalIndexedCloseEvidence}){
     const {roomId,boardEpoch,anchor,operations,rows}=input
     if(input.purpose!=='read'&&input.purpose!=='undo-redo')fail('invalid recorded prefix purpose')
     const bound=input.row?this.readRecordedCapability({roomId,boardEpoch,operation:anchor,row:input.row}):this.readResidentRecordedCapability({roomId,boardEpoch,operation:anchor})
@@ -222,8 +223,16 @@ export class CanonicalBrushCapabilityResolver {
     }
     if(!anchored)fail('recorded prefix anchor unavailable')
     const summary=verifyCanonicalRecordedPrefix(verified)
-    if(input.purpose==='undo-redo'&&!summary.ended)fail('recorded undo prefix is open')
-    return summary
+    let closeSeal:ReturnType<typeof verifyCanonicalRecordedClose>|undefined
+    if(input.close){
+      if(!('version'in bound.material)||bound.material.version!==2)fail('recorded close V1 source read unsupported')
+      const close=projectCanonicalIndexedCloseOperation(roomId,input.close.row),operation=parseCanonicalStrokeCloseOperation(input.close.operation)
+      if(!isDeepStrictEqual(close.operation,operation)||operations.some(op=>op.id===operation.id))fail('recorded close immutable identity changed')
+      bytes+=close.bytes;if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix close byte capacity exceeded')
+      closeSeal=verifyCanonicalRecordedClose(summary,{userId:bound.originalUserId,layerId:bound.layerId,strokeId:bound.strokeId},operation)
+    }
+    if(input.purpose==='undo-redo'&&!summary.ended&&!closeSeal)fail('recorded undo prefix is open')
+    return Object.freeze({...summary,...closeSeal?{closeSeal}:{}})
   }
 
   /** Existing actual resident receipt is the provenance boundary; no row echo. */

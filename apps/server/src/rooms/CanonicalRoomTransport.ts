@@ -73,6 +73,7 @@ export class CanonicalRoomTransport {
     binder: CanonicalBrushCapabilityResolver,
     isCurrent: () => boolean): Promise<CanonicalStrokeBeginResult> {
     const key = gestureKey(identity, input.strokeId), previous = lifetime.sessions.get(key), context = this.context!
+    if(lifetime.record.operations.some(op=>op.type==='canonical_stroke_close'&&op.targetUserId===identity.userId&&op.strokeId===input.strokeId))fail('canonical_repair_required')
     if (previous) {
       await this.durablePrefix(lifetime, previous)
       if (!isCurrent()) fail('not_joined')
@@ -96,6 +97,7 @@ export class CanonicalRoomTransport {
     if (!isCurrent()) fail('not_joined')
     this.sameLifetime(identity, input.layerId, lifetime)
     if (this.binder !== binder || canonicalBrushStorageContext()?.storage !== context.storage) fail('canonical_repair_required')
+    if(historyPage.close)fail('canonical_repair_required') // C owner/live-only reconciliation is not active.
     const byId=new Map(prefix.map(op=>[op.id,op]))
     if (resident.some(op => !isDeepStrictEqual(byId.get(op.id),op))) fail('canonical_repair_required')
     const prepared=prefix.length?binder.prepareResumeGesture(identity,input,{operations:prefix,rows:historyPage.canonicalRows}):binder.prepareBeginGesture(identity,input)
@@ -161,6 +163,7 @@ export class CanonicalRoomTransport {
       assertAuthorization()
       if(rooms.get(roomId)!==record||lessonRecordOf(record)!==lesson||this.binder!==binder||actual?.storage!==context.storage||actual?.operator!==context.operator)fail('canonical_repair_required')
       if(canonicalWriteFence(record).failed)fail('canonical_repair_required')
+      if(record.operations.some(op=>op.type==='canonical_stroke_close'))fail('canonical_repair_required') // Conservative C-OFF room read boundary, including empty finish.
     }
     if(!await authorize())fail('not_joined')
     current()
@@ -175,6 +178,7 @@ export class CanonicalRoomTransport {
       const prefix=await getCanonicalGesturePrefixWithRows(roomId,{userId:input.anchor.userId,strokeId:input.anchor.frame.strokeId},input.throughSeq,input.anchor)
       if(!await authorize())fail('not_joined')
       current()
+      if(prefix.close)fail('canonical_repair_required') // Keep close-bearing execution reads OFF until C pairing.
       const summary=binder.readRecordedPrefix({roomId,boardEpoch:scope.boardEpoch,anchor:input.anchor,row:input.row,operations:prefix.operations,rows:prefix.canonicalRows,purpose:input.purpose})
       current()
       return Object.freeze({...prefix,summary})
@@ -183,6 +187,7 @@ export class CanonicalRoomTransport {
       current()
       if(!Array.isArray(operations)||operations.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)fail('canonical_repair_required')
       if(!Array.isArray(rows)||rows.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings||(!operations.some(op=>op.type==='canonical_stroke')&&rows.length))fail('canonical_repair_required')
+      if(operations.some(op=>op.type==='canonical_stroke_close'))fail('canonical_repair_required')
       // Material codec version, independently of the raster envelope version.
       // Historical V1 remains its old closed lane; a mixed V1/V2 batch goes
       // through whole-batch V2 preparation and is refused atomically.

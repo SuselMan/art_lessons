@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
-import { CANONICAL_RECORDED_ATTACHMENT_LIMITS, parseCanonicalStrokeCloseOperation,type CanonicalStrokeCloseOperation,readRoomRasterVersion, type CanonicalStrokeOperation, type Operation, type Room } from '@grafetto/shared'
+import { CANONICAL_RECORDED_ATTACHMENT_LIMITS, parseCanonicalStrokeCloseOperation,type CanonicalStrokeCloseOperation,type RecordedCanonicalStrokeCloseOperation,readRoomRasterVersion, type CanonicalStrokeOperation, type Operation, type Room } from '@grafetto/shared'
 
 import { prisma } from '../db/prisma.js'
 import { enqueueWrite, type RoomWriteOutcome } from './roomRegistry.js'
@@ -133,6 +133,13 @@ export function retryCanonicalOperationWrite(roomId: string, op: Operation): Pro
       verify(await read())
     }
   })
+}
+
+/** Bounded close projection of actual indexed evidence, NOT a read/seal grant. */
+export function projectCanonicalIndexedCloseOperation(roomId:string,row:CanonicalStoredOperationRow):{operation:RecordedCanonicalStrokeCloseOperation;bytes:number}{
+ const operation=parseCanonicalStrokeCloseOperation(row.data)
+ verifyIndexedOperationRow(roomId,operation,row)
+ return {operation,bytes:Buffer.byteLength(JSON.stringify(operation),'utf8')}
 }
 
 /** Structural projection of an actual indexed row, not query/read/append authority.
