@@ -66,7 +66,7 @@ function fixture(){
   return author
  }
  const local=(value:CanonicalRecordedInput):CanonicalStrokeOperation=>{if(value.operation.type!=='canonical_stroke')throw Error('frame');const {seq:_seq,...op}=value.operation;return Object.freeze(op)}
- return {coordinator,cpu,gl,scratch,composite,input,seal,source,snapshot,localAuthor,local,stale:()=>{current=false},replaceScope:()=>{replaced=true},close(){coordinator.cancel();scratch.destroy();layer.destroy();derived.destroy();prepass.reset();composite.reset()}}
+ return {coordinator,layer,derived,cpu,gl,scratch,composite,input,seal,source,snapshot,localAuthor,local,stale:()=>{current=false},replaceScope:()=>{replaced=true},close(){coordinator.cancel();scratch.destroy();layer.destroy();derived.destroy();prepass.reset();composite.reset()}}
 }
 
 describe('original-lifetime recorded prefix owner',()=>{
@@ -165,15 +165,19 @@ describe('original-lifetime recorded prefix owner',()=>{
 describe('same wash lane provisional original promotion',()=>{
  it('deposits local frames once and requires original confirmation before checkpoint',()=>{
   const s=fixture();try{
-   const recorded=s.input('author',0,1,true),op=s.local(recorded),author=s.localAuthor()
+   const recorded=s.input('author',0,1,true,true),op=s.local(recorded),author=s.localAuthor()
    expect(s.coordinator.tryEnqueueLocal(author,op)).toBe(true)
    for(let i=0;i<40&&s.coordinator.pending;i++)s.coordinator.advance()
    expect(s.coordinator.presentationReady).toBe(true);expect(s.coordinator.checkpointReady).toBe(false);expect(s.coordinator.pending).toBe(false)
+   expect(s.derived.resolveVisible({minX:0,minY:0,maxX:4,maxY:4}).every(target=>target.contentRect!==null)).toBe(true)
+   expect(s.derived.tileCount).toBeGreaterThan(0)
    const calls=s.source.mock.calls.length
    s.coordinator.enqueueRecorded(recorded)
    expect(s.source.mock.calls.length).toBe(calls);expect(s.coordinator.queuedFrameCount).toBe(0)
    for(let i=0;i<40&&s.coordinator.pending;i++)s.coordinator.advance()
    expect(s.coordinator.checkpointReady).toBe(true)
+   expect(s.layer.tileCount).toBeGreaterThan(0)
+   expect(s.layer.resolveVisible({minX:0,minY:0,maxX:4,maxY:4}).every(target=>target.contentRect!==null)).toBe(true)
   }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
  })
  it('rejects copied lease and sequenced payload before retaining CPU/source',()=>{

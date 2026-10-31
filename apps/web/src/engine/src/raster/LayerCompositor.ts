@@ -205,8 +205,11 @@ export class LayerCompositor {
       // right on top of the preview. A drag is transient; one frame at fine
       // resolution is the cheaper mistake.
       const shadowed = new Set((preview ?? []).map(t => `${t.originX},${t.originY}`))
-      for (const { buffer, originX, originY } of buf.resolveVisible(viewRect)) {
+      for (const { buffer, originX, originY, contentRect } of buf.resolveVisible(viewRect)) {
         if (shadowed.has(`${originX},${originY}`)) continue
+        // Only fine straight targets carry canonical known-empty metadata.
+        if (buffer.pixelEncoding === 'straight-rgba8' && contentRect === null
+          && !(includeWashReveal && this.ctx.reveals().has(buffer))) continue
         buffer.setMipSampling(minifying && buffer.ensureMipmaps())
         this.drawBufferComposite(
           frame, buffer, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
@@ -244,13 +247,15 @@ export class LayerCompositor {
       return
     }
 
-    for (const { buffer, originX, originY } of buf.resolveVisible(viewRect)) {
+    for (const { buffer, originX, originY, contentRect } of buf.resolveVisible(viewRect)) {
+      // A reveal can retain visible old ink even when its current tile is blank.
+      const reveal = includeWashReveal ? this.ctx.reveals().get(buffer) : undefined
+      if (buffer.pixelEncoding === 'straight-rgba8' && contentRect === null && !reveal) continue
       buffer.setMipSampling(minifying && buffer.ensureMipmaps())
       // (#536, §17.12) A tile still converging on a settled wash draws through
       // the reveal — same rect, same blend, its pixels mixed with the kept
       // picture. The coarse levels above draw plain: at that zoom the motion
       // is under a pixel.
-      const reveal = includeWashReveal ? this.ctx.reveals().get(buffer) : undefined
       if (reveal) {
         this.ctx.drawReveal(
           frame, reveal, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,

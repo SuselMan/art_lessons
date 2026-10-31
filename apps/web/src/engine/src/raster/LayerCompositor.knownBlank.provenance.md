@@ -1,0 +1,13 @@
+# Skip known-empty canonical fine tiles before PM presentation
+
+Root's actual metadata-only Samsung probe (R52/samsung-warm-pool-metadata-result.json) confirmed preinput storage: straight512² stable/contentRect=null1MiB, free straight-nearest scratch1MiB and free PM-linear presentation1MiB, operations0. The latter is a legitimate existing display companion, not a duplicate raw allocation. This unit avoids presenting the known-empty stable tile; PM storage will still be required after actual paint.
+
+Only the two fine resolveVisible branches of LayerCompositor.drawCompositeItem skip a straight-rgba8 target with contentRect===null and no active reveal. Area shadow precedence remains first. The skip precedes mip sampling and StraightLayerPresentation.withTile. Preview/material/coarse/legacy PM paths and all write/resolution/owner APIs remain unchanged. In particular coarse outputs currently report null even when painted, so a global null skip would be wrong. A reveal can carry old visible ink over a currently blank destination and is preserved.
+
+Tests-first RED: two actual fine blank/area witnesses failed on old code, reveal control passed (R52/known-blank-red.log). Actual TiledLayerBuffer metadata transitions fresh-null -> markContentPainted -> real buffer.clear+clearContentAt prove conversion only for painted state. Existing target cache is cleared every rebuild, so blank contributes transparency without retaining prior cache content. Lower PM item, area shadow, reveal and PM/coarse-null routes remain visible. Recording GL route tests are not pixel/driver claims.
+
+The recorded coordinator fixture now has a genuine painted local frame: completed derived handoff has resident nonnull content metadata; original promotion reaches stable checkpoint with resident nonnull metadata. CanonicalFrameExecutor and coordinator mark content on actual writes before completed handoff; this unit does not create a new blank flag or repair unsupported writers.
+
+46 tests /4 files PASS (new knownBlank5, existing copySampling/materialPresentation and recorded coordinator), R52/known-blank-tests.log. Scoped oxlint0 errors, one pre-existing LayerCompositor line90 warning; diff-check PASS. Joint29268 app/SW typecheck PASS on the frozen knownblank + C bank + Color finalizer graph. No device/service/dependency/disposable resources created. Root owns actual hardware allocation/visual comparison; no performance or pixel improvement claimed from host tests.
+
+Skipping blank presentation also removes its incidental PM-scratch warming. The first actual ink may need that allocation later; no PM prewarm is added. Root owns the before/after hardware comparison, so lower preinput RAM is not presented as overall faster drawing or memory savings after ink.
