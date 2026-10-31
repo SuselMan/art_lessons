@@ -1,6 +1,6 @@
 import type { RefObject } from 'react'
 
-import type { Operation, ServerToClientEvents } from '@grafetto/shared'
+import { prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation, type Operation, type ServerToClientEvents } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../../engine'
 import { useRoomStore } from '../../../stores/roomStore'
@@ -9,6 +9,9 @@ import { hasSeqGap, shouldEnterCatchUp, shouldLeaveCatchUp } from './catchUp'
 import { commitRevealsBelow as commitRevealsBelowShared, type PendingPreviews } from './pendingPreviews'
 
 /** The part of the engine the confirmed stream drives. */
+type ConfirmedPayload = Parameters<ServerToClientEvents['operation_confirmed']>[0]
+type CanonicalRead = CanonicalPreparedRecordedOperation['read']
+
 export type ConfirmedStreamEngine = Pick<PencilEngineAPI, 'previewOperation' | 'dropPendingPreview'>
 
 export interface ConfirmedStreamDeps {
@@ -30,18 +33,21 @@ export interface ConfirmedStreamDeps {
   previewScheduleRef: RefObject<{ noteOperation(now: number): void } | null>
   /** (#537) This client's own operation has come back with its seq: move it
    *  to its place in the true order (see PencilEngineAPI.confirmOperation). */
-  confirmOwnOperation: (op: Operation, seq: number) => void
+  confirmOwnOperation: (op: Operation, seq: number, read?: CanonicalRead) => void
   markLayerActive: (userId: string, layerId: string) => void
-  applyRemoteOp: (op: Operation) => void
+  applyRemoteOp: (op: Operation, read?: CanonicalRead) => void
   syncFromLog: () => void
   checkSnapshotBoundary: () => void
   requestFullResync: () => void
   /** (#536, ADR 011 §17.49) Holds arrivals while a restore's tail replay
    *  yields - see replayGate.ts. */
   replayGate?: {
-    hold(payload: { seq: number; operation: Operation }): boolean
-    setHandler(handler: (payload: { seq: number; operation: Operation }) => void): void
+    hold(payload: ConfirmedPayload): boolean
+    setHandler(handler: (payload: ConfirmedPayload) => void): void
   }
+  /** Explicit captured authoritative room-state scope; absent keeps the legacy
+   * lane and cannot admit a newly attached procedural capability. */
+  canonicalReadScope?: { readonly roomId: string; readonly boardEpoch: number; readonly isCurrent: () => boolean }
 }
 
 /** (#493) `operation_confirmed` — the room's one ordered stream of what
@@ -53,7 +59,7 @@ export function createConfirmedStreamHandler({
   engineRef, lastConfirmedSeqRef, latestKnownSeqRef, appliedOpIdsRef, pendingPreviewsRef,
   catchingUpRef, streamedStrokeIdsRef, deferredOpsQueueRef, previewScheduleRef,
   confirmOwnOperation, markLayerActive, applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,
-  replayGate,
+  replayGate, canonicalReadScope,
 }: ConfirmedStreamDeps): ServerToClientEvents['operation_confirmed'] {
   // (#289 §7/§11 — reliable history spec v0.2) Renamed from
   // handlePeerOperation: this now fires for *every* confirmed operation,
@@ -69,9 +75,32 @@ export function createConfirmedStreamHandler({
   const commitRevealsBelow = (seq: number): boolean =>
     commitRevealsBelowShared(seq, pendingPreviewsRef.current, engineRef.current, applyRemoteOp)
 
-  const handler: ServerToClientEvents['operation_confirmed'] = ({ seq, operation: op }) => {
+  const handler: ServerToClientEvents['operation_confirmed'] = payload => {
+    const { seq } = payload
+    let op = payload.operation, acceptedPayload = payload
+    let read: CanonicalRead
+    // Nothing, including review state and the existing replay queue, sees an
+    // invalid or stale capability. Expected epoch comes from room-state scope.
+    if (canonicalReadScope && !canonicalReadScope.isCurrent()) return
+    if (payload.canonicalCapabilities !== undefined || canonicalReadScope && op.type === 'canonical_stroke') {
+      try {
+        if (!canonicalReadScope || op.type !== 'canonical_stroke' || op.seq !== seq) throw new TypeError('Missing canonical recorded read scope')
+        const prepared = prepareCanonicalRecordedAttachment(payload.canonicalCapabilities, [op], canonicalReadScope)[0]
+        read = prepared.read
+        if (!read || !canonicalReadScope.isCurrent()) return
+        op = prepared.operation
+        acceptedPayload = Object.freeze({ seq, operation: op, canonicalCapabilities: Object.freeze({
+          version: 1 as const, roomId: read.roomId, boardEpoch: read.boardEpoch,
+          capabilities: Object.freeze([read.capability]), bindings: Object.freeze([Object.freeze({
+            operationId: read.operationId, sequence: read.sequence,
+            originalUserId: read.capability.originalUserId, capability: 0 })]) }) })
+      } catch {
+        requestFullResync()
+        return
+      }
+    }
     useRoomStore.getState().observeReviewOperation({ ...op, seq })
-    if (replayGate?.hold({ seq, operation: op })) return
+    if (replayGate?.hold(acceptedPayload)) return
     // (#289 §12) A gap in this stream is impossible on an unbroken
     // connection (TCP never silently drops or reorders within one), so
     // seeing one means the connection was interrupted without this client
@@ -101,7 +130,8 @@ export function createConfirmedStreamHandler({
       // The ack reports the same seq — whichever arrives first confirms, the
       // other is a no-op.
       const flushed = commitRevealsBelow(seq)
-      confirmOwnOperation(op, seq)
+      if (read) confirmOwnOperation(op, seq, read)
+      else confirmOwnOperation(op, seq)
       if (flushed) syncFromLog()
       checkSnapshotBoundary()
       return
@@ -172,7 +202,8 @@ export function createConfirmedStreamHandler({
       deferredOpsQueueRef.current.push(op)
       return
     }
-    applyRemoteOp(op)
+    if (read) applyRemoteOp(op, read)
+    else applyRemoteOp(op)
     syncFromLog()
     checkSnapshotBoundary()
   }
