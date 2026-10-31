@@ -28,7 +28,9 @@ function nativeRun(row:typeof fixture.cases[number],resume=false){
   const pin=canonicalSoftAutoSourceBinding(descriptor,fixture.row.descriptorSHA256,'neon64-f32-fma-v1',0,CANONICAL_STROKE_RASTER_PROFILE)
   const policy=canonicalSourceComposition(descriptor,CANONICAL_STROKE_RASTER_PROFILE)
   if(!policy)throw Error('Missing composition')
-  const composition={...policy,alphaDarken:'creamy' as const,outerResourceOpacity:1}
+  const native=fixture.nativeControls
+  const creamy=native.useCreamyAlphaDarken.value??native.useCreamyAlphaDarken.defaultValue
+  const composition={...policy,alphaDarken:creamy?'creamy' as const:'hard' as const,outerResourceOpacity:native.uiResourceOpacityPercent/100}
   const material:SourceStrokeMaterialContextV2={version:2,assets:[],primarySource:pin,targetGeometry:{pageBounds:{minX:0,minY:0,maxX:512,maxY:512},tileWidth:128,tileHeight:128,maxTargets:16},budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}}
   const adapter=new SourceStrokeMaterialAdapter(p,material,state),encoder=new SourceCanonicalFrameEncoder({rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:descriptor.id+'@'+descriptor.version,strokeId:'startup-native',pigmentRgb8:[0,0,0],composition,material})
   let paint=createSourcePrimaryComposition(composition).state
@@ -40,8 +42,8 @@ function nativeRun(row:typeof fixture.cases[number],resume=false){
       if(resume){const saved=structuredClone(next.value.state);iterator.return(saved);if(!saved.cursor){state=saved;return}iterator=new SourceStrokeAuthor(structuredClone(p)).resume(saved)}
     }
   }
-  for(const [xb,yb,t,pressure] of row.packets.slice(0,-1)){
-    accept(adapter.beginInput(state));consume(author.plan(state,{...packet(fromBits(xb)+fixture.mapping.tx,fromBits(yb)+fixture.mapping.ty,t),pressure}))
+  for(const [xb,yb,t,pressure,pressureBits] of row.packets.slice(0,-1)){
+    accept(adapter.beginInput(state));consume(author.plan(state,{...packet(fromBits(xb)+fixture.mapping.tx,fromBits(yb)+fixture.mapping.ty,t),pressure:pressureBits===undefined?pressure:fromBits(pressureBits)}))
   }
   accept(adapter.beginInput(state));consume(author.finish(state));accept(adapter.finish(state))
   expect(encoder.ended&&paint.ended).toBe(true)
@@ -61,8 +63,17 @@ describe('explicit native freehand startup, separate from historical paintAt inp
     const result=nativeRun(row),restarted=nativeRun(row,true)
     expect(restarted).toEqual(result)
     const painted=result.steps.filter(s=>s.kind==='material')
-    expect(painted).toHaveLength(row.positions.length)
-    painted.forEach((step,i)=>{expect(step.packet!.x).toBeCloseTo(row.positions[i][0],10);expect(step.packet!.y).toBeCloseTo(row.positions[i][1],10)})
+    if(row.positions.length){
+      expect(painted).toHaveLength(row.positions.length)
+      painted.forEach((step,i)=>{expect(step.packet!.x).toBeCloseTo(row.positions[i][0],10);expect(step.packet!.y).toBeCloseTo(row.positions[i][1],10)})
+    }
+    if(row.id==='pressure57'){
+      expect(painted).toHaveLength(9)
+      expect(result.frames).toHaveLength(198)
+      expect(result.draws[0].controls.opacity).toBe(0.09316679835319519)
+      expect(result.draws.at(-1)!.controls.opacity).toBe(0.23457030951976776)
+      expect(row.packets.filter((_,i)=>[0,40,80,120].includes(i)).map(p=>fromBits(p[4]))).toEqual([.25,.5,1,.25])
+    }
     const q=result.pin.source,compiled=compileSourceSoftCircleProgram({kind:'auto',generator:'soft',shape:'circle',diameter:q.diameter,ratio:q.ratio,horizontalFade:q.horizontalFade,verticalFade:q.verticalFade,spikes:2,softness:1,randomness:0,density:1,antialias:false},{points:result.pin.radialCurve.source.points,coefficients:result.pin.radialCurve.coefficients},Math.floor(q.diameter*4+.5)+2)
     let output:Uint8Array=new Uint8Array(512*512*4)
     for(const [i,draw] of result.draws.entries()){

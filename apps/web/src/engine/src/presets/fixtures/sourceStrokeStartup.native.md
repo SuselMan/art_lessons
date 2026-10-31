@@ -2,7 +2,8 @@
 
 `sourceStrokeStartup.native.json` фиксирует реальный Samsung SM-T970 / Krita
 5.3.4.1, Airbrush Soft (индекс 3), исходный генератор диаметра 600, масштаб 1,
-непрозрачность и давление 1, чёрный цвет, wash/creamy/over. Это узкий профиль
+ресурсная непрозрачность 1, давление 1 и отдельный действительный штрих
+`.25 → .5 → 1 → .25`, чёрный цвет, wash/creamy/over. Это узкий профиль
 `krita-freehand-no-smoothing-v1`, а не утверждение о совместимости всех кистей.
 Исторические программы с отсутствующим `inputProfile` по-прежнему задают явный
 первый `paintAt` и используют прежние фикстуры.
@@ -50,6 +51,30 @@ paintLine**. Исходники Krita сохраняют свои SPDX GPL notic
 | `single54`, tap | 1 | 1 | 0 | 0 |
 | `prefix55` | 20 | 2 | 68271, max 3 | 0 |
 | `mapping53`, весь штрих | 126 | 9 | 95931, max 4 | 0 |
+| `pressure57`, переменное давление | 121 | 9 | Не проверялся | 0 |
+
+`pressure57` содержит 122 действительных Android события за 2046 ms; DOWN и
+120 MOVE имеют фактические binary32 биты давления, UP имеет давление 0 и не
+планируется как точка. Опорные индексы 0/40/80/120 дают `.25/.5/1/.25`.
+Новый автор и тот же адаптер/кодировщик создают 198 кадров и девять отпечатков.
+Давление проходит через настоящую сохранённую нелинейную Opacity curve кисти;
+первый opacity равен `0.09316679835319519`, последний —
+`0.23457030951976776`, последний averageOpacity — `0.8895552754402161`.
+
+Композиция теста теперь выводится из подтверждённых данных: mode/outerBlend
+через `canonicalSourceComposition` исходного дескриптора (`PaintOpAction=2`,
+indirectPainting=true), global AlphaDarken через сохранённое отсутствие ключа
+`useCreamyAlphaDarken` и pinned reader default=true/BgrU8 factory, ресурсная
+непрозрачность — из снятого UI100%. В `nativeControls` записаны SHA настроек,
+reader и runtime KPP. Полный kritarc оставался только в RAM, сохранены лишь два
+разрешённых ключа; `tabletPressureCurve` также отсутствует. На реальном Samsung
+pinned reader использует линейную глобальную кривую (1025 F32 samples), без
+Xiaomi override. Исходный `disable_pressure` QAction при старте checked=true
+означает включённое давление, несмотря на обратное имя переменной. Сама кисть
+не менялась: экспорт после штриха из того же процесса дал все 114 stock params.
+Предыдущие проверки с давлением 1 сами по себе не различают creamy/hard.
+Для динамического случая fixture не выдаёт позиции production автора за
+независимый native placement oracle: независимым остаётся SHA полного GUI PNG.
 
 Тест заново выполняет **тот же** SourceStrokeAuthor → MaterialAdapter →
 CanonicalFrameEncoder → PrimaryComposition, строит маски существующим soft
@@ -57,7 +82,11 @@ kernel и считает существующий fused32 creamy composition. SH
 финальных RGBA-байтов совпадает с независимым native GUI PNG для каждого случая.
 Повтор с structured-clone/resume после каждого yield даёт идентичные события,
 состояния RNG и encoded frames. Это CPU проверка нового входного профиля;
-нового GPU/UI admission этим коммитом не предоставляется.
+нового GPU/UI admission этим коммитом не предоставляется. После pressure57
+собственные KRA/KPP/helper удалены после сравнения байтов, диагностический preset
+удалён через GUI, исходные stock600/All/Basic/Snap и rotation free/1/0
+восстановлены; Krita закрыта, disposable helper строго удалён. Receipt:
+`pressure57-lifecycle.json` с `cleanupComplete=true`.
 
 Полные компактные receipts: `temp/device-runs/krita-stroke-20261024/fixes-v52/`
 `native-gui-stroke52/native-freehand-startup-rootcause-proof.json` и
