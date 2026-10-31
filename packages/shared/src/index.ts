@@ -76,3 +76,5 @@ export * from './canonicalStrokeClose.js'
 
 export * from './canonicalEmptyHistoryBase.js'
 export * from './canonicalFullHistoryBase.js'
+
+export * from './canonicalImageMaterial.js'

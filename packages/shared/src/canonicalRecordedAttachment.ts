@@ -1,3 +1,4 @@
+import {canonicalImageMaterialPin} from './canonicalImageMaterial.js'
 import type {Operation} from './operations.js'
 import type {CanonicalStrokeOperation,CanonicalStrokeSnapshotV2} from './canonicalStrokeOperation.js'
 import {buildCanonicalMaterial} from './canonicalMaterialCodec.js'
@@ -26,7 +27,7 @@ export interface CanonicalPreparedRecordedOperation {
 }
 const fail=():never=>{throw new TypeError('Invalid canonical recorded capability attachment')}
 const record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
-const closed=(v:unknown,keys:readonly string[]):v is Record<string,unknown>=>record(v)&&Reflect.ownKeys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k))
+const closed=(v:unknown,keys:readonly string[]):v is Record<string,unknown>=>record(v)&&Reflect.ownKeys(v).length===keys.length&&keys.every(k=>{const d=Object.getOwnPropertyDescriptor(v,k);return !!d&&Object.hasOwn(d,'value')})
 const text=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.length<=256&&!v.includes('\0')
 const integer=(v:unknown):v is number=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=0&&v<Number.MAX_SAFE_INTEGER
 const bytes=(v:unknown)=>new TextEncoder().encode(JSON.stringify(v)).length
@@ -41,24 +42,30 @@ export function canonicalRecordedRasterProfiles(scope:Pick<CanonicalRecordedRead
  if(!Array.isArray(profiles)||profiles.length<1||profiles.length>CANONICAL_STROKE_RASTER_CONTRACTS.length||new Set(profiles).size!==profiles.length)return fail()
  return Object.freeze(profiles.map(attachmentRasterProfile))
 }
-function snapshot(value:unknown,epoch:number,rasterProfile:CanonicalStrokeRasterProfile):CanonicalStrokeSnapshotV2 {
+export function canonicalStrokeSnapshotV2(value:unknown,epoch:number,rasterProfile:CanonicalStrokeRasterProfile):CanonicalStrokeSnapshotV2 {
  if(!closed(value,['layerId','brush','strokeId','boardEpoch','descriptorSha256','rasterProfile','pigmentRgb8','composition','assets','materialVersion','material'])
   ||!text(value.layerId)||!text(value.brush)||!text(value.strokeId)||value.boardEpoch!==epoch||value.materialVersion!==2||value.rasterProfile!==rasterProfile
-  ||!Array.isArray(value.assets)||value.assets.length!==0||!closed(value.material,['version','assets','primarySource','budget']))return fail()
+  ||!integer(epoch)||!Array.isArray(value.assets)||value.assets.length>1||!closed(value.material,['version','assets','primarySource','budget']))return fail()
  // Material/source/budget and composition schema belong to the SAME shared
  // builder/decoder. Validate original bounded metadata before any clone/size walk.
  const s=value as unknown as CanonicalStrokeSnapshotV2,m=s.material,p=m.primarySource
- if(m.version!==2||!Array.isArray(m.assets)||m.assets.length!==0||!p||p.kind==='image'||p.descriptorSha256!==s.descriptorSha256
-  ||s.brush!==`brush:${p.descriptorId}@${p.descriptorVersion}`||p.brushScale!==1||p.kind==='softAuto'&&p.sourceSlot!==0)return fail()
+ if(!closed(m.budget,['workUnits','outputBytes','drawPixels'])||m.version!==2||!Array.isArray(m.assets)||m.assets.length>1||!p||!/^[a-f0-9]{64}$/.test(s.descriptorSha256))return fail()
+ const kind=Object.getOwnPropertyDescriptor(p,'kind');if(!kind||!Object.hasOwn(kind,'value'))return fail()
+ const image=kind.value==='image'?canonicalImageMaterialPin(p,m.assets):undefined
+ if(image){const brush=/^brush:[a-z0-9-]+@([1-9][0-9]*)$/.exec(s.brush);if(!brush||!Number.isSafeInteger(Number(brush[1])))return fail()}
+ if(!image&&(m.assets.length!==0||p.kind==='image'||p.descriptorSha256!==s.descriptorSha256
+  ||s.brush!==`brush:${p.descriptorId}@${p.descriptorVersion}`||p.brushScale!==1||p.kind==='softAuto'&&p.sourceSlot!==0))return fail()
+ if(s.assets.length!==m.assets.length)return fail()
+ if(image){const outer=canonicalImageMaterialPin(p,s.assets);if(JSON.stringify(outer.assets)!==JSON.stringify(image.assets))return fail()}
  const probe=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},m)
  const decoded=decodeCanonicalStrokeFrame({version:canonicalStrokeRasterContract(rasterProfile).envelopeVersion,rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked:probe.packed},
   {rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:m})
- const primarySource=p.kind==='defaultAuto'?canonicalDefaultAutoSourcePin(p):p.kind==='gaussianAuto'?canonicalGaussianAutoSourcePin(p):canonicalSoftAutoSourcePin(p)
- const material=Object.freeze({version:2 as const,assets:Object.freeze([]),primarySource,budget:Object.freeze({workUnits:m.budget.workUnits,outputBytes:m.budget.outputBytes,drawPixels:m.budget.drawPixels})})
+ const primarySource=image?image.primarySource:p.kind==='defaultAuto'?canonicalDefaultAutoSourcePin(p):p.kind==='gaussianAuto'?canonicalGaussianAutoSourcePin(p):p.kind==='softAuto'?canonicalSoftAutoSourcePin(p):fail()
+ const material=Object.freeze({version:2 as const,assets:image?image.assets:Object.freeze([]),primarySource,budget:Object.freeze({workUnits:m.budget.workUnits,outputBytes:m.budget.outputBytes,drawPixels:m.budget.drawPixels})})
  // Reconstruct only validated data fields: unknown extras/accessor serialization
  // cannot enter the bounded size walk or retained capability.
- return Object.freeze({layerId:s.layerId,brush:s.brush,strokeId:s.strokeId,boardEpoch:epoch,descriptorSha256:primarySource.descriptorSha256,rasterProfile,
-  pigmentRgb8:decoded.envelope.pigmentRgb8,composition:decoded.envelope.composition,assets:Object.freeze([]),materialVersion:2 as const,material})
+ return Object.freeze({layerId:s.layerId,brush:s.brush,strokeId:s.strokeId,boardEpoch:epoch,descriptorSha256:s.descriptorSha256,rasterProfile,
+  pigmentRgb8:decoded.envelope.pigmentRgb8,composition:decoded.envelope.composition,assets:material.assets,materialVersion:2 as const,material})
 }
 /** Caller establishes authoritative delivery origin/read permission and captured
  * room lifetime. Socket.IO JSON is already parsed: this is NOT a preparse cap.
@@ -76,7 +83,7 @@ export function prepareCanonicalRecordedAttachment(value:unknown,operations:read
   if(!record(item.snapshot))return fail()
   const rasterProfile=attachmentRasterProfile(item.snapshot.rasterProfile)
   if(!profiles.includes(rasterProfile))return fail()
-  const s=snapshot(item.snapshot,expected.boardEpoch,rasterProfile),identity=JSON.stringify([item.originalUserId,s.strokeId])
+  const s=canonicalStrokeSnapshotV2(item.snapshot,expected.boardEpoch,rasterProfile),identity=JSON.stringify([item.originalUserId,s.strokeId])
   // One gesture has ONE immutable capability, even if a duplicate is equal.
   if(identities.has(identity))return fail();identities.add(identity)
   const capability=Object.freeze({originalUserId:item.originalUserId,snapshot:s}),n=bytes(capability)

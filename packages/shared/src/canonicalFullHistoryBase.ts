@@ -74,7 +74,7 @@ export function verifyCanonicalFullHistoryBase(value:unknown,atoms:readonly Cano
    if(!read||read.operationId!==op.id||read.sequence!==op.seq||read.roomId!==base.roomId||read.boardEpoch!==base.boardEpoch||!profiles.includes(read.rasterProfile))return fail()
    const cap=read.capability,s=cap.snapshot
    if(!Object.isFrozen(cap)||!Object.isFrozen(s)||cap.originalUserId!==op.userId||s.strokeId!==op.frame.strokeId||s.layerId!==op.layerId
-    ||s.boardEpoch!==base.boardEpoch||s.rasterProfile!==read.rasterProfile||s.materialVersion!==2||s.material.version!==2||s.material.primarySource.kind==='image')return fail()
+    ||s.boardEpoch!==base.boardEpoch||s.rasterProfile!==read.rasterProfile||s.materialVersion!==2||s.material.version!==2)return fail()
    const key=JSON.stringify([op.userId,s.strokeId]),previous=gestures.get(key)
    if(previous&&(previous.capability!==cap||previous.sealed))return fail()
    if(!previous&&gestures.size>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)return fail()
