@@ -1,3 +1,5 @@
+import {advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,decodeCanonicalStrokeFrame,prepareCanonicalRecordedAttachment,verifyCanonicalRecordedClose,canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin,canonicalSoftAutoSourcePin,type CanonicalMaterialPrefixState,type CanonicalStrokeSnapshotV2,type CanonicalRecordedReadScope} from '@grafetto/shared'
+import type {CanonicalRecordedInput,CanonicalRecordedLifetime} from '../oplog/CanonicalRecordedDelivery'
 import { CANONICAL_STROKE_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { PaintTarget } from '../buffers/ILayerBuffer'
@@ -15,14 +17,28 @@ export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFram
   /** Distinct derived straight layer; the coordinator never owns/destroys it. */
   readonly presentation: () => { readonly buffer: TiledLayerBuffer; readonly epoch: number }
   /** Trusted gesture source binding, NOT data selected by a material frame. */
-  readonly source: (gestureId: string) => Pick<CanonicalFrameExecutorOptions, 'autoSource' | 'bank' | 'softProgramOwner'>
+  readonly source: (gestureId: string, recorded?: CanonicalRecordedInput) => Pick<CanonicalFrameExecutorOptions, 'autoSource' | 'bank' | 'softProgramOwner'>
   /** Explicit caller capacity; no implicit queue, expiry or GPU quota. Includes
    * completed IDs until this coordinator is discarded after trusted rebuild. */
   readonly maxGestures: number
   readonly changed: (layerId: string) => void
   readonly poison: (layerId: string, reason: unknown) => void
 }
+interface RecordedPrefix {
+ readonly lifetime:CanonicalRecordedLifetime
+ readonly scope:Readonly<CanonicalRecordedReadScope>
+ readonly snapshot:CanonicalStrokeSnapshotV2
+ readonly userId:string
+ readonly strokeId:string
+ readonly firstOperationId:string
+ readonly firstSeq:number
+ readonly lastOperationId:string
+ readonly lastSeq:number
+ readonly state:CanonicalMaterialPrefixState
+ readonly sealed:boolean
+}
 interface Entry {
+  recorded?:RecordedPrefix
   readonly id: string
   readonly firstSequence: number
   readonly executor: CanonicalFrameExecutor
@@ -106,11 +122,61 @@ export class CanonicalWashLayerCoordinator {
   get checkpointReady(): boolean { return this.presentationReady && !this.queue.length && this.entries.every(e => e.committed) }
   get cleanupFailures(): readonly unknown[] { return Object.freeze([...this.errors]) }
 
+  /** Original local delivery, not a log copy or a source selected by a frame. */
+  enqueueRecorded(input:CanonicalRecordedInput):void {
+    this.assertOpen()
+    input.delivery.assertCurrent(input)
+    const lifetime=input.delivery.lifetime,scope=lifetime.assertCurrent(),op=input.operation,read=input.read
+    if(op.type!=='canonical_stroke'||!read||op.seq!==read.sequence||read.operationId!==op.id)throw new TypeError('Recorded source input required')
+    const accepted=prepareCanonicalRecordedAttachment({version:1,roomId:read.roomId,boardEpoch:read.boardEpoch,
+      capabilities:[read.capability],bindings:[{operationId:op.id,sequence:op.seq,originalUserId:op.userId,capability:0}]},[op],scope)[0]
+    const snapshot=accepted.read!.capability.snapshot
+    if(read.rasterProfile!==snapshot.rasterProfile)throw new TypeError('Recorded source profile mismatch')
+    if(snapshot.material.maskSource||snapshot.material.primarySource.kind==='image'||snapshot.rasterProfile!==this.options.rasterProfile
+      ||snapshot.layerId!==this.options.layerId)throw new TypeError('Unsupported recorded source context')
+    const id=JSON.stringify([scope.roomId,scope.boardEpoch,op.userId,snapshot.strokeId])
+    const existing=this.entries.find(e=>e.id===id),old=existing?.recorded
+    if(existing&&!old)throw new Error('Recorded namespace already occupied')
+    if(old&&(old.lifetime!==lifetime||old.scope!==scope||old.sealed||old.lastSeq>=op.seq!
+      ||JSON.stringify(old.snapshot)!==JSON.stringify(snapshot)))throw new Error('Recorded source lifetime/context changed')
+    const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,
+      frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,material:snapshot.material})
+    const state=advanceCanonicalMaterialPrefix(old?.state??CANONICAL_MATERIAL_PREFIX_START,op.frame.frameOrdinal,decoded.frame)
+    const recorded:RecordedPrefix={lifetime,scope,snapshot:old?.snapshot??snapshot,userId:op.userId,strokeId:snapshot.strokeId,
+      firstOperationId:old?.firstOperationId??op.id,firstSeq:old?.firstSeq??op.seq!,lastOperationId:op.id,lastSeq:op.seq!,state,sealed:false}
+    input.delivery.assertCurrent(input);if(lifetime.assertCurrent()!==scope)throw new Error('Recorded scope replaced')
+    this.enqueueInternal({gestureId:id,layerId:op.layerId,layerEpoch:this.options.layerEpoch,ordinal:op.frame.frameOrdinal,
+      frame:decoded.frame,assets:snapshot.material.assets,rgb:snapshot.pigmentRgb8,composition:snapshot.composition},op.seq!,{input,recorded})
+  }
+
+  enqueueRecordedSeal(input:CanonicalRecordedInput):void {
+    this.assertOpen();input.delivery.assertCurrent(input)
+    const scope=input.delivery.lifetime.assertCurrent(),op=input.operation
+    if(op.type!=='canonical_stroke_close')throw new TypeError('Recorded close input required')
+    const id=JSON.stringify([scope.roomId,scope.boardEpoch,op.targetUserId,op.strokeId])
+    const entry=this.entries.find(e=>e.id===id),r=entry?.recorded
+    if(!r||r.lifetime!==input.delivery.lifetime||r.scope!==scope||r.sealed)throw new Error('Recorded close owner missing or stale')
+    verifyCanonicalRecordedClose({...r.state,recordedNext:r.state.nextOrdinal,firstOperationId:r.firstOperationId,
+      lastOperationId:r.lastOperationId,firstSeq:r.firstSeq,lastSeq:r.lastSeq},{userId:r.userId,layerId:this.options.layerId,strokeId:r.strokeId},op)
+    input.delivery.assertCurrent(input);if(r.lifetime.assertCurrent()!==scope)throw new Error('Recorded scope replaced')
+    this.closeInternal(id,r.state.nextOrdinal,op.seq!)
+    entry!.recorded={...r,sealed:true}
+  }
+
+  private assertRecordedCurrent():void {
+    for(const e of this.entries)if(e.recorded&&e.recorded.lifetime.assertCurrent()!==e.recorded.scope)throw new Error('Recorded scope replaced')
+  }
+
   /** Sequence is from authoritative recorded history, never a guessed local
    * ordinal. Caller supplies a complete ordered same-layer lane (no gaps from
    * omitted same-layer writers). Runtime live acknowledgements remain outside. */
   enqueue(input: CanonicalFrameSubmission, recordedSequence: number): void {
-    this.assertOpen(); this.busy = true
+    if(this.entries.find(e=>e.id===input.gestureId)?.recorded)throw new Error('Recorded owner requires original delivery')
+    this.enqueueInternal(input,recordedSequence)
+  }
+
+  private enqueueInternal(input:CanonicalFrameSubmission,recordedSequence:number,origin?:{input:CanonicalRecordedInput;recorded:RecordedPrefix}):void {
+    this.assertOpen();this.assertRecordedCurrent(); this.busy = true
     try {
     if (!Number.isSafeInteger(recordedSequence) || recordedSequence <= this.lastSequence || input.layerId !== this.options.layerId
       || input.layerEpoch !== this.options.layerEpoch || input.composition.mode !== 'wash') throw new Error('Invalid recorded wash lane order/context')
@@ -137,9 +203,18 @@ export class CanonicalWashLayerCoordinator {
         releaseGpu = this.options.reserveTransient([...fresh.values()].reduce((n, t) => n + t.width * t.height * 4, 0))
       }
       if (!entry) {
-        releaseEntry = this.options.prepass.brushGlBatchInfo().cpu.reserve(1024)
+        releaseEntry = this.options.prepass.brushGlBatchInfo().cpu.reserve(1024+(origin?4096:0))
         let published=false;publishCandidate=()=>{published=true}
-        const executor = candidate = new CanonicalFrameExecutor({ ...this.options, ...this.options.source(input.gestureId), washMode: 'deposition-only',
+        const source=this.options.source(input.gestureId,origin?.input)
+        if(origin){
+          const expected=origin.recorded.snapshot.material.primarySource,actual=source.autoSource
+          if(!actual||expected.kind==='image')throw new TypeError('Recorded source binding missing')
+          const normalize=(pin:typeof actual)=>pin.kind==='softAuto'?canonicalSoftAutoSourcePin(pin):pin.kind==='gaussianAuto'?canonicalGaussianAutoSourcePin(pin):canonicalDefaultAutoSourcePin(pin)
+          if(JSON.stringify(normalize(actual))!==JSON.stringify(expected))throw new TypeError('Recorded source binding mismatch')
+          origin.input.delivery.assertCurrent(origin.input)
+          if(origin.recorded.lifetime.assertCurrent()!==origin.recorded.scope)throw new Error('Recorded scope replaced')
+        }
+        const executor = candidate = new CanonicalFrameExecutor({ ...this.options, ...source, washMode: 'deposition-only',
           changed: (_id, bounds) => this.invalidate(bounds), // The lane retires ALL storage pins before external poison/undo.
           poison: () => {if(published)this.failed=true} })
         entry = { id: input.gestureId, firstSequence: recordedSequence, executor, opacity: input.composition.outerResourceOpacity, blend: input.composition.outerBlend,
@@ -156,6 +231,7 @@ export class CanonicalWashLayerCoordinator {
     if (releaseEntry) {this.entries.push(entry!);publishCandidate!()}
     if (releaseGpu) { const gpu = releaseGpu, cpu = releaseCpu!; this.reservations.push(() => { try { gpu() } finally { cpu() } }) }
     for (const [k, p] of fresh) this.positions.set(k, Object.freeze(p))
+    if(origin)entry!.recorded=origin.recorded
     this.queue.push(entry!); this.lastSequence = recordedSequence
     } finally { this.busy = false }
   }
@@ -164,7 +240,12 @@ export class CanonicalWashLayerCoordinator {
    * proof and reconciliation of live-only geometry. No source is resolved and
    * no new gesture/frame is fabricated by this ordered lane operation. */
   enqueueRecordedClose(gestureId:string,recordedNext:number,recordedSequence:number):void {
-    this.assertOpen();this.busy=true
+    if(this.entries.find(e=>e.id===gestureId)?.recorded)throw new Error('Recorded owner requires original close delivery')
+    this.closeInternal(gestureId,recordedNext,recordedSequence)
+  }
+
+  private closeInternal(gestureId:string,recordedNext:number,recordedSequence:number):void {
+    this.assertOpen();this.assertRecordedCurrent();this.busy=true
     let target:Entry|undefined
     try{
       if(!Number.isSafeInteger(recordedSequence)||recordedSequence<=this.lastSequence)throw new Error('Invalid recorded wash close order')
@@ -186,7 +267,7 @@ export class CanonicalWashLayerCoordinator {
    * No draw leases or GL state survive the synchronous return. Metadata
    * storage pins can span turns; no RAF, promise or automatic retry is created. */
   advance(): void {
-    this.assertOpen(); this.busy = true
+    this.assertOpen();this.assertRecordedCurrent(); this.busy = true
     try {
       const turnStarted = performance.now()
       this.assertLayers()
