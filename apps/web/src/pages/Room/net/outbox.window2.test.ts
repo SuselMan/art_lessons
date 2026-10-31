@@ -92,3 +92,20 @@ it('does not restore successor provenance from a late emit notification after a 
  for(let n=0;n<4;n++)await box.enqueue(frame(n));answers[0].resolve({ok:false,reason:'invalid_operation'});await flush();emitOne?.();answers[1].resolve({ok:true,seq:2});await flush()
  expect(sent).toEqual([0,1,2]);answers[2].resolve({ok:true,seq:3});await flush();expect(sent).toEqual([0,1,2,3]);answers[3].resolve({ok:true,seq:4});await flush();box.dispose()
 })
+
+it.each(['canonical','legacy']as const)('never calls a previous %s room verdict after disposal during acknowledged cleanup',async kind=>{
+ for(const failedDelete of [false,true]){
+  const memory=createInMemoryOutboxStorage(),deleted=defer<void>(),settled=vi.fn(),log=vi.spyOn(console,'error').mockImplementation(()=>{})
+  const op:import('@grafetto/shared').Operation=kind==='canonical'?frame(0):{type:'layer_add',id:'legacy',userId:'author',timestamp:0,layerId:'layer',name:'Layer'}
+  const send=vi.fn(async()=>({ok:true as const,seq:1})),box=new Outbox({roomId:'room',storage:{...memory,delete:async id=>{await deleted.promise;await memory.delete(id)}},send,onSettled:settled})
+  const nextOperation={...op,id:'new-room-op'},next=new Outbox({roomId:'next-room',storage:createInMemoryOutboxStorage(),send:async()=>({ok:true,seq:9}),onSettled:settled})
+  try{
+   await box.enqueue(op);await flush();expect(box.pendingCount).toBe(0);expect(settled).not.toHaveBeenCalled()
+   box.dispose();await box.enqueue({...op,id:'must-not-send'});await next.enqueue(nextOperation);await flush()
+   expect(settled).toHaveBeenCalledTimes(1);expect(settled).toHaveBeenCalledWith(nextOperation,{ok:true,seq:9})
+   if(failedDelete)deleted.reject(Error('old room cleanup failed'));else deleted.resolve()
+   await flush();expect(settled).toHaveBeenCalledTimes(1);expect(send).toHaveBeenCalledOnce();expect(box.pendingCount).toBe(0)
+   expect((await memory.getAll('room')).length).toBe(failedDelete?1:0)
+  }finally{box.dispose();next.dispose();log.mockRestore()}
+ }
+})

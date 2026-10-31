@@ -470,6 +470,9 @@ export class Outbox {
           // server dedups it by id — see the class doc comment.
           console.error('outbox: could not clear persisted operation', opId, err)
         }
+        // ACK cleanup can outlive a board switch. The entry was deliberately
+        // removed above, so revalidate the attempt rather than pending identity.
+        if(this.disposed||this.inFlight.get(opId)!==attempt)return
         this.onSettled?.(entry.op, result)
       } catch {
         if (this.disposed||this.inFlight.get(opId)!==attempt||this.pending.get(opId)!==entry) return
@@ -489,7 +492,7 @@ export class Outbox {
       }
     } finally {
       if(this.inFlight.get(opId)===attempt)this.inFlight.delete(opId)
-      this.pump()
+      if(!this.disposed)this.pump()
     }
   }
 }
