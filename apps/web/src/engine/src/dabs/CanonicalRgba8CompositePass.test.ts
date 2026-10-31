@@ -392,3 +392,31 @@ it('keeps one attachment query for repeated batched alias draws and rechecks the
  expect(()=>runBrushGlBatch({participants:[s.pass],owners:[lifetime]},frame=>s.pass.drawSource(request,frame))).toThrow('attachment');
  expect(status).toHaveBeenCalledTimes(2);expect(attachment).toHaveBeenCalledTimes(2);expect(s.snapshot()).toEqual(before);s.pass.reset();
 });
+
+import { SOURCE_RGBA8_GENERIC_SC_PROFILE } from '../presets/sourceColorRgba8';
+it('runs explicit GenericSC U8 modes through the SAME composite service and shared byte controls',()=>{
+ const s=setup();s.pass.prepare({width:16,height:16,operations:['genericSCU8']},s.companion);
+ const before=s.snapshot(),target:CanonicalOwnedRgba8Target={...s.target,lifetime:{kind:'external',owner:{},lease:()=>()=>{}}};
+ const policy=vi.spyOn(s.gl,'uniform2f');s.gl.uniform4f.mockClear();
+ for(const [i,mode] of (['multiply','lighten','colorDodge','overlay'] as const).entries()) {
+  expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[91,127,255]},target,
+   operation:{kind:'genericSCU8',control:{mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:248/255}}})).toBe('painted');
+  expect(policy).toHaveBeenCalledWith(expect.objectContaining({name:'policy'}),i+3,0);
+ }
+ expect(s.gl.uniform4f.mock.calls.filter((r:unknown[])=>r[0]&&typeof r[0]==='object'&&'name' in r[0]&&r[0].name==='controls').map((r:unknown[])=>r.slice(1))).toEqual(Array(4).fill([248,248,255,255]));
+ expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[91,127,255]},target,
+  operation:{kind:'genericSCU8',control:{mode:'multiply',profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:248/255,mask:0}}})).toBe('painted');
+ expect(policy).toHaveBeenLastCalledWith(expect.objectContaining({name:'policy'}),3,1);
+ expect(s.gl.uniform4f).toHaveBeenCalledWith(expect.objectContaining({name:'controls'}),248,248,255,0);
+ expect(s.snapshot()).toEqual(before);s.pass.reset();
+});
+it('refuses a missing or mismatched GenericSC profile before destination work',()=>{
+ const s=setup();s.pass.prepare({width:16,height:16,operations:['genericSCU8']},s.companion);
+ const lease=vi.fn(()=>()=>{}),target:CanonicalOwnedRgba8Target={...s.target,lifetime:{kind:'external',owner:{},lease}};
+ const get=vi.spyOn(s.gl,'getParameter');get.mockClear();
+ for(const control of [{mode:'multiply',opacity:1},{mode:'multiply',opacity:1,profile:'installed-arm64-scalar-fused-fpcr0-v1'},
+  {mode:'over',opacity:1,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE}]) {
+  expect(()=>s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[1,2,3]},target,operation:{kind:'genericSCU8',control:control as never}})).toThrow();
+ }
+ expect(get).not.toHaveBeenCalled();expect(lease).not.toHaveBeenCalled();s.pass.reset();
+});

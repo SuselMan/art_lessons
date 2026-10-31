@@ -1,4 +1,7 @@
 import { SOURCE_FUSED_OVER32_SCALAR_GLSL, prepareSourceFusedOver32ScalarControls } from '../raster/sourceFusedOver32ScalarShader';
+import { SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL } from '../raster/sourceRgba8CompositeWebGL1';
+import { canonicalizeSourceRgba8Control } from '../raster/sourceRgba8CompositeShader';
+import { SOURCE_RGBA8_GENERIC_SC_PROFILE, validateRgba8CompositeControl, type Rgba8CompositeControl } from '../presets/sourceColorRgba8';
 import { SOURCE_FUSED_ALPHA_DARKEN32_SCALAR_GLSL, prepareSourceFusedAlphaDarken32ScalarControls } from '../raster/sourceFusedAlphaDarken32ScalarShader';
 import type { BrushGlBatchFrame, BrushGlBatchInfo } from './BrushGlBatch';
 import type { SourceOver32ScalarControl } from '../presets/sourceOver32Scalar';
@@ -65,6 +68,10 @@ export type CanonicalCompositeSource = {
     readonly view: CanonicalRgba8SourceView;
 };
 export type CanonicalCompositeOperation = {
+    /** Explicit source-law kernel; does not widen the room/stroke profile. */
+    readonly kind: 'genericSCU8';
+    readonly control: Extract<Rgba8CompositeControl, { readonly profile: typeof SOURCE_RGBA8_GENERIC_SC_PROFILE }>;
+} | {
     readonly kind: 'alphaDarken32';
     readonly control: SourceAlphaDarken32Control;
 } | {
@@ -109,9 +116,9 @@ const borrowedRelease = () => { };
 function operationsFor(limits: CanonicalCompositeLimits): readonly CanonicalCompositeOperationKind[] {
     const operations = limits.operations ?? ['alphaDarken32'];
     if (!Array.isArray(operations) || !operations.length || operations.length > 2
-        || operations.some(kind => !['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar'].includes(kind)))
+        || operations.some(kind => !['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8'].includes(kind)))
         throw new RangeError('Invalid composite operations');
-    return (['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar'] as const).filter(kind => operations.includes(kind));
+    return (['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8'] as const).filter(kind => operations.includes(kind));
 }
 const whole = (n: number, minimum = 0) => Number.isSafeInteger(n) && n >= minimum;
 const rectValid = (r: {
@@ -137,9 +144,10 @@ export function canonicalRgba8CompositeBudget(limits: CanonicalCompositeLimits):
 const VERTEX = 'attribute highp vec2 position;void main(){gl_Position=vec4(position,0.0,1.0);}';
 /** One source/geometry template; only the selected numerical kernel is included. */
 function fragmentFor(kind: CanonicalCompositeOperationKind): string {
-    const kernel = kind === 'alphaDarken32' ? SOURCE_ALPHA_DARKEN32_GLSL : kind === 'over32' ? SOURCE_OVER32_SCALAR_GLSL
+    const kernel = kind === 'genericSCU8' ? SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL : kind === 'alphaDarken32' ? SOURCE_ALPHA_DARKEN32_GLSL : kind === 'over32' ? SOURCE_OVER32_SCALAR_GLSL
         : kind === 'alphaDarken32FusedScalar' ? SOURCE_FUSED_ALPHA_DARKEN32_SCALAR_GLSL : SOURCE_FUSED_OVER32_SCALAR_GLSL;
-    const apply = kind === 'alphaDarken32' ? 'sourceCompositeAlphaDarken32(source,destination,controls,policy)'
+    const apply = kind === 'genericSCU8' ? 'sourceCompositeRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,true))'
+        : kind === 'alphaDarken32' ? 'sourceCompositeAlphaDarken32(source,destination,controls,policy)'
         : kind === 'over32' ? 'sourceCompositeOver32Scalar(source,destination,controls.xw,policy)'
         : kind === 'alphaDarken32FusedScalar' ? 'sourceCompositeFusedAlphaDarken32Scalar(source,destination,controls,policy,opacityParts,flowParts)'
         : 'sourceCompositeFusedOver32Scalar(source,destination,controls.xw,policy.y,opacityParts)';
@@ -182,7 +190,7 @@ interface Workspace {
     programs: Map<CanonicalCompositeOperationKind, ProgramInfo>;
     vao?: WebGLVertexArrayObjectOES;
 }
-/** Internal opt-in LOCAL alphaDarken only. Target is explicit straight RGBA8,
+/** Internal opt-in numerical composition. Target is explicit straight RGBA8,
  * never the existing PM layer. Source view is already rasterized: no tip transform
  * or native-domain correction is repeated. Caller presents/outer-composites later. */
 export class CanonicalRgba8CompositePass {
@@ -423,7 +431,11 @@ export class CanonicalRgba8CompositePass {
                 number
             ]);
             const c = operation.control;
-            if (operation.kind === 'alphaDarken32FusedScalar') {
+            if (operation.kind === 'genericSCU8') {
+                const prepared = canonicalizeSourceRgba8Control(operation.control);
+                gl.uniform4f(u.controls, prepared.opacity, prepared.average, prepared.flow, prepared.mask);
+                gl.uniform2f(u.policy, prepared.mode, +prepared.hasMask);
+            } else if (operation.kind === 'alphaDarken32FusedScalar') {
                 const prepared = prepareSourceFusedAlphaDarken32ScalarControls(operation.control.variant, operation.control, c.mask);
                 gl.uniform4f(u.controls, ...prepared.values);
                 gl.uniform2f(u.policy, ...prepared.selection);
@@ -551,7 +563,12 @@ export class CanonicalRgba8CompositePass {
         const c = operation.control;
         if (!c || !Number.isFinite(c.opacity) || c.opacity < 0 || c.opacity > 1 || c.mask !== undefined && (!whole(c.mask) || c.mask > 255))
             throw new RangeError('Invalid composite controls');
-        if (operation.kind === 'alphaDarken32' || operation.kind === 'alphaDarken32FusedScalar') {
+        if (operation.kind === 'genericSCU8') {
+            if (operation.control.profile !== SOURCE_RGBA8_GENERIC_SC_PROFILE
+                || !['multiply', 'lighten', 'colorDodge', 'overlay'].includes(operation.control.mode))
+                throw new RangeError('Invalid GenericSC U8 profile or mode');
+            validateRgba8CompositeControl(operation.control);
+        } else if (operation.kind === 'alphaDarken32' || operation.kind === 'alphaDarken32FusedScalar') {
             const a = operation.control;
             if (a.profile !== (operation.kind === 'alphaDarken32' ? 'optimized32-scalar-f32-rne-v1' : 'installed-arm64-scalar-fused-fpcr0-v1') || !['creamy', 'hard'].includes(a.variant)
                 || ![a.averageOpacity, a.flow].every(v => Number.isFinite(v) && v >= 0 && v <= 1))
