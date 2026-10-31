@@ -79,3 +79,35 @@ while TSC ran concurrently (175 assertions/cases passed). The identical source
 rerun after TSC, maxWorkers=2 and host testTimeout=30000, passes all 177 tests in
 15.21s: canonical-room-bootstrap-final-regression-30s.log. This timeout adjustment
 is only test-run configuration, not a production latency limit or code change.
+
+## Deferred fault repair
+
+One current-engine/board control latch tracks restoring/ready/waiting/joining/
+failed and whether repair was requested. It contains no operations, snapshot,
+registry, timer or second queue. Fault requests arm before locking (locking can
+reenter through the existing poison callback). Replacement waits for the existing
+source hold API and Outbox/pending-id/pointer owners. Normal healthy pointercancel
+does not arm repair: its original confirmed frame/seal path remains authoritative.
+
+The same engine's existing poison callback arrives after source holds release;
+canonical final settlement drains an already-armed request after the existing
+ACK watermark update. Success ACK still never arms repair or paints. No React
+pending-count effect drives repair: Outbox removes pending entries before async
+storage deletion and onSettled. A source callback in that storage window may
+request a join; its accepted write is already durable, the server returns a full
+floor-zero original read, and replacement still checks its cut against every
+known ACK. No duplicate settlement counter/ledger is introduced.
+
+One join is sent per request. Restore failure stays failed until explicit retry;
+failed UI readiness is not confused with active replacement. Retry retains and
+retries the SAME Outbox; stalled pending entries block replacement and are never
+discarded. Engine replacement/unmount detaches the old latch origin. Generic room
+resync remains separate. The zero-emission source with no existing completion
+wake stays explicitly fail-closed/manual-retry; no automatic progress is claimed
+for that edge. Source callbacks from old engines/boards cannot repair a new one.
+
+Deferred repair validation: canonical-recovery-regression.log passes 183 tests /
+13 files (maxWorkers=2, host testTimeout=30000); scoped lint has no errors and
+only the existing mount dependency warning. Coordinated app+SW 99580 passes the
+frozen control with CPU/GPU author and healthy-pointercancel changes. The raw
+confirmed-receiver admission-failure repair path is a separate follow-on seam.

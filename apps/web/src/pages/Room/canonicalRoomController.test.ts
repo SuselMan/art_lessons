@@ -99,3 +99,63 @@ it('publishes baseline IDs only after original engine commit and refuses an expi
  const stale=restoreCanonicalRoomBaseline(engine,prepared.canonicalRead,prepared.tailOperations,()=>engine,ids),rejected=expect(stale).rejects.toThrow()
  current=false;finish();await rejected;expect(ids.size).toBe(0)
 })
+
+function recoveryFixture(){
+ let active=false,pending=0,board='B',ack=0,connected=true
+ const locked=vi.fn(),engine={setLocked:locked,hasActiveCanonicalAuthor:()=>active}as unknown as import('../../engine').PencilEngineAPI
+ let current:typeof engine|null=engine
+ const send=vi.fn(()=>ack),waiting=vi.fn()
+ return {engine,locked,send,waiting,getEngine:()=>current,getBoard:()=>board,hasPendingLocals:()=>pending!==0,canRequest:()=>connected,resync:send,onWaiting:waiting,
+  active:(v:boolean)=>{active=v},pending:(v:number)=>{pending=v},ack:(v:number)=>{ack=v},board:(v:string)=>{board=v},current:(v:typeof current)=>{current=v},connected:(v:boolean)=>{connected=v}}
+}
+it('defers corrupt recovery until source release and final settlement watermark; healthy cancellation alone never arms',async()=>{
+ const {createCanonicalRecoveryControl}=await import('./canonicalRoomController'),f=recoveryFixture(),control=createCanonicalRecoveryControl(f)
+ control.bind(f.engine,'B');control.restored(f.engine)
+ f.active(true);control.drain();f.active(false);control.drain();expect(f.send).not.toHaveBeenCalled()
+ f.active(true);f.pending(2);control.request(f.engine,'B')
+ expect(f.locked).toHaveBeenCalledOnce();expect(f.send).not.toHaveBeenCalled()
+ const verdicts=createCanonicalRoomVerdicts({repair:()=>control.request(f.engine,'B'),isReplacing:control.isReplacing,drain:control.drain})
+ const op={type:'canonical_stroke_close' as const,id:'C',userId:'U',timestamp:0,layerId:'L',targetUserId:'U',strokeId:'S',disposition:'commitPartial' as const,recordedNext:1,firstFrameOpId:'F',lastFrameOpId:'F'}
+ f.pending(0);f.ack(9);verdicts.onSettled(op,{ok:true,seq:9});expect(f.send).not.toHaveBeenCalled()
+ f.active(false);control.request(f.engine,'B');expect(f.send).toHaveBeenCalledExactlyOnceWith();expect(f.send.mock.results[0].value).toBe(9)
+ control.request(f.engine,'B');control.drain();expect(f.send).toHaveBeenCalledOnce()
+})
+it('retains stalled work and allows only explicit retry after a failed replacement',async()=>{
+ const {createCanonicalRecoveryControl}=await import('./canonicalRoomController'),f=recoveryFixture(),control=createCanonicalRecoveryControl(f)
+ control.bind(f.engine,'B');control.restored(f.engine);f.pending(1);control.request(f.engine,'B')
+ expect(control.drain()).toBe(false);expect(f.send).not.toHaveBeenCalled()
+ f.pending(0);control.drain();expect(f.send).toHaveBeenCalledOnce()
+ control.failed(f.engine);control.request(f.engine,'B');control.drain();expect(f.send).toHaveBeenCalledOnce()
+ control.retry(f.engine,'B');expect(f.send).toHaveBeenCalledTimes(2)
+})
+it('ignores stale engine/board callbacks and does not join while a replacement is restoring',async()=>{
+ const {createCanonicalRecoveryControl}=await import('./canonicalRoomController'),f=recoveryFixture(),control=createCanonicalRecoveryControl(f)
+ control.bind(f.engine,'B');control.request(f.engine,'B');expect(f.send).not.toHaveBeenCalled()
+ const next={setLocked:vi.fn(),hasActiveCanonicalAuthor:()=>false}as unknown as import('../../engine').PencilEngineAPI
+ f.current(next);control.bind(next,'B');control.request(f.engine,'B');expect(f.send).not.toHaveBeenCalled()
+ control.restored(next);f.board('other');control.request(next,'B');expect(f.send).not.toHaveBeenCalled()
+})
+it('keeps an active zero-emission source fail-closed until an existing wake or explicit retry',async()=>{
+ const {createCanonicalRecoveryControl}=await import('./canonicalRoomController'),f=recoveryFixture(),control=createCanonicalRecoveryControl(f)
+ control.bind(f.engine,'B');control.restored(f.engine);f.active(true);control.request(f.engine,'B')
+ expect(f.waiting).toHaveBeenCalledOnce();expect(f.send).not.toHaveBeenCalled()
+ f.active(false);expect(f.send).not.toHaveBeenCalled() // no timer, implicit event or polling
+ control.retry(f.engine,'B');expect(f.send).toHaveBeenCalledOnce()
+})
+
+it('waits for final verdict after source release and does not observe pending-size changes as a new authority',async()=>{
+ const {createCanonicalRecoveryControl}=await import('./canonicalRoomController'),f=recoveryFixture(),control=createCanonicalRecoveryControl(f)
+ control.bind(f.engine,'B');control.restored(f.engine);f.active(true);f.pending(1);control.request(f.engine,'B')
+ f.active(false);control.request(f.engine,'B');expect(f.send).not.toHaveBeenCalled()
+ f.pending(0);expect(f.send).not.toHaveBeenCalled() // storage deletion/onSettled has not completed
+ f.ack(11)
+ const verdicts=createCanonicalRoomVerdicts({repair:()=>control.request(f.engine,'B'),isReplacing:control.isReplacing,drain:control.drain})
+ verdicts.onSettled({type:'canonical_stroke_close',id:'C',userId:'U',timestamp:0,layerId:'L',targetUserId:'U',strokeId:'S',disposition:'commitPartial',recordedNext:1,firstFrameOpId:'F',lastFrameOpId:'F'},{ok:true,seq:11})
+ expect(f.send).toHaveBeenCalledOnce();expect(f.send.mock.results[0].value).toBe(11)
+})
+it('arms before a synchronous lock-triggered fault callback and sends only once',async()=>{
+ const {createCanonicalRecoveryControl}=await import('./canonicalRoomController'),f=recoveryFixture(),control=createCanonicalRecoveryControl(f)
+ control.bind(f.engine,'B');control.restored(f.engine)
+ f.locked.mockImplementation(()=>control.request(f.engine,'B'))
+ control.request(f.engine,'B');expect(f.locked).toHaveBeenCalledOnce();expect(f.send).toHaveBeenCalledOnce()
+})

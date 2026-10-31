@@ -30,9 +30,9 @@ export function createCanonicalRoomAuthor(read:CanonicalRoomStateRead,socket:Can
  return Object.freeze(service)
 }
 /** Stable control facade, not a recorded-read factory. ACK precedes broadcast. */
-export function createCanonicalRoomVerdicts({repair,isReplacing}:{readonly repair:()=>void;readonly isReplacing:()=>boolean}):CanonicalOutboxVerdicts{
+export function createCanonicalRoomVerdicts({repair,isReplacing,drain}:{readonly repair:()=>void;readonly isReplacing:()=>boolean;readonly drain?:()=>unknown}):CanonicalOutboxVerdicts{
  const repairIfNeeded=()=>{if(!isReplacing())repair()}
- const verdicts:CanonicalOutboxVerdicts={onSettled:(_op,result)=>{if(!result.ok)repairIfNeeded()},onStalled:repairIfNeeded}
+ const verdicts:CanonicalOutboxVerdicts={onSettled:(_op,result)=>{if(result.ok)drain?.();else repairIfNeeded()},onStalled:repairIfNeeded}
  return Object.freeze(verdicts)
 }
 
@@ -45,4 +45,41 @@ export async function restoreCanonicalRoomBaseline(engine:PencilEngineAPI,read:C
  assertCanonicalRoomStateRead(read,tail,read.scope.roomId)
  if(currentEngine()!==engine)throw Error('Canonical baseline engine replaced')
  for(const operation of tail)applied.add(operation.id)
+}
+
+/** One control latch for the current engine, never an operation/payload queue.
+ * Fault callbacks already arrive after source holds reach zero. Outbox final
+ * settlement invokes drain after publishing its accepted sequence watermark. */
+export function createCanonicalRecoveryControl(deps:{readonly getEngine:()=>PencilEngineAPI|null;readonly getBoard:()=>string|null;readonly hasPendingLocals:()=>boolean;readonly canRequest:()=>boolean;readonly resync:()=>void;readonly onWaiting:()=>void}){
+ type Origin={engine:PencilEngineAPI;board:string;phase:'restoring'|'ready'|'waiting'|'joining'|'failed';requested:boolean}
+ let origin:Origin|undefined
+ const matches=(engine:PencilEngineAPI,board:string)=>origin?.engine===engine&&origin.board===board&&deps.getEngine()===engine&&deps.getBoard()===board
+ const drain=():boolean=>{
+  const owner=origin
+  if(!owner||!owner.requested||owner.phase!=='waiting'||!matches(owner.engine,owner.board))return false
+  if(owner.engine.hasActiveCanonicalAuthor()||deps.hasPendingLocals()||!deps.canRequest())return false
+  owner.phase='joining'
+  try{deps.resync()}catch{owner.phase='failed';deps.onWaiting();return false}
+  return true
+ }
+ const request=(engine:PencilEngineAPI,board:string):void=>{
+  if(!matches(engine,board))return
+  const owner=origin!
+  if(owner.requested){drain();return}
+  owner.requested=true
+  if(owner.phase==='ready')owner.phase='waiting'
+  deps.onWaiting()
+  // Arm first: locking can synchronously finish a source and reenter here.
+  try{engine.setLocked(true)}catch{owner.phase='failed';return}
+  drain()
+ }
+ return Object.freeze({
+  bind(engine:PencilEngineAPI,board:string){if(origin?.engine===engine&&origin.board===board)return;origin={engine,board,phase:'restoring',requested:false}},
+  detach(engine:PencilEngineAPI){if(origin?.engine===engine)origin=undefined},
+  request,drain,
+  restored(engine:PencilEngineAPI){if(origin?.engine!==engine)return;origin.phase=origin.requested?'waiting':'ready';drain()},
+  failed(engine:PencilEngineAPI){if(origin?.engine===engine)origin.phase='failed'},
+  retry(engine:PencilEngineAPI,board:string){if(!matches(engine,board))return;origin!.phase='waiting';origin!.requested=false;request(engine,board)},
+  isReplacing:()=>origin?.phase==='joining'||origin?.phase==='restoring',
+ })
 }

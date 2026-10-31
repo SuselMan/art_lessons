@@ -1,4 +1,4 @@
-import {canonicalBootstrapOf,stageCanonicalRoomReplacement,createCanonicalRoomAuthor,createCanonicalRoomVerdicts,restoreCanonicalRoomBaseline} from './canonicalRoomController'
+import {canonicalBootstrapOf,stageCanonicalRoomReplacement,createCanonicalRoomAuthor,createCanonicalRoomVerdicts,restoreCanonicalRoomBaseline,createCanonicalRecoveryControl} from './canonicalRoomController'
 import {prepareCanonicalRoomState} from './net/canonicalRoomState'
 import type {CanonicalRoomStateRead} from './net/canonicalRoomState'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
@@ -680,12 +680,15 @@ function RoomEditor() {
   const installedCanonicalReadRef=useRef<CanonicalRoomStateRead|undefined>(undefined)
   const [canonicalMountRevision,setCanonicalMountRevision]=useState(0)
   const canonicalRecorded=useMemo(()=>({apply:(engine:PencilEngineAPI,input:import('../../engine').CanonicalRecordedInput)=>engine.appendOriginalRecorded(input)}),[])
-  const requestCanonicalRepair=useCallback(()=>requestFullResyncRef.current?.(),[])
-  const canonicalVerdicts=useMemo(()=>createCanonicalRoomVerdicts({
-    repair:()=>requestFullResyncRef.current?.(),
-    isReplacing:()=>pendingSnapshotRef.current?.canonicalRead!==undefined||!roomContentReadyRef.current,
-  }),[])
-  const restoreCanonicalBaseline=useCallback((engine:PencilEngineAPI,read:CanonicalRoomStateRead,tail:readonly Operation[])=>restoreCanonicalRoomBaseline(engine,read,tail,()=>engineRef.current,appliedOpIdsRef.current),[appliedOpIdsRef])
+  const requestRoomResync=useCallback(()=>requestFullResyncRef.current?.(),[])
+  const canonicalRecoveryRef=useRef<ReturnType<typeof createCanonicalRecoveryControl>|null>(null)
+  const requestCanonicalRecovery=useCallback(()=>{
+    const engine=engineRef.current,board=boardIdRef.current
+    if(engine&&board)canonicalRecoveryRef.current?.request(engine,board)
+  },[])
+  const canonicalVerdicts=useMemo(()=>createCanonicalRoomVerdicts({repair:requestCanonicalRecovery,
+    isReplacing:()=>canonicalRecoveryRef.current?.isReplacing()??false,
+    drain:()=>canonicalRecoveryRef.current?.drain()}),[requestCanonicalRecovery])
 
   // True once this session's `handleRoomState` has processed its very first
   // `room_state` — governs "initial handshake" vs. "genuine reconnect" there.
@@ -730,9 +733,24 @@ function RoomEditor() {
     verdicts: {
       pendingIdsRef, latestKnownSeqRef, checkSnapshotBoundary,
       confirmOperation: confirmOwnOperationFromAck, discardOperation: discardOwnOperation,
-      resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,canonicalVerdicts,requestFullResync:requestCanonicalRepair,
+      resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,canonicalVerdicts,requestFullResync:requestCanonicalRecovery,
     },
   })
+  const canonicalRecovery=useMemo(()=>createCanonicalRecoveryControl({
+    getEngine:()=>engineRef.current,getBoard:()=>boardIdRef.current,
+    hasPendingLocals:()=>outboxRef.current.pendingCount!==0||pendingIdsRef.current.size!==0||strokeActiveRef.current,
+    canRequest:()=>!!socketRef.current?.connected&&requestFullResyncRef.current!==null,
+    resync:()=>requestFullResyncRef.current?.(),
+    onWaiting:()=>{setRoomContentReady(false);setRestoreFailure('transfer')},
+  }),[outboxRef,pendingIdsRef])
+  canonicalRecoveryRef.current=canonicalRecovery
+  const restoreCanonicalBaseline=useCallback(async(engine:PencilEngineAPI,read:CanonicalRoomStateRead,tail:readonly Operation[])=>{
+    try{await restoreCanonicalRoomBaseline(engine,read,tail,()=>engineRef.current,appliedOpIdsRef.current);canonicalRecovery.restored(engine)}
+    catch(error){canonicalRecovery.failed(engine);throw error}
+  },[appliedOpIdsRef,canonicalRecovery])
+  useEffect(()=>{if(connected)canonicalRecovery.drain()},[connected,canonicalRecovery])
+
+
   // The credentials a joiner's gate submission used, replayed verbatim on a
   // later reconnect (a fresh socket id always means a fresh join — see the
   // handleConnect reconnect branch below).
@@ -857,9 +875,14 @@ function RoomEditor() {
    *  loading overlay back up; if this attempt fails the same way, the catch-up
    *  sets it again and this screen returns. */
   const retryRestore = useCallback(() => {
-    setRestoreFailure(null)
-    requestFullResyncRef.current?.()
-  }, [])
+    const engine=engineRef.current,board=boardIdRef.current
+    if(engine?.rasterVersion===STRAIGHT_ROOM_RASTER_VERSION&&board){
+      canonicalRecovery.retry(engine,board)
+      void outboxRef.current.resendAll().catch(()=>setRestoreFailure('transfer'))
+      return
+    }
+    setRestoreFailure(null);requestRoomResync()
+  }, [canonicalRecovery,requestRoomResync,outboxRef])
 
   // (#493) How the network's operations reach the engine — once each, deferred
   // until their target arrives, restored from a snapshot and backfilled behind
@@ -991,7 +1014,7 @@ function RoomEditor() {
     if (enginePaper === undefined || boardId === null || !canvasRef.current) return
     const requiredCanonical=engineRasterVersion===STRAIGHT_ROOM_RASTER_VERSION
     if(requiredCanonical&&!pendingSnapshotRef.current?.canonicalRead){
-      if(installedCanonicalReadRef.current){setRoomContentReady(false);requestCanonicalRepair()}
+      if(installedCanonicalReadRef.current){setRoomContentReady(false);requestRoomResync()}
       return
     }
     let bootstrap:ReturnType<typeof canonicalBootstrapOf>
@@ -1007,7 +1030,7 @@ function RoomEditor() {
     snapshotGateRef.current = createSnapshotGate(reportInvariant)
     const engine = new PencilEngine(canvasRef.current, {
       rasterVersion: engineRasterVersion,
-      ...bootstrap?{canonicalEmptyRoom:bootstrap,canonicalAuthor}:{},
+      ...bootstrap?{canonicalEmptyRoom:bootstrap,canonicalAuthor,onCanonicalRecoveryRequired:()=>{if(constructed)canonicalRecovery.request(constructed,boardId)}}:{},
       asyncFinish: false,
       joinedTouch: !import.meta.env.DEV || joinedTouchQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_TOUCH, location.search),
       bandBatch: import.meta.env.DEV && new URLSearchParams(location.search).get('qaBandBatch') === '1',
@@ -1041,6 +1064,7 @@ function RoomEditor() {
       ...engineDevOptions,
     })
     constructed=engine
+    if(bootstrap)canonicalRecovery.bind(engine,boardId)
     installedCanonicalReadRef.current=bootstrap?.read
     engineRef.current = engine
     exposeEngineForDev(engine)
@@ -1072,13 +1096,13 @@ function RoomEditor() {
 
     const unhookPageHide = releaseOnPageHide(engine) // (§17.73)
     return () => {
-      if(bootstrap)replayIncompleteRef.current=true
+      if(bootstrap){canonicalRecovery.detach(engine);replayIncompleteRef.current=true}
       engineRef.current = null
       // (#493) Final thumbnail, then destroy: `engine`, not the nulled ref.
       retireEngine(engine, boardId, replayIncompleteRef, unhookPageHide)
     }
   }, [
-    boardId,canonicalMountRevision,requestCanonicalRepair, engineRasterVersion, enginePaper, enginePaperColor, engineInfinite,
+    boardId,canonicalMountRevision,requestRoomResync,canonicalRecovery, engineRasterVersion, enginePaper, enginePaperColor, engineInfinite,
     markActive, applyRemoteOp, syncFromLog, engineDevOptions, checkSnapshotBoundary, restoreRoom, finishOpenTimer,
     isCreator, snapshotUploader, outbox,
     awaitPaper,
