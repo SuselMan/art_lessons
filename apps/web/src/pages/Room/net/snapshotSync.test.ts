@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LayerState } from '@grafetto/shared'
-import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
+import { LEGACY_ROOM_RASTER_VERSION,STRAIGHT_ROOM_RASTER_VERSION,SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../../engine'
 import { createTestEngine, fillStroke, makeLayerAdd } from '../../../engine/testing/engineTestUtils'
 import type { ILayerBuffer } from '../../../engine/src/buffers/ILayerBuffer'
@@ -41,6 +41,7 @@ function fakeEngine(
 ): { engine: PencilEngineAPI; bakeCalls: string[] } {
   const bakeCalls: string[] = []
   const engine = {
+    rasterVersion:LEGACY_ROOM_RASTER_VERSION,
     liveLayerIds: () => liveLayerIds,
     isLayerDirty: (layerId: string) => dirty.includes(layerId),
     bakeNetworkSnapshot: (layerId: string) => {
@@ -725,4 +726,28 @@ describe('bootstrap index reconciliation deadlines', () => {
       expect(vi.getTimerCount()).toBe(0)
     } finally { vi.useRealTimers() }
   })
+})
+
+describe('authoritative snapshot raster frontier',()=>{
+ it('keeps canonical bootstrap and structural snapshots closed but preserves deduplicated thumbnail boundaries',async()=>{
+  const uploader=createSnapshotUploader('room-1'),{engine}=fakeEngine({'layer-1':null},new Blob(['preview'],{type:'image/png'}))
+  Object.defineProperty(engine,'rasterVersion',{value:STRAIGHT_ROOM_RASTER_VERSION})
+  const bake=vi.spyOn(engine,'bakeNetworkSnapshot'),live=vi.spyOn(engine,'liveLayerIds'),dirty=vi.spyOn(engine,'isLayerDirty'),preview=vi.spyOn(engine,'bakePreview')
+  uploader.requestFirstSnapshot();uploader.tryFirstSnapshot(47,engine,layerState());uploader.tryFirstSnapshot(48,engine,layerState())
+  uploader.onSeqObserved(99,100,engine,layerState());uploader.onSeqObserved(99,100,engine,layerState());uploader.onSeqObserved(100,101,engine,layerState())
+  uploader.onSeqObserved(100,201,engine,layerState());uploader.onSeqObserved(199,200,engine,layerState())
+  await vi.waitFor(()=>expect(fetchCallsTo('/api/rooms/room-1/thumbnail')).toHaveLength(2))
+  expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(0);expect(bake).not.toHaveBeenCalled();expect(live).not.toHaveBeenCalled();expect(dirty).not.toHaveBeenCalled();expect(preview).toHaveBeenCalledTimes(2)
+ })
+ it('rejects an unknown runtime raster before authoritative capture without treating undefined as legacy',async()=>{
+  const uploader=createSnapshotUploader('room-1'),{engine}=fakeEngine({'layer-1':null}),bake=vi.spyOn(engine,'bakeNetworkSnapshot')
+  Object.defineProperty(engine,'rasterVersion',{value:undefined});uploader.requestFirstSnapshot();uploader.tryFirstSnapshot(47,engine,layerState());uploader.onSeqObserved(99,100,engine,layerState())
+  await new Promise(resolve=>setTimeout(resolve,0));expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(0);expect(bake).not.toHaveBeenCalled()
+ })
+ it('preserves actual legacy structural uploads even when every pixel bake returns null',async()=>{
+  const uploader=createSnapshotUploader('room-1'),{engine}=fakeEngine({'layer-1':null})
+  uploader.onSeqObserved(99,100,engine,layerState())
+  await vi.waitFor(()=>expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
+  const body=JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[0][1].body);expect(body.layers).toEqual({});expect(body.layerState).toEqual(layerState());expect(body.seq).toBe(100)
+ })
 })

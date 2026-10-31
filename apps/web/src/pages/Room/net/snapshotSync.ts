@@ -1,5 +1,5 @@
 import type { LayerState, RouteResponse } from '@grafetto/shared'
-import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
+import { LEGACY_ROOM_RASTER_VERSION,STRAIGHT_ROOM_RASTER_VERSION,SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../../engine'
 import { api, apiResponse, ApiError } from '../../../lib/api/api'
 import { reportInvariant } from '../../../lib/observability/reportInvariant'
@@ -158,7 +158,7 @@ export function createSnapshotUploader(roomId: string, options: { workerCompress
     /** The caller reads this watermark and structure in the same task as bake.
      * A refused wet/pending layer remains eligible for the next observation. */
     tryFirstSnapshot(seq: number, engine: PencilEngineAPI, layerState: LayerState): void {
-      if (!bootstrap || bootstrapUploading || seq <= 0) return
+      if (engine.rasterVersion!==LEGACY_ROOM_RASTER_VERSION || !bootstrap || bootstrapUploading || seq <= 0) return
       // A candidate describes one immutable historical state. Neither newer
       // pixels nor another engine may be silently labelled with its old seq.
       if (candidate && (candidate.engine !== engine || candidate.seq !== seq)) candidate = undefined
@@ -227,6 +227,13 @@ export function createSnapshotUploader(roomId: string, options: { workerCompress
       if (toBoundary <= fromBoundary) return
       const boundarySeq = toBoundary * SNAPSHOT_SEQ_INTERVAL
       if (boundarySeq === 0 || attempted.has(boundarySeq)) return
+      // Canonical pixel readiness does not authorize legacy structural coverage.
+      // Thumbnails remain independent, with the same per-boundary deduplication.
+      if(engine.rasterVersion!==LEGACY_ROOM_RASTER_VERSION){
+        attempted.add(boundarySeq)
+        if(engine.rasterVersion===STRAIGHT_ROOM_RASTER_VERSION)void uploadThumbnail(roomId,engine)
+        return
+      }
       // (#536, ADR 011 §17.66) Only when the canvas stands exactly ON the
       // boundary. The buffers baked below hold everything up to newSeq, and
       // labelling that boundarySeq made every restore paint boundarySeq+1..newSeq
