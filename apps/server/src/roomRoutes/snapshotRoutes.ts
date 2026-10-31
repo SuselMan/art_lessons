@@ -83,6 +83,11 @@ export function registerSnapshotRoutes(app: FastifyInstance, canonicalTransport 
       try{
         const read=await canonicalTransport.prepareReadDelivery({roomId,userId:request.userId},()=>rooms.get(roomId)===record&&lessonRecordOf(record)===lesson)
         index=await getSnapshotIndex(roomId,{prepareCanonicalPrefix:read.preparePrefix})
+        if(!await mayReadBoardContent(roomId,request.userId))return reply.code(403).send({error:'forbidden'})
+        // Reuse the ORIGINAL read owner after the final await, even for an
+        // empty/V1-only index where no prefix callback ran. Never bless old
+        // index bytes with a fresh storage/operator/room owner.
+        read.finish([],[])
         if(rooms.get(roomId)!==record||lessonRecordOf(record)!==lesson)throw Error('Stale canonical snapshot index')
       }catch{return reply.code(409).send({error:'canonical_history_unavailable'})}
     }else index=await getSnapshotIndex(roomId)

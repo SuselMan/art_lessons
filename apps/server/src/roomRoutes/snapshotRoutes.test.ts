@@ -260,7 +260,7 @@ describe('paired canonical history delivery with the SAME owner',()=>{
 
 it.each(['ready','failed','stale'] as const)('pairs canonical snapshot-index preparation with the SAME scoped owner (%s)',async mode=>{
  const {rooms}=await import('../rooms/roomRegistry.js')
- const record:import('../rooms/roomRegistry.js').RoomRecord={room:{id:'room-1',name:'Board',ownerId:'author',paper:'flat',infinite:false,canvasWidth:64,canvasHeight:64,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},lessonId:null,sockets:new Set(),boards:[],assignments:[],activeAssignmentId:null,spotlightBoardId:null,handsRaised:new Set(),assignmentStarting:false,passwordHash:undefined,operations:[],participants:new Map(),nextSeq:1,layerStateSeq:null,layerStateIds:null,coveredSeqByLayer:new Map(),palette:[],roomFrozen:false,frozenUserIds:new Set(),lockedLayerIds:new Set(),sharedLockedLayerIds:new Set(),aliveIds:new Set(['L']),deletedIds:new Set(),operationsById:new Map(),structuralLog:[]}
+ const record=canonicalIndexRecord()
  rooms.set('room-1',record)
  const owner=new CanonicalRoomTransport(),preparePrefix=vi.fn<import('../rooms/snapshotReplayLoader.js').CanonicalPrefixPreparer>(),scope={roomId:'room-1',boardEpoch:2}
  let current:(()=>boolean)|undefined
@@ -280,5 +280,40 @@ it.each(['ready','failed','stale'] as const)('pairs canonical snapshot-index pre
   expect(read).toHaveBeenCalledWith({roomId:'room-1',userId:'student'},expect.any(Function))
   if(mode==='ready'){expect(result.statusCode).toBe(200);expect(result.json()).toEqual(index)}
   else {expect(result.statusCode).toBe(409);expect(result.json()).toEqual({error:'canonical_history_unavailable'})}
+ }finally{rooms.delete('room-1');await app.close()}
+})
+
+function canonicalIndexRecord():import('../rooms/roomRegistry.js').RoomRecord{return {room:{id:'room-1',name:'Board',ownerId:'author',paper:'flat',infinite:false,canvasWidth:64,canvasHeight:64,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},lessonId:null,sockets:new Set(),boards:[],assignments:[],activeAssignmentId:null,spotlightBoardId:null,handsRaised:new Set(),assignmentStarting:false,passwordHash:undefined,operations:[],participants:new Map(),nextSeq:1,layerStateSeq:null,layerStateIds:null,coveredSeqByLayer:new Map(),palette:[],roomFrozen:false,frozenUserIds:new Set(),lockedLayerIds:new Set(),sharedLockedLayerIds:new Set(),aliveIds:new Set(['L']),deletedIds:new Set(),operationsById:new Map(),structuralLog:[]}}
+it.each(['operator','storage'] as const)('refuses an empty canonical index after SAME-room %s replacement without calling any prefix preparer',async kind=>{
+ const {rooms}=await import('../rooms/roomRegistry.js'),storageModule=await import('../brushLibrary/storage.js')
+ const {mkdtempSync,rmSync}=await import('node:fs'),{tmpdir}=await import('node:os'),{join}=await import('node:path')
+ const dir=mkdtempSync(join(tmpdir(),'canonical-index-owner-')),record=canonicalIndexRecord()
+ rooms.set('room-1',record)
+ const firstStorage=new storageModule.BrushStorage(join(dir,'first')),firstOperator=storageModule.empty()
+ const context=vi.spyOn(storageModule,'canonicalBrushStorageContext').mockReturnValue({storage:firstStorage,operator:firstOperator})
+ const owner=new CanonicalRoomTransport(),read=vi.spyOn(owner,'prepareReadDelivery')
+ mockRooms.getSnapshotIndex.mockImplementation(async(_roomId,preparation)=>{
+  expect(typeof preparation.prepareCanonicalPrefix).toBe('function')
+  expect(record.operations).toEqual([]) // No V2 frame/prefix callback can refresh this ticket.
+  context.mockReturnValue({storage:kind==='storage'?new storageModule.BrushStorage(join(dir,'replacement')):firstStorage,operator:kind==='operator'?storageModule.empty():firstOperator})
+  return {seq:3,layerState:{},layers:[]}
+ })
+ const app=buildApp(owner)
+ try{
+  const result=await app.inject({method:'GET',url:'/api/rooms/room-1/snapshots/index'})
+  expect(result.statusCode).toBe(409);expect(result.json()).toEqual({error:'canonical_history_unavailable'})
+  expect(read).toHaveBeenCalledOnce();expect(rooms.get('room-1')).toBe(record)
+  expect(mockRooms.getSnapshotIndex).toHaveBeenCalledOnce()
+ }finally{context.mockRestore();rooms.delete('room-1');await app.close();rmSync(dir,{recursive:true,force:true})}
+})
+it('rechecks read permission after canonical index preparation and publishes no index after revocation',async()=>{
+ const {rooms}=await import('../rooms/roomRegistry.js'),record=canonicalIndexRecord();rooms.set('room-1',record)
+ const owner=new CanonicalRoomTransport(),finish=vi.fn(()=>({canonicalReadScope:{roomId:'room-1',boardEpoch:2}}))
+ vi.spyOn(owner,'prepareReadDelivery').mockResolvedValue({scope:{roomId:'room-1',boardEpoch:2},preparePrefix:vi.fn(),finish})
+ mockRooms.getSnapshotIndex.mockImplementation(async()=>{mockRooms.mayReadBoardContent.mockResolvedValueOnce(false);return {seq:3,layerState:{},layers:[]}})
+ const app=buildApp(owner)
+ try{
+  const result=await app.inject({method:'GET',url:'/api/rooms/room-1/snapshots/index'})
+  expect(result.statusCode).toBe(403);expect(result.json()).toEqual({error:'forbidden'});expect(finish).not.toHaveBeenCalled()
  }finally{rooms.delete('room-1');await app.close()}
 })

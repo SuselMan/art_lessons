@@ -63,3 +63,12 @@ scoped client history repair and actual editor/source activation are separate
 coherent gates. Canonical snapshotCoverage remains false. Tests close their
 socket servers and remove BrushStorage temp dirs; no persistent processes,
 browser contexts, dependency copies or QA services were created or retained.
+
+HTTP index follow-up: after dependency loading, reauthorize the reader and call
+the ORIGINAL prepared read owner finish([],[]) synchronously after the final
+await, including empty/V1-only indexes. Same-record storage/operator swaps now
+return409; revoked access returns403 before publication. No fresh owner can
+bless stale index bytes. Actual CanonicalRoomTransport/BrushStorage tests cover
+both context swaps without a prefix callback; all26 route tests, scoped oxlint
+and final server TypeScript62224 PASS. Temporary BrushStorage directories are
+removed in finally; no persistent runtime resources remain.
