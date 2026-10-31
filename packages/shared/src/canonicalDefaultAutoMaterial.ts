@@ -1,10 +1,10 @@
-import {CANONICAL_STROKE_RASTER_PROFILE,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
+import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,canonicalStrokeCoverageMatches,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
 import type { BrushDescriptor } from './brushes.js'
 import { extractDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability, canonicalSourceComposition } from './canonicalBrushCapability.js'
 import type { SourceDefaultAutoData, SourceGaussianAutoData } from './sourceStampData.js'
 import { sourceAutoGeometry } from './sourceAutoGeometry.js'
 
-export type CanonicalAutoCoverageProfile = 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1'
+export type CanonicalAutoCoverageProfile = 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1' | typeof CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE
 export interface CanonicalDefaultAutoRecipe {
   readonly kind: 'defaultAuto'
   readonly source: SourceDefaultAutoData
@@ -23,7 +23,7 @@ export interface CanonicalDefaultAutoSource {
   readonly brushScale: number; readonly brushAngle: number
   readonly coverageProfile: CanonicalAutoCoverageProfile
 }
-export type CanonicalGaussianCoverageProfile = 'scalar-bionic-f64-fma-v1' | 'neon64-f32-fma-v1'
+export type CanonicalGaussianCoverageProfile = 'scalar-bionic-f64-fma-v1' | 'neon64-f32-fma-v1' | typeof CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE
 export interface CanonicalGaussianAutoRecipe extends Omit<CanonicalDefaultAutoRecipe, 'kind'|'source'|'coverageProfile'> {
   readonly kind: 'gaussianAuto'
   readonly source: SourceGaussianAutoData
@@ -63,7 +63,7 @@ function autoSourcePin<T extends CanonicalAutoSource>(trusted: T): T {
     || !['defaultAuto','gaussianAuto'].includes(trusted.kind) || trusted.source?.kind !== trusted.kind || typeof trusted.descriptorId!=='string' || !trusted.descriptorId || trusted.descriptorId.length > 256
     || trusted.descriptorId.includes('\0') || !Number.isSafeInteger(trusted.descriptorVersion) || trusted.descriptorVersion < 1
     || typeof trusted.descriptorSha256!=='string' || !/^[a-f0-9]{64}$/.test(trusted.descriptorSha256)
-    || !(trusted.kind === 'defaultAuto' ? ['scalar-f64-fma-v1','neon64-f32-fma-v1'] : ['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1']).includes(trusted.coverageProfile)) throw new TypeError('Invalid trusted auto source')
+    || !(trusted.kind === 'defaultAuto' ? ['scalar-f64-fma-v1','neon64-f32-fma-v1',CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE] : ['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1',CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE]).includes(trusted.coverageProfile)) throw new TypeError('Invalid trusted auto source')
   return Object.freeze<T>({...trusted,...autoStatic(trusted.source,trusted.brushScale,trusted.brushAngle)})
 }
 export function canonicalAutoCost(recipe: CanonicalAutoRecipe, trusted: CanonicalAutoSource): { workUnits: number; outputBytes: number } {
@@ -94,10 +94,10 @@ export function canonicalAutoCost(recipe: CanonicalAutoRecipe, trusted: Canonica
  * owns authentication, descriptor SHA verification and execution policy. */
 export function canonicalDefaultAutoSourceBinding(descriptor: BrushDescriptor, descriptorSha256: string,
   coverageProfile: CanonicalAutoCoverageProfile,rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_RASTER_PROFILE): CanonicalDefaultAutoSource {
-  if(!canonicalSourceComposition(descriptor,rasterProfile))throw new TypeError('Default-auto outer composition unavailable')
+  if(!canonicalStrokeCoverageMatches(rasterProfile,coverageProfile)||!canonicalSourceComposition(descriptor,rasterProfile))throw new TypeError('Default-auto outer composition unavailable')
   const result = extractDefaultAutoSourceDataCapability(descriptor)
   if (!result.supported || !/^[a-f0-9]{64}$/.test(descriptorSha256)
-    || !['scalar-f64-fma-v1','neon64-f32-fma-v1'].includes(coverageProfile)) throw new TypeError('Default-auto source capability unavailable')
+    || !['scalar-f64-fma-v1','neon64-f32-fma-v1',CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE].includes(coverageProfile)) throw new TypeError('Default-auto source capability unavailable')
   const normalized = canonicalDefaultAutoStatic(result.data.source, result.data.brush.scale, result.data.brush.angle)
   return canonicalDefaultAutoSourcePin({kind:'defaultAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,
     descriptorSha256, ...normalized, coverageProfile})
@@ -130,7 +130,7 @@ export function canonicalGaussianAutoCost(recipe: CanonicalGaussianAutoRecipe, s
 }
 export function canonicalGaussianAutoSourceBinding(descriptor: BrushDescriptor, descriptorSha256: string,
   coverageProfile: CanonicalGaussianCoverageProfile,rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_RASTER_PROFILE): CanonicalGaussianAutoSource {
-  if(!canonicalSourceComposition(descriptor,rasterProfile))throw new TypeError('Gaussian outer composition unavailable')
+  if(!canonicalStrokeCoverageMatches(rasterProfile,coverageProfile)||!canonicalSourceComposition(descriptor,rasterProfile))throw new TypeError('Gaussian outer composition unavailable')
   const result = extractGaussianAutoSourceDataCapability(descriptor)
   if (!result.supported) throw new TypeError('Gaussian source capability unavailable')
   return canonicalGaussianAutoSourcePin({kind:'gaussianAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,

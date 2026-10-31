@@ -1,3 +1,4 @@
+import {CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE} from './canonicalStrokeFrame.js'
 import { canonicalSoftAutoSourcePin, canonicalSoftAutoStatic, canonicalSoftAutoCost, type CanonicalSoftAutoSource, type CanonicalSoftAutoRecipe } from './canonicalSoftAutoMaterial.js'
 import { canonicalAutoCost, canonicalDefaultAutoStatic, canonicalDefaultAutoSourcePin, canonicalGaussianAutoStatic, canonicalGaussianAutoSourcePin, type CanonicalAutoRecipe, type CanonicalAutoSource } from './canonicalDefaultAutoMaterial.js'
 import { canonicalMaterialGeometryCost } from './canonicalMaterialGeometry.js'
@@ -276,7 +277,7 @@ export function packCanonicalMaterial(f:AnyCanonicalMaterialFrame,c:AnyCanonical
       FLOATS.forEach((k,j)=>v.setFloat64(offset+8+j*8,d[k],true))
     } else {
       bytes[offset]=auto(d)?(d.kind==='softAuto'?4:d.kind==='gaussianAuto'?3:d.source.shape==='circle'?1:2):0
-      bytes[offset+1]=auto(d)?(d.coverageProfile==='neon64-f32-fma-v1'?2:1):0
+      bytes[offset+1]=auto(d)?(d.coverageProfile===CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE?3:d.coverageProfile==='neon64-f32-fma-v1'?2:1):0
       bytes[offset+2]=Number(d.mirrorH)|Number(d.mirrorV)<<1|(auto(d)&&d.source.antialias?4:0)
       bytes[offset+3]=auto(d)?(d.kind==='softAuto'?d.sourceSlot:0):ids.indexOf(d.asset)
       const values=auto(d)?[d.source.diameter,d.source.ratio,d.source.horizontalFade,d.source.verticalFade,...FLOATS.map(k=>d[k])]:FLOATS.map(k=>d[k])
@@ -318,7 +319,7 @@ export function unpackCanonicalMaterial(text:string,c:AnyCanonicalMaterialContex
   let nextAsset=0
   for(let i=0;i<dc;i++){
     const o=defOffset+i*definitionBytes,tag=version===1?0:u8(o)
-    if(version===2&&(tag>4||u8(o+1)>(tag?2:0)||tag&&u8(o+1)===0||u8(o+2)>(tag&&tag!==4?7:3)))fail()
+    if(version===2&&(tag>4||u8(o+1)>(tag?3:0)||tag&&u8(o+1)===0||u8(o+2)>(tag&&tag!==4?7:3)))fail()
     if(version===1&& (u8(o+1)>3||u16(o+2)!==0))fail()
     if(tag) {if(tag===4?u8(o+3)>1:u8(o+3)!==0)fail()}
     else {const ai=version===1?u8(o):u8(o+3);if(ai>nextAsset||ai>=ac)fail();if(ai===nextAsset)nextAsset++}
@@ -338,11 +339,11 @@ export function unpackCanonicalMaterial(text:string,c:AnyCanonicalMaterialContex
         const sourceSlot=u8(o+3),pin=sourceSlot===0?c.primarySource:c.maskSource
         if(pin?.kind!=='softAuto'||pin.sourceSlot!==sourceSlot)return fail()
         const trusted=canonicalSoftAutoSourcePin(pin)
-        return {...values,kind:'softAuto',sourceSlot:trusted.sourceSlot,coverageProfile:u8(o+1)===1?'scalar-f64-fma-v1':'neon64-f32-fma-v1',
+        return {...values,kind:'softAuto',sourceSlot:trusted.sourceSlot,coverageProfile:u8(o+1)===3?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:u8(o+1)===1?'scalar-f64-fma-v1':'neon64-f32-fma-v1',
           source:{...trusted.source,...source,kind:'softAuto',generator:'soft',shape:'circle',antialias:false}}
       }
-      return tag===3 ? {...values,kind:'gaussianAuto',coverageProfile:u8(o+1)===1?'scalar-bionic-f64-fma-v1':'neon64-f32-fma-v1',source:{...source,kind:'gaussianAuto',generator:'gauss',shape:'circle'}}
-        : {...values,kind:'defaultAuto',coverageProfile:u8(o+1)===1?'scalar-f64-fma-v1':'neon64-f32-fma-v1',source:{...source,kind:'defaultAuto',generator:'default',shape:tag===1?'circle':'rect'}}
+      return tag===3 ? {...values,kind:'gaussianAuto',coverageProfile:u8(o+1)===3?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:u8(o+1)===1?'scalar-bionic-f64-fma-v1':'neon64-f32-fma-v1',source:{...source,kind:'gaussianAuto',generator:'gauss',shape:'circle'}}
+        : {...values,kind:'defaultAuto',coverageProfile:u8(o+1)===3?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:u8(o+1)===1?'scalar-f64-fma-v1':'neon64-f32-fma-v1',source:{...source,kind:'defaultAuto',generator:'default',shape:tag===1?'circle':'rect'}}
     }
     const image={asset:id(u8(o+(version===1?0:3))),...common,brushScale:v.getFloat64(o+8,true),brushAngle:v.getFloat64(o+16,true),scale:v.getFloat64(o+24,true),ratio:v.getFloat64(o+32,true),rotation:v.getFloat64(o+40,true),subX:v.getFloat64(o+48,true),subY:v.getFloat64(o+56,true)}
     return version===1?image:{...image,kind:'image'}

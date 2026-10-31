@@ -1,4 +1,4 @@
-import { canonicalSoftAutoCost, canonicalSoftAutoSourcePin, canonicalSoftAutoDataEqual, type CanonicalSoftAutoRecipe, type CanonicalSoftAutoSource } from '@grafetto/shared';
+import { CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE, canonicalSoftAutoCost, canonicalSoftAutoSourcePin, canonicalSoftAutoDataEqual, type CanonicalSoftAutoRecipe, type CanonicalSoftAutoSource } from '@grafetto/shared';
 import { prepareSourceSoftCircleDab } from '../presets/sourceSoftCircleDab';
 import { CanonicalSoftCircleProgramOwner } from './CanonicalSoftCircleProgramOwner';
 import { canonicalAutoCost, type CanonicalAutoRecipe, type CanonicalAutoSource } from '@grafetto/shared';
@@ -52,6 +52,7 @@ export function isCanonicalSoftAutoMaterial(m: CanonicalAutoMaskMaterial): m is 
 }
 /** Caller supplies the already authenticated source pin; this is not an attestation. */
 export function prepareCanonicalAutoMask(material: CanonicalAutoMaskMaterial) {
+  if(material.recipe.coverageProfile===CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE)throw new TypeError('Browser coverage renderer unavailable');
   const recipe = material.recipe;
   const common = {
     storedScale: recipe.brushScale, storedAngle: recipe.brushAngle,
@@ -75,6 +76,7 @@ export function prepareCanonicalAutoMask(material: CanonicalAutoMaskMaterial) {
   }
   canonicalAutoCost(material.recipe, material.trustedSource);
   const r = material.recipe, releaseProgram = () => {};
+  if (r.coverageProfile === CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE) throw new TypeError('Browser coverage renderer unavailable');
   if (r.kind === 'gaussianAuto') return { ...prepareSourceGaussianDab({ ...common,
     dialect: 'krita-gaussian-auto-qt5-arm64-v1', coverageProfile: r.coverageProfile,
     tip: { ...r.source, kind: 'auto', spikes: 2, softness: 1, randomness: 0, density: 1 } }), releaseProgram };

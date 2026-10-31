@@ -474,9 +474,10 @@ it('skips fully clipped pixel work without allocating targets, changing source h
 
 
 function closedAutoFrame(pin:CanonicalDefaultAutoSource){
+  const coverageProfile=pin.coverageProfile;if(coverageProfile==='browser-number-coverage-v1')throw Error('Native fixture coverage required');
   const r=prepareSourceDefaultAutoDab({dialect:'krita-default-auto-qt5-arm64-v1',tip:{...pin.source,kind:'auto',spikes:2,softness:1,randomness:0,density:1},
     storedScale:pin.brushScale,storedAngle:pin.brushAngle,shape:{scale:1,ratio:1,rotation:0},subpixelX:0,subpixelY:0,
-    coverageProfile:pin.coverageProfile,maxPixels:1048576,maxWorkSamples:16*1048576});
+    coverageProfile,maxPixels:1048576,maxWorkSamples:16*1048576});
   const [width,height]=r.geometry.maskSize;
   const def:CanonicalDefaultAutoRecipe={kind:'defaultAuto',source:pin.source,coverageProfile:pin.coverageProfile,
     brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale:1,ratio:1,rotation:0,subX:0,subY:0,width,height,mirrorH:false,mirrorV:false};

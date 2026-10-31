@@ -1,4 +1,4 @@
-import {CANONICAL_STROKE_RASTER_PROFILE,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
+import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,canonicalStrokeCoverageMatches,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
 import type { BrushDescriptor } from './brushes.js'
 import { extractSoftAutoSourceDataCapability, canonicalSourceComposition } from './canonicalBrushCapability.js'
 import type { SourceSoftAutoData, SourceStampCompiledCurve } from './sourceStampData.js'
@@ -13,7 +13,7 @@ export interface CanonicalSoftAutoSource {
   readonly descriptorId:string; readonly descriptorVersion:number; readonly descriptorSha256:string
   readonly source:SourceSoftAutoData
   readonly brushScale:number; readonly brushAngle:number
-  readonly coverageProfile:'scalar-f64-fma-v1'|'neon64-f32-fma-v1'
+  readonly coverageProfile:'scalar-f64-fma-v1'|'neon64-f32-fma-v1'|typeof CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE
   readonly reader:'krita-bd6e8d0-v1'
   readonly compilerProfile:typeof SOURCE_STAMP_MAPPED_COMPILER_PROFILE
   readonly buildId:string
@@ -57,7 +57,7 @@ export function canonicalSoftAutoSourcePin(pin:CanonicalSoftAutoSource):Canonica
     ||pin.kind!=='softAuto'||![0,1].includes(pin.sourceSlot)||typeof pin.descriptorId!=='string'||!pin.descriptorId||pin.descriptorId.length>256||pin.descriptorId.includes('\0')
     ||!Number.isSafeInteger(pin.descriptorVersion)||pin.descriptorVersion<1||typeof pin.descriptorSha256!=='string'||!/^[a-f0-9]{64}$/.test(pin.descriptorSha256)
     ||pin.reader!=='krita-bd6e8d0-v1'||pin.compilerProfile!==SOURCE_STAMP_MAPPED_COMPILER_PROFILE||typeof pin.buildId!=='string'||!/^[a-f0-9]{64}$/.test(pin.buildId)
-    ||!['scalar-f64-fma-v1','neon64-f32-fma-v1'].includes(pin.coverageProfile))fail()
+    ||!['scalar-f64-fma-v1','neon64-f32-fma-v1',CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE].includes(pin.coverageProfile))fail()
   const normalized=canonicalSoftAutoStatic(pin.source,pin.brushScale,pin.brushAngle),radial=pin.radialCurve
   if(!closed(radial,['source','coefficients'])||!isSourceStampCurveData(radial.source)||!canonicalSoftAutoDataEqual(radial.source,pin.source.softnessCurve)
     ||!Array.isArray(radial.coefficients)||radial.coefficients.length!==Math.max(1,radial.source.points.length-1)
@@ -85,8 +85,8 @@ export function canonicalSoftAutoSourceBinding(descriptor:BrushDescriptor,descri
   coverageProfile:CanonicalSoftAutoSource['coverageProfile'],sourceSlot:0|1=0,rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_RASTER_PROFILE):CanonicalSoftAutoSource {
   // Reject unsupported policy before inspecting the descriptor or its programs.
   if(sourceSlot!==0||typeof descriptorSha256!=='string'||!/^[a-f0-9]{64}$/.test(descriptorSha256)
-    ||!['scalar-f64-fma-v1','neon64-f32-fma-v1'].includes(coverageProfile))throw new TypeError('Soft-auto source capability unavailable')
-  if(!canonicalSourceComposition(descriptor,rasterProfile))throw new TypeError('Soft-auto outer composition unavailable')
+    ||!['scalar-f64-fma-v1','neon64-f32-fma-v1',CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE].includes(coverageProfile))throw new TypeError('Soft-auto source capability unavailable')
+  if(!canonicalStrokeCoverageMatches(rasterProfile,coverageProfile)||!canonicalSourceComposition(descriptor,rasterProfile))throw new TypeError('Soft-auto outer composition unavailable')
   const result=extractSoftAutoSourceDataCapability(descriptor)
   if(!result.supported)throw new TypeError('Soft-auto source capability unavailable')
   const {data}=result,compiled=data.compiled

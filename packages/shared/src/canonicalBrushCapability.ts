@@ -1,4 +1,4 @@
-import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
+import {CANONICAL_STROKE_RASTER_PROFILE,canonicalStrokeRasterContract,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
 import type { BrushDescriptor } from './brushes.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
 import { isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData } from './sourceStampData.js'
@@ -24,13 +24,14 @@ export function hasCanonicalOverComposition(descriptor:BrushDescriptor):boolean 
  * This is neither source-data readiness nor room/server execution permission.
  * Other material/effect gates remain with source extractors and the resolver. */
 export function canonicalSourceComposition(descriptor:BrushDescriptor,rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_RASTER_PROFILE):Readonly<{mode:'wash'|'buildup';outerBlend:CanonicalStrokeComposition['outerBlend']}>|undefined {
-  if(rasterProfile!==CANONICAL_STROKE_RASTER_PROFILE&&rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)return
+  let contract:ReturnType<typeof canonicalStrokeRasterContract>
+  try{contract=canonicalStrokeRasterContract(rasterProfile)}catch{return}
   const outerBlend=nativeOuterBlend(descriptor)
   if(!outerBlend)return
   const data=descriptor.sourceStamp
   if(!isSourceStampData(data))return
   const mode=sourceStampPaintingMode(data)
-  if(!mode||outerBlend!=='over'&&(rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||mode!=='wash'))return
+  if(!mode||outerBlend!=='over'&&(!contract.genericSC||mode!=='wash'))return
   return Object.freeze({mode,outerBlend})
 }
 

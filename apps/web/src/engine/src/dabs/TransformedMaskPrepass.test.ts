@@ -639,12 +639,13 @@ describe('Gaussian in the same incremental prepass slot and cache',()=>{
       const owner={},baseline=s.cpu.reservedBytes
       try {for(const accepted of fixture.accepted)for(const draw of accepted.frame.draws) {
         const recipe=accepted.frame.definitions[draw.definition];if(recipe.kind!=='gaussianAuto')throw Error('Missing Gaussian recipe')
+        const coverageProfile=recipe.coverageProfile;if(coverageProfile==='browser-number-coverage-v1')throw Error('Native fixture coverage required')
         const r={...requestFor(recipe,fixture.pin,owner),rect:{x:draw.x,y:draw.y,width:recipe.width,height:recipe.height}}
         const mask=capture(s,recipe.width,recipe.height),hit=drain(s,r)
         if(!hit) {
           const raw=sourceGaussianDab({dialect:'krita-gaussian-auto-qt5-arm64-v1',tip:{...recipe.source,kind:'auto',spikes:2,softness:1,randomness:0,density:1},
             storedScale:recipe.brushScale,storedAngle:recipe.brushAngle,shape:{scale:recipe.scale,ratio:recipe.ratio,rotation:recipe.rotation},subpixelX:recipe.subX,subpixelY:recipe.subY,
-            coverageProfile:recipe.coverageProfile,maxPixels:1048576,maxWorkSamples:16*1048576})
+            coverageProfile,maxPixels:1048576,maxWorkSamples:16*1048576})
           expect(mask).toEqual(raw.mask)
         }
         const group=s.service.resolveGroup([r]);group.release()

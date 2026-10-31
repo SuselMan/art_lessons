@@ -1,7 +1,7 @@
 import type {Operation} from './operations.js'
 import type {CanonicalStrokeOperation,CanonicalStrokeSnapshotV2} from './canonicalStrokeOperation.js'
 import {buildCanonicalMaterial} from './canonicalMaterialCodec.js'
-import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,decodeCanonicalStrokeFrame,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
+import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_RASTER_CONTRACTS,canonicalStrokeRasterContract,decodeCanonicalStrokeFrame,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
 import {canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin} from './canonicalDefaultAutoMaterial.js'
 import {canonicalSoftAutoSourcePin} from './canonicalSoftAutoMaterial.js'
 
@@ -30,14 +30,16 @@ const closed=(v:unknown,keys:readonly string[]):v is Record<string,unknown>=>rec
 const text=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.length<=256&&!v.includes('\0')
 const integer=(v:unknown):v is number=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=0&&v<Number.MAX_SAFE_INTEGER
 const bytes=(v:unknown)=>new TextEncoder().encode(JSON.stringify(v)).length
+const attachmentRasterProfile=(value:unknown):CanonicalStrokeRasterProfile=>{
+ try{return canonicalStrokeRasterContract(value).profile}catch{return fail()}
+}
 /** Copy a bounded receiver policy, never a profile selected by received data.
  * The legacy singleton and a list cannot both be supplied. */
 export function canonicalRecordedRasterProfiles(scope:Pick<CanonicalRecordedReadScope,'rasterProfile'|'allowedRasterProfiles'>):readonly CanonicalStrokeRasterProfile[] {
  if(scope.rasterProfile!==undefined&&scope.allowedRasterProfiles!==undefined)return fail()
  const profiles=scope.allowedRasterProfiles!==undefined?scope.allowedRasterProfiles:[scope.rasterProfile===undefined?CANONICAL_STROKE_RASTER_PROFILE:scope.rasterProfile]
- if(!Array.isArray(profiles)||profiles.length<1||profiles.length>2||new Set(profiles).size!==profiles.length
-  ||profiles.some(p=>p!==CANONICAL_STROKE_RASTER_PROFILE&&p!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return fail()
- return Object.freeze([...profiles])
+ if(!Array.isArray(profiles)||profiles.length<1||profiles.length>CANONICAL_STROKE_RASTER_CONTRACTS.length||new Set(profiles).size!==profiles.length)return fail()
+ return Object.freeze(profiles.map(attachmentRasterProfile))
 }
 function snapshot(value:unknown,epoch:number,rasterProfile:CanonicalStrokeRasterProfile):CanonicalStrokeSnapshotV2 {
  if(!closed(value,['layerId','brush','strokeId','boardEpoch','descriptorSha256','rasterProfile','pigmentRgb8','composition','assets','materialVersion','material'])
@@ -49,7 +51,7 @@ function snapshot(value:unknown,epoch:number,rasterProfile:CanonicalStrokeRaster
  if(m.version!==2||!Array.isArray(m.assets)||m.assets.length!==0||!p||p.kind==='image'||p.descriptorSha256!==s.descriptorSha256
   ||s.brush!==`brush:${p.descriptorId}@${p.descriptorVersion}`||p.brushScale!==1||p.kind==='softAuto'&&p.sourceSlot!==0)return fail()
  const probe=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},m)
- const decoded=decodeCanonicalStrokeFrame({version:rasterProfile===CANONICAL_STROKE_RASTER_PROFILE?1:2,rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked:probe.packed},
+ const decoded=decodeCanonicalStrokeFrame({version:canonicalStrokeRasterContract(rasterProfile).envelopeVersion,rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked:probe.packed},
   {rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:m})
  const primarySource=p.kind==='defaultAuto'?canonicalDefaultAutoSourcePin(p):p.kind==='gaussianAuto'?canonicalGaussianAutoSourcePin(p):canonicalSoftAutoSourcePin(p)
  const material=Object.freeze({version:2 as const,assets:Object.freeze([]),primarySource,budget:Object.freeze({workUnits:m.budget.workUnits,outputBytes:m.budget.outputBytes,drawPixels:m.budget.drawPixels})})
@@ -72,8 +74,8 @@ export function prepareCanonicalRecordedAttachment(value:unknown,operations:read
  for(const item of value.capabilities){
   if(!closed(item,['originalUserId','snapshot'])||!text(item.originalUserId))return fail()
   if(!record(item.snapshot))return fail()
-  const rasterProfile=item.snapshot.rasterProfile
-  if((rasterProfile!==CANONICAL_STROKE_RASTER_PROFILE&&rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)||!profiles.includes(rasterProfile))return fail()
+  const rasterProfile=attachmentRasterProfile(item.snapshot.rasterProfile)
+  if(!profiles.includes(rasterProfile))return fail()
   const s=snapshot(item.snapshot,expected.boardEpoch,rasterProfile),identity=JSON.stringify([item.originalUserId,s.strokeId])
   // One gesture has ONE immutable capability, even if a duplicate is equal.
   if(identities.has(identity))return fail();identities.add(identity)
