@@ -234,3 +234,42 @@ it('rechecks the individual original lifetime after the shared work resolves',as
   expect(alive).toBe(false);expect(engine['_log'].entries).toHaveLength(162);expect(owner.resourceCandidate).toBeUndefined()
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
+
+it('waits passively for different finite brush work to finish before allocating the original image candidate',async()=>{
+ const p=original(()=>true,true),{engine}=engineFor(p),events:string[]=[]
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,changed={...asset,x:asset.x-1},snapshot={...trace.snapshot,strokeId:'wait-B',assets:[changed],material:{...trace.snapshot.material,assets:[changed]}},op={...trace.operations[0],id:'wait-b',seq:163,frame:{...trace.operations[0].frame,strokeId:snapshot.strokeId}},input=imageInput(p,op,snapshot),begin=bank.beginExtension.bind(bank)
+  vi.spyOn(bank,'beginExtension').mockImplementation((...args)=>{events.push('candidate');return begin(...args)})
+  const local=engine['_brushPreparation'].run([()=>{events.push('local-1')},()=>{events.push('local-2')}],{},()=>true,'different-local',()=>{events.push('local-finalized');return undefined})
+  const pending=engine.prepareOriginalRecorded(input)
+  expect(owner.resourceCandidate).toBeUndefined();expect(events).not.toContain('candidate')
+  expect(await pending).toEqual({status:'ready'});expect(await local).toEqual({status:'ready'})
+  expect(events).toEqual(['local-1','local-2','local-finalized','candidate']);expect(owner.coordinator).toBeDefined();expect(engine['_log'].entries).toHaveLength(162)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+
+it.each(['stale','abort','loss']as const)('does not allocate a candidate after %s during passive work wait',async kind=>{
+ let alive=true;const p=original(()=>alive,true),{engine}=engineFor(p),abort=new AbortController()
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,begin=vi.spyOn(bank,'beginExtension'),changed={...asset,x:asset.x-1},snapshot={...trace.snapshot,strokeId:'wait-stop-B',assets:[changed],material:{...trace.snapshot.material,assets:[changed]}},op={...trace.operations[0],id:'wait-stop-b',seq:163,frame:{...trace.operations[0].frame,strokeId:snapshot.strokeId}},input=imageInput(p,op,snapshot)
+  const local=engine['_brushPreparation'].run([()=>{
+   if(kind==='stale')alive=false
+   else if(kind==='abort')abort.abort()
+   else{vi.spyOn(engine['gl'],'isContextLost').mockReturnValue(true);engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}))}
+  }],{},()=>true,'finite-owner-stop')
+  const pending=engine.prepareOriginalRecorded(input,{signal:abort.signal})
+  if(kind==='abort')expect(await pending).toEqual({status:'cancelled'});else await expect(pending).rejects.toThrow()
+  await local;expect(begin).not.toHaveBeenCalled();expect(owner.resourceCandidate).toBeUndefined();expect(engine['_log'].entries).toHaveLength(162)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+it('does not wait for unrelated brush work when the original source is already ready',async()=>{
+ const p=original(()=>true,true),{engine}=engineFor(p),jobs=vi.fn()
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const work=engine['_brushPreparation'].run([jobs],{},()=>true,'unrelated-pending')
+  expect(await engine.prepareOriginalRecorded(imageInput(p,trace.operations.at(-1)!))).toEqual({status:'ready'});expect(jobs).not.toHaveBeenCalled();expect(engine['_canonicalLayerOwner']!.resourceCandidate).toBeUndefined()
+  engine['_brushPreparation'].cancel();await work
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)

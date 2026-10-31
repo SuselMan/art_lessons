@@ -57,3 +57,20 @@ zero errors. Coordinated server-source/SW/map:check/map:rules passed. At this co
 the full app gate is pending an unrelated committed Stamp fixture context.version
 type correction; no own hot-union type errors were reported. No app-wide PASS is
 claimed here until that external fixture correction is checked.
+
+Passive preparation follow-up (separate exact3 unit): a different finite active
+BrushPreparation is observed through its existing whenIdle shared completion.
+The receiver does not subscribe to/keep that work alive, cancel local preparation,
+allocate a candidate, poll, wait a gesture/ACK or change author-generation while
+waiting. After completion it reasserts original delivery/lifetime/engine and its
+own signal, rechecks asset availability and the shared-run key. Matching ready
+source and close remain immediate. A reentrant new active work is observed by
+the same passive predicate loop, not replaced by the receiver.
+R52/image-passive-engine-red.log captures the old immediate cancelled result;
+image-passive-engine-green.log captures finite local work finalized BEFORE
+candidate allocation. image-passive-engine-final.log:18/18 PASS, including stale
+original lifetime, abort and real context loss during the wait with no candidate,
+plus an existing ready original source bypassing unrelated pending work. This
+does not activate Room or invent a context-failure recovery policy.
+The passive follow-up's final full app gate is pending root's coordinated check;
+its focused tests/lint passed. No separate typecheck or device run was started.

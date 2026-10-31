@@ -6394,9 +6394,22 @@ export class PencilEngine implements PencilEngineAPI {
     const pin=canonicalImageMaterialPin(source,snapshot.material.assets),asset=pin.assets[0],capacity=canonicalImageMaskCapacity(source,asset)
     if(!owner.prepared||capacity.width>owner.mask.width||capacity.height>owner.mask.height)throw new RangeError('Canonical source exceeds warm workspace; growth unsupported')
     if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical image asset unavailable')
-    if(owner.bank){try{owner.bank.assertSourceBinding(asset,{gl:this.gl,cache:owner.cache,cpu:this._brushMipCache});current();return{status:'ready'}}catch(error){current();if(!owner.bank.isReady())throw error}}
+    const sourceReady=()=>{
+      if(!owner.bank)return false
+      try{owner.bank.assertSourceBinding(asset,{gl:this.gl,cache:owner.cache,cpu:this._brushMipCache});current();return true}
+      catch(error){current();if(!owner.bank.isReady())throw error;return false}
+    }
+    if(sourceReady())return{status:'ready'}
     const key='recorded-image:'+JSON.stringify([asset.id,asset.size,asset.x,asset.y,asset.width,asset.height])
-    if(!this._brushPreparation.canRunWithoutReplacing(key))return{status:'cancelled'}
+    while(!this._brushPreparation.canRunWithoutReplacing(key)){
+      // Passive work completion only: no candidate, author ownership, timer,
+      // gesture-end or ACK dependency is retained by this waiter.
+      await this._brushPreparation.whenIdle()
+      current()
+      if(options.signal?.aborted)return{status:'cancelled'}
+      if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical image asset unavailable')
+      if(sourceReady())return{status:'ready'}
+    }
     const planned=nativeImageBankFromRect(asset.id as TipMaskId,asset),count=planned.length,authorGeneration=this._brushPreparationGeneration
     let bank:CanonicalMaskSourceBank|undefined,extension:CanonicalMaskSourceExtension|undefined,maskUpdate:CanonicalPreparedResourceUpdate|undefined,compositeUpdate:CanonicalPreparedResourceUpdate|undefined
     let releaseUnion:(()=>void)|undefined,published=false,candidate:NonNullable<CanonicalLayerOwner['resourceCandidate']>|undefined
