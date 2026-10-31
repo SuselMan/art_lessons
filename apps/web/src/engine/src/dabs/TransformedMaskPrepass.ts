@@ -133,6 +133,13 @@ export interface CanonicalPreparedResourceUpdate {
   finalizeCleanup():undefined
   cancel():undefined
 }
+export interface CanonicalPreparedCapacityUpdate extends CanonicalPreparedResourceUpdate {
+  preparedResources():readonly Readonly<{key:string;bytes:number}>[]
+  /** Owner-only assert; safe before all staged resources exist. */
+  assertCurrent():void
+  /** Final ready-resource check; call immediately before pure publication. */
+  assertPreparedPublication():void
+}
 export class TransformedMaskPrepass {
   private pendingAuto?: {
     readonly owner: object; readonly role: string; readonly revision: string; readonly slot: Slot;
@@ -159,7 +166,10 @@ export class TransformedMaskPrepass {
   private activeGroup?: symbol;
   private instancing: ANGLE_instanced_arrays | null = null;
   private vertexArrays: OES_vertex_array_object | null = null;
-  private readonly workspaceKey: string;
+  private workspaceKey: string;
+  private capacityUpdate?:CanonicalPreparedCapacityUpdate;
+  private capacitySerial=0;
+  private capacityResetLost=false;
   private readonly gl: WebGLRenderingContext;
   private readonly cache: BrushTextureCache;
   private readonly cpu: BrushMipCache;
@@ -197,7 +207,7 @@ export class TransformedMaskPrepass {
   prepareSourceUpdate(sourceResources:readonly TransformedMaskPreparedSource[],options?:{readonly additive:true}):CanonicalPreparedResourceUpdate {
     if(options!==undefined&&(!options||options.additive!==true||Reflect.ownKeys(options).some(key=>key!=='additive')))throw new TypeError('Invalid additive source update')
     const additive=options?.additive===true
-    if(this.sourceUpdate||!this.workspace||!this.limits||this.batch||this.activeGroup||this.pendingAuto&&(!additive||this.pendingAuto.flushing))throw new Error('Prepass source update unavailable')
+    if(this.capacityUpdate||this.sourceUpdate||!this.workspace||!this.limits||this.batch||this.activeGroup||this.pendingAuto&&(!additive||this.pendingAuto.flushing))throw new Error('Prepass source update unavailable')
     if(!Array.isArray(sourceResources)||sourceResources.length>4096)throw new RangeError('Invalid prepared source count')
     const owner=Object.freeze({pass:this}),epoch=this.workspace,limits=this.limits
     let oldSources:Map<string,number>|undefined=this.sources,oldBindings:Map<string,CanonicalMaskSourceBinding>|undefined=this.sourceBindings
@@ -234,6 +244,91 @@ export class TransformedMaskPrepass {
       update.assertCurrent()
       return update
     }catch(error){if(createdUpdate?.status==='pending'){try{createdUpdate.cancel()}catch{/* Preserve validation error. */}}try{releaseNew()}catch{/* Preserve validation error. */}throw error}
+  }
+
+  /** Quiescent growth only: old epoch remains live until pure publication.
+   * Caller includes every external companion in the coexistence budget and
+   * adopts a final union lease BEFORE finalizeCleanup releases this staging pin.
+   */
+  prepareCapacityUpdate(limits:TransformedMaskLimits,sourceResources:readonly TransformedMaskPreparedSource[],companions:readonly {key:string;bytes:number}[]=[],companionCpuBytes=0):CanonicalPreparedCapacityUpdate {
+    if(this.capacityUpdate||this.sourceUpdate||!this.workspace||!this.limits||!this.program||this.batch||this.activeGroup||this.pendingAuto)throw new Error('Prepass capacity update unavailable')
+    const nextLimits=Object.freeze({...limits}),budget=transformedMaskPrepassBudget(nextLimits)
+    if(nextLimits.width<this.limits.width||nextLimits.height<this.limits.height||nextLimits.slots<this.limits.slots)throw new RangeError('Prepass capacity update cannot shrink')
+    if(!Array.isArray(companions)||companions.length>8192||!safe(companionCpuBytes,0,Number.MAX_SAFE_INTEGER))throw new RangeError('Invalid prepass companions')
+    const plan=this.checkedSources(sourceResources)
+    if([...this.sources].some(([k,v])=>plan.sourceMap.get(k)!==v)||[...this.sourceBindings].some(([k,v])=>JSON.stringify(plan.bindings.get(k))!==JSON.stringify(v)))throw new Error('Capacity update must preserve existing sources')
+    const oldWorkspace=this.workspace,oldLimits=this.limits,oldSlots=this.slots,oldStaging=this.staging,oldSources=this.sources,oldBindings=this.sourceBindings,oldKey=this.workspaceKey,oldProgram=this.program
+    const nextKey=`${this.prefix}:capacity:${++this.capacitySerial}:workspace`,slotKeys=Array.from({length:nextLimits.slots},(_,i)=>`${nextKey}:slot:${i}`)
+    const resources=Object.freeze([{key:nextKey,bytes:FACTOR_BYTES+budget.vertexBytes},...slotKeys.map(key=>({key,bytes:nextLimits.width*nextLimits.height*4}))].map(x=>Object.freeze(x)))
+    const union=new Map<string,number>()
+    const add=(key:string,bytes:number)=>{if(!key||!safe(bytes,1,Number.MAX_SAFE_INTEGER)||union.has(key)&&union.get(key)!==bytes)throw new RangeError('Conflicting prepass union resource');union.set(key,bytes)}
+    for(const x of companions){if(this.cache.resourceBytes(x.key)!==x.bytes||!this.cache.get(x.key))throw new Error('Prepass companion not ready')}
+    for(const x of [...this.preparedResources(),...companions,...resources])add(x.key,x.bytes)
+    for(const [key,bytes]of plan.sourceMap)add(key,bytes)
+    const metadata=sourceResources.length*512+resources.length*192+1024,newCpu=budget.cpuBytes+metadata
+    const gpuBytes=[...union.values()].reduce((a,b)=>a+b,0)
+    if(!Number.isSafeInteger(gpuBytes)||gpuBytes>this.cache.budgetBytes||!Number.isSafeInteger(newCpu+this.cpu.reservedBytes+companionCpuBytes)||newCpu+this.cpu.reservedBytes+companionCpuBytes>this.cpu.budgetBytes)throw new RangeError('Prepass coexistence exceeds existing brush budgets')
+    const precision=this.gl.getShaderPrecisionFormat(this.gl.FRAGMENT_SHADER,this.gl.HIGH_FLOAT),maximum=this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number
+    if(!precision||precision.precision<23||Math.max(256,nextLimits.width,nextLimits.height)>maximum)throw new RangeError('Unverified prepass GPU capability')
+    let state:'pending'|'published'|'cancelled'='pending',checked=false,cleaned=false,retiredLost=false,workspace:Workspace|undefined,staging:Float32Array|undefined,slots:(Slot|undefined)[]=[],releaseNew= noMetadataRelease,releaseUnion=noMetadataRelease,releaseOld:undefined|(()=>void),releaseOldMetadata:undefined|(()=>void)
+    const scalar=()=>this.capacityUpdate===update&&this.workspace===oldWorkspace&&this.workspaceKey===oldKey&&this.limits===oldLimits&&this.slots===oldSlots&&this.staging===oldStaging&&this.sources===oldSources&&this.sourceBindings===oldBindings&&this.program===oldProgram&&!this.sourceUpdate&&!this.batch&&!this.activeGroup&&!this.pendingAuto
+    const assert=(receiver:unknown)=>{if(receiver!==update||state!=='pending'||!scalar())throw new Error('Prepass capacity update changed')}
+    const all=(tasks:(()=>void)[])=>{let failed=false,error:unknown;for(const task of tasks)try{task()}catch(e){if(!failed){failed=true;error=e}}if(failed)throw error}
+    const discard=(keys:readonly string[],lost:boolean)=>all(keys.map(key=>()=>this.cache.discard(key,lost)))
+    const update:CanonicalPreparedCapacityUpdate=Object.freeze({
+      get status(){return state},
+      assertCurrent(){assert(this)},
+      preparedResources(){assert(this);if(!workspace||slots.length!==nextLimits.slots||slots.some(x=>!x))throw new Error('Capacity resources incomplete');return resources},
+      assertPreparedPublication(){assert(this);checked=false;if(!workspace||!staging||!owner.pass.isReady()||resources.some(x=>owner.pass.cache.resourceBytes(x.key)!==x.bytes||!owner.pass.cache.get(x.key))||[...plan.sourceMap].some(([key,bytes])=>owner.pass.cache.resourceBytes(key)!==bytes||!owner.pass.cache.get(key)))throw new Error('Prepass staged resources changed');checked=true},
+      publish(){assert(this);if(!checked||!workspace||!staging)throw new Error('Capacity publication not checked');releaseOld=owner.pass.releaseCpu;releaseOldMetadata=owner.pass.releaseSourceMetadata;owner.pass.workspace=workspace;owner.pass.workspaceKey=nextKey;owner.pass.slots=slots;owner.pass.staging=staging;owner.pass.limits=nextLimits;owner.pass.sources=plan.sourceMap;owner.pass.sourceBindings=plan.bindings;owner.pass.releaseSourceMetadata=undefined;owner.pass.releaseCpu=releaseNew;owner.pass.reservedCpuBytes=newCpu;releaseNew=noMetadataRelease;state='published';return undefined},
+      cancel(){if(this!==update)throw new Error('Capacity update receiver changed');if(state!=='pending')return undefined;state='cancelled';retiredLost=owner.pass.capacityResetLost||owner.pass.gl.isContextLost();if(owner.pass.capacityUpdate===update)owner.pass.capacityUpdate=undefined;const cpu=releaseNew,pin=releaseUnion;releaseNew=noMetadataRelease;releaseUnion=noMetadataRelease;all([()=>discard(resources.map(x=>x.key),retiredLost),cpu,pin]);return undefined},
+      finalizeCleanup(){if(this!==update)throw new Error('Capacity update receiver changed');if(state==='pending')throw new Error('Capacity update not published');if(owner.pass.capacityUpdate===update)owner.pass.capacityUpdate=undefined;if(cleaned)return undefined;cleaned=true;const cpu=releaseOld,metadataRelease=releaseOldMetadata,pin=releaseUnion;releaseOld=undefined;releaseOldMetadata=undefined;releaseUnion=noMetadataRelease;if(state==='published')all([()=>discard([oldKey,...oldSlots.filter((x):x is Slot=>!!x).map(x=>x.key)],owner.pass.capacityResetLost||owner.pass.gl.isContextLost()),()=>cpu?.(),()=>metadataRelease?.(),pin]);return undefined},
+    })
+    const owner=Object.freeze({pass:this})
+    this.capacityUpdate=update
+    const loose:(OwnedBrushResource|OwnedBrushBuffer)[]=[],standalone:(()=>void)[]=[]
+    let preparationFailed=false,preparationFailure:unknown
+    let textureStorage:StorageReservation|undefined,bufferStorage:StorageReservation|undefined,restore=noMetadataRelease
+    try{
+      releaseNew=this.cpu.reserve(newCpu);update.assertCurrent()
+      releaseUnion=this.cache.lease([...union].map(([key,bytes])=>({key,bytes})));update.assertCurrent()
+      textureStorage=reserveContextStorage(this.gl,budget.gpuBytes-budget.vertexBytes,'brush-texture-rgba-equivalent')
+      bufferStorage=reserveContextStorage(this.gl,budget.vertexBytes,'brush-buffer')
+      restore=this.saveState([]);this.cache.protect([...union.keys()]);update.assertCurrent();this.gl.activeTexture(this.gl.TEXTURE0)
+      staging=new Float32Array(nextLimits.height*FLOATS_PER_ROW)
+      const lut=buildRgba64FactorLut(),low=this.texture(256,256,lut.low,textureStorage);loose.push(low);update.assertCurrent()
+      const high=this.texture(256,256,lut.high,textureStorage);loose.push(high);update.assertCurrent()
+      const buffer=allocateOwnedBrushBuffer(this.gl,budget.vertexBytes,(handle,mark)=>{this.gl.bindBuffer(this.gl.ARRAY_BUFFER,handle);mark(budget.vertexBytes);this.gl.bufferData(this.gl.ARRAY_BUFFER,budget.vertexBytes,this.gl.STREAM_DRAW)},bufferStorage);loose.push(buffer);update.assertCurrent()
+      const extension=this.vertexArrays,vao=extension?.createVertexArrayOES()??undefined
+      if(extension&&!vao)throw new Error('Prepass VAO allocation failed')
+      let vaoMerged=false
+      standalone.push(()=>{if(!vaoMerged&&vao&&!retiredLost&&!this.gl.isContextLost())extension!.deleteVertexArrayOES(vao)})
+      update.assertCurrent()
+      workspace={low:low.texture,high:high.texture,buffer:buffer.buffer,vao}
+      const candidateWorkspace=workspace
+      const owned=combineOwnedBrushResources(low,[high,buffer],lost=>{if(!lost&&candidateWorkspace.vao)extension!.deleteVertexArrayOES(candidateWorkspace.vao)});vaoMerged=true;loose.push(owned);update.assertCurrent();this.cache.putOwned(nextKey,owned);update.assertCurrent()
+      for(let i=0;i<nextLimits.slots;i++){
+        const texture=this.texture(nextLimits.width,nextLimits.height,null,textureStorage);loose.push(texture);update.assertCurrent()
+        const framebuffer=this.gl.createFramebuffer();if(!framebuffer)throw new Error('Prepass FBO allocation failed')
+        let framebufferMerged=false
+        standalone.push(()=>{if(!framebufferMerged&&!retiredLost&&!this.gl.isContextLost())this.gl.deleteFramebuffer(framebuffer)})
+        update.assertCurrent()
+        const slot:Slot={key:slotKeys[i],texture:texture.texture,framebuffer,used:0}
+        const ownedSlot=combineOwnedBrushResources(texture,[],lost=>{if(!lost)this.gl.deleteFramebuffer(framebuffer)});framebufferMerged=true;loose.push(ownedSlot)
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER,framebuffer);this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER,this.gl.COLOR_ATTACHMENT0,this.gl.TEXTURE_2D,texture.texture,0)
+        if(this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER)!==this.gl.FRAMEBUFFER_COMPLETE)throw new Error('Prepass FBO incomplete')
+        update.assertCurrent();slots.push(slot);this.cache.putOwned(slot.key,ownedSlot);update.assertCurrent()
+      }
+      update.assertPreparedPublication();checked=false
+    }catch(error){preparationFailed=true;preparationFailure=error;try{update.cancel()}catch{/* Preserve preparation error. */}}
+    finally{
+      let failed=false,error:unknown;const attempt=(f:()=>void)=>{try{f()}catch(e){if(!failed){failed=true;error=e}}}
+      attempt(restore);for(const item of loose)attempt(()=>releaseUnpublishedBrushResource(item,retiredLost));for(const cleanup of standalone)attempt(cleanup);if(textureStorage)attempt(()=>releaseStorageReservation(textureStorage!));if(bufferStorage)attempt(()=>releaseStorageReservation(bufferStorage!))
+      if(failed){try{update.cancel()}catch{/* Preserve restoration error. */}if(!preparationFailed){preparationFailed=true;preparationFailure=error}}
+    }
+    if(preparationFailed)throw preparationFailure
+    try{update.assertCurrent()}catch(error){try{update.cancel()}catch{/* Preserve stale error. */}throw error}
+    return update
   }
 
   /** All metadata/budgets are checked before allocation or cache eviction.
@@ -645,6 +740,10 @@ export class TransformedMaskPrepass {
     if (this.batch && !lost) throw new Error('Cannot reset inside an active brush GL batch');
     let failed=false,primary:unknown;
     const attempt=(cleanup:()=>void)=>{try{cleanup()}catch(error){if(!failed){failed=true;primary=error}}};
+    const capacity=this.capacityUpdate;this.capacityUpdate=undefined
+    this.capacityResetLost=lost
+    attempt(()=>{if(capacity?.status==='published')capacity.finalizeCleanup();else capacity?.cancel()})
+    this.capacityResetLost=false
     const update=this.sourceUpdate;this.sourceUpdate=undefined
     attempt(()=>{if(update?.status==='published')update.finalizeCleanup();else update?.cancel()})
     attempt(()=>this.cancelAutoGeneration());this.activeGroup=undefined;
