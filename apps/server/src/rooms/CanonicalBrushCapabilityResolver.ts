@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
+import { isDeepStrictEqual } from 'node:util'
 import {
-  CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION,
+  verifyCanonicalRecordedPrefix, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION,
   canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, canonicalSourceComposition,
   type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalStrokeOperation, type CanonicalMaterialContextV2, decodeCanonicalStrokeFrame,
   prepareCanonicalRecordedAttachment, CANONICAL_RECORDED_ATTACHMENT_LIMITS, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadCapability, type Operation,
@@ -10,7 +11,7 @@ import { BrushStorage, merge } from '../brushLibrary/storage.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
 import { hasSucceededCanonicalWrite } from './operationLog.js'
-import { verifyCanonicalOperationRow, type CanonicalStoredOperationRow } from './roomPersistence.js'
+import { verifyCanonicalOperationRow, projectCanonicalIndexedOperation, type CanonicalStoredOperationRow } from './roomPersistence.js'
 import type { CanonicalAdmissionIdentity, CanonicalCapabilityResolver, TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
 
 export type CanonicalGestureBegin = CanonicalStrokeBegin
@@ -197,6 +198,32 @@ export class CanonicalBrushCapabilityResolver {
     if(!text(roomId)||!Number.isSafeInteger(boardEpoch)||boardEpoch<0||boardEpoch>=Number.MAX_SAFE_INTEGER)fail('invalid recorded read context')
     verifyCanonicalOperationRow(roomId,op,row)
     return this.bindRecordedOperation(roomId,boardEpoch,op)
+  }
+
+  /** Pure ROOM-only read-prefix binding. Caller owns read permission, actual
+   * indexed-query provenance and current lifetime; never an append grant. */
+  readRecordedPrefix(input:{readonly roomId:string;readonly boardEpoch:number;readonly anchor:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly operations:readonly CanonicalStrokeOperation[];readonly rows:readonly CanonicalStoredOperationRow[];readonly purpose:'read'|'undo-redo'}){
+    const {roomId,boardEpoch,anchor,operations,rows}=input
+    if(input.purpose!=='read'&&input.purpose!=='undo-redo')fail('invalid recorded prefix purpose')
+    const bound=input.row?this.readRecordedCapability({roomId,boardEpoch,operation:anchor,row:input.row}):this.readResidentRecordedCapability({roomId,boardEpoch,operation:anchor})
+    if(!Array.isArray(operations)||!operations.length||operations.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings||!Array.isArray(rows)||rows.length!==operations.length)fail('recorded prefix closure unavailable')
+    let anchored=false,bytes=0
+    const verified=[]
+    for(let n=0;n<operations.length;n++){
+      const op=operations[n];verifyCanonicalOperationRow(roomId,op,rows[n])
+      if(op.userId!==bound.originalUserId||op.layerId!==bound.layerId)fail('recorded prefix immutable identity changed')
+      const normalized=projectCanonicalIndexedOperation(roomId,rows[n])
+      if(!isDeepStrictEqual(normalized.operation,op))fail('recorded prefix projected identity changed')
+      bytes+=normalized.bytes;if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix byte capacity exceeded')
+      const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:bound.rasterProfile,brush:bound.brush,strokeId:bound.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:bound.pigmentRgb8,composition:bound.composition,material:bound.material})
+      if(decoded.frame.masked)fail('recorded masked prefix unavailable')
+      verified.push({operationId:op.id,sequence:op.seq!,frameOrdinal:op.frame.frameOrdinal,decoded:{entry:decoded.frame.entry,fences:decoded.frame.fences}})
+      if(op.id===anchor.id){if(!isDeepStrictEqual(op,anchor))fail('recorded prefix anchor changed');anchored=true}
+    }
+    if(!anchored)fail('recorded prefix anchor unavailable')
+    const summary=verifyCanonicalRecordedPrefix(verified)
+    if(input.purpose==='undo-redo'&&!summary.ended)fail('recorded undo prefix is open')
+    return summary
   }
 
   /** Existing actual resident receipt is the provenance boundary; no row echo. */

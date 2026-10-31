@@ -6,14 +6,14 @@ import { pipeline } from 'node:stream/promises'
 
 import type { Operation, CanonicalStrokeOperation } from '@grafetto/shared'
 
-import { canonicalOperationRowSelect,verifyCanonicalOperationRow,type CanonicalStoredOperationRow } from './roomPersistence.js'
+import { canonicalOperationRowSelect,verifyCanonicalOperationRow,projectCanonicalIndexedOperation,type CanonicalStoredOperationRow } from './roomPersistence.js'
 import { immutableCanonicalOperation } from './operationLog.js'
 import { prisma } from '../db/prisma.js'
 import { rooms, type RoomRecord } from './roomRegistry.js'
 import { permitsSnapshotWatermark } from './firstSnapshotPolicy.js'
 import { isCoveredBySnapshot, layerStateIdsOf } from './snapshotCoverage.js'
 import { deriveLayerIds } from './structuralLog.js'
-import { prepareSnapshotReplay } from './snapshotReplayLoader.js'
+import { prepareSnapshotReplay, type SnapshotReplayPreparation } from './snapshotReplayLoader.js'
 
 /** (#612) Where a room's client-baked snapshots live (#149 epic, per layer
  *  since #371): storing an upload after checking its structure against the
@@ -316,9 +316,9 @@ export interface SnapshotIndexEntry {
  *  (#149 epic design — kept out of the hot, always-resident path since
  *  they're only needed at join time). */
 export async function getSnapshotIndex(
-  roomId: string,
+  roomId: string, preparation?:SnapshotReplayPreparation,
 ): Promise<{ seq: number; layerState: unknown; layers: SnapshotIndexEntry[]; replayStructure?: true; historyLayers?: string[] } | null> {
-  return (await prepareSnapshotReplay(roomId)).index
+  return (await prepareSnapshotReplay(roomId,preparation)).index
 }
 
 /** One layer's stored snapshot: the gzipped `encodeLayerTiles` payload exactly
@@ -439,22 +439,11 @@ export async function getCanonicalGesturePrefixWithRows(roomId:string,selector:{
   const rows=await prisma.operation.findMany({where:{roomId,userId:selector.userId,type:'canonical_stroke',seq:{gt:previous,lte:throughSeq},data:{path:['frame','strokeId'],equals:selector.strokeId}},orderBy:{seq:'asc'},take:CANONICAL_GESTURE_QUERY_PAGE,select:canonicalOperationRowSelect})
   if(rows.length>CANONICAL_GESTURE_QUERY_PAGE)return fail()
   for(const row of rows){
-   const op=row.data as Operation
-   try { verifyCanonicalOperationRow(roomId,op,row) } catch { return fail() }
-   if(op.type!=='canonical_stroke'||op.userId!==selector.userId||op.seq!<=previous||op.seq!>throughSeq||ids.has(op.id)
-    ||!text(op.id)||!text(op.userId)||!text(op.layerId)||!Number.isFinite(op.timestamp)||!op.frame||op.frame.strokeId!==selector.strokeId
-    ||!text(op.frame.brush)||!text(op.frame.rasterProfile)||(op.frame.version!==1&&op.frame.version!==2)||!Number.isSafeInteger(op.frame.frameOrdinal)||op.frame.frameOrdinal!==operations.length
-    ||!Array.isArray(op.frame.pigmentRgb8)||op.frame.pigmentRgb8.length!==3||op.frame.pigmentRgb8.some(v=>!Number.isInteger(v)||v<0||v>255)
-    ||!op.frame.composition||!text(op.frame.composition.mode)||!text(op.frame.composition.alphaDarken)||!text(op.frame.composition.outerBlend)||!Number.isFinite(op.frame.composition.outerResourceOpacity)
-    ||typeof op.frame.materialPacked!=='string'||Buffer.byteLength(op.frame.materialPacked,'utf8')>CANONICAL_GESTURE_PREFIX_BYTES)return fail()
-   if(Object.keys(op).some(k=>!['id','userId','timestamp','seq','type','layerId','frame'].includes(k))
-    ||Object.keys(op.frame).some(k=>!['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked'].includes(k))
-    ||Object.keys(op.frame.composition).some(k=>!['mode','alphaDarken','outerResourceOpacity','outerBlend'].includes(k)))return fail()
-   // Project bounded known fields BEFORE any size walk or immutable copy. The
-   // SAME shared material decoder/binder validates their domain afterwards.
-   const projected:CanonicalStrokeOperation={id:op.id,userId:op.userId,timestamp:op.timestamp,seq:op.seq,type:'canonical_stroke',layerId:op.layerId,frame:{...op.frame,
-    pigmentRgb8:[op.frame.pigmentRgb8[0],op.frame.pigmentRgb8[1],op.frame.pigmentRgb8[2]],composition:{mode:op.frame.composition.mode,alphaDarken:op.frame.composition.alphaDarken,outerResourceOpacity:op.frame.composition.outerResourceOpacity,outerBlend:op.frame.composition.outerBlend},materialPacked:op.frame.materialPacked}}
-   size+=Buffer.byteLength(JSON.stringify(projected),'utf8');if(size>CANONICAL_GESTURE_PREFIX_BYTES)return fail()
+   let projected:CanonicalStrokeOperation,bytes:number
+   try { ({operation:projected,bytes}=projectCanonicalIndexedOperation(roomId,row)) } catch { return fail() }
+   const op=projected
+   if(op.userId!==selector.userId||op.frame.strokeId!==selector.strokeId||op.seq!<=previous||op.seq!>throughSeq||ids.has(op.id)||op.frame.frameOrdinal!==operations.length)return fail()
+   size+=bytes;if(size>CANONICAL_GESTURE_PREFIX_BYTES)return fail()
    const copy=immutableCanonicalOperation(projected,op.seq!)
    if(copy.type!=='canonical_stroke')return fail()
    if(requiredFrame&&op.id===requiredFrame.id){if(!isDeepStrictEqual(copy,requiredFrame))return fail();anchored=true}

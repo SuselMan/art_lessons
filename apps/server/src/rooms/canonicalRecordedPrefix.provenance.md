@@ -37,9 +37,11 @@ resume, final record and cold recorded-end replay. Removing first/middle/known
 last rows or returning out-of-order rows rejects. Query tests cover202 legal-row
 pages, exact cut, anchor identity, malformed indexed fields, extras, byte limits,
 nonadvancing pages and DB failures. These are mocked DB integration receipts,
-NOT actual physical PostgreSQL durability. The independent retained native
-202-frame/9-placement artifact is a diagnostic per-yield-flush choice, not an
-intrinsic production frame count; no packets or fences were dropped/rechunked.
+NOT actual physical PostgreSQL durability. The independent retained native-packet
+consumer uses diagnostic per-yield flush,
+with more than32 frames; the corrected source0x5002 receipt has206 frames and9
+placements. Those are chosen cuts, not an intrinsic production frame count; this
+unit did not drop or rechunk packets/fences and claims no native raster parity.
 
 Completeness is UNDER the trusted DB query contract and captured durable cut.
 A known anchor makes missing prior frames/known tail observable; this does not

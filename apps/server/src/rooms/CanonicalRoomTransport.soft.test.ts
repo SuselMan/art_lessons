@@ -13,9 +13,10 @@ const {SourceCanonicalFrameEncoder}=await import(new URL('../../../web/src/engin
 import {BrushStorage,empty,setBrushStorage} from '../brushLibrary/storage.js'
 import {rooms,flushRoomWrites,type RoomRecord} from './roomRegistry.js'
 import {CanonicalRoomTransport} from './CanonicalRoomTransport.js'
+import {getCanonicalGesturePrefixWithRows} from './snapshotStore.js'
 import {CanonicalBrushCapabilityResolver} from './CanonicalBrushCapabilityResolver.js'
 import {CanonicalStrokeAdmission} from './CanonicalStrokeAdmission.js'
-const db=vi.hoisted(()=>({operation:{count:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn()}}))
+const db=vi.hoisted(()=>({operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn()}}))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
 const history=vi.hoisted(()=>({rows:[] as unknown[],canonicalRows:[] as unknown[]}))
 vi.mock('./snapshotStore.js',async importOriginal=>({...await importOriginal<typeof import('./snapshotStore.js')>(),getCanonicalGesturePrefixWithRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows})),getOperationsBefore:vi.fn(async()=>history.rows),getOperationsBeforeWithCanonicalRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows}))}))
@@ -348,4 +349,45 @@ it('rejects ambiguous, unknown, empty and duplicate server profile policies befo
  }
  expect(()=>new CanonicalRoomTransport({...base,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,authorRasterProfile:genericProfile})).toThrow('ambiguous')
  expect(()=>new CanonicalRoomTransport({...base,authorRasterProfile:genericProfile,allowedRecordedRasterProfiles:[CANONICAL_STROKE_RASTER_PROFILE]})).toThrow('unavailable')
+})
+
+it('prepares complete read and closed undo prefixes from actual query rows and ROOM binding without granting the absent author append',async()=>{
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected)
+ const s=snapshot(await transport.begin(identity,f.input,()=>true)),packets=frames(f.descriptor,s),operations:CanonicalStrokeOperation[]=[]
+ for(let n=0;n<packets.length;n++){
+  const saved=await transport.recorded(identity,{id:'readprefix'+n,type:'canonical_stroke',userId:'author',timestamp:n,layerId:'layer',frame:packets[n]},()=>true)
+  if(!saved.accepted)throw Error('Expected persisted canonical frame');operations.push(saved.accepted)
+ }
+ const rows=db.operation.create.mock.calls.map(([request])=>request.data),query=vi.mocked(getCanonicalGesturePrefixWithRows),previous=query.getMockImplementation()!
+ const actual=await vi.importActual<typeof import('./snapshotStore.js')>('./snapshotStore.js')
+ db.operation.findMany.mockImplementation(async({where,take})=>rows.filter(row=>row.seq>where.seq.gt&&row.seq<=where.seq.lte).slice(0,take))
+ query.mockImplementation(actual.getCanonicalGesturePrefixWithRows)
+ f.board.participants.delete('author')
+ const conflicting=structuredClone(f.library);conflicting.brushes[0].descriptor.opacity=.123;f.storage.install('reader',conflicting,new Map())
+ const library=vi.spyOn(f.storage,'library'),pin=vi.spyOn(f.storage,'pin'),writes=db.operation.create.mock.calls.length
+ let current=true
+ try{
+  const read=await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>current)
+  const input={anchor:operations.at(-1)!,row:rows.at(-1)!,throughSeq:f.board.nextSeq-1,purpose:'undo-redo' as const}
+  const prepared=await read.preparePrefix(input)
+  expect(prepared.summary).toMatchObject({recordedNext:packets.length,ended:true,firstSeq:1,lastSeq:packets.length})
+  expect(prepared.operations.map(op=>op.frame)).toEqual(packets)
+  expect(library.mock.calls.every(([domain,owner])=>domain==='rooms'&&owner==='board')).toBe(true)
+  expect(pin).not.toHaveBeenCalled();expect(db.operation.create).toHaveBeenCalledTimes(writes)
+  const binder=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:()=>conflicting,...selected,maxGestures:4})
+  const pure={roomId:'board',boardEpoch:read.scope.boardEpoch,anchor:input.anchor,row:input.row,operations:prepared.operations,rows:prepared.canonicalRows,purpose:'undo-redo' as const}
+  expect(binder.readRecordedPrefix(pure).ended).toBe(true);expect(binder.size).toBe(0)
+  expect(binder.resolve(identity,{layerId:'layer',brush:s.brush,strokeId:s.strokeId})).toBeUndefined()
+  expect(()=>Reflect.apply(binder.readRecordedPrefix,binder,[{...pure,purpose:'unknown'}])).toThrow('purpose')
+  await expect(Reflect.apply(read.preparePrefix,null,[{...input,purpose:undefined}])).rejects.toThrow()
+  const open={anchor:operations[0],row:rows[0],throughSeq:1,purpose:'read' as const}
+  expect((await read.preparePrefix(open)).summary.ended).toBe(false)
+  await expect(read.preparePrefix({...open,purpose:'undo-redo'})).rejects.toThrow('prefix is open')
+  const original=rows[1].data;rows[1]={...rows[1],data:{...original,frame:{...original.frame,pigmentRgb8:[9,9,9]}}}
+  await expect(read.preparePrefix(input)).rejects.toThrow();rows[1]={...rows[1],data:original}
+  readAccess.allowed=false;await expect(read.preparePrefix(input)).rejects.toThrow();readAccess.allowed=true
+  db.operation.findMany.mockImplementationOnce(async()=>{current=false;return rows})
+  await expect(read.preparePrefix(input)).rejects.toThrow()
+  expect(pin).not.toHaveBeenCalled();expect(db.operation.create).toHaveBeenCalledTimes(writes)
+ }finally{query.mockImplementation(previous)}
 })

@@ -11,7 +11,7 @@ const mockPrisma = vi.hoisted(() => ({
 vi.mock('../db/prisma.js', () => ({ prisma: mockPrisma }))
 
 const { flushRoomWrites } = await import('./roomRegistry.js')
-const { persistOperation, retryCanonicalOperationWrite, persistParticipant, persistRoomCreate, passwordGrant } = await import('./roomPersistence.js')
+const { persistOperation, retryCanonicalOperationWrite, persistParticipant, projectCanonicalIndexedOperation, persistRoomCreate, passwordGrant } = await import('./roomPersistence.js')
 
 /** (#612) The rows a live room writes, by shape. Nothing else pins them: the
  *  room tests mock Prisma and look at memory. The columns matter beyond the
@@ -83,6 +83,18 @@ describe('persistRoomCreate', () => {
 describe('canonical persistence outcome and immutable row repair',()=>{
   const op:Extract<Operation,{type:'canonical_stroke'}>={id:'canonical-row',seq:7,type:'canonical_stroke',userId:'author',timestamp:9,layerId:'layer',frame:{version:1,rasterProfile:'installed-arm64-scalar-fused-fpcr0-v1',brush:'brush:fixture@1',strokeId:'gesture',frameOrdinal:0,pigmentRgb8:[1,2,3],composition:{mode:'wash',alphaDarken:'creamy',outerResourceOpacity:.73,outerBlend:'over'},materialPacked:'opaque validated payload'}}
   const row=()=>({id:op.id,seq:7,type:op.type,roomId:'r',userId:'author',layerId:'layer',tool:null,data:structuredClone(op)})
+  it('projects only bounded indexed canonical fields before copy/size walks',()=>{
+    const source=row(),result=projectCanonicalIndexedOperation('r',source)
+    expect(result.operation).toEqual(op);expect(result.operation).not.toBe(source.data)
+    expect(result.bytes).toBe(Buffer.byteLength(JSON.stringify(op),'utf8'))
+    expect(result.operation.frame.pigmentRgb8).not.toBe(source.data.frame.pigmentRgb8)
+    for(const mutate of [
+      (value:typeof source)=>{value.userId='other'},
+      (value:typeof source)=>{Object.assign(value.data.frame,{unknown:'x'.repeat(1000000)})},
+      (value:typeof source)=>{Object.assign(value.data.frame,{pigmentRgb8:Array.from({length:1000000},()=>0)})},
+      (value:typeof source)=>{Object.assign(value.data.frame,{materialPacked:'x'.repeat(4*1024*1024+1)})},
+    ]){const value=row();mutate(value);expect(()=>projectCanonicalIndexedOperation('r',value)).toThrow()}
+  })
   it('drops the ORM row from success and exposes failed writes rather than a successful flush',async()=>{
     const log=vi.spyOn(console,'error').mockImplementation(()=>{})
     try{

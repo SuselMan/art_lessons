@@ -257,3 +257,28 @@ describe('paired canonical history delivery with the SAME owner',()=>{
   expect(response.body).not.toContain('source-material')
  })
 })
+
+it.each(['ready','failed','stale'] as const)('pairs canonical snapshot-index preparation with the SAME scoped owner (%s)',async mode=>{
+ const {rooms}=await import('../rooms/roomRegistry.js')
+ const record:import('../rooms/roomRegistry.js').RoomRecord={room:{id:'room-1',name:'Board',ownerId:'author',paper:'flat',infinite:false,canvasWidth:64,canvasHeight:64,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},lessonId:null,sockets:new Set(),boards:[],assignments:[],activeAssignmentId:null,spotlightBoardId:null,handsRaised:new Set(),assignmentStarting:false,passwordHash:undefined,operations:[],participants:new Map(),nextSeq:1,layerStateSeq:null,layerStateIds:null,coveredSeqByLayer:new Map(),palette:[],roomFrozen:false,frozenUserIds:new Set(),lockedLayerIds:new Set(),sharedLockedLayerIds:new Set(),aliveIds:new Set(['L']),deletedIds:new Set(),operationsById:new Map(),structuralLog:[]}
+ rooms.set('room-1',record)
+ const owner=new CanonicalRoomTransport(),preparePrefix=vi.fn<import('../rooms/snapshotReplayLoader.js').CanonicalPrefixPreparer>(),scope={roomId:'room-1',boardEpoch:2}
+ let current:(()=>boolean)|undefined
+ const read=vi.spyOn(owner,'prepareReadDelivery').mockImplementation(async(_identity,isCurrent)=>{
+  current=isCurrent;return {scope,preparePrefix,finish:()=>({canonicalReadScope:scope})}
+ })
+ const index={seq:3,layerState:{},layers:[]}
+ mockRooms.getSnapshotIndex.mockImplementation(async(roomId,preparation)=>{
+  expect(roomId).toBe('room-1');expect(preparation.prepareCanonicalPrefix).toBe(preparePrefix);expect(current?.()).toBe(true)
+  if(mode==='failed')throw Error('known canonical prefix hole')
+  if(mode==='stale')rooms.set('room-1',{...record})
+  return index
+ })
+ const app=buildApp(owner)
+ try{
+  const result=await app.inject({method:'GET',url:'/api/rooms/room-1/snapshots/index'})
+  expect(read).toHaveBeenCalledWith({roomId:'room-1',userId:'student'},expect.any(Function))
+  if(mode==='ready'){expect(result.statusCode).toBe(200);expect(result.json()).toEqual(index)}
+  else {expect(result.statusCode).toBe(409);expect(result.json()).toEqual({error:'canonical_history_unavailable'})}
+ }finally{rooms.delete('room-1');await app.close()}
+})

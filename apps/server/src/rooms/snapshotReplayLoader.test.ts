@@ -104,7 +104,7 @@ it('refuses an unknown snapshot-only structural base instead of manufacturing la
 
 it('retains verified actual indexed evidence for recovered canonical dependencies before immutable copying',async()=>{
  const {CANONICAL_STROKE_RASTER_PROFILE}=await import('@grafetto/shared')
- const op:Operation={type:'canonical_stroke',id:'cold-canonical',seq:3,userId:'original-author',timestamp:0,layerId:'L',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:'brush:fixture@1',strokeId:'S',frameOrdinal:0,pigmentRgb8:[1,2,3],composition:{mode:'wash',alphaDarken:'creamy',outerResourceOpacity:1,outerBlend:'over'},materialPacked:'bounded-test-payload'}}
+ const op:Operation={type:'canonical_stroke',id:'cold-canonical',seq:3,userId:'original-author',timestamp:0,layerId:'L',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:'brush:fixture@1',strokeId:'S',frameOrdinal:0,pigmentRgb8:[1,2,3],composition:{mode:'wash',alphaDarken:'creamy',outerResourceOpacity:1,outerBlend:'over'},materialPacked:'1|bounded-test-payload'}}
  const row={id:op.id,roomId:'room',userId:op.userId,seq:3,type:op.type,layerId:'L',tool:null,data:op}
  const u:Operation={...undo,targetOpId:op.id},r:Operation={...redo,targetOpId:op.id}
  mocks.rooms.get('room').operations=[r]
@@ -117,4 +117,61 @@ it('retains verified actual indexed evidence for recovered canonical dependencie
  expect(mocks.operations).toHaveBeenCalledWith(expect.objectContaining({select:expect.objectContaining({id:true,roomId:true,userId:true,seq:true,type:true,layerId:true,tool:true,data:true})}))
  mocks.operations.mockResolvedValue([{...row,userId:'different-author'}])
  await expect(prepareSnapshotReplay('room')).rejects.toThrow('immutable row conflict')
+})
+
+function canonicalReadFixture(){
+ const first:Extract<Operation,{type:'canonical_stroke'}>={id:'first',seq:1,userId:'absent-author',timestamp:0,type:'canonical_stroke',layerId:'L',frame:{version:1,rasterProfile:'installed-arm64-scalar-fused-fpcr0-v1',brush:'brush:source@1',strokeId:'S',frameOrdinal:0,pigmentRgb8:[1,2,3],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'},materialPacked:'2|trusted provider test fixture'}}
+ const last={...first,id:'last',seq:4,frame:{...first.frame,frameOrdinal:1}}
+ const row=(data:typeof first)=>({id:data.id,roomId:'room',seq:data.seq!,userId:data.userId,type:data.type,layerId:data.layerId,tool:null,data})
+ return {first,last,row}
+}
+async function metadataPrefix(ops:ReturnType<typeof canonicalReadFixture>['first'][],ended=true){
+ const {verifyCanonicalRecordedPrefix}=await import('@grafetto/shared')
+ return verifyCanonicalRecordedPrefix(ops.map((op,n):import('@grafetto/shared').CanonicalRecordedPrefixFrame=>({operationId:op.id,sequence:op.seq!,frameOrdinal:op.frame.frameOrdinal,decoded:{entry:n?{phase:'primary',group:0}:{phase:'between'},fences:[...n===0?[{kind:'segmentBegin' as const,at:0,group:0}]:[],...ended&&n===ops.length-1?[{kind:'primaryEnd' as const,at:0,group:0},{kind:'segmentEnd' as const,at:0,group:0},{kind:'gestureEnd' as const,at:0}]:[]]}})))
+}
+it('recovers the full known canonical undo group before planning an earlier-chunk snapshot cut',async()=>{
+ const {first,last,row}=canonicalReadFixture(),u={...undo,userId:first.userId,targetOpId:'last'},r={...redo,userId:first.userId,targetOpId:'last'}
+ mocks.rooms.get('room').operations=[r]
+ mocks.snapshots.mockResolvedValue([{layerId:'L',seq:2,hash:'contains-first'},{layerId:'safe',seq:5,hash:'safe'}])
+ mocks.operations.mockImplementation(async({where})=>where.id?[row(last)]:[row(first),row(last),{data:u},{data:r}])
+ const summary=await metadataPrefix([first,last]),prepare=vi.fn<import('./snapshotReplayLoader.js').CanonicalPrefixPreparer>(async()=>({operations:[first,last],canonicalRows:[row(first),row(last)],summary}))
+ const prepared=await prepareSnapshotReplay('room',{prepareCanonicalPrefix:prepare})
+ expect(prepare).toHaveBeenCalledOnce();expect(prepare.mock.calls[0][0]).toMatchObject({anchor:{id:'last'},row:{id:'last'},throughSeq:6,purpose:'undo-redo'})
+ expect(prepared.index?.layers).toEqual([{layerId:'safe',seq:5,hash:'safe'}])
+ expect(prepared.operations.map(op=>op.id)).toEqual(['first','last',u.id,r.id])
+ expect(prepared.canonicalRows.map(entry=>entry.id)).toEqual(['last','first'])
+ expect(prepared.historicalIds.has('first')).toBe(true)
+})
+it('allows open scoped reads without a snapshot but refuses grouped undo until recorded end',async()=>{
+ const {first,row}=canonicalReadFixture(),summary=await metadataPrefix([first],false)
+ const prepare=vi.fn<import('./snapshotReplayLoader.js').CanonicalPrefixPreparer>(async()=>({operations:[first],canonicalRows:[row(first)],summary}))
+ mocks.state.mockResolvedValue(null);mocks.rooms.get('room').operations=[first]
+ const read=await prepareSnapshotReplay('room',{prepareCanonicalPrefix:prepare})
+ expect(read.operations.map(op=>op.id)).toEqual(['first']);expect(read.index).toBeNull()
+ expect(prepare.mock.calls[0][0].purpose).toBe('read')
+ mocks.rooms.get('room').operations=[first,{...undo,userId:first.userId,targetOpId:'first'}]
+ await expect(prepareSnapshotReplay('room',{prepareCanonicalPrefix:prepare})).rejects.toThrow('prefix is open')
+})
+it('does not fall back to an unproved V2 prefix when the preparer is absent or fails',async()=>{
+ const {first}=canonicalReadFixture();mocks.state.mockResolvedValue(null);mocks.rooms.get('room').operations=[first]
+ await expect(prepareSnapshotReplay('room')).rejects.toThrow('preparer unavailable')
+ const prepare=vi.fn(async()=>{throw Error('known prefix hole')})
+ await expect(prepareSnapshotReplay('room',{prepareCanonicalPrefix:prepare})).rejects.toThrow('known prefix hole')
+ expect(mocks.rooms.get('room').operations).toEqual([first])
+})
+it('bounds whole preparation bindings and gesture count before querying prefixes',async()=>{
+ const {first}=canonicalReadFixture(),prepare=vi.fn()
+ mocks.state.mockResolvedValue(null)
+ for(const kind of ['bindings','gestures']){
+  mocks.rooms.get('room').operations=Array.from({length:kind==='bindings'?1025:65},(_,n)=>({...first,id:'frame'+n,seq:n+1,frame:{...first.frame,strokeId:kind==='bindings'?'S':'S'+n,frameOrdinal:kind==='bindings'?n:0}}))
+  await expect(prepareSnapshotReplay('room',{prepareCanonicalPrefix:prepare})).rejects.toThrow('capacity exceeded')
+  expect(prepare).not.toHaveBeenCalled()
+ }
+})
+it('enforces the total byte budget across multiple separately bounded gesture prefixes',async()=>{
+ const {first,row}=canonicalReadFixture(),ops=[0,1,2].map(n=>({...first,id:'large'+n,seq:n+1,frame:{...first.frame,strokeId:'S'+n,materialPacked:'2|'+ 'x'.repeat(2*1024*1024)}}))
+ mocks.state.mockResolvedValue(null);mocks.rooms.get('room').operations=ops
+ const prepare=vi.fn(async(input:import('./snapshotReplayLoader.js').CanonicalPrefixRequest)=>({operations:[input.anchor],canonicalRows:[row(input.anchor)],summary:await metadataPrefix([input.anchor])}))
+ await expect(prepareSnapshotReplay('room',{prepareCanonicalPrefix:prepare})).rejects.toThrow('aggregate capacity exceeded')
+ expect(prepare).toHaveBeenCalledTimes(2);expect(mocks.rooms.get('room').operations).toBe(ops)
 })

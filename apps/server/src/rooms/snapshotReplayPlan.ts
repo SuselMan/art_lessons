@@ -1,4 +1,4 @@
-import type { Operation } from '@grafetto/shared'
+import type { CanonicalStrokeOperation, Operation } from '@grafetto/shared'
 
 /** Stored pixels are immutable, but their usability changes when later history
  * mutations alter an operation baked into them. This is a per-join selection;
@@ -37,6 +37,20 @@ export function planSnapshotReplay(
   liveLayers?: ReadonlySet<string>, structuralSeq?: number,
 ): SnapshotReplayPlan {
   const byId = new Map(operations.map(op => [op.id, op]))
+  // Local dependency index only. Full decoded prefix authority belongs to
+  // the loader; the pure plan still refuses missing/conflicting ordinal0.
+  const firstCanonical=new Map<string,CanonicalStrokeOperation|null>()
+  const canonicalKey=(op:CanonicalStrokeOperation)=>JSON.stringify([op.userId,op.frame.strokeId])
+  for(const op of operations)if(op.type==='canonical_stroke'&&op.frame.frameOrdinal===0){
+    const key=canonicalKey(op)
+    firstCanonical.set(key,firstCanonical.has(key)?null:op)
+  }
+  const sameCanonicalContext=(a:CanonicalStrokeOperation,b:CanonicalStrokeOperation)=>!a.frame.materialPacked.startsWith('1|')&&!b.frame.materialPacked.startsWith('1|')
+    &&a.userId===b.userId&&a.layerId===b.layerId
+    &&a.frame.version===b.frame.version&&a.frame.rasterProfile===b.frame.rasterProfile&&a.frame.brush===b.frame.brush&&a.frame.strokeId===b.frame.strokeId
+    &&a.frame.pigmentRgb8.every((v,i)=>v===b.frame.pigmentRgb8[i])&&a.frame.composition.mode===b.frame.composition.mode
+    &&a.frame.composition.alphaDarken===b.frame.composition.alphaDarken&&a.frame.composition.outerBlend===b.frame.composition.outerBlend
+    &&Object.is(a.frame.composition.outerResourceOpacity,b.frame.composition.outerResourceOpacity)
   const cutoff = new Map<string, number>()
   const historyLayers = new Set<string>()
   const unresolvedTargets = new Set<string>()
@@ -60,6 +74,14 @@ export function planSnapshotReplay(
       && (structuralSeq === undefined || (change.seq ?? 0) <= structuralSeq)) continue
     const target = resolve(change.targetOpId, new Set())
     if (!target) continue
+    let targetSeq=target.seq??0
+    // MaterialV1 keeps its historical closed lane; the new read-prefix
+    // contract covers V2 only. Unknown tags never fall into the V1 exception.
+    if(target.type==='canonical_stroke'&&!target.frame.materialPacked.startsWith('1|')){
+      const first=firstCanonical.get(canonicalKey(target))
+      if(!first||!sameCanonicalContext(first,target)||!Number.isSafeInteger(first.seq)||first.seq!<1||first.seq!>targetSeq){unresolvedTargets.add(target.id);continue}
+      targetSeq=first.seq!
+    }
     if (structuralSeq !== undefined && (target.seq ?? 0) <= structuralSeq
       && structuralSeq < (change.seq ?? 0)
       && (target.type.startsWith('layer_') || target.type === 'folder_add')
@@ -73,8 +95,8 @@ export function planSnapshotReplay(
       // A mutation already represented in a candidate is not a reason to
       // reject it. Equality matters: undo5 is in snapshot5; redo6 is not.
       if (candidates.some(s => s.layerId === layerId
-        && (target.seq ?? 0) <= s.seq && s.seq < (change.seq ?? 0))) {
-        before(layerId, target.seq ?? 0)
+        && targetSeq <= s.seq && s.seq < (change.seq ?? 0))) {
+        before(layerId, targetSeq)
       }
     }
   }

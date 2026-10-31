@@ -65,3 +65,32 @@ describe('structural coverage independently from pixel candidates', () => {
     expect(planSnapshotReplay([snapshot(5)], [stroke('s', 3), change('undo6', 6, 's')], undefined, 5).replayStructure).toBeUndefined()
   })
 })
+
+function canonicalChunk(id:string,seq:number,ordinal:number):Extract<Operation,{type:'canonical_stroke'}>{return{id,seq,userId:'A',timestamp:seq,type:'canonical_stroke',layerId:'L',frame:{version:1,rasterProfile:'installed-arm64-scalar-fused-fpcr0-v1',brush:'brush:source@1',strokeId:'S',frameOrdinal:ordinal,pigmentRgb8:[1,2,3],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'},materialPacked:'2|already verified by loader'}}}
+it.each(['first','last'] as const)('invalidates snapshot covering any earlier canonical group chunk when undo addresses %s',which=>{
+ const first=canonicalChunk('first',1,0),last=canonicalChunk('last',4,1)
+ const plan=planSnapshotReplay([snapshot(2),snapshot(5,'safe')],[first,last,change('undo',6,which)])
+ expect(plan.coverage.has('L')).toBe(false);expect(plan.historyLayers.has('L')).toBe(true)
+ expect(plan.snapshots).toEqual([snapshot(5,'safe')]);expect(plan.unresolvedTargets.size).toBe(0)
+})
+it.each(['missing','duplicate','brush','layer','pigment','composition','materialVersion'] as const)('refuses missing or conflicting canonical group first context: %s',kind=>{
+ let first=canonicalChunk('first',1,0);const last=canonicalChunk('last',4,1)
+ if(kind==='materialVersion')first={...first,frame:{...first.frame,materialPacked:'1|old PNG'}}
+ if(kind==='brush')first={...first,frame:{...first.frame,brush:'brush:other@1'}}
+ if(kind==='layer')first={...first,layerId:'other'}
+ if(kind==='pigment')first={...first,frame:{...first.frame,pigmentRgb8:[9,9,9]}}
+ if(kind==='composition')first={...first,frame:{...first.frame,composition:{...first.frame.composition,outerResourceOpacity:.5}}}
+ const ops:Operation[]=[...kind==='missing'?[]:[first],last,change('undo',6,'last')]
+ if(kind==='duplicate')ops.push({...first,id:'duplicate-first'})
+ expect(planSnapshotReplay([snapshot(2)],ops).unresolvedTargets.has('last')).toBe(true)
+})
+
+it('preserves the historical PNG materialV1 target-chunk lane without granting it new V2 prefix readiness',()=>{
+ const target=canonicalChunk('old-png-last',4,1),v1={...target,frame:{...target.frame,materialPacked:'1|historical PNG payload'}}
+ const old=planSnapshotReplay([snapshot(2)],[v1,change('undo',6,v1.id)])
+ expect(old.coverage.get('L')).toBe(2);expect(old.unresolvedTargets.size).toBe(0)
+ for(const packed of ['2|new source','unknown malformed tag']){
+  const current={...target,frame:{...target.frame,materialPacked:packed}}
+  expect(planSnapshotReplay([snapshot(2)],[current,change('undo',6,current.id)]).unresolvedTargets.has(current.id)).toBe(true)
+ }
+})

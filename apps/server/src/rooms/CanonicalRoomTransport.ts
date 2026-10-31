@@ -15,6 +15,7 @@ import { canonicalPaintRejectReason } from './operationGate.js'
 import { canonicalWriteFence, ensureCanonicalWrite, findDuplicateOperation, knownCanonicalWrite, recordOperation, updateAliveIds } from './operationLog.js'
 import { canonicalOperationRowSelect, verifyCanonicalOperationRow,type CanonicalStoredOperationRow } from './roomPersistence.js'
 import { flushRoomWrites, lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
+import type {CanonicalPrefixPreparer} from './snapshotReplayLoader.js'
 import { CanonicalGesturePrefixError, getCanonicalGesturePrefixWithRows } from './snapshotStore.js'
 
 const MAX_ROOMS = 64, MAX_GESTURES = 1024, MAX_BEGIN_JOBS = 4
@@ -132,7 +133,7 @@ export class CanonicalRoomTransport {
   /** Two-phase reader preparation. Caller awaits BEFORE channel join, then
    * calls finish(snapshot.tailOperations) synchronously before join+state emit.
    * No await/queue/registry survives finish; no paint permission is inferred. */
-  prepareReadDelivery(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
+  prepareReadDelivery(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly preparePrefix:CanonicalPrefixPreparer;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
     const captured={roomId:identity.roomId,userId:identity.userId}
     return this.prepareReadContext(captured,isCurrent,()=>mayReadBoardContent(captured.roomId,captured.userId),()=>{})
   }
@@ -140,14 +141,14 @@ export class CanonicalRoomTransport {
   /** Genuine prepared join can read its exact target BEFORE membership exists.
    * Its private lexical proof comes from the same block/password/invite gate;
    * no caller ok:true object or fabricated durable participation is accepted. */
-  prepareJoinReadDelivery(preparation:PreparedAuthorizedJoin,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
+  prepareJoinReadDelivery(preparation:PreparedAuthorizedJoin,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly preparePrefix:CanonicalPrefixPreparer;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
     const identity={roomId:preparation.roomId,userId:preparation.userId}
     const assert=()=>assertPreparedAuthorizedJoinRead(preparation,identity.roomId,identity.userId)
     assert()
     return this.prepareReadContext(identity,isCurrent,async()=>{assert();return true},assert)
   }
 
-  private async prepareReadContext(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean,authorize:()=>Promise<boolean>,assertAuthorization:()=>void):Promise<{readonly scope:CanonicalRecordedReadScope;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
+  private async prepareReadContext(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean,authorize:()=>Promise<boolean>,assertAuthorization:()=>void):Promise<{readonly scope:CanonicalRecordedReadScope;readonly preparePrefix:CanonicalPrefixPreparer;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
     if(!text(identity?.roomId)||!text(identity.userId))fail('not_joined')
     const {roomId}=identity
     const record=rooms.get(roomId)
@@ -163,7 +164,21 @@ export class CanonicalRoomTransport {
     if(!await authorize())fail('not_joined')
     current()
     const scope=binder.captureReadScope(roomId)
-    return Object.freeze({scope,finish:(operations:readonly Operation[],rows:readonly CanonicalStoredOperationRow[]=[])=>{
+    const preparePrefix:CanonicalPrefixPreparer=async input=>{
+      current()
+      if(input.purpose!=='read'&&input.purpose!=='undo-redo')fail('invalid_operation')
+      if(!Number.isSafeInteger(input.throughSeq)||input.throughSeq<1||input.throughSeq>=record.nextSeq)fail('canonical_repair_required')
+      if(input.row)binder.readRecordedCapability({roomId,boardEpoch:scope.boardEpoch,operation:input.anchor,row:input.row})
+      else binder.readResidentRecordedCapability({roomId,boardEpoch:scope.boardEpoch,operation:input.anchor})
+      await flushRoomWrites(roomId);current()
+      const prefix=await getCanonicalGesturePrefixWithRows(roomId,{userId:input.anchor.userId,strokeId:input.anchor.frame.strokeId},input.throughSeq,input.anchor)
+      if(!await authorize())fail('not_joined')
+      current()
+      const summary=binder.readRecordedPrefix({roomId,boardEpoch:scope.boardEpoch,anchor:input.anchor,row:input.row,operations:prefix.operations,rows:prefix.canonicalRows,purpose:input.purpose})
+      current()
+      return Object.freeze({...prefix,summary})
+    }
+    return Object.freeze({scope,preparePrefix,finish:(operations:readonly Operation[],rows:readonly CanonicalStoredOperationRow[]=[])=>{
       current()
       if(!Array.isArray(operations)||operations.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)fail('canonical_repair_required')
       if(!Array.isArray(rows)||rows.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings||(!operations.some(op=>op.type==='canonical_stroke')&&rows.length))fail('canonical_repair_required')

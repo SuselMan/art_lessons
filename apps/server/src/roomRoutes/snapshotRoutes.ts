@@ -1,7 +1,7 @@
 import { rooms,lessonRecordOf } from '../rooms/roomRegistry.js'
 import { CanonicalRoomTransport } from '../rooms/CanonicalRoomTransport.js'
 import type { FastifyInstance } from 'fastify'
-import type { SnapshotUploadResult } from '@grafetto/shared'
+import {STRAIGHT_ROOM_RASTER_VERSION, type SnapshotUploadResult} from '@grafetto/shared'
 
 import { apiRoute } from '../http/apiRoute.js'
 import { mayReadBoardContent } from '../rooms/boardContentAccess.js'
@@ -77,7 +77,15 @@ export function registerSnapshotRoutes(app: FastifyInstance, canonicalTransport 
     const { roomId } = request.params
     if (!await mayReadBoardContent(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
 
-    const index = await getSnapshotIndex(roomId)
+    const record=rooms.get(roomId),lesson=record&&lessonRecordOf(record)
+    let index
+    if(record?.room.rasterVersion===STRAIGHT_ROOM_RASTER_VERSION){
+      try{
+        const read=await canonicalTransport.prepareReadDelivery({roomId,userId:request.userId},()=>rooms.get(roomId)===record&&lessonRecordOf(record)===lesson)
+        index=await getSnapshotIndex(roomId,{prepareCanonicalPrefix:read.preparePrefix})
+        if(rooms.get(roomId)!==record||lessonRecordOf(record)!==lesson)throw Error('Stale canonical snapshot index')
+      }catch{return reply.code(409).send({error:'canonical_history_unavailable'})}
+    }else index=await getSnapshotIndex(roomId)
     if (!index) return reply.code(204).send(undefined)
     // Never cached: which seq is newest is exactly the thing that changes.
     reply.header('Cache-Control', 'no-store')

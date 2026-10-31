@@ -478,10 +478,10 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, cano
       let readDelivery: Awaited<ReturnType<CanonicalRoomTransport['prepareJoinReadDelivery']>> | undefined
       let readFields: ReturnType<NonNullable<typeof readDelivery>['finish']> | undefined
       try {
-        replay = await prepareSnapshotReplay(roomId)
         if (rooms.get(roomId)?.room.rasterVersion === STRAIGHT_ROOM_RASTER_VERSION) {
           readDelivery = await canonicalTransport.prepareJoinReadDelivery(access.preparation, isCurrent)
         }
+        replay = await prepareSnapshotReplay(roomId,readDelivery?{prepareCanonicalPrefix:readDelivery.preparePrefix}:undefined)
         access.preparation.assertCurrent()
         const candidate = getRoomSnapshot(roomId, lastKnownSeq, userId, replay)
         if (!candidate) throw Error('Join snapshot unavailable')

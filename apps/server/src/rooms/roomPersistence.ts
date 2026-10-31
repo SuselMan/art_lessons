@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
-import { readRoomRasterVersion, type Operation, type Room } from '@grafetto/shared'
+import { CANONICAL_RECORDED_ATTACHMENT_LIMITS, readRoomRasterVersion, type CanonicalStrokeOperation, type Operation, type Room } from '@grafetto/shared'
 
 import { prisma } from '../db/prisma.js'
 import { enqueueWrite, type RoomWriteOutcome } from './roomRegistry.js'
@@ -108,4 +108,27 @@ export function retryCanonicalOperationWrite(roomId: string, op: Operation): Pro
       verify(await read())
     }
   })
+}
+
+/** Structural projection of an actual indexed row, not query/read/append authority.
+ * Bound known scalar/array fields BEFORE immutable copy or JSON byte walks.
+ * Material semantics stay with the SAME shared decoder and trusted binding. */
+export function projectCanonicalIndexedOperation(roomId:string,row:CanonicalStoredOperationRow):{operation:CanonicalStrokeOperation;bytes:number}{
+ const fail=():never=>{throw new TypeError('Invalid canonical indexed operation projection')}
+ const text=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.length<=256&&!v.includes('\0')
+ const op=row.data as Operation
+ verifyCanonicalOperationRow(roomId,op,row)
+ if(op.type!=='canonical_stroke' ||!text(op.id)||!text(op.userId)||!text(op.layerId)||!Number.isFinite(op.timestamp)||!op.frame||!text(op.frame.strokeId)
+    ||!text(op.frame.brush)||!text(op.frame.rasterProfile)||(op.frame.version!==1&&op.frame.version!==2)||!Number.isSafeInteger(op.frame.frameOrdinal)||op.frame.frameOrdinal<0
+    ||!Array.isArray(op.frame.pigmentRgb8)||op.frame.pigmentRgb8.length!==3||op.frame.pigmentRgb8.some(v=>!Number.isInteger(v)||v<0||v>255)
+    ||!op.frame.composition||!text(op.frame.composition.mode)||!text(op.frame.composition.alphaDarken)||!text(op.frame.composition.outerBlend)||!Number.isFinite(op.frame.composition.outerResourceOpacity)
+    ||typeof op.frame.materialPacked!=='string'||Buffer.byteLength(op.frame.materialPacked,'utf8')>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)return fail()
+   if(Object.keys(op).some(k=>!['id','userId','timestamp','seq','type','layerId','frame'].includes(k))
+    ||Object.keys(op.frame).some(k=>!['version','rasterProfile','brush','strokeId','frameOrdinal','pigmentRgb8','composition','materialPacked'].includes(k))
+    ||Object.keys(op.frame.composition).some(k=>!['mode','alphaDarken','outerResourceOpacity','outerBlend'].includes(k)))return fail()
+   const projected:CanonicalStrokeOperation={id:op.id,userId:op.userId,timestamp:op.timestamp,seq:op.seq,type:'canonical_stroke',layerId:op.layerId,frame:{...op.frame,
+    pigmentRgb8:[op.frame.pigmentRgb8[0],op.frame.pigmentRgb8[1],op.frame.pigmentRgb8[2]],composition:{mode:op.frame.composition.mode,alphaDarken:op.frame.composition.alphaDarken,outerResourceOpacity:op.frame.composition.outerResourceOpacity,outerBlend:op.frame.composition.outerBlend},materialPacked:op.frame.materialPacked}}
+ const bytes=Buffer.byteLength(JSON.stringify(projected),'utf8')
+ if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)return fail()
+ return {operation:projected,bytes}
 }

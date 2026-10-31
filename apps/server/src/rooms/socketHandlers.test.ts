@@ -958,7 +958,7 @@ describe('canonical begin/live/recorded actual socket authority (straight creati
 
 })
 
-it('attaches V2 recorded capability atomically to the real peer confirmation only after durable write success',async()=>{
+it('delivers durable V2 confirmation and rejoined closed undo prefix atomically through the SAME read owner',async()=>{
  const c=await canonicalClassroom()
  try{
   const {default:stock}=await import(new URL('../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native.ts',import.meta.url).href)
@@ -981,6 +981,32 @@ it('attaches V2 recorded capability atomically to the real peer confirmation onl
   if(event.operation.type!=='canonical_stroke')throw Error('Expected canonical operation')
   expect(event.operation.frame.materialPacked).toBe(materialPacked)
   expect(prepareCanonicalRecordedAttachment(event.canonicalCapabilities,[event.operation],{roomId:c.lessonId,boardEpoch:s.boardEpoch})).toHaveLength(1)
+  const persisted=mockPrisma.operation.create.mock.calls.find(([request])=>request.data.id===op.id)![0].data
+  mockPrisma.operation.findMany.mockImplementation(async({where})=>where.type==='canonical_stroke'?[persisted]:[])
+  const undo={id:fresh('closed-source-undo'),type:'operation_undo' as const,userId:'teacher',timestamp:1,targetOpId:op.id}
+  expect(await new Promise<SendResult>(resolve=>c.teacher.emit('operation',undo,resolve))).toMatchObject({ok:true})
+  await _flushPendingWrites(c.lessonId)
+  const state=next(c.student,'room_state')
+  expect(await new Promise(resolve=>c.student.emit('join_room',{roomId:c.lessonId,name:'Student'},resolve))).toMatchObject({ok:true})
+  const restored=await state
+  expect(restored.tailOperations.map(entry=>entry.id)).toEqual([op.id,undo.id])
+  expect(restored.canonicalReadScope?.roomId).toBe(c.lessonId)
+  if(!restored.canonicalReadScope)throw Error('Expected captured read scope')
+  expect(prepareCanonicalRecordedAttachment(restored.canonicalCapabilities,restored.tailOperations,restored.canonicalReadScope)[0].read?.operationId).toBe(op.id)
+  const redo={id:fresh('closed-source-redo'),type:'operation_redo' as const,userId:'teacher',timestamp:2,targetOpId:op.id}
+  expect(await new Promise<SendResult>(resolve=>c.teacher.emit('operation',redo,resolve))).toMatchObject({ok:true})
+  expect(await new Promise<CanonicalStrokeBeginResult>(resolve=>c.teacher.emit('canonical_stroke_begin',begin,resolve))).toMatchObject({ok:true,ended:true,recordedNext:1})
+  const beforeLate=c.record.nextSeq
+  expect(await new Promise<SendResult>(resolve=>c.teacher.emit('operation',{...op,id:fresh('closed-source-late'),frame:{...op.frame,frameOrdinal:1}},resolve))).toEqual({ok:false,reason:'invalid_operation'})
+  expect(c.record.nextSeq).toBe(beforeLate)
+  await _flushPendingWrites(c.lessonId);mockPrisma.roomParticipant.upsert.mockClear()
+  const oldParticipant=c.record.participants.get('student'),beforeWrites=mockPrisma.operation.create.mock.calls.length
+  mockPrisma.operation.findMany.mockResolvedValue([])
+  const quietState=silent(c.student,'room_state',40)
+  expect(await new Promise(resolve=>c.student.emit('join_room',{roomId:c.lessonId,name:'Must not publish'},resolve))).toEqual({ok:false,error:'server_busy'})
+  await quietState
+  expect(c.record.participants.get('student')).toBe(oldParticipant)
+  expect(mockPrisma.roomParticipant.upsert).not.toHaveBeenCalled();expect(mockPrisma.operation.create).toHaveBeenCalledTimes(beforeWrites)
  }finally{c.cleanup()}
 })
 
