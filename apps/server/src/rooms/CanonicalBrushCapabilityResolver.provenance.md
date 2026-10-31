@@ -127,3 +127,12 @@ policy; the Gaussian soft eraser still fails outer-Over admission. Material/dual
 candidates remain excluded by source binding. Source-data readiness and the
 closed GPU diagnostic seven-source corpus are deliberately broader than this
 Over-only server permission.
+
+Soft auto remains disabled in the default execution policy. An explicit
+`autoSources.softAuto` entry selects the same stored-scale-1 procedural branch
+as other auto generators. The shared descriptor binding requires retained
+mapped-v2 sensor and radial programs, preserves historical unsupported reasons,
+and pins the descriptor digest, coverage profile, compiler/build identity and
+radial coefficients. No source descriptor, policy, or author request can turn a
+soft source into a PNG capability. Primary source slot 0 is the only admitted
+soft execution role.

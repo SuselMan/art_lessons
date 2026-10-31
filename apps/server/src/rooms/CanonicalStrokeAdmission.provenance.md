@@ -143,3 +143,12 @@ terminal live frame is known before the final record; begin remains ended:false
 until that final record succeeds, then reports true. 29 focused tests pass.
 Server TSC passed before this assertion-only transport test addition; the added
 code reuses the existing typed begin/live/recorded calls without new API types.
+
+Soft primary capability uses canonicalSoftAutoSourcePin before the existing
+immutable gesture signature and common decoder. The signature includes the full
+radial source/coefficients, compiler/build identity, coverage profile and source
+slot; role 1 and mask execution remain rejected. The existing JSON signature's
+signed-zero behavior is unchanged. CanonicalRoomTransport.soft.test.ts uses
+explicit synthetic mapped coefficients to exercise snapshot, author/adapter,
+live/record retries and cold-prefix reconstruction; native whole-stroke raster
+parity is not claimed.

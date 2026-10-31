@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { CANONICAL_STROKE_RASTER_PROFILE, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin,
+import { CANONICAL_STROKE_RASTER_PROFILE, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin,
   type CanonicalMaterialContext, type AnyCanonicalMaterialContext, type CanonicalMaterialEntry, type AnyCanonicalMaterialFrame,
   type CanonicalStrokeComposition, type CanonicalStrokeFrameEnvelope } from '@grafetto/shared'
 
@@ -113,8 +113,9 @@ export class CanonicalStrokeAdmission {
     const m=grant.material
     let preflight:CanonicalMaterialContext['preflightDefinition']|undefined,materialSignature:unknown
     if('version' in m){
-      if(Object.keys(m).some(k=>!['version','assets','primarySource','maskSource','budget','expectedDrawCount','expectedStrokeEnd'].includes(k))||m.version!==2||m.assets.length!==0||m.maskSource!==undefined||(m.primarySource?.kind!=='defaultAuto'&&m.primarySource?.kind!=='gaussianAuto'))fail('unsupported trusted material capability')
-      const pin=m.primarySource.kind==='defaultAuto'?canonicalDefaultAutoSourcePin(m.primarySource):canonicalGaussianAutoSourcePin(m.primarySource)
+      if(Object.keys(m).some(k=>!['version','assets','primarySource','maskSource','budget','expectedDrawCount','expectedStrokeEnd'].includes(k))||m.version!==2||m.assets.length!==0||m.maskSource!==undefined||(m.primarySource?.kind!=='defaultAuto'&&m.primarySource?.kind!=='gaussianAuto'&&m.primarySource?.kind!=='softAuto'))fail('unsupported trusted material capability')
+      const pin=m.primarySource.kind==='softAuto'?canonicalSoftAutoSourcePin(m.primarySource):m.primarySource.kind==='defaultAuto'?canonicalDefaultAutoSourcePin(m.primarySource):canonicalGaussianAutoSourcePin(m.primarySource)
+      if(pin.kind==='softAuto'&&pin.sourceSlot!==0)fail('unsupported trusted soft source slot')
       if(pin.brushScale!==1||pin.descriptorSha256!==grant.descriptorSha256||grant.brush!==`brush:${pin.descriptorId}@${pin.descriptorVersion}`)fail('trusted auto descriptor binding mismatch')
       preflight=undefined
       materialSignature={...m,primarySource:pin}

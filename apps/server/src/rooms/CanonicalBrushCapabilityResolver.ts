@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import {
   CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, STRAIGHT_ROOM_RASTER_VERSION,
-  canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, sourceStampPaintingMode,
+  canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, sourceStampPaintingMode,
   type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin,
 } from '@grafetto/shared'
 import { freezeCanonicalAutoPolicies, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
@@ -127,9 +127,11 @@ export class CanonicalBrushCapabilityResolver {
     const descriptorSha256 = createHash('sha256').update(JSON.stringify(normalizedDescriptor(descriptor))).digest('hex')
     let material:AnyCanonicalMaterialContext, mode:'wash'|'buildup'
     const budget=Object.freeze({workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels})
-    if(descriptor.sourceStamp.version===2 && (descriptor.sourceStamp.source.kind==='defaultAuto'||descriptor.sourceStamp.source.kind==='gaussianAuto')){
+    if(descriptor.sourceStamp.version===2 && (descriptor.sourceStamp.source.kind==='defaultAuto'||descriptor.sourceStamp.source.kind==='gaussianAuto'||descriptor.sourceStamp.source.kind==='softAuto')){
       const kind=descriptor.sourceStamp.source.kind
-      const pin=kind==='defaultAuto'
+      const pin=kind==='softAuto'
+        ? this.autoSources.softAuto ? canonicalSoftAutoSourceBinding(descriptor,descriptorSha256,this.autoSources.softAuto.coverageProfile) : fail('soft-auto execution policy disabled')
+        : kind==='defaultAuto'
         ? this.autoSources.defaultAuto ? canonicalDefaultAutoSourceBinding(descriptor,descriptorSha256,this.autoSources.defaultAuto.coverageProfile) : fail('default-auto execution policy disabled')
         : this.autoSources.gaussianAuto ? canonicalGaussianAutoSourceBinding(descriptor,descriptorSha256,this.autoSources.gaussianAuto.coverageProfile) : fail('Gaussian execution policy disabled')
       const savedMode=sourceStampPaintingMode(descriptor.sourceStamp)
