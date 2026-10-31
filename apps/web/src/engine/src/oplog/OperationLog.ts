@@ -302,7 +302,8 @@ export class OperationLog {
    *  (#537) Returns the entries that now come *after* `op` although they were
    *  already applied — empty in the common case, where `op` lands on the end
    *  of its region with nothing painted above it. See the class doc comment. */
-  append(op: Operation, placement: Placement = {}): LogEntry[] {
+  append(op: Operation, placement: Placement = {}, beforePublish?: () => undefined): LogEntry[] {
+    if (beforePublish !== undefined) return this._appendRecordedGuarded(op,placement,beforePublish)
     const originalInput=canonicalInputOf(placement)
     if(placement.pending&&('canonicalInput' in placement||'canonicalRead' in placement))throw new TypeError('Pending history cannot carry recorded authority')
     if(originalInput&&originalInput.operation!==op)throw new TypeError('Canonical append requires original operation pointer')
@@ -351,6 +352,46 @@ export class OperationLog {
     this._renumber(at + 1, this._entries.length)
     this._bumpPixelOpCount(op, 1)
     return this._entries.slice(at + 1)
+  }
+
+  /** Narrow recorded-only publication. No owner callback or caller-field read
+   * may remain after the final journal comparison. Legacy append is unchanged. */
+  private _appendRecordedGuarded(op:Operation,placement:Placement,beforePublish:()=>undefined):LogEntry[] {
+    const revision=this._revision,entries=this._entries,length=entries.length,confirmed=this._confirmedCount,nextSeq=this._nextSeq
+    const assertJournal=()=>{
+      if(this._revision!==revision||this._entries!==entries||this._entries.length!==length
+        ||this._confirmedCount!==confirmed||this._nextSeq!==nextSeq||entries.some(entry=>entry.state!=='done'||entry.pending))throw new Error('Recorded append journal changed')
+    }
+    if(typeof beforePublish!=='function')throw new TypeError('Recorded publication validator must be a function')
+    const keys=Reflect.ownKeys(placement)
+    if(keys.length>4||keys.some(key=>typeof key!=='string'||!['pending','serverSeq','canonicalRead','canonicalInput'].includes(key)))throw new TypeError('Invalid guarded recorded placement')
+    const data=(key:string)=>{
+      const descriptor=Object.getOwnPropertyDescriptor(placement,key)
+      if(!descriptor){if(key in placement)throw new TypeError('Inherited guarded placement');return undefined}
+      if(!Object.hasOwn(descriptor,'value'))throw new TypeError('Guarded placement accessor is unsupported')
+      return descriptor.value
+    }
+    const pending=data('pending'),serverSeq=data('serverSeq'),read=data('canonicalRead'),originalInput=canonicalInputOf(placement)
+    if(pending!==undefined&&pending!==false||op.type!=='canonical_stroke'||!originalInput
+      ||originalInput.operation!==op||!Number.isSafeInteger(serverSeq)||serverSeq<1
+      ||confirmed!==length||entries.some(entry=>entry.state!=='done'||entry.pending)||length>0&&(entries[length-1].serverSeq===undefined||entries[length-1].serverSeq!>=serverSeq)
+      ||entries.some(entry=>entry.op.id===op.id))throw new TypeError('Guarded append requires original confirmed canonical input at journal end')
+    const canonicalInput=this._prepareCanonicalInput(op,serverSeq,originalInput)
+    const canonicalRead=this._prepareCanonicalReadAndInput(op,serverSeq,read,canonicalInput)
+    const candidate=retainCanonicalInput({op:{...op,seq:length},state:'done',serverSeq,canonicalRead},canonicalInput)
+    const counts=new Map(this._pixelOpDoneCount),layerId=op.layerId
+    counts.set(layerId,(counts.get(layerId)??0)+1)
+    const nextEntries=[...entries,candidate],overtaken:LogEntry[]=[]
+    assertJournal()
+    if(beforePublish()!==undefined)throw new TypeError('Publication validator must be synchronous and return undefined')
+    assertJournal()
+    // All copies, authority callbacks and count derivation finished above.
+    this._entries=nextEntries
+    this._revision=revision+1
+    this._confirmedCount=confirmed+1
+    this._nextSeq=nextSeq+1
+    this._pixelOpDoneCount=counts
+    return overtaken
   }
 
   /** (#537) The server has ordered one of this client's pending operations at
