@@ -1,9 +1,13 @@
 import {afterEach,beforeEach,expect,it,vi} from 'vitest'
 import {inflateSync} from 'node:zlib'
 import {createHash} from 'node:crypto'
-import {canonicalImageSourceBinding,canonicalBrushDescriptorJSON,CANONICAL_STROKE_RASTER_PROFILE,type BrushDescriptor,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type ServerToClientEvents} from '@grafetto/shared'
+import {canonicalImageSourceBinding,canonicalImagePipeSourceBinding,canonicalSourceComposition,isBrushLibrary,decodeCanonicalStrokeFrame,canonicalBrushDescriptorJSON,CANONICAL_STROKE_RASTER_PROFILE,type BrushDescriptor,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type ServerToClientEvents} from '@grafetto/shared'
 import stock from '../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
 import fixture from './src/presets/fixtures/sourcePngWholePath/guiStroke.native.json'
+import mountains from './src/presets/fixtures/sourceImagePipe/mountains.native.json'
+import graphite from './src/presets/fixtures/sourceImagePipe/pencilRandom.native.json'
+import {prepareCanonicalRecordedAttachment} from '@grafetto/shared'
+import {attachCanonicalRecordedDelivery} from '../pages/Room/net/canonicalRecordedDelivery'
 import {sourceStrokeAuthorDescriptor} from './src/presets/sourceStrokeAuthorDescriptor'
 import {SourceStrokeAuthor,type SourceStrokeAuthorState,type SourceStrokeAuthorStep} from './src/presets/sourceStrokeAuthor'
 import {SourceStrokeMaterialAdapter,type SourceStrokeMaterialContextV2} from './src/presets/sourceStrokeMaterialAdapter'
@@ -16,6 +20,7 @@ import {PencilEngine} from './index'
 const descriptor=fixture.descriptor as unknown as BrushDescriptor
 const binding=canonicalImageSourceBinding(descriptor,fixture.asset)
 const asset=binding.assets[0]
+function uploadedPixels(args:readonly unknown[]){return args[8]}
 function sourceTrace(){
  const compiled=sourceStrokeAuthorDescriptor(descriptor,{asset:fixture.asset,colorIdentity:'native-GUI-black',lodScale:1,inputProfile:'krita-freehand-no-smoothing-v1'})
  if(!compiled.supported)throw Error(compiled.reasons.join(','))
@@ -38,9 +43,9 @@ const trace=sourceTrace()
 const bytes=new Uint8Array(inflateSync(Buffer.from(fixture.asset.deflateBase64,'base64'),{maxOutputLength:65536}))
 beforeEach(()=>{expect('asset:'+createHash('sha256').update(bytes).digest('hex')).toBe(asset.id);installBrushPixels(asset.id,bytes)})
 afterEach(()=>{vi.restoreAllMocks();clearImportedBrushPixels()})
-function original(isCurrent=()=>true,open=false){
- const tail=open?trace.operations.slice(0,-1):trace.operations
- const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:512,canvasHeight:512,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:tail,participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:1},canonicalHistoryBase:{kind:open?'full-room-prefix-v2':'empty-room-prefix-v1',roomId:'room',boardEpoch:1,throughSeq:tail.length,operationCount:tail.length},canonicalCapabilities:{version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot:trace.snapshot}],bindings:tail.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}))}}
+function original(isCurrent=()=>true,open=false,inputTrace=trace,limit?:number){
+ const tail=limit!==undefined?inputTrace.operations.slice(0,limit):open?inputTrace.operations.slice(0,-1):inputTrace.operations
+ const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:512,canvasHeight:512,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:tail,participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:1},canonicalHistoryBase:{kind:open?'full-room-prefix-v2':'empty-room-prefix-v1',roomId:'room',boardEpoch:1,throughSeq:tail.length,operationCount:tail.length},canonicalCapabilities:{version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot:inputTrace.snapshot}],bindings:tail.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}))}}
  return prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent})
 }
 function engineFor(p:ReturnType<typeof original>,author=false){
@@ -85,3 +90,103 @@ it('refuses Basic2 auto author preparation on the image-only baseline before tou
   expect(programs).not.toHaveBeenCalled();expect(engine['_brushMipCache'].reservedBytes).toBe(cpu);expect(bank.resources()).toEqual(resources);expect(owner.prepass.preparedCapacity().epoch).toBe(capacity.epoch);expect(engine['_canonicalPreparedAuthor']).toBeUndefined();expect(engine['_canonicalPixelsReady']).toBe(true)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },15000)
+
+function pipeTrace(name:'mountains'|'graphite'){
+ const data=name==='mountains'?mountains:graphite
+ const library:unknown={schemaVersion:1,brushes:[{name,source:'original.gih',warnings:[],descriptor:data.descriptor}],assets:data.assets.map(a=>({id:a.id,size:a.size,file:a.id.slice(6)+'.bin'})),skipped:[]}
+ if(!isBrushLibrary(library))throw Error('Invalid original GIH library')
+ const d=library.brushes[0].descriptor,binding=canonicalImagePipeSourceBinding(d,library.assets)
+ for(const a of data.assets){const bytes=new Uint8Array(inflateSync(Buffer.from(a.deflateBase64,'base64'),{maxOutputLength:a.size*a.size}));expect('asset:'+createHash('sha256').update(bytes).digest('hex')).toBe(a.id);installBrushPixels(a.id,bytes)}
+ const compiled=sourceStrokeAuthorDescriptor(d,{assets:data.assets,colorIdentity:'black',lodScale:1,inputProfile:'krita-freehand-no-smoothing-v1'})
+ if(!compiled.supported)throw Error(compiled.reasons.join(','))
+ const author=new SourceStrokeAuthor(compiled.program);let state=author.createState(1,2,0)
+ const material:SourceStrokeMaterialContextV2={version:2,...binding,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}}
+ const snapshot:CanonicalStrokeSnapshotV2={...trace.snapshot,brush:'brush:'+d.id+'@'+d.version,strokeId:'original-'+name,descriptorSha256:createHash('sha256').update(canonicalBrushDescriptorJSON(d)).digest('hex'),material,assets:material.assets,composition:{...canonicalSourceComposition(d)!,alphaDarken:'creamy',outerResourceOpacity:1}}
+ const adapter=new SourceStrokeMaterialAdapter(compiled.program,material,state),encoder=new SourceCanonicalFrameEncoder({...snapshot,material}),operations:CanonicalStrokeOperation[]=[],selected=new Set<string>()
+ const accept=(chunks:ReturnType<typeof adapter.finish>)=>{for(const chunk of chunks){const accepted=encoder.encode(chunk.packed);for(const draw of accepted.frame.draws){const recipe=accepted.frame.definitions[draw.definition];if('asset'in recipe)selected.add(recipe.asset)}operations.push({id:name+'-'+operations.length,userId:'author',timestamp:0,seq:operations.length+1,type:'canonical_stroke',layerId:'layer-1',frame:accepted.envelope})}}
+ const consume=(iterator:Generator<SourceStrokeAuthorStep,SourceStrokeAuthorState>)=>{while(true){const n=iterator.next();if(n.done){state=n.value;return}accept(adapter.accept(n.value));const chunk=adapter.flush();if(chunk)accept([chunk])}}
+ const packet=(x:number,t:number)=>({x,y:80,t,pressure:1,tiltX:0,tiltY:0,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false})
+ for(const p of [packet(40,0),packet(name==='mountains'?2040:240,1000)]){accept(adapter.beginInput(state));consume(author.plan(state,p))}
+ accept(adapter.beginInput(state));consume(author.finish(state));accept(adapter.finish(state))
+ expect(selected.size).toBeGreaterThan(1)
+ return{operations,snapshot}
+}
+it.each(['mountains','graphite'] as const)('restores the original %s whole frame union and recovers without any source frame reselection',async name=>{
+ const pipe=pipeTrace(name),p=original(()=>true,false,pipe),packed=pipe.operations.map(op=>op.frame.materialPacked),authorPlan=vi.spyOn(SourceStrokeAuthor.prototype,'plan'),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,ids=new Set(bank.jobs.map(job=>job.resource.id))
+  expect(ids).toEqual(new Set(pipe.snapshot.assets.map(a=>a.id)));expect(bank.jobs).toHaveLength(pipe.snapshot.assets.length*11)
+  expect(engine['_log'].entries.map(e=>e.canonicalInput)).toEqual(p.canonicalRead.preparedAtoms)
+  expect(engine['_canonicalExportReady']()).toBe(true)
+  const entries=engine['_log'].entries,revision=engine['_log'].revision,lost=vi.spyOn(engine['gl'],'isContextLost').mockReturnValue(true)
+  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));lost.mockReturnValue(false);engine['_handleContextRestored']()
+  await vi.waitFor(()=>expect(engine['_canonicalPixelsReady']).toBe(true),{timeout:20000})
+  expect(engine['_log'].entries).toBe(entries);expect(engine['_log'].revision).toBe(revision);expect(pipe.operations.map(op=>op.frame.materialPacked)).toEqual(packed)
+  expect(new Set(engine['_canonicalLayerOwner']!.bank!.jobs.map(job=>job.resource.id))).toEqual(ids);expect(authorPlan).not.toHaveBeenCalled()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},30000)
+it('prepares all original pipe frames while open and appends the exact selected recorded recipes without reselecting',async()=>{
+ const pipe=pipeTrace('mountains'),p=original(()=>true,true,pipe,1),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,upload=vi.spyOn(engine['gl'],'texImage2D'),program=vi.spyOn(engine['gl'],'createProgram')
+  const rest=pipe.operations.slice(1),snapshot=pipe.snapshot,attachment={version:1 as const,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot}],bindings:rest.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}))}
+  const inputs=prepareCanonicalRecordedAttachment(attachment,rest,p.canonicalRead.scope).map(atom=>{const input=attachCanonicalRecordedDelivery(atom,p.canonicalRead.scope);if(!('delivery'in input))throw Error('Missing original delivery');return input})
+  for(const input of inputs){expect(await engine.prepareOriginalRecorded(input)).toEqual({status:'ready'});engine.appendOriginalRecorded(input);for(let i=0;i<100&&owner.job;i++)engine['_stepCanonicalLayer'](owner.job)}
+  for(let i=0;i<1000&&owner.job;i++)engine['_stepCanonicalLayer'](owner.job)
+  expect(engine['_log'].entries).toHaveLength(pipe.operations.length);expect(owner.bank).toBe(bank);expect(program).not.toHaveBeenCalled()
+  expect(bank.jobs).toHaveLength(44);expect(engine['_canonicalExportReady']()).toBe(true)
+  // Draw targets may allocate, but matching original bank preparation uploads no bank texture.
+  expect(upload.mock.calls.filter(call=>Number(call[3])>512)).toHaveLength(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},30000)
+
+it('admits actual Basic6 nonempty HOT original continuation and executes mask deposition after its initial control frame',async()=>{
+ const p=original(()=>true,true,trace,1),{engine}=engineFor(p),upload=vi.spyOn(engine['gl'],'texImage2D')
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  expect(upload.mock.calls.some(call=>{const data=uploadedPixels(call);return data instanceof Uint8Array&&data.some((value,i)=>i%4===0&&value>0)})).toBe(true)
+  const owner=engine['_canonicalLayerOwner']!,deposition=vi.spyOn(owner.composite,'drawSource'),rest=trace.operations.slice(1),snapshot=trace.snapshot
+  const attachment={version:1 as const,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot}],bindings:rest.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}))}
+  const inputs=prepareCanonicalRecordedAttachment(attachment,rest,p.canonicalRead.scope).map(atom=>{const input=attachCanonicalRecordedDelivery(atom,p.canonicalRead.scope);if(!('delivery'in input))throw Error('Missing original input');return input})
+  let draws=0
+  for(const input of inputs){const op=input.operation;if(op.type!=='canonical_stroke')throw Error('Expected frame');draws+=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,material:snapshot.material}).frame.draws.length
+   expect(await engine.prepareOriginalRecorded(input)).toEqual({status:'ready'});engine.appendOriginalRecorded(input)
+   for(let i=0;i<100&&owner.job;i++)engine['_stepCanonicalLayer'](owner.job)
+  }
+  for(let i=0;i<1000&&owner.job;i++)engine['_stepCanonicalLayer'](owner.job)
+  expect(draws).toBe(fixture.draws);expect(draws).toBeGreaterThan(0)
+  expect(deposition.mock.calls.some(([draw])=>draw.source.kind==='maskRgb'&&!!draw.writeBounds&&draw.writeBounds.maxX>draw.writeBounds.minX&&draw.writeBounds.maxY>draw.writeBounds.minY)).toBe(true)
+  expect(engine['_log'].entries).toHaveLength(trace.operations.length);expect(engine['_canonicalExportReady']()).toBe(true)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},30000)
+
+it('refuses the actual mixed four/seven-frame bank plus workspace before canvas access',()=>{
+ const a=pipeTrace('mountains'),b=pipeTrace('graphite'),operations=[...a.operations,...b.operations.map(op=>({...op,seq:op.seq!+a.operations.length}))],base=original()
+ const wire:Parameters<ServerToClientEvents['room_state']>[0]={...base,tailOperations:operations,canonicalHistoryBase:{kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:1,throughSeq:operations.length,operationCount:operations.length},canonicalCapabilities:{version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot:a.snapshot},{originalUserId:'author',snapshot:b.snapshot}],bindings:operations.map((op,i)=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:i<a.operations.length?0:1}))}}
+ const p=prepareCanonicalRoomState(wire,{expectedBoardId:'room',isCurrent:()=>true}),get=vi.fn(()=>{throw Error('Canvas touched')}),canvas=new Proxy({}as HTMLCanvasElement,{get})
+ expect(()=>new PencilEngine(canvas,{rasterVersion:'straight-rgba8-v1',pageWidth:512,pageHeight:512,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations}})).toThrow('Canonical baseline workspace exceeds existing brush budgets')
+ expect(get).not.toHaveBeenCalled()
+})
+it('checks an unselected original pipe frame before canvas access even for an initial control-only prefix',()=>{
+ const pipe=pipeTrace('mountains'),p=original(()=>true,true,pipe,1)
+ clearImportedBrushPixels()
+ for(const a of mountains.assets.slice(0,-1))installBrushPixels(a.id,new Uint8Array(inflateSync(Buffer.from(a.deflateBase64,'base64'),{maxOutputLength:a.size*a.size})))
+ const get=vi.fn(()=>{throw Error('Canvas touched')}),canvas=new Proxy({}as HTMLCanvasElement,{get})
+ expect(()=>new PencilEngine(canvas,{rasterVersion:'straight-rgba8-v1',pageWidth:512,pageHeight:512,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations}})).toThrow('Canonical baseline image asset unavailable')
+ expect(get).not.toHaveBeenCalled()
+})
+it('rejects a hot mixed bank union before upload and preserves the old original bank, journal and checkpoint',async()=>{
+ const a=pipeTrace('mountains'),b=pipeTrace('graphite'),p=original(()=>true,false,a),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,resources=bank.preparedResources(),entries=engine['_log'].entries,cpu=engine['_brushMipCache'].reservedBytes,upload=vi.spyOn(engine['gl'],'texImage2D')
+  const operation={...b.operations[0],seq:a.operations.length+1},attachment={version:1 as const,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot:b.snapshot}],bindings:[{operationId:operation.id,sequence:operation.seq,originalUserId:'author',capability:0}]}
+  const atom=prepareCanonicalRecordedAttachment(attachment,[operation],p.canonicalRead.scope)[0],input=attachCanonicalRecordedDelivery(atom,p.canonicalRead.scope);if(!('delivery'in input))throw Error('Missing original input')
+  await expect(engine.prepareOriginalRecorded(input)).rejects.toThrow(/budget/)
+  // Pending normal display may allocate its null PM targets across the await;
+  // no bank pixel upload is permitted before this failed source admission.
+  expect(upload.mock.calls.filter(call=>uploadedPixels(call)!==null)).toHaveLength(0);expect(owner.bank).toBe(bank);expect(bank.preparedResources()).toEqual(resources);expect(engine['_log'].entries).toBe(entries);expect(engine['_brushMipCache'].reservedBytes).toBe(cpu);expect(owner.resourceCandidate).toBeUndefined();expect(engine['_canonicalExportReady']()).toBe(true)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},30000)

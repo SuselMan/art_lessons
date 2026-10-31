@@ -105,6 +105,19 @@ function planInputs(inputs:readonly BankInput[]):BankPlan {
     }
   return {jobs:Object.freeze([...jobs.values()]),inputs:plannedInputs}
 }
+function jobBudget(jobs:readonly CanonicalMaskSourceJob[]){
+  return {gpuBytes:jobs.reduce((n,j)=>n+j.bytes,0),metadataCpuBytes:JOB_METADATA_BYTES*jobs.length,
+    maximumTransientCpuBytes:Math.max(...jobs.map(j=>j.transientCpuBytes))}
+}
+/** Same finite metadata planner as the bank constructor; never calls readers or GL. */
+export function canonicalMaskSourceBankBudget(inputs:readonly BankInput[]){
+  if(!Array.isArray(inputs)||inputs.length<1||inputs.length>256)throw new RangeError('Invalid canonical bank plan')
+  const plan=planInputs(inputs)
+  if(!plan.jobs.length||plan.jobs.length>4096)throw new RangeError('Invalid canonical bank plan')
+  return Object.freeze({...jobBudget(plan.jobs),maximumSourceCpuBytes:Math.max(...[...plan.inputs.values()].map(input=>input.assetSide*input.assetSide)),
+    resources:Object.freeze(plan.jobs.map(({key,bytes})=>Object.freeze({key,bytes})))})
+}
+
 export interface CanonicalMaskSourceExtension {
   readonly status:'pending'|'committed'|'cancelled'
   publish():undefined
@@ -124,9 +137,9 @@ export interface CanonicalMaskSourceExtension {
 export class CanonicalMaskSourceBank {
   private _jobs: readonly CanonicalMaskSourceJob[]
   get jobs():readonly CanonicalMaskSourceJob[]{return this._jobs}
-  get gpuBytes():number{return this.jobs.reduce((n,j)=>n+j.bytes,0)}
-  get maximumTransientCpuBytes():number{return Math.max(...this.jobs.map(j=>j.transientCpuBytes))}
-  get metadataCpuBytes():number{return JOB_METADATA_BYTES*this.jobs.length}
+  get gpuBytes():number{return jobBudget(this.jobs).gpuBytes}
+  get maximumTransientCpuBytes():number{return jobBudget(this.jobs).maximumTransientCpuBytes}
+  get metadataCpuBytes():number{return jobBudget(this.jobs).metadataCpuBytes}
   private inputs:Map<string,BankReader>
   private pending?:CanonicalMaskSourceExtension
   private readonly owned = new Set<string>()

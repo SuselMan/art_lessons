@@ -5,7 +5,7 @@ import {canonicalImageSourceBinding,type BrushDescriptor} from '@grafetto/shared
 import fixture from '../presets/fixtures/sourcePngWholePath/guiStroke.native.json'
 import {recordingGL} from '../../testing/brushPassTestUtils'
 import {nativeImageBank,nativeImageBankFromRect} from './NativeImageBank'
-import {CanonicalMaskSourceBank} from './CanonicalMaskSourceBank'
+import {CanonicalMaskSourceBank,canonicalMaskSourceBankBudget} from './CanonicalMaskSourceBank'
 import {BrushTextureCache} from './BrushTextureCache'
 import {BrushMipCache} from './BrushMipCache'
 const descriptor=fixture.descriptor as unknown as BrushDescriptor,asset=canonicalImageSourceBinding(descriptor,fixture.asset).assets[0]
@@ -64,4 +64,15 @@ it.each(['gpu','cpu'] as const)('keeps existing %s budget refusal before origina
  const o=owners(kind==='gpu'?1:16*1048576,kind==='cpu'?1:4*1048576),read=vi.fn(()=>bytes)
  expect(()=>new CanonicalMaskSourceBank(o.gl,o.cache,o.cpu,[{asset,readOriginalCoverage:read}],{gpuBytes:0,cpuBytes:0})).toThrow()
  expect(read).not.toHaveBeenCalled();expect(o.gl.createTexture).not.toHaveBeenCalled();expect(o.cpu.reservedBytes).toBe(0)
+})
+it('plans exact unique resource bytes and sequential CPU peak without GL or original reader invocation',()=>{
+ const o=owners(),read=vi.fn(()=>bytes),inputs=[{asset,readOriginalCoverage:read},{asset:{...asset,id:'asset:'+'b'.repeat(64)},readOriginalCoverage:read},{asset,readOriginalCoverage:read}],query=vi.spyOn(o.gl,'getParameter')
+ const planned=canonicalMaskSourceBankBudget(inputs)
+ expect(read).not.toHaveBeenCalled();expect(query).not.toHaveBeenCalled();expect(o.gl.createTexture).not.toHaveBeenCalled()
+ const bank=new CanonicalMaskSourceBank(o.gl,o.cache,o.cpu,inputs,{gpuBytes:0,cpuBytes:0})
+ try{
+  expect(planned.gpuBytes).toBe(bank.gpuBytes);expect(planned.metadataCpuBytes).toBe(bank.metadataCpuBytes);expect(planned.maximumTransientCpuBytes).toBe(bank.maximumTransientCpuBytes)
+  expect(planned.resources).toEqual(bank.jobs.map(({key,bytes})=>({key,bytes})));expect(new Set(planned.resources.map(r=>r.key)).size).toBe(planned.resources.length)
+  expect(planned.maximumTransientCpuBytes).toBeLessThan(bank.jobs.reduce((n,j)=>n+j.transientCpuBytes,0));expect(planned.maximumSourceCpuBytes).toBe(asset.size*asset.size)
+ }finally{bank.reset();o.cache.clear()}
 })

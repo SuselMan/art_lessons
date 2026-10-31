@@ -1,7 +1,7 @@
 import { canonicalImageMaterialPin, type CanonicalMaterialAsset, type TipMaskId } from '@grafetto/shared'
 import { canonicalImageMaskCapacity, assertCanonicalImageRecipeCapacity } from './src/dabs/canonicalImageCapacity'
 import {nativeImageBankFromRect} from './src/dabs/NativeImageBank'
-import { CanonicalMaskSourceBank, type CanonicalMaskSourceExtension } from './src/dabs/CanonicalMaskSourceBank'
+import { CanonicalMaskSourceBank,canonicalMaskSourceBankBudget, type CanonicalMaskSourceExtension } from './src/dabs/CanonicalMaskSourceBank'
 import {canonicalSourceAuthorAdmission} from './src/presets/sourceCanonicalAuthorAdmission'
 import {canonicalExecutorOperations} from './src/dabs/CanonicalFrameExecutor'
 import { CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_STROKE_RASTER_PROFILE,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalGaussianAutoSourceBinding,canonicalSoftAutoSourceBinding,canonicalSoftAutoDataEqual,canonicalSourceComposition,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,sourceAutoGeometry,CANONICAL_RECORDED_ATTACHMENT_LIMITS,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,IMPLICIT_LAYER_IDS,INITIAL_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,verifyCanonicalFullHistoryBase,verifyCanonicalEmptyHistoryBase,decodeCanonicalStrokeFrame,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalStrokeRasterProfile,type CanonicalAutoSource,type CanonicalSoftAutoSource } from '@grafetto/shared'
@@ -1407,13 +1407,14 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
   if(s.materialVersion!==2||s.material.maskSource||s.composition.mode!=='wash'||s.rasterProfile!==read.authorRasterProfile)throw new TypeError('Unsupported canonical baseline source/profile')
   let fixed:TransformedMaskLimits
   if(source.kind==='image'){
-   if(Object.hasOwn(source,'frames'))throw new TypeError('Animated canonical image baseline unsupported')
-   const pin=canonicalImageMaterialPin(source,s.material.assets),asset=pin.assets[0]
-   if(s.assets.length!==1||['id','size','x','y','width','height'].some(k=>s.assets[0][k as keyof CanonicalMaterialAsset]!==asset[k as keyof CanonicalMaterialAsset]))throw new TypeError('Canonical baseline image asset binding mismatch')
-   if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical baseline image asset unavailable')
-   for(const old of imageAssets.values())if(old.id===asset.id&&old.size!==asset.size)throw new TypeError('Canonical baseline image asset side conflict')
-   imageAssets.set(JSON.stringify([asset.id,asset.size,asset.x,asset.y,asset.width,asset.height]),asset)
-   imageGestures.add(JSON.stringify([op.userId,s.strokeId]));fixed=canonicalImageMaskCapacity(source,asset)
+   const pin=canonicalImageMaterialPin(source,s.material.assets)
+   if(s.assets.length!==pin.assets.length||s.assets.some((asset,i)=>['id','size','x','y','width','height'].some(k=>asset[k as keyof CanonicalMaterialAsset]!==pin.assets[i][k as keyof CanonicalMaterialAsset])))throw new TypeError('Canonical baseline image asset binding mismatch')
+   for(const asset of pin.assets){
+    if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical baseline image asset unavailable')
+    for(const old of imageAssets.values())if(old.id===asset.id&&old.size!==asset.size)throw new TypeError('Canonical baseline image asset side conflict')
+    imageAssets.set(JSON.stringify([asset.id,asset.size,asset.x,asset.y,asset.width,asset.height]),asset)
+   }
+   imageGestures.add(JSON.stringify([op.userId,s.strokeId]));fixed=canonicalImageMaskCapacity(source,pin.assets)
   }else{
    if(s.material.assets.length||s.assets.length)throw new TypeError('Unsupported canonical baseline source assets')
    fixed=canonicalLayerMaskCapacity(source)
@@ -1425,7 +1426,7 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
   for(const recipe of decoded.definitions){
    if(source.kind==='image'){
     if(!('kind'in recipe)||recipe.kind!=='image')throw new TypeError('Unsupported canonical baseline image material')
-    assertCanonicalImageRecipeCapacity(recipe,source,s.material.assets[0],fixed)
+    assertCanonicalImageRecipeCapacity(recipe,source,s.material.assets,fixed)
    }else if(!('kind'in recipe)||!['defaultAuto','gaussianAuto','softAuto'].includes(recipe.kind)||!Number.isFinite(recipe.scale)||recipe.scale<=0||recipe.scale>1||recipe.ratio!==1||recipe.rotation!==0||recipe.mirrorH||recipe.mirrorV||recipe.width>fixed.width||recipe.height>fixed.height)throw new TypeError('Unsupported canonical baseline material')
    maskWidth=Math.max(maskWidth,recipe.width);maskHeight=Math.max(maskHeight,recipe.height)
   }
@@ -1437,7 +1438,9 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
  if(!full&&[...prefixes.values()].some(p=>!p.ended))throw new TypeError('Open canonical baseline prefix unsupported')
  const mask={width:maskWidth,height:maskHeight,slots:1},composite:CanonicalCompositeLimits={width:tileWidth,height:tileHeight,operations:canonicalExecutorOperations(read.authorRasterProfile)}
  const maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(composite)
- if(maskCost.gpuBytes+compositeCost.gpuBytes>16*1024*1024||maskCost.cpuBytes+compositeCost.cpuBytes+1024+inputs.length*128+prefixes.size*512+82432>4*1024*1024)throw new RangeError('Canonical baseline workspace exceeds existing brush budgets')
+ const sourceBudget=imageAssets.size?canonicalMaskSourceBankBudget([...imageAssets.values()].map(asset=>({asset,readOriginalCoverage:()=>importedAssetPixels(asset.id)}))):undefined
+ if(maskCost.gpuBytes+compositeCost.gpuBytes+(sourceBudget?.gpuBytes??0)>16*1024*1024
+  ||maskCost.cpuBytes+compositeCost.cpuBytes+1024+inputs.length*128+prefixes.size*512+82432+(sourceBudget?sourceBudget.metadataCpuBytes+sourceBudget.maximumTransientCpuBytes+sourceBudget.maximumSourceCpuBytes:0)>4*1024*1024)throw new RangeError('Canonical baseline workspace exceeds existing brush budgets')
  const logicalBytes=(tiles.size+2*[...gestureTiles.values()].reduce((n,t)=>n+t.size,0))*tileWidth*tileHeight*4
  if(!Number.isSafeInteger(logicalBytes))throw new RangeError('Invalid canonical logical admission')
  if(read.assertCurrent()!==scope)throw new Error('Canonical baseline scope changed')
@@ -6390,27 +6393,27 @@ export class PencilEngine implements PencilEngineAPI {
     const snapshot=input.read.capability.snapshot,source=snapshot.material.primarySource
     if(snapshot.materialVersion!==2||snapshot.material.maskSource||snapshot.rasterProfile!==owner.plan.profile)throw new TypeError('Unsupported canonical resource material')
     if(source.kind!=='image')return{status:'ready'}
-    if(Object.hasOwn(source,'frames'))throw new TypeError('Animated canonical image preparation unsupported')
-    const pin=canonicalImageMaterialPin(source,snapshot.material.assets),asset=pin.assets[0],capacity=canonicalImageMaskCapacity(source,asset)
+    const pin=canonicalImageMaterialPin(source,snapshot.material.assets),capacity=canonicalImageMaskCapacity(source,pin.assets)
     if(!owner.prepared||capacity.width>owner.mask.width||capacity.height>owner.mask.height)throw new RangeError('Canonical source exceeds warm workspace; growth unsupported')
-    if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical image asset unavailable')
+    const assertAssets=()=>{for(const asset of pin.assets)if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical image asset unavailable')}
+    assertAssets()
     const sourceReady=()=>{
       if(!owner.bank)return false
-      try{owner.bank.assertSourceBinding(asset,{gl:this.gl,cache:owner.cache,cpu:this._brushMipCache});current();return true}
+      try{for(const asset of pin.assets)owner.bank.assertSourceBinding(asset,{gl:this.gl,cache:owner.cache,cpu:this._brushMipCache});current();return true}
       catch(error){current();if(!owner.bank.isReady())throw error;return false}
     }
     if(sourceReady())return{status:'ready'}
-    const key='recorded-image:'+JSON.stringify([asset.id,asset.size,asset.x,asset.y,asset.width,asset.height])
+    const key='recorded-image:'+JSON.stringify([pin.primarySource,pin.assets])
     while(!this._brushPreparation.canRunWithoutReplacing(key)){
       // Passive work completion only: no candidate, author ownership, timer,
       // gesture-end or ACK dependency is retained by this waiter.
       await this._brushPreparation.whenIdle()
       current()
       if(options.signal?.aborted)return{status:'cancelled'}
-      if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical image asset unavailable')
+      assertAssets()
       if(sourceReady())return{status:'ready'}
     }
-    const planned=nativeImageBankFromRect(asset.id as TipMaskId,asset),count=planned.length,authorGeneration=this._brushPreparationGeneration
+    const planned=pin.assets.flatMap(asset=>nativeImageBankFromRect(asset.id as TipMaskId,asset)),count=planned.length,authorGeneration=this._brushPreparationGeneration
     let bank:CanonicalMaskSourceBank|undefined,extension:CanonicalMaskSourceExtension|undefined,maskUpdate:CanonicalPreparedResourceUpdate|undefined,compositeUpdate:CanonicalPreparedResourceUpdate|undefined
     let releaseUnion:(()=>void)|undefined,published=false,candidate:NonNullable<CanonicalLayerOwner['resourceCandidate']>|undefined
     const available=()=>{try{current();return authorGeneration===this._brushPreparationGeneration&&!owner.accepting&&this._brushPreparation.canRunWithoutReplacing(key)}catch{return false}}
@@ -6425,11 +6428,11 @@ export class PencilEngine implements PencilEngineAPI {
     const jobs=[()=>{
       current();if(owner.resourceCandidate)throw new Error('Canonical resource preparation busy')
       candidate={cancel:cleanup};owner.resourceCandidate=candidate
-      const readOriginalCoverage=()=>{current();if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical image asset unavailable');return importedAssetPixels(asset.id)}
-      const metadata=(owner.bank?.jobs.length??0)+count,stageCpu=metadata*512+192*(metadata*2+8)+1024+asset.size*asset.size
+      const inputs=pin.assets.map(asset=>({asset,readOriginalCoverage:()=>{current();if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical image asset unavailable');return importedAssetPixels(asset.id)}}))
+      const metadata=(owner.bank?.jobs.length??0)+count,stageCpu=metadata*512+192*(metadata*2+8)+1024+Math.max(...pin.assets.map(asset=>asset.size*asset.size))
       const physical=[...owner.prepass.preparedResources(),...owner.composite.preparedResources()],physicalBytes=physical.reduce((n,r)=>n+r.bytes,0)
-      if(owner.bank){extension=owner.bank.beginExtension([{asset,readOriginalCoverage}],{gpuBytes:physicalBytes,cpuBytes:stageCpu});bank=owner.bank}
-      else{bank=new CanonicalMaskSourceBank(this.gl,owner.cache,this._brushMipCache,[{asset,readOriginalCoverage}],{gpuBytes:physicalBytes,cpuBytes:stageCpu});if(this._brushMipCache.reservedBytes+bank.metadataCpuBytes+bank.maximumTransientCpuBytes+stageCpu>this._brushMipCache.budgetBytes)throw new RangeError('Canonical resource CPU peak exceeds budget')}
+      if(owner.bank){extension=owner.bank.beginExtension(inputs,{gpuBytes:physicalBytes,cpuBytes:stageCpu});bank=owner.bank}
+      else{bank=new CanonicalMaskSourceBank(this.gl,owner.cache,this._brushMipCache,inputs,{gpuBytes:physicalBytes,cpuBytes:stageCpu});if(this._brushMipCache.reservedBytes+bank.metadataCpuBytes+bank.maximumTransientCpuBytes+stageCpu>this._brushMipCache.budgetBytes)throw new RangeError('Canonical resource CPU peak exceeds budget')}
       const sourceJobs=extension?[...owner.bank!.jobs,...extension.jobs]:bank.jobs,union=new Map(physical.map(r=>[r.key,r.bytes]))
       for(const j of sourceJobs)union.set(j.key,j.bytes)
       if([...union.values()].reduce((n,bytes)=>n+bytes,0)>owner.cache.budgetBytes)throw new RangeError('Canonical resource union exceeds budget')
@@ -6477,10 +6480,10 @@ export class PencilEngine implements PencilEngineAPI {
       const snapshot=read.capability.snapshot,pin=snapshot.material.primarySource
       if(snapshot.materialVersion!==2||snapshot.material.maskSource||snapshot.rasterProfile!==owner.plan.profile||snapshot.composition.mode!=='wash')throw new TypeError('Unsupported fixed canonical layer material')
       const image=pin.kind==='image'?canonicalImageMaterialPin(pin,snapshot.material.assets):undefined
-      if(image&&(Object.hasOwn(pin,'frames')||!owner.bank)||!image&&(snapshot.material.assets.length||snapshot.assets.length))throw new TypeError('Unsupported fixed canonical layer assets')
-      if(image)owner.bank!.assertSourceBinding(image.assets[0],{gl:this.gl,cache:owner.cache,cpu:this._brushMipCache})
-      const capacity=pin.kind==='image'?canonicalImageMaskCapacity(pin,image!.assets[0]):canonicalLayerMaskCapacity(pin),decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,material:snapshot.material}).frame
-      for(const recipe of decoded.definitions)if(image){if('kind'in recipe)throw new TypeError('Image source requires an image recipe');assertCanonicalImageRecipeCapacity(recipe,image.primarySource,image.assets[0],owner.mask)}else if(!('kind'in recipe)||!['defaultAuto','gaussianAuto','softAuto'].includes(recipe.kind)||!Number.isFinite(recipe.scale)||recipe.scale<=0||recipe.scale>1||recipe.ratio!==1||recipe.rotation!==0||recipe.mirrorH||recipe.mirrorV||recipe.width>capacity.width||recipe.height>capacity.height)throw new TypeError('Unsupported fixed canonical layer transform')
+      if(image&&!owner.bank||!image&&(snapshot.material.assets.length||snapshot.assets.length))throw new TypeError('Unsupported fixed canonical layer assets')
+      if(image)for(const asset of image.assets)owner.bank!.assertSourceBinding(asset,{gl:this.gl,cache:owner.cache,cpu:this._brushMipCache})
+      const capacity=pin.kind==='image'?canonicalImageMaskCapacity(pin,image!.assets):canonicalLayerMaskCapacity(pin),decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,material:snapshot.material}).frame
+      for(const recipe of decoded.definitions)if(image){if(!('kind'in recipe)||recipe.kind!=='image')throw new TypeError('Image source requires an image recipe');assertCanonicalImageRecipeCapacity(recipe,image.primarySource,image.assets,owner.mask)}else if(!('kind'in recipe)||!['defaultAuto','gaussianAuto','softAuto'].includes(recipe.kind)||!Number.isFinite(recipe.scale)||recipe.scale<=0||recipe.scale>1||recipe.ratio!==1||recipe.rotation!==0||recipe.mirrorH||recipe.mirrorV||recipe.width>capacity.width||recipe.height>capacity.height)throw new TypeError('Unsupported fixed canonical layer transform')
       if(owner.prepared&&(capacity.width>owner.mask.width||capacity.height>owner.mask.height))throw new RangeError('Canonical source exceeds warm workspace; full resync required')
       const mask=owner.prepared?owner.mask:capacity,maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(owner.plan.composite)
       const metadata=CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities*(1024+1024+4096+64*512)+64*256+82432

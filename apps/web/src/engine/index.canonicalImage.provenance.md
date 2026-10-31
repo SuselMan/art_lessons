@@ -65,3 +65,60 @@ full-history owner; the old empty-history lane still rejects it before canvas.
 See index.canonicalImagePreparation.provenance.md for the paired original append,
 typed close, same-capacity additive preparation and context recovery witnesses.
 Image author preparation/growth/animated sources and Room activation stay closed.
+
+Follow-up GIH original receiver (supersedes animated-source frontier above):
+Full V2 pin is captured before canvas, every unique frame/crop is available and
+included in the SAME finite bank. Existing capacity helper accepts either the
+historical single asset or the complete readonly asset dictionary; max static
+bounds across every crop and exact selected recipe asset geometry remain the
+only law. Repeated frame IDs do not duplicate storage, different crop contexts
+remain distinct. No frame reselection/RNG/descriptor lookup during replay.
+
+Original baseline, same-capacity resource preparation and synchronous original
+append now validate whole lists and all bank source receipts. Hot preparation
+key captures full pin/metadata, plans all reachable source jobs and retains the
+existing staged publication/cleanup semantics. Resource readiness returns ready
+for all-matching frames while an original gesture is open. Growth still refuses;
+no quotas/global frame caps were changed. The existing inverted hot image-kind
+check was corrected to require kind=image, exposing genuine nonempty Basic6
+continuations that prior empty/control-frame cases had not covered.
+
+Root approved extra existing bank/test paths because the earlier pure baseline
+plan counted only workspace, delaying bank-union refusal until after canvas.
+canonicalMaskSourceBankBudget reuses SAME planInputs, transientBytes and
+JOB_METADATA_BYTES; scalar costs/unique keybytes require no GL/readers/pixel
+arrays. Bank budget getters use that same job summary. Pure engine preflight now
+includes whole bank GPU plus metadata, maximum sequential CPU transient and raw
+source side bytes. Actual mixed Mountains4+Graphite7 plus workspace refuses
+before canvas; no selected-only warming or bank-retirement scheme is introduced.
+The existing16MiB brush cache /4MiB CPU limits remain authoritative, not a claim
+of complete physical GPU/heap accounting.
+
+Tests-first RED3 actual engine animated guards +RED2 bank-pure/mixed-precanvas
+witnesses retained R52/gih-engine-red.log and gih-bank-budget-red.log. Capacity
+RED2->GREEN6 retained separately. Final70 tests/5 suites PASS in
+R52/gih-engine-regression.log: actual original Mountains4/Graphite7 V2 traces,
+all44/77 bank jobs, original journal identity/recovery, zero author.plan calls
+during replay, selected identities>1, open original append with matching bank,
+missing unselected CAS pre-canvas, mixed hot-union refusal preserving old bank/
+journal/checkpoint, and existing single-image/preparation/extension regressions.
+Actual Basic6 HOT continuation decodes20 nonempty draws, executes delegated
+maskRgb drawSource with nonempty bounds and has nonzero original mask RGBA
+upload. MockGL does not establish real shader output/ink pixels: real GPU proof
+is root-owned, no host RGBA correctness/speed claim. Async normal display may
+allocate null PM targets while source admission awaits; failure witness excludes
+those and requires no bank pixel upload, unchanged bank resources/CPU/journal.
+
+Scope7: index, this existing provenance and actual image test, existing capacity
+helper/test, existing bank pure budget export/imageInput test. Scoped lint0errors
+(existing index warnings only), diff-check PASS. Joint app/SW/type/map gates await
+root coordination with Color. No device/service/dependency/runtime resources,
+Room activation, author UI grant or server policy changes by this unit.
+
+Type observer follow-up: final app23885 rejected direct index 8 access on
+Vitest's last-overload texImage2D tuple. The test now passes each call through a
+readonly unknown[] observer and narrows the data with instanceof Uint8Array;
+no GL signature cast or production change. Targeted noEmit TypeScript snapshot
+includes this exact test and sourceStrokeAuthor.imagePipeActual.test.ts and
+passes (R52/gih-fixture-only-tsc.log). The image suite rerun, scoped oxlint and
+diff check pass; final whole-app retry remains coordinated by ROOT.

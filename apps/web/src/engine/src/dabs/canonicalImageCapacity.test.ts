@@ -46,3 +46,24 @@ it('keeps exact allocation admission at pyramid-selection, fuzzy identity and ne
       }
     }
 })
+it('admits the whole pinned frame union and checks each selected recipe against its exact original crop',()=>{
+ const a={...asset,x:0,y:0,width:17,height:31},b={...asset,id:'asset:'+'c'.repeat(64),x:4,y:8,width:201,height:111},frames=[a.id,b.id,a.id],s={...source,brushScale:1.40625,brushAngle:.371,frames}
+ const capacity=canonicalImageMaskCapacity(s,[a,b])
+ const individual=[a,b].map(frame=>canonicalImageMaskCapacity({...source,asset:frame.id,brushScale:s.brushScale,brushAngle:s.brushAngle},frame))
+ expect(capacity.width).toBe(Math.max(...individual.map(c=>c.width)));expect(capacity.height).toBe(capacity.width)
+ for(const selected of [a,b])for(const scale of [.0001,.5,1])for(const rotation of [-3.1,0,.7,6.28319]){
+  const m=sourceImageTransformMetadata(selected.width,selected.height,sourcePngRasterShape({width:selected.width,height:selected.height,scale:s.brushScale,angle:s.brushAngle},{scale,ratio:1,rotation}),.999,.123)
+  const r={asset:selected.id,brushScale:s.brushScale,brushAngle:s.brushAngle,scale,ratio:1,rotation,subX:.999,subY:.123,mirrorH:false,mirrorV:false,width:m.width,height:m.height}
+  expect(()=>assertCanonicalImageRecipeCapacity(r,s,[a,b],capacity)).not.toThrow()
+  expect(()=>assertCanonicalImageRecipeCapacity({...r,asset:'asset:'+'d'.repeat(64)},s,[a,b],capacity)).toThrow()
+  expect(()=>assertCanonicalImageRecipeCapacity({...r,width:r.width+1},s,[a,b],capacity)).toThrow()
+ }
+ expect(()=>canonicalImageMaskCapacity(s,[a])).toThrow()
+ expect(()=>canonicalImageMaskCapacity(s,[a,b,{...b,x:5}])).toThrow()
+})
+it('keeps single-source geometry unchanged and does not reinterpret the same ID/crop across separate contexts',()=>{
+ const first=canonicalImageMaskCapacity(source,asset)
+ expect(canonicalImageMaskCapacity(source,[asset])).toEqual(first)
+ const other={...asset,x:1,y:1,width:200,height:230},second=canonicalImageMaskCapacity(source,[other])
+ expect(second.width).toBeGreaterThan(first.width)
+})
