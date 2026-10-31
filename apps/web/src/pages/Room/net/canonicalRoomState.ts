@@ -1,9 +1,11 @@
+import {captureCanonicalLocalReadScope,attachCanonicalRecordedDelivery} from './canonicalRecordedDelivery'
+import type {CanonicalRecordedLifetime} from '../../../engine/src/oplog/CanonicalRecordedDelivery'
 import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_RECORDED_ATTACHMENT_LIMITS,LEGACY_ROOM_RASTER_VERSION,STRAIGHT_ROOM_RASTER_VERSION,readRoomRasterVersion,canonicalRecordedRasterProfiles,prepareCanonicalRecordedAttachment,type CanonicalPreparedRecordedOperation,type CanonicalStrokeRasterProfile,type Operation,type ServerToClientEvents} from '@grafetto/shared'
-import {captureCanonicalHistoryScope,type CanonicalHistoryScope} from './canonicalHistoryPage'
+import {type CanonicalHistoryScope} from './canonicalHistoryPage'
 
 type WireState=Parameters<ServerToClientEvents['room_state']>[0]
 const authority:unique symbol=Symbol('prepared-canonical-room-state')
-export interface CanonicalRoomStateRead {
+export interface CanonicalRoomStateRead extends CanonicalRecordedLifetime {
  readonly scope:CanonicalHistoryScope
  readonly authorRasterProfile:CanonicalStrokeRasterProfile
  readonly tailOperations:readonly Operation[]
@@ -32,17 +34,25 @@ export function prepareCanonicalRoomState(state:WireState,lifetime:{readonly exp
  const profiles=canonicalRecordedRasterProfiles(wireScope)
  const authorRasterProfile=state.canonicalAuthorRasterProfile===undefined?CANONICAL_STROKE_RASTER_PROFILE:state.canonicalAuthorRasterProfile
  if(!profiles.includes(authorRasterProfile))throw Error('Invalid canonical room state author profile')
- const scope=captureCanonicalHistoryScope({roomId:expectedBoardId,boardEpoch:wireScope.boardEpoch,allowedRasterProfiles:profiles,isCurrent})!
+ let read:CanonicalRoomStateRead
+ const scope=captureCanonicalLocalReadScope({roomId:expectedBoardId,boardEpoch:wireScope.boardEpoch,allowedRasterProfiles:profiles,isCurrent},()=>{
+  assertCanonicalRoomStateRead(read,read.tailOperations,expectedBoardId);return read
+ })
  if(!Array.isArray(state.tailOperations)||state.tailOperations.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)throw Error('Invalid canonical room state tail')
  const hasCanonical=state.tailOperations.some(op=>op.type==='canonical_stroke')
- const preparedAtoms=hasCanonical||state.canonicalCapabilities!==undefined
+ const baseAtoms=hasCanonical||state.canonicalCapabilities!==undefined
   ?prepareCanonicalRecordedAttachment(state.canonicalCapabilities,state.tailOperations,scope)
   :Object.freeze(state.tailOperations.map(operation=>Object.freeze({operation})))
- const operations=preparedAtoms.map(atom=>atom.operation);Object.freeze(operations)
- let read:CanonicalRoomStateRead
- read=Object.freeze({scope,authorRasterProfile,tailOperations:operations,preparedAtoms,[authority]:(candidate:unknown,tail:readonly Operation[],boardId:string)=>{
+ const preparedAtoms:CanonicalPreparedRecordedOperation[]=[]
+ const operations=baseAtoms.map(atom=>atom.operation);Object.freeze(operations)
+ read=Object.freeze({scope,authorRasterProfile,tailOperations:operations,preparedAtoms,assertCurrent(this:CanonicalRecordedLifetime){
+  if(this!==read)throw Error('Foreign canonical recorded lifetime receiver')
+  assertCanonicalRoomStateRead(read,operations,expectedBoardId);return scope
+ },[authority]:(candidate:unknown,tail:readonly Operation[],boardId:string)=>{
   if(candidate!==read||tail!==operations||boardId!==expectedBoardId||!isCurrent())throw Error('Stale or foreign canonical room state preparation')
  }})
+ for(const atom of baseAtoms)preparedAtoms.push(attachCanonicalRecordedDelivery(atom,scope))
+ Object.freeze(preparedAtoms)
  assertCanonicalRoomStateRead(read,operations,expectedBoardId)
  return Object.freeze({...state,tailOperations:operations,canonicalRead:read})
 }

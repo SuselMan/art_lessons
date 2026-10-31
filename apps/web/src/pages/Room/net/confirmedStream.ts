@@ -1,3 +1,5 @@
+import {attachCanonicalRecordedDelivery} from './canonicalRecordedDelivery'
+import type {CanonicalRecordedInput} from '../../../engine/src/oplog/CanonicalRecordedDelivery'
 import type { ReplayGate, ReplayGateDelivery } from '../replayGate'
 import type { RefObject } from 'react'
 
@@ -34,9 +36,9 @@ export interface ConfirmedStreamDeps {
   previewScheduleRef: RefObject<{ noteOperation(now: number): void } | null>
   /** (#537) This client's own operation has come back with its seq: move it
    *  to its place in the true order (see PencilEngineAPI.confirmOperation). */
-  confirmOwnOperation: (op: Operation, seq: number, read?: CanonicalRead) => void
+  confirmOwnOperation: (op: Operation, seq: number, read?: CanonicalRead, recorded?: CanonicalRecordedInput) => void
   markLayerActive: (userId: string, layerId: string) => void
-  applyRemoteOp: (op: Operation, read?: CanonicalRead) => void
+  applyRemoteOp: (op: Operation, read?: CanonicalRead, recorded?: CanonicalRecordedInput) => void
   syncFromLog: () => void
   checkSnapshotBoundary: () => void
   requestFullResync: () => void
@@ -51,7 +53,7 @@ export interface ConfirmedStreamDeps {
 type ScopeOwner=NonNullable<ConfirmedStreamDeps['canonicalReadScope']>
 type CapturedScope=ScopeOwner&{readonly allowedRasterProfiles:readonly CanonicalStrokeRasterProfile[]}
 const replayAuthority:unique symbol=Symbol('canonical-confirmed-replay-lifetime')
-type HeldCanonicalPayload=ConfirmedPayload&{readonly [replayAuthority]?:(candidate:unknown,owner:ScopeOwner|undefined,policy:CapturedScope|undefined)=>{readonly read:NonNullable<CanonicalRead>}|undefined}
+type HeldCanonicalPayload=ConfirmedPayload&{readonly [replayAuthority]?:(candidate:unknown,owner:ScopeOwner|undefined,policy:CapturedScope|undefined)=>{readonly read:NonNullable<CanonicalRead>;readonly recorded?:CanonicalRecordedInput}|undefined}
 
 /** (#493) `operation_confirmed` — the room's one ordered stream of what
  *  happened, for every operation including this client's own. Out of Room's
@@ -87,13 +89,13 @@ export function createConfirmedStreamHandler({
     // A gate can replace its handler while held messages survive. The
     // ORIGINAL local lifetime must authorize release before a new scope sees it.
     const held=payload as HeldCanonicalPayload
-    let read:CanonicalRead
+    let read:CanonicalRead,recorded:CanonicalRecordedInput|undefined
     if(Object.hasOwn(held,replayAuthority)){
       const proof=held[replayAuthority]
       if(typeof proof!=='function')return
       const original=proof(payload,readScope,canonicalReadScope)
       if(!original)return
-      read=original.read
+      read=original.read;recorded=original.recorded
     }
     const { seq } = payload
     let op = payload.operation, acceptedPayload = payload
@@ -107,10 +109,12 @@ export function createConfirmedStreamHandler({
       try {
         if (!canonicalReadScope || op.type !== 'canonical_stroke' || op.seq !== seq) throw new TypeError('Missing canonical recorded read scope')
         const prepared = prepareCanonicalRecordedAttachment(payload.canonicalCapabilities, [op], canonicalReadScope)[0]
+        const local=attachCanonicalRecordedDelivery(prepared,readScope!)
+        if('delivery' in local)recorded=local
         read = prepared.read
         if (!read || !canonicalReadScope.isCurrent()) return
         op = prepared.operation
-        const originalRead=read,origin=canonicalReadScope,owner=readScope
+        const originalRead=read,originalRecorded=recorded,origin=canonicalReadScope,owner=readScope
         let accepted:HeldCanonicalPayload
         accepted = Object.freeze({ seq, operation: op, canonicalCapabilities: Object.freeze({
           version: 1 as const, roomId: read.roomId, boardEpoch: read.boardEpoch,
@@ -122,7 +126,7 @@ export function createConfirmedStreamHandler({
               ||policy.roomId!==origin.roomId||policy.boardEpoch!==origin.boardEpoch||policy.isCurrent!==origin.isCurrent
               ||policy.allowedRasterProfiles.length!==origin.allowedRasterProfiles.length
               ||policy.allowedRasterProfiles.some((p,i)=>p!==origin.allowedRasterProfiles[i]))return undefined
-            return Object.freeze({read:originalRead})
+            return Object.freeze({read:originalRead,...originalRecorded?{recorded:originalRecorded}:{}})
           } })
         acceptedPayload=accepted
       } catch {
@@ -130,6 +134,7 @@ export function createConfirmedStreamHandler({
         return
       }
     }
+    if(recorded){try{recorded.delivery.assertCurrent(recorded)}catch{requestFullResync();return}}
     useRoomStore.getState().observeReviewOperation({ ...op, seq })
     if (replayGate?.hold(acceptedPayload, delivery)) return
     // (#289 §12) A gap in this stream is impossible on an unbroken
@@ -161,7 +166,8 @@ export function createConfirmedStreamHandler({
       // The ack reports the same seq — whichever arrives first confirms, the
       // other is a no-op.
       const flushed = commitRevealsBelow(seq)
-      if (read) confirmOwnOperation(op, seq, read)
+      if (recorded) confirmOwnOperation(op,seq,read,recorded)
+      else if (read) confirmOwnOperation(op, seq, read)
       else confirmOwnOperation(op, seq)
       if (flushed) syncFromLog()
       checkSnapshotBoundary()
@@ -233,7 +239,8 @@ export function createConfirmedStreamHandler({
       deferredOpsQueueRef.current.push(op)
       return
     }
-    if (read) applyRemoteOp(op, read)
+    if (recorded) applyRemoteOp(op,read,recorded)
+    else if (read) applyRemoteOp(op, read)
     else applyRemoteOp(op)
     syncFromLog()
     checkSnapshotBoundary()
