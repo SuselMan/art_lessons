@@ -1,0 +1,399 @@
+{
+  "scope": "Actual NEW KPP source binding+seeded2-packet production author/adapter/encoder; native-derived soft mask/fused scalar/GenericSC point-law CPU oracle, not installedGUI whole-stroke or room activation. Legacy fallback catalog metadata structural only, CASbytes not used.",
+  "inputSHA256": "721d0c7ca7245dd3b561a6fa4a0d5974035d196e4ab4f497c016072c19600c13",
+  "fixtureSHA256": "c68fba9cc5519eaa61f81e5c23a2458540aa35f6219f98a9fc47e75e1b35726a",
+  "fixtureBytes": 227383,
+  "generatorSHA256": "a394e6d9be03e9beb7b19ed062dc0868906a5cc70df836a1abe87de2b2ecf667",
+  "authorDriverSHA256": "cd9ef3474e9db224b2f5482f311896e6bec991f6dd9d1591307a7441d84b2d5a",
+  "totals": {
+    "draws": 5,
+    "maskPixels": 1533636,
+    "workSamples": 1533636,
+    "pointComposites": 61440
+  },
+  "limits": {
+    "milliseconds": 120000,
+    "draws": 512,
+    "maskPixels": 16777216,
+    "workSamples": 33554432,
+    "pointComposites": 2097152
+  },
+  "elapsedMs": 1647.836576,
+  "cases": [
+    {
+      "index": 3,
+      "name": "b)_Airbrush_Soft",
+      "kppSHA256": "a2dcb08917e5cb1a3cbf92fc40a00f9b8a4a3f01beb46e0812e87cf8bb374c1b",
+      "descriptorSha256": "2b188eda6ea1b8a4c9a6c72767fe56c59db8fe86f864ae4071ee4d16ad527d59",
+      "rasterProfile": "installed-arm64-scalar-fused-fpcr0-v1",
+      "seeds": {
+        "sequentialSeed": 4321,
+        "perStrokeSeed": 7654,
+        "strokeRandom": 0.3
+      },
+      "inputFrameCuts": [
+        2,
+        3
+      ],
+      "original": "85862436ef4e0d6f131faf5746bd4c9e72a02a90ecf5825bbf67cf0cfc69e372",
+      "final": "a1c041a21d35c3096875fcbd9f30b1d2ed69a404616398bba6c871b0734d9021",
+      "changedBytes": 2800,
+      "visiblePartial": 4096,
+      "visibleNonzero": 4096,
+      "drawCount": 1,
+      "capacity": {
+        "width": 600,
+        "height": 600
+      },
+      "nativePlacement": {
+        "hotSpot": [
+          300,
+          300
+        ],
+        "maskSize": [
+          600,
+          600
+        ],
+        "firstX": 284
+      },
+      "frames": 4,
+      "phases": 4,
+      "packets": [
+        {
+          "x": 284,
+          "y": 32,
+          "t": 0,
+          "pressure": 0.2,
+          "tiltX": 0,
+          "tiltY": 0,
+          "speed": 0,
+          "rotation": 0,
+          "tangentialPressure": 0,
+          "perspective": 1,
+          "canvasRotation": 0,
+          "mirroredH": false,
+          "mirroredV": false,
+          "tiltDirectionOffset": 0,
+          "hover": false
+        },
+        {
+          "x": 289,
+          "y": 35,
+          "t": 19,
+          "pressure": 0.6,
+          "tiltX": 0,
+          "tiltY": 0,
+          "speed": 0,
+          "rotation": 0,
+          "tangentialPressure": 0,
+          "perspective": 1,
+          "canvasRotation": 0,
+          "mirroredH": false,
+          "mirroredV": false,
+          "tiltDirectionOffset": 0,
+          "hover": false
+        }
+      ]
+    },
+    {
+      "index": 60,
+      "name": "l)_Adjust_Dodge",
+      "kppSHA256": "ecf864fb1203331176126d9915c64a7dade137ac0b7d832dd03f2cbc78de0d14",
+      "descriptorSha256": "42f16a3cf17ad53472232efcb3109cc77144d6552dffdc689d9d705693b725da",
+      "rasterProfile": "installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2",
+      "seeds": {
+        "sequentialSeed": 4321,
+        "perStrokeSeed": 7654,
+        "strokeRandom": 0.3
+      },
+      "inputFrameCuts": [
+        2,
+        3
+      ],
+      "original": "85862436ef4e0d6f131faf5746bd4c9e72a02a90ecf5825bbf67cf0cfc69e372",
+      "final": "42f3a820cfb33449217711604452a4b3da94de137119f037e5c90355b6189d48",
+      "changedBytes": 11677,
+      "visiblePartial": 4096,
+      "visibleNonzero": 4096,
+      "drawCount": 1,
+      "capacity": {
+        "width": 306,
+        "height": 306
+      },
+      "nativePlacement": {
+        "hotSpot": [
+          152.2136452502829,
+          152.2136452502829
+        ],
+        "maskSize": [
+          306,
+          306
+        ],
+        "firstX": 136
+      },
+      "frames": 4,
+      "phases": 4,
+      "packets": [
+        {
+          "x": 136,
+          "y": 32,
+          "t": 0,
+          "pressure": 0.2,
+          "tiltX": 0,
+          "tiltY": 0,
+          "speed": 0,
+          "rotation": 0,
+          "tangentialPressure": 0,
+          "perspective": 1,
+          "canvasRotation": 0,
+          "mirroredH": false,
+          "mirroredV": false,
+          "tiltDirectionOffset": 0,
+          "hover": false
+        },
+        {
+          "x": 141,
+          "y": 35,
+          "t": 19,
+          "pressure": 0.6,
+          "tiltX": 0,
+          "tiltY": 0,
+          "speed": 0,
+          "rotation": 0,
+          "tangentialPressure": 0,
+          "perspective": 1,
+          "canvasRotation": 0,
+          "mirroredH": false,
+          "mirroredV": false,
+          "tiltDirectionOffset": 0,
+          "hover": false
+        }
+      ]
+    },
+    {
+      "index": 61,
+      "name": "l)_Adjust_Lighten",
+      "kppSHA256": "da5c0016b0b04a038b3d3b740979af8eb02dfb23e7491e32cd0a50388f83dc86",
+      "descriptorSha256": "824524b595aaa9a332a6be97a58af8198f8f7b36a48bf9d39e979637ffa6d114",
+      "rasterProfile": "installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2",
+      "seeds": {
+        "sequentialSeed": 4321,
+        "perStrokeSeed": 7654,
+        "strokeRandom": 0.3
+      },
+      "inputFrameCuts": [
+        2,
+        3
+      ],
+      "original": "85862436ef4e0d6f131faf5746bd4c9e72a02a90ecf5825bbf67cf0cfc69e372",
+      "final": "aa79b878a15e93f4cbbe011fd7627925e65c65e754d3bf5ac48b9fe7b459bba3",
+      "changedBytes": 5509,
+      "visiblePartial": 4096,
+      "visibleNonzero": 4096,
+      "drawCount": 1,
+      "capacity": {
+        "width": 600,
+        "height": 600
+      },
+      "nativePlacement": {
+        "hotSpot": [
+          300,
+          300
+        ],
+        "maskSize": [
+          600,
+          600
+        ],
+        "firstX": 284
+      },
+      "frames": 4,
+      "phases": 4,
+      "packets": [
+        {
+          "x": 284,
+          "y": 32,
+          "t": 0,
+          "pressure": 0.2,
+          "tiltX": 0,
+          "tiltY": 0,
+          "speed": 0,
+          "rotation": 0,
+          "tangentialPressure": 0,
+          "perspective": 1,
+          "canvasRotation": 0,
+          "mirroredH": false,
+          "mirroredV": false,
+          "tiltDirectionOffset": 0,
+          "hover": false
+        },
+        {
+          "x": 289,
+          "y": 35,
+          "t": 19,
+          "pressure": 0.6,
+          "tiltX": 0,
+          "tiltY": 0,
+          "speed": 0,
+          "rotation": 0,
+          "tangentialPressure": 0,
+          "perspective": 1,
+          "canvasRotation": 0,
+          "mirroredH": false,
+          "mirroredV": false,
+          "tiltDirectionOffset": 0,
+          "hover": false
+        }
+      ]
+    },
+    {
+      "index": 62,
+      "name": "l)_Adjust_Multiply",
+      "kppSHA256": "2e9f0782650c2a888521b2de3ff0a021d7181c88c6ec5d3aba37b1fc92fadaae",
+      "descriptorSha256": "2557281f6304bba978d962216f4dac42a99170a0d42ad6a558e82e5cd20e772d",
+      "rasterProfile": "installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2",
+      "seeds": {
+        "sequentialSeed": 4321,
+        "perStrokeSeed": 7654,
+        "strokeRandom": 0.3
+      },
+      "inputFrameCuts": [
+        2,
+        3
+      ],
+      "original": "85862436ef4e0d6f131faf5746bd4c9e72a02a90ecf5825bbf67cf0cfc69e372",
+      "final": "d70c4b9a962ca82617836ae1874c9d4a1f1083fe01f2a67802d156e20ba59588",
+      "changedBytes": 4994,
+      "visiblePartial": 4096,
+      "visibleNonzero": 4096,
+      "drawCount": 1,
+      "capacity": {
+        "width": 600,
+        "height": 600
+      },
+      "nativePlacement": {
+        "hotSpot": [
+          300,
+          300
+        ],
+        "maskSize": [
+          600,
+          600
+        ],
+        "firstX": 284
+      },
+      "frames": 4,
+      "phases": 4,
+      "packets": [
+        {
+          "x": 284,
+          "y": 32,
+          "t": 0,
+          "pressure": 0.2,
+          "tiltX": 0,
+          "tiltY": 0,
+          "speed": 0,
+          "rotation": 0,
+          "tangentialPressure": 0,
+          "perspective": 1,
+          "canvasRotation": 0,
+          "mirroredH": false,
+          "mirroredV": false,
+          "tiltDirectionOffset": 0,
+          "hover": false
+        },
+        {
+          "x": 289,
+          "y": 35,
+          "t": 19,
+          "pressure": 0.6,
+          "tiltX": 0,
+          "tiltY": 0,
+          "speed": 0,
+          "rotation": 0,
+          "tangentialPressure": 0,
+          "perspective": 1,
+          "canvasRotation": 0,
+          "mirroredH": false,
+          "mirroredV": false,
+          "tiltDirectionOffset": 0,
+          "hover": false
+        }
+      ]
+    },
+    {
+      "index": 63,
+      "name": "l)_Adjust_Overlay_Burn",
+      "kppSHA256": "6462ea398d77658c71a1e1622ee8d8eaf94cf1a1eb92e5416d438b2a8c41190b",
+      "descriptorSha256": "fa2c911d1433c82fd3f84dfbe192a3ad99f23717502524fe008d3cc413fec2af",
+      "rasterProfile": "installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2",
+      "seeds": {
+        "sequentialSeed": 4321,
+        "perStrokeSeed": 7654,
+        "strokeRandom": 0.3
+      },
+      "inputFrameCuts": [
+        2,
+        3
+      ],
+      "original": "85862436ef4e0d6f131faf5746bd4c9e72a02a90ecf5825bbf67cf0cfc69e372",
+      "final": "3155e422f1c439fec062fe8179a47c1f83458f6403ef636ff0f1d3ded630a4d5",
+      "changedBytes": 5092,
+      "visiblePartial": 4096,
+      "visibleNonzero": 4096,
+      "drawCount": 1,
+      "capacity": {
+        "width": 600,
+        "height": 600
+      },
+      "nativePlacement": {
+        "hotSpot": [
+          300,
+          300
+        ],
+        "maskSize": [
+          600,
+          600
+        ],
+        "firstX": 284
+      },
+      "frames": 4,
+      "phases": 4,
+      "packets": [
+        {
+          "x": 284,
+          "y": 32,
+          "t": 0,
+          "pressure": 0.2,
+          "tiltX": 0,
+          "tiltY": 0,
+          "speed": 0,
+          "rotation": 0,
+          "tangentialPressure": 0,
+          "perspective": 1,
+          "canvasRotation": 0,
+          "mirroredH": false,
+          "mirroredV": false,
+          "tiltDirectionOffset": 0,
+          "hover": false
+        },
+        {
+          "x": 289,
+          "y": 35,
+          "t": 19,
+          "pressure": 0.6,
+          "tiltX": 0,
+          "tiltY": 0,
+          "speed": 0,
+          "rotation": 0,
+          "tangentialPressure": 0,
+          "perspective": 1,
+          "canvasRotation": 0,
+          "mirroredH": false,
+          "mirroredV": false,
+          "tiltDirectionOffset": 0,
+          "hover": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "attempt": 1,
+    "error": "Error: canonical material: invalid or unsupported frame",
+    "scope": "Diagnostic harness context included adapter-only targetGeometry before explicit decoder; production guard correctly refused before GPU drawing. Removed adapter-only field, no production edits. Attempt2 only added stack to localize same issue.",
+    "observations": 0,
+    "GL": [],
+    "handles": {
+      "Texture": 0,
+      "Framebuffer": 0,
+      "Buffer": 0,
+      "Program": 0,
+      "Shader": 0
+    },
+    "storage": {
+      "residentBytes": 0,
+      "reservedBytes": 0,
+      "orphanBytes": 0
+    },
+    "cleanupOk": true,
+    "childClosed": true,
+    "forwardRemoved": true,
+    "tabsPreserved": true,
+    "resultSHA256": "b8b29af192e6a847574e01fca3d39fbe6bb56c1662c411a0d3986db4b9348b0d"
+  },
+  {
+    "attempt": 2,
+    "error": "Error: canonical material: invalid or unsupported frame",
+    "scope": "Diagnostic harness context included adapter-only targetGeometry before explicit decoder; production guard correctly refused before GPU drawing. Removed adapter-only field, no production edits. Attempt2 only added stack to localize same issue.",
+    "observations": 0,
+    "GL": [],
+    "handles": {
+      "Texture": 0,
+      "Framebuffer": 0,
+      "Buffer": 0,
+      "Program": 0,
+      "Shader": 0
+    },
+    "storage": {
+      "residentBytes": 0,
+      "reservedBytes": 0,
+      "orphanBytes": 0
+    },
+    "cleanupOk": true,
+    "childClosed": true,
+    "forwardRemoved": true,
+    "tabsPreserved": true,
+    "resultSHA256": "ce968bc39aa89a8a531d921aa12848d0a272d2a72378151b2486bfc19dde7746"
+  }
+]

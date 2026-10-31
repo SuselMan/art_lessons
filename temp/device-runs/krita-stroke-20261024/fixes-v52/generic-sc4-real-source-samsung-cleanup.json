@@ -1,0 +1,20 @@
+{
+  "forwardRemoved": true,
+  "childClosed": true,
+  "tabsPreserved": true,
+  "errors": [],
+  "after": [
+    {
+      "id": "3761",
+      "url": "chrome-native://newtab/"
+    },
+    {
+      "id": "3631",
+      "url": "https://gallery.pecni.com/krita-comparison-20261024/fixes-v45/#10"
+    },
+    {
+      "id": "3643",
+      "url": "about:blank"
+    }
+  ]
+}
