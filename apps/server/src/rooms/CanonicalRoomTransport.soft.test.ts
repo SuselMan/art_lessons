@@ -831,3 +831,106 @@ it('never accepts a metadata-only mixed cut without its complete actual source p
  const read=await new CanonicalRoomTransport({...selected,fullHistoryFormat:'mixed-v2'}).prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)
  await expect(read.prepareFullHistory({throughSeq:1,floor:0})).rejects.toThrow()
 })
+
+async function closeWriterFixture(){
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected),s=snapshot(await transport.begin(identity,f.input,()=>true)),all=frames(f.descriptor,s),operations:CanonicalStrokeOperation[]=[]
+ for(const [n,frame]of all.slice(0,-1).entries()){
+  const result=await transport.recorded(identity,{type:'canonical_stroke',id:'writer-frame-'+n,userId:'author',timestamp:n,layerId:'layer',frame},()=>true)
+  if(!result.accepted)throw Error('Missing actual recorded prefix');operations.push(result.accepted)
+ }
+ const rows=db.operation.create.mock.calls.map(([q])=>q.data)
+ const request={operationId:'writer-close',layerId:'layer',targetUserId:'author',strokeId:'gesture',disposition:'commitPartial' as const,expectedRecordedNext:operations.length,expectedLastFrameOpId:operations.at(-1)!.id}
+ history.rows=operations;history.canonicalRows=rows
+ return{...f,transport,all,operations,rows,request}
+}
+it('durably closes only an actual own-user indexed prefix and keeps material ordinals unchanged',async()=>{
+ const f=await closeWriterFixture(),seq=f.board.nextSeq,pin=vi.spyOn(f.storage,'pin'),writes=db.operation.create.mock.calls.length
+ const result=await f.transport.close(identity,f.request,()=>true)
+ expect(result.result).toEqual({ok:true,seq});expect(result.accepted).toMatchObject({type:'canonical_stroke_close',seq,firstFrameOpId:f.operations[0].id,lastFrameOpId:f.request.expectedLastFrameOpId,recordedNext:f.operations.length})
+ expect(f.board.nextSeq).toBe(seq+1);expect(db.operation.create).toHaveBeenCalledTimes(writes+1);expect(pin).not.toHaveBeenCalled()
+ expect(await f.transport.close(identity,f.request,()=>true)).toMatchObject({result:{ok:true,seq,duplicate:true}})
+ expect(f.board.nextSeq).toBe(seq+1)
+ expect((await f.transport.recorded(identity,f.operations[0],()=>true)).result).toMatchObject({ok:true,duplicate:true})
+ expect(f.transport.live(identity,{layerId:'layer',frame:f.all.at(-1)!}).result.ok).toBe(false)
+ expect((await f.transport.recorded(identity,{type:'canonical_stroke',id:'after-close',userId:'author',timestamp:200,layerId:'layer',frame:f.all.at(-1)!},()=>true)).result.ok).toBe(false)
+})
+it('waits for close durability, repairs only the exact failed ID and never allocates a second sequence',async()=>{
+ const f=await closeWriterFixture(),write=deferredWrite(),log=vi.spyOn(console,'error').mockImplementation(()=>{})
+ db.operation.create.mockReturnValueOnce(write.promise)
+ const settled=vi.fn(),first=f.transport.close(identity,f.request,()=>true);void first.then(settled)
+ await vi.waitFor(()=>expect(f.board.operationsById.has(f.request.operationId)).toBe(true))
+ expect(settled).not.toHaveBeenCalled();const seq=f.board.nextSeq,writes=db.operation.create.mock.calls.length
+ const duplicate=f.transport.close(identity,f.request,()=>true)
+ write.reject(new Error('close write failed'))
+ expect(await first).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
+ expect(await duplicate).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
+ expect((await f.transport.close(identity,{...f.request,operationId:'other-close'},()=>true)).result.ok).toBe(false)
+ expect(await f.transport.close(identity,f.request,()=>true)).toMatchObject({result:{ok:true,seq:seq-1,duplicate:true}})
+ expect(f.board.nextSeq).toBe(seq);expect(db.operation.create).toHaveBeenCalledTimes(writes+1)
+ log.mockRestore()
+})
+it.each(['foreign','count','last','missingPrefix','staleCut','layerLock','noSession']as const)('refuses invalid close authority before append (%s)',async kind=>{
+ const f=await closeWriterFixture(),request={...f.request},writes=db.operation.create.mock.calls.length,next=f.board.nextSeq
+ if(kind==='foreign')request.targetUserId='other'
+ if(kind==='count')request.expectedRecordedNext++
+ if(kind==='last')request.expectedLastFrameOpId='wrong'
+ if(kind==='missingPrefix'){history.rows=history.rows.slice(1);history.canonicalRows=history.canonicalRows.slice(1)}
+ let transport=f.transport
+ if(kind==='noSession')transport=new CanonicalRoomTransport(selected)
+ if(kind==='staleCut'||kind==='layerLock')vi.mocked(getCanonicalGesturePrefixWithRows).mockImplementationOnce(async()=>{
+  if(kind==='staleCut')f.board.nextSeq++
+  else f.board.sharedLockedLayerIds.add('layer')
+  return{operations:f.operations,canonicalRows:f.rows}
+ })
+ expect((await transport.close(identity,request,()=>true)).result.ok).toBe(false)
+ expect(db.operation.create).toHaveBeenCalledTimes(writes);expect(f.board.nextSeq).toBe(next+(kind==='staleCut'?1:0))
+})
+it('keeps an appended close fail closed if its internal admission commit faults, then repairs the exact receipt',async()=>{
+ const f=await closeWriterFixture(),prepare=vi.spyOn(CanonicalStrokeAdmission.prototype,'prepareRecordedClose'),original=CanonicalStrokeAdmission.prototype.prepareRecordedClose
+ prepare.mockImplementationOnce(function(this:CanonicalStrokeAdmission,identity,stroke,seal){const ticket=original.call(this,identity,stroke,seal);return{seal:ticket.seal,commit(){throw Error('forced close commit fault')}}})
+ const result=await f.transport.close(identity,f.request,()=>true),seq=f.board.nextSeq
+ expect(result.result.ok).toBe(false);expect(f.board.operationsById.has(f.request.operationId)).toBe(true)
+ // Known resident evidence must fence a different ID even before the query.
+ const queryCalls=vi.mocked(getCanonicalGesturePrefixWithRows).mock.calls.length
+ expect((await f.transport.close(identity,{...f.request,operationId:'fault-other-close'},()=>true)).result.ok).toBe(false)
+ expect(vi.mocked(getCanonicalGesturePrefixWithRows)).toHaveBeenCalledTimes(queryCalls);expect(f.board.nextSeq).toBe(seq)
+ expect(f.transport.live(identity,{layerId:'layer',frame:f.all.at(-1)!}).result.ok).toBe(false)
+ expect((await f.transport.recorded(identity,{type:'canonical_stroke',id:'commit-fault-late',userId:'author',timestamp:300,layerId:'layer',frame:f.all.at(-1)!},()=>true)).result.ok).toBe(false)
+ expect(await f.transport.close(identity,f.request,()=>true)).toMatchObject({result:{ok:true,duplicate:true}})
+ expect(f.board.nextSeq).toBe(seq)
+})
+
+it('verifies actual indexed duplicate close without adopting a receipt and rejects a conflicting seal body',async()=>{
+ const f=await closeWriterFixture(),saved=await f.transport.close(identity,f.request,()=>true)
+ if(!saved.accepted)throw Error('Missing durable close')
+ const operation=saved.accepted,row=db.operation.create.mock.calls.map(([q])=>q.data).find(r=>r.id===operation.id)!
+ f.board.operations=f.board.operations.filter(op=>op.id!==operation.id);f.board.operationsById.delete(operation.id)
+ db.operation.findUnique.mockResolvedValue(row);history.close={operation,row}
+ const writes=db.operation.create.mock.calls.length,seq=f.board.nextSeq
+ const duplicate=await f.transport.close(identity,f.request,()=>true)
+ expect(duplicate).toMatchObject({result:{ok:true,duplicate:true,seq:operation.seq}})
+ const {knownCanonicalWrite}=await import('./operationLog.js')
+ expect(knownCanonicalWrite(operation)).toBeDefined();expect(knownCanonicalWrite(duplicate.accepted!)).toBeUndefined();expect(f.board.operationsById.has(operation.id)).toBe(false)
+ expect(db.operation.create).toHaveBeenCalledTimes(writes);expect(f.board.nextSeq).toBe(seq)
+ const bad={...operation,firstFrameOpId:'wrong'}
+ db.operation.findUnique.mockResolvedValue({...row,data:bad});history.close={operation:bad,row:{...row,data:bad}}
+ expect((await f.transport.close(identity,f.request,()=>true)).result.ok).toBe(false)
+})
+it('rechecks layer paint policy after the durable close write before ACK while retaining exact repair identity',async()=>{
+ const f=await closeWriterFixture(),write=deferredWrite()
+ db.operation.create.mockReturnValueOnce(write.promise)
+ const work=f.transport.close(identity,f.request,()=>true)
+ await vi.waitFor(()=>expect(f.board.operationsById.has(f.request.operationId)).toBe(true))
+ const next=f.board.nextSeq;f.board.sharedLockedLayerIds.add('layer');write.resolve()
+ expect((await work).result.ok).toBe(false)
+ f.board.sharedLockedLayerIds.delete('layer')
+ expect(await f.transport.close(identity,f.request,()=>true)).toMatchObject({result:{ok:true,duplicate:true,seq:next-1}})
+ expect(f.board.nextSeq).toBe(next)
+})
+it('refuses accessor close requests without invoking them or resolving any database target',async()=>{
+ const f=await closeWriterFixture(),read=vi.fn(()=>f.request.layerId),request={...f.request}
+ Object.defineProperty(request,'layerId',{get:read})
+ db.operation.findUnique.mockClear();const writes=db.operation.create.mock.calls.length
+ expect((await f.transport.close(identity,request,()=>true)).result.ok).toBe(false)
+ expect(read).not.toHaveBeenCalled();expect(db.operation.findUnique).not.toHaveBeenCalled();expect(db.operation.create).toHaveBeenCalledTimes(writes)
+})

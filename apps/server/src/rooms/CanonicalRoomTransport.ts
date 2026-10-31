@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from 'node:util'
 import {
   STRAIGHT_ROOM_RASTER_VERSION,CANONICAL_STROKE_RASTER_PROFILE,
-  parseCanonicalStrokeCloseOperation,parseCanonicalEmptyHistoryBase,parseCanonicalFullHistoryBase,verifyCanonicalFullHistoryBase,type CanonicalFullHistoryBaseV2,type CanonicalEmptyHistoryBaseV1, verifyCanonicalRecordedPrefix, type CanonicalStrokeBegin, type CanonicalStrokeBeginResult, type CanonicalStrokeLive, type CanonicalStrokeLiveResult,
+  parseCanonicalStrokeCloseRequest,verifyCanonicalRecordedClose,type CanonicalStrokeCloseRequest,type RecordedCanonicalStrokeCloseOperation,parseCanonicalStrokeCloseOperation,parseCanonicalEmptyHistoryBase,parseCanonicalFullHistoryBase,verifyCanonicalFullHistoryBase,type CanonicalFullHistoryBaseV2,type CanonicalEmptyHistoryBaseV1, verifyCanonicalRecordedPrefix, type CanonicalStrokeBegin, type CanonicalStrokeBeginResult, type CanonicalStrokeLive, type CanonicalStrokeLiveResult,
   type CanonicalStrokeOperation, type CanonicalStrokeSnapshot, type SendResult, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadScope, type CanonicalRecordedHistoryPage, type Operation, CANONICAL_RECORDED_ATTACHMENT_LIMITS, prepareCanonicalRecordedAttachment,
 } from '@grafetto/shared'
 import { canonicalBrushStorageContext } from '../brushLibrary/storage.js'
@@ -13,8 +13,8 @@ import { assertPreparedAuthorizedJoinRead,type PreparedAuthorizedJoin } from './
 import { mayReadBoardContent } from './boardContentAccess.js'
 import { hasKnownOperationDiscriminant } from './operationAdmissionShape.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
-import { canonicalWriteFence, ensureCanonicalWrite, findDuplicateOperation, knownCanonicalWrite, hasSucceededCanonicalWrite,recordOperation, recordCanonicalMetadataOperation,getOperationRejectReason,updateAliveIds } from './operationLog.js'
-import { captureCanonicalMetadata,verifyCanonicalMetadataRow,verifyIndexedOperationRow,projectCanonicalIndexedOperation,type CanonicalMetadataOperation,canonicalOperationRowSelect, verifyCanonicalOperationRow,type CanonicalStoredOperationRow } from './roomPersistence.js'
+import { canonicalWriteFence, ensureCanonicalWrite, findDuplicateOperation, knownCanonicalWrite, hasSucceededCanonicalWrite,recordOperation,recordCanonicalCloseOperation, recordCanonicalMetadataOperation,getOperationRejectReason,updateAliveIds } from './operationLog.js'
+import { captureCanonicalMetadata,verifyCanonicalMetadataRow,verifyIndexedOperationRow,projectCanonicalIndexedOperation,projectCanonicalIndexedCloseOperation,type CanonicalMetadataOperation,canonicalOperationRowSelect, verifyCanonicalOperationRow,type CanonicalStoredOperationRow } from './roomPersistence.js'
 import { flushRoomWrites, lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
 import type {CanonicalPrefixPreparer,CanonicalFullHistoryReceipt} from './snapshotReplayLoader.js'
 import { getCanonicalFullHistoryWithRows,CanonicalGesturePrefixError, getCanonicalGesturePrefixWithRows } from './snapshotStore.js'
@@ -266,6 +266,7 @@ export class CanonicalRoomTransport {
     try {
       if (!object(value) || Object.keys(value).length !== 2 || !Object.hasOwn(value, 'layerId') || !Object.hasOwn(value, 'frame') || !object(value.frame)) fail('invalid_operation')
       const lifetime = this.authorized(identity, value.layerId), session = this.session(lifetime, identity, value.frame.strokeId)
+      this.requireUnsealedOrdinal(lifetime,identity,value.frame.strokeId,value.frame.frameOrdinal)
       const ticket = session.admission.prepare(identity, { type: 'canonical_stroke_live', layerId: value.layerId, frame: value.frame })
       this.context!.storage.pin(identity.roomId, identity.userId, [session.grant.brush], this.context!.operator)
       ticket.commit()
@@ -299,6 +300,7 @@ export class CanonicalRoomTransport {
       existing = findDuplicateOperation(identity.roomId, op.id) ?? existing
       if (existing) return await this.durableDuplicate(identity, op, existing, lifetime, session, isCurrent)
       if (op.seq !== undefined) fail('invalid_operation')
+      this.requireUnsealedOrdinal(lifetime,identity,op.frame.strokeId,op.frame.frameOrdinal)
       await this.durablePrefix(lifetime, session)
       if (!isCurrent()) fail('not_joined')
       this.sameLifetime(identity, op.layerId, lifetime)
@@ -308,6 +310,7 @@ export class CanonicalRoomTransport {
       // prefix. Retrying enters the exact duplicate path, never allocates seq2.
       const raced = findDuplicateOperation(identity.roomId, op.id)
       if (raced) return await this.durableDuplicate(identity, op, raced, lifetime, session, isCurrent)
+      this.requireUnsealedOrdinal(lifetime,identity,op.frame.strokeId,op.frame.frameOrdinal)
       const ticket = session.admission.prepare(identity, { type: 'canonical_stroke', id: op.id, layerId: op.layerId, frame: op.frame })
       if (ticket.duplicate) fail('canonical_repair_required')
       this.context!.storage.pin(identity.roomId, identity.userId, [session.grant.brush], this.context!.operator)
@@ -325,6 +328,77 @@ export class CanonicalRoomTransport {
       this.requireHealthyWrites(lifetime)
       return { result: { ok: true, seq: accepted.seq! }, accepted, ...this.recordedAttachment(accepted,session) }
     } catch (error) { return { result: { ok: false, reason: reason(error) } } }
+  }
+
+  /** Typed own-session metadata writer. No listener/producer is activated. */
+  async close(identity:CanonicalAdmissionIdentity,value:CanonicalStrokeCloseRequest,isCurrent:()=>boolean):Promise<{readonly result:SendResult;readonly accepted?:RecordedCanonicalStrokeCloseOperation}>{
+    try{
+      const input=parseCanonicalStrokeCloseRequest(value)
+      if(input.targetUserId!==identity.userId)fail('invalid_operation')
+      const lifetime=this.authorized(identity,input.layerId),session=this.session(lifetime,identity,input.strokeId),binder=this.binder!,context=this.context!
+      if(session.grant.layerId!==input.layerId||!('version'in session.grant.material)||session.grant.material.version!==2)fail('invalid_operation')
+      const current=()=>{
+        if(!isCurrent())fail('not_joined')
+        this.sameLifetime(identity,input.layerId,lifetime)
+        if(this.binder!==binder||this.context!==context||lifetime.sessions.get(gestureKey(identity,input.strokeId))!==session)fail('canonical_repair_required')
+        if(lifetime.record.operations.some(op=>op.type==='canonical_stroke_close'&&op.targetUserId===identity.userId&&op.strokeId===input.strokeId&&op.id!==input.operationId))fail('canonical_repair_required')
+      }
+      const matches=(op:RecordedCanonicalStrokeCloseOperation)=>op.id===input.operationId&&op.userId===identity.userId&&op.layerId===input.layerId&&op.targetUserId===input.targetUserId&&op.strokeId===input.strokeId&&op.disposition===input.disposition&&op.recordedNext===input.expectedRecordedNext&&op.lastFrameOpId===input.expectedLastFrameOpId
+      current()
+      let existing=findDuplicateOperation(identity.roomId,input.operationId)
+      let indexed:CanonicalStoredOperationRow|null=null
+      if(!existing){
+        indexed=await prisma.operation.findUnique({where:{id:input.operationId},select:canonicalOperationRowSelect});current()
+        if(indexed)existing=projectCanonicalIndexedCloseOperation(identity.roomId,indexed).operation
+      }
+      current();existing=findDuplicateOperation(identity.roomId,input.operationId)??existing
+      let previous:RecordedCanonicalStrokeCloseOperation|undefined
+      if(existing){
+        previous=parseCanonicalStrokeCloseOperation(existing)
+        if(!matches(previous))fail('invalid_operation')
+        if(knownCanonicalWrite(existing)){
+          const outcome=await ensureCanonicalWrite(lifetime.record,existing,{retryFailed:true});current()
+          if(!outcome.ok)fail('canonical_repair_required')
+        }else{
+          indexed=indexed??await prisma.operation.findUnique({where:{id:input.operationId},select:canonicalOperationRowSelect});current()
+          if(!indexed||!isDeepStrictEqual(projectCanonicalIndexedCloseOperation(identity.roomId,indexed).operation,previous))fail('canonical_repair_required')
+        }
+      }else{
+        await this.durablePrefix(lifetime,session);current()
+      }
+      await flushRoomWrites(identity.roomId);current();this.requireHealthyWrites(lifetime)
+      const cut=lifetime.record.nextSeq-1
+      const prefix=await getCanonicalGesturePrefixWithRows(identity.roomId,{userId:identity.userId,strokeId:input.strokeId},cut,session.recordedTail)
+      current()
+      if(lifetime.record.nextSeq-1!==cut)fail('canonical_repair_required')
+      const anchor=prefix.operations.at(-1),row=prefix.canonicalRows.at(-1)
+      if(!anchor||!row)fail('canonical_repair_required')
+      const summary=binder.readRecordedPrefix({roomId:identity.roomId,boardEpoch:session.grant.boardEpoch,anchor,row,operations:prefix.operations,rows:prefix.canonicalRows,purpose:'read',...prefix.close?{close:prefix.close}:{}})
+      if(summary.recordedNext!==input.expectedRecordedNext||summary.lastOperationId!==input.expectedLastFrameOpId)fail('invalid_operation')
+      const raced=findDuplicateOperation(identity.roomId,input.operationId)
+      if(raced&&(!previous||!isDeepStrictEqual(parseCanonicalStrokeCloseOperation(raced),previous)))fail('canonical_repair_required')
+      if(prefix.close&&(!previous||!isDeepStrictEqual(prefix.close.operation,previous)))fail('canonical_repair_required')
+      const candidate=previous??parseCanonicalStrokeCloseOperation({type:'canonical_stroke_close',id:input.operationId,userId:identity.userId,timestamp:Date.now(),seq:lifetime.record.nextSeq,layerId:input.layerId,targetUserId:identity.userId,strokeId:input.strokeId,disposition:'commitPartial',recordedNext:summary.recordedNext,firstFrameOpId:summary.firstOperationId,lastFrameOpId:summary.lastOperationId})
+      const seal=verifyCanonicalRecordedClose(summary,{userId:identity.userId,layerId:input.layerId,strokeId:input.strokeId},candidate)
+      const cursor=session.admission.cursor(identity,input.strokeId)
+      if(cursor.recordedNext!==seal.recordedNext||!previous&&cursor.ended)fail('canonical_repair_required')
+      current()
+      if(lifetime.record.nextSeq-1!==cut)fail('canonical_repair_required')
+      const ticket=cursor.ended?undefined:session.admission.prepareRecordedClose(identity,input.strokeId,seal)
+      // All async checks precede this same-turn append/seal section. An actual
+      // resident close also fences new frames if an unexpected commit fault occurs.
+      let accepted=candidate
+      if(!previous){const {seq:_seq,...draft}=candidate;accepted=recordCanonicalCloseOperation(identity.roomId,draft)}
+      ticket?.commit()
+      const retained=previous&&existing?existing:accepted
+      if(!previous||knownCanonicalWrite(retained)){
+        const outcome=await ensureCanonicalWrite(lifetime.record,retained,{retryFailed:true})
+        current();if(!outcome.ok)fail('canonical_repair_required')
+        if(lifetime.record.operationsById.get(retained.id)!==retained)fail('canonical_repair_required')
+      }
+      current();this.requireHealthyWrites(lifetime)
+      return{result:{ok:true,seq:accepted.seq,...previous?{duplicate:true}:{}},accepted}
+    }catch(error){return{result:{ok:false,reason:reason(error)}}}
   }
 
   /** Existing operation event, canonical metadata lane only. Explicit legacy is
@@ -493,6 +567,9 @@ export class CanonicalRoomTransport {
     return {canonicalCapabilities}
   }
 
+  private requireUnsealedOrdinal(lifetime:RoomLifetime,identity:CanonicalAdmissionIdentity,strokeId:string,ordinal:number):void {
+    if(lifetime.record.operations.some(op=>op.type==='canonical_stroke_close'&&op.targetUserId===identity.userId&&op.strokeId===strokeId&&ordinal>=op.recordedNext))fail('canonical_repair_required')
+  }
   private requireHealthyWrites(lifetime: RoomLifetime): void {
     if (canonicalWriteFence(lifetime.record).failed) fail('canonical_repair_required')
   }
