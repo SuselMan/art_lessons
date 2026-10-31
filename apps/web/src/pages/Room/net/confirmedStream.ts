@@ -1,6 +1,6 @@
 import type { RefObject } from 'react'
 
-import { prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation, type Operation, type ServerToClientEvents } from '@grafetto/shared'
+import { prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation, type CanonicalRecordedReadScope, type Operation, type ServerToClientEvents } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../../engine'
 import { useRoomStore } from '../../../stores/roomStore'
@@ -47,7 +47,7 @@ export interface ConfirmedStreamDeps {
   }
   /** Explicit captured authoritative room-state scope; absent keeps the legacy
    * lane and cannot admit a newly attached procedural capability. */
-  canonicalReadScope?: { readonly roomId: string; readonly boardEpoch: number; readonly isCurrent: () => boolean }
+  canonicalReadScope?: CanonicalRecordedReadScope & { readonly isCurrent: () => boolean }
 }
 
 /** (#493) `operation_confirmed` — the room's one ordered stream of what
@@ -59,8 +59,13 @@ export function createConfirmedStreamHandler({
   engineRef, lastConfirmedSeqRef, latestKnownSeqRef, appliedOpIdsRef, pendingPreviewsRef,
   catchingUpRef, streamedStrokeIdsRef, deferredOpsQueueRef, previewScheduleRef,
   confirmOwnOperation, markLayerActive, applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,
-  replayGate, canonicalReadScope,
+  replayGate, canonicalReadScope: readScope,
 }: ConfirmedStreamDeps): ServerToClientEvents['operation_confirmed'] {
+  const canonicalReadScope = readScope ? Object.freeze({
+    roomId: readScope.roomId, boardEpoch: readScope.boardEpoch,
+    ...(readScope.rasterProfile === undefined ? {} : { rasterProfile: readScope.rasterProfile }),
+    isCurrent: readScope.isCurrent,
+  }) : undefined
   // (#289 §7/§11 — reliable history spec v0.2) Renamed from
   // handlePeerOperation: this now fires for *every* confirmed operation,
   // including this client's own — `operation_confirmed` is broadcast via

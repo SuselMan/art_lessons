@@ -68,7 +68,7 @@ it('holds the complete immutable attachment in the SAME replay gate and rechecks
  const s=current(),gate=createReplayGate<typeof s.payload>();gate.begin()
  const confirm=createConfirmedStreamHandler({...s.deps,canonicalReadScope:s.scope,replayGate:gate})
  confirm(s.payload);expect(s.deps.applyRemoteOp).not.toHaveBeenCalled()
- (s.payload.canonicalCapabilities.capabilities[0].snapshot as unknown as {pigmentRgb8:number[]}).pigmentRgb8=[9,9,9]
+ ;(s.payload.canonicalCapabilities.capabilities[0].snapshot as unknown as {pigmentRgb8:number[]}).pigmentRgb8=[9,9,9]
  gate.end()
  expect(s.deps.applyRemoteOp).toHaveBeenCalledWith(expect.objectContaining({frame:expect.objectContaining({pigmentRgb8:[1,2,3]})}),expect.objectContaining({sequence:3}))
  const stale=current(),staleGate=createReplayGate<typeof stale.payload>();staleGate.begin()
@@ -81,4 +81,12 @@ it('requires both a captured room-state scope and a capability for the new read 
  expect(s.deps.requestFullResync).toHaveBeenCalledOnce();expect(s.deps.lastConfirmedSeqRef.current).toBe(2)
  const missing=current();createConfirmedStreamHandler({...missing.deps,canonicalReadScope:missing.scope})({seq:3,operation:missing.op})
  expect(missing.deps.requestFullResync).toHaveBeenCalledOnce();expect(missing.deps.applyRemoteOp).not.toHaveBeenCalled()
+})
+
+it('captures immutable room-state fields instead of reading a later mutated caller scope',()=>{
+ const s=current(),confirm=createConfirmedStreamHandler({...s.deps,canonicalReadScope:s.scope})
+ s.scope.boardEpoch=99
+ confirm(s.payload)
+ expect(s.deps.applyRemoteOp).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({boardEpoch:2}))
+ expect(s.deps.requestFullResync).not.toHaveBeenCalled()
 })

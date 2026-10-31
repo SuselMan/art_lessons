@@ -197,7 +197,7 @@ export class OperationLog {
     const prepared = prepareCanonicalRecordedAttachment({ version: 1, roomId: read.roomId, boardEpoch: read.boardEpoch,
       capabilities: [read.capability], bindings: [{ operationId: op.id, sequence: serverSeq,
         originalUserId: op.userId, capability: 0 }] }, [{ ...op, seq: serverSeq }],
-      { roomId: read.roomId, boardEpoch: read.boardEpoch })[0].read!
+      { roomId: read.roomId, boardEpoch: read.boardEpoch, rasterProfile: read.rasterProfile })[0].read!
     const previous = entries.find(e => e.canonicalRead
       && e.op.type === 'canonical_stroke' && e.op.userId === op.userId && e.op.frame.strokeId === op.frame.strokeId)?.canonicalRead
     if (!previous) return prepared

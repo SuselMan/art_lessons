@@ -33,3 +33,10 @@ network delivery, native brush identity or device smoothness claim follows.
 
 No browser, service, disposable runtime or dependency copy was created by this
 history unit. Diagnostic logs are in fixes-v52/canonical-log-*.log.
+
+
+The read now also carries the explicitly captured raster profile. Log
+revalidation forwards that authority instead of defaulting a new V2 stroke to
+the old profile or deriving trust from its envelope/snapshot. A new test passes
+an explicitly authorized V2 record through the same log. The combined profile,
+log and confirmed/replay suites pass (28 tests); common app TSC passes.

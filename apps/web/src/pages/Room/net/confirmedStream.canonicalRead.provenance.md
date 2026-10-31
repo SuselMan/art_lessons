@@ -31,3 +31,11 @@ physical storage or device responsiveness claim follows from these host tests.
 No browser, service, disposable build or dependencies were created by this unit.
 Receipts: fixes-v52/confirmed-read-atomic-tests.log and
 fixes-v52/generic-sc4-common-web-tsc.log (combined check owner).
+
+
+Captured scope uses the shared read-scope type, including an optional explicit
+raster profile. The handler copies and freezes its room/epoch/profile/function
+at construction, so later caller-object mutation cannot change authority. The
+current-lifetime callback is still rechecked for each use and replay release.
+A mutation regression test and explicit V2 log propagation pass in the combined
+28-test run; common app TypeScript checks pass.

@@ -1,5 +1,5 @@
 import {expect,it} from 'vitest'
-import {sourceAutoGeometry,canonicalSoftAutoSourcePin,buildCanonicalMaterial,CANONICAL_STROKE_RASTER_PROFILE,prepareCanonicalRecordedAttachment,type CanonicalStrokeOperation,type CanonicalStrokeSnapshotV2,type CanonicalRecordedAttachmentV1} from '@grafetto/shared'
+import {sourceAutoGeometry,canonicalSoftAutoSourcePin,buildCanonicalMaterial,CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,prepareCanonicalRecordedAttachment,type CanonicalStrokeOperation,type CanonicalStrokeSnapshotV2,type CanonicalRecordedAttachmentV1} from '@grafetto/shared'
 import {OperationLog} from './OperationLog'
 function fixture(){
  const curve={text:'0,1;1,0',points:[{x:0,y:1,corner:false},{x:1,y:0,corner:false}]}
@@ -59,4 +59,15 @@ it('refuses reuse across server epochs until authoritative history is replaced',
  const next={...op,id:'op2',seq:4,frame:{...op.frame,frameOrdinal:1}}
  expect(()=>log.append(next,{serverSeq:4,canonicalRead:{...read,operationId:'op2',sequence:4,boardEpoch:3,capability:{...read.capability,snapshot:{...read.capability.snapshot,boardEpoch:3}}}})).toThrow('refresh')
  expect(log.entries).toHaveLength(1)
+})
+
+it('retains the explicitly captured V2 raster profile through log revalidation',()=>{
+ const f=fixture(),profile=CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE
+ const snapshot={...f.attachment.capabilities[0].snapshot,rasterProfile:profile}
+ const op:CanonicalStrokeOperation={...f.op,frame:{...f.op.frame,version:2,rasterProfile:profile}}
+ const attachment={...f.attachment,capabilities:[{originalUserId:op.userId,snapshot}]}
+ const prepared=prepareCanonicalRecordedAttachment(attachment,[op],{...f.expected,rasterProfile:profile})[0]
+ const log=new OperationLog();log.append(prepared.operation,{serverSeq:3,canonicalRead:prepared.read})
+ expect(log.entries[0].canonicalRead?.rasterProfile).toBe(profile)
+ expect(log.entries[0].canonicalRead?.capability.snapshot.rasterProfile).toBe(profile)
 })
