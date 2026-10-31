@@ -1,5 +1,6 @@
+import {canonicalSourceAuthorAdmission} from './src/presets/sourceCanonicalAuthorAdmission'
 import {canonicalExecutorOperations} from './src/dabs/CanonicalFrameExecutor'
-import { CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_STROKE_RASTER_PROFILE,canonicalSourceEffectReject,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalGaussianAutoSourceBinding,canonicalSoftAutoSourceBinding,canonicalSoftAutoDataEqual,canonicalSourceComposition,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,sourceAutoGeometry,CANONICAL_RECORDED_ATTACHMENT_LIMITS,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,IMPLICIT_LAYER_IDS,INITIAL_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,verifyCanonicalFullHistoryBase,verifyCanonicalEmptyHistoryBase,decodeCanonicalStrokeFrame,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalStrokeRasterProfile,type CanonicalAutoSource,type CanonicalSoftAutoSource } from '@grafetto/shared'
+import { CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_STROKE_RASTER_PROFILE,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalGaussianAutoSourceBinding,canonicalSoftAutoSourceBinding,canonicalSoftAutoDataEqual,canonicalSourceComposition,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,sourceAutoGeometry,CANONICAL_RECORDED_ATTACHMENT_LIMITS,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,IMPLICIT_LAYER_IDS,INITIAL_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,verifyCanonicalFullHistoryBase,verifyCanonicalEmptyHistoryBase,decodeCanonicalStrokeFrame,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalStrokeRasterProfile,type CanonicalAutoSource,type CanonicalSoftAutoSource } from '@grafetto/shared'
 import {BrushTextureCache} from './src/dabs/BrushTextureCache'
 import {TransformedMaskPrepass,transformedMaskPrepassBudget,type TransformedMaskLimits} from './src/dabs/TransformedMaskPrepass'
 import {CanonicalRgba8CompositePass,canonicalRgba8CompositeBudget,type CanonicalCompositeLimits} from './src/dabs/CanonicalRgba8CompositePass'
@@ -6784,14 +6785,9 @@ export class PencilEngine implements PencilEngineAPI {
     const owner=this._canonicalLayerOwner,descriptor=importedBrushFromPreset(preset)
     if(!this._canonicalAuthorService||!this._onLocalOperation||!owner||!descriptor)throw new Error('Canonical source author services unavailable')
     this._assertCanonicalLayerCurrent(owner)
-    const unsupported=canonicalSourceEffectReject(descriptor,owner.plan.profile)
-    if(unsupported)throw new Error('Unsupported canonical source effect: '+unsupported)
-    const policy=canonicalSourceComposition(descriptor,owner.plan.profile),data=descriptor.sourceStamp
-    if(policy?.mode!=='wash'||!data||data.version!==2||!['defaultAuto','gaussianAuto','softAuto'].includes(data.source.kind)||data.timing.enabled)throw new Error('Unsupported canonical pointer material/timing')
-    const sizeOption=data.options.find(option=>option.id==='Size')
-    if(sizeOption?.checked&&(!Number.isFinite(sizeOption.min)||!Number.isFinite(sizeOption.max)||sizeOption.min<0||sizeOption.max>1||sizeOption.sensors.length!==1||sizeOption.sensors[0].id!=='pressure'))throw new Error('Unsupported canonical pointer transform/sensor')
-    if(data.options.some(option=>['Ratio','Rotation','Scatter','Mirror'].includes(option.id)&&option.checked)
-      ||data.options.some(option=>option.checked&&option.useCurve&&option.sensors.some(sensor=>['rotation','tangentialPressure','perspective','speed'].includes(sensor.id))))throw new Error('Unsupported canonical pointer transform/sensor')
+    const admission=canonicalSourceAuthorAdmission(descriptor,owner.plan.profile)
+    if(!admission.supported)throw new Error(admission.reason)
+    const data=admission.data
     const json=canonicalBrushDescriptorJSON(descriptor),bytes=new TextEncoder().encode(json),charge=bytes.length*8+8192
     if(charge>this._brushMipCache.budgetBytes)throw new RangeError('Canonical source program exceeds CPU budget')
     const release=this._brushMipCache.reserve(charge)
