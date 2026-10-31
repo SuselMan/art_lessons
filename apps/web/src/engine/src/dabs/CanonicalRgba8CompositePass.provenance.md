@@ -218,3 +218,20 @@ still validate both attachments. Every new standalone call/batch rechecks
 foreign attachment changes; no cross-turn authority or GL state cache is added.
 Target identity/query-count/state-restore tests cover these boundaries. This
 small reduction is not evidence of a general warm executor latency improvement.
+
+
+### Explicit GenericSC U8 operation (2026-10-31)
+
+Commit 2fc7b39f7 adds `genericSCU8` to this same pass and its existing
+program/cache/budget ownership. Multiply, Lighten, ColorDodge and Overlay require
+`krita-generic-sc-u8-bd6e8d0-v1`; old mode IDs and profiles are unchanged. Host
+controls and numerical GLSL are imported from the existing byte compositor,
+including the distinct no-mask MULT3 law. Invalid profile/mode combinations
+reject before destination queries or resource leases. No room/stroke profile,
+outerBlend admission, renderer or cache is introduced.
+
+Host verification: 84 pass/executor tests passed, including exact uniform bytes,
+mask presence/zero, state restoration and invalid profile rejection; scoped
+oxlint and common app+service-worker TypeScript checks passed. Source-header
+C++ oracle provenance lives in presets/fixtures/sourceRgba8Separable. This unit
+alone is not actual GPU, original ARM, full brush or active editor evidence.
