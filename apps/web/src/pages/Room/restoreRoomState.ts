@@ -1,7 +1,8 @@
+import {assertCanonicalRoomStateRead,type CanonicalRoomStateRead} from './net/canonicalRoomState'
 import type { RefObject } from 'react'
 import * as Sentry from '@sentry/react'
 
-import type { Operation, Participant } from '@grafetto/shared'
+import type { Operation, Participant,CanonicalPreparedRecordedOperation } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../engine'
 import { reportInvariant } from '../../lib/observability/reportInvariant'
@@ -17,6 +18,7 @@ import type { SnapshotRestoreOutcome } from './net/snapshotRestore'
 
 /** What a `room_state` carries that this function acts on. */
 export interface RoomStatePayload {
+  canonicalRead?:CanonicalRoomStateRead
   latestSnapshotSeq: number | null
   tailOperations: Operation[]
   participants: Participant[]
@@ -39,9 +41,11 @@ export interface RestoreRoomStateDeps {
   boardId: string
   /** Default OFF until full-journal material/lifecycle hardware gates. */
   diagnosticClearPrefixElision?: boolean
-  restoreFromSnapshot: (engine: PencilEngineAPI, boardId: string) => Promise<SnapshotRestoreOutcome['status']>
-  backfillHistory: (boardId: string, engine: PencilEngineAPI, fromSeq: number) => Promise<void>
+  restoreFromSnapshot: (engine: PencilEngineAPI, boardId: string,canonicalRead?:CanonicalRoomStateRead) => Promise<SnapshotRestoreOutcome['status']>
+  backfillHistory: (boardId: string, engine: PencilEngineAPI, fromSeq: number,canonicalRead?:CanonicalRoomStateRead) => Promise<void>
   applyRemoteOp: (op: Operation) => void
+  applyCanonicalOp?: (atom:CanonicalPreparedRecordedOperation)=>void
+  restoreCanonicalHistory?: (atoms:readonly CanonicalPreparedRecordedOperation[])=>Promise<void>
   syncFromLogNow: () => void
   markJoinRestoreDone: () => void
   dispatchParticipants: (action: { type: 'room_state'; participants: Participant[] }) => void
@@ -93,6 +97,10 @@ export async function restoreRoomState(
   deps: RestoreRoomStateDeps,
 ): Promise<void> {
   const { latestSnapshotSeq, tailOperations } = state
+  const canonicalRead=state.canonicalRead
+  const assertCurrent=()=>{if(canonicalRead)assertCanonicalRoomStateRead(canonicalRead,tailOperations,deps.boardId)}
+  assertCurrent()
+  if(canonicalRead&&(!deps.applyCanonicalOp||!deps.restoreCanonicalHistory))throw Error('Canonical room restore sinks unavailable')
   const openTimer = mode === 'join' ? deps.openTimerRef.current : null
 
   // (#533) Read by the `finally` below: a restore that brought back nothing
@@ -126,7 +134,8 @@ export async function restoreRoomState(
     // the join path used to check directly.
     let restoredFromSnapshot = false
     if (engine && latestSnapshotSeq !== null && alreadyHadSeq < latestSnapshotSeq) {
-      const status = await deps.restoreFromSnapshot(engine, deps.boardId)
+      const status = await (canonicalRead?deps.restoreFromSnapshot(engine,deps.boardId,canonicalRead):deps.restoreFromSnapshot(engine, deps.boardId))
+      assertCurrent()
       // (#533) The one branch that must not fall through to the replay below.
       // `tailOperations` is only what the snapshot did *not* cover — 69
       // operations of a 53 836-operation room, on the day this was found — so
@@ -169,12 +178,17 @@ export async function restoreRoomState(
       ? tailOperations.filter(op => (op.seq ?? 0) <= latestSnapshotSeq) : []
     const replayOperations = historicalPrefix.length
       ? tailOperations.filter(op => (op.seq ?? 0) > latestSnapshotSeq!) : tailOperations
-    if (engine && historicalPrefix.length) await engine.restoreHistoricalOperations(historicalPrefix)
+    if (engine && historicalPrefix.length){
+      if(canonicalRead)await deps.restoreCanonicalHistory!(canonicalRead.preparedAtoms.filter(atom=>historicalPrefix.includes(atom.operation)))
+      else await engine.restoreHistoricalOperations(historicalPrefix)
+      assertCurrent()
+    }
 
     // (#398) Reference images decoded before the loop, not inside it — see
     // PencilEngineAPI.preloadImages. Without this, the operations recorded
     // *after* an import replay against a layer whose image has not landed yet.
     if (engine) await engine.preloadImages(replayOperations)
+    assertCurrent()
 
     // (#385) Per-operation, not around the whole loop. One operation that
     // throws used to abandon every operation after it — and in the real case
@@ -182,8 +196,13 @@ export async function restoreRoomState(
     // 2001-operation room) the ones after it were the overwhelming majority.
     let failed = 0
     const applyOne = (op: Operation): void => {
+      assertCurrent()
       try {
-        deps.applyRemoteOp(op)
+        if(canonicalRead&&op.type==='canonical_stroke'){
+          const atom=canonicalRead.preparedAtoms[tailOperations.indexOf(op)]
+          if(!atom?.read||atom.operation!==op)throw Error('Missing canonical tail capability')
+          deps.applyCanonicalOp!(atom)
+        }else deps.applyRemoteOp(op)
       } catch (err) {
         // Only the first is reported: a failure here is normally a dead GL
         // context, and every subsequent operation fails the same way.
@@ -220,7 +239,7 @@ export async function restoreRoomState(
       for (const op of replayOperations) {
         applyOne(op)
         if (performance.now() - sliceStart > REPLAY_YIELD_MS) {
-          await yieldToEventLoop()
+          await yieldToEventLoop();assertCurrent()
           sliceStart = performance.now()
         }
       }
@@ -241,6 +260,7 @@ export async function restoreRoomState(
       deps.replayIncompleteRef.current = true
       deps.notifyReplayIncomplete()
     }
+    assertCurrent()
     deps.replayGate.end()
     displaySuspended = false
     engine?.resumeDisplay()
@@ -267,7 +287,7 @@ export async function restoreRoomState(
     }
 
     if (engine && restoredFromSnapshot && latestSnapshotSeq !== null) {
-      void deps.backfillHistory(deps.boardId, engine, latestSnapshotSeq)
+      void (canonicalRead?deps.backfillHistory(deps.boardId,engine,latestSnapshotSeq,canonicalRead):deps.backfillHistory(deps.boardId, engine, latestSnapshotSeq))
     }
     // A short room need not ever cross100. Request its first per-layer
     // snapshot at the real current watermark; useSnapshotPublishing retries
@@ -289,8 +309,10 @@ export async function restoreRoomState(
     // nothing. The same shape #533 closed for a failed snapshot, so the same
     // screen and the same retry.
     restoreFailedHere = true
-    deps.setRestoreFailure('apply')
-    deps.replayIncompleteRef.current = true
+    if(!canonicalRead||canonicalRead.scope.isCurrent()){
+      deps.setRestoreFailure('apply')
+      deps.replayIncompleteRef.current = true
+    }
     // Reported explicitly rather than left to the global unhandled-rejection
     // handler: that would claim it went unhandled, which is no longer true.
     // The tag tells a join failure from a catch-up one among events that look
@@ -316,7 +338,7 @@ export async function restoreRoomState(
     //
     // A condition rather than an early `return`: a `return` in a `finally`
     // would also swallow whatever the `try` threw.
-    if (!restoreFailedHere) {
+    if (!restoreFailedHere&&(!canonicalRead||canonicalRead.scope.isCurrent())) {
       deps.setRoomContentReady(true)
       // (#487) Same `finally`, same reason: "ready" is the moment the
       // preloader left and the pencil started working, which happens even

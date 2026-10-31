@@ -1,3 +1,4 @@
+import {prepareCanonicalRoomState} from './canonicalRoomState'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { JoinResult, LessonState, Operation, Room, ServerToClientEvents } from '@grafetto/shared'
@@ -227,4 +228,14 @@ it('refuses unsupported raster metadata before any restore, board change or cont
     expect(deps.pendingSnapshotRef.current).toBeNull()
     expect(deps.latestKnownSeqRef.current).toBe(0)
   }
+})
+it('preserves the exact prepared room-state owner through the existing pending stash',async()=>{
+ const {deps,handle}=setup({engineRef:{current:null},awaitingSeededBoardStateRef:{current:true}})
+ useRoomStore.getState().setBoardId('B2')
+ const wire=state('B2',{room:room('B2',{rasterVersion:'straight-rgba8-v1'}),canonicalReadScope:{roomId:'B2',boardEpoch:2}})
+ const prepared=prepareCanonicalRoomState(wire,{expectedBoardId:'B2',isCurrent:()=>true})
+ await handle(prepared)
+ expect(deps.reportJoinFailure).not.toHaveBeenCalled()
+ expect(deps.pendingSnapshotRef.current?.canonicalRead).toBe(prepared.canonicalRead)
+ expect(deps.pendingSnapshotRef.current?.tailOperations).toBe(prepared.tailOperations)
 })

@@ -1,3 +1,5 @@
+import type {CanonicalPreparedRecordedOperation} from '@grafetto/shared'
+import {assertCanonicalRoomStateRead,type CanonicalRoomStateRead} from './net/canonicalRoomState'
 import { useCallback, useRef, type RefObject } from 'react'
 
 import type { LayerState, Operation } from '@grafetto/shared'
@@ -24,6 +26,11 @@ export interface RemoteOperationsDeps {
   engineRef: RefObject<PencilEngineAPI | null>
   boardId: string
   onHistoryRepairFailure: () => void
+  /** Explicit receiver sinks; no canonical scope is retained by this hook. */
+  canonicalHistory?: {
+    restore:(engine:PencilEngineAPI,atoms:readonly CanonicalPreparedRecordedOperation[],replayStructure?:boolean)=>Promise<void>
+    absorb:(engine:PencilEngineAPI,atoms:readonly CanonicalPreparedRecordedOperation[])=>void
+  }
   /** The board stream's applied ids and deferred meta-ops — see useBoardStream. */
   appliedOpIdsRef: RefObject<Set<string>>
   deferredOpsQueueRef: RefObject<Operation[]>
@@ -43,7 +50,7 @@ export interface RemoteOperationsDeps {
  *  are what restoreRoomState is handed. */
 export function useRemoteOperations({
   engineRef, boardId, onHistoryRepairFailure, appliedOpIdsRef, deferredOpsQueueRef, restoredLayerStateRef, markActive, resolveTransformCommit,
-  confirmOwnOperation, noteOperationSeq, syncFromLog, checkSnapshotBoundary,
+  confirmOwnOperation, noteOperationSeq, syncFromLog, checkSnapshotBoundary,canonicalHistory,
 }: RemoteOperationsDeps) {
   const ordinaryBackfills = useRef(new Map<PencilEngineAPI, Promise<void>>())
   const repairs = useRef(new Map<PencilEngineAPI, Promise<void>>())
@@ -168,13 +175,23 @@ export function useRemoteOperations({
    *  was withheld in favour of pixels that then did not arrive. The boolean
    *  collapsed them, and the second one used to open a blank room. */
   const restoreFromSnapshot = useCallback(async (
-    engine: PencilEngineAPI, roomId: string,
+    engine: PencilEngineAPI, roomId: string,canonicalRead?:CanonicalRoomStateRead,
   ): Promise<SnapshotRestoreOutcome['status']> => {
     // Constructor-latched room mode is the destination authority. Capture before
     // any network await; a blob tag or later room metadata never selects it.
+    if(canonicalRead){
+      assertCanonicalRoomStateRead(canonicalRead,canonicalRead.tailOperations,roomId)
+      if(!canonicalHistory)throw Error('Canonical snapshot history sinks unavailable')
+    }
     const expectedPixelEncoding = roomRasterPixelEncoding(engine.rasterVersion)
     const outcome = await restoreLatestSnapshot(roomId, {
       expectedPixelEncoding,
+      ...canonicalRead?{canonicalRead:canonicalRead.scope,restoreCanonicalHistory:async(atoms:readonly CanonicalPreparedRecordedOperation[],replayStructure?:boolean)=>{
+        assertCanonicalRoomStateRead(canonicalRead,canonicalRead.tailOperations,roomId)
+        if(engineRef.current!==engine)throw Error('Stale canonical snapshot engine')
+        await canonicalHistory!.restore(engine,atoms,replayStructure)
+        assertCanonicalRoomStateRead(canonicalRead,canonicalRead.tailOperations,roomId)
+      }}:{},
       beginLayers: (layerState, replayStructure) => engine.setBaseLayers(
         replayStructure ? IMPLICIT_LAYER_IDS : Object.values(layerState.items).filter(item => item.kind === 'layer').map(item => item.id),
       ),
@@ -193,6 +210,7 @@ export function useRemoteOperations({
     try {
       reportSnapshotRestore(roomId, outcome, engine.takeSnapshotRestoreAudit(), engine.gpuInfo())
     } catch { /* a report we couldn't build is not worth a room we can't open */ }
+    if(canonicalRead)assertCanonicalRoomStateRead(canonicalRead,canonicalRead.tailOperations,roomId)
     if (outcome.status !== 'restored') return outcome.status
     const { head } = outcome
     // A structural fallback has rebuilt its prefix from the original base;
@@ -203,7 +221,7 @@ export function useRemoteOperations({
     engine.setCompositeOrder(computeCompositeOrder(folded))
     restoredLayerStateRef.current = head.replayStructure ? null : head.layerState
     return 'restored'
-  }, [restoredLayerStateRef])
+  }, [restoredLayerStateRef,canonicalHistory,engineRef])
 
   // (#169) Walks the room's history backward from `fromSeq` (the restored
   // snapshot's own seq) in pages, merging each into the engine's log purely
@@ -228,9 +246,10 @@ export function useRemoteOperations({
   // older than roughly the last two snapshots is permanently out of undo
   // reach, so backfilling past that point buys nothing anyone can use. This
   // bound holds regardless of whether pruning is ever re-enabled.
-  const backfillHistory = useCallback(async (roomId: string, engine: PencilEngineAPI, fromSeq: number) => {
+  const backfillHistory = useCallback(async (roomId: string, engine: PencilEngineAPI, fromSeq: number,canonicalRead?:CanonicalRoomStateRead) => {
+    if(canonicalRead){assertCanonicalRoomStateRead(canonicalRead,canonicalRead.tailOperations,roomId);if(!canonicalHistory)throw Error('Canonical history sinks unavailable')}
     const existing = ordinaryBackfills.current.get(engine)
-    if (existing) return existing
+    if (existing){if(canonicalRead)throw Error('Canonical backfill already in progress');return existing}
     // Snapshot coverage includes fromSeq; the history API/walker cursor is
     // exclusive. Keep the conversion here: repair callers already pass their
     // own exclusive cursor and must not include an extra operation.
@@ -239,13 +258,22 @@ export function useRemoteOperations({
       engine.absorbHistoricalOperations(page)
       for (const op of page) appliedOpIdsRef.current.add(op.id)
       drainDeferredQueue()
-    })
+    },undefined,canonicalRead?{scope:canonicalRead.scope,onPage:atoms=>{
+      assertCanonicalRoomStateRead(canonicalRead,canonicalRead.tailOperations,roomId)
+      if(engineRef.current!==engine)throw Error('Stale canonical history engine')
+      canonicalHistory!.absorb(engine,atoms)
+      for(const atom of atoms)appliedOpIdsRef.current.add(atom.operation.id)
+      drainDeferredQueue()
+    }}:undefined)
     ordinaryBackfills.current.set(engine, work)
     try { await work } finally {
       ordinaryBackfills.current.delete(engine)
-      if (engineRef.current === engine && engine.pendingSnapshotHistoryRepairs().length) repairSnapshotHistory()
+      if (engineRef.current === engine && engine.pendingSnapshotHistoryRepairs().length){
+        if(canonicalRead){if(canonicalRead.scope.isCurrent())repairFailure.current()} // no unscoped legacy repair fallback
+        else repairSnapshotHistory()
+      }
     }
-  }, [engineRef, appliedOpIdsRef, drainDeferredQueue, repairSnapshotHistory])
+  }, [engineRef, appliedOpIdsRef, drainDeferredQueue, repairSnapshotHistory,canonicalHistory])
 
   return { applyRemoteOp, restoreFromSnapshot, backfillHistory, repairSnapshotHistory }
 }

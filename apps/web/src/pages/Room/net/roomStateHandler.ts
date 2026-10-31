@@ -1,4 +1,5 @@
-import { LEGACY_ROOM_RASTER_VERSION, readRoomRasterVersion } from '@grafetto/shared'
+import {assertCanonicalRoomStateRead,type CanonicalRoomStateRead,type RoomStateDelivery} from './canonicalRoomState'
+import { LEGACY_ROOM_RASTER_VERSION,STRAIGHT_ROOM_RASTER_VERSION, readRoomRasterVersion } from '@grafetto/shared'
 import type { RefObject } from 'react'
 
 import type { ClientToServerEvents, JoinDenial, Operation, Participant, ServerToClientEvents } from '@grafetto/shared'
@@ -11,6 +12,7 @@ import type { SnapshotGate } from './snapshotGate'
 /** What a board's `room_state` carries beyond the lesson half — the content
  *  a fresh engine is built from, or stashed until one exists. */
 export interface RoomStateStash {
+  canonicalRead?:CanonicalRoomStateRead
   latestSnapshotSeq: number | null
   tailOperations: Operation[]
   participants: Participant[]
@@ -73,10 +75,12 @@ export function createRoomStateHandler<Engine>({
   socketBoardRef, wantedBoardRef, firstRoomStateReceivedRef, awaitingSeededBoardStateRef,
   pendingSnapshotRef, latestKnownSeqRef, isOwnerRef, engineRef, snapshotGateRef,
 }: RoomStateDeps<Engine>): ServerToClientEvents['room_state'] {
-  return async ({ room, latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen, lesson }) => {
+  return async ({ room, latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen, lesson,canonicalRead }:RoomStateDelivery) => {
     // Validate trusted server metadata before storing/restoring any content.
     try {
-      if (readRoomRasterVersion(room.rasterVersion) !== LEGACY_ROOM_RASTER_VERSION) {
+      const version=readRoomRasterVersion(room.rasterVersion)
+      if(version===STRAIGHT_ROOM_RASTER_VERSION&&canonicalRead)assertCanonicalRoomStateRead(canonicalRead,tailOperations,room.id)
+      else if (version !== LEGACY_ROOM_RASTER_VERSION||canonicalRead) {
         throw new Error('Unsupported raster version')
       }
     } catch {
@@ -163,7 +167,7 @@ export function createRoomStateHandler<Engine>({
       // next turn.
       const evacuated = wantedBoardRef.current === null && store.boardId !== null
       if (evacuated && !isOwnerRef.current) store.setFollowing(true)
-      enterBoard(arrivedBoard, { latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen })
+      enterBoard(arrivedBoard, { latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen,...canonicalRead?{canonicalRead}:{} })
       useRoomStore.getState().seedReviewHistory(arrivedBoard, tailOperations)
       maybeFollow()
       return
@@ -194,7 +198,7 @@ export function createRoomStateHandler<Engine>({
         // Real first join: this is how we learn paper/canvas size — the
         // engine doesn't exist yet to apply `tailOperations` to, so stash
         // them for the mount-engine effect to replay once it does.
-        pendingSnapshotRef.current = { latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen }
+        pendingSnapshotRef.current = { latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen,...canonicalRead?{canonicalRead}:{} }
         return
       }
       // The creator's one legitimate first room_state — arrives *after*
@@ -244,6 +248,7 @@ export function createRoomStateHandler<Engine>({
         // onto a canvas with no paper on it that quietly ignored the
         // pencil until the remaining ~4 MB landed.
         if (!(await awaitPaper(engineRef.current))) return
+        if(canonicalRead)assertCanonicalRoomStateRead(canonicalRead,tailOperations,room.id)
         // (#462) A room with no history to replay is caught up the moment
         // that is confirmed — this is the one branch where an empty store is
         // the room rather than a stand-in for it, so the creator's own first
@@ -272,10 +277,11 @@ export function createRoomStateHandler<Engine>({
     // effect's own site: a paper failure must leave the room closed and
     // explained, not opened and mute.
     if (!(await awaitPaper(engine))) return
+    if(canonicalRead)assertCanonicalRoomStateRead(canonicalRead,tailOperations,room.id)
     // (#493) The restore itself — snapshot, tail, backfill — is Room's
     // restoreRoomState, handed in with everything it needs.
     await restoreCatchup(engine, {
-      latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen,
+      latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen,...canonicalRead?{canonicalRead}:{},
     }, alreadyHadSeq, arrivedBoard)
   }
 }

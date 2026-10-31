@@ -110,3 +110,36 @@ it('latches snapshot expected encoding from the engine before await and forwards
   expect(reads).toBe(1);expect(restore).toHaveBeenCalledWith('L',[],7,encoding)
  }
 })
+it('requires explicit per-call canonical history owner and forwards captured scope to the existing snapshot sink',async()=>{
+ hooks.slots=[];hooks.cursor=0
+ const {prepareCanonicalRoomState}=await import('./net/canonicalRoomState'),{restoreLatestSnapshot}=await import('./net/snapshotRestore')
+ const {engine}=createTestEngine({userId:'reader'},{width:8,height:8})
+ const wire:Parameters<import('@grafetto/shared').ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:8,canvasHeight:8,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:2}}
+ let current=true
+ const read=prepareCanonicalRoomState(wire,{expectedBoardId:'room',isCurrent:()=>current}).canonicalRead,noop=vi.fn()
+ const deps:RemoteOperationsDeps={engineRef:{current:engine},boardId:'room',onHistoryRepairFailure:noop,appliedOpIdsRef:{current:new Set<string>()},deferredOpsQueueRef:{current:[]},restoredLayerStateRef:{current:null},markActive:noop,resolveTransformCommit:noop,confirmOwnOperation:noop,noteOperationSeq:noop,syncFromLog:noop,checkSnapshotBoundary:noop}
+ try{
+  vi.mocked(restoreLatestSnapshot).mockClear()
+  await expect(useRemoteOperations(deps).restoreFromSnapshot(engine,'room',read)).rejects.toThrow('sinks unavailable')
+  expect(restoreLatestSnapshot).not.toHaveBeenCalled()
+  hooks.cursor=0;const restore=vi.fn(async()=>{}),absorb=vi.fn()
+  vi.mocked(restoreLatestSnapshot).mockImplementationOnce(async(_id,sink)=>{
+   expect(sink.canonicalRead).toBe(read.scope);expect(sink.restoreCanonicalHistory).toBeDefined()
+   await sink.restoreCanonicalHistory!([],true)
+   return {status:'none'}
+  })
+  expect(await useRemoteOperations({...deps,canonicalHistory:{restore,absorb}}).restoreFromSnapshot(engine,'room',read)).toBe('none')
+  expect(restore).toHaveBeenCalledWith(engine,[],true);expect(absorb).not.toHaveBeenCalled()
+  hooks.cursor=0;const hook=useRemoteOperations({...deps,canonicalHistory:{restore,absorb}})
+  const op={id:'scoped-legacy',seq:1,userId:'author',timestamp:0,type:'layer_add' as const,layerId:'L',name:'Layer'}
+  vi.mocked(walkHistoryBackward).mockImplementationOnce(async(_room,_from,_depth,_legacy,_fetch,canonical)=>{
+   expect(canonical?.scope).toBe(read.scope);canonical!.onPage([{operation:op}])
+  })
+  await hook.backfillHistory('room',engine,1,read)
+  expect(absorb).toHaveBeenCalledWith(engine,[{operation:op}]);expect(deps.appliedOpIdsRef.current.has(op.id)).toBe(true)
+  vi.spyOn(engine,'pendingSnapshotHistoryRepairs').mockReturnValue([{layerId:'L',beforeSeq:1}])
+  vi.mocked(walkHistoryBackward).mockImplementationOnce(async(_room,_from,_depth,_legacy,_fetch,canonical)=>{current=false;canonical!.onPage([{operation:{...op,id:'stale'}}])})
+  await expect(hook.backfillHistory('room',engine,1,read)).rejects.toThrow('Stale')
+  expect(deps.appliedOpIdsRef.current.has('stale')).toBe(false);expect(noop).not.toHaveBeenCalled()
+ }finally{engine.destroy()}
+})

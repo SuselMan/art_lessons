@@ -1,3 +1,4 @@
+import {preflightRoomStateDelivery,type CanonicalRoomStatePreparer} from './canonicalRoomState'
 import type { RefObject } from 'react'
 import type { Socket } from 'socket.io-client'
 
@@ -47,6 +48,8 @@ export type RoomSocketDeps =
     requestFullResyncRef: RefObject<(() => void) | null>
     /** (#537) The broadcast's reading of an own operation's seq. */
     confirmOwnOperation: (op: Operation, seq: number) => void
+    /** Explicit preparer; omission keeps canonical room admission OFF. */
+    prepareCanonicalRoomState?:CanonicalRoomStatePreparer
     /** The socket is connected (true) or has dropped (false). */
     onConnectionChange: (connected: boolean) => void
   }
@@ -191,11 +194,15 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   socket.on('boards_reordered',           ordered(board.boards_reordered))
   socket.on('board_deleted',              ordered(board.board_deleted))
   socket.on('connect',                    handleConnect)
-  socket.on('room_state',                 ordered(handleRoomState, state => {
+  const dispatchRoomState=ordered(handleRoomState,state=>{
     setBrushRoomScope(state.room.id)
-    void loadBrushLibrary().catch(error => console.warn('Room brush metadata unavailable', error))
+    void loadBrushLibrary().catch(error=>console.warn('Room brush metadata unavailable',error))
     return state.tailOperations.map(presetFor)
-  }))
+  })
+  socket.on('room_state',state=>{
+    try{dispatchRoomState(preflightRoomStateDelivery(state,deps.prepareCanonicalRoomState))}
+    catch{deps.setRoomContentReady(false);reportJoinFailure('unsupported_raster_version','room_state canonical contract')}
+  })
   socket.on('operation_confirmed',        ordered(handleOperationConfirmed, message => [presetFor(message.operation)]))
   socket.on('peer_joined',                ordered(peer.peer_joined))
   socket.on('peer_left',                  ordered(peer.peer_left))

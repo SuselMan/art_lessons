@@ -1,9 +1,10 @@
+import {prepareCanonicalRoomState} from './canonicalRoomState'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ServerToClientEvents } from '@grafetto/shared'
 import type { QueryClient } from '@tanstack/react-query'
 
 import type { PencilEngineAPI } from '../../../engine'
-import { prepareBrushPresets } from '../../../lib/api/brushLibrary'
+import { prepareBrushPresets,setBrushRoomScope,loadBrushLibrary } from '../../../lib/api/brushLibrary'
 import { dismissNotice, notifyError } from '../../../stores/noticeStore'
 import { noteBanned } from '../../../lib/api/banned'
 import { createPendingPreviews } from './pendingPreviews'
@@ -210,4 +211,17 @@ describe('connectRoomSocket (#493)', () => {
     connectError?.(new Error('banned'))
     expect(noteBanned).toHaveBeenCalledTimes(1)
   })
+})
+it('rejects a wrong room-state capability before brush scope/load, queues, refs or replay handlers',()=>{
+ const {deps,listeners}=setup()
+ deps.prepareCanonicalRoomState=state=>prepareCanonicalRoomState(state,{expectedBoardId:'B2',isCurrent:()=>true})
+ const close=connectRoomSocket(deps)
+ vi.mocked(setBrushRoomScope).mockClear();vi.mocked(loadBrushLibrary).mockClear();vi.mocked(prepareBrushPresets).mockClear()
+ const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'B2',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:64,canvasHeight:64,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'L',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'B2',boardEpoch:2},canonicalCapabilities:{version:1,roomId:'foreign',boardEpoch:2,capabilities:[],bindings:[]}}
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[state])
+  expect(setBrushRoomScope).not.toHaveBeenCalled();expect(loadBrushLibrary).not.toHaveBeenCalled();expect(prepareBrushPresets).not.toHaveBeenCalled()
+  expect(deps.socketBoardRef.current).toBe('L');expect(deps.pendingSnapshotRef.current).toBeNull();expect(deps.latestKnownSeqRef.current).toBe(0)
+  expect(deps.enterBoard).not.toHaveBeenCalled();expect(deps.restoreCatchup).not.toHaveBeenCalled();expect(deps.setRoomContentReady).toHaveBeenCalledWith(false)
+ }finally{close()}
 })
