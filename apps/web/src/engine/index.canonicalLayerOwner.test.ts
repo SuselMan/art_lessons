@@ -89,10 +89,14 @@ it('rejects copied delivery before journal mutation and refuses stale initial re
   expect(()=>engine.appendOriginalRecorded({...input})).toThrow();expect(engine['_log'].entries).toHaveLength(0)
   if(!('delivery'in input))throw Error('Missing original recorded delivery')
   engine.appendOriginalRecorded(input);await vi.waitFor(()=>expect(engine['_rebuildJobs'].size).toBe(0))
+  const repair=vi.fn();engine['_onCanonicalRecoveryRequired']=repair
   const entries=engine['_log'].entries,init=vi.spyOn(engine,'_initGL' as never)
   vi.spyOn(engine['gl'],'isContextLost').mockReturnValue(true);engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));vi.mocked(engine['gl'].isContextLost).mockReturnValue(false)
   engine['_handleContextRestored']()
   expect(init).not.toHaveBeenCalled();expect(engine['_canonicalPixelsReady']).toBe(false);expect(engine['_log'].entries).toBe(entries);expect(entries[0].serverSeq).toBe(1)
+  await vi.waitFor(()=>expect(repair).toHaveBeenCalledTimes(1))
+  expect(String(repair.mock.calls[0][0])).toContain('Newest canonical full baseline required')
+  engine['_handleContextRestored']();await Promise.resolve();expect(repair).toHaveBeenCalledTimes(1)
  }finally{engine.destroy()}
 })
 

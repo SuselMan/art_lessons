@@ -4571,7 +4571,7 @@ export class PencilEngine implements PencilEngineAPI {
       retire(() => {
         if (programs.includes(this.gl.getParameter(this.gl.CURRENT_PROGRAM))) this.gl.useProgram(null)
       })
-      for (const program of programs) retire(() => this.gl.deleteProgram(program))
+      for (const program of programs) retire(() => this.gl.isProgram?.(program) !== false && this.gl.deleteProgram(program))
     })
     // Borrowers above never own these two shared engine VBOs. A lost
     // generation has no live storage/name to delete (including event delay).
@@ -4580,8 +4580,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._screenBuf = null
     if (!this._contextLost) retire(() => {
       if (this.gl.isContextLost()) return
-      retire(() => this.gl.deleteBuffer(quad))
-      retire(() => this.gl.deleteBuffer(screen))
+      retire(() => this.gl.isBuffer?.(quad) !== false && this.gl.deleteBuffer(quad))
+      retire(() => this.gl.isBuffer?.(screen) !== false && this.gl.deleteBuffer(screen))
     })
     // Preserve the existing detached-canvas policy. Never forget/reset the
     // shared context ledger as a substitute for deleting this engine's names.
@@ -5481,9 +5481,14 @@ export class PencilEngine implements PencilEngineAPI {
       // Physical GL availability is distinct from accepted pixel readiness.
       this._contextLost=false
       this._canonicalPixelsReady=false
-      const accepted=this._canonicalAccepted
-      if(!accepted){try{this._diagLog('[engine] canonical baseline recovery required')}catch{};return}
-      void this.restoreCanonicalEmptyRoom(accepted.plan.read,accepted.plan.tail).catch(error=>{try{this._diagLog('[engine] canonical baseline recovery failed',error)}catch{}})
+      const accepted=this._canonicalAccepted,generation=this._physicalGeneration
+      if(!accepted){this._poisonCanonicalLayer(new Error('Canonical baseline recovery required'));return}
+      void this.restoreCanonicalEmptyRoom(accepted.plan.read,accepted.plan.tail).catch(error=>{
+        // A missing newest cut must request the existing room repair, rather
+        // than leave a permanently unreadable canvas with only a diagnostic.
+        // An obsolete asynchronous failure cannot poison a newer recovery.
+        if(!this._destroyed&&this._physicalGeneration===generation&&this._canonicalAccepted===accepted&&!this._canonicalPixelsReady)this._poisonCanonicalLayer(error)
+      })
       return
     }
     this._continuationGpuFence?.forget()

@@ -544,8 +544,8 @@ export class RibbonPasses {
       const current = gl.getParameter(gl.CURRENT_PROGRAM)
       if (current && [_ribbonProg].includes(current)) gl.useProgram(null)
     })
-    if (_ribbonProg) attempt(() => gl.deleteProgram(_ribbonProg))
-    if (_ribbonBuf) attempt(() => gl.deleteBuffer(_ribbonBuf))
+    if (_ribbonProg) attempt(() => gl.isProgram?.(_ribbonProg) !== false && gl.deleteProgram(_ribbonProg))
+    if (_ribbonBuf) attempt(() => gl.isBuffer?.(_ribbonBuf) !== false && gl.deleteBuffer(_ribbonBuf))
     if (failed) throw primary
   }
 }

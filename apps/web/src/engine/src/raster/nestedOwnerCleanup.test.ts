@@ -8,7 +8,7 @@ import { ScratchFreeList, ScratchSlot } from '../buffers/scratchPools'
 
 function driver(lost = false) {
   return { isContextLost: vi.fn(() => lost), deleteProgram: vi.fn<(program: unknown) => void>(), deleteBuffer: vi.fn<(buffer: unknown) => void>(),
-    getParameter: vi.fn((): unknown => null), useProgram: vi.fn(), isProgram: vi.fn(() => true), CURRENT_PROGRAM: 1 }
+    isBuffer: vi.fn(() => true), getParameter: vi.fn((): unknown => null), useProgram: vi.fn(), isProgram: vi.fn(() => true), CURRENT_PROGRAM: 1 }
 }
 const fixtures = [
   { name: 'watercolor', prototype: WatercolorPasses.prototype, programs: ['_fieldOpProg', '_fieldOpHighProg', '_fieldOpCarryProg', '_fieldOpCarryColourProg', '_resampleProg', '_diffuseProg', '_brushDragProg', '_waterFrontProg'] },
@@ -60,6 +60,14 @@ for (const spec of fixtures) describe(`${spec.name} owner cleanup`, () => {
     foreign.gl.getParameter.mockReturnValue({ foreign: true })
     foreign.owner.destroy()
     expect(foreign.gl.useProgram).not.toHaveBeenCalled()
+  })
+  it('forgets stale names after physical restoration without deleting them in the new context', () => {
+    const f=ownerFixture(spec)
+    f.gl.isProgram.mockReturnValue(false);f.gl.isBuffer.mockReturnValue(false)
+    f.owner.destroy()
+    expect(f.gl.deleteProgram).not.toHaveBeenCalled();expect(f.gl.deleteBuffer).not.toHaveBeenCalled()
+    f.gl.isProgram.mockReturnValue(true);f.gl.isBuffer.mockReturnValue(true);f.owner.destroy()
+    expect(f.gl.deleteProgram).not.toHaveBeenCalled();expect(f.gl.deleteBuffer).not.toHaveBeenCalled()
   })
   it('retires handles on lost context without querying, unbinding or deleting', () => {
     const f = ownerFixture(spec, true)

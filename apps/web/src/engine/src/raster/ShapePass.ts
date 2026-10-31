@@ -87,7 +87,7 @@ export class ShapePass {
       const current = gl.getParameter(gl.CURRENT_PROGRAM)
       if (current && [prog].includes(current)) gl.useProgram(null)
     })
-    if (prog) attempt(() => gl.deleteProgram(prog))
+    if (prog) attempt(() => gl.isProgram?.(prog) !== false && gl.deleteProgram(prog))
     if (failed) throw primary
   }
 

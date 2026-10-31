@@ -129,8 +129,8 @@ export class Exporter {
       const current = gl.getParameter(gl.CURRENT_PROGRAM)
       if (current && [transparentProg, downsampleProg].includes(current)) gl.useProgram(null)
     })
-    if (transparentProg) attempt(() => gl.deleteProgram(transparentProg))
-    if (downsampleProg) attempt(() => gl.deleteProgram(downsampleProg))
+    if (transparentProg) attempt(() => gl.isProgram?.(transparentProg) !== false && gl.deleteProgram(transparentProg))
+    if (downsampleProg) attempt(() => gl.isProgram?.(downsampleProg) !== false && gl.deleteProgram(downsampleProg))
     if (failed) throw primary
   }
 

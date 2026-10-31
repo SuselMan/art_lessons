@@ -172,15 +172,15 @@ export class BrushBehaviorPainter {
   }
   destroy(): void {
     const gl = this.ctx.gl
-    if (this.circleStamp) gl.deleteProgram(this.circleStamp.program)
+    if (this.circleStamp) gl.isProgram?.(this.circleStamp.program) !== false && gl.deleteProgram(this.circleStamp.program)
     this.circleStamp = undefined
-    gl.deleteProgram(this.stamp)
-    gl.deleteProgram(this.composite)
-    if (this.proceduralStamp) gl.deleteProgram(this.proceduralStamp.program)
+    gl.isProgram?.(this.stamp) !== false && gl.deleteProgram(this.stamp)
+    gl.isProgram?.(this.composite) !== false && gl.deleteProgram(this.composite)
+    if (this.proceduralStamp) gl.isProgram?.(this.proceduralStamp.program) !== false && gl.deleteProgram(this.proceduralStamp.program)
     this.proceduralStamp = undefined
-    if (this.curveStamp) gl.deleteProgram(this.curveStamp.program)
+    if (this.curveStamp) gl.isProgram?.(this.curveStamp.program) !== false && gl.deleteProgram(this.curveStamp.program)
     this.curveStamp=undefined
-    if (this.imageStamp) gl.deleteProgram(this.imageStamp.program)
+    if (this.imageStamp) gl.isProgram?.(this.imageStamp.program) !== false && gl.deleteProgram(this.imageStamp.program)
     this.imageStamp = undefined
   }
   paint(target: BrushTarget, dabs: Dab[], preset: PencilPreset, brush: BrushDescriptor, pressure: BrushPressureSettings, color: [

@@ -87,7 +87,7 @@ export class LayerCompositor {
     try {
       if (gl.getParameter(gl.CURRENT_PROGRAM) === program) gl.useProgram(null)
     } catch (error) { failed = true; firstError = error }
-    try { gl.deleteProgram(program) } catch (error) {
+    try { gl.isProgram?.(program) !== false && gl.deleteProgram(program) } catch (error) {
       if (!failed) { failed = true; firstError = error }
     }
     if (failed) throw firstError

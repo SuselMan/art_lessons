@@ -66,3 +66,22 @@ Final checks: 11 owner cases pass (10-case loss follow-up plus actual AA case),
 coordinator recorded/cancel/closure regressions pass. Joint app/SW 59708 passed
 before the loss/AA follow-ups; final app-only 21974 passed after both and the
 explicit delivery-union test narrowing. Final scoped lint/diff checks pass.
+
+## Samsung recovery and stale-name cleanup 2026-10-31
+
+Actual device two143-frame original delivery gestures reproduce expected pixels
+(first native Krita Basic2Opacity; second existing CPU wash oracle). Same286
+original journal entries, derived presentation, and secondgesture zero newprograms.
+After genuine physical loss/restoration, stale initialempty baseline is refused
+and existing room repair callback fires once. No old history is published.
+
+A real INVALID_OPERATION was traced to deleting programs/buffers belonging to
+the lost context during final destruction after physical restoration. Owners
+now apply the existing WatercolorPasses live-name guard only at retirement;
+no extra validity query is introduced into painting. CPU and partial GL ledger
+return to zero; real Samsung GL error list empty. Own context/tab/forward and
+disposable resource retired, original browser tabs preserved. Diagnostic proofs
+are retained privately in fixes-v52/default58-layer-owner-fixed-*.json.
+
+79 focused integration/cleanup tests plus four stale-owner regressions pass;
+app and SW typechecks and scoped lint pass. Ordinary Room activation remains off.

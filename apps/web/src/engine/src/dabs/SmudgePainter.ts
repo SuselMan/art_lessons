@@ -298,7 +298,7 @@ export class SmudgePainter {
         const current=gl.getParameter(gl.CURRENT_PROGRAM)
         if(current && programs.includes(current))gl.useProgram(null)
       })
-      for(const program of programs)if(program)attempt(()=>gl.deleteProgram(program))
+      for(const program of programs)if(program)attempt(()=>gl.isProgram?.(program) !== false && gl.deleteProgram(program))
     }
     if(failed)throw primary
   }

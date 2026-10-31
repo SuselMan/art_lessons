@@ -116,7 +116,7 @@ export class BlitPasses {
         if (programs.includes(gl.getParameter(gl.CURRENT_PROGRAM))) gl.useProgram(null)
       })
       if (this.presentationVao) attempt(() => this.vertexArrays!.deleteVertexArrayOES(this.presentationVao!))
-      for (const program of programs) attempt(() => gl.deleteProgram(program))
+      for (const program of programs) attempt(() => gl.isProgram?.(program) !== false && gl.deleteProgram(program))
     }
     if (failed) throw firstError
   }
