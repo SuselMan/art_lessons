@@ -1,0 +1,5129 @@
+{
+  "scope": "Original installed ARM64 full vtable composite entry, constructed consumed ABI, original Qt QBitArray; libc allocation/memory shims only. Not physicalARM/GUI/factory proof.",
+  "pins": [
+    [
+      "libkritapigment_arm64-v8a.so",
+      3694016,
+      "230ccf905226f4324ffdf8c7239e8be90f0506cfadda25393d1ba014ab0bb783"
+    ],
+    [
+      "libQt5Core_arm64-v8a.so",
+      5518824,
+      "78fc3da8d316ce7de1d957e3b20d7462b20245d4d797860f1946f797f7946ef9"
+    ]
+  ],
+  "status": "PASS",
+  "cases": [
+    {
+      "id": 0,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        13,
+        92,
+        102,
+        0
+      ],
+      "expected": [
+        13,
+        92,
+        102,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 1,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        165,
+        205,
+        108,
+        1
+      ],
+      "expected": [
+        165,
+        205,
+        108,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 2,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        138,
+        35,
+        46,
+        127
+      ],
+      "expected": [
+        138,
+        35,
+        46,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 3,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        65,
+        38,
+        85,
+        254
+      ],
+      "expected": [
+        65,
+        38,
+        85,
+        254
+      ],
+      "wrong": false,
+      "steps": 411
+    },
+    {
+      "id": 4,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        121,
+        56,
+        230,
+        255
+      ],
+      "expected": [
+        121,
+        56,
+        230,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 5,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        12,
+        88,
+        182,
+        128
+      ],
+      "expected": [
+        12,
+        88,
+        182,
+        128
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 6,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        8,
+        17,
+        95,
+        1
+      ],
+      "expected": [
+        8,
+        17,
+        95,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 7,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        202,
+        157,
+        54,
+        127
+      ],
+      "expected": [
+        202,
+        157,
+        54,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 8,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        248,
+        235,
+        2,
+        254
+      ],
+      "expected": [
+        248,
+        235,
+        2,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 9,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        148,
+        7,
+        169,
+        255
+      ],
+      "expected": [
+        148,
+        7,
+        169,
+        255
+      ],
+      "wrong": false,
+      "steps": 363
+    },
+    {
+      "id": 10,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        253,
+        202,
+        109,
+        247
+      ],
+      "expected": [
+        253,
+        202,
+        109,
+        247
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 11,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        241,
+        224,
+        227,
+        1
+      ],
+      "expected": [
+        241,
+        224,
+        227,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 12,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        93,
+        163,
+        200,
+        127
+      ],
+      "expected": [
+        93,
+        163,
+        200,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 13,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        132,
+        98,
+        153,
+        254
+      ],
+      "expected": [
+        132,
+        98,
+        153,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 14,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        102,
+        203,
+        42,
+        255
+      ],
+      "expected": [
+        102,
+        203,
+        42,
+        255
+      ],
+      "wrong": false,
+      "steps": 363
+    },
+    {
+      "id": 15,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        223,
+        240,
+        14,
+        127
+      ],
+      "expected": [
+        223,
+        240,
+        14,
+        127
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 16,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        191,
+        73,
+        145,
+        1
+      ],
+      "expected": [
+        191,
+        73,
+        145,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 17,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        215,
+        215,
+        30,
+        128
+      ],
+      "expected": [
+        215,
+        215,
+        30,
+        128
+      ],
+      "wrong": false,
+      "steps": 411
+    },
+    {
+      "id": 18,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        91,
+        0,
+        38,
+        254
+      ],
+      "expected": [
+        91,
+        0,
+        38,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 19,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        206,
+        187,
+        1,
+        255
+      ],
+      "expected": [
+        206,
+        187,
+        1,
+        255
+      ],
+      "wrong": false,
+      "steps": 363
+    },
+    {
+      "id": 20,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        200,
+        26,
+        4,
+        0
+      ],
+      "expected": [
+        200,
+        26,
+        4,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 21,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        164,
+        167,
+        171,
+        1
+      ],
+      "expected": [
+        164,
+        167,
+        171,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 22,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        46,
+        70,
+        46,
+        128
+      ],
+      "expected": [
+        46,
+        70,
+        46,
+        128
+      ],
+      "wrong": false,
+      "steps": 411
+    },
+    {
+      "id": 23,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        19,
+        13,
+        64,
+        254
+      ],
+      "expected": [
+        19,
+        13,
+        64,
+        254
+      ],
+      "wrong": false,
+      "steps": 411
+    },
+    {
+      "id": 24,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        253,
+        143,
+        101,
+        255
+      ],
+      "expected": [
+        253,
+        143,
+        101,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 25,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        107,
+        5,
+        229,
+        1
+      ],
+      "expected": [
+        107,
+        5,
+        229,
+        1
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 26,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        248,
+        52,
+        142,
+        1
+      ],
+      "expected": [
+        248,
+        52,
+        142,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 27,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        102,
+        188,
+        99,
+        127
+      ],
+      "expected": [
+        102,
+        188,
+        99,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 28,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        66,
+        209,
+        17,
+        254
+      ],
+      "expected": [
+        66,
+        209,
+        17,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 29,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        196,
+        79,
+        88,
+        255
+      ],
+      "expected": [
+        196,
+        79,
+        88,
+        255
+      ],
+      "wrong": false,
+      "steps": 363
+    },
+    {
+      "id": 30,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        153,
+        132,
+        109,
+        0
+      ],
+      "expected": [
+        153,
+        132,
+        109,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 31,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        36,
+        174,
+        40,
+        1
+      ],
+      "expected": [
+        36,
+        174,
+        40,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 32,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        206,
+        191,
+        75,
+        127
+      ],
+      "expected": [
+        206,
+        191,
+        75,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 33,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        119,
+        105,
+        189,
+        254
+      ],
+      "expected": [
+        119,
+        105,
+        189,
+        254
+      ],
+      "wrong": false,
+      "steps": 411
+    },
+    {
+      "id": 34,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        78,
+        20,
+        11,
+        255
+      ],
+      "expected": [
+        78,
+        20,
+        11,
+        255
+      ],
+      "wrong": false,
+      "steps": 363
+    },
+    {
+      "id": 35,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        210,
+        255,
+        173,
+        255
+      ],
+      "expected": [
+        210,
+        255,
+        173,
+        255
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 36,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        229,
+        75,
+        123,
+        1
+      ],
+      "expected": [
+        229,
+        75,
+        123,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 37,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        113,
+        214,
+        98,
+        127
+      ],
+      "expected": [
+        113,
+        214,
+        98,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 38,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        207,
+        134,
+        18,
+        254
+      ],
+      "expected": [
+        207,
+        134,
+        18,
+        254
+      ],
+      "wrong": false,
+      "steps": 411
+    },
+    {
+      "id": 39,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        85,
+        68,
+        77,
+        255
+      ],
+      "expected": [
+        85,
+        68,
+        77,
+        255
+      ],
+      "wrong": false,
+      "steps": 363
+    },
+    {
+      "id": 40,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        218,
+        149,
+        233,
+        0
+      ],
+      "expected": [
+        218,
+        149,
+        233,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 41,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        85,
+        22,
+        56,
+        1
+      ],
+      "expected": [
+        85,
+        22,
+        56,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 42,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        86,
+        196,
+        165,
+        127
+      ],
+      "expected": [
+        86,
+        196,
+        165,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 43,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        62,
+        223,
+        107,
+        254
+      ],
+      "expected": [
+        62,
+        223,
+        107,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 44,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        175,
+        129,
+        198,
+        255
+      ],
+      "expected": [
+        175,
+        129,
+        198,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 45,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        72,
+        81,
+        230,
+        64
+      ],
+      "expected": [
+        72,
+        81,
+        230,
+        64
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 46,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        111,
+        101,
+        93,
+        1
+      ],
+      "expected": [
+        111,
+        101,
+        93,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 47,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        251,
+        177,
+        112,
+        128
+      ],
+      "expected": [
+        251,
+        177,
+        112,
+        128
+      ],
+      "wrong": false,
+      "steps": 411
+    },
+    {
+      "id": 48,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        215,
+        113,
+        147,
+        254
+      ],
+      "expected": [
+        215,
+        113,
+        147,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 49,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        229,
+        158,
+        38,
+        255
+      ],
+      "expected": [
+        229,
+        158,
+        38,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 50,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        174,
+        252,
+        35,
+        46
+      ],
+      "expected": [
+        174,
+        252,
+        35,
+        46
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 51,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        105,
+        168,
+        58,
+        1
+      ],
+      "expected": [
+        105,
+        168,
+        58,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 52,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        42,
+        196,
+        55,
+        127
+      ],
+      "expected": [
+        42,
+        196,
+        55,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 53,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        144,
+        69,
+        84,
+        254
+      ],
+      "expected": [
+        144,
+        69,
+        84,
+        254
+      ],
+      "wrong": false,
+      "steps": 411
+    },
+    {
+      "id": 54,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        252,
+        56,
+        119,
+        255
+      ],
+      "expected": [
+        252,
+        56,
+        119,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 55,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        165,
+        127,
+        233,
+        1
+      ],
+      "expected": [
+        165,
+        127,
+        233,
+        1
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 56,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        172,
+        193,
+        26,
+        1
+      ],
+      "expected": [
+        172,
+        193,
+        26,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 57,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        138,
+        235,
+        212,
+        127
+      ],
+      "expected": [
+        138,
+        235,
+        212,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 58,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        180,
+        85,
+        75,
+        254
+      ],
+      "expected": [
+        180,
+        85,
+        75,
+        254
+      ],
+      "wrong": false,
+      "steps": 411
+    },
+    {
+      "id": 59,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        145,
+        153,
+        14,
+        255
+      ],
+      "expected": [
+        145,
+        153,
+        14,
+        255
+      ],
+      "wrong": false,
+      "steps": 363
+    },
+    {
+      "id": 60,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        202,
+        242,
+        240,
+        0
+      ],
+      "expected": [
+        202,
+        242,
+        240,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 61,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        86,
+        181,
+        196,
+        1
+      ],
+      "expected": [
+        86,
+        181,
+        196,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 62,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        86,
+        220,
+        11,
+        127
+      ],
+      "expected": [
+        86,
+        220,
+        11,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 63,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        10,
+        209,
+        105,
+        254
+      ],
+      "expected": [
+        10,
+        209,
+        105,
+        254
+      ],
+      "wrong": false,
+      "steps": 411
+    },
+    {
+      "id": 64,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        2,
+        89,
+        87,
+        0
+      ],
+      "expected": [
+        2,
+        89,
+        87,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 65,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        122,
+        168,
+        149,
+        1
+      ],
+      "expected": [
+        122,
+        168,
+        149,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 66,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        155,
+        144,
+        14,
+        127
+      ],
+      "expected": [
+        155,
+        144,
+        14,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 67,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        120,
+        194,
+        213,
+        254
+      ],
+      "expected": [
+        120,
+        194,
+        213,
+        254
+      ],
+      "wrong": false,
+      "steps": 407
+    },
+    {
+      "id": 68,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        82,
+        62,
+        4,
+        255
+      ],
+      "expected": [
+        82,
+        62,
+        4,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 69,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        62,
+        60,
+        194,
+        128
+      ],
+      "expected": [
+        62,
+        60,
+        194,
+        128
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 70,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        34,
+        196,
+        244,
+        1
+      ],
+      "expected": [
+        34,
+        196,
+        244,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 71,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        230,
+        159,
+        65,
+        127
+      ],
+      "expected": [
+        230,
+        159,
+        65,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 72,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        164,
+        149,
+        150,
+        254
+      ],
+      "expected": [
+        164,
+        149,
+        150,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 73,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        144,
+        64,
+        97,
+        255
+      ],
+      "expected": [
+        144,
+        64,
+        97,
+        255
+      ],
+      "wrong": false,
+      "steps": 357
+    },
+    {
+      "id": 74,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        224,
+        141,
+        153,
+        247
+      ],
+      "expected": [
+        224,
+        141,
+        153,
+        247
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 75,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        187,
+        8,
+        141,
+        1
+      ],
+      "expected": [
+        187,
+        8,
+        141,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 76,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        58,
+        252,
+        20,
+        127
+      ],
+      "expected": [
+        58,
+        252,
+        20,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 77,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        64,
+        196,
+        97,
+        254
+      ],
+      "expected": [
+        64,
+        196,
+        97,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 78,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        207,
+        100,
+        119,
+        255
+      ],
+      "expected": [
+        207,
+        100,
+        119,
+        255
+      ],
+      "wrong": false,
+      "steps": 357
+    },
+    {
+      "id": 79,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        142,
+        81,
+        22,
+        127
+      ],
+      "expected": [
+        142,
+        81,
+        22,
+        127
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 80,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        125,
+        141,
+        223,
+        1
+      ],
+      "expected": [
+        125,
+        141,
+        223,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 81,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        223,
+        241,
+        181,
+        128
+      ],
+      "expected": [
+        223,
+        241,
+        181,
+        128
+      ],
+      "wrong": false,
+      "steps": 407
+    },
+    {
+      "id": 82,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        225,
+        184,
+        103,
+        254
+      ],
+      "expected": [
+        225,
+        184,
+        103,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 83,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        214,
+        6,
+        48,
+        255
+      ],
+      "expected": [
+        214,
+        6,
+        48,
+        255
+      ],
+      "wrong": false,
+      "steps": 357
+    },
+    {
+      "id": 84,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        252,
+        112,
+        196,
+        0
+      ],
+      "expected": [
+        252,
+        112,
+        196,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 85,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        126,
+        142,
+        190,
+        1
+      ],
+      "expected": [
+        126,
+        142,
+        190,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 86,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        139,
+        64,
+        207,
+        128
+      ],
+      "expected": [
+        139,
+        64,
+        207,
+        128
+      ],
+      "wrong": false,
+      "steps": 407
+    },
+    {
+      "id": 87,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        45,
+        223,
+        216,
+        254
+      ],
+      "expected": [
+        45,
+        223,
+        216,
+        254
+      ],
+      "wrong": false,
+      "steps": 407
+    },
+    {
+      "id": 88,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        134,
+        204,
+        229,
+        255
+      ],
+      "expected": [
+        134,
+        204,
+        229,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 89,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        149,
+        222,
+        162,
+        1
+      ],
+      "expected": [
+        149,
+        222,
+        162,
+        1
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 90,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        246,
+        1,
+        20,
+        1
+      ],
+      "expected": [
+        246,
+        1,
+        20,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 91,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        76,
+        124,
+        253,
+        127
+      ],
+      "expected": [
+        76,
+        124,
+        253,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 92,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        211,
+        225,
+        187,
+        254
+      ],
+      "expected": [
+        211,
+        225,
+        187,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 93,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        133,
+        98,
+        242,
+        255
+      ],
+      "expected": [
+        133,
+        98,
+        242,
+        255
+      ],
+      "wrong": false,
+      "steps": 357
+    },
+    {
+      "id": 94,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        121,
+        41,
+        191,
+        0
+      ],
+      "expected": [
+        121,
+        41,
+        191,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 95,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        19,
+        22,
+        216,
+        1
+      ],
+      "expected": [
+        19,
+        22,
+        216,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 96,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        1,
+        211,
+        78,
+        127
+      ],
+      "expected": [
+        1,
+        211,
+        78,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 97,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        94,
+        217,
+        234,
+        254
+      ],
+      "expected": [
+        94,
+        217,
+        234,
+        254
+      ],
+      "wrong": false,
+      "steps": 407
+    },
+    {
+      "id": 98,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        167,
+        42,
+        145,
+        255
+      ],
+      "expected": [
+        167,
+        42,
+        145,
+        255
+      ],
+      "wrong": false,
+      "steps": 357
+    },
+    {
+      "id": 99,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        50,
+        207,
+        8,
+        255
+      ],
+      "expected": [
+        50,
+        207,
+        8,
+        255
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 100,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        213,
+        96,
+        161,
+        1
+      ],
+      "expected": [
+        213,
+        96,
+        161,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 101,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        55,
+        3,
+        76,
+        127
+      ],
+      "expected": [
+        55,
+        3,
+        76,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 102,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        109,
+        147,
+        208,
+        254
+      ],
+      "expected": [
+        109,
+        147,
+        208,
+        254
+      ],
+      "wrong": false,
+      "steps": 407
+    },
+    {
+      "id": 103,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        255,
+        223,
+        149,
+        255
+      ],
+      "expected": [
+        255,
+        223,
+        149,
+        255
+      ],
+      "wrong": false,
+      "steps": 357
+    },
+    {
+      "id": 104,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        220,
+        109,
+        114,
+        0
+      ],
+      "expected": [
+        220,
+        109,
+        114,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 105,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        149,
+        26,
+        195,
+        1
+      ],
+      "expected": [
+        149,
+        26,
+        195,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 106,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        246,
+        238,
+        168,
+        127
+      ],
+      "expected": [
+        246,
+        238,
+        168,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 107,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        82,
+        126,
+        241,
+        254
+      ],
+      "expected": [
+        82,
+        126,
+        241,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 108,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        233,
+        10,
+        25,
+        255
+      ],
+      "expected": [
+        233,
+        10,
+        25,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 109,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        2,
+        9,
+        133,
+        64
+      ],
+      "expected": [
+        2,
+        9,
+        133,
+        64
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 110,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        72,
+        54,
+        57,
+        1
+      ],
+      "expected": [
+        72,
+        54,
+        57,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 111,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        217,
+        112,
+        18,
+        128
+      ],
+      "expected": [
+        217,
+        112,
+        18,
+        128
+      ],
+      "wrong": false,
+      "steps": 407
+    },
+    {
+      "id": 112,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        82,
+        69,
+        66,
+        254
+      ],
+      "expected": [
+        82,
+        69,
+        66,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 113,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        27,
+        237,
+        65,
+        255
+      ],
+      "expected": [
+        27,
+        237,
+        65,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 114,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        5,
+        174,
+        213,
+        46
+      ],
+      "expected": [
+        5,
+        174,
+        213,
+        46
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 115,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        53,
+        6,
+        251,
+        1
+      ],
+      "expected": [
+        53,
+        6,
+        251,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 116,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        238,
+        120,
+        251,
+        127
+      ],
+      "expected": [
+        238,
+        120,
+        251,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 117,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        253,
+        167,
+        113,
+        254
+      ],
+      "expected": [
+        253,
+        167,
+        113,
+        254
+      ],
+      "wrong": false,
+      "steps": 407
+    },
+    {
+      "id": 118,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        178,
+        37,
+        79,
+        255
+      ],
+      "expected": [
+        178,
+        37,
+        79,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 119,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        155,
+        36,
+        52,
+        1
+      ],
+      "expected": [
+        155,
+        36,
+        52,
+        1
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 120,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        86,
+        241,
+        145,
+        1
+      ],
+      "expected": [
+        86,
+        241,
+        145,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 121,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        165,
+        7,
+        104,
+        127
+      ],
+      "expected": [
+        165,
+        7,
+        104,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 122,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        91,
+        133,
+        248,
+        254
+      ],
+      "expected": [
+        91,
+        133,
+        248,
+        254
+      ],
+      "wrong": false,
+      "steps": 407
+    },
+    {
+      "id": 123,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        240,
+        166,
+        248,
+        255
+      ],
+      "expected": [
+        240,
+        166,
+        248,
+        255
+      ],
+      "wrong": false,
+      "steps": 357
+    },
+    {
+      "id": 124,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        17,
+        53,
+        43,
+        0
+      ],
+      "expected": [
+        17,
+        53,
+        43,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 125,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        71,
+        183,
+        51,
+        1
+      ],
+      "expected": [
+        71,
+        183,
+        51,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 126,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        162,
+        67,
+        162,
+        127
+      ],
+      "expected": [
+        162,
+        67,
+        162,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 127,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        73,
+        216,
+        112,
+        254
+      ],
+      "expected": [
+        73,
+        216,
+        112,
+        254
+      ],
+      "wrong": false,
+      "steps": 407
+    },
+    {
+      "id": 128,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        120,
+        57,
+        162,
+        0
+      ],
+      "expected": [
+        120,
+        57,
+        162,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 129,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        34,
+        23,
+        155,
+        1
+      ],
+      "expected": [
+        34,
+        23,
+        155,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 130,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        8,
+        144,
+        111,
+        127
+      ],
+      "expected": [
+        8,
+        144,
+        111,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 131,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        202,
+        173,
+        221,
+        254
+      ],
+      "expected": [
+        202,
+        173,
+        221,
+        254
+      ],
+      "wrong": false,
+      "steps": 439
+    },
+    {
+      "id": 132,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        225,
+        71,
+        6,
+        255
+      ],
+      "expected": [
+        225,
+        71,
+        6,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 133,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        2,
+        134,
+        238,
+        128
+      ],
+      "expected": [
+        2,
+        134,
+        238,
+        128
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 134,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        74,
+        166,
+        250,
+        1
+      ],
+      "expected": [
+        74,
+        166,
+        250,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 135,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        145,
+        203,
+        147,
+        127
+      ],
+      "expected": [
+        145,
+        203,
+        147,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 136,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        242,
+        98,
+        34,
+        254
+      ],
+      "expected": [
+        242,
+        98,
+        34,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 137,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        81,
+        251,
+        96,
+        255
+      ],
+      "expected": [
+        81,
+        251,
+        96,
+        255
+      ],
+      "wrong": false,
+      "steps": 390
+    },
+    {
+      "id": 138,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        73,
+        222,
+        46,
+        247
+      ],
+      "expected": [
+        73,
+        222,
+        46,
+        247
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 139,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        20,
+        194,
+        228,
+        1
+      ],
+      "expected": [
+        20,
+        194,
+        228,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 140,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        168,
+        90,
+        58,
+        127
+      ],
+      "expected": [
+        168,
+        90,
+        58,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 141,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        79,
+        215,
+        118,
+        254
+      ],
+      "expected": [
+        79,
+        215,
+        118,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 142,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        165,
+        57,
+        190,
+        255
+      ],
+      "expected": [
+        165,
+        57,
+        190,
+        255
+      ],
+      "wrong": false,
+      "steps": 390
+    },
+    {
+      "id": 143,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        229,
+        234,
+        199,
+        127
+      ],
+      "expected": [
+        229,
+        234,
+        199,
+        127
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 144,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        95,
+        73,
+        76,
+        1
+      ],
+      "expected": [
+        95,
+        73,
+        76,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 145,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        225,
+        26,
+        48,
+        128
+      ],
+      "expected": [
+        225,
+        26,
+        48,
+        128
+      ],
+      "wrong": false,
+      "steps": 439
+    },
+    {
+      "id": 146,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        69,
+        29,
+        89,
+        254
+      ],
+      "expected": [
+        69,
+        29,
+        89,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 147,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        16,
+        197,
+        54,
+        255
+      ],
+      "expected": [
+        16,
+        197,
+        54,
+        255
+      ],
+      "wrong": false,
+      "steps": 390
+    },
+    {
+      "id": 148,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        239,
+        219,
+        20,
+        0
+      ],
+      "expected": [
+        239,
+        219,
+        20,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 149,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        81,
+        139,
+        55,
+        1
+      ],
+      "expected": [
+        81,
+        139,
+        55,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 150,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        102,
+        54,
+        88,
+        128
+      ],
+      "expected": [
+        102,
+        54,
+        88,
+        128
+      ],
+      "wrong": false,
+      "steps": 439
+    },
+    {
+      "id": 151,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        82,
+        122,
+        44,
+        254
+      ],
+      "expected": [
+        82,
+        122,
+        44,
+        254
+      ],
+      "wrong": false,
+      "steps": 439
+    },
+    {
+      "id": 152,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        189,
+        158,
+        224,
+        255
+      ],
+      "expected": [
+        189,
+        158,
+        224,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 153,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        229,
+        134,
+        201,
+        1
+      ],
+      "expected": [
+        229,
+        134,
+        201,
+        1
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 154,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        207,
+        130,
+        125,
+        1
+      ],
+      "expected": [
+        207,
+        130,
+        125,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 155,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        5,
+        75,
+        167,
+        127
+      ],
+      "expected": [
+        5,
+        75,
+        167,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 156,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        176,
+        159,
+        78,
+        254
+      ],
+      "expected": [
+        176,
+        159,
+        78,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 157,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        139,
+        158,
+        33,
+        255
+      ],
+      "expected": [
+        139,
+        158,
+        33,
+        255
+      ],
+      "wrong": false,
+      "steps": 390
+    },
+    {
+      "id": 158,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        141,
+        112,
+        199,
+        0
+      ],
+      "expected": [
+        141,
+        112,
+        199,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 159,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        218,
+        168,
+        156,
+        1
+      ],
+      "expected": [
+        218,
+        168,
+        156,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 160,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        19,
+        68,
+        185,
+        127
+      ],
+      "expected": [
+        19,
+        68,
+        185,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 161,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        239,
+        118,
+        155,
+        254
+      ],
+      "expected": [
+        239,
+        118,
+        155,
+        254
+      ],
+      "wrong": false,
+      "steps": 439
+    },
+    {
+      "id": 162,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        254,
+        253,
+        254,
+        255
+      ],
+      "expected": [
+        254,
+        253,
+        254,
+        255
+      ],
+      "wrong": false,
+      "steps": 390
+    },
+    {
+      "id": 163,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        211,
+        234,
+        124,
+        255
+      ],
+      "expected": [
+        211,
+        234,
+        124,
+        255
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 164,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        122,
+        157,
+        71,
+        1
+      ],
+      "expected": [
+        122,
+        157,
+        71,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 165,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        45,
+        135,
+        2,
+        127
+      ],
+      "expected": [
+        45,
+        135,
+        2,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 166,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        119,
+        242,
+        16,
+        254
+      ],
+      "expected": [
+        119,
+        242,
+        16,
+        254
+      ],
+      "wrong": false,
+      "steps": 439
+    },
+    {
+      "id": 167,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        158,
+        222,
+        38,
+        255
+      ],
+      "expected": [
+        158,
+        222,
+        38,
+        255
+      ],
+      "wrong": false,
+      "steps": 390
+    },
+    {
+      "id": 168,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        99,
+        225,
+        171,
+        0
+      ],
+      "expected": [
+        99,
+        225,
+        171,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 169,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        154,
+        203,
+        100,
+        1
+      ],
+      "expected": [
+        154,
+        203,
+        100,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 170,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        200,
+        85,
+        188,
+        127
+      ],
+      "expected": [
+        200,
+        85,
+        188,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 171,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        47,
+        169,
+        213,
+        254
+      ],
+      "expected": [
+        47,
+        169,
+        213,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 172,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        123,
+        44,
+        168,
+        255
+      ],
+      "expected": [
+        123,
+        44,
+        168,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 173,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        4,
+        70,
+        213,
+        64
+      ],
+      "expected": [
+        4,
+        70,
+        213,
+        64
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 174,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        91,
+        234,
+        62,
+        1
+      ],
+      "expected": [
+        91,
+        234,
+        62,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 175,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        183,
+        225,
+        10,
+        128
+      ],
+      "expected": [
+        183,
+        225,
+        10,
+        128
+      ],
+      "wrong": false,
+      "steps": 439
+    },
+    {
+      "id": 176,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        14,
+        151,
+        234,
+        254
+      ],
+      "expected": [
+        14,
+        151,
+        234,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 177,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        49,
+        30,
+        83,
+        255
+      ],
+      "expected": [
+        49,
+        30,
+        83,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 178,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        133,
+        243,
+        49,
+        46
+      ],
+      "expected": [
+        133,
+        243,
+        49,
+        46
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 179,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        242,
+        137,
+        236,
+        1
+      ],
+      "expected": [
+        242,
+        137,
+        236,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 180,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        211,
+        54,
+        44,
+        127
+      ],
+      "expected": [
+        211,
+        54,
+        44,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 181,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        218,
+        57,
+        181,
+        254
+      ],
+      "expected": [
+        218,
+        57,
+        181,
+        254
+      ],
+      "wrong": false,
+      "steps": 439
+    },
+    {
+      "id": 182,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        11,
+        129,
+        195,
+        255
+      ],
+      "expected": [
+        11,
+        129,
+        195,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 183,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        158,
+        60,
+        3,
+        1
+      ],
+      "expected": [
+        158,
+        60,
+        3,
+        1
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 184,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        191,
+        122,
+        157,
+        1
+      ],
+      "expected": [
+        191,
+        122,
+        157,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 185,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        50,
+        13,
+        72,
+        127
+      ],
+      "expected": [
+        50,
+        13,
+        72,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 186,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        132,
+        218,
+        185,
+        254
+      ],
+      "expected": [
+        132,
+        218,
+        185,
+        254
+      ],
+      "wrong": false,
+      "steps": 439
+    },
+    {
+      "id": 187,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        74,
+        255,
+        71,
+        255
+      ],
+      "expected": [
+        74,
+        255,
+        71,
+        255
+      ],
+      "wrong": false,
+      "steps": 390
+    },
+    {
+      "id": 188,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        146,
+        219,
+        156,
+        0
+      ],
+      "expected": [
+        146,
+        219,
+        156,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 189,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        63,
+        247,
+        196,
+        1
+      ],
+      "expected": [
+        63,
+        247,
+        196,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 190,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        71,
+        201,
+        136,
+        127
+      ],
+      "expected": [
+        71,
+        201,
+        136,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 191,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        105,
+        163,
+        85,
+        254
+      ],
+      "expected": [
+        105,
+        163,
+        85,
+        254
+      ],
+      "wrong": false,
+      "steps": 439
+    },
+    {
+      "id": 192,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        107,
+        86,
+        5,
+        0
+      ],
+      "expected": [
+        107,
+        86,
+        5,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 193,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        224,
+        6,
+        186,
+        1
+      ],
+      "expected": [
+        224,
+        6,
+        186,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 194,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        179,
+        211,
+        125,
+        127
+      ],
+      "expected": [
+        179,
+        211,
+        125,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 195,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        236,
+        143,
+        176,
+        254
+      ],
+      "expected": [
+        236,
+        143,
+        176,
+        254
+      ],
+      "wrong": false,
+      "steps": 440
+    },
+    {
+      "id": 196,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        24,
+        156,
+        114,
+        255
+      ],
+      "expected": [
+        24,
+        156,
+        114,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 197,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        6,
+        188,
+        89,
+        128
+      ],
+      "expected": [
+        6,
+        188,
+        89,
+        128
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 198,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        38,
+        191,
+        196,
+        1
+      ],
+      "expected": [
+        38,
+        191,
+        196,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 199,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        164,
+        226,
+        114,
+        127
+      ],
+      "expected": [
+        164,
+        226,
+        114,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 200,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        136,
+        59,
+        44,
+        254
+      ],
+      "expected": [
+        136,
+        59,
+        44,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 201,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        150,
+        197,
+        220,
+        255
+      ],
+      "expected": [
+        150,
+        197,
+        220,
+        255
+      ],
+      "wrong": false,
+      "steps": 403
+    },
+    {
+      "id": 202,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        237,
+        62,
+        7,
+        247
+      ],
+      "expected": [
+        237,
+        62,
+        7,
+        247
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 203,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        8,
+        88,
+        67,
+        1
+      ],
+      "expected": [
+        8,
+        88,
+        67,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 204,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        55,
+        182,
+        16,
+        127
+      ],
+      "expected": [
+        55,
+        182,
+        16,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 205,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        31,
+        59,
+        132,
+        254
+      ],
+      "expected": [
+        31,
+        59,
+        132,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 206,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        249,
+        49,
+        51,
+        255
+      ],
+      "expected": [
+        249,
+        49,
+        51,
+        255
+      ],
+      "wrong": false,
+      "steps": 403
+    },
+    {
+      "id": 207,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        51,
+        173,
+        49,
+        127
+      ],
+      "expected": [
+        51,
+        173,
+        49,
+        127
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 208,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        50,
+        112,
+        101,
+        1
+      ],
+      "expected": [
+        50,
+        112,
+        101,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 209,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        251,
+        56,
+        78,
+        128
+      ],
+      "expected": [
+        251,
+        56,
+        78,
+        128
+      ],
+      "wrong": false,
+      "steps": 436
+    },
+    {
+      "id": 210,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        193,
+        161,
+        68,
+        254
+      ],
+      "expected": [
+        193,
+        161,
+        68,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 211,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        229,
+        251,
+        79,
+        255
+      ],
+      "expected": [
+        229,
+        251,
+        79,
+        255
+      ],
+      "wrong": false,
+      "steps": 403
+    },
+    {
+      "id": 212,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        247,
+        55,
+        96,
+        0
+      ],
+      "expected": [
+        247,
+        55,
+        96,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 213,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        252,
+        173,
+        154,
+        1
+      ],
+      "expected": [
+        252,
+        173,
+        154,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 214,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        10,
+        104,
+        12,
+        128
+      ],
+      "expected": [
+        10,
+        104,
+        12,
+        128
+      ],
+      "wrong": false,
+      "steps": 434
+    },
+    {
+      "id": 215,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        50,
+        177,
+        151,
+        254
+      ],
+      "expected": [
+        50,
+        177,
+        151,
+        254
+      ],
+      "wrong": false,
+      "steps": 438
+    },
+    {
+      "id": 216,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        200,
+        113,
+        145,
+        255
+      ],
+      "expected": [
+        200,
+        113,
+        145,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 217,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        175,
+        198,
+        179,
+        1
+      ],
+      "expected": [
+        175,
+        198,
+        179,
+        1
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 218,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        51,
+        72,
+        91,
+        1
+      ],
+      "expected": [
+        51,
+        72,
+        91,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 219,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        208,
+        37,
+        197,
+        127
+      ],
+      "expected": [
+        208,
+        37,
+        197,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 220,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        35,
+        188,
+        182,
+        254
+      ],
+      "expected": [
+        35,
+        188,
+        182,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 221,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        67,
+        25,
+        247,
+        255
+      ],
+      "expected": [
+        67,
+        25,
+        247,
+        255
+      ],
+      "wrong": false,
+      "steps": 403
+    },
+    {
+      "id": 222,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        75,
+        193,
+        219,
+        0
+      ],
+      "expected": [
+        75,
+        193,
+        219,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 223,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        34,
+        245,
+        227,
+        1
+      ],
+      "expected": [
+        34,
+        245,
+        227,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 224,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        192,
+        44,
+        215,
+        127
+      ],
+      "expected": [
+        192,
+        44,
+        215,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 225,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        233,
+        228,
+        20,
+        254
+      ],
+      "expected": [
+        233,
+        228,
+        20,
+        254
+      ],
+      "wrong": false,
+      "steps": 438
+    },
+    {
+      "id": 226,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        176,
+        255,
+        39,
+        255
+      ],
+      "expected": [
+        176,
+        255,
+        39,
+        255
+      ],
+      "wrong": false,
+      "steps": 403
+    },
+    {
+      "id": 227,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        152,
+        240,
+        97,
+        255
+      ],
+      "expected": [
+        152,
+        240,
+        97,
+        255
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 228,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        66,
+        219,
+        230,
+        1
+      ],
+      "expected": [
+        66,
+        219,
+        230,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 229,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        166,
+        33,
+        232,
+        127
+      ],
+      "expected": [
+        166,
+        33,
+        232,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 230,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        49,
+        246,
+        175,
+        254
+      ],
+      "expected": [
+        49,
+        246,
+        175,
+        254
+      ],
+      "wrong": false,
+      "steps": 438
+    },
+    {
+      "id": 231,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        212,
+        134,
+        196,
+        255
+      ],
+      "expected": [
+        212,
+        134,
+        196,
+        255
+      ],
+      "wrong": false,
+      "steps": 403
+    },
+    {
+      "id": 232,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        187,
+        220,
+        120,
+        0
+      ],
+      "expected": [
+        187,
+        220,
+        120,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 233,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        112,
+        71,
+        158,
+        1
+      ],
+      "expected": [
+        112,
+        71,
+        158,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 234,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        112,
+        102,
+        36,
+        127
+      ],
+      "expected": [
+        112,
+        102,
+        36,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 235,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        63,
+        209,
+        209,
+        254
+      ],
+      "expected": [
+        63,
+        209,
+        209,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 236,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        9,
+        209,
+        79,
+        255
+      ],
+      "expected": [
+        9,
+        209,
+        79,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 237,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        37,
+        130,
+        209,
+        64
+      ],
+      "expected": [
+        37,
+        130,
+        209,
+        64
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 238,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        168,
+        57,
+        212,
+        1
+      ],
+      "expected": [
+        168,
+        57,
+        212,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 239,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        44,
+        231,
+        48,
+        128
+      ],
+      "expected": [
+        44,
+        231,
+        48,
+        128
+      ],
+      "wrong": false,
+      "steps": 436
+    },
+    {
+      "id": 240,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        167,
+        246,
+        88,
+        254
+      ],
+      "expected": [
+        167,
+        246,
+        88,
+        254
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 241,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        56,
+        151,
+        121,
+        255
+      ],
+      "expected": [
+        56,
+        151,
+        121,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 242,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        115,
+        52,
+        208,
+        46
+      ],
+      "expected": [
+        115,
+        52,
+        208,
+        46
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 243,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        245,
+        111,
+        52,
+        1
+      ],
+      "expected": [
+        245,
+        111,
+        52,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 244,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        98,
+        159,
+        167,
+        127
+      ],
+      "expected": [
+        98,
+        159,
+        167,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 245,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        99,
+        121,
+        220,
+        254
+      ],
+      "expected": [
+        99,
+        121,
+        220,
+        254
+      ],
+      "wrong": false,
+      "steps": 436
+    },
+    {
+      "id": 246,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        177,
+        49,
+        140,
+        255
+      ],
+      "expected": [
+        177,
+        49,
+        140,
+        255
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 247,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        229,
+        57,
+        102,
+        1
+      ],
+      "expected": [
+        229,
+        57,
+        102,
+        1
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 248,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        43,
+        138,
+        251,
+        1
+      ],
+      "expected": [
+        43,
+        138,
+        251,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 249,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        147,
+        134,
+        229,
+        127
+      ],
+      "expected": [
+        147,
+        134,
+        229,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 250,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        8,
+        45,
+        114,
+        254
+      ],
+      "expected": [
+        8,
+        45,
+        114,
+        254
+      ],
+      "wrong": false,
+      "steps": 434
+    },
+    {
+      "id": 251,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        91,
+        143,
+        120,
+        255
+      ],
+      "expected": [
+        91,
+        143,
+        120,
+        255
+      ],
+      "wrong": false,
+      "steps": 403
+    },
+    {
+      "id": 252,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        123,
+        230,
+        37,
+        0
+      ],
+      "expected": [
+        123,
+        230,
+        37,
+        0
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 253,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        109,
+        241,
+        5,
+        1
+      ],
+      "expected": [
+        109,
+        241,
+        5,
+        1
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 254,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        32,
+        9,
+        120,
+        127
+      ],
+      "expected": [
+        32,
+        9,
+        120,
+        127
+      ],
+      "wrong": false,
+      "steps": 328
+    },
+    {
+      "id": 255,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        58,
+        20,
+        154,
+        254
+      ],
+      "expected": [
+        58,
+        20,
+        154,
+        254
+      ],
+      "wrong": false,
+      "steps": 436
+    },
+    {
+      "id": 256,
+      "mode": "multiply",
+      "witness": "source-law-fixture",
+      "actual": [
+        17,
+        129,
+        254,
+        128
+      ],
+      "expected": [
+        17,
+        129,
+        254,
+        128
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 257,
+      "mode": "lighten",
+      "witness": "source-law-fixture",
+      "actual": [
+        17,
+        129,
+        254,
+        128
+      ],
+      "expected": [
+        17,
+        129,
+        254,
+        128
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 258,
+      "mode": "colorDodge",
+      "witness": "source-law-fixture",
+      "actual": [
+        17,
+        129,
+        254,
+        128
+      ],
+      "expected": [
+        17,
+        129,
+        254,
+        128
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 259,
+      "mode": "overlay",
+      "witness": "source-law-fixture",
+      "actual": [
+        17,
+        129,
+        254,
+        128
+      ],
+      "expected": [
+        17,
+        129,
+        254,
+        128
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 260,
+      "mode": "multiply",
+      "witness": "MULT3-absent-mask",
+      "actual": [
+        1,
+        2,
+        3,
+        88
+      ],
+      "expected": [
+        1,
+        2,
+        3,
+        88
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 261,
+      "mode": "multiply",
+      "witness": "outer-opacity0-unchanged",
+      "actual": [
+        19,
+        200,
+        101,
+        73
+      ],
+      "expected": [
+        19,
+        200,
+        101,
+        73
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 262,
+      "mode": "lighten",
+      "witness": "MULT3-absent-mask",
+      "actual": [
+        1,
+        2,
+        3,
+        88
+      ],
+      "expected": [
+        1,
+        2,
+        3,
+        88
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 263,
+      "mode": "lighten",
+      "witness": "outer-opacity0-unchanged",
+      "actual": [
+        19,
+        200,
+        101,
+        73
+      ],
+      "expected": [
+        19,
+        200,
+        101,
+        73
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 264,
+      "mode": "colorDodge",
+      "witness": "MULT3-absent-mask",
+      "actual": [
+        1,
+        2,
+        3,
+        88
+      ],
+      "expected": [
+        1,
+        2,
+        3,
+        88
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 265,
+      "mode": "colorDodge",
+      "witness": "outer-opacity0-unchanged",
+      "actual": [
+        19,
+        200,
+        101,
+        73
+      ],
+      "expected": [
+        19,
+        200,
+        101,
+        73
+      ],
+      "wrong": false,
+      "steps": 326
+    },
+    {
+      "id": 266,
+      "mode": "overlay",
+      "witness": "MULT3-absent-mask",
+      "actual": [
+        1,
+        2,
+        3,
+        88
+      ],
+      "expected": [
+        1,
+        2,
+        3,
+        88
+      ],
+      "wrong": false,
+      "steps": 337
+    },
+    {
+      "id": 267,
+      "mode": "overlay",
+      "witness": "outer-opacity0-unchanged",
+      "actual": [
+        19,
+        200,
+        101,
+        73
+      ],
+      "expected": [
+        19,
+        200,
+        101,
+        73
+      ],
+      "wrong": false,
+      "steps": 326
+    }
+  ],
+  "hooks": {
+    "malloc": 268,
+    "memset": 268,
+    "free": 268
+  },
+  "arithmeticHooks": 0,
+  "guestWriteGuards": true,
+  "immutableParamsSourceAndDestinationTail": true,
+  "wrongCases": 0,
+  "seconds": 7.0001232624053955,
+  "scriptSHA256": "5e51b311891c6ee827df95202c4b6a66fd0b27ae07f286355a1b36e90853de6b",
+  "inputFixtureSHA256": "18d7b0fc73797ae2f5e863808eb04c9e0a83d058a1da4be2b2e8ce77dc1501b7",
+  "vtableAddresses": {
+    "multiply": "0x3828e0",
+    "lighten": "0x381e30",
+    "colorDodge": "0x381d68",
+    "overlay": "0x3816c0"
+  },
+  "originalQtBitArrayConstructor": "0x202e555c"
+}

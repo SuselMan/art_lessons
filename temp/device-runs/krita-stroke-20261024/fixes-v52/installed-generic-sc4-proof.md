@@ -1,0 +1,11 @@
+# Original installed ARM64 GenericSC U8
+
+2026-10-31: **268/268 exact PASS**, zero mismatching cases/bytes. 260 pinned source-law fixture cases (65 per multiply/lighten/colorDodge/overlay), plus one absent-mask MULT3 and one opacity=0 preserved-destination witness per mode.
+
+RAM-only originals from verified Samsung R52RB0JXVSY installed APK: pigment 3,694,016 bytes SHA230ccf905226f4324ffdf8c7239e8be90f0506cfadda25393d1ba014ab0bb783; QtCore 5,518,824 bytes SHA78fc3da8d316ce7de1d957e3b20d7462b20245d4d797860f1946f797f7946ef9. No APK/ELF persisted.
+
+Invokes actual relocated vtable slot2, not only numerical functor. BgrU8 channel layout is explicitly converted to/from fixture RGBA. Empty flags are passed through original Qt QBitArray constructor and original outer channel dispatch. Full all-channel/unlocked wrapper plus original local numerical kernels run with FPCR0 on Unicorn A72. Hooks: malloc/memset/free exactly268 each, allocation ownership balanced; arithmetic hooks0. ELF segment permissions restored after relocation. Guest writes limited to stack, owned heap, four destination bytes; source/ParameterInfo and destination-tail guards unchanged. Constructor/factory construction, native paint-device partition, physical ARM and active GUI remain outside proof. No room/editor grant.
+
+Exact script/input hashes, real vtable addresses, Qt constructor address and per-case outputs are in installed-generic-sc4-execution.json. Mapping is in installed-generic-sc4-color-mapping.json; inspector reproducibly reads only original bytes into RAM.
+
+Retained named tool dependencies in existing ~/.local/share/grafetto/brush-import-python: Unicorn2.1.4 exact historical verified selective package+dist-info (24,905,808 package bytes), Capstone5.0.6 pinned wheel (10,993,573 package bytes). Tiny ARM64 ADD/RET41→42 PASS. Historical Unicorn wheel is tagged py2: no re-tagging; verified Python3 package files are extracted exactly per previous trusted manifest, static archive excluded. Version metadata verified2.1.4/5.0.6. No new environment. Download resource TTL1h strictly finished through privileged /proc inspection + standard registry guard; wheels removed, receipt native-sc4-wheels-cleanup.json. No running child/forward/process/service or disposable resource remains.
