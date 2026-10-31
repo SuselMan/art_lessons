@@ -1,5 +1,5 @@
 import type { BrushDescriptor } from './brushes.js'
-import { extractSoftAutoSourceDataCapability } from './canonicalBrushCapability.js'
+import { extractSoftAutoSourceDataCapability, hasCanonicalOverComposition } from './canonicalBrushCapability.js'
 import type { SourceSoftAutoData, SourceStampCompiledCurve } from './sourceStampData.js'
 import { isSourceStampCurveData, SOURCE_STAMP_MAPPED_COMPILER_PROFILE } from './sourceStampData.js'
 import { sourceAutoGeometry } from './sourceAutoGeometry.js'
@@ -85,6 +85,7 @@ export function canonicalSoftAutoSourceBinding(descriptor:BrushDescriptor,descri
   // Reject unsupported policy before inspecting the descriptor or its programs.
   if(sourceSlot!==0||typeof descriptorSha256!=='string'||!/^[a-f0-9]{64}$/.test(descriptorSha256)
     ||!['scalar-f64-fma-v1','neon64-f32-fma-v1'].includes(coverageProfile))throw new TypeError('Soft-auto source capability unavailable')
+  if(!hasCanonicalOverComposition(descriptor))throw new TypeError('Soft-auto outer composition unavailable')
   const result=extractSoftAutoSourceDataCapability(descriptor)
   if(!result.supported)throw new TypeError('Soft-auto source capability unavailable')
   const {data}=result,compiled=data.compiled

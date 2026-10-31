@@ -1,3 +1,4 @@
+import { extractSoftAutoSourceDataCapability, hasCanonicalOverComposition } from './canonicalBrushCapability.js'
 import originalSoft from './fixtures/sourceSoftAutoData/stock.native.js'
 import originalDefault from './fixtures/sourceDefaultAutoData/stock.native.js'
 import type { BrushDescriptor } from './brushes.js'
@@ -160,7 +161,7 @@ function bindingDescriptor():BrushDescriptor {
   const data:unknown=structuredClone(originalSoft.rows.find(r=>r.index===72)!.sourceStamp)
   if(!isSourceStampData(data)||data.version!==2||data.source.kind!=='softAuto')throw Error('Invalid soft fixture')
   const entry=(source:SourceStampCurveData)=>({source,coefficients:Array.from({length:source.points.length-1},()=>[0,0,0,0] as const)})
-  return {...originalDefault.rows[0].descriptor,sourceStamp:{...data,role:'primary',unsupported:[],
+  return {...structuredClone(originalDefault.rows[0].descriptor),sourceStamp:{...data,role:'primary',unsupported:[],
     flags:{...data.flags,materialFixed1:true,textureEnabled:false},
     source:{...data.source,ratio:1,spikes:2,antialias:false,randomness:0,density:1},
     compiled:{version:2,reader:data.reader,profile:SOURCE_STAMP_MAPPED_COMPILER_PROFILE,buildId:'c'.repeat(64),
@@ -195,4 +196,35 @@ it('preserves missing-program, dual/mask, unsupported and historical frontiers',
   const dual=bindingDescriptor();Object.assign(dual,{behavior:{...dual.behavior,dual:{}}})
   for(const descriptor of [unsupported,mask,missing,noRadial,dual])expect(()=>canonicalSoftAutoSourceBinding(descriptor,'a'.repeat(64),'scalar-f64-fma-v1')).toThrow()
   for(const row of originalSoft.rows)expect(()=>canonicalSoftAutoSourceBinding({...bindingDescriptor(),sourceStamp:row.sourceStamp} as unknown as BrushDescriptor,'a'.repeat(64),'scalar-f64-fma-v1')).toThrow()
+})
+
+it.each(['color','colorDodge','lighten','multiply','overlay'])('keeps %s source data ready while refusing an unsupported outer-over binding',blendMode=>{
+  const descriptor=bindingDescriptor()
+  Object.assign(descriptor.behavior!.rendering!,{blendMode})
+  expect(extractSoftAutoSourceDataCapability(descriptor).supported).toBe(true)
+  expect(()=>canonicalSoftAutoSourceBinding(descriptor,'a'.repeat(64),'scalar-f64-fma-v1')).toThrow('outer composition')
+})
+it.each(['erase','wetEdges','burntEdges'])('refuses %s even with normal native blend before granting the soft source pin',effect=>{
+  const descriptor=bindingDescriptor()
+  if(effect==='erase')Object.assign(descriptor.behavior!,{erase:true})
+  else Object.assign(descriptor.behavior!.rendering!,{[effect]:.3})
+  expect(descriptor.behavior!.rendering!.blendMode).toBe('normal')
+  expect(extractSoftAutoSourceDataCapability(descriptor).supported).toBe(true)
+  expect(()=>canonicalSoftAutoSourceBinding(descriptor,'a'.repeat(64),'neon64-f32-fma-v1')).toThrow('outer composition')
+})
+
+it('shares the closed over-composition law without changing data readiness or other mode policy',()=>{
+  const descriptor=bindingDescriptor()
+  expect(hasCanonicalOverComposition(descriptor)).toBe(true)
+  for(const patch of [{blendMode:'color'},{wetEdges:.2},{burntEdges:.1}]) {
+    const changed=structuredClone(descriptor)
+    Object.assign(changed.behavior!.rendering!,patch)
+    expect(hasCanonicalOverComposition(changed)).toBe(false)
+  }
+  const erased=structuredClone(descriptor);Object.assign(erased.behavior!,{erase:true})
+  expect(hasCanonicalOverComposition(erased)).toBe(false)
+  // mode policy remains the caller's existing responsibility; this helper is
+  // not a replacement for the resolver's other strict outer restrictions.
+  const glaze=structuredClone(descriptor);Object.assign(glaze.behavior!.rendering!,{mode:'glaze'})
+  expect(hasCanonicalOverComposition(glaze)).toBe(true)
 })

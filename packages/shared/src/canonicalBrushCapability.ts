@@ -2,6 +2,15 @@ import type { BrushDescriptor } from './brushes.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
 import { isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData } from './sourceStampData.js'
 
+/** Only the native outer law representable by canonical over32 today.
+ * This checks composition of an already verified descriptor, not source-data
+ * readiness, descriptor schema, alphaDarken mode or other execution policy. */
+export function hasCanonicalOverComposition(descriptor:BrushDescriptor):boolean {
+  const behavior=descriptor.behavior,rendering=behavior?.rendering
+  return behavior?.erase!==true && (rendering?.blendMode??'normal')==='normal'
+    && (rendering?.wetEdges??0)===0 && (rendering?.burntEdges??0)===0
+}
+
 /** Saved reader law shared by image/auto capability binding. Undefined action
  * means incremental; conflicting or malformed retained flags fail closed. */
 export function sourceStampPaintingMode(data: SourceStampData): 'wash'|'buildup'|undefined {
