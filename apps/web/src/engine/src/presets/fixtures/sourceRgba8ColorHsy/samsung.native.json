@@ -1,0 +1,151 @@
+{
+  "proof": {
+    "sourceSHA": "bd7b4a8fff70b3b6489bbbe7c1ec245136b97c57",
+    "sourceHashes": {
+      "apps/web/src/engine/src/raster/sourceRgba8CompositeWebGL1.ts": "eeb3fbb4425bdea0b7eff54c796df3c174082b33fd234d37e3441c93532d5ea6",
+      "apps/web/src/engine/src/raster/sourceRgba8CompositeShader.ts": "210d3cee146af2cb4e8a17668f13f3d2b3e1792ad094b24f0d8a167057fa166c"
+    },
+    "fixtureSHA256": "e07cbd0af61ac78e10cc4dc48c4564bfa0dade0063b385e0e7c16d69b69534e2",
+    "bundleSHA256": "ca641767f745e46735bd6d7933c555f405d79a86b2c00394a8a62545979cd278",
+    "bodySHA256": "4b217275c1051e44ea2a9abadeb0e505f19fa53dbd3ce773d7ea1f6e119e7120",
+    "nativeCases": 266,
+    "scope": "Original installed ARM64 Color/HSY full vtable composite entry, original native LUT .init constructor and Qt QBitArray, consumed ABI constructed. Only bounded libc memory/allocation hooks. Not physical ARM/GUI/active factory proof."
+  },
+  "gpu": {
+    "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+    "results": [
+      {
+        "version": 2,
+        "available": true,
+        "wrong": 0,
+        "cfWrong": 0,
+        "lutWrong": 0,
+        "examples": [],
+        "GL": [],
+        "compileMs": 8715,
+        "draws": [
+          {
+            "pass": 0,
+            "submitMs": 0.30000001192092896,
+            "finishMs": 0.19999998807907104,
+            "totalMs": 0.5
+          },
+          {
+            "pass": 1,
+            "submitMs": 0,
+            "finishMs": 0,
+            "totalMs": 0
+          },
+          {
+            "pass": 2,
+            "submitMs": 0,
+            "finishMs": 0.19999998807907104,
+            "totalMs": 0.19999998807907104
+          },
+          {
+            "pass": 3,
+            "submitMs": 0,
+            "finishMs": 0.10000002384185791,
+            "totalMs": 0.10000002384185791
+          },
+          {
+            "pass": 4,
+            "submitMs": 0,
+            "finishMs": 0,
+            "totalMs": 0
+          }
+        ],
+        "cleanup": true,
+        "shaderCompiles": [
+          {
+            "type": 35633,
+            "sourceBytes": 87,
+            "ms": 3.300000011920929,
+            "ok": true,
+            "log": "",
+            "contextLost": false,
+            "error": 0
+          },
+          {
+            "type": 35632,
+            "sourceBytes": 16997,
+            "ms": 6797,
+            "ok": true,
+            "log": "",
+            "contextLost": false,
+            "error": 0
+          }
+        ],
+        "programLog": "",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "highp": 23
+      },
+      {
+        "version": 1,
+        "available": true,
+        "wrong": 0,
+        "cfWrong": 0,
+        "lutWrong": 0,
+        "examples": [],
+        "GL": [],
+        "compileMs": 6517.600000023842,
+        "draws": [
+          {
+            "pass": 0,
+            "submitMs": 0.09999996423721313,
+            "finishMs": 0.10000002384185791,
+            "totalMs": 0.19999998807907104
+          },
+          {
+            "pass": 1,
+            "submitMs": 0,
+            "finishMs": 0.10000002384185791,
+            "totalMs": 0.10000002384185791
+          },
+          {
+            "pass": 2,
+            "submitMs": 0,
+            "finishMs": 0.10000002384185791,
+            "totalMs": 0.10000002384185791
+          },
+          {
+            "pass": 3,
+            "submitMs": 0,
+            "finishMs": 0,
+            "totalMs": 0
+          },
+          {
+            "pass": 4,
+            "submitMs": 0,
+            "finishMs": 0.10000002384185791,
+            "totalMs": 0.10000002384185791
+          }
+        ],
+        "cleanup": true,
+        "shaderCompiles": [
+          {
+            "type": 35633,
+            "sourceBytes": 78,
+            "ms": 3.899999976158142,
+            "ok": true,
+            "log": "",
+            "contextLost": false,
+            "error": 0
+          },
+          {
+            "type": 35632,
+            "sourceBytes": 16950,
+            "ms": 4722.899999976158,
+            "ok": true,
+            "log": "",
+            "contextLost": false,
+            "error": 0
+          }
+        ],
+        "programLog": "",
+        "renderer": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)",
+        "highp": 23
+      }
+    ]
+  }
+}

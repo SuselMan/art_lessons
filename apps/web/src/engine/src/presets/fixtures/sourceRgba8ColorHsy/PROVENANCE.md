@@ -111,3 +111,60 @@ Reproduction/audit harnesses and receipts are in fixes-v52:
 The fixture pins runner/shared-loader hashes and original inputs/results.
 GPU admission remains closed for both Color profiles. No browser, device
 forward, process, service, native build directory or temporary library remains.
+
+Opt-in installed HSY GPU numerical gate
+--------------------------------------
+
+The same existing WebGL1/2 numerical modules now export opt-in installed-HSY
+libraries and `canonicalizeSourceInstalledHsyControl`. Generic0..6 shader bodies
+remain byte-for-byte unchanged; the generic upload adapter rejects both Color
+profiles. The separate-F32 profile remains CPU-only. Installed upload controls
+carry local `stageLimit:12`, which the consumer must upload to the diagnostic
+`sourceHsyStageLimit` uniform; it is neither persistent nor wire metadata.
+
+The fixed12-stage HSY graph has one active static base4096 software-FMA
+callsite. Stages retain original source/destination/ToneMapping luminance order,
+then negative-min and original-max correction passes. Original branch fallback
+and stale l/n/x semantics remain explicit. Ordinary MUL/ADD results pass through
+existing normal-or-zero F32 decomposition, integer-significand floor, and exact
+power-of-two reconstruction barriers. No compiler contraction assumption or
+hardware FMA builtin is used. A byte/255 integer long division supplies the
+native LUT values. Positive-normal reciprocal uses bounded47-step integer
+long division and RNE; no GPU division estimate is assumed. Signed remainder
+operations stay below2^24. The current admitted variant uses the existing full
+F32 composition helper, not the experimental short reconstruction variant.
+
+WebGL1 uses a constant12 loop with uniform break; WebGL2 specializes only this
+bound to the trusted runtime uniform, avoiding limb-kernel cloning. Both opt-in
+libraries use the SAME float-byte integer stage, with intermediates below2^24.
+No generic SC shortcuts are applied to GenericHSL. No cache, renderer, production
+operation-kind admission, room capability or brush-level grant is added here.
+
+`samsung.native.json` pins the exact two numerical-module source SHA256 values,
+fresh memory-bundle/body/266-input hashes, device renderer, timings and outputs.
+Samsung SM-T970/R52RB0JXVSY, Chrome156, Adreno650/ANGLE, fragment highp23:
+both WebGL1 and WebGL2 match all266 RGBA outputs (1064bytes each), all238 captured
+native CF RGB bit triples (714 F32 patterns each;28 zero-union cases had no
+native CF invocation), and every one of the256 independently initialized native
+U8 LUT entries. The LUT draw has266 samples including10 repeated clamped255.
+Eight final-byte witnesses remain included. Wrong RGBA/CF/LUT counts and GL
+errors are zero in both contexts. All owned GL handles are deleted before
+context loss; child closed, own forward removed, three original tabs preserved.
+
+Measured single-context compile+link: WebGL1 6517.6ms (fragment4722.9ms),
+WebGL2 8715.0ms (fragment6797.0ms). The266-pixel RGBA draw+finish took0.2/0.5ms;
+these microprobe timings do not establish large-mask throughput, UI latency,
+prewarm responsiveness, full composite-pass ownership or native brush fidelity.
+No lazy compilation inside pointer processing is authorized by this proof.
+
+Failed straight-line variants are retained compactly in fixes-v52 diagnostics:
+all-software-FMA compile failures17.6/45.2s; ordinary-rounding-barrier attempts
+included WebGL1 numerical success but42.3s compile+link, WebGL2 compile failure;
+short reconstruction had WebGL2 compile failure and WebGL1 link failure, with
+no numerical admission. The known WebGL1-passing predecessor source is retained
+with SHA2562e3828f3b1fb554274c1c88ced8394f081d5ac060daeaaeb07ad4bda7a7c000c.
+The admitted fixed-stage source and failed variants are not interchangeable.
+Final receipt SHA2562a6fe39d707d4201e5b99a38d743729e6120fe683f65f5cdeb39e6949b935310.
+The approved existing-device lifecycle used one child/forward at a time,
+write:false memory builds, five-minute owner receipts and strict finally cleanup.
+No temporary process, browser child, forward, build directory or service remains.

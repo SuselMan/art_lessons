@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { expect, it } from 'vitest'
 import fixture from './fixtures/sourceRgba8ColorHsy/source-law.native.json'
 import { compositeRgba8, sourceRgba8ColorHsyChannels, SOURCE_RGBA8_COLOR_HSY_PROFILE, SOURCE_RGBA8_GENERIC_SC_PROFILE } from './sourceColorRgba8'
-import { canonicalizeSourceRgba8Control } from '../raster/sourceRgba8CompositeShader'
+import { canonicalizeSourceRgba8Control, canonicalizeSourceInstalledHsyControl } from '../raster/sourceRgba8CompositeShader'
 import type { Rgba8 } from './mixWeightedRgba8'
 const pixel = (v: number[]): Rgba8 => {
   if (v.length !== 4) throw Error('Fixture pixel length')
@@ -48,5 +48,11 @@ it('matches original installed ARM64 full-vtable Color and captured fused CF bit
       expect(row.expected).not.toEqual(row.separateExpected)
     }
     expect(() => canonicalizeSourceRgba8Control(control)).toThrow('no GPU mode')
+    expect(canonicalizeSourceInstalledHsyControl(control).mode).toBe(7)
   }
+})
+
+it('rejects the separate source profile at the installed GPU upload boundary', () => {
+  expect(() => canonicalizeSourceInstalledHsyControl({ mode: 'colorHsy', profile: SOURCE_RGBA8_COLOR_HSY_PROFILE, opacity: 1 } as never)).toThrow('installed ARM64 HSY')
+  expect(() => canonicalizeSourceInstalledHsyControl({ mode: 'over', opacity: 1 } as never)).toThrow('installed ARM64 HSY')
 })

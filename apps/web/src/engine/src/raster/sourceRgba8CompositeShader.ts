@@ -1,4 +1,5 @@
-import { sourceRgba8CompositeModeId, validateRgba8CompositeControl, type Rgba8CompositeControl } from '../presets/sourceColorRgba8';
+import { SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL } from './sourceRgba8CompositeWebGL1';
+import { SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE, sourceRgba8CompositeModeId, validateRgba8CompositeControl, type Rgba8CompositeControl } from '../presets/sourceColorRgba8';
 
 /** Host-resolved bytes; no shader float quantization or implicit mask collapse. */
 export interface SourceRgba8CompositeBytes {
@@ -157,3 +158,15 @@ uvec4 sourcePortableF32Over(uvec4 source, uvec4 destination, float opacity, uint
   return uvec4(rgb, uint(roundEven(alpha)));
 }
 `;
+
+/** Deliberate profile specialization; never accepted by the generic shader. */
+export interface SourceInstalledHsyCompositeBytes extends Omit<SourceRgba8CompositeBytes, 'mode'> { readonly mode: 7; readonly stageLimit: 12 }
+export function canonicalizeSourceInstalledHsyControl(control: Extract<Rgba8CompositeControl, {mode:'colorHsy'}> & {readonly profile: typeof SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE}): SourceInstalledHsyCompositeBytes {
+  validateRgba8CompositeControl(control);
+  if(control.mode!=='colorHsy'||control.profile!==SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE)throw new RangeError('Expected installed ARM64 HSY profile');
+  const { opacity,mask,flow,averageOpacity }=control;
+  return {...canonicalizeSourceRgba8Control({mode:'add',opacity,mask,flow,averageOpacity}),mode:7,stageLimit:12};
+}
+/** GLSL300-compatible float-byte specialization: exact integers stay <2^24.
+ * Its float control is deliberately separate from generic WebGL2 uint0..6. */
+export const SOURCE_RGBA8_INSTALLED_HSY_WEBGL2_GLSL = SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL.replace('for(int stage=0;stage<12;stage++)', 'for(int stage=0;stage<sourceHsyStageLimit;stage++)');
