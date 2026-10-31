@@ -1,0 +1,9 @@
+{
+  "extends": "../web/tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "../../node_modules/.tmp/canonical-integration.tsbuildinfo",
+    "types": ["node", "vite/client", "vite-plugin-pwa/client"],
+    "erasableSyntaxOnly": false
+  },
+  "include": ["canonicalEmptyHistoryBase.test.ts"]
+}
