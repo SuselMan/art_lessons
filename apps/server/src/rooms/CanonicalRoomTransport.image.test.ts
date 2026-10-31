@@ -2,7 +2,7 @@ import {mkdtempSync,rmSync,readFileSync,writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {afterEach,beforeEach,expect,it,vi} from 'vitest'
-import {CANONICAL_STROKE_RASTER_PROFILE,isBrushLibrary,sourcePngMaskExtent,buildCanonicalMaterial,type BrushDescriptor,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type CanonicalStrokeFrameEnvelope} from '@grafetto/shared'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE as D,canonicalBrushDescriptorJSON,CANONICAL_STROKE_RASTER_PROFILE,isBrushLibrary,sourcePngMaskExtent,buildCanonicalMaterial,type BrushDescriptor,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type CanonicalStrokeFrameEnvelope} from '@grafetto/shared'
 import {inflateSync} from 'node:zlib'
 import {BrushStorage,empty,setBrushStorage} from '../brushLibrary/storage.js'
 import {rooms,flushRoomWrites,type RoomRecord} from './roomRegistry.js'
@@ -103,34 +103,53 @@ async function pipeSetup(name:'mountains'|'pencilRandom'){
  const input={layerId:'layer',brush:`brush:${descriptor.id}@${descriptor.version}`,strokeId:'pipe',pigmentRgb8:[0,0,0] as [number,number,number],outerResourceOpacity:1,alphaDarken:'creamy' as const}
  return{storage,library,descriptor,board,input,dir}
 }
-it.each(['mountains','pencilRandom'] as const)('actual %s source author emits V2 selected frames through server grant and original recorded attachment',async name=>{
+
+function basicPackets(){
+ const f32=(bits:number)=>new Float32Array(new Uint32Array([bits]).buffer)[0],m=fixture.mapping
+ return fixture.packets.slice(0,-1).map(([xb,yb,t,pb]:number[])=>({x:m.a*f32(xb)+m.c*f32(yb)+m.tx,y:m.b*f32(xb)+m.d*f32(yb)+m.ty,t,pressure:f32(pb),tiltX:0,tiltY:0,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false}))
+}
+async function actualFrames(descriptor:BrushDescriptor,assets:readonly {id:string;size:number}[],s:CanonicalStrokeSnapshotV2,distance=240,originalPackets?:readonly unknown[]){
+ const folder=new URL('../../../web/src/engine/src/presets/',import.meta.url).pathname
+ const [{sourceStrokeAuthorDescriptor},{SourceStrokeAuthor},{SourceStrokeMaterialAdapter},{SourceCanonicalFrameEncoder}]=await Promise.all([import(folder+'sourceStrokeAuthorDescriptor.ts'),import(folder+'sourceStrokeAuthor.ts'),import(folder+'sourceStrokeMaterialAdapter.ts'),import(folder+'sourceCanonicalFrameEncoder.ts')])
+ const compiled=sourceStrokeAuthorDescriptor(descriptor,{assets,...(s.material.primarySource.kind==='image'&&!descriptor.tip.animation?{asset:assets.find(a=>a.id===descriptor.tip.mask)}:{}),colorIdentity:'black',lodScale:1,inputProfile:'krita-freehand-no-smoothing-v1',...(s.material.primarySource.kind==='image'?{}:{coverageProfile:s.material.primarySource.coverageProfile})})
+ if(!compiled.supported)throw Error(compiled.reasons.join(','))
+ const author=new SourceStrokeAuthor(compiled.program);let state=originalPackets?author.createState(4321,7654,.3):author.createState(1,2,0)
+ const adapter=new SourceStrokeMaterialAdapter(compiled.program,s.material,state),encoder=new SourceCanonicalFrameEncoder({rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:s.material})
+ const frames:CanonicalStrokeFrameEnvelope[]=[],selected=new Set<string>();let draws=0,empty=0
+ const accept=(chunks:readonly {packed:string}[])=>{for(const c of chunks){const encoded=encoder.encode(c.packed);frames.push(encoded.envelope);draws+=encoded.frame.draws.length;if(!encoded.frame.draws.length)empty++;for(const recipe of encoded.frame.definitions)if('asset'in recipe)selected.add(recipe.asset)}}
+ const consume=(iterator:Generator<unknown,unknown>)=>{while(true){const next=iterator.next();if(next.done){state=next.value;return}accept(adapter.accept(next.value));const chunk=adapter.flush();if(chunk)accept([chunk])}}
+ const packet=(x:number,t:number)=>({x,y:80,t,pressure:1,tiltX:0,tiltY:0,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false})
+ const packets=originalPackets??[packet(40,0),packet(distance,1000)]
+ for(const p of packets){accept(adapter.beginInput(state));if(p===packets[0]){const cut=adapter.flush();if(cut)accept([cut])}consume(author.plan(state,p))}
+ accept(adapter.beginInput(state));consume(author.finish(state));accept(adapter.finish(state))
+ expect(encoder.ended).toBe(true);expect(draws).toBeGreaterThan(0);expect(empty).toBeGreaterThan(0)
+ return{frames,selected,draws}
+}
+it.each([['mountains',CANONICAL_STROKE_RASTER_PROFILE],['pencilRandom',CANONICAL_STROKE_RASTER_PROFILE],['mountains',G],['pencilRandom',G]] as const)('actual %s source author emits V2 selected frames under %s through server grant and original recorded attachment',async(name,profile)=>{
  const f=await pipeSetup(name),source=name==='mountains'?'incremental-inverse-gray-v2' as const:'random-inverse-gray-v2' as const
- const config={...policy,allowedRecordedImagePipeSources:[source],authorImagePipeSources:[source]},transport=new CanonicalRoomTransport(config)
+ const config={...policy,rasterProfile:profile,fullHistoryFormat:'mixed-v2' as const,allowedRecordedImagePipeSources:[source],authorImagePipeSources:[source]},transport=new CanonicalRoomTransport(config)
  const s=snapshot(await transport.begin(identity,f.input,()=>true))
  expect(s.material.primarySource.kind).toBe('image');if(s.material.primarySource.kind!=='image')throw Error('Expected pipe image')
  expect(s.material.primarySource.frames).toEqual(f.descriptor.tip.animation?.frames)
- const folder=new URL('../../../web/src/engine/src/presets/',import.meta.url).pathname
- const [{sourceStrokeAuthorDescriptor},{SourceStrokeAuthor},{SourceStrokeMaterialAdapter},{SourceCanonicalFrameEncoder}]=await Promise.all([import(folder+'sourceStrokeAuthorDescriptor.ts'),import(folder+'sourceStrokeAuthor.ts'),import(folder+'sourceStrokeMaterialAdapter.ts'),import(folder+'sourceCanonicalFrameEncoder.ts')])
- const compiled=sourceStrokeAuthorDescriptor(f.descriptor,{assets:f.library.assets,colorIdentity:'black',lodScale:1,inputProfile:'krita-freehand-no-smoothing-v1'})
- if(!compiled.supported)throw Error(compiled.reasons.join(','))
- const author=new SourceStrokeAuthor(compiled.program);let state=author.createState(1,2,0)
- const adapter=new SourceStrokeMaterialAdapter(compiled.program,s.material,state),encoder=new SourceCanonicalFrameEncoder({rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:s.material})
- const frames:CanonicalStrokeFrameEnvelope[]=[],selected=new Set<string>()
- const accept=(chunks:readonly {packed:string}[])=>{for(const c of chunks){const encoded=encoder.encode(c.packed);frames.push(encoded.envelope);for(const recipe of encoded.frame.definitions)if('asset'in recipe)selected.add(recipe.asset)}}
- const consume=(iterator:Generator<unknown,unknown>)=>{while(true){const next=iterator.next();if(next.done){state=next.value;return}accept(adapter.accept(next.value));const chunk=adapter.flush();if(chunk)accept([chunk])}}
- const packet=(x:number,t:number)=>({x,y:80,t,pressure:1,tiltX:0,tiltY:0,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false})
- for(const p of [packet(40,0),packet(name==='mountains'?2040:240,1000)]){accept(adapter.beginInput(state));consume(author.plan(state,p))}
- accept(adapter.beginInput(state));consume(author.finish(state));accept(adapter.finish(state))
+ const {frames,selected}=await actualFrames(f.descriptor,f.library.assets,s,name==='mountains'?2040:240)
+ if(profile===G){
+  const native=snapshot(await new CanonicalRoomTransport({...config,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}).begin(identity,{...f.input,strokeId:'native-byte-reference'},()=>true))
+  expect(native.material).toEqual(s.material);expect(native.descriptorSha256).toBe(s.descriptorSha256)
+  const reference=await actualFrames(f.descriptor,f.library.assets,native,name==='mountains'?2040:240)
+  expect(frames.map(f=>f.materialPacked)).toEqual(reference.frames.map(f=>f.materialPacked))
+ }
  expect(selected.size).toBeGreaterThan(1)
  for(const [index,frame] of frames.entries()){
   expect(frame.materialPacked.startsWith('2|')).toBe(true)
+  expect(frame.rasterProfile).toBe(profile);expect(frame.version).toBe(profile===G?2:1)
+  expect(transport.live(identity,{layerId:'layer',frame}).result.ok).toBe(true)
   const saved=await transport.recorded(identity,{type:'canonical_stroke',id:`${name}-${index}`,userId:'author',timestamp:index,layerId:'layer',frame},()=>true)
   expect(saved.result.ok).toBe(true)
  }
  const cold=new CanonicalBrushCapabilityResolver({...config,authorImagePipeSources:[],storage:f.storage,operator:()=>empty(),maxGestures:8})
  const rows=db.operation.create.mock.calls.map(call=>call[0].data),ops=f.board.operations.filter((op):op is CanonicalStrokeOperation=>op.type==='canonical_stroke')
  const attachment=cold.prepareRecordedAttachment({roomId:'board',boardEpoch:s.boardEpoch,operations:ops,rows})
- const shared=await import('@grafetto/shared'),prepared=shared.prepareCanonicalRecordedAttachment(attachment,ops,{roomId:'board',boardEpoch:s.boardEpoch})
+ const shared=await import('@grafetto/shared'),prepared=shared.prepareCanonicalRecordedAttachment(attachment,ops,{roomId:'board',boardEpoch:s.boardEpoch,allowedRasterProfiles:[profile]})
  expect(prepared.map(p=>p.operation)).toEqual(ops);expect(attachment.capabilities[0].snapshot.material.primarySource).toEqual(s.material.primarySource)
  expect(()=>cold.beginGesture(identity,{...f.input,strokeId:'no-author'})).toThrow('author policy')
  expect(cold.size).toBe(0)
@@ -153,4 +172,53 @@ it('checks every unique pipe CAS before author publication and preserves the def
  expect((await transport.begin(identity,f.input,()=>true)).ok).toBe(false)
  expect(checked).toHaveBeenCalledWith(last.id.slice(6),last.size)
  expect(f.board.operations).toEqual([]);expect(db.operation.create).not.toHaveBeenCalled()
+})
+
+it('admits explicit GenericSC image V2 Basic6 while keeping V1 and Browser profile closed',async()=>{
+ const f=setup(),asset=vi.spyOn(f.storage,'asset')
+ expect(await new CanonicalRoomTransport({...policy,rasterProfile:G}).begin(identity,f.input,()=>true)).toMatchObject({ok:true});asset.mockClear()
+ expect(await new CanonicalRoomTransport({rasterProfile:G,alphaDarkenVariants:['creamy']}).begin(identity,{...f.input,strokeId:'no-v2'},()=>true)).toMatchObject({ok:false})
+ expect(await new CanonicalRoomTransport({...policy,rasterProfile:B}).begin(identity,{...f.input,strokeId:'browser'},()=>true)).toMatchObject({ok:false})
+ expect(asset).not.toHaveBeenCalled();expect(f.board.operations).toEqual([]);expect(db.operation.create).not.toHaveBeenCalled()
+})
+it.each(['basic6','mountains','pencilRandom'] as const)('keeps actual %s and Marker original receipts in one GenericSC full prefix',async name=>{
+ const f=name==='basic6'?setup():await pipeSetup(name)
+ const marker=JSON.parse(readFileSync(new URL('../../../web/src/engine/src/presets/fixtures/sourceDefaultAutoWholePath/markerDry.normal.native.json',import.meta.url),'utf8'))
+ const combined:unknown={...f.library,brushes:[...f.library.brushes,marker.imported]};if(!isBrushLibrary(combined))throw Error('Invalid combined original sources')
+ f.storage.install('author',combined,new Map())
+ const pipe=name==='mountains'?'incremental-inverse-gray-v2' as const:name==='pencilRandom'?'random-inverse-gray-v2' as const:undefined
+ const config={...policy,rasterProfile:G,allowedRecordedRasterProfiles:[G],fullHistoryFormat:'mixed-v2' as const,allowedRecordedImagePipeSources:pipe?[pipe]:[],authorImagePipeSources:pipe?[pipe]:[],seededDefaultAuto:{coverageProfile:D,storedScale:1 as const},recordedSeededDefaultAutoProfile:D}
+ const transport=new CanonicalRoomTransport(config),s=snapshot(await transport.begin(identity,f.input,()=>true))
+ expect(s.rasterProfile).toBe(G);expect(s.material.primarySource.kind).toBe('image')
+ const image=await actualFrames(f.descriptor,f.library.assets,s,name==='mountains'?2040:240,name==='basic6'?basicPackets():undefined)
+ if(name==='basic6'){
+  const native=snapshot(await new CanonicalRoomTransport({...config,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,allowedRecordedRasterProfiles:[CANONICAL_STROKE_RASTER_PROFILE],seededDefaultAuto:false,recordedSeededDefaultAutoProfile:false}).begin(identity,{...f.input,strokeId:'native-reference'},()=>true))
+  expect(native.material).toEqual(s.material)
+  const reference=await actualFrames(f.descriptor,f.library.assets,native,240,basicPackets())
+  expect(image.frames.map(f=>f.materialPacked)).toEqual(reference.frames.map(f=>f.materialPacked))
+ }
+ const md=combined.brushes.at(-1)!.descriptor,ms=snapshot(await transport.begin(identity,{...f.input,brush:`brush:${md.id}@${md.version}`,strokeId:'marker-same-profile'},()=>true))
+ expect(ms.descriptorSha256).toBe(marker.canonicalDescriptorSHA256);expect(canonicalBrushDescriptorJSON(md)).toBeTypeOf('string')
+ const density=await actualFrames(md,[],ms,240,marker.packets)
+ expect(density.draws).toBe(17)
+ for(const [kind,frames] of [['image',image.frames],['marker',density.frames]] as const)for(const [i,frame]of frames.entries()){
+  expect(frame.version).toBe(2);expect(frame.rasterProfile).toBe(G)
+  expect(transport.live(identity,{layerId:'layer',frame}).result.ok).toBe(true)
+  const saved=await transport.recorded(identity,{type:'canonical_stroke',id:kind+'-'+i,userId:'author',timestamp:i,layerId:'layer',frame},()=>true)
+  expect(saved.result.ok).toBe(true)
+ }
+ await flushRoomWrites('board')
+ const rows=db.operation.create.mock.calls.map(([request])=>request.data),ops=f.board.operations.filter((op):op is CanonicalStrokeOperation=>op.type==='canonical_stroke'),cold=new CanonicalBrushCapabilityResolver({...config,seededDefaultAuto:false,authorImagePipeSources:[],storage:f.storage,operator:empty,maxGestures:8})
+ const attachment=cold.prepareMixedRecordedAttachment({roomId:'board',boardEpoch:s.boardEpoch,operations:ops,rows}),shared=await import('@grafetto/shared'),scope={roomId:'board',boardEpoch:s.boardEpoch,allowedRasterProfiles:[G]}
+ const prepared=shared.prepareCanonicalRecordedAttachment(attachment,ops,scope)
+ expect(prepared.map(p=>p.operation)).toEqual(ops);expect(attachment.capabilities).toHaveLength(2)
+ shared.verifyCanonicalFullHistoryBase({kind:'full-room-prefix-v2',roomId:scope.roomId,boardEpoch:scope.boardEpoch,throughSeq:ops.length,operationCount:ops.length},prepared,scope)
+ expect(attachment.capabilities.map(c=>c.snapshot.rasterProfile)).toEqual([G,G]);expect(cold.size).toBe(0)
+})
+
+it('keeps the shared base-V2 gate mandatory for GenericSC pipe read and author roles',()=>{
+ for(const primaryImageSource of [undefined,false] as const)for(const source of ['incremental-inverse-gray-v2','random-inverse-gray-v2'] as const){
+  expect(()=>new CanonicalRoomTransport({rasterProfile:G,alphaDarkenVariants:['creamy'],primaryImageSource,allowedRecordedImagePipeSources:[source]})).toThrow('invalid explicit image pipe policy')
+  expect(()=>new CanonicalRoomTransport({rasterProfile:G,alphaDarkenVariants:['creamy'],primaryImageSource,allowedRecordedImagePipeSources:[source],authorImagePipeSources:[source]})).toThrow('invalid explicit image pipe policy')
+ }
 })
