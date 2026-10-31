@@ -3,7 +3,7 @@ import type {CanonicalRecordedInput} from '../../../engine'
 import type { ReplayGate, ReplayGateDelivery } from '../replayGate'
 import type { RefObject } from 'react'
 
-import { canonicalRecordedRasterProfiles, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation, type CanonicalRecordedReadScope,type CanonicalStrokeRasterProfile, type Operation, type ServerToClientEvents } from '@grafetto/shared'
+import { parseCanonicalStrokeCloseOperation,canonicalRecordedRasterProfiles, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation, type CanonicalRecordedReadScope,type CanonicalStrokeRasterProfile, type Operation, type ServerToClientEvents } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../../engine'
 import { useRoomStore } from '../../../stores/roomStore'
@@ -53,7 +53,7 @@ export interface ConfirmedStreamDeps {
 type ScopeOwner=NonNullable<ConfirmedStreamDeps['canonicalReadScope']>
 type CapturedScope=ScopeOwner&{readonly allowedRasterProfiles:readonly CanonicalStrokeRasterProfile[]}
 const replayAuthority:unique symbol=Symbol('canonical-confirmed-replay-lifetime')
-type HeldCanonicalPayload=ConfirmedPayload&{readonly [replayAuthority]?:(candidate:unknown,owner:ScopeOwner|undefined,policy:CapturedScope|undefined)=>{readonly read:NonNullable<CanonicalRead>;readonly recorded?:CanonicalRecordedInput}|undefined}
+type HeldCanonicalPayload=ConfirmedPayload&{readonly [replayAuthority]?:(candidate:unknown,owner:ScopeOwner|undefined,policy:CapturedScope|undefined)=>{readonly read:CanonicalRead;readonly recorded?:CanonicalRecordedInput}|undefined}
 
 /** (#493) `operation_confirmed` — the room's one ordered stream of what
  *  happened, for every operation including this client's own. Out of Room's
@@ -99,28 +99,28 @@ export function createConfirmedStreamHandler({
     }
     const { seq } = payload
     let op = payload.operation, acceptedPayload = payload
-    // Until a recorded-prefix seal owner is paired, never let wire close
-    // metadata reach review state, a held queue, cursors or the renderer.
-    if ((op.type as string) === 'canonical_stroke_close') { requestFullResync(); return }
+    const close=op.type==='canonical_stroke_close'
     // Nothing, including review state and the existing replay queue, sees an
     // invalid or stale capability. Expected epoch comes from room-state scope.
     if (canonicalReadScope && !canonicalReadScope.isCurrent()) return
-    if (!read&&(payload.canonicalCapabilities !== undefined || canonicalReadScope && op.type === 'canonical_stroke')) {
+    if (!recorded&&!read&&(close||payload.canonicalCapabilities !== undefined || canonicalReadScope && op.type === 'canonical_stroke')) {
       try {
-        if (!canonicalReadScope || op.type !== 'canonical_stroke' || op.seq !== seq) throw new TypeError('Missing canonical recorded read scope')
-        const prepared = prepareCanonicalRecordedAttachment(payload.canonicalCapabilities, [op], canonicalReadScope)[0]
+        if (!canonicalReadScope || op.seq !== seq) throw new TypeError('Missing canonical recorded read scope')
+        if(close&&payload.canonicalCapabilities!==undefined)throw new TypeError('Close cannot carry frame capability')
+        if(!close&&op.type!=='canonical_stroke')throw new TypeError('Unsupported recorded operation')
+        const prepared:CanonicalPreparedRecordedOperation=close?{operation:parseCanonicalStrokeCloseOperation(op)}:prepareCanonicalRecordedAttachment(payload.canonicalCapabilities, [op], canonicalReadScope)[0]
         const local=attachCanonicalRecordedDelivery(prepared,readScope!)
         if('delivery' in local)recorded=local
         read = prepared.read
-        if (!read || !canonicalReadScope.isCurrent()) return
+        if ((!close&&!read)||!recorded||!canonicalReadScope.isCurrent())throw new TypeError('Missing original canonical delivery')
         op = prepared.operation
         const originalRead=read,originalRecorded=recorded,origin=canonicalReadScope,owner=readScope
         let accepted:HeldCanonicalPayload
-        accepted = Object.freeze({ seq, operation: op, canonicalCapabilities: Object.freeze({
+        accepted = Object.freeze({ seq, operation: op, ...read?{canonicalCapabilities: Object.freeze({
           version: 1 as const, roomId: read.roomId, boardEpoch: read.boardEpoch,
           capabilities: Object.freeze([read.capability]), bindings: Object.freeze([Object.freeze({
             operationId: read.operationId, sequence: read.sequence,
-            originalUserId: read.capability.originalUserId, capability: 0 })]) }),
+            originalUserId: read.capability.originalUserId, capability: 0 })]) })}:{},
           [replayAuthority]:(candidate:unknown,currentOwner:ScopeOwner|undefined,policy:CapturedScope|undefined)=>{
             if(candidate!==accepted||currentOwner!==owner||!origin.isCurrent()||!policy
               ||policy.roomId!==origin.roomId||policy.boardEpoch!==origin.boardEpoch||policy.isCurrent!==origin.isCurrent
@@ -135,8 +135,8 @@ export function createConfirmedStreamHandler({
       }
     }
     if(recorded){try{recorded.delivery.assertCurrent(recorded)}catch{requestFullResync();return}}
-    const scopedCanonical=op.type==='canonical_stroke'&&(read!==undefined||recorded!==undefined||canonicalReadScope!==undefined)
-    if(scopedCanonical&&(!read||!recorded||recorded.operation!==op||recorded.read!==read)){
+    const scopedCanonical=(op.type==='canonical_stroke'||close)&&(read!==undefined||recorded!==undefined||canonicalReadScope!==undefined)
+    if(scopedCanonical&&(!recorded||recorded.operation!==op||recorded.read!==read||(close?read!==undefined:!read))){
       requestFullResync();return
     }
     if(!scopedCanonical)useRoomStore.getState().observeReviewOperation({ ...op, seq })

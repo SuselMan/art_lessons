@@ -72,15 +72,17 @@ export function useRemoteOperations({
       let added=false
       try{
         const engine=engineRef.current
-        if(op.type!=='canonical_stroke'||!engine||!canonicalRecorded||!read||!recorded
-          ||recorded.operation!==op||recorded.read!==read)throw new Error('Original canonical recorded receiver unavailable')
+        if(!engine||!canonicalRecorded||!recorded
+          ||recorded.operation!==op||recorded.read!==read
+          ||(op.type==='canonical_stroke'?!read:read!==undefined)
+          ||!Number.isSafeInteger(op.seq)||op.seq!<1)throw new Error('Original canonical recorded receiver unavailable')
         recorded.delivery.assertCurrent(recorded)
         if(engineRef.current!==engine)throw new Error('Canonical receiver engine changed')
         if(appliedOpIdsRef.current.has(op.id))return true
         canonicalRecorded.apply(engine,recorded)
         if(engineRef.current!==engine)throw new Error('Canonical receiver engine changed')
         appliedOpIdsRef.current.add(op.id);added=true
-        noteOperationSeq(op,read.sequence)
+        noteOperationSeq(op,op.seq!)
         return true
       }catch{
         if(added)appliedOpIdsRef.current.delete(op.id)
