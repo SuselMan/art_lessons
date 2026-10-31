@@ -1,5 +1,5 @@
 import {expect,it,vi} from 'vitest'
-import {sourceAutoGeometry,canonicalSoftAutoSourcePin,buildCanonicalMaterial,CANONICAL_STROKE_RASTER_PROFILE,type CanonicalStrokeOperation,type CanonicalStrokeSnapshotV2,type CanonicalRecordedAttachmentV1,type Operation} from '@grafetto/shared'
+import {sourceAutoGeometry,canonicalSoftAutoSourcePin,buildCanonicalMaterial,CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type CanonicalStrokeOperation,type CanonicalStrokeSnapshotV2,type CanonicalRecordedAttachmentV1,type Operation} from '@grafetto/shared'
 import {createConfirmedStreamHandler,type ConfirmedStreamEngine} from './confirmedStream'
 import {createPendingPreviews} from './pendingPreviews'
 import {createReplayGate} from '../replayGate'
@@ -89,4 +89,13 @@ it('captures immutable room-state fields instead of reading a later mutated call
  confirm(s.payload)
  expect(s.deps.applyRemoteOp).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({boardEpoch:2}))
  expect(s.deps.requestFullResync).not.toHaveBeenCalled()
+})
+
+it('captures the receiver allowset before caller mutation and rejects ambiguous policy',()=>{
+ const s=current(),profiles=[CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]
+ const confirm=createConfirmedStreamHandler({...s.deps,canonicalReadScope:{...s.scope,allowedRasterProfiles:profiles}})
+ profiles.splice(0,1)
+ confirm(s.payload)
+ expect(s.deps.applyRemoteOp).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}))
+ expect(()=>createConfirmedStreamHandler({...s.deps,canonicalReadScope:{...s.scope,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,allowedRasterProfiles:profiles}})).toThrow()
 })

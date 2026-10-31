@@ -1,6 +1,6 @@
 import type { RefObject } from 'react'
 
-import { prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation, type CanonicalRecordedReadScope, type Operation, type ServerToClientEvents } from '@grafetto/shared'
+import { canonicalRecordedRasterProfiles, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation, type CanonicalRecordedReadScope, type Operation, type ServerToClientEvents } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../../engine'
 import { useRoomStore } from '../../../stores/roomStore'
@@ -63,7 +63,7 @@ export function createConfirmedStreamHandler({
 }: ConfirmedStreamDeps): ServerToClientEvents['operation_confirmed'] {
   const canonicalReadScope = readScope ? Object.freeze({
     roomId: readScope.roomId, boardEpoch: readScope.boardEpoch,
-    ...(readScope.rasterProfile === undefined ? {} : { rasterProfile: readScope.rasterProfile }),
+    allowedRasterProfiles: canonicalRecordedRasterProfiles(readScope),
     isCurrent: readScope.isCurrent,
   }) : undefined
   // (#289 §7/§11 — reliable history spec v0.2) Renamed from

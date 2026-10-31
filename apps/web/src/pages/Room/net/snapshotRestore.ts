@@ -2,11 +2,12 @@ import { notifyError } from '../../../stores/noticeStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
 import { translate } from '../../../i18n/core/translate'
 import { prepareBrushPresets } from '../../../lib/api/brushLibrary'
-import { isLayerStateShape, isRasterPixelEncoding, type RasterPixelEncoding, type LayerState, type Operation, type SnapshotIndex } from '@grafetto/shared'
+import { isLayerStateShape, isRasterPixelEncoding, type RasterPixelEncoding, type LayerState, type Operation, type SnapshotIndex, type CanonicalPreparedRecordedOperation } from '@grafetto/shared'
 
 import { api, ApiError, apiPath } from '../../../lib/api/api'
 import { decodeLayerTiles, decompressLayerTiles, type SnapshotTile } from '../../../engine/snapshots'
 import { assertStructuralSnapshotBase } from './structuralSnapshotBase'
+import { prepareCanonicalHistoryPage, captureCanonicalHistoryScope, assertCanonicalHistoryCurrent, CanonicalHistoryReadError, type CanonicalHistoryScope, type PreparedHistoryPage } from './canonicalHistoryPage'
 
 /** What a restore reports back once every layer has been handed over: the room
  *  seq it reached and the layer tree it was baked against. The pixels are not
@@ -28,6 +29,9 @@ export interface SnapshotRestoreSink {
   /** Destination encoding pinned by the authoritative room/engine, never by blob tags.
    * Omitted only for legacy callers; production always passes it explicitly. */
   expectedPixelEncoding?: RasterPixelEncoding
+  /** Explicit scoped receiver, required for capability-bearing history. */
+  canonicalRead?: CanonicalHistoryScope
+  restoreCanonicalHistory?: (prepared: readonly CanonicalPreparedRecordedOperation[], replayStructure?: boolean) => Promise<void>
   /** Called once, after every blob has arrived and before any pixels are
    *  applied, so the layers exist to receive them. */
   beginLayers: (layerState: LayerState, replayStructure?: boolean) => void
@@ -271,6 +275,9 @@ export async function restoreLatestSnapshot(
   const appliedLayerIds: string[] = []
   const sleep = options.sleep ?? realSleep
   try {
+    const historyScope = captureCanonicalHistoryScope(sink.canonicalRead)
+    assertCanonicalHistoryCurrent(historyScope)
+    if (historyScope && !sink.restoreCanonicalHistory) throw new CanonicalHistoryReadError()
     const requestedEncoding = sink.expectedPixelEncoding
     const expectedEncoding = requestedEncoding === undefined ? 'premultiplied-rgba8' : requestedEncoding
     if (!isRasterPixelEncoding(expectedEncoding)) throw new TypeError('Unsupported expected snapshot pixel encoding')
@@ -298,7 +305,20 @@ export async function restoreLatestSnapshot(
     plan = body.layers.map(layer => ({ layerId: layer.layerId, seq: layer.seq, bytes: 0 }))
 
     const dependencyHistory: Operation[] = []
-    if (sink.restoreHistory) {
+    const preparedDependencyHistory: CanonicalPreparedRecordedOperation[] = []
+    const restoreDependencyHistory = async (replayStructure?: boolean) => {
+      assertCanonicalHistoryCurrent(historyScope)
+      if (historyScope) {
+        if (replayStructure === undefined) await sink.restoreCanonicalHistory!(preparedDependencyHistory)
+        else await sink.restoreCanonicalHistory!(preparedDependencyHistory, replayStructure)
+      }
+      else {
+        if (!sink.restoreHistory) throw new Error('Structural history restore is unavailable')
+        if (replayStructure === undefined) await sink.restoreHistory(dependencyHistory)
+        else await sink.restoreHistory(dependencyHistory, replayStructure)
+      }
+    }
+    if (sink.restoreHistory || historyScope) {
       const coverage = new Map(body.layers.map(layer => [layer.layerId, layer.seq]))
       // Each bitmap covers its own layer, not the structural watermark.
       // A quiet layer can have an older checkpoint forever; room_state
@@ -311,17 +331,19 @@ export async function restoreLatestSnapshot(
       if (missing.length) {
         let cursor = body.seq + 1 // inclusive snapshot structural boundary
         while (cursor > 0) {
-          const page = await withRetry<Operation[]>(async () => {
+          const fetched = await withRetry<PreparedHistoryPage>(async () => {
             try {
-              return { ok: true, value: await fetchBrushHistory(roomId, { beforeSeq: cursor, limit: HISTORY_PAGE_LIMIT, layerIds: missing.join(',') }) }
+              return { ok: true, value: await fetchBrushHistory(roomId, { beforeSeq: cursor, limit: HISTORY_PAGE_LIMIT, layerIds: missing.join(',') }, historyScope) }
             } catch (error) {
-              return { ok: false, retriable: !(error instanceof ApiError) || isRetriableStatus(error.status), error }
+              return { ok: false, retriable: !(error instanceof CanonicalHistoryReadError) && (!(error instanceof ApiError) || isRetriableStatus(error.status)), error }
             }
           }, sleep)
+          const page = Array.isArray(fetched) ? fetched : fetched.operations
           if (!page.length) break
           const oldest = page[0].seq ?? 0
           if (oldest >= cursor) throw new Error('snapshot dependency history cursor did not advance')
           dependencyHistory.unshift(...page)
+          if (historyScope) preparedDependencyHistory.unshift(...(Array.isArray(fetched) ? fetched.map(operation => Object.freeze({ operation })) : fetched.prepared))
           cursor = oldest
         }
       }
@@ -342,11 +364,11 @@ export async function restoreLatestSnapshot(
     // network already has — so this is the last moment where "restore nothing"
     // is still available, and where the layers must be created before pixels
     // can be put into them.
+    assertCanonicalHistoryCurrent(historyScope)
     stage = 'apply'
     sink.beginLayers(layerState, body.replayStructure)
     if (body.replayStructure) {
-      if (!sink.restoreHistory) throw new Error('Structural history restore is unavailable')
-      await sink.restoreHistory(dependencyHistory, true)
+      await restoreDependencyHistory(true)
     }
 
     for (let i = 0; i < body.layers.length; i++) {
@@ -362,13 +384,14 @@ export async function restoreLatestSnapshot(
       // thing at the end of this iteration a real release rather than a
       // hopeful one.
       const decoded = decodeLayerTiles(raw, 0, expectedEncoding)
+      assertCanonicalHistoryCurrent(historyScope)
       sink.applyLayer(layer.layerId, decoded.tiles, layer.seq, decoded.pixelEncoding)
       appliedLayerIds.push(layer.layerId)
     }
 
     // Structural buffers must exist before blobs, but a retained earlier
     // source snapshot must precede replay of its later dependency pixels.
-    if (dependencyHistory.length) await sink.restoreHistory!(dependencyHistory)
+    if (dependencyHistory.length) await restoreDependencyHistory()
     return { status: 'restored', head: { seq: body.seq, layerState, ...(body.replayStructure ? { replayStructure: true as const } : {}) }, plan }
   } catch (error) {
     return { status: 'failed', stage, plan, appliedLayerIds, error }
@@ -387,13 +410,16 @@ export const HISTORY_PAGE_LIMIT = 500
  *  doesn't need to: giving up early just means this client's own
  *  undo/redo coverage for very old operations stays incomplete, a
  *  best-effort gap, not a correctness bug (see Room's own deferred-queue
- *  handling for operations that target something backfill hasn't reached). */
+ *  handling for operations that target something backfill hasn't reached).
+ *  Scoped canonical pages instead fail closed; missing authority cannot mean
+ *  a successful end of history. */
 export async function fetchHistoryPage(
-  roomId: string, beforeSeq: number, limit = HISTORY_PAGE_LIMIT,
-): Promise<Operation[]> {
+  roomId: string, beforeSeq: number, limit = HISTORY_PAGE_LIMIT, scope?: CanonicalHistoryScope,
+): Promise<PreparedHistoryPage> {
   try {
-    return await fetchBrushHistory(roomId, { beforeSeq, limit })
-  } catch {
+    return await fetchBrushHistory(roomId, { beforeSeq, limit }, captureCanonicalHistoryScope(scope))
+  } catch (error) {
+    if (error instanceof CanonicalHistoryReadError || scope) throw error instanceof CanonicalHistoryReadError ? error : new CanonicalHistoryReadError(error)
     return []
   }
 }
@@ -410,21 +436,30 @@ export async function fetchHistoryPage(
  *  instead of over-fetching a full page and discarding most of it.
  *
  *  Injectable `fetchPage` is a test seam only — production callers use the
- *  default. Never throws: fetchHistoryPage already swallows its own errors
- *  into an empty page, which ends the walk. */
+ *  default. Legacy request failures end the walk with an empty page; canonical
+ *  read failures propagate without calling either sink. */
 export async function walkHistoryBackward(
   roomId: string,
   fromSeq: number,
   depth: number,
   onPage: (page: Operation[]) => void,
   fetchPage: typeof fetchHistoryPage = fetchHistoryPage,
+  canonical?: { readonly scope: CanonicalHistoryScope; readonly onPage: (prepared: readonly CanonicalPreparedRecordedOperation[]) => void },
 ): Promise<void> {
+  const scope = captureCanonicalHistoryScope(canonical?.scope)
   const floor = Math.max(0, fromSeq - depth)
   let cursor = fromSeq
   while (cursor > floor) {
-    const page = await fetchPage(roomId, cursor, Math.min(HISTORY_PAGE_LIMIT, cursor - floor))
+    assertCanonicalHistoryCurrent(scope)
+    const fetched = await fetchPage(roomId, cursor, Math.min(HISTORY_PAGE_LIMIT, cursor - floor), scope)
+    assertCanonicalHistoryCurrent(scope)
+    const page = Array.isArray(fetched) ? fetched : fetched.operations
     if (page.length === 0) return
-    onPage(page)
+    if (Array.isArray(fetched)) onPage(fetched)
+    else {
+      if (!canonical) throw new CanonicalHistoryReadError()
+      canonical.onPage(fetched.prepared)
+    }
     const oldest = page[0].seq ?? 0
     // A page whose oldest entry isn't actually below the cursor would loop
     // forever (a server that ignored beforeSeq, or seq-less rows). Stopping
@@ -435,13 +470,19 @@ export async function walkHistoryBackward(
 }
 
 /** Replay/undo can reach older presets absent from the join tail. */
-async function fetchBrushHistory(roomId: string, query: { beforeSeq: number; limit?: number; layerIds?: string }): Promise<Operation[]> {
-  const operations = await api('GET /api/rooms/:roomId/operations', { params: { roomId }, query })
+async function fetchBrushHistory(roomId: string, query: { beforeSeq: number; limit?: number; layerIds?: string }, scope?: CanonicalHistoryScope): Promise<PreparedHistoryPage> {
+  const captured = captureCanonicalHistoryScope(scope)
+  let response: unknown
+  try { response = await api('GET /api/rooms/:roomId/operations', { params: { roomId }, query }) }
+  catch (error) { if (captured) throw new CanonicalHistoryReadError(error); throw error }
+  const page = prepareCanonicalHistoryPage(response, roomId, captured)
+  const operations = Array.isArray(page) ? page : page.operations
   try {
     await prepareBrushPresets(operations.map(op => op.type === 'stroke' ? op.preset : undefined))
   } catch (error) {
     notifyError(translate(useSettingsStore.getState().locale, 'brushLibrary.error'), { key: 'brush-library-history', durationMs: null })
     throw error
   }
-  return operations
+  assertCanonicalHistoryCurrent(captured)
+  return page
 }
