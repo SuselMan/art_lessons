@@ -189,3 +189,73 @@ it('an older actual restore cannot release a newer restore gate or publish failu
   expect(next.syncFromLogNow).toHaveBeenCalledOnce();expect(resume).toHaveBeenCalledTimes(2)
  }finally{resolveA();resolveB();engine.destroy()}
 })
+
+import {sourceAutoGeometry,canonicalSoftAutoSourcePin,buildCanonicalMaterial,CANONICAL_STROKE_RASTER_PROFILE,type CanonicalStrokeOperation,type CanonicalStrokeSnapshotV2,type CanonicalRecordedAttachmentV1,type ServerToClientEvents} from '@grafetto/shared'
+import {prepareCanonicalRoomState} from './net/canonicalRoomState'
+function baseFixture(){
+ const curve={text:'0,1;1,0',points:[{x:0,y:1,corner:false},{x:1,y:0,corner:false}]}
+ const primarySource=canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:0,descriptorId:'soft',descriptorVersion:1,descriptorSha256:'a'.repeat(64),source:{kind:'softAuto',generator:'soft',shape:'circle',diameter:8,ratio:1,horizontalFade:1,verticalFade:1,antialias:false,spikes:2,randomness:0,density:1,softnessCurve:curve},brushScale:1,brushAngle:0,coverageProfile:'neon64-f32-fma-v1',reader:'krita-bd6e8d0-v1',compilerProfile:'eigen-5.0.1-mapped-arm64-f64-v3',buildId:'b'.repeat(64),radialCurve:{source:curve,coefficients:[[0,0,-1,1]]}})
+ const material={version:2 as const,assets:[],primarySource,budget:{workUnits:10000,outputBytes:40000,drawPixels:10000}}
+ const snapshot:CanonicalStrokeSnapshotV2={layerId:'L',brush:'brush:soft@1',strokeId:'S',boardEpoch:2,descriptorSha256:'a'.repeat(64),rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,pigmentRgb8:[1,2,3],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'},assets:[],materialVersion:2,material}
+ const geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:8,ratio:1,spikes:2,scale:1,angle:0},{scale:1,ratio:1,rotation:0},0,0)
+ const recipe={kind:'softAuto' as const,sourceSlot:0 as const,source:primarySource.source,coverageProfile:primarySource.coverageProfile,brushScale:1,brushAngle:0,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:geometry.maskSize[0],height:geometry.maskSize[1],mirrorH:false,mirrorV:false}
+ const packed=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:0,y:0,opacity:1,flow:1}],fences:[{at:0,kind:'segmentBegin',group:0},{at:1,kind:'primaryEnd',group:0},{at:1,kind:'segmentEnd',group:0},{at:1,kind:'gestureEnd'}]},material).packed
+ const op:CanonicalStrokeOperation={id:'op',userId:'author',timestamp:0,seq:3,type:'canonical_stroke',layerId:'L',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:snapshot.brush,strokeId:'S',frameOrdinal:0,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
+ const attachment:CanonicalRecordedAttachmentV1={version:1,roomId:'room',boardEpoch:2,capabilities:[{originalUserId:'author',snapshot}],bindings:[{operationId:'op',sequence:3,originalUserId:'author',capability:0}]}
+ return {attachment,op,expected:{roomId:'room',boardEpoch:2}}
+}
+function baseState(){
+ const f=baseFixture()
+ const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:64,canvasHeight:64,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[f.op],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:f.expected,canonicalCapabilities:f.attachment}
+ return {state,f}
+}
+
+function emptyRestoreFixture(empty=false){
+ const {state:s,f}=baseState();let current=true
+ s.tailOperations=empty?[]:[{...f.op,seq:1},{...f.op,id:'other-op',seq:2,userId:'other',frame:{...f.op.frame,strokeId:'other-stroke'}}]
+ if(empty)s.canonicalCapabilities=undefined
+ else s.canonicalCapabilities={...f.attachment,capabilities:[f.attachment.capabilities[0],{originalUserId:'other',snapshot:{...f.attachment.capabilities[0].snapshot,strokeId:'other-stroke'}}],bindings:[{operationId:'op',sequence:1,originalUserId:'author',capability:0},{operationId:'other-op',sequence:2,originalUserId:'other',capability:1}]}
+ s.canonicalHistoryBase={kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:2,throughSeq:s.tailOperations.length,operationCount:s.tailOperations.length}
+ const prepared=prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>current})
+ const engine=createTestEngine({userId:'reader'},{width:8,height:8}).engine
+ const sink=vi.fn(async()=>{})
+ const deps:RestoreRoomStateDeps={boardId:'room',restoreFromSnapshot:vi.fn(),backfillHistory:vi.fn(),applyRemoteOp:vi.fn(),restoreCanonicalEmptyRoom:sink,syncFromLogNow:vi.fn(),markJoinRestoreDone:vi.fn(),dispatchParticipants:vi.fn(),setRestoreFailure:vi.fn(),setRoomContentReady:vi.fn(),finishOpenTimer:vi.fn(),notifyReplayIncomplete:vi.fn(),getSnapshotUploader:vi.fn(()=>null),latestKnownSeqRef:{current:0},replayIncompleteRef:{current:false},pendingPreviewsRef:{current:createPendingPreviews()},openTimerRef:{current:null},replayGate:createReplayGate()}
+ return{prepared,engine,deps,sink,expire:()=>{current=false}}
+}
+it.each([false,true])('hands the full original baseline to one transaction, including empty=%s',async empty=>{
+ const f=emptyRestoreFixture(empty),preload=vi.spyOn(f.engine,'preloadImages'),unpainted=vi.spyOn(f.engine,'setUnpaintedInBatch')
+ try{await restoreRoomState(f.engine,f.prepared,{mode:'join',alreadyHadSeq:0},f.deps)
+ expect(f.sink).toHaveBeenCalledExactlyOnceWith(f.engine,f.prepared.canonicalRead,f.prepared.tailOperations)
+ expect(preload).not.toHaveBeenCalled();expect(unpainted).not.toHaveBeenCalled();expect(f.deps.applyRemoteOp).not.toHaveBeenCalled()
+ expect(f.deps.latestKnownSeqRef.current).toBe(empty?0:2);expect(f.deps.setRoomContentReady).toHaveBeenCalledWith(true)
+ expect(f.deps.getSnapshotUploader).not.toHaveBeenCalled()
+ }finally{f.engine.destroy()}
+})
+it.each(['stale','throw','superseded'] as const)('fails whole canonical baseline restore after %s transaction without readiness/cursor',async kind=>{
+ const f=emptyRestoreFixture(),suspend=vi.spyOn(f.engine,'suspendDisplay'),resume=vi.spyOn(f.engine,'resumeDisplay')
+ f.sink.mockImplementation(async()=>{await Promise.resolve();if(kind==='stale')f.expire();if(kind==='throw')throw Error('transaction failed');if(kind==='superseded')f.deps.replayGate.begin()})
+ try{await restoreRoomState(f.engine,f.prepared,{mode:'join',alreadyHadSeq:0},f.deps)
+ expect(f.deps.syncFromLogNow).not.toHaveBeenCalled();expect(f.deps.latestKnownSeqRef.current).toBe(0);expect(f.deps.setRoomContentReady).not.toHaveBeenCalledWith(true)
+ expect(suspend).toHaveBeenCalledTimes(1);expect(resume).toHaveBeenCalledTimes(1)
+ }finally{f.engine.destroy()}
+})
+
+it.each(['sink','engine','snapshot','catchup','cursor','pending','copy','stale'] as const)('rejects invalid full-baseline %s before any restore side effect',async kind=>{
+ const f=emptyRestoreFixture(),begin=vi.spyOn(f.deps.replayGate,'begin'),suspend=vi.spyOn(f.engine,'suspendDisplay'),remove=vi.spyOn(f.deps.pendingPreviewsRef.current,'remove')
+ const state=kind==='copy'?{...f.prepared,tailOperations:[...f.prepared.tailOperations]}:kind==='snapshot'?{...f.prepared,latestSnapshotSeq:1}:f.prepared
+ if(kind==='sink')f.deps.restoreCanonicalEmptyRoom=undefined
+ if(kind==='pending')f.deps.pendingPreviewsRef.current.add('pending',3)
+ if(kind==='stale')f.expire()
+ try{await expect(restoreRoomState(kind==='engine'?null:f.engine,state,{mode:kind==='catchup'?'catchup':'join',alreadyHadSeq:kind==='cursor'?1:0},f.deps)).rejects.toThrow()
+ expect(begin).not.toHaveBeenCalled();expect(suspend).not.toHaveBeenCalled();expect(remove).not.toHaveBeenCalled();expect(f.sink).not.toHaveBeenCalled()
+ expect(f.deps.dispatchParticipants).not.toHaveBeenCalled();expect(f.deps.setRoomContentReady).not.toHaveBeenCalled();expect(f.deps.latestKnownSeqRef.current).toBe(0)
+ }finally{f.engine.destroy()}
+})
+it('rechecks the original baseline owner after replay drain callbacks before publishing readiness',async()=>{
+ const f=emptyRestoreFixture()
+ f.deps.replayGate.setHandler(()=>f.expire())
+ f.sink.mockImplementation(async()=>{f.deps.replayGate.hold('held')})
+ try{await restoreRoomState(f.engine,f.prepared,{mode:'join',alreadyHadSeq:0},f.deps)
+ expect(f.deps.syncFromLogNow).not.toHaveBeenCalled();expect(f.deps.latestKnownSeqRef.current).toBe(0);expect(f.deps.setRoomContentReady).not.toHaveBeenCalledWith(true)
+ }finally{f.engine.destroy()}
+})

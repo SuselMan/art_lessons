@@ -44,6 +44,9 @@ export interface RestoreRoomStateDeps {
   restoreFromSnapshot: (engine: PencilEngineAPI, boardId: string,canonicalRead?:CanonicalRoomStateRead) => Promise<SnapshotRestoreOutcome['status']>
   backfillHistory: (boardId: string, engine: PencilEngineAPI, fromSeq: number,canonicalRead?:CanonicalRoomStateRead) => Promise<void>
   applyRemoteOp: (op: Operation) => void
+  /** Full original baseline transaction; engine independently rejects pending/live
+   * resources until reconciliation exists. Never implement as an atom loop. */
+  restoreCanonicalEmptyRoom?: (engine:PencilEngineAPI,read:CanonicalRoomStateRead,originalTail:readonly Operation[])=>Promise<void>
   applyCanonicalOp?: (atom:CanonicalPreparedRecordedOperation)=>void
   restoreCanonicalHistory?: (atoms:readonly CanonicalPreparedRecordedOperation[])=>Promise<void>
   syncFromLogNow: () => void
@@ -100,7 +103,12 @@ export async function restoreRoomState(
   const canonicalRead=state.canonicalRead
   const assertCurrent=()=>{if(canonicalRead)assertCanonicalRoomStateRead(canonicalRead,tailOperations,deps.boardId)}
   assertCurrent()
-  if(canonicalRead&&(!deps.applyCanonicalOp||!deps.restoreCanonicalHistory))throw Error('Canonical room restore sinks unavailable')
+  const canonicalEmpty=canonicalRead?.emptyHistoryBase!==undefined
+  if(canonicalEmpty){
+    canonicalRead!.assertEmptyHistoryBase(tailOperations)
+    if(!deps.restoreCanonicalEmptyRoom||!engine||latestSnapshotSeq!==null||mode!=='join'||alreadyHadSeq!==0||deps.pendingPreviewsRef.current.ids().length)throw Error('Canonical empty restore unavailable')
+  }
+  if(canonicalRead&&!canonicalEmpty&&(!deps.applyCanonicalOp||!deps.restoreCanonicalHistory))throw Error('Canonical room restore sinks unavailable')
   const openTimer = mode === 'join' ? deps.openTimerRef.current : null
 
   // (#533) Read by the `finally` below: a restore that brought back nothing
@@ -172,6 +180,11 @@ export async function restoreRoomState(
     openTimer?.note({ restoredFromSnapshot })
     openTimer?.stage('replay')
 
+    let failed=0
+    if(canonicalEmpty){
+      await deps.restoreCanonicalEmptyRoom!(engine!,canonicalRead!,tailOperations)
+      assertCurrent()
+    }else{
     // Dependency history may precede the restored structural watermark. Seed
     // that inclusive prefix before redo/undo in the tail; appending it would
     // revoke strokes on consumed source layers and double-apply old structure.
@@ -195,7 +208,6 @@ export async function restoreRoomState(
     // throws used to abandon every operation after it — and in the real case
     // that produced this guard (a GL allocation failing part way through a
     // 2001-operation room) the ones after it were the overwhelming majority.
-    let failed = 0
     const applyOne = (op: Operation): void => {
       assertCurrent()
       try {
@@ -248,6 +260,7 @@ export async function restoreRoomState(
       engine?.setUnpaintedInBatch(null)
     }
 
+    }
     if (failed > 0) {
       // (#480) The exception already went to Sentry, but not its consequence:
       // from here to the end of the mount this client may not bake snapshots,
@@ -263,6 +276,7 @@ export async function restoreRoomState(
     }
     assertCurrent()
     if (!deps.replayGate.end(replayTicket)) throw supersededReplay
+    if(canonicalEmpty)assertCurrent()
     displaySuspended = false
     engine?.resumeDisplay()
     // (#386) Now, not on the next microtask: the bootstrap below reads the
@@ -294,7 +308,7 @@ export async function restoreRoomState(
     // snapshot at the real current watermark; useSnapshotPublishing retries
     // refused wet/pending layers after they become publishable. The ordinary
     // cadence path below still refuses rounding a113 picture down to100.
-    const uploader = deps.getSnapshotUploader()
+    const uploader = canonicalEmpty?null:deps.getSnapshotUploader()
     if (engine && latestSnapshotSeq === null && uploader) {
       uploader.requestFirstSnapshot()
       uploader.onSeqObserved(
