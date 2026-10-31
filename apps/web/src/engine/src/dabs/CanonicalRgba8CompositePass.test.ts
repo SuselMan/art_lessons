@@ -447,3 +447,35 @@ it('keeps standalone foreign sampler query/restore even when a source advertises
  expect(s.params.get(source.texture)?.get(s.gl.TEXTURE_MIN_FILTER)).toBe(s.gl.LINEAR);expect(s.params.get(source.texture)?.get(s.gl.TEXTURE_WRAP_S)).toBe(s.gl.REPEAT)
  expect(s.snapshot()).toEqual(before);s.pass.reset()
 })
+
+describe('explicit browser arithmetic in the existing composite pass',()=>{
+    const profile='browser-highp-rgba8-v1' as const;
+    it('prepares only ordinary browser kernels and preserves warm resources and GL state',()=>{
+        const s=setup(),before=s.snapshot();
+        s.pass.prepare({width:16,height:16,operations:['alphaDarkenBrowserFloat','overBrowserFloat']},s.companion);
+        const shaders=s.gl.shaderSource.mock.calls.map((call:unknown[])=>String(call[1])).join('\n');
+        expect(shaders).not.toMatch(/sourceFma|srgbTop|sourceF32Decompose/);
+        expect(shaders).toContain('sourceCompositeAlphaDarken32');expect(shaders).toContain('sourceCompositeOver32Scalar');
+        const programs=s.gl.createProgram.mock.calls.length,uploads=s.gl.texImage2D.mock.calls.length;
+        const target:CanonicalOwnedRgba8Target={...s.target,lifetime:{kind:'external',owner:{},lease:()=>()=>{}}};
+        for(const variant of ['creamy','hard'] as const){
+            expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[198,36,90]},target,
+                operation:{kind:'alphaDarkenBrowserFloat',control:{...control,profile,variant,mask:128}}})).toBe('painted');
+            expect(s.gl.uniform2f.mock.calls.filter((r:any[])=>r[0].name==='policy').at(-1).slice(1)).toEqual([variant==='hard'?1:0,1]);
+        }
+        expect(s.pass.drawSource({source:{kind:'maskRgb',view:s.view,rgb:[198,36,90]},target,
+            operation:{kind:'overBrowserFloat',control:{profile,opacity:.4}}})).toBe('painted');
+        expect(s.gl.uniform2f.mock.calls.filter((r:any[])=>r[0].name==='policy').at(-1).slice(1)).toEqual([0,0]);
+        expect(s.gl.createProgram).toHaveBeenCalledTimes(programs);expect(s.gl.texImage2D).toHaveBeenCalledTimes(uploads);
+        expect(s.snapshot()).toEqual(before);s.pass.reset();expect(s.cpu.reservedBytes).toBe(0);
+    });
+    it('does not accept native controls or unprepared native operations through the browser cache keys',()=>{
+        const s=setup();s.pass.prepare({width:16,height:16,operations:['alphaDarkenBrowserFloat','overBrowserFloat']},s.companion);
+        const target:CanonicalOwnedRgba8Target={...s.target,lifetime:{kind:'external',owner:{},lease:()=>()=>{}}};
+        const source={kind:'maskRgb' as const,view:s.view,rgb:[1,2,3] as const};
+        expect(()=>s.pass.drawSource({source,target,operation:{kind:'alphaDarkenBrowserFloat',control}} as unknown as CanonicalCompositeRequest)).toThrow('controls');
+        expect(()=>s.pass.drawSource({source,target,operation:{kind:'overBrowserFloat',control:{profile:'portable-f32-division-rne-v1',opacity:.4}}} as unknown as CanonicalCompositeRequest)).toThrow('profile');
+        expect(()=>s.pass.drawSource({source,target,operation:{kind:'alphaDarken32',control}})).toThrow();
+        expect(s.gl.drawArrays).not.toHaveBeenCalled();s.pass.reset();expect(s.cpu.reservedBytes).toBe(0);
+    });
+});

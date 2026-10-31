@@ -1,3 +1,4 @@
+import {CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE} from '@grafetto/shared';
 import { SOURCE_FUSED_OVER32_SCALAR_GLSL, prepareSourceFusedOver32ScalarControls } from '../raster/sourceFusedOver32ScalarShader';
 import { SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL, SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL } from '../raster/sourceRgba8CompositeWebGL1';
 import { canonicalizeSourceRgba8Control, canonicalizeSourceInstalledHsyControl } from '../raster/sourceRgba8CompositeShader';
@@ -68,6 +69,12 @@ export type CanonicalCompositeSource = {
     readonly view: CanonicalRgba8SourceView;
 };
 export type CanonicalCompositeOperation = {
+    readonly kind:'alphaDarkenBrowserFloat';
+    readonly control:Omit<SourceAlphaDarken32Control,'profile'> & {readonly profile:typeof CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE};
+} | {
+    readonly kind:'overBrowserFloat';
+    readonly control:Omit<SourceOver32ScalarControl,'profile'> & {readonly profile:typeof CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE};
+} | {
     /** Installed HSY float kernel; distinct from integer GenericSC admission. */
     readonly kind: 'colorHsyInstalled';
     readonly control: Extract<Rgba8CompositeControl, {readonly mode:'colorHsy'}> & {readonly profile:typeof SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE};
@@ -120,9 +127,9 @@ const borrowedRelease = () => { };
 function operationsFor(limits: CanonicalCompositeLimits): readonly CanonicalCompositeOperationKind[] {
     const operations = limits.operations ?? ['alphaDarken32'];
     if (!Array.isArray(operations) || !operations.length || operations.length > 3
-        || operations.some(kind => !['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8', 'colorHsyInstalled'].includes(kind)))
+        || operations.some(kind => !['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8', 'colorHsyInstalled', 'alphaDarkenBrowserFloat', 'overBrowserFloat'].includes(kind)))
         throw new RangeError('Invalid composite operations');
-    return (['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8', 'colorHsyInstalled'] as const).filter(kind => operations.includes(kind));
+    return (['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8', 'colorHsyInstalled', 'alphaDarkenBrowserFloat', 'overBrowserFloat'] as const).filter(kind => operations.includes(kind));
 }
 const whole = (n: number, minimum = 0) => Number.isSafeInteger(n) && n >= minimum;
 const rectValid = (r: {
@@ -148,11 +155,11 @@ export function canonicalRgba8CompositeBudget(limits: CanonicalCompositeLimits):
 const VERTEX = 'attribute highp vec2 position;void main(){gl_Position=vec4(position,0.0,1.0);}';
 /** One source/geometry template; only the selected numerical kernel is included. */
 function fragmentFor(kind: CanonicalCompositeOperationKind): string {
-    const kernel = kind === 'colorHsyInstalled' ? SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL : kind === 'genericSCU8' ? SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL : kind === 'alphaDarken32' ? SOURCE_ALPHA_DARKEN32_GLSL : kind === 'over32' ? SOURCE_OVER32_SCALAR_GLSL
+    const kernel = kind === 'colorHsyInstalled' ? SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL : kind === 'genericSCU8' ? SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL : (kind === 'alphaDarken32'||kind==='alphaDarkenBrowserFloat') ? SOURCE_ALPHA_DARKEN32_GLSL : (kind === 'over32'||kind==='overBrowserFloat') ? SOURCE_OVER32_SCALAR_GLSL
         : kind === 'alphaDarken32FusedScalar' ? SOURCE_FUSED_ALPHA_DARKEN32_SCALAR_GLSL : SOURCE_FUSED_OVER32_SCALAR_GLSL;
     const apply = kind === 'colorHsyInstalled' ? 'sourceCompositeInstalledHsyRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,true))' : kind === 'genericSCU8' ? 'sourceCompositeRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,true))'
-        : kind === 'alphaDarken32' ? 'sourceCompositeAlphaDarken32(source,destination,controls,policy)'
-        : kind === 'over32' ? 'sourceCompositeOver32Scalar(source,destination,controls.xw,policy)'
+        : (kind === 'alphaDarken32'||kind==='alphaDarkenBrowserFloat') ? 'sourceCompositeAlphaDarken32(source,destination,controls,policy)'
+        : (kind === 'over32'||kind==='overBrowserFloat') ? 'sourceCompositeOver32Scalar(source,destination,controls.xw,policy)'
         : kind === 'alphaDarken32FusedScalar' ? 'sourceCompositeFusedAlphaDarken32Scalar(source,destination,controls,policy,opacityParts,flowParts)'
         : 'sourceCompositeFusedOver32Scalar(source,destination,controls.xw,policy.y,opacityParts)';
     return `precision highp float;
@@ -455,9 +462,12 @@ export class CanonicalRgba8CompositePass {
                 gl.uniform4f(u.controls, prepared.values[0], 0, 0, prepared.values[1]);
                 gl.uniform2f(u.policy, 0, prepared.hasMask);
                 gl.uniform3f(u.opacityParts, ...prepared.opacityParts);
+            } else if(operation.kind==='alphaDarken32'||operation.kind==='alphaDarkenBrowserFloat') {
+                gl.uniform4f(u.controls,c.opacity,operation.control.averageOpacity,operation.control.flow,c.mask??0);
+                gl.uniform2f(u.policy,operation.control.variant==='hard'?1:0,c.mask===undefined?0:1);
             } else {
-                gl.uniform4f(u.controls, c.opacity, operation.kind === 'alphaDarken32' ? operation.control.averageOpacity : 0, operation.kind === 'alphaDarken32' ? operation.control.flow : 0, c.mask ?? 0);
-                gl.uniform2f(u.policy, operation.kind === 'alphaDarken32' ? (operation.control.variant === 'hard' ? 1 : 0) : (operation.control.profile === 'optimized32-neon64-scalar-frecpe-rne-v1' ? 1 : 0), c.mask === undefined ? 0 : 1);
+                gl.uniform4f(u.controls,c.opacity,0,0,c.mask??0);
+                gl.uniform2f(u.policy,operation.control.profile==='optimized32-neon64-scalar-frecpe-rne-v1'?1:0,c.mask===undefined?0:1);
             }
             gl.drawArrays(gl.TRIANGLES, 0, 6);
         }
@@ -579,13 +589,13 @@ export class CanonicalRgba8CompositePass {
                 || !['multiply', 'lighten', 'colorDodge', 'overlay'].includes(operation.control.mode))
                 throw new RangeError('Invalid GenericSC U8 profile or mode');
             validateRgba8CompositeControl(operation.control);
-        } else if (operation.kind === 'alphaDarken32' || operation.kind === 'alphaDarken32FusedScalar') {
+        } else if (operation.kind === 'alphaDarken32' || operation.kind === 'alphaDarken32FusedScalar'||operation.kind==='alphaDarkenBrowserFloat') {
             const a = operation.control;
-            if (a.profile !== (operation.kind === 'alphaDarken32' ? 'optimized32-scalar-f32-rne-v1' : 'installed-arm64-scalar-fused-fpcr0-v1') || !['creamy', 'hard'].includes(a.variant)
+            if (a.profile !== (operation.kind==='alphaDarkenBrowserFloat'?CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE:operation.kind === 'alphaDarken32' ? 'optimized32-scalar-f32-rne-v1' : 'installed-arm64-scalar-fused-fpcr0-v1') || !['creamy', 'hard'].includes(a.variant)
                 || ![a.averageOpacity, a.flow].every(v => Number.isFinite(v) && v >= 0 && v <= 1))
                 throw new RangeError('Invalid local alphaDarken32 controls');
         }
-        else if (operation.kind === 'over32FusedScalar' ? operation.control.profile !== 'installed-arm64-scalar-fused-fpcr0-v1' : operation.kind !== 'over32' || !['portable-f32-division-rne-v1', 'optimized32-neon64-scalar-frecpe-rne-v1'].includes(operation.control.profile))
+        else if (operation.kind==='overBrowserFloat'?operation.control.profile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE:operation.kind === 'over32FusedScalar' ? operation.control.profile !== 'installed-arm64-scalar-fused-fpcr0-v1' : operation.kind !== 'over32' || !['portable-f32-division-rne-v1', 'optimized32-neon64-scalar-frecpe-rne-v1'].includes(operation.control.profile))
             throw new RangeError('Invalid Over32 profile');
     }
     private clip(rect: TransformedMaskView['rect'], target: CanonicalStraightRgba8Target, bounds?: Readonly<WorldRect>): Clip | undefined {
