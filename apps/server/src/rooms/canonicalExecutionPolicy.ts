@@ -24,6 +24,8 @@ export function freezeCanonicalAutoPolicies(value:CanonicalAutoExecutionPolicies
 /** Execution config only. This does NOT open straight rooms or switch a renderer. */
 export interface CanonicalRoomExecutionPolicy {
  readonly primaryImageSource?:'single-inverse-gray-v2'|false
+ readonly allowedRecordedImagePipeSources?:readonly CanonicalImagePipeSource[]
+ readonly authorImagePipeSources?:readonly CanonicalImagePipeSource[]
  readonly fullHistoryFormat?:'frames-v1'|'mixed-v2'
  readonly rasterProfile?:CanonicalStrokeRasterProfile
  readonly authorRasterProfile?:CanonicalStrokeRasterProfile
@@ -56,4 +58,32 @@ export function freezeCanonicalPrimaryImagePolicy(value:CanonicalRoomExecutionPo
  if(value===undefined||value===false)return false
  if(value!=='single-inverse-gray-v2')throw TypeError('invalid explicit primary image execution policy')
  return value
+}
+
+export type CanonicalImagePipeSource='incremental-inverse-gray-v2'|'random-inverse-gray-v2'
+/** Server config only. Read permission never implicitly enables an author. */
+export function freezeCanonicalImagePipePolicies(value:Pick<CanonicalRoomExecutionPolicy,'primaryImageSource'|'allowedRecordedImagePipeSources'|'authorImagePipeSources'>):Readonly<{allowedRecordedImagePipeSources:readonly CanonicalImagePipeSource[];authorImagePipeSources:readonly CanonicalImagePipeSource[]}>{
+ const fail=():never=>{throw TypeError('invalid explicit image pipe policy')}
+ const list=(field:'allowedRecordedImagePipeSources'|'authorImagePipeSources'):readonly CanonicalImagePipeSource[]=>{
+  const descriptor=Object.getOwnPropertyDescriptor(value,field)
+  if(!descriptor){if(field in value)return fail();return Object.freeze([])}
+  if(!Object.hasOwn(descriptor,'value'))return fail()
+  const input:unknown=descriptor.value
+  if(input===undefined)return Object.freeze([])
+  if(!Array.isArray(input)||input.length>2)return fail()
+  const keys=Reflect.ownKeys(input)
+  if(keys.length!==input.length+1||keys.some(k=>typeof k!=='string'||k!=='length'&&!/^(0|[1-9][0-9]*)$/.test(k)))return fail()
+  const out:CanonicalImagePipeSource[]=[]
+  for(let i=0;i<input.length;i++){
+   const d=Object.getOwnPropertyDescriptor(input,String(i));if(!d||!Object.hasOwn(d,'value'))return fail()
+   const item:unknown=d.value
+   if(item!=='incremental-inverse-gray-v2'&&item!=='random-inverse-gray-v2'||out.includes(item))return fail()
+   out.push(item)
+  }
+  return Object.freeze(out)
+ }
+ const allowedRecordedImagePipeSources=list('allowedRecordedImagePipeSources'),authorImagePipeSources=list('authorImagePipeSources')
+ if((allowedRecordedImagePipeSources.length||authorImagePipeSources.length)&&value.primaryImageSource!=='single-inverse-gray-v2'
+  ||authorImagePipeSources.some(item=>!allowedRecordedImagePipeSources.includes(item)))return fail()
+ return Object.freeze({allowedRecordedImagePipeSources,authorImagePipeSources})
 }

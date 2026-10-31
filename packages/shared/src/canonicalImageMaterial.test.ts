@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import {expect,it,vi} from 'vitest'
 import {canonicalImageMaterialPin} from './canonicalImageMaterial.js'
 const source={kind:'image' as const,asset:'asset:'+'a'.repeat(64),brushScale:.05,brushAngle:0}
@@ -79,4 +80,35 @@ it('rejects accessor/hidden metadata array fields and allows the same asset iden
  expect(get).not.toHaveBeenCalled()
  expect(canonicalImageMaterialPin(source,[asset]).assets[0].x).toBe(53)
  expect(canonicalImageMaterialPin(source,[{...asset,x:54}]).assets[0].x).toBe(54)
+})
+
+import {readFileSync} from 'node:fs'
+import {isBrushLibrary} from './brushes.js'
+import {canonicalImagePipeSourceBinding,canonicalImageSourceBinding} from './canonicalImageMaterial.js'
+function originalPipe(name:'mountains'|'pencilRandom'){
+ const fixture=JSON.parse(readFileSync(new URL(`../../../apps/web/src/engine/src/presets/fixtures/sourceImagePipe/${name}.native.json`,import.meta.url),'utf8'))
+ const library:unknown={schemaVersion:1,brushes:[{descriptor:fixture.descriptor,name,source:'original-fixture',warnings:[]}],assets:fixture.assets.map((a:{id:string;size:number})=>({id:a.id,size:a.size,file:a.id.slice(6)+'.bin'})),skipped:[]}
+ if(!isBrushLibrary(library))throw Error('Invalid original fixture library')
+ return {descriptor:library.brushes[0].descriptor,assets:library.assets}
+}
+it.each(['mountains','pencilRandom'] as const)('binds verified original %s frame identities through the existing extractor without CAS authority',name=>{
+ const f=originalPipe(name),animation=f.descriptor.tip.animation
+ if(!animation)throw Error('Missing original animation')
+ const result=canonicalImagePipeSourceBinding(f.descriptor,f.assets)
+ expect(result.primarySource.frames).toEqual(animation.frames)
+ expect(result.primarySource.asset).toBe(animation.frames[0]);expect(result.assets.map(a=>a.id)).toEqual([...new Set(animation.frames)])
+ expect(result.primarySource.brushScale).toBe(f.descriptor.sourceStamp?.brush.scale)
+ expect(result.primarySource.brushAngle).toBe(f.descriptor.sourceStamp?.brush.angle)
+ expect(Object.isFrozen(result.primarySource.frames)).toBe(true)
+ expect(()=>canonicalImageSourceBinding(f.descriptor,f.assets[0])).toThrow()
+ expect(()=>canonicalImagePipeSourceBinding(f.descriptor,f.assets.slice(1))).toThrow()
+ expect(()=>canonicalImagePipeSourceBinding(f.descriptor,[...f.assets,f.assets[0]])).toThrow()
+})
+it('retains repeated pipe ordering with unique storage metadata and refuses unsupported selection modes',()=>{
+ const f=originalPipe('mountains'),tip=f.descriptor.tip,animation=tip.animation
+ if(!animation)throw Error('Missing animation')
+ const frames=[animation.frames[0],animation.frames[1],animation.frames[0]],descriptor={...f.descriptor,tip:{...tip,animation:{...animation,frames}}}
+ const result=canonicalImagePipeSourceBinding(descriptor,f.assets)
+ expect(result.primarySource.frames).toEqual(frames);expect(result.assets).toHaveLength(2)
+ expect(()=>canonicalImagePipeSourceBinding({...descriptor,tip:{...descriptor.tip,animation:undefined}},f.assets)).toThrow()
 })

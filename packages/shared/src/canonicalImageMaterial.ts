@@ -1,5 +1,5 @@
 import type {BrushDescriptor} from './brushes.js'
-import {extractCanonicalSinglePngCapability} from './canonicalBrushCapability.js'
+import {extractCanonicalSinglePngCapability,extractCanonicalIncrementalImagePipeCapability,extractCanonicalRandomImagePipeCapability} from './canonicalBrushCapability.js'
 import {buildCanonicalMaterial,canonicalImageFrameIds,CANONICAL_MATERIAL_LIMITS,type CanonicalMaterialImageSource,type CanonicalMaterialAsset} from './canonicalMaterialCodec.js'
 const fail=():never=>{throw new TypeError('Invalid canonical primary image material')}
 /** Closed OWN data capture before the existing codec validates numbers/geometry.
@@ -47,4 +47,21 @@ export function canonicalImageSourceBinding(descriptor:BrushDescriptor,asset:{re
  if(!result.supported)return fail()
  const c=result.capability
  return canonicalImageMaterialPin({kind:'image',asset:c.asset.id,brushScale:c.brushScale,brushAngle:c.brushAngle},[c.asset])
+}
+
+/** Structural pipe binding only; verified room origin/CAS/policy belong to caller.
+ * Original recipe assets already record selection: replay never runs the pipe. */
+export function canonicalImagePipeSourceBinding(descriptor:BrushDescriptor,available:readonly {readonly id:string;readonly size:number}[]):ReturnType<typeof canonicalImageMaterialPin>{
+ const animation=descriptor.tip.animation
+ if(!animation)return fail()
+ const result=animation.mode==='incremental'?extractCanonicalIncrementalImagePipeCapability(descriptor,available)
+  :animation.mode==='random'?extractCanonicalRandomImagePipeCapability(descriptor,available):undefined
+ if(!result?.supported)return fail()
+ const c=result.capability,frames=c.assets.map(a=>a.id),unique=new Map<string,CanonicalMaterialAsset>()
+ for(const asset of c.assets){
+  const previous=unique.get(asset.id)
+  if(previous&&(previous.size!==asset.size||previous.x!==asset.x||previous.y!==asset.y||previous.width!==asset.width||previous.height!==asset.height))return fail()
+  unique.set(asset.id,asset)
+ }
+ return canonicalImageMaterialPin({kind:'image',asset:frames[0],brushScale:c.brushScale,brushAngle:c.brushAngle,frames},[...unique.values()])
 }

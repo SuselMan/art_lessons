@@ -189,3 +189,22 @@ it('never turns retained mask data into an unsupported Over/erase/effect executi
     expect(f.board.operations).toEqual([]);expect(f.board.nextSeq).toBe(1)
   }
 })
+it('captures closed role lists without invoking array accessors or permitting a read-only policy to enable authors',()=>{
+ const f=fixture(),base={storage:f.storage,operator:empty,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,alphaDarkenVariants:['creamy'] as const,maxGestures:4,primaryImageSource:'single-inverse-gray-v2' as const}
+ const get=vi.fn(()=> 'incremental-inverse-gray-v2'),getter=Array(1);Object.defineProperty(getter,'0',{get})
+ for(const list of [getter,Array(1),Object.assign([],{[Symbol('x')]:0}),['unknown'],['incremental-inverse-gray-v2','incremental-inverse-gray-v2']]){
+  expect(()=>Reflect.construct(CanonicalBrushCapabilityResolver,[{...base,allowedRecordedImagePipeSources:list}])).toThrow('image pipe policy')
+ }
+ expect(get).not.toHaveBeenCalled()
+ expect(()=>new CanonicalBrushCapabilityResolver({...base,allowedRecordedImagePipeSources:[],authorImagePipeSources:['incremental-inverse-gray-v2']})).toThrow('image pipe policy')
+})
+it('keeps an original cached single-source pin when its operator catalog is removed or replaced',()=>{
+ const f=fixture();f.storage.atomic(f.storage.path('owners','author'),empty())
+ let operator=f.library
+ const binder=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:()=>operator,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,alphaDarkenVariants:['creamy'],maxGestures:4})
+ const first=binder.beginGesture(f.identity,f.input)
+ operator=empty();expect(binder.beginGesture(f.identity,f.input)).toBe(first)
+ operator={...f.library,brushes:f.library.brushes.map(b=>({...b,descriptor:{...b.descriptor,flow:.125}}))}
+ expect(binder.beginGesture(f.identity,f.input)).toBe(first)
+ expect(first.material).not.toBeUndefined();expect(binder.size).toBe(1)
+})

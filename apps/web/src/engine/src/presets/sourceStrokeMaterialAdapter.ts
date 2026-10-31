@@ -142,8 +142,9 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
     this.program={id:program.id,roles:program.roles.map(r=>({id:r.id,asset:r.material.brushIdentity,frames:r.imagePipe?.frames}))}
     for(const r of program.roles){
       if(r.imagePipe){
-        if(version2(this.context))throw new RangeError('Image pipe requires image material context')
-        if(!this.context.primaryImageFrames||r.id!=='primary'||!sameData(this.context.primaryImageFrames,r.imagePipe.frames))invalid()
+        if(r.id!=='primary'||version2(this.context)&&(program.roles.length!==1||this.context.maskSource!==undefined))invalid()
+        const frames=version2(this.context)?this.context.primarySource.kind==='image'?this.context.primarySource.frames:undefined:this.context.primaryImageFrames
+        if(!frames||!sameData(frames,r.imagePipe.frames))invalid()
         for(const id of r.imagePipe.frames){const a=this.context.assets.find(a=>a.id===id);if(!a||a.width!==r.brush.width||a.height!==r.brush.height)invalid()}
       }
       if(version2(this.context)){

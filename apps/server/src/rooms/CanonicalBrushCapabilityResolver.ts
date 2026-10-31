@@ -2,11 +2,11 @@ import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import {
   verifyCanonicalRecordedClose,parseCanonicalStrokeCloseOperation,verifyCanonicalRecordedPrefix, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION,
-  canonicalImageSourceBinding,canonicalSourceEffectReject, canonicalBrushDescriptorJSON, canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, canonicalSourceComposition,
+  canonicalImageSourceBinding,canonicalImagePipeSourceBinding,canonicalSourceEffectReject, canonicalBrushDescriptorJSON, canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, canonicalSourceComposition,
   type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalStrokeOperation, type CanonicalMaterialContextV2, decodeCanonicalStrokeFrame,
   prepareCanonicalRecordedAttachment, CANONICAL_RECORDED_ATTACHMENT_LIMITS, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadCapability, type Operation,
 } from '@grafetto/shared'
-import { freezeCanonicalPrimaryImagePolicy,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,type CanonicalRoomExecutionPolicy, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
+import { freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,type CanonicalImagePipeSource,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,type CanonicalRoomExecutionPolicy, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
 import { BrushStorage, merge } from '../brushLibrary/storage.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
@@ -26,7 +26,7 @@ export interface CanonicalRecordedCapability {
  readonly composition:TrustedCanonicalGesture['composition']
  readonly material:CanonicalMaterialContextV2
 }
-interface PinnedGesture { readonly board: RoomRecord; readonly lesson: RoomRecord; readonly grant: TrustedCanonicalGesture }
+interface PinnedGesture { readonly board: RoomRecord; readonly lesson: RoomRecord; readonly grant: TrustedCanonicalGesture; readonly pipeSource?:CanonicalImagePipeSource }
 const text = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 256 && !v.includes('\0')
 const key = (identity: CanonicalAdmissionIdentity, strokeId: string) => JSON.stringify([identity.roomId, identity.userId, strokeId])
 function fail(reason: string): never { throw new Error(`canonical capability: ${reason}`) }
@@ -45,6 +45,7 @@ export class CanonicalBrushCapabilityResolver {
   private readonly authorProfile:CanonicalStrokeRasterProfile
   private readonly recordedProfiles:readonly CanonicalStrokeRasterProfile[]
   private readonly primaryImageSource:CanonicalRoomExecutionPolicy['primaryImageSource']
+  private readonly imagePipePolicies:ReturnType<typeof freezeCanonicalImagePipePolicies>
   private readonly autoSources:Readonly<CanonicalAutoExecutionPolicies>
   private readonly gestures = new Map<string, PinnedGesture>()
   private readonly epochs = new WeakMap<RoomRecord, { readonly lesson: RoomRecord; readonly value: number }>()
@@ -70,6 +71,8 @@ export class CanonicalBrushCapabilityResolver {
     readonly alphaDarkenVariants: readonly ('creamy' | 'hard')[]
     readonly maxGestures: number
     readonly primaryImageSource?:CanonicalRoomExecutionPolicy['primaryImageSource']
+    readonly allowedRecordedImagePipeSources?:readonly CanonicalImagePipeSource[]
+    readonly authorImagePipeSources?:readonly CanonicalImagePipeSource[]
     readonly autoSources?:CanonicalAutoExecutionPolicies|false
   }) {
     if (!(options.storage instanceof BrushStorage) || typeof options.operator !== 'function'
@@ -80,6 +83,7 @@ export class CanonicalBrushCapabilityResolver {
     const raster=freezeCanonicalRasterPolicy(options)
     this.authorProfile=raster.authorRasterProfile;this.recordedProfiles=raster.allowedRecordedRasterProfiles
     this.primaryImageSource=freezeCanonicalPrimaryImagePolicy(options.primaryImageSource)
+    this.imagePipePolicies=freezeCanonicalImagePipePolicies(options)
     this.autoSources=freezeCanonicalAutoPolicies(options.autoSources)
     this.storage = options.storage; this.operator = options.operator
     this.maxGestures = options.maxGestures; this.variants = new Set(options.alphaDarkenVariants)
@@ -142,6 +146,7 @@ export class CanonicalBrushCapabilityResolver {
     const identityKey = key(identity, input.strokeId)
     const previous = this.gestures.get(identityKey)
     if (previous) {
+      if(previous.pipeSource&&!this.imagePipePolicies.authorImagePipeSources.includes(previous.pipeSource))fail('image pipe author policy disabled')
       const g = previous.grant
       if (roomOnly&&g.rasterProfile!==profile || previous.board !== current.board || previous.lesson !== current.lesson || g.layerId !== input.layerId
         || g.brush !== input.brush || g.pigmentRgb8.some((v, i) => v !== input.pigmentRgb8[i])
@@ -157,7 +162,8 @@ export class CanonicalBrushCapabilityResolver {
     const library = roomOnly?this.storage.library('rooms',identity.roomId):merge(this.operator(), this.storage.library('owners', identity.userId), this.storage.library('rooms', identity.roomId))
     const descriptor = library.brushes.find(b => b.descriptor.id === match[1] && b.descriptor.version === Number(match[2]))?.descriptor
     if (!descriptor) fail('brush unavailable')
-    const {material,mode,outerBlend,descriptorSha256}=this.bindDescriptor(descriptor,library,profile)
+    const pipeSource=this.assertImagePipeRole(descriptor,'author')
+    const {material,mode,outerBlend,descriptorSha256}=this.bindDescriptor(descriptor,library,profile,'author')
     const boardEpoch=this.epochFor(current.board,current.lesson)
     const grant: TrustedCanonicalGesture = Object.freeze({ roomId: identity.roomId, userId: identity.userId, layerId: input.layerId,
       boardEpoch, roomRasterVersion: STRAIGHT_ROOM_RASTER_VERSION, rasterProfile: profile,
@@ -171,7 +177,7 @@ export class CanonicalBrushCapabilityResolver {
       const now = this.authorizedBoard(identity, grant.layerId)
       if (!now || now.board !== current.board || now.lesson !== current.lesson || this.gestures.has(identityKey)
         || this.gestures.size >= this.maxGestures) fail('stale begin ticket')
-      this.gestures.set(identityKey, { ...current, grant }); committed = true
+      this.gestures.set(identityKey, { ...current, grant,pipeSource }); committed = true
     } })
   }
 
@@ -257,7 +263,8 @@ export class CanonicalBrushCapabilityResolver {
     if(!descriptor.sourceStamp||((descriptor.sourceStamp.version===1||descriptor.sourceStamp.source.kind==='image')&&!this.primaryImageSource))fail('recorded V1 material delivery unavailable')
     const profile=op.frame.rasterProfile
     if(!this.recordedProfiles.includes(profile))fail('recorded raster profile policy mismatch')
-    const {material,mode,outerBlend,descriptorSha256}=this.bindDescriptor(descriptor,library,profile)
+    this.assertImagePipeRole(descriptor,'recorded')
+    const {material,mode,outerBlend,descriptorSha256}=this.bindDescriptor(descriptor,library,profile,'recorded')
     if(!('version' in material))fail('recorded V1 material delivery unavailable')
     if(!this.variants.has(op.frame.composition.alphaDarken)||op.frame.composition.mode!==mode)fail('recorded composition policy mismatch')
     const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:profile,brush:op.frame.brush,strokeId:op.frame.strokeId,frameOrdinal:op.frame.frameOrdinal,
@@ -336,7 +343,16 @@ export class CanonicalBrushCapabilityResolver {
     return attachment
   }
 
-  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile):{material:AnyCanonicalMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string} {
+  private assertImagePipeRole(descriptor:BrushDescriptor,role:'author'|'recorded'):CanonicalImagePipeSource|undefined {
+    const animation=descriptor.tip.animation
+    if(!animation)return
+    const mode=animation.mode==='incremental'?'incremental-inverse-gray-v2':animation.mode==='random'?'random-inverse-gray-v2':undefined
+    const allowed=role==='author'?this.imagePipePolicies.authorImagePipeSources:this.imagePipePolicies.allowedRecordedImagePipeSources
+    if(!mode||!allowed.includes(mode))fail('image pipe '+role+' policy disabled')
+    return mode
+  }
+
+  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile,role:'author'|'recorded'):{material:AnyCanonicalMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string} {
     if(!isSourceStampData(descriptor.sourceStamp))fail('invalid or missing retained source data')
     const unsupportedOuter = canonicalSourceEffectReject(descriptor,profile)
     if (unsupportedOuter) fail((profile===CANONICAL_STROKE_RASTER_PROFILE?'unsupported canonical Over execution: ':'unsupported canonical execution: ')+unsupportedOuter)
@@ -358,6 +374,15 @@ export class CanonicalBrushCapabilityResolver {
       material=Object.freeze({version:2,assets:Object.freeze([]),primarySource:pin,budget})
     }else{
       if(profile!==CANONICAL_STROKE_RASTER_PROFILE)fail('V1 material requires historical raster profile')
+      if(descriptor.tip.animation){
+        this.assertImagePipeRole(descriptor,role)
+        if(!hasCanonicalSourceCurvePrograms(descriptor.sourceStamp))fail('retained native curve programs unavailable')
+        const binding=canonicalImagePipeSourceBinding(descriptor,library.assets)
+        if(binding.assets.length>16)fail('trusted pipe asset capacity exceeded')
+        for(const asset of binding.assets)this.storage.asset(asset.id.slice(6),asset.size)
+        const savedMode=composition.mode;if(!savedMode)fail('inconsistent-source-painting-mode')
+        return {material:Object.freeze({version:2 as const,...binding,budget}),mode:savedMode,outerBlend:composition.outerBlend,descriptorSha256}
+      }
       const asset=library.assets.find(a=>a.id===descriptor.tip.mask)
       if(!asset)fail('source CAS metadata unavailable')
       const result=extractCanonicalSinglePngCapability(descriptor,asset)
