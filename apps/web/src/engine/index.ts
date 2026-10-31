@@ -5120,6 +5120,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  (TiledLayerBuffer's maxResidentTiles is Infinity without one). */
   private _makeLayerBuffer(layerId?: string): ILayerBuffer {
     const { w, h } = this._tileSize()
+    const pixelEncoding = roomRasterPixelEncoding(this.rasterVersion)
     // (#365) The coarse level is for infinite rooms only, and only for real
     // layers: a scratch instance is read once and discarded, so it has nothing
     // to gain from one.
@@ -5140,14 +5141,16 @@ export class PencilEngine implements PencilEngineAPI {
     // what the line below does. Left as a marker rather than deleted in
     // silence: a comment that survives its own retraction is worth one line
     // of warning to whoever reads this next.
-    const downsample = layerId !== undefined
+    // Straight tiles retain canonical nearest-sampled storage. The legacy PM
+    // pyramid is display math and cannot become their authoritative contents.
+    const downsample = pixelEncoding === 'premultiplied-rgba8' && layerId !== undefined
       ? (src: AccumulationBuffer, dst: AccumulationBuffer, x: number, y: number, w2: number, h2: number) =>
         this._downsampleTileInto(src, dst, x, y, w2, h2)
       : undefined
     return new TiledLayerBuffer(
       this.gl, w, h,
       layerId !== undefined ? this._makeTileRebuilder(layerId) : undefined,
-      undefined, downsample,
+      undefined, downsample, pixelEncoding,
     )
   }
 
