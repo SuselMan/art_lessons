@@ -188,3 +188,25 @@ it('derives recorded peer capability only from the room pin without granting pee
  expect(()=>read.readRecordedCapability({roomId:'board',boardEpoch:7,operation,row})).toThrow('room brush pin unavailable')
  expect(read.size).toBe(0)
 })
+it('projects one closed recorded batch with temporary gesture dedup and rejects later resource changes atomically',async()=>{
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected)
+ const s=snapshot(await transport.begin(identity,f.input,()=>true)),packets=frames(f.descriptor,s)
+ const operations:CanonicalStrokeOperation[]=[]
+ for(let i=0;i<2;i++){
+  const result=await transport.recorded(identity,{type:'canonical_stroke',id:'batch-'+i,userId:'author',timestamp:i,layerId:'layer',frame:packets[i]},()=>true)
+  if(!result.accepted)throw Error('Expected recorded operation');operations.push(result.accepted)
+ }
+ const rows=db.operation.create.mock.calls.map(([request])=>request.data)
+ const binder=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:empty,...selected,maxGestures:4}),read=vi.spyOn(binder,'readRecordedCapability'),pin=vi.spyOn(f.storage,'pin')
+ const input={roomId:'board',boardEpoch:9,operations,rows}
+ const attachment=binder.prepareRecordedAttachment(input)
+ expect(attachment.capabilities).toHaveLength(1);expect(attachment.bindings.map(b=>[b.operationId,b.sequence,b.originalUserId,b.capability])).toEqual([['batch-0',1,'author',0],['batch-1',2,'author',0]])
+ expect(read).toHaveBeenCalledTimes(1);expect(Object.isFrozen(attachment.bindings[0])).toBe(true);expect(pin).not.toHaveBeenCalled();expect(binder.size).toBe(0)
+ const changed=structuredClone(operations[1]);Object.assign(changed.frame,{pigmentRgb8:[99,2,3]})
+ expect(()=>binder.prepareRecordedAttachment({...input,operations:[operations[0],changed],rows:[rows[0],{...rows[1],data:changed}]})).toThrow()
+ expect(()=>binder.prepareRecordedAttachment({...input,rows:rows.slice(0,1)})).toThrow()
+ expect(()=>binder.prepareRecordedAttachment({...input,rows:[rows[1],rows[0]]})).toThrow('immutable row conflict')
+ expect(()=>binder.prepareRecordedAttachment({...input,rows:[...rows,rows[1]]})).toThrow('row closure')
+ expect(()=>binder.prepareRecordedAttachment({...input,operations:Array(1025).fill(operations[0])})).toThrow('capacity')
+ expect(binder.size).toBe(0);expect(pin).not.toHaveBeenCalled();expect(f.board.operations).toHaveLength(2)
+})

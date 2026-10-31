@@ -171,3 +171,21 @@ and JSON mismatches, deep immutable soft radial data, and rejected append via an
 unchanged empty resolver. No protocol payload, client registry, queue or engine
 activation is added. Future attachment delivery still needs bounded schema,
 read permission/lifetime, history-cut completeness and atomic confirmed ordering.
+
+prepareRecordedAttachment projects ONE bounded same-history delivery from its
+canonical row subsequence. Every indexed row is verified; the first original
+user/stroke binds through readRecordedCapability, and later frames decode against
+that same immutable capability through the shared attachment validator. A local
+first-use dictionary deduplicates serialization only and is discarded on return.
+The closed frozen attachment never creates a resident registry or append grant.
+Missing/extra/reordered rows, changed later resources and capacity overflow fail
+the entire preparation before publication. No socket, room_state or confirmed
+payload calls this seam yet; existing protocol/reader guards remain closed.
+
+After a reconnect/epoch change, retained plain history is not current read
+resource authority. A future client owner must refresh exact original op ID,
+authoritative serverSeq and original user against the new captured read lifetime;
+it must not intern capabilities while ignoring boardEpoch. Local socket/board/
+context generation remains necessary because a restarted server can reuse a
+numeric epoch. Source-program basis reuse is separately owned CPU/GL lifetime,
+not reuse of read permission or append authority.

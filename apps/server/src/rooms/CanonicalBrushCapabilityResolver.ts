@@ -3,6 +3,7 @@ import {
   CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, STRAIGHT_ROOM_RASTER_VERSION,
   canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, sourceStampPaintingMode, hasCanonicalOverComposition,
   type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalStrokeOperation, type CanonicalMaterialContextV2, decodeCanonicalStrokeFrame,
+  prepareCanonicalRecordedAttachment, CANONICAL_RECORDED_ATTACHMENT_LIMITS, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadCapability, type Operation,
 } from '@grafetto/shared'
 import { freezeCanonicalAutoPolicies, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
 import { BrushStorage, merge } from '../brushLibrary/storage.js'
@@ -181,6 +182,39 @@ export class CanonicalBrushCapabilityResolver {
     return Object.freeze({roomId,originalUserId:op.userId,operationId:op.id,sequence:op.seq!,layerId:op.layerId,boardEpoch,
       descriptorSha256,brush:decoded.envelope.brush,strokeId:decoded.envelope.strokeId,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,
       pigmentRgb8:decoded.envelope.pigmentRgb8,composition:decoded.envelope.composition,material})
+  }
+
+  /** Prepare ONE bounded atomic history attachment. Rows are the canonical
+   * subsequence of operations, in delivery order, from the authoritative loader.
+   * Same read-permission/lifetime preconditions as readRecordedCapability.
+   * Dictionary/interner exists only during this synchronous serialization. */
+  prepareRecordedAttachment(input:{readonly roomId:string;readonly boardEpoch:number;readonly operations:readonly Operation[];readonly rows:readonly CanonicalStoredOperationRow[]}):CanonicalRecordedAttachmentV1 {
+    const {roomId,boardEpoch,operations,rows}=input
+    if(!Array.isArray(operations)||operations.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings||!Array.isArray(rows)||rows.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)fail('recorded attachment capacity exceeded')
+    const capabilities:CanonicalRecordedReadCapability[]=[],bindings:CanonicalRecordedAttachmentV1['bindings'][number][]=[],dictionary=new Map<string,number>()
+    let rowIndex=0
+    for(const op of operations){
+      if(op.type!=='canonical_stroke')continue
+      const row=rows[rowIndex++]
+      verifyCanonicalOperationRow(roomId,op,row??null)
+      if(!text(op.userId)||!op.frame||!text(op.frame.strokeId))fail('invalid recorded attachment identity')
+      const identity=JSON.stringify([op.userId,op.frame.strokeId])
+      let index=dictionary.get(identity)
+      if(index===undefined){
+        if(capabilities.length>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)fail('recorded attachment capability capacity exceeded')
+        const c=this.readRecordedCapability({roomId,boardEpoch,operation:op,row})
+        const snapshot=Object.freeze({layerId:c.layerId,brush:c.brush,strokeId:c.strokeId,boardEpoch:c.boardEpoch,descriptorSha256:c.descriptorSha256,
+          rasterProfile:c.rasterProfile,pigmentRgb8:c.pigmentRgb8,composition:c.composition,assets:c.material.assets,materialVersion:2 as const,material:c.material})
+        index=capabilities.length;capabilities.push(Object.freeze({originalUserId:c.originalUserId,snapshot}));dictionary.set(identity,index)
+      }
+      bindings.push(Object.freeze({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:index}))
+    }
+    if(rowIndex!==rows.length)fail('recorded attachment row closure mismatch')
+    const attachment=Object.freeze({version:1 as const,roomId,boardEpoch,capabilities:Object.freeze(capabilities),bindings:Object.freeze(bindings)})
+    // Shared validation checks every frame against its FIRST bound immutable
+    // gesture capability, including later identity/resource changes and limits.
+    prepareCanonicalRecordedAttachment(attachment,operations,{roomId,boardEpoch})
+    return attachment
   }
 
   private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary):{material:AnyCanonicalMaterialContext;mode:'wash'|'buildup';descriptorSha256:string} {
