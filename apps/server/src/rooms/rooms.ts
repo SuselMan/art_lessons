@@ -76,6 +76,28 @@ function participantKey(lessonId: string, userId: string): string {
 // handler having to say which.
 const boardOfSocket = new Map<string, string>()
 
+/** Internal absence proof over live private seat maps, never DB membership or
+ * mutable public participant mirrors. No seat/queue/registry is created. */
+export function captureEmptyBoardSeats(roomId:string):{assertCurrent():RoomRecord}|undefined {
+  const record=rooms.get(roomId)
+  if(!record)return undefined
+  const lesson=lessonRecordOf(record)
+  const empty=()=>{
+    for(const board of boardOfSocket.values())if(board===roomId)return false
+    for(const [key,socket]of currentSocketForParticipant)if(key.startsWith(lesson.room.id+':')){
+      const board=boardOfSocket.get(socket)
+      if(board===undefined||board===roomId)return false
+    }
+    return true
+  }
+  if(!empty())return undefined
+  const proof=Object.freeze({assertCurrent(this:unknown){
+    if(this!==proof||rooms.get(roomId)!==record||lessonRecordOf(record)!==lesson||!empty())throw Error('Stale empty board seats')
+    return record
+  }})
+  return proof
+}
+
 const disconnectSeatAuthority:unique symbol=Symbol('original-disconnect-seat')
 export interface PreparedRoomDisconnect {readonly roomId:string;readonly userId:string;readonly socketId:string}
 type OwnedRoomDisconnect=PreparedRoomDisconnect&{readonly [disconnectSeatAuthority]:(candidate:unknown)=>PreparedRoomDisconnect}
