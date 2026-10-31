@@ -818,6 +818,99 @@ describe('recorded same-layer concurrent wash lane', () => {
       expect(s.pixel(s.derived)).toEqual(before)
     }finally{s.close()}
   })
+  for(const overlap of [false,true])it(`rebases only dirty pixels while preserving independently folded overlapping=${overlap} gestures`,()=>{
+    const s=setup('wash',4,1),derived=new TiledLayerBuffer(s.gl,4,4,undefined,undefined,undefined,'straight-rgba8')
+    const rgba=(p:Uint8Array,at:number):Rgba8=>[p[at],p[at+1],p[at+2],p[at+3]]
+    const images=new Map<WebGLTexture,Uint8Array>(),blank=()=>new Uint8Array(64),pixels=(texture:WebGLTexture)=>{let p=images.get(texture);if(!p){p=blank();images.set(texture,p)}return p}
+    const original=Uint8Array.from({length:64},(_,i)=>i%4===0?17+3*(i/4|0)%4:i%4===1?81+5*(i/16|0):i%4===2?133:151+(i/4|0))
+    const copy=AccumulationBuffer.prototype.copyTo,region=AccumulationBuffer.prototype.copyRegionInto,clear=AccumulationBuffer.prototype.clear
+    const copySpy=vi.spyOn(AccumulationBuffer.prototype,'copyTo').mockImplementation(function(this:AccumulationBuffer,to:AccumulationBuffer){copy.call(this,to);images.set(to.texture,pixels(this.texture).slice())})
+    const regionSpy=vi.spyOn(AccumulationBuffer.prototype,'copyRegionInto').mockImplementation(function(this:AccumulationBuffer,to:AccumulationBuffer,sx:number,sy:number,dx:number,dy:number,w:number,h:number){
+      region.call(this,to,sx,sy,dx,dy,w,h)
+      for(let y=0;y<h;y++)for(let x=0;x<w;x++)pixels(to.texture).set(pixels(this.texture).subarray(((3-sy-y)*4+sx+x)*4,((3-sy-y)*4+sx+x)*4+4),((3-dy-y)*4+dx+x)*4)
+    })
+    const clearSpy=vi.spyOn(AccumulationBuffer.prototype,'clear').mockImplementation(function(this:AccumulationBuffer){clear.call(this);images.set(this.texture,blank())})
+    const draw=s.composite.drawSource.bind(s.composite),requests=vi.spyOn(s.composite,'drawSource').mockImplementation((r,frame)=>{
+      const status=draw(r,frame);if(status==='empty')return status
+      const v=r.source.view,b=r.writeBounds??{minX:v.rect.x,minY:v.rect.y,maxX:v.rect.x+v.rect.width,maxY:v.rect.y+v.rect.height}
+      for(let y=Math.max(0,v.rect.y,b.minY);y<Math.min(4,v.rect.y+v.rect.height,b.maxY);y++)for(let x=Math.max(0,v.rect.x,b.minX);x<Math.min(4,v.rect.x+v.rect.width,b.maxX);x++){
+        const at=(y*4+x)*4,dst=rgba(pixels(r.target.texture),at)
+        let src:Rgba8
+        if(r.source.kind==='maskRgb')src=[...r.source.rgb,255]
+        else{const raw=r.source.view,sx=Math.round(raw.bounds.x*raw.textureWidth)+x-raw.rect.x,sy=Math.round((1-raw.bounds.y-raw.bounds.height)*raw.textureHeight)+y-raw.rect.y;src=rgba(pixels(raw.texture),(sy*4+sx)*4)}
+        if(r.operation.kind==='alphaDarken32')pixels(r.target.texture).set(compositeSourceAlphaDarken32(src,dst,r.operation.control),at)
+        else if(r.operation.kind==='over32')pixels(r.target.texture).set(compositeSourceOver32Scalar(src,dst,r.operation.control),at)
+        else throw Error('Unexpected test profile')
+      }
+      return status
+    })
+    const coordinator=new CanonicalWashLayerCoordinator({rasterProfile:'reference-scalar-f32-rne-v1',layerId:'layer',layerEpoch:0,maxGestures:2,prepass:s.prepass,composite:s.composite,scratch:s.scratch,layer:()=>({buffer:s.layer,epoch:0}),presentation:()=>({buffer:derived,epoch:0}),source:()=>({bank:s.bank}),reserveTransient:s.reserveTransient,changed:s.changed,poison:s.poison})
+    const locals={A:blank(),B:blank()},colors={A:[255,0,0] as const,B:[0,0,255] as const},ordinals={A:0,B:0}
+    const expected=()=>{const out=original.slice();for(let at=0;at<64;at+=4)for(const id of ['A','B'] as const)out.set(compositeSourceOver32Scalar(rgba(locals[id],at),rgba(out,at),{profile:'portable-f32-division-rne-v1',opacity:.63}),at);return out}
+    try{
+      const target=s.layer.resolveForPaint({minX:0,minY:0,maxX:4,maxY:4})[0];images.set(target.buffer.texture,original.slice())
+      // A foreign/stale derived pixel cannot be trusted on first materialization.
+      let stale=derived.resolveForPaint({minX:0,minY:0,maxX:4,maxY:4})[0];images.set(stale.buffer.texture,new Uint8Array(64).fill(231))
+      const schedule:readonly(readonly['A'|'B',number,number,boolean])[]=[['A',0,0,false],['B',overlap?0:3,overlap?0:3,false],['A',2,1,false],['A',0,0,false],['B',0,0,true],['A',0,0,true]]
+      let seq=0
+      for(const [id,x,y,end]of schedule){
+        const ordinal=ordinals[id]++,f=decoded(end?0:1,0,end,ordinal?{phase:'primary',group:0}:{phase:'between'})
+        const frame={...f,draws:f.draws.map(d=>({...d,x,y,opacity:.5,flow:1}))}
+        if(!end){const at=(y*4+x)*4;locals[id].set(compositeSourceAlphaDarken32([...colors[id],255],rgba(locals[id],at),{profile:'optimized32-scalar-f32-rne-v1',variant:'creamy',opacity:.5,averageOpacity:.5,flow:1}),at)}
+        coordinator.enqueue({...s.submit(frame,ordinal),gestureId:id,rgb:colors[id],composition:{mode:'wash',outerBlend:'over',outerResourceOpacity:.63,alphaDarken:'creamy'}},++seq)
+        let turns=0;while(coordinator.pending){coordinator.advance();expect(++turns).toBeLessThan(500)}
+        expect(pixels(stale.buffer.texture)).toEqual(expected())
+        expect(pixels(target.buffer.texture)).toEqual(seq<schedule.length?original:expected())
+        if(overlap&&seq===3){derived.clear();stale=derived.resolveForPaint({minX:0,minY:0,maxX:4,maxY:4})[0];images.set(stale.buffer.texture,new Uint8Array(64).fill(231))}
+      }
+      expect(regionSpy).toHaveBeenCalled();expect(coordinator.checkpointReady).toBe(true)
+      const outer=requests.mock.calls.filter(([r])=>r.source.kind==='straightRgba8')
+      expect(outer.some(([r])=>r.source.view.rect.width===1&&r.source.view.rect.height===1)).toBe(true)
+      expect(s.poison).not.toHaveBeenCalled()
+    }finally{coordinator.cancel();requests.mockRestore();copySpy.mockRestore();regionSpy.mockRestore();clearSpy.mockRestore();derived.destroy();s.close()}
+  })
+  it('validates dirty geometry before metadata mutation and unions only the existing cropped tile',()=>{
+    const s=lane(4,1)
+    try{
+      s.coordinator.enqueue(s.frame('A',.5,false),1);s.drain()
+      const revision=s.coordinator['revision'],dirty=s.coordinator['dirty']
+      for(const bounds of [null,{minX:NaN,minY:0,maxX:1,maxY:1},{minX:.5,minY:0,maxX:1,maxY:1},{minX:0,minY:0,maxX:Infinity,maxY:1},{minX:2,minY:0,maxX:1,maxY:1},{minX:0,minY:0,maxX:Number.MAX_SAFE_INTEGER+1,maxY:1}]){
+        expect(()=>s.coordinator['invalidate'](bounds!)).toThrow(/dirty bounds/)
+        expect(s.coordinator['revision']).toBe(revision);expect(dirty.size).toBe(0)
+      }
+      s.coordinator['invalidate']({minX:-4,minY:-4,maxX:1,maxY:1})
+      expect([...dirty.values()]).toEqual([{minX:0,minY:0,maxX:1,maxY:1}])
+      s.coordinator['invalidate']({minX:3,minY:3,maxX:9,maxY:9})
+      expect([...dirty.values()]).toEqual([{minX:0,minY:0,maxX:4,maxY:4}])
+      expect(s.coordinator['positions'].size).toBe(1);s.drain()
+    }finally{s.close()}
+  })
+  for(const phase of ['preview','commit'] as const)it(`charges cold ${phase} target work to the same cooperative turn`,()=>{
+    const s=lane(4,1),now=vi.spyOn(performance,'now');let clock=0
+    now.mockImplementation(()=>clock)
+    try{
+      s.coordinator.enqueue(s.frame('A',.5,phase==='commit'),1)
+      let turns=0
+      while(phase==='commit'?!s.coordinator['entries'][0].ownership:!s.coordinator['dirty'].size){
+        s.coordinator.advance();expect(++turns).toBeLessThan(100)
+      }
+      const layer=phase==='commit'?s.layer:s.derived,resolve=layer.resolveForPaint.bind(layer)
+      const cold=vi.spyOn(layer,'resolveForPaint').mockImplementationOnce(rect=>{const targets=resolve(rect);clock+=5;return targets})
+      s.calls.mockClear()
+      s.coordinator.advance()
+      // Cold allocation/copy/state work already exhausted this turn. Complete
+      // one accepted part for progress, then yield; do not start a fresh 4ms
+      // allowance after target preparation.
+      expect(s.calls.mock.calls.filter(([r])=>r.source.kind==='straightRgba8')).toHaveLength(1)
+      expect(s.coordinator.pending).toBe(true)
+      expect(s.coordinator.presentationReady).toBe(false)
+      cold.mockRestore();s.drain()
+      expect(s.coordinator.poisoned).toBe(false)
+      const outer=s.calls.mock.calls.filter(([r])=>r.source.kind==='straightRgba8')
+      expect(outer.length).toBeGreaterThanOrEqual(16)
+      expect(s.releases.every(r=>r.mock.calls.length<=1)).toBe(true)
+    }finally{now.mockRestore();s.close()}
+  })
   it('applies outer opacity once on each fresh rebase, never over its previous preview',()=>{
     const s=lane()
     try{

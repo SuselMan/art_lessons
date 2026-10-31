@@ -77,7 +77,7 @@ export interface CanonicalFrameExecutorOptions {
   /** Existing engine GPU fence. Account scratch-pool live AND idle bytes there;
    * release removes this reservation, not the pool's actual allocation charge. */
   readonly reserveTransient: (bytes: number) => () => void
-  readonly changed: (layerId: string) => void
+  readonly changed: (layerId: string, bounds?: Readonly<WorldRect>) => void
   /** Must synchronously mark unsettled/block checkpoints until trusted rebuild.
    * The executor will never retry a possibly partly-written frame. */
   readonly poison: (layerId: string, reason: unknown) => void
@@ -425,7 +425,7 @@ export class CanonicalFrameExecutor {
               if (work.tile === task.tiles.length) { work.draw++; work.tile = 0; work.tiles = undefined }
             }
           } finally { group.release() }
-          if(task.wash&&this.options.washMode==='deposition-only')this.options.changed(work.input.layerId)
+          if(task.wash&&this.options.washMode==='deposition-only')this.options.changed(work.input.layerId,task.writeBounds)
           if (!task.wash) {
             layer.markContentPainted(task.writeBounds)
             this.options.changed(work.input.layerId)

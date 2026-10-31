@@ -144,3 +144,40 @@ of all lifetime reservations. Legacy-profile GenericSC rejection happens before
 binding, layer lookup or transient reservations. Existing cursor/order/fault/loss
 and reference-Over tests remain active. Stable metadata headroom intentionally
 remains owned until coordinator cancellation, even after checkpoint readiness.
+
+## 2026-10-31: measured dirty-region fold and one cooperative clock
+
+Samsung actual NEW source3/60..63 profiling found repeated whole-tile preview
+folds after each accepted small deposition part: 11,968 composite calls for640
+local draws. Sync GL state/sampler/attachment queries dominated worst preview
+turns; CPU mask quanta stayed <=1.5ms. These are JS/API wall times, not GPU timers.
+
+The SAME lane now receives an optional exact changed rectangle from its existing
+deposition executor callback. Its existing per-tile dirty set becomes a cropped
+integer rectangle union. First materialization and buffer/texture replacement
+still force full stable copy+ordered fold. Subsequent previews use the existing
+copyRegionInto and only intersecting raw-local parts, retaining unaffected derived
+pixels. Seal/commit/rebase notifications still invalidate full regions. No queue,
+renderer, pixel mirror, new quota or room grant is introduced. Identity metadata
+lives in the already charged position record and is released with cancellation.
+Every existing owner lease, foreign sampler guard and full GL state capsule remains.
+
+Coordinator commit/presentation now count target/copy/capture preparation against
+ONE advance clock, like the executor; after one accepted part, an exhausted4ms
+cooperative budget yields instead of starting another allowance. Hard8 draw bounds
+remain. An individual driver/query API cannot be preempted or promised to fit4ms.
+
+Two baseline fault tests observed8 parts after a simulated5ms cold preparation;
+both now stop after1 with forward progress. Independent per-pixel tests author
+A/B overlapping and disjoint gestures over nontransparent pixels, partial updates,
+B sealing before A, final stable order, stale first presentation and replacement
+presentation target. Another test rejects malformed/unsafe bounds before dirty
+metadata mutation and verifies cropped unions.
+
+All79 executor/lane tests +57 service/target regressions, lint and combined app/SW
+TSC39608 pass. Device before/after: same80 full64² RGBA observations each, exact0
+wrong; composite calls11,968→3,099, turns2,944→1,329 under the same observer. Final
+uninstrumented run also exact, turns2,399→1,234 against prior receipt. Rare max
+advance84.7→83.1ms remains: this removes measured work amplification, NOT the
+remaining unpreemptible synchronous-query hitch. Compact receipts and exact module
+hashes are in R52/generic-sc4-advance-proof.json; all own device resources removed.

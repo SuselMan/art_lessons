@@ -323,3 +323,15 @@ both old/new policies; current executor regressions use the six actual paint
 sources5/6/7/10/11/22 and explicitly assert2's refusal. Shared codec data-only tests
 still roundtrip all seven untouched sources via data pins. No native inputs,
 primitive/GPU source-law evidence or erase metadata are normalized or rewritten.
+
+## 2026-10-31: exact deposition dirty bounds
+
+Deposition-only wash notifications may carry the already validated integer
+`task.writeBounds` through the existing changed callback. Existing one-argument
+clients remain valid. The same recorded-layer coordinator uses those bounds to
+avoid refolding unaffected pixels; local source evaluation, compositing controls,
+frame/history/seed/fence progression, storage admission and lease ownership are
+unchanged. Full seal/commit invalidation remains conservative. See coordinator
+provenance and R52/generic-sc4-advance-proof.json for independent multi-gesture
+pixel tests and actual Samsung before/after measurements; remaining rare83.1ms
+query hitch is explicitly unresolved.

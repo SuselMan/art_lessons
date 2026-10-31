@@ -35,13 +35,22 @@ interface Entry {
   part: number
   committingBuffer?: AccumulationBuffer
 }
-interface Position { readonly x: number; readonly y: number; readonly width: number; readonly height: number }
+interface Position {
+  readonly x: number; readonly y: number; readonly width: number; readonly height: number
+  /** Identity only, in the already charged tile metadata; never a pixel mirror.
+   * A recovered/replaced target must be initialized with a full rebase. */
+  readonly presentation?: { stable?: AccumulationBuffer; derived?: AccumulationBuffer; stableTexture?: WebGLTexture; derivedTexture?: WebGLTexture }
+}
 interface PresentationWork {
   readonly position: Position
   readonly revision: number
   stage: number
   part: number
   buffer?: AccumulationBuffer
+  texture?: WebGLTexture
+  stableBuffer?: AccumulationBuffer
+  stableTexture?: WebGLTexture
+  bounds: WorldRect
 }
 const rect = (p: Position): WorldRect => ({ minX: p.x, minY: p.y, maxX: p.x + p.width, maxY: p.y + p.height })
 const key = (p: Position) => `${p.x}:${p.y}`
@@ -60,7 +69,7 @@ export class CanonicalWashLayerCoordinator {
   private readonly entries: Entry[] = []
   private readonly queue: Entry[] = []
   private readonly positions = new Map<string, Position>()
-  private readonly dirty = new Set<string>()
+  private readonly dirty = new Map<string, WorldRect>()
   private readonly reservations: (() => void)[] = []
   private readonly errors: unknown[] = []
   private work?: PresentationWork
@@ -110,7 +119,7 @@ export class CanonicalWashLayerCoordinator {
       const r = input.frame.definitions[d.definition]
       if (!r) throw new TypeError('Invalid canonical wash definition')
       for (const tile of planCanonicalTargets({ minX: d.x, minY: d.y, maxX: d.x + r.width, maxY: d.y + r.height }, this.options.pageBounds ?? null, this.stable.tileWidth, this.stable.tileHeight).tiles) {
-        const p = { x: tile.storage.minX, y: tile.storage.minY, width: this.stable.tileWidth, height: this.stable.tileHeight }
+        const p = { x: tile.storage.minX, y: tile.storage.minY, width: this.stable.tileWidth, height: this.stable.tileHeight, presentation: {} }
         if (!this.positions.has(key(p))) fresh.set(key(p), p)
       }
     }
@@ -124,7 +133,7 @@ export class CanonicalWashLayerCoordinator {
       if (!entry) {
         releaseEntry = this.options.prepass.brushGlBatchInfo().cpu.reserve(1024)
         const executor = candidate = new CanonicalFrameExecutor({ ...this.options, ...this.options.source(input.gestureId), washMode: 'deposition-only',
-          changed: () => this.invalidate(), poison: (_id, reason) => this.notifyPoison(reason) })
+          changed: (_id, bounds) => this.invalidate(bounds), poison: (_id, reason) => this.notifyPoison(reason) })
         entry = { id: input.gestureId, firstSequence: recordedSequence, executor, opacity: input.composition.outerResourceOpacity, blend: input.composition.outerBlend,
           committed: false, tile: 0, part: 0, releaseMetadata: releaseEntry }
       }
@@ -148,10 +157,11 @@ export class CanonicalWashLayerCoordinator {
   advance(): void {
     this.assertOpen(); this.busy = true
     try {
+      const turnStarted = performance.now()
       this.assertLayers()
       const frontier = this.entries.find(e => !e.committed)
-      if (frontier?.ownership) this.commit(frontier)
-      else if (this.dirty.size) this.present()
+      if (frontier?.ownership) this.commit(frontier,turnStarted)
+      else if (this.dirty.size) this.present(turnStarted)
       else if (this.queue.length) {
         const entry = this.queue[0], before = entry.executor.pendingFrameCount
         entry.executor.advance()
@@ -166,9 +176,20 @@ export class CanonicalWashLayerCoordinator {
     } finally { this.busy = false }
   }
 
-  private invalidate(): void {
+  private invalidate(bounds?: Readonly<WorldRect>): void {
+    if(bounds !== undefined && (!bounds || typeof bounds!=='object' || ![bounds.minX,bounds.minY,bounds.maxX,bounds.maxY].every(Number.isSafeInteger)
+      || bounds.maxX<bounds.minX || bounds.maxY<bounds.minY))throw new RangeError('Invalid canonical wash dirty bounds')
+    // Validate before revision/dirty mutation. Crop to the same admitted page and
+    // existing tile union; a changed callback cannot allocate another target.
+    const updates: [string,WorldRect][]=[]
+    for(const [k,p]of this.positions){
+      const page=this.options.pageBounds, area=bounds??rect(p)
+      const b={minX:Math.max(p.x,area.minX,bounds&&page?page.minX:p.x),minY:Math.max(p.y,area.minY,bounds&&page?page.minY:p.y),
+        maxX:Math.min(p.x+p.width,area.maxX,bounds&&page?page.maxX:p.x+p.width),maxY:Math.min(p.y+p.height,area.maxY,bounds&&page?page.maxY:p.y+p.height)}
+      if(b.maxX>b.minX&&b.maxY>b.minY)updates.push([k,b])
+    }
     this.revision++
-    for (const k of this.positions.keys()) this.dirty.add(k)
+    for(const [k,b]of updates){const old=this.dirty.get(k);this.dirty.set(k,old?{minX:Math.min(old.minX,b.minX),minY:Math.min(old.minY,b.minY),maxX:Math.max(old.maxX,b.maxX),maxY:Math.max(old.maxY,b.maxY)}:b)}
     this.work = undefined
   }
   private locals(entry: Entry): readonly CanonicalWashLocalTile[] { return entry.ownership?.tiles ?? (entry.committed ? [] : entry.executor.rawWashTiles()) }
@@ -177,16 +198,21 @@ export class CanonicalWashLayerCoordinator {
     if (!target || target.buffer.width !== p.width || target.buffer.height !== p.height) throw new Error('Canonical wash target geometry changed')
     return target
   }
-  private part(view: CanonicalRgba8SourceView, part: number): { view: CanonicalRgba8SourceView; count: number } {
-    const capacity = this.options.composite.preparedCapacity(), columns = Math.ceil(view.textureWidth / capacity.width)
-    const count = columns * Math.ceil(view.textureHeight / capacity.height)
-    const x = part % columns * capacity.width, y = Math.floor(part / columns) * capacity.height
-    const width = Math.min(capacity.width, view.textureWidth - x), height = Math.min(capacity.height, view.textureHeight - y)
-    return { count, view: { ...view, rect: { x: view.rect.x + x, y: view.rect.y + y, width, height },
-      bounds: { x: x / view.textureWidth, y: (view.textureHeight - y - height) / view.textureHeight, width: width / view.textureWidth, height: height / view.textureHeight } } }
+  private part(view: CanonicalRgba8SourceView, part: number, bounds?: Readonly<WorldRect>): { view: CanonicalRgba8SourceView; count: number } {
+    const capacity = this.options.composite.preparedCapacity()
+    const left=bounds?Math.max(0,bounds.minX-view.rect.x):0, top=bounds?Math.max(0,bounds.minY-view.rect.y):0
+    const right=bounds?Math.min(view.textureWidth,bounds.maxX-view.rect.x):view.textureWidth
+    const bottom=bounds?Math.min(view.textureHeight,bounds.maxY-view.rect.y):view.textureHeight
+    const columns=Math.ceil((right-left)/capacity.width), rows=Math.ceil((bottom-top)/capacity.height)
+    const count=Math.max(0,columns)*Math.max(0,rows)
+    if(!count)return {count:0,view}
+    const x=left+part%columns*capacity.width, y=top+Math.floor(part/columns)*capacity.height
+    const width=Math.min(capacity.width,right-x), height=Math.min(capacity.height,bottom-y)
+    return { count, view: { ...view, rect: { x: view.rect.x+x, y: view.rect.y+y, width, height },
+      bounds: { x:x/view.textureWidth, y:(view.textureHeight-y-height)/view.textureHeight, width:width/view.textureWidth, height:height/view.textureHeight } } }
   }
 
-  private commit(entry: Entry): void {
+  private commit(entry: Entry, turnStarted: number): void {
     const tiles = entry.ownership!.tiles
     if (entry.tile < tiles.length) runBrushGlTurn({ participants: [this.options.prepass, this.options.composite] }, turn => {
       const gl=this.options.prepass.brushGlBatchInfo().gl
@@ -204,7 +230,7 @@ export class CanonicalWashLayerCoordinator {
           entry.committingBuffer = target.buffer; entry.part++
           this.stable.markContentPainted(rect(tile))
           if(entry.part===part.count){entry.part=0;entry.tile++;entry.committingBuffer=undefined;break}
-          if(frame.shouldYield)break
+          if(frame.shouldYield||performance.now()-turnStarted>=4)break
         }
       })
     })
@@ -218,10 +244,10 @@ export class CanonicalWashLayerCoordinator {
     }
   }
 
-  private present(): void {
-    const k = this.dirty.values().next().value as string | undefined
+  private present(turnStarted: number): void {
+    const k = this.dirty.keys().next().value as string | undefined
     if (k === undefined) return
-    this.work ??= { position: this.positions.get(k)!, revision: this.revision, stage: -1, part: 0 }
+    this.work ??= { position: this.positions.get(k)!, revision: this.revision, stage: -1, part: 0, bounds: { ...this.dirty.get(k)! } }
     const work = this.work, p = work.position
     runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},turn=>{
       const gl=this.options.prepass.brushGlBatchInfo().gl
@@ -230,7 +256,12 @@ export class CanonicalWashLayerCoordinator {
       // layer binding is retained only inside this one synchronous capsule.
       const target = this.resolve(this.derived, p), stable = this.resolve(this.stable, p)
       const bound = bindCanonicalLayerTargets(this.derived, [target])[0], base = bindCanonicalLayerTargets(this.stable, [stable])[0]
-      if (work.buffer !== target.buffer) { work.stage = -1; work.part = 0; work.buffer = target.buffer }
+      const initialized=p.presentation!
+      if(work.buffer ? work.buffer!==target.buffer || work.texture!==target.buffer.texture || work.stableBuffer!==stable.buffer || work.stableTexture!==stable.buffer.texture
+        : initialized.derived!==target.buffer || initialized.derivedTexture!==target.buffer.texture || initialized.stable!==stable.buffer || initialized.stableTexture!==stable.buffer.texture){
+        work.stage=-1;work.part=0;work.bounds=rect(p)
+      }
+      work.buffer=target.buffer;work.texture=target.buffer.texture;work.stableBuffer=stable.buffer;work.stableTexture=stable.buffer.texture
       const tiles=this.entries.map(entry=>this.locals(entry).find(t=>key(t)===key(p)))
       const owners=[base.lifetime,bound.lifetime]
       for(const tile of tiles)if(tile){
@@ -238,22 +269,31 @@ export class CanonicalWashLayerCoordinator {
         owners.push(tile.view.residency)
       }
       runBrushGlBatch({turn,participants:[this.options.prepass,this.options.composite],owners},frame=>{
-        if (work.stage === -1) { stable.buffer.copyTo(target.buffer); work.stage = 0 }
+        if (work.stage === -1) {
+          const b=work.bounds
+          if(b.minX===p.x&&b.minY===p.y&&b.maxX===p.x+p.width&&b.maxY===p.y+p.height)stable.buffer.copyTo(target.buffer)
+          else { const x=b.minX-p.x,y=p.height-(b.maxY-p.y);stable.buffer.copyRegionInto(target.buffer,x,y,x,y,b.maxX-b.minX,b.maxY-b.minY) }
+          work.stage = 0
+        }
         let draws=0
         while(work.stage<this.entries.length&&draws<8){
           const entry=this.entries[work.stage],tile=tiles[work.stage]
           if(entry.committed||!tile){work.stage++;work.part=0;continue}
           this.assertLayers()
-          const part=this.part(tile.view,work.part)
+          const part=this.part(tile.view,work.part,work.bounds)
+          if(!part.count){work.part=0;work.stage++;continue}
           this.options.composite.drawSource({source:{kind:'straightRgba8',view:part.view},target:bound,operation:canonicalWashOuterOperation(this.options.rasterProfile, entry.blend, entry.opacity),writeBounds:this.options.pageBounds??undefined},frame)
           work.part++;draws++
           if(work.part===part.count){work.part=0;work.stage++}
-          if(frame.shouldYield)break
+          if(frame.shouldYield||performance.now()-turnStarted>=4)break
         }
-        this.derived.markContentPainted(rect(p))
+        this.derived.markContentPainted(work.bounds)
       })
     })
-    if (work.stage === this.entries.length) { this.dirty.delete(k); this.work = undefined; this.options.changed(this.options.layerId) }
+    if (work.stage === this.entries.length) {
+      Object.assign(p.presentation!,{stable:work.stableBuffer,derived:work.buffer,stableTexture:work.stableTexture,derivedTexture:work.texture})
+      this.dirty.delete(k); this.work = undefined; this.options.changed(this.options.layerId)
+    }
   }
 
   private assertOpen(): void { if (this.closed || this.failed || this.busy) throw new Error('Canonical wash coordinator is closed, poisoned or busy') }
@@ -269,7 +309,7 @@ export class CanonicalWashLayerCoordinator {
   private notifyPoison(reason: unknown): void { this.failed = true; this.options.poison(this.options.layerId, reason) }
   private clean(action: () => void): void { try { action() } catch (error) { this.errors.push(error) } }
   private releaseAll(lost: boolean): void {
-    this.queue.length = 0; this.dirty.clear(); this.work = undefined
+    this.queue.length = 0; this.dirty.clear(); this.work = undefined; this.positions.clear()
     for (const e of this.entries) {
       if (e.ownership) { const owned = e.ownership; e.ownership = undefined; this.clean(() => owned.release({ lost })) }
       this.clean(() => e.executor.cancel(new Error('Canonical wash lane cancelled'), { lost }))

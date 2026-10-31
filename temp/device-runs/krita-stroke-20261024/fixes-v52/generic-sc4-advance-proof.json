@@ -1,0 +1,3251 @@
+{
+  "scope": "Actual5 NEW descriptors3oldOver+60..63V2; same author/adapter/encoder/executor/coordinator, no room/editor activation. Instrumented JS/API latencies are NOT GPU timings. Dirtybounds eliminates measured repeated-fold amplification; rare uninstrumented83.1ms query hitch remains.",
+  "checks": {
+    "focusedTests": 79,
+    "regressionTests": 57,
+    "regressionFiles": 4,
+    "baselineFaultTests": 2,
+    "baselineFailure": "expected1 accepted part after5ms cold target; actual8 forpreview andcommit",
+    "commonWebAppAndSwTsc": "39608 PASS",
+    "lint": "PASS",
+    "bodySyntax": "PASS"
+  },
+  "runs": {
+    "before": {
+      "proof": {
+        "head": "e191795c60ee2aab69000ef00b4b367c16bbe8e0",
+        "fixtureSHA256": "c68fba9cc5519eaa61f81e5c23a2458540aa35f6219f98a9fc47e75e1b35726a",
+        "bodySHA256": "6b6e7b39c1dae82cbb8f4eb77635b4ead3ebc376803b41b08354d4ac1960be9a",
+        "bundleSHA256": "c58bdf21144fa0387e198cd4aabe9f717c96db99cd019b037f6cc740a55b1af5",
+        "sourceSnapshot": {
+          "packages/shared/src/index.ts": "2adf91191dd11dc6806b9e4c7e0e59e886b8189999d4511e0c69b852dd63dcfc",
+          "apps/web/src/engine/src/buffers/AccumulationBuffer.ts": "f7a187b0b3479dc17564b2f7dde709d28c0e763f26a2517f36c5ea98dc0f7ed2",
+          "temp/device-runs/krita-stroke-20261024/fixes-v52/generic-sc4-real-source-author.mts": "cd9ef3474e9db224b2f5482f311896e6bec991f6dd9d1591307a7441d84b2d5a",
+          "apps/web/src/engine/src/dabs/CanonicalSoftCircleProgramOwner.ts": "c6eebb684ae631f3b98d953f0e1ee05e30e1e17843f69fd00844b014f2cc260e",
+          "apps/web/src/engine/src/dabs/CanonicalFrameExecutor.ts": "f9f57c4a0c79c038bfbbf7621812e693ff253affc97301bbea05f772206170b1",
+          "apps/web/src/engine/src/dabs/CanonicalWashLayerCoordinator.ts": "849cc4fd11f93133cd609b7ffca03d63c4a3a611240488b39ef3f49a4243b875",
+          "apps/web/src/engine/src/buffers/TiledLayerBuffer.ts": "45ebde11537d04baf962dce41217be408aace0dc8058925bd84a52325fa91269",
+          "apps/web/src/engine/src/buffers/RibbonScratchPool.ts": "e3bb44bc6436a21b01b12406fce19423c4f7cc5808c5c18027b3ca340dd18a9e",
+          "apps/web/src/engine/src/buffers/ContextStorageOwner.ts": "ab35cd1acfc8b65c9975153548568de0960adf5a3814207e9fdb341e0d97ba51",
+          "apps/web/src/engine/src/dabs/TransformedMaskPrepass.ts": "fe1b2f828275eeabeb1416416ad6e6a983c2ae7790907bae2e47edf78dfe891c",
+          "apps/web/src/engine/src/dabs/CanonicalRgba8CompositePass.ts": "967201d598de114e89c4e7c02f2846be6e35671137ab8dfcc99090bf93b5937c",
+          "apps/web/src/engine/src/dabs/BrushTextureCache.ts": "3d7be39c09e5d59e9b26ce7ddaa8889fab7d658e9536d56b740af2e5c084da21",
+          "apps/web/src/engine/src/dabs/BrushMipCache.ts": "58d785d7999fb4ee7b0a32ab4b40ec7c78fc463b4f7060a8de73ca9e3833ec31",
+          "packages/shared/src/layers.ts": "76d056b6741d26ecf3d173c161988ec6908cf9dfb0509cc5271297b04e0c21e7",
+          "packages/shared/src/paper.ts": "a8080214e2a91b26494ea678df9cc63389d604d9b6436242a6486c9e26acb10e",
+          "packages/shared/src/canonicalRecordedAttachment.ts": "4fa034d39aad531e15aae554cf5d9231bb8a070fc1394a64f02b153ff740a86b",
+          "packages/shared/src/room.ts": "352205320e6afebbbc5c6ed8bd58cbf7ac5e5826278577f3cff480b34919baca",
+          "packages/shared/src/roomRasterVersion.ts": "c25c73f828c658e7dc221b2802ea34e58aaaa7a73687cf483752bce2ef591541",
+          "packages/shared/src/toolset.ts": "ec4aaa7b603fdfade1fa44994bdba56fade77a8c64efccdff78b3100bcf59330",
+          "packages/shared/src/stroke.ts": "140bd68ce1a2082b02f017aee0cd60f214466ad6bcff37dc42f675c329b6230d",
+          "packages/shared/src/layerOperations.ts": "92af5204db34e72ab72a8e75f503747e1b61e23da9b948499071ecd280ebcb45",
+          "packages/shared/src/areaOperations.ts": "5e685e043a863be6e97b8d4b35ba3891e067d117280e63d3f6686396f697df7d",
+          "packages/shared/src/shapes.ts": "a0159c0bd71e21e8a464ccf2dc9c0229d4898bc87ae81c409a1df7c1bd8b8914",
+          "packages/shared/src/layerFilters.ts": "82e3108ecd2acf3b26222a8330db149b38e44af9637cfb5607098019ca06c635",
+          "packages/shared/src/operations.ts": "c3b16f735927327cefe6dc31d0224ebf0dc651c3b2f1bf21fce20cafa44d1158",
+          "packages/shared/src/annotations.ts": "d56ec53f837e18e62ef17be612127ec60d39fdc73c84d13e35e697eb60560eb6",
+          "packages/shared/src/protocol.ts": "f9b102c3787b0601980de8c77b90a500f9e788056a135b87b2a647b75f1c6f8f",
+          "packages/shared/src/hotkeys.ts": "59907577a05e61df39b6e0b0644c68a9818255fc3968def72baf9dcec1109c1f",
+          "packages/shared/src/rest.ts": "4ae57a713804b0f557d050c3f0acc267ad207d39688884d987c011869e399a61",
+          "packages/shared/src/roomOpen.ts": "d08d809d740398bcddf067e7b91fe916cda6195e883d6c2f07b30908dd37bcac",
+          "packages/shared/src/dabCodec.ts": "b6166d9db6994aa9b631f85272e4a90edbd8886e02c8a56d186cb6e725100d2c",
+          "packages/shared/src/admin.ts": "ce06dfa3d3a2ddbe8f931e97ab8ab2043097f525654fa38bf2df75c6d03e3e2c",
+          "packages/shared/src/brushes.ts": "f35c552ff36fddb1f45bcc7e6039d777d6c1399e804933b3447870622ace92f5",
+          "packages/shared/src/brushBehavior.ts": "29031c5a7cc049ce19b8202cd637577e2263b1cd0aece20196c968a5b81162b7",
+          "packages/shared/src/brushCurves.ts": "764d38ac27dc86b097420358f92deda3801e8338df6568e9f99d55a41bf3876b",
+          "packages/shared/src/strokeEndSample.ts": "8075c4a3bcb85339d2675b9a6307a3c713de72807021effd593924bc2c6fb076",
+          "packages/shared/src/brushRandom.ts": "c5f978397a6185dc743e94d24c1cdcd78edaba4df567cfb9983bf6373cecd578",
+          "packages/shared/src/sourceStampData.ts": "937346c0e16a3a812b2ba8a36a792e6c0c3c7f7a76d4ea5069e5f3fc70edb5a1",
+          "packages/shared/src/canonicalMaterialCodec.ts": "97c84a45e0fa02af4f4c1cdeb16ccb3218a6f6e30c519507409b62cce5baf5a3",
+          "packages/shared/src/sourceImageTransformAffine.ts": "6cf13aef9a0c65b068d5cdb0aa54c9a9e89704a438256b36120c51c6008469e9",
+          "packages/shared/src/sourcePngGeometry.ts": "03fca4e983290bdc337577bbdc42ca62047a87f9313eff7e1d5b632c17d2eec8",
+          "packages/shared/src/sourcePngPyramid.ts": "32172e787f6543923613422ed186223f9dae872876f9af0b9217785afcb920a7",
+          "packages/shared/src/sourceImageTransformMetadata.ts": "2f49d23c94d77e6f91170452f42f556e11a04dc448e4806a63d25d5079fafbbb",
+          "packages/shared/src/sourceAffineImageSpan16Coordinates.ts": "df1da63ea5ada5a8debe70cb73c1096331f280158e55f0d5daf1fe8afdcdff85",
+          "packages/shared/src/canonicalMaterialGeometry.ts": "f8199b4a7fbd675c0d70ccdef738aa4db7b2538ff40f377202e218d597ced4a3",
+          "packages/shared/src/canonicalStrokeFrame.ts": "3b677e7e7ab925e17dbec437b15afa7ec5c025ea4d78bec1fae2f660ebe10e84",
+          "packages/shared/src/canonicalBrushCapability.ts": "89ce0c24127d156940efc026cd72b91789e7ee52e57251f7dfc459f219460d3a",
+          "packages/shared/src/canonicalStrokeOperation.ts": "67d939bd85de34444413aea6329c4a90ffe8c3548421982f4ac6dd84a763fffa",
+          "packages/shared/src/sourceAutoGeometry.ts": "2763c9e8f7c859f3f590356f427346d202359dd3f0abd3cc6c8b833160b97a40",
+          "packages/shared/src/sourceFmaF64.ts": "72e84d1ff5e1159c5fd31566986b86c7b8268cde46991571bc3f005cbc7011a1",
+          "packages/shared/src/sourceFmaF64Reference.ts": "1ad4b929b9bceda2c45595b887a1e65b4c73d9707ed58550414ba485a9848113",
+          "packages/shared/src/canonicalDefaultAutoMaterial.ts": "afe2dfde4275c1a6d71a405db708ecd9d7caca332c441aa34261c82f7c2f21f4",
+          "packages/shared/src/canonicalSoftAutoMaterial.ts": "189ecc8396c91ab1a86a015d9ff2c4184471d953694f555fd05c7d055651b60a",
+          "apps/web/src/engine/src/presets/sourceSoftCircleDab.ts": "eed15ebc718390db369ce6a92043049dfd6085dd2a56920799ead360a12b349c",
+          "apps/web/src/engine/src/dabs/TransformedMaskPlan.ts": "2513a17645f67c0023a52ca83c420ea9778289d5871404182d0ce64df9a516cc",
+          "apps/web/src/engine/src/presets/sourceColorRgba8.ts": "ade7933cd572695f861db14fadfe8a72d241af0434f3855ec0d12d057817de1b",
+          "apps/web/src/engine/src/dabs/CanonicalTargetPlan.ts": "338fa96290a4b7df1781bc432413125f31fda00399069e64bf345e3597255bab",
+          "apps/web/src/engine/src/presets/sourcePrimaryComposition.ts": "fd3cbed9eb3bee53ed3892136e5f956aa9abb44717cf98453ebccec174787e97",
+          "apps/web/src/engine/src/dabs/BrushGlBatch.ts": "5d2ae3d172059b7e2db0d94e91467f9f33d1cfb545aba699dbaf5d104d7ef73e",
+          "apps/web/src/engine/src/dabs/CanonicalLayerTargets.ts": "a3813b0ab7a6db51ecbfbdfc1264364474609bb31d44b5cd0dea980b6868f9e7",
+          "apps/web/src/engine/src/presets/sourceCanonicalFrameEncoder.ts": "a4564a2d0450408cc70133e8c03b398e772088a656d810eb8baa9ea7cce0589f",
+          "apps/web/src/engine/src/presets/sourceStrokeAuthorDescriptor.ts": "07660acab236930647abd2c4154e7673c4cf4f6ef742fbd0e5d49e845c1a5ff8",
+          "apps/web/src/engine/src/presets/sourceStrokeAuthor.ts": "aa7127183d8fa5b4d738cab5ff51538d6cbad5a547cb5d9f2c0d42a1b9a4d28d",
+          "apps/web/src/engine/src/presets/sourceStrokeMaterialAdapter.ts": "bac57d703fc5ac6261c3d751fcab2e0efbbb48fab31790bc2198c36cdbef711e",
+          "apps/web/src/engine/src/raster/sourceTransformedMaskShader.ts": "938747455214ca9f2e29e1c2f41bf6366c4ddfa0efd0b35d2d5aff5daa0f7d27",
+          "apps/web/src/engine/src/buffers/tileMath.ts": "7f3359f23930ab64f14d7e2ac1ef2cba7a276a93fca571995ea47e52e73e4f1a",
+          "apps/web/src/engine/src/raster/sourceAlphaDarken32Shader.ts": "f6a744cf84e1203c3b7c465666d3ce70b0c6f30f02bf991ab9f9c45fb478c9c4",
+          "apps/web/src/engine/src/presets/sourceImageTransformReciprocal.ts": "643e6af09bbfdc2c1c8fbacb28d7aad7091a5f45141d5903e11804ab53a8dd2b",
+          "apps/web/src/engine/src/raster/sourceRgba64StraightShader.ts": "84e2f5a63a011d35c754a2816ac51623e78308565631b05b65269bc765b07804",
+          "apps/web/src/engine/src/raster/sourceFusedOver32ScalarShader.ts": "6ee996913cad706ed5c834637f49d1969a5b6a71bd5355d6a241b0a574ba2577",
+          "apps/web/src/engine/src/raster/sourceRgba8CompositeWebGL1.ts": "a6d6e10596434141fb3827693650a4f394ba4d1ab7b67e6140147e00a36bf899",
+          "apps/web/src/engine/src/raster/sourceRgba8CompositeShader.ts": "210d3cee146af2cb4e8a17668f13f3d2b3e1792ad094b24f0d8a167057fa166c",
+          "apps/web/src/engine/src/raster/sourceFusedAlphaDarken32ScalarShader.ts": "3fc590497d7b4b9db800c12a941e650dc9b50a19323a2da889d437c9e87710b1",
+          "apps/web/src/engine/src/raster/sourceOver32ScalarShader.ts": "c52aed02578459b41ad3f80348848ae45773c8f19f2e47e412f1b01faf4eda5e",
+          "apps/web/src/engine/src/presets/sourceImageTransformPlan.ts": "f1985e3164a127a5af108c5d9e0c77c8fc6246141089507c927fab68d212db71",
+          "apps/web/src/engine/src/presets/sourceAutoGeometry.ts": "abda9fd0e5e9e68c96e60b544a9d766ade66c25bf573b5234e93af15ea2436c1",
+          "apps/web/src/engine/src/presets/sourceCoverageEvaluator.ts": "ee5e6eedf1462f7008cf8b3ca300e72c273e8732d5965217a76ec11252d3ab93",
+          "apps/web/src/engine/src/presets/sourceCurve.ts": "4761851c2349485b7bd799ff5cde81075faecd81fe3bf56c8d1541f66723c88d",
+          "apps/web/src/engine/src/presets/sourceFmaF64.ts": "fe5c5a0c704a7cebfc6eb8bb126863a3f12ef16f0fcf9bf7e4b3dd8e38e68ef9",
+          "apps/web/src/engine/src/presets/sourceFmaF32.ts": "d10bdab3983a850c3a9ce9fcf11287c74beaa88aa7cf46b01fe2265d2990dbd3",
+          "apps/web/src/engine/src/dabs/BrushGlState.ts": "cdec0f7e68bfbe2727a80f2d10f8e7bd9998cfb6f11be1fd8e5d6ac1155f8a87",
+          "apps/web/src/engine/src/raster/sourceAffineGray16Shader.ts": "0bdca97751f4c10f065332928686f7056869dd6b6aa32bdcb0be1a197e0a1e37",
+          "apps/web/src/engine/src/presets/sourceGaussianDab.ts": "7a35358dd2b47b75ac0d10f7d024b1df896cbf77e8b87c3da55cc88a60bc3e8e",
+          "apps/web/src/engine/src/presets/sourceDefaultAutoDab.ts": "58209f6d2ce6eb8178c625997b63f4afbf50cdb6fa7ed9ded8a9ca8e4ef413fe",
+          "apps/web/src/engine/src/presets/sourceImageTransformSpans.ts": "c56dab9e7d09c11412e2cc7c66b95b6b1c4be8813764ac2c19b5d058157739b1",
+          "apps/web/src/engine/src/presets/sourcePngGeometry.ts": "2589f3b979466b780139f2fe0275405d002b26259284dcc5356c0c178e99fd74",
+          "apps/web/src/engine/src/raster/affineImageSpan16.ts": "c885f03be57649bf3e9a1361b358a4cbd0aae8128e3fd319117cb7db8ee709e4",
+          "apps/web/src/engine/src/presets/brushWash.ts": "ab676df55288df788a1a82d3774bb2755794ffcfbe1fe6debd7fc54a3fdaee69",
+          "apps/web/src/engine/src/presets/sourceStampQuery.ts": "d8fa602b1a0e179e07edd18a4183009a0c6a138b8b43cee0bb7e547f3fd935d8",
+          "apps/web/src/engine/src/dabs/sourceDistanceTiming.ts": "e55b793dae332407d903dad1ed909f3f876ba59327660428207014dea99cfce3",
+          "apps/web/src/engine/src/input/kritaStrokeInput.ts": "200ba2aad86d803e7fc9f09193b4dd533627deb254e87f4fd1640e59443c7d97",
+          "apps/web/src/engine/src/presets/nativeRandom.ts": "517a16359cced210f18e9ca07c70b83ca591ced2c25fb68f55765ab11d8963ee",
+          "apps/web/src/engine/src/presets/sourceOptionProgram.ts": "d3a9c5b34aceead8e69610ecac2817f1850743c6cd5dab06bfe96ce40903b6a9",
+          "apps/web/src/engine/src/presets/sourceDabCache.ts": "a00b739ccd56561702b27577dc1ac43551cf2bd026fc49ab08ff483f51e453c6",
+          "apps/web/src/engine/src/presets/sourcePainterOpacity.ts": "92fcadd9a88e91c4a10b06c27527e0d9458f45effa7896bdb0b26fc554d38b0b",
+          "apps/web/src/engine/src/raster/sourceFmaF32NumericShader.ts": "26e78bff6d1ac7555260e6c324f351ced3327908da9ff7e822cd464797ea14f3",
+          "apps/web/src/engine/src/raster/sourceRgbFmaByteShader.ts": "0223d889ec4abc46ccbc895adb89a6a1b90f361e69c1cd3d88750986e2075084",
+          "apps/web/src/engine/src/raster/sourceFmaF32Model.ts": "a0609713f772e0b085d097e469981c7b9de82844467171c13aa3f78158643499",
+          "apps/web/src/engine/src/raster/sourceFmaF32Shader.ts": "8f6bace8897ebf4d61e4c051f662e94365356c926cb75be504bea54789978f9f",
+          "apps/web/src/engine/src/raster/sourceFmaF32Base4096Shader.ts": "eae929fa7c2b8a918be8b67b98d7eabde4bac63a8c911ad9ed1b21b7057f8267",
+          "apps/web/src/engine/src/input/sourceAtan2F32.ts": "ec2432c7ccc0249dd5c3e0a0901f7c062afdc9957ce0f8c5ecc1f6f5cf19cb70",
+          "apps/web/src/engine/src/presets/sourceGaussianResolvedMaskReference.ts": "ea24a2715ee1afa9ab31a720ebd32651f4ce3b11c7ff7d3e7696c0184639948a",
+          "apps/web/src/engine/src/presets/sourceDefaultAutoMaskReference.ts": "40d233e688c6bff90635384110c3327aed09f0d381f0afb48c383304dacd516d",
+          "apps/web/src/engine/src/presets/sourceSensors.ts": "62bb939b565985651e225c630a090f4445f0356fde10394a03f1eb2bdd7b718b",
+          "apps/web/src/engine/src/presets/sourceOption.ts": "c1b541b524ffae7444a7dbdfa05de5993d09f3367d6662fb47e8fa17d7cfae3f",
+          "apps/web/src/engine/src/presets/sourceGaussianCoefficients.ts": "47c62bea6d6d0b13afe0a9bbf8d7a5f71be19a993fb82b779df82899030413d6",
+          "apps/web/src/engine/src/presets/sourceScatter.ts": "5638e927de498a295790fa05fadd2651a9d9d82e766f2b8166268f3e5f1e7748",
+          "apps/web/src/engine/src/presets/sourceVector32.ts": "59293064406fcb73b17ac9fd205953a1539f61fa4c3cd30af4f6b5a7ed56788e",
+          "apps/web/src/engine/src/presets/sourceGaussianBionicErf.ts": "24bc92e42d5bfc460289a57d119bf70a3c74ae0a9cfb853f64a98b40e438b392",
+          "apps/web/src/engine/src/presets/sourceGaussianNeonMath.ts": "b80ea152dad505b0871b207838160e9303ed4a3da230690d5829fec1b0ab838b",
+          "apps/web/src/engine/src/presets/sourceArmFrecpe.ts": "7ed150cf79aa68d9cad1558d6807dff026070f6da98c0fe33564ed2aba7ea6ca",
+          "apps/web/src/engine/src/presets/sourceAlphaDarken32.ts": "5d5a8add83549e57bb0dc7791e2beae6fa66e46fefc32b234b2ca7cd57d7f465",
+          "apps/web/src/engine/src/presets/sourceOver32Scalar.ts": "fa374e2f73b6b9c76ce05b3b26ecdd9cef8239b01dde3ab5ca6360ae0af5bd58"
+        },
+        "storageLimitBytes": 16777216,
+        "headroomLimitBytes": 8388608,
+        "scope": "One own WebGL1 context; five actual NEW source descriptors; fresh coordinator/layer replay twice with shared owners. Source-law CPU oracle; no active editor or native whole-GUI claim."
+      },
+      "deviceResult": {
+        "wrong": 0,
+        "GL": [],
+        "cleanupErrors": [],
+        "stateRestored": true,
+        "leasesAfter": 0,
+        "scope": "Actual NEW descriptors, explicit trusted profile, production author/adapter/encoder/coordinator/executor; source-law CPU oracle. No room/editor or native whole-GUI stroke claim.",
+        "parallelShaderCompile": {
+          "listed": false,
+          "available": false
+        },
+        "device": {
+          "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+          "gpu": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)"
+        },
+        "storage": {
+          "residentBytes": 0,
+          "reservedBytes": 0,
+          "orphanBytes": 0,
+          "limitBytes": 16777216,
+          "complete": false,
+          "domains": {
+            "accum-rgba8": {
+              "residentBytes": 0,
+              "reservedBytes": 0,
+              "orphanBytes": 0,
+              "limitBytes": 16777216,
+              "complete": false
+            },
+            "brush-texture-rgba-equivalent": {
+              "residentBytes": 0,
+              "reservedBytes": 0,
+              "orphanBytes": 0,
+              "limitBytes": 16777216,
+              "complete": false
+            },
+            "brush-buffer": {
+              "residentBytes": 0,
+              "reservedBytes": 0,
+              "orphanBytes": 0,
+              "limitBytes": 16777216,
+              "complete": false
+            }
+          }
+        },
+        "handles": {
+          "Texture": 0,
+          "Framebuffer": 0,
+          "Buffer": 0,
+          "Program": 0,
+          "Shader": 0
+        },
+        "peakReservedBytes": 49152,
+        "cleanupOk": true
+      },
+      "observations": 80,
+      "checkedBytes": 1310720,
+      "surfaceMaxDelta": 0,
+      "caseSummaries": [
+        {
+          "index": 3,
+          "replay": 0,
+          "summary": true,
+          "turns": 184,
+          "maxTurnMs": 13.100000023841858,
+          "ownerAdvanceCalls": 38,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 3,
+          "replay": 1,
+          "summary": true,
+          "turns": 203,
+          "maxTurnMs": 44.19999998807907,
+          "ownerAdvanceCalls": 0,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 60,
+          "replay": 0,
+          "summary": true,
+          "turns": 328,
+          "maxTurnMs": 70.5,
+          "ownerAdvanceCalls": 38,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 60,
+          "replay": 1,
+          "summary": true,
+          "turns": 323,
+          "maxTurnMs": 50.19999998807907,
+          "ownerAdvanceCalls": 0,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 61,
+          "replay": 0,
+          "summary": true,
+          "turns": 601,
+          "maxTurnMs": 91.10000002384186,
+          "ownerAdvanceCalls": 38,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 61,
+          "replay": 1,
+          "summary": true,
+          "turns": 324,
+          "maxTurnMs": 48,
+          "ownerAdvanceCalls": 0,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 62,
+          "replay": 0,
+          "summary": true,
+          "turns": 324,
+          "maxTurnMs": 48.89999997615814,
+          "ownerAdvanceCalls": 38,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 62,
+          "replay": 1,
+          "summary": true,
+          "turns": 289,
+          "maxTurnMs": 94.60000002384186,
+          "ownerAdvanceCalls": 0,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 63,
+          "replay": 0,
+          "summary": true,
+          "turns": 190,
+          "maxTurnMs": 46,
+          "ownerAdvanceCalls": 38,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 63,
+          "replay": 1,
+          "summary": true,
+          "turns": 178,
+          "maxTurnMs": 6.299999952316284,
+          "ownerAdvanceCalls": 0,
+          "originalPackets": 2,
+          "drawCount": 1
+        }
+      ],
+      "finalSurfaces": [
+        {
+          "index": 3,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "a1c041a21d35c3096875fcbd9f30b1d2ed69a404616398bba6c871b0734d9021",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 3,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "a1c041a21d35c3096875fcbd9f30b1d2ed69a404616398bba6c871b0734d9021",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 3,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "a1c041a21d35c3096875fcbd9f30b1d2ed69a404616398bba6c871b0734d9021",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 3,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "a1c041a21d35c3096875fcbd9f30b1d2ed69a404616398bba6c871b0734d9021",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 60,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "42f3a820cfb33449217711604452a4b3da94de137119f037e5c90355b6189d48",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 60,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "42f3a820cfb33449217711604452a4b3da94de137119f037e5c90355b6189d48",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 60,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "42f3a820cfb33449217711604452a4b3da94de137119f037e5c90355b6189d48",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 60,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "42f3a820cfb33449217711604452a4b3da94de137119f037e5c90355b6189d48",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 61,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "aa79b878a15e93f4cbbe011fd7627925e65c65e754d3bf5ac48b9fe7b459bba3",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 61,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "aa79b878a15e93f4cbbe011fd7627925e65c65e754d3bf5ac48b9fe7b459bba3",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 61,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "aa79b878a15e93f4cbbe011fd7627925e65c65e754d3bf5ac48b9fe7b459bba3",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 61,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "aa79b878a15e93f4cbbe011fd7627925e65c65e754d3bf5ac48b9fe7b459bba3",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 62,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "d70c4b9a962ca82617836ae1874c9d4a1f1083fe01f2a67802d156e20ba59588",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 62,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "d70c4b9a962ca82617836ae1874c9d4a1f1083fe01f2a67802d156e20ba59588",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 62,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "d70c4b9a962ca82617836ae1874c9d4a1f1083fe01f2a67802d156e20ba59588",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 62,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "d70c4b9a962ca82617836ae1874c9d4a1f1083fe01f2a67802d156e20ba59588",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 63,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "3155e422f1c439fec062fe8179a47c1f83458f6403ef636ff0f1d3ded630a4d5",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 63,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "3155e422f1c439fec062fe8179a47c1f83458f6403ef636ff0f1d3ded630a4d5",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 63,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "3155e422f1c439fec062fe8179a47c1f83458f6403ef636ff0f1d3ded630a4d5",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 63,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "3155e422f1c439fec062fe8179a47c1f83458f6403ef636ff0f1d3ded630a4d5",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        }
+      ],
+      "browserCleanup": {
+        "forwardRemoved": true,
+        "childClosed": true,
+        "tabsPreserved": true,
+        "errors": [],
+        "after": [
+          {
+            "id": "3761",
+            "url": "chrome-native://newtab/"
+          },
+          {
+            "id": "3631",
+            "url": "https://gallery.pecni.com/krita-comparison-20261024/fixes-v45/#10"
+          },
+          {
+            "id": "3643",
+            "url": "about:blank"
+          }
+        ]
+      },
+      "rawResultSHA256": "d47939e3af027565b1a4aa533163c2922a74f9e64ab63544d77b63ac49ecaaef",
+      "profile": {
+        "setup": [
+          {
+            "index": 3,
+            "phase": "services",
+            "ms": 1123.0999999642372
+          },
+          {
+            "index": 3,
+            "replay": 0,
+            "phase": "layers-and-coordinator",
+            "ms": 22.900000035762787
+          },
+          {
+            "index": 3,
+            "replay": 1,
+            "phase": "layers-and-coordinator",
+            "ms": 12.099999964237213
+          },
+          {
+            "index": 60,
+            "phase": "services",
+            "ms": 1157.5
+          },
+          {
+            "index": 60,
+            "replay": 0,
+            "phase": "layers-and-coordinator",
+            "ms": 27.900000035762787
+          },
+          {
+            "index": 60,
+            "replay": 1,
+            "phase": "layers-and-coordinator",
+            "ms": 14.199999988079071
+          },
+          {
+            "index": 61,
+            "phase": "services",
+            "ms": 1243.1000000238419
+          },
+          {
+            "index": 61,
+            "replay": 0,
+            "phase": "layers-and-coordinator",
+            "ms": 22.30000001192093
+          },
+          {
+            "index": 61,
+            "replay": 1,
+            "phase": "layers-and-coordinator",
+            "ms": 12.800000011920929
+          },
+          {
+            "index": 62,
+            "phase": "services",
+            "ms": 1272.4000000357628
+          },
+          {
+            "index": 62,
+            "replay": 0,
+            "phase": "layers-and-coordinator",
+            "ms": 22.599999964237213
+          },
+          {
+            "index": 62,
+            "replay": 1,
+            "phase": "layers-and-coordinator",
+            "ms": 15.5
+          },
+          {
+            "index": 63,
+            "phase": "services",
+            "ms": 1226.0999999642372
+          },
+          {
+            "index": 63,
+            "replay": 0,
+            "phase": "layers-and-coordinator",
+            "ms": 23
+          },
+          {
+            "index": 63,
+            "replay": 1,
+            "phase": "layers-and-coordinator",
+            "ms": 21.799999952316284
+          }
+        ],
+        "api": {
+          "gl.activeTexture": {
+            "calls": 98841,
+            "totalMs": 303.6000040769577,
+            "maxMs": 0.30000001192092896
+          },
+          "gl.bindTexture": {
+            "calls": 50887,
+            "totalMs": 197.29999935626984,
+            "maxMs": 0.5
+          },
+          "gl.texImage2D": {
+            "calls": 46,
+            "totalMs": 1.0999999642372131,
+            "maxMs": 0.40000003576278687
+          },
+          "gl.getParameter": {
+            "calls": 133441,
+            "totalMs": 25855.40000206232,
+            "maxMs": 13.100000023841858
+          },
+          "gl.isContextLost": {
+            "calls": 25184,
+            "totalMs": 59.39999985694885,
+            "maxMs": 0.20000004768371582
+          },
+          "gl.bindFramebuffer": {
+            "calls": 31632,
+            "totalMs": 138.20000088214874,
+            "maxMs": 0.19999998807907104
+          },
+          "gl.checkFramebufferStatus": {
+            "calls": 2072,
+            "totalMs": 1713.4000002741814,
+            "maxMs": 12.699999988079071
+          },
+          "gl.useProgram": {
+            "calls": 19114,
+            "totalMs": 59.10000026226044,
+            "maxMs": 0.19999998807907104
+          },
+          "gl.texSubImage2D": {
+            "calls": 216,
+            "totalMs": 7.699999809265137,
+            "maxMs": 0.20000004768371582
+          },
+          "gl.getTexParameter": {
+            "calls": 103084,
+            "totalMs": 60294.49999797344,
+            "maxMs": 13.300000011920929
+          },
+          "gl.getVertexAttrib": {
+            "calls": 167104,
+            "totalMs": 13716.499997437,
+            "maxMs": 13.300000011920929
+          },
+          "gl.getVertexAttribOffset": {
+            "calls": 23872,
+            "totalMs": 66.00000125169754,
+            "maxMs": 0.10000002384185791
+          },
+          "gl.getFramebufferAttachmentParameter": {
+            "calls": 2066,
+            "totalMs": 13.199999868869781,
+            "maxMs": 0.19999998807907104
+          },
+          "gl.copyTexSubImage2D": {
+            "calls": 12145,
+            "totalMs": 47.99999791383743,
+            "maxMs": 0.19999998807907104
+          },
+          "gl.drawArrays": {
+            "calls": 11968,
+            "totalMs": 44.70000010728836,
+            "maxMs": 0.19999998807907104
+          }
+        },
+        "methods": {
+          "AccumulationBuffer.clear": {
+            "calls": 30,
+            "totalMs": 1.1999999284744263,
+            "maxMs": 0.30000001192092896
+          },
+          "TiledLayerBuffer.resolveForPaint": {
+            "calls": 4868,
+            "totalMs": 151.20000052452087,
+            "maxMs": 8.5
+          },
+          "TiledLayerBuffer.markContentPainted": {
+            "calls": 2440,
+            "totalMs": 21.300000548362732,
+            "maxMs": 0.3999999761581421
+          },
+          "CanonicalWashLayerCoordinator.assertLayers": {
+            "calls": 14312,
+            "totalMs": 135.70000153779984,
+            "maxMs": 0.6000000238418579
+          },
+          "CPU.softProgram.advance": {
+            "calls": 190,
+            "totalMs": 28.100000083446503,
+            "maxMs": 1
+          },
+          "CanonicalFrameExecutor.prepareAuto": {
+            "calls": 1005,
+            "totalMs": 3427.8999997377396,
+            "maxMs": 4.600000023841858
+          },
+          "CanonicalFrameExecutor.advance": {
+            "calls": 1035,
+            "totalMs": 4814.699999809265,
+            "maxMs": 48.5
+          },
+          "TransformedMaskPrepass.beginAutoGeneration": {
+            "calls": 999,
+            "totalMs": 290.4999994635582,
+            "maxMs": 2.5
+          },
+          "TransformedMaskPrepass.advanceAutoGeneration": {
+            "calls": 48094,
+            "totalMs": 2874.400000810623,
+            "maxMs": 1.5
+          },
+          "CanonicalFrameExecutor.resolveTile": {
+            "calls": 1159,
+            "totalMs": 22.999999821186066,
+            "maxMs": 0.30000001192092896
+          },
+          "RibbonScratchPool.acquire": {
+            "calls": 10,
+            "totalMs": 4.5000001192092896,
+            "maxMs": 1.100000023841858
+          },
+          "CanonicalFrameExecutor.washTile": {
+            "calls": 1159,
+            "totalMs": 9.700000166893005,
+            "maxMs": 1.2000000476837158
+          },
+          "TransformedMaskPrepass.resolveGroup": {
+            "calls": 640,
+            "totalMs": 157.70000052452087,
+            "maxMs": 1.100000023841858
+          },
+          "CanonicalRgba8CompositePass.drawSource": {
+            "calls": 11968,
+            "totalMs": 9146.799998044968,
+            "maxMs": 35.60000002384186
+          },
+          "CanonicalFrameExecutor.paint": {
+            "calls": 167,
+            "totalMs": 850.0000001788139,
+            "maxMs": 31.600000023841858
+          },
+          "CanonicalWashLayerCoordinator.resolve": {
+            "calls": 3689,
+            "totalMs": 92.20000004768372,
+            "maxMs": 0.20000004768371582
+          },
+          "AccumulationBuffer.copyTo": {
+            "calls": 177,
+            "totalMs": 11.900000154972076,
+            "maxMs": 0.20000004768371582
+          },
+          "CanonicalWashLayerCoordinator.present": {
+            "calls": 1780,
+            "totalMs": 23302.700000286102,
+            "maxMs": 94.39999997615814
+          },
+          "CanonicalWashLayerCoordinator.commit": {
+            "calls": 129,
+            "totalMs": 1937.7000006437302,
+            "maxMs": 48.700000047683716
+          }
+        },
+        "turnCount": 2944,
+        "groups": [
+          {
+            "index": 3,
+            "replay": 0,
+            "phase": "deposition",
+            "count": 94,
+            "totalMs": 398.7999997138977,
+            "maxMs": 13.100000023841858,
+            "over4": 47,
+            "over16": 0
+          },
+          {
+            "index": 3,
+            "replay": 0,
+            "phase": "preview",
+            "count": 82,
+            "totalMs": 418.600000500679,
+            "maxMs": 10.400000035762787,
+            "over4": 81,
+            "over16": 0
+          },
+          {
+            "index": 3,
+            "replay": 0,
+            "phase": "commit",
+            "count": 8,
+            "totalMs": 38.70000010728836,
+            "maxMs": 5.400000035762787,
+            "over4": 8,
+            "over16": 0
+          },
+          {
+            "index": 3,
+            "replay": 1,
+            "phase": "deposition",
+            "count": 116,
+            "totalMs": 488.29999989271164,
+            "maxMs": 9,
+            "over4": 62,
+            "over16": 0
+          },
+          {
+            "index": 3,
+            "replay": 1,
+            "phase": "preview",
+            "count": 74,
+            "totalMs": 394.59999990463257,
+            "maxMs": 14.800000011920929,
+            "over4": 74,
+            "over16": 0
+          },
+          {
+            "index": 3,
+            "replay": 1,
+            "phase": "commit",
+            "count": 13,
+            "totalMs": 164.50000005960464,
+            "maxMs": 44.19999998807907,
+            "over4": 13,
+            "over16": 1
+          },
+          {
+            "index": 60,
+            "replay": 0,
+            "phase": "deposition",
+            "count": 63,
+            "totalMs": 347.3999999165535,
+            "maxMs": 14.800000011920929,
+            "over4": 44,
+            "over16": 0
+          },
+          {
+            "index": 60,
+            "replay": 0,
+            "phase": "preview",
+            "count": 252,
+            "totalMs": 3314.69999986887,
+            "maxMs": 70.5,
+            "over4": 252,
+            "over16": 36
+          },
+          {
+            "index": 60,
+            "replay": 0,
+            "phase": "commit",
+            "count": 13,
+            "totalMs": 134.69999986886978,
+            "maxMs": 11.900000035762787,
+            "over4": 13,
+            "over16": 0
+          },
+          {
+            "index": 60,
+            "replay": 1,
+            "phase": "deposition",
+            "count": 49,
+            "totalMs": 316.30000030994415,
+            "maxMs": 35.80000001192093,
+            "over4": 31,
+            "over16": 1
+          },
+          {
+            "index": 60,
+            "replay": 1,
+            "phase": "preview",
+            "count": 266,
+            "totalMs": 4834.800000011921,
+            "maxMs": 50.19999998807907,
+            "over4": 265,
+            "over16": 78
+          },
+          {
+            "index": 60,
+            "replay": 1,
+            "phase": "commit",
+            "count": 8,
+            "totalMs": 49.300000071525574,
+            "maxMs": 7.400000035762787,
+            "over4": 8,
+            "over16": 0
+          },
+          {
+            "index": 61,
+            "replay": 0,
+            "phase": "deposition",
+            "count": 122,
+            "totalMs": 700.5999999642372,
+            "maxMs": 48.59999996423721,
+            "over4": 65,
+            "over16": 3
+          },
+          {
+            "index": 61,
+            "replay": 0,
+            "phase": "preview",
+            "count": 463,
+            "totalMs": 8100.299999833107,
+            "maxMs": 91,
+            "over4": 462,
+            "over16": 111
+          },
+          {
+            "index": 61,
+            "replay": 0,
+            "phase": "commit",
+            "count": 16,
+            "totalMs": 201.60000032186508,
+            "maxMs": 27.600000023841858,
+            "over4": 16,
+            "over16": 2
+          },
+          {
+            "index": 61,
+            "replay": 1,
+            "phase": "deposition",
+            "count": 142,
+            "totalMs": 649.1999997496605,
+            "maxMs": 17.200000047683716,
+            "over4": 85,
+            "over16": 1
+          },
+          {
+            "index": 61,
+            "replay": 1,
+            "phase": "preview",
+            "count": 174,
+            "totalMs": 1715.2000004649162,
+            "maxMs": 47.90000003576279,
+            "over4": 173,
+            "over16": 13
+          },
+          {
+            "index": 61,
+            "replay": 1,
+            "phase": "commit",
+            "count": 8,
+            "totalMs": 39.40000003576279,
+            "maxMs": 5.5,
+            "over4": 8,
+            "over16": 0
+          },
+          {
+            "index": 62,
+            "replay": 0,
+            "phase": "deposition",
+            "count": 159,
+            "totalMs": 708.4000004529953,
+            "maxMs": 9.199999988079071,
+            "over4": 99,
+            "over16": 0
+          },
+          {
+            "index": 62,
+            "replay": 0,
+            "phase": "preview",
+            "count": 147,
+            "totalMs": 1156.2000000476837,
+            "maxMs": 22.19999998807907,
+            "over4": 147,
+            "over16": 1
+          },
+          {
+            "index": 62,
+            "replay": 0,
+            "phase": "commit",
+            "count": 18,
+            "totalMs": 456.8000000715256,
+            "maxMs": 48.89999997615814,
+            "over4": 18,
+            "over16": 9
+          },
+          {
+            "index": 62,
+            "replay": 1,
+            "phase": "deposition",
+            "count": 105,
+            "totalMs": 487.99999982118607,
+            "maxMs": 30.19999998807907,
+            "over4": 48,
+            "over16": 1
+          },
+          {
+            "index": 62,
+            "replay": 1,
+            "phase": "preview",
+            "count": 176,
+            "totalMs": 2772.100000143051,
+            "maxMs": 94.60000002384186,
+            "over4": 174,
+            "over16": 42
+          },
+          {
+            "index": 62,
+            "replay": 1,
+            "phase": "commit",
+            "count": 8,
+            "totalMs": 37.09999996423721,
+            "maxMs": 5.199999988079071,
+            "over4": 8,
+            "over16": 0
+          },
+          {
+            "index": 63,
+            "replay": 0,
+            "phase": "deposition",
+            "count": 88,
+            "totalMs": 361.50000005960464,
+            "maxMs": 9,
+            "over4": 43,
+            "over16": 0
+          },
+          {
+            "index": 63,
+            "replay": 0,
+            "phase": "preview",
+            "count": 73,
+            "totalMs": 338.1999997496605,
+            "maxMs": 16.69999998807907,
+            "over4": 70,
+            "over16": 1
+          },
+          {
+            "index": 63,
+            "replay": 0,
+            "phase": "commit",
+            "count": 29,
+            "totalMs": 787.0000002384186,
+            "maxMs": 46,
+            "over4": 29,
+            "over16": 23
+          },
+          {
+            "index": 63,
+            "replay": 1,
+            "phase": "deposition",
+            "count": 97,
+            "totalMs": 395.6999999284744,
+            "maxMs": 6.299999952316284,
+            "over4": 47,
+            "over16": 0
+          },
+          {
+            "index": 63,
+            "replay": 1,
+            "phase": "preview",
+            "count": 73,
+            "totalMs": 330.50000017881393,
+            "maxMs": 5.5,
+            "over4": 70,
+            "over16": 0
+          },
+          {
+            "index": 63,
+            "replay": 1,
+            "phase": "commit",
+            "count": 8,
+            "totalMs": 35.39999985694885,
+            "maxMs": 4.699999988079071,
+            "over4": 8,
+            "over16": 0
+          }
+        ],
+        "slowest6": [
+          {
+            "index": 62,
+            "replay": 1,
+            "ordinal": 0,
+            "phase": "preview",
+            "CanonicalWashLayerCoordinator.assertLayers": 0,
+            "CanonicalWashLayerCoordinator.assertLayersCalls": 2,
+            "gl.isContextLost": 0.10000002384185791,
+            "gl.isContextLostCalls": 7,
+            "gl.getParameter": 8,
+            "gl.getParameterCalls": 12,
+            "gl.activeTexture": 0.09999996423721313,
+            "gl.activeTextureCalls": 16,
+            "TiledLayerBuffer.resolveForPaint": 0,
+            "TiledLayerBuffer.resolveForPaintCalls": 2,
+            "CanonicalWashLayerCoordinator.resolve": 0,
+            "CanonicalWashLayerCoordinator.resolveCalls": 2,
+            "gl.bindFramebuffer": 0,
+            "gl.bindFramebufferCalls": 6,
+            "gl.bindTexture": 0.10000002384185791,
+            "gl.bindTextureCalls": 10,
+            "gl.copyTexSubImage2D": 0,
+            "gl.copyTexSubImage2DCalls": 2,
+            "AccumulationBuffer.copyTo": 0,
+            "AccumulationBuffer.copyToCalls": 1,
+            "gl.checkFramebufferStatus": 9.300000011920929,
+            "gl.checkFramebufferStatusCalls": 1,
+            "gl.getFramebufferAttachmentParameter": 0.09999996423721313,
+            "gl.getFramebufferAttachmentParameterCalls": 1,
+            "gl.useProgram": 0,
+            "gl.useProgramCalls": 3,
+            "gl.getTexParameter": 25.599999964237213,
+            "gl.getTexParameterCalls": 4,
+            "gl.drawArrays": 0,
+            "gl.drawArraysCalls": 1,
+            "CanonicalRgba8CompositePass.drawSource": 35.60000002384186,
+            "CanonicalRgba8CompositePass.drawSourceCalls": 1,
+            "TiledLayerBuffer.markContentPainted": 0,
+            "TiledLayerBuffer.markContentPaintedCalls": 1,
+            "CanonicalWashLayerCoordinator.present": 94.39999997615814,
+            "CanonicalWashLayerCoordinator.presentCalls": 1,
+            "totalMs": 94.60000002384186
+          },
+          {
+            "index": 61,
+            "replay": 0,
+            "ordinal": 0,
+            "phase": "preview",
+            "CanonicalWashLayerCoordinator.assertLayers": 0.20000004768371582,
+            "CanonicalWashLayerCoordinator.assertLayersCalls": 2,
+            "gl.isContextLost": 0.19999998807907104,
+            "gl.isContextLostCalls": 7,
+            "gl.getParameter": 10.300000011920929,
+            "gl.getParameterCalls": 12,
+            "gl.activeTexture": 0.19999998807907104,
+            "gl.activeTextureCalls": 16,
+            "TiledLayerBuffer.resolveForPaint": 0,
+            "TiledLayerBuffer.resolveForPaintCalls": 2,
+            "CanonicalWashLayerCoordinator.resolve": 0,
+            "CanonicalWashLayerCoordinator.resolveCalls": 2,
+            "gl.bindFramebuffer": 0,
+            "gl.bindFramebufferCalls": 6,
+            "gl.bindTexture": 0,
+            "gl.bindTextureCalls": 10,
+            "gl.copyTexSubImage2D": 0,
+            "gl.copyTexSubImage2DCalls": 2,
+            "AccumulationBuffer.copyTo": 0.10000002384185791,
+            "AccumulationBuffer.copyToCalls": 1,
+            "gl.checkFramebufferStatus": 5.599999964237213,
+            "gl.checkFramebufferStatusCalls": 1,
+            "gl.getFramebufferAttachmentParameter": 0,
+            "gl.getFramebufferAttachmentParameterCalls": 1,
+            "gl.useProgram": 0.10000002384185791,
+            "gl.useProgramCalls": 3,
+            "gl.getTexParameter": 22.800000071525574,
+            "gl.getTexParameterCalls": 4,
+            "gl.drawArrays": 0,
+            "gl.drawArraysCalls": 1,
+            "CanonicalRgba8CompositePass.drawSource": 29.099999964237213,
+            "CanonicalRgba8CompositePass.drawSourceCalls": 1,
+            "TiledLayerBuffer.markContentPainted": 0,
+            "TiledLayerBuffer.markContentPaintedCalls": 1,
+            "CanonicalWashLayerCoordinator.present": 90.89999997615814,
+            "CanonicalWashLayerCoordinator.presentCalls": 1,
+            "totalMs": 91
+          },
+          {
+            "index": 60,
+            "replay": 0,
+            "ordinal": 0,
+            "phase": "preview",
+            "CanonicalWashLayerCoordinator.assertLayers": 0.09999996423721313,
+            "CanonicalWashLayerCoordinator.assertLayersCalls": 2,
+            "gl.isContextLost": 0.10000002384185791,
+            "gl.isContextLostCalls": 7,
+            "gl.getParameter": 5.600000023841858,
+            "gl.getParameterCalls": 12,
+            "gl.activeTexture": 0,
+            "gl.activeTextureCalls": 16,
+            "TiledLayerBuffer.resolveForPaint": 0.09999996423721313,
+            "TiledLayerBuffer.resolveForPaintCalls": 2,
+            "CanonicalWashLayerCoordinator.resolve": 0.09999996423721313,
+            "CanonicalWashLayerCoordinator.resolveCalls": 2,
+            "gl.bindFramebuffer": 0.10000002384185791,
+            "gl.bindFramebufferCalls": 4,
+            "gl.checkFramebufferStatus": 5.399999976158142,
+            "gl.checkFramebufferStatusCalls": 1,
+            "gl.getFramebufferAttachmentParameter": 0,
+            "gl.getFramebufferAttachmentParameterCalls": 1,
+            "gl.bindTexture": 0,
+            "gl.bindTextureCalls": 9,
+            "gl.copyTexSubImage2D": 0.10000002384185791,
+            "gl.copyTexSubImage2DCalls": 1,
+            "gl.useProgram": 0,
+            "gl.useProgramCalls": 3,
+            "gl.getTexParameter": 17.900000035762787,
+            "gl.getTexParameterCalls": 4,
+            "gl.drawArrays": 0,
+            "gl.drawArraysCalls": 1,
+            "CanonicalRgba8CompositePass.drawSource": 23.80000001192093,
+            "CanonicalRgba8CompositePass.drawSourceCalls": 1,
+            "TiledLayerBuffer.markContentPainted": 0.10000002384185791,
+            "TiledLayerBuffer.markContentPaintedCalls": 1,
+            "CanonicalWashLayerCoordinator.present": 70.29999995231628,
+            "CanonicalWashLayerCoordinator.presentCalls": 1,
+            "totalMs": 70.5
+          },
+          {
+            "index": 62,
+            "replay": 1,
+            "ordinal": 0,
+            "phase": "preview",
+            "CanonicalWashLayerCoordinator.assertLayers": 0,
+            "CanonicalWashLayerCoordinator.assertLayersCalls": 2,
+            "gl.isContextLost": 0,
+            "gl.isContextLostCalls": 7,
+            "gl.getParameter": 12,
+            "gl.getParameterCalls": 12,
+            "gl.activeTexture": 0.09999996423721313,
+            "gl.activeTextureCalls": 16,
+            "TiledLayerBuffer.resolveForPaint": 0,
+            "TiledLayerBuffer.resolveForPaintCalls": 2,
+            "CanonicalWashLayerCoordinator.resolve": 0,
+            "CanonicalWashLayerCoordinator.resolveCalls": 2,
+            "gl.bindFramebuffer": 0,
+            "gl.bindFramebufferCalls": 4,
+            "gl.checkFramebufferStatus": 5.899999976158142,
+            "gl.checkFramebufferStatusCalls": 1,
+            "gl.getFramebufferAttachmentParameter": 0,
+            "gl.getFramebufferAttachmentParameterCalls": 1,
+            "gl.bindTexture": 0,
+            "gl.bindTextureCalls": 9,
+            "gl.copyTexSubImage2D": 0,
+            "gl.copyTexSubImage2DCalls": 1,
+            "gl.useProgram": 0,
+            "gl.useProgramCalls": 3,
+            "gl.getTexParameter": 16.600000023841858,
+            "gl.getTexParameterCalls": 4,
+            "gl.drawArrays": 0,
+            "gl.drawArraysCalls": 1,
+            "CanonicalRgba8CompositePass.drawSource": 23.099999964237213,
+            "CanonicalRgba8CompositePass.drawSourceCalls": 1,
+            "TiledLayerBuffer.markContentPainted": 0,
+            "TiledLayerBuffer.markContentPaintedCalls": 1,
+            "CanonicalWashLayerCoordinator.present": 66.80000001192093,
+            "CanonicalWashLayerCoordinator.presentCalls": 1,
+            "totalMs": 66.80000001192093
+          },
+          {
+            "index": 60,
+            "replay": 1,
+            "ordinal": 0,
+            "phase": "preview",
+            "CanonicalWashLayerCoordinator.assertLayers": 0,
+            "CanonicalWashLayerCoordinator.assertLayersCalls": 2,
+            "gl.isContextLost": 0.10000002384185791,
+            "gl.isContextLostCalls": 7,
+            "gl.getParameter": 6.300000011920929,
+            "gl.getParameterCalls": 12,
+            "gl.activeTexture": 0.09999996423721313,
+            "gl.activeTextureCalls": 16,
+            "TiledLayerBuffer.resolveForPaint": 0,
+            "TiledLayerBuffer.resolveForPaintCalls": 2,
+            "CanonicalWashLayerCoordinator.resolve": 0.09999996423721313,
+            "CanonicalWashLayerCoordinator.resolveCalls": 2,
+            "gl.bindFramebuffer": 0,
+            "gl.bindFramebufferCalls": 4,
+            "gl.checkFramebufferStatus": 6.5,
+            "gl.checkFramebufferStatusCalls": 1,
+            "gl.getFramebufferAttachmentParameter": 0,
+            "gl.getFramebufferAttachmentParameterCalls": 1,
+            "gl.bindTexture": 0.10000002384185791,
+            "gl.bindTextureCalls": 9,
+            "gl.copyTexSubImage2D": 0,
+            "gl.copyTexSubImage2DCalls": 1,
+            "gl.useProgram": 0,
+            "gl.useProgramCalls": 3,
+            "gl.getTexParameter": 10.100000023841858,
+            "gl.getTexParameterCalls": 4,
+            "gl.drawArrays": 0,
+            "gl.drawArraysCalls": 1,
+            "CanonicalRgba8CompositePass.drawSource": 17.19999998807907,
+            "CanonicalRgba8CompositePass.drawSourceCalls": 1,
+            "TiledLayerBuffer.markContentPainted": 0.10000002384185791,
+            "TiledLayerBuffer.markContentPaintedCalls": 1,
+            "CanonicalWashLayerCoordinator.present": 50.10000002384186,
+            "CanonicalWashLayerCoordinator.presentCalls": 1,
+            "totalMs": 50.19999998807907
+          },
+          {
+            "index": 61,
+            "replay": 0,
+            "ordinal": 0,
+            "phase": "preview",
+            "CanonicalWashLayerCoordinator.assertLayers": 0.09999996423721313,
+            "CanonicalWashLayerCoordinator.assertLayersCalls": 2,
+            "gl.isContextLost": 0,
+            "gl.isContextLostCalls": 7,
+            "gl.getParameter": 7.099999964237213,
+            "gl.getParameterCalls": 12,
+            "gl.activeTexture": 0,
+            "gl.activeTextureCalls": 16,
+            "TiledLayerBuffer.resolveForPaint": 0,
+            "TiledLayerBuffer.resolveForPaintCalls": 2,
+            "CanonicalWashLayerCoordinator.resolve": 0,
+            "CanonicalWashLayerCoordinator.resolveCalls": 2,
+            "gl.bindFramebuffer": 0,
+            "gl.bindFramebufferCalls": 4,
+            "gl.checkFramebufferStatus": 4.5,
+            "gl.checkFramebufferStatusCalls": 1,
+            "gl.getFramebufferAttachmentParameter": 0,
+            "gl.getFramebufferAttachmentParameterCalls": 1,
+            "gl.bindTexture": 0.20000004768371582,
+            "gl.bindTextureCalls": 9,
+            "gl.copyTexSubImage2D": 0,
+            "gl.copyTexSubImage2DCalls": 1,
+            "gl.useProgram": 0,
+            "gl.useProgramCalls": 3,
+            "gl.getTexParameter": 11.299999952316284,
+            "gl.getTexParameterCalls": 4,
+            "gl.drawArrays": 0,
+            "gl.drawArraysCalls": 1,
+            "CanonicalRgba8CompositePass.drawSource": 16.19999998807907,
+            "CanonicalRgba8CompositePass.drawSourceCalls": 1,
+            "TiledLayerBuffer.markContentPainted": 0,
+            "TiledLayerBuffer.markContentPaintedCalls": 1,
+            "CanonicalWashLayerCoordinator.present": 50,
+            "CanonicalWashLayerCoordinator.presentCalls": 1,
+            "totalMs": 50
+          }
+        ],
+        "queryScope": "api aggregate includes coldsetup and external sentinel observers. External state() is called2*(turnCount+40) times,16getTexParameter+18getParameter each. Derived counts below subtract ONLY those outsideadvance observers; coldsetup calls remain. Slowest6 per-turn counters exclude external observers. Method times are inclusive; do NOT sum nested phases.",
+        "externalStateObservers": 5968,
+        "productionQueriesIncludingColdSetup": {
+          "getTexParameter": 7596,
+          "getParameter": 26017,
+          "checkFramebufferStatus": 2072,
+          "getFramebufferAttachmentParameter": 2066
+        }
+      }
+    },
+    "after": {
+      "proof": {
+        "head": "1288626a53a739697fa095b297c88ac0c42d8164",
+        "fixtureSHA256": "c68fba9cc5519eaa61f81e5c23a2458540aa35f6219f98a9fc47e75e1b35726a",
+        "bodySHA256": "6b6e7b39c1dae82cbb8f4eb77635b4ead3ebc376803b41b08354d4ac1960be9a",
+        "bundleSHA256": "18d643225932650407db6cf1aa7d1487322c7f1277ba5dc5462f70042a267082",
+        "sourceSnapshot": {
+          "packages/shared/src/index.ts": "2adf91191dd11dc6806b9e4c7e0e59e886b8189999d4511e0c69b852dd63dcfc",
+          "apps/web/src/engine/src/buffers/RibbonScratchPool.ts": "e3bb44bc6436a21b01b12406fce19423c4f7cc5808c5c18027b3ca340dd18a9e",
+          "apps/web/src/engine/src/buffers/ContextStorageOwner.ts": "ab35cd1acfc8b65c9975153548568de0960adf5a3814207e9fdb341e0d97ba51",
+          "apps/web/src/engine/src/buffers/TiledLayerBuffer.ts": "45ebde11537d04baf962dce41217be408aace0dc8058925bd84a52325fa91269",
+          "apps/web/src/engine/src/dabs/TransformedMaskPrepass.ts": "fe1b2f828275eeabeb1416416ad6e6a983c2ae7790907bae2e47edf78dfe891c",
+          "apps/web/src/engine/src/dabs/CanonicalRgba8CompositePass.ts": "967201d598de114e89c4e7c02f2846be6e35671137ab8dfcc99090bf93b5937c",
+          "apps/web/src/engine/src/buffers/AccumulationBuffer.ts": "f7a187b0b3479dc17564b2f7dde709d28c0e763f26a2517f36c5ea98dc0f7ed2",
+          "apps/web/src/engine/src/dabs/BrushTextureCache.ts": "3d7be39c09e5d59e9b26ce7ddaa8889fab7d658e9536d56b740af2e5c084da21",
+          "apps/web/src/engine/src/dabs/BrushMipCache.ts": "58d785d7999fb4ee7b0a32ab4b40ec7c78fc463b4f7060a8de73ca9e3833ec31",
+          "temp/device-runs/krita-stroke-20261024/fixes-v52/generic-sc4-real-source-author.mts": "cd9ef3474e9db224b2f5482f311896e6bec991f6dd9d1591307a7441d84b2d5a",
+          "apps/web/src/engine/src/dabs/CanonicalFrameExecutor.ts": "7a36b7cb47ec36e421c43740c59a9adf78d008b7c85c9946bc8f7bdac4fefe03",
+          "apps/web/src/engine/src/dabs/CanonicalWashLayerCoordinator.ts": "5a31bcc095fea58b10719f2c298690d128d4abfd18694bc83f0586ed267881a3",
+          "apps/web/src/engine/src/dabs/CanonicalSoftCircleProgramOwner.ts": "c6eebb684ae631f3b98d953f0e1ee05e30e1e17843f69fd00844b014f2cc260e",
+          "packages/shared/src/canonicalRecordedAttachment.ts": "4fa034d39aad531e15aae554cf5d9231bb8a070fc1394a64f02b153ff740a86b",
+          "packages/shared/src/layers.ts": "76d056b6741d26ecf3d173c161988ec6908cf9dfb0509cc5271297b04e0c21e7",
+          "packages/shared/src/paper.ts": "a8080214e2a91b26494ea678df9cc63389d604d9b6436242a6486c9e26acb10e",
+          "packages/shared/src/room.ts": "352205320e6afebbbc5c6ed8bd58cbf7ac5e5826278577f3cff480b34919baca",
+          "packages/shared/src/roomRasterVersion.ts": "c25c73f828c658e7dc221b2802ea34e58aaaa7a73687cf483752bce2ef591541",
+          "packages/shared/src/toolset.ts": "ec4aaa7b603fdfade1fa44994bdba56fade77a8c64efccdff78b3100bcf59330",
+          "packages/shared/src/stroke.ts": "140bd68ce1a2082b02f017aee0cd60f214466ad6bcff37dc42f675c329b6230d",
+          "packages/shared/src/sourceAutoGeometry.ts": "2763c9e8f7c859f3f590356f427346d202359dd3f0abd3cc6c8b833160b97a40",
+          "apps/web/src/engine/src/presets/sourceSoftCircleDab.ts": "eed15ebc718390db369ce6a92043049dfd6085dd2a56920799ead360a12b349c",
+          "apps/web/src/engine/src/presets/sourceCanonicalFrameEncoder.ts": "a4564a2d0450408cc70133e8c03b398e772088a656d810eb8baa9ea7cce0589f",
+          "apps/web/src/engine/src/presets/sourceStrokeAuthorDescriptor.ts": "07660acab236930647abd2c4154e7673c4cf4f6ef742fbd0e5d49e845c1a5ff8",
+          "apps/web/src/engine/src/presets/sourceStrokeAuthor.ts": "aa7127183d8fa5b4d738cab5ff51538d6cbad5a547cb5d9f2c0d42a1b9a4d28d",
+          "apps/web/src/engine/src/presets/sourceStrokeMaterialAdapter.ts": "bac57d703fc5ac6261c3d751fcab2e0efbbb48fab31790bc2198c36cdbef711e",
+          "packages/shared/src/layerOperations.ts": "92af5204db34e72ab72a8e75f503747e1b61e23da9b948499071ecd280ebcb45",
+          "packages/shared/src/areaOperations.ts": "5e685e043a863be6e97b8d4b35ba3891e067d117280e63d3f6686396f697df7d",
+          "apps/web/src/engine/src/presets/sourceStampQuery.ts": "d8fa602b1a0e179e07edd18a4183009a0c6a138b8b43cee0bb7e547f3fd935d8",
+          "packages/shared/src/sourceStampData.ts": "937346c0e16a3a812b2ba8a36a792e6c0c3c7f7a76d4ea5069e5f3fc70edb5a1",
+          "apps/web/src/engine/src/dabs/BrushGlBatch.ts": "5d2ae3d172059b7e2db0d94e91467f9f33d1cfb545aba699dbaf5d104d7ef73e",
+          "apps/web/src/engine/src/dabs/CanonicalLayerTargets.ts": "a3813b0ab7a6db51ecbfbdfc1264364474609bb31d44b5cd0dea980b6868f9e7",
+          "apps/web/src/engine/src/dabs/CanonicalTargetPlan.ts": "338fa96290a4b7df1781bc432413125f31fda00399069e64bf345e3597255bab",
+          "apps/web/src/engine/src/presets/sourceColorRgba8.ts": "ade7933cd572695f861db14fadfe8a72d241af0434f3855ec0d12d057817de1b",
+          "apps/web/src/engine/src/presets/sourcePrimaryComposition.ts": "fd3cbed9eb3bee53ed3892136e5f956aa9abb44717cf98453ebccec174787e97",
+          "apps/web/src/engine/src/dabs/TransformedMaskPlan.ts": "2513a17645f67c0023a52ca83c420ea9778289d5871404182d0ce64df9a516cc",
+          "apps/web/src/engine/src/presets/sourceCurve.ts": "4761851c2349485b7bd799ff5cde81075faecd81fe3bf56c8d1541f66723c88d",
+          "apps/web/src/engine/src/presets/sourceOptionProgram.ts": "d3a9c5b34aceead8e69610ecac2817f1850743c6cd5dab06bfe96ce40903b6a9",
+          "apps/web/src/engine/src/presets/sourceAutoGeometry.ts": "abda9fd0e5e9e68c96e60b544a9d766ade66c25bf573b5234e93af15ea2436c1",
+          "apps/web/src/engine/src/presets/sourceCoverageEvaluator.ts": "ee5e6eedf1462f7008cf8b3ca300e72c273e8732d5965217a76ec11252d3ab93",
+          "apps/web/src/engine/src/presets/sourceFmaF64.ts": "fe5c5a0c704a7cebfc6eb8bb126863a3f12ef16f0fcf9bf7e4b3dd8e38e68ef9",
+          "apps/web/src/engine/src/presets/sourceFmaF32.ts": "d10bdab3983a850c3a9ce9fcf11287c74beaa88aa7cf46b01fe2265d2990dbd3",
+          "apps/web/src/engine/src/presets/sourceImageTransformReciprocal.ts": "643e6af09bbfdc2c1c8fbacb28d7aad7091a5f45141d5903e11804ab53a8dd2b",
+          "apps/web/src/engine/src/dabs/sourceDistanceTiming.ts": "e55b793dae332407d903dad1ed909f3f876ba59327660428207014dea99cfce3",
+          "apps/web/src/engine/src/input/kritaStrokeInput.ts": "200ba2aad86d803e7fc9f09193b4dd533627deb254e87f4fd1640e59443c7d97",
+          "apps/web/src/engine/src/presets/nativeRandom.ts": "517a16359cced210f18e9ca07c70b83ca591ced2c25fb68f55765ab11d8963ee",
+          "apps/web/src/engine/src/presets/sourceDabCache.ts": "a00b739ccd56561702b27577dc1ac43551cf2bd026fc49ab08ff483f51e453c6",
+          "packages/shared/src/canonicalMaterialCodec.ts": "97c84a45e0fa02af4f4c1cdeb16ccb3218a6f6e30c519507409b62cce5baf5a3",
+          "packages/shared/src/layerFilters.ts": "82e3108ecd2acf3b26222a8330db149b38e44af9637cfb5607098019ca06c635",
+          "packages/shared/src/sourceImageTransformAffine.ts": "6cf13aef9a0c65b068d5cdb0aa54c9a9e89704a438256b36120c51c6008469e9",
+          "packages/shared/src/sourcePngGeometry.ts": "03fca4e983290bdc337577bbdc42ca62047a87f9313eff7e1d5b632c17d2eec8",
+          "packages/shared/src/sourcePngPyramid.ts": "32172e787f6543923613422ed186223f9dae872876f9af0b9217785afcb920a7",
+          "packages/shared/src/sourceImageTransformMetadata.ts": "2f49d23c94d77e6f91170452f42f556e11a04dc448e4806a63d25d5079fafbbb",
+          "packages/shared/src/sourceAffineImageSpan16Coordinates.ts": "df1da63ea5ada5a8debe70cb73c1096331f280158e55f0d5daf1fe8afdcdff85",
+          "packages/shared/src/canonicalMaterialGeometry.ts": "f8199b4a7fbd675c0d70ccdef738aa4db7b2538ff40f377202e218d597ced4a3",
+          "packages/shared/src/canonicalStrokeFrame.ts": "3b677e7e7ab925e17dbec437b15afa7ec5c025ea4d78bec1fae2f660ebe10e84",
+          "packages/shared/src/canonicalBrushCapability.ts": "89ce0c24127d156940efc026cd72b91789e7ee52e57251f7dfc459f219460d3a",
+          "packages/shared/src/canonicalStrokeOperation.ts": "67d939bd85de34444413aea6329c4a90ffe8c3548421982f4ac6dd84a763fffa",
+          "packages/shared/src/admin.ts": "ce06dfa3d3a2ddbe8f931e97ab8ab2043097f525654fa38bf2df75c6d03e3e2c",
+          "packages/shared/src/sourceFmaF64.ts": "72e84d1ff5e1159c5fd31566986b86c7b8268cde46991571bc3f005cbc7011a1",
+          "packages/shared/src/sourceFmaF64Reference.ts": "1ad4b929b9bceda2c45595b887a1e65b4c73d9707ed58550414ba485a9848113",
+          "packages/shared/src/canonicalDefaultAutoMaterial.ts": "afe2dfde4275c1a6d71a405db708ecd9d7caca332c441aa34261c82f7c2f21f4",
+          "packages/shared/src/canonicalSoftAutoMaterial.ts": "189ecc8396c91ab1a86a015d9ff2c4184471d953694f555fd05c7d055651b60a",
+          "packages/shared/src/dabCodec.ts": "b6166d9db6994aa9b631f85272e4a90edbd8886e02c8a56d186cb6e725100d2c",
+          "packages/shared/src/annotations.ts": "d56ec53f837e18e62ef17be612127ec60d39fdc73c84d13e35e697eb60560eb6",
+          "packages/shared/src/protocol.ts": "f9b102c3787b0601980de8c77b90a500f9e788056a135b87b2a647b75f1c6f8f",
+          "packages/shared/src/hotkeys.ts": "59907577a05e61df39b6e0b0644c68a9818255fc3968def72baf9dcec1109c1f",
+          "packages/shared/src/rest.ts": "4ae57a713804b0f557d050c3f0acc267ad207d39688884d987c011869e399a61",
+          "packages/shared/src/roomOpen.ts": "d08d809d740398bcddf067e7b91fe916cda6195e883d6c2f07b30908dd37bcac",
+          "packages/shared/src/brushBehavior.ts": "29031c5a7cc049ce19b8202cd637577e2263b1cd0aece20196c968a5b81162b7",
+          "packages/shared/src/brushRandom.ts": "c5f978397a6185dc743e94d24c1cdcd78edaba4df567cfb9983bf6373cecd578",
+          "packages/shared/src/brushes.ts": "f35c552ff36fddb1f45bcc7e6039d777d6c1399e804933b3447870622ace92f5",
+          "apps/web/src/engine/src/buffers/tileMath.ts": "7f3359f23930ab64f14d7e2ac1ef2cba7a276a93fca571995ea47e52e73e4f1a",
+          "packages/shared/src/strokeEndSample.ts": "8075c4a3bcb85339d2675b9a6307a3c713de72807021effd593924bc2c6fb076",
+          "packages/shared/src/brushCurves.ts": "764d38ac27dc86b097420358f92deda3801e8338df6568e9f99d55a41bf3876b",
+          "packages/shared/src/operations.ts": "c3b16f735927327cefe6dc31d0224ebf0dc651c3b2f1bf21fce20cafa44d1158",
+          "apps/web/src/engine/src/raster/sourceTransformedMaskShader.ts": "938747455214ca9f2e29e1c2f41bf6366c4ddfa0efd0b35d2d5aff5daa0f7d27",
+          "apps/web/src/engine/src/presets/sourceScatter.ts": "5638e927de498a295790fa05fadd2651a9d9d82e766f2b8166268f3e5f1e7748",
+          "apps/web/src/engine/src/presets/sourceOption.ts": "c1b541b524ffae7444a7dbdfa05de5993d09f3367d6662fb47e8fa17d7cfae3f",
+          "apps/web/src/engine/src/dabs/BrushGlState.ts": "cdec0f7e68bfbe2727a80f2d10f8e7bd9998cfb6f11be1fd8e5d6ac1155f8a87",
+          "apps/web/src/engine/src/raster/sourceRgba64StraightShader.ts": "84e2f5a63a011d35c754a2816ac51623e78308565631b05b65269bc765b07804",
+          "apps/web/src/engine/src/presets/sourcePainterOpacity.ts": "92fcadd9a88e91c4a10b06c27527e0d9458f45effa7896bdb0b26fc554d38b0b",
+          "packages/shared/src/shapes.ts": "a0159c0bd71e21e8a464ccf2dc9c0229d4898bc87ae81c409a1df7c1bd8b8914",
+          "apps/web/src/engine/src/raster/sourceFusedOver32ScalarShader.ts": "6ee996913cad706ed5c834637f49d1969a5b6a71bd5355d6a241b0a574ba2577",
+          "apps/web/src/engine/src/raster/sourceRgba8CompositeWebGL1.ts": "a6d6e10596434141fb3827693650a4f394ba4d1ab7b67e6140147e00a36bf899",
+          "apps/web/src/engine/src/raster/sourceRgba8CompositeShader.ts": "210d3cee146af2cb4e8a17668f13f3d2b3e1792ad094b24f0d8a167057fa166c",
+          "apps/web/src/engine/src/raster/sourceFusedAlphaDarken32ScalarShader.ts": "3fc590497d7b4b9db800c12a941e650dc9b50a19323a2da889d437c9e87710b1",
+          "apps/web/src/engine/src/raster/sourceOver32ScalarShader.ts": "c52aed02578459b41ad3f80348848ae45773c8f19f2e47e412f1b01faf4eda5e",
+          "apps/web/src/engine/src/raster/sourceAlphaDarken32Shader.ts": "f6a744cf84e1203c3b7c465666d3ce70b0c6f30f02bf991ab9f9c45fb478c9c4",
+          "apps/web/src/engine/src/raster/affineImageSpan16.ts": "c885f03be57649bf3e9a1361b358a4cbd0aae8128e3fd319117cb7db8ee709e4",
+          "apps/web/src/engine/src/presets/sourceSensors.ts": "62bb939b565985651e225c630a090f4445f0356fde10394a03f1eb2bdd7b718b",
+          "apps/web/src/engine/src/input/sourceAtan2F32.ts": "ec2432c7ccc0249dd5c3e0a0901f7c062afdc9957ce0f8c5ecc1f6f5cf19cb70",
+          "apps/web/src/engine/src/presets/sourcePngGeometry.ts": "2589f3b979466b780139f2fe0275405d002b26259284dcc5356c0c178e99fd74",
+          "apps/web/src/engine/src/presets/brushWash.ts": "ab676df55288df788a1a82d3774bb2755794ffcfbe1fe6debd7fc54a3fdaee69",
+          "apps/web/src/engine/src/presets/sourceImageTransformPlan.ts": "f1985e3164a127a5af108c5d9e0c77c8fc6246141089507c927fab68d212db71",
+          "apps/web/src/engine/src/presets/sourceGaussianDab.ts": "7a35358dd2b47b75ac0d10f7d024b1df896cbf77e8b87c3da55cc88a60bc3e8e",
+          "apps/web/src/engine/src/presets/sourceDefaultAutoDab.ts": "58209f6d2ce6eb8178c625997b63f4afbf50cdb6fa7ed9ded8a9ca8e4ef413fe",
+          "apps/web/src/engine/src/presets/sourceImageTransformSpans.ts": "c56dab9e7d09c11412e2cc7c66b95b6b1c4be8813764ac2c19b5d058157739b1",
+          "apps/web/src/engine/src/raster/sourceAffineGray16Shader.ts": "0bdca97751f4c10f065332928686f7056869dd6b6aa32bdcb0be1a197e0a1e37",
+          "apps/web/src/engine/src/raster/sourceFmaF32NumericShader.ts": "26e78bff6d1ac7555260e6c324f351ced3327908da9ff7e822cd464797ea14f3",
+          "apps/web/src/engine/src/raster/sourceFmaF32Shader.ts": "8f6bace8897ebf4d61e4c051f662e94365356c926cb75be504bea54789978f9f",
+          "apps/web/src/engine/src/raster/sourceRgbFmaByteShader.ts": "0223d889ec4abc46ccbc895adb89a6a1b90f361e69c1cd3d88750986e2075084",
+          "apps/web/src/engine/src/raster/sourceFmaF32Model.ts": "a0609713f772e0b085d097e469981c7b9de82844467171c13aa3f78158643499",
+          "apps/web/src/engine/src/raster/sourceFmaF32Base4096Shader.ts": "eae929fa7c2b8a918be8b67b98d7eabde4bac63a8c911ad9ed1b21b7057f8267",
+          "apps/web/src/engine/src/presets/sourceGaussianResolvedMaskReference.ts": "ea24a2715ee1afa9ab31a720ebd32651f4ce3b11c7ff7d3e7696c0184639948a",
+          "apps/web/src/engine/src/presets/sourceDefaultAutoMaskReference.ts": "40d233e688c6bff90635384110c3327aed09f0d381f0afb48c383304dacd516d",
+          "apps/web/src/engine/src/presets/sourceGaussianCoefficients.ts": "47c62bea6d6d0b13afe0a9bbf8d7a5f71be19a993fb82b779df82899030413d6",
+          "apps/web/src/engine/src/presets/sourceVector32.ts": "59293064406fcb73b17ac9fd205953a1539f61fa4c3cd30af4f6b5a7ed56788e",
+          "apps/web/src/engine/src/presets/sourceArmFrecpe.ts": "7ed150cf79aa68d9cad1558d6807dff026070f6da98c0fe33564ed2aba7ea6ca",
+          "apps/web/src/engine/src/presets/sourceGaussianBionicErf.ts": "24bc92e42d5bfc460289a57d119bf70a3c74ae0a9cfb853f64a98b40e438b392",
+          "apps/web/src/engine/src/presets/sourceGaussianNeonMath.ts": "b80ea152dad505b0871b207838160e9303ed4a3da230690d5829fec1b0ab838b",
+          "apps/web/src/engine/src/presets/sourceAlphaDarken32.ts": "5d5a8add83549e57bb0dc7791e2beae6fa66e46fefc32b234b2ca7cd57d7f465",
+          "apps/web/src/engine/src/presets/sourceOver32Scalar.ts": "fa374e2f73b6b9c76ce05b3b26ecdd9cef8239b01dde3ab5ca6360ae0af5bd58"
+        },
+        "storageLimitBytes": 16777216,
+        "headroomLimitBytes": 8388608,
+        "scope": "One own WebGL1 context; five actual NEW source descriptors; fresh coordinator/layer replay twice with shared owners. Source-law CPU oracle; no active editor or native whole-GUI claim."
+      },
+      "deviceResult": {
+        "wrong": 0,
+        "GL": [],
+        "cleanupErrors": [],
+        "stateRestored": true,
+        "leasesAfter": 0,
+        "scope": "Actual NEW descriptors, explicit trusted profile, production author/adapter/encoder/coordinator/executor; source-law CPU oracle. No room/editor or native whole-GUI stroke claim.",
+        "parallelShaderCompile": {
+          "listed": false,
+          "available": false
+        },
+        "device": {
+          "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+          "gpu": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)"
+        },
+        "storage": {
+          "residentBytes": 0,
+          "reservedBytes": 0,
+          "orphanBytes": 0,
+          "limitBytes": 16777216,
+          "complete": false,
+          "domains": {
+            "accum-rgba8": {
+              "residentBytes": 0,
+              "reservedBytes": 0,
+              "orphanBytes": 0,
+              "limitBytes": 16777216,
+              "complete": false
+            },
+            "brush-texture-rgba-equivalent": {
+              "residentBytes": 0,
+              "reservedBytes": 0,
+              "orphanBytes": 0,
+              "limitBytes": 16777216,
+              "complete": false
+            },
+            "brush-buffer": {
+              "residentBytes": 0,
+              "reservedBytes": 0,
+              "orphanBytes": 0,
+              "limitBytes": 16777216,
+              "complete": false
+            }
+          }
+        },
+        "handles": {
+          "Texture": 0,
+          "Framebuffer": 0,
+          "Buffer": 0,
+          "Program": 0,
+          "Shader": 0
+        },
+        "peakReservedBytes": 49152,
+        "cleanupOk": true
+      },
+      "observations": 80,
+      "checkedBytes": 1310720,
+      "surfaceMaxDelta": 0,
+      "caseSummaries": [
+        {
+          "index": 3,
+          "replay": 0,
+          "summary": true,
+          "turns": 127,
+          "maxTurnMs": 14.400000035762787,
+          "ownerAdvanceCalls": 38,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 3,
+          "replay": 1,
+          "summary": true,
+          "turns": 154,
+          "maxTurnMs": 20,
+          "ownerAdvanceCalls": 0,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 60,
+          "replay": 0,
+          "summary": true,
+          "turns": 74,
+          "maxTurnMs": 25.899999976158142,
+          "ownerAdvanceCalls": 38,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 60,
+          "replay": 1,
+          "summary": true,
+          "turns": 96,
+          "maxTurnMs": 70,
+          "ownerAdvanceCalls": 0,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 61,
+          "replay": 0,
+          "summary": true,
+          "turns": 151,
+          "maxTurnMs": 49.5,
+          "ownerAdvanceCalls": 38,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 61,
+          "replay": 1,
+          "summary": true,
+          "turns": 153,
+          "maxTurnMs": 16.5,
+          "ownerAdvanceCalls": 0,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 62,
+          "replay": 0,
+          "summary": true,
+          "turns": 177,
+          "maxTurnMs": 9.399999976158142,
+          "ownerAdvanceCalls": 38,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 62,
+          "replay": 1,
+          "summary": true,
+          "turns": 145,
+          "maxTurnMs": 48.89999997615814,
+          "ownerAdvanceCalls": 0,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 63,
+          "replay": 0,
+          "summary": true,
+          "turns": 126,
+          "maxTurnMs": 6.200000047683716,
+          "ownerAdvanceCalls": 38,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 63,
+          "replay": 1,
+          "summary": true,
+          "turns": 126,
+          "maxTurnMs": 9,
+          "ownerAdvanceCalls": 0,
+          "originalPackets": 2,
+          "drawCount": 1
+        }
+      ],
+      "finalSurfaces": [
+        {
+          "index": 3,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "a1c041a21d35c3096875fcbd9f30b1d2ed69a404616398bba6c871b0734d9021",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 3,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "a1c041a21d35c3096875fcbd9f30b1d2ed69a404616398bba6c871b0734d9021",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 3,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "a1c041a21d35c3096875fcbd9f30b1d2ed69a404616398bba6c871b0734d9021",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 3,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "a1c041a21d35c3096875fcbd9f30b1d2ed69a404616398bba6c871b0734d9021",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 60,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "42f3a820cfb33449217711604452a4b3da94de137119f037e5c90355b6189d48",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 60,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "42f3a820cfb33449217711604452a4b3da94de137119f037e5c90355b6189d48",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 60,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "42f3a820cfb33449217711604452a4b3da94de137119f037e5c90355b6189d48",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 60,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "42f3a820cfb33449217711604452a4b3da94de137119f037e5c90355b6189d48",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 61,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "aa79b878a15e93f4cbbe011fd7627925e65c65e754d3bf5ac48b9fe7b459bba3",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 61,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "aa79b878a15e93f4cbbe011fd7627925e65c65e754d3bf5ac48b9fe7b459bba3",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 61,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "aa79b878a15e93f4cbbe011fd7627925e65c65e754d3bf5ac48b9fe7b459bba3",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 61,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "aa79b878a15e93f4cbbe011fd7627925e65c65e754d3bf5ac48b9fe7b459bba3",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 62,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "d70c4b9a962ca82617836ae1874c9d4a1f1083fe01f2a67802d156e20ba59588",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 62,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "d70c4b9a962ca82617836ae1874c9d4a1f1083fe01f2a67802d156e20ba59588",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 62,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "d70c4b9a962ca82617836ae1874c9d4a1f1083fe01f2a67802d156e20ba59588",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 62,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "d70c4b9a962ca82617836ae1874c9d4a1f1083fe01f2a67802d156e20ba59588",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 63,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "3155e422f1c439fec062fe8179a47c1f83458f6403ef636ff0f1d3ded630a4d5",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 63,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "3155e422f1c439fec062fe8179a47c1f83458f6403ef636ff0f1d3ded630a4d5",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 63,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "3155e422f1c439fec062fe8179a47c1f83458f6403ef636ff0f1d3ded630a4d5",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 63,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "3155e422f1c439fec062fe8179a47c1f83458f6403ef636ff0f1d3ded630a4d5",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        }
+      ],
+      "browserCleanup": {
+        "forwardRemoved": true,
+        "childClosed": true,
+        "tabsPreserved": true,
+        "errors": [],
+        "after": [
+          {
+            "id": "3761",
+            "url": "chrome-native://newtab/"
+          },
+          {
+            "id": "3631",
+            "url": "https://gallery.pecni.com/krita-comparison-20261024/fixes-v45/#10"
+          },
+          {
+            "id": "3643",
+            "url": "about:blank"
+          }
+        ]
+      },
+      "rawResultSHA256": "cc6eaa1d13487f1575b93987dd77086cd6346cd9a70cc11e50eebbd68ac5246b",
+      "profile": {
+        "setup": [
+          {
+            "index": 3,
+            "phase": "services",
+            "ms": 1291.800000011921
+          },
+          {
+            "index": 3,
+            "replay": 0,
+            "phase": "layers-and-coordinator",
+            "ms": 33.59999996423721
+          },
+          {
+            "index": 3,
+            "replay": 1,
+            "phase": "layers-and-coordinator",
+            "ms": 6.600000023841858
+          },
+          {
+            "index": 60,
+            "phase": "services",
+            "ms": 1233.699999988079
+          },
+          {
+            "index": 60,
+            "replay": 0,
+            "phase": "layers-and-coordinator",
+            "ms": 26.399999976158142
+          },
+          {
+            "index": 60,
+            "replay": 1,
+            "phase": "layers-and-coordinator",
+            "ms": 8.600000023841858
+          },
+          {
+            "index": 61,
+            "phase": "services",
+            "ms": 1250.199999988079
+          },
+          {
+            "index": 61,
+            "replay": 0,
+            "phase": "layers-and-coordinator",
+            "ms": 24
+          },
+          {
+            "index": 61,
+            "replay": 1,
+            "phase": "layers-and-coordinator",
+            "ms": 6.400000035762787
+          },
+          {
+            "index": 62,
+            "phase": "services",
+            "ms": 1283.7000000476837
+          },
+          {
+            "index": 62,
+            "replay": 0,
+            "phase": "layers-and-coordinator",
+            "ms": 28.5
+          },
+          {
+            "index": 62,
+            "replay": 1,
+            "phase": "layers-and-coordinator",
+            "ms": 18.099999964237213
+          },
+          {
+            "index": 63,
+            "phase": "services",
+            "ms": 1289.800000011921
+          },
+          {
+            "index": 63,
+            "replay": 0,
+            "phase": "layers-and-coordinator",
+            "ms": 24.69999998807907
+          },
+          {
+            "index": 63,
+            "replay": 1,
+            "phase": "layers-and-coordinator",
+            "ms": 5.200000047683716
+          }
+        ],
+        "api": {
+          "gl.activeTexture": {
+            "calls": 35542,
+            "totalMs": 79.5,
+            "maxMs": 0.19999998807907104
+          },
+          "gl.bindTexture": {
+            "calls": 16021,
+            "totalMs": 50.3999999165535,
+            "maxMs": 0.30000001192092896
+          },
+          "gl.texImage2D": {
+            "calls": 46,
+            "totalMs": 1,
+            "maxMs": 0.5
+          },
+          "gl.getParameter": {
+            "calls": 57013,
+            "totalMs": 7296.099996626377,
+            "maxMs": 10.699999988079071
+          },
+          "gl.isContextLost": {
+            "calls": 7171,
+            "totalMs": 11.899999916553497,
+            "maxMs": 0.10000002384185791
+          },
+          "gl.bindFramebuffer": {
+            "calls": 9143,
+            "totalMs": 28.600000262260437,
+            "maxMs": 0.10000002384185791
+          },
+          "gl.checkFramebufferStatus": {
+            "calls": 548,
+            "totalMs": 324.0000001192093,
+            "maxMs": 8.899999976158142
+          },
+          "gl.useProgram": {
+            "calls": 5582,
+            "totalMs": 14.00000011920929,
+            "maxMs": 0.10000002384185791
+          },
+          "gl.texSubImage2D": {
+            "calls": 216,
+            "totalMs": 6.9000003933906555,
+            "maxMs": 0.19999998807907104
+          },
+          "gl.getTexParameter": {
+            "calls": 45484,
+            "totalMs": 17334.00000113249,
+            "maxMs": 13.800000011920929
+          },
+          "gl.getVertexAttrib": {
+            "calls": 76664,
+            "totalMs": 3985.9999992847443,
+            "maxMs": 10.199999988079071
+          },
+          "gl.getVertexAttribOffset": {
+            "calls": 10952,
+            "totalMs": 20.69999986886978,
+            "maxMs": 0.9000000357627869
+          },
+          "gl.getFramebufferAttachmentParameter": {
+            "calls": 542,
+            "totalMs": 2.299999952316284,
+            "maxMs": 0.10000002384185791
+          },
+          "gl.copyTexSubImage2D": {
+            "calls": 3232,
+            "totalMs": 9.900000214576721,
+            "maxMs": 0.10000002384185791
+          },
+          "gl.drawArrays": {
+            "calls": 3099,
+            "totalMs": 8.500000059604645,
+            "maxMs": 0.10000002384185791
+          }
+        },
+        "methods": {
+          "AccumulationBuffer.clear": {
+            "calls": 30,
+            "totalMs": 1.3000000715255737,
+            "maxMs": 0.3999999761581421
+          },
+          "TiledLayerBuffer.resolveForPaint": {
+            "calls": 1642,
+            "totalMs": 109.09999990463257,
+            "maxMs": 10.800000011920929
+          },
+          "TiledLayerBuffer.markContentPainted": {
+            "calls": 969,
+            "totalMs": 9.500000357627869,
+            "maxMs": 0.30000001192092896
+          },
+          "CanonicalWashLayerCoordinator.assertLayers": {
+            "calls": 3828,
+            "totalMs": 34.299999952316284,
+            "maxMs": 0.19999998807907104
+          },
+          "CPU.softProgram.advance": {
+            "calls": 190,
+            "totalMs": 27.30000013113022,
+            "maxMs": 1.300000011920929
+          },
+          "CanonicalFrameExecutor.prepareAuto": {
+            "calls": 870,
+            "totalMs": 3027.8999994397163,
+            "maxMs": 6.100000023841858
+          },
+          "CanonicalFrameExecutor.advance": {
+            "calls": 900,
+            "totalMs": 3954.800000369549,
+            "maxMs": 35.60000002384186
+          },
+          "TransformedMaskPrepass.beginAutoGeneration": {
+            "calls": 865,
+            "totalMs": 200.09999918937683,
+            "maxMs": 2.699999988079071
+          },
+          "TransformedMaskPrepass.advanceAutoGeneration": {
+            "calls": 48094,
+            "totalMs": 2591.7000014185905,
+            "maxMs": 1.300000011920929
+          },
+          "CanonicalFrameExecutor.resolveTile": {
+            "calls": 884,
+            "totalMs": 13.000000059604645,
+            "maxMs": 0.19999998807907104
+          },
+          "RibbonScratchPool.acquire": {
+            "calls": 10,
+            "totalMs": 4.899999976158142,
+            "maxMs": 1.300000011920929
+          },
+          "CanonicalFrameExecutor.washTile": {
+            "calls": 884,
+            "totalMs": 8.499999940395355,
+            "maxMs": 1.399999976158142
+          },
+          "TransformedMaskPrepass.resolveGroup": {
+            "calls": 640,
+            "totalMs": 125.89999985694885,
+            "maxMs": 1.2999999523162842
+          },
+          "CanonicalRgba8CompositePass.drawSource": {
+            "calls": 3099,
+            "totalMs": 1498.7999985218048,
+            "maxMs": 19.600000023841858
+          },
+          "CanonicalFrameExecutor.paint": {
+            "calls": 123,
+            "totalMs": 597.0000001192093,
+            "maxMs": 19.100000023841858
+          },
+          "CanonicalWashLayerCoordinator.resolve": {
+            "calls": 738,
+            "totalMs": 14.700000166893005,
+            "maxMs": 0.20000004768371582
+          },
+          "AccumulationBuffer.copyTo": {
+            "calls": 20,
+            "totalMs": 0.9000000953674316,
+            "maxMs": 0.19999998807907104
+          },
+          "CanonicalWashLayerCoordinator.present": {
+            "calls": 309,
+            "totalMs": 2368.300000309944,
+            "maxMs": 69.89999997615814
+          },
+          "CanonicalWashLayerCoordinator.commit": {
+            "calls": 120,
+            "totalMs": 1505.6999998688698,
+            "maxMs": 49.299999952316284
+          }
+        },
+        "turnCount": 1329,
+        "groups": [
+          {
+            "index": 3,
+            "replay": 0,
+            "phase": "deposition",
+            "count": 93,
+            "totalMs": 403.40000009536743,
+            "maxMs": 14.400000035762787,
+            "over4": 50,
+            "over16": 0
+          },
+          {
+            "index": 3,
+            "replay": 0,
+            "phase": "preview",
+            "count": 26,
+            "totalMs": 127.60000014305115,
+            "maxMs": 8.399999976158142,
+            "over4": 25,
+            "over16": 0
+          },
+          {
+            "index": 3,
+            "replay": 0,
+            "phase": "commit",
+            "count": 8,
+            "totalMs": 40.30000001192093,
+            "maxMs": 5.800000011920929,
+            "over4": 8,
+            "over16": 0
+          },
+          {
+            "index": 3,
+            "replay": 1,
+            "phase": "deposition",
+            "count": 112,
+            "totalMs": 475.60000026226044,
+            "maxMs": 8.299999952316284,
+            "over4": 67,
+            "over16": 0
+          },
+          {
+            "index": 3,
+            "replay": 1,
+            "phase": "preview",
+            "count": 28,
+            "totalMs": 154.79999989271164,
+            "maxMs": 7.300000011920929,
+            "over4": 26,
+            "over16": 0
+          },
+          {
+            "index": 3,
+            "replay": 1,
+            "phase": "commit",
+            "count": 14,
+            "totalMs": 112.89999997615814,
+            "maxMs": 20,
+            "over4": 14,
+            "over16": 1
+          },
+          {
+            "index": 60,
+            "replay": 0,
+            "phase": "deposition",
+            "count": 37,
+            "totalMs": 159.79999995231628,
+            "maxMs": 7.5,
+            "over4": 22,
+            "over16": 0
+          },
+          {
+            "index": 60,
+            "replay": 0,
+            "phase": "preview",
+            "count": 24,
+            "totalMs": 115.00000017881393,
+            "maxMs": 5.5,
+            "over4": 23,
+            "over16": 0
+          },
+          {
+            "index": 60,
+            "replay": 0,
+            "phase": "commit",
+            "count": 13,
+            "totalMs": 121.39999985694885,
+            "maxMs": 25.899999976158142,
+            "over4": 13,
+            "over16": 2
+          },
+          {
+            "index": 60,
+            "replay": 1,
+            "phase": "deposition",
+            "count": 44,
+            "totalMs": 340.7999999523163,
+            "maxMs": 35.60000002384186,
+            "over4": 25,
+            "over16": 4
+          },
+          {
+            "index": 60,
+            "replay": 1,
+            "phase": "preview",
+            "count": 39,
+            "totalMs": 488.5999999642372,
+            "maxMs": 70,
+            "over4": 39,
+            "over16": 5
+          },
+          {
+            "index": 60,
+            "replay": 1,
+            "phase": "commit",
+            "count": 13,
+            "totalMs": 94.1000000834465,
+            "maxMs": 8,
+            "over4": 13,
+            "over16": 0
+          },
+          {
+            "index": 61,
+            "replay": 0,
+            "phase": "deposition",
+            "count": 98,
+            "totalMs": 400.4000001549721,
+            "maxMs": 7.800000011920929,
+            "over4": 32,
+            "over16": 0
+          },
+          {
+            "index": 61,
+            "replay": 0,
+            "phase": "preview",
+            "count": 24,
+            "totalMs": 105.69999992847443,
+            "maxMs": 5.800000011920929,
+            "over4": 22,
+            "over16": 0
+          },
+          {
+            "index": 61,
+            "replay": 0,
+            "phase": "commit",
+            "count": 29,
+            "totalMs": 916.8999997973442,
+            "maxMs": 49.5,
+            "over4": 29,
+            "over16": 23
+          },
+          {
+            "index": 61,
+            "replay": 1,
+            "phase": "deposition",
+            "count": 105,
+            "totalMs": 474.200000166893,
+            "maxMs": 12.199999988079071,
+            "over4": 43,
+            "over16": 0
+          },
+          {
+            "index": 61,
+            "replay": 1,
+            "phase": "preview",
+            "count": 40,
+            "totalMs": 278.6999998688698,
+            "maxMs": 16.5,
+            "over4": 39,
+            "over16": 1
+          },
+          {
+            "index": 61,
+            "replay": 1,
+            "phase": "commit",
+            "count": 8,
+            "totalMs": 36.800000071525574,
+            "maxMs": 5.5,
+            "over4": 8,
+            "over16": 0
+          },
+          {
+            "index": 62,
+            "replay": 0,
+            "phase": "deposition",
+            "count": 125,
+            "totalMs": 558.1999998092651,
+            "maxMs": 9.100000023841858,
+            "over4": 75,
+            "over16": 0
+          },
+          {
+            "index": 62,
+            "replay": 0,
+            "phase": "preview",
+            "count": 41,
+            "totalMs": 294.5000001192093,
+            "maxMs": 9.399999976158142,
+            "over4": 41,
+            "over16": 0
+          },
+          {
+            "index": 62,
+            "replay": 0,
+            "phase": "commit",
+            "count": 11,
+            "totalMs": 82.00000005960464,
+            "maxMs": 7.800000011920929,
+            "over4": 11,
+            "over16": 0
+          },
+          {
+            "index": 62,
+            "replay": 1,
+            "phase": "deposition",
+            "count": 99,
+            "totalMs": 408.200000166893,
+            "maxMs": 7.400000035762787,
+            "over4": 43,
+            "over16": 0
+          },
+          {
+            "index": 62,
+            "replay": 1,
+            "phase": "preview",
+            "count": 38,
+            "totalMs": 597.5000002384186,
+            "maxMs": 48.89999997615814,
+            "over4": 36,
+            "over16": 11
+          },
+          {
+            "index": 62,
+            "replay": 1,
+            "phase": "commit",
+            "count": 8,
+            "totalMs": 36.09999990463257,
+            "maxMs": 5.599999964237213,
+            "over4": 8,
+            "over16": 0
+          },
+          {
+            "index": 63,
+            "replay": 0,
+            "phase": "deposition",
+            "count": 93,
+            "totalMs": 375.99999982118607,
+            "maxMs": 6.099999964237213,
+            "over4": 37,
+            "over16": 0
+          },
+          {
+            "index": 63,
+            "replay": 0,
+            "phase": "preview",
+            "count": 25,
+            "totalMs": 112.3999999165535,
+            "maxMs": 6.200000047683716,
+            "over4": 22,
+            "over16": 0
+          },
+          {
+            "index": 63,
+            "replay": 0,
+            "phase": "commit",
+            "count": 8,
+            "totalMs": 34.60000002384186,
+            "maxMs": 4.800000011920929,
+            "over4": 5,
+            "over16": 0
+          },
+          {
+            "index": 63,
+            "replay": 1,
+            "phase": "deposition",
+            "count": 94,
+            "totalMs": 386.3999999165535,
+            "maxMs": 9,
+            "over4": 46,
+            "over16": 0
+          },
+          {
+            "index": 63,
+            "replay": 1,
+            "phase": "preview",
+            "count": 24,
+            "totalMs": 101.90000027418137,
+            "maxMs": 5.800000011920929,
+            "over4": 19,
+            "over16": 0
+          },
+          {
+            "index": 63,
+            "replay": 1,
+            "phase": "commit",
+            "count": 8,
+            "totalMs": 34.3999999165535,
+            "maxMs": 4.799999952316284,
+            "over4": 7,
+            "over16": 0
+          }
+        ],
+        "slowest6": [
+          {
+            "index": 60,
+            "replay": 1,
+            "ordinal": 0,
+            "phase": "preview",
+            "CanonicalWashLayerCoordinator.assertLayers": 0.10000002384185791,
+            "CanonicalWashLayerCoordinator.assertLayersCalls": 2,
+            "gl.isContextLost": 0,
+            "gl.isContextLostCalls": 7,
+            "gl.getParameter": 12.100000023841858,
+            "gl.getParameterCalls": 12,
+            "gl.activeTexture": 0.10000002384185791,
+            "gl.activeTextureCalls": 16,
+            "TiledLayerBuffer.resolveForPaint": 0.20000004768371582,
+            "TiledLayerBuffer.resolveForPaintCalls": 2,
+            "CanonicalWashLayerCoordinator.resolve": 0.20000004768371582,
+            "CanonicalWashLayerCoordinator.resolveCalls": 2,
+            "gl.bindFramebuffer": 0.19999998807907104,
+            "gl.bindFramebufferCalls": 6,
+            "gl.bindTexture": 0,
+            "gl.bindTextureCalls": 10,
+            "gl.copyTexSubImage2D": 0,
+            "gl.copyTexSubImage2DCalls": 2,
+            "gl.checkFramebufferStatus": 4.100000023841858,
+            "gl.checkFramebufferStatusCalls": 1,
+            "gl.getFramebufferAttachmentParameter": 0.10000002384185791,
+            "gl.getFramebufferAttachmentParameterCalls": 1,
+            "gl.useProgram": 0.09999996423721313,
+            "gl.useProgramCalls": 3,
+            "gl.getTexParameter": 14.100000023841858,
+            "gl.getTexParameterCalls": 4,
+            "gl.drawArrays": 0,
+            "gl.drawArraysCalls": 1,
+            "CanonicalRgba8CompositePass.drawSource": 18.900000035762787,
+            "CanonicalRgba8CompositePass.drawSourceCalls": 1,
+            "TiledLayerBuffer.markContentPainted": 0,
+            "TiledLayerBuffer.markContentPaintedCalls": 1,
+            "CanonicalWashLayerCoordinator.present": 69.89999997615814,
+            "CanonicalWashLayerCoordinator.presentCalls": 1,
+            "totalMs": 70
+          },
+          {
+            "index": 60,
+            "replay": 1,
+            "ordinal": 0,
+            "phase": "preview",
+            "CanonicalWashLayerCoordinator.assertLayers": 0.2999999523162842,
+            "CanonicalWashLayerCoordinator.assertLayersCalls": 2,
+            "gl.isContextLost": 0,
+            "gl.isContextLostCalls": 7,
+            "gl.getParameter": 7.900000035762787,
+            "gl.getParameterCalls": 12,
+            "gl.activeTexture": 0.10000002384185791,
+            "gl.activeTextureCalls": 16,
+            "TiledLayerBuffer.resolveForPaint": 0,
+            "TiledLayerBuffer.resolveForPaintCalls": 2,
+            "CanonicalWashLayerCoordinator.resolve": 0.19999998807907104,
+            "CanonicalWashLayerCoordinator.resolveCalls": 2,
+            "gl.bindFramebuffer": 0.10000002384185791,
+            "gl.bindFramebufferCalls": 6,
+            "gl.bindTexture": 0,
+            "gl.bindTextureCalls": 10,
+            "gl.copyTexSubImage2D": 0,
+            "gl.copyTexSubImage2DCalls": 2,
+            "gl.checkFramebufferStatus": 6.199999988079071,
+            "gl.checkFramebufferStatusCalls": 1,
+            "gl.getFramebufferAttachmentParameter": 0,
+            "gl.getFramebufferAttachmentParameterCalls": 1,
+            "gl.useProgram": 0,
+            "gl.useProgramCalls": 3,
+            "gl.getTexParameter": 12.600000023841858,
+            "gl.getTexParameterCalls": 4,
+            "gl.drawArrays": 0,
+            "gl.drawArraysCalls": 1,
+            "CanonicalRgba8CompositePass.drawSource": 19.600000023841858,
+            "CanonicalRgba8CompositePass.drawSourceCalls": 1,
+            "TiledLayerBuffer.markContentPainted": 0,
+            "TiledLayerBuffer.markContentPaintedCalls": 1,
+            "CanonicalWashLayerCoordinator.present": 50.30000001192093,
+            "CanonicalWashLayerCoordinator.presentCalls": 1,
+            "totalMs": 50.59999996423721
+          },
+          {
+            "index": 61,
+            "replay": 0,
+            "ordinal": 3,
+            "phase": "commit",
+            "CanonicalWashLayerCoordinator.assertLayers": 0.10000002384185791,
+            "CanonicalWashLayerCoordinator.assertLayersCalls": 2,
+            "gl.isContextLost": 0,
+            "gl.isContextLostCalls": 7,
+            "gl.getParameter": 7,
+            "gl.getParameterCalls": 12,
+            "gl.activeTexture": 0.10000002384185791,
+            "gl.activeTextureCalls": 16,
+            "TiledLayerBuffer.resolveForPaint": 0.10000002384185791,
+            "TiledLayerBuffer.resolveForPaintCalls": 1,
+            "CanonicalWashLayerCoordinator.resolve": 0.10000002384185791,
+            "CanonicalWashLayerCoordinator.resolveCalls": 1,
+            "gl.bindFramebuffer": 0,
+            "gl.bindFramebufferCalls": 4,
+            "gl.checkFramebufferStatus": 5.199999988079071,
+            "gl.checkFramebufferStatusCalls": 1,
+            "gl.getFramebufferAttachmentParameter": 0,
+            "gl.getFramebufferAttachmentParameterCalls": 1,
+            "gl.bindTexture": 0.2999999523162842,
+            "gl.bindTextureCalls": 9,
+            "gl.copyTexSubImage2D": 0,
+            "gl.copyTexSubImage2DCalls": 1,
+            "gl.useProgram": 0,
+            "gl.useProgramCalls": 3,
+            "gl.getTexParameter": 10.500000059604645,
+            "gl.getTexParameterCalls": 4,
+            "gl.drawArrays": 0,
+            "gl.drawArraysCalls": 1,
+            "CanonicalRgba8CompositePass.drawSource": 16.200000047683716,
+            "CanonicalRgba8CompositePass.drawSourceCalls": 1,
+            "TiledLayerBuffer.markContentPainted": 0.09999996423721313,
+            "TiledLayerBuffer.markContentPaintedCalls": 1,
+            "CanonicalWashLayerCoordinator.commit": 49.299999952316284,
+            "CanonicalWashLayerCoordinator.commitCalls": 1,
+            "totalMs": 49.5
+          },
+          {
+            "index": 61,
+            "replay": 0,
+            "ordinal": 3,
+            "phase": "commit",
+            "CanonicalWashLayerCoordinator.assertLayers": 0,
+            "CanonicalWashLayerCoordinator.assertLayersCalls": 2,
+            "gl.isContextLost": 0,
+            "gl.isContextLostCalls": 7,
+            "gl.getParameter": 6.799999952316284,
+            "gl.getParameterCalls": 12,
+            "gl.activeTexture": 0,
+            "gl.activeTextureCalls": 16,
+            "TiledLayerBuffer.resolveForPaint": 0.10000002384185791,
+            "TiledLayerBuffer.resolveForPaintCalls": 1,
+            "CanonicalWashLayerCoordinator.resolve": 0.10000002384185791,
+            "CanonicalWashLayerCoordinator.resolveCalls": 1,
+            "gl.bindFramebuffer": 0,
+            "gl.bindFramebufferCalls": 4,
+            "gl.checkFramebufferStatus": 3.399999976158142,
+            "gl.checkFramebufferStatusCalls": 1,
+            "gl.getFramebufferAttachmentParameter": 0,
+            "gl.getFramebufferAttachmentParameterCalls": 1,
+            "gl.bindTexture": 0,
+            "gl.bindTextureCalls": 9,
+            "gl.copyTexSubImage2D": 0,
+            "gl.copyTexSubImage2DCalls": 1,
+            "gl.useProgram": 0,
+            "gl.useProgramCalls": 3,
+            "gl.getTexParameter": 11.599999964237213,
+            "gl.getTexParameterCalls": 4,
+            "gl.drawArrays": 0,
+            "gl.drawArraysCalls": 1,
+            "CanonicalRgba8CompositePass.drawSource": 15.5,
+            "CanonicalRgba8CompositePass.drawSourceCalls": 1,
+            "TiledLayerBuffer.markContentPainted": 0.10000002384185791,
+            "TiledLayerBuffer.markContentPaintedCalls": 1,
+            "CanonicalWashLayerCoordinator.commit": 48.80000001192093,
+            "CanonicalWashLayerCoordinator.commitCalls": 1,
+            "totalMs": 48.89999997615814
+          },
+          {
+            "index": 62,
+            "replay": 1,
+            "ordinal": 0,
+            "phase": "preview",
+            "CanonicalWashLayerCoordinator.assertLayers": 0,
+            "CanonicalWashLayerCoordinator.assertLayersCalls": 2,
+            "gl.isContextLost": 0,
+            "gl.isContextLostCalls": 7,
+            "gl.getParameter": 6.600000083446503,
+            "gl.getParameterCalls": 12,
+            "gl.activeTexture": 0.09999996423721313,
+            "gl.activeTextureCalls": 16,
+            "TiledLayerBuffer.resolveForPaint": 0,
+            "TiledLayerBuffer.resolveForPaintCalls": 2,
+            "CanonicalWashLayerCoordinator.resolve": 0,
+            "CanonicalWashLayerCoordinator.resolveCalls": 2,
+            "gl.bindFramebuffer": 0,
+            "gl.bindFramebufferCalls": 4,
+            "gl.checkFramebufferStatus": 2.899999976158142,
+            "gl.checkFramebufferStatusCalls": 1,
+            "gl.getFramebufferAttachmentParameter": 0.10000002384185791,
+            "gl.getFramebufferAttachmentParameterCalls": 1,
+            "gl.bindTexture": 0.10000002384185791,
+            "gl.bindTextureCalls": 9,
+            "gl.copyTexSubImage2D": 0,
+            "gl.copyTexSubImage2DCalls": 1,
+            "gl.useProgram": 0,
+            "gl.useProgramCalls": 3,
+            "gl.getTexParameter": 9.5,
+            "gl.getTexParameterCalls": 4,
+            "gl.drawArrays": 0,
+            "gl.drawArraysCalls": 1,
+            "CanonicalRgba8CompositePass.drawSource": 12.699999988079071,
+            "CanonicalRgba8CompositePass.drawSourceCalls": 1,
+            "TiledLayerBuffer.markContentPainted": 0,
+            "TiledLayerBuffer.markContentPaintedCalls": 1,
+            "CanonicalWashLayerCoordinator.present": 48.89999997615814,
+            "CanonicalWashLayerCoordinator.presentCalls": 1,
+            "totalMs": 48.89999997615814
+          },
+          {
+            "index": 61,
+            "replay": 0,
+            "ordinal": 3,
+            "phase": "commit",
+            "CanonicalWashLayerCoordinator.assertLayers": 0,
+            "CanonicalWashLayerCoordinator.assertLayersCalls": 2,
+            "gl.isContextLost": 0,
+            "gl.isContextLostCalls": 7,
+            "gl.getParameter": 4.299999952316284,
+            "gl.getParameterCalls": 12,
+            "gl.activeTexture": 0.10000002384185791,
+            "gl.activeTextureCalls": 16,
+            "TiledLayerBuffer.resolveForPaint": 0,
+            "TiledLayerBuffer.resolveForPaintCalls": 1,
+            "CanonicalWashLayerCoordinator.resolve": 0,
+            "CanonicalWashLayerCoordinator.resolveCalls": 1,
+            "gl.bindFramebuffer": 0,
+            "gl.bindFramebufferCalls": 4,
+            "gl.checkFramebufferStatus": 4,
+            "gl.checkFramebufferStatusCalls": 1,
+            "gl.getFramebufferAttachmentParameter": 0,
+            "gl.getFramebufferAttachmentParameterCalls": 1,
+            "gl.bindTexture": 0,
+            "gl.bindTextureCalls": 9,
+            "gl.copyTexSubImage2D": 0,
+            "gl.copyTexSubImage2DCalls": 1,
+            "gl.useProgram": 0,
+            "gl.useProgramCalls": 3,
+            "gl.getTexParameter": 12.400000035762787,
+            "gl.getTexParameterCalls": 4,
+            "gl.drawArrays": 0,
+            "gl.drawArraysCalls": 1,
+            "CanonicalRgba8CompositePass.drawSource": 16.80000001192093,
+            "CanonicalRgba8CompositePass.drawSourceCalls": 1,
+            "TiledLayerBuffer.markContentPainted": 0.10000002384185791,
+            "TiledLayerBuffer.markContentPaintedCalls": 1,
+            "CanonicalWashLayerCoordinator.commit": 48.30000001192093,
+            "CanonicalWashLayerCoordinator.commitCalls": 1,
+            "totalMs": 48.40000003576279
+          }
+        ],
+        "queryScope": "api aggregate includes coldsetup and external sentinel observers. External state() is called2*(turnCount+40) times,16getTexParameter+18getParameter each. Derived counts below subtract ONLY those outsideadvance observers; coldsetup calls remain. Slowest6 per-turn counters exclude external observers. Method times are inclusive; do NOT sum nested phases.",
+        "externalStateObservers": 2738,
+        "productionQueriesIncludingColdSetup": {
+          "getTexParameter": 1676,
+          "getParameter": 7729,
+          "checkFramebufferStatus": 548,
+          "getFramebufferAttachmentParameter": 542
+        }
+      }
+    },
+    "finalNoObservers": {
+      "proof": {
+        "head": "7c25555f0342377bde5bcb0bd71e261823150d06",
+        "fixtureSHA256": "c68fba9cc5519eaa61f81e5c23a2458540aa35f6219f98a9fc47e75e1b35726a",
+        "bodySHA256": "118015623881f3cb086f0638a82c80ad4654d42fd0fb85c31c866fed9163a399",
+        "bundleSHA256": "a1eff5456a886948b55ddf772ea3a3f2f6900b187ce513419190612ee0574c48",
+        "sourceSnapshot": {
+          "apps/web/src/engine/src/dabs/CanonicalWashLayerCoordinator.ts": "a2d62238affd4a67f0ca14e307061cda52c3bb2471c0fbadb63286894423867d",
+          "packages/shared/src/index.ts": "2adf91191dd11dc6806b9e4c7e0e59e886b8189999d4511e0c69b852dd63dcfc",
+          "apps/web/src/engine/src/buffers/AccumulationBuffer.ts": "f7a187b0b3479dc17564b2f7dde709d28c0e763f26a2517f36c5ea98dc0f7ed2",
+          "apps/web/src/engine/src/buffers/TiledLayerBuffer.ts": "4e95c4f1100c9dad42296d64f88f76712ad0a4343d0bed43a33e93952d0b57a8",
+          "temp/device-runs/krita-stroke-20261024/fixes-v52/generic-sc4-real-source-author.mts": "cd9ef3474e9db224b2f5482f311896e6bec991f6dd9d1591307a7441d84b2d5a",
+          "apps/web/src/engine/src/buffers/RibbonScratchPool.ts": "e3bb44bc6436a21b01b12406fce19423c4f7cc5808c5c18027b3ca340dd18a9e",
+          "apps/web/src/engine/src/dabs/CanonicalSoftCircleProgramOwner.ts": "c6eebb684ae631f3b98d953f0e1ee05e30e1e17843f69fd00844b014f2cc260e",
+          "apps/web/src/engine/src/buffers/ContextStorageOwner.ts": "ab35cd1acfc8b65c9975153548568de0960adf5a3814207e9fdb341e0d97ba51",
+          "apps/web/src/engine/src/dabs/CanonicalFrameExecutor.ts": "7a36b7cb47ec36e421c43740c59a9adf78d008b7c85c9946bc8f7bdac4fefe03",
+          "apps/web/src/engine/src/dabs/TransformedMaskPrepass.ts": "fe1b2f828275eeabeb1416416ad6e6a983c2ae7790907bae2e47edf78dfe891c",
+          "apps/web/src/engine/src/dabs/BrushTextureCache.ts": "3d7be39c09e5d59e9b26ce7ddaa8889fab7d658e9536d56b740af2e5c084da21",
+          "apps/web/src/engine/src/dabs/BrushMipCache.ts": "58d785d7999fb4ee7b0a32ab4b40ec7c78fc463b4f7060a8de73ca9e3833ec31",
+          "apps/web/src/engine/src/dabs/CanonicalRgba8CompositePass.ts": "967201d598de114e89c4e7c02f2846be6e35671137ab8dfcc99090bf93b5937c",
+          "packages/shared/src/sourceStampData.ts": "937346c0e16a3a812b2ba8a36a792e6c0c3c7f7a76d4ea5069e5f3fc70edb5a1",
+          "packages/shared/src/layerFilters.ts": "82e3108ecd2acf3b26222a8330db149b38e44af9637cfb5607098019ca06c635",
+          "packages/shared/src/operations.ts": "c3b16f735927327cefe6dc31d0224ebf0dc651c3b2f1bf21fce20cafa44d1158",
+          "packages/shared/src/annotations.ts": "d56ec53f837e18e62ef17be612127ec60d39fdc73c84d13e35e697eb60560eb6",
+          "packages/shared/src/protocol.ts": "f9b102c3787b0601980de8c77b90a500f9e788056a135b87b2a647b75f1c6f8f",
+          "packages/shared/src/hotkeys.ts": "59907577a05e61df39b6e0b0644c68a9818255fc3968def72baf9dcec1109c1f",
+          "packages/shared/src/rest.ts": "4ae57a713804b0f557d050c3f0acc267ad207d39688884d987c011869e399a61",
+          "packages/shared/src/roomOpen.ts": "d08d809d740398bcddf067e7b91fe916cda6195e883d6c2f07b30908dd37bcac",
+          "packages/shared/src/dabCodec.ts": "b6166d9db6994aa9b631f85272e4a90edbd8886e02c8a56d186cb6e725100d2c",
+          "packages/shared/src/admin.ts": "ce06dfa3d3a2ddbe8f931e97ab8ab2043097f525654fa38bf2df75c6d03e3e2c",
+          "packages/shared/src/brushes.ts": "f35c552ff36fddb1f45bcc7e6039d777d6c1399e804933b3447870622ace92f5",
+          "packages/shared/src/brushBehavior.ts": "29031c5a7cc049ce19b8202cd637577e2263b1cd0aece20196c968a5b81162b7",
+          "packages/shared/src/brushCurves.ts": "764d38ac27dc86b097420358f92deda3801e8338df6568e9f99d55a41bf3876b",
+          "packages/shared/src/strokeEndSample.ts": "8075c4a3bcb85339d2675b9a6307a3c713de72807021effd593924bc2c6fb076",
+          "packages/shared/src/brushRandom.ts": "c5f978397a6185dc743e94d24c1cdcd78edaba4df567cfb9983bf6373cecd578",
+          "packages/shared/src/sourcePngGeometry.ts": "03fca4e983290bdc337577bbdc42ca62047a87f9313eff7e1d5b632c17d2eec8",
+          "packages/shared/src/canonicalMaterialCodec.ts": "97c84a45e0fa02af4f4c1cdeb16ccb3218a6f6e30c519507409b62cce5baf5a3",
+          "packages/shared/src/sourceImageTransformAffine.ts": "6cf13aef9a0c65b068d5cdb0aa54c9a9e89704a438256b36120c51c6008469e9",
+          "packages/shared/src/sourceAffineImageSpan16Coordinates.ts": "df1da63ea5ada5a8debe70cb73c1096331f280158e55f0d5daf1fe8afdcdff85",
+          "packages/shared/src/canonicalMaterialGeometry.ts": "f8199b4a7fbd675c0d70ccdef738aa4db7b2538ff40f377202e218d597ced4a3",
+          "packages/shared/src/canonicalStrokeFrame.ts": "3b677e7e7ab925e17dbec437b15afa7ec5c025ea4d78bec1fae2f660ebe10e84",
+          "packages/shared/src/canonicalBrushCapability.ts": "89ce0c24127d156940efc026cd72b91789e7ee52e57251f7dfc459f219460d3a",
+          "packages/shared/src/canonicalStrokeOperation.ts": "67d939bd85de34444413aea6329c4a90ffe8c3548421982f4ac6dd84a763fffa",
+          "packages/shared/src/sourceAutoGeometry.ts": "2763c9e8f7c859f3f590356f427346d202359dd3f0abd3cc6c8b833160b97a40",
+          "packages/shared/src/sourceFmaF64.ts": "72e84d1ff5e1159c5fd31566986b86c7b8268cde46991571bc3f005cbc7011a1",
+          "packages/shared/src/sourceFmaF64Reference.ts": "1ad4b929b9bceda2c45595b887a1e65b4c73d9707ed58550414ba485a9848113",
+          "packages/shared/src/canonicalDefaultAutoMaterial.ts": "afe2dfde4275c1a6d71a405db708ecd9d7caca332c441aa34261c82f7c2f21f4",
+          "packages/shared/src/canonicalSoftAutoMaterial.ts": "189ecc8396c91ab1a86a015d9ff2c4184471d953694f555fd05c7d055651b60a",
+          "packages/shared/src/canonicalRecordedAttachment.ts": "4fa034d39aad531e15aae554cf5d9231bb8a070fc1394a64f02b153ff740a86b",
+          "apps/web/src/engine/src/presets/sourceSoftCircleDab.ts": "eed15ebc718390db369ce6a92043049dfd6085dd2a56920799ead360a12b349c",
+          "apps/web/src/engine/src/dabs/BrushGlBatch.ts": "5d2ae3d172059b7e2db0d94e91467f9f33d1cfb545aba699dbaf5d104d7ef73e",
+          "apps/web/src/engine/src/dabs/CanonicalLayerTargets.ts": "a3813b0ab7a6db51ecbfbdfc1264364474609bb31d44b5cd0dea980b6868f9e7",
+          "apps/web/src/engine/src/dabs/CanonicalTargetPlan.ts": "338fa96290a4b7df1781bc432413125f31fda00399069e64bf345e3597255bab",
+          "apps/web/src/engine/src/presets/sourceColorRgba8.ts": "ade7933cd572695f861db14fadfe8a72d241af0434f3855ec0d12d057817de1b",
+          "packages/shared/src/room.ts": "352205320e6afebbbc5c6ed8bd58cbf7ac5e5826278577f3cff480b34919baca",
+          "apps/web/src/engine/src/presets/sourcePrimaryComposition.ts": "fd3cbed9eb3bee53ed3892136e5f956aa9abb44717cf98453ebccec174787e97",
+          "packages/shared/src/layers.ts": "76d056b6741d26ecf3d173c161988ec6908cf9dfb0509cc5271297b04e0c21e7",
+          "apps/web/src/engine/src/dabs/TransformedMaskPlan.ts": "2513a17645f67c0023a52ca83c420ea9778289d5871404182d0ce64df9a516cc",
+          "packages/shared/src/roomRasterVersion.ts": "c25c73f828c658e7dc221b2802ea34e58aaaa7a73687cf483752bce2ef591541",
+          "packages/shared/src/layerOperations.ts": "92af5204db34e72ab72a8e75f503747e1b61e23da9b948499071ecd280ebcb45",
+          "apps/web/src/engine/src/presets/sourceStrokeAuthorDescriptor.ts": "07660acab236930647abd2c4154e7673c4cf4f6ef742fbd0e5d49e845c1a5ff8",
+          "packages/shared/src/stroke.ts": "140bd68ce1a2082b02f017aee0cd60f214466ad6bcff37dc42f675c329b6230d",
+          "apps/web/src/engine/src/presets/sourceStrokeAuthor.ts": "aa7127183d8fa5b4d738cab5ff51538d6cbad5a547cb5d9f2c0d42a1b9a4d28d",
+          "packages/shared/src/areaOperations.ts": "5e685e043a863be6e97b8d4b35ba3891e067d117280e63d3f6686396f697df7d",
+          "packages/shared/src/toolset.ts": "ec4aaa7b603fdfade1fa44994bdba56fade77a8c64efccdff78b3100bcf59330",
+          "packages/shared/src/shapes.ts": "a0159c0bd71e21e8a464ccf2dc9c0229d4898bc87ae81c409a1df7c1bd8b8914",
+          "apps/web/src/engine/src/presets/sourceStrokeMaterialAdapter.ts": "bac57d703fc5ac6261c3d751fcab2e0efbbb48fab31790bc2198c36cdbef711e",
+          "apps/web/src/engine/src/presets/sourceCanonicalFrameEncoder.ts": "a4564a2d0450408cc70133e8c03b398e772088a656d810eb8baa9ea7cce0589f",
+          "packages/shared/src/paper.ts": "a8080214e2a91b26494ea678df9cc63389d604d9b6436242a6486c9e26acb10e",
+          "packages/shared/src/sourceImageTransformMetadata.ts": "2f49d23c94d77e6f91170452f42f556e11a04dc448e4806a63d25d5079fafbbb",
+          "packages/shared/src/sourcePngPyramid.ts": "32172e787f6543923613422ed186223f9dae872876f9af0b9217785afcb920a7",
+          "apps/web/src/engine/src/dabs/BrushGlState.ts": "cdec0f7e68bfbe2727a80f2d10f8e7bd9998cfb6f11be1fd8e5d6ac1155f8a87",
+          "apps/web/src/engine/src/buffers/tileMath.ts": "7f3359f23930ab64f14d7e2ac1ef2cba7a276a93fca571995ea47e52e73e4f1a",
+          "apps/web/src/engine/src/raster/sourceTransformedMaskShader.ts": "938747455214ca9f2e29e1c2f41bf6366c4ddfa0efd0b35d2d5aff5daa0f7d27",
+          "apps/web/src/engine/src/raster/sourceRgba64StraightShader.ts": "84e2f5a63a011d35c754a2816ac51623e78308565631b05b65269bc765b07804",
+          "apps/web/src/engine/src/raster/sourceFusedOver32ScalarShader.ts": "6ee996913cad706ed5c834637f49d1969a5b6a71bd5355d6a241b0a574ba2577",
+          "apps/web/src/engine/src/raster/sourceRgba8CompositeWebGL1.ts": "a6d6e10596434141fb3827693650a4f394ba4d1ab7b67e6140147e00a36bf899",
+          "apps/web/src/engine/src/raster/sourceRgba8CompositeShader.ts": "210d3cee146af2cb4e8a17668f13f3d2b3e1792ad094b24f0d8a167057fa166c",
+          "apps/web/src/engine/src/raster/sourceFusedAlphaDarken32ScalarShader.ts": "3fc590497d7b4b9db800c12a941e650dc9b50a19323a2da889d437c9e87710b1",
+          "apps/web/src/engine/src/raster/sourceOver32ScalarShader.ts": "c52aed02578459b41ad3f80348848ae45773c8f19f2e47e412f1b01faf4eda5e",
+          "apps/web/src/engine/src/raster/sourceAlphaDarken32Shader.ts": "f6a744cf84e1203c3b7c465666d3ce70b0c6f30f02bf991ab9f9c45fb478c9c4",
+          "apps/web/src/engine/src/raster/affineImageSpan16.ts": "c885f03be57649bf3e9a1361b358a4cbd0aae8128e3fd319117cb7db8ee709e4",
+          "apps/web/src/engine/src/presets/sourcePainterOpacity.ts": "92fcadd9a88e91c4a10b06c27527e0d9458f45effa7896bdb0b26fc554d38b0b",
+          "apps/web/src/engine/src/presets/sourceOptionProgram.ts": "d3a9c5b34aceead8e69610ecac2817f1850743c6cd5dab06bfe96ce40903b6a9",
+          "apps/web/src/engine/src/presets/sourceGaussianDab.ts": "7a35358dd2b47b75ac0d10f7d024b1df896cbf77e8b87c3da55cc88a60bc3e8e",
+          "apps/web/src/engine/src/presets/sourceDefaultAutoDab.ts": "58209f6d2ce6eb8178c625997b63f4afbf50cdb6fa7ed9ded8a9ca8e4ef413fe",
+          "apps/web/src/engine/src/presets/sourceImageTransformSpans.ts": "c56dab9e7d09c11412e2cc7c66b95b6b1c4be8813764ac2c19b5d058157739b1",
+          "apps/web/src/engine/src/presets/sourcePngGeometry.ts": "2589f3b979466b780139f2fe0275405d002b26259284dcc5356c0c178e99fd74",
+          "apps/web/src/engine/src/presets/sourceImageTransformPlan.ts": "f1985e3164a127a5af108c5d9e0c77c8fc6246141089507c927fab68d212db71",
+          "apps/web/src/engine/src/presets/sourceCurve.ts": "4761851c2349485b7bd799ff5cde81075faecd81fe3bf56c8d1541f66723c88d",
+          "apps/web/src/engine/src/raster/sourceAffineGray16Shader.ts": "0bdca97751f4c10f065332928686f7056869dd6b6aa32bdcb0be1a197e0a1e37",
+          "apps/web/src/engine/src/raster/sourceFmaF32NumericShader.ts": "26e78bff6d1ac7555260e6c324f351ced3327908da9ff7e822cd464797ea14f3",
+          "apps/web/src/engine/src/raster/sourceFmaF32Base4096Shader.ts": "eae929fa7c2b8a918be8b67b98d7eabde4bac63a8c911ad9ed1b21b7057f8267",
+          "apps/web/src/engine/src/presets/sourceImageTransformReciprocal.ts": "643e6af09bbfdc2c1c8fbacb28d7aad7091a5f45141d5903e11804ab53a8dd2b",
+          "apps/web/src/engine/src/presets/sourceOption.ts": "c1b541b524ffae7444a7dbdfa05de5993d09f3367d6662fb47e8fa17d7cfae3f",
+          "apps/web/src/engine/src/presets/sourceSensors.ts": "62bb939b565985651e225c630a090f4445f0356fde10394a03f1eb2bdd7b718b",
+          "apps/web/src/engine/src/raster/sourceRgbFmaByteShader.ts": "0223d889ec4abc46ccbc895adb89a6a1b90f361e69c1cd3d88750986e2075084",
+          "apps/web/src/engine/src/raster/sourceFmaF32Model.ts": "a0609713f772e0b085d097e469981c7b9de82844467171c13aa3f78158643499",
+          "apps/web/src/engine/src/raster/sourceFmaF32Shader.ts": "8f6bace8897ebf4d61e4c051f662e94365356c926cb75be504bea54789978f9f",
+          "apps/web/src/engine/src/presets/sourceFmaF32.ts": "d10bdab3983a850c3a9ce9fcf11287c74beaa88aa7cf46b01fe2265d2990dbd3",
+          "apps/web/src/engine/src/presets/sourceStampQuery.ts": "d8fa602b1a0e179e07edd18a4183009a0c6a138b8b43cee0bb7e547f3fd935d8",
+          "apps/web/src/engine/src/presets/sourceAutoGeometry.ts": "abda9fd0e5e9e68c96e60b544a9d766ade66c25bf573b5234e93af15ea2436c1",
+          "apps/web/src/engine/src/presets/sourceCoverageEvaluator.ts": "ee5e6eedf1462f7008cf8b3ca300e72c273e8732d5965217a76ec11252d3ab93",
+          "apps/web/src/engine/src/presets/sourceFmaF64.ts": "fe5c5a0c704a7cebfc6eb8bb126863a3f12ef16f0fcf9bf7e4b3dd8e38e68ef9",
+          "apps/web/src/engine/src/presets/sourceGaussianResolvedMaskReference.ts": "ea24a2715ee1afa9ab31a720ebd32651f4ce3b11c7ff7d3e7696c0184639948a",
+          "apps/web/src/engine/src/presets/sourceDefaultAutoMaskReference.ts": "40d233e688c6bff90635384110c3327aed09f0d381f0afb48c383304dacd516d",
+          "apps/web/src/engine/src/dabs/sourceDistanceTiming.ts": "e55b793dae332407d903dad1ed909f3f876ba59327660428207014dea99cfce3",
+          "apps/web/src/engine/src/input/kritaStrokeInput.ts": "200ba2aad86d803e7fc9f09193b4dd533627deb254e87f4fd1640e59443c7d97",
+          "apps/web/src/engine/src/presets/nativeRandom.ts": "517a16359cced210f18e9ca07c70b83ca591ced2c25fb68f55765ab11d8963ee",
+          "apps/web/src/engine/src/presets/sourceDabCache.ts": "a00b739ccd56561702b27577dc1ac43551cf2bd026fc49ab08ff483f51e453c6",
+          "apps/web/src/engine/src/presets/brushWash.ts": "ab676df55288df788a1a82d3774bb2755794ffcfbe1fe6debd7fc54a3fdaee69",
+          "apps/web/src/engine/src/presets/sourceGaussianCoefficients.ts": "47c62bea6d6d0b13afe0a9bbf8d7a5f71be19a993fb82b779df82899030413d6",
+          "apps/web/src/engine/src/presets/sourceGaussianBionicErf.ts": "24bc92e42d5bfc460289a57d119bf70a3c74ae0a9cfb853f64a98b40e438b392",
+          "apps/web/src/engine/src/presets/sourceGaussianNeonMath.ts": "b80ea152dad505b0871b207838160e9303ed4a3da230690d5829fec1b0ab838b",
+          "apps/web/src/engine/src/presets/sourceVector32.ts": "59293064406fcb73b17ac9fd205953a1539f61fa4c3cd30af4f6b5a7ed56788e",
+          "apps/web/src/engine/src/presets/sourceScatter.ts": "5638e927de498a295790fa05fadd2651a9d9d82e766f2b8166268f3e5f1e7748",
+          "apps/web/src/engine/src/presets/sourceArmFrecpe.ts": "7ed150cf79aa68d9cad1558d6807dff026070f6da98c0fe33564ed2aba7ea6ca",
+          "apps/web/src/engine/src/input/sourceAtan2F32.ts": "ec2432c7ccc0249dd5c3e0a0901f7c062afdc9957ce0f8c5ecc1f6f5cf19cb70",
+          "apps/web/src/engine/src/presets/sourceAlphaDarken32.ts": "5d5a8add83549e57bb0dc7791e2beae6fa66e46fefc32b234b2ca7cd57d7f465",
+          "apps/web/src/engine/src/presets/sourceOver32Scalar.ts": "fa374e2f73b6b9c76ce05b3b26ecdd9cef8239b01dde3ab5ca6360ae0af5bd58"
+        },
+        "storageLimitBytes": 16777216,
+        "headroomLimitBytes": 8388608,
+        "scope": "One own WebGL1 context; five actual NEW source descriptors; fresh coordinator/layer replay twice with shared owners. Source-law CPU oracle; no active editor or native whole-GUI claim."
+      },
+      "deviceResult": {
+        "wrong": 0,
+        "GL": [],
+        "cleanupErrors": [],
+        "stateRestored": true,
+        "leasesAfter": 0,
+        "scope": "Actual NEW descriptors, explicit trusted profile, production author/adapter/encoder/coordinator/executor; source-law CPU oracle. No room/editor or native whole-GUI stroke claim.",
+        "parallelShaderCompile": {
+          "listed": false,
+          "available": false
+        },
+        "device": {
+          "ua": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+          "gpu": "ANGLE (Qualcomm, Adreno (TM) 650, OpenGL ES 3.2)"
+        },
+        "storage": {
+          "residentBytes": 0,
+          "reservedBytes": 0,
+          "orphanBytes": 0,
+          "limitBytes": 16777216,
+          "complete": false,
+          "domains": {
+            "accum-rgba8": {
+              "residentBytes": 0,
+              "reservedBytes": 0,
+              "orphanBytes": 0,
+              "limitBytes": 16777216,
+              "complete": false
+            },
+            "brush-texture-rgba-equivalent": {
+              "residentBytes": 0,
+              "reservedBytes": 0,
+              "orphanBytes": 0,
+              "limitBytes": 16777216,
+              "complete": false
+            },
+            "brush-buffer": {
+              "residentBytes": 0,
+              "reservedBytes": 0,
+              "orphanBytes": 0,
+              "limitBytes": 16777216,
+              "complete": false
+            }
+          }
+        },
+        "handles": {
+          "Texture": 0,
+          "Framebuffer": 0,
+          "Buffer": 0,
+          "Program": 0,
+          "Shader": 0
+        },
+        "peakReservedBytes": 49152,
+        "cleanupOk": true
+      },
+      "observations": 80,
+      "checkedBytes": 1310720,
+      "surfaceMaxDelta": 0,
+      "caseSummaries": [
+        {
+          "index": 3,
+          "replay": 0,
+          "summary": true,
+          "turns": 126,
+          "maxTurnMs": 14.900000035762787,
+          "ownerAdvanceCalls": 38,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 3,
+          "replay": 1,
+          "summary": true,
+          "turns": 128,
+          "maxTurnMs": 27.100000023841858,
+          "ownerAdvanceCalls": 0,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 60,
+          "replay": 0,
+          "summary": true,
+          "turns": 57,
+          "maxTurnMs": 6.399999976158142,
+          "ownerAdvanceCalls": 38,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 60,
+          "replay": 1,
+          "summary": true,
+          "turns": 58,
+          "maxTurnMs": 11.899999976158142,
+          "ownerAdvanceCalls": 0,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 61,
+          "replay": 0,
+          "summary": true,
+          "turns": 153,
+          "maxTurnMs": 10.800000011920929,
+          "ownerAdvanceCalls": 38,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 61,
+          "replay": 1,
+          "summary": true,
+          "turns": 149,
+          "maxTurnMs": 83.10000002384186,
+          "ownerAdvanceCalls": 0,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 62,
+          "replay": 0,
+          "summary": true,
+          "turns": 132,
+          "maxTurnMs": 16.099999964237213,
+          "ownerAdvanceCalls": 38,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 62,
+          "replay": 1,
+          "summary": true,
+          "turns": 157,
+          "maxTurnMs": 10.300000011920929,
+          "ownerAdvanceCalls": 0,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 63,
+          "replay": 0,
+          "summary": true,
+          "turns": 145,
+          "maxTurnMs": 45.299999952316284,
+          "ownerAdvanceCalls": 38,
+          "originalPackets": 2,
+          "drawCount": 1
+        },
+        {
+          "index": 63,
+          "replay": 1,
+          "summary": true,
+          "turns": 129,
+          "maxTurnMs": 8.800000011920929,
+          "ownerAdvanceCalls": 0,
+          "originalPackets": 2,
+          "drawCount": 1
+        }
+      ],
+      "finalSurfaces": [
+        {
+          "index": 3,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "a1c041a21d35c3096875fcbd9f30b1d2ed69a404616398bba6c871b0734d9021",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 3,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "a1c041a21d35c3096875fcbd9f30b1d2ed69a404616398bba6c871b0734d9021",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 3,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "a1c041a21d35c3096875fcbd9f30b1d2ed69a404616398bba6c871b0734d9021",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 3,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "a1c041a21d35c3096875fcbd9f30b1d2ed69a404616398bba6c871b0734d9021",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 60,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "42f3a820cfb33449217711604452a4b3da94de137119f037e5c90355b6189d48",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 60,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "42f3a820cfb33449217711604452a4b3da94de137119f037e5c90355b6189d48",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 60,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "42f3a820cfb33449217711604452a4b3da94de137119f037e5c90355b6189d48",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 60,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "42f3a820cfb33449217711604452a4b3da94de137119f037e5c90355b6189d48",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 61,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "aa79b878a15e93f4cbbe011fd7627925e65c65e754d3bf5ac48b9fe7b459bba3",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 61,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "aa79b878a15e93f4cbbe011fd7627925e65c65e754d3bf5ac48b9fe7b459bba3",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 61,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "aa79b878a15e93f4cbbe011fd7627925e65c65e754d3bf5ac48b9fe7b459bba3",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 61,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "aa79b878a15e93f4cbbe011fd7627925e65c65e754d3bf5ac48b9fe7b459bba3",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 62,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "d70c4b9a962ca82617836ae1874c9d4a1f1083fe01f2a67802d156e20ba59588",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 62,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "d70c4b9a962ca82617836ae1874c9d4a1f1083fe01f2a67802d156e20ba59588",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 62,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "d70c4b9a962ca82617836ae1874c9d4a1f1083fe01f2a67802d156e20ba59588",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 62,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "d70c4b9a962ca82617836ae1874c9d4a1f1083fe01f2a67802d156e20ba59588",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 63,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "3155e422f1c439fec062fe8179a47c1f83458f6403ef636ff0f1d3ded630a4d5",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 63,
+          "replay": 0,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "3155e422f1c439fec062fe8179a47c1f83458f6403ef636ff0f1d3ded630a4d5",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 63,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "stable",
+          "expectedSHA256": "3155e422f1c439fec062fe8179a47c1f83458f6403ef636ff0f1d3ded630a4d5",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        },
+        {
+          "index": 63,
+          "replay": 1,
+          "ordinal": 3,
+          "surface": "derived",
+          "expectedSHA256": "3155e422f1c439fec062fe8179a47c1f83458f6403ef636ff0f1d3ded630a4d5",
+          "wrong": 0,
+          "maxDelta": 0,
+          "examples": [],
+          "checkpointReady": true
+        }
+      ],
+      "browserCleanup": {
+        "forwardRemoved": true,
+        "childClosed": true,
+        "tabsPreserved": true,
+        "errors": [],
+        "after": [
+          {
+            "id": "3761",
+            "url": "chrome-native://newtab/"
+          },
+          {
+            "id": "3631",
+            "url": "https://gallery.pecni.com/krita-comparison-20261024/fixes-v45/#10"
+          },
+          {
+            "id": "3643",
+            "url": "about:blank"
+          }
+        ]
+      },
+      "rawResultSHA256": "7fed07341ba660a2a83394d7834afe8107aa3288b67454ac0afd3a40c088ab6e"
+    }
+  },
+  "remainingGap": "A single accepted driver/query call can still stall. No foreign state/sampler/FBO guard was skipped, no persistent global GL state cache added. Follow-up needs explicit lifetime-bound point sampler ownership review."
+}
