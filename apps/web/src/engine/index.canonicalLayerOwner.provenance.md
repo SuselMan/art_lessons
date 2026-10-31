@@ -85,3 +85,26 @@ are retained privately in fixes-v52/default58-layer-owner-fixed-*.json.
 
 79 focused integration/cleanup tests plus four stale-owner regressions pass;
 app and SW typechecks and scoped lint pass. Ordinary Room activation remains off.
+
+## Original partial seal and continued full-history layer, 2026-10-31
+
+The same public appendOriginalRecorded also accepts a genuine metadata-only
+recorded seal from its existing original read lifetime. It enters the existing
+coordinator seal validator, then the same guarded OperationLog publication and
+RebuildJob. No gestureEnd frame, alternate renderer or extra queue is fabricated.
+A seal adds zero pixel operations. The next gesture reuses the same warm services.
+Copied deliveries fail before owner mutation; an invalid cursor closes the owner,
+preserves the confirmed frame prefix and notifies repair once after cleanup.
+
+Guarded journal append retains its original synchronous CAS. Pre-existing undone
+frames are allowed only when the same original full-history read explicitly
+accounts for them as hidden baseline frames. An arbitrary undone live journal
+continues to fail its existing regression test. Saved per-entry state values,
+revision, entries, pending status and the caller's layer proof survive all
+original-owner callbacks before publication.
+
+Four additional real-engine host witnesses cover valid partial seal followed by
+a new warm gesture, copied seal refusal, invalid seal cleanup, and a new gesture
+after a fully hidden original baseline. The 15 owner tests pass; the joined
+baseline, metadata-input and guarded-append regression run passes 62 tests before
+the final continued-hidden witness. No hardware or interactive preview claim.

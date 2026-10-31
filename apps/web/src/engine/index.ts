@@ -6303,7 +6303,15 @@ export class PencilEngine implements PencilEngineAPI {
     try{
       this._assertCanonicalLayerCurrent(owner)
       this._canonicalRecoveryDirty=true
-      if(op.type!=='canonical_stroke'||!read||op.seq!==this._log.entries.length+1||op.layerId!==INITIAL_LAYER_ID||this._log.entries.length>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)throw new TypeError('Unsupported recorded canonical extension')
+      if(op.seq!==this._log.entries.length+1||this._log.entries.length>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)throw new TypeError('Unsupported recorded canonical sequence')
+      if(op.type==='canonical_stroke_close'){
+        if(read||op.layerId!==INITIAL_LAYER_ID||!owner.coordinator)throw new TypeError('Unsupported recorded canonical seal')
+        owner.accepting=true
+        owner.coordinator.enqueueRecordedSeal(input)
+        this._publishCanonicalLayerInput(owner,input)
+        return
+      }
+      if(op.type!=='canonical_stroke'||!read||op.layerId!==INITIAL_LAYER_ID)throw new TypeError('Unsupported recorded canonical extension')
       const snapshot=read.capability.snapshot,pin=snapshot.material.primarySource
       if(snapshot.materialVersion!==2||snapshot.material.maskSource||snapshot.material.assets.length||snapshot.assets.length||pin.kind==='image'||snapshot.rasterProfile!==owner.plan.profile||snapshot.composition.mode!=='wash')throw new TypeError('Unsupported fixed canonical layer material')
       const capacity=canonicalLayerMaskCapacity(pin),decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,material:snapshot.material}).frame
@@ -6326,15 +6334,19 @@ export class PencilEngine implements PencilEngineAPI {
       // Metadata/resource admission performs no pixels, and precedes the real
       // journal publication. No independent pending operation journal exists.
       owner.coordinator.enqueueRecorded(input)
-      this._assertCanonicalLayerCurrent(owner)
-      this._log.append(op,{serverSeq:op.seq,canonicalRead:read,canonicalInput:input},()=>{this._assertCanonicalLayerCurrent(owner);return undefined})
-      owner.proof=this._captureCanonicalJournal();owner.inputs=Object.freeze(this._log.entries.map(entry=>entry.canonicalInput!))
-      this._assertCanonicalLayerCurrent(owner)
-      if(!owner.job){
-        const job:RebuildJob={layerId:INITIAL_LAYER_ID,fresh:owner.stable,chunks:new Map(),cp:null,start:0,applied:[],timer:0,part:null,canonicalLayer:owner}
-        owner.job=job;this._rebuildJobs.set(INITIAL_LAYER_ID,job);this._scheduleCanonicalRebuild(job)
-      }
+      this._publishCanonicalLayerInput(owner,input)
     }catch(error){this._poisonCanonicalLayer(error);throw error}finally{owner.accepting=false}
+  }
+  private _publishCanonicalLayerInput(owner:CanonicalLayerOwner,input:CanonicalRecordedInput):void {
+    const op=input.operation
+    this._assertCanonicalLayerCurrent(owner)
+    this._log.append(op,{serverSeq:op.seq,canonicalRead:input.read,canonicalInput:input},()=>{this._assertCanonicalLayerCurrent(owner);return undefined})
+    owner.proof=this._captureCanonicalJournal();owner.inputs=Object.freeze(this._log.entries.map(entry=>entry.canonicalInput!))
+    this._assertCanonicalLayerCurrent(owner)
+    if(!owner.job){
+      const job:RebuildJob={layerId:INITIAL_LAYER_ID,fresh:owner.stable,chunks:new Map(),cp:null,start:0,applied:[],timer:0,part:null,canonicalLayer:owner}
+      owner.job=job;this._rebuildJobs.set(INITIAL_LAYER_ID,job);this._scheduleCanonicalRebuild(job)
+    }
   }
   private _captureCanonicalJournal():CanonicalJournalProof {
     return {revision:this._log.revision,entries:this._log.entries,originalEntries:Object.freeze([...this._log.entries]),originalOperations:Object.freeze(this._log.entries.map(entry=>entry.op)),originalReads:Object.freeze(this._log.entries.map(entry=>entry.canonicalRead)),originalStates:Object.freeze(this._log.entries.map(entry=>entry.state))}

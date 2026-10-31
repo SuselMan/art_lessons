@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto'
 import {attachCanonicalRecordedDelivery} from '../pages/Room/net/canonicalRecordedDelivery'
-import {prepareCanonicalRecordedAttachment,canonicalDefaultAutoSourceBinding,type BrushDescriptor} from '@grafetto/shared'
+import {parseCanonicalStrokeCloseOperation,prepareCanonicalRecordedAttachment,canonicalDefaultAutoSourceBinding,type BrushDescriptor} from '@grafetto/shared'
 import nativeDefaultStock from '../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
 import {exactFrame} from './src/raster/cameraFrame'
 import {afterEach,expect,it,vi} from 'vitest'
@@ -195,5 +195,61 @@ it('admits the actual Basic2Opacity original40 antialiased source pin through th
   if(!('delivery'in input))throw Error('Missing original recorded delivery')
   engine.appendOriginalRecorded(input);await vi.waitFor(()=>expect(engine['_rebuildJobs'].size).toBe(0))
   expect(engine['_canonicalPixelsReady']).toBe(true);expect(engine['_log'].entries[0].canonicalInput).toBe(input);expect(engine['_canonicalLayerOwner']?.mask.width).toBeGreaterThanOrEqual(recipe.width)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+function recordedSeal(p:ReturnType<typeof original>,seq=2,recordedNext=1){
+ const operation=parseCanonicalStrokeCloseOperation({type:'canonical_stroke_close',id:'seal-'+seq,userId:'author',timestamp:seq,seq,layerId:'layer-1',targetUserId:'author',strokeId:'first',disposition:'commitPartial',recordedNext,firstFrameOpId:'frame-1',lastFrameOpId:'frame-1'})
+ return attachCanonicalRecordedDelivery(Object.freeze({operation}),p.canonicalRead.scope) as import('./index').CanonicalRecordedInput
+}
+it('publishes an actual original partial seal through the existing journal and retires its same open wash without an END frame',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  engine.appendOriginalRecorded(recorded(p,1,'first',false))
+  await vi.waitFor(()=>expect(engine['_rebuildJobs'].size).toBe(0))
+  const owner=engine['_canonicalLayerOwner']!,stable=owner.stable,prepass=owner.prepass,seal=recordedSeal(p),program=vi.spyOn(engine['gl'],'createProgram')
+  engine.appendOriginalRecorded(seal)
+  await vi.waitFor(()=>expect(owner.coordinator).toBeUndefined())
+  expect(owner.stable).toBe(stable);expect(owner.prepass).toBe(prepass);expect(program).not.toHaveBeenCalled()
+  expect(engine['_log'].entries.map(e=>e.op.type)).toEqual(['canonical_stroke','canonical_stroke_close'])
+  expect(engine['_log'].entries[1].canonicalInput).toBe(seal);expect(engine['_log'].entries[1].canonicalRead).toBeUndefined()
+  engine.appendOriginalRecorded(recorded(p,3,'next',true))
+  await vi.waitFor(()=>expect(engine['_rebuildJobs'].size).toBe(0))
+  expect(engine['_log'].entries.map(e=>e.serverSeq)).toEqual([1,2,3]);expect(program).not.toHaveBeenCalled()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('refuses a copied original seal before poisoning or mutating the healthy open owner',async()=>{
+ const p=original(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);engine.appendOriginalRecorded(recorded(p,1,'first',false))
+  await vi.waitFor(()=>expect(engine['_rebuildJobs'].size).toBe(0))
+  const owner=engine['_canonicalLayerOwner'],seal=recordedSeal(p)
+  expect(()=>engine.appendOriginalRecorded({...seal})).toThrow()
+  expect(engine['_canonicalLayerOwner']).toBe(owner);expect(engine['_log'].entries).toHaveLength(1)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('retires an invalid recorded seal without changing its confirmed source prefix',async()=>{
+ const p=original(true),{engine}=engineFor(p),repair=vi.fn();engine['_onCanonicalRecoveryRequired']=repair
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);engine.appendOriginalRecorded(recorded(p,1,'first',false))
+  await vi.waitFor(()=>expect(engine['_rebuildJobs'].size).toBe(0))
+  expect(()=>engine.appendOriginalRecorded(recordedSeal(p,2,2))).toThrow()
+  expect(engine['_log'].entries).toHaveLength(1);expect(engine['_canonicalLayerOwner']).toBeUndefined();expect(repair).toHaveBeenCalledOnce();expect(engine['_brushMipCache'].reservedBytes).toBe(0)
+ }finally{engine.destroy()}
+})
+it('continues the same source lane after restoring an original full history with hidden frames',async()=>{
+ const {state:s}=state(true)
+ s.tailOperations.push({type:'operation_undo',id:'undo',userId:'author',timestamp:2,seq:2,targetOpId:'op'})
+ s.canonicalHistoryBase={kind:'full-room-prefix-v2',roomId:'room',boardEpoch:2,throughSeq:2,operationCount:2}
+ const p=prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true}),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  expect(engine['_canonicalLayerOwner']?.prepared).toBe(false)
+  engine.appendOriginalRecorded(recorded(p,3,'new',true))
+  await vi.waitFor(()=>expect(engine['_rebuildJobs'].size).toBe(0))
+  expect(engine['_log'].entries.map(e=>e.state)).toEqual(['undone','done','done'])
+  expect(engine['_log'].pixelOpDoneCount('layer-1')).toBe(1)
+  expect(engine['_canonicalLayerOwner']?.coordinator).toBeUndefined()
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })

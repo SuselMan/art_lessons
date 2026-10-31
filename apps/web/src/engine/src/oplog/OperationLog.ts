@@ -367,10 +367,10 @@ export class OperationLog {
   /** Narrow recorded-only publication. No owner callback or caller-field read
    * may remain after the final journal comparison. Legacy append is unchanged. */
   private _appendRecordedGuarded(op:Operation,placement:Placement,beforePublish:()=>undefined):LogEntry[] {
-    const revision=this._revision,entries=this._entries,length=entries.length,confirmed=this._confirmedCount,nextSeq=this._nextSeq
+    const revision=this._revision,entries=this._entries,length=entries.length,confirmed=this._confirmedCount,nextSeq=this._nextSeq,states=entries.map(entry=>entry.state)
     const assertJournal=()=>{
       if(this._revision!==revision||this._entries!==entries||this._entries.length!==length
-        ||this._confirmedCount!==confirmed||this._nextSeq!==nextSeq||entries.some(entry=>entry.state!=='done'||entry.pending))throw new Error('Recorded append journal changed')
+        ||this._confirmedCount!==confirmed||this._nextSeq!==nextSeq||entries.some((entry,i)=>entry.state!==states[i]||entry.pending))throw new Error('Recorded append journal changed')
     }
     if(typeof beforePublish!=='function')throw new TypeError('Recorded publication validator must be a function')
     const keys=Reflect.ownKeys(placement)
@@ -382,15 +382,23 @@ export class OperationLog {
       return descriptor.value
     }
     const pending=data('pending'),serverSeq=data('serverSeq'),read=data('canonicalRead'),originalInput=canonicalInputOf(placement)
-    if(pending!==undefined&&pending!==false||op.type!=='canonical_stroke'||!originalInput
+    if(pending!==undefined&&pending!==false||(op.type!=='canonical_stroke'&&op.type!=='canonical_stroke_close')||!originalInput
       ||originalInput.operation!==op||!Number.isSafeInteger(serverSeq)||serverSeq<1
-      ||confirmed!==length||entries.some(entry=>entry.state!=='done'||entry.pending)||length>0&&(entries[length-1].serverSeq===undefined||entries[length-1].serverSeq!>=serverSeq)
+      ||confirmed!==length||entries.some(entry=>entry.pending)||length>0&&(entries[length-1].serverSeq===undefined||entries[length-1].serverSeq!>=serverSeq)
       ||entries.some(entry=>entry.op.id===op.id))throw new TypeError('Guarded append requires original confirmed canonical input at journal end')
     const canonicalInput=this._prepareCanonicalInput(op,serverSeq,originalInput)
+    if(entries.some(entry=>entry.state!=='done')){
+      // Only the original complete baseline may account for existing hidden
+      // frames. An arbitrary undone live journal still requires its own rebuild.
+      const lifetime=originalInput.delivery.lifetime as Partial<import('./CanonicalRecordedDelivery').CanonicalRecordedEmptyRoomRead>
+      if(!lifetime.assertFullHistoryBase||!lifetime.tailOperations)throw new TypeError('Guarded append requires an original full history for hidden frames')
+      const full=lifetime.assertFullHistoryBase(lifetime.tailOperations),hidden=new Set(full.gestures.filter(g=>!g.visible).flatMap(g=>g.frameOperationIds))
+      if(entries.some(entry=>entry.state!=='done'&&(entry.state!=='undone'||!hidden.has(entry.op.id)||entry.canonicalInput?.delivery.lifetime!==lifetime)))throw new TypeError('Guarded append cannot account for hidden frames')
+    }
     const canonicalRead=this._prepareCanonicalReadAndInput(op,serverSeq,read,canonicalInput)
     const candidate=retainCanonicalInput({op:{...op,seq:length},state:'done',serverSeq,canonicalRead},canonicalInput)
     const counts=new Map(this._pixelOpDoneCount),layerId=op.layerId
-    counts.set(layerId,(counts.get(layerId)??0)+1)
+    if(op.type==='canonical_stroke')counts.set(layerId,(counts.get(layerId)??0)+1)
     const nextEntries=[...entries,candidate],overtaken:LogEntry[]=[]
     assertJournal()
     if(beforePublish()!==undefined)throw new TypeError('Publication validator must be synchronous and return undefined')
