@@ -12,10 +12,19 @@ function isPowerOfTwo(n: number): boolean {
 const checkedContexts = new WeakSet<WebGLRenderingContext>()
 // No buffer/texture strong references. Explicit lifetime charges cover every
 // AccumulationBuffer in this context, including local export/rebuild scratch.
+export interface AccumulationFramebufferLayout {
+  readonly gl: WebGLRenderingContext
+  readonly texture: WebGLTexture
+  readonly framebuffer: WebGLFramebuffer
+  readonly width: number
+  readonly height: number
+}
+
 export class AccumulationBuffer {
   static contextStorageByteLength(gl: WebGLRenderingContext): number { return snapshotAccumStorage(gl).residentBytes }
   static forgetContextStorage(gl: WebGLRenderingContext): void { forgetAccumStorage(gl); checkedContexts.delete(gl) }
   private storageLeases: StorageLease[] = []
+  private framebufferLayout?: Readonly<AccumulationFramebufferLayout>
   readonly pixelEncoding: RasterPixelEncoding
   readonly gl: WebGLRenderingContext
   readonly width: number
@@ -71,13 +80,16 @@ export class AccumulationBuffer {
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
         this._checkColdError('framebuffer allocation')
-        if (!checkedContexts.has(gl)) {
+        const straight = pixelEncoding === 'straight-rgba8'
+        if (straight || !checkedContexts.has(gl)) {
           if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Framebuffer incomplete')
-          checkedContexts.add(gl)
         }
+        if (straight && gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME) !== texture) throw new Error('Framebuffer attachment mismatch')
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
         this.storageLeases.push(materializeAccumStorage(gl, ticket, amount))
         this._texture = texture; this._fbo = fbo
+        if (straight) this.framebufferLayout = Object.freeze({gl,texture,framebuffer:fbo,width,height})
+        checkedContexts.add(gl)
       } catch (primary) {
         if (!gl.isContextLost()) {
           if (fbo) try { gl.deleteFramebuffer(fbo) } catch { /* primary retained; FBO overhead outside migrated domain */ }
@@ -207,6 +219,15 @@ export class AccumulationBuffer {
       throw error
     } finally { if (ticket) releaseAccumReservation(ticket) }
     return true
+  }
+
+  /** Cold-verified immutable straight allocation; never a per-frame GL query.
+   * Internal owners must not reattach its FBO while lending this certificate. */
+  get verifiedFramebufferLayout(): Readonly<AccumulationFramebufferLayout> | undefined {
+    const layout = this.framebufferLayout
+    return layout && this.storageOwnerCurrent && layout.gl === this.gl && layout.texture === this._texture
+      && layout.framebuffer === this._fbo && layout.width === this.width && layout.height === this.height
+      && this.pixelEncoding === 'straight-rgba8' ? layout : undefined
   }
 
   /** Metadata only: the migrated storage leases still belong to this context owner.

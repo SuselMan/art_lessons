@@ -93,7 +93,7 @@ const ENUM = {
   TEXTURE_MIN_FILTER: 10, TEXTURE_MAG_FILTER: 11, LINEAR: 12, NEAREST: 29,
   LINEAR_MIPMAP_LINEAR: 61, NO_ERROR: 0, MAX_TEXTURE_SIZE: 62,
   TEXTURE_WRAP_S: 13, TEXTURE_WRAP_T: 14, CLAMP_TO_EDGE: 15,
-  FRAMEBUFFER: 16, COLOR_ATTACHMENT0: 17, FRAMEBUFFER_COMPLETE: 18,
+  FRAMEBUFFER: 16, COLOR_ATTACHMENT0: 17, FRAMEBUFFER_COMPLETE: 18, FRAMEBUFFER_ATTACHMENT_OBJECT_NAME: 0x8cd1,
   COLOR_BUFFER_BIT: 19, TRIANGLES: 20, FLOAT: 21,
   BLEND: 22, ONE: 23, ONE_MINUS_SRC_ALPHA: 24, ZERO: 25, SRC_ALPHA: 28,
   // (#573) The digital brush's coverage blend: rgb as "over" through
@@ -137,6 +137,7 @@ export class MockGL {
   readonly CLAMP_TO_EDGE = ENUM.CLAMP_TO_EDGE
   readonly FRAMEBUFFER = ENUM.FRAMEBUFFER
   readonly COLOR_ATTACHMENT0 = ENUM.COLOR_ATTACHMENT0
+  readonly FRAMEBUFFER_ATTACHMENT_OBJECT_NAME = ENUM.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME
   readonly FRAMEBUFFER_COMPLETE = ENUM.FRAMEBUFFER_COMPLETE
   readonly COLOR_BUFFER_BIT = ENUM.COLOR_BUFFER_BIT
   readonly TRIANGLES = ENUM.TRIANGLES
@@ -638,6 +639,10 @@ export class MockGL {
     this._framebuffers.set(fbo, { texture })
   }
 
+  getFramebufferAttachmentParameter(_target: number, _attachment: number, parameter: number): unknown {
+    if (parameter !== ENUM.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME || !this._boundFramebuffer) return null
+    return this._framebuffers.get(this._boundFramebuffer)?.texture ?? null
+  }
   checkFramebufferStatus(): number { return ENUM.FRAMEBUFFER_COMPLETE }
   deleteFramebuffer(fbo: object): void { this._framebuffers.delete(fbo) }
 
