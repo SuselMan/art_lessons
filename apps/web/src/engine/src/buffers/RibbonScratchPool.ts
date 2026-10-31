@@ -174,15 +174,17 @@ export class RibbonScratchPool {
   /** (§17.70) Back to the usual ceilings once `holding` ends. */
   trimToCeiling(): void {
     let freeBytes = this.bytes.free
+    const retired: AccumulationBuffer[] = []
     for (const [key, list] of this._free) {
       while (list.length && (list.length > MARKER_SCRATCH_POOL_PER_SIZE || freeBytes > SCRATCH_POOL_FREE_BYTES)) {
         const b = list.pop()!
         freeBytes -= b.storageByteLength
-        b.destroy()
         this.allocations.delete(b)
+        retired.push(b)
       }
       if (!list.length) this._free.delete(key)
     }
+    this.retireBuffers(retired)
   }
 
   release(buf: AccumulationBuffer): void {
@@ -195,13 +197,13 @@ export class RibbonScratchPool {
       this.allocations.set(buf, 'free')
       return
     }
-    if (!list && this.bytes.free + bytes > SCRATCH_POOL_FREE_BYTES) { buf.destroy(); this.allocations.delete(buf); return }
+    if (!list && this.bytes.free + bytes > SCRATCH_POOL_FREE_BYTES) { this.allocations.delete(buf); buf.destroy(); return }
     if (!list) { this._free.set(key, [buf]); this.allocations.set(buf, 'free'); return }
     // (#536, ADR 011 §17.50) ...and never more than SCRATCH_POOL_FREE_BYTES
     // held idle in all: on the iPad (Safari, 3 GB) 151 MB of idle buffers on
     // top of the live wash was enough for the tab to be killed and reloaded
     // at the next stroke.
-    if (list.length >= MARKER_SCRATCH_POOL_PER_SIZE || this.bytes.free + bytes > SCRATCH_POOL_FREE_BYTES) { buf.destroy(); this.allocations.delete(buf); return }
+    if (list.length >= MARKER_SCRATCH_POOL_PER_SIZE || this.bytes.free + bytes > SCRATCH_POOL_FREE_BYTES) { this.allocations.delete(buf); buf.destroy(); return }
     list.push(buf)
     this.allocations.set(buf, 'free')
   }
@@ -210,15 +212,27 @@ export class RibbonScratchPool {
    * for their handles; late release is rejected after ownership is forgotten. */
   destroy(): void {
     this.epoch++
-    for (const list of this._free.values()) for (const b of list) b.destroy()
+    const retired = [...this._free.values()].flat()
     this._free.clear()
     this.allocations.clear()
+    this.retireBuffers(retired)
   }
 
   /** (#536, §17.57) Gives every idle buffer back to the driver. */
   trimFree(): void {
-    for (const list of this._free.values()) for (const b of list) { b.destroy(); this.allocations.delete(b) }
+    const retired = [...this._free.values()].flat()
     this._free.clear()
+    for (const buffer of retired) this.allocations.delete(buffer)
+    this.retireBuffers(retired)
+  }
+
+  /** Ownership was already detached by the caller; no retry after failure. */
+  private retireBuffers(buffers: readonly AccumulationBuffer[]): void {
+    let failed = false, firstError: unknown
+    for (const buffer of buffers) {
+      try { buffer.destroy() } catch (error) { if (!failed) { failed = true; firstError = error } }
+    }
+    if (failed) throw firstError
   }
 
   /** Context loss took every GL object with it — drop the handles without
