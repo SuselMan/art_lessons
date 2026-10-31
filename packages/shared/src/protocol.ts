@@ -1,3 +1,4 @@
+import type { CanonicalEmptyHistoryBaseV1 } from './canonicalEmptyHistoryBase.js'
 import type { CanonicalStrokeCloseRequest } from './canonicalStrokeClose.js'
 import type { CanonicalRecordedAttachmentV1, CanonicalRecordedReadScope } from './canonicalRecordedAttachment.js'
 import type { CanonicalStrokeBegin, CanonicalStrokeBeginResult, CanonicalStrokeLive, CanonicalStrokeLiveResult } from './canonicalStrokeOperation.js'
@@ -290,6 +291,7 @@ export type ServerToClientEvents = {
   room_state: (state: {
     room: Room; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
     canonicalReadScope?:CanonicalRecordedReadScope
+    canonicalHistoryBase?:CanonicalEmptyHistoryBaseV1
     canonicalAuthorRasterProfile?:import('./canonicalStrokeFrame.js').CanonicalStrokeRasterProfile
     canonicalCapabilities?:CanonicalRecordedAttachmentV1
     palette: string[]

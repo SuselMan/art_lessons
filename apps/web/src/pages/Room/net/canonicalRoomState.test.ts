@@ -132,3 +132,71 @@ it.each([[false,false],[true,false],[false,true],[true,true]])('preserves origin
  expect(input.operation).toBe(call[0]);expect(deps.lastConfirmedSeqRef.current).toBe(3)
  expect(requestFullResync).not.toHaveBeenCalled()
 })
+
+function emptyBaseState(){
+ const {state:s,f}=state()
+ s.tailOperations=[{...f.op,seq:1}]
+ s.canonicalCapabilities={...f.attachment,bindings:[{...f.attachment.bindings[0],sequence:1}]}
+ s.canonicalHistoryBase={kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:2,throughSeq:1,operationCount:1}
+ return s
+}
+it.each([false,true])('captures a verified complete empty-history baseline (empty=%s)',empty=>{
+ const s=emptyBaseState();if(empty){s.tailOperations=[];s.canonicalCapabilities=undefined;s.canonicalHistoryBase={...s.canonicalHistoryBase!,throughSeq:0,operationCount:0}}
+ const raw=s.canonicalHistoryBase!,result=prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true}),read=result.canonicalRead
+ expect(read.emptyHistoryBase).toEqual(raw);expect(read.emptyHistoryBase).not.toBe(raw);expect(Object.isFrozen(read.emptyHistoryBase)).toBe(true)
+ expect(result.canonicalHistoryBase).toBe(read.emptyHistoryBase)
+ expect(read.assertEmptyHistoryBase(result.tailOperations)).toBe(read.emptyHistoryBase)
+ Object.defineProperty(raw,'throughSeq',{value:9});expect(read.emptyHistoryBase?.throughSeq).toBe(empty?0:1)
+ expect(read.preparedAtoms).toHaveLength(empty?0:1)
+})
+it('keeps a missing baseline on the old read path without empty-history authority',()=>{
+ const {state:s}=state(),result=prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true})
+ expect(result.canonicalRead.emptyHistoryBase).toBeUndefined()
+ expect(()=>result.canonicalRead.assertEmptyHistoryBase(result.tailOperations)).toThrow()
+ assertCanonicalRoomStateRead(result.canonicalRead,result.tailOperations,'room')
+})
+it('binds empty-history authority to the original read receiver, exact normalized tail and current original scope',()=>{
+ let current=true;const result=prepareCanonicalRoomState(emptyBaseState(),{expectedBoardId:'room',isCurrent:()=>current}),read=result.canonicalRead
+ expect(()=>({...read}).assertEmptyHistoryBase(result.tailOperations)).toThrow()
+ expect(()=>read.assertEmptyHistoryBase([...result.tailOperations])).toThrow()
+ expect(()=>read.assertEmptyHistoryBase([])).toThrow()
+ const other=prepareCanonicalRoomState(emptyBaseState(),{expectedBoardId:'room',isCurrent:()=>true})
+ expect(()=>read.assertEmptyHistoryBase(other.tailOperations)).toThrow()
+ expect(read.assertEmptyHistoryBase(result.tailOperations)).toBe(read.emptyHistoryBase)
+ current=false;expect(()=>read.assertEmptyHistoryBase(result.tailOperations)).toThrow()
+})
+it.each(['room','epoch','cut','count','global-sequence','truncated','unsupported','ended','null','hidden','getter'] as const)('rejects invalid empty baseline %s before dispatch',kind=>{
+ const s=emptyBaseState(),raw=s.canonicalHistoryBase!,dispatch=vi.fn(),getter=vi.fn(()=>1)
+ if(kind==='room')s.canonicalHistoryBase={...raw,roomId:'other'}
+ if(kind==='epoch')s.canonicalHistoryBase={...raw,boardEpoch:3}
+ if(kind==='cut')s.canonicalHistoryBase={...raw,throughSeq:2,operationCount:2}
+ if(kind==='count')s.canonicalHistoryBase={...raw,throughSeq:0,operationCount:0}
+ if(kind==='global-sequence'){s.tailOperations=[{...s.tailOperations[0],seq:3}];s.canonicalCapabilities={...s.canonicalCapabilities!,bindings:[{...s.canonicalCapabilities!.bindings[0],sequence:3}]}}
+ if(kind==='truncated'){s.tailOperations=[];s.canonicalCapabilities=undefined}
+ if(kind==='unsupported'){s.tailOperations=[{id:'clear',userId:'author',timestamp:0,seq:1,type:'layer_clear',layerId:'L'}];s.canonicalCapabilities=undefined}
+ if(kind==='ended'){
+  const first=s.tailOperations[0] as CanonicalStrokeOperation
+  s.tailOperations.push({...first,id:'second',seq:2,frame:{...first.frame,frameOrdinal:1}})
+  s.canonicalCapabilities={...s.canonicalCapabilities!,bindings:[...s.canonicalCapabilities!.bindings,{...s.canonicalCapabilities!.bindings[0],operationId:'second',sequence:2}]}
+  s.canonicalHistoryBase={...raw,throughSeq:2,operationCount:2}
+ }
+ if(kind==='null')Object.defineProperty(s,'canonicalHistoryBase',{value:null})
+ if(kind==='hidden')Object.defineProperty(raw,'hidden',{value:1})
+ if(kind==='getter')Object.defineProperty(raw,'operationCount',{get:getter})
+ expect(()=>dispatch(preflightRoomStateDelivery(s,()=>prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true})))).toThrow()
+ expect(dispatch).not.toHaveBeenCalled();expect(getter).not.toHaveBeenCalled()
+})
+it('rejects a legacy room carrying an empty-history field and refuses a top-level baseline getter without invoking it',()=>{
+ const s=emptyBaseState(),legacy={...s,room:{...s.room,rasterVersion:LEGACY_ROOM_RASTER_VERSION},canonicalReadScope:undefined,canonicalCapabilities:undefined},getter=vi.fn(()=>s.canonicalHistoryBase)
+ expect(()=>preflightRoomStateDelivery(legacy)).toThrow()
+ Object.defineProperty(s,'canonicalHistoryBase',{get:getter})
+ expect(()=>prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true})).toThrow();expect(getter).not.toHaveBeenCalled()
+})
+
+it('does not grant authority for explicit undefined metadata or an inherited baseline field',()=>{
+ const {state:s}=state();s.canonicalHistoryBase=undefined
+ const result=prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true})
+ expect(result.canonicalRead.emptyHistoryBase).toBeUndefined();expect(()=>result.canonicalRead.assertEmptyHistoryBase(result.tailOperations)).toThrow()
+ const inherited=Object.assign(Object.create({canonicalHistoryBase:emptyBaseState().canonicalHistoryBase}),state().state)
+ expect(()=>prepareCanonicalRoomState(inherited,{expectedBoardId:'room',isCurrent:()=>true})).toThrow()
+})
