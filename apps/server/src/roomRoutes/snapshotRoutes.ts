@@ -157,13 +157,12 @@ export function registerSnapshotRoutes(app: FastifyInstance, canonicalTransport 
       const record=rooms.get(roomId),lesson=record&&lessonRecordOf(record)
       const page=await getOperationsBeforeWithCanonicalRows(roomId, beforeSeq, limit, layerIds)
       const operations=page.operations
-      // V1 keeps the historical array lane. V2 needs the paired whole-page
-      // reader before this route may publish a capability-bearing response.
+      // V1 keeps the historical array lane. V2 is one bounded atomic page
+      // for the paired whole-page reader, with this SAME epoch owner.
       if(operations.some(op=>op.type==='canonical_stroke'&&!op.frame.materialPacked.startsWith('1|'))) {
         try {
-          await canonicalTransport.prepareHistoryPage({roomId,userId:request.userId},page,()=>!!record&&rooms.get(roomId)===record&&lessonRecordOf(record)===lesson)
+          return await canonicalTransport.prepareHistoryPage({roomId,userId:request.userId},page,()=>!!record&&rooms.get(roomId)===record&&lessonRecordOf(record)===lesson)
         } catch { return reply.code(409).send({error:'canonical_history_unavailable'}) }
-        return reply.code(409).send({error:'canonical_history_reader_unavailable'})
       }
       return operations
     },

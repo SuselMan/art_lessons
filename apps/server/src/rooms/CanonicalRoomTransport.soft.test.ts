@@ -45,7 +45,7 @@ function frames(descriptor:BrushDescriptor,s:CanonicalStrokeSnapshotV2){
  if(!compiled.supported)throw Error(compiled.reasons.join(','))
  const author=new SourceStrokeAuthor(compiled.program);let state=author.createState(4321,7654,.3)
  const material={...s.material,targetGeometry:{pageBounds:{minX:0,minY:0,maxX:64,maxY:64},tileWidth:64,tileHeight:64,maxTargets:64}}
- const adapter=new SourceStrokeMaterialAdapter(compiled.program,material,state),encoder=new SourceCanonicalFrameEncoder({brush:s.brush,strokeId:s.strokeId,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material})
+ const adapter=new SourceStrokeMaterialAdapter(compiled.program,material,state),encoder=new SourceCanonicalFrameEncoder({rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material})
  const result:CanonicalStrokeFrameEnvelope[]=[]
  const collect=(chunks:readonly{packed:string}[])=>{for(const c of chunks)result.push(encoder.encode(c.packed).envelope)}
  for(let i=0;i<3;i++){
@@ -85,7 +85,7 @@ it('transports synthetic mapped soft through SAME snapshot/author/encoder/live/r
   const saved=await transport.recorded(identity,op,()=>true);expect(saved.result).toMatchObject({ok:true,seq:i+1});prefix.push(saved.accepted!)
   expect((await transport.recorded(identity,op,()=>true)).result).toMatchObject({ok:true,duplicate:true,seq:i+1})
  }
- await flushRoomWrites('board');db.operation.count.mockResolvedValue(prefix.length);history.rows=prefix
+ await flushRoomWrites('board');db.operation.count.mockResolvedValue(prefix.length);history.rows=prefix;history.canonicalRows=db.operation.create.mock.calls.map(([request])=>request.data).filter(row=>prefix.some(op=>op.id===row.id))
  const cold=await new CanonicalRoomTransport(selected).begin(identity,f.input,()=>true)
  expect(cold).toMatchObject({ok:true,ended:true,recordedNext:packets.length,liveNext:packets.length})
  expect(snapshot(cold).material).toEqual(s.material);expect(asset).not.toHaveBeenCalled()
@@ -289,12 +289,63 @@ it('projects cold row and resident receipt in the SAME read epoch without adopti
  const writes=db.operation.create.mock.calls.length
  try{
   const response=await app.inject({method:'GET',url:'/api/rooms/board/operations?beforeSeq=3'})
-  expect(response.statusCode).toBe(409)
-  expect(response.json()).toEqual({error:'canonical_history_reader_unavailable'}) // projection succeeded, activation held
+  expect(response.statusCode).toBe(200)
+  expect(response.json()).toEqual(page)
   expect(db.operation.create).toHaveBeenCalledTimes(writes)
  }finally{await app.close()}
  const denied=new CanonicalRoomTransport({...selected,autoSources:{}})
  await expect(denied.prepareHistoryPage({roomId:'board',userId:'reader'},{operations:[cold],canonicalRows:[row]},()=>true)).rejects.toThrow()
  let current=true;const pending=transport.prepareHistoryPage({roomId:'board',userId:'reader'},{operations:[cold],canonicalRows:[row]},()=>current)
  current=false;await expect(pending).rejects.toThrow('not_joined')
+})
+
+const genericProfile='installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2' as const
+it.each(['multiply','lighten','colorDodge','overlay'] as const)('binds explicit GenericSC %s through SAME author/encoder/live/durable lane, never from a received frame',async outerBlend=>{
+ const descriptor=softDescriptor()
+ const behavior=descriptor.behavior,rendering=behavior?.rendering
+ if(!behavior||!rendering)throw Error('Expected saved rendering')
+ descriptor.behavior={...behavior,rendering:{...rendering,mode:'buildUp',blendMode:outerBlend}}
+ if(!descriptor.sourceStamp)throw Error('Expected saved source')
+ Object.assign(descriptor.sourceStamp.flags,{indirectPainting:true});Object.assign(descriptor.sourceStamp.settings,{PaintOpAction:'0'})
+ const f=setup(descriptor),newPolicy={authorRasterProfile:genericProfile,allowedRecordedRasterProfiles:[CANONICAL_STROKE_RASTER_PROFILE,genericProfile],alphaDarkenVariants:['creamy','hard'] as const,autoSources:selected.autoSources}
+ expect(await new CanonicalRoomTransport(selected).begin(identity,f.input,()=>true)).toMatchObject({ok:false})
+ const transport=new CanonicalRoomTransport(newPolicy),s=snapshot(await transport.begin(identity,f.input,()=>true))
+ expect(s.rasterProfile).toBe(genericProfile);expect(s.composition).toMatchObject({mode:'wash',outerBlend})
+ const packet=frames(f.descriptor,s)[0]
+ expect(transport.live(identity,{layerId:'layer',frame:{...packet,version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}},).result.ok).toBe(false)
+ expect(transport.live(identity,{layerId:'layer',frame:packet}).result.ok).toBe(true)
+ const recorded=await transport.recorded(identity,{type:'canonical_stroke',id:'generic-recorded',userId:'author',timestamp:0,layerId:'layer',frame:packet},()=>true)
+ expect(recorded.result.ok).toBe(true);expect(recorded.canonicalCapabilities?.capabilities[0].snapshot.rasterProfile).toBe(genericProfile)
+ const read=await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true),fields=read.finish([recorded.accepted!])
+ expect(fields.canonicalAuthorRasterProfile).toBe(genericProfile);expect(fields.canonicalReadScope.allowedRasterProfiles).toEqual(newPolicy.allowedRecordedRasterProfiles)
+})
+it('resumes the verified old-profile ROOM prefix under a new author default without reading conflicting personal data',async()=>{
+ const f=setup(softDescriptor()),old=new CanonicalRoomTransport(selected),s=snapshot(await old.begin(identity,f.input,()=>true)),packets=frames(f.descriptor,s)
+ const prefix:CanonicalStrokeOperation[]=[]
+ for(let i=0;i<2;i++){
+  const saved=await old.recorded(identity,{type:'canonical_stroke',id:'old-'+i,userId:'author',timestamp:i,layerId:'layer',frame:packets[i]},()=>true)
+  if(!saved.accepted)throw Error('Expected durable row');prefix.push(saved.accepted)
+ }
+ history.rows=prefix;history.canonicalRows=db.operation.create.mock.calls.map(([request])=>request.data)
+ db.operation.count.mockResolvedValue(2)
+ const allowed=[CANONICAL_STROKE_RASTER_PROFILE,genericProfile],policy={authorRasterProfile:genericProfile,allowedRecordedRasterProfiles:allowed,alphaDarkenVariants:['creamy','hard'] as const,autoSources:selected.autoSources}
+ const transport=new CanonicalRoomTransport(policy);allowed.splice(0,1)
+ const library=f.storage.library.bind(f.storage),read=vi.spyOn(f.storage,'library').mockImplementation((domain,owner)=>{if(domain==='owners')throw Error('conflicting personal must not be consulted on resume');return library(domain,owner)})
+ const resumed=snapshot(await transport.begin(identity,f.input,()=>true))
+ expect(resumed.rasterProfile).toBe(CANONICAL_STROKE_RASTER_PROFILE);expect(resumed.material).toEqual(s.material)
+ expect(read.mock.calls.some(([domain])=>domain==='owners')).toBe(false)
+ const scope=(await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)).scope
+ expect(scope.allowedRasterProfiles).toEqual([CANONICAL_STROKE_RASTER_PROFILE,genericProfile]);expect(Object.isFrozen(scope.allowedRasterProfiles)).toBe(true)
+ const denied=new CanonicalRoomTransport({...policy,allowedRecordedRasterProfiles:[genericProfile]})
+ expect(await denied.begin(identity,f.input,()=>true)).toMatchObject({ok:false})
+ const changed={...db.operation.create.mock.calls[0][0].data,userId:'reader'};history.canonicalRows=[changed,history.canonicalRows[1]]
+ expect(await new CanonicalRoomTransport({...policy,allowedRecordedRasterProfiles:[CANONICAL_STROKE_RASTER_PROFILE,genericProfile]}).begin(identity,f.input,()=>true)).toMatchObject({ok:false})
+})
+it('rejects ambiguous, unknown, empty and duplicate server profile policies before any grant',()=>{
+ const base={alphaDarkenVariants:['creamy'] as const,autoSources:{}}
+ for(const allowedRecordedRasterProfiles of [[],[genericProfile,genericProfile],['foreign'],[CANONICAL_STROKE_RASTER_PROFILE,genericProfile,genericProfile],null]){
+  expect(()=>Reflect.construct(CanonicalRoomTransport,[{...base,authorRasterProfile:genericProfile,allowedRecordedRasterProfiles}])).toThrow()
+ }
+ expect(()=>new CanonicalRoomTransport({...base,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,authorRasterProfile:genericProfile})).toThrow('ambiguous')
+ expect(()=>new CanonicalRoomTransport({...base,authorRasterProfile:genericProfile,allowedRecordedRasterProfiles:[CANONICAL_STROKE_RASTER_PROFILE]})).toThrow('unavailable')
 })

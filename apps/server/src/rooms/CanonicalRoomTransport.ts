@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util'
 import {
-  STRAIGHT_ROOM_RASTER_VERSION,
+  STRAIGHT_ROOM_RASTER_VERSION,CANONICAL_STROKE_RASTER_PROFILE,
   type CanonicalStrokeBegin, type CanonicalStrokeBeginResult, type CanonicalStrokeLive, type CanonicalStrokeLiveResult,
   type CanonicalStrokeOperation, type CanonicalStrokeSnapshot, type SendResult, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadScope, type CanonicalRecordedHistoryPage, type Operation, CANONICAL_RECORDED_ATTACHMENT_LIMITS, prepareCanonicalRecordedAttachment,
 } from '@grafetto/shared'
@@ -8,14 +8,14 @@ import { canonicalBrushStorageContext } from '../brushLibrary/storage.js'
 import { prisma } from '../db/prisma.js'
 import { CanonicalBrushCapabilityResolver } from './CanonicalBrushCapabilityResolver.js'
 import { CanonicalStrokeAdmission, decodeTrustedCanonicalFrame, type CanonicalAdmissionIdentity, type TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
-import { CANONICAL_ROOM_EXECUTION_POLICY, freezeCanonicalAutoPolicies, type CanonicalRoomExecutionPolicy } from './canonicalExecutionPolicy.js'
+import { CANONICAL_ROOM_EXECUTION_POLICY, freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy, type CanonicalRoomExecutionPolicy } from './canonicalExecutionPolicy.js'
 import { assertPreparedAuthorizedJoinRead,type PreparedAuthorizedJoin } from './roomAccess.js'
 import { mayReadBoardContent } from './boardContentAccess.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { canonicalWriteFence, ensureCanonicalWrite, findDuplicateOperation, knownCanonicalWrite, recordOperation, updateAliveIds } from './operationLog.js'
 import { canonicalOperationRowSelect, verifyCanonicalOperationRow,type CanonicalStoredOperationRow } from './roomPersistence.js'
 import { flushRoomWrites, lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
-import { getOperationsBefore } from './snapshotStore.js'
+import { getOperationsBeforeWithCanonicalRows } from './snapshotStore.js'
 
 const MAX_ROOMS = 64, MAX_GESTURES = 1024, MAX_BEGIN_JOBS = 4, PREFIX_WINDOW = 64, PREFIX_FRAMES = 32, PREFIX_BYTES = 4 * 1024 * 1024
 class TransportFailure extends Error {
@@ -39,7 +39,7 @@ interface RoomLifetime { readonly record: RoomRecord; readonly lesson: RoomRecor
 export class CanonicalRoomTransport {
   private readonly policy:CanonicalRoomExecutionPolicy
   constructor(policy:CanonicalRoomExecutionPolicy=CANONICAL_ROOM_EXECUTION_POLICY){
-    this.policy=Object.freeze({...policy,alphaDarkenVariants:Object.freeze([...policy.alphaDarkenVariants]),autoSources:freezeCanonicalAutoPolicies(policy.autoSources)})
+    this.policy=Object.freeze({...freezeCanonicalRasterPolicy(policy),alphaDarkenVariants:Object.freeze([...policy.alphaDarkenVariants]),autoSources:freezeCanonicalAutoPolicies(policy.autoSources)})
   }
   private context: ReturnType<typeof canonicalBrushStorageContext>
   private binder?: CanonicalBrushCapabilityResolver
@@ -49,10 +49,8 @@ export class CanonicalRoomTransport {
   async begin(identity: CanonicalAdmissionIdentity, input: CanonicalStrokeBegin, isCurrent: () => boolean): Promise<CanonicalStrokeBeginResult> {
     try {
       const lifetime = this.authorized(identity, input?.layerId)
-      const binder = this.currentBinder(), prepared = binder.prepareBeginGesture(identity, input)
-      const g = prepared.grant
-      input = Object.freeze({ layerId: g.layerId, brush: g.brush, strokeId: g.strokeId, pigmentRgb8: g.pigmentRgb8,
-        outerResourceOpacity: g.composition.outerResourceOpacity, alphaDarken: g.composition.alphaDarken })
+      const binder = this.currentBinder()
+      input = binder.captureBeginInput(identity,input)
       const key = gestureKey(identity, input.strokeId), signature = JSON.stringify(input)
       const pending = this.begins.get(key)
       if (pending) {
@@ -63,14 +61,14 @@ export class CanonicalRoomTransport {
         return result
       }
       if (this.begins.size >= MAX_BEGIN_JOBS) fail('canonical_repair_required')
-      const promise = this.finishBegin(identity, input, lifetime, binder, prepared, isCurrent)
+      const promise = this.finishBegin(identity, input, lifetime, binder, isCurrent)
       this.begins.set(key, { signature, promise })
       try { return await promise } finally { if (this.begins.get(key)?.promise === promise) this.begins.delete(key) }
     } catch (error) { return { ok: false, reason: reason(error) } }
   }
 
   private async finishBegin(identity: CanonicalAdmissionIdentity, input: CanonicalStrokeBegin, lifetime: RoomLifetime,
-    binder: CanonicalBrushCapabilityResolver, prepared: ReturnType<CanonicalBrushCapabilityResolver['prepareBeginGesture']>,
+    binder: CanonicalBrushCapabilityResolver,
     isCurrent: () => boolean): Promise<CanonicalStrokeBeginResult> {
     const key = gestureKey(identity, input.strokeId), previous = lifetime.sessions.get(key), context = this.context!
     if (previous) {
@@ -79,6 +77,7 @@ export class CanonicalRoomTransport {
       this.sameLifetime(identity, input.layerId, lifetime)
       if (lifetime.sessions.get(key) !== previous || this.binder !== binder) fail('canonical_repair_required')
       this.requireHealthyWrites(lifetime)
+      const prepared=binder.prepareBeginGesture(identity,input)
       context.storage.pin(identity.roomId, identity.userId, [prepared.grant.brush], context.operator)
       prepared.commit()
       return snapshot(previous)
@@ -91,14 +90,16 @@ export class CanonicalRoomTransport {
     const count = await prisma.operation.count({ where: { roomId: identity.roomId, userId: identity.userId, type: 'canonical_stroke',
       seq: { lte: watermark }, data: { path: ['frame', 'strokeId'], equals: input.strokeId } } })
     if (!Number.isSafeInteger(count) || count < 0 || count > PREFIX_FRAMES) fail('canonical_repair_required')
-    const history = count ? await getOperationsBefore(identity.roomId, watermark + 1, PREFIX_WINDOW) : []
+    const historyPage = count ? await getOperationsBeforeWithCanonicalRows(identity.roomId, watermark + 1, PREFIX_WINDOW) : {operations:[],canonicalRows:[]}
+    const history=historyPage.operations
     if (!isCurrent()) fail('not_joined')
     this.sameLifetime(identity, input.layerId, lifetime)
     if (this.binder !== binder || canonicalBrushStorageContext()?.storage !== context.storage) fail('canonical_repair_required')
     if (Buffer.byteLength(JSON.stringify(history), 'utf8') > PREFIX_BYTES) fail('canonical_repair_required')
-    const prefix = history.filter(op => op.type === 'canonical_stroke' && op.userId === identity.userId && op.frame.strokeId === input.strokeId)
+    const prefix = history.filter((op):op is CanonicalStrokeOperation => op.type === 'canonical_stroke' && op.userId === identity.userId && op.frame.strokeId === input.strokeId)
     const resident = lifetime.record.operations.filter(op => op.type === 'canonical_stroke' && op.userId === identity.userId && op.frame.strokeId === input.strokeId && (op.seq ?? Infinity) <= watermark)
     if (prefix.length !== count || resident.some(op => !prefix.some(p => p.id === op.id && isDeepStrictEqual(p, op)))) fail('canonical_repair_required')
+    const prepared=prefix.length?binder.prepareResumeGesture(identity,input,{operations:prefix,rows:historyPage.canonicalRows.filter(row=>prefix.some(op=>op.id===row.id))}):binder.prepareBeginGesture(identity,input)
     let hydrating = true
     const admission = new CanonicalStrokeAdmission({ maxGestures: 1, retainedFrames: 8, resolve: (i, s) => hydrating
       ? i.roomId === identity.roomId && i.userId === identity.userId && s.layerId === input.layerId && s.brush === input.brush && s.strokeId === input.strokeId ? prepared.grant : undefined
@@ -127,7 +128,7 @@ export class CanonicalRoomTransport {
   /** Two-phase reader preparation. Caller awaits BEFORE channel join, then
    * calls finish(snapshot.tailOperations) synchronously before join+state emit.
    * No await/queue/registry survives finish; no paint permission is inferred. */
-  prepareReadDelivery(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
+  prepareReadDelivery(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
     const captured={roomId:identity.roomId,userId:identity.userId}
     return this.prepareReadContext(captured,isCurrent,()=>mayReadBoardContent(captured.roomId,captured.userId),()=>{})
   }
@@ -135,14 +136,14 @@ export class CanonicalRoomTransport {
   /** Genuine prepared join can read its exact target BEFORE membership exists.
    * Its private lexical proof comes from the same block/password/invite gate;
    * no caller ok:true object or fabricated durable participation is accepted. */
-  prepareJoinReadDelivery(preparation:PreparedAuthorizedJoin,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
+  prepareJoinReadDelivery(preparation:PreparedAuthorizedJoin,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
     const identity={roomId:preparation.roomId,userId:preparation.userId}
     const assert=()=>assertPreparedAuthorizedJoinRead(preparation,identity.roomId,identity.userId)
     assert()
     return this.prepareReadContext(identity,isCurrent,async()=>{assert();return true},assert)
   }
 
-  private async prepareReadContext(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean,authorize:()=>Promise<boolean>,assertAuthorization:()=>void):Promise<{readonly scope:CanonicalRecordedReadScope;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
+  private async prepareReadContext(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean,authorize:()=>Promise<boolean>,assertAuthorization:()=>void):Promise<{readonly scope:CanonicalRecordedReadScope;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
     if(!text(identity?.roomId)||!text(identity.userId))fail('not_joined')
     const {roomId}=identity
     const record=rooms.get(roomId)
@@ -168,7 +169,7 @@ export class CanonicalRoomTransport {
       const canonical=operations.some(op=>op.type==='canonical_stroke'&&!op.frame.materialPacked.startsWith('1|'))
       const canonicalCapabilities=canonical?binder.prepareMixedRecordedAttachment({roomId:scope.roomId,boardEpoch:scope.boardEpoch,operations,rows}):undefined
       current()
-      return Object.freeze({canonicalReadScope:scope,...canonicalCapabilities?{canonicalCapabilities}:{}})
+      return Object.freeze({canonicalReadScope:scope,...this.policy.authorRasterProfile===CANONICAL_STROKE_RASTER_PROFILE?{}:{canonicalAuthorRasterProfile:this.policy.authorRasterProfile},...canonicalCapabilities?{canonicalCapabilities}:{}})
     }})
   }
 
@@ -280,7 +281,7 @@ export class CanonicalRoomTransport {
       materialVersion:2 as const,material:g.material})})
     const canonicalCapabilities=Object.freeze({version:1 as const,roomId:g.roomId,boardEpoch:g.boardEpoch,capabilities:Object.freeze([source]),
       bindings:Object.freeze([Object.freeze({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0})])})
-    try { prepareCanonicalRecordedAttachment(canonicalCapabilities,[op],{roomId:g.roomId,boardEpoch:g.boardEpoch}) }
+    try { prepareCanonicalRecordedAttachment(canonicalCapabilities,[op],{roomId:g.roomId,boardEpoch:g.boardEpoch,allowedRasterProfiles:this.policy.allowedRecordedRasterProfiles}) }
     catch { fail('canonical_repair_required') } // durable row exists; never invite mutation as a new operation
     return {canonicalCapabilities}
   }
@@ -342,9 +343,10 @@ export class CanonicalRoomTransport {
 }
 function snapshot(session: Session): CanonicalStrokeBeginResult {
   const g = session.grant
-  const value: CanonicalStrokeSnapshot = Object.freeze({ layerId: g.layerId, brush: g.brush, strokeId: g.strokeId, boardEpoch: g.boardEpoch,
-    descriptorSha256: g.descriptorSha256, rasterProfile: g.rasterProfile, pigmentRgb8: g.pigmentRgb8, composition: g.composition, assets: g.material.assets,
-    ...('version' in g.material?{materialVersion:2 as const,material:g.material}:{}) })
+  if(!('version'in g.material)&&g.rasterProfile!==CANONICAL_STROKE_RASTER_PROFILE)fail('invalid_operation')
+  const common={ layerId: g.layerId, brush: g.brush, strokeId: g.strokeId, boardEpoch: g.boardEpoch,
+    descriptorSha256:g.descriptorSha256,pigmentRgb8:g.pigmentRgb8,composition:g.composition,assets:g.material.assets}
+  const value:CanonicalStrokeSnapshot='version'in g.material?Object.freeze({...common,rasterProfile:g.rasterProfile,materialVersion:2 as const,material:g.material}):Object.freeze({...common,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE})
   return { ok: true, snapshot: value, ...session.admission.cursor(g, g.strokeId) }
 }
 function reason(error: unknown): TransportFailure['reason'] {

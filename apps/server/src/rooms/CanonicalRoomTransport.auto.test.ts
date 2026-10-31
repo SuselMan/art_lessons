@@ -17,10 +17,10 @@ import {CanonicalBrushCapabilityResolver} from './CanonicalBrushCapabilityResolv
 import {CanonicalStrokeAdmission} from './CanonicalStrokeAdmission.js'
 const db=vi.hoisted(()=>({operation:{count:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn()}}))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
-const history=vi.hoisted(()=>({rows:[] as unknown[]}))
-vi.mock('./snapshotStore.js',()=>({getOperationsBefore:vi.fn(async()=>history.rows)}))
+const history=vi.hoisted(()=>({rows:[] as unknown[],canonicalRows:[] as unknown[]}))
+vi.mock('./snapshotStore.js',()=>({getOperationsBeforeWithCanonicalRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows}))}))
 const dirs:string[]=[]
-beforeEach(()=>{db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[]})
+beforeEach(()=>{db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[];history.canonicalRows=[]})
 afterEach(async()=>{for(const id of rooms.keys())await flushRoomWrites(id);rooms.clear();for(const d of dirs.splice(0))rmSync(d,{recursive:true,force:true});vi.restoreAllMocks();vi.clearAllMocks()})
 function resident():RoomRecord{
  const record:RoomRecord={room:{id:'board',name:'Board',ownerId:'author',paper:'coarse',infinite:false,canvasWidth:64,canvasHeight:64,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-29T00:00:00Z',rasterVersion:'straight-rgba8-v1'},lessonId:null,sockets:new Set(),boards:[],assignments:[],activeAssignmentId:null,spotlightBoardId:null,handsRaised:new Set(),assignmentStarting:false,passwordHash:undefined,operations:[],participants:new Map(),nextSeq:1,layerStateSeq:null,layerStateIds:null,coveredSeqByLayer:new Map(),palette:[],roomFrozen:false,frozenUserIds:new Set(),lockedLayerIds:new Set(),sharedLockedLayerIds:new Set(),aliveIds:new Set(['layer']),deletedIds:new Set(),operationsById:new Map(),structuralLog:[]}
@@ -66,13 +66,13 @@ it('binds actual seven no-CAS descriptors, accepts actual adapter/encoder live+r
    const saved=await transport.recorded(identity,op,()=>true);expect(saved.result).toMatchObject({ok:true,seq:i+1});expect(saved.accepted!.frame).toEqual(packets[i]);prefix.push(saved.accepted!)
    const pins=pin.mock.calls.length;expect((await transport.recorded(identity,op,()=>true)).result).toMatchObject({ok:true,duplicate:true,seq:i+1});expect(pin.mock.calls.length).toBe(pins)
    if(i===1){
-    await flushRoomWrites('board');db.operation.count.mockResolvedValue(prefix.length);history.rows=[...prefix]
+    await flushRoomWrites('board');db.operation.count.mockResolvedValue(prefix.length);history.rows=[...prefix];history.canonicalRows=prefix.map(op=>[...db.operation.create.mock.calls].reverse().find(([request])=>request.data.id===op.id&&request.data.data.frame.brush===op.frame.brush)![0].data)
     transport=new CanonicalRoomTransport(policy)
     expect(await transport.begin(identity,f.input,()=>true)).toMatchObject({ok:true,recordedNext:2,liveNext:2,ended:false})
    }
   }
   await flushRoomWrites('board');expect(asset).not.toHaveBeenCalled();expect(pin).toHaveBeenCalled();expect(f.storage.library('rooms','board').brushes[0].descriptor).toEqual(JSON.parse(JSON.stringify(f.descriptor)))
-  db.operation.count.mockResolvedValue(prefix.length);history.rows=prefix
+  db.operation.count.mockResolvedValue(prefix.length);history.rows=prefix;history.canonicalRows=prefix.map(op=>[...db.operation.create.mock.calls].reverse().find(([request])=>request.data.id===op.id&&request.data.data.frame.brush===op.frame.brush)![0].data)
   const cold=new CanonicalRoomTransport(policy),replayed=await cold.begin(identity,f.input,()=>true)
   expect(replayed).toMatchObject({ok:true,recordedNext:packets.length,liveNext:packets.length,ended:true});expect(snapshot(replayed).material).toEqual(s.material)
   history.rows=prefix.slice(1);expect(await new CanonicalRoomTransport(policy).begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'canonical_repair_required'})
@@ -99,7 +99,7 @@ it('repeated begin exposes only recorded closure after actual seven live termina
 it('defaults auto OFF and rejects legacy rooms, malformed material policies and changed permissions before pin/store',async()=>{
  const f=setup(),pin=vi.spyOn(f.storage,'pin'),asset=vi.spyOn(f.storage,'asset')
  expect(await new CanonicalRoomTransport().begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'invalid_operation'})
- expect(db.operation.count).not.toHaveBeenCalled();expect(pin).not.toHaveBeenCalled();expect(asset).not.toHaveBeenCalled()
+ expect(db.operation.create).not.toHaveBeenCalled();expect(pin).not.toHaveBeenCalled();expect(asset).not.toHaveBeenCalled()
  f.board.room.rasterVersion='legacy-pm8-v1';expect(await new CanonicalRoomTransport(policy).begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'invalid_operation'});expect(pin).not.toHaveBeenCalled()
  f.board.room.rasterVersion='straight-rgba8-v1';db.operation.count.mockImplementationOnce(async()=>{f.board.aliveIds.delete('layer');return 0})
  expect(await new CanonicalRoomTransport(policy).begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'invalid_operation'});expect(pin).not.toHaveBeenCalled()
@@ -137,7 +137,7 @@ it('rejects inconsistent saved auto data and nonexplicit policies without CAS, p
  expect(await new CanonicalRoomTransport(policy).begin(identity,{...f.input,sourceProfile:'neon64-f32-fma-v1'} as never,()=>true)).toEqual({ok:false,reason:'invalid_operation'})
  const inherited=Object.create({coverageProfile:'neon64-f32-fma-v1'});inherited.storedScale=1;inherited.extra=true
  expect(()=>new CanonicalBrushCapabilityResolver({storage:f.storage,operator:empty,...policy,autoSources:{defaultAuto:inherited},maxGestures:4})).toThrow('explicit auto policy')
- expect(pin).not.toHaveBeenCalled();expect(db.operation.count).not.toHaveBeenCalled()
+ expect(pin).not.toHaveBeenCalled();expect(db.operation.create).not.toHaveBeenCalled()
 })
 it('rejects changed live/record pigment, recipe profile and malformed packed frames before pin/store',async()=>{
  const f=setup(),transport=new CanonicalRoomTransport(policy),s=snapshot(await transport.begin(identity,f.input,()=>true)),valid=frames(f.descriptor,s)[0],pin=vi.spyOn(f.storage,'pin')
@@ -223,12 +223,12 @@ it.each(['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1'] as const)('binds six Ga
    const saved=await transport.recorded(identity,op,()=>true);expect(saved.result).toMatchObject({ok:true,seq:i+1});prefix.push(saved.accepted!)
    expect((await transport.recorded(identity,op,()=>true)).result).toMatchObject({ok:true,duplicate:true,seq:i+1})
    if(i===1){
-    await flushRoomWrites('board');db.operation.count.mockResolvedValue(prefix.length);history.rows=[...prefix]
+    await flushRoomWrites('board');db.operation.count.mockResolvedValue(prefix.length);history.rows=[...prefix];history.canonicalRows=prefix.map(op=>[...db.operation.create.mock.calls].reverse().find(([request])=>request.data.id===op.id&&request.data.data.frame.brush===op.frame.brush)![0].data)
     transport=new CanonicalRoomTransport(selected)
     expect(await transport.begin(identity,f.input,()=>true)).toMatchObject({ok:true,recordedNext:2,liveNext:2,ended:false})
    }
   }
-  await flushRoomWrites('board');db.operation.count.mockResolvedValue(prefix.length);history.rows=prefix
+  await flushRoomWrites('board');db.operation.count.mockResolvedValue(prefix.length);history.rows=prefix;history.canonicalRows=prefix.map(op=>[...db.operation.create.mock.calls].reverse().find(([request])=>request.data.id===op.id&&request.data.data.frame.brush===op.frame.brush)![0].data)
   const cold=await new CanonicalRoomTransport(selected).begin(identity,f.input,()=>true)
   expect(cold).toMatchObject({ok:true,ended:true,recordedNext:packets.length,liveNext:packets.length})
   expect(snapshot(cold).material).toEqual(s.material)

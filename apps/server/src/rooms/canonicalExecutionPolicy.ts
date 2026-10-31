@@ -1,4 +1,4 @@
-import { CANONICAL_STROKE_RASTER_PROFILE, type CanonicalAutoCoverageProfile, type CanonicalGaussianCoverageProfile } from '@grafetto/shared'
+import { CANONICAL_STROKE_RASTER_PROFILE, canonicalRecordedRasterProfiles, type CanonicalStrokeRasterProfile, type CanonicalAutoCoverageProfile, type CanonicalGaussianCoverageProfile } from '@grafetto/shared'
 export interface CanonicalDefaultAutoExecutionPolicy { readonly coverageProfile:CanonicalAutoCoverageProfile; readonly storedScale:1 }
 export interface CanonicalGaussianAutoExecutionPolicy { readonly coverageProfile:CanonicalGaussianCoverageProfile; readonly storedScale:1 }
 /** One server-owned generator policy. Absence/false means disabled. */
@@ -23,9 +23,21 @@ export function freezeCanonicalAutoPolicies(value:CanonicalAutoExecutionPolicies
 }
 /** Execution config only. This does NOT open straight rooms or switch a renderer. */
 export interface CanonicalRoomExecutionPolicy {
- readonly rasterProfile:typeof CANONICAL_STROKE_RASTER_PROFILE
+ readonly rasterProfile?:CanonicalStrokeRasterProfile
+ readonly authorRasterProfile?:CanonicalStrokeRasterProfile
+ readonly allowedRecordedRasterProfiles?:readonly CanonicalStrokeRasterProfile[]
  readonly alphaDarkenVariants:readonly('creamy'|'hard')[]
  readonly autoSources?:CanonicalAutoExecutionPolicies|false
 }
-export const CANONICAL_ROOM_EXECUTION_POLICY:CanonicalRoomExecutionPolicy = Object.freeze({rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,
+export const CANONICAL_ROOM_EXECUTION_POLICY:CanonicalRoomExecutionPolicy = Object.freeze({authorRasterProfile:CANONICAL_STROKE_RASTER_PROFILE,allowedRecordedRasterProfiles:Object.freeze([CANONICAL_STROKE_RASTER_PROFILE]),
  alphaDarkenVariants:Object.freeze(['creamy'] as const),autoSources:Object.freeze({})})
+
+/** Legacy rasterProfile is a singleton author selector, never received data. */
+export function freezeCanonicalRasterPolicy(value:Pick<CanonicalRoomExecutionPolicy,'rasterProfile'|'authorRasterProfile'|'allowedRecordedRasterProfiles'>):Readonly<{authorRasterProfile:CanonicalStrokeRasterProfile;allowedRecordedRasterProfiles:readonly CanonicalStrokeRasterProfile[]}> {
+ if(value.rasterProfile!==undefined&&value.authorRasterProfile!==undefined)throw TypeError('ambiguous explicit raster execution policy')
+ const authorRasterProfile=value.authorRasterProfile===undefined?value.rasterProfile:value.authorRasterProfile
+ if(authorRasterProfile===undefined)throw TypeError('missing explicit raster execution policy')
+ const allowedRecordedRasterProfiles=canonicalRecordedRasterProfiles({allowedRasterProfiles:value.allowedRecordedRasterProfiles===undefined?[authorRasterProfile]:value.allowedRecordedRasterProfiles})
+ if(!allowedRecordedRasterProfiles.includes(authorRasterProfile))throw TypeError('author raster profile unavailable')
+ return Object.freeze({authorRasterProfile,allowedRecordedRasterProfiles})
+}

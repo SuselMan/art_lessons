@@ -239,7 +239,7 @@ describe('scoped dependency history HTTP query', () => {
   })
 })
 
-describe('canonical history remains closed until paired whole-page reader activation',()=>{
+describe('paired canonical history delivery with the SAME owner',()=>{
  it('keeps V1 material array bytes unchanged and does not consult V2 owner',async()=>{
   const operations=[{type:'canonical_stroke',id:'historical-png',frame:{materialPacked:'1|historical-png-material'}}]
   mockRooms.getOperationsBeforeWithCanonicalRows.mockResolvedValue({operations,canonicalRows:[]})

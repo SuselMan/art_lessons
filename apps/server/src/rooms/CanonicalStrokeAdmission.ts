@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { CANONICAL_STROKE_RASTER_PROFILE, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin,
+import { CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin,
   type CanonicalMaterialContext, type AnyCanonicalMaterialContext, type CanonicalMaterialEntry, type AnyCanonicalMaterialFrame,
   type CanonicalStrokeComposition, type CanonicalStrokeFrameEnvelope } from '@grafetto/shared'
 
@@ -14,7 +14,7 @@ export interface TrustedCanonicalGesture {
   readonly layerId: string
   readonly boardEpoch: number
   readonly roomRasterVersion: typeof STRAIGHT_ROOM_RASTER_VERSION
-  readonly rasterProfile: typeof CANONICAL_STROKE_RASTER_PROFILE
+  readonly rasterProfile: CanonicalStrokeRasterProfile
   readonly descriptorSha256: string
   readonly brush: string
   readonly strokeId: string
@@ -24,7 +24,7 @@ export interface TrustedCanonicalGesture {
 }
 /** One typed decoder seam used by live, record, durable retry and hydration. */
 export function decodeTrustedCanonicalFrame(value:unknown,grant:TrustedCanonicalGesture,ordinal:number){
-  const material=grant.material,common={brush:grant.brush,strokeId:grant.strokeId,frameOrdinal:ordinal,pigmentRgb8:grant.pigmentRgb8,composition:grant.composition}
+  const material=grant.material,common={rasterProfile:grant.rasterProfile,brush:grant.brush,strokeId:grant.strokeId,frameOrdinal:ordinal,pigmentRgb8:grant.pigmentRgb8,composition:grant.composition}
   return 'version' in material?decodeCanonicalStrokeFrame(value,{...common,material}):decodeCanonicalStrokeFrame(value,{...common,material})
 }
 export type CanonicalCapabilityResolver = (identity: CanonicalAdmissionIdentity, selector: { readonly layerId: string; readonly brush: string; readonly strokeId: string }) => TrustedCanonicalGesture | undefined
@@ -107,7 +107,7 @@ export class CanonicalStrokeAdmission {
     const grant = this.resolve(scope, Object.freeze({ layerId, brush, strokeId }))
     if (!grant || grant.roomId !== scope.roomId || grant.userId !== scope.userId || grant.layerId !== layerId
       || grant.brush !== brush || grant.strokeId !== strokeId || !integer(grant.boardEpoch)
-      || grant.roomRasterVersion !== STRAIGHT_ROOM_RASTER_VERSION || grant.rasterProfile !== CANONICAL_STROKE_RASTER_PROFILE
+      || grant.roomRasterVersion !== STRAIGHT_ROOM_RASTER_VERSION || (grant.rasterProfile !== CANONICAL_STROKE_RASTER_PROFILE&&grant.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
       || !/^[0-9a-f]{64}$/.test(grant.descriptorSha256)) fail('trusted board/brush capability unavailable')
     if(!grant.material||!Array.isArray(grant.material.assets)||grant.material.assets.length>16)fail('unsupported trusted material capability')
     const m=grant.material
@@ -120,6 +120,7 @@ export class CanonicalStrokeAdmission {
       preflight=undefined
       materialSignature={...m,primarySource:pin}
     }else{
+      if(grant.rasterProfile!==CANONICAL_STROKE_RASTER_PROFILE)fail('V1 material requires historical raster profile')
       if(m.maskAsset!==undefined)fail('unsupported trusted material capability')
       preflight=m.preflightDefinition
       materialSignature={assets:m.assets,primaryAsset:m.primaryAsset,maskAsset:m.maskAsset,budget:m.budget,expectedDrawCount:m.expectedDrawCount,expectedStrokeEnd:m.expectedStrokeEnd}

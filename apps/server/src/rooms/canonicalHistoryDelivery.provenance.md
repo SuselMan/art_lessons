@@ -24,10 +24,9 @@ finish до seating. History projection использует тот же owner/r
 и board epoch, не reader BEGIN. Исходный array копируется перед возвратом page.
 
 Shared REST тип CanonicalRecordedHistoryPage={operations,canonicalCapabilities};
-OperationHistoryResponse=Operation[]|CanonicalRecordedHistoryPage. HTTP пока
-НЕ активирует новый body: historical material codec prefix 1| остаётся exact
-array lane; V2/unknown version требует same-owner preparation и возвращает 409
-до готовности paired whole-page client reader. Raster frame.version не является
+OperationHistoryResponse=Operation[]|CanonicalRecordedHistoryPage. HTTP после paired reader e191795c6 активирует новый body: historical material codec prefix 1| остаётся exact
+array lane; V2/unknown version требует same-owner preparation и возвращает bounded page
+только после successful shared validation; policy/lifetime failure возвращает 409. Raster frame.version не является
 material version. Mixed V1/V2 нельзя частично отдавать новому reader.
 
 Проверки: actual durable resident + cloned cold indexed row в одной gesture,
@@ -41,6 +40,6 @@ Production straight admission/client engine guards остаются OFF. Сер�
 
 Дополнительный HTTP proof: настоящий Fastify route, SAME injected transport,
 реальная source library/material и recorded write rows, другой reader user.
-Подготовка проходит до planned reader hold (409 canonical_history_reader_unavailable),
+Подготовка возвращает HTTP200 с exact operations+canonicalCapabilities,
 не выполняет новых writes. HTTP authorization и SQL замоканы явно; это не native
 editor/device execution и не открытие production straight admission.
