@@ -209,6 +209,13 @@ export class AccumulationBuffer {
     return true
   }
 
+  /** Metadata only: the migrated storage leases still belong to this context owner.
+   * Actual GPU loss is additionally checked by the drawing/allocation boundary. */
+  get storageOwnerCurrent(): boolean {
+    return !this._destroyed && this.storageLeases.length > 0
+      && this.storageLeases.every(lease => isAccumLeaseCurrent(this.gl, lease))
+  }
+
   /** Requested RGBA8 texture storage, not driver overhead or physical residency.
    * Invalidating mip content does not release its allocated levels. No GL query. */
   get storageByteLength(): number {

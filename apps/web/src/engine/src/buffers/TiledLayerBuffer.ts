@@ -1,5 +1,6 @@
 import { isRasterPixelEncoding, type RasterPixelEncoding } from '@grafetto/shared'
 import { AccumulationBuffer } from './AccumulationBuffer'
+import { reserveAccumStorage, releaseAccumReservation, type StorageReservation } from './ContextStorageOwner'
 import type { ILayerBuffer, PaintTarget } from './ILayerBuffer'
 import { COARSE_FACTORS, TILE_SIZE, coarseTileWorldRect, fineTileSlot, fineToCoarseTile, parseTileKey, tileKey, tileWorldRect, tilesOverlappingRect, worldToTile, type CoarseFactor, type WorldRect } from './tileMath'
 
@@ -307,8 +308,8 @@ export class TiledLayerBuffer implements ILayerBuffer {
   }
 
   /** A not-yet-published allocation stays ours until clear succeeds. */
-  private createClearedTile(): AccumulationBuffer {
-    const tile = new AccumulationBuffer(this.gl, this.tileW, this.tileH, this.pixelEncoding === 'straight-rgba8' ? 'nearest' : 'linear', this.pixelEncoding)
+  private createClearedTile(reservation?: StorageReservation): AccumulationBuffer {
+    const tile = new AccumulationBuffer(this.gl, this.tileW, this.tileH, this.pixelEncoding === 'straight-rgba8' ? 'nearest' : 'linear', this.pixelEncoding, reservation)
     try { tile.clear(); return tile }
     catch (error) { try { tile.destroy() } catch { /* Preserve primary. */ } throw error }
   }
@@ -567,7 +568,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
    *  happens relative to its own touch()es, since trimming too early here
    *  could evict (destroy the GPU texture of) a tile the caller is about to
    *  hand back in its own return value. */
-  private recoverTiles(keys: string[]): void {
+  private recoverTiles(keys: string[], reservation?: StorageReservation): void {
     if (!this.rebuildTile || !keys.length) return
     const session = this.rebuildTile()
     let failed = false, firstError: unknown
@@ -576,7 +577,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
       for (const key of keys) {
         const { tileX, tileY } = parseTileKey(key)
         const rect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
-        const tile = this.createClearedTile()
+        const tile = this.createClearedTile(reservation)
         let content: WorldRect | null
         try {
           const pixels = session.readPixels(rect)
@@ -601,7 +602,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
     if (failed) throw firstError
   }
 
-  private getOrCreateTile(tileX: number, tileY: number): AccumulationBuffer {
+  private getOrCreateTile(tileX: number, tileY: number, reservation?: StorageReservation): AccumulationBuffer {
     const key = tileKey(tileX, tileY)
     const existing = this.tiles.get(key)
     if (existing) { this.touch(key, existing); return existing }
@@ -611,7 +612,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
     // called — see resolveForPaint) already recovered it, so it wouldn't
     // still be missing from `tiles`. Either way, a plain blank tile is
     // correct here.
-    const tile = this.createClearedTile()
+    const tile = this.createClearedTile(reservation)
     this.tiles.set(key, tile)
     // A genuinely brand-new tile (never seen this key before) starts with
     // no tracked content — a recovered one already got its real content set
@@ -620,13 +621,57 @@ export class TiledLayerBuffer implements ILayerBuffer {
     return tile
   }
 
-  resolveForPaint(worldRect: WorldRect): PaintTarget[] {
+  /** Synchronous bounded borrow. Claim resident identities and reserve ONLY
+   * missing direct tile bytes before recovery/allocation; no scope crosses await.
+   * Rebuild/coarse helper allocations retain their existing independent charges. */
+  withPaintTargets<T>(worldRect: Readonly<WorldRect>, draw: (targets: readonly PaintTarget[]) => T): T {
+    if (!worldRect || ![worldRect.minX,worldRect.minY,worldRect.maxX,worldRect.maxY].every(Number.isSafeInteger)
+      || worldRect.maxX < worldRect.minX || worldRect.maxY < worldRect.minY
+      || !Number.isSafeInteger(this.tileW) || !Number.isSafeInteger(this.tileH)
+      || this.tileW < 1 || this.tileH < 1 || this.tileW > 4096 || this.tileH > 4096 || typeof draw !== 'function') throw new RangeError('Invalid admitted layer target geometry')
+    const bounds = {minX:worldRect.minX,minY:worldRect.minY,maxX:worldRect.maxX,maxY:worldRect.maxY}
+    if (bounds.maxX > bounds.minX && bounds.maxY > bounds.minY) {
+      const left=Math.floor(bounds.minX/this.tileW),right=Math.ceil(bounds.maxX/this.tileW)
+      const top=Math.floor(bounds.minY/this.tileH),bottom=Math.ceil(bounds.maxY/this.tileH)
+      const columns=right-left,rows=bottom-top
+      if (!Number.isSafeInteger(columns) || !Number.isSafeInteger(rows) || columns>64 || rows>Math.floor(64/columns)
+        || ![left*this.tileW,right*this.tileW,top*this.tileH,bottom*this.tileH].every(Number.isSafeInteger)) throw new RangeError('Admitted layer target fanout exceeds bounds')
+    }
+    const coords=tilesOverlappingRect(bounds,this.tileW,this.tileH),resident:PaintTarget[]=[]
+    if(this.retainedTargets.size+coords.filter(({tileX,tileY})=>!this.retainedTargets.has(tileKey(tileX,tileY))).length>64)throw new RangeError('Retained layer target capacity exceeded')
+    let missing=0
+    for(const {tileX,tileY} of coords){
+      const buffer=this.tiles.get(tileKey(tileX,tileY))
+      if(buffer){
+        if(!buffer.storageOwnerCurrent)throw new Error('Stale admitted layer storage owner')
+        resident.push({buffer,originX:tileX*this.tileW,originY:tileY*this.tileH,contentRect:this.contentRects.get(tileKey(tileX,tileY))??null})
+      } else missing+=this.tileW*this.tileH*4
+    }
+    const releaseResident=this.retainTargets(resident)
+    let ticket:StorageReservation|undefined,releaseTargets:(()=>void)|undefined,result!:T
+    let failed=false,firstError:unknown
+    try {
+      ticket=reserveAccumStorage(this.gl,missing)
+      const targets=this.resolvePaint(bounds,ticket)
+      releaseTargets=this.retainTargets(targets)
+      result=draw(targets)
+    } catch(error){failed=true;firstError=error}
+    for(const cleanup of [releaseTargets,releaseResident,ticket?()=>releaseAccumReservation(ticket!):undefined])if(cleanup){
+      try{cleanup()}catch(error){if(!failed){failed=true;firstError=error}}
+    }
+    if(failed)throw firstError
+    return result
+  }
+
+  resolveForPaint(worldRect: WorldRect): PaintTarget[] { return this.resolvePaint(worldRect) }
+
+  private resolvePaint(worldRect: WorldRect, reservation?: StorageReservation): PaintTarget[] {
     const coords = tilesOverlappingRect(worldRect, this.tileW, this.tileH)
     const keys = coords.map(({ tileX, tileY }) => tileKey(tileX, tileY))
-    this.recoverTiles(keys.filter(key => !this.tiles.has(key) && this.evicted.has(key)))
+    this.recoverTiles(keys.filter(key => !this.tiles.has(key) && this.evicted.has(key)), reservation)
     const targets = coords.map(({ tileX, tileY }, i) => {
       const rect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
-      const buffer = this.getOrCreateTile(tileX, tileY)
+      const buffer = this.getOrCreateTile(tileX, tileY, reservation)
       return { buffer, originX: rect.minX, originY: rect.minY, contentRect: this.contentRects.get(keys[i]) ?? null }
     })
     // Trimmed once, after every target this call needs is already resolved,
