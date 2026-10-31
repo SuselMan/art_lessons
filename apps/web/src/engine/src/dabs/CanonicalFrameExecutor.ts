@@ -287,8 +287,8 @@ export class CanonicalFrameExecutor {
       // its release callbacks; no GL state or lease survives this turn.
       runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},turn=>{
         this.gl.activeTexture(this.gl.TEXTURE0)
-        if(work.draw<work.result.draws.length)this.paint(work,layer,turn)
-        else this.present(work,layer,turn)
+        if(work.draw<work.result.draws.length)this.paint(work,layer,turn,turnStarted)
+        else this.present(work,layer,turn,turnStarted)
         if(work.draw===work.result.draws.length&&(this.options.washMode==='deposition-only'||!work.result.commands.length||work.presentTiles&&work.present===work.presentTiles.length))this.finish(work)
       })
     } catch (error) {
@@ -352,7 +352,7 @@ export class CanonicalFrameExecutor {
     return current.buffer
   }
 
-  private paint(work: Work, layer: TiledLayerBuffer, turn: BrushGlTurn): void {
+  private paint(work: Work, layer: TiledLayerBuffer, turn: BrushGlTurn, turnStarted:number): void {
     // Plan at most eight commands before entering the synchronous capsule.
     // These temporary handles are retained only for this turn, never a yield.
     const tasks: { draw: number; tile: number; part: number; parts: number; writeBounds: Readonly<WorldRect>; tiles: readonly TilePosition[]; target: PaintTarget; wash?: WashTile }[] = []
@@ -360,6 +360,7 @@ export class CanonicalFrameExecutor {
     try {
       let draw = work.draw, tile = work.tile, part = work.paintPart, positions = work.tiles
       while (tasks.length < 8 && draw < work.result.draws.length) {
+        if(tasks.length && performance.now()-turnStarted>=4)break
         const d = work.result.draws[draw], r = work.input.frame.definitions[d.definition]
         const firstRecipe = work.input.frame.definitions[work.result.draws[work.draw].definition];
         if (draw !== work.draw && (autoRecipe(r) || autoRecipe(firstRecipe))) break;
@@ -407,7 +408,7 @@ export class CanonicalFrameExecutor {
             layer.markContentPainted(task.writeBounds)
             this.options.changed(work.input.layerId)
           }
-          if (frame.shouldYield) break
+          if (frame.shouldYield || performance.now()-turnStarted>=4) break
         }
       })
     } finally { for (const release of stagingReleases.reverse()) release() }
@@ -450,7 +451,7 @@ export class CanonicalFrameExecutor {
       lifetime }
   }
 
-  private present(work: Work, layer: TiledLayerBuffer, turn: BrushGlTurn): void {
+  private present(work: Work, layer: TiledLayerBuffer, turn: BrushGlTurn, turnStarted:number): void {
     if (!work.result.commands.length) return
     work.presentTiles ??= [...this.washes.values()]
     const command = work.result.commands[0]
@@ -460,6 +461,7 @@ export class CanonicalFrameExecutor {
     try {
       let index = work.present, part = work.part
       while (tasks.length < 8 && index < work.presentTiles.length) {
+        if(tasks.length && performance.now()-turnStarted>=4)break
         const tile = work.presentTiles[index]
         const columns = Math.ceil(tile.width / this.compositeCapacity.width), rows = Math.ceil(tile.height / this.compositeCapacity.height)
         const target = this.resolveTile(layer, tile)
@@ -485,7 +487,7 @@ export class CanonicalFrameExecutor {
           work.present = task.index; work.part = task.part + 1
           if (work.part === task.rows * task.columns) { work.part = 0; work.present++ }
           layer.markContentPainted(rect(tile)); this.options.changed(work.input.layerId)
-          if (frame.shouldYield) break
+          if (frame.shouldYield || performance.now()-turnStarted>=4) break
         }
       })
     } finally { for (const release of releases.reverse()) release() }

@@ -271,3 +271,17 @@ prove table preparation yields before GL/target access; a second gesture reuses
 the same table without another advance. Untrusted/forged source slot rejects and
 cold cancellation returns the source charge. This is host/MockGL integration,
 not native GUI whole-stroke equivalence or tablet pointer responsiveness proof.
+
+## Inclusive cooperative turn clock
+
+The existing four-millisecond clock now includes target preparation and outer GL
+capture in both paint and wash presentation, instead of restarting the effective
+allowance at inner batch entry. Planning stops after an admitted task consumes
+the allowance; its atomic draw completes, then the existing tile/part cursor
+resumes next turn. This prevents allocating up to eight cold targets before any
+time check. Individual driver calls remain non-preemptible, so four milliseconds
+is a cooperative check, not a hard latency bound. A forced5ms-target regression
+prepares only one target in a turn and renders all nine tiles exactly once.
+58 executor tests and the common web TypeScript check pass. The initial Samsung
+single-tile before/after corpus retains exact pixels but shows no overall timing
+improvement; multi-tile scheduling and device timings are recorded separately.

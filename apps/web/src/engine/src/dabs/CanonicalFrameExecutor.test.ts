@@ -955,3 +955,21 @@ it('rejects untrusted soft frames before target access and releases a never-used
     expect(()=>s.executor.enqueue({...s.submit(),frame,assets:[]})).toThrow('poisoned')
   }finally{s.close()}
 })
+
+it('charges target preparation to the SAME turn budget before planning more tiles',()=>{
+  const s=setup('buildup',4,16),resolve=s.layer.resolveForPaint.bind(s.layer)
+  let clock=0
+  const now=vi.spyOn(performance,'now').mockImplementation(()=>clock)
+  const prepare=vi.spyOn(s.layer,'resolveForPaint').mockImplementation(rect=>{const targets=resolve(rect);clock+=5;return targets})
+  const composite=vi.spyOn(s.composite,'drawSource')
+  try {
+    const input=decoded(1)
+    const frame={...input,definitions:[{...recipe,width:9,height:9,scale:9,ratio:1}]}
+    s.executor.enqueue({...s.submit(),frame})
+    expect(s.executor.advance().pending).toBe(true)
+    expect(prepare).toHaveBeenCalledTimes(1);expect(composite).toHaveBeenCalledTimes(1)
+    expect(s.executor['queue'][0].tile).toBe(1)
+    while(s.executor.pending){prepare.mockClear();s.executor.advance();expect(prepare.mock.calls.length).toBeLessThanOrEqual(1)}
+    expect(composite).toHaveBeenCalledTimes(9);expect(s.executor.checkpointReady).toBe(true)
+  }finally{now.mockRestore();s.close()}
+})
