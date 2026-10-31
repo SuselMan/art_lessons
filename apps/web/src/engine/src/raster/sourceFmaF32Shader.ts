@@ -20,8 +20,14 @@ vec4 sourceFmaF32(vec3 a,vec3 b,vec3 c){
  for(int i=0;i<3;i++){for(int j=0;j<3;j++){p[i+j]+=x[i]*y[j];}}
  for(int i=0;i<5;i++){float q=floor(p[i]/256.0);p[i]-=q*256.0;p[i+1]+=q;}
  for(int i=0;i<3;i++){z[i]=mod(cz,256.0);cz=floor(cz/256.0);}
+ // scan:input-top:begin
  int pt=-1;int ct=-1;
- for(int i=0;i<48;i++){if(sfmaBit(p,i)!=0.0)pt=i;if(sfmaBit(z,i)!=0.0)ct=i;}
+ for(int byte=0;byte<6;byte++){for(int bit=0;bit<8;bit++){
+  int i=byte*8+bit;
+  if(mod(floor(p[byte]/sfmaPow(bit)),2.0)!=0.0)pt=i;
+  if(mod(floor(z[byte]/sfmaPow(bit)),2.0)!=0.0)ct=i;
+ }}
+ // scan:input-top:end
  float pn=abs(a.x-b.x);
  if(pt<0&&ct<0)return vec4(pn*c.x,0.0,-149.0,0.0);
  int pe=int(a.z+b.z);int ce=int(c.z);int physicalP=pt<0?-1000:pt+pe;int physicalC=ct<0?-1000:ct+ce;
@@ -38,12 +44,25 @@ vec4 sourceFmaF32(vec3 a,vec3 b,vec3 c){
  }
  float tailNegative=tp>0.0?pn:c.x;
  if(discarded>0.0&&tailNegative!=negative){float borrow=1.0;for(int i=0;i<11;i++){float d=r[i]-borrow;borrow=d<0.0?1.0:0.0;r[i]=d+borrow*256.0;}}
- int top=-1;for(int i=0;i<88;i++){if(sfmaBit(r,i)>0.0)top=i;}
+ // scan:result-top:begin
+ int top=-1;for(int byte=0;byte<11;byte++){for(int bit=0;bit<8;bit++){
+  if(mod(floor(r[byte]/sfmaPow(bit)),2.0)>0.0)top=byte*8+bit;
+ }}
+ // scan:result-top:end
  if(top<0)return vec4(negative,0.0,-149.0,0.0);
  int physicalTop=top+exponent;int shift=physicalTop< -126?-149-exponent:top-23;
- float q=0.0;for(int j=0;j<88;j++){int i=87-j;if(i<=top&&i>=(shift>0?shift:0))q=q*2.0+sfmaBit(r,i);}
+ // scan:quotient:begin
+ float q=0.0;for(int byte=0;byte<11;byte++){for(int bit=0;bit<8;bit++){
+  int i=87-byte*8-bit;
+  if(i<=top&&i>=(shift>0?shift:0))q=q*2.0+mod(floor(r[10-byte]/sfmaPow(7-bit)),2.0);
+ }}
+ // scan:quotient:end
  // Negative shift can only occur in the full baseline, not the80-bit window.
- float sticky=discarded;for(int i=0;i<88;i++){if(i<shift-1)sticky=max(sticky,sfmaBit(r,i));}
+ // scan:sticky:begin
+ float sticky=discarded;for(int byte=0;byte<11;byte++){for(int bit=0;bit<8;bit++){
+  int i=byte*8+bit;if(i<shift-1)sticky=max(sticky,mod(floor(r[byte]/sfmaPow(bit)),2.0));
+ }}
+ // scan:sticky:end
  float guard=sfmaBit(r,shift-1);if(guard>0.0&&(sticky>0.0||mod(q,2.0)>0.0))q+=1.0;
  if(physicalTop< -126)return vec4(negative,q,-149.0,0.0);
  if(q==16777216.0){q=8388608.0;physicalTop++;}
