@@ -1,4 +1,4 @@
-import { canonicalSourceEffectReject,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalGaussianAutoSourceBinding,canonicalSoftAutoSourceBinding,canonicalSoftAutoDataEqual,canonicalSourceComposition,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,sourceAutoGeometry,CANONICAL_RECORDED_ATTACHMENT_LIMITS,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,IMPLICIT_LAYER_IDS,INITIAL_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,verifyCanonicalEmptyHistoryBase,decodeCanonicalStrokeFrame,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalStrokeRasterProfile,type CanonicalAutoSource,type CanonicalSoftAutoSource } from '@grafetto/shared'
+import { canonicalSourceEffectReject,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalGaussianAutoSourceBinding,canonicalSoftAutoSourceBinding,canonicalSoftAutoDataEqual,canonicalSourceComposition,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,sourceAutoGeometry,CANONICAL_RECORDED_ATTACHMENT_LIMITS,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,IMPLICIT_LAYER_IDS,INITIAL_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,verifyCanonicalFullHistoryBase,verifyCanonicalEmptyHistoryBase,decodeCanonicalStrokeFrame,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalStrokeRasterProfile,type CanonicalAutoSource,type CanonicalSoftAutoSource } from '@grafetto/shared'
 import {BrushTextureCache} from './src/dabs/BrushTextureCache'
 import {TransformedMaskPrepass,transformedMaskPrepassBudget,type TransformedMaskLimits} from './src/dabs/TransformedMaskPrepass'
 import {CanonicalRgba8CompositePass,canonicalRgba8CompositeBudget,type CanonicalCompositeLimits} from './src/dabs/CanonicalRgba8CompositePass'
@@ -1359,26 +1359,37 @@ export interface CanonicalEmptyRoomRestoreResult {readonly committed:true;readon
 interface CanonicalEmptyPlan {
  readonly read:CanonicalRecordedEmptyRoomRead;readonly tail:readonly Operation[]
  readonly scope:ReturnType<CanonicalRecordedEmptyRoomRead['assertCurrent']>
- readonly inputs:readonly CanonicalRecordedInput[];readonly profile:CanonicalStrokeRasterProfile
+ readonly inputs:readonly CanonicalRecordedInput[];readonly paintInputs:readonly CanonicalRecordedInput[];readonly hiddenFrameIds:readonly string[];readonly full:boolean;readonly profile:CanonicalStrokeRasterProfile
  readonly mask:TransformedMaskLimits;readonly composite:CanonicalCompositeLimits
  readonly gestures:number;readonly logicalBytes:number;readonly page:Readonly<WorldRect>;readonly tileWidth:number;readonly tileHeight:number
 }
 function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonly Operation[],width?:number,height?:number,infinite=false):CanonicalEmptyPlan {
  if(!read||infinite)throw new TypeError('Unsupported canonical empty room')
- const base=read.assertEmptyHistoryBase(tail),scope=read.assertCurrent()
+ const full=read.assertFullHistoryBase?.(tail),base=full?undefined:read.assertEmptyHistoryBase(tail),scope=read.assertCurrent()
  if(read.scope!==scope||read.tailOperations!==tail||read.preparedAtoms.length!==tail.length)throw new TypeError('Foreign canonical empty room owner')
  if(!read.roomGeometry||read.roomGeometry.width!==width||read.roomGeometry.height!==height||read.roomGeometry.infinite!==infinite)throw new TypeError('Canonical original room geometry mismatch')
- verifyCanonicalEmptyHistoryBase(base,read.preparedAtoms,scope)
+ if(full)verifyCanonicalFullHistoryBase(full.base,read.preparedAtoms,scope)
+ else verifyCanonicalEmptyHistoryBase(base,read.preparedAtoms,scope)
  if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width!<=0||height!<=0)throw new TypeError('Canonical baseline requires explicit page geometry')
  const page={minX:0,minY:0,maxX:width!,maxY:height!},tileWidth=Math.min(TILE_SIZE,width!),tileHeight=Math.min(TILE_SIZE,height!)
- const inputs:CanonicalRecordedInput[]=[],prefixes=new Map<string,CanonicalMaterialPrefixState>(),tiles=new Set<string>(),gestureTiles=new Map<string,Set<string>>()
+ const visible=full?new Set(full.gestures.filter(g=>g.visible).flatMap(g=>g.frameOperationIds)):undefined
+ if(full?.gestures.some(g=>!g.ended&&!g.sealed))throw new TypeError('Open canonical full baseline prefix unsupported')
+ const paintInputs:CanonicalRecordedInput[]=[],hiddenFrameIds:string[]=full?.gestures.filter(g=>!g.visible).map(g=>g.frameOperationIds[0])??[],inputs:CanonicalRecordedInput[]=[],prefixes=new Map<string,CanonicalMaterialPrefixState>(),tiles=new Set<string>(),gestureTiles=new Map<string,Set<string>>()
  let maskWidth=1,maskHeight=1,generic=read.authorRasterProfile===CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE
  for(let i=0;i<read.preparedAtoms.length;i++){
   const atom=read.preparedAtoms[i],delivery=Object.getOwnPropertyDescriptor(atom,'delivery')
   if(!delivery||!Object.hasOwn(delivery,'value')||!delivery.value||delivery.value.lifetime!==read||atom.operation!==tail[i])throw new TypeError('Original canonical input required')
   const input=atom as CanonicalRecordedInput;input.delivery.assertCurrent(input)
   const op=input.operation,r=input.read
-  if(op.type!=='canonical_stroke'||!r||op.layerId!==INITIAL_LAYER_ID||op.seq!==i+1)throw new TypeError('Unsupported canonical baseline writer/layer')
+  if(op.seq!==i+1)throw new TypeError('Unsupported canonical baseline sequence')
+  inputs.push(input)
+  if(op.type==='canonical_stroke_close'&&full){
+   if(op.layerId!==INITIAL_LAYER_ID)throw new TypeError('Unsupported canonical baseline layer')
+   if(full.gestures.some(g=>g.visible&&g.userId===op.targetUserId&&g.strokeId===op.strokeId))paintInputs.push(input)
+   continue
+  }
+  if(full&&(op.type==='operation_undo'||op.type==='operation_redo'))continue
+  if(op.type!=='canonical_stroke'||!r||op.layerId!==INITIAL_LAYER_ID)throw new TypeError('Unsupported canonical baseline writer/layer')
   const s=r.capability.snapshot,source=s.material.primarySource
   if(s.materialVersion!==2||s.material.maskSource||source.kind==='image'||s.composition.mode!=='wash'||s.rasterProfile!==read.authorRasterProfile||s.material.assets.length)throw new TypeError('Unsupported canonical baseline source/profile')
   const fixed=canonicalLayerMaskCapacity(source);maskWidth=Math.max(maskWidth,fixed.width);maskHeight=Math.max(maskHeight,fixed.height)
@@ -1388,26 +1399,27 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
   for(const recipe of decoded.definitions){if(!('kind'in recipe)||!['defaultAuto','gaussianAuto','softAuto'].includes(recipe.kind))throw new TypeError('Unsupported canonical baseline material');maskWidth=Math.max(maskWidth,recipe.width);maskHeight=Math.max(maskHeight,recipe.height)}
   for(const d of decoded.draws){const recipe=decoded.definitions[d.definition];for(const t of planCanonicalTargets({minX:d.x,minY:d.y,maxX:d.x+recipe.width,maxY:d.y+recipe.height},page,tileWidth,tileHeight).tiles){const id=JSON.stringify([t.storage.minX,t.storage.minY]);tiles.add(id);used.add(id)}}
   if(tiles.size>64||used.size>64)throw new RangeError('Canonical baseline exceeds target union')
-  generic ||= s.composition.outerBlend!=='over';inputs.push(input)
+  generic ||= s.composition.outerBlend!=='over'
+  if(!visible||visible.has(op.id))paintInputs.push(input)
  }
- if([...prefixes.values()].some(p=>!p.ended))throw new TypeError('Open canonical baseline prefix unsupported')
+ if(!full&&[...prefixes.values()].some(p=>!p.ended))throw new TypeError('Open canonical baseline prefix unsupported')
  const mask={width:maskWidth,height:maskHeight,slots:1},composite:CanonicalCompositeLimits={width:tileWidth,height:tileHeight,operations:['alphaDarken32FusedScalar','over32FusedScalar',...(generic?['genericSCU8' as const]:[])]}
  const maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(composite)
  if(maskCost.gpuBytes+compositeCost.gpuBytes>16*1024*1024||maskCost.cpuBytes+compositeCost.cpuBytes+1024+inputs.length*128+prefixes.size*512+82432>4*1024*1024)throw new RangeError('Canonical baseline workspace exceeds existing brush budgets')
  const logicalBytes=(tiles.size+2*[...gestureTiles.values()].reduce((n,t)=>n+t.size,0))*tileWidth*tileHeight*4
  if(!Number.isSafeInteger(logicalBytes))throw new RangeError('Invalid canonical logical admission')
  if(read.assertCurrent()!==scope)throw new Error('Canonical baseline scope changed')
- return Object.freeze({read,tail,scope,inputs:Object.freeze(inputs),profile:read.authorRasterProfile,mask:Object.freeze(mask),composite:Object.freeze(composite),gestures:prefixes.size,logicalBytes,page:Object.freeze(page),tileWidth,tileHeight})
+ return Object.freeze({read,tail,scope,inputs:Object.freeze(inputs),paintInputs:Object.freeze(paintInputs),hiddenFrameIds:Object.freeze(hiddenFrameIds),full:!!full,profile:read.authorRasterProfile,mask:Object.freeze(mask),composite:Object.freeze(composite),gestures:prefixes.size,logicalBytes,page:Object.freeze(page),tileWidth,tileHeight})
 }
 interface CanonicalJournalProof {
- readonly revision:number;readonly entries:OperationLog['entries'];readonly originalEntries:OperationLog['entries'];readonly originalOperations:readonly Operation[];readonly originalReads:readonly OperationLog['entries'][number]['canonicalRead'][]
+ readonly revision:number;readonly entries:OperationLog['entries'];readonly originalEntries:OperationLog['entries'];readonly originalOperations:readonly Operation[];readonly originalReads:readonly OperationLog['entries'][number]['canonicalRead'][];readonly originalStates:readonly OperationLog['entries'][number]['state'][]
 }
 interface CanonicalAcceptedBaseline extends CanonicalJournalProof {readonly plan:CanonicalEmptyPlan;readonly generation:number}
 function canonicalJournalValid(proof:CanonicalJournalProof,log:OperationLog,inputs:readonly CanonicalRecordedInput[]):boolean {
  const entries=log.entries
  return log.revision===proof.revision&&entries===proof.entries&&entries.length===inputs.length&&entries.length===proof.originalEntries.length&&proof.originalEntries.every((entry,i)=>{
   const input=inputs[i],operation=entry.op,original=input.operation
-  return entries[i]===entry&&entry.state==='done'&&!entry.pending&&entry.serverSeq===original.seq&&entry.canonicalInput===input&&!!input.read&&!!entry.canonicalRead&&entry.canonicalRead===proof.originalReads[i]&&entry.op===proof.originalOperations[i]&&operation.type==='canonical_stroke'&&original.type==='canonical_stroke'&&operation.id===original.id&&operation.userId===original.userId&&operation.layerId===original.layerId&&operation.frame===original.frame
+  return entries[i]===entry&&entry.state===proof.originalStates[i]&&!entry.pending&&entry.serverSeq===original.seq&&entry.canonicalInput===input&&entry.canonicalRead===proof.originalReads[i]&&!!entry.canonicalRead===!!input.read&&entry.op===proof.originalOperations[i]&&operation.type===original.type&&operation.id===original.id&&operation.userId===original.userId&&(operation.type!=='canonical_stroke'||original.type==='canonical_stroke'&&operation.layerId===original.layerId&&operation.frame===original.frame)
  })
 }
 function canonicalAcceptedJournalValid(accepted:CanonicalAcceptedBaseline,log:OperationLog):boolean {return canonicalJournalValid(accepted,log,accepted.plan.inputs)}
@@ -6166,6 +6178,7 @@ export class PencilEngine implements PencilEngineAPI {
       if(plan.logicalBytes>this._gpuBudget)throw new RangeError('Canonical baseline exceeds existing logical GPU allowance')
       const staged=new OperationLog()
       for(const input of plan.inputs)staged.append(input.operation,{serverSeq:input.operation.seq,canonicalRead:input.read,canonicalInput:input})
+      for(const id of plan.hiddenFrameIds){const input=plan.inputs.find(input=>input.operation.id===id)!;staged.applyUndo(id,input.operation.userId)}
       if(this._log.revision!==revision||this._log.entries.length||this._layers!==old)throw new Error('Canonical baseline journal changed')
       return this._beginCanonicalEmpty(plan,old,revision,staged)
     }catch(error){return Promise.reject(error)}
@@ -6192,7 +6205,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
   private _assertCanonicalEmptyCurrent(tx:CanonicalEmptyTransaction):void {
     // Authority may invoke application callbacks; finish with pure owner checks.
-    tx.plan.read.assertEmptyHistoryBase(tx.plan.tail)
+    if(tx.plan.full)tx.plan.read.assertFullHistoryBase!(tx.plan.tail);else tx.plan.read.assertEmptyHistoryBase(tx.plan.tail)
     const scope=tx.plan.read.assertCurrent(),lost=this.gl.isContextLost(),size=this._tileSize(),page=this._pageSize()
     const accepted=tx.recovery,journalValid=accepted?this._canonicalAccepted===accepted&&canonicalAcceptedJournalValid(accepted,this._log):this._log.entries.length===0
     if(scope!==tx.plan.scope||tx.finished||this._canonicalEmptyTransaction!==tx||this._destroyed||this._contextLost||lost||this._physicalGeneration!==tx.generation||this._log.revision!==tx.revision||!journalValid||this._layers!==tx.old||tx.old.size!==tx.oldEntries.length||tx.oldEntries.some(([id,buffer])=>tx.old.get(id)!==buffer)||tx.jobs.some(c=>this._rebuildJobs.get(INITIAL_LAYER_ID)?.canonical!==c)||page.w!==tx.plan.page.maxX||page.h!==tx.plan.page.maxY||size.w!==tx.plan.tileWidth||size.h!==tx.plan.tileHeight)throw new Error('Canonical baseline owner changed')
@@ -6236,7 +6249,7 @@ export class PencilEngine implements PencilEngineAPI {
     try{
       this._assertCanonicalEmptyCurrent(tx)
       if(this._rebuildJobs.get(job.layerId)!==job)throw new Error('Canonical rebuild job changed')
-      if(!plan.inputs.length){c.complete=true;this._publishCanonicalEmpty(tx);return}
+      if(!plan.paintInputs.length){c.complete=true;this._publishCanonicalEmpty(tx);return}
       if(c.stage===0){c.prepass.prepare(plan.mask,[]);c.stage=1}
       else if(c.stage===1){c.composite.prepare(plan.composite,c.prepass.preparedResources(),transformedMaskPrepassBudget(plan.mask).cpuBytes);c.stage=2}
       else{
@@ -6247,10 +6260,10 @@ export class PencilEngine implements PencilEngineAPI {
             reserveTransient:bytes=>{this._assertCanonicalEmptyCurrent(tx);if(!Number.isSafeInteger(bytes)||bytes<0||c.outstanding+bytes>Math.min(plan.logicalBytes,this._gpuBudget))throw new RangeError('Canonical logical allowance exceeded');c.outstanding+=bytes;let released=false;return()=>{if(!released){released=true;c.outstanding-=bytes}}},
             changed:()=>{if(!c.retiring)this._assertCanonicalEmptyCurrent(tx)},poison:(_id,reason)=>{if(!c.retiring)tx.failures.push(reason)}})
         }
-        if(c.next<plan.inputs.length&&c.coordinator.queuedFrameCount===0){c.coordinator.enqueueRecorded(plan.inputs[c.next]);c.next++}
+        if(c.next<plan.paintInputs.length&&c.coordinator.queuedFrameCount===0){const input=plan.paintInputs[c.next];if(input.operation.type==='canonical_stroke_close')c.coordinator.enqueueRecordedSeal(input);else c.coordinator.enqueueRecorded(input);c.next++}
         c.coordinator.advance()
         this._assertCanonicalEmptyCurrent(tx)
-        if(c.next===plan.inputs.length&&c.coordinator.checkpointReady){c.complete=true;this._publishCanonicalEmpty(tx);return}
+        if(c.next===plan.paintInputs.length&&c.coordinator.checkpointReady){c.complete=true;this._publishCanonicalEmpty(tx);return}
       }
       this._assertCanonicalEmptyCurrent(tx)
       this._scheduleCanonicalRebuild(job)
@@ -6264,9 +6277,9 @@ export class PencilEngine implements PencilEngineAPI {
     // Initial journal CAS or unchanged accepted journal, then one map publication.
     if(!tx.recovery)this._log.prependHistorical(tx.staged.entries,tx.revision,()=>{this._assertCanonicalEmptyCurrent(tx);return undefined})
     this._layers=tx.candidate
-    this._canonicalAccepted={plan:tx.plan,revision:this._log.revision,entries:this._log.entries,originalEntries:tx.recovery?.originalEntries??Object.freeze([...this._log.entries]),originalOperations:tx.recovery?.originalOperations??Object.freeze(this._log.entries.map(entry=>entry.op)),originalReads:tx.recovery?.originalReads??Object.freeze(this._log.entries.map(entry=>entry.canonicalRead)),generation:tx.generation}
+    this._canonicalAccepted={plan:tx.plan,revision:this._log.revision,entries:this._log.entries,originalEntries:tx.recovery?.originalEntries??Object.freeze([...this._log.entries]),originalOperations:tx.recovery?.originalOperations??Object.freeze(this._log.entries.map(entry=>entry.op)),originalReads:tx.recovery?.originalReads??Object.freeze(this._log.entries.map(entry=>entry.canonicalRead)),originalStates:tx.recovery?.originalStates??Object.freeze(this._log.entries.map(entry=>entry.state)),generation:tx.generation}
     const resources=tx.jobs[0],maxTiles=Math.min(64,Math.ceil(tx.plan.page.maxX/tx.plan.tileWidth)*Math.ceil(tx.plan.page.maxY/tx.plan.tileHeight))
-    this._canonicalLayerOwner={plan:tx.plan,stable:resources.stable,generation:tx.generation,cache:resources.cache,prepass:resources.prepass,composite:resources.composite,mask:tx.plan.mask,prepared:!!tx.plan.inputs.length,proof:this._canonicalAccepted,inputs:tx.plan.inputs,accepting:false,retiring:false,failed:false,outstanding:0,logicalBytes:(maxTiles+2*maxTiles*CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)*tx.plan.tileWidth*tx.plan.tileHeight*4}
+    this._canonicalLayerOwner={plan:tx.plan,stable:resources.stable,generation:tx.generation,cache:resources.cache,prepass:resources.prepass,composite:resources.composite,mask:tx.plan.mask,prepared:!!tx.plan.paintInputs.length,proof:this._canonicalAccepted,inputs:tx.plan.inputs,accepting:false,retiring:false,failed:false,outstanding:0,logicalBytes:(maxTiles+2*maxTiles*CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)*tx.plan.tileWidth*tx.plan.tileHeight*4}
     this._canonicalRecoveryDirty=false;this._canonicalRepairNotified=false
     this._canonicalPixelsReady=true
     tx.rollbackGL=undefined
@@ -6324,7 +6337,7 @@ export class PencilEngine implements PencilEngineAPI {
     }catch(error){this._poisonCanonicalLayer(error);throw error}finally{owner.accepting=false}
   }
   private _captureCanonicalJournal():CanonicalJournalProof {
-    return {revision:this._log.revision,entries:this._log.entries,originalEntries:Object.freeze([...this._log.entries]),originalOperations:Object.freeze(this._log.entries.map(entry=>entry.op)),originalReads:Object.freeze(this._log.entries.map(entry=>entry.canonicalRead))}
+    return {revision:this._log.revision,entries:this._log.entries,originalEntries:Object.freeze([...this._log.entries]),originalOperations:Object.freeze(this._log.entries.map(entry=>entry.op)),originalReads:Object.freeze(this._log.entries.map(entry=>entry.canonicalRead)),originalStates:Object.freeze(this._log.entries.map(entry=>entry.state))}
   }
   private _assertCanonicalLayerCurrent(owner:CanonicalLayerOwner):void {
     const scope=owner.plan.read.assertCurrent(),lost=this.gl.isContextLost(),page=this._pageSize()

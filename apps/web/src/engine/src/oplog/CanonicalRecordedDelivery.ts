@@ -23,5 +23,6 @@ export interface CanonicalRecordedEmptyRoomRead extends CanonicalRecordedLifetim
  readonly authorRasterProfile:import('@grafetto/shared').CanonicalStrokeRasterProfile
  readonly tailOperations:readonly import('@grafetto/shared').Operation[]
  readonly preparedAtoms:readonly CanonicalPreparedRecordedOperation[]
+ readonly assertFullHistoryBase?: (candidateTail:readonly import('@grafetto/shared').Operation[])=>ReturnType<typeof import('@grafetto/shared').verifyCanonicalFullHistoryBase>
  assertEmptyHistoryBase(candidateTail:readonly import('@grafetto/shared').Operation[]):Readonly<import('@grafetto/shared').CanonicalEmptyHistoryBaseV1>
 }

@@ -1,3 +1,4 @@
+import {CanonicalWashLayerCoordinator} from './src/dabs/CanonicalWashLayerCoordinator'
 import {CanonicalRgba8CompositePass} from './src/dabs/CanonicalRgba8CompositePass'
 import {exactFrame} from './src/raster/cameraFrame'
 import {TransformedMaskPrepass} from './src/dabs/TransformedMaskPrepass'
@@ -270,5 +271,48 @@ it.each(['state','serverSeq','frame'] as const)('rechecks accepted mutable %s af
   await vi.waitFor(()=>expect(engine['_canonicalEmptyTransaction']).toBeUndefined())
   expect(engine['_canonicalPixelsReady']).toBe(false);expect(engine['_layers']).toBe(old);expect(engine['_log'].entries).toBe(entries);expect(engine['_log'].revision).toBe(revision)
   expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+function fullOriginal({ended=true,hidden=false,redo=false,current=()=>true}:{ended?:boolean;hidden?:boolean;redo?:boolean;current?:()=>boolean}={}){
+ const {state:s}=state(ended)
+ if(!ended)s.tailOperations.push({type:'canonical_stroke_close',id:'seal',userId:'author',timestamp:1,seq:2,layerId:'layer-1',targetUserId:'author',strokeId:'S',disposition:'commitPartial',recordedNext:1,firstFrameOpId:'op',lastFrameOpId:'op'})
+ if(hidden)s.tailOperations.push({type:'operation_undo',id:'undo',userId:'author',timestamp:2,seq:s.tailOperations.length+1,targetOpId:'op'})
+ if(redo)s.tailOperations.push({type:'operation_redo',id:'redo',userId:'author',timestamp:3,seq:s.tailOperations.length+1,targetOpId:'undo'})
+ s.canonicalHistoryBase={kind:'full-room-prefix-v2',roomId:'room',boardEpoch:2,throughSeq:s.tailOperations.length,operationCount:s.tailOperations.length}
+ return prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:current})
+}
+it.each([{ended:true,hidden:false},{ended:false,hidden:false},{ended:true,hidden:true},{ended:false,hidden:true},{ended:false,hidden:true,redo:true}])('restores original full history with final visibility through the same layer owner (%j)',async options=>{
+ const p=fullOriginal(options),{engine}=engineFor(p),frames=vi.spyOn(CanonicalWashLayerCoordinator.prototype,'enqueueRecorded'),seals=vi.spyOn(CanonicalWashLayerCoordinator.prototype,'enqueueRecordedSeal')
+ try{
+  const result=await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  expect(result.cleanupFailures).toEqual([])
+  const entries=engine['_log'].entries
+  expect(entries).toHaveLength(p.tailOperations.length)
+  entries.forEach((entry,i)=>{expect(entry.canonicalInput).toBe(p.canonicalRead.preparedAtoms[i]);expect(entry.serverSeq).toBe(i+1)})
+  const visible=!options.hidden||'redo'in options&&options.redo
+  expect(entries[0].state).toBe(visible?'done':'undone')
+  expect(frames).toHaveBeenCalledTimes(visible?1:0);expect(seals).toHaveBeenCalledTimes(visible&&!options.ended?1:0)
+  expect(engine['_canonicalPixelsReady']).toBe(true)
+  expect(engine['_canonicalLayerOwner']?.coordinator).toBeUndefined()
+  expect(engine['_canonicalLayerOwner']?.inputs).toHaveLength(entries.length)
+  expect(engine['_canonicalRecoveryDirty']).toBe(false)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)}
+})
+it('rejects copied and stale original full history before canvas access',()=>{
+ let current=true;const p=fullOriginal({ended:false,current:()=>current}),canvas=new Proxy({}as HTMLCanvasElement,{get(){throw Error('Canvas touched')}})
+ expect(()=>new PencilEngine(canvas,{rasterVersion:'straight-rgba8-v1',pageWidth:8,pageHeight:8,canonicalEmptyRoom:{read:{...p.canonicalRead},tail:p.tailOperations}})).toThrow('Foreign canonical full history receiver')
+ current=false
+ expect(()=>new PencilEngine(canvas,{rasterVersion:'straight-rgba8-v1',pageWidth:8,pageHeight:8,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations}})).toThrow('Stale')
+})
+it.each([{ended:false,hidden:false},{ended:false,hidden:true}])('recovers the accepted original full history after physical loss without replacing its journal (%j)',async options=>{
+ const p=fullOriginal(options),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const log=engine['_log'],entries=log.entries,revision=log.revision,states=entries.map(entry=>entry.state),old=engine['_layers']
+  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));engine['_handleContextRestored']()
+  await vi.waitFor(()=>expect(engine['_canonicalPixelsReady']).toBe(true))
+  expect(engine['_layers']).not.toBe(old);expect(engine['_log']).toBe(log);expect(log.entries).toBe(entries);expect(log.revision).toBe(revision)
+  expect(entries.map(entry=>entry.state)).toEqual(states);entries.forEach((entry,i)=>expect(entry.canonicalInput).toBe(p.canonicalRead.preparedAtoms[i]))
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
