@@ -5,7 +5,7 @@ import { useCallback, useRef, type RefObject } from 'react'
 import type { LayerState, Operation } from '@grafetto/shared'
 import { hasValidBrushRandomContext, roomRasterPixelEncoding, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
-import type { PencilEngineAPI } from '../../engine'
+import type {CanonicalRecordedInput, PencilEngineAPI } from '../../engine'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
 import { computeCompositeOrder, replayLayerState } from '../../lib/layers/layers'
 import { reportSnapshotRestore } from './diagnostics/reportRestore'
@@ -31,6 +31,8 @@ export interface RemoteOperationsDeps {
     restore:(engine:PencilEngineAPI,atoms:readonly CanonicalPreparedRecordedOperation[],replayStructure?:boolean)=>Promise<void>
     absorb:(engine:PencilEngineAPI,atoms:readonly CanonicalPreparedRecordedOperation[])=>void
   }
+  /** Explicit controller-owned PUBLIC source admission, never a data-only read. */
+  canonicalRecorded?:{apply:(engine:PencilEngineAPI,input:CanonicalRecordedInput)=>void}
   /** The board stream's applied ids and deferred meta-ops — see useBoardStream. */
   appliedOpIdsRef: RefObject<Set<string>>
   deferredOpsQueueRef: RefObject<Operation[]>
@@ -50,7 +52,7 @@ export interface RemoteOperationsDeps {
  *  are what restoreRoomState is handed. */
 export function useRemoteOperations({
   engineRef, boardId, onHistoryRepairFailure, appliedOpIdsRef, deferredOpsQueueRef, restoredLayerStateRef, markActive, resolveTransformCommit,
-  confirmOwnOperation, noteOperationSeq, syncFromLog, checkSnapshotBoundary,canonicalHistory,
+  confirmOwnOperation, noteOperationSeq, syncFromLog, checkSnapshotBoundary,canonicalHistory,canonicalRecorded,
 }: RemoteOperationsDeps) {
   const ordinaryBackfills = useRef(new Map<PencilEngineAPI, Promise<void>>())
   const repairs = useRef(new Map<PencilEngineAPI, Promise<void>>())
@@ -65,7 +67,27 @@ export function useRemoteOperations({
   // appended to the engine's log a second time (OperationLog.append() does
   // not dedupe by id — see engine/src/oplog/OperationLog.ts), corrupting pixel
   // state and undo. It does not attempt to reconcile a divergent history.
-  const applyRemoteOp = useCallback((op: Operation) => {
+  const applyRemoteOp = useCallback((op: Operation,read?:CanonicalPreparedRecordedOperation['read'],recorded?:CanonicalRecordedInput):boolean|void => {
+    if(op.type==='canonical_stroke'||op.type==='canonical_stroke_close'){
+      let added=false
+      try{
+        const engine=engineRef.current
+        if(op.type!=='canonical_stroke'||!engine||!canonicalRecorded||!read||!recorded
+          ||recorded.operation!==op||recorded.read!==read)throw new Error('Original canonical recorded receiver unavailable')
+        recorded.delivery.assertCurrent(recorded)
+        if(engineRef.current!==engine)throw new Error('Canonical receiver engine changed')
+        if(appliedOpIdsRef.current.has(op.id))return true
+        canonicalRecorded.apply(engine,recorded)
+        if(engineRef.current!==engine)throw new Error('Canonical receiver engine changed')
+        appliedOpIdsRef.current.add(op.id);added=true
+        noteOperationSeq(op,read.sequence)
+        return true
+      }catch{
+        if(added)appliedOpIdsRef.current.delete(op.id)
+        repairFailure.current()
+        return false
+      }
+    }
     if (!hasValidBrushRandomContext(op)) { repairFailure.current(); return }
     if (appliedOpIdsRef.current.has(op.id)) {
       // (#537) Seen before — and if it is this client's own, still waiting for
@@ -90,7 +112,7 @@ export function useRemoteOperations({
     // path the author's own layer_transform comes back through here like any
     // peer's (see dispatchOp's outbox branch and #289 §7/§11).
     resolveTransformCommit(op.id)
-  }, [engineRef, appliedOpIdsRef, markActive, resolveTransformCommit, confirmOwnOperation, noteOperationSeq])
+  }, [engineRef, appliedOpIdsRef, markActive, resolveTransformCommit, confirmOwnOperation, noteOperationSeq,canonicalRecorded])
 
   // (#169) Re-checks every deferred meta-op (see deferredOpsQueueRef's own
   // doc comment) after a backfill page lands — anything whose target has

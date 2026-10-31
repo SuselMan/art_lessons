@@ -38,7 +38,7 @@ export interface ConfirmedStreamDeps {
    *  to its place in the true order (see PencilEngineAPI.confirmOperation). */
   confirmOwnOperation: (op: Operation, seq: number, read?: CanonicalRead, recorded?: CanonicalRecordedInput) => void
   markLayerActive: (userId: string, layerId: string) => void
-  applyRemoteOp: (op: Operation, read?: CanonicalRead, recorded?: CanonicalRecordedInput) => void
+  applyRemoteOp: (op: Operation, read?: CanonicalRead, recorded?: CanonicalRecordedInput) => void|boolean
   syncFromLog: () => void
   checkSnapshotBoundary: () => void
   requestFullResync: () => void
@@ -135,7 +135,11 @@ export function createConfirmedStreamHandler({
       }
     }
     if(recorded){try{recorded.delivery.assertCurrent(recorded)}catch{requestFullResync();return}}
-    useRoomStore.getState().observeReviewOperation({ ...op, seq })
+    const scopedCanonical=op.type==='canonical_stroke'&&(read!==undefined||recorded!==undefined||canonicalReadScope!==undefined)
+    if(scopedCanonical&&(!read||!recorded||recorded.operation!==op||recorded.read!==read)){
+      requestFullResync();return
+    }
+    if(!scopedCanonical)useRoomStore.getState().observeReviewOperation({ ...op, seq })
     if (replayGate?.hold(acceptedPayload, delivery)) return
     // (#289 §12) A gap in this stream is impossible on an unbroken
     // connection (TCP never silently drops or reorders within one), so
@@ -146,6 +150,19 @@ export function createConfirmedStreamHandler({
     if (hasSeqGap(lastConfirmedSeqRef.current, seq)) {
       reportInvariant('seq gap in confirmed stream — resyncing', { expected: lastConfirmedSeqRef.current + 1, got: seq })
       requestFullResync()
+      return
+    }
+    if(scopedCanonical){
+      // A source-only layer cannot commit a legacy reveal as a side effect of
+      // a failed source admission. Own and peer source frames use ONE receiver.
+      try{
+        if(pendingPreviewsRef.current.size!==0||applyRemoteOp(op,read,recorded)!==true)throw new Error('Canonical recorded admission failed')
+      }catch{requestFullResync();return}
+      useRoomStore.getState().observeReviewOperation({...op,seq})
+      lastConfirmedSeqRef.current=Math.max(lastConfirmedSeqRef.current,seq)
+      latestKnownSeqRef.current=Math.max(latestKnownSeqRef.current,seq)
+      previewScheduleRef.current?.noteOperation(Date.now())
+      syncFromLog();checkSnapshotBoundary()
       return
     }
     lastConfirmedSeqRef.current = Math.max(lastConfirmedSeqRef.current, seq)

@@ -114,7 +114,7 @@ it.each([[false,false],[true,false],[false,true],[true,true]])('preserves origin
  const {createReplayGate}=await import('../replayGate')
  let current=true
  const {state:s,f}=state(),prepared=prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>current})
- const gate=createReplayGate<Parameters<ServerToClientEvents['operation_confirmed']>[0]>(),token=gate.begin(),applyRemoteOp=vi.fn(),confirmOwnOperation=vi.fn(),requestFullResync=vi.fn()
+ const gate=createReplayGate<Parameters<ServerToClientEvents['operation_confirmed']>[0]>(),token=gate.begin(),applyRemoteOp=vi.fn().mockReturnValue(true),confirmOwnOperation=vi.fn(),requestFullResync=vi.fn()
  const deps={engineRef:{current:null},lastConfirmedSeqRef:{current:2},latestKnownSeqRef:{current:2},appliedOpIdsRef:{current:new Set(own?[f.op.id]:[])},pendingPreviewsRef:{current:createPendingPreviews()},catchingUpRef:{current:false},streamedStrokeIdsRef:{current:new Set<string>()},deferredOpsQueueRef:{current:[] as Operation[]},previewScheduleRef:{current:null},confirmOwnOperation,markLayerActive:vi.fn(),applyRemoteOp,syncFromLog:vi.fn(),checkSnapshotBoundary:vi.fn(),requestFullResync,replayGate:gate,canonicalReadScope:prepared.canonicalRead.scope}
  const handler=createConfirmedStreamHandler(deps)
  handler({seq:3,operation:f.op,canonicalCapabilities:f.attachment})
@@ -126,8 +126,9 @@ it.each([[false,false],[true,false],[false,true],[true,true]])('preserves origin
   expect(deps.lastConfirmedSeqRef.current).toBe(2);expect(deps.latestKnownSeqRef.current).toBe(2)
   return
  }
- const call=own?confirmOwnOperation.mock.calls[0]:applyRemoteOp.mock.calls[0]
- const input=call[own?3:2] as import('../../../engine/src/oplog/CanonicalRecordedDelivery').CanonicalRecordedInput
+ expect(confirmOwnOperation).not.toHaveBeenCalled()
+ const call=applyRemoteOp.mock.calls[0]
+ const input=call[2] as import('../../../engine/src/oplog/CanonicalRecordedDelivery').CanonicalRecordedInput
  expect(input.delivery.lifetime).toBe(prepared.canonicalRead);input.delivery.assertCurrent(input)
  expect(input.operation).toBe(call[0]);expect(deps.lastConfirmedSeqRef.current).toBe(3)
  expect(requestFullResync).not.toHaveBeenCalled()

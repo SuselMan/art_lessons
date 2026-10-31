@@ -143,3 +143,36 @@ it('requires explicit per-call canonical history owner and forwards captured sco
   expect(deps.appliedOpIdsRef.current.has('stale')).toBe(false);expect(noop).not.toHaveBeenCalled()
  }finally{engine.destroy()}
 })
+
+it('admits an exact original input through the real public source engine and never legacy append/confirm',async()=>{
+ hooks.slots=[];hooks.cursor=0
+ const {canonicalSoftAutoSourcePin,buildCanonicalMaterial,CANONICAL_STROKE_RASTER_PROFILE,prepareCanonicalRecordedAttachment}=await import('@grafetto/shared')
+ const {prepareCanonicalRoomState}=await import('./net/canonicalRoomState'),{attachCanonicalRecordedDelivery}=await import('./net/canonicalRecordedDelivery')
+ const curve={text:'0,1;1,0',points:[{x:0,y:1,corner:false},{x:1,y:0,corner:false}]}
+ const primarySource=canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:0,descriptorId:'soft',descriptorVersion:1,descriptorSha256:'a'.repeat(64),source:{kind:'softAuto',generator:'soft',shape:'circle',diameter:8,ratio:1,horizontalFade:1,verticalFade:1,antialias:false,spikes:2,randomness:0,density:1,softnessCurve:curve},brushScale:1,brushAngle:0,coverageProfile:'neon64-f32-fma-v1',reader:'krita-bd6e8d0-v1',compilerProfile:'eigen-5.0.1-mapped-arm64-f64-v3',buildId:'b'.repeat(64),radialCurve:{source:curve,coefficients:[[0,0,-1,1]]}})
+ const material={version:2 as const,assets:[],primarySource,budget:{workUnits:10000,outputBytes:40000,drawPixels:10000}},composition={mode:'wash' as const,alphaDarken:'hard' as const,outerResourceOpacity:1,outerBlend:'over' as const}
+ let current=true
+ const wire:Parameters<import('@grafetto/shared').ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:8,canvasHeight:8,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:2},canonicalHistoryBase:{kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:2,throughSeq:0,operationCount:0}}
+ const prepared=prepareCanonicalRoomState(wire,{expectedBoardId:'room',isCurrent:()=>current}),read=prepared.canonicalRead
+ const op:import('@grafetto/shared').CanonicalStrokeOperation={type:'canonical_stroke',id:'source',seq:1,userId:'author',timestamp:0,layerId:'layer-1',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:'brush:soft@1',strokeId:'S',frameOrdinal:0,pigmentRgb8:[0,0,0],composition,materialPacked:buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},material).packed}}
+ const snapshot:import('@grafetto/shared').CanonicalStrokeSnapshotV2={materialVersion:2,material,assets:[],boardEpoch:2,layerId:op.layerId,brush:op.frame.brush,strokeId:op.frame.strokeId,pigmentRgb8:op.frame.pigmentRgb8,composition,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,descriptorSha256:primarySource.descriptorSha256}
+ const atom=prepareCanonicalRecordedAttachment({version:1,roomId:'room',boardEpoch:2,capabilities:[{originalUserId:'author',snapshot}],bindings:[{operationId:op.id,sequence:1,originalUserId:'author',capability:0}]},[op],read.scope)[0],input=attachCanonicalRecordedDelivery(atom,read.scope)
+ if(!('delivery'in input)||!input.read)throw Error('Expected actual original source input')
+ const result=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:8,pageHeight:8,canonicalEmptyRoom:{read,tail:prepared.tailOperations}},{width:8,height:8}),engine=result.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=result.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
+ Object.assign(gl,{getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_program:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_target:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,8,8]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
+ for(const id of ['background','layer-1'])engine.initLayer(id)
+ const legacy=vi.spyOn(engine,'appendOperation'),confirmOwnOperation=vi.fn(),failure=vi.fn(),noop=vi.fn(),apply=vi.fn((target:PencilEngineAPI,original:import('../../engine').CanonicalRecordedInput)=>target.appendOriginalRecorded(original))
+ const deps:RemoteOperationsDeps={engineRef:{current:engine},boardId:'room',onHistoryRepairFailure:failure,appliedOpIdsRef:{current:new Set()},deferredOpsQueueRef:{current:[]},restoredLayerStateRef:{current:null},markActive:noop,resolveTransformCommit:noop,confirmOwnOperation,noteOperationSeq:noop,syncFromLog:noop,checkSnapshotBoundary:noop,canonicalRecorded:{apply}}
+ try{
+  await engine.restoreCanonicalEmptyRoom(read,prepared.tailOperations)
+  const hook=useRemoteOperations(deps)
+  expect(hook.applyRemoteOp(input.operation,{...input.read},input)).toBe(false)
+  expect(hook.applyRemoteOp(input.operation,input.read,{...input})).toBe(false)
+  expect(apply).not.toHaveBeenCalled();expect(deps.appliedOpIdsRef.current.size).toBe(0)
+  expect(hook.applyRemoteOp(input.operation,input.read,input)).toBe(true)
+  expect(apply).toHaveBeenCalledWith(engine,input);expect(engine.getOperations()).toHaveLength(1);expect(deps.appliedOpIdsRef.current.has('source')).toBe(true)
+  expect(hook.applyRemoteOp(input.operation,input.read,input)).toBe(true);expect(apply).toHaveBeenCalledOnce()
+  current=false;expect(hook.applyRemoteOp(input.operation,input.read,input)).toBe(false)
+  expect(legacy).not.toHaveBeenCalled();expect(confirmOwnOperation).not.toHaveBeenCalled()
+ }finally{engine.destroy()}
+})

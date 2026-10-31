@@ -3,6 +3,8 @@ import {sourceAutoGeometry,canonicalSoftAutoSourcePin,buildCanonicalMaterial,CAN
 import {createConfirmedStreamHandler,type ConfirmedStreamEngine} from './confirmedStream'
 import {createPendingPreviews} from './pendingPreviews'
 import {createReplayGate} from '../replayGate'
+import {prepareCanonicalRoomState} from './canonicalRoomState'
+import type {ServerToClientEvents,CanonicalStrokeRasterProfile} from '@grafetto/shared'
 import {useRoomStore} from '../../../stores/roomStore'
 vi.mock('../../../lib/observability/reportInvariant',()=>({reportInvariant:vi.fn()}))
 function fixture(){
@@ -34,7 +36,7 @@ function setup() {
     previewScheduleRef: { current: { noteOperation: vi.fn() } },
     confirmOwnOperation: vi.fn(),
     markLayerActive: vi.fn(),
-    applyRemoteOp: vi.fn(),
+    applyRemoteOp: vi.fn().mockReturnValue(true),
     syncFromLog: vi.fn(),
     checkSnapshotBoundary: vi.fn(),
     requestFullResync: vi.fn(),
@@ -42,8 +44,10 @@ function setup() {
   return { engine, deps, confirm: createConfirmedStreamHandler(deps) }
 }
 
-function current(){const f=fixture(),s=setup();s.deps.lastConfirmedSeqRef.current=2;s.deps.latestKnownSeqRef.current=2
- return {...s,...f,scope:{...f.expected,isCurrent:vi.fn(()=>true)},payload:{seq:3,operation:f.op,canonicalCapabilities:f.attachment}}}
+function current(profiles?:readonly CanonicalStrokeRasterProfile[]){const f=fixture(),s=setup(),isCurrent=vi.fn(()=>true);s.deps.lastConfirmedSeqRef.current=2;s.deps.latestKnownSeqRef.current=2
+ const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:8,canvasHeight:8,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{...f.expected,allowedRasterProfiles:profiles},canonicalHistoryBase:{kind:'empty-room-prefix-v1',...f.expected,throughSeq:0,operationCount:0}}
+ const originalRead=prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent}).canonicalRead
+ return {...s,...f,isCurrent,scope:originalRead.scope,payload:{seq:3,operation:f.op,canonicalCapabilities:f.attachment}}}
 it('rejects capability mismatch before review, replay queue, cursors or application',()=>{
  const s=current(),observe=vi.spyOn(useRoomStore.getState(),'observeReviewOperation'),hold=vi.fn(()=>false)
  observe.mockClear()
@@ -61,8 +65,8 @@ it('passes the immutable atomic read to the existing remote and own confirmation
  expect(op.id).toBe('op');expect(read.sequence).toBe(3);expect(Object.isFrozen(read.capability.snapshot)).toBe(true)
  const own=current();own.deps.appliedOpIdsRef.current.add('op')
  createConfirmedStreamHandler({...own.deps,canonicalReadScope:own.scope})(own.payload)
- expect(own.deps.confirmOwnOperation).toHaveBeenCalledWith(expect.objectContaining({id:'op'}),3,expect.objectContaining({sequence:3}))
- expect(own.deps.applyRemoteOp).not.toHaveBeenCalled()
+ expect(own.deps.confirmOwnOperation).not.toHaveBeenCalled()
+ expect(own.deps.applyRemoteOp).toHaveBeenCalledWith(expect.objectContaining({id:'op'}),expect.objectContaining({sequence:3}),expect.objectContaining({operation:expect.objectContaining({id:'op'})}))
 })
 it('holds the complete immutable attachment in the SAME replay gate and rechecks lifetime on release',()=>{
  const s=current(),gate=createReplayGate<typeof s.payload>();const ticket=gate.begin()
@@ -70,10 +74,10 @@ it('holds the complete immutable attachment in the SAME replay gate and rechecks
  confirm(s.payload);expect(s.deps.applyRemoteOp).not.toHaveBeenCalled()
  ;(s.payload.canonicalCapabilities.capabilities[0].snapshot as unknown as {pigmentRgb8:number[]}).pigmentRgb8=[9,9,9]
  gate.end(ticket)
- expect(s.deps.applyRemoteOp).toHaveBeenCalledWith(expect.objectContaining({frame:expect.objectContaining({pigmentRgb8:[1,2,3]})}),expect.objectContaining({sequence:3}))
+ expect(s.deps.applyRemoteOp).toHaveBeenCalledWith(expect.objectContaining({frame:expect.objectContaining({pigmentRgb8:[1,2,3]})}),expect.objectContaining({sequence:3}),expect.objectContaining({delivery:expect.anything()}))
  const stale=current(),staleGate=createReplayGate<typeof stale.payload>();const staleTicket=staleGate.begin()
  createConfirmedStreamHandler({...stale.deps,canonicalReadScope:stale.scope,replayGate:staleGate})(stale.payload)
- stale.scope.isCurrent.mockReturnValue(false);staleGate.end(staleTicket)
+ stale.isCurrent.mockReturnValue(false);staleGate.end(staleTicket)
  expect(stale.deps.applyRemoteOp).not.toHaveBeenCalled();expect(stale.deps.lastConfirmedSeqRef.current).toBe(2)
 })
 it('requires both a captured room-state scope and a capability for the new read lane',()=>{
@@ -85,18 +89,18 @@ it('requires both a captured room-state scope and a capability for the new read 
 
 it('captures immutable room-state fields instead of reading a later mutated caller scope',()=>{
  const s=current(),confirm=createConfirmedStreamHandler({...s.deps,canonicalReadScope:s.scope})
- s.scope.boardEpoch=99
+ expect(Reflect.set(s.scope,'boardEpoch',99)).toBe(false)
  confirm(s.payload)
- expect(s.deps.applyRemoteOp).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({boardEpoch:2}))
+ expect(s.deps.applyRemoteOp).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({boardEpoch:2}),expect.objectContaining({delivery:expect.anything()}))
  expect(s.deps.requestFullResync).not.toHaveBeenCalled()
 })
 
 it('captures the receiver allowset before caller mutation and rejects ambiguous policy',()=>{
- const s=current(),profiles=[CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]
- const confirm=createConfirmedStreamHandler({...s.deps,canonicalReadScope:{...s.scope,allowedRasterProfiles:profiles}})
+ const profiles=[CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE],s=current(profiles)
+ const confirm=createConfirmedStreamHandler({...s.deps,canonicalReadScope:s.scope})
  profiles.splice(0,1)
  confirm(s.payload)
- expect(s.deps.applyRemoteOp).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}))
+ expect(s.deps.applyRemoteOp).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}),expect.objectContaining({delivery:expect.anything()}))
  expect(()=>createConfirmedStreamHandler({...s.deps,canonicalReadScope:{...s.scope,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,allowedRasterProfiles:profiles}})).toThrow()
 })
 it.each(['expired','differentOwner','unscoped','copy','changedPolicy','changedCallback'] as const)('refuses held %s before any replacement handler state effect even with identical numeric epoch',kind=>{
@@ -105,10 +109,10 @@ it.each(['expired','differentOwner','unscoped','copy','changedPolicy','changedCa
  const hold=gate.hold.bind(gate);vi.spyOn(gate,'hold').mockImplementation((payload,delivery)=>{captured=payload;return hold(payload,delivery)})
  createConfirmedStreamHandler({...old.deps,canonicalReadScope:old.scope,replayGate:gate})(old.payload)
  if(!captured)throw Error('Expected held payload')
- if(kind==='expired')old.scope.isCurrent.mockReturnValue(false)
+ if(kind==='expired')old.isCurrent.mockReturnValue(false)
  let scope:typeof old.scope|undefined=kind==='unscoped'?undefined:kind==='changedPolicy'||kind==='changedCallback'?old.scope:next.scope
- if(kind==='changedPolicy')old.scope.boardEpoch=99
- if(kind==='changedCallback')old.scope.isCurrent=vi.fn(()=>true)
+ if(kind==='changedPolicy')scope={...old.scope,boardEpoch:99}
+ if(kind==='changedCallback')scope={...old.scope,isCurrent:vi.fn(()=>true)}
  const handler=createConfirmedStreamHandler({...next.deps,canonicalReadScope:scope,replayGate:gate})
  const observe=vi.spyOn(useRoomStore.getState(),'observeReviewOperation');observe.mockClear()
  try{

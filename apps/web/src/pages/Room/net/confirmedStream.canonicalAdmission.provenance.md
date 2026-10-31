@@ -1,0 +1,7 @@
+# Original recorded confirmation admission
+
+Scoped V2 canonical confirmations carry the original prepared input and read through the existing confirmed stream into an optional synchronous recorded receiver. The receiver must return `true` before review, cursor, preview scheduling or snapshot bookkeeping is published. Own and peer confirmations use the same receiver; legacy confirmation and reveal paths remain separate. A missing receiver, copied resource, expired lifetime, failed admission or unresolved legacy preview requests the existing resync path.
+
+The hook delegates through the public engine callback with the exact original input. It validates delivery before applied-ID deduplication, records an applied ID only after synchronous admission, and never substitutes legacy append/confirm. Later rendering failure belongs to the existing engine recovery callback.
+
+Validation: focused admission failures first failed against the prior stream; original room-state preparer, shared material/attachment and a real test-engine `appendOriginalRecorded` integration cover copied resources, stale lifetime, own/peer delivery and duplicate handling. Existing held-item tests now use the real original room lifetime rather than data-only scopes. This is host integration with a control-only material frame, not a device, physical database or native-pixel proof. Ordinary Room activation and close delivery remain disabled pending the paired full-history owner.
