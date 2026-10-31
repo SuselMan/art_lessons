@@ -81,7 +81,14 @@ function setup(mode: 'wash' | 'buildup' = 'buildup', tileSize = 4, capacity = 4,
     layer: () => ({ buffer: layer, epoch }), reserveTransient, changed, poison })
   const submit = (frame = decoded(1), ordinal = 0): CanonicalFrameSubmission => ({ gestureId: 'gesture', layerId: 'layer', layerEpoch: 0, ordinal,
     frame, assets: [asset], rgb: [200, 20, 50], composition: { mode, alphaDarken: 'creamy', outerResourceOpacity: .8, outerBlend: 'over' } })
-  const prepareStorage=()=>{let n=0;while(executor.pending){const w=executor['queue'][0],p=w.physical;if(p&&w.targetCursor===p.targetCount&&w.scratchCursor===p.scratchCount&&w.washCursor===w.newTiles.length)break;executor.advance();expect(++n).toBeLessThan(400)}}
+  const prepareStorage=()=>{
+    // Preparation-only fixtures spend the physical-stage budget before pixel
+    // work. Actual admission/allocation/copy/clear and leases still execute.
+    const physical=executor['preparePhysical']
+    executor['preparePhysical']=(work,target)=>physical.call(executor,work,target,performance.now()-4)
+    try{let n=0;while(executor.pending){const w=executor['queue'][0],p=w.physical;if(p&&w.targetCursor===p.targetCount&&w.scratchCursor===p.scratchCount&&w.washCursor===w.newTiles.length)break;executor.advance();expect(++n).toBeLessThan(400)}}
+    finally{executor['preparePhysical']=physical}
+  }
   const drain = () => { let n = 0; while (executor.pending && n++ < 200) executor.advance(); expect(n).toBeLessThan(200) }
   const close = () => { executor.cancel(); layer.destroy(); scratch.destroy(); prepass.reset(); composite.reset(); bank?.reset() }
   return { gl, snapshot, cache, cpu, bank, prepass, composite, scratch, layer, executor, submit, prepareStorage, drain, close, releases, reserveTransient, changed, poison, setEpoch: () => { epoch++ } }
@@ -1463,13 +1470,13 @@ it('refuses evicted cooperative targets before invoking historical recovery or a
  }finally{s.close()}
 })
 it('restores an undeclared active texture unit through every cold allocation and original-copy preparation turn',()=>{
- const s=setup('wash'),foreign=s.gl.createTexture(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ const s=setup('wash'),foreign=s.gl.createTexture(),clock=vi.spyOn(performance,'now').mockReturnValue(0),copy=vi.spyOn(AccumulationBuffer.prototype,'copyTo')
  try{
   s.gl.activeTexture(s.gl.TEXTURE0+5);s.gl.bindTexture(s.gl.TEXTURE_2D,foreign)
   const before=s.snapshot();s.executor.enqueue(s.submit())
   for(let i=0;i<4;i++){s.executor.advance();expect(s.snapshot()).toEqual(before)}
-  expect(s.gl.copyTexSubImage2D).toHaveBeenCalledOnce();s.drain();expect(s.snapshot()).toEqual(before)
- }finally{clock.mockRestore();s.close();s.gl.deleteTexture(foreign)}
+  expect(copy).toHaveBeenCalledOnce();s.drain();expect(s.snapshot()).toEqual(before)
+ }finally{copy.mockRestore();clock.mockRestore();s.close();s.gl.deleteTexture(foreign)}
 })
 it('forgets partially taken plan scratch through the one global pool owner after actual context loss',()=>{
  const s=setup('wash'),release=vi.spyOn(s.scratch,'release'),clock=vi.spyOn(performance,'now').mockReturnValue(0)
@@ -1676,5 +1683,60 @@ it('charges resident metadata progress to the same advance clock before any GL c
   expect(s.executor.advance().pending).toBe(true);expect(takes.mock.calls.map(c=>c[0])).toEqual([0,1])
   expect(queries).not.toHaveBeenCalled();expect(draw).not.toHaveBeenCalled()
   spy.mockRestore();s.drain()
+ }finally{clock.mockRestore();s.close()}
+})
+
+function warmDeposition(count=1,drawsPerTile=1){
+ const s=setup('wash',4,4,undefined,'reference-scalar-f32-rne-v1',undefined,4,'deposition-only')
+ s.layer.resolveForPaint({minX:0,minY:0,maxX:count*4,maxY:4})
+ const idle=Array.from({length:count},()=>s.scratch.acquire(4,4,'straight-rgba8'));for(const buffer of idle)s.scratch.release(buffer)
+ const frame=decoded(count*drawsPerTile);frame.draws.forEach((d,i)=>Object.assign(d,{x:Math.floor(i/drawsPerTile)*4}));s.executor.enqueue(s.submit(frame))
+ return s
+}
+it('shares the last warm initialization capture with first paint and returns actual completed frame state',()=>{
+ const s=warmDeposition(),clock=vi.spyOn(performance,'now').mockReturnValue(0),draw=vi.spyOn(s.composite,'drawSource'),query=vi.spyOn(s.gl,'getParameter')
+ try{
+  query.mockClear();const result=s.executor.advance()
+  expect(draw).toHaveBeenCalledOnce();expect(result).toEqual({pending:false,checkpointReady:false})
+  expect(s.executor.rawWashSealed).toBe(true)
+  expect(query.mock.calls.filter(c=>c[0]===s.gl.CURRENT_PROGRAM)).toHaveLength(1)
+  const ownership=s.executor.takeRawWash();ownership.release();expect(s.executor.checkpointReady).toBe(true)
+ }finally{clock.mockRestore();s.close()}
+})
+it('does not paint after initialization consumes exactly the shared 4ms budget',()=>{
+ const s=warmDeposition(),clear=AccumulationBuffer.prototype.clear;let now=0
+ const clock=vi.spyOn(performance,'now').mockImplementation(()=>now),draw=vi.spyOn(s.composite,'drawSource')
+ const cleared=vi.spyOn(AccumulationBuffer.prototype,'clear').mockImplementation(function(this:AccumulationBuffer){clear.call(this);now+=4})
+ try{
+  expect(s.executor.advance().pending).toBe(true);expect(cleared).toHaveBeenCalledOnce();expect(draw).not.toHaveBeenCalled()
+  expect(s.executor.advance().pending).toBe(false);expect(draw).toHaveBeenCalledOnce()
+ }finally{cleared.mockRestore();clock.mockRestore();s.close()}
+})
+it('keeps every multi-tile initialization before pixels while joining only the final initialization turn',()=>{
+ const s=warmDeposition(2),clock=vi.spyOn(performance,'now').mockReturnValue(0),events:string[]=[],clear=AccumulationBuffer.prototype.clear,draw=s.composite.drawSource.bind(s.composite)
+ const cleared=vi.spyOn(AccumulationBuffer.prototype,'clear').mockImplementation(function(this:AccumulationBuffer){clear.call(this);events.push('clear')})
+ vi.spyOn(s.composite,'drawSource').mockImplementation((r,frame)=>{events.push('draw');return draw(r,frame)})
+ try{
+  expect(s.executor.advance().pending).toBe(true);expect(events).toEqual(['clear'])
+  expect(s.executor.advance().pending).toBe(false);expect(events).toEqual(['clear','clear','draw','draw'])
+ }finally{cleared.mockRestore();clock.mockRestore();s.close()}
+})
+it('retires partial initialization and joined paint before external poison while preserving its exact error',()=>{
+ const s=warmDeposition(2),clock=vi.spyOn(performance,'now').mockReturnValue(0),primary=new Error('joined second paint failed'),draw=s.composite.drawSource.bind(s.composite);let paints=0
+ try{
+  s.executor.advance();expect(s.scratch.bytes.live).toBe(128)
+  vi.spyOn(s.composite,'drawSource').mockImplementation((r,frame)=>{if(++paints===2)throw primary;return draw(r,frame)})
+  s.poison.mockImplementation(()=>{expect(s.layer['retainedTargets'].size).toBe(0);expect(s.scratch.bytes.live).toBe(0);s.layer.clear()})
+  expect(()=>s.executor.advance()).toThrow(primary);expect(paints).toBe(2);expect(s.poison).toHaveBeenCalledOnce()
+  expect(s.executor.pending).toBe(false);expect(s.executor.poisoned).toBe(true);expect(snapshotContextStorage(s.gl).reservedBytes).toBe(0)
+ }finally{clock.mockRestore();s.close()}
+})
+
+it('keeps the same eight-command bound when last initialization shares its paint turn',()=>{
+ const s=warmDeposition(1,9),clock=vi.spyOn(performance,'now').mockReturnValue(0),draw=vi.spyOn(s.composite,'drawSource')
+ try{
+  expect(s.executor.advance().pending).toBe(true);expect(draw).toHaveBeenCalledTimes(8)
+  expect(s.executor.rawWashSealed).toBe(false)
+  expect(s.executor.advance().pending).toBe(false);expect(draw).toHaveBeenCalledTimes(9)
  }finally{clock.mockRestore();s.close()}
 })

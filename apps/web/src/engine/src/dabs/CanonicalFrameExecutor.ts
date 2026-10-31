@@ -347,20 +347,25 @@ export class CanonicalFrameExecutor {
       }
       this.preparePhysicalPlan(work,layer)
       if (!this.prepareAuto(work,turnStarted) || performance.now()-turnStarted >= 4) return { pending: true, checkpointReady: false }
-      if (!this.preparePhysical(work,layer,turnStarted)) return {pending:true,checkpointReady:false}
+      if (!this.preparePhysical(work,layer,turnStarted)) return {pending:this.pending,checkpointReady:this.checkpointReady}
       // One owned capture covers direct target preparation, inner batch and
       // its release callbacks; no GL state or lease survives this turn.
       runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},turn=>{
-        this.gl.activeTexture(this.gl.TEXTURE0)
-        if(work.draw<work.result.draws.length)this.paint(work,layer,turn,turnStarted)
-        else this.present(work,layer,turn,turnStarted)
-        if(work.draw===work.result.draws.length&&(this.options.washMode==='deposition-only'||!work.result.commands.length||work.presentTiles&&work.present===work.presentTiles.length))this.finish(work)
+        this.paintPrepared(work,layer,turn,turnStarted)
       })
     } catch (error) {
       this.fail(error, this.cleanupContextLost())
       throw error
     } finally { this.advancing = false }
     return { pending: this.pending, checkpointReady: this.checkpointReady }
+  }
+
+  /** Reuses an already captured turn; never captures or advances source state. */
+  private paintPrepared(work:Work,layer:TiledLayerBuffer,turn:BrushGlTurn,turnStarted:number):void {
+    this.gl.activeTexture(this.gl.TEXTURE0)
+    if(work.draw<work.result.draws.length)this.paint(work,layer,turn,turnStarted)
+    else this.present(work,layer,turn,turnStarted)
+    if(work.draw===work.result.draws.length&&(this.options.washMode==='deposition-only'||!work.result.commands.length||work.presentTiles&&work.present===work.presentTiles.length))this.finish(work)
   }
 
   /** At most one actual materialization per turn. Resident metadata takes use
@@ -392,9 +397,9 @@ export class CanonicalFrameExecutor {
     }
     if(work.washCursor<work.newTiles.length){
       const position=work.newTiles[work.washCursor],base=work.washCursor*perTile
-      // All allocation is complete. Only the synchronous copy/clear operation
-      // borrows GL state; no draw lease survives the return to the engine drain.
-      runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{
+      // All allocation is complete. Only the LAST initialization may spend
+      // remaining turn time painting; all earlier tile clears precede pixels.
+      runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},turn=>{
         this.gl.activeTexture(this.gl.TEXTURE0)
         const target=this.resolveTile(layer,position),bound=bindCanonicalLayerTargets(layer,[target])[0],release=bound.lifetime.lease()
         try{
@@ -406,6 +411,8 @@ export class CanonicalFrameExecutor {
           for(let i=0;i<perTile;i++)plan.transferScratch(base+i)
           work.washCursor++
         }finally{release()}
+        if(work.washCursor===work.newTiles.length&&performance.now()-turnStarted<4)
+          this.paintPrepared(work,layer,turn,turnStarted)
       })
       return false
     }
