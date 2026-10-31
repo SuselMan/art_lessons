@@ -189,3 +189,9 @@ it must not intern capabilities while ignoring boardEpoch. Local socket/board/
 context generation remains necessary because a restarted server can reuse a
 numeric epoch. Source-program basis reuse is separately owned CPU/GL lifetime,
 not reuse of read permission or append authority.
+
+Resident reads reuse hasSucceededCanonicalWrite's existing owner receipt plus
+actual current room/operation identity. Row-backed and resident-backed batch
+projection share one local first-use implementation; authority is checked for
+EVERY frame while binding occurs once per original-user/stroke. captureReadScope
+reuses the existing board/lesson epoch owner; it creates no append/session grant.

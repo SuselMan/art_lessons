@@ -202,3 +202,24 @@ that unsupported domain rather than painting a fallback. This does not complete
 V1 capability delivery or activate rooms/engine. Actual Socket.IO tests exercise
 explicit test-only auto policy, delayed DB completion, mandatory V2 peer atom and
 unchanged V1 shape. Production auto policy remains empty/OFF.
+
+## Two-phase resident read preparation (not joined yet)
+
+prepareReadDelivery checks actual mayReadBoardContent asynchronously, captures the
+current board/lesson/storage/binder and caller's socket lifetime, then returns a
+synchronous finish callback. The scope's boardEpoch comes from the SAME resolver
+resident epoch owner as BEGIN, including empty history. It is not inferred from
+an incoming attachment. finish rechecks context before/after preparation and
+accepts only actual immutable resident objects with successful receipts owned by
+the current room; equal copies, pending/failed/unknown or replaced-room receipts
+fail closed. Existing loader adoption remains the source of cold resident
+receipt provenance. No fake indexed row is manufactured.
+
+The shared room_state type now permits canonicalReadScope/canonicalCapabilities,
+but no join callsite emits them yet. Reader preparation must occur before channel
+join; final snapshot finish, channel join and emit must be synchronous with no
+await between them. joinRoom currently mutates seats/boardOfSocket and may evict
+the old board, so blindly awaiting read permission after it and compensating with
+leaveRoom would race newer joins. Existing authorized prepare/commit seating
+needs review before wiring this seam. Global evacuateBoard similarly lacks the
+register-local transport owner and stays an explicit straight-read blocker.

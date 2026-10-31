@@ -19,8 +19,10 @@ const db=vi.hoisted(()=>({operation:{count:vi.fn(),findUnique:vi.fn(),create:vi.
 vi.mock('../db/prisma.js',()=>({prisma:db}))
 const history=vi.hoisted(()=>({rows:[] as unknown[]}))
 vi.mock('./snapshotStore.js',()=>({getOperationsBefore:vi.fn(async()=>history.rows)}))
+const readAccess=vi.hoisted(()=>({allowed:true,gate:undefined as Promise<void>|undefined,calls:[] as [string,string][]}))
+vi.mock('./boardContentAccess.js',()=>({mayReadBoardContent:vi.fn(async(roomId:string,userId:string)=>{readAccess.calls.push([roomId,userId]);await readAccess.gate;return readAccess.allowed})}))
 const dirs:string[]=[]
-beforeEach(()=>{db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[]})
+beforeEach(()=>{readAccess.allowed=true;readAccess.gate=undefined;readAccess.calls=[];db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[]})
 afterEach(async()=>{for(const id of rooms.keys())await flushRoomWrites(id);rooms.clear();for(const d of dirs.splice(0))rmSync(d,{recursive:true,force:true});vi.restoreAllMocks();vi.clearAllMocks()})
 function resident():RoomRecord{
  const record:RoomRecord={room:{id:'board',name:'Board',ownerId:'author',paper:'coarse',infinite:false,canvasWidth:64,canvasHeight:64,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-29T00:00:00Z',rasterVersion:'straight-rgba8-v1'},lessonId:null,sockets:new Set(),boards:[],assignments:[],activeAssignmentId:null,spotlightBoardId:null,handsRaised:new Set(),assignmentStarting:false,passwordHash:undefined,operations:[],participants:new Map(),nextSeq:1,layerStateSeq:null,layerStateIds:null,coveredSeqByLayer:new Map(),palette:[],roomFrozen:false,frozenUserIds:new Set(),lockedLayerIds:new Set(),sharedLockedLayerIds:new Set(),aliveIds:new Set(['layer']),deletedIds:new Set(),operationsById:new Map(),structuralLog:[]}
@@ -211,4 +213,44 @@ it('projects one closed recorded batch with temporary gesture dedup and rejects 
  expect(()=>binder.prepareRecordedAttachment({...input,rows:[...rows,rows[1]]})).toThrow('row closure')
  expect(()=>binder.prepareRecordedAttachment({...input,operations:Array(1025).fill(operations[0])})).toThrow('capacity')
  expect(binder.size).toBe(0);expect(pin).not.toHaveBeenCalled();expect(f.board.operations).toHaveLength(2)
+})
+
+it('prepares authoritative empty read scope, reuses its epoch for BEGIN, and rejects stale captured scope',async()=>{
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected),reader={roomId:'board',userId:'reader'}
+ let current=true
+ const first=await transport.prepareReadDelivery(reader,()=>current),empty=first.finish([])
+ expect(empty.canonicalReadScope).toEqual(first.scope);expect(empty).not.toHaveProperty('canonicalCapabilities')
+ expect(readAccess.calls).toEqual([['board','reader']])
+ const second=await transport.prepareReadDelivery(reader,()=>current);expect(second.scope).toEqual(first.scope)
+ const begin=snapshot(await transport.begin(identity,f.input,()=>true));expect(begin.boardEpoch).toBe(first.scope.boardEpoch)
+ current=false;expect(()=>first.finish([])).toThrow('not_joined')
+ current=true;rooms.set('board',{...f.board})
+ expect(()=>second.finish([])).toThrow('repair_required')
+ const replacement=await transport.prepareReadDelivery(reader,()=>true);expect(replacement.scope.boardEpoch).toBeGreaterThan(first.scope.boardEpoch)
+})
+it('requires successful actual resident receipt for read delivery, not equal objects or pending writes',async()=>{
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected),s=snapshot(await transport.begin(identity,f.input,()=>true)),frame=frames(f.descriptor,s)[0]
+ const write=deferredWrite();db.operation.create.mockReturnValueOnce(write.promise)
+ const pending=transport.recorded(identity,{type:'canonical_stroke',id:'resident-read',userId:'author',timestamp:0,layerId:'layer',frame},()=>true)
+ await vi.waitFor(()=>expect(f.board.operations).toHaveLength(1))
+ const read=await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)
+ expect(()=>read.finish(f.board.operations)).toThrow('receipt unavailable')
+ write.resolve();const recorded=await pending;if(!recorded.accepted)throw Error('Expected recorded')
+ const accepted=recorded.accepted
+ const delivered=read.finish([accepted])
+ expect(delivered.canonicalCapabilities?.bindings[0]).toEqual({operationId:accepted.id,sequence:accepted.seq,originalUserId:'author',capability:0})
+ expect(()=>read.finish([structuredClone(accepted)])).toThrow('receipt unavailable')
+ const readAgain=await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)
+ setBrushStorage(new BrushStorage(f.storage.root),empty())
+ expect(()=>readAgain.finish([accepted])).toThrow('repair_required')
+})
+it('denies reader policy and captured lifetime changes across asynchronous read permission',async()=>{
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected)
+ readAccess.allowed=false
+ await expect(transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)).rejects.toThrow('not_joined')
+ readAccess.allowed=true
+ const gate=deferredWrite();readAccess.gate=gate.promise
+ let current=true;const pending=transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>current)
+ const rejected=expect(pending).rejects.toThrow('not_joined');current=false;gate.resolve();await rejected
+ expect(f.board.operations).toHaveLength(0)
 })

@@ -6,6 +6,7 @@ import {canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin} from './ca
 import {canonicalSoftAutoSourcePin} from './canonicalSoftAutoMaterial.js'
 
 export const CANONICAL_RECORDED_ATTACHMENT_LIMITS=Object.freeze({capabilities:64,bindings:1024,capabilityBytes:256*1024,batchBytes:4*1024*1024})
+export interface CanonicalRecordedReadScope {readonly roomId:string;readonly boardEpoch:number}
 export interface CanonicalRecordedReadCapability {readonly originalUserId:string;readonly snapshot:CanonicalStrokeSnapshotV2}
 /** Batch-local wire dictionary only; indexes never become retained history truth. */
 export interface CanonicalRecordedAttachmentV1 {

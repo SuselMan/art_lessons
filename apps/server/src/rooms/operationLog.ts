@@ -110,6 +110,14 @@ export function knownCanonicalWrite(op: Operation): Readonly<{ status: Canonical
   return receipt && Object.freeze({ status: receipt.status, outcome: receipt.outcome })
 }
 
+/** Identity/durability evidence for a current resident read, not permission.
+ * Equal copies and receipts owned by replaced room lifetimes never qualify. */
+export function hasSucceededCanonicalWrite(record:RoomRecord,op:Operation):boolean {
+  const receipt=canonicalWrites.get(op)
+  return op.type==='canonical_stroke'&&rooms.get(record.room.id)===record&&record.operationsById.get(op.id)===op
+    &&Object.isFrozen(op)&&Object.isFrozen(op.frame)&&!!receipt&&canonicalWriteOwners.get(record)===receipt.owner&&receipt.status==='succeeded'
+}
+
 /** Loader-only adoption of verified DB rows, never a completeness/authorization grant.
  * All validation precedes receipt mutation; equal objects and losing loads cannot
  * acquire provenance. Existing write attempts may not be overwritten. */

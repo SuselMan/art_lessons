@@ -9,6 +9,7 @@ import { freezeCanonicalAutoPolicies, type CanonicalAutoExecutionPolicies } from
 import { BrushStorage, merge } from '../brushLibrary/storage.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
+import { hasSucceededCanonicalWrite } from './operationLog.js'
 import { verifyCanonicalOperationRow, type CanonicalStoredOperationRow } from './roomPersistence.js'
 import type { CanonicalAdmissionIdentity, CanonicalCapabilityResolver, TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
 
@@ -132,12 +133,7 @@ export class CanonicalBrushCapabilityResolver {
     const descriptor = library.brushes.find(b => b.descriptor.id === match[1] && b.descriptor.version === Number(match[2]))?.descriptor
     if (!descriptor) fail('brush unavailable')
     const {material,mode,descriptorSha256}=this.bindDescriptor(descriptor,library)
-    const priorEpoch = this.epochs.get(current.board)
-    let boardEpoch = priorEpoch?.lesson === current.lesson ? priorEpoch.value : undefined
-    if (boardEpoch === undefined) {
-      if (this.nextEpoch >= Number.MAX_SAFE_INTEGER) fail('resident epoch exhausted')
-      boardEpoch = this.nextEpoch++; this.epochs.set(current.board, { lesson: current.lesson, value: boardEpoch })
-    }
+    const boardEpoch=this.epochFor(current.board,current.lesson)
     const grant: TrustedCanonicalGesture = Object.freeze({ roomId: identity.roomId, userId: identity.userId, layerId: input.layerId,
       boardEpoch, roomRasterVersion: STRAIGHT_ROOM_RASTER_VERSION, rasterProfile: CANONICAL_STROKE_RASTER_PROFILE,
       descriptorSha256, brush: input.brush, strokeId: input.strokeId,
@@ -163,6 +159,33 @@ export class CanonicalBrushCapabilityResolver {
     const {roomId,boardEpoch,operation:op,row}=input
     if(!text(roomId)||!Number.isSafeInteger(boardEpoch)||boardEpoch<0||boardEpoch>=Number.MAX_SAFE_INTEGER)fail('invalid recorded read context')
     verifyCanonicalOperationRow(roomId,op,row)
+    return this.bindRecordedOperation(roomId,boardEpoch,op)
+  }
+
+  /** Existing actual resident receipt is the provenance boundary; no row echo. */
+  readResidentRecordedCapability(input:{readonly roomId:string;readonly boardEpoch:number;readonly operation:CanonicalStrokeOperation}):CanonicalRecordedCapability {
+    const board=rooms.get(input.roomId)
+    if(!board||!hasSucceededCanonicalWrite(board,input.operation))fail('recorded resident receipt unavailable')
+    return this.bindRecordedOperation(input.roomId,input.boardEpoch,input.operation)
+  }
+
+  /** Internal caller has already checked read permission and captured lifetime.
+   * Reuses the existing resident epoch owner; creates no append grant. */
+  captureReadScope(roomId:string):Readonly<{roomId:string;boardEpoch:number}> {
+    const board=rooms.get(roomId)
+    if(!board||board.room.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION)fail('recorded read board unavailable')
+    return Object.freeze({roomId,boardEpoch:this.epochFor(board,lessonRecordOf(board))})
+  }
+
+  private epochFor(board:RoomRecord,lesson:RoomRecord):number {
+    const previous=this.epochs.get(board)
+    if(previous?.lesson===lesson)return previous.value
+    if(this.nextEpoch>=Number.MAX_SAFE_INTEGER)fail('resident epoch exhausted')
+    const value=this.nextEpoch++;this.epochs.set(board,{lesson,value});return value
+  }
+
+  private bindRecordedOperation(roomId:string,boardEpoch:number,op:CanonicalStrokeOperation):CanonicalRecordedCapability {
+    if(!text(roomId)||!Number.isSafeInteger(boardEpoch)||boardEpoch<0||boardEpoch>=Number.MAX_SAFE_INTEGER)fail('invalid recorded read context')
     const board=rooms.get(roomId)
     if(!board||board.room.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION)fail('recorded read board unavailable')
     const match=/^brush:([a-z0-9-]+)@([1-9][0-9]*)$/.exec(op.frame.brush)
@@ -191,25 +214,43 @@ export class CanonicalBrushCapabilityResolver {
   prepareRecordedAttachment(input:{readonly roomId:string;readonly boardEpoch:number;readonly operations:readonly Operation[];readonly rows:readonly CanonicalStoredOperationRow[]}):CanonicalRecordedAttachmentV1 {
     const {roomId,boardEpoch,operations,rows}=input
     if(!Array.isArray(operations)||operations.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings||!Array.isArray(rows)||rows.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)fail('recorded attachment capacity exceeded')
-    const capabilities:CanonicalRecordedReadCapability[]=[],bindings:CanonicalRecordedAttachmentV1['bindings'][number][]=[],dictionary=new Map<string,number>()
     let rowIndex=0
-    for(const op of operations){
-      if(op.type!=='canonical_stroke')continue
+    const attachment=this.projectRecordedAttachment({roomId,boardEpoch,operations},op=>{
       const row=rows[rowIndex++]
       verifyCanonicalOperationRow(roomId,op,row??null)
+      return ()=>this.readRecordedCapability({roomId,boardEpoch,operation:op,row})
+    })
+    if(rowIndex!==rows.length)fail('recorded attachment row closure mismatch')
+    return attachment
+  }
+
+  prepareResidentRecordedAttachment(input:{readonly roomId:string;readonly boardEpoch:number;readonly operations:readonly Operation[]}):CanonicalRecordedAttachmentV1 {
+    return this.projectRecordedAttachment(input,op=>{
+      const board=rooms.get(input.roomId)
+      if(!board||!hasSucceededCanonicalWrite(board,op))fail('recorded resident receipt unavailable')
+      return ()=>this.readResidentRecordedCapability({roomId:input.roomId,boardEpoch:input.boardEpoch,operation:op})
+    })
+  }
+
+  private projectRecordedAttachment(input:{readonly roomId:string;readonly boardEpoch:number;readonly operations:readonly Operation[]},authority:(op:CanonicalStrokeOperation)=>()=>CanonicalRecordedCapability):CanonicalRecordedAttachmentV1 {
+    const {roomId,boardEpoch,operations}=input
+    if(!Array.isArray(operations)||operations.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)fail('recorded attachment capacity exceeded')
+    const capabilities:CanonicalRecordedReadCapability[]=[],bindings:CanonicalRecordedAttachmentV1['bindings'][number][]=[],dictionary=new Map<string,number>()
+    for(const op of operations){
+      if(op.type!=='canonical_stroke')continue
+      const read=authority(op)
       if(!text(op.userId)||!op.frame||!text(op.frame.strokeId))fail('invalid recorded attachment identity')
       const identity=JSON.stringify([op.userId,op.frame.strokeId])
       let index=dictionary.get(identity)
       if(index===undefined){
         if(capabilities.length>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)fail('recorded attachment capability capacity exceeded')
-        const c=this.readRecordedCapability({roomId,boardEpoch,operation:op,row})
+        const c=read()
         const snapshot=Object.freeze({layerId:c.layerId,brush:c.brush,strokeId:c.strokeId,boardEpoch:c.boardEpoch,descriptorSha256:c.descriptorSha256,
           rasterProfile:c.rasterProfile,pigmentRgb8:c.pigmentRgb8,composition:c.composition,assets:c.material.assets,materialVersion:2 as const,material:c.material})
         index=capabilities.length;capabilities.push(Object.freeze({originalUserId:c.originalUserId,snapshot}));dictionary.set(identity,index)
       }
       bindings.push(Object.freeze({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:index}))
     }
-    if(rowIndex!==rows.length)fail('recorded attachment row closure mismatch')
     const attachment=Object.freeze({version:1 as const,roomId,boardEpoch,capabilities:Object.freeze(capabilities),bindings:Object.freeze(bindings)})
     // Shared validation checks every frame against its FIRST bound immutable
     // gesture capability, including later identity/resource changes and limits.

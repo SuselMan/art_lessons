@@ -1,4 +1,4 @@
-import type { CanonicalRecordedAttachmentV1 } from './canonicalRecordedAttachment.js'
+import type { CanonicalRecordedAttachmentV1, CanonicalRecordedReadScope } from './canonicalRecordedAttachment.js'
 import type { CanonicalStrokeBegin, CanonicalStrokeBeginResult, CanonicalStrokeLive, CanonicalStrokeLiveResult } from './canonicalStrokeOperation.js'
 import type { BrushRandomSeeds } from './brushRandom.js'
 import type { Operation } from './operations.js'
@@ -288,6 +288,8 @@ export type ServerToClientEvents = {
   // a double-paint.
   room_state: (state: {
     room: Room; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
+    canonicalReadScope?:CanonicalRecordedReadScope
+    canonicalCapabilities?:CanonicalRecordedAttachmentV1
     palette: string[]
     // (#254/#255 epic) Room-wide freeze, live in-memory only (never
     // persisted — see rooms.ts's RoomRecord.roomFrozen) — included in the

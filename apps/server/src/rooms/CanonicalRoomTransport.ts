@@ -2,13 +2,14 @@ import { isDeepStrictEqual } from 'node:util'
 import {
   STRAIGHT_ROOM_RASTER_VERSION,
   type CanonicalStrokeBegin, type CanonicalStrokeBeginResult, type CanonicalStrokeLive, type CanonicalStrokeLiveResult,
-  type CanonicalStrokeOperation, type CanonicalStrokeSnapshot, type SendResult, type CanonicalRecordedAttachmentV1, prepareCanonicalRecordedAttachment,
+  type CanonicalStrokeOperation, type CanonicalStrokeSnapshot, type SendResult, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadScope, type Operation, CANONICAL_RECORDED_ATTACHMENT_LIMITS, prepareCanonicalRecordedAttachment,
 } from '@grafetto/shared'
 import { canonicalBrushStorageContext } from '../brushLibrary/storage.js'
 import { prisma } from '../db/prisma.js'
 import { CanonicalBrushCapabilityResolver } from './CanonicalBrushCapabilityResolver.js'
 import { CanonicalStrokeAdmission, decodeTrustedCanonicalFrame, type CanonicalAdmissionIdentity, type TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
 import { CANONICAL_ROOM_EXECUTION_POLICY, freezeCanonicalAutoPolicies, type CanonicalRoomExecutionPolicy } from './canonicalExecutionPolicy.js'
+import { mayReadBoardContent } from './boardContentAccess.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { canonicalWriteFence, ensureCanonicalWrite, findDuplicateOperation, knownCanonicalWrite, recordOperation, updateAliveIds } from './operationLog.js'
 import { canonicalOperationRowSelect, verifyCanonicalOperationRow } from './roomPersistence.js'
@@ -120,6 +121,34 @@ export class CanonicalRoomTransport {
     const session: Session = { grant: prepared.grant, admission, durableRecordedNext: prefix.length }
     lifetime.sessions.set(key, session)
     return snapshot(session)
+  }
+
+  /** Two-phase reader preparation. Caller awaits BEFORE channel join, then
+   * calls finish(snapshot.tailOperations) synchronously before join+state emit.
+   * No await/queue/registry survives finish; no paint permission is inferred. */
+  async prepareReadDelivery(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly finish:(operations:readonly Operation[])=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1}}> {
+    if(!text(identity?.roomId)||!text(identity.userId))fail('not_joined')
+    const {roomId,userId}=identity
+    const record=rooms.get(roomId)
+    if(!record||record.room.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION)fail('invalid_operation')
+    const lesson=lessonRecordOf(record),binder=this.currentBinder(),context=this.context!
+    const current=()=>{
+      const actual=canonicalBrushStorageContext()
+      if(!isCurrent())fail('not_joined')
+      if(rooms.get(roomId)!==record||lessonRecordOf(record)!==lesson||this.binder!==binder||actual?.storage!==context.storage||actual?.operator!==context.operator)fail('canonical_repair_required')
+      if(canonicalWriteFence(record).failed)fail('canonical_repair_required')
+    }
+    if(!await mayReadBoardContent(roomId,userId))fail('not_joined')
+    current()
+    const scope=binder.captureReadScope(roomId)
+    return Object.freeze({scope,finish:(operations:readonly Operation[])=>{
+      current()
+      if(!Array.isArray(operations)||operations.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)fail('canonical_repair_required')
+      const canonical=operations.some(op=>op.type==='canonical_stroke')
+      const canonicalCapabilities=canonical?binder.prepareResidentRecordedAttachment({roomId:scope.roomId,boardEpoch:scope.boardEpoch,operations}):undefined
+      current()
+      return Object.freeze({canonicalReadScope:scope,...canonicalCapabilities?{canonicalCapabilities}:{}})
+    }})
   }
 
   live(identity: CanonicalAdmissionIdentity, value: CanonicalStrokeLive): { readonly result: CanonicalStrokeLiveResult; readonly accepted?: CanonicalStrokeLive } {
