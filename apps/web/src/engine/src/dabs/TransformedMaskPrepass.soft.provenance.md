@@ -88,3 +88,32 @@ improvement is cooperative cold allocation granularity4→1, not an overall spee
 or hard4ms guarantee: driver calls cannot be interrupted. Measurements include
 instrumentation and are not active UI frame timings. All own children/contexts,
 forward19236 and job markers were removed; original three tabs retained IDs/URLs.
+
+## Actual imported Airbrush source pipeline
+
+Actual compiled NEW-KPP input SHA256
+`721d0c7ca7245dd3b561a6fa4a0d5974035d196e4ab4f497c016072c19600c13`
+contains six source descriptors. Only index3 Airbrush's native normal outer blend
+is covered by this completed integration proof. Indices59..63 require color,
+colorDodge, lighten, multiply and overlay; their unsupported binding guard is
+pending verification in this receipt, and no six-brush compatibility is claimed.
+
+Index3 runs through the actual binding, descriptor compiler, seeded author,
+material adapter, encoder, decoded frames and Samsung executor in both scalar
+and NEON profiles. Two ordinary packets (pressures.2/.6; seeds4321/7654/.3)
+produce one draw/four frames under original spacing. Input coordinates are chosen
+from the dry dab hotspot to expose the edge of the unchanged600x600mask on a
+64x64page:9/10 distinct visible A8 values,2798/3038 partial-alpha pixels for
+NEON/scalar. No recipe or resolved scale is changed after authoring.
+
+Full64 and partial8 compositor capacities, each original plus fresh-layer replay,
+produce eight outputs/131072RGBA bytes identical to the independent existing CPU
+mask/composition oracle. Per-profile SHA256 agrees across replay and capacities.
+Partial8 retains the same program owner, CPU cache, GL context and scratch pool:
+38 table quanta initially, zero on replay. Executor cancellation retains the
+borrowed40608byte estimate; caller retirement returns it; all reservations, pool
+bytes and GL handle counts then reach zero. GL errors/poison empty, state restored,
+three original tabs preserved, own child/context/forward removed. Compact receipt:
+R52/soft-airbrush-actual-source-integration-receipt.json. This is the explicitly
+recorded creamy/OVER material pipeline, not original GUI whole-stroke or active
+pointer responsiveness proof. Other native outer operators remain required work.
