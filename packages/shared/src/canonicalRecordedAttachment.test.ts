@@ -105,3 +105,19 @@ it('rejects unknown/null captured policy before walking attachment data and pres
  const result=prepareCanonicalRecordedAttachment(f.attachment,[f.op],f.expected)
  expect(result[0].read?.rasterProfile).toBe(CANONICAL_STROKE_RASTER_PROFILE)
 })
+
+it('accepts mixed old/new gestures only from the explicit bounded captured allow-set',()=>{
+ const f=fixture(),original=f.attachment.capabilities[0],newSnapshot={...original.snapshot,strokeId:'new',rasterProfile:genericOuterProfile,composition:{...original.snapshot.composition,outerBlend:'multiply' as const}}
+ const newOp={...f.op,id:'new',seq:4,frame:{...f.op.frame,version:2 as const,strokeId:'new',rasterProfile:genericOuterProfile,composition:newSnapshot.composition}}
+ const attachment={...f.attachment,capabilities:[original,{...original,snapshot:newSnapshot}],bindings:[...f.attachment.bindings,{operationId:'new',sequence:4,originalUserId:'author',capability:1}]}
+ const profiles=[CANONICAL_STROKE_RASTER_PROFILE,genericOuterProfile]
+ const result=prepareCanonicalRecordedAttachment(attachment,[f.op,newOp],{...f.expected,allowedRasterProfiles:profiles})
+ expect(result.map(r=>r.read?.rasterProfile)).toEqual(profiles)
+ expect(()=>prepareCanonicalRecordedAttachment(attachment,[f.op,newOp],f.expected)).toThrow()
+ const sameGesture={...newSnapshot,strokeId:'S'}
+ expect(()=>prepareCanonicalRecordedAttachment({...attachment,capabilities:[original,{...original,snapshot:sameGesture}]},[f.op,newOp],{...f.expected,allowedRasterProfiles:profiles})).toThrow()
+ for(const allowedRasterProfiles of [[],[genericOuterProfile,genericOuterProfile],['foreign'],[...profiles,genericOuterProfile],null]){
+  expect(()=>Reflect.apply(prepareCanonicalRecordedAttachment,null,[attachment,[f.op,newOp],{...f.expected,allowedRasterProfiles}])).toThrow()
+ }
+ expect(()=>prepareCanonicalRecordedAttachment(attachment,[f.op,newOp],{...f.expected,rasterProfile:genericOuterProfile,allowedRasterProfiles:profiles})).toThrow()
+})

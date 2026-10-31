@@ -289,6 +289,7 @@ export type ServerToClientEvents = {
   room_state: (state: {
     room: Room; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
     canonicalReadScope?:CanonicalRecordedReadScope
+    canonicalAuthorRasterProfile?:import('./canonicalStrokeFrame.js').CanonicalStrokeRasterProfile
     canonicalCapabilities?:CanonicalRecordedAttachmentV1
     palette: string[]
     // (#254/#255 epic) Room-wide freeze, live in-memory only (never

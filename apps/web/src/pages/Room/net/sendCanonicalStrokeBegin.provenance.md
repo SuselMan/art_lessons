@@ -46,3 +46,11 @@ Four-mode tests accept matching explicit V2 ACKs, reject those ACKs for default
 callers, reject cross-profile/unknown/null data before clone and preserve request
 shape, cleanup and cursor semantics. No event field, retry queue, UI/server
 policy, source compiler or room grant is introduced by this helper migration.
+
+BEGIN profile migration keeps the legacy rasterProfile singleton. New callers
+can separately capture authorRasterProfile and explicit responseRasterProfiles
+for verified old-prefix resume under a new author default. The known unique
+1..2 response set is copied/frozen before emit with the shared helper; author
+must belong to it. Legacy singleton combined with new policy fields is refused.
+No ACK-selected profile outside captured policy, no timer/listener on invalid
+policy; mutation of the caller's set cannot expand an in-flight request.

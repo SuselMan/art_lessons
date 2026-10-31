@@ -51,3 +51,11 @@ OperationLog validation, not a new wire attachment field or append permission.
 Snapshot/operation/material bytes are otherwise projected through the same
 bounded closed validator. Tests cover four modes, cross-profile refusal,
 immutable output and unknown/null early refusal. Default callers remain closed.
+
+Read profile migration: optional captured allowedRasterProfiles is bounded to
+1..2 unique known profiles and copied/frozen by canonicalRecordedRasterProfiles.
+It cannot coexist with the legacy singleton selector. Omission preserves old.
+Each snapshot must belong to that trusted receiver set; each frame decodes
+against its exact bound snapshot profile, not a global batch profile. Mixed
+old/new gestures are allowed only with explicit captured policy; one gesture
+cannot change profile. Existing wire dictionary/schema and byte limits remain.

@@ -10,6 +10,7 @@ export interface CanonicalRecordedReadScope {
  readonly roomId:string;readonly boardEpoch:number
  /** Captured receiver policy; omission preserves the historical Over-only gate. */
  readonly rasterProfile?:CanonicalStrokeRasterProfile
+ readonly allowedRasterProfiles?:readonly CanonicalStrokeRasterProfile[]
 }
 export interface CanonicalRecordedReadCapability {readonly originalUserId:string;readonly snapshot:CanonicalStrokeSnapshotV2}
 /** Batch-local wire dictionary only; indexes never become retained history truth. */
@@ -29,6 +30,15 @@ const closed=(v:unknown,keys:readonly string[]):v is Record<string,unknown>=>rec
 const text=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.length<=256&&!v.includes('\0')
 const integer=(v:unknown):v is number=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=0&&v<Number.MAX_SAFE_INTEGER
 const bytes=(v:unknown)=>new TextEncoder().encode(JSON.stringify(v)).length
+/** Copy a bounded receiver policy, never a profile selected by received data.
+ * The legacy singleton and a list cannot both be supplied. */
+export function canonicalRecordedRasterProfiles(scope:Pick<CanonicalRecordedReadScope,'rasterProfile'|'allowedRasterProfiles'>):readonly CanonicalStrokeRasterProfile[] {
+ if(scope.rasterProfile!==undefined&&scope.allowedRasterProfiles!==undefined)return fail()
+ const profiles=scope.allowedRasterProfiles!==undefined?scope.allowedRasterProfiles:[scope.rasterProfile===undefined?CANONICAL_STROKE_RASTER_PROFILE:scope.rasterProfile]
+ if(!Array.isArray(profiles)||profiles.length<1||profiles.length>2||new Set(profiles).size!==profiles.length
+  ||profiles.some(p=>p!==CANONICAL_STROKE_RASTER_PROFILE&&p!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return fail()
+ return Object.freeze([...profiles])
+}
 function snapshot(value:unknown,epoch:number,rasterProfile:CanonicalStrokeRasterProfile):CanonicalStrokeSnapshotV2 {
  if(!closed(value,['layerId','brush','strokeId','boardEpoch','descriptorSha256','rasterProfile','pigmentRgb8','composition','assets','materialVersion','material'])
   ||!text(value.layerId)||!text(value.brush)||!text(value.strokeId)||value.boardEpoch!==epoch||value.materialVersion!==2||value.rasterProfile!==rasterProfile
@@ -53,8 +63,7 @@ function snapshot(value:unknown,epoch:number,rasterProfile:CanonicalStrokeRaster
  * Legacy operation schemas remain their existing owner's responsibility.
  * Entire atom validates before return; no engine/log/store/cursor mutation. */
 export function prepareCanonicalRecordedAttachment(value:unknown,operations:readonly Operation[],expected:CanonicalRecordedReadScope):readonly CanonicalPreparedRecordedOperation[] {
- const rasterProfile=expected.rasterProfile===undefined?CANONICAL_STROKE_RASTER_PROFILE:expected.rasterProfile
- if(rasterProfile!==CANONICAL_STROKE_RASTER_PROFILE&&rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)return fail()
+ const profiles=canonicalRecordedRasterProfiles(expected)
  if(!text(expected.roomId)||!integer(expected.boardEpoch)||!Array.isArray(operations)||operations.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)return fail()
  if(!closed(value,['version','roomId','boardEpoch','capabilities','bindings'])||value.version!==1||value.roomId!==expected.roomId||value.boardEpoch!==expected.boardEpoch
   ||!Array.isArray(value.capabilities)||value.capabilities.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities||!Array.isArray(value.bindings)||value.bindings.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)return fail()
@@ -62,6 +71,9 @@ export function prepareCanonicalRecordedAttachment(value:unknown,operations:read
  let size=128
  for(const item of value.capabilities){
   if(!closed(item,['originalUserId','snapshot'])||!text(item.originalUserId))return fail()
+  if(!record(item.snapshot))return fail()
+  const rasterProfile=item.snapshot.rasterProfile
+  if((rasterProfile!==CANONICAL_STROKE_RASTER_PROFILE&&rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)||!profiles.includes(rasterProfile))return fail()
   const s=snapshot(item.snapshot,expected.boardEpoch,rasterProfile),identity=JSON.stringify([item.originalUserId,s.strokeId])
   // One gesture has ONE immutable capability, even if a duplicate is equal.
   if(identities.has(identity))return fail();identities.add(identity)
@@ -83,6 +95,7 @@ export function prepareCanonicalRecordedAttachment(value:unknown,operations:read
   const capability=capabilities[binding.capability],s=capability.snapshot
   if(capability.originalUserId!==op.userId||s.layerId!==op.layerId)return fail()
   if(!used.has(binding.capability)){if(binding.capability!==nextCapability++)return fail();used.add(binding.capability)}
+  const rasterProfile=s.rasterProfile
   const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:s.material})
   if(decoded.frame.masked)return fail()
   const operation:CanonicalStrokeOperation=Object.freeze({id:op.id,userId:op.userId,timestamp:op.timestamp,seq:op.seq,type:'canonical_stroke',layerId:op.layerId,frame:decoded.envelope})

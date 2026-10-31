@@ -122,3 +122,16 @@ it('refuses old-profile ACK in an explicitly new-profile lifetime before cloning
   s.ack(result);await rejected;expect(clone).not.toHaveBeenCalled()
  }finally{clone.mockRestore()}
 })
+it('captures server author default separately from explicit old resume response profiles',async()=>{
+ const s=socket(),profiles=[CANONICAL_STROKE_RASTER_PROFILE,genericOuterProfile]
+ const pending=sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true,authorRasterProfile:genericOuterProfile,responseRasterProfiles:profiles})
+ profiles.splice(0,1);s.ack() // stored old-profile ACK remains the old law
+ await expect(pending).resolves.toMatchObject({ok:true,snapshot:{rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}})
+ const bad=socket()
+ await expect(sendCanonicalStrokeBegin(bad.emitter,input(),{boardEpoch:2,isCurrent:()=>true,authorRasterProfile:genericOuterProfile,responseRasterProfiles:[CANONICAL_STROKE_RASTER_PROFILE]})).rejects.toThrow('raster profile')
+ expect(bad.emitter.emit).not.toHaveBeenCalled()
+ for(const responseRasterProfiles of [[],[genericOuterProfile,genericOuterProfile],null]){
+  await expect(Reflect.apply(sendCanonicalStrokeBegin,null,[bad.emitter,input(),{boardEpoch:2,isCurrent:()=>true,responseRasterProfiles}])).rejects.toThrow()
+ }
+ await expect(sendCanonicalStrokeBegin(bad.emitter,input(),{boardEpoch:2,isCurrent:()=>true,rasterProfile:genericOuterProfile,responseRasterProfiles:[genericOuterProfile]})).rejects.toThrow()
+})
