@@ -1,6 +1,6 @@
 import { reserveContextStorage, releaseStorageReservation } from '../buffers/ContextStorageOwner'
 import { sourcePngPyramid, type BrushTip, type TipMaskId, type CanonicalMaterialAsset } from '@grafetto/shared'
-import { nativeImageBank, nativeImagePixels, type NativeImageResource } from './NativeImageBank'
+import { nativeImageBank, nativeImageBankFromRect, nativeImagePixels, type NativeImageResource } from './NativeImageBank'
 import { BrushTextureCache, uploadBrushTexture, releaseUnpublishedBrushResource, type OwnedBrushResource } from './BrushTextureCache'
 import { BrushMipCache } from './BrushMipCache'
 import type { TransformedMaskSource, TransformedMaskPreparedSource } from './TransformedMaskPrepass'
@@ -13,6 +13,12 @@ export interface CanonicalMaskSourceInput {
   readonly assetSide: number
   readonly readOriginalCoverage: () => Uint8Array
 }
+/** Resource data from an already normalized original image context. The
+ * engine provider, not this bank, owns source provenance and read authority. */
+export interface CanonicalMaskAssetSourceInput {
+  readonly asset: CanonicalMaterialAsset
+  readonly readOriginalCoverage: () => Uint8Array
+}
 export interface CanonicalMaskSourceJob {
   readonly key: string
   readonly resource: NativeImageResource
@@ -22,6 +28,24 @@ export interface CanonicalMaskSourceJob {
 export interface CanonicalMaskCompanionBudget { readonly gpuBytes: number; readonly cpuBytes: number }
 const integer = (n: number, min = 0) => Number.isSafeInteger(n) && n >= min
 const JOB_METADATA_BYTES = 512
+
+function ownData(value:unknown,fields:readonly string[]):Record<string,unknown> {
+  if(!value||typeof value!=='object'||Array.isArray(value))throw new TypeError('Invalid canonical image resource data')
+  const keys=Reflect.ownKeys(value)
+  if(keys.length!==fields.length||keys.some(k=>typeof k!=='string'||!fields.includes(k)))throw new TypeError('Invalid canonical image resource data')
+  const result:Record<string,unknown>=Object.create(null)
+  for(const key of fields){const d=Object.getOwnPropertyDescriptor(value,key);if(!d||!Object.hasOwn(d,'value'))throw new TypeError('Invalid canonical image resource data');result[key]=d.value}
+  return result
+}
+function captureAssetInput(value:unknown):CanonicalMaskAssetSourceInput {
+  const input=ownData(value,['asset','readOriginalCoverage']),a=ownData(input.asset,['id','size','x','y','width','height'])
+  const {id,size,x,y,width,height}=a
+  if(typeof input.readOriginalCoverage!=='function'||typeof id!=='string'||!/^asset:[a-f0-9]{64}$/.test(id)
+    ||typeof size!=='number'||!integer(size,1)||size>4096||typeof x!=='number'||!integer(x)||typeof y!=='number'||!integer(y)
+    ||typeof width!=='number'||!integer(width,1)||typeof height!=='number'||!integer(height,1)
+    ||width*height>1048576||x+width>size||y+height>size||[size,x,y,width,height].some(v=>Object.is(v,-0)))throw new TypeError('Invalid canonical image resource data')
+  return Object.freeze({asset:Object.freeze({id,size,x,y,width,height}),readOriginalCoverage:input.readOriginalCoverage as ()=>Uint8Array})
+}
 
 /** Existing nativeImagePixels may simultaneously hold croppedN, brightnessN,
  * scaledM, borderedL8B. After nativeImagePixels RETURNS, crop/brightness/scaled/
@@ -61,26 +85,38 @@ export class CanonicalMaskSourceBank {
   private readonly ownerProof:Readonly<{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache}>
 
   constructor(gl: WebGLRenderingContext, cache: BrushTextureCache, cpu: BrushMipCache,
-    inputs: readonly CanonicalMaskSourceInput[], companion: CanonicalMaskCompanionBudget) {
+    inputs: readonly (CanonicalMaskSourceInput|CanonicalMaskAssetSourceInput)[], companion: CanonicalMaskCompanionBudget) {
     this.gl = gl; this.cache = cache; this.cpu = cpu
     this.ownerProof=Object.freeze({gl,cache,cpu})
     if (!companion || !integer(companion.gpuBytes) || !integer(companion.cpuBytes)
       || !Array.isArray(inputs) || inputs.length < 1 || inputs.length > 256) throw new RangeError('Invalid canonical bank plan')
     this.companion = { ...companion }
     const jobs = new Map<string, CanonicalMaskSourceJob>()
-    for (const input of inputs) {
-      const policy = input.tip?.imageSampling, rect = policy?.sourceRect
-      if (typeof input.id !== 'string' || !input.id || input.tip.kind !== 'bitmap' || input.tip.material || !policy
-        || policy.kind !== 'integer-pyramid' || policy.signal !== 'inverse-gray'
-        || !rect || !integer(input.assetSide, 1) || input.assetSide > 4096
-        || !integer(rect.x) || !integer(rect.y) || !integer(rect.width, 1) || !integer(rect.height, 1)
-        || rect.x + rect.width > input.assetSide || rect.y + rect.height > input.assetSide
-        || typeof input.readOriginalCoverage !== 'function') throw new RangeError('Canonical source requires opaque grayscale provenance')
-      for (const originalResource of nativeImageBank(input.id, input.tip)) {
+    for (let i=0;i<inputs.length;i++) {
+      const field=Object.getOwnPropertyDescriptor(inputs,String(i))
+      if(!field||!Object.hasOwn(field,'value')||!field.value||typeof field.value!=='object')throw new TypeError('Invalid canonical source input')
+      const input:CanonicalMaskSourceInput|CanonicalMaskAssetSourceInput=field.value
+      let resources:readonly NativeImageResource[],assetSide:number,readOriginalCoverage:()=>Uint8Array
+      if('asset' in input){
+        const captured=captureAssetInput(input),asset=captured.asset
+        assetSide=asset.size;readOriginalCoverage=captured.readOriginalCoverage
+        resources=nativeImageBankFromRect(asset.id as TipMaskId,asset)
+      }else{
+        const policy = input.tip?.imageSampling, rect = policy?.sourceRect
+        if (typeof input.id !== 'string' || !input.id || input.tip.kind !== 'bitmap' || input.tip.material || !policy
+          || policy.kind !== 'integer-pyramid' || policy.signal !== 'inverse-gray'
+          || !rect || !integer(input.assetSide, 1) || input.assetSide > 4096
+          || !integer(rect.x) || !integer(rect.y) || !integer(rect.width, 1) || !integer(rect.height, 1)
+          || rect.x + rect.width > input.assetSide || rect.y + rect.height > input.assetSide
+          || typeof input.readOriginalCoverage !== 'function') throw new RangeError('Canonical source requires opaque grayscale provenance')
+        assetSide=input.assetSide;readOriginalCoverage=input.readOriginalCoverage
+        resources=nativeImageBank(input.id,input.tip)
+      }
+      for (const originalResource of resources) {
         const resource = Object.freeze({ ...originalResource, rect: Object.freeze({ ...originalResource.rect }), bounds: Object.freeze({ ...originalResource.bounds }) })
         const key = `canonical-mask:straight-gray-rgba8:${resource.key}`
         const job = Object.freeze({ key, resource, bytes: resource.width * resource.height * 4, transientCpuBytes: transientBytes(resource) })
-        if (!jobs.has(key)) { jobs.set(key, job); this.inputs.set(key,Object.freeze({assetSide:input.assetSide,readOriginalCoverage:input.readOriginalCoverage})) }
+        if (!jobs.has(key)) { jobs.set(key, job); this.inputs.set(key,Object.freeze({assetSide,readOriginalCoverage})) }
       }
     }
     this.jobs = Object.freeze([...jobs.values()])

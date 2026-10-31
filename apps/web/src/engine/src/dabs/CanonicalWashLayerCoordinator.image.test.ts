@@ -48,7 +48,7 @@ function original(second=false){
  const prepared=prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent:()=>current})
  return{read:prepared.canonicalRead,inputs:prepared.canonicalRead.preparedAtoms as readonly CanonicalRecordedInput[],stale:()=>{current=false}}
 }
-function physical(){
+function physical(dataInput=false){
  const {gl}=recordingGL();gl.texSubImage2D=vi.fn()
  gl.TEXTURE1=gl.TEXTURE0+1;gl.STATIC_DRAW=9001;gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME=9002
  gl.LINEAR=9010;gl.REPEAT=9011
@@ -65,7 +65,7 @@ function physical(){
  const derived=new TiledLayerBuffer(gl,32,32,undefined,undefined,undefined,'straight-rgba8')
  const bytes=new Uint8Array(inflateSync(Buffer.from(fixture.asset.deflateBase64,'base64'),{maxOutputLength:65536}))
  expect('asset:'+createHash('sha256').update(bytes).digest('hex')).toBe(asset.id)
- const bank=new CanonicalMaskSourceBank(gl,cache,cpu,[{id:asset.id as `asset:${string}`,tip:descriptor.tip,assetSide:asset.size,readOriginalCoverage:()=>bytes}],{gpuBytes:0,cpuBytes:0})
+ const bank=new CanonicalMaskSourceBank(gl,cache,cpu,dataInput?[{asset,readOriginalCoverage:()=>bytes}]:[{id:asset.id as `asset:${string}`,tip:descriptor.tip,assetSide:asset.size,readOriginalCoverage:()=>bytes}],{gpuBytes:0,cpuBytes:0})
  for(let i=0;i<bank.jobs.length;i++)expect(bank.prepareJob(i)).toBe('ready')
  const prepass=new TransformedMaskPrepass(gl,cache,cpu,'image-prepass');prepass.prepare({width:16,height:16,slots:1},bank.preparedResources())
  const composite=new CanonicalRgba8CompositePass(gl,cache,cpu,'image-composite');composite.prepare({width:32,height:32,operations:['alphaDarken32FusedScalar','over32FusedScalar']},[...prepass.preparedResources(),...bank.preparedResources()])
@@ -74,8 +74,8 @@ function physical(){
  const owners={gl,cache,cpu}
  return{gl,cache,cpu,bank,prepass,composite,source,coordinator,owners,close(){coordinator.cancel();scratch.destroy();layer.destroy();derived.destroy();prepass.reset();composite.reset();bank.reset();cache.clear()}}
 }
-it('consumes actual Basic6 V2 source frames through original room read and the same prepared image bank',()=>{
- const p=original(),s=physical(),cold=vi.spyOn(s.bank,'assertSourceBinding')
+it.each([false,true])('consumes actual Basic6 V2 source frames through original room read and the same prepared image bank (asset input:%s)',dataInput=>{
+ const p=original(),s=physical(dataInput),cold=vi.spyOn(s.bank,'assertSourceBinding')
  try{for(const input of p.inputs){s.coordinator.enqueueRecorded(input);let turns=0;while(s.coordinator.pending&&turns++<10000)s.coordinator.advance();expect(turns).toBeLessThan(10000)}expect(s.coordinator.checkpointReady).toBe(true);expect(s.source).toHaveBeenCalledOnce();expect(s.source.mock.calls[0][1]).toBe(p.inputs[0]);expect(cold).toHaveBeenCalledOnce()}finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
 })
 it('checks exact original bank context and reset generation without a repeated cold resource scan',()=>{

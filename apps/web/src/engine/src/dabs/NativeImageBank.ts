@@ -23,7 +23,16 @@ export function nativeImageBank(id: TipMaskId, tip: BrushTip): readonly NativeIm
   if (!byFrame) { byFrame = new Map(); banks.set(tip, byFrame) }
   const cached = byFrame.get(id)
   if (cached) return cached
-  const rect = policy.sourceRect, longest = Math.max(rect.width, rect.height)
+  const result = nativeImageBankFromRect(id, policy.sourceRect)
+  byFrame.set(id, result)
+  return result
+}
+
+/** Finite data-only rectangle planner. No descriptor/source authority or cache. */
+export function nativeImageBankFromRect(id: TipMaskId, sourceRect: SourceRect): readonly NativeImageResource[] {
+  const rect = Object.freeze({x: sourceRect.x, y: sourceRect.y, width: sourceRect.width, height: sourceRect.height})
+  if (!Number.isSafeInteger(rect.x) || !Number.isSafeInteger(rect.y) || rect.x < 0 || rect.y < 0) throw new RangeError('Invalid native source rectangle')
+  const longest = Math.max(rect.width, rect.height)
   assertNativeImageSourceSize(rect)
   const result = sourcePngPyramid(rect.width, rect.height).levels.map((level): NativeImageResource => {
     const selected = { scale: level.scale, nativeWidth: level.width, nativeHeight: level.height }
@@ -37,7 +46,6 @@ export function nativeImageBank(id: TipMaskId, tip: BrushTip): readonly NativeIm
         y: (1 + (selected.nativeHeight - spanY) / 2) / height, width: spanX / width, height: spanY / height },
     }
   })
-  byFrame.set(id, result)
   return result
 }
 
