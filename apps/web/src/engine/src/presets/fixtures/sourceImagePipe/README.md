@@ -1,3 +1,7 @@
+---
+layer: engine-internals
+summary: исходные GIH-фикстуры
+---
 # Incremental GIH mechanism fixture
 
 `mountains.native.json` comes from original index92 `z)_Stamp_Mountains_Distant.kpp` and `mountains_distant.gih` in the retained Krita4 default bundle SHA4180f474052305e9de6eaac1d832c1ddeb0654142bcde2eb2460629cf23796d0. Original KPP/GIH SHA and four compressed CAS planes are recorded in JSON. Each of four 256×256 one-channel GBR payloads matches its CAS coverage plane byte-for-byte (262144 pixels total). This is native input provenance, not a new GUI/ARM bit-exact claim.
