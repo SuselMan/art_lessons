@@ -2528,6 +2528,9 @@ export class PencilEngine implements PencilEngineAPI {
       segmentLength: (dab, prev, radius) => this._markerSegmentLength(dab, prev, radius),
     })
 
+    let rollbackGL: (() => void) | undefined
+    let initializedPointer: PointerInput | undefined
+    try {
     if(typeof document!=='undefined' && typeof document.addEventListener==='function')document.addEventListener('visibilitychange',this._handleAuthorVisibility)
     this.canvas.addEventListener('webglcontextlost', this._handleContextLost)
     this.canvas.addEventListener('webglcontextrestored', this._handleContextRestored)
@@ -2561,10 +2564,10 @@ export class PencilEngine implements PencilEngineAPI {
     this._grainMode = options.grainMode
     this._charcoalGrainMode = options.charcoalGrainMode
 
-    this._initGL()
+    rollbackGL = this._initGL()
     // Placeholder now, the real bake once it has loaded — see PaperState.init.
     this._paper.init()
-    this._pointer = new PointerInput(canvas, this._diagLog)
+    this._pointer = initializedPointer = new PointerInput(canvas, this._diagLog)
     this._dabs    = new DabSystem()
 
     this._layers          = new Map()
@@ -2598,6 +2601,19 @@ export class PencilEngine implements PencilEngineAPI {
     }
 
     this._raf = requestAnimationFrame(() => this._display())
+    } catch (error) {
+      // The public destroy path requires a fully constructed engine. Retire
+      // only initialized local owners, with async paper callbacks deactivated.
+      this._destroyed = true
+      const attempt = (cleanup: () => void) => { try { cleanup() } catch { /* Preserve primary. */ } }
+      attempt(() => { if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') document.removeEventListener('visibilitychange', this._handleAuthorVisibility) })
+      attempt(() => canvas.removeEventListener('webglcontextlost', this._handleContextLost))
+      attempt(() => canvas.removeEventListener('webglcontextrestored', this._handleContextRestored))
+      attempt(() => initializedPointer?.destroy())
+      attempt(() => this._paper.destroy())
+      attempt(() => rollbackGL?.())
+      throw error
+    }
   }
 
   // ─── Layer API ───────────────────────────────────────────────────────────────
@@ -6001,25 +6017,54 @@ export class PencilEngine implements PencilEngineAPI {
     if (!this._snapshotIO.historyRepairPending(id)) this._checkpoints.unpinSnapshot(id)
   }
 
-  private _initGL(): void {
+  private _initGL(): () => void {
     const { gl, canvas } = this
+    // Local initialization transaction only. No persistent second owner and no
+    // shared-context reset; successful initialization keeps existing owners.
+    const owned: Array<() => void> = []
+    let retired = false
+    const rollback = () => {
+      if (retired) return
+      retired = true
+      for (let i = owned.length - 1; i >= 0; i--) {
+        try { owned[i]() } catch { /* Preserve the initialization failure and attempt every owner. */ }
+      }
+    }
+    const program = (vert: string, frag: string) => {
+      const value = createProgram(gl, vert, frag)
+      owned.push(() => {
+        if (gl.isContextLost()) return
+        try { if (gl.getParameter(gl.CURRENT_PROGRAM) === value) gl.useProgram(null) }
+        finally { gl.deleteProgram(value) }
+      })
+      return value
+    }
+    try {
 
     // (#494) The dab stamp programs, plain and instanced — see StampPainter.ts.
     // The ribbon passes draw through its plain one too (_dabProg).
+    owned.push(() => this._stamps.destroy())
     this._stamps.initGL()
+    owned.push(() => this._compositor.destroy())
     this._compositor.initProgram()
-    this._revealProg          = createProgram(gl, DISPLAY_VERT, WASH_REVEAL_FRAG)
+    this._revealProg          = program(DISPLAY_VERT, WASH_REVEAL_FRAG)
+    owned.push(() => this._watercolorPasses.destroy())
     this._watercolorPasses.initFieldPrograms()
 
-    this._screenBlitProg      = createProgram(gl, DISPLAY_VERT, SCREEN_BLIT_FRAG)
-    this._paperComposeProg    = createProgram(gl, DISPLAY_VERT, PAPER_COMPOSE_FRAG)
+    this._screenBlitProg      = program(DISPLAY_VERT, SCREEN_BLIT_FRAG)
+    this._paperComposeProg    = program(DISPLAY_VERT, PAPER_COMPOSE_FRAG)
     // (#494) Smudge's transfer and imprint-refresh programs — see SmudgePainter.ts.
+    owned.push(() => this._smudge.destroy())
     this._smudge.initGL()
     // (#494) The shape rasterizer — see ShapePass.ts.
+    owned.push(() => this._shapes.destroy())
     this._shapes.initGL()
     // (#494) Export's transparent and thumbnail-downscale passes — see Exporter.ts.
+    owned.push(() => this._exporter.destroy())
     this._exporter.initGL()
+    owned.push(() => this._brush.destroy())
     this._brush.initGL() // (#494) see BrushPainter.ts
+    owned.push(() => this._ribbonPasses.destroy())
     this._ribbonPasses.initProgram()
     this._watercolorPasses.initSettlePrograms()
 
@@ -6047,11 +6092,14 @@ export class PencilEngine implements PencilEngineAPI {
 
     this._ribbonPasses.initAttributes()
 
-    this._quadBuf    = createQuadBuffer(gl)
-    this._screenBuf  = createFullscreenQuad(gl)
+    const quad = this._quadBuf = createQuadBuffer(gl)
+    owned.push(() => { if (!gl.isContextLost()) gl.deleteBuffer(quad) })
+    const screen = this._screenBuf = createFullscreenQuad(gl)
+    owned.push(() => { if (!gl.isContextLost()) gl.deleteBuffer(screen) })
     // (#494) The resampling blits (transform, selection, image) — see
     // blitPasses.ts. Rebuilt with everything else here on a context restore.
-    this._passes = new BlitPasses(gl, this._screenBuf)
+    const passes = this._passes = new BlitPasses(gl, this._screenBuf)
+    owned.push(() => passes.destroy())
     this._ribbonPasses.initBuffer()
 
     // (#536, s17.28) MAX blending for the watercolor film. Without it (rare -
@@ -6059,15 +6107,21 @@ export class PencilEngine implements PencilEngineAPI {
     // to the additive sum of stamps.
     this._minmaxExt = gl.getExtension('EXT_blend_minmax') as { MAX_EXT: number } | null
 
-    this._compositeFBO = new AccumulationBuffer(gl, canvas.width, canvas.height)
+    const compositeFBO = this._compositeFBO = new AccumulationBuffer(gl, canvas.width, canvas.height)
+    owned.push(() => compositeFBO.destroy())
     // Fresh (or, on context restore, brand-new-and-empty) GL objects — any
     // previously baked content is gone either way, so the split cache must
     // be rebuilt before its next read regardless of why _initGL() ran.
     const { w: ew, h: eh } = this._camera.renderBufferExtent()
-    this._belowCache = new AccumulationBuffer(gl, ew, eh)
-    this._aboveCache = new AccumulationBuffer(gl, ew, eh)
-    this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
+    const belowCache = this._belowCache = new AccumulationBuffer(gl, ew, eh)
+    owned.push(() => belowCache.destroy())
+    const aboveCache = this._aboveCache = new AccumulationBuffer(gl, ew, eh)
+    owned.push(() => aboveCache.destroy())
+    const assemblyFBO = this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
+    owned.push(() => assemblyFBO.destroy())
     this._compositor.invalidateSplitCache()
+    return rollback
+    } catch (error) { rollback(); throw error }
   }
 
   /** (#494) See PaperState.clampToSheet. Kept by this name for the ribbon
