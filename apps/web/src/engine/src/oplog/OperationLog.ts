@@ -1,3 +1,4 @@
+import type {CanonicalRecordedInput} from './CanonicalRecordedDelivery'
 // Append-only operation log — the source of truth for canvas content (ADR 002).
 // Undo/redo never rewrites history: entries flip between three states and
 // replay simply skips everything that is not `done`.
@@ -43,6 +44,8 @@ export interface LogEntry {
   /** Read authority stays with this history entry, outside operation JSON.
    * Captured delivery lifetime must still be current at rendering time. */
   canonicalRead?: CanonicalLogRead
+  /** Exact local delivery resource; nonenumerable, never operation JSON. */
+  readonly canonicalInput?:CanonicalRecordedInput
 }
 
 /** (#537) Where `append` puts an operation. */
@@ -52,7 +55,24 @@ export type Placement =
   | { pending: true }
   /** An operation the server has already ordered: goes into the confirmed
    *  region at its seq, below every pending entry. */
-  | { pending?: false; serverSeq?: number; canonicalRead?: CanonicalLogRead }
+  | { pending?: false; serverSeq?: number; canonicalRead?: CanonicalLogRead;canonicalInput?:CanonicalRecordedInput }
+
+/** Capture once, before any spread could invoke an authority accessor. */
+function canonicalInputOf(holder:object):CanonicalRecordedInput|undefined {
+  const descriptor=Object.getOwnPropertyDescriptor(holder,'canonicalInput')
+  if(!descriptor){if('canonicalInput' in holder)throw new TypeError('Inherited canonical delivery resource');return undefined}
+  if(!Object.hasOwn(descriptor,'value'))throw new TypeError('Canonical delivery accessor is unsupported')
+  return descriptor.value
+}
+function retainCanonicalInput(entry:LogEntry,input:CanonicalRecordedInput|undefined):LogEntry {
+  if(input)Object.defineProperty(entry,'canonicalInput',{value:input,enumerable:false,writable:false,configurable:false})
+  return entry
+}
+function copyLogEntry(entry:LogEntry,patch:Partial<LogEntry>={},input=canonicalInputOf(entry)):LogEntry {
+  // Copy known journal fields, never re-read/spread a caller-owned proof.
+  const {op,state,pending,serverSeq,canonicalRead}=entry
+  return retainCanonicalInput({op,state,...pending===undefined?{}:{pending},...serverSeq===undefined?{}:{serverSeq},...canonicalRead===undefined?{}:{canonicalRead},...patch},input)
+}
 
 /** Operations that change a layer's pixel buffer (as opposed to structure). */
 export type PixelOperation = StrokeOperation | CanonicalStrokeOperation | LayerClearOperation | LayerMergeOperation
@@ -219,6 +239,54 @@ export class OperationLog {
     return Object.freeze({ ...prepared, capability: previous.capability })
   }
 
+  /** Validate under the original local owner, never a scope reconstructed
+   * from retained read metadata. Local journal seq is replaced only for the
+   * SAME shared bounded projection comparison. */
+  private _prepareCanonicalInput(op:Operation,serverSeq:number|undefined,input:CanonicalRecordedInput|undefined,retained?:CanonicalRecordedInput,basis:readonly LogEntry[]=this._entries):CanonicalRecordedInput|undefined {
+    if(!input)return undefined
+    const validate=(candidate:CanonicalRecordedInput)=>{
+      candidate.delivery.assertCurrent(candidate)
+      const lifetime=candidate.delivery.lifetime,scope=lifetime.assertCurrent(),original=candidate.operation
+      if(original.seq!==serverSeq||original.id!==op.id||original.type!==op.type)throw new TypeError('Canonical delivery placement changed')
+      if(original.type==='canonical_stroke'){
+        const read=candidate.read
+        if(!read||read.operationId!==original.id||read.sequence!==serverSeq)throw new TypeError('Canonical delivery read missing')
+        const normalize=(operation:Operation)=>prepareCanonicalRecordedAttachment({version:1,roomId:read.roomId,boardEpoch:read.boardEpoch,
+          capabilities:[read.capability],bindings:[{operationId:original.id,sequence:serverSeq!,originalUserId:original.userId,capability:0}]},[{...operation,seq:serverSeq}],scope)[0]
+        const normalized=normalize(original)
+        if(read.rasterProfile!==normalized.read!.rasterProfile||JSON.stringify(normalized.operation)!==JSON.stringify(normalize(op).operation))throw new TypeError('Canonical delivery body changed')
+      }else if(original.type==='canonical_stroke_close'){
+        if(candidate.read||JSON.stringify(parseCanonicalStrokeCloseOperation(original))!==JSON.stringify(captureCloseForPlacement(op,serverSeq)))throw new TypeError('Canonical close delivery changed')
+      }else throw new TypeError('Unsupported canonical delivery operation')
+      candidate.delivery.assertCurrent(candidate)
+      if(lifetime.assertCurrent()!==scope)throw new TypeError('Canonical delivery scope replaced')
+      return {lifetime,scope}
+    }
+    const origin=validate(input)
+    const identity=(operation:Operation)=>operation.type==='canonical_stroke'?[operation.userId,operation.frame.strokeId]:operation.type==='canonical_stroke_close'?[operation.targetUserId,operation.strokeId]:undefined
+    const target=identity(input.operation)!
+    for(const entry of basis){
+      const previous=canonicalInputOf(entry)
+      if(!previous)continue
+      const key=identity(previous.operation)
+      if(!key||key[0]!==target[0]||key[1]!==target[1])continue
+      previous.delivery.assertCurrent(previous)
+      if(previous.delivery.lifetime!==origin.lifetime||previous.delivery.lifetime.assertCurrent()!==origin.scope)throw new TypeError('Canonical gesture lifetime refresh requires authoritative rebuild')
+    }
+    if(retained){
+      const previous=validate(retained)
+      if(origin.lifetime!==previous.lifetime||origin.scope!==previous.scope)throw new TypeError('Canonical delivery lifetime refresh requires authoritative rebuild')
+      return retained
+    }
+    return input
+  }
+
+  private _prepareCanonicalReadAndInput(op:Operation,serverSeq:number|undefined,read:CanonicalLogRead|undefined,input:CanonicalRecordedInput|undefined,basis:readonly LogEntry[]=this._entries):CanonicalLogRead|undefined {
+    const prepared=this._prepareCanonicalRead(op,serverSeq,read??input?.read,basis)
+    if(input?.read&&read&&JSON.stringify(prepared)!==JSON.stringify(this._prepareCanonicalRead(op,serverSeq,input.read,basis)))throw new TypeError('Canonical input and read disagree')
+    return prepared
+  }
+
   /** Appends a new operation. The author's `undone` entries become `gone`:
    *  a linear log cannot express history branching, so a new action makes the
    *  undone branch unreachable and redo past it impossible.
@@ -235,13 +303,17 @@ export class OperationLog {
    *  already applied — empty in the common case, where `op` lands on the end
    *  of its region with nothing painted above it. See the class doc comment. */
   append(op: Operation, placement: Placement = {}): LogEntry[] {
+    const originalInput=canonicalInputOf(placement)
+    if(placement.pending&&('canonicalInput' in placement||'canonicalRead' in placement))throw new TypeError('Pending history cannot carry recorded authority')
+    if(originalInput&&originalInput.operation!==op)throw new TypeError('Canonical append requires original operation pointer')
+    const canonicalInput=this._prepareCanonicalInput(op,placement.pending?undefined:placement.serverSeq,originalInput)
     if (op.type === 'canonical_stroke_close') {
       if (placement.pending) throw new TypeError('Canonical close requires recorded placement')
       op = captureCloseForPlacement(op,placement.serverSeq)
     }
     if (placement.pending && 'canonicalRead' in placement) throw new TypeError('Pending history cannot carry recorded read authority')
-    const canonicalRead = this._prepareCanonicalRead(op, placement.pending ? undefined : placement.serverSeq,
-      placement.pending ? undefined : placement.canonicalRead)
+    const canonicalRead = this._prepareCanonicalReadAndInput(op, placement.pending ? undefined : placement.serverSeq,
+      placement.pending ? undefined : placement.canonicalRead,canonicalInput)
     this._revision++
     if (!META_OP_TYPES.has(op.type)) {
       for (const e of this._entries) {
@@ -270,7 +342,7 @@ export class OperationLog {
       if (placement.serverSeq !== undefined) prev.serverSeq = placement.serverSeq
       return this._entries.slice(at)
     }
-    const entry: LogEntry = { op: { ...op, seq: at }, state: 'done' }
+    const entry: LogEntry = retainCanonicalInput({ op: { ...op, seq: at }, state: 'done' },canonicalInput)
     if (canonicalRead) entry.canonicalRead = canonicalRead
     if (placement.serverSeq !== undefined) entry.serverSeq = placement.serverSeq
     this._entries.splice(at, 0, entry)
@@ -287,18 +359,21 @@ export class OperationLog {
    *  below, or null when there is nothing to confirm — an id that was never
    *  pending here, was already confirmed (the ack and the broadcast both
    *  report it), or was coalesced into a later entry. */
-  confirm(opId: string, serverSeq: number, read?: CanonicalLogRead): { op: Operation; overtaken: LogEntry[] } | null {
-    const existing = read ? this._entries.find(e => e.op.id === opId) : undefined
-    if (read && !existing) throw new TypeError('Canonical read requires an existing history entry')
+  confirm(opId: string, serverSeq: number, read?: CanonicalLogRead, input?:CanonicalRecordedInput): { op: Operation; overtaken: LogEntry[] } | null {
+    const existing = read||input ? this._entries.find(e => e.op.id === opId) : undefined
+    if ((read||input) && !existing) throw new TypeError('Canonical read requires an existing history entry')
     if (existing && !existing.pending && existing.serverSeq !== serverSeq)
       throw new TypeError('Canonical confirmation sequence changed')
-    const canonicalRead = existing ? this._prepareCanonicalRead(existing.op, serverSeq, read) : undefined
+    const retainedInput=existing?canonicalInputOf(existing):undefined
+    const canonicalInput=existing?this._prepareCanonicalInput(existing.op,serverSeq,input,retainedInput):undefined
+    const canonicalRead = existing ? this._prepareCanonicalReadAndInput(existing.op, serverSeq, read,canonicalInput) : undefined
     this._revision++
     let from = -1
     for (let i = this._confirmedCount; i < this._entries.length; i++) {
       if (this._entries[i].op.id === opId) { from = i; break }
     }
     if (from === -1) {
+      if(canonicalInput&&existing&&!retainedInput)retainCanonicalInput(existing,canonicalInput)
       if (canonicalRead && existing) {
         existing.canonicalRead = canonicalRead
       }
@@ -307,6 +382,7 @@ export class OperationLog {
     const [entry] = this._entries.splice(from, 1)
     const at = this._confirmedSlot(serverSeq)
     this._entries.splice(at, 0, entry)
+    if(canonicalInput&&!retainedInput)retainCanonicalInput(entry,canonicalInput)
     entry.pending = false
     entry.serverSeq = serverSeq
     if (canonicalRead) entry.canonicalRead = canonicalRead
@@ -538,27 +614,35 @@ export class OperationLog {
    *  fine for a background, few-times-per-session operation. */
   prependHistorical(entries: readonly LogEntry[]): void {
     // Capture close metadata before splice; local op.seq is an array ordinal.
-    entries = entries.map(entry => entry.op.type === 'canonical_stroke_close'
-      ? {...entry,op:captureCloseForPlacement(entry.op,entry.serverSeq)}:entry)
+    let inputBasis:LogEntry[]|undefined
+    entries = entries.map(entry => {
+      const input=canonicalInputOf(entry)
+      if(input)inputBasis??=[...this._entries]
+      if(entry.pending&&input)throw new TypeError('Pending history cannot carry recorded authority')
+      this._prepareCanonicalInput(entry.op,entry.serverSeq,input,undefined,inputBasis??this._entries)
+      const copy=copyLogEntry(entry,entry.op.type==='canonical_stroke_close'?{op:captureCloseForPlacement(entry.op,entry.serverSeq)}:{},input)
+      inputBasis?.push(copy)
+      return copy
+    })
     let prepared: readonly LogEntry[] = entries
-    if (entries.some(entry => entry.canonicalRead)) {
+    if (entries.some(entry => entry.canonicalRead||canonicalInputOf(entry)?.read)) {
       const basis: LogEntry[] = [...this._entries]
       prepared = entries.map(entry => {
-        const read = this._prepareCanonicalRead(entry.op, entry.serverSeq, entry.canonicalRead, basis)
-        const copy = { ...entry, ...(read ? { canonicalRead: read } : {}) }
+        const read = this._prepareCanonicalReadAndInput(entry.op, entry.serverSeq, entry.canonicalRead,canonicalInputOf(entry), basis)
+        const copy = copyLogEntry(entry,read?{canonicalRead:read}:{})
         basis.push(copy)
         return copy
       })
     }
     this._revision++
-    const incoming = [...prepared.map(entry => ({ ...entry, pending: false })), ...this._entries]
+    const incoming = [...prepared.map(entry => copyLogEntry(entry,{pending:false})), ...this._entries]
     // A repair may fill a hole inside the known snapshot prefix, rather than
     // merely prepend an older page. Original server order is authoritative;
     // legacy seq-less callers keep their established prepend contract.
     if (incoming.every(e => e.pending || e.serverSeq !== undefined)) {
       incoming.sort((a, b) => a.pending ? (b.pending ? 0 : 1) : b.pending ? -1 : a.serverSeq! - b.serverSeq!)
     }
-    const merged = incoming.map((e, i) => ({ ...e, op: { ...e.op, seq: i } }))
+    const merged = incoming.map((e, i) => copyLogEntry(e,{op:{...e.op,seq:i}}))
     this._entries = merged
     this._nextSeq = merged.length
     this._confirmedCount += entries.length
