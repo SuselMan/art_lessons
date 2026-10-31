@@ -85,3 +85,42 @@ The previous117 run's ready-image capacity regression and unhandled fixture
 teardown promises remain recorded; final118 run has no unhandled errors.
 Combined app/maps are ROOT's separately coordinated gate; no physical-device
 claim is made by this local verification.
+
+2026-11-01 G2 idle workspace growth (UI still OFF): the SAME prepared prepass
+now stages a larger capacity without resetting old targets, shader, bank or
+compiled author. Existing compositor programs remain warm; old/new workspace
+coexistence and complete original source-bank union stay within the unchanged
+16MiB brush GPU cap and shared CPU budget. Full bank readers remain physical/
+room-owner bound, never selected-program bound. No source/pin/wire normalization,
+new renderer, queue, bank owner or server policy is introduced.
+
+Both auto and image growth publish through the existing BrushPreparation
+creator finalizer AFTER all external progress callbacks. Final original-owner,
+selection/generation and whole-workspace-idle checks precede the pure bank/mask/
+companion publication. The final layer lease is acquired while staging leases
+still protect the full union; old leases/resources retire only afterward.
+Postpublication cleanup failure preserves the coherent adopted union and does
+not roll back to old workspace maps. Cancel/upload/current failures before
+publication keep previous capacity, bank, program and pixels intact.
+
+The first G2 auto draft published in its work job; a new actual onProgress-abort
+test failed because cancelled preparation changed the old epoch. Moving ONLY
+its bounded staged publication to the existing creator finalizer makes that
+witness pass. This is not an ACK/end waiter. A genuine incoming peer packet
+can continue using the old epoch during growth and cancel the candidate at the
+final idle boundary; its original input/journal placement remains untouched.
+Logical open/group/coordinator growth remains explicitly busy/unsupported.
+
+HOST regressions include actual cold original Basic6(163frames) and Graphite
+(67 chosen original mechanism frames) → native default40 without program
+compilation; Basic2 warm41 → Mountains360 plus actual nonempty local frames
+and original promotion; source upload/abort rollback; original peer entering
+during staging; cleanup throwing after grown bank publication followed by
+healthy retry. Native source/crop/frames, material bytes and original sequence
+identities are unchanged. Recording GL establishes ownership/ordering, not pixel
+identity or performance. ROOT alone owns subsequent real GPU/public API proof;
+no device/runtime was started here. UI image selection stays disabled.
+Final G2 HOST gate:94 tests/4 suites PASS (author/image preparation + context
+recovery + cancellation), one worker. Targeted actual-app-options TSC PASS;
+scoped oxlint0 errors (existing index warnings), owned diff check PASS. Whole-app
+and real-GPU results are not asserted by this HOST unit.

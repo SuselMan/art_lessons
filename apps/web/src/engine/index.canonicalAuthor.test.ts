@@ -330,7 +330,7 @@ it('grows the SAME warm workspace from actual Basic2 to Basic5 after a durable c
   expect(await engine.prepareBrush(newPreset)).toEqual({status:'ready'})
   expect(engine['_canonicalLayerOwner']).toBe(owner);expect(owner.prepass).toBe(prepass);expect(owner.composite).toBe(composite);expect(owner.stable).toBe(stable)
   expect(owner.mask.width).toBeGreaterThan(oldWidth);expect(owner.prepass.preparedCapacity().epoch).not.toBe(epoch);expect(composite.preparedResources()).toEqual(resources)
-  expect(compile).toHaveBeenCalledTimes(1) // Only the small transformed-mask program; composite stays warm.
+  expect(compile).not.toHaveBeenCalled() // Both prepass and composite shaders stay warm.
   expect(engine['_log'].entries).toBe(journal);expect(engine['_log'].revision).toBe(revision);expect(engine['_canonicalExportReady']()).toBe(true)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
@@ -351,14 +351,14 @@ it('rejects growth while a real unconfirmed local wash is retained, preserving i
   expect(await engine.prepareBrush(next.preset)).toEqual({status:'ready'});expect(engine['_canonicalLayerOwner']).toBe(owner)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
-it('keeps stable and composite alive after growth allocation failure, clears readiness and permits one explicit retry',async()=>{
+it('keeps the complete previous workspace and author ready after growth allocation failure and permits retry',async()=>{
  const {engine}=await harness(async request=>verdict(request))
  try{
   await engine.prepareBrush(preset);const owner=engine['_canonicalLayerOwner'];if(!owner)throw Error('Owner missing')
   const stable=owner.stable,journal=engine['_log'].entries,composite=owner.composite.preparedResources(),error=new Error('growth allocation'),next=actualBasic5(),allocate=vi.spyOn(engine['gl'],'createTexture').mockImplementationOnce(()=>{throw error})
   engine.setPencil(next.preset);engine.setSize(next.diameter)
   await expect(engine.prepareBrush(next.preset)).rejects.toBe(error)
-  expect(engine['_canonicalLayerOwner']).toBe(owner);expect(owner.stable).toBe(stable);expect(engine['_log'].entries).toBe(journal);expect(owner.prepared).toBe(false);expect(engine['_canonicalPreparedAuthor']).toBeUndefined();expect(owner.prepass.isReady()).toBe(false);expect(owner.composite.preparedResources()).toEqual(composite)
+  expect(engine['_canonicalLayerOwner']).toBe(owner);expect(owner.stable).toBe(stable);expect(engine['_log'].entries).toBe(journal);expect(owner.prepared).toBe(true);expect(engine['_canonicalPreparedAuthor']).toBeDefined();expect(owner.prepass.isReady()).toBe(true);expect(owner.composite.preparedResources()).toEqual(composite)
   expect(await engine.prepareBrush(next.preset)).toEqual({status:'ready'});expect(allocate).toHaveBeenCalled();expect(owner.composite.preparedResources()).toEqual(composite)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
@@ -367,11 +367,11 @@ it('does not publish ready when the original lifetime expires after actual large
  const {engine}=await harness(async request=>verdict(request),descriptor,()=>current)
  try{
   await engine.prepareBrush(preset);const owner=engine['_canonicalLayerOwner'];if(!owner)throw Error('Owner missing')
-  const prepare=owner.prepass.prepare.bind(owner.prepass),composite=owner.composite.preparedResources(),next=actualBasic5()
-  vi.spyOn(owner.prepass,'prepare').mockImplementationOnce((...args)=>{const result=prepare(...args);current=false;return result})
+  const prepare=owner.prepass.prepareCapacityUpdate.bind(owner.prepass),composite=owner.composite.preparedResources(),next=actualBasic5()
+  vi.spyOn(owner.prepass,'prepareCapacityUpdate').mockImplementationOnce((...args)=>{const result=prepare(...args);current=false;return result})
   engine.setPencil(next.preset);engine.setSize(next.diameter)
   await expect(engine.prepareBrush(next.preset)).rejects.toThrow()
-  expect(owner.prepared).toBe(false);expect(engine['_canonicalPreparedAuthor']).toBeUndefined();expect(owner.prepass.isReady()).toBe(false);expect(owner.composite.preparedResources()).toEqual(composite)
+  expect(owner.prepared).toBe(true);expect(engine['_canonicalPreparedAuthor']).toBeDefined();expect(owner.prepass.isReady()).toBe(true);expect(owner.composite.preparedResources()).toEqual(composite)
   current=true;expect(await engine.prepareBrush(next.preset)).toEqual({status:'ready'})
  }finally{current=true;engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
@@ -383,10 +383,10 @@ it('requires the same idle boundary on explicit retry after a failed growth, bef
   const next=actualBasic5(),error=new Error('first allocation'),composite=owner.composite.preparedResources(),journal=engine['_log'].entries
   vi.spyOn(engine['gl'],'createTexture').mockImplementationOnce(()=>{throw error})
   engine.setPencil(next.preset);engine.setSize(next.diameter);await expect(engine.prepareBrush(next.preset)).rejects.toBe(error)
-  expect(owner.prepared).toBe(false)
+  expect(owner.prepared).toBe(true)
   // Actual existing admission seam creates the same coordinator/derived owner;
-  // a retry cannot assume prepared=false means that these owners are absent.
-  expect(()=>engine['_ensureCanonicalLayerCoordinator'](owner)).toThrow('Prepass is not prepared')
+  // a retry cannot assume the preserved ready workspace has no active cycle.
+  expect(engine['_ensureCanonicalLayerCoordinator'](owner)).toBe(owner.coordinator)
   const derived=owner.derived,reset=vi.spyOn(owner.prepass,'reset');expect(derived).toBeDefined()
   await expect(engine.prepareBrush(next.preset)).rejects.toThrow('workspace busy')
   expect(reset).not.toHaveBeenCalled();expect(owner.derived).toBe(derived);expect(owner.composite.preparedResources()).toEqual(composite);expect(engine['_log'].entries).toBe(journal)
@@ -514,6 +514,7 @@ for(const [name,fixture,nativeSize]of [['Basic6',basic6Image,7.5],['Mountains',m
  const begin=vi.fn(async(request:CanonicalStrokeBegin):Promise<CanonicalStrokeBeginResult>=>({ok:true,recordedNext:0,liveNext:0,ended:false,snapshot:{layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,pigmentRgb8:request.pigmentRgb8,boardEpoch:2,descriptorSha256:digest,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,composition:{...canonicalSourceComposition(selected)!,alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity},assets:binding.assets,materialVersion:2,material:{version:2,...binding,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}}}}))
  const h=await harness(begin,selected,()=>true,{width:512,height:512}),{engine,operations}=h,repair=vi.fn();engine['_onCanonicalRecoveryRequired']=repair
  try{
+  if(name==='Mountains'){const available:unknown={schemaVersion:1,brushes:[{descriptor,name:'Basic2',source:'native',warnings:[]},{descriptor:selected,name,source:'native',warnings:[]}],assets:metadata,skipped:[]};if(!isBrushLibrary(available))throw Error('Invalid original union library');installBrushLibrary(available);engine.setPencil(preset);engine.setSize(40);await expect(engine.prepareBrush(preset)).resolves.toEqual({status:'ready'});engine.setPencil(selectedPreset)}
   engine.setSize(nativeSize);await expect(engine.prepareBrush(selectedPreset)).resolves.toEqual({status:'ready'})
   const bank=engine['_canonicalLayerOwner']!.bank!;expect(bank.jobs).toHaveLength(assets.length*(name==='Basic6'?10:11))
   const uploads=vi.spyOn(engine['gl'],'texImage2D'),programs=vi.spyOn(engine['gl'],'createProgram');await expect(engine.prepareBrush(selectedPreset)).resolves.toEqual({status:'ready'});expect(uploads).not.toHaveBeenCalled();expect(programs).not.toHaveBeenCalled()
@@ -550,3 +551,7 @@ it.each(['outerAssets','crop','frames']as const)('rejects image BEGIN %s mismatc
   expect(engine['_authorInputError']).toBeDefined();expect(operations).toHaveLength(0);expect(engine['_log'].entries).toHaveLength(0);expect(engine['_brushMipCache'].reservedBytes).toBe(before);expect(source).not.toHaveBeenCalled()
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
+it('cancels auto growth after work progress without publishing a new workspace or retiring the old author',async()=>{
+ const {engine}=await harness(async request=>verdict(request)),controller=new AbortController()
+ try{await engine.prepareBrush(preset);const owner=engine['_canonicalLayerOwner']!,epoch=owner.prepass.preparedCapacity().epoch,author=engine['_canonicalPreparedAuthor'],next=actualBasic5();engine.setPencil(next.preset);engine.setSize(next.diameter);await expect(engine.prepareBrush(next.preset,{signal:controller.signal,onProgress:n=>{if(n===1)controller.abort()}})).resolves.toEqual({status:'cancelled'});expect(owner.prepass.preparedCapacity().epoch).toBe(epoch);expect(engine['_canonicalPreparedAuthor']).toBe(author);expect(owner.prepared).toBe(true);expect(await engine.prepareBrush(next.preset)).toEqual({status:'ready'})}finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})

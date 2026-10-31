@@ -6,7 +6,7 @@ import {attachCanonicalRecordedDelivery} from '../pages/Room/net/canonicalRecord
 import {afterEach,beforeEach,expect,it,vi} from 'vitest'
 import {inflateSync} from 'node:zlib'
 import {createHash} from 'node:crypto'
-import {canonicalImageSourceBinding,isBrushLibrary,canonicalBrushDescriptorJSON,CANONICAL_STROKE_RASTER_PROFILE,type BrushDescriptor,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type ServerToClientEvents} from '@grafetto/shared'
+import {canonicalImageSourceBinding,canonicalImagePipeSourceBinding,isBrushLibrary,canonicalBrushDescriptorJSON,CANONICAL_STROKE_RASTER_PROFILE,type BrushDescriptor,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type ServerToClientEvents} from '@grafetto/shared'
 import stock from '../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
 import mountainsAuthor from './src/presets/fixtures/sourceImagePipe/mountains.native.json'
 import graphiteAuthor from './src/presets/fixtures/sourceImagePipe/pencilRandom.native.json'
@@ -23,21 +23,23 @@ import {createOrderedBrushGate} from '../pages/Room/net/orderedBrushGate'
 const descriptor=fixture.descriptor as unknown as BrushDescriptor
 const binding=canonicalImageSourceBinding(descriptor,fixture.asset)
 const asset=binding.assets[0]
-function sourceTrace(){
- const compiled=sourceStrokeAuthorDescriptor(descriptor,{asset:fixture.asset,colorIdentity:'native-GUI-black',lodScale:1,inputProfile:'krita-freehand-no-smoothing-v1'})
+function sourceTrace(pipe?:typeof graphiteAuthor){
+ const selected=pipe?pipe.descriptor as unknown as BrushDescriptor:descriptor,pin=pipe?canonicalImagePipeSourceBinding(selected,pipe.assets):binding
+ const compiled=sourceStrokeAuthorDescriptor(selected,{...(pipe?{assets:pipe.assets}:{asset:fixture.asset}),colorIdentity:'native-GUI-black',lodScale:1,inputProfile:'krita-freehand-no-smoothing-v1'})
  if(!compiled.supported)throw Error(compiled.reasons.join(','))
  const program=compiled.program,author=new SourceStrokeAuthor(program)
- let state=author.createState(4321,7654,.3)
- const material:SourceStrokeMaterialContextV2={version:2,...binding,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}}
- const snapshot:CanonicalStrokeSnapshotV2={layerId:'layer-1',brush:`brush:${descriptor.id}@${descriptor.version}`,strokeId:'original-basic6',boardEpoch:1,descriptorSha256:createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex'),rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,pigmentRgb8:[0,0,0],composition:{mode:'wash',alphaDarken:'creamy',outerResourceOpacity:1,outerBlend:'over'},assets:material.assets,materialVersion:2,material}
+ let state=pipe?author.createState(1,2,0):author.createState(4321,7654,.3)
+ const material:SourceStrokeMaterialContextV2={version:2,...pin,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}}
+ const snapshot:CanonicalStrokeSnapshotV2={layerId:'layer-1',brush:`brush:${selected.id}@${selected.version}`,strokeId:'original-basic6',boardEpoch:1,descriptorSha256:createHash('sha256').update(canonicalBrushDescriptorJSON(selected)).digest('hex'),rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,pigmentRgb8:[0,0,0],composition:{mode:'wash',alphaDarken:'creamy',outerResourceOpacity:1,outerBlend:'over'},assets:material.assets,materialVersion:2,material}
  const adapter=new SourceStrokeMaterialAdapter(program,material,state),encoder=new SourceCanonicalFrameEncoder({...snapshot,material})
  const operations:CanonicalStrokeOperation[]=[];let draws=0
  const accept=(chunks:ReturnType<typeof adapter.finish>)=>{for(const chunk of chunks){const accepted=encoder.encode(chunk.packed);draws+=accepted.frame.draws.length;operations.push({id:'image-'+operations.length,userId:'author',timestamp:0,seq:operations.length+1,type:'canonical_stroke',layerId:'layer-1',frame:accepted.envelope})}}
  const consume=(iterator:Generator<SourceStrokeAuthorStep,SourceStrokeAuthorState>)=>{while(true){const step=iterator.next();if(step.done){state=step.value;return}accept(adapter.accept(step.value));const cut=adapter.flush();if(cut)accept([cut])}}
  const f32=(bits:number)=>new Float32Array(new Uint32Array([bits]).buffer)[0],m=fixture.mapping
- for(const [xb,yb,t,pb] of fixture.packets.slice(0,-1)){accept(adapter.beginInput(state));consume(author.plan(state,{x:m.a*f32(xb)+m.c*f32(yb)+m.tx,y:m.b*f32(xb)+m.d*f32(yb)+m.ty,t,pressure:f32(pb),tiltX:0,tiltY:0,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false}))}
+ if(pipe){for(const input of [{x:40,y:80,t:0},{x:240,y:80,t:1000}]){accept(adapter.beginInput(state));consume(author.plan(state,{...input,pressure:1,tiltX:0,tiltY:0,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false}))}}
+ else for(const [xb,yb,t,pb] of fixture.packets.slice(0,-1)){accept(adapter.beginInput(state));consume(author.plan(state,{x:m.a*f32(xb)+m.c*f32(yb)+m.tx,y:m.b*f32(xb)+m.d*f32(yb)+m.ty,t,pressure:f32(pb),tiltX:0,tiltY:0,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false}))}
  accept(adapter.beginInput(state));consume(author.finish(state));accept(adapter.finish(state))
- expect(operations).toHaveLength(fixture.frames);expect(draws).toBe(fixture.draws)
+ expect(operations).toHaveLength(pipe?67:fixture.frames);if(!pipe)expect(draws).toBe(fixture.draws);else expect(draws).toBeGreaterThan(0)
  return {operations,snapshot}
 }
 const trace=sourceTrace()
@@ -45,8 +47,8 @@ const trace=sourceTrace()
 const bytes=new Uint8Array(inflateSync(Buffer.from(fixture.asset.deflateBase64,'base64'),{maxOutputLength:65536}))
 beforeEach(()=>{expect('asset:'+createHash('sha256').update(bytes).digest('hex')).toBe(asset.id);installBrushPixels(asset.id,bytes)})
 afterEach(()=>{vi.restoreAllMocks();clearImportedBrushPixels()})
-function original(isCurrent=()=>true,open=false,emptyLane=false){
- const tail=open?trace.operations.slice(0,-1):trace.operations
+function original(isCurrent=()=>true,open=false,emptyLane=false,traceInput=trace){
+ const trace=traceInput,tail=open?trace.operations.slice(0,-1):trace.operations
  const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:512,canvasHeight:512,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:tail,participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:1},canonicalHistoryBase:{kind:open&&!emptyLane?'full-room-prefix-v2':'empty-room-prefix-v1',roomId:'room',boardEpoch:1,throughSeq:tail.length,operationCount:tail.length},canonicalCapabilities:{version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot:trace.snapshot}],bindings:tail.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}))}}
  return {...prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent}),wire:state}
 }
@@ -366,14 +368,19 @@ function installPipeAuthor(data:typeof mountainsAuthor|typeof graphiteAuthor){
  for(const a of data.assets)installBrushPixels(a.id,new Uint8Array(inflateSync(Buffer.from(a.deflateBase64,'base64'),{maxOutputLength:a.size*a.size})))
  return `brush:${library.brushes[0].descriptor.id}@${library.brushes[0].descriptor.version}`
 }
-it('rejects genuinely larger image author geometry before changing a prepared auto workspace',async()=>{
+it('grows an idle original auto workspace for the actual Mountains source without replacing old programs',async()=>{
  const {engine}=await autoHarness(async request=>verdict(request)),preset=installPipeAuthor(mountainsAuthor)
  try{
-  await engine.prepareBrush(autoPreset);const owner=engine['_canonicalLayerOwner']!,prepared=engine['_canonicalPreparedAuthor'],mask=owner.mask,cpu=engine['_brushMipCache'].reservedBytes
-  engine.setPencil(preset);engine.setSize(360);const upload=vi.spyOn(engine['gl'],'texImage2D'),program=vi.spyOn(engine['gl'],'createProgram')
-  await expect(engine.prepareBrush(preset)).rejects.toThrow('growth unsupported');expect(upload).not.toHaveBeenCalled();expect(program).not.toHaveBeenCalled();expect(owner.bank).toBeUndefined();expect(owner.mask).toBe(mask);expect(engine['_canonicalPreparedAuthor']).toBe(prepared);expect(engine['_brushMipCache'].reservedBytes).toBe(cpu)
+  await engine.prepareBrush(autoPreset);const owner=engine['_canonicalLayerOwner']!,prepass=owner.prepass,composite=owner.composite,stable=owner.stable,mask=owner.mask,journal=engine['_log'].entries
+  engine.setPencil(preset);engine.setSize(360);const program=vi.spyOn(engine['gl'],'createProgram')
+  await expect(engine.prepareBrush(preset)).resolves.toEqual({status:'ready'});expect(owner.prepass).toBe(prepass);expect(owner.composite).toBe(composite);expect(owner.stable).toBe(stable);expect(owner.mask.width).toBeGreaterThan(mask.width);expect(owner.bank?.isReady()).toBe(true);expect(program).not.toHaveBeenCalled();expect(engine['_log'].entries).toBe(journal)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
-},15000)
+},20000)
+it.each(['Basic6','Graphite']as const)('grows actual cold %s original history for default native40 while retaining the exact bank and journal',async kind=>{
+ if(kind==='Graphite')for(const a of graphiteAuthor.assets)installBrushPixels(a.id,new Uint8Array(inflateSync(Buffer.from(a.deflateBase64,'base64'),{maxOutputLength:a.size*a.size})))
+ const p=original(()=>true,false,false,kind==='Graphite'?sourceTrace(graphiteAuthor):trace),{engine}=engineFor(p,true)
+ try{await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);const owner=engine['_canonicalLayerOwner']!,bank=owner.bank,journal=engine['_log'].entries,prepass=owner.prepass,composite=owner.composite,epoch=prepass.preparedCapacity().epoch;installBrushLibrary({schemaVersion:1,brushes:[{descriptor:autoDescriptor,name:'Basic2',source:'native',warnings:[]}],assets:[],skipped:[]});engine.setPencil(autoPreset);engine.setSize(40);const programs=vi.spyOn(engine['gl'],'createProgram');await expect(engine.prepareBrush(autoPreset)).resolves.toEqual({status:'ready'});expect(owner.bank).toBe(bank);expect(owner.prepass).toBe(prepass);expect(owner.composite).toBe(composite);expect(owner.prepass.preparedCapacity().epoch).not.toBe(epoch);expect(owner.mask.width).toBeGreaterThanOrEqual(41);expect(engine['_log'].entries).toBe(journal);expect(programs).not.toHaveBeenCalled();expect(engine['_canonicalExportReady']()).toBe(true)}finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
 it('keeps the complete ready Mountains bank when adding a whole Graphite union exceeds the unchanged budget',async()=>{
  const {engine}=await autoHarness(async request=>verdict(request),autoDescriptor,()=>true,{width:512,height:512}),mountains=installPipeAuthor(mountainsAuthor),graphite=installPipeAuthor(graphiteAuthor)
  try{
@@ -416,4 +423,17 @@ it('keeps the original image bank readers independent of the selected author pro
   engine.setPencil(autoPreset);engine.setSize(40);await expect(engine.prepareBrush(autoPreset)).resolves.toEqual({status:'ready'})
   expect(owner.bank).toBe(bank);expect(owner.prepass.preparedCapacity().epoch).toBe(epoch);owner.cache.discard(first.key);expect(bank.prepareJob(0)).toBe('ready');expect(bank.isReady()).toBe(true);expect(engine['_canonicalPreparedAuthor']?.preset).toBe(autoPreset)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+
+it.each(['upload','abort']as const)('preserves a prepared auto owner when image growth %s fails',async mode=>{
+ const {engine}=await autoHarness(async request=>verdict(request)),selected=installPipeAuthor(mountainsAuthor),abort=new AbortController()
+ try{await engine.prepareBrush(autoPreset);const owner=engine['_canonicalLayerOwner']!,epoch=owner.prepass.preparedCapacity().epoch,old=engine['_canonicalPreparedAuthor'],cpu=engine['_brushMipCache'].reservedBytes;engine.setPencil(selected);engine.setSize(360);const fault=Error('growth source upload');if(mode==='upload')vi.spyOn(engine['gl'],'texImage2D').mockImplementationOnce(()=>{throw fault});const result=engine.prepareBrush(selected,{signal:abort.signal,onProgress:n=>{if(mode==='abort'&&n===2)abort.abort()}});if(mode==='upload')await expect(result).rejects.toBe(fault);else await expect(result).resolves.toEqual({status:'cancelled'});expect(owner.bank).toBeUndefined();expect(owner.resourceCandidate).toBeUndefined();expect(owner.prepass.preparedCapacity().epoch).toBe(epoch);expect(owner.prepared).toBe(true);expect(engine['_canonicalPreparedAuthor']).toBe(old);expect(engine['_brushMipCache'].reservedBytes).toBe(cpu);expect(await engine.prepareBrush(selected)).toEqual({status:'ready'})}finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+it('cancels staged idle growth when an original peer frame starts using the old epoch, without waiting its END',async()=>{
+ const h=await autoHarness(async request=>verdict(request)),{engine}=h,selected=installPipeAuthor(mountainsAuthor)
+ try{await engine.prepareBrush(autoPreset);const owner=engine['_canonicalLayerOwner']!,epoch=owner.prepass.preparedCapacity().epoch,old=engine['_canonicalPreparedAuthor'],input=incomingNative(h.p.canonicalRead.scope);engine.setPencil(selected);engine.setSize(360);let incoming:Promise<void>|undefined;const result=await engine.prepareBrush(selected,{onProgress:n=>{if(n===2)incoming=engine.prepareOriginalRecorded(input).then(()=>engine.appendOriginalRecorded(input))}});await incoming;expect(result).toEqual({status:'cancelled'});expect(owner.prepass.preparedCapacity().epoch).toBe(epoch);expect(owner.bank).toBeUndefined();expect(engine['_canonicalPreparedAuthor']).toBe(old);expect(engine['_log'].entries[0].canonicalInput).toBe(input);expect(owner.resourceCandidate).toBeUndefined();await expect(engine.prepareBrush(selected)).rejects.toThrow('workspace busy')}finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+it('keeps the coherently published grown union when old-resource retirement throws after commit',async()=>{
+ const {engine}=await autoHarness(async request=>verdict(request)),basic=installLocalBasic6()
+ try{await engine.prepareBrush(autoPreset);engine.setPencil(basic);engine.setSize(7.5);await engine.prepareBrush(basic);const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,old=engine['_canonicalPreparedAuthor'],oldKey=owner.prepass.preparedResources()[0].key,selected=installPipeAuthor(mountainsAuthor),discard=owner.cache.discard.bind(owner.cache),fault=Error('old workspace retirement');let thrown=false;vi.spyOn(owner.cache,'discard').mockImplementation((key,lost)=>{discard(key,lost);if(key===oldKey&&!thrown){thrown=true;throw fault}});engine.setPencil(selected);engine.setSize(360);await expect(engine.prepareBrush(selected)).rejects.toBe(fault);expect(thrown).toBe(true);expect(owner.bank).toBe(bank);expect(owner.mask.width).toBeGreaterThan(360);expect(owner.prepass.isReady()).toBe(true);expect(owner.composite.isReady()).toBe(true);expect(owner.bank!.isReady()).toBe(true);expect(owner.resourceCandidate).toBeUndefined();expect(engine['_canonicalPreparedAuthor']).toBe(old);expect(await engine.prepareBrush(selected)).toEqual({status:'ready'})}finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
