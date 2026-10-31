@@ -137,9 +137,12 @@ export function brushTextureLeasePlan(resources: readonly BrushPreparationResour
     .map(resource => ({ key: brushTextureResourceKey(resource), bytes: brushPreparationBytes([resource], id => id.startsWith('asset:') ? Math.sqrt(importedAssetPixels(id).length) : 256) }))
 }
 
-type PreparationOutcome = { result: BrushPreparationResult } | { error: unknown }
+export type BrushPreparationOutcome = { readonly result: Readonly<BrushPreparationResult> } | { readonly error: unknown }
+/** Creator-owned synchronous commit/rollback; late subscribers never replace it. */
+export type BrushPreparationFinalizer = (outcome: BrushPreparationOutcome) => void
 interface PreparationSubscriber {
-  finish: (outcome: PreparationOutcome) => void
+  settle: (outcome: BrushPreparationOutcome) => void
+  withdraw: (outcome: BrushPreparationOutcome) => void
   progress?: (done: number, total: number) => void
 }
 interface PreparationRun {
@@ -148,12 +151,13 @@ interface PreparationRun {
   total: number
   finished: boolean
   subscribers: Set<PreparationSubscriber>
-  finish: (outcome: PreparationOutcome) => void
+  finish: (outcome: BrushPreparationOutcome) => void
 }
-const cancelledPreparation: PreparationOutcome = { result: { status: 'cancelled' } }
+const cancelledPreparation: BrushPreparationOutcome = { result: { status: 'cancelled' } }
 
-/** One upload per frame. A selected immutable preset may share its work, but
- * each caller owns its cancellation/progress subscription. No stroke state.
+/** One upload per frame. Shared work owns finalization; each caller owns only
+ * its cancellation/progress subscription. Allocate candidates in the first job,
+ * never before run's early-return or same-key subscription paths.
  */
 export class BrushPreparation {
   private active?: PreparationRun
@@ -162,68 +166,109 @@ export class BrushPreparation {
   private subscribe(run: PreparationRun, options: BrushPreparationOptions): Promise<BrushPreparationResult> {
     return new Promise((resolve, reject) => {
       let settled = false
-      const finish = (outcome: PreparationOutcome) => {
+      const settle = (outcome: BrushPreparationOutcome) => {
         if (settled) return
         settled = true
         options.signal?.removeEventListener('abort', abort)
         run.subscribers.delete(subscriber)
         if ('error' in outcome) reject(outcome.error); else resolve(outcome.result)
-        if (!run.finished && !run.subscribers.size) run.finish(cancelledPreparation)
       }
-      const abort = () => finish(cancelledPreparation)
-      const subscriber: PreparationSubscriber = { finish, progress: options.onProgress }
+      const withdraw = (outcome: BrushPreparationOutcome) => {
+        // A terminal work outcome has already won, even if its finalizer
+        // reenters an AbortController before subscriber promises settle.
+        if (settled || run.finished) return
+        if (run.subscribers.size === 1 && run.subscribers.has(subscriber)) run.finish(outcome)
+        else settle(outcome)
+      }
+      const abort = () => withdraw(cancelledPreparation)
+      const subscriber: PreparationSubscriber = { settle, withdraw, progress: options.onProgress }
       run.subscribers.add(subscriber)
       if (options.signal?.aborted) { abort(); return }
       options.signal?.addEventListener('abort', abort, { once: true })
-      // Late joiners see the actual shared bank's progress, not a second
-      // missing-resource plan's smaller total. An observer error is local.
       if (run.done && subscriber.progress) {
         try { subscriber.progress(run.done, run.total) }
-        catch (error) { finish({ error }) }
+        catch (error) { withdraw({ error }) }
       }
     })
   }
 
-  run(jobs: readonly (() => void)[], options: BrushPreparationOptions, available: () => boolean, key?: string): Promise<BrushPreparationResult> {
+  private joinReentrant(key: string | undefined, options: BrushPreparationOptions, available: () => boolean): Promise<BrushPreparationResult> {
+    const current = this.active
+    if (key === undefined || !current || current.key !== key) return Promise.resolve({ status: 'cancelled' })
+    try {
+      const ready = available()
+      if (!ready || current.finished || this.active !== current) return Promise.resolve({ status: 'cancelled' })
+      return this.subscribe(current, options)
+    } catch (error) { return Promise.reject(error) }
+  }
+
+  run(jobs: readonly (() => void)[], options: BrushPreparationOptions, available: () => boolean, key?: string,
+    finalize?: BrushPreparationFinalizer): Promise<BrushPreparationResult> {
     if (options.signal?.aborted) return Promise.resolve({ status: 'cancelled' })
+    const previous = this.active
     try { if (!available()) return Promise.resolve({ status: 'cancelled' }) }
     catch (error) { return Promise.reject(error) }
+    // Availability may invoke owner callbacks. A newer reentrant run wins.
+    if (this.active !== previous) return this.joinReentrant(key, options, available)
     if (key !== undefined && this.active?.key === key) return this.subscribe(this.active, options)
     this.cancel()
+    // Cancelling the old creator can start a new run from its finalizer. Never
+    // overwrite it and strand its jobs/subscribers; joining adds no cleanup.
+    if (this.active) return this.joinReentrant(key, options, available)
     let frame: number | undefined
     const run: PreparationRun = {
       key, done: 0, total: jobs.length, finished: false, subscribers: new Set(),
       finish: outcome => {
         if (run.finished) return
         run.finished = true
-        if (frame !== undefined) cancelAnimationFrame(frame)
+        const pendingFrame = frame; frame = undefined
         if (this.active === run) this.active = undefined
-        for (const subscriber of [...run.subscribers]) subscriber.finish(outcome)
+        let terminal = outcome
+        const fail = (error: unknown) => { if (!('error' in terminal)) terminal = { error } }
+        if (pendingFrame !== undefined) {
+          try { cancelAnimationFrame(pendingFrame) } catch (error) { fail(error) }
+        }
+        try {
+          const view: BrushPreparationOutcome = 'error' in terminal
+            ? Object.freeze({ error: terminal.error }) : Object.freeze({ result: Object.freeze({ ...terminal.result }) })
+          if (finalize?.(view) !== undefined) throw new TypeError('Brush preparation finalizer must return undefined synchronously')
+        } catch (error) { fail(error) }
+        for (const subscriber of [...run.subscribers]) subscriber.settle(terminal)
       },
     }
     this.active = run
     const pending = this.subscribe(run, options)
+    const finishReady = () => {
+      const ready = available()
+      if (run.finished || this.active !== run) return
+      run.finish(ready ? { result: { status: 'ready' } } : cancelledPreparation)
+    }
     const step = () => {
       frame = undefined
       if (run.finished) return
       try {
-        if (!available()) { run.finish(cancelledPreparation); return }
+        const ready = available()
+        if (run.finished || this.active !== run) return
+        if (!ready) { run.finish(cancelledPreparation); return }
         jobs[run.done]?.()
+        if (run.finished || this.active !== run) return
         if (run.done < jobs.length) run.done++
         for (const subscriber of [...run.subscribers]) {
-          // A preceding callback may abort another subscriber or cancel all.
+          if (run.finished) break
           if (!run.subscribers.has(subscriber)) continue
           try { subscriber.progress?.(run.done, jobs.length) }
-          catch (error) { subscriber.finish({ error }) }
+          catch (error) { subscriber.withdraw({ error }) }
         }
-        if (run.finished) return
-        if (run.done === jobs.length) run.finish({ result: { status: 'ready' } })
+        if (run.finished || this.active !== run) return
+        if (run.done === jobs.length) finishReady()
         else frame = requestAnimationFrame(step)
       } catch (error) { run.finish({ error }) }
     }
     if (!run.finished) {
-      if (!jobs.length) run.finish({ result: { status: 'ready' } })
-      else frame = requestAnimationFrame(step)
+      try {
+        if (!jobs.length) finishReady()
+        else frame = requestAnimationFrame(step)
+      } catch (error) { run.finish({ error }) }
     }
     return pending
   }
