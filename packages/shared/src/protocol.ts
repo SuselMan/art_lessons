@@ -1,3 +1,4 @@
+import type { CanonicalRecordedAttachmentV1 } from './canonicalRecordedAttachment.js'
 import type { CanonicalStrokeBegin, CanonicalStrokeBeginResult, CanonicalStrokeLive, CanonicalStrokeLiveResult } from './canonicalStrokeOperation.js'
 import type { BrushRandomSeeds } from './brushRandom.js'
 import type { Operation } from './operations.js'
@@ -309,7 +310,7 @@ export type ServerToClientEvents = {
   // client (reliable history spec v0.2, §11). `seq` is carried at the top
   // level (not just inside `operation`, where it's optional until stamped)
   // so logging/replay/gap-detection never has to reach into the union.
-  operation_confirmed: (msg: { seq: number; operation: Operation }) => void
+  operation_confirmed: (msg: { seq: number; operation: Operation; canonicalCapabilities?:CanonicalRecordedAttachmentV1 }) => void
   // (#429) A peer's in-progress stroke, relayed as it is drawn — see
   // StrokeLiveData. Sent via `socket.to`, not `io.to`: unlike
   // operation_confirmed, the author gains nothing from receiving their own

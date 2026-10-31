@@ -183,3 +183,22 @@ outcomes, not physical DB durability, arbitrary cold history completeness,
 room_state/fork/snapshot readiness, authoritative close or renderer activation.
 Those separate gates remain closed. No persistent service/device/DB resource was
 created; test servers/stores close and their existing write queues drain.
+
+## Atomic V2 confirmation attachment
+
+After successful durability of the actual immutable accepted object (or verified
+indexed duplicate row), the SAME session grant produces a closed V2 capability
+attachment bound to actual operation ID/seq/original user. The shared attachment
+validator runs before returning success to the socket handler. The handler emits
+capability and operation in one operation_confirmed message; no capability-only
+message, fabricated DB row, extra registry or early ACK is used. A preparation
+failure after durability requires repair; it never invites replacing the stored
+operation body. Pathological legal source metadata exceeding attachment byte
+limits still needs an earlier BEGIN/pre-admission byte gate before activation.
+
+V2 confirmations require the attachment. Historical canonical PNG/V1 retains its
+exact old closed-lane payload/bytes without the field; the new V2 reader rejects
+that unsupported domain rather than painting a fallback. This does not complete
+V1 capability delivery or activate rooms/engine. Actual Socket.IO tests exercise
+explicit test-only auto policy, delayed DB completion, mandatory V2 peer atom and
+unchanged V1 shape. Production auto policy remains empty/OFF.

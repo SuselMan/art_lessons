@@ -611,11 +611,11 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
 
       if (op?.type === 'canonical_stroke') {
         enqueueCanonical(async () => {
-          const { result, accepted } = await canonicalTransport.recorded({ roomId, userId }, op,
+          const { result, accepted, canonicalCapabilities } = await canonicalTransport.recorded({ roomId, userId }, op,
             () => socket.connected && socket.data.roomId === roomId && socket.data.userId === userId)
           ack?.(result)
           if (accepted) {
-            io.to(roomId).emit('operation_confirmed', { seq: accepted.seq!, operation: accepted })
+            io.to(roomId).emit('operation_confirmed', { seq: accepted.seq!, operation: accepted, ...(canonicalCapabilities?{canonicalCapabilities}:{}) })
             if (accepted.seq! % SNAPSHOT_SEQ_INTERVAL === 0) checkSnapshotLag(roomId)
           }
         }, () => ack?.({ ok: false, reason: 'canonical_repair_required' }))

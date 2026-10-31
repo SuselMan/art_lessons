@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { CANONICAL_MATERIAL_PROFILE, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, canonicalMaterialGeometryCost, sourceImageTransformMetadata, sourcePngRasterShape, packCanonicalMaterial, isBrushLibrary, type CanonicalStrokeBeginResult, type CanonicalStrokeLiveResult, type CanonicalStrokeOperation, type CanonicalMaterialFrame, type CanonicalStrokeSnapshot } from '@grafetto/shared'
+import { buildCanonicalMaterial,prepareCanonicalRecordedAttachment,CANONICAL_MATERIAL_PROFILE, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, canonicalMaterialGeometryCost, sourceImageTransformMetadata, sourcePngRasterShape, packCanonicalMaterial, isBrushLibrary, type CanonicalStrokeBeginResult, type CanonicalStrokeLiveResult, type CanonicalStrokeOperation, type CanonicalMaterialFrame, type CanonicalStrokeSnapshot } from '@grafetto/shared'
 import { rooms } from './roomRegistry.js'
 import {canonicalStrokeStorage,strokeEndSample,strokeDabs,packStrokeEndSample} from '@grafetto/shared'
 import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs'
@@ -49,6 +49,12 @@ vi.mock('../health/memory.js', () => ({
 }))
 vi.mock('../instrument.js', () => ({ reportException: () => {}, reportIssue: () => {} }))
 
+// Test-only explicit auto policy. Production default remains empty/OFF; real
+// handlers/storage/transport and their durable write receipt still execute.
+vi.mock('./canonicalExecutionPolicy.js',async importOriginal=>{
+ const original=await importOriginal<typeof import('./canonicalExecutionPolicy.js')>()
+ return {...original,CANONICAL_ROOM_EXECUTION_POLICY:{...original.CANONICAL_ROOM_EXECUTION_POLICY,autoSources:{defaultAuto:{coverageProfile:'neon64-f32-fma-v1',storedScale:1}}}}
+})
 const { registerRoomHandlers } = await import('./socketHandlers.js')
 const { _flushPendingWrites, isRoomResident } = await import('./rooms.js')
 const { noteBoardCreated } = await import('./classroom.js')
@@ -776,7 +782,7 @@ describe('canonical begin/live/recorded actual socket authority (straight creati
       const op: CanonicalStrokeOperation = { type: 'canonical_stroke', id: fresh('canonical-op'), userId: 'teacher', timestamp: 0, layerId: c.begin.layerId, frame: frame0 }
       const confirmed = next(c.student, 'operation_confirmed')
       expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', op, resolve))).toEqual({ ok: true, seq: 1 })
-      expect(await confirmed).toMatchObject({ seq: 1, operation: { ...op, seq: 1 } })
+      expect(await confirmed).toEqual({ seq: 1, operation: { ...op, seq: 1 } })
       expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', op, resolve))).toEqual({ ok: true, seq: 1, duplicate: true })
       expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', { ...op, frame: { ...frame0, pigmentRgb8: [0, 0, 0] } }, resolve))).toMatchObject({ ok: false })
       expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', { ...op, id: fresh('canonical-final'), frame: frame1 }, resolve))).toEqual({ ok: true, seq: 2 })
@@ -819,7 +825,7 @@ describe('canonical begin/live/recorded actual socket authority (straight creati
       expect(c.record.nextSeq).toBe(2)
       const confirmed = next(c.student, 'operation_confirmed')
       expect(await new Promise<SendResult>(resolve => c.teacher.emit('operation', op, resolve))).toEqual({ ok: true, seq: 1, duplicate: true })
-      expect(await confirmed).toMatchObject({ seq: 1, operation: { ...op, seq: 1 } })
+      expect(await confirmed).toEqual({ seq: 1, operation: { ...op, seq: 1 } })
       expect(c.record.nextSeq).toBe(2); expect(c.record.operations).toHaveLength(1)
       expect(mockPrisma.operation.create).toHaveBeenCalledTimes(2)
     } finally { log.mockRestore(); c.cleanup() }
@@ -947,4 +953,29 @@ describe('canonical begin/live/recorded actual socket authority (straight creati
     } finally { c.cleanup() }
   })
 
+})
+
+it('attaches V2 recorded capability atomically to the real peer confirmation only after durable write success',async()=>{
+ const c=await canonicalClassroom()
+ try{
+  const {default:stock}=await import(new URL('../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native.ts',import.meta.url).href)
+  const descriptor=stock.rows[0].descriptor
+  setBrushStorage(c.storage,{schemaVersion:1,assets:[],skipped:[],brushes:[{name:'Auto',source:'native.kpp',warnings:[],descriptor}]})
+  const begin={...c.begin,brush:`brush:${descriptor.id}@${descriptor.version}`}
+  const response=await new Promise<CanonicalStrokeBeginResult>(resolve=>c.teacher.emit('canonical_stroke_begin',begin,resolve))
+  if(!response.ok||!('materialVersion' in response.snapshot))throw Error('Expected V2 BEGIN')
+  const s=response.snapshot,materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[{at:0,kind:'gestureEnd'}]},s.material).packed
+  const op:CanonicalStrokeOperation={type:'canonical_stroke',id:fresh('auto-cap'),userId:'teacher',timestamp:0,layerId:begin.layerId,frame:{version:1,rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked}}
+  await _flushPendingWrites(c.lessonId)
+  let release!:()=>void;const write=new Promise<void>(resolve=>{release=resolve});mockPrisma.operation.create.mockReturnValueOnce(write)
+  const confirmed=next(c.student,'operation_confirmed'),quiet=silent(c.student,'operation_confirmed',40)
+  const pending=new Promise<SendResult>(resolve=>c.teacher.emit('operation',op,resolve)),settled=vi.fn();void pending.then(settled)
+  await vi.waitFor(()=>expect(c.record.operations.some(o=>o.id===op.id)).toBe(true));await quiet;expect(settled).not.toHaveBeenCalled()
+  release();expect(await pending).toMatchObject({ok:true})
+  const event=await confirmed
+  expect(event.canonicalCapabilities?.bindings).toEqual([{operationId:op.id,sequence:event.seq,originalUserId:'teacher',capability:0}])
+  if(event.operation.type!=='canonical_stroke')throw Error('Expected canonical operation')
+  expect(event.operation.frame.materialPacked).toBe(materialPacked)
+  expect(prepareCanonicalRecordedAttachment(event.canonicalCapabilities,[event.operation],{roomId:c.lessonId,boardEpoch:s.boardEpoch})).toHaveLength(1)
+ }finally{c.cleanup()}
 })

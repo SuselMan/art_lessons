@@ -2,7 +2,7 @@ import { isDeepStrictEqual } from 'node:util'
 import {
   STRAIGHT_ROOM_RASTER_VERSION,
   type CanonicalStrokeBegin, type CanonicalStrokeBeginResult, type CanonicalStrokeLive, type CanonicalStrokeLiveResult,
-  type CanonicalStrokeOperation, type CanonicalStrokeSnapshot, type SendResult,
+  type CanonicalStrokeOperation, type CanonicalStrokeSnapshot, type SendResult, type CanonicalRecordedAttachmentV1, prepareCanonicalRecordedAttachment,
 } from '@grafetto/shared'
 import { canonicalBrushStorageContext } from '../brushLibrary/storage.js'
 import { prisma } from '../db/prisma.js'
@@ -133,7 +133,7 @@ export class CanonicalRoomTransport {
     } catch (error) { return { result: { ok: false, reason: reason(error) } } }
   }
 
-  async recorded(identity: CanonicalAdmissionIdentity, value: unknown, isCurrent: () => boolean): Promise<{ readonly result: SendResult; readonly accepted?: CanonicalStrokeOperation }> {
+  async recorded(identity: CanonicalAdmissionIdentity, value: unknown, isCurrent: () => boolean): Promise<{ readonly result: SendResult; readonly accepted?: CanonicalStrokeOperation; readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1 }> {
     try {
       const raw = canonicalOperation(value, identity, true), lifetime = this.authorized(identity, raw.layerId)
       const session = this.session(lifetime, identity, raw.frame.strokeId)
@@ -183,11 +183,11 @@ export class CanonicalRoomTransport {
       this.sameLifetime(identity, op.layerId, lifetime)
       if (lifetime.sessions.get(gestureKey(identity, op.frame.strokeId)) !== session) fail('canonical_repair_required')
       this.requireHealthyWrites(lifetime)
-      return { result: { ok: true, seq: accepted.seq! }, accepted }
+      return { result: { ok: true, seq: accepted.seq! }, accepted, ...this.recordedAttachment(accepted,session) }
     } catch (error) { return { result: { ok: false, reason: reason(error) } } }
   }
 
-  private async durableDuplicate(identity: CanonicalAdmissionIdentity, op: CanonicalStrokeOperation, existing: unknown, lifetime: RoomLifetime, session: Session, isCurrent: () => boolean): Promise<{ readonly result: SendResult; readonly accepted?: CanonicalStrokeOperation }> {
+  private async durableDuplicate(identity: CanonicalAdmissionIdentity, op: CanonicalStrokeOperation, existing: unknown, lifetime: RoomLifetime, session: Session, isCurrent: () => boolean): Promise<{ readonly result: SendResult; readonly accepted?: CanonicalStrokeOperation; readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1 }> {
     const stored = canonicalOperation(existing, identity, true)
     if (!stored.seq || !sameOperation(op, stored) || op.seq !== undefined && op.seq !== stored.seq) fail('invalid_operation')
     decodeTrustedCanonicalFrame(op.frame,session.grant,op.frame.frameOrdinal)
@@ -205,7 +205,25 @@ export class CanonicalRoomTransport {
     if (session.recordedTail === existing) session.durableRecordedNext = Math.max(session.durableRecordedNext, stored.frame.frameOrdinal + 1)
     // Repaired confirmations are at-least-once. The existing client log
     // deduplicates ID/seq; otherwise an initial failed insert loses relay.
-    return { result: { ok: true, seq: stored.seq, duplicate: true }, accepted: stored }
+    return { result: { ok: true, seq: stored.seq, duplicate: true }, accepted: stored, ...this.recordedAttachment(stored,session) }
+  }
+
+  /** Call ONLY after the actual accepted object's durable write succeeded or
+   * the existing duplicate DB row was verified, with current session lifetime.
+   * No synthetic row, reader BEGIN, new registry or extra policy lookup. */
+  private recordedAttachment(op:CanonicalStrokeOperation,session:Session):{readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1} {
+    const g=session.grant
+    // Historical V1/PNG confirmations retain their exact closed-lane shape.
+    // They cannot enter the new V2-only read/renderer contract.
+    if(!('version' in g.material))return {}
+    const source=Object.freeze({originalUserId:g.userId,snapshot:Object.freeze({layerId:g.layerId,brush:g.brush,strokeId:g.strokeId,boardEpoch:g.boardEpoch,
+      descriptorSha256:g.descriptorSha256,rasterProfile:g.rasterProfile,pigmentRgb8:g.pigmentRgb8,composition:g.composition,assets:g.material.assets,
+      materialVersion:2 as const,material:g.material})})
+    const canonicalCapabilities=Object.freeze({version:1 as const,roomId:g.roomId,boardEpoch:g.boardEpoch,capabilities:Object.freeze([source]),
+      bindings:Object.freeze([Object.freeze({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0})])})
+    try { prepareCanonicalRecordedAttachment(canonicalCapabilities,[op],{roomId:g.roomId,boardEpoch:g.boardEpoch}) }
+    catch { fail('canonical_repair_required') } // durable row exists; never invite mutation as a new operation
+    return {canonicalCapabilities}
   }
 
   private requireHealthyWrites(lifetime: RoomLifetime): void {

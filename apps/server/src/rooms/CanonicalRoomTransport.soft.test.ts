@@ -130,6 +130,8 @@ it('withholds soft ACK until durability and repairs the identical failed frame w
  for(const outcome of await Promise.all([a,b])){
   expect(outcome.result).toEqual({ok:true,seq:1,duplicate:true});expect(outcome.accepted).toBe(f.board.operations[0])
   expect(outcome.accepted!.frame.materialPacked).toBe(op.frame.materialPacked)
+  expect(outcome.canonicalCapabilities?.bindings).toEqual([{operationId:op.id,sequence:1,originalUserId:'author',capability:0}])
+  expect(outcome.canonicalCapabilities?.capabilities[0].snapshot.material).toEqual(s.material)
  }
  expect(f.board.nextSeq).toBe(2);expect(f.board.operations).toHaveLength(1)
  expect(await transport.recorded(identity,operation(1),()=>true)).toMatchObject({result:{ok:true,seq:2}})
