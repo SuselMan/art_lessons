@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE, isBrushLibrary, packCanonicalMaterial, sourceImageTransformMetadata, sourcePngRasterShape,
-  type CanonicalMaterialFrame, type CanonicalStrokeFrameEnvelope } from '@grafetto/shared'
+  CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, type CanonicalMaterialFrame, type CanonicalStrokeFrameEnvelope } from '@grafetto/shared'
 import { BrushStorage, empty } from '../brushLibrary/storage.js'
 import { CanonicalBrushCapabilityResolver } from './CanonicalBrushCapabilityResolver.js'
 import { CanonicalStrokeAdmission } from './CanonicalStrokeAdmission.js'
@@ -207,4 +207,29 @@ it('keeps an original cached single-source pin when its operator catalog is remo
  operator={...f.library,brushes:f.library.brushes.map(b=>({...b,descriptor:{...b.descriptor,flow:.125}}))}
  expect(binder.beginGesture(f.identity,f.input)).toBe(first)
  expect(first.material).not.toBeUndefined();expect(binder.size).toBe(1)
+})
+
+it('keeps a captured native pin across operator catalog replacement',()=>{
+ const f=fixture();let catalog=f.library
+ const binder=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:()=>catalog,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,alphaDarkenVariants:['creamy'],maxGestures:4})
+ const grant=binder.beginGesture(f.identity,f.input);catalog=empty()
+ expect(binder.beginGesture(f.identity,f.input)).toBe(grant)
+})
+
+it('retains the original seeded pin across catalog removal and refuses ungranted author coverage',()=>{
+ const f=fixture(),raw=JSON.parse(readFileSync(new URL('../../../web/src/engine/src/presets/fixtures/sourceDefaultAutoWholePath/markerDry.normal.native.json',import.meta.url),'utf8'))
+ const candidate:unknown={schemaVersion:1,brushes:[{name:'Marker',source:'Marker.kpp',warnings:[],descriptor:raw.imported.descriptor}],assets:[],skipped:[]}
+ if(!isBrushLibrary(candidate))throw Error('Invalid Marker fixture')
+ let catalog=candidate
+ const options={storage:f.storage,operator:()=>catalog,authorRasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,allowedRecordedRasterProfiles:[CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE],fullHistoryFormat:'mixed-v2' as const,alphaDarkenVariants:['creamy'] as const,maxGestures:4,seededDefaultAuto:{coverageProfile:CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,storedScale:1 as const},recordedSeededDefaultAutoProfile:CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE}
+ const input={...f.input,brush:`brush:${candidate.brushes[0].descriptor.id}@${candidate.brushes[0].descriptor.version}`}
+ const binder=new CanonicalBrushCapabilityResolver(options),grant=binder.beginGesture(f.identity,input)
+ catalog=empty();expect(binder.beginGesture(f.identity,input)).toBe(grant)
+ catalog=candidate;expect(()=>new CanonicalBrushCapabilityResolver({...options,seededDefaultAuto:false}).beginGesture(f.identity,input)).toThrow('author policy disabled')
+ const malformed=structuredClone(candidate);const stamp=malformed.brushes[0].descriptor.sourceStamp
+ if(!stamp||stamp.version!==2||stamp.source.kind!=='defaultAuto')throw Error('Expected actual default-auto')
+ const changed:unknown={...malformed,brushes:[{...malformed.brushes[0],descriptor:{...malformed.brushes[0].descriptor,sourceStamp:{...stamp,source:{...stamp.source,density:1}}}}]}
+ if(!isBrushLibrary(changed))throw Error('Invalid changed fixture')
+ catalog=changed;expect(()=>new CanonicalBrushCapabilityResolver(options).beginGesture(f.identity,input)).toThrow()
+ expect(f.board.operations).toEqual([])
 })

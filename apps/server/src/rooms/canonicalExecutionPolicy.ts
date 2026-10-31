@@ -1,3 +1,4 @@
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE} from '@grafetto/shared'
 import { CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,canonicalStrokeCoverageMatches,canonicalRecordedRasterProfiles, type CanonicalStrokeRasterProfile, type CanonicalAutoCoverageProfile, type CanonicalGaussianCoverageProfile } from '@grafetto/shared'
 /** Seeded density requires a separately admitted consumer; keep current policy closed. */
 export interface CanonicalDefaultAutoExecutionPolicy { readonly coverageProfile:Exclude<CanonicalAutoCoverageProfile,'neon64-f32-fma-seeded-density-v1'>; readonly storedScale:1 }
@@ -24,6 +25,8 @@ export function freezeCanonicalAutoPolicies(value:CanonicalAutoExecutionPolicies
 }
 /** Execution config only. This does NOT open straight rooms or switch a renderer. */
 export interface CanonicalRoomExecutionPolicy {
+ readonly seededDefaultAuto?:false|Readonly<{coverageProfile:typeof CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE;storedScale:1}>
+ readonly recordedSeededDefaultAutoProfile?:false|typeof CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
  readonly primaryImageSource?:'single-inverse-gray-v2'|false
  readonly allowedRecordedImagePipeSources?:readonly CanonicalImagePipeSource[]
  readonly authorImagePipeSources?:readonly CanonicalImagePipeSource[]
@@ -87,4 +90,22 @@ export function freezeCanonicalImagePipePolicies(value:Pick<CanonicalRoomExecuti
  if((allowedRecordedImagePipeSources.length||authorImagePipeSources.length)&&value.primaryImageSource!=='single-inverse-gray-v2'
   ||authorImagePipeSources.some(item=>!allowedRecordedImagePipeSources.includes(item)))return fail()
  return Object.freeze({allowedRecordedImagePipeSources,authorImagePipeSources})
+}
+
+/** Separate opt-in. Source eligibility never implies a coverage grant. */
+export function freezeCanonicalSeededDefaultAutoPolicies(value:Pick<CanonicalRoomExecutionPolicy,'seededDefaultAuto'|'recordedSeededDefaultAutoProfile'|'authorRasterProfile'|'rasterProfile'|'allowedRecordedRasterProfiles'|'fullHistoryFormat'>):Readonly<Pick<CanonicalRoomExecutionPolicy,'seededDefaultAuto'|'recordedSeededDefaultAutoProfile'>> {
+ const fail=():never=>{throw TypeError('invalid explicit seeded default-auto policy')}
+ const capture=(key:'seededDefaultAuto'|'recordedSeededDefaultAutoProfile'):unknown=>{const d=Object.getOwnPropertyDescriptor(value,key);if(!d){if(key in value)return fail();return undefined}if(!Object.hasOwn(d,'value'))return fail();return d.value}
+ const author=capture('seededDefaultAuto'),recorded=capture('recordedSeededDefaultAutoProfile')
+ if(author!==undefined&&author!==false){
+  if(!author||typeof author!=='object'||![Object.prototype,null].includes(Object.getPrototypeOf(author))||Reflect.ownKeys(author).length!==2)return fail()
+  const coverage=Object.getOwnPropertyDescriptor(author,'coverageProfile'),scale=Object.getOwnPropertyDescriptor(author,'storedScale')
+  if(!coverage||!scale||!Object.hasOwn(coverage,'value')||!Object.hasOwn(scale,'value')||coverage.value!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||scale.value!==1)return fail()
+ }
+ if(recorded!==undefined&&recorded!==false&&recorded!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)return fail()
+ if(author||recorded){
+  if(value.fullHistoryFormat!=='mixed-v2'||!value.allowedRecordedRasterProfiles?.includes(CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return fail()
+  if(author&&(recorded!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||(value.authorRasterProfile??value.rasterProfile)!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return fail()
+ }
+ return Object.freeze({...(author?{seededDefaultAuto:Object.freeze({coverageProfile:CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,storedScale:1 as const})}:{}),...(recorded?{recordedSeededDefaultAutoProfile:CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE}:{})})
 }

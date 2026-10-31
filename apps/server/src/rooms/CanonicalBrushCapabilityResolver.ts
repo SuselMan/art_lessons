@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import {
-  verifyCanonicalRecordedClose,parseCanonicalStrokeCloseOperation,verifyCanonicalRecordedPrefix, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION,
+  CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, verifyCanonicalRecordedClose,parseCanonicalStrokeCloseOperation,verifyCanonicalRecordedPrefix, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION,
   canonicalImageSourceBinding,canonicalImagePipeSourceBinding,canonicalSourceEffectReject, canonicalBrushDescriptorJSON, canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, canonicalSourceComposition,
   type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalStrokeOperation, type CanonicalMaterialContextV2, decodeCanonicalStrokeFrame,
   prepareCanonicalRecordedAttachment, CANONICAL_RECORDED_ATTACHMENT_LIMITS, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadCapability, type Operation,
 } from '@grafetto/shared'
-import { freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,type CanonicalImagePipeSource,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,type CanonicalRoomExecutionPolicy, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
+import { freezeCanonicalSeededDefaultAutoPolicies,freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,type CanonicalImagePipeSource,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,type CanonicalRoomExecutionPolicy, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
 import { BrushStorage, merge } from '../brushLibrary/storage.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
@@ -46,6 +46,7 @@ export class CanonicalBrushCapabilityResolver {
   private readonly recordedProfiles:readonly CanonicalStrokeRasterProfile[]
   private readonly primaryImageSource:CanonicalRoomExecutionPolicy['primaryImageSource']
   private readonly imagePipePolicies:ReturnType<typeof freezeCanonicalImagePipePolicies>
+  private readonly seededPolicies:ReturnType<typeof freezeCanonicalSeededDefaultAutoPolicies>
   private readonly autoSources:Readonly<CanonicalAutoExecutionPolicies>
   private readonly gestures = new Map<string, PinnedGesture>()
   private readonly epochs = new WeakMap<RoomRecord, { readonly lesson: RoomRecord; readonly value: number }>()
@@ -73,6 +74,9 @@ export class CanonicalBrushCapabilityResolver {
     readonly primaryImageSource?:CanonicalRoomExecutionPolicy['primaryImageSource']
     readonly allowedRecordedImagePipeSources?:readonly CanonicalImagePipeSource[]
     readonly authorImagePipeSources?:readonly CanonicalImagePipeSource[]
+    readonly seededDefaultAuto?:CanonicalRoomExecutionPolicy['seededDefaultAuto']
+    readonly recordedSeededDefaultAutoProfile?:CanonicalRoomExecutionPolicy['recordedSeededDefaultAutoProfile']
+    readonly fullHistoryFormat?:CanonicalRoomExecutionPolicy['fullHistoryFormat']
     readonly autoSources?:CanonicalAutoExecutionPolicies|false
   }) {
     if (!(options.storage instanceof BrushStorage) || typeof options.operator !== 'function'
@@ -84,6 +88,7 @@ export class CanonicalBrushCapabilityResolver {
     this.authorProfile=raster.authorRasterProfile;this.recordedProfiles=raster.allowedRecordedRasterProfiles
     this.primaryImageSource=freezeCanonicalPrimaryImagePolicy(options.primaryImageSource)
     this.imagePipePolicies=freezeCanonicalImagePipePolicies(options)
+    this.seededPolicies=freezeCanonicalSeededDefaultAutoPolicies(options)
     this.autoSources=freezeCanonicalAutoPolicies(options.autoSources)
     this.storage = options.storage; this.operator = options.operator
     this.maxGestures = options.maxGestures; this.variants = new Set(options.alphaDarkenVariants)
@@ -148,6 +153,7 @@ export class CanonicalBrushCapabilityResolver {
     if (previous) {
       if(previous.pipeSource&&!this.imagePipePolicies.authorImagePipeSources.includes(previous.pipeSource))fail('image pipe author policy disabled')
       const g = previous.grant
+      if('version' in g.material&&g.material.primarySource.kind==='defaultAuto'&&g.material.primarySource.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE&&!this.seededPolicies.seededDefaultAuto)fail('seeded default-auto author policy disabled')
       if (roomOnly&&g.rasterProfile!==profile || previous.board !== current.board || previous.lesson !== current.lesson || g.layerId !== input.layerId
         || g.brush !== input.brush || g.pigmentRgb8.some((v, i) => v !== input.pigmentRgb8[i])
         || g.composition.outerResourceOpacity !== input.outerResourceOpacity || g.composition.alphaDarken !== input.alphaDarken) fail('gesture already pinned with different resources or lifetime')
@@ -365,7 +371,9 @@ export class CanonicalBrushCapabilityResolver {
       const pin=kind==='softAuto'
         ? this.autoSources.softAuto ? canonicalSoftAutoSourceBinding(descriptor,descriptorSha256,this.autoSources.softAuto.coverageProfile,0,profile) : fail('soft-auto execution policy disabled')
         : kind==='defaultAuto'
-        ? this.autoSources.defaultAuto ? canonicalDefaultAutoSourceBinding(descriptor,descriptorSha256,this.autoSources.defaultAuto.coverageProfile,profile) : fail('default-auto execution policy disabled')
+        ? descriptor.sourceStamp.source.density<1
+          ? (role==='author'?this.seededPolicies.seededDefaultAuto:this.seededPolicies.recordedSeededDefaultAutoProfile) ? canonicalDefaultAutoSourceBinding(descriptor,descriptorSha256,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,profile) : fail('seeded default-auto '+role+' policy disabled')
+          : this.autoSources.defaultAuto ? canonicalDefaultAutoSourceBinding(descriptor,descriptorSha256,this.autoSources.defaultAuto.coverageProfile,profile) : fail('default-auto execution policy disabled')
         : this.autoSources.gaussianAuto ? canonicalGaussianAutoSourceBinding(descriptor,descriptorSha256,this.autoSources.gaussianAuto.coverageProfile,profile) : fail('Gaussian execution policy disabled')
       const savedMode=composition.mode
       if(!savedMode)fail('inconsistent-source-painting-mode')
