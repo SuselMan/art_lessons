@@ -1464,3 +1464,64 @@ it('executor cleanup status releases transferred raw ownership exactly once desp
   ownership.release();expect(release).toHaveBeenCalledOnce()
  }finally{s.gl.isContextLost=getLost;ownership?.release();s.close()}
 })
+
+it('exclusive wash publishes both real framebuffer certificates and skips only owned local sampler/FBO queries after cold preparation',()=>{
+ const s=setup('wash'),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  s.executor.enqueue(s.submit(decoded(1,0,false)));s.prepareStorage()
+  const tile=[...s.executor['washes'].values()][0],owner=tile.lifetime
+  expect(owner.ownedFramebufferLayouts?.map(p=>p.certificate)).toEqual([tile.local.verifiedFramebufferLayout,tile.original!.verifiedFramebufferLayout])
+  expect(owner.ownedPointSampler?.source).toBe(tile.local)
+  const query=vi.spyOn(s.gl,'getTexParameter'),status=vi.spyOn(s.gl,'checkFramebufferStatus'),attachment=vi.spyOn(s.gl,'getFramebufferAttachmentParameter')
+  s.drain();expect(query).not.toHaveBeenCalled();expect(status).not.toHaveBeenCalled();expect(attachment).not.toHaveBeenCalled()
+  const partial={...owner,ownedFramebufferLayouts:Object.freeze([owner.ownedFramebufferLayouts![0]])},charges:number[]=[]
+  for(const lifetime of [partial,owner])runBrushGlBatch({participants:[s.prepass,s.composite],owners:[lifetime]},()=>{charges.push(s.cpu.reservedBytes)})
+  expect(charges[1]-charges[0]).toBe(96) // the second actual certificate uses the existing frame CPU owner
+  const release=owner.lease();expect(s.executor['rawOwner'].leases).toBe(1);expect(()=>s.executor.cancel()).toThrow('batch');release();release();expect(s.executor['rawOwner'].leases).toBe(0)
+ }finally{clock.mockRestore();s.close()}
+})
+for(const role of ['local','original'] as const)it(`exclusive wash refuses a replaced ${role} handle before borrowing or issuing GL queries`,()=>{
+ const s=setup('wash'),foreign=s.gl.createTexture()!,clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ let restore:(()=>void)|undefined
+ try{
+  s.executor.enqueue(s.submit(decoded(1,0,false)));s.prepareStorage()
+  const tile=[...s.executor['washes'].values()][0],buffer=tile[role]!,texture=buffer._texture
+  buffer._texture=foreign;restore=()=>{buffer._texture=texture}
+  const query=vi.spyOn(s.gl,'getParameter');query.mockClear()
+  expect(()=>tile.lifetime.lease()).toThrow('Stale');expect(s.executor['rawOwner'].leases).toBe(0);expect(query).not.toHaveBeenCalled()
+ }finally{restore?.();clock.mockRestore();s.close();s.gl.deleteTexture(foreign)}
+})
+it('exclusive wash reuses exact pool handles with a fresh accepted gesture epoch while rejected admission never revives the old binding',()=>{
+ const s=setup('wash'),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  s.executor.enqueue(s.submit());s.prepareStorage();const first=[...s.executor['washes'].values()][0],old=first.lifetime,epoch=s.executor['rawOwner']
+  s.drain();expect(epoch.alive).toBe(false)
+  const rejected={...s.submit(),gestureId:'second',composition:{...s.submit().composition,outerBlend:'multiply' as const}}
+  expect(()=>s.executor.enqueue(rejected)).toThrow('pinned raster profile');expect(s.executor['rawOwner']).toBe(epoch)
+  s.executor.enqueue({...s.submit(),gestureId:'second'});s.prepareStorage();const next=[...s.executor['washes'].values()][0]
+  expect(next.local.texture).toBe(first.local.texture);expect(next.original!.texture).toBe(first.original!.texture)
+  expect(s.executor['rawOwner']).not.toBe(epoch);expect(s.executor['rawOwner'].alive).toBe(true)
+  expect(()=>old.lease()).toThrow('Stale');const release=next.lifetime.lease();release();s.drain()
+ }finally{clock.mockRestore();s.close()}
+})
+
+it('exclusive wash revalidates the original after owner acquisition and rejects callback drift before any draw',()=>{
+ const s=setup('wash'),foreign=s.gl.createTexture()!,clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ let original:AccumulationBuffer|undefined,texture:WebGLTexture|undefined
+ try{
+  s.executor.enqueue(s.submit(decoded(1,0,false)));s.prepareStorage();const tile=[...s.executor['washes'].values()][0]
+  original=tile.original!;texture=original.texture
+  const body=vi.fn(),other={owner:{},lease:()=>{original!._texture=foreign;return()=>{}}}
+  expect(()=>runBrushGlBatch({participants:[s.prepass,s.composite],owners:[tile.lifetime,other]},body)).toThrow('certificate')
+  expect(body).not.toHaveBeenCalled();expect(s.executor['rawOwner'].leases).toBe(0)
+ }finally{if(original&&texture)original._texture=texture;clock.mockRestore();s.close();s.gl.deleteTexture(foreign)}
+})
+it('exclusive wash rechecks original identity after the strict context-status lease probe',()=>{
+ const s=setup('wash'),foreign=s.gl.createTexture()!,clock=vi.spyOn(performance,'now').mockReturnValue(0),getLost=s.gl.isContextLost
+ let original:AccumulationBuffer|undefined,texture:WebGLTexture|undefined
+ try{
+  s.executor.enqueue(s.submit(decoded(1,0,false)));s.prepareStorage();const tile=[...s.executor['washes'].values()][0]
+  original=tile.original!;texture=original.texture;s.gl.isContextLost=()=>{original!._texture=foreign;return false}
+  expect(()=>tile.lifetime.lease()).toThrow('Stale');expect(s.executor['rawOwner'].leases).toBe(0)
+ }finally{if(original&&texture)original._texture=texture;s.gl.isContextLost=getLost;clock.mockRestore();s.close();s.gl.deleteTexture(foreign)}
+})

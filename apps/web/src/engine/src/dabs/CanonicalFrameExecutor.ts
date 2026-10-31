@@ -134,7 +134,7 @@ export class CanonicalFrameExecutor {
   private advancing = false
   private rawComplete = false
   private rawTransferred = false
-  private readonly rawOwner = { alive: true, leases: 0 }
+  private rawOwner = { alive: true, leases: 0 }
   private washLayerId?: string
   private readonly softProgram?: CanonicalSoftCircleProgramOwner
   private readonly ownsSoftProgram:boolean
@@ -254,7 +254,7 @@ export class CanonicalFrameExecutor {
       // Admit the entire frame union BEFORE any tile creation or pixel write.
       // Pool accounting stays authoritative; caller applies the existing fence.
       if (newTiles.size) {
-        releaseWashMetadata = this.options.prepass.brushGlBatchInfo().cpu.reserve(newTiles.size * 512)
+        releaseWashMetadata = this.options.prepass.brushGlBatchInfo().cpu.reserve(newTiles.size * (this.options.washMode==='deposition-only'?512:608))
         // Exclusive: captured original4 + raw local4. Deposition-only: raw
         // local4 + potential stable target4, still resolved by the SAME paint
         // cursor. No duplicate original buffer is allocated in that mode.
@@ -273,6 +273,9 @@ export class CanonicalFrameExecutor {
         const gpu = releaseBudget, cpu = releaseWashMetadata!
         this.admissionReleases.add(() => { try { gpu() } finally { cpu() } })
       }
+      // Accepted new gesture gets a new epoch; never revive bindings to names
+      // returned to the pool by an earlier completed exclusive gesture.
+      if(!this.gesture&&!this.rawOwner.alive)this.rawOwner={alive:true,leases:0}
       this.gesture ??= { id: input.gestureId, layerId: input.layerId, epoch: input.layerEpoch, buffer, rgb: [input.rgb[0], input.rgb[1], input.rgb[2]], profile: input.frame.profile }
       this.washLayerId=input.layerId
       this.planned = result.state
@@ -354,7 +357,7 @@ export class CanonicalFrameExecutor {
           const original=perTile===2?plan.scratchAt(base):undefined,local=plan.scratchAt(base+perTile-1)
           if(original)target.buffer.copyTo(original)
           this.gl.disable(this.gl.SCISSOR_TEST);this.gl.colorMask(true,true,true,true);local.clear()
-          const lifetime=this.options.washMode==='deposition-only'?this.rawLifetime(local,position):{kind:'external' as const,owner:{},lease:()=>()=>{}}
+          const lifetime=this.rawLifetime(local,position,original)
           this.washes.set(key(position),{...position,original,local,lifetime})
           for(let i=0;i<perTile;i++)plan.transferScratch(base+i)
           work.washCursor++
@@ -598,19 +601,27 @@ export class CanonicalFrameExecutor {
     if(this.ownsSoftProgram)this.cleanup(()=>this.softProgram!.retire())
   }
 
-  private rawLifetime(local:AccumulationBuffer,position:TilePosition): CanonicalOwnedRgba8Target['lifetime'] {
-    const owner = this.rawOwner,texture=local.texture
-    // Pool admission enforces straight/nearest; this exclusive raw-local borrow
-    // never changes its constructor clamp sampler or lends it to other writers.
-    const ownedPointSampler=Object.freeze({texture,source:local,epoch:owner}),certificate=local.verifiedFramebufferLayout
-    if(!certificate)throw new Error('Stale canonical raw wash framebuffer certificate')
-    const ownedFramebufferLayouts=Object.freeze([Object.freeze({source:local,certificate,originX:position.x,originY:position.y})])
-    return { kind: 'external', owner, ownedPointSampler, ownedFramebufferLayouts, lease: () => {
-      if (!owner.alive || !local.storageOwnerCurrent || local.texture!==texture || this.gl.isContextLost()) throw new Error('Stale canonical raw wash')
+  private rawLifetime(local:AccumulationBuffer,position:TilePosition,original?:AccumulationBuffer): CanonicalOwnedRgba8Target['lifetime'] {
+    const owner=this.rawOwner
+    if(original===local)throw new Error('Canonical wash requires distinct scratch allocations')
+    // Actual pool buffers are straight/nearest and exclusively owned. The
+    // original is an FBO copy source; only the raw local texture is sampled.
+    const pinned=[local,...original?[original]:[]].map(buffer=>{
+      const certificate=buffer.verifiedFramebufferLayout
+      if(!certificate||buffer.gl!==this.gl||buffer.pixelEncoding!=='straight-rgba8'||buffer.samplingFilter!=='nearest'
+        ||buffer.width!==position.width||buffer.height!==position.height)throw new Error('Stale canonical raw wash framebuffer certificate')
+      return {buffer,certificate,texture:buffer.texture,framebuffer:buffer.fbo}
+    })
+    const ownedPointSampler=Object.freeze({texture:pinned[0].texture,source:local,epoch:owner})
+    const ownedFramebufferLayouts=Object.freeze(pinned.map(({buffer,certificate})=>Object.freeze({source:buffer,certificate,originX:position.x,originY:position.y})))
+    const current=()=>owner.alive&&pinned.every(p=>p.buffer.storageOwnerCurrent&&p.buffer.texture===p.texture&&p.buffer.fbo===p.framebuffer
+      &&p.buffer.gl===this.gl&&p.buffer.width===position.width&&p.buffer.height===position.height&&p.buffer.verifiedFramebufferLayout===p.certificate)
+    return {kind:'external',owner,ownedPointSampler,ownedFramebufferLayouts,lease:()=>{
+      if(!current()||this.gl.isContextLost()||!current())throw new Error('Stale canonical raw wash')
       owner.leases++
-      let held = true
-      return () => { if (held) { held = false; owner.leases-- } }
-    } }
+      let held=true
+      return ()=>{if(held){held=false;owner.leases--}}
+    }}
   }
 
   rawWashTiles(): readonly CanonicalWashLocalTile[] {
