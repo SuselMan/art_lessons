@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { sourceImageTransformMetadata, sourcePngRasterShape } from '@grafetto/shared'
-import { canonicalImageMaskCapacity, assertCanonicalImageRecipeCapacity } from './canonicalImageCapacity'
+import { sourceImageTransformMetadata, sourcePngRasterShape, sourcePngPyramid, sourcePngSelectLevel } from '@grafetto/shared'
+import { canonicalImageMaskCapacity, assertCanonicalImageRecipeCapacity, canonicalImageRequiredSourceLevels } from './canonicalImageCapacity'
 
 const asset = { id: `asset:${'b'.repeat(64)}`, size: 256, x: 53, y: 53, width: 150, height: 150 }
 const source = { kind: 'image' as const, asset: asset.id, brushScale: .05, brushAngle: 0 }
@@ -66,4 +66,37 @@ it('keeps single-source geometry unchanged and does not reinterpret the same ID/
  expect(canonicalImageMaskCapacity(source,[asset])).toEqual(first)
  const other={...asset,x:1,y:1,width:200,height:230},second=canonicalImageMaskCapacity(source,[other])
  expect(second.width).toBeGreaterThan(first.width)
+})
+
+
+it('plans exact original suffixes for native Basic6, Graphite7frames and Mountains4frames',()=>{
+ const rows=[{width:150,scale:.05,frames:1,first:5,last:9,bytes:816},{width:128,scale:.125,frames:7,first:5,last:10,bytes:13832},{width:256,scale:1.40625,frames:4,first:0,last:10,bytes:5658656}]
+ for(const row of rows){
+  const assets=Array.from({length:row.frames},(_,i)=>({id:'asset:'+i.toString(16).repeat(64),size:256,x:0,y:0,width:row.width,height:row.width})),pin={kind:'image' as const,asset:assets[0].id,brushScale:row.scale,brushAngle:0,...row.frames>1?{frames:assets.map(a=>a.id)}:{}}
+  const before=JSON.stringify([pin,assets]),requirements=canonicalImageRequiredSourceLevels(pin,assets)
+  expect(Object.isFrozen(requirements)).toBe(true);expect(requirements).toHaveLength(row.frames)
+  let bytes=0
+  for(const [i,required]of requirements.entries()){
+   expect(required.asset).toEqual(assets[i]);expect(required.indexes).toEqual(Array.from({length:row.last-row.first+1},(_,j)=>row.first+j));expect(Object.isFrozen(required)).toBe(true);expect(Object.isFrozen(required.asset)).toBe(true);expect(Object.isFrozen(required.indexes)).toBe(true)
+   for(const index of required.indexes){const level=sourcePngPyramid(row.width,row.width).levels[index];bytes+=level.storedWidth*level.storedHeight*4}
+  }
+  expect(bytes).toBe(row.bytes);expect(JSON.stringify([pin,assets])).toBe(before)
+ }
+})
+it('covers the entire accepted scale interval including selector epsilon boundaries and non-square crops',()=>{
+ const scales=[Number.MIN_VALUE,1e-12,.0001,.1,.5,1-Number.EPSILON,1]
+ for(const [width,height]of [[150,150],[17,31],[1,1],[256,256]] as const){
+  const a={...asset,x:0,y:0,width,height},pyramid=sourcePngPyramid(width,height)
+  for(const brushScale of [Number.MIN_VALUE,.5-1e-6-Number.EPSILON,.5-1e-6,.5,.5+1e-6,.5+1e-6+Number.EPSILON,1,1.40625,8,1e6]){
+   const pin={...source,brushScale},requirements=canonicalImageRequiredSourceLevels(pin,a),indexes=requirements[0].indexes
+   expect(indexes[0]).toBe(sourcePngSelectLevel(pyramid,brushScale))
+   for(const scale of scales)expect(indexes).toContain(sourcePngSelectLevel(pyramid,scale*brushScale))
+  }
+ }
+})
+it('rejects malformed original pin/crop before planning and never weakens the existing recipe scale guard',()=>{
+ for(const [pin,a]of [[{...source,brushScale:0},asset],[{...source,brushAngle:-0},asset],[source,{...asset,x:200}]] as const)expect(()=>canonicalImageRequiredSourceLevels(pin,a)).toThrow()
+ const requirements=canonicalImageRequiredSourceLevels(source,asset),r=recipe(1.01,0,0,0)
+ expect(requirements[0].indexes[0]).toBe(5)
+ expect(()=>assertCanonicalImageRecipeCapacity(r,source,asset,canonicalImageMaskCapacity(source,asset))).toThrow('admitted source')
 })

@@ -1,11 +1,23 @@
-import { canonicalImageMaterialPin, sourceImageTransformMetadata, sourcePngRasterShape,
+import { canonicalImageMaterialPin, sourceImageTransformMetadata, sourcePngRasterShape, sourcePngPyramid, sourcePngSelectLevel,
   type CanonicalMaterialAsset, type CanonicalMaterialImageSource, type CanonicalMaterialRecipe } from '@grafetto/shared'
+import type { CanonicalMaskSourceLevelRequirement } from './CanonicalMaskSourceBank'
 import { canonicalTransformedMaskMetadata } from './TransformedMaskPlan'
 import { transformedMaskPrepassBudget, type TransformedMaskLimits } from './TransformedMaskPrepass'
 
 type ImageAssets=CanonicalMaterialAsset|readonly CanonicalMaterialAsset[]
 function capture(source:CanonicalMaterialImageSource,assets:ImageAssets){
   return canonicalImageMaterialPin(source,'id' in assets?[assets]:assets)
+}
+
+/** Covers every CURRENT engine-admitted image recipe (0<scale<=1), not the
+ * wider shared material domain. Selection is original source LOD, never a clamp.
+ * No reader/GL/source permission. Callers own retained metadata reservations. */
+export function canonicalImageRequiredSourceLevels(source:CanonicalMaterialImageSource,assets:ImageAssets):readonly CanonicalMaskSourceLevelRequirement[] {
+  const pin=capture(source,assets)
+  return Object.freeze(pin.assets.map(asset=>{
+    const pyramid=sourcePngPyramid(asset.width,asset.height),first=sourcePngSelectLevel(pyramid,pin.primarySource.brushScale)
+    return Object.freeze({asset,indexes:Object.freeze(Array.from({length:pyramid.levels.length-first},(_,i)=>first+i))})
+  }))
 }
 
 /** Conservative storage admission only; every unique pinned crop contributes,
