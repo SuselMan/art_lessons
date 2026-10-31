@@ -1,4 +1,4 @@
-import {canonicalSourceComposition,extractCanonicalIncrementalImagePipeCapability} from './canonicalBrushCapability.js'
+import {canonicalSourceComposition,canonicalSourceEffectReject,extractCanonicalIncrementalImagePipeCapability,extractCanonicalRandomImagePipeCapability} from './canonicalBrushCapability.js'
 import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE} from './canonicalStrokeFrame.js'
 import { describe, expect, it } from 'vitest'
 import type { BrushDescriptor } from './brushes.js'
@@ -107,4 +107,23 @@ describe('incremental image pipe material support',()=>{
   for(const edit of edits){const d=pipe();edit(d);expect(extractCanonicalIncrementalImagePipeCapability(d,[asset,second]).supported).toBe(false)}
   expect(extractCanonicalIncrementalImagePipeCapability(descriptor(),[asset,second]).supported).toBe(false)
  })
+})
+
+it('distinguishes random image pipe material support without granting selection or changing incremental support',()=>{
+ const d=descriptor(),second={id:`asset:${'b'.repeat(64)}` as const,size:8}
+ d.tip.animation={mode:'random',frames:[asset.id,second.id]}
+ expect(extractCanonicalIncrementalImagePipeCapability(d,[asset,second]).supported).toBe(false)
+ const result=extractCanonicalRandomImagePipeCapability(d,[asset,second])
+ expect(result).toMatchObject({supported:true,capability:{kind:'random-inverse-gray-pipe-v1',assets:[{id:asset.id},{id:second.id}]}})
+ expect(extractCanonicalRandomImagePipeCapability(d,[asset]).supported).toBe(false)
+ d.tip.animation.mode='incremental'
+ expect(extractCanonicalRandomImagePipeCapability(d,[asset,second]).supported).toBe(false)
+ expect(extractCanonicalIncrementalImagePipeCapability(d,[asset,second]).supported).toBe(true)
+})
+
+it('shares outer effect rejection between local preparation and server binding without granting room execution',()=>{
+ const d=descriptor();expect(canonicalSourceEffectReject(d,CANONICAL_STROKE_RASTER_PROFILE)).toBeUndefined()
+ d.tip.alphaThreshold={value:.5,softness:0};expect(canonicalSourceEffectReject(d,CANONICAL_STROKE_RASTER_PROFILE)).toBe('mask-threshold')
+ delete d.tip.alphaThreshold;Object.assign(d,{behavior:{rendering:{mode:'buildUp',opacityCeiling:'shape'}}})
+ expect(canonicalSourceEffectReject(d,CANONICAL_STROKE_RASTER_PROFILE)).toBe('stroke-rendering-mode')
 })

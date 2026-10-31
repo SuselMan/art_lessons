@@ -114,12 +114,29 @@ export interface CanonicalIncrementalImagePipeCapability {
 export type CanonicalIncrementalImagePipeResult=
   {readonly supported:true;readonly capability:CanonicalIncrementalImagePipeCapability}|
   {readonly supported:false;readonly reasons:readonly string[]}
+export type CanonicalRandomImagePipeCapability=Omit<CanonicalIncrementalImagePipeCapability,'kind'>&{
+  readonly kind:'random-inverse-gray-pipe-v1'
+}
+export type CanonicalRandomImagePipeResult=
+  {readonly supported:true;readonly capability:CanonicalRandomImagePipeCapability}|
+  {readonly supported:false;readonly reasons:readonly string[]}
+export function extractCanonicalRandomImagePipeCapability(
+  descriptor:BrushDescriptor,available:readonly {readonly id:string;readonly size:number}[],
+):CanonicalRandomImagePipeResult {
+  const result=extractImagePipeCapability(descriptor,available,'random')
+  return result.supported?{supported:true,capability:Object.freeze({...result.capability,kind:'random-inverse-gray-pipe-v1'})}:result
+}
 export function extractCanonicalIncrementalImagePipeCapability(
   descriptor:BrushDescriptor,available:readonly {readonly id:string;readonly size:number}[],
 ):CanonicalIncrementalImagePipeResult {
+  return extractImagePipeCapability(descriptor,available,'incremental')
+}
+function extractImagePipeCapability(
+  descriptor:BrushDescriptor,available:readonly {readonly id:string;readonly size:number}[],mode:'incremental'|'random',
+):CanonicalIncrementalImagePipeResult {
   const reject=(reason:string):CanonicalIncrementalImagePipeResult=>({supported:false,reasons:[reason]})
   const animation=descriptor.tip.animation
-  if(descriptor.tip.kind!=='bitmap'||!animation||animation.mode!=='incremental'
+  if(descriptor.tip.kind!=='bitmap'||!animation||animation.mode!==mode
     ||animation.frames.length<2||animation.frames.length>256)return reject('unsupported-image-pipe-selection')
   const metadata=new Map<string,{readonly id:string;readonly size:number}>()
   for(const asset of available){if(metadata.has(asset.id))return reject('ambiguous-image-pipe-asset');metadata.set(asset.id,asset)}
@@ -212,4 +229,16 @@ export function extractSoftAutoSourceDataCapability(descriptor: BrushDescriptor)
   if (data.compiled?.version !== 2 || !data.compiled.radialCurve) return reject('native-radial-program-unavailable')
   return { supported: true, status: 'source-data-only', rasterReady: false,
     data: data as SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceSoftAutoData } }
+}
+
+/** Composition belongs to the explicit trusted raster profile. Retaining a
+ * source mask or author program cannot grant unsupported destination/effect law. */
+export function canonicalSourceEffectReject(descriptor: BrushDescriptor,profile:CanonicalStrokeRasterProfile): string | undefined {
+  const behavior = descriptor.behavior, rendering = behavior?.rendering
+  if (!canonicalSourceComposition(descriptor,profile)) return 'outer-composition'
+  if (rendering && (rendering.mode !== 'buildUp' || rendering.opacityCeiling === 'shape' || rendering.accumulation === 'maxAlpha')) return 'stroke-rendering-mode'
+  if (rendering?.gammaCorrect || rendering?.luminance) return 'color-effect'
+  if (descriptor.tip.alphaThreshold) return 'mask-threshold'
+  if (behavior?.wetMix || behavior?.edgeBleed || behavior?.grain || behavior?.taper) return 'brush-effect'
+  return undefined
 }

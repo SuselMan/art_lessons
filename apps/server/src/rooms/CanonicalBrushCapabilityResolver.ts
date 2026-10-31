@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import {
   verifyCanonicalRecordedClose,parseCanonicalStrokeCloseOperation,verifyCanonicalRecordedPrefix, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION,
-  canonicalBrushDescriptorJSON, canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, canonicalSourceComposition,
+  canonicalSourceEffectReject, canonicalBrushDescriptorJSON, canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, canonicalSourceComposition,
   type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalStrokeOperation, type CanonicalMaterialContextV2, decodeCanonicalStrokeFrame,
   prepareCanonicalRecordedAttachment, CANONICAL_RECORDED_ATTACHMENT_LIMITS, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadCapability, type Operation,
 } from '@grafetto/shared'
@@ -31,18 +31,6 @@ const text = (v: unknown): v is string => typeof v === 'string' && v.length > 0 
 const key = (identity: CanonicalAdmissionIdentity, strokeId: string) => JSON.stringify([identity.roomId, identity.userId, strokeId])
 function fail(reason: string): never { throw new Error(`canonical capability: ${reason}`) }
 
-
-/** Composition belongs to the explicit trusted raster profile. Retaining a
- * source mask or author program cannot grant unsupported destination/effect law. */
-function outerExecutionReject(descriptor: BrushDescriptor,profile:CanonicalStrokeRasterProfile): string | undefined {
-  const behavior = descriptor.behavior, rendering = behavior?.rendering
-  if (!canonicalSourceComposition(descriptor,profile)) return 'outer-composition'
-  if (rendering && (rendering.mode !== 'buildUp' || rendering.opacityCeiling === 'shape' || rendering.accumulation === 'maxAlpha')) return 'stroke-rendering-mode'
-  if (rendering?.gammaCorrect || rendering?.luminance) return 'color-effect'
-  if (descriptor.tip.alphaThreshold) return 'mask-threshold'
-  if (behavior?.wetMix || behavior?.edgeBleed || behavior?.grain || behavior?.taper) return 'brush-effect'
-  return undefined
-}
 
 /** Server-owned binder used by CanonicalRoomTransport; auto defaults disabled.
  * Epochs identify resident record lifetimes only. Reconnect/restart must rebuild
@@ -347,7 +335,7 @@ export class CanonicalBrushCapabilityResolver {
 
   private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile):{material:AnyCanonicalMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string} {
     if(!isSourceStampData(descriptor.sourceStamp))fail('invalid or missing retained source data')
-    const unsupportedOuter = outerExecutionReject(descriptor,profile)
+    const unsupportedOuter = canonicalSourceEffectReject(descriptor,profile)
     if (unsupportedOuter) fail((profile===CANONICAL_STROKE_RASTER_PROFILE?'unsupported canonical Over execution: ':'unsupported canonical execution: ')+unsupportedOuter)
     const descriptorSha256 = createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex')
     const composition=canonicalSourceComposition(descriptor,profile)!
