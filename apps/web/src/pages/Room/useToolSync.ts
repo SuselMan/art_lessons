@@ -99,7 +99,7 @@ export function useToolSync({ engineRef, engineEpoch, canvasRef,roomContentReady
   const eligibleSource=!availability||(availability.status==='ready'&&availability.options.some(o=>o.id===digitalBrushId&&o.sizePx===toolSettings.digitalBrush.size))
   const preparationReady=eligibleSource&&(engineRef.current?.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION||roomContentReady)
   const preparationKey = `${engineEpoch}:${preparationEpoch}:${availability?libraryRevision:0}:${digitalBrushPresetName ?? digitalBrushId}${preparationReady?'':':restoring'}`
-  const brushResourcesReady = eligibleSource&&(drawingTool !== 'digitalBrush' || (preparedKey === preparationKey && digitalBrushPresetName !== undefined && importedBrushAssets(digitalBrushPresetName).every(isBrushAssetReady)))
+  const brushResourcesReady = eligibleSource&&(drawingTool !== 'digitalBrush' || (preparedKey === preparationKey && digitalBrushPresetName !== undefined && importedBrushAssets(digitalBrushPresetName).every(id=>isBrushAssetReady(id))))
   useEffect(() => {
     if (drawingTool !== 'digitalBrush') { setPreparedKey(''); return }
     const engine = engineRef.current
