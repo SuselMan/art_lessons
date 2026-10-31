@@ -76,6 +76,7 @@ export interface CanonicalMaterialContextV2 {
 }
 export interface CanonicalMaterialImageSource {
   readonly kind:'image'; readonly asset:string
+  readonly frames?:readonly string[]
   readonly brushScale:number; readonly brushAngle:number
 }
 export interface CanonicalMaterialFrameV2 extends Omit<CanonicalMaterialFrame,'profile'|'definitions'> {
@@ -104,6 +105,20 @@ const integer=(v:unknown,min:number,max:number):v is number=>typeof v==='number'
 const number=(v:unknown,min:number,max:number):v is number=>typeof v==='number'&&Number.isFinite(v)&&v>=min&&v<=max
 const assetId=(v:unknown):v is string=>typeof v==='string'&&/^asset:[0-9a-f]{64}$/.test(v)
 function keys(v:unknown,allowed:readonly string[]):void {if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).some(k=>!allowed.includes(k)))fail()}
+/** Closed own-data ordered identities; availability alone is never a role grant. */
+export function canonicalImageFrameIds(value:unknown,primary:string,ids:ReadonlySet<string>):readonly string[] {
+  if(!Array.isArray(value)||value.length<2||value.length>256)return fail()
+  const fields=Reflect.ownKeys(value)
+  if(fields.length!==value.length+1||fields.some(k=>typeof k!=='string'||k!=='length'&&!/^(0|[1-9][0-9]*)$/.test(k)))fail()
+  const result:string[]=[]
+  for(let i=0;i<value.length;i++){
+    const d=Object.getOwnPropertyDescriptor(value,String(i))
+    if(!d||!Object.hasOwn(d,'value')||!assetId(d.value)||!ids.has(d.value))return fail()
+    result.push(d.value)
+  }
+  if(result[0]!==primary||new Set(result).size!==ids.size)fail()
+  return Object.freeze(result)
+}
 function context(c:AnyCanonicalMaterialContext):void {
   if(!c||!Array.isArray(c.assets)||c.assets.length>512||(!isV2(c)&&(!assetId(c.primaryAsset)||c.maskAsset!==undefined&&!assetId(c.maskAsset)||typeof c.preflightDefinition!=='function'))
     ||!c.budget||!integer(c.budget.workUnits,0,CANONICAL_MATERIAL_LIMITS.workUnits)||!integer(c.budget.outputBytes,0,CANONICAL_MATERIAL_LIMITS.outputBytes)||!integer(c.budget.drawPixels,0,CANONICAL_MATERIAL_LIMITS.drawPixels)
@@ -121,7 +136,10 @@ function context(c:AnyCanonicalMaterialContext):void {
     for(const [sourceSlot,source] of [c.primarySource,c.maskSource].entries()) {
       if(source===undefined){if(sourceSlot===0)fail();continue}
       if(source.kind==='image') {
-        keys(source,['kind','asset','brushScale','brushAngle'])
+        keys(source,['kind','asset','brushScale','brushAngle','frames'])
+        const frameField=Object.getOwnPropertyDescriptor(source,'frames')
+        if('frames' in source&&!frameField)fail()
+        if(frameField){if(sourceSlot!==0||!Object.hasOwn(frameField,'value'))fail();canonicalImageFrameIds(frameField.value,source.asset,ids)}
         if(!ids.has(source.asset)||!number(source.brushScale,Number.MIN_VALUE,1e6)||!number(source.brushAngle,-1e6,1e6))fail()
       } else if(source.kind==='defaultAuto') {
         canonicalDefaultAutoSourcePin(source)
@@ -174,7 +192,7 @@ function roleMatches(r:AnyCanonicalMaterialRecipe,role:'primary'|'mask',c:AnyCan
     try {canonicalSoftAutoCost(r,source);return true}catch{return false}
   }
   if(auto(r)) {if(source.kind!=='defaultAuto'&&source.kind!=='gaussianAuto')return false;try {canonicalAutoCost(r,source);return true}catch{return false}}
-  return source.kind==='image'&&r.asset===source.asset&&Object.is(r.brushScale,source.brushScale)&&Object.is(r.brushAngle,source.brushAngle)
+  return source.kind==='image'&&(source.frames?Array.prototype.includes.call(source.frames,r.asset):r.asset===source.asset)&&Object.is(r.brushScale,source.brushScale)&&Object.is(r.brushAngle,source.brushAngle)
 }
 
 function checkedCounts(definitions:number,draws:number,fences:number):void {

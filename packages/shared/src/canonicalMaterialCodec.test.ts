@@ -174,3 +174,24 @@ it('binds incremental image frame roles to an explicit bounded list rather than 
  f.masked=true;f.draws[0].role='mask';f.definitions[0]=recipe()
  expect(()=>packCanonicalMaterial(f,pipe)).toThrow()
 })
+it('V2 ordered image frames grant exact recipe assets without changing existing single-image bytes',()=>{
+ const a={id:primary,size:8,x:0,y:0,width:8,height:8},b={...a,id:mask},source={kind:'image' as const,asset:primary,brushScale:1,brushAngle:0}
+ const budget=context().budget,base={version:2 as const,assets:[a],primarySource:source,budget}
+ const r={kind:'image' as const,...recipe({rotation:0,subY:0,width:8,height:8})}
+ const input={masked:false,entry:{phase:'primary' as const,group:0},draws:[{recipe:r,role:'primary' as const,x:0,y:0,opacity:1,flow:1}],fences:[]}
+ const old=buildCanonicalMaterial(input,base).packed,pipe={...base,assets:[a,b],primarySource:{...source,frames:[primary,mask,primary]}}
+ expect(buildCanonicalMaterial(input,pipe).packed).toBe(old)
+ expect(()=>buildCanonicalMaterial({...input,draws:[{...input.draws[0],recipe:{...r,asset:mask}}]},pipe)).not.toThrow()
+ expect(()=>buildCanonicalMaterial({...input,draws:[{...input.draws[0],recipe:{...r,asset:mask}}]},{...base,assets:[a,b]})).toThrow()
+})
+it('does not invoke an inherited frame-list includes override to authorize an unpinned primary asset',()=>{
+ const a={id:primary,size:8,x:0,y:0,width:8,height:8},b={...a,id:mask},frames=[primary,primary]
+ let calls=0
+ Object.setPrototypeOf(frames,Object.assign(Object.create(Array.prototype),{includes(){calls++;return true}}))
+ const c={version:2 as const,assets:[a],primarySource:{kind:'image' as const,asset:primary,brushScale:1,brushAngle:0,frames},budget:context().budget}
+ const r={kind:'image' as const,...recipe({rotation:0,subY:0,width:8,height:8})}
+ const build=(asset:string)=>buildCanonicalMaterial({masked:false,entry:{phase:'primary',group:0},draws:[{recipe:{...r,asset},role:'primary',x:0,y:0,opacity:1,flow:1}],fences:[]},c)
+ expect(()=>build(primary)).not.toThrow()
+ expect(()=>build(b.id)).toThrow()
+ expect(calls).toBe(0)
+})

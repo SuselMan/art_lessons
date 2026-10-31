@@ -45,12 +45,13 @@ export function canonicalRecordedRasterProfiles(scope:Pick<CanonicalRecordedRead
 export function canonicalStrokeSnapshotV2(value:unknown,epoch:number,rasterProfile:CanonicalStrokeRasterProfile):CanonicalStrokeSnapshotV2 {
  if(!closed(value,['layerId','brush','strokeId','boardEpoch','descriptorSha256','rasterProfile','pigmentRgb8','composition','assets','materialVersion','material'])
   ||!text(value.layerId)||!text(value.brush)||!text(value.strokeId)||value.boardEpoch!==epoch||value.materialVersion!==2||value.rasterProfile!==rasterProfile
-  ||!integer(epoch)||!Array.isArray(value.assets)||value.assets.length>1||!closed(value.material,['version','assets','primarySource','budget']))return fail()
+  ||!integer(epoch)||!Array.isArray(value.assets)||value.assets.length>256||!closed(value.material,['version','assets','primarySource','budget']))return fail()
  // Material/source/budget and composition schema belong to the SAME shared
  // builder/decoder. Validate original bounded metadata before any clone/size walk.
  const s=value as unknown as CanonicalStrokeSnapshotV2,m=s.material,p=m.primarySource
- if(!closed(m.budget,['workUnits','outputBytes','drawPixels'])||m.version!==2||!Array.isArray(m.assets)||m.assets.length>1||!p||!/^[a-f0-9]{64}$/.test(s.descriptorSha256))return fail()
+ if(!closed(m.budget,['workUnits','outputBytes','drawPixels'])||m.version!==2||!Array.isArray(m.assets)||m.assets.length>256||!p||!/^[a-f0-9]{64}$/.test(s.descriptorSha256))return fail()
  const kind=Object.getOwnPropertyDescriptor(p,'kind');if(!kind||!Object.hasOwn(kind,'value'))return fail()
+ if(kind.value!=='image'&&(s.assets.length!==0||m.assets.length!==0))return fail()
  const image=kind.value==='image'?canonicalImageMaterialPin(p,m.assets):undefined
  if(image){const brush=/^brush:[a-z0-9-]+@([1-9][0-9]*)$/.exec(s.brush);if(!brush||!Number.isSafeInteger(Number(brush[1])))return fail()}
  if(!image&&(m.assets.length!==0||p.kind==='image'||p.descriptorSha256!==s.descriptorSha256

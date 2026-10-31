@@ -57,3 +57,26 @@ it.each(['brushAngle','brushScale','x','y','size','width','height'])('refuses ne
  if(field==='brushAngle'||field==='brushScale')Object.assign(s,{[field]:-0});else Object.assign(a,{[field]:-0})
  expect(()=>canonicalImageMaterialPin(s,[a])).toThrow()
 })
+it('captures an ordered repeated V2 frame pin with exact unique metadata and freezes independent copies',()=>{
+ const second={...asset,id:'asset:'+'c'.repeat(64)},frames=[source.asset,second.id,source.asset]
+ const pin=canonicalImageMaterialPin({...source,frames},[asset,second])
+ expect(pin.primarySource).toEqual({...source,frames});expect(pin.assets).toEqual([asset,second])
+ frames[1]=source.asset;expect(pin.primarySource).toEqual({...source,frames:[source.asset,second.id,source.asset]})
+ expect(Object.isFrozen(pin.primarySource.frames)).toBe(true)
+})
+it('rejects holes/getters/symbols/extras and incomplete or ambiguous frame metadata without invoking accessors',()=>{
+ const second={...asset,id:'asset:'+'c'.repeat(64)},get=vi.fn(()=>second.id)
+ const accessor=[source.asset,second.id];Object.defineProperty(accessor,'1',{get})
+ const extra=Object.assign([source.asset,second.id],{extra:0}),symbol=Object.assign([source.asset,second.id],{[Symbol('x')]:0})
+ for(const frames of [[source.asset],[source.asset,,second.id],accessor,extra,symbol,[second.id,source.asset]])expect(()=>canonicalImageMaterialPin({...source,frames},[asset,second])).toThrow()
+ expect(get).not.toHaveBeenCalled()
+ for(const assets of [[asset],[asset,second,{...second,x:1}],[asset,second,{...asset,id:'asset:'+'d'.repeat(64)}]])expect(()=>canonicalImageMaterialPin({...source,frames:[source.asset,second.id]},assets)).toThrow()
+})
+it('rejects accessor/hidden metadata array fields and allows the same asset identity in separate crop contexts',()=>{
+ const get=vi.fn(()=>asset),accessor=[asset];Object.defineProperty(accessor,'0',{get})
+ const hidden=Object.defineProperty([asset],'extra',{value:1})
+ for(const values of [accessor,hidden,Object.assign([asset],{[Symbol('x')]:0}),Array(1)])expect(()=>canonicalImageMaterialPin(source,values)).toThrow()
+ expect(get).not.toHaveBeenCalled()
+ expect(canonicalImageMaterialPin(source,[asset]).assets[0].x).toBe(53)
+ expect(canonicalImageMaterialPin(source,[{...asset,x:54}]).assets[0].x).toBe(54)
+})

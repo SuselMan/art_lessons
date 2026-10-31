@@ -121,3 +121,18 @@ it('accepts mixed old/new gestures only from the explicit bounded captured allow
  }
  expect(()=>prepareCanonicalRecordedAttachment(attachment,[f.op,newOp],{...f.expected,rasterProfile:genericOuterProfile,allowedRasterProfiles:profiles})).toThrow()
 })
+it('captures original ordered image frames with exact outer/inner assets and rejects mismatched or forged lists',()=>{
+ const f=fixture(),id='asset:'+'c'.repeat(64),other='asset:'+'d'.repeat(64),assets=[{id,size:8,x:0,y:0,width:8,height:8},{id:other,size:8,x:0,y:0,width:8,height:8}],frames=[id,other,id]
+ const material={version:2 as const,assets,primarySource:{kind:'image' as const,asset:id,brushScale:1,brushAngle:0,frames},budget:{workUnits:10000,outputBytes:40000,drawPixels:10000}}
+ const snapshot:CanonicalStrokeSnapshotV2={...f.attachment.capabilities[0].snapshot,brush:'brush:pipe@1',assets,material}
+ const packed=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[{at:0,kind:'gestureEnd'}]},material).packed
+ const op={...f.op,frame:{...f.op.frame,brush:snapshot.brush,materialPacked:packed}}
+ const attachment={...f.attachment,capabilities:[{originalUserId:'author',snapshot}]}
+ const accepted=prepareCanonicalRecordedAttachment(attachment,[op],f.expected)[0]
+ expect(accepted.read?.capability.snapshot.material.primarySource).toEqual(material.primarySource)
+ frames[1]=id
+ expect(accepted.read?.capability.snapshot.material.primarySource).toEqual({...material.primarySource,frames:[id,other,id]})
+ expect(()=>prepareCanonicalRecordedAttachment(attachment,[op],f.expected)).toThrow() // unique metadata no longer exactly matches role list
+ const restored={...snapshot,material:{...material,primarySource:{...material.primarySource,frames:[id,other,id]}}}
+ expect(()=>prepareCanonicalRecordedAttachment({...attachment,capabilities:[{originalUserId:'author',snapshot:{...restored,assets:[assets[0],{...assets[1],x:1,width:7}]}}]},[op],f.expected)).toThrow()
+})
