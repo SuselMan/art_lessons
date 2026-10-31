@@ -5922,7 +5922,7 @@ export class PencilEngine implements PencilEngineAPI {
    * while straight writers/presentation are not installed. Check whole history
    * batches before the first mutation, not only at the eventual paint switch. */
   private _assertRenderableOperation(op: Operation): void {
-    if ((op.type as string) === 'canonical_stroke') throw new TypeError('Canonical stroke operation is not supported by this renderer')
+    if ((op.type as string) === 'canonical_stroke' || (op.type as string) === 'canonical_stroke_close') throw new TypeError('Canonical stroke operation is not supported by this renderer')
   }
 
   absorbHistoricalOperations(pageOps: Operation[]): void {

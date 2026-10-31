@@ -97,6 +97,9 @@ export function createConfirmedStreamHandler({
     }
     const { seq } = payload
     let op = payload.operation, acceptedPayload = payload
+    // Until a recorded-prefix seal owner is paired, never let wire close
+    // metadata reach review state, a held queue, cursors or the renderer.
+    if ((op.type as string) === 'canonical_stroke_close') { requestFullResync(); return }
     // Nothing, including review state and the existing replay queue, sees an
     // invalid or stale capability. Expected epoch comes from room-state scope.
     if (canonicalReadScope && !canonicalReadScope.isCurrent()) return

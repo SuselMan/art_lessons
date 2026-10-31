@@ -146,3 +146,11 @@ describe('canonical frames need a trusted closed pixel prefix', () => {
     expect((where.NOT as {type:{in:string[]}}).type.in).not.toContain('canonical_stroke')
   })
 })
+
+it('retains explicit close metadata regardless of numeric snapshot or deleted layer coverage',()=>{
+ const close:Operation={...base(7),type:'canonical_stroke_close',layerId:'layer-1',targetUserId:'author',strokeId:'S',disposition:'commitPartial',recordedNext:2,firstFrameOpId:'first',lastFrameOpId:'last'}
+ for(const ids of [new Set(['layer-1']),new Set<string>()]){
+  expect(isCoveredBySnapshot(new Map([['layer-1',100]]),close,100,ids)).toBe(false)
+  expect(deletableOperations(new Map([['layer-1',100]]),[close],100,ids)).toEqual([])
+ }
+})

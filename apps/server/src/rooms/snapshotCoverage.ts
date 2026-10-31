@@ -193,7 +193,7 @@ export function isCoveredBySnapshot(
   // attest their pixel or closure state, and a numeric pixel watermark alone
   // is not a trusted completed-gesture prefix. Keep them replayable until an
   // explicit closed-prefix rule is implemented.
-  if (op.type === 'canonical_stroke') return false
+  if (op.type === 'canonical_stroke' || op.type === 'canonical_stroke_close') return false
   const structureCovered = layerStateSeq !== null && seq <= layerStateSeq
   // A layer the stored structure no longer lists is gone, and a gone layer
   // needs no pixels: nothing displays it. Only meaningful for an operation the

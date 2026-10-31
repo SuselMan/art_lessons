@@ -90,3 +90,9 @@ it('captures a bounded independent profile allowset and rejects ambiguous receiv
  expect(Object.isFrozen(captured.allowedRasterProfiles)).toBe(true)
  expect(()=>captureCanonicalHistoryScope({...f.scope,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,allowedRasterProfiles:profiles})).toThrow()
 })
+it('rejects close metadata without an explicit recorded seal owner, even in legacy arrays',()=>{
+ const close={id:'close',type:'canonical_stroke_close',userId:'author',timestamp:0,seq:4}
+ const f=page()
+ for(const scope of [undefined,f.scope])expect(()=>prepareCanonicalHistoryPage([close],'room',scope)).toThrow(CanonicalHistoryReadError)
+ expect(()=>prepareCanonicalHistoryPage({...f.body,operations:[close]},'room',f.scope)).toThrow(CanonicalHistoryReadError)
+})

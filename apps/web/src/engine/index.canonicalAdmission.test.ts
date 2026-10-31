@@ -3,8 +3,8 @@ import type { Operation } from '@grafetto/shared'
 import { createTestEngine, makeLayerAdd } from './testing/engineTestUtils'
 
 /** A header whose material must never be inspected by the legacy renderer. */
-function canonical(): Operation {
-  return Object.defineProperty({ type: 'canonical_stroke', id: 'canonical', userId: 'user', timestamp: 1, seq: 2, layerId: 'L' }, 'frame', {
+function canonical(type='canonical_stroke'): Operation {
+  return Object.defineProperty({ type, id: 'canonical', userId: 'user', timestamp: 1, seq: 2, layerId: 'L' }, 'frame', {
     enumerable: true, get() { throw new Error('Material decoded before renderer admission') },
   }) as Operation
 }
@@ -44,4 +44,13 @@ it.each([false, true])('rejects canonical dependency restore atomically before p
     expect(preload).not.toHaveBeenCalled(); expect(absorb).not.toHaveBeenCalled()
     expect(engine.getOperations()).toEqual([])
   } finally { engine.destroy() }
+})
+
+it('rejects close metadata atomically before journal or render admission',()=>{
+ const {engine}=createTestEngine()
+ try{
+  expect(()=>engine.appendOperation(canonical('canonical_stroke_close'),'remote')).toThrow('not supported by this renderer')
+  expect(()=>engine.absorbHistoricalOperations([makeLayerAdd('user','L'),canonical('canonical_stroke_close')])).toThrow('not supported by this renderer')
+  expect(engine.getOperations()).toEqual([])
+ }finally{engine.destroy()}
 })

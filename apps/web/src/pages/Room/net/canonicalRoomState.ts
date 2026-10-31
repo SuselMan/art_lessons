@@ -23,6 +23,8 @@ export function assertCanonicalRoomStateRead(value:CanonicalRoomStateRead,operat
  * the requested board and socket/context generation independently of this data.
  * It grants reading, never authoring as an original user. */
 export function prepareCanonicalRoomState(state:WireState,lifetime:{readonly expectedBoardId:string;readonly isCurrent:()=>boolean}):PreparedCanonicalRoomState {
+ // A wire close is metadata, never proof that its source prefix can execute.
+ if(state.tailOperations?.some(op=>(op.type as string)==='canonical_stroke_close'))throw Error('Canonical close requires a recorded seal owner')
  const {expectedBoardId,isCurrent}=lifetime
  if(!isCurrent()||state.room.id!==expectedBoardId||readRoomRasterVersion(state.room.rasterVersion)!==STRAIGHT_ROOM_RASTER_VERSION)throw Error('Stale canonical room state')
  const wireScope=state.canonicalReadScope
@@ -47,6 +49,7 @@ export function prepareCanonicalRoomState(state:WireState,lifetime:{readonly exp
 /** Runs before ordered brush loading, review stores, refs or replay queues.
  * No injected preparer means the existing legacy-only lane remains closed. */
 export function preflightRoomStateDelivery(state:WireState,prepare?:CanonicalRoomStatePreparer,lifetime?:{readonly isCurrent:()=>boolean}):RoomStateDelivery {
+ if(state.tailOperations?.some(op=>(op.type as string)==='canonical_stroke_close'))throw Error('Canonical close requires a recorded seal owner')
  const version=readRoomRasterVersion(state.room.rasterVersion)
  if(version===LEGACY_ROOM_RASTER_VERSION){
   if(state.canonicalReadScope!==undefined||state.canonicalAuthorRasterProfile!==undefined||state.canonicalCapabilities!==undefined||Object.hasOwn(state,'canonicalRead'))throw Error('Unexpected canonical legacy room state')

@@ -1,6 +1,6 @@
 import {expect,it,vi} from 'vitest'
 vi.mock('@sentry/react',()=>({captureException:vi.fn()}))
-import {sourceAutoGeometry,canonicalSoftAutoSourcePin,buildCanonicalMaterial,CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type CanonicalStrokeOperation,type CanonicalStrokeSnapshotV2,type CanonicalRecordedAttachmentV1,type ServerToClientEvents} from '@grafetto/shared'
+import {sourceAutoGeometry,canonicalSoftAutoSourcePin,buildCanonicalMaterial,CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type CanonicalStrokeOperation,type CanonicalStrokeSnapshotV2,type CanonicalRecordedAttachmentV1,type ServerToClientEvents,type Operation,LEGACY_ROOM_RASTER_VERSION} from '@grafetto/shared'
 import {prepareCanonicalRoomState,preflightRoomStateDelivery,assertCanonicalRoomStateRead} from './canonicalRoomState'
 function fixture(){
  const curve={text:'0,1;1,0',points:[{x:0,y:1,corner:false},{x:1,y:0,corner:false}]}
@@ -77,4 +77,11 @@ it('expires across restore await without applying read atoms or publishing new r
   expect(deps.applyCanonicalOp).not.toHaveBeenCalled();expect(deps.applyRemoteOp).not.toHaveBeenCalled();expect(deps.latestKnownSeqRef.current).toBe(0)
   expect(deps.markJoinRestoreDone).not.toHaveBeenCalled();expect(deps.setRoomContentReady).not.toHaveBeenCalledWith(true)
  }finally{engine.destroy()}
+})
+it('rejects explicit close metadata before granting room-state read authority',()=>{
+ const {state:s}=state()
+ s.tailOperations=[{id:'close',type:'canonical_stroke_close',userId:'author',timestamp:0,seq:4} as unknown as Operation]
+ expect(()=>prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true})).toThrow('seal owner')
+ const legacy={...s,room:{...s.room,rasterVersion:LEGACY_ROOM_RASTER_VERSION},canonicalReadScope:undefined,canonicalAuthorRasterProfile:undefined,canonicalCapabilities:undefined}
+ expect(()=>preflightRoomStateDelivery(legacy)).toThrow('seal owner')
 })

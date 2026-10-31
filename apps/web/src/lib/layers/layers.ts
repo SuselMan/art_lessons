@@ -575,6 +575,7 @@ export function applyContentOp(state: LayerState, op: Operation): LayerState {
     }
     case 'stroke':
     case 'canonical_stroke':
+    case 'canonical_stroke_close':
     case 'layer_clear':
     case 'image_import':
     case 'layer_transform':

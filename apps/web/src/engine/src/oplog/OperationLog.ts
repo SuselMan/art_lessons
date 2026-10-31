@@ -12,7 +12,19 @@ import type {
   ImageImportOperation, LayerTransformOperation, AreaTransformOperation, AreaClearOperation,
   AreaPasteOperation, AreaFillOperation, ShapeOperation, LayerFilterOperation,
 } from '@grafetto/shared'
-import { operationLayerIds, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation } from '@grafetto/shared'
+import { parseCanonicalStrokeCloseOperation, operationLayerIds, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation } from '@grafetto/shared'
+
+/** Restore only the authoritative sequence, preserving every own descriptor so
+ * the shared closed parser still rejects hidden extras and accessors. */
+function captureCloseForPlacement(op: Operation, serverSeq: number | undefined): Operation {
+  const keys = Reflect.ownKeys(op)
+  if (keys.length !== 12) throw new TypeError('Invalid canonical stroke close metadata')
+  const descriptors = Object.getOwnPropertyDescriptors(op)
+  if (keys.some(key => !Object.hasOwn(descriptors[key as string], 'value')))
+    throw new TypeError('Invalid canonical stroke close metadata')
+  if (serverSeq !== undefined) descriptors.seq = {value: serverSeq, enumerable: true}
+  return parseCanonicalStrokeCloseOperation(Object.create(null, descriptors))
+}
 
 export type OperationState = 'done' | 'undone' | 'gone'
 export type CanonicalLogRead = NonNullable<CanonicalPreparedRecordedOperation['read']>
@@ -125,7 +137,7 @@ function coalesces(prev: Operation, next: Operation): boolean {
 //  (#536, §17.48) `paper_dry` rides along: it is not undoable (there is no
 //  "wet it again"), so a Ctrl+Z must reach past it to the stroke before, and
 //  pressing it is not "doing something new" that should cost the redo stack.
-const META_OP_TYPES = new Set<Operation['type']>(['operation_revoke', 'operation_undo', 'operation_redo', 'paper_dry'])
+const META_OP_TYPES = new Set<Operation['type']>(['operation_revoke', 'operation_undo', 'operation_redo', 'paper_dry', 'canonical_stroke_close'])
 
 /** (#537) The log holds two regions, in this order:
  *
@@ -223,6 +235,10 @@ export class OperationLog {
    *  already applied — empty in the common case, where `op` lands on the end
    *  of its region with nothing painted above it. See the class doc comment. */
   append(op: Operation, placement: Placement = {}): LogEntry[] {
+    if (op.type === 'canonical_stroke_close') {
+      if (placement.pending) throw new TypeError('Canonical close requires recorded placement')
+      op = captureCloseForPlacement(op,placement.serverSeq)
+    }
     if (placement.pending && 'canonicalRead' in placement) throw new TypeError('Pending history cannot carry recorded read authority')
     const canonicalRead = this._prepareCanonicalRead(op, placement.pending ? undefined : placement.serverSeq,
       placement.pending ? undefined : placement.canonicalRead)
@@ -386,7 +402,7 @@ export class OperationLog {
   applyUndo(targetOpId: string, userId: string): Operation | null {
     this._revision++
     const target = this._entries.find(e => e.op.id === targetOpId && e.state === 'done' && e.op.userId === userId)
-    if (!target) return null
+    if (!target || target.op.type === 'canonical_stroke_close') return null
     for (const e of this._gestureEntries(target, 'done')) {
       e.state = 'undone'
       this._bumpPixelOpCount(e.op, -1)
@@ -453,7 +469,7 @@ export class OperationLog {
   applyRedo(targetOpId: string, userId: string): Operation | null {
     this._revision++
     const target = this._entries.find(e => e.op.id === targetOpId && e.state === 'undone' && e.op.userId === userId)
-    if (!target) return null
+    if (!target || target.op.type === 'canonical_stroke_close') return null
     for (const e of this._gestureEntries(target, 'undone')) {
       e.state = 'done'
       this._bumpPixelOpCount(e.op, 1)
@@ -482,7 +498,7 @@ export class OperationLog {
   revoke(targetOpId: string): Operation | null {
     this._revision++
     for (const e of this._entries) {
-      if (e.op.id === targetOpId && e.state !== 'gone') {
+      if (e.op.id === targetOpId && e.op.type !== 'canonical_stroke_close' && e.state !== 'gone') {
         // Only a still-`done` entry was ever counted (an `undone` one
         // already wasn't) — revoking that one is the only case that changes
         // the count.
@@ -521,6 +537,9 @@ export class OperationLog {
    *  that invariant true across the splice. O(n) in the log's total size;
    *  fine for a background, few-times-per-session operation. */
   prependHistorical(entries: readonly LogEntry[]): void {
+    // Capture close metadata before splice; local op.seq is an array ordinal.
+    entries = entries.map(entry => entry.op.type === 'canonical_stroke_close'
+      ? {...entry,op:captureCloseForPlacement(entry.op,entry.serverSeq)}:entry)
     let prepared: readonly LogEntry[] = entries
     if (entries.some(entry => entry.canonicalRead)) {
       const basis: LogEntry[] = [...this._entries]

@@ -23,12 +23,14 @@ export function prepareCanonicalHistoryPage(value: unknown, roomId: string, scop
   try {
     assertCanonicalHistoryCurrent(scope)
     if (Array.isArray(value)) {
+      if (value.some(op => op?.type === 'canonical_stroke_close')) throw new CanonicalHistoryReadError()
       if (scope && value.some(op => op?.type === 'canonical_stroke')) throw new CanonicalHistoryReadError()
       return value as Operation[]
     }
     if (!scope || scope.roomId !== roomId || !value || typeof value !== 'object'
       || Reflect.ownKeys(value).length !== 2 || !Object.hasOwn(value, 'operations') || !Object.hasOwn(value, 'canonicalCapabilities')) throw new CanonicalHistoryReadError()
     const page = value as { operations: Operation[]; canonicalCapabilities: unknown }
+    if (Array.isArray(page.operations) && page.operations.some(op => (op.type as string) === 'canonical_stroke_close')) throw new CanonicalHistoryReadError()
     const prepared = prepareCanonicalRecordedAttachment(page.canonicalCapabilities, page.operations, scope)
     assertCanonicalHistoryCurrent(scope)
     return Object.freeze({ operations: Object.freeze(prepared.map(atom => atom.operation)), prepared })

@@ -129,3 +129,14 @@ it('accepts the same original held atom after same-owner handler rebuild without
  expect(read.capability.snapshot.boardEpoch).toBe(2);expect(read.capability.originalUserId).toBe('author')
  expect(s.deps.lastConfirmedSeqRef.current).toBe(3)
 })
+it.each([false,true])('rejects close wire metadata before every side effect (scoped=%s)',scoped=>{
+ const s=current(),observe=vi.spyOn(useRoomStore.getState(),'observeReviewOperation'),hold=vi.fn(()=>false)
+ observe.mockClear()
+ const handler=createConfirmedStreamHandler({...s.deps,canonicalReadScope:scoped?s.scope:undefined,replayGate:{hold,setHandler:vi.fn()}})
+ try{
+  handler({seq:3,operation:{type:'canonical_stroke_close',id:'close',userId:'author',timestamp:0,seq:3} as unknown as Operation})
+  expect(observe).not.toHaveBeenCalled();expect(hold).not.toHaveBeenCalled()
+  expect(s.deps.lastConfirmedSeqRef.current).toBe(2);expect(s.deps.latestKnownSeqRef.current).toBe(2)
+  expect(s.deps.applyRemoteOp).not.toHaveBeenCalled();expect(s.deps.requestFullResync).toHaveBeenCalledOnce()
+ }finally{observe.mockRestore()}
+})
