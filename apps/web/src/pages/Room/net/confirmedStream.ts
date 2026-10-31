@@ -1,3 +1,4 @@
+import type { ReplayGate, ReplayGateDelivery } from '../replayGate'
 import type { RefObject } from 'react'
 
 import { canonicalRecordedRasterProfiles, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation, type CanonicalRecordedReadScope,type CanonicalStrokeRasterProfile, type Operation, type ServerToClientEvents } from '@grafetto/shared'
@@ -41,10 +42,7 @@ export interface ConfirmedStreamDeps {
   requestFullResync: () => void
   /** (#536, ADR 011 §17.49) Holds arrivals while a restore's tail replay
    *  yields - see replayGate.ts. */
-  replayGate?: {
-    hold(payload: ConfirmedPayload): boolean
-    setHandler(handler: (payload: ConfirmedPayload) => void): void
-  }
+  replayGate?: Pick<ReplayGate<ConfirmedPayload>, 'hold' | 'setHandler'>
   /** Explicit captured authoritative room-state scope; absent keeps the legacy
    * lane and cannot admit a newly attached procedural capability. */
   canonicalReadScope?: CanonicalRecordedReadScope & { readonly isCurrent: () => boolean }
@@ -85,7 +83,7 @@ export function createConfirmedStreamHandler({
   const commitRevealsBelow = (seq: number): boolean =>
     commitRevealsBelowShared(seq, pendingPreviewsRef.current, engineRef.current, applyRemoteOp)
 
-  const handler: ServerToClientEvents['operation_confirmed'] = payload => {
+  const handler = (payload: ConfirmedPayload, delivery?: ReplayGateDelivery): void => {
     // A gate can replace its handler while held messages survive. The
     // ORIGINAL local lifetime must authorize release before a new scope sees it.
     const held=payload as HeldCanonicalPayload
@@ -130,7 +128,7 @@ export function createConfirmedStreamHandler({
       }
     }
     useRoomStore.getState().observeReviewOperation({ ...op, seq })
-    if (replayGate?.hold(acceptedPayload)) return
+    if (replayGate?.hold(acceptedPayload, delivery)) return
     // (#289 §12) A gap in this stream is impossible on an unbroken
     // connection (TCP never silently drops or reorders within one), so
     // seeing one means the connection was interrupted without this client

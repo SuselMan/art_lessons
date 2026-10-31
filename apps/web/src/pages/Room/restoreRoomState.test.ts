@@ -156,3 +156,36 @@ it.each(['restored', 'failed'] as const)('records only successfully restored ser
     }
   } finally { engine.destroy() }
 })
+
+it('an older actual restore cannot release a newer restore gate or publish failure/ready after yielding',async()=>{
+ const engine=createTestEngine({userId:'reader'},{width:8,height:8}).engine
+ let resolveA!:()=>void,resolveB!:()=>void
+ const a=new Promise<void>(yes=>{resolveA=yes}),b=new Promise<void>(yes=>{resolveB=yes})
+ vi.spyOn(engine,'preloadImages').mockReturnValueOnce(a).mockReturnValueOnce(b)
+ const resume=vi.spyOn(engine,'resumeDisplay'),gate=createReplayGate<unknown>(),seen:unknown[]=[]
+ gate.setHandler(value=>{seen.push(value)})
+ const makeDeps=():RestoreRoomStateDeps=>({
+  boardId:'room',restoreFromSnapshot:vi.fn().mockResolvedValue('none'),backfillHistory:vi.fn().mockResolvedValue(undefined),
+  applyRemoteOp:vi.fn(),syncFromLogNow:vi.fn(),markJoinRestoreDone:vi.fn(),dispatchParticipants:vi.fn(),setRestoreFailure:vi.fn(),
+  setRoomContentReady:vi.fn(),finishOpenTimer:vi.fn(),notifyReplayIncomplete:vi.fn(),getSnapshotUploader:()=>null,
+  latestKnownSeqRef:{current:0},replayIncompleteRef:{current:false},pendingPreviewsRef:{current:createPendingPreviews()},
+  openTimerRef:{current:null},replayGate:gate,
+ })
+ const old=makeDeps(),next=makeDeps(),state={latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false}
+ try{
+  const restoreA=restoreRoomState(engine,state,{mode:'join',alreadyHadSeq:0},old)
+  expect(gate.hold('before-B')).toBe(true)
+  const restoreB=restoreRoomState(engine,state,{mode:'catchup',alreadyHadSeq:0},next)
+  expect(gate.hold('during-B')).toBe(true)
+  resolveA();await restoreA
+  expect(seen).toEqual([]);expect(gate.hold('after-A')).toBe(true)
+  expect(old.setRestoreFailure).not.toHaveBeenCalled();expect(old.replayIncompleteRef.current).toBe(false)
+  expect(old.syncFromLogNow).not.toHaveBeenCalled();expect(old.markJoinRestoreDone).not.toHaveBeenCalled()
+  expect(old.setRoomContentReady).not.toHaveBeenCalled();expect(old.finishOpenTimer).not.toHaveBeenCalled()
+  expect(resume).toHaveBeenCalledOnce()
+  resolveB();await restoreB
+  expect(seen).toEqual(['before-B','during-B','after-A']);expect(gate.hold('after-B')).toBe(false)
+  expect(next.setRestoreFailure).not.toHaveBeenCalled();expect(next.setRoomContentReady).toHaveBeenCalledExactlyOnceWith(true)
+  expect(next.syncFromLogNow).toHaveBeenCalledOnce();expect(resume).toHaveBeenCalledTimes(2)
+ }finally{resolveA();resolveB();engine.destroy()}
+})

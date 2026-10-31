@@ -65,15 +65,15 @@ it('passes the immutable atomic read to the existing remote and own confirmation
  expect(own.deps.applyRemoteOp).not.toHaveBeenCalled()
 })
 it('holds the complete immutable attachment in the SAME replay gate and rechecks lifetime on release',()=>{
- const s=current(),gate=createReplayGate<typeof s.payload>();gate.begin()
+ const s=current(),gate=createReplayGate<typeof s.payload>();const ticket=gate.begin()
  const confirm=createConfirmedStreamHandler({...s.deps,canonicalReadScope:s.scope,replayGate:gate})
  confirm(s.payload);expect(s.deps.applyRemoteOp).not.toHaveBeenCalled()
  ;(s.payload.canonicalCapabilities.capabilities[0].snapshot as unknown as {pigmentRgb8:number[]}).pigmentRgb8=[9,9,9]
- gate.end()
+ gate.end(ticket)
  expect(s.deps.applyRemoteOp).toHaveBeenCalledWith(expect.objectContaining({frame:expect.objectContaining({pigmentRgb8:[1,2,3]})}),expect.objectContaining({sequence:3}))
- const stale=current(),staleGate=createReplayGate<typeof stale.payload>();staleGate.begin()
+ const stale=current(),staleGate=createReplayGate<typeof stale.payload>();const staleTicket=staleGate.begin()
  createConfirmedStreamHandler({...stale.deps,canonicalReadScope:stale.scope,replayGate:staleGate})(stale.payload)
- stale.scope.isCurrent.mockReturnValue(false);staleGate.end()
+ stale.scope.isCurrent.mockReturnValue(false);staleGate.end(staleTicket)
  expect(stale.deps.applyRemoteOp).not.toHaveBeenCalled();expect(stale.deps.lastConfirmedSeqRef.current).toBe(2)
 })
 it('requires both a captured room-state scope and a capability for the new read lane',()=>{
@@ -100,9 +100,9 @@ it('captures the receiver allowset before caller mutation and rejects ambiguous 
  expect(()=>createConfirmedStreamHandler({...s.deps,canonicalReadScope:{...s.scope,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,allowedRasterProfiles:profiles}})).toThrow()
 })
 it.each(['expired','differentOwner','unscoped','copy','changedPolicy','changedCallback'] as const)('refuses held %s before any replacement handler state effect even with identical numeric epoch',kind=>{
- const old=current(),next=current(),gate=createReplayGate<typeof old.payload>();gate.begin()
+ const old=current(),next=current(),gate=createReplayGate<typeof old.payload>();const ticket=gate.begin()
  let captured:typeof old.payload|undefined
- const hold=gate.hold.bind(gate);vi.spyOn(gate,'hold').mockImplementation(payload=>{captured=payload;return hold(payload)})
+ const hold=gate.hold.bind(gate);vi.spyOn(gate,'hold').mockImplementation((payload,delivery)=>{captured=payload;return hold(payload,delivery)})
  createConfirmedStreamHandler({...old.deps,canonicalReadScope:old.scope,replayGate:gate})(old.payload)
  if(!captured)throw Error('Expected held payload')
  if(kind==='expired')old.scope.isCurrent.mockReturnValue(false)
@@ -113,17 +113,17 @@ it.each(['expired','differentOwner','unscoped','copy','changedPolicy','changedCa
  const observe=vi.spyOn(useRoomStore.getState(),'observeReviewOperation');observe.mockClear()
  try{
   if(kind==='copy')handler({...captured}) // spread preserves private Symbols but is not the original
-  else gate.end()
+  else gate.end(ticket)
   expect(observe).not.toHaveBeenCalled();expect(next.deps.lastConfirmedSeqRef.current).toBe(2)
   expect(next.deps.latestKnownSeqRef.current).toBe(2);expect(next.deps.applyRemoteOp).not.toHaveBeenCalled();expect(next.deps.confirmOwnOperation).not.toHaveBeenCalled()
   expect(next.deps.requestFullResync).not.toHaveBeenCalled()
  }finally{observe.mockRestore()}
 })
 it('accepts the same original held atom after same-owner handler rebuild without relabelling its prepared read',()=>{
- const s=current(),gate=createReplayGate<typeof s.payload>();gate.begin()
+ const s=current(),gate=createReplayGate<typeof s.payload>();const ticket=gate.begin()
  createConfirmedStreamHandler({...s.deps,canonicalReadScope:s.scope,replayGate:gate})(s.payload)
  createConfirmedStreamHandler({...s.deps,canonicalReadScope:s.scope,replayGate:gate})
- gate.end()
+ gate.end(ticket)
  expect(s.deps.applyRemoteOp).toHaveBeenCalledOnce()
  const read=s.deps.applyRemoteOp.mock.calls[0][1]
  expect(read.capability.snapshot.boardEpoch).toBe(2);expect(read.capability.originalUserId).toBe('author')

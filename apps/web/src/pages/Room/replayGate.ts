@@ -12,36 +12,82 @@
  *  tail applied before the rest of the tail is out of the log's order. So
  *  while the gate is shut they wait here, and the handler gets them, in
  *  arrival order, the moment the tail is done. */
+const ticketBrand: unique symbol = Symbol('replay-gate-ticket')
+const deliveryBrand: unique symbol = Symbol('replay-gate-delivery')
+/** Internal local identities; neither token is wire data or transferable authority. */
+export interface ReplayGateTicket { readonly [ticketBrand]: true }
+export interface ReplayGateDelivery { readonly [deliveryBrand]: true }
+
 export interface ReplayGate<T> {
-  /** Shut the gate: arrivals are held from now on. */
-  begin(): void
-  /** True (and the payload kept) while the gate is shut; false otherwise, and
-   *  the caller handles the payload itself as it always did. */
-  hold(payload: T): boolean
-  /** Open the gate and hand every held payload to the handler, in order. */
-  end(): void
-  /** The handler held payloads are released to. */
-  setHandler(handler: ((payload: T) => void) | null): void
+  /** Replace the restore owner and shut the existing gate. */
+  begin(): ReplayGateTicket
+  /** A release token bypasses only this gate's current synchronous delivery,
+   * exactly once. Ordinary arrivals stay queued throughout a release. */
+  hold(payload: T, delivery?: ReplayGateDelivery): boolean
+  /** Only the current restore can release; nested/stale attempts return false. */
+  end(ticket: ReplayGateTicket): boolean
+  setHandler(handler: ((payload: T, delivery?: ReplayGateDelivery) => void) | null): void
 }
 
 export function createReplayGate<T>(): ReplayGate<T> {
   let shut = false
-  let held: T[] = []
-  let handler: ((payload: T) => void) | null = null
+  const held: T[] = []
+  let handler: ((payload: T, delivery?: ReplayGateDelivery) => void) | null = null
+  let owner: ReplayGateTicket | null = null
+  let draining = false
+  let inflight: { payload: T; token: ReplayGateDelivery; ticket: ReplayGateTicket; used: boolean } | null = null
   return {
-    begin() { shut = true },
-    hold(payload) {
+    begin() {
+      owner = Object.freeze({ [ticketBrand]: true as const })
+      shut = true
+      return owner
+    },
+    hold(payload, delivery) {
+      if (delivery !== undefined) {
+        if (!inflight || inflight.token !== delivery || inflight.payload !== payload
+          || inflight.used || owner !== inflight.ticket) throw new Error('Invalid replay delivery')
+        inflight.used = true
+        return false
+      }
       if (!shut) return false
       held.push(payload)
       return true
     },
-    end() {
-      shut = false
-      const out = held
-      held = []
-      for (const p of out) handler?.(p)
+    end(ticket) {
+      if (!ticket || ticket !== owner || draining) return false
+      const release = handler
+      let completed = false
+      let consumed = 0
+      draining = true
+      // Keep one queue and a scalar cursor. Reentrant arrivals append after
+      // the old remainder; trim the consumed prefix once, including on throw.
+      try {
+        while (consumed < held.length) {
+          if (owner !== ticket || handler !== release) return false
+          if (!release) throw new Error('Missing replay handler')
+          const payload = held[consumed++]
+          const token = Object.freeze({ [deliveryBrand]: true as const })
+          inflight = { payload, token, ticket, used: false }
+          try { release(payload, token) } finally { inflight = null }
+          // The attempted event is consumed even if the handler throws: it
+          // may already have applied pixels. Never retry it implicitly.
+        }
+        if (owner !== ticket || handler !== release) return false
+        owner = null
+        shut = false
+        completed = true
+        return true
+      } finally {
+        held.splice(0, consumed)
+        inflight = null
+        draining = false
+        if (!completed) {
+          shut = true
+          if (owner === ticket) owner = null
+        }
+      }
     },
-    setHandler(h) { handler = h },
+    setHandler(next) { handler = next },
   }
 }
 

@@ -116,7 +116,8 @@ export async function restoreRoomState(
   // из `catch` по второму поводу заново позвал бы `_display()` на той же
   // нехватке памяти, уже внутри обработчика.
   let displaySuspended = false
-  deps.replayGate.begin()
+  const supersededReplay = new Error('Superseded room restore replay')
+  const replayTicket = deps.replayGate.begin()
   try {
     // (#147) A room's history can be hundreds/thousands of ops — without this,
     // appendOperation's own per-op _display() (full composite + paper-blend)
@@ -261,7 +262,7 @@ export async function restoreRoomState(
       deps.notifyReplayIncomplete()
     }
     assertCurrent()
-    deps.replayGate.end()
+    if (!deps.replayGate.end(replayTicket)) throw supersededReplay
     displaySuspended = false
     engine?.resumeDisplay()
     // (#386) Now, not on the next microtask: the bootstrap below reads the
@@ -309,7 +310,7 @@ export async function restoreRoomState(
     // nothing. The same shape #533 closed for a failed snapshot, so the same
     // screen and the same retry.
     restoreFailedHere = true
-    if(!canonicalRead||canonicalRead.scope.isCurrent()){
+    if(error!==supersededReplay&&(!canonicalRead||canonicalRead.scope.isCurrent())){
       deps.setRestoreFailure('apply')
       deps.replayIncompleteRef.current = true
     }
@@ -317,7 +318,7 @@ export async function restoreRoomState(
     // handler: that would claim it went unhandled, which is no longer true.
     // The tag tells a join failure from a catch-up one among events that look
     // alike, and the timer is deliberately not finished — see above.
-    Sentry.captureException(error, {
+    if(error!==supersededReplay)Sentry.captureException(error, {
       tags: {
         joinFailure: mode === 'join' ? 'tail' : 'catchup',
         openReached: deps.openTimerRef.current?.stalled().reached,
