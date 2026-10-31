@@ -450,10 +450,10 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, cano
       // first time this process has touched it this session — a cold server
       // start, or the room went idle and was evicted (see leaveRoom). A
       // no-op, synchronously fast, when the room's already live.
-      if (!await admitsStoredRoomRaster(roomId)) {
+      if (!await admitsStoredRoomRaster(roomId,canonicalTransport.fullHistoryFormat)) {
         ack({ ok: false, error: 'unsupported_raster_version' }); return
       }
-      await ensureRoomLoaded(roomId)
+      await ensureRoomLoaded(roomId,canonicalTransport.fullHistoryFormat)
 
       const displayName = name?.trim() || FALLBACK_PARTICIPANT_NAME
 
@@ -490,15 +490,18 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, cano
       }
 
       let replay
+      let snapshotFloor=lastKnownSeq
       let readDelivery: Awaited<ReturnType<CanonicalRoomTransport['prepareJoinReadDelivery']>> | undefined
       let readFields: ReturnType<NonNullable<typeof readDelivery>['finish']> | undefined
       try {
         if (rooms.get(roomId)?.room.rasterVersion === STRAIGHT_ROOM_RASTER_VERSION) {
           readDelivery = await canonicalTransport.prepareJoinReadDelivery(access.preparation, isCurrent)
         }
-        replay = await prepareSnapshotReplay(roomId,readDelivery?{prepareCanonicalPrefix:readDelivery.preparePrefix,canonicalFloor:lastKnownSeq??0}:undefined)
+        const full=readDelivery?.fullHistoryFormat==='mixed-v2'
+        snapshotFloor=full?0:lastKnownSeq
+        replay = await prepareSnapshotReplay(roomId,readDelivery?(full?{canonicalFloor:0,prepareFullCanonicalHistory:readDelivery.prepareFullHistory}:{prepareCanonicalPrefix:readDelivery.preparePrefix,canonicalFloor:lastKnownSeq??0}):undefined)
         access.preparation.assertCurrent()
-        const candidate = getRoomSnapshot(roomId, lastKnownSeq, userId, replay)
+        const candidate = getRoomSnapshot(roomId, snapshotFloor, userId, replay)
         if (!candidate) throw Error('Join snapshot unavailable')
         readFields = readDelivery?.finish(candidate.tailOperations, replay.canonicalRows.filter(row => candidate.tailOperations.some(op => op.id === row.id)),replay.fullCanonicalHistory)
         access.preparation.assertCurrent()
@@ -554,7 +557,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, cano
       // no-op, so a page turn simply keeps the lesson channel.
       socket.join(roomId)
       socket.join(lessonChannel(lessonId))
-      const snapshot = getRoomSnapshot(roomId, lastKnownSeq, userId, replay)
+      const snapshot = getRoomSnapshot(roomId, snapshotFloor, userId, replay)
       if (snapshot) socket.emit('room_state', { ...snapshot, ...readFields })
       // (#176) Someone the lesson already had, now on a different board, is
       // announced as having moved; everyone else — first join or a reconnect

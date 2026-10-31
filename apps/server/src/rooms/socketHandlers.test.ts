@@ -1143,3 +1143,44 @@ it('rejects typed close before join and after its captured socket disconnects du
   expect(c.record.operationsById.has(c.request.operationId)).toBe(false)
  }finally{release([]);await _flushPendingWrites(c.lessonId);c.cleanup()}
 })
+
+async function mixedFullHistoryServer(){
+ // Replace this test's unused default server, keeping one actual backend.
+ io.close();await new Promise<void>(resolve=>http.close(()=>resolve()))
+ const {CanonicalRoomTransport}=await import('./CanonicalRoomTransport.js')
+ const {CANONICAL_ROOM_EXECUTION_POLICY}=await import('./canonicalExecutionPolicy.js')
+ http=createServer();io=new Server(http)
+ registerRoomHandlers(io as never,log,new CanonicalRoomTransport({...CANONICAL_ROOM_EXECUTION_POLICY,fullHistoryFormat:'mixed-v2'}))
+ await new Promise<void>(resolve=>http.listen(0,resolve));port=(http.address() as AddressInfo).port
+}
+it('uses trusted mixed full-history bootstrap for an actual cold stored straight board even with a high client cursor',async()=>{
+ await mixedFullHistoryServer()
+ const dir=mkdtempSync(joinPath(tmpdir(),'mixed-empty-context-'));setBrushStorage(new BrushStorage(dir),empty())
+ try{
+ const roomId=fresh('cold-straight');rows.set(roomId,row(roomId,{rasterVersion:'straight-rgba8-v1'}))
+ const teacher=client('teacher'),state=next(teacher,'room_state');void state.catch(()=>{})
+ const joined=await new Promise(resolve=>teacher.emit('join_room',{roomId,name:'Teacher',lastKnownSeq:999},resolve))
+ expect(joined).toMatchObject({ok:true})
+ const snapshot=await state
+ expect(snapshot.room.rasterVersion).toBe('straight-rgba8-v1');expect(snapshot.tailOperations).toEqual([])
+ expect(snapshot.canonicalHistoryBase).toMatchObject({kind:'full-room-prefix-v2',roomId,throughSeq:0,operationCount:0})
+ expect(mockPrisma.operation.findMany).toHaveBeenCalledWith(expect.objectContaining({where:{roomId,seq:{gt:0,lte:0}},orderBy:{seq:'asc'},take:64}))
+ }finally{rmSync(dir,{recursive:true,force:true})}
+})
+it('preserves the complete mixed source/close tail on explicit bootstrap and refuses incomplete queries before seating',async()=>{
+ await mixedFullHistoryServer();const c=await typedCloseClassroom()
+ try{
+  const reply=await new Promise<SendResult>(resolve=>c.teacher.emit('canonical_stroke_close',c.request,resolve));expect(reply.ok).toBe(true)
+  rows.get(c.lessonId)!.rasterVersion='straight-rgba8-v1'
+  const state=next(c.student,'room_state');void state.catch(()=>{})
+  expect(await new Promise(resolve=>c.student.emit('join_room',{roomId:c.lessonId,name:'Student',lastKnownSeq:999},resolve))).toMatchObject({ok:true})
+  const snapshot=await state
+  expect(snapshot.tailOperations.map(op=>op.id)).toEqual([c.op.id,c.request.operationId])
+  expect(snapshot.canonicalHistoryBase).toMatchObject({kind:'full-room-prefix-v2',throughSeq:2,operationCount:2})
+  expect(snapshot.canonicalCapabilities?.bindings).toHaveLength(1)
+  const outsider=client('outsider'),noState=silent(outsider,'room_state',80)
+  mockPrisma.operation.findMany.mockResolvedValue([])
+  expect(await new Promise(resolve=>outsider.emit('join_room',{roomId:c.lessonId,name:'Other'},resolve))).toMatchObject({ok:false,error:'server_busy'})
+  await noState;expect(c.record.participants.has('outsider')).toBe(false)
+ }finally{await _flushPendingWrites(c.lessonId);c.cleanup()}
+})

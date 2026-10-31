@@ -45,6 +45,7 @@ export class CanonicalRoomTransport {
   constructor(policy:CanonicalRoomExecutionPolicy=CANONICAL_ROOM_EXECUTION_POLICY){
     this.policy=Object.freeze({fullHistoryFormat:freezeCanonicalFullHistoryFormat(policy.fullHistoryFormat),...freezeCanonicalRasterPolicy(policy),alphaDarkenVariants:Object.freeze([...policy.alphaDarkenVariants]),autoSources:freezeCanonicalAutoPolicies(policy.autoSources)})
   }
+  get fullHistoryFormat():'frames-v1'|'mixed-v2'{return this.policy.fullHistoryFormat??'frames-v1'}
   private context: ReturnType<typeof canonicalBrushStorageContext>
   private binder?: CanonicalBrushCapabilityResolver
   private readonly lifetimes = new Map<string, RoomLifetime>()
@@ -138,7 +139,7 @@ export class CanonicalRoomTransport {
   /** Two-phase reader preparation. Caller awaits BEFORE channel join, then
    * calls finish(snapshot.tailOperations) synchronously before join+state emit.
    * No await/queue/registry survives finish; no paint permission is inferred. */
-  prepareReadDelivery(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
+  prepareReadDelivery(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly fullHistoryFormat:'frames-v1'|'mixed-v2';readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
     const captured={roomId:identity.roomId,userId:identity.userId}
     return this.prepareReadContext(captured,isCurrent,()=>mayReadBoardContent(captured.roomId,captured.userId),()=>{})
   }
@@ -146,14 +147,14 @@ export class CanonicalRoomTransport {
   /** Genuine prepared join can read its exact target BEFORE membership exists.
    * Its private lexical proof comes from the same block/password/invite gate;
    * no caller ok:true object or fabricated durable participation is accepted. */
-  prepareJoinReadDelivery(preparation:PreparedAuthorizedJoin,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
+  prepareJoinReadDelivery(preparation:PreparedAuthorizedJoin,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly fullHistoryFormat:'frames-v1'|'mixed-v2';readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
     const identity={roomId:preparation.roomId,userId:preparation.userId}
     const assert=()=>assertPreparedAuthorizedJoinRead(preparation,identity.roomId,identity.userId)
     assert()
     return this.prepareReadContext(identity,isCurrent,async()=>{assert();return true},assert)
   }
 
-  private async prepareReadContext(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean,authorize:()=>Promise<boolean>,assertAuthorization:()=>void):Promise<{readonly scope:CanonicalRecordedReadScope;readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
+  private async prepareReadContext(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean,authorize:()=>Promise<boolean>,assertAuthorization:()=>void):Promise<{readonly scope:CanonicalRecordedReadScope;readonly fullHistoryFormat:'frames-v1'|'mixed-v2';readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
     if(!text(identity?.roomId)||!text(identity.userId))fail('not_joined')
     const {roomId}=identity
     const record=rooms.get(roomId)
@@ -225,7 +226,7 @@ export class CanonicalRoomTransport {
         }})
       return receipt
     }
-    return Object.freeze({scope,preparePrefix,prepareFullHistory,finish:(operations:readonly Operation[],rows:readonly CanonicalStoredOperationRow[]=[],fullHistory?:CanonicalFullHistoryReceipt)=>{
+    return Object.freeze({scope,fullHistoryFormat:this.fullHistoryFormat,preparePrefix,prepareFullHistory,finish:(operations:readonly Operation[],rows:readonly CanonicalStoredOperationRow[]=[],fullHistory?:CanonicalFullHistoryReceipt)=>{
       current()
       if(fullHistory){
         const descriptor=Object.getOwnPropertyDescriptor(fullHistory,fullHistoryAuthority)

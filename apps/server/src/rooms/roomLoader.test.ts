@@ -202,3 +202,14 @@ it('copies and freezes the same small canonical header as live append, leaving l
   expect(rooms.get(id)!.operationsById.get(legacy.id)).toBe(legacy)
   expect(Object.isFrozen(legacy)).toBe(false)
 })
+
+it('loads actual straight metadata only for trusted mixed full-history preparation while the default stays closed',async()=>{
+ const id=seed([],null)
+ mockPrisma.room.findUnique.mockResolvedValue({...row(id),rasterVersion:'straight-rgba8-v1'})
+ expect(await ensureRoomLoaded(id)).toBe(false);expect(rooms.has(id)).toBe(false)
+ expect(mockPrisma.operation.findMany).not.toHaveBeenCalled()
+ expect(await ensureRoomLoaded(id,'mixed-v2')).toBe(true)
+ expect(rooms.get(id)?.room.rasterVersion).toBe('straight-rgba8-v1')
+ expect(await ensureRoomLoaded(id)).toBe(false)
+ expect(await ensureRoomLoaded(id,'mixed-v2')).toBe(true)
+})

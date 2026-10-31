@@ -58,16 +58,16 @@ async function loadResidentOperations(
  *  true) if the room is already live in memory. Reconstructed `participants`
  *  always starts empty: presence is inherently live-only, nobody is
  *  "currently connected" to a room that just got cold-loaded. */
-export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
+export async function ensureRoomLoaded(roomId: string,fullHistoryFormat:'frames-v1'|'mixed-v2'='frames-v1'): Promise<boolean> {
   const resident = rooms.get(roomId)
   if (resident) {
-    if (!supportsCurrentRoomRaster(resident.room.rasterVersion)) return false
+    if (!supportsCurrentRoomRaster(resident.room.rasterVersion,fullHistoryFormat)) return false
     // (#176) A board's residency is only worth anything with its lesson
     // beside it — see RoomRecord.lessonId. The lesson can go first (its own
     // eviction is deferred behind its own writes, the board's behind the
     // board's), so "the board is here" has to also mean "so is the lesson"
     // before anything synchronous is allowed to ask a social question of it.
-    if (resident.lessonId !== null && !rooms.has(resident.lessonId)) return ensureRoomLoaded(resident.lessonId)
+    if (resident.lessonId !== null && !rooms.has(resident.lessonId)) return ensureRoomLoaded(resident.lessonId,fullHistoryFormat)
     return true
   }
 
@@ -83,14 +83,14 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     include: { thumbnail: { select: { updatedAt: true } } },
   })
   if (!dbRoom) return false
-  if (!supportsCurrentRoomRaster(dbRoom.rasterVersion)) return false
+  if (!supportsCurrentRoomRaster(dbRoom.rasterVersion,fullHistoryFormat)) return false
 
   // (#176) Lesson first, always: the board's join gate, freeze and
   // participants are all read off the lesson's record, so a board resident
   // without it is a board nobody can be admitted to. A lesson that has gone
   // from Postgres takes its boards with it (the FK cascades), so `false` here
   // is the same "not found" the board itself would have been.
-  if (dbRoom.lessonId !== null && !(await ensureRoomLoaded(dbRoom.lessonId))) return false
+  if (dbRoom.lessonId !== null && !(await ensureRoomLoaded(dbRoom.lessonId,fullHistoryFormat))) return false
 
   const [storedLayerState, coveredSeqByLayer] = await Promise.all([
     prisma.roomLayerState.findUnique({ where: { roomId }, select: { seq: true, state: true } }),

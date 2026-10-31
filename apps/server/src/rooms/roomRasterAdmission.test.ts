@@ -24,3 +24,13 @@ describe('server-owned raster admission', () => {
     expect(() => inheritedBoardFields({ ...lesson, rasterVersion: 'future' })).toThrow()
   })
 })
+
+it('permits actual stored straight reads only under the explicit trusted mixed transport format',async()=>{
+ findUnique.mockResolvedValue({rasterVersion:'straight-rgba8-v1'})
+ expect(await admitsStoredRoomRaster('board','mixed-v2')).toBe(true)
+ expect(await admitsStoredRoomRaster('board','frames-v1')).toBe(false)
+ expect(await admitsStoredRoomRaster('board')).toBe(false)
+ findUnique.mockResolvedValue({rasterVersion:'future'})
+ expect(await admitsStoredRoomRaster('board','mixed-v2')).toBe(false)
+ expect(supportsCurrentRoomRaster('straight-rgba8-v1')).toBe(false)
+})
