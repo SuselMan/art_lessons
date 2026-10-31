@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
-import { CANONICAL_RECORDED_ATTACHMENT_LIMITS, readRoomRasterVersion, type CanonicalStrokeOperation, type Operation, type Room } from '@grafetto/shared'
+import { CANONICAL_RECORDED_ATTACHMENT_LIMITS, parseCanonicalStrokeCloseOperation,type CanonicalStrokeCloseOperation,readRoomRasterVersion, type CanonicalStrokeOperation, type Operation, type Room } from '@grafetto/shared'
 
 import { prisma } from '../db/prisma.js'
 import { enqueueWrite, type RoomWriteOutcome } from './roomRegistry.js'
@@ -98,8 +98,9 @@ export function captureCanonicalMetadata(value:unknown,allowSeq=false):Canonical
   ||v.seq!==undefined&&(!allowSeq||!Number.isSafeInteger(v.seq)||v.seq<1))throw new TypeError('Invalid canonical metadata operation')
  return Object.freeze({type:v.type,id:v.id,userId:v.userId,timestamp:v.timestamp,targetOpId:v.targetOpId,...v.seq===undefined?{}:{seq:v.seq}})
 }
-export function verifyCanonicalMetadataRow(roomId:string,op:CanonicalMetadataOperation,row:CanonicalStoredOperationRow|null):void {
- captureCanonicalMetadata(op,true)
+export function verifyCanonicalMetadataRow(roomId:string,op:CanonicalMetadataOperation|CanonicalStrokeCloseOperation,row:CanonicalStoredOperationRow|null):void {
+ if(op.type==='canonical_stroke_close')parseCanonicalStrokeCloseOperation(op)
+ else captureCanonicalMetadata(op,true)
  if(!Number.isSafeInteger(op.seq)||op.seq!<1)throw new TypeError('Canonical metadata requires stamped operation')
  verifyIndexedOperationRow(roomId,op,row)
 }
@@ -115,12 +116,13 @@ export function persistOperation(roomId: string, op: Operation): Promise<RoomWri
  * resident immutable operation identity; this function confers no authority.
  * Each call schedules ONE attempt on the SAME existing room write queue. */
 export function retryCanonicalOperationWrite(roomId: string, op: Operation): Promise<RoomWriteOutcome<void>> {
-  if(op?.type!=='canonical_stroke')op=captureCanonicalMetadata(op,true)
+  if(op?.type==='canonical_stroke_close')op=parseCanonicalStrokeCloseOperation(op)
+  else if(op?.type!=='canonical_stroke')op=captureCanonicalMetadata(op,true)
   if(!Number.isSafeInteger(op.seq)||op.seq!<1)throw new TypeError('Canonical persistence requires a stamped operation')
   return enqueueWrite(roomId, async () => {
     const expected = operationRow(roomId, op)
     const read = () => prisma.operation.findUnique({ where: { id: op.id }, select: canonicalOperationRowSelect })
-    const verify = (row: Awaited<ReturnType<typeof read>>) => op.type==='canonical_stroke'?verifyCanonicalOperationRow(roomId,op,row):verifyCanonicalMetadataRow(roomId,op as CanonicalMetadataOperation,row)
+    const verify = (row: Awaited<ReturnType<typeof read>>) => op.type==='canonical_stroke'?verifyCanonicalOperationRow(roomId,op,row):verifyCanonicalMetadataRow(roomId,op as CanonicalMetadataOperation|CanonicalStrokeCloseOperation,row)
     const row = await read()
     if (row) { verify(row); return }
     try { await prisma.operation.create({ data: expected }) }

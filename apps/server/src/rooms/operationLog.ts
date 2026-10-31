@@ -1,4 +1,4 @@
-import type { Operation, RejectReason } from '@grafetto/shared'
+import {parseCanonicalStrokeCloseOperation,type CanonicalStrokeCloseOperation,type RecordedCanonicalStrokeCloseOperation,type Operation,type RejectReason} from '@grafetto/shared'
 
 import { operationRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord, type RoomWriteOutcome } from './roomRegistry.js'
@@ -167,7 +167,7 @@ function startCanonicalWrite(receipt: CanonicalWriteReceipt, run: () => Promise<
  * This mechanism is intentionally NOT wired into transport or readers yet. */
 export function ensureCanonicalWrite(record: RoomRecord, op: Operation, options: { readonly retryFailed?: boolean } = {}): Promise<RoomWriteOutcome<void>> {
   const receipt = canonicalWrites.get(op)
-  if ((op.type !== 'canonical_stroke' && op.type!=='operation_undo'&&op.type!=='operation_redo') || rooms.get(record.room.id) !== record || record.operationsById.get(op.id) !== op
+  if ((op.type !== 'canonical_stroke' && op.type!=='operation_undo'&&op.type!=='operation_redo'&&op.type!=='canonical_stroke_close') || rooms.get(record.room.id) !== record || record.operationsById.get(op.id) !== op
     || !receipt || canonicalWriteOwners.get(record) !== receipt.owner)
     throw new Error('Canonical persistence unknown or stale operation owner')
   if (receipt.status !== 'failed' || !options.retryFailed) return receipt.outcome
@@ -195,6 +195,21 @@ export function recordOperation(roomId:string,op:Operation):Operation {return ap
 export function recordCanonicalMetadataOperation(roomId:string,op:CanonicalMetadataOperation):CanonicalMetadataOperation {
  return appendOperation(roomId,captureCanonicalMetadata(op),true) as CanonicalMetadataOperation
 }
+/** INTERNAL draft only. The server derives seq in this same synchronous turn;
+ * parsing/copying does not confer target/source/append authority. */
+export function recordCanonicalCloseOperation(roomId:string,draft:Omit<CanonicalStrokeCloseOperation,'seq'>):RecordedCanonicalStrokeCloseOperation {
+ const record=rooms.get(roomId)
+ if(!record)throw new Error('Canonical close missing room owner')
+ if(!draft||typeof draft!=='object'||Reflect.ownKeys(draft).length!==11||Object.hasOwn(draft,'seq'))throw new TypeError('Canonical close draft cannot supply seq')
+ // Preserve own descriptors so shared closed parser rejects hidden/symbol keys
+ // and accessors without reading them; no unknown values are traversed.
+ const value=Object.create(null,Object.getOwnPropertyDescriptors(draft))
+ Object.defineProperty(value,'seq',{value:record.nextSeq,enumerable:true})
+ const captured=parseCanonicalStrokeCloseOperation(value)
+ if(rooms.get(roomId)!==record||record.nextSeq!==captured.seq)throw new Error('Canonical close stale room owner')
+ return appendOperation(roomId,captured,true) as RecordedCanonicalStrokeCloseOperation
+}
+
 function appendOperation(roomId: string, op: Operation, trackedMetadata:boolean): Operation {
   const record = rooms.get(roomId)
   if (!record) throw new Error(`recordOperation: unknown room "${roomId}"`)

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { advanceCanonicalMaterialPrefix, CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin,
   type CanonicalMaterialContext, type AnyCanonicalMaterialContext, type CanonicalMaterialEntry, type AnyCanonicalMaterialFrame,
-  type CanonicalStrokeComposition, type CanonicalStrokeFrameEnvelope } from '@grafetto/shared'
+  type CanonicalRecordedCloseSeal,type CanonicalStrokeComposition, type CanonicalStrokeFrameEnvelope } from '@grafetto/shared'
 
 export interface CanonicalAdmissionIdentity { readonly roomId: string; readonly userId: string }
 /** Server-owned policy result, NEVER deserialized from a socket payload.
@@ -51,7 +51,12 @@ interface Gesture {
   lastGroup: number
   ended: boolean
   recordedEnded: boolean
+  recordedSealNext?:number
   fingerprints: Map<number, Fingerprint>
+}
+export interface CanonicalRecordedCloseTicket {
+ readonly seal:Readonly<CanonicalRecordedCloseSeal>
+ readonly commit:(this:CanonicalRecordedCloseTicket)=>void
 }
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 const text = (v: unknown): v is string => typeof v === 'string' && !!v.length && v.length <= 256 && !v.includes('\0')
@@ -82,6 +87,35 @@ export class CanonicalStrokeAdmission {
   cursor(identity: CanonicalAdmissionIdentity, strokeId: string): { readonly recordedNext: number; readonly liveNext: number; readonly ended: boolean } {
     const state = this.gestures.get(JSON.stringify([identity.roomId, identity.userId, strokeId]))
     return Object.freeze({ recordedNext: state?.recordedNext ?? 0, liveNext: state?.liveNext ?? 0, ended: state?.recordedEnded ?? false })
+  }
+
+  /** INTERNAL control over an existing session. Typed seal data is not source/
+   * prefix authority: transport must first verify actual indexed prefix/context.
+   * No target grant/session is created and no authored ordinal/fence is forged. */
+  prepareRecordedClose(identity:CanonicalAdmissionIdentity,strokeId:string,seal:CanonicalRecordedCloseSeal):CanonicalRecordedCloseTicket {
+    if(!identity||!text(identity.roomId)||!text(identity.userId)||!text(strokeId)||!seal||typeof seal!=='object')fail('invalid recorded close')
+    const {kind,closeOperationId,closeSeq,recordedNext,firstOperationId,lastOperationId,firstSeq,lastSeq}=seal
+    if(kind!=='commitPartial'||!text(closeOperationId)||!integer(closeSeq)||closeSeq<1||!integer(recordedNext)||recordedNext<1
+      ||!text(firstOperationId)||!text(lastOperationId)||!integer(firstSeq)||firstSeq<1||!integer(lastSeq)||lastSeq<firstSeq||closeSeq<=lastSeq
+      ||closeOperationId===firstOperationId||closeOperationId===lastOperationId)fail('invalid recorded close')
+    const key=JSON.stringify([identity.roomId,identity.userId,strokeId]),state=this.gestures.get(key)
+    if(!state||state.recordedEnded||state.recordedSealNext!==undefined||state.recordedNext!==recordedNext
+      ||state.fingerprints.get(recordedNext-1)?.operationId!==lastOperationId
+      ||state.fingerprints.has(0)&&state.fingerprints.get(0)?.operationId!==firstOperationId)fail('missing or mismatched recorded close prefix')
+    const copied=Object.freeze({kind,closeOperationId,closeSeq,recordedNext,firstOperationId,lastOperationId,firstSeq,lastSeq})
+    const revision=this.revision
+    let committed=false
+    const commit=()=>{
+      if(committed)return
+      if(this.revision!==revision||this.gestures.get(key)!==state)fail('stale recorded close ticket')
+      this.gestures.set(key,{...state,recordedEnded:true,recordedSealNext:recordedNext})
+      this.revision++;committed=true
+    }
+    const ticket:CanonicalRecordedCloseTicket=Object.freeze({seal:copied,commit(this:CanonicalRecordedCloseTicket){
+      if(this!==ticket)fail('copied or detached recorded close ticket')
+      commit()
+    }})
+    return ticket
   }
 
   /** Recorded: prepare -> pin -> recordOperation(assign seq) -> commit -> ack/relay.
@@ -134,6 +168,7 @@ export class CanonicalStrokeAdmission {
       entry: { phase: 'between' }, lastGroup: -1, ended: false, recordedEnded: false, fingerprints: new Map() }
     const live = value.type === 'canonical_stroke_live', next = live ? state.liveNext : state.recordedNext
     const old = state.fingerprints.get(ordinal)
+    if(state.recordedSealNext!==undefined&&(!live&&ordinal>=state.recordedSealNext||live&&!old?.live))fail('recorded prefix sealed')
     if (!live && [...state.fingerprints].some(([n, item]) => n !== ordinal && item.operationId === value.id)) fail('operation ID reused across frames')
     if (ordinal > next || ordinal < next && !old || live && ordinal >= state.recordedNext + this.window) fail('noncontiguous or expired frame ordinal')
     const decoded=decodeTrustedCanonicalFrame(f,grant,ordinal)

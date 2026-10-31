@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE, packCanonicalMaterial, type CanonicalStrokeOperation, type Operation } from '@grafetto/shared'
+import { CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE,verifyCanonicalRecordedClose,verifyCanonicalRecordedPrefix, packCanonicalMaterial, type CanonicalStrokeOperation, type Operation } from '@grafetto/shared'
 const db=vi.hoisted(()=>({operation:{create:vi.fn(),findUnique:vi.fn()}}))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
-import { adoptLoadedCanonicalWrites, canonicalWriteFence, ensureCanonicalWrite, knownCanonicalWrite, recordCanonicalMetadataOperation,recordOperation } from './operationLog.js'
+import { adoptLoadedCanonicalWrites, canonicalWriteFence, ensureCanonicalWrite, knownCanonicalWrite, recordCanonicalCloseOperation,recordCanonicalMetadataOperation,recordOperation } from './operationLog.js'
 import { rooms, flushRoomWrites, type RoomRecord } from './roomRegistry.js'
 import { CanonicalStrokeAdmission, type TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
 const asset={id:`asset:${'1'.repeat(64)}`,size:1,x:0,y:0,width:1,height:1}
@@ -141,4 +141,55 @@ it('tracks only explicit immutable canonical metadata through SAME receipt owner
  write.resolve();expect(await ensureCanonicalWrite(r,op)).toEqual({ok:true,value:undefined})
  await flushRoomWrites('room');expect(db.operation.create.mock.calls.map(([request])=>request.data.id)).toEqual(['undo-meta','legacy-undo'])
  rooms.set('room',{...r});expect(()=>ensureCanonicalWrite(r,op)).toThrow('unknown or stale')
+})
+
+function closeDraft(){return{type:'canonical_stroke_close' as const,id:'close-meta',userId:'owner',timestamp:9,layerId:'layer',targetUserId:'author',strokeId:'gesture',disposition:'commitPartial' as const,recordedNext:1,firstFrameOpId:'frame-0',lastFrameOpId:'frame-0'}}
+it('stamps an immutable internal close with current server seq and SAME receipt, without accepting caller seq',async()=>{
+ const r=resident(),write=deferred<void>();db.operation.create.mockReturnValueOnce(write.promise)
+ const draft=closeDraft(),op=recordCanonicalCloseOperation('room',draft)
+ draft.targetUserId='changed';expect(op.targetUserId).toBe('author');expect(op.seq).toBe(1);expect(Object.isFrozen(op)).toBe(true)
+ expect(knownCanonicalWrite(op)?.status).toBe('pending');expect(canonicalWriteFence(r)).toEqual({pending:1,failed:0})
+ const forged={...closeDraft(),id:'caller-seq',seq:99}
+ expect(()=>recordCanonicalCloseOperation('room',forged)).toThrow()
+ expect(r.nextSeq).toBe(2);expect(r.operations).toEqual([op])
+ write.resolve();expect(await ensureCanonicalWrite(r,op)).toEqual({ok:true,value:undefined})
+ expect(()=>ensureCanonicalWrite(r,{...op})).toThrow('unknown or stale')
+})
+it('keeps failed close sealed and repairs one exact immutable row without seq2',async()=>{
+ const r=resident(),write=deferred<void>(),log=vi.spyOn(console,'error').mockImplementation(()=>{})
+ const frame=candidate('frame-0'),grant:TrustedCanonicalGesture={roomId:'room',userId:'author',layerId:'layer',boardEpoch:0,roomRasterVersion:'straight-rgba8-v1',rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,descriptorSha256:'2'.repeat(64),brush:frame.frame.brush,strokeId:frame.frame.strokeId,pigmentRgb8:frame.frame.pigmentRgb8,composition:frame.frame.composition,material}
+ const admission=new CanonicalStrokeAdmission({resolve:()=>grant,maxGestures:1,retainedFrames:8}),prepared=admission.prepare(grant,{type:'canonical_stroke',id:frame.id,layerId:frame.layerId,frame:frame.frame})
+ const recorded=recordOperation('room',frame);prepared.commit();expect(await ensureCanonicalWrite(r,recorded)).toMatchObject({ok:true})
+ const summary=verifyCanonicalRecordedPrefix([{operationId:recorded.id,sequence:recorded.seq!,frameOrdinal:0,decoded:prepared.value.decoded}])
+ const seal=verifyCanonicalRecordedClose(summary,{userId:'author',layerId:'layer',strokeId:'gesture'},{...closeDraft(),seq:r.nextSeq})
+ const closing=admission.prepareRecordedClose(grant,'gesture',seal)
+ db.operation.create.mockReturnValueOnce(write.promise)
+ const op=recordCanonicalCloseOperation('room',closeDraft()),next=r.nextSeq;closing.commit()
+ write.reject(new Error('close write failed'));expect(await ensureCanonicalWrite(r,op)).toMatchObject({ok:false})
+ expect(admission.cursor(grant,'gesture')).toMatchObject({recordedNext:1,ended:true})
+ await flushRoomWrites('room');expect(canonicalWriteFence(r)).toEqual({pending:0,failed:1})
+ const repair=deferred<void>();db.operation.create.mockReturnValueOnce(repair.promise)
+ const a=ensureCanonicalWrite(r,op,{retryFailed:true}),b=ensureCanonicalWrite(r,op,{retryFailed:true});expect(a).toBe(b)
+ repair.resolve();expect(await a).toEqual({ok:true,value:undefined})
+ expect(r.nextSeq).toBe(next);expect(r.operations).toEqual([recorded,op]);expect(canonicalWriteFence(r)).toEqual({pending:0,failed:0})
+ expect(admission.cursor(grant,'gesture')).toMatchObject({recordedNext:1,ended:true})
+ expect(db.operation.create).toHaveBeenCalledTimes(3);log.mockRestore()
+})
+it('rejects hidden/symbol/accessor close draft fields before seq/receipt mutation',()=>{
+ const r=resident();let reads=0
+ const hidden=Object.defineProperty(closeDraft(),'extra',{value:true,enumerable:false})
+ const symbol={...closeDraft(),[Symbol('extra')]:true}
+ const accessor=Object.defineProperty(closeDraft(),'layerId',{get(){reads++;return 'layer'},enumerable:true})
+ for(const draft of [hidden,symbol,accessor])expect(()=>recordCanonicalCloseOperation('room',draft)).toThrow()
+ expect(reads).toBe(0);expect(r.nextSeq).toBe(1);expect(r.operations).toEqual([])
+ expect(canonicalWriteFence(r)).toEqual({pending:0,failed:0});expect(db.operation.create).not.toHaveBeenCalled()
+})
+
+it('bounds close draft own-key count before cloning property descriptors',()=>{
+ const r=resident(),draft=Object.assign(closeDraft(),Object.fromEntries(Array.from({length:1000},(_,i)=>['extra-'+i,i])))
+ const inspect=vi.spyOn(Object,'getOwnPropertyDescriptors')
+ let rejected=false,calls=0
+ try{try{recordCanonicalCloseOperation('room',draft)}catch{rejected=true}calls=inspect.mock.calls.length}finally{inspect.mockRestore()}
+ expect(rejected).toBe(true);expect(calls).toBe(0);expect(r.nextSeq).toBe(1);expect(r.operations).toEqual([])
+ expect(canonicalWriteFence(r)).toEqual({pending:0,failed:0})
 })

@@ -166,3 +166,27 @@ it('captures bounded metadata before its repair waits on the existing queue',asy
  expect(await pending).toEqual({ok:true,value:undefined})
  expect(mockPrisma.operation.create.mock.calls[0][0].data.data.targetOpId).toBe('original-target')
 })
+
+it('verifies every indexed close field/body and repairs only the exact recorded metadata',async()=>{
+ const op={type:'canonical_stroke_close' as const,id:'close-row',userId:'owner',timestamp:4,seq:9,layerId:'layer',targetUserId:'author',strokeId:'gesture',disposition:'commitPartial' as const,recordedNext:2,firstFrameOpId:'first',lastFrameOpId:'last'}
+ const row=()=>({id:op.id,roomId:'r',userId:op.userId,seq:op.seq,type:op.type,layerId:'layer',tool:null,data:{...op}})
+ expect(()=>verifyCanonicalMetadataRow('r',op,row())).not.toThrow()
+ for(const patch of [{id:'other'},{roomId:'other'},{userId:'author'},{seq:10},{type:'canonical_stroke'},{layerId:null},{tool:'pencil'},{data:{...op,targetUserId:'owner'}},{data:{...op,recordedNext:3}},{data:{...op,lastFrameOpId:'other'}},{data:{...op,extra:true}}])expect(()=>verifyCanonicalMetadataRow('r',op,{...row(),...patch})).toThrow()
+ mockPrisma.operation.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(row())
+ mockPrisma.operation.create.mockRejectedValueOnce({code:'P2002'})
+ expect(await retryCanonicalOperationWrite('r',op)).toEqual({ok:true,value:undefined})
+ expect(mockPrisma.operation.create.mock.calls[0][0].data).toEqual(row())
+ const log=vi.spyOn(console,'error').mockImplementation(()=>{})
+ try{
+  mockPrisma.operation.findUnique.mockResolvedValueOnce({...row(),data:{...op,targetUserId:'other'}})
+  expect(await retryCanonicalOperationWrite('r',op)).toMatchObject({ok:false})
+ }finally{log.mockRestore()}
+})
+it('copies close metadata before its repair queue attempt without trusting mutation or unsupported extras',async()=>{
+ const op={type:'canonical_stroke_close' as const,id:'queued-close',userId:'owner',timestamp:4,seq:9,layerId:'layer',targetUserId:'author',strokeId:'gesture',disposition:'commitPartial' as const,recordedNext:1,firstFrameOpId:'frame',lastFrameOpId:'frame'}
+ const pending=retryCanonicalOperationWrite('r',op);op.targetUserId='changed'
+ expect(await pending).toEqual({ok:true,value:undefined})
+ expect(mockPrisma.operation.create.mock.calls[0][0].data.data.targetUserId).toBe('author')
+ const forged={...op,extra:'unknown'}
+ expect(()=>retryCanonicalOperationWrite('r',forged)).toThrow()
+})
