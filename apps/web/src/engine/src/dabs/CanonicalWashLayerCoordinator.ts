@@ -1,3 +1,4 @@
+import {canonicalImageRequiredSourceLevels} from './canonicalImageCapacity'
 import {CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,canonicalImageMaterialPin,canonicalStrokeSnapshotV2,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,decodeCanonicalStrokeFrame,prepareCanonicalRecordedAttachment,verifyCanonicalRecordedClose,canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin,canonicalSoftAutoSourcePin,type CanonicalMaterialPrefixState,type CanonicalStrokeSnapshotV2,type CanonicalRecordedReadScope,type CanonicalStrokeOperation} from '@grafetto/shared'
 import type {CanonicalMaskSourceBank} from './CanonicalMaskSourceBank'
 import type {CanonicalRecordedInput,CanonicalRecordedLifetime} from '../oplog/CanonicalRecordedDelivery'
@@ -338,7 +339,10 @@ export class CanonicalWashLayerCoordinator {
           if(expected.kind==='image'){
             if(!source.bank||actual||source.softProgramOwner)throw new TypeError('Recorded image bank binding missing')
             const image=canonicalImageMaterialPin(expected,snapshot.material.assets)
-            imageBinding=Object.freeze({bank:source.bank,generation:source.bank.assertSourceBinding(image.assets[0],this.options.prepass.brushGlBatchInfo())})
+            const info=this.options.prepass.brushGlBatchInfo(),release=info.cpu.reserve(16384+image.assets.length*1536);let failed=false,failure:unknown
+            try{const requirement=canonicalImageRequiredSourceLevels(expected,image.assets)[0];imageBinding=Object.freeze({bank:source.bank,generation:source.bank.assertRequiredSourceBinding(requirement.asset,requirement.indexes,info)})}
+            catch(error){failed=true;failure=error}finally{try{release()}catch(error){if(!failed){failed=true;failure=error}}}
+            if(failed)throw failure
           }else{
             if(!actual)throw new TypeError('Recorded source binding missing')
             const normalize=(pin:typeof actual)=>pin.kind==='softAuto'?canonicalSoftAutoSourcePin(pin):pin.kind==='gaussianAuto'?canonicalGaussianAutoSourcePin(pin):canonicalDefaultAutoSourcePin(pin)

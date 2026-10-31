@@ -1,7 +1,6 @@
-import { canonicalImageMaterialPin, type CanonicalMaterialAsset, type TipMaskId } from '@grafetto/shared'
+import { canonicalImageMaterialPin, type CanonicalMaterialAsset } from '@grafetto/shared'
 import {canonicalAutoMaskCapacity,assertCanonicalAutoRecipeCapacity} from './src/dabs/canonicalAutoCapacity'
-import { canonicalImageMaskCapacity, assertCanonicalImageRecipeCapacity } from './src/dabs/canonicalImageCapacity'
-import {nativeImageBankFromRect} from './src/dabs/NativeImageBank'
+import { canonicalImageMaskCapacity, assertCanonicalImageRecipeCapacity, canonicalImageRequiredSourceLevels } from './src/dabs/canonicalImageCapacity'
 import { CanonicalMaskSourceBank,canonicalMaskSourceBankBudget, type CanonicalMaskSourceExtension } from './src/dabs/CanonicalMaskSourceBank'
 import {canonicalSourceAuthorAdmission} from './src/presets/sourceCanonicalAuthorAdmission'
 import {canonicalExecutorOperations} from './src/dabs/CanonicalFrameExecutor'
@@ -1376,7 +1375,52 @@ interface CanonicalEmptyPlan {
  readonly imageAssets:readonly CanonicalMaterialAsset[]
  readonly gestures:number;readonly logicalBytes:number;readonly page:Readonly<WorldRect>;readonly tileWidth:number;readonly tileHeight:number
 }
-function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonly Operation[],width?:number,height?:number,infinite=false):CanonicalEmptyPlan {
+type ImageLevelSource=Parameters<typeof canonicalImageRequiredSourceLevels>[0]
+type ImageLevelRequirement=ReturnType<typeof canonicalImageRequiredSourceLevels>[number]
+type ImageLevelVisitor=(accept:(source:ImageLevelSource,assets:readonly CanonicalMaterialAsset[],identity:object)=>undefined)=>undefined
+type ImageLevelResult=number|boolean|CanonicalMaskSourceBank|CanonicalMaskSourceExtension|ReturnType<typeof canonicalMaskSourceBankBudget>
+/** Synchronous metadata work only. No requirement arrays escape into a plan/job.
+ * Asset dimensions<=4096 imply fewer than32 original pyramid levels;1536B/asset
+ * covers captured metadata/index arrays, plus16KiB for one transient pyramid.
+ * Merge entries and final arrays are charged separately by their actual counts. */
+function withCanonicalImageRequiredLevels<T extends ImageLevelResult>(cpu:BrushMipCache,visit:ImageLevelVisitor,consume:(requirements:readonly ImageLevelRequirement[])=>T):T {
+ const header=cpu.reserve(512),seen=new Map<object,()=>void>(),merged=new Map<string,{asset:CanonicalMaterialAsset;first:number;last:number;release:()=>void}>()
+ let releaseFinal:(()=>void)|undefined,failed=false,failure:unknown,result!:T
+ const attempt=(release:()=>void)=>{try{release()}catch(error){if(!failed){failed=true;failure=error}}}
+ try{
+  visit((source,assets,identity)=>{
+   if(seen.has(identity))return
+   if(seen.size>=1024||!Array.isArray(assets)||!assets.length||assets.length>256)throw new RangeError('Canonical source metadata limit exceeded')
+   const releaseSeen=cpu.reserve(128);seen.set(identity,releaseSeen)
+   const release=cpu.reserve(16384+assets.length*1536);let captureFailed=false,captureError:unknown
+   try{
+    for(const required of canonicalImageRequiredSourceLevels(source,assets)){
+     const a=required.asset,key=JSON.stringify([a.id,a.size,a.x,a.y,a.width,a.height]),old=merged.get(key),first=required.indexes[0],last=required.indexes.at(-1)!
+     if(old){old.first=Math.min(old.first,first);continue}
+     if(merged.size>=256)throw new RangeError('Canonical source asset limit exceeded')
+     const releaseEntry=cpu.reserve(1024);merged.set(key,{asset:a,first,last,release:releaseEntry})
+    }
+   }catch(error){captureFailed=true;captureError=error}finally{try{release()}catch(error){if(!captureFailed){captureFailed=true;captureError=error}}}
+   if(captureFailed)throw captureError
+  })
+  const count=[...merged.values()].reduce((n,r)=>n+r.last-r.first+1,0)
+  if(count>4096)throw new RangeError('Canonical source level limit exceeded')
+  releaseFinal=cpu.reserve(128+merged.size*512+count*16)
+  const requirements=Object.freeze([...merged.values()].map(r=>Object.freeze({asset:r.asset,indexes:Object.freeze(Array.from({length:r.last-r.first+1},(_,i)=>r.first+i))})))
+  result=consume(requirements)
+  if(result&&(typeof result==='object'||typeof result==='function')&&'then'in result)throw new TypeError('Canonical source metadata consumer must be synchronous')
+ }catch(error){failed=true;failure=error}finally{
+  for(const [key,entry]of merged){merged.delete(key);attempt(entry.release)}
+  for(const [key,release]of seen){seen.delete(key);attempt(release)}
+  if(releaseFinal)attempt(releaseFinal);attempt(header)
+ }
+ if(failed)throw failure
+ return result
+}
+function visitCanonicalImageSources(inputs:readonly CanonicalRecordedInput[],accept:Parameters<ImageLevelVisitor>[0]):undefined {
+ for(const input of inputs){const material=input.read?.capability.snapshot.material;if(material?.primarySource.kind==='image')accept(material.primarySource,material.assets,material)}
+}
+function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonly Operation[],cpu:BrushMipCache,width?:number,height?:number,infinite=false):CanonicalEmptyPlan {
  if(!read||infinite)throw new TypeError('Unsupported canonical empty room')
  if(read.authorRasterProfile!==CANONICAL_STROKE_RASTER_PROFILE&&read.authorRasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&read.authorRasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)throw new TypeError('Canonical runtime raster profile unavailable')
  const full=read.assertFullHistoryBase?.(tail),base=full?undefined:read.assertEmptyHistoryBase(tail),scope=read.assertCurrent()
@@ -1440,7 +1484,7 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
  if(!full&&[...prefixes.values()].some(p=>!p.ended))throw new TypeError('Open canonical baseline prefix unsupported')
  const mask={width:maskWidth,height:maskHeight,slots:1},composite:CanonicalCompositeLimits={width:tileWidth,height:tileHeight,operations:canonicalExecutorOperations(read.authorRasterProfile)}
  const maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(composite)
- const sourceBudget=imageAssets.size?canonicalMaskSourceBankBudget([...imageAssets.values()].map(asset=>({asset,readOriginalCoverage:()=>importedAssetPixels(asset.id)}))):undefined
+ const sourceBudget=imageAssets.size?withCanonicalImageRequiredLevels(cpu,accept=>visitCanonicalImageSources(inputs,accept),requirements=>canonicalMaskSourceBankBudget([...imageAssets.values()].map(asset=>({asset,readOriginalCoverage:()=>importedAssetPixels(asset.id)})),requirements)):undefined
  if(maskCost.gpuBytes+compositeCost.gpuBytes+(sourceBudget?.gpuBytes??0)>16*1024*1024
   ||maskCost.cpuBytes+compositeCost.cpuBytes+1024+inputs.length*128+prefixes.size*512+82432+(sourceBudget?sourceBudget.metadataCpuBytes+sourceBudget.maximumTransientCpuBytes+sourceBudget.maximumSourceCpuBytes:0)>4*1024*1024)throw new RangeError('Canonical baseline workspace exceeds existing brush budgets')
  const logicalBytes=(tiles.size+2*[...gestureTiles.values()].reduce((n,t)=>n+t.size,0))*tileWidth*tileHeight*4
@@ -2513,7 +2557,7 @@ export class PencilEngine implements PencilEngineAPI {
     Object.defineProperty(this, 'rasterVersion', { writable: false, configurable: false })
     if(options.canonicalEmptyRoom!==undefined){
       if(this.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION)throw new Error('Canonical empty baseline requires explicit straight storage')
-      this._canonicalEmptyAdmission=planCanonicalEmptyRoom(options.canonicalEmptyRoom.read,options.canonicalEmptyRoom.tail,options.pageWidth,options.pageHeight,!!options.infinite)
+      this._canonicalEmptyAdmission=planCanonicalEmptyRoom(options.canonicalEmptyRoom.read,options.canonicalEmptyRoom.tail,this._brushMipCache,options.pageWidth,options.pageHeight,!!options.infinite)
       if(this._canonicalEmptyAdmission.logicalBytes>this._gpuBudget)throw new RangeError('Canonical baseline exceeds existing logical GPU allowance')
     }else if (this.rasterVersion !== LEGACY_ROOM_RASTER_VERSION) {
       throw new Error('Room raster version is not supported by this renderer')
@@ -6242,7 +6286,7 @@ export class PencilEngine implements PencilEngineAPI {
       const admission=this._canonicalEmptyAdmission,revision=this._log.revision,old=this._layers
       if(!admission||admission.read!==read||admission.tail!==originalTail||this._canonicalEmptyTransaction||this._destroyed||this._contextLost||this.gl.isContextLost())throw new Error('Canonical baseline admission unavailable')
       // Original pointers/immutable admission are never reconstructed from atoms.
-      const plan=planCanonicalEmptyRoom(read,originalTail,admission.page.maxX,admission.page.maxY)
+      const plan=planCanonicalEmptyRoom(read,originalTail,this._brushMipCache,admission.page.maxX,admission.page.maxY)
       const accepted=this._canonicalAccepted
       if(accepted){
         if(this._canonicalRecoveryDirty)throw new Error('Newest canonical full baseline required')
@@ -6336,11 +6380,11 @@ export class PencilEngine implements PencilEngineAPI {
       if(c.stage===0&&plan.imageAssets.length){
         if(!c.bank){
           const mask=transformedMaskPrepassBudget(plan.mask),composite=canonicalRgba8CompositeBudget(plan.composite),sourceBytes=Math.max(...plan.imageAssets.map(asset=>asset.size*asset.size))
-          c.bank=new CanonicalMaskSourceBank(this.gl,c.cache,this._brushMipCache,plan.imageAssets.map(asset=>({asset,readOriginalCoverage:()=>{
+          c.bank=withCanonicalImageRequiredLevels(this._brushMipCache,accept=>visitCanonicalImageSources(plan.inputs,accept),requirements=>new CanonicalMaskSourceBank(this.gl,c.cache,this._brushMipCache,plan.imageAssets.map(asset=>({asset,readOriginalCoverage:()=>{
             this._assertCanonicalEmptyCoordinatorCurrent(c)
             if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical baseline image asset unavailable')
             return importedAssetPixels(asset.id)
-          }})),{gpuBytes:mask.gpuBytes+composite.gpuBytes,cpuBytes:mask.cpuBytes+composite.cpuBytes+sourceBytes})
+          }})),{gpuBytes:mask.gpuBytes+composite.gpuBytes,cpuBytes:mask.cpuBytes+composite.cpuBytes+sourceBytes},requirements))
           if(this._brushMipCache.reservedBytes+c.bank.metadataCpuBytes+c.bank.maximumTransientCpuBytes+mask.cpuBytes+composite.cpuBytes+sourceBytes>this._brushMipCache.budgetBytes)throw new RangeError('Canonical image baseline exceeds shared CPU budget')
           this._assertCanonicalEmptyCurrent(tx)
         }
@@ -6462,7 +6506,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _canonicalImageSourceReady(owner:CanonicalLayerOwner,pin:ReturnType<typeof canonicalImageMaterialPin>,current:()=>void):boolean {
     for(const asset of pin.assets)if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical image asset unavailable')
     if(!owner.bank)return false
-    try{for(const asset of pin.assets)owner.bank.assertSourceBinding(asset,{gl:this.gl,cache:owner.cache,cpu:this._brushMipCache});current();return true}
+    try{return withCanonicalImageRequiredLevels(this._brushMipCache,accept=>accept(pin.primarySource,pin.assets,pin),requirements=>{for(const r of requirements)owner.bank!.assertRequiredSourceBinding(r.asset,r.indexes,{gl:this.gl,cache:owner.cache,cpu:this._brushMipCache});current();return true})}
     catch(error){current();if(!owner.bank.isReady())throw error;return false}
   }
   /** Resource data only. Local preparation has no fabricated original input and
@@ -6485,7 +6529,7 @@ export class PencilEngine implements PencilEngineAPI {
       assertAssets()
       if(sourceReady()&&!growing)return{status:'ready'}
     }
-    const planned=pin.assets.flatMap(asset=>nativeImageBankFromRect(asset.id as TipMaskId,asset)),count=planned.length,authorGeneration=this._brushPreparationGeneration
+    const count=withCanonicalImageRequiredLevels(this._brushMipCache,accept=>accept(pin.primarySource,pin.assets,pin),requirements=>requirements.reduce((n,r)=>n+r.indexes.length,0)),authorGeneration=this._brushPreparationGeneration
     let bank:CanonicalMaskSourceBank|undefined,extension:CanonicalMaskSourceExtension|undefined,maskUpdate:CanonicalPreparedResourceUpdate|undefined,capacityUpdate:CanonicalPreparedCapacityUpdate|undefined,compositeUpdate:CanonicalPreparedResourceUpdate|undefined
     let releaseUnion:(()=>void)|undefined,releaseAdopted:(()=>void)|undefined,published=false,cleaned=false,candidate:NonNullable<CanonicalLayerOwner['resourceCandidate']>|undefined
     const available=()=>{try{current();return authorGeneration===this._brushPreparationGeneration&&!owner.accepting&&(!growing||this._canonicalWorkspaceIdle(owner))&&this._brushPreparation.canRunWithoutReplacing(key)}catch{return false}}
@@ -6508,8 +6552,8 @@ export class PencilEngine implements PencilEngineAPI {
       const metadata=(owner.bank?.jobs.length??0)+count,stageCpu=metadata*512+192*(metadata*2+8)+1024+Math.max(...pin.assets.map(asset=>asset.size*asset.size))
       const physical=initializing?[]:[...owner.prepass.preparedResources(),...owner.composite.preparedResources()],physicalBytes=initializing?transformedMaskPrepassBudget(initialMask!).gpuBytes+canonicalRgba8CompositeBudget(owner.plan.composite).gpuBytes:physical.reduce((n,r)=>n+r.bytes,0)+(growing?transformedMaskPrepassBudget(initialMask!).gpuBytes:0)
       if(owner.bank&&reuse){bank=owner.bank}
-      else if(owner.bank){extension=owner.bank.beginExtension(inputs,{gpuBytes:physicalBytes,cpuBytes:stageCpu});bank=owner.bank}
-      else{bank=new CanonicalMaskSourceBank(this.gl,owner.cache,this._brushMipCache,inputs,{gpuBytes:physicalBytes,cpuBytes:stageCpu});if(this._brushMipCache.reservedBytes+bank.metadataCpuBytes+bank.maximumTransientCpuBytes+stageCpu+(initializing?transformedMaskPrepassBudget(initialMask!).cpuBytes+canonicalRgba8CompositeBudget(owner.plan.composite).cpuBytes:growing?transformedMaskPrepassBudget(initialMask!).cpuBytes:0)>this._brushMipCache.budgetBytes)throw new RangeError('Canonical resource CPU peak exceeds budget')}
+      else if(owner.bank){extension=withCanonicalImageRequiredLevels(this._brushMipCache,accept=>accept(pin.primarySource,pin.assets,pin),requirements=>owner.bank!.beginExtension(inputs,{gpuBytes:physicalBytes,cpuBytes:stageCpu},requirements));bank=owner.bank}
+      else{bank=withCanonicalImageRequiredLevels(this._brushMipCache,accept=>accept(pin.primarySource,pin.assets,pin),requirements=>new CanonicalMaskSourceBank(this.gl,owner.cache,this._brushMipCache,inputs,{gpuBytes:physicalBytes,cpuBytes:stageCpu},requirements));if(this._brushMipCache.reservedBytes+bank.metadataCpuBytes+bank.maximumTransientCpuBytes+stageCpu+(initializing?transformedMaskPrepassBudget(initialMask!).cpuBytes+canonicalRgba8CompositeBudget(owner.plan.composite).cpuBytes:growing?transformedMaskPrepassBudget(initialMask!).cpuBytes:0)>this._brushMipCache.budgetBytes)throw new RangeError('Canonical resource CPU peak exceeds budget')}
       const sourceJobs=extension?[...owner.bank!.jobs,...extension.jobs]:bank.jobs,union=new Map(physical.map(r=>[r.key,r.bytes]))
       for(const j of sourceJobs)union.set(j.key,j.bytes)
       if([...union.values()].reduce((n,bytes)=>n+bytes,0)>owner.cache.budgetBytes)throw new RangeError('Canonical resource union exceeds budget')
@@ -6574,7 +6618,7 @@ export class PencilEngine implements PencilEngineAPI {
       if(snapshot.materialVersion!==2||snapshot.material.maskSource||snapshot.rasterProfile!==owner.plan.profile||snapshot.composition.mode!=='wash')throw new TypeError('Unsupported fixed canonical layer material')
       const image=pin.kind==='image'?canonicalImageMaterialPin(pin,snapshot.material.assets):undefined
       if(image&&!owner.bank||!image&&(snapshot.material.assets.length||snapshot.assets.length))throw new TypeError('Unsupported fixed canonical layer assets')
-      if(image)for(const asset of image.assets)owner.bank!.assertSourceBinding(asset,{gl:this.gl,cache:owner.cache,cpu:this._brushMipCache})
+      if(image&&!this._canonicalImageSourceReady(owner,image,()=>this._assertCanonicalLayerCurrent(owner)))throw new Error('Canonical image source suffix unavailable')
       const capacity=pin.kind==='image'?canonicalImageMaskCapacity(pin,image!.assets):canonicalAutoMaskCapacity(pin),decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,material:snapshot.material}).frame
       for(const recipe of decoded.definitions)if(image){if(!('kind'in recipe)||recipe.kind!=='image')throw new TypeError('Image source requires an image recipe');assertCanonicalImageRecipeCapacity(recipe,image.primarySource,image.assets,owner.mask)}else if(pin.kind!=='image')assertCanonicalAutoRecipeCapacity(recipe,pin,capacity)
       if(owner.prepared&&(capacity.width>owner.mask.width||capacity.height>owner.mask.height))throw new RangeError('Canonical source exceeds warm workspace; full resync required')
@@ -7154,7 +7198,7 @@ export class PencilEngine implements PencilEngineAPI {
     const json=canonicalBrushDescriptorJSON(descriptor),bytes=new TextEncoder().encode(json),charge=bytes.length*8+8192
     const mask=owner.prepared?Object.freeze({width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots)}):requested,maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(owner.plan.composite)
     if(image){
-      const budget=canonicalMaskSourceBankBudget(image.assets.map(asset=>({asset,readOriginalCoverage:()=>{throw new Error('Pure image budget cannot read pixels')}}))),oldKeys=new Set(owner.bank?.jobs.map(job=>job.key)??[]),union=new Map((owner.bank?.jobs??[]).map(job=>[job.key,job.bytes]))
+      const budget=withCanonicalImageRequiredLevels(this._brushMipCache,accept=>accept(image.primarySource,image.assets,image),requirements=>canonicalMaskSourceBankBudget(image.assets.map(asset=>({asset,readOriginalCoverage:()=>{throw new Error('Pure image budget cannot read pixels')}})),requirements)),oldKeys=new Set(owner.bank?.jobs.map(job=>job.key)??[]),union=new Map((owner.bank?.jobs??[]).map(job=>[job.key,job.bytes]))
       for(const resource of budget.resources)union.set(resource.key,resource.bytes)
       const fresh=budget.resources.filter(resource=>!oldKeys.has(resource.key)).length,stageCpu=fresh?union.size*512+192*(union.size*2+8)+1024+budget.maximumSourceCpuBytes:0
       if([...union.values()].reduce((n,v)=>n+v,0)+maskCost.gpuBytes+compositeCost.gpuBytes+(growing?transformedMaskPrepassBudget(owner.mask).gpuBytes:0)>owner.cache.budgetBytes||this._brushMipCache.reservedBytes+charge+fresh*512+(fresh?budget.maximumTransientCpuBytes:0)+stageCpu+(initializing?maskCost.cpuBytes+compositeCost.cpuBytes:growing?maskCost.cpuBytes:0)>this._brushMipCache.budgetBytes)throw new RangeError('Canonical image author union exceeds budget')

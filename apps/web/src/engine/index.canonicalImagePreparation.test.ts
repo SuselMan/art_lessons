@@ -1,3 +1,4 @@
+import {canonicalImageRequiredSourceLevels} from './src/dabs/canonicalImageCapacity'
 import {parseCanonicalStrokeCloseOperation,type CanonicalStrokeCloseOperation} from '@grafetto/shared'
 import {canonicalDefaultAutoSourceBinding,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type Operation} from '@grafetto/shared'
 import type {PointerData} from './src/input/PointerInput'
@@ -23,6 +24,7 @@ import {createOrderedBrushGate} from '../pages/Room/net/orderedBrushGate'
 const descriptor=fixture.descriptor as unknown as BrushDescriptor
 const binding=canonicalImageSourceBinding(descriptor,fixture.asset)
 const asset=binding.assets[0]
+const requiredIndexes=canonicalImageRequiredSourceLevels(binding.primarySource,binding.assets)[0].indexes
 function sourceTrace(pipe?:typeof graphiteAuthor){
  const selected=pipe?pipe.descriptor as unknown as BrushDescriptor:descriptor,pin=pipe?canonicalImagePipeSourceBinding(selected,pipe.assets):binding
  const compiled=sourceStrokeAuthorDescriptor(selected,{...(pipe?{assets:pipe.assets}:{asset:fixture.asset}),colorIdentity:'native-GUI-black',lodScale:1,inputProfile:'krita-freehand-no-smoothing-v1'})
@@ -140,7 +142,7 @@ it('adds a distinct real-CAS crop while original image A is OPEN, preserves its 
  const p=original(()=>true,true),{engine}=engineFor(p)
  try{
   await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
-  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,epoch=bank.assertSourceBinding(asset,{gl:engine['gl'],cache:owner.cache,cpu:engine['_brushMipCache']}),old=bank.resources(),workspace=owner.prepass.preparedCapacity().epoch
+  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,epoch=bank.assertRequiredSourceBinding(asset,requiredIndexes,{gl:engine['gl'],cache:owner.cache,cpu:engine['_brushMipCache']}),old=bank.resources(),workspace=owner.prepass.preparedCapacity().epoch
   const changed={...asset,x:asset.x-1},snapshot={...trace.snapshot,strokeId:'synthetic-crop-B',assets:[changed],material:{...trace.snapshot.material,assets:[changed]}},op={...trace.operations[0],id:'crop-b0',seq:163,frame:{...trace.operations[0].frame,strokeId:snapshot.strokeId}}
   const input=imageInput(p,op,snapshot),upload=vi.spyOn(engine['gl'],'texImage2D')
   expect(await engine.prepareOriginalRecorded(input)).toEqual({status:'ready'});expect(upload).toHaveBeenCalled();bank.assertCurrentOwners(epoch)
@@ -173,7 +175,7 @@ it.each(['abort','upload','budget']as const)('rolls back only the new resource c
  const p=original(()=>true,true),{engine}=engineFor(p),controller=new AbortController()
  try{
   await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
-  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,old=bank.resources(),epoch=bank.assertSourceBinding(asset,{gl:engine['gl'],cache:owner.cache,cpu:engine['_brushMipCache']}),before=engine['_brushMipCache'].reservedBytes
+  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,old=bank.resources(),epoch=bank.assertRequiredSourceBinding(asset,requiredIndexes,{gl:engine['gl'],cache:owner.cache,cpu:engine['_brushMipCache']}),before=engine['_brushMipCache'].reservedBytes
   const changed={...asset,x:asset.x-1},snapshot={...trace.snapshot,strokeId:'candidate-B',assets:[changed],material:{...trace.snapshot.material,assets:[changed]}},op={...trace.operations[0],id:'candidate-b',seq:163,frame:{...trace.operations[0].frame,strokeId:snapshot.strokeId}},input=imageInput(p,op,snapshot)
   const upload=engine['gl'].texImage2D.bind(engine['gl'])
   const spy=vi.spyOn(engine['gl'],'texImage2D').mockImplementation((...args:unknown[])=>{if(kind==='upload'&&args[8] instanceof Uint8Array)throw Error('candidate upload failed');const result=Reflect.apply(upload,engine['gl'],args);if(kind==='abort'&&args[8] instanceof Uint8Array)controller.abort();return result})
@@ -224,7 +226,7 @@ it('keeps the published bank and maps coherent when a staging lease cleanup thro
   const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,epoch=owner.prepass.preparedCapacity().epoch,changed={...asset,x:asset.x-1},snapshot={...trace.snapshot,strokeId:'cleanup-B',assets:[changed],material:{...trace.snapshot.material,assets:[changed]}},op={...trace.operations[0],id:'cleanup-b',seq:163,frame:{...trace.operations[0].frame,strokeId:snapshot.strokeId}},input=imageInput(p,op,snapshot),lease=owner.cache.lease.bind(owner.cache),fault=Error('staging lease cleanup failed')
   vi.spyOn(owner.cache,'lease').mockImplementationOnce(resources=>{const release=lease(resources);return()=>{release();throw fault}})
   await expect(engine.prepareOriginalRecorded(input)).rejects.toThrow(fault)
-  expect(owner.bank).toBe(bank);expect(bank.assertSourceBinding(changed,{gl:engine['gl'],cache:owner.cache,cpu:engine['_brushMipCache']})).toBeTypeOf('number');expect(owner.prepass.preparedCapacity().epoch).toBe(epoch);expect(owner.resourceCandidate).toBeUndefined();expect(engine['_canonicalPixelsReady']).toBe(true)
+  expect(owner.bank).toBe(bank);expect(bank.assertRequiredSourceBinding(changed,requiredIndexes,{gl:engine['gl'],cache:owner.cache,cpu:engine['_brushMipCache']})).toBeTypeOf('number');expect(owner.prepass.preparedCapacity().epoch).toBe(epoch);expect(owner.resourceCandidate).toBeUndefined();expect(engine['_canonicalPixelsReady']).toBe(true)
   expect(await engine.prepareOriginalRecorded(input)).toEqual({status:'ready'});engine.appendOriginalRecorded(input);expect(engine['_log'].entries).toHaveLength(163)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
@@ -381,13 +383,13 @@ it.each(['Basic6','Graphite']as const)('grows actual cold %s original history fo
  const p=original(()=>true,false,false,kind==='Graphite'?sourceTrace(graphiteAuthor):trace),{engine}=engineFor(p,true)
  try{await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);const owner=engine['_canonicalLayerOwner']!,bank=owner.bank,journal=engine['_log'].entries,prepass=owner.prepass,composite=owner.composite,epoch=prepass.preparedCapacity().epoch;installBrushLibrary({schemaVersion:1,brushes:[{descriptor:autoDescriptor,name:'Basic2',source:'native',warnings:[]}],assets:[],skipped:[]});engine.setPencil(autoPreset);engine.setSize(40);const programs=vi.spyOn(engine['gl'],'createProgram');await expect(engine.prepareBrush(autoPreset)).resolves.toEqual({status:'ready'});expect(owner.bank).toBe(bank);expect(owner.prepass).toBe(prepass);expect(owner.composite).toBe(composite);expect(owner.prepass.preparedCapacity().epoch).not.toBe(epoch);expect(owner.mask.width).toBeGreaterThanOrEqual(41);expect(engine['_log'].entries).toBe(journal);expect(programs).not.toHaveBeenCalled();expect(engine['_canonicalExportReady']()).toBe(true)}finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
-it('keeps the complete ready Mountains bank when adding a whole Graphite union exceeds the unchanged budget',async()=>{
+it('adds the native Graphite suffix while preserving the ready Mountains bank and workspace',async()=>{
  const {engine}=await autoHarness(async request=>verdict(request),autoDescriptor,()=>true,{width:512,height:512}),mountains=installPipeAuthor(mountainsAuthor),graphite=installPipeAuthor(graphiteAuthor)
  try{
   engine.setPencil(mountains);engine.setSize(360);await expect(engine.prepareBrush(mountains)).resolves.toEqual({status:'ready'})
   const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,keys=bank.resources(),prepared=engine['_canonicalPreparedAuthor'],cpu=engine['_brushMipCache'].reservedBytes,epoch=owner.prepass.preparedCapacity().epoch
   engine.setPencil(graphite);engine.setSize(16);const upload=vi.spyOn(engine['gl'],'texImage2D'),begin=vi.spyOn(bank,'beginExtension')
-  await expect(engine.prepareBrush(graphite)).rejects.toThrow('union exceeds budget');expect(begin).not.toHaveBeenCalled();expect(upload).not.toHaveBeenCalled();expect(owner.bank).toBe(bank);expect(bank.resources()).toEqual(keys);expect(owner.prepass.preparedCapacity().epoch).toBe(epoch);expect(engine['_canonicalPreparedAuthor']).toBe(prepared);expect(engine['_brushMipCache'].reservedBytes).toBe(cpu)
+  await expect(engine.prepareBrush(graphite)).resolves.toEqual({status:'ready'});expect(begin).toHaveBeenCalledOnce();expect(upload).toHaveBeenCalled();expect(owner.bank).toBe(bank);for(const resource of keys)expect(bank.resources()).toContainEqual(resource);expect(bank.jobs).toHaveLength(86);expect(bank.gpuBytes).toBe(5658656+13832);expect(owner.prepass.preparedCapacity().epoch).toBe(epoch);expect(engine['_canonicalPreparedAuthor']).not.toBe(prepared);expect(engine['_canonicalPreparedAuthor']?.preset).toBe(graphite);expect(engine['_brushMipCache'].reservedBytes).toBeGreaterThan(cpu)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
 function incomingNative(scope:Parameters<typeof attachCanonicalRecordedDelivery>[1]){
