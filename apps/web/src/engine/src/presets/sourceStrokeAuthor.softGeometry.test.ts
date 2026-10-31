@@ -65,7 +65,7 @@ describe('soft source in the same author geometry/cache owner',()=>{
     const p=program(72),owner=new SourceStrokeAuthor(p),state=owner.createState(1,2,0)
     let reads=0
     expect(()=>new SourceStrokeMaterialAdapter(p,{get assets(){reads++;return []},primaryAsset:'fake',
-      budget:{workUnits:100000,outputBytes:100000,drawPixels:100000}},state)).toThrow('Soft auto requires a supported canonical material context')
+      budget:{workUnits:100000,outputBytes:100000,drawPixels:100000}},state)).toThrow(RangeError)
     expect(reads).toBe(0)
   })
   it('rejects checkpoint curve rebinding and unsupported geometry before planning',()=>{
