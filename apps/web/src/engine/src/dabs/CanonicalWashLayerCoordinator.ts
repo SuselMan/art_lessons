@@ -1,4 +1,4 @@
-import {advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,decodeCanonicalStrokeFrame,prepareCanonicalRecordedAttachment,verifyCanonicalRecordedClose,canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin,canonicalSoftAutoSourcePin,type CanonicalMaterialPrefixState,type CanonicalStrokeSnapshotV2,type CanonicalRecordedReadScope} from '@grafetto/shared'
+import {advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,decodeCanonicalStrokeFrame,prepareCanonicalRecordedAttachment,verifyCanonicalRecordedClose,canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin,canonicalSoftAutoSourcePin,type CanonicalMaterialPrefixState,type CanonicalStrokeSnapshotV2,type CanonicalRecordedReadScope,type CanonicalStrokeOperation} from '@grafetto/shared'
 import type {CanonicalRecordedInput,CanonicalRecordedLifetime} from '../oplog/CanonicalRecordedDelivery'
 import { CANONICAL_STROKE_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
@@ -11,13 +11,34 @@ import { CanonicalFrameExecutor, canonicalWashOuterOperation, type CanonicalFram
 import { planCanonicalTargets } from './CanonicalTargetPlan'
 import type { CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
 
+/** Internal accepted-BEGIN lease. The actual layer owner validates the exact
+ * receiver/candidate; received frame fields never confer this authority. */
+export interface CanonicalLocalWashAuthor {
+ readonly lifetime:CanonicalRecordedLifetime
+ readonly snapshot:CanonicalStrokeSnapshotV2
+ readonly userId:string
+ assertCurrent(candidate:CanonicalLocalWashAuthor):Readonly<CanonicalRecordedReadScope>
+}
+// Only decoded bounded envelopes and captured validated BEGIN data enter here.
+function samePaintData(a:unknown,b:unknown):boolean {
+ if(a===b)return true
+ if(!a||!b||typeof a!=='object'||typeof b!=='object')return false
+ const ak=Object.keys(a),bk=Object.keys(b)
+ return ak.length===bk.length&&ak.every(k=>Object.hasOwn(b,k)&&samePaintData(Reflect.get(a,k),Reflect.get(b,k)))
+}
+interface LocalPrefix {
+ readonly author:CanonicalLocalWashAuthor
+ readonly scope:Readonly<CanonicalRecordedReadScope>
+ state:CanonicalMaterialPrefixState
+ readonly receipts:{readonly operation:CanonicalStrokeOperation;readonly frame:CanonicalStrokeOperation['frame'];readonly release:()=>void}[]
+}
 export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFrameExecutorOptions, 'washMode' | 'autoSource' | 'bank' | 'softProgramOwner' | 'changed' | 'poison'> {
   readonly layerId: string
   readonly layerEpoch: number
   /** Distinct derived straight layer; the coordinator never owns/destroys it. */
   readonly presentation: () => { readonly buffer: TiledLayerBuffer; readonly epoch: number }
   /** Trusted gesture source binding, NOT data selected by a material frame. */
-  readonly source: (gestureId: string, recorded?: CanonicalRecordedInput) => Pick<CanonicalFrameExecutorOptions, 'autoSource' | 'bank' | 'softProgramOwner'>
+  readonly source: (gestureId: string, recorded?: CanonicalRecordedInput, local?:CanonicalLocalWashAuthor) => Pick<CanonicalFrameExecutorOptions, 'autoSource' | 'bank' | 'softProgramOwner'>
   /** Explicit caller capacity; no implicit queue, expiry or GPU quota. Includes
    * completed IDs until this coordinator is discarded after trusted rebuild. */
   readonly maxGestures: number
@@ -39,8 +60,9 @@ interface RecordedPrefix {
 }
 interface Entry {
   recorded?:RecordedPrefix
+  local?:LocalPrefix
   readonly id: string
-  readonly firstSequence: number
+  firstSequence: number|undefined
   readonly executor: CanonicalFrameExecutor
   readonly opacity: number
   readonly blend: CanonicalStrokeComposition['outerBlend']
@@ -79,8 +101,8 @@ const key = (p: Position) => `${p.x}:${p.y}`
 
 /** Recorded-order lane for one layer. Deposition uses the real executor; local
  * raw surfaces are folded over stable pixels in FIRST-RECORDED-gesture order.
- * A sealed B cannot commit past an open A. No server, engine, checkpoint or
- * unsequenced live hook is enabled here. All writes to these layers must enter
+ * A sealed B cannot commit past an open A. The internal local hook accepts only a captured original-BEGIN lease;
+ * ordinary room activation remains outside this coordinator. All writes to these layers must enter
  * this lane or a future ordered barrier; seq alone does not serialize peers. */
 export class CanonicalWashLayerCoordinator {
   private readonly gl: WebGLRenderingContext
@@ -121,14 +143,17 @@ export class CanonicalWashLayerCoordinator {
 
   get queuedFrameCount():number { return this.queue.length }
   get poisoned(): boolean { return this.failed }
-  get pending(): boolean { return !!this.queue.length || !!this.dirty.size || !!this.entries.find(e => !e.committed)?.ownership }
+  get pending(): boolean { return !!this.queue.length || !!this.dirty.size || !!this.work || !!this.commitFrontier()?.ownership }
   get presentationReady(): boolean { return !this.failed && !this.closed && !this.dirty.size && !this.work }
   get checkpointReady(): boolean { return this.presentationReady && !this.queue.length && this.entries.every(e => e.committed) }
   get cleanupFailures(): readonly unknown[] { return Object.freeze([...this.errors]) }
 
   /** Original local delivery, not a log copy or a source selected by a frame. */
   enqueueRecorded(input:CanonicalRecordedInput):void {
-    this.assertOpen()
+    this.assertOpen();this.busy=true
+    try{this.enqueueOriginal(input)}finally{this.busy=false}
+  }
+  private enqueueOriginal(input:CanonicalRecordedInput):void {
     input.delivery.assertCurrent(input)
     const lifetime=input.delivery.lifetime,scope=lifetime.assertCurrent(),op=input.operation,read=input.read
     if(op.type!=='canonical_stroke'||!read||op.seq!==read.sequence||read.operationId!==op.id)throw new TypeError('Recorded source input required')
@@ -140,7 +165,7 @@ export class CanonicalWashLayerCoordinator {
       ||snapshot.layerId!==this.options.layerId)throw new TypeError('Unsupported recorded source context')
     const id=JSON.stringify([scope.roomId,scope.boardEpoch,op.userId,snapshot.strokeId])
     const existing=this.entries.find(e=>e.id===id),old=existing?.recorded
-    if(existing&&!old)throw new Error('Recorded namespace already occupied')
+    if(existing&&!old&&!existing.local)throw new Error('Recorded namespace already occupied')
     if(old&&(old.lifetime!==lifetime||old.scope!==scope||old.sealed||old.lastSeq>=op.seq!
       ||JSON.stringify(old.snapshot)!==JSON.stringify(snapshot)))throw new Error('Recorded source lifetime/context changed')
     const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,
@@ -149,8 +174,72 @@ export class CanonicalWashLayerCoordinator {
     const recorded:RecordedPrefix={lifetime,scope,snapshot:old?.snapshot??snapshot,userId:op.userId,strokeId:snapshot.strokeId,
       firstOperationId:old?.firstOperationId??op.id,firstSeq:old?.firstSeq??op.seq!,lastOperationId:op.id,lastSeq:op.seq!,state,sealed:false}
     input.delivery.assertCurrent(input);if(lifetime.assertCurrent()!==scope)throw new Error('Recorded scope replaced')
+    if(existing?.local){
+      const local=existing.local,receipt=local.receipts[0],a=local.author
+      this.assertLocal(local)
+      if(op.seq!<=this.lastSequence||a.lifetime!==lifetime||local.scope!==scope
+        ||a.userId!==op.userId||!samePaintData(a.snapshot,snapshot)
+        ||!receipt||!this.sameLocalOperation({...receipt.operation,frame:receipt.frame},op,decoded.envelope))throw new Error('Local original confirmation mismatch')
+      // Release may call external CPU-owner code. Publish no confirmation until
+      // the exact original and local owner have survived that callback.
+      receipt.release();this.assertLocal(local);input.delivery.assertCurrent(input)
+      if(lifetime.assertCurrent()!==scope)throw new Error('Recorded scope replaced')
+      this.assertLayers()
+      local.receipts.shift();existing.recorded=recorded;existing.firstSequence??=op.seq!
+      this.lastSequence=op.seq!;this.orderEntries();return
+    }
     this.enqueueInternal({gestureId:id,layerId:op.layerId,layerEpoch:this.options.layerEpoch,ordinal:op.frame.frameOrdinal,
       frame:decoded.frame,assets:snapshot.material.assets,rgb:snapshot.pigmentRgb8,composition:snapshot.composition},op.seq!,{input,recorded})
+  }
+
+  private sameLocalOperation(a:CanonicalStrokeOperation,b:CanonicalStrokeOperation,frame:CanonicalStrokeOperation['frame']):boolean {
+    return a.id===b.id&&a.userId===b.userId&&a.layerId===b.layerId&&a.timestamp===b.timestamp&&samePaintData(a.frame,frame)
+  }
+  private assertLocal(local:LocalPrefix):void {
+    if(local.author.assertCurrent(local.author)!==local.scope||local.author.lifetime.assertCurrent()!==local.scope)throw new Error('Local source owner changed')
+  }
+  private orderEntries():void {
+    this.entries.sort((a,b)=>a.firstSequence===undefined?(b.firstSequence===undefined?0:1):b.firstSequence===undefined?-1:a.firstSequence-b.firstSequence)
+    this.invalidate()
+  }
+  /** No sequence is invented. Temporary GPU queue pressure alone returns false. */
+  tryEnqueueLocal(author:CanonicalLocalWashAuthor,op:CanonicalStrokeOperation):boolean {
+    this.assertOpen();this.busy=true
+    try{
+    this.assertRecordedCurrent()
+    const fields=['type','id','userId','timestamp','layerId','frame']
+    if(!op||Reflect.ownKeys(op).length!==fields.length||fields.some(k=>!Object.getOwnPropertyDescriptor(op,k)||!Object.hasOwn(Object.getOwnPropertyDescriptor(op,k)!,'value'))
+      ||typeof op.id!=='string'||!op.id||typeof op.timestamp!=='number'||!Number.isFinite(op.timestamp)||op.timestamp<0)throw new TypeError('Invalid local source operation header')
+    const scope=author.assertCurrent(author),snapshot=author.snapshot
+    if(author.lifetime.assertCurrent()!==scope||!Object.isFrozen(op)||Object.hasOwn(op,'seq')
+      ||op.type!=='canonical_stroke'||op.userId!==author.userId||op.layerId!==this.options.layerId
+      ||snapshot.layerId!==op.layerId||snapshot.boardEpoch!==scope.boardEpoch||snapshot.rasterProfile!==this.options.rasterProfile
+      ||snapshot.material.maskSource||snapshot.material.primarySource.kind==='image')throw new TypeError('Invalid local source envelope/context')
+    const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,
+      frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,material:snapshot.material})
+    const id=JSON.stringify([scope.roomId,scope.boardEpoch,author.userId,snapshot.strokeId]),entry=this.entries.find(e=>e.id===id)
+    if(entry&&(!entry.local||entry.local.author!==author))throw new Error('Local source namespace occupied')
+    const previous=entry?.local
+    if(previous)this.assertLocal(previous)
+    const state=advanceCanonicalMaterialPrefix(previous?.state??CANONICAL_MATERIAL_PREFIX_START,op.frame.frameOrdinal,decoded.frame)
+    this.assertLayers()
+    if(this.queue.length>=8)return false
+    if(this.entries.reduce((n,e)=>n+(e.local?.receipts.length??0),0)>=1024)throw new RangeError('Local receipt capacity exceeded')
+    const cpu=this.options.prepass.brushGlBatchInfo().cpu,release=cpu.reserve(JSON.stringify(op).length*2+512)
+    let released=false;const retire=()=>{if(!released){released=true;release()}}
+    const local:LocalPrefix=previous??{author,scope,state,receipts:[]}
+    try{
+      this.assertLocal(local)
+      this.enqueueInternal({gestureId:id,layerId:op.layerId,layerEpoch:this.options.layerEpoch,ordinal:op.frame.frameOrdinal,
+        frame:decoded.frame,assets:snapshot.material.assets,rgb:snapshot.pigmentRgb8,composition:snapshot.composition},undefined,undefined,local)
+      local.state=state;local.receipts.push({operation:op,frame:decoded.envelope,release:retire})
+    }catch(error){
+      this.clean(retire)
+      if(this.failed){this.releaseAll(this.cleanupContextLost());this.clean(()=>this.notifyPoison(error))}
+      throw error
+    }
+    return true
+    }finally{this.busy=false}
   }
 
   enqueueRecordedSeal(input:CanonicalRecordedInput):void {
@@ -159,6 +248,7 @@ export class CanonicalWashLayerCoordinator {
     if(op.type!=='canonical_stroke_close')throw new TypeError('Recorded close input required')
     const id=JSON.stringify([scope.roomId,scope.boardEpoch,op.targetUserId,op.strokeId])
     const entry=this.entries.find(e=>e.id===id),r=entry?.recorded
+    if(entry?.local?.receipts.length)throw new Error('Local tail requires authoritative reconciliation')
     if(!r||r.lifetime!==input.delivery.lifetime||r.scope!==scope||r.sealed)throw new Error('Recorded close owner missing or stale')
     verifyCanonicalRecordedClose({...r.state,recordedNext:r.state.nextOrdinal,firstOperationId:r.firstOperationId,
       lastOperationId:r.lastOperationId,firstSeq:r.firstSeq,lastSeq:r.lastSeq},{userId:r.userId,layerId:this.options.layerId,strokeId:r.strokeId},op)
@@ -168,21 +258,21 @@ export class CanonicalWashLayerCoordinator {
   }
 
   private assertRecordedCurrent():void {
-    for(const e of this.entries)if(e.recorded&&e.recorded.lifetime.assertCurrent()!==e.recorded.scope)throw new Error('Recorded scope replaced')
+    for(const e of this.entries){if(e.local)this.assertLocal(e.local);if(e.recorded&&e.recorded.lifetime.assertCurrent()!==e.recorded.scope)throw new Error('Recorded scope replaced')}
   }
 
   /** Sequence is from authoritative recorded history, never a guessed local
    * ordinal. Caller supplies a complete ordered same-layer lane (no gaps from
    * omitted same-layer writers). Runtime live acknowledgements remain outside. */
   enqueue(input: CanonicalFrameSubmission, recordedSequence: number): void {
-    if(this.entries.find(e=>e.id===input.gestureId)?.recorded)throw new Error('Recorded owner requires original delivery')
+    if(this.entries.find(e=>e.id===input.gestureId)?.recorded||this.entries.find(e=>e.id===input.gestureId)?.local)throw new Error('Recorded owner requires original delivery')
     this.enqueueInternal(input,recordedSequence)
   }
 
-  private enqueueInternal(input:CanonicalFrameSubmission,recordedSequence:number,origin?:{input:CanonicalRecordedInput;recorded:RecordedPrefix}):void {
-    this.assertOpen();this.assertRecordedCurrent(); this.busy = true
+  private enqueueInternal(input:CanonicalFrameSubmission,recordedSequence:number|undefined,origin?:{input:CanonicalRecordedInput;recorded:RecordedPrefix},local?:LocalPrefix):void {
+    if(!local&&!origin)this.assertOpen();this.assertRecordedCurrent(); this.busy = true
     try {
-    if (!Number.isSafeInteger(recordedSequence) || recordedSequence <= this.lastSequence || input.layerId !== this.options.layerId
+    if ((!local&&(!Number.isSafeInteger(recordedSequence)||recordedSequence!<=this.lastSequence)) || input.layerId !== this.options.layerId
       || input.layerEpoch !== this.options.layerEpoch || input.composition.mode !== 'wash') throw new Error('Invalid recorded wash lane order/context')
     if (!isCanonicalStrokeComposition(input.composition, this.options.rasterProfile === 'reference-scalar-f32-rne-v1' ? CANONICAL_STROKE_RASTER_PROFILE : this.options.rasterProfile)) throw new TypeError('Invalid recorded wash composition for pinned raster profile')
     if (this.queue.length >= 8) throw new RangeError('Canonical wash lane queue is full')
@@ -199,6 +289,7 @@ export class CanonicalWashLayerCoordinator {
         if (!this.positions.has(key(p))) fresh.set(key(p), p)
       }
     }
+    let acceptedWork=false
     let candidate: CanonicalFrameExecutor | undefined,publishCandidate:(()=>void)|undefined
     let releaseGpu: (() => void) | undefined, releaseCpu: (() => void) | undefined, releaseEntry: (() => void) | undefined
     try {
@@ -207,16 +298,17 @@ export class CanonicalWashLayerCoordinator {
         releaseGpu = this.options.reserveTransient([...fresh.values()].reduce((n, t) => n + t.width * t.height * 4, 0))
       }
       if (!entry) {
-        releaseEntry = this.options.prepass.brushGlBatchInfo().cpu.reserve(1024+(origin?4096:0))
+        releaseEntry = this.options.prepass.brushGlBatchInfo().cpu.reserve(1024+(local?4096+JSON.stringify(local.author.snapshot).length*2:origin?4096:0))
         let published=false;publishCandidate=()=>{published=true}
-        const source=this.options.source(input.gestureId,origin?.input)
-        if(origin){
-          const expected=origin.recorded.snapshot.material.primarySource,actual=source.autoSource
+        const source=local?this.options.source(input.gestureId,undefined,local.author):this.options.source(input.gestureId,origin?.input)
+        if(origin||local){
+          const expected=(origin?.recorded.snapshot??local!.author.snapshot).material.primarySource,actual=source.autoSource
           if(!actual||expected.kind==='image')throw new TypeError('Recorded source binding missing')
           const normalize=(pin:typeof actual)=>pin.kind==='softAuto'?canonicalSoftAutoSourcePin(pin):pin.kind==='gaussianAuto'?canonicalGaussianAutoSourcePin(pin):canonicalDefaultAutoSourcePin(pin)
           if(JSON.stringify(normalize(actual))!==JSON.stringify(expected))throw new TypeError('Recorded source binding mismatch')
-          origin.input.delivery.assertCurrent(origin.input)
-          if(origin.recorded.lifetime.assertCurrent()!==origin.recorded.scope)throw new Error('Recorded scope replaced')
+          if(local)this.assertLocal(local)
+          origin?.input.delivery.assertCurrent(origin.input)
+          if(origin&&origin.recorded.lifetime.assertCurrent()!==origin.recorded.scope)throw new Error('Recorded scope replaced')
         }
         const executor = candidate = new CanonicalFrameExecutor({ ...this.options, ...source, washMode: 'deposition-only',
           changed: (_id, bounds) => this.invalidate(bounds), // The lane retires ALL storage pins before external poison/undo.
@@ -224,8 +316,10 @@ export class CanonicalWashLayerCoordinator {
         entry = { id: input.gestureId, firstSequence: recordedSequence, executor, opacity: input.composition.outerResourceOpacity, blend: input.composition.outerBlend,
           committed: false, tile: 0, part: 0, releaseMetadata: releaseEntry }
       }
-      entry.executor.enqueue(input)
+      entry.executor.enqueue(input);acceptedWork=true
+      if(local){this.assertLocal(local);this.assertLayers()}
     } catch (error) {
+      if(local&&acceptedWork&&!candidate)this.failed=true
       if (candidate) this.clean(() => candidate!.cancel(error, { lost: this.cleanupContextLost() }))
       if (releaseGpu) this.clean(releaseGpu)
       if (releaseCpu) this.clean(releaseCpu)
@@ -236,7 +330,9 @@ export class CanonicalWashLayerCoordinator {
     if (releaseGpu) { const gpu = releaseGpu, cpu = releaseCpu!; this.reservations.push(() => { try { gpu() } finally { cpu() } }) }
     for (const [k, p] of fresh) this.positions.set(k, Object.freeze(p))
     if(origin)entry!.recorded=origin.recorded
-    this.queue.push(entry!); this.lastSequence = recordedSequence
+    if(local)entry!.local=local
+    this.queue.push(entry!); if(recordedSequence!==undefined)this.lastSequence = recordedSequence
+    if(!local&&this.entries.some(e=>e.local))this.orderEntries()
     } finally { this.busy = false }
   }
 
@@ -244,7 +340,7 @@ export class CanonicalWashLayerCoordinator {
    * proof and reconciliation of live-only geometry. No source is resolved and
    * no new gesture/frame is fabricated by this ordered lane operation. */
   enqueueRecordedClose(gestureId:string,recordedNext:number,recordedSequence:number):void {
-    if(this.entries.find(e=>e.id===gestureId)?.recorded)throw new Error('Recorded owner requires original close delivery')
+    if(this.entries.find(e=>e.id===gestureId)?.recorded||this.entries.find(e=>e.id===gestureId)?.local)throw new Error('Recorded owner requires original close delivery')
     this.closeInternal(gestureId,recordedNext,recordedSequence)
   }
 
@@ -267,6 +363,13 @@ export class CanonicalWashLayerCoordinator {
     }finally{this.busy=false}
   }
 
+  private commitFrontier():Entry|undefined {
+    if(this.entries.some(e=>e.firstSequence===undefined))return undefined
+    const entry=this.entries.find(e=>!e.committed)
+    if(entry?.local&&(entry.local.receipts.length||!entry.recorded||(!entry.recorded.state.ended&&!entry.recorded.sealed)))return undefined
+    return entry
+  }
+
   /** Exactly one existing deposition turn OR one <=8 draw rebase/commit turn.
    * No draw leases or GL state survive the synchronous return. Metadata
    * storage pins can span turns; no RAF, promise or automatic retry is created. */
@@ -275,7 +378,7 @@ export class CanonicalWashLayerCoordinator {
     try {
       const turnStarted = performance.now()
       this.assertLayers()
-      const frontier = this.entries.find(e => !e.committed)
+      const frontier = this.commitFrontier()
       if (frontier?.ownership) this.commit(frontier,turnStarted)
       else if (this.dirty.size) this.present(turnStarted)
       else if (this.queue.length) {
@@ -373,6 +476,7 @@ export class CanonicalWashLayerCoordinator {
     if (entry.tile === tiles.length) {
       entry.committed = true
       const ownership = entry.ownership!; entry.ownership = undefined
+      entry.local=undefined
       ownership.release(); entry.releaseMetadata()
       this.options.changed(this.options.layerId)
     }
@@ -482,6 +586,8 @@ export class CanonicalWashLayerCoordinator {
     for (const e of this.entries) {
       if (e.ownership) { const owned = e.ownership; e.ownership = undefined; this.clean(() => owned.release({ lost })) }
       this.clean(() => e.executor.cancel(new Error('Canonical wash lane cancelled'), { lost }))
+      const receipts=e.local?.receipts.splice(0)??[];e.local=undefined
+      for(const receipt of receipts)this.clean(receipt.release)
       this.clean(e.releaseMetadata)
     }
     const releases = this.reservations.splice(0)

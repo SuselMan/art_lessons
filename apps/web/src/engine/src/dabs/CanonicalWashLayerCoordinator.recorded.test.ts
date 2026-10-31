@@ -2,18 +2,30 @@ import {prepareCanonicalRoomState} from '../../../pages/Room/net/canonicalRoomSt
 import {describe,it,expect,vi} from 'vitest'
 import {CANONICAL_STROKE_RASTER_PROFILE,canonicalDefaultAutoSourceBinding,buildCanonicalMaterial,prepareCanonicalRecordedAttachment,type BrushDescriptor,type CanonicalStrokeOperation,type CanonicalStrokeSnapshotV2,type Operation,type CanonicalStrokeCloseOperation,type ServerToClientEvents} from '@grafetto/shared'
 import stock from '../../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
+import {prepareSourceDefaultAutoDab} from '../presets/sourceDefaultAutoDab'
 import {recordingGL} from '../../testing/brushPassTestUtils'
 import {BrushMipCache} from './BrushMipCache'
 import {BrushTextureCache} from './BrushTextureCache'
 import {TransformedMaskPrepass} from './TransformedMaskPrepass'
 import {CanonicalRgba8CompositePass} from './CanonicalRgba8CompositePass'
 import {RibbonScratchPool} from '../buffers/RibbonScratchPool'
+import {AccumulationBuffer} from '../buffers/AccumulationBuffer'
 import {TiledLayerBuffer} from '../buffers/TiledLayerBuffer'
-import {CanonicalWashLayerCoordinator} from './CanonicalWashLayerCoordinator'
+import {CanonicalWashLayerCoordinator,type CanonicalLocalWashAuthor} from './CanonicalWashLayerCoordinator'
 import type {CanonicalRecordedInput,CanonicalRecordedLifetime,CanonicalRecordedDelivery} from '../oplog/CanonicalRecordedDelivery'
 
 function fixture(){
- const {gl}=recordingGL(),cpu=new BrushMipCache(),cache=new BrushTextureCache(gl)
+ const {gl}=recordingGL();gl.texSubImage2D=vi.fn()
+ gl.TEXTURE1=gl.TEXTURE0+1;gl.STATIC_DRAW=9001;gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME=9002
+ gl.LINEAR=9010;gl.REPEAT=9011
+ gl.copyTexSubImage2D=vi.fn();gl.copyTexImage2D=vi.fn();gl.uniform3f=vi.fn();gl.uniform4f=vi.fn()
+ const attachments=new Map(),attach=gl.framebufferTexture2D
+ gl.framebufferTexture2D=(...args:unknown[])=>{attachments.set(gl.getParameter(gl.FRAMEBUFFER_BINDING),args[3]);attach(...args)}
+ gl.getFramebufferAttachmentParameter=()=>attachments.get(gl.getParameter(gl.FRAMEBUFFER_BINDING))
+ const parameters=new Map(),setParameter=gl.texParameteri
+ gl.texParameteri=(target:number,name:number,value:number)=>{const texture=gl.getParameter(gl.TEXTURE_BINDING_2D);if(!parameters.has(texture))parameters.set(texture,new Map());parameters.get(texture).set(name,value);setParameter(target,name,value)}
+ gl.getTexParameter=(_:number,name:number)=>parameters.get(gl.getParameter(gl.TEXTURE_BINDING_2D))?.get(name)??gl.NEAREST
+ const cpu=new BrushMipCache(),cache=new BrushTextureCache(gl)
  const attrib=gl.getAttribLocation;gl.getAttribLocation=(p:unknown,n:string)=>n==='position'?0:attrib(p,n)
  const layer=new TiledLayerBuffer(gl,4,4,undefined,undefined,undefined,'straight-rgba8')
  const derived=new TiledLayerBuffer(gl,4,4,undefined,undefined,undefined,'straight-rgba8')
@@ -28,8 +40,11 @@ function fixture(){
  const scope=Object.freeze({roomId:'room',boardEpoch:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE})
  let current=true,replaced=false
  const lifetime:CanonicalRecordedLifetime=Object.freeze({assertCurrent(){if(this!==lifetime||!current)throw Error('stale');return replaced?Object.freeze({...scope}):scope}})
- const input=(userId='author',ordinal=0,seq=1,ended=false)=>{
-  const packed=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:ended?[{kind:'gestureEnd',at:0}]:[]},material).packed
+ const input=(userId='author',ordinal=0,seq=1,ended=false,painted=false)=>{
+  const dab=painted?prepareSourceDefaultAutoDab({dialect:'krita-default-auto-qt5-arm64-v1',tip:{...pin.source,kind:'auto',spikes:2,softness:1,randomness:0,density:1},storedScale:pin.brushScale,storedAngle:pin.brushAngle,shape:{scale:.01,ratio:1,rotation:0},subpixelX:0,subpixelY:0,coverageProfile:pin.coverageProfile,maxPixels:1048576,maxWorkSamples:16*1048576}):undefined
+  const recipe={kind:'defaultAuto' as const,source:pin.source,coverageProfile:pin.coverageProfile,brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale:.01,ratio:1,rotation:0,subX:0,subY:0,width:dab?.geometry.maskSize[0]??1,height:dab?.geometry.maskSize[1]??1,mirrorH:false,mirrorV:false}
+  const paintedMaterial=painted?buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:0,y:0,opacity:.5,flow:.7}],fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:1,group:0},{kind:'segmentEnd',at:1,group:0},{kind:'gestureEnd',at:1}]},material):undefined
+  const packed=paintedMaterial?.packed??buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:ended?[{kind:'gestureEnd',at:0}]:[]},material).packed
   const operation:CanonicalStrokeOperation={type:'canonical_stroke',id:`${userId}-${seq}`,userId,timestamp:0,seq,layerId:'layer',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:snapshot.brush,strokeId:'same',frameOrdinal:ordinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
   const atom=prepareCanonicalRecordedAttachment({version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:userId,snapshot}],bindings:[{operationId:operation.id,sequence:seq,originalUserId:userId,capability:0}]},[operation],scope)[0]
   let accepted:CanonicalRecordedInput
@@ -45,7 +60,12 @@ function fixture(){
   accepted=Object.freeze({operation:{type:'canonical_stroke_close',id:'close',userId:'operator',timestamp:1,seq:10,layerId:'layer',targetUserId:op.userId,strokeId:'same',disposition:'commitPartial',recordedNext:1,firstFrameOpId:op.id,lastFrameOpId:op.id,...patch} as Operation,delivery})
   return accepted
  }
- return {coordinator,cpu,gl,scratch,input,seal,source,snapshot,stale:()=>{current=false},replaceScope:()=>{replaced=true},close(){coordinator.cancel();scratch.destroy();layer.destroy();derived.destroy();prepass.reset();composite.reset()}}
+ const localAuthor=(userId='author'):CanonicalLocalWashAuthor=>{
+  const author:CanonicalLocalWashAuthor=Object.freeze({lifetime,snapshot,userId,assertCurrent(candidate:CanonicalLocalWashAuthor){if(this!==author||candidate!==author)throw Error('foreign local author');return lifetime.assertCurrent()}})
+  return author
+ }
+ const local=(value:CanonicalRecordedInput):CanonicalStrokeOperation=>{if(value.operation.type!=='canonical_stroke')throw Error('frame');const {seq:_seq,...op}=value.operation;return Object.freeze(op)}
+ return {coordinator,cpu,gl,scratch,input,seal,source,snapshot,localAuthor,local,stale:()=>{current=false},replaceScope:()=>{replaced=true},close(){coordinator.cancel();scratch.destroy();layer.destroy();derived.destroy();prepass.reset();composite.reset()}}
 }
 
 describe('original-lifetime recorded prefix owner',()=>{
@@ -139,4 +159,166 @@ describe('original-lifetime recorded prefix owner',()=>{
   }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
  })
 
+})
+
+describe('same wash lane provisional original promotion',()=>{
+ it('deposits local frames once and requires original confirmation before checkpoint',()=>{
+  const s=fixture();try{
+   const recorded=s.input('author',0,1,true),op=s.local(recorded),author=s.localAuthor()
+   expect(s.coordinator.tryEnqueueLocal(author,op)).toBe(true)
+   for(let i=0;i<40&&s.coordinator.pending;i++)s.coordinator.advance()
+   expect(s.coordinator.presentationReady).toBe(true);expect(s.coordinator.checkpointReady).toBe(false);expect(s.coordinator.pending).toBe(false)
+   const calls=s.source.mock.calls.length
+   s.coordinator.enqueueRecorded(recorded)
+   expect(s.source.mock.calls.length).toBe(calls);expect(s.coordinator.queuedFrameCount).toBe(0)
+   for(let i=0;i<40&&s.coordinator.pending;i++)s.coordinator.advance()
+   expect(s.coordinator.checkpointReady).toBe(true)
+  }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+ })
+ it('rejects copied lease and sequenced payload before retaining CPU/source',()=>{
+  const s=fixture();try{const author=s.localAuthor(),recorded=s.input(),before=s.cpu.reservedBytes
+   expect(()=>s.coordinator.tryEnqueueLocal({...author},s.local(recorded))).toThrow(/foreign/)
+   expect(()=>s.coordinator.tryEnqueueLocal(author,recorded.operation as CanonicalStrokeOperation)).toThrow()
+   expect(s.cpu.reservedBytes).toBe(before);expect(s.source).not.toHaveBeenCalled()
+  }finally{s.close()}
+ })
+ it('rejects changed original timestamp and preserves pending receipt until cancellation',()=>{
+  const s=fixture();try{const recorded=s.input(),op=s.local(recorded)
+   s.coordinator.tryEnqueueLocal(s.localAuthor(),Object.freeze({...op,timestamp:1}))
+   expect(()=>s.coordinator.enqueueRecorded(recorded)).toThrow(/match/)
+   expect(s.coordinator.checkpointReady).toBe(false)
+  }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+ })
+})
+
+describe('provisional lane pressure and global original ordering',()=>{
+ it('retries exactly the same ninth envelope after queue pressure without retaining it twice',()=>{
+  const s=fixture();try{const author=s.localAuthor()
+   for(let i=0;i<8;i++)expect(s.coordinator.tryEnqueueLocal(author,s.local(s.input('author',i,i+1)))).toBe(true)
+   const ninth=s.local(s.input('author',8,9,true)),before=s.cpu.reservedBytes
+   expect(s.coordinator.tryEnqueueLocal(author,ninth)).toBe(false);expect(s.cpu.reservedBytes).toBe(before)
+   expect(s.coordinator.queuedFrameCount).toBe(8)
+   for(let i=0;i<40&&s.coordinator.queuedFrameCount===8;i++)s.coordinator.advance()
+   expect(s.coordinator.tryEnqueueLocal(author,ninth)).toBe(true)
+   expect(()=>s.coordinator.tryEnqueueLocal(author,ninth)).toThrow()
+   expect(s.source).toHaveBeenCalledTimes(1)
+  }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+ })
+ it('keeps every stable commit blocked by any unknown local and reorders on original first seq',()=>{
+  const s=fixture();try{const a=s.input('A',0,2,true),b=s.input('B',0,1,true)
+   s.coordinator.tryEnqueueLocal(s.localAuthor('A'),s.local(a));s.coordinator.enqueueRecorded(b)
+   for(let i=0;i<80;i++)s.coordinator.advance()
+   expect(s.coordinator.presentationReady).toBe(true);expect(s.coordinator.checkpointReady).toBe(false);expect(s.coordinator.pending).toBe(false)
+   expect(s.coordinator['entries'].map(e=>e.firstSequence)).toEqual([1,undefined])
+   expect(s.coordinator['entries'].every(e=>!e.committed)).toBe(true)
+   const aEntry=s.coordinator['entries'][1],raw=aEntry.ownership
+   s.coordinator.enqueueRecorded(a)
+   expect(s.coordinator['entries'].map(e=>e.firstSequence)).toEqual([1,2]);expect(aEntry.ownership).toBe(raw)
+   for(let i=0;i<80&&s.coordinator.pending;i++)s.coordinator.advance()
+   expect(s.coordinator.checkpointReady).toBe(true);expect(s.source).toHaveBeenCalledTimes(2)
+  }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+ })
+ it('checks stale local leases before GL and retires receipt CPU during explicit cancellation',()=>{
+  const s=fixture();try{s.coordinator.tryEnqueueLocal(s.localAuthor(),s.local(s.input()))
+   s.stale();const writes=s.gl.drawArrays.mock.calls.length
+   expect(()=>s.coordinator.advance()).toThrow(/stale/);expect(s.gl.drawArrays.mock.calls.length).toBe(writes)
+   s.coordinator.cancel();expect(s.coordinator['entries'][0].local?.receipts??[]).toHaveLength(0)
+  }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+ })
+ it('normalizes captured nested payload once, so later mutation cannot change accepted paint',()=>{
+  const s=fixture();try{const recorded=s.input('author',0,1,true),original=s.local(recorded)
+   const rgb:[number,number,number]=[0,0,0],op=Object.freeze({...original,frame:{...original.frame,pigmentRgb8:rgb}})
+   s.coordinator.tryEnqueueLocal(s.localAuthor(),op);rgb[0]=255
+   expect(()=>s.coordinator.enqueueRecorded(recorded)).not.toThrow()
+   expect(s.coordinator['entries'][0].local?.receipts??[]).toHaveLength(0)
+  }finally{s.close()}
+ })
+ it('does not allow public raw close to fabricate the end of a local author',()=>{
+  const s=fixture();try{s.coordinator.tryEnqueueLocal(s.localAuthor(),s.local(s.input()))
+   expect(()=>s.coordinator.enqueueRecordedClose(JSON.stringify(['room',1,'author','same']),1,2)).toThrow(/original/)
+   expect(s.coordinator.checkpointReady).toBe(false)
+  }finally{s.close()}
+ })
+})
+
+it('retains the actual nonempty raw wash through confirmation without re-deposition',()=>{
+ const s=fixture();try{const recorded=s.input('author',0,1,true,true)
+  s.coordinator.tryEnqueueLocal(s.localAuthor(),s.local(recorded))
+  for(let i=0;i<200&&s.coordinator.pending;i++)s.coordinator.advance()
+  expect(s.coordinator.pending).toBe(false);expect(s.coordinator.checkpointReady).toBe(false)
+  const entry=s.coordinator['entries'][0],owned=entry.ownership
+  expect(owned?.tiles.length).toBeGreaterThan(0)
+  const uploads=s.gl.texSubImage2D.mock.calls.length,draws=s.gl.drawArrays.mock.calls.length
+  s.coordinator.enqueueRecorded(recorded)
+  expect(entry.ownership).toBe(owned);expect(s.gl.texSubImage2D.mock.calls.length).toBe(uploads);expect(s.gl.drawArrays.mock.calls.length).toBe(draws)
+  for(let i=0;i<200&&s.coordinator.pending;i++)s.coordinator.advance()
+  expect(s.coordinator.checkpointReady).toBe(true);expect(s.source).toHaveBeenCalledTimes(1)
+ }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('does not publish confirmation after receipt release invalidates the original owner',()=>{
+ const s=fixture();try{const reserve=s.cpu.reserve.bind(s.cpu),recorded=s.input()
+  vi.spyOn(s.cpu,'reserve').mockImplementationOnce(bytes=>{const release=reserve(bytes);return()=>{release();s.stale()}})
+  s.coordinator.tryEnqueueLocal(s.localAuthor(),s.local(recorded))
+  expect(()=>s.coordinator.enqueueRecorded(recorded)).toThrow(/stale/)
+  expect(s.coordinator['entries'][0].recorded).toBeUndefined()
+  expect(s.coordinator['entries'][0].firstSequence).toBeUndefined()
+ }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+})
+it('rejects permanent receipt CPU pressure without advancing local ordinal or resolving another source',()=>{
+ const s=fixture();try{const author=s.localAuthor(),op=s.local(s.input()),before=s.cpu.reservedBytes,error=Error('receipt budget')
+  vi.spyOn(s.cpu,'reserve').mockImplementationOnce(()=>{throw error})
+  expect(()=>s.coordinator.tryEnqueueLocal(author,op)).toThrow(error)
+  expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.cpu.reservedBytes).toBe(before);expect(s.source).not.toHaveBeenCalled()
+  expect(s.coordinator.tryEnqueueLocal(author,op)).toBe(true)
+ }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it.each(['id','paint']as const)('requires original immutable %s equality, not only a matching ordinal',field=>{
+ const s=fixture();try{const original=s.input('author',0,1,true),op=s.local(original)
+  const local=Object.freeze(field==='id'?{...op,id:'different'}:{...op,frame:s.local(s.input()).frame})
+  s.coordinator.tryEnqueueLocal(s.localAuthor(),local)
+  expect(()=>s.coordinator.enqueueRecorded(original)).toThrow(/match/)
+  expect(s.coordinator['entries'][0].recorded).toBeUndefined();expect(s.coordinator.checkpointReady).toBe(false)
+ }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('retires provisional receipt CPU after real loss and ledger forget without old-name deletion',()=>{
+ const s=fixture();try{s.coordinator.tryEnqueueLocal(s.localAuthor(),s.local(s.input('author',0,1,true,true)))
+  for(let i=0;i<200&&s.coordinator.pending;i++)s.coordinator.advance()
+  const deletes=s.gl.deleteTexture.mock.calls.length+s.gl.deleteFramebuffer.mock.calls.length+s.gl.deleteProgram.mock.calls.length
+  s.gl.isContextLost=()=>true;AccumulationBuffer.forgetContextStorage(s.gl)
+  s.coordinator.cancel('lost',{lost:true})
+  expect(s.coordinator['entries'][0].local?.receipts??[]).toHaveLength(0)
+  expect(s.gl.deleteTexture.mock.calls.length+s.gl.deleteFramebuffer.mock.calls.length+s.gl.deleteProgram.mock.calls.length).toBe(deletes)
+  s.scratch.forget();s.gl.isContextLost=()=>false
+ }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('charges the complete retained BEGIN snapshot before source resolution and retires it with the entry',()=>{
+ const s=fixture();try{const reserve=vi.spyOn(s.cpu,'reserve'),author=s.localAuthor()
+  const snapshotBytes=2*JSON.stringify(author.snapshot).length
+  s.coordinator.tryEnqueueLocal(author,s.local(s.input()))
+  expect(reserve).toHaveBeenCalledWith(1024+4096+snapshotBytes)
+  s.coordinator.cancel();expect(s.coordinator['entries'][0].local?.receipts??[]).toHaveLength(0)
+ }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+})
+it('rejects retained snapshot overflow before source allocation and releases its candidate receipt',()=>{
+ const s=fixture();try{const reserve=s.cpu.reserve.bind(s.cpu),author=s.localAuthor(),before=s.cpu.reservedBytes,error=Error('snapshot budget')
+  const expected=1024+4096+2*JSON.stringify(author.snapshot).length
+  vi.spyOn(s.cpu,'reserve').mockImplementation(bytes=>{if(bytes===expected)throw error;return reserve(bytes)})
+  expect(()=>s.coordinator.tryEnqueueLocal(author,s.local(s.input()))).toThrow(error)
+  expect(s.source).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(before);expect(s.coordinator.queuedFrameCount).toBe(0)
+ }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('drops the completed local BEGIN lease before external metadata release',()=>{
+ const s=fixture();try{const recorded=s.input('author',0,1,true),reserve=s.cpu.reserve.bind(s.cpu),author=s.localAuthor()
+  const retained=1024+4096+2*JSON.stringify(author.snapshot).length
+  let inspected=false
+  vi.spyOn(s.cpu,'reserve').mockImplementation(bytes=>{const release=reserve(bytes);return()=>{if(bytes===retained){inspected=true;expect(s.coordinator['entries'][0].local).toBeUndefined()}release()}})
+  s.coordinator.tryEnqueueLocal(author,s.local(recorded));s.coordinator.enqueueRecorded(recorded)
+  for(let i=0;i<40&&s.coordinator.pending;i++)s.coordinator.advance()
+  expect(inspected).toBe(true);expect(s.coordinator.checkpointReady).toBe(true)
+ }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
 })
