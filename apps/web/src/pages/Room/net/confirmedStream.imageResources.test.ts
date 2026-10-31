@@ -105,3 +105,36 @@ it.each(['failure','expired'] as const)('never publishes or prepares presets for
  if(kind==='failure')reject(new Error('missing CAS'));else{f.stale();resolve()}
  await expect(work).rejects.toThrow();expect(sink).not.toHaveBeenCalled();expect(prepareBrushPresets).not.toHaveBeenCalled()
 })
+
+it('dispatches original replay inputs through the SAME ordered gate and defers gap/cursor effects until lexical final apply',async()=>{
+ const {createOrderedBrushGate}=await import('./orderedBrushGate')
+ const f=original(),replay=createReplayGate<Parameters<ServerToClientEvents['operation_confirmed']>[0]>(),ticket=replay.begin(),trace:string[]=[],inputs:CanonicalRecordedInput[]=[]
+ let release!:()=>void,releaseCAS!:()=>void
+ const blocked=new Promise<void>(yes=>{release=yes}),outerCAS=new Promise<void>(yes=>{releaseCAS=yes})
+ const gate=createOrderedBrushGate(()=>null,error=>{throw error})
+ const apply=vi.fn<ConfirmedStreamDeps['applyRemoteOp']>((op)=>{trace.push(op.id);return true})
+ const dispatchPrepared=(input:CanonicalRecordedInput,applyFinal:()=>void)=>{
+  inputs.push(input)
+  gate.dispatch([],applyFinal,()=>f.read.scope.isCurrent(),()=>input.operation.id==='A'?blocked:null)
+ }
+ const handler=createConfirmedStreamHandler({...f.deps,applyRemoteOp:apply,...{dispatchPrepared},replayGate:replay})
+ const message=(id:string,seq:number)=>({...f.payload,seq,operation:{...f.payload.operation,id,seq,frame:{...f.payload.operation.frame,strokeId:id}},canonicalCapabilities:{...f.payload.canonicalCapabilities,capabilities:[{originalUserId:'author',snapshot:{...f.payload.canonicalCapabilities.capabilities[0].snapshot,strokeId:id}}],bindings:[{...f.payload.canonicalCapabilities.bindings[0],operationId:id,sequence:seq}]}})
+ for(const [index,id] of ['A','B','C'].entries())gate.dispatch([],()=>handler(message(id,index+1)),undefined,()=>id==='A'?outerCAS:null)
+ expect(inputs).toHaveLength(0);expect(apply).not.toHaveBeenCalled()
+ releaseCAS();await outerCAS;await Promise.resolve()
+ expect(inputs).toHaveLength(0);expect(apply).not.toHaveBeenCalled()
+ expect(replay.end(ticket)).toBe(true) // delivery token is synchronously consumed, never retained across await
+ expect(inputs).toHaveLength(3);expect(apply).not.toHaveBeenCalled();expect(f.deps.lastConfirmedSeqRef.current).toBe(0)
+ handler(message('D',4));expect(inputs).toHaveLength(4)
+ release();await blocked;await vi.waitFor(()=>expect(trace).toEqual(['A','B','C','D']))
+ expect(f.deps.lastConfirmedSeqRef.current).toBe(4);expect(f.deps.requestFullResync).not.toHaveBeenCalled()
+ expect(apply.mock.calls.map(call=>call[2])).toEqual(inputs)
+ gate.cancel()
+})
+it('rechecks the original lifetime when a prepared final closure is delayed past scope expiry',()=>{
+ const f=original();let finish:(()=>void)|undefined
+ const dispatchPrepared=vi.fn((_input:CanonicalRecordedInput,applyFinal:()=>void)=>{finish=applyFinal})
+ const handler=createConfirmedStreamHandler({...f.deps,...{dispatchPrepared}})
+ handler(f.payload);expect(dispatchPrepared).toHaveBeenCalledOnce();expect(f.deps.applyRemoteOp).not.toHaveBeenCalled()
+ f.stale();expect(()=>finish?.()).toThrow();expect(f.deps.applyRemoteOp).not.toHaveBeenCalled();expect(f.deps.lastConfirmedSeqRef.current).toBe(0)
+})

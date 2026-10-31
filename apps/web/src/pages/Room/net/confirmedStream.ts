@@ -41,6 +41,8 @@ export interface ConfirmedStreamDeps {
   confirmOwnOperation: (op: Operation, seq: number, read?: CanonicalRead, recorded?: CanonicalRecordedInput) => void
   markLayerActive: (userId: string, layerId: string) => void
   applyRemoteOp: (op: Operation, read?: CanonicalRead, recorded?: CanonicalRecordedInput) => void|boolean
+  /** Resource-only ordered handoff after synchronous original/replay admission. */
+  dispatchPrepared?: (input:CanonicalRecordedInput,applyFinal:()=>void)=>void
   syncFromLog: () => void
   checkSnapshotBoundary: () => void
   requestFullResync: () => void
@@ -68,7 +70,7 @@ export function createConfirmedStreamHandler({
   engineRef, lastConfirmedSeqRef, latestKnownSeqRef, appliedOpIdsRef, pendingPreviewsRef,
   catchingUpRef, streamedStrokeIdsRef, deferredOpsQueueRef, previewScheduleRef,
   confirmOwnOperation, markLayerActive, applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,requestCanonicalRecovery,
-  replayGate, canonicalReadScope: readScope,
+  replayGate, canonicalReadScope: readScope,dispatchPrepared,
 }: ConfirmedStreamDeps): ConfirmedStreamHandler {
   const canonicalReadScope = readScope ? Object.freeze({
     roomId: readScope.roomId, boardEpoch: readScope.boardEpoch,
@@ -153,6 +155,28 @@ export function createConfirmedStreamHandler({
     const scopedCanonical=(op.type==='canonical_stroke'||close)&&(read!==undefined||recorded!==undefined||canonicalReadScope!==undefined)
     if(!scopedCanonical)useRoomStore.getState().observeReviewOperation({ ...op, seq })
     if (replayGate?.hold(acceptedPayload, delivery)) return
+    if(scopedCanonical){
+      if(!recorded)throw new TypeError('Missing original canonical input')
+      const applyFinal=()=>{
+        recorded.delivery.assertCurrent(recorded)
+        if(canonicalReadScope&&!canonicalReadScope.isCurrent())return
+        if(hasSeqGap(lastConfirmedSeqRef.current,seq)){requestFullResync();return}
+        // A source-only layer cannot commit a legacy reveal as a side effect of
+        // a failed source admission. Own and peer source frames use ONE receiver.
+        if(pendingPreviewsRef.current.size!==0){requestFullResync();return}
+        try{
+          if(applyRemoteOp(op,read,recorded)!==true)throw new Error('Canonical recorded admission failed')
+        }catch{(requestCanonicalRecovery??requestFullResync)();return}
+        useRoomStore.getState().observeReviewOperation({...op,seq})
+        lastConfirmedSeqRef.current=Math.max(lastConfirmedSeqRef.current,seq)
+        latestKnownSeqRef.current=Math.max(latestKnownSeqRef.current,seq)
+        previewScheduleRef.current?.noteOperation(Date.now())
+        syncFromLog();checkSnapshotBoundary()
+      }
+      if(dispatchPrepared)dispatchPrepared(recorded,applyFinal)
+      else applyFinal()
+      return
+    }
     // (#289 §12) A gap in this stream is impossible on an unbroken
     // connection (TCP never silently drops or reorders within one), so
     // seeing one means the connection was interrupted without this client
@@ -162,20 +186,6 @@ export function createConfirmedStreamHandler({
     if (hasSeqGap(lastConfirmedSeqRef.current, seq)) {
       reportInvariant('seq gap in confirmed stream — resyncing', { expected: lastConfirmedSeqRef.current + 1, got: seq })
       requestFullResync()
-      return
-    }
-    if(scopedCanonical){
-      // A source-only layer cannot commit a legacy reveal as a side effect of
-      // a failed source admission. Own and peer source frames use ONE receiver.
-      if(pendingPreviewsRef.current.size!==0){requestFullResync();return}
-      try{
-        if(applyRemoteOp(op,read,recorded)!==true)throw new Error('Canonical recorded admission failed')
-      }catch{(requestCanonicalRecovery??requestFullResync)();return}
-      useRoomStore.getState().observeReviewOperation({...op,seq})
-      lastConfirmedSeqRef.current=Math.max(lastConfirmedSeqRef.current,seq)
-      latestKnownSeqRef.current=Math.max(latestKnownSeqRef.current,seq)
-      previewScheduleRef.current?.noteOperation(Date.now())
-      syncFromLog();checkSnapshotBoundary()
       return
     }
     lastConfirmedSeqRef.current = Math.max(lastConfirmedSeqRef.current, seq)

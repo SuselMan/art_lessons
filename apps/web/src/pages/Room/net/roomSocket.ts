@@ -5,7 +5,7 @@ import type { Socket } from 'socket.io-client'
 
 import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@grafetto/shared'
 
-import type { PencilEngineAPI } from '../../../engine'
+import type { PencilEngineAPI,CanonicalRecordedInput } from '../../../engine'
 import { BANNED_ERROR_CODE, noteBanned } from '../../../lib/api/banned'
 import { prepareBrushPresets, setBrushRoomScope, loadBrushLibrary } from '../../../lib/api/brushLibrary'
 import { dismissNotice, notifyError } from '../../../stores/noticeStore'
@@ -30,7 +30,7 @@ export type RoomSocketDeps =
   & Pick<RoomStateDeps<PencilEngineAPI>,
     | 'holdReviewArrivals' | 'replaceUrl' | 'enterBoard' | 'awaitPaper' | 'markJoinRestoreDone' | 'clearRestoreFailure' | 'restoreCatchup'
     | 'replaceCanonicalRoom' | 'firstRoomStateReceivedRef' | 'awaitingSeededBoardStateRef' | 'pendingSnapshotRef' | 'snapshotGateRef'>
-  & Omit<ConfirmedStreamDeps, 'engineRef' | 'confirmOwnOperation' | 'requestFullResync'>
+  & Omit<ConfirmedStreamDeps, 'engineRef' | 'confirmOwnOperation' | 'requestFullResync' | 'dispatchPrepared'>
   & Pick<PeerEventDeps, 'roomContentReadyRef' | 'markActive' | 'forgetDrawingActivity'>
   & Pick<RoomControlEventDeps, 'queryClient' | 'retryJoinRef' | 'setJoinState'>
   & {
@@ -51,6 +51,7 @@ export type RoomSocketDeps =
     confirmOwnOperation: (op: Operation, seq: number) => void
     /** Explicit preparer; omission keeps canonical room admission OFF. */
     prepareCanonicalRoomState?:CanonicalRoomStatePreparer
+    prepareCanonicalRecordedInput?:(input:CanonicalRecordedInput)=>Promise<void>
     joinRoomRef?:RefObject<ClientToServerEvents['join_room']|null>
     /** The socket is connected (true) or has dropped (false). */
     onConnectionChange: (connected: boolean) => void
@@ -124,7 +125,18 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   })
   // (#493) Out of line — see confirmedStream.ts.
   let confirmedScope:CanonicalRoomStateRead['scope']|undefined
-  let handleOperationConfirmed = createConfirmedStreamHandler({ ...deps,canonicalReadScope:undefined, confirmOwnOperation, requestFullResync })
+  const dispatchPrepared:ConfirmedStreamDeps['dispatchPrepared']=deps.prepareCanonicalRecordedInput?(input,applyFinal)=>{
+    const generation=readGeneration,scope=confirmedScope,handler=handleOperationConfirmed
+    const current=()=>generation===readGeneration&&handleOperationConfirmed===handler&&!!scope&&scope.isCurrent()
+    brushes.dispatch([],applyFinal,current,async()=>{
+      input.delivery.assertCurrent(input)
+      if(!current())return
+      await deps.prepareCanonicalRecordedInput!(input)
+      input.delivery.assertCurrent(input)
+      if(!current())throw Error('Stale canonical engine preparation')
+    })
+  }:undefined
+  let handleOperationConfirmed = createConfirmedStreamHandler({ ...deps,dispatchPrepared,canonicalReadScope:undefined, confirmOwnOperation, requestFullResync })
 
   // (#152) peer_cursor itself is not handled here at all — Room had nothing to
   // do with it beyond forwarding into Room-level state (which is exactly what
@@ -236,7 +248,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
       // No await or arbitrary callback between publication and dispatch.
       readGeneration=after;published=true
       confirmedScope=accepted.canonicalRead?.scope
-      handleOperationConfirmed=createConfirmedStreamHandler({...deps,confirmOwnOperation,requestFullResync,canonicalReadScope:confirmedScope})
+      handleOperationConfirmed=createConfirmedStreamHandler({...deps,dispatchPrepared,confirmOwnOperation,requestFullResync,canonicalReadScope:confirmedScope})
       dispatchRoomState(accepted)
     }
     catch{deps.setRoomContentReady(false);reportJoinFailure('unsupported_raster_version','room_state canonical contract')}

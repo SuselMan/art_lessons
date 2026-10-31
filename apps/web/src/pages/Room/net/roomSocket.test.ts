@@ -440,3 +440,51 @@ it('rejects malformed original confirmed capability before even legacy resource 
   expect(prepareBrushPresets).not.toHaveBeenCalled();expect(prepareCanonicalImageAssets).not.toHaveBeenCalled();expect(deps.applyRemoteOp).not.toHaveBeenCalled();expect(deps.lastConfirmedSeqRef.current).toBe(0);expect(fake.disconnect).toHaveBeenCalledOnce()
  }finally{close();log.mockRestore()}
 })
+
+it('awaits captured engine preparation after original image CAS before the existing sync sink',async()=>{
+ const {deps,listeners}=sourceSetup(),state=await imageWireState();let release!:()=>void
+ const pending=new Promise<void>(yes=>{release=yes}),prepareCanonicalRecordedInput=vi.fn(async()=>{await pending})
+ deps.applyRemoteOp=vi.fn(()=>true)
+ const configured={...deps,prepareCanonicalRecordedInput},close=connectRoomSocket(configured)
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
+  Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:1,operation:state.tailOperations[0],canonicalCapabilities:state.canonicalCapabilities}])
+  await vi.waitFor(()=>expect(prepareCanonicalRecordedInput).toHaveBeenCalledOnce())
+  expect(deps.applyRemoteOp).not.toHaveBeenCalled();expect(deps.lastConfirmedSeqRef.current).toBe(0)
+  release();await pending;await vi.waitFor(()=>expect(deps.applyRemoteOp).toHaveBeenCalledOnce())
+ }finally{release();close()}
+})
+it('does not prepare an engine before bootstrap replay handoff and routes close through the same final resource lane',async()=>{
+ const f=await gateFrameFixture(false),{deps,listeners}=sourceSetup(),{createReplayGate}=await import('../replayGate')
+ const gate=createReplayGate<Parameters<ServerToClientEvents['operation_confirmed']>[0]>();let mounted=false
+ deps.replayGate=gate;deps.holdReviewArrivals=()=>{gate.begin()}
+ const prepareCanonicalRecordedInput=vi.fn(async()=>{if(!mounted)throw Error('Engine unavailable during bootstrap')})
+ deps.applyRemoteOp=vi.fn(()=>true)
+ const configured={...deps,prepareCanonicalRecordedInput},close=connectRoomSocket(configured)
+ const wire=emptyCanonicalState();wire.tailOperations=[f.op];wire.canonicalCapabilities={...f.attachment,roomId:'B2'}
+ wire.canonicalHistoryBase={kind:'full-room-prefix-v2',roomId:'B2',boardEpoch:2,throughSeq:1,operationCount:1}
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[wire])
+  Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:1,operation:f.op,canonicalCapabilities:{...f.attachment,roomId:'B2'}}])
+  Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:2,operation:{type:'canonical_stroke_close',id:'seal',userId:'author',timestamp:2,seq:2,layerId:'L',targetUserId:'author',strokeId:'S',disposition:'commitPartial',recordedNext:1,firstFrameOpId:'op',lastFrameOpId:'op'}}])
+  expect(prepareCanonicalRecordedInput).not.toHaveBeenCalled();expect(deps.applyRemoteOp).not.toHaveBeenCalled()
+  mounted=true;const ticket=gate.begin();expect(gate.end(ticket)).toBe(true)
+  await vi.waitFor(()=>expect(prepareCanonicalRecordedInput).toHaveBeenCalledTimes(2))
+  await vi.waitFor(()=>expect(deps.lastConfirmedSeqRef.current).toBe(2))
+  expect(vi.mocked(deps.applyRemoteOp).mock.calls.map(call=>call[0].id)).toEqual(['op','seal'])
+ }finally{close()}
+})
+it('drops an already prepared final closure when room state replaces its handler during engine preparation',async()=>{
+ const {deps,listeners,fake}=sourceSetup(),state=await imageWireState();let release!:()=>void
+ const pending=new Promise<void>(yes=>{release=yes}),prepareCanonicalRecordedInput=vi.fn(async()=>{await pending})
+ deps.applyRemoteOp=vi.fn(()=>true)
+ const close=connectRoomSocket({...deps,prepareCanonicalRecordedInput})
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
+  Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:1,operation:state.tailOperations[0],canonicalCapabilities:state.canonicalCapabilities}])
+  await vi.waitFor(()=>expect(prepareCanonicalRecordedInput).toHaveBeenCalledOnce())
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
+  release();await pending;await Promise.resolve();await Promise.resolve()
+  expect(deps.applyRemoteOp).not.toHaveBeenCalled();expect(deps.lastConfirmedSeqRef.current).toBe(0);expect(fake.disconnect).not.toHaveBeenCalled()
+ }finally{release();close()}
+})
