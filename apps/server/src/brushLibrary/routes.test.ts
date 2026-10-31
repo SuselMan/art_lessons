@@ -101,3 +101,60 @@ it('serves refreshed operator diagnostics over old room pins without rewriting p
     expect(await readFile(storage.path('owners', 'alice'))).toEqual(owner)
   } finally { await server.close() }
 })
+
+it('uses the captured trusted mixed read policy for actual scoped catalog and CAS assets',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'brush-mixed-read-'));directories.push(directory)
+ const root=join(directory,'storage'),operator=join(directory,'operator'),bytes=Buffer.from([1,2,3,4]),hash=createHash('sha256').update(bytes).digest('hex'),manifest=empty()
+ manifest.assets.push({id:`asset:${hash}`,size:2,file:hash+'.bin'})
+ await mkdir(operator);await writeFile(join(operator,'manifest.json'),JSON.stringify(manifest));await writeFile(join(operator,hash+'.bin'),bytes)
+ vi.stubEnv('GRAFETTO_BRUSH_STORAGE_DIR',root)
+ vi.mocked(mayReadBoardContent).mockImplementation(async(_room,_user,format)=>format==='mixed-v2')
+ const server=Fastify();server.addHook('onRequest',async request=>{request.userId='alice'})
+ try{
+  await registerBrushLibraryRoutes(server,operator,'mixed-v2')
+  const catalog=await server.inject('/api/brush-library?roomId=room')
+  expect(catalog.statusCode).toBe(200);expect(catalog.json().assets).toEqual(manifest.assets)
+  const asset=await server.inject('/api/brush-library/assets/'+hash+'?roomId=room')
+  expect(asset.statusCode).toBe(200);expect(asset.rawPayload).toEqual(bytes)
+  expect(mayReadBoardContent).toHaveBeenLastCalledWith('room','alice','mixed-v2')
+  vi.mocked(mayReadBoardContent).mockResolvedValue(false)
+  expect((await server.inject('/api/brush-library?roomId=room')).statusCode).toBe(403)
+  expect((await server.inject('/api/brush-library/assets/'+hash+'?roomId=room')).statusCode).toBe(403)
+ }finally{await server.close()}
+})
+
+it('allows the existing selection pin and read-only export under mixed policy without changing resource ownership or bypassing revocation',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'brush-mixed-pin-'));directories.push(directory)
+ const root=join(directory,'storage'),operator=join(directory,'operator'),bytes=Buffer.from([1,2,3,4]),hash=createHash('sha256').update(bytes).digest('hex'),manifest=empty()
+ manifest.assets.push({id:`asset:${hash}`,size:2,file:hash+'.bin'})
+ manifest.brushes.push({name:'Resource fixture',source:'qa',warnings:[],descriptor:{id:'imported-'+'d'.repeat(16),version:1,model:'stamp',category:'paint',tip:{kind:'bitmap',mask:`asset:${hash}`,hardness:1,aspect:1,rotation:'fixed',angle:0},paperInteraction:0,spacing:.1,flow:1,flowPer:'pass',opacity:1,pressureSmoothingPx:0,sizeByPressure:[[0,0],[1,1]],flowByPressure:[[0,0],[1,1]],opacityByPressure:[[0,0],[1,1]]}})
+ await mkdir(operator);const original=JSON.stringify(manifest);await writeFile(join(operator,'manifest.json'),original);await writeFile(join(operator,hash+'.bin'),bytes)
+ vi.stubEnv('GRAFETTO_BRUSH_STORAGE_DIR',root)
+ vi.mocked(mayReadBoardContent).mockImplementation(async(_room,_user,format)=>format==='mixed-v2')
+ const server=Fastify();server.addHook('onRequest',async request=>{request.userId='alice'})
+ try{
+  await registerBrushLibraryRoutes(server,operator,'mixed-v2')
+  const preset=`brush:${manifest.brushes[0].descriptor.id}@1`
+  expect((await server.inject({method:'POST',url:'/api/rooms/room/brush-library',payload:{presets:[preset]}})).statusCode).toBe(200)
+  const storage=new BrushStorage(root),room=await readFile(storage.path('rooms','room'))
+  const exported=await server.inject('/api/rooms/room/brush-library/export')
+  expect(exported.statusCode).toBe(200);expect(exported.json()).toEqual({library:manifest,assets:{[`asset:${hash}`]:bytes.toString('base64')}})
+  expect(await readFile(join(operator,'manifest.json'),'utf8')).toBe(original)
+  expect((await server.inject({method:'POST',url:'/api/rooms/room/brush-library',payload:{presets:['brush:imported-missing@1']}})).statusCode).toBe(400)
+  vi.mocked(mayReadBoardContent).mockResolvedValue(false)
+  expect((await server.inject({method:'POST',url:'/api/rooms/room/brush-library',payload:{presets:[preset]}})).statusCode).toBe(403)
+  expect((await server.inject('/api/rooms/room/brush-library/export')).statusCode).toBe(403)
+  expect(await readFile(storage.path('rooms','room'))).toEqual(room)
+ }finally{await server.close()}
+})
+
+it('does not implicitly select mixed resource access for the ordinary registration',async()=>{
+ vi.mocked(mayReadBoardContent).mockImplementation(async(_room,_user,format)=>format==='mixed-v2')
+ const server=await app()
+ try{
+  expect((await server.inject('/api/brush-library?roomId=room')).statusCode).toBe(403)
+  expect((await server.inject({method:'POST',url:'/api/rooms/room/brush-library',payload:{presets:[]}})).statusCode).toBe(403)
+  expect((await server.inject('/api/rooms/room/brush-library/export')).statusCode).toBe(403)
+  expect(mayReadBoardContent).toHaveBeenLastCalledWith('room','alice','frames-v1')
+ }finally{await server.close()}
+})

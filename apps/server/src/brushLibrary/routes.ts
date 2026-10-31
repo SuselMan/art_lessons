@@ -10,12 +10,14 @@ import { Readable, Transform } from 'node:stream'
 import type { FastifyInstance } from 'fastify'
 import type { BrushImportJob } from '@grafetto/shared'
 import { apiRoute } from '../http/apiRoute.js'
+import {freezeCanonicalFullHistoryFormat} from '../rooms/canonicalExecutionPolicy.js'
 import { mayReadBoardContent } from '../rooms/boardContentAccess.js'
 import { loadBrushLibrary } from './brushLibrary.js'
 import { BrushStorage, boundedRead, empty, merge, setBrushStorage } from './storage.js'
 
 const MAX_UPLOAD=512*1024*1024
-export async function registerBrushLibraryRoutes(app: FastifyInstance, directory=process.env.GRAFETTO_BRUSH_LIBRARY_DIR): Promise<void> {
+export async function registerBrushLibraryRoutes(app: FastifyInstance, directory=process.env.GRAFETTO_BRUSH_LIBRARY_DIR,fullHistoryFormat:'frames-v1'|'mixed-v2'='frames-v1'): Promise<void> {
+  const readFormat=freezeCanonicalFullHistoryFormat(fullHistoryFormat)
   // A configured legacy directory is an explicit operator-provisioned QA library.
   const operator=await loadBrushLibrary(directory)
   const root=process.env.GRAFETTO_BRUSH_STORAGE_DIR
@@ -53,12 +55,12 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
   const catalog=(owner:string,room?:string)=>merge(operator.manifest,storage.library('owners',owner),room ? storage.library('rooms',room) : empty())
   apiRoute(app,'GET /api/brush-library',async(request,reply)=> {
     const room=typeof request.query.roomId==='string' ? request.query.roomId : undefined
-    if(room && !await mayReadBoardContent(room,request.userId)) return reply.code(403).send({error:'forbidden'})
+    if(room && !await mayReadBoardContent(room,request.userId,readFormat)) return reply.code(403).send({error:'forbidden'})
     return reply.header('Cache-Control','private, no-cache').send(catalog(request.userId,room))
   })
   apiRoute(app,'GET /api/brush-library/assets/:hash',async(request,reply)=> {
     const room=typeof request.query.roomId==='string' ? request.query.roomId : undefined
-    if(room && !await mayReadBoardContent(room,request.userId)) return reply.code(403).send({error:'forbidden'})
+    if(room && !await mayReadBoardContent(room,request.userId,readFormat)) return reply.code(403).send({error:'forbidden'})
     const asset=catalog(request.userId,room).assets.find(a=>a.id===`asset:${request.params.hash}`)
     if(!asset) return reply.code(404).send({error:'Brush asset not found'})
     return reply.header('Cache-Control','private, max-age=31536000, immutable').type('application/octet-stream').send(storage.asset(request.params.hash,asset.size))
@@ -136,14 +138,14 @@ export async function registerBrushLibraryRoutes(app: FastifyInstance, directory
     } catch { return reply.code(404).send({error:'Import not found'}) }
   })
   apiRoute(app,'POST /api/rooms/:id/brush-library',async(request,reply)=> {
-    if(!await mayReadBoardContent(request.params.id,request.userId)) return reply.code(403).send({error:'forbidden'})
+    if(!await mayReadBoardContent(request.params.id,request.userId,readFormat)) return reply.code(403).send({error:'forbidden'})
     const presets=request.body?.presets
     if(!Array.isArray(presets)||presets.length>512||!presets.every(p=>typeof p==='string'&&p.length<200)) return reply.code(400).send({error:'Invalid brush references'})
     try { storage.pin(request.params.id,request.userId,presets,operator.manifest) } catch { return reply.code(400).send({error:'Brush unavailable'}) }
     return {ok:true as const}
   })
   apiRoute(app,'GET /api/rooms/:id/brush-library/export',async(request,reply)=> {
-    if(!await mayReadBoardContent(request.params.id,request.userId)) return reply.code(403).send({error:'forbidden'})
+    if(!await mayReadBoardContent(request.params.id,request.userId,readFormat)) return reply.code(403).send({error:'forbidden'})
     const library=storage.library('rooms',request.params.id)
     // Portable JSON bundle: exact versioned manifest and base64 content-addressed bytes.
     async function* bundle() {

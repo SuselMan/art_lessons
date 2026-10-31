@@ -1,0 +1,7 @@
+# Brush resources under the trusted canonical read mode
+
+The real startup passes the SAME immutable `CanonicalRoomTransport.fullHistoryFormat` to existing brush route registration. Registration validates/captures it once. Scoped catalog/assets GET, selection pin POST and brush-library export GET use that mode for existing DB authorization. Default registration remains frames-v1. No snapshot, thumbnail or pixel export route is widened, and no network field selects the mode.
+
+The pin route is a necessary part of actual selection: SettingField waits for publishBrushPresets before commitChange; useToolSync also waits for it before engine.prepareBrush/preparedKey. A scoped 403 would leave a cold imported brush unavailable even after successful room bootstrap. Pin still uses the existing own/operator lookup, immutable ROOM manifest, verified CAS and quota rules. It is resource publication, not a paint grant: canonical BEGIN retains source policy and layer/actor admission. Export is an explicit download of already authorized room brush data.
+
+Tests first failed with 403 for both catalog and selection. The final host fixtures exercise actual CAS bytes, operator-to-room selection pin and exported bytes, immutable operator preservation, unavailable brush rejection, revoked access without further room mutation and default registration refusing implicit mixed mode. Existing DB block/membership/password/visibility tests run alongside them. These are Fastify injection/mocked DB tests, not a running QA deployment or physical database/device proof.
