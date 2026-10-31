@@ -259,3 +259,46 @@ it('rechecks the original baseline owner after replay drain callbacks before pub
  expect(f.deps.syncFromLogNow).not.toHaveBeenCalled();expect(f.deps.latestKnownSeqRef.current).toBe(0);expect(f.deps.setRoomContentReady).not.toHaveBeenCalledWith(true)
  }finally{f.engine.destroy()}
 })
+
+function fullRestoreFixture(){
+ const f=emptyRestoreFixture(),{state:s}=baseState();let current=true
+ s.tailOperations=[{...s.tailOperations[0],seq:1},
+  {type:'operation_undo',id:'undo',userId:'author',timestamp:2,seq:2,targetOpId:'op'},
+  {type:'operation_redo',id:'redo',userId:'author',timestamp:3,seq:3,targetOpId:'undo'}]
+ s.canonicalCapabilities={...s.canonicalCapabilities!,bindings:[{operationId:'op',sequence:1,originalUserId:'author',capability:0}]}
+ s.canonicalHistoryBase={kind:'full-room-prefix-v2',roomId:'room',boardEpoch:2,throughSeq:3,operationCount:3}
+ const prepared=prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>current})
+ return {...f,prepared,expire:()=>{current=false}}
+}
+it('routes original full V2 frame/undo/redo history to the same single atomic baseline sink',async()=>{
+ const f=fullRestoreFixture(),preload=vi.spyOn(f.engine,'preloadImages')
+ try{
+  await restoreRoomState(f.engine,f.prepared,{mode:'join',alreadyHadSeq:0},f.deps)
+  expect(f.sink).toHaveBeenCalledExactlyOnceWith(f.engine,f.prepared.canonicalRead,f.prepared.tailOperations)
+  expect(f.deps.applyRemoteOp).not.toHaveBeenCalled();expect(preload).not.toHaveBeenCalled()
+  expect(f.deps.backfillHistory).not.toHaveBeenCalled();expect(f.deps.restoreFromSnapshot).not.toHaveBeenCalled()
+  expect(f.deps.latestKnownSeqRef.current).toBe(3);expect(f.deps.setRoomContentReady).toHaveBeenCalledWith(true)
+  expect(f.deps.getSnapshotUploader).not.toHaveBeenCalled()
+ }finally{f.engine.destroy()}
+})
+it.each(['sink','copy','stale','catchup','pending']as const)('rejects unavailable original full V2 baseline (%s) before side effects',async kind=>{
+ const f=fullRestoreFixture(),begin=vi.spyOn(f.deps.replayGate,'begin'),suspend=vi.spyOn(f.engine,'suspendDisplay')
+ if(kind==='sink')f.deps.restoreCanonicalEmptyRoom=undefined
+ if(kind==='stale')f.expire()
+ if(kind==='pending')f.deps.pendingPreviewsRef.current.add('pending',1)
+ try{
+  await expect(restoreRoomState(f.engine,kind==='copy'?{...f.prepared,tailOperations:[...f.prepared.tailOperations]}:f.prepared,{mode:kind==='catchup'?'catchup':'join',alreadyHadSeq:0},f.deps)).rejects.toThrow()
+  expect(begin).not.toHaveBeenCalled();expect(suspend).not.toHaveBeenCalled();expect(f.sink).not.toHaveBeenCalled()
+  expect(f.deps.applyRemoteOp).not.toHaveBeenCalled();expect(f.deps.setRoomContentReady).not.toHaveBeenCalled()
+ }finally{f.engine.destroy()}
+})
+it.each(['stale','throw','superseded']as const)('does not publish full V2 baseline after %s while atomic sink yields',async kind=>{
+ const f=fullRestoreFixture(),resume=vi.spyOn(f.engine,'resumeDisplay')
+ f.sink.mockImplementation(async()=>{await Promise.resolve();if(kind==='stale')f.expire();if(kind==='throw')throw Error('atomic failed');if(kind==='superseded')f.deps.replayGate.begin()})
+ try{
+  await restoreRoomState(f.engine,f.prepared,{mode:'join',alreadyHadSeq:0},f.deps)
+  expect(f.sink).toHaveBeenCalledOnce();expect(resume).toHaveBeenCalledOnce()
+  expect(f.deps.latestKnownSeqRef.current).toBe(0);expect(f.deps.setRoomContentReady).not.toHaveBeenCalledWith(true)
+  expect(f.deps.applyRemoteOp).not.toHaveBeenCalled();expect(f.deps.syncFromLogNow).not.toHaveBeenCalled()
+ }finally{f.engine.destroy()}
+})

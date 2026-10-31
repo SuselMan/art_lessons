@@ -103,12 +103,15 @@ export async function restoreRoomState(
   const canonicalRead=state.canonicalRead
   const assertCurrent=()=>{if(canonicalRead)assertCanonicalRoomStateRead(canonicalRead,tailOperations,deps.boardId)}
   assertCurrent()
-  const canonicalEmpty=canonicalRead?.emptyHistoryBase!==undefined
-  if(canonicalEmpty){
-    canonicalRead!.assertEmptyHistoryBase(tailOperations)
+  const canonicalBaseline=canonicalRead?.emptyHistoryBase!==undefined||canonicalRead?.fullHistoryBase!==undefined
+  if(canonicalBaseline){
+    if(canonicalRead!.fullHistoryBase!==undefined){
+      if(!canonicalRead!.assertFullHistoryBase)throw Error('Canonical full history owner unavailable')
+      canonicalRead!.assertFullHistoryBase(tailOperations)
+    }else canonicalRead!.assertEmptyHistoryBase(tailOperations)
     if(!deps.restoreCanonicalEmptyRoom||!engine||latestSnapshotSeq!==null||mode!=='join'||alreadyHadSeq!==0||deps.pendingPreviewsRef.current.ids().length)throw Error('Canonical empty restore unavailable')
   }
-  if(canonicalRead&&!canonicalEmpty&&(!deps.applyCanonicalOp||!deps.restoreCanonicalHistory))throw Error('Canonical room restore sinks unavailable')
+  if(canonicalRead&&!canonicalBaseline&&(!deps.applyCanonicalOp||!deps.restoreCanonicalHistory))throw Error('Canonical room restore sinks unavailable')
   const openTimer = mode === 'join' ? deps.openTimerRef.current : null
 
   // (#533) Read by the `finally` below: a restore that brought back nothing
@@ -181,7 +184,7 @@ export async function restoreRoomState(
     openTimer?.stage('replay')
 
     let failed=0
-    if(canonicalEmpty){
+    if(canonicalBaseline){
       await deps.restoreCanonicalEmptyRoom!(engine!,canonicalRead!,tailOperations)
       assertCurrent()
     }else{
@@ -276,7 +279,7 @@ export async function restoreRoomState(
     }
     assertCurrent()
     if (!deps.replayGate.end(replayTicket)) throw supersededReplay
-    if(canonicalEmpty)assertCurrent()
+    if(canonicalBaseline)assertCurrent()
     displaySuspended = false
     engine?.resumeDisplay()
     // (#386) Now, not on the next microtask: the bootstrap below reads the
@@ -308,7 +311,7 @@ export async function restoreRoomState(
     // snapshot at the real current watermark; useSnapshotPublishing retries
     // refused wet/pending layers after they become publishable. The ordinary
     // cadence path below still refuses rounding a113 picture down to100.
-    const uploader = canonicalEmpty?null:deps.getSnapshotUploader()
+    const uploader = canonicalBaseline?null:deps.getSnapshotUploader()
     if (engine && latestSnapshotSeq === null && uploader) {
       uploader.requestFirstSnapshot()
       uploader.onSeqObserved(
