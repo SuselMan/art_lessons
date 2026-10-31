@@ -282,33 +282,35 @@ export class TiledLayerBuffer implements ILayerBuffer {
 
   clear(): void {
     if (this.retainedTargets.size) throw new Error('Cannot clear retained layer targets')
-    for (const tile of this.tiles.values()) tile.destroy()
-    this.tiles.clear()
-    this.evicted.clear()
-    this.contentRects.clear()
-    this.dropCoarse()
+    this.retireOwnedTiles()
   }
 
   destroy(): void {
     if (this.retainedTargets.size) throw new Error('Cannot destroy retained layer targets')
-    for (const tile of this.tiles.values()) tile.destroy()
+    this.retireOwnedTiles()
+  }
+
+  /** Forget ownership before retirement, attempt every fine/coarse child once.
+   * The coarse pyramid is derived and cannot survive a clear of its source. */
+  private retireOwnedTiles(): void {
+    const owned = [...this.tiles.values(), ...[...this.coarse.values()].flatMap(level => [...level.values()])]
     this.tiles.clear()
     this.evicted.clear()
     this.contentRects.clear()
-    this.dropCoarse()
-  }
-
-  /** (#365) Throws the coarse level away wholesale. Correct for both clear()
-   *  and destroy(): the coarse level is derived, never a source of truth, so
-   *  losing it costs nothing a later paint won't rebuild — and keeping it
-   *  across a clear() would be actively wrong, leaving a low-zoom view
-   *  showing content the layer no longer has. */
-  private dropCoarse(): void {
-    for (const level of this.coarse.values()) {
-      for (const tile of level.values()) tile.destroy()
-    }
     this.coarse.clear()
     this.pendingDownsample.clear()
+    let failed = false, firstError: unknown
+    for (const tile of owned) {
+      try { tile.destroy() } catch (error) { if (!failed) { failed = true; firstError = error } }
+    }
+    if (failed) throw firstError
+  }
+
+  /** A not-yet-published allocation stays ours until clear succeeds. */
+  private createClearedTile(): AccumulationBuffer {
+    const tile = new AccumulationBuffer(this.gl, this.tileW, this.tileH, this.pixelEncoding === 'straight-rgba8' ? 'nearest' : 'linear', this.pixelEncoding)
+    try { tile.clear(); return tile }
+    catch (error) { try { tile.destroy() } catch { /* Preserve primary. */ } throw error }
   }
 
   /** (#365) Folds every fine tile written since the last fold into its coarse
@@ -338,8 +340,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
     const level = this.levelFor(factor)
     let dest = level.get(coarseKey)
     if (!dest) {
-      dest = new AccumulationBuffer(this.gl, this.tileW, this.tileH, this.pixelEncoding === 'straight-rgba8' ? 'nearest' : 'linear', this.pixelEncoding)
-      dest.clear()
+      dest = this.createClearedTile()
       level.set(coarseKey, dest)
     }
     const slot = fineTileSlot(tileX, tileY, factor, this.tileW, this.tileH)
@@ -545,9 +546,11 @@ export class TiledLayerBuffer implements ILayerBuffer {
       const victim = this.tiles.get(key)!
       // (#367) Its last chance to reach the levels — see foldBeforeEviction.
       this.foldBeforeEviction(key, victim)
-      victim.destroy()
+      // Retirement consumes the buffer even if a driver cleanup throws. A
+      // later resolve must recover history, never return that retired name.
       this.tiles.delete(key)
       this.evicted.add(key)
+      victim.destroy()
       overBudget--
     }
   }
@@ -567,36 +570,35 @@ export class TiledLayerBuffer implements ILayerBuffer {
   private recoverTiles(keys: string[]): void {
     if (!this.rebuildTile || !keys.length) return
     const session = this.rebuildTile()
-    for (const key of keys) {
-      const { tileX, tileY } = parseTileKey(key)
-      const rect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
-      const tile = new AccumulationBuffer(this.gl, this.tileW, this.tileH, this.pixelEncoding === 'straight-rgba8' ? 'nearest' : 'linear', this.pixelEncoding)
-      tile.clear()
-      const pixels = session.readPixels(rect)
-      // (#155 Tier 2) Recovery already has this tile's exact historical
-      // pixels in hand — scan them once, right here, for the real content
-      // bbox rather than leaving tracked state stale. This is the *only*
-      // place recovery pays for a scan; every later getContentBounds() call
-      // reads the result back for free instead of re-scanning.
-      if (pixels) {
-        tile.restorePixels(pixels)
-        this.contentRects.set(key, worldContentRect(rect, scanLocalContentRect(pixels, this.tileW, this.tileH, this.pixelEncoding)))
-      } else {
-        this.contentRects.set(key, null)
+    let failed = false, firstError: unknown
+    const recovered: string[] = []
+    try {
+      for (const key of keys) {
+        const { tileX, tileY } = parseTileKey(key)
+        const rect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
+        const tile = this.createClearedTile()
+        let content: WorldRect | null
+        try {
+          const pixels = session.readPixels(rect)
+          if (pixels) tile.restorePixels(pixels)
+          content = pixels ? worldContentRect(rect, scanLocalContentRect(pixels, this.tileW, this.tileH, this.pixelEncoding)) : null
+        } catch (error) {
+          try { tile.destroy() } catch { /* Unpublished candidate; preserve read/upload error. */ }
+          throw error
+        }
+        this.contentRects.set(key, content)
+        this.evicted.delete(key)
+        this.tiles.set(key, tile)
+        recovered.push(key)
       }
-      this.evicted.delete(key)
-      this.tiles.set(key, tile)
-    }
-    session.destroy()
-    // (#503) A recovered tile owes every level again, even though eviction
-    // settled its debt on the way out. What it settled were the pixels it
-    // held then; what it holds now came from a fresh replay of the log, and
-    // the two agree only as long as nothing about that replay has changed —
-    // which is not a property this class can check, and exactly the class of
-    // assumption that made #500 a silent data loss rather than a visible bug.
-    // Re-owing costs one quad draw per tile at the next fold; not re-owing
-    // costs a level that quietly disagrees with the layer at one zoom.
-    this.markForDownsample(keys)
+    } catch (error) { failed = true; firstError = error }
+    // Earlier successfully recovered tiles remain real owned content even if
+    // a later tile fails. Their coarse debt must not silently disappear.
+    try { this.markForDownsample(recovered) }
+    catch (error) { if (!failed) { failed = true; firstError = error } }
+    try { session.destroy() }
+    catch (error) { if (!failed) { failed = true; firstError = error } }
+    if (failed) throw firstError
   }
 
   private getOrCreateTile(tileX: number, tileY: number): AccumulationBuffer {
@@ -609,8 +611,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
     // called — see resolveForPaint) already recovered it, so it wouldn't
     // still be missing from `tiles`. Either way, a plain blank tile is
     // correct here.
-    const tile = new AccumulationBuffer(this.gl, this.tileW, this.tileH, this.pixelEncoding === 'straight-rgba8' ? 'nearest' : 'linear', this.pixelEncoding)
-    tile.clear()
+    const tile = this.createClearedTile()
     this.tiles.set(key, tile)
     // A genuinely brand-new tile (never seen this key before) starts with
     // no tracked content — a recovered one already got its real content set
