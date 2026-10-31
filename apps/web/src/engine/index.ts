@@ -1711,6 +1711,7 @@ export class PencilEngine implements PencilEngineAPI {
   readonly rasterVersion: RoomRasterVersion
   private readonly _canonicalEmptyAdmission?:CanonicalEmptyPlan
   private _canonicalEmptyTransaction?:CanonicalEmptyTransaction
+  private _canonicalContextRecovery?:{readonly generation:number;readonly promise:Promise<CanonicalEmptyRoomRestoreResult>}
   private _canonicalAccepted?:CanonicalAcceptedBaseline
   private _canonicalLayerOwner?:CanonicalLayerOwner
   private _canonicalRecoveryDirty=false
@@ -3740,7 +3741,17 @@ export class PencilEngine implements PencilEngineAPI {
 
   async prepareBrush(preset: string, options: BrushPreparationOptions = {}): Promise<BrushPreparationResult> {
     if (this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
-    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return this._prepareCanonicalAuthorBrush(preset,options)
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION){
+      // Raw contextrestored precedes asynchronous original-baseline publication.
+      // Observe that SAME existing work; no author job may capture its absent owner.
+      const recovery=this._canonicalContextRecovery
+      if(recovery){
+        const obsolete=()=>this._destroyed||this._contextLost||this._physicalGeneration!==recovery.generation||options.signal?.aborted||this._opts.pencilType!==preset
+        try{await recovery.promise}catch(error){if(obsolete())return{status:'cancelled'};throw error}
+        if(obsolete())return{status:'cancelled'}
+      }
+      return this._prepareCanonicalAuthorBrush(preset,options)
+    }
     const descriptor = digitalBrushFromPreset(preset)
     const { resources, capabilities } = brushPreparationPlan(descriptor)
     if (resources.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
@@ -5517,6 +5528,16 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._destroyed) return
     this._contextLost=true
     this._physicalGeneration++
+    // These lazy display names belong to the lost physical context too. Never
+    // delete or bind them after restoration, even at unchanged canvas dimensions.
+    this._screenCache=null
+    this._paperCacheKey=''
+    this._paperDamage=null
+    this._paperPartialOK=false
+    this._wetTex=null
+    this._wetTexAt=0
+    this._wetRect=[0,0,-1,-1]
+    this._wetShown=-1
     this._canonicalPixelsReady=false
     AccumulationBuffer.forgetContextStorage(this.gl)
     if(this._canonicalEmptyTransaction)this._failCanonicalEmpty(this._canonicalEmptyTransaction,new Error('Canonical baseline context lost'))
@@ -5567,10 +5588,16 @@ export class PencilEngine implements PencilEngineAPI {
       this._canonicalPixelsReady=false
       const accepted=this._canonicalAccepted,generation=this._physicalGeneration
       if(!accepted){this._poisonCanonicalLayer(new Error('Canonical baseline recovery required'));return}
-      void this.restoreCanonicalEmptyRoom(accepted.plan.read,accepted.plan.tail).catch(error=>{
-        // A missing newest cut must request the existing room repair, rather
-        // than leave a permanently unreadable canvas with only a diagnostic.
-        // An obsolete asynchronous failure cannot poison a newer recovery.
+      const recovery={generation,promise:this.restoreCanonicalEmptyRoom(accepted.plan.read,accepted.plan.tail)}
+      this._canonicalContextRecovery=recovery
+      // Observe both outcomes even with no preparing caller. An older settlement
+      // cannot clear a newer physical recovery or poison its published owner.
+      void recovery.promise.then(()=>{
+        if(this._canonicalContextRecovery===recovery)this._canonicalContextRecovery=undefined
+      },error=>{
+        if(this._canonicalContextRecovery===recovery)this._canonicalContextRecovery=undefined
+        // A missing newest cut requests the existing room repair. Preserve the
+        // original rejected promise for any current selected-brush waiter.
         if(!this._destroyed&&this._physicalGeneration===generation&&this._canonicalAccepted===accepted&&!this._canonicalPixelsReady)this._poisonCanonicalLayer(error)
       })
       return
