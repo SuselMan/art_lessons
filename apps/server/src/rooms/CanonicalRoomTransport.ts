@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from 'node:util'
+import {randomUUID} from 'node:crypto'
 import {
   STRAIGHT_ROOM_RASTER_VERSION,CANONICAL_STROKE_RASTER_PROFILE,
   parseCanonicalStrokeCloseRequest,verifyCanonicalRecordedClose,type CanonicalStrokeCloseRequest,type RecordedCanonicalStrokeCloseOperation,parseCanonicalStrokeCloseOperation,parseCanonicalEmptyHistoryBase,parseCanonicalFullHistoryBase,verifyCanonicalFullHistoryBase,type CanonicalFullHistoryBaseV2,type CanonicalEmptyHistoryBaseV1, verifyCanonicalRecordedPrefix, type CanonicalStrokeBegin, type CanonicalStrokeBeginResult, type CanonicalStrokeLive, type CanonicalStrokeLiveResult,
@@ -10,6 +11,7 @@ import { CanonicalBrushCapabilityResolver } from './CanonicalBrushCapabilityReso
 import { CanonicalStrokeAdmission, decodeTrustedCanonicalFrame, type CanonicalAdmissionIdentity, type TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
 import { CANONICAL_ROOM_EXECUTION_POLICY, freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,freezeCanonicalFullHistoryFormat, type CanonicalRoomExecutionPolicy } from './canonicalExecutionPolicy.js'
 import { assertPreparedAuthorizedJoinRead,type PreparedAuthorizedJoin } from './roomAccess.js'
+import {assertCurrentRoomSeat,type PreparedRoomDisconnect} from './rooms.js'
 import { mayReadBoardContent } from './boardContentAccess.js'
 import { hasKnownOperationDiscriminant } from './operationAdmissionShape.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
@@ -34,6 +36,11 @@ interface Session {
   readonly admission: CanonicalStrokeAdmission
   durableRecordedNext: number
   recordedTail?: CanonicalStrokeOperation
+}
+type DisconnectedCloseInput=Omit<CanonicalStrokeCloseRequest,'expectedRecordedNext'|'expectedLastFrameOpId'>&{readonly capturedSession:Session}
+export interface PreparedCanonicalDisconnect {
+  assertCurrent(this:PreparedCanonicalDisconnect):void
+  finish(this:PreparedCanonicalDisconnect):Promise<readonly RecordedCanonicalStrokeCloseOperation[]>
 }
 interface RoomLifetime { readonly record: RoomRecord; readonly lesson: RoomRecord; readonly sessions: Map<string, Session> }
 /** Actual protocol coordinator. No author/RNG execution, second log, straight
@@ -331,12 +338,70 @@ export class CanonicalRoomTransport {
     } catch (error) { return { result: { ok: false, reason: reason(error) } } }
   }
 
+  /** Internal disconnect cleanup over existing admitted sessions only. The
+   * actual seat remains owned by the caller until its existing finally-leave. */
+  prepareDisconnectedClose(seat:PreparedRoomDisconnect,isCurrent:()=>boolean):PreparedCanonicalDisconnect|undefined {
+    const scope=assertCurrentRoomSeat(seat),identity={roomId:scope.roomId,userId:scope.userId}
+    const lifetime=this.lifetimes.get(identity.roomId),binder=this.binder,context=this.context
+    if(!lifetime||!binder||!context)return undefined
+    const sessions=[...lifetime.sessions.entries()].filter(([,session])=>session.grant.roomId===identity.roomId&&session.grant.userId===identity.userId&&'version'in session.grant.material&&session.grant.material.version===2)
+      .map(([key,session])=>Object.freeze({key,session,operationId:randomUUID()}))
+    if(!sessions.length)return undefined
+    const current=()=>{
+      if(!isCurrent())fail('not_joined')
+      let actual:PreparedRoomDisconnect
+      try{actual=assertCurrentRoomSeat(seat)}catch{fail('not_joined')}
+      const storage=canonicalBrushStorageContext()
+      if(actual!==scope||rooms.get(identity.roomId)!==lifetime.record||lessonRecordOf(lifetime.record)!==lifetime.lesson
+        ||this.lifetimes.get(identity.roomId)!==lifetime||this.binder!==binder||this.context!==context
+        ||storage?.storage!==context.storage||storage.operator!==context.operator
+        ||sessions.some(({key,session})=>lifetime.sessions.get(key)!==session))fail('canonical_repair_required')
+    }
+    current()
+    let used=false,ticket:PreparedCanonicalDisconnect
+    ticket=Object.freeze({assertCurrent(this:PreparedCanonicalDisconnect){if(this!==ticket)fail('canonical_repair_required');current()},finish:async function(this:PreparedCanonicalDisconnect){
+      if(this!==ticket||used)fail('canonical_repair_required')
+      used=true;current()
+      const accepted:RecordedCanonicalStrokeCloseOperation[]=[]
+      // Repair already resident close receipts before fresh closes inspect the
+      // room's failed-write fence. This is session work order, not row proof.
+      const residentClose=(session:Session)=>lifetime.record.operations.find(op=>op.type==='canonical_stroke_close'&&op.targetUserId===identity.userId&&op.strokeId===session.grant.strokeId)
+      const ordered=[...sessions].sort((a,b)=>Number(!!residentClose(b.session))-Number(!!residentClose(a.session)))
+      for(const captured of ordered){
+        current()
+        const session=captured.session,previous=residentClose(session)
+        if(thisTransport.authorized(identity,session.grant.layerId)!==lifetime)fail('canonical_repair_required')
+        if(!previous){
+          await thisTransport.durablePrefix(lifetime,session);current()
+          const cursor=session.admission.cursor(identity,session.grant.strokeId)
+          if(cursor.recordedNext===0||cursor.ended){thisTransport.requireHealthyWrites(lifetime);continue}
+        }
+        const input:DisconnectedCloseInput={operationId:previous?.id??captured.operationId,layerId:session.grant.layerId,targetUserId:identity.userId,
+          strokeId:session.grant.strokeId,disposition:'commitPartial',capturedSession:session}
+        const result=await thisTransport.closeBound(identity,input,()=>{current();return true})
+        current()
+        if(!result.result.ok)fail(result.result.reason==='not_joined'?'not_joined':'canonical_repair_required')
+        if(!result.accepted)fail('canonical_repair_required')
+        accepted.push(result.accepted)
+      }
+      current();return Object.freeze(accepted)
+    }})
+    const thisTransport=this
+    return ticket
+  }
+
   /** Typed own-session metadata writer. No listener/producer is activated. */
   async close(identity:CanonicalAdmissionIdentity,value:CanonicalStrokeCloseRequest,isCurrent:()=>boolean):Promise<{readonly result:SendResult;readonly accepted?:RecordedCanonicalStrokeCloseOperation}>{
     try{
       const input=parseCanonicalStrokeCloseRequest(value)
+      return await this.closeBound(identity,input,isCurrent)
+    }catch(error){return{result:{ok:false,reason:reason(error)}}}
+  }
+  private async closeBound(identity:CanonicalAdmissionIdentity,input:CanonicalStrokeCloseRequest|DisconnectedCloseInput,isCurrent:()=>boolean):Promise<{readonly result:SendResult;readonly accepted?:RecordedCanonicalStrokeCloseOperation}>{
+    try{
       if(input.targetUserId!==identity.userId)fail('invalid_operation')
       const lifetime=this.authorized(identity,input.layerId),session=this.session(lifetime,identity,input.strokeId),binder=this.binder!,context=this.context!
+      if('capturedSession'in input&&input.capturedSession!==session)fail('canonical_repair_required')
       if(session.grant.layerId!==input.layerId||!('version'in session.grant.material)||session.grant.material.version!==2)fail('invalid_operation')
       const current=()=>{
         if(!isCurrent())fail('not_joined')
@@ -344,7 +409,7 @@ export class CanonicalRoomTransport {
         if(this.binder!==binder||this.context!==context||lifetime.sessions.get(gestureKey(identity,input.strokeId))!==session)fail('canonical_repair_required')
         if(lifetime.record.operations.some(op=>op.type==='canonical_stroke_close'&&op.targetUserId===identity.userId&&op.strokeId===input.strokeId&&op.id!==input.operationId))fail('canonical_repair_required')
       }
-      const matches=(op:RecordedCanonicalStrokeCloseOperation)=>op.id===input.operationId&&op.userId===identity.userId&&op.layerId===input.layerId&&op.targetUserId===input.targetUserId&&op.strokeId===input.strokeId&&op.disposition===input.disposition&&op.recordedNext===input.expectedRecordedNext&&op.lastFrameOpId===input.expectedLastFrameOpId
+      const matches=(op:RecordedCanonicalStrokeCloseOperation)=>op.id===input.operationId&&op.userId===identity.userId&&op.layerId===input.layerId&&op.targetUserId===input.targetUserId&&op.strokeId===input.strokeId&&op.disposition===input.disposition&&(!('expectedRecordedNext'in input)||op.recordedNext===input.expectedRecordedNext&&op.lastFrameOpId===input.expectedLastFrameOpId)
       current()
       let existing=findDuplicateOperation(identity.roomId,input.operationId)
       let indexed:CanonicalStoredOperationRow|null=null
@@ -375,7 +440,7 @@ export class CanonicalRoomTransport {
       const anchor=prefix.operations.at(-1),row=prefix.canonicalRows.at(-1)
       if(!anchor||!row)fail('canonical_repair_required')
       const summary=binder.readRecordedPrefix({roomId:identity.roomId,boardEpoch:session.grant.boardEpoch,anchor,row,operations:prefix.operations,rows:prefix.canonicalRows,purpose:'read',...prefix.close?{close:prefix.close}:{}})
-      if(summary.recordedNext!==input.expectedRecordedNext||summary.lastOperationId!==input.expectedLastFrameOpId)fail('invalid_operation')
+      if('expectedRecordedNext'in input&&(summary.recordedNext!==input.expectedRecordedNext||summary.lastOperationId!==input.expectedLastFrameOpId))fail('invalid_operation')
       const raced=findDuplicateOperation(identity.roomId,input.operationId)
       if(raced&&(!previous||!isDeepStrictEqual(parseCanonicalStrokeCloseOperation(raced),previous)))fail('canonical_repair_required')
       if(prefix.close&&(!previous||!isDeepStrictEqual(prefix.close.operation,previous)))fail('canonical_repair_required')

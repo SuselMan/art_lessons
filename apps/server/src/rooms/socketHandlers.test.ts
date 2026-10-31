@@ -1128,7 +1128,7 @@ it('does not ACK or relay typed close before durability and repairs its exact fa
   expect((await confirmed).operation.id).toBe(c.request.operationId);expect(c.record.nextSeq).toBe(nextSeq)
  }finally{reject(new Error('test cleanup'));await _flushPendingWrites(c.lessonId);log.mockRestore();c.cleanup()}
 })
-it('rejects typed close before join and after its captured socket disconnects during prefix lookup',async()=>{
+it('rejects the old typed close lifetime but finalizes its own server prefix after disconnect drain',async()=>{
  const unjoined=client('unjoined'),request={operationId:'none',layerId:'layer-1',targetUserId:'unjoined',strokeId:'S',disposition:'commitPartial' as const,expectedRecordedNext:1,expectedLastFrameOpId:'last'}
  expect(await new Promise<SendResult>(resolve=>unjoined.emit('canonical_stroke_close',request,resolve))).toEqual({ok:false,reason:'not_joined'})
  const c=await typedCloseClassroom();let release:(rows:unknown[])=>void=()=>{}
@@ -1138,8 +1138,12 @@ it('rejects typed close before join and after its captured socket disconnects du
   c.teacher.emit('canonical_stroke_close',c.request,()=>{})
   await vi.waitFor(()=>expect(mockPrisma.operation.findMany).toHaveBeenCalled())
   const frameRow=mockPrisma.operation.create.mock.calls.find(([q])=>q.data.id===c.op.id)![0].data
-  c.teacher.disconnect();await vi.waitFor(()=>expect(c.record.sockets.size).toBe(1));release([frameRow])
-  await quiet;await _flushPendingWrites(c.lessonId)
+  const oldSocket=io.of('/').sockets.get(c.teacher.id??'')!
+  c.teacher.disconnect();await vi.waitFor(()=>expect(oldSocket.connected).toBe(false));await quiet
+  expect(c.record.sockets.size).toBe(2) // Original seat survives ONLY until tail finalization.
+  const automatic=next(c.student,'operation_confirmed');release([frameRow])
+  expect((await automatic).operation).toMatchObject({type:'canonical_stroke_close',recordedNext:1,lastFrameOpId:c.op.id})
+  await vi.waitFor(()=>expect(c.record.sockets.size).toBe(1));await _flushPendingWrites(c.lessonId)
   expect(c.record.operationsById.has(c.request.operationId)).toBe(false)
  }finally{release([]);await _flushPendingWrites(c.lessonId);c.cleanup()}
 })
@@ -1201,4 +1205,75 @@ it('durably relays private undo/redo over a typed partial close under explicit m
   expect((await redoConfirmed).operation.id).toBe(redo.id)
   expect(c.record.operationsById.get(redo.id)).toMatchObject(redo)
  }finally{await _flushPendingWrites(c.lessonId);c.cleanup()}
+})
+it('closes the exact durable V2 prefix after its source socket disappears without pointer END',async()=>{
+ const c=await typedCloseClassroom()
+ try{
+  const sealed=next(c.student,'operation_confirmed')
+  c.teacher.disconnect()
+  const event=await sealed
+  expect(event.operation).toMatchObject({type:'canonical_stroke_close',targetUserId:'teacher',strokeId:c.op.frame.strokeId,recordedNext:1,firstFrameOpId:c.op.id,lastFrameOpId:c.op.id,disposition:'commitPartial'})
+  expect(event.operation.id).not.toBe(c.request.operationId)
+  expect(event.seq).toBe(c.op.seq===undefined?2:c.op.seq+1)
+  await vi.waitFor(()=>expect(c.record.participants.has('teacher')).toBe(false))
+  expect(mockPrisma.operation.create.mock.calls.filter(([q])=>q.data.type==='canonical_stroke_close')).toHaveLength(1)
+ }finally{await _flushPendingWrites(c.lessonId);c.cleanup()}
+})
+
+it('waits for an accepted in-flight frame write after disconnect even when its ACK and frame relay are lost',async()=>{
+ const c=await typedCloseClassroom(),prior=mockPrisma.operation.create.getMockImplementation()!
+ let release=()=>{}
+ try{
+  const response=await new Promise<CanonicalStrokeBeginResult>(resolve=>c.teacher.emit('canonical_stroke_begin',{...c.begin,brush:c.op.frame.brush},resolve))
+  if(!response.ok||!('materialVersion'in response.snapshot))throw Error('Expected actual source snapshot')
+  const materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},response.snapshot.material).packed
+  const op:CanonicalStrokeOperation={...c.op,id:fresh('lost-ack-tail'),frame:{...c.op.frame,frameOrdinal:1,materialPacked}}
+  mockPrisma.operation.create.mockImplementationOnce(q=>new Promise<void>(resolve=>{let released=false;release=()=>{if(released)return;released=true;Promise.resolve(prior(q)).then(()=>resolve())}}))
+  c.teacher.emit('operation',op,()=>{})
+  await vi.waitFor(()=>expect(c.record.operationsById.has(op.id)).toBe(true))
+  const confirmed=next(c.student,'operation_confirmed');c.teacher.disconnect()
+  await vi.waitFor(()=>expect(io.of('/').sockets.size).toBe(1));expect(c.record.participants.has('teacher')).toBe(true)
+  await silent(c.student,'operation_confirmed',30)
+  release();const event=await confirmed
+  expect(event.operation).toMatchObject({type:'canonical_stroke_close',recordedNext:2,firstFrameOpId:c.op.id,lastFrameOpId:op.id})
+  expect(event.seq).toBe(3);await vi.waitFor(()=>expect(c.record.participants.has('teacher')).toBe(false))
+  expect(mockPrisma.operation.create.mock.calls.filter(([q])=>q.data.type==='canonical_stroke_close')).toHaveLength(1)
+ }finally{release();await _flushPendingWrites(c.lessonId);c.cleanup()}
+})
+it('always releases the disconnected seat if indexed cleanup fails instead of emitting a guessed close',async()=>{
+ const c=await typedCloseClassroom()
+ try{
+  mockPrisma.operation.findMany.mockRejectedValueOnce(Error('prefix query failed'))
+  const left=next(c.student,'peer_left'),quiet=silent(c.student,'operation_confirmed',80)
+  c.teacher.disconnect();expect(await left).toBe('teacher');await quiet
+  expect(c.record.participants.has('teacher')).toBe(false);expect(c.record.sockets.size).toBe(1)
+  expect(c.record.operations.filter(op=>op.type==='canonical_stroke_close')).toEqual([])
+ }finally{await _flushPendingWrites(c.lessonId);c.cleanup()}
+})
+it('retains a last source seat until its actual close lands, then evicts the unused record',async()=>{
+ const c=await typedCloseClassroom()
+ try{
+  c.student.disconnect();await vi.waitFor(()=>expect(c.record.sockets.size).toBe(1))
+  c.teacher.disconnect()
+  await vi.waitFor(()=>expect(mockPrisma.operation.create.mock.calls.some(([q])=>q.data.type==='canonical_stroke_close')).toBe(true))
+  await vi.waitFor(()=>expect(isRoomResident(c.lessonId)).toBe(false))
+  expect(c.record.operations.filter(op=>op.type==='canonical_stroke_close')).toHaveLength(1)
+ }finally{await _flushPendingWrites(c.lessonId);c.cleanup()}
+})
+
+it('cannot let a disconnected old source seat seal or remove a same-user replacement that joined during cleanup lookup',async()=>{
+ await mixedFullHistoryServer();const c=await typedCloseClassroom()
+ let release:(value:unknown[])=>void=()=>{}
+ try{
+  const frameRow=mockPrisma.operation.create.mock.calls.find(([q])=>q.data.id===c.op.id)![0].data
+  mockPrisma.operation.findMany.mockImplementationOnce(()=>new Promise<unknown[]>(resolve=>{release=resolve}))
+  const quiet=silent(c.student,'operation_confirmed',200)
+  c.teacher.disconnect();await vi.waitFor(()=>expect(io.of('/').sockets.size).toBe(1))
+  const replacement=client('teacher');await join(replacement,c.lessonId,'Replacement')
+  expect(c.record.participants.get('teacher')?.name).toBe('Replacement')
+  release([frameRow]);await quiet
+  await vi.waitFor(()=>expect(c.record.sockets.size).toBe(2))
+  expect(c.record.participants.get('teacher')?.name).toBe('Replacement')
+  expect(c.record.operations.filter(op=>op.type==='canonical_stroke_close')).toEqual([])
+ }finally{release([]);await _flushPendingWrites(c.lessonId);c.cleanup()}
 })

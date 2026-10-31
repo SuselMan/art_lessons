@@ -16,7 +16,7 @@ import {
 } from './classroom.js'
 import {
   addPaletteColor, createRoom, evictIdleRooms, getParticipant, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom,
-  leaveRoom, releaseRoomIfUnused, removePaletteColor,
+  leaveRoom, captureCurrentRoomSeat,assertCurrentRoomSeat,releaseRoomIfUnused, removePaletteColor,
 } from './rooms.js'
 import { getRoomBacklog } from './roomStats.js'
 import { knownCanonicalWrite,findDuplicateOperation, getOperationRejectReason, recordOperation, updateAliveIds } from './operationLog.js'
@@ -993,20 +993,39 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, cano
     })
 
     socket.on('disconnect', (reason) => {
-      joinGeneration++
+      const generation=++joinGeneration
       const { roomId, userId, lessonId } = socket.data
       if (roomId && userId) {
-        // #164: leaveRoom returns false for a stale/superseded socket (a
-        // newer socket for this same room+userId already took over — see
-        // its own doc comment) — must not broadcast peer_left in that case,
-        // the user is still very much present via that newer socket.
-        const actuallyLeft = leaveRoom(roomId, userId, socket.id)
-        if (actuallyLeft) socket.to(lessonChannel(lessonId ?? roomId)).emit('peer_left', userId)
-        // (#480) Только если комната действительно ушла из памяти. Забывать
-        // на каждом разрыве нельзя: урок 21.08 состоял из десяти
-        // переподключений, и дедуп сторожа сбрасывался бы каждым из них,
-        // превращая одно наблюдение в десять писем.
-        if (!isRoomResident(roomId)) lagWatch.forget(roomId)
+        const leave=()=>{
+          // #164: finally-leave must not remove a replacement seat.
+          const actuallyLeft=leaveRoom(roomId,userId,socket.id)
+          if(actuallyLeft)socket.to(lessonChannel(lessonId??roomId)).emit('peer_left',userId)
+          if(!isRoomResident(roomId))lagWatch.forget(roomId)
+        }
+        try{
+          const seat=captureCurrentRoomSeat(roomId,userId,socket.id)
+          const current=()=>{
+            if(socket.connected||joinGeneration!==generation||socket.data.roomId!==roomId||socket.data.userId!==userId)return false
+            try{return !!seat&&assertCurrentRoomSeat(seat).socketId===socket.id}catch{return false}
+          }
+          const cleanup=seat?canonicalTransport.prepareDisconnectedClose(seat,current):undefined
+          if(cleanup){
+            // Retain ONLY this existing seat while the SAME bounded canonical
+            // tail drains. No detached writer/room hold or retry queue exists.
+            canonicalTail=canonicalTail.then(async()=>{
+              const closed=await cleanup.finish()
+              for(const operation of closed){
+                cleanup.assertCurrent()
+                io.to(roomId).emit('operation_confirmed',{seq:operation.seq,operation})
+                if(operation.seq%SNAPSHOT_SEQ_INTERVAL===0)checkSnapshotLag(roomId)
+              }
+            }).catch(err=>{log.error({err,roomId,userId,socketId:socket.id},'canonical disconnect finalization failed')})
+              .finally(leave).catch(err=>{log.error({err,roomId,userId,socketId:socket.id},'canonical disconnect leave failed')})
+          }else leave()
+        }catch(err){
+          log.error({err,roomId,userId,socketId:socket.id},'canonical disconnect preparation failed')
+          leave()
+        }
       }
       // (#480) Транспорт именно на разрыве: на подключении он всегда
       // `polling` (апгрейд до вебсокета идёт следом), и только здесь видно,

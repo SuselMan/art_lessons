@@ -76,6 +76,31 @@ function participantKey(lessonId: string, userId: string): string {
 // handler having to say which.
 const boardOfSocket = new Map<string, string>()
 
+const disconnectSeatAuthority:unique symbol=Symbol('original-disconnect-seat')
+export interface PreparedRoomDisconnect {readonly roomId:string;readonly userId:string;readonly socketId:string}
+type OwnedRoomDisconnect=PreparedRoomDisconnect&{readonly [disconnectSeatAuthority]:(candidate:unknown)=>PreparedRoomDisconnect}
+/** Internal current-seat proof. Capturing does not leave or extend any seat;
+ * the disconnect caller owns the existing tail/finally-leave lifecycle. */
+export function captureCurrentRoomSeat(roomId:string,userId:string,socketId:string):PreparedRoomDisconnect|undefined {
+  const record=rooms.get(roomId)
+  if(!record)return undefined
+  const lesson=lessonRecordOf(record),key=participantKey(lesson.room.id,userId)
+  if(boardOfSocket.get(socketId)!==roomId||currentSocketForParticipant.get(key)!==socketId||!lesson.participants.has(userId))return undefined
+  const scope=Object.freeze({roomId,userId,socketId})
+  let proof:OwnedRoomDisconnect
+  proof=Object.freeze({...scope,[disconnectSeatAuthority]:(candidate:unknown)=>{
+    if(candidate!==proof||rooms.get(roomId)!==record||lessonRecordOf(record)!==lesson||boardOfSocket.get(socketId)!==roomId
+      ||currentSocketForParticipant.get(key)!==socketId||!lesson.participants.has(userId))throw Error('Stale disconnect seat')
+    return scope
+  }})
+  return proof
+}
+export function assertCurrentRoomSeat(proof:PreparedRoomDisconnect):PreparedRoomDisconnect {
+  const descriptor=proof&&Object.getOwnPropertyDescriptor(proof,disconnectSeatAuthority)
+  if(!descriptor||!Object.hasOwn(descriptor,'value')||typeof descriptor.value!=='function')throw Error('Missing disconnect seat')
+  return descriptor.value(proof)
+}
+
 /** Takes `socketId` off `boardId`'s roster, and lets the board go if it was
  *  the last one there. A lesson's own record is never released by this: its
  *  life is tied to its participants (see `isIdle`), not to its first board's
