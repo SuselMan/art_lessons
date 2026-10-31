@@ -1,4 +1,4 @@
-import { sourceAutoGeometry,CANONICAL_RECORDED_ATTACHMENT_LIMITS,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,IMPLICIT_LAYER_IDS,INITIAL_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,verifyCanonicalEmptyHistoryBase,decodeCanonicalStrokeFrame,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalStrokeRasterProfile,type CanonicalAutoSource,type CanonicalSoftAutoSource } from '@grafetto/shared'
+import { canonicalSourceEffectReject,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalGaussianAutoSourceBinding,canonicalSoftAutoSourceBinding,canonicalSoftAutoDataEqual,canonicalSourceComposition,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,sourceAutoGeometry,CANONICAL_RECORDED_ATTACHMENT_LIMITS,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,IMPLICIT_LAYER_IDS,INITIAL_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,verifyCanonicalEmptyHistoryBase,decodeCanonicalStrokeFrame,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalStrokeRasterProfile,type CanonicalAutoSource,type CanonicalSoftAutoSource } from '@grafetto/shared'
 import {BrushTextureCache} from './src/dabs/BrushTextureCache'
 import {TransformedMaskPrepass,transformedMaskPrepassBudget,type TransformedMaskLimits} from './src/dabs/TransformedMaskPrepass'
 import {CanonicalRgba8CompositePass,canonicalRgba8CompositeBudget,type CanonicalCompositeLimits} from './src/dabs/CanonicalRgba8CompositePass'
@@ -16,7 +16,11 @@ import { createBrushRandomContext, brushRandomMetadata, assertBrushRandomContext
 import { BrushMipCache } from './src/dabs/BrushMipCache'
 import { hasValidStrokeEndSample, createBrushRandomStrokeId, type BrushRandomSeeds } from '@grafetto/shared'
 import { BrushPreparation, assertNativeImageAdmission, brushPreparationPlan, brushPreparationBytes, BRUSH_PREPARATION_BYTES, type BrushPreparationOptions, type BrushPreparationResult } from './src/dabs/BrushPreparation'
-import { importedAssetPixels } from './src/presets/importedBrushes'
+import {SourceStrokeAuthor,type SourceStrokeAuthorProgram,type SourceStrokeAuthorState,type SourceAuthorPacket} from './src/presets/sourceStrokeAuthor'
+import {sourceStrokeAuthorDescriptor} from './src/presets/sourceStrokeAuthorDescriptor'
+import {SourceStrokeMaterialAdapter,type SourceStrokeMaterialContextV2} from './src/presets/sourceStrokeMaterialAdapter'
+import {SourceCanonicalFrameEncoder} from './src/presets/sourceCanonicalFrameEncoder'
+import { importedBrushFromPreset,importedAssetPixels } from './src/presets/importedBrushes'
 import { hasOpenBrushStroke } from './src/oplog/openBrushStroke'
 import { GpuBudgetFence } from './src/raster/GpuBudgetFence'
 import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './src/watercolor/WatercolorPresentationOwners'
@@ -270,8 +274,13 @@ export function previewDabShape(
  *  GL canvas and the page around it is invisible. */
 const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 
+/** Explicit CPU author transport. Recorded delivery remains the only paint grant. */
+export interface CanonicalSourceAuthorService {
+  begin(input:CanonicalStrokeBegin,lifetime:{readonly signal:AbortSignal;readonly isCurrent:()=>boolean}):Promise<CanonicalStrokeBeginResult>
+}
 export interface PencilEngineOptions {
   rasterVersion?: RoomRasterVersion
+  canonicalAuthor?:CanonicalSourceAuthorService
   canonicalEmptyRoom?:{readonly read:CanonicalRecordedEmptyRoomRead;readonly tail:readonly Operation[]}
   /** (#728) Accept provisional pointer input while canonical wet material
    * finishes in FIFO order. Export/snapshot readiness waits for that queue.
@@ -1288,7 +1297,20 @@ interface AuthorStartSnapshot {
   extraLayerIds: string[]
   dispatchNow: number
 }
+interface CanonicalPreparedAuthor {
+  readonly preset:string;readonly owner:CanonicalLayerOwner;readonly generation:number
+  readonly descriptor:NonNullable<ReturnType<typeof importedBrushFromPreset>>;readonly sha:string
+  readonly pin:CanonicalAutoSource|CanonicalSoftAutoSource;readonly program:SourceStrokeAuthorProgram;readonly bytes:number;readonly release:()=>void
+}
+interface CanonicalSourceSession {
+  readonly prepared:CanonicalPreparedAuthor;readonly controller:AbortController;readonly request:CanonicalStrokeBegin
+  readonly release:()=>void;readonly seeds:BrushRandomSeeds;readonly timestamp:number
+  references:number;closed:boolean;released:boolean;emitted:number;reason?:{error:unknown}
+  outcome?:{value:CanonicalStrokeBeginResult}|{error:unknown}
+  author?:SourceStrokeAuthor;state?:SourceStrokeAuthorState;adapter?:SourceStrokeMaterialAdapter<SourceStrokeMaterialContextV2>;encoder?:SourceCanonicalFrameEncoder<import('./src/presets/sourceCanonicalFrameEncoder').SourceCanonicalStrokeContextV2>
+}
 interface TimedAuthorSession {
+  source?:CanonicalSourceSession
   snapshot: AuthorStartSnapshot
   input: PointerData
   lastTime: number
@@ -2341,6 +2363,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _authorCameraAngle=0
   private _authorSnapshot?: AuthorStartSnapshot
   private _authorProducer?: TimedAuthorSession
+  private _canonicalAuthorService?:CanonicalSourceAuthorService
+  private _canonicalPreparedAuthor?:CanonicalPreparedAuthor
   private _authorInputError: unknown
   private readonly _authorTasks = new AuthorTaskScheduler({
     createChannel:typeof window!=='undefined' && typeof window.MessageChannel==='function' ? ()=>new window.MessageChannel():undefined,
@@ -2673,6 +2697,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._userId = options.userId ?? 'local'
     this._onLocalOperation = options.onLocalOperation
+    this._canonicalAuthorService=options.canonicalAuthor&&Object.freeze({begin:options.canonicalAuthor.begin.bind(options.canonicalAuthor)})
     this._onPreviewApplied = options.onPreviewApplied
     this._onCanonicalRecoveryRequired = options.onCanonicalRecoveryRequired
     this._onSnapshotHistoryRepairNeeded = options.onSnapshotHistoryRepairNeeded
@@ -2812,7 +2837,8 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setLocked(locked: boolean): void {
-    this._locked = locked || this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION
+    if(locked&&this._authorProducer?.source)this._cancelOwnedAuthor(false)
+    this._locked = locked || this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION&&!this._canonicalAuthorService
   }
 
   setPaperFillThreshold(threshold: number): void {
@@ -3660,6 +3686,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   async prepareBrush(preset: string, options: BrushPreparationOptions = {}): Promise<BrushPreparationResult> {
     if (this._destroyed || this._contextLost || options.signal?.aborted) return { status: 'cancelled' }
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return this._prepareCanonicalAuthorBrush(preset,options)
     const descriptor = digitalBrushFromPreset(preset)
     const { resources, capabilities } = brushPreparationPlan(descriptor)
     if (resources.some(resource => resource.nativeImage || resource.lookup32)) assertNativeImageAdmission(resources, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number)
@@ -3701,15 +3728,16 @@ export class PencilEngine implements PencilEngineAPI {
     return result
   }
 
-  setPencil(type: string): void  { this._opts.pencilType = type }
+  setPencil(type: string): void  { if(type!==this._opts.pencilType&&this._authorProducer?.source)this._cancelOwnedAuthor(false);this._opts.pencilType = type }
   setTool(tool: ToolType): void  {
     // (#468 v7) Reaching for another tool ends the wash: whatever is on the
     // paper stops being something the next stroke can pool into.
+    if(tool!==this._opts.tool&&this._authorProducer?.source)this._cancelOwnedAuthor(false)
     if (tool !== this._opts.tool) this._clearWash()
     this._opts.tool = tool
   }
   setOpacity(v: number): void    { this._opts.opacity = v }
-  setSize(px: number): void      { this._opts.size = px }
+  setSize(px: number): void      { if(px!==this._opts.size&&this._authorProducer?.source)this._cancelOwnedAuthor(false);this._opts.size = px }
 
   // Only the *next* stroke picks this up — _onStart() copies it into
   // _strokeColor, which gets baked into that stroke's dabs (and its recorded
@@ -4473,6 +4501,7 @@ export class PencilEngine implements PencilEngineAPI {
     retire(() => this._authorTasks.destroy())
     this._brushPreparationGeneration++
     retire(() => this._brushPreparation.cancel())
+    retire(() => this._releaseCanonicalPreparedAuthor())
     const fence = this._continuationGpuFence
     this._continuationGpuFence = null
     retire(() => fence?.release())
@@ -5445,6 +5474,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._cancelOwnedAuthor(true)
     this._brushPreparationGeneration++
     this._brushPreparation.cancel()
+    this._releaseCanonicalPreparedAuthor()
     this._continuationGpuFence?.forget()
     e.preventDefault()
     this._stopAirbrush()
@@ -6338,6 +6368,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._canonicalPixelsReady=false
     let lost=this._contextLost;try{lost=lost||this.gl.isContextLost()}catch{/* healthy best-effort cleanup */}
     this._retireCanonicalLayer(lost)
+    try{this._releaseCanonicalPreparedAuthor()}catch{/* preserve primary repair reason */}
     if(this._destroyed||this._canonicalRepairNotified)return
     this._canonicalRepairNotified=true
     try{this._diagLog('[engine] canonical recorded repair required',error)}catch{}
@@ -6650,12 +6681,179 @@ export class PencilEngine implements PencilEngineAPI {
   /** Native timing policy v1 uses elapsed dispatch time. Hardware/coalesced
    * samples may arrive after a hold tick; recorded past requests stay immutable.
    */
+  private _releaseCanonicalPreparedAuthor():void {
+    const prepared=this._canonicalPreparedAuthor;this._canonicalPreparedAuthor=undefined
+    prepared?.release()
+  }
+  private async _prepareCanonicalAuthorBrush(preset:string,options:BrushPreparationOptions):Promise<BrushPreparationResult> {
+    const owner=this._canonicalLayerOwner,descriptor=importedBrushFromPreset(preset)
+    if(!this._canonicalAuthorService||!this._onLocalOperation||!owner||!descriptor)throw new Error('Canonical source author services unavailable')
+    this._assertCanonicalLayerCurrent(owner)
+    const unsupported=canonicalSourceEffectReject(descriptor,owner.plan.profile)
+    if(unsupported)throw new Error('Unsupported canonical source effect: '+unsupported)
+    const policy=canonicalSourceComposition(descriptor,owner.plan.profile),data=descriptor.sourceStamp
+    if(policy?.mode!=='wash'||!data||data.version!==2||!['defaultAuto','gaussianAuto','softAuto'].includes(data.source.kind)||data.timing.enabled)throw new Error('Unsupported canonical pointer material/timing')
+    if(data.options.some(option=>['Size','Ratio','Rotation','Scatter','Mirror'].includes(option.id)&&option.checked)
+      ||data.options.some(option=>option.checked&&option.useCurve&&option.sensors.some(sensor=>['rotation','tangentialPressure','perspective','speed'].includes(sensor.id))))throw new Error('Unsupported canonical pointer transform/sensor')
+    const json=canonicalBrushDescriptorJSON(descriptor),bytes=new TextEncoder().encode(json),charge=bytes.length*8+8192
+    if(charge>this._brushMipCache.budgetBytes)throw new RangeError('Canonical source program exceeds CPU budget')
+    const release=this._brushMipCache.reserve(charge)
+    let accepted=false
+    try{
+      const compiled=sourceStrokeAuthorDescriptor(descriptor,{inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-canonical-pigment',lodScale:1,coverageProfile:'neon64-f32-fma-v1'})
+      if(!compiled.supported)throw new Error(compiled.reasons.join(','))
+      const digest=await crypto.subtle.digest('SHA-256',bytes),sha=Array.from(new Uint8Array(digest),v=>v.toString(16).padStart(2,'0')).join('')
+      this._assertCanonicalLayerCurrent(owner)
+      if(options.signal?.aborted||this._opts.pencilType!==preset)return{status:'cancelled'}
+      const pin=data.source.kind==='softAuto'?canonicalSoftAutoSourceBinding(descriptor,sha,'neon64-f32-fma-v1',0,owner.plan.profile):data.source.kind==='gaussianAuto'?canonicalGaussianAutoSourceBinding(descriptor,sha,'neon64-f32-fma-v1',owner.plan.profile):canonicalDefaultAutoSourceBinding(descriptor,sha,'neon64-f32-fma-v1',owner.plan.profile)
+      const mask=canonicalLayerMaskCapacity(pin),maskCost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(owner.plan.composite)
+      if(owner.prepared&&(mask.width>owner.mask.width||mask.height>owner.mask.height))throw new RangeError('Canonical source exceeds warm workspace')
+      if(maskCost.gpuBytes+compositeCost.gpuBytes>16*1024*1024||maskCost.cpuBytes+compositeCost.cpuBytes+charge>this._brushMipCache.budgetBytes)throw new RangeError('Canonical source workspace companions exceed budget')
+      if(this._brushPreparationPreset!==preset){this._brushPreparationGeneration++;this._brushPreparation.cancel();this._brushPreparationPreset=preset}
+      const generation=this._brushPreparationGeneration
+      const result=await this._brushPreparation.run([()=>{
+        this._assertCanonicalLayerCurrent(owner)
+        if(!owner.prepared){
+          try{owner.prepass.prepare(mask,[]);owner.composite.prepare(owner.plan.composite,owner.prepass.preparedResources(),maskCost.cpuBytes);owner.mask=Object.freeze(mask);owner.prepared=true}
+          catch(error){for(const cleanup of [()=>owner.prepass.reset(),()=>owner.composite.reset(),()=>owner.cache.clear()])try{cleanup()}catch{/* preserve prepare failure */}throw error}
+        }
+      }],options,()=>!this._destroyed&&!this._contextLost&&this._canonicalLayerOwner===owner,preset)
+      if(result.status!=='ready'||generation!==this._brushPreparationGeneration||options.signal?.aborted||this._opts.pencilType!==preset)return{status:'cancelled'}
+      this._assertCanonicalLayerCurrent(owner)
+      this._releaseCanonicalPreparedAuthor()
+      this._canonicalPreparedAuthor={preset,owner,generation,descriptor,sha,pin,program:compiled.program,bytes:charge,release}
+      this._authorInputError=undefined;accepted=true
+      return result
+    }finally{if(!accepted)release()}
+  }
+  private _assertCanonicalSource(session:TimedAuthorSession):void {
+    const source=session.source!,prepared=source.prepared
+    this._assertCanonicalLayerCurrent(prepared.owner)
+    if(source.closed||this._locked||prepared.generation!==this._brushPreparationGeneration||this._opts.tool!=='digitalBrush'||this._opts.pencilType!==prepared.preset||this._activeId!==session.snapshot.layerId||this._opts.size!==prepared.pin.source.diameter||this._authorCameraAngle!==session.snapshot.cameraAngle||this._ruler!==null||this._contextLost)throw new Error('Canonical pointer lifetime changed')
+  }
+  private _retireCanonicalSource(session:TimedAuthorSession):void {
+    const source=session.source!
+    if(source.released||source.references||!source.closed&&!session.ended)return
+    source.released=true
+    if(session.ended&&!source.encoder?.ended){source.closed=true;source.reason??={error:new Error('Canonical source ended before author completion')}}
+    let failed=false,primary:unknown
+    for(const cleanup of [()=>source.controller.abort(),source.release])try{cleanup()}catch(error){if(!failed){failed=true;primary=error}}
+    if(source.closed&&source.emitted)this._poisonCanonicalLayer(source.reason?.error??primary??new Error('Canonical source cancelled after emission'))
+    if(failed)throw primary
+  }
+  private _closeCanonicalSource(session:TimedAuthorSession,reason:{error:unknown}={error:new Error('Canonical source author cancelled')}):void {
+    const source=session.source!
+    source.closed=true;source.reason??=reason
+    if(this._authorProducer===session){this._authorProducer=undefined;this._authorSnapshot=undefined}
+    try{source.controller.abort()}finally{this._retireCanonicalSource(session)}
+  }
+  private _enqueueCanonicalSource(session:TimedAuthorSession,job:()=>Generator<void,void,void>):void {
+    const source=session.source!
+    let release:()=>void
+    try{release=this._brushMipCache.reserve(1024)}catch(error){
+      this._closeCanonicalSource(session,{error});this._authorInput.cancel();this._authorTasks.resetIfIdle();throw error
+    }
+    source.references++
+    let completed=false
+    this._authorInput.enqueue(function*(){yield* job();completed=true},()=>{
+      if(!completed){source.closed=true;source.reason??={error:new Error('Canonical author input cancelled before completion')}}
+      try{release()}finally{source.references--;this._retireCanonicalSource(session)}
+    })
+  }
+  private _canonicalPacket(session:TimedAuthorSession,input:PointerData):SourceAuthorPacket {
+    const source=session.source!,t=Math.floor(input.timeStamp-source.timestamp)
+    if(!Number.isFinite(t)||t<session.lastTime)throw new Error('Invalid canonical pointer timestamp')
+    session.lastTime=t
+    return{x:input.x,y:input.y,t,pressure:input.pressure,tiltX:input.tiltX,tiltY:input.tiltY,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false}
+  }
+  private _acceptCanonicalChunks(session:TimedAuthorSession,chunks:ReturnType<SourceStrokeMaterialAdapter<SourceStrokeMaterialContextV2>['finish']>):void {
+    const source=session.source!
+    for(const chunk of chunks){
+      this._assertCanonicalSource(session)
+      const encoded=source.encoder!.encode(chunk.packed)
+      const operation:Operation=Object.freeze({id:nanoid(),userId:this._userId,timestamp:Date.now(),type:'canonical_stroke',layerId:session.snapshot.layerId,frame:encoded.envelope})
+      source.emitted++;this._canonicalRecoveryDirty=true;this._onLocalOperation!(operation)
+      this._assertCanonicalSource(session)
+    }
+  }
+  private *_consumeCanonicalSource(session:TimedAuthorSession,iterator:Generator<import('./src/presets/sourceStrokeAuthor').SourceStrokeAuthorStep,SourceStrokeAuthorState>):Generator<void,void,void> {
+    const source=session.source!
+    try{
+      while(true){
+        this._assertCanonicalSource(session)
+        const next=iterator.next()
+        if(next.done){source.state=next.value;return}
+        source.state=next.value.state;this._acceptCanonicalChunks(session,source.adapter!.accept(next.value))
+        const cut=source.adapter!.flush();if(cut)this._acceptCanonicalChunks(session,[cut])
+        yield
+      }
+    }finally{iterator.return(source.state!)}
+  }
+  private _onCanonicalStart(input:PointerData):void {
+    if(!this._canonicalAuthorService||this._locked)return
+    const prepared=this._canonicalPreparedAuthor
+    if(!prepared||prepared.preset!==this._opts.pencilType||this._opts.tool!=='digitalBrush'||this._opts.size!==prepared.pin.source.diameter||this._authorCameraAngle!==0||this._ruler!==null||!this._onLocalOperation)throw new Error('Canonical pointer source is not prepared/fixed')
+    const snapshot=this._captureAuthorStart(input,input.dispatchTime??performance.now())
+    if(!snapshot)return
+    if(this._authorProducer&&!this._authorProducer.ended)throw new Error('Canonical pointer gesture already active')
+    const captured={...input},seeds=createBrushRandomContext('digitalBrush')!,controller=new AbortController()
+    if(![captured.x,captured.y,captured.pressure,captured.tiltX,captured.tiltY,captured.timeStamp,snapshot.opts.opacity,...snapshot.opts.graphiteColor].every(Number.isFinite)||captured.pressure<0||captured.pressure>1||snapshot.opts.opacity<0||snapshot.opts.opacity>1||snapshot.opts.graphiteColor.some(v=>v<0||v>1))throw new Error('Invalid canonical captured input')
+    const release=this._brushMipCache.reserve(prepared.bytes+8192)
+    const pigment=snapshot.opts.graphiteColor.map(v=>Math.round(v*255)) as [number,number,number]
+    const request:CanonicalStrokeBegin=Object.freeze({layerId:snapshot.layerId,brush:'brush:'+prepared.descriptor.id+'@'+prepared.descriptor.version,strokeId:createBrushRandomStrokeId(nanoid(10),seeds),pigmentRgb8:Object.freeze(pigment),outerResourceOpacity:snapshot.opts.opacity,alphaDarken:'creamy'})
+    const session:TimedAuthorSession={snapshot,input:captured,lastTime:0,cameraAngle:snapshot.cameraAngle,ended:false,source:{prepared,controller,request,release,seeds,timestamp:input.timeStamp,references:0,closed:false,released:false,emitted:0}}
+    this._authorProducer=session;this._authorSnapshot=snapshot
+    const owner=this,service=this._canonicalAuthorService
+    this._enqueueCanonicalSource(session,function*(){
+      const source=session.source!
+      try{
+        owner._assertCanonicalSource(session)
+        const isCurrent=()=>{try{owner._assertCanonicalSource(session);return true}catch{return false}}
+        Promise.resolve(service.begin(request,{signal:controller.signal,isCurrent})).then(value=>{if(!source.closed)source.outcome={value}},error=>{if(!source.closed)source.outcome={error}})
+        const deadline=performance.now()+5000
+        while(!source.outcome){owner._assertCanonicalSource(session);if(performance.now()>deadline)throw new Error('Canonical BEGIN timed out');yield}
+        if('error'in source.outcome)throw source.outcome.error
+        const result=source.outcome.value
+        if(!result.ok||result.recordedNext!==0||result.liveNext!==0||result.ended||!('materialVersion'in result.snapshot)||result.snapshot.materialVersion!==2)throw new Error('Canonical BEGIN unavailable/resume unsupported')
+        const s=result.snapshot,policy=canonicalSourceComposition(prepared.descriptor,prepared.owner.plan.profile)
+        if(s.layerId!==request.layerId||s.brush!==request.brush||s.strokeId!==request.strokeId||s.boardEpoch!==prepared.owner.plan.scope.boardEpoch||s.descriptorSha256!==prepared.sha||s.rasterProfile!==prepared.owner.plan.profile||!canonicalSoftAutoDataEqual(s.pigmentRgb8,request.pigmentRgb8)||s.composition.mode!==policy?.mode||s.composition.outerBlend!==policy.outerBlend||s.composition.alphaDarken!==request.alphaDarken||s.composition.outerResourceOpacity!==request.outerResourceOpacity||s.assets.length||s.material.maskSource||s.material.assets.length||!canonicalSoftAutoDataEqual(s.material.primarySource,prepared.pin))throw new Error('Canonical BEGIN source mismatch')
+        const material:SourceStrokeMaterialContextV2={...s.material,targetGeometry:{pageBounds:prepared.owner.plan.page,tileWidth:prepared.owner.stable.tileWidth,tileHeight:prepared.owner.stable.tileHeight,maxTargets:Math.min(64,Math.ceil(prepared.owner.plan.page.maxX/prepared.owner.stable.tileWidth)*Math.ceil(prepared.owner.plan.page.maxY/prepared.owner.stable.tileHeight))}}
+        source.author=new SourceStrokeAuthor(prepared.program);source.state=source.author.createState(seeds.sequentialSeed,seeds.strokeSeed,snapshot.initialDirection)
+        source.adapter=new SourceStrokeMaterialAdapter(prepared.program,material,source.state);source.encoder=new SourceCanonicalFrameEncoder({...s,material})
+        owner._acceptCanonicalChunks(session,source.adapter!.beginInput(source.state))
+        yield* owner._consumeCanonicalSource(session,source.author.plan(source.state,owner._canonicalPacket(session,captured)))
+      }catch(error){owner._closeCanonicalSource(session,{error});throw error}
+    })
+  }
+  private _onCanonicalMove(input:PointerData):void {
+    const session=this._authorProducer;if(!session?.source||session.ended)return
+    const captured={...input},owner=this
+    this._enqueueCanonicalSource(session,function*(){
+      try{owner._assertCanonicalSource(session);const source=session.source!;owner._acceptCanonicalChunks(session,source.adapter!.beginInput(source.state!));yield* owner._consumeCanonicalSource(session,source.author!.plan(source.state!,owner._canonicalPacket(session,captured)))}
+      catch(error){owner._closeCanonicalSource(session,{error});throw error}
+    })
+  }
+  private _onCanonicalEnd(input:PointerData):void {
+    const session=this._authorProducer;if(!session?.source||session.ended)return
+    if(input.cancelled){this._cancelOwnedAuthor(false);return}
+    session.ended=true
+    const owner=this
+    this._enqueueCanonicalSource(session,function*(){
+      try{
+        owner._assertCanonicalSource(session);const source=session.source!
+        owner._acceptCanonicalChunks(session,source.adapter!.beginInput(source.state!));yield* owner._consumeCanonicalSource(session,source.author!.finish(source.state!));owner._acceptCanonicalChunks(session,source.adapter!.finish(source.state!))
+        if(owner._authorProducer===session){owner._authorProducer=undefined;owner._authorSnapshot=undefined}
+      }catch(error){owner._closeCanonicalSource(session,{error});throw error}
+    })
+  }
   private _timedElapsed():number {
     return this._timedClockLast=Math.max(this._timedClockLast,Math.floor(performance.now()-this._timedClockStart))
   }
   private _stopAirbrush():void {
     if(this._airbrushTimer!==null)clearTimeout(this._airbrushTimer)
-    this._airbrushTimer=null;this._airbrushInput=undefined;this._authorProducer=undefined
+    this._airbrushTimer=null;this._airbrushInput=undefined
+    const producer=this._authorProducer;this._authorProducer=undefined
+    if(producer?.source)this._closeCanonicalSource(producer)
   }
   private _cancelOwnedAuthor(lost:boolean,repair=false):void {
     const owned=!!this._authorSnapshot||!!this._authorProducer||this._authorInput.pending
@@ -6728,7 +6926,7 @@ export class PencilEngine implements PencilEngineAPI {
       extraLayerIds:[...this._eraseThroughIds],dispatchNow:now}
   }
   private _onStart(e:PointerData):void {
-    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return;
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION){this._onCanonicalStart(e);return}
     const now=e.dispatchTime ?? performance.now(),snapshot=this._captureAuthorStart(e,now)
     if(!snapshot)return
     const input={...e,...this._snapPoint(e.x,e.y)}
@@ -6743,7 +6941,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(timed){this._airbrushInput={...input};this._scheduleAirbrush()}
   }
   private _onMove(e:PointerData):void {
-    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return;
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION){this._onCanonicalMove(e);return}
     if(this._authorInputError!==undefined)return
     const now=e.dispatchTime ?? performance.now(),session=this._authorProducer
     if(!session){this._executeAuthorMove(e);return}
@@ -6763,7 +6961,7 @@ export class PencilEngine implements PencilEngineAPI {
     })
   }
   private _onEnd(e:PointerData):void {
-    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION)return;
+    if(this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION){this._onCanonicalEnd(e);return}
     if(this._authorInputError!==undefined)return
     const now=e.dispatchTime ?? performance.now(),session=this._authorProducer
     if(!session){this._executeAuthorEnd(e);return}
