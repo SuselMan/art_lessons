@@ -11,6 +11,7 @@ describe('integer shader host input contract (not GPU execution)', () => {
     const bytes = canonicalizeSourceRgba8Control({ mode: modes[row.mode], opacity: row.opacity,
       mask: row.mask < 0 ? undefined : row.mask, flow: row.flow, averageOpacity: row.average });
     expect(bytes.mode).toBe(row.mode);
+    if (bytes.mode === 3 || bytes.mode === 4 || bytes.mode === 5 || bytes.mode === 6) throw new Error('Old fixture acquired a separable mode');
     expect(bytes.hasMask).toBe(row.mask >= 0);
     expect(compositeRgba8(pixel(row.src), pixel(row.dst), { mode: modes[bytes.mode], opacity: bytes.opacity / 255,
       mask: bytes.hasMask ? bytes.mask : undefined, flow: bytes.flowIsOne ? 1 : bytes.flow / 255,

@@ -201,8 +201,9 @@ export function compositeRgba8(source: Rgba8, destination: Rgba8, control: Rgba8
   const sa = multiply3(source[3], mask, opacity)
   if (!sa) return [...destination]
   const a = sa + da - multiply(sa, da)
+  const mode = control.mode
   const channel = (i: 0 | 1 | 2): number => genericScChannel(source[i], destination[i], sa, da, a,
-    control.mode === 'add' ? Math.min(255, source[i] + destination[i]) : separableChannel(control.mode, source[i], destination[i]))
+    mode === 'add' ? Math.min(255, source[i] + destination[i]) : separableChannel(mode, source[i], destination[i]))
   return [channel(0), channel(1), channel(2), a]
 }
 

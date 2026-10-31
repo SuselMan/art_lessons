@@ -5,6 +5,10 @@ import { compositeRgba8, sourceRgba8SeparableChannel, SOURCE_RGBA8_GENERIC_SC_PR
 import { canonicalizeSourceRgba8Control, SOURCE_RGBA8_COMPOSITE_GLSL } from '../raster/sourceRgba8CompositeShader'
 import { SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL } from '../raster/sourceRgba8CompositeWebGL1'
 import type { Rgba8 } from './mixWeightedRgba8'
+const pixel = (v: number[]): Rgba8 => {
+  if (v.length !== 4) throw new Error('Native fixture pixel must have four channels')
+  return [v[0], v[1], v[2], v[3]]
+}
 const modes = ['multiply', 'lighten', 'colorDodge', 'overlay'] as const
 const sha = (v: Uint8Array) => createHash('sha256').update(v).digest('hex')
 describe('pinned generic SC byte separable operators', () => {
@@ -18,7 +22,7 @@ describe('pinned generic SC byte separable operators', () => {
     for (const [i, row] of fixture.cases.entries()) {
       const control = { mode: row.mode as SourceRgba8SeparableMode, profile: SOURCE_RGBA8_GENERIC_SC_PROFILE, opacity: row.opacity,
         ...(row.mask < 0 ? {} : { mask: row.mask }) }
-      const output = compositeRgba8(row.src as Rgba8, row.dst as Rgba8, control)
+      const output = compositeRgba8(pixel(row.src), pixel(row.dst), control)
       expect(output, `${i} ${row.mode}`).toEqual(row.expected)
       pixels.set(output, i * 4)
     }
