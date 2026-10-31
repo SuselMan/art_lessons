@@ -21,6 +21,7 @@ export function canonicalizeSourceRgba8Control(control: Rgba8CompositeControl): 
     throw new RangeError('Invalid RGBA8 composite controls');
   }
   validateRgba8CompositeControl(control);
+  if (control.mode === 'colorHsy') throw new RangeError('Color HSY source-only profile has no GPU mode');
   const mode = sourceRgba8CompositeModeId(control.mode);
   const byte = (v: number) => Math.trunc(Math.fround(Math.fround(Math.fround(v) * 255) + .5));
   return { mode, opacity: byte(control.opacity), mask: control.mask ?? 255,
