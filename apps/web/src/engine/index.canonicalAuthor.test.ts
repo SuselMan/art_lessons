@@ -1,11 +1,16 @@
 import {afterEach,expect,it,vi} from 'vitest'
+import {inflateSync} from 'node:zlib'
 import {createHash} from 'node:crypto'
-import {CANONICAL_STROKE_RASTER_PROFILE,isBrushLibrary,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,prepareCanonicalRecordedAttachment,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type BrushDescriptor,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type Operation} from '@grafetto/shared'
+import {CANONICAL_STROKE_RASTER_PROFILE,isBrushLibrary,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,canonicalSourceComposition,parseCanonicalStrokeCloseOperation,decodeCanonicalStrokeFrame,prepareCanonicalRecordedAttachment,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type BrushDescriptor,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type Operation} from '@grafetto/shared'
 import stock from '../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
 import mappedGaussian from '../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.mapped.native'
-import {installBrushLibrary} from './src/presets/importedBrushes'
+import basic6Image from './src/presets/fixtures/sourcePngWholePath/guiStroke.native.json'
+import mountainsImage from './src/presets/fixtures/sourceImagePipe/mountains.native.json'
+import graphiteImage from './src/presets/fixtures/sourceImagePipe/pencilRandom.native.json'
+import {installBrushLibrary,installBrushPixels} from './src/presets/importedBrushes'
 import {attachCanonicalRecordedDelivery} from '../pages/Room/net/canonicalRecordedDelivery'
 import {prepareCanonicalRoomState} from '../pages/Room/net/canonicalRoomState'
+import {SourceStrokeAuthor} from './src/presets/sourceStrokeAuthor'
 import {CanonicalWashLayerCoordinator} from './src/dabs/CanonicalWashLayerCoordinator'
 import {AccumulationBuffer} from './src/buffers/AccumulationBuffer'
 import {snapshotContextStorage} from './src/buffers/ContextStorageOwner'
@@ -29,7 +34,7 @@ async function harness(begin:(request:CanonicalStrokeBegin,lifetime:{signal:Abor
  const snapshots=new Map<string,CanonicalStrokeSnapshotV2>()
  const acceptedBegin=async(request:CanonicalStrokeBegin,lifetime:{signal:AbortSignal;isCurrent:()=>boolean})=>{const reply=await begin(request,lifetime);if(reply.ok&&'materialVersion'in reply.snapshot&&reply.snapshot.materialVersion===2)snapshots.set(request.strokeId,reply.snapshot);return reply}
  const p=original(isCurrent,page),operations:Operation[]=[],r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:page.width,pageHeight:page.height,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations},canonicalAuthor:{begin:acceptedBegin},onLocalOperation:op=>operations.push(op)},{width:8,height:8}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
- Object.assign(gl,{getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,8,8]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
+ Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,8,8]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
  engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil('brush:'+selected.id+'@'+selected.version);engine.setSize(40);engine.setLocked(false)
  await engine.paperReady();await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
  return{engine,operations,p,snapshots}
@@ -501,3 +506,47 @@ it('keeps shared same-preset prewarm alive when only one preparation subscriber 
   expect(results).toEqual([{status:'cancelled'},{status:'ready'}]);expect(engine['_canonicalPreparedAuthor']?.preset).toBe(preset);expect(engine['_ribbonScratchPool'].bytes).toEqual({live:0,free:8*8*4})
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
+
+for(const [name,fixture,nativeSize]of [['Basic6',basic6Image,7.5],['Mountains',mountainsImage,360],['Graphite',graphiteImage,16]]as const)it(`authors actual ${name} nonempty local image packets with full original server material`,async()=>{
+ const selected=fixture.descriptor as unknown as BrushDescriptor,assets='asset'in fixture?[fixture.asset]:fixture.assets,metadata=assets.map(a=>({id:a.id,size:a.size,file:a.id.slice(6)+'.bin'})),selectedPreset=`brush:${selected.id}@${selected.version}`,binding=selected.tip.animation?canonicalImagePipeSourceBinding(selected,metadata):canonicalImageSourceBinding(selected,metadata[0]),digest=createHash('sha256').update(canonicalBrushDescriptorJSON(selected)).digest('hex')
+ const library:unknown={schemaVersion:1,brushes:[{descriptor:selected,name,source:'original-native',warnings:[]}],assets:metadata,skipped:[]};if(!isBrushLibrary(library))throw Error('Invalid original image library');installBrushLibrary(library)
+ for(const a of assets){const bytes=new Uint8Array(inflateSync(Buffer.from(a.deflateBase64,'base64'),{maxOutputLength:a.size*a.size}));expect('asset:'+createHash('sha256').update(bytes).digest('hex')).toBe(a.id);installBrushPixels(a.id,bytes)}
+ const begin=vi.fn(async(request:CanonicalStrokeBegin):Promise<CanonicalStrokeBeginResult>=>({ok:true,recordedNext:0,liveNext:0,ended:false,snapshot:{layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,pigmentRgb8:request.pigmentRgb8,boardEpoch:2,descriptorSha256:digest,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,composition:{...canonicalSourceComposition(selected)!,alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity},assets:binding.assets,materialVersion:2,material:{version:2,...binding,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}}}}))
+ const h=await harness(begin,selected,()=>true,{width:512,height:512}),{engine,operations}=h,repair=vi.fn();engine['_onCanonicalRecoveryRequired']=repair
+ try{
+  engine.setSize(nativeSize);await expect(engine.prepareBrush(selectedPreset)).resolves.toEqual({status:'ready'})
+  const bank=engine['_canonicalLayerOwner']!.bank!;expect(bank.jobs).toHaveLength(assets.length*(name==='Basic6'?10:11))
+  const uploads=vi.spyOn(engine['gl'],'texImage2D'),programs=vi.spyOn(engine['gl'],'createProgram');await expect(engine.prepareBrush(selectedPreset)).resolves.toEqual({status:'ready'});expect(uploads).not.toHaveBeenCalled();expect(programs).not.toHaveBeenCalled()
+  engine['_onStart']({...packet(40,100),y:80,pressure:1});engine['_onMove']({...packet(name==='Mountains'?2040:240,1100),y:80,pressure:1});engine['_onEnd']({...packet(name==='Mountains'?2040:240,1200),y:80,pressure:1})
+  await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false),{timeout:20000});expect(engine['_authorInputError']).toBeUndefined();expect(operations.length).toBeGreaterThan(0);expect(begin).toHaveBeenCalledOnce()
+  const frames=operations.filter((op):op is CanonicalStrokeOperation=>op.type==='canonical_stroke'),snapshot=h.snapshots.get(frames[0].frame.strokeId)!,decoded=frames.map(op=>decodeCanonicalStrokeFrame(op.frame,{...snapshot,frameOrdinal:op.frame.frameOrdinal}).frame)
+  expect(decoded.reduce((n,f)=>n+f.draws.length,0)).toBeGreaterThan(0);expect(snapshot.material.primarySource).toEqual(binding.primarySource);expect(snapshot.assets).toEqual(binding.assets);expect(engine['_log'].entries).toHaveLength(0)
+  expect(repair).not.toHaveBeenCalled();const local=engine['_canonicalLayerOwner']!.coordinator!['entries'][0].local!;expect(local.author.snapshot.assets).toEqual(binding.assets);expect(local.author.snapshot.material.primarySource).toEqual(binding.primarySource)
+  for(const [i,op]of operations.entries()){const input=confirmed(h,op,i+1);await engine.prepareOriginalRecorded(input);engine.appendOriginalRecorded(input)}
+  await vi.waitFor(()=>expect(engine['_rebuildJobs'].size).toBe(0),{timeout:20000});expect(engine['_canonicalExportReady']()).toBe(true);expect(engine['_log'].entries.every((e,i)=>e.serverSeq===i+1&&e.canonicalInput?.operation.id===operations[i].id)).toBe(true)
+  if(name==='Basic6'){
+   const before=operations.length,owner=engine['_canonicalLayerOwner'];engine['_onStart']({...packet(40,1300),y:80});engine['_onMove']({...packet(80,1400),y:80});await vi.waitFor(()=>expect(operations.length).toBeGreaterThan(before));
+   engine['_onEnd']({...packet(80,1500),y:80,cancelled:true});const close=operations.at(-1)!;if(close.type!=='canonical_stroke_close')throw Error('Missing actual image partialclose')
+   const partial=operations.slice(before,-1);expect(close.recordedNext).toBe(partial.length);expect(close.firstFrameOpId).toBe(partial[0].id);expect(close.lastFrameOpId).toBe(partial.at(-1)!.id);expect(engine['_canonicalLayerOwner']).toBe(owner)
+   for(const [i,op]of partial.entries()){const input=confirmed(h,op,before+i+1);await engine.prepareOriginalRecorded(input);engine.appendOriginalRecorded(input)}
+   const seal=attachCanonicalRecordedDelivery({operation:parseCanonicalStrokeCloseOperation({...close,seq:operations.length})},h.p.canonicalRead.scope);if(!('delivery'in seal))throw Error('Missing genuine close delivery');await engine.prepareOriginalRecorded(seal);engine.appendOriginalRecorded(seal)
+   await vi.waitFor(()=>expect(engine['_rebuildJobs'].size).toBe(0),{timeout:20000});expect(repair).not.toHaveBeenCalled();expect(engine['_canonicalExportReady']()).toBe(true)
+  }
+
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},30000)
+
+it.each(['outerAssets','crop','frames']as const)('rejects image BEGIN %s mismatch before creating a local source',async mode=>{
+ const data=mode==='frames'?mountainsImage:basic6Image,selected=data.descriptor as unknown as BrushDescriptor,assets='asset'in data?[data.asset]:data.assets,metadata=assets.map(a=>({id:a.id,size:a.size,file:a.id.slice(6)+'.bin'})),library:unknown={schemaVersion:1,brushes:[{descriptor:selected,name:'Original image',source:'native',warnings:[]}],assets:metadata,skipped:[]}
+ if(!isBrushLibrary(library))throw Error('Invalid original image library');installBrushLibrary(library);for(const a of assets)installBrushPixels(a.id,new Uint8Array(inflateSync(Buffer.from(a.deflateBase64,'base64'),{maxOutputLength:a.size*a.size})))
+ const pin=selected.tip.animation?canonicalImagePipeSourceBinding(selected,metadata):canonicalImageSourceBinding(selected,metadata[0]),begin=vi.fn(async(request:CanonicalStrokeBegin):Promise<CanonicalStrokeBeginResult>=>{
+  const changed=mode==='crop'?pin.assets.map((a,i)=>i?a:{...a,x:a.x+1}):pin.assets,primarySource=mode==='frames'?{...pin.primarySource,frames:[...pin.primarySource.frames!].reverse()}:pin.primarySource
+  return{ok:true,recordedNext:0,liveNext:0,ended:false,snapshot:{layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,pigmentRgb8:request.pigmentRgb8,boardEpoch:2,descriptorSha256:createHash('sha256').update(canonicalBrushDescriptorJSON(selected)).digest('hex'),rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,composition:{...canonicalSourceComposition(selected)!,alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity},assets:mode==='outerAssets'?[]:changed,materialVersion:2,material:{version:2,primarySource,assets:changed,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}}}}
+ })
+ const {engine,operations}=await harness(begin,selected,()=>true,{width:512,height:512}),preset=`brush:${selected.id}@${selected.version}`
+ try{
+  engine.setSize(Math.max(selected.sourceStamp!.brush.width,selected.sourceStamp!.brush.height)*selected.sourceStamp!.brush.scale);await engine.prepareBrush(preset);const before=engine['_brushMipCache'].reservedBytes,source=vi.spyOn(SourceStrokeAuthor.prototype,'createState')
+  engine['_onStart']({...packet(40,100),y:80});engine['_onMove']({...packet(80,200),y:80});engine['_onEnd']({...packet(80,300),y:80});await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false))
+  expect(engine['_authorInputError']).toBeDefined();expect(operations).toHaveLength(0);expect(engine['_log'].entries).toHaveLength(0);expect(engine['_brushMipCache'].reservedBytes).toBe(before);expect(source).not.toHaveBeenCalled()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)

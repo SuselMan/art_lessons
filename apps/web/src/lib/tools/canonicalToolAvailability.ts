@@ -20,7 +20,7 @@ export function canonicalToolAvailability(canonical:boolean,contentReady:boolean
  if(contentReady&&profile)for(const brush of latest.values()){
   const admission=canonicalSourceAuthorAdmission(brush.descriptor,profile)
   if(!admission.supported)continue
-  if(admission.data.source.kind==='image')continue
+  if(admission.data.version!==2||admission.data.source.kind==='image')continue
   options.push({id:brush.descriptor.id,sizePx:admission.data.source.diameter})
   labels[brush.descriptor.id]=brush.name;descriptions[brush.descriptor.id]=brush.warnings.join(' · ')
  }

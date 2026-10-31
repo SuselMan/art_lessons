@@ -1,19 +1,47 @@
-import {canonicalSourceComposition,canonicalSourceEffectReject,type BrushDescriptor,type CanonicalStrokeRasterProfile,type SourceStampData} from '@grafetto/shared'
+import {canonicalSourceComposition,canonicalSourceEffectReject,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,isSourceStampData,sourceStampSourceKind,type BrushDescriptor,type CanonicalStrokeRasterProfile,type SourceStampData} from '@grafetto/shared'
 
-export type CanonicalSourceAuthorAdmission = {readonly supported:true;readonly data:Extract<SourceStampData,{version:2}>}
- | {readonly supported:false;readonly reason:string}
+type ImagePin=ReturnType<typeof canonicalImageSourceBinding>
+export type CanonicalSourceAuthorAdmission =
+ {readonly supported:true;readonly data:Extract<SourceStampData,{version:2}>;readonly nativeSizePx:number;readonly material:{readonly kind:'auto'}}
+ |{readonly supported:true;readonly data:SourceStampData;readonly nativeSizePx:number;readonly material:{readonly kind:'image';readonly pin:ImagePin}}
+ |{readonly supported:false;readonly reason:string}
 
-/** Static pointer-domain query over an already validated
- * descriptor; no renderer/program/quota is acquired. This is neither source compiler attestation nor resource/BEGIN
- * authority: actual preparation still validates and owns those boundaries. */
-export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile):CanonicalSourceAuthorAdmission {
+/** Declared metadata only; never pixels, a resource owner or BEGIN authority. */
+function captureMetadata(values:readonly {readonly id:string;readonly size:number}[]|undefined){
+ if(!values||!Array.isArray(values)||values.length<1||values.length>256)return undefined
+ const result:{id:string;size:number}[]=[],ids=new Set<string>()
+ for(let i=0;i<values.length;i++){
+  const entry=Object.getOwnPropertyDescriptor(values,String(i));if(!entry||!Object.hasOwn(entry,'value')||!entry.value||typeof entry.value!=='object')return undefined
+  const id=Object.getOwnPropertyDescriptor(entry.value,'id'),size=Object.getOwnPropertyDescriptor(entry.value,'size')
+  if(!id||!Object.hasOwn(id,'value')||!size||!Object.hasOwn(size,'value')||typeof id.value!=='string'||typeof size.value!=='number')return undefined
+  if(ids.has(id.value))return undefined
+  ids.add(id.value);result.push({id:id.value,size:size.value})
+ }
+ return result
+}
+/** Static pointer-domain query over original validated source data. DATA1 image
+ * remains DATA1; wire material V2 and real server BEGIN are separate boundaries. */
+export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available?:readonly {readonly id:string;readonly size:number}[]):CanonicalSourceAuthorAdmission {
  const unsupported=canonicalSourceEffectReject(descriptor,profile)
  if(unsupported)return{supported:false,reason:'Unsupported canonical source effect: '+unsupported}
  const policy=canonicalSourceComposition(descriptor,profile),data=descriptor.sourceStamp
- if(policy?.mode!=='wash'||!data||data.version!==2||!['defaultAuto','gaussianAuto','softAuto'].includes(data.source.kind)||data.timing.enabled)return{supported:false,reason:'Unsupported canonical pointer material/timing'}
- const size=data.options.find(option=>option.id==='Size')
+ if(policy?.mode!=='wash'||!data||!isSourceStampData(data)||data.timing.enabled)return{supported:false,reason:'Unsupported canonical pointer material/timing'}
+ const image=sourceStampSourceKind(data)==='image',size=data.options.find(option=>option.id==='Size')
  if(size?.checked&&(!Number.isFinite(size.min)||!Number.isFinite(size.max)||size.min<0||size.max>1||size.sensors.length!==1||size.sensors[0].id!=='pressure'))return{supported:false,reason:'Unsupported canonical pointer transform/sensor'}
- if(data.options.some(option=>['Ratio','Rotation','Scatter','Mirror'].includes(option.id)&&option.checked)
+ const rotation=data.options.find(option=>option.id==='Rotation')
+ if(data.options.some(option=>(image?['Ratio','Scatter','Mirror']:['Ratio','Rotation','Scatter','Mirror']).includes(option.id)&&option.checked)
+  ||image&&rotation?.checked&&(rotation.sensors.length!==1||rotation.sensors[0].id!=='drawingAngle')
   ||data.options.some(option=>option.checked&&option.useCurve&&option.sensors.some(sensor=>['rotation','tangentialPressure','perspective','speed'].includes(sensor.id))))return{supported:false,reason:'Unsupported canonical pointer transform/sensor'}
- return{supported:true,data}
+ if(image){
+  const metadata=captureMetadata(available),nativeSizePx=Math.max(data.brush.width,data.brush.height)*data.brush.scale
+  if(!metadata||!Number.isFinite(nativeSizePx)||nativeSizePx<=0)return{supported:false,reason:'Canonical image metadata unavailable'}
+  try{
+   const asset=metadata.find(a=>a.id===descriptor.tip.mask)
+   if(!asset)throw Error('Missing primary image')
+   const pin=descriptor.tip.animation?canonicalImagePipeSourceBinding(descriptor,metadata):canonicalImageSourceBinding(descriptor,asset)
+   return{supported:true,data,nativeSizePx,material:{kind:'image',pin}}
+  }catch{return{supported:false,reason:'Unsupported canonical image source binding'}}
+ }
+ if(data.version!==2||data.source.kind==='image')return{supported:false,reason:'Unsupported canonical pointer material/timing'}
+ return{supported:true,data,nativeSizePx:data.source.diameter,material:{kind:'auto'}}
 }

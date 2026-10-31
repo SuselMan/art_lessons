@@ -6,8 +6,10 @@ import {attachCanonicalRecordedDelivery} from '../pages/Room/net/canonicalRecord
 import {afterEach,beforeEach,expect,it,vi} from 'vitest'
 import {inflateSync} from 'node:zlib'
 import {createHash} from 'node:crypto'
-import {canonicalImageSourceBinding,canonicalBrushDescriptorJSON,CANONICAL_STROKE_RASTER_PROFILE,type BrushDescriptor,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type ServerToClientEvents} from '@grafetto/shared'
+import {canonicalImageSourceBinding,isBrushLibrary,canonicalBrushDescriptorJSON,CANONICAL_STROKE_RASTER_PROFILE,type BrushDescriptor,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type ServerToClientEvents} from '@grafetto/shared'
 import stock from '../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
+import mountainsAuthor from './src/presets/fixtures/sourceImagePipe/mountains.native.json'
+import graphiteAuthor from './src/presets/fixtures/sourceImagePipe/pencilRandom.native.json'
 import fixture from './src/presets/fixtures/sourcePngWholePath/guiStroke.native.json'
 import {sourceStrokeAuthorDescriptor} from './src/presets/sourceStrokeAuthorDescriptor'
 import {SourceStrokeAuthor,type SourceStrokeAuthorState,type SourceStrokeAuthorStep} from './src/presets/sourceStrokeAuthor'
@@ -328,5 +330,90 @@ it.each(['abort','destroy','loss','stale'] as const)('retires a capacity waiter 
    await rejected
   }
   expect(owner.recordedCapacity).toBeUndefined();expect(engine['_log'].entries.some(entry=>entry.op.id===inputs[8].operation.id)).toBe(false)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+
+function installLocalBasic6(){
+ const preset=`brush:${descriptor.id}@${descriptor.version}`
+ const library:unknown={schemaVersion:1,brushes:[{descriptor,name:'Original Basic6',source:'native',warnings:[]}],assets:[{id:fixture.asset.id,size:fixture.asset.size,file:fixture.asset.id.slice(6)+'.bin'}],skipped:[]};if(!isBrushLibrary(library))throw Error('Invalid original image library');installBrushLibrary(library)
+ return preset
+}
+it.each(['abort','upload','companions']as const)('rolls back a genuinely empty first image workspace on %s without publishing author resources',async kind=>{
+ const h=await autoHarness(async request=>verdict(request),autoDescriptor,()=>true,{width:512,height:512}),{engine}=h,preset=installLocalBasic6(),controller=new AbortController()
+ engine.setPencil(preset);engine.setSize(7.5)
+ try{
+  const owner=engine['_canonicalLayerOwner']!,oldMask=owner.mask,before=engine['_brushMipCache'].reservedBytes,upload=engine['gl'].texImage2D.bind(engine['gl'])
+  const spy=vi.spyOn(engine['gl'],'texImage2D').mockImplementation((...args:unknown[])=>{if(kind==='upload'&&args[8]instanceof Uint8Array)throw Error('initial upload fault');const result=Reflect.apply(upload,engine['gl'],args);if(kind==='abort'&&args[8]instanceof Uint8Array)controller.abort();return result})
+  const prepare=kind==='companions'?vi.spyOn(owner.composite,'prepare').mockImplementationOnce(()=>{throw Error('initial companion fault')}):undefined
+  if(kind==='abort')await expect(engine.prepareBrush(preset,{signal:controller.signal})).resolves.toEqual({status:'cancelled'});else await expect(engine.prepareBrush(preset)).rejects.toThrow()
+  spy.mockRestore();prepare?.mockRestore()
+  expect(owner.bank).toBeUndefined();expect(owner.resourceCandidate).toBeUndefined();expect(owner.prepared).toBe(false);expect(owner.mask).toBe(oldMask);expect(engine['_canonicalPreparedAuthor']).toBeUndefined();expect(engine['_brushMipCache'].reservedBytes).toBe(before);expect(engine['_log'].entries).toHaveLength(0);expect(h.operations).toHaveLength(0)
+  await expect(engine.prepareBrush(preset)).resolves.toEqual({status:'ready'});expect(owner.bank?.isReady()).toBe(true)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+it('rejects missing CAS before mutating a previously ready auto owner',async()=>{
+ const {engine,operations}=await autoHarness(async request=>verdict(request)),preset=installLocalBasic6()
+ try{
+  await engine.prepareBrush(autoPreset);const owner=engine['_canonicalLayerOwner']!,prepared=engine['_canonicalPreparedAuthor'],mask=owner.mask,cpu=engine['_brushMipCache'].reservedBytes,epoch=owner.prepass.preparedCapacity().epoch
+  engine.setPencil(preset);engine.setSize(7.5);clearImportedBrushPixels();const upload=vi.spyOn(engine['gl'],'texImage2D'),program=vi.spyOn(engine['gl'],'createProgram')
+  await expect(engine.prepareBrush(preset)).rejects.toThrow('asset unavailable');expect(upload).not.toHaveBeenCalled();expect(program).not.toHaveBeenCalled();expect(owner.mask).toBe(mask);expect(owner.prepass.preparedCapacity().epoch).toBe(epoch);expect(engine['_canonicalPreparedAuthor']).toBe(prepared);expect(engine['_brushMipCache'].reservedBytes).toBe(cpu);expect(operations).toHaveLength(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},15000)
+
+function installPipeAuthor(data:typeof mountainsAuthor|typeof graphiteAuthor){
+ const library:unknown={schemaVersion:1,brushes:[{descriptor:data.descriptor,name:'Original image pipe',source:'native',warnings:[]}],assets:data.assets.map(a=>({id:a.id,size:a.size,file:a.id.slice(6)+'.bin'})),skipped:[]}
+ if(!isBrushLibrary(library))throw Error('Invalid image library');installBrushLibrary(library)
+ for(const a of data.assets)installBrushPixels(a.id,new Uint8Array(inflateSync(Buffer.from(a.deflateBase64,'base64'),{maxOutputLength:a.size*a.size})))
+ return `brush:${library.brushes[0].descriptor.id}@${library.brushes[0].descriptor.version}`
+}
+it('rejects genuinely larger image author geometry before changing a prepared auto workspace',async()=>{
+ const {engine}=await autoHarness(async request=>verdict(request)),preset=installPipeAuthor(mountainsAuthor)
+ try{
+  await engine.prepareBrush(autoPreset);const owner=engine['_canonicalLayerOwner']!,prepared=engine['_canonicalPreparedAuthor'],mask=owner.mask,cpu=engine['_brushMipCache'].reservedBytes
+  engine.setPencil(preset);engine.setSize(360);const upload=vi.spyOn(engine['gl'],'texImage2D'),program=vi.spyOn(engine['gl'],'createProgram')
+  await expect(engine.prepareBrush(preset)).rejects.toThrow('growth unsupported');expect(upload).not.toHaveBeenCalled();expect(program).not.toHaveBeenCalled();expect(owner.bank).toBeUndefined();expect(owner.mask).toBe(mask);expect(engine['_canonicalPreparedAuthor']).toBe(prepared);expect(engine['_brushMipCache'].reservedBytes).toBe(cpu)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},15000)
+it('keeps the complete ready Mountains bank when adding a whole Graphite union exceeds the unchanged budget',async()=>{
+ const {engine}=await autoHarness(async request=>verdict(request),autoDescriptor,()=>true,{width:512,height:512}),mountains=installPipeAuthor(mountainsAuthor),graphite=installPipeAuthor(graphiteAuthor)
+ try{
+  engine.setPencil(mountains);engine.setSize(360);await expect(engine.prepareBrush(mountains)).resolves.toEqual({status:'ready'})
+  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,keys=bank.resources(),prepared=engine['_canonicalPreparedAuthor'],cpu=engine['_brushMipCache'].reservedBytes,epoch=owner.prepass.preparedCapacity().epoch
+  engine.setPencil(graphite);engine.setSize(16);const upload=vi.spyOn(engine['gl'],'texImage2D'),begin=vi.spyOn(bank,'beginExtension')
+  await expect(engine.prepareBrush(graphite)).rejects.toThrow('union exceeds budget');expect(begin).not.toHaveBeenCalled();expect(upload).not.toHaveBeenCalled();expect(owner.bank).toBe(bank);expect(bank.resources()).toEqual(keys);expect(owner.prepass.preparedCapacity().epoch).toBe(epoch);expect(engine['_canonicalPreparedAuthor']).toBe(prepared);expect(engine['_brushMipCache'].reservedBytes).toBe(cpu)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+function incomingNative(scope:Parameters<typeof attachCanonicalRecordedDelivery>[1]){
+ const reply=verdict({layerId:'layer-1',brush:autoPreset,strokeId:'incoming-native',pigmentRgb8:[0,0,0],outerResourceOpacity:1,alphaDarken:'creamy'});if(!reply.ok||!('materialVersion'in reply.snapshot)||reply.snapshot.materialVersion!==2)throw Error('Missing native pin')
+ const snapshot={...reply.snapshot,boardEpoch:scope.boardEpoch},compiled=sourceStrokeAuthorDescriptor(autoDescriptor,{inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'native',lodScale:1,coverageProfile:'neon64-f32-fma-v1'});if(!compiled.supported)throw Error(compiled.reasons.join(','))
+ const author=new SourceStrokeAuthor(compiled.program),state=author.createState(1,2,0),adapter=new SourceStrokeMaterialAdapter(compiled.program,snapshot.material,state),encoder=new SourceCanonicalFrameEncoder({...snapshot,material:snapshot.material}),packed:string[]=[]
+ for(const chunk of adapter.beginInput(state))packed.push(chunk.packed)
+ for(const step of author.plan(state,{x:2,y:2,t:0,pressure:.5,tiltX:0,tiltY:0,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false})){for(const chunk of adapter.accept(step))packed.push(chunk.packed);const cut=adapter.flush();if(cut)packed.push(cut.packed)}
+ if(!packed.length)throw Error('Native author yielded no original packet')
+ const op:CanonicalStrokeOperation={id:'incoming-native-0',userId:'peer',timestamp:0,seq:1,type:'canonical_stroke',layerId:'layer-1',frame:encoder.encode(packed[0]).envelope},atom=prepareCanonicalRecordedAttachment({version:1,roomId:scope.roomId,boardEpoch:scope.boardEpoch,capabilities:[{originalUserId:'peer',snapshot}],bindings:[{operationId:op.id,sequence:1,originalUserId:'peer',capability:0}]},[op],scope)[0],input=attachCanonicalRecordedDelivery(atom,scope)
+ if(!('delivery'in input))throw Error('Missing incoming original owner');return input
+}
+it.each(['native','image','cancel-native']as const)('keeps incoming %s behind the same finite initial image publication',async mode=>{
+ const h=await autoHarness(async request=>verdict(request),autoDescriptor,()=>true,{width:512,height:512}),{engine}=h,preset=mode==='native'?installPipeAuthor(mountainsAuthor):installLocalBasic6(),controller=new AbortController()
+ engine.setPencil(preset);engine.setSize(mode==='native'?360:7.5)
+ try{
+  const owner=engine['_canonicalLayerOwner']!,before=owner.mask,local=engine.prepareBrush(preset,{signal:controller.signal}),localResult=local.catch(error=>{throw error})
+  await vi.waitFor(()=>expect(owner.resourceCandidate).toBeDefined(),{interval:1});expect(owner.prepared).toBe(false)
+  const input=mode==='image'?imageInputs(h.p.canonicalRead.scope)[0]:incomingNative(h.p.canonicalRead.scope),wait=vi.spyOn(engine['_brushPreparation'],'whenIdle');let settled=false
+  const incoming=engine.prepareOriginalRecorded(input).finally(()=>{settled=true});await Promise.resolve();expect(wait).toHaveBeenCalledOnce();expect(settled).toBe(false);expect(owner.mask).toBe(before);expect(engine['_log'].entries).toHaveLength(0)
+  if(mode==='cancel-native')controller.abort()
+  await expect(localResult).resolves.toEqual({status:mode==='cancel-native'?'cancelled':'ready'});await expect(incoming).resolves.toEqual({status:'ready'})
+  if(mode==='cancel-native'){expect(owner.prepared).toBe(false);expect(owner.bank).toBeUndefined()}else expect(owner.bank?.isReady()).toBe(true)
+  engine.appendOriginalRecorded(input);expect(engine['_log'].entries[0].canonicalInput).toBe(input);expect(engine['_canonicalPixelsReady']).toBe(true)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+
+it('keeps the original image bank readers independent of the selected author program',async()=>{
+ const {engine}=await autoHarness(async request=>verdict(request),autoDescriptor,()=>true,{width:512,height:512}),preset=installPipeAuthor(mountainsAuthor)
+ try{
+  engine.setPencil(preset);engine.setSize(360);await engine.prepareBrush(preset)
+  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,first=bank.jobs[0],epoch=owner.prepass.preparedCapacity().epoch
+  engine.setPencil(autoPreset);engine.setSize(40);await expect(engine.prepareBrush(autoPreset)).resolves.toEqual({status:'ready'})
+  expect(owner.bank).toBe(bank);expect(owner.prepass.preparedCapacity().epoch).toBe(epoch);owner.cache.discard(first.key);expect(bank.prepareJob(0)).toBe('ready');expect(bank.isReady()).toBe(true);expect(engine['_canonicalPreparedAuthor']?.preset).toBe(autoPreset)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
