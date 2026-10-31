@@ -155,3 +155,29 @@ describe('canonical verdicts are control-only durable receipts',()=>{
   expect(deps.resolveTransformCommit).not.toHaveBeenCalled();expect(deps.discardOperation).not.toHaveBeenCalled();expect(requestFullResync).not.toHaveBeenCalled()
  })
 })
+
+describe('local canonical-control-v1 classification (not paint authority)',()=>{
+  const context={roomId:'room',deliveryLane:'canonical-control-v1' as const}
+  const undo={id:'undo',type:'operation_undo' as const,userId:'me',timestamp:0,targetOpId:'frame'}
+  it.each(['operation_undo','operation_redo'] as const)('%s ACK advances durable watermark without legacy paint or snapshot',type=>{
+    const op={...undo,type}
+    const owner={onSettled:vi.fn(),onStalled:vi.fn()},h=setup({canonicalVerdicts:owner})
+    h.onSettled(op,{ok:true,seq:9},context)
+    expect(h.deps.latestKnownSeqRef.current).toBe(9)
+    expect(owner.onSettled).toHaveBeenCalledWith(op,{ok:true,seq:9},context)
+    expect(h.deps.confirmOperation).not.toHaveBeenCalled();expect(h.deps.discardOperation).not.toHaveBeenCalled();expect(h.deps.checkSnapshotBoundary).not.toHaveBeenCalled()
+  })
+  it('rejection/stall never discard pixels, resolve previews or clear pending IDs',()=>{
+    const owner={onSettled:vi.fn(),onStalled:vi.fn()},h=setup({canonicalVerdicts:owner})
+    h.onSettled(undo,{ok:false,reason:'target_gone'},context);h.onStalled(undo,context)
+    expect(owner.onStalled).toHaveBeenCalledWith(undo,context);expect(h.deps.discardOperation).not.toHaveBeenCalled();expect(h.deps.resolveTransformCommit).not.toHaveBeenCalled();expect(h.deps.pendingIdsRef.current.has('L-new')).toBe(true)
+  })
+  it('missing owner asks for resync once while an unmarked historical undo remains legacy',()=>{
+    const requestFullResync=vi.fn(),h=setup({requestFullResync})
+    h.onSettled(undo,{ok:true,seq:9},context);expect(requestFullResync).toHaveBeenCalledOnce();expect(h.deps.confirmOperation).not.toHaveBeenCalled()
+    h.onSettled(undo,{ok:true,seq:9});expect(h.deps.confirmOperation).toHaveBeenCalledWith(undo,9)
+  })
+  it('malformed persisted classification stays failclosed on stall',()=>{
+    const h=setup();h.onStalled(undo,{roomId:'room',invalidLocalDelivery:true});expect(h.deps.resolveTransformCommit).not.toHaveBeenCalled()
+  })
+})

@@ -2,7 +2,11 @@ import type { Operation } from '@grafetto/shared'
 
 // (#289 epic, reliable history spec v0.2 §9) One record per operation this
 // client has sent but not yet gotten a definitive SendResult for.
+export type LocalDeliveryLane = 'canonical-control-v1'
+
 export interface OutboxEntry {
+  /** Local durable classification only; never included in operation JSON. */
+  deliveryLane?: LocalDeliveryLane
   op: Operation
   // (#358) Which room this operation was drawn in. An `Operation` says nothing
   // about that — the server records one against whatever room the sending

@@ -2,16 +2,18 @@ import type { RefObject } from 'react'
 
 import type { Operation, SendResult } from '@grafetto/shared'
 
+import type { OutboxDeliveryContext } from './outbox'
+
 import { isRecoverableContentOp, type LostContentOp } from './lostWork'
 
-export type CanonicalOutboxOperation=Extract<Operation,{type:'canonical_stroke'|'canonical_stroke_close'}>
+export type CanonicalOutboxOperation=Extract<Operation,{type:'canonical_stroke'|'canonical_stroke_close'|'operation_undo'|'operation_redo'}>
 /** Control notification only. Activated owners must request the existing resync
  * if the ACK has no matching original confirmed delivery; never mint one. */
 export interface CanonicalOutboxVerdicts {
-  onSettled:(op:CanonicalOutboxOperation,result:SendResult)=>void
-  onStalled:(op:CanonicalOutboxOperation)=>void
+  onSettled:(op:CanonicalOutboxOperation,result:SendResult,context?:OutboxDeliveryContext)=>void
+  onStalled:(op:CanonicalOutboxOperation,context?:OutboxDeliveryContext)=>void
 }
-const canonical=(op:Operation):op is CanonicalOutboxOperation=>op.type==='canonical_stroke'||op.type==='canonical_stroke_close'
+const canonical=(op:Operation,context?:OutboxDeliveryContext):op is CanonicalOutboxOperation=>op.type==='canonical_stroke'||op.type==='canonical_stroke_close'||context?.deliveryLane==='canonical-control-v1'&&(op.type==='operation_undo'||op.type==='operation_redo')
 
 export interface OutboxVerdictDeps {
   canonicalVerdicts?:CanonicalOutboxVerdicts
@@ -47,14 +49,15 @@ export function createOutboxVerdicts({
   pendingIdsRef, latestKnownSeqRef, confirmOperation, discardOperation, checkSnapshotBoundary,
   resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,canonicalVerdicts,requestFullResync,
 }: OutboxVerdictDeps): {
-  onStalled: (op: Operation) => void
-  onSettled: (op: Operation, result: SendResult) => void
+  onStalled: (op: Operation,context?:OutboxDeliveryContext) => void
+  onSettled: (op: Operation, result: SendResult,context?:OutboxDeliveryContext) => void
 } {
   return {
-    onStalled: op => {
-      if(canonical(op)){
+    onStalled: (op,context) => {
+      if(context?.invalidLocalDelivery){console.error('invalid local delivery classification; queued work retained',op.id);return}
+      if(canonical(op,context)){
         console.error('canonical operation stalled; queued work retained',op.type,op.id)
-        try{canonicalVerdicts?.onStalled(op)}catch(error){console.error('canonical stall owner failed',error);requestFullResync?.()}
+        try{if(context)canonicalVerdicts?.onStalled(op,context);else canonicalVerdicts?.onStalled(op)}catch(error){console.error('canonical stall owner failed',error);requestFullResync?.()}
         return
       }
       console.error('operation stopped retrying after repeated failures', op.type, op.id)
@@ -65,12 +68,13 @@ export function createOutboxVerdicts({
       // resendAll can still land it.
       resolveTransformCommit(op.id)
     },
-    onSettled: (op, result) => {
-      if(canonical(op)){
+    onSettled: (op, result,context) => {
+      if(context?.invalidLocalDelivery){console.error('invalid local delivery classification',op.id);requestFullResync?.();return}
+      if(canonical(op,context)){
         // This is a durable server placement, but contains no read/source grant.
         if(result.ok)latestKnownSeqRef.current=Math.max(latestKnownSeqRef.current,result.seq)
         if(canonicalVerdicts){
-          try{canonicalVerdicts.onSettled(op,result)}catch(error){console.error('canonical verdict owner failed; authoritative resync required',error);requestFullResync?.()}
+          try{if(context)canonicalVerdicts.onSettled(op,result,context);else canonicalVerdicts.onSettled(op,result)}catch(error){console.error('canonical verdict owner failed; authoritative resync required',error);requestFullResync?.()}
         }else{
           console.error('canonical verdict owner unavailable; authoritative resync required',op.type,op.id)
           requestFullResync?.()

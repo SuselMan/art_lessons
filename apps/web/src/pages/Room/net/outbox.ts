@@ -1,6 +1,6 @@
 import { isTransientReject } from '@grafetto/shared'
 import type { Operation, SendResult } from '@grafetto/shared'
-import type { OutboxEntry, OutboxStorage } from './outboxStorage'
+import type { LocalDeliveryLane, OutboxEntry, OutboxStorage } from './outboxStorage'
 
 const INITIAL_BACKOFF_MS = 1000
 const MAX_BACKOFF_MS = 30000
@@ -47,7 +47,32 @@ export interface CanonicalSendLineage {
   readonly boardId: string
   readonly originalRead: object
 }
-type PendingEntry=OutboxEntry&{canonicalSerialOnly?:true;canonicalFreshStart?:true;canonicalPredecessor?:CanonicalSendLineage}
+export interface OutboxDeliveryContext {
+  readonly roomId:string
+  readonly deliveryLane?:LocalDeliveryLane
+  readonly lineage?:CanonicalSendLineage
+  readonly invalidLocalDelivery?:true
+}
+/** Bounded local classification capture, not a server/read validator. */
+function captureControl(op:Operation):Operation {
+  const keys=Reflect.ownKeys(op),allowed=['id','type','userId','timestamp','targetOpId','seq']
+  if(keys.length>6||keys.some(k=>typeof k!=='string'||!allowed.includes(k)))throw new TypeError('Invalid canonical control body')
+  const descriptors=Object.getOwnPropertyDescriptors(op)
+  if(keys.some(k=>!Object.hasOwn(descriptors[k as string],'value')))throw new TypeError('Canonical control accessors unavailable')
+  const data=(key:string):unknown=>descriptors[key]?.value
+  const text=(v:unknown)=>typeof v==='string'&&v.length>0&&v.length<=256&&!v.includes('\0')
+  if((data('type')!=='operation_undo'&&data('type')!=='operation_redo')||!text(data('id'))||!text(data('userId'))||!text(data('targetOpId'))||typeof data('timestamp')!=='number'||!Number.isFinite(data('timestamp'))||Number(data('timestamp'))<0||(data('seq')!==undefined&&(!Number.isSafeInteger(data('seq'))||Number(data('seq'))<1)))throw new TypeError('Invalid canonical control body')
+  return Object.freeze(Object.defineProperties({},descriptors)) as Operation
+}
+function captureLane(options:unknown):LocalDeliveryLane|undefined {
+  if(options===undefined)return undefined
+  if(!options||typeof options!=='object')throw new TypeError('Invalid local delivery lane')
+  const keys=Reflect.ownKeys(options),descriptor=Object.getOwnPropertyDescriptor(options,'deliveryLane')
+  if(keys.length!==1||keys[0]!=='deliveryLane'||!descriptor||!Object.hasOwn(descriptor,'value')||descriptor.value!=='canonical-control-v1')throw new TypeError('Invalid local delivery lane')
+  return descriptor.value
+}
+const sameControl=(a:Operation,b:Operation)=>['id','type','userId','timestamp','targetOpId','seq'].every(k=>Object.is(Object.getOwnPropertyDescriptor(a,k)?.value,Object.getOwnPropertyDescriptor(b,k)?.value))
+type PendingEntry=OutboxEntry&{invalidLocalDelivery?:true;invalidDeliveryNotified?:true;canonicalSerialOnly?:true;canonicalFreshStart?:true;canonicalPredecessor?:CanonicalSendLineage}
 type Attempt={readonly entry:PendingEntry;phase:'reserved'|'emitted'|'settling';lineage?:CanonicalSendLineage;pipeline:boolean;canonicalSerialOnly?:true}
 const sameLineage=(a:CanonicalSendLineage|undefined,b:CanonicalSendLineage|undefined)=>!!a&&!!b&&a.socket===b.socket&&a.connectionId===b.connectionId&&a.boardId===b.boardId&&a.originalRead===b.originalRead
 
@@ -70,7 +95,7 @@ export interface OutboxDeps {
   // watermark/pendingIds/confirmation bookkeeping onLocalOperation's ack
   // callback always did, now shared by both the always-optimistic and the
   // deferred (requires_confirmation) dispatch paths.
-  onSettled?: (op: Operation, result: SendResult) => void
+  onSettled?: (op: Operation, result: SendResult, context?:OutboxDeliveryContext) => void
   // (#298) Whether the socket is in a state where an operation can actually
   // be recorded — i.e. create_room/join_room has completed. Without this the
   // queue drained on *connect*, before the socket had joined anything, and
@@ -81,7 +106,7 @@ export interface OutboxDeps {
   // Fires when an entry hits MAX_ATTEMPTS and stops retrying on its own. The
   // operation is still queued and persisted — this is a "stuck, tell the
   // user" signal, not a discard.
-  onStalled?: (op: Operation) => void
+  onStalled?: (op: Operation, context?:OutboxDeliveryContext) => void
   // (#201) Fires whenever the queue's size changes, so the UI can say how
   // much work is not yet saved. Before this, the queue was completely
   // invisible: a user who drew through a long drop had no way to tell
@@ -115,9 +140,9 @@ export class Outbox {
   private readonly roomId: string
   private readonly send: OutboxDeps['send']
   private readonly getCanonicalSendLineage?: OutboxDeps['getCanonicalSendLineage']
-  private readonly onSettled?: (op: Operation, result: SendResult) => void
+  private readonly onSettled?: (op: Operation, result: SendResult, context?:OutboxDeliveryContext) => void
   private readonly canSend?: () => boolean
-  private readonly onStalled?: (op: Operation) => void
+  private readonly onStalled?: (op: Operation, context?:OutboxDeliveryContext) => void
   private readonly onPendingChange?: (pending: number, stalled: number) => void
   private readonly now: () => number
   private readonly schedule: (fn: () => void, delayMs: number) => void
@@ -237,9 +262,17 @@ export class Outbox {
 
   /** Queues `op` and makes the first send attempt immediately. Persisting it
    *  is best-effort and never gates the send (#296). */
-  async enqueue(op: Operation): Promise<void> {
+  async enqueue(op: Operation, options?:{readonly deliveryLane:LocalDeliveryLane}): Promise<void> {
     if (this.disposed) return
+    const lane=captureLane(options)
+    if(lane)op=captureControl(op)
+    const previous=this.pending.get(op.id)??this.inFlight.get(op.id)?.entry
+    if(previous&&(lane||previous.deliveryLane||previous.invalidLocalDelivery)){
+      if(!previous.invalidLocalDelivery&&lane===previous.deliveryLane&&sameControl(previous.op,op))return
+      throw new TypeError('Conflicting local delivery identity')
+    }
     const order=canonicalOrder(op),entry:PendingEntry={op,roomId:this.roomId,attempts:0,nextRetryAt:this.now()}
+    if(lane)entry.deliveryLane=lane
     if(order?.kind==='frame'&&order.ordinal===0&&!this.pending.has(op.id))entry.canonicalFreshStart=true
     if(order?.key&&[...this.pending.values(),...Array.from(this.inFlight.values(),a=>a.entry)].some(e=>e.canonicalSerialOnly&&canonicalOrder(e.op)?.key===order.key))entry.canonicalSerialOnly=true
     if(order?.kind==='frame'&&!entry.canonicalSerialOnly){
@@ -280,7 +313,17 @@ export class Outbox {
       const persisted = await this.storage.getAll(this.roomId)
       if (this.disposed) return
       for (const entry of persisted) {
-        if (!this.pending.has(entry.op.id)) this.pending.set(entry.op.id, {op:entry.op,roomId:entry.roomId,attempts:entry.attempts,nextRetryAt:entry.nextRetryAt,canonicalSerialOnly:true})
+        if (!this.pending.has(entry.op.id)&&!this.inFlight.has(entry.op.id)) {
+          const restored:PendingEntry={op:entry.op,roomId:entry.roomId,attempts:entry.attempts,nextRetryAt:entry.nextRetryAt,canonicalSerialOnly:true}
+          const laneDescriptor=Object.getOwnPropertyDescriptor(entry,'deliveryLane')
+          if(laneDescriptor){
+            try{
+              if(!Object.hasOwn(laneDescriptor,'value'))throw new TypeError('Invalid persisted delivery accessor')
+              restored.deliveryLane=captureLane({deliveryLane:laneDescriptor.value});restored.op=captureControl(entry.op)
+            }catch{restored.invalidLocalDelivery=true}
+          }
+          this.pending.set(restored.op.id,restored)
+        }
       }
     } catch (err) {
       // Nothing to recover from a broken store, but everything queued in
@@ -308,9 +351,15 @@ export class Outbox {
     for (const opId of [...this.pending.keys()]) this.attempt(opId)
   }
 
-  private async persist(entry: OutboxEntry): Promise<void> {
+  private deliveryContext(entry:OutboxEntry,lineage?:CanonicalSendLineage):OutboxDeliveryContext|undefined {
+    const invalid=(entry as PendingEntry).invalidLocalDelivery
+    return entry.deliveryLane||invalid?Object.freeze({roomId:entry.roomId,...(entry.deliveryLane?{deliveryLane:entry.deliveryLane}:{}),...(lineage?{lineage}:{}),...(invalid?{invalidLocalDelivery:true as const}:{})}):undefined
+  }
+
+  private async persist(entry: PendingEntry): Promise<void> {
+    if(entry.invalidLocalDelivery)return
     try {
-      await this.storage.put({op:entry.op,roomId:entry.roomId,attempts:entry.attempts,nextRetryAt:entry.nextRetryAt})
+      await this.storage.put({op:entry.op,roomId:entry.roomId,attempts:entry.attempts,nextRetryAt:entry.nextRetryAt,...(entry.deliveryLane?{deliveryLane:entry.deliveryLane}:{})})
     } catch (err) {
       // Durability across reloads is lost for this operation; delivery is
       // not. Never rethrow — see `pending`'s doc comment.
@@ -337,6 +386,7 @@ export class Outbox {
     const eligible=new Set<string>(),invalid:OutboxEntry[]=[]
     const groups=new Map<string,{entries:PendingEntry[];ordinals:Set<number>;head?:PendingEntry;minimum:number;close?:OutboxEntry;closeNext?:number;bad:boolean}>()
     for(const entry of this.pending.values()){
+      if(entry.invalidLocalDelivery){invalid.push(entry);continue}
       const order=canonicalOrder(entry.op)
       if(!order){eligible.add(entry.op.id);continue}
       if(!order.key){invalid.push(entry);continue}
@@ -368,16 +418,19 @@ export class Outbox {
     return{eligible,invalid}
   }
 
-  private stallEntries(entries:readonly OutboxEntry[]):boolean {
+  private stallEntries(entries:readonly OutboxEntry[],lineage?:CanonicalSendLineage):boolean {
     const notices:OutboxEntry[]=[]
+    let classified=0
     // Classify the whole ambiguous group before any external UI callback.
     for(const entry of entries)if(!this.disposed&&this.pending.get(entry.op.id)===entry&&!this.stalled.has(entry.op.id)){
-      this.stalled.add(entry.op.id);notices.push(entry)
+      this.stalled.add(entry.op.id);classified++
+      const pending=entry as PendingEntry
+      if(!pending.invalidLocalDelivery||!pending.invalidDeliveryNotified){notices.push(entry);if(pending.invalidLocalDelivery)pending.invalidDeliveryNotified=true}
     }
-    if(notices.length)this.onPendingChange?.(this.pending.size,this.stalled.size)
-    for(const entry of notices)if(!this.disposed&&this.pending.get(entry.op.id)===entry&&this.stalled.has(entry.op.id))this.onStalled?.(entry.op)
+    if(classified)this.onPendingChange?.(this.pending.size,this.stalled.size)
+    for(const entry of notices)if(!this.disposed&&this.pending.get(entry.op.id)===entry&&this.stalled.has(entry.op.id)){const context=this.deliveryContext(entry,lineage);if(context)this.onStalled?.(entry.op,context);else this.onStalled?.(entry.op)}
     this.settleIdleWaiters()
-    return notices.length>0
+    return classified>0
   }
 
   private pump(): void {
@@ -459,6 +512,7 @@ export class Outbox {
         // costs somebody a stroke.
         if (!result.ok && isTransientReject(result.reason)) throw new Error(result.reason)
         if(!result.ok)this.serialOnly(entry)
+        const context=this.deliveryContext(entry,attempt.lineage)
         this.pending.delete(opId)
         this.stalled.delete(opId) // a conflict may have classified an already in-flight head
         this.onPendingChange?.(this.pending.size, this.stalled.size)
@@ -473,7 +527,8 @@ export class Outbox {
         // ACK cleanup can outlive a board switch. The entry was deliberately
         // removed above, so revalidate the attempt rather than pending identity.
         if(this.disposed||this.inFlight.get(opId)!==attempt)return
-        this.onSettled?.(entry.op, result)
+        if(context)this.onSettled?.(entry.op,result,context)
+        else this.onSettled?.(entry.op, result)
       } catch {
         if (this.disposed||this.inFlight.get(opId)!==attempt||this.pending.get(opId)!==entry) return
         this.serialOnly(entry)
@@ -483,7 +538,7 @@ export class Outbox {
           // Stop retrying on our own — but keep it queued and persisted, so
           // the next reconnect/join gets to try again rather than the work
           // being thrown away. See MAX_ATTEMPTS.
-          this.stallEntries([entry])
+          this.stallEntries([entry],attempt.lineage)
           return
         }
         const delay = Math.min(INITIAL_BACKOFF_MS * 2 ** (entry.attempts - 1), MAX_BACKOFF_MS)
