@@ -1,7 +1,7 @@
 import { SOURCE_FUSED_OVER32_SCALAR_GLSL, prepareSourceFusedOver32ScalarControls } from '../raster/sourceFusedOver32ScalarShader';
-import { SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL } from '../raster/sourceRgba8CompositeWebGL1';
-import { canonicalizeSourceRgba8Control } from '../raster/sourceRgba8CompositeShader';
-import { SOURCE_RGBA8_GENERIC_SC_PROFILE, validateRgba8CompositeControl, type Rgba8CompositeControl } from '../presets/sourceColorRgba8';
+import { SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL, SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL } from '../raster/sourceRgba8CompositeWebGL1';
+import { canonicalizeSourceRgba8Control, canonicalizeSourceInstalledHsyControl } from '../raster/sourceRgba8CompositeShader';
+import { SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE, SOURCE_RGBA8_GENERIC_SC_PROFILE, validateRgba8CompositeControl, type Rgba8CompositeControl } from '../presets/sourceColorRgba8';
 import { SOURCE_FUSED_ALPHA_DARKEN32_SCALAR_GLSL, prepareSourceFusedAlphaDarken32ScalarControls } from '../raster/sourceFusedAlphaDarken32ScalarShader';
 import type { BrushGlBatchFrame, BrushGlBatchInfo } from './BrushGlBatch';
 import type { SourceOver32ScalarControl } from '../presets/sourceOver32Scalar';
@@ -68,6 +68,10 @@ export type CanonicalCompositeSource = {
     readonly view: CanonicalRgba8SourceView;
 };
 export type CanonicalCompositeOperation = {
+    /** Installed HSY float kernel; distinct from integer GenericSC admission. */
+    readonly kind: 'colorHsyInstalled';
+    readonly control: Extract<Rgba8CompositeControl, {readonly mode:'colorHsy'}> & {readonly profile:typeof SOURCE_RGBA8_COLOR_HSY_ARM64_PROFILE};
+} | {
     /** Explicit source-law kernel; does not widen the room/stroke profile. */
     readonly kind: 'genericSCU8';
     readonly control: Extract<Rgba8CompositeControl, { readonly profile: typeof SOURCE_RGBA8_GENERIC_SC_PROFILE }>;
@@ -116,9 +120,9 @@ const borrowedRelease = () => { };
 function operationsFor(limits: CanonicalCompositeLimits): readonly CanonicalCompositeOperationKind[] {
     const operations = limits.operations ?? ['alphaDarken32'];
     if (!Array.isArray(operations) || !operations.length || operations.length > 3
-        || operations.some(kind => !['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8'].includes(kind)))
+        || operations.some(kind => !['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8', 'colorHsyInstalled'].includes(kind)))
         throw new RangeError('Invalid composite operations');
-    return (['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8'] as const).filter(kind => operations.includes(kind));
+    return (['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8', 'colorHsyInstalled'] as const).filter(kind => operations.includes(kind));
 }
 const whole = (n: number, minimum = 0) => Number.isSafeInteger(n) && n >= minimum;
 const rectValid = (r: {
@@ -144,9 +148,9 @@ export function canonicalRgba8CompositeBudget(limits: CanonicalCompositeLimits):
 const VERTEX = 'attribute highp vec2 position;void main(){gl_Position=vec4(position,0.0,1.0);}';
 /** One source/geometry template; only the selected numerical kernel is included. */
 function fragmentFor(kind: CanonicalCompositeOperationKind): string {
-    const kernel = kind === 'genericSCU8' ? SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL : kind === 'alphaDarken32' ? SOURCE_ALPHA_DARKEN32_GLSL : kind === 'over32' ? SOURCE_OVER32_SCALAR_GLSL
+    const kernel = kind === 'colorHsyInstalled' ? SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL : kind === 'genericSCU8' ? SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL : kind === 'alphaDarken32' ? SOURCE_ALPHA_DARKEN32_GLSL : kind === 'over32' ? SOURCE_OVER32_SCALAR_GLSL
         : kind === 'alphaDarken32FusedScalar' ? SOURCE_FUSED_ALPHA_DARKEN32_SCALAR_GLSL : SOURCE_FUSED_OVER32_SCALAR_GLSL;
-    const apply = kind === 'genericSCU8' ? 'sourceCompositeRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,true))'
+    const apply = kind === 'colorHsyInstalled' ? 'sourceCompositeInstalledHsyRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,true))' : kind === 'genericSCU8' ? 'sourceCompositeRgba8(source,destination,SourceRgba8CompositeControl(policy.x,controls.x,controls.w,policy.y!=0.0,controls.z,controls.y,true))'
         : kind === 'alphaDarken32' ? 'sourceCompositeAlphaDarken32(source,destination,controls,policy)'
         : kind === 'over32' ? 'sourceCompositeOver32Scalar(source,destination,controls.xw,policy)'
         : kind === 'alphaDarken32FusedScalar' ? 'sourceCompositeFusedAlphaDarken32Scalar(source,destination,controls,policy,opacityParts,flowParts)'
@@ -431,7 +435,12 @@ export class CanonicalRgba8CompositePass {
                 number
             ]);
             const c = operation.control;
-            if (operation.kind === 'genericSCU8') {
+            if (operation.kind === 'colorHsyInstalled') {
+                const prepared = canonicalizeSourceInstalledHsyControl(operation.control);
+                gl.uniform4f(u.controls, prepared.opacity, prepared.average, prepared.flow, prepared.mask);
+                gl.uniform2f(u.policy, prepared.mode, +prepared.hasMask);
+                gl.uniform1i(u.sourceHsyStageLimit, prepared.stageLimit);
+            } else if (operation.kind === 'genericSCU8') {
                 const prepared = canonicalizeSourceRgba8Control(operation.control);
                 gl.uniform4f(u.controls, prepared.opacity, prepared.average, prepared.flow, prepared.mask);
                 gl.uniform2f(u.policy, prepared.mode, +prepared.hasMask);
@@ -563,7 +572,9 @@ export class CanonicalRgba8CompositePass {
         const c = operation.control;
         if (!c || !Number.isFinite(c.opacity) || c.opacity < 0 || c.opacity > 1 || c.mask !== undefined && (!whole(c.mask) || c.mask > 255))
             throw new RangeError('Invalid composite controls');
-        if (operation.kind === 'genericSCU8') {
+        if (operation.kind === 'colorHsyInstalled') {
+            canonicalizeSourceInstalledHsyControl(operation.control);
+        } else if (operation.kind === 'genericSCU8') {
             if (operation.control.profile !== SOURCE_RGBA8_GENERIC_SC_PROFILE
                 || !['multiply', 'lighten', 'colorDodge', 'overlay'].includes(operation.control.mode))
                 throw new RangeError('Invalid GenericSC U8 profile or mode');
@@ -616,7 +627,7 @@ export class CanonicalRgba8CompositePass {
             if (attribute < 0)
                 throw new Error('Composite attribute unavailable');
             const uniforms: Record<string, WebGLUniformLocation | null> = {};
-            for (const name of ['sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment', 'controls', 'policy', 'opacityParts', 'flowParts'])
+            for (const name of ['sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment', 'controls', 'policy', 'opacityParts', 'flowParts', ...kind === 'colorHsyInstalled' ? ['sourceHsyStageLimit'] : []])
                 uniforms[name] = gl.getUniformLocation(program, name);
             return { program, attribute, uniforms };
         }
