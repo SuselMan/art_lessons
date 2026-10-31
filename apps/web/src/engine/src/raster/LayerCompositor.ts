@@ -50,6 +50,8 @@ export interface LayerCompositorContext {
   readonly straightPresentation?: StraightLayerPresentation
   screenBuf(): WebGLBuffer
   layers(): ReadonlyMap<string, ILayerBuffer>
+  /** Display-only tiled replacement; exports keep authoritative stable layers. */
+  displayLayer?(id:string):ILayerBuffer|undefined
   previews(): LayerPreviews
   materialPresentations?(): ReadonlyMap<string, LayerMaterialPresentation>
   transientPreviews?(): ReadonlyMap<string, readonly PreviewTile[]>
@@ -193,7 +195,7 @@ export class LayerCompositor {
       }
       if (!areaPreview) return
     }
-    const buf = this.ctx.layers().get(id)
+    const buf = (includeWashReveal ? this.ctx.displayLayer?.(id) : undefined) ?? this.ctx.layers().get(id)
     if (!buf) return
 
     if (areaPreview) {

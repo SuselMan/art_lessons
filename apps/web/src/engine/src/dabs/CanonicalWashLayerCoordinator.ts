@@ -83,6 +83,7 @@ const key = (p: Position) => `${p.x}:${p.y}`
  * unsequenced live hook is enabled here. All writes to these layers must enter
  * this lane or a future ordered barrier; seq alone does not serialize peers. */
 export class CanonicalWashLayerCoordinator {
+  private readonly gl: WebGLRenderingContext
   private readonly options: CanonicalWashLayerCoordinatorOptions
   private readonly stable: TiledLayerBuffer
   private readonly derived: TiledLayerBuffer
@@ -110,7 +111,9 @@ export class CanonicalWashLayerCoordinator {
       || stable.buffer.tileWidth !== derived.buffer.tileWidth || stable.buffer.tileHeight !== derived.buffer.tileHeight) throw new Error('Canonical wash requires distinct matching straight layers')
     this.preparations = [options.prepass.preparedCapacity(), options.composite.preparedCapacity()]
     // The existing CPU owner charges bounded metadata, not actual JS heap.
-    const release = options.prepass.brushGlBatchInfo().cpu.reserve(options.maxGestures * 1024)
+    const batch = options.prepass.brushGlBatchInfo()
+    this.gl = batch.gl
+    const release = batch.cpu.reserve(options.maxGestures * 1024)
     this.reservations.push(release)
     this.options = Object.freeze({ ...options, pageBounds: options.pageBounds ? Object.freeze({ ...options.pageBounds }) : null })
     this.stable = stable.buffer; this.derived = derived.buffer; this.derivedEpoch = derived.epoch
@@ -459,7 +462,7 @@ export class CanonicalWashLayerCoordinator {
   /** Cleanup status is advisory; a probe failure must not strand owners or
    * replace the primary error. Explicit lost:true admission still proves loss. */
   private cleanupContextLost():boolean {
-    try{return this.options.prepass.brushGlBatchInfo().gl.isContextLost()}catch(error){this.errors.push(error);return false}
+    try{return this.gl.isContextLost()}catch(error){this.errors.push(error);return false}
   }
   private clean(action: () => void): void { try { action() } catch (error) { this.errors.push(error) } }
   private closePresentationPlans(work?:PresentationWork):void {
@@ -486,7 +489,7 @@ export class CanonicalWashLayerCoordinator {
   }
   cancel(reason: unknown = new Error('Canonical wash layer cancelled'), options: { lost?: boolean } = {}): void {
     if (this.busy) throw new Error('Cannot cancel a canonical wash turn')
-    if (options.lost && !this.options.prepass.brushGlBatchInfo().gl.isContextLost()) throw new Error('Cannot forget canonical wash on live context')
+    if (options.lost && !this.gl.isContextLost()) throw new Error('Cannot forget canonical wash on live context')
     if (this.closed) return
     this.closed = true; this.failed = true
     this.releaseAll(options.lost ?? this.cleanupContextLost());this.clean(() => this.notifyPoison(reason))

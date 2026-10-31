@@ -29,7 +29,7 @@ function original(empty=false,ended=true,isCurrent=()=>true){const {state:s}=sta
 it('admits an original empty baseline into the actual straight constructor and commits via its real engine journal/layer owner',async()=>{
  const prepared=original(true),read=prepared.canonicalRead,tail=prepared.tailOperations
  const {engine}=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:8,pageHeight:8,canonicalEmptyRoom:{read,tail}},{width:8,height:8})
- try{engine.initLayer('background');engine.initLayer('layer-1');const result=await engine.restoreCanonicalEmptyRoom(read,tail);expect(result.committed).toBe(true);expect(engine.rasterVersion).toBe('straight-rgba8-v1');expect(engine.getOperations()).toHaveLength(0)}finally{engine.destroy()}
+ try{engine.initLayer('background');engine.initLayer('layer-1');const result=await engine.restoreCanonicalEmptyRoom(read,tail);expect(result.committed).toBe(true);expect(engine.rasterVersion).toBe('straight-rgba8-v1');expect(engine.getOperations()).toHaveLength(0)}finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 it('rejects copied original-owner metadata before touching the canvas',()=>{
  const p=original(true),get=vi.fn(()=>{throw Error('Canvas touched')}),canvas=new Proxy({} as HTMLCanvasElement,{get})
@@ -58,7 +58,7 @@ it('advances the same canonical job through the shared task transport despite an
   expect((await pending).committed).toBe(true)
   expect(engine['_log'].entries[0].canonicalInput).toBe(p.canonicalRead.preparedAtoms[0])
   expect(engine['_authorTasks']['tasks'].size).toBe(0)
- }finally{engine.destroy()}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 it('cancels its own shared task and rejects a delivered stale wakeup before any GL work',async()=>{
  const p=original(),{engine}=engineFor(p),schedule=vi.spyOn(engine['_authorTasks'],'schedule'),unschedule=vi.spyOn(engine['_authorTasks'],'unschedule')
@@ -71,7 +71,7 @@ it('cancels its own shared task and rejects a delivered stale wakeup before any 
   stale!();expect(draw).not.toHaveBeenCalled();expect(allocate).not.toHaveBeenCalled()
   expect(engine['_log'].entries).toHaveLength(0);expect(engine['_authorTasks']['tasks'].size).toBe(0)
   expect(engine['_brushMipCache'].reservedBytes).toBe(0)
- }finally{engine.destroy()}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 it('runs a real ended source frame through the actual RebuildJob/coordinator/services and publishes original log proof with straight pixels',async()=>{
  const p=original(),{engine}=engineFor(p),old=engine['_layers'],draw=vi.spyOn(engine['gl'],'drawArrays'),visible=vi.spyOn(engine['_passes'],'transform'),finish=vi.spyOn(engine['gl'],'finish')
@@ -80,8 +80,8 @@ it('runs a real ended source frame through the actual RebuildJob/coordinator/ser
   expect(result.committed).toBe(true);expect(result.cleanupFailures).toEqual([]);expect(draw).toHaveBeenCalled();engine['_drawCompositeItem'](exactFrame({x:0,y:0,width:8,height:8}),'layer-1',1,engine['_assemblyFBO'].fbo,8,8);expect(visible).toHaveBeenCalled();expect(finish).not.toHaveBeenCalled()
   expect(engine['_layers']).not.toBe(old);expect(engine['_layers'].get('layer-1')?.pixelEncoding).toBe('straight-rgba8')
   expect(engine['_log'].entries[0].canonicalInput).toBe(p.canonicalRead.preparedAtoms[0]);expect(engine['_log'].entries[0].serverSeq).toBe(1)
-  expect(engine['_rebuildJobs'].size).toBe(0);expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
- }finally{engine.destroy()}
+  expect(engine['_rebuildJobs'].size).toBe(0);expect(engine['_canonicalLayerOwner']?.prepared).toBe(true);expect(engine['_canonicalLayerOwner']?.coordinator).toBeUndefined();expect(engine['_brushMipCache'].reservedBytes).toBeGreaterThan(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 
 it('rejects a genuinely open prefix and mismatched original geometry before canvas access',()=>{
@@ -97,7 +97,7 @@ it('retires all unpublished candidate resources on a real source prepare failure
   await expect(engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)).rejects.toBe(primary)
   expect(engine['_layers']).toBe(old);expect(engine['_log'].entries).toHaveLength(0);for(const destroy of retire)expect(destroy).not.toHaveBeenCalled()
   expect(engine['_rebuildJobs'].size).toBe(0);expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
- }finally{engine.destroy()}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 it('cancels the actual scheduled job on destroy without publishing its staged source journal',async()=>{
  const p=original(),{engine}=engineFor(p),promise=engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
@@ -110,7 +110,7 @@ it('keeps a reentrant layer replacement from committing during original authorit
  try{
   await expect(engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)).rejects.toThrow('owner changed')
   expect(engine['_layers']).toBe(replacement);expect(engine['_log'].entries).toHaveLength(0);expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
- }finally{engine.destroy()}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 it('returns a committed result with cleanup diagnostics and attempts all old owners after one old retirement fails',async()=>{
  const p=original(),{engine}=engineFor(p),old=engine['_layers'],primary=new Error('old layer retirement failed'),buffers=[...old.values()],retire=buffers[0].destroy.bind(buffers[0])
@@ -119,7 +119,7 @@ it('returns a committed result with cleanup diagnostics and attempts all old own
   const result=await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
   expect(result.committed).toBe(true);expect(result.cleanupFailures).toContain(primary);expect(second).toHaveBeenCalledOnce()
   expect(engine['_layers']).not.toBe(old);expect(engine['_log'].entries).toHaveLength(1);expect(engine['_log'].entries[0].serverSeq).toBe(1)
- }finally{engine.destroy()}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 
 it('keeps legacy tile replay closed while the accepted original prefix recovers',async()=>{
@@ -132,7 +132,7 @@ it('keeps legacy tile replay closed while the accepted original prefix recovers'
   expect(engine['_log'].entries[0].serverSeq).toBe(1);expect(engine.bakeNetworkSnapshot('layer-1')).toBeNull()
   expect(()=>engine['_makeTileRebuilder']('layer-1')()).toThrow('recovery required')
   await vi.waitFor(()=>expect(engine['_canonicalPixelsReady']).toBe(true))
- }finally{engine.destroy()}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 it('preserves a real GPU draw failure and retires partially written unpublished storage before rejecting',async()=>{
  const p=original(),{engine}=engineFor(p),old=engine['_layers'],primary=new Error('canonical draw failed')
@@ -143,7 +143,7 @@ it('preserves a real GPU draw failure and retires partially written unpublished 
   await expect(engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)).rejects.toBe(primary)
   expect(engine['_layers']).toBe(old);expect(engine['_log'].entries).toHaveLength(0)
   expect(engine['_rebuildJobs'].size).toBe(0);expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
- }finally{engine.destroy()}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 
 it('retires an adopted first candidate when creating the second implicit layer fails before publication',async()=>{
@@ -153,7 +153,7 @@ it('retires an adopted first candidate when creating the second implicit layer f
   await expect(engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)).rejects.toBe(primary)
   expect(destroy).toHaveBeenCalledOnce();expect(engine['_layers']).toBe(old);expect(engine['_log'].entries).toHaveLength(0)
   expect(engine['_rebuildJobs'].size).toBe(0);expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
- }finally{engine.destroy()}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 it('recovers the accepted original prefix through the same job without changing journal, revision or entry identities',async()=>{
  const p=original(),{engine}=engineFor(p)
@@ -164,8 +164,8 @@ it('recovers the accepted original prefix through the same job without changing 
   await vi.waitFor(()=>expect(engine['_layers']).not.toBe(old))
   expect(engine['_log']).toBe(log);expect(log.entries).toBe(entries);expect(log.revision).toBe(revision);expect(log.entries[0]).toBe(entry)
   expect(init).toHaveBeenCalledOnce();expect(finish).not.toHaveBeenCalled();expect(engine['_contextLost']).toBe(false)
-  expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
- }finally{engine.destroy()}
+  expect(engine['_canonicalLayerOwner']?.prepared).toBe(true);expect(engine['_canonicalLayerOwner']?.coordinator).toBeUndefined();expect(engine['_brushMipCache'].reservedBytes).toBeGreaterThan(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 it('closes read/export/display while a fresh recovered generation is pending',async()=>{
  const p=original(),{engine}=engineFor(p)
@@ -175,7 +175,7 @@ it('closes read/export/display while a fresh recovered generation is pending',as
   const read=vi.spyOn(engine['gl'],'readPixels'),draw=vi.spyOn(engine['gl'],'drawArrays'),exported=vi.spyOn(engine['_exporter'],'exportPNG'),area=vi.spyOn(engine['_area'],'readAreaImage')
   expect(engine.pickColor(1,1)).toBeNull();expect(await engine.exportPNG()).toBeNull();expect(await engine.bakePreview()).toBeNull();expect(await engine.readAreaImage('layer-1',{points:[0,0,8,0,8,8,0,8]})).toBeNull();expect(area).not.toHaveBeenCalled()
   engine['_display']();expect(read).not.toHaveBeenCalled();expect(draw).not.toHaveBeenCalled();expect(exported).not.toHaveBeenCalled()
- }finally{engine.destroy()}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 it('rejects stale original authority before allocating any restored scene',async()=>{
  let current=true;const p=original(false,true,()=>current),{engine}=engineFor(p)
@@ -186,7 +186,7 @@ it('rejects stale original authority before allocating any restored scene',async
   engine['_handleContextRestored']()
   expect(init).not.toHaveBeenCalled();expect(allocate).not.toHaveBeenCalled();expect(engine['_log'].entries[0].serverSeq).toBe(1)
   expect(engine.pickColor(1,1)).toBeNull()
- }finally{engine.destroy()}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 it('retires a healthy failed restored allocation before allowing only an explicit original-owner retry',async()=>{
  const p=original(),{engine}=engineFor(p)
@@ -203,8 +203,8 @@ it('retires a healthy failed restored allocation before allowing only an explici
   const init=vi.spyOn(engine,'_initGL' as never);engine['_handleContextRestored']();expect(init).not.toHaveBeenCalled()
   expect((await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)).committed).toBe(true)
   expect(engine['_log'].entries).toBe(entries);expect(engine['_canonicalPixelsReady']).toBe(true)
-  expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
- }finally{engine.destroy()}
+  expect(engine['_canonicalLayerOwner']?.prepared).toBe(true);expect(engine['_canonicalLayerOwner']?.coordinator).toBeUndefined();expect(engine['_brushMipCache'].reservedBytes).toBeGreaterThan(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 it('retires a partially drawn recovered candidate on healthy failure and preserves the accepted journal',async()=>{
  const p=original(),{engine}=engineFor(p)
@@ -217,7 +217,7 @@ it('retires a partially drawn recovered candidate on healthy failure and preserv
   expect(engine['_canonicalPixelsReady']).toBe(false);expect(engine['_layers']).toBe(old);expect(engine['_log'].entries).toBe(entries);expect(engine['_log'].revision).toBe(revision)
   expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
   expect((await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)).committed).toBe(true)
- }finally{engine.destroy()}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 it('invalidates a pending recovery on repeated physical loss and never lets its stale init rollback delete the next scene',async()=>{
  const p=original(),{engine}=engineFor(p)
@@ -233,8 +233,8 @@ it('invalidates a pending recovery on repeated physical loss and never lets its 
   engine['_handleContextRestored']();await vi.waitFor(()=>expect(engine['_canonicalPixelsReady']).toBe(true))
   const destroy=vi.spyOn(engine['_passes'],'destroy');stale!();expect(destroy).not.toHaveBeenCalled()
   expect(engine['_log'].entries).toBe(entries);expect(engine['_log'].revision).toBe(revision)
-  expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
- }finally{engine.destroy()}
+  expect(engine['_canonicalLayerOwner']?.prepared).toBe(true);expect(engine['_canonicalLayerOwner']?.coordinator).toBeUndefined();expect(engine['_brushMipCache'].reservedBytes).toBeGreaterThan(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 
 it('cleans interrupted initial history and reinitializes its physical scene only for explicit original-owner retry',async()=>{
@@ -246,7 +246,7 @@ it('cleans interrupted initial history and reinitializes its physical scene only
   const init=vi.spyOn(engine,'_initGL' as never),paper=vi.spyOn(engine['_paper'],'init')
   expect((await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)).committed).toBe(true)
   expect(init).toHaveBeenCalledOnce();expect(paper).toHaveBeenCalledOnce();expect(engine['_paper'].texture).not.toBeNull();expect(engine['_canonicalPixelsReady']).toBe(true);expect(engine['_log'].entries[0].canonicalInput).toBe(p.canonicalRead.preparedAtoms[0])
- }finally{engine.destroy()}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 it.each(['state','serverSeq','frame'] as const)('rejects an accepted entry %s mutation from original authority before restored allocation',async field=>{
  let mutate=()=>{};const p=original(false,true,()=>{mutate();return true}),{engine}=engineFor(p)
@@ -258,7 +258,7 @@ it.each(['state','serverSeq','frame'] as const)('rejects an accepted entry %s mu
   const allocate=vi.spyOn(engine['gl'],'createTexture')
   engine['_handleContextRestored']()
   expect(allocate).not.toHaveBeenCalled();expect(engine['_canonicalPixelsReady']).toBe(false);expect(engine['_log'].revision).toBe(revision)
- }finally{engine.destroy()}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 it.each(['state','serverSeq','frame'] as const)('rechecks accepted mutable %s after final original callbacks before map publication',async field=>{
  let mutate=()=>{};const p=original(false,true,()=>{mutate();return true}),{engine}=engineFor(p)
@@ -270,5 +270,5 @@ it.each(['state','serverSeq','frame'] as const)('rechecks accepted mutable %s af
   await vi.waitFor(()=>expect(engine['_canonicalEmptyTransaction']).toBeUndefined())
   expect(engine['_canonicalPixelsReady']).toBe(false);expect(engine['_layers']).toBe(old);expect(engine['_log'].entries).toBe(entries);expect(engine['_log'].revision).toBe(revision)
   expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
- }finally{engine.destroy()}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
