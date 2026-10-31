@@ -2,7 +2,7 @@ import {assertCanonicalRoomStateRead,type CanonicalRoomStateRead} from './net/ca
 import type {RoomStatePayload} from './restoreRoomState'
 import type {CanonicalOutboxVerdicts} from './net/outboxVerdict'
 import {sendCanonicalStrokeBegin,type CanonicalBeginEmitter} from './net/sendCanonicalStrokeBegin'
-import type {CanonicalSourceAuthorService,PencilEngineAPI} from '../../engine'
+import type {CanonicalSourceAuthorService,CanonicalRecordedInput,PencilEngineAPI} from '../../engine'
 
 /** The existing pending stash is the sole payload owner before construction. */
 export function canonicalBootstrapOf(stash:RoomStatePayload|null|undefined,boardId:string,required:boolean){
@@ -51,35 +51,114 @@ export async function restoreCanonicalRoomBaseline(engine:PencilEngineAPI,read:C
  * Fault callbacks already arrive after source holds reach zero. Outbox final
  * settlement invokes drain after publishing its accepted sequence watermark. */
 export function createCanonicalRecoveryControl(deps:{readonly getEngine:()=>PencilEngineAPI|null;readonly getBoard:()=>string|null;readonly hasPendingLocals:()=>boolean;readonly canRequest:()=>boolean;readonly resync:()=>void;readonly onWaiting:()=>void}){
- type Origin={engine:PencilEngineAPI;board:string;phase:'restoring'|'ready'|'waiting'|'joining'|'failed';requested:boolean}
+ type Transition='joining'|'stale'|'failed'
+ type Interval={retired:boolean;outcome?:Transition;barrier?:{promise:Promise<Transition>;resolve:(value:Transition)=>void}}
+ type Origin={engine:PencilEngineAPI;board:string;phase:'restoring'|'ready'|'waiting'|'joining'|'failed';requested:boolean;interval:Interval}
  let origin:Origin|undefined
- const matches=(engine:PencilEngineAPI,board:string)=>origin?.engine===engine&&origin.board===board&&deps.getEngine()===engine&&deps.getBoard()===board
+ const settle=(interval:Interval,result:Transition)=>{if(interval.outcome)return;interval.outcome=result;const barrier=interval.barrier;interval.barrier=undefined;barrier?.resolve(result)}
+ const current=(owner:Origin)=>origin===owner&&deps.getEngine()===owner.engine&&deps.getBoard()===owner.board&&origin===owner
+ const matching=(engine:PencilEngineAPI,board:string)=>{
+  const owner=origin;if(!owner||owner.engine!==engine||owner.board!==board)return undefined
+  if(!current(owner)){settle(owner.interval,'stale');return undefined}
+  return owner
+ }
+ const phase=(owner:Origin):Origin['phase']=>owner.phase
+ const fail=(owner:Origin,interval:Interval)=>{if(origin===owner&&owner.interval===interval)owner.phase='failed';settle(interval,'failed')}
  const drain=():boolean=>{
   const owner=origin
-  if(!owner||!owner.requested||owner.phase!=='waiting'||!matches(owner.engine,owner.board))return false
+  if(!owner)return false
+  const interval=owner.interval
+  if(!current(owner)){settle(interval,'stale');return false}
+  if(!owner.requested||owner.phase!=='waiting'||interval.outcome)return false
   if(owner.engine.hasActiveCanonicalAuthor()||deps.hasPendingLocals()||!deps.canRequest())return false
+  if(!current(owner)||owner.interval!==interval){settle(interval,'stale');return false}
+  if(owner.phase!=='waiting')return false
   owner.phase='joining'
-  try{deps.resync()}catch{owner.phase='failed';deps.onWaiting();return false}
-  return true
+  try{deps.resync()}catch{
+   fail(owner,interval)
+   if(origin===owner&&owner.interval===interval)try{deps.onWaiting()}catch{/* Original resync failure remains terminal. */}
+   return false
+  }
+  // resync owns actual read invalidation. A provisional joining phase alone
+  // cannot release the old ingress head before that synchronous call returns.
+  if(!current(owner)||owner.interval!==interval){settle(interval,'stale');return false}
+  if(phase(owner)!=='joining'||interval.outcome){if(phase(owner)==='failed')settle(interval,'failed');return false}
+  settle(interval,'joining');return true
  }
  const request=(engine:PencilEngineAPI,board:string):void=>{
-  if(!matches(engine,board))return
-  const owner=origin!
+  const owner=matching(engine,board);if(!owner)return
+  const interval=owner.interval
   if(owner.requested){drain();return}
   owner.requested=true
   if(owner.phase==='ready')owner.phase='waiting'
-  deps.onWaiting()
+  try{deps.onWaiting()}catch(error){fail(owner,interval);throw error}
+  if(!current(owner)||owner.interval!==interval){settle(interval,'stale');return}
+  if(owner.phase==='joining'||owner.phase==='failed')return
   // Arm first: locking can synchronously finish a source and reenter here.
-  try{engine.setLocked(true)}catch{owner.phase='failed';return}
+  try{engine.setLocked(true)}catch{fail(owner,interval);return}
+  if(!current(owner)||owner.interval!==interval){settle(interval,'stale');return}
   drain()
  }
  return Object.freeze({
-  bind(engine:PencilEngineAPI,board:string){if(origin?.engine===engine&&origin.board===board)return;origin={engine,board,phase:'restoring',requested:false}},
-  detach(engine:PencilEngineAPI){if(origin?.engine===engine)origin=undefined},
+  bind(engine:PencilEngineAPI,board:string){
+   if(origin?.engine===engine&&origin.board===board)return
+   if(origin)settle(origin.interval,'stale')
+   origin={engine,board,phase:'restoring',requested:false,interval:{retired:false}}
+  },
+  detach(engine:PencilEngineAPI){if(origin?.engine===engine){const old=origin;origin=undefined;settle(old.interval,'stale')}},
   request,drain,
+  /** INTERNAL: only the exact constructed-engine fault callback may attest
+   * completed physical/FIFO retirement. Arbitrary preparation errors may not. */
+  retired(engine:PencilEngineAPI,board:string){const owner=matching(engine,board);if(!owner)return;owner.interval.retired=true;request(engine,board)},
+  whenRetiredTransition(engine:PencilEngineAPI,board:string):Promise<Transition>{
+   const owner=matching(engine,board)
+   if(!owner)return Promise.resolve('stale')
+   const interval=owner.interval
+   if(!interval.retired||owner.phase==='failed')return Promise.resolve('failed')
+   if(interval.outcome)return Promise.resolve(interval.outcome)
+   if(!interval.barrier){let resolve!:(value:Transition)=>void;const promise=new Promise<Transition>(done=>{resolve=done});interval.barrier={promise,resolve}}
+   return interval.barrier.promise
+  },
   restored(engine:PencilEngineAPI){if(origin?.engine!==engine)return;origin.phase=origin.requested?'waiting':'ready';drain()},
-  failed(engine:PencilEngineAPI){if(origin?.engine===engine)origin.phase='failed'},
-  retry(engine:PencilEngineAPI,board:string){if(!matches(engine,board))return;origin!.phase='waiting';origin!.requested=false;request(engine,board)},
+  failed(engine:PencilEngineAPI){if(origin?.engine===engine)fail(origin,origin.interval)},
+  retry(engine:PencilEngineAPI,board:string){
+   const owner=matching(engine,board);if(!owner)return
+   settle(owner.interval,'failed')
+   // A retry is a new observation interval, never a refresh of an old witness
+   // or a reused already-settled joining promise.
+   owner.interval={retired:false};owner.phase='waiting';owner.requested=false;request(engine,board)
+  },
   isReplacing:()=>origin?.phase==='joining'||origin?.phase==='restoring',
  })
+}
+
+export type CanonicalRecordedPreparationOutcome='ready'|'obsolete'
+/** Resource-only paired consumer. The ingress owner must bind its final apply
+ * predicate to this SAME engine identity as well as the original read lifetime. */
+export async function prepareCanonicalRoomRecordedInput(engine:PencilEngineAPI,input:CanonicalRecordedInput,deps:{
+ readonly currentEngine:()=>PencilEngineAPI|null;readonly currentBoard:()=>string|null
+ readonly recovery:Pick<ReturnType<typeof createCanonicalRecoveryControl>,'whenRetiredTransition'>
+}):Promise<CanonicalRecordedPreparationOutcome>{
+ input.delivery.assertCurrent(input)
+ const scope=input.delivery.lifetime.assertCurrent(),board=scope.roomId
+ const current=()=>{try{input.delivery.assertCurrent(input);return input.delivery.lifetime.assertCurrent()===scope&&deps.currentEngine()===engine&&deps.currentBoard()===board}catch{return false}}
+ if(!current())return 'obsolete'
+ try{
+  while(true){
+   const result=await engine.prepareOriginalRecorded(input)
+   if(!current())return 'obsolete'
+   if(result.status==='ready')return 'ready'
+   if(result.status!=='cancelled')throw new Error('Canonical resource preparation unavailable')
+   // Only cancellation is retried. Every engine reentry validates the physical
+   // owner and passively waits existing finite preparation; exceptions, END and
+   // ACKs are never retried/waited here. No caller AbortSignal is supplied.
+  }
+ }catch(error){
+  if(!current())return 'obsolete'
+  // Observing cannot mint retirement. Only the captured engine fault callback
+  // may have marked this origin after retiring its actual FIFO/resources.
+  const transition=await deps.recovery.whenRetiredTransition(engine,board)
+  if((transition==='joining'||transition==='stale')&&!current())return 'obsolete'
+  throw error
+ }
 }

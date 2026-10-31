@@ -1,6 +1,6 @@
 import {importedBrushes} from '../../engine/brushLibrary'
 import {canonicalToolAvailability} from '../../lib/tools/canonicalToolAvailability'
-import {canonicalBootstrapOf,stageCanonicalRoomReplacement,createCanonicalRoomAuthor,createCanonicalRoomVerdicts,restoreCanonicalRoomBaseline,createCanonicalRecoveryControl} from './canonicalRoomController'
+import {canonicalBootstrapOf,stageCanonicalRoomReplacement,createCanonicalRoomAuthor,createCanonicalRoomVerdicts,restoreCanonicalRoomBaseline,createCanonicalRecoveryControl,prepareCanonicalRoomRecordedInput} from './canonicalRoomController'
 import {prepareCanonicalRoomState} from './net/canonicalRoomState'
 import type {CanonicalRoomStateRead} from './net/canonicalRoomState'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
@@ -1038,7 +1038,7 @@ function RoomEditor() {
     snapshotGateRef.current = createSnapshotGate(reportInvariant)
     const engine = new PencilEngine(canvasRef.current, {
       rasterVersion: engineRasterVersion,
-      ...bootstrap?{canonicalEmptyRoom:bootstrap,canonicalAuthor,onCanonicalRecoveryRequired:()=>{if(constructed)canonicalRecovery.request(constructed,boardId)}}:{},
+      ...bootstrap?{canonicalEmptyRoom:bootstrap,canonicalAuthor,onCanonicalRecoveryRequired:()=>{if(constructed)canonicalRecovery.retired(constructed,boardId)}}:{},
       asyncFinish: false,
       joinedTouch: !import.meta.env.DEV || joinedTouchQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_TOUCH, location.search),
       bandBatch: import.meta.env.DEV && new URLSearchParams(location.search).get('qaBandBatch') === '1',
@@ -1405,6 +1405,7 @@ function RoomEditor() {
     // dependency list below that decides when it is rebuilt.
     return connectRoomSocket({
       sessionId, isCreator, creatorDraft,joinRoomRef,
+      prepareCanonicalRecordedInput:(input,engine)=>prepareCanonicalRoomRecordedInput(engine,input,{currentEngine:()=>engineRef.current,currentBoard:()=>boardIdRef.current,recovery:canonicalRecovery}),
       prepareCanonicalRoomState:(state,lifetime)=>{
         if(!lifetime.expectedBoardId)throw Error('Canonical requested board unavailable')
         return prepareCanonicalRoomState(state,{expectedBoardId:lifetime.expectedBoardId,isCurrent:lifetime.isCurrent})
@@ -1443,7 +1444,7 @@ function RoomEditor() {
       replayGate: replayGateRef.current,
     })
   }, [
-    sessionId, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary, markJoinRestoreDone,replaceCanonicalRoom,requestCanonicalRecovery,
+    sessionId, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary, markJoinRestoreDone,replaceCanonicalRoom,requestCanonicalRecovery,canonicalRecovery,
     restoreRoom, confirmOwnOperation, enterBoard,
     // (#429) Used by the live-stroke handler, markLayerActive too. Both are
     // useCallback with no dependencies (see their definitions), so they are

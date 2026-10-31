@@ -1,3 +1,19 @@
+import {attachCanonicalRecordedDelivery} from './canonicalRecordedDelivery'
+import {createHash} from 'node:crypto'
+import {inflateSync} from 'node:zlib'
+import {createTestEngine} from '../../../engine/testing/engineTestUtils'
+import stockNative from '../../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
+import basic6Native from '../../../engine/src/presets/fixtures/sourcePngWholePath/guiStroke.native.json'
+import {CANONICAL_STROKE_RASTER_PROFILE,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalImageSourceBinding,decodeCanonicalStrokeFrame,prepareCanonicalRecordedAttachment,type BrushDescriptor,type CanonicalStrokeBeginResult,type Operation,type SendResult} from '@grafetto/shared'
+import {SourceStrokeAuthor} from '../../../engine/src/presets/sourceStrokeAuthor'
+import {sourceStrokeAuthorDescriptor} from '../../../engine/src/presets/sourceStrokeAuthorDescriptor'
+import {SourceStrokeMaterialAdapter,type SourceStrokeMaterialContextV2} from '../../../engine/src/presets/sourceStrokeMaterialAdapter'
+import {SourceCanonicalFrameEncoder} from '../../../engine/src/presets/sourceCanonicalFrameEncoder'
+import {installBrushLibrary,installBrushPixels,clearImportedBrushPixels} from '../../../engine/src/presets/importedBrushes'
+import {createCanonicalRecoveryControl,createCanonicalRoomVerdicts,prepareCanonicalRoomRecordedInput,restoreCanonicalRoomBaseline} from '../canonicalRoomController'
+import {createReplayGate} from '../replayGate'
+import {Outbox} from './outbox'
+import {createOutboxVerdicts} from './outboxVerdict'
 import {prepareCanonicalRoomState} from './canonicalRoomState'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CanonicalStrokeOperation,CanonicalStrokeSnapshotV2,CanonicalRecordedAttachmentV1,ServerToClientEvents } from '@grafetto/shared'
@@ -443,7 +459,8 @@ it('rejects malformed original confirmed capability before even legacy resource 
 
 it('awaits captured engine preparation after original image CAS before the existing sync sink',async()=>{
  const {deps,listeners}=sourceSetup(),state=await imageWireState();let release!:()=>void
- const pending=new Promise<void>(yes=>{release=yes}),prepareCanonicalRecordedInput=vi.fn(async()=>{await pending})
+ const pending=new Promise<void>(yes=>{release=yes}),prepareCanonicalRecordedInput=vi.fn(async()=>{await pending;return 'ready' as const})
+ deps.engineRef.current={setLocked:vi.fn()}as unknown as PencilEngineAPI
  deps.applyRemoteOp=vi.fn(()=>true)
  const configured={...deps,prepareCanonicalRecordedInput},close=connectRoomSocket(configured)
  try{
@@ -458,7 +475,7 @@ it('does not prepare an engine before bootstrap replay handoff and routes close 
  const f=await gateFrameFixture(false),{deps,listeners}=sourceSetup(),{createReplayGate}=await import('../replayGate')
  const gate=createReplayGate<Parameters<ServerToClientEvents['operation_confirmed']>[0]>();let mounted=false
  deps.replayGate=gate;deps.holdReviewArrivals=()=>{gate.begin()}
- const prepareCanonicalRecordedInput=vi.fn(async()=>{if(!mounted)throw Error('Engine unavailable during bootstrap')})
+ const prepareCanonicalRecordedInput=vi.fn(async()=>{if(!mounted)throw Error('Engine unavailable during bootstrap');return 'ready' as const})
  deps.applyRemoteOp=vi.fn(()=>true)
  const configured={...deps,prepareCanonicalRecordedInput},close=connectRoomSocket(configured)
  const wire=emptyCanonicalState();wire.tailOperations=[f.op];wire.canonicalCapabilities={...f.attachment,roomId:'B2'}
@@ -468,7 +485,7 @@ it('does not prepare an engine before bootstrap replay handoff and routes close 
   Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:1,operation:f.op,canonicalCapabilities:{...f.attachment,roomId:'B2'}}])
   Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:2,operation:{type:'canonical_stroke_close',id:'seal',userId:'author',timestamp:2,seq:2,layerId:'L',targetUserId:'author',strokeId:'S',disposition:'commitPartial',recordedNext:1,firstFrameOpId:'op',lastFrameOpId:'op'}}])
   expect(prepareCanonicalRecordedInput).not.toHaveBeenCalled();expect(deps.applyRemoteOp).not.toHaveBeenCalled()
-  mounted=true;const ticket=gate.begin();expect(gate.end(ticket)).toBe(true)
+  mounted=true;deps.engineRef.current={setLocked:vi.fn()}as unknown as PencilEngineAPI;const ticket=gate.begin();expect(gate.end(ticket)).toBe(true)
   await vi.waitFor(()=>expect(prepareCanonicalRecordedInput).toHaveBeenCalledTimes(2))
   await vi.waitFor(()=>expect(deps.lastConfirmedSeqRef.current).toBe(2))
   expect(vi.mocked(deps.applyRemoteOp).mock.calls.map(call=>call[0].id)).toEqual(['op','seal'])
@@ -476,7 +493,8 @@ it('does not prepare an engine before bootstrap replay handoff and routes close 
 })
 it('drops an already prepared final closure when room state replaces its handler during engine preparation',async()=>{
  const {deps,listeners,fake}=sourceSetup(),state=await imageWireState();let release!:()=>void
- const pending=new Promise<void>(yes=>{release=yes}),prepareCanonicalRecordedInput=vi.fn(async()=>{await pending})
+ const pending=new Promise<void>(yes=>{release=yes}),prepareCanonicalRecordedInput=vi.fn(async()=>{await pending;return 'ready' as const})
+ deps.engineRef.current={setLocked:vi.fn()}as unknown as PencilEngineAPI
  deps.applyRemoteOp=vi.fn(()=>true)
  const close=connectRoomSocket({...deps,prepareCanonicalRecordedInput})
  try{
@@ -486,5 +504,142 @@ it('drops an already prepared final closure when room state replaces its handler
   Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
   release();await pending;await Promise.resolve();await Promise.resolve()
   expect(deps.applyRemoteOp).not.toHaveBeenCalled();expect(deps.lastConfirmedSeqRef.current).toBe(0);expect(fake.disconnect).not.toHaveBeenCalled()
+ }finally{release();close()}
+})
+
+it.each(['obsolete','reject']as const)('does not apply or lock a replacement engine under the SAME original read after %s resource completion',async outcome=>{
+ const {deps,listeners,fake,reads}=sourceSetup(),state=await imageWireState(),oldLock=vi.fn(),newLock=vi.fn(),old={setLocked:oldLock}as unknown as PencilEngineAPI,next={setLocked:newLock}as unknown as PencilEngineAPI
+ deps.engineRef.current=old;let release!:()=>void
+ const waiting=new Promise<void>(done=>{release=done}),prepareCanonicalRecordedInput=vi.fn(async()=>{await waiting;if(outcome==='reject')throw Error('old engine failure');return 'obsolete' as const})
+ deps.applyRemoteOp=vi.fn(()=>true)
+ const close=connectRoomSocket({...deps,prepareCanonicalRecordedInput})
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()]);Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:1,operation:state.tailOperations[0],canonicalCapabilities:state.canonicalCapabilities}])
+  await vi.waitFor(()=>expect(prepareCanonicalRecordedInput).toHaveBeenCalledOnce());expect(reads[0].scope.isCurrent()).toBe(true)
+  deps.engineRef.current=next;release();await waiting;await Promise.resolve();await Promise.resolve()
+  expect(reads[0].scope.isCurrent()).toBe(true);expect(deps.applyRemoteOp).not.toHaveBeenCalled();expect(deps.lastConfirmedSeqRef.current).toBe(0);expect(newLock).not.toHaveBeenCalled();expect(fake.disconnect).not.toHaveBeenCalled()
+ }finally{release();close()}
+})
+it('refuses an obsolete preparation result while its captured engine and original read are still current',async()=>{
+ const {deps,listeners,fake}=sourceSetup(),state=await imageWireState(),lock=vi.fn();deps.engineRef.current={setLocked:lock}as unknown as PencilEngineAPI;deps.applyRemoteOp=vi.fn(()=>true)
+ const log=vi.spyOn(console,'error').mockImplementation(()=>{}),close=connectRoomSocket({...deps,prepareCanonicalRecordedInput:async()=> 'obsolete' as const})
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()]);Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:1,operation:state.tailOperations[0],canonicalCapabilities:state.canonicalCapabilities}])
+  await vi.waitFor(()=>expect(fake.disconnect).toHaveBeenCalledOnce());expect(deps.applyRemoteOp).not.toHaveBeenCalled();expect(deps.lastConfirmedSeqRef.current).toBe(0)
+ }finally{close();log.mockRestore()}
+})
+
+function actualImagePrefix(){
+ const descriptor=basic6Native.descriptor as unknown as BrushDescriptor,binding=canonicalImageSourceBinding(descriptor,basic6Native.asset),compiled=sourceStrokeAuthorDescriptor(descriptor,{asset:basic6Native.asset,colorIdentity:'native-GUI-black',lodScale:1,inputProfile:'krita-freehand-no-smoothing-v1'})
+ if(!compiled.supported)throw Error(compiled.reasons.join(','))
+ const author=new SourceStrokeAuthor(compiled.program),state=author.createState(4321,7654,.3),material:SourceStrokeMaterialContextV2={version:2,...binding,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}},snapshot:CanonicalStrokeSnapshotV2={layerId:'layer-1',brush:`brush:${descriptor.id}@${descriptor.version}`,strokeId:'original-peer-B',boardEpoch:2,descriptorSha256:createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex'),rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,pigmentRgb8:[0,0,0],composition:{mode:'wash',alphaDarken:'creamy',outerResourceOpacity:1,outerBlend:'over'},assets:material.assets,materialVersion:2,material}
+ const adapter=new SourceStrokeMaterialAdapter(compiled.program,material,state),encoder=new SourceCanonicalFrameEncoder(snapshot),[xb,yb,t,pb]=basic6Native.packets[0],f32=(bits:number)=>new Float32Array(new Uint32Array([bits]).buffer)[0],m=basic6Native.mapping
+ const packets:CanonicalStrokeOperation[]=[]
+ const accept=(chunks:ReturnType<typeof adapter.finish>)=>{for(const chunk of chunks){const encoded=encoder.encode(chunk.packed);packets.push({id:'original-peer-'+packets.length,type:'canonical_stroke',userId:'peer',timestamp:0,layerId:'layer-1',seq:packets.length+1,frame:encoded.envelope})}}
+ accept(adapter.beginInput(state));const work=author.plan(state,{x:m.a*f32(xb)+m.c*f32(yb)+m.tx,y:m.b*f32(xb)+m.d*f32(yb)+m.ty,t,pressure:f32(pb),tiltX:0,tiltY:0,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false})
+ while(true){const next=work.next();if(next.done)break;accept(adapter.accept(next.value));const cut=adapter.flush();if(cut)accept([cut])}
+ if(!packets.length)throw Error('Missing actual source prefix')
+ return {op:packets[0],snapshot}
+}
+function actualEngineForRead(read:ReturnType<typeof prepareCanonicalRoomState>['canonicalRead'],onLocalOperation:(op:Operation)=>void,onFault:()=>void,begin?:NonNullable<Parameters<typeof createTestEngine>[0]>['canonicalAuthor']){
+ const r=createTestEngine({userId:'author',rasterVersion:'straight-rgba8-v1',pageWidth:64,pageHeight:64,canonicalEmptyRoom:{read,tail:read.tailOperations},canonicalAuthor:begin,onLocalOperation,onCanonicalRecoveryRequired:onFault},{width:64,height:64}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
+ Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,64,64]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
+ engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);return r
+}
+it('retires the actual faulted source before independent Outbox ACKs join, then restores fresh full history through the SAME active socket gate',async()=>{
+ const {deps,listeners,fake,reads}=sourceSetup(),{useRoomStore}=await import('../../../stores/roomStore'),descriptor=stockNative.rows.find(row=>row.index===4)!.descriptor as unknown as BrushDescriptor,preset=`brush:${descriptor.id}@${descriptor.version}`,sha=createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex'),pin=canonicalDefaultAutoSourceBinding(descriptor,sha,'neon64-f32-fma-v1'),image=actualImagePrefix()
+ const coverage=new Uint8Array(inflateSync(Buffer.from(basic6Native.asset.deflateBase64,'base64'),{maxOutputLength:65536}));expect('asset:'+createHash('sha256').update(coverage).digest('hex')).toBe(basic6Native.asset.id)
+ installBrushPixels(basic6Native.asset.id,coverage);installBrushLibrary({schemaVersion:1,brushes:[{descriptor,name:'native Basic2',source:'native',warnings:[]}],assets:[],skipped:[]})
+ useRoomStore.setState({boardId:'B2',reviewBoardId:null});deps.boardIdRef.current='B2';deps.socketBoardRef.current='B2'
+ const replay=createReplayGate<Parameters<ServerToClientEvents['operation_confirmed']>[0]>();deps.replayGate=replay;deps.holdReviewArrivals=()=>{replay.begin()}
+ let engine:ReturnType<typeof actualEngineForRead>['engine']|undefined,nextEngine:typeof engine,authorSnapshot:CanonicalStrokeSnapshotV2|undefined,releaseStorage!:()=>void,lastId=''
+ const pendingIdsRef={current:new Set<string>()}
+ const storagePending=new Promise<void>(done=>{releaseStorage=done}),operations:CanonicalStrokeOperation[]=[],attempts:{op:Operation;resolve:(result:SendResult)=>void}[]=[],stored=new Map<string,import('./outboxStorage').OutboxEntry>(),faultObservations:{holds:boolean;cpu:number;owner:boolean}[]=[]
+ let outbox!:Outbox
+ const control=createCanonicalRecoveryControl({getEngine:()=>deps.engineRef.current,getBoard:()=>deps.boardIdRef.current,hasPendingLocals:()=>outbox.pendingCount!==0||pendingIdsRef.current.size!==0,canRequest:()=>fake.connected,resync:()=>deps.requestFullResyncRef.current!(),onWaiting:()=>deps.setRoomContentReady(false)})
+ const verdicts=createOutboxVerdicts({pendingIdsRef,latestKnownSeqRef:deps.latestKnownSeqRef,confirmOperation:deps.confirmOwnOperation,discardOperation:vi.fn(),checkSnapshotBoundary:deps.checkSnapshotBoundary,resolveTransformCommit:vi.fn(),scheduleLostWorkRecovery:vi.fn(),setLostWork:vi.fn(),canonicalVerdicts:createCanonicalRoomVerdicts({repair:()=>{if(engine)control.request(engine,'B2')},isReplacing:control.isReplacing,drain:control.drain})})
+ outbox=new Outbox({roomId:'B2',storage:{getAll:async()=>[...stored.values()],put:async entry=>{stored.set(entry.op.id,entry)},delete:async id=>{if(id===lastId)await storagePending;stored.delete(id)}},send:op=>new Promise(resolve=>{attempts.push({op,resolve})}),canSend:()=>true,...verdicts})
+ deps.prepareCanonicalRecordedInput=(input,captured)=>prepareCanonicalRoomRecordedInput(captured,input,{currentEngine:()=>deps.engineRef.current,currentBoard:()=>deps.boardIdRef.current,recovery:control})
+ deps.applyRemoteOp=vi.fn((op,read,recorded)=>{if(!recorded||recorded.operation!==op||recorded.read!==read)throw Error('Original sink mismatch');deps.engineRef.current!.appendOriginalRecorded(recorded);return true})
+ const stashes:import('../restoreRoomState').RoomStatePayload[]=[];deps.replaceCanonicalRoom=(_board,stash)=>{stashes.push(stash)};deps.enterBoard=vi.fn((_board,stash)=>{stashes.push(stash)})
+ const close=connectRoomSocket(deps)
+ try{
+  const initial=emptyCanonicalState();initial.canonicalHistoryBase={kind:'full-room-prefix-v2',roomId:'B2',boardEpoch:2,throughSeq:0,operationCount:0}
+  Reflect.apply(listeners.get('room_state')!,null,[initial]);await vi.waitFor(()=>expect(stashes).toHaveLength(1));const read=reads[0]
+  const begin:NonNullable<NonNullable<Parameters<typeof createTestEngine>[0]>['canonicalAuthor']>={begin:async request=>{authorSnapshot={layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,pigmentRgb8:request.pigmentRgb8,boardEpoch:2,descriptorSha256:sha,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,composition:{mode:'wash',alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity,outerBlend:'over'},assets:[],materialVersion:2,material:{version:2,assets:[],primarySource:pin,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}}};return{ok:true,recordedNext:0,liveNext:0,ended:false,snapshot:authorSnapshot} satisfies CanonicalStrokeBeginResult}}
+  engine=actualEngineForRead(read,op=>{if(op.type!=='canonical_stroke')throw Error('Unexpected fabricated close/legacy input');operations.push(op);void outbox.enqueue(op)},()=>{if(engine){faultObservations.push({holds:engine.hasActiveCanonicalAuthor(),cpu:engine['_brushMipCache'].reservedBytes,owner:!!engine['_canonicalLayerOwner']});control.retired(engine,'B2')}},begin).engine
+  deps.engineRef.current=engine;control.bind(engine,'B2');await engine.paperReady();await restoreCanonicalRoomBaseline(engine,read,read.tailOperations,()=>deps.engineRef.current,deps.appliedOpIdsRef.current);control.restored(engine);const ticket=replay.begin();expect(replay.end(ticket)).toBe(true)
+  engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil(preset);engine.setSize(40);engine.setLocked(false);await engine.prepareBrush(preset)
+  const packet=(x:number,timeStamp:number)=>({x,y:20,pressure:.5,tiltX:0,tiltY:0,speed:0,pointerType:'pen' as const,timeStamp,dispatchTime:timeStamp})
+  engine['_onStart'](packet(20,0));engine['_onMove'](packet(24,10));await vi.waitFor(()=>expect(operations.length).toBeGreaterThan(0));await vi.waitFor(()=>expect(engine!['_authorInput'].pending).toBe(false));lastId=operations.at(-1)!.id
+  expect(engine.hasActiveCanonicalAuthor()).toBe(true);expect(engine['_log'].entries).toHaveLength(0);expect(outbox.pendingCount).toBe(operations.length)
+  expect(operations.reduce((sum,op)=>sum+decodeCanonicalStrokeFrame(op.frame,{rasterProfile:authorSnapshot!.rasterProfile,brush:authorSnapshot!.brush,strokeId:authorSnapshot!.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:authorSnapshot!.pigmentRgb8,composition:authorSnapshot!.composition,material:authorSnapshot!.material}).frame.draws.length,0)).toBeGreaterThan(0)
+  const prepare=vi.spyOn(engine,'prepareOriginalRecorded');let localFinished=false
+  const localWork=engine['_brushPreparation'].run(Array.from({length:64},()=>()=>{}),{},()=>true,'finite-before-context-loss',()=>{localFinished=true;return undefined})
+  Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:1,operation:image.op,canonicalCapabilities:{version:1,roomId:'B2',boardEpoch:2,capabilities:[{originalUserId:'peer',snapshot:image.snapshot}],bindings:[{operationId:image.op.id,sequence:1,originalUserId:'peer',capability:0}]}}])
+  for(const [i,op]of operations.entries())Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:i+2,operation:{...op,seq:i+2},canonicalCapabilities:{version:1,roomId:'B2',boardEpoch:2,capabilities:[{originalUserId:op.userId,snapshot:authorSnapshot!}],bindings:[{operationId:op.id,sequence:i+2,originalUserId:op.userId,capability:0}]}}])
+  await vi.waitFor(()=>expect(prepare).toHaveBeenCalledOnce(),{interval:1});expect(localFinished).toBe(false);expect(engine['_canonicalLayerOwner']!.resourceCandidate).toBeUndefined()
+  vi.spyOn(engine['gl'],'isContextLost').mockReturnValue(true);engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));await localWork
+  await vi.waitFor(()=>expect(faultObservations.length).toBeGreaterThan(0));expect(faultObservations.at(-1)).toEqual({holds:false,cpu:0,owner:false});expect(read.scope.isCurrent()).toBe(true);expect(fake.emit).not.toHaveBeenCalled();expect(deps.applyRemoteOp).not.toHaveBeenCalled();expect(deps.lastConfirmedSeqRef.current).toBe(0)
+  for(let i=0;i<operations.length;i++){await vi.waitFor(()=>expect(attempts.length).toBeGreaterThan(i));attempts[i].resolve({ok:true,seq:i+2})}
+  await outbox.whenIdle(1000);expect(outbox.pendingCount).toBe(0);expect(fake.emit).not.toHaveBeenCalled();expect(read.scope.isCurrent()).toBe(true);releaseStorage()
+  await vi.waitFor(()=>expect(fake.emit).toHaveBeenCalledWith('join_room',expect.objectContaining({roomId:'B2',lastKnownSeq:operations.length+1}),expect.any(Function)))
+  expect(read.scope.isCurrent()).toBe(false);expect(deps.applyRemoteOp).not.toHaveBeenCalled();expect(deps.confirmOwnOperation).not.toHaveBeenCalled();expect(fake.disconnect).not.toHaveBeenCalled()
+  const tail=[image.op,...operations.map((op,i)=>({...op,seq:i+2}))],full=emptyCanonicalState();full.tailOperations=tail;full.canonicalHistoryBase={kind:'full-room-prefix-v2',roomId:'B2',boardEpoch:2,throughSeq:tail.length,operationCount:tail.length};full.canonicalCapabilities={version:1,roomId:'B2',boardEpoch:2,capabilities:[{originalUserId:'peer',snapshot:image.snapshot},{originalUserId:'author',snapshot:authorSnapshot!}],bindings:tail.map((op,i)=>({operationId:op.id,sequence:i+1,originalUserId:op.userId,capability:i===0?0:1}))}
+  Reflect.apply(listeners.get('room_state')!,null,[full]);await vi.waitFor(()=>expect(stashes).toHaveLength(2));const fresh=reads.at(-1)!;expect(fresh).not.toBe(read)
+  control.detach(engine);engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);nextEngine=actualEngineForRead(fresh,()=>{throw Error('Unexpected source emission')},()=>{}).engine;deps.engineRef.current=nextEngine
+  await restoreCanonicalRoomBaseline(nextEngine,fresh,fresh.tailOperations,()=>deps.engineRef.current,deps.appliedOpIdsRef.current)
+  expect(nextEngine['_log'].entries.map(e=>e.serverSeq)).toEqual(tail.map(op=>op.seq));expect(nextEngine['_canonicalPixelsReady']).toBe(true);expect(deps.appliedOpIdsRef.current).toEqual(new Set(tail.map(op=>op.id)))
+ }finally{releaseStorage();close();outbox.dispose();nextEngine?.destroy();engine?.destroy();clearImportedBrushPixels();if(nextEngine)expect(nextEngine['_brushMipCache'].reservedBytes).toBe(0);if(engine)expect(engine['_brushMipCache'].reservedBytes).toBe(0);vi.restoreAllMocks()}
+},45000)
+
+it('retries only real cancellation after UI preparation replaces a remote candidate once, preserving the open pointer source',async()=>{
+ const descriptor=stockNative.rows.find(row=>row.index===4)!.descriptor as unknown as BrushDescriptor,preset=`brush:${descriptor.id}@${descriptor.version}`,sha=createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex'),pin=canonicalDefaultAutoSourceBinding(descriptor,sha,'neon64-f32-fma-v1'),image=actualImagePrefix(),wire=emptyCanonicalState();wire.canonicalHistoryBase={kind:'full-room-prefix-v2',roomId:'B2',boardEpoch:2,throughSeq:0,operationCount:0}
+ const prepared=prepareCanonicalRoomState(wire,{expectedBoardId:'B2',isCurrent:()=>true}),coverage=new Uint8Array(inflateSync(Buffer.from(basic6Native.asset.deflateBase64,'base64'),{maxOutputLength:65536}))
+ installBrushPixels(basic6Native.asset.id,coverage);installBrushLibrary({schemaVersion:1,brushes:[{descriptor,name:'native Basic2',source:'native',warnings:[]}],assets:[],skipped:[]})
+ const operations:Operation[]=[],fault=vi.fn(),begin:NonNullable<NonNullable<Parameters<typeof createTestEngine>[0]>['canonicalAuthor']>={begin:async request=>({ok:true,recordedNext:0,liveNext:0,ended:false,snapshot:{layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,pigmentRgb8:request.pigmentRgb8,boardEpoch:2,descriptorSha256:sha,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,composition:{mode:'wash',alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity,outerBlend:'over'},assets:[],materialVersion:2,material:{version:2,assets:[],primarySource:pin,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}}}})},engine=actualEngineForRead(prepared.canonicalRead,op=>operations.push(op),fault,begin).engine
+ try{
+  await engine.paperReady();await engine.restoreCanonicalEmptyRoom(prepared.canonicalRead,prepared.tailOperations);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil(preset);engine.setSize(40);engine.setLocked(false);await engine.prepareBrush(preset)
+  const packet=(x:number,timeStamp:number)=>({x,y:20,pressure:.5,tiltX:0,tiltY:0,speed:0,pointerType:'pen' as const,timeStamp,dispatchTime:timeStamp});engine['_onStart'](packet(20,0));engine['_onMove'](packet(24,10));await vi.waitFor(()=>expect(operations.length).toBeGreaterThan(0));await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false))
+  const owner=engine['_canonicalLayerOwner']!,epoch=owner.prepass.preparedCapacity().epoch,coordinator=owner.coordinator,atom=prepareCanonicalRecordedAttachment({version:1,roomId:'B2',boardEpoch:2,capabilities:[{originalUserId:'peer',snapshot:image.snapshot}],bindings:[{operationId:image.op.id,sequence:1,originalUserId:'peer',capability:0}]},[image.op],prepared.canonicalRead.scope)[0],input=attachCanonicalRecordedDelivery(atom,prepared.canonicalRead.scope);if(!('delivery'in input))throw Error('Missing original resource delivery')
+  const prepare=vi.spyOn(engine,'prepareOriginalRecorded'),control=createCanonicalRecoveryControl({getEngine:()=>engine,getBoard:()=> 'B2',hasPendingLocals:()=>false,canRequest:()=>true,resync:()=>{throw Error('Unexpected repair')},onWaiting:()=>{}});control.bind(engine,'B2');control.restored(engine)
+  const pending=prepareCanonicalRoomRecordedInput(engine,input,{currentEngine:()=>engine,currentBoard:()=> 'B2',recovery:control})
+  await vi.waitFor(()=>expect(owner.resourceCandidate).toBeDefined(),{interval:1})
+  const ui=engine.prepareBrush(preset)
+  expect(await pending).toBe('ready');expect(await ui).toEqual({status:'ready'});expect(prepare).toHaveBeenCalledTimes(2)
+  await expect(prepare.mock.results[0].value).resolves.toEqual({status:'cancelled'});await expect(prepare.mock.results[1].value).resolves.toEqual({status:'ready'})
+  expect(owner.prepass.preparedCapacity().epoch).toBe(epoch);expect(owner.coordinator).toBe(coordinator);expect(owner.resourceCandidate).toBeUndefined();expect(owner.bank).toBeDefined();expect(engine.hasActiveCanonicalAuthor()).toBe(true);expect(fault).not.toHaveBeenCalled();expect(engine['_log'].entries).toHaveLength(0)
+  const count=operations.length;engine['_onMove'](packet(28,20));await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false));expect(operations.length).toBeGreaterThan(count);expect(fault).not.toHaveBeenCalled()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);clearImportedBrushPixels();vi.restoreAllMocks()}
+},30000)
+it('does not relabel an existing engine after original CAS preparation awaits under the same read',async()=>{
+ const {deps,listeners,fake,reads}=sourceSetup(),state=await imageWireState(),old={setLocked:vi.fn()}as unknown as PencilEngineAPI,nextLock=vi.fn(),next={setLocked:nextLock}as unknown as PencilEngineAPI;deps.engineRef.current=old
+ let release!:()=>void;const pending=new Promise<void>(done=>{release=done}),prepareCanonicalRecordedInput=vi.fn(async()=> 'ready' as const)
+ vi.mocked(prepareCanonicalImageAssets).mockReturnValueOnce(pending);deps.applyRemoteOp=vi.fn(()=>true)
+ const close=connectRoomSocket({...deps,prepareCanonicalRecordedInput})
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()]);Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:1,operation:state.tailOperations[0],canonicalCapabilities:state.canonicalCapabilities}]);expect(prepareCanonicalImageAssets).toHaveBeenCalled()
+  deps.engineRef.current=next;release();await pending;await Promise.resolve();await Promise.resolve()
+  expect(reads[0].scope.isCurrent()).toBe(true);expect(prepareCanonicalRecordedInput).not.toHaveBeenCalled();expect(deps.applyRemoteOp).not.toHaveBeenCalled();expect(nextLock).not.toHaveBeenCalled();expect(fake.disconnect).not.toHaveBeenCalled()
+ }finally{release();close()}
+})
+it('preserves a queued legacy stroke across same-board engine replacement while canonical preparation is installed',async()=>{
+ const {deps,listeners,fake}=sourceSetup(),old={setLocked:vi.fn()}as unknown as PencilEngineAPI,next={setLocked:vi.fn()}as unknown as PencilEngineAPI
+ deps.engineRef.current=old
+ const prepareCanonicalRecordedInput=vi.fn(async()=> 'ready' as const),close=connectRoomSocket({...deps,prepareCanonicalRecordedInput})
+ let release!:()=>void
+ const pending=new Promise<void>(done=>{release=done})
+ const state=emptyCanonicalState();state.room.rasterVersion='legacy-pm8-v1';delete state.canonicalReadScope;delete state.canonicalCapabilities
+ const operation:Operation={id:'legacy-after-engine-replacement',userId:'peer',timestamp:0,type:'stroke',strokeId:'legacy-stream',layerId:'layer-1',tool:'pencil',preset:'HB',color:[0,0,0],dabs:[]}
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[state])
+  deps.streamedStrokeIdsRef.current.add('legacy-stream')
+  vi.mocked(prepareBrushPresets).mockReturnValueOnce(pending)
+  Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:1,operation}])
+  expect(prepareBrushPresets).toHaveBeenLastCalledWith(['HB']);expect(deps.applyRemoteOp).not.toHaveBeenCalled()
+  deps.engineRef.current=next;release();await pending
+  await vi.waitFor(()=>expect(deps.applyRemoteOp).toHaveBeenCalledWith(operation))
+  expect(deps.lastConfirmedSeqRef.current).toBe(1);expect(deps.syncFromLog).toHaveBeenCalled();expect(deps.checkSnapshotBoundary).toHaveBeenCalled()
+  expect(prepareCanonicalRecordedInput).not.toHaveBeenCalled();expect(fake.disconnect).not.toHaveBeenCalled()
  }finally{release();close()}
 })

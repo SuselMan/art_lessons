@@ -1,3 +1,4 @@
+import type {CanonicalRecordedPreparationOutcome} from '../canonicalRoomController'
 import {prepareCanonicalRecordedImageResources} from './canonicalRecordedDelivery'
 import {preflightRoomStateDelivery,type CanonicalRoomStatePreparer,type CanonicalRoomStateRead,type RoomStateDelivery} from './canonicalRoomState'
 import type { RefObject } from 'react'
@@ -51,7 +52,7 @@ export type RoomSocketDeps =
     confirmOwnOperation: (op: Operation, seq: number) => void
     /** Explicit preparer; omission keeps canonical room admission OFF. */
     prepareCanonicalRoomState?:CanonicalRoomStatePreparer
-    prepareCanonicalRecordedInput?:(input:CanonicalRecordedInput)=>Promise<void>
+    prepareCanonicalRecordedInput?:(input:CanonicalRecordedInput,engine:PencilEngineAPI)=>Promise<CanonicalRecordedPreparationOutcome>
     joinRoomRef?:RefObject<ClientToServerEvents['join_room']|null>
     /** The socket is connected (true) or has dropped (false). */
     onConnectionChange: (connected: boolean) => void
@@ -126,14 +127,16 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   // (#493) Out of line — see confirmedStream.ts.
   let confirmedScope:CanonicalRoomStateRead['scope']|undefined
   const dispatchPrepared:ConfirmedStreamDeps['dispatchPrepared']=deps.prepareCanonicalRecordedInput?(input,applyFinal)=>{
-    const generation=readGeneration,scope=confirmedScope,handler=handleOperationConfirmed
-    const current=()=>generation===readGeneration&&handleOperationConfirmed===handler&&!!scope&&scope.isCurrent()
+    const generation=readGeneration,scope=confirmedScope,handler=handleOperationConfirmed,engine=deps.engineRef.current
+    const current=()=>generation===readGeneration&&handleOperationConfirmed===handler&&!!scope&&scope.isCurrent()&&deps.engineRef.current===engine
     brushes.dispatch([],applyFinal,current,async()=>{
       input.delivery.assertCurrent(input)
       if(!current())return
-      await deps.prepareCanonicalRecordedInput!(input)
+      if(!engine)throw Error('Canonical preparation engine unavailable')
+      const outcome=await deps.prepareCanonicalRecordedInput!(input,engine)
+      if(!current())return
       input.delivery.assertCurrent(input)
-      if(!current())throw Error('Stale canonical engine preparation')
+      if(outcome!=='ready')throw Error('Current canonical preparation cannot become obsolete')
     })
   }:undefined
   let handleOperationConfirmed = createConfirmedStreamHandler({ ...deps,dispatchPrepared,canonicalReadScope:undefined, confirmOwnOperation, requestFullResync })
@@ -254,9 +257,13 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
     catch{deps.setRoomContentReady(false);reportJoinFailure('unsupported_raster_version','room_state canonical contract')}
   })
   socket.on('operation_confirmed',message=>{
-    const handler=handleOperationConfirmed,generation=readGeneration,scope=confirmedScope
+    const handler=handleOperationConfirmed,generation=readGeneration,scope=confirmedScope,arrivalEngine=deps.prepareCanonicalRecordedInput&&(message.operation.type==='canonical_stroke'||message.operation.type==='canonical_stroke_close')?deps.engineRef.current:undefined
     let prepared:PreparedConfirmedDelivery|undefined
-    const isCurrent=()=>!deps.prepareCanonicalRoomState||generation===readGeneration&&(!scope||scope.isCurrent())
+    // Pin only canonical deliveries across CAS/resource awaits. Legacy arrivals
+    // retain their existing same-read behavior across engine replacement.
+    // Bootstrap with no engine is held by replayGate until actual construction;
+    // dispatchPrepared captures that mounted owner when the token is released.
+    const isCurrent=()=>!deps.prepareCanonicalRoomState||generation===readGeneration&&(!scope||scope.isCurrent())&&(!arrivalEngine||deps.engineRef.current===arrivalEngine)
     ordered(()=>{
       if(!isCurrent())return
       if(prepared)handler(prepared.payload)

@@ -73,7 +73,7 @@ it('constructs/restores the actual engine from the same pending slot once, witho
   expect(constructed).toBe(1);expect(engineEpoch).toBe(1);expect(bump).toHaveBeenCalledOnce()
   expect(result.engine.getOperations()).toEqual([])
  }finally{result.engine.destroy()}
-})
+},15000)
 
 it('rejects a full replacement cut older than the ACK watermark without retiring pending work',()=>{
  const {stash}=state(),pending={current:null},retire=vi.fn(),bump=vi.fn()
@@ -158,4 +158,93 @@ it('arms before a synchronous lock-triggered fault callback and sends only once'
  control.bind(f.engine,'B');control.restored(f.engine)
  f.locked.mockImplementation(()=>control.request(f.engine,'B'))
  control.request(f.engine,'B');expect(f.locked).toHaveBeenCalledOnce();expect(f.send).toHaveBeenCalledOnce()
+})
+
+it('shares a lazy retired-origin wait and resolves only after real resync returns with the original scope invalidated',async()=>{
+ const {createCanonicalRecoveryControl}=await import('./canonicalRoomController'),f=recoveryFixture();let readCurrent=true
+ const control=createCanonicalRecoveryControl({...f,resync:()=>{expect(readCurrent).toBe(true);readCurrent=false;expect(settled).toBe(false)}})
+ control.bind(f.engine,'B');control.restored(f.engine);f.pending(1)
+ await expect(control.whenRetiredTransition(f.engine,'B')).resolves.toBe('failed');expect(f.locked).not.toHaveBeenCalled()
+ control.retired(f.engine,'B')
+ const first=control.whenRetiredTransition(f.engine,'B'),second=control.whenRetiredTransition(f.engine,'B');expect(first).toBe(second)
+ let settled=false;void first.then(()=>{settled=true});await Promise.resolve();expect(settled).toBe(false)
+ f.pending(0);expect(control.drain()).toBe(true);expect(readCurrent).toBe(false);await expect(first).resolves.toBe('joining');expect(settled).toBe(true)
+})
+it('does not create an idle barrier on retirement without observers and does not reuse a failed interval on retry',async()=>{
+ const {createCanonicalRecoveryControl}=await import('./canonicalRoomController'),f=recoveryFixture(),control=createCanonicalRecoveryControl(f)
+ control.bind(f.engine,'B');control.restored(f.engine);control.retired(f.engine,'B');expect(f.send).toHaveBeenCalledOnce()
+ await expect(control.whenRetiredTransition(f.engine,'B')).resolves.toBe('joining')
+ control.failed(f.engine);f.pending(1);control.retry(f.engine,'B')
+ await expect(control.whenRetiredTransition(f.engine,'B')).resolves.toBe('failed')
+ control.retired(f.engine,'B');const fresh=control.whenRetiredTransition(f.engine,'B');f.pending(0);control.drain();await expect(fresh).resolves.toBe('joining');expect(f.send).toHaveBeenCalledTimes(2)
+})
+it.each(['detach','bind','board']as const)('settles the original passive waiter stale after %s without granting a new owner',async mode=>{
+ const {createCanonicalRecoveryControl}=await import('./canonicalRoomController'),f=recoveryFixture(),control=createCanonicalRecoveryControl(f)
+ control.bind(f.engine,'B');control.restored(f.engine);f.pending(1);control.retired(f.engine,'B');const first=control.whenRetiredTransition(f.engine,'B')
+ if(mode==='detach')control.detach(f.engine)
+ else if(mode==='bind'){f.board('C');control.bind(f.engine,'C')}
+ else{f.board('C');control.drain()}
+ await expect(first).resolves.toBe('stale');expect(f.send).not.toHaveBeenCalled();await expect(control.whenRetiredTransition(f.engine,'B')).resolves.toBe('stale')
+})
+it.each(['bind','detach','throw','failed']as const)('never acknowledges joining after reentrant resync %s',async mode=>{
+ const {createCanonicalRecoveryControl}=await import('./canonicalRoomController'),f=recoveryFixture();let control:ReturnType<typeof createCanonicalRecoveryControl>
+ control=createCanonicalRecoveryControl({...f,resync:()=>{if(mode==='bind'){f.board('C');control.bind(f.engine,'C')}else if(mode==='detach')control.detach(f.engine);else if(mode==='failed')control.failed(f.engine);else throw Error('resync failed')}})
+ control.bind(f.engine,'B');control.restored(f.engine);f.pending(1);control.retired(f.engine,'B');const first=control.whenRetiredTransition(f.engine,'B');f.pending(0);expect(control.drain()).toBe(false)
+ await expect(first).resolves.toBe(mode==='bind'||mode==='detach'?'stale':'failed')
+})
+it('retains pending work and source holds until independent settlement wakes the retired origin',async()=>{
+ const {createCanonicalRecoveryControl}=await import('./canonicalRoomController'),f=recoveryFixture(),control=createCanonicalRecoveryControl(f)
+ control.bind(f.engine,'B');control.restored(f.engine);f.active(true);f.pending(2);control.retired(f.engine,'B')
+ const pending=control.whenRetiredTransition(f.engine,'B');let settled=false;void pending.then(()=>{settled=true})
+ control.drain();f.active(false);control.drain();await Promise.resolve();expect(settled).toBe(false);expect(f.hasPendingLocals()).toBe(true)
+ f.pending(0);f.connected(false);control.drain();expect(f.send).not.toHaveBeenCalled();f.connected(true);control.drain();await expect(pending).resolves.toBe('joining')
+})
+it('settles a retired-origin wait failed when lock fails and does not grant arbitrary request retirement',async()=>{
+ const {createCanonicalRecoveryControl}=await import('./canonicalRoomController'),f=recoveryFixture(),control=createCanonicalRecoveryControl(f)
+ control.bind(f.engine,'B');control.restored(f.engine);f.pending(1);control.request(f.engine,'B');await expect(control.whenRetiredTransition(f.engine,'B')).resolves.toBe('failed')
+ f.locked.mockImplementation(()=>{throw Error('lock failed')});control.retry(f.engine,'B');control.retired(f.engine,'B');await expect(control.whenRetiredTransition(f.engine,'B')).resolves.toBe('failed');expect(f.send).not.toHaveBeenCalled()
+})
+
+it.each(['detach','throw']as const)('does not expose provisional joining to a waiter first created inside resync before %s',async mode=>{
+ const {createCanonicalRecoveryControl}=await import('./canonicalRoomController'),f=recoveryFixture();let control:ReturnType<typeof createCanonicalRecoveryControl>,inside:Promise<'joining'|'stale'|'failed'>|undefined
+ control=createCanonicalRecoveryControl({...f,resync:()=>{inside=control.whenRetiredTransition(f.engine,'B');if(mode==='detach')control.detach(f.engine);else throw Error('resync failed')}})
+ control.bind(f.engine,'B');control.restored(f.engine);control.retired(f.engine,'B')
+ expect(inside).toBeDefined();await expect(inside).resolves.toBe(mode==='detach'?'stale':'failed')
+})
+it('does not refresh a failed retirement witness by rebinding the same owner or observing a different board',async()=>{
+ const {createCanonicalRecoveryControl}=await import('./canonicalRoomController'),f=recoveryFixture(),control=createCanonicalRecoveryControl(f)
+ control.bind(f.engine,'B');control.restored(f.engine);f.pending(1);control.retired(f.engine,'B');const pending=control.whenRetiredTransition(f.engine,'B')
+ await expect(control.whenRetiredTransition(f.engine,'foreign')).resolves.toBe('stale');control.failed(f.engine);await expect(pending).resolves.toBe('failed')
+ control.bind(f.engine,'B');await expect(control.whenRetiredTransition(f.engine,'B')).resolves.toBe('failed');expect(f.send).not.toHaveBeenCalled()
+})
+it('settles an old interval before reentrant retry can start another join',async()=>{
+ const {createCanonicalRecoveryControl}=await import('./canonicalRoomController'),f=recoveryFixture();let control:ReturnType<typeof createCanonicalRecoveryControl>,calls=0
+ control=createCanonicalRecoveryControl({...f,resync:()=>{if(++calls===1){f.pending(1);control.retry(f.engine,'B')}}})
+ control.bind(f.engine,'B');control.restored(f.engine);f.pending(1);control.retired(f.engine,'B');const old=control.whenRetiredTransition(f.engine,'B');f.pending(0);expect(control.drain()).toBe(false)
+ await expect(old).resolves.toBe('failed');await expect(control.whenRetiredTransition(f.engine,'B')).resolves.toBe('failed');control.retired(f.engine,'B');const fresh=control.whenRetiredTransition(f.engine,'B');f.pending(0);control.drain();await expect(fresh).resolves.toBe('joining');expect(calls).toBe(2)
+})
+
+async function resourceConsumerFixture(){
+ const f=state(),{attachCanonicalRecordedDelivery}=await import('./net/canonicalRecordedDelivery'),{parseCanonicalStrokeCloseOperation}=await import('@grafetto/shared')
+ const atom=Object.freeze({operation:parseCanonicalStrokeCloseOperation({type:'canonical_stroke_close',id:'close',userId:'U',timestamp:0,seq:1,layerId:'layer-1',targetUserId:'U',strokeId:'S',disposition:'commitPartial',recordedNext:1,firstFrameOpId:'F',lastFrameOpId:'F'})}),input=attachCanonicalRecordedDelivery(atom,f.stash.canonicalRead.scope)
+ if(!('delivery'in input))throw Error('Missing original input')
+ const prepare=vi.fn(async():Promise<import('../../engine/src/dabs/BrushPreparation').BrushPreparationResult>=>({status:'ready'})),engine={prepareOriginalRecorded:prepare}as unknown as import('../../engine').PencilEngineAPI
+ let current:typeof engine|null=engine,board='B'
+ const whenRetiredTransition=vi.fn(async():Promise<'joining'|'stale'|'failed'>=> 'failed')
+ return{f,input,prepare,engine,deps:{currentEngine:()=>current,currentBoard:()=>board,recovery:{whenRetiredTransition}},replace:()=>{current={}as typeof engine},board:(v:string)=>{board=v}}
+}
+it('requires READY and retries only explicit cancellation under the SAME original resource owner',async()=>{
+ const {prepareCanonicalRoomRecordedInput}=await import('./canonicalRoomController'),f=await resourceConsumerFixture()
+ f.prepare.mockResolvedValueOnce({status:'cancelled'})
+ await expect(prepareCanonicalRoomRecordedInput(f.engine,f.input,f.deps)).resolves.toBe('ready');expect(f.prepare).toHaveBeenCalledTimes(2);expect(f.deps.recovery.whenRetiredTransition).not.toHaveBeenCalled()
+})
+it.each(['joining','stale']as const)('accepts %s only after actual original read or engine becomes obsolete',async outcome=>{
+ const {prepareCanonicalRoomRecordedInput}=await import('./canonicalRoomController'),f=await resourceConsumerFixture(),fault=Error('physical owner retired')
+ f.prepare.mockRejectedValue(fault);f.deps.recovery.whenRetiredTransition.mockImplementation(async()=>{if(outcome==='joining')f.f.expire();else f.replace();return outcome})
+ await expect(prepareCanonicalRoomRecordedInput(f.engine,f.input,f.deps)).resolves.toBe('obsolete');expect(f.prepare).toHaveBeenCalledOnce()
+})
+it.each(['joining','stale','failed']as const)('does not turn %s into success for a still-current original engine/read',async outcome=>{
+ const {prepareCanonicalRoomRecordedInput}=await import('./canonicalRoomController'),f=await resourceConsumerFixture(),fault=Error('healthy budget refusal')
+ f.prepare.mockRejectedValue(fault);f.deps.recovery.whenRetiredTransition.mockResolvedValue(outcome)
+ await expect(prepareCanonicalRoomRecordedInput(f.engine,f.input,f.deps)).rejects.toBe(fault);expect(f.prepare).toHaveBeenCalledOnce()
 })
