@@ -671,7 +671,8 @@ it('builds internal full empty-baseline evidence from actual DB rows including a
  expect(replay.fullCanonicalHistory).toBeDefined();expect(replay.index).toBeNull()
  const fields=read.finish(replay.operations,replay.canonicalRows,replay.fullCanonicalHistory)
  expect(fields.canonicalCapabilities?.bindings).toHaveLength(rows.length)
- expect(Object.keys(fields)).not.toContain('canonicalHistoryBase');expect(Object.keys(fields)).not.toContain('fullCanonicalHistory')
+ expect(fields.canonicalHistoryBase).toEqual({kind:'empty-room-prefix-v1',roomId:'board',boardEpoch:read.scope.boardEpoch,throughSeq:cut,operationCount:rows.length});expect(Object.isFrozen(fields.canonicalHistoryBase)).toBe(true);expect(Object.keys(fields)).not.toContain('fullCanonicalHistory')
+ expect(read.finish(replay.operations,replay.canonicalRows)).not.toHaveProperty('canonicalHistoryBase')
  expect(pin).toHaveBeenCalledTimes(pins);expect(db.operation.create).toHaveBeenCalledTimes(writes)
  expect(()=>read.finish(replay.operations.slice(1),replay.canonicalRows,replay.fullCanonicalHistory)).toThrow()
  expect(()=>read.finish(replay.operations,replay.canonicalRows,{...replay.fullCanonicalHistory!})).toThrow()
@@ -682,6 +683,8 @@ it('requires actual empty-query evidence at cut zero and refuses stale/copy/fore
  const read=await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true),request={throughSeq:0,floor:0},receipt=await read.prepareFullHistory(request)
  request.floor=1 // The receipt owns the captured floor, not this caller object.
  expect(db.operation.findMany).toHaveBeenCalledTimes(1);expect(read.finish([],[],receipt).canonicalCapabilities).toBeUndefined()
+ expect(read.finish([],[],receipt).canonicalHistoryBase).toEqual({kind:'empty-room-prefix-v1',roomId:'board',boardEpoch:read.scope.boardEpoch,throughSeq:0,operationCount:0})
+ expect(read.finish([])).not.toHaveProperty('canonicalHistoryBase')
  const other=await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)
  expect(()=>other.finish([],[],receipt)).toThrow();expect(()=>read.finish([],[],{...receipt})).toThrow()
  f.board.nextSeq=2;expect(()=>read.finish([],[],receipt)).toThrow()
@@ -735,4 +738,19 @@ it('waits for the existing durable queue before querying a complete cut and neve
  await Promise.resolve();expect(db.operation.findMany).not.toHaveBeenCalled()
  write.resolve();expect((await saving).result.ok).toBe(true)
  const receipt=await preparing;expect(receipt.operations).toHaveLength(1);expect(read.finish(receipt.operations,receipt.canonicalRows,receipt).canonicalCapabilities?.bindings).toHaveLength(1)
+})
+
+it('attests the complete actual two-frame DB tail only with its original receipt, never a partial suffix',async()=>{
+ const base=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected),bound=snapshot(await transport.begin(identity,base.input,()=>true))
+ for(const [n,frame] of frames(base.descriptor,bound).slice(0,2).entries())expect((await transport.recorded(identity,{type:'canonical_stroke',id:`full-two-${n}`,userId:'author',timestamp:n,layerId:'layer',frame},()=>true)).result.ok).toBe(true)
+ const f={transport},rows=db.operation.create.mock.calls.map(([q])=>q.data)
+ expect(rows).toHaveLength(2)
+ db.operation.findMany.mockImplementation(async({where,take})=>rows.filter(r=>r.seq>where.seq.gt&&r.seq<=where.seq.lte).slice(0,take))
+ let alive=true
+ const read=await f.transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>alive)
+ const receipt=await read.prepareFullHistory({throughSeq:2,floor:0})
+ expect(read.finish(receipt.operations,receipt.canonicalRows,receipt).canonicalHistoryBase?.operationCount).toBe(2)
+ expect(read.finish(receipt.operations.slice(1),receipt.canonicalRows.slice(1))).not.toHaveProperty('canonicalHistoryBase')
+ expect(()=>read.finish(receipt.operations.slice(1),receipt.canonicalRows.slice(1),receipt)).toThrow()
+ alive=false;expect(()=>read.finish(receipt.operations,receipt.canonicalRows,receipt)).toThrow()
 })

@@ -223,3 +223,19 @@ the old board, so blindly awaiting read permission after it and compensating wit
 leaveRoom would race newer joins. Existing authorized prepare/commit seating
 needs review before wiring this seam. Global evacuateBoard similarly lacks the
 register-local transport owner and stays an explicit straight-read blocker.
+
+### Полная пустая база: opt-in выдача метаданных
+
+`finish` добавляет закрытый `canonicalHistoryBase` только при передаче исходной
+лексической full-history квитанции того же read-owner. Перед возвратом повторно
+проверяются exact ссылки полного списка операций, captured cut и текущий lifetime;
+пять скаляров проходят общий `parseCanonicalEmptyHistoryBase`. Пустой cut требует
+реального terminal-empty DB запроса. Без квитанции форма результата прежняя:
+частичный suffix, legacy/V1 и обычный join не получают свидетельство по умолчанию.
+Socket callback по-прежнему не запрашивает full-history preparation; активации
+контроллера, source grant и включения guard нет.
+
+Проверка: tests-first два ожидаемых отказа из-за отсутствующего поля; затем actual
+mocked DB хвост из двух V2 кадров, пустой cut, omitted whole gesture, partial suffix,
+copy/foreign receipt, смена cut и истечение lifetime. Это проверка реального query
+контракта на mock DB, не заявление о физической базе. Логи B3 сохранены в R52.
