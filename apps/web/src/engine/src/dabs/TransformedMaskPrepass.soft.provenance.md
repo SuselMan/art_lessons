@@ -32,3 +32,32 @@ through throwing program-release notification. Two-slot regression verifies
 releaseOwner clears completed owner slots despite a throwing pending cancellation. Existing45 Plan/Prepass tests pass.
 Targeted oxlint passes. Common web TSC remains the coordinator's integration gate.
 No device, browser, service, dependency or temporary runtime was created.
+
+## Fresh Samsung integrated executor proof
+
+Current source was bundled in memory and executed on SM-T970, Chrome156,
+ANGLE Adreno650, using the actual packed-V2 decoder, executor, prepass, tiled
+layer and fused scalar compositor. Four cases cover `scalar-f64-fma-v1` and
+`neon64-f32-fma-v1`, each wash/buildup, each two gestures. Every gesture uploads
+all437 independently recorded native A8 pixels as identical RGBA replicas;
+all65536 final RGBA bytes across four64x64 outputs match the host fused-scalar
+oracle exactly. Table preparation takes four quanta of at most64values per
+source and zero additional quanta for the second gesture. Never-used source
+cancellation returns its reservation. GL errors and poison notifications are
+empty, nontrivial incoming GL state is restored, and all owned GL handles and
+CPU/GPU reservations return to zero.
+
+The instrumented follow-up found executor turns still exceed their cooperative
+budget: cold maxima17.8–37.6ms and second-gesture maxima11.7–24.4ms. Table
+advance maximum0.4ms and mask advance maximum3.2ms do not explain the long
+turns alone. One cold NEON wash turn includes nine getError calls totaling13.6ms,
+composite drawSource5ms and cold target resolve3.9ms. These are inclusive
+host-visible timings, not GPU timers; nested span sums must not be added.
+Service setup1.24–1.30s is outside executor.advance. Responsiveness remains open.
+
+Compact private receipt: R52/soft-executor-device-receipt.json, with exact source
+snapshot, bundle/body/fixture hashes, per-turn top calls and cleanup. Both own child/context and forward19236 were removed, all three original tabs
+retain their IDs/URLs, parent restored, job marker removed. No frontend/backend,
+service, dependency or disk bundle was created. This proves the isolated native
+basis executor path, not active UI/author compilation or native GUI whole-stroke
+identity.
