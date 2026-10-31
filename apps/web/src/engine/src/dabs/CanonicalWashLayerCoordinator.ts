@@ -1,7 +1,7 @@
 import { CANONICAL_STROKE_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { PaintTarget } from '../buffers/ILayerBuffer'
-import type { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
+import type { TiledLayerBuffer,PreparedLayerTargets } from '../buffers/TiledLayerBuffer'
 import type { WorldRect } from '../buffers/tileMath'
 import { runBrushGlBatch, runBrushGlTurn } from './BrushGlBatch'
 import { bindCanonicalLayerTargets } from './CanonicalLayerTargets'
@@ -34,6 +34,8 @@ interface Entry {
   tile: number
   part: number
   committingBuffer?: AccumulationBuffer
+  targetPlan?:PreparedLayerTargets
+  commitTarget?:PaintTarget
 }
 interface Position {
   readonly x: number; readonly y: number; readonly width: number; readonly height: number
@@ -51,6 +53,10 @@ interface PresentationWork {
   stableBuffer?: AccumulationBuffer
   stableTexture?: WebGLTexture
   bounds: WorldRect
+  stablePlan?:PreparedLayerTargets
+  derivedPlan?:PreparedLayerTargets
+  stableTarget?:PaintTarget
+  derivedTarget?:PaintTarget
 }
 const rect = (p: Position): WorldRect => ({ minX: p.x, minY: p.y, maxX: p.x + p.width, maxY: p.y + p.height })
 const key = (p: Position) => `${p.x}:${p.y}`
@@ -123,7 +129,7 @@ export class CanonicalWashLayerCoordinator {
         if (!this.positions.has(key(p))) fresh.set(key(p), p)
       }
     }
-    let candidate: CanonicalFrameExecutor | undefined
+    let candidate: CanonicalFrameExecutor | undefined,publishCandidate:(()=>void)|undefined
     let releaseGpu: (() => void) | undefined, releaseCpu: (() => void) | undefined, releaseEntry: (() => void) | undefined
     try {
       if (fresh.size) {
@@ -132,20 +138,22 @@ export class CanonicalWashLayerCoordinator {
       }
       if (!entry) {
         releaseEntry = this.options.prepass.brushGlBatchInfo().cpu.reserve(1024)
+        let published=false;publishCandidate=()=>{published=true}
         const executor = candidate = new CanonicalFrameExecutor({ ...this.options, ...this.options.source(input.gestureId), washMode: 'deposition-only',
-          changed: (_id, bounds) => this.invalidate(bounds), poison: (_id, reason) => this.notifyPoison(reason) })
+          changed: (_id, bounds) => this.invalidate(bounds), // The lane retires ALL storage pins before external poison/undo.
+          poison: () => {if(published)this.failed=true} })
         entry = { id: input.gestureId, firstSequence: recordedSequence, executor, opacity: input.composition.outerResourceOpacity, blend: input.composition.outerBlend,
           committed: false, tile: 0, part: 0, releaseMetadata: releaseEntry }
       }
       entry.executor.enqueue(input)
     } catch (error) {
-      if (candidate) this.clean(() => candidate!.cancel(error, { lost: this.options.prepass.brushGlBatchInfo().gl.isContextLost() }))
+      if (candidate) this.clean(() => candidate!.cancel(error, { lost: this.cleanupContextLost() }))
       if (releaseGpu) this.clean(releaseGpu)
       if (releaseCpu) this.clean(releaseCpu)
       if (releaseEntry) this.clean(releaseEntry)
       throw error
     }
-    if (releaseEntry) this.entries.push(entry!)
+    if (releaseEntry) {this.entries.push(entry!);publishCandidate!()}
     if (releaseGpu) { const gpu = releaseGpu, cpu = releaseCpu!; this.reservations.push(() => { try { gpu() } finally { cpu() } }) }
     for (const [k, p] of fresh) this.positions.set(k, Object.freeze(p))
     this.queue.push(entry!); this.lastSequence = recordedSequence
@@ -153,7 +161,8 @@ export class CanonicalWashLayerCoordinator {
   }
 
   /** Exactly one existing deposition turn OR one <=8 draw rebase/commit turn.
-   * No leases, RAF, promise or automatic retry survive the synchronous return. */
+   * No draw leases or GL state survive the synchronous return. Metadata
+   * storage pins can span turns; no RAF, promise or automatic retry is created. */
   advance(): void {
     this.assertOpen(); this.busy = true
     try {
@@ -170,8 +179,8 @@ export class CanonicalWashLayerCoordinator {
       }
     } catch (error) {
       this.failed = true
+      this.releaseAll(this.cleanupContextLost())
       this.clean(() => this.notifyPoison(error))
-      this.releaseAll(this.options.prepass.brushGlBatchInfo().gl.isContextLost())
       throw error
     } finally { this.busy = false }
   }
@@ -190,12 +199,14 @@ export class CanonicalWashLayerCoordinator {
     }
     this.revision++
     for(const [k,b]of updates){const old=this.dirty.get(k);this.dirty.set(k,old?{minX:Math.min(old.minX,b.minX),minY:Math.min(old.minY,b.minY),maxX:Math.max(old.maxX,b.maxX),maxY:Math.max(old.maxY,b.maxY)}:b)}
-    this.work = undefined
+    const previous=this.work;this.work=undefined
+    this.closePresentationPlans(previous)
   }
   private locals(entry: Entry): readonly CanonicalWashLocalTile[] { return entry.ownership?.tiles ?? (entry.committed ? [] : entry.executor.rawWashTiles()) }
-  private resolve(layer: TiledLayerBuffer, p: Position): PaintTarget {
-    const target = layer.resolveForPaint(rect(p)).find(t => t.originX === p.x && t.originY === p.y)
-    if (!target || target.buffer.width !== p.width || target.buffer.height !== p.height) throw new Error('Canonical wash target geometry changed')
+  private target(plan:PreparedLayerTargets,p:Position):PaintTarget {
+    if(plan.length!==1)throw new Error('Canonical wash target geometry changed')
+    const target=plan.take(0)
+    if(target.originX!==p.x||target.originY!==p.y||target.buffer.width!==p.width||target.buffer.height!==p.height)throw new Error('Canonical wash target geometry changed')
     return target
   }
   private part(view: CanonicalRgba8SourceView, part: number, bounds?: Readonly<WorldRect>): { view: CanonicalRgba8SourceView; count: number } {
@@ -214,10 +225,21 @@ export class CanonicalWashLayerCoordinator {
 
   private commit(entry: Entry, turnStarted: number): void {
     const tiles = entry.ownership!.tiles
+    if(entry.tile<tiles.length){
+      const tile=tiles[entry.tile]
+      entry.targetPlan??=this.stable.preparePaintTargetRects([rect(tile)])
+      if(!entry.commitTarget){
+        runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{
+          const gl=this.options.prepass.brushGlBatchInfo().gl;gl.activeTexture(gl.TEXTURE0)
+          entry.commitTarget=this.target(entry.targetPlan!,tile)
+        })
+        return
+      }
+    }
     if (entry.tile < tiles.length) runBrushGlTurn({ participants: [this.options.prepass, this.options.composite] }, turn => {
       const gl=this.options.prepass.brushGlBatchInfo().gl
       gl.activeTexture(gl.TEXTURE0)
-      const tile = tiles[entry.tile], target = this.resolve(this.stable, tile)
+      const tile = tiles[entry.tile], target = this.target(entry.targetPlan!,tile)
       if (entry.committingBuffer && entry.committingBuffer !== target.buffer) throw new Error('Partially committed canonical target was replaced; rebuild required')
       const bound = bindCanonicalLayerTargets(this.stable, [target])[0]
       if(tile.view.residency.kind!=='external')throw new Error('Raw wash must have explicit ownership')
@@ -229,7 +251,7 @@ export class CanonicalWashLayerCoordinator {
           this.options.composite.drawSource({ source: { kind: 'straightRgba8', view: part.view }, target: bound, operation: canonicalWashOuterOperation(this.options.rasterProfile, entry.blend, entry.opacity), writeBounds: this.options.pageBounds ?? undefined }, frame)
           entry.committingBuffer = target.buffer; entry.part++
           this.stable.markContentPainted(rect(tile))
-          if(entry.part===part.count){entry.part=0;entry.tile++;entry.committingBuffer=undefined;break}
+          if(entry.part===part.count){this.closeCommitPlan(entry);entry.part=0;entry.tile++;entry.committingBuffer=undefined;break}
           if(frame.shouldYield||performance.now()-turnStarted>=4)break
         }
       })
@@ -249,12 +271,25 @@ export class CanonicalWashLayerCoordinator {
     if (k === undefined) return
     this.work ??= { position: this.positions.get(k)!, revision: this.revision, stage: -1, part: 0, bounds: { ...this.dirty.get(k)! } }
     const work = this.work, p = work.position
+    if(!work.stablePlan){
+      const stable=this.stable.preparePaintTargetRects([rect(p)])
+      try{work.derivedPlan=this.derived.preparePaintTargetRects([rect(p)]);work.stablePlan=stable}
+      catch(primary){try{stable.close()}catch{/* Preserve admission failure. */}throw primary}
+    }
+    if(!work.stableTarget||!work.derivedTarget){
+      runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{
+        const gl=this.options.prepass.brushGlBatchInfo().gl;gl.activeTexture(gl.TEXTURE0)
+        if(!work.stableTarget)work.stableTarget=this.target(work.stablePlan!,p)
+        else work.derivedTarget=this.target(work.derivedPlan!,p)
+      })
+      return
+    }
     runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},turn=>{
       const gl=this.options.prepass.brushGlBatchInfo().gl
       gl.activeTexture(gl.TEXTURE0)
       // Resolve while preserving the caller's complete GL state. Each actual
       // layer binding is retained only inside this one synchronous capsule.
-      const target = this.resolve(this.derived, p), stable = this.resolve(this.stable, p)
+      const target = this.target(work.derivedPlan!,p), stable = this.target(work.stablePlan!,p)
       const bound = bindCanonicalLayerTargets(this.derived, [target])[0], base = bindCanonicalLayerTargets(this.stable, [stable])[0]
       const initialized=p.presentation!
       if(work.buffer ? work.buffer!==target.buffer || work.texture!==target.buffer.texture || work.stableBuffer!==stable.buffer || work.stableTexture!==stable.buffer.texture
@@ -292,6 +327,7 @@ export class CanonicalWashLayerCoordinator {
     })
     if (work.stage === this.entries.length) {
       Object.assign(p.presentation!,{stable:work.stableBuffer,derived:work.buffer,stableTexture:work.stableTexture,derivedTexture:work.texture})
+      this.closePresentationPlans(work)
       this.dirty.delete(k); this.work = undefined; this.options.changed(this.options.layerId)
     }
   }
@@ -307,8 +343,25 @@ export class CanonicalWashLayerCoordinator {
     if (a.buffer !== this.stable || a.epoch !== this.options.layerEpoch || b.buffer !== this.derived || b.epoch !== this.derivedEpoch) throw new Error('Canonical wash layer epoch changed')
   }
   private notifyPoison(reason: unknown): void { this.failed = true; this.options.poison(this.options.layerId, reason) }
+  /** Cleanup status is advisory; a probe failure must not strand owners or
+   * replace the primary error. Explicit lost:true admission still proves loss. */
+  private cleanupContextLost():boolean {
+    try{return this.options.prepass.brushGlBatchInfo().gl.isContextLost()}catch(error){this.errors.push(error);return false}
+  }
   private clean(action: () => void): void { try { action() } catch (error) { this.errors.push(error) } }
+  private closePresentationPlans(work?:PresentationWork):void {
+    if(!work)return
+    const plans=[work.stablePlan,work.derivedPlan];work.stablePlan=undefined;work.derivedPlan=undefined;work.stableTarget=undefined;work.derivedTarget=undefined
+    let failed=false,failure:unknown
+    for(const plan of plans)try{plan?.close()}catch(error){if(!failed){failed=true;failure=error}}
+    if(failed)throw failure
+  }
+  private closeCommitPlan(entry:Entry):void {
+    const plan=entry.targetPlan;entry.targetPlan=undefined;entry.commitTarget=undefined;plan?.close()
+  }
   private releaseAll(lost: boolean): void {
+    this.clean(()=>this.closePresentationPlans(this.work))
+    for(const entry of this.entries)this.clean(()=>this.closeCommitPlan(entry))
     this.queue.length = 0; this.dirty.clear(); this.work = undefined; this.positions.clear()
     for (const e of this.entries) {
       if (e.ownership) { const owned = e.ownership; e.ownership = undefined; this.clean(() => owned.release({ lost })) }
@@ -323,6 +376,6 @@ export class CanonicalWashLayerCoordinator {
     if (options.lost && !this.options.prepass.brushGlBatchInfo().gl.isContextLost()) throw new Error('Cannot forget canonical wash on live context')
     if (this.closed) return
     this.closed = true; this.failed = true
-    this.clean(() => this.notifyPoison(reason)); this.releaseAll(options.lost ?? this.options.prepass.brushGlBatchInfo().gl.isContextLost())
+    this.releaseAll(options.lost ?? this.cleanupContextLost());this.clean(() => this.notifyPoison(reason))
   }
 }
