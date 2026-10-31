@@ -39,3 +39,8 @@ expected tests-first send-API errors. SW was not run by that failed && command.
 Final joint app/SW gate remains pending the sibling unit freeze; no whole-tree
 PASS is claimed for this checkpoint. Logs: R52/image-cas-b2a-{red,verified-tests,
 final-callback-red,final-web-tsc}.log.
+
+Checkpoint follow-up: root joint56674 TERMINALPASS app+SW+server includes committed
+B2a803e71a5b. Subsequent app+SW42081 PASS also includes B2b original-ingress pairing
+and sibling workspace/window units. The earlier pending/failed runs above remain
+recorded as history; the shared/native numerical and old V1 contracts are unchanged.
