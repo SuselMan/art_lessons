@@ -123,3 +123,16 @@ it('rechecks caller availability before joining a matching run created during ca
  const outer=worker.run([()=>{throw Error('outer job')}],{},()=>current,'new')
  await expect(old).resolves.toEqual({status:'cancelled'});tick();await expect(outer).resolves.toEqual({status:'cancelled'});await expect(newer).resolves.toEqual({status:'ready'});expect(newJob).toHaveBeenCalledOnce()
 })
+
+it('reports replacement safety from only the existing active key without running work or observers',async()=>{
+ const worker=new BrushPreparation(),job=vi.fn(),progress=vi.fn(),finish=vi.fn()
+ expect(worker.canRunWithoutReplacing()).toBe(true);expect(worker.canRunWithoutReplacing('a')).toBe(true)
+ const anonymous=worker.run([job],{onProgress:progress},()=>true,undefined,finish)
+ for(let n=0;n<3;n++){expect(worker.canRunWithoutReplacing()).toBe(false);expect(worker.canRunWithoutReplacing('a')).toBe(false)}
+ expect(job).not.toHaveBeenCalled();expect(progress).not.toHaveBeenCalled();expect(finish).not.toHaveBeenCalled();expect(frames.size).toBe(1)
+ worker.cancel();await expect(anonymous).resolves.toEqual({status:'cancelled'});expect(worker.canRunWithoutReplacing()).toBe(true)
+ const keyed=worker.run([job],{onProgress:progress},()=>true,'a',finish)
+ expect(worker.canRunWithoutReplacing('a')).toBe(true);expect(worker.canRunWithoutReplacing('b')).toBe(false);expect(worker.canRunWithoutReplacing()).toBe(false)
+ expect(job).not.toHaveBeenCalled();expect(progress).not.toHaveBeenCalled();expect(finish).toHaveBeenCalledOnce();tick();await expect(keyed).resolves.toEqual({status:'ready'})
+ expect(worker.canRunWithoutReplacing()).toBe(true);expect(worker.canRunWithoutReplacing('b')).toBe(true);expect(job).toHaveBeenCalledOnce();expect(progress).toHaveBeenCalledOnce();expect(finish).toHaveBeenCalledTimes(2)
+})

@@ -161,6 +161,8 @@ const cancelledPreparation: BrushPreparationOutcome = { result: { status: 'cance
  */
 export class BrushPreparation {
   private active?: PreparationRun
+  /** Read-only scheduling hint, not a reservation or execution grant. */
+  canRunWithoutReplacing(key?: string): boolean { return !this.active || key !== undefined && this.active.key === key }
   cancel(): void { this.active?.finish(cancelledPreparation) }
 
   private subscribe(run: PreparationRun, options: BrushPreparationOptions): Promise<BrushPreparationResult> {
