@@ -1,7 +1,8 @@
 import type { JoinDenial, RoomJoinRequest } from '@grafetto/shared'
 
 import { prisma } from '../db/prisma.js'
-import { checkRoomPassword, getRoomGate } from './rooms.js'
+import { canSeeResidentBoard } from './classroom.js'
+import { checkRoomPassword, getRoomGate,prepareRoomJoin,type JoinRoomOutcome } from './rooms.js'
 
 /** The join gate (#225, release track #314 §6) — the single place that decides
  *  whether someone may enter a room at all. `rooms.ts`'s `joinRoom` seats
@@ -29,6 +30,38 @@ import { checkRoomPassword, getRoomGate } from './rooms.js'
 export type JoinAccessResult =
   | { ok: true }
   | { ok: false; error: JoinDenial; queued?: RoomJoinRequest }
+
+const joinReadAuthority:unique symbol=Symbol('prepared-authorized-join-read')
+export interface PreparedAuthorizedJoin {
+ readonly roomId:string;readonly userId:string;readonly socketId:string
+ readonly [joinReadAuthority]:(candidate:unknown,roomId:string,userId:string)=>void
+ assertCurrent():void
+ commit():JoinRoomOutcome
+}
+/** Opaque lexical proof of the SAME join decision, not a caller ok:true echo. */
+export function assertPreparedAuthorizedJoinRead(value:unknown,roomId:string,userId:string):asserts value is PreparedAuthorizedJoin {
+ if(!value||typeof value!=='object')throw Error('Authorized join read preparation unavailable')
+ const proof=(value as PreparedAuthorizedJoin)[joinReadAuthority]
+ if(typeof proof!=='function')throw Error('Authorized join read preparation unavailable')
+ proof(value,roomId,userId)
+}
+/** No membership/seat write before commit. checkJoinAccess retains its existing
+ * denial/request side effects and remains the sole block/password/invite law. */
+export async function prepareAuthorizedJoin(roomId:string,userId:string,name:string,password:string|undefined,socketId:string,isCurrent:()=>boolean):Promise<Exclude<JoinAccessResult,{ok:true}>|{ok:true;preparation:PreparedAuthorizedJoin}> {
+ let seat:ReturnType<typeof prepareRoomJoin>
+ try{if(!isCurrent())return {ok:false,error:'server_busy'};seat=prepareRoomJoin(roomId,userId,name,socketId,isCurrent)}catch{return {ok:false,error:'not_found'}}
+ const access=await checkJoinAccess(roomId,userId,name,password)
+ if(!isCurrent())return {ok:false,error:'server_busy'}
+ if(!access.ok)return access
+ try{seat.assertCurrent()}catch{return {ok:false,error:'server_busy'}}
+ if(!canSeeResidentBoard(roomId,userId))return {ok:false,error:'board_not_visible'}
+ const assertCurrent=()=>{seat.assertCurrent();if(!canSeeResidentBoard(roomId,userId))throw Error('Stale authorized join visibility')}
+ const preparation:PreparedAuthorizedJoin=Object.freeze({roomId,userId,socketId,
+  assertCurrent(this:PreparedAuthorizedJoin){if(this!==preparation)throw Error('Foreign authorized join receiver');assertCurrent()},
+  commit(this:PreparedAuthorizedJoin){if(this!==preparation)throw Error('Foreign authorized join receiver');assertCurrent();return seat.commit()},
+  [joinReadAuthority]:(candidate:unknown,room:string,user:string)=>{if(candidate!==preparation||room!==roomId||user!==userId)throw Error('Authorized join read identity mismatch');assertCurrent()}})
+ return {ok:true,preparation}
+}
 
 /** Decides whether `userId` may join `roomId`, and — in the one case where
  *  the answer is "ask the owner" — records the request as a side effect.

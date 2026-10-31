@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { checkJoinAccess } from './roomAccess.js'
+import { checkJoinAccess,prepareAuthorizedJoin,assertPreparedAuthorizedJoinRead } from './roomAccess.js'
 
 // The gate reads Postgres and the live room record. Prisma is mocked (same
 // pattern as the route tests); the room record is real — `createRoom` from
@@ -23,6 +23,7 @@ const mockPrisma = vi.hoisted(() => ({
 vi.mock('../db/prisma.js', () => ({ prisma: mockPrisma }))
 
 const { _flushPendingWrites, createRoom } = await import('./rooms.js')
+const { rooms } = await import('./roomRegistry.js')
 const { ensureRoomLoaded } = await import('./roomLoader.js')
 const { setRoomAccessMode } = await import('./ownerControls.js')
 
@@ -290,4 +291,46 @@ describe('checkJoinAccess — a board resolves to its lesson (#176)', () => {
     mockPrisma.roomInvite.findUnique.mockResolvedValue({ id: 'invite-1' })
     expect(await checkJoinAccess(boardId, 'student', 'Alice', undefined)).toEqual({ ok: true })
   })
+})
+
+describe('authorized join lexical preparation without seat/membership side effects',()=>{
+ it('admits through the real gate but writes membership and seats only on one exact commit',async()=>{
+  const id=makeRoom({password:'test-password'});await _flushPendingWrites(id);mockPrisma.roomParticipant.upsert.mockClear()
+  const record=rooms.get(id)!,sockets=[...record.sockets]
+  const access=await prepareAuthorizedJoin(id,'student','Alice','test-password','prepared-socket',()=>true)
+  if(!access.ok)throw Error(access.error)
+  assertPreparedAuthorizedJoinRead(access.preparation,id,'student')
+  await _flushPendingWrites(id)
+  expect(mockPrisma.roomParticipant.upsert).not.toHaveBeenCalled();expect([...record.sockets]).toEqual(sockets);expect(record.participants.has('student')).toBe(false)
+  expect(()=>assertPreparedAuthorizedJoinRead({ok:true,roomId:id,userId:'student',assertCurrent:()=>{}},id,'student')).toThrow('unavailable')
+  expect(()=>assertPreparedAuthorizedJoinRead({...access.preparation},id,'student')).toThrow('identity')
+  expect(()=>assertPreparedAuthorizedJoinRead({...access.preparation,roomId:'other'},'other','student')).toThrow('identity')
+  expect(()=>assertPreparedAuthorizedJoinRead(Object.assign({},access.preparation,{userId:'other'}),id,'other')).toThrow('identity')
+  expect(()=>Reflect.apply(access.preparation.commit,{},[])).toThrow('receiver')
+  expect(()=>Reflect.apply(access.preparation.assertCurrent,null,[])).toThrow('receiver')
+  expect(access.preparation.commit().ok).toBe(true);await _flushPendingWrites(id)
+  expect(mockPrisma.roomParticipant.upsert).toHaveBeenCalledTimes(1);expect(record.sockets.has('prepared-socket')).toBe(true)
+  expect(()=>access.preparation.commit()).toThrow('Stale');expect(()=>assertPreparedAuthorizedJoinRead(access.preparation,id,'student')).toThrow('Stale')
+ })
+ it('rejects stale same-target A before B commits without any seat compensation',async()=>{
+  const id=makeRoom();await _flushPendingWrites(id);mockPrisma.roomParticipant.upsert.mockClear();let generation=1
+  const a=await prepareAuthorizedJoin(id,'student','Alice',undefined,'same-socket',()=>generation===1);if(!a.ok)throw Error(a.error)
+  generation=2;const b=await prepareAuthorizedJoin(id,'student','Alice',undefined,'same-socket',()=>generation===2);if(!b.ok)throw Error(b.error)
+  expect(()=>a.preparation.commit()).toThrow('Stale');expect(rooms.get(id)!.participants.has('student')).toBe(false)
+  expect(b.preparation.commit().ok).toBe(true);await _flushPendingWrites(id);expect(mockPrisma.roomParticipant.upsert).toHaveBeenCalledTimes(1)
+ })
+ it('refuses policy changes across gate awaits without persisting failed participation',async()=>{
+  const id=makeRoom();await _flushPendingWrites(id);mockPrisma.roomParticipant.upsert.mockClear()
+  const pending=prepareAuthorizedJoin(id,'teacher','Teacher',undefined,'new-owner-socket',()=>true)
+  rooms.get(id)!.passwordHash='changed-private-test-policy'
+  await expect(pending).resolves.toEqual({ok:false,error:'server_busy'});expect(mockPrisma.roomParticipant.upsert).not.toHaveBeenCalled()
+ })
+ it('rechecks board visibility and actual board identity before commit',async()=>{
+  const lesson=makeRoom(),board=await makeBoard(lesson);await _flushPendingWrites(lesson)
+  const access=await prepareAuthorizedJoin(board,'student','Alice',undefined,'visibility-socket',()=>true);if(!access.ok)throw Error(access.error)
+  rooms.get(board)!.room.boardOwnerId='other';rooms.get(lesson)!.room.classVisibility='teacher_only'
+  expect(()=>access.preparation.commit()).toThrow('Stale');expect(rooms.get(board)!.sockets.has('visibility-socket')).toBe(false)
+  const changed=await prepareAuthorizedJoin(lesson,'student','Alice',undefined,'replacement-socket',()=>true);if(!changed.ok)throw Error(changed.error)
+  rooms.set(lesson,{...rooms.get(lesson)!});expect(()=>changed.preparation.commit()).toThrow('Stale')
+ })
 })

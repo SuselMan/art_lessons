@@ -286,6 +286,25 @@ export function hashRoomPassword(password: string): string {
  *  particular this function must not re-check the password, since an owner is
  *  admitted to their own room without one. Callers reaching this without
  *  passing the gate first are letting anyone in. */
+/** Capture existing join ownership without seating or persisting membership.
+ * Authorization remains roomAccess's decision; commit is used only by its
+ * prepared wrapper. Private password policy never leaves this closure. */
+export function prepareRoomJoin(roomId:string,userId:string,name:string,socketId:string,isCurrent:()=>boolean):{assertCurrent:()=>void;commit:()=>JoinRoomOutcome} {
+  const record=rooms.get(roomId)
+  if(!record)throw Error('Join preparation room unavailable')
+  const lesson=lessonRecordOf(record),key=participantKey(lesson.room.id,userId)
+  const previousBoard=boardOfSocket.get(socketId),previousSocket=currentSocketForParticipant.get(key)
+  const policy={passwordHash:lesson.passwordHash,ownerId:lesson.room.ownerId,accessMode:lesson.room.accessMode,
+    visibility:lesson.room.classVisibility,spotlight:lesson.spotlightBoardId,boardOwner:record.room.boardOwnerId,raster:record.room.rasterVersion}
+  let used=false
+  const assertCurrent=()=>{
+    if(used||!isCurrent()||rooms.get(roomId)!==record||lessonRecordOf(record)!==lesson||boardOfSocket.get(socketId)!==previousBoard||currentSocketForParticipant.get(key)!==previousSocket
+      ||lesson.passwordHash!==policy.passwordHash||lesson.room.ownerId!==policy.ownerId||lesson.room.accessMode!==policy.accessMode
+      ||lesson.room.classVisibility!==policy.visibility||lesson.spotlightBoardId!==policy.spotlight||record.room.boardOwnerId!==policy.boardOwner||record.room.rasterVersion!==policy.raster)throw Error('Stale authorized join preparation')
+  }
+  return Object.freeze({assertCurrent,commit:()=>{assertCurrent();used=true;return joinRoom(roomId,userId,name,socketId,true)}})
+}
+
 export function joinRoom(
   roomId: string, userId: string, name: string, socketId: string, freshlyAuthorized = false,
 ): JoinRoomOutcome {

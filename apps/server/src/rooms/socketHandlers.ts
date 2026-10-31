@@ -6,10 +6,10 @@ import { hasRequiredOperationBrushContext, pinOperationBrush } from '../brushLib
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@grafetto/shared'
-import { canonicalStrokeStorage, hasValidBrushRandomContext, isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
+import { canonicalStrokeStorage, hasValidBrushRandomContext, isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, STRAIGHT_ROOM_RASTER_VERSION, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import {
-  abortAssignmentStart, beginAssignmentStart, canSeeLessonBoard, canSeeResidentBoard, getClassroom, getLessonStateFor,
+  abortAssignmentStart, beginAssignmentStart, canSeeLessonBoard, getClassroom, getLessonStateFor,
   noteAssignmentStarted, noteBoardCreated, personalBoardIn, setActiveBoard, setClassLocation, setClassVisibility,
   setHandRaised, setSpotlight,
 } from './classroom.js'
@@ -25,7 +25,7 @@ import {
   releaseLockOnUndo, setLayerLocked, setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen, setRoomTools,
 } from './ownerControls.js'
 import { createAssignment, createPersonalBoard } from './classMode.js'
-import { checkJoinAccess } from './roomAccess.js'
+import { prepareAuthorizedJoin } from './roomAccess.js'
 import { resolveSocketIdentity } from '../auth/identity.js'
 import { isBanned, isIpBanned } from '../auth/bans.js'
 import { handshakeIp, recordSighting } from '../auth/sessions.js'
@@ -306,6 +306,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
   })
 
   io.on('connection', (socket) => {
+    let joinGeneration = 0
     // Bounded ordering across canonical begin/live/recorded on this socket.
     // DB preflight may await; the mutation section itself never does.
     let canonicalPending = 0, canonicalTail = Promise.resolve()
@@ -357,6 +358,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // same as `join_room` — it used to not, and the owner was labelled
     // "Teacher" here as a result.
     socket.on('create_room', async ({ room, password, name, accessMode, lastKnownSeq }, ack) => {
+      const generation = ++joinGeneration
       const userId = socket.data.userId!
       // Same reload-safety as join_room below: the creator's own tab can
       // legitimately emit create_room again for a room that already exists
@@ -379,6 +381,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         ack({ ok: false, error: 'unsupported_raster_version' }); return
       }
       await ensureRoomLoaded(room.id)
+      if (generation !== joinGeneration || !socket.connected) { ack({ ok: false, error: 'server_busy' }); return }
       // No one else is in the room yet, so there's no peer_joined broadcast
       // to make — unlike join_room below, the returned participant is unused.
       // Same defensive trim/fallback `join_room` gets from the gate's own
@@ -416,7 +419,10 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     })
 
     socket.on('join_room', async ({ roomId, name, password, lastKnownSeq }, ack) => {
+      const generation = ++joinGeneration
       const userId = socket.data.userId!
+      const startingRoom = socket.data.roomId, startingLesson = socket.data.lessonId
+      const isCurrent = () => generation === joinGeneration && socket.connected && socket.data.userId === userId && socket.data.roomId === startingRoom && socket.data.lessonId === startingLesson
       // (#415) Единственная проверка, стоящая *перед* загрузкой, а не после:
       // всё остальное решает, можно ли этому человеку в эту комнату, а это —
       // выдержит ли коробка саму загрузку. Порядок обязателен, гейт после
@@ -443,7 +449,8 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       // having come through it first. The `await` sits before `socket.join`
       // and the snapshot emit, leaving #36's ordering guarantee (those two
       // happen with no yield between them) exactly as it was.
-      const access = await checkJoinAccess(roomId, userId, displayName, password)
+      const access = await prepareAuthorizedJoin(roomId, userId, displayName, password, socket.id, isCurrent)
+      if (!isCurrent()) { ack({ ok: false, error: 'server_busy' }); return }
       if (!access.ok) {
         // (#227) Someone just joined the queue — tell the owner, wherever they
         // are, before releasing the room. Emitted to their own channel rather
@@ -468,27 +475,26 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         return
       }
 
-      // (#595, ADR 015 §3) Being let into the lesson is not being let onto
-      // every board of it: a classmate's personal board is theirs and the
-      // teacher's unless the lesson shows work to the class. After the lesson
-      // gate, so the answer is only ever given to someone who is in.
-      if (!canSeeResidentBoard(roomId, userId)) {
-        releaseRoomIfUnused(roomId)
-        log.info({ socketId: socket.id, roomId, userId }, 'join_room refused — personal board not visible')
-        ack({ ok: false, error: 'board_not_visible' })
-        return
-      }
-
       let replay
+      let readDelivery: Awaited<ReturnType<CanonicalRoomTransport['prepareJoinReadDelivery']>> | undefined
+      let readFields: ReturnType<NonNullable<typeof readDelivery>['finish']> | undefined
       try {
         replay = await prepareSnapshotReplay(roomId)
+        if (rooms.get(roomId)?.room.rasterVersion === STRAIGHT_ROOM_RASTER_VERSION) {
+          readDelivery = await canonicalTransport.prepareJoinReadDelivery(access.preparation, isCurrent)
+        }
+        access.preparation.assertCurrent()
+        const candidate = getRoomSnapshot(roomId, lastKnownSeq, userId, replay)
+        if (!candidate) throw Error('Join snapshot unavailable')
+        readFields = readDelivery?.finish(candidate.tailOperations)
+        access.preparation.assertCurrent()
       } catch (err) {
-        releaseRoomIfUnused(roomId)
+        if (isCurrent()) releaseRoomIfUnused(roomId)
         log.error({ err, roomId, socketId: socket.id }, 'join_room snapshot dependency preparation failed')
         ack({ ok: false, error: 'server_busy' })
         return
       }
-      const result = joinRoom(roomId, userId, displayName, socket.id, true)
+      const result = access.preparation.commit()
       if (!result.ok) {
         releaseRoomIfUnused(roomId)
         log.info({ socketId: socket.id, roomId, error: result.error }, 'join_room rejected')
@@ -535,7 +541,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       socket.join(roomId)
       socket.join(lessonChannel(lessonId))
       const snapshot = getRoomSnapshot(roomId, lastKnownSeq, userId, replay)
-      if (snapshot) socket.emit('room_state', snapshot)
+      if (snapshot) socket.emit('room_state', { ...snapshot, ...readFields })
       // (#176) Someone the lesson already had, now on a different board, is
       // announced as having moved; everyone else — first join or a reconnect
       // to the same board — as having joined, exactly as before.
@@ -949,6 +955,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     })
 
     socket.on('disconnect', (reason) => {
+      joinGeneration++
       const { roomId, userId, lessonId } = socket.data
       if (roomId && userId) {
         // #164: leaveRoom returns false for a stale/superseded socket (a

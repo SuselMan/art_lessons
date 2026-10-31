@@ -862,7 +862,7 @@ describe('canonical begin/live/recorded actual socket authority (straight creati
       const prefix = frames.map((frame, i): CanonicalStrokeOperation => ({ type: 'canonical_stroke', id: fresh('persisted'), userId: 'teacher', timestamp: 0, layerId: c.begin.layerId, frame, seq: i + 1 }))
       rooms.set(c.lessonId, { ...c.record, operations: [], operationsById: new Map(), nextSeq: 3 })
       mockPrisma.operation.count.mockResolvedValue(2)
-      mockPrisma.operation.findMany.mockResolvedValue([...prefix].reverse().map(data => ({ data })))
+      mockPrisma.operation.findMany.mockResolvedValue([...prefix].reverse().map(data => ({ id: data.id, roomId: c.lessonId, userId: data.userId, seq: data.seq, type: data.type, layerId: data.layerId, tool: null, data })))
       const replay = await new Promise<CanonicalStrokeBeginResult>(resolve => c.teacher.emit('canonical_stroke_begin', c.begin, resolve))
       expect(replay).toMatchObject({ ok: true, recordedNext: 2, liveNext: 2, ended: true })
       mockPrisma.operation.findUnique.mockResolvedValue({ id: prefix[0].id, roomId: c.lessonId, userId: 'teacher', seq: 1, type: 'canonical_stroke', layerId: c.begin.layerId, tool: null, data: prefix[0] })
@@ -965,6 +965,7 @@ it('attaches V2 recorded capability atomically to the real peer confirmation onl
   const response=await new Promise<CanonicalStrokeBeginResult>(resolve=>c.teacher.emit('canonical_stroke_begin',begin,resolve))
   if(!response.ok||!('materialVersion' in response.snapshot))throw Error('Expected V2 BEGIN')
   const s=response.snapshot,materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[{at:0,kind:'gestureEnd'}]},s.material).packed
+  if(s.rasterProfile!==CANONICAL_STROKE_RASTER_PROFILE)throw Error('Expected legacy raster profile in this fixture')
   const op:CanonicalStrokeOperation={type:'canonical_stroke',id:fresh('auto-cap'),userId:'teacher',timestamp:0,layerId:begin.layerId,frame:{version:1,rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked}}
   await _flushPendingWrites(c.lessonId)
   let release!:()=>void;const write=new Promise<void>(resolve=>{release=resolve});mockPrisma.operation.create.mockReturnValueOnce(write)
@@ -978,4 +979,37 @@ it('attaches V2 recorded capability atomically to the real peer confirmation onl
   expect(event.operation.frame.materialPacked).toBe(materialPacked)
   expect(prepareCanonicalRecordedAttachment(event.canonicalCapabilities,[event.operation],{roomId:c.lessonId,boardEpoch:s.boardEpoch})).toHaveLength(1)
  }finally{c.cleanup()}
+})
+
+describe('join preparation is committed only by the current socket request',()=>{
+ it('keeps seating and channels unchanged while A awaits; newer same-target B wins before A resumes',async()=>{
+  const {lessonId,boardId,student}=await classroom()
+  await _flushPendingWrites(lessonId);mockPrisma.roomParticipant.upsert.mockClear()
+  let release!:(value:null)=>void
+  let entered!:()=>void
+  const blocked=new Promise<void>(resolve=>{entered=resolve})
+  mockPrisma.roomBlock.findUnique.mockImplementationOnce(()=>{entered();return new Promise(resolve=>{release=resolve})})
+  const states:string[]=[];student.on('room_state',s=>states.push(s.room.id))
+  const a=new Promise(resolve=>student.emit('join_room',{roomId:boardId,name:'A'},resolve))
+  await blocked
+  expect(rooms.get(lessonId)!.participants.get('student')!.boardId).toBe(lessonId)
+  expect(mockPrisma.roomParticipant.upsert).not.toHaveBeenCalled()
+  const b=new Promise(resolve=>student.emit('join_room',{roomId:boardId,name:'B'},resolve))
+  expect(await b).toMatchObject({ok:true})
+  release(null)
+  expect(await a).toEqual({ok:false,error:'server_busy'})
+  await _flushPendingWrites(lessonId)
+  expect(states).toEqual([boardId]);expect(rooms.get(lessonId)!.participants.get('student')!.name).toBe('B')
+  expect(mockPrisma.roomParticipant.upsert).toHaveBeenCalledTimes(1)
+ })
+})
+it('failed snapshot preflight keeps the original seat and writes no successful participation',async()=>{
+ const {lessonId,boardId,student}=await classroom()
+ await _flushPendingWrites(lessonId);mockPrisma.roomParticipant.upsert.mockClear()
+ mockPrisma.roomLayerSnapshot.findMany.mockRejectedValueOnce(Error('snapshot read unavailable'))
+ const states:string[]=[];student.on('room_state',s=>states.push(s.room.id))
+ const result=await new Promise(resolve=>student.emit('join_room',{roomId:boardId,name:'Failed'},resolve))
+ expect(result).toEqual({ok:false,error:'server_busy'})
+ expect(rooms.get(lessonId)!.participants.get('student')!.boardId).toBe(lessonId)
+ expect(mockPrisma.roomParticipant.upsert).not.toHaveBeenCalled();expect(states).toEqual([])
 })
