@@ -1,4 +1,7 @@
-import {beforeEach,expect,it} from 'vitest'
+import {beforeEach,expect,it,vi} from 'vitest'
+import basic6 from '../../engine/src/presets/fixtures/sourcePngWholePath/guiStroke.native.json'
+import mountains from '../../engine/src/presets/fixtures/sourceImagePipe/mountains.native.json'
+import graphite from '../../engine/src/presets/fixtures/sourceImagePipe/pencilRandom.native.json'
 import {CANONICAL_STROKE_RASTER_PROFILE as profile,isBrushLibrary,type ImportedBrush} from '@grafetto/shared'
 import stock from '../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
 import {canonicalToolAvailability,canonicalToolOffered} from './canonicalToolAvailability'
@@ -51,4 +54,43 @@ it('does not grant an unsupported brush or fall back to an older eligible versio
  const rejected:ImportedBrush={...supported,descriptor:{...supported.descriptor,version:supported.descriptor.version+1,behavior:{...behavior,erase:true}}}
  const result=canonicalToolAvailability(true,true,read,[supported,rejected])
  expect(result?.status).toBe('empty');expect(result?.options).toHaveLength(0)
+})
+
+function imageLibrary(){
+ const cases=[['Basic6',basic6,7.5],['Mountains',mountains,360],['Graphite',graphite,16]]as const
+ const assets=cases.flatMap(([,fixture])=>('asset'in fixture?[fixture.asset]:fixture.assets).map(a=>({id:a.id,size:a.size,file:a.id.slice(6)+'.bin'})))
+ const candidate:unknown={schemaVersion:1,brushes:cases.map(([name,fixture])=>({name,descriptor:fixture.descriptor,source:'original-native',warnings:[]})),assets,skipped:[]}
+ if(!isBrushLibrary(candidate))throw Error('Invalid original image library')
+ return{brushes:candidate.brushes,assets,cases}
+}
+it('offers actual original DATA1 Basic6 and ordered image pipes at the SAME admitted native sizes',()=>{
+ const {brushes,assets}=imageLibrary(),metadata=vi.fn((_preset:string)=>assets),ready=canonicalToolAvailability(true,true,read,brushes,metadata)
+ expect(ready?.status).toBe('ready');expect(ready?.options.map(o=>o.sizePx)).toEqual([7.5,360,16]);expect(metadata.mock.calls.map(c=>c[0])).toEqual(brushes.map(b=>'brush:'+b.descriptor.id+'@'+b.descriptor.version));expect(ready?.schema.size).toBeUndefined();expect(ready?.schema.sizeFromPressure).toBeUndefined();expect(TOOL_SCHEMAS.digitalBrush.size).toBeDefined()
+ if(!ready)throw Error('Missing ready image eligibility');useRoomStore.getState().normalizeCanonicalTool(ready.options);expect(useRoomStore.getState().toolSettings.digitalBrush.size).toBe(7.5)
+})
+it('denies image options on missing or ambiguous metadata without procedural fallback',()=>{
+ const {brushes,assets}=imageLibrary();expect(canonicalToolAvailability(true,true,read,brushes)?.options).toHaveLength(0)
+ expect(canonicalToolAvailability(true,true,read,brushes,()=>[])?.options).toHaveLength(0)
+ expect(canonicalToolAvailability(true,true,read,brushes,()=>[...assets,assets[0]])?.options).toHaveLength(0)
+})
+it('does not read image metadata while restoring, stale or room-disabled',()=>{
+ const {brushes,assets}=imageLibrary(),metadata=vi.fn((_preset:string)=>assets),stale={...read,assertCurrent:()=>{throw Error('stale')}}
+ for(const result of [canonicalToolAvailability(true,false,read,brushes,metadata),canonicalToolAvailability(true,true,stale,brushes,metadata)]){expect(result?.status).toBe('restoring');expect(result?.options).toHaveLength(0)}
+ expect(canonicalToolAvailability(true,true,read,[],metadata)?.status).toBe('empty');expect(metadata).not.toHaveBeenCalled();expect(canonicalToolAvailability(false,true,read,brushes,metadata)).toBeUndefined()
+})
+it('never falls back to older image version when newest original descriptor is unsupported',()=>{
+ const {brushes,assets}=imageLibrary(),supported=brushes[0],behavior=supported.descriptor.behavior;if(!behavior)throw Error('Missing original behavior')
+ const latest:ImportedBrush={...supported,descriptor:{...supported.descriptor,version:supported.descriptor.version+1,behavior:{...behavior,erase:true}}}
+ expect(canonicalToolAvailability(true,true,read,[supported,latest],()=>assets)?.options).toHaveLength(0)
+})
+
+it('keeps image pointer sensor admission strict and rejects asset-side mismatch/accessors',()=>{
+ const {brushes,assets}=imageLibrary(),original=brushes[0],stamp=original.descriptor.sourceStamp;if(!stamp)throw Error('Missing original image source')
+ const rejected:ImportedBrush={...original,descriptor:{...original.descriptor,sourceStamp:{...stamp,options:stamp.options.map(option=>option.id==='Rotation'?{...option,checked:true,sensors:option.sensors.map(sensor=>({...sensor,id:'tiltDirection' as const}))}:option)}}}
+ expect(canonicalToolAvailability(true,true,read,[rejected],()=>assets)?.options).toHaveLength(0)
+ const primary=assets.find(a=>a.id===original.descriptor.tip.mask);if(!primary)throw Error('Missing original primary')
+ expect(canonicalToolAvailability(true,true,read,[original],()=>[{...primary,size:128}])?.options).toHaveLength(0)
+ const invoked=vi.fn(),metadata={get id(){invoked();return primary.id},size:primary.size}
+ expect(canonicalToolAvailability(true,true,read,[original],()=>[metadata])?.options).toHaveLength(0);expect(invoked).not.toHaveBeenCalled()
+ expect(canonicalToolAvailability(true,true,read,[original],()=>{throw Error('metadata unavailable')})?.options).toHaveLength(0)
 })

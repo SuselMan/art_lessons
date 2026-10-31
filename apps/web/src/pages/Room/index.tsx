@@ -1,4 +1,4 @@
-import {importedBrushes} from '../../engine/brushLibrary'
+import {importedBrushes,importedBrushAssetMetadata} from '../../engine/brushLibrary'
 import {canonicalToolAvailability} from '../../lib/tools/canonicalToolAvailability'
 import {canonicalBootstrapOf,stageCanonicalRoomReplacement,createCanonicalRoomAuthor,createCanonicalRoomVerdicts,restoreCanonicalRoomBaseline,createCanonicalRecoveryControl,prepareCanonicalRoomRecordedInput} from './canonicalRoomController'
 import {prepareCanonicalRoomState} from './net/canonicalRoomState'
@@ -325,7 +325,7 @@ function RoomEditor() {
   const canonicalAvailability=useMemo(()=>{
     // These existing owners invalidate mutable ref/library reads, without mirroring them.
     void engineEpoch;void brushLibraryRevision;void connected
-    return canonicalToolAvailability(config?.rasterVersion===STRAIGHT_ROOM_RASTER_VERSION,roomContentReady,installedCanonicalReadRef.current,isToolEnabledInRoom(config?.enabledTools,'digitalBrush')?importedBrushes():[])
+    return canonicalToolAvailability(config?.rasterVersion===STRAIGHT_ROOM_RASTER_VERSION,roomContentReady,installedCanonicalReadRef.current,isToolEnabledInRoom(config?.enabledTools,'digitalBrush')?importedBrushes():[],importedBrushAssetMetadata)
   },[config?.rasterVersion,config?.enabledTools,roomContentReady,engineEpoch,brushLibraryRevision,connected])
   // (#548) Which tools this room offers — `undefined` for all of them, which
   // is what every room says until someone restricts it. Read straight off the

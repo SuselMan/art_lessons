@@ -17,3 +17,39 @@ Validation:
 - Scoped default is first eligible ID or empty, with explicit assertions; global legacy medium-round default stays untouched.
 
 Host render tests verify data/prop routing and controls, not actual browser layout. Root owns the subsequent immutable UI build/Samsung screenshot/selection check. This unit creates no process, device context or temporary service.
+
+2026-11-01 UI2 candidate, commit/build/QA activation held for ROOT actual G2 proof:
+The optional per-preset metadata argument is the existing
+importedBrushAssetMetadata getter. Room passes it inside the SAME availability
+memo invalidated by brushLibraryRevision/engine/read/content owners; no new
+metadata state, asset fetch, store, hook or network lifecycle. Manifest metadata
+is availability only: pixels, engine resources, original source pin and server
+BEGIN remain independently checked. Missing/ambiguous/wrong-side/accessor or
+throwing metadata denies the image option without procedural fallback.
+
+Both original DATA1 Basic6 and ordered GIH sources use SAME
+canonicalSourceAuthorAdmission and its nativeSizePx. No duplicate size formula,
+DATA conversion or widened sensor admission: Basic6=7.5, Mountains=360,
+Graphite=16. Existing global legacy schema/size controls remain unchanged; the
+scoped source schema continues to omit generic size/pressure controls. Stale
+original read, restoring content, disabled digitalBrush and unsupported newest
+version still deny. Image drawingAngle/fan rules remain the engine admission's
+existing rules; tiltDirection does not become a pointer grant.
+
+Tests-first image eligibility was RED (empty rather than ready), then GREEN on
+actual original descriptors and declared metadata. Additional tests verify
+native-size store normalization, full latest-version refusal, all stale/disabled
+states, sensor refusal and metadata getter non-invocation. HOST tests establish
+eligibility/prop routing only; actual product UI/Samsung is ROOT-owned and not
+claimed by this candidate. No device/service/resource was started here.
+UI2 final HOST gate:24 tests/4 suites PASS (availability, tool choice and
+ToolSync), one worker; targeted actual Room root + UI2 availability/test TSC
+PASS (R52/image-ui2.tsconfig.json, no exclusions or production type suppression).
+Scoped lint0 errors, existing Room effect-dependency warning only; owned diff
+check PASS. Commit/build remain held until ROOT actual G2 proof and explicit cue.
+ROOT subsequently accepted the full app gate and removed the internal commit
+hold after actual G2 Basic6/Graphite public API/cold checks. This permits the
+local UI2 commit; it is NOT a completed fresh Mountains UI selection claim.
+Existing useToolSync remains the sole prepareBrushPresets/publish/CAS loading
+path before engine.prepareBrush. No engine fetch or ad-hoc pixel installation
+was added. ROOT owns the next immutable UI build and actual selection proof.
