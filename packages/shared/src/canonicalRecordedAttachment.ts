@@ -1,12 +1,16 @@
 import type {Operation} from './operations.js'
 import type {CanonicalStrokeOperation,CanonicalStrokeSnapshotV2} from './canonicalStrokeOperation.js'
 import {buildCanonicalMaterial} from './canonicalMaterialCodec.js'
-import {CANONICAL_STROKE_RASTER_PROFILE,decodeCanonicalStrokeFrame} from './canonicalStrokeFrame.js'
+import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,decodeCanonicalStrokeFrame,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
 import {canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin} from './canonicalDefaultAutoMaterial.js'
 import {canonicalSoftAutoSourcePin} from './canonicalSoftAutoMaterial.js'
 
 export const CANONICAL_RECORDED_ATTACHMENT_LIMITS=Object.freeze({capabilities:64,bindings:1024,capabilityBytes:256*1024,batchBytes:4*1024*1024})
-export interface CanonicalRecordedReadScope {readonly roomId:string;readonly boardEpoch:number}
+export interface CanonicalRecordedReadScope {
+ readonly roomId:string;readonly boardEpoch:number
+ /** Captured receiver policy; omission preserves the historical Over-only gate. */
+ readonly rasterProfile?:CanonicalStrokeRasterProfile
+}
 export interface CanonicalRecordedReadCapability {readonly originalUserId:string;readonly snapshot:CanonicalStrokeSnapshotV2}
 /** Batch-local wire dictionary only; indexes never become retained history truth. */
 export interface CanonicalRecordedAttachmentV1 {
@@ -17,7 +21,7 @@ export interface CanonicalRecordedAttachmentV1 {
 /** Internal atomic preparation, not permission to append as originalUserId. */
 export interface CanonicalPreparedRecordedOperation {
  readonly operation:Operation
- readonly read?:{readonly roomId:string;readonly boardEpoch:number;readonly operationId:string;readonly sequence:number;readonly capability:CanonicalRecordedReadCapability}
+ readonly read?:{readonly roomId:string;readonly boardEpoch:number;readonly rasterProfile:CanonicalStrokeRasterProfile;readonly operationId:string;readonly sequence:number;readonly capability:CanonicalRecordedReadCapability}
 }
 const fail=():never=>{throw new TypeError('Invalid canonical recorded capability attachment')}
 const record=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)
@@ -25,9 +29,9 @@ const closed=(v:unknown,keys:readonly string[]):v is Record<string,unknown>=>rec
 const text=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.length<=256&&!v.includes('\0')
 const integer=(v:unknown):v is number=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=0&&v<Number.MAX_SAFE_INTEGER
 const bytes=(v:unknown)=>new TextEncoder().encode(JSON.stringify(v)).length
-function snapshot(value:unknown,epoch:number):CanonicalStrokeSnapshotV2 {
+function snapshot(value:unknown,epoch:number,rasterProfile:CanonicalStrokeRasterProfile):CanonicalStrokeSnapshotV2 {
  if(!closed(value,['layerId','brush','strokeId','boardEpoch','descriptorSha256','rasterProfile','pigmentRgb8','composition','assets','materialVersion','material'])
-  ||!text(value.layerId)||!text(value.brush)||!text(value.strokeId)||value.boardEpoch!==epoch||value.materialVersion!==2||value.rasterProfile!==CANONICAL_STROKE_RASTER_PROFILE
+  ||!text(value.layerId)||!text(value.brush)||!text(value.strokeId)||value.boardEpoch!==epoch||value.materialVersion!==2||value.rasterProfile!==rasterProfile
   ||!Array.isArray(value.assets)||value.assets.length!==0||!closed(value.material,['version','assets','primarySource','budget']))return fail()
  // Material/source/budget and composition schema belong to the SAME shared
  // builder/decoder. Validate original bounded metadata before any clone/size walk.
@@ -35,20 +39,22 @@ function snapshot(value:unknown,epoch:number):CanonicalStrokeSnapshotV2 {
  if(m.version!==2||!Array.isArray(m.assets)||m.assets.length!==0||!p||p.kind==='image'||p.descriptorSha256!==s.descriptorSha256
   ||s.brush!==`brush:${p.descriptorId}@${p.descriptorVersion}`||p.brushScale!==1||p.kind==='softAuto'&&p.sourceSlot!==0)return fail()
  const probe=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},m)
- const decoded=decodeCanonicalStrokeFrame({version:1,rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked:probe.packed},
-  {brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:m})
+ const decoded=decodeCanonicalStrokeFrame({version:rasterProfile===CANONICAL_STROKE_RASTER_PROFILE?1:2,rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked:probe.packed},
+  {rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:m})
  const primarySource=p.kind==='defaultAuto'?canonicalDefaultAutoSourcePin(p):p.kind==='gaussianAuto'?canonicalGaussianAutoSourcePin(p):canonicalSoftAutoSourcePin(p)
  const material=Object.freeze({version:2 as const,assets:Object.freeze([]),primarySource,budget:Object.freeze({workUnits:m.budget.workUnits,outputBytes:m.budget.outputBytes,drawPixels:m.budget.drawPixels})})
  // Reconstruct only validated data fields: unknown extras/accessor serialization
  // cannot enter the bounded size walk or retained capability.
- return Object.freeze({layerId:s.layerId,brush:s.brush,strokeId:s.strokeId,boardEpoch:epoch,descriptorSha256:primarySource.descriptorSha256,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,
+ return Object.freeze({layerId:s.layerId,brush:s.brush,strokeId:s.strokeId,boardEpoch:epoch,descriptorSha256:primarySource.descriptorSha256,rasterProfile,
   pigmentRgb8:decoded.envelope.pigmentRgb8,composition:decoded.envelope.composition,assets:Object.freeze([]),materialVersion:2 as const,material})
 }
 /** Caller establishes authoritative delivery origin/read permission and captured
  * room lifetime. Socket.IO JSON is already parsed: this is NOT a preparse cap.
  * Legacy operation schemas remain their existing owner's responsibility.
  * Entire atom validates before return; no engine/log/store/cursor mutation. */
-export function prepareCanonicalRecordedAttachment(value:unknown,operations:readonly Operation[],expected:{readonly roomId:string;readonly boardEpoch:number}):readonly CanonicalPreparedRecordedOperation[] {
+export function prepareCanonicalRecordedAttachment(value:unknown,operations:readonly Operation[],expected:CanonicalRecordedReadScope):readonly CanonicalPreparedRecordedOperation[] {
+ const rasterProfile=expected.rasterProfile===undefined?CANONICAL_STROKE_RASTER_PROFILE:expected.rasterProfile
+ if(rasterProfile!==CANONICAL_STROKE_RASTER_PROFILE&&rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)return fail()
  if(!text(expected.roomId)||!integer(expected.boardEpoch)||!Array.isArray(operations)||operations.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)return fail()
  if(!closed(value,['version','roomId','boardEpoch','capabilities','bindings'])||value.version!==1||value.roomId!==expected.roomId||value.boardEpoch!==expected.boardEpoch
   ||!Array.isArray(value.capabilities)||value.capabilities.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities||!Array.isArray(value.bindings)||value.bindings.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)return fail()
@@ -56,7 +62,7 @@ export function prepareCanonicalRecordedAttachment(value:unknown,operations:read
  let size=128
  for(const item of value.capabilities){
   if(!closed(item,['originalUserId','snapshot'])||!text(item.originalUserId))return fail()
-  const s=snapshot(item.snapshot,expected.boardEpoch),identity=JSON.stringify([item.originalUserId,s.strokeId])
+  const s=snapshot(item.snapshot,expected.boardEpoch,rasterProfile),identity=JSON.stringify([item.originalUserId,s.strokeId])
   // One gesture has ONE immutable capability, even if a duplicate is equal.
   if(identities.has(identity))return fail();identities.add(identity)
   const capability=Object.freeze({originalUserId:item.originalUserId,snapshot:s}),n=bytes(capability)
@@ -77,11 +83,11 @@ export function prepareCanonicalRecordedAttachment(value:unknown,operations:read
   const capability=capabilities[binding.capability],s=capability.snapshot
   if(capability.originalUserId!==op.userId||s.layerId!==op.layerId)return fail()
   if(!used.has(binding.capability)){if(binding.capability!==nextCapability++)return fail();used.add(binding.capability)}
-  const decoded=decodeCanonicalStrokeFrame(op.frame,{brush:s.brush,strokeId:s.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:s.material})
+  const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:s.material})
   if(decoded.frame.masked)return fail()
   const operation:CanonicalStrokeOperation=Object.freeze({id:op.id,userId:op.userId,timestamp:op.timestamp,seq:op.seq,type:'canonical_stroke',layerId:op.layerId,frame:decoded.envelope})
   normalizedBindings.push({operationId:op.id,sequence:op.seq,originalUserId:op.userId,capability:binding.capability})
-  result.push(Object.freeze({operation,read:Object.freeze({roomId:expected.roomId,boardEpoch:expected.boardEpoch,operationId:op.id,sequence:op.seq,capability})}))
+  result.push(Object.freeze({operation,read:Object.freeze({roomId:expected.roomId,boardEpoch:expected.boardEpoch,rasterProfile,operationId:op.id,sequence:op.seq,capability})}))
  }
  if(bindingIndex!==value.bindings.length||used.size!==capabilities.length)return fail()
  // Only bounded, projected data reaches serialization. Raw untrusted unknown

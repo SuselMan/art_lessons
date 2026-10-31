@@ -1,0 +1,205 @@
+{
+  "status": "PASS",
+  "scriptSHA256": "7f8e7e31cf762d338d68337562aaea144aa34f74f6627fa065b670f9ffb529dd",
+  "moduleSHA256": {
+    "canonicalBrushCapability.ts": "89ce0c24127d156940efc026cd72b91789e7ee52e57251f7dfc459f219460d3a",
+    "canonicalDefaultAutoMaterial.ts": "afe2dfde4275c1a6d71a405db708ecd9d7caca332c441aa34261c82f7c2f21f4",
+    "canonicalSoftAutoMaterial.ts": "189ecc8396c91ab1a86a015d9ff2c4184471d953694f555fd05c7d055651b60a",
+    "canonicalStrokeFrame.ts": "3b677e7e7ab925e17dbec437b15afa7ec5c025ea4d78bec1fae2f660ebe10e84",
+    "canonicalMaterialCodec.ts": "97c84a45e0fa02af4f4c1cdeb16ccb3218a6f6e30c519507409b62cce5baf5a3"
+  },
+  "scope": "Actual NEW-import descriptors: structural binding/material/decode only, not compiler reattestation, room execution permission, GPU or native GUI proof",
+  "inputBytes": 209659,
+  "inputSHA256": "721d0c7ca7245dd3b561a6fa4a0d5974035d196e4ab4f497c016072c19600c13",
+  "legacyFallbackMetadataOnly": [
+    {
+      "id": "asset:e88693756afb69a267512d2c2653711d8fe2ebff469f09cd179cb56247c6cf7e",
+      "size": 128,
+      "file": "e88693756afb69a267512d2c2653711d8fe2ebff469f09cd179cb56247c6cf7e.bin"
+    }
+  ],
+  "legacyCASBytesVerified": false,
+  "canonicalMaterialAssets": 0,
+  "provider": {
+    "profile": "eigen-5.0.1-mapped-arm64-f64-v3",
+    "buildId": "5c6b74ca30b91f2c2529e6096f4230bec55e5056550b306734b2e9934a35d097",
+    "binarySHA256": "7c1994d302412b2dde62e552a0f384a739cdbe57d18f3bfa549c012a0750d542",
+    "sourceLockSHA256": "b34dcccb685a543c999aeb62f12753ecf76a2f5512f3983ebe9c6dbad0470bda"
+  },
+  "rows": [
+    {
+      "index": 3,
+      "name": "b)_Airbrush_Soft",
+      "kppSHA256": "a2dcb08917e5cb1a3cbf92fc40a00f9b8a4a3f01beb46e0812e87cf8bb374c1b",
+      "retainedDescriptorSHA256": "77f71d54b4757d48eb69e2885c15347a4ccce5440a6254eba5ae298c7084a704",
+      "serverNormalizedDescriptorSHA256": "2b188eda6ea1b8a4c9a6c72767fe56c59db8fe86f864ae4071ee4d16ad527d59",
+      "sourceReady": true,
+      "nativeBlend": "normal",
+      "profiles": [
+        {
+          "rasterProfile": "installed-arm64-scalar-fused-fpcr0-v1",
+          "supported": true,
+          "composition": {
+            "mode": "wash",
+            "outerBlend": "over"
+          },
+          "pinSHA256": "7897c4d1a0ec41beefbd8abf0f2637377fc67165fe98d63ca0603454a511c510",
+          "materialSHA256": "b7c905fcba97208ef057df3d06194a0ad9abb15581d6c326a09db7282fe5e33b",
+          "envelopeVersion": 1,
+          "sourceSlot": 0,
+          "immutableRadial": true
+        },
+        {
+          "rasterProfile": "installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2",
+          "supported": true,
+          "composition": {
+            "mode": "wash",
+            "outerBlend": "over"
+          },
+          "pinSHA256": "7897c4d1a0ec41beefbd8abf0f2637377fc67165fe98d63ca0603454a511c510",
+          "materialSHA256": "b7c905fcba97208ef057df3d06194a0ad9abb15581d6c326a09db7282fe5e33b",
+          "envelopeVersion": 2,
+          "sourceSlot": 0,
+          "immutableRadial": true
+        }
+      ]
+    },
+    {
+      "index": 59,
+      "name": "l)_Adjust_Color",
+      "kppSHA256": "ce3577951677a3dc0e2f68a582dcc5297c91038686021615a7ddbe792fea06eb",
+      "retainedDescriptorSHA256": "c16070c06f09c08f640a740eb362e91a68afae9e04ebcda5dc8fce58dac2a956",
+      "serverNormalizedDescriptorSHA256": "09e21e79e61f1cfc1c10e94033c4622e2a1e29aa7d985fe99ad60510330b1112",
+      "sourceReady": true,
+      "nativeBlend": "color",
+      "profiles": [
+        {
+          "rasterProfile": "installed-arm64-scalar-fused-fpcr0-v1",
+          "supported": false,
+          "error": "TypeError: Soft-auto outer composition unavailable"
+        },
+        {
+          "rasterProfile": "installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2",
+          "supported": false,
+          "error": "TypeError: Soft-auto outer composition unavailable"
+        }
+      ]
+    },
+    {
+      "index": 60,
+      "name": "l)_Adjust_Dodge",
+      "kppSHA256": "ecf864fb1203331176126d9915c64a7dade137ac0b7d832dd03f2cbc78de0d14",
+      "retainedDescriptorSHA256": "0c7561f6590a2d155c733a1ece17dd6f9e440b91f7e047a79a9ce9f2624bd2b1",
+      "serverNormalizedDescriptorSHA256": "42f16a3cf17ad53472232efcb3109cc77144d6552dffdc689d9d705693b725da",
+      "sourceReady": true,
+      "nativeBlend": "colorDodge",
+      "profiles": [
+        {
+          "rasterProfile": "installed-arm64-scalar-fused-fpcr0-v1",
+          "supported": false,
+          "error": "TypeError: Soft-auto outer composition unavailable"
+        },
+        {
+          "rasterProfile": "installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2",
+          "supported": true,
+          "composition": {
+            "mode": "wash",
+            "outerBlend": "colorDodge"
+          },
+          "pinSHA256": "98939b2004245122cccb121be3adbfcf1e3af6226906d8912323273837d95add",
+          "materialSHA256": "b7c905fcba97208ef057df3d06194a0ad9abb15581d6c326a09db7282fe5e33b",
+          "envelopeVersion": 2,
+          "sourceSlot": 0,
+          "immutableRadial": true
+        }
+      ]
+    },
+    {
+      "index": 61,
+      "name": "l)_Adjust_Lighten",
+      "kppSHA256": "da5c0016b0b04a038b3d3b740979af8eb02dfb23e7491e32cd0a50388f83dc86",
+      "retainedDescriptorSHA256": "7786a36691197354f4009c2cea50dd100382dd0a77002dc84af7da2deed014f5",
+      "serverNormalizedDescriptorSHA256": "824524b595aaa9a332a6be97a58af8198f8f7b36a48bf9d39e979637ffa6d114",
+      "sourceReady": true,
+      "nativeBlend": "lighten",
+      "profiles": [
+        {
+          "rasterProfile": "installed-arm64-scalar-fused-fpcr0-v1",
+          "supported": false,
+          "error": "TypeError: Soft-auto outer composition unavailable"
+        },
+        {
+          "rasterProfile": "installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2",
+          "supported": true,
+          "composition": {
+            "mode": "wash",
+            "outerBlend": "lighten"
+          },
+          "pinSHA256": "a4d3abc5e8387e2422332a0ff258f820c91989a7494208af0c03932bcc22e22c",
+          "materialSHA256": "b7c905fcba97208ef057df3d06194a0ad9abb15581d6c326a09db7282fe5e33b",
+          "envelopeVersion": 2,
+          "sourceSlot": 0,
+          "immutableRadial": true
+        }
+      ]
+    },
+    {
+      "index": 62,
+      "name": "l)_Adjust_Multiply",
+      "kppSHA256": "2e9f0782650c2a888521b2de3ff0a021d7181c88c6ec5d3aba37b1fc92fadaae",
+      "retainedDescriptorSHA256": "30963ca2e52f649dffb04ce95eb119a1c2991bfdc5648cf65182755caae0b135",
+      "serverNormalizedDescriptorSHA256": "2557281f6304bba978d962216f4dac42a99170a0d42ad6a558e82e5cd20e772d",
+      "sourceReady": true,
+      "nativeBlend": "multiply",
+      "profiles": [
+        {
+          "rasterProfile": "installed-arm64-scalar-fused-fpcr0-v1",
+          "supported": false,
+          "error": "TypeError: Soft-auto outer composition unavailable"
+        },
+        {
+          "rasterProfile": "installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2",
+          "supported": true,
+          "composition": {
+            "mode": "wash",
+            "outerBlend": "multiply"
+          },
+          "pinSHA256": "e70d796da852119b92bf6c5e7283f779327db26e646a65abaf1dbe6533ee6b0c",
+          "materialSHA256": "b7c905fcba97208ef057df3d06194a0ad9abb15581d6c326a09db7282fe5e33b",
+          "envelopeVersion": 2,
+          "sourceSlot": 0,
+          "immutableRadial": true
+        }
+      ]
+    },
+    {
+      "index": 63,
+      "name": "l)_Adjust_Overlay_Burn",
+      "kppSHA256": "6462ea398d77658c71a1e1622ee8d8eaf94cf1a1eb92e5416d438b2a8c41190b",
+      "retainedDescriptorSHA256": "f34ce6ca60bb2d4b125ebf60e48143c3da7ed36a09a168d51dfa74887ce37081",
+      "serverNormalizedDescriptorSHA256": "fa2c911d1433c82fd3f84dfbe192a3ad99f23717502524fe008d3cc413fec2af",
+      "sourceReady": true,
+      "nativeBlend": "overlay",
+      "profiles": [
+        {
+          "rasterProfile": "installed-arm64-scalar-fused-fpcr0-v1",
+          "supported": false,
+          "error": "TypeError: Soft-auto outer composition unavailable"
+        },
+        {
+          "rasterProfile": "installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2",
+          "supported": true,
+          "composition": {
+            "mode": "wash",
+            "outerBlend": "overlay"
+          },
+          "pinSHA256": "5c9dfe2fd43d4ac5e8f88595c74e63287bc7549593e6f46d1e1a892aceeb2613",
+          "materialSHA256": "b7c905fcba97208ef057df3d06194a0ad9abb15581d6c326a09db7282fe5e33b",
+          "envelopeVersion": 2,
+          "sourceSlot": 0,
+          "immutableRadial": true
+        }
+      ]
+    }
+  ]
+}

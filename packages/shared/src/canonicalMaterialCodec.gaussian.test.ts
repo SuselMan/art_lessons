@@ -1,3 +1,5 @@
+import {extractGaussianAutoSourceDataCapability} from './canonicalBrushCapability.js'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE} from './canonicalStrokeFrame.js'
 import { describe, expect, it } from 'vitest'
 import stock from './fixtures/sourceGaussianAutoData/stock.native.js'
 import type { BrushDescriptor } from './brushes.js'
@@ -8,7 +10,11 @@ import { decodeCanonicalStrokeFrame, CANONICAL_STROKE_RASTER_PROFILE } from './c
 
 function setup(index = 2, profile: 'scalar-bionic-f64-fma-v1'|'neon64-f32-fma-v1' = 'scalar-bionic-f64-fma-v1') {
   const row = stock.rows.find(r => r.index === index)!
-  const pin = canonicalGaussianAutoSourceBinding(row.descriptor as unknown as BrushDescriptor, row.descriptorSHA256, profile)
+  // Codec data-only fixture: a valid Gaussian source is not a paint grant.
+  // Stock2 retains erase=true; its source bytes still roundtrip unchanged.
+  const descriptor=row.descriptor as unknown as BrushDescriptor,result=extractGaussianAutoSourceDataCapability(descriptor)
+  if(!result.supported)throw Error('Gaussian source data unavailable')
+  const pin=canonicalGaussianAutoSourcePin({kind:'gaussianAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,descriptorSha256:row.descriptorSHA256,source:result.data.source,brushScale:result.data.brush.scale,brushAngle:result.data.brush.angle,coverageProfile:profile})
   const geometry = sourceAutoGeometry({ kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:pin.source.diameter,ratio:pin.source.ratio,spikes:2,scale:pin.brushScale,angle:pin.brushAngle }, {scale:.2,ratio:1,rotation:-0}, -0, 0)
   const recipe: CanonicalGaussianAutoRecipe = {kind:'gaussianAuto',source:pin.source,coverageProfile:profile,brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale:.2,ratio:1,rotation:-0,subX:-0,subY:0,width:geometry.maskSize[0],height:geometry.maskSize[1],mirrorH:true,mirrorV:false}
   const context: CanonicalMaterialContextV2 = {version:2,assets:[],primarySource:pin,budget:{workUnits:67108864,outputBytes:16777216,drawPixels:16777216}}
@@ -52,4 +58,23 @@ describe('Gaussian material tag3, trusted source and common geometry costs', () 
     expect(()=>canonicalGaussianAutoCost({...recipe,coverageProfile:'scalar-f64-fma-v1'} as never,pin)).toThrow()
     expect(()=>canonicalGaussianAutoCost({...recipe,source:{...recipe.source,density:.8}},pin)).toThrow()
   })
+})
+
+it('gates direct Gaussian bindings by the same native composition/profile law without altering coverage/source data',()=>{
+ const base=structuredClone(stock.rows.find(r=>r.index===5)!.descriptor) as unknown as BrushDescriptor
+ Object.assign(base.sourceStamp!.settings,{PaintOpAction:'2'});Object.assign(base.sourceStamp!.flags,{indirectPainting:true})
+ const old=canonicalGaussianAutoSourceBinding(base,'a'.repeat(64),'scalar-bionic-f64-fma-v1')
+ for(const blendMode of ['multiply','lighten','colorDodge','overlay'] as const){
+  const d=structuredClone(base);Object.assign(d.behavior!.rendering!,{blendMode})
+  expect(()=>canonicalGaussianAutoSourceBinding(d,'a'.repeat(64),'scalar-bionic-f64-fma-v1')).toThrow('outer composition')
+  expect(canonicalGaussianAutoSourceBinding(d,'a'.repeat(64),'scalar-bionic-f64-fma-v1',CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toEqual(old)
+  Object.assign(d.behavior!.rendering!,{wetEdges:.2});expect(()=>canonicalGaussianAutoSourceBinding(d,'a'.repeat(64),'scalar-bionic-f64-fma-v1',CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toThrow()
+ }
+})
+
+it('retains the original Gaussian eraser source data while refusing every paint binding profile',()=>{
+ const row=stock.rows.find(r=>r.index===2)!,d=row.descriptor as unknown as BrushDescriptor
+ expect(d.behavior?.erase).toBe(true);expect(extractGaussianAutoSourceDataCapability(d).supported).toBe(true)
+ expect(()=>canonicalGaussianAutoSourceBinding(d,row.descriptorSHA256,'scalar-bionic-f64-fma-v1')).toThrow('outer composition')
+ expect(()=>canonicalGaussianAutoSourceBinding(d,row.descriptorSHA256,'scalar-bionic-f64-fma-v1',CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toThrow('outer composition')
 })

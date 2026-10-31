@@ -899,8 +899,8 @@ describe('recorded same-layer concurrent wash lane', () => {
 
 
 describe('Gaussian through the SAME bounded frame executor', () => {
-  for (const profile of ['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1'] as const) it(`executes ready7 actual sources without an image bank under ${profile}`, () => {
-    for (const index of [2,5,6,7,10,11,22]) {
+  for (const profile of ['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1'] as const) it(`executes six actual Gaussian paint sources without an image bank under ${profile}`, () => {
+    for (const index of [5,6,7,10,11,22]) {
       const row=gaussianStock.rows.find(r=>r.index===index)!
       const pin=canonicalGaussianAutoSourceBinding(row.descriptor as unknown as BrushDescriptor,row.descriptorSHA256,profile)
       // Explicit diagnostic captured shape, not the native UI Size setter law.
@@ -1097,4 +1097,11 @@ it('requires prepared V2 operations and rejects non-over buildup before services
    expect(layer).not.toHaveBeenCalled();expect(s.reserveTransient).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(cpu);expect(executor.pending).toBe(false)
   }finally{executor.cancel()}
  }finally{legacy.close();s.close()}
+})
+
+it('refuses the actual Gaussian2 eraser as a paint source without normalizing its normal blend into paint',()=>{
+ const row=gaussianStock.rows.find(r=>r.index===2)!,descriptor=row.descriptor as unknown as BrushDescriptor
+ expect(descriptor.behavior?.erase).toBe(true);expect(descriptor.behavior?.rendering?.blendMode).toBe('normal')
+ expect(()=>canonicalGaussianAutoSourceBinding(descriptor,row.descriptorSHA256,'scalar-bionic-f64-fma-v1')).toThrow('outer composition')
+ expect(()=>canonicalGaussianAutoSourceBinding(descriptor,row.descriptorSHA256,'scalar-bionic-f64-fma-v1',CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toThrow('outer composition')
 })

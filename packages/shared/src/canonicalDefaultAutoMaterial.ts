@@ -1,5 +1,6 @@
+import {CANONICAL_STROKE_RASTER_PROFILE,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
 import type { BrushDescriptor } from './brushes.js'
-import { extractDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability } from './canonicalBrushCapability.js'
+import { extractDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability, canonicalSourceComposition } from './canonicalBrushCapability.js'
 import type { SourceDefaultAutoData, SourceGaussianAutoData } from './sourceStampData.js'
 import { sourceAutoGeometry } from './sourceAutoGeometry.js'
 
@@ -92,7 +93,8 @@ export function canonicalAutoCost(recipe: CanonicalAutoRecipe, trusted: Canonica
 /** Structural extraction from an already verified descriptor; caller still
  * owns authentication, descriptor SHA verification and execution policy. */
 export function canonicalDefaultAutoSourceBinding(descriptor: BrushDescriptor, descriptorSha256: string,
-  coverageProfile: CanonicalAutoCoverageProfile): CanonicalDefaultAutoSource {
+  coverageProfile: CanonicalAutoCoverageProfile,rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_RASTER_PROFILE): CanonicalDefaultAutoSource {
+  if(!canonicalSourceComposition(descriptor,rasterProfile))throw new TypeError('Default-auto outer composition unavailable')
   const result = extractDefaultAutoSourceDataCapability(descriptor)
   if (!result.supported || !/^[a-f0-9]{64}$/.test(descriptorSha256)
     || !['scalar-f64-fma-v1','neon64-f32-fma-v1'].includes(coverageProfile)) throw new TypeError('Default-auto source capability unavailable')
@@ -127,7 +129,8 @@ export function canonicalGaussianAutoCost(recipe: CanonicalGaussianAutoRecipe, s
   return canonicalAutoCost(recipe, source)
 }
 export function canonicalGaussianAutoSourceBinding(descriptor: BrushDescriptor, descriptorSha256: string,
-  coverageProfile: CanonicalGaussianCoverageProfile): CanonicalGaussianAutoSource {
+  coverageProfile: CanonicalGaussianCoverageProfile,rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_RASTER_PROFILE): CanonicalGaussianAutoSource {
+  if(!canonicalSourceComposition(descriptor,rasterProfile))throw new TypeError('Gaussian outer composition unavailable')
   const result = extractGaussianAutoSourceDataCapability(descriptor)
   if (!result.supported) throw new TypeError('Gaussian source capability unavailable')
   return canonicalGaussianAutoSourcePin({kind:'gaussianAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,

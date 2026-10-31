@@ -98,3 +98,27 @@ it('accepts a recorded-only resumed prefix with recorded cursor ahead of live',a
  const pending=sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true});s.ack(result)
  await expect(pending).resolves.toMatchObject({ok:true,recordedNext:12,liveNext:0,ended:true})
 })
+
+const genericOuterProfile='installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2' as const
+it.each(['multiply','lighten','colorDodge','overlay'] as const)('captures explicit expected profile before accepting V2 %s ACK',async outerBlend=>{
+ const s=socket(),result=answer();if(!result.ok||!('materialVersion'in result.snapshot))throw Error('Expected V2')
+ Object.assign(result.snapshot,{rasterProfile:genericOuterProfile,composition:{...result.snapshot.composition,outerBlend}})
+ const lifetime={boardEpoch:2,isCurrent:()=>true,rasterProfile:genericOuterProfile}
+ const pending=sendCanonicalStrokeBegin(s.emitter,input(),lifetime)
+ Reflect.set(lifetime,'rasterProfile',CANONICAL_STROKE_RASTER_PROFILE);s.ack(result)
+ await expect(pending).resolves.toMatchObject({ok:true,snapshot:{rasterProfile:genericOuterProfile,composition:{outerBlend}}})
+ expect(s.listeners.size).toBe(0)
+ const other=socket(),bad=sendCanonicalStrokeBegin(other.emitter,input(),{boardEpoch:2,isCurrent:()=>true});const rejected=expect(bad).rejects.toThrow();other.ack(result);await rejected
+})
+it.each(['foreign',null])('rejects captured profile %s before listener/timer/emission',async rasterProfile=>{
+ const s=socket(),lifetime={boardEpoch:2,isCurrent:()=>true,rasterProfile:rasterProfile as never}
+ await expect(sendCanonicalStrokeBegin(s.emitter,input(),lifetime)).rejects.toThrow('raster profile')
+ expect(s.emitter.emit).not.toHaveBeenCalled();expect(s.listeners.size).toBe(0)
+})
+it('refuses old-profile ACK in an explicitly new-profile lifetime before cloning',async()=>{
+ const s=socket(),result=answer(),clone=vi.spyOn(globalThis,'structuredClone')
+ try{
+  const pending=sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true,rasterProfile:genericOuterProfile}),rejected=expect(pending).rejects.toThrow('resource mismatch')
+  s.ack(result);await rejected;expect(clone).not.toHaveBeenCalled()
+ }finally{clone.mockRestore()}
+})

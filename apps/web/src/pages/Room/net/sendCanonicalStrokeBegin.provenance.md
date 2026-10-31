@@ -32,3 +32,17 @@ reentry before registering further listeners/timers or emitting. Timeout is a
 positive safe integer at most 2147483647, avoiding platform timer overflow.
 Recorded-only resume may have recordedNext ahead of liveNext; the eight-frame
 speculative live bound does not require those cursors to be equal.
+
+## Captured expected whole-pipeline profile
+
+CanonicalBeginLifetime now optionally pins rasterProfile. Omission/undefined keeps
+old; unknown/null rejects before listeners/timer/emission. The scalar is captured
+before asynchronous ACK, independently of later lifetime-object mutation. The
+ACK snapshot must match it before material validation/clone; version1/2 probes
+and decoder trusted policy are chosen from that captured value, not ACK content.
+Only procedural SnapshotV2 admits the union; PNG SnapshotV1 remains refused.
+
+Four-mode tests accept matching explicit V2 ACKs, reject those ACKs for default
+callers, reject cross-profile/unknown/null data before clone and preserve request
+shape, cleanup and cursor semantics. No event field, retry queue, UI/server
+policy, source compiler or room grant is introduced by this helper migration.

@@ -1,7 +1,7 @@
 import type { OperationBase } from './operationBase.js'
 import type { CanonicalMaterialContextV2 } from './canonicalMaterialCodec.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
-import type { CanonicalStrokeComposition, CanonicalStrokeFrameEnvelope, CANONICAL_STROKE_RASTER_PROFILE } from './canonicalStrokeFrame.js'
+import type { CanonicalStrokeComposition, CanonicalStrokeFrameEnvelope, CanonicalStrokeRasterProfile, CANONICAL_STROKE_RASTER_PROFILE } from './canonicalStrokeFrame.js'
 
 /** Deliberately separate from legacy stroke/dabs. Server begin pins authority;
  * recorded frames carry immutable canonical material, not source author state. */
@@ -33,7 +33,8 @@ export interface CanonicalStrokeSnapshotV1 {
 }
 /** Explicit server-pinned recipe2 context; client echoes cannot authorize it.
  * V1 snapshot has no additional fields and retains its exact existing shape. */
-export interface CanonicalStrokeSnapshotV2 extends CanonicalStrokeSnapshotV1 {
+export interface CanonicalStrokeSnapshotV2 extends Omit<CanonicalStrokeSnapshotV1,'rasterProfile'> {
+  readonly rasterProfile:CanonicalStrokeRasterProfile
   readonly materialVersion: 2
   readonly material: CanonicalMaterialContextV2
 }

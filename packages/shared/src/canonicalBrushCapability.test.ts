@@ -1,3 +1,5 @@
+import {canonicalSourceComposition} from './canonicalBrushCapability.js'
+import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE} from './canonicalStrokeFrame.js'
 import { describe, expect, it } from 'vitest'
 import type { BrushDescriptor } from './brushes.js'
 import type { SourceStampData } from './sourceStampData.js'
@@ -68,4 +70,21 @@ it('uses one saved PaintOpAction law: absent is incremental and inconsistent fla
   const settings={...data.settings};if(action===undefined)delete settings.PaintOpAction;else settings.PaintOpAction=action
   expect(sourceStampPaintingMode({...data,settings,flags:{...data.flags,indirectPainting:flag}})).toBe(expected)
  }
+})
+
+it.each(['multiply','lighten','colorDodge','overlay'] as const)('selects native %s only for explicitly requested V2 wash',blendMode=>{
+ const d=descriptor();Object.assign(d,{behavior:{rendering:{blendMode}}})
+ expect(canonicalSourceComposition(d)).toBeUndefined()
+ expect(canonicalSourceComposition(d,CANONICAL_STROKE_RASTER_PROFILE)).toBeUndefined()
+ const selected=canonicalSourceComposition(d,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
+ expect(selected).toEqual({mode:'wash',outerBlend:blendMode});expect(Object.isFrozen(selected)).toBe(true)
+ Object.assign(d.sourceStamp!.settings,{PaintOpAction:'1'});Object.assign(d.sourceStamp!.flags,{indirectPainting:false})
+ expect(canonicalSourceComposition(d,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toBeUndefined()
+})
+it('keeps unsupported native effects/color and malformed/unknown profile outside the composition selector',()=>{
+ for(const behavior of [{erase:true,rendering:{blendMode:'normal'}},{rendering:{blendMode:'multiply',wetEdges:.2}},{rendering:{blendMode:'overlay',burntEdges:.1}},{rendering:{blendMode:'color'}},{rendering:{blendMode:'screen'}}]){
+  const d=descriptor();Object.assign(d,{behavior});expect(canonicalSourceComposition(d,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toBeUndefined()
+ }
+ const d=descriptor();Object.defineProperty(d,'sourceStamp',{get(){throw Error('profile must reject before source read')}})
+ for(const profile of ['foreign',null])expect(canonicalSourceComposition(d,profile as never)).toBeUndefined()
 })

@@ -228,3 +228,14 @@ it('shares the closed over-composition law without changing data readiness or ot
   const glaze=structuredClone(descriptor);Object.assign(glaze.behavior!.rendering!,{mode:'glaze'})
   expect(hasCanonicalOverComposition(glaze)).toBe(true)
 })
+
+const genericOuterProfile='installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2' as const
+it.each(['multiply','lighten','colorDodge','overlay'] as const)('binds synthetic mapped %s only with explicit V2 wash policy',blendMode=>{
+ const descriptor=bindingDescriptor(),data=descriptor.sourceStamp!
+ Object.assign(data.settings,{PaintOpAction:'2'});Object.assign(data.flags,{indirectPainting:true});Object.assign(descriptor.behavior!.rendering!,{blendMode})
+ const pin=canonicalSoftAutoSourceBinding(descriptor,'a'.repeat(64),'scalar-f64-fma-v1',0,genericOuterProfile)
+ expect(pin.sourceSlot).toBe(0);expect(pin.source).toEqual(data.version===2?data.source:undefined)
+ expect(()=>canonicalSoftAutoSourceBinding(descriptor,'a'.repeat(64),'scalar-f64-fma-v1')).toThrow('outer composition')
+ Object.assign(data.settings,{PaintOpAction:'1'});Object.assign(data.flags,{indirectPainting:false})
+ expect(()=>canonicalSoftAutoSourceBinding(descriptor,'a'.repeat(64),'scalar-f64-fma-v1',0,genericOuterProfile)).toThrow('outer composition')
+})

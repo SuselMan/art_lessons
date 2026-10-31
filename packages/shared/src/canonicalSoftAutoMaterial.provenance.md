@@ -28,3 +28,15 @@ shared descriptor. Final independent normal-blend eraser/wet/burnt tests prove
 all four law boundaries. Exact native descriptor SHA/outcomes are preserved in
 R52 soft-six-over-composition-check.json. No raster/device claim or default
 production activation.
+
+## Explicit whole-pipeline profile argument
+
+The source binding's optional final argument5 selects the shared profile-aware
+composition law; argument4 remains sourceSlot and primary0 remains the only grant.
+Omission is the old Over-only policy. The new V2 profile admits four native modes
+only for retained wash, while Color, erase, wet/burnt, historical unsupported data,
+missing/mismatched mapped radial curves and mask/dual material remain refused.
+No source-pin field or material bytes are changed, and source extractors remain
+readiness-only. Actual NEW descriptor proof distinguishes readiness6 from old
+paint-bindings1 (index3) and new bindings5 (3/60/61/62/63);59Color remains closed.
+See canonicalBrushCapability.provenance.md for actual-input and CAS-scope limits.

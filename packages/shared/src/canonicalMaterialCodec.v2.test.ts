@@ -1,3 +1,7 @@
+import defaultStock from './fixtures/sourceDefaultAutoData/stock.native.js'
+import {canonicalDefaultAutoSourceBinding} from './canonicalDefaultAutoMaterial.js'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE} from './canonicalStrokeFrame.js'
+import type {BrushDescriptor} from './brushes.js'
 import { expect, it, vi } from 'vitest'
 import { assertPrimaryCanonicalMaterial, buildCanonicalMaterial, packCanonicalMaterial, unpackCanonicalMaterial, CANONICAL_SOURCE_MATERIAL_PROFILE,
   CANONICAL_MATERIAL_PROFILE, type CanonicalMaterialContextV2, type CanonicalMaterialContext, type CanonicalMaterialFrameV2,
@@ -135,4 +139,16 @@ it('preserves default V2 bytes frozen before Gaussian tag3',()=>{
   // bdfadbf77 codec+material loaded from Git into an in-memory bundle;
   // source hashes and independent generation retained in R52/default-wire-before-gaussian.json.
   expect(buildCanonicalMaterial(input(recipe()),context()).packed).toBe("2|Q01BVAIBAAABAAEAAAAAAAAAAAAAAPA/AQEAAAgABAAAAAAAAAAgQAAAAAAAAOA/MzMzMzMz0z8zMzMzMzPjPwAAAAAAAPA/AAAAAAAAAAAAAAAAAADwPwAAAAAAAPA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPb////s////MzMzMzMz0z9mZmZmZmbmPwAAAAA=")
+})
+
+it('keeps direct default-auto binding old-Over-only and admits explicit V2 native wash without changing its source pin',()=>{
+ const base=structuredClone(defaultStock.rows[0].descriptor) as unknown as BrushDescriptor
+ Object.assign(base.sourceStamp!.settings,{PaintOpAction:'2'});Object.assign(base.sourceStamp!.flags,{indirectPainting:true})
+ const old=canonicalDefaultAutoSourceBinding(base,'a'.repeat(64),'scalar-f64-fma-v1')
+ for(const blendMode of ['multiply','lighten','colorDodge','overlay'] as const){
+  const d=structuredClone(base);Object.assign(d.behavior!.rendering!,{blendMode})
+  expect(()=>canonicalDefaultAutoSourceBinding(d,'a'.repeat(64),'scalar-f64-fma-v1')).toThrow('outer composition')
+  expect(canonicalDefaultAutoSourceBinding(d,'a'.repeat(64),'scalar-f64-fma-v1',CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toEqual(old)
+  Object.assign(d.behavior!,{erase:true});expect(()=>canonicalDefaultAutoSourceBinding(d,'a'.repeat(64),'scalar-f64-fma-v1',CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toThrow()
+ }
 })

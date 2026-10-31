@@ -34,3 +34,20 @@ Tests cover identity/resource corruption, mixed legacy/canonical atoms, two
 users reusing a stroke, exact closure/order/unused refs, no unbounded stringify/
 clone on rejected shapes, real UTF8 cap and aggregate byte limits, and immutable
 shared per-operation preparation. No physical DB/device correctness is claimed.
+
+## Captured profile migration
+
+Existing procedural SnapshotV2 now carries the old/new whole-pipeline profile
+union; PNG SnapshotV1 keeps its old literal. The receiver's captured
+CanonicalRecordedReadScope has an optional rasterProfile: only undefined defaults
+to old. Unknown/null policy rejects before walking attachment data. A snapshot
+must match that captured policy; neither a frame nor snapshot selects authority.
+Probe versions1/2 are chosen from captured old/new policy and passed explicitly
+into the same decoder's trusted context.
+
+Every prepared internal read atom retains required rasterProfile from that scope,
+including explicit old when the caller omitted it. This is metadata for repeated
+OperationLog validation, not a new wire attachment field or append permission.
+Snapshot/operation/material bytes are otherwise projected through the same
+bounded closed validator. Tests cover four modes, cross-profile refusal,
+immutable output and unknown/null early refusal. Default callers remain closed.

@@ -313,3 +313,13 @@ prepass/composite services through clipped tiled/yielded parts for every mode,
 check identical preview/final operations and frozen caller policy, and cover new
 profile Over wash/buildup plus unchanged legacy behavior. Room/editor admission
 and server capability activation remain closed.
+
+## Gaussian source data versus paint-binding correction
+
+The historical seven-source Gaussian primitive/data coverage above is not seven
+paint grants. Actual source2 retains behavior.erase=true even though its native
+blend is normal. The now profile-aware direct source binding refuses it under
+both old/new policies; current executor regressions use the six actual paint
+sources5/6/7/10/11/22 and explicitly assert2's refusal. Shared codec data-only tests
+still roundtrip all seven untouched sources via data pins. No native inputs,
+primitive/GPU source-law evidence or erase metadata are normalized or rewritten.

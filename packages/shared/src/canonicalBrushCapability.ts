@@ -1,3 +1,4 @@
+import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
 import type { BrushDescriptor } from './brushes.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
 import { isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData } from './sourceStampData.js'
@@ -5,10 +6,32 @@ import { isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, ty
 /** Only the native outer law representable by canonical over32 today.
  * This checks composition of an already verified descriptor, not source-data
  * readiness, descriptor schema, alphaDarken mode or other execution policy. */
-export function hasCanonicalOverComposition(descriptor:BrushDescriptor):boolean {
+function nativeOuterBlend(descriptor:BrushDescriptor):CanonicalStrokeComposition['outerBlend']|undefined {
   const behavior=descriptor.behavior,rendering=behavior?.rendering
-  return behavior?.erase!==true && (rendering?.blendMode??'normal')==='normal'
-    && (rendering?.wetEdges??0)===0 && (rendering?.burntEdges??0)===0
+  if(behavior?.erase===true||(rendering?.wetEdges??0)!==0||(rendering?.burntEdges??0)!==0)return
+  switch(rendering?.blendMode??'normal'){
+    case 'normal':return 'over'
+    case 'multiply':return 'multiply'
+    case 'lighten':return 'lighten'
+    case 'colorDodge':return 'colorDodge'
+    case 'overlay':return 'overlay'
+  }
+}
+export function hasCanonicalOverComposition(descriptor:BrushDescriptor):boolean {
+  return nativeOuterBlend(descriptor)==='over'
+}
+/** Pure source-composition selection from an already verified descriptor.
+ * This is neither source-data readiness nor room/server execution permission.
+ * Other material/effect gates remain with source extractors and the resolver. */
+export function canonicalSourceComposition(descriptor:BrushDescriptor,rasterProfile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_RASTER_PROFILE):Readonly<{mode:'wash'|'buildup';outerBlend:CanonicalStrokeComposition['outerBlend']}>|undefined {
+  if(rasterProfile!==CANONICAL_STROKE_RASTER_PROFILE&&rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)return
+  const outerBlend=nativeOuterBlend(descriptor)
+  if(!outerBlend)return
+  const data=descriptor.sourceStamp
+  if(!isSourceStampData(data))return
+  const mode=sourceStampPaintingMode(data)
+  if(!mode||outerBlend!=='over'&&(rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||mode!=='wash'))return
+  return Object.freeze({mode,outerBlend})
 }
 
 /** Saved reader law shared by image/auto capability binding. Undefined action

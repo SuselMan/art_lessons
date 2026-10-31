@@ -85,3 +85,23 @@ it('rejects non-first-use indexes even when every cap is otherwise valid and use
  const value={...f.attachment,capabilities:[other,f.attachment.capabilities[0]],bindings:[{...f.attachment.bindings[0],capability:1},{operationId:'op2',sequence:4,originalUserId:'other',capability:0}]}
  expect(()=>prepareCanonicalRecordedAttachment(value,[f.op,op2],f.expected)).toThrow()
 })
+
+const genericOuterProfile='installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2' as const
+it.each(['multiply','lighten','colorDodge','overlay'] as const)('requires captured expected V2 profile for attached %s frames',outerBlend=>{
+ const f=fixture(),snapshot={...f.attachment.capabilities[0].snapshot,rasterProfile:genericOuterProfile,composition:{...f.op.frame.composition,outerBlend}}
+ const attachment={...f.attachment,capabilities:[{originalUserId:'author',snapshot}]}
+ const op={...f.op,frame:{...f.op.frame,version:2 as const,rasterProfile:genericOuterProfile,composition:snapshot.composition}}
+ const result=prepareCanonicalRecordedAttachment(attachment,[op],{...f.expected,rasterProfile:genericOuterProfile})
+ expect(result[0].read?.capability.snapshot.rasterProfile).toBe(genericOuterProfile)
+ expect(result[0].operation).toEqual(op);expect(Object.isFrozen(result[0].read?.capability.snapshot.composition)).toBe(true)
+ expect(()=>prepareCanonicalRecordedAttachment(attachment,[op],f.expected)).toThrow()
+ expect(()=>prepareCanonicalRecordedAttachment(attachment,[{...op,frame:{...op.frame,version:1 as const,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}}],{...f.expected,rasterProfile:genericOuterProfile})).toThrow()
+})
+it('rejects unknown/null captured policy before walking attachment data and preserves old default read metadata',()=>{
+ const f=fixture(),walk=vi.fn(()=>{throw Error('attachment must not be walked')})
+ const attachment={get version(){return walk()}}
+ for(const rasterProfile of ['foreign',null])expect(()=>prepareCanonicalRecordedAttachment(attachment,[f.op],{...f.expected,rasterProfile:rasterProfile as never})).toThrow('Invalid canonical recorded capability attachment')
+ expect(walk).not.toHaveBeenCalled()
+ const result=prepareCanonicalRecordedAttachment(f.attachment,[f.op],f.expected)
+ expect(result[0].read?.rasterProfile).toBe(CANONICAL_STROKE_RASTER_PROFILE)
+})
