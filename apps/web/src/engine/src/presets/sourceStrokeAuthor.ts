@@ -20,6 +20,8 @@ export interface SourceAuthorRoleProgram {
   readonly options: Readonly<Record<SourceStampOptionId, SourceOptionProgramInput>>
   readonly brush: SourceDabBrushMetrics
   readonly geometry?: SourceDabGeometry
+  /** Ordered common-grid image frames, selected at the addDab boundary. */
+  readonly imagePipe?: {readonly mode:'incremental';readonly frames:readonly string[]}
   readonly material: Omit<SourceDabCacheRequest, 'x' | 'y' | 'shape'>
   /** Current supported material law; active extra consumers must be rejected. */
   readonly materialPolicy: 'png-fixed1-rng-free' | 'default-auto-fixed1-rng-free' | 'gaussian-auto-fixed1-rng-free' | 'soft-auto-fixed1-rng-free'
@@ -137,6 +139,9 @@ export class SourceStrokeAuthor {
     }
     this.program=freeze(structuredClone(program))
     this.options=this.program.roles.map(role=>{
+      if(role.imagePipe&&(role.imagePipe.mode!=='incremental'||role.imagePipe.frames.length<2||role.imagePipe.frames.length>256
+        ||role.imagePipe.frames[0]!==role.material.brushIdentity||role.imagePipe.frames.some(v=>!/^asset:[a-f0-9]{64}$/.test(v))
+        ||role.materialPolicy!=='png-fixed1-rng-free'||role.geometry&&role.geometry.kind!=='image'))throw new RangeError('Invalid incremental image pipe')
       if(!['png-fixed1-rng-free','default-auto-fixed1-rng-free','gaussian-auto-fixed1-rng-free','soft-auto-fixed1-rng-free'].includes(role.materialPolicy)
         || (role.geometry?.kind==='defaultAuto')!==(role.materialPolicy==='default-auto-fixed1-rng-free')
         || (role.geometry?.kind==='gaussianAuto')!==(role.materialPolicy==='gaussian-auto-fixed1-rng-free') || (role.geometry?.kind==='softAuto')!==(role.materialPolicy==='soft-auto-fixed1-rng-free') || role.material.softness!==1 || role.material.lightness!==1
@@ -235,7 +240,7 @@ export class SourceStrokeAuthor {
         const saved=role.cache.saved,key=saved.key
         if(!saved.shape || !key || !saved.position || !saved.brush || !saved.mirror
           || !count(saved.sequence) || saved.sequence>=role.cache.nextSequence
-          || saved.brushIdentity!==this.program.roles[index].material.brushIdentity
+          || (this.program.roles[index].imagePipe?(saved.key.index!==saved.sequence%this.program.roles[index].imagePipe!.frames.length||saved.brushIdentity!==this.program.roles[index].imagePipe!.frames[saved.sequence%this.program.roles[index].imagePipe!.frames.length]):saved.brushIdentity!==this.program.roles[index].material.brushIdentity)
           || ![saved.width,saved.height,key.width,key.height].every(v=>Number.isSafeInteger(v)&&v>=1)
           || ![saved.shape.scale,saved.shape.ratio,key.subPixelX,key.subPixelY].every(nonnegative)
           || ![saved.shape.rotation,saved.position.x,saved.position.y,key.angle,key.softness,key.lightness,key.ratio].every(Number.isFinite)
@@ -332,7 +337,7 @@ export class SourceStrokeAuthor {
       const result=new SourceStampQueryExecutor(bound,context).execute(kind,{x:packet.x,y:packet.y,drawingAngle,canvasRotation:packet.canvasRotation,
         mirroredH:packet.mirroredH,mirroredV:packet.mirroredV},{canPaint:true,lodScale:program.lodScale,scatterX:program.scatterX,scatterY:program.scatterY,
         mirrorX:program.mirrorX,mirrorY:program.mirrorY,indirectPainting:program.indirectPainting,
-        sourceCache:{brush:program.brush,...(program.geometry?{geometry:program.geometry}:{}),state:role.cache,request:program.material}})
+        sourceCache:{brush:program.brush,...(program.geometry?{geometry:program.geometry}:{}),state:role.cache,request:program.imagePipe?{...program.material,index:role.cache.nextSequence%program.imagePipe.frames.length,brushIdentity:program.imagePipe.frames[role.cache.nextSequence%program.imagePipe.frames.length]}:program.material}})
       let nextRole:SourceAuthorRoleState={...role}
       let nextCursor:Cursor
       if(kind==='paint'){

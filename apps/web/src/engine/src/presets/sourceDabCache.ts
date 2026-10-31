@@ -103,6 +103,8 @@ export function sourceDabKeysEqual(current: SourceDabCacheKey, saved: SourceDabC
     && current.mirrorH === saved.mirrorH && current.mirrorV === saved.mirrorV
 }
 export interface SourceDabCacheRequest {
+  /** Selected image-pipe frame; absent retains the historical static frame. */
+  readonly index?: number
   readonly brushIdentity: string
   readonly x: number
   readonly y: number
@@ -159,6 +161,7 @@ const fraction = (x: number): number => x - Math.floor(x)
 export function planSourceDab(brush: SourceDabBrushMetrics, request: SourceDabCacheRequest, state: SourceDabCacheState,
   mirrorOption: SourceOption, context: SourceOptionContext, mirrorInput: SourceMirrorInput, geometry?: SourceDabGeometry): SourceDabCacheResult {
   if (!Number.isSafeInteger(state.nextSequence) || state.nextSequence < 0 || state.nextSequence >= Number.MAX_SAFE_INTEGER) throw new RangeError('Invalid source cache sequence')
+  if(request.index!==undefined&&(!Number.isSafeInteger(request.index)||request.index<0||request.index>255))throw new RangeError('Invalid image-pipe frame')
   if (typeof request.brushIdentity !== 'string' || !request.brushIdentity.length) throw new RangeError('Missing native brush identity')
   if (!Number.isInteger(request.precisionLevel) || request.precisionLevel < 1 || request.precisionLevel > 5
     || ![request.x, request.y, request.softness, request.lightness].every(Number.isFinite)
@@ -194,7 +197,7 @@ export function planSourceDab(brush: SourceDabBrushMetrics, request: SourceDabCa
   }
   const extent = sourceDabMaskExtent(brush, shape, subX, subY, geometry)
   const key: SourceDabCacheKey = { color: request.color, angle: shape.rotation, width: extent[0], height: extent[1], subPixelX: subX, subPixelY: subY,
-    softness: request.softness, lightness: request.lightness, ratio: shape.ratio, index: 0, mirrorH: mirror.horizontal, mirrorV: mirror.vertical }
+    softness: request.softness, lightness: request.lightness, ratio: shape.ratio, index: request.index ?? 0, mirrorH: mirror.horizontal, mirrorV: mirror.vertical }
   const effectivePrecision = request.autoPrecision ? Math.min(key.width, key.height) < 30 || !request.imprecisePosition ? 5 : 3 : request.precisionLevel
   const saved = state.saved
   const hit = !!saved && sourceDabGeometryEqual(geometry,saved.geometry) && saved.brushIdentity === request.brushIdentity && request.supportsCaching && request.solidColor && sourceDabKeysEqual(key, saved.key, effectivePrecision)

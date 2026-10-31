@@ -43,7 +43,7 @@ export function copySourceMaterialContext(c:AnySourceStrokeMaterialContext):AnyC
   }
   const legacy=c as SourceStrokeMaterialContext
   if(legacy.geometry?.kind==='defaultAuto'||legacy.geometry?.kind==='gaussianAuto'||legacy.geometry?.kind==='softAuto')throw new RangeError('Default auto requires a trusted wire2 source context')
-  return freeze({assets:structuredClone(legacy.assets),primaryAsset:legacy.primaryAsset,maskAsset:legacy.maskAsset,budget:{...legacy.budget},preflightDefinition:canonicalMaterialGeometryCost})
+  return freeze({assets:structuredClone(legacy.assets),primaryAsset:legacy.primaryAsset,...(legacy.primaryImageFrames?{primaryImageFrames:[...legacy.primaryImageFrames]}:{}),maskAsset:legacy.maskAsset,budget:{...legacy.budget},preflightDefinition:canonicalMaterialGeometryCost})
 }
 function targetKeys(d:Pick<Draw,'x'|'y'|'recipe'>,g:SourceMaterialTargetGeometry|undefined):readonly string[]{
   if(!g)return[]
@@ -118,7 +118,7 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
   private readonly context:AnyCanonicalMaterialContext
   private readonly targets:Readonly<SourceMaterialTargetGeometry>|undefined
   private targetUnion=new Set<string>()
-  private readonly program:Pick<SourceStrokeAuthorProgram,'id'> & {readonly roles:readonly {readonly id:'primary'|'mask';readonly asset:string}[]}
+  private readonly program:Pick<SourceStrokeAuthorProgram,'id'> & {readonly roles:readonly {readonly id:'primary'|'mask';readonly asset:string;readonly frames?:readonly string[]}[]}
   private inputOrdinal:number
   private eventOrdinal:number
   private active=false
@@ -139,8 +139,13 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
     this.context=copySourceMaterialContext(context)
     buildAdapterMaterial({masked:program.roles.length===2,entry:{phase:'between'},draws:[],fences:[]},this.context)
     if(!program.id||program.id.length>256||program.roles.length<1||program.roles.length>2||program.roles[0].id!=='primary'||program.roles.length===2&&program.roles[1].id!=='mask')invalid()
-    this.program={id:program.id,roles:program.roles.map(r=>({id:r.id,asset:r.material.brushIdentity}))}
+    this.program={id:program.id,roles:program.roles.map(r=>({id:r.id,asset:r.material.brushIdentity,frames:r.imagePipe?.frames}))}
     for(const r of program.roles){
+      if(r.imagePipe){
+        if(version2(this.context))throw new RangeError('Image pipe requires image material context')
+        if(!this.context.primaryImageFrames||r.id!=='primary'||!sameData(this.context.primaryImageFrames,r.imagePipe.frames))invalid()
+        for(const id of r.imagePipe.frames){const a=this.context.assets.find(a=>a.id===id);if(!a||a.width!==r.brush.width||a.height!==r.brush.height)invalid()}
+      }
       if(version2(this.context)){
         const pin=r.id==='primary'?this.context.primarySource:this.context.maskSource
         if(!pin)invalid()
@@ -221,7 +226,7 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
   }
   private material(step:SourceStrokeAuthorStep):Draw {
     const r=step.result!,m=r.material,s=m?.resolvedSource,role=step.role!
-    if(!m||!s||!r.painted||s.brushIdentity!==this.program.roles.find(p=>p.id===role)!.asset
+    if(!m||!s||!r.painted||!(this.program.roles.find(p=>p.id===role)!.frames??[this.program.roles.find(p=>p.id===role)!.asset]).includes(s.brushIdentity)
       ||m.resolvedRect.width!==s.width||m.resolvedRect.height!==s.height
       ||typeof r.opacity!=='number'||!Number.isFinite(r.opacity)||r.opacity<0||r.opacity>1
       ||typeof r.flow!=='number'||!Number.isFinite(r.flow)||r.flow<0||r.flow>1

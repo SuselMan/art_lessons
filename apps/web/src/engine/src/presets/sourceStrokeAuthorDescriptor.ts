@@ -1,5 +1,5 @@
 import { SOURCE_LONG_TIME } from '../dabs/sourceDistanceTiming'
-import { extractCanonicalSinglePngCapability, extractDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability, extractSoftAutoSourceDataCapability, type BrushDescriptor, type SourceStampCurveData } from '@grafetto/shared'
+import { extractCanonicalSinglePngCapability, extractCanonicalIncrementalImagePipeCapability, extractDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability, extractSoftAutoSourceDataCapability, type BrushDescriptor, type SourceStampCurveData } from '@grafetto/shared'
 import { sourceCurveIsIdentity, type SourceCurvePolynomial } from './sourceCurve'
 import { compileSourceOptionProgram, type SourceOptionProgramInput } from './sourceOptionProgram'
 import { SourceStrokeAuthor, type SourceAuthorRoleProgram, type SourceStrokeAuthorProgram } from './sourceStrokeAuthor'
@@ -14,6 +14,7 @@ export interface SourceAuthorDescriptorContext {
   readonly scale?: number
   readonly coverageProfile?: 'scalar-f64-fma-v1' | 'scalar-bionic-f64-fma-v1' | 'neon64-f32-fma-v1'
   readonly asset?: { readonly id: string; readonly size: number }
+  readonly assets?: readonly {readonly id:string;readonly size:number}[]
   /** Explicit compiler capability; absence rejects nonidentity curves.
    * Caller must bind its result to these exact points/corners/source reader. */
   readonly compileCurve?: (curve: SourceStampCurveData) => { readonly version: 'native-sparselu-v1' | 'mapped-arm64-v3'; readonly coefficients: SourceCurvePolynomial['coefficients'] } | undefined
@@ -26,8 +27,9 @@ export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, contex
   const soft=data?.version===2 && data.source?.kind==='softAuto'
   const gaussian=data?.version===2 && data.source?.kind==='gaussianAuto'
   const auto=data?.version===2 && (data.source?.kind==='defaultAuto'||gaussian||soft)
+  const pipe=descriptor.tip.animation?.mode==='incremental'
   const material = soft ? extractSoftAutoSourceDataCapability(descriptor) : gaussian ? extractGaussianAutoSourceDataCapability(descriptor) : auto ? extractDefaultAutoSourceDataCapability(descriptor)
-    : context.asset ? extractCanonicalSinglePngCapability(descriptor, context.asset) : reject('image-source-asset-required')
+    : pipe && context.assets ? extractCanonicalIncrementalImagePipeCapability(descriptor,context.assets) : context.asset ? extractCanonicalSinglePngCapability(descriptor, context.asset) : reject('image-source-asset-required')
   if (!material.supported) return material
   if(auto && !(gaussian?['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1']:['scalar-f64-fma-v1','neon64-f32-fma-v1']).includes(context.coverageProfile??''))return reject('explicit-auto-coverage-profile-required')
   if (!Number.isFinite(context.lodScale) || context.lodScale <= 0 || typeof context.colorIdentity !== 'string' || !context.colorIdentity.length
@@ -62,7 +64,7 @@ export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, contex
     const rotation=data.options.find(o=>o.id==='Rotation')!
     const fan=rotation.checked && rotation.useCurve ? rotation.sensors.find(s=>s.id==='drawingAngle' && s.fanCorners) : undefined
     const brush={...data.brush,scale:context.scale ?? data.brush.scale}
-    const role:SourceAuthorRoleProgram={id:'primary',options:programs as unknown as SourceAuthorRoleProgram['options'],brush,
+    const role:SourceAuthorRoleProgram={id:'primary',...(pipe?{imagePipe:{mode:'incremental' as const,frames:descriptor.tip.animation!.frames}}:{}),options:programs as unknown as SourceAuthorRoleProgram['options'],brush,
       ...(data.version===2 && data.source.kind==='softAuto'?{geometry:{kind:'softAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-f64-fma-v1'|'neon64-f32-fma-v1'}}:data.version===2 && data.source.kind==='gaussianAuto'?{geometry:{kind:'gaussianAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-bionic-f64-fma-v1'|'neon64-f32-fma-v1'}}:data.version===2 && data.source.kind==='defaultAuto'?{geometry:{kind:'defaultAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-f64-fma-v1'|'neon64-f32-fma-v1'}}:data.version===2?{geometry:{kind:'image' as const}}:{}),
       materialPolicy:soft?'soft-auto-fixed1-rng-free':gaussian?'gaussian-auto-fixed1-rng-free':auto?'default-auto-fixed1-rng-free':'png-fixed1-rng-free',lodScale:context.lodScale,
       scatterX:data.flags.scatterX,scatterY:data.flags.scatterY,mirrorX:data.flags.mirrorX,mirrorY:data.flags.mirrorY,indirectPainting:data.flags.indirectPainting,
