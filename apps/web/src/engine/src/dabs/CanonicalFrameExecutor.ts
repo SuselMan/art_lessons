@@ -350,7 +350,7 @@ export class CanonicalFrameExecutor {
       if (!this.preparePhysical(work,layer,turnStarted)) return {pending:this.pending,checkpointReady:this.checkpointReady}
       // One owned capture covers direct target preparation, inner batch and
       // its release callbacks; no GL state or lease survives this turn.
-      runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},turn=>{
+      this.runPreparedTurn(work,turnStarted,turn=>{
         this.paintPrepared(work,layer,turn,turnStarted)
       })
     } catch (error) {
@@ -358,6 +358,23 @@ export class CanonicalFrameExecutor {
       throw error
     } finally { this.advancing = false }
     return { pending: this.pending, checkpointReady: this.checkpointReady }
+  }
+
+  /** A computed final stripe borrows the NEXT actual GL turn, never a new
+   * readiness owner. If upload spends the budget, physical cursors stay put. */
+  private runPreparedTurn(work:Work,turnStarted:number,execute:(turn:BrushGlTurn)=>void):boolean {
+    const recipe=work.input.frame.definitions[work.result.draws[work.draw]?.definition];
+    const request=recipe&&autoRecipe(recipe)?this.maskRequest(work,work.draw):undefined;
+    const upload=!!request&&this.options.prepass.finalAutoUploadPending(request);
+    let executed=false;
+    runBrushGlTurn({participants:[this.options.prepass,this.options.composite],...(upload?{captureAutoUploadUnpack:true as const}:{})},turn=>{
+      if(upload){
+        this.options.prepass.flushFinalAutoGeneration(request!,turn);
+        if(performance.now()-turnStarted>=4)return;
+      }
+      execute(turn);executed=true;
+    });
+    return executed;
   }
 
   /** Reuses an already captured turn; never captures or advances source state. */
@@ -383,23 +400,23 @@ export class CanonicalFrameExecutor {
       if(plan.takeResidentTarget(work.targetCursor)){
         work.targetCursor++;if(performance.now()-turnStarted>=4)return false
       }else{
-        runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{this.gl.activeTexture(this.gl.TEXTURE0);return plan.takeTarget(work.targetCursor)})
-        work.targetCursor++;return false
+        if(this.runPreparedTurn(work,turnStarted,()=>{this.gl.activeTexture(this.gl.TEXTURE0);plan.takeTarget(work.targetCursor)}))work.targetCursor++;
+        return false
       }
     }
     while(work.scratchCursor<plan.scratchCount){
       if(plan.takeResidentScratch(work.scratchCursor)){
         work.scratchCursor++;if(performance.now()-turnStarted>=4)return false
       }else{
-        runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{this.gl.activeTexture(this.gl.TEXTURE0);return plan.takeScratch(work.scratchCursor)})
-        work.scratchCursor++;return false
+        if(this.runPreparedTurn(work,turnStarted,()=>{this.gl.activeTexture(this.gl.TEXTURE0);plan.takeScratch(work.scratchCursor)}))work.scratchCursor++;
+        return false
       }
     }
     if(work.washCursor<work.newTiles.length){
       const position=work.newTiles[work.washCursor],base=work.washCursor*perTile
       // All allocation is complete. Only the LAST initialization may spend
       // remaining turn time painting; all earlier tile clears precede pixels.
-      runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},turn=>{
+      this.runPreparedTurn(work,turnStarted,turn=>{
         this.gl.activeTexture(this.gl.TEXTURE0)
         const target=this.resolveTile(layer,position),bound=bindCanonicalLayerTargets(layer,[target])[0],release=bound.lifetime.lease()
         try{
@@ -462,7 +479,7 @@ export class CanonicalFrameExecutor {
     }
     if (this.options.prepass.beginAutoGeneration(this.maskRequest(work,work.draw))) return performance.now()-start < 4;
     if (performance.now()-start >= 4) return false;
-    do { if(this.options.prepass.advanceAutoGeneration(64).done) return performance.now()-start < 4; }
+    do { const step=this.options.prepass.advanceAutoGeneration(64,{deferFinalUpload:true});if(step.done||step.finalUploadPending)return performance.now()-start < 4; }
     while(performance.now()-start < 4);
     return false;
   }

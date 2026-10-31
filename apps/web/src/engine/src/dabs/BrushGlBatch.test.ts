@@ -1,3 +1,4 @@
+import * as uploadTurn from './BrushGlBatch'
 import { ownedBrushFixture } from '../../testing/ownedBrushFixture'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { recordingGL } from '../../testing/brushPassTestUtils'
@@ -441,4 +442,24 @@ it('charges each unique admitted fixed framebuffer in the existing frame metadat
   const s=setup(),o=fixedFramebufferOwner(s)
   runBrushGlBatch({participants:[s.service],owners:[o.lifetime,o.lifetime]},()=>{expect(s.cpu.reservedBytes).toBe(4096+256+128+96)})
   expect(o.lease).toHaveBeenCalledTimes(1);expect(o.released).toHaveBeenCalledTimes(1);expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('borrows narrow upload restoration only from a genuine opted turn and still admits its one inner batch',()=>{
+ const s=setup();s.gl.UNPACK_FLIP_Y_WEBGL=9401;s.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL=9402
+ const parameters=s.gl.getParameter,store=s.gl.pixelStorei,flags=new Map([[9401,true],[9402,true]])
+ s.gl.getParameter=(key:number)=>flags.has(key)?flags.get(key):parameters(key)
+ s.gl.pixelStorei=(key:number,value:number|boolean)=>flags.has(key)?flags.set(key,!!value):store(key,value)
+ expect(typeof uploadTurn.borrowBrushGlTurnAutoUploadRestore).toBe('function')
+ runBrushGlTurn({participants:[s.service]},turn=>expect(()=>uploadTurn.borrowBrushGlTurnAutoUploadRestore(turn,s.service)).toThrow())
+ let retained:BrushGlTurn|undefined
+ const before=s.snapshot()
+ runBrushGlTurn({participants:[s.service],captureAutoUploadUnpack:true},turn=>{
+  retained=turn;const restore=uploadTurn.borrowBrushGlTurnAutoUploadRestore(turn,s.service)
+  s.gl.pixelStorei(9401,false);s.gl.pixelStorei(9402,false);s.gl.activeTexture(s.gl.TEXTURE0)
+  restore();expect(s.snapshot()).toEqual(before);expect(flags.get(9401)).toBe(true);expect(flags.get(9402)).toBe(true)
+  expect(()=>uploadTurn.borrowBrushGlTurnAutoUploadRestore(turn,s.service)).toThrow()
+  runBrushGlBatch({turn,participants:[s.service]},()=>{})
+ })
+ expect(()=>uploadTurn.borrowBrushGlTurnAutoUploadRestore(retained!,s.service)).toThrow()
+ expect(s.cpu.reservedBytes).toBe(0)
 })

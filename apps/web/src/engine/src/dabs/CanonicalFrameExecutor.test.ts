@@ -1740,3 +1740,53 @@ it('keeps the same eight-command bound when last initialization shares its paint
   expect(s.executor.advance().pending).toBe(false);expect(draw).toHaveBeenCalledTimes(9)
  }finally{clock.mockRestore();s.close()}
 })
+
+it('flushes a final computed source stripe and paints without rereading upload alignment',()=>{
+ const {pin,frame}=nativeSoftFrame(),s=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  while(!s.executor['softProgram']!.done)s.executor['softProgram']!.advance(65536)
+  frame.draws.forEach(d=>Object.assign(d,{x:0,y:0}));s.layer.resolveForPaint({minX:0,minY:0,maxX:64,maxY:64})
+  s.executor.enqueue({...s.submit(),frame,assets:[]});const work=s.executor['queue'][0],request=s.executor['maskRequest'](work,0)
+  s.prepass.beginAutoGeneration(request);s.gl.texSubImage2D.mockClear()
+  const step=s.prepass.advanceAutoGeneration(65536,{deferFinalUpload:true});expect(step.finalUploadPending).toBe(true);expect(s.gl.texSubImage2D).not.toHaveBeenCalled()
+  const query=vi.spyOn(s.gl,'getParameter'),draw=vi.spyOn(s.composite,'drawSource');query.mockClear()
+  expect(s.executor.advance().pending).toBe(false);expect(draw).toHaveBeenCalledOnce();expect(s.gl.texSubImage2D).toHaveBeenCalledOnce()
+  expect(query.mock.calls.filter(c=>c[0]===s.gl.UNPACK_ALIGNMENT)).toHaveLength(1)
+ }finally{clock.mockRestore();s.close()}
+})
+
+it.each([false,true])('retains an uploaded source without allocating or painting after its turn budget expires (resident=%s)',resident=>{
+ const {pin,frame}=nativeSoftFrame(),s=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin);let now=0
+ const clock=vi.spyOn(performance,'now').mockImplementation(()=>now)
+ try{
+  while(!s.executor['softProgram']!.done)s.executor['softProgram']!.advance(65536)
+  frame.draws.forEach(d=>Object.assign(d,{x:0,y:0}));if(resident)s.layer.resolveForPaint({minX:0,minY:0,maxX:64,maxY:64})
+  s.executor.enqueue({...s.submit(),frame,assets:[]});const work=s.executor['queue'][0],request=s.executor['maskRequest'](work,0)
+  s.prepass.beginAutoGeneration(request);s.prepass.advanceAutoGeneration(65536,{deferFinalUpload:true})
+  s.gl.texSubImage2D.mockClear();s.gl.texImage2D.mockClear();const draw=vi.spyOn(s.composite,'drawSource')
+  s.gl.texSubImage2D.mockImplementationOnce(()=>{now=4})
+  expect(s.executor.advance().pending).toBe(true)
+  expect(s.gl.texSubImage2D).toHaveBeenCalledOnce();expect(s.gl.texImage2D).not.toHaveBeenCalled();expect(draw).not.toHaveBeenCalled()
+  expect(s.prepass.finalAutoUploadPending(request)).toBe(false)
+  now=0;let turns=0;while(s.executor.pending&&turns++<100)s.executor.advance()
+  expect(turns).toBeLessThan(100);expect(draw).toHaveBeenCalledOnce();expect(s.gl.texSubImage2D).toHaveBeenCalledOnce()
+ }finally{clock.mockRestore();s.close()}
+})
+
+it('keeps the final CPU stripe charged without capturing GL when computation exhausts the advance budget',()=>{
+ const {pin,frame}=nativeSoftFrame(),s=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin);let now=0
+ const clock=vi.spyOn(performance,'now').mockImplementation(()=>now)
+ try{
+  while(!s.executor['softProgram']!.done)s.executor['softProgram']!.advance(65536)
+  frame.draws.forEach(d=>Object.assign(d,{x:0,y:0}));s.layer.resolveForPaint({minX:0,minY:0,maxX:64,maxY:64})
+  s.executor.enqueue({...s.submit(),frame,assets:[]});const work=s.executor['queue'][0],request=s.executor['maskRequest'](work,0)
+  s.prepass.beginAutoGeneration(request);s.prepass.advanceAutoGeneration(65536,{deferFinalUpload:true})
+  const advance=s.prepass.advanceAutoGeneration.bind(s.prepass);let expire=true
+  vi.spyOn(s.prepass,'advanceAutoGeneration').mockImplementation((samples,options)=>{const result=advance(samples,options);if(expire&&result.finalUploadPending){expire=false;now=4}return result})
+  const query=vi.spyOn(s.gl,'getParameter'),draw=vi.spyOn(s.composite,'drawSource');query.mockClear();s.gl.texSubImage2D.mockClear()
+  const charged=s.cpu.reservedBytes
+  expect(s.executor.advance().pending).toBe(true);expect(query).not.toHaveBeenCalled();expect(draw).not.toHaveBeenCalled();expect(s.gl.texSubImage2D).not.toHaveBeenCalled()
+  expect(s.cpu.reservedBytes).toBe(charged);expect(s.prepass.finalAutoUploadPending(request)).toBe(true)
+  now=0;expect(s.executor.advance().pending).toBe(false);expect(draw).toHaveBeenCalledOnce();expect(s.gl.texSubImage2D).toHaveBeenCalledOnce()
+ }finally{clock.mockRestore();s.close()}
+})

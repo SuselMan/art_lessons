@@ -1,6 +1,6 @@
-import type { BrushGlBatchFrame, BrushGlBatchInfo } from './BrushGlBatch';
+import {borrowBrushGlTurnAutoUploadRestore,type BrushGlTurn,type BrushGlBatchFrame,type BrushGlBatchInfo} from './BrushGlBatch';
 import { canonicalSoftAutoSourcePin, canonicalSoftAutoStatic, sourcePngPyramid } from '@grafetto/shared';
-import { saveBrushGlState } from './BrushGlState';
+import { saveBrushGlState,restoreBrushAutoUploadState } from './BrushGlState';
 import type { SourceDabMaterialSpec } from '../presets/sourceDabCache';
 import { buildRgba64FactorLut } from '../raster/sourceRgba64StraightShader';
 import { SOURCE_TRANSFORMED_MASK_VERT, sourceTransformedMaskFragment } from '../raster/sourceTransformedMaskShader';
@@ -127,7 +127,7 @@ export class TransformedMaskPrepass {
     readonly epoch: Workspace; readonly evaluator: ReturnType<typeof prepareCanonicalAutoMask>['evaluator'];
     readonly material: CanonicalAutoMaskMaterial; readonly width: number; readonly height: number;
     readonly a8: Uint8Array; readonly rgba: Uint8Array; readonly release: () => void;
-    filled: number; uploadedRows: number;
+    filled: number; uploadedRows: number; computedFinal:boolean; flushing:boolean;
   };
   private batch?: BrushGlBatchFrame;
   private limits?: TransformedMaskLimits;
@@ -452,7 +452,7 @@ export class TransformedMaskPrepass {
           trustedSource: Object.freeze({ ...material.trustedSource, source: Object.freeze({ ...material.trustedSource.source }) }) }) as CanonicalAutoMaskMaterial;
       slot.revision = undefined; slot.plan = undefined; slot.material = undefined;
       this.pendingAuto = { owner: request.owner, role: request.role, revision, slot, epoch: this.workspace,
-        evaluator: prepared.evaluator, material: captured, width, height, a8, rgba, release, filled: 0, uploadedRows: 0 };
+        evaluator: prepared.evaluator, material: captured, width, height, a8, rgba, release, filled: 0, uploadedRows: 0, computedFinal:false, flushing:false };
       return false;
     } catch (error) {
       try { prepared.evaluator.cancel(); } catch { /* Preserve preparation failure. */ }
@@ -462,49 +462,100 @@ export class TransformedMaskPrepass {
   }
   /** Advances <=maxSamples; at most one bounded stripe upload. Caller owns the
    * cooperative time budget and yields without holding a GL batch/target lease. */
-  advanceAutoGeneration(maxSamples: number): { done: boolean; consumed: number; uploadedBytes: number } {
+  advanceAutoGeneration(maxSamples: number,options?:{readonly deferFinalUpload?:true}): { done: boolean; consumed: number; uploadedBytes: number;finalUploadPending?:true } {
+    if(options!==undefined&&(!options||options.deferFinalUpload!==undefined&&options.deferFinalUpload!==true||Reflect.ownKeys(options).some(k=>k!=='deferFinalUpload')))
+      throw new RangeError('Invalid auto generation policy');
     if (this.batch || this.activeGroup) throw new Error('Cannot advance auto generation inside GL batch/group');
     const p = this.pendingAuto;
     if (!p) throw new Error('No auto generation pending');
-    if (!this.isReady() || this.workspace !== p.epoch || this.cache.get(p.slot.key) !== p.slot.texture) {
-      this.cancelAutoGeneration(); throw new Error('Auto generation residency changed');
-    }
+    if(p.flushing)throw new Error('Auto upload is already active');
     try {
-      const result = p.evaluator.advance(p.a8, p.filled, maxSamples);
-      const previousFilled = p.filled;
-      p.filled += result.written;
-      // Pack only this bounded sample quantum; no full-stripe packing burst.
-      for (let i=previousFilled; i<p.filled; i++) p.rgba.fill(p.a8[i], i*4, i*4+4);
-      let uploadedBytes = 0;
-      if (p.filled === p.a8.length || result.done) {
-        const rows = p.filled / p.width;
-        if (!Number.isSafeInteger(rows)) throw new Error('Auto stripe ended between rows');
-        const release = this.cache.lease([{ key: p.slot.key, bytes: this.limits!.width*this.limits!.height*4 }]);
-        const gl = this.gl;
-        let restore: (() => void) | undefined;
-        let failed=false, failure: unknown;
-        try {
-          restore = this.saveAutoUploadState();
-          gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,p.slot.texture);
-          gl.pixelStorei(gl.UNPACK_ALIGNMENT,1); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
-          gl.texSubImage2D(gl.TEXTURE_2D,0,0,p.uploadedRows,p.width,rows,gl.RGBA,gl.UNSIGNED_BYTE,p.rgba.subarray(0,p.filled*4));
-        } catch(error) { failed=true; failure=error; }
-        finally {
-          try { restore?.(); } catch(error) { if(!failed){failed=true;failure=error} }
-          try { release(); } catch(error) { if(!failed){failed=true;failure=error} }
-        }
-        if(failed)throw failure;
-        p.uploadedRows += rows; uploadedBytes = p.filled*4; p.filled = 0;
+      if(!Number.isSafeInteger(maxSamples)||maxSamples<=0)throw new RangeError('Invalid coverage continuation range');
+      this.assertAutoResidency(p);
+      let consumed=0;
+      if(!p.computedFinal){
+        const result = p.evaluator.advance(p.a8, p.filled, maxSamples);
+        const previousFilled = p.filled;
+        p.filled += result.written;consumed=result.consumed;p.computedFinal=result.done;
+        // Pack only this bounded sample quantum; no full-stripe packing burst.
+        for (let i=previousFilled; i<p.filled; i++) p.rgba.fill(p.a8[i], i*4, i*4+4);
       }
-      if (result.done) {
-        p.slot.owner=p.owner; p.slot.role=p.role; p.slot.revision=p.revision; p.slot.material=p.material;
-        p.slot.sourceKey=undefined; p.slot.profile=undefined; p.slot.used=++this.clock;
-        this.pendingAuto=undefined; p.release();
-      }
-      return { done: result.done, consumed: result.consumed, uploadedBytes };
+      if(p.computedFinal)this.assertFinalAutoGeometry(p);
+      if(p.computedFinal&&options?.deferFinalUpload)return {done:false,consumed,uploadedBytes:0,finalUploadPending:true};
+      let uploadedBytes=0;
+      if(p.filled===p.a8.length||p.computedFinal)uploadedBytes=this.uploadAutoStripe(p,{kind:'standalone'});
+      if(p.computedFinal)this.publishAuto(p);
+      return {done:p.computedFinal,consumed,uploadedBytes};
     } catch(error) { try { this.cancelAutoGeneration(); } catch { /* Preserve generation failure. */ } throw error; }
   }
+  /** SAME pending generation; no separate readiness cache or GL observation. */
+  finalAutoUploadPending(request:AnyTransformedMaskRequest):boolean {
+    const p=this.pendingAuto;if(!p)return false;
+    this.assertAutoRequest(p,request);
+    try{this.assertAutoResidency(p);if(p.flushing)throw new Error('Auto upload is already active');if(p.computedFinal)this.assertFinalAutoGeometry(p);return p.computedFinal}
+    catch(primary){try{this.cancelAutoGeneration()}catch{/* Preserve residency failure. */}throw primary}
+  }
+  flushFinalAutoGeneration(request:AnyTransformedMaskRequest,turn:BrushGlTurn):{done:true;consumed:0;uploadedBytes:number} {
+    if(this.batch||this.activeGroup)throw new Error('Final auto upload requires an idle prepass');
+    const p=this.pendingAuto;if(!p||!p.computedFinal||p.flushing)throw new Error('No final auto upload pending');
+    this.assertAutoRequest(p,request);this.assertFinalAutoGeometry(p);
+    // Invalid foreign admission must not cancel somebody else's accepted work.
+    const restore=borrowBrushGlTurnAutoUploadRestore(turn,this);
+    try{
+      this.assertAutoResidency(p);
+      const uploadedBytes=this.uploadAutoStripe(p,{kind:'owned',restore});
+      this.assertAutoResidency(p);
+      if(this.gl.isContextLost())throw new Error('Auto upload context lost');
+      this.publishAuto(p,true);
+      return {done:true,consumed:0,uploadedBytes};
+    }catch(primary){try{this.cancelAutoGeneration()}catch{/* Preserve upload failure. */}throw primary}
+  }
+  private assertFinalAutoGeometry(p:NonNullable<TransformedMaskPrepass['pendingAuto']>):void {
+    if(!p.computedFinal||p.filled<1||!Number.isSafeInteger(p.filled/p.width)||p.uploadedRows+p.filled/p.width!==p.height)
+      throw new Error('Invalid final auto stripe geometry');
+  }
+  private assertAutoRequest(p:NonNullable<TransformedMaskPrepass['pendingAuto']>,request:AnyTransformedMaskRequest):void {
+    const material=request.material;
+    if(p.owner!==request.owner||p.role!==request.role||!('kind'in material)||material.kind!=='canonicalAuto'||request.source||p.revision!==canonicalAutoMaskRevision(material))
+      throw new Error('Foreign auto generation owner/revision');
+  }
+  private assertAutoResidency(p:NonNullable<TransformedMaskPrepass['pendingAuto']>):void {
+    if(this.pendingAuto!==p||!this.isReady()||this.workspace!==p.epoch||this.cache.get(p.slot.key)!==p.slot.texture)
+      throw new Error('Auto generation residency changed');
+  }
+  private uploadAutoStripe(p:NonNullable<TransformedMaskPrepass['pendingAuto']>,guard:{kind:'standalone'}|{kind:'owned';restore:()=>void}):number {
+    const rows=p.filled/p.width;
+    if(!Number.isSafeInteger(rows)||rows<1||p.uploadedRows+rows>p.height)throw new Error('Auto stripe ended between rows');
+    const release=this.cache.lease([{key:p.slot.key,bytes:this.limits!.width*this.limits!.height*4}]);
+    const gl=this.gl;let restore:(()=>void)|undefined,failed=false,failure:unknown;
+    p.flushing=true;
+    try{
+      restore=guard.kind==='owned'?guard.restore:this.saveAutoUploadState();
+      gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,p.slot.texture);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
+      gl.texSubImage2D(gl.TEXTURE_2D,0,0,p.uploadedRows,p.width,rows,gl.RGBA,gl.UNSIGNED_BYTE,p.rgba.subarray(0,p.filled*4));
+    }catch(error){failed=true;failure=error}
+    finally{
+      try{restore?.()}catch(error){if(!failed){failed=true;failure=error}}
+      try{release()}catch(error){if(!failed){failed=true;failure=error}}
+      p.flushing=false;
+    }
+    if(failed)throw failure;
+    const uploadedBytes=p.filled*4;p.uploadedRows+=rows;p.filled=0;return uploadedBytes;
+  }
+  private publishAuto(p:NonNullable<TransformedMaskPrepass['pendingAuto']>,releaseBeforePublish=false):void {
+    // Owned uploads must finish retirement before exposing readiness.
+    if(releaseBeforePublish){
+      p.release();
+      this.assertAutoResidency(p);
+      if(this.gl.isContextLost())throw new Error('Auto upload context lost');
+    }
+    p.slot.owner=p.owner;p.slot.role=p.role;p.slot.revision=p.revision;p.slot.material=p.material;
+    p.slot.sourceKey=undefined;p.slot.profile=undefined;p.slot.used=++this.clock;
+    this.pendingAuto=undefined;if(!releaseBeforePublish)p.release();
+  }
   cancelAutoGeneration(): void {
+    if(this.pendingAuto?.flushing)throw new Error('Cannot cancel inside auto upload');
     const p=this.pendingAuto; this.pendingAuto=undefined;
     if(p) {
       let failed=false, primary:unknown;
@@ -530,6 +581,7 @@ export class TransformedMaskPrepass {
     if(failed)throw primary;
   }
   reset(lost = false): void {
+    if(this.pendingAuto?.flushing)throw new Error('Cannot reset inside auto upload');
     if (this.batch && !lost) throw new Error('Cannot reset inside an active brush GL batch');
     let failed=false,primary:unknown;
     const attempt=(cleanup:()=>void)=>{try{cleanup()}catch(error){if(!failed){failed=true;primary=error}}};
@@ -555,21 +607,9 @@ export class TransformedMaskPrepass {
       gl.activeTexture(gl.TEXTURE0);
       texture=gl.getParameter(gl.TEXTURE_BINDING_2D) as WebGLTexture | null;
     } finally { gl.activeTexture(active); }
-    return () => {
-      // Synchronous owned upload cannot delete the borrowed original texture.
-      // Attempt independent restores even if a test/driver wrapper throws;
-      // active unit restoration is always last and cannot mask earlier errors.
-      let failed=false, failure: unknown, unitReady=false;
-      const attempt=(restore:()=>void)=>{try{restore()}catch(error){if(!failed){failed=true;failure=error}}};
-      attempt(()=>{gl.activeTexture(gl.TEXTURE0);unitReady=true});
-      if(unitReady)attempt(()=>gl.bindTexture(gl.TEXTURE_2D,texture));
-      attempt(()=>gl.pixelStorei(gl.UNPACK_ALIGNMENT,alignment));
-      attempt(()=>gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,flip));
-      attempt(()=>gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,premultiply));
-      attempt(()=>gl.activeTexture(active));
-      if(failed)throw failure;
-    };
+    return restoreBrushAutoUploadState(gl,{active,texture,alignment,flip,premultiply});
   }
+
   private texture(width:number,height:number,data:Uint8Array|null,reservation:StorageReservation):OwnedBrushResource {
     const gl=this.gl;
     return allocateOwnedBrushTexture(gl,width*height*4,(texture,mark)=>{

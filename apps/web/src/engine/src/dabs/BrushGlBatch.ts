@@ -1,4 +1,4 @@
-import { saveBrushGlState } from './BrushGlState'
+import { saveBrushGlState,type BrushGlStateRestore } from './BrushGlState'
 import type { BrushMipCache } from './BrushMipCache'
 import type { BrushTextureCache } from './BrushTextureCache'
 
@@ -200,6 +200,8 @@ export interface BrushGlTurn { readonly [turnBrand]: true }
 interface TurnRecord {
   readonly infos: Map<BrushGlBatchParticipant, BrushGlBatchInfo>
   readonly restore: () => void
+  readonly restoreAutoUpload?:()=>void
+  autoUploadBorrowed:boolean
   active: boolean
   claimed: boolean
 }
@@ -229,19 +231,21 @@ function sameParticipantBinding(current:BrushGlBatchInfo,pinned:BrushGlBatchInfo
 /** One full capture BEFORE direct target allocation/copy and owner callbacks.
  * One inner batch may borrow it. The SAME snapshot is restored inside that
  * batch before owner releases and again here after preparation cleanup. */
-export function runBrushGlTurn(options:{readonly participants:readonly BrushGlBatchParticipant[]},execute:(turn:BrushGlTurn)=>void):void {
+export function runBrushGlTurn(options:{readonly participants:readonly BrushGlBatchParticipant[];readonly captureAutoUploadUnpack?:true},execute:(turn:BrushGlTurn)=>void):void {
+  const autoUpload=options.captureAutoUploadUnpack===true
+  if(options.captureAutoUploadUnpack!==undefined&&!autoUpload)throw new Error('Invalid auto upload capture declaration')
   const infos=participantInfos(options.participants),first=infos.values().next().value!
   if(turnContexts.has(first.gl))throw new Error('Nested brush GL turn is forbidden')
   if(first.gl.isContextLost())throw new Error('Brush GL turn context lost')
-  const releaseCpu=first.cpu.reserve(4096)
-  let restore:(()=>void)|undefined,record:TurnRecord|undefined,token:BrushGlTurn|undefined,failed=false,failure:unknown
+  const releaseCpu=first.cpu.reserve(4096+(autoUpload?128:0))
+  let restore:BrushGlStateRestore|undefined,record:TurnRecord|undefined,token:BrushGlTurn|undefined,failed=false,failure:unknown
   const cleanup=(fn:()=>void)=>{try{fn()}catch(error){if(!failed){failed=true;failure=error}}}
   turnContexts.add(first.gl)
   try{
     const attributes=[...new Set([...infos.values()].flatMap(i=>[...i.attributes]))]
-    restore=saveBrushGlState(first.gl,attributes,first.instancing,first.vertexArrays,3)
+    restore=saveBrushGlState(first.gl,attributes,first.instancing,first.vertexArrays,3,autoUpload)
     token=Object.freeze({}) as BrushGlTurn
-    record={infos,restore,active:true,claimed:false};turns.set(token,record)
+    record={infos,restore,restoreAutoUpload:restore.restoreAutoUpload,autoUploadBorrowed:false,active:true,claimed:false};turns.set(token,record)
     const value:unknown=execute(token)
     if(value&&typeof(value as {then?:unknown}).then==='function')throw new Error('Brush GL turn callback must be synchronous')
   }catch(error){failed=true;failure=error}
@@ -253,6 +257,18 @@ export function runBrushGlTurn(options:{readonly participants:readonly BrushGlBa
     turnContexts.delete(first.gl)
   }
   if(failed)throw failure
+}
+
+/** One synchronous final upload may borrow ONLY its genuinely captured state.
+ * The cleanup runs before the cache lease release, without another capture. */
+export function borrowBrushGlTurnAutoUploadRestore(turn:BrushGlTurn,participant:BrushGlBatchParticipant):()=>void {
+  const record=turns.get(turn)
+  if(!record||!record.active||record.claimed||record.autoUploadBorrowed||!record.restoreAutoUpload||!record.infos.has(participant))
+    throw new Error('Unknown, closed or undeclared auto upload turn')
+  for(const [service,pinned]of record.infos)if(!sameParticipantBinding(service.brushGlBatchInfo(),pinned))throw new Error('Auto upload turn participant/epoch changed')
+  if(record.infos.get(participant)!.gl.isContextLost())throw new Error('Auto upload turn context lost')
+  record.autoUploadBorrowed=true
+  return record.restoreAutoUpload
 }
 
 export function runBrushGlBatch(options: {

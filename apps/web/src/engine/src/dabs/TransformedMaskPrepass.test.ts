@@ -6,7 +6,7 @@ import { canonicalAutoMaskRevision } from './TransformedMaskPlan';
 import type { CanonicalGaussianAutoRecipe, CanonicalGaussianAutoSource, CanonicalDefaultAutoRecipe, CanonicalDefaultAutoSource, CanonicalAutoRecipe, CanonicalAutoSource } from '@grafetto/shared';
 import { prepareSourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab';
 import { CanonicalRgba8CompositePass } from './CanonicalRgba8CompositePass';
-import { runBrushGlBatch } from './BrushGlBatch';
+import { runBrushGlBatch,runBrushGlTurn,type BrushGlTurn } from './BrushGlBatch';
 import { describe, expect, it, vi } from 'vitest';
 import { BrushTextureCache } from './BrushTextureCache';
 import { BrushMipCache } from './BrushMipCache';
@@ -357,6 +357,114 @@ describe('canonical default-auto incremental slot generation', () => {
         scale:.7,ratio:1,rotation:.19,subX:.25,subY:.5,width,height,mirrorH:false,mirrorV:false}},
       rect:{x:-9,y:17,width,height},profile:'neon4-summed-wordsize64' };
   }
+  it('defers only final CPU output without GL/readiness and retains its same charged owner',()=>{
+    const s=setup(),r=autoRequest();s.service.prepare({width:16,height:16,slots:1},[]);const baseline=s.cpu.reservedBytes
+    try{
+      s.service.beginAutoGeneration(r);s.gl.texSubImage2D.mockClear();const query=vi.spyOn(s.gl,'getParameter');query.mockClear()
+      const result=s.service.advanceAutoGeneration(65536,{deferFinalUpload:true})
+      expect(result).toMatchObject({done:false,uploadedBytes:0,finalUploadPending:true})
+      expect(s.gl.texSubImage2D).not.toHaveBeenCalled();expect(query).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBeGreaterThan(baseline)
+      expect(s.service.finalAutoUploadPending(r)).toBe(true);expect(()=>s.service.resolveGroup([r])).toThrow('incomplete')
+      expect(s.service.advanceAutoGeneration(64,{deferFinalUpload:true})).toMatchObject({done:false,consumed:0,uploadedBytes:0,finalUploadPending:true})
+      s.service.cancelAutoGeneration();expect(s.cpu.reservedBytes).toBe(baseline)
+    }finally{s.service.reset()}
+  })
+  it('flushes final output through one opted full snapshot with no five-query recapture',()=>{
+    const s=setup(),r=autoRequest();s.service.prepare({width:16,height:16,slots:1},[])
+    try{
+      const query=vi.spyOn(s.gl,'getParameter');query.mockClear();runBrushGlTurn({participants:[s.service]},()=>{});const full=query.mock.calls.length
+      s.service.beginAutoGeneration(r);s.service.advanceAutoGeneration(65536,{deferFinalUpload:true});query.mockClear();s.gl.texSubImage2D.mockClear()
+      const before=s.snapshot();query.mockClear()
+      runBrushGlTurn({participants:[s.service],captureAutoUploadUnpack:true},turn=>{
+        s.service.flushFinalAutoGeneration(r,turn)
+        runBrushGlBatch({turn,participants:[s.service]},()=>{})
+      })
+      expect(query.mock.calls).toHaveLength(full+2);expect(s.gl.texSubImage2D).toHaveBeenCalledOnce()
+      expect(s.service.beginAutoGeneration(r)).toBe(true);expect(s.snapshot()).toEqual(before)
+      expect(s.gl.getParameter(s.gl.UNPACK_FLIP_Y_WEBGL)).toBe(true);expect(s.gl.getParameter(s.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)).toBe(true)
+    }finally{s.service.reset()}
+  })
+  it('rejects forged final-upload turn before lease or publication without cancelling its accepted owner',()=>{
+    const s=setup(),r=autoRequest();s.service.prepare({width:16,height:16,slots:1},[])
+    try{
+      expect(typeof s.service.flushFinalAutoGeneration).toBe('function')
+      s.service.beginAutoGeneration(r);s.service.advanceAutoGeneration(65536,{deferFinalUpload:true})
+      const lease=vi.spyOn(s.cache,'lease'),query=vi.spyOn(s.gl,'getParameter');lease.mockClear();query.mockClear();s.gl.texSubImage2D.mockClear()
+      expect(()=>s.service.flushFinalAutoGeneration(r,{} as BrushGlTurn)).toThrow()
+      expect(lease).not.toHaveBeenCalled();expect(query).not.toHaveBeenCalled();expect(s.gl.texSubImage2D).not.toHaveBeenCalled()
+      expect(s.service.finalAutoUploadPending(r)).toBe(true)
+      runBrushGlTurn({participants:[s.service],captureAutoUploadUnpack:true},turn=>s.service.flushFinalAutoGeneration(r,turn))
+      expect(s.service.beginAutoGeneration(r)).toBe(true)
+    }finally{s.service.reset()}
+  })
+  it('can explicitly complete deferred final output through the unchanged standalone result shape',()=>{
+    const s=setup(),r=autoRequest();s.service.prepare({width:16,height:16,slots:1},[])
+    try{
+      s.service.beginAutoGeneration(r);s.service.advanceAutoGeneration(65536,{deferFinalUpload:true})
+      const query=vi.spyOn(s.gl,'getParameter');query.mockClear()
+      const result=s.service.advanceAutoGeneration(1)
+      expect(Object.keys(result).sort()).toEqual(['consumed','done','uploadedBytes']);expect(result).toMatchObject({done:true,consumed:0})
+      expect(query.mock.calls).toHaveLength(5);expect(s.service.beginAutoGeneration(r)).toBe(true)
+    }finally{s.service.reset()}
+  })
+  it.each(['owner','revision'] as const)('does not let a foreign %s cancel or flush the accepted final stripe',kind=>{
+    const s=setup(),r=autoRequest();s.service.prepare({width:16,height:16,slots:1},[])
+    try{
+      s.service.beginAutoGeneration(r);s.service.advanceAutoGeneration(65536,{deferFinalUpload:true})
+      const wrong=kind==='owner'?{...r,owner:{}}:{...r,material:{...r.material,recipe:{...r.material.recipe,subX:r.material.recipe.subX+.125}}}
+      const lease=vi.spyOn(s.cache,'lease');lease.mockClear();s.gl.texSubImage2D.mockClear()
+      runBrushGlTurn({participants:[s.service],captureAutoUploadUnpack:true},turn=>expect(()=>s.service.flushFinalAutoGeneration(wrong,turn)).toThrow())
+      expect(lease).not.toHaveBeenCalled();expect(s.gl.texSubImage2D).not.toHaveBeenCalled();expect(s.service.finalAutoUploadPending(r)).toBe(true)
+      runBrushGlTurn({participants:[s.service],captureAutoUploadUnpack:true},turn=>s.service.flushFinalAutoGeneration(r,turn))
+    }finally{s.service.reset()}
+  })
+  it('retires stale final residency without upload or a replacement readiness grant',()=>{
+    const s=setup(),r=autoRequest();s.service.prepare({width:16,height:16,slots:1},[]);const baseline=s.cpu.reservedBytes
+    try{
+      s.service.beginAutoGeneration(r);s.service.advanceAutoGeneration(65536,{deferFinalUpload:true});s.gl.texSubImage2D.mockClear()
+      s.cache.discard(s.service['pendingAuto']!.slot.key)
+      expect(()=>s.service.finalAutoUploadPending(r)).toThrow('residency');expect(s.gl.texSubImage2D).not.toHaveBeenCalled()
+      expect(s.cpu.reservedBytes).toBe(baseline);expect(s.service['pendingAuto']).toBeUndefined()
+    }finally{s.service.reset()}
+  })
+  it('does not publish readiness when the final release callback invalidates its workspace',()=>{
+    const s=setup(),r=autoRequest();s.service.prepare({width:16,height:16,slots:1},[])
+    try{
+      s.service.beginAutoGeneration(r);s.service.advanceAutoGeneration(65536,{deferFinalUpload:true})
+      const pending=s.service['pendingAuto']!,slot=pending.slot,release=pending.release
+      Object.defineProperty(pending,'release',{value:()=>{release();s.service['workspace']=undefined}})
+      expect(()=>runBrushGlTurn({participants:[s.service],captureAutoUploadUnpack:true},turn=>s.service.flushFinalAutoGeneration(r,turn))).toThrow('residency changed')
+      expect(slot.revision).toBeUndefined();expect(s.service['pendingAuto']).toBeUndefined();expect(s.cache['leases'].size).toBe(0)
+    }finally{s.service.reset()}
+  })
+  it.each(['upload','restore','cache-release','cpu-release'] as const)('retires a failed owned final %s before publishing readiness and preserves its first exact error',fault=>{
+    const s=setup(),r=autoRequest();s.service.prepare({width:16,height:16,slots:1},[]);const baseline=s.cpu.reservedBytes,primary=new Error(fault)
+    try{
+      s.service.beginAutoGeneration(r);s.service.advanceAutoGeneration(65536,{deferFinalUpload:true});const pending=s.service['pendingAuto']!,slot=pending.slot,before=s.snapshot()
+      if(fault==='upload')s.gl.texSubImage2D.mockImplementationOnce(()=>{throw primary})
+      if(fault==='restore'){
+        const store=s.gl.pixelStorei;let once=false;s.gl.pixelStorei=(key:number,value:number|boolean)=>{if(!once&&key===s.gl.UNPACK_FLIP_Y_WEBGL&&value===true){once=true;throw primary}store(key,value)}
+      }
+      if(fault==='cache-release'){
+        const lease=s.cache.lease.bind(s.cache);vi.spyOn(s.cache,'lease').mockImplementation(resources=>{const release=lease(resources);return()=>{release();throw primary}})
+      }
+      if(fault==='cpu-release'){
+        const release=pending.release;Object.defineProperty(pending,'release',{value:()=>{release();throw primary}})
+      }
+      let received:unknown;try{runBrushGlTurn({participants:[s.service],captureAutoUploadUnpack:true},turn=>s.service.flushFinalAutoGeneration(r,turn))}catch(error){received=error}
+      expect(received).toBe(primary);expect(slot.revision).toBeUndefined();expect(s.service['pendingAuto']).toBeUndefined()
+      expect(s.cache['leases'].size).toBe(0);expect(s.cpu.reservedBytes).toBe(baseline);expect(s.snapshot()).toEqual(before)
+      expect(s.gl.getParameter(s.gl.UNPACK_FLIP_Y_WEBGL)).toBe(true);expect(s.gl.getParameter(s.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL)).toBe(true)
+    }finally{s.service.reset()}
+  })
+  it('rejects nested upload/cancel/reset while final GPU output is synchronous',()=>{
+    const s=setup(),r=autoRequest();s.service.prepare({width:16,height:16,slots:1},[])
+    try{
+      s.service.beginAutoGeneration(r);s.service.advanceAutoGeneration(65536,{deferFinalUpload:true})
+      s.gl.texSubImage2D.mockImplementationOnce(()=>{expect(()=>s.service.advanceAutoGeneration(1)).toThrow('active');expect(()=>s.service.cancelAutoGeneration()).toThrow('inside');expect(()=>s.service.reset()).toThrow('inside')})
+      runBrushGlTurn({participants:[s.service],captureAutoUploadUnpack:true},turn=>s.service.flushFinalAutoGeneration(r,turn));expect(s.service.beginAutoGeneration(r)).toBe(true)
+    }finally{s.service.reset()}
+  })
   it('generates partial samples outside batches, publishes once and reuses at new placement/mirror', () => {
     const s=setup(), request=autoRequest();
     s.service.prepare({width:16,height:16,slots:1},[]);
