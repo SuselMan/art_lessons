@@ -12,9 +12,10 @@ import type {
   ImageImportOperation, LayerTransformOperation, AreaTransformOperation, AreaClearOperation,
   AreaPasteOperation, AreaFillOperation, ShapeOperation, LayerFilterOperation,
 } from '@grafetto/shared'
-import { operationLayerIds } from '@grafetto/shared'
+import { operationLayerIds, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation } from '@grafetto/shared'
 
 export type OperationState = 'done' | 'undone' | 'gone'
+export type CanonicalLogRead = NonNullable<CanonicalPreparedRecordedOperation['read']>
 
 export interface LogEntry {
   op: Operation
@@ -27,6 +28,9 @@ export interface LogEntry {
    *  arrived with one. Absent on pending entries and on backfilled history
    *  (which is older than everything else anyway). */
   serverSeq?: number
+  /** Read authority stays with this history entry, outside operation JSON.
+   * Captured delivery lifetime must still be current at rendering time. */
+  canonicalRead?: CanonicalLogRead
 }
 
 /** (#537) Where `append` puts an operation. */
@@ -36,7 +40,7 @@ export type Placement =
   | { pending: true }
   /** An operation the server has already ordered: goes into the confirmed
    *  region at its seq, below every pending entry. */
-  | { pending?: false; serverSeq?: number }
+  | { pending?: false; serverSeq?: number; canonicalRead?: CanonicalLogRead }
 
 /** Operations that change a layer's pixel buffer (as opposed to structure). */
 export type PixelOperation = StrokeOperation | CanonicalStrokeOperation | LayerClearOperation | LayerMergeOperation
@@ -184,6 +188,25 @@ export class OperationLog {
     }
   }
 
+  /** Prepare before any revision/state/order mutation. Reuse the shared
+   * attachment validator; no independent source schema or capability registry. */
+  private _prepareCanonicalRead(op: Operation, serverSeq: number | undefined, read: CanonicalLogRead | undefined, entries: readonly LogEntry[] = this._entries): CanonicalLogRead | undefined {
+    if (!read) return undefined
+    if (op.type !== 'canonical_stroke' || serverSeq !== read.sequence || read.operationId !== op.id)
+      throw new TypeError('Canonical history read does not match authoritative placement')
+    const prepared = prepareCanonicalRecordedAttachment({ version: 1, roomId: read.roomId, boardEpoch: read.boardEpoch,
+      capabilities: [read.capability], bindings: [{ operationId: op.id, sequence: serverSeq,
+        originalUserId: op.userId, capability: 0 }] }, [{ ...op, seq: serverSeq }],
+      { roomId: read.roomId, boardEpoch: read.boardEpoch })[0].read!
+    const previous = entries.find(e => e.canonicalRead
+      && e.op.type === 'canonical_stroke' && e.op.userId === op.userId && e.op.frame.strokeId === op.frame.strokeId)?.canonicalRead
+    if (!previous) return prepared
+    if (previous.roomId !== prepared.roomId || previous.boardEpoch !== prepared.boardEpoch
+      || JSON.stringify(previous.capability) !== JSON.stringify(prepared.capability))
+      throw new TypeError('Canonical gesture history read changed; authoritative refresh required')
+    return Object.freeze({ ...prepared, capability: previous.capability })
+  }
+
   /** Appends a new operation. The author's `undone` entries become `gone`:
    *  a linear log cannot express history branching, so a new action makes the
    *  undone branch unreachable and redo past it impossible.
@@ -200,6 +223,9 @@ export class OperationLog {
    *  already applied — empty in the common case, where `op` lands on the end
    *  of its region with nothing painted above it. See the class doc comment. */
   append(op: Operation, placement: Placement = {}): LogEntry[] {
+    if (placement.pending && 'canonicalRead' in placement) throw new TypeError('Pending history cannot carry recorded read authority')
+    const canonicalRead = this._prepareCanonicalRead(op, placement.pending ? undefined : placement.serverSeq,
+      placement.pending ? undefined : placement.canonicalRead)
     this._revision++
     if (!META_OP_TYPES.has(op.type)) {
       for (const e of this._entries) {
@@ -229,6 +255,7 @@ export class OperationLog {
       return this._entries.slice(at)
     }
     const entry: LogEntry = { op: { ...op, seq: at }, state: 'done' }
+    if (canonicalRead) entry.canonicalRead = canonicalRead
     if (placement.serverSeq !== undefined) entry.serverSeq = placement.serverSeq
     this._entries.splice(at, 0, entry)
     this._confirmedCount++
@@ -244,18 +271,29 @@ export class OperationLog {
    *  below, or null when there is nothing to confirm — an id that was never
    *  pending here, was already confirmed (the ack and the broadcast both
    *  report it), or was coalesced into a later entry. */
-  confirm(opId: string, serverSeq: number): { op: Operation; overtaken: LogEntry[] } | null {
+  confirm(opId: string, serverSeq: number, read?: CanonicalLogRead): { op: Operation; overtaken: LogEntry[] } | null {
+    const existing = read ? this._entries.find(e => e.op.id === opId) : undefined
+    if (read && !existing) throw new TypeError('Canonical read requires an existing history entry')
+    if (existing && !existing.pending && existing.serverSeq !== serverSeq)
+      throw new TypeError('Canonical confirmation sequence changed')
+    const canonicalRead = existing ? this._prepareCanonicalRead(existing.op, serverSeq, read) : undefined
     this._revision++
     let from = -1
     for (let i = this._confirmedCount; i < this._entries.length; i++) {
       if (this._entries[i].op.id === opId) { from = i; break }
     }
-    if (from === -1) return null
+    if (from === -1) {
+      if (canonicalRead && existing) {
+        existing.canonicalRead = canonicalRead
+      }
+      return null
+    }
     const [entry] = this._entries.splice(from, 1)
     const at = this._confirmedSlot(serverSeq)
     this._entries.splice(at, 0, entry)
     entry.pending = false
     entry.serverSeq = serverSeq
+    if (canonicalRead) entry.canonicalRead = canonicalRead
     this._confirmedCount++
     this._renumber(at, from + 1)
     return { op: entry.op, overtaken: this._entries.slice(at + 1, from + 1) }
@@ -483,8 +521,18 @@ export class OperationLog {
    *  that invariant true across the splice. O(n) in the log's total size;
    *  fine for a background, few-times-per-session operation. */
   prependHistorical(entries: readonly LogEntry[]): void {
+    let prepared: readonly LogEntry[] = entries
+    if (entries.some(entry => entry.canonicalRead)) {
+      const basis: LogEntry[] = [...this._entries]
+      prepared = entries.map(entry => {
+        const read = this._prepareCanonicalRead(entry.op, entry.serverSeq, entry.canonicalRead, basis)
+        const copy = { ...entry, ...(read ? { canonicalRead: read } : {}) }
+        basis.push(copy)
+        return copy
+      })
+    }
     this._revision++
-    const incoming = [...entries.map(e => ({ ...e, pending: false })), ...this._entries]
+    const incoming = [...prepared.map(entry => ({ ...entry, pending: false })), ...this._entries]
     // A repair may fill a hole inside the known snapshot prefix, rather than
     // merely prepend an older page. Original server order is authoritative;
     // legacy seq-less callers keep their established prepend contract.
