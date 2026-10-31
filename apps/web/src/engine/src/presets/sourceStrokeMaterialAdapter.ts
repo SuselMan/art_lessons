@@ -1,3 +1,4 @@
+import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE } from '@grafetto/shared'
 import {
   buildCanonicalMaterial, canonicalMaterialGeometryCost, canonicalAutoCost, canonicalDefaultAutoStatic, canonicalDefaultAutoSourcePin, canonicalGaussianAutoStatic, canonicalGaussianAutoSourcePin, canonicalSoftAutoStatic, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, CANONICAL_MATERIAL_LIMITS,
   type CanonicalMaterialBuildInput, type CanonicalMaterialContext, type CanonicalMaterialEntry,
@@ -152,14 +153,15 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
         if(!pin)invalid()
         if(pin.kind==='defaultAuto'||pin.kind==='gaussianAuto'||pin.kind==='softAuto'){
           const g=r.geometry
-          const policy=pin.kind==='softAuto'?'soft-auto-fixed1-rng-free':pin.kind==='defaultAuto'?'default-auto-fixed1-rng-free':'gaussian-auto-fixed1-rng-free'
+          if(pin.kind==='defaultAuto'&&pin.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE&&(r.id!=='primary'||program.roles.length!==1||this.context.maskSource!==undefined))invalid()
+          const policy=pin.kind==='softAuto'?'soft-auto-fixed1-rng-free':pin.kind==='defaultAuto'?pin.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE?'default-auto-fixed1-seeded-density-v1':'default-auto-fixed1-rng-free':'gaussian-auto-fixed1-rng-free'
           if(pin.kind==='softAuto'&&pin.sourceSlot!==(r.id==='primary'?0:1))invalid()
           if(!g||g.kind!==pin.kind||r.materialPolicy!==policy||pin.brushScale!==1
             ||r.material.brushIdentity!==pin.descriptorId+'@'+pin.descriptorVersion
             ||g.coverageProfile!==pin.coverageProfile)invalid()
-          const actual=g.kind==='defaultAuto'?canonicalDefaultAutoStatic(g.source,r.brush.scale,r.brush.angle)
+          const actual=g.kind==='defaultAuto'?canonicalDefaultAutoStatic(g.source,r.brush.scale,r.brush.angle,g.coverageProfile)
             :g.kind==='gaussianAuto'?canonicalGaussianAutoStatic(g.source,r.brush.scale,r.brush.angle):g.kind==='softAuto'?canonicalSoftAutoStatic(g.source,r.brush.scale,r.brush.angle):invalid()
-          const expected=pin.kind==='defaultAuto'?canonicalDefaultAutoStatic(pin.source,pin.brushScale,pin.brushAngle)
+          const expected=pin.kind==='defaultAuto'?canonicalDefaultAutoStatic(pin.source,pin.brushScale,pin.brushAngle,pin.coverageProfile)
             :pin.kind==='gaussianAuto'?canonicalGaussianAutoStatic(pin.source,pin.brushScale,pin.brushAngle):canonicalSoftAutoStatic(pin.source,pin.brushScale,pin.brushAngle)
           if(!sameData(actual,expected))invalid()
         } else {
@@ -241,7 +243,7 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
     if(s.geometry?.kind==='defaultAuto'){
       if(!version2(this.context))invalid()
       recipe={...common,kind:'defaultAuto',coverageProfile:s.geometry.coverageProfile,
-        ...canonicalDefaultAutoStatic(s.geometry.source,s.brush.scale,s.brush.angle)}
+        ...canonicalDefaultAutoStatic(s.geometry.source,s.brush.scale,s.brush.angle,s.geometry.coverageProfile)}
     }else if(s.geometry?.kind==='gaussianAuto'){
       if(!version2(this.context))invalid()
       recipe={...common,kind:'gaussianAuto',coverageProfile:s.geometry.coverageProfile,
@@ -278,7 +280,8 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
     if(!draw)return{work:0,output:0,pixels:0,fresh:false}
     const cost=this.cost(draw)
     const fresh=!this.recipes.some(r=>equalRecipe(r,draw.recipe))
-    return{work:fresh?cost.workUnits:0,output:fresh?cost.outputBytes:0,pixels:draw.recipe.width*draw.recipe.height,fresh}
+    const uncached='kind'in draw.recipe&&draw.recipe.kind==='defaultAuto'&&draw.recipe.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
+    return{work:fresh||uncached?cost.workUnits:0,output:fresh||uncached?cost.outputBytes:0,pixels:draw.recipe.width*draw.recipe.height,fresh}
   }
   private fits(draws:number,fences:number,work:number,output:number,pixels:number):boolean {
     return draws<=CANONICAL_MATERIAL_LIMITS.draws&&fences<=3*(draws+1)+1

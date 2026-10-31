@@ -1,12 +1,12 @@
 import { sourceOptionComponents, sourceSizeLike, type SourceOption, type SourceOptionContext } from './sourceOption'
 import { sourceAutoGeometry } from './sourceAutoGeometry'
-import { isSourceStampCurveData, type SourceSoftAutoData, type SourceDefaultAutoData, type SourceGaussianAutoData } from '@grafetto/shared'
+import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, isSourceStampCurveData, type SourceSoftAutoData, type SourceDefaultAutoData, type SourceGaussianAutoData } from '@grafetto/shared'
 import { sourcePngCharacteristicSize, sourcePngHotSpot, sourcePngMaskExtent, sourceQRound, type SourceDabShape, type SourcePngBrush } from './sourcePngGeometry'
 /** Pure data only; never contains callbacks, pixels, a CAS stand-in or RNG. */
 export interface SourceDabBrushMetrics { readonly width: number; readonly height: number; readonly scale: number; readonly angle: number }
 export type SourceDabGeometry = { readonly kind: 'image' } | {
   readonly kind: 'defaultAuto'; readonly source: SourceDefaultAutoData
-  readonly coverageProfile: 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1' | 'browser-number-coverage-v1'
+  readonly coverageProfile: 'scalar-f64-fma-v1' | 'neon64-f32-fma-v1' | 'browser-number-coverage-v1' | typeof CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
 } | {
   readonly kind: 'gaussianAuto'; readonly source: SourceGaussianAutoData
   readonly coverageProfile: 'scalar-bionic-f64-fma-v1' | 'neon64-f32-fma-v1' | 'browser-number-coverage-v1'
@@ -16,12 +16,13 @@ export type SourceDabGeometry = { readonly kind: 'image' } | {
 }
 function autoGeometry(brush: SourceDabBrushMetrics, geometry: Exclude<SourceDabGeometry, {kind:'image'}>, shape: SourceDabShape, subX=0, subY=0) {
   const s=geometry.source
+  const seededDensity=geometry.kind==='defaultAuto'&&geometry.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
   if (!s || (geometry.kind==='defaultAuto' ? s.kind!=='defaultAuto' || s.generator!=='default' || !['circle','rect'].includes(s.shape)
       : geometry.kind==='gaussianAuto' ? s.kind!=='gaussianAuto' || s.generator!=='gauss' || s.shape!=='circle' || s.ratio>1
       : s.kind!=='softAuto' || s.generator!=='soft' || s.shape!=='circle' || s.ratio>1 || s.antialias!==false || !isSourceStampCurveData(s.softnessCurve))
-    || s.spikes!==2 || s.randomness!==0 || s.density!==1 || typeof s.antialias!=='boolean'
+    || s.spikes!==2 || s.randomness!==0 || !Number.isFinite(s.density) || s.density<0 || s.density>1 || (!seededDensity&&s.density!==1) || typeof s.antialias!=='boolean'
     || ![s.horizontalFade,s.verticalFade].every(v=>Number.isFinite(v)&&v>=0&&v<=1)
-    || !(geometry.kind!=='gaussianAuto'?['scalar-f64-fma-v1','neon64-f32-fma-v1','browser-number-coverage-v1']:['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1','browser-number-coverage-v1']).includes(geometry.coverageProfile)) throw new RangeError('Unsupported source auto geometry')
+    || !(geometry.kind==='defaultAuto'?['scalar-f64-fma-v1','neon64-f32-fma-v1','browser-number-coverage-v1',CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE]:geometry.kind==='softAuto'?['scalar-f64-fma-v1','neon64-f32-fma-v1','browser-number-coverage-v1']:['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1','browser-number-coverage-v1']).includes(geometry.coverageProfile)) throw new RangeError('Unsupported source auto geometry')
   const result=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:s.diameter,ratio:s.ratio,spikes:2,scale:brush.scale,angle:brush.angle},shape,subX,subY)
   if(result.brushSize[0]!==brush.width || result.brushSize[1]!==brush.height)throw new RangeError('Source auto brush metrics differ from generator')
   return result
@@ -171,6 +172,7 @@ export function planSourceDab(brush: SourceDabBrushMetrics, request: SourceDabCa
     || (request.sharpnessChecked && (request.sharpness === undefined || !Number.isFinite(request.sharpness) || typeof request.sharpnessAlign !== 'boolean' || request.sharpnessStrength === undefined || !Number.isFinite(request.sharpnessStrength)))) throw new RangeError('Invalid source material request')
   if((geometry?.kind==='defaultAuto'||geometry?.kind==='gaussianAuto'||geometry?.kind==='softAuto'))sourceDabCharacteristicSize(brush,{scale:1,ratio:1,rotation:0},geometry)
   else if(geometry && geometry.kind!=='image')throw new RangeError('Unknown source geometry')
+  if(geometry?.kind==='defaultAuto'&&geometry.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE&&geometry.source.density!==1&&request.supportsCaching)throw new RangeError('Density material cannot reuse cached dabs')
   const pipe=request.imagePipe
   if(pipe&&(geometry&&geometry.kind!=='image'||pipe.mode!=='incremental'&&pipe.mode!=='random'||pipe.frames.length<2||pipe.frames.length>256
     ||pipe.frames[0]!==request.brushIdentity||pipe.frames.some(v=>!/^asset:[a-f0-9]{64}$/.test(v))||request.index!==undefined))throw new RangeError('Invalid source image pipe')
