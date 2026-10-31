@@ -8,6 +8,7 @@ import { BrushMipCache } from './BrushMipCache';
 import { BrushTextureCache, allocateOwnedBrushTexture, allocateOwnedBrushBuffer, combineOwnedBrushResources, releaseUnpublishedBrushResource, type OwnedBrushResource, type OwnedBrushBuffer } from './BrushTextureCache';
 import { reserveContextStorage, releaseStorageReservation, type StorageReservation } from '../buffers/ContextStorageOwner';
 import { resolvedTransformedMaskPlan, writeTransformedMaskVertices, type TransformedMaskPlan, type TransformedMaskMaterial, type CanonicalMaskSourceBinding, canonicalTransformedMaskMetadata, canonicalTransformedMaskPlan, canonicalMaskRevision, canonicalAutoMaskRevision, prepareCanonicalAutoMask, isCanonicalSoftAutoMaterial, type CanonicalAutoMaskMaterial } from './TransformedMaskPlan';
+const noMetadataRelease=()=>{};
 export interface TransformedMaskLimits {
   readonly width: number;
   readonly height: number;
@@ -121,6 +122,13 @@ const safe = (v: number, low: number, high: number) => Number.isSafeInteger(v) &
 * Its texture cache is the existing painter's cache, NEVER a new independent
 * memory allowance. Call prepare after assets and before input unlock.
 */
+export interface CanonicalPreparedResourceUpdate {
+  readonly status:'pending'|'published'|'cancelled'
+  assertCurrent():void
+  publish():undefined
+  finalizeCleanup():undefined
+  cancel():undefined
+}
 export class TransformedMaskPrepass {
   private pendingAuto?: {
     readonly owner: object; readonly role: string; readonly revision: string; readonly slot: Slot;
@@ -131,6 +139,8 @@ export class TransformedMaskPrepass {
   };
   private batch?: BrushGlBatchFrame;
   private limits?: TransformedMaskLimits;
+  private sourceUpdate?:CanonicalPreparedResourceUpdate;
+  private releaseSourceMetadata?:()=>void;
   private sources = new Map<string, number>();
   private sourceBindings = new Map<string, CanonicalMaskSourceBinding>();
   private workspace?: Workspace;
@@ -159,15 +169,8 @@ export class TransformedMaskPrepass {
       throw new RangeError('Missing prepass resource scope');
     this.workspaceKey = `${prefix}:workspace`;
   }
-  /** All metadata/budgets are checked before allocation or cache eviction.
-  * Source entries must already be prepared straight RGBA8 gray+alpha levels.
-  * Caller accounts expansion scratch during source preparation separately.
-  */
-  prepare(limits: TransformedMaskLimits, sourceResources: readonly TransformedMaskPreparedSource[], signal?: AbortSignal): 'ready' | 'cancelled' {
-    if (this.batch) throw new Error('Cannot prepare inside an active brush GL batch');
-    if (signal?.aborted)
-      return 'cancelled';
-    const budget = transformedMaskPrepassBudget(limits);
+  private checkedSources(sourceResources:readonly TransformedMaskPreparedSource[]){
+    if(!Array.isArray(sourceResources)||sourceResources.length>4096)throw new RangeError('Invalid prepared source count')
     const sourceMap = new Map<string, number>();
     const bindings = new Map<string, CanonicalMaskSourceBinding>();
     for (const source of sourceResources) {
@@ -184,6 +187,63 @@ export class TransformedMaskPrepass {
         bindings.set(source.key, binding);
       }
     }
+    return {sourceMap,bindings}
+  }
+  /** Candidate maps only. No active maps change until pure publish(). */
+  prepareSourceUpdate(sourceResources:readonly TransformedMaskPreparedSource[]):CanonicalPreparedResourceUpdate {
+    if(this.sourceUpdate||!this.workspace||!this.limits||this.batch||this.activeGroup||this.pendingAuto)throw new Error('Prepass source update unavailable')
+    if(!Array.isArray(sourceResources)||sourceResources.length>4096)throw new RangeError('Invalid prepared source count')
+    const owner=Object.freeze({pass:this}),epoch=this.workspace,limits=this.limits
+    let oldSources:Map<string,number>|undefined=this.sources,oldBindings:Map<string,CanonicalMaskSourceBinding>|undefined=this.sourceBindings
+    let releaseNew=this.cpu.reserve(sourceResources.length*512),releaseOld:undefined|(()=>void),state:'pending'|'published'|'cancelled'='pending',createdUpdate:CanonicalPreparedResourceUpdate|undefined
+    try{
+      let plan:ReturnType<TransformedMaskPrepass['checkedSources']>|undefined=this.checkedSources(sourceResources)
+      const budget=transformedMaskPrepassBudget(limits)
+      if(budget.gpuBytes+[...plan.sourceMap.values()].reduce((a,b)=>a+b,0)>this.cache.budgetBytes)throw new RangeError('Prepass working set exceeds existing brush budgets')
+      const maximum=this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number,precision=this.gl.getShaderPrecisionFormat(this.gl.FRAGMENT_SHADER,this.gl.HIGH_FLOAT)
+      if(!precision||precision.precision<23||Math.max(256,limits.width,limits.height)>maximum)throw new RangeError('Unverified prepass GPU capability')
+      const scalar=()=>state==='pending'&&owner.pass.sourceUpdate===update&&owner.pass.workspace===epoch&&owner.pass.limits===limits&&owner.pass.sources===oldSources&&owner.pass.sourceBindings===oldBindings&&!owner.pass.batch&&!owner.pass.activeGroup&&!owner.pass.pendingAuto
+      const assert=(receiver:unknown)=>{if(receiver!==update||!scalar())throw new Error('Prepass source update changed')}
+      const update:CanonicalPreparedResourceUpdate=Object.freeze({
+        get status(){return state},
+        assertCurrent(){assert(this);if(!owner.pass.isReady()||[...plan!.sourceMap].some(([key,bytes])=>owner.pass.cache.resourceBytes(key)!==bytes||!owner.pass.cache.get(key)))throw new Error('Prepass staged resources changed')},
+        publish(){assert(this);releaseOld=owner.pass.releaseSourceMetadata;owner.pass.sources=plan!.sourceMap;owner.pass.sourceBindings=plan!.bindings;plan=undefined;owner.pass.releaseSourceMetadata=releaseNew;releaseNew=noMetadataRelease;oldSources=undefined;oldBindings=undefined;state='published';return undefined},
+        finalizeCleanup(){
+          if(this!==update)throw new Error('Prepass source update receiver changed')
+          if(state==='pending')throw new Error('Prepass source update is not published')
+          if(owner.pass.sourceUpdate===update)owner.pass.sourceUpdate=undefined
+          const release=releaseOld;releaseOld=undefined;release?.();return undefined
+        },
+        cancel(){
+          if(this!==update)throw new Error('Prepass source update receiver changed')
+          if(state!=='pending')return undefined
+          state='cancelled';plan=undefined;if(owner.pass.sourceUpdate===update)owner.pass.sourceUpdate=undefined
+          oldSources=undefined;oldBindings=undefined;const release=releaseNew;releaseNew=noMetadataRelease;release();return undefined
+        },
+      })
+      createdUpdate=update
+      if(this.sourceUpdate||this.workspace!==epoch||this.limits!==limits||this.sources!==oldSources||this.sourceBindings!==oldBindings||this.batch||this.activeGroup||this.pendingAuto)throw new Error('Prepass source update changed')
+      this.sourceUpdate=update
+      update.assertCurrent()
+      return update
+    }catch(error){if(createdUpdate?.status==='pending'){try{createdUpdate.cancel()}catch{/* Preserve validation error. */}}try{releaseNew()}catch{/* Preserve validation error. */}throw error}
+  }
+
+  /** All metadata/budgets are checked before allocation or cache eviction.
+  * Source entries must already be prepared straight RGBA8 gray+alpha levels.
+  * Caller accounts expansion scratch during source preparation separately.
+  */
+  prepare(limits: TransformedMaskLimits, sourceResources: readonly TransformedMaskPreparedSource[], signal?: AbortSignal): 'ready' | 'cancelled' {
+    if (this.batch) throw new Error('Cannot prepare inside an active brush GL batch');
+    if (signal?.aborted)
+      return 'cancelled';
+    const budget = transformedMaskPrepassBudget(limits);
+    if(this.limits){
+      if(this.limits.width!==limits.width||this.limits.height!==limits.height||this.limits.slots!==limits.slots)throw new Error('Reset prepass before changing prepared capacity')
+      if(!this.isReady())throw new Error('Reset and prepare evicted prepass resources before input')
+      const update=this.prepareSourceUpdate(sourceResources);update.publish();update.finalizeCleanup();return 'ready'
+    }
+    const {sourceMap,bindings}=this.checkedSources(sourceResources)
     const { vertexBytes, cpuBytes } = budget;
     const gpuBytes = budget.gpuBytes + [...sourceMap.values()].reduce((a, b) => a + b, 0);
     if (!Number.isSafeInteger(gpuBytes) || gpuBytes > this.cache.budgetBytes || cpuBytes + this.cpu.reservedBytes - this.reservedCpuBytes > this.cpu.budgetBytes)
@@ -192,15 +252,6 @@ export class TransformedMaskPrepass {
     const maximum = this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number;
     if (!precision || precision.precision < 23 || Math.max(256, limits.width, limits.height) > maximum)
       throw new RangeError('Unverified prepass GPU capability');
-    if (this.limits) {
-      if (this.limits.width !== limits.width || this.limits.height !== limits.height || this.limits.slots !== limits.slots)
-        throw new Error('Reset prepass before changing prepared capacity');
-      if (this.isReady()) {
-        this.sources = sourceMap; this.sourceBindings = bindings;
-        return 'ready';
-      }
-      throw new Error('Reset and prepare evicted prepass resources before input');
-    }
     this.instancing = this.gl.getExtension('ANGLE_instanced_arrays');
     this.vertexArrays = this.gl.getExtension('OES_vertex_array_object');
     const textureStorage=reserveContextStorage(this.gl,budget.gpuBytes-vertexBytes,'brush-texture-rgba-equivalent');
@@ -585,12 +636,15 @@ export class TransformedMaskPrepass {
     if (this.batch && !lost) throw new Error('Cannot reset inside an active brush GL batch');
     let failed=false,primary:unknown;
     const attempt=(cleanup:()=>void)=>{try{cleanup()}catch(error){if(!failed){failed=true;primary=error}}};
+    const update=this.sourceUpdate;this.sourceUpdate=undefined
+    attempt(()=>{if(update?.status==='published')update.finalizeCleanup();else update?.cancel()})
     attempt(()=>this.cancelAutoGeneration());this.activeGroup=undefined;
     for(const slot of [...this.slots])if(slot)attempt(()=>this.cache.discard(slot.key,lost));
     attempt(()=>this.cache.discard(this.workspaceKey,lost));
     if(this.program&&!lost)attempt(()=>this.gl.deleteProgram(this.program!));
     this.program=undefined;this.workspace=undefined;this.slots=[];this.staging=undefined;this.limits=undefined;
     this.sources.clear();this.sourceBindings.clear();this.attributes=[];this.uniforms={};this.instancing=null;this.vertexArrays=null;
+    const releaseSource=this.releaseSourceMetadata;this.releaseSourceMetadata=undefined;attempt(()=>releaseSource?.());
     attempt(()=>this.releaseCpu?.());this.releaseCpu=undefined;this.reservedCpuBytes=0;
     if(failed)throw primary;
   }

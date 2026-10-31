@@ -38,3 +38,11 @@ candidate allocation and final-progress cancellation. Recording GL tests cover
 partial upload rollback, source callback reset, context loss, copied receivers,
 getter refusal, preserved pre-existing unowned cache key, aggregate budget, deletion faults and post-publication cleanup
 failure. No native pixel/device or physical database claim. Coordinated full app/SW typecheck 29268 passed on the frozen graph.
+
+Follow-up staged-publication unit: status/publish/finalizeCleanup now keep the SAME
+pending cleanup owner and union lease through coherent external owner publication.
+assertCurrent remains safe during partial upload; assertPreparedPublication
+validates readiness before pure publication; commit preserves the
+original one-call behavior. Reset after publish owns lease cleanup and committed
+resources. See CanonicalWorkspacePublication.provenance.md for accounting,
+no-callback boundary and validation evidence. Engine integration remains separate.

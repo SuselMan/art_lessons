@@ -44,7 +44,7 @@ it('source-reader reset invalidates pending upload and cannot publish or retain 
 })
 it('rejects copied receivers and incomplete commit without touching old resources',()=>{
  const s=setup(),ext=s.bank.beginExtension([input('b')],{gpuBytes:0,cpuBytes:0})
- expect(()=>Reflect.apply(ext.prepareJob,{...ext},[0])).toThrow();expect(()=>Reflect.apply(ext.commit,{...ext},[])).toThrow();expect(()=>ext.commit()).toThrow();expect(s.bank.isReady()).toBe(true);ext.cancel();s.bank.reset();s.cache.clear()
+ expect(()=>Reflect.apply(ext.prepareJob,{...ext},[0])).toThrow();expect(()=>Reflect.apply(ext.preparedResources,{...ext},[])).toThrow();expect(()=>Reflect.apply(ext.commit,{...ext},[])).toThrow();ext.assertCurrent();expect(()=>ext.assertPreparedPublication()).toThrow();expect(()=>ext.commit()).toThrow();expect(s.bank.isReady()).toBe(true);ext.cancel();s.bank.reset();s.cache.clear()
 })
 it('attempts all candidate deletion after a fault, preserving old keys and the first error',()=>{
  const s=setup(),ext=s.bank.beginExtension([input('b')],{gpuBytes:0,cpuBytes:0}),old=s.bank.resources(),reserve=s.cpu.reservedBytes-ext.jobs.length*512
@@ -94,4 +94,15 @@ it('does not adopt or discard a matching pre-existing cache key when an extensio
  s.cache.protect([...s.bank.jobs.map(j=>j.key),job.key]);s.cache.putOwned(job.key,ownedBrushFixture(s.gl,job.bytes))
  const texture=s.cache.get(job.key);expect(ext.prepareJob(0)).toBe('ready');expect(b.readOriginalCoverage).not.toHaveBeenCalled();ext.cancel()
  expect(s.cache.get(job.key)).toBe(texture);s.bank.reset();expect(s.cache.get(job.key)).toBe(texture);s.cache.clear();expect(s.cpu.reservedBytes).toBe(0)
+})
+it('retains union lease through pure publication until explicit cleanup and keeps old commit wrapper semantics',()=>{
+ const s=setup(),lease=s.cache.lease.bind(s.cache),released=vi.fn(),spy=vi.spyOn(s.cache,'lease').mockImplementationOnce(resources=>{const release=lease(resources);return()=>{released();release()}})
+ const ext=s.bank.beginExtension([input('b')],{gpuBytes:0,cpuBytes:0});spy.mockRestore();ext.jobs.forEach((_,i)=>ext.prepareJob(i));expect(ext.status).toBe('pending');ext.assertCurrent()
+ ext.assertPreparedPublication();ext.publish();expect(ext.status).toBe('committed');expect(released).not.toHaveBeenCalled();ext.cancel();expect(released).not.toHaveBeenCalled();s.cache.protect([]);expect(s.bank.isReady()).toBe(true)
+ ext.finalizeCleanup();ext.finalizeCleanup();expect(released).toHaveBeenCalledOnce();s.bank.reset();s.cache.clear();expect(s.cpu.reservedBytes).toBe(0)
+})
+it('reset owns a published-but-not-cleaned union lease and copied cleanup receivers cannot release it',()=>{
+ const s=setup(),lease=s.cache.lease.bind(s.cache),released=vi.fn(),spy=vi.spyOn(s.cache,'lease').mockImplementationOnce(resources=>{const release=lease(resources);return()=>{released();release()}})
+ const ext=s.bank.beginExtension([input('b')],{gpuBytes:0,cpuBytes:0});spy.mockRestore();ext.jobs.forEach((_,i)=>ext.prepareJob(i));ext.assertPreparedPublication();ext.publish()
+ expect(()=>Reflect.apply(ext.finalizeCleanup,{...ext},[])).toThrow();expect(released).not.toHaveBeenCalled();s.bank.reset();expect(released).toHaveBeenCalledOnce();ext.finalizeCleanup();expect(s.cpu.reservedBytes).toBe(0);expect(s.cache.bytes).toBe(0);s.cache.clear()
 })

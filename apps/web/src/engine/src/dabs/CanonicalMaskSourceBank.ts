@@ -28,6 +28,7 @@ export interface CanonicalMaskSourceJob {
 export interface CanonicalMaskCompanionBudget { readonly gpuBytes: number; readonly cpuBytes: number }
 const integer = (n: number, min = 0) => Number.isSafeInteger(n) && n >= min
 const JOB_METADATA_BYTES = 512
+const noRelease=()=>{}
 
 function ownData(value:unknown,fields:readonly string[]):Record<string,unknown> {
   if(!value||typeof value!=='object'||Array.isArray(value))throw new TypeError('Invalid canonical image resource data')
@@ -105,9 +106,13 @@ function planInputs(inputs:readonly BankInput[]):BankPlan {
   return {jobs:Object.freeze([...jobs.values()]),inputs:plannedInputs}
 }
 export interface CanonicalMaskSourceExtension {
+  readonly status:'pending'|'committed'|'cancelled'
+  publish():undefined
+  finalizeCleanup():undefined
   readonly jobs: readonly CanonicalMaskSourceJob[]
   prepareJob(index:number):'ready'|'cancelled'
   assertCurrent():void
+  assertPreparedPublication():void
   preparedResources():readonly TransformedMaskPreparedSource[]
   commit():undefined
   cancel(lost?:boolean):undefined
@@ -185,32 +190,43 @@ export class CanonicalMaskSourceBank {
       throw new RangeError('Canonical source extension exceeds existing brush budgets')
     this.assertCurrentOwners(generation)
     if(this.pending)throw new Error('Canonical bank extension unavailable')
-    let state:'pending'|'committed'|'cancelled'='pending',releaseDelta:()=>void=()=>{},releaseLease:()=>void=()=>{}
+    let state:'pending'|'committed'|'cancelled'='pending',releaseDelta:()=>void=noRelease,releaseLease:()=>void=noRelease,combinedRelease:()=>void=noRelease,publicationChecked=false
+    const previousRelease=this.releaseMetadata!
     const created=new Set<string>(),owner=Object.freeze({bank:this})
     const current=()=>state==='pending'&&owner.bank.pending===extension&&owner.bank.generation===generation&&!!owner.bank.releaseMetadata
     const assert=(receiver:unknown)=>{if(receiver!==extension||!current())throw new Error('Canonical bank extension changed')}
     const ready=()=>jobs.every(j=>owner.bank.cache.resourceBytes(j.key)===j.bytes&&!!owner.bank.cache.get(j.key))
     const extension:CanonicalMaskSourceExtension=Object.freeze({
       jobs:newJobs,
+      get status(){return state},
       assertCurrent(){assert(this)},
+      assertPreparedPublication(){assert(this);if(!ready())throw new Error('Canonical source extension is not prepared');publicationChecked=true},
       prepareJob(index:number){
         assert(this)
         if(!integer(index)||index>=newJobs.length)throw new RangeError('Invalid canonical source extension job')
-        const job=newJobs[index]
+        const job=newJobs[index];publicationChecked=false
         return owner.bank.preparePlannedJob(job,readers.get(job.key)!,jobs,companion,current,()=>{},key=>created.add(key))
       },
-      preparedResources(){assert(this);if(!ready())throw new Error('Canonical source extension is not prepared');return owner.bank.preparedPlanResources(jobs,readers)},
-      commit(){
-        assert(this);if(!ready())throw new Error('Canonical source extension is not prepared')
-        const previousRelease=owner.bank.releaseMetadata!,deltaRelease=releaseDelta
-        const combinedRelease=()=>{let failed=false,primary:unknown;try{previousRelease()}catch(e){failed=true;primary=e}try{deltaRelease()}catch(e){if(!failed){failed=true;primary=e}}if(failed)throw primary}
+      preparedResources(){assert(this);extension.assertPreparedPublication();return owner.bank.preparedPlanResources(jobs,readers)},
+      publish(){
+        assert(this);if(!publicationChecked)throw new Error('Validate canonical bank publication before publish')
         // All plan construction/checks precede publication. No user callback or
         // GL query occurs between the last identity check and these assignments.
         owner.bank._jobs=jobs;owner.bank.inputs=readers;owner.bank.companion=companion
         owner.bank.releaseMetadata=combinedRelease
-        releaseDelta=()=>{};state='committed';owner.bank.pending=undefined;if(newJobs.length)owner.bank.generation++
-        const release=releaseLease;releaseLease=()=>{};release()
+        releaseDelta=noRelease;state='committed';if(newJobs.length)owner.bank.generation++
         return undefined
+      },
+      finalizeCleanup(){
+        if(this!==extension)throw new Error('Canonical bank extension receiver changed')
+        if(state==='pending')throw new Error('Canonical bank extension is not published')
+        if(owner.bank.pending===extension)owner.bank.pending=undefined
+        const release=releaseLease;releaseLease=noRelease;release()
+        return undefined
+      },
+      commit(){
+        if(this!==extension)throw new Error('Canonical bank extension receiver changed')
+        extension.assertPreparedPublication();extension.publish();extension.finalizeCleanup();return undefined
       },
       cancel(lost=false){
         if(this!==extension)throw new Error('Canonical bank extension receiver changed')
@@ -219,13 +235,15 @@ export class CanonicalMaskSourceBank {
         let failed=false,primary:unknown
         const attempt=(f:()=>void)=>{try{f()}catch(e){if(!failed){failed=true;primary=e}}}
         for(const key of created){owner.bank.owned.delete(key);attempt(()=>owner.bank.cache.discard(key,lost))}
-        created.clear();const metadata=releaseDelta,lease=releaseLease;releaseDelta=()=>{};releaseLease=()=>{}
+        created.clear();const metadata=releaseDelta,lease=releaseLease;releaseDelta=noRelease;releaseLease=noRelease
         attempt(metadata);attempt(lease);if(failed)throw primary
         return undefined
       },
     })
     try{
       releaseDelta=this.cpu.reserve(delta)
+      const deltaRelease=releaseDelta
+      combinedRelease=()=>{let failed=false,primary:unknown;try{previousRelease()}catch(e){failed=true;primary=e}try{deltaRelease()}catch(e){if(!failed){failed=true;primary=e}}if(failed)throw primary}
       releaseLease=this.cache.lease(jobs)
       this.assertCurrentOwners(generation)
       if(this.pending)throw new Error('Canonical bank extension unavailable')
@@ -353,7 +371,7 @@ export class CanonicalMaskSourceBank {
     this.generation++
     let failed=false,primary:unknown
     const pending=this.pending;this.pending=undefined
-    try{pending?.cancel(lost)}catch(error){failed=true;primary=error}
+    try{if(pending?.status==='committed')pending.finalizeCleanup();else pending?.cancel(lost)}catch(error){failed=true;primary=error}
     for(const key of this.owned)try{this.cache.discard(key,lost)}catch(error){if(!failed){failed=true;primary=error}}
     this.owned.clear()
     try{this.releaseMetadata?.()}catch(error){if(!failed){failed=true;primary=error}}

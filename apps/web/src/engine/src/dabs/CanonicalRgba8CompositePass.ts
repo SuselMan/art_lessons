@@ -1,3 +1,4 @@
+import type { CanonicalPreparedResourceUpdate } from './TransformedMaskPrepass';
 import {CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE} from '@grafetto/shared';
 import { SOURCE_FUSED_OVER32_SCALAR_GLSL, prepareSourceFusedOver32ScalarControls } from '../raster/sourceFusedOver32ScalarShader';
 import { SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL, SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL } from '../raster/sourceRgba8CompositeWebGL1';
@@ -15,6 +16,7 @@ import { BrushTextureCache, allocateOwnedBrushTexture, allocateOwnedBrushBuffer,
 import { reserveContextStorage, releaseStorageReservation, type StorageReservation } from '../buffers/ContextStorageOwner';
 import type { TransformedMaskView } from './TransformedMaskPrepass';
 import type { WorldRect } from '../buffers/tileMath';
+const noMetadataRelease=()=>{};
 export interface CanonicalStraightRgba8Target {
     readonly brand: 'canonical-straight-rgba8-v1';
     readonly texture: WebGLTexture;
@@ -214,6 +216,8 @@ export class CanonicalRgba8CompositePass {
     private releaseCpu?: () => void;
     private reservedCpuBytes = 0;
     private companions: readonly Resource[] = [];
+    private companionUpdate?:CanonicalPreparedResourceUpdate;
+    private releaseCompanionMetadata?:()=>void;
     private instancing: ANGLE_instanced_arrays | null = null;
     private vertexArrays: OES_vertex_array_object | null = null;
     private busy = false;
@@ -226,6 +230,45 @@ export class CanonicalRgba8CompositePass {
         this.cpu = cpu;
         this.key = `${prefix}:workspace`;
     }
+    private checkedCompanions(companions:readonly Resource[]):Map<string,number>{
+        if(!Array.isArray(companions)||companions.length>4105)throw new RangeError('Invalid composite companion count')
+        const group=new Map<string,number>()
+        for (const r of companions) {
+            if (!r.key || r.key === this.key || !whole(r.bytes, 1) || this.cache.resourceBytes(r.key) !== r.bytes || !this.cache.get(r.key)
+                || group.has(r.key) && group.get(r.key) !== r.bytes)
+                throw new RangeError('Unprepared composite companion');
+            group.set(r.key, r.bytes);
+        }
+        return group
+    }
+    /** Stage ready-workspace companion metadata without changing live draws. */
+    prepareCompanionUpdate(companions:readonly Resource[],companionCpuBytes=0):CanonicalPreparedResourceUpdate {
+        if(this.companionUpdate||!this.workspace||!this.limits||this.batch||this.busy)throw new Error('Composite companion update unavailable')
+        if(!Array.isArray(companions)||companions.length>4105||!whole(companionCpuBytes))throw new RangeError('Invalid composite companion count/budget')
+        const owner=Object.freeze({pass:this}),epoch=this.workspace,limits=this.limits
+        let oldCompanions:readonly Resource[]|undefined=this.companions
+        let releaseNew=this.cpu.reserve(192*(companions.length+this.companions.length)+1024),releaseOld:undefined|(()=>void),state:'pending'|'published'|'cancelled'='pending',createdUpdate:CanonicalPreparedResourceUpdate|undefined
+        try{
+            const group=this.checkedCompanions(companions),budget=canonicalRgba8CompositeBudget(limits)
+            if([...group.values()].reduce((a,b)=>a+b,0)+budget.gpuBytes>this.cache.budgetBytes||Math.max(this.cpu.reservedBytes-this.reservedCpuBytes,companionCpuBytes)+budget.cpuBytes>this.cpu.budgetBytes)throw new RangeError('Composite working set exceeds brush budgets')
+            const maximum=this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number,precision=this.gl.getShaderPrecisionFormat(this.gl.FRAGMENT_SHADER,this.gl.HIGH_FLOAT)
+            if(!precision||precision.precision<23||Math.max(limits.width,limits.height)>maximum)throw new RangeError('Unverified composite GPU capability')
+            let next:readonly Resource[]|undefined=Object.freeze([...group].map(([key,bytes])=>Object.freeze({key,bytes})))
+            const scalar=()=>state==='pending'&&owner.pass.companionUpdate===update&&owner.pass.workspace===epoch&&owner.pass.limits===limits&&owner.pass.companions===oldCompanions&&!owner.pass.batch&&!owner.pass.busy
+            const assert=(receiver:unknown)=>{if(receiver!==update||!scalar())throw new Error('Composite companion update changed')}
+            const update:CanonicalPreparedResourceUpdate=Object.freeze({
+                get status(){return state},
+                assertCurrent(){assert(this);if(!owner.pass.isReady()||next!.some(r=>owner.pass.cache.resourceBytes(r.key)!==r.bytes||!owner.pass.cache.get(r.key)))throw new Error('Composite staged resources changed')},
+                publish(){assert(this);releaseOld=owner.pass.releaseCompanionMetadata;owner.pass.companions=next!;next=undefined;owner.pass.releaseCompanionMetadata=releaseNew;releaseNew=noMetadataRelease;oldCompanions=undefined;state='published';return undefined},
+                finalizeCleanup(){if(this!==update)throw new Error('Composite companion update receiver changed');if(state==='pending')throw new Error('Composite companion update is not published');if(owner.pass.companionUpdate===update)owner.pass.companionUpdate=undefined;const release=releaseOld;releaseOld=undefined;release?.();return undefined},
+                cancel(){if(this!==update)throw new Error('Composite companion update receiver changed');if(state!=='pending')return undefined;state='cancelled';next=undefined;if(owner.pass.companionUpdate===update)owner.pass.companionUpdate=undefined;oldCompanions=undefined;const release=releaseNew;releaseNew=noMetadataRelease;release();return undefined},
+            })
+            createdUpdate=update
+            if(this.companionUpdate||this.workspace!==epoch||this.limits!==limits||this.companions!==oldCompanions||this.batch||this.busy)throw new Error('Composite companion update changed')
+            this.companionUpdate=update;update.assertCurrent();return update
+        }catch(error){if(createdUpdate?.status==='pending'){try{createdUpdate.cancel()}catch{/* Preserve validation error. */}}try{releaseNew()}catch{/* Preserve validation error. */}throw error}
+    }
+
     /** Companion list is actual source-bank + prepass preparedResources metadata.
      * companionCpuBytes is the total concurrent companion estimate: already held
      * reservations are included via max(), not charged for a second time. */
@@ -234,15 +277,14 @@ export class CanonicalRgba8CompositePass {
         if (signal?.aborted)
             return 'cancelled';
         const operations = operationsFor(limits);
+        if(this.limits){
+            if(this.limits.width!==limits.width||this.limits.height!==limits.height||operations.join(',')!==operationsFor(this.limits).join(',')||!this.isReady())throw new Error('Reset composite pass before changing capacity/residency')
+            const update=this.prepareCompanionUpdate(companions,companionCpuBytes);update.publish();update.finalizeCleanup();return 'ready'
+        }
         const budget = canonicalRgba8CompositeBudget(limits), group = new Map<string, number>();
         if (!whole(companionCpuBytes))
             throw new RangeError('Invalid companion CPU bytes');
-        for (const r of companions) {
-            if (!r.key || r.key === this.key || !whole(r.bytes, 1) || this.cache.resourceBytes(r.key) !== r.bytes || !this.cache.get(r.key)
-                || group.has(r.key) && group.get(r.key) !== r.bytes)
-                throw new RangeError('Unprepared composite companion');
-            group.set(r.key, r.bytes);
-        }
+        const checked=this.checkedCompanions(companions);for(const [key,bytes]of checked)group.set(key,bytes)
         const otherCpu = this.cpu.reservedBytes - this.reservedCpuBytes;
         if ([...group.values()].reduce((a, b) => a + b, 0) + budget.gpuBytes > this.cache.budgetBytes
             || Math.max(otherCpu, companionCpuBytes) + budget.cpuBytes > this.cpu.budgetBytes)
@@ -251,12 +293,6 @@ export class CanonicalRgba8CompositePass {
         const precision = this.gl.getShaderPrecisionFormat(this.gl.FRAGMENT_SHADER, this.gl.HIGH_FLOAT);
         if (!precision || precision.precision < 23 || Math.max(limits.width, limits.height) > maximum)
             throw new RangeError('Unverified composite GPU capability');
-        if (this.limits) {
-            if (this.limits.width !== limits.width || this.limits.height !== limits.height || operations.join(',') !== operationsFor(this.limits).join(',') || !this.isReady())
-                throw new Error('Reset composite pass before changing capacity/residency');
-            this.companions = [...group].map(([key, bytes]) => ({ key, bytes }));
-            return 'ready';
-        }
         if (this.cache.resourceBytes(this.key) !== undefined)
             throw new Error('Canonical composite resource scope is already owned');
         const textureStorage=reserveContextStorage(this.gl,limits.width*limits.height*4,'brush-texture-rgba-equivalent');
@@ -520,8 +556,12 @@ export class CanonicalRgba8CompositePass {
         if (this.busy && !lost)
             throw new Error('Cannot reset an active composite draw');
         let failed=false,primary:unknown;
-        try{this.cache.discard(this.key,lost)}catch(error){failed=true;primary=error}
+        const update=this.companionUpdate;this.companionUpdate=undefined
+        try{if(update?.status==='published')update.finalizeCleanup();else update?.cancel()}catch(error){failed=true;primary=error}
+        try{this.cache.discard(this.key,lost)}catch(error){if(!failed){failed=true;primary=error}}
         this.workspace=undefined;this.limits=undefined;this.companions=[];
+        const releaseMetadata=this.releaseCompanionMetadata;this.releaseCompanionMetadata=undefined
+        try{releaseMetadata?.()}catch(error){if(!failed){failed=true;primary=error}}
         try{this.releaseCpu?.()}catch(error){if(!failed){failed=true;primary=error}}
         this.releaseCpu=undefined;this.reservedCpuBytes=0;this.instancing=null;this.vertexArrays=null;
         if(failed)throw primary;
