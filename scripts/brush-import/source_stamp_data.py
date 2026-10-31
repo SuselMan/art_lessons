@@ -48,6 +48,43 @@ def source_stamp_budget(data):
     return total
 
 
+def soft_source_material_domain(data):
+    """One closed raw material domain; native tool/behavior stays importer-owned."""
+    if not isinstance(data,dict) or not isinstance(data.get('unsupported'),list): return False
+    source=data.get('source',{});flags=data.get('flags',{});settings=data.get('settings',{})
+    if not all(isinstance(v,dict) for v in (source,flags,settings)): return False
+    action=settings.get('PaintOpAction')
+    return (data.get('version')==2 and data.get('reader')=='krita-bd6e8d0-v1' and data.get('role')=='primary'
+            and source.get('kind')=='softAuto' and source.get('generator')=='soft' and source.get('shape')=='circle'
+            and source.get('spikes')==2 and source.get('antialias') is False and source.get('randomness')==0 and source.get('density')==1
+            and flags.get('materialFixed1') is True and flags.get('textureEnabled') is False
+            and type(source.get('diameter')) in (int,float) and math.isfinite(source['diameter']) and 0<source['diameter']<=4096
+            and type(source.get('ratio')) in (int,float) and math.isfinite(source['ratio']) and 0<source['ratio']<=1
+            and math.floor(source['diameter']*4+.5)+2<=16384
+            and isinstance(data.get('options'),list) and len(data['options'])==9
+            and (action is None and not flags.get('indirectPainting')
+                 or action in ('1','2') and flags.get('indirectPainting')==(action=='2')))
+
+
+def mapped_soft_frontier_retired(data):
+    """Recognize a derived data spelling, NOT provider/compiler attestation.
+
+    Full raw and compiled validation still follows. This predicate never calls
+    those validators, so mapped raw validation can reuse it without recursion.
+    """
+    if not soft_source_material_domain(data) or 'soft-auto-raster-author-unavailable' in data['unsupported']: return False
+    source=data['source'];compiled=data.get('compiled',{})
+    if not isinstance(compiled,dict): return False
+    if (set(compiled)!={'version','reader','profile','buildId','curves','radialCurve'}
+            or type(compiled['version']) is not int or compiled['version']!=2
+            or compiled['reader']!=data['reader'] or compiled['profile']!='eigen-5.0.1-mapped-arm64-f64-v3'
+            or not isinstance(compiled['buildId'],str) or not re.fullmatch(r'[0-9a-f]{64}',compiled['buildId'])
+            or not isinstance(compiled['curves'],list)): return False
+    radial=compiled['radialCurve'];raw=source.get('softnessCurve')
+    return (isinstance(radial,dict) and set(radial)=={'source','coefficients'} and isinstance(raw,dict)
+            and same_source_data(radial['source'],raw))
+
+
 def required_source_curves(data):
     curves={}
     for option in data['options']:
@@ -277,6 +314,8 @@ def validate_source_stamp_shape(descriptor):
     expected=retain_source_stamp(settings,definition,brush['width'],brush['height'],xml,depth=int(data['role']=='mask'))
     if data['version']==1:
         expected.pop('source');expected['version']=1
+    if mapped_soft_frontier_retired(data):
+        expected['unsupported']=[reason for reason in expected['unsupported'] if reason!='soft-auto-raster-author-unavailable']
     if not same_source_data({k:v for k,v in data.items() if k!='compiled'},expected): raise ValueError('Portable source stamp differs from raw native settings')
     if not 1<=data['precision']['level']<=5 or data['spacing']['value']<0 or data['spacing']['coefficient']<0 or data['timing']['rate']<=0: raise ValueError('Invalid native source spacing/precision/rate')
 

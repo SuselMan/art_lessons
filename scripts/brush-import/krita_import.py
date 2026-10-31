@@ -15,7 +15,7 @@ import zipfile
 from PIL import Image, ImageChops, PngImagePlugin
 from brush_contract import MAX_PIXELS, clamp, compatibility, descriptor, finalize_identity
 from curve_transfer import native_transfer,scaled_curve
-from source_stamp_data import retain_source_stamp, compile_source_stamp, required_source_curves
+from source_stamp_data import retain_source_stamp, compile_source_stamp, required_source_curves, soft_source_material_domain
 from sequential_xy import compatible as sequential_xy_compatible
 from stroke_input import source_policy as stroke_input_policy
 from krita_texture import preprocess_texture
@@ -371,6 +371,18 @@ def size_like_controls(params, option, notes, *, allow_time=False):
         notes.append(compatibility(option+'SensorCombination','Additive or absolute native size-like sensor cannot be compiled as a product; constant rate retained.','unsupported'))
         return []
     return sensor_controls(params,option,notes,allow_time=allow_time)
+
+
+def _new_mapped_soft_material_supported(d, engine, depth):
+    """Eligibility only, after whole trusted mapped compilation/validation.
+
+    Raw retention and portable dictionaries keep their historical frontiers.
+    This is not a compiler/profile assertion or an editor execution grant.
+    """
+    behavior=d.get('behavior',{})
+    return (engine=='paintbrush' and depth==0 and d.get('model')=='stamp'
+            and 'dual' not in behavior and 'colorAdjustment' not in behavior
+            and soft_source_material_domain(d['sourceStamp']))
 
 
 def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, curve_compiler=None, mapped_curve_provider=None):
@@ -996,8 +1008,17 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         try:
             d['sourceStamp']=retain_source_stamp(params,definition,*(source_metric or (1,1)),xml,depth=depth)
             if mapped_curve_provider is not None:
-                from source_stamp_mapped import compile_mapped_source_stamp
-                try: d['sourceStamp']['compiled']=compile_mapped_source_stamp(d['sourceStamp'],mapped_curve_provider)
+                from source_stamp_mapped import compile_mapped_source_stamp, validate_mapped_source_stamp_shape
+                try:
+                    # A partial/invalid result never becomes a published dictionary.
+                    compiled=compile_mapped_source_stamp(d['sourceStamp'],mapped_curve_provider)
+                    validate_mapped_source_stamp_shape(d['sourceStamp'],compiled)
+                    if compiled['buildId']!=mapped_curve_provider.expected_build_id:
+                        raise ValueError('Mapped source profile/build binding differs')
+                    d['sourceStamp']['compiled']=compiled
+                    if _new_mapped_soft_material_supported(d,engine,depth):
+                        d['sourceStamp']['unsupported']=[reason for reason in d['sourceStamp']['unsupported']
+                                                       if reason!='soft-auto-raster-author-unavailable']
                 except ValueError as error: notes.append(compatibility('sourceStampCompiler',str(error),'unsupported'))
             elif curve_compiler is not None:
                 try: d['sourceStamp']['compiled']=compile_source_stamp(d['sourceStamp'],curve_compiler)

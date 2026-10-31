@@ -11,14 +11,21 @@ import struct
 from native_curve_compile import _number
 from native_curve_arm_v3 import MappedCurveProvider, PROFILE, compile_curves_arm_v3
 from source_stamp_data import (MAX_SOURCE_STAMP_BUDGET, required_source_curves,
-                               source_stamp_budget, validate_source_stamp_shape)
+                               source_stamp_budget, validate_source_stamp_shape, mapped_soft_frontier_retired)
 
 
 def _raw(data):
     if type(data) is not dict:
         raise ValueError('Invalid mapped source stamp')
     raw = copy.deepcopy({key: value for key, value in data.items() if key != 'compiled'})
-    validate_source_stamp_shape({'sourceStamp': raw})
+    # Reconstruct historical spelling only in a private validation copy. The
+    # returned original raw spelling and all source/curve bytes stay unchanged.
+    if mapped_soft_frontier_retired(data):
+        historical=copy.deepcopy(raw)
+        historical['unsupported'].insert(0,'soft-auto-raster-author-unavailable')
+        validate_source_stamp_shape({'sourceStamp': historical})
+    else:
+        validate_source_stamp_shape({'sourceStamp': raw})
     return raw
 
 
