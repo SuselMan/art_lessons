@@ -1,0 +1,9 @@
+# Explicit mixed full-history read receipt
+
+The existing transport accepts an explicit `fullHistoryFormat: 'mixed-v2'` server policy; omission preserves the frame-only V1 lane. No startup/join callback requests this mode by default. The same full-range indexed query supplies all operations and ordered rows under the captured cut, floor zero, no stored layer state, pending-write fence and repeated read authorization/context checks.
+
+Source frames bind through the existing ROOM descriptor resolver. Each close is paired with its actual indexed row and checked by `readRecordedPrefix`, preserving the distinction between material end and a metadata close seal. One shared attachment preparation and the full-history verifier then validate source context and chronological close/undo/redo dependencies. Query evidence remains with the private original receipt; the pure shared fold cannot create that authority.
+
+Only the original receipt with exact operation pointers can produce `full-room-prefix-v2` metadata. Copied, foreign, stale, suffix and metadata-only prefixes fail closed. Close-bearing ordinary suffix reads and preparePrefix remain unsupported. Existing V1 default behavior and snapshot coverage are unchanged; this does not enable a producer, renderer, join or physical database guarantee.
+
+Tests reuse actual source author/adapter/encoder and real persistence receipt machinery with a mocked indexed database. Seven new cases first failed against the old transport. Further witnesses cover authorization revocation, storage owner replacement and cut advancement during the real query await, and a close without its complete source prefix. Legacy soft transport, full-range query and snapshot loader regressions run together. No hardware or online activation claim follows from these host tests.

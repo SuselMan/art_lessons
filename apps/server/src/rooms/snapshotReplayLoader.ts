@@ -1,4 +1,4 @@
-import type {CanonicalFullHistoryRows} from './snapshotStore.js'
+import type {CanonicalFullHistoryRows,CanonicalMixedFullHistoryRows} from './snapshotStore.js'
 import {isDeepStrictEqual} from 'node:util'
 import { IMPLICIT_LAYER_IDS, CANONICAL_RECORDED_ATTACHMENT_LIMITS, type CanonicalStrokeOperation, type verifyCanonicalRecordedPrefix, type Operation } from '@grafetto/shared'
 
@@ -15,7 +15,7 @@ const STRUCTURE_TYPES = ['layer_add', 'folder_add', 'layer_delete', 'layer_merge
 export interface CanonicalPrefixRequest {readonly anchor:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly throughSeq:number;readonly purpose:'read'|'undo-redo'}
 export interface PreparedCanonicalPrefix {readonly operations:readonly CanonicalStrokeOperation[];readonly canonicalRows:readonly CanonicalStoredOperationRow[];readonly summary:ReturnType<typeof verifyCanonicalRecordedPrefix>}
 export type CanonicalPrefixPreparer=(input:CanonicalPrefixRequest)=>Promise<PreparedCanonicalPrefix>
-export interface CanonicalFullHistoryReceipt extends CanonicalFullHistoryRows {assertCurrent(this:CanonicalFullHistoryReceipt):void}
+export type CanonicalFullHistoryReceipt=(CanonicalFullHistoryRows|CanonicalMixedFullHistoryRows)&{assertCurrent(this:CanonicalFullHistoryReceipt):void}
 export interface SnapshotReplayPreparation {readonly prepareCanonicalPrefix?:CanonicalPrefixPreparer;readonly canonicalFloor?:number;readonly prepareFullCanonicalHistory?:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>}
 
 export interface PreparedSnapshotReplay extends SnapshotReplayPlan {

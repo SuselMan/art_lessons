@@ -23,6 +23,7 @@ export function freezeCanonicalAutoPolicies(value:CanonicalAutoExecutionPolicies
 }
 /** Execution config only. This does NOT open straight rooms or switch a renderer. */
 export interface CanonicalRoomExecutionPolicy {
+ readonly fullHistoryFormat?:'frames-v1'|'mixed-v2'
  readonly rasterProfile?:CanonicalStrokeRasterProfile
  readonly authorRasterProfile?:CanonicalStrokeRasterProfile
  readonly allowedRecordedRasterProfiles?:readonly CanonicalStrokeRasterProfile[]
@@ -40,4 +41,10 @@ export function freezeCanonicalRasterPolicy(value:Pick<CanonicalRoomExecutionPol
  const allowedRecordedRasterProfiles=canonicalRecordedRasterProfiles({allowedRasterProfiles:value.allowedRecordedRasterProfiles===undefined?[authorRasterProfile]:value.allowedRecordedRasterProfiles})
  if(!allowedRecordedRasterProfiles.includes(authorRasterProfile))throw TypeError('author raster profile unavailable')
  return Object.freeze({authorRasterProfile,allowedRecordedRasterProfiles})
+}
+
+export function freezeCanonicalFullHistoryFormat(value:CanonicalRoomExecutionPolicy['fullHistoryFormat']):'frames-v1'|'mixed-v2'{
+ if(value===undefined)return 'frames-v1'
+ if(value!=='frames-v1'&&value!=='mixed-v2')throw TypeError('invalid explicit full history format')
+ return value
 }

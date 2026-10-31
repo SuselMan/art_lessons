@@ -754,3 +754,80 @@ it('attests the complete actual two-frame DB tail only with its original receipt
  expect(()=>read.finish(receipt.operations.slice(1),receipt.canonicalRows.slice(1),receipt)).toThrow()
  alive=false;expect(()=>read.finish(receipt.operations,receipt.canonicalRows,receipt)).toThrow()
 })
+
+it('projects explicit mixed full history from actual indexed frames, close and undo/redo without reopening suffix reads',async()=>{
+ const f=await recordedCloseReadFixture()
+ const {recordCanonicalMetadataOperation,ensureCanonicalWrite}=await import('./operationLog.js')
+ for(const op of [{type:'operation_undo' as const,id:'full-undo',targetOpId:f.operations[0].id},{type:'operation_redo' as const,id:'full-redo',targetOpId:'full-undo'}]){
+  const saved=recordCanonicalMetadataOperation('board',{...op,userId:'author',timestamp:100})
+  expect(await ensureCanonicalWrite(f.board,saved)).toMatchObject({ok:true})
+ }
+ const rows=db.operation.create.mock.calls.map(([q])=>q.data),writes=rows.length,pin=vi.spyOn(f.storage,'pin')
+ db.operation.findMany.mockImplementation(async({where,take})=>rows.filter(r=>r.seq>where.seq.gt&&r.seq<=where.seq.lte).slice(0,take))
+ const transport=new CanonicalRoomTransport({...selected,fullHistoryFormat:'mixed-v2'})
+ const read=await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)
+ const replay=await prepareSnapshotReplay('board',{canonicalFloor:0,prepareFullCanonicalHistory:read.prepareFullHistory})
+ expect(replay.operations.map(op=>op.id)).toEqual(rows.map(r=>r.id));expect(replay.fullCanonicalHistory).toMatchObject({kind:'mixed-canonical-history-v2'})
+ const result=read.finish(replay.operations,replay.canonicalRows,replay.fullCanonicalHistory)
+ expect(result.canonicalHistoryBase).toEqual({kind:'full-room-prefix-v2',roomId:'board',boardEpoch:read.scope.boardEpoch,throughSeq:writes,operationCount:writes})
+ expect(result.canonicalCapabilities?.bindings).toHaveLength(f.operations.length)
+ expect(()=>read.finish(replay.operations,replay.canonicalRows)).toThrow()
+ expect(()=>read.finish([],[])).toThrow()
+ expect(()=>read.finish(replay.operations.slice(1),replay.canonicalRows,replay.fullCanonicalHistory)).toThrow()
+ expect(()=>read.finish(replay.operations,replay.canonicalRows,{...replay.fullCanonicalHistory!})).toThrow()
+ expect(pin).not.toHaveBeenCalled();expect(db.operation.create).toHaveBeenCalledTimes(writes)
+ await expect(read.preparePrefix({anchor:f.operations.at(-1)!,row:f.canonicalRows.at(-1)!,throughSeq:writes,purpose:'read'})).rejects.toThrow()
+})
+it('keeps mixed full-history policy closed by default and validates its explicit selector',async()=>{
+ const f=await recordedCloseReadFixture()
+ await expect(f.transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)).rejects.toThrow()
+ expect(()=>new CanonicalRoomTransport({...selected,fullHistoryFormat:'unknown'} as unknown as import('./canonicalExecutionPolicy.js').CanonicalRoomExecutionPolicy)).toThrow('full history')
+})
+it('requires actual terminal empty evidence for the explicit mixed cut-zero receipt',async()=>{
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport({...selected,fullHistoryFormat:'mixed-v2'})
+ db.operation.findMany.mockResolvedValue([])
+ let current=true
+ const read=await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>current),receipt=await read.prepareFullHistory({throughSeq:0,floor:0})
+ expect(db.operation.findMany).toHaveBeenCalledOnce();expect(receipt).toMatchObject({kind:'mixed-canonical-history-v2',operations:[],orderedRows:[]})
+ expect(read.finish([],[],receipt)).toMatchObject({canonicalHistoryBase:{kind:'full-room-prefix-v2',throughSeq:0,operationCount:0}})
+ expect(read.finish([])).not.toHaveProperty('canonicalHistoryBase')
+ const other=await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)
+ expect(()=>other.finish([],[],receipt)).toThrow()
+ current=false;expect(()=>read.finish([],[],receipt)).toThrow();expect(f.board.nextSeq).toBe(1)
+})
+it.each(['closeBody','missingFrame','futureUndo','postCloseFrame']as const)('refuses actual mixed full-range corruption (%s) without minting a read receipt',async kind=>{
+ const f=await recordedCloseReadFixture(),rows=db.operation.create.mock.calls.map(([q])=>structuredClone(q.data))
+ if(kind==='closeBody'){const row=rows.at(-1)!;row.data={...row.data,lastFrameOpId:'wrong'}}
+ if(kind==='missingFrame')rows.splice(0,1)
+ if(kind==='futureUndo'){
+  const seq=f.board.nextSeq++;rows.push({id:'bad-undo',roomId:'board',userId:'author',type:'operation_undo',seq,data:{type:'operation_undo',id:'bad-undo',userId:'author',timestamp:100,seq,targetOpId:'future'}})
+ }
+ if(kind==='postCloseFrame'){
+  const seq=f.board.nextSeq++,source=rows[0];rows.push({...source,id:'late-frame',seq,data:{...source.data,id:'late-frame',seq}})
+ }
+ db.operation.findMany.mockImplementation(async({where,take})=>rows.filter(r=>r.seq>where.seq.gt&&r.seq<=where.seq.lte).slice(0,take))
+ const read=await new CanonicalRoomTransport({...selected,fullHistoryFormat:'mixed-v2'}).prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)
+ await expect(read.prepareFullHistory({throughSeq:f.board.nextSeq-1,floor:0})).rejects.toThrow()
+})
+
+it.each(['revoke','context','cut']as const)('rechecks the SAME mixed owner after a real full-range query await (%s)',async kind=>{
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport({...selected,fullHistoryFormat:'mixed-v2'})
+ const read=await transport.prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)
+ let resolveQuery!:(rows:never[])=>void
+ const query=new Promise<never[]>(resolve=>{resolveQuery=resolve})
+ db.operation.findMany.mockReturnValue(query)
+ const work=read.prepareFullHistory({throughSeq:0,floor:0})
+ await vi.waitFor(()=>expect(db.operation.findMany).toHaveBeenCalled())
+ if(kind==='revoke')readAccess.allowed=false
+ if(kind==='context')setBrushStorage(f.storage,{...empty()})
+ if(kind==='cut')f.board.nextSeq=2
+ resolveQuery([])
+ await expect(work).rejects.toThrow(kind==='revoke'?'not_joined':'canonical_repair_required')
+})
+it('never accepts a metadata-only mixed cut without its complete actual source prefix',async()=>{
+ const f=await recordedCloseReadFixture(),close={...f.close,seq:1},row={...f.closeRow,seq:1,data:close}
+ f.board.operations=[close];f.board.operationsById=new Map([[close.id,close]]);f.board.nextSeq=2
+ db.operation.findMany.mockImplementation(async({where})=>where.seq.gt===0?[row]:[])
+ const read=await new CanonicalRoomTransport({...selected,fullHistoryFormat:'mixed-v2'}).prepareReadDelivery({roomId:'board',userId:'reader'},()=>true)
+ await expect(read.prepareFullHistory({throughSeq:1,floor:0})).rejects.toThrow()
+})
