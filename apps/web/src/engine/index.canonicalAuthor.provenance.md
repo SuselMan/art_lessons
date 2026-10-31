@@ -78,3 +78,37 @@ continuations from pending Outbox/preview state for full-room replacement guards
 Final type gates: app3722 PASS after the combined14348 found only the unrelated
 Room/Color fixture errors; SW graph unchanged from45674 PASS. The final app graph
 includes local lease retirement, source hold/repair cleanup and these16 cases.
+
+## Native auto preparation after an original image baseline
+
+The resource-only compatibility leaf changes exactly index.ts,
+index.canonicalImage.test.ts, index.canonicalAuthor.test.ts and this provenance.
+An existing ready mask capacity now returns before the bank replacement guard.
+Native auto admission computes the SAME sourceAutoGeometry capacity directly
+from validated source data before program reservation or generation changes;
+when an image bank exists, insufficient/not-ready capacity remains an explicit
+workspace-replacement error. No prepass reset, bank extension/rebinding, source
+map publication, cache replacement or quota change is introduced. Image author
+admission remains closed.
+
+Tests first reproduced Mountains-to-Basic2 rejection and the misleading old
+Graphite blanket error (2 RED, 18 existing preparation cases PASS). The actual
+Mountains 4-frame original baseline now supports Basic2 local nonempty pointer
+work, two unconfirmed ended gestures, original promotion and final checkpoint
+without repeating maskRgb deposition. The SAME bank resources/prepass epoch and
+composite programs remain. An aborted preparation, CPU reservation exhaustion
+and stale original owner preserve prepared/bank ownership. Actual Graphite's
+smaller workspace still refuses Basic2 growth before reserve/generation/journal
+mutation. Host MockGL assertions establish deposition calls and resource
+ownership, not GPU pixel equivalence or display latency.
+
+The old author prewarm test had observed unrelated ongoing painter allocation:
+CPU UP completion is not painter completion. Its spy now starts only after the
+actual SAME job drains, while checkpointReady remains false; optional-prewarm
+semantics and production scheduling are unchanged. The isolated old premise
+passed, and the corrected complete author suite passes 32 cases. Actual
+recorded image preparation suite passes 18 cases. Targeted TypeScript snapshot
+includes both image and author engine tests plus the existing pipe fixture; no
+shared build/dist mutation or device/runtime action was performed. Final image
+suite/type/lint receipts are retained under R52/auto-bank-*; whole-app gate is
+coordinated separately by ROOT.

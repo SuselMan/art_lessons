@@ -1458,7 +1458,7 @@ function canonicalJournalValid(proof:CanonicalJournalProof,log:OperationLog,inpu
  })
 }
 function canonicalAcceptedJournalValid(accepted:CanonicalAcceptedBaseline,log:OperationLog):boolean {return canonicalJournalValid(accepted,log,accepted.plan.inputs)}
-function canonicalLayerMaskCapacity(pin:CanonicalAutoSource|CanonicalSoftAutoSource):TransformedMaskLimits {
+function canonicalLayerMaskCapacity(pin:Pick<CanonicalAutoSource|CanonicalSoftAutoSource,'source'|'brushScale'|'brushAngle'>):TransformedMaskLimits {
  if(pin.brushScale!==1||pin.source.spikes!==2)throw new TypeError('Unsupported fixed canonical layer source')
  const geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:pin.source.diameter,ratio:pin.source.ratio,spikes:2,scale:pin.brushScale,angle:pin.brushAngle},{scale:1,ratio:1,rotation:0})
  // A fixed affine rect is translated by subX/subY in [0,1). Allocation is
@@ -6551,8 +6551,8 @@ export class PencilEngine implements PencilEngineAPI {
    * by the same layer; an open/unconfirmed wash is never discarded to resize. */
   private _prepareCanonicalLayerWorkspace(owner:CanonicalLayerOwner,requested:TransformedMaskLimits):void {
     this._assertCanonicalLayerCurrent(owner)
-    if(owner.bank)throw new TypeError('Canonical image baseline workspace replacement unavailable')
     if(owner.prepared&&requested.width<=owner.mask.width&&requested.height<=owner.mask.height&&requested.slots<=owner.mask.slots)return
+    if(owner.bank)throw new TypeError('Canonical image baseline workspace replacement unavailable')
     const growing=owner.prepared
     const mask=Object.freeze({width:Math.max(owner.mask.width,requested.width),height:Math.max(owner.mask.height,requested.height),slots:Math.max(owner.mask.slots,requested.slots)})
     const cost=transformedMaskPrepassBudget(mask),compositeCost=canonicalRgba8CompositeBudget(owner.plan.composite),compositeReady=owner.composite.isReady()
@@ -7018,10 +7018,14 @@ export class PencilEngine implements PencilEngineAPI {
     const owner=this._canonicalLayerOwner,descriptor=importedBrushFromPreset(preset)
     if(!this._canonicalAuthorService||!this._onLocalOperation||!owner||!descriptor)throw new Error('Canonical source author services unavailable')
     this._assertCanonicalLayerCurrent(owner)
-    if(owner.bank)throw new TypeError('Canonical image baseline author preparation unavailable')
     const admission=canonicalSourceAuthorAdmission(descriptor,owner.plan.profile)
     if(!admission.supported)throw new Error(admission.reason)
     const data=admission.data
+    if(data.source.kind==='image')throw new TypeError('Unsupported canonical pointer material')
+    // Pure native geometry preflight: a bank may coexist with an already-ready
+    // workspace, but this path must never replace its source maps or leases.
+    const requested=canonicalLayerMaskCapacity({source:data.source,brushScale:data.brush.scale,brushAngle:data.brush.angle})
+    if(owner.bank&&(!owner.prepared||requested.width>owner.mask.width||requested.height>owner.mask.height||requested.slots>owner.mask.slots))throw new TypeError('Canonical image baseline workspace replacement unavailable')
     const json=canonicalBrushDescriptorJSON(descriptor),bytes=new TextEncoder().encode(json),charge=bytes.length*8+8192
     if(charge>this._brushMipCache.budgetBytes)throw new RangeError('Canonical source program exceeds CPU budget')
     const release=this._brushMipCache.reserve(charge)

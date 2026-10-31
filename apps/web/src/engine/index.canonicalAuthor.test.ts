@@ -439,6 +439,10 @@ it('skips optional prewarm for a compatible brush while a real unconfirmed local
   await engine.prepareBrush(preset);engine['_onStart'](packet(1,100));engine['_onMove'](packet(5,110));engine['_onEnd'](packet(5,120))
   await vi.waitFor(()=>expect(engine.hasActiveCanonicalAuthor()).toBe(false))
   const owner=engine['_canonicalLayerOwner'];if(!owner)throw Error('Owner missing')
+  // CPU UP completion does not imply the existing painter job has drained.
+  // Observe only preparation effects, with the unconfirmed wash still owned.
+  await vi.waitFor(()=>expect(owner.job).toBeUndefined(),{timeout:5000})
+  expect(owner.coordinator?.checkpointReady).toBe(false)
   const coordinator=owner.coordinator,targets=vi.spyOn(owner.stable,'preparePaintTargetRects'),pool=engine['_ribbonScratchPool'],scratch=vi.spyOn(pool,'prepareAcquisition'),count=operations.length,journal=engine['_log'].entries
   expect(await engine.prepareBrush(preset)).toEqual({status:'ready'})
   expect(targets).not.toHaveBeenCalled();expect(scratch).not.toHaveBeenCalled();expect(owner.coordinator).toBe(coordinator);expect(engine['_log'].entries).toBe(journal);expect(operations).toHaveLength(count);expect(repair).not.toHaveBeenCalled()
