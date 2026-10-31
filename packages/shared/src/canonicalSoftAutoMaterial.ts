@@ -19,7 +19,8 @@ export interface CanonicalSoftAutoSource {
   readonly buildId:string
   readonly radialCurve:SourceStampCompiledCurve
 }
-export interface CanonicalSoftAutoRecipe extends Omit<CanonicalDefaultAutoRecipe,'kind'|'source'> {
+export interface CanonicalSoftAutoRecipe extends Omit<CanonicalDefaultAutoRecipe,'kind'|'source'|'coverageProfile'> {
+  readonly coverageProfile:CanonicalSoftAutoSource['coverageProfile']
   readonly kind:'softAuto'; readonly sourceSlot:0|1
   readonly source:SourceSoftAutoData
 }

@@ -165,7 +165,14 @@ export function hasCanonicalSourceCurvePrograms(data: SourceStampData): boolean 
 
 /** Source DATA/compiler capability only. No auto author, material codec or
  * executor is admitted by this result, even when every curve is compiled. */
-export function extractDefaultAutoSourceDataCapability(descriptor: BrushDescriptor):
+export function extractDefaultAutoSourceDataCapability(descriptor: BrushDescriptor) {
+  return extractDefaultAutoData(descriptor, false)
+}
+/** Explicit data-only density capability; no execution or room grant. */
+export function extractSeededDensityDefaultAutoSourceDataCapability(descriptor: BrushDescriptor) {
+  return extractDefaultAutoData(descriptor, true)
+}
+function extractDefaultAutoData(descriptor: BrushDescriptor, seededDensity: boolean):
   { readonly supported: true; readonly status: 'source-data-only'; readonly rasterReady: false; readonly data: SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceDefaultAutoData } } |
   { readonly supported: false; readonly reasons: readonly string[] } {
   const reject = (reason: string) => ({ supported: false as const, reasons: [reason] })
@@ -177,7 +184,7 @@ export function extractDefaultAutoSourceDataCapability(descriptor: BrushDescript
   if (descriptor.model !== 'stamp' || descriptor.tip.kind !== 'procedural' || descriptor.tip.profile?.kind !== 'standard'
     || descriptor.tip.mask || descriptor.tip.animation || descriptor.tip.imageSampling || descriptor.tip.material) return reject('inconsistent-default-auto-descriptor')
   const source = data.source
-  if (source.spikes !== 2 || source.randomness !== 0 || source.density !== 1 || !data.flags.materialFixed1 || data.flags.textureEnabled
+  if (source.spikes !== 2 || source.randomness !== 0 || (!seededDensity && source.density !== 1) || !data.flags.materialFixed1 || data.flags.textureEnabled
     || descriptor.behavior?.colorAdjustment) return reject('unsupported-default-auto-material-consumer')
   const p = descriptor.tip.profile
   if (p.shape !== (source.shape === 'circle' ? 'ellipse' : 'rectangle') || p.horizontalFade !== source.horizontalFade

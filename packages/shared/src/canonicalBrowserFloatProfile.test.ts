@@ -12,7 +12,7 @@ import type {BrushDescriptor} from './brushes.js'
 import stock from './fixtures/sourceDefaultAutoData/stock.native.js'
 
 type Kind='circle'|'rect'|'gaussian'|'soft'
-function fixture(kind:Kind,coverage:CanonicalAutoCoverageProfile|CanonicalGaussianCoverageProfile){
+function fixture(kind:Kind,coverage:Exclude<CanonicalAutoCoverageProfile,'neon64-f32-fma-seeded-density-v1'>|CanonicalGaussianCoverageProfile){
  const base={descriptorId:'synthetic',descriptorVersion:1,descriptorSha256:'a'.repeat(64),brushScale:1,brushAngle:0}
  const source={diameter:8,ratio:1,horizontalFade:1,verticalFade:1,antialias:false,spikes:2,randomness:0,density:1}
  const curve={text:'0,1;1,0',points:[{x:0,y:1,corner:false},{x:1,y:0,corner:false}]}

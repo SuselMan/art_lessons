@@ -1,4 +1,4 @@
-import {CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE} from './canonicalStrokeFrame.js'
+import {CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE} from './canonicalStrokeFrame.js'
 import { canonicalSoftAutoSourcePin, canonicalSoftAutoStatic, canonicalSoftAutoCost, type CanonicalSoftAutoSource, type CanonicalSoftAutoRecipe } from './canonicalSoftAutoMaterial.js'
 import { canonicalAutoCost, canonicalDefaultAutoStatic, canonicalDefaultAutoSourcePin, canonicalGaussianAutoStatic, canonicalGaussianAutoSourcePin, type CanonicalAutoRecipe, type CanonicalAutoSource } from './canonicalDefaultAutoMaterial.js'
 import { canonicalMaterialGeometryCost } from './canonicalMaterialGeometry.js'
@@ -92,7 +92,7 @@ export type AnyCanonicalMaterialRecipe = CanonicalMaterialRecipe | CanonicalSour
 const isV2 = (c:AnyCanonicalMaterialContext):c is CanonicalMaterialContextV2 => 'version' in c && c.version===2
 const auto = (r:AnyCanonicalMaterialRecipe):r is CanonicalAutoRecipe | CanonicalSoftAutoRecipe => 'kind' in r && (r.kind==='defaultAuto'||r.kind==='gaussianAuto'||r.kind==='softAuto')
 function normalized(r:AnyCanonicalMaterialRecipe):AnyCanonicalMaterialRecipe {
-  if (r && 'kind' in r && r.kind==='defaultAuto') return {...r,...canonicalDefaultAutoStatic(r.source,r.brushScale,r.brushAngle)}
+  if (r && 'kind' in r && r.kind==='defaultAuto') return {...r,...canonicalDefaultAutoStatic(r.source,r.brushScale,r.brushAngle,r.coverageProfile)}
   if (r && 'kind' in r && r.kind==='gaussianAuto') return {...r,...canonicalGaussianAutoStatic(r.source,r.brushScale,r.brushAngle)}
   if (r && 'kind' in r && r.kind==='softAuto') return {...r,...canonicalSoftAutoStatic(r.source,r.brushScale,r.brushAngle)}
   return r
@@ -143,6 +143,7 @@ function context(c:AnyCanonicalMaterialContext):void {
         if(!ids.has(source.asset)||!number(source.brushScale,Number.MIN_VALUE,1e6)||!number(source.brushAngle,-1e6,1e6))fail()
       } else if(source.kind==='defaultAuto') {
         canonicalDefaultAutoSourcePin(source)
+        if(source.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE&&(sourceSlot!==0||c.maskSource!==undefined))fail()
       } else if(source.kind==='gaussianAuto') {
         canonicalGaussianAutoSourcePin(source)
       } else if(source.kind==='softAuto') {
@@ -168,11 +169,17 @@ function recipe(r:AnyCanonicalMaterialRecipe,c:AnyCanonicalMaterialContext):Cano
       if(source?.kind!=='softAuto')return fail()
       cost=canonicalSoftAutoCost(r,source)
     } else {
+      if(r.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE) {
+        const primary=c.primarySource
+        if(r.kind!=='defaultAuto'||primary.kind!=='defaultAuto'||primary.coverageProfile!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||c.maskSource!==undefined)return fail()
+        cost=canonicalAutoCost(r,primary)
+      } else {
       let found:CanonicalMaterialCost|undefined
       for(const source of [c.primarySource,c.maskSource])if(source?.kind==='defaultAuto'||source?.kind==='gaussianAuto') {
         try { found=canonicalAutoCost(r,source);break } catch { /* another role may own this exact static definition */ }
       }
       if(!found)return fail();cost=found
+      }
     }
   } else {
     if(!assetId(r.asset)||!number(r.brushScale,Number.MIN_VALUE,1e6)||isV2(c)&&(!('kind' in r)||r.kind!=='image'))fail()
@@ -207,7 +214,7 @@ function entry(e:CanonicalMaterialEntry):void {
 function recipeKey(r:AnyCanonicalMaterialRecipe):string {
   const view=new DataView(new ArrayBuffer(8))
   const identity=auto(r)?(r.kind==='softAuto'?'slot'+r.sourceSlot+':':'')+r.kind+':'+r.coverageProfile+':'+r.source.shape+':'+Number(r.source.antialias)+':'+[r.source.diameter,r.source.ratio,r.source.horizontalFade,r.source.verticalFade].map(n=>{view.setFloat64(0,n,true);return view.getBigUint64(0,true).toString(16)}).join(':'):r.asset
-  return identity+':'+r.width+':'+r.height+':'+Number(r.mirrorH)+Number(r.mirrorV)+':'+FLOATS.map(k=>{view.setFloat64(0,r[k],true);return view.getUint32(0,true).toString(16).padStart(8,'0')+view.getUint32(4,true).toString(16).padStart(8,'0')}).join('')
+  return identity+(auto(r)&&r.kind==='defaultAuto'&&r.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE?':density'+r.source.density:'')+':'+r.width+':'+r.height+':'+Number(r.mirrorH)+Number(r.mirrorV)+':'+FLOATS.map(k=>{view.setFloat64(0,r[k],true);return view.getUint32(0,true).toString(16).padStart(8,'0')+view.getUint32(4,true).toString(16).padStart(8,'0')}).join('')
 }
 interface FrameReader {
   readonly version:1|2
@@ -221,12 +228,14 @@ interface FrameReader {
 function preflight(r:FrameReader,c:AnyCanonicalMaterialContext):void {
   context(c);if((r.version===2)!==isV2(c))fail();checkedCounts(r.definitions,r.draws,r.fences);entry(r.entry)
   if(typeof r.masked!=='boolean'||r.masked&&(isV2(c)?c.maskSource===undefined:c.maskAsset===undefined)||c.expectedDrawCount!==undefined&&r.draws!==c.expectedDrawCount)fail()
+  const densityContext=isV2(c)&&c.primarySource.kind==='defaultAuto'&&c.primarySource.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
+  if(densityContext&&r.masked)fail()
   let work=0,output=0,drawPixels=0,nextDefinition=0
   const identities=new Set<string>()
   for(let i=0;i<r.definitions;i++){
     const d=r.definition(i),cost=recipe(d,c),key=recipeKey(d)
     if(identities.has(key))fail();identities.add(key)
-    work+=cost.workUnits;output+=cost.outputBytes
+    if(!(auto(d)&&d.kind==='defaultAuto'&&d.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)){work+=cost.workUnits;output+=cost.outputBytes}
     if(!Number.isSafeInteger(work)||!Number.isSafeInteger(output)||work>c.budget.workUnits||output>c.budget.outputBytes)fail()
   }
   let phase=r.entry.phase,group=r.entry.phase==='between'?-1:r.entry.group,lastGroup=group,fi=0,ended=false
@@ -253,11 +262,16 @@ function preflight(r:FrameReader,c:AnyCanonicalMaterialContext):void {
     }
     if(at===r.draws)break
     const d=r.draw(at);keys(d,['definition','role','x','y','opacity','flow'])
+    if(densityContext&&d.role!=='primary')fail()
     if(!integer(d.definition,0,r.definitions-1)||!['primary','mask'].includes(d.role)||d.role!==phase||d.role==='mask'&&!r.masked
       ||!integer(d.x,-1e8,1e8)||!integer(d.y,-1e8,1e8)||!number(d.opacity,0,1)||!number(d.flow,0,1))fail()
     if(d.definition>nextDefinition)fail();if(d.definition===nextDefinition)nextDefinition++
     const def=r.definition(d.definition)
     if(!roleMatches(def,d.role,c)||!integer(d.x+def.width,-1e8,1e8)||!integer(d.y+def.height,-1e8,1e8))fail()
+    if(auto(def)&&def.kind==='defaultAuto'&&def.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE){
+      const cost=recipe(def,c);work+=cost.workUnits;output+=cost.outputBytes
+      if(!Number.isSafeInteger(work)||!Number.isSafeInteger(output)||work>c.budget.workUnits||output>c.budget.outputBytes)fail()
+    }
     drawPixels+=def.width*def.height
     if(!Number.isSafeInteger(drawPixels)||drawPixels>c.budget.drawPixels)fail()
   }
@@ -295,7 +309,7 @@ export function packCanonicalMaterial(f:AnyCanonicalMaterialFrame,c:AnyCanonical
       FLOATS.forEach((k,j)=>v.setFloat64(offset+8+j*8,d[k],true))
     } else {
       bytes[offset]=auto(d)?(d.kind==='softAuto'?4:d.kind==='gaussianAuto'?3:d.source.shape==='circle'?1:2):0
-      bytes[offset+1]=auto(d)?(d.coverageProfile===CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE?3:d.coverageProfile==='neon64-f32-fma-v1'?2:1):0
+      bytes[offset+1]=auto(d)?(d.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE?4:d.coverageProfile===CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE?3:d.coverageProfile==='neon64-f32-fma-v1'?2:1):0
       bytes[offset+2]=Number(d.mirrorH)|Number(d.mirrorV)<<1|(auto(d)&&d.source.antialias?4:0)
       bytes[offset+3]=auto(d)?(d.kind==='softAuto'?d.sourceSlot:0):ids.indexOf(d.asset)
       const values=auto(d)?[d.source.diameter,d.source.ratio,d.source.horizontalFade,d.source.verticalFade,...FLOATS.map(k=>d[k])]:FLOATS.map(k=>d[k])
@@ -337,8 +351,9 @@ export function unpackCanonicalMaterial(text:string,c:AnyCanonicalMaterialContex
   let nextAsset=0
   for(let i=0;i<dc;i++){
     const o=defOffset+i*definitionBytes,tag=version===1?0:u8(o)
-    if(version===2&&(tag>4||u8(o+1)>(tag?3:0)||tag&&u8(o+1)===0||u8(o+2)>(tag&&tag!==4?7:3)))fail()
+    if(version===2&&(tag>4||u8(o+1)>(tag===1||tag===2?4:tag?3:0)||tag&&u8(o+1)===0||u8(o+2)>(tag&&tag!==4?7:3)))fail()
     if(version===1&& (u8(o+1)>3||u16(o+2)!==0))fail()
+    if(version===2&&u8(o+1)===4&&(!isV2(c)||c.primarySource.kind!=='defaultAuto'||c.primarySource.coverageProfile!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||c.maskSource!==undefined||u8(7)!==0))fail()
     if(tag) {if(tag===4?u8(o+3)>1:u8(o+3)!==0)fail()}
     else {const ai=version===1?u8(o):u8(o+3);if(ai>nextAsset||ai>=ac)fail();if(ai===nextAsset)nextAsset++}
     if(version===2&&!tag)for(let j=64;j<96;j++)if(u8(o+j))fail()
@@ -359,6 +374,11 @@ export function unpackCanonicalMaterial(text:string,c:AnyCanonicalMaterialContex
         const trusted=canonicalSoftAutoSourcePin(pin)
         return {...values,kind:'softAuto',sourceSlot:trusted.sourceSlot,coverageProfile:u8(o+1)===3?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:u8(o+1)===1?'scalar-f64-fma-v1':'neon64-f32-fma-v1',
           source:{...trusted.source,...source,kind:'softAuto',generator:'soft',shape:'circle',antialias:false}}
+      }
+      if(u8(o+1)===4){
+        if(!isV2(c)||c.primarySource.kind!=='defaultAuto'||c.primarySource.coverageProfile!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||c.maskSource!==undefined)return fail()
+        const pin=canonicalDefaultAutoSourcePin(c.primarySource)
+        return {...values,kind:'defaultAuto',coverageProfile:CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,source:{...source,kind:'defaultAuto',generator:'default',shape:tag===1?'circle':'rect',density:pin.source.density}}
       }
       return tag===3 ? {...values,kind:'gaussianAuto',coverageProfile:u8(o+1)===3?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:u8(o+1)===1?'scalar-bionic-f64-fma-v1':'neon64-f32-fma-v1',source:{...source,kind:'gaussianAuto',generator:'gauss',shape:'circle'}}
         : {...values,kind:'defaultAuto',coverageProfile:u8(o+1)===3?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:u8(o+1)===1?'scalar-f64-fma-v1':'neon64-f32-fma-v1',source:{...source,kind:'defaultAuto',generator:'default',shape:tag===1?'circle':'rect'}}
@@ -394,7 +414,7 @@ export function buildCanonicalMaterial(input:CanonicalMaterialBuildInput|Canonic
   // Validate every input recipe and costs BEFORE allocating dictionary/record arrays.
   let work=0,output=0,drawPixels=0
   const known=new Set<string>()
-  for(const d of input.draws){keys(d,['recipe','role','x','y','opacity','flow']);const saved=normalized(d.recipe),cost=recipe(saved,c),key=recipeKey(saved);if(!known.has(key)){known.add(key);work+=cost.workUnits;output+=cost.outputBytes}drawPixels+=d.recipe.width*d.recipe.height;if(!Number.isSafeInteger(work)||!Number.isSafeInteger(output)||!Number.isSafeInteger(drawPixels)||work>c.budget.workUnits||output>c.budget.outputBytes||drawPixels>c.budget.drawPixels)fail()}
+  for(const d of input.draws){keys(d,['recipe','role','x','y','opacity','flow']);const saved=normalized(d.recipe),cost=recipe(saved,c),key=recipeKey(saved);if(!known.has(key)||auto(saved)&&saved.kind==='defaultAuto'&&saved.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE){known.add(key);work+=cost.workUnits;output+=cost.outputBytes}drawPixels+=d.recipe.width*d.recipe.height;if(!Number.isSafeInteger(work)||!Number.isSafeInteger(output)||!Number.isSafeInteger(drawPixels)||work>c.budget.workUnits||output>c.budget.outputBytes||drawPixels>c.budget.drawPixels)fail()}
   const definitions:AnyCanonicalMaterialRecipe[]=[],draws:CanonicalMaterialDraw[]=[],index=new Map<string,number>()
   for(const d of input.draws){const saved=normalized(d.recipe),key=recipeKey(saved);let i=index.get(key);if(i===undefined){i=definitions.length;index.set(key,i);definitions.push({...saved})}draws.push({definition:i,role:d.role,x:d.x,y:d.y,opacity:d.opacity,flow:d.flow})}
   const frame={profile:isV2(c)?CANONICAL_SOURCE_MATERIAL_PROFILE:CANONICAL_MATERIAL_PROFILE,masked:input.masked,entry:input.entry,definitions,draws,fences:input.fences} as AnyCanonicalMaterialFrame

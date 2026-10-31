@@ -13,12 +13,13 @@ export const CANONICAL_STROKE_RASTER_PROFILE = 'installed-arm64-scalar-fused-fpc
 export const CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE = 'installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2' as const
 /** Browser arithmetic identity only; not native/FMA attestation or execution permission. */
 export const CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE = 'browser-highp-rgba8-v1' as const
+export const CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE = 'neon64-f32-fma-seeded-density-v1' as const
 export const CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE = 'browser-number-coverage-v1' as const
 const nativeCoverage = Object.freeze(['scalar-f64-fma-v1','scalar-bionic-f64-fma-v1','neon64-f32-fma-v1'] as const)
 /** ONE closed structural mapping. Runtime execution policies still opt in separately. */
 export const CANONICAL_STROKE_RASTER_CONTRACTS = Object.freeze([
   Object.freeze({profile:CANONICAL_STROKE_RASTER_PROFILE,envelopeVersion:1,coverageProfiles:nativeCoverage,genericSC:false} as const),
-  Object.freeze({profile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,envelopeVersion:2,coverageProfiles:nativeCoverage,genericSC:true} as const),
+  Object.freeze({profile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,envelopeVersion:2,coverageProfiles:Object.freeze([...nativeCoverage,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE] as const),genericSC:true} as const),
   Object.freeze({profile:CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,envelopeVersion:2,coverageProfiles:Object.freeze([CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE] as const),genericSC:true} as const),
 ] as const)
 export type CanonicalStrokeRasterProfile = typeof CANONICAL_STROKE_RASTER_CONTRACTS[number]['profile']
