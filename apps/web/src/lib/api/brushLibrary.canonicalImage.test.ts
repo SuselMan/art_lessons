@@ -75,9 +75,14 @@ it('does not confuse a completed stale download with successful current resource
  await vi.waitFor(()=>expect(finish).toBeTypeOf('function'));api.setBrushRoomScope('other');finish(new Response(bytes.slice()))
  await expect(work).rejects.toThrow();expect(resources.isBrushAssetReady(asset.id)).toBe(false)
 })
-it('rejects wrong-size already installed bytes without replacing them or reporting success',async()=>{
- const {api,owner,resources}=await setup();await api.loadBrushLibrary();resources.installBrushPixels(asset.id,new Uint8Array(4))
- await expect(api.prepareCanonicalImageAssets('room',owner.assets,owner.assert)).rejects.toThrow();expect(fetch).not.toHaveBeenCalled()
+it('rejects wrong-size bytes at the declared metadata installation boundary',async()=>{
+ const {api,resources}=await setup();await api.loadBrushLibrary()
+ expect(()=>resources.installBrushPixels(asset.id,new Uint8Array(4))).toThrow(/size/)
+ expect(fetch).not.toHaveBeenCalled();expect(resources.isBrushAssetReady(asset.id)).toBe(false)
+})
+it('rejects a manifest conflicting with previously installed pixel-only bytes before metadata publication',async()=>{
+ const {api,resources}=await setup();resources.installBrushPixels(asset.id,new Uint8Array(4))
+ await expect(api.loadBrushLibrary()).rejects.toThrow(/size/);expect(fetch).not.toHaveBeenCalled()
  expect(resources.isBrushAssetReady(asset.id,2)).toBe(true);expect(resources.isBrushAssetReady(asset.id,256)).toBe(false)
 })
 it('captures bounded own data selectors before callbacks/network and rejects conflicting sides',async()=>{

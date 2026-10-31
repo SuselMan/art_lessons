@@ -113,10 +113,12 @@ describe('lazy brush API resources', () => {
     api.setBrushRoomScope('next-board')
     expect(resources.isBrushAssetReady(f.manifest.assets[0].id)).toBe(true)
     expect(resources.importedBrushes()).toHaveLength(1)
+    expect(resources.importedBrushAssetMetadata(f.token)).toEqual([{id:f.manifest.assets[0].id,size:2}])
     release()
     release() // StrictMode/repeated cleanup cannot release another engine.
     expect(resources.isBrushAssetReady(f.manifest.assets[0].id)).toBe(false)
     expect(resources.importedBrushes()).toHaveLength(0)
+    expect(resources.importedBrushAssetMetadata(f.token)).toBeUndefined()
   })
 
   it('does not reinstall pixels from a download finishing after the room was abandoned', async () => {
@@ -135,6 +137,7 @@ describe('lazy brush API resources', () => {
     finish(new Response(new Uint8Array(f.pixels)))
     await pending
     expect(resources.isBrushAssetReady(f.manifest.assets[0].id)).toBe(false)
+    expect(resources.importedBrushAssetMetadata(f.token)).toBeUndefined()
   })
 
   it('shares direct room-state loads and unknown-preset refreshes until one metadata response resolves', async () => {
@@ -228,6 +231,8 @@ describe('lazy brush API resources', () => {
     finishB(b); await second
     finishA(a); await first
     expect(resources.importedBrushes().map(brush => brush.descriptor.id)).toEqual([b.brushes[0].descriptor.id])
+    expect(resources.importedBrushAssetMetadata(a.brushes[0].descriptor.id)).toBeUndefined()
+    expect(resources.importedBrushAssetMetadata(b.brushes[0].descriptor.id)).toEqual([{id:b.assets[0].id,size:b.assets[0].size}])
     expect(request).toHaveBeenCalledTimes(2)
   })
 
@@ -282,4 +287,16 @@ describe('lazy brush API resources', () => {
     expect(request).toHaveBeenCalledTimes(2)
   })
 
+})
+
+it('preserves retained manifest metadata and pixels when another scope declares the same CAS with a conflicting side',async()=>{
+ const f=fixture();request.mockResolvedValue(f.manifest);vi.stubGlobal('fetch',vi.fn(async()=>new Response(f.pixels.slice())))
+ const api=await import('./brushLibrary'),resources=await import('../../engine/brushLibrary')
+ api.setBrushRoomScope('old');await api.loadBrushLibrary();const release=api.retainBrushRoomResources('old');await api.prepareBrushPresets([f.token])
+ const metadata=resources.importedBrushAssetMetadata(f.token)![0]
+ try{api.setBrushRoomScope('next');request.mockResolvedValue({...f.manifest,assets:[{...f.manifest.assets[0],size:4}]})
+  await expect(api.loadBrushLibrary()).rejects.toThrow(/size/)
+  expect(resources.importedBrushAssetMetadata(f.token)![0]).toBe(metadata);expect(resources.isBrushAssetReady(metadata.id,2)).toBe(true)
+ }finally{release()}
+ expect(resources.importedBrushAssetMetadata(f.token)).toBeUndefined();expect(resources.isBrushAssetReady(metadata.id)).toBe(false)
 })
