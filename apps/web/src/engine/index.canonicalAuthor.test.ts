@@ -7,12 +7,15 @@ import {installBrushLibrary} from './src/presets/importedBrushes'
 import {attachCanonicalRecordedDelivery} from '../pages/Room/net/canonicalRecordedDelivery'
 import {prepareCanonicalRoomState} from '../pages/Room/net/canonicalRoomState'
 import {CanonicalWashLayerCoordinator} from './src/dabs/CanonicalWashLayerCoordinator'
+import {AccumulationBuffer} from './src/buffers/AccumulationBuffer'
+import {snapshotContextStorage} from './src/buffers/ContextStorageOwner'
+import * as brushGlBatch from './src/dabs/BrushGlBatch'
 import {createTestEngine} from './testing/engineTestUtils'
 import type {ServerToClientEvents} from '@grafetto/shared'
 import type {PointerData} from './src/input/PointerInput'
 afterEach(()=>vi.restoreAllMocks())
-function original(isCurrent=()=>true){
- const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:8,canvasHeight:8,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:2},canonicalHistoryBase:{kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:2,throughSeq:0,operationCount:0}}
+function original(isCurrent=()=>true,page={width:8,height:8}){
+ const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:page.width,canvasHeight:page.height,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:2},canonicalHistoryBase:{kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:2,throughSeq:0,operationCount:0}}
  return prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent})
 }
 const descriptor=stock.rows.find(row=>row.index===4)!.descriptor as unknown as BrushDescriptor
@@ -21,11 +24,11 @@ const sha=createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).
 const pin=canonicalDefaultAutoSourceBinding(descriptor,sha,'neon64-f32-fma-v1')
 function verdict(request:CanonicalStrokeBegin):CanonicalStrokeBeginResult{return{ok:true,recordedNext:0,liveNext:0,ended:false,snapshot:{layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,pigmentRgb8:request.pigmentRgb8,boardEpoch:2,descriptorSha256:sha,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,composition:{mode:'wash',alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity,outerBlend:'over'},assets:[],materialVersion:2,material:{version:2,assets:[],primarySource:pin,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}}}}}
 function packet(x:number,timeStamp:number):PointerData{return{x,y:2,pressure:.5,tiltX:0,tiltY:0,speed:0,pointerType:'pen',timeStamp,dispatchTime:timeStamp}}
-async function harness(begin:(request:CanonicalStrokeBegin,lifetime:{signal:AbortSignal;isCurrent:()=>boolean})=>Promise<CanonicalStrokeBeginResult>,selected=descriptor,isCurrent=()=>true){
+async function harness(begin:(request:CanonicalStrokeBegin,lifetime:{signal:AbortSignal;isCurrent:()=>boolean})=>Promise<CanonicalStrokeBeginResult>,selected=descriptor,isCurrent=()=>true,page={width:8,height:8}){
  installBrushLibrary({schemaVersion:1,brushes:[{descriptor:selected,name:'native Basic2Opacity',source:'native',warnings:[]}],assets:[],skipped:[]})
  const snapshots=new Map<string,CanonicalStrokeSnapshotV2>()
  const acceptedBegin=async(request:CanonicalStrokeBegin,lifetime:{signal:AbortSignal;isCurrent:()=>boolean})=>{const reply=await begin(request,lifetime);if(reply.ok&&'materialVersion'in reply.snapshot&&reply.snapshot.materialVersion===2)snapshots.set(request.strokeId,reply.snapshot);return reply}
- const p=original(isCurrent),operations:Operation[]=[],r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:8,pageHeight:8,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations},canonicalAuthor:{begin:acceptedBegin},onLocalOperation:op=>operations.push(op)},{width:8,height:8}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
+ const p=original(isCurrent,page),operations:Operation[]=[],r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:page.width,pageHeight:page.height,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations},canonicalAuthor:{begin:acceptedBegin},onLocalOperation:op=>operations.push(op)},{width:8,height:8}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
  Object.assign(gl,{getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,8,8]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
  engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil('brush:'+selected.id+'@'+selected.version);engine.setSize(40);engine.setLocked(false)
  await engine.paperReady();await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
@@ -384,5 +387,113 @@ it('requires the same idle boundary on explicit retry after a failed growth, bef
   expect(reset).not.toHaveBeenCalled();expect(owner.derived).toBe(derived);expect(owner.composite.preparedResources()).toEqual(composite);expect(engine['_log'].entries).toBe(journal)
   expect(engine['_retireCanonicalLayerCycle'](owner,false)).toEqual([])
   expect(await engine.prepareBrush(next.preset)).toEqual({status:'ready'})
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('prewarms the SAME one-tile stable and pooled raw targets before ready without BEGIN or a coordinator, then first physical work reuses them',async()=>{
+ const begin=vi.fn(async request=>verdict(request)),{engine,operations}=await harness(begin)
+ try{
+  const owner=engine['_canonicalLayerOwner'];if(!owner)throw Error('Owner missing')
+  const journal=engine['_log'].entries,revision=engine['_log'].revision,pool=engine['_ribbonScratchPool']
+  await engine.prepareBrush(preset)
+  expect(owner.stable.tileCount).toBe(1);expect(pool.bytes).toEqual({live:0,free:8*8*4})
+  expect(begin).not.toHaveBeenCalled();expect(operations).toEqual([]);expect(owner.coordinator).toBeUndefined();expect(owner.derived).toBeUndefined();expect(owner.job).toBeUndefined();expect(owner.outstanding).toBe(0)
+  const stable=owner.stable.gpuAllocationSnapshot()[0].buffer,raw=pool.gpuAllocationSnapshot().find(row=>row.state==='free')?.buffer
+  expect(raw).toBeDefined();expect(raw).not.toBe(stable)
+  const allocate=vi.spyOn(engine['gl'],'createTexture'),targets:unknown[]=[],scratches:unknown[]=[],coldTarget=vi.fn(),coldScratch=vi.fn(),prepareTargets=owner.stable.preparePaintTargetRects.bind(owner.stable),prepareScratch=pool.prepareAcquisition.bind(pool)
+  vi.spyOn(owner.stable,'preparePaintTargetRects').mockImplementation(rects=>{const plan=prepareTargets(rects);return{...plan,take(index){const before=allocate.mock.calls.length,target=plan.take(index);if(allocate.mock.calls.length!==before)coldTarget();return target},takeResident(index){const target=plan.takeResident(index);if(target)targets.push(target.buffer);return target}}})
+  let scratchPlans=0
+  vi.spyOn(pool,'prepareAcquisition').mockImplementation(requests=>{const plan=prepareScratch(requests),first=++scratchPlans===1;return{...plan,take(index){const before=allocate.mock.calls.length,buffer=plan.take(index);if(first&&allocate.mock.calls.length!==before)coldScratch();return buffer},takeResident(index){const buffer=plan.takeResident(index);if(first&&buffer)scratches.push(buffer);return buffer}}})
+  expect(engine['_log'].entries).toBe(journal);expect(engine['_log'].revision).toBe(revision)
+  engine['_onStart'](packet(1,100));engine['_onMove'](packet(5,110));engine['_onEnd'](packet(5,120))
+  await vi.waitFor(()=>expect(scratches).toContain(raw),{timeout:5000})
+  expect(targets).toContain(stable);expect(coldTarget).not.toHaveBeenCalled();expect(coldScratch).not.toHaveBeenCalled()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes).toEqual({live:0,free:0})}
+})
+it('cancels between actual stable and scratch prewarm stages without publishing ready or keeping a live pool borrow',async()=>{
+ const begin=vi.fn(async request=>verdict(request)),{engine,operations}=await harness(begin),controller=new AbortController()
+ try{
+  const result=await engine.prepareBrush(preset,{signal:controller.signal,onProgress:done=>{if(done===2)controller.abort()}})
+  expect(result.status).toBe('cancelled');expect(engine['_canonicalPreparedAuthor']).toBeUndefined()
+  expect(engine['_canonicalLayerOwner']?.stable.tileCount).toBe(1);expect(engine['_ribbonScratchPool'].bytes).toEqual({live:0,free:0})
+  expect(begin).not.toHaveBeenCalled();expect(operations).toEqual([]);expect(engine['_log'].entries).toHaveLength(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('does not clear existing stable content or grow retained buffers when repeating source preparation after a durable gesture',async()=>{
+ const h=await harness(async request=>verdict(request)),{engine,operations}=h
+ try{
+  await engine.prepareBrush(preset);engine['_onStart'](packet(1,100));engine['_onMove'](packet(5,110));engine['_onEnd'](packet(5,120))
+  await vi.waitFor(()=>expect(engine.hasActiveCanonicalAuthor()).toBe(false))
+  for(const [index,op]of operations.entries())engine.appendOriginalRecorded(confirmed(h,op,index+1))
+  await vi.waitFor(()=>expect(engine['_canonicalExportReady']()).toBe(true),{timeout:5000})
+  const owner=engine['_canonicalLayerOwner'];if(!owner)throw Error('Missing owner')
+  const stable=owner.stable.gpuAllocationSnapshot()[0].buffer,clear=vi.spyOn(stable,'clear'),pool=engine['_ribbonScratchPool'],before=pool.bytes,journal=engine['_log'].entries,compile=vi.spyOn(engine['gl'],'createProgram')
+  expect(await engine.prepareBrush(preset)).toEqual({status:'ready'})
+  expect(clear).not.toHaveBeenCalled();expect(pool.bytes).toEqual(before);expect(compile).not.toHaveBeenCalled();expect(engine['_log'].entries).toBe(journal);expect(owner.coordinator).toBeUndefined();expect(owner.derived).toBeUndefined()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('skips optional prewarm for a compatible brush while a real unconfirmed local wash remains owned',async()=>{
+ const {engine,operations}=await harness(async request=>verdict(request)),repair=vi.fn();engine['_onCanonicalRecoveryRequired']=repair
+ try{
+  await engine.prepareBrush(preset);engine['_onStart'](packet(1,100));engine['_onMove'](packet(5,110));engine['_onEnd'](packet(5,120))
+  await vi.waitFor(()=>expect(engine.hasActiveCanonicalAuthor()).toBe(false))
+  const owner=engine['_canonicalLayerOwner'];if(!owner)throw Error('Owner missing')
+  const coordinator=owner.coordinator,targets=vi.spyOn(owner.stable,'preparePaintTargetRects'),pool=engine['_ribbonScratchPool'],scratch=vi.spyOn(pool,'prepareAcquisition'),count=operations.length,journal=engine['_log'].entries
+  expect(await engine.prepareBrush(preset)).toEqual({status:'ready'})
+  expect(targets).not.toHaveBeenCalled();expect(scratch).not.toHaveBeenCalled();expect(owner.coordinator).toBe(coordinator);expect(engine['_log'].entries).toBe(journal);expect(operations).toHaveLength(count);expect(repair).not.toHaveBeenCalled()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('restores hostile caller GL and closes the real scratch reservation after an external release callback throws',async()=>{
+ const {engine}=await harness(async request=>verdict(request)),gl=engine['gl'],pool=engine['_ribbonScratchPool'],error=new Error('release observer'),foreign=gl.createTexture()
+ try{
+  const turn=brushGlBatch.runBrushGlTurn,restored:{active:unknown;texture:unknown}[]=[]
+  vi.spyOn(brushGlBatch,'runBrushGlTurn').mockImplementation((options,execute)=>{
+   gl.activeTexture(gl.TEXTURE0+2);gl.bindTexture(gl.TEXTURE_2D,foreign)
+   try{return turn(options,execute)}finally{restored.push({active:gl.getParameter(gl.ACTIVE_TEXTURE),texture:gl.getParameter(gl.TEXTURE_BINDING_2D)})}
+  })
+  const release=pool.release.bind(pool),prepare=pool.prepareAcquisition.bind(pool),close=vi.fn()
+  vi.spyOn(pool,'release').mockImplementationOnce(buffer=>{release(buffer);gl.activeTexture(gl.TEXTURE0+1);throw error})
+  vi.spyOn(pool,'prepareAcquisition').mockImplementation(requests=>{const plan=prepare(requests);return{...plan,close(){close();plan.close()}}})
+  await expect(engine.prepareBrush(preset)).rejects.toBe(error)
+  expect(close).toHaveBeenCalledOnce();expect(pool.bytes.live).toBe(0);expect(snapshotContextStorage(gl).reservedBytes).toBe(0);expect(engine['_canonicalPreparedAuthor']).toBeUndefined()
+  expect(restored).toEqual([{active:gl.TEXTURE0+2,texture:foreign},{active:gl.TEXTURE0+2,texture:foreign}])
+ }finally{gl.deleteTexture(foreign);engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('does not publish ready when the original owner expires between prewarm jobs',async()=>{
+ let current=true
+ const {engine,operations}=await harness(async request=>verdict(request),descriptor,()=>current)
+ try{
+  await expect(engine.prepareBrush(preset,{onProgress:done=>{if(done===2)current=false}})).rejects.toThrow()
+  expect(engine['_canonicalPreparedAuthor']).toBeUndefined();expect(engine['_ribbonScratchPool'].bytes.live).toBe(0);expect(snapshotContextStorage(engine['gl']).reservedBytes).toBe(0);expect(operations).toEqual([])
+ }finally{current=true;engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('retires a real borrowed warm scratch safely when context loss happens synchronously during its clear',async()=>{
+ const {engine}=await harness(async request=>verdict(request)),pool=engine['_ribbonScratchPool'],gl=engine['gl'],clear=AccumulationBuffer.prototype.clear,deleted=vi.spyOn(gl,'deleteTexture')
+ let lost=false,deletesAfterLoss=0
+ try{
+  vi.spyOn(AccumulationBuffer.prototype,'clear').mockImplementation(function(this:AccumulationBuffer){
+   clear.call(this)
+   if(!lost&&pool.gpuAllocationSnapshot().some(row=>row.buffer===this&&row.state==='live')){lost=true;engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));deletesAfterLoss=deleted.mock.calls.length}
+  })
+  expect(await engine.prepareBrush(preset)).toEqual({status:'cancelled'})
+  expect(lost).toBe(true);expect(engine['_canonicalPreparedAuthor']).toBeUndefined();expect(pool.bytes).toEqual({live:0,free:0});expect(snapshotContextStorage(gl).reservedBytes).toBe(0);expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(deleted).toHaveBeenCalledTimes(deletesAfterLoss)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('keeps the lazy target path for a bounded page that spans more than one actual fine tile',async()=>{
+ const {engine}=await harness(async request=>verdict(request),descriptor,()=>true,{width:2048,height:8})
+ try{
+  expect(await engine.prepareBrush(preset)).toEqual({status:'ready'})
+  const owner=engine['_canonicalLayerOwner'];if(!owner)throw Error('Owner missing')
+  expect(owner.stable.tileWidth).toBe(1024);expect(owner.stable.tileCount).toBe(0);expect(engine['_ribbonScratchPool'].bytes).toEqual({live:0,free:0});expect(owner.coordinator).toBeUndefined()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('keeps shared same-preset prewarm alive when only one preparation subscriber aborts',async()=>{
+ const {engine}=await harness(async request=>verdict(request)),controller=new AbortController()
+ try{
+  const first=engine.prepareBrush(preset,{signal:controller.signal,onProgress:done=>{if(done===1)controller.abort()}}),second=engine.prepareBrush(preset)
+  const results=await Promise.all([first,second])
+  expect(results).toEqual([{status:'cancelled'},{status:'ready'}]);expect(engine['_canonicalPreparedAuthor']?.preset).toBe(preset);expect(engine['_ribbonScratchPool'].bytes).toEqual({live:0,free:8*8*4})
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })

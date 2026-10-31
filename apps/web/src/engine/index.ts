@@ -6,6 +6,7 @@ import {TransformedMaskPrepass,transformedMaskPrepassBudget,type TransformedMask
 import {CanonicalRgba8CompositePass,canonicalRgba8CompositeBudget,type CanonicalCompositeLimits} from './src/dabs/CanonicalRgba8CompositePass'
 import {CanonicalWashLayerCoordinator,type CanonicalLocalWashAuthor} from './src/dabs/CanonicalWashLayerCoordinator'
 import {planCanonicalTargets} from './src/dabs/CanonicalTargetPlan'
+import {runBrushGlTurn} from './src/dabs/BrushGlBatch'
 import type {CanonicalRecordedEmptyRoomRead,CanonicalRecordedInput} from './src/oplog/CanonicalRecordedDelivery'
 import { readRoomRasterVersion, roomRasterPixelEncoding, isRasterPixelEncoding, LEGACY_ROOM_RASTER_VERSION, type RasterPixelEncoding, type RoomRasterVersion } from '@grafetto/shared'
 import { attachContextStorage, snapshotContextStorage } from './src/buffers/ContextStorageOwner'
@@ -6363,6 +6364,54 @@ export class PencilEngine implements PencilEngineAPI {
       this._publishCanonicalLayerInput(owner,input)
     }catch(error){this._poisonCanonicalLayer(error);throw error}finally{owner.accepting=false}
   }
+  /** Metadata only; neither pending source input nor retained wash owners may
+   * be displaced by workspace replacement or optional cold preparation. */
+  private _canonicalWorkspaceIdle(owner:CanonicalLayerOwner):boolean {
+    return !this._canonicalSourceLifetimeHolds&&!this._authorInput.pending&&!this._authorProducer&&!owner.accepting&&!owner.job&&owner.wake===undefined&&!owner.orderParked&&!owner.coordinator&&!owner.derived&&!owner.outstanding&&!this._rebuildJobs.has(INITIAL_LAYER_ID)
+  }
+  /** Optional preparation for one actual page tile. No gesture, coordinator or
+   * pixel admission is created; all physical owners remain the existing layer/pool. */
+  private _prewarmCanonicalLayerStorage(owner:CanonicalLayerOwner,stage:'stable'|'scratch',available:()=>boolean):void {
+    this._assertCanonicalLayerCurrent(owner)
+    const page=owner.plan.page,width=owner.stable.tileWidth,height=owner.stable.tileHeight
+    if(!available()||!this._canonicalWorkspaceIdle(owner)||page.minX!==0||page.minY!==0||page.maxX!==width||page.maxY!==height)return
+    const pool=this._ribbonScratchPool
+    runBrushGlTurn({participants:[owner.prepass,owner.composite]},()=>{
+      this._assertCanonicalLayerCurrent(owner)
+      if(!available()||!this._canonicalWorkspaceIdle(owner))return
+      let failed=false,primary:unknown
+      const attempt=(cleanup:()=>void)=>{try{cleanup()}catch(error){if(!failed){failed=true;primary=error}}}
+      if(stage==='stable'){
+        let targets:ReturnType<TiledLayerBuffer['preparePaintTargetRects']>|undefined
+        try{
+          targets=owner.stable.preparePaintTargetRects([page])
+          this.gl.activeTexture(this.gl.TEXTURE0);this.gl.disable(this.gl.SCISSOR_TEST);this.gl.colorMask(true,true,true,true)
+          // Existing content is NEVER cleared. Missing storage uses only the
+          // layer's ordinary transparent initialization and retains contentRect=null.
+          targets.take(0)
+          this._assertCanonicalLayerCurrent(owner)
+        }catch(error){failed=true;primary=error}
+        finally{attempt(()=>targets?.close())}
+      }else{
+        let plan:ReturnType<RibbonScratchPool['prepareAcquisition']>|undefined,buffer:AccumulationBuffer|undefined
+        try{
+          plan=pool.prepareAcquisition([{width,height,pixelEncoding:'straight-rgba8',filter:'nearest'}])
+          this.gl.activeTexture(this.gl.TEXTURE0)
+          buffer=plan.take(0)
+          this.gl.disable(this.gl.SCISSOR_TEST);this.gl.colorMask(true,true,true,true);buffer.clear()
+          this._assertCanonicalLayerCurrent(owner)
+        }catch(error){failed=true;primary=error}
+        finally{
+          // A synchronous loss/destroy can already have forgotten this borrow.
+          // Retire that captured allocation without returning it to a new epoch.
+          if(buffer)attempt(()=>{if(!this._destroyed&&!this._contextLost&&owner.generation===this._physicalGeneration&&pool===this._ribbonScratchPool)pool.release(buffer!);else buffer!.destroy()})
+          attempt(()=>plan?.close())
+        }
+      }
+      if(failed)throw primary
+    })
+    this._assertCanonicalLayerCurrent(owner)
+  }
   /** A larger source may replace only an idle mask workspace. The layer,
    * journal, cache, prepass object and expensive composite programs stay owned
    * by the same layer; an open/unconfirmed wash is never discarded to resize. */
@@ -6379,7 +6428,7 @@ export class PencilEngine implements PencilEngineAPI {
     // the owners actually retired below; companion storage is never charged twice.
     if(cost.gpuBytes+compositeCost.gpuBytes>owner.cache.budgetBytes||this._brushMipCache.reservedBytes-oldMaskCpu-oldAuthorCpu+cost.cpuBytes+(compositeReady?0:compositeCost.cpuBytes)>this._brushMipCache.budgetBytes)throw new RangeError('Canonical source workspace companions exceed budget')
     const assertIdle=()=>{
-      if(this._canonicalSourceLifetimeHolds||this._authorInput.pending||this._authorProducer||owner.accepting||owner.job||owner.wake!==undefined||owner.orderParked||owner.coordinator||owner.derived||owner.outstanding||this._rebuildJobs.has(INITIAL_LAYER_ID))throw new Error('Canonical workspace busy; finish and confirm the current gesture before changing brush')
+      if(!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical workspace busy; finish and confirm the current gesture before changing brush')
     }
     if(replacing){
       assertIdle()
@@ -6851,10 +6900,11 @@ export class PencilEngine implements PencilEngineAPI {
       if(maskCost.gpuBytes+compositeCost.gpuBytes>16*1024*1024||maskCost.cpuBytes+compositeCost.cpuBytes+charge>this._brushMipCache.budgetBytes)throw new RangeError('Canonical source workspace companions exceed budget')
       if(this._brushPreparationPreset!==preset){this._brushPreparationGeneration++;this._brushPreparation.cancel();this._brushPreparationPreset=preset}
       const generation=this._brushPreparationGeneration
+      const available=()=>!this._destroyed&&!this._contextLost&&this._canonicalLayerOwner===owner&&owner.generation===this._physicalGeneration&&generation===this._brushPreparationGeneration&&this._opts.pencilType===preset
       const result=await this._brushPreparation.run([()=>{
         this._assertCanonicalLayerCurrent(owner)
         this._prepareCanonicalLayerWorkspace(owner,mask)
-      }],options,()=>!this._destroyed&&!this._contextLost&&this._canonicalLayerOwner===owner,preset)
+      },()=>this._prewarmCanonicalLayerStorage(owner,'stable',available),()=>this._prewarmCanonicalLayerStorage(owner,'scratch',available)],options,available,preset)
       if(result.status!=='ready'||generation!==this._brushPreparationGeneration||options.signal?.aborted||this._opts.pencilType!==preset)return{status:'cancelled'}
       this._assertCanonicalLayerCurrent(owner)
       this._releaseCanonicalPreparedAuthor()

@@ -119,7 +119,8 @@ it('poisons the layer if the close handoff callback throws after normal cancella
 })
 
 it('finishes the same executor cold target admission after matching confirmations and a partial seal',async()=>{
- const h=await harness(async r=>verdict(r)),{engine,operations}=h,repair=vi.fn(),step=engine['_stepCanonicalLayer']
+ // A genuine multi-tile page keeps this witness on the lazy cold path.
+ const h=await harness(async r=>verdict(r),descriptor,2048),{engine,operations}=h,repair=vi.fn(),step=engine['_stepCanonicalLayer']
  let clock=0,hold=false,cold=true
  const now=vi.spyOn(performance,'now').mockImplementation(()=>clock)
  const owner=engine['_canonicalLayerOwner']!,prepare=owner.stable.preparePaintTargetRects.bind(owner.stable)
