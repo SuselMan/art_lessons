@@ -135,3 +135,12 @@ it('captures server author default separately from explicit old resume response 
  }
  await expect(sendCanonicalStrokeBegin(bad.emitter,input(),{boardEpoch:2,isCurrent:()=>true,rasterProfile:genericOuterProfile,responseRasterProfiles:[genericOuterProfile]})).rejects.toThrow()
 })
+it('accepts a closed primary image V2 snapshot with original crop/fractional scale and independent frozen assets',async()=>{
+ const s=socket(),result=answer();if(!result.ok||!('materialVersion'in result.snapshot))throw Error('Expected V2')
+ const asset={id:'asset:'+'c'.repeat(64),size:256,x:53,y:53,width:150,height:150}
+ Object.assign(result.snapshot,{assets:[asset],material:{version:2,assets:[asset],primarySource:{kind:'image',asset:asset.id,brushScale:.05,brushAngle:0},budget:{workUnits:1000,outputBytes:4000,drawPixels:1000}}})
+ const pending=sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true});s.ack(result)
+ const accepted=await pending;if(!accepted.ok)throw Error('Expected accepted image')
+ asset.width=1;expect(accepted.snapshot.assets[0].width).toBe(150)
+ expect(Object.isFrozen(accepted.snapshot.material.primarySource)).toBe(true)
+})

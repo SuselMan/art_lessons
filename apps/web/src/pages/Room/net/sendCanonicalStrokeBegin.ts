@@ -1,4 +1,4 @@
-import {buildCanonicalMaterial,decodeCanonicalStrokeFrame,canonicalRecordedRasterProfiles,CANONICAL_STROKE_RASTER_PROFILE,type CanonicalStrokeRasterProfile,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2} from '@grafetto/shared'
+import {canonicalStrokeSnapshotV2,canonicalRecordedRasterProfiles,CANONICAL_STROKE_RASTER_PROFILE,type CanonicalStrokeRasterProfile,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2} from '@grafetto/shared'
 
 /** Captured typed socket; disconnect invalidates this one request. */
 export interface CanonicalBeginEmitter {
@@ -42,15 +42,9 @@ function validate(result:CanonicalStrokeBeginResult,input:CanonicalStrokeBegin,e
  if(s.layerId!==input.layerId||s.brush!==input.brush||s.strokeId!==input.strokeId||s.boardEpoch!==epoch
   ||!Array.isArray(s.pigmentRgb8)||s.pigmentRgb8.length!==3||s.pigmentRgb8.some((v,i)=>v!==input.pigmentRgb8[i])
   ||s.composition?.outerResourceOpacity!==input.outerResourceOpacity||s.composition?.alphaDarken!==input.alphaDarken
-  ||!s.material||s.material.version!==2||s.material.maskSource!==undefined||!Array.isArray(s.assets)||s.assets.length!==0||s.material.assets.length!==0)throw Error('Canonical BEGIN resource mismatch')
- const p=s.material.primarySource
- if(!p||p.kind==='image'||p.descriptorSha256!==s.descriptorSha256||s.brush!==`brush:${p.descriptorId}@${p.descriptorVersion}`||p.brushScale!==1||p.kind==='softAuto'&&p.sourceSlot!==0)throw Error('Canonical BEGIN descriptor mismatch')
- // One actual shared boundary validates the full closed material/source pin,
- // budget, profile, pigment and composition. No client-side schema substitute.
- const probe=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},s.material)
- decodeCanonicalStrokeFrame({version:rasterProfile===CANONICAL_STROKE_RASTER_PROFILE?1:2,rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked:probe.packed},
-  {rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:s.material})
- const copy=structuredClone(s)
+  ||!s.material||s.material.version!==2||s.material.maskSource!==undefined)throw Error('Canonical BEGIN resource mismatch')
+ const accepted=canonicalStrokeSnapshotV2(s,epoch,rasterProfile)
+ const copy=structuredClone(accepted)
  return freeze({ok:true,snapshot:copy,recordedNext:result.recordedNext,liveNext:result.liveNext,ended:result.ended})
 }
 /** One BEGIN attempt. No retry, queue, outbox or author/session ownership. */
