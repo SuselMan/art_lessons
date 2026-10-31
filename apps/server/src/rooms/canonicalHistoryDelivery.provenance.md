@@ -38,3 +38,9 @@ socket/channel и snapshot replay regressions.
 
 Production straight admission/client engine guards остаются OFF. Сервисов,
 браузеров, runtime/dependency копий эта работа не создаёт.
+
+Дополнительный HTTP proof: настоящий Fastify route, SAME injected transport,
+реальная source library/material и recorded write rows, другой reader user.
+Подготовка проходит до planned reader hold (409 canonical_history_reader_unavailable),
+не выполняет новых writes. HTTP authorization и SQL замоканы явно; это не native
+editor/device execution и не открытие production straight admission.

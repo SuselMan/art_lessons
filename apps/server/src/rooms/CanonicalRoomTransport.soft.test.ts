@@ -17,12 +17,12 @@ import {CanonicalBrushCapabilityResolver} from './CanonicalBrushCapabilityResolv
 import {CanonicalStrokeAdmission} from './CanonicalStrokeAdmission.js'
 const db=vi.hoisted(()=>({operation:{count:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn()}}))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
-const history=vi.hoisted(()=>({rows:[] as unknown[]}))
-vi.mock('./snapshotStore.js',()=>({getOperationsBefore:vi.fn(async()=>history.rows)}))
+const history=vi.hoisted(()=>({rows:[] as unknown[],canonicalRows:[] as unknown[]}))
+vi.mock('./snapshotStore.js',()=>({getOperationsBefore:vi.fn(async()=>history.rows),getOperationsBeforeWithCanonicalRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows}))}))
 const readAccess=vi.hoisted(()=>({allowed:true,gate:undefined as Promise<void>|undefined,calls:[] as [string,string][]}))
 vi.mock('./boardContentAccess.js',()=>({mayReadBoardContent:vi.fn(async(roomId:string,userId:string)=>{readAccess.calls.push([roomId,userId]);await readAccess.gate;return readAccess.allowed})}))
 const dirs:string[]=[]
-beforeEach(()=>{readAccess.allowed=true;readAccess.gate=undefined;readAccess.calls=[];db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[]})
+beforeEach(()=>{readAccess.allowed=true;readAccess.gate=undefined;readAccess.calls=[];db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[];history.canonicalRows=[]})
 afterEach(async()=>{for(const id of rooms.keys())await flushRoomWrites(id);rooms.clear();for(const d of dirs.splice(0))rmSync(d,{recursive:true,force:true});vi.restoreAllMocks();vi.clearAllMocks()})
 function resident():RoomRecord{
  const record:RoomRecord={room:{id:'board',name:'Board',ownerId:'author',paper:'coarse',infinite:false,canvasWidth:64,canvasHeight:64,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-29T00:00:00Z',rasterVersion:'straight-rgba8-v1'},lessonId:null,sockets:new Set(),boards:[],assignments:[],activeAssignmentId:null,spotlightBoardId:null,handsRaised:new Set(),assignmentStarting:false,passwordHash:undefined,operations:[],participants:new Map(),nextSeq:1,layerStateSeq:null,layerStateIds:null,coveredSeqByLayer:new Map(),palette:[],roomFrozen:false,frozenUserIds:new Set(),lockedLayerIds:new Set(),sharedLockedLayerIds:new Set(),aliveIds:new Set(['layer']),deletedIds:new Set(),operationsById:new Map(),structuralLog:[]}
@@ -279,6 +279,20 @@ it('projects cold row and resident receipt in the SAME read epoch without adopti
  const page=await transport.prepareHistoryPage({roomId:'board',userId:'reader'},{operations:[structuredClone(operations[0]),cold],canonicalRows:db.operation.create.mock.calls.map(([request])=>request.data)},()=>true)
  expect(page.canonicalCapabilities).toEqual(mixed.canonicalCapabilities)
  expect(Object.isFrozen(page)).toBe(true)
+ // Actual HTTP registration shares this existing transport and its epoch.
+ // SQL boundary returns the actual indexed write rows; no synthetic receipt.
+ const {default:Fastify}=await import('fastify')
+ const {registerSnapshotRoutes}=await import('../roomRoutes/snapshotRoutes.js')
+ const app=Fastify();app.addHook('preHandler',async request=>{request.userId='reader'})
+ registerSnapshotRoutes(app,transport)
+ history.rows=page.operations;history.canonicalRows=db.operation.create.mock.calls.map(([request])=>request.data)
+ const writes=db.operation.create.mock.calls.length
+ try{
+  const response=await app.inject({method:'GET',url:'/api/rooms/board/operations?beforeSeq=3'})
+  expect(response.statusCode).toBe(409)
+  expect(response.json()).toEqual({error:'canonical_history_reader_unavailable'}) // projection succeeded, activation held
+  expect(db.operation.create).toHaveBeenCalledTimes(writes)
+ }finally{await app.close()}
  const denied=new CanonicalRoomTransport({...selected,autoSources:{}})
  await expect(denied.prepareHistoryPage({roomId:'board',userId:'reader'},{operations:[cold],canonicalRows:[row]},()=>true)).rejects.toThrow()
  let current=true;const pending=transport.prepareHistoryPage({roomId:'board',userId:'reader'},{operations:[cold],canonicalRows:[row]},()=>current)
