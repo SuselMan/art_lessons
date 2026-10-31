@@ -72,3 +72,5 @@ export * from './canonicalRecordedAttachment.js'
 export * from './canonicalRecordedPrefix.js'
 
 export * from './canonicalStrokeClose.js'
+
+export * from './canonicalEmptyHistoryBase.js'
