@@ -1,3 +1,6 @@
+import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE } from '@grafetto/shared'
+import { createSourceDefaultAutoDensityRandom, type SourceDefaultAutoDensityIdentity } from './sourceDefaultAutoDensitySeed'
+import type { SourceCoverageEvaluator } from './sourceCoverageEvaluator'
 import { sourceAutoGeometry, type SourceAutoGeometry, type SourceAutoGeometryShape } from './sourceAutoGeometry'
 import { prepareSourceDefaultAutoMask, type SourceDefaultAutoMaskRequest, type SourceDefaultAutoMaskTip } from './sourceDefaultAutoMaskReference'
 
@@ -115,4 +118,49 @@ export function prepareSourceDefaultAutoDensity(mask: Uint8Array, density: numbe
       return completedPixels === mask.length
     },
   }
+}
+
+/** New explicit behavior profile. Source pin retains original density; the base
+ * evaluator computes coverage only and the same borrowed stripe is then thinned. */
+export function prepareSourceSeededDefaultAutoDab(request: Omit<SourceDefaultAutoDabRequest,'coverageProfile'|'tip'> & {
+  readonly tip: Omit<SourceDefaultAutoMaskTip,'density'> & {readonly density:number}
+  readonly coverageProfile: typeof CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
+}, identity: SourceDefaultAutoDensityIdentity) {
+  if(request.coverageProfile!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||!Number.isFinite(request.tip.density)||request.tip.density<0||request.tip.density>1)
+    throw new RangeError('Invalid seeded density request')
+  const random=createSourceDefaultAutoDensityRandom(identity)
+  const prepared=prepareSourceDefaultAutoDab({...request,coverageProfile:'neon64-f32-fma-v1',tip:{...request.tip,density:1}})
+  const base=prepared.evaluator,density=request.tip.density
+  if(density===1)return {...prepared,requestedProfile:request.coverageProfile}
+  if(base.pixels*(base.samplesPerPixel+1)>request.maxWorkSamples){base.cancel();throw new RangeError('Density work exceeds reserved window')}
+  let completed=0,work=0,cancelled=false,busy=false
+  let pending:{target:Uint8Array;offset:number;length:number;cursor:ReturnType<typeof prepareSourceDefaultAutoDensity>}|undefined
+  const evaluator:SourceCoverageEvaluator={
+    pixels:base.pixels,route:base.route,samplesPerPixel:base.samplesPerPixel,
+    get completedPixels(){return completed},get workSamples(){return work},get done(){return completed===base.pixels},
+    advance(target,offset,maxSamples){
+      if(cancelled)throw new Error('Density evaluator cancelled')
+      if(busy)throw new Error('Density evaluator is already advancing')
+      if(!(target instanceof Uint8Array)||!Number.isSafeInteger(offset)||offset<0||offset>target.length||!Number.isSafeInteger(maxSamples)||maxSamples<=0)
+        throw new RangeError('Invalid density continuation range')
+      busy=true
+      try{
+        if(pending){
+          if(pending.target!==target||pending.offset!==offset)throw new Error('Density stripe changed during continuation')
+          const previous=pending.cursor.completedPixels
+          const done=pending.cursor.advance(maxSamples),consumed=pending.cursor.completedPixels-previous
+          work+=consumed
+          if(!done)return {written:0,consumed,done:false}
+          const written=pending.length;pending=undefined;completed+=written
+          return {written,consumed,done:completed===base.pixels}
+        }
+        const result=base.advance(target,offset,maxSamples);work+=result.consumed
+        if(result.written)pending={target,offset,length:result.written,cursor:prepareSourceDefaultAutoDensity(target.subarray(offset,offset+result.written),density,()=>random.generateNormalized())}
+        return {written:0,consumed:result.consumed,done:completed===base.pixels}
+      }catch(error){pending=undefined;cancelled=true;try{base.cancel()}catch{/* Preserve first error. */}throw error}
+      finally{busy=false}
+    },
+    cancel(){pending=undefined;cancelled=true;base.cancel()},
+  }
+  return {...prepared,requestedProfile:request.coverageProfile,evaluator}
 }

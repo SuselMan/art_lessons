@@ -1,9 +1,10 @@
+import { sourceDefaultAutoDensitySeed, type SourceDefaultAutoDensityIdentity } from '../presets/sourceDefaultAutoDensitySeed'
 import { canonicalSoftAutoCost, canonicalSoftAutoSourcePin, canonicalSoftAutoDataEqual, type CanonicalSoftAutoRecipe, type CanonicalSoftAutoSource } from '@grafetto/shared';
 import { prepareSourceSoftCircleDab } from '../presets/sourceSoftCircleDab';
 import { CanonicalSoftCircleProgramOwner } from './CanonicalSoftCircleProgramOwner';
 import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, canonicalAutoCost, type CanonicalAutoRecipe, type CanonicalAutoSource } from '@grafetto/shared';
 import { prepareSourceGaussianDab } from '../presets/sourceGaussianDab';
-import { prepareSourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab';
+import { prepareSourceSeededDefaultAutoDab, prepareSourceDefaultAutoDab } from '../presets/sourceDefaultAutoDab';
 import type { CanonicalMaterialAsset, CanonicalMaterialRecipe } from '@grafetto/shared';
 import { sourceImageTransformMetadata } from '@grafetto/shared';
 import { sourceImageTransformSpans } from '../presets/sourceImageTransformSpans';
@@ -43,6 +44,7 @@ export interface CanonicalTransformedMaskMaterial {
 }
 export type CanonicalAutoMaskMaterial = {
   readonly kind: 'canonicalAuto'; readonly recipe: CanonicalAutoRecipe; readonly trustedSource: CanonicalAutoSource;
+  readonly densityIdentity?: SourceDefaultAutoDensityIdentity;
 } | {
   readonly kind: 'canonicalAuto'; readonly recipe: CanonicalSoftAutoRecipe; readonly trustedSource: CanonicalSoftAutoSource;
   readonly programOwner: CanonicalSoftCircleProgramOwner;
@@ -53,7 +55,13 @@ export function isCanonicalSoftAutoMaterial(m: CanonicalAutoMaskMaterial): m is 
 /** Caller supplies the already authenticated source pin; this is not an attestation. */
 export function prepareCanonicalAutoMask(material: CanonicalAutoMaskMaterial) {
   const recipe = material.recipe;
-  if(recipe.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)throw new TypeError('Seeded density execution is not prepared');
+  if(recipe.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE){
+    const identity=densityMaterialIdentity(material)
+    if(recipe.kind!=='defaultAuto')throw new TypeError('Seeded density default source required')
+    if(material.trustedSource.kind!=='defaultAuto')throw new TypeError('Seeded density source pin required')
+    canonicalAutoCost(recipe,material.trustedSource)
+    return {...prepareSourceSeededDefaultAutoDab({dialect:'krita-default-auto-qt5-arm64-v1',coverageProfile:CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,tip:{...recipe.source,kind:'auto',softness:1,spikes:2,randomness:0},storedScale:recipe.brushScale,storedAngle:recipe.brushAngle,shape:{scale:recipe.scale,ratio:recipe.ratio,rotation:recipe.rotation},subpixelX:recipe.subX,subpixelY:recipe.subY,maxPixels:1048576,maxWorkSamples:16*1048576},identity),releaseProgram:()=>{}}
+  } else if('densityIdentity'in material&&material.densityIdentity!==undefined)throw new TypeError('Unexpected density identity');
   const common = {
     storedScale: recipe.brushScale, storedAngle: recipe.brushAngle,
     shape: { scale: recipe.scale, ratio: recipe.ratio, rotation: recipe.rotation },
@@ -83,6 +91,15 @@ export function prepareCanonicalAutoMask(material: CanonicalAutoMaskMaterial) {
   return { ...prepareSourceDefaultAutoDab({ ...common, dialect: 'krita-default-auto-qt5-arm64-v1', coverageProfile: r.coverageProfile,
     tip: { ...r.source, kind: 'auto', spikes: 2, softness: 1, randomness: 0, density: 1 } }), releaseProgram };
 }
+function densityMaterialIdentity(material:CanonicalAutoMaskMaterial):SourceDefaultAutoDensityIdentity {
+  if(isCanonicalSoftAutoMaterial(material)||material.recipe.kind!=='defaultAuto'||material.trustedSource.kind!=='defaultAuto'
+    ||material.trustedSource.coverageProfile!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||!material.densityIdentity)
+    throw new TypeError('Seeded density execution is not prepared')
+  const identity=material.densityIdentity
+  sourceDefaultAutoDensitySeed(identity)
+  if(identity.descriptorSha256!==material.trustedSource.descriptorSha256)throw new TypeError('Density identity differs from trusted source')
+  return identity
+}
 export function canonicalAutoMaskRevision(material: CanonicalAutoMaskMaterial): string {
   if (isCanonicalSoftAutoMaterial(material)) {
     canonicalSoftAutoCost(material.recipe, material.trustedSource);
@@ -91,6 +108,11 @@ export function canonicalAutoMaskRevision(material: CanonicalAutoMaskMaterial): 
   }
   const { recipe: r, trustedSource: t } = material;
   canonicalAutoCost(r, t);
+  if(r.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE){
+    const identity=densityMaterialIdentity(material)
+    return JSON.stringify(['canonical-seeded-density-v1',t,r,sourceDefaultAutoDensitySeed(identity),identity.drawOrdinal],(_key,value:unknown)=>typeof value==='number'&&Object.is(value,-0)?'-0':value);
+  }
+  if(material.densityIdentity!==undefined)throw new TypeError('Unexpected density identity');
   return JSON.stringify(['canonical-auto-v2', t.descriptorId, t.descriptorVersion, t.descriptorSha256,
     r.source.generator, r.source.shape, r.source.diameter, r.source.ratio, r.source.horizontalFade, r.source.verticalFade,
     r.source.antialias, r.source.spikes, r.source.randomness, r.source.density, r.coverageProfile,

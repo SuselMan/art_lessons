@@ -78,6 +78,7 @@ describe('real imported default auto through the one author/query/cache owner',(
         if(!m)continue
         const s=m.resolvedSource,g=s.geometry
         if(g?.kind!=='defaultAuto')throw Error('Missing auto source')
+        if(g.coverageProfile==='neon64-f32-fma-seeded-density-v1')throw Error('Old fixture coverage required')
         const dab=sourceDefaultAutoDab({dialect:'krita-default-auto-qt5-arm64-v1',tip:{kind:'auto',generator:'default',shape:g.source.shape,
           diameter:g.source.diameter,ratio:g.source.ratio,horizontalFade:g.source.horizontalFade,verticalFade:g.source.verticalFade,
           antialias:g.source.antialias,spikes:2,softness:1,randomness:0,density:1},storedScale:s.brush.scale,storedAngle:s.brush.angle,

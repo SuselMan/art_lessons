@@ -1,3 +1,4 @@
+import { MAX_SOURCE_DENSITY_GESTURE_ID } from '../presets/sourceDefaultAutoDensitySeed'
 import {borrowBrushGlTurnAutoUploadRestore,type BrushGlTurn,type BrushGlBatchFrame,type BrushGlBatchInfo} from './BrushGlBatch';
 import { canonicalSoftAutoSourcePin, canonicalSoftAutoStatic, sourcePngPyramid } from '@grafetto/shared';
 import { saveBrushGlState,restoreBrushAutoUploadState } from './BrushGlState';
@@ -23,7 +24,10 @@ export function transformedMaskPrepassBudget(limits: TransformedMaskLimits): {
     || limits.width > 4096 || limits.height > 4096 || limits.width * limits.height > 1048576
     || limits.slots < 1 || limits.slots > 8) throw new RangeError('Invalid prepass capacity');
   const vertexBytes = limits.height * FLOATS_PER_ROW * 4;
-  return { vertexBytes, cpuBytes: vertexBytes + limits.height * PLAN_BYTES_PER_ROW * limits.slots * 2 + FACTOR_BYTES,
+  // Existing fixed CPU owner covers retained identity per slot and one bounded
+  // UTF16 JSON hashing temporary (worst escaped input), not a heap cap proof.
+  const densityMetadataBytes=limits.slots*(2*MAX_SOURCE_DENSITY_GESTURE_ID+512)+12*MAX_SOURCE_DENSITY_GESTURE_ID+1024;
+  return { vertexBytes, cpuBytes: vertexBytes + limits.height * PLAN_BYTES_PER_ROW * limits.slots * 2 + FACTOR_BYTES + densityMetadataBytes,
     gpuBytes: FACTOR_BYTES + vertexBytes + limits.width * limits.height * 4 * limits.slots };
 }
 export interface TransformedMaskSource {
@@ -473,6 +477,7 @@ export class TransformedMaskPrepass {
     const material = request.material;
     if (!('kind' in material) || material.kind !== 'canonicalAuto' || request.source
       || !request.owner || typeof request.owner !== 'object' || !request.role) throw new RangeError('Invalid auto generation request');
+    if(!isCanonicalSoftAutoMaterial(material)&&material.densityIdentity&&request.role!=='primary')throw new TypeError('Density request requires primary role');
     const revision = canonicalAutoMaskRevision(material), { width, height } = material.recipe;
     if (width > this.limits.width || height > this.limits.height) throw new RangeError('Auto mask exceeds prepared capacity');
     if (this.pendingAuto) {
@@ -495,7 +500,7 @@ export class TransformedMaskPrepass {
     try {
       const rows = Math.min(height, Math.max(1, Math.floor(16384 / width))), pixels = rows * width;
       // The fixed table owner has already reserved its resident metadata/table.
-      releaseStripe = this.cpu.reserve(pixels * 5 + 512);
+      releaseStripe = this.cpu.reserve(pixels * 5 + 512 + (!isCanonicalSoftAutoMaterial(material)&&material.densityIdentity?512:0));
       const a8 = new Uint8Array(pixels), rgba = new Uint8Array(pixels * 4);
       const slot = (this.slots as Slot[]).slice().sort((a,b) => a.used-b.used)[0];
       const captured: CanonicalAutoMaskMaterial = isCanonicalSoftAutoMaterial(material)
@@ -503,6 +508,7 @@ export class TransformedMaskPrepass {
           ...canonicalSoftAutoStatic(material.recipe.source, material.recipe.brushScale, material.recipe.brushAngle) }),
           trustedSource: canonicalSoftAutoSourcePin(material.trustedSource) })
         : Object.freeze({ ...material, recipe: Object.freeze({ ...material.recipe, source: Object.freeze({ ...material.recipe.source }) }),
+          ...(material.densityIdentity?{densityIdentity:Object.freeze({...material.densityIdentity})}:{}),
           trustedSource: Object.freeze({ ...material.trustedSource, source: Object.freeze({ ...material.trustedSource.source }) }) }) as CanonicalAutoMaskMaterial;
       slot.revision = undefined; slot.plan = undefined; slot.material = undefined;
       this.pendingAuto = { owner: request.owner, role: request.role, revision, slot, epoch: this.workspace,

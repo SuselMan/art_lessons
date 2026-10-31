@@ -1,4 +1,4 @@
-import { CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE, CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, canonicalAutoCost, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition, type CanonicalStrokeRasterProfile, type CanonicalMaterialAsset, type CanonicalAutoSource, type CanonicalSoftAutoSource, type CanonicalAutoRecipe, type CanonicalSoftAutoRecipe, type AnyCanonicalMaterialRecipe, type AnyCanonicalMaterialFrame } from '@grafetto/shared'
+import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE, CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, canonicalAutoCost, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition, type CanonicalStrokeRasterProfile, type CanonicalMaterialAsset, type CanonicalAutoSource, type CanonicalSoftAutoSource, type CanonicalAutoRecipe, type CanonicalSoftAutoRecipe, type AnyCanonicalMaterialRecipe, type AnyCanonicalMaterialFrame } from '@grafetto/shared'
 import { SOURCE_RGBA8_GENERIC_SC_PROFILE } from '../presets/sourceColorRgba8'
 import { CanonicalSoftCircleProgramOwner } from './CanonicalSoftCircleProgramOwner'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
@@ -469,6 +469,10 @@ export class CanonicalFrameExecutor {
     }
     if ('kind' in recipe && (recipe.kind === 'defaultAuto' || recipe.kind === 'gaussianAuto')) {
       if (!this.options.autoSource || this.options.autoSource.kind==='softAuto') throw new TypeError('Canonical auto source is not trusted');
+      if(recipe.kind==='defaultAuto'&&recipe.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE){
+        if(this.options.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||this.options.autoSource.kind!=='defaultAuto')throw new TypeError('Density executor profile mismatch');
+        return {...common,material:{kind:'canonicalAuto',recipe,trustedSource:this.options.autoSource,densityIdentity:Object.freeze({gestureId:work.input.gestureId,descriptorSha256:this.options.autoSource.descriptorSha256,role:'primary',drawOrdinal:d.drawOrdinal})}};
+      }
       return { ...common, material: { kind:'canonicalAuto', recipe, trustedSource:this.options.autoSource } };
     }
     if (!this.options.bank?.isReady()) throw new Error('Canonical image bank is not prepared');
