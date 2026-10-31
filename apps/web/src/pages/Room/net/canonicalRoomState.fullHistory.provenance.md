@@ -1,0 +1,11 @@
+# Prepared full room history V2
+
+This read-preparation unit accepts explicit `full-room-prefix-v2` metadata only through the authoritative current `prepareCanonicalRoomState` owner. The shared parser/verifier checks one complete bounded attachment batch and returns data `{base,gestures}`. It does not prove absent database rows, grant authoring/execution, activate a room flag, or manufacture an end frame. Server range provenance and eventual engine consumption remain separate.
+
+V2 captures close/undo/redo own scalar fields with `captureCanonicalFullHistoryMetadata` before attachment preparation. Canonical frame decoding/capability interning stays with the SAME `prepareCanonicalRecordedAttachment` call, original local scope and lexical read lifetime. No capability is discarded or silently reattached after metadata normalization; unused capabilities are rejected by the shared owner. V1 remains frame-only; missing/V1/legacy bases do not authorize close metadata. Default delivery without the explicit preparer remains OFF.
+
+`fullHistoryBase` exposes normalized immutable data; optional `assertFullHistoryBase(candidateTail)` returns the stable shared verified result only for the original read receiver, exact normalized tail array, expected board and current original lifetime. Copied methods/read objects/tail arrays and expired generations fail. `assertEmptyHistoryBase` is unchanged and rejects V2 as empty-history authority.
+
+A close is normalized once in its V2 preparer. `attachCanonicalRecordedDelivery` validates its closed scalar schema and frozen state but preserves that exact operation pointer. It no longer substitutes another parsed close, which broke `preparedAtom.operation === normalizedTail[i]`. Mutable close input must be captured/frozen before attachment; no fake delivery/read closures or source grants are created. Frame delivery behavior is unchanged.
+
+Tests cover partial prefix+close+undo summary without synthetic terminal material, completed undo/redo, original operation pointer/lifetime identity, mutable-wire capture, empty V2, wrong cut/close/target, accessors/extra fields, default gate, copied receiver/tail, foreign read and staleness. The normal V1/legacy matrix is checked alongside the new cases. No device, service, build copy or disposable runtime is introduced.

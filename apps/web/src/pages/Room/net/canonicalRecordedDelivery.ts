@@ -40,7 +40,13 @@ export function attachCanonicalRecordedDelivery(atom:CanonicalPreparedRecordedOp
  const lifetime=canonicalRecordedLifetimeOf(scope)
  if(!lifetime)return atom
  const originalScope=lifetime.assertCurrent()
- const operation=atom.operation.type==='canonical_stroke_close'?parseCanonicalStrokeCloseOperation(atom.operation):atom.operation
+ const operation=atom.operation
+ if(operation.type==='canonical_stroke_close'){
+  // Validate the closed scalar schema, but keep the original normalized atom.
+  // Mutable wire metadata must first be captured by its full-history owner.
+  parseCanonicalStrokeCloseOperation(operation)
+  if(!Object.isFrozen(operation))return fail()
+ }
  if(operation.type==='canonical_stroke'&&(!atom.read||atom.read.roomId!==scope.roomId||atom.read.boardEpoch!==scope.boardEpoch
    ||atom.read.operationId!==operation.id||atom.read.sequence!==operation.seq))return fail()
  let input:CanonicalRecordedInput,delivery:CanonicalRecordedDelivery
