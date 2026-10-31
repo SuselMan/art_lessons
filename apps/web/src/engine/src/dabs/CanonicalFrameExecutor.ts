@@ -324,7 +324,7 @@ export class CanonicalFrameExecutor {
         if(work.draw===work.result.draws.length&&(this.options.washMode==='deposition-only'||!work.result.commands.length||work.presentTiles&&work.present===work.presentTiles.length))this.finish(work)
       })
     } catch (error) {
-      this.fail(error, this.gl.isContextLost())
+      this.fail(error, this.cleanupContextLost())
       throw error
     } finally { this.advancing = false }
     return { pending: this.pending, checkpointReady: this.checkpointReady }
@@ -571,7 +571,7 @@ export class CanonicalFrameExecutor {
     const before = this.cleanupErrors.length
     this.retireSoftProgram()
     if (this.gesture || this.pending || (this.washes.size && !this.rawTransferred)) {
-      this.fail(reason, options.lost ?? this.gl.isContextLost())
+      this.fail(reason, options.lost ?? this.cleanupContextLost())
     }
     if (this.cleanupErrors.length > before) throw this.cleanupErrors[before]
   }
@@ -636,7 +636,7 @@ export class CanonicalFrameExecutor {
       if (!alive) return
       if (options.lost && !this.gl.isContextLost()) throw new Error('Cannot forget raw wash on live context')
       if (owner.leases) throw new Error('Raw wash still leased')
-      const lost = options.lost ?? this.gl.isContextLost()
+      const lost = options.lost ?? this.cleanupContextLost()
       alive = false; owner.alive = false
       const errors: unknown[] = []
       const clean = (f: () => void) => { try { f() } catch (e) { errors.push(e) } }
@@ -644,6 +644,12 @@ export class CanonicalFrameExecutor {
       for (const release of releases) clean(release)
       if (errors.length) throw errors[0]
     } })
+  }
+
+  /** Cleanup status is advisory. A failing probe cannot replace the primary
+   * error or strand plan/pool ownership. Loss grants and hot leases stay strict. */
+  private cleanupContextLost():boolean {
+    try{return this.gl.isContextLost()}catch(error){this.cleanupErrors.push(error);return false}
   }
 
   private cleanup(action: () => void): void {

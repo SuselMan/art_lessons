@@ -1431,3 +1431,36 @@ it('forgets partially taken plan scratch through the one global pool owner after
   expect(s.scratch.bytes).toEqual({live:0,free:0});s.scratch.destroy();expect(s.gl.deleteTexture).toHaveBeenCalledTimes(deleted)
  }finally{clock.mockRestore();s.close()}
 })
+
+it('executor cleanup status preserves the exact primary draw error and retires all plans if loss probing throws',()=>{
+ const s=setup('wash'),primary=new Error('primary draw failed'),status=new Error('cleanup loss query failed'),getLost=s.gl.isContextLost
+ try{
+  s.executor.enqueue(s.submit());s.prepareStorage()
+  vi.spyOn(s.composite,'drawSource').mockImplementationOnce(()=>{s.gl.isContextLost=()=>{throw status};throw primary})
+  expect(()=>s.executor.advance()).toThrow(primary)
+  expect(s.executor.cleanupFailures).toContain(status);expect(s.executor.poisoned).toBe(true)
+  expect(s.layer['retainedTargets'].size).toBe(0);expect(s.scratch.bytes.live).toBe(0)
+  expect(snapshotContextStorage(s.gl).reservedBytes).toBe(0)
+ }finally{s.gl.isContextLost=getLost;s.close()}
+})
+it('executor cleanup status still closes partial plan storage before reporting a default-cancel status failure',()=>{
+ const s=setup('wash'),status=new Error('cancel loss query failed'),getLost=s.gl.isContextLost,clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  s.executor.enqueue(s.submit());s.executor.advance();s.executor.advance();expect(s.scratch.bytes.live).toBe(64)
+  s.gl.isContextLost=()=>{throw status}
+  expect(()=>s.executor.cancel()).toThrow(status)
+  expect(s.executor.cleanupFailures).toContain(status);expect(s.executor.poisoned).toBe(true)
+  expect(s.layer['retainedTargets'].size).toBe(0);expect(s.scratch.bytes.live).toBe(0)
+  expect(snapshotContextStorage(s.gl).reservedBytes).toBe(0)
+ }finally{s.gl.isContextLost=getLost;clock.mockRestore();s.close()}
+})
+it('executor cleanup status releases transferred raw ownership exactly once despite a failed default loss probe',()=>{
+ const s=setup('wash',4,4,undefined,'reference-scalar-f32-rne-v1',undefined,4,'deposition-only'),status=new Error('raw release loss query failed'),getLost=s.gl.isContextLost,release=vi.spyOn(s.scratch,'release')
+ let ownership:ReturnType<CanonicalFrameExecutor['takeRawWash']>|undefined
+ try{
+  s.executor.enqueue(s.submit());s.drain();ownership=s.executor.takeRawWash();expect(s.scratch.bytes.live).toBe(64)
+  s.gl.isContextLost=()=>{throw status};expect(()=>ownership!.release()).not.toThrow()
+  expect(s.executor.cleanupFailures).toContain(status);expect(s.scratch.bytes.live).toBe(0);expect(release).toHaveBeenCalledOnce()
+  ownership.release();expect(release).toHaveBeenCalledOnce()
+ }finally{s.gl.isContextLost=getLost;ownership?.release();s.close()}
+})
