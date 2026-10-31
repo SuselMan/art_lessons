@@ -57,3 +57,9 @@ it('keeps qint truncation and finite angle normalization inside the existing one
  for(const rotation of [Number.MAX_VALUE,-Number.MAX_VALUE,Math.PI/4,Math.PI/2])for(const phase of [0,1-Number.EPSILON])expect(()=>assertCanonicalAutoRecipeCapacity(recipe(edge,1,rotation,phase,phase),edge,capacity)).not.toThrow()
  expect(()=>canonicalAutoMaskCapacity({...edge,source:{...edge.source,diameter:512}})).toThrow()
 })
+
+it('accepts only the geometry Pick used before digest and matches the later full original pin',()=>{
+ const {source}=pin(),geometry={kind:source.kind,source:source.source,brushScale:source.brushScale,brushAngle:source.brushAngle,coverageProfile:source.coverageProfile}
+ expect(canonicalAutoMaskCapacity(geometry)).toEqual(canonicalAutoMaskCapacity(source))
+ expect(Object.keys(geometry)).not.toContain('descriptorSha256')
+})

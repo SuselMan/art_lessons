@@ -4,7 +4,7 @@ import { canonicalImageMaskCapacity, assertCanonicalImageRecipeCapacity, canonic
 import { CanonicalMaskSourceBank,canonicalMaskSourceBankBudget, type CanonicalMaskSourceExtension } from './src/dabs/CanonicalMaskSourceBank'
 import {canonicalSourceAuthorAdmission} from './src/presets/sourceCanonicalAuthorAdmission'
 import {canonicalExecutorOperations} from './src/dabs/CanonicalFrameExecutor'
-import { CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_STROKE_RASTER_PROFILE,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalGaussianAutoSourceBinding,canonicalSoftAutoSourceBinding,canonicalSoftAutoDataEqual,canonicalSourceComposition,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,sourceAutoGeometry,CANONICAL_RECORDED_ATTACHMENT_LIMITS,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,IMPLICIT_LAYER_IDS,INITIAL_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,verifyCanonicalFullHistoryBase,verifyCanonicalEmptyHistoryBase,decodeCanonicalStrokeFrame,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalStrokeRasterProfile,type CanonicalAutoSource,type CanonicalSoftAutoSource } from '@grafetto/shared'
+import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_STROKE_RASTER_PROFILE,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalGaussianAutoSourceBinding,canonicalSoftAutoSourceBinding,canonicalSoftAutoDataEqual,canonicalSourceComposition,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,sourceAutoGeometry,CANONICAL_RECORDED_ATTACHMENT_LIMITS,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,IMPLICIT_LAYER_IDS,INITIAL_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,verifyCanonicalFullHistoryBase,verifyCanonicalEmptyHistoryBase,decodeCanonicalStrokeFrame,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalStrokeRasterProfile,type CanonicalAutoSource,type CanonicalSoftAutoSource } from '@grafetto/shared'
 import {BrushTextureCache} from './src/dabs/BrushTextureCache'
 import {TransformedMaskPrepass,transformedMaskPrepassBudget,type TransformedMaskLimits,type CanonicalPreparedResourceUpdate,type CanonicalPreparedCapacityUpdate} from './src/dabs/TransformedMaskPrepass'
 import {CanonicalRgba8CompositePass,canonicalRgba8CompositeBudget,type CanonicalCompositeLimits} from './src/dabs/CanonicalRgba8CompositePass'
@@ -7185,11 +7185,15 @@ export class PencilEngine implements PencilEngineAPI {
     const admission=canonicalSourceAuthorAdmission(descriptor,owner.plan.profile,importedBrushAssetMetadata(preset))
     if(!admission.supported)throw new Error(admission.reason)
     const data=admission.data,image=admission.material.kind==='image'?admission.material.pin:undefined
+    const coverageProfile=admission.material.kind==='auto'&&admission.material.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE?CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE:owner.plan.profile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:'neon64-f32-fma-v1'
     let requested:TransformedMaskLimits
     if(image)requested=canonicalImageMaskCapacity(image.primarySource,image.assets)
     else{
       if(data.version!==2||data.source.kind==='image')throw new TypeError('Unsupported canonical pointer material')
-      requested=canonicalLayerMaskCapacity({source:data.source,brushScale:data.brush.scale,brushAngle:data.brush.angle})
+      if(coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE){
+        if(data.source.kind!=='defaultAuto'||owner.plan.profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)throw new TypeError('Unsupported canonical density source candidate')
+        requested=canonicalAutoMaskCapacity({kind:'defaultAuto',source:data.source,brushScale:data.brush.scale,brushAngle:data.brush.angle,coverageProfile})
+      }else requested=canonicalLayerMaskCapacity({source:data.source,brushScale:data.brush.scale,brushAngle:data.brush.angle})
     }
     const initializing=image&&!owner.prepared
     const growing=owner.prepared&&(requested.width>owner.mask.width||requested.height>owner.mask.height||requested.slots>owner.mask.slots)
@@ -7208,7 +7212,6 @@ export class PencilEngine implements PencilEngineAPI {
     const release=this._brushMipCache.reserve(charge)
     let accepted=false
     try{
-      const coverageProfile=owner.plan.profile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE:'neon64-f32-fma-v1'
       const compiled=sourceStrokeAuthorDescriptor(descriptor,{inputProfile:'krita-freehand-no-smoothing-v1',colorIdentity:'captured-canonical-pigment',lodScale:1,coverageProfile,...image?{asset:image.assets.find(a=>a.id===image.primarySource.asset),assets:image.assets}:{}})
       if(!compiled.supported)throw new Error(compiled.reasons.join(','))
       const digest=await crypto.subtle.digest('SHA-256',bytes),sha=Array.from(new Uint8Array(digest),v=>v.toString(16).padStart(2,'0')).join('')
@@ -7221,7 +7224,12 @@ export class PencilEngine implements PencilEngineAPI {
       if(image)material={kind:'image',pin:image}
       else{
         if(data.version!==2||data.source.kind==='image')throw new TypeError('Unsupported canonical pointer source')
-        material={kind:'auto',pin:data.source.kind==='softAuto'?canonicalSoftAutoSourceBinding(descriptor,sha,coverageProfile,0,owner.plan.profile):data.source.kind==='gaussianAuto'?canonicalGaussianAutoSourceBinding(descriptor,sha,coverageProfile,owner.plan.profile):canonicalDefaultAutoSourceBinding(descriptor,sha,coverageProfile,owner.plan.profile)}
+        if(coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE){
+          if(data.source.kind!=='defaultAuto')throw new TypeError('Density candidate requires default-auto source')
+          material={kind:'auto',pin:canonicalDefaultAutoSourceBinding(descriptor,sha,coverageProfile,owner.plan.profile)}
+        }else material={kind:'auto',pin:data.source.kind==='softAuto'?canonicalSoftAutoSourceBinding(descriptor,sha,coverageProfile,0,owner.plan.profile):data.source.kind==='gaussianAuto'?canonicalGaussianAutoSourceBinding(descriptor,sha,coverageProfile,owner.plan.profile):canonicalDefaultAutoSourceBinding(descriptor,sha,coverageProfile,owner.plan.profile)}
+        const actual=canonicalAutoMaskCapacity(material.pin)
+        if(actual.width!==requested.width||actual.height!==requested.height||actual.slots!==requested.slots)throw new Error('Canonical source candidate capacity changed')
       }
       if(this._brushPreparationPreset!==preset){this._brushPreparationGeneration++;this._brushPreparation.cancel();this._brushPreparationPreset=preset}
       const generation=this._brushPreparationGeneration
@@ -7297,8 +7305,13 @@ export class PencilEngine implements PencilEngineAPI {
       try{release()}finally{source.references--;this._retireCanonicalSource(session)}
     })
   }
+  private _assertCanonicalTiltInput(prepared:CanonicalPreparedAuthor,input:Pick<PointerData,'tiltX'|'tiltY'>):void {
+    if(prepared.material.kind==='auto'&&prepared.material.pin.kind==='defaultAuto'&&prepared.material.pin.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
+      &&(![input.tiltX,input.tiltY].every(Number.isFinite)||Math.abs(input.tiltX)>90||Math.abs(input.tiltY)>90))throw new Error('Invalid canonical tilt input')
+  }
   private _canonicalPacket(session:TimedAuthorSession,input:PointerData):SourceAuthorPacket {
     const source=session.source!,t=Math.floor(input.timeStamp-source.timestamp)
+    this._assertCanonicalTiltInput(source.prepared,input)
     if(!Number.isFinite(t)||t<session.lastTime)throw new Error('Invalid canonical pointer timestamp')
     session.lastTime=t
     return{x:input.x,y:input.y,t,pressure:input.pressure,tiltX:input.tiltX,tiltY:input.tiltY,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false}
@@ -7322,6 +7335,7 @@ export class PencilEngine implements PencilEngineAPI {
         // pressure; the encoder's decoded draw arrays are not a second queue.
         const encoded=source.encoder!.encode(chunk.packed),frame=encoded.envelope,lastEnded=source.encoder!.ended
         if(source.prepared.material.kind==='image')for(const recipe of encoded.frame.definitions){if(!('asset'in recipe))throw new Error('Image local recipe required');assertCanonicalImageRecipeCapacity(recipe,source.prepared.material.pin.primarySource,source.prepared.material.pin.assets,source.prepared.owner.mask)}
+        else if(source.prepared.material.pin.kind==='defaultAuto'&&source.prepared.material.pin.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)for(const recipe of encoded.frame.definitions)assertCanonicalAutoRecipeCapacity(recipe,source.prepared.material.pin,source.prepared.owner.mask)
         const operation:import('@grafetto/shared').CanonicalStrokeOperation=Object.freeze({id:nanoid(),userId:this._userId,timestamp:Date.now(),type:'canonical_stroke',layerId:session.snapshot.layerId,frame})
         const layer=source.prepared.owner
         this._ensureCanonicalLayerCoordinator(layer)
@@ -7354,6 +7368,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(!this._canonicalAuthorService||this._locked)return
     const prepared=this._canonicalPreparedAuthor
     if(!prepared||prepared.preset!==this._opts.pencilType||this._opts.tool!=='digitalBrush'||this._opts.size!==prepared.nativeSizePx||this._authorCameraAngle!==0||this._ruler!==null||!this._onLocalOperation)throw new Error('Canonical pointer source is not prepared/fixed')
+    this._assertCanonicalTiltInput(prepared,input)
     const snapshot=this._captureAuthorStart(input,input.dispatchTime??performance.now())
     if(!snapshot)return
     if(this._authorProducer&&!this._authorProducer.ended)throw new Error('Canonical pointer gesture already active')

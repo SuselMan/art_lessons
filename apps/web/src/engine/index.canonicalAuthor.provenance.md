@@ -112,3 +112,37 @@ includes both image and author engine tests plus the existing pipe fixture; no
 shared build/dist mutation or device/runtime action was performed. Final image
 suite/type/lint receipts are retained under R52/auto-bank-*; whole-app gate is
 coordinated separately by ROOT.
+
+## D Marker pointer — paired admission and author preparation
+
+The existing three-argument data admission query accepts only the strict mapped
+seeded-default-auto capability under GenericSC, density below one, and one
+curve-driven tiltDirection Rotation sensor. This is candidate data, not server
+permission. The engine chooses D for compiler and source binding, reserves the
+same conservative 54-square capacity before publication, and checks the actual
+hashed full pin against that candidate. The original BEGIN remains mandatory;
+refused or mismatched grants produce no local ink, outgoing frame, or journal.
+Camera rotation remains closed. Invalid first tilt is rejected before BEGIN.
+
+Actual nine Marker fixture packets retain tiltXY, zero canvas/tilt offsets and
+produce 17 masks compared with the independent prepared CPU evaluator using the
+actual captured strokeId. Original promotion performs no second mask upload.
+This recording-GL test proves submission and upload bytes, not physical pixels or
+latency. G2 Basic2-to-Marker switching is rejected while its unconfirmed wash
+exists, preserving the old program, budget and epoch; after original confirmation
+it grows the same idle owner, prepass, composite and stable layer without shader
+compilation. Existing cancellation and ownership tests remain part of the suite.
+
+The two existing image-bank count expectations were migrated from full mip chains
+to the committed required-level suffix: Basic6 five levels, Graphite six per asset;
+Mountains remains eleven. The unchanged tests failed identically on HEAD
+ac0cef5ac6db4c5b53d5e86f7289d94232c1b553 before this index integration. The
+counterfactual saved/restored the exact WIP index in finally and verified its SHA;
+compact receipts are marker-pointer-image-counterfactual.log/json in R52.
+No image behavior or count policy was changed by this unit.
+
+Host verification: 78 tests in the actual author, admission and capacity suites
+passed with one worker; targeted TypeScript includes all three exact test paths
+under app options and passed. Scoped lint has zero errors (existing index warnings
+remain); diff check passed. Whole eight-path unit stays uncommitted until parent
+review. No runtime, device, shared build or policy activation was performed.

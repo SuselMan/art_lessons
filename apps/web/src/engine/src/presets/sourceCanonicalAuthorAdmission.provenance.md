@@ -124,3 +124,44 @@ Final G2 HOST gate:94 tests/4 suites PASS (author/image preparation + context
 recovery + cancellation), one worker. Targeted actual-app-options TSC PASS;
 scoped oxlint0 errors (existing index warnings), owned diff check PASS. Whole-app
 and real-GPU results are not asserted by this HOST unit.
+
+## Strict Marker D pointer DATA leaf (not an author activation)
+
+The SAME three-argument query now recognizes a seeded defaultAuto candidate only
+when the original source has density<1, profile is GenericSC, and the existing
+extractSeededDensityDefaultAutoSourceDataCapability validates the FULL source/
+compiler/effect closure. Neither density nor GenericSC alone grants a D source.
+The return auto material carries coverageProfile D DATA for the later paired
+prepare/compiler/binding; real server BEGIN remains the sole first-paint grant.
+No fourth parameter, workflow feature flag, wire field or new profile was added.
+This leaf MUST remain uncommitted/unbuilt until paired engine author preparation
+is ready: current author preparation still selects native coverage/capacity.
+QA immutable Git runtime is unchanged.
+
+Only checked D procedural Rotation with useCurve and one tiltDirection sensor
+is added; ordinary native/browser procedural Rotation remains closed. Image's
+existing single drawingAngle path is unchanged. The shared source schema still
+rejects drawingAngle-only fan fields on tilt sensors. Size keeps the exact
+existing finite [0,1] single-pressure law; actual Marker Size is unchecked/fixed35.
+Ratio/Scatter/Mirror/effects/timing and unsupported input sensors remain closed.
+Original Opacity/Flow nonlinear pressure curves and all nine mapped programs
+stay in the original source object, without edits/compiler or evaluator creation.
+
+The capacity seam is TYPE-only: canonicalAutoMaskCapacity accepts the Pick of
+kind/source/brushScale/brushAngle/coverageProfile that it actually reads. It does
+not need a fabricated descriptor SHA before digest. Formula and budget unchanged;
+the later actual full pin gives the SAME54×54, and the recipe assert still
+requires a FULL pin and existing shared static/geometry cost validation.
+
+Actual fixture id imported-b8beafe9fc9e27b3bd21380a@27 / SHA7fd13ac… is used
+read-only and schema validated. Tests-first query RED had the old Rotation
+rejection; positive D, profile/curve/source/domain/Size negatives and existing
+native/image cases are covered. The public exported query remains the same
+function. No source-program, CPU resource, GL or server-policy authority is
+created by eligibility. No index, author test/provenance, UI or runtime edits
+belong to this leaf. Final logs R52 marker-pointer-leaf-focused.log,
+marker-pointer-leaf-targeted.log and marker-pointer-leaf-lint.log.
+
+Leaf5 final gate:34 tests/2files PASS (1worker), targeted35424 PASS, scoped
+oxlint0/diff-check PASS. No dependencies/services/device or temporary QA resource
+created. HOLD uncommitted until ROOT paired author review/release; no activation.

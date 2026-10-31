@@ -1,5 +1,6 @@
+import marker from './fixtures/sourceDefaultAutoWholePath/markerDry.normal.native.json'
 import {describe,expect,it,vi} from 'vitest'
-import {CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as browser,CANONICAL_STROKE_RASTER_PROFILE as native,type BrushDescriptor} from '@grafetto/shared'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as generic,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE as density,isBrushLibrary,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as browser,CANONICAL_STROKE_RASTER_PROFILE as native,type BrushDescriptor} from '@grafetto/shared'
 import basic6 from './fixtures/sourcePngWholePath/guiStroke.native.json'
 import mountains from './fixtures/sourceImagePipe/mountains.native.json'
 import graphite from './fixtures/sourceImagePipe/pencilRandom.native.json'
@@ -62,5 +63,39 @@ describe('original image author data, separate from wire V2 authority',()=>{
  })
  it('keeps malformed source fan law closed',()=>{
   for(const fanStep of [0,4,91,361]){const d=structuredClone(basic6.descriptor)as unknown as Mutable<BrushDescriptor>;d.sourceStamp!.options.find(o=>o.id==='Rotation')!.sensors[0].fanStep=fanStep;expect(canonicalSourceAuthorAdmission(d,native,[{id:basic6.asset.id,size:256}])).toMatchObject({supported:false})}
+ })
+})
+
+function markerDescriptor(){
+ const library:unknown={schemaVersion:1,brushes:[marker.imported],assets:[],skipped:[]}
+ if(!isBrushLibrary(library))throw Error('Invalid original Marker')
+ return library.brushes[0].descriptor
+}
+describe('strict seeded source data candidate, not BEGIN authority',()=>{
+ it('admits actual mapped Marker only as GenericSC D with original fixed35 and source identity',()=>{
+  const d=markerDescriptor(),before=JSON.stringify(d),result=canonicalSourceAuthorAdmission(d,generic)
+  expect(result).toMatchObject({supported:true,nativeSizePx:35,material:{kind:'auto',coverageProfile:density}})
+  if(!result.supported)throw Error(result.reason)
+  expect(result.data).toBe(d.sourceStamp);expect(JSON.stringify(d)).toBe(before)
+  for(const p of [native,browser])expect(canonicalSourceAuthorAdmission(d,p)).toMatchObject({supported:false})
+ })
+ it('keeps non-D rotation and unsupported D sensor/source/effect domains closed',()=>{
+  const edits:((d:Mutable<BrushDescriptor>)=>void)[]=[
+   d=>{const data=source(d);if(data.source.kind!=='defaultAuto')throw Error('Wrong source');Object.assign(data.source,{density:1})},
+   d=>{Reflect.deleteProperty(source(d),'compiled')},
+   d=>{Object.assign(source(d),{unsupported:[...source(d).unsupported,'another-unsupported-mechanism']})},
+   d=>{Object.assign(source(d).options.find(o=>o.id==='Rotation')!.sensors[0],{id:'drawingAngle'})},
+   d=>{Object.assign(source(d).options.find(o=>o.id==='Rotation')!,{useCurve:false})},
+   d=>{const r=source(d).options.find(o=>o.id==='Rotation')!;Object.assign(r,{sensors:[...r.sensors,{...r.sensors[0]}]})},
+   ...['Ratio','Scatter','Mirror'].map(id=>(d:Mutable<BrushDescriptor>)=>{Object.assign(source(d).options.find(o=>o.id===id)!,{checked:true})}),
+   d=>{d.behavior!.erase=true},d=>{Object.assign(source(d).timing,{enabled:true})},
+  ]
+  for(const edit of edits){const d=structuredClone(markerDescriptor()) as Mutable<BrushDescriptor>;edit(d);expect(canonicalSourceAuthorAdmission(d,generic)).toMatchObject({supported:false})}
+ })
+ it('retains bounded one-pressure Size for D but refuses wider or mixed sensors',()=>{
+  for(const min of [0,.2]){const d=structuredClone(markerDescriptor()) as Mutable<BrushDescriptor>;Object.assign(source(d).options.find(o=>o.id==='Size')!,{checked:true,min,max:1});expect(canonicalSourceAuthorAdmission(d,generic).supported).toBe(true)}
+  for(const patch of [{min:-.1},{max:1.1},{sensors:[]},{sensors:[{id:'tiltDirection'}]},{sensors:[{id:'pressure'},{id:'pressure'}]}]){
+   const d=structuredClone(markerDescriptor()) as Mutable<BrushDescriptor>;Object.assign(source(d).options.find(o=>o.id==='Size')!,{checked:true,min:0,max:1},patch);expect(canonicalSourceAuthorAdmission(d,generic)).toMatchObject({supported:false})
+  }
  })
 })

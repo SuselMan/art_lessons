@@ -3,10 +3,11 @@ import {CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,sourceAutoGeometry,canonicalAu
 import {transformedMaskPrepassBudget,type TransformedMaskLimits} from './TransformedMaskPrepass'
 
 type AutoPin=CanonicalAutoSource|CanonicalSoftAutoSource
-const rotating=(pin:AutoPin)=>pin.kind==='defaultAuto'&&pin.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
+type AutoCapacitySource=Pick<AutoPin,'kind'|'source'|'brushScale'|'brushAngle'|'coverageProfile'>
+const rotating=(pin:AutoCapacitySource)=>pin.kind==='defaultAuto'&&pin.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
 /** Storage bound only. Original pin/profile authorization belongs to the caller's
  * existing shared decoder; this helper neither binds a source nor grants paint. */
-export function canonicalAutoMaskCapacity(pin:AutoPin):TransformedMaskLimits {
+export function canonicalAutoMaskCapacity(pin:AutoCapacitySource):TransformedMaskLimits {
  if(pin.brushScale!==1||pin.source.spikes!==2||pin.kind!==pin.source.kind)throw new TypeError('Unsupported fixed canonical layer source')
  const geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:pin.source.diameter,ratio:pin.source.ratio,spikes:2,scale:pin.brushScale,angle:pin.brushAngle},{scale:1,ratio:1,rotation:0})
  // L1 bounds the two rotated side projections for scale<=1 and ratio1. +2

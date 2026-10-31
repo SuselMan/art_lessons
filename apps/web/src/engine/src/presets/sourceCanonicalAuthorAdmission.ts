@@ -1,8 +1,8 @@
-import {canonicalSourceComposition,canonicalSourceEffectReject,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,isSourceStampData,sourceStampSourceKind,type BrushDescriptor,type CanonicalStrokeRasterProfile,type SourceStampData} from '@grafetto/shared'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,extractSeededDensityDefaultAutoSourceDataCapability,canonicalSourceComposition,canonicalSourceEffectReject,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,isSourceStampData,sourceStampSourceKind,type BrushDescriptor,type CanonicalStrokeRasterProfile,type SourceStampData} from '@grafetto/shared'
 
 type ImagePin=ReturnType<typeof canonicalImageSourceBinding>
 export type CanonicalSourceAuthorAdmission =
- {readonly supported:true;readonly data:Extract<SourceStampData,{version:2}>;readonly nativeSizePx:number;readonly material:{readonly kind:'auto'}}
+ {readonly supported:true;readonly data:Extract<SourceStampData,{version:2}>;readonly nativeSizePx:number;readonly material:{readonly kind:'auto';readonly coverageProfile?:typeof CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE}}
  |{readonly supported:true;readonly data:SourceStampData;readonly nativeSizePx:number;readonly material:{readonly kind:'image';readonly pin:ImagePin}}
  |{readonly supported:false;readonly reason:string}
 
@@ -26,10 +26,13 @@ export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profil
  if(unsupported)return{supported:false,reason:'Unsupported canonical source effect: '+unsupported}
  const policy=canonicalSourceComposition(descriptor,profile),data=descriptor.sourceStamp
  if(policy?.mode!=='wash'||!data||!isSourceStampData(data)||data.timing.enabled)return{supported:false,reason:'Unsupported canonical pointer material/timing'}
+ const seeded=data.version===2&&data.source.kind==='defaultAuto'&&data.source.density<1
+ if(seeded&&(profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||!extractSeededDensityDefaultAutoSourceDataCapability(descriptor).supported))return{supported:false,reason:'Unsupported canonical seeded pointer material/profile'}
  const image=sourceStampSourceKind(data)==='image',size=data.options.find(option=>option.id==='Size')
  if(size?.checked&&(!Number.isFinite(size.min)||!Number.isFinite(size.max)||size.min<0||size.max>1||size.sensors.length!==1||size.sensors[0].id!=='pressure'))return{supported:false,reason:'Unsupported canonical pointer transform/sensor'}
  const rotation=data.options.find(option=>option.id==='Rotation')
- if(data.options.some(option=>(image?['Ratio','Scatter','Mirror']:['Ratio','Rotation','Scatter','Mirror']).includes(option.id)&&option.checked)
+ if(data.options.some(option=>(image||seeded?['Ratio','Scatter','Mirror']:['Ratio','Rotation','Scatter','Mirror']).includes(option.id)&&option.checked)
+  ||seeded&&rotation?.checked&&(!rotation.useCurve||rotation.sensors.length!==1||rotation.sensors[0].id!=='tiltDirection')
   ||image&&rotation?.checked&&(rotation.sensors.length!==1||rotation.sensors[0].id!=='drawingAngle')
   ||data.options.some(option=>option.checked&&option.useCurve&&option.sensors.some(sensor=>['rotation','tangentialPressure','perspective','speed'].includes(sensor.id))))return{supported:false,reason:'Unsupported canonical pointer transform/sensor'}
  if(image){
@@ -43,5 +46,5 @@ export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profil
   }catch{return{supported:false,reason:'Unsupported canonical image source binding'}}
  }
  if(data.version!==2||data.source.kind==='image')return{supported:false,reason:'Unsupported canonical pointer material/timing'}
- return{supported:true,data,nativeSizePx:data.source.diameter,material:{kind:'auto'}}
+ return{supported:true,data,nativeSizePx:data.source.diameter,material:seeded?{kind:'auto',coverageProfile:CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE}:{kind:'auto'}}
 }
