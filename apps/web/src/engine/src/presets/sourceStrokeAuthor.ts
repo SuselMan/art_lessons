@@ -1,3 +1,4 @@
+import { sourceRotationMixDegrees } from './sourceRotationMix'
 import { SourceDistanceTiming, sourceTimingInterval, type SourceSpacing } from '../dabs/sourceDistanceTiming'
 import { sourceDrawingDirection, sourceFanRequests, shortestSourceTurn } from '../input/kritaStrokeInput'
 import { KritaRandomSource, KritaPerStrokeRandomSource, type KritaRandomSnapshot, type KritaPerStrokeRandomSnapshot } from './nativeRandom'
@@ -92,10 +93,10 @@ function validatePacket(p: SourceAuthorPacket): void {
     || [p.hover,p.mirroredH,p.mirroredV].some(v=>typeof v!=='boolean')) throw new RangeError('Invalid native author packet')
 }
 function mix(a: SourceAuthorPacket,b: SourceAuthorPacket,t: number): SourceAuthorPacket {
-  // Native mix preserves first packet canvas/hover settings. Rotation's circular
-  // interpolation is explicitly unsupported until its separate law is supplied.
+  // Native mix preserves first packet canvas/hover settings. Circular pen
+  // rotation follows KisPaintInformation::mixOtherImpl without normalization.
   const scalar=(x:number,y:number)=>(1-t)*x+t*y
-  return {...a,x:scalar(a.x,b.x),y:scalar(a.y,b.y),t:scalar(a.t,b.t),pressure:scalar(a.pressure,b.pressure),
+  return {...a,rotation:sourceRotationMixDegrees(a.rotation,b.rotation,t),x:scalar(a.x,b.x),y:scalar(a.y,b.y),t:scalar(a.t,b.t),pressure:scalar(a.pressure,b.pressure),
     tiltX:scalar(a.tiltX,b.tiltX),tiltY:scalar(a.tiltY,b.tiltY),speed:scalar(a.speed,b.speed),
     tangentialPressure:scalar(a.tangentialPressure,b.tangentialPressure),perspective:scalar(a.perspective,b.perspective)}
 }
@@ -167,7 +168,7 @@ export class SourceStrokeAuthor {
     if(state.ended)throw new RangeError('Source author already ended')
     if(state.cursor)throw new RangeError('Pending source input must be resumed first')
     if(state.inputOrdinal===Number.MAX_SAFE_INTEGER)throw new RangeError('Source author input counter exhausted')
-    if(state.lastInput && (packet.t<state.lastInput.t || packet.rotation!==state.lastInput.rotation
+    if(state.lastInput && (packet.t<state.lastInput.t || (!this.program.inputProfile && packet.rotation!==state.lastInput.rotation)
       || packet.hover!==state.lastInput.hover))throw new RangeError('Unsupported source packet clock/rotation/hover transition')
     const owned=structuredClone(state)
     const start=!owned.lastInput
@@ -261,7 +262,7 @@ export class SourceStrokeAuthor {
         || (c.kind!=='start')!==!!state.lastInput
         || c.kind==='finish' && (!this.program.inputProfile || !['paint','nextRole'].includes(c.phase)))bad()
       validatePacket(c.endpoint);validatePacket(c.current)
-      if(state.lastInput && (c.endpoint.t<state.lastInput.t || c.endpoint.rotation!==state.lastInput.rotation || c.endpoint.hover!==state.lastInput.hover))bad()
+      if(state.lastInput && (c.endpoint.t<state.lastInput.t || (!this.program.inputProfile && c.endpoint.rotation!==state.lastInput.rotation) || c.endpoint.hover!==state.lastInput.hover))bad()
       for(const request of c.requests){
         validatePacket(request)
         if(!Number.isFinite(request.drawingAngle) || request.angleOverride!==undefined && typeof request.angleOverride!=='boolean')bad()

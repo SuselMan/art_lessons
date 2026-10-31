@@ -1,0 +1,9 @@
+# Pen rotation during native freehand input
+
+The opt-in `krita-freehand-no-smoothing-v1` author profile now follows `KisPaintInformation::mixOtherImpl` and `kis_global.h` at pinned Krita source bd6e8d061d2f0388c5b10278786cf0fe62e3135f. It converts degrees to radians in source arithmetic order, takes shortest unsigned angular distance, selects the nearer increment direction (subtract on a tie), then converts back. The result is deliberately not normalized. Unchanged angles preserve their exact original value, including signed zero.
+
+`fixtures/sourceRotationMix.native.cpp` is a source-based x86-64 g++ F64 oracle with the original distance/conversion helpers and rotation expression; JSON pins source/compiler flags/oracle and binary hashes. Its 198 independent vectors cover wrap-around, exact antipodes, negative/out-of-range angles, equal endpoints and interpolation boundaries. TS matches all F64 output bits. This is not installed ARM execution, native GUI stroke identity or a new source/preset admission.
+
+The same author applies this law to its normal distance and fan input mixes. A synthetic tightly spaced existing source program checks changing rotation across repeated requests and resume/fork at every pending checkpoint. The pipeline check recovers an approximate interpolation fraction from mixed x, so uses a numerical tolerance there; the separate C++ scalar vectors enforce bit equality. The historical undefined input profile retains its previous changing-rotation rejection, and native clock/hover transitions remain guarded. Recorded material/replay formats and editor activation are unchanged.
+
+The regression gate includes existing author query/RNG fixtures and independent full native soft/default pressure-stroke hashes. Binary output is registered as disposable and removed after oracle capture; compact source, vectors and test logs are retained.
