@@ -5,6 +5,8 @@ import { pipeline } from 'node:stream/promises'
 
 import type { Operation } from '@grafetto/shared'
 
+import { canonicalOperationRowSelect,verifyCanonicalOperationRow,type CanonicalStoredOperationRow } from './roomPersistence.js'
+import { immutableCanonicalOperation } from './operationLog.js'
 import { prisma } from '../db/prisma.js'
 import { rooms, type RoomRecord } from './roomRegistry.js'
 import { permitsSnapshotWatermark } from './firstSnapshotPolicy.js'
@@ -365,6 +367,12 @@ export async function getLayerSnapshot(
  *  to the source. An empty result means backfill has reached the beginning
  *  of the room's stored history. */
 export async function getOperationsBefore(roomId: string, beforeSeq: number, limit: number, layerIds?: string[]): Promise<Operation[]> {
+  return (await getOperationsBeforeWithCanonicalRows(roomId,beforeSeq,limit,layerIds)).operations
+}
+
+/** SAME history query with actual indexed evidence for read attachment
+ * preparation. Historical rows are NOT adopted as resident write receipts. */
+export async function getOperationsBeforeWithCanonicalRows(roomId:string,beforeSeq:number,limit:number,layerIds?:string[]):Promise<{operations:Operation[];canonicalRows:CanonicalStoredOperationRow[]}> {
   // `orderBy: seq desc` + take, then reversed: "the newest `limit`
   // operations below beforeSeq" is a suffix, and the (roomId, seq) unique
   // index makes it an indexed range scan rather than a full-table sort.
@@ -394,7 +402,17 @@ export async function getOperationsBefore(roomId: string, beforeSeq: number, lim
     ] } : {}) },
     orderBy: { seq: 'desc' },
     take: limit,
-    select: { data: true },
+    select: canonicalOperationRowSelect,
   })
-  return rows.reverse().map(row => row.data as Operation)
+  const operations:Operation[]=[],canonicalRows:CanonicalStoredOperationRow[]=[]
+  for(const row of rows.reverse()){
+    const op=row.data as Operation
+    if(row.type==='canonical_stroke'||op?.type==='canonical_stroke'){
+      verifyCanonicalOperationRow(roomId,op,row)
+      if(op.type!=='canonical_stroke')throw Error('Canonical history row discriminator conflict')
+      const copy=immutableCanonicalOperation(op,op.seq!)
+      operations.push(copy);canonicalRows.push({...row,data:copy})
+    }else operations.push(op)
+  }
+  return {operations,canonicalRows}
 }

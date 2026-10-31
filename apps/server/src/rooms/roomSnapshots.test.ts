@@ -11,6 +11,7 @@ import { recordOperation, updateAliveIds } from './operationLog.js'
 import {
   getCoveredSeq, getLayerSnapshot, getOperationsBefore, getSnapshotIndex, saveSnapshot,
 } from './snapshotStore.js'
+import { canonicalOperationRowSelect } from './roomPersistence.js'
 import { deletableOperations } from './snapshotCoverage.js'
 
 // rooms.test.ts deliberately runs with no real Postgres — every DB call it
@@ -746,7 +747,7 @@ describe('getOperationsBefore', () => {
       where: { roomId: 'room-1', seq: { lt: 400 } },
       orderBy: { seq: 'desc' },
       take: 100,
-      select: { data: true },
+      select: canonicalOperationRowSelect,
     })
   })
 
