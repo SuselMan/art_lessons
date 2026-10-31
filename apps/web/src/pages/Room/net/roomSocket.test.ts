@@ -643,3 +643,27 @@ it('preserves a queued legacy stroke across same-board engine replacement while 
   expect(prepareCanonicalRecordedInput).not.toHaveBeenCalled();expect(fake.disconnect).not.toHaveBeenCalled()
  }finally{release();close()}
 })
+it('keeps a capacity-held ninth original ahead of replayed later frames, close and reentrant arrivals without ACK paint',async()=>{
+ const {deps,listeners,fake}=sourceSetup(),f=await gateFrameFixture(false),replay=createReplayGate<Parameters<ServerToClientEvents['operation_confirmed']>[0]>(),{engine}=createTestEngine()
+ deps.engineRef.current=engine;deps.replayGate=replay;deps.holdReviewArrivals=()=>{replay.begin()}
+ const payload=(seq:number):Parameters<ServerToClientEvents['operation_confirmed']>[0]=>{
+  const operation={...f.op,id:'burst-'+seq,seq,frame:{...f.op.frame,strokeId:'S'+seq}},snapshot={...f.attachment.capabilities[0].snapshot,strokeId:'S'+seq}
+  return{seq,operation,canonicalCapabilities:{version:1,roomId:'B2',boardEpoch:2,capabilities:[{originalUserId:'author',snapshot}],bindings:[{operationId:operation.id,sequence:seq,originalUserId:'author',capability:0}]}}
+ }
+ let release!:()=>void
+ const pending=new Promise<void>(done=>{release=done}),prepared=new Map<string,import('../../../engine').CanonicalRecordedInput>(),applied:number[]=[]
+ const prepareCanonicalRecordedInput=vi.fn(async(input:import('../../../engine').CanonicalRecordedInput)=>{input.delivery.assertCurrent(input);prepared.set(input.operation.id,input);if(input.operation.seq===9)await pending;return 'ready' as const})
+ deps.applyRemoteOp=vi.fn((op,_read,input)=>{expect(input).toBe(prepared.get(op.id));input!.delivery.assertCurrent(input!);applied.push(op.seq!);if(op.seq===9)Reflect.apply(listeners.get('operation_confirmed')!,null,[payload(14)]);return true})
+ const close=connectRoomSocket({...deps,prepareCanonicalRecordedInput})
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()]);const ticket=replay.begin()
+  for(let seq=1;seq<=12;seq++)Reflect.apply(listeners.get('operation_confirmed')!,null,[payload(seq)])
+  Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:13,operation:{type:'canonical_stroke_close',id:'burst-close',userId:'author',timestamp:2,seq:13,layerId:'L',targetUserId:'author',strokeId:'S12',disposition:'commitPartial',recordedNext:1,firstFrameOpId:'burst-12',lastFrameOpId:'burst-12'}}])
+  expect(prepareCanonicalRecordedInput).not.toHaveBeenCalled();expect(replay.end(ticket)).toBe(true)
+  await vi.waitFor(()=>expect(prepared.has('burst-9')).toBe(true))
+  expect(applied).toEqual([1,2,3,4,5,6,7,8]);expect(deps.lastConfirmedSeqRef.current).toBe(8)
+  deps.latestKnownSeqRef.current=14;expect(deps.lastConfirmedSeqRef.current).toBe(8)
+  release();await pending;await vi.waitFor(()=>expect(applied).toHaveLength(14))
+  expect(applied).toEqual(Array.from({length:14},(_,i)=>i+1));expect(deps.lastConfirmedSeqRef.current).toBe(14);expect(fake.disconnect).not.toHaveBeenCalled()
+ }finally{release();close();engine.destroy()}
+})

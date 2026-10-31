@@ -147,9 +147,10 @@ export class CanonicalWashLayerCoordinator {
   get queuedFrameCount():number { return this.queue.length }
   /** A partially published stable commit cannot be shown through a raw-wash
    * rebase while a later local gesture still lacks its recorded order. */
-  get awaitingRecordedOrder():boolean {
+  private get stableOrderBlocked():boolean {
     return !this.commitFrontier()&&this.entries.some(entry=>!entry.committed&&!!entry.ownership&&!!(entry.targetPlan||entry.tile||entry.part))
   }
+  get awaitingRecordedOrder():boolean {return this.stableOrderBlocked&&!this.queue.length}
   get poisoned(): boolean { return this.failed }
   get pending(): boolean { return !!this.queue.length || !!this.dirty.size || !!this.work || !!this.commitFrontier()?.ownership }
   get presentationReady(): boolean { return !this.failed && !this.closed && !this.dirty.size && !this.work }
@@ -158,6 +159,20 @@ export class CanonicalWashLayerCoordinator {
   get completedPresentationRevision():number { return this.completedPresentation }
   get checkpointReady(): boolean { return this.presentationReady && !this.queue.length && this.entries.every(e => e.committed) }
   get cleanupFailures(): readonly unknown[] { return Object.freeze([...this.errors]) }
+
+  /** Capacity only, never a reservation or source/sequence grant. */
+  canAcceptRecorded(input:CanonicalRecordedInput):boolean {
+    this.assertOpen();input.delivery.assertCurrent(input);this.assertRecordedCurrent();this.assertLayers()
+    const scope=input.delivery.lifetime.assertCurrent(),op=input.operation
+    const close=op.type==='canonical_stroke_close'
+    if(op.type!=='canonical_stroke'&&!close)throw new TypeError('Recorded source input required')
+    if(op.layerId!==this.options.layerId)throw new TypeError('Recorded source layer mismatch')
+    const id=JSON.stringify([scope.roomId,scope.boardEpoch,close?op.targetUserId:op.userId,close?op.strokeId:op.frame.strokeId])
+    const entry=this.entries.find(e=>e.id===id)
+    if(close){if(!entry?.recorded)throw new Error('Recorded close owner missing');return this.queue.includes(entry)||this.queue.length<8}
+    if(entry?.local)return true // Original promotion adds no GPU frame.
+    return this.queue.length<8&&(!entry||entry.executor.pendingFrameCount<8)
+  }
 
   /** Original local delivery, not a log copy or a source selected by a frame. */
   enqueueRecorded(input:CanonicalRecordedInput):void {
@@ -412,7 +427,24 @@ export class CanonicalWashLayerCoordinator {
       // before either presentation or commit attempts another admission.
       if(preparing>=0)this.advanceEntry(this.queue[preparing],preparing)
       else if (frontier?.ownership) this.commit(frontier,turnStarted)
-      else if(this.awaitingRecordedOrder)return
+      else if(this.stableOrderBlocked){
+        if(!this.queue.length)return
+        // Keep a partial stable commit's SAME pin. Resident plans compose via
+        // the layer's existing storagePins; no partial buffer is unpinned.
+        const pending=this.entries.find(entry=>entry.targetPlan&&!entry.commitTarget)
+        if(pending){
+          const tile=pending.ownership!.tiles[pending.tile]
+          pending.commitTarget=this.target(pending.targetPlan!,tile,true)
+          if(!pending.commitTarget){
+            runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{
+              this.gl.activeTexture(this.gl.TEXTURE0)
+              pending.commitTarget=this.target(pending.targetPlan!,tile)
+            })
+            return // At most one materialization; raw work starts next turn.
+          }
+        }
+        this.advanceEntry(this.queue[0],0)
+      }
       else if (this.dirty.size) this.present(turnStarted)
       else if (this.queue.length)this.advanceEntry(this.queue[0],0)
     } catch (error) {

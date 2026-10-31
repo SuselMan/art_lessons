@@ -17,6 +17,7 @@ import {installBrushPixels,clearImportedBrushPixels,installBrushLibrary} from '.
 import {prepareCanonicalRoomState} from '../pages/Room/net/canonicalRoomState'
 import {createTestEngine} from './testing/engineTestUtils'
 import {PencilEngine} from './index'
+import {createOrderedBrushGate} from '../pages/Room/net/orderedBrushGate'
 const descriptor=fixture.descriptor as unknown as BrushDescriptor
 const binding=canonicalImageSourceBinding(descriptor,fixture.asset)
 const asset=binding.assets[0]
@@ -84,7 +85,7 @@ async function autoHarness(begin:(request:CanonicalStrokeBegin,lifetime:{signal:
  const snapshots=new Map<string,CanonicalStrokeSnapshotV2>()
  const acceptedBegin=async(request:CanonicalStrokeBegin,lifetime:{signal:AbortSignal;isCurrent:()=>boolean})=>{const reply=await begin(request,lifetime);if(reply.ok&&'materialVersion'in reply.snapshot&&reply.snapshot.materialVersion===2)snapshots.set(request.strokeId,reply.snapshot);return reply}
  const p=emptyOriginal(isCurrent,page),operations:Operation[]=[],r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:page.width,pageHeight:page.height,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations},canonicalAuthor:{begin:acceptedBegin},onLocalOperation:op=>operations.push(op)},{width:8,height:8}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
- Object.assign(gl,{getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,8,8]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
+ Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,8,8]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
  engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil('brush:'+selected.id+'@'+selected.version);engine.setSize(40);engine.setLocked(false)
  await engine.paperReady();await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
  return{engine,operations,p,snapshots}
@@ -271,5 +272,61 @@ it('does not wait for unrelated brush work when the original source is already r
   const work=engine['_brushPreparation'].run([jobs],{},()=>true,'unrelated-pending')
   expect(await engine.prepareOriginalRecorded(imageInput(p,trace.operations.at(-1)!))).toEqual({status:'ready'});expect(jobs).not.toHaveBeenCalled();expect(engine['_canonicalLayerOwner']!.resourceCandidate).toBeUndefined()
   engine['_brushPreparation'].cancel();await work
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+
+function imageInputs(scope:Parameters<typeof attachCanonicalRecordedDelivery>[1],offset=0){
+ const snapshot={...trace.snapshot,boardEpoch:scope.boardEpoch},operations=trace.operations.map((op,i)=>({...op,seq:offset+i+1}))
+ const attachment={version:1 as const,roomId:scope.roomId,boardEpoch:scope.boardEpoch,capabilities:[{originalUserId:'author',snapshot}],bindings:operations.map(op=>({operationId:op.id,sequence:op.seq,originalUserId:op.userId,capability:0}))}
+ return prepareCanonicalRecordedAttachment(attachment,operations,scope).map(atom=>{const input=attachCanonicalRecordedDelivery(atom,scope);if(!('delivery'in input))throw Error('original');return input})
+}
+it('backpressures a whole Basic6 burst through the SAME gate while actual Basic2 A stays OPEN then continues',async()=>{
+ const h=await autoHarness(async request=>verdict(request),autoDescriptor,()=>true,{width:512,height:512}),{engine}=h
+ let gate:ReturnType<typeof createOrderedBrushGate>|undefined,repair:unknown
+ engine['_onCanonicalRecoveryRequired']=error=>{repair=error}
+ try{
+  await engine.prepareBrush(autoPreset);engine['_onStart'](packet(20,0));engine['_onMove'](packet(60,10))
+  await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false),{timeout:5000});expect(h.operations.length).toBeGreaterThan(0)
+  const initial=h.operations.length
+  for(const op of h.operations){const input=autoConfirmed(h,op,engine['_log'].entries.length+1);expect(await engine.prepareOriginalRecorded(input)).toEqual({status:'ready'});engine.appendOriginalRecorded(input)}
+  const owner=engine['_canonicalLayerOwner']!,coordinator=owner.coordinator!,program=engine['_canonicalPreparedAuthor'],snapshot={...trace.snapshot,boardEpoch:2},operations=trace.operations.map((op,i)=>({...op,seq:initial+i+1}))
+  const attachment={version:1 as const,roomId:'room',boardEpoch:2,capabilities:[{originalUserId:'author',snapshot}],bindings:operations.map(op=>({operationId:op.id,sequence:op.seq,originalUserId:op.userId,capability:0}))}
+  const inputs=prepareCanonicalRecordedAttachment(attachment,operations,h.p.canonicalRead.scope).map(atom=>{const input=attachCanonicalRecordedDelivery(atom,h.p.canonicalRead.scope);if(!('delivery'in input))throw Error('original');return input})
+  const enqueue=coordinator.enqueueRecorded.bind(coordinator);let maximum=coordinator.queuedFrameCount
+  vi.spyOn(coordinator,'enqueueRecorded').mockImplementation(input=>{enqueue(input);maximum=Math.max(maximum,coordinator.queuedFrameCount)})
+  let complete!:()=>void,fail!:(error:unknown)=>void
+  const drained=new Promise<void>((resolve,reject)=>{complete=resolve;fail=reject})
+  gate=createOrderedBrushGate(()=>null,fail)
+  for(const [index,input]of inputs.entries())gate.dispatch([],()=>{engine.appendOriginalRecorded(input);if(index===inputs.length-1)complete()},()=>true,async()=>{expect(await engine.prepareOriginalRecorded(input)).toEqual({status:'ready'})})
+  await drained.catch(error=>{throw repair??error})
+  await vi.waitFor(()=>expect(owner.job).toBeUndefined(),{timeout:15000})
+  expect(maximum).toBeLessThanOrEqual(8);expect(maximum).toBe(8);expect(engine.hasActiveCanonicalAuthor()).toBe(true);expect(owner.failed).toBe(false);expect(owner.coordinator).toBe(coordinator);expect(owner.bank?.isReady()).toBe(true);expect(engine['_canonicalPreparedAuthor']).toBe(program)
+  expect(engine['_log'].entries.map(e=>e.serverSeq)).toEqual(Array.from({length:initial+163},(_,i)=>i+1));expect(engine['_log'].entries.slice(initial).map(e=>e.canonicalInput)).toEqual(inputs)
+  engine['_onMove'](packet(100,20));engine['_onEnd'](packet(100,30));await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false),{timeout:5000})
+  for(const op of h.operations.slice(initial)){const input=autoConfirmed(h,op,engine['_log'].entries.length+1);expect(await engine.prepareOriginalRecorded(input)).toEqual({status:'ready'});engine.appendOriginalRecorded(input)}
+  await vi.waitFor(()=>expect(engine['_canonicalExportReady']()).toBe(true),{timeout:15000})
+  expect(h.operations.length).toBeGreaterThan(initial);expect(owner.failed).toBe(false);expect(owner.recordedCapacity).toBeUndefined()
+ }finally{gate?.cancel();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},30000)
+
+it.each(['abort','destroy','loss','stale'] as const)('retires a capacity waiter through actual %s without admitting the held ninth original',async mode=>{
+ let current=true
+ const h=await autoHarness(async request=>verdict(request),autoDescriptor,()=>current,{width:512,height:512}),{engine}=h
+ try{
+  await engine.prepareBrush(autoPreset)
+  const inputs=imageInputs(h.p.canonicalRead.scope),owner=engine['_canonicalLayerOwner']!
+  for(const input of inputs.slice(0,8)){expect(await engine.prepareOriginalRecorded(input)).toEqual({status:'ready'});engine.appendOriginalRecorded(input)}
+  expect(owner.coordinator?.queuedFrameCount).toBe(8)
+  const controller=new AbortController(),pending=engine.prepareOriginalRecorded(inputs[8],{signal:controller.signal})
+  expect(owner.recordedCapacity).toBeDefined()
+  if(mode==='abort'){controller.abort();expect(await pending).toEqual({status:'cancelled'});expect(engine['_log'].entries).toHaveLength(8);expect(owner.failed).toBe(false)}
+  else{
+   const rejected=expect(pending).rejects.toThrow()
+   if(mode==='destroy')engine.destroy()
+   if(mode==='loss'){vi.spyOn(engine['gl'],'isContextLost').mockReturnValue(true);engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}))}
+   if(mode==='stale')current=false
+   await rejected
+  }
+  expect(owner.recordedCapacity).toBeUndefined();expect(engine['_log'].entries.some(entry=>entry.op.id===inputs[8].operation.id)).toBe(false)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)

@@ -1471,6 +1471,7 @@ interface CanonicalLayerOwner {
  readonly cache:BrushTextureCache;readonly prepass:TransformedMaskPrepass;readonly composite:CanonicalRgba8CompositePass
  bank?:CanonicalMaskSourceBank
  resourceCandidate?:{cancel(lost:boolean):void}
+ recordedCapacity?:{readonly promise:Promise<void>;readonly resolve:()=>void;readonly release:()=>void}
  releaseResources?:()=>void
  mask:TransformedMaskLimits;prepared:boolean;proof:CanonicalJournalProof;inputs:readonly CanonicalRecordedInput[]
  derived?:TiledLayerBuffer;coordinator?:CanonicalWashLayerCoordinator;job?:RebuildJob;wake?:number;orderParked?:boolean;lastDisplayedPresentationRevision?:number
@@ -6406,6 +6407,31 @@ export class PencilEngine implements PencilEngineAPI {
    * full original history cut, independently of this author-lifetime guard. */
   hasActiveCanonicalAuthor():boolean {return this.rasterVersion===STRAIGHT_ROOM_RASTER_VERSION&&this._canonicalSourceLifetimeHolds>0}
 
+  private _notifyCanonicalRecordedCapacity(owner:CanonicalLayerOwner):void {
+    const pending=owner.recordedCapacity;owner.recordedCapacity=undefined
+    if(pending)try{pending.release()}finally{pending.resolve()}
+  }
+  /** The existing ordered ingress retains its input; this owner holds only a
+   * progress notification, never another frame queue or a cached ready grant. */
+  private async _waitCanonicalRecordedCapacity(owner:CanonicalLayerOwner,input:CanonicalRecordedInput,current:()=>void,signal?:AbortSignal):Promise<BrushPreparationResult> {
+    current()
+    while(owner.coordinator&&!owner.coordinator.canAcceptRecorded(input)){
+      current();if(signal?.aborted)return{status:'cancelled'}
+      if(!owner.recordedCapacity){
+        const release=this._brushMipCache.reserve(256)
+        let resolve!:()=>void
+        const promise=new Promise<void>(done=>{resolve=done})
+        owner.recordedCapacity={promise,resolve,release}
+      }
+      const pending=owner.recordedCapacity
+      this._wakeCanonicalLayer(owner)
+      await pending.promise
+      current()
+    }
+    current()
+    return signal?.aborted?{status:'cancelled'}:{status:'ready'}
+  }
+
   /** Original delivery supplies source identity; this method only prepares its
    * immutable resources. No journal/pixel/confirmation publication occurs here. */
   async prepareOriginalRecorded(input:CanonicalRecordedInput,options:Pick<BrushPreparationOptions,'signal'>={}):Promise<BrushPreparationResult> {
@@ -6415,11 +6441,11 @@ export class PencilEngine implements PencilEngineAPI {
     const current=()=>{input.delivery.assertCurrent(input);this._assertCanonicalLayerCurrent(owner);if(input.delivery.lifetime.assertCurrent()!==scope)throw new Error('Canonical resource lifetime changed')}
     current()
     if(options.signal?.aborted)return{status:'cancelled'}
-    if(op.type==='canonical_stroke_close')return{status:'ready'}
+    if(op.type==='canonical_stroke_close')return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
     if(op.type!=='canonical_stroke'||!input.read||op.layerId!==INITIAL_LAYER_ID)throw new TypeError('Unsupported canonical resource operation')
     const snapshot=input.read.capability.snapshot,source=snapshot.material.primarySource
     if(snapshot.materialVersion!==2||snapshot.material.maskSource||snapshot.rasterProfile!==owner.plan.profile)throw new TypeError('Unsupported canonical resource material')
-    if(source.kind!=='image')return{status:'ready'}
+    if(source.kind!=='image')return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
     const pin=canonicalImageMaterialPin(source,snapshot.material.assets),capacity=canonicalImageMaskCapacity(source,pin.assets)
     if(!owner.prepared||capacity.width>owner.mask.width||capacity.height>owner.mask.height)throw new RangeError('Canonical source exceeds warm workspace; growth unsupported')
     const assertAssets=()=>{for(const asset of pin.assets)if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical image asset unavailable')}
@@ -6429,7 +6455,7 @@ export class PencilEngine implements PencilEngineAPI {
       try{for(const asset of pin.assets)owner.bank.assertSourceBinding(asset,{gl:this.gl,cache:owner.cache,cpu:this._brushMipCache});current();return true}
       catch(error){current();if(!owner.bank.isReady())throw error;return false}
     }
-    if(sourceReady())return{status:'ready'}
+    if(sourceReady())return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
     const key='recorded-image:'+JSON.stringify([pin.primarySource,pin.assets])
     while(!this._brushPreparation.canRunWithoutReplacing(key)){
       // Passive work completion only: no candidate, author ownership, timer,
@@ -6438,7 +6464,7 @@ export class PencilEngine implements PencilEngineAPI {
       current()
       if(options.signal?.aborted)return{status:'cancelled'}
       assertAssets()
-      if(sourceReady())return{status:'ready'}
+      if(sourceReady())return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
     }
     const planned=pin.assets.flatMap(asset=>nativeImageBankFromRect(asset.id as TipMaskId,asset)),count=planned.length,authorGeneration=this._brushPreparationGeneration
     let bank:CanonicalMaskSourceBank|undefined,extension:CanonicalMaskSourceExtension|undefined,maskUpdate:CanonicalPreparedResourceUpdate|undefined,compositeUpdate:CanonicalPreparedResourceUpdate|undefined
@@ -6483,7 +6509,7 @@ export class PencilEngine implements PencilEngineAPI {
       }else cleanup(this._contextLost)
       return undefined
     })
-    if(result.status==='ready'){current();if(options.signal?.aborted)return{status:'cancelled'}}
+    if(result.status==='ready')return this._waitCanonicalRecordedCapacity(owner,input,current,options.signal)
     return result
   }
   /** Only an original recorded delivery can enter this source-only layer. */
@@ -6658,6 +6684,7 @@ export class PencilEngine implements PencilEngineAPI {
     try{
       this._assertCanonicalLayerCurrent(owner)
       owner.coordinator!.advance();this._assertCanonicalLayerCurrent(owner)
+      if(owner.recordedCapacity&&owner.coordinator!.queuedFrameCount<8)this._notifyCanonicalRecordedCapacity(owner)
       if(owner.coordinator!.awaitingRecordedOrder){owner.orderParked=true;return}
       if(!owner.coordinator!.pending&&owner.coordinator!.presentationReady){
         const coordinator=owner.coordinator!,retired=coordinator.checkpointReady
@@ -6698,6 +6725,7 @@ export class PencilEngine implements PencilEngineAPI {
     const releaseResources=owner.releaseResources;owner.releaseResources=undefined;attempt(()=>releaseResources?.())
     errors.push(...this._retireCanonicalLayerCycle(owner,lost))
     attempt(()=>owner.prepass.reset(lost));attempt(()=>owner.composite.reset(lost));const bank=owner.bank;owner.bank=undefined;attempt(()=>bank?.reset(lost));attempt(()=>owner.cache.clear(lost));attempt(()=>this._authorTasks.resetIfIdle())
+    attempt(()=>this._notifyCanonicalRecordedCapacity(owner))
     return errors
   }
   private _poisonCanonicalLayer(error:unknown):void {

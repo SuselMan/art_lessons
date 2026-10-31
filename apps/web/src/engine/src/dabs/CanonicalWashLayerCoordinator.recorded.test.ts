@@ -14,7 +14,7 @@ import {TiledLayerBuffer} from '../buffers/TiledLayerBuffer'
 import {CanonicalWashLayerCoordinator,type CanonicalLocalWashAuthor} from './CanonicalWashLayerCoordinator'
 import type {CanonicalRecordedInput,CanonicalRecordedLifetime,CanonicalRecordedDelivery} from '../oplog/CanonicalRecordedDelivery'
 
-function fixture(){
+function fixture(compositeSide=4){
  const {gl}=recordingGL();gl.texSubImage2D=vi.fn()
  gl.TEXTURE1=gl.TEXTURE0+1;gl.STATIC_DRAW=9001;gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME=9002
  gl.LINEAR=9010;gl.REPEAT=9011
@@ -32,7 +32,7 @@ function fixture(){
  const prepass=new TransformedMaskPrepass(gl,cache,cpu,'recorded-owner-test')
  prepass.prepare({width:4,height:4,slots:1},[])
  const composite=new CanonicalRgba8CompositePass(gl,cache,cpu,'recorded-owner-composite')
- composite.prepare({width:4,height:4,operations:['alphaDarken32FusedScalar','over32FusedScalar']},prepass.preparedResources())
+ composite.prepare({width:compositeSide,height:compositeSide,operations:['alphaDarken32FusedScalar','over32FusedScalar']},prepass.preparedResources())
  const scratch=new RibbonScratchPool(gl)
  const pin=canonicalDefaultAutoSourceBinding(stock.rows[0].descriptor as unknown as BrushDescriptor,'b'.repeat(64),'neon64-f32-fma-v1')
  const nativeCoverage=pin.coverageProfile;if(nativeCoverage==='browser-number-coverage-v1'||nativeCoverage==='neon64-f32-fma-seeded-density-v1')throw Error('Native fixture coverage required')
@@ -374,4 +374,36 @@ describe('matching confirmation without a visual reorder',()=>{
    expect(s.coordinator['entries']).toEqual([second,first]);expect(s.coordinator['revision']).toBe(rebased);expect(s.coordinator.publishedPresentationReady).toBe(true)
   }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
  })
+})
+
+it('drains bounded raw work behind a partial pinned stable commit so B head can precede later A originals',()=>{
+ const s=fixture(1)
+ try{
+  s.coordinator.enqueueRecorded(s.input('P',0,1,true,true))
+  for(let i=0;i<1000&&!s.coordinator['entries'][0].part;i++)s.coordinator.advance()
+  const partial=s.coordinator['entries'][0],plan=partial.targetPlan,buffer=partial.committingBuffer,part=partial.part
+  expect(part).toBeGreaterThan(0);expect(plan).toBeDefined();expect(buffer).toBeDefined();expect(partial.committed).toBe(false)
+  const a=s.input('A',0,10,false,true),author=s.localAuthor('A');expect(s.coordinator.tryEnqueueLocal(author,s.local(a))).toBe(true)
+  for(let i=0;i<7;i++)s.coordinator.enqueueRecorded(s.input('B',i,i+2))
+  const head=s.input('B',7,9,true,true)
+  expect(s.coordinator.queuedFrameCount).toBe(8)
+  expect(s.coordinator.canAcceptRecorded(head)).toBe(false);expect(s.coordinator.canAcceptRecorded(a)).toBe(true)
+  expect(()=>s.coordinator.canAcceptRecorded({...head})).toThrow(/foreign/)
+  const close=s.seal(s.input('B',6,8),{id:'close-B',seq:9,targetUserId:'B',recordedNext:7,firstFrameOpId:'B-2',lastFrameOpId:'B-8'})
+  expect(s.coordinator.canAcceptRecorded(close)).toBe(true)
+  const draws=vi.spyOn(s.composite,'drawSource')
+  for(let i=0;i<1000&&s.coordinator.queuedFrameCount===8;i++)s.coordinator.advance()
+  expect(s.coordinator.queuedFrameCount).toBeLessThan(8)
+  expect(partial.targetPlan).toBe(plan);expect(partial.committingBuffer).toBe(buffer);expect(partial.part).toBe(part)
+  expect(plan!.takeResident(0)?.buffer).toBe(buffer);expect(()=>s.layer.clear()).toThrow('retained');expect(s.coordinator.canAcceptRecorded(head)).toBe(true)
+  expect(draws.mock.calls.every(([request])=>request.source.kind==='maskRgb')).toBe(true)
+  expect(s.coordinator.presentationReady).toBe(false)
+  s.coordinator.enqueueRecorded(head);s.coordinator.enqueueRecorded(a)
+  for(let i=0;i<1000&&s.coordinator.queuedFrameCount===8;i++)s.coordinator.advance()
+  const end=s.input('A',1,11,true);expect(s.coordinator.tryEnqueueLocal(author,s.local(end))).toBe(true)
+  s.coordinator.enqueueRecorded(end)
+  for(let i=0;i<2000&&s.coordinator.pending;i++)s.coordinator.advance()
+  expect(s.coordinator.checkpointReady).toBe(true)
+ }finally{s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
 })
