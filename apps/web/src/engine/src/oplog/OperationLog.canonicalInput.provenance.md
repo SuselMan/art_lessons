@@ -13,3 +13,29 @@ Tests call the actual room-state preparer with a shared V2 source/attachment and
 Lifetime retention is real: the original room-state read can itself retain its bounded prepared tail/capabilities. Keeping one entry's original delivery may therefore keep that original bounded owner alive until all such entries are dropped. This unit does not claim per-entry heap isolation, copy that tail, or add another retained registry; future history pruning/rebuild must release the existing entry references normally.
 
 The equivalent-new-delivery branch is also exercised through actual `prepareCanonicalHistoryPage` under the SAME original room-state scope: its new input has the original lifetime, confirmation accepts it, and the retained entry still points to the FIRST input. A separately prepared room state at the same epoch has another lifetime and is rejected for the same gesture on append, confirmation and historical preparation (including within one incoming batch).
+
+
+## Same empty-journal publication precondition
+
+`prependHistorical(entries, expectedEmptyRevision)` adds a local comparison to
+its existing historical publication path. A supplied scalar requires the SAME
+journal to remain empty at its captured revision; it is not a source authority,
+full-history receipt, undo contract or engine activation flag. Undefined retains
+existing historical callers. The early comparison rejects an already occupied
+journal; the final comparison follows all original delivery/lifetime callbacks,
+copying, ordering, normalization and preparation of initial pixel counters.
+Only synchronous field publication remains in the guarded branch after it.
+Existing scratch-log preparation is reused; the actual engine must still own
+full-prefix validation, GPU replay, coherent layer publication and retirement.
+No replacement log, proof registry, queue, source grant or renderer is introduced.
+
+Four new tests failed on the old method. The real room-state preparer's captured
+`isCurrent` callback is armed AFTER scratch preparation to reenter the actual
+journal via append or undo. An appended live entry survives rejection; a no-op
+undo changes the revision while leaving the journal empty and also rejects.
+This verifies both conditions rather than only an empty-entry check. Successful
+publication keeps exact original inputs, authoritative server sequence, local
+numbering and pixel counters; repeated publication and invalid/stale revisions
+reject. Existing historical calls and original-input tests remain unchanged.
+These are host lifecycle proofs, not device pixels or a completed engine
+transaction. No device/service/temporary runtime resources are created.

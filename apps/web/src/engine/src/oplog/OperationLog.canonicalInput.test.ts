@@ -6,7 +6,7 @@ import {prepareCanonicalRoomState} from '../../../pages/Room/net/canonicalRoomSt
 import type {CanonicalRecordedInput} from './CanonicalRecordedDelivery'
 import {OperationLog,type LogEntry} from './OperationLog'
 
-function fixture(){
+function fixture(onCurrent:()=>void=()=>{}){
  const pin=canonicalDefaultAutoSourceBinding(stock.rows[0].descriptor as unknown as BrushDescriptor,'b'.repeat(64),'neon64-f32-fma-v1')
  const material={version:2 as const,assets:[],primarySource:pin,budget:{workUnits:1048576,outputBytes:1048576,drawPixels:1048576}}
  const snapshot:CanonicalStrokeSnapshotV2={materialVersion:2,material,assets:[],layerId:'layer',brush:'brush:'+pin.descriptorId+'@'+pin.descriptorVersion,strokeId:'stroke',boardEpoch:1,descriptorSha256:pin.descriptorSha256,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,pigmentRgb8:[0,0,0],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'}}
@@ -14,8 +14,8 @@ function fixture(){
  const operation=(id:string,seq:number,ordinal:number):CanonicalStrokeOperation=>({type:'canonical_stroke',id,userId:'author',timestamp:0,seq,layerId:'layer',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:snapshot.brush,strokeId:'stroke',frameOrdinal:ordinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},material).packed}})
  const ops=[operation('a',3,0),operation('b',5,1)]
  const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:64,canvasHeight:64,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:ops,participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:1},canonicalCapabilities:{version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot}],bindings:ops.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}))}}
- const read=prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent:()=>current}).canonicalRead
- const prepare=()=>prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent:()=>current}).canonicalRead.preparedAtoms as readonly CanonicalRecordedInput[]
+ const read=prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent:()=>{onCurrent();return current}}).canonicalRead
+ const prepare=()=>prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent:()=>{onCurrent();return current}}).canonicalRead.preparedAtoms as readonly CanonicalRecordedInput[]
  return {inputs:read.preparedAtoms as readonly CanonicalRecordedInput[],scope:read.scope,prepare,stale:()=>{current=false}}
 }
 
@@ -101,4 +101,33 @@ describe('original recorded delivery retained by existing history entries',()=>{
   expect(clean.revision).toBe(0);expect(clean.entries).toHaveLength(0)
  })
 
+})
+
+
+describe('initial historical journal compare-and-publish',()=>{
+ it('publishes original scratch entries once into the same empty journal at its captured revision',()=>{
+  const f=fixture(),log=new OperationLog(),scratch=new OperationLog(),revision=log.revision
+  for(const input of f.inputs)scratch.append(input.operation,{serverSeq:input.read!.sequence,canonicalInput:input})
+  log.prependHistorical(scratch.entries,revision)
+  expect(log.revision).toBe(revision+1);expect(log.entries.map(e=>e.canonicalInput)).toEqual(f.inputs)
+  expect(log.entries.map(e=>e.serverSeq)).toEqual([3,5]);expect(log.entries.map(e=>e.op.seq)).toEqual([0,1]);expect(log.pixelOpDoneCount('layer')).toBe(2)
+  expect(()=>log.prependHistorical(scratch.entries,log.revision)).toThrow(/journal changed/)
+  expect(log.entries).toHaveLength(2)
+ })
+ it.each(['append','undo'] as const)('refuses a baseline after an original read callback reenters the real journal through %s',action=>{
+  const log=new OperationLog();let armed=false
+  const f=fixture(()=>{if(armed){armed=false;if(action==='append')log.append({type:'layer_clear',id:'live',userId:'peer',timestamp:1,layerId:'layer'});else log.applyUndo('missing','peer')}})
+  const scratch=new OperationLog()
+  for(const input of f.inputs)scratch.append(input.operation,{serverSeq:input.read!.sequence,canonicalInput:input})
+  const revision=log.revision;armed=true
+  expect(()=>log.prependHistorical(scratch.entries,revision)).toThrow(/journal changed/)
+  expect(armed).toBe(false);expect(log.revision).toBe(revision+1)
+  expect(log.entries.map(e=>e.op.id)).toEqual(action==='append'?['live']:[]);expect(log.pixelOpDoneCount('layer')).toBe(action==='append'?1:0)
+ })
+ it('rejects invalid or already stale captured revisions before publishing any history',()=>{
+  const f=fixture(),log=new OperationLog(),scratch=new OperationLog()
+  const input=f.inputs[0];scratch.append(input.operation,{serverSeq:input.read!.sequence,canonicalInput:input})
+  for(const revision of [NaN,-1,.5,1])expect(()=>log.prependHistorical(scratch.entries,revision)).toThrow()
+  expect(log.revision).toBe(0);expect(log.entries).toHaveLength(0)
+ })
 })

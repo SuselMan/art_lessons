@@ -612,7 +612,16 @@ export class OperationLog {
    *  local seq has always meant "array index" (see append()), this keeps
    *  that invariant true across the splice. O(n) in the log's total size;
    *  fine for a background, few-times-per-session operation. */
-  prependHistorical(entries: readonly LogEntry[]): void {
+  prependHistorical(entries: readonly LogEntry[], expectedEmptyRevision?: number): void {
+    // Local publication precondition, NOT source/read authority. An initial
+    // baseline may publish only into the SAME still-empty journal it captured.
+    // Delivery validation below can call an original owner's lifetime callback.
+    const assertExpectedJournal = () => {
+      if (expectedEmptyRevision !== undefined && (!Number.isSafeInteger(expectedEmptyRevision)
+        || expectedEmptyRevision < 0 || this._revision !== expectedEmptyRevision || this._entries.length !== 0))
+        throw new Error('Historical baseline journal changed')
+    }
+    assertExpectedJournal()
     // Capture close metadata before splice; local op.seq is an array ordinal.
     let inputBasis:LogEntry[]|undefined
     entries = entries.map(entry => {
@@ -634,7 +643,6 @@ export class OperationLog {
         return copy
       })
     }
-    this._revision++
     const incoming = [...prepared.map(entry => copyLogEntry(entry,{pending:false})), ...this._entries]
     // A repair may fill a hole inside the known snapshot prefix, rather than
     // merely prepend an older page. Original server order is authoritative;
@@ -643,10 +651,22 @@ export class OperationLog {
       incoming.sort((a, b) => a.pending ? (b.pending ? 0 : 1) : b.pending ? -1 : a.serverSeq! - b.serverSeq!)
     }
     const merged = incoming.map((e, i) => copyLogEntry(e,{op:{...e.op,seq:i}}))
+    // The guarded initial branch prepares counters too: publication must not
+    // call an operation getter or authority callback after its final comparison.
+    const initialPixelCounts = expectedEmptyRevision === undefined ? undefined : new Map<string, number>()
+    if (initialPixelCounts) for (const {op, state} of merged) {
+      if (state !== 'done' || !isPixelOperation(op)) continue
+      const layerIds = op.type === 'layer_transform' ? op.transforms.map(t => t.layerId) : [op.layerId]
+      for (const layerId of layerIds) initialPixelCounts.set(layerId, (initialPixelCounts.get(layerId) ?? 0) + 1)
+    }
+    // No callbacks/copies remain between this comparison and publication.
+    assertExpectedJournal()
+    this._revision++
     this._entries = merged
     this._nextSeq = merged.length
     this._confirmedCount += entries.length
-    for (const e of entries) {
+    if (initialPixelCounts) this._pixelOpDoneCount = initialPixelCounts
+    else for (const e of entries) {
       if (e.state === 'done') this._bumpPixelOpCount(e.op, 1)
     }
   }
