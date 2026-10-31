@@ -12,8 +12,10 @@ export class CanonicalSoftCircleProgramOwner {
   private releaseCpu?: () => void
   private retired = false
   private leases = 0
+  private readonly cpu:BrushMipCache
 
   constructor(cpu: BrushMipCache, tip: SourceSoftCircleTip, curve: SourceCurvePolynomial, maxTableValues: number) {
+    this.cpu=cpu
     if (!Number.isSafeInteger(maxTableValues) || maxTableValues < 2 || maxTableValues > 16384
       || !Array.isArray(curve.points) || !Array.isArray(curve.coefficients)
       || curve.points.length < 1 || curve.points.length > 256 || curve.coefficients.length > 256)
@@ -26,6 +28,7 @@ export class CanonicalSoftCircleProgramOwner {
   }
 
   get done(): boolean { return !this.retired && !!this.preparation?.done }
+  sharesCpuOwner(cpu:BrushMipCache):boolean { return this.cpu===cpu }
   get completedValues(): number { return this.preparation?.completedValues ?? 0 }
 
   advance(maxValues: number): { written: number; done: boolean } {

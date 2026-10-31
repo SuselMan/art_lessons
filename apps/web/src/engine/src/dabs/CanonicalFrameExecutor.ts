@@ -52,6 +52,9 @@ export interface CanonicalFrameExecutorOptions {
   readonly rasterProfile: CanonicalExecutorRasterProfile
   /** Trusted verified-descriptor binding, fixed for this executor; not a client grant. */
   readonly autoSource?: CanonicalAutoSource | CanonicalSoftAutoSource
+  /** Optional caller-owned fixed source, shared across gesture executors. The
+   * caller retires it only after every consumer has stopped using that source. */
+  readonly softProgramOwner?: CanonicalSoftCircleProgramOwner
   /** Authoritative room page, never viewport. Absent retains the closed infinite-page QA API. */
   readonly pageBounds?: Readonly<WorldRect> | null
   readonly bank?: CanonicalMaskSourceBank
@@ -114,9 +117,11 @@ export class CanonicalFrameExecutor {
   private readonly rawOwner = { alive: true, leases: 0 }
   private washLayerId?: string
   private readonly softProgram?: CanonicalSoftCircleProgramOwner
+  private readonly ownsSoftProgram:boolean
   private sourceRetired = false
 
   constructor(options: CanonicalFrameExecutorOptions) {
+    if(options.softProgramOwner && options.autoSource?.kind!=='softAuto')throw new TypeError('A soft program owner requires a trusted soft source')
     if (options.washMode !== undefined && options.washMode !== 'exclusive' && options.washMode !== 'deposition-only') throw new TypeError('Invalid wash ownership mode')
     if (options.rasterProfile !== 'reference-scalar-f32-rne-v1' && options.rasterProfile !== CANONICAL_STROKE_RASTER_PROFILE) throw new TypeError('Unsupported canonical executor raster profile')
     const operations = options.rasterProfile === CANONICAL_STROKE_RASTER_PROFILE
@@ -124,16 +129,18 @@ export class CanonicalFrameExecutor {
     if (!options.composite.supportsOperations(operations)) throw new Error('Canonical executor raster profile was not prepared')
     const a = options.prepass.brushGlBatchInfo(), b = options.composite.brushGlBatchInfo()
     if (a.gl !== b.gl || a.cache !== b.cache || a.cpu !== b.cpu) throw new Error('Canonical executor services must share budgets and context')
+    if(options.softProgramOwner && !options.softProgramOwner.sharesCpuOwner(a.cpu))throw new Error('Canonical soft program must share the CPU owner')
     planCanonicalTargets({minX:0,minY:0,maxX:0,maxY:0},options.pageBounds ?? null,1,1)
     this.maskCapacity=options.prepass.preparedCapacity();
     this.compositeCapacity=options.composite.preparedCapacity();
     this.options = Object.freeze({ ...options, pageBounds: options.pageBounds ? Object.freeze({...options.pageBounds}) : null, autoSource: options.autoSource ? (options.autoSource.kind === 'defaultAuto' ? canonicalDefaultAutoSourcePin(options.autoSource) : options.autoSource.kind === 'gaussianAuto' ? canonicalGaussianAutoSourcePin(options.autoSource) : canonicalSoftAutoSourcePin(options.autoSource)) : undefined })
     this.gl = a.gl
+    this.ownsSoftProgram=!options.softProgramOwner
     const source=this.options.autoSource
     if(source?.kind==='softAuto') {
       if(source.sourceSlot!==0)throw new TypeError('Canonical executor requires a primary soft source')
       const s=source.source
-      this.softProgram=new CanonicalSoftCircleProgramOwner(a.cpu,
+      this.softProgram=options.softProgramOwner??new CanonicalSoftCircleProgramOwner(a.cpu,
         {kind:'auto',generator:'soft',shape:'circle',diameter:s.diameter,ratio:s.ratio,horizontalFade:s.horizontalFade,verticalFade:s.verticalFade,
           spikes:2,softness:1,randomness:0,density:1,antialias:false},
         {points:source.radialCurve.source.points,coefficients:source.radialCurve.coefficients},Math.floor(source.source.diameter*4+.5)+2)
@@ -517,10 +524,7 @@ export class CanonicalFrameExecutor {
     if (options.lost && !this.gl.isContextLost()) throw new Error('Cannot forget canonical resources on a live context')
     if (this.advancing || this.rawOwner.leases) throw new Error('Cannot cancel inside a canonical GL batch')
     const before = this.cleanupErrors.length
-    if(this.softProgram) {
-      this.sourceRetired=true
-      this.cleanup(()=>this.softProgram!.retire())
-    }
+    this.retireSoftProgram()
     if (this.gesture || this.pending || (this.washes.size && !this.rawTransferred)) {
       this.fail(reason, options.lost ?? this.gl.isContextLost())
     }
@@ -537,7 +541,13 @@ export class CanonicalFrameExecutor {
     for (const work of pending) this.cleanup(work.releaseMetadata)
     this.releaseWashes(lost)
     this.cleanup(() => this.options.prepass.releaseOwner(this))
-    if(this.softProgram){this.sourceRetired=true;this.cleanup(()=>this.softProgram!.retire())}
+    this.retireSoftProgram()
+  }
+
+  private retireSoftProgram():void {
+    if(!this.softProgram)return
+    this.sourceRetired=true
+    if(this.ownsSoftProgram)this.cleanup(()=>this.softProgram!.retire())
   }
 
   private rawLifetime(): CanonicalOwnedRgba8Target['lifetime'] {

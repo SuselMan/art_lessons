@@ -973,3 +973,54 @@ it('charges target preparation to the SAME turn budget before planning more tile
     expect(composite).toHaveBeenCalledTimes(9);expect(s.executor.checkpointReady).toBe(true)
   }finally{now.mockRestore();s.close()}
 })
+
+it('borrows one fixed source across gesture executors without retiring the caller owner',()=>{
+  const {pin,frame}=nativeSoftFrame(),s=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin)
+  const owner=s.executor['softProgram']!,baseline=s.cpu.reservedBytes,advance=vi.spyOn(owner,'advance')
+  const a=new CanonicalFrameExecutor({...s.executor['options'],softProgramOwner:owner})
+  const b=new CanonicalFrameExecutor({...s.executor['options'],softProgramOwner:owner})
+  try {
+    expect(s.cpu.reservedBytes).toBe(baseline)
+    a.enqueue({...s.submit(),frame,assets:[]});while(a.pending)a.advance()
+    const calls=advance.mock.calls.length;expect(calls).toBeGreaterThan(0)
+    a.cancel();expect(owner.done).toBe(true);expect(s.cpu.reservedBytes).toBe(baseline)
+    b.enqueue({...s.submit(),gestureId:'shared-soft-second',frame,assets:[]});while(b.pending)b.advance()
+    expect(advance.mock.calls.length).toBe(calls)
+    b.cancel();expect(s.cpu.reservedBytes).toBe(baseline)
+  }finally{a.cancel();b.cancel();s.close()}
+})
+
+it('retires unpublished soft coordinator executors on rejection and preserves accepted entries',()=>{
+ const {pin,frame}=nativeSoftFrame(),s=setup('wash',64,64,undefined,'reference-scalar-f32-rne-v1',pin)
+ const derived=new TiledLayerBuffer(s.gl,64,64,undefined,undefined,undefined,'straight-rgba8')
+ const source=vi.fn(()=>({autoSource:pin})),baseline=s.cpu.reservedBytes
+ const coordinator=new CanonicalWashLayerCoordinator({rasterProfile:'reference-scalar-f32-rne-v1',layerId:'layer',layerEpoch:0,maxGestures:4,
+  prepass:s.prepass,composite:s.composite,scratch:s.scratch,layer:()=>({buffer:s.layer,epoch:0}),presentation:()=>({buffer:derived,epoch:0}),
+  source,reserveTransient:s.reserveTransient,changed:s.changed,poison:s.poison})
+ const emptyBaseline=s.cpu.reservedBytes,r=frame.definitions[0];if(r.kind!=='softAuto')throw Error('Expected soft')
+ const input={...s.submit(),frame,assets:[]}
+ try {
+  const forged={...input,frame:{...frame,definitions:[{...r,sourceSlot:1 as const}]}}
+  for(let i=0;i<3;i++){expect(()=>coordinator.enqueue(forged,1)).toThrow();expect(s.cpu.reservedBytes).toBe(emptyBaseline);expect(coordinator.poisoned).toBe(false)}
+  const cleanupFailure=new Error('candidate cleanup failed'),cancel=CanonicalFrameExecutor.prototype.cancel
+  const cancelSpy=vi.spyOn(CanonicalFrameExecutor.prototype,'cancel').mockImplementationOnce(function(this:CanonicalFrameExecutor,...args){cancel.apply(this,args);throw cleanupFailure})
+  try{expect(()=>coordinator.enqueue(forged,1)).not.toThrow(cleanupFailure)}finally{cancelSpy.mockRestore()}
+  expect(coordinator.cleanupFailures).toContain(cleanupFailure);expect(s.cpu.reservedBytes).toBe(emptyBaseline)
+  const failure=new Error('source binding failed');source.mockImplementationOnce(()=>{throw failure})
+  expect(()=>coordinator.enqueue(input,1)).toThrow(failure);expect(s.cpu.reservedBytes).toBe(emptyBaseline)
+  coordinator.enqueue(input,1);const acceptedBaseline=s.cpu.reservedBytes
+  expect(()=>coordinator.enqueue({...forged,ordinal:1},2)).toThrow();expect(s.cpu.reservedBytes).toBe(acceptedBaseline);expect(coordinator.poisoned).toBe(false)
+  let n=0;while(coordinator.pending&&n++<300)coordinator.advance();expect(n).toBeLessThan(300);expect(coordinator.checkpointReady).toBe(true)
+  coordinator.cancel();expect(s.cpu.reservedBytes).toBe(baseline)
+ }finally{coordinator.cancel();derived.destroy();s.close()}
+});
+
+it('rejects a source reservation from another CPU owner before accepting frames',()=>{
+  const {pin}=nativeSoftFrame(),a=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin)
+  const b=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin)
+  try {
+    const beforeA=a.cpu.reservedBytes,beforeB=b.cpu.reservedBytes
+    expect(()=>new CanonicalFrameExecutor({...a.executor['options'],softProgramOwner:b.executor['softProgram']})).toThrow('share the CPU owner')
+    expect(a.cpu.reservedBytes).toBe(beforeA);expect(b.cpu.reservedBytes).toBe(beforeB)
+  }finally{a.close();b.close()}
+})

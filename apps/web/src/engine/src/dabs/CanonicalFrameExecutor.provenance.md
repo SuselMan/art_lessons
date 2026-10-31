@@ -285,3 +285,14 @@ prepares only one target in a turn and renders all nine tiles exactly once.
 58 executor tests and the common web TypeScript check pass. The initial Samsung
 single-tile before/after corpus retains exact pixels but shows no overall timing
 improvement; multi-tile scheduling and device timings are recorded separately.
+
+## Shared fixed-source ownership across gesture executors
+
+An explicit optional softProgramOwner allows multiple gesture executors to borrow
+one prepared basis from the same CPU brush owner. It never creates a second cache
+or budget. A foreign CPU owner is rejected before accepting frames. Executor cancel
+and failure close that executor and its pending mask leases; only an internally
+constructed source is retired by the executor. The caller retires a shared basis
+after all consuming executors stop. Tests reuse one table for two executors with
+no extra reservation or table evaluation, and verify coordinator candidate rollback
+and teardown return source charges even for unaccepted/committed gestures.
