@@ -1398,6 +1398,7 @@ interface CanonicalEmptyJob {
  readonly cache:BrushTextureCache;readonly prepass:TransformedMaskPrepass;readonly composite:CanonicalRgba8CompositePass
  coordinator?:CanonicalWashLayerCoordinator;stage:number;next:number;outstanding:number;retiring:boolean;complete:boolean
  releaseMetadata?:()=>void
+ wake?:number
 }
 
 /** (#536, ADR 011 §17.53) A layer rebuild in progress: the layer's done pixel
@@ -6111,7 +6112,7 @@ export class PencilEngine implements PencilEngineAPI {
           const job:RebuildJob={layerId:INITIAL_LAYER_ID,fresh:stable,chunks:new Map(),cp:null,start:0,applied:[],timer:0,part:null,canonical}
           this._rebuildJobs.set(INITIAL_LAYER_ID,job)
           this._assertCanonicalEmptyCurrent(tx)
-          job.timer=setTimeout(()=>this._stepRebuildJob(job),0)
+          this._scheduleCanonicalRebuild(job)
         }catch(error){this._failCanonicalEmpty(tx,error)}
       })
   }
@@ -6121,6 +6122,14 @@ export class PencilEngine implements PencilEngineAPI {
     const scope=tx.plan.read.assertCurrent(),lost=this.gl.isContextLost(),size=this._tileSize(),page=this._pageSize()
     const accepted=tx.recovery,journalValid=accepted?this._canonicalAccepted===accepted&&canonicalAcceptedJournalValid(accepted,this._log):this._log.entries.length===0
     if(scope!==tx.plan.scope||tx.finished||this._canonicalEmptyTransaction!==tx||this._destroyed||this._contextLost||lost||this._physicalGeneration!==tx.generation||this._log.revision!==tx.revision||!journalValid||this._layers!==tx.old||tx.old.size!==tx.oldEntries.length||tx.oldEntries.some(([id,buffer])=>tx.old.get(id)!==buffer)||tx.jobs.some(c=>this._rebuildJobs.get(INITIAL_LAYER_ID)?.canonical!==c)||page.w!==tx.plan.page.maxX||page.h!==tx.plan.page.maxY||size.w!==tx.plan.tileWidth||size.h!==tx.plan.tileHeight)throw new Error('Canonical baseline owner changed')
+  }
+  private _scheduleCanonicalRebuild(job:RebuildJob):void {
+    const canonical=job.canonical!
+    canonical.wake=this._authorTasks.schedule(()=>{
+      canonical.wake=undefined
+      if(this._destroyed||this._rebuildJobs.get(job.layerId)!==job)return
+      this._stepRebuildJob(job)
+    })
   }
   private _retireCanonicalEmptyJob(c:CanonicalEmptyJob,lost:boolean):unknown[] {
     c.retiring=true;const failures:unknown[]=[],attempt=(fn:()=>void)=>{try{fn()}catch(error){failures.push(error)}}
@@ -6136,10 +6145,15 @@ export class PencilEngine implements PencilEngineAPI {
     tx.finished=true
     if(this._canonicalEmptyTransaction===tx)this._canonicalEmptyTransaction=undefined
     let lost=false;try{lost=tx.generation!==this._physicalGeneration||this._contextLost||this.gl.isContextLost()}catch(error){tx.failures.push(error)}
-    for(const [id,job]of this._rebuildJobs)if(job.canonical?.transaction===tx){if(job.timer)clearTimeout(job.timer);this._rebuildJobs.delete(id)}
+    for(const [id,job]of this._rebuildJobs)if(job.canonical?.transaction===tx){
+      const wake=job.canonical.wake;job.canonical.wake=undefined
+      if(wake!==undefined)try{this._authorTasks.unschedule(wake)}catch(error){tx.failures.push(error)}
+      if(job.timer)clearTimeout(job.timer);this._rebuildJobs.delete(id)
+    }
     for(const c of tx.jobs)tx.failures.push(...this._retireCanonicalEmptyJob(c,lost))
     for(const buffer of tx.candidate.values())try{buffer.destroy()}catch(error){tx.failures.push(error)}
     const rollback=tx.rollbackGL;tx.rollbackGL=undefined;if(rollback)try{rollback()}catch(error){tx.failures.push(error)}
+    try{this._authorTasks.resetIfIdle()}catch(error){tx.failures.push(error)}
     tx.reject(primary)
   }
   private _stepCanonicalEmpty(job:RebuildJob):void {
@@ -6164,7 +6178,7 @@ export class PencilEngine implements PencilEngineAPI {
         if(c.next===plan.inputs.length&&c.coordinator.checkpointReady){c.complete=true;this._publishCanonicalEmpty(tx);return}
       }
       this._assertCanonicalEmptyCurrent(tx)
-      job.timer=setTimeout(()=>this._stepRebuildJob(job),0)
+      this._scheduleCanonicalRebuild(job)
     }catch(error){this._failCanonicalEmpty(tx,error)}
   }
   private _publishCanonicalEmpty(tx:CanonicalEmptyTransaction):void {
@@ -6184,6 +6198,7 @@ export class PencilEngine implements PencilEngineAPI {
     attempt(()=>this._invalidateSplitCache())
     for(const [,buffer] of tx.oldEntries)attempt(()=>buffer.destroy())
     for(const id of IMPLICIT_LAYER_IDS)attempt(()=>this._snapshots.refusePublishing(id))
+    attempt(()=>this._authorTasks.resetIfIdle())
     attempt(()=>this._displayIfNotSuspended())
     tx.resolve(Object.freeze({committed:true,cleanupFailures:Object.freeze([...tx.failures])}))
   }
@@ -6503,7 +6518,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
   private _cancelOwnedAuthor(lost:boolean,repair=false):void {
     const owned=!!this._authorSnapshot||!!this._authorProducer||this._authorInput.pending
-    this._stopAirbrush();this._authorInput.cancel();this._authorTasks.reset()
+    this._stopAirbrush();this._authorInput.cancel();this._authorTasks.resetIfIdle()
     if(!owned)return
     const id=this._strokeId,layers=this._strokeLayerId?[this._strokeLayerId,...this._strokeExtraLayerIds]:[]
     const scratch=this._ribbonStrokeScratch

@@ -49,6 +49,9 @@ export class AuthorTaskScheduler {
     for(const task of this.tasks.values())if(task.frame!==undefined)this.context.cancelFrame(task.frame)
     this.tasks.clear();this.closeChannel();this.attempted=false
   }
+  /** A caller that cancelled its own work must not discard another owner's
+   * accepted wakeup. Close idle ports without cancelling shared pending work. */
+  resetIfIdle():void {if(!this.tasks.size)this.reset()}
   destroy():void {this.reset();this.destroyed=true}
   private ensureChannel():boolean {
     if(this.channel)return true

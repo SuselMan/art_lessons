@@ -1,5 +1,19 @@
 # Original ended empty-room baseline in the real engine
 
+Canonical rebuild wakeups use the same engine-owned AuthorTaskScheduler as
+the author FIFO. The existing RebuildJob retains its own wake token; cancellation,
+loss and destruction cancel that token before retiring the candidate. A delivered
+stale callback checks the actual job-map identity before touching GL. Cancelling
+author input closes the scheduler only when it is idle, preserving another
+owner's accepted wakeup. Success/failure closes idle ports. No additional queue,
+renderer, scheduler instance or source authority is introduced.
+
+The reason is measured rather than assumed: the Samsung 208-turn baseline
+accumulated about 840 ms between recursive zero-delay timers. This transport
+change does not address the separately measured synchronous shader compilation
+stall or establish live-pointer responsiveness. Pixel equivalence and elapsed
+time still require a fresh hardware comparison.
+
 The explicit `canonicalEmptyRoom: { read, tail }` constructor option admits only
 straight RGBA8 storage after the original read verifies its original full tail.
 The normal room constructor path remains closed. The actual captured bounded

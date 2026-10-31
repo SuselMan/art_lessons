@@ -56,3 +56,13 @@ it('uses RAF when creating a channel fails without leaking or dropping accepted 
  scheduler.schedule(done);expect(createChannel).toHaveBeenCalledOnce();[...h.frames.values()][0]();expect(done).toHaveBeenCalledOnce()
  scheduler.schedule(done);expect(createChannel).toHaveBeenCalledOnce();scheduler.destroy();expect(h.frames.size).toBe(0)
 })
+it('releases idle ports without discarding another owner\'s pending wakeup',()=>{
+ const h=harness(),scheduler=new AuthorTaskScheduler(h.context),author=vi.fn(),rebuild=vi.fn()
+ const authorToken=scheduler.schedule(author);scheduler.schedule(rebuild)
+ scheduler.unschedule(authorToken);scheduler.resetIfIdle()
+ expect(h.channels[0].port1.close).not.toHaveBeenCalled()
+ h.deliveries.shift()!();h.deliveries.shift()!()
+ expect(author).not.toHaveBeenCalled();expect(rebuild).toHaveBeenCalledOnce()
+ scheduler.resetIfIdle();expect(h.channels[0].port1.close).toHaveBeenCalledOnce();expect(h.channels[0].port2.close).toHaveBeenCalledOnce()
+ scheduler.schedule(rebuild);expect(h.channels).toHaveLength(2);h.deliveries.shift()!();expect(rebuild).toHaveBeenCalledTimes(2);scheduler.destroy()
+})

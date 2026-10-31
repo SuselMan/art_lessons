@@ -48,6 +48,31 @@ function engineFor(prepared:ReturnType<typeof original>){
  result.engine.setCompositeOrder([{id:'layer-1',opacity:1}])
  return result
 }
+it('advances the same canonical job through the shared task transport despite an unrelated author cancellation',async()=>{
+ const p=original(),{engine}=engineFor(p),schedule=vi.spyOn(engine['_authorTasks'],'schedule')
+ try{
+  const pending=engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  void pending.catch(()=>{}) // Keep a failed assertion's teardown rejection observed.
+  expect(schedule).toHaveBeenCalledOnce()
+  engine['_cancelOwnedAuthor'](false)
+  expect((await pending).committed).toBe(true)
+  expect(engine['_log'].entries[0].canonicalInput).toBe(p.canonicalRead.preparedAtoms[0])
+  expect(engine['_authorTasks']['tasks'].size).toBe(0)
+ }finally{engine.destroy()}
+})
+it('cancels its own shared task and rejects a delivered stale wakeup before any GL work',async()=>{
+ const p=original(),{engine}=engineFor(p),schedule=vi.spyOn(engine['_authorTasks'],'schedule'),unschedule=vi.spyOn(engine['_authorTasks'],'unschedule')
+ try{
+  const pending=engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations),rejected=expect(pending).rejects.toThrow('cancelled')
+  const stale=schedule.mock.calls[0]?.[0];expect(stale).toBeTypeOf('function')
+  engine['_cancelRebuildJob']('layer-1');await rejected
+  expect(unschedule).toHaveBeenCalledOnce()
+  const draw=vi.spyOn(engine['gl'],'drawArrays'),allocate=vi.spyOn(engine['gl'],'createTexture')
+  stale!();expect(draw).not.toHaveBeenCalled();expect(allocate).not.toHaveBeenCalled()
+  expect(engine['_log'].entries).toHaveLength(0);expect(engine['_authorTasks']['tasks'].size).toBe(0)
+  expect(engine['_brushMipCache'].reservedBytes).toBe(0)
+ }finally{engine.destroy()}
+})
 it('runs a real ended source frame through the actual RebuildJob/coordinator/services and publishes original log proof with straight pixels',async()=>{
  const p=original(),{engine}=engineFor(p),old=engine['_layers'],draw=vi.spyOn(engine['gl'],'drawArrays'),visible=vi.spyOn(engine['_passes'],'transform'),finish=vi.spyOn(engine['gl'],'finish')
  try{
