@@ -276,21 +276,30 @@ export class SmudgePainter {
 
   destroy(): void {
     const {gl}=this
+    const programs = [this.curveTransfer?.program,this.imageTransfer?.program,this.proceduralTransfer?.program,
+      this.transferProg,this.pickupProg,this.meanProg]
+    this.curveTransfer=undefined;this.imageTransfer=undefined;this.proceduralTransfer=undefined
+    this.transferProg=undefined!;this.pickupProg=undefined!;this.meanProg=undefined!
+    const imprints = Array.from(this.imprints.values())
+    const secondary = Array.from(this.wetGestures.values(), state => state.secondary)
+    this.imprints.clear();this.replayChunks.clear();this.wetGestures.clear()
     let failed=false,primary:unknown
     const attempt=(cleanup:()=>void)=>{try{cleanup()}catch(error){if(!failed){failed=true;primary=error}}}
-    attempt(()=>this.scratchPool.destroy())
-    // Live imprints were removed from the scratch pool and remain individually owned.
-    for(const imprint of this.imprints.values())attempt(()=>imprint.buf?.destroy())
-    this.imprints.clear();this.replayChunks.clear()
-    attempt(()=>this.wetTextures.clear())
+    let lost = false
+    attempt(()=>{lost=gl.isContextLost?.() === true})
+    attempt(()=>lost ? this.scratchPool.forget() : this.scratchPool.destroy())
+    // Checked-out reservoirs belong here; idle buffers belong only to the pool.
+    if (!lost) for(const imprint of imprints)attempt(()=>imprint.buf?.destroy())
+    attempt(()=>this.wetTextures.clear(lost))
     if(this.ownsMipCache)attempt(()=>this.imageMips.clear())
-    for(const state of this.wetGestures.values())attempt(()=>state.secondary?.destroy())
-    this.wetGestures.clear()
-    if(this.curveTransfer)attempt(()=>gl.deleteProgram(this.curveTransfer!.program))
-    if(this.imageTransfer)attempt(()=>gl.deleteProgram(this.imageTransfer!.program))
-    if(this.proceduralTransfer)attempt(()=>gl.deleteProgram(this.proceduralTransfer!.program))
-    this.curveTransfer=undefined;this.imageTransfer=undefined;this.proceduralTransfer=undefined
-    for(const program of [this.transferProg,this.pickupProg,this.meanProg])attempt(()=>gl.deleteProgram(program))
+    for(const scratch of secondary)attempt(()=>lost ? scratch?.forget() : scratch?.destroy())
+    if(!lost) {
+      attempt(()=>{
+        const current=gl.getParameter(gl.CURRENT_PROGRAM)
+        if(current && programs.includes(current))gl.useProgram(null)
+      })
+      for(const program of programs)if(program)attempt(()=>gl.deleteProgram(program))
+    }
     if(failed)throw primary
   }
 

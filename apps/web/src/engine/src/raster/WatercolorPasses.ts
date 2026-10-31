@@ -378,21 +378,14 @@ export class WatercolorPasses {
 
   private releaseGradientField(): void {
     const cached = this._gradientField
-    if (!cached) return
-    const { gl } = this
-    if (gl.getParameter(gl.CURRENT_PROGRAM) === cached.program) gl.useProgram(null)
-    // Restored contexts reject old handles; MockGL may omit isProgram.
-    if (gl.isProgram?.(cached.program) !== false) gl.deleteProgram(cached.program)
     this._gradientField = null
+    if (cached) this.releasePrograms([cached.program])
   }
 
   private releaseCostDomain(): void {
     const cached = this._costDomain
-    if (!cached) return
-    const { gl } = this
-    if (gl.getParameter(gl.CURRENT_PROGRAM) === cached.program) gl.useProgram(null)
-    if (gl.isProgram?.(cached.program) !== false) gl.deleteProgram(cached.program)
     this._costDomain = null
+    if (cached) this.releasePrograms([cached.program])
   }
 
   private additiveZeroFaceCarry(mode: 15 | 16): { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null>; position: number } {
@@ -406,12 +399,29 @@ export class WatercolorPasses {
   }
 
   private releaseAdditiveZeroFaceCarry(): void {
-    const gl = this.gl
-    for (const { program } of this._additiveZeroFaceCarry.values()) {
-      if (gl.getParameter(gl.CURRENT_PROGRAM) === program) gl.useProgram(null)
-      if (gl.isProgram?.(program) !== false) gl.deleteProgram(program)
-    }
+    const programs = Array.from(this._additiveZeroFaceCarry.values(), entry => entry.program)
     this._additiveZeroFaceCarry.clear()
+    this.releasePrograms(programs)
+  }
+
+  /** Names must already be detached by the caller before any driver callback. */
+  private releasePrograms(programs: (WebGLProgram | undefined)[]): void {
+    const gl = this.gl
+    if (!programs.some(Boolean)) return
+    let failed = false, primary: unknown
+    const attempt = (cleanup: () => void) => { try { cleanup() } catch (error) { if (!failed) { failed = true; primary = error } } }
+    let lost = false
+    attempt(() => { lost = gl.isContextLost?.() === true })
+    if (lost) return
+    attempt(() => {
+      const current = gl.getParameter(gl.CURRENT_PROGRAM)
+      if (current && programs.includes(current)) gl.useProgram(null)
+    })
+    for (const program of programs) if (program) attempt(() => {
+      // Restored contexts reject old handles; MockGL may omit isProgram.
+      if (gl.isProgram?.(program) !== false) gl.deleteProgram(program)
+    })
+    if (failed) throw primary
   }
 
   initFieldPrograms(): void {
@@ -469,23 +479,21 @@ export class WatercolorPasses {
   }
 
   destroy(): void {
-    // Deleting the currently bound program is deferred until it is unbound.
-    // A final field pass may still be active when a connected canvas is retired.
-    const current = this.gl.getParameter(this.gl.CURRENT_PROGRAM)
-    if ([this._fieldOpProg, this._fieldOpHighProg, this._fieldOpCarryProg, this._fieldOpCarryColourProg,
-      this._resampleProg, this._diffuseProg, this._brushDragProg, this._waterFrontProg, this._gradientField?.program, this._costDomain?.program].includes(current)) {
-      this.gl.useProgram(null)
-    }
-    this.releaseGradientField()
-    this.releaseCostDomain()
-    this.releaseAdditiveZeroFaceCarry()
-    this.gl.deleteProgram(this._fieldOpProg)
-    this.gl.deleteProgram(this._fieldOpHighProg)
-    this.gl.deleteProgram(this._fieldOpCarryProg)
-    this.gl.deleteProgram(this._fieldOpCarryColourProg)
-    this.gl.deleteProgram(this._resampleProg)
-    this.gl.deleteProgram(this._diffuseProg)
-    this.gl.deleteProgram(this._brushDragProg)
-    this.gl.deleteProgram(this._waterFrontProg)
+    // Detach all names before calling the driver, including reentrant teardown.
+    const programs = [this._fieldOpProg, this._fieldOpHighProg, this._fieldOpCarryProg, this._fieldOpCarryColourProg, this._resampleProg, this._diffuseProg, this._brushDragProg, this._waterFrontProg,
+      this._gradientField?.program, this._costDomain?.program,
+      ...Array.from(this._additiveZeroFaceCarry.values(), entry => entry.program)]
+    this._fieldOpProg = undefined!
+    this._fieldOpHighProg = undefined!
+    this._fieldOpCarryProg = undefined!
+    this._fieldOpCarryColourProg = undefined!
+    this._resampleProg = undefined!
+    this._diffuseProg = undefined!
+    this._brushDragProg = undefined!
+    this._waterFrontProg = undefined!
+    this._gradientField = null
+    this._costDomain = null
+    this._additiveZeroFaceCarry.clear()
+    this.releasePrograms(programs)
   }
 }

@@ -530,7 +530,22 @@ export class RibbonPasses {
   }
 
   destroy(): void {
-    this.gl.deleteProgram(this._ribbonProg)
-    this.gl.deleteBuffer(this._ribbonBuf)
+    const gl = this.gl
+    const _ribbonProg = this._ribbonProg
+    this._ribbonProg = undefined!
+    const _ribbonBuf = this._ribbonBuf
+    this._ribbonBuf = undefined!
+    let failed = false, primary: unknown
+    const attempt = (cleanup: () => void) => { try { cleanup() } catch (error) { if (!failed) { failed = true; primary = error } } }
+    let lost = false
+    attempt(() => { lost = gl.isContextLost?.() === true })
+    if (lost) return
+    attempt(() => {
+      const current = gl.getParameter(gl.CURRENT_PROGRAM)
+      if (current && [_ribbonProg].includes(current)) gl.useProgram(null)
+    })
+    if (_ribbonProg) attempt(() => gl.deleteProgram(_ribbonProg))
+    if (_ribbonBuf) attempt(() => gl.deleteBuffer(_ribbonBuf))
+    if (failed) throw primary
   }
 }

@@ -75,7 +75,20 @@ export class ShapePass {
   }
 
   destroy(): void {
-    this.gl.deleteProgram(this.prog)
+    const gl = this.gl
+    const prog = this.prog
+    this.prog = undefined!
+    let failed = false, primary: unknown
+    const attempt = (cleanup: () => void) => { try { cleanup() } catch (error) { if (!failed) { failed = true; primary = error } } }
+    let lost = false
+    attempt(() => { lost = gl.isContextLost?.() === true })
+    if (lost) return
+    attempt(() => {
+      const current = gl.getParameter(gl.CURRENT_PROGRAM)
+      if (current && [prog].includes(current)) gl.useProgram(null)
+    })
+    if (prog) attempt(() => gl.deleteProgram(prog))
+    if (failed) throw primary
   }
 
   /** The world rect a shape's pixels can reach, clamped to the sheet in a

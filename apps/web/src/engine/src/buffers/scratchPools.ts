@@ -65,8 +65,9 @@ export class ScratchSlot<B extends Poolable> {
 
   /** Frees the buffer — the engine is being torn down. */
   destroy(): void {
-    this.held?.destroy()
+    const held = this.held
     this.held = null
+    held?.destroy()
   }
 
   /** Drops the handle without touching the driver — the context was lost and
@@ -119,9 +120,14 @@ export class ScratchFreeList<B extends Poolable> {
   idleBytes(): number { return this.freeBytes }
 
   destroy(): void {
-    for (const b of this.free) b.destroy()
+    const free = this.free
     this.free = []
     this.freeBytes = 0
+    let failed = false, primary: unknown
+    for (const buffer of free) {
+      try { buffer.destroy() } catch (error) { if (!failed) { failed = true; primary = error } }
+    }
+    if (failed) throw primary
   }
 
   /** Context loss already killed the GL names; never call destroy here. */

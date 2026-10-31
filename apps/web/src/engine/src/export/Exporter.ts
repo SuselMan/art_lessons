@@ -115,8 +115,23 @@ export class Exporter {
   }
 
   destroy(): void {
-    this.gl.deleteProgram(this.transparentProg)
-    this.gl.deleteProgram(this.downsampleProg)
+    const gl = this.gl
+    const transparentProg = this.transparentProg
+    this.transparentProg = undefined!
+    const downsampleProg = this.downsampleProg
+    this.downsampleProg = undefined!
+    let failed = false, primary: unknown
+    const attempt = (cleanup: () => void) => { try { cleanup() } catch (error) { if (!failed) { failed = true; primary = error } } }
+    let lost = false
+    attempt(() => { lost = gl.isContextLost?.() === true })
+    if (lost) return
+    attempt(() => {
+      const current = gl.getParameter(gl.CURRENT_PROGRAM)
+      if (current && [transparentProg, downsampleProg].includes(current)) gl.useProgram(null)
+    })
+    if (transparentProg) attempt(() => gl.deleteProgram(transparentProg))
+    if (downsampleProg) attempt(() => gl.deleteProgram(downsampleProg))
+    if (failed) throw primary
   }
 
   /** PencilEngineAPI.exportPNG, after the paper has loaded.
