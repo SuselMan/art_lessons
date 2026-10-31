@@ -4,7 +4,19 @@ import type { Operation, SendResult } from '@grafetto/shared'
 
 import { isRecoverableContentOp, type LostContentOp } from './lostWork'
 
+export type CanonicalOutboxOperation=Extract<Operation,{type:'canonical_stroke'|'canonical_stroke_close'}>
+/** Control notification only. Activated owners must request the existing resync
+ * if the ACK has no matching original confirmed delivery; never mint one. */
+export interface CanonicalOutboxVerdicts {
+  onSettled:(op:CanonicalOutboxOperation,result:SendResult)=>void
+  onStalled:(op:CanonicalOutboxOperation)=>void
+}
+const canonical=(op:Operation):op is CanonicalOutboxOperation=>op.type==='canonical_stroke'||op.type==='canonical_stroke_close'
+
 export interface OutboxVerdictDeps {
+  canonicalVerdicts?:CanonicalOutboxVerdicts
+  /** Failclosed fallback for an unexpected ownerless/failed control callback. */
+  requestFullResync?:()=>void
   /** Ids this client created and the server has not confirmed yet. */
   pendingIdsRef: RefObject<Set<string>>
   /** The highest seq this client knows of anywhere, sent on every rejoin. */
@@ -33,13 +45,18 @@ export interface OutboxVerdictDeps {
  *  callbacks with every rule below and no test able to reach them. */
 export function createOutboxVerdicts({
   pendingIdsRef, latestKnownSeqRef, confirmOperation, discardOperation, checkSnapshotBoundary,
-  resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,
+  resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,canonicalVerdicts,requestFullResync,
 }: OutboxVerdictDeps): {
   onStalled: (op: Operation) => void
   onSettled: (op: Operation, result: SendResult) => void
 } {
   return {
     onStalled: op => {
+      if(canonical(op)){
+        console.error('canonical operation stalled; queued work retained',op.type,op.id)
+        try{canonicalVerdicts?.onStalled(op)}catch(error){console.error('canonical stall owner failed',error);requestFullResync?.()}
+        return
+      }
       console.error('operation stopped retrying after repeated failures', op.type, op.id)
       // (#395) Stop holding a transform preview for an operation that has
       // stopped trying to arrive. Showing the layer where it actually is
@@ -49,6 +66,17 @@ export function createOutboxVerdicts({
       resolveTransformCommit(op.id)
     },
     onSettled: (op, result) => {
+      if(canonical(op)){
+        // This is a durable server placement, but contains no read/source grant.
+        if(result.ok)latestKnownSeqRef.current=Math.max(latestKnownSeqRef.current,result.seq)
+        if(canonicalVerdicts){
+          try{canonicalVerdicts.onSettled(op,result)}catch(error){console.error('canonical verdict owner failed; authoritative resync required',error);requestFullResync?.()}
+        }else{
+          console.error('canonical verdict owner unavailable; authoritative resync required',op.type,op.id)
+          requestFullResync?.()
+        }
+        return
+      }
       if (!result.ok) {
         console.error('operation rejected by server', op.type, op.id, result.reason)
         // (#395) It will never be applied, so nothing is coming to replace

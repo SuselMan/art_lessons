@@ -1,10 +1,13 @@
-import { createBrushRandomStrokeId } from '@grafetto/shared'
+import { CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_MATERIAL_PROFILE,packCanonicalMaterial, type CanonicalStrokeOperation,type CanonicalStrokeCloseOperation,createBrushRandomStrokeId } from '@grafetto/shared'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { unpackDabs, type LayerAddOperation, type StrokeOperation } from '@grafetto/shared'
+import { unpackDabs, type Operation,type LayerAddOperation, type StrokeOperation } from '@grafetto/shared'
 
 import { resetRoomStore, useRoomStore } from '../../stores/roomStore'
 import { createEngineNetworkCallbacks } from './engineNetwork'
+import {Outbox} from './net/outbox'
+import {createInMemoryOutboxStorage} from './net/outboxStorage'
+import {createOutboxVerdicts} from './net/outboxVerdict'
 import { createPendingPreviews } from './net/pendingPreviews'
 
 /** (#493) The engine's side of the network, called the way the engine calls
@@ -28,7 +31,7 @@ function setup() {
     engineRef: { current: engine },
     appliedOpIdsRef: { current: new Set<string>() },
     pendingIdsRef: { current: new Set<string>() },
-    outbox: { enqueue: vi.fn(async () => {}) },
+    outbox: { enqueue: vi.fn(async (_op:Operation) => {}) },
     markActive: vi.fn(),
     pendingPreviewsRef: { current: createPendingPreviews() },
     applyRemoteOp: vi.fn(),
@@ -64,6 +67,29 @@ describe('an operation of this person’s', () => {
     expect(deps.pendingIdsRef.current.has('L-new')).toBe(true)
     expect(deps.markActive).not.toHaveBeenCalled()
   })
+})
+
+describe('canonical local operations have no optimistic paint claim',()=>{
+ it('queues exact frame and close objects without applied IDs, including a real Outbox ACK roundtrip',async()=>{
+  const material={assets:[{id:'asset:'+'1'.repeat(64),size:1,x:0,y:0,width:1,height:1}],primaryAsset:'asset:'+'1'.repeat(64),budget:{workUnits:100,outputBytes:100,drawPixels:100},preflightDefinition:()=>({workUnits:1,outputBytes:4})}
+  const frame:CanonicalStrokeOperation={type:'canonical_stroke',id:'frame',userId:'me',timestamp:0,layerId:'layer-1',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:'brush:test@1',strokeId:'gesture',frameOrdinal:0,pigmentRgb8:[0,0,0],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'},materialPacked:packCanonicalMaterial({profile:CANONICAL_MATERIAL_PROFILE,masked:false,entry:{phase:'between'},definitions:[],draws:[],fences:[]},material)}}
+  const close:CanonicalStrokeCloseOperation={type:'canonical_stroke_close',id:'close',userId:'me',timestamp:0,layerId:'layer-1',targetUserId:'me',strokeId:'gesture',disposition:'commitPartial',recordedNext:1,firstFrameOpId:'frame',lastFrameOpId:'frame'}
+  const {deps,on}=setup()
+  on.onLocalOperation(frame);on.onLocalOperation(close)
+  expect(deps.outbox.enqueue.mock.calls.map(([op])=>op)).toEqual([frame,close])
+  expect(deps.appliedOpIdsRef.current.size).toBe(0);expect(deps.pendingIdsRef.current.size).toBe(0)
+  expect(deps.applyRemoteOp).not.toHaveBeenCalled();expect(deps.syncFromLog).not.toHaveBeenCalled();expect(deps.checkSnapshotBoundary).not.toHaveBeenCalled();expect(deps.markActive).not.toHaveBeenCalled()
+  const confirmOperation=vi.fn(),discardOperation=vi.fn(),canonicalVerdicts={onSettled:vi.fn(),onStalled:vi.fn()},latestKnownSeqRef={current:0}
+  const verdicts=createOutboxVerdicts({pendingIdsRef:deps.pendingIdsRef,latestKnownSeqRef,confirmOperation,discardOperation,checkSnapshotBoundary:deps.checkSnapshotBoundary,resolveTransformCommit:vi.fn(),scheduleLostWorkRecovery:vi.fn(),setLostWork:vi.fn(),canonicalVerdicts})
+  const outbox=new Outbox({roomId:'room',storage:createInMemoryOutboxStorage(),send:async()=>({ok:true,seq:7}),...verdicts})
+  try{
+   createEngineNetworkCallbacks({...deps,outbox}).onLocalOperation(frame)
+   await vi.waitFor(()=>expect(canonicalVerdicts.onSettled).toHaveBeenCalledWith(frame,{ok:true,seq:7}))
+   expect(latestKnownSeqRef.current).toBe(7);expect(outbox.pendingCount).toBe(0);expect(deps.appliedOpIdsRef.current.size).toBe(0)
+   expect(confirmOperation).not.toHaveBeenCalled();expect(discardOperation).not.toHaveBeenCalled();expect(deps.checkSnapshotBoundary).not.toHaveBeenCalled()
+  }finally{outbox.dispose()}
+
+ })
 })
 
 describe('a peer’s reveal that has finished', () => {

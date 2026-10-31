@@ -56,6 +56,12 @@ export function createEngineNetworkCallbacks({
     // `onSettled` (see the Outbox construction above) owns everything the
     // old inline ack callback did — watermark, pendingIds, the seq confirmation (#537).
     onLocalOperation: op => {
+      // Authored canonical packets have no confirmed journal/pixel placement.
+      // The authoritative recorded delivery, never an ACK, supplies that later.
+      if(op.type==='canonical_stroke'||op.type==='canonical_stroke_close'){
+        void outbox.enqueue(op)
+        return
+      }
       appliedOpIdsRef.current.add(op.id)
       // (#289 §2/§4) A fresh layer/folder is a "local island" member from
       // the instant it's created — nobody else could possibly reference
