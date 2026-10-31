@@ -7,6 +7,7 @@ type WireState=Parameters<ServerToClientEvents['room_state']>[0]
 const authority:unique symbol=Symbol('prepared-canonical-room-state')
 export interface CanonicalRoomStateRead extends CanonicalRecordedLifetime {
  readonly scope:CanonicalHistoryScope
+ readonly roomGeometry:Readonly<{width:number|undefined;height:number|undefined;infinite:boolean}>
  readonly authorRasterProfile:CanonicalStrokeRasterProfile
  readonly tailOperations:readonly Operation[]
  readonly preparedAtoms:readonly CanonicalPreparedRecordedOperation[]
@@ -27,6 +28,7 @@ export function assertCanonicalRoomStateRead(value:CanonicalRoomStateRead,operat
  * the requested board and socket/context generation independently of this data.
  * It grants reading, never authoring as an original user. */
 export function prepareCanonicalRoomState(state:WireState,lifetime:{readonly expectedBoardId:string;readonly isCurrent:()=>boolean}):PreparedCanonicalRoomState {
+ const roomGeometry=Object.freeze({width:state.room.canvasWidth,height:state.room.canvasHeight,infinite:state.room.infinite})
  // A wire close is metadata, never proof that its source prefix can execute.
  if(state.tailOperations?.some(op=>(op.type as string)==='canonical_stroke_close'))throw Error('Canonical close requires a recorded seal owner')
  const {expectedBoardId,isCurrent}=lifetime
@@ -50,7 +52,7 @@ export function prepareCanonicalRoomState(state:WireState,lifetime:{readonly exp
  const emptyHistoryBase=baseDescriptor?.value===undefined?undefined:verifyCanonicalEmptyHistoryBase(baseDescriptor.value,baseAtoms,scope)
  const preparedAtoms:CanonicalPreparedRecordedOperation[]=[]
  const operations=baseAtoms.map(atom=>atom.operation);Object.freeze(operations)
- read=Object.freeze({scope,authorRasterProfile,tailOperations:operations,preparedAtoms,...(emptyHistoryBase?{emptyHistoryBase}:{}),
+ read=Object.freeze({scope,roomGeometry,authorRasterProfile,tailOperations:operations,preparedAtoms,...(emptyHistoryBase?{emptyHistoryBase}:{}),
  assertEmptyHistoryBase(this:CanonicalRoomStateRead,candidateTail:readonly Operation[]){
   if(this!==read||!emptyHistoryBase)throw Error('Canonical empty history base unavailable')
   assertCanonicalRoomStateRead(read,candidateTail,expectedBoardId);return emptyHistoryBase

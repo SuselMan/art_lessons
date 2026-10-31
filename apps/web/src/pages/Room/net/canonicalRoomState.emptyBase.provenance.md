@@ -36,3 +36,21 @@ PASS, shared optional-field build49587 PASS. Один холодный прог�
 host-only CLI testTimeout15s PASS (весь test phase3.36s). Source timeout не менялся.
 Joint app+SW61690 PASS по общей sourcefreeze B2+author refresh+SizeGUI.
 Device/runtime ресурсы не созданы.
+
+
+## Geometry captured by the same original room owner
+
+The original read now retains frozen `roomGeometry` (width, height, infinite)
+from the delivered room BEFORE the first caller lifetime callback. This is local
+read metadata, not another wire field, source grant, token or factory. An actual
+engine constructor can compare its explicit bounded page configuration with
+these exact captured facts before allocating GL resources. Mutating the raw room
+later cannot change the read's clipping geometry. The network preparer does not
+thereby authorize an executable domain; engine admission still validates bounded
+positive page dimensions and its supported complete-history source domain.
+
+A test first failed against the previous reader: its genuine lifetime callback
+mutates the raw room dimensions/infinite flag during preparation; the captured
+read must retain the original64x64 bounded page. All34 existing/new room-read
+tests pass. Actual engine constructor mismatch tests belong to its integration
+unit. No device or temporary runtime resource was created by this change.

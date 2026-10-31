@@ -200,3 +200,13 @@ it('does not grant authority for explicit undefined metadata or an inherited bas
  const inherited=Object.assign(Object.create({canonicalHistoryBase:emptyBaseState().canonicalHistoryBase}),state().state)
  expect(()=>prepareCanonicalRoomState(inherited,{expectedBoardId:'room',isCurrent:()=>true})).toThrow()
 })
+
+it('captures original room geometry once before lifetime callbacks and does not follow later wire mutations',()=>{
+ const {state:s}=state();let checks=0
+ const result=prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>{checks++;s.room.canvasWidth=99;s.room.canvasHeight=101;s.room.infinite=true;return true}})
+ expect(checks).toBeGreaterThan(0)
+ expect(result.canonicalRead.roomGeometry).toEqual({width:64,height:64,infinite:false})
+ expect(Object.isFrozen(result.canonicalRead.roomGeometry)).toBe(true)
+ s.room.canvasWidth=2;expect(result.canonicalRead.roomGeometry.width).toBe(64)
+ expect(result.canonicalRead.assertCurrent()).toBe(result.canonicalRead.scope)
+})
