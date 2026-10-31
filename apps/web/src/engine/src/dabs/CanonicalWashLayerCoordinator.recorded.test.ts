@@ -44,7 +44,7 @@ function fixture(){
  const input=(userId='author',ordinal=0,seq=1,ended=false,painted=false)=>{
   const dab=painted?prepareSourceDefaultAutoDab({dialect:'krita-default-auto-qt5-arm64-v1',tip:{...pin.source,kind:'auto',spikes:2,softness:1,randomness:0,density:1},storedScale:pin.brushScale,storedAngle:pin.brushAngle,shape:{scale:.01,ratio:1,rotation:0},subpixelX:0,subpixelY:0,coverageProfile:nativeCoverage,maxPixels:1048576,maxWorkSamples:16*1048576}):undefined
   const recipe={kind:'defaultAuto' as const,source:pin.source,coverageProfile:pin.coverageProfile,brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale:.01,ratio:1,rotation:0,subX:0,subY:0,width:dab?.geometry.maskSize[0]??1,height:dab?.geometry.maskSize[1]??1,mirrorH:false,mirrorV:false}
-  const paintedMaterial=painted?buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:0,y:0,opacity:.5,flow:.7}],fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:1,group:0},{kind:'segmentEnd',at:1,group:0},{kind:'gestureEnd',at:1}]},material):undefined
+  const paintedMaterial=painted?buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:0,y:0,opacity:.5,flow:.7}],fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:1,group:0},{kind:'segmentEnd',at:1,group:0},...(ended?[{kind:'gestureEnd' as const,at:1}]:[])]},material):undefined
   const packed=paintedMaterial?.packed??buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:ended?[{kind:'gestureEnd',at:0}]:[]},material).packed
   const operation:CanonicalStrokeOperation={type:'canonical_stroke',id:`${userId}-${seq}`,userId,timestamp:0,seq,layerId:'layer',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:snapshot.brush,strokeId:'same',frameOrdinal:ordinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
   const atom=prepareCanonicalRecordedAttachment({version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:userId,snapshot}],bindings:[{operationId:operation.id,sequence:seq,originalUserId:userId,capability:0}]},[operation],scope)[0]
@@ -66,7 +66,7 @@ function fixture(){
   return author
  }
  const local=(value:CanonicalRecordedInput):CanonicalStrokeOperation=>{if(value.operation.type!=='canonical_stroke')throw Error('frame');const {seq:_seq,...op}=value.operation;return Object.freeze(op)}
- return {coordinator,cpu,gl,scratch,input,seal,source,snapshot,localAuthor,local,stale:()=>{current=false},replaceScope:()=>{replaced=true},close(){coordinator.cancel();scratch.destroy();layer.destroy();derived.destroy();prepass.reset();composite.reset()}}
+ return {coordinator,cpu,gl,scratch,composite,input,seal,source,snapshot,localAuthor,local,stale:()=>{current=false},replaceScope:()=>{replaced=true},close(){coordinator.cancel();scratch.destroy();layer.destroy();derived.destroy();prepass.reset();composite.reset()}}
 }
 
 describe('original-lifetime recorded prefix owner',()=>{
@@ -322,4 +322,52 @@ it('drops the completed local BEGIN lease before external metadata release',()=>
   for(let i=0;i<40&&s.coordinator.pending;i++)s.coordinator.advance()
   expect(inspected).toBe(true);expect(s.coordinator.checkpointReady).toBe(true)
  }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+})
+
+describe('matching confirmation without a visual reorder',()=>{
+ it('does not publish initialized blank raw storage on the first matching confirmation before actual deposition',()=>{
+  const s=fixture();try{
+   const original=s.input('author',0,1,false,true),author=s.localAuthor(),draw=vi.spyOn(s.composite,'drawSource')
+   expect(s.coordinator.tryEnqueueLocal(author,s.local(original))).toBe(true)
+   const executor=s.coordinator['entries'][0].executor
+   for(let i=0;i<40&&executor['queue'][0].scratchCursor===0;i++)s.coordinator.advance()
+   const work=executor['queue'][0]
+   expect(work.targetCursor).toBe(1);expect(work.scratchCursor).toBe(1);expect(work.draw).toBe(0);expect(draw).not.toHaveBeenCalled()
+   const revision=s.coordinator['revision']
+   s.coordinator.enqueueRecorded(original)
+   expect(s.coordinator['revision']).toBe(revision);expect(s.coordinator['dirty'].size).toBe(0);expect(s.coordinator.completedPresentationRevision).toBe(-1)
+   for(let i=0;i<40&&!s.coordinator['dirty'].size;i++)s.coordinator.advance()
+   expect(draw.mock.calls.some(([request])=>request.source.kind==='maskRgb')).toBe(true)
+   expect(s.coordinator['revision']).toBeGreaterThan(revision);expect(s.coordinator['dirty'].size).toBeGreaterThan(0)
+  }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+ })
+ it('retains the existing completed presentation when first confirmation changes only its sequence authority',()=>{
+  const s=fixture();try{
+   const original=s.input('author',0,1,false,true)
+   s.coordinator.tryEnqueueLocal(s.localAuthor(),s.local(original))
+   for(let i=0;i<80&&s.coordinator.pending;i++)s.coordinator.advance()
+   expect(s.coordinator.publishedPresentationReady).toBe(true)
+   const revision=s.coordinator.completedPresentationRevision,entry=s.coordinator['entries'][0],executor=entry.executor,draws=s.gl.drawArrays.mock.calls.length
+   s.coordinator.enqueueRecorded(original)
+   expect(entry.firstSequence).toBe(1);expect(entry.executor).toBe(executor)
+   expect(s.coordinator.publishedPresentationReady).toBe(true);expect(s.coordinator.completedPresentationRevision).toBe(revision);expect(s.coordinator['revision']).toBe(revision)
+   expect(s.gl.drawArrays.mock.calls).toHaveLength(draws);expect(s.coordinator['dirty'].size).toBe(0)
+  }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+ })
+ it('still invalidates and rebases an actual two-entry reorder, then ignores the next order-preserving confirmation',()=>{
+  const s=fixture();try{
+   const a=s.input('A',0,2,false,true),b=s.input('B',0,1,false,true)
+   s.coordinator.tryEnqueueLocal(s.localAuthor('A'),s.local(a));s.coordinator.tryEnqueueLocal(s.localAuthor('B'),s.local(b))
+   for(let i=0;i<120&&s.coordinator.pending;i++)s.coordinator.advance()
+   expect(s.coordinator.publishedPresentationReady).toBe(true)
+   const [first,second]=s.coordinator['entries'],revision=s.coordinator['revision']
+   s.coordinator.enqueueRecorded(b)
+   expect(s.coordinator['entries']).toEqual([second,first]);expect(s.coordinator['revision']).toBe(revision+1);expect(s.coordinator['dirty'].size).toBeGreaterThan(0);expect(s.coordinator.publishedPresentationReady).toBe(false)
+   for(let i=0;i<80&&s.coordinator.pending;i++)s.coordinator.advance()
+   expect(s.coordinator.publishedPresentationReady).toBe(true)
+   const rebased=s.coordinator['revision']
+   s.coordinator.enqueueRecorded(a)
+   expect(s.coordinator['entries']).toEqual([second,first]);expect(s.coordinator['revision']).toBe(rebased);expect(s.coordinator.publishedPresentationReady).toBe(true)
+  }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+ })
 })

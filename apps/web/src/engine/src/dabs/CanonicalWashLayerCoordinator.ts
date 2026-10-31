@@ -208,8 +208,12 @@ export class CanonicalWashLayerCoordinator {
     if(local.author.assertCurrent(local.author)!==local.scope||local.author.lifetime.assertCurrent()!==local.scope)throw new Error('Local source owner changed')
   }
   private orderEntries():void {
-    this.entries.sort((a,b)=>a.firstSequence===undefined?(b.firstSequence===undefined?0:1):b.firstSequence===undefined?-1:a.firstSequence-b.firstSequence)
-    this.invalidate()
+    const compare=(a:Entry,b:Entry)=>a.firstSequence===undefined?(b.firstSequence===undefined?0:1):b.firstSequence===undefined?-1:a.firstSequence-b.firstSequence
+    // Sequence promotion can change authority without changing visual order.
+    // Preserve the current dirty/presentation state for that common case.
+    for(let i=1;i<this.entries.length;i++)if(compare(this.entries[i-1],this.entries[i])>0){
+      this.entries.sort(compare);this.invalidate();return
+    }
   }
   /** No sequence is invented. Temporary GPU queue pressure alone returns false. */
   tryEnqueueLocal(author:CanonicalLocalWashAuthor,op:CanonicalStrokeOperation):boolean {
