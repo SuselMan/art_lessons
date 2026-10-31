@@ -172,6 +172,12 @@ export class CanonicalFrameExecutor {
   get pending(): boolean { return this.queue.length !== 0 }
   get checkpointReady(): boolean { return !this.failed && !this.pending && !this.gesture && (!this.rawComplete || this.rawTransferred) }
   get pendingFrameCount(): number { return this.queue.length }
+  /** The existing physical ticket can own unmaterialized layer targets across
+   * turns. Its owner must finish that preparation before another layer writer. */
+  get hasPendingLayerTargetPreparation():boolean {
+    const work=this.queue[0]
+    return !!work?.physical&&work.targetCursor<work.physical.targetCount
+  }
   get rawWashSealed(): boolean { return this.options.washMode === 'deposition-only' && this.rawComplete && !this.rawTransferred && !this.failed }
   get poisoned(): boolean { return this.failed }
   /** Additional cleanup/notification errors never replace a primary draw error. */

@@ -379,20 +379,27 @@ export class CanonicalWashLayerCoordinator {
       const turnStarted = performance.now()
       this.assertLayers()
       const frontier = this.commitFrontier()
-      if (frontier?.ownership) this.commit(frontier,turnStarted)
+      const preparing=this.queue.findIndex(entry=>entry.executor.hasPendingLayerTargetPreparation)
+      // A confirmation can dirty presentation while this SAME executor still
+      // owns an unmaterialized stable target ticket. Finish its bounded turn
+      // before either presentation or commit attempts another admission.
+      if(preparing>=0)this.advanceEntry(this.queue[preparing],preparing)
+      else if (frontier?.ownership) this.commit(frontier,turnStarted)
       else if (this.dirty.size) this.present(turnStarted)
-      else if (this.queue.length) {
-        const entry = this.queue[0], before = entry.executor.pendingFrameCount
-        entry.executor.advance()
-        if (entry.executor.pendingFrameCount < before || !entry.executor.pending && entry.executor.rawWashSealed) this.queue.shift()
-        if (entry.executor.rawWashSealed) { entry.ownership = entry.executor.takeRawWash(); this.invalidate() }
-      }
+      else if (this.queue.length)this.advanceEntry(this.queue[0],0)
     } catch (error) {
       this.failed = true
       this.releaseAll(this.cleanupContextLost())
       this.clean(() => this.notifyPoison(error))
       throw error
     } finally { this.busy = false }
+  }
+
+  private advanceEntry(entry:Entry,index:number):void {
+    const before=entry.executor.pendingFrameCount
+    entry.executor.advance()
+    if(entry.executor.pendingFrameCount<before||!entry.executor.pending&&entry.executor.rawWashSealed)this.queue.splice(index,1)
+    if(entry.executor.rawWashSealed){entry.ownership=entry.executor.takeRawWash();this.invalidate()}
   }
 
   private invalidate(bounds?: Readonly<WorldRect>): void {

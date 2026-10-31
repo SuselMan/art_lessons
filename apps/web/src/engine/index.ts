@@ -1,4 +1,4 @@
-import { canonicalSourceEffectReject,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalGaussianAutoSourceBinding,canonicalSoftAutoSourceBinding,canonicalSoftAutoDataEqual,canonicalSourceComposition,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,sourceAutoGeometry,CANONICAL_RECORDED_ATTACHMENT_LIMITS,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,IMPLICIT_LAYER_IDS,INITIAL_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,verifyCanonicalFullHistoryBase,verifyCanonicalEmptyHistoryBase,decodeCanonicalStrokeFrame,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalStrokeRasterProfile,type CanonicalAutoSource,type CanonicalSoftAutoSource } from '@grafetto/shared'
+import { CANONICAL_STROKE_RASTER_PROFILE,canonicalSourceEffectReject,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalGaussianAutoSourceBinding,canonicalSoftAutoSourceBinding,canonicalSoftAutoDataEqual,canonicalSourceComposition,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,sourceAutoGeometry,CANONICAL_RECORDED_ATTACHMENT_LIMITS,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,IMPLICIT_LAYER_IDS,INITIAL_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,verifyCanonicalFullHistoryBase,verifyCanonicalEmptyHistoryBase,decodeCanonicalStrokeFrame,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalStrokeRasterProfile,type CanonicalAutoSource,type CanonicalSoftAutoSource } from '@grafetto/shared'
 import {BrushTextureCache} from './src/dabs/BrushTextureCache'
 import {TransformedMaskPrepass,transformedMaskPrepassBudget,type TransformedMaskLimits} from './src/dabs/TransformedMaskPrepass'
 import {CanonicalRgba8CompositePass,canonicalRgba8CompositeBudget,type CanonicalCompositeLimits} from './src/dabs/CanonicalRgba8CompositePass'
@@ -1306,7 +1306,7 @@ interface CanonicalPreparedAuthor {
 interface CanonicalSourceSession {
   readonly prepared:CanonicalPreparedAuthor;readonly controller:AbortController;readonly request:CanonicalStrokeBegin
   readonly release:()=>void;readonly seeds:BrushRandomSeeds;readonly timestamp:number
-  references:number;closed:boolean;released:boolean;emitted:number;localAdmitted?:boolean;reason?:{error:unknown}
+  references:number;closed:boolean;released:boolean;emitted:number;partialCancel?:Error;closeIssued?:boolean;firstEmittedId?:string;lastEmittedId?:string;lastEmittedEnded?:boolean;localAdmitted?:boolean;reason?:{error:unknown}
   outcome?:{value:CanonicalStrokeBeginResult}|{error:unknown}
   localAuthor?:CanonicalLocalWashAuthor
   author?:SourceStrokeAuthor;state?:SourceStrokeAuthorState;adapter?:SourceStrokeMaterialAdapter<SourceStrokeMaterialContextV2>;encoder?:SourceCanonicalFrameEncoder<import('./src/presets/sourceCanonicalFrameEncoder').SourceCanonicalStrokeContextV2>
@@ -1367,6 +1367,7 @@ interface CanonicalEmptyPlan {
 }
 function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonly Operation[],width?:number,height?:number,infinite=false):CanonicalEmptyPlan {
  if(!read||infinite)throw new TypeError('Unsupported canonical empty room')
+ if(read.authorRasterProfile!==CANONICAL_STROKE_RASTER_PROFILE&&read.authorRasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)throw new TypeError('Canonical runtime raster profile unavailable')
  const full=read.assertFullHistoryBase?.(tail),base=full?undefined:read.assertEmptyHistoryBase(tail),scope=read.assertCurrent()
  if(read.scope!==scope||read.tailOperations!==tail||read.preparedAtoms.length!==tail.length)throw new TypeError('Foreign canonical empty room owner')
  if(!read.roomGeometry||read.roomGeometry.width!==width||read.roomGeometry.height!==height||read.roomGeometry.infinite!==infinite)throw new TypeError('Canonical original room geometry mismatch')
@@ -6789,6 +6790,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
   private _assertCanonicalSource(session:TimedAuthorSession):void {
     const source=session.source!,prepared=source.prepared
+    if(source.partialCancel)throw source.partialCancel
     this._assertCanonicalLayerCurrent(prepared.owner)
     if(source.closed||this._locked||prepared.generation!==this._brushPreparationGeneration||this._opts.tool!=='digitalBrush'||this._opts.pencilType!==prepared.preset||this._activeId!==session.snapshot.layerId||this._opts.size!==prepared.pin.source.diameter||this._authorCameraAngle!==session.snapshot.cameraAngle||this._ruler!==null||this._contextLost)throw new Error('Canonical pointer lifetime changed')
   }
@@ -6801,7 +6803,19 @@ export class PencilEngine implements PencilEngineAPI {
     try{
       for(const cleanup of [()=>source.controller.abort(),source.release])try{cleanup()}catch(error){if(!failed){failed=true;primary=error}}
     }finally{this._canonicalSourceLifetimeHolds--}
-    if(source.closed&&(source.emitted||source.localAdmitted))this._poisonCanonicalLayer(source.reason?.error??primary??new Error('Canonical source cancelled after emission'))
+    if(source.partialCancel&&!failed){
+      try{
+        this._assertCanonicalLayerCurrent(source.prepared.owner)
+        if(source.emitted&&!source.lastEmittedEnded&&!source.closeIssued){
+          if(!source.firstEmittedId||!source.lastEmittedId)throw new Error('Canonical cancelled prefix identity missing')
+          source.closeIssued=true
+          const operation:import('@grafetto/shared').CanonicalStrokeCloseOperation=Object.freeze({type:'canonical_stroke_close',id:nanoid(),userId:this._userId,timestamp:Date.now(),layerId:session.snapshot.layerId,targetUserId:this._userId,strokeId:source.request.strokeId,disposition:'commitPartial',recordedNext:source.emitted,firstFrameOpId:source.firstEmittedId,lastFrameOpId:source.lastEmittedId})
+          this._onLocalOperation!(operation)
+        }
+      }catch(error){source.partialCancel=undefined;source.reason??={error};failed=true;primary=error}
+    }
+    if(failed)source.partialCancel=undefined
+    if(source.closed&&!source.partialCancel&&(source.emitted||source.localAdmitted))this._poisonCanonicalLayer(source.reason?.error??primary??new Error('Canonical source cancelled after emission'))
     else this._drainCanonicalSourceRepair()
     if(failed)throw primary
   }
@@ -6821,7 +6835,7 @@ export class PencilEngine implements PencilEngineAPI {
     source.references++
     let completed=false
     this._authorInput.enqueue(function*(){yield* job();completed=true},()=>{
-      if(!completed){source.closed=true;source.reason??={error:new Error('Canonical author input cancelled before completion')}}
+      if(!completed&&!source.partialCancel){source.closed=true;source.reason??={error:new Error('Canonical author input cancelled before completion')}}
       try{release()}finally{source.references--;this._retireCanonicalSource(session)}
     })
   }
@@ -6848,7 +6862,7 @@ export class PencilEngine implements PencilEngineAPI {
         this._assertCanonicalSource(session)
         // Retain only the immutable wire envelope while yielding under queue
         // pressure; the encoder's decoded draw arrays are not a second queue.
-        const frame=source.encoder!.encode(chunk.packed).envelope
+        const frame=source.encoder!.encode(chunk.packed).envelope,lastEnded=source.encoder!.ended
         const operation:import('@grafetto/shared').CanonicalStrokeOperation=Object.freeze({id:nanoid(),userId:this._userId,timestamp:Date.now(),type:'canonical_stroke',layerId:session.snapshot.layerId,frame})
         const layer=source.prepared.owner
         this._ensureCanonicalLayerCoordinator(layer)
@@ -6857,7 +6871,9 @@ export class PencilEngine implements PencilEngineAPI {
         }
         source.localAdmitted=true;this._canonicalRecoveryDirty=true
         this._wakeCanonicalLayer(layer)
-        source.emitted++;this._onLocalOperation!(operation)
+        if(frame.frameOrdinal!==source.emitted)throw new Error('Canonical handed-off prefix is not contiguous')
+        source.firstEmittedId??=operation.id;source.lastEmittedId=operation.id;source.lastEmittedEnded=lastEnded;source.emitted++
+        try{this._onLocalOperation!(operation)}catch(error){source.partialCancel=undefined;throw error}
         this._assertCanonicalSource(session)
       }
     }finally{release()}
@@ -6913,7 +6929,7 @@ export class PencilEngine implements PencilEngineAPI {
         source.localAuthor=owner._createCanonicalLocalAuthor(prepared.owner,capturedSnapshot,owner._userId)
         yield* owner._acceptCanonicalChunks(session,source.adapter!.beginInput(source.state))
         yield* owner._consumeCanonicalSource(session,source.author.plan(source.state,owner._canonicalPacket(session,captured)))
-      }catch(error){owner._closeCanonicalSource(session,{error});throw error}
+      }catch(error){if(!session.source!.partialCancel||error!==session.source!.partialCancel){owner._closeCanonicalSource(session,{error});throw error}}
     })
   }
   private _onCanonicalMove(input:PointerData):void {
@@ -6921,12 +6937,12 @@ export class PencilEngine implements PencilEngineAPI {
     const captured={...input},owner=this
     this._enqueueCanonicalSource(session,function*(){
       try{owner._assertCanonicalSource(session);const source=session.source!;yield* owner._acceptCanonicalChunks(session,source.adapter!.beginInput(source.state!));yield* owner._consumeCanonicalSource(session,source.author!.plan(source.state!,owner._canonicalPacket(session,captured)))}
-      catch(error){owner._closeCanonicalSource(session,{error});throw error}
+      catch(error){if(!session.source!.partialCancel||error!==session.source!.partialCancel){owner._closeCanonicalSource(session,{error});throw error}}
     })
   }
   private _onCanonicalEnd(input:PointerData):void {
     const session=this._authorProducer;if(!session?.source||session.ended)return
-    if(input.cancelled){this._cancelOwnedAuthor(false);return}
+    if(input.cancelled){this._cancelCanonicalPointer(session);return}
     session.ended=true
     const owner=this
     this._enqueueCanonicalSource(session,function*(){
@@ -6934,8 +6950,21 @@ export class PencilEngine implements PencilEngineAPI {
         owner._assertCanonicalSource(session);const source=session.source!
         yield* owner._acceptCanonicalChunks(session,source.adapter!.beginInput(source.state!));yield* owner._consumeCanonicalSource(session,source.author!.finish(source.state!));yield* owner._acceptCanonicalChunks(session,source.adapter!.finish(source.state!))
         if(owner._authorProducer===session){owner._authorProducer=undefined;owner._authorSnapshot=undefined}
-      }catch(error){owner._closeCanonicalSource(session,{error});throw error}
+      }catch(error){if(!session.source!.partialCancel||error!==session.source!.partialCancel){owner._closeCanonicalSource(session,{error});throw error}}
     })
+  }
+  /** A pointer cancellation seals only the already handed-off prefix. Other
+   * lifetime changes and CPU/GPU failures retain the existing poison path. */
+  private _cancelCanonicalPointer(session:TimedAuthorSession):void {
+    const source=session.source!
+    try{this._assertCanonicalSource(session)}catch{this._cancelOwnedAuthor(false);return}
+    source.partialCancel=new Error('Canonical pointer input cancelled');source.closed=true
+    if(this._authorProducer===session){this._authorProducer=undefined;this._authorSnapshot=undefined}
+    try{
+      source.controller.abort()
+      this._authorInput.cancel();this._authorTasks.resetIfIdle()
+      this._retireCanonicalSource(session)
+    }catch(error){source.partialCancel=undefined;this._closeCanonicalSource(session,{error});throw error}
   }
   private _timedElapsed():number {
     return this._timedClockLast=Math.max(this._timedClockLast,Math.floor(performance.now()-this._timedClockStart))

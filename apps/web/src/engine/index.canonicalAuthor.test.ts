@@ -79,13 +79,13 @@ it('rejects a mismatched BEGIN without emitting frames and releases all queued i
   await vi.waitFor(()=>expect(engine['_authorInputError']).toBeDefined());expect(engine['_authorInput'].pending).toBe(false);expect(engine['_brushMipCache'].reservedBytes).toBe(before);expect(operations).toEqual([]);expect(engine['_log'].entries).toHaveLength(0);expect(engine['_canonicalPixelsReady']).toBe(true)
  }finally{engine.destroy()}
 })
-it('closes after emitted partial data without fabricating end and requests repair only after all author/layer ownership retires',async()=>{
+it('poisons an emitted prefix on tool change and requests repair only after all author/layer ownership retires',async()=>{
  const {engine,operations}=await harness(async request=>verdict(request)),repair=vi.fn(()=>{expect(engine['_canonicalLayerOwner']).toBeUndefined();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)})
  engine['_onCanonicalRecoveryRequired']=repair
  try{
   await engine.prepareBrush(preset);engine['_onStart'](packet(1,100));engine['_onMove'](packet(5,110))
   await vi.waitFor(()=>expect(operations.length).toBeGreaterThan(0));await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false))
-  const entries=engine['_log'].entries,count=operations.length;engine['_onEnd']({...packet(5,120),cancelled:true})
+  const entries=engine['_log'].entries,count=operations.length;engine.setTool('pencil')
   expect(repair).toHaveBeenCalledTimes(1);expect(repair.mock.results[0].type).toBe('return');expect(engine['_log'].entries).toBe(entries);expect(operations).toHaveLength(count);expect(engine['_canonicalPixelsReady']).toBe(false)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)}
 })
