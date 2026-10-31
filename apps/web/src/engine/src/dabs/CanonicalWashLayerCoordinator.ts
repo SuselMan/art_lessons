@@ -160,6 +160,28 @@ export class CanonicalWashLayerCoordinator {
     } finally { this.busy = false }
   }
 
+  /** INTERNAL metadata control. Caller owns genuine indexed-prefix/source
+   * proof and reconciliation of live-only geometry. No source is resolved and
+   * no new gesture/frame is fabricated by this ordered lane operation. */
+  enqueueRecordedClose(gestureId:string,recordedNext:number,recordedSequence:number):void {
+    this.assertOpen();this.busy=true
+    let target:Entry|undefined
+    try{
+      if(!Number.isSafeInteger(recordedSequence)||recordedSequence<=this.lastSequence)throw new Error('Invalid recorded wash close order')
+      this.assertLayers()
+      const entry=target=this.entries.find(e=>e.id===gestureId)
+      if(!entry||entry.committed||entry.ownership)throw new Error('Recorded wash close target missing or sealed')
+      const queued=this.queue.includes(entry)
+      if(!queued&&this.queue.length>=8)throw new RangeError('Canonical wash lane queue is full')
+      entry.executor.sealRecordedPrefix({gestureId,layerId:this.options.layerId,layerEpoch:this.options.layerEpoch,recordedNext})
+      if(!queued)this.queue.push(entry)
+      this.lastSequence=recordedSequence
+    }catch(error){
+      if(target?.executor.poisoned){this.failed=true;this.releaseAll(this.cleanupContextLost());this.clean(()=>this.notifyPoison(error))}
+      throw error
+    }finally{this.busy=false}
+  }
+
   /** Exactly one existing deposition turn OR one <=8 draw rebase/commit turn.
    * No draw leases or GL state survive the synchronous return. Metadata
    * storage pins can span turns; no RAF, promise or automatic retry is created. */
@@ -174,7 +196,7 @@ export class CanonicalWashLayerCoordinator {
       else if (this.queue.length) {
         const entry = this.queue[0], before = entry.executor.pendingFrameCount
         entry.executor.advance()
-        if (entry.executor.pendingFrameCount < before) this.queue.shift()
+        if (entry.executor.pendingFrameCount < before || !entry.executor.pending && entry.executor.rawWashSealed) this.queue.shift()
         if (entry.executor.rawWashSealed) { entry.ownership = entry.executor.takeRawWash(); this.invalidate() }
       }
     } catch (error) {

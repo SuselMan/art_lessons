@@ -7,7 +7,7 @@ import type { WorldRect } from '../buffers/tileMath'
 import { planCanonicalTargets } from './CanonicalTargetPlan'
 import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
 import type { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
-import { advanceSourcePrimaryComposition, createSourcePrimaryComposition, type SourcePrimaryCompositionContext, type SourcePrimaryCompositionResult, type SourcePrimaryCompositionState } from '../presets/sourcePrimaryComposition'
+import { advanceSourcePrimaryComposition, createSourcePrimaryComposition, sealSourcePrimaryComposition, type SourcePrimaryCompositionContext, type SourcePrimaryCompositionResult, type SourcePrimaryCompositionState } from '../presets/sourcePrimaryComposition'
 import { runBrushGlBatch, runBrushGlTurn, type BrushGlTurn } from './BrushGlBatch'
 import { bindCanonicalLayerTargets,prepareCanonicalLayerFrame,type CanonicalLayerFrame } from './CanonicalLayerTargets'
 import type { CanonicalMaskSourceBank } from './CanonicalMaskSourceBank'
@@ -289,6 +289,36 @@ export class CanonicalFrameExecutor {
 
   }
 
+  /** INTERNAL recorded-prefix control, never a source/read grant. Caller must
+   * prove the exact recorded prefix and reconcile live-only work first. Attach
+   * closure to the last real queued frame; no material tail or ordinal is made. */
+  sealRecordedPrefix(input: {readonly gestureId:string;readonly layerId:string;readonly layerEpoch:number;readonly recordedNext:number}): void {
+    if(this.failed||this.sourceRetired||this.advancing||this.rawOwner.leases)throw new Error('Canonical executor is poisoned or busy')
+    const {gestureId,layerId,layerEpoch,recordedNext}=input
+    if(!this.gesture||!this.planned||gestureId!==this.gesture.id||layerId!==this.gesture.layerId||layerEpoch!==this.gesture.epoch)
+      throw new Error('Recorded close does not match canonical gesture')
+    this.advancing=true
+    let accepted=false
+    try{
+      this.assertPrepared()
+      const current=this.options.layer(layerId)
+      if(current.epoch!==layerEpoch||current.buffer!==this.gesture.buffer||current.buffer.pixelEncoding!=='straight-rgba8')throw new Error('Canonical layer changed before recorded close')
+      const tail=this.queue.at(-1)
+      if(tail&&tail.result.state!==this.planned)throw new Error('Canonical close does not match queued prefix')
+      const closed=sealSourcePrimaryComposition(this.planned,recordedNext)
+      accepted=true
+      this.planned=closed.state
+      // Empty open tails admitted no presentation targets/budget. Earlier
+      // previews drain first; closing them is metadata-only, just as when the
+      // whole prefix has already drained. Never add unadmitted pixel work.
+      if(tail)tail.result=Object.freeze({state:closed.state,draws:tail.result.draws,commands:tail.result.commands.length?closed.commands:tail.result.commands})
+      else this.finishGesture(closed.state)
+    }catch(error){
+      if(accepted)this.fail(error,this.cleanupContextLost())
+      throw error
+    }finally{this.advancing=false}
+  }
+
   /** One synchronous cooperative batch. Call again from the existing engine
    * drain after yielding; this service creates no RAF, promise or scheduler. */
   advance(): { pending: boolean; checkpointReady: boolean } {
@@ -556,7 +586,11 @@ export class CanonicalFrameExecutor {
     let failed=false,failure:unknown
     for(const release of [()=>work.physical?.close(),work.releaseMetadata])try{release()}catch(error){if(!failed){failed=true;failure=error}}
     if(failed)throw failure
-    if (work.result.state.ended) {
+    this.finishGesture(work.result.state)
+  }
+
+  private finishGesture(state: SourcePrimaryCompositionState): void {
+    if (state.ended) {
       const before = this.cleanupErrors.length
       if (this.options.washMode === 'deposition-only') this.rawComplete = true
       else this.releaseWashes()

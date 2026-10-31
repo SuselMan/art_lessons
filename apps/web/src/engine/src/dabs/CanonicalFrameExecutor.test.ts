@@ -787,6 +787,46 @@ describe('recorded same-layer concurrent wash lane', () => {
     const close=()=>{coordinator.cancel();calls.mockRestore();copySpy.mockRestore();clearSpy.mockRestore();derived.destroy();s.close()}
     return {...s,coordinator,derived,pixels,calls,frame,drain,pixel,close,source}
   }
+  for(const drained of [false,true])it(`closes recorded peers in first-recorded order without a tail frame (drained=${drained})`,()=>{
+    const s=lane()
+    try{
+      s.coordinator.enqueue(s.frame('A',128/255,false),1)
+      s.coordinator.enqueue(s.frame('B',128/255,false),2)
+      if(drained)s.drain()
+      const calls=s.calls.mock.calls.length
+      s.coordinator.enqueueRecordedClose('B',1,3)
+      expect(s.calls).toHaveBeenCalledTimes(calls)
+      if(drained){s.drain();expect(s.pixel(s.layer)).toEqual([0,0,0,0]);expect(s.coordinator.checkpointReady).toBe(false)}
+      s.coordinator.enqueueRecordedClose('A',1,4);s.drain()
+      expect(s.pixel(s.layer)).toEqual([85,0,170,192]);expect(s.pixel(s.derived)).toEqual(s.pixel(s.layer))
+      expect(s.coordinator.checkpointReady).toBe(true);expect(s.scratch.bytes.live).toBe(0)
+      expect(s.source).toHaveBeenCalledTimes(2)
+      expect(()=>s.coordinator.enqueueRecordedClose('A',1,5)).toThrow()
+      expect(()=>s.coordinator.enqueue(s.frame('A',1,true,1),5)).toThrow()
+    }finally{s.close()}
+  })
+  it('rejects a close with missing target, stale sequence or wrong prefix without sealing existing peers',()=>{
+    const s=lane()
+    try{
+      s.coordinator.enqueue(s.frame('A',.5,false),1)
+      for(const args of [['missing',1,2],['A',1,1],['A',0,2],['A',2,2]] as const)
+        expect(()=>s.coordinator.enqueueRecordedClose(args[0],args[1],args[2])).toThrow()
+      expect(s.coordinator['lastSequence']).toBe(1);expect(s.coordinator.poisoned).toBe(false)
+      s.coordinator.enqueueRecordedClose('A',1,2);s.drain();expect(s.coordinator.checkpointReady).toBe(true)
+      expect(s.source).toHaveBeenCalledTimes(1)
+    }finally{s.close()}
+  })
+  it('retires the whole lane if draining recorded closure cleanup fails after acceptance',()=>{
+    const s=lane(),primary=new Error('close cleanup failed')
+    try{
+      s.coordinator.enqueue(s.frame('A',.5,false),1);s.drain()
+      vi.spyOn(s.prepass,'releaseOwner').mockImplementationOnce(()=>{throw primary})
+      expect(()=>s.coordinator.enqueueRecordedClose('A',1,2)).toThrow(primary)
+      expect(s.coordinator.poisoned).toBe(true);expect(s.coordinator.pending).toBe(false)
+      expect(s.scratch.bytes.live).toBe(0);expect(s.layer['retainedTargets'].size).toBe(0)
+      expect(s.poison).toHaveBeenCalledWith('layer',primary)
+    }finally{s.close()}
+  })
   for(const [outerBlend,peerBlend] of [['multiply','lighten'],['lighten','overlay'],['colorDodge','multiply'],['overlay','colorDodge']] as const)it(`uses ${outerBlend}/${peerBlend} identically for ordered previews and stable commits over existing pixels`,()=>{
     const s=lane(1,1,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE), original:Rgba8=[27,143,209,177]
     const blend=(src:Rgba8,dst:Rgba8,mode:'multiply'|'lighten'|'colorDodge'|'overlay')=>compositeRgba8(src,dst,{mode,profile:SOURCE_RGBA8_GENERIC_SC_PROFILE,opacity:.63})
@@ -1524,4 +1564,70 @@ it('exclusive wash rechecks original identity after the strict context-status le
   original=tile.original!;texture=original.texture;s.gl.isContextLost=()=>{original!._texture=foreign;return false}
   expect(()=>tile.lifetime.lease()).toThrow('Stale');expect(s.executor['rawOwner'].leases).toBe(0)
  }finally{if(original&&texture)original._texture=texture;s.gl.isContextLost=getLost;clock.mockRestore();s.close();s.gl.deleteTexture(foreign)}
+})
+
+for(const mode of ['buildup','exclusive','deposition-only'] as const)for(const drained of [false,true])it(`seals recorded ${mode} prefix ${drained?'after':'before'} drain without authoring a tail frame`,()=>{
+ const s=setup(mode==='buildup'?'buildup':'wash',4,4,undefined,'reference-scalar-f32-rne-v1',undefined,4,mode==='buildup'?undefined:mode)
+ try{
+  s.executor.enqueue(s.submit(decoded(2,0,false)))
+  if(drained)s.drain()
+  const calls=s.gl.drawArrays.mock.calls.length,count=s.executor.pendingFrameCount,planned=s.executor['planned']!
+  const work=s.executor['queue'].at(-1),draws=work?.result.draws
+  s.executor.sealRecordedPrefix({gestureId:'gesture',layerId:'layer',layerEpoch:0,recordedNext:1})
+  expect(s.gl.drawArrays).toHaveBeenCalledTimes(calls);expect(s.executor.pendingFrameCount).toBe(count)
+  if(work){expect(work.result.draws).toBe(draws);expect(work.input.ordinal).toBe(0);expect(work.result.state.nextFrameOrdinal).toBe(1);expect(work.result.state.drawCount).toBe(planned.drawCount)}
+  expect(()=>s.executor.enqueue(s.submit(decoded(1,2,true,{phase:'primary',group:0}),1))).toThrow()
+  s.drain()
+  expect(s.executor.rawWashSealed).toBe(mode==='deposition-only')
+  expect(s.executor.checkpointReady).toBe(mode!=='deposition-only')
+  expect(()=>s.executor.sealRecordedPrefix({gestureId:'gesture',layerId:'layer',layerEpoch:0,recordedNext:1})).toThrow()
+ }finally{s.close()}
+})
+it('rejects wrong recorded prefix identity/count before changing its actual queued work',()=>{
+ const s=setup('wash')
+ try{
+  expect(()=>s.executor.sealRecordedPrefix({gestureId:'gesture',layerId:'layer',layerEpoch:0,recordedNext:0})).toThrow()
+  s.executor.enqueue(s.submit(decoded(1,0,false)))
+  const work=s.executor['queue'][0],result=work.result,planned=s.executor['planned']
+  const valid={gestureId:'gesture',layerId:'layer',layerEpoch:0,recordedNext:1}
+  for(const patch of [{gestureId:'other'},{layerId:'other'},{layerEpoch:1},{recordedNext:0},{recordedNext:2}]){
+   expect(()=>s.executor.sealRecordedPrefix({...valid,...patch})).toThrow()
+   expect(work.result).toBe(result);expect(s.executor['planned']).toBe(planned);expect(s.executor.poisoned).toBe(false)
+  }
+ }finally{s.close()}
+})
+it('preserves partially painted recorded work and rejects closure while its raw view is leased',()=>{
+ const s=setup('wash',4,4,undefined,'reference-scalar-f32-rne-v1',undefined,4,'deposition-only'),clock=vi.spyOn(performance,'now').mockReturnValue(0),draw=vi.spyOn(s.composite,'drawSource')
+ try{
+  s.executor.enqueue(s.submit(decoded(16,0,false)));s.prepareStorage();s.executor.advance()
+  const work=s.executor['queue'][0],result=work.result
+  expect(work.draw).toBeGreaterThan(0);expect(work.draw).toBeLessThan(16)
+  const view=s.executor.rawWashTiles()[0].view
+  if(view.residency.kind!=='external')throw Error('Expected raw owner')
+  const release=view.residency.lease()
+  try{expect(()=>s.executor.sealRecordedPrefix({gestureId:'gesture',layerId:'layer',layerEpoch:0,recordedNext:1})).toThrow('busy');expect(work.result).toBe(result)}finally{release()}
+  const calls=draw.mock.calls.length
+  s.executor.sealRecordedPrefix({gestureId:'gesture',layerId:'layer',layerEpoch:0,recordedNext:1})
+  expect(draw).toHaveBeenCalledTimes(calls);s.drain()
+  expect(draw.mock.calls.filter(([request])=>request.operation.kind==='alphaDarken32')).toHaveLength(16)
+  expect(s.executor.rawWashSealed).toBe(true);const owned=s.executor.takeRawWash();owned.release()
+  expect(s.executor.checkpointReady).toBe(true);expect(s.scratch.bytes.live).toBe(0)
+ }finally{clock.mockRestore();s.close()}
+})
+it('seals an empty open tail without adding unadmitted presentation after target eviction',()=>{
+ const s=setup('wash',4,4,1),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  s.executor.enqueue(s.submit(decoded(1,0,false)));s.drain()
+  s.executor.enqueue(s.submit(decoded(0,0,false,{phase:'primary',group:0}),1))
+  const tail=s.executor['queue'][0]
+  expect(tail.frameTargets).toEqual([]);expect(tail.result.commands).toEqual([])
+  s.layer.resolveForPaint({minX:8,minY:0,maxX:40,maxY:1})
+  expect(s.layer.evictedTileCount).toBeGreaterThan(0)
+  const uploads=s.gl.texImage2D.mock.calls.length,draws=s.gl.drawArrays.mock.calls.length,reservations=s.reserveTransient.mock.calls.length
+  s.executor.sealRecordedPrefix({gestureId:'gesture',layerId:'layer',layerEpoch:0,recordedNext:2})
+  expect(tail.result.commands).toEqual([]);s.drain()
+  expect(s.gl.texImage2D).toHaveBeenCalledTimes(uploads);expect(s.gl.drawArrays).toHaveBeenCalledTimes(draws)
+  expect(s.reserveTransient).toHaveBeenCalledTimes(reservations);expect(s.layer.evictedTileCount).toBeGreaterThan(0)
+  expect(s.executor.checkpointReady).toBe(true);expect(s.executor.poisoned).toBe(false)
+ }finally{clock.mockRestore();s.close()}
 })
