@@ -16,6 +16,8 @@ import { WatercolorPresentationOwners, type MaterialPresentationOwner } from './
 import { WatercolorPresentationRaster } from './src/watercolor/WatercolorPresentationRaster'
 import { hasActiveWater, wetReplayOperationIds } from './src/oplog/hasActiveWater'
 import { LayerCompositor, type CompositeItem, type WashReveal } from './src/raster/LayerCompositor'
+import { StraightLayerPresentation } from './src/raster/StraightLayerPresentation'
+export type { CanonicalRecordedLifetime, CanonicalRecordedDelivery, CanonicalRecordedInput } from './src/oplog/CanonicalRecordedDelivery'
 export type { CompositeItem } from './src/raster/LayerCompositor'
 import { pureWaterLayerProof } from './src/watercolor/pureWaterLayerProof'
 import { WatercolorSettlePlan, type WatercolorSettlePreview } from './src/raster/WatercolorSettlePlan'
@@ -2017,6 +2019,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _fieldCache: Array<SettleField> = []
   // (#494) The transform, selection and image blits — see blitPasses.ts.
   private _passes!: BlitPasses
+  private _straightPresentation?: StraightLayerPresentation
   private _quadBuf: WebGLBuffer | null = null
   private _screenBuf: WebGLBuffer | null = null
   private _compositeFBO!: AccumulationBuffer
@@ -2349,8 +2352,12 @@ export class PencilEngine implements PencilEngineAPI {
     // closed until constructor rollback and raw storage ownership are migrated.
     attachContextStorage(gl, { limitBytes: Infinity })
     this.gl = gl
+    const currentPresentation = () => this._destroyed || this._contextLost ? undefined : this._straightPresentation
   this._compositor = new LayerCompositor({
     gl,
+    get straightPresentation() {
+      return currentPresentation()
+    },
     screenBuf: () => this._screenBuf!,
     layers: () => this._layers,
     previews: () => this._previews,
@@ -4297,6 +4304,7 @@ export class PencilEngine implements PencilEngineAPI {
   destroy(): void {
     if (this._destroyed) return
     this._destroyed = true
+    this._straightPresentation = undefined
     // Complete-engine retirement only: each independent owner is attempted,
     // in borrower-before-pool order. A nested destructor remains responsible
     // for its own children. This is not safe partial-constructor rollback.
@@ -5271,6 +5279,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleContextLost = (e: Event): void => {
     if (this._destroyed) return
     this._contextLost=true
+    this._straightPresentation=undefined
     this._paper.contextLost()
     this._quadBuf = null
     this._screenBuf = null
@@ -6027,6 +6036,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   private _initGL(): () => void {
     const { gl, canvas } = this
+    this._straightPresentation = undefined
     // Local initialization transaction only. No persistent second owner and no
     // shared-context reset; successful initialization keeps existing owners.
     const owned: Array<() => void> = []
@@ -6128,6 +6138,9 @@ export class PencilEngine implements PencilEngineAPI {
     const assemblyFBO = this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
     owned.push(() => assemblyFBO.destroy())
     this._compositor.invalidateSplitCache()
+    const presentation = new StraightLayerPresentation(this._ribbonScratchPool, passes)
+    this._straightPresentation = presentation
+    owned.push(() => { if (this._straightPresentation === presentation) this._straightPresentation = undefined })
     return rollback
     } catch (error) { rollback(); throw error }
   }
