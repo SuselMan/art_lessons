@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { advanceCanonicalMaterialPrefix, CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_RASTER_CONTRACTS,type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin,
+import { canonicalImageMaterialPin,advanceCanonicalMaterialPrefix, CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_RASTER_CONTRACTS,type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin,
   type CanonicalMaterialContext, type AnyCanonicalMaterialContext, type CanonicalMaterialEntry, type AnyCanonicalMaterialFrame,
   type CanonicalRecordedCloseSeal,type CanonicalStrokeComposition, type CanonicalStrokeFrameEnvelope } from '@grafetto/shared'
 
@@ -146,12 +146,17 @@ export class CanonicalStrokeAdmission {
     const m=grant.material
     let preflight:CanonicalMaterialContext['preflightDefinition']|undefined,materialSignature:unknown
     if('version' in m){
-      if(Object.keys(m).some(k=>!['version','assets','primarySource','maskSource','budget','expectedDrawCount','expectedStrokeEnd'].includes(k))||m.version!==2||m.assets.length!==0||m.maskSource!==undefined||(m.primarySource?.kind!=='defaultAuto'&&m.primarySource?.kind!=='gaussianAuto'&&m.primarySource?.kind!=='softAuto'))fail('unsupported trusted material capability')
-      const pin=m.primarySource.kind==='softAuto'?canonicalSoftAutoSourcePin(m.primarySource):m.primarySource.kind==='defaultAuto'?canonicalDefaultAutoSourcePin(m.primarySource):canonicalGaussianAutoSourcePin(m.primarySource)
-      if(pin.kind==='softAuto'&&pin.sourceSlot!==0)fail('unsupported trusted soft source slot')
-      if(pin.brushScale!==1||pin.descriptorSha256!==grant.descriptorSha256||grant.brush!==`brush:${pin.descriptorId}@${pin.descriptorVersion}`)fail('trusted auto descriptor binding mismatch')
-      preflight=undefined
-      materialSignature={...m,primarySource:pin}
+      if(Object.keys(m).some(k=>!['version','assets','primarySource','maskSource','budget','expectedDrawCount','expectedStrokeEnd'].includes(k))||m.version!==2||m.maskSource!==undefined)fail('unsupported trusted material capability')
+      if(m.primarySource?.kind==='image'){
+        const image=canonicalImageMaterialPin(m.primarySource,m.assets)
+        preflight=undefined;materialSignature={...m,...image}
+      }else{
+        if(m.assets.length!==0||(m.primarySource?.kind!=='defaultAuto'&&m.primarySource?.kind!=='gaussianAuto'&&m.primarySource?.kind!=='softAuto'))fail('unsupported trusted material capability')
+        const pin=m.primarySource.kind==='softAuto'?canonicalSoftAutoSourcePin(m.primarySource):m.primarySource.kind==='defaultAuto'?canonicalDefaultAutoSourcePin(m.primarySource):canonicalGaussianAutoSourcePin(m.primarySource)
+        if(pin.kind==='softAuto'&&pin.sourceSlot!==0)fail('unsupported trusted soft source slot')
+        if(pin.brushScale!==1||pin.descriptorSha256!==grant.descriptorSha256||grant.brush!==`brush:${pin.descriptorId}@${pin.descriptorVersion}`)fail('trusted auto descriptor binding mismatch')
+        preflight=undefined;materialSignature={...m,primarySource:pin}
+      }
     }else{
       if(grant.rasterProfile!==CANONICAL_STROKE_RASTER_PROFILE)fail('V1 material requires historical raster profile')
       if(m.maskAsset!==undefined)fail('unsupported trusted material capability')

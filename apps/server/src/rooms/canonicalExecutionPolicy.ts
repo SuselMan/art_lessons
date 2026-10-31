@@ -23,6 +23,7 @@ export function freezeCanonicalAutoPolicies(value:CanonicalAutoExecutionPolicies
 }
 /** Execution config only. This does NOT open straight rooms or switch a renderer. */
 export interface CanonicalRoomExecutionPolicy {
+ readonly primaryImageSource?:'single-inverse-gray-v2'|false
  readonly fullHistoryFormat?:'frames-v1'|'mixed-v2'
  readonly rasterProfile?:CanonicalStrokeRasterProfile
  readonly authorRasterProfile?:CanonicalStrokeRasterProfile
@@ -47,5 +48,12 @@ export function freezeCanonicalRasterPolicy(value:Pick<CanonicalRoomExecutionPol
 export function freezeCanonicalFullHistoryFormat(value:CanonicalRoomExecutionPolicy['fullHistoryFormat']):'frames-v1'|'mixed-v2'{
  if(value===undefined)return 'frames-v1'
  if(value!=='frames-v1'&&value!=='mixed-v2')throw TypeError('invalid explicit full history format')
+ return value
+}
+
+/** Absence preserves historical image V1; no startup activation. */
+export function freezeCanonicalPrimaryImagePolicy(value:CanonicalRoomExecutionPolicy['primaryImageSource']):'single-inverse-gray-v2'|false{
+ if(value===undefined||value===false)return false
+ if(value!=='single-inverse-gray-v2')throw TypeError('invalid explicit primary image execution policy')
  return value
 }

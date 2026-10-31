@@ -2,11 +2,11 @@ import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import {
   verifyCanonicalRecordedClose,parseCanonicalStrokeCloseOperation,verifyCanonicalRecordedPrefix, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION,
-  canonicalSourceEffectReject, canonicalBrushDescriptorJSON, canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, canonicalSourceComposition,
+  canonicalImageSourceBinding,canonicalSourceEffectReject, canonicalBrushDescriptorJSON, canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, canonicalSourceComposition,
   type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalStrokeOperation, type CanonicalMaterialContextV2, decodeCanonicalStrokeFrame,
   prepareCanonicalRecordedAttachment, CANONICAL_RECORDED_ATTACHMENT_LIMITS, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadCapability, type Operation,
 } from '@grafetto/shared'
-import { freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,type CanonicalRoomExecutionPolicy, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
+import { freezeCanonicalPrimaryImagePolicy,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,type CanonicalRoomExecutionPolicy, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
 import { BrushStorage, merge } from '../brushLibrary/storage.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
@@ -44,6 +44,7 @@ export class CanonicalBrushCapabilityResolver {
   private readonly maxGestures: number
   private readonly authorProfile:CanonicalStrokeRasterProfile
   private readonly recordedProfiles:readonly CanonicalStrokeRasterProfile[]
+  private readonly primaryImageSource:CanonicalRoomExecutionPolicy['primaryImageSource']
   private readonly autoSources:Readonly<CanonicalAutoExecutionPolicies>
   private readonly gestures = new Map<string, PinnedGesture>()
   private readonly epochs = new WeakMap<RoomRecord, { readonly lesson: RoomRecord; readonly value: number }>()
@@ -68,6 +69,7 @@ export class CanonicalBrushCapabilityResolver {
     /** Explicit server execution/config policy, never inferred from saved KPP. */
     readonly alphaDarkenVariants: readonly ('creamy' | 'hard')[]
     readonly maxGestures: number
+    readonly primaryImageSource?:CanonicalRoomExecutionPolicy['primaryImageSource']
     readonly autoSources?:CanonicalAutoExecutionPolicies|false
   }) {
     if (!(options.storage instanceof BrushStorage) || typeof options.operator !== 'function'
@@ -77,6 +79,7 @@ export class CanonicalBrushCapabilityResolver {
       || new Set(options.alphaDarkenVariants).size !== options.alphaDarkenVariants.length) fail('invalid explicit execution policy')
     const raster=freezeCanonicalRasterPolicy(options)
     this.authorProfile=raster.authorRasterProfile;this.recordedProfiles=raster.allowedRecordedRasterProfiles
+    this.primaryImageSource=freezeCanonicalPrimaryImagePolicy(options.primaryImageSource)
     this.autoSources=freezeCanonicalAutoPolicies(options.autoSources)
     this.storage = options.storage; this.operator = options.operator
     this.maxGestures = options.maxGestures; this.variants = new Set(options.alphaDarkenVariants)
@@ -251,7 +254,7 @@ export class CanonicalBrushCapabilityResolver {
     const library=this.storage.library('rooms',roomId)
     const descriptor=library.brushes.find(b=>b.descriptor.id===match[1]&&b.descriptor.version===Number(match[2]))?.descriptor
     if(!descriptor)fail('recorded room brush pin unavailable')
-    if(descriptor.sourceStamp?.version!==2||descriptor.sourceStamp.source.kind==='image')fail('recorded V1 material delivery unavailable')
+    if(!descriptor.sourceStamp||((descriptor.sourceStamp.version===1||descriptor.sourceStamp.source.kind==='image')&&!this.primaryImageSource))fail('recorded V1 material delivery unavailable')
     const profile=op.frame.rasterProfile
     if(!this.recordedProfiles.includes(profile))fail('recorded raster profile policy mismatch')
     const {material,mode,outerBlend,descriptorSha256}=this.bindDescriptor(descriptor,library,profile)
@@ -367,7 +370,7 @@ export class CanonicalBrushCapabilityResolver {
         return canonicalMaterialGeometryCost(recipe,source)
       }
       mode=capability.mode
-      material=Object.freeze({assets:Object.freeze([capability.asset]),primaryAsset:asset.id,preflightDefinition,budget})
+      material=this.primaryImageSource?Object.freeze({version:2 as const,...canonicalImageSourceBinding(descriptor,asset),budget}):Object.freeze({assets:Object.freeze([capability.asset]),primaryAsset:asset.id,preflightDefinition,budget})
     }
     return {material,mode,outerBlend:composition.outerBlend,descriptorSha256}
   }
