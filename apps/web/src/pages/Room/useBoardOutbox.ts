@@ -38,7 +38,7 @@ export function useBoardOutbox({ boardId, socketRef, hasJoinedRef, socketBoardRe
   const [outboxState, setOutboxState] = useState({ pending: 0, stalled: 0 })
   const {
     pendingIdsRef, latestKnownSeqRef, checkSnapshotBoundary, confirmOperation, discardOperation,
-    resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,
+    resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,canonicalVerdicts,requestFullResync,
   } = verdicts
   // (#176) The queue's key is the board, not the URL: operations are content,
   // and a page turn hands the next board a queue of its own (see the effect
@@ -72,7 +72,7 @@ export function useBoardOutbox({ boardId, socketRef, hasJoinedRef, socketBoardRe
     // dispatch paths (optimistic and confirmation-gated).
     ...createOutboxVerdicts({
       pendingIdsRef, latestKnownSeqRef, checkSnapshotBoundary, confirmOperation, discardOperation,
-      resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,
+      resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,canonicalVerdicts,requestFullResync,
     }),
     // (#201) The counter the ConnectionBanner reports. Passing a plain
     // setState is safe from any callsite: React batches, and the Outbox
@@ -80,7 +80,7 @@ export function useBoardOutbox({ boardId, socketRef, hasJoinedRef, socketBoardRe
     onPendingChange: (pending, stalled) => setOutboxState({ pending, stalled }),
   }), [
     boardId, socketRef, hasJoinedRef, socketBoardRef, pendingIdsRef, latestKnownSeqRef, checkSnapshotBoundary,
-    confirmOperation, discardOperation, resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,
+    confirmOperation, discardOperation, resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,canonicalVerdicts,requestFullResync,
   ])
   // (#176) For the socket effect, which must not list `outbox` as a
   // dependency — see snapshotUploaderRef.
