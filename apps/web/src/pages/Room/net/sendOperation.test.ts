@@ -60,3 +60,10 @@ it('clears its timeout when the captured emitter throws synchronously',async()=>
   expect(vi.getTimerCount()).toBe(0)
  }finally{vi.useRealTimers()}
 })
+
+it('reports actual emission after the socket call and never reports a throwing emit',async()=>{
+ const order:string[]=[],emitted=vi.fn(()=>order.push('emitted'))
+ const pending=sendOperationWithTimeout({emit:(...args)=>{order.push('emit');args[2]({ok:true,seq:1});order.push('returned')}},op,100,emitted)
+ expect(order).toEqual(['emit','returned','emitted']);await expect(pending).resolves.toMatchObject({ok:true})
+ await expect(sendOperationWithTimeout({emit:()=>{throw Error('failed emit')}},op,100,emitted)).rejects.toThrow('failed emit');expect(emitted).toHaveBeenCalledOnce()
+})

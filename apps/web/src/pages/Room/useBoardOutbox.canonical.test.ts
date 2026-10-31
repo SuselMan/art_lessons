@@ -54,3 +54,19 @@ it('forwards a retained stalled canonical operation once through the same owner'
   expect(value.outbox.pendingCount).toBe(1);expect(value.outbox.stalledCount).toBe(1);expect(s.verdicts.discardOperation).not.toHaveBeenCalled()
  }finally{for(const box of boxes)box.dispose();log.mockRestore();vi.useRealTimers()}
 })
+
+it('uses actual joined connection and original read lineage for two emitted frames, then fails closed on stale read',async()=>{
+ const {prepareCanonicalRoomState}=await import('./net/canonicalRoomState')
+ const {STRAIGHT_ROOM_RASTER_VERSION}=await import('@grafetto/shared')
+ let current=true
+ const state:Parameters<import('@grafetto/shared').ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:8,canvasHeight:8,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:STRAIGHT_ROOM_RASTER_VERSION},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:2},canonicalHistoryBase:{kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:2,throughSeq:0,operationCount:0}}
+ const read=prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent:()=>current}).canonicalRead,s=setup(),sent:number[]=[],acks:((r:import('@grafetto/shared').SendResult)=>void)[]=[]
+ const socket={id:'joined-connection',connected:true,emit:(...args:Parameters<OperationEmitter['emit']>)=>{if(args[0]!=='operation'||args[1].type!=='canonical_stroke')throw Error('Expected frame');sent.push(args[1].frame.frameOrdinal);acks.push(args[2])}}
+ s.deps.socketRef.current=socket;s.deps.canonicalReadRef={current:read}
+ const box=useRender(s.deps).outbox
+ const frame=(n:number):Operation=>({type:'canonical_stroke',id:'f'+n,userId:'author',timestamp:0,layerId:'L',frame:{version:1,rasterProfile:'installed-arm64-scalar-fused-fpcr0-v1',brush:'brush:test@1',strokeId:'S',frameOrdinal:n,pigmentRgb8:[0,0,0],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'},materialPacked:'scheduler does not decode'}})
+ await box.enqueue(frame(0));await box.enqueue(frame(1));await box.enqueue(frame(2));expect(sent).toEqual([0,1])
+ current=false;acks[0]({ok:true,seq:1});for(let i=0;i<30;i++)await Promise.resolve();expect(sent).toEqual([0,1])
+ acks[1]({ok:true,seq:2});for(let i=0;i<30;i++)await Promise.resolve();expect(sent).toEqual([0,1,2]);acks[2]({ok:true,seq:3});await box.whenIdle(1000);for(let i=0;i<30;i++)await Promise.resolve()
+ expect(s.verdicts.canonicalVerdicts.onSettled).toHaveBeenCalledTimes(3)
+})

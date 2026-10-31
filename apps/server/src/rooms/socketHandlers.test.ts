@@ -1277,3 +1277,27 @@ it('cannot let a disconnected old source seat seal or remove a same-user replace
   expect(c.record.operations.filter(op=>op.type==='canonical_stroke_close')).toEqual([])
  }finally{release([]);await _flushPendingWrites(c.lessonId);c.cleanup()}
 })
+
+it.each([false,true])('keeps two actual socket frames ordered across a held durable insert (failure=%s)',async fail=>{
+ const c=await canonicalClassroom(),log=vi.spyOn(console,'error').mockImplementation(()=>{})
+ try{
+  const begin=await new Promise<CanonicalStrokeBeginResult>(resolve=>c.teacher.emit('canonical_stroke_begin',c.begin,resolve))
+  if(!begin.ok)throw Error('Missing BEGIN')
+  const operations=canonicalFrames(begin.snapshot,c.descriptor).map((frame):CanonicalStrokeOperation=>({type:'canonical_stroke',id:fresh('window2'),userId:'teacher',timestamp:0,layerId:c.begin.layerId,frame}))
+  expect(operations).toHaveLength(2)
+  let release!:(value:unknown)=>void,reject!:(error:Error)=>void
+  mockPrisma.operation.create.mockImplementationOnce(()=>new Promise((resolve,fail)=>{release=resolve;reject=fail}))
+  const settled=vi.fn(),first=new Promise<SendResult>(resolve=>c.teacher.emit('operation',operations[0],resolve)),second=new Promise<SendResult>(resolve=>c.teacher.emit('operation',operations[1],resolve))
+  void first.then(settled);void second.then(settled)
+  await vi.waitFor(()=>expect(c.record.operations).toHaveLength(1))
+  await silent(c.student,'operation_confirmed',40);expect(settled).not.toHaveBeenCalled();expect(mockPrisma.operation.create).toHaveBeenCalledTimes(1)
+  if(fail)reject(Error('first durable insert failed'));else release({})
+  if(fail){
+   expect(await first).toEqual({ok:false,reason:'canonical_repair_required'});expect(await second).toEqual({ok:false,reason:'canonical_repair_required'})
+   expect(c.record.operations).toHaveLength(1);expect(c.record.nextSeq).toBe(2)
+   expect(await new Promise<SendResult>(resolve=>c.teacher.emit('operation',operations[0],resolve))).toMatchObject({ok:true,seq:1,duplicate:true})
+   expect(await new Promise<SendResult>(resolve=>c.teacher.emit('operation',operations[1],resolve))).toMatchObject({ok:true,seq:2})
+  }else{expect(await first).toMatchObject({ok:true,seq:1});expect(await second).toMatchObject({ok:true,seq:2})}
+  expect(c.record.operations.map(op=>op.id)).toEqual(operations.map(op=>op.id));expect(c.record.nextSeq).toBe(3)
+ }finally{log.mockRestore();c.cleanup()}
+})

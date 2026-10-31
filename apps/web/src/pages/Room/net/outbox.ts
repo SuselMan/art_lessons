@@ -40,6 +40,17 @@ function canonicalOrder(op:Operation):CanonicalOrder|undefined {
   return{key,kind:type==='canonical_stroke'?'frame':'close',ordinal}
 }
 
+/** Scheduling lineage only, never read/append authority. */
+export interface CanonicalSendLineage {
+  readonly socket: object
+  readonly connectionId: string
+  readonly boardId: string
+  readonly originalRead: object
+}
+type PendingEntry=OutboxEntry&{canonicalSerialOnly?:true;canonicalFreshStart?:true}
+type Attempt={readonly entry:PendingEntry;phase:'reserved'|'emitted'|'settling';lineage?:CanonicalSendLineage;pipeline:boolean;canonicalSerialOnly?:true}
+const sameLineage=(a:CanonicalSendLineage|undefined,b:CanonicalSendLineage|undefined)=>!!a&&!!b&&a.socket===b.socket&&a.connectionId===b.connectionId&&a.boardId===b.boardId&&a.originalRead===b.originalRead
+
 export interface OutboxDeps {
   storage: OutboxStorage
   // (#358) The room this queue belongs to. One Outbox serves exactly one
@@ -52,7 +63,8 @@ export interface OutboxDeps {
   // network failure/timeout — the caller (Room/index.tsx) wraps
   // socket.emit('operation', ...) with its own timeout, since a bare
   // socket.io ack has none. See sendOperationWithTimeout.
-  send: (op: Operation) => Promise<SendResult>
+  send: (op: Operation, onEmitted?: () => void) => Promise<SendResult>
+  getCanonicalSendLineage?: () => CanonicalSendLineage | undefined
   // Fires exactly once per operation, the moment it gets a real SendResult
   // (never for a timeout/retry) — Room/index.tsx uses this for the same
   // watermark/pendingIds/confirmation bookkeeping onLocalOperation's ack
@@ -101,7 +113,8 @@ export interface OutboxDeps {
 export class Outbox {
   private readonly storage: OutboxStorage
   private readonly roomId: string
-  private readonly send: (op: Operation) => Promise<SendResult>
+  private readonly send: OutboxDeps['send']
+  private readonly getCanonicalSendLineage?: OutboxDeps['getCanonicalSendLineage']
   private readonly onSettled?: (op: Operation, result: SendResult) => void
   private readonly canSend?: () => boolean
   private readonly onStalled?: (op: Operation) => void
@@ -116,7 +129,7 @@ export class Outbox {
   // redundant concurrent attempts for the same entry (e.g. resendAll()
   // called again before an earlier attempt's timeout has even settled), not
   // a correctness requirement (see the class doc comment on duplicates).
-  private readonly inFlight = new Set<string>()
+  private readonly inFlight = new Map<string,Attempt>()
   // (#296) The queue itself. `storage` is now *only* a durability mirror —
   // it exists so a reload or crash doesn't lose unconfirmed work, and
   // nothing on the send path reads from it.
@@ -129,7 +142,7 @@ export class Outbox {
   // there never reached the server or any peer, while the same room worked
   // from desktop. A crashed tab is a very ordinary way to leave IndexedDB
   // unopenable, so this failed exactly when it was needed most.
-  private readonly pending = new Map<string, OutboxEntry>()
+  private readonly pending = new Map<string, PendingEntry>()
   // (#358) Set by dispose(): this queue's room is behind us and nothing it
   // still holds may reach the wire or the UI. See dispose's own comment.
   private disposed = false
@@ -138,6 +151,7 @@ export class Outbox {
     this.storage = deps.storage
     this.roomId = deps.roomId
     this.send = deps.send
+    this.getCanonicalSendLineage = deps.getCanonicalSendLineage
     this.onSettled = deps.onSettled
     this.canSend = deps.canSend
     this.onStalled = deps.onStalled
@@ -225,7 +239,9 @@ export class Outbox {
    *  is best-effort and never gates the send (#296). */
   async enqueue(op: Operation): Promise<void> {
     if (this.disposed) return
-    const entry: OutboxEntry = { op, roomId: this.roomId, attempts: 0, nextRetryAt: this.now() }
+    const order=canonicalOrder(op),entry:PendingEntry={op,roomId:this.roomId,attempts:0,nextRetryAt:this.now()}
+    if(order?.kind==='frame'&&order.ordinal===0&&!this.pending.has(op.id))entry.canonicalFreshStart=true
+    if(order?.key&&[...this.pending.values(),...Array.from(this.inFlight.values(),a=>a.entry)].some(e=>e.canonicalSerialOnly&&canonicalOrder(e.op)?.key===order.key))entry.canonicalSerialOnly=true
     this.pending.set(op.id, entry)
     this.onPendingChange?.(this.pending.size, this.stalled.size)
     await this.persist(entry)
@@ -259,7 +275,7 @@ export class Outbox {
       const persisted = await this.storage.getAll(this.roomId)
       if (this.disposed) return
       for (const entry of persisted) {
-        if (!this.pending.has(entry.op.id)) this.pending.set(entry.op.id, entry)
+        if (!this.pending.has(entry.op.id)) this.pending.set(entry.op.id, {op:entry.op,roomId:entry.roomId,attempts:entry.attempts,nextRetryAt:entry.nextRetryAt,canonicalSerialOnly:true})
       }
     } catch (err) {
       // Nothing to recover from a broken store, but everything queued in
@@ -289,7 +305,7 @@ export class Outbox {
 
   private async persist(entry: OutboxEntry): Promise<void> {
     try {
-      await this.storage.put(entry)
+      await this.storage.put({op:entry.op,roomId:entry.roomId,attempts:entry.attempts,nextRetryAt:entry.nextRetryAt})
     } catch (err) {
       // Durability across reloads is lost for this operation; delivery is
       // not. Never rethrow — see `pending`'s doc comment.
@@ -314,7 +330,7 @@ export class Outbox {
    * A non-waiting head still blocks its gesture during persistence/backoff/stall. */
   private canonicalHeads():{eligible:Set<string>;invalid:OutboxEntry[]} {
     const eligible=new Set<string>(),invalid:OutboxEntry[]=[]
-    const groups=new Map<string,{entries:OutboxEntry[];ordinals:Set<number>;head?:OutboxEntry;minimum:number;close?:OutboxEntry;closeNext?:number;bad:boolean}>()
+    const groups=new Map<string,{entries:PendingEntry[];ordinals:Set<number>;head?:PendingEntry;minimum:number;close?:OutboxEntry;closeNext?:number;bad:boolean}>()
     for(const entry of this.pending.values()){
       const order=canonicalOrder(entry.op)
       if(!order){eligible.add(entry.op.id);continue}
@@ -334,7 +350,14 @@ export class Outbox {
     for(const group of groups.values()){
       if(group.closeNext!==undefined&&[...group.ordinals].some(ordinal=>ordinal>=group.closeNext!))group.bad=true
       if(group.bad)invalid.push(...group.entries)
-      else if(group.head)eligible.add(group.head.op.id)
+      else if(group.head){
+        eligible.add(group.head.op.id)
+        const head=this.inFlight.get(group.head.op.id),order=canonicalOrder(group.head.op),lineage=this.currentLineage()
+        if(head?.phase==='emitted'&&head.pipeline&&!head.canonicalSerialOnly&&!head.entry.canonicalSerialOnly&&sameLineage(head.lineage,lineage)){
+          const next=group.entries.find(e=>{const o=canonicalOrder(e.op);return o?.kind==='frame'&&o.ordinal===order!.ordinal!+1})
+          if(next&&!next.canonicalSerialOnly&&!next.attempts)eligible.add(next.op.id)
+        }
+      }
       else if(group.close)eligible.add(group.close.op.id)
     }
     return{eligible,invalid}
@@ -368,30 +391,48 @@ export class Outbox {
       const at=this.waiting.findIndex(id=>this.pending.has(id)&&!this.inFlight.has(id)&&!this.stalled.has(id)&&eligible.has(id))
       if(at<0)return
       const [opId]=this.waiting.splice(at,1)
-      this.inFlight.add(opId)
-      void this.runAttempt(opId)
+      const entry=this.pending.get(opId)!,order=canonicalOrder(entry.op),lineage=this.currentLineage()
+      const prior=order?.kind==='frame'&&order.key?Array.from(this.inFlight.values()).find(a=>{const o=canonicalOrder(a.entry.op);return o?.kind==='frame'&&o.key===order.key&&o.ordinal===order.ordinal!-1&&a.phase==='emitted'&&a.pipeline&&!a.canonicalSerialOnly&&sameLineage(a.lineage,lineage)}):undefined
+      const attempt:Attempt={entry,phase:'reserved',lineage,pipeline:!!lineage&&!entry.canonicalSerialOnly&&(!!entry.canonicalFreshStart||!!prior),canonicalSerialOnly:entry.canonicalSerialOnly}
+      this.inFlight.set(opId,attempt)
+      void this.runAttempt(opId,attempt)
     }
   }
 
-  private async runAttempt(opId: string): Promise<void> {
-    // `inFlight` must stay set for this entry's *entire* duration — getAll,
+  private currentLineage():CanonicalSendLineage|undefined {
+    try{const value=this.getCanonicalSendLineage?.();return value&&value.boardId===this.roomId&&value.connectionId?{socket:value.socket,connectionId:value.connectionId,boardId:value.boardId,originalRead:value.originalRead}:undefined}catch{return undefined}
+  }
+  private serialOnly(entry:PendingEntry):void {
+    const key=canonicalOrder(entry.op)?.key
+    if(!key)return
+    for(const e of this.pending.values())if(canonicalOrder(e.op)?.key===key)e.canonicalSerialOnly=true
+    for(const a of this.inFlight.values())if(canonicalOrder(a.entry.op)?.key===key){a.canonicalSerialOnly=true;a.entry.canonicalSerialOnly=true;a.pipeline=false}
+  }
+  private async runAttempt(opId: string,attempt:Attempt): Promise<void> {
+    // `inFlight` must stay set for this entry's entire attempt duration —
     // the (potentially slow) send, and settling — not just the initial
     // lookup: clearing it any earlier would let resendAll (or another
     // enqueue racing it) start a fully redundant second send while the
     // first is still genuinely in flight, not just "not yet started".
     try {
       const entry = this.pending.get(opId)
-      if (!entry) return // already settled (by this attempt's own earlier sibling, or resendAll racing enqueue)
+      if (!entry||entry!==attempt.entry) return // already settled (by this attempt's own earlier sibling, or resendAll racing enqueue)
 
       try {
-        const result = await this.send(entry.op)
+        const result = await this.send(entry.op,()=>{
+          if(this.disposed||this.inFlight.get(opId)!==attempt||this.pending.get(opId)!==entry||attempt.phase!=='reserved')return
+          attempt.phase='emitted'
+          if(!sameLineage(attempt.lineage,this.currentLineage()))attempt.pipeline=false
+          this.pump()
+        })
+        attempt.phase='settling'
         // (#358) The room was left while this was on the wire. Whatever the
         // server made of it, this queue no longer speaks for anybody: don't
         // clear the durable copy and don't report a settlement to a UI that
         // has moved to another room. The entry stays persisted under its own
         // roomId and goes out again — deduped by id — when that room is next
         // opened.
-        if (this.disposed) return
+        if (this.disposed||this.inFlight.get(opId)!==attempt||this.pending.get(opId)!==entry) return
         // (#298, #495) Some rejections aren't verdicts on the operation —
         // the socket hadn't joined yet, or the server threw while recording.
         // Treat those exactly like a timeout: back off and try again, rather
@@ -402,6 +443,7 @@ export class Outbox {
         // is how the next transient reason gets silently treated as final and
         // costs somebody a stroke.
         if (!result.ok && isTransientReject(result.reason)) throw new Error(result.reason)
+        if(!result.ok)this.serialOnly(entry)
         this.pending.delete(opId)
         this.stalled.delete(opId) // a conflict may have classified an already in-flight head
         this.onPendingChange?.(this.pending.size, this.stalled.size)
@@ -415,7 +457,8 @@ export class Outbox {
         }
         this.onSettled?.(entry.op, result)
       } catch {
-        if (this.disposed) return
+        if (this.disposed||this.inFlight.get(opId)!==attempt||this.pending.get(opId)!==entry) return
+        this.serialOnly(entry)
         entry.attempts += 1
         await this.persist(entry)
         if (entry.attempts >= MAX_ATTEMPTS) {
@@ -430,7 +473,7 @@ export class Outbox {
         this.schedule(() => this.attempt(opId), delay)
       }
     } finally {
-      this.inFlight.delete(opId)
+      if(this.inFlight.get(opId)===attempt)this.inFlight.delete(opId)
       this.pump()
     }
   }

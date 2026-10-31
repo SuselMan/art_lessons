@@ -737,7 +737,7 @@ function RoomEditor() {
   // (#289 §9, #176, #313) The board's outgoing queue, its retirement on a page
   // turn and its live size — see useBoardOutbox.
   const { outbox, outboxRef, outboxState } = useBoardOutbox({
-    boardId: boardId ?? id ?? '', socketRef, hasJoinedRef, socketBoardRef,
+    boardId: boardId ?? id ?? '', socketRef, hasJoinedRef, socketBoardRef,canonicalReadRef:installedCanonicalReadRef,
     verdicts: {
       pendingIdsRef, latestKnownSeqRef, checkSnapshotBoundary,
       confirmOperation: confirmOwnOperationFromAck, discardOperation: discardOwnOperation,

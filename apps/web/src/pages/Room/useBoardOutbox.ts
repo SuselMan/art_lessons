@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 
 import { Outbox } from './net/outbox'
+import type {CanonicalRoomStateRead} from './net/canonicalRoomState'
 import { createIndexedDbOutboxStorage } from './net/outboxStorage'
 import { createOutboxVerdicts, type OutboxVerdictDeps } from './net/outboxVerdict'
 import { sendOperationWithTimeout, type OperationEmitter } from './net/sendOperation'
@@ -9,7 +10,8 @@ export interface BoardOutboxDeps {
   /** The board the queue belongs to — or, before the first `room_state`, the
    *  URL id standing in for it. */
   boardId: string
-  socketRef: RefObject<OperationEmitter | null>
+  socketRef: RefObject<(OperationEmitter&{readonly id?:string;readonly connected?:boolean}) | null>
+  canonicalReadRef?: RefObject<CanonicalRoomStateRead|undefined>
   /** Whether create_room/join_room has succeeded on this socket's lineage. */
   hasJoinedRef: RefObject<boolean>
   /** The board the server has this socket on, as far as this client knows. */
@@ -30,7 +32,7 @@ export interface BoardOutboxDeps {
  *
  *  (#493) Out of Room: the queue for the board, its retirement when the board
  *  changes, and the live count the banners report. */
-export function useBoardOutbox({ boardId, socketRef, hasJoinedRef, socketBoardRef, verdicts }: BoardOutboxDeps) {
+export function useBoardOutbox({ boardId, socketRef, hasJoinedRef, socketBoardRef, canonicalReadRef, verdicts }: BoardOutboxDeps) {
   // (#201) Live size of the outbox — how much drawing exists only on this
   // device so far. Mirrored into state (rather than read off the Outbox on
   // render) because the Outbox is not a React store and its changes come
@@ -53,7 +55,13 @@ export function useBoardOutbox({ boardId, socketRef, hasJoinedRef, socketBoardRe
     // one board's unconfirmed strokes must not survive into another — that is
     // exactly how they used to get sent there.
     roomId: boardId,
-    send: op => sendOperationWithTimeout(socketRef.current, op),
+    send: (op,onEmitted) => sendOperationWithTimeout(socketRef.current, op,5000,onEmitted),
+    getCanonicalSendLineage:()=>{
+      const socket=socketRef.current,read=canonicalReadRef?.current
+      if(!socket?.connected||!socket.id||!hasJoinedRef.current||socketBoardRef.current!==boardId||!read)return undefined
+      try{if(read.assertCurrent().roomId!==boardId)return undefined}catch{return undefined}
+      return{socket,connectionId:socket.id,boardId,originalRead:read}
+    },
     // (#298) Nothing may go out before create_room/join_room has completed:
     // the server has no room to record against and answers `not_joined`, so
     // every such send is guaranteed to fail. This used to drain on *connect*
@@ -79,7 +87,7 @@ export function useBoardOutbox({ boardId, socketRef, hasJoinedRef, socketBoardRe
     // only ever calls this after a real size change.
     onPendingChange: (pending, stalled) => setOutboxState({ pending, stalled }),
   }), [
-    boardId, socketRef, hasJoinedRef, socketBoardRef, pendingIdsRef, latestKnownSeqRef, checkSnapshotBoundary,
+    boardId, socketRef, hasJoinedRef, socketBoardRef,canonicalReadRef, pendingIdsRef, latestKnownSeqRef, checkSnapshotBoundary,
     confirmOperation, discardOperation, resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,canonicalVerdicts,requestFullResync,
   ])
   // (#176) For the socket effect, which must not list `outbox` as a

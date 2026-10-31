@@ -13,7 +13,7 @@ export interface OperationEmitter {
 // invoked long after the socket that existed when the Outbox itself was
 // constructed may have been replaced by a reconnect.
 export function sendOperationWithTimeout(
-  socket: OperationEmitter | null, op: Operation, timeoutMs = 5000,
+  socket: OperationEmitter | null, op: Operation, timeoutMs = 5000, onEmitted?:()=>void,
 ): Promise<SendResult> {
   return new Promise((resolve, reject) => {
     if (!socket) { reject(new Error('sendOperationWithTimeout: no active socket')); return }
@@ -30,6 +30,7 @@ export function sendOperationWithTimeout(
       const ack=(result:SendResult)=>{clearTimeout(timer);resolve(result)}
       if(close)socket.emit('canonical_stroke_close',close,ack)
       else socket.emit('operation',op,ack)
+      onEmitted?.()
     }catch(error){clearTimeout(timer);reject(error)}
   })
 }
