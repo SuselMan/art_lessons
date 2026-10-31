@@ -106,3 +106,32 @@ it('pins full soft compiler/radial signature and rejects trusted mutations witho
   expect(admission.cursor(identity,grant.strokeId).liveNext).toBe(1)
  }
 })
+function deferredWrite(){let resolve!:()=>void,reject!:(error:Error)=>void;const promise=new Promise<void>((a,b)=>{resolve=a;reject=b});return{promise,resolve,reject}}
+it('withholds soft ACK until durability and repairs the identical failed frame without repinning',async()=>{
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected)
+ const s=snapshot(await transport.begin(identity,f.input,()=>true)),packets=frames(f.descriptor,s)
+ const operation=(i:number):CanonicalStrokeOperation=>({type:'canonical_stroke',id:'durable-soft-'+i,userId:'author',timestamp:i,layerId:'layer',frame:packets[i]})
+ const pin=vi.spyOn(f.storage,'pin'),first=deferredWrite(),log=vi.spyOn(console,'error').mockImplementation(()=>{})
+ db.operation.create.mockReturnValueOnce(first.promise)
+ const op=operation(0),pending=transport.recorded(identity,op,()=>true),settled=vi.fn();void pending.then(settled)
+ await vi.waitFor(()=>expect(f.board.operations).toHaveLength(1))
+ expect(settled).not.toHaveBeenCalled();expect(f.board.nextSeq).toBe(2)
+ const duplicate=transport.recorded(identity,op,()=>true),begin=transport.begin(identity,f.input,()=>true)
+ const next=transport.recorded(identity,operation(1),()=>true)
+ first.reject(new Error('soft insert failed after admission'))
+ for(const outcome of await Promise.all([pending,duplicate,next]))expect(outcome).toEqual({result:{ok:false,reason:'canonical_repair_required'}})
+ expect(await begin).toEqual({ok:false,reason:'canonical_repair_required'})
+ expect(await new CanonicalRoomTransport(selected).begin(identity,f.input,()=>true)).toEqual({ok:false,reason:'canonical_repair_required'})
+ expect(f.board.operations).toHaveLength(1);expect(db.operation.create).toHaveBeenCalledTimes(1)
+ const repair=deferredWrite(),pins=pin.mock.calls.length;db.operation.create.mockReturnValueOnce(repair.promise)
+ const a=transport.recorded(identity,op,()=>true),b=transport.recorded(identity,op,()=>true)
+ await vi.waitFor(()=>expect(db.operation.create).toHaveBeenCalledTimes(2));expect(pin).toHaveBeenCalledTimes(pins)
+ repair.resolve()
+ for(const outcome of await Promise.all([a,b])){
+  expect(outcome.result).toEqual({ok:true,seq:1,duplicate:true});expect(outcome.accepted).toBe(f.board.operations[0])
+  expect(outcome.accepted!.frame.materialPacked).toBe(op.frame.materialPacked)
+ }
+ expect(f.board.nextSeq).toBe(2);expect(f.board.operations).toHaveLength(1)
+ expect(await transport.recorded(identity,operation(1),()=>true)).toMatchObject({result:{ok:true,seq:2}})
+ expect(db.operation.create).toHaveBeenCalledTimes(3);log.mockRestore()
+})
