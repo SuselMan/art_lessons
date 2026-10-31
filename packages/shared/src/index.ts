@@ -66,3 +66,5 @@ export * from './sourceFmaF64Reference.js'
 export * from './canonicalDefaultAutoMaterial.js'
 
 export * from './canonicalSoftAutoMaterial.js'
+
+export * from './canonicalRecordedAttachment.js'
