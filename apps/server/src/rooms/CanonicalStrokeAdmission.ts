@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { advanceCanonicalMaterialPrefix, CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin,
+import { advanceCanonicalMaterialPrefix, CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_RASTER_CONTRACTS,type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION, decodeCanonicalStrokeFrame, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin,
   type CanonicalMaterialContext, type AnyCanonicalMaterialContext, type CanonicalMaterialEntry, type AnyCanonicalMaterialFrame,
   type CanonicalRecordedCloseSeal,type CanonicalStrokeComposition, type CanonicalStrokeFrameEnvelope } from '@grafetto/shared'
 
@@ -140,7 +140,7 @@ export class CanonicalStrokeAdmission {
     const grant = this.resolve(scope, Object.freeze({ layerId, brush, strokeId }))
     if (!grant || grant.roomId !== scope.roomId || grant.userId !== scope.userId || grant.layerId !== layerId
       || grant.brush !== brush || grant.strokeId !== strokeId || !integer(grant.boardEpoch)
-      || grant.roomRasterVersion !== STRAIGHT_ROOM_RASTER_VERSION || (grant.rasterProfile !== CANONICAL_STROKE_RASTER_PROFILE&&grant.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
+      || grant.roomRasterVersion !== STRAIGHT_ROOM_RASTER_VERSION || !CANONICAL_STROKE_RASTER_CONTRACTS.some(contract=>contract.profile===grant.rasterProfile)
       || !/^[0-9a-f]{64}$/.test(grant.descriptorSha256)) fail('trusted board/brush capability unavailable')
     if(!grant.material||!Array.isArray(grant.material.assets)||grant.material.assets.length>16)fail('unsupported trusted material capability')
     const m=grant.material
