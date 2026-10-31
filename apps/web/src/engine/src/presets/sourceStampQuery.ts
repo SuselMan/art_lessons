@@ -138,7 +138,7 @@ export class SourceStampQueryExecutor {
         { ...boundary.sourceCache.request, x, y, shape: { scale, ratio, rotation } }, boundary.sourceCache.state,
         this.options.Mirror, this.context, { canvasH: info.mirroredH, canvasV: info.mirroredV, enableH: boundary.mirrorX, enableV: boundary.mirrorY }, boundary.sourceCache.geometry)
       if (material.mirrorValue !== undefined) events.push({ option: 'Mirror', stage: 'material', value: material.mirrorValue,
-        drawsBefore: before, drawsAfter: this.context.random.snapshot().draws })
+        drawsBefore: material.mirrorDrawsBefore ?? before, drawsAfter: this.context.random.snapshot().draws })
     } else boundary.material?.(this.context)
     const spacingValue = spacing()
     return { painted: true, events, scale, rotation, ratio, x, y, opacity, flow, spacing: spacingValue, rate: rate(), spacingMirror, ...(material ? { material } : {}) }

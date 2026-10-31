@@ -25,10 +25,20 @@ class IncrementalSourceTests(unittest.TestCase):
             self.assertEqual(d['sourceStamp']['brush']['width'],2)
             actual=[(catalog.output/catalog.assets[id]['file']).read_bytes()for id in tip['animation']['frames']]
             self.assertEqual(actual,[bytes([0,40,80,120]),bytes([255,200,100,0])])
-    def test_random_pipe_does_not_gain_incremental_source_capability(self):
+    def test_mismatched_declared_rank_does_not_gain_source_capability(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);path=root/'self.kpp';path.write_bytes(kpp('<Brush type="gbr_brush" filename="self.gih"/>'))
+            # Three is the selection rank; two valid frames end at EOF.
+            data=pipe().replace(b'2 ncells:2 dim:1 rank0:2',b'3 ncells:3 dim:1 rank0:3')
+            catalog=convert.Catalog(root/'out');convert_krita(path,catalog,{'self.gih':data})
+            self.assertEqual(catalog.skipped,[])
+            self.assertNotIn('sourceStamp',catalog.brushes[0]['descriptor'])
+
+    def test_random_pipe_retains_its_mode_without_becoming_incremental(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);path=root/'self.kpp';path.write_bytes(kpp('<Brush type="gbr_brush" filename="self.gih"/>'))
             catalog=convert.Catalog(root/'out');convert_krita(path,catalog,{'self.gih':pipe('random')})
-            self.assertNotIn('sourceStamp',catalog.brushes[0]['descriptor'])
+            self.assertIn('sourceStamp',catalog.brushes[0]['descriptor'])
+            self.assertEqual(catalog.brushes[0]['descriptor']['tip']['animation']['mode'],'random')
 
 if __name__=='__main__':unittest.main()

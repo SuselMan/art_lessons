@@ -105,6 +105,7 @@ export function sourceDabKeysEqual(current: SourceDabCacheKey, saved: SourceDabC
 export interface SourceDabCacheRequest {
   /** Selected image-pipe frame; absent retains the historical static frame. */
   readonly index?: number
+  readonly imagePipe?: {readonly mode:'incremental'|'random';readonly frames:readonly string[]}
   readonly brushIdentity: string
   readonly x: number
   readonly y: number
@@ -146,6 +147,8 @@ export interface SourceDabCacheResult {
   readonly state: SourceDabCacheState
   readonly mirror: SourceMirrorBits
   readonly mirrorValue?: number
+  /** Separates the pipe selection RNG from the following Mirror option trace. */
+  readonly mirrorDrawsBefore?: number
   readonly shape: SourceDabShape
   readonly resolvedShape: SourceDabShape
   readonly resolvedSource: SourceDabMaterialSpec
@@ -168,6 +171,14 @@ export function planSourceDab(brush: SourceDabBrushMetrics, request: SourceDabCa
     || (request.sharpnessChecked && (request.sharpness === undefined || !Number.isFinite(request.sharpness) || typeof request.sharpnessAlign !== 'boolean' || request.sharpnessStrength === undefined || !Number.isFinite(request.sharpnessStrength)))) throw new RangeError('Invalid source material request')
   if((geometry?.kind==='defaultAuto'||geometry?.kind==='gaussianAuto'||geometry?.kind==='softAuto'))sourceDabCharacteristicSize(brush,{scale:1,ratio:1,rotation:0},geometry)
   else if(geometry && geometry.kind!=='image')throw new RangeError('Unknown source geometry')
+  const pipe=request.imagePipe
+  if(pipe&&(geometry&&geometry.kind!=='image'||pipe.mode!=='incremental'&&pipe.mode!=='random'||pipe.frames.length<2||pipe.frames.length>256
+    ||pipe.frames[0]!==request.brushIdentity||pipe.frames.some(v=>!/^asset:[a-f0-9]{64}$/.test(v))||request.index!==undefined))throw new RangeError('Invalid source image pipe')
+  if(pipe){
+    const index=pipe.mode==='random'?context.random.generate(0,pipe.frames.length-1):state.nextSequence%pipe.frames.length
+    request={...request,index,brushIdentity:pipe.frames[index]}
+  }
+  const mirrorDrawsBefore=pipe?.mode==='random'?context.random.snapshot().draws:undefined
   let mirrorValue: number | undefined
   const mirror = sourceMirror(mirrorOption, context, mirrorInput, value => { mirrorValue = value })
   const shape = mirror.coordinateSystemFlipped ? { ...request.shape, rotation: 2 * Math.PI - request.shape.rotation } : request.shape
@@ -209,7 +220,7 @@ export function planSourceDab(brush: SourceDabBrushMetrics, request: SourceDabCa
     mirror: Object.freeze({ ...mirror }), position: Object.freeze({ x: request.x, y: request.y }),
   })
   const resolvedRect = hit ? { x: x - Math.trunc((saved.width - width) / 2), y: y - Math.trunc((saved.height - height) / 2), width: saved.width, height: saved.height } : requestedRect
-  return { mirror, mirrorValue, shape, resolvedShape: resolvedSource.shape, resolvedSource, key, requestedRect, resolvedRect, sourceSequence: resolvedSource.sequence,
+  return { mirror, mirrorValue,...(mirrorDrawsBefore!==undefined?{mirrorDrawsBefore}:{}), shape, resolvedShape: resolvedSource.shape, resolvedSource, key, requestedRect, resolvedRect, sourceSequence: resolvedSource.sequence,
     type: !hit ? 'Dab' : request.textureEnabled || request.sharpnessChecked ? 'Postprocess' : 'Copy',
     state: Object.freeze({ nextSequence: state.nextSequence + 1, saved: resolvedSource }),
   }

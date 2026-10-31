@@ -548,7 +548,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
             assets=[tip_asset(frame,catalog,warnings) for frame in frames]
             mask=frames[0]
             d['tip']['mask'],d['tip']['maskBounds']=assets[0]
-            if pipe['mode']=='incremental' and not pipe['coloured'] and not material_gray:
+            if pipe['mode'] in ('incremental','random') and 2<=len(frames)<=256 and pipe['declaredCount']==len(frames) and not pipe['coloured'] and not material_gray:
                 source_static_image = True
                 sampling=integer_image_sampling(frames[0],application,catalog.assets[d['tip']['mask']]['size'])
                 if sampling: d['tip']['imageSampling']=sampling
