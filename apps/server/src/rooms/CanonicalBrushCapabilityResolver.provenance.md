@@ -145,3 +145,29 @@ remain in place. Source-data readiness does not override this execution gate.
 Verified-storage tests cover normal admission and unsupported composition across
 all three auto families, plus the PNG composition rejection matrix, before pin,
 asset reads or room operation mutation. The global execution policy stays OFF.
+
+## Internal recorded read preparation
+
+readRecordedCapability exposes a read-only V2 attachment preparation seam in the
+existing resolver. It cross-checks every indexed identity column and complete
+JSON against the caller's authoritative row via verifyCanonicalOperationRow,
+then uses ONLY the existing durable room brush pin. Personal/operator catalogs
+cannot override that revision. The same private descriptor binding function now
+serves own BEGIN and recorded reads; source policy, Over/effect gates, normalized
+SHA and shared decoder remain common owners.
+
+The caller must obtain rows from the authoritative DB/loader, establish current
+board read permission and capture/recheck board/lesson/storage lifetime around
+its awaits. Equal caller-supplied operation/row objects do not prove provenance.
+This method is internal, synchronous, not a socket/HTTP endpoint. It does not
+pin/import/write, grant paint permission, insert a BEGIN/session entry, or look
+up a reader's personal brush. The result carries originalUserId and stamped
+operation identity; it is deliberately not TrustedCanonicalGesture and cannot
+make resolve() authorize peer append. V1/masked delivery stays closed.
+
+Verified transport-row tests exercise author different from reader, conflicting
+personal/operator catalog, room-pin selection, policy OFF, all indexed identity
+and JSON mismatches, deep immutable soft radial data, and rejected append via an
+unchanged empty resolver. No protocol payload, client registry, queue or engine
+activation is added. Future attachment delivery still needs bounded schema,
+read permission/lifetime, history-cut completeness and atomic confirmed ordering.

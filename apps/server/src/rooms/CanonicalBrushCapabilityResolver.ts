@@ -2,15 +2,26 @@ import { createHash } from 'node:crypto'
 import {
   CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, STRAIGHT_ROOM_RASTER_VERSION,
   canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, sourceStampPaintingMode, hasCanonicalOverComposition,
-  type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin,
+  type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalStrokeOperation, type CanonicalMaterialContextV2, decodeCanonicalStrokeFrame,
 } from '@grafetto/shared'
 import { freezeCanonicalAutoPolicies, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
 import { BrushStorage, merge } from '../brushLibrary/storage.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
+import { verifyCanonicalOperationRow, type CanonicalStoredOperationRow } from './roomPersistence.js'
 import type { CanonicalAdmissionIdentity, CanonicalCapabilityResolver, TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
 
 export type CanonicalGestureBegin = CanonicalStrokeBegin
+/** Read-only attachment input for a future authoritative delivery seam.
+ * Deliberately not TrustedCanonicalGesture: it cannot grant append as a peer. */
+export interface CanonicalRecordedCapability {
+ readonly roomId:string;readonly originalUserId:string;readonly operationId:string;readonly sequence:number;readonly layerId:string
+ readonly boardEpoch:number;readonly descriptorSha256:string;readonly brush:string;readonly strokeId:string
+ readonly rasterProfile:typeof CANONICAL_STROKE_RASTER_PROFILE
+ readonly pigmentRgb8:readonly[number,number,number]
+ readonly composition:TrustedCanonicalGesture['composition']
+ readonly material:CanonicalMaterialContextV2
+}
 interface PinnedGesture { readonly board: RoomRecord; readonly lesson: RoomRecord; readonly grant: TrustedCanonicalGesture }
 const text = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 256 && !v.includes('\0')
 const key = (identity: CanonicalAdmissionIdentity, strokeId: string) => JSON.stringify([identity.roomId, identity.userId, strokeId])
@@ -119,6 +130,60 @@ export class CanonicalBrushCapabilityResolver {
     const library = merge(this.operator(), this.storage.library('owners', identity.userId), this.storage.library('rooms', identity.roomId))
     const descriptor = library.brushes.find(b => b.descriptor.id === match[1] && b.descriptor.version === Number(match[2]))?.descriptor
     if (!descriptor) fail('brush unavailable')
+    const {material,mode,descriptorSha256}=this.bindDescriptor(descriptor,library)
+    const priorEpoch = this.epochs.get(current.board)
+    let boardEpoch = priorEpoch?.lesson === current.lesson ? priorEpoch.value : undefined
+    if (boardEpoch === undefined) {
+      if (this.nextEpoch >= Number.MAX_SAFE_INTEGER) fail('resident epoch exhausted')
+      boardEpoch = this.nextEpoch++; this.epochs.set(current.board, { lesson: current.lesson, value: boardEpoch })
+    }
+    const grant: TrustedCanonicalGesture = Object.freeze({ roomId: identity.roomId, userId: identity.userId, layerId: input.layerId,
+      boardEpoch, roomRasterVersion: STRAIGHT_ROOM_RASTER_VERSION, rasterProfile: CANONICAL_STROKE_RASTER_PROFILE,
+      descriptorSha256, brush: input.brush, strokeId: input.strokeId,
+      pigmentRgb8: Object.freeze([input.pigmentRgb8[0], input.pigmentRgb8[1], input.pigmentRgb8[2]] as const),
+      composition: Object.freeze({ mode, alphaDarken: input.alphaDarken,
+        outerResourceOpacity: input.outerResourceOpacity, outerBlend: 'over' as const }), material })
+    let committed = false
+    return Object.freeze({ grant, commit: () => {
+      if (committed) return
+      const now = this.authorizedBoard(identity, grant.layerId)
+      if (!now || now.board !== current.board || now.lesson !== current.lesson || this.gestures.has(identityKey)
+        || this.gestures.size >= this.maxGestures) fail('stale begin ticket')
+      this.gestures.set(identityKey, { ...current, grant }); committed = true
+    } })
+  }
+
+  /** Internal read preparation only. Caller must establish current board read
+   * permission and capture/recheck board/lesson/storage lifetime across its own
+   * awaits. The row MUST originate from the authoritative loader/DB, never a
+   * client echo. Cross-checking equal objects alone cannot establish provenance.
+   * Does not pin, import, publish a BEGIN grant, or mutate admission/session maps. */
+  readRecordedCapability(input:{readonly roomId:string;readonly boardEpoch:number;readonly operation:CanonicalStrokeOperation;readonly row:CanonicalStoredOperationRow}):CanonicalRecordedCapability {
+    const {roomId,boardEpoch,operation:op,row}=input
+    if(!text(roomId)||!Number.isSafeInteger(boardEpoch)||boardEpoch<0||boardEpoch>=Number.MAX_SAFE_INTEGER)fail('invalid recorded read context')
+    verifyCanonicalOperationRow(roomId,op,row)
+    const board=rooms.get(roomId)
+    if(!board||board.room.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION)fail('recorded read board unavailable')
+    const match=/^brush:([a-z0-9-]+)@([1-9][0-9]*)$/.exec(op.frame.brush)
+    if(!match||!Number.isSafeInteger(Number(match[2])))fail('exact versioned recorded brush required')
+    // Read ONLY the durable room pin. Personal/operator lookup is not authority
+    // for someone else's already recorded source revision.
+    const library=this.storage.library('rooms',roomId)
+    const descriptor=library.brushes.find(b=>b.descriptor.id===match[1]&&b.descriptor.version===Number(match[2]))?.descriptor
+    if(!descriptor)fail('recorded room brush pin unavailable')
+    if(descriptor.sourceStamp?.version!==2||descriptor.sourceStamp.source.kind==='image')fail('recorded V1 material delivery unavailable')
+    const {material,mode,descriptorSha256}=this.bindDescriptor(descriptor,library)
+    if(!('version' in material))fail('recorded V1 material delivery unavailable')
+    if(!this.variants.has(op.frame.composition.alphaDarken)||op.frame.composition.mode!==mode)fail('recorded composition policy mismatch')
+    const decoded=decodeCanonicalStrokeFrame(op.frame,{brush:op.frame.brush,strokeId:op.frame.strokeId,frameOrdinal:op.frame.frameOrdinal,
+      pigmentRgb8:op.frame.pigmentRgb8,composition:{...op.frame.composition,mode,outerBlend:'over'},material})
+    if(decoded.frame.masked)fail('recorded masked material unavailable')
+    return Object.freeze({roomId,originalUserId:op.userId,operationId:op.id,sequence:op.seq!,layerId:op.layerId,boardEpoch,
+      descriptorSha256,brush:decoded.envelope.brush,strokeId:decoded.envelope.strokeId,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,
+      pigmentRgb8:decoded.envelope.pigmentRgb8,composition:decoded.envelope.composition,material})
+  }
+
+  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary):{material:AnyCanonicalMaterialContext;mode:'wash'|'buildup';descriptorSha256:string} {
     if(!isSourceStampData(descriptor.sourceStamp))fail('invalid or missing retained source data')
     const unsupportedOuter = outerExecutionReject(descriptor)
     if (unsupportedOuter) fail('unsupported canonical Over execution: ' + unsupportedOuter)
@@ -152,26 +217,7 @@ export class CanonicalBrushCapabilityResolver {
       mode=capability.mode
       material=Object.freeze({assets:Object.freeze([capability.asset]),primaryAsset:asset.id,preflightDefinition,budget})
     }
-    const priorEpoch = this.epochs.get(current.board)
-    let boardEpoch = priorEpoch?.lesson === current.lesson ? priorEpoch.value : undefined
-    if (boardEpoch === undefined) {
-      if (this.nextEpoch >= Number.MAX_SAFE_INTEGER) fail('resident epoch exhausted')
-      boardEpoch = this.nextEpoch++; this.epochs.set(current.board, { lesson: current.lesson, value: boardEpoch })
-    }
-    const grant: TrustedCanonicalGesture = Object.freeze({ roomId: identity.roomId, userId: identity.userId, layerId: input.layerId,
-      boardEpoch, roomRasterVersion: STRAIGHT_ROOM_RASTER_VERSION, rasterProfile: CANONICAL_STROKE_RASTER_PROFILE,
-      descriptorSha256, brush: input.brush, strokeId: input.strokeId,
-      pigmentRgb8: Object.freeze([input.pigmentRgb8[0], input.pigmentRgb8[1], input.pigmentRgb8[2]] as const),
-      composition: Object.freeze({ mode, alphaDarken: input.alphaDarken,
-        outerResourceOpacity: input.outerResourceOpacity, outerBlend: 'over' as const }), material })
-    let committed = false
-    return Object.freeze({ grant, commit: () => {
-      if (committed) return
-      const now = this.authorizedBoard(identity, grant.layerId)
-      if (!now || now.board !== current.board || now.lesson !== current.lesson || this.gestures.has(identityKey)
-        || this.gestures.size >= this.maxGestures) fail('stale begin ticket')
-      this.gestures.set(identityKey, { ...current, grant }); committed = true
-    } })
+    return {material,mode,descriptorSha256}
   }
 
   /** Trusted lifetime close only, paired with admission.clearRoom. Caller must

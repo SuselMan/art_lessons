@@ -155,3 +155,36 @@ it('rejects unsupported outer composition for every auto family before pin or as
   }
  }
 })
+it('derives recorded peer capability only from the room pin without granting peer append',async()=>{
+ const f=setup(softDescriptor()),transport=new CanonicalRoomTransport(selected)
+ const s=snapshot(await transport.begin(identity,f.input,()=>true)),frame=frames(f.descriptor,s)[0]
+ const saved=await transport.recorded(identity,{type:'canonical_stroke',id:'peer-recorded',userId:'author',timestamp:0,layerId:'layer',frame},()=>true)
+ if(!saved.accepted)throw Error('Expected accepted recorded row')
+ const operation=saved.accepted,row=db.operation.create.mock.calls[0][0].data
+ const conflicting=structuredClone(f.library);conflicting.brushes[0].descriptor.opacity=.123
+ f.storage.install('reader',conflicting,new Map())
+ const reader={roomId:'board',userId:'reader'},read=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:()=>conflicting,...selected,maxGestures:4})
+ const library=vi.spyOn(f.storage,'library'),pin=vi.spyOn(f.storage,'pin'),asset=vi.spyOn(f.storage,'asset')
+ const capability=read.readRecordedCapability({roomId:'board',boardEpoch:7,operation,row})
+ expect(capability.originalUserId).toBe('author');expect(capability.originalUserId).not.toBe(reader.userId)
+ expect(capability.descriptorSha256).toBe(s.descriptorSha256);expect(capability.boardEpoch).toBe(7)
+ expect(library.mock.calls.every(([scope,id])=>scope==='rooms'&&id==='board')).toBe(true)
+ expect(pin).not.toHaveBeenCalled();expect(asset).not.toHaveBeenCalled();expect(read.size).toBe(0)
+ expect(read.resolve(reader,{layerId:'layer',brush:frame.brush,strokeId:frame.strokeId})).toBeUndefined()
+ expect(read.resolve(identity,{layerId:'layer',brush:frame.brush,strokeId:frame.strokeId})).toBeUndefined()
+ const admission=new CanonicalStrokeAdmission({resolve:read.resolve,retainedFrames:8,maxGestures:4})
+ expect(()=>admission.prepare(reader,{type:'canonical_stroke',id:'pretend-peer',layerId:'layer',frame})).toThrow('capability unavailable')
+ expect(Object.isFrozen(capability.material.primarySource)).toBe(true)
+ if(capability.material.primarySource.kind!=='softAuto')throw Error('Expected soft')
+ expect(Object.isFrozen(capability.material.primarySource.radialCurve.coefficients[0])).toBe(true)
+ const disabled=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:empty,...policy,maxGestures:4})
+ expect(()=>disabled.readRecordedCapability({roomId:'board',boardEpoch:7,operation,row})).toThrow('policy disabled')
+ for(const patch of [{roomId:'other'},{userId:'reader'},{id:'other'},{seq:99},{type:'stroke'},{layerId:'other'},{tool:'pencil'},{data:{...operation,frame:{...frame,strokeId:'other'}}}]){
+  expect(()=>read.readRecordedCapability({roomId:'board',boardEpoch:7,operation,row:{...row,...patch}})).toThrow('immutable row conflict')
+ }
+ const malformed=structuredClone(operation);Object.assign(malformed,{frame:null})
+ expect(()=>read.readRecordedCapability({roomId:'board',boardEpoch:7,operation:malformed,row:{...row,data:malformed}})).toThrow()
+ library.mockReturnValueOnce(empty())
+ expect(()=>read.readRecordedCapability({roomId:'board',boardEpoch:7,operation,row})).toThrow('room brush pin unavailable')
+ expect(read.size).toBe(0)
+})
