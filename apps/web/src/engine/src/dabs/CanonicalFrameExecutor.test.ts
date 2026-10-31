@@ -685,6 +685,23 @@ describe('deposition-only wash ownership', () => {
       expect(() => ownership!.tiles[0].view.residency.kind === 'external' && ownership!.tiles[0].view.residency.lease()).toThrow(/Stale/)
     } finally { ownership?.release(); s.close() }
   })
+  it('refuses a raw borrow from a retired storage generation even with the same WebGL handles',()=>{
+    const s=raw();let release:(()=>void)|undefined
+    try{
+      s.executor.enqueue(s.submit());s.drain()
+      const view=s.executor.rawWashTiles()[0].view,owner=view.residency
+      if(owner.kind!=='external')throw Error('Expected raw owner')
+      const local=s.scratch.gpuAllocationSnapshot().find(item=>item.state==='live')!.buffer,texture=local.texture
+      expect(local.storageOwnerCurrent).toBe(true)
+      // Isolated recording GL only: retire its ledger generation without
+      // changing mock WebGL names, so rawOwner.alive alone cannot authorize it.
+      AccumulationBuffer.forgetContextStorage(s.gl)
+      expect(s.gl.isContextLost()).toBe(false);expect(local.texture).toBe(texture)
+      expect(local.storageOwnerCurrent).toBe(false);expect(s.executor['rawOwner'].alive).toBe(true)
+      expect(()=>{release=owner.lease()}).toThrow(/Stale/)
+      expect(s.executor['rawOwner'].leases).toBe(0)
+    }finally{release?.();s.close()}
+  })
   it('declares only the actual live nearest pool local as a lifetime-owned point sampler',()=>{
     const s=raw()
     try{

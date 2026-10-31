@@ -569,7 +569,7 @@ export class CanonicalFrameExecutor {
     // never changes its constructor clamp sampler or lends it to other writers.
     const ownedPointSampler=Object.freeze({texture,source:local,epoch:owner})
     return { kind: 'external', owner, ownedPointSampler, lease: () => {
-      if (!owner.alive || local.texture!==texture || this.gl.isContextLost()) throw new Error('Stale canonical raw wash')
+      if (!owner.alive || !local.storageOwnerCurrent || local.texture!==texture || this.gl.isContextLost()) throw new Error('Stale canonical raw wash')
       owner.leases++
       let held = true
       return () => { if (held) { held = false; owner.leases-- } }

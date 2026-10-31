@@ -346,3 +346,13 @@ and after acquisition and before owned sampling. No shader, source generation,
 composition, deposition controls or physical ownership changes. The standalone
 composite path preserves foreign queries/restoration. See BrushGlBatch provenance
 and the compact owned-sampler Samsung receipt for tests and measured query removal.
+
+2026-10-31 follow-up: raw-local lease admission also requires the actual
+AccumulationBuffer.storageOwnerCurrent metadata. A live rawOwner plus unchanged
+WebGL names is insufficient after the physical ledger generation retires. An
+isolated recording-GL test retires only its test ledger while keeping names and
+isContextLost=false; the old lease wrongly succeeded, the new guard rejects before
+incrementing raw leases. Production performs no ledger reset/forget or extra GL
+query.83 executor/layer-binding tests, lint and combined app/SW TSC cover this
+metadata-only guard. Existing709a41e58 Samsung receipts remain historical and are
+not relabeled as measurements of this follow-up.

@@ -1,0 +1,14 @@
+{
+  "scope": "Metadata-only raw-local borrow guard; production no ledgerforget/reset, no GLquery, no Samsung/foreground access.",
+  "baseline": "One isolated recordingGL fault test failed: owner.lease accepted after ledgergenerationretired with rawOwneralive+unchangedTexture+isContextLostfalse. Returned lease always released in testfinally.",
+  "baselineLogSHA256": "2982fd1992847baf0aec3ca9a638a2e563c2b47f898ccf9a0aaf2f2cef127ab5",
+  "change": "Require local.storageOwnerCurrent before lease counter increment. Root getterchecks actual current storageleases and !destroyed without GLqueries.",
+  "checks": {
+    "focusedTests": 83,
+    "files": 2,
+    "lint": "PASS",
+    "commonWebAppAndSwTsc": "53637 PASS (pre-FBO-certificate API, includes currentstaleguard/clientfreeze)"
+  },
+  "historicalDeviceEvidence": "709a41e58 receipt unchanged; no new GPUclaim for this tinygenerationguard.",
+  "resourceCleanup": "Only test Node processes; completed. No own forward/child/context/QAservice/runtime/dependencies created."
+}
