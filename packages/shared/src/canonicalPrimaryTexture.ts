@@ -19,6 +19,19 @@ export interface CanonicalFixedPrimaryTexturePin extends Omit<CanonicalPrimaryTe
   readonly strength: 'fixed-one-v1'
 }
 
+/** Pressure-curve law DATA, distinct from identity3 and fixed4. */
+export interface CanonicalPressureCurvePrimaryTexturePin extends Omit<CanonicalPrimaryTexturePin, "strength"> {
+  readonly strength: "source-pressure-curve-v1";
+}
+export function canonicalPressureCurvePrimaryTexturePin(value: unknown, assets: readonly CanonicalMaterialAsset[]): Readonly<CanonicalPressureCurvePrimaryTexturePin> {
+  if (!Array.isArray(assets) || assets.length !== 1)
+    return fail();
+  const descriptor = Object.getOwnPropertyDescriptor(assets, "0");
+  if (!descriptor || !Object.hasOwn(descriptor, "value"))
+    return fail();
+  return capturePrimaryTexturePin(value, descriptor.value, "source-pressure-curve-v1");
+}
+
 const fail = (): never => { throw new TypeError('Invalid canonical primary texture') }
 const fields = ['kind', 'asset', 'law', 'width', 'height', 'periodX', 'periodY', 'offsetX', 'offsetY', 'strength'] as const
 const assetFields = ['id', 'size', 'x', 'y', 'width', 'height'] as const
@@ -57,7 +70,7 @@ export function canonicalFixedPrimaryTexturePin(input: unknown, trustedAsset: Ca
   return capturePrimaryTexturePin(input, trustedAsset, 'fixed-one-v1')
 }
 
-function capturePrimaryTexturePin<S extends CanonicalPrimaryTexturePin['strength'] | CanonicalFixedPrimaryTexturePin['strength']>(
+function capturePrimaryTexturePin<S extends CanonicalPrimaryTexturePin['strength'] | CanonicalFixedPrimaryTexturePin['strength'] | CanonicalPressureCurvePrimaryTexturePin['strength']>(
   input: unknown, trustedAsset: CanonicalMaterialAsset, strength: S,
 ): Readonly<Omit<CanonicalPrimaryTexturePin, 'strength'> & { readonly strength: S }> {
   const p = capture(input, fields), a = capture(trustedAsset, assetFields)

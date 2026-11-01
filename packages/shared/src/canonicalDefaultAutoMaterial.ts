@@ -1,6 +1,6 @@
 import {canonicalStrokeRasterContract,CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,canonicalStrokeCoverageMatches,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
 import type { BrushDescriptor } from './brushes.js'
-import { extractCanonicalDefaultAutoFixedTextureCapability, extractDefaultAutoSourceDataCapability, extractSeededDensityDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability, canonicalSourceComposition } from './canonicalBrushCapability.js'
+import { extractCanonicalDefaultAutoPressureTextureProgramData, extractCanonicalDefaultAutoFixedTextureCapability, extractDefaultAutoSourceDataCapability, extractSeededDensityDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability, canonicalSourceComposition } from './canonicalBrushCapability.js'
 import type { SourceDefaultAutoData, SourceGaussianAutoData } from './sourceStampData.js'
 import { sourceAutoGeometry } from './sourceAutoGeometry.js'
 
@@ -118,6 +118,29 @@ export function canonicalDefaultAutoFixedTextureSourceBinding(
   const normalized=canonicalDefaultAutoStatic(result.data.source,result.data.brush.scale,result.data.brush.angle,coverageProfile)
   return canonicalDefaultAutoSourcePin({kind:'defaultAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,
     descriptorSha256,...normalized,coverageProfile})
+}
+
+/** Original descriptor SHA binds compiled3 material program; no execution grant. */
+export function canonicalDefaultAutoPressureTextureSourceBinding(descriptor: BrushDescriptor, descriptorSha256: string, coverageProfile: CanonicalAutoCoverageProfile, pattern: Readonly<{
+  id: string;
+  size: number;
+}>, rasterProfile: CanonicalStrokeRasterProfile): CanonicalDefaultAutoSource {
+  if (coverageProfile === CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE || !canonicalStrokeRasterContract(rasterProfile).genericSC || !canonicalStrokeCoverageMatches(rasterProfile, coverageProfile) || !canonicalSourceComposition(descriptor, rasterProfile))
+    throw new TypeError("Pressure DefaultAuto texture outer composition unavailable");
+  const result = extractCanonicalDefaultAutoPressureTextureProgramData(descriptor, {
+    pattern
+  });
+  if (!result.supported || result.data.source?.kind !== "defaultAuto" || typeof descriptorSha256 !== "string" || !/^[a-f0-9]{64}$/.test(descriptorSha256))
+    throw new TypeError("Pressure DefaultAuto texture source capability unavailable");
+  const normalized = canonicalDefaultAutoStatic(result.data.source, result.data.brush.scale, result.data.brush.angle, coverageProfile);
+  return canonicalDefaultAutoSourcePin({
+    kind: "defaultAuto",
+    descriptorId: descriptor.id,
+    descriptorVersion: descriptor.version,
+    descriptorSha256,
+    ...normalized,
+    coverageProfile
+  });
 }
 
 

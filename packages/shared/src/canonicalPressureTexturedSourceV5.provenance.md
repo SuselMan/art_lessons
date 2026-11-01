@@ -1,0 +1,4 @@
+# Standalone core5 DATA only
+Original descriptor SHA binds compiled3 program, no coefficient bags/context grants. Same private codec family, explicit5 overloads, one pattern, DefaultAuto, no mask, finite grain0..1. Every DRAW pays fullpattern area including reuse/zero. OldAny1/2/currentroom/snapshot/protocol remain closed; old4fixed1 unchanged. Fixture is metadata-only normal Reptile revision37 with sourceKpp/providerF64 hashes, old27 negative retained. Actual ROOT online pair/runtime unchanged. No native pixel/author5 claim.
+
+ROOT actual applied gates: 196 tests / 11 files passed; strict shared project 111 roots / 115 source inputs, 0 diagnostics; targeted oxlint 5 TS files exit 0; git diff --check passed. Full web/server checks belong to the subsequent coherent author/executor integration. No online material5 authority is enabled.
