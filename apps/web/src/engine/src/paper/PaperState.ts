@@ -162,6 +162,10 @@ export class PaperState implements PaperRead {
     if (!this._texture) throw new Error('Paper texture unavailable')
     return this._texture
   }
+  /** Current owner identity only; a pending replacement keeps the old texture live. */
+  ownsCurrentTexture(gl: WebGLRenderingContext, texture: WebGLTexture): boolean {
+    return this.gl === gl && !this._destroyed && this._contextActive && this._texture === texture
+  }
   /** See the _loaded field comment. */
   get loaded(): boolean { return this._loaded }
   get type(): PaperType { return this._type }

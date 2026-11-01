@@ -98,7 +98,7 @@ it('publishes only the latest type attempt when A resolves after B', async () =>
   const current = paper.texture, upload = vi.spyOn(gl, 'texImage2D'), deleted = vi.spyOn(gl, 'deleteTexture')
   a.resolve(bytes); await oldReady
   expect(upload).not.toHaveBeenCalled(); expect(deleted).not.toHaveBeenCalled()
-  expect(paper.texture).toBe(current); expect(onLoaded).toHaveBeenCalledOnce(); paper.destroy()
+  expect(paper.texture).toBe(current); expect(paper.ownsCurrentTexture(gl, current)).toBe(true); expect(onLoaded).toHaveBeenCalledOnce(); paper.destroy()
 })
 it('guards A-B-A by request identity even when A reuses the same shared byte promise', async () => {
   const a = deferred<Uint8Array>(), b = deferred<Uint8Array>()
@@ -302,4 +302,62 @@ it('still attempts the local texture delete when cleanup status query also throw
   vi.spyOn(gl, 'texImage2D').mockImplementationOnce(() => { throw primary })
   expect(failure(() => uploadPaperTexture(gl, bytes))).toBe(primary)
   expect(deleted.mock.calls).toHaveLength(1); expect(deleted.mock.calls[0]?.[0]).toBe(created.mock.results[0]?.value)
+})
+
+
+it('recognizes only its current same-GL texture without consulting GL state', async () => {
+  __setPaperLoaderForTesting(async () => bytes)
+  const { gl, paper } = setup(), foreignGL = new MockGL() as unknown as WebGLRenderingContext, foreign = gl.createTexture()!
+  expect(paper.ownsCurrentTexture(gl, foreign)).toBe(false)
+  paper.init(); const placeholder = paper.texture
+  const status = vi.spyOn(gl, 'isContextLost'), query = vi.spyOn(gl, 'getParameter'), error = vi.spyOn(gl, 'getError')
+  try {
+    expect(paper.ownsCurrentTexture(gl, placeholder)).toBe(true)
+    expect(paper.ownsCurrentTexture(foreignGL, placeholder)).toBe(false)
+    expect(paper.ownsCurrentTexture(gl, foreign)).toBe(false)
+    expect(status).not.toHaveBeenCalled(); expect(query).not.toHaveBeenCalled(); expect(error).not.toHaveBeenCalled()
+    await paper.ready(); const current = paper.texture
+    expect(current).not.toBe(placeholder)
+    status.mockClear(); query.mockClear(); error.mockClear()
+    expect(paper.ownsCurrentTexture(gl, current)).toBe(true)
+    expect(paper.ownsCurrentTexture(gl, placeholder)).toBe(false)
+    expect(status).not.toHaveBeenCalled(); expect(query).not.toHaveBeenCalled(); expect(error).not.toHaveBeenCalled()
+  } finally { paper.destroy(); gl.deleteTexture(foreign) }
+})
+it('keeps ownership of the old live texture throughout pending type load, then transfers it on actual publication', async () => {
+  const pending = deferred<Uint8Array>()
+  __setPaperLoaderForTesting(type => type === 'coarse' ? Promise.resolve(bytes) : pending.promise)
+  const { gl, paper } = setup()
+  try {
+    paper.init(); await paper.ready(); const old = paper.texture
+    paper.setType('medium'); const replacement = paper.ready()
+    expect(paper.texture).toBe(old); expect(paper.loaded).toBe(true)
+    expect(paper.ownsCurrentTexture(gl, old)).toBe(true)
+    pending.resolve(bytes); await replacement
+    const current = paper.texture
+    expect(current).not.toBe(old)
+    expect(paper.ownsCurrentTexture(gl, old)).toBe(false)
+    expect(paper.ownsCurrentTexture(gl, current)).toBe(true)
+  } finally { paper.destroy() }
+})
+it.each(['deactivate', 'contextLost', 'destroy'] as const)('rejects a previously owned texture after %s', async action => {
+  __setPaperLoaderForTesting(async () => bytes)
+  const { gl, paper } = setup()
+  try {
+    paper.init(); await paper.ready(); const texture = paper.texture
+    expect(paper.ownsCurrentTexture(gl, texture)).toBe(true)
+    paper[action]()
+    if (action === 'deactivate') expect(paper.texture).toBe(texture) // Borrowed name remains retained, but owner is no longer active.
+    expect(paper.ownsCurrentTexture(gl, texture)).toBe(false)
+  } finally { paper.destroy() }
+})
+it('does not accept another live PaperState texture even when both share the same GL', async () => {
+  __setPaperLoaderForTesting(async () => bytes)
+  const { gl, paper } = setup(), other = new PaperState({ gl, infinite: false, type: 'coarse', scale: 1, fillThreshold: 0, fillCap: .35, canvas: { width: 8, height: 8 }, onLoaded: vi.fn() })
+  try {
+    paper.init(); other.init(); await Promise.all([paper.ready(), other.ready()])
+    expect(paper.ownsCurrentTexture(gl, paper.texture)).toBe(true)
+    expect(paper.ownsCurrentTexture(gl, other.texture)).toBe(false)
+    expect(other.ownsCurrentTexture(gl, paper.texture)).toBe(false)
+  } finally { paper.destroy(); other.destroy() }
 })
