@@ -190,26 +190,77 @@ export class BrushTextureCache {
     /** Synchronous paint-batch pinning, admitted only within the unchanged byte
      * target. It prevents a partially resident animation's sequential scan from
      * evicting its own later frames. No gesture/lifetime residency is promised. */
-    lease(resources: readonly {
-        key: string;
-        bytes: number;
-    }[]): () => void {
-        for (const item of resources)
-            if (!Number.isSafeInteger(item.bytes) || item.bytes < 0)
-                throw new RangeError('Invalid GPU brush resource bytes');
+    lease(resources: readonly { key: string; bytes: number }[]): () => void {
+        return this.leaseResources(resources, false);
+    }
+    /** Required budget pin, including future staging keys. Does NOT certify
+     * resource readiness/epoch or physical GPU memory. Captures own data fields
+     * so later caller-array/object mutation cannot alter this admitted lease. */
+    leaseRequired(resources: readonly { key: string; bytes: number }[]): () => void {
+        return this.leaseResources(resources, true);
+    }
+    private leaseResources(resources: readonly { key: string; bytes: number }[], required: boolean): () => void {
+        let saved = resources;
         const union = new Map<string, number>();
-        for (const group of this.leases.values())
-            for (const item of group)
+        if (required) {
+            if (!Array.isArray(resources) || !Number.isSafeInteger(this.targetBytes) || this.targetBytes < 0)
+                throw new RangeError('Invalid required brush lease');
+            const existing = [...this.leases];
+            const snapshot: { key: string; bytes: number }[] = [];
+            const add = (list: readonly { key: string; bytes: number }[], capture: boolean) => {
+                if (!Array.isArray(list))
+                    throw new TypeError('Required brush lease needs an array');
+                for (let i = 0; i < list.length; i++) {
+                    const entry = Object.getOwnPropertyDescriptor(list, String(i));
+                    const item = entry && 'value' in entry ? entry.value : undefined;
+                    if (!item || typeof item !== 'object')
+                        throw new TypeError('Required brush lease needs own data entries');
+                    const k = Object.getOwnPropertyDescriptor(item, 'key');
+                    const b = Object.getOwnPropertyDescriptor(item, 'bytes');
+                    if (!k || !('value' in k) || !b || !('value' in b))
+                        throw new RangeError('Invalid required brush lease metadata');
+                    const key: unknown = k.value, bytes: unknown = b.value;
+                    if (typeof key !== 'string' || !key || typeof bytes !== 'number' || !Number.isSafeInteger(bytes) || bytes < 0)
+                        throw new RangeError('Invalid required brush lease metadata');
+                    if (union.has(key) && union.get(key) !== bytes)
+                        throw new RangeError('Conflicting required brush lease bytes');
+                    union.set(key, bytes);
+                    if (capture)
+                        snapshot.push(Object.freeze({ key, bytes }));
+                }
+            };
+            for (const [, group] of existing)
+                add(group, false);
+            add(resources, true);
+            const bytes = [...union.values()].reduce((sum, value) => sum + value, 0);
+            if (!Number.isSafeInteger(bytes) || bytes > this.targetBytes)
+                throw new RangeError('Required brush lease exceeds existing budget');
+            if (this.leases.size !== existing.length || existing.some(([key, value]) => this.leases.get(key) !== value))
+                throw new Error('Brush lease ownership changed during capture');
+            saved = Object.freeze(snapshot);
+        }
+        else {
+            for (const item of resources)
+                if (!Number.isSafeInteger(item.bytes) || item.bytes < 0)
+                    throw new RangeError('Invalid GPU brush resource bytes');
+            for (const group of this.leases.values())
+                for (const item of group)
+                    union.set(item.key, item.bytes);
+            for (const item of resources)
                 union.set(item.key, item.bytes);
-        for (const item of resources)
-            union.set(item.key, item.bytes);
-        if ([...union.values()].reduce((sum, bytes) => sum + bytes, 0) > this.targetBytes)
-            return () => { };
+            if ([...union.values()].reduce((sum, bytes) => sum + bytes, 0) > this.targetBytes)
+                return () => {};
+        }
         const token = Symbol();
-        this.leases.set(token, resources);
-        // The previous draw group can still be bound here. The caller switches
-        // it before loading; changing residency now could evict a live sampler.
-        return () => { this.leases.delete(token); this.trim(); };
+        this.leases.set(token, saved);
+        let released = false;
+        return () => {
+            if (required && released)
+                return;
+            released = true;
+            this.leases.delete(token);
+            this.trim();
+        };
     }
     resourceBytes(key: string): number | undefined { return this.entries.get(key)?.bytes; }
     get(key: string): WebGLTexture | undefined {

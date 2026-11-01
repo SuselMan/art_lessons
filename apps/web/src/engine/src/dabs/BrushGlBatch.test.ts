@@ -463,3 +463,9 @@ it('borrows narrow upload restoration only from a genuine opted turn and still a
  expect(()=>uploadTurn.borrowBrushGlTurnAutoUploadRestore(retained!,s.service)).toThrow()
  expect(s.cpu.reservedBytes).toBe(0)
 })
+
+
+describe('resource-owned GL turn mutation barriers',()=>{
+ it('releases participant barriers only AFTER GL restore and releases every barrier',()=>{const s=setup(),before=s.snapshot(),order:string[]=[],other={...s.service};s.service.enterBrushGlTurn=()=>{order.push('a+');return()=>{expect(s.snapshot()).toEqual(before);order.push('a-')}};other.enterBrushGlTurn=()=>{order.push('b+');return()=>{expect(s.snapshot()).toEqual(before);order.push('b-')}};runBrushGlTurn({participants:[s.service,other]},()=>{s.gl.activeTexture(s.gl.TEXTURE1);order.push('body')});expect(order).toEqual(['a+','b+','body','b-','a-']);expect(s.cpu.reservedBytes).toBe(0)})
+ it('unwinds acquired barriers if a later acquisition throws and preserves undefined primary error',()=>{const s=setup(),released=vi.fn(()=>{throw Error('cleanup')}),other={...s.service};s.service.enterBrushGlTurn=()=>released;other.enterBrushGlTurn=()=>{throw undefined};let threw=false,caught:unknown;try{runBrushGlTurn({participants:[s.service,other]},()=>{throw Error('must not run')})}catch(error){threw=true;caught=error}expect(threw).toBe(true);expect(caught).toBeUndefined();expect(released).toHaveBeenCalledTimes(1);expect(s.cpu.reservedBytes).toBe(0)})
+})

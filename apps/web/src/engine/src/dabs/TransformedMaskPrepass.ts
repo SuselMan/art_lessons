@@ -1,5 +1,5 @@
 import { MAX_SOURCE_DENSITY_GESTURE_ID } from '../presets/sourceDefaultAutoDensitySeed'
-import {borrowBrushGlTurnAutoUploadRestore,type BrushGlTurn,type BrushGlBatchFrame,type BrushGlBatchInfo} from './BrushGlBatch';
+import {borrowBrushGlTurnAutoUploadRestore,type BrushGlTurn,type BrushGlBatchFrame,type BrushGlBatchInfo,type BrushGlBatchParticipant} from './BrushGlBatch';
 import { canonicalSoftAutoSourcePin, canonicalSoftAutoStatic, sourcePngPyramid } from '@grafetto/shared';
 import { saveBrushGlState,restoreBrushAutoUploadState } from './BrushGlState';
 import type { SourceDabMaterialSpec } from '../presets/sourceDabCache';
@@ -10,6 +10,8 @@ import { BrushTextureCache, allocateOwnedBrushTexture, allocateOwnedBrushBuffer,
 import { reserveContextStorage, releaseStorageReservation, type StorageReservation } from '../buffers/ContextStorageOwner';
 import { resolvedTransformedMaskPlan, writeTransformedMaskVertices, type TransformedMaskPlan, type TransformedMaskMaterial, type CanonicalMaskSourceBinding, canonicalTransformedMaskMetadata, canonicalTransformedMaskPlan, canonicalMaskRevision, canonicalAutoMaskRevision, prepareCanonicalAutoMask, isCanonicalSoftAutoMaterial, type CanonicalAutoMaskMaterial } from './TransformedMaskPlan';
 const noMetadataRelease=()=>{};
+/** Conservative lease object, method closures/environment and one Set entry; not a JS heap cap. */
+export const CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES=2048;
 export interface TransformedMaskLimits {
   readonly width: number;
   readonly height: number;
@@ -27,7 +29,7 @@ export function transformedMaskPrepassBudget(limits: TransformedMaskLimits): {
   // Existing fixed CPU owner covers retained identity per slot and one bounded
   // UTF16 JSON hashing temporary (worst escaped input), not a heap cap proof.
   const densityMetadataBytes=limits.slots*(2*MAX_SOURCE_DENSITY_GESTURE_ID+512)+12*MAX_SOURCE_DENSITY_GESTURE_ID+1024;
-  return { vertexBytes, cpuBytes: vertexBytes + limits.height * PLAN_BYTES_PER_ROW * limits.slots * 2 + FACTOR_BYTES + densityMetadataBytes,
+  return { vertexBytes, cpuBytes: vertexBytes + limits.height * PLAN_BYTES_PER_ROW * limits.slots * 2 + FACTOR_BYTES + densityMetadataBytes + 1024 + limits.slots*192,
     gpuBytes: FACTOR_BYTES + vertexBytes + limits.width * limits.height * 4 * limits.slots };
 }
 export interface TransformedMaskSource {
@@ -140,14 +142,37 @@ export interface CanonicalPreparedCapacityUpdate extends CanonicalPreparedResour
   /** Final ready-resource check; call immediately before pure publication. */
   assertPreparedPublication():void
 }
+interface CapacityRecord {
+ readonly limits:TransformedMaskLimits;readonly workspace:Workspace;readonly key:string;readonly slots:(Slot|undefined)[];staging:Float32Array
+ sources:Map<string,number>;bindings:Map<string,CanonicalMaskSourceBinding>
+ readonly leases:Set<()=>void>;releaseMetadata:()=>void;releaseResidency:()=>void
+ releaseStorageCpu?:()=>void;alive:boolean;isDefault:boolean;work:number;pinned:boolean
+}
+export interface CanonicalMaskCapacityLease extends BrushGlBatchParticipant {
+ isReady():boolean
+ preparedCapacity():Readonly<{width:number;height:number;epoch:object}>
+ preparedResources():readonly {key:string;bytes:number}[]
+ resolveGroup(requests:readonly AnyTransformedMaskRequest[],frame?:BrushGlBatchFrame):{views:TransformedMaskView[];release:()=>void}
+ beginAutoGeneration(request:AnyTransformedMaskRequest):boolean
+ advanceAutoGeneration(maxSamples:number,options?:{readonly deferFinalUpload?:true}):{done:boolean;consumed:number;uploadedBytes:number;finalUploadPending?:true}
+ finalAutoUploadPending(request:AnyTransformedMaskRequest):boolean
+ flushFinalAutoGeneration(request:AnyTransformedMaskRequest,turn:BrushGlTurn):{done:true;consumed:0;uploadedBytes:number}
+ cancelAutoGeneration():void
+ releaseOwner(owner:object):void
+ release():void
+}
 export class TransformedMaskPrepass {
   private pendingAuto?: {
     readonly owner: object; readonly role: string; readonly revision: string; readonly slot: Slot;
-    readonly epoch: Workspace; readonly evaluator: ReturnType<typeof prepareCanonicalAutoMask>['evaluator'];
+    readonly record:CapacityRecord;readonly participant:BrushGlBatchParticipant; readonly epoch: Workspace; readonly evaluator: ReturnType<typeof prepareCanonicalAutoMask>['evaluator'];
     readonly material: CanonicalAutoMaskMaterial; readonly width: number; readonly height: number;
     readonly a8: Uint8Array; readonly rgba: Uint8Array; readonly release: () => void;
     filled: number; uploadedRows: number; computedFinal:boolean; flushing:boolean;
   };
+  private readonly records=new Set<CapacityRecord>();
+  private defaultRecord?:CapacityRecord;
+  private turnDepth=0;
+  private capacityCapture=false;
   private batch?: BrushGlBatchFrame;
   private limits?: TransformedMaskLimits;
   private sourceUpdate?:CanonicalPreparedResourceUpdate;
@@ -183,6 +208,88 @@ export class TransformedMaskPrepass {
       throw new RangeError('Missing prepass resource scope');
     this.workspaceKey = `${prefix}:workspace`;
   }
+  private defaultCapacityRecord(capturing=false):CapacityRecord {
+    if(this.capacityCapture&&!capturing)throw new Error('Capacity transition is active')
+    const previous=this.capacityCapture;this.capacityCapture=true;try{return this.captureDefaultCapacityRecord()}finally{this.capacityCapture=previous}
+  }
+  private captureDefaultCapacityRecord():CapacityRecord {
+    if(this.defaultRecord)return this.defaultRecord
+    if(!this.isReady()||!this.limits||!this.workspace||!this.staging)throw new Error('Prepass is not prepared')
+    const workspace=this.workspace,limits=this.limits,slots=this.slots,staging=this.staging,sources=this.sources,bindings=this.sourceBindings,key=this.workspaceKey,program=this.program
+    const current=()=>{if(this.workspace!==workspace||this.limits!==limits||this.slots!==slots||this.staging!==staging||this.sources!==sources||this.sourceBindings!==bindings||this.workspaceKey!==key||this.program!==program||!this.isReady())throw new Error('Capacity capture changed')}
+    const releaseMetadata=noMetadataRelease
+    let releaseResidency=noMetadataRelease
+    try{
+      current()
+      const record:CapacityRecord={limits,workspace,key,slots,staging,sources,bindings,leases:new Set(),releaseMetadata,releaseResidency,alive:true,isDefault:true,work:0,pinned:false}
+      this.records.add(record);this.defaultRecord=record;return record
+    }catch(error){try{releaseResidency()}catch{}try{releaseMetadata()}catch{}throw error}
+  }
+  private pinRecord(record:CapacityRecord):void{
+    if(record.pinned)return
+    const metadata=this.cpu.reserve(record.sources.size*512)
+    let release=noMetadataRelease
+    try{release=this.cache.leaseRequired([...this.recordResources(record),...[...record.sources].map(([key,bytes])=>({key,bytes}))]);if(!this.recordReady(record))throw new Error('Capacity residency changed');record.releaseResidency=release;record.releaseMetadata=metadata;record.pinned=true}
+    catch(error){try{release()}catch{}try{metadata()}catch{}throw error}
+  }
+  private unpinRecord(record:CapacityRecord):void{
+    if(!record.pinned)return
+    const residency=record.releaseResidency,metadata=record.releaseMetadata;record.pinned=false;record.releaseResidency=noMetadataRelease;record.releaseMetadata=noMetadataRelease
+    let failed=false,first:unknown;for(const cleanup of [residency,metadata])try{cleanup()}catch(e){if(!failed){failed=true;first=e}}if(failed)throw first
+  }
+  private recordReady(record:CapacityRecord):boolean{return record.alive&&this.records.has(record)&&(!record.isDefault||this.defaultRecord===record&&this.workspace===record.workspace&&this.limits===record.limits&&this.slots===record.slots&&this.staging===record.staging)&&!!this.program&&this.cache.get(record.key)===record.workspace.low&&record.slots.length===record.limits.slots&&record.slots.every(slot=>!!slot&&this.cache.get(slot.key)===slot.texture)}
+  private recordResources(record:CapacityRecord):readonly {key:string;bytes:number}[]{return[{key:record.key,bytes:FACTOR_BYTES+record.staging.byteLength},...record.slots.map(slot=>({key:slot!.key,bytes:record.limits.width*record.limits.height*4}))]}
+  private defaultResources():readonly {key:string;bytes:number}[]{return[this.workspaceKey,...this.slots.map(slot=>slot!.key)].map(key=>({key,bytes:this.cache.resourceBytes(key)!}))}
+  private capacityCleanup(action:()=>undefined):undefined{const previous=this.capacityCapture;this.capacityCapture=true;try{return action()}finally{this.capacityCapture=previous}}
+  private retireRecord(record:CapacityRecord,lost=false,force=false):void{
+    if(!record.alive||!force&&(record.isDefault||record.leases.size||record.work))return
+    this.capacityCleanup(()=>{this.retireRecordStorage(record,lost);return undefined})
+  }
+  private retireRecordStorage(record:CapacityRecord,lost:boolean):void{
+    record.alive=false;this.records.delete(record);if(this.defaultRecord===record)this.defaultRecord=undefined
+    let failed=false,first:unknown;const attempt=(f:()=>void)=>{try{f()}catch(e){if(!failed){failed=true;first=e}}}
+    for(const release of record.leases)attempt(release)
+    record.leases.clear()
+    for(const slot of record.slots)if(slot)attempt(()=>this.cache.discard(slot.key,lost))
+    attempt(()=>this.cache.discard(record.key,lost));const storageCpu=record.releaseStorageCpu,residency=record.releaseResidency,metadata=record.releaseMetadata;record.releaseStorageCpu=undefined;record.releaseResidency=noMetadataRelease;record.releaseMetadata=noMetadataRelease;record.slots.length=0;record.sources.clear();record.bindings.clear();record.staging=new Float32Array(0);attempt(()=>storageCpu?.());attempt(residency);attempt(metadata)
+    if(failed)throw first
+  }
+  enterBrushGlTurn():()=>void{return this.enterRecordTurn(this.defaultCapacityRecord())}
+  private enterRecordTurn(record:CapacityRecord):()=>void{
+    if(this.capacityCapture||this.turnDepth||this.batch||this.activeGroup||!this.recordReady(record))throw new Error('Prepass turn already active or stale')
+    this.turnDepth++;record.work++;let released=false;return()=>{if(released)return;released=true;this.turnDepth--;record.work--;this.retireRecord(record)}
+  }
+  retainPreparedCapacity():CanonicalMaskCapacityLease{
+    if(this.capacityCapture||this.turnDepth||this.batch||this.activeGroup||this.capacityUpdate||this.sourceUpdate)throw new Error('Cannot borrow capacity during a resource transition')
+    this.capacityCapture=true
+    const priorRecord=this.defaultRecord;let record:CapacityRecord|undefined,releaseCpu=noMetadataRelease,wasPinned=false
+    try{
+    record=this.defaultCapacityRecord(true);wasPinned=record.pinned;this.pinRecord(record);releaseCpu=this.cpu.reserve(CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES)
+    if(!this.recordReady(record)||this.defaultRecord!==record||this.capacityUpdate||this.sourceUpdate)throw new Error('Capacity lease capture changed')
+    const captured=record;let closed=false
+    const assert=(receiver:unknown)=>{if(receiver!==lease||closed||!this.recordReady(captured))throw new Error('Closed, foreign or stale capacity lease')}
+    const releaseMetadata=()=>{if(closed)return;closed=true;captured.leases.delete(releaseMetadata);releaseCpu()}
+    const lease:CanonicalMaskCapacityLease=Object.freeze({
+      isReady(){assert(this);return true},
+      preparedCapacity(){assert(this);return Object.freeze({width:captured.limits.width,height:captured.limits.height,epoch:captured.workspace})},
+      preparedResources(){assert(this);return owner.pass.recordResources(captured)},
+      brushGlBatchInfo(){assert(this);return owner.pass.recordInfo(captured)},
+      enterBrushGlTurn(){assert(this);return owner.pass.enterRecordTurn(captured)},
+      enterBrushGlBatch(frame:BrushGlBatchFrame){assert(this);return owner.pass.enterRecordBatch(lease,frame)},
+      resolveGroup(requests:readonly AnyTransformedMaskRequest[],frame?:BrushGlBatchFrame){assert(this);return owner.pass.resolveRecordGroup(captured,lease,requests,frame)},
+      beginAutoGeneration(request:AnyTransformedMaskRequest){assert(this);return owner.pass.beginRecordAuto(captured,lease,request)},
+      advanceAutoGeneration(maxSamples:number,options?:{readonly deferFinalUpload?:true}){assert(this);owner.pass.assertPendingParticipant(lease);return owner.pass.advanceAutoGeneration(maxSamples,options)},
+      finalAutoUploadPending(request:AnyTransformedMaskRequest){assert(this);owner.pass.assertPendingParticipant(lease);return owner.pass.finalAutoUploadPending(request)},
+      flushFinalAutoGeneration(request:AnyTransformedMaskRequest,turn:BrushGlTurn){assert(this);owner.pass.assertPendingParticipant(lease);return owner.pass.flushFinalAutoGeneration(request,turn)},
+      cancelAutoGeneration(){assert(this);owner.pass.assertPendingParticipant(lease);owner.pass.cancelAutoGeneration()},
+      releaseOwner(resourceOwner:object){assert(this);owner.pass.releaseRecordOwner(captured,resourceOwner,lease)},
+      release(){if(this!==lease)throw new Error('Foreign capacity lease receiver');if(closed)return;if(owner.pass.turnDepth||owner.pass.batch||owner.pass.activeGroup)throw new Error('Cannot release capacity inside GL scope');let failed=false,first:unknown;try{if(owner.pass.pendingAuto?.participant===lease)owner.pass.cancelAutoGeneration()}catch(e){failed=true;first=e}try{releaseMetadata()}catch(e){if(!failed){failed=true;first=e}}try{owner.pass.retireRecord(captured)}catch(e){if(!failed){failed=true;first=e}}if(failed)throw first},
+    })
+    const owner={pass:this};assert(lease);if(this.defaultRecord!==captured)throw new Error('Capacity lease capture changed');captured.leases.add(releaseMetadata);return lease
+    }catch(error){try{releaseCpu()}catch{}if(record&&!wasPinned&&record.alive&&record.isDefault&&this.defaultRecord===record)try{this.unpinRecord(record)}catch{}if(!priorRecord&&record&&this.defaultRecord===record&&!record.leases.size&&!record.work){record.alive=false;this.records.delete(record);this.defaultRecord=undefined}throw error}
+    finally{this.capacityCapture=false}
+  }
+  private assertPendingParticipant(participant:BrushGlBatchParticipant):void{if(this.pendingAuto&&this.pendingAuto.participant!==participant)throw new Error('Foreign capacity pending auto owner')}
   private checkedSources(sourceResources:readonly TransformedMaskPreparedSource[]){
     if(!Array.isArray(sourceResources)||sourceResources.length>4096)throw new RangeError('Invalid prepared source count')
     const sourceMap = new Map<string, number>();
@@ -203,47 +310,59 @@ export class TransformedMaskPrepass {
     }
     return {sourceMap,bindings}
   }
-  /** Candidate maps only. No active maps change until pure publish(). */
+  /** Candidate maps only. Nondefault records retain their original sources. */
   prepareSourceUpdate(sourceResources:readonly TransformedMaskPreparedSource[],options?:{readonly additive:true}):CanonicalPreparedResourceUpdate {
     if(options!==undefined&&(!options||options.additive!==true||Reflect.ownKeys(options).some(key=>key!=='additive')))throw new TypeError('Invalid additive source update')
     const additive=options?.additive===true
-    if(this.capacityUpdate||this.sourceUpdate||!this.workspace||!this.limits||this.batch||this.activeGroup||this.pendingAuto&&(!additive||this.pendingAuto.flushing))throw new Error('Prepass source update unavailable')
+    let blocked=false
+    for(const record of this.records)if(!additive&&(!record.isDefault||record.leases.size))blocked=true
+    if(this.capacityCapture||this.turnDepth||blocked||this.capacityUpdate||this.sourceUpdate||!this.workspace||!this.limits||this.batch||this.activeGroup||this.pendingAuto&&(!additive||this.pendingAuto.flushing))throw new Error('Prepass source update unavailable')
     if(!Array.isArray(sourceResources)||sourceResources.length>4096)throw new RangeError('Invalid prepared source count')
-    const owner=Object.freeze({pass:this}),epoch=this.workspace,limits=this.limits
+    this.capacityCapture=true;try{return this.stageSourceUpdate(sourceResources,additive)}finally{this.capacityCapture=false}
+  }
+  private stageSourceUpdate(sourceResources:readonly TransformedMaskPreparedSource[],additive:boolean):CanonicalPreparedResourceUpdate {
+    if(!this.workspace||!this.limits)throw new Error('Prepass source update unavailable')
+    const priorRecord=this.defaultCapacityRecord(true),wasPinned=priorRecord.pinned,priorPin=priorRecord.releaseResidency,priorMetadata=priorRecord.releaseMetadata
+    let physicalCount=this.slots.length+1,retainedSources=0;for(const record of this.records){physicalCount+=record.slots.length+1;retainedSources+=record.sources.size}
+    const owner={pass:this},epoch=this.workspace,limits=this.limits
     let oldSources:Map<string,number>|undefined=this.sources,oldBindings:Map<string,CanonicalMaskSourceBinding>|undefined=this.sourceBindings
-    let releaseNew=this.cpu.reserve(sourceResources.length*512),releaseOld:undefined|(()=>void),state:'pending'|'published'|'cancelled'='pending',createdUpdate:CanonicalPreparedResourceUpdate|undefined
+    let releaseNew=noMetadataRelease,releaseOld:undefined|(()=>void),releaseRecordNew=noMetadataRelease,releaseRecordOld=noMetadataRelease,releaseRecordMetadataNew=noMetadataRelease,releaseRecordMetadataOld=noMetadataRelease
+    let state:'pending'|'published'|'cancelled'='pending',createdUpdate:CanonicalPreparedResourceUpdate|undefined
+    // Own all actual stage arrays/union before constructing checked maps. The
+    // record map owner is separate from the replaceable default source-map owner.
+    const rawPeakRelease=this.cpu.reserve(2048+(physicalCount+retainedSources+sourceResources.length)*192);let peakReleased=false;const releasePeak=()=>{if(peakReleased)return;peakReleased=true;rawPeakRelease()}
     try{
+      releaseNew=this.cpu.reserve(sourceResources.length*512)
+      if(priorRecord?.pinned)releaseRecordMetadataNew=this.cpu.reserve(sourceResources.length*512)
       let plan:ReturnType<TransformedMaskPrepass['checkedSources']>|undefined=this.checkedSources(sourceResources)
       if(additive&&([...oldSources].some(([key,bytes])=>plan!.sourceMap.get(key)!==bytes)||[...oldBindings].some(([key,binding])=>JSON.stringify(plan!.bindings.get(key))!==JSON.stringify(binding))))throw new Error('Prepass additive source update must preserve every old binding')
-      const budget=transformedMaskPrepassBudget(limits)
-      if(budget.gpuBytes+[...plan.sourceMap.values()].reduce((a,b)=>a+b,0)>this.cache.budgetBytes)throw new RangeError('Prepass working set exceeds existing brush budgets')
+      const union=new Map<string,number>()
+      const add=(key:string,bytes:number)=>{if(union.has(key)&&union.get(key)!==bytes)throw new RangeError('Conflicting retained source union');if(this.cache.resourceBytes(key)!==bytes||!this.cache.get(key))throw new Error('Retained source resource changed');union.set(key,bytes)}
+      for(const item of this.preparedResources())add(item.key,item.bytes)
+      for(const [key,bytes]of plan.sourceMap)add(key,bytes)
+      for(const record of this.records)if(!record.isDefault){
+        for(const [key,bytes]of record.sources){if(plan.sourceMap.get(key)!==bytes)throw new Error('Additive source update must retain old capacity sources');add(key,bytes)}
+        for(const [key,binding]of record.bindings)if(JSON.stringify(plan.bindings.get(key))!==JSON.stringify(binding))throw new Error('Retained source binding changed')
+      }
+      if([...union.values()].reduce((sum,bytes)=>sum+bytes,0)>this.cache.budgetBytes)throw new RangeError('Prepass retained working set exceeds existing brush budgets')
+      if(priorRecord?.pinned)releaseRecordNew=this.cache.leaseRequired([...this.recordResources(priorRecord),...[...plan.sourceMap].map(([key,bytes])=>({key,bytes}))])
       const maximum=this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number,precision=this.gl.getShaderPrecisionFormat(this.gl.FRAGMENT_SHADER,this.gl.HIGH_FLOAT)
       if(!precision||precision.precision<23||Math.max(256,limits.width,limits.height)>maximum)throw new RangeError('Unverified prepass GPU capability')
-      const scalar=()=>state==='pending'&&owner.pass.sourceUpdate===update&&owner.pass.workspace===epoch&&owner.pass.limits===limits&&owner.pass.sources===oldSources&&owner.pass.sourceBindings===oldBindings&&!owner.pass.batch&&!owner.pass.activeGroup&&(!owner.pass.pendingAuto||additive&&!owner.pass.pendingAuto.flushing)
-      const assert=(receiver:unknown)=>{if(receiver!==update||!scalar())throw new Error('Prepass source update changed')}
+      const scalar=(duringConstruction=false)=>state==='pending'&&owner.pass.sourceUpdate===update&&owner.pass.defaultRecord===priorRecord&&priorRecord.pinned===wasPinned&&priorRecord.releaseResidency===priorPin&&priorRecord.releaseMetadata===priorMetadata&&owner.pass.workspace===epoch&&owner.pass.limits===limits&&owner.pass.sources===oldSources&&owner.pass.sourceBindings===oldBindings&&(duringConstruction||!owner.pass.capacityCapture)&&!owner.pass.turnDepth&&!owner.pass.batch&&!owner.pass.activeGroup&&(!owner.pass.pendingAuto||additive&&!owner.pass.pendingAuto.flushing)
+      const assert=(receiver:unknown,duringConstruction=false)=>{if(receiver!==update||!scalar(duringConstruction))throw new Error('Prepass source update changed')}
+      const ready=(receiver:unknown,duringConstruction=false)=>{assert(receiver,duringConstruction);if(!owner.pass.isReady()||[...plan!.sourceMap].some(([key,bytes])=>owner.pass.cache.resourceBytes(key)!==bytes||!owner.pass.cache.get(key)))throw new Error('Prepass staged resources changed');assert(receiver,duringConstruction)}
+      const all=(tasks:(()=>void)[])=>{let failed=false,first:unknown;for(const task of tasks)try{task()}catch(error){if(!failed){failed=true;first=error}}if(failed)throw first}
       const update:CanonicalPreparedResourceUpdate=Object.freeze({
         get status(){return state},
-        assertCurrent(){assert(this);if(!owner.pass.isReady()||[...plan!.sourceMap].some(([key,bytes])=>owner.pass.cache.resourceBytes(key)!==bytes||!owner.pass.cache.get(key)))throw new Error('Prepass staged resources changed')},
-        publish(){assert(this);releaseOld=owner.pass.releaseSourceMetadata;owner.pass.sources=plan!.sourceMap;owner.pass.sourceBindings=plan!.bindings;plan=undefined;owner.pass.releaseSourceMetadata=releaseNew;releaseNew=noMetadataRelease;oldSources=undefined;oldBindings=undefined;state='published';return undefined},
-        finalizeCleanup(){
-          if(this!==update)throw new Error('Prepass source update receiver changed')
-          if(state==='pending')throw new Error('Prepass source update is not published')
-          if(owner.pass.sourceUpdate===update)owner.pass.sourceUpdate=undefined
-          const release=releaseOld;releaseOld=undefined;release?.();return undefined
-        },
-        cancel(){
-          if(this!==update)throw new Error('Prepass source update receiver changed')
-          if(state!=='pending')return undefined
-          state='cancelled';plan=undefined;if(owner.pass.sourceUpdate===update)owner.pass.sourceUpdate=undefined
-          oldSources=undefined;oldBindings=undefined;const release=releaseNew;releaseNew=noMetadataRelease;release();return undefined
-        },
+        assertCurrent(){ready(this)},
+        publish(){assert(this);const record=priorRecord;if(record){if(record.pinned){releaseRecordOld=record.releaseResidency;releaseRecordMetadataOld=record.releaseMetadata;record.releaseResidency=releaseRecordNew;record.releaseMetadata=releaseRecordMetadataNew;releaseRecordNew=noMetadataRelease;releaseRecordMetadataNew=noMetadataRelease}record.sources=plan!.sourceMap;record.bindings=plan!.bindings}releaseOld=owner.pass.releaseSourceMetadata;owner.pass.sources=plan!.sourceMap;owner.pass.sourceBindings=plan!.bindings;plan=undefined;owner.pass.releaseSourceMetadata=releaseNew;releaseNew=noMetadataRelease;oldSources=undefined;oldBindings=undefined;state='published';return undefined},
+        finalizeCleanup(){if(this!==update)throw new Error('Prepass source update receiver changed');if(state==='pending')throw new Error('Prepass source update is not published');return owner.pass.capacityCleanup(()=>{if(owner.pass.sourceUpdate===update)owner.pass.sourceUpdate=undefined;const release=releaseOld,pin=releaseRecordOld,metadata=releaseRecordMetadataOld;releaseOld=undefined;releaseRecordOld=noMetadataRelease;releaseRecordMetadataOld=noMetadataRelease;all([()=>release?.(),pin,metadata,releasePeak]);return undefined})},
+        cancel(){if(this!==update)throw new Error('Prepass source update receiver changed');if(state!=='pending')return undefined;return owner.pass.capacityCleanup(()=>{state='cancelled';plan=undefined;if(owner.pass.sourceUpdate===update)owner.pass.sourceUpdate=undefined;oldSources=undefined;oldBindings=undefined;const release=releaseNew,pin=releaseRecordNew,metadata=releaseRecordMetadataNew;releaseNew=noMetadataRelease;releaseRecordNew=noMetadataRelease;releaseRecordMetadataNew=noMetadataRelease;all([release,pin,metadata,releasePeak]);return undefined})},
       })
       createdUpdate=update
-      if(this.sourceUpdate||this.workspace!==epoch||this.limits!==limits||this.sources!==oldSources||this.sourceBindings!==oldBindings||this.batch||this.activeGroup||this.pendingAuto&&(!additive||this.pendingAuto.flushing))throw new Error('Prepass source update changed')
-      this.sourceUpdate=update
-      update.assertCurrent()
-      return update
-    }catch(error){if(createdUpdate?.status==='pending'){try{createdUpdate.cancel()}catch{/* Preserve validation error. */}}try{releaseNew()}catch{/* Preserve validation error. */}throw error}
+      if(this.sourceUpdate||this.defaultRecord!==priorRecord||this.workspace!==epoch||this.limits!==limits||this.sources!==oldSources||this.sourceBindings!==oldBindings||this.turnDepth||this.batch||this.activeGroup||this.pendingAuto&&(!additive||this.pendingAuto.flushing))throw new Error('Prepass source update changed')
+      this.sourceUpdate=update;ready(update,true);return update
+    }catch(error){if(createdUpdate?.status==='pending')try{createdUpdate.cancel()}catch{/* Preserve source error. */}for(const release of [releaseNew,releaseRecordNew,releaseRecordMetadataNew,releasePeak])try{release()}catch{/* Preserve source error. */}throw error}
   }
 
   /** Quiescent growth only: old epoch remains live until pure publication.
@@ -251,12 +370,36 @@ export class TransformedMaskPrepass {
    * adopts a final union lease BEFORE finalizeCleanup releases this staging pin.
    */
   prepareCapacityUpdate(limits:TransformedMaskLimits,sourceResources:readonly TransformedMaskPreparedSource[],companions:readonly {key:string;bytes:number}[]=[],companionCpuBytes=0):CanonicalPreparedCapacityUpdate {
-    if(this.capacityUpdate||this.sourceUpdate||!this.workspace||!this.limits||!this.program||this.batch||this.activeGroup||this.pendingAuto)throw new Error('Prepass capacity update unavailable')
+    if(this.capacityCapture||this.turnDepth||this.batch||this.activeGroup)throw new Error('Cannot replace capacity inside GL scope')
+    if([...this.records].some(r=>r.leases.size||r.work||!r.isDefault))throw new Error('Borrowed capacity cannot be replaced')
+    this.capacityCapture=true;try{return this.prepareCapacityTransition(limits,sourceResources,companions,companionCpuBytes,false)}finally{this.capacityCapture=false}
+  }
+  prepareCapacityAddition(limits:TransformedMaskLimits,sourceResources:readonly TransformedMaskPreparedSource[],companions:readonly {key:string;bytes:number}[]=[],companionCpuBytes=0):CanonicalPreparedCapacityUpdate {
+    if(this.capacityCapture||this.turnDepth||this.batch||this.activeGroup||this.capacityUpdate||this.sourceUpdate)throw new Error('Cannot add capacity inside GL scope or transition')
+    if(this.pendingAuto?.participant===this)throw new Error('Capacity addition requires a retained cursor participant')
+    const prior=this.defaultRecord;let record:CapacityRecord|undefined,wasPinned=false
+    this.capacityCapture=true
+    try{record=this.defaultCapacityRecord(true);wasPinned=record.pinned;const captured=record,rollbackPin=()=>{if(!wasPinned&&captured.alive&&captured.isDefault&&this.defaultRecord===captured&&!captured.leases.size)this.unpinRecord(captured)};this.pinRecord(captured);return this.prepareCapacityTransition(limits,sourceResources,companions,companionCpuBytes,true,rollbackPin)}catch(error){if(record&&!wasPinned&&record.alive&&record.isDefault&&this.defaultRecord===record&&!record.leases.size)try{this.unpinRecord(record)}catch{}if(!prior&&record&&this.defaultRecord===record&&!record.leases.size&&!record.work){record.alive=false;this.records.delete(record);this.defaultRecord=undefined}throw error}finally{this.capacityCapture=false}
+  }
+
+  private prepareCapacityTransition(limits:TransformedMaskLimits,sourceResources:readonly TransformedMaskPreparedSource[],companions:readonly {key:string;bytes:number}[],companionCpuBytes:number,addition:boolean,rollbackPin:()=>void=noMetadataRelease):CanonicalPreparedCapacityUpdate {
+    transformedMaskPrepassBudget(limits)
+    if(!Array.isArray(sourceResources)||sourceResources.length>4096||!Array.isArray(companions)||companions.length>8192)throw new RangeError('Invalid capacity metadata count')
+    let oldCount=this.slots.length+1;for(const record of this.records)oldCount+=record.slots.length+1
+    // Own the concrete stage inventory/union before checkedSources, arrays or maps.
+    const rawRelease=this.cpu.reserve(2048+sourceResources.length*512+(oldCount+limits.slots+1+companions.length+sourceResources.length)*192)
+    let released=false;const releasePeak=()=>{if(released)return;released=true;rawRelease()}
+    try{return this.stageCapacityTransition(limits,sourceResources,companions,companionCpuBytes,addition,releasePeak,rollbackPin)}catch(error){try{releasePeak()}catch{/* Preserve stage error. */}throw error}
+  }
+  private stageCapacityTransition(limits:TransformedMaskLimits,sourceResources:readonly TransformedMaskPreparedSource[],companions:readonly {key:string;bytes:number}[],companionCpuBytes:number,addition:boolean,releasePeak:()=>void,rollbackPin:()=>void):CanonicalPreparedCapacityUpdate {
+
+    if(this.turnDepth||this.capacityUpdate||this.sourceUpdate||!this.workspace||!this.limits||!this.program||this.batch||this.activeGroup||this.pendingAuto&&(!addition||this.pendingAuto.flushing))throw new Error('Prepass capacity update unavailable')
     const nextLimits=Object.freeze({...limits}),budget=transformedMaskPrepassBudget(nextLimits)
     if(nextLimits.width<this.limits.width||nextLimits.height<this.limits.height||nextLimits.slots<this.limits.slots)throw new RangeError('Prepass capacity update cannot shrink')
     if(!Array.isArray(companions)||companions.length>8192||!safe(companionCpuBytes,0,Number.MAX_SAFE_INTEGER))throw new RangeError('Invalid prepass companions')
     const plan=this.checkedSources(sourceResources)
     if([...this.sources].some(([k,v])=>plan.sourceMap.get(k)!==v)||[...this.sourceBindings].some(([k,v])=>JSON.stringify(plan.bindings.get(k))!==JSON.stringify(v)))throw new Error('Capacity update must preserve existing sources')
+    const oldRecord=this.defaultRecord;
     const oldWorkspace=this.workspace,oldLimits=this.limits,oldSlots=this.slots,oldStaging=this.staging,oldSources=this.sources,oldBindings=this.sourceBindings,oldKey=this.workspaceKey,oldProgram=this.program
     const nextKey=`${this.prefix}:capacity:${++this.capacitySerial}:workspace`,slotKeys=Array.from({length:nextLimits.slots},(_,i)=>`${nextKey}:slot:${i}`)
     const resources=Object.freeze([{key:nextKey,bytes:FACTOR_BYTES+budget.vertexBytes},...slotKeys.map(key=>({key,bytes:nextLimits.width*nextLimits.height*4}))].map(x=>Object.freeze(x)))
@@ -271,7 +414,7 @@ export class TransformedMaskPrepass {
     const precision=this.gl.getShaderPrecisionFormat(this.gl.FRAGMENT_SHADER,this.gl.HIGH_FLOAT),maximum=this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number
     if(!precision||precision.precision<23||Math.max(256,nextLimits.width,nextLimits.height)>maximum)throw new RangeError('Unverified prepass GPU capability')
     let state:'pending'|'published'|'cancelled'='pending',checked=false,cleaned=false,retiredLost=false,workspace:Workspace|undefined,staging:Float32Array|undefined,slots:(Slot|undefined)[]=[],releaseNew= noMetadataRelease,releaseUnion=noMetadataRelease,releaseOld:undefined|(()=>void),releaseOldMetadata:undefined|(()=>void)
-    const scalar=()=>this.capacityUpdate===update&&this.workspace===oldWorkspace&&this.workspaceKey===oldKey&&this.limits===oldLimits&&this.slots===oldSlots&&this.staging===oldStaging&&this.sources===oldSources&&this.sourceBindings===oldBindings&&this.program===oldProgram&&!this.sourceUpdate&&!this.batch&&!this.activeGroup&&!this.pendingAuto
+    const scalar=()=>this.capacityUpdate===update&&this.workspace===oldWorkspace&&this.workspaceKey===oldKey&&this.limits===oldLimits&&this.slots===oldSlots&&this.staging===oldStaging&&this.sources===oldSources&&this.sourceBindings===oldBindings&&this.program===oldProgram&&!this.turnDepth&&!this.sourceUpdate&&!this.batch&&!this.activeGroup&&(!this.pendingAuto||addition&&!this.pendingAuto.flushing)
     const assert=(receiver:unknown)=>{if(receiver!==update||state!=='pending'||!scalar())throw new Error('Prepass capacity update changed')}
     const all=(tasks:(()=>void)[])=>{let failed=false,error:unknown;for(const task of tasks)try{task()}catch(e){if(!failed){failed=true;error=e}}if(failed)throw error}
     const discard=(keys:readonly string[],lost:boolean)=>all(keys.map(key=>()=>this.cache.discard(key,lost)))
@@ -279,10 +422,10 @@ export class TransformedMaskPrepass {
       get status(){return state},
       assertCurrent(){assert(this)},
       preparedResources(){assert(this);if(!workspace||slots.length!==nextLimits.slots||slots.some(x=>!x))throw new Error('Capacity resources incomplete');return resources},
-      assertPreparedPublication(){assert(this);checked=false;if(!workspace||!staging||!owner.pass.isReady()||resources.some(x=>owner.pass.cache.resourceBytes(x.key)!==x.bytes||!owner.pass.cache.get(x.key))||[...plan.sourceMap].some(([key,bytes])=>owner.pass.cache.resourceBytes(key)!==bytes||!owner.pass.cache.get(key)))throw new Error('Prepass staged resources changed');checked=true},
-      publish(){assert(this);if(!checked||!workspace||!staging)throw new Error('Capacity publication not checked');releaseOld=owner.pass.releaseCpu;releaseOldMetadata=owner.pass.releaseSourceMetadata;owner.pass.workspace=workspace;owner.pass.workspaceKey=nextKey;owner.pass.slots=slots;owner.pass.staging=staging;owner.pass.limits=nextLimits;owner.pass.sources=plan.sourceMap;owner.pass.sourceBindings=plan.bindings;owner.pass.releaseSourceMetadata=undefined;owner.pass.releaseCpu=releaseNew;owner.pass.reservedCpuBytes=newCpu;releaseNew=noMetadataRelease;state='published';return undefined},
-      cancel(){if(this!==update)throw new Error('Capacity update receiver changed');if(state!=='pending')return undefined;state='cancelled';retiredLost=owner.pass.capacityResetLost||owner.pass.gl.isContextLost();if(owner.pass.capacityUpdate===update)owner.pass.capacityUpdate=undefined;const cpu=releaseNew,pin=releaseUnion;releaseNew=noMetadataRelease;releaseUnion=noMetadataRelease;all([()=>discard(resources.map(x=>x.key),retiredLost),cpu,pin]);return undefined},
-      finalizeCleanup(){if(this!==update)throw new Error('Capacity update receiver changed');if(state==='pending')throw new Error('Capacity update not published');if(owner.pass.capacityUpdate===update)owner.pass.capacityUpdate=undefined;if(cleaned)return undefined;cleaned=true;const cpu=releaseOld,metadataRelease=releaseOldMetadata,pin=releaseUnion;releaseOld=undefined;releaseOldMetadata=undefined;releaseUnion=noMetadataRelease;if(state==='published')all([()=>discard([oldKey,...oldSlots.filter((x):x is Slot=>!!x).map(x=>x.key)],owner.pass.capacityResetLost||owner.pass.gl.isContextLost()),()=>cpu?.(),()=>metadataRelease?.(),pin]);return undefined},
+      assertPreparedPublication(){assert(this);checked=false;if(!workspace||!staging||!owner.pass.isReady()||resources.some(x=>owner.pass.cache.resourceBytes(x.key)!==x.bytes||!owner.pass.cache.get(x.key))||[...plan.sourceMap].some(([key,bytes])=>owner.pass.cache.resourceBytes(key)!==bytes||!owner.pass.cache.get(key)))throw new Error('Prepass staged resources changed');assert(this);checked=true},
+      publish(){assert(this);if(!checked||!workspace||!staging)throw new Error('Capacity publication not checked');releaseOld=owner.pass.releaseCpu;releaseOldMetadata=owner.pass.releaseSourceMetadata;if(oldRecord){oldRecord.isDefault=false;oldRecord.releaseStorageCpu=releaseOld;releaseOld=undefined}owner.pass.defaultRecord=undefined;owner.pass.workspace=workspace;owner.pass.workspaceKey=nextKey;owner.pass.slots=slots;owner.pass.staging=staging;owner.pass.limits=nextLimits;owner.pass.sources=plan.sourceMap;owner.pass.sourceBindings=plan.bindings;owner.pass.releaseSourceMetadata=undefined;owner.pass.releaseCpu=releaseNew;owner.pass.reservedCpuBytes=newCpu;releaseNew=noMetadataRelease;state='published';return undefined},
+      cancel(){if(this!==update)throw new Error('Capacity update receiver changed');if(state!=='pending')return undefined;return owner.pass.capacityCleanup(()=>{state='cancelled';if(owner.pass.capacityUpdate===update)owner.pass.capacityUpdate=undefined;const cpu=releaseNew,pin=releaseUnion;releaseNew=noMetadataRelease;releaseUnion=noMetadataRelease;all([()=>{retiredLost=owner.pass.capacityResetLost||owner.pass.gl.isContextLost()},()=>discard(resources.map(x=>x.key),retiredLost),cpu,pin,releasePeak,rollbackPin]);return undefined})},
+      finalizeCleanup(){if(this!==update)throw new Error('Capacity update receiver changed');if(state==='pending')throw new Error('Capacity update not published');return owner.pass.capacityCleanup(()=>{if(owner.pass.capacityUpdate===update)owner.pass.capacityUpdate=undefined;if(cleaned)return undefined;cleaned=true;const cpu=releaseOld,metadataRelease=releaseOldMetadata,pin=releaseUnion;releaseOld=undefined;releaseOldMetadata=undefined;releaseUnion=noMetadataRelease;if(state==='published')all([()=>{if(oldRecord)owner.pass.retireRecord(oldRecord,owner.pass.capacityResetLost);else discard([oldKey,...oldSlots.filter((x):x is Slot=>!!x).map(x=>x.key)],owner.pass.capacityResetLost||owner.pass.gl.isContextLost())},()=>cpu?.(),()=>metadataRelease?.(),pin,releasePeak]);return undefined})},
     })
     const owner=Object.freeze({pass:this})
     this.capacityUpdate=update
@@ -291,7 +434,7 @@ export class TransformedMaskPrepass {
     let textureStorage:StorageReservation|undefined,bufferStorage:StorageReservation|undefined,restore=noMetadataRelease
     try{
       releaseNew=this.cpu.reserve(newCpu);update.assertCurrent()
-      releaseUnion=this.cache.lease([...union].map(([key,bytes])=>({key,bytes})));update.assertCurrent()
+      releaseUnion=this.cache.leaseRequired([...union].map(([key,bytes])=>({key,bytes})));update.assertCurrent()
       textureStorage=reserveContextStorage(this.gl,budget.gpuBytes-budget.vertexBytes,'brush-texture-rgba-equivalent')
       bufferStorage=reserveContextStorage(this.gl,budget.vertexBytes,'brush-buffer')
       restore=this.saveState([]);this.cache.protect([...union.keys()]);update.assertCurrent();this.gl.activeTexture(this.gl.TEXTURE0)
@@ -336,7 +479,7 @@ export class TransformedMaskPrepass {
   * Caller accounts expansion scratch during source preparation separately.
   */
   prepare(limits: TransformedMaskLimits, sourceResources: readonly TransformedMaskPreparedSource[], signal?: AbortSignal): 'ready' | 'cancelled' {
-    if (this.batch) throw new Error('Cannot prepare inside an active brush GL batch');
+    if (this.capacityCapture||this.turnDepth||this.batch) throw new Error('Cannot prepare inside an active brush GL turn/batch');
     if (signal?.aborted)
       return 'cancelled';
     const budget = transformedMaskPrepassBudget(limits);
@@ -346,7 +489,7 @@ export class TransformedMaskPrepass {
       const update=this.prepareSourceUpdate(sourceResources);update.publish();update.finalizeCleanup();return 'ready'
     }
     const {sourceMap,bindings}=this.checkedSources(sourceResources)
-    const { vertexBytes, cpuBytes } = budget;
+    const {vertexBytes,cpuBytes}=budget;
     const gpuBytes = budget.gpuBytes + [...sourceMap.values()].reduce((a, b) => a + b, 0);
     if (!Number.isSafeInteger(gpuBytes) || gpuBytes > this.cache.budgetBytes || cpuBytes + this.cpu.reservedBytes - this.reservedCpuBytes > this.cpu.budgetBytes)
       throw new RangeError('Prepass working set exceeds existing brush budgets');
@@ -411,19 +554,22 @@ export class TransformedMaskPrepass {
   /** Cold/preflight metadata only. Source-bank resources are reported separately. */
   preparedResources(): readonly { key: string; bytes: number }[] {
     if (!this.isReady()) throw new Error('Prepass is not prepared');
-    return [this.workspaceKey, ...this.slots.map(slot => slot!.key)].map(key => ({ key, bytes: this.cache.resourceBytes(key)! }));
+    return [...new Map([...this.defaultResources(),...[...this.records].flatMap(r=>this.recordResources(r))].map(x=>[x.key,x])).values()];
   }
   /** Holds all source/LUT/target entries through the caller's synchronous draw.
   * Caller MUST release in finally. No GL state is touched on a cache hit.
   */
-  brushGlBatchInfo(): BrushGlBatchInfo {
-    if (!this.isReady() || !this.workspace) throw new Error('Prepass is not prepared');
-    return { gl: this.gl, cache: this.cache, cpu: this.cpu, epoch: this.workspace, attributes: this.attributes, instancing: this.instancing, vertexArrays: this.vertexArrays,
-      resources: [...this.preparedResources(), ...[...this.sources].map(([key, bytes]) => ({ key, bytes }))],
-      ownedPointSamplers: this.slots.filter((slot): slot is Slot => !!slot).map(slot => ({ key: slot.key, texture: slot.texture, bytes: this.limits!.width * this.limits!.height * 4, epoch: this.workspace! })) };
+  brushGlBatchInfo(): BrushGlBatchInfo {return this.recordInfo(this.defaultCapacityRecord())}
+  private recordInfo(record:CapacityRecord):BrushGlBatchInfo{
+    if(!this.recordReady(record))throw new Error('Prepass capacity is not prepared')
+    return {gl:this.gl,cache:this.cache,cpu:this.cpu,epoch:record.workspace,attributes:this.attributes,instancing:this.instancing,vertexArrays:this.vertexArrays,
+      resources:[...this.recordResources(record),...[...record.sources].map(([key,bytes])=>({key,bytes}))],
+      ownedPointSamplers:record.slots.filter((slot):slot is Slot=>!!slot).map(slot=>({key:slot.key,texture:slot.texture,bytes:record.limits.width*record.limits.height*4,epoch:record.workspace}))}
   }
-  enterBrushGlBatch(frame: BrushGlBatchFrame): () => void {
-    frame.acceptParticipant(this);
+  enterBrushGlBatch(frame: BrushGlBatchFrame): () => void {return this.enterRecordBatch(this,frame)}
+  private enterRecordBatch(participant:BrushGlBatchParticipant,frame:BrushGlBatchFrame):()=>void{
+    if(this.capacityCapture)throw new Error('Capacity transition is active');
+    frame.acceptParticipant(participant);
     if (this.batch || this.activeGroup) throw new Error('Prepass already has an active batch/group');
     this.batch = frame;
     return () => { if (this.batch === frame) this.batch = undefined; };
@@ -432,14 +578,18 @@ export class TransformedMaskPrepass {
     views: TransformedMaskView[];
     release: () => void;
   } {
+    return this.resolveRecordGroup(this.defaultCapacityRecord(),this,requests,frame)
+  }
+  private resolveRecordGroup(record:CapacityRecord,participant:BrushGlBatchParticipant,requests:readonly AnyTransformedMaskRequest[],frame?:BrushGlBatchFrame):{views:TransformedMaskView[];release:()=>void}{
+    if(this.capacityCapture)throw new Error('Capacity transition is active');
     if (this.batch !== frame) throw new Error('Prepass batch identity mismatch');
     if (this.activeGroup)
       throw new Error('Release the previous prepass group before resolving another');
     if (this.pendingAuto) throw new Error('Auto generation is incomplete');
     const batchGroup = frame?.beginGroup();
-    if (!this.isReady() || !this.limits || !this.workspace || !this.program || !this.staging)
+    if (!this.recordReady(record) || !record.limits || !record.workspace || !this.program || !record.staging)
       throw new Error('Prepass is not prepared');
-    if (requests.length > this.limits.slots)
+    if (requests.length > record.limits.slots)
       throw new RangeError('Prepass simultaneous-role capacity exceeded');
     const seen = new Map<object, Set<string>>();
     const prepared = requests.map(request => {
@@ -457,7 +607,7 @@ export class TransformedMaskPrepass {
       if (!material || typeof material !== 'object') throw new RangeError('Invalid prepass material');
       if ('kind' in material && material.kind === 'canonicalAuto') {
         const revision = canonicalAutoMaskRevision(material), { recipe } = material;
-        const slot = this.slots.find(s => s?.owner === request.owner && s.role === request.role && s.revision === revision);
+        const slot = record.slots.find(s => s?.owner === request.owner && s.role === request.role && s.revision === revision);
         if (!slot) throw new Error('Canonical auto generation must complete outside brush GL batch');
         if (source || ![rect.x, rect.y, rect.width, rect.height].every(Number.isSafeInteger)
           || rect.width !== recipe.width || rect.height !== recipe.height) throw new RangeError('Invalid canonical auto placement/source');
@@ -468,13 +618,13 @@ export class TransformedMaskPrepass {
       let revision: string, plan: TransformedMaskPlan;
       let mirror: { horizontal: boolean; vertical: boolean };
       if (canonicalMaterial(material)) {
-        const { recipe, asset } = material, metadata = canonicalTransformedMaskMetadata(recipe, asset), binding = this.sourceBindings.get(source.key);
+        const { recipe, asset } = material, metadata = canonicalTransformedMaskMetadata(recipe, asset), binding = record.bindings.get(source.key);
         if (!binding || ['id', 'size', 'x', 'y', 'width', 'height'].some(k => binding.asset[k as keyof typeof asset] !== asset[k as keyof typeof asset])
           || binding.index !== metadata.index || binding.baseScale !== metadata.baseScale
           || binding.nativeWidth !== metadata.levelWidth || binding.nativeHeight !== metadata.levelHeight)
           throw new RangeError('Canonical mask differs from prepared source binding');
         revision = canonicalMaskRevision(request.profile, source.key, recipe, asset);
-        const same = this.slots.find(slot => slot?.owner === request.owner && slot.role === request.role && slot.revision === revision);
+        const same = record.slots.find(slot => slot?.owner === request.owner && slot.role === request.role && slot.revision === revision);
         plan = same?.plan ?? canonicalTransformedMaskPlan(recipe, asset);
         mirror = { horizontal: recipe.mirrorH, vertical: recipe.mirrorV };
       } else {
@@ -483,24 +633,24 @@ export class TransformedMaskPrepass {
         if (!saved || !saved.brush || !saved.shape || !saved.key || !saved.mirror || typeof saved.mirror.horizontal !== 'boolean' || typeof saved.mirror.vertical !== 'boolean')
           throw new RangeError('Invalid saved source material');
         const immutable = Object.isFrozen(saved) && Object.isFrozen(saved.brush) && Object.isFrozen(saved.shape) && Object.isFrozen(saved.key);
-        const previous = this.slots.find(slot => slot?.owner === request.owner && slot.role === request.role && slot.material === material && slot.sourceKey === source.key && slot.profile === request.profile);
+        const previous = record.slots.find(slot => slot?.owner === request.owner && slot.role === request.role && slot.material === material && slot.sourceKey === source.key && slot.profile === request.profile);
         const k = saved.key;
         revision = immutable && previous?.revision ? previous.revision : JSON.stringify([request.profile, source.key, saved.brushIdentity, saved.width, saved.height, saved.brush.width, saved.brush.height, saved.brush.scale, saved.brush.angle, saved.shape.scale, saved.shape.ratio, saved.shape.rotation, k.subPixelX, k.subPixelY, k.color, k.softness, k.lightness, k.index, k.mirrorH, k.mirrorV].map(v => Object.is(v, -0) ? '-0' : v));
-        const same = this.slots.find(slot => slot?.owner === request.owner && slot.role === request.role && slot.revision === revision);
+        const same = record.slots.find(slot => slot?.owner === request.owner && slot.role === request.role && slot.revision === revision);
         plan = same?.plan ?? resolvedTransformedMaskPlan(saved);
         mirror = { horizontal: saved.mirror.horizontal, vertical: saved.mirror.vertical };
       }
-      if (plan.width > this.limits!.width || plan.height > this.limits!.height || plan.spans.length > this.limits!.height
+      if (plan.width > record.limits!.width || plan.height > record.limits!.height || plan.spans.length > record.limits!.height
         || !safe(source.width, 1, 4096) || !safe(source.height, 1, 4096) || source.width !== plan.levelWidth + 2 || source.height !== plan.levelHeight + 2
-        || (this.sources.get(source.key) ?? 0) < source.width * source.height * 4 || this.cache.get(source.key) !== source.texture
+        || (record.sources.get(source.key) ?? 0) < source.width * source.height * 4 || this.cache.get(source.key) !== source.texture
         || ![rect.x, rect.y, rect.width, rect.height].every(Number.isSafeInteger) || rect.width !== plan.width || rect.height !== plan.height)
         throw new RangeError('Unprepared material geometry/source');
       // Validate every new native row before any GL ownership side effect.
-      if (!this.slots.some(slot => slot?.owner === request.owner && slot.role === request.role && slot.revision === revision))
-        writeTransformedMaskVertices(plan, this.staging!);
+      if (!record.slots.some(slot => slot?.owner === request.owner && slot.role === request.role && slot.revision === revision))
+        writeTransformedMaskVertices(plan, record.staging!);
       return { request, plan, revision, mirror, width: plan.width, height: plan.height };
     });
-    const slots = this.slots as Slot[], selected = new Set<Slot>();
+    const slots = record.slots as Slot[], selected = new Set<Slot>();
     // Reserve all existing hits before choosing an LRU destination for misses.
     const hits = prepared.map(item => {
       const slot = slots.find(s => !selected.has(s) && s.owner === item.request.owner && s.role === item.request.role && s.revision === item.revision);
@@ -513,18 +663,21 @@ export class TransformedMaskPrepass {
       selected.add(slot);
       return { ...item, slot };
     });
-    const resources = [{ key: this.workspaceKey, bytes: FACTOR_BYTES + this.staging.byteLength }, ...slots.map(s => ({ key: s.key, bytes: this.limits!.width * this.limits!.height * 4 })), ...[...this.sources].map(([key, bytes]) => ({ key, bytes }))];
-    frame?.assert(this, resources);
+    const resources = [{ key: record.key, bytes: FACTOR_BYTES + record.staging.byteLength }, ...slots.map(s => ({ key: s.key, bytes: record.limits!.width * record.limits!.height * 4 })), ...[...record.sources].map(([key, bytes]) => ({ key, bytes }))];
+    frame?.assert(participant, resources);
     this.cache.protect(resources.map(r => r.key));
     const releaseResources = frame ? () => {} : this.cache.lease(resources), token = Symbol('prepass-group');
-    this.activeGroup = token;
+    this.activeGroup = token;record.work++;
     let released = false;
     const release = () => {
       if (released) return;
       released = true;
-      releaseResources();
+      let failed=false,first:unknown;try{releaseResources()}catch(e){failed=true;first=e}
+      record.work--;
+      try{this.retireRecord(record)}catch(e){if(!failed){failed=true;first=e}}
       if (batchGroup) frame!.endGroup(batchGroup);
       if (this.activeGroup === token) this.activeGroup = undefined;
+      if(failed)throw first;
     };
     frame?.holdGroup(release);
     try {
@@ -538,7 +691,7 @@ export class TransformedMaskPrepass {
             item.slot.plan = undefined;
             if (!item.plan) throw new Error('Auto mask cannot be generated inside a GL batch');
             if (!item.request.source) throw new Error('Image source missing');
-            this.draw(item.slot, item.request as TransformedMaskRequest, item.plan);
+            this.draw(record,item.slot, item.request as TransformedMaskRequest, item.plan);
             item.slot.revision = item.revision;
             item.slot.owner = item.request.owner;
             item.slot.role = item.request.role;
@@ -555,7 +708,7 @@ export class TransformedMaskPrepass {
       const views = assigned.map(({ slot, request, width, height, mirror }) => {
         slot.material = request.material;
         slot.used = ++this.clock;
-        return { key: slot.key, texture: slot.texture, rect: { ...request.rect }, bounds: { x: 0 as const, y: 0 as const, width: width / this.limits!.width, height: height / this.limits!.height },
+        return { key: slot.key, texture: slot.texture, rect: { ...request.rect }, bounds: { x: 0 as const, y: 0 as const, width: width / record.limits!.width, height: height / record.limits!.height },
           mirror, channel: 'r' as const };
       });
       return { views, release };
@@ -566,21 +719,22 @@ export class TransformedMaskPrepass {
     }
   }
   /** No pixels/GL on a hit. One continuation belongs to the existing executor cursor. */
-  beginAutoGeneration(request: AnyTransformedMaskRequest): boolean {
-    if (this.batch || this.activeGroup) throw new Error('Auto generation requires an idle prepass outside GL batch');
-    if (!this.isReady() || !this.limits || !this.workspace) throw new Error('Prepass is not prepared');
+  beginAutoGeneration(request: AnyTransformedMaskRequest): boolean {return this.beginRecordAuto(this.defaultCapacityRecord(),this,request)}
+  private beginRecordAuto(record:CapacityRecord,participant:BrushGlBatchParticipant,request:AnyTransformedMaskRequest):boolean{
+    if (this.capacityCapture||this.batch || this.activeGroup) throw new Error('Auto generation requires an idle prepass outside GL batch');
+    if (!this.recordReady(record) || !record.limits || !record.workspace) throw new Error('Prepass is not prepared');
     const material = request.material;
     if (!('kind' in material) || material.kind !== 'canonicalAuto' || request.source
       || !request.owner || typeof request.owner !== 'object' || !request.role) throw new RangeError('Invalid auto generation request');
     if(!isCanonicalSoftAutoMaterial(material)&&material.densityIdentity&&request.role!=='primary')throw new TypeError('Density request requires primary role');
     const revision = canonicalAutoMaskRevision(material), { width, height } = material.recipe;
-    if (width > this.limits.width || height > this.limits.height) throw new RangeError('Auto mask exceeds prepared capacity');
+    if (width > record.limits.width || height > record.limits.height) throw new RangeError('Auto mask exceeds prepared capacity');
     if (this.pendingAuto) {
-      if (this.pendingAuto.owner !== request.owner || this.pendingAuto.role !== request.role || this.pendingAuto.revision !== revision)
+      if (this.pendingAuto.participant!==participant||this.pendingAuto.record!==record||this.pendingAuto.owner !== request.owner || this.pendingAuto.role !== request.role || this.pendingAuto.revision !== revision)
         throw new Error('Another auto generation is pending');
       return false;
     }
-    if (this.slots.some(s => s?.owner === request.owner && s.role === request.role && s.revision === revision)) return true;
+    if (record.slots.some(s => s?.owner === request.owner && s.role === request.role && s.revision === revision)) return true;
     const prepared = prepareCanonicalAutoMask(material);
     let releaseStripe: (() => void) | undefined;
     let released = false;
@@ -597,7 +751,7 @@ export class TransformedMaskPrepass {
       // The fixed table owner has already reserved its resident metadata/table.
       releaseStripe = this.cpu.reserve(pixels * 5 + 512 + (!isCanonicalSoftAutoMaterial(material)&&material.densityIdentity?512:0));
       const a8 = new Uint8Array(pixels), rgba = new Uint8Array(pixels * 4);
-      const slot = (this.slots as Slot[]).slice().sort((a,b) => a.used-b.used)[0];
+      const slot = (record.slots as Slot[]).slice().sort((a,b) => a.used-b.used)[0];
       const captured: CanonicalAutoMaskMaterial = isCanonicalSoftAutoMaterial(material)
         ? Object.freeze({ ...material, recipe: Object.freeze({ ...material.recipe,
           ...canonicalSoftAutoStatic(material.recipe.source, material.recipe.brushScale, material.recipe.brushAngle) }),
@@ -606,7 +760,8 @@ export class TransformedMaskPrepass {
           ...(material.densityIdentity?{densityIdentity:Object.freeze({...material.densityIdentity})}:{}),
           trustedSource: Object.freeze({ ...material.trustedSource, source: Object.freeze({ ...material.trustedSource.source }) }) }) as CanonicalAutoMaskMaterial;
       slot.revision = undefined; slot.plan = undefined; slot.material = undefined;
-      this.pendingAuto = { owner: request.owner, role: request.role, revision, slot, epoch: this.workspace,
+      record.work++;
+      this.pendingAuto = { record,participant,owner: request.owner, role: request.role, revision, slot, epoch: record.workspace,
         evaluator: prepared.evaluator, material: captured, width, height, a8, rgba, release, filled: 0, uploadedRows: 0, computedFinal:false, flushing:false };
       return false;
     } catch (error) {
@@ -620,7 +775,7 @@ export class TransformedMaskPrepass {
   advanceAutoGeneration(maxSamples: number,options?:{readonly deferFinalUpload?:true}): { done: boolean; consumed: number; uploadedBytes: number;finalUploadPending?:true } {
     if(options!==undefined&&(!options||options.deferFinalUpload!==undefined&&options.deferFinalUpload!==true||Reflect.ownKeys(options).some(k=>k!=='deferFinalUpload')))
       throw new RangeError('Invalid auto generation policy');
-    if (this.batch || this.activeGroup) throw new Error('Cannot advance auto generation inside GL batch/group');
+    if (this.capacityCapture||this.batch || this.activeGroup) throw new Error('Cannot advance auto generation inside GL batch/group');
     const p = this.pendingAuto;
     if (!p) throw new Error('No auto generation pending');
     if(p.flushing)throw new Error('Auto upload is already active');
@@ -655,7 +810,7 @@ export class TransformedMaskPrepass {
     const p=this.pendingAuto;if(!p||!p.computedFinal||p.flushing)throw new Error('No final auto upload pending');
     this.assertAutoRequest(p,request);this.assertFinalAutoGeometry(p);
     // Invalid foreign admission must not cancel somebody else's accepted work.
-    const restore=borrowBrushGlTurnAutoUploadRestore(turn,this);
+    const restore=borrowBrushGlTurnAutoUploadRestore(turn,p.participant);
     try{
       this.assertAutoResidency(p);
       const uploadedBytes=this.uploadAutoStripe(p,{kind:'owned',restore});
@@ -675,13 +830,13 @@ export class TransformedMaskPrepass {
       throw new Error('Foreign auto generation owner/revision');
   }
   private assertAutoResidency(p:NonNullable<TransformedMaskPrepass['pendingAuto']>):void {
-    if(this.pendingAuto!==p||!this.isReady()||this.workspace!==p.epoch||this.cache.get(p.slot.key)!==p.slot.texture)
+    if(this.pendingAuto!==p||!this.recordReady(p.record)||p.record.workspace!==p.epoch||this.cache.get(p.slot.key)!==p.slot.texture)
       throw new Error('Auto generation residency changed');
   }
   private uploadAutoStripe(p:NonNullable<TransformedMaskPrepass['pendingAuto']>,guard:{kind:'standalone'}|{kind:'owned';restore:()=>void}):number {
     const rows=p.filled/p.width;
     if(!Number.isSafeInteger(rows)||rows<1||p.uploadedRows+rows>p.height)throw new Error('Auto stripe ended between rows');
-    const release=this.cache.lease([{key:p.slot.key,bytes:this.limits!.width*this.limits!.height*4}]);
+    const release=this.cache.lease([{key:p.slot.key,bytes:p.record.limits.width*p.record.limits.height*4}]);
     const gl=this.gl;let restore:(()=>void)|undefined,failed=false,failure:unknown;
     p.flushing=true;
     try{
@@ -707,23 +862,29 @@ export class TransformedMaskPrepass {
     }
     p.slot.owner=p.owner;p.slot.role=p.role;p.slot.revision=p.revision;p.slot.material=p.material;
     p.slot.sourceKey=undefined;p.slot.profile=undefined;p.slot.used=++this.clock;
-    this.pendingAuto=undefined;if(!releaseBeforePublish)p.release();
+    this.pendingAuto=undefined;p.record.work--;let failed=false,first:unknown;try{if(!releaseBeforePublish)p.release()}catch(e){failed=true;first=e}try{this.retireRecord(p.record)}catch(e){if(!failed){failed=true;first=e}}if(failed)throw first;
   }
   cancelAutoGeneration(): void {
     if(this.pendingAuto?.flushing)throw new Error('Cannot cancel inside auto upload');
     const p=this.pendingAuto; this.pendingAuto=undefined;
     if(p) {
       let failed=false, primary:unknown;
-      for(const cleanup of [()=>p.evaluator.cancel(),p.release]) try { cleanup(); }
+      p.record.work--;
+      for(const cleanup of [()=>p.evaluator.cancel(),p.release,()=>this.retireRecord(p.record)]) try { cleanup(); }
       catch(error) { if(!failed){failed=true;primary=error} }
       if(failed)throw primary;
     }
   }
-  releaseOwner(owner: object): void {
+  releaseOwner(owner:object):void{
+    let failed=false,first:unknown
+    for(const record of [...this.records])try{this.releaseRecordOwner(record,owner)}catch(e){if(!failed){failed=true;first=e}}
+    if(failed)throw first
+  }
+  private releaseRecordOwner(record:CapacityRecord,owner:object,participant?:BrushGlBatchParticipant):void{
     if (this.batch) throw new Error('Cannot release owner inside active brush GL batch');
     let failed=false, primary:unknown;
-    if (this.pendingAuto?.owner === owner) try { this.cancelAutoGeneration(); } catch(error) { failed=true; primary=error; }
-    for (const slot of this.slots)
+    if (this.pendingAuto?.record===record&&this.pendingAuto.owner===owner&&(!participant||this.pendingAuto.participant===participant)) try { this.cancelAutoGeneration(); } catch(error) { failed=true; primary=error; }
+    for (const slot of record.slots)
     if (slot?.owner === owner) {
       slot.owner = undefined;
       slot.role = undefined;
@@ -737,7 +898,10 @@ export class TransformedMaskPrepass {
   }
   reset(lost = false): void {
     if(this.pendingAuto?.flushing)throw new Error('Cannot reset inside auto upload');
-    if (this.batch && !lost) throw new Error('Cannot reset inside an active brush GL batch');
+    if ((this.turnDepth||this.batch) && !lost) throw new Error('Cannot reset inside an active brush GL turn/batch');
+    this.capacityCleanup(()=>{this.resetStorage(lost);return undefined})
+  }
+  private resetStorage(lost:boolean):void{
     let failed=false,primary:unknown;
     const attempt=(cleanup:()=>void)=>{try{cleanup()}catch(error){if(!failed){failed=true;primary=error}}};
     const capacity=this.capacityUpdate;this.capacityUpdate=undefined
@@ -747,13 +911,14 @@ export class TransformedMaskPrepass {
     const update=this.sourceUpdate;this.sourceUpdate=undefined
     attempt(()=>{if(update?.status==='published')update.finalizeCleanup();else update?.cancel()})
     attempt(()=>this.cancelAutoGeneration());this.activeGroup=undefined;
+    const records=[...this.records];if(this.defaultRecord){this.defaultRecord.releaseStorageCpu=this.releaseCpu;this.releaseCpu=undefined}for(const record of records){record.isDefault=false;attempt(()=>this.retireRecord(record,lost,true))}
     for(const slot of [...this.slots])if(slot)attempt(()=>this.cache.discard(slot.key,lost));
     attempt(()=>this.cache.discard(this.workspaceKey,lost));
     if(this.program&&!lost)attempt(()=>this.gl.deleteProgram(this.program!));
     this.program=undefined;this.workspace=undefined;this.slots=[];this.staging=undefined;this.limits=undefined;
     this.sources.clear();this.sourceBindings.clear();this.attributes=[];this.uniforms={};this.instancing=null;this.vertexArrays=null;
     const releaseSource=this.releaseSourceMetadata;this.releaseSourceMetadata=undefined;attempt(()=>releaseSource?.());
-    attempt(()=>this.releaseCpu?.());this.releaseCpu=undefined;this.reservedCpuBytes=0;
+    const cpuRelease=this.releaseCpu;this.releaseCpu=undefined;this.reservedCpuBytes=0;attempt(()=>cpuRelease?.());
     if(failed)throw primary;
   }
   /** Stripe upload touches only unit0 and unpack state: no draw/program/FBO,
@@ -820,9 +985,9 @@ export class TransformedMaskPrepass {
         gl.deleteShader(shader);
     }
   }
-  private draw(slot: Slot, request: TransformedMaskRequest, plan: TransformedMaskPlan): void {
-    const gl = this.gl, u = this.uniforms, workspace = this.workspace!, limits = this.limits!;
-    const count = writeTransformedMaskVertices(plan, this.staging!);
+  private draw(record:CapacityRecord,slot: Slot, request: TransformedMaskRequest, plan: TransformedMaskPlan): void {
+    const gl = this.gl, u = this.uniforms, workspace = record.workspace, limits = record.limits;
+    const count = writeTransformedMaskVertices(plan, record.staging);
     gl.bindFramebuffer(gl.FRAMEBUFFER, slot.framebuffer);
     gl.viewport(0, 0, plan.width, plan.height);
     for (const cap of [gl.BLEND, gl.SCISSOR_TEST, gl.DITHER, gl.CULL_FACE, gl.DEPTH_TEST, gl.STENCIL_TEST])
@@ -833,7 +998,7 @@ export class TransformedMaskPrepass {
     gl.useProgram(this.program!);
     if (workspace.vao) this.vertexArrays!.bindVertexArrayOES(workspace.vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, workspace.buffer);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.staging!.subarray(0, count * 12));
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, record.staging.subarray(0, count * 12));
     for (const [i, size, offset] of [[0, 2, 0], [1, 4, 2], [2, 4, 6], [3, 2, 10]]) {
       const location = this.attributes[i];
       gl.enableVertexAttribArray(location);

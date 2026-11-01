@@ -55,6 +55,8 @@ export interface BrushGlBatchInfo {
 }
 /** Internal services expose metadata, never a raw draw bypass. */
 export interface BrushGlBatchParticipant {
+  /** Resource-owner mutation barrier; released only after this synchronous turn restores GL. */
+  enterBrushGlTurn?(): () => void
   brushGlBatchInfo(): BrushGlBatchInfo
   enterBrushGlBatch(frame: BrushGlBatchFrame): () => void
 }
@@ -239,9 +241,12 @@ export function runBrushGlTurn(options:{readonly participants:readonly BrushGlBa
   if(first.gl.isContextLost())throw new Error('Brush GL turn context lost')
   const releaseCpu=first.cpu.reserve(4096+(autoUpload?128:0))
   let restore:BrushGlStateRestore|undefined,record:TurnRecord|undefined,token:BrushGlTurn|undefined,failed=false,failure:unknown
+  const participantReleases:(()=>void)[]=[]
   const cleanup=(fn:()=>void)=>{try{fn()}catch(error){if(!failed){failed=true;failure=error}}}
   turnContexts.add(first.gl)
   try{
+    for(const participant of infos.keys())if(participant.enterBrushGlTurn)participantReleases.push(participant.enterBrushGlTurn())
+    for(const [participant,pinned]of infos)if(!sameParticipantBinding(participant.brushGlBatchInfo(),pinned))throw new Error('Brush GL turn participant changed during acquisition')
     const attributes=[...new Set([...infos.values()].flatMap(i=>[...i.attributes]))]
     restore=saveBrushGlState(first.gl,attributes,first.instancing,first.vertexArrays,3,autoUpload)
     token=Object.freeze({}) as BrushGlTurn
@@ -254,6 +259,7 @@ export function runBrushGlTurn(options:{readonly participants:readonly BrushGlBa
     if(token)turns.delete(token) // retained expired tokens must not retain GL snapshots
     if(restore)cleanup(()=>{if(!first.gl.isContextLost())restore!()})
     cleanup(releaseCpu)
+    for(const release of participantReleases.reverse())cleanup(release)
     turnContexts.delete(first.gl)
   }
   if(failed)throw failure
