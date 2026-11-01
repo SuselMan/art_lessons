@@ -152,3 +152,77 @@ Scoped lint:0 errors, one preexisting mount-effect dependency warning. Diffcheck
 PASS. Coordinated full-app verification remains parent-owned. No browser/device,
 service, dependency copy or long-lived process was created; compact ignored host
 logs/config are retained in R52.
+
+## U3a: nonactivated healthy metadata interval in SAME Origin
+
+This leaf adds no Room/confirmed-stream consumer or engine command activation.
+The existing control Origin alone retains a healthy interval: genuine original
+read/tail, a frozen socket/connection/board/read lineage, at most one bounded
+captured local metadata request, an internal receipt and a durable lower bound.
+No operation list, pending registry, replacement engine, timer or dispatch queue.
+
+`beginControl` validates the full original bootstrap and current origin, refuses
+active/pending local work, and arms command busy without a cut, lock, UI failure,
+read invalidation or resync. A copied/stale original cannot arm it. The returned
+opaque token is only for lexical enqueue-rejection rollback. `cancelControl`
+requires exact token identity and an unplaced interval and never clears Outbox
+work. Fixed `settleControl(op,result,context)` finds the receipt INTERNALLY in the
+SAME Origin, matching all captured request scalars, exact current engine and the
+Attempt's captured lineage; no Room activeControlRef/map or token forwarding is
+needed. Missing lineage/hydrated/stale entries cannot create a fresh origin.
+
+Only an actual durable ACK sequence or closed confirmed undo/redo metadata can
+supply the lower cut. A successful notification closes the SAME replay gate once
+and records the durable watermark through paired callbacks. It does not append,
+paint, advance lastConfirmed, observe review state or fabricate recorded inputs.
+Duplicate ACK/confirmed deliveries share the interval and one actual resync.
+ACK without broadcast is sufficient; busy survives removal of the Outbox entry.
+A permanent unplaced rejection terminates the failed interval and resets this
+same origin ready/history-empty, without lock/resync; paired UI can report the
+actual rejection and allow another command. An independently confirmed peer cut
+is retained and drained even if the local command was rejected.
+
+Healthy waiting deliberately does NOT use fault `request`/`retired`, early
+`setLocked`, source cancellation or fault onWaiting. The separate
+`onHistoryJoining` notification occurs only after actual idle locking, so paired
+UI need not show a transfer error for a healthy join. Drain waits real source
+holds0 and SAME pending/outbox0. `authorIdle(engine,board)` is an explicit current
+origin wake; the paired engine callback must run after full source cleanup,
+partial-close emission and fault drain, not immediately at the counter decrement.
+No normal author-idle callback is wired in this leaf.
+
+Final idle observations follow potentially reentrant lineage/canRequest/current
+callbacks. The last author observation is immediately followed by locking the
+idle engine, BEFORE the joining UI callback. Post-callback owner/interval/idle
+checks precede actual resync. Joining is accepted only when synchronous resync
+really invalidated the original read and the same Origin survived. Exceptions,
+no invalidation and stale/reentrant owners cannot publish joining. Healthy
+intervals never attest physical retirement to whenRetiredTransition. Retry uses
+a fresh interval, preserving a real durable cut when one exists; an unplaced
+failed command is not converted into a synthetic fault/resync.
+
+Tests-first RED4/prior40PASS. A separate real-engine lock-order witness captured
+RED1/prior53PASS: the old UI-before-lock order actually started BEGIN. Its positive
+control uses a prepared native Basic2 source and the same real pointer callback;
+the corrected order blocks joining-time DOWN without author cancellation/poison.
+Additional callback witnesses start a source from canRequest/lineage and leave
+healthy waiting unlocked. Final **79 tests / two suites PASS**, maxWorkers1,
+including all40 previous controller/rendezvous tests and19 Outbox verdict tests.
+The fixed SAME Outbox callback integration needs no external control receipt ref.
+Targeted actual-app-options TypeScript, scoped lint and diffcheck PASS (R52
+healthy-control-u3a-*). No full-app/GPU/physical DB/interactive undo claim.
+
+Actual OPEN local CPU/raw work + held originals + all ACKs + verified complete
+full replacement is REQUIRED in U1/U3b before activation. A numeric cut alone is
+not full-prefix evidence. No Room, engine/index, shared, server or runtime resource
+changed here; compact ignored logs/config remain, no live process/service/device.
+
+Healthy transition rendezvous: `whenHistoryTransition(engine,board)` observes only
+an existing durable healthy interval (real cut + replay hold). It lazily shares
+SAME interval.barrier/promise and settles joining only after actual invalidation;
+bind/detach/failure settle stale/failed normally. An armed but unplaced command
+cannot create the barrier. No-observer work still completes. Physical-retirement
+observation remains separate and returns failed for a healthy interval. Tests
+first RED2/prior58PASS then final79/2PASS include shared wait, active/ACK ordering,
+detach and throwing resync. The future Room hold callback can retain its ticket
+lexically in the shared promise continuation, without an active-ticket registry.

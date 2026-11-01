@@ -1,6 +1,6 @@
 import {expect,it,vi} from 'vitest'
 import {prepareCanonicalRoomState} from './net/canonicalRoomState'
-import {canonicalBootstrapOf,stageCanonicalRoomReplacement,createCanonicalRoomVerdicts} from './canonicalRoomController'
+import {canonicalBootstrapOf,stageCanonicalRoomReplacement,createCanonicalRoomVerdicts,createCanonicalRecoveryControl} from './canonicalRoomController'
 import type {ServerToClientEvents} from '@grafetto/shared'
 function state(){
  let current=true
@@ -299,3 +299,168 @@ it('carries genuine bootstrap classification through SAME Outbox without changin
   current=first.engine;f.expire();expect(()=>on.onLocalOperation({...op,id:'expired-read'})).toThrow();expect(sent).toHaveLength(1)
  }finally{box.dispose();first.engine.destroy();second.engine.destroy()}
 },15000)
+
+function historyControl(pendingProbe?:()=>boolean,lineageProbe?:()=>void,canRequestProbe?:()=>boolean){
+ const f=state(),read=f.stash.canonicalRead,tail=f.stash.tailOperations,socket={},engine={hasActiveCanonicalAuthor:vi.fn(()=>false),setLocked:vi.fn()} as unknown as import('../../engine').PencilEngineAPI
+ let current:typeof engine|null=engine,pending=false,active=false
+ const lineage={socket,connectionId:'one',boardId:'B',originalRead:read},hold=vi.fn(),known=vi.fn(),waiting=vi.fn(),resync=vi.fn(()=>f.expire())
+ const control=createCanonicalRecoveryControl({getEngine:()=>current,getBoard:()=> 'B',hasPendingLocals:()=>pendingProbe?.()??pending,canRequest:()=>canRequestProbe?.()??true,resync,onWaiting:vi.fn(),onHistoryJoining:waiting,getControlLineage:()=>{lineageProbe?.();return lineage},holdHistory:hold,noteKnownSequence:known})
+ vi.mocked(engine.hasActiveCanonicalAuthor).mockImplementation(()=>active);control.bind(engine,'B');control.restored(engine)
+ const op={id:'metadata',type:'operation_undo' as const,userId:'U',timestamp:0,targetOpId:'frame'},begin=()=>control.beginControl(engine,'B',read,tail,op)
+ const context={roomId:'B',deliveryLane:'canonical-control-v1' as const,lineage}
+ return{...f,read,tail,socket,engine,lineage,control,hold,known,waiting,resync,begin,op,context,setPending:(value:boolean)=>{pending=value},setActive:(value:boolean)=>{active=value},replace:()=>{current=null}}
+}
+it('healthy control arms busy without lock/resync until genuine ACK then waits ordinary author/outbox drain',()=>{
+ const h=historyControl();h.begin();h.setActive(true);h.setPending(true)
+ expect(h.control.controlBusy(h.engine,'B')).toBe(true);expect(h.engine.setLocked).not.toHaveBeenCalled();expect(h.waiting).not.toHaveBeenCalled();expect(h.control.drain()).toBe(false)
+ expect(h.control.settleControl(h.op,{ok:true,seq:4},h.context)).toBe(true)
+ expect(h.hold).toHaveBeenCalledOnce();expect(h.known).toHaveBeenCalledWith(4);expect(h.resync).not.toHaveBeenCalled();expect(h.engine.setLocked).not.toHaveBeenCalled()
+ h.setPending(false);h.control.drain();expect(h.resync).not.toHaveBeenCalled();h.setActive(false);h.control.authorIdle(h.engine,'B')
+ expect(h.resync).toHaveBeenCalledOnce();expect(h.engine.setLocked).toHaveBeenCalledWith(true);expect(h.control.settleControl(h.op,{ok:true,seq:4},h.context)).toBe(false)
+})
+it('healthy confirmed before ACK retains cursor-independent lowercut and ACK wakes once; lost broadcast works too',()=>{
+ const h=historyControl();h.begin();h.setPending(true)
+ expect(h.control.confirmedControl(h.engine,'B',h.read,h.tail,{...h.op,seq:3})).toBe(true)
+ expect(h.control.confirmedControl(h.engine,'B',h.read,h.tail,{...h.op,seq:3})).toBe(true);expect(h.hold).toHaveBeenCalledOnce();expect(h.resync).not.toHaveBeenCalled()
+ h.setPending(false);h.control.settleControl(h.op,{ok:true,seq:3},h.context);expect(h.resync).toHaveBeenCalledOnce()
+ const lost=historyControl();lost.begin();lost.control.settleControl(lost.op,{ok:true,seq:7},lost.context);expect(lost.resync).toHaveBeenCalledOnce()
+})
+it('healthy receipts reject copied/stale/wrong-ID/lineage and never resync replacement engine',()=>{
+ const h=historyControl();h.begin()
+ expect(h.control.settleControl({...h.op,targetOpId:'other'},{ok:true,seq:3},h.context)).toBe(false)
+ expect(h.control.settleControl({...h.op,id:'other'},{ok:true,seq:3},h.context)).toBe(false)
+ expect(h.control.settleControl(h.op,{ok:true,seq:3},{...h.context,lineage:{...h.lineage,originalRead:{}}})).toBe(false)
+ expect(()=>h.begin()).toThrow();h.replace();expect(h.control.settleControl(h.op,{ok:true,seq:3},h.context)).toBe(false);expect(h.control.confirmedControl(h.engine,'B',h.read,h.tail,{...h.op,seq:3})).toBe(false);expect(h.resync).not.toHaveBeenCalled()
+})
+it('healthy failure never treats a no-invalidation resync or rejected ACK as joining proof',()=>{
+ const h=historyControl();h.begin();h.resync.mockImplementation(()=>{})
+ h.control.settleControl(h.op,{ok:true,seq:3},h.context);expect(h.control.isReplacing()).toBe(false)
+ const rejected=historyControl();rejected.begin();rejected.control.settleControl(rejected.op,{ok:false,reason:'invalid_operation'},rejected.context)
+ expect(rejected.resync).not.toHaveBeenCalled();expect(rejected.engine.setLocked).not.toHaveBeenCalled();expect(rejected.control.controlBusy(rejected.engine,'B')).toBe(false);expect(rejected.begin).not.toThrow()
+})
+
+it('healthy enqueue failure rolls back only its unplaced receipt without clearing pending or blessing an old interval',()=>{
+ const h=historyControl(),receipt=h.begin();expect(h.control.cancelControl({...receipt})).toBe(false)
+ expect(h.control.cancelControl(receipt)).toBe(true);expect(h.control.controlBusy(h.engine,'B')).toBe(false)
+ const next=h.begin();expect(next).not.toBe(receipt);expect(h.control.cancelControl(receipt)).toBe(false)
+ h.setPending(true);h.control.settleControl(h.op,{ok:true,seq:2},h.context);expect(h.control.cancelControl(next)).toBe(false);expect(h.resync).not.toHaveBeenCalled()
+})
+it('local healthy control denies active/pending work while peer confirmed metadata can wait for it without cancel',()=>{
+ const h=historyControl();h.setActive(true);expect(h.begin).toThrow('busy');h.setActive(false);h.setPending(true);expect(h.begin).toThrow('busy')
+ expect(h.control.confirmedControl(h.engine,'B',h.read,h.tail,{...h.op,seq:3})).toBe(true)
+ expect(h.control.controlBusy(h.engine,'B')).toBe(true);expect(h.engine.setLocked).not.toHaveBeenCalled();expect(h.resync).not.toHaveBeenCalled()
+})
+
+it('healthy callbacks cannot reenter joining twice or turn a healthy interval into retired proof',async()=>{
+ const h=historyControl();h.begin();h.waiting.mockImplementation(()=>{h.control.drain()})
+ h.control.settleControl(h.op,{ok:true,seq:3},h.context);expect(h.resync).toHaveBeenCalledOnce()
+ expect(await h.control.whenRetiredTransition(h.engine,'B')).toBe('failed')
+})
+it('healthy hold failure and reentrant owner replacement never publish a join or lock a newer engine',()=>{
+ const h=historyControl();h.begin();h.hold.mockImplementation(()=>{throw Error('hold failed')})
+ expect(h.control.settleControl(h.op,{ok:true,seq:3},h.context)).toBe(false);expect(h.resync).not.toHaveBeenCalled();expect(h.engine.setLocked).not.toHaveBeenCalled()
+ const r=historyControl();r.begin();r.known.mockImplementation(()=>{r.replace()})
+ expect(r.control.settleControl(r.op,{ok:true,seq:3},r.context)).toBe(false);expect(r.resync).not.toHaveBeenCalled();expect(r.engine.setLocked).not.toHaveBeenCalled()
+})
+it('healthy rejection creates a fresh interval and never treats an unplaced command as durable fault',()=>{
+ const h=historyControl(),old=h.begin();h.control.settleControl(h.op,{ok:false,reason:'invalid_operation'},h.context)
+ expect(h.resync).not.toHaveBeenCalled();expect(h.engine.setLocked).not.toHaveBeenCalled();expect(h.control.controlBusy(h.engine,'B')).toBe(false)
+ const next=h.begin();expect(next).not.toBe(old);expect(h.control.cancelControl(old)).toBe(false)
+})
+it('requires genuine original full read/tail and a current captured connection before arming',()=>{
+ const h=historyControl()
+ expect(()=>h.control.beginControl(h.engine,'B',{...h.read},h.tail,h.op)).toThrow()
+ expect(()=>h.control.beginControl(h.engine,'B',h.read,[],h.op)).toThrow()
+ h.lineage.connectionId='two';const receipt=h.begin();h.lineage.connectionId='three'
+ expect(h.control.settleControl(h.op,{ok:true,seq:3},h.context)).toBe(false);expect(h.control.cancelControl(receipt)).toBe(false);expect(h.resync).not.toHaveBeenCalled()
+})
+
+it('rechecks the actual origin after author/pending callbacks before publishing a healthy local arm',()=>{
+ const h=historyControl();vi.mocked(h.engine.hasActiveCanonicalAuthor).mockImplementation(()=>{h.expire();return false})
+ expect(h.begin).toThrow();expect(h.control.controlBusy(h.engine,'B')).toBe(false);expect(h.hold).not.toHaveBeenCalled();expect(h.resync).not.toHaveBeenCalled()
+ const changed=historyControl(()=>{changed.replace();return false});expect(changed.begin).toThrow();expect(changed.control.controlBusy(changed.engine,'B')).toBe(false)
+})
+
+it('fixed SAME Outbox verdict finds its internally armed origin without an external active-control ref',async()=>{
+ const {Outbox}=await import('./net/outbox'),{createInMemoryOutboxStorage}=await import('./net/outboxStorage')
+ let box:InstanceType<typeof Outbox>|undefined
+ const h=historyControl(()=>!!box?.pendingCount);h.begin()
+ let resolve!:(result:import('@grafetto/shared').SendResult)=>void
+ const answer=new Promise<import('@grafetto/shared').SendResult>(done=>{resolve=done})
+ box=new Outbox({roomId:'B',storage:createInMemoryOutboxStorage(),getCanonicalSendLineage:()=>h.lineage,send:()=>answer,onSettled:(op,result,context)=>{h.control.settleControl(op,result,context)}})
+ try{
+  await box.enqueue(h.op,{deliveryLane:'canonical-control-v1'});expect(h.resync).not.toHaveBeenCalled();expect(h.control.controlBusy(h.engine,'B')).toBe(true)
+  resolve({ok:true,seq:4});for(let i=0;i<25;i++)await Promise.resolve()
+  expect(box.pendingCount).toBe(0);expect(h.resync).toHaveBeenCalledOnce();expect(h.known).toHaveBeenCalledWith(4);expect(h.hold).toHaveBeenCalledOnce()
+ }finally{box.dispose()}
+})
+
+it('a rejected local command still drains an independently confirmed peer metadata cut',()=>{
+ const h=historyControl();h.begin();h.setPending(true)
+ h.control.confirmedControl(h.engine,'B',h.read,h.tail,{...h.op,id:'peer',userId:'peer',seq:4})
+ h.setPending(false);h.control.settleControl(h.op,{ok:false,reason:'invalid_operation'},h.context)
+ expect(h.resync).toHaveBeenCalledOnce();expect(h.known).toHaveBeenCalledWith(4)
+})
+
+it('locks the idle real canonical engine BEFORE joining UI reenters actual pointer DOWN',async()=>{
+ const {createTestEngine}=await import('../../engine/testing/engineTestUtils')
+ const {installBrushLibrary}=await import('../../engine/src/presets/importedBrushes')
+ const stock=(await import('../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native')).default
+ const descriptor=stock.rows.find(row=>row.index===4)!.descriptor as unknown as import('@grafetto/shared').BrushDescriptor,preset='brush:'+descriptor.id+'@'+descriptor.version
+ installBrushLibrary({schemaVersion:1,brushes:[{descriptor,name:'native Basic2',source:'native',warnings:[]}],assets:[],skipped:[]})
+ const f=state(),read=f.stash.canonicalRead,tail=f.stash.tailOperations,begin=vi.fn(()=>new Promise<import('@grafetto/shared').CanonicalStrokeBeginResult>(()=>{})),repair=vi.fn()
+ const make=()=>{
+  const r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:8,pageHeight:8,canonicalEmptyRoom:{read,tail},canonicalAuthor:{begin},onLocalOperation:vi.fn(),onCanonicalRecoveryRequired:repair},{width:8,height:8}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
+  Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,8,8]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
+  engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil(preset);engine.setSize(40);engine.setLocked(false);return engine
+ }
+ const engine=make(),positive=make(),down={x:1,y:2,pressure:.5,tiltX:0,tiltY:0,speed:0,pointerType:'pen' as const,timeStamp:100,dispatchTime:100}
+ try{
+  for(const e of [engine,positive]){await e.paperReady();await e.restoreCanonicalEmptyRoom(read,tail);expect((await e.prepareBrush(preset)).status).toBe('ready')}
+  positive['_onStart'](down);expect(begin).toHaveBeenCalledOnce();expect(positive.hasActiveCanonicalAuthor()).toBe(true);positive.destroy();begin.mockClear();repair.mockClear()
+  const socket={},lineage={socket,connectionId:'one',boardId:'B',originalRead:read},resync=vi.fn(()=>f.expire()),joining=vi.fn(()=>engine['_onStart'](down))
+  const control=createCanonicalRecoveryControl({getEngine:()=>engine,getBoard:()=> 'B',hasPendingLocals:()=>false,canRequest:()=>true,resync,onWaiting:vi.fn(),onHistoryJoining:joining,holdHistory:vi.fn(),noteKnownSequence:vi.fn(),getControlLineage:()=>lineage})
+  control.bind(engine,'B');control.restored(engine)
+  control.confirmedControl(engine,'B',read,tail,{id:'peer-undo',type:'operation_undo',userId:'peer',timestamp:0,targetOpId:'frame',seq:1})
+  expect(joining).toHaveBeenCalledOnce();expect(begin).not.toHaveBeenCalled();expect(engine.hasActiveCanonicalAuthor()).toBe(false);expect(repair).not.toHaveBeenCalled();expect(resync).toHaveBeenCalledOnce()
+ }finally{engine.destroy();positive.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(positive['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+
+it.each(['canRequest','lineage']as const)('healthy drain remains waiting if %s callback starts a source before its final idle check',kind=>{
+ let h!:ReturnType<typeof historyControl>,armed=false
+ h=historyControl(undefined,()=>{if(kind==='lineage'&&armed)h.setActive(true)},()=>{armed=true;if(kind==='canRequest')h.setActive(true);return true})
+ h.control.confirmedControl(h.engine,'B',h.read,h.tail,{...h.op,seq:3})
+ expect(h.engine.hasActiveCanonicalAuthor()).toBe(true);expect(h.engine.setLocked).not.toHaveBeenCalled();expect(h.waiting).not.toHaveBeenCalled();expect(h.resync).not.toHaveBeenCalled();expect(h.control.controlBusy(h.engine,'B')).toBe(true)
+})
+
+it('local arm observes an author started by the final lineage callback before publishing its command',()=>{
+ let h!:ReturnType<typeof historyControl>,armed=false
+ h=historyControl(()=>{armed=true;return false},()=>{if(armed)h.setActive(true)})
+ expect(h.begin).toThrow('busy');expect(h.control.controlBusy(h.engine,'B')).toBe(false);expect(h.engine.setLocked).not.toHaveBeenCalled();expect(h.hold).not.toHaveBeenCalled()
+})
+
+it('final pending callback replacement prevents locking the previous engine or notifying newer UI',()=>{
+ let h!:ReturnType<typeof historyControl>,late=false
+ h=historyControl(()=>{if(late)h.replace();return false},undefined,()=>{late=true;return true})
+ h.control.confirmedControl(h.engine,'B',h.read,h.tail,{...h.op,seq:3})
+ expect(h.engine.setLocked).not.toHaveBeenCalled();expect(h.waiting).not.toHaveBeenCalled();expect(h.resync).not.toHaveBeenCalled()
+})
+
+it('shares a lazy healthy transition barrier until actual ordinary-idle/ACK drain invalidates the original read',async()=>{
+ const h=historyControl();h.begin()
+ expect(await h.control.whenHistoryTransition(h.engine,'B')).toBe('failed')
+ h.setActive(true);h.setPending(true);h.control.settleControl(h.op,{ok:true,seq:3},h.context)
+ const a=h.control.whenHistoryTransition(h.engine,'B'),b=h.control.whenHistoryTransition(h.engine,'B');expect(a).toBe(b)
+ let released=false;void a.then(()=>{released=true});await Promise.resolve();expect(released).toBe(false)
+ h.setActive(false);h.control.authorIdle(h.engine,'B');expect(h.resync).not.toHaveBeenCalled();await Promise.resolve();expect(released).toBe(false)
+ h.resync.mockImplementation(()=>{expect(h.control.whenHistoryTransition(h.engine,'B')).toBe(a);h.expire()})
+ h.setPending(false);h.control.drain();expect(await a).toBe('joining');expect(()=>h.read.assertCurrent()).toThrow();expect(h.resync).toHaveBeenCalledOnce()
+ expect(await h.control.whenRetiredTransition(h.engine,'B')).toBe('failed')
+})
+it('healthy rendezvous settles stale on detach and failed on actual resync failure without retired authority',async()=>{
+ const detached=historyControl();detached.setPending(true)
+ detached.control.confirmedControl(detached.engine,'B',detached.read,detached.tail,{...detached.op,seq:3})
+ const a=detached.control.whenHistoryTransition(detached.engine,'B');detached.control.detach(detached.engine);expect(await a).toBe('stale')
+ const failed=historyControl();failed.setPending(true);failed.control.confirmedControl(failed.engine,'B',failed.read,failed.tail,{...failed.op,seq:3})
+ const b=failed.control.whenHistoryTransition(failed.engine,'B');failed.resync.mockImplementation(()=>{throw Error('join failed')});failed.setPending(false);failed.control.drain();expect(await b).toBe('failed');expect(()=>failed.read.assertCurrent()).not.toThrow()
+})
