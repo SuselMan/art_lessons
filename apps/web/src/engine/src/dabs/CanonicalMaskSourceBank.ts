@@ -33,6 +33,8 @@ export interface CanonicalMaskSourceJob {
 export interface CanonicalMaskCompanionBudget { readonly gpuBytes: number; readonly cpuBytes: number }
 const integer = (n: number, min = 0) => Number.isSafeInteger(n) && n >= min
 const JOB_METADATA_BYTES = 512
+// Pending preparation and its published reader share these bounded closures.
+const ROOT_METADATA_BYTES = 4096
 const noRelease=()=>{}
 
 function ownData(value:unknown,fields:readonly string[]):Record<string,unknown> {
@@ -84,6 +86,42 @@ function captureRequirements(value:unknown):ReadonlyMap<string,ReadonlySet<numbe
   return result
 }
 
+/** Allocation-free scalar upper bound before immutable root metadata capture.
+ * Positive native rounding is floor(x + .5), exactly the pyramid's binary scales.
+ * Duplicate inputs are conservatively counted; no uniqueness set is built here. */
+function rootPlanningBound(inputs:readonly CanonicalMaskAssetSourceInput[],requirements?:readonly CanonicalMaskSourceLevelRequirement[]) {
+  const data=(value:unknown,key:string):unknown=>{
+    if(!value||typeof value!=='object')throw new TypeError('Invalid root planning data')
+    const field=Object.getOwnPropertyDescriptor(value,key)
+    if(!field||!Object.hasOwn(field,'value'))throw new TypeError('Invalid root planning data')
+    return field.value
+  }
+  const length=(value:unknown,maximum:number)=>{
+    if(!Array.isArray(value))throw new TypeError('Invalid root planning array')
+    const n=data(value,'length')
+    if(typeof n!=='number'||!integer(n,1)||n>maximum)throw new RangeError('Invalid root planning count')
+    return n
+  }
+  const inputCount=length(inputs,256)
+  let levels=0,indexes=0
+  for(let i=0;i<inputCount;i++){
+    const asset=data(data(inputs,String(i)),'asset'),width=data(asset,'width'),height=data(asset,'height')
+    if(typeof width!=='number'||typeof height!=='number'||!integer(width,1)||!integer(height,1)||width>4096||height>4096)throw new RangeError('Invalid root source dimensions')
+    for(let scale=8;scale>1;scale*=.5)if(width*scale<=512||height*scale<=512)levels++
+    levels++
+    for(let scale=.5;Math.floor(width*scale+.5)!==0&&Math.floor(height*scale+.5)!==0;scale*=.5)levels++
+    if(levels>4096)throw new RangeError('Root planning exceeds existing job cap')
+  }
+  if(requirements!==undefined){
+    const n=length(requirements,256)
+    for(let i=0;i<n;i++){
+      indexes+=length(data(data(requirements,String(i)),'indexes'),4096)
+      if(indexes>4096)throw new RangeError('Root requirements exceed existing job cap')
+    }
+  }
+  return {inputCount,levels,indexes}
+}
+
 /** Existing nativeImagePixels may simultaneously hold croppedN, brightnessN,
  * scaledM, borderedL8B. After nativeImagePixels RETURNS, crop/brightness/scaled/
  * axis locals are unreachable; expansion then holds borderedL8B+RGBA4B.
@@ -103,7 +141,7 @@ function transientBytes(resource: NativeImageResource): number {
 }
 
 type BankInput = CanonicalMaskSourceInput | CanonicalMaskAssetSourceInput
-type BankReader = Readonly<Pick<CanonicalMaskSourceInput,'assetSide'|'readOriginalCoverage'>>
+type BankReader = Readonly<Pick<CanonicalMaskSourceInput,'assetSide'|'readOriginalCoverage'>> & { rootReferences?:number; rootOwners?:Map<object,()=>void> }
 interface BankPlan { readonly jobs: readonly CanonicalMaskSourceJob[]; readonly inputs: ReadonlyMap<string,BankReader> }
 function planInputs(inputs:readonly BankInput[],requiredLevels?:readonly CanonicalMaskSourceLevelRequirement[]):BankPlan {
   if(!Array.isArray(inputs)||inputs.length<1||inputs.length>256)throw new RangeError('Invalid canonical bank plan')
@@ -149,7 +187,7 @@ function planInputs(inputs:readonly BankInput[],requiredLevels?:readonly Canonic
 }
 function jobBudget(jobs:readonly CanonicalMaskSourceJob[]){
   return {gpuBytes:jobs.reduce((n,j)=>n+j.bytes,0),metadataCpuBytes:JOB_METADATA_BYTES*jobs.length,
-    maximumTransientCpuBytes:Math.max(...jobs.map(j=>j.transientCpuBytes))}
+    maximumTransientCpuBytes:Math.max(0,...jobs.map(j=>j.transientCpuBytes))}
 }
 /** Same finite metadata planner as the bank constructor; never calls readers or GL. */
 export function canonicalMaskSourceBankBudget(inputs:readonly BankInput[],requiredLevels?:readonly CanonicalMaskSourceLevelRequirement[]){
@@ -173,6 +211,31 @@ export interface CanonicalMaskSourceExtension {
   cancel(lost?:boolean):undefined
 }
 
+/** Narrow immutable subset reader. Residency is not source execution authority. */
+export interface CanonicalMaskSourceReader {
+  isReady():boolean
+  resources():readonly TransformedMaskSource[]
+  preparedResources():readonly TransformedMaskPreparedSource[]
+  assertRequiredSourceBinding(asset:CanonicalMaterialAsset,indexes:readonly number[],owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache}):number
+  assertCurrentOwners(generation:number):void
+}
+export interface CanonicalMaskSourceLease extends CanonicalMaskSourceReader {
+  /** Resource-only child ownership; no pixel read, readiness scan or GL work. */
+  retain():CanonicalMaskSourceLease
+  release(lost?:boolean):undefined
+}
+export interface CanonicalMaskSourceRootPreparation {
+  readonly status:'pending'|'committed'|'cancelled'
+  readonly jobs:readonly CanonicalMaskSourceJob[]
+  prepareJob(index:number):'ready'|'cancelled'
+  assertCurrent():void
+  assertPreparedPublication():void
+  preparedResources():readonly TransformedMaskPreparedSource[]
+  publish():CanonicalMaskSourceLease
+  finalizeCleanup():undefined
+  cancel(lost?:boolean):undefined
+}
+
 /** Finite source bank only. No active painter/descriptor hooks or new allowance.
  * Every selected original level is planned before reading/cropping/resizing.
  * Omitted selection preserves full-pyramid planning for existing callers.
@@ -184,7 +247,7 @@ export class CanonicalMaskSourceBank {
   get maximumTransientCpuBytes():number{return jobBudget(this.jobs).maximumTransientCpuBytes}
   get metadataCpuBytes():number{return jobBudget(this.jobs).metadataCpuBytes}
   private inputs:Map<string,BankReader>
-  private pending?:CanonicalMaskSourceExtension
+  private pending?:CanonicalMaskSourceExtension|CanonicalMaskSourceRootPreparation
   private readonly owned = new Set<string>()
   private readonly gl: WebGLRenderingContext
   private readonly cache: BrushTextureCache
@@ -192,13 +255,20 @@ export class CanonicalMaskSourceBank {
   private companion: CanonicalMaskCompanionBudget
   private releaseMetadata?: () => void
   private generation = 0
+  private resetting = false
+  private readonly mode:'full'|'root-residency'
   private readonly originalOwner=this
   private readonly ownerProof:Readonly<{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache}>
 
   constructor(gl: WebGLRenderingContext, cache: BrushTextureCache, cpu: BrushMipCache,
-    inputs: readonly (CanonicalMaskSourceInput|CanonicalMaskAssetSourceInput)[], companion: CanonicalMaskCompanionBudget,requiredLevels?:readonly CanonicalMaskSourceLevelRequirement[]) {
-    this.gl = gl; this.cache = cache; this.cpu = cpu
+    inputs: readonly (CanonicalMaskSourceInput|CanonicalMaskAssetSourceInput)[], companion: CanonicalMaskCompanionBudget,requiredLevels?:readonly CanonicalMaskSourceLevelRequirement[],mode:'full'|'root-residency'='full') {
+    this.gl = gl; this.cache = cache; this.cpu = cpu;this.mode=mode
     this.ownerProof=Object.freeze({gl,cache,cpu})
+    if(mode==='root-residency'){
+      if(!Array.isArray(inputs)||inputs.length||requiredLevels!==undefined||!companion||!integer(companion.gpuBytes)||!integer(companion.cpuBytes))throw new RangeError('Invalid root residency bank')
+      this.companion=Object.freeze({...companion});this._jobs=Object.freeze([]);this.inputs=new Map();this.releaseMetadata=cpu.reserve(512);return
+    }
+    if(mode!=='full')throw new RangeError('Invalid canonical bank mode')
     if (!companion || !integer(companion.gpuBytes) || !integer(companion.cpuBytes)
       || !Array.isArray(inputs) || inputs.length < 1 || inputs.length > 256) throw new RangeError('Invalid canonical bank plan')
     this.companion = { ...companion }
@@ -214,12 +284,236 @@ export class CanonicalMaskSourceBank {
       throw new RangeError('Canonical source bank exceeds existing brush budgets')
   }
 
+  /** One caller-owned original root, using the same pending slot and cache.
+   * Root rows are reclaimed after their last membership. OPEN readers never
+   * change when another root publishes or releases. No whole-library readiness. */
+  prepareRoot(inputs:readonly CanonicalMaskAssetSourceInput[],peakCompanion:CanonicalMaskCompanionBudget,requiredLevels?:readonly CanonicalMaskSourceLevelRequirement[]):CanonicalMaskSourceRootPreparation {
+    const generation=this.generation
+    this.assertCurrentOwners(generation)
+    if(this.mode!=='root-residency'||this.pending)throw new Error('Canonical root preparation unavailable')
+    if(!Array.isArray(inputs)||!inputs.length||inputs.length>256)throw new RangeError('Invalid root source inputs')
+    const activeJobs=this.jobs
+    const bound=rootPlanningBound(inputs,requiredLevels)
+    this.assertCurrentOwners(generation)
+    if(this.pending||this.jobs!==activeJobs)throw new Error('Root planning owner changed')
+    // Covers original planner levels, captured inputs/selection and active-union
+    // copies, before any array/map capture. Actual duplicate counts overreserve.
+    const planningBytes=2048+(bound.inputCount+4*bound.levels+bound.indexes+this.jobs.length)*JOB_METADATA_BYTES
+    const releasePlan=this.cpu.reserve(planningBytes)
+    let planned:Readonly<{plan:BankPlan;companion:CanonicalMaskCompanionBudget}>|undefined
+    let releaseMetadata:()=>void=noRelease,planningFailed=false,planningFailure:unknown
+    try{
+      const c=ownData(peakCompanion,['gpuBytes','cpuBytes'])
+      if(typeof c.gpuBytes!=='number'||!integer(c.gpuBytes)||typeof c.cpuBytes!=='number'||!integer(c.cpuBytes))throw new RangeError('Invalid root companion budget')
+      const companion=Object.freeze({gpuBytes:c.gpuBytes,cpuBytes:c.cpuBytes})
+      const captured:CanonicalMaskAssetSourceInput[]=[]
+      if(inputs.length!==bound.inputCount)throw new Error('Root source capture changed')
+      for(let i=0;i<bound.inputCount;i++){
+        const field=Object.getOwnPropertyDescriptor(inputs,String(i))
+        if(!field||!Object.hasOwn(field,'value'))throw new TypeError('Invalid root source capture')
+        captured.push(captureAssetInput(field.value))
+      }
+      const selected:CanonicalMaskSourceLevelRequirement[]=[]
+      let indexCount=0
+      if(requiredLevels!==undefined){
+        if(!Array.isArray(requiredLevels)||!requiredLevels.length||requiredLevels.length>256)throw new RangeError('Invalid root selection')
+        for(let i=0;i<requiredLevels.length;i++){
+          const field=Object.getOwnPropertyDescriptor(requiredLevels,String(i))
+          if(!field||!Object.hasOwn(field,'value'))throw new TypeError('Invalid root selection')
+          const value=ownData(field.value,['asset','indexes']),asset=captureAsset(value.asset)
+          if(!Array.isArray(value.indexes)||(indexCount+=value.indexes.length)>bound.indexes)throw new Error('Root selection capture changed')
+          selected.push(Object.freeze({asset,indexes:captureIndexes(value.indexes,sourcePngPyramid(asset.width,asset.height).levels.length)}))
+        }
+      }
+      const actual=rootPlanningBound(captured,requiredLevels===undefined?undefined:selected)
+      if(actual.levels>bound.levels||actual.indexes>bound.indexes)throw new Error('Root source capture changed')
+      const plan=planInputs(Object.freeze(captured),requiredLevels===undefined?undefined:Object.freeze(selected))
+      const release=this.cpu.reserve(ROOT_METADATA_BYTES+(2*plan.jobs.length+this.jobs.length)*JOB_METADATA_BYTES)
+      let active=true
+      releaseMetadata=()=>{if(active){active=false;release()}}
+      planned=Object.freeze({plan,companion})
+    }catch(error){planningFailed=true;planningFailure=error}
+    try{releasePlan()}catch(error){if(!planningFailed){planningFailed=true;planningFailure=error}}
+    if(planningFailed||!planned){try{releaseMetadata()}catch{}throw planningFailure}
+    const {plan,companion}=planned
+    try{
+    this.assertCurrentOwners(generation)
+    if(this.pending||this.jobs!==activeJobs)throw new Error('Canonical root preparation changed')
+    let jobs=plan.jobs
+    const readers=new Map<string,BankReader>(),union=new Map(this.jobs.map(j=>[j.key,j]))
+    if(!jobs.length||jobs.length>4096)throw new RangeError('Invalid root source jobs')
+    const sides=new Map<string,number>()
+    for(const old of this.jobs)sides.set(old.resource.id,this.inputs.get(old.key)!.assetSide)
+    for(const job of jobs){
+      const input=plan.inputs.get(job.key)!,old=union.get(job.key)
+      if(old&&(old.bytes!==job.bytes||JSON.stringify(old.resource)!==JSON.stringify(job.resource)))throw new Error('Conflicting root source metadata')
+      const priorSide=sides.get(job.resource.id)
+      if(priorSide!==undefined&&priorSide!==input.assetSide)throw new Error('Conflicting root source side')
+      sides.set(job.resource.id,input.assetSide)
+      readers.set(job.key,this.inputs.get(job.key)??{...input,rootReferences:0,rootOwners:new Map()});union.set(job.key,old??job)
+    }
+    let allJobs=Object.freeze([...union.values()])
+    const crops=new Set(allJobs.map(job=>{const side=readers.get(job.key)?.assetSide??this.inputs.get(job.key)!.assetSide;return JSON.stringify([job.resource.id,side,job.resource.rect])}))
+    const maximum=this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number
+    if(!integer(maximum,1)||crops.size>256||allJobs.length>4096||allJobs.reduce((n,j)=>n+j.bytes,0)+companion.gpuBytes>this.cache.budgetBytes
+      ||jobs.some(j=>j.resource.width>maximum||j.resource.height>maximum||j.resource.nativeWidth>4096||j.resource.nativeHeight>4096||j.resource.width*j.resource.height>4*1024*1024))throw new RangeError('Root source union exceeds existing brush budgets')
+    let releasePin:()=>void=noRelease,state:'pending'|'committed'|'cancelled'='pending',released=false,preparing=false
+    const owner=Object.freeze({bank:this}),created=new Set<string>()
+    let releasePublication:()=>void=noRelease
+    let publication:Readonly<{priorJobs:readonly CanonicalMaskSourceJob[];jobs:readonly CanonicalMaskSourceJob[];inputs:Map<string,BankReader>;memberships:Map<object,()=>void>}>|undefined
+    let lease:CanonicalMaskSourceLease
+    const current=()=>{this.assertCurrentOwners(generation);if(released||state==='cancelled')throw new Error('Canonical root residency retired')}
+    const ready=()=>{current();return jobs.every(j=>this.cache.resourceBytes(j.key)===j.bytes&&!!this.cache.get(j.key))}
+    const binding=(asset:CanonicalMaterialAsset,indexes:readonly number[],owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>{
+      current();if(owners.gl!==this.gl||owners.cache!==this.cache||owners.cpu!==this.cpu||!ready())throw new Error('Canonical root source unavailable')
+      const a=captureAsset(asset),levels=sourcePngPyramid(a.width,a.height).levels,selected=captureIndexes(indexes,levels.length),sources=this.preparedPlanResources(jobs,readers)
+      for(const index of selected){const found=sources.filter(s=>s.canonical?.index===index&&assetKey(s.canonical.asset)===assetKey(a));if(found.length!==1)throw new Error('Canonical required root source missing')}
+      current();return generation
+    }
+    const release=(lost=false):undefined=>{
+      if(released)return undefined
+      released=true;publication=undefined
+      let failed=false,error:unknown
+      const attempt=(fn:()=>void)=>{try{fn()}catch(e){if(!failed){failed=true;error=e}}}
+      if(state==='committed'){
+        for(const job of jobs){const row=readers.get(job.key)!;if(this.inputs.get(job.key)!==row)continue;row.rootOwners?.delete(owner);row.rootReferences!--;if(row.rootReferences===0){this.inputs.delete(job.key);this.owned.delete(job.key)}}
+        this._jobs=Object.freeze(this.jobs.filter(j=>this.inputs.has(j.key)))
+      }else{state='cancelled';if(this.pending===preparation)this.pending=undefined}
+      const releaseStage=releasePublication;releasePublication=noRelease
+      attempt(releaseStage);attempt(releasePin);attempt(releaseMetadata)
+      // Cache owns unpinned released textures through its normal bounded LRU;
+      // never discard a texture still held by an O2 source/capacity record.
+      if(state==='cancelled')for(const key of created)if(!this.inputs.has(key))attempt(()=>{this.owned.delete(key);this.cache.discard(key,lost)})
+      readers.clear();jobs=Object.freeze([]);allJobs=jobs
+      if(failed)throw error
+      return undefined
+    }
+    let handles=1
+    const makeHandle=(key:object,releaseTokenCpu:()=>void):CanonicalMaskSourceLease=>{
+      let retired=false
+      const assertHandle=()=>{current();if(retired)throw new Error('Canonical source handle retired')}
+      const releaseHandle=(lost=false):undefined=>{
+        if(retired)return undefined
+        retired=true
+        readers.get(jobs[0]?.key)?.rootOwners?.delete(key)
+        handles--
+        let failed=false,error:unknown
+        try{if(handles===0)release(lost)}catch(e){failed=true;error=e}
+        try{releaseTokenCpu()}catch(e){if(!failed){failed=true;error=e}}
+        if(failed)throw error
+        return undefined
+      }
+      return Object.freeze({
+        isReady:()=>{assertHandle();return ready()},
+        resources:()=>{assertHandle();if(!ready())throw new Error('Canonical root source unavailable');return jobs.map(j=>({key:j.key,texture:this.cache.get(j.key)!,width:j.resource.width,height:j.resource.height}))},
+        preparedResources:()=>{assertHandle();if(!ready())throw new Error('Canonical root source unavailable');return this.preparedPlanResources(jobs,readers)},
+        assertRequiredSourceBinding:(asset:CanonicalMaterialAsset,indexes:readonly number[],owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>{assertHandle();return binding(asset,indexes,owners)},
+        assertCurrentOwners:(expected:number)=>{assertHandle();if(expected!==generation)throw new Error('Canonical root generation changed')},
+        retain:()=>{
+          assertHandle()
+          if(state!=='committed')throw new Error('Canonical root not published')
+          const releaseCpu=this.cpu.reserve(2048)
+          try{
+            // reserve may reenter selection cleanup/reset. Reassert only the
+            // original handle/lifetime; no cache/reader/GL callback is invoked.
+            assertHandle()
+            const childKey=Object.freeze({bank:this}),child=makeHandle(childKey,releaseCpu)
+            readers.get(jobs[0].key)!.rootOwners!.set(childKey,()=>child.release())
+            handles++
+            return child
+          }catch(error){try{releaseCpu()}catch{}throw error}
+        },
+        release:releaseHandle,
+      })
+    }
+    lease=makeHandle(owner,noRelease)
+    const assert=(receiver:unknown)=>{if(receiver!==preparation)throw new Error('Canonical root preparation receiver changed');current();if(state==='pending'&&this.pending!==preparation)throw new Error('Canonical root preparation replaced')}
+    const preparation:CanonicalMaskSourceRootPreparation=Object.freeze({
+      get status(){return state},
+      get jobs(){return jobs},
+      prepareJob(index:number){
+        assert(this)
+        if(state!=='pending'||!integer(index)||index>=jobs.length)throw new RangeError('Invalid root source job')
+        if(preparing)throw new Error('Canonical root source job reentered')
+        publication=undefined
+        const releaseStage=releasePublication;releasePublication=noRelease;releaseStage()
+        preparing=true
+        try{return owner.bank.preparePlannedJob(jobs[index],readers.get(jobs[index].key)!,allJobs,companion,
+          ()=>state==='pending'&&!released&&owner.bank.pending===preparation&&owner.bank.generation===generation,
+          noRelease,key=>created.add(key))}finally{preparing=false}
+      },
+      assertCurrent(){assert(this)},
+      assertPreparedPublication(){
+        assert(this)
+        if(preparing||!ready())throw new Error('Canonical root source not prepared')
+        if(state==='committed')return
+        publication=undefined
+        const releaseOld=releasePublication;releasePublication=noRelease;releaseOld()
+        const first=readers.get(jobs[0].key)!,count=first.rootOwners!.size
+        const releaseStage=owner.bank.cpu.reserve(count*128)
+        try{
+          assert(this)
+          if(!ready()||first.rootOwners!.size>count)throw new Error('Root membership capture changed')
+          const priorJobs=owner.bank.jobs,stagedInputs=new Map(owner.bank.inputs),stagedJobs=new Map(priorJobs.map(job=>[job.key,job]))
+          for(const job of jobs){
+            stagedInputs.set(job.key,readers.get(job.key)!)
+            if(!stagedJobs.has(job.key))stagedJobs.set(job.key,job)
+          }
+          const memberships=new Map(first.rootOwners)
+          memberships.set(owner,()=>lease.release())
+          publication=Object.freeze({priorJobs,jobs:Object.freeze([...stagedJobs.values()]),inputs:stagedInputs,memberships})
+          releasePublication=releaseStage
+        }catch(error){try{releaseStage()}catch{}throw error}
+      },
+      preparedResources(){
+        assert(this)
+        if(!ready())throw new Error('Canonical root source not prepared')
+        return lease.preparedResources()
+      },
+      publish(){
+        assert(this)
+        if(state==='committed')return lease
+        if(!publication||owner.bank.jobs!==publication.priorJobs)throw new Error('Validate current canonical root publication before publish')
+        const first=readers.get(jobs[0].key)!,members=first.rootOwners!
+        if(members.size!==publication.memberships.size-1)throw new Error('Root publication memberships changed')
+        for(const [key,callback]of publication.memberships)if(key!==owner&&members.get(key)!==callback)throw new Error('Root publication memberships changed')
+        // All maps and membership storage were charged/staged before this pure
+        // publication. No reader, progress callback, cache scan or GL call here.
+        for(const job of jobs){const row=readers.get(job.key)!;row.rootReferences=(row.rootReferences??0)+1}
+        readers.get(jobs[0].key)!.rootOwners=publication.memberships
+        owner.bank.inputs=publication.inputs;owner.bank._jobs=publication.jobs
+        publication=undefined;allJobs=jobs;state='committed'
+        if(owner.bank.pending===preparation)owner.bank.pending=undefined
+        return lease
+      },
+      finalizeCleanup(){
+        if(this!==preparation)throw new Error('Canonical root preparation receiver changed')
+        if(state==='pending')throw new Error('Canonical root preparation not published')
+        const releaseStage=releasePublication;releasePublication=noRelease;releaseStage()
+        return undefined
+      },
+      cancel(lost=false){
+        if(this!==preparation)throw new Error('Canonical root preparation receiver changed')
+        if(state==='committed')return undefined
+        return release(lost)
+      },
+    })
+    try{
+      releasePin=this.cache.leaseRequired(jobs)
+      this.assertCurrentOwners(generation)
+      if(this.pending)throw new Error('Canonical root preparation changed')
+      this.pending=preparation
+      return preparation
+    }catch(error){try{release()}catch{}throw error}
+    }catch(error){try{releaseMetadata()}catch{}throw error}
+  }
+
   /** Add resources without replacing committed keys, readers or hot generation.
    * Call lazily from the creator's first preparation job, never before run(). */
   beginExtension(inputs:readonly BankInput[],peakCompanion:CanonicalMaskCompanionBudget,requiredLevels?:readonly CanonicalMaskSourceLevelRequirement[]):CanonicalMaskSourceExtension {
     const generation=this.generation
     this.assertCurrentOwners(generation)
-    if(this.pending||!this.isReady())throw new Error('Canonical bank extension unavailable')
+    if(this.mode!=='full'||this.pending||!this.isReady())throw new Error('Canonical bank extension unavailable')
     const c=ownData(peakCompanion,['gpuBytes','cpuBytes'])
     if(typeof c.gpuBytes!=='number'||!integer(c.gpuBytes)||typeof c.cpuBytes!=='number'||!integer(c.cpuBytes))throw new RangeError('Invalid canonical companion budget')
     const companion=Object.freeze({gpuBytes:c.gpuBytes,cpuBytes:c.cpuBytes}),incoming=planInputs(inputs,requiredLevels)
@@ -347,11 +641,12 @@ export class CanonicalMaskSourceBank {
    * Actual cache handles/bindings remain executor/prepass-owned checks on use. */
   assertCurrentOwners(generation:number):void {
     if(this.originalOwner!==this||this.gl!==this.ownerProof.gl||this.cache!==this.ownerProof.cache||this.cpu!==this.ownerProof.cpu
-      ||generation!==this.generation||!this.releaseMetadata)throw new Error('Canonical bank owner/generation changed')
+      ||generation!==this.generation||this.resetting||!this.releaseMetadata)throw new Error('Canonical bank owner/generation changed')
   }
 
   /** No CPU image bytes retained here: only the existing bounded L8 mip cache. */
   prepareJob(index: number, signal?: AbortSignal): 'ready' | 'cancelled' {
+    if(this.mode!=='full')throw new Error('Root residency bank requires a root preparation')
     if (signal?.aborted) return 'cancelled'
     if (!integer(index) || index >= this.jobs.length) throw new RangeError('Invalid canonical source job')
     return this.preparePlannedJob(this.jobs[index],this.inputs.get(this.jobs[index].key)!,this.jobs,this.companion,
@@ -441,14 +736,22 @@ export class CanonicalMaskSourceBank {
     return this.cache.lease(this.jobs)
   }
   reset(lost = false): void {
+    if(this.resetting)return
+    this.resetting=true
+    try{
     this.generation++
+    const owned=this.mode==='root-residency'?[...this.owned]:this.owned
     let failed=false,primary:unknown
     const pending=this.pending;this.pending=undefined
+    const roots=[...this.inputs.values()].flatMap(row=>[...row.rootOwners?.values()??[]])
+    for(const release of roots)try{release()}catch(error){if(!failed){failed=true;primary=error}}
+    if(this.mode==='root-residency'){this.inputs.clear();this._jobs=Object.freeze([])}
     try{if(pending?.status==='committed')pending.finalizeCleanup();else pending?.cancel(lost)}catch(error){failed=true;primary=error}
-    for(const key of this.owned)try{this.cache.discard(key,lost)}catch(error){if(!failed){failed=true;primary=error}}
+    for(const key of owned)try{this.cache.discard(key,lost)}catch(error){if(!failed){failed=true;primary=error}}
     this.owned.clear()
     try{this.releaseMetadata?.()}catch(error){if(!failed){failed=true;primary=error}}
     this.releaseMetadata=undefined
     if(failed)throw primary
+    }finally{this.resetting=false}
   }
 }

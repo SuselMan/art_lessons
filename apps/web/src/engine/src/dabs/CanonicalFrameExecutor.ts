@@ -11,7 +11,7 @@ import type { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { advanceSourcePrimaryComposition, createSourcePrimaryComposition, sealSourcePrimaryComposition, type SourcePrimaryCompositionContext, type SourcePrimaryCompositionResult, type SourcePrimaryCompositionState } from '../presets/sourcePrimaryComposition'
 import { runBrushGlBatch, runBrushGlTurn, type BrushGlTurn } from './BrushGlBatch'
 import { bindCanonicalLayerTargets,prepareCanonicalLayerFrame,type CanonicalLayerFrame } from './CanonicalLayerTargets'
-import type { CanonicalMaskSourceBank } from './CanonicalMaskSourceBank'
+import type { CanonicalMaskSourceReader } from './CanonicalMaskSourceBank'
 import type { CanonicalCompositeOperationKind, CanonicalOwnedRgba8Target, CanonicalRgba8CompositePass, CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
 import { canonicalTransformedMaskMetadata } from './TransformedMaskPlan'
 import type { AnyTransformedMaskRequest, CanonicalMaskCapacityLease, TransformedMaskPrepass } from './TransformedMaskPrepass'
@@ -81,7 +81,7 @@ export interface CanonicalFrameExecutorOptions {
   readonly softProgramOwner?: CanonicalSoftCircleProgramOwner
   /** Authoritative room page, never viewport. Absent retains the closed infinite-page QA API. */
   readonly pageBounds?: Readonly<WorldRect> | null
-  readonly bank?: CanonicalMaskSourceBank
+  readonly bank?: CanonicalMaskSourceReader
   readonly prepass: TransformedMaskPrepass
   readonly composite: CanonicalRgba8CompositePass
   readonly scratch: RibbonScratchPool

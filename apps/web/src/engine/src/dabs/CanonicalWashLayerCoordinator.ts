@@ -1,7 +1,7 @@
 import type {CanonicalMaskCapacityLease} from './TransformedMaskPrepass'
 import {canonicalImageRequiredSourceLevels} from './canonicalImageCapacity'
 import {CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,canonicalImageMaterialPin,canonicalStrokeSnapshotV2,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,decodeCanonicalStrokeFrame,prepareCanonicalRecordedAttachment,verifyCanonicalRecordedClose,canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin,canonicalSoftAutoSourcePin,type CanonicalMaterialPrefixState,type CanonicalStrokeSnapshotV2,type CanonicalRecordedReadScope,type CanonicalStrokeOperation} from '@grafetto/shared'
-import type {CanonicalMaskSourceBank} from './CanonicalMaskSourceBank'
+import type {CanonicalMaskSourceReader,CanonicalMaskSourceLease} from './CanonicalMaskSourceBank'
 import type {CanonicalRecordedInput,CanonicalRecordedLifetime} from '../oplog/CanonicalRecordedDelivery'
 import { CANONICAL_STROKE_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition } from '@grafetto/shared'
 import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
@@ -41,7 +41,7 @@ export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFram
   /** Distinct derived straight layer; the coordinator never owns/destroys it. */
   readonly presentation: () => { readonly buffer: TiledLayerBuffer; readonly epoch: number }
   /** Trusted gesture source binding, NOT data selected by a material frame. */
-  readonly source: (gestureId: string, recorded?: CanonicalRecordedInput, local?:CanonicalLocalWashAuthor) => Pick<CanonicalFrameExecutorOptions, 'autoSource' | 'bank' | 'softProgramOwner'>
+  readonly source: (gestureId: string, recorded?: CanonicalRecordedInput, local?:CanonicalLocalWashAuthor) => Pick<CanonicalFrameExecutorOptions, 'autoSource' | 'bank' | 'softProgramOwner'> & {readonly sourceLease?:CanonicalMaskSourceLease}
   /** Explicit caller capacity; no implicit queue, expiry or GPU quota. Includes
    * completed IDs until this coordinator is discarded after trusted rebuild. */
   readonly maxGestures: number
@@ -62,7 +62,8 @@ interface RecordedPrefix {
  readonly sealed:boolean
 }
 interface Entry {
-  image?:Readonly<{bank:CanonicalMaskSourceBank;generation:number}>
+  image?:Readonly<{bank:CanonicalMaskSourceReader;generation:number}>
+  sourceLease?:CanonicalMaskSourceLease
   recorded?:RecordedPrefix
   local?:LocalPrefix
   readonly id: string
@@ -330,7 +331,7 @@ export class CanonicalWashLayerCoordinator {
     }
     let acceptedWork=false
     let candidate: CanonicalFrameExecutor | undefined,publishCandidate:(()=>void)|undefined
-    let imageBinding:Entry['image']
+    let imageBinding:Entry['image'],sourceLease:CanonicalMaskSourceLease|undefined
     let releaseGpu: (() => void) | undefined, releaseCpu: (() => void) | undefined, releaseEntry: (() => void) | undefined
     try {
       if (fresh.size) {
@@ -341,6 +342,8 @@ export class CanonicalWashLayerCoordinator {
         releaseEntry = this.options.prepass.brushGlBatchInfo().cpu.reserve(1024+(local?4096+JSON.stringify(local.author.snapshot).length*2:origin?4096:0))
         let published=false;publishCandidate=()=>{published=true}
         const source=local?this.options.source(input.gestureId,undefined,local.author):this.options.source(input.gestureId,origin?.input)
+        sourceLease=source.sourceLease
+        if(sourceLease&&source.bank!==sourceLease)throw new Error('Canonical source lease reader changed')
         if(origin||local){
           const snapshot=origin?.recorded.snapshot??canonicalStrokeSnapshotV2(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile),expected=snapshot.material.primarySource,actual=source.autoSource
           if(snapshot.rasterProfile!==this.options.rasterProfile)throw new TypeError('Recorded source profile mismatch')
@@ -363,7 +366,7 @@ export class CanonicalWashLayerCoordinator {
         const executor = candidate = new CanonicalFrameExecutor({ ...this.options, ...source, washMode: 'deposition-only',
           changed: (_id, bounds) => this.invalidate(bounds), // The lane retires ALL storage pins before external poison/undo.
           poison: () => {if(published)this.failed=true} })
-        entry = { image:imageBinding,id: input.gestureId, firstSequence: recordedSequence, executor, opacity: input.composition.outerResourceOpacity, blend: input.composition.outerBlend,
+        entry = { image:imageBinding,sourceLease,id: input.gestureId, firstSequence: recordedSequence, executor, opacity: input.composition.outerResourceOpacity, blend: input.composition.outerBlend,
           committed: false, tile: 0, part: 0, releaseMetadata: releaseEntry }
       }
       entry.executor.enqueue(input);acceptedWork=true
@@ -378,6 +381,7 @@ export class CanonicalWashLayerCoordinator {
       if (releaseGpu) this.clean(releaseGpu)
       if (releaseCpu) this.clean(releaseCpu)
       if (releaseEntry) this.clean(releaseEntry)
+      if(sourceLease)this.clean(()=>sourceLease!.release(this.cleanupContextLost()))
       throw error
     }
     if (releaseEntry) {this.entries.push(entry!);publishCandidate!()}
@@ -556,7 +560,11 @@ export class CanonicalWashLayerCoordinator {
       entry.committed = true
       const ownership = entry.ownership!; entry.ownership = undefined
       entry.local=undefined
-      ownership.release(); entry.releaseMetadata()
+      const sourceLease=entry.sourceLease;entry.sourceLease=undefined;entry.image=undefined
+      const cleanupStart=this.errors.length
+      this.clean(()=>ownership.release());this.clean(entry.releaseMetadata)
+      if(sourceLease)this.clean(()=>sourceLease.release())
+      if(this.errors.length>cleanupStart)throw this.errors[cleanupStart]
       this.options.changed(this.options.layerId)
     }
   }
@@ -671,6 +679,8 @@ export class CanonicalWashLayerCoordinator {
       this.clean(() => e.executor.cancel(new Error('Canonical wash lane cancelled'), { lost }))
       const receipts=e.local?.receipts.splice(0)??[];e.local=undefined
       for(const receipt of receipts)this.clean(receipt.release)
+      const sourceLease=e.sourceLease;e.sourceLease=undefined;e.image=undefined
+      if(sourceLease)this.clean(()=>sourceLease.release(lost))
       this.clean(e.releaseMetadata)
     }
     const releases = this.reservations.splice(0)
