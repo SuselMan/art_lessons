@@ -67,3 +67,37 @@ before the common codec and encoder. No image fallback, new packetizer or render
 formula is added. sourceStrokeMaterialAdapter.soft.test.ts uses explicitly
 synthetic mapped coefficients; native fixtures and their unsupported reasons
 remain intact. This does not prove native whole-stroke rendering equivalence.
+
+
+## Explicit primary-texture V3 source consumer (not online activation)
+
+Explicit SourceStrokeMaterialContextV3 is independently captured with the shared
+frozen context factory and matched to the actual texture program, asset geometry,
+scale/angle and primary role. EVERY material yield emits grainDepth from its exact
+validated step.packet.pressure, including geometry cache hits and signed zero.
+No pointer-global pressure, second sensor/RNG query or rounded U8 is used.
+Shared canonicalPrimaryTextureDrawWork is charged on EVERY occurrence beside
+existing geometry dedupe in both warm fit and cold result checks. Version3
+checkpoint/materialVersion3 cannot restore V1/V2 checkpoint; pending grain must
+match its captured author-local packet. Version1/2 behavior and bytes unchanged.
+No engine/server activation or source authenticity is minted.
+
+Consumer gates:137 tests/7 suites PASS against shared SOURCE, maxWorkers1;
+actual app-options targeted12-root TypeScript noEmit exit0, scoped oxlint0 and
+diff-check PASS. Baseline RAM-only Git pin of the five old producer modules
+failed six new consumer tests (59 prior tests PASS); no production file was
+replaced for this diagnostic. One extended RNG-control assertion initially had
+a different fixture initial angle0 vs.3; equal inputs corrected, production
+math unchanged. Shared capture/cost APIs are tested in the same joined run.
+No online activation, runtime/device/shared-dist/dependency/commit change; no
+own background process or temporary service remains.
+
+Actual consumer helpers in the existing shared codec: canonicalPrimaryTextureDrawWork
+is the SAME dimension/pixel-checked per-occurrence work law now called by both
+codec paths and this adapter (including cold fits). captureCanonicalPrimaryTextureFrame
+independently own-captures V3 context/input, reuses preflight(localReader), and
+freezes entry/records/arrays without packing/base64/decoding or new authority.
+Future executor reserves retained metadata before capture; helper itself grants
+neither storage ownership nor renderer permission. Tests cover independent
+mutation, nested freeze, accessor/oversize refusal before callbacks, and actual
+shared total-work rejection. Old shared Any/Snapshot/result unions stay closed.

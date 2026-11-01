@@ -1,3 +1,4 @@
+import {buildCanonicalMaterial,canonicalPrimaryTexturePin,type CanonicalMaterialContextV3} from '@grafetto/shared'
 import { describe, expect, it } from 'vitest'
 import { CANONICAL_MATERIAL_PROFILE as profile, packCanonicalMaterial, unpackCanonicalMaterial,
   type CanonicalMaterialContext, type CanonicalMaterialFrame, type CanonicalMaterialEntry } from '@grafetto/shared'
@@ -189,4 +190,19 @@ describe('explicit recorded metadata closure (pure state only, no renderer autho
   expect(result.state.averageQreal).toBe(0);expect(result.state.lastGroup).toBe(-1)
   expect(result.state.ended).toBe(true);expect(result.commands).toEqual([])
  })
+})
+
+it('accepts actual decoded V3 in the same phase2/ordinal state machine and refuses invalid grain',()=>{
+ const primary={id:asset,size:1,x:0,y:0,width:1,height:1},pattern={...primary,id:'asset:'+'2'.repeat(64)}
+ const c:CanonicalMaterialContextV3={version:3,assets:[primary,pattern],primarySource:{kind:'image',asset,brushScale:1,brushAngle:0},
+  primaryTexture:canonicalPrimaryTexturePin({kind:'canvasTexture',asset:pattern.id,law:'subtract-u8-v1',width:1,height:1,periodX:1,periodY:1,offsetX:0,offsetY:0,strength:'pressure-identity-v1'},pattern),budget:{workUnits:1000,outputBytes:1000,drawPixels:1000}}
+ const first=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe:{...recipe,kind:'image'},role:'primary',x:0,y:0,opacity:.7,flow:.4,grainDepth:-0}],fences:[begin,finish(1)[0]]},c).frame
+ const result=advance(create(wash).state,{ordinal:0,frame:first})
+ expect(result.state.entry).toEqual({phase:'mask',group:0});expect(result.draws[0].frameDrawIndex).toBe(0)
+ const tail=buildCanonicalMaterial({masked:false,entry:{phase:'mask',group:0},draws:[],fences:[{kind:'segmentEnd',group:0,at:0},end(0)]},c).frame
+ expect(advance(result.state,{ordinal:1,frame:tail}).state.ended).toBe(true)
+ for(const grainDepth of [NaN,Infinity,-.01,1.01]){
+  const malformed={...first,draws:[{...first.draws[0],grainDepth}]}
+  expect(()=>advance(create(wash).state,{ordinal:0,frame:malformed})).toThrow()
+ }
 })

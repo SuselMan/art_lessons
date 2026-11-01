@@ -1,16 +1,17 @@
 import {
   buildCanonicalMaterial, canonicalStrokeRasterContract, CANONICAL_STROKE_RASTER_PROFILE,
-  decodeCanonicalStrokeFrame, type CanonicalStrokeFrameContext, type CanonicalStrokeFrameContextV2, type CanonicalMaterialFrameV2,
+  decodeCanonicalStrokeFrame, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, type CanonicalStrokeFrameContext, type CanonicalStrokeFrameContextV2, type CanonicalMaterialFrameV2, type CanonicalMaterialFrameV3, type CanonicalStrokeFrameContextV3,
 } from '@grafetto/shared'
 import { advanceSourcePrimaryComposition, createSourcePrimaryComposition, type SourcePrimaryCompositionState } from './sourcePrimaryComposition'
-import { copySourceMaterialContext, pinSourceMaterialTargets, assertSourceMaterialTargets, type SourceStrokeMaterialContext, type SourceStrokeMaterialContextV2, type SourceMaterialTargetGeometry } from './sourceStrokeMaterialAdapter'
+import { copySourceMaterialContext, pinSourceMaterialTargets, assertSourceMaterialTargets, type SourceStrokeMaterialContext, type SourceStrokeMaterialContextV2, type SourceStrokeMaterialContextV3, type SourceMaterialTargetGeometry } from './sourceStrokeMaterialAdapter'
 
 export type SourceCanonicalStrokeContext = Omit<CanonicalStrokeFrameContext, 'frameOrdinal' | 'material'> & {
   readonly material: SourceStrokeMaterialContext
 }
 export type SourceCanonicalStrokeContextV2 = Omit<CanonicalStrokeFrameContextV2, 'frameOrdinal' | 'material'> & {readonly material:SourceStrokeMaterialContextV2}
-type AnyContext=SourceCanonicalStrokeContext|SourceCanonicalStrokeContextV2
-type EncodedFor<C> = C extends SourceCanonicalStrokeContextV2 ? {readonly envelope:SourceCanonicalEncodedFrame['envelope'];readonly frame:CanonicalMaterialFrameV2} : SourceCanonicalEncodedFrame
+export type SourceCanonicalStrokeContextV3=Omit<CanonicalStrokeFrameContextV3,'frameOrdinal'|'material'>&{readonly material:SourceStrokeMaterialContextV3}
+type AnyContext=SourceCanonicalStrokeContext|SourceCanonicalStrokeContextV2|SourceCanonicalStrokeContextV3
+type EncodedFor<C> = C extends SourceCanonicalStrokeContextV3 ? {readonly envelope:SourceCanonicalEncodedFrame['envelope'];readonly frame:CanonicalMaterialFrameV3} : C extends SourceCanonicalStrokeContextV2 ? {readonly envelope:SourceCanonicalEncodedFrame['envelope'];readonly frame:CanonicalMaterialFrameV2} : SourceCanonicalEncodedFrame
 export type SourceCanonicalEncodedFrame = ReturnType<typeof decodeCanonicalStrokeFrame>
 
 /** Author-side bridge from adapter.flush().packed to the SAME shared decoder
@@ -22,7 +23,7 @@ export type SourceCanonicalEncodedFrame = ReturnType<typeof decodeCanonicalStrok
  * This class is not a server authorization mechanism or native SIMD attestation.
  */
 export class SourceCanonicalFrameEncoder<C extends AnyContext=SourceCanonicalStrokeContext> {
-  private readonly context: Omit<CanonicalStrokeFrameContext, 'frameOrdinal'>|Omit<CanonicalStrokeFrameContextV2, 'frameOrdinal'>
+  private readonly context: Omit<CanonicalStrokeFrameContext, 'frameOrdinal'>|Omit<CanonicalStrokeFrameContextV2, 'frameOrdinal'>|Omit<CanonicalStrokeFrameContextV3,'frameOrdinal'>
   private readonly targets:Readonly<SourceMaterialTargetGeometry>|undefined
   private state: SourcePrimaryCompositionState
 
@@ -32,12 +33,20 @@ export class SourceCanonicalFrameEncoder<C extends AnyContext=SourceCanonicalStr
     const common={brush:context.brush,strokeId:context.strokeId,rasterProfile:context.rasterProfile === undefined ? CANONICAL_STROKE_RASTER_PROFILE : context.rasterProfile,
       pigmentRgb8:Object.freeze([...context.pigmentRgb8] as [number,number,number]),
       composition:Object.freeze({...context.composition})}
-    this.context='version' in material?{...common,material}:{...common,material}
+    if('version'in material&&material.version===3){
+      if(!('materialVersion'in context)||context.materialVersion!==3||common.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)throw new RangeError('Explicit material3 context required')
+      this.context={...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material}
+    }else{
+      if('materialVersion'in context&&context.materialVersion===3)throw new RangeError('Material3 context mismatch')
+      this.context='version' in material?{...common,material}:{...common,material}
+    }
     this.state = createSourcePrimaryComposition(this.context.composition).state
     // Validate identity, RGB and trusted material domain through the actual
     // shared boundary before any author input is consumed. This empty probe is
     // NOT an emitted frame and does not reserve an ordinal or start a gesture.
-    const probe = buildCanonicalMaterial({ masked: false, entry: { phase: 'between' }, draws: [], fences: [] }, this.context.material)
+    const empty={masked:false as const,entry:{phase:'between' as const},draws:[],fences:[]}
+    const m=this.context.material
+    const probe='version'in m&&m.version===3?buildCanonicalMaterial(empty,m):'version'in m?buildCanonicalMaterial(empty,m):buildCanonicalMaterial(empty,m)
     this.decode(probe.packed,0)
   }
 
@@ -61,6 +70,7 @@ export class SourceCanonicalFrameEncoder<C extends AnyContext=SourceCanonicalStr
 
   private decode(packed:string,ordinal:number) {
     const context=this.context
+    if('materialVersion'in context&&context.materialVersion===3)return decodeCanonicalStrokeFrame(this.envelope(packed),{...context,frameOrdinal:ordinal})
     return 'version' in context.material
       ? decodeCanonicalStrokeFrame(this.envelope(packed),{...context,material:context.material,frameOrdinal:ordinal})
       : decodeCanonicalStrokeFrame(this.envelope(packed),{...context,material:context.material,frameOrdinal:ordinal})

@@ -1,8 +1,8 @@
 import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE } from '@grafetto/shared'
 import {
-  buildCanonicalMaterial, canonicalMaterialGeometryCost, canonicalAutoCost, canonicalDefaultAutoStatic, canonicalDefaultAutoSourcePin, canonicalGaussianAutoStatic, canonicalGaussianAutoSourcePin, canonicalSoftAutoStatic, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, CANONICAL_MATERIAL_LIMITS,
+  buildCanonicalMaterial, canonicalPrimaryTextureMaterialContext, canonicalPrimaryTextureDrawWork, canonicalMaterialGeometryCost, canonicalAutoCost, canonicalDefaultAutoStatic, canonicalDefaultAutoSourcePin, canonicalGaussianAutoStatic, canonicalGaussianAutoSourcePin, canonicalSoftAutoStatic, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, CANONICAL_MATERIAL_LIMITS,
   type CanonicalMaterialBuildInput, type CanonicalMaterialContext, type CanonicalMaterialEntry,
-  type CanonicalMaterialFence, type CanonicalMaterialFrame, type CanonicalMaterialContextV2, type CanonicalMaterialFrameV2, type AnyCanonicalMaterialRecipe, type AnyCanonicalMaterialFrame, type AnyCanonicalMaterialContext, type CanonicalMaterialBuildInputV2,
+  type CanonicalMaterialFence, type CanonicalMaterialFrame, type CanonicalMaterialContextV2, type CanonicalMaterialFrameV2, type AnyCanonicalMaterialRecipe, type AnyCanonicalMaterialFrame, type AnyCanonicalMaterialContext, type CanonicalMaterialBuildInputV2, type CanonicalMaterialContextV3, type CanonicalMaterialFrameV3, type CanonicalMaterialBuildInputV3,
 } from '@grafetto/shared'
 import type { SourceStrokeAuthorProgram, SourceStrokeAuthorState, SourceStrokeAuthorStep, SourceAuthorPacket } from './sourceStrokeAuthor'
 
@@ -10,10 +10,13 @@ import { planCanonicalTargets } from '../dabs/CanonicalTargetPlan'
 import type { WorldRect } from '../buffers/tileMath'
 import type { SourceDabGeometry } from './sourceDabCache'
 
-type Draw=CanonicalMaterialBuildInput['draws'][number] | CanonicalMaterialBuildInputV2['draws'][number]
+type Draw=CanonicalMaterialBuildInput['draws'][number] | CanonicalMaterialBuildInputV2['draws'][number] | CanonicalMaterialBuildInputV3['draws'][number]
+type MaterialContext=AnyCanonicalMaterialContext|CanonicalMaterialContextV3
+type MaterialFrame=AnyCanonicalMaterialFrame|CanonicalMaterialFrameV3
 /** Arrays are version-homogeneous; the shared builder rejects a wrong recipe
  * kind before decoding. This bridge keeps that runtime validation in ONE owner. */
-function buildAdapterMaterial(input:Omit<CanonicalMaterialBuildInput,'draws'>&{readonly draws:readonly Draw[]},context:AnyCanonicalMaterialContext){
+function buildAdapterMaterial(input:Omit<CanonicalMaterialBuildInput,'draws'>&{readonly draws:readonly Draw[]},context:MaterialContext){
+  if('version' in context&&context.version===3){if(input.masked)invalid();return buildCanonicalMaterial({...input,masked:false,draws:input.draws as CanonicalMaterialBuildInputV3['draws']},context)}
   if('version' in context)return buildCanonicalMaterial({...input,draws:input.draws as CanonicalMaterialBuildInputV2['draws']},context)
   return buildCanonicalMaterial({...input,draws:input.draws as CanonicalMaterialBuildInput['draws']},context)
 }
@@ -25,10 +28,12 @@ export type SourceStrokeMaterialContext=Omit<CanonicalMaterialContext,'preflight
   readonly geometry?:SourceDabGeometry;readonly targetGeometry?:SourceMaterialTargetGeometry
 }
 export type SourceStrokeMaterialContextV2=Omit<CanonicalMaterialContextV2,'expectedDrawCount'|'expectedStrokeEnd'> & {readonly targetGeometry?:SourceMaterialTargetGeometry}
-export type AnySourceStrokeMaterialContext=SourceStrokeMaterialContext|SourceStrokeMaterialContextV2
-type FrameFor<C> = C extends SourceStrokeMaterialContextV2 ? CanonicalMaterialFrameV2 : CanonicalMaterialFrame
+export type SourceStrokeMaterialContextV3=CanonicalMaterialContextV3 & {readonly targetGeometry?:SourceMaterialTargetGeometry}
+export type AnySourceStrokeMaterialContext=SourceStrokeMaterialContext|SourceStrokeMaterialContextV2|SourceStrokeMaterialContextV3
+type FrameFor<C> = C extends SourceStrokeMaterialContextV3 ? CanonicalMaterialFrameV3 : C extends SourceStrokeMaterialContextV2 ? CanonicalMaterialFrameV2 : CanonicalMaterialFrame
 type ChunkFor<C> = SourceStrokeMaterialChunk<FrameFor<C>>
-const version2=(c:AnySourceStrokeMaterialContext|AnyCanonicalMaterialContext):c is CanonicalMaterialContextV2=>'version' in c&&c.version===2
+const version2=(c:AnySourceStrokeMaterialContext|MaterialContext):c is CanonicalMaterialContextV2=>'version' in c&&c.version===2
+const version3=(c:AnySourceStrokeMaterialContext|MaterialContext):c is CanonicalMaterialContextV3=>'version' in c&&c.version===3
 /** Pin room geometry once. This is NOT a viewport or an execution grant. */
 export function pinSourceMaterialTargets(g:SourceMaterialTargetGeometry|undefined):Readonly<SourceMaterialTargetGeometry>|undefined {
   if(g===undefined)return
@@ -36,7 +41,13 @@ export function pinSourceMaterialTargets(g:SourceMaterialTargetGeometry|undefine
   planCanonicalTargets({minX:0,minY:0,maxX:0,maxY:0},g.pageBounds,g.tileWidth,g.tileHeight,g.maxTargets??64)
   return freeze({pageBounds:g.pageBounds===null?null:{...g.pageBounds},tileWidth:g.tileWidth,tileHeight:g.tileHeight,maxTargets:g.maxTargets??64})
 }
-export function copySourceMaterialContext(c:AnySourceStrokeMaterialContext):AnyCanonicalMaterialContext {
+export function copySourceMaterialContext(c:SourceStrokeMaterialContextV3):CanonicalMaterialContextV3
+export function copySourceMaterialContext(c:SourceStrokeMaterialContextV2):CanonicalMaterialContextV2
+export function copySourceMaterialContext(c:SourceStrokeMaterialContext):CanonicalMaterialContext
+export function copySourceMaterialContext(c:SourceStrokeMaterialContext|SourceStrokeMaterialContextV2):AnyCanonicalMaterialContext
+export function copySourceMaterialContext(c:AnySourceStrokeMaterialContext):MaterialContext
+export function copySourceMaterialContext(c:AnySourceStrokeMaterialContext):MaterialContext {
+  if(version3(c)){const {targetGeometry:_target,...material}=c as SourceStrokeMaterialContextV3;return canonicalPrimaryTextureMaterialContext(material)}
   if('version' in c&&c.version===2){
     const binding=(s:CanonicalMaterialContextV2['primarySource'])=>s?.kind==='defaultAuto'?canonicalDefaultAutoSourcePin(s):s?.kind==='gaussianAuto'?canonicalGaussianAutoSourcePin(s):s?.kind==='softAuto'?canonicalSoftAutoSourcePin(s):freeze({...s})
     const primarySource=binding(c.primarySource),maskSource=c.maskSource===undefined?undefined:binding(c.maskSource)
@@ -51,7 +62,7 @@ function targetKeys(d:Pick<Draw,'x'|'y'|'recipe'>,g:SourceMaterialTargetGeometry
   return planCanonicalTargets({minX:d.x,minY:d.y,maxX:d.x+d.recipe.width,maxY:d.y+d.recipe.height},g.pageBounds,g.tileWidth,g.tileHeight,g.maxTargets??64).tiles.map(t=>t.tileX+':'+t.tileY)
 }
 /** Encoder recheck, not a second packetizer. Caller uses the SAME room grid. */
-export function assertSourceMaterialTargets(frame:AnyCanonicalMaterialFrame,g:SourceMaterialTargetGeometry|undefined):void{
+export function assertSourceMaterialTargets(frame:MaterialFrame,g:SourceMaterialTargetGeometry|undefined):void{
   const keys=new Set<string>()
   for(const d of frame.draws)for(const k of targetKeys({x:d.x,y:d.y,recipe:frame.definitions[d.definition]},g)){
     keys.add(k)
@@ -64,11 +75,11 @@ export interface SourceStrokeMaterialInput {
 }
 /** Inputs are AUTHOR-LOCAL actual paint metadata, not another wire field. They
  * keep existing Dab production aligned when a budget cut returns an older chunk. */
-export interface SourceStrokeMaterialChunk<F extends AnyCanonicalMaterialFrame=CanonicalMaterialFrame> {readonly packed:string;readonly frame:F;readonly inputs:readonly SourceStrokeMaterialInput[]}
+export interface SourceStrokeMaterialChunk<F extends MaterialFrame=CanonicalMaterialFrame> {readonly packed:string;readonly frame:F;readonly inputs:readonly SourceStrokeMaterialInput[]}
 /** Private author checkpoint, never a wire/RNG journal. Source author owns all
  * query/scheduler/RNG state; counters only tie these pending bytes to that state. */
 export interface SourceStrokeMaterialCheckpoint {
-  readonly version:1|2;readonly materialVersion?:1|2;readonly targetGeometry?:Readonly<SourceMaterialTargetGeometry>|null;readonly pendingTargets?:readonly string[];readonly programId:string;readonly masked:boolean
+  readonly version:1|2|3;readonly materialVersion?:1|2|3;readonly targetGeometry?:Readonly<SourceMaterialTargetGeometry>|null;readonly pendingTargets?:readonly string[];readonly programId:string;readonly masked:boolean
   readonly inputOrdinal:number;readonly eventOrdinal:number;readonly active:boolean;readonly ended:boolean
   readonly entry:CanonicalMaterialEntry;readonly current:CanonicalMaterialEntry
   readonly draws:readonly Draw[];readonly inputs:readonly SourceStrokeMaterialInput[];readonly fences:readonly CanonicalMaterialFence[]
@@ -116,7 +127,7 @@ const equalRecipe=sameData
  * future local renderer must consume chunk.frame, never these raw author DTOs.
  */
 export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContext=SourceStrokeMaterialContext> {
-  private readonly context:AnyCanonicalMaterialContext
+  private readonly context:MaterialContext
   private readonly targets:Readonly<SourceMaterialTargetGeometry>|undefined
   private targetUnion=new Set<string>()
   private readonly program:Pick<SourceStrokeAuthorProgram,'id'> & {readonly roles:readonly {readonly id:'primary'|'mask';readonly asset:string;readonly frames?:readonly string[]}[]}
@@ -142,6 +153,14 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
     if(!program.id||program.id.length>256||program.roles.length<1||program.roles.length>2||program.roles[0].id!=='primary'||program.roles.length===2&&program.roles[1].id!=='mask')invalid()
     this.program={id:program.id,roles:program.roles.map(r=>({id:r.id,asset:r.material.brushIdentity,frames:r.imagePipe?.frames}))}
     for(const r of program.roles){
+      if(version3(this.context)){
+        const c=this.context,a=c.assets[0]
+        if(program.roles.length!==1||r.id!=='primary'||r.imagePipe||r.materialPolicy!=='png-pressure-texture-v1'||r.textureProgram?.strength!==c.primaryTexture.strength
+          ||!r.material.textureEnabled||r.material.brushIdentity!==c.primarySource.asset||r.brush.width!==a.width||r.brush.height!==a.height
+          ||!Object.is(r.brush.scale,c.primarySource.brushScale)||!Object.is(r.brush.angle,c.primarySource.brushAngle)||r.geometry&&r.geometry.kind!=='image')invalid()
+        continue
+      }
+      if(r.textureProgram||r.materialPolicy==='png-pressure-texture-v1')invalid()
       if(r.imagePipe){
         if(r.id!=='primary'||version2(this.context)&&(program.roles.length!==1||this.context.maskSource!==undefined))invalid()
         const frames=version2(this.context)?this.context.primarySource.kind==='image'?this.context.primarySource.frames:undefined:this.context.primaryImageFrames
@@ -252,10 +271,10 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
       if(!version2(this.context))invalid()
       recipe={...common,kind:'softAuto',sourceSlot:role==='primary'?0:1,coverageProfile:s.geometry.coverageProfile,
         ...canonicalSoftAutoStatic(s.geometry.source,s.brush.scale,s.brush.angle)}
-    }else recipe=version2(this.context)?{...common,kind:'image',asset:s.brushIdentity}:{...common,asset:s.brushIdentity}
+    }else recipe=version2(this.context)||version3(this.context)?{...common,kind:'image',asset:s.brushIdentity}:{...common,asset:s.brushIdentity}
     // Saved source shape already consumed coordinateSystemFlipped. Bitmap flips
     // are saved mirror bits; NEVER use the second, spacing-only Mirror result.
-    return{recipe,role,x:m.resolvedRect.x,y:m.resolvedRect.y,opacity:r.opacity,flow:r.flow} as Draw
+    return{recipe,role,x:m.resolvedRect.x,y:m.resolvedRect.y,opacity:r.opacity,flow:r.flow,...version3(this.context)?{grainDepth:step.packet!.pressure}:{}} as Draw
   }
   private cost(draw:Draw){
     if('kind' in draw.recipe&&draw.recipe.kind==='softAuto'){
@@ -281,7 +300,7 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
     const cost=this.cost(draw)
     const fresh=!this.recipes.some(r=>equalRecipe(r,draw.recipe))
     const uncached='kind'in draw.recipe&&draw.recipe.kind==='defaultAuto'&&draw.recipe.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
-    return{work:fresh||uncached?cost.workUnits:0,output:fresh||uncached?cost.outputBytes:0,pixels:draw.recipe.width*draw.recipe.height,fresh}
+    return{work:(fresh||uncached?cost.workUnits:0)+(version3(this.context)?canonicalPrimaryTextureDrawWork(draw.recipe.width,draw.recipe.height):0),output:fresh||uncached?cost.outputBytes:0,pixels:draw.recipe.width*draw.recipe.height,fresh}
   }
   private fits(draws:number,fences:number,work:number,output:number,pixels:number):boolean {
     return draws<=CANONICAL_MATERIAL_LIMITS.draws&&fences<=3*(draws+1)+1
@@ -300,7 +319,7 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
       // First ensure the exact pending result can fit a cold chunk. Failure must
       // not flush/mutate already accepted records or advance author counters.
       const cold=draw?.kind==='draw'?this.cost(draw.draw):{workUnits:0,outputBytes:0}
-      if(keys.length>(this.targets?.maxTargets??64)||!this.fits(n,f,cold.workUnits,cold.outputBytes,cost.pixels))throw new RangeError('Source material result exceeds a cold chunk budget')
+      if(keys.length>(this.targets?.maxTargets??64)||!this.fits(n,f,cold.workUnits+(version3(this.context)&&draw?.kind==='draw'?canonicalPrimaryTextureDrawWork(draw.draw.recipe.width,draw.draw.recipe.height):0),cold.outputBytes,cost.pixels))throw new RangeError('Source material result exceeds a cold chunk budget')
       buildAdapterMaterial({masked:this.masked,entry:this.current,draws:(draw?.kind==='draw'?[draw.draw]:[]),
         fences:events.filter((e):e is Extract<Event,{kind:'fence'}>=>e.kind==='fence').map(e=>({...e.fence,at:events.slice(0,events.indexOf(e)).filter(x=>x.kind==='draw').length}))},this.context)
       const old=this.flush();if(old)chunks.push(old)
@@ -336,23 +355,23 @@ export class SourceStrokeMaterialAdapter<C extends AnySourceStrokeMaterialContex
     return chunks
   }
   checkpoint():SourceStrokeMaterialCheckpoint {
-    const extra=version2(this.context)||this.targets?{version:2 as const,materialVersion:version2(this.context)?2 as const:1 as const,
+    const extra=version3(this.context)?{version:3 as const,materialVersion:3 as const,targetGeometry:this.targets??null,pendingTargets:[...this.targetUnion]}:version2(this.context)||this.targets?{version:2 as const,materialVersion:version2(this.context)?2 as const:1 as const,
       targetGeometry:this.targets??null,pendingTargets:[...this.targetUnion]}:{version:1 as const}
     return freeze(structuredClone({...extra,programId:this.program.id,masked:this.masked,inputOrdinal:this.inputOrdinal,eventOrdinal:this.eventOrdinal,
       active:this.active,ended:this.ended,entry:this.entry,current:this.current,draws:this.draws,inputs:this.inputs,fences:this.fences}))
   }
   private restore(source:SourceStrokeAuthorState,c:SourceStrokeMaterialCheckpoint):void {
-    if(!c||Object.keys(c).some(k=>!['version','programId','masked','inputOrdinal','eventOrdinal','active','ended','entry','current','draws','inputs','fences','materialVersion','targetGeometry','pendingTargets'].includes(k))||![1,2].includes(c.version)||c.programId!==this.program.id||c.masked!==this.masked||c.inputOrdinal!==source.inputOrdinal||c.eventOrdinal!==source.eventOrdinal
+    if(!c||Object.keys(c).some(k=>!['version','programId','masked','inputOrdinal','eventOrdinal','active','ended','entry','current','draws','inputs','fences','materialVersion','targetGeometry','pendingTargets'].includes(k))||![1,2,3].includes(c.version)||c.programId!==this.program.id||c.masked!==this.masked||c.inputOrdinal!==source.inputOrdinal||c.eventOrdinal!==source.eventOrdinal
       ||typeof c.active!=='boolean'||typeof c.ended!=='boolean'||c.active!==!!source.cursor||c.active&&c.ended
       ||!Array.isArray(c.draws)||!Array.isArray(c.fences)||!Array.isArray(c.inputs)||c.inputs.length!==c.draws.length)invalid()
-    if(c.version===1){if(version2(this.context)||this.targets||c.materialVersion!==undefined||c.targetGeometry!==undefined||c.pendingTargets!==undefined)invalid()}
-    else if(c.materialVersion!==(version2(this.context)?2:1)||!sameData(c.targetGeometry,this.targets??null)||!Array.isArray(c.pendingTargets)||c.pendingTargets.length>64)invalid()
+    if(c.version===1){if(version3(this.context)||version2(this.context)||this.targets||c.materialVersion!==undefined||c.targetGeometry!==undefined||c.pendingTargets!==undefined)invalid()}
+    else if(c.version!==(version3(this.context)?3:2)||c.materialVersion!==(version3(this.context)?3:version2(this.context)?2:1)||!sameData(c.targetGeometry,this.targets??null)||!Array.isArray(c.pendingTargets)||c.pendingTargets.length>64)invalid()
     // Shared builder validates bounded pending closure BEFORE cloning arrays.
     buildAdapterMaterial({masked:c.masked,entry:c.entry,draws:c.draws,fences:c.fences},this.context)
     const union=new Set<string>()
     for(const d of c.draws)for(const key of targetKeys(d,this.targets)){union.add(key);if(union.size>(this.targets?.maxTargets??64))invalid()}
-    if(union.size>(this.targets?.maxTargets??64)||c.version===2&&!sameData([...union],c.pendingTargets))invalid()
-    c.inputs.forEach((input,i)=>{validateInput(input);if(input.role!==c.draws[i].role)invalid()})
+    if(union.size>(this.targets?.maxTargets??64)||c.version!==1&&!sameData([...union],c.pendingTargets))invalid()
+    c.inputs.forEach((input,i)=>{validateInput(input);if(input.role!==c.draws[i].role||version3(this.context)&&(!('grainDepth'in c.draws[i])||!Object.is((c.draws[i] as CanonicalMaterialBuildInputV3['draws'][number]).grainDepth,input.packet.pressure)))invalid()})
     if(!c.current||Object.keys(c.current).some(k=>!(c.current.phase==='between'?['phase']:['phase','group']).includes(k))||!sameEntry(after(c.entry,c.fences),c.current)||c.active===(c.current.phase==='between')
       ||c.current.phase!=='between'&&c.current.group!==c.inputOrdinal||c.ended&&c.fences.length&&c.fences.at(-1)?.kind!=='gestureEnd'
       ||!c.ended&&c.fences.some(f=>f.kind==='gestureEnd'))invalid()

@@ -52,3 +52,23 @@ same constructor probe/shared decoder and ordinal cursor are retained. New tests
 mutate caller profile/composition after construction and reject truncated/repeated
 chunks without ordinal advance, including empty terminal chunks for each mode.
 Material bytes, author evaluation, FIFO/transport and room activation are unchanged.
+
+
+## Explicit primary-texture V3 source consumer (not online activation)
+
+Explicit SourceCanonicalStrokeContextV3 requires top-level materialVersion3 and
+GenericSC raster profile, including its empty constructor probe. Both probe and
+encode use the actual shared explicit-aware decoder; decoded frame3 then enters
+the SAME primary composition state machine and target-grid checker. No V3 cast to
+V2, bare inferred awareness, Snapshot/result/oldAny union widening or renderer
+activation. Failed encode cannot advance ordinal; terminal phase2 tails persist.
+
+Consumer gates:137 tests/7 suites PASS against shared SOURCE, maxWorkers1;
+actual app-options targeted12-root TypeScript noEmit exit0, scoped oxlint0 and
+diff-check PASS. Baseline RAM-only Git pin of the five old producer modules
+failed six new consumer tests (59 prior tests PASS); no production file was
+replaced for this diagnostic. One extended RNG-control assertion initially had
+a different fixture initial angle0 vs.3; equal inputs corrected, production
+math unchanged. Shared capture/cost APIs are tested in the same joined run.
+No online activation, runtime/device/shared-dist/dependency/commit change; no
+own background process or temporary service remains.

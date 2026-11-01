@@ -39,6 +39,11 @@ export interface CanonicalMaterialFrame {
   readonly draws:readonly CanonicalMaterialDraw[]
   readonly fences:readonly CanonicalMaterialFence[]
 }
+/** Conservative per-occurrence lookup/subtract work, not GPU-cycle timing. */
+export function canonicalPrimaryTextureDrawWork(width:number,height:number):number {
+  if(!Number.isSafeInteger(width)||!Number.isSafeInteger(height)||width<1||height<1||width>4096||height>4096||width*height>1048576)throw new RangeError('Invalid primary texture draw dimensions')
+  return width*height
+}
 export interface CanonicalMaterialCost { readonly workUnits:number; readonly outputBytes:number }
 export interface CanonicalMaterialContext {
   /** Trusted room-pinned CAS metadata; never a client URI. Role identities are
@@ -372,7 +377,7 @@ function preflight(r:FrameReader,c:CodecContext):void {
       if(!Number.isSafeInteger(work)||!Number.isSafeInteger(output)||work>c.budget.workUnits||output>c.budget.outputBytes)fail()
     }
     // V3 texture lookup/subtract is paid for every draw, including copy hits.
-    if(r.version===3){work+=def.width*def.height;if(!Number.isSafeInteger(work)||work>c.budget.workUnits)fail()}
+    if(r.version===3){work+=canonicalPrimaryTextureDrawWork(def.width,def.height);if(!Number.isSafeInteger(work)||work>c.budget.workUnits)fail()}
     drawPixels+=def.width*def.height
     if(!Number.isSafeInteger(drawPixels)||drawPixels>c.budget.drawPixels)fail()
   }
@@ -382,6 +387,17 @@ function localReader(f:CodecFrame):FrameReader {
   keys(f,['profile','masked','entry','definitions','draws','fences'])
   if(![CANONICAL_MATERIAL_PROFILE,CANONICAL_SOURCE_MATERIAL_PROFILE,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE].includes(f.profile)||!Array.isArray(f.definitions)||!Array.isArray(f.draws)||!Array.isArray(f.fences))fail()
   return{version:f.profile===CANONICAL_MATERIAL_PROFILE?1:f.profile===CANONICAL_SOURCE_MATERIAL_PROFILE?2:3,masked:f.masked,entry:f.entry,definitions:f.definitions.length,draws:f.draws.length,fences:f.fences.length,definition:i=>f.definitions[i],draw:i=>f.draws[i],fence:i=>f.fences[i]}
+}
+/** Independent closed V3 DTO capture for actual prepared consumers. No packing,
+ * source grant, pixel work or cross-version projection. */
+export function captureCanonicalPrimaryTextureFrame(value:unknown,context:CanonicalMaterialContextV3):CanonicalMaterialFrameV3 {
+  const c=canonicalPrimaryTextureMaterialContext(context)
+  const f=captureTextureInput(value,true) as unknown as CanonicalMaterialFrameV3
+  preflight(localReader(f),c)
+  Object.freeze(f.entry)
+  for(const records of [f.definitions,f.draws,f.fences])for(const record of records)Object.freeze(record)
+  Object.freeze(f.definitions);Object.freeze(f.draws);Object.freeze(f.fences)
+  return Object.freeze(f)
 }
 function base64(bytes:Uint8Array):string {let text='';for(let i=0;i<bytes.length;i+=0x8000)text+=String.fromCharCode(...bytes.subarray(i,i+0x8000));return btoa(text)}
 
@@ -525,7 +541,7 @@ export function buildCanonicalMaterial(input:CodecInput,c:CodecContext):{packed:
   // Validate every input recipe and costs BEFORE allocating dictionary/record arrays.
   let work=0,output=0,drawPixels=0
   const known=new Set<string>()
-  for(const d of input.draws){keys(d,['recipe','role','x','y','opacity','flow',...isV3(c)?['grainDepth']:[]]);const saved=normalized(d.recipe),cost=recipe(saved,c),key=recipeKey(saved);if(!known.has(key)||auto(saved)&&saved.kind==='defaultAuto'&&saved.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE){known.add(key);work+=cost.workUnits;output+=cost.outputBytes}if(isV3(c))work+=saved.width*saved.height;drawPixels+=d.recipe.width*d.recipe.height;if(!Number.isSafeInteger(work)||!Number.isSafeInteger(output)||!Number.isSafeInteger(drawPixels)||work>c.budget.workUnits||output>c.budget.outputBytes||drawPixels>c.budget.drawPixels)fail()}
+  for(const d of input.draws){keys(d,['recipe','role','x','y','opacity','flow',...isV3(c)?['grainDepth']:[]]);const saved=normalized(d.recipe),cost=recipe(saved,c),key=recipeKey(saved);if(!known.has(key)||auto(saved)&&saved.kind==='defaultAuto'&&saved.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE){known.add(key);work+=cost.workUnits;output+=cost.outputBytes}if(isV3(c))work+=canonicalPrimaryTextureDrawWork(saved.width,saved.height);drawPixels+=d.recipe.width*d.recipe.height;if(!Number.isSafeInteger(work)||!Number.isSafeInteger(output)||!Number.isSafeInteger(drawPixels)||work>c.budget.workUnits||output>c.budget.outputBytes||drawPixels>c.budget.drawPixels)fail()}
   const definitions:AnyCanonicalMaterialRecipe[]=[],draws:CodecDraw[]=[],index=new Map<string,number>()
   for(const d of input.draws){const saved=normalized(d.recipe),key=recipeKey(saved);let i=index.get(key);if(i===undefined){i=definitions.length;index.set(key,i);definitions.push({...saved})}draws.push({definition:i,role:d.role,x:d.x,y:d.y,opacity:d.opacity,flow:d.flow,...isV3(c)&&'grainDepth'in d?{grainDepth:d.grainDepth}:{}})}
   const frame={profile:frameProfile(contextVersion(c)),masked:input.masked,entry:input.entry,definitions,draws,fences:input.fences} as CodecFrame

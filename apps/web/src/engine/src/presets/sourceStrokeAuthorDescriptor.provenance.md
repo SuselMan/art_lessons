@@ -70,3 +70,23 @@ Pinned native source bd6e8d061d2f0388c5b10278786cf0fe62e3135f: `kis_tool_freehan
 Actual retained Basic5 Size/Opacity40 runtime KPP and portable source settings both have these flagsfalse. The old unconditional50ms policy inserted nonpainting endpoint queries and changed variable-size placements. Separate HOST diagnostic with ONLY the source-derived refresh intervals changed eliminated the full native512² mismatch (previous1352 alpha pixels/max128): SAME author/adapter/encoder and original raster kernels now match the native whole-RGBA hash exactly,26dabs/149 diagnostic frames, including every-yield resume. The actual Size/Opacity GUI regression/input/native hash belongs to the independently retained sizeGui fixture. No brush-ID branch, pressure/geometry fitting or native device action is added by this fix.
 
 Older DefaultGUI/GaussianGUI/pressure57 fixtures only change derived diagnostic frame counts (185→143,183→159,198→132); original inputs/KPP/provider/native RGBA hashes and draw counts remain immutable and whole native comparisons are rerun. Source audit and selected evidence: fixes-v52/size60-spacing-refresh-audit-plan.md and size60-spacing-refresh-source-evidence.json. Production/room/read guards are not activated by this policy correction.
+
+
+## Explicit primary-texture V3 source consumer (not online activation)
+
+Explicit primaryTexture context selects the SAME shared semantic extractor on the
+ORIGINAL descriptor and declared assets; old context still refuses textures. No
+textureEnabled=false descriptor copy is used. The compiled primary role retains
+textureEnabled=true, exact pressure-identity-v1 program and a distinct
+png-pressure-texture-v1 policy/program-id suffix. Missing original raw program or
+native curve compiler still refuses. No BEGIN/room/asset authenticity is granted.
+
+Consumer gates:137 tests/7 suites PASS against shared SOURCE, maxWorkers1;
+actual app-options targeted12-root TypeScript noEmit exit0, scoped oxlint0 and
+diff-check PASS. Baseline RAM-only Git pin of the five old producer modules
+failed six new consumer tests (59 prior tests PASS); no production file was
+replaced for this diagnostic. One extended RNG-control assertion initially had
+a different fixture initial angle0 vs.3; equal inputs corrected, production
+math unchanged. Shared capture/cost APIs are tested in the same joined run.
+No online activation, runtime/device/shared-dist/dependency/commit change; no
+own background process or temporary service remains.

@@ -176,3 +176,22 @@ describe('native GUI refresh policy from retained settings',()=>{
     expect(sourceStrokeAuthorDescriptor(d,native).supported).toBe(false)
   })
 })
+
+it.each([1,2]as const)('requires explicit original texture program with DATA%s and preserves source flags without descriptor copies',version=>{
+ const d=identity(),pattern={id:('asset:'+'b'.repeat(64))as `asset:${string}`,size:8}
+ if(version===2)Object.assign(d.sourceStamp!,{version:2,source:{kind:'image'}})
+ Object.assign(d.sourceStamp!.flags,{textureEnabled:true})
+ Object.assign(d.sourceStamp!.settings,{'Texture/Pattern/Enabled':'true','PressureTexture/Strength/':'true','Texture/Strength/StrengthVersion':'2','Texture/Strength/UseCurve':'true','Texture/Strength/UseSameCurve':'true','Texture/Strength/Value':'1','Texture/Strength/curveMode':'0','Texture/Strength/Sensor':'<!DOCTYPE params> <params id="pressure"><curve>0,0;1,1;</curve></params>'})
+ d.texture={id:pattern.id,strength:1,periodPx:4,patternSize:{width:4,height:4},application:{mode:'subtract',soft:false},offset:{x:0,y:0,randomX:false,randomY:false}}
+ const before=structuredClone(d)
+ expect(sourceStrokeAuthorDescriptor(d,context).supported).toBe(false)
+ const result=sourceStrokeAuthorDescriptor(d,{...context,primaryTexture:{pattern}})
+ expect(result.supported).toBe(true);expect(d).toEqual(before)
+ if(!result.supported)throw Error(result.reasons.join(','))
+ expect(result.program.roles[0].material.textureEnabled).toBe(true)
+ expect(result.program.roles[0].textureProgram).toEqual({strength:'pressure-identity-v1'})
+ expect(result.program.roles[0].materialPolicy).toBe('png-pressure-texture-v1')
+ expect(result.program.id).toContain(':primary-texture-pressure-identity-v1')
+ delete d.sourceStamp!.settings['Texture/Strength/Sensor']
+ expect(sourceStrokeAuthorDescriptor(d,{...context,primaryTexture:{pattern}}).supported).toBe(false)
+})

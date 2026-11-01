@@ -215,3 +215,25 @@ soft geometry4 tests passed, scoped lint/diff clean. Common web TSC76479 passed
 with root source frozen. Earlier13303/79959 runs captured in-flight Paper test
 API/overload typing and two root test-only typing errors; they are retained as
 failures, not counted as passes. No device or runtime resource was started.
+
+
+## Explicit primary-texture V3 source consumer (not online activation)
+
+The explicit png-pressure-texture-v1 role requires primary-only static image,
+true source texture flag and exactly one strength:pressure-identity-v1 field.
+No sensor/RNG evaluation is added. Actual yield.packet is still the SAME
+interpolated request used by source sensor evaluation; new adapter consumes it.
+True textureEnabled preserves actual source cache Postprocess classification on
+geometry hits (it must not be falsified to force a Copy label). Descriptor-derived
+program identity separates the policy; existing author state math/version stays
+unchanged.
+
+Consumer gates:137 tests/7 suites PASS against shared SOURCE, maxWorkers1;
+actual app-options targeted12-root TypeScript noEmit exit0, scoped oxlint0 and
+diff-check PASS. Baseline RAM-only Git pin of the five old producer modules
+failed six new consumer tests (59 prior tests PASS); no production file was
+replaced for this diagnostic. One extended RNG-control assertion initially had
+a different fixture initial angle0 vs.3; equal inputs corrected, production
+math unchanged. Shared capture/cost APIs are tested in the same joined run.
+No online activation, runtime/device/shared-dist/dependency/commit change; no
+own background process or temporary service remains.

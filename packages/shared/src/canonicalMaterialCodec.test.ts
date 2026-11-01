@@ -1,3 +1,5 @@
+import {captureCanonicalPrimaryTextureFrame} from './canonicalMaterialCodec.js'
+import {canonicalPrimaryTextureDrawWork} from './canonicalMaterialCodec.js'
 import { canonicalMaterialGeometryCost } from './canonicalMaterialGeometry.js'
 import { canonicalPrimaryTextureMaterialContext } from './canonicalMaterialCodec.js'
 import { describe,expect,it } from 'vitest'
@@ -272,7 +274,7 @@ describe('staged unified CMAT3 primary texture codec; no wire/executor activatio
  })
  it('rejects malformed binary header, definitions, grain, reserved fields, ledger roles and trailing data',()=>{
   const packed=buildCanonicalMaterial(textureInput(),textureContext()).packed
-  const edits=[(v:DataView,b:Uint8Array)=>{b[4]=2},(_v:DataView,b:Uint8Array)=>{b[6]=1},(_v:DataView,b:Uint8Array)=>{b[7]=1},(v:DataView)=>v.setUint16(14,1,true),
+  const edits=[(_v:DataView,b:Uint8Array)=>{b[4]=2},(_v:DataView,b:Uint8Array)=>{b[6]=1},(_v:DataView,b:Uint8Array)=>{b[7]=1},(v:DataView)=>v.setUint16(14,1,true),
    (_v:DataView,b:Uint8Array)=>{b[104]=1},(_v:DataView,b:Uint8Array)=>{b[105]=1},(_v:DataView,b:Uint8Array)=>{b[107]=1},(_v:DataView,b:Uint8Array)=>{b[168]=1},
    (_v:DataView,b:Uint8Array)=>{b[202]=1},(_v:DataView,b:Uint8Array)=>{b[203]=1},(v:DataView)=>v.setUint32(228,1,true),(v:DataView)=>v.setFloat64(232,NaN,true),(v:DataView)=>v.setFloat64(232,1.1,true),
    (v:DataView)=>v.setUint16(96,5,true),(_v:DataView,b:Uint8Array)=>{const first=b.slice(24,64);b.copyWithin(24,64,104);b.set(first,64)},(v:DataView)=>v.setUint16(10,801,true)]
@@ -350,4 +352,28 @@ it('charges every repeated V3 draw including copy hits and zero strengths',()=>{
  const short={...base,budget:{...base.budget,workUnits:total-1}}
  expect(()=>buildCanonicalMaterial(input,short)).toThrow()
  expect(()=>unpackCanonicalMaterial(built.packed,short)).toThrow()
+})
+
+it('bounds the shared per-draw texture work helper with the actual recipe domain',()=>{
+ expect(canonicalPrimaryTextureDrawWork(4096,256)).toBe(1048576)
+ expect(canonicalPrimaryTextureDrawWork(1,1)).toBe(1)
+ for(const [w,h] of [[0,1],[-1,1],[1.5,1],[4097,1],[4096,257],[Infinity,1],[NaN,1]])expect(()=>canonicalPrimaryTextureDrawWork(w,h)).toThrow()
+})
+
+it('captures independent deep-frozen V3 frame DTOs with the SAME preflight and no serialization',()=>{
+ const c=textureContext(),frame=buildCanonicalMaterial(textureInput(),c).frame,captured=captureCanonicalPrimaryTextureFrame(frame,c)
+ expect(captured).toEqual(frame);expect(captured).not.toBe(frame);expect(captured.draws[0]).not.toBe(frame.draws[0])
+ for(const value of [captured,captured.entry,captured.definitions,captured.draws,captured.fences,...captured.definitions,...captured.draws,...captured.fences])expect(Object.isFrozen(value)).toBe(true)
+ Reflect.set(frame.draws[0],'grainDepth',1);Reflect.set(frame.definitions[0],'rotation',.7)
+ expect(captured.draws[0].grainDepth).toBe(.25);expect(captured.definitions[0].rotation).toBe(0)
+ const low={...c,budget:{...c.budget,workUnits:canonicalMaterialGeometryCost(textureRecipe(),c.assets[0]).workUnits}}
+ expect(()=>captureCanonicalPrimaryTextureFrame(captured,low)).toThrow()
+ expect(()=>captureCanonicalPrimaryTextureFrame({...captured,profile:'canonical-source-material-v2'},c)).toThrow()
+})
+it('refuses frame3 accessors and oversize draw arrays before record callbacks',()=>{
+ const c=textureContext(),frame=buildCanonicalMaterial(textureInput(),c).frame;let called=0
+ const draw={...frame.draws[0]};Object.defineProperty(draw,'grainDepth',{get(){called++;return .5}})
+ expect(()=>captureCanonicalPrimaryTextureFrame({...frame,draws:[draw]},c)).toThrow()
+ const draws=new Array(801);Object.defineProperty(draws,'0',{get(){called++;return frame.draws[0]}})
+ expect(()=>captureCanonicalPrimaryTextureFrame({...frame,draws},c)).toThrow();expect(called).toBe(0)
 })

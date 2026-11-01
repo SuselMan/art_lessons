@@ -70,3 +70,25 @@ rejects non-Over buildup before issuing commands. This pure composition helper
 validates a law, not room/profile authority: encoder/executor additionally check
 their explicit trusted raster profile. Tests compare identical local traces and
 selected preview/final blend for all four modes; historical Over regressions remain.
+
+
+## Explicit primary-texture V3 source consumer (not online activation)
+
+advanceSourcePrimaryComposition accepts explicit CanonicalMaterialFrameV3 beside
+unchanged AnyCanonicalMaterialFrame (the shared Any union itself is not widened).
+Runtime accepts only the named V3 profile, masked=false/primary draws and finite
+grainDepth in[0,1], preserving existing fences, phase2, frameDrawIndex and controls.
+This is SAME material-agnostic scalar composition state; its version1 remains
+appropriate and grants no material replay authority. Actual source adapter owns
+the distinct V3 serialized checkpoint and encoder/context owner pins version.
+Executor may consume the same signature; no duplicate state machine/projection.
+
+Consumer gates:137 tests/7 suites PASS against shared SOURCE, maxWorkers1;
+actual app-options targeted12-root TypeScript noEmit exit0, scoped oxlint0 and
+diff-check PASS. Baseline RAM-only Git pin of the five old producer modules
+failed six new consumer tests (59 prior tests PASS); no production file was
+replaced for this diagnostic. One extended RNG-control assertion initially had
+a different fixture initial angle0 vs.3; equal inputs corrected, production
+math unchanged. Shared capture/cost APIs are tested in the same joined run.
+No online activation, runtime/device/shared-dist/dependency/commit change; no
+own background process or temporary service remains.

@@ -1,3 +1,5 @@
+import {canonicalPrimaryTexturePin,canonicalPrimaryTextureDrawWork,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type CanonicalMaterialFrameV3} from '@grafetto/shared'
+import type {SourceStrokeMaterialContextV3} from './sourceStrokeMaterialAdapter'
 import { SourceCanonicalFrameEncoder } from './sourceCanonicalFrameEncoder'
 import { describe,expect,it,vi } from 'vitest'
 import { assertPrimaryCanonicalMaterial,canonicalMaterialGeometryCost,unpackCanonicalMaterial,CANONICAL_STROKE_RASTER_PROFILE,decodeCanonicalStrokeFrame } from '@grafetto/shared'
@@ -230,4 +232,70 @@ it('rechecks encoder room union before advancing ordinal and preserves off-page 
  expect(()=>encoder.encode(chunks[0].packed)).toThrow('target union');expect(encoder.nextFrameOrdinal).toBe(0)
  const outside=run(p,packets,ctx({targetGeometry:{pageBounds:{minX:10000,minY:10000,maxX:10001,maxY:10001},tileWidth:64,tileHeight:64,maxTargets:1}}))
  expect(trace(outside.chunks)).toEqual(trace(chunks))
+})
+
+function textureContext():SourceStrokeMaterialContextV3 {
+ const a={id:primary,size:8,x:1,y:2,width:3,height:5},pattern={id:mask,size:8,x:0,y:0,width:4,height:4}
+ return{version:3,assets:[a,pattern],primarySource:{kind:'image',asset:primary,brushScale:1,brushAngle:0},
+  primaryTexture:canonicalPrimaryTexturePin({kind:'canvasTexture',asset:mask,law:'subtract-u8-v1',width:4,height:4,periodX:4,periodY:4,offsetX:0,offsetY:0,strength:'pressure-identity-v1'},pattern),budget:{workUnits:1000000,outputBytes:1000000,drawPixels:1000000}}
+}
+function textureProgram():SourceStrokeAuthorProgram {
+ const r=role()
+ return program([{...r,geometry:{kind:'image'},materialPolicy:'png-pressure-texture-v1',textureProgram:{strength:'pressure-identity-v1'},material:{...r.material,textureEnabled:true},timing:{enabled:true,rate:20,ignoreDistance:true}}])
+}
+function runTexture(c=textureContext(),cut=false){
+ const p=textureProgram(),author=new SourceStrokeAuthor(p);let state=author.createState(4321,7654,.3)
+ const adapter=new SourceStrokeMaterialAdapter(p,c,state),chunks:SourceStrokeMaterialChunk<CanonicalMaterialFrameV3>[]=[],steps:SourceStrokeAuthorStep[]=[]
+ for(let n=0;n<8;n++){
+  chunks.push(...adapter.beginInput(state));const out=drain(author.plan(state,packet(n*50,13,17,n===0?-0:n/8)))
+  for(const step of out.steps){steps.push(step);chunks.push(...adapter.accept(step));if(cut){const part=adapter.flush();if(part)chunks.push(part)}}state=out.state
+ }
+ chunks.push(...adapter.finish(state));return{chunks,steps,state}
+}
+describe('explicit material3 actual author packet to encoder; no online grant',()=>{
+ it('preserves true texture flag and each SAME interpolated dab pressure on reused geometry',()=>{
+  const out=runTexture(),cut=runTexture(textureContext(),true)
+  const material=out.steps.filter(s=>s.kind==='material'),draws=out.chunks.flatMap(c=>c.frame.draws)
+  expect(draws.length).toBeGreaterThan(2);expect(material.some(s=>s.result!.material!.type==='Postprocess')).toBe(true)
+  expect(draws.map(d=>d.grainDepth)).toEqual(material.map(s=>s.packet!.pressure))
+  expect(new Set(draws.map(d=>d.grainDepth)).size).toBeGreaterThan(1)
+  expect(Object.is(draws[0].grainDepth,-0)).toBe(true)
+  const textured=textureProgram().roles[0],{textureProgram:_texture,...plain}=textured
+  const old=run(program([{...plain,materialPolicy:'png-fixed1-rng-free',material:{...plain.material,textureEnabled:false}}]),Array.from({length:8},(_,n)=>packet(n*50,13,17,n===0?-0:n/8)))
+  expect(out.state.random).toEqual(old.state.random);expect(out.state.perStroke).toEqual(old.state.perStroke)
+  expect(material.map(s=>s.packet)).toEqual(old.steps.filter(s=>s.kind==='material').map(s=>s.packet))
+  expect(cut.chunks.flatMap(c=>c.frame.draws).map(d=>d.grainDepth)).toEqual(draws.map(d=>d.grainDepth))
+  const encoder=new SourceCanonicalFrameEncoder({materialVersion:3 as const,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,brush:'brush:texture@1',strokeId:'texture-gesture',pigmentRgb8:[1,2,3]as const,
+   composition:{mode:'wash' as const,alphaDarken:'hard' as const,outerResourceOpacity:1,outerBlend:'over' as const},material:textureContext()})
+  for(const c of cut.chunks){const encoded=encoder.encode(c.packed);expect(encoded.frame).toEqual(c.frame);expect(encoded.envelope.version).toBe(2)}
+  expect(encoder.ended).toBe(true)
+ })
+ it('uses shared every-draw texture work for real budget cuts, including geometry cache hits',()=>{
+  const whole=runTexture(),first=whole.chunks.find(c=>c.frame.draws.length)!,r=first.frame.definitions[first.frame.draws[0].definition],c=textureContext()
+  const geometry=canonicalMaterialGeometryCost(r,c.assets[0]).workUnits,area=canonicalPrimaryTextureDrawWork(r.width,r.height)
+  const small=runTexture({...c,budget:{...c.budget,workUnits:geometry+area*2}})
+  expect(small.chunks.filter(c=>c.frame.draws.length).length).toBeGreaterThan(1)
+  expect(small.chunks.every(c=>c.frame.draws.length<=2)).toBe(true)
+  expect(small.chunks.flatMap(c=>c.frame.draws).map(d=>d.grainDepth)).toEqual(whole.chunks.flatMap(c=>c.frame.draws).map(d=>d.grainDepth))
+  expect(()=>runTexture({...c,budget:{...c.budget,workUnits:geometry+area-1}})).toThrow(/cold chunk/)
+ })
+ it('requires explicit top-level selector3 before its constructor probe and rejects wrong author programs',()=>{
+  const c={materialVersion:3 as const,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,brush:'brush:texture@1',strokeId:'selector',pigmentRgb8:[1,2,3]as const,
+   composition:{mode:'wash' as const,alphaDarken:'hard' as const,outerResourceOpacity:1,outerBlend:'over' as const},material:textureContext()}
+  const missing={...c};Reflect.deleteProperty(missing,'materialVersion');expect(()=>new SourceCanonicalFrameEncoder(missing)).toThrow(/Explicit material3/)
+  const native={...c};Reflect.set(native,'rasterProfile',CANONICAL_STROKE_RASTER_PROFILE);expect(()=>new SourceCanonicalFrameEncoder(native)).toThrow(/Explicit material3/)
+  const p=textureProgram(),r=p.roles[0]
+  expect(()=>new SourceStrokeAuthor({...p,roles:[{...r,textureProgram:undefined}]})).toThrow(/texture program/)
+  expect(()=>new SourceStrokeAuthor({...p,roles:[{...r,material:{...r.material,textureEnabled:false}}]})).toThrow(/texture program/)
+ })
+ it('pins checkpoint3 and rejects old-state or mismatched pressure restoration',()=>{
+  const p=textureProgram(),author=new SourceStrokeAuthor(p),initial=author.createState(1,2,0),adapter=new SourceStrokeMaterialAdapter(p,textureContext(),initial)
+  adapter.beginInput(initial);const iterator=author.plan(initial,packet(0,13,17,.25)),step=iterator.next();if(step.done)throw Error('actual dab required')
+  adapter.accept(step.value);const saved=adapter.checkpoint();expect(saved.version).toBe(3);expect(saved.materialVersion).toBe(3)
+  expect(()=>new SourceStrokeMaterialAdapter(p,textureContext(),step.value.state,saved)).not.toThrow()
+  const old=structuredClone(saved);Reflect.set(old,'version',2);expect(()=>new SourceStrokeMaterialAdapter(p,textureContext(),step.value.state,old)).toThrow()
+  const changed=structuredClone(saved);Reflect.set(changed.draws[0],'grainDepth',.75);expect(()=>new SourceStrokeMaterialAdapter(p,textureContext(),step.value.state,changed)).toThrow()
+  expect(()=>new SourceStrokeMaterialAdapter(program(),textureContext(),initial)).toThrow()
+  expect(()=>new SourceStrokeMaterialAdapter(p,ctx(),initial)).toThrow()
+ })
 })
