@@ -51,7 +51,7 @@ it('emits one undo candidate for the whole latest original ended gesture without
  try{
   await engine.prepareBrush(preset);await author(h);const second=await author(h,200),journal=engine['_log'].entries,revision=engine['_log'].revision,owner=engine['_canonicalLayerOwner'],stable=owner?.stable,prepass=owner?.prepass,draw=vi.spyOn(engine['gl'],'drawArrays'),before=operations.length
   const groupEntries=journal.filter(entry=>entry.op.type==='canonical_stroke'&&entry.op.frame.strokeId===second[0].frame.strokeId);expect(groupEntries.length).toBeGreaterThan(1);expect(groupEntries[0].canonicalInput!.read!.capability).not.toBe(groupEntries[1].canonicalInput!.read!.capability);expect(groupEntries[0].canonicalRead!.capability).toBe(groupEntries[1].canonicalRead!.capability)
-  const target=engine.undo();expect(target?.id).toBe(second.at(-1)!.id);expect(operations.slice(before)).toEqual([expect.objectContaining({type:'operation_undo',targetOpId:target!.id,userId:'local'})]);expect(engine['_log'].entries).toBe(journal);expect(engine['_log'].revision).toBe(revision);expect(engine['_canonicalLayerOwner']).toBe(owner);expect(owner?.stable).toBe(stable);expect(owner?.prepass).toBe(prepass);expect(draw).not.toHaveBeenCalled();expect(engine.redo()).toBeNull()
+  const target=await engine.requestHistory('undo');expect(target?.id).toBe(second.at(-1)!.id);expect(operations.slice(before)).toEqual([expect.objectContaining({type:'operation_undo',targetOpId:target!.id,userId:'local'})]);expect(engine['_log'].entries).toBe(journal);expect(engine['_log'].revision).toBe(revision);expect(engine['_canonicalLayerOwner']).toBe(owner);expect(owner?.stable).toBe(stable);expect(owner?.prepass).toBe(prepass);expect(draw).not.toHaveBeenCalled();expect(engine.redo()).toBeNull()
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
 it('returns null for active author and CPU-drained unpromoted receipts without emitting control',async()=>{
@@ -78,7 +78,7 @@ it('selects redo only from a genuine hidden original full prefix and leaves it h
   restored=await harness(async r=>verdict(r),descriptor,()=>true,{width:8,height:8},CANONICAL_STROKE_RASTER_PROFILE,undefined,p)
   const {engine,operations}=restored,entries=engine['_log'].entries,revision=engine['_log'].revision
   expect(entries.filter(e=>e.op.type==='canonical_stroke'&&e.op.frame.strokeId===second[0].frame.strokeId).every(e=>e.state==='undone')).toBe(true)
-  expect(engine.redo()?.id).toBe(second.at(-1)!.id);expect(operations).toHaveLength(1);expect(operations[0]).toMatchObject({type:'operation_redo',targetOpId:second.at(-1)!.id});expect(engine['_log'].entries).toBe(entries);expect(engine['_log'].revision).toBe(revision);expect(entries.some(e=>e.state==='undone')).toBe(true)
+  expect((await engine.requestHistory('redo'))?.id).toBe(second.at(-1)!.id);expect(operations).toHaveLength(1);expect(operations[0]).toMatchObject({type:'operation_redo',targetOpId:second.at(-1)!.id});expect(engine['_log'].entries).toBe(entries);expect(engine['_log'].revision).toBe(revision);expect(entries.some(e=>e.state==='undone')).toBe(true)
  }finally{h.engine.destroy();restored?.engine.destroy();expect(h.engine['_brushMipCache'].reservedBytes).toBe(0);if(restored)expect(restored.engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
 it.each(['stale','journal','user']as const)('refuses control after %s changes from an original callback without emission',async kind=>{
@@ -116,7 +116,7 @@ it('preserves journal and resources if the paired submission callback throws bef
  const h=await harness(async r=>verdict(r)),{engine}=h
  try{
   await engine.prepareBrush(preset);await author(h);const entries=engine['_log'].entries,revision=engine['_log'].revision,owner=engine['_canonicalLayerOwner'],error=Error('Outbox persistence refused'),send=vi.fn(()=>{throw error});engine['_onLocalOperation']=send
-  expect(()=>engine.undo()).toThrow(error);expect(send).toHaveBeenCalledOnce();expect(engine['_log'].entries).toBe(entries);expect(engine['_log'].revision).toBe(revision);expect(engine['_canonicalLayerOwner']).toBe(owner);expect(owner?.failed).toBe(false)
+  await expect(engine.requestHistory('undo')).rejects.toThrow(error);expect(send).toHaveBeenCalledOnce();expect(engine['_log'].entries).toBe(entries);expect(engine['_log'].revision).toBe(revision);expect(engine['_canonicalLayerOwner']).toBe(owner);expect(owner?.failed).toBe(false)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
 it('does not announce healthy author idle after source emission poisons its owner',async()=>{
