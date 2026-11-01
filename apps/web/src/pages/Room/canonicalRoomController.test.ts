@@ -1,3 +1,4 @@
+import{pressureTextureFixture}from'./net/canonicalPressureTexture.testFixture'
 import {expect,it,vi} from 'vitest'
 import {prepareCanonicalRoomState} from './net/canonicalRoomState'
 import {canonicalBootstrapOf,stageCanonicalRoomReplacement,createCanonicalRoomVerdicts,createCanonicalRecoveryControl} from './canonicalRoomController'
@@ -595,4 +596,16 @@ it('captures only original server author policy and forwards descriptor identity
   {signal:new AbortController().signal,isCurrent:()=>true,expectedDescriptorSha256:'invalid'})
  await expect(invalid).rejects.toThrow('descriptor identity')
  expect(ack).toBeUndefined()
+})
+
+
+it('mints pressure5 service only from SAME normalized original and keeps4 OFF independently',async()=>{
+ const {createCanonicalRoomAuthor}=await import('./canonicalRoomController'),f=pressureTextureFixture();let current=true,ack!:(v:import('@grafetto/shared').CanonicalStrokeBeginResult)=>void
+ const {stash}=state(true),{canonicalRead:previous,...wire}=stash;void previous
+ const original=prepareCanonicalRoomState({...wire,tailOperations:[],canonicalAuthorPressureTexturedSource:'pressure-default-auto-texture-v5'},{expectedBoardId:'B',isCurrent:()=>current}).canonicalRead
+ const socket:import('./net/sendCanonicalStrokeBegin').CanonicalBeginEmitter={emit:vi.fn((_e,_i,callback)=>{ack=callback}),on:()=>{},off:()=>{}}
+ const service=createCanonicalRoomAuthor(original,socket,()=>socket,()=>true);expect(service.pressureTexturedSource).toBe('pressure-default-auto-texture-v5');expect(service.texturedSource).toBeUndefined();expect(Object.isFrozen(service)).toBe(true)
+ // Resource identity is the genuine descriptor; room epoch is2 in both origins.
+ const pending=service.begin(f.input,{signal:new AbortController().signal,isCurrent:()=>true,expectedDescriptorSha256:f.sha});ack({ok:true,snapshot:f.snapshot,recordedNext:0,liveNext:0,ended:false});const accepted=await pending;expect(accepted.ok).toBe(true)
+ const off=createCanonicalRoomAuthor(stash.canonicalRead,socket,()=>socket,()=>true);expect(off.pressureTexturedSource).toBeUndefined();current=false;expect(()=>createCanonicalRoomAuthor(original,socket,()=>socket,()=>true)).toThrow()
 })

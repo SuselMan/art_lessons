@@ -226,3 +226,9 @@ it('captures optional author texture policy only from own DATA original room sta
  const inherited=Object.assign(Object.create({canonicalAuthorPrimaryTextureSource:'pressure-identity-subtract-v3'}),s)
  expect(()=>prepareCanonicalRoomState(inherited,{expectedBoardId:'room',isCurrent:()=>true})).toThrow()
 })
+
+
+it('captures author5 independently of4 from full original ownDATA only; reconnect OFF and stale stay closed',()=>{
+ const {state:s}=state();s.canonicalReadScope={...s.canonicalReadScope!,allowedRasterProfiles:[CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]};s.canonicalAuthorRasterProfile=CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE;Reflect.set(s,'canonicalAuthorPressureTexturedSource','pressure-default-auto-texture-v5');let current=true;const r=prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>current}).canonicalRead;expect(r.authorPressureTexturedSource).toBe('pressure-default-auto-texture-v5');expect(r.authorTexturedSource).toBeUndefined();Reflect.deleteProperty(s,'canonicalAuthorPressureTexturedSource');expect(r.authorPressureTexturedSource).toBe('pressure-default-auto-texture-v5');expect(prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true}).canonicalRead.authorPressureTexturedSource).toBeUndefined();current=false;expect(()=>r.assertCurrent()).toThrow()
+ let calls=0;Object.defineProperty(s,'canonicalAuthorPressureTexturedSource',{get(){calls++;return'pressure-default-auto-texture-v5'}});expect(()=>prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true})).toThrow();expect(calls).toBe(0)
+})

@@ -1,3 +1,4 @@
+import{pressureTextureFixture}from'./canonicalPressureTexture.testFixture'
 import {afterEach,beforeEach,expect,it,vi} from 'vitest'
 import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as generic,canonicalPrimaryTexturePin,CANONICAL_STROKE_RASTER_PROFILE,canonicalSoftAutoSourcePin,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2,type CanonicalStrokeSnapshotV3} from '@grafetto/shared'
 import type {Socket} from 'socket.io-client'
@@ -186,4 +187,15 @@ it('rejects V3 nested accessors without executing their payloads',async()=>{
  Object.defineProperty(result.snapshot,'material',{get(){calls++;return material}})
  const pending=sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true,authorRasterProfile:generic,expectedDescriptorSha256:'a'.repeat(64)}),rejected=expect(pending).rejects.toThrow()
  s.ack(result);await rejected;expect(calls).toBe(0)
+})
+
+
+it('captures genuine5 original permission and descriptor SHA before ACK; fixed4 flag cannot grant5',async()=>{
+ const f=pressureTextureFixture(),s=socket(),lifetime={boardEpoch:2,isCurrent:()=>true,authorRasterProfile:generic,expectedDescriptorSha256:f.sha,authorPressureTexturedSource:'pressure-default-auto-texture-v5' as const};const pending=sendCanonicalStrokeBegin(s.emitter,f.input,lifetime);Reflect.deleteProperty(lifetime,'authorPressureTexturedSource');lifetime.expectedDescriptorSha256='b'.repeat(64);s.ack({ok:true,snapshot:f.snapshot,recordedNext:0,liveNext:0,ended:false});const accepted=await pending;if(!accepted.ok||accepted.snapshot.materialVersion!==5)throw Error('Expected5');expect(accepted.snapshot.material.primaryTexture.strength).toBe('source-pressure-curve-v1');expect(accepted.snapshot.assets).toHaveLength(1);expect(Object.isFrozen(accepted.snapshot.material)).toBe(true);expect(s.sent[0]).toEqual(f.input)
+ const off=socket(),rejected=sendCanonicalStrokeBegin(off.emitter,f.input,{boardEpoch:2,isCurrent:()=>true,authorRasterProfile:generic,expectedDescriptorSha256:f.sha,authorTexturedSource:'fixed-default-auto-texture-v4'});const assertion=expect(rejected).rejects.toThrow('original author policy');off.ack({ok:true,snapshot:f.snapshot,recordedNext:0,liveNext:0,ended:false});await assertion
+})
+it.each(['missingSHA','wrongSHA','wrongContext','selectorGetter','policyGetter','stale'] as const)('refuses genuine5 %s without getter execution or fallback',async mode=>{
+ const f=pressureTextureFixture(),s=socket();let calls=0,current=true;const snapshot=structuredClone(f.snapshot),lifetime={boardEpoch:2,isCurrent:()=>current,authorRasterProfile:generic,expectedDescriptorSha256:f.sha,authorPressureTexturedSource:'pressure-default-auto-texture-v5' as const}
+ if(mode==='missingSHA')Reflect.deleteProperty(lifetime,'expectedDescriptorSha256');if(mode==='wrongSHA')lifetime.expectedDescriptorSha256='b'.repeat(64);if(mode==='wrongContext')Reflect.set(snapshot.material,'version',4);if(mode==='selectorGetter')Object.defineProperty(snapshot,'materialVersion',{get(){calls++;return 5}});if(mode==='policyGetter')Object.defineProperty(lifetime,'authorPressureTexturedSource',{get(){calls++;return'pressure-default-auto-texture-v5'}})
+ const pending=sendCanonicalStrokeBegin(s.emitter,f.input,lifetime),assertion=expect(pending).rejects.toThrow();if(mode==='stale')current=false;if(s.sent.length)s.ack({ok:true,snapshot,recordedNext:0,liveNext:0,ended:false});await assertion;if(mode==='policyGetter')expect(s.emitter.emit).not.toHaveBeenCalled();expect(calls).toBe(0);expect(s.listeners.size).toBe(0)
 })

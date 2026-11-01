@@ -1386,7 +1386,7 @@ it('requires compatible minimum3 on actual texture sockets BEFORE identity/load/
  expect(isRoomResident(id)).toBe(true)
 })
 
-it('requires exact drawing protocol4 for EVERY recipient socket before identity/load/seat BEFORE identity/load/seat, then permits normal authenticated join',async()=>{
+it('requires known drawing protocol4/5 before identity/load/seat, then permits normal authenticated join',async()=>{
  io.close();await new Promise<void>(resolve=>http.close(()=>resolve()))
  const {CanonicalRoomTransport}=await import('./CanonicalRoomTransport.js')
  const {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE:G}=await import('@grafetto/shared')
@@ -1395,7 +1395,7 @@ it('requires exact drawing protocol4 for EVERY recipient socket before identity/
  registerRoomHandlers(io as never,log,transport)
  await new Promise<void>(resolve=>http.listen(0,resolve));port=(http.address()as AddressInfo).port
  const id=fresh('protocol-door');rows.set(id,row(id));resolveIdentity.mockClear();mockPrisma.room.findUnique.mockClear()
- for(const auth of [undefined,{drawingProtocol:'2'},{drawingProtocol:'3'},{drawingProtocol:4},{drawingProtocol:'5'}]){
+ for(const auth of [undefined,{drawingProtocol:'2'},{drawingProtocol:'3'},{drawingProtocol:4},{drawingProtocol:5},{drawingProtocol:'6'}]){
   const socket:Client=connect(`http://localhost:${port}`,{autoConnect:false,reconnection:false,forceNew:true,transports:['websocket'],extraHeaders:{cookie:'protocol-author'},...auth===undefined?{}:{auth}})
   clients.push(socket)
   const refused=new Promise<string>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('protocol refusal timeout')),2000);socket.once('connect_error',error=>{clearTimeout(timer);resolve(error.message)})})
@@ -1408,4 +1408,8 @@ it('requires exact drawing protocol4 for EVERY recipient socket before identity/
  current.connect();await connected;expect(resolveIdentity).toHaveBeenCalledTimes(1)
  const delivered=next(current,'room_state');await join(current,id,'Current');await delivered
  expect(isRoomResident(id)).toBe(true)
+ const nextVersion:Client=connect(`http://localhost:${port}`,{autoConnect:false,reconnection:false,forceNew:true,transports:['websocket'],extraHeaders:{cookie:'teacher'},auth:{drawingProtocol:'5'}})
+ clients.push(nextVersion)
+ const nextConnected=new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('protocol5 connect timeout')),2000);nextVersion.once('connect',()=>{clearTimeout(timer);resolve()});nextVersion.once('connect_error',error=>{clearTimeout(timer);reject(error)})})
+ nextVersion.connect();await nextConnected;expect(resolveIdentity).toHaveBeenCalledTimes(2)
 })

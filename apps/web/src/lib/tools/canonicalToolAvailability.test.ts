@@ -1,3 +1,4 @@
+import{pressureTextureFixture}from'../../pages/Room/net/canonicalPressureTexture.testFixture'
 import {beforeEach,expect,it,vi} from 'vitest'
 import basic6 from '../../engine/src/presets/fixtures/sourcePngWholePath/guiStroke.native.json'
 import mountains from '../../engine/src/presets/fixtures/sourceImagePipe/mountains.native.json'
@@ -115,4 +116,12 @@ it('uses SAME normalized original author policy for textured tools; OFF/read3 co
  const off=prepareCanonicalRoomState(offWire,{expectedBoardId:'test',isCurrent:()=>true}).canonicalRead
  expect(canonicalToolAvailability(true,true,off,candidate.brushes,metadata)?.options).toEqual([])
  current=false;expect(canonicalToolAvailability(true,true,original,candidate.brushes,metadata)?.status).toBe('restoring')
+})
+
+
+it('offers genuine37 only from current original author5; old4 alone/read5 snapshot cannot grant it',()=>{
+ const f=pressureTextureFixture(),candidate:unknown={schemaVersion:1,brushes:[{descriptor:f.descriptor,name:'Genuine metadata37',source:'fixture',warnings:[]}],assets:[{id:f.snapshot.assets[0].id,size:256,file:f.snapshot.assets[0].id.slice(6)+'.bin'}],skipped:[]};if(!isBrushLibrary(candidate))throw Error('Actual normal fixture schema');let current=true
+ const wire:RoomStateLegacyPayload={room:{id:'test',name:'Test',ownerId:'U',paper:'flat',infinite:false,canvasWidth:8,canvasHeight:8,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'L',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'test',boardEpoch:2,allowedRasterProfiles:[G]},canonicalAuthorRasterProfile:G,canonicalAuthorTexturedSource:'fixed-default-auto-texture-v4'}
+ const off=prepareCanonicalRoomState(wire,{expectedBoardId:'test',isCurrent:()=>true}).canonicalRead;expect(canonicalToolAvailability(true,true,off,candidate.brushes,()=>candidate.assets)?.options).toEqual([])
+ const on=prepareCanonicalRoomState({...wire,canonicalAuthorPressureTexturedSource:'pressure-default-auto-texture-v5'},{expectedBoardId:'test',isCurrent:()=>current}).canonicalRead;const available=canonicalToolAvailability(true,true,on,candidate.brushes,()=>candidate.assets);expect(available?.options.map(o=>o.id)).toEqual([f.descriptor.id]);expect(available!.options[0].sizePx).toBeGreaterThan(0);expect(canonicalToolAvailability(true,true,on,candidate.brushes,()=>[])?.options).toEqual([]);current=false;expect(canonicalToolAvailability(true,true,on,candidate.brushes,()=>candidate.assets)?.status).toBe('restoring')
 })

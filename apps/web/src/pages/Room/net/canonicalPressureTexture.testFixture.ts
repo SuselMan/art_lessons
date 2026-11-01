@@ -1,0 +1,14 @@
+/// <reference types="node" />
+import {createHash}from'node:crypto'
+import actual from '../../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/textureReptile.pressure.compiled3.metadata.json' with{type:'json'}
+import {canonicalBrushDescriptorJSON,canonicalDefaultAutoPressureTextureSourceBinding,canonicalPressureCurvePrimaryTexturePin,canonicalPressureTexturedSourceMaterialContext,canonicalStrokeSnapshotV5,buildCanonicalMaterial,extractCanonicalDefaultAutoPressureTextureProgramData,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G,type BrushDescriptor,type CanonicalStrokeOperation,type CanonicalRecordedAttachmentV1}from'@grafetto/shared'
+/** Genuine unchanged metadata37, parser/socket fixture only; no server grant/artwork. */
+export function pressureTextureFixture(){
+ const descriptor=actual.descriptor as unknown as BrushDescriptor,sha=createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex'),cap=extractCanonicalDefaultAutoPressureTextureProgramData(descriptor,{pattern:actual.patternAsset});if(!cap.supported)throw Error(cap.reasons.join(','));const t=descriptor.texture!
+ const material=canonicalPressureTexturedSourceMaterialContext({version:5,assets:[cap.patternAsset],primarySource:canonicalDefaultAutoPressureTextureSourceBinding(descriptor,sha,'neon64-f32-fma-v1',actual.patternAsset,G),primaryTexture:canonicalPressureCurvePrimaryTexturePin({kind:'canvasTexture',asset:t.id,law:'subtract-u8-v1',width:t.patternSize!.width,height:t.patternSize!.height,periodX:t.periodPx,periodY:t.periodPx,offsetX:t.offset!.x,offsetY:t.offset!.y,strength:'source-pressure-curve-v1'},[cap.patternAsset]),budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}})
+ const snapshot=canonicalStrokeSnapshotV5({materialVersion:5,material,assets:material.assets,boardEpoch:2,layerId:'L',brush:'brush:'+descriptor.id+'@'+descriptor.version,strokeId:'pressure',descriptorSha256:sha,rasterProfile:G,pigmentRgb8:[1,2,3],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'}},2,G)
+ const input={layerId:snapshot.layerId,brush:snapshot.brush,strokeId:snapshot.strokeId,pigmentRgb8:snapshot.pigmentRgb8,outerResourceOpacity:1,alphaDarken:'hard' as const}
+ const operation:CanonicalStrokeOperation={id:'pressure-frame',userId:'actor',timestamp:0,seq:1,type:'canonical_stroke',layerId:'L',frame:{version:2,rasterProfile:G,brush:snapshot.brush,strokeId:snapshot.strokeId,frameOrdinal:0,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[{kind:'gestureEnd',at:0}]},material).packed}}
+ const attachment:CanonicalRecordedAttachmentV1={version:1,roomId:'room',boardEpoch:2,capabilities:[{originalUserId:'actor',snapshot}],bindings:[{operationId:operation.id,sequence:1,originalUserId:'actor',capability:0}]}
+ return{descriptor,sha,cap,snapshot,input,operation,attachment}
+}

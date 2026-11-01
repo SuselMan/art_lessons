@@ -1,0 +1,2 @@
+# Online5 RAM pending coherent consumer gate
+DefaultOFF read5/author5 independent4; pressure-default-auto-texture-v5. Original descriptorSHA/program identity and verifiedCAS pinned by server, no coefficients/program bags/CPUbudgets on wire. Protocol5 global barrier; oldAny1/2 remainsclosed, only explicitSnapshot/read unions5 extend. Tests use genuine37native curve metadata with labelled selfauthoredCAS authority mechanism; not vendorpixel proof. Actualstand/runtime unchanged.

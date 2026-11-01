@@ -1,0 +1,13 @@
+# Online5 engine paired integration
+
+RAM-only Engine4 at immutable6adbbc. New pressure5 kind derives from original captured author policy, exact original compiled3 descriptor/program and original material5/SHA. Old4 token and compiled1/2 paths remain independent; renderer consumes recorded grain scalar only.
+
+Resource ownership: existing descriptor DATA/admission capture precedes existing base accounting; this patch does not claim otherwise. Additional material-program conservative cost is added to existing BrushMipCache candidate reservation before descriptor factory's material clone/compiler/table. Prepared.bytes includes the charge; existing active-source retention reserves the prepared charge separately before BEGIN, and existing candidate/retiring/source release closures remain the owners. No extra cache/budget ceiling/pool/queue or wire CPU grant.
+
+Tests use genuine mapped compiled3 Reptile metadata plus explicitly self-authored verified 256x256 pattern CAS, not genuine vendor artwork/pixel identity. Real original full/OPEN restore, local first-admission receipt before callback, finite pressure grain, candidate abort/stale and ledger exhaustion/factory ordering are checked through existing testEngine/issuer/BrushMipCache owners. No source-pressure evaluation on recorded replay, no fake original delivery or ACK paint.
+
+This unit is not runtime activation. Coherent server/shared/UI consumed pairing and global protocol5 cutover remain required. Current runtime, catalogs, rooms and protected foreign shader are untouched.
+
+Observed first→idle resource accounting: 967808→972032 in the self-authored pattern test. SAME-ledger diagnostic identifies exactly 2048 retained root-child metadata (Bank.retain) and 2176 live compositor companion-list metadata (prepareCompanionUpdate), no new material-program/base-root/selection-key charge. Original selection key/default root and physical pattern texture remain identical; three further idle preparations stay at972032 and destroy releasesall. This is not a claim that first/second reservation totals are equal. The earlier initialMask-key hypothesis was withdrawn (key does not include initialMask).
+
+Final RAM gates: semantic old admission RED (50oldPASS/1newFAIL); final213tests/4suitesPASS singleworker; strict actualapp options +Node testambient6roots/290Git-or-RAMinputs/0diagnostics. Lint0errors/22warnings on unchanged base lines (not warnings0). EarlierNoTestFiles and missingNodeambient are retained harness failures, not semanticRED. No source/runtime writes. All runner sessions terminal; owned temporary lint copies removed in finally.

@@ -362,3 +362,52 @@ it('keeps recorded seeded policy DATA-only without leaking the imported raster-c
  const p=freezeCanonicalSeededDefaultAutoPolicies({recordedSeededDefaultAutoProfile:D,fullHistoryFormat:'mixed-indexed-v1',allowedRecordedRasterProfiles:[G]})
  expect(Reflect.ownKeys(p)).toEqual(['recordedSeededDefaultAutoProfile']);expect(p).toEqual({recordedSeededDefaultAutoProfile:D})
 })
+
+/** Genuine nonlinear37 metadata + explicit self-authored pattern CAS mechanism.
+ * This exercises server authority, not vendor pattern/pixel equivalence. */
+const actualPressure37=JSON.parse(readFileSync(new URL('../../../../packages/shared/src/fixtures/sourceDefaultAutoData/textureReptile.pressure.compiled3.metadata.json',import.meta.url),'utf8'))
+function pressureAuto5Setup(){
+ const descriptor=structuredClone(actualPressure37.descriptor) as unknown as BrushDescriptor
+ const bytes=Buffer.from(Array.from({length:256*256},(_,i)=>(i*43+17)%256)),id='asset:'+createHash('sha256').update(bytes).digest('hex')
+ descriptor.id='imported-'+createHash('sha256').update('self-authored-pressure5-pattern-authority').digest('hex').slice(0,24)
+ if(!descriptor.texture)throw Error('fixture texture');descriptor.texture.id=id as `asset:${string}`
+ const dir=mkdtempSync(join(tmpdir(),'server-pressure5-'));dirs.push(dir);const storage=new BrushStorage(dir)
+ const library={schemaVersion:1,brushes:[{name:'Self-authored pattern authority37',source:'self-authored-test',warnings:[],descriptor}],assets:[{id,size:256,file:id.slice(6)+'.bin'}],skipped:[]}
+ if(!isBrushLibrary(library))throw Error('Invalid pressure5 fixture')
+ storage.install('author',library,new Map([[id.slice(6),bytes]]));setBrushStorage(storage,empty());const board=resident()
+ return{descriptor,storage,dir,board,pattern:{id,size:256},input:{layerId:'layer',brush:`brush:${descriptor.id}@37`,strokeId:'pressure5',pigmentRgb8:[11,22,33]as[number,number,number],outerResourceOpacity:1,alphaDarken:'creamy'as const}}
+}
+const pressure5Policy={rasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy']as const,autoSources:{defaultAuto:{coverageProfile:'neon64-f32-fma-v1'as const,storedScale:1 as const}},pressureTexturedSource:'pressure-default-auto-texture-v5'as const,authorPressureTexturedSource:'pressure-default-auto-texture-v5'as const}
+function pressure5Snapshot(r:CanonicalStrokeBeginResult):import('@grafetto/shared').CanonicalStrokeSnapshotV5{if(!r.ok||!('materialVersion'in r.snapshot)||r.snapshot.materialVersion!==5)throw Error(JSON.stringify(r));return r.snapshot}
+function pressure5Operation(s:import('@grafetto/shared').CanonicalStrokeSnapshotV5,end=true):CanonicalStrokeOperation{
+ const p=s.material.primarySource,g=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:p.source.diameter,ratio:p.source.ratio,spikes:2,scale:p.brushScale,angle:p.brushAngle},{scale:.1,ratio:1,rotation:0})
+ const recipe={kind:'defaultAuto'as const,source:p.source,coverageProfile:p.coverageProfile,brushScale:p.brushScale,brushAngle:p.brushAngle,scale:.1,ratio:1,rotation:0,subX:0,subY:0,width:g.maskSize[0],height:g.maskSize[1],mirrorH:false,mirrorV:false}
+ const materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[0,.5,1].map((grainDepth,x)=>({recipe,role:'primary'as const,x,y:2,opacity:1,flow:1,grainDepth})),fences:[{at:0,kind:'segmentBegin',group:0},...end?[{at:3,kind:'primaryEnd'as const,group:0},{at:3,kind:'segmentEnd'as const,group:0},{at:3,kind:'gestureEnd'as const}]:[]]},s.material).packed
+ return{id:'pressure5-op',userId:'author',timestamp:1,type:'canonical_stroke',layerId:'layer',frame:{version:2,rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked}}
+}
+it('keeps independent5 flags defaultOFF/required5 and denies wrong fields without invoking getters',async()=>{
+ const f=pressureAuto5Setup();expect((await new CanonicalRoomTransport(fixed4Policy).begin(identity,f.input,()=>true)).ok).toBe(false)
+ const reader=new CanonicalRoomTransport({...pressure5Policy,authorPressureTexturedSource:false});expect(reader.requiredDrawingProtocol).toBe('5');expect((await reader.begin(identity,f.input,()=>true)).ok).toBe(false)
+ expect(()=>new CanonicalRoomTransport({...pressure5Policy,pressureTexturedSource:false})).toThrow()
+ let calls=0;const getter={...pressure5Policy};Object.defineProperty(getter,'pressureTexturedSource',{get(){calls++;return pressure5Policy.pressureTexturedSource}});expect(()=>new CanonicalRoomTransport(getter)).toThrow();expect(calls).toBe(0)
+ const old=fixedAuto4Setup();expect((await new CanonicalRoomTransport(pressure5Policy).begin(identity,old.input,()=>true)).ok).toBe(false)
+ expect((await new CanonicalRoomTransport({...pressure5Policy,...fixed4Policy}).begin(identity,old.input,()=>true)).ok).toBe(true)
+})
+it('pins BEGIN5/live/durable typedEND/read5authorOFF and exact retry without coefficients on wire',async()=>{
+ const f=pressureAuto5Setup(),before=canonicalBrushDescriptorJSON(f.descriptor),t=new CanonicalRoomTransport(pressure5Policy),s=pressure5Snapshot(await t.begin(identity,f.input,()=>true))
+ expect(s.descriptorSha256).toBe(createHash('sha256').update(before).digest('hex'));expect(s.assets).toHaveLength(1);expect(s.assets[0].id).toBe(f.pattern.id);expect(s.material.primaryTexture.strength).toBe('source-pressure-curve-v1');expect(JSON.stringify(s)).not.toContain('coefficients');expect(s.material).not.toHaveProperty('materialCpuBudgetBytes')
+ const op=pressure5Operation(s);expect(t.live(identity,{layerId:'layer',frame:op.frame}).result).toEqual({ok:true,duplicate:false})
+ const saved=await t.recorded(identity,op,()=>true);expect(saved.result).toMatchObject({ok:true,seq:1});expect(db.operation.create).toHaveBeenCalledTimes(1)
+ const atoms=prepareCanonicalRecordedAttachment(saved.canonicalCapabilities,[saved.accepted!],{roomId:'board',boardEpoch:s.boardEpoch,allowedRasterProfiles:[G]});expect(atoms[0].read!.capability.snapshot.materialVersion).toBe(5)
+ const cold=new CanonicalBrushCapabilityResolver({...pressure5Policy,authorPressureTexturedSource:false,storage:f.storage,operator:()=>empty(),maxGestures:8})
+ expect(()=>cold.prepareBeginGesture(identity,f.input)).toThrow('author policy disabled')
+ const row=db.operation.create.mock.calls[0][0].data;expect(cold.readRecordedCapability({roomId:'board',boardEpoch:s.boardEpoch,operation:saved.accepted!,row}).material).toEqual(s.material);expect(cold.size).toBe(0)
+ const repeated=await t.recorded(identity,op,()=>true);expect(repeated.result).toMatchObject({ok:true,seq:1,duplicate:true});expect(db.operation.create).toHaveBeenCalledTimes(1);expect(canonicalBrushDescriptorJSON(f.descriptor)).toBe(before)
+})
+it('folds durable5 OPEN and original recorded-close with read5authorOFF through same verifier',async()=>{
+ const f=pressureAuto5Setup(),t=new CanonicalRoomTransport(pressure5Policy),s=pressure5Snapshot(await t.begin(identity,f.input,()=>true));const saved=await t.recorded(identity,pressure5Operation(s,false),()=>true);expect(saved.result.ok).toBe(true)
+ const first=saved.accepted!,row=db.operation.create.mock.calls[0][0].data,binder=new CanonicalBrushCapabilityResolver({...pressure5Policy,authorPressureTexturedSource:false,storage:f.storage,operator:()=>empty(),maxGestures:8}),fold=binder.createIndexedRecordedPrefixFold({roomId:'board',boardEpoch:s.boardEpoch,anchor:first,row,purpose:'undo-redo'})
+ fold.accept(first,row);const close=parseCanonicalStrokeCloseOperation({type:'canonical_stroke_close',id:'pressure5-close',userId:'author',timestamp:2,seq:2,layerId:'layer',targetUserId:'author',strokeId:s.strokeId,disposition:'commitPartial',recordedNext:1,firstFrameOpId:first.id,lastFrameOpId:first.id});fold.accept(close,{id:close.id,roomId:'board',userId:'author',seq:2,type:close.type,layerId:'layer',tool:null,data:close})
+ expect(fold.finish()).toMatchObject({recordedNext:1,ended:false,closeSeal:{kind:'commitPartial',closeOperationId:close.id}});expect(binder.size).toBe(0)
+})
+it.each(['missing','corrupt']as const)('rejects actual %s pattern CAS before BEGIN5 and writes nothing',async kind=>{const f=pressureAuto5Setup(),file=join(f.dir,'assets',f.pattern.id.slice(6)+'.bin');if(kind==='missing')rmSync(file);else writeFileSync(file,Buffer.alloc(256));expect((await new CanonicalRoomTransport(pressure5Policy).begin(identity,f.input,()=>true)).ok).toBe(false);expect(db.operation.create).not.toHaveBeenCalled()})

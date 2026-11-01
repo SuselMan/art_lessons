@@ -32,6 +32,8 @@ export interface CanonicalRoomExecutionPolicy {
  readonly primaryImageSource?:'single-inverse-gray-v2'|false
  readonly primaryTextureSource?:'pressure-identity-subtract-v3'|false
  readonly authorPrimaryTextureSource?:'pressure-identity-subtract-v3'|false
+ readonly pressureTexturedSource?:'pressure-default-auto-texture-v5'|false
+ readonly authorPressureTexturedSource?:'pressure-default-auto-texture-v5'|false
  readonly texturedSource?:'fixed-default-auto-texture-v4'|false
  readonly authorTexturedSource?:'fixed-default-auto-texture-v4'|false
  readonly allowedRecordedImagePipeSources?:readonly CanonicalImagePipeSource[]
@@ -115,6 +117,29 @@ export function freezeCanonicalTexturedPolicies(value:CanonicalRoomExecutionPoli
   }
  }
  return Object.freeze({texturedSource,authorTexturedSource})
+}
+
+/** Separate read5/author5; old4 permission remains independent. */
+export function freezeCanonicalPressureTexturedPolicies(value:CanonicalRoomExecutionPolicy):Readonly<Pick<CanonicalRoomExecutionPolicy,'pressureTexturedSource'|'authorPressureTexturedSource'>> {
+ const flag=(key:'pressureTexturedSource'|'authorPressureTexturedSource')=>{
+  const d=Object.getOwnPropertyDescriptor(value,key)
+  if(!d){if(key in value)throw TypeError('invalid explicit material5 policy');return false as const}
+  if(!Object.hasOwn(d,'value'))throw TypeError('invalid explicit material5 policy')
+  if(d.value===undefined||d.value===false)return false as const
+  if(d.value!=='pressure-default-auto-texture-v5')throw TypeError('invalid explicit material5 policy')
+  return d.value as 'pressure-default-auto-texture-v5'
+ }
+ const pressureTexturedSource=flag('pressureTexturedSource'),authorPressureTexturedSource=flag('authorPressureTexturedSource')
+ if(authorPressureTexturedSource&&!pressureTexturedSource)throw TypeError('material5 author requires read consumer')
+ if(pressureTexturedSource){
+  const raster=freezeCanonicalRasterPolicy(value)
+  if(!raster.allowedRecordedRasterProfiles.some(p=>canonicalStrokeRasterContract(p).genericSC))throw TypeError('material5 recorded raster unavailable')
+  if(authorPressureTexturedSource){
+   const source=freezeCanonicalAutoPolicies(value.autoSources).defaultAuto
+   if(!source||!canonicalStrokeRasterContract(raster.authorRasterProfile).genericSC||!canonicalStrokeCoverageMatches(raster.authorRasterProfile,source.coverageProfile))throw TypeError('material5 author source/raster unavailable')
+  }
+ }
+ return Object.freeze({pressureTexturedSource,authorPressureTexturedSource})
 }
 
 export type CanonicalImagePipeSource='incremental-inverse-gray-v2'|'random-inverse-gray-v2'

@@ -179,3 +179,13 @@ describe('auto eligibility requires the SAME pure family capability as canonical
   })
  }
 })
+
+import pressureActual from '../../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/textureReptile.pressure.compiled3.metadata.json'
+const pressureDescriptor=pressureActual.descriptor as unknown as BrushDescriptor
+it('admits genuine37 only through explicit independent pressure5 with native diameter100',()=>{
+ const admitted=Reflect.apply(canonicalSourceAuthorAdmission,undefined,[pressureDescriptor,generic,[pressureActual.patternAsset],{pressureTexturedSource:'pressure-default-auto-texture-v5'}])
+ expect(admitted.supported).toBe(true);expect(admitted.nativeSizePx).toBe(100);expect(admitted.material.kind).toBe('autoPressureTexture')
+ expect(canonicalSourceAuthorAdmission(pressureDescriptor,generic,[pressureActual.patternAsset]).supported).toBe(false)
+ expect(canonicalSourceAuthorAdmission(pressureDescriptor,generic,[pressureActual.patternAsset],{texturedSource:'fixed-default-auto-texture-v4'}).supported).toBe(false)
+ expect(Reflect.apply(canonicalSourceAuthorAdmission,undefined,[pressureDescriptor,generic,[],{pressureTexturedSource:'pressure-default-auto-texture-v5'}]).supported).toBe(false)
+})
