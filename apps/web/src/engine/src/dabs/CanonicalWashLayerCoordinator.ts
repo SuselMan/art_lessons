@@ -274,6 +274,16 @@ export class CanonicalWashLayerCoordinator {
       ||op.type!=='canonical_stroke'||op.userId!==author.userId||op.layerId!==this.options.layerId
       ||snapshot.layerId!==op.layerId||snapshot.boardEpoch!==scope.boardEpoch||snapshot.rasterProfile!==this.options.rasterProfile
       ||snapshot.material.maskSource)throw new TypeError('Invalid local source envelope/context')
+    // Capacity false is NOT material validation/admission. Preserve cheap
+    // original owner/namespace/layer proofs, but do not decode the same retained
+    // packed body on every full-queue retry. The free path keeps its late guard.
+    if(this.queue.length>=8){
+      const id=JSON.stringify([scope.roomId,scope.boardEpoch,author.userId,snapshot.strokeId]),entry=this.entries.find(e=>e.id===id)
+      if(entry&&(!entry.local||entry.local.author!==author))throw new Error('Local source namespace occupied')
+      if(entry?.local)this.assertLocal(entry.local)
+      this.assertLayers()
+      return false
+    }
     const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,
       frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,material:snapshot.material})
     const id=JSON.stringify([scope.roomId,scope.boardEpoch,author.userId,snapshot.strokeId]),entry=this.entries.find(e=>e.id===id)

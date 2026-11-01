@@ -39,7 +39,7 @@ function fixture(compositeSide=4){
  const material={version:2 as const,assets:[],primarySource:pin,budget:{workUnits:1048576,outputBytes:1048576,drawPixels:1048576}}
  const snapshot:CanonicalStrokeSnapshotV2={materialVersion:2,material,assets:[],layerId:'layer',brush:'brush:'+pin.descriptorId+'@'+pin.descriptorVersion,strokeId:'same',boardEpoch:1,descriptorSha256:pin.descriptorSha256,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,pigmentRgb8:[0,0,0],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'}}
  const scope=Object.freeze({roomId:'room',boardEpoch:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE})
- let current=true,replaced=false
+ let current=true,replaced=false,layerEpoch=0
  const lifetime:CanonicalRecordedLifetime=Object.freeze({assertCurrent(){if(this!==lifetime||!current)throw Error('stale');return replaced?Object.freeze({...scope}):scope}})
  const input=(userId='author',ordinal=0,seq=1,ended=false,painted=false,group=0)=>{
   const dab=painted?prepareSourceDefaultAutoDab({dialect:'krita-default-auto-qt5-arm64-v1',tip:{...pin.source,kind:'auto',spikes:2,softness:1,randomness:0,density:1},storedScale:pin.brushScale,storedAngle:pin.brushAngle,shape:{scale:.01,ratio:1,rotation:0},subpixelX:0,subpixelY:0,coverageProfile:nativeCoverage,maxPixels:1048576,maxWorkSamples:16*1048576}):undefined
@@ -53,7 +53,7 @@ function fixture(compositeSide=4){
   accepted=Object.freeze({...atom,delivery});return accepted
  }
  const source=vi.fn(()=>({autoSource:pin}))
- const coordinator=new CanonicalWashLayerCoordinator({rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,layerId:'layer',layerEpoch:0,maxGestures:4,layer:()=>({buffer:layer,epoch:0}),presentation:()=>({buffer:derived,epoch:0}),prepass,composite,scratch,source,reserveTransient:()=>()=>{},changed:()=>{},poison:()=>{}})
+ const coordinator=new CanonicalWashLayerCoordinator({rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,layerId:'layer',layerEpoch:0,maxGestures:4,layer:()=>({buffer:layer,epoch:layerEpoch}),presentation:()=>({buffer:derived,epoch:0}),prepass,composite,scratch,source,reserveTransient:()=>()=>{},changed:()=>{},poison:()=>{}})
  const seal=(frame:CanonicalRecordedInput,patch:Partial<CanonicalStrokeCloseOperation>={})=>{
   const op=frame.operation;if(op.type!=='canonical_stroke')throw Error('frame')
   let accepted:CanonicalRecordedInput
@@ -66,7 +66,7 @@ function fixture(compositeSide=4){
   return author
  }
  const local=(value:CanonicalRecordedInput):CanonicalStrokeOperation=>{if(value.operation.type!=='canonical_stroke')throw Error('frame');const {seq:_seq,...op}=value.operation;return Object.freeze(op)}
- return {coordinator,layer,derived,cpu,gl,scratch,composite,input,seal,source,snapshot,localAuthor,local,stale:()=>{current=false},replaceScope:()=>{replaced=true},close(){coordinator.cancel();scratch.destroy();layer.destroy();derived.destroy();prepass.reset();composite.reset()}}
+ return {coordinator,layer,derived,cpu,gl,scratch,composite,input,seal,source,snapshot,localAuthor,local,stale:()=>{current=false},replaceScope:()=>{replaced=true},changeLayer:()=>{layerEpoch=1},close(){coordinator.cancel();scratch.destroy();layer.destroy();derived.destroy();prepass.reset();composite.reset()}}
 }
 
 describe('original-lifetime recorded prefix owner',()=>{
@@ -205,6 +205,8 @@ describe('provisional lane pressure and global original ordering',()=>{
    expect(s.coordinator.queuedFrameCount).toBe(8)
    for(let i=0;i<40&&s.coordinator.queuedFrameCount===8;i++)s.coordinator.advance()
    expect(s.coordinator.tryEnqueueLocal(author,ninth)).toBe(true)
+   expect(s.coordinator.tryEnqueueLocal(author,ninth)).toBe(false) // full again: no validation/admission
+   for(let i=0;i<40&&s.coordinator.queuedFrameCount===8;i++)s.coordinator.advance()
    expect(()=>s.coordinator.tryEnqueueLocal(author,ninth)).toThrow()
    expect(s.source).toHaveBeenCalledTimes(1)
   }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
@@ -508,4 +510,64 @@ it('cancels deferred dirty originals without leaking source or scratch ownership
   expect(s.coordinator.pending).toBe(true);s.coordinator.cancel()
   expect(s.coordinator.presentationReady).toBe(false);expect(s.coordinator.checkpointReady).toBe(false)
  }finally{s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+
+it('checks current local proofs but does not read the packed body or reserve on repeated REAL full-queue retries',()=>{
+ const s=fixture();try{
+  const author=s.localAuthor()
+  for(let i=0;i<8;i++)expect(s.coordinator.tryEnqueueLocal(author,s.local(s.input('author',i,i+1)))).toBe(true)
+  const ninth=s.local(s.input('author',8,9,true));let packedReads=0
+  const frame=new Proxy(ninth.frame,{get(target,key,receiver){if(key==='materialPacked')packedReads++;return Reflect.get(target,key,receiver)}})
+  const original=Object.freeze({...ninth,frame}),entry=s.coordinator['entries'][0],local=entry.local!,prefix=local.state,receipts=[...local.receipts],bytes=s.cpu.reservedBytes
+  const reserve=vi.spyOn(s.cpu,'reserve'),sourceCalls=s.source.mock.calls.length
+  for(let i=0;i<3;i++)expect(s.coordinator.tryEnqueueLocal(author,original)).toBe(false)
+  expect(packedReads).toBe(0);expect(reserve).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(bytes)
+  expect(local.state).toBe(prefix);expect(local.receipts).toEqual(receipts);expect(s.coordinator.queuedFrameCount).toBe(8);expect(s.source).toHaveBeenCalledTimes(sourceCalls)
+  reserve.mockRestore()
+  for(let turns=0;turns<40&&s.coordinator.queuedFrameCount===8;turns++)s.coordinator.advance()
+  expect(s.coordinator.queuedFrameCount).toBeLessThan(8)
+  expect(s.coordinator.tryEnqueueLocal(author,original)).toBe(true);expect(packedReads).toBeGreaterThan(0)
+  expect(local.receipts).toHaveLength(receipts.length+1);expect(local.receipts.at(-1)?.operation).toBe(original)
+  const acceptedPrefix=local.state,acceptedReceipts=[...local.receipts],acceptedBytes=s.cpu.reservedBytes
+  expect(s.coordinator.tryEnqueueLocal(author,original)).toBe(false)
+  expect(local.state).toBe(acceptedPrefix);expect(local.receipts).toEqual(acceptedReceipts);expect(s.cpu.reservedBytes).toBe(acceptedBytes);expect(s.coordinator.queuedFrameCount).toBe(8)
+  for(let turns=0;turns<40&&s.coordinator.queuedFrameCount===8;turns++)s.coordinator.advance()
+  expect(()=>s.coordinator.tryEnqueueLocal(author,original)).toThrow()
+  expect(local.state).toBe(acceptedPrefix);expect(local.receipts).toEqual(acceptedReceipts)
+ }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+})
+it.each(['author','namespace','layer']as const)('keeps the actual %s proof mandatory while the local queue is full',mode=>{
+ const s=fixture();try{
+  const author=s.localAuthor()
+  for(let i=0;i<8;i++)s.coordinator.tryEnqueueLocal(author,s.local(s.input('author',i,i+1)))
+  const next=s.local(s.input('author',8,9,true)),bytes=s.cpu.reservedBytes
+  if(mode==='author')s.stale()
+  if(mode==='layer')s.changeLayer()
+  const selected=mode==='namespace'?s.localAuthor():author
+  expect(()=>s.coordinator.tryEnqueueLocal(selected,next)).toThrow(mode==='author'?/stale/:mode==='namespace'?/namespace/:/layer/)
+  expect(s.coordinator.queuedFrameCount).toBe(8);expect(s.cpu.reservedBytes).toBe(bytes)
+ }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+})
+it('defers malformed material under real full capacity but never admits it when one actual slot drains',()=>{
+ const s=fixture();try{
+  const author=s.localAuthor();for(let i=0;i<8;i++)s.coordinator.tryEnqueueLocal(author,s.local(s.input('author',i,i+1)))
+  const ninth=s.local(s.input('author',8,9,true)),malformed=Object.freeze({...ninth,frame:Object.freeze({...ninth.frame,materialPacked:'not a packed material'})}),local=s.coordinator['entries'][0].local!,prefix=local.state,receipts=local.receipts.length
+  expect(s.coordinator.tryEnqueueLocal(author,malformed)).toBe(false)
+  expect(local.state).toBe(prefix);expect(local.receipts).toHaveLength(receipts)
+  for(let turns=0;turns<40&&s.coordinator.queuedFrameCount===8;turns++)s.coordinator.advance()
+  const bytes=s.cpu.reservedBytes,count=s.coordinator.queuedFrameCount
+  expect(()=>s.coordinator.tryEnqueueLocal(author,malformed)).toThrow()
+  expect(local.state).toBe(prefix);expect(local.receipts).toHaveLength(receipts);expect(s.coordinator.queuedFrameCount).toBe(count);expect(s.cpu.reservedBytes).toBe(bytes)
+ }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('retains the late current-layer guard after packed-body callbacks on the free-capacity path',()=>{
+ const s=fixture();try{
+  const author=s.localAuthor(),first=s.local(s.input())
+  s.coordinator.tryEnqueueLocal(author,first)
+  const next=s.local(s.input('author',1,2)),entry=s.coordinator['entries'][0],local=entry.local!,prefix=local.state,receipts=local.receipts.length,bytes=s.cpu.reservedBytes
+  const frame=new Proxy(next.frame,{get(target,key,receiver){if(key==='materialPacked')s.changeLayer();return Reflect.get(target,key,receiver)}})
+  expect(()=>s.coordinator.tryEnqueueLocal(author,Object.freeze({...next,frame}))).toThrow(/layer/)
+  expect(local.state).toBe(prefix);expect(local.receipts).toHaveLength(receipts);expect(s.coordinator.queuedFrameCount).toBe(1);expect(s.cpu.reservedBytes).toBe(bytes)
+ }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
 })

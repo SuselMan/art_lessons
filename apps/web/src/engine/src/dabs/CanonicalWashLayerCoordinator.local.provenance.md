@@ -92,3 +92,47 @@ focused coverage is204 tests across five suites. Root separately observed a
 perturbed longstroke first-ink detection after the earlier first JS submission;
 that confirms the dashboard distinction, not a measured improvement from this
 source fix. Final combined app/SW typing is pending root's coordinated freeze.
+
+## Capacity refusal before repeated packed-body work (2026-11-01)
+
+Actual A8 sourceProfile showed149 local admission attempts/56 accepted/93 queue
+pressure false outcomes.23 pressure-only FIFO pumps account for46 false attempts
+and8.5ms of admission JS (10.9ms whole pump). This proves redundant validation
+work; it is not a claim that this change removes the separately measured339.6ms
+coordinator rendering or improves physical pen latency.
+
+`tryEnqueueLocal` now checks real full queue after original current/read, exact
+header/context/author and namespace/previous-local/layer proofs, before decoding
+the retained packed frame and deriving a throwaway prefix. A false result is only
+NOT ADMITTED, never material validation, ordinal reservation or a source grant.
+No decoded frame cache, queue, cap, shader/pixel law or authority is added. When
+capacity is free, the original decode/prefix/layer/late capacity/reservation and
+admission ordering remains unchanged; its late guards still cover callbacks.
+Valid queue-full attempts do not add GL queries: they retain the original single
+layer proof while skipping packed work.
+
+Error priority deliberately changes ONLY under full capacity: namespace/current
+layer errors may precede malformed material, while material/prefix/duplicate
+validation is deferred until capacity exists. Such a frame is never accepted
+while deferred. One existing ninth-frame test now explicitly expects duplicate
+false while full, then drains actual executor work and still expects the original
+prefix rejection. No accepted duplicate or cleared pending state is permitted.
+
+Tests-first: clean source baseline2 semantic FAIL/3 controls PASS. A frozen valid
+actual ninth frame with a transparent read-counting Proxy still traversed packed
+body while full; malformed body also threw before refusal. Final source passes71
+coordinator tests across5 files, then45 recorded tests after strengthening
+explicit duplicate prefix/receipt/CPU/no-mutation assertions. Eight entries are
+filled via actual tryEnqueueLocal and freed only through actual advance; no
+private-array clearing, fake END, larger limit or paused-owner shortcut. Negative
+controls preserve current author, namespace and changed layer failures while full;
+a callback changing layer during real free-capacity decode still fails its late
+layer guard. Same original frame accepts exactly once after actual drain; malformed
+material then rejects without prefix/receipt/reservation mutation. Cleanup CPU0.
+
+Targeted actual app-options/shared-source TypeScript PASS, scoped oxlint0 errors/
+0 warnings, diff check PASS. Initial diagnostic red log included one test fixture
+attempt to spy on a frozen layer getter; corrected fixture uses its actual epoch
+callback and the retained final RED is purely semantic. Source-only checks do not
+activate runtime or constitute a device/latency proof. No engine/index/UI/server,
+shared/dist or protected foreign shader was changed by this unit.
