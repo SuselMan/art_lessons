@@ -84,13 +84,15 @@ export function useLostWork({ engineRef, restoredLayerStateRef, syncFromLog }: L
   const recoverLostWork = useCallback((lost: LostContentOp[]) => {
     const engine = engineRef.current
     if (!lost.length || !engine) return
+    const derived = engine.getRoomDerivedState()
+    if (derived.kind !== 'legacy') return
     const { layerState: live, userId } = useRoomStore.getState()
     // (#493) Which operations bring it back — see recoveryOperations. Same
     // optimistic path dispatchOp takes for local-island work: a brand-new
     // layer and strokes onto it can't conflict with anything, since nobody
     // else has heard of the id yet.
     const { operations, layerNames, restoredLayerIds } = recoveryOperations({
-      lost, live, log: engine.getOperations(), restored: restoredLayerStateRef.current, userId,
+      lost, live, log: derived.operations, restored: restoredLayerStateRef.current, userId,
       unnamedLayer: t('room.lostWork.unnamedLayer'),
       restoredName: name => t('room.lostWork.restoredLayerName', { name }),
       newId: () => nanoid(10), now: () => Date.now(),

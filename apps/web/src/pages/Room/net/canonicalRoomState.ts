@@ -3,7 +3,8 @@ import type {CanonicalRecordedLifetime} from '../../../engine'
 import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_RECORDED_ATTACHMENT_LIMITS,LEGACY_ROOM_RASTER_VERSION,STRAIGHT_ROOM_RASTER_VERSION,readRoomRasterVersion,canonicalRecordedRasterProfiles,prepareCanonicalRecordedAttachment,verifyCanonicalEmptyHistoryBase,verifyCanonicalFullHistoryBase,captureCanonicalFullHistoryMetadata,type CanonicalFullHistoryBaseV2,type CanonicalEmptyHistoryBaseV1,type CanonicalPreparedRecordedOperation,type CanonicalStrokeRasterProfile,type Operation,type ServerToClientEvents} from '@grafetto/shared'
 import {type CanonicalHistoryScope} from './canonicalHistoryPage'
 
-type WireState=Parameters<ServerToClientEvents['room_state']>[0]
+type WireState=import('@grafetto/shared').RoomStateLegacyPayload
+type IncomingWireState=Parameters<ServerToClientEvents['room_state']>[0]
 const authority:unique symbol=Symbol('prepared-canonical-room-state')
 export interface CanonicalRoomStateRead extends CanonicalRecordedLifetime {
  readonly scope:CanonicalHistoryScope
@@ -17,8 +18,11 @@ export interface CanonicalRoomStateRead extends CanonicalRecordedLifetime {
  assertEmptyHistoryBase(candidateTail:readonly Operation[]):Readonly<CanonicalEmptyHistoryBaseV1>
  readonly [authority]:(candidate:unknown,operations:readonly Operation[],boardId:string)=>void
 }
+/** Original connection metadata shared by both finite-history readers. */
+export type CanonicalRoomConnectionRead=Pick<CanonicalRoomStateRead,'scope'|'roomGeometry'|'authorRasterProfile'|'assertCurrent'>
 export type PreparedCanonicalRoomState=WireState&{readonly canonicalRead:CanonicalRoomStateRead}
-export type RoomStateDelivery=WireState&{readonly canonicalRead?:CanonicalRoomStateRead}
+export type IndexedRoomStateDelivery=import('@grafetto/shared').RoomStateIndexedPayload&{readonly canonicalRead?:never;readonly canonicalIndexedRead:import('./canonicalIndexedRead').CanonicalIndexedSocketRead}
+export type RoomStateDelivery=(WireState&{readonly canonicalRead?:CanonicalRoomStateRead;readonly canonicalIndexedRead?:never})|IndexedRoomStateDelivery
 export type CanonicalRoomStatePreparer=(state:WireState,lifetime:{readonly isCurrent:()=>boolean;readonly expectedBoardId?:string})=>PreparedCanonicalRoomState
 /** Internal exact lexical resource: a network object or copied internal marker
  * cannot authorize a raw tail, another board or an expired socket lifetime. */
@@ -83,7 +87,8 @@ export function prepareCanonicalRoomState(state:WireState,lifetime:{readonly exp
 }
 /** Runs before ordered brush loading, review stores, refs or replay queues.
  * No injected preparer means the existing legacy-only lane remains closed. */
-export function preflightRoomStateDelivery(state:WireState,prepare?:CanonicalRoomStatePreparer,lifetime?:{readonly isCurrent:()=>boolean;readonly expectedBoardId?:string}):RoomStateDelivery {
+export function preflightRoomStateDelivery(state:IncomingWireState,prepare?:CanonicalRoomStatePreparer,lifetime?:{readonly isCurrent:()=>boolean;readonly expectedBoardId?:string}):RoomStateDelivery {
+ if(state.canonicalIndexedHistory!==undefined)throw Error('Indexed history requires an actual post-seat open')
  const version=readRoomRasterVersion(state.room.rasterVersion)
  if(version===LEGACY_ROOM_RASTER_VERSION){
   if(state.tailOperations?.some(op=>(op.type as string)==='canonical_stroke_close'))throw Error('Canonical close requires a recorded seal owner')

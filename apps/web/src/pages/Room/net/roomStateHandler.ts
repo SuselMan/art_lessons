@@ -1,8 +1,9 @@
+import type {CanonicalIndexedSocketRead} from './canonicalIndexedRead'
 import {assertCanonicalRoomStateRead,type CanonicalRoomStateRead,type RoomStateDelivery} from './canonicalRoomState'
 import { LEGACY_ROOM_RASTER_VERSION,STRAIGHT_ROOM_RASTER_VERSION, readRoomRasterVersion } from '@grafetto/shared'
 import type { RefObject } from 'react'
 
-import type { ClientToServerEvents, JoinDenial, Operation, Participant, ServerToClientEvents } from '@grafetto/shared'
+import type { ClientToServerEvents, JoinDenial, Operation, Participant } from '@grafetto/shared'
 
 import { entryBoard } from '../../../lib/boards/boards'
 import { useRoomStore } from '../../../stores/roomStore'
@@ -11,15 +12,16 @@ import type { SnapshotGate } from './snapshotGate'
 
 /** What a board's `room_state` carries beyond the lesson half — the content
  *  a fresh engine is built from, or stashed until one exists. */
-export interface RoomStateStash {
-  canonicalRead?:CanonicalRoomStateRead
-  latestSnapshotSeq: number | null
-  tailOperations: Operation[]
+interface RoomStateStashCommon {
   participants: Participant[]
   palette: string[]
   /** (#254/#255) Room-wide freeze at the moment this state was sent. */
   frozen: boolean
 }
+export type RoomStateStash = RoomStateStashCommon & (
+ | {canonicalRead?:CanonicalRoomStateRead;canonicalIndexedRead?:never;latestSnapshotSeq:number|null;tailOperations:Operation[]}
+ | {canonicalIndexedRead:CanonicalIndexedSocketRead;canonicalRead?:never;latestSnapshotSeq:null;tailOperations?:never}
+)
 
 /** `Engine` is whatever Room's engine is: this handler only asks whether one
  *  exists and hands it on, so it never needs to know. */
@@ -75,13 +77,24 @@ export function createRoomStateHandler<Engine>({
   clearRestoreFailure, restoreCatchup, holdReviewArrivals,
   socketBoardRef, wantedBoardRef, firstRoomStateReceivedRef, awaitingSeededBoardStateRef,
   pendingSnapshotRef, latestKnownSeqRef, isOwnerRef, engineRef, snapshotGateRef,
-}: RoomStateDeps<Engine>): ServerToClientEvents['room_state'] {
-  return async ({ room, latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen, lesson,canonicalRead }:RoomStateDelivery) => {
+}: RoomStateDeps<Engine>): (state:RoomStateDelivery)=>Promise<void> {
+  return async (state:RoomStateDelivery) => {
+    const {room,latestSnapshotSeq,tailOperations,participants:roomParticipants,palette,frozen,lesson,canonicalRead,canonicalIndexedRead}=state
+    const stash:RoomStateStash=canonicalIndexedRead
+      ?{latestSnapshotSeq:null,participants:roomParticipants,palette,frozen,canonicalIndexedRead}
+      :{latestSnapshotSeq,tailOperations:tailOperations!,participants:roomParticipants,palette,frozen,...canonicalRead?{canonicalRead}:{}}
+    // This is the complete annotation history for the closed indexed format;
+    // it is never supplied as a pixel baseline or an original journal tail.
+    const reviewHistory=canonicalIndexedRead?[]:tailOperations
+
     // Validate trusted server metadata before storing/restoring any content.
     try {
       const version=readRoomRasterVersion(room.rasterVersion)
-      if(version===STRAIGHT_ROOM_RASTER_VERSION&&canonicalRead)assertCanonicalRoomStateRead(canonicalRead,tailOperations,room.id)
-      else if (version !== LEGACY_ROOM_RASTER_VERSION||canonicalRead) {
+      if(canonicalIndexedRead){
+        canonicalIndexedRead.assertCurrent(canonicalIndexedRead)
+        if(version!==STRAIGHT_ROOM_RASTER_VERSION||canonicalIndexedRead.scope.roomId!==room.id||latestSnapshotSeq!==null||tailOperations!==undefined)throw Error('Invalid indexed room origin')
+      }else if(version===STRAIGHT_ROOM_RASTER_VERSION&&canonicalRead&&tailOperations)assertCanonicalRoomStateRead(canonicalRead,tailOperations,room.id)
+      else if (version !== LEGACY_ROOM_RASTER_VERSION||canonicalRead||!tailOperations) {
         throw new Error('Unsupported raster version')
       }
     } catch {
@@ -101,7 +114,7 @@ export function createRoomStateHandler<Engine>({
     socketBoardRef.current = arrivedBoard
     if (store.reviewBoardId === arrivedBoard) {
       holdReviewArrivals?.()
-      store.seedReviewHistory(arrivedBoard, tailOperations)
+      store.seedReviewHistory(arrivedBoard, reviewHistory!)
     }
 
     if (!firstRoomStateReceivedRef.current) {
@@ -168,12 +181,24 @@ export function createRoomStateHandler<Engine>({
       // next turn.
       const evacuated = wantedBoardRef.current === null && store.boardId !== null
       if (evacuated && !isOwnerRef.current) store.setFollowing(true)
-      enterBoard(arrivedBoard, { latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen,...canonicalRead?{canonicalRead}:{} })
-      useRoomStore.getState().seedReviewHistory(arrivedBoard, tailOperations)
+      enterBoard(arrivedBoard, stash)
+      useRoomStore.getState().seedReviewHistory(arrivedBoard, reviewHistory!)
       maybeFollow()
       return
     }
     wantedBoardRef.current = null
+    if(canonicalIndexedRead){
+      maybeFollow()
+      if(wantedBoardRef.current!==null&&wantedBoardRef.current!==arrivedBoard)return
+      if(!replaceCanonicalRoom){setRoomContentReady(false);reportJoinFailure('unsupported_raster_version','indexed replacement unavailable');return}
+      try{
+        canonicalIndexedRead.assertCurrent(canonicalIndexedRead)
+        replaceCanonicalRoom(arrivedBoard,stash)
+        awaitingSeededBoardStateRef.current=false
+      }catch{setRoomContentReady(false);reportJoinFailure('unsupported_raster_version','indexed replacement failed')}
+      return
+    }
+    if(!tailOperations)throw Error('Original legacy room tail unavailable')
     if(canonicalRead?.fullHistoryBase){
       maybeFollow()
       if(wantedBoardRef.current!==null&&wantedBoardRef.current!==arrivedBoard)return

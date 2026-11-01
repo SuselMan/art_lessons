@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type Dispatch, type RefObject, type SetStateAction } from 'react'
+import { useCallback, useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react'
 import clsx from 'clsx'
 
 import { Icon } from '../../../components/Icon'
@@ -180,18 +180,27 @@ export function RoomHeader({
   // the flag, so it can come back as an option inside a real export dialog if
   // it's ever actually missed.
 
-  // #15: serializes the operation log as-is (same shape appendOperation/
-  // getOperations already deal in) so the exact same JSON could later be
-  // replayed back through appendOperation('remote') to restore the session.
-  const handleSaveSession = useCallback(() => {
+  // Explicit download reads complete original history; the engine's bounded
+  // retained suffix is not a session export.
+  const savePendingRef = useRef<AbortController|null>(null)
+  useEffect(()=>()=>{savePendingRef.current?.abort()},[])
+  const handleSaveSession = useCallback(async () => {
     const engine = engineRef.current
-    const ops = engine?.getOperations(); if (!ops) return
-    const blob = new Blob([JSON.stringify(ops, null, 2)], { type: 'application/json' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url; a.download = `${config?.name ?? 'drawing'}-session.json`; a.click()
-    URL.revokeObjectURL(url)
-  }, [config, engineRef])
+    if (!engine || savePendingRef.current) return
+    const controller=new AbortController()
+    savePendingRef.current = controller
+    try {
+      const blob = await engine.exportSessionJSON({signal:controller.signal})
+      if (controller.signal.aborted || engineRef.current !== engine) return
+      const url = URL.createObjectURL(blob)
+      try {
+        const a = document.createElement('a')
+        a.href = url; a.download = `${config?.name ?? 'drawing'}-session.json`; a.click()
+      } finally { URL.revokeObjectURL(url) }
+    } catch {
+      if (!controller.signal.aborted && engineRef.current === engine) void showAlert({ message: t('room.error.saveSession') })
+    } finally { if(savePendingRef.current===controller)savePendingRef.current = null }
+  }, [config, engineRef, showAlert, t])
 
   if (!config) return null
 

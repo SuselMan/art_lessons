@@ -201,6 +201,7 @@ export function useRemoteOperations({
   const restoreFromSnapshot = useCallback(async (
     engine: PencilEngineAPI, roomId: string,canonicalRead?:CanonicalRoomStateRead,
   ): Promise<SnapshotRestoreOutcome['status']> => {
+    if (engine.getRoomDerivedState().kind === 'canonical-indexed-v1') throw Error('Indexed original history requires original replay')
     // Constructor-latched room mode is the destination authority. Capture before
     // any network await; a blob tag or later room metadata never selects it.
     if(canonicalRead){

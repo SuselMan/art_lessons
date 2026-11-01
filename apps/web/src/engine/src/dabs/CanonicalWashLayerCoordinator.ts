@@ -170,6 +170,23 @@ export class CanonicalWashLayerCoordinator {
   get checkpointReady(): boolean { return this.presentationReady && !this.queue.length && this.entries.every(e => e.committed) }
   get cleanupFailures(): readonly unknown[] { return Object.freeze([...this.errors]) }
 
+  /** Resource reuse only. Original append still validates the complete receipt
+   * and prefix and performs its own final publication checks. */
+  hasLocalRecordedPromotion(input:CanonicalRecordedInput):boolean {
+    this.assertOpen();input.delivery.assertCurrent(input);this.assertRecordedCurrent();this.assertLayers()
+    const lifetime=input.delivery.lifetime,scope=lifetime.assertCurrent(),op=input.operation,read=input.read
+    if(op.type!=='canonical_stroke'||!read||op.seq!==read.sequence||read.operationId!==op.id)return false
+    const id=JSON.stringify([scope.roomId,scope.boardEpoch,op.userId,op.frame.strokeId]),entry=this.entries.find(e=>e.id===id),local=entry?.local,receipt=local?.receipts[0]
+    if(!entry||!local||!receipt)return false
+    this.assertLocal(local);input.delivery.assertCurrent(input)
+    if(lifetime.assertCurrent()!==scope)throw new Error('Recorded scope replaced')
+    return this.entries.includes(entry)&&entry.local===local&&local.receipts[0]===receipt
+      &&local.author.lifetime===lifetime&&local.scope===scope&&local.author.userId===op.userId
+      &&samePaintData(local.author.snapshot,read.capability.snapshot)
+      &&receipt.operation.id===op.id&&receipt.operation.userId===op.userId&&receipt.operation.layerId===op.layerId
+      &&receipt.frame.materialPacked===op.frame.materialPacked&&receipt.frame.frameOrdinal===op.frame.frameOrdinal
+      &&receipt.frame.strokeId===op.frame.strokeId
+  }
   /** Capacity only, never a reservation or source/sequence grant. */
   canAcceptRecorded(input:CanonicalRecordedInput):boolean {
     this.assertOpen();input.delivery.assertCurrent(input);this.assertRecordedCurrent();this.assertLayers()

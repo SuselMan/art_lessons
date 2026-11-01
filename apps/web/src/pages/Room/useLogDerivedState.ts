@@ -50,10 +50,17 @@ export function useLogDerivedState({ engineRef }: LogDerivedStateDeps) {
   const deriveLayerStateFromLog = useCallback(() => {
     const base = restoredLayerStateRef.current
     const engine = engineRef.current
-    const ops = base
-      ? (engine?.getOperationsSinceRestore() ?? [])
-      : (engine?.getOperations() ?? [])
-    useRoomStore.getState().syncLayerStateFromLog(base ?? makeInitialLayerState(), ops)
+    const derived = engine?.getRoomDerivedState()
+    const store = useRoomStore.getState()
+    if (derived?.kind === 'canonical-indexed-v1') {
+      // The closed original format has exactly the implicit initial structure
+      // and no annotations. Existing setters preserve local UI selection/locks.
+      store.syncLayerStateFromLog(makeInitialLayerState(), [])
+      store.syncAnnotationsFromLog([])
+      return
+    }
+    const ops = base ? (derived?.sinceRestore ?? []) : (derived?.operations ?? [])
+    store.syncLayerStateFromLog(base ?? makeInitialLayerState(), ops)
     // (#508) Annotations fold from the *whole* done log, not from the
     // since-restore tail LayerState uses, and with no base to sit on. The
     // asymmetry is the point: a snapshot restores pixels and the stored
@@ -63,7 +70,7 @@ export function useLogDerivedState({ engineRef }: LogDerivedStateDeps) {
     // Every annotation operation the room ever had is therefore present here,
     // and folding all of them from empty is both correct and, because the fold
     // is keyed by annotation id, immune to being run twice.
-    useRoomStore.getState().syncAnnotationsFromLog(engine?.getOperations() ?? [])
+    store.syncAnnotationsFromLog(derived?.operations ?? [])
   }, [engineRef])
   const syncFromLog = useCallback(() => {
     if (syncFromLogScheduledRef.current) return

@@ -486,6 +486,7 @@ export const en = {
   'room.reopen': 'Reopen',
   'room.takeCopy': 'Take a copy',
   'room.error.rename': 'Could not rename the project',
+  'room.error.saveSession': 'Could not save the session. Try again after the drawing finishes syncing.',
   'room.error.historyChange': 'Could not change the drawing history',
   'room.error.reopen': 'Could not reopen the project',
   'room.error.takeCopy': 'Could not make your copy',

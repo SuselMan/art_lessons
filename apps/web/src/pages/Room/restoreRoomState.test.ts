@@ -1,3 +1,4 @@
+import {indexedSocketFixture} from '../../engine/testing/canonicalIndexedReadFixture'
 import { expect, it, vi } from 'vitest'
 import type { Operation, OperationUndoOperation, OperationRedoOperation } from '@grafetto/shared'
 
@@ -300,5 +301,40 @@ it.each(['stale','throw','superseded']as const)('does not publish full V2 baseli
   expect(f.sink).toHaveBeenCalledOnce();expect(resume).toHaveBeenCalledOnce()
   expect(f.deps.latestKnownSeqRef.current).toBe(0);expect(f.deps.setRoomContentReady).not.toHaveBeenCalledWith(true)
   expect(f.deps.applyRemoteOp).not.toHaveBeenCalled();expect(f.deps.syncFromLogNow).not.toHaveBeenCalled()
+ }finally{f.engine.destroy()}
+})
+
+it('restores indexed admission through one original cursor sink without legacy tail or uploader',async()=>{
+ const f=emptyRestoreFixture(),issuer=indexedSocketFixture(),read=await issuer.open()
+ const sink=vi.fn(async()=>{read.assertCurrent(read)})
+ f.deps.restoreCanonicalIndexedRoom=sink
+ const state={canonicalIndexedRead:read,latestSnapshotSeq:null,participants:[],palette:[],frozen:false}
+ try{
+  await restoreRoomState(f.engine,state,{mode:'join',alreadyHadSeq:0},f.deps)
+  expect(sink).toHaveBeenCalledExactlyOnceWith(f.engine,read)
+  expect(f.sink).not.toHaveBeenCalled()
+  expect(f.deps.applyRemoteOp).not.toHaveBeenCalled()
+  expect(f.deps.restoreFromSnapshot).not.toHaveBeenCalled()
+  expect(f.deps.backfillHistory).not.toHaveBeenCalled()
+  expect(f.deps.getSnapshotUploader).not.toHaveBeenCalled()
+  expect(f.deps.latestKnownSeqRef.current).toBe(1)
+  expect(f.deps.setRoomContentReady).toHaveBeenCalledWith(true)
+ }finally{f.engine.destroy()}
+})
+
+it.each(['stale','throw','superseded']as const)('does not announce indexed content after %s restore',async kind=>{
+ const f=emptyRestoreFixture(),issuer=indexedSocketFixture(),read=await issuer.open()
+ f.deps.restoreCanonicalIndexedRoom=vi.fn(async()=>{
+  await Promise.resolve()
+  if(kind==='stale')issuer.setCurrent(false)
+  if(kind==='throw')throw Error('Indexed restore failed')
+  if(kind==='superseded')f.deps.replayGate.begin()
+ })
+ try{
+  await restoreRoomState(f.engine,{canonicalIndexedRead:read,latestSnapshotSeq:null,participants:[],palette:[],frozen:false},{mode:'join',alreadyHadSeq:0},f.deps)
+  expect(f.deps.latestKnownSeqRef.current).toBe(0)
+  expect(f.deps.setRoomContentReady).not.toHaveBeenCalledWith(true)
+  expect(f.deps.syncFromLogNow).not.toHaveBeenCalled()
+  expect(f.sink).not.toHaveBeenCalled()
  }finally{f.engine.destroy()}
 })

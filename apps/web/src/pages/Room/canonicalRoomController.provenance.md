@@ -317,3 +317,31 @@ Room1914/1915, map:rules PASS0errors/24knownwarnings/11ignored, diffcheck PASS.
 No source runtime, device, service, database or browser process was started by
 this unit. Frozen scope10 is awaiting ROOT's atomic paired16 commit (U1six plus
 these ten); there is no standalone U1 activation commit or push.
+
+## Indexed U3 connection binding
+
+Healthy history now captures a tagged full original read/tail or the authenticated
+`CanonicalIndexedSocketOrigin`. The indexed branch requires the original parent
+scope and board; finite page/cursor cancellation does not retire that parent.
+The full branch retains its private read validator and original full-history
+base/tail assertion. Neither branch fabricates a baseline or transfers authority
+from an ACK/cut. Outbox lineage retains that same connection origin.
+
+`beginControl` accepts the connection metadata interface and an undefined tail
+for an indexed parent. The existing receipt, durable sequence latch, body equality,
+Outbox ACK handling, pending/source drain and recovery interval remain shared.
+`confirmedIndexedControl` accepts only the exact original `CanonicalRecordedInput`
+with the same captured lifetime, no recorded source attachment, a closed undo/redo
+schema and positive durable sequence. It requires no released page payload.
+The lifecycle exposes `confirmedIndexed(input, origin, engine)`; its indexed local
+operation handler uses the existing canonical control lane and enqueue rollback.
+No indexed source error or healthy history event mints physical retirement.
+
+Host controller tests cover released page/cancelled cursor input, copied origin
+and input, wrong lifetime/board/cursor, stale connection and engine, receipt failure,
+ACK before metadata, durable watermark maximum, duplicate metadata, and the same
+Room lifecycle's single replay ticket released only after actual resync invalidates
+the parent. These tests use authenticated socket-fixture origins and controlled
+ACKs. They do not attest real database durability, actual engine target selection,
+GPU pixels or device performance; those remain paired integration gates. The
+feature remains inactive until ROOT wires and verifies the complete pair.

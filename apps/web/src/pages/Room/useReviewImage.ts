@@ -36,7 +36,8 @@ export function useReviewImage(engineRef: RefObject<PencilEngineAPI | null>, roo
 
   useEffect(() => {
     if (!roomContentReady || useRoomStore.getState().reviewAnnotationHistory === null) return
-    useRoomStore.getState().finishReviewHistory(engineRef.current?.getOperations() ?? [])
+    const derived = engineRef.current?.getRoomDerivedState()
+    useRoomStore.getState().finishReviewHistory(derived?.kind === 'legacy' ? derived.operations : [])
   }, [engineRef, roomContentReady])
 
   const visible = !roomContentReady && annotationMode && connected && image?.boardId === boardId && boardId === reviewBoardId

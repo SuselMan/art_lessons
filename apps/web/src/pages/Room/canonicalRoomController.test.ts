@@ -503,3 +503,75 @@ it('adapts Room refs to the SAME healthy interval and releases its lexical repla
  expect(resync).toHaveBeenCalledOnce();expect(joining).toHaveBeenCalledOnce();expect(readRef.current.scope.isCurrent()).toBe(false);expect(end).toHaveBeenCalledOnce();expect(notify).not.toHaveBeenCalled()
  room.confirmed({...operation,seq:4},state().stash.canonicalRead,engine);expect(resync).toHaveBeenCalledOnce()
 })
+
+async function indexedHistoryControl(){
+ const {indexedSocketFixture}=await import('../../engine/testing/canonicalIndexedReadFixture')
+ const operation={id:'metadata',type:'operation_undo' as const,userId:'actor',timestamp:0,targetOpId:'frame1',seq:1}
+ const fixture=indexedSocketFixture([operation]),read=await fixture.open(),origin=read.lifetime
+ const page=await read.nextPage(),input=page!.inputs()[0]
+ page!.release();await read.cancel()
+ const engine={hasActiveCanonicalAuthor:vi.fn(()=>false),setLocked:vi.fn()} as unknown as import('../../engine').PencilEngineAPI
+ let pending=false,connectionId='one',current:typeof engine|null=engine
+ const lineage=()=>({socket:fixture.socket,connectionId,boardId:'room',originalRead:origin})
+ const hold=vi.fn(),known=vi.fn(),resync=vi.fn(()=>fixture.setCurrent(false)),joining=vi.fn()
+ const control=createCanonicalRecoveryControl({getEngine:()=>current,getBoard:()=> 'room',hasPendingLocals:()=>pending,canRequest:()=>true,resync,onWaiting:vi.fn(),onHistoryJoining:joining,holdHistory:hold,noteKnownSequence:known,getControlLineage:lineage})
+ control.bind(engine,'room');control.restored(engine)
+ const {seq:_seq,...command}=operation
+ return{fixture,read,origin,input,engine,control,command,hold,known,resync,joining,lineage,setPending:(value:boolean)=>{pending=value},setConnection:(value:string)=>{connectionId=value},replace:()=>{current=null}}
+}
+it('indexed healthy history uses original parent after finite release and shares ACK/metadata drain',async()=>{
+ const h=await indexedHistoryControl()
+ h.control.beginControl(h.engine,'room',h.origin,undefined,h.command)
+ h.setPending(true)
+ expect(h.control.settleControl(h.command,{ok:true,seq:3},{roomId:'room',deliveryLane:'canonical-control-v1',lineage:h.lineage()})).toBe(true)
+ expect(h.control.confirmedIndexedControl(h.engine,'room',h.origin,h.input)).toBe(true)
+ expect(h.control.confirmedIndexedControl(h.engine,'room',h.origin,h.input)).toBe(true)
+ expect(h.hold).toHaveBeenCalledOnce();expect(h.known).toHaveBeenLastCalledWith(3);expect(h.resync).not.toHaveBeenCalled()
+ const transition=h.control.whenHistoryTransition(h.engine,'room')
+ h.setPending(false);expect(h.control.drain()).toBe(true)
+ expect(await transition).toBe('joining');expect(h.resync).toHaveBeenCalledOnce();expect(h.joining).toHaveBeenCalledOnce()
+ expect(h.control.confirmedIndexedControl(h.engine,'room',h.origin,h.input)).toBe(false)
+})
+it('indexed binding rejects copied origins, wrong board, finite cursor and stale connection',async()=>{
+ const h=await indexedHistoryControl()
+ expect(()=>h.control.beginControl(h.engine,'room',{...h.origin},undefined,h.command)).toThrow()
+ expect(()=>h.control.beginControl(h.engine,'other',h.origin,undefined,h.command)).toThrow()
+ expect(()=>h.control.beginControl(h.engine,'room',h.origin,[],h.command)).toThrow()
+ expect(()=>h.control.beginControl(h.engine,'room',h.read as never,undefined,h.command)).toThrow()
+ h.control.beginControl(h.engine,'room',h.origin,undefined,h.command);h.setConnection('two')
+ expect(h.control.settleControl(h.command,{ok:true,seq:2},{roomId:'room',deliveryLane:'canonical-control-v1',lineage:h.lineage()})).toBe(false)
+ expect(h.resync).not.toHaveBeenCalled()
+})
+it('indexed metadata rejects copied input, wrong original lifetime and replaced engine without source fault',async()=>{
+ const h=await indexedHistoryControl(),other=await indexedHistoryControl()
+ expect(()=>h.control.confirmedIndexedControl(h.engine,'room',h.origin,{...h.input})).toThrow()
+ expect(()=>h.control.confirmedIndexedControl(h.engine,'room',h.origin,other.input)).toThrow()
+ expect(h.hold).not.toHaveBeenCalled();expect(h.control.controlBusy(h.engine,'room')).toBe(false)
+ h.replace();expect(h.control.confirmedIndexedControl(h.engine,'room',h.origin,h.input)).toBe(false)
+})
+it('indexed enqueue failure and negative ACK release only their same receipt',async()=>{
+ const h=await indexedHistoryControl(),receipt=h.control.beginControl(h.engine,'room',h.origin,undefined,h.command)
+ expect(h.control.cancelControl({...receipt})).toBe(false);expect(h.control.cancelControl(receipt)).toBe(true)
+ h.control.beginControl(h.engine,'room',h.origin,undefined,h.command)
+ expect(h.control.settleControl(h.command,{ok:false,reason:'invalid_operation'},{roomId:'room',deliveryLane:'canonical-control-v1',lineage:h.lineage()})).toBe(true)
+ expect(h.control.controlBusy(h.engine,'room')).toBe(false);expect(h.resync).not.toHaveBeenCalled()
+})
+it('indexed Room consumer sends through SAME control lane and releases one replay interval after durable drain',async()=>{
+ const {createCanonicalRoomHistoryLifecycle,createCanonicalControlCapture,createCanonicalHistoryOperationHandler}=await import('./canonicalRoomController')
+ const {createReplayGate}=await import('./replayGate'),h=await indexedHistoryControl(),socket={connected:true,id:'one'}
+ const gate=createReplayGate<Parameters<ServerToClientEvents['operation_confirmed']>[0]>(),end=vi.spyOn(gate,'end'),begin=vi.spyOn(gate,'begin')
+ const outbox={pendingCount:0},known={current:0},resync=vi.fn(()=>h.fixture.setCurrent(false)),joining=vi.fn(),notify=vi.fn()
+ const room=createCanonicalRoomHistoryLifecycle({engineRef:{current:h.engine},boardIdRef:{current:'room'},socketRef:{current:socket},readRef:{current:h.origin},socketBoardRef:{current:'room'},joinedRef:{current:true},outboxRef:{current:outbox},pendingIdsRef:{current:new Set()},strokeActiveRef:{current:false},readyRef:{current:true},latestKnownSeqRef:known,resyncRef:{current:resync},replayGateRef:{current:gate},appliedRef:{current:new Set()},legacyHistory:()=>false,onWaiting:vi.fn(),onJoining:joining,notify})
+ room.control.bind(h.engine,'room');room.control.restored(h.engine)
+ const capture=createCanonicalControlCapture(h.origin,undefined,'room',{socket,getSocket:()=>socket,getInstalledRead:()=>h.origin,isEngineCurrent:()=>true,isJoined:()=>true,getBoard:()=> 'room'})
+ const enqueue=vi.fn(async()=>{}),legacy=vi.fn()
+ const handler=createCanonicalHistoryOperationHandler({bootstrap:undefined,indexedOrigin:h.origin,getEngine:()=>h.engine,isCurrent:()=>true,canRequest:room.canRequest,capture,board:'room',control:room.control,enqueue,notify,legacy})
+ handler(h.command);expect(enqueue).toHaveBeenCalledWith(h.command,{deliveryLane:'canonical-control-v1'});expect(legacy).not.toHaveBeenCalled()
+ outbox.pendingCount=1
+ const context={roomId:'room',deliveryLane:'canonical-control-v1' as const,lineage:{socket,connectionId:'one',boardId:'room',originalRead:h.origin}}
+ expect(room.control.settleControl(h.command,{ok:true,seq:5},context)).toBe(true)
+ expect(room.confirmedIndexed(h.input,h.origin,h.engine)).toBe(true)
+ expect(known.current).toBe(5);expect(begin).toHaveBeenCalledOnce();expect(end).not.toHaveBeenCalled();expect(resync).not.toHaveBeenCalled()
+ outbox.pendingCount=0;room.control.drain();await Promise.resolve();await Promise.resolve()
+ expect(resync).toHaveBeenCalledOnce();expect(joining).toHaveBeenCalledOnce();expect(end).toHaveBeenCalledOnce();expect(notify).not.toHaveBeenCalled()
+})

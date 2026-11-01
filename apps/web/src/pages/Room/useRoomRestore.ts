@@ -30,7 +30,7 @@ export function useRoomRestore(deps: RoomRestoreDeps) {
   const tRef = useRef(t)
   tRef.current = t
   const {
-    restoreFromSnapshot, backfillHistory, applyRemoteOp,applyCanonicalOp,restoreCanonicalHistory,restoreCanonicalEmptyRoom, syncFromLogNow, markJoinRestoreDone, dispatchParticipants,
+    restoreFromSnapshot, backfillHistory, applyRemoteOp,applyCanonicalOp,restoreCanonicalHistory,restoreCanonicalEmptyRoom,restoreCanonicalIndexedRoom, syncFromLogNow, markJoinRestoreDone, dispatchParticipants,
     setRestoreFailure, setRoomContentReady, latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef,
     replayGate, diagnosticClearPrefixElision,
   } = deps
@@ -39,14 +39,14 @@ export function useRoomRestore(deps: RoomRestoreDeps) {
     occasion: { mode: RestoreMode; alreadyHadSeq: number }, call: RoomRestoreCall,
   ) => restoreRoomState(engine, state, occasion, {
     ...call,
-    restoreFromSnapshot, backfillHistory, applyRemoteOp,applyCanonicalOp,restoreCanonicalHistory,restoreCanonicalEmptyRoom, syncFromLogNow, markJoinRestoreDone, dispatchParticipants,
+    restoreFromSnapshot, backfillHistory, applyRemoteOp,applyCanonicalOp,restoreCanonicalHistory,restoreCanonicalEmptyRoom,restoreCanonicalIndexedRoom, syncFromLogNow, markJoinRestoreDone, dispatchParticipants,
     setRestoreFailure, setRoomContentReady,
     notifyReplayIncomplete: () => notifyError(tRef.current('room.replayIncomplete'), {
       key: 'replay-incomplete', durationMs: null,
     }),
     latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef, replayGate, diagnosticClearPrefixElision,
   }), [
-    restoreFromSnapshot, backfillHistory, applyRemoteOp,applyCanonicalOp,restoreCanonicalHistory,restoreCanonicalEmptyRoom, syncFromLogNow, markJoinRestoreDone, dispatchParticipants,
+    restoreFromSnapshot, backfillHistory, applyRemoteOp,applyCanonicalOp,restoreCanonicalHistory,restoreCanonicalEmptyRoom,restoreCanonicalIndexedRoom, syncFromLogNow, markJoinRestoreDone, dispatchParticipants,
     setRestoreFailure, setRoomContentReady, latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef,
     replayGate, diagnosticClearPrefixElision,
   ])

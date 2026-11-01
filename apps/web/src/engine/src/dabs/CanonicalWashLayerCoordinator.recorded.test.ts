@@ -442,3 +442,18 @@ it('retires a constructor capacity capture when coordinator metadata admission t
  try{expect(()=>new CanonicalWashLayerCoordinator(s.coordinator['options'])).toThrow(primary);expect(s.cpu.reservedBytes).toBe(before)}finally{allocation.mockRestore();s.close()}
  expect(s.cpu.reservedBytes).toBe(0)
 })
+it('derives local promotion resource reuse from the exact current receipt without consuming confirmation',()=>{
+ const s=fixture()
+ try{
+  const own=s.input('author',0,1,true,true),other=s.input('author',0,2,true,true)
+  expect(s.coordinator.hasLocalRecordedPromotion(own)).toBe(false)
+  expect(s.coordinator.tryEnqueueLocal(s.localAuthor(),s.local(own))).toBe(true)
+  const cpu=s.cpu.reservedBytes,receipt=s.coordinator['entries'][0].local!.receipts[0]
+  expect(s.coordinator.hasLocalRecordedPromotion(other)).toBe(false)
+  expect(s.coordinator.hasLocalRecordedPromotion(own)).toBe(true)
+  expect(s.cpu.reservedBytes).toBe(cpu);expect(s.coordinator['entries'][0].local!.receipts[0]).toBe(receipt)
+  s.coordinator.enqueueRecorded(own)
+  expect(s.coordinator.hasLocalRecordedPromotion(own)).toBe(false)
+ }finally{s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})

@@ -98,7 +98,7 @@ it('latches snapshot expected encoding from the engine before await and forwards
   hooks.slots=[];hooks.cursor=0
   let currentVersion:string=version,reads=0,complete!:(value:{status:'none'})=>void
   const restore=vi.fn(),noop=vi.fn()
-  const engine={get rasterVersion(){reads++;return currentVersion},restoreLayerFromSnapshot:restore,takeSnapshotRestoreAudit:()=>[],gpuInfo:()=>({})} as unknown as PencilEngineAPI
+  const engine={getRoomDerivedState:()=>({kind:'legacy',operations:[],sinceRestore:[]}),get rasterVersion(){reads++;return currentVersion},restoreLayerFromSnapshot:restore,takeSnapshotRestoreAudit:()=>[],gpuInfo:()=>({})} as unknown as PencilEngineAPI
   const deps={engineRef:{current:engine},boardId:'room',onHistoryRepairFailure:noop,appliedOpIdsRef:{current:new Set<string>()},deferredOpsQueueRef:{current:[]},restoredLayerStateRef:{current:null},markActive:noop,resolveTransformCommit:noop,confirmOwnOperation:noop,noteOperationSeq:noop,syncFromLog:noop,checkSnapshotBoundary:noop} as RemoteOperationsDeps
   vi.mocked(restoreLatestSnapshot).mockImplementationOnce((_id,sink)=>{
    expect(sink.expectedPixelEncoding).toBe(encoding)
@@ -186,4 +186,15 @@ it('admits an exact original input through the real public source engine and nev
   expect(hook.applyRemoteOp(input.operation,input.read,input)).toBe(false)
   expect(legacy).not.toHaveBeenCalled();expect(confirmOwnOperation).not.toHaveBeenCalled()
  }finally{engine.destroy()}
+})
+
+it('rejects snapshot loading for an indexed original engine before fetching any blob',async()=>{
+ hooks.slots=[];hooks.cursor=0
+ const {restoreLatestSnapshot}=await import('./net/snapshotRestore')
+ const engine={getRoomDerivedState:()=>({kind:'canonical-indexed-v1'})} as unknown as PencilEngineAPI
+ const noop=vi.fn()
+ const deps={engineRef:{current:engine},boardId:'room',onHistoryRepairFailure:noop,appliedOpIdsRef:{current:new Set<string>()},deferredOpsQueueRef:{current:[]},restoredLayerStateRef:{current:null},markActive:noop,resolveTransformCommit:noop,confirmOwnOperation:noop,noteOperationSeq:noop,syncFromLog:noop,checkSnapshotBoundary:noop} as RemoteOperationsDeps
+ vi.mocked(restoreLatestSnapshot).mockClear()
+ await expect(useRemoteOperations(deps).restoreFromSnapshot(engine,'room')).rejects.toThrow('Indexed')
+ expect(restoreLatestSnapshot).not.toHaveBeenCalled()
 })

@@ -1,4 +1,4 @@
-import type {CanonicalRecordedInput} from './CanonicalRecordedDelivery'
+import type {CanonicalRecordedInput,CanonicalAcceptedCut} from './CanonicalRecordedDelivery'
 // Append-only operation log — the source of truth for canvas content (ADR 002).
 // Undo/redo never rewrites history: entries flip between three states and
 // replay simply skips everything that is not `done`.
@@ -192,8 +192,57 @@ const META_OP_TYPES = new Set<Operation['type']>(['operation_revoke', 'operation
  *
  *  Local `seq` still means "array index" (see append()); every move
  *  renumbers the entries it shifted. */
+export interface CanonicalIndexedDerivedCounts {
+ readonly throughSeq:number
+ readonly operationCount:number
+ readonly visibleFrameCounts:readonly {readonly layerId:string;readonly count:number}[]
+}
+export interface CanonicalCutPublication {
+ assertCurrent():void
+ publish():void
+ cancel():void
+}
 export class OperationLog {
   private _entries: LogEntry[] = []
+  private _canonicalAcceptedCut:CanonicalAcceptedCut|null=null
+  get canonicalAcceptedCut():CanonicalAcceptedCut|null{return this._canonicalAcceptedCut}
+  get canonicalRetainedSuffix():readonly LogEntry[]{return this._entries}
+  /** Prepare all source callbacks/copies before SAME log publication. The
+   * ticket's final publish performs pure CAS only, immediately before map swap. */
+  prepareCanonicalCutPublication(cut:CanonicalAcceptedCut,derived:CanonicalIndexedDerivedCounts,expectedRevision:number):CanonicalCutPublication {
+    const entries=this._entries,previous=this._canonicalAcceptedCut,counts=new Map<string,number>()
+    const throughSeq=cut.throughSeq,operationCount=cut.operationCount
+    if(!Number.isSafeInteger(throughSeq)||throughSeq<0||operationCount!==throughSeq||derived.throughSeq!==throughSeq||derived.operationCount!==operationCount||!Array.isArray(derived.visibleFrameCounts)||derived.visibleFrameCounts.length>2)throw new TypeError('Invalid canonical indexed cut')
+    for(const {layerId,count}of derived.visibleFrameCounts){if(typeof layerId!=='string'||!layerId.length||!Number.isSafeInteger(count)||count<0||count>operationCount||counts.has(layerId))throw new TypeError('Invalid canonical indexed counts');counts.set(layerId,count)}
+    let active=true
+    const pure=()=>{if(!active||this._revision!==expectedRevision||this._entries!==entries||this._canonicalAcceptedCut!==previous)throw new Error('Canonical indexed journal changed')}
+    const current=()=>{cut.assertCurrent(cut);if(cut.lifetime.assertCurrent()!==cut.scope)throw new Error('Canonical indexed origin changed');pure()}
+    current()
+    const log=this,ticket:CanonicalCutPublication={
+      assertCurrent(){if(this!==ticket)throw new Error('Foreign canonical cut ticket');current()},
+      publish(){if(this!==ticket)throw new Error('Foreign canonical cut ticket');pure();active=false;log._canonicalAcceptedCut=cut;log._entries=[];log._confirmedCount=0;log._nextSeq=0;log._pixelOpDoneCount=counts;log._revision=expectedRevision+1},
+      cancel(){if(this!==ticket)throw new Error('Foreign canonical cut ticket');active=false},
+    }
+    return Object.freeze(ticket)
+  }
+  /** Adopt only a dense, genuinely confirmed bounded continuation. */
+  prepareCanonicalContinuationPublication(expected:CanonicalAcceptedCut,next:CanonicalAcceptedCut):CanonicalCutPublication {
+    const revision=this._revision,entries=this._entries,originalInputs=Object.freeze(this._entries.map(entry=>entry.canonicalInput)),originalOperations=Object.freeze(this._entries.map(entry=>entry.op)),originalReads=Object.freeze(this._entries.map(entry=>entry.canonicalRead))
+    if(this._canonicalAcceptedCut!==expected||next.lifetime!==expected.lifetime||next.throughSeq<=expected.throughSeq||next.throughSeq-expected.throughSeq>64||next.operationCount!==next.throughSeq||entries.length!==next.throughSeq-expected.throughSeq)throw new Error('Invalid canonical continuation cut')
+    const pure=()=>{
+      if(this._canonicalAcceptedCut!==expected||this._revision!==revision||this._entries!==entries)throw new Error('Canonical continuation journal changed')
+      for(let i=0;i<entries.length;i++){const entry=entries[i],input=entry.canonicalInput;if(!input||input!==originalInputs[i]||entry.op!==originalOperations[i]||entry.canonicalRead!==originalReads[i]||entry.pending||entry.state!=='done'||entry.serverSeq!==expected.throughSeq+i+1||input.operation.seq!==entry.serverSeq||input.delivery.lifetime!==expected.lifetime||(input.operation.type!=='canonical_stroke'&&input.operation.type!=='canonical_stroke_close'))throw new Error('Canonical continuation is not dense original history')}
+    }
+    let active=true
+    const current=()=>{expected.assertCurrent(expected);next.assertCurrent(next);for(const input of originalInputs)input!.delivery.assertCurrent(input!);if(!active)throw new Error('Canonical continuation ticket retired');pure()}
+    current()
+    const log=this,ticket:CanonicalCutPublication={
+      assertCurrent(){if(this!==ticket)throw new Error('Foreign canonical continuation ticket');current()},
+      publish(){if(this!==ticket||!active)throw new Error('Canonical continuation ticket retired');pure();active=false;log._canonicalAcceptedCut=next;log._entries=[];log._confirmedCount=0;log._nextSeq=0;log._revision=revision+1},
+      cancel(){if(this!==ticket)throw new Error('Foreign canonical continuation ticket');active=false},
+    }
+    return Object.freeze(ticket)
+  }
   private _revision = 0
 
   /** Changes whenever journal order or entry state may change. */
@@ -391,6 +440,11 @@ export class OperationLog {
       return descriptor.value
     }
     const pending=data('pending'),serverSeq=data('serverSeq'),read=data('canonicalRead'),originalInput=canonicalInputOf(placement)
+    if(this._canonicalAcceptedCut){
+      const cut=this._canonicalAcceptedCut;cut.assertCurrent(cut)
+      if(serverSeq!==(entries.at(-1)?.serverSeq??cut.throughSeq)+1)throw new Error('Canonical indexed suffix placement changed')
+      if(length>=1024)throw new RangeError('Canonical indexed suffix requires a new original cut')
+    }
     if(pending!==undefined&&pending!==false||(op.type!=='canonical_stroke'&&op.type!=='canonical_stroke_close')||!originalInput
       ||originalInput.operation!==op||!Number.isSafeInteger(serverSeq)||serverSeq<1
       ||confirmed!==length||entries.some(entry=>entry.pending)||length>0&&(entries[length-1].serverSeq===undefined||entries[length-1].serverSeq!>=serverSeq)

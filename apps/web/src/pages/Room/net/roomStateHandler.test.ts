@@ -1,7 +1,7 @@
 import {prepareCanonicalRoomState} from './canonicalRoomState'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { JoinResult, LessonState, Operation, Room, ServerToClientEvents } from '@grafetto/shared'
+import type { JoinResult, LessonState, Operation, Room, RoomStateLegacyPayload } from '@grafetto/shared'
 
 import { resetRoomStore, useRoomStore } from '../../../stores/roomStore'
 import { createRoomStateHandler, type RoomStateDeps } from './roomStateHandler'
@@ -12,7 +12,7 @@ import { createRoomStateHandler, type RoomStateDeps } from './roomStateHandler'
  *  turn, enter a board (or be evacuated off one), stash for an engine not
  *  yet built, open an empty room at once, or catch a standing engine up. */
 
-type RoomState = Parameters<ServerToClientEvents['room_state']>[0]
+type RoomState = RoomStateLegacyPayload
 
 function lesson(activeBoardId: string | null = null): LessonState {
   return {

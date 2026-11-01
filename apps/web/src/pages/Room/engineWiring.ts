@@ -186,7 +186,7 @@ export function openParkedRoomState<Engine>(engine: Engine, {
       // await'у, который их и стоит — иначе они меряют не то, что называют.
       openTimerRef.current?.stage('paper')
       openTimerRef.current?.note({
-        tailOperations: pending.tailOperations.length,
+        ...(pending.canonicalIndexedRead?{indexedOperations:pending.canonicalIndexedRead.operationCount}:{tailOperations:pending.tailOperations!.length}),
         latestSeq: latestKnownSeqRef.current,
         snapshotSeq: pending.latestSnapshotSeq,
       })

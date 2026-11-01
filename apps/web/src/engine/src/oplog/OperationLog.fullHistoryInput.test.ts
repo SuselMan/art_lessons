@@ -169,3 +169,21 @@ it('refuses gone rows absent from the original full hidden proof instead of trea
  expect(()=>s.log.append(input.operation,{serverSeq:4,canonicalInput:input},()=>undefined)).toThrow('cannot account for hidden frames')
  expect(s.log.entries).toBe(entries);expect(s.log.revision).toBe(revision);expect(s.log.pixelOpDoneCount('L')).toBe(count)
 })
+
+it('publishes an original indexed cut without materializing retired LogEntries and preserves aggregate frame counts',()=>{
+ const source=fullState(),p=prepareCanonicalRoomState(source,{expectedBoardId:source.room.id,isCurrent:()=>true}),lifetime=p.canonicalRead!,scope=lifetime.assertCurrent()
+ if(!lifetime.assertFullHistoryBase)throw Error('Actual full original source required')
+ const log=new OperationLog(),cut:import('./CanonicalRecordedDelivery').CanonicalAcceptedCut={lifetime,scope,throughSeq:1,operationCount:1,roomGeometry:{width:64,height:64,infinite:false},authorRasterProfile:CANONICAL_STROKE_RASTER_PROFILE,assertCurrent(candidate){if(candidate!==cut)throw Error('Foreign indexed cut');lifetime.assertFullHistoryBase!(p.tailOperations)}}
+ const ticket=log.prepareCanonicalCutPublication(cut,{throughSeq:1,operationCount:1,visibleFrameCounts:[{layerId:'L',count:1}]},log.revision)
+ expect(log.canonicalAcceptedCut).toBeNull();expect(log.pixelOpDoneCount('L')).toBe(0)
+ ticket.assertCurrent();ticket.publish()
+ expect(log.canonicalAcceptedCut).toBe(cut);expect(log.canonicalRetainedSuffix).toHaveLength(0);expect(log.pixelOpDoneCount('L')).toBe(1)
+ expect(()=>ticket.publish()).toThrow();expect(()=>Reflect.apply(ticket.publish,{},[])).toThrow()
+})
+it('rejects indexed cut publication after original callback reentry without overwriting the real journal',()=>{
+ const source=fullState(),p=prepareCanonicalRoomState(source,{expectedBoardId:source.room.id,isCurrent:()=>true}),lifetime=p.canonicalRead!,scope=lifetime.assertCurrent(),log=new OperationLog()
+ let reenter=false
+ const cut:import('./CanonicalRecordedDelivery').CanonicalAcceptedCut={lifetime,scope,throughSeq:1,operationCount:1,roomGeometry:{width:64,height:64,infinite:false},authorRasterProfile:CANONICAL_STROKE_RASTER_PROFILE,assertCurrent(candidate){if(candidate!==cut)throw Error('Foreign indexed cut');lifetime.assertCurrent();if(reenter){reenter=false;log.append({type:'layer_clear',id:'real-reentry',userId:'author',timestamp:0,layerId:'L'})}}}
+ const ticket=log.prepareCanonicalCutPublication(cut,{throughSeq:1,operationCount:1,visibleFrameCounts:[{layerId:'L',count:1}]},log.revision)
+ reenter=true;expect(()=>ticket.assertCurrent()).toThrow('Canonical indexed journal changed');expect(()=>ticket.publish()).toThrow();expect(log.canonicalAcceptedCut).toBeNull();expect(log.entries.map(e=>e.op.id)).toEqual(['real-reentry'])
+})

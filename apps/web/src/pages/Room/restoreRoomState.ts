@@ -17,14 +17,7 @@ import type { createSnapshotUploader } from './net/snapshotSync'
 import type { SnapshotRestoreOutcome } from './net/snapshotRestore'
 
 /** What a `room_state` carries that this function acts on. */
-export interface RoomStatePayload {
-  canonicalRead?:CanonicalRoomStateRead
-  latestSnapshotSeq: number | null
-  tailOperations: Operation[]
-  participants: Participant[]
-  palette: string[]
-  frozen: boolean
-}
+export type RoomStatePayload = import('./net/roomStateHandler').RoomStateStash
 
 /** (#493) Which of the two occasions this is.
  *
@@ -47,6 +40,7 @@ export interface RestoreRoomStateDeps {
   /** Full original baseline transaction; engine independently rejects pending/live
    * resources until reconciliation exists. Never implement as an atom loop. */
   restoreCanonicalEmptyRoom?: (engine:PencilEngineAPI,read:CanonicalRoomStateRead,originalTail:readonly Operation[])=>Promise<void>
+  restoreCanonicalIndexedRoom?: (engine:PencilEngineAPI,read:import('./net/canonicalIndexedRead').CanonicalIndexedSocketRead)=>Promise<void>
   applyCanonicalOp?: (atom:CanonicalPreparedRecordedOperation)=>void
   restoreCanonicalHistory?: (atoms:readonly CanonicalPreparedRecordedOperation[])=>Promise<void>
   syncFromLogNow: () => void
@@ -100,15 +94,21 @@ export async function restoreRoomState(
   deps: RestoreRoomStateDeps,
 ): Promise<void> {
   const { latestSnapshotSeq, tailOperations } = state
-  const canonicalRead=state.canonicalRead
-  const assertCurrent=()=>{if(canonicalRead)assertCanonicalRoomStateRead(canonicalRead,tailOperations,deps.boardId)}
+  const canonicalRead=state.canonicalRead,indexedRead=state.canonicalIndexedRead
+  const assertCurrent=()=>{
+    if(indexedRead){indexedRead.assertCurrent(indexedRead);return}
+    if(canonicalRead){if(!tailOperations)throw Error('Original room tail unavailable');assertCanonicalRoomStateRead(canonicalRead,tailOperations,deps.boardId)}
+  }
+  const isCurrent=()=>{try{assertCurrent();return true}catch{return false}}
+  if(indexedRead&&(!engine||indexedRead.kind!=='full'||indexedRead.floor!==0||indexedRead.scope.roomId!==deps.boardId||latestSnapshotSeq!==null||mode!=='join'||alreadyHadSeq!==0||deps.pendingPreviewsRef.current.ids().length))throw Error('Indexed original restore unavailable')
+
   assertCurrent()
   const canonicalBaseline=canonicalRead?.emptyHistoryBase!==undefined||canonicalRead?.fullHistoryBase!==undefined
   if(canonicalBaseline){
     if(canonicalRead!.fullHistoryBase!==undefined){
       if(!canonicalRead!.assertFullHistoryBase)throw Error('Canonical full history owner unavailable')
-      canonicalRead!.assertFullHistoryBase(tailOperations)
-    }else canonicalRead!.assertEmptyHistoryBase(tailOperations)
+      canonicalRead!.assertFullHistoryBase(tailOperations!)
+    }else canonicalRead!.assertEmptyHistoryBase(tailOperations!)
     if(!deps.restoreCanonicalEmptyRoom||!engine||latestSnapshotSeq!==null||mode!=='join'||alreadyHadSeq!==0||deps.pendingPreviewsRef.current.ids().length)throw Error('Canonical empty restore unavailable')
   }
   if(canonicalRead&&!canonicalBaseline&&(!deps.applyCanonicalOp||!deps.restoreCanonicalHistory))throw Error('Canonical room restore sinks unavailable')
@@ -184,10 +184,15 @@ export async function restoreRoomState(
     openTimer?.stage('replay')
 
     let failed=0
-    if(canonicalBaseline){
+    if(indexedRead){
+      await (deps.restoreCanonicalIndexedRoom ? deps.restoreCanonicalIndexedRoom(engine!,indexedRead) : engine!.restoreCanonicalIndexedRoom(indexedRead))
+      assertCurrent()
+    }else if(canonicalBaseline){
+      if(!tailOperations)throw Error('Original room tail unavailable')
       await deps.restoreCanonicalEmptyRoom!(engine!,canonicalRead!,tailOperations)
       assertCurrent()
     }else{
+    if(!tailOperations)throw Error('Original legacy tail unavailable')
     // Dependency history may precede the restored structural watermark. Seed
     // that inclusive prefix before redo/undo in the tail; appending it would
     // revoke strokes on consumed source layers and double-apply old structure.
@@ -298,7 +303,7 @@ export async function restoreRoomState(
     // overwrite live pixels with older snapshots and skip their deduped tail.
     // A failed transfer/replay must not claim history this engine lacks.
     if (engine && failed === 0) {
-      deps.latestKnownSeqRef.current = tailOperations.reduce(
+      deps.latestKnownSeqRef.current = indexedRead ? Math.max(deps.latestKnownSeqRef.current,indexedRead.throughSeq) : tailOperations!.reduce(
         (seq, op) => Math.max(seq, op.seq ?? 0),
         Math.max(deps.latestKnownSeqRef.current, latestSnapshotSeq ?? 0),
       )
@@ -311,7 +316,7 @@ export async function restoreRoomState(
     // snapshot at the real current watermark; useSnapshotPublishing retries
     // refused wet/pending layers after they become publishable. The ordinary
     // cadence path below still refuses rounding a113 picture down to100.
-    const uploader = canonicalBaseline?null:deps.getSnapshotUploader()
+    const uploader = canonicalBaseline||indexedRead?null:deps.getSnapshotUploader()
     if (engine && latestSnapshotSeq === null && uploader) {
       uploader.requestFirstSnapshot()
       uploader.onSeqObserved(
@@ -327,7 +332,7 @@ export async function restoreRoomState(
     // nothing. The same shape #533 closed for a failed snapshot, so the same
     // screen and the same retry.
     restoreFailedHere = true
-    if(error!==supersededReplay&&(!canonicalRead||canonicalRead.scope.isCurrent())){
+    if(error!==supersededReplay&&isCurrent()){
       deps.setRestoreFailure('apply')
       deps.replayIncompleteRef.current = true
     }
@@ -356,7 +361,7 @@ export async function restoreRoomState(
     //
     // A condition rather than an early `return`: a `return` in a `finally`
     // would also swallow whatever the `try` threw.
-    if (!restoreFailedHere&&(!canonicalRead||canonicalRead.scope.isCurrent())) {
+    if (!restoreFailedHere&&isCurrent()) {
       deps.setRoomContentReady(true)
       // (#487) Same `finally`, same reason: "ready" is the moment the
       // preloader left and the pencil started working, which happens even

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 
 import { Outbox } from './net/outbox'
-import type {CanonicalRoomStateRead} from './net/canonicalRoomState'
+import type {CanonicalRoomConnectionRead} from './net/canonicalRoomState'
 import { createIndexedDbOutboxStorage } from './net/outboxStorage'
 import { createOutboxVerdicts, type OutboxVerdictDeps } from './net/outboxVerdict'
 import { sendOperationWithTimeout, type OperationEmitter } from './net/sendOperation'
@@ -11,7 +11,7 @@ export interface BoardOutboxDeps {
    *  URL id standing in for it. */
   boardId: string
   socketRef: RefObject<(OperationEmitter&{readonly id?:string;readonly connected?:boolean}) | null>
-  canonicalReadRef?: RefObject<CanonicalRoomStateRead|undefined>
+  canonicalReadRef?: RefObject<CanonicalRoomConnectionRead|undefined>
   /** Whether create_room/join_room has succeeded on this socket's lineage. */
   hasJoinedRef: RefObject<boolean>
   /** The board the server has this socket on, as far as this client knows. */

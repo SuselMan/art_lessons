@@ -1,10 +1,11 @@
 import type {CanonicalRecordedPreparationOutcome} from '../canonicalRoomController'
 import {prepareCanonicalRecordedImageResources} from './canonicalRecordedDelivery'
-import {preflightRoomStateDelivery,type CanonicalRoomStatePreparer,type CanonicalRoomStateRead,type RoomStateDelivery} from './canonicalRoomState'
+import {openCanonicalIndexedRoomForSocket,type CanonicalIndexedSocketOrigin} from './canonicalIndexedRead'
+import {preflightRoomStateDelivery,type CanonicalRoomConnectionRead,type CanonicalRoomStatePreparer,type CanonicalRoomStateRead,type RoomStateDelivery} from './canonicalRoomState'
 import type { RefObject } from 'react'
 import type { Socket } from 'socket.io-client'
 
-import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@grafetto/shared'
+import {captureCanonicalFullHistoryMetadata,parseCanonicalIndexedHistoryOffer,prepareCanonicalRecordedAttachment,readRoomRasterVersion,STRAIGHT_ROOM_RASTER_VERSION,type CanonicalIndexedHistoryOfferV1,type ClientToServerEvents,type Operation,type ServerToClientEvents} from '@grafetto/shared'
 
 import type { PencilEngineAPI,CanonicalRecordedInput } from '../../../engine'
 import { BANNED_ERROR_CODE, noteBanned } from '../../../lib/api/banned'
@@ -55,7 +56,9 @@ export type RoomSocketDeps =
     prepareCanonicalRecordedInput?:(input:CanonicalRecordedInput,engine:PencilEngineAPI)=>Promise<CanonicalRecordedPreparationOutcome>
     onCanonicalHistoryConfirmed?:(operation:Readonly<CanonicalHistoryMetadata>,read:CanonicalRoomStateRead,engine:PencilEngineAPI)=>void
     /** Association check only: never mint a read from the current engine. */
-    isCanonicalEngineCurrent?:(engine:PencilEngineAPI,read:CanonicalRoomStateRead)=>boolean
+    isCanonicalEngineCurrent?:(engine:PencilEngineAPI,read:CanonicalRoomConnectionRead)=>boolean
+    /** Explicit indexed admission/control; absent keeps this branch OFF. */
+    indexedFollowRef?:RefObject<(()=>void)|null>
     joinRoomRef?:RefObject<ClientToServerEvents['join_room']|null>
     /** The socket is connected (true) or has dropped (false). */
     onConnectionChange: (connected: boolean) => void
@@ -90,6 +93,8 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   const socket = openSocket()
   socketRef.current = socket
   let readGeneration=0
+  type IndexedOwner={generation:number;offer:Readonly<CanonicalIndexedHistoryOfferV1>;origin?:CanonicalIndexedSocketOrigin;watermark:number;busy:boolean;metadataPaused:boolean}
+  let indexed:IndexedOwner|undefined
   const invalidateRead=()=>{readGeneration++}
   const requestedBoard=()=>wantedBoardRef.current??socketBoardRef.current??id
 
@@ -99,7 +104,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   // перечень случаев, и почему у страницы комнаты нет законной причины
   // принять такой ответ.
   const revival = createSocketRevival(socket)
-  const joinRoom: ClientToServerEvents['join_room'] = (data, ack) => { invalidateRead();if(deps.prepareCanonicalRoomState)wantedBoardRef.current=data.roomId;socket.emit('join_room', data, ack) }
+  const joinRoom: ClientToServerEvents['join_room'] = (data, ack) => { invalidateRead();if(deps.prepareCanonicalRoomState||deps.indexedFollowRef)wantedBoardRef.current=data.roomId;socket.emit('join_room', data, ack) }
   if(deps.joinRoomRef)deps.joinRoomRef.current=joinRoom
 
   // (#493) Joining and staying joined — create/rejoin, page turns,
@@ -109,7 +114,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
     joinCredentials, reportJoinFailure, handleConnect, switchBoard, maybeFollow, requestFullResync:resync,
   } = createJoinFlow({
     ...deps, id, joinRoom,
-    createRoom: (data, ack) => { invalidateRead();if(deps.prepareCanonicalRoomState)wantedBoardRef.current=data.room.id;socket.emit('create_room', data, ack) },
+    createRoom: (data, ack) => { invalidateRead();if(deps.prepareCanonicalRoomState||deps.indexedFollowRef)wantedBoardRef.current=data.room.id;socket.emit('create_room', data, ack) },
     isCurrentSocket: () => socket === socketRef.current,
     noteConnected: () => {
       onConnectionChange(true)
@@ -225,6 +230,45 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
     if (current && !current()) return
     brushes.dispatch(current ? () => presets(...args) : presets(...args), () => apply(...args), current, resources?()=>resources(...args):undefined)
   }
+  // One finite range at a time in the SAME resource/brush order. Broadcast
+  // bodies never become execution input or another operation queue.
+  const followIndexed=()=>{
+    const owner=indexed,origin=owner?.origin,engine=deps.engineRef.current
+    if(!owner||!origin||owner.busy||owner.metadataPaused||!engine||!deps.roomContentReadyRef.current)return
+    const current=()=>{
+      try{return !disposed&&indexed===owner&&owner.generation===readGeneration&&socket===socketRef.current&&socket.connected&&deps.roomContentReadyRef.current&&deps.engineRef.current===engine&&origin.assertCurrent()===origin.scope&&!!deps.isCanonicalEngineCurrent?.(engine,origin)}catch{return false}
+    }
+    if(!current())return
+    let cut:ReturnType<PencilEngineAPI['getCanonicalIndexedCut']>
+    try{cut=engine.getCanonicalIndexedCut();if(!cut||cut.lifetime!==origin||owner.watermark<=cut.throughSeq)return}catch(error){brushes.dispatch([],()=>{throw error},current);return}
+    owner.busy=true
+    brushes.dispatch([],()=>{},undefined,async()=>{
+      let progressed=false
+      try{
+        if(!current())return
+        // The engine reserves its SAME indexed read owner synchronously before
+        // acquisition, covering races with history selection and export.
+        const outcome=await engine.appendCanonicalIndexedContinuation(()=>{
+          if(!current())throw Error('Obsolete indexed follow acquisition')
+          return origin.follow(cut!)
+        })
+        if(!current())return
+        if(outcome==='busy')return
+        if(outcome==='metadata'){owner.metadataPaused=true;return}
+        const accepted=engine.getCanonicalIndexedCut()
+        if(!accepted||accepted.lifetime!==origin)throw Error('Indexed continuation publication unavailable')
+        progressed=accepted.throughSeq>cut!.throughSeq
+      }catch(error){
+        if(current())throw error
+      }finally{
+        owner.busy=false
+        // Yield the existing FIFO between bounded ranges, even with a writer
+        // continuously increasing the scalar watermark.
+        if(indexed===owner&&owner.generation===readGeneration&&(progressed&&current()||deps.engineRef.current!==engine))queueMicrotask(followIndexed)
+      }
+    })
+  }
+  if(deps.indexedFollowRef)deps.indexedFollowRef.current=followIndexed
   const presetFor = (operation: Operation): string | undefined => 'preset' in operation ? operation.preset : undefined
 
   socket.on('lesson_state',               ordered(board.lesson_state))
@@ -238,15 +282,37 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   socket.on('board_deleted',              ordered(board.board_deleted))
   socket.on('connect',                    handleConnect)
   const dispatchRoomState=ordered((state:RoomStateDelivery)=>{
+    if(state.canonicalIndexedRead)state.canonicalIndexedRead.assertCurrent(state.canonicalIndexedRead)
     if(state.canonicalRead&&!state.canonicalRead.scope.isCurrent())return
     return handleRoomState(state)
   },state=>{
     setBrushRoomScope(state.room.id)
     void loadBrushLibrary().catch(error=>console.warn('Room brush metadata unavailable',error))
-    return state.tailOperations.map(presetFor)
-  }, state => !state.canonicalRead || state.canonicalRead.scope.isCurrent(),state=>state.canonicalRead?prepareCanonicalRecordedImageResources(state.canonicalRead.preparedAtoms,state.canonicalRead.scope):null)
+    return state.canonicalIndexedRead?[]:state.tailOperations!.map(presetFor)
+  }, state => {try{if(state.canonicalIndexedRead){state.canonicalIndexedRead.assertCurrent(state.canonicalIndexedRead);return true}return !state.canonicalRead||state.canonicalRead.scope.isCurrent()}catch{return false}},state=>state.canonicalRead?prepareCanonicalRecordedImageResources(state.canonicalRead.preparedAtoms,state.canonicalRead.scope):null)
   socket.on('room_state',state=>{
+    if(disposed||socket!==socketRef.current)return
     try{
+      if(state.canonicalIndexedHistory!==undefined){
+        if(!deps.indexedFollowRef||!deps.isCanonicalEngineCurrent||!deps.holdReviewArrivals)throw Error('Indexed room consumer unavailable')
+        const target=requestedBoard(),offer=parseCanonicalIndexedHistoryOffer(state.canonicalIndexedHistory)
+        const forbidden=['tailOperations','canonicalReadScope','canonicalHistoryBase','canonicalAuthorRasterProfile','canonicalCapabilities','canonicalRead','canonicalIndexedRead']
+        if(forbidden.some(key=>Object.hasOwn(state,key))||state.latestSnapshotSeq!==null||state.room.id!==target||offer.scope.roomId!==target||readRoomRasterVersion(state.room.rasterVersion)!==STRAIGHT_ROOM_RASTER_VERSION||offer.roomGeometry.width!==state.room.canvasWidth||offer.roomGeometry.height!==state.room.canvasHeight||offer.roomGeometry.infinite!==state.room.infinite)throw Error('Invalid indexed room offer metadata')
+        const generation=++readGeneration,owner:IndexedOwner={generation,offer,watermark:0,busy:false,metadataPaused:false}
+        indexed=owner;confirmedRead=undefined;confirmedScope=undefined
+        // Existing held payloads belong to the previous lane. Indexed hints
+        // never enter this queue; drain obsolete releases without execution.
+        deps.replayGate?.setHandler(()=>{})
+        const current=()=>socket===socketRef.current&&socket.connected&&requestedBoard()===target&&readGeneration===generation&&indexed===owner
+        deps.holdReviewArrivals();deps.setRoomContentReady(false)
+        if(!current())throw Error('Indexed bootstrap gate replaced its origin')
+        void openCanonicalIndexedRoomForSocket(socket,state.canonicalIndexedHistory,{expectedBoardId:target,isCurrent:current}).then(read=>{
+          if(!current()){read.cancel();return}
+          read.assertCurrent(read);owner.origin=read.lifetime
+          dispatchRoomState({...state,canonicalIndexedRead:read})
+        }).catch(()=>{if(current()){deps.setRoomContentReady(false);reportJoinFailure('unsupported_raster_version','room_state indexed open contract')}})
+        return
+      }
       const before=readGeneration,target=requestedBoard(),after=before+1
       let published=false
       const isCurrent=()=>socket===socketRef.current&&socket.connected&&requestedBoard()===target&&readGeneration===(published?after:before)
@@ -260,7 +326,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
         if(!isCurrent())throw Error('Canonical bootstrap gate replaced its origin')
       }
       // No await or arbitrary callback between publication and dispatch.
-      readGeneration=after;published=true
+      readGeneration=after;published=true;indexed=undefined
       confirmedRead=accepted.canonicalRead;confirmedScope=confirmedRead?.scope
       handleOperationConfirmed=createConfirmed(confirmedRead)
       dispatchRoomState(accepted)
@@ -268,6 +334,25 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
     catch{deps.setRoomContentReady(false);reportJoinFailure('unsupported_raster_version','room_state canonical contract')}
   })
   socket.on('operation_confirmed',message=>{
+    if(disposed||socket!==socketRef.current)return
+    if(indexed){
+      // Rejoin invalidates the origin immediately; keep its closed delivery
+      // classification until a new room state selects the replacement lane.
+      if(indexed.generation!==readGeneration)return
+      try{
+        const owner=indexed,keys=Reflect.ownKeys(message)
+        if(keys.some(key=>typeof key!=='string'||!['seq','operation','canonicalCapabilities'].includes(key))||!Object.hasOwn(message,'seq')||!Object.hasOwn(message,'operation')||keys.some(key=>!Object.hasOwn(Object.getOwnPropertyDescriptor(message,key)!,'value')))throw Error('Invalid indexed watermark envelope')
+        const operation=message.operation
+        if(!operation||typeof operation!=='object'||Reflect.ownKeys(operation).some(key=>!Object.hasOwn(Object.getOwnPropertyDescriptor(operation,key)!,'value')))throw Error('Invalid indexed watermark operation')
+        if(!Number.isSafeInteger(message.seq)||message.seq<1||operation.seq!==message.seq)throw Error('Invalid indexed watermark sequence')
+        if(message.operation.type==='canonical_stroke'||message.canonicalCapabilities!==undefined)prepareCanonicalRecordedAttachment(message.canonicalCapabilities,[message.operation],owner.offer.scope)
+        else captureCanonicalFullHistoryMetadata(message.operation)
+        if(indexed!==owner||owner.generation!==readGeneration)return
+        owner.watermark=Math.max(owner.watermark,message.seq)
+        followIndexed()
+      }catch{deps.setRoomContentReady(false);reportJoinFailure('unsupported_raster_version','indexed watermark contract')}
+      return
+    }
     const handler=handleOperationConfirmed,generation=readGeneration,scope=confirmedScope,read=confirmedRead,engine=deps.engineRef.current
     const source=message.operation.type==='canonical_stroke'||message.operation.type==='canonical_stroke_close',history=!!scope&&(message.operation.type==='operation_undo'||message.operation.type==='operation_redo')
     // A NEW scope may still see the OLD mounted engine. Such a delivery belongs
@@ -322,6 +407,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
     requestFullResyncRef.current = null
     switchBoardRef.current = null
     if(deps.joinRoomRef?.current===joinRoom)deps.joinRoomRef.current=null
+    if(deps.indexedFollowRef?.current===followIndexed)deps.indexedFollowRef.current=null
     socketBoardRef.current = null
     wantedBoardRef.current = null
   }
