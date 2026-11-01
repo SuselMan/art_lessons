@@ -34,6 +34,28 @@ function ack<T>(value:CanonicalHistoryAck<T>):T{
  if(tag.value===true)return fields(value,['ok','value']).value as T
  fields(value,['ok','reason']);return fail()
 }
+/** A transient SQL-resource refusal issued NO read. One finite RPC owns its
+ * same immutable body/deadline across retries; this is not a second read queue.
+ * Only validation-starting OPEN/reopen callers opt in. Every other ACK retains
+ * its original immediate-failure semantics. */
+async function admitValidation<T>(run:(timeout:number)=>Promise<CanonicalHistoryAck<T>>,assertCurrent:()=>void):Promise<CanonicalHistoryAck<T>>{
+ const deadline=performance.now()+150000
+ let delay=25
+ const remaining=()=>{assertCurrent();const ms=Math.ceil(deadline-performance.now());if(ms<=0)return fail();return ms}
+ for(;;){
+  const response=await run(remaining())
+  remaining()
+  const tag=response&&typeof response==='object'?Object.getOwnPropertyDescriptor(response,'ok'):undefined
+  if(!tag||!Object.hasOwn(tag,'value')||tag.value!==false)return response
+  const rejected=fields(response,['ok','reason'])
+  if(rejected.reason!=='read_busy')return response
+  const ms=Math.min(delay,remaining());delay=Math.min(delay*2,250)
+  let timer:ReturnType<typeof setTimeout>|undefined
+  try{await new Promise<void>((resolve,reject)=>{timer=setTimeout(()=>{try{remaining();resolve()}catch(error){reject(error)}},ms)})}
+  finally{if(timer!==undefined)clearTimeout(timer)}
+  remaining()
+ }
+}
 const equalPolicy=(a:CanonicalIndexedHistoryStartV1,b:ReturnType<typeof parseCanonicalIndexedHistoryOffer>)=>
  (!('offerId'in a)||a.offerId===b.offerId)&&a.scope.roomId===b.scope.roomId&&a.scope.boardEpoch===b.scope.boardEpoch&&JSON.stringify(a.scope.allowedRasterProfiles)===JSON.stringify(b.scope.allowedRasterProfiles)&&a.authorRasterProfile===b.authorRasterProfile&&a.authorPrimaryTextureSource===b.authorPrimaryTextureSource&&a.authorTexturedSource===b.authorTexturedSource&&a.roomGeometry.width===b.roomGeometry.width&&a.roomGeometry.height===b.roomGeometry.height
 /** Called from the actual room_state socket continuation AFTER seating. It
@@ -46,7 +68,8 @@ export async function openCanonicalIndexedRoomForSocket(
  const offer=parseCanonicalIndexedHistoryOffer(rawOffer)
  const current=()=>socket.connected&&lifetime.isCurrent()
  if(!current()||offer.scope.roomId!==lifetime.expectedBoardId)return fail()
- const response=await socket.timeout(150000).emitWithAck('canonical_history_stream_open',{kind:'canonical-history-open-v1',offerId:offer.offerId,roomId:offer.scope.roomId,boardEpoch:offer.scope.boardEpoch})
+ const openBody=Object.freeze({kind:'canonical-history-open-v1' as const,offerId:offer.offerId,roomId:offer.scope.roomId,boardEpoch:offer.scope.boardEpoch})
+ const response=await admitValidation(timeout=>socket.timeout(timeout).emitWithAck('canonical_history_stream_open',openBody),()=>{if(!current())return fail()})
  if(!current())return fail()
  const initial=parseCanonicalIndexedHistoryBegin(ack(response))
  if(!equalPolicy(initial,offer))return fail()
@@ -169,7 +192,10 @@ export async function openCanonicalIndexedRoomForSocket(
   async reopen(this:CanonicalIndexedOrigin,cut:CanonicalAcceptedCut){
    if(this!==origin||cursor?.preparing)return fail();assertCut(cut)
    if(cursor?.preparing||cursor&&!cursor.finished&&!cursor.cancelled)return fail()
-   const raw=await request(()=>socket.timeout(150000).emitWithAck('canonical_history_stream_reopen',{mode:'recovery',offerId:offer.offerId,roomId:scope.roomId,boardEpoch:scope.boardEpoch,throughSeq:cut.throughSeq}))
+   const previous=cursor,parent=completedCursor
+   const body=Object.freeze({mode:'recovery' as const,offerId:offer.offerId,roomId:scope.roomId,boardEpoch:scope.boardEpoch,throughSeq:cut.throughSeq})
+   const capturedCurrent=()=>{assertCut(cut);if(cursor!==previous||completedCursor!==parent||previous?.preparing||previous&&!previous.finished&&!previous.cancelled)return fail()}
+   const raw=await request(()=>admitValidation(timeout=>socket.timeout(timeout).emitWithAck('canonical_history_stream_reopen',body),capturedCurrent))
    assertCut(cut);const begin=parseCanonicalIndexedHistoryBegin(raw)
    if(begin.throughSeq!==cut.throughSeq)return fail()
    return makeRead(begin)
@@ -179,7 +205,9 @@ export async function openCanonicalIndexedRoomForSocket(
    const previous=cursor,parent=completedCursor
    if(previous?.preparing||previous&&!previous.finished&&!previous.cancelled)return fail()
    if(!parent||!parent.finished||parent.begin.throughSeq!==cut.throughSeq)return fail()
-   const raw=await request(()=>socket.timeout(150000).emitWithAck('canonical_history_stream_reopen',{mode:'follow',streamId:parent.begin.streamId,requestId:nanoid(16),afterSeq:cut.throughSeq}))
+   const body=Object.freeze({mode:'follow' as const,streamId:parent.begin.streamId,requestId:nanoid(16),afterSeq:cut.throughSeq})
+   const capturedCurrent=()=>{assertCut(cut);if(cursor!==previous||completedCursor!==parent||previous?.preparing||previous&&!previous.finished&&!previous.cancelled)return fail()}
+   const raw=await request(()=>admitValidation(timeout=>socket.timeout(timeout).emitWithAck('canonical_history_stream_reopen',body),capturedCurrent))
    assertCut(cut);if(cursor!==previous||completedCursor!==parent)return fail()
    const begin=parseCanonicalIndexedHistoryFollow(raw)
    if(begin.parentStreamId!==parent.begin.streamId||begin.floor!==cut.throughSeq)return fail()

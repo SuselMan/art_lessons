@@ -1,5 +1,5 @@
 import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G} from '@grafetto/shared'
-import {expect,it} from 'vitest'
+import {expect,it,vi} from 'vitest'
 import {indexedFrame,indexedSocketFixture} from '../../../engine/testing/canonicalIndexedReadFixture'
 it('issues original inputs only after the actual open and keeps their parent alive after page release',async()=>{
  const f=indexedSocketFixture(),read=await f.open()
@@ -177,4 +177,48 @@ it.each(['open','recovery','follow']as const)('rejects author policy mismatch du
  const read=await f.open(),end=await read.nextPage(),cut=read.finish(end);end.release();mismatch()
  await expect(mode==='follow'?read.lifetime.follow(cut):read.lifetime.reopen(cut)).rejects.toThrow()
  expect(()=>cut.assertCurrent(cut)).not.toThrow()
+})
+
+it('admits two genuine socket origins after transient validation contention without issuing an early read',async()=>{
+ const a=indexedSocketFixture([]),b=indexedSocketFixture([]),openA=a.handlers.canonical_history_stream_open,openB=b.handlers.canonical_history_stream_open
+ let release!:()=>void,held=true
+ a.handlers.canonical_history_stream_open=async body=>{await new Promise<void>(r=>{release=r});held=false;return openA(body)}
+ b.handlers.canonical_history_stream_open=body=>held?{ok:false,reason:'read_busy'}:openB(body)
+ const first=a.open(),second=b.open();let admitted=false;void second.then(()=>{admitted=true})
+ try{await vi.waitFor(()=>expect(b.requests.length).toBeGreaterThan(1));expect(admitted).toBe(false);expect(b.requests.every(r=>r.event==='canonical_history_stream_open')).toBe(true);const bodies=b.requests.map(r=>r.body);expect(bodies.every(body=>body===bodies[0])).toBe(true);release();const reads=await Promise.all([first,second]);for(const read of reads){const end=await read.nextPage();expect(read.finish(end).throughSeq).toBe(0);end.release();await read.cancel()}expect(b.requests.filter(r=>r.event==='canonical_history_stream_open').every(r=>r.body===bodies[0])).toBe(true)}finally{release?.();a.setCurrent(false);b.setCurrent(false)}
+})
+it.each(['recovery','follow'] as const)('keeps one immutable %s request and published parent while busy; no queued duplicate',async mode=>{
+ const f=indexedSocketFixture([]),read=await f.open(),end=await read.nextPage(),cut=read.finish(end);end.release();const old=f.handlers.canonical_history_stream_reopen;let refused=0
+ f.handlers.canonical_history_stream_reopen=body=>refused++<2?{ok:false,reason:'read_busy'}:old(body)
+ const pending=mode==='follow'?read.lifetime.follow(cut):read.lifetime.reopen(cut)
+ await expect(read.lifetime.follow(cut)).rejects.toThrow();const next=await pending;expect(next.lifetime).toBe(read.lifetime);expect(()=>cut.assertCurrent(cut)).not.toThrow()
+ const requests=f.requests.filter(r=>r.event==='canonical_history_stream_reopen');expect(requests).toHaveLength(3);expect(requests.every(r=>r.body===requests[0].body)).toBe(true);if(mode==='follow')expect(typeof requests[0].body.requestId).toBe('string');await next.cancel()
+})
+it('stops a busy original OPEN after current revocation, without another emit or leaked timer',async()=>{
+ vi.useFakeTimers({toFake:['setTimeout','clearTimeout','performance']})
+ try{const f=indexedSocketFixture([]);f.handlers.canonical_history_stream_open=()=>({ok:false,reason:'read_busy'});const outcome=f.open().then(()=>null,e=>e);await vi.advanceTimersByTimeAsync(0);expect(f.requests).toHaveLength(1);f.setCurrent(false);await vi.advanceTimersByTimeAsync(25);expect(await outcome).toBeInstanceOf(Error);expect(f.requests).toHaveLength(1);expect(vi.getTimerCount()).toBe(0)}finally{vi.useRealTimers()}
+})
+it('uses the original150s total deadline including busy waits and shrinking actual ACK timeouts',async()=>{
+ vi.useFakeTimers({toFake:['setTimeout','clearTimeout','performance']})
+ try{const f=indexedSocketFixture([]),timeout=vi.spyOn(f.socket,'timeout');f.handlers.canonical_history_stream_open=()=>({ok:false,reason:'read_busy'});const outcome=f.open().then(()=>null,e=>e);await vi.advanceTimersByTimeAsync(150000);expect(await outcome).toBeInstanceOf(Error);expect(f.requests.length).toBeGreaterThan(2);expect(f.requests.length).toBeLessThan(700);expect(timeout.mock.calls[0][0]).toBe(150000);expect(timeout.mock.calls.at(-1)![0]).toBeLessThan(250);expect(vi.getTimerCount()).toBe(0)}finally{vi.useRealTimers()}
+})
+it('refuses a positive OPEN ACK arriving after the same deadline, without minting a read',async()=>{
+ vi.useFakeTimers({toFake:['setTimeout','clearTimeout','performance']})
+ try{const f=indexedSocketFixture([]),old=f.handlers.canonical_history_stream_open;let respond!:()=>void;f.handlers.canonical_history_stream_open=body=>new Promise(r=>{respond=()=>r(old(body))});const outcome=f.open().then(()=>null,e=>e);await vi.advanceTimersByTimeAsync(150001);respond();expect(await outcome).toBeInstanceOf(Error);expect(f.requests).toHaveLength(1);expect(vi.getTimerCount()).toBe(0)}finally{vi.useRealTimers()}
+})
+it.each(['stale_read','not_joined','canonical_repair_required','invalid_operation','extra','accessor'] as const)('never reschedules a non-exact busy ACK (%s)',async reason=>{
+ const f=indexedSocketFixture([]);let calls=0
+ f.handlers.canonical_history_stream_open=()=>reason==='accessor'?Object.defineProperty({ok:false},'reason',{enumerable:true,get(){calls++;return'read_busy'}}):reason==='extra'?{ok:false,reason:'read_busy',extra:true}:{ok:false,reason}
+ await expect(f.open()).rejects.toThrow();expect(f.requests).toHaveLength(1);expect(calls).toBe(0)
+})
+it('never retries a busy nextPage ACK or turns cancellation/selection into an admission queue',async()=>{
+ const f=indexedSocketFixture([]),read=await f.open();f.handlers.canonical_history_stream_next=()=>({ok:false,reason:'read_busy'});await expect(read.nextPage()).rejects.toThrow();expect(f.requests.filter(r=>r.event==='canonical_history_stream_next')).toHaveLength(1);await read.cancel()
+})
+
+it.each(['recovery','follow'] as const)('revokes a pending %s backoff on disconnect or original-room replacement without another RPC',async mode=>{
+ for(const disconnect of [false,true]){
+  const f=indexedSocketFixture([]),read=await f.open(),end=await read.nextPage(),cut=read.finish(end);end.release()
+  vi.useFakeTimers({toFake:['setTimeout','clearTimeout','performance']})
+  try{f.handlers.canonical_history_stream_reopen=()=>({ok:false,reason:'read_busy'});const outcome=(mode==='follow'?read.lifetime.follow(cut):read.lifetime.reopen(cut)).then(()=>null,e=>e);await vi.advanceTimersByTimeAsync(0);expect(f.requests.filter(r=>r.event==='canonical_history_stream_reopen')).toHaveLength(1);if(disconnect)Reflect.set(f.socket,'connected',false);else f.setCurrent(false);await vi.advanceTimersByTimeAsync(25);expect(await outcome).toBeInstanceOf(Error);expect(f.requests.filter(r=>r.event==='canonical_history_stream_reopen')).toHaveLength(1);expect(vi.getTimerCount()).toBe(0)}finally{vi.useRealTimers()}
+ }
 })
