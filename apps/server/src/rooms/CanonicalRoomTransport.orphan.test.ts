@@ -40,7 +40,7 @@ function setup(descriptor=stock.rows[0].descriptor as unknown as BrushDescriptor
  const input={layerId:'layer',brush:`brush:${descriptor.id}@${descriptor.version}`,strokeId:'gesture',pigmentRgb8:[183,47,211] as [number,number,number],outerResourceOpacity:.73,alphaDarken:'creamy' as const}
  return{storage,library,board,input,descriptor}
 }
-function snapshot(result:CanonicalStrokeBeginResult):CanonicalStrokeSnapshotV2{if(!result.ok||!('materialVersion'in result.snapshot))throw Error(JSON.stringify(result));return result.snapshot}
+function snapshot(result:CanonicalStrokeBeginResult):CanonicalStrokeSnapshotV2{if(!result.ok||!('materialVersion'in result.snapshot)||result.snapshot.materialVersion!==2)throw Error(JSON.stringify(result));return result.snapshot}
 
 function packet(s:CanonicalStrokeSnapshotV2,ended=false,ordinal=0):CanonicalStrokeFrameEnvelope{
  const pin=s.material.primarySource

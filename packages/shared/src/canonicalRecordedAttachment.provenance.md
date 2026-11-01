@@ -59,3 +59,54 @@ Each snapshot must belong to that trusted receiver set; each frame decodes
 against its exact bound snapshot profile, not a global batch profile. Mixed
 old/new gestures are allowed only with explicit captured policy; one gesture
 cannot change profile. Existing wire dictionary/schema and byte limits remain.
+
+
+## Explicit primary texture server/recorded consumer (activation OFF)
+
+Actual snapshot/attachment types explicitly include material3 beside historical1/2.
+Attachment outer version1 remains the same bounded dictionary/binding table; its
+snapshot materialVersion2|3 is an explicit discriminator, NOT old-parser
+compatibility. Own DATA materialVersion selects existing frozen SnapshotV3 parser;
+no inherited/accessor selection or downgrade. Pure decodeCanonicalRecordedSnapshotFrame
+always supplies top-level selector3 for a normalized3 snapshot. Attachment,
+empty/full history and indexed root terminal dispatch reuse it. Global codec
+Any unions remain1/2; no decoded source authority is minted by this pure helper.
+Old SnapshotV2 parser body remains unchanged. Byte/count/profile/first-use/index
+limits count BOTH image and pattern assets without cap increases. Actual network
+origin/read factories remain the only original-delivery provenance owners.
+New shared tests are structural metadata/original-table fixtures, not a native
+Chalk35/CAS/renderer proof. Original source authenticity is verified by server.
+
+
+### Explicit CMAT3 server/shared boundary: final source freeze
+
+The opt-in primary-texture policy defaults OFF. Attachment version remains 1;
+snapshot materialVersion is explicitly 2 or 3. Global legacy codec Any unions
+remain closed to 1/2. No runtime, policy activation, shared/dist emission, or
+compatibility claim for old protocol clients is included here. Real Socket.IO
+coverage verifies the global protocol barrier before identity/load/seat work.
+
+Source-alias final focused run: **170 tests / 8 suites PASS**, one worker
+(`texture-server-final.log`). Full server SOURCE TypeScript and targeted shared
+test TypeScript both exit 0. Scoped oxlint exits 0 with warnings, no errors;
+scoped diff check passes. Semantic baseline pins the nine production files to
+ba4ad547 and gives three expected failures (old parser/binder refusal). The
+prior broad 230-test run had 229 passes and one diagnostic-string regression;
+the old OFF-policy diagnostic was restored and its resolver suite passes in
+the final joined run. This does not relabel that earlier run as all green.
+
+Fixtures prove structural policy/CAS/packing/close behavior; they are not a
+claim of native Chalk pixel identity or a live V3 grant. Genuine reimport and
+actual author evidence remain separate QA artifacts. No temporary service,
+browser, database resource, or persistent process was created by this unit.
+
+
+### Review follow-up: Snapshot3 profile accessor boundary
+
+Independent review found rasterProfile was read before explicit3 strict capture.
+A real prepareAttachment3 accessor fixture is semantic RED (getter invoked),
+then GREEN with zero getter calls. Explicit3 now checks own DATA materialVersion
+and rasterProfile before strict snapshot capture; legacy2 profile policy remains
+unchanged. Postfix attachment/base/page 72/4 PASS, targeted shared tests TS0,
+scoped lint0 and diff-check0. Prior 170/8 source run precedes this narrow fix.
+No runtime/dist/activation change.

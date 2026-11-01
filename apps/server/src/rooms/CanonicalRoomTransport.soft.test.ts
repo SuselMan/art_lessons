@@ -53,7 +53,7 @@ function setup(descriptor=stock.rows[0].descriptor as unknown as BrushDescriptor
  const input={layerId:'layer',brush:`brush:${descriptor.id}@${descriptor.version}`,strokeId:'gesture',pigmentRgb8:[183,47,211] as [number,number,number],outerResourceOpacity:.73,alphaDarken:'creamy' as const}
  return{storage,library,board,input,descriptor}
 }
-function snapshot(result:CanonicalStrokeBeginResult):CanonicalStrokeSnapshotV2{if(!result.ok||!('materialVersion'in result.snapshot))throw Error(JSON.stringify(result));return result.snapshot}
+function snapshot(result:CanonicalStrokeBeginResult):CanonicalStrokeSnapshotV2{if(!result.ok||!('materialVersion'in result.snapshot)||result.snapshot.materialVersion!==2)throw Error(JSON.stringify(result));return result.snapshot}
 function frames(descriptor:BrushDescriptor,s:CanonicalStrokeSnapshotV2,inputCount=3){
  if(s.material.primarySource.kind==='image')throw Error('Expected procedural source')
  const compiled=sourceStrokeAuthorDescriptor(descriptor,{colorIdentity:'native-black',lodScale:1,coverageProfile:s.material.primarySource.coverageProfile})
@@ -108,7 +108,7 @@ it('transports synthetic mapped soft through SAME snapshot/author/encoder/live/r
 it('pins full soft compiler/radial signature and rejects trusted mutations without admission advance',()=>{
  const f=setup(softDescriptor()),binder=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:empty,...selected,maxGestures:4})
  const grant=binder.beginGesture(identity,f.input)
- if(!('version' in grant.material))throw Error('Expected wire2')
+ if(!('version' in grant.material)||grant.material.version!==2)throw Error('Expected wire2')
  const material=grant.material,pin=material.primarySource
  if(pin.kind!=='softAuto')throw Error('Expected soft')
  const s={materialVersion:2,material,brush:grant.brush,strokeId:grant.strokeId,pigmentRgb8:grant.pigmentRgb8,composition:grant.composition} as CanonicalStrokeSnapshotV2

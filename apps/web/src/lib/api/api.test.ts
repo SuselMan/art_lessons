@@ -1,3 +1,4 @@
+import { DRAWING_PROTOCOL_HEADER, DRAWING_PROTOCOL_VERSION } from '@grafetto/shared'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const noteBanned = vi.hoisted(() => vi.fn())
@@ -22,7 +23,7 @@ describe('api()', () => {
     expect(room).toEqual({ closedAt: '2026-09-28T00:00:00.000Z' })
     expect(global.fetch).toHaveBeenCalledWith('/api/rooms/r%201/closed', {
       method: 'PATCH', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ closed: true }),
+      headers: new Headers({ 'Content-Type': 'application/json', [DRAWING_PROTOCOL_HEADER]: DRAWING_PROTOCOL_VERSION }), body: JSON.stringify({ closed: true }),
     })
   })
 
@@ -30,7 +31,7 @@ describe('api()', () => {
   it('sends no Content-Type and no body for a route without one', async () => {
     respond(200, { userId: 'u', email: null, name: null })
     await api('POST /api/auth/logout')
-    expect(global.fetch).toHaveBeenCalledWith('/api/auth/logout', { method: 'POST', credentials: 'include' })
+    expect(global.fetch).toHaveBeenCalledWith('/api/auth/logout', { method: 'POST', credentials: 'include', headers: new Headers({ [DRAWING_PROTOCOL_HEADER]: DRAWING_PROTOCOL_VERSION }) })
   })
 
   it('reads a 204 as null on a route that may answer it', async () => {
@@ -58,4 +59,14 @@ describe('apiPath()', () => {
     expect(apiPath('GET /api/rooms/:roomId/thumbnail', { params: { roomId: 'b1' }, query: { v: '2026-09-28T10:00' } }))
       .toBe('/api/rooms/b1/thumbnail?v=2026-09-28T10%3A00')
   })
+})
+
+it('preserves caller headers and pins the supported revision for raw API bytes', async () => {
+  respond(200)
+  const { apiResponse } = await import('./api')
+  await apiResponse('GET /api/rooms/:roomId/snapshots/:layerId/:seq', { params: { roomId: 'r', layerId: 'l', seq: '1' } }, { headers: { 'X-Request-Test': 'kept', [DRAWING_PROTOCOL_HEADER]: '2' } })
+  const options = vi.mocked(global.fetch).mock.calls[0][1]
+  const headers = new Headers(options?.headers)
+  expect(headers.get(DRAWING_PROTOCOL_HEADER)).toBe(DRAWING_PROTOCOL_VERSION)
+  expect(headers.get('X-Request-Test')).toBe('kept')
 })

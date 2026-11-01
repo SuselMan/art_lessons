@@ -1,6 +1,7 @@
+import {canonicalPrimaryTextureMaterialContext,canonicalStrokeSnapshotV3,decodeCanonicalRecordedSnapshotFrame,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,type CanonicalMaterialFrameV3,type CanonicalStrokeSnapshotV3} from '@grafetto/shared'
 import type {CanonicalMaskCapacityLease} from './TransformedMaskPrepass'
 import {canonicalImageRequiredSourceLevels} from './canonicalImageCapacity'
-import {CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,canonicalImageMaterialPin,canonicalStrokeSnapshotV2,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,decodeCanonicalStrokeFrame,prepareCanonicalRecordedAttachment,verifyCanonicalRecordedClose,canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin,canonicalSoftAutoSourcePin,type CanonicalMaterialPrefixState,type CanonicalStrokeSnapshotV2,type CanonicalRecordedReadScope,type CanonicalStrokeOperation} from '@grafetto/shared'
+import {CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,canonicalImageMaterialPin,canonicalStrokeSnapshotV2,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,prepareCanonicalRecordedAttachment,verifyCanonicalRecordedClose,canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin,canonicalSoftAutoSourcePin,type CanonicalMaterialPrefixState,type CanonicalStrokeSnapshotV2,type CanonicalRecordedReadScope,type CanonicalStrokeOperation} from '@grafetto/shared'
 import type {CanonicalMaskSourceReader,CanonicalMaskSourceLease} from './CanonicalMaskSourceBank'
 import type {CanonicalRecordedInput,CanonicalRecordedLifetime} from '../oplog/CanonicalRecordedDelivery'
 import { CANONICAL_STROKE_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition } from '@grafetto/shared'
@@ -18,7 +19,7 @@ import type { CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
  * receiver/candidate; received frame fields never confer this authority. */
 export interface CanonicalLocalWashAuthor {
  readonly lifetime:CanonicalRecordedLifetime
- readonly snapshot:CanonicalStrokeSnapshotV2
+ readonly snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3
  readonly userId:string
  assertCurrent(candidate:CanonicalLocalWashAuthor):Readonly<CanonicalRecordedReadScope>
 }
@@ -35,13 +36,13 @@ interface LocalPrefix {
  state:CanonicalMaterialPrefixState
  readonly receipts:{readonly operation:CanonicalStrokeOperation;readonly frame:CanonicalStrokeOperation['frame'];readonly release:()=>void}[]
 }
-export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFrameExecutorOptions, 'washMode' | 'autoSource' | 'bank' | 'softProgramOwner' | 'changed' | 'poison'> {
+export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFrameExecutorOptions, 'washMode' | 'autoSource' | 'bank' | 'softProgramOwner' | 'primaryTexture' | 'changed' | 'poison'> {
   readonly layerId: string
   readonly layerEpoch: number
   /** Distinct derived straight layer; the coordinator never owns/destroys it. */
   readonly presentation: () => { readonly buffer: TiledLayerBuffer; readonly epoch: number }
   /** Trusted gesture source binding, NOT data selected by a material frame. */
-  readonly source: (gestureId: string, recorded?: CanonicalRecordedInput, local?:CanonicalLocalWashAuthor) => Pick<CanonicalFrameExecutorOptions, 'autoSource' | 'bank' | 'softProgramOwner'> & {readonly sourceLease?:CanonicalMaskSourceLease}
+  readonly source: (gestureId: string, recorded?: CanonicalRecordedInput, local?:CanonicalLocalWashAuthor) => Pick<CanonicalFrameExecutorOptions, 'autoSource' | 'bank' | 'softProgramOwner' | 'primaryTexture'> & {readonly sourceLease?:CanonicalMaskSourceLease}
   /** Explicit caller capacity; no implicit queue, expiry or GPU quota. Includes
    * completed IDs until this coordinator is discarded after trusted rebuild. */
   readonly maxGestures: number
@@ -51,7 +52,7 @@ export interface CanonicalWashLayerCoordinatorOptions extends Omit<CanonicalFram
 interface RecordedPrefix {
  readonly lifetime:CanonicalRecordedLifetime
  readonly scope:Readonly<CanonicalRecordedReadScope>
- readonly snapshot:CanonicalStrokeSnapshotV2
+ readonly snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3
  readonly userId:string
  readonly strokeId:string
  readonly firstOperationId:string
@@ -216,15 +217,14 @@ export class CanonicalWashLayerCoordinator {
       capabilities:[read.capability],bindings:[{operationId:op.id,sequence:op.seq,originalUserId:op.userId,capability:0}]},[op],scope)[0]
     const snapshot=accepted.read!.capability.snapshot
     if(read.rasterProfile!==snapshot.rasterProfile)throw new TypeError('Recorded source profile mismatch')
-    if(snapshot.material.maskSource||snapshot.rasterProfile!==this.options.rasterProfile
+    if(('maskSource'in snapshot.material&&snapshot.material.maskSource)||snapshot.rasterProfile!==this.options.rasterProfile
       ||snapshot.layerId!==this.options.layerId)throw new TypeError('Unsupported recorded source context')
     const id=JSON.stringify([scope.roomId,scope.boardEpoch,op.userId,snapshot.strokeId])
     const existing=this.entries.find(e=>e.id===id),old=existing?.recorded
     if(existing&&!old&&!existing.local)throw new Error('Recorded namespace already occupied')
     if(old&&(old.lifetime!==lifetime||old.scope!==scope||old.sealed||old.lastSeq>=op.seq!
       ||JSON.stringify(old.snapshot)!==JSON.stringify(snapshot)))throw new Error('Recorded source lifetime/context changed')
-    const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,
-      frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,material:snapshot.material})
+    const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,snapshot,op.frame.frameOrdinal)
     const state=advanceCanonicalMaterialPrefix(old?.state??CANONICAL_MATERIAL_PREFIX_START,op.frame.frameOrdinal,decoded.frame)
     const recorded:RecordedPrefix={lifetime,scope,snapshot:old?.snapshot??snapshot,userId:op.userId,strokeId:snapshot.strokeId,
       firstOperationId:old?.firstOperationId??op.id,firstSeq:old?.firstSeq??op.seq!,lastOperationId:op.id,lastSeq:op.seq!,state,sealed:false}
@@ -273,7 +273,7 @@ export class CanonicalWashLayerCoordinator {
     if(author.lifetime.assertCurrent()!==scope||!Object.isFrozen(op)||Object.hasOwn(op,'seq')
       ||op.type!=='canonical_stroke'||op.userId!==author.userId||op.layerId!==this.options.layerId
       ||snapshot.layerId!==op.layerId||snapshot.boardEpoch!==scope.boardEpoch||snapshot.rasterProfile!==this.options.rasterProfile
-      ||snapshot.material.maskSource)throw new TypeError('Invalid local source envelope/context')
+      ||('maskSource'in snapshot.material&&snapshot.material.maskSource))throw new TypeError('Invalid local source envelope/context')
     // Capacity false is NOT material validation/admission. Preserve cheap
     // original owner/namespace/layer proofs, but do not decode the same retained
     // packed body on every full-queue retry. The free path keeps its late guard.
@@ -284,8 +284,7 @@ export class CanonicalWashLayerCoordinator {
       this.assertLayers()
       return false
     }
-    const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,
-      frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,material:snapshot.material})
+    const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,snapshot,op.frame.frameOrdinal)
     const id=JSON.stringify([scope.roomId,scope.boardEpoch,author.userId,snapshot.strokeId]),entry=this.entries.find(e=>e.id===id)
     if(entry&&(!entry.local||entry.local.author!==author))throw new Error('Local source namespace occupied')
     const previous=entry?.local
@@ -338,7 +337,7 @@ export class CanonicalWashLayerCoordinator {
     this.enqueueInternal(input,recordedSequence)
   }
 
-  private enqueueInternal(input:CanonicalFrameSubmission,recordedSequence:number|undefined,origin?:{input:CanonicalRecordedInput;recorded:RecordedPrefix},local?:LocalPrefix):void {
+  private enqueueInternal(input:Omit<CanonicalFrameSubmission,'frame'>&{readonly frame:CanonicalFrameSubmission['frame']|CanonicalMaterialFrameV3},recordedSequence:number|undefined,origin?:{input:CanonicalRecordedInput;recorded:RecordedPrefix},local?:LocalPrefix):void {
     if(!local&&!origin)this.assertOpen();this.assertRecordedCurrent(); this.busy = true
     try {
     if ((!local&&(!Number.isSafeInteger(recordedSequence)||recordedSequence!<=this.lastSequence)) || input.layerId !== this.options.layerId
@@ -374,11 +373,14 @@ export class CanonicalWashLayerCoordinator {
         sourceLease=source.sourceLease
         if(sourceLease&&source.bank!==sourceLease)throw new Error('Canonical source lease reader changed')
         if(origin||local){
-          const snapshot=origin?.recorded.snapshot??canonicalStrokeSnapshotV2(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile),expected=snapshot.material.primarySource,actual=source.autoSource
+          const snapshot=origin?.recorded.snapshot??(local!.author.snapshot.materialVersion===3?canonicalStrokeSnapshotV3(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile):canonicalStrokeSnapshotV2(local!.author.snapshot,local!.scope.boardEpoch,local!.author.snapshot.rasterProfile)),expected=snapshot.material.primarySource,actual=source.autoSource
+          if(snapshot.materialVersion===3){
+            if(!source.sourceLease||source.primaryTexture?.root!==source.sourceLease||!samePaintData(canonicalPrimaryTextureMaterialContext(source.primaryTexture.context),snapshot.material))throw new TypeError('Recorded primary texture source binding missing or changed')
+          }else if(source.primaryTexture)throw new TypeError('Unexpected recorded primary texture source')
           if(snapshot.rasterProfile!==this.options.rasterProfile)throw new TypeError('Recorded source profile mismatch')
           if(expected.kind==='image'){
             if(!source.bank||actual||source.softProgramOwner)throw new TypeError('Recorded image bank binding missing')
-            const image=canonicalImageMaterialPin(expected,snapshot.material.assets)
+            const image=canonicalImageMaterialPin(expected,snapshot.materialVersion===3?[snapshot.material.assets[0]]:snapshot.material.assets)
             const info=this.options.prepass.brushGlBatchInfo(),release=info.cpu.reserve(16384+image.assets.length*1536);let failed=false,failure:unknown
             try{const requirement=canonicalImageRequiredSourceLevels(expected,image.assets)[0];imageBinding=Object.freeze({bank:source.bank,generation:source.bank.assertRequiredSourceBinding(requirement.asset,requirement.indexes,info)})}
             catch(error){failed=true;failure=error}finally{try{release()}catch(error){if(!failed){failed=true;failure=error}}}
@@ -398,7 +400,9 @@ export class CanonicalWashLayerCoordinator {
         entry = { image:imageBinding,sourceLease,id: input.gestureId, firstSequence: recordedSequence, executor, opacity: input.composition.outerResourceOpacity, blend: input.composition.outerBlend,
           committed: false, tile: 0, part: 0, releaseMetadata: releaseEntry }
       }
-      entry.executor.enqueue(input);acceptedWork=true
+      if(input.frame.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE)entry.executor.enqueue({gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition})
+      else entry.executor.enqueue({...input,frame:input.frame})
+      acceptedWork=true
       if(local){this.assertLocal(local);this.assertLayers()}
       if(entry.image){
         if(origin){origin.input.delivery.assertCurrent(origin.input);if(origin.recorded.lifetime.assertCurrent()!==origin.recorded.scope)throw new Error('Recorded scope replaced');this.assertLayers()}

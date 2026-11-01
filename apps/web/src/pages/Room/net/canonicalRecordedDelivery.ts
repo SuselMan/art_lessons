@@ -72,9 +72,11 @@ export function attachCanonicalRecordedDelivery(atom:CanonicalPreparedRecordedOp
  * Native-only items retain their synchronous path. No source owner is minted. */
 export function prepareCanonicalRecordedImageResources(atoms:readonly CanonicalPreparedRecordedOperation[],scope:LocalScope):Promise<void>|null {
  if(atoms.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)throw new RangeError('Canonical resource atom limit')
- if(!atoms.some(atom=>atom.read?.capability.snapshot.materialVersion===2&&atom.read.capability.snapshot.material.primarySource.kind==='image'))return null
+ if(!atoms.some(atom=>(atom.read?.capability.snapshot.materialVersion===2||atom.read?.capability.snapshot.materialVersion===3)&&atom.read.capability.snapshot.material.primarySource.kind==='image'))return null
  const lifetime=canonicalRecordedLifetimeOf(scope)
  if(!lifetime)return fail()
+ let hasTexture=false
+ const legacyAssets=new Set<string>()
  const originalScope=lifetime.assertCurrent(),inputs:CanonicalRecordedInput[]=[],contexts=new Set<object>(),assets=new Map<string,CanonicalMaterialAsset>()
  for(const atom of atoms){
   const field=Object.getOwnPropertyDescriptor(atom,'delivery')
@@ -86,8 +88,10 @@ export function prepareCanonicalRecordedImageResources(atoms:readonly CanonicalP
   contexts.add(input.read.capability)
   if(contexts.size>CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)throw new RangeError('Canonical resource capability limit')
   const snapshot=input.read.capability.snapshot
-  if(snapshot.materialVersion!==2||snapshot.material.primarySource.kind!=='image')continue
+  if((snapshot.materialVersion!==2&&snapshot.materialVersion!==3)||snapshot.material.primarySource.kind!=='image')continue
+  if(snapshot.materialVersion===3)hasTexture=true
   for(const asset of snapshot.material.assets){
+   if(snapshot.materialVersion===2)legacyAssets.add(asset.id)
    const previous=assets.get(asset.id)
    if(previous&&previous.size!==asset.size)throw new TypeError('Conflicting original image resource side')
    assets.set(asset.id,asset)
@@ -98,5 +102,16 @@ export function prepareCanonicalRecordedImageResources(atoms:readonly CanonicalP
   for(const input of inputs)input.delivery.assertCurrent(input)
  }
  assertCurrent()
- return prepareCanonicalImageAssets(scope.roomId,[...assets.values()],assertCurrent)
+ const selected=[...assets.values()]
+ if(!hasTexture)return prepareCanonicalImageAssets(scope.roomId,selected,assertCurrent)
+ if(legacyAssets.size>CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)throw new RangeError('Canonical legacy image resource asset limit')
+ if(selected.length>2*CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)throw new RangeError('Canonical texture resource asset limit')
+ // Finite availability calls share the original owner, not a new ingress queue.
+ return(async()=>{
+  for(let at=0;at<selected.length;at+=CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities){
+   assertCurrent()
+   await prepareCanonicalImageAssets(scope.roomId,selected.slice(at,at+CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities),assertCurrent)
+   assertCurrent()
+  }
+ })()
 }

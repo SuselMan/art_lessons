@@ -99,3 +99,43 @@ describe('strict seeded source data candidate, not BEGIN authority',()=>{
   }
  })
 })
+
+// Self-authored texture metadata over the existing valid image source harness;
+// this is not a genuine stock preset provenance claim.
+function textureAdmissionFixture(){
+ const d=structuredClone(basic6.descriptor)as unknown as Mutable<BrushDescriptor>,pattern={id:'asset:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' as const,size:8}
+ d.sourceStamp!.flags.textureEnabled=true
+ Object.assign(d.sourceStamp!.settings,{'Texture/Pattern/Enabled':'true','PressureTexture/Strength/':'true','Texture/Strength/StrengthVersion':'2','Texture/Strength/UseCurve':'true','Texture/Strength/UseSameCurve':'true','Texture/Strength/Value':'1','Texture/Strength/curveMode':'0','Texture/Strength/Sensor':'<params id="pressure"><curve>0,0;1,1;</curve></params>'})
+ d.texture={id:pattern.id,strength:1,periodPx:4,patternSize:{width:4,height:4},application:{mode:'subtract',soft:false},offset:{x:0,y:0,randomX:false,randomY:false}}
+ return{d,pattern,available:[{id:basic6.asset.id,size:basic6.asset.size},pattern]}
+}
+describe('explicit primary texture source pointer policy remains default OFF',()=>{
+ const options={primaryTextureSource:'pressure-identity-subtract-v3' as const}
+ it('uses genuine shared extraction and returns separate tip pin/pattern capability without mutation',()=>{
+  const{d,available,pattern}=textureAdmissionFixture(),before=JSON.stringify(d)
+  expect(canonicalSourceAuthorAdmission(d,generic,available)).toMatchObject({supported:false})
+  const result=canonicalSourceAuthorAdmission(d,generic,available,options)
+  expect(result.supported).toBe(true);if(!result.supported||result.material.kind!=='imageTexture')throw Error('texture admission failed')
+  expect(result.material.pin.assets).toHaveLength(1);expect(result.material.capability.patternAsset.id).toBe(pattern.id)
+  expect(result.material.capability.primaryTexture.strength).toBe('pressure-identity-v1');expect(result.data).toBe(d.sourceStamp);expect(JSON.stringify(d)).toBe(before)
+ })
+ it.each(['native','browser','missingPattern','wrongMode','rawCurve','sensor','timing'] as const)('refuses %s while preserving ordinary pointer guards',mode=>{
+  const{d,available}=textureAdmissionFixture()
+  if(mode==='wrongMode')Reflect.set(d.texture!.application!,'mode','multiply')
+  if(mode==='rawCurve')Reflect.set(d.sourceStamp!.settings,'Texture/Strength/Sensor','<params id="pressure"><curve>0,1;1,0;</curve></params>')
+  if(mode==='sensor'){const size=d.sourceStamp!.options.find(o=>o.id==='Size')!;size.checked=true;size.sensors[0].id='speed'}
+  if(mode==='timing')d.sourceStamp!.timing.enabled=true
+  const profile=mode==='native'?native:mode==='browser'?browser:generic
+  expect(canonicalSourceAuthorAdmission(d,profile,mode==='missingPattern'?available.slice(0,1):available,options)).toMatchObject({supported:false})
+ })
+})
+
+it('keeps ordinary image and auto admission identical when primary texture support is enabled globally',()=>{
+ const options={primaryTextureSource:'pressure-identity-subtract-v3' as const},image=basic6.descriptor as unknown as BrushDescriptor,available=[{id:basic6.asset.id,size:basic6.asset.size}]
+ for(const profile of [native,browser,generic]){
+  expect(canonicalSourceAuthorAdmission(image,profile,available,options)).toEqual(canonicalSourceAuthorAdmission(image,profile,available))
+  expect(canonicalSourceAuthorAdmission(brush(8),profile,undefined,options)).toEqual(canonicalSourceAuthorAdmission(brush(8),profile))
+ }
+ const{d,available:assets}=textureAdmissionFixture();Reflect.set(d.texture!.application!,'mode','multiply')
+ expect(canonicalSourceAuthorAdmission(d,generic,assets,options)).toMatchObject({supported:false})
+})

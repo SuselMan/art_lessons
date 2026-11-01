@@ -1,3 +1,5 @@
+import {verifyCanonicalFullHistoryBase} from './canonicalFullHistoryBase.js'
+import {verifyCanonicalEmptyHistoryBase} from './canonicalEmptyHistoryBase.js'
 import {expect,it,vi} from 'vitest'
 import {prepareCanonicalRecordedAttachment,canonicalStrokeSnapshotV3,canonicalStrokeSnapshotV2,CANONICAL_RECORDED_ATTACHMENT_LIMITS,type CanonicalRecordedAttachmentV1} from './canonicalRecordedAttachment.js'
 import {sourceAutoGeometry} from './sourceAutoGeometry.js'
@@ -14,7 +16,7 @@ function fixture(){
  const recipe={kind:'softAuto' as const,sourceSlot:0 as const,source:primarySource.source,coverageProfile:primarySource.coverageProfile,brushScale:1,brushAngle:0,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:geometry.maskSize[0],height:geometry.maskSize[1],mirrorH:false,mirrorV:false}
  const packed=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:0,y:0,opacity:1,flow:1}],fences:[{at:0,kind:'segmentBegin',group:0},{at:1,kind:'primaryEnd',group:0},{at:1,kind:'segmentEnd',group:0},{at:1,kind:'gestureEnd'}]},material).packed
  const op:CanonicalStrokeOperation={id:'op',userId:'author',timestamp:0,seq:3,type:'canonical_stroke',layerId:'L',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:snapshot.brush,strokeId:'S',frameOrdinal:0,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
- const attachment:CanonicalRecordedAttachmentV1={version:1,roomId:'room',boardEpoch:2,capabilities:[{originalUserId:'author',snapshot}],bindings:[{operationId:'op',sequence:3,originalUserId:'author',capability:0}]}
+ const attachment={version:1 as const,roomId:'room',boardEpoch:2,capabilities:[{originalUserId:'author',snapshot}],bindings:[{operationId:'op',sequence:3,originalUserId:'author',capability:0}]} satisfies CanonicalRecordedAttachmentV1
  return {attachment,op,expected:{roomId:'room',boardEpoch:2}}
 }
 it('prepares immutable same-operation atoms and shares one cap for batch frames without retaining dictionary indexes',()=>{
@@ -168,4 +170,42 @@ it('rejects nested snapshot getters, symbols, prototype and sparse metadata with
  const custom=Object.assign(Object.create({}),textureSnapshot());expect(()=>canonicalStrokeSnapshotV3(custom,2,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toThrow()
  const symbol=textureSnapshot();Reflect.set(symbol,Symbol('extra'),0);expect(()=>canonicalStrokeSnapshotV3(symbol,2,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toThrow()
  const sparse=textureSnapshot();Reflect.deleteProperty(sparse.assets,'1');expect(()=>canonicalStrokeSnapshotV3(sparse,2,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toThrow();expect(calls).toBe(0)
+})
+
+function textureDelivery(){
+ const snapshot=canonicalStrokeSnapshotV3(textureSnapshot(),2,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE),scope={roomId:'texture-room',boardEpoch:2,allowedRasterProfiles:[CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]}
+ const recipe={kind:'image' as const,asset:snapshot.assets[0].id,brushScale:1,brushAngle:0,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:8,height:8,mirrorH:false,mirrorV:false}
+ const first=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:1,y:2,opacity:1,flow:1,grainDepth:-0}],fences:[{at:0,kind:'segmentBegin',group:0}]},snapshot.material).packed
+ const last=buildCanonicalMaterial({masked:false,entry:{phase:'primary',group:0},draws:[],fences:[{at:0,kind:'primaryEnd',group:0},{at:0,kind:'segmentEnd',group:0},{at:0,kind:'gestureEnd'}]},snapshot.material).packed
+ const operations:CanonicalStrokeOperation[]=[first,last].map((materialPacked,i)=>({id:'texture-'+i,userId:'author',timestamp:i,seq:i+1,type:'canonical_stroke',layerId:snapshot.layerId,frame:{version:2,rasterProfile:snapshot.rasterProfile,brush:snapshot.brush,strokeId:snapshot.strokeId,frameOrdinal:i,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked}}))
+ const attachment:CanonicalRecordedAttachmentV1={version:1,roomId:scope.roomId,boardEpoch:2,capabilities:[{originalUserId:'author',snapshot}],bindings:operations.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}))}
+ return{snapshot,scope,operations,attachment}
+}
+it('delivers actual explicit3 through unchanged attachment1 tables and empty/full original bases',()=>{
+ const f=textureDelivery(),atoms=prepareCanonicalRecordedAttachment(JSON.parse(JSON.stringify(f.attachment)),f.operations,f.scope)
+ expect(atoms[0].read!.capability.snapshot.materialVersion).toBe(3);expect(atoms[1].read!.capability).toBe(atoms[0].read!.capability)
+ const common={roomId:f.scope.roomId,boardEpoch:2,throughSeq:2,operationCount:2}
+ expect(verifyCanonicalEmptyHistoryBase({kind:'empty-room-prefix-v1',...common},atoms,f.scope).throughSeq).toBe(2)
+ const full=verifyCanonicalFullHistoryBase({kind:'full-room-prefix-v2',...common},atoms,f.scope)
+ expect(full.gestures[0]).toMatchObject({ended:true,visible:true})
+ const undo={id:'texture-undo',userId:'author',timestamp:2,seq:3,type:'operation_undo' as const,targetOpId:f.operations[0].id}
+ const all=prepareCanonicalRecordedAttachment(f.attachment,[...f.operations,undo],f.scope)
+ expect(verifyCanonicalFullHistoryBase({kind:'full-room-prefix-v2',...common,throughSeq:3,operationCount:3},all,f.scope).gestures[0].visible).toBe(false)
+})
+it('rejects changed3 selector/role/epoch/budget and old packed bytes without a downgrade fallback',()=>{
+ const f=textureDelivery()
+ for(const edit of [(s:CanonicalStrokeSnapshotV3)=>{Reflect.set(s,'materialVersion',2)},(s:CanonicalStrokeSnapshotV3)=>{Reflect.set(s.assets[1],'id',s.assets[0].id)},(s:CanonicalStrokeSnapshotV3)=>{Reflect.set(s,'boardEpoch',3)},(s:CanonicalStrokeSnapshotV3)=>{Reflect.set(s.material.budget,'workUnits',0)}]){
+  const a=structuredClone(f.attachment);const selected=a.capabilities[0].snapshot;if(selected.materialVersion!==3)throw Error('fixture3');edit(selected)
+  expect(()=>prepareCanonicalRecordedAttachment(a,f.operations,f.scope)).toThrow()
+ }
+ const old=fixture();expect(()=>prepareCanonicalRecordedAttachment(f.attachment,[{...f.operations[0],frame:{...f.operations[0].frame,materialPacked:old.op.frame.materialPacked}}],f.scope)).toThrow()
+ let called=0;const a=structuredClone(f.attachment);Object.defineProperty(a.capabilities[0].snapshot,'materialVersion',{get(){called++;return 3}})
+ expect(()=>prepareCanonicalRecordedAttachment(a,f.operations,f.scope)).toThrow();expect(called).toBe(0)
+})
+
+it('rejects explicit3 raster profile accessors before invoking snapshot user code',()=>{
+ const f=textureDelivery(),a=structuredClone(f.attachment);let calls=0
+ Object.defineProperty(a.capabilities[0].snapshot,'rasterProfile',{get(){calls++;return f.snapshot.rasterProfile}})
+ expect(()=>prepareCanonicalRecordedAttachment(a,f.operations,f.scope)).toThrow()
+ expect(calls).toBe(0)
 })

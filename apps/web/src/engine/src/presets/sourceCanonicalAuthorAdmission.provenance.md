@@ -215,3 +215,24 @@ Meaningful cold tests inject abort/stale from onProgress AFTER the first actual
 resource job. They cover no previous services, composite already ready, both
 services already ready, unchanged old program/resources/epoch/CPU on cancellation,
 and a second original waiter that succeeds after the first subscriber cancels.
+
+Explicit fourth options.primaryTextureSource='pressure-identity-subtract-v3'
+selects narrow GenericSC-only imageTexture readiness. Omission remains OFF.
+Same outer-effect/source/timing/pointer-transform/sensor guards run first; genuine
+shared extractCanonicalPrimaryTextureCapability then binds original retained
+strength metadata and exact tip/pattern roles. Return contains a tip-only image
+pin plus separate full texture capability, never raw pattern as NativeImage tip.
+No full context/budget/grant is minted. Existing image/auto branches keep their
+old shape. Engine owns actual context3/residency/BEGIN/current scope later.
+No source flags/curves are stripped to make a candidate pass. Actual stock35
+query belongs to private provenance QA, while unit texture edits are explicitly
+self-authored diagnostic metadata, not original imported stock claims.
+
+The global option does NOT reinterpret ordinary brushes as textured. Only an
+original validated data.flags.textureEnabled image enters the new branch;
+ordinary auto/image admission is identical with option ON across native/browser/
+GenericSC profiles. Texture profile restriction is checked only for that actual
+textured branch. Regression tests cover these unchanged ordinary results plus
+true unsupported texture refusal. Genuine freshly imported compiled Chalk35
+separately passes explicit query with nativeSize60, while default OFF still
+refuses its image binding; private source descriptor remains unchanged.

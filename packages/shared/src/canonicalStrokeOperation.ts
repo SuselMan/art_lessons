@@ -38,13 +38,13 @@ export interface CanonicalStrokeSnapshotV2 extends Omit<CanonicalStrokeSnapshotV
   readonly materialVersion: 2
   readonly material: CanonicalMaterialContextV2
 }
-/** Standalone parse-only metadata; NOT part of BEGIN/recorded attachment unions. */
+/** Explicit material3 snapshot; activation requires the completed protocol cutover. */
 export interface CanonicalStrokeSnapshotV3 extends Omit<CanonicalStrokeSnapshotV1,'rasterProfile'> {
   readonly rasterProfile:typeof CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE
   readonly materialVersion:3
   readonly material:CanonicalMaterialContextV3
 }
-export type CanonicalStrokeSnapshot = CanonicalStrokeSnapshotV1 | CanonicalStrokeSnapshotV2
+export type CanonicalStrokeSnapshot = CanonicalStrokeSnapshotV1 | CanonicalStrokeSnapshotV2 | CanonicalStrokeSnapshotV3
 /** Resume state: ended describes the recorded prefix. A speculative live-only
  * terminal frame does not establish a recorded end. */
 export type CanonicalStrokeBeginResult = { readonly ok: true; readonly snapshot: CanonicalStrokeSnapshot; readonly recordedNext: number; readonly liveNext: number; readonly ended: boolean }

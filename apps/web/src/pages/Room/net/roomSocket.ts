@@ -5,7 +5,7 @@ import {preflightRoomStateDelivery,type CanonicalRoomConnectionRead,type Canonic
 import type { RefObject } from 'react'
 import type { Socket } from 'socket.io-client'
 
-import {captureCanonicalFullHistoryMetadata,parseCanonicalIndexedHistoryOffer,prepareCanonicalRecordedAttachment,readRoomRasterVersion,STRAIGHT_ROOM_RASTER_VERSION,type CanonicalIndexedHistoryOfferV1,type ClientToServerEvents,type Operation,type ServerToClientEvents} from '@grafetto/shared'
+import {CLIENT_UPDATE_REQUIRED,captureCanonicalFullHistoryMetadata,parseCanonicalIndexedHistoryOffer,prepareCanonicalRecordedAttachment,readRoomRasterVersion,STRAIGHT_ROOM_RASTER_VERSION,type CanonicalIndexedHistoryOfferV1,type ClientToServerEvents,type Operation,type ServerToClientEvents} from '@grafetto/shared'
 
 import type { PencilEngineAPI,CanonicalRecordedInput } from '../../../engine'
 import { BANNED_ERROR_CODE, noteBanned } from '../../../lib/api/banned'
@@ -92,6 +92,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
 
   const socket = openSocket()
   socketRef.current = socket
+  let updateRequired = false
   let readGeneration=0
   type IndexedOwner={generation:number;offer:Readonly<CanonicalIndexedHistoryOfferV1>;origin?:CanonicalIndexedSocketOrigin;watermark:number;busy:boolean;metadataPaused:boolean}
   let indexed:IndexedOwner|undefined
@@ -178,6 +179,20 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   // закрытия вкладки; вместо этого всё приложение уходит на экран бана.
   const handleConnectError = (err: Error) => {
     invalidateRead()
+    if (err.message === CLIENT_UPDATE_REQUIRED) {
+      updateRequired = true
+      revival.stop()
+      socket.io.reconnection(false)
+      onConnectionChange(false)
+      deps.engineRef.current?.setLocked(true)
+      deps.setRoomContentReady(false)
+      notifyError(deps.tRef.current('update.required'), {
+        key: 'drawing-update-required', durationMs: null,
+        action: { label: deps.tRef.current('error.reload'), onClick: () => window.location.reload() },
+      })
+      socket.disconnect()
+      return
+    }
     if (err.message === BANNED_ERROR_CODE) {
       noteBanned()
       return
@@ -197,7 +212,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   let brushNotice: string | undefined
   const retryBrushes = () => {
     invalidateRead()
-    if (disposed || !brushFailed) return
+    if (disposed || updateRequired || !brushFailed) return
     brushFailed = false
     // Failed gates deliberately discard their stream. Reconnect requests a
     // fresh room_state; never resume a partially admitted old event queue.

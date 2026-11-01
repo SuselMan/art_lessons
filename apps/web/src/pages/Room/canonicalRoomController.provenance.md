@@ -345,3 +345,11 @@ the parent. These tests use authenticated socket-fixture origins and controlled
 ACKs. They do not attest real database durability, actual engine target selection,
 GPU pixels or device performance; those remain paired integration gates. The
 feature remains inactive until ROOT wires and verifies the complete pair.
+
+## Explicit primary texture author option
+
+The same service forwards the engine-captured descriptor SHA to BEGIN admission.
+It captures the optional literal primaryTextureSource by value before returning
+the frozen service. Absent means author OFF; recorded V3 reads do not depend on
+this flag. Existing Room construction does not yet opt in. The option never
+mints a read, source lease, BEGIN grant, or server policy.

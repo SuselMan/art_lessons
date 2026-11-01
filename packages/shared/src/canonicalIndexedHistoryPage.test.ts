@@ -1,3 +1,5 @@
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G} from './canonicalStrokeFrame.js'
+import type {CanonicalStrokeSnapshotV3} from './canonicalStrokeOperation.js'
 import {expect,it,vi} from 'vitest'
 import stock from './fixtures/sourceDefaultAutoData/stock.native.js'
 import type {BrushDescriptor} from './brushes.js'
@@ -78,4 +80,19 @@ it('rejects more than six witnesses and an own-branch frame before first undo',(
  expect(()=>prepareCanonicalIndexedRootEvidence(evidence(Array.from({length:7},(_,i)=>frame(i+1,'stroke'+i))),begin(10),root)).toThrow()
  const v={...evidence([frame(),frame(2,'branch'),undo(3)]),lastMetadata:2,firstUndoAfterLatestRedo:2,ownBranchAfterUndo:1}
  expect(()=>prepareCanonicalIndexedRootEvidence(v,begin(),root)).toThrow()
+})
+
+it('normalizes actual3 page and ended root evidence with explicit snapshot dispatch and original role identity',()=>{
+ const primary={id:'asset:'+'1'.repeat(64),size:1,x:0,y:0,width:1,height:1},pattern={id:'asset:'+'2'.repeat(64),size:2,x:0,y:0,width:2,height:2}
+ const s:CanonicalStrokeSnapshotV3={...snapshot,rasterProfile:G,materialVersion:3,assets:[primary,pattern],material:{version:3,assets:[primary,pattern],primarySource:{kind:'image',asset:primary.id,brushScale:1,brushAngle:0},primaryTexture:{kind:'canvasTexture',asset:pattern.id,law:'subtract-u8-v1',width:2,height:2,periodX:2,periodY:2,offsetX:0,offsetY:0,strength:'pressure-identity-v1'},budget:{workUnits:1000,outputBytes:1000,drawPixels:1000}}}
+ const packed=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe:{kind:'image',asset:primary.id,brushScale:1,brushAngle:0,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:1,height:1,mirrorH:false,mirrorV:false},role:'primary',x:0,y:0,opacity:1,flow:1,grainDepth:.5}],fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:1,group:0},{kind:'segmentEnd',at:1,group:0},{kind:'gestureEnd',at:1}]},s.material).packed
+ const op:CanonicalStrokeOperation={...frame(),frame:{version:2,rasterProfile:G,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked:packed}}
+ const cap:CanonicalRecordedAttachmentV1={version:1,roomId:'room',boardEpoch:2,capabilities:[{originalUserId:'actor',snapshot:s}],bindings:[{operationId:op.id,sequence:1,originalUserId:'actor',capability:0}]}
+ const current=parseCanonicalIndexedHistoryBegin({...begin(),scope:{...scope,allowedRasterProfiles:[G]},authorRasterProfile:G})
+ const result=prepareCanonicalIndexedRootEvidence({...evidence([op]),canonicalCapabilities:cap},current,root)
+ expect(result.atoms[0].read!.capability.snapshot.materialVersion).toBe(3)
+ expect(result.evidence.rows[0]).toEqual(op)
+ expect(prepareCanonicalIndexedHistoryPage({...page([op]),canonicalCapabilities:cap},current,0).atoms[0].read!.capability.snapshot.materialVersion).toBe(3)
+ const noEnd={...op,frame:{...op.frame,materialPacked:buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},s.material).packed}}
+ expect(()=>prepareCanonicalIndexedRootEvidence({...evidence([noEnd]),canonicalCapabilities:cap},current,root)).toThrow()
 })

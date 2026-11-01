@@ -1,9 +1,10 @@
-import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,extractSeededDensityDefaultAutoSourceDataCapability,canonicalSourceComposition,canonicalSourceEffectReject,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,isSourceStampData,sourceStampSourceKind,type BrushDescriptor,type CanonicalStrokeRasterProfile,type SourceStampData} from '@grafetto/shared'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,extractSeededDensityDefaultAutoSourceDataCapability,canonicalSourceComposition,canonicalSourceEffectReject,canonicalImageMaterialPin,extractCanonicalPrimaryTextureCapability,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,isSourceStampData,sourceStampSourceKind,type CanonicalPrimaryTextureCapability,type BrushDescriptor,type CanonicalStrokeRasterProfile,type SourceStampData} from '@grafetto/shared'
 
 type ImagePin=ReturnType<typeof canonicalImageSourceBinding>
 export type CanonicalSourceAuthorAdmission =
  {readonly supported:true;readonly data:Extract<SourceStampData,{version:2}>;readonly nativeSizePx:number;readonly material:{readonly kind:'auto';readonly coverageProfile?:typeof CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE}}
  |{readonly supported:true;readonly data:SourceStampData;readonly nativeSizePx:number;readonly material:{readonly kind:'image';readonly pin:ImagePin}}
+ |{readonly supported:true;readonly data:SourceStampData;readonly nativeSizePx:number;readonly material:{readonly kind:'imageTexture';readonly pin:ImagePin;readonly capability:CanonicalPrimaryTextureCapability}}
  |{readonly supported:false;readonly reason:string}
 
 /** Declared metadata only; never pixels, a resource owner or BEGIN authority. */
@@ -19,9 +20,13 @@ function captureMetadata(values:readonly {readonly id:string;readonly size:numbe
  }
  return result
 }
+export interface CanonicalSourceAuthorAdmissionOptions {readonly primaryTextureSource?:'pressure-identity-subtract-v3'}
+
 /** Static pointer-domain query over original validated source data. DATA1 image
  * remains DATA1; wire material V2 and real server BEGIN are separate boundaries. */
-export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available?:readonly {readonly id:string;readonly size:number}[]):CanonicalSourceAuthorAdmission {
+export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available?:readonly {readonly id:string;readonly size:number}[],options?:CanonicalSourceAuthorAdmissionOptions):CanonicalSourceAuthorAdmission {
+ const texture=options?.primaryTextureSource
+ if(texture!==undefined&&texture!=='pressure-identity-subtract-v3')return{supported:false,reason:'Unsupported canonical primary texture policy/profile'}
  const unsupported=canonicalSourceEffectReject(descriptor,profile)
  if(unsupported)return{supported:false,reason:'Unsupported canonical source effect: '+unsupported}
  const policy=canonicalSourceComposition(descriptor,profile),data=descriptor.sourceStamp
@@ -41,6 +46,15 @@ export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profil
   try{
    const asset=metadata.find(a=>a.id===descriptor.tip.mask)
    if(!asset)throw Error('Missing primary image')
+   if(texture&&data.flags.textureEnabled){
+    if(profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)return{supported:false,reason:'Unsupported canonical primary texture policy/profile'}
+    const pattern=metadata.find(a=>a.id===descriptor.texture?.id)
+    if(!pattern)return{supported:false,reason:'Canonical primary texture metadata unavailable'}
+    const result=extractCanonicalPrimaryTextureCapability(descriptor,{primary:asset,pattern})
+    if(!result.supported)return{supported:false,reason:'Unsupported canonical primary texture: '+result.reasons.join(',')}
+    const capability=result.capability,pin=canonicalImageMaterialPin({kind:'image',asset:capability.asset.id,brushScale:capability.brushScale,brushAngle:capability.brushAngle},[capability.asset])
+    return{supported:true,data,nativeSizePx,material:{kind:'imageTexture',pin,capability}}
+   }
    const pin=descriptor.tip.animation?canonicalImagePipeSourceBinding(descriptor,metadata):canonicalImageSourceBinding(descriptor,asset)
    return{supported:true,data,nativeSizePx,material:{kind:'image',pin}}
   }catch{return{supported:false,reason:'Unsupported canonical image source binding'}}

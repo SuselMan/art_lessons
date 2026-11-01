@@ -7,7 +7,7 @@ import { hasRequiredOperationBrushContext, pinOperationBrush } from '../brushLib
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents,CanonicalIndexedHistoryOfferV1,CanonicalHistoryAck } from '@grafetto/shared'
-import {parseCanonicalHistoryOpenRequest,parseCanonicalHistoryStreamNext,parseCanonicalHistoryStreamEvidence,parseCanonicalHistoryStreamSelect,parseCanonicalHistoryStreamCancel,parseCanonicalHistoryStreamReopen, canonicalStrokeStorage, hasValidBrushRandomContext, isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, STRAIGHT_ROOM_RASTER_VERSION, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
+import {CLIENT_UPDATE_REQUIRED,supportsPrimaryTextureProtocol,parseCanonicalHistoryOpenRequest,parseCanonicalHistoryStreamNext,parseCanonicalHistoryStreamEvidence,parseCanonicalHistoryStreamSelect,parseCanonicalHistoryStreamCancel,parseCanonicalHistoryStreamReopen, canonicalStrokeStorage, hasValidBrushRandomContext, isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, STRAIGHT_ROOM_RASTER_VERSION, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import {
   abortAssignmentStart, beginAssignmentStart, canSeeLessonBoard, getClassroom, getLessonStateFor,
@@ -300,6 +300,10 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, cano
     // address ban is aimed at whoever arrives without a cookie.
     const ip = handshakeIp(socket.handshake.headers, socket.handshake.address)
     if (isIpBanned(ip)) return next(new Error('banned'))
+    // Before identity, seat, room loading, or any history grant.
+    if (canonicalTransport.requiresPrimaryTextureProtocol && !supportsPrimaryTextureProtocol(socket.handshake.auth?.drawingProtocol)) {
+      return next(new Error(CLIENT_UPDATE_REQUIRED))
+    }
     resolveSocketIdentity(socket.handshake.headers.cookie)
       .then(({ userId, deviceId }) => {
         // (#587) Same refusal identityHook gives over HTTP. A socket that is

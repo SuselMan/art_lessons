@@ -12,6 +12,16 @@ import type {
 import type { ToolType } from './stroke.js'
 import type { ToggleableTool } from './toolset.js'
 
+/** Whole-client renderer revision. This is compatibility DATA, never authorization.
+ * Enabling material 3 requires a single backend restart with the frozen policy:
+ * old sockets/read grants must not survive that cutover. */
+export const DRAWING_PROTOCOL_VERSION = '3'
+export const DRAWING_PROTOCOL_HEADER = 'x-grafetto-drawing-protocol'
+export const CLIENT_UPDATE_REQUIRED = 'client_update_required'
+export function supportsPrimaryTextureProtocol(value: unknown): boolean {
+  return value === DRAWING_PROTOCOL_VERSION
+}
+
 /** (#613) The socket contract: join results, cursors and live strokes,
  *  reject reasons, and the two event maps. */
 

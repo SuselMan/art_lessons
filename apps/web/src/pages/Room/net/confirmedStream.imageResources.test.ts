@@ -1,5 +1,5 @@
 import {expect,it,vi,afterEach} from 'vitest'
-import {buildCanonicalMaterial,canonicalImageSourceBinding,canonicalBrushDescriptorJSON,CANONICAL_STROKE_RASTER_PROFILE,type BrushDescriptor,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type ServerToClientEvents} from '@grafetto/shared'
+import {canonicalPrimaryTexturePin,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as generic,type CanonicalStrokeSnapshotV3,buildCanonicalMaterial,canonicalImageSourceBinding,canonicalBrushDescriptorJSON,CANONICAL_STROKE_RASTER_PROFILE,type BrushDescriptor,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type ServerToClientEvents} from '@grafetto/shared'
 import type {CanonicalRecordedInput} from '../../../engine'
 import {createHash} from 'node:crypto'
 import fixture from '../../../engine/src/presets/fixtures/sourcePngWholePath/guiStroke.native.json'
@@ -17,16 +17,21 @@ vi.mock('@sentry/react',()=>({captureException:vi.fn()}))
 vi.mock('../../../lib/api/brushLibrary',()=>({prepareCanonicalImageAssets:vi.fn(async()=>{}),prepareBrushPresets:vi.fn(()=>null)}))
 vi.mock('../../../lib/observability/reportInvariant',()=>({reportInvariant:vi.fn()}))
 afterEach(()=>{vi.restoreAllMocks();vi.mocked(prepareCanonicalImageAssets).mockClear();vi.mocked(prepareBrushPresets).mockClear();vi.mocked(api).mockReset()})
-function original(){
+function original(texture=false){
  let current=true
  const descriptor=fixture.descriptor as unknown as BrushDescriptor,binding=canonicalImageSourceBinding(descriptor,fixture.asset)
  const material={version:2 as const,...binding,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}}
  const snapshot:CanonicalStrokeSnapshotV2={layerId:'L',brush:`brush:${descriptor.id}@${descriptor.version}`,strokeId:'S',boardEpoch:1,descriptorSha256:createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex'),rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,pigmentRgb8:[0,0,0],composition:{mode:'wash',alphaDarken:'creamy',outerResourceOpacity:1,outerBlend:'over'},assets:material.assets,materialVersion:2,material}
- const packed=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[{at:0,kind:'gestureEnd'}]},material).packed
- const op:CanonicalStrokeOperation={id:'op',userId:'author',timestamp:0,seq:1,type:'canonical_stroke',layerId:'L',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:snapshot.brush,strokeId:'S',frameOrdinal:0,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
+ const pattern={id:'asset:'+'f'.repeat(64),size:8,x:0,y:0,width:4,height:4}
+ const material3={version:3 as const,assets:[binding.assets[0],pattern],primarySource:binding.primarySource,primaryTexture:canonicalPrimaryTexturePin({kind:'canvasTexture',asset:pattern.id,law:'subtract-u8-v1',width:4,height:4,periodX:4,periodY:4,offsetX:0,offsetY:0,strength:'pressure-identity-v1'},pattern),budget:material.budget}
+ const selected:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3=texture?{...snapshot,rasterProfile:generic,materialVersion:3,material:material3,assets:material3.assets}:snapshot
+ const empty={masked:false as const,entry:{phase:'between' as const},draws:[],fences:[{at:0,kind:'gestureEnd' as const}]}
+ const packed=texture?buildCanonicalMaterial(empty,material3).packed:buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[{at:0,kind:'gestureEnd'}]},material).packed
+ const op:CanonicalStrokeOperation={id:'op',userId:'author',timestamp:0,seq:1,type:'canonical_stroke',layerId:'L',frame:{...(texture?{version:2 as const,rasterProfile:generic}:{version:1 as const,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}),brush:snapshot.brush,strokeId:'S',frameOrdinal:0,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
  const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:512,canvasHeight:512,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:1},canonicalHistoryBase:{kind:'empty-room-prefix-v1',roomId:'room',boardEpoch:1,throughSeq:0,operationCount:0}}
+ if(texture&&'tailOperations'in state){state.canonicalReadScope={roomId:'room',boardEpoch:1,allowedRasterProfiles:[generic]};state.canonicalAuthorRasterProfile=generic}
  const read=prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent:()=>current}).canonicalRead
- const payload={seq:1,operation:op,canonicalCapabilities:{version:1 as const,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot}],bindings:[{operationId:'op',sequence:1,originalUserId:'author',capability:0}]}}
+ const payload={seq:1,operation:op,canonicalCapabilities:{version:1 as const,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot:selected}],bindings:[{operationId:'op',sequence:1,originalUserId:'author',capability:0}]}}
  const deps:ConfirmedStreamDeps={engineRef:{current:null},lastConfirmedSeqRef:{current:0},latestKnownSeqRef:{current:0},appliedOpIdsRef:{current:new Set()},pendingPreviewsRef:{current:createPendingPreviews()},catchingUpRef:{current:false},streamedStrokeIdsRef:{current:new Set()},deferredOpsQueueRef:{current:[]},previewScheduleRef:{current:null},confirmOwnOperation:vi.fn(),markLayerActive:vi.fn(),applyRemoteOp:vi.fn(()=>true),syncFromLog:vi.fn(),checkSnapshotBoundary:vi.fn(),requestFullResync:vi.fn(),canonicalReadScope:read.scope}
  return{read,payload,deps,stale:()=>{current=false}}
 }
@@ -137,4 +142,49 @@ it('rechecks the original lifetime when a prepared final closure is delayed past
  const handler=createConfirmedStreamHandler({...f.deps,...{dispatchPrepared}})
  handler(f.payload);expect(dispatchPrepared).toHaveBeenCalledOnce();expect(f.deps.applyRemoteOp).not.toHaveBeenCalled()
  f.stale();expect(()=>finish?.()).toThrow();expect(f.deps.applyRemoteOp).not.toHaveBeenCalled();expect(f.deps.lastConfirmedSeqRef.current).toBe(0)
+})
+
+it('prepares BOTH original V3 tip and raw pattern through the same delivery lifetime',async()=>{
+ const f=original(true),handler=createConfirmedStreamHandler(f.deps),prepared=handler.prepare(f.payload)
+ if(!prepared?.recorded)throw Error('Missing genuine original3')
+ const before=prepared.recorded,assets=before.read!.capability.snapshot.assets
+ expect(before.read!.capability.snapshot.materialVersion).toBe(3);expect(assets).toHaveLength(2)
+ await prepareCanonicalRecordedImageResources([before],f.read.scope)
+ expect(prepareCanonicalImageAssets).toHaveBeenCalledWith('room',assets,expect.any(Function));expect(prepared.recorded).toBe(before)
+ const current=vi.mocked(prepareCanonicalImageAssets).mock.calls[0][2];current();f.stale();expect(current).toThrow()
+ expect(f.deps.applyRemoteOp).not.toHaveBeenCalled();expect(f.deps.confirmOwnOperation).not.toHaveBeenCalled()
+})
+
+function textureResourceBatch(){
+ const f=original(true),handler=createConfirmedStreamHandler(f.deps),base=f.payload.canonicalCapabilities.capabilities[0].snapshot
+ if(base.materialVersion!==3)throw Error('Texture fixture required')
+ const atoms=Array.from({length:64},(_,i)=>{
+  const primary='asset:'+(i+1).toString(16).padStart(64,'0'),pattern='asset:'+(i+65).toString(16).padStart(64,'0'),strokeId='S'+i,assets=[{...base.assets[0],id:primary},{...base.assets[1],id:pattern}]
+  const snapshot={...base,strokeId,assets,material:{...base.material,assets,primarySource:{...base.material.primarySource,asset:primary},primaryTexture:{...base.material.primaryTexture,asset:pattern}}}
+  const operation={...f.payload.operation,id:'op'+i,seq:i+1,frame:{...f.payload.operation.frame,strokeId,materialPacked:buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[{at:0,kind:'gestureEnd'}]},snapshot.material).packed}}
+  const payload={seq:i+1,operation,canonicalCapabilities:{...f.payload.canonicalCapabilities,capabilities:[{originalUserId:'author',snapshot}],bindings:[{operationId:operation.id,sequence:i+1,originalUserId:'author',capability:0}]}}
+  const prepared=handler.prepare(payload);if(!prepared?.recorded)throw Error('Original resource atom required');return prepared.recorded
+ })
+ return{f,atoms}
+}
+it('bounds a genuine 64-capability two-role ledger into two sequential availability calls',async()=>{
+ const{f,atoms}=textureResourceBatch();await prepareCanonicalRecordedImageResources(atoms,f.read.scope)
+ const calls=vi.mocked(prepareCanonicalImageAssets).mock.calls;expect(calls).toHaveLength(2);expect(calls.map(c=>c[1].length)).toEqual([64,64])
+ const ids=calls.flatMap(c=>c[1].map(a=>a.id));expect(new Set(ids).size).toBe(128);expect(calls[0][2]).toBe(calls[1][2])
+})
+it('rechecks the SAME original lifetime between texture asset chunks and never starts the next stale chunk',async()=>{
+ const{f,atoms}=textureResourceBatch();vi.mocked(prepareCanonicalImageAssets).mockImplementationOnce(async()=>{f.stale()})
+ await expect(prepareCanonicalRecordedImageResources(atoms,f.read.scope)).rejects.toThrow();expect(prepareCanonicalImageAssets).toHaveBeenCalledTimes(1)
+})
+it('does not use a V3 neighbor to expand the historical V2 availability subledger',()=>{
+ const f=original(true),handler=createConfirmedStreamHandler(f.deps),first=handler.prepare(f.payload)
+ if(!first?.recorded)throw Error('Original input required')
+ const base=f.payload.canonicalCapabilities.capabilities[0].snapshot;if(base.materialVersion!==3)throw Error('Texture fixture required')
+ const assets=Array.from({length:65},(_,i)=>({...base.assets[0],id:'asset:'+(i+200).toString(16).padStart(64,'0')})),material={version:2 as const,assets,primarySource:{...base.material.primarySource,asset:assets[0].id,frames:assets.map(a=>a.id)},budget:base.material.budget},strokeId='old-pipe'
+ const snapshot={...base,strokeId,materialVersion:2 as const,assets,material},operation={...f.payload.operation,id:'old-op',seq:2,frame:{...f.payload.operation.frame,strokeId,materialPacked:buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[{at:0,kind:'gestureEnd'}]},material).packed}}
+ const prepared=handler.prepare({seq:2,operation,canonicalCapabilities:{...f.payload.canonicalCapabilities,capabilities:[{originalUserId:'author',snapshot}],bindings:[{operationId:'old-op',sequence:2,originalUserId:'author',capability:0}]}})
+ if(!prepared?.recorded)throw Error('Original V2 input required')
+ const inputs=[first.recorded,prepared.recorded]
+ expect(()=>prepareCanonicalRecordedImageResources(inputs,f.read.scope)).toThrow(/legacy image resource asset limit/)
+ expect(prepareCanonicalImageAssets).not.toHaveBeenCalled()
 })

@@ -1,4 +1,4 @@
-import {decodeCanonicalStrokeFrame} from './canonicalStrokeFrame.js'
+import {decodeCanonicalRecordedSnapshotFrame} from './canonicalRecordedAttachment.js'
 import {CANONICAL_RECORDED_ATTACHMENT_LIMITS,prepareCanonicalRecordedAttachment,type CanonicalPreparedRecordedOperation,type CanonicalRecordedAttachmentV1} from './canonicalRecordedAttachment.js'
 import {captureCanonicalFullHistoryMetadata} from './canonicalFullHistoryBase.js'
 import {CANONICAL_INDEXED_HISTORY_LIMITS,parseCanonicalIndexedRoot,type CanonicalIndexedHistoryStartV1,type CanonicalIndexedHistoryPageV1,type CanonicalIndexedHistoryRootEvidenceV1,type CanonicalIndexedRootV1,type CanonicalIndexedOperation} from './canonicalIndexedHistory.js'
@@ -103,7 +103,7 @@ export function prepareCanonicalIndexedRootEvidence(value:unknown,begin:Canonica
   }else if(op.type==='canonical_stroke'){
    if(op.userId!==root.originalUserId||op.layerId!==root.layerId||op.frame.strokeId!==root.strokeId)return fail()
    const s=atoms[terminal].read?.capability.snapshot;if(!s)return fail()
-   const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:s.material})
+   const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,s,op.frame.frameOrdinal)
    if(!decoded.frame.fences.some(fence=>fence.kind==='gestureEnd'))return fail()
   }else return fail()
  }

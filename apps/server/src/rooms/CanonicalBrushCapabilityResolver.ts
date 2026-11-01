@@ -2,18 +2,18 @@ import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import {
   CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, verifyCanonicalRecordedClose,parseCanonicalStrokeCloseOperation,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION,
-  canonicalImageSourceBinding,canonicalImagePipeSourceBinding,canonicalSourceEffectReject, canonicalBrushDescriptorJSON, canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, canonicalSourceComposition,
-  type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalStrokeOperation, type CanonicalMaterialContextV2, decodeCanonicalStrokeFrame,
+  canonicalPrimaryTextureMaterialContext,canonicalStrokeSnapshotV3,extractCanonicalPrimaryTextureCapability,type CanonicalMaterialContextV3,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,canonicalSourceEffectReject, canonicalBrushDescriptorJSON, canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, canonicalSourceComposition,
+  type BrushDescriptor, type BrushLibrary, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalStrokeOperation, type CanonicalMaterialContextV2, decodeCanonicalStrokeFrame,
   prepareCanonicalRecordedAttachment, CANONICAL_RECORDED_ATTACHMENT_LIMITS, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadCapability, type Operation,
 } from '@grafetto/shared'
-import { freezeCanonicalSeededDefaultAutoPolicies,freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,type CanonicalImagePipeSource,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,type CanonicalRoomExecutionPolicy, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
+import { freezeCanonicalPrimaryTexturePolicy,freezeCanonicalSeededDefaultAutoPolicies,freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,type CanonicalImagePipeSource,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,type CanonicalRoomExecutionPolicy, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
 import { BrushStorage, merge } from '../brushLibrary/storage.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
 import { hasSucceededCanonicalWrite } from './operationLog.js'
 import { verifyCanonicalOperationRow, projectCanonicalIndexedOperation,projectCanonicalIndexedCloseOperation, type CanonicalStoredOperationRow } from './roomPersistence.js'
 import type {CanonicalIndexedCloseEvidence} from './snapshotStore.js'
-import type { CanonicalAdmissionIdentity, CanonicalCapabilityResolver, TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
+import type { CanonicalAdmissionIdentity, CanonicalCapabilityResolver, TrustedCanonicalGesture,CanonicalTrustedMaterialContext } from './CanonicalStrokeAdmission.js'
 
 export type CanonicalGestureBegin = CanonicalStrokeBegin
 /** Read-only attachment input for a future authoritative delivery seam.
@@ -24,7 +24,7 @@ export interface CanonicalRecordedCapability {
  readonly rasterProfile:CanonicalStrokeRasterProfile
  readonly pigmentRgb8:readonly[number,number,number]
  readonly composition:TrustedCanonicalGesture['composition']
- readonly material:CanonicalMaterialContextV2
+ readonly material:CanonicalMaterialContextV2|CanonicalMaterialContextV3
 }
 interface RecordedFoldCheckpoint extends CanonicalMaterialPrefixState {
  readonly recordedNext:number;readonly firstOperationId:string;readonly lastOperationId:string;readonly firstSeq:number;readonly lastSeq:number
@@ -59,6 +59,7 @@ export class CanonicalBrushCapabilityResolver {
   private readonly maxGestures: number
   private readonly authorProfile:CanonicalStrokeRasterProfile
   private readonly recordedProfiles:readonly CanonicalStrokeRasterProfile[]
+  private readonly primaryTextureSource:CanonicalRoomExecutionPolicy['primaryTextureSource']
   private readonly primaryImageSource:CanonicalRoomExecutionPolicy['primaryImageSource']
   private readonly imagePipePolicies:ReturnType<typeof freezeCanonicalImagePipePolicies>
   private readonly seededPolicies:ReturnType<typeof freezeCanonicalSeededDefaultAutoPolicies>
@@ -86,6 +87,7 @@ export class CanonicalBrushCapabilityResolver {
     /** Explicit server execution/config policy, never inferred from saved KPP. */
     readonly alphaDarkenVariants: readonly ('creamy' | 'hard')[]
     readonly maxGestures: number
+    readonly primaryTextureSource?:CanonicalRoomExecutionPolicy['primaryTextureSource']
     readonly primaryImageSource?:CanonicalRoomExecutionPolicy['primaryImageSource']
     readonly allowedRecordedImagePipeSources?:readonly CanonicalImagePipeSource[]
     readonly authorImagePipeSources?:readonly CanonicalImagePipeSource[]
@@ -102,6 +104,7 @@ export class CanonicalBrushCapabilityResolver {
     const raster=freezeCanonicalRasterPolicy(options)
     this.authorProfile=raster.authorRasterProfile;this.recordedProfiles=raster.allowedRecordedRasterProfiles
     this.primaryImageSource=freezeCanonicalPrimaryImagePolicy(options.primaryImageSource)
+    this.primaryTextureSource=freezeCanonicalPrimaryTexturePolicy(options)
     this.imagePipePolicies=freezeCanonicalImagePipePolicies(options)
     this.seededPolicies=freezeCanonicalSeededDefaultAutoPolicies(options)
     this.autoSources=freezeCanonicalAutoPolicies(options.autoSources)
@@ -254,7 +257,7 @@ export class CanonicalBrushCapabilityResolver {
         assert(this)
         try{
         if(operation.type==='canonical_stroke_close'){
-          if(!bound||!state.nextOrdinal||closeSeal||!('version'in bound.material)||bound.material.version!==2)fail('recorded close V1 source read unsupported')
+          if(!bound||!state.nextOrdinal||closeSeal||!('version'in bound.material)||(bound.material.version!==2&&bound.material.version!==3))fail('recorded close V1 source read unsupported')
           const close=projectCanonicalIndexedCloseOperation(roomId,row),op=parseCanonicalStrokeCloseOperation(operation)
           if(!isDeepStrictEqual(close.operation,op)||op.id===firstOperationId||op.id===lastOperationId)fail('recorded close immutable identity changed')
           bytes+=close.bytes;if(!indexed&&bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix close byte capacity exceeded')
@@ -267,7 +270,8 @@ export class CanonicalBrushCapabilityResolver {
         bound??=bindRow(op,row)
         if(op.userId!==bound.originalUserId||op.layerId!==bound.layerId||op.seq!<=lastSeq)fail('recorded prefix immutable identity changed')
         bytes+=normalized.bytes;if(!indexed&&bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix byte capacity exceeded')
-        const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:bound.rasterProfile,brush:bound.brush,strokeId:bound.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:bound.pigmentRgb8,composition:bound.composition,material:bound.material})
+        const common={rasterProfile:bound.rasterProfile,brush:bound.brush,strokeId:bound.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:bound.pigmentRgb8,composition:bound.composition}
+        const decoded=bound.material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material:bound.material}):decodeCanonicalStrokeFrame(op.frame,{...common,material:bound.material})
         if(decoded.frame.masked)fail('recorded masked prefix unavailable')
         state=advanceCanonicalMaterialPrefix(state,op.frame.frameOrdinal,decoded.frame)
         if(!firstOperationId){firstOperationId=op.id;firstSeq=op.seq!}
@@ -348,8 +352,8 @@ export class CanonicalBrushCapabilityResolver {
     const {material,mode,outerBlend,descriptorSha256}=this.bindDescriptor(descriptor,library,profile,'recorded')
     if(!('version' in material))fail('recorded V1 material delivery unavailable')
     if(!this.variants.has(op.frame.composition.alphaDarken)||op.frame.composition.mode!==mode)fail('recorded composition policy mismatch')
-    const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:profile,brush:op.frame.brush,strokeId:op.frame.strokeId,frameOrdinal:op.frame.frameOrdinal,
-      pigmentRgb8:op.frame.pigmentRgb8,composition:{...op.frame.composition,mode,outerBlend},material})
+    const common={rasterProfile:profile,brush:op.frame.brush,strokeId:op.frame.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:op.frame.pigmentRgb8,composition:{...op.frame.composition,mode,outerBlend}}
+    const decoded=material.version===3?decodeCanonicalStrokeFrame(op.frame,{...common,rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,materialVersion:3,material}):decodeCanonicalStrokeFrame(op.frame,{...common,material})
     if(decoded.frame.masked)fail('recorded masked material unavailable')
     return Object.freeze({roomId,originalUserId:op.userId,operationId:op.id,sequence:op.seq!,layerId:op.layerId,boardEpoch,
       descriptorSha256,brush:decoded.envelope.brush,strokeId:decoded.envelope.strokeId,rasterProfile:profile,
@@ -411,8 +415,9 @@ export class CanonicalBrushCapabilityResolver {
       if(index===undefined){
         if(capabilities.length>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)fail('recorded attachment capability capacity exceeded')
         const c=read()
-        const snapshot=Object.freeze({layerId:c.layerId,brush:c.brush,strokeId:c.strokeId,boardEpoch:c.boardEpoch,descriptorSha256:c.descriptorSha256,
-          rasterProfile:c.rasterProfile,pigmentRgb8:c.pigmentRgb8,composition:c.composition,assets:c.material.assets,materialVersion:2 as const,material:c.material})
+        const common={layerId:c.layerId,brush:c.brush,strokeId:c.strokeId,boardEpoch:c.boardEpoch,descriptorSha256:c.descriptorSha256,
+          rasterProfile:c.rasterProfile,pigmentRgb8:c.pigmentRgb8,composition:c.composition,assets:c.material.assets}
+        const snapshot=c.material.version===3?canonicalStrokeSnapshotV3({...common,materialVersion:3,material:c.material},c.boardEpoch,c.rasterProfile):Object.freeze({...common,materialVersion:2 as const,material:c.material})
         index=capabilities.length;capabilities.push(Object.freeze({originalUserId:c.originalUserId,snapshot}));dictionary.set(identity,index)
       }
       bindings.push(Object.freeze({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:index}))
@@ -433,13 +438,13 @@ export class CanonicalBrushCapabilityResolver {
     return mode
   }
 
-  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile,role:'author'|'recorded'):{material:AnyCanonicalMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string} {
+  private bindDescriptor(descriptor:BrushDescriptor,library:BrushLibrary,profile:CanonicalStrokeRasterProfile,role:'author'|'recorded'):{material:CanonicalTrustedMaterialContext;mode:'wash'|'buildup';outerBlend:TrustedCanonicalGesture['composition']['outerBlend'];descriptorSha256:string} {
     if(!isSourceStampData(descriptor.sourceStamp))fail('invalid or missing retained source data')
     const unsupportedOuter = canonicalSourceEffectReject(descriptor,profile)
     if (unsupportedOuter) fail((profile===CANONICAL_STROKE_RASTER_PROFILE?'unsupported canonical Over execution: ':'unsupported canonical execution: ')+unsupportedOuter)
     const descriptorSha256 = createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex')
     const composition=canonicalSourceComposition(descriptor,profile)!
-    let material:AnyCanonicalMaterialContext, mode:'wash'|'buildup'
+    let material:CanonicalTrustedMaterialContext, mode:'wash'|'buildup'
     const budget=Object.freeze({workUnits:CANONICAL_MATERIAL_LIMITS.workUnits,outputBytes:CANONICAL_MATERIAL_LIMITS.outputBytes,drawPixels:CANONICAL_MATERIAL_LIMITS.drawPixels})
     if(descriptor.sourceStamp.version===2 && (descriptor.sourceStamp.source.kind==='defaultAuto'||descriptor.sourceStamp.source.kind==='gaussianAuto'||descriptor.sourceStamp.source.kind==='softAuto')){
       const kind=descriptor.sourceStamp.source.kind
@@ -459,6 +464,19 @@ export class CanonicalBrushCapabilityResolver {
       // Retained IMAGE data1 is independent of the explicitly selected wire material V2.
       // primaryImageSource is also the shared base-V2 gate required by the pipe-role freezer.
       if(profile!==CANONICAL_STROKE_RASTER_PROFILE&&(!this.primaryImageSource||profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))fail(this.primaryImageSource?'image V2 raster profile unavailable':'V1 material requires historical raster profile')
+      if(descriptor.sourceStamp.flags.textureEnabled){
+        if(!this.primaryTextureSource)fail('unsupported-material-consumer')
+        if(profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)fail('primary texture raster profile unavailable')
+        const primary=library.assets.find(a=>a.id===descriptor.tip.mask),pattern=library.assets.find(a=>a.id===descriptor.texture?.id)
+        if(!primary||!pattern)fail('primary texture CAS metadata unavailable')
+        const result=extractCanonicalPrimaryTextureCapability(descriptor,{primary:{id:primary.id,size:primary.size},pattern:{id:pattern.id,size:pattern.size}})
+        if(!result.supported)fail(result.reasons.join(','))
+        if(!hasCanonicalSourceCurvePrograms(descriptor.sourceStamp))fail('retained native curve programs unavailable')
+        this.storage.asset(primary.id.slice(6),primary.size);this.storage.asset(pattern.id.slice(6),pattern.size)
+        const c=result.capability
+        material=canonicalPrimaryTextureMaterialContext({version:3,assets:[c.asset,c.patternAsset],primarySource:{kind:'image',asset:c.asset.id,brushScale:c.brushScale,brushAngle:c.brushAngle},primaryTexture:c.primaryTexture,budget})
+        return {material,mode:c.mode,outerBlend:composition.outerBlend,descriptorSha256}
+      }
       if(descriptor.tip.animation){
         this.assertImagePipeRole(descriptor,role)
         if(!hasCanonicalSourceCurvePrograms(descriptor.sourceStamp))fail('retained native curve programs unavailable')

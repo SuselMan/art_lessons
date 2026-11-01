@@ -152,3 +152,39 @@ signed-zero behavior is unchanged. CanonicalRoomTransport.soft.test.ts uses
 explicit synthetic mapped coefficients to exercise snapshot, author/adapter,
 live/record retries and cold-prefix reconstruction; native whole-stroke raster
 parity is not claimed.
+
+
+## Explicit primary texture server/recorded consumer (activation OFF)
+
+Trusted material type explicitly adds context3 locally; shared codec Any remains
+closed1/2. Context3 capture and GenericSC check precede admission; actual shared
+explicit decoder enforces per-draw grain and unified geometry+texture work.
+Immutable signature includes exact primaryTexture, BOTH asset roles, geometry,
+composition/pigment/descriptor SHA/epoch and budgets. A changed source phase or
+budget cannot reuse a gesture ID. No per-dab physical pressure attestation or
+source option evaluation is invented. Actual prepared3 admission, fingerprint
+retry, budget/profile refusal and typed commitPartial are covered without
+synthesizing an authored END or clearing pending originals.
+
+
+### Explicit CMAT3 server/shared boundary: final source freeze
+
+The opt-in primary-texture policy defaults OFF. Attachment version remains 1;
+snapshot materialVersion is explicitly 2 or 3. Global legacy codec Any unions
+remain closed to 1/2. No runtime, policy activation, shared/dist emission, or
+compatibility claim for old protocol clients is included here. Real Socket.IO
+coverage verifies the global protocol barrier before identity/load/seat work.
+
+Source-alias final focused run: **170 tests / 8 suites PASS**, one worker
+(`texture-server-final.log`). Full server SOURCE TypeScript and targeted shared
+test TypeScript both exit 0. Scoped oxlint exits 0 with warnings, no errors;
+scoped diff check passes. Semantic baseline pins the nine production files to
+ba4ad547 and gives three expected failures (old parser/binder refusal). The
+prior broad 230-test run had 229 passes and one diagnostic-string regression;
+the old OFF-policy diagnostic was restored and its resolver suite passes in
+the final joined run. This does not relabel that earlier run as all green.
+
+Fixtures prove structural policy/CAS/packing/close behavior; they are not a
+claim of native Chalk pixel identity or a live V3 grant. Genuine reimport and
+actual author evidence remain separate QA artifacts. No temporary service,
+browser, database resource, or persistent process was created by this unit.

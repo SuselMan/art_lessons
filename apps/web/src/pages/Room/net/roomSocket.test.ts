@@ -44,6 +44,7 @@ function fakeSocket() {
   const fake = {
     active: true,
     connected: false,
+    io: { reconnection: vi.fn() },
     on: (event: string, listener: Listener) => { listeners.set(event, listener); return fake },
     emit: vi.fn(),
     connect: vi.fn(),
@@ -1021,3 +1022,23 @@ it('drains prior legacy held arrivals through a closed indexed replay lane after
   const remainder=vi.fn();gate.setHandler(remainder);expect(gate.end(gate.begin())).toBe(true);expect(remainder).not.toHaveBeenCalled()
  }finally{close();engine?.destroy()}
 },15000)
+
+it('locks an incompatible client and offers explicit reload without revival', () => {
+  const { deps, fake, listeners } = setup()
+  const locked = vi.fn()
+  deps.engineRef.current = { setLocked: locked } as unknown as PencilEngineAPI
+  const close = connectRoomSocket(deps)
+  const handler = listeners.get('connect_error') as ((err: Error) => void)
+  handler(new Error('client_update_required'))
+  expect(locked).toHaveBeenCalledWith(true)
+  expect(fake.io.reconnection).toHaveBeenCalledWith(false)
+  expect(fake.disconnect).toHaveBeenCalled()
+  expect(deps.setRoomContentReady).toHaveBeenCalledWith(false)
+  expect(deps.onConnectionChange).toHaveBeenCalledWith(false)
+  expect(notifyError).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+    key: 'drawing-update-required', durationMs: null,
+    action: expect.objectContaining({ onClick: expect.any(Function) }),
+  }))
+  expect(fake.connect).not.toHaveBeenCalled()
+  close()
+})

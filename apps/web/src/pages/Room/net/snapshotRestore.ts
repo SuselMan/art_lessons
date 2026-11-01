@@ -1,3 +1,4 @@
+import { DRAWING_PROTOCOL_HEADER, DRAWING_PROTOCOL_VERSION } from '@grafetto/shared'
 import {prepareCanonicalRecordedImageResources} from './canonicalRecordedDelivery'
 import { notifyError } from '../../../stores/noticeStore'
 import { useSettingsStore } from '../../../stores/settingsStore'
@@ -208,7 +209,7 @@ async function withRetry<T>(
  *  status would not cover the incident it exists for. */
 async function fetchBlobOnce(url: string, describe: string): Promise<Attempt<Uint8Array>> {
   try {
-    const res = await fetch(url, { credentials: 'include' })
+    const res = await fetch(url, { credentials: 'include', headers: { [DRAWING_PROTOCOL_HEADER]: DRAWING_PROTOCOL_VERSION } })
     if (!res.ok) {
       return { ok: false, retriable: isRetriableStatus(res.status), error: new Error(`${describe}: ${res.status}`) }
     }

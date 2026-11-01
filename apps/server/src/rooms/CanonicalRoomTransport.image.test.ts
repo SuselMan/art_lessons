@@ -1,3 +1,6 @@
+import {createHash} from 'node:crypto'
+import {prepareCanonicalRecordedAttachment,type CanonicalStrokeSnapshotV3,parseCanonicalStrokeCloseOperation} from '@grafetto/shared'
+import {freezeCanonicalPrimaryTexturePolicy} from './canonicalExecutionPolicy.js'
 import {mkdtempSync,rmSync,readFileSync,writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
@@ -19,15 +22,15 @@ function resident():RoomRecord{
  record.participants.set('author',{userId:'author',name:'A',role:'owner',color:'#000000',frozen:false,boardId:'board'});rooms.set('board',record);return record
 }
 const fixture=JSON.parse(readFileSync(new URL('../../../web/src/engine/src/presets/fixtures/sourcePngWholePath/guiStroke.native.json',import.meta.url),'utf8'))
-function setup(descriptor:BrushDescriptor=fixture.descriptor){
+function setup(descriptor:BrushDescriptor=fixture.descriptor,pattern?:{id:string;size:number;bytes:Buffer}){
  const dir=mkdtempSync(join(tmpdir(),'server-auto-v2-'));dirs.push(dir);const storage=new BrushStorage(dir)
- const library={schemaVersion:1,brushes:[{name:'Actual auto',source:'fixture.kpp',warnings:[],descriptor}],assets:[{id:fixture.asset.id,size:fixture.asset.size,file:fixture.asset.id.slice(6)+'.bin'}],skipped:[]}
+ const library={schemaVersion:1,brushes:[{name:'Actual auto',source:'fixture.kpp',warnings:[],descriptor}],assets:[{id:fixture.asset.id,size:fixture.asset.size,file:fixture.asset.id.slice(6)+'.bin'},...pattern?[{id:pattern.id,size:pattern.size,file:pattern.id.slice(6)+'.bin'}]:[]],skipped:[]}
  if(!isBrushLibrary(library))throw Error('Invalid real descriptor fixture')
- storage.install('author',library,new Map([[fixture.asset.id.slice(6),inflateSync(Buffer.from(fixture.asset.deflateBase64,'base64'),{maxOutputLength:65536})]]));setBrushStorage(storage,empty());const board=resident()
+ storage.install('author',library,new Map([[fixture.asset.id.slice(6),inflateSync(Buffer.from(fixture.asset.deflateBase64,'base64'),{maxOutputLength:65536})],...pattern?[[pattern.id.slice(6),pattern.bytes]as [string,Buffer]]:[]]));setBrushStorage(storage,empty());const board=resident()
  const input={layerId:'layer',brush:`brush:${descriptor.id}@${descriptor.version}`,strokeId:'gesture',pigmentRgb8:[183,47,211] as [number,number,number],outerResourceOpacity:.73,alphaDarken:'creamy' as const}
  return{storage,library,board,input,descriptor,dir}
 }
-function snapshot(result:CanonicalStrokeBeginResult):CanonicalStrokeSnapshotV2{if(!result.ok||!('materialVersion'in result.snapshot))throw Error(JSON.stringify(result));return result.snapshot}
+function snapshot(result:CanonicalStrokeBeginResult):CanonicalStrokeSnapshotV2{if(!result.ok||!('materialVersion'in result.snapshot)||result.snapshot.materialVersion!==2)throw Error(JSON.stringify(result));return result.snapshot}
 
 
 const identity={roomId:'board',userId:'author'}
@@ -221,4 +224,71 @@ it('keeps the shared base-V2 gate mandatory for GenericSC pipe read and author r
   expect(()=>new CanonicalRoomTransport({rasterProfile:G,alphaDarkenVariants:['creamy'],primaryImageSource,allowedRecordedImagePipeSources:[source]})).toThrow('invalid explicit image pipe policy')
   expect(()=>new CanonicalRoomTransport({rasterProfile:G,alphaDarkenVariants:['creamy'],primaryImageSource,allowedRecordedImagePipeSources:[source],authorImagePipeSources:[source]})).toThrow('invalid explicit image pipe policy')
  }
+})
+
+// Self-authored structural source program on an existing valid image fixture.
+// This is not an assertion that Basic6 or the stock Chalk preset has these fields.
+function textureSetup(){
+ const d=structuredClone(fixture.descriptor)as BrushDescriptor,bytes=Buffer.from(Array.from({length:64},(_,i)=>i*3)),id='asset:'+createHash('sha256').update(bytes).digest('hex')
+ if(!d.sourceStamp)throw Error('source fixture')
+ Object.assign(d.sourceStamp.flags,{textureEnabled:true})
+ Object.assign(d.sourceStamp.settings,{'Texture/Pattern/Enabled':'true','PressureTexture/Strength/':'true','Texture/Strength/StrengthVersion':'2','Texture/Strength/UseCurve':'true','Texture/Strength/UseSameCurve':'true','Texture/Strength/Value':'1','Texture/Strength/curveMode':'0','Texture/Strength/Sensor':'<!DOCTYPE params> <params id="pressure"><curve>0,0;1,1;</curve></params>'})
+ d.texture={id:id as `asset:${string}`,strength:1,periodPx:4,patternSize:{width:4,height:4},application:{mode:'subtract',soft:false},offset:{x:0,y:0,randomX:false,randomY:false}}
+ return{...setup(d,{id,size:8,bytes}),pattern:{id,size:8,bytes}}
+}
+const texturePolicy={rasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy']as const,primaryImageSource:'single-inverse-gray-v2'as const,primaryTextureSource:'pressure-identity-subtract-v3'as const}
+function textureSnapshot(result:CanonicalStrokeBeginResult):CanonicalStrokeSnapshotV3{
+ if(!result.ok||!('materialVersion'in result.snapshot)||result.snapshot.materialVersion!==3)throw Error(JSON.stringify(result))
+ return result.snapshot
+}
+function textureOperation(s:CanonicalStrokeSnapshotV3,end=true):CanonicalStrokeOperation {
+ const p=s.material.primarySource,a=s.assets[0],extent=sourcePngMaskExtent({width:a.width,height:a.height,scale:p.brushScale,angle:p.brushAngle},{scale:1,ratio:1,rotation:0},0,0)
+ const recipe={kind:'image'as const,asset:a.id,brushScale:p.brushScale,brushAngle:p.brushAngle,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:extent[0],height:extent[1],mirrorH:false,mirrorV:false}
+ const materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:1,y:2,opacity:.7,flow:1,grainDepth:.5}],fences:[{at:0,kind:'segmentBegin',group:0},...end?[{at:1,kind:'primaryEnd'as const,group:0},{at:1,kind:'segmentEnd'as const,group:0},{at:1,kind:'gestureEnd'as const}]:[]]},s.material).packed
+ return{id:'texture-op',userId:'author',timestamp:1,type:'canonical_stroke',layerId:'layer',frame:{version:2,rasterProfile:G,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked}}
+}
+it('keeps primary texture policy default OFF and refuses unsupported policy pairings',async()=>{
+ const f=textureSetup(),closed=new CanonicalRoomTransport({...texturePolicy,primaryTextureSource:false})
+ expect((await closed.begin(identity,f.input,()=>true)).ok).toBe(false);expect(db.operation.create).not.toHaveBeenCalled()
+ expect(freezeCanonicalPrimaryTexturePolicy({})).toBe(false);expect(closed.requiresPrimaryTextureProtocol).toBe(false)
+ const mutable={...texturePolicy},enabled=new CanonicalRoomTransport(mutable);Reflect.set(mutable,'primaryTextureSource',false);expect(enabled.requiresPrimaryTextureProtocol).toBe(true)
+ for(const p of [{...texturePolicy,primaryImageSource:false},{...texturePolicy,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}])expect(()=>Reflect.apply(freezeCanonicalPrimaryTexturePolicy,null,[p])).toThrow()
+})
+it('binds BOTH actual CAS assets and original SHA, emits explicit BEGIN3 and durable attachment1 snapshot3',async()=>{
+ const f=textureSetup(),before=canonicalBrushDescriptorJSON(f.descriptor),transport=new CanonicalRoomTransport(texturePolicy)
+ const preflight=new CanonicalBrushCapabilityResolver({...texturePolicy,storage:f.storage,operator:()=>empty(),maxGestures:8})
+ expect(()=>preflight.prepareBeginGesture(identity,f.input)).not.toThrow()
+ const s=textureSnapshot(await transport.begin(identity,f.input,()=>true))
+ expect(s.materialVersion).toBe(3);expect(s.assets).toHaveLength(2);expect(s.material.primaryTexture.asset).toBe(f.pattern.id)
+ expect(s.descriptorSha256).toBe(createHash('sha256').update(before).digest('hex'));expect(canonicalBrushDescriptorJSON(f.descriptor)).toBe(before)
+ expect(textureSnapshot(await transport.begin(identity,f.input,()=>true))).toEqual(s)
+ const op=textureOperation(s),live=transport.live(identity,{layerId:'layer',frame:op.frame})
+ expect(live.result).toEqual({ok:true,duplicate:false});expect(db.operation.create).not.toHaveBeenCalled()
+ const saved=await transport.recorded(identity,op,()=>true)
+ expect(saved.result).toMatchObject({ok:true,seq:1});expect(saved.canonicalCapabilities!.version).toBe(1)
+ expect(saved.canonicalCapabilities!.capabilities[0].snapshot.materialVersion).toBe(3)
+ const atoms=prepareCanonicalRecordedAttachment(saved.canonicalCapabilities,[saved.accepted!],{roomId:'board',boardEpoch:s.boardEpoch,allowedRasterProfiles:[G]})
+ expect(atoms[0].read!.capability.snapshot.materialVersion).toBe(3)
+ const repeated=await transport.recorded(identity,op,()=>true);expect(repeated.result).toMatchObject({ok:true,seq:1,duplicate:true});expect(db.operation.create).toHaveBeenCalledTimes(1)
+ const row=db.operation.create.mock.calls[0][0].data,cold=new CanonicalBrushCapabilityResolver({...texturePolicy,storage:f.storage,operator:()=>empty(),maxGestures:8})
+ const read=cold.readRecordedCapability({roomId:'board',boardEpoch:s.boardEpoch,operation:saved.accepted!,row})
+ expect(read.material).toEqual(s.material);expect(cold.size).toBe(0)
+ const attachment=cold.prepareRecordedAttachment({roomId:'board',boardEpoch:s.boardEpoch,operations:[saved.accepted!],rows:[row]})
+ expect(attachment.capabilities[0].snapshot.materialVersion).toBe(3)
+})
+it.each(['missing','corrupt']as const)('refuses %s PATTERN CAS before BEGIN3 grant',async mode=>{
+ const f=textureSetup(),path=join(f.dir,'assets',f.pattern.id.slice(6)+'.bin')
+ if(mode==='missing')rmSync(path);else writeFileSync(path,Buffer.alloc(64))
+ const transport=new CanonicalRoomTransport(texturePolicy);expect((await transport.begin(identity,f.input,()=>true)).ok).toBe(false)
+ expect(f.board.operations).toHaveLength(0);expect(db.operation.create).not.toHaveBeenCalled()
+})
+it('folds a genuine durable3 OPEN root and original indexed typed close without creating a new author grant',async()=>{
+ const f=textureSetup(),transport=new CanonicalRoomTransport(texturePolicy),s=textureSnapshot(await transport.begin(identity,f.input,()=>true))
+ const saved=await transport.recorded(identity,textureOperation(s,false),()=>true);expect(saved.result.ok).toBe(true)
+ const first=saved.accepted!,row=db.operation.create.mock.calls[0][0].data
+ const binder=new CanonicalBrushCapabilityResolver({...texturePolicy,storage:f.storage,operator:()=>empty(),maxGestures:8}),fold=binder.createIndexedRecordedPrefixFold({roomId:'board',boardEpoch:s.boardEpoch,anchor:first,row,purpose:'undo-redo'})
+ fold.accept(first,row)
+ const close=parseCanonicalStrokeCloseOperation({type:'canonical_stroke_close',id:'texture-close',userId:'author',timestamp:2,seq:2,layerId:'layer',targetUserId:'author',strokeId:s.strokeId,disposition:'commitPartial',recordedNext:1,firstFrameOpId:first.id,lastFrameOpId:first.id})
+ fold.accept(close,{id:close.id,roomId:'board',userId:'author',seq:2,type:close.type,layerId:'layer',tool:null,data:close})
+ expect(fold.finish()).toMatchObject({recordedNext:1,ended:false,closeSeal:{kind:'commitPartial',closeOperationId:close.id}});expect(binder.size).toBe(0)
 })

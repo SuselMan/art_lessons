@@ -1,7 +1,7 @@
 import { isDeepStrictEqual } from 'node:util'
 import {randomUUID} from 'node:crypto'
 import {
-  STRAIGHT_ROOM_RASTER_VERSION,CANONICAL_STROKE_RASTER_PROFILE,canonicalRecordedRasterProfiles,parseCanonicalIndexedHistoryOffer,
+  canonicalStrokeSnapshotV3,STRAIGHT_ROOM_RASTER_VERSION,CANONICAL_STROKE_RASTER_PROFILE,canonicalRecordedRasterProfiles,parseCanonicalIndexedHistoryOffer,
   type CanonicalIndexedHistoryOfferV1,type CanonicalIndexedHistoryBeginV1,type CanonicalIndexedHistoryStartV1,type CanonicalIndexedHistoryFollowV1,type CanonicalIndexedHistoryPageV1,type CanonicalIndexedRootV1,type CanonicalIndexedHistoryRootEvidenceV1,type CanonicalIndexedOperation,type CanonicalHistoryAction,type CanonicalHistorySelectResultV1,
   parseCanonicalStrokeCloseRequest,verifyCanonicalRecordedClose,type CanonicalStrokeCloseRequest,type RecordedCanonicalStrokeCloseOperation,parseCanonicalStrokeCloseOperation,parseCanonicalEmptyHistoryBase,parseCanonicalFullHistoryBase,verifyCanonicalFullHistoryBase,type CanonicalFullHistoryBaseV2,type CanonicalEmptyHistoryBaseV1, verifyCanonicalRecordedPrefix, type CanonicalStrokeBegin, type CanonicalStrokeBeginResult, type CanonicalStrokeLive, type CanonicalStrokeLiveResult,
   type CanonicalStrokeOperation, type CanonicalStrokeSnapshot, type SendResult, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadScope, type CanonicalRecordedHistoryPage, type Operation, CANONICAL_RECORDED_ATTACHMENT_LIMITS, prepareCanonicalRecordedAttachment,
@@ -12,7 +12,7 @@ import {withCanonicalIndexedValidation} from '../db/canonicalIndexedReader.js'
 import {canSeeResidentBoard} from './classroom.js'
 import { CanonicalBrushCapabilityResolver } from './CanonicalBrushCapabilityResolver.js'
 import { CanonicalStrokeAdmission, decodeTrustedCanonicalFrame, type CanonicalAdmissionIdentity, type TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
-import { CANONICAL_ROOM_EXECUTION_POLICY, freezeCanonicalSeededDefaultAutoPolicies,freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,freezeCanonicalFullHistoryFormat, type CanonicalRoomExecutionPolicy,type CanonicalFullHistoryFormat } from './canonicalExecutionPolicy.js'
+import { CANONICAL_ROOM_EXECUTION_POLICY, freezeCanonicalPrimaryTexturePolicy,freezeCanonicalSeededDefaultAutoPolicies,freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,freezeCanonicalFullHistoryFormat, type CanonicalRoomExecutionPolicy,type CanonicalFullHistoryFormat } from './canonicalExecutionPolicy.js'
 import { assertPreparedAuthorizedJoinRead,type PreparedAuthorizedJoin } from './roomAccess.js'
 import {captureEmptyBoardSeats,assertCurrentRoomSeat,type PreparedRoomDisconnect} from './rooms.js'
 import { mayReadBoardContent } from './boardContentAccess.js'
@@ -66,8 +66,9 @@ interface RoomLifetime { readonly record: RoomRecord; readonly lesson: RoomRecor
 export class CanonicalRoomTransport {
   private readonly policy:CanonicalRoomExecutionPolicy
   constructor(policy:CanonicalRoomExecutionPolicy=CANONICAL_ROOM_EXECUTION_POLICY){
-    this.policy=Object.freeze({...freezeCanonicalSeededDefaultAutoPolicies(policy),...freezeCanonicalImagePipePolicies(policy),primaryImageSource:freezeCanonicalPrimaryImagePolicy(policy.primaryImageSource),fullHistoryFormat:freezeCanonicalFullHistoryFormat(policy.fullHistoryFormat),...freezeCanonicalRasterPolicy(policy),alphaDarkenVariants:Object.freeze([...policy.alphaDarkenVariants]),autoSources:freezeCanonicalAutoPolicies(policy.autoSources)})
+    this.policy=Object.freeze({...freezeCanonicalSeededDefaultAutoPolicies(policy),...freezeCanonicalImagePipePolicies(policy),primaryImageSource:freezeCanonicalPrimaryImagePolicy(policy.primaryImageSource),primaryTextureSource:freezeCanonicalPrimaryTexturePolicy(policy),fullHistoryFormat:freezeCanonicalFullHistoryFormat(policy.fullHistoryFormat),...freezeCanonicalRasterPolicy(policy),alphaDarkenVariants:Object.freeze([...policy.alphaDarkenVariants]),autoSources:freezeCanonicalAutoPolicies(policy.autoSources)})
   }
+  get requiresPrimaryTextureProtocol():boolean{return this.policy.primaryTextureSource==='pressure-identity-subtract-v3'}
   get fullHistoryFormat():CanonicalFullHistoryFormat{return this.policy.fullHistoryFormat??'frames-v1'}
   private context: ReturnType<typeof canonicalBrushStorageContext>
   private binder?: CanonicalBrushCapabilityResolver
@@ -800,7 +801,7 @@ export class CanonicalRoomTransport {
     const scope=assertCurrentRoomSeat(seat),identity={roomId:scope.roomId,userId:scope.userId}
     const lifetime=this.lifetimes.get(identity.roomId),binder=this.binder,context=this.context
     if(!lifetime||!binder||!context)return undefined
-    const sessions=[...lifetime.sessions.entries()].filter(([,session])=>session.grant.roomId===identity.roomId&&session.grant.userId===identity.userId&&'version'in session.grant.material&&session.grant.material.version===2)
+    const sessions=[...lifetime.sessions.entries()].filter(([,session])=>session.grant.roomId===identity.roomId&&session.grant.userId===identity.userId&&'version'in session.grant.material&&(session.grant.material.version===2||session.grant.material.version===3))
       .map(([key,session])=>Object.freeze({key,session,operationId:randomUUID()}))
     if(!sessions.length)return undefined
     const current=()=>{
@@ -860,7 +861,7 @@ export class CanonicalRoomTransport {
       const lifetime=orphan?undefined:this.authorized(identity,input.layerId),session=lifetime?(this.fullHistoryFormat==='mixed-indexed-v1'?lifetime.sessions.get(gestureKey(identity,input.strokeId)):this.session(lifetime,identity,input.strokeId)):undefined
       const record=orphan?.record??lifetime!.record,binder=this.currentBinder(),context=this.context!
       if('capturedSession'in input&&input.capturedSession!==session)fail('canonical_repair_required')
-      if(session&&(session.grant.layerId!==input.layerId||!('version'in session.grant.material)||session.grant.material.version!==2))fail('invalid_operation')
+      if(session&&(session.grant.layerId!==input.layerId||!('version'in session.grant.material)||(session.grant.material.version!==2&&session.grant.material.version!==3)))fail('invalid_operation')
       const current=()=>{
         if(!isCurrent())fail('not_joined')
         if(orphan)orphan.assertCurrent()
@@ -1218,9 +1219,9 @@ export class CanonicalRoomTransport {
     // Historical V1/PNG confirmations retain their exact closed-lane shape.
     // They cannot enter the new V2-only read/renderer contract.
     if(!('version' in g.material))return {}
-    const source=Object.freeze({originalUserId:g.userId,snapshot:Object.freeze({layerId:g.layerId,brush:g.brush,strokeId:g.strokeId,boardEpoch:g.boardEpoch,
-      descriptorSha256:g.descriptorSha256,rasterProfile:g.rasterProfile,pigmentRgb8:g.pigmentRgb8,composition:g.composition,assets:g.material.assets,
-      materialVersion:2 as const,material:g.material})})
+    const captured=sourceSnapshot(g)
+    if(!('materialVersion'in captured))return {}
+    const source=Object.freeze({originalUserId:g.userId,snapshot:captured})
     const canonicalCapabilities=Object.freeze({version:1 as const,roomId:g.roomId,boardEpoch:g.boardEpoch,capabilities:Object.freeze([source]),
       bindings:Object.freeze([Object.freeze({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0})])})
     try { prepareCanonicalRecordedAttachment(canonicalCapabilities,[op],{roomId:g.roomId,boardEpoch:g.boardEpoch,allowedRasterProfiles:this.policy.allowedRecordedRasterProfiles}) }
@@ -1287,12 +1288,16 @@ export class CanonicalRoomTransport {
   }
 }
 function snapshot(session: Session): CanonicalStrokeBeginResult {
-  const g = session.grant
+  const g=session.grant
+  return {ok:true,snapshot:sourceSnapshot(g),...session.admission.cursor(g,g.strokeId)}
+}
+/** Data projection of the SAME admitted source; never a fresh author grant. */
+function sourceSnapshot(g:TrustedCanonicalGesture):CanonicalStrokeSnapshot {
   if(!('version'in g.material)&&g.rasterProfile!==CANONICAL_STROKE_RASTER_PROFILE)fail('invalid_operation')
-  const common={ layerId: g.layerId, brush: g.brush, strokeId: g.strokeId, boardEpoch: g.boardEpoch,
-    descriptorSha256:g.descriptorSha256,pigmentRgb8:g.pigmentRgb8,composition:g.composition,assets:g.material.assets}
-  const value:CanonicalStrokeSnapshot='version'in g.material?Object.freeze({...common,rasterProfile:g.rasterProfile,materialVersion:2 as const,material:g.material}):Object.freeze({...common,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE})
-  return { ok: true, snapshot: value, ...session.admission.cursor(g, g.strokeId) }
+  const common={layerId:g.layerId,brush:g.brush,strokeId:g.strokeId,boardEpoch:g.boardEpoch,descriptorSha256:g.descriptorSha256,
+    pigmentRgb8:g.pigmentRgb8,composition:g.composition,assets:g.material.assets}
+  if('version'in g.material&&g.material.version===3)return canonicalStrokeSnapshotV3({...common,rasterProfile:g.rasterProfile,materialVersion:3,material:g.material},g.boardEpoch,g.rasterProfile)
+  return 'version'in g.material?Object.freeze({...common,rasterProfile:g.rasterProfile,materialVersion:2 as const,material:g.material}):Object.freeze({...common,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE})
 }
 function reason(error: unknown): TransportFailure['reason'] {
   if (error instanceof TransportFailure) return error.reason

@@ -195,3 +195,46 @@ actual current room/operation identity. Row-backed and resident-backed batch
 projection share one local first-use implementation; authority is checked for
 EVERY frame while binding occurs once per original-user/stroke. captureReadScope
 reuses the existing board/lesson epoch owner; it creates no append/session grant.
+
+
+## Explicit primary texture server/recorded consumer (activation OFF)
+
+One frozen optional primaryTextureSource:'pressure-identity-subtract-v3' literal,
+DEFAULT OFF, requires GenericSC author/read profile and existing image support.
+No runtime/startup/QA activation occurs in this unit. Actual bindDescriptor uses
+the SAME shared original source extractor, canonicalSourceEffectReject and
+hasCanonicalSourceCurvePrograms. It projects only id/size from catalogue entries
+(their file metadata is not passed as extractor fields), reads/verifies BOTH
+CAS squares through existing BrushStorage hash validation, hashes the ORIGINAL
+descriptor and pins exact two roles/geometry/strength/budget in context3. No
+textureEnabled=false descriptor copy or legacy grainDepth inference is used.
+Author grants and read-only original capabilities remain separate; recorded3
+uses ROOM-only descriptor pins plus exact original indexed/resident receipt.
+Snapshot projections choose2 versus3 explicitly; close/disconnect/orphan prefix
+folds accept3 with existing real typed seals, never fake END/BEGIN.
+Actual targeted Chalk35 mapped reimport/author proofs are separate ROOT-owned
+artifacts; positive server unit fixtures explicitly label their self-authored
+structural raw fields and do not pretend Basic6 is the original Chalk preset.
+
+
+### Explicit CMAT3 server/shared boundary: final source freeze
+
+The opt-in primary-texture policy defaults OFF. Attachment version remains 1;
+snapshot materialVersion is explicitly 2 or 3. Global legacy codec Any unions
+remain closed to 1/2. No runtime, policy activation, shared/dist emission, or
+compatibility claim for old protocol clients is included here. Real Socket.IO
+coverage verifies the global protocol barrier before identity/load/seat work.
+
+Source-alias final focused run: **170 tests / 8 suites PASS**, one worker
+(`texture-server-final.log`). Full server SOURCE TypeScript and targeted shared
+test TypeScript both exit 0. Scoped oxlint exits 0 with warnings, no errors;
+scoped diff check passes. Semantic baseline pins the nine production files to
+ba4ad547 and gives three expected failures (old parser/binder refusal). The
+prior broad 230-test run had 229 passes and one diagnostic-string regression;
+the old OFF-policy diagnostic was restored and its resolver suite passes in
+the final joined run. This does not relabel that earlier run as all green.
+
+Fixtures prove structural policy/CAS/packing/close behavior; they are not a
+claim of native Chalk pixel identity or a live V3 grant. Genuine reimport and
+actual author evidence remain separate QA artifacts. No temporary service,
+browser, database resource, or persistent process was created by this unit.

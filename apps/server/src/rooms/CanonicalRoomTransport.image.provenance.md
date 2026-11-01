@@ -101,3 +101,48 @@ all rejected. Thus the resolver guard's V2 condition is valid for both branches
 under the actual frozen policy contract; pipe roles remain additionally required.
 An impossible primary:false+rolesON positive case was NOT fabricated by mutating
 private state, and no fourth policy file was changed.
+
+
+## Explicit primary texture server/recorded consumer (activation OFF)
+
+BEGIN/resume and durable recorded attachments project actual source3 explicitly,
+never stamp materialVersion2 on context3. Same-ID repair remains first; attachment
+is emitted only after SAME durable original success and actual current owner.
+Captured policy getter requiresPrimaryTextureProtocol derives only the frozen
+literal (no dynamic enable). DEFAULT OFF retains old source rejection. Socket
+middleware/HTTP compatibility are ROOT-owned separate paired changes: before
+FIRST live3 write require global minimum drawing protocol and a nonrolling
+cutover revoking all old sockets/read seats. Direct internal transport calls are
+not a web-compatibility grant. No runtime policy is enabled by this unit.
+Real Socket.IO test checks missing/wrong/non-string protocol before identity/room
+load/seat and exact3 then ordinary authenticated join; policyOFF untagged legacy
+fixtures retain behavior. Test backend/client processes are owned and closed by
+existing test finally/afterEach. No service/device/browser/stand is launched.
+Server tests exercise actual storage hashes, original descriptor SHA, true live3
+before durable DB mock receipt, exact retry/cold original attachment, and typed
+close fold. Native GPU/online compatibility/pixel correctness are separate gates.
+Five old server V2 snapshot helpers and legacy admission builders now explicitly
+assert their actual fixture version rather than cast widened unions.
+
+
+### Explicit CMAT3 server/shared boundary: final source freeze
+
+The opt-in primary-texture policy defaults OFF. Attachment version remains 1;
+snapshot materialVersion is explicitly 2 or 3. Global legacy codec Any unions
+remain closed to 1/2. No runtime, policy activation, shared/dist emission, or
+compatibility claim for old protocol clients is included here. Real Socket.IO
+coverage verifies the global protocol barrier before identity/load/seat work.
+
+Source-alias final focused run: **170 tests / 8 suites PASS**, one worker
+(`texture-server-final.log`). Full server SOURCE TypeScript and targeted shared
+test TypeScript both exit 0. Scoped oxlint exits 0 with warnings, no errors;
+scoped diff check passes. Semantic baseline pins the nine production files to
+ba4ad547 and gives three expected failures (old parser/binder refusal). The
+prior broad 230-test run had 229 passes and one diagnostic-string regression;
+the old OFF-policy diagnostic was restored and its resolver suite passes in
+the final joined run. This does not relabel that earlier run as all green.
+
+Fixtures prove structural policy/CAS/packing/close behavior; they are not a
+claim of native Chalk pixel identity or a live V3 grant. Genuine reimport and
+actual author evidence remain separate QA artifacts. No temporary service,
+browser, database resource, or persistent process was created by this unit.

@@ -1,5 +1,5 @@
 import {
-  fillRoutePath, splitRouteKey, type ApiRouteKey, type Me, type MyRooms, type RequestedLoginCode, type Room,
+  DRAWING_PROTOCOL_HEADER, DRAWING_PROTOCOL_VERSION, fillRoutePath, splitRouteKey, type ApiRouteKey, type Me, type MyRooms, type RequestedLoginCode, type Room,
   type RoomAccessInfo, type RoomAccessSettings, type RoomFolder, type RoomInvite, type RoomsAtFolder, type BoardSummary,
   type BoardUpdate, type ForkScope, type RoomAccessMode, type RouteBody, type RouteHasNoContent, type RouteParams,
   type RouteQuery, type RouteResponse,
@@ -74,15 +74,19 @@ function urlOf(key: ApiRouteKey, args: AnyArgs | undefined): string {
 async function send(key: ApiRouteKey, args: AnyArgs | undefined, init: RequestInit | undefined): Promise<Response> {
   const [method] = splitRouteKey(key)
   const body = args?.body
+  const headers = new Headers(init?.headers)
+  if (body !== undefined && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  headers.set(DRAWING_PROTOCOL_HEADER, DRAWING_PROTOCOL_VERSION)
   const res = await fetch(urlOf(key, args), {
     method,
     credentials: 'include', // ships the identity cookie (#41) cross-origin
     // Only sent when there's a body — Fastify's JSON body parser rejects a
     // bodyless request (e.g. logout) whose Content-Type still claims JSON.
     ...(body !== undefined
-      ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      ? { body: JSON.stringify(body) }
       : {}),
     ...init,
+    headers,
   })
   if (!res.ok) {
     const errorBody: unknown = await res.json().catch(() => null)

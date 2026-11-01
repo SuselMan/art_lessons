@@ -1,3 +1,5 @@
+import {verifyCanonicalRecordedPrefix,verifyCanonicalRecordedClose} from '@grafetto/shared'
+import {buildCanonicalMaterial,canonicalPrimaryTextureMaterialContext,canonicalMaterialGeometryCost,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G,type CanonicalMaterialContextV3} from '@grafetto/shared'
 import { describe, expect, it, vi } from 'vitest'
 import { CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE, STRAIGHT_ROOM_RASTER_VERSION,
   packCanonicalMaterial, type CanonicalMaterialFrame, type CanonicalStrokeFrameEnvelope } from '@grafetto/shared'
@@ -17,7 +19,8 @@ function fixture(window = 8, maxGestures = 64) {
       definitions: [{ asset: asset.id, brushScale: 1, brushAngle: 0, scale: 1, ratio: 1, rotation: 0, subX: 0, subY: 0, width: 2, height: 2, mirrorH: false, mirrorV: false }],
       draws: [{ definition: 0, role: 'primary', x: -3 + ordinal, y: 7, opacity: .4, flow: .7 }],
       fences: [...(entry.phase === 'between' ? [{ kind: 'segmentBegin' as const, at: 0, group: 0 }] : []), ...(end ? [{ kind: 'primaryEnd' as const, at: 1, group: 0 }, { kind: 'segmentEnd' as const, at: 1, group: 0 }, { kind: 'gestureEnd' as const, at: 1 }] : [])] }
-    const envelope: CanonicalStrokeFrameEnvelope = { version: 1, rasterProfile: CANONICAL_STROKE_RASTER_PROFILE, brush: grant.brush, strokeId: grant.strokeId, frameOrdinal: ordinal,
+    if('version'in grant.material)throw Error('Legacy fixture requires material1')
+  const envelope: CanonicalStrokeFrameEnvelope = { version: 1, rasterProfile: CANONICAL_STROKE_RASTER_PROFILE, brush: grant.brush, strokeId: grant.strokeId, frameOrdinal: ordinal,
       pigmentRgb8: grant.pigmentRgb8, composition: grant.composition, materialPacked: packCanonicalMaterial(material, grant.material) }
     return { type: 'canonical_stroke' as const, id: `operation-${ordinal}`, layerId: 'layer', frame: envelope }
   }
@@ -158,4 +161,42 @@ describe('closed trusted canonical frame admission (no socket activation)', () =
     expect(f.service.size).toBe(2)
   })
 
+})
+
+function textureAdmission(){
+ const f=fixture(),primary={id:'asset:'+'1'.repeat(64),size:8,x:0,y:0,width:8,height:8},pattern={id:'asset:'+'3'.repeat(64),size:8,x:0,y:0,width:4,height:4}
+ const material=canonicalPrimaryTextureMaterialContext({version:3,assets:[primary,pattern],primarySource:{kind:'image',asset:primary.id,brushScale:1,brushAngle:0},primaryTexture:{kind:'canvasTexture',asset:pattern.id,law:'subtract-u8-v1',width:4,height:4,periodX:4,periodY:4,offsetX:0,offsetY:0,strength:'pressure-identity-v1'},budget:{workUnits:100000,outputBytes:100000,drawPixels:100000}})
+ Object.assign(f.grant,{rasterProfile:G,material})
+ const recipe={kind:'image'as const,asset:primary.id,brushScale:1,brushAngle:0,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:8,height:8,mirrorH:false,mirrorV:false}
+ const packed=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:1,y:2,opacity:1,flow:1,grainDepth:.5}],fences:[{at:0,kind:'segmentBegin',group:0}]},material).packed
+ const candidate={type:'canonical_stroke'as const,id:'texture-frame',layerId:'layer',frame:{version:2 as const,rasterProfile:G,brush:f.grant.brush,strokeId:f.grant.strokeId,frameOrdinal:0,pigmentRgb8:f.grant.pigmentRgb8,composition:f.grant.composition,materialPacked:packed}}
+ return{...f,material,recipe,candidate}
+}
+it('uses explicit3 for actual admission and fingerprints the complete immutable source',()=>{
+ const f=textureAdmission(),ticket=f.service.prepare(identity,f.candidate)
+ expect(ticket.value.decoded.profile).toBe('canonical-primary-texture-material-v3');ticket.commit()
+ expect(f.service.prepare(identity,f.candidate).duplicate).toBe(true)
+ const changed={...f.material,primaryTexture:{...f.material.primaryTexture,offsetX:1}}
+ Reflect.set(f.grant,'material',changed)
+ expect(()=>f.service.prepare(identity,f.candidate)).toThrow(/immutable gesture/)
+ expect(f.service.size).toBe(1)
+})
+it('rejects3 wrong profile and geometry-fitting texture-exceeding budgets before admission state changes',()=>{
+ const f=textureAdmission()
+ Reflect.set(f.grant,'rasterProfile',CANONICAL_STROKE_RASTER_PROFILE)
+ expect(()=>f.service.prepare(identity,f.candidate)).toThrow(/material3 profile/);expect(f.service.size).toBe(0)
+ Reflect.set(f.grant,'rasterProfile',G)
+ const material:CanonicalMaterialContextV3={...f.material,budget:{...f.material.budget,workUnits:canonicalMaterialGeometryCost(f.recipe,f.material.assets[0]).workUnits}}
+ Reflect.set(f.grant,'material',material)
+ expect(()=>f.service.prepare(identity,f.candidate)).toThrow();expect(f.service.size).toBe(0)
+})
+
+it('seals the actual admitted3 recorded prefix through typed commitPartial without synthesizing an END frame',()=>{
+ const f=textureAdmission(),frame=f.service.prepare(identity,f.candidate);frame.commit()
+ const summary=verifyCanonicalRecordedPrefix([{operationId:f.candidate.id,sequence:1,frameOrdinal:0,decoded:frame.value.decoded}])
+ expect(summary.ended).toBe(false)
+ const seal=verifyCanonicalRecordedClose(summary,{userId:'author',layerId:'layer',strokeId:f.grant.strokeId},{type:'canonical_stroke_close',id:'close3',userId:'author',timestamp:2,seq:2,layerId:'layer',targetUserId:'author',strokeId:f.grant.strokeId,disposition:'commitPartial',recordedNext:1,firstFrameOpId:f.candidate.id,lastFrameOpId:f.candidate.id})
+ const ticket=f.service.prepareRecordedClose(identity,f.grant.strokeId,seal);ticket.commit()
+ expect(f.service.cursor(identity,f.grant.strokeId)).toMatchObject({recordedNext:1,ended:true})
+ expect(f.candidate.frame.materialPacked).toBe(frame.value.candidate.frame.materialPacked)
 })

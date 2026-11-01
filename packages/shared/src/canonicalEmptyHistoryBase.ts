@@ -1,5 +1,5 @@
+import {decodeCanonicalRecordedSnapshotFrame} from './canonicalRecordedAttachment.js'
 import {CANONICAL_RECORDED_ATTACHMENT_LIMITS,canonicalRecordedRasterProfiles,type CanonicalPreparedRecordedOperation,type CanonicalRecordedReadCapability,type CanonicalRecordedReadScope} from './canonicalRecordedAttachment.js'
-import {decodeCanonicalStrokeFrame} from './canonicalStrokeFrame.js'
 import {advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState} from './canonicalRecordedPrefix.js'
 
 /** Authenticated room-state metadata only; never an append/execution grant. */
@@ -47,13 +47,12 @@ export function verifyCanonicalEmptyHistoryBase(value:unknown,atoms:readonly Can
    ||!profiles.includes(read.rasterProfile))return fail()
   const cap=read.capability,s=cap.snapshot
   if(!Object.isFrozen(cap)||!Object.isFrozen(s)||cap.originalUserId!==op.userId||s.strokeId!==op.frame.strokeId
-   ||s.layerId!==op.layerId||s.boardEpoch!==base.boardEpoch||s.rasterProfile!==read.rasterProfile||s.materialVersion!==2
-   ||s.material.version!==2)return fail()
+   ||s.layerId!==op.layerId||s.boardEpoch!==base.boardEpoch||s.rasterProfile!==read.rasterProfile||(s.materialVersion!==2&&s.materialVersion!==3)
+   ||s.material.version!==s.materialVersion)return fail()
   const key=JSON.stringify([op.userId,s.strokeId]),previous=gestures.get(key)
   if(previous&&previous.capability!==cap)return fail()
   if(!previous&&gestures.size>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)return fail()
-  const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,
-   frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:s.material})
+  const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,s,op.frame.frameOrdinal)
   const state=advanceCanonicalMaterialPrefix(previous?.state??CANONICAL_MATERIAL_PREFIX_START,op.frame.frameOrdinal,decoded.frame)
   gestures.set(key,{capability:cap,state});ids.add(op.id)
  }

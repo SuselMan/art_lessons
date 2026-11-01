@@ -1,6 +1,6 @@
+import {decodeCanonicalRecordedSnapshotFrame} from './canonicalRecordedAttachment.js'
 import type {Operation} from './operations.js'
 import {CANONICAL_RECORDED_ATTACHMENT_LIMITS,canonicalRecordedRasterProfiles,type CanonicalPreparedRecordedOperation,type CanonicalRecordedReadCapability,type CanonicalRecordedReadScope} from './canonicalRecordedAttachment.js'
-import {decodeCanonicalStrokeFrame} from './canonicalStrokeFrame.js'
 import {verifyCanonicalRecordedPrefix,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState,type CanonicalRecordedPrefixFrame} from './canonicalRecordedPrefix.js'
 import {parseCanonicalStrokeCloseOperation,verifyCanonicalRecordedClose} from './canonicalStrokeClose.js'
 
@@ -83,12 +83,11 @@ export function verifyCanonicalFullHistoryBase(value:unknown,atoms:readonly Cano
    if(!read||read.operationId!==op.id||read.sequence!==op.seq||read.roomId!==base.roomId||read.boardEpoch!==base.boardEpoch||!profiles.includes(read.rasterProfile))return fail()
    const cap=read.capability,s=cap.snapshot
    if(!Object.isFrozen(cap)||!Object.isFrozen(s)||cap.originalUserId!==op.userId||s.strokeId!==op.frame.strokeId||s.layerId!==op.layerId
-    ||s.boardEpoch!==base.boardEpoch||s.rasterProfile!==read.rasterProfile||s.materialVersion!==2||s.material.version!==2)return fail()
+    ||s.boardEpoch!==base.boardEpoch||s.rasterProfile!==read.rasterProfile||(s.materialVersion!==2&&s.materialVersion!==3)||s.material.version!==s.materialVersion)return fail()
    const key=JSON.stringify([op.userId,s.strokeId]),previous=gestures.get(key)
    if(previous&&(previous.capability!==cap||previous.sealed))return fail()
    if(!previous&&gestures.size>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)return fail()
-   const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,
-    frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:s.material})
+   const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,s,op.frame.frameOrdinal)
    if(!previous)for(const group of gestures.values())if(group.capability.originalUserId===op.userId)Object.assign(group,transitionCanonicalHistoryGesture(group,'new-own-gesture'))
    const group:Gesture=previous??{capability:cap,frames:[],state:CANONICAL_MATERIAL_PREFIX_START,sealed:false,visible:true,redoable:true}
    group.frames.push({operationId:op.id,sequence:op.seq,frameOrdinal:op.frame.frameOrdinal,decoded:decoded.frame})

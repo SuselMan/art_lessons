@@ -38,7 +38,7 @@ function setup(descriptor=stock.rows[0].descriptor as unknown as BrushDescriptor
  const input={layerId:'layer',brush:`brush:${descriptor.id}@${descriptor.version}`,strokeId:'gesture',pigmentRgb8:[183,47,211] as [number,number,number],outerResourceOpacity:.73,alphaDarken:'creamy' as const}
  return{storage,library,board,input,descriptor}
 }
-function snapshot(result:CanonicalStrokeBeginResult):CanonicalStrokeSnapshotV2{if(!result.ok||!('materialVersion'in result.snapshot))throw Error(JSON.stringify(result));return result.snapshot}
+function snapshot(result:CanonicalStrokeBeginResult):CanonicalStrokeSnapshotV2{if(!result.ok||!('materialVersion'in result.snapshot)||result.snapshot.materialVersion!==2)throw Error(JSON.stringify(result));return result.snapshot}
 function frames(descriptor:BrushDescriptor,s:CanonicalStrokeSnapshotV2,inputCount=3,controlFirst=false){
  if(s.material.primarySource.kind==='image')throw Error('Expected procedural source')
  const compiled=sourceStrokeAuthorDescriptor(descriptor,{colorIdentity:'native-black',lodScale:1,coverageProfile:s.material.primarySource.coverageProfile})
@@ -108,8 +108,8 @@ it('defaults auto OFF and rejects legacy rooms, malformed material policies and 
 it('pins full auto context/profile/version immutably across lanes, with no assets or weak callback fallback',()=>{
  const f=setup(),binder=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:empty,...policy,maxGestures:4}),grant=binder.beginGesture(identity,f.input)
  let current=grant;const admission=new CanonicalStrokeAdmission({resolve:()=>current,maxGestures:1,retainedFrames:8})
- if(!('version'in grant.material)||grant.material.primarySource.kind!=='defaultAuto')throw Error('Missing V2 auto pin')
- const s={...grant,materialVersion:2 as const,material:grant.material,assets:[]} as CanonicalStrokeSnapshotV2,packet=frames(f.descriptor,s)[0]
+ if(!('version'in grant.material)||grant.material.version!==2||grant.material.primarySource.kind!=='defaultAuto')throw Error('Missing V2 auto pin')
+ const s:CanonicalStrokeSnapshotV2={...grant,materialVersion:2,material:grant.material,assets:[]},packet=frames(f.descriptor,s)[0]
  admission.prepare(identity,{type:'canonical_stroke_live',layerId:'layer',frame:packet}).commit()
  const before=admission.cursor(identity,'gesture')
  for(const patch of [{...grant.material,primarySource:{...grant.material.primarySource,coverageProfile:'scalar-f64-fma-v1' as const}},

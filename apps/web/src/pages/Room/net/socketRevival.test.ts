@@ -150,3 +150,17 @@ describe('createSocketRevival (#504)', () => {
     expect(socket.connects).toBe(0)
   })
 })
+
+it('terminal stop prevents queued and future reconnection events', () => {
+  const socket = fakeSocket(false), clock = fakeTimers()
+  const revival = createSocketRevival(socket, clock.timers)
+  revival.noteConnectError()
+  revival.stop()
+  revival.noteDisconnect('io server disconnect')
+  revival.noteConnectError()
+  revival.noteConnect()
+  revival.noteConnectError()
+  clock.run()
+  expect(clock.pending).toEqual([])
+  expect(socket.connects).toBe(0)
+})

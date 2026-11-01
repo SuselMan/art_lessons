@@ -1,3 +1,4 @@
+import { registerDrawingProtocolGate } from './http/drawingProtocol.js'
 import { CanonicalRoomTransport } from './rooms/CanonicalRoomTransport.js'
 // (#177) Deliberately the first import in the file, and deliberately also
 // loaded through node's `--import` in production (see package.json's start
@@ -133,6 +134,7 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents, DefaultEventsM
 // (#36), teacher/student roles (#39), and operation_revoke authorization
 // (#73) all live in socketHandlers.ts / rooms.ts — see those for details.
 const canonicalRoomTransport = new CanonicalRoomTransport()
+registerDrawingProtocolGate(app, canonicalRoomTransport.requiresPrimaryTextureProtocol)
 registerRoomHandlers(io, app.log, canonicalRoomTransport)
 
 // The HTTP routes come after `io` exists, not because Fastify needs it to,

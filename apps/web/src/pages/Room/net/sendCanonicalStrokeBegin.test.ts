@@ -1,5 +1,5 @@
 import {afterEach,beforeEach,expect,it,vi} from 'vitest'
-import {CANONICAL_STROKE_RASTER_PROFILE,canonicalSoftAutoSourcePin,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2} from '@grafetto/shared'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as generic,canonicalPrimaryTexturePin,CANONICAL_STROKE_RASTER_PROFILE,canonicalSoftAutoSourcePin,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2,type CanonicalStrokeSnapshotV3} from '@grafetto/shared'
 import type {Socket} from 'socket.io-client'
 import type {ServerToClientEvents,ClientToServerEvents} from '@grafetto/shared'
 import {sendCanonicalStrokeBegin,type CanonicalBeginEmitter} from './sendCanonicalStrokeBegin'
@@ -143,4 +143,47 @@ it('accepts a closed primary image V2 snapshot with original crop/fractional sca
  const accepted=await pending;if(!accepted.ok)throw Error('Expected accepted image')
  asset.width=1;expect(accepted.snapshot.assets[0].width).toBe(150)
  expect(Object.isFrozen(accepted.snapshot.material.primarySource)).toBe(true)
+})
+
+function textureAnswer():Extract<CanonicalStrokeBeginResult,{ok:true}>&{readonly snapshot:CanonicalStrokeSnapshotV3} {
+ const primary={id:'asset:'+'1'.repeat(64),size:4,x:0,y:0,width:4,height:4},pattern={id:'asset:'+'2'.repeat(64),size:8,x:0,y:0,width:4,height:4}
+ const material={version:3 as const,assets:[primary,pattern],primarySource:{kind:'image' as const,asset:primary.id,brushScale:1,brushAngle:0},primaryTexture:canonicalPrimaryTexturePin({kind:'canvasTexture',asset:pattern.id,law:'subtract-u8-v1',width:4,height:4,periodX:4,periodY:4,offsetX:0,offsetY:0,strength:'pressure-identity-v1'},pattern),budget:{workUnits:10000,outputBytes:10000,drawPixels:10000}}
+ const old=answer();if(!old.ok)throw Error('fixture')
+ return{...old,snapshot:{...old.snapshot,rasterProfile:generic,materialVersion:3,assets:material.assets,material}}
+}
+it('accepts only explicitly descriptor-pinned V3 and freezes both original asset roles',async()=>{
+ const s=socket(),lifetime={boardEpoch:2,isCurrent:()=>true,authorRasterProfile:generic,expectedDescriptorSha256:'a'.repeat(64)},result=textureAnswer()
+ const pending=sendCanonicalStrokeBegin(s.emitter,input(),lifetime);lifetime.expectedDescriptorSha256='b'.repeat(64);s.ack(result)
+ const accepted=await pending;if(!accepted.ok||accepted.snapshot.materialVersion!==3||!result.ok||result.snapshot.materialVersion!==3)throw Error('Expected actual3')
+ expect(accepted.snapshot.material.primaryTexture.asset).toBe(accepted.snapshot.assets[1].id)
+ expect(Object.isFrozen(accepted.snapshot.material.primaryTexture)).toBe(true);expect(Object.isFrozen(accepted.snapshot.assets[1])).toBe(true)
+ expect(accepted.snapshot).not.toBe(result.snapshot);expect(s.sent[0]).toEqual(input());expect(s.listeners.size).toBe(0)
+})
+it.each(['missingSHA','wrongSHA','oldProfile','wrongVersion','wrongAsset','extraPin','selectorGetter'] as const)('refuses V3 %s without a historical material fallback',async mode=>{
+ const s=socket(),result=textureAnswer();if(!result.ok||result.snapshot.materialVersion!==3)throw Error('fixture')
+ let getterCalls=0
+ const lifetime={boardEpoch:2,isCurrent:()=>true,authorRasterProfile:generic,expectedDescriptorSha256:'a'.repeat(64)}
+ if(mode==='missingSHA')Reflect.deleteProperty(lifetime,'expectedDescriptorSha256')
+ if(mode==='wrongSHA')lifetime.expectedDescriptorSha256='b'.repeat(64)
+ if(mode==='oldProfile')Reflect.set(lifetime,'authorRasterProfile',CANONICAL_STROKE_RASTER_PROFILE)
+ if(mode==='wrongVersion')Reflect.set(result.snapshot.material,'version',2)
+ if(mode==='wrongAsset')Reflect.set(result.snapshot.material,'primaryTexture',{...result.snapshot.material.primaryTexture,asset:result.snapshot.assets[0].id})
+ if(mode==='extraPin')Reflect.set(result.snapshot.material,'primaryTexture',{...result.snapshot.material.primaryTexture,extra:true})
+ if(mode==='selectorGetter')Object.defineProperty(result.snapshot,'materialVersion',{get(){getterCalls++;return 3}})
+ const pending=sendCanonicalStrokeBegin(s.emitter,input(),lifetime),rejected=expect(pending).rejects.toThrow();s.ack(result);await rejected;expect(getterCalls).toBe(0);expect(s.listeners.size).toBe(0)
+})
+it('keeps stale or aborted V3 ACKs outside acceptance and clears the original attempt',async()=>{
+ for(const mode of ['stale','abort'] as const){
+  const s=socket(),controller=new AbortController();let current=true
+  const pending=sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>current,authorRasterProfile:generic,expectedDescriptorSha256:'a'.repeat(64),signal:controller.signal}),rejected=expect(pending).rejects.toThrow()
+  if(mode==='stale')current=false;else controller.abort()
+  s.ack(textureAnswer());await rejected;expect(s.listeners.size).toBe(0)
+ }
+})
+it('rejects V3 nested accessors without executing their payloads',async()=>{
+ const s=socket(),result=textureAnswer();if(!result.ok||result.snapshot.materialVersion!==3)throw Error('fixture')
+ let calls=0;const material=result.snapshot.material
+ Object.defineProperty(result.snapshot,'material',{get(){calls++;return material}})
+ const pending=sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true,authorRasterProfile:generic,expectedDescriptorSha256:'a'.repeat(64)}),rejected=expect(pending).rejects.toThrow()
+ s.ack(result);await rejected;expect(calls).toBe(0)
 })

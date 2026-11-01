@@ -1,3 +1,4 @@
+import { DRAWING_PROTOCOL_HEADER, DRAWING_PROTOCOL_VERSION } from '@grafetto/shared'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LayerState, Operation } from '@grafetto/shared'
 
@@ -110,6 +111,9 @@ describe('restoreLatestSnapshot', () => {
     const outcome = await restoreLatestSnapshot('room-1', sink)
 
     expect(outcome.status).toBe('restored')
+    for (const [, options] of vi.mocked(global.fetch).mock.calls) {
+      expect(new Headers(options?.headers).get(DRAWING_PROTOCOL_HEADER)).toBe(DRAWING_PROTOCOL_VERSION)
+    }
     if (outcome.status !== 'restored') throw new Error('unreachable')
     expect(outcome.head.seq).toBe(300)
     expect(outcome.head.layerState).toEqual(ONE_LAYER_STATE)

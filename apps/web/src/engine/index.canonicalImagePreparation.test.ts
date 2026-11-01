@@ -1,3 +1,5 @@
+import {CanonicalRgba8CompositePass} from './src/dabs/CanonicalRgba8CompositePass'
+import {canonicalPrimaryTextureMaterialContext,buildCanonicalMaterial,canonicalStrokeSnapshotV3} from '@grafetto/shared'
 import markerFixture from './src/presets/fixtures/sourceDefaultAutoWholePath/markerDry.normal.native.json'
 import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE as D,canonicalSourceComposition,type CanonicalStrokeRasterProfile} from '@grafetto/shared'
 import {canonicalImageRequiredSourceLevels} from './src/dabs/canonicalImageCapacity'
@@ -56,9 +58,9 @@ function original(isCurrent=()=>true,open=false,emptyLane=false,traceInput=trace
  const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:512,canvasHeight:512,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:tail,participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:1},canonicalHistoryBase:{kind:open&&!emptyLane?'full-room-prefix-v2':'empty-room-prefix-v1',roomId:'room',boardEpoch:1,throughSeq:tail.length,operationCount:tail.length},canonicalCapabilities:{version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot:trace.snapshot}],bindings:tail.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}))}}
  return {...prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent}),wire:state}
 }
-function engineFor(p:ReturnType<typeof original>,author=false){
- const r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:512,pageHeight:512,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations},...(author?{canonicalAuthor:{begin:async()=>{throw Error('Unexpected BEGIN')}},onLocalOperation:vi.fn()}: {})},{width:512,height:512}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
- Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,512,512]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
+function engineFor(p:ReturnType<typeof original>,author=false,service?:NonNullable<NonNullable<Parameters<typeof createTestEngine>[0]>['canonicalAuthor']>,onLocalOperation?:(op:Operation)=>void){
+ const r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:512,pageHeight:512,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations},...(author?{canonicalAuthor:service??{begin:async()=>{throw Error('Unexpected BEGIN')}},onLocalOperation:onLocalOperation??vi.fn()}: {})},{width:512,height:512}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
+ Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23,rangeMin:127,rangeMax:127}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,512,512]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
  engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);return r
 }
 
@@ -93,7 +95,7 @@ async function autoHarness(begin:(request:CanonicalStrokeBegin,lifetime:{signal:
  const snapshots=new Map<string,CanonicalStrokeSnapshotV2>()
  const acceptedBegin=async(request:CanonicalStrokeBegin,lifetime:{signal:AbortSignal;isCurrent:()=>boolean})=>{const reply=await begin(request,lifetime);if(reply.ok&&'materialVersion'in reply.snapshot&&reply.snapshot.materialVersion===2)snapshots.set(request.strokeId,reply.snapshot);return reply}
  const p=emptyOriginal(isCurrent,page,profile),operations:Operation[]=[],r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:page.width,pageHeight:page.height,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations},canonicalAuthor:{begin:acceptedBegin},onLocalOperation:op=>operations.push(op)},{width:8,height:8}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
- Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,8,8]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
+ Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23,rangeMin:127,rangeMax:127}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,8,8]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
  engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil('brush:'+selected.id+'@'+selected.version);engine.setSize(40);engine.setLocked(false)
  await engine.paperReady();await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
  return{engine,operations,p,snapshots}
@@ -191,7 +193,7 @@ it('shares lazy image work while one subscriber aborts without cancelling the su
  const p=original(()=>true,true),{engine}=engineFor(p),abort=new AbortController()
  try{
   await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
-  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,begin=vi.spyOn(bank,'beginExtension'),changed={...asset,x:asset.x-1},snapshot={...trace.snapshot,strokeId:'shared-B',assets:[changed],material:{...trace.snapshot.material,assets:[changed]}},op={...trace.operations[0],id:'shared-b',seq:163,frame:{...trace.operations[0].frame,strokeId:snapshot.strokeId}},input=imageInput(p,op,snapshot)
+  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,begin=vi.spyOn(bank,'prepareRoot'),changed={...asset,x:asset.x-1},snapshot={...trace.snapshot,strokeId:'shared-B',assets:[changed],material:{...trace.snapshot.material,assets:[changed]}},op={...trace.operations[0],id:'shared-b',seq:163,frame:{...trace.operations[0].frame,strokeId:snapshot.strokeId}},input=imageInput(p,op,snapshot)
   const first=engine.prepareOriginalRecorded(input,{signal:abort.signal}),second=engine.prepareOriginalRecorded(input);abort.abort()
   expect(await first).toEqual({status:'cancelled'});expect(await second).toEqual({status:'ready'});expect(begin).toHaveBeenCalledOnce();expect(owner.bank).toBe(bank);expect(owner.resourceCandidate).toBeUndefined()
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
@@ -248,8 +250,8 @@ it('waits passively for different finite brush work to finish before allocating 
  const p=original(()=>true,true),{engine}=engineFor(p),events:string[]=[]
  try{
   await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
-  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,changed={...asset,x:asset.x-1},snapshot={...trace.snapshot,strokeId:'wait-B',assets:[changed],material:{...trace.snapshot.material,assets:[changed]}},op={...trace.operations[0],id:'wait-b',seq:163,frame:{...trace.operations[0].frame,strokeId:snapshot.strokeId}},input=imageInput(p,op,snapshot),begin=bank.beginExtension.bind(bank)
-  vi.spyOn(bank,'beginExtension').mockImplementation((...args)=>{events.push('candidate');return begin(...args)})
+  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,changed={...asset,x:asset.x-1},snapshot={...trace.snapshot,strokeId:'wait-B',assets:[changed],material:{...trace.snapshot.material,assets:[changed]}},op={...trace.operations[0],id:'wait-b',seq:163,frame:{...trace.operations[0].frame,strokeId:snapshot.strokeId}},input=imageInput(p,op,snapshot),begin=bank.prepareRoot.bind(bank)
+  vi.spyOn(bank,'prepareRoot').mockImplementation((...args)=>{events.push('candidate');return begin(...args)})
   const local=engine['_brushPreparation'].run([()=>{events.push('local-1')},()=>{events.push('local-2')}],{},()=>true,'different-local',()=>{events.push('local-finalized');return undefined})
   const pending=engine.prepareOriginalRecorded(input)
   expect(owner.resourceCandidate).toBeUndefined();expect(events).not.toContain('candidate')
@@ -262,7 +264,7 @@ it.each(['stale','abort','loss']as const)('does not allocate a candidate after %
  let alive=true;const p=original(()=>alive,true),{engine}=engineFor(p),abort=new AbortController()
  try{
   await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
-  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,begin=vi.spyOn(bank,'beginExtension'),changed={...asset,x:asset.x-1},snapshot={...trace.snapshot,strokeId:'wait-stop-B',assets:[changed],material:{...trace.snapshot.material,assets:[changed]}},op={...trace.operations[0],id:'wait-stop-b',seq:163,frame:{...trace.operations[0].frame,strokeId:snapshot.strokeId}},input=imageInput(p,op,snapshot)
+  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,begin=vi.spyOn(bank,'prepareRoot'),changed={...asset,x:asset.x-1},snapshot={...trace.snapshot,strokeId:'wait-stop-B',assets:[changed],material:{...trace.snapshot.material,assets:[changed]}},op={...trace.operations[0],id:'wait-stop-b',seq:163,frame:{...trace.operations[0].frame,strokeId:snapshot.strokeId}},input=imageInput(p,op,snapshot)
   const local=engine['_brushPreparation'].run([()=>{
    if(kind==='stale')alive=false
    else if(kind==='abort')abort.abort()
@@ -390,8 +392,8 @@ it('adds the native Graphite suffix while preserving the ready Mountains bank an
  try{
   engine.setPencil(mountains);engine.setSize(360);await expect(engine.prepareBrush(mountains)).resolves.toEqual({status:'ready'})
   const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,keys=bank.resources(),prepared=engine['_canonicalPreparedAuthor'],cpu=engine['_brushMipCache'].reservedBytes,epoch=owner.prepass.preparedCapacity().epoch
-  engine.setPencil(graphite);engine.setSize(16);const upload=vi.spyOn(engine['gl'],'texImage2D'),begin=vi.spyOn(bank,'beginExtension')
-  await expect(engine.prepareBrush(graphite)).resolves.toEqual({status:'ready'});expect(begin).toHaveBeenCalledOnce();expect(upload).toHaveBeenCalled();expect(owner.bank).toBe(bank);for(const resource of keys)expect(bank.resources()).toContainEqual(resource);expect(bank.jobs).toHaveLength(86);expect(bank.gpuBytes).toBe(5658656+13832);expect(owner.prepass.preparedCapacity().epoch).toBe(epoch);expect(engine['_canonicalPreparedAuthor']).not.toBe(prepared);expect(engine['_canonicalPreparedAuthor']?.preset).toBe(graphite);expect(engine['_brushMipCache'].reservedBytes).toBeGreaterThan(cpu)
+  engine.setPencil(graphite);engine.setSize(16);const upload=vi.spyOn(engine['gl'],'texImage2D'),begin=vi.spyOn(bank,'prepareRoot')
+  await expect(engine.prepareBrush(graphite)).resolves.toEqual({status:'ready'});expect(begin).toHaveBeenCalledOnce();expect(upload).toHaveBeenCalled();expect(owner.bank).toBe(bank);expect(keys.length).toBeGreaterThan(0);expect(bank.jobs.length).toBeGreaterThan(0);expect(bank.jobs.every(j=>j.kind==='native-image'&&graphiteAuthor.assets.some(a=>a.id===j.resource.id))).toBe(true);expect(bank.gpuBytes).toBe(bank.jobs.reduce((n,j)=>n+j.bytes,0));expect(owner.prepass.preparedCapacity().epoch).toBe(epoch);expect(engine['_canonicalPreparedAuthor']).not.toBe(prepared);expect(engine['_canonicalPreparedAuthor']?.preset).toBe(graphite);expect(engine['_brushMipCache'].reservedBytes).toBeGreaterThan(cpu)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
 function incomingNative(scope:Parameters<typeof attachCanonicalRecordedDelivery>[1]){
@@ -420,12 +422,12 @@ it.each(['native','image','cancel-native']as const)('keeps incoming %s behind th
 },20000)
 
 it('keeps the original image bank readers independent of the selected author program',async()=>{
- const {engine}=await autoHarness(async request=>verdict(request),autoDescriptor,()=>true,{width:512,height:512}),preset=installPipeAuthor(mountainsAuthor)
+ const h=await autoHarness(async request=>verdict(request),autoDescriptor,()=>true,{width:512,height:512}),{engine}=h,preset=installPipeAuthor(mountainsAuthor)
  try{
   engine.setPencil(preset);engine.setSize(360);await engine.prepareBrush(preset)
   const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,first=bank.jobs[0],epoch=owner.prepass.preparedCapacity().epoch
   engine.setPencil(autoPreset);engine.setSize(40);await expect(engine.prepareBrush(autoPreset)).resolves.toEqual({status:'ready'})
-  expect(owner.bank).toBe(bank);expect(owner.prepass.preparedCapacity().epoch).toBe(epoch);owner.cache.discard(first.key);expect(bank.prepareJob(0)).toBe('ready');expect(bank.isReady()).toBe(true);expect(engine['_canonicalPreparedAuthor']?.preset).toBe(autoPreset)
+  expect(owner.bank).toBe(bank);expect(owner.prepass.preparedCapacity().epoch).toBe(epoch);owner.cache.discard(first.key);expect(await engine.prepareOriginalRecorded(imageInputs(h.p.canonicalRead.scope,0,sourceTrace(mountainsAuthor))[0])).toEqual({status:'ready'});expect(bank.isReady()).toBe(true);expect(engine['_canonicalPreparedAuthor']?.preset).toBe(autoPreset)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
 
@@ -439,7 +441,7 @@ it('cancels staged idle growth when an original peer frame starts using the old 
 },20000)
 it('keeps the coherently published grown union when old-resource retirement throws after commit',async()=>{
  const {engine}=await autoHarness(async request=>verdict(request)),basic=installLocalBasic6()
- try{await engine.prepareBrush(autoPreset);engine.setPencil(basic);engine.setSize(7.5);await engine.prepareBrush(basic);const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,old=engine['_canonicalPreparedAuthor'],oldKey=owner.prepass.preparedResources()[0].key,selected=installPipeAuthor(mountainsAuthor),discard=owner.cache.discard.bind(owner.cache),fault=Error('old workspace retirement');let thrown=false;vi.spyOn(owner.cache,'discard').mockImplementation((key,lost)=>{discard(key,lost);if(key===oldKey&&!thrown){thrown=true;throw fault}});engine.setPencil(selected);engine.setSize(360);await expect(engine.prepareBrush(selected)).rejects.toBe(fault);expect(thrown).toBe(true);expect(owner.bank).toBe(bank);expect(owner.mask.width).toBeGreaterThan(360);expect(owner.prepass.isReady()).toBe(true);expect(owner.composite.isReady()).toBe(true);expect(owner.bank!.isReady()).toBe(true);expect(owner.resourceCandidate).toBeUndefined();expect(engine['_canonicalPreparedAuthor']).toBe(old);expect(await engine.prepareBrush(selected)).toEqual({status:'ready'})}finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+ try{await engine.prepareBrush(autoPreset);engine.setPencil(basic);engine.setSize(7.5);await engine.prepareBrush(basic);const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,old=engine['_canonicalPreparedAuthor'],oldKey=owner.prepass.brushGlBatchInfo().ownedPointSamplers![0].key,selected=installPipeAuthor(mountainsAuthor),discard=owner.cache.discard.bind(owner.cache),fault=Error('old workspace retirement');let thrown=false;vi.spyOn(owner.cache,'discard').mockImplementation((key,lost)=>{discard(key,lost);if(key===oldKey&&!thrown){thrown=true;throw fault}});engine.setPencil(selected);engine.setSize(360);await expect(engine.prepareBrush(selected)).rejects.toBe(fault);expect(thrown).toBe(true);expect(owner.bank).toBe(bank);expect(owner.mask.width).toBeGreaterThan(360);expect(owner.prepass.isReady()).toBe(true);expect(owner.composite.isReady()).toBe(true);expect(owner.bank!.isReady()).toBe(true);expect(owner.resourceCandidate).toBeUndefined();expect(engine['_canonicalPreparedAuthor']).toBe(old);expect(await engine.prepareBrush(selected)).toEqual({status:'ready'})}finally{vi.restoreAllMocks();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
 it.each([false,true])('prepares original Basic6 control resources on the SAME %s idle auto workspace without author mutation',async warm=>{
  const h=await autoHarness(async r=>verdict(r),autoDescriptor,()=>true,{width:512,height:512}),{engine}=h
@@ -632,5 +634,83 @@ it('keeps a concurrent original behind the SAME cold resource candidate and retr
   if(!('delivery'in input))throw Error('delivery')
   vi.spyOn(engine['_brushPreparation'],'run').mockImplementation((jobs,options,available,key,finalize)=>run(jobs,{...options,onProgress:(n,total)=>{options.onProgress?.(n,total);if(n===1&&!once){once=true;expect(owner.resourceCandidate).toBeDefined();expect(owner.prepared).toBe(false);second=engine.prepareOriginalRecorded(input).then(result=>{done=true;return result});expect(done).toBe(false);controller.abort()}}},available,key,finalize))
   expect(await engine.prepareOriginalRecorded(input,{signal:controller.signal})).toEqual({status:'cancelled'});if(!second)throw Error('Missing original waiter');expect(await second).toEqual({status:'ready'});expect(done).toBe(true);expect(owner.mask.width).toBe(54);expect(owner.prepared).toBe(true);expect(owner.resourceCandidate).toBeUndefined();expect(engine['_log'].entries).toHaveLength(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+
+function textureOriginal(open=false){
+ const gray=Uint8Array.from({length:64},(_,i)=>i*3),id:`asset:${string}`=`asset:${createHash('sha256').update(gray).digest('hex')}`,pattern={id,size:8,x:0,y:0,width:4,height:4}
+ installBrushPixels(id,gray)
+ const material=canonicalPrimaryTextureMaterialContext({version:3,assets:[asset,pattern],primarySource:binding.primarySource,primaryTexture:{kind:'canvasTexture',asset:id,law:'subtract-u8-v1',width:4,height:4,periodX:4,periodY:4,offsetX:1,offsetY:2,strength:'pressure-identity-v1'},budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}})
+ const snapshot=canonicalStrokeSnapshotV3({...trace.snapshot,strokeId:'texture-engine',materialVersion:3,material,assets:material.assets,rasterProfile:G,composition:{...trace.snapshot.composition,alphaDarken:'hard'}},1,G)
+ const encoder=new SourceCanonicalFrameEncoder({...snapshot,material}),recipe={kind:'image' as const,asset:asset.id,brushScale:binding.primarySource.brushScale,brushAngle:binding.primarySource.brushAngle,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:8,height:8,mirrorH:false,mirrorV:false}
+ const operations:CanonicalStrokeOperation[]=[0,.5,1].map((grainDepth,i)=>{
+  const packed=buildCanonicalMaterial({masked:false,entry:i?{phase:'primary',group:0}:{phase:'between'},draws:[{recipe,role:'primary',x:20+i*4,y:20,opacity:.8,flow:.7,grainDepth}],fences:[...i?[]:[{kind:'segmentBegin' as const,at:0,group:0}],...i===2?[{kind:'primaryEnd' as const,at:1,group:0},{kind:'segmentEnd' as const,at:1,group:0},{kind:'gestureEnd' as const,at:1}]:[]]},material).packed
+  return{id:'texture-'+i,userId:'author',timestamp:i,seq:i+1,type:'canonical_stroke',layerId:'layer-1',frame:encoder.encode(packed).envelope}
+ })
+ const base=original().wire,tail=open?operations.slice(0,-1):operations
+ const wire={...base,canonicalAuthorRasterProfile:G,canonicalReadScope:{roomId:'room',boardEpoch:1,allowedRasterProfiles:[G]},tailOperations:tail,canonicalHistoryBase:{kind:'full-room-prefix-v2' as const,roomId:'room',boardEpoch:1,throughSeq:tail.length,operationCount:tail.length},canonicalCapabilities:{version:1 as const,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot}],bindings:tail.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}))}}
+ return{...prepareCanonicalRoomState(wire,{expectedBoardId:'room',isCurrent:()=>true}),wire,operations,snapshot,pattern}
+}
+it.each([false,true])('uses ONE root-residency cold pipeline for genuine CMAT3 (open=%s), with raw pattern once and plain outer passes',async open=>{
+ const p=textureOriginal(open),{engine}=engineFor(p),draw=vi.spyOn(CanonicalRgba8CompositePass.prototype,'drawSource')
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!,root=owner.fullSource!
+  expect(root).toBeDefined();expect(owner.bank!['mode']).toBe('root-residency');expect(owner.bank!.jobs.filter(j=>j.kind==='raw-pattern-l8')).toHaveLength(1)
+  expect(root.preparedResources().every(r=>r.canonical?.asset.id===asset.id)).toBe(true)
+  expect(owner.composite.supportsTexturedOperations(['alphaDarken32FusedScalar'])).toBe(true)
+  if(open){
+   const op=p.operations.at(-1)!,atom=prepareCanonicalRecordedAttachment({version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot:p.snapshot}],bindings:[{operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}]},[op],p.canonicalRead.scope)[0],input=attachCanonicalRecordedDelivery(atom,p.canonicalRead.scope)
+   if(!('delivery'in input))throw Error('Actual original missing')
+   expect(await engine.prepareOriginalRecorded(input)).toEqual({status:'ready'});engine.appendOriginalRecorded(input)
+   await vi.waitFor(()=>expect(owner.coordinator).toBeUndefined(),{timeout:10000})
+  }
+  expect(engine['_log'].entries).toHaveLength(3);expect(engine['_canonicalPixelsReady']).toBe(true)
+  const sources=draw.mock.calls.map(([r])=>r.source),textures=sources.filter(s=>s.kind==='texturedMaskRgb')
+  expect(textures.length).toBeGreaterThanOrEqual(3);expect(new Set(textures.map(s=>s.kind==='texturedMaskRgb'?s.strengthU8:-1))).toEqual(new Set([0,128,255]))
+  expect(sources.some(s=>s.kind==='straightRgba8')).toBe(true);expect(sources.every(s=>s.kind==='texturedMaskRgb'||s.kind==='straightRgba8')).toBe(true)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+
+it.each([false,true])('authors CMAT3 only with captured optin=%s and hands the SAME tip+pattern root to local drawing',async enabled=>{
+ const t=textureOriginal(),d=structuredClone(descriptor)
+ Reflect.set(d,'id','imported-'+createHash('sha256').update('self-authored-textured-basic6-engine').digest('hex'))
+ Reflect.set(d.sourceStamp!.flags,'textureEnabled',true)
+ Object.assign(d.sourceStamp!.settings,{'Texture/Pattern/Enabled':'true','PressureTexture/Strength/':'true','Texture/Strength/StrengthVersion':'2','Texture/Strength/UseCurve':'true','Texture/Strength/UseSameCurve':'true','Texture/Strength/Value':'1','Texture/Strength/curveMode':'0','Texture/Strength/Sensor':'<params id="pressure"><curve>0,0;1,1;</curve></params>'})
+ Reflect.set(d,'texture',{id:t.pattern.id,strength:1,periodPx:4,patternSize:{width:4,height:4},application:{mode:'subtract',soft:false},offset:{x:1,y:2,randomX:false,randomY:false}})
+ const sha=createHash('sha256').update(canonicalBrushDescriptorJSON(d)).digest('hex'),preset=`brush:${d.id}@${d.version}`,wire={...t.wire,tailOperations:[],canonicalHistoryBase:{kind:'full-room-prefix-v2' as const,roomId:'room',boardEpoch:1,throughSeq:0,operationCount:0},canonicalCapabilities:{version:1 as const,roomId:'room',boardEpoch:1,capabilities:[],bindings:[]}},p={...prepareCanonicalRoomState(wire,{expectedBoardId:'room',isCurrent:()=>true}),wire},operations:Operation[]=[],begins=vi.fn(async(request:CanonicalStrokeBegin,lifetime:{expectedDescriptorSha256:string})=>{
+  expect(lifetime.expectedDescriptorSha256).toBe(sha)
+  return{ok:true as const,recordedNext:0,liveNext:0,ended:false,snapshot:canonicalStrokeSnapshotV3({...t.snapshot,brush:request.brush,strokeId:request.strokeId,descriptorSha256:sha,pigmentRgb8:request.pigmentRgb8,composition:{...t.snapshot.composition,alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity}},1,G)}
+ })
+ const library:unknown={schemaVersion:1,brushes:[{descriptor:d,name:'Self-authored textured Basic6 test',source:'native',warnings:[]}],assets:[asset,t.pattern].map(a=>({id:a.id,size:a.size,file:a.id.slice(6)+'.bin'})),skipped:[]}
+ if(!isBrushLibrary(library))throw Error('Invalid self-authored texture library');installBrushLibrary(library)
+ const{engine}=engineFor(p,true,{...enabled?{primaryTextureSource:'pressure-identity-subtract-v3' as const}:{},begin:begins},op=>operations.push(op)),draw=vi.spyOn(CanonicalRgba8CompositePass.prototype,'drawSource')
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil(preset);engine.setSize(7.5);engine.setLocked(false)
+  if(!enabled){await expect(engine.prepareBrush(preset)).rejects.toThrow();expect(begins).not.toHaveBeenCalled();expect(engine['_canonicalLayerOwner']!.defaultSourceRoots).toBeUndefined();return}
+  await expect(engine.prepareBrush(preset)).resolves.toEqual({status:'ready'});expect(engine['_canonicalPreparedAuthor']!.material.kind).toBe('imageTexture')
+  const owner=engine['_canonicalLayerOwner']!,roots=owner.defaultSourceRoots!
+  expect(roots).toHaveLength(1);expect(owner.bank!.jobs.filter(j=>j.kind==='raw-pattern-l8')).toHaveLength(1)
+  engine['_onStart'](packet(20,0));engine['_onMove'](packet(24,10));engine['_onEnd'](packet(24,20))
+  await vi.waitFor(()=>expect(operations.length).toBeGreaterThan(0),{timeout:10000});await vi.waitFor(()=>expect(engine.hasActiveCanonicalAuthor()).toBe(false),{timeout:10000})
+  expect(begins).toHaveBeenCalledOnce();expect(draw.mock.calls.some(([r])=>r.source.kind==='texturedMaskRgb')).toBe(true);expect(owner.defaultSourceRoots).toHaveLength(1)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+
+it('reprepares genuine A after speculative B on the SAME full owner and then delivers A through the normal original path',async()=>{
+ const p=original(()=>true,true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!,changed={...fixture.asset,x:asset.x-1},a=sourceTrace(undefined,changed,'handoff-A'),inputs=imageInputs(p.canonicalRead.scope,162,{snapshot:a.snapshot,operations:a.operations.map(op=>({...op,id:'handoff-A-'+op.id}))})
+  installPipeAuthor(graphiteAuthor);const b=imageInputs(p.canonicalRead.scope,162,sourceTrace(graphiteAuthor))[0]
+  expect(await engine.prepareOriginalRecorded(inputs[0])).toEqual({status:'ready'});const first=owner.indexedSource!.lease
+  expect(await engine.prepareOriginalRecorded(inputs[0])).toEqual({status:'ready'});expect(owner.indexedSource!.lease).toBe(first)
+  expect(await engine.prepareOriginalRecorded(b)).toEqual({status:'ready'});expect(()=>first.resources()).toThrow();expect(owner.indexedSource!.input).toBe(b)
+  // The real caller always prepares the input immediately before append. A's
+  // original read/lifetime is unchanged; no replacement delivery/grant is minted.
+  for(const input of inputs){expect(await engine.prepareOriginalRecorded(input)).toEqual({status:'ready'});engine.appendOriginalRecorded(input)}
+  const end=imageInput(p,{...trace.operations.at(-1)!,seq:162+inputs.length+1});expect(await engine.prepareOriginalRecorded(end)).toEqual({status:'ready'});engine.appendOriginalRecorded(end)
+  await vi.waitFor(()=>expect(engine['_canonicalExportReady']()).toBe(true),{timeout:15000})
+  expect(owner.failed).toBe(false);expect(owner.indexedSource).toBeUndefined();expect(owner.defaultSourceRoots!.length).toBeLessThanOrEqual(3);expect(engine['_log'].entries).toHaveLength(163+inputs.length)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)

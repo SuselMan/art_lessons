@@ -12,7 +12,7 @@ import type {
   Operation,
   ClientToServerEvents, ServerToClientEvents,
 } from '@grafetto/shared'
-import { BACKGROUND_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,isToolEnabledInRoom } from '@grafetto/shared'
+import { DRAWING_PROTOCOL_VERSION,BACKGROUND_LAYER_ID,STRAIGHT_ROOM_RASTER_VERSION,isToolEnabledInRoom } from '@grafetto/shared'
 import {
   PencilEngine, type PencilEngineAPI, type PencilGradeName, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, type AreaImage,
 } from '../../engine'
@@ -1448,7 +1448,7 @@ function RoomEditor() {
       // Same-origin: the Vite dev server proxies /socket.io to apps/server
       // (see vite.config.ts) — works under both `npm run dev` (https, needed
       // for AudioWorklet-based sound experiments) and `npm run dev:http`.
-      openSocket: () => io({ withCredentials: true }),
+      openSocket: () => io({ withCredentials: true, auth: { drawingProtocol: DRAWING_PROTOCOL_VERSION } }),
       onConnectionChange: next => {
         setConnected(next)
         if (next) setEverConnected(true)

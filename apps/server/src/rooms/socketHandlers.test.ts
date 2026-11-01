@@ -39,9 +39,8 @@ const mockPrisma = vi.hoisted(() => ({$transaction:vi.fn(),
 mockPrisma.$transaction=vi.fn(async(run:(connection:typeof mockPrisma)=>Promise<unknown>)=>run(mockPrisma))
 vi.mock('../db/prisma.js', () => ({ prisma: mockPrisma }))
 vi.mock('../db/canonicalIndexedReader.js',()=>({withCanonicalIndexedValidation:async(run:(database:unknown)=>Promise<unknown>)=>run(mockPrisma)}))
-vi.mock('../auth/identity.js', () => ({
-  resolveSocketIdentity: async (cookie: string | undefined) => ({ userId: cookie ?? 'anonymous', deviceId: 'device' }),
-}))
+const resolveIdentity=vi.hoisted(()=>vi.fn(async(cookie:string|undefined)=>({userId:cookie??'anonymous',deviceId:'device'})))
+vi.mock('../auth/identity.js', () => ({resolveSocketIdentity:resolveIdentity}))
 vi.mock('../auth/sessions.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../auth/sessions.js')>()),
   recordSighting: () => {},
@@ -975,7 +974,7 @@ it('delivers durable V2 confirmation and rejoined closed undo prefix atomically 
   setBrushStorage(c.storage,{schemaVersion:1,assets:[],skipped:[],brushes:[{name:'Auto',source:'native.kpp',warnings:[],descriptor}]})
   const begin={...c.begin,brush:`brush:${descriptor.id}@${descriptor.version}`}
   const response=await new Promise<CanonicalStrokeBeginResult>(resolve=>c.teacher.emit('canonical_stroke_begin',begin,resolve))
-  if(!response.ok||!('materialVersion' in response.snapshot))throw Error('Expected V2 BEGIN')
+  if(!response.ok||!('materialVersion' in response.snapshot)||response.snapshot.materialVersion!==2)throw Error('Expected V2 BEGIN')
   const s=response.snapshot,materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[{at:0,kind:'gestureEnd'}]},s.material).packed
   if(s.rasterProfile!==CANONICAL_STROKE_RASTER_PROFILE)throw Error('Expected legacy raster profile in this fixture')
   const op:CanonicalStrokeOperation={type:'canonical_stroke',id:fresh('auto-cap'),userId:'teacher',timestamp:0,layerId:begin.layerId,frame:{version:1,rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked}}
@@ -1236,7 +1235,7 @@ it('waits for an accepted in-flight frame write after disconnect even when its A
  let release=()=>{}
  try{
   const response=await new Promise<CanonicalStrokeBeginResult>(resolve=>c.teacher.emit('canonical_stroke_begin',{...c.begin,brush:c.op.frame.brush},resolve))
-  if(!response.ok||!('materialVersion'in response.snapshot))throw Error('Expected actual source snapshot')
+  if(!response.ok||!('materialVersion'in response.snapshot)||response.snapshot.materialVersion!==2)throw Error('Expected actual source snapshot')
   const materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},response.snapshot.material).packed
   const op:CanonicalStrokeOperation={...c.op,id:fresh('lost-ack-tail'),frame:{...c.op.frame,frameOrdinal:1,materialPacked}}
   mockPrisma.operation.create.mockImplementationOnce(q=>new Promise<void>(resolve=>{let released=false;release=()=>{if(released)return;released=true;Promise.resolve(prior(q)).then(()=>resolve())}}))
@@ -1361,4 +1360,28 @@ it('indexed policy joins with DATA-only offer then serves an actual post-seat cu
   expect(rooms.has(roomId)).toBe(true)
   expect(await new Promise(resolve=>teacher.emit('canonical_history_stream_next',cached,resolve))).toMatchObject({ok:false,reason:'stale_read'})
  }finally{rmSync(dir,{recursive:true,force:true})}
+})
+
+it('requires exact drawing protocol3 on actual texture sockets BEFORE identity/load/seat, then permits normal authenticated join',async()=>{
+ io.close();await new Promise<void>(resolve=>http.close(()=>resolve()))
+ const {CanonicalRoomTransport}=await import('./CanonicalRoomTransport.js')
+ const {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE:G}=await import('@grafetto/shared')
+ http=createServer();io=new Server(http)
+ const transport=new CanonicalRoomTransport({rasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy'],primaryImageSource:'single-inverse-gray-v2',primaryTextureSource:'pressure-identity-subtract-v3'})
+ registerRoomHandlers(io as never,log,transport)
+ await new Promise<void>(resolve=>http.listen(0,resolve));port=(http.address()as AddressInfo).port
+ const id=fresh('protocol-door');rows.set(id,row(id));resolveIdentity.mockClear();mockPrisma.room.findUnique.mockClear()
+ for(const auth of [undefined,{drawingProtocol:'2'},{drawingProtocol:3},{drawingProtocol:'unknown'}]){
+  const socket:Client=connect(`http://localhost:${port}`,{autoConnect:false,reconnection:false,forceNew:true,transports:['websocket'],extraHeaders:{cookie:'protocol-author'},...auth===undefined?{}:{auth}})
+  clients.push(socket)
+  const refused=new Promise<string>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('protocol refusal timeout')),2000);socket.once('connect_error',error=>{clearTimeout(timer);resolve(error.message)})})
+  socket.connect();expect(await refused).toBe('client_update_required');expect(socket.connected).toBe(false);socket.close()
+ }
+ expect(resolveIdentity).not.toHaveBeenCalled();expect(mockPrisma.room.findUnique).not.toHaveBeenCalled();expect(isRoomResident(id)).toBe(false)
+ const current:Client=connect(`http://localhost:${port}`,{autoConnect:false,reconnection:false,forceNew:true,transports:['websocket'],extraHeaders:{cookie:'teacher'},auth:{drawingProtocol:'3'}})
+ clients.push(current)
+ const connected=new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('protocol connect timeout')),2000);current.once('connect',()=>{clearTimeout(timer);resolve()});current.once('connect_error',error=>{clearTimeout(timer);reject(error)})})
+ current.connect();await connected;expect(resolveIdentity).toHaveBeenCalledTimes(1)
+ const delivered=next(current,'room_state');await join(current,id,'Current');await delivered
+ expect(isRoomResident(id)).toBe(true)
 })

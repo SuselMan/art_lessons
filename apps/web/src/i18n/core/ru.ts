@@ -34,6 +34,7 @@ export const ru: Dictionary = {
   'brushLibrary.error': 'Не удалось загрузить ресурсы кисти. Проверьте соединение и повторите попытку.',
   'common.retry': 'Повторить',
   'update.available': 'Доступна новая версия',
+  'update.required': 'Для этой комнаты нужна новая версия движка рисования. Перезагрузите страницу, чтобы продолжить.',
   'update.reload': 'Обновить',
   'common.dismiss': 'Скрыть',
   'common.loading': 'Загрузка…',

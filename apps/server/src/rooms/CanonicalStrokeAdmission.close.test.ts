@@ -8,6 +8,7 @@ function fixture(){
  const resolve=vi.fn(()=>grant),admission=new CanonicalStrokeAdmission({resolve,maxGestures:1,retainedFrames:8})
  const frame=(n:number,end=false)=>{
   const material:CanonicalMaterialFrame={profile:CANONICAL_MATERIAL_PROFILE,masked:false,entry:{phase:'between'},definitions:[],draws:[],fences:end?[{kind:'gestureEnd',at:0}]:[]}
+  if('version'in grant.material)throw Error('Legacy fixture requires material1')
   const envelope:CanonicalStrokeFrameEnvelope={version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:grant.brush,strokeId:grant.strokeId,frameOrdinal:n,pigmentRgb8:grant.pigmentRgb8,composition:grant.composition,materialPacked:packCanonicalMaterial(material,grant.material)}
   return {type:'canonical_stroke' as const,id:'frame-'+n,layerId:'layer',frame:envelope}
  }

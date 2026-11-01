@@ -49,6 +49,7 @@ export const en = {
   // in the queue (#313 guards the same thing with beforeunload), and losing
   // them to a background refresh would be the app breaking its own promise.
   'update.available': 'A new version is available',
+  'update.required': 'This room requires an updated drawing engine. Reload the page to continue.',
   'update.reload': 'Update',
   // (#343) Was `room.dismiss` — moved into the shared vocabulary when the
   // notification strip became one component used on every page, not just in

@@ -48,7 +48,7 @@ it.each(['owner','socket','abort']as const)('binds BEGIN to original read/socket
  const socket:import('./net/sendCanonicalStrokeBegin').CanonicalBeginEmitter={emit:(_event,_input,callback)=>{ack=callback},on:(_event,callback)=>{listeners.add(callback)},off:(_event,callback)=>{listeners.delete(callback)}}
  let current=true,active:typeof socket|null=socket
  const author=createCanonicalRoomAuthor(stash.canonicalRead,socket,()=>active,()=>current),controller=new AbortController()
- const pending=author.begin({layerId:'L',brush:'brush:soft@1',strokeId:'S',pigmentRgb8:[0,0,0],outerResourceOpacity:1,alphaDarken:'hard'},{signal:controller.signal,isCurrent:()=>true})
+ const pending=author.begin({layerId:'L',brush:'brush:soft@1',strokeId:'S',pigmentRgb8:[0,0,0],outerResourceOpacity:1,alphaDarken:'hard'},{signal:controller.signal,isCurrent:()=>true,expectedDescriptorSha256:'d'.repeat(64)})
  const rejected=expect(pending).rejects.toThrow()
  if(kind==='owner')current=false
  if(kind==='socket')active=null
@@ -574,4 +574,24 @@ it('indexed Room consumer sends through SAME control lane and releases one repla
  expect(known.current).toBe(5);expect(begin).toHaveBeenCalledOnce();expect(end).not.toHaveBeenCalled();expect(resync).not.toHaveBeenCalled()
  outbox.pendingCount=0;room.control.drain();await Promise.resolve();await Promise.resolve()
  expect(resync).toHaveBeenCalledOnce();expect(joining).toHaveBeenCalledOnce();expect(end).toHaveBeenCalledOnce();expect(notify).not.toHaveBeenCalled()
+})
+
+it('captures the explicit texture option by value and forwards descriptor identity before BEGIN awaits', async () => {
+ const { createCanonicalRoomAuthor } = await import('./canonicalRoomController')
+ const { stash } = state()
+ let ack!: (value: import('@grafetto/shared').CanonicalStrokeBeginResult) => void
+ const socket: import('./net/sendCanonicalStrokeBegin').CanonicalBeginEmitter = {
+  emit: (_event, _input, callback) => { ack = callback }, on: () => {}, off: () => {},
+ }
+ const options: {primaryTextureSource?: 'pressure-identity-subtract-v3'} = {primaryTextureSource: 'pressure-identity-subtract-v3'}
+ const author = createCanonicalRoomAuthor(stash.canonicalRead, socket, () => socket, () => true, options)
+ delete options.primaryTextureSource
+ expect(author.primaryTextureSource).toBe('pressure-identity-subtract-v3')
+ expect(Object.isFrozen(author)).toBe(true)
+ expect(createCanonicalRoomAuthor(stash.canonicalRead, socket, () => socket, () => true).primaryTextureSource).toBeUndefined()
+ // A malformed identity must be rejected by the actual BEGIN boundary before emit.
+ const invalid = author.begin({layerId:'L',brush:'brush:soft@1',strokeId:'S',pigmentRgb8:[0,0,0],outerResourceOpacity:1,alphaDarken:'hard'},
+  {signal:new AbortController().signal,isCurrent:()=>true,expectedDescriptorSha256:'invalid'})
+ await expect(invalid).rejects.toThrow('descriptor identity')
+ expect(ack).toBeUndefined()
 })

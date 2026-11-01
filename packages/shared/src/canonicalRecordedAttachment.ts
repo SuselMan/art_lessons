@@ -14,7 +14,7 @@ export interface CanonicalRecordedReadScope {
  readonly rasterProfile?:CanonicalStrokeRasterProfile
  readonly allowedRasterProfiles?:readonly CanonicalStrokeRasterProfile[]
 }
-export interface CanonicalRecordedReadCapability {readonly originalUserId:string;readonly snapshot:CanonicalStrokeSnapshotV2}
+export interface CanonicalRecordedReadCapability {readonly originalUserId:string;readonly snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3}
 /** Batch-local wire dictionary only; indexes never become retained history truth. */
 export interface CanonicalRecordedAttachmentV1 {
  readonly version:1;readonly roomId:string;readonly boardEpoch:number
@@ -115,6 +115,14 @@ export function canonicalStrokeSnapshotV3(value:unknown,epoch:number,rasterProfi
  return Object.freeze({layerId:s.layerId,brush:s.brush,strokeId:s.strokeId,boardEpoch:epoch,descriptorSha256:s.descriptorSha256,rasterProfile,
   pigmentRgb8:decoded.envelope.pigmentRgb8,composition:decoded.envelope.composition,assets:material.assets,materialVersion:3 as const,material})
 }
+/** Pure decoder dispatch for an already normalized immutable snapshot. This is
+ * not an authenticated delivery/read grant; material3 always carries top selector3. */
+export function decodeCanonicalRecordedSnapshotFrame(value:unknown,snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3,frameOrdinal:number) {
+ const s=snapshot,common={rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal,pigmentRgb8:s.pigmentRgb8,composition:s.composition}
+ return s.materialVersion===3
+  ?decodeCanonicalStrokeFrame(value,{...common,rasterProfile:s.rasterProfile,materialVersion:3,material:s.material})
+  :decodeCanonicalStrokeFrame(value,{...common,material:s.material})
+}
 /** Caller establishes authoritative delivery origin/read permission and captured
  * room lifetime. Socket.IO JSON is already parsed: this is NOT a preparse cap.
  * Legacy operation schemas remain their existing owner's responsibility.
@@ -129,9 +137,15 @@ export function prepareCanonicalRecordedAttachment(value:unknown,operations:read
  for(const item of value.capabilities){
   if(!closed(item,['originalUserId','snapshot'])||!text(item.originalUserId))return fail()
   if(!record(item.snapshot))return fail()
-  const rasterProfile=attachmentRasterProfile(item.snapshot.rasterProfile)
+  const selector=Object.getOwnPropertyDescriptor(item.snapshot,'materialVersion')
+  if(!selector||!Object.hasOwn(selector,'value'))return fail()
+  // Explicit3 is a closed own-DATA boundary before any snapshot user code.
+  // Retain the existing legacy2 profile read policy.
+  const profile=selector.value===3?Object.getOwnPropertyDescriptor(item.snapshot,'rasterProfile'):undefined
+  if(selector.value===3&&(!profile||!Object.hasOwn(profile,'value')))return fail()
+  const rasterProfile=attachmentRasterProfile(selector.value===3?profile!.value:item.snapshot.rasterProfile)
   if(!profiles.includes(rasterProfile))return fail()
-  const s=canonicalStrokeSnapshotV2(item.snapshot,expected.boardEpoch,rasterProfile),identity=JSON.stringify([item.originalUserId,s.strokeId])
+  const s=selector.value===3?canonicalStrokeSnapshotV3(item.snapshot,expected.boardEpoch,rasterProfile):canonicalStrokeSnapshotV2(item.snapshot,expected.boardEpoch,rasterProfile),identity=JSON.stringify([item.originalUserId,s.strokeId])
   // One gesture has ONE immutable capability, even if a duplicate is equal.
   if(identities.has(identity))return fail();identities.add(identity)
   const capability=Object.freeze({originalUserId:item.originalUserId,snapshot:s}),n=bytes(capability)
@@ -153,7 +167,7 @@ export function prepareCanonicalRecordedAttachment(value:unknown,operations:read
   if(capability.originalUserId!==op.userId||s.layerId!==op.layerId)return fail()
   if(!used.has(binding.capability)){if(binding.capability!==nextCapability++)return fail();used.add(binding.capability)}
   const rasterProfile=s.rasterProfile
-  const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:s.material})
+  const decoded=decodeCanonicalRecordedSnapshotFrame(op.frame,s,op.frame.frameOrdinal)
   if(decoded.frame.masked)return fail()
   const operation:CanonicalStrokeOperation=Object.freeze({id:op.id,userId:op.userId,timestamp:op.timestamp,seq:op.seq,type:'canonical_stroke',layerId:op.layerId,frame:decoded.envelope})
   normalizedBindings.push({operationId:op.id,sequence:op.seq,originalUserId:op.userId,capability:binding.capability})

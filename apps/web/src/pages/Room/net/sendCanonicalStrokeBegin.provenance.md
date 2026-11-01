@@ -54,3 +54,14 @@ for verified old-prefix resume under a new author default. The known unique
 must belong to it. Legacy singleton combined with new policy fields is refused.
 No ACK-selected profile outside captured policy, no timer/listener on invalid
 policy; mutation of the caller's set cannot expand an in-flight request.
+
+Material3 paired consumer adds explicit own-data materialVersion3 dispatch through
+canonicalStrokeSnapshotV3; historical2 still uses its existing normalizer and
+Snapshot1 remains refused. No ACK-selected inference or V2 projection. The
+optional lifetime expectedDescriptorSha256 is captured before asynchronous work;
+it is REQUIRED for3 and compared against the normalized immutable snapshot.
+For2 it remains optional and, if supplied, exact. This scalar is local policy,
+not a new BEGIN wire field. Request identity/RGB/composition, original scope,
+captured profile allowlist, ACK cursors, timer/disconnect/abort semantics remain.
+No source compiler/renderer/policy activation is introduced. New3 default callers
+without captured descriptor pin cannot accept3; engine must explicitly supply it.

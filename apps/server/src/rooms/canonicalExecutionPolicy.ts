@@ -30,6 +30,7 @@ export interface CanonicalRoomExecutionPolicy {
  readonly seededDefaultAuto?:false|Readonly<{coverageProfile:typeof CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE;storedScale:1}>
  readonly recordedSeededDefaultAutoProfile?:false|typeof CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
  readonly primaryImageSource?:'single-inverse-gray-v2'|false
+ readonly primaryTextureSource?:'pressure-identity-subtract-v3'|false
  readonly allowedRecordedImagePipeSources?:readonly CanonicalImagePipeSource[]
  readonly authorImagePipeSources?:readonly CanonicalImagePipeSource[]
  readonly fullHistoryFormat?:CanonicalFullHistoryFormat
@@ -64,6 +65,20 @@ export function freezeCanonicalPrimaryImagePolicy(value:CanonicalRoomExecutionPo
  if(value===undefined||value===false)return false
  if(value!=='single-inverse-gray-v2')throw TypeError('invalid explicit primary image execution policy')
  return value
+}
+
+/** Explicit server-only source subset; does not install the compatibility gate.
+ * Keep DEFAULT OFF until whole-client minimum-protocol cutover before live3. */
+export function freezeCanonicalPrimaryTexturePolicy(value:Pick<CanonicalRoomExecutionPolicy,'primaryTextureSource'|'primaryImageSource'|'authorRasterProfile'|'rasterProfile'|'allowedRecordedRasterProfiles'>):CanonicalRoomExecutionPolicy['primaryTextureSource'] {
+ const field=Object.getOwnPropertyDescriptor(value,'primaryTextureSource')
+ if(!field){if('primaryTextureSource'in value)throw TypeError('invalid explicit primary texture policy');return false}
+ if(!Object.hasOwn(field,'value'))throw TypeError('invalid explicit primary texture policy')
+ const selected=field.value
+ if(selected===undefined||selected===false)return false
+ if(selected!=='pressure-identity-subtract-v3'||value.primaryImageSource!=='single-inverse-gray-v2')throw TypeError('invalid explicit primary texture policy')
+ const raster=freezeCanonicalRasterPolicy(value)
+ if(raster.authorRasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||!raster.allowedRecordedRasterProfiles.includes(CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))throw TypeError('invalid explicit primary texture policy')
+ return selected
 }
 
 export type CanonicalImagePipeSource='incremental-inverse-gray-v2'|'random-inverse-gray-v2'

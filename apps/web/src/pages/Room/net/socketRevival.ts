@@ -65,12 +65,15 @@ export interface SocketRevival {
   /** Снять запланированную попытку — вызывать до `socket.disconnect()` в
    *  очистке эффекта, иначе таймер заведёт сокет уже покинутой комнаты. */
   cancel(): void
+  /** Terminal incompatibility: later events cannot restart this client. */
+  stop(): void
 }
 
 export function createSocketRevival(
   socket: RevivableSocket,
   timers: Timers = DEFAULT_TIMERS,
 ): SocketRevival {
+  let stopped = false
   let attempt = 0
   let timer: number | null = null
 
@@ -84,13 +87,13 @@ export function createSocketRevival(
     // Уже сдался и уже запланировано — второе событие (а `connect_error` и
     // `disconnect` умеют приходить парой) не должно ни ускорять попытку, ни
     // заводить вторую.
-    if (timer !== null) return
+    if (stopped || timer !== null) return
     const delay = reviveDelayMs(attempt++)
     timer = timers.set(() => {
       timer = null
       // Перепроверка не формальность: за время паузы сокет мог ожить сам —
       // например, страница вернулась из фона и socket.io успел раньше.
-      if (!socket.active) socket.connect()
+      if (!stopped && !socket.active) socket.connect()
     }, delay)
   }
 
@@ -111,5 +114,6 @@ export function createSocketRevival(
       cancel()
     },
     cancel,
+    stop() { stopped = true; cancel() },
   }
 }
