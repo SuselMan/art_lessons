@@ -22,6 +22,17 @@ class TextureImportTests(unittest.TestCase):
         asset=c.assets[texture['id']];raw=(c.output/asset['file']).read_bytes()
         return brush,texture,asset,raw
 
+    def test_original_texture_strength_program_survives_actual_import(self):
+        sensor='<!DOCTYPE params> <params id="pressure"> <curve>0,0;1,1;</curve> </params> '
+        fields={'PressureTexture/Strength/':'true','Texture/Strength/StrengthVersion':'2',
+                'Texture/Strength/UseCurve':'true','Texture/Strength/UseSameCurve':'true',
+                'Texture/Strength/Value':'1','Texture/Strength/curveMode':'0','Texture/Strength/Sensor':sensor}
+        with tempfile.TemporaryDirectory() as tmp:
+            brush,_,_,_=self.imported(tmp,fields)
+            stamp=brush['descriptor']['sourceStamp']
+            for key,value in fields.items():self.assertEqual(stamp['settings'][key],value)
+            self.assertEqual(len(stamp['options']),9)
+
     def test_native_rectangle_top_left_padding_does_not_square_warp(self):
         with tempfile.TemporaryDirectory() as tmp:
             b,t,a,raw=self.imported(tmp)

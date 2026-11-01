@@ -3,6 +3,7 @@ import io
 import struct
 import base64
 import json
+import hashlib
 from pathlib import Path
 import tempfile
 import unittest
@@ -20,6 +21,30 @@ def data(params=None,definition='<Brush type="png_brush" filename="self.png" Bru
 
 
 class SourceStampDataTests(unittest.TestCase):
+    def test_texture_strength_raw_program_is_retained_without_flattening_or_new_option(self):
+        identity='<!DOCTYPE params> <params id="pressure"> <curve>0,0;1,1;</curve> </params> '
+        multiple='<params id="sensorslist"><ChildSensor id="pressure"><curve>0,0;1,1;</curve></ChildSensor><ChildSensor id="fuzzy"><curve>0,1;1,0;</curve></ChildSensor></params>'
+        for use_curve,sensor in [('true',identity),('false',identity),('true',multiple)]:
+            with self.subTest(use_curve=use_curve,sensor=sensor):
+                params={'PressureTexture/Strength/':'true','Texture/Pattern/Enabled':'true',
+                        'Texture/Strength/StrengthVersion':'2','Texture/Strength/UseCurve':use_curve,
+                        'Texture/Strength/UseSameCurve':'false','Texture/Strength/Value':'1',
+                        'Texture/Strength/curveMode':'0','Texture/Strength/Sensor':sensor,
+                        'Texture/Strength/commonCurve':'0,1;1,0;',
+                        'CustomTexture/Strength/':'true','CurveTexture/Strength/':'0,0;1,1;'}
+                result=data(params)
+                for key,value in params.items():self.assertEqual(result['settings'][key],value)
+                self.assertEqual(len(result['options']),9)
+                self.assertEqual(result['version'],data()['version'])
+                validate_portable_source_stamp({'sourceStamp':result})
+
+    def test_unrelated_settings_do_not_change_historical_source_bytes(self):
+        baseline=json.dumps(data(),sort_keys=True,separators=(',',':'))
+        # Captured from unmodified parent raw-retention implementation.
+        self.assertEqual(hashlib.sha256(baseline.encode()).hexdigest(),'dbc572ca5a51a2ad051b40c9b3d21da94ee9234e2ddaa60d203db898b3602021')
+        self.assertEqual(json.dumps(data({'UnrelatedSetting':'unchanged'}),sort_keys=True,separators=(',',':')),baseline)
+        self.assertFalse(any(key.startswith('Texture/Strength/') for key in data()['settings']))
+
     def test_decimal_grammar_rejects_hex_nan_and_underscores(self):
         from source_stamp_data import curve_data
         for curve in ('0,0;0x1,1;','0,0;1_0,1;','0,0;NaN,1;'):
