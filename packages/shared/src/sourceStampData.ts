@@ -49,6 +49,25 @@ export type SourceStampCompiledData = {
   readonly buildId: string
   readonly curves: readonly SourceStampCompiledCurve[]
   readonly radialCurve?: SourceStampCompiledCurve
+} | {
+  readonly version:3
+  readonly reader:'krita-bd6e8d0-v1'
+  readonly profile:typeof SOURCE_STAMP_MAPPED_COMPILER_PROFILE
+  readonly buildId:string
+  readonly curves:readonly SourceStampCompiledCurve[]
+  readonly textureStrength:SourceStampTextureStrengthSlot
+}
+/** New material option data, never raster/source authority or provider attestation. */
+export interface SourceStampTextureStrengthSlot {
+ readonly kind:'texture-pressure-curve-v1'
+ readonly curve:SourceStampCompiledCurve
+}
+export interface SourceTexturePressureProgramData {
+ readonly kind:'texture-pressure-curve-v1'
+ readonly reader:'krita-bd6e8d0-v1'
+ readonly profile:typeof SOURCE_STAMP_MAPPED_COMPILER_PROFILE
+ readonly buildId:string
+ readonly curve:SourceStampCompiledCurve
 }
 /** Existing native identity predicate, shared by required-data validation/compiler. */
 export function sourceStampCurveIsIdentity(points: readonly {readonly x:number;readonly y:number}[]): boolean {
@@ -148,6 +167,15 @@ function utf8Size(s: string): number {
   return bytes
 }
 export function sourceStampDataBudget(value: unknown): number {
+  if(record(value)){
+    const field=Object.getOwnPropertyDescriptor(value,'compiled')
+    if(!field&&'compiled'in value||field&&!Object.hasOwn(field,'value'))return Infinity
+    if(field&&Object.hasOwn(field,'value')&&record(field.value)){
+      const version=Object.getOwnPropertyDescriptor(field.value,'version')
+      if(!version||!Object.hasOwn(version,'value'))return Infinity
+      if(version.value===3){try{value=textureCapture(value)}catch{return Infinity}}
+    }
+  }
   if(!record(value) || !record(value.settings) || Object.keys(value.settings).length>256 || !Array.isArray(value.options) || value.options.length>9 || !Array.isArray(value.unsupported) || value.unsupported.length>32)return Infinity
   let total=2048
   if(record(value.source) && value.source.kind==='softAuto') {
@@ -174,7 +202,7 @@ export function sourceStampDataBudget(value: unknown): number {
   }
   if(value.compiled !== undefined) {
     if(!record(value.compiled) || !Array.isArray(value.compiled.curves) || value.compiled.curves.length>64)return Infinity
-    const entries=[...value.compiled.curves,...(value.compiled.radialCurve===undefined?[]:[value.compiled.radialCurve])]
+    const entries=[...value.compiled.curves,...(value.compiled.radialCurve===undefined?[]:[value.compiled.radialCurve]),...(value.compiled.version===3&&record(value.compiled.textureStrength)?[value.compiled.textureStrength.curve]:[])]
     if(entries.length>64)return Infinity
     for(const item of entries) {
       if(!record(item) || !record(item.source) || typeof item.source.text!=='string' || item.source.text.length>65536
@@ -201,6 +229,16 @@ export function isSourceStampCurveData(v: unknown): v is SourceStampCurveData {
       && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1 && bool(p.corner) && (i === 0 || p.x > (v.points as {x:number}[])[i-1].x))
 }
 export function isSourceStampData(v: unknown): v is SourceStampData {
+  // New compiled3 must be captured before budget/schema code can enumerate it.
+  if(record(v)){
+    const field=Object.getOwnPropertyDescriptor(v,'compiled')
+    if(!field&&'compiled'in v||field&&!Object.hasOwn(field,'value'))return false
+    if(field&&Object.hasOwn(field,'value')&&record(field.value)){
+      const version=Object.getOwnPropertyDescriptor(field.value,'version')
+      if(!version||!Object.hasOwn(version,'value'))return false
+      if(version.value===3){try{v=textureCapture(v)}catch{return false}}
+    }
+  }
   if (sourceStampDataBudget(v)>MAX_SOURCE_STAMP_BUDGET || !record(v) || !keys(v,['version','reader','role','settings','brush','spacing','timing','flags','precision','options','unsupported','compiled','source']) || !sourceIdentity(v) || v.reader !== 'krita-bd6e8d0-v1'
     || !['primary','mask'].includes(String(v.role)) || !record(v.settings) || Object.keys(v.settings).length > 256
     || Object.entries(v.settings).some(([k,s]) => !text(k,128) || !text(s,65536))
@@ -237,15 +275,21 @@ export function isSourceStampData(v: unknown): v is SourceStampData {
   if(v.compiled === undefined)return true
   const compiled=v.compiled
   if(!record(compiled) || compiled.reader!==v.reader || !Array.isArray(compiled.curves))return false
-  const mapped=compiled.version===2
+  const material=compiled.version===3
+  const mapped=compiled.version===2||material
+  let pressureProgram:SourceTexturePressureProgramData|undefined
+  if(material){
+    if(v.version!==2||!record(v.source)||v.source.kind!=='defaultAuto'||!record(v.flags)||v.flags.textureEnabled!==true)return false
+    try{pressureProgram=texturePressureProgram(compiled,v.settings)}catch{return false}
+  }
   const radial=v.version===2 && record(v.source) && v.source.kind==='softAuto' ? v.source.softnessCurve : undefined
   if(mapped) {
-    if(!keys(compiled,['version','reader','profile','buildId','curves','radialCurve'])
+    if(!keys(compiled,material?['version','reader','profile','buildId','curves','textureStrength']:['version','reader','profile','buildId','curves','radialCurve'])
       || compiled.profile!==SOURCE_STAMP_MAPPED_COMPILER_PROFILE || typeof compiled.buildId!=='string' || !/^[0-9a-f]{64}$/.test(compiled.buildId)
       || (radial===undefined)!==(compiled.radialCurve===undefined))return false
   } else if(!keys(compiled,['version','reader','profile','curves']) || compiled.version!==1 || compiled.profile!==SOURCE_STAMP_COMPILER_PROFILE)return false
-  const required=[...sourceStampRequiredCurves(v.options as unknown as readonly SourceStampOptionData[]),...(mapped && radial!==undefined?[radial]:[])]
-  const entries=[...compiled.curves,...(mapped && compiled.radialCurve!==undefined?[compiled.radialCurve]:[])]
+  const required=[...sourceStampRequiredCurves(v.options as unknown as readonly SourceStampOptionData[]),...(mapped && radial!==undefined?[radial]:[]),...(pressureProgram?[pressureProgram.curve.source]:[])]
+  const entries=[...compiled.curves,...(mapped && compiled.radialCurve!==undefined?[compiled.radialCurve]:[]),...(pressureProgram?[pressureProgram.curve]:[])]
   if(entries.length>64)return false
   let knots=0
   return entries.length===required.length && entries.every((entry:unknown,i:number)=>{
@@ -256,4 +300,68 @@ export function isSourceStampData(v: unknown): v is SourceStampData {
     knots+=entry.source.points.length
     return knots<=4096
   })
+}
+
+/** Bounded OWN DATA capture before any new material-option validation. Existing
+ * V1/V2 descriptor validation semantics are not globally changed. */
+function textureCapture(value:unknown):unknown {
+ let nodes=0,bytes=0
+ const ancestors=new Set<object>()
+ const visit=(v:unknown,depth:number):unknown=>{
+  if(++nodes>8192||depth>24)throw TypeError('Texture program capture budget')
+  if(v===null||typeof v==='boolean')return v
+  if(typeof v==='number'){if(!Number.isFinite(v))throw TypeError('Nonfinite texture data');return v}
+  if(typeof v==='string'){bytes+=v.length*2;if(v.length>65536||bytes>MAX_SOURCE_STAMP_BUDGET)throw TypeError('Texture text budget');return v}
+  if(!v||typeof v!=='object'||ancestors.has(v))throw TypeError('Invalid texture data')
+  const array=Array.isArray(v),proto=Object.getPrototypeOf(v)
+  if(!array&&proto!==Object.prototype&&proto!==null)throw TypeError('Texture data prototype')
+  const names=Reflect.ownKeys(v)
+  if(names.length>(array?257:256)||names.some(k=>typeof k!=='string'))throw TypeError('Texture data keys')
+  let length=0
+  if(array){const d=Object.getOwnPropertyDescriptor(v,'length');if(!d||!Object.hasOwn(d,'value')||!Number.isInteger(d.value)||d.value<0||d.value>256)throw TypeError('Texture data array');length=d.value;if(names.length!==length+1)throw TypeError('Texture array holes/extra')}
+  ancestors.add(v)
+  const result:unknown[]|Record<string,unknown>=array?[]:Object.create(null)
+  try{for(const key of names){if(array&&key==='length')continue;if(typeof key!=='string'||key.length>128)throw TypeError('Texture data key');const d=Object.getOwnPropertyDescriptor(v,key);if(!d||!Object.hasOwn(d,'value'))throw TypeError('Texture accessor');if(array&&(!/^(0|[1-9][0-9]*)$/.test(key)||Number(key)>=length))throw TypeError('Texture array key');Object.defineProperty(result,key,{value:visit(d.value,depth+1),enumerable:true,writable:false,configurable:false})}}finally{ancestors.delete(v)}
+  return Object.freeze(result)
+ }
+ return visit(value,0)
+}
+function textureOwn(value:unknown,required:readonly string[]):Record<string,unknown>{
+ if(!record(value)||Reflect.ownKeys(value).length!==required.length)throw TypeError('Texture program fields')
+ const out:Record<string,unknown>=Object.create(null)
+ for(const key of required){const d=Object.getOwnPropertyDescriptor(value,key);if(!d||!Object.hasOwn(d,'value'))throw TypeError('Texture program accessor');out[key]=d.value}
+ return out
+}
+function texturePressureProgram(compiledValue:unknown,settingsValue:unknown):SourceTexturePressureProgramData {
+ const compiled=textureOwn(textureCapture(compiledValue),['version','reader','profile','buildId','curves','textureStrength'])
+ if(compiled.version!==3||compiled.reader!=='krita-bd6e8d0-v1'||compiled.profile!==SOURCE_STAMP_MAPPED_COMPILER_PROFILE||typeof compiled.buildId!=='string'||!/^[a-f0-9]{64}$/.test(compiled.buildId))throw TypeError('Mapped material option unavailable')
+ const settings=textureCapture(settingsValue)
+ if(!record(settings))throw TypeError('Texture settings unavailable')
+ const expected:Readonly<Record<string,string>>={'Texture/Pattern/Enabled':'true','PressureTexture/Strength/':'true','Texture/Strength/StrengthVersion':'2','Texture/Strength/UseCurve':'true','Texture/Strength/UseSameCurve':'true','Texture/Strength/Value':'1','Texture/Strength/curveMode':'0'}
+ for(const key of Reflect.ownKeys(settings)){
+  if(typeof key!=='string'||typeof settings[key]!=='string')throw TypeError('Texture settings data')
+  if((key.startsWith('Texture/Strength/')&&!Object.hasOwn(expected,key)&&key!=='Texture/Strength/Sensor')||(key.startsWith('PressureTexture/Strength/')&&key!=='PressureTexture/Strength/')||key.startsWith('CustomTexture/Strength/')||key.startsWith('CurveTexture/Strength/'))throw TypeError('Unsupported texture strength field')
+ }
+ if(!Object.entries(expected).every(([k,v])=>settings[k]===v))throw TypeError('Unsupported pressure option')
+ const xml=settings['Texture/Strength/Sensor']
+ if(typeof xml!=='string'||xml.length>65536)throw TypeError('Pressure XML budget')
+ // One whole-input grammar. No entity expansion, DTD subsets, namespaces,
+ // extra attributes, child sensors or fallback/default curves.
+ const match=/^[ \t\r\n]*(?:<!DOCTYPE params>[ \t\r\n]*)?<params[ \t\r\n]+id[ \t\r\n]*=[ \t\r\n]*(?:"pressure"|'pressure')[ \t\r\n]*>[ \t\r\n]*<curve>([^<&]*)<\/curve>[ \t\r\n]*<\/params>[ \t\r\n]*$/.exec(xml)
+ if(!match)throw TypeError('Unsupported pressure XML')
+ const slot=textureOwn(compiled.textureStrength,['kind','curve'])
+ if(slot.kind!=='texture-pressure-curve-v1')throw TypeError('Unknown material option')
+ const curve=textureOwn(slot.curve,['source','coefficients'])
+ if(!isSourceStampCurveData(curve.source)||curve.source.text!==match[1].trim()||curve.source.points.length<2||curve.source.points.length>9||curve.source.points[0].corner||curve.source.points[curve.source.points.length-1].corner||!Array.isArray(curve.coefficients)||curve.coefficients.length!==curve.source.points.length-1||curve.coefficients.some(row=>!Array.isArray(row)||row.length!==4||!row.every(finite)))throw TypeError('Pressure curve/compiled correspondence')
+ // Coefficients are structurally checked DATA. This is NOT native-provider or
+ // raster attestation. Actual importer/resolver binding remains a later unit.
+ return Object.freeze({kind:'texture-pressure-curve-v1',reader:'krita-bd6e8d0-v1',profile:SOURCE_STAMP_MAPPED_COMPILER_PROFILE,buildId:compiled.buildId,curve:Object.freeze({source:curve.source,coefficients:curve.coefficients})})
+}
+/** Pure immutable material-option DATA, never binding/author/raster authority. */
+export function captureSourceTexturePressureProgram(value:unknown):Readonly<{data:SourceStampData;program:SourceTexturePressureProgramData}> {
+ const captured=textureCapture(value)
+ if(!isSourceStampData(captured))throw TypeError('Invalid original source data')
+ const source=textureOwn(captured,Reflect.ownKeys(captured as object).map(String))
+ const program=texturePressureProgram(source.compiled,source.settings)
+ return Object.freeze({data:captured,program})
 }

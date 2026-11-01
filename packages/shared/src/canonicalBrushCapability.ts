@@ -2,7 +2,7 @@ import {canonicalPrimaryTexturePin,canonicalFixedPrimaryTexturePin,type Canonica
 import {CANONICAL_STROKE_RASTER_PROFILE,canonicalStrokeRasterContract,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
 import type { BrushDescriptor } from './brushes.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
-import { isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData } from './sourceStampData.js'
+import { captureSourceTexturePressureProgram, isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData } from './sourceStampData.js'
 
 /** Only the native outer law representable by canonical over32 today.
  * This checks composition of an already verified descriptor, not source-data
@@ -330,6 +330,8 @@ function extractImagePipeCapability(
  * therefore admits only identity curves or the already schema-checked retained
  * coefficient dictionary. No second option compiler is implemented here. */
 export function hasCanonicalSourceCurvePrograms(data: SourceStampData): boolean {
+  // compiled3 is material-option DATA only until the coherent semantic5 pair.
+  if(data.compiled?.version===3)return false
   return sourceStampRequiredCurves(data.options).length === 0 || data.compiled !== undefined
 }
 
@@ -342,11 +344,11 @@ export function extractDefaultAutoSourceDataCapability(descriptor: BrushDescript
 export function extractSeededDensityDefaultAutoSourceDataCapability(descriptor: BrushDescriptor) {
   return extractDefaultAutoData(descriptor, true)
 }
-function extractDefaultAutoData(descriptor: BrushDescriptor, seededDensity: boolean, material: 'plain'|'fixed-one-texture' = 'plain'):
+function extractDefaultAutoData(descriptor: BrushDescriptor, seededDensity: boolean, material: 'plain'|'fixed-one-texture'|'pressure-curve-data' = 'plain',capturedData?:SourceStampData):
   { readonly supported: true; readonly status: 'source-data-only'; readonly rasterReady: false; readonly data: SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceDefaultAutoData } } |
   { readonly supported: false; readonly reasons: readonly string[] } {
   const reject = (reason: string) => ({ supported: false as const, reasons: [reason] })
-  const data = descriptor.sourceStamp
+  const data = capturedData??descriptor.sourceStamp
   if (!isSourceStampData(data)) return reject('invalid-or-missing-source-data')
   if (data.version !== 2 || data.source.kind !== 'defaultAuto') return reject('source-material-is-not-default-auto')
   if (!seededDensity && data.unsupported.length) return { supported: false, reasons: [...data.unsupported] }
@@ -355,13 +357,13 @@ function extractDefaultAutoData(descriptor: BrushDescriptor, seededDensity: bool
     || descriptor.tip.mask || descriptor.tip.animation || descriptor.tip.imageSampling || descriptor.tip.material) return reject('inconsistent-default-auto-descriptor')
   const source = data.source
   if (source.spikes !== 2 || source.randomness !== 0 || (!seededDensity && source.density !== 1) || !data.flags.materialFixed1
-    || (material === 'fixed-one-texture' ? !data.flags.textureEnabled : data.flags.textureEnabled)
+    || (material !== 'plain' ? !data.flags.textureEnabled : data.flags.textureEnabled)
     || descriptor.behavior?.colorAdjustment) return reject('unsupported-default-auto-material-consumer')
   const p = descriptor.tip.profile
   if (p.shape !== (source.shape === 'circle' ? 'ellipse' : 'rectangle') || p.horizontalFade !== source.horizontalFade
     || p.verticalFade !== source.verticalFade || p.antialias !== source.antialias) return reject('inconsistent-default-auto-profile')
   if (!sourceStampPaintingMode(data)) return reject('inconsistent-source-painting-mode')
-  if (data.options.length !== 9 || !hasCanonicalSourceCurvePrograms(data)) return reject('native-option-program-unavailable')
+  if (data.options.length !== 9 || !(material==='pressure-curve-data'&&capturedData?.compiled?.version===3 ? true : hasCanonicalSourceCurvePrograms(data))) return reject('native-option-program-unavailable')
   // The historical tag conflates spikes, randomness and density. Only the
   // density-only frontier is retired, AFTER every source/material/program check.
   // Retain the original tag/data; never normalize unrelated unsupported reasons.
@@ -427,4 +429,28 @@ export function canonicalSourceEffectReject(descriptor: BrushDescriptor,profile:
   if (descriptor.tip.alphaThreshold) return 'mask-threshold'
   if (behavior?.wetMix || behavior?.edgeBleed || behavior?.grain || behavior?.taper) return 'brush-effect'
   return undefined
+}
+
+/** First pressure-curve material DATA boundary. No context5, executable source
+ * binding, author policy or raster grant is created here. */
+export function extractCanonicalDefaultAutoPressureTextureProgramData(descriptor:BrushDescriptor,assets:Readonly<{pattern:Readonly<{id:string;size:number}>}>) {
+ const reject=(reason:string)=>({supported:false as const,reasons:[reason]})
+ try{
+  const source=Object.getOwnPropertyDescriptor(descriptor,'sourceStamp')
+  if(!source||!Object.hasOwn(source,'value'))return reject('texture-original-source-unavailable')
+  const captured=captureSourceTexturePressureProgram(source.value)
+  const available=textureData(assets,['pattern']),pattern=textureData(available.pattern,['id','size'])
+  if(typeof pattern.id!=='string'||!/^asset:[a-f0-9]{64}$/.test(pattern.id)||typeof pattern.size!=='number'||!Number.isInteger(pattern.size)||pattern.size<2||pattern.size>2048||(pattern.size&(pattern.size-1))!==0)return reject('texture-asset-unavailable')
+  const field=Object.getOwnPropertyDescriptor(descriptor,'texture')
+  if(!field||!Object.hasOwn(field,'value'))return reject('texture-descriptor-unavailable')
+  const t=textureData(field.value,['id','periodPx','strength','application','patternSize','offset']),application=textureData(t.application,['mode','soft']),size=textureData(t.patternSize,['width','height']),offset=textureData(t.offset,['x','y','randomX','randomY'])
+  if(t.id!==pattern.id||t.strength!==1||application.mode!=='subtract'||application.soft!==false||offset.randomX!==false||offset.randomY!==false||size.width!==size.height||t.periodPx!==size.width)return reject('unsupported-pressure-texture')
+  const patternAsset=Object.freeze({id:pattern.id,size:pattern.size,x:0,y:0,width:size.width,height:size.height})
+  const dimension=(v:unknown):v is number=>typeof v==='number'&&Number.isSafeInteger(v)&&!Object.is(v,-0)&&v>=1&&v<=2048
+  if(!dimension(size.width)||size.width>pattern.size||!dimension(size.height)||size.height>pattern.size||!dimension(t.periodPx)||typeof offset.x!=='number'||typeof offset.y!=='number'||!Number.isSafeInteger(offset.x)||!Number.isSafeInteger(offset.y)||Object.is(offset.x,-0)||Object.is(offset.y,-0)||offset.x<0||offset.y<0||offset.x>=t.periodPx||offset.y>=t.periodPx)return reject('unsupported-static-texture-geometry')
+  const auto=extractDefaultAutoData(descriptor,false,'pressure-curve-data',captured.data)
+  if(!auto.supported)return auto
+  if(descriptor.mixer||descriptor.wet||descriptor.screentonePx||descriptor.behavior?.wetMix||descriptor.behavior?.edgeBleed||descriptor.behavior?.grain||descriptor.behavior?.taper)return reject('unsupported-texture-effect')
+  return Object.freeze({supported:true as const,status:'source-data-only' as const,rasterReady:false as const,data:captured.data,program:captured.program,patternAsset})
+ }catch{return reject('invalid-pressure-texture-program-data')}
 }
