@@ -27,9 +27,9 @@ export function stageCanonicalRoomReplacement(stash:RoomStatePayload,deps:{reado
  // No queue: replace the SAME pending slot only after every admission check.
  deps.retire();deps.pending.current=stash;deps.bump();return true
 }
-export function createCanonicalRoomAuthor(read:CanonicalRoomConnectionRead,socket:CanonicalBeginEmitter,getSocket:()=>CanonicalBeginEmitter|null,isEngineCurrent:()=>boolean,options?:{readonly primaryTextureSource?:'pressure-identity-subtract-v3'}):CanonicalSourceAuthorService{
+export function createCanonicalRoomAuthor(read:CanonicalRoomConnectionRead,socket:CanonicalBeginEmitter,getSocket:()=>CanonicalBeginEmitter|null,isEngineCurrent:()=>boolean):CanonicalSourceAuthorService{
  read.assertCurrent()
- const primaryTextureSource=options?.primaryTextureSource
+ const primaryTextureSource=read.authorPrimaryTextureSource
  const service:CanonicalSourceAuthorService={...(primaryTextureSource==='pressure-identity-subtract-v3'?{primaryTextureSource}:{}),begin:(input,lifetime)=>sendCanonicalStrokeBegin(socket,input,{boardEpoch:read.scope.boardEpoch,
   expectedDescriptorSha256:lifetime.expectedDescriptorSha256,authorRasterProfile:read.authorRasterProfile,responseRasterProfiles:read.scope.allowedRasterProfiles??(read.scope.rasterProfile?[read.scope.rasterProfile]:undefined),signal:lifetime.signal,
   isCurrent:()=>{try{read.assertCurrent();return getSocket()===socket&&isEngineCurrent()&&lifetime.isCurrent()}catch{return false}}})}

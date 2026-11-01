@@ -1,10 +1,11 @@
 import {expect,it,vi} from 'vitest'
 import {prepareCanonicalRoomState} from './net/canonicalRoomState'
 import {canonicalBootstrapOf,stageCanonicalRoomReplacement,createCanonicalRoomVerdicts,createCanonicalRecoveryControl} from './canonicalRoomController'
-import type {ServerToClientEvents} from '@grafetto/shared'
-function state(){
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,type ServerToClientEvents} from '@grafetto/shared'
+function state(texture=false){
  let current=true
  const wire:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'B',name:'Board',ownerId:'U',paper:'flat',infinite:false,canvasWidth:8,canvasHeight:8,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'L',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'B',boardEpoch:2},canonicalHistoryBase:{kind:'full-room-prefix-v2',roomId:'B',boardEpoch:2,throughSeq:0,operationCount:0}}
+ if(texture)Object.assign(wire,{canonicalAuthorRasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,canonicalReadScope:{roomId:'B',boardEpoch:2,allowedRasterProfiles:[CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]},canonicalAuthorPrimaryTextureSource:'pressure-identity-subtract-v3'})
  return {stash:prepareCanonicalRoomState(wire,{expectedBoardId:'B',isCurrent:()=>current}),expire:()=>{current=false}}
 }
 it('requires original read before constructing straight engine and retains original tail',()=>{
@@ -576,19 +577,19 @@ it('indexed Room consumer sends through SAME control lane and releases one repla
  expect(resync).toHaveBeenCalledOnce();expect(joining).toHaveBeenCalledOnce();expect(end).toHaveBeenCalledOnce();expect(notify).not.toHaveBeenCalled()
 })
 
-it('captures the explicit texture option by value and forwards descriptor identity before BEGIN awaits', async () => {
+it('captures only original server author policy and forwards descriptor identity before BEGIN awaits', async () => {
  const { createCanonicalRoomAuthor } = await import('./canonicalRoomController')
- const { stash } = state()
+ const { stash } = state(true)
  let ack!: (value: import('@grafetto/shared').CanonicalStrokeBeginResult) => void
  const socket: import('./net/sendCanonicalStrokeBegin').CanonicalBeginEmitter = {
   emit: (_event, _input, callback) => { ack = callback }, on: () => {}, off: () => {},
  }
- const options: {primaryTextureSource?: 'pressure-identity-subtract-v3'} = {primaryTextureSource: 'pressure-identity-subtract-v3'}
- const author = createCanonicalRoomAuthor(stash.canonicalRead, socket, () => socket, () => true, options)
- delete options.primaryTextureSource
+ const author = createCanonicalRoomAuthor(stash.canonicalRead, socket, () => socket, () => true)
  expect(author.primaryTextureSource).toBe('pressure-identity-subtract-v3')
  expect(Object.isFrozen(author)).toBe(true)
- expect(createCanonicalRoomAuthor(stash.canonicalRead, socket, () => socket, () => true).primaryTextureSource).toBeUndefined()
+ const off=state()
+ expect(createCanonicalRoomAuthor(off.stash.canonicalRead, socket, () => socket, () => true).primaryTextureSource).toBeUndefined()
+ off.expire();expect(()=>createCanonicalRoomAuthor(off.stash.canonicalRead,socket,()=>socket,()=>true)).toThrow()
  // A malformed identity must be rejected by the actual BEGIN boundary before emit.
  const invalid = author.begin({layerId:'L',brush:'brush:soft@1',strokeId:'S',pigmentRgb8:[0,0,0],outerResourceOpacity:1,alphaDarken:'hard'},
   {signal:new AbortController().signal,isCurrent:()=>true,expectedDescriptorSha256:'invalid'})

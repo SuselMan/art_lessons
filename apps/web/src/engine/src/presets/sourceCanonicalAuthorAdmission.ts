@@ -1,4 +1,4 @@
-import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,extractSeededDensityDefaultAutoSourceDataCapability,canonicalSourceComposition,canonicalSourceEffectReject,canonicalImageMaterialPin,extractCanonicalPrimaryTextureCapability,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,isSourceStampData,sourceStampSourceKind,type CanonicalPrimaryTextureCapability,type BrushDescriptor,type CanonicalStrokeRasterProfile,type SourceStampData} from '@grafetto/shared'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,extractSeededDensityDefaultAutoSourceDataCapability,extractDefaultAutoSourceDataCapability,extractGaussianAutoSourceDataCapability,extractSoftAutoSourceDataCapability,canonicalSourceComposition,canonicalSourceEffectReject,canonicalImageMaterialPin,extractCanonicalPrimaryTextureCapability,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,isSourceStampData,sourceStampSourceKind,type CanonicalPrimaryTextureCapability,type BrushDescriptor,type CanonicalStrokeRasterProfile,type SourceStampData} from '@grafetto/shared'
 
 type ImagePin=ReturnType<typeof canonicalImageSourceBinding>
 export type CanonicalSourceAuthorAdmission =
@@ -60,5 +60,9 @@ export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profil
   }catch{return{supported:false,reason:'Unsupported canonical image source binding'}}
  }
  if(data.version!==2||data.source.kind==='image')return{supported:false,reason:'Unsupported canonical pointer material/timing'}
+ if(!seeded){
+  const capability=data.source.kind==='defaultAuto'?extractDefaultAutoSourceDataCapability(descriptor):data.source.kind==='gaussianAuto'?extractGaussianAutoSourceDataCapability(descriptor):extractSoftAutoSourceDataCapability(descriptor)
+  if(!capability.supported)return{supported:false,reason:'Unsupported canonical auto source: '+capability.reasons.join(',')}
+ }
  return{supported:true,data,nativeSizePx:data.source.diameter,material:seeded?{kind:'auto',coverageProfile:CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE}:{kind:'auto'}}
 }

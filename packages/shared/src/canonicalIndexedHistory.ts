@@ -1,6 +1,6 @@
 import type {Operation} from './operations.js'
 import {canonicalRecordedRasterProfiles,type CanonicalRecordedReadScope,type CanonicalRecordedAttachmentV1} from './canonicalRecordedAttachment.js'
-import {CANONICAL_STROKE_RASTER_CONTRACTS,canonicalStrokeRasterContract,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_STROKE_RASTER_CONTRACTS,canonicalStrokeRasterContract,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
 
 /** Closed indexed-history wire DATA. Parsing these shapes never grants original
  * input authority: actual authenticated ingress owns the read lifetime. */
@@ -10,6 +10,16 @@ export type CanonicalIndexedOperation = Extract<Operation, {
 export type CanonicalHistoryAction = 'undo'|'redo'
 export interface CanonicalIndexedRoomGeometry { readonly width:number; readonly height:number; readonly infinite:false }
 
+/** Server-issued author policy DATA, independent of replay material support. */
+export type CanonicalAuthorPrimaryTextureSource='pressure-identity-subtract-v3'
+export function canonicalAuthorPrimaryTextureSource(owner:unknown,key:'authorPrimaryTextureSource'|'canonicalAuthorPrimaryTextureSource',profile:CanonicalStrokeRasterProfile):CanonicalAuthorPrimaryTextureSource|undefined {
+ if(!owner||typeof owner!=='object'||Array.isArray(owner))return fail()
+ const d=Object.getOwnPropertyDescriptor(owner,key)
+ if(!d){if(key in owner)return fail();return undefined}
+ if(!Object.hasOwn(d,'value')||d.value!=='pressure-identity-subtract-v3'||profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)return fail()
+ return d.value
+}
+
 // SHARED WIRE DATA ONLY. Numeric invariants require actual closed validators:
 // C integer0..DBIntMax; floor0; operationCount===C; dense actual seq1..C.
 export interface CanonicalIndexedHistoryOfferV1 {
@@ -18,6 +28,7 @@ export interface CanonicalIndexedHistoryOfferV1 {
   readonly scope:Readonly<CanonicalRecordedReadScope>
   readonly roomGeometry:CanonicalIndexedRoomGeometry
   readonly authorRasterProfile:CanonicalStrokeRasterProfile
+  readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
 }
 export interface CanonicalHistoryOpenRequestV1 {
   readonly kind:'canonical-history-open-v1'
@@ -32,6 +43,7 @@ export interface CanonicalIndexedHistoryBeginV1 {
   readonly scope:Readonly<CanonicalRecordedReadScope>
   readonly roomGeometry:CanonicalIndexedRoomGeometry
   readonly authorRasterProfile:CanonicalStrokeRasterProfile
+  readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
   readonly floor:0
   readonly throughSeq:number
   readonly operationCount:number // === throughSeq, never frames count
@@ -50,6 +62,7 @@ export interface CanonicalIndexedHistoryFollowV1 {
  readonly scope:Readonly<CanonicalRecordedReadScope>
  readonly roomGeometry:CanonicalIndexedRoomGeometry
  readonly authorRasterProfile:CanonicalStrokeRasterProfile
+  readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
  readonly floor:number
  readonly throughSeq:number
  readonly operationCount:number
@@ -135,10 +148,10 @@ export interface CanonicalHistoryStreamRequestMap {
 /** Limits bound one message, never the number of originals in a session. */
 export const CANONICAL_INDEXED_HISTORY_LIMITS=Object.freeze({pageOperations:64,witnesses:6,sequence:2147483647})
 const fail=():never=>{throw new TypeError('Invalid canonical indexed history data')}
-function fields(value:unknown,keys:readonly string[]):Record<string,unknown>{
+function fields(value:unknown,keys:readonly string[],optional:readonly string[]=[]):Record<string,unknown>{
  if(!value||typeof value!=='object'||Array.isArray(value))return fail()
  const own=Reflect.ownKeys(value)
- if(own.length!==keys.length||own.some(key=>typeof key!=='string'||!keys.includes(key)))return fail()
+ if(own.length<keys.length||own.length>keys.length+optional.length||own.some(key=>typeof key!=='string'||!keys.includes(key)&&!optional.includes(key)))return fail()
  const result:Record<string,unknown>=Object.create(null)
  for(const key of keys){const d=Object.getOwnPropertyDescriptor(value,key);if(!d||!Object.hasOwn(d,'value'))return fail();result[key]=d.value}
  return result
@@ -164,20 +177,22 @@ function geometry(value:unknown):Readonly<CanonicalIndexedRoomGeometry>{
  return Object.freeze({width:v.width,height:v.height,infinite:false})
 }
 export function parseCanonicalIndexedHistoryOffer(value:unknown):Readonly<CanonicalIndexedHistoryOfferV1>{
- const v=fields(value,['kind','offerId','scope','roomGeometry','authorRasterProfile'])
+ const v=fields(value,['kind','offerId','scope','roomGeometry','authorRasterProfile'],['authorPrimaryTextureSource'])
  if(v.kind!=='canonical-indexed-history-offer-v1'||!text(v.offerId))return fail()
  const s=scope(v.scope),roomGeometry=geometry(v.roomGeometry)
  const author=canonicalStrokeRasterContract(v.authorRasterProfile).profile
+ const authorPrimaryTextureSource=canonicalAuthorPrimaryTextureSource(value,'authorPrimaryTextureSource',author)
  if(!s.allowedRasterProfiles!.includes(author))return fail()
- return Object.freeze({kind:v.kind,offerId:v.offerId,scope:s,roomGeometry,authorRasterProfile:author})
+ return Object.freeze({...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),kind:v.kind,offerId:v.offerId,scope:s,roomGeometry,authorRasterProfile:author})
 }
 export function parseCanonicalIndexedHistoryBegin(value:unknown):Readonly<CanonicalIndexedHistoryBeginV1>{
- const v=fields(value,['kind','streamId','offerId','scope','roomGeometry','authorRasterProfile','floor','throughSeq','operationCount'])
+ const v=fields(value,['kind','streamId','offerId','scope','roomGeometry','authorRasterProfile','floor','throughSeq','operationCount'],['authorPrimaryTextureSource'])
  if(v.kind!=='canonical-indexed-history-begin-v1'||!text(v.streamId)||!text(v.offerId)||v.floor!==0||!sequence(v.throughSeq)||v.operationCount!==v.throughSeq)return fail()
  const s=scope(v.scope),roomGeometry=geometry(v.roomGeometry)
  const author=canonicalStrokeRasterContract(v.authorRasterProfile).profile
+ const authorPrimaryTextureSource=canonicalAuthorPrimaryTextureSource(value,'authorPrimaryTextureSource',author)
  if(!s.allowedRasterProfiles!.includes(author))return fail()
- return Object.freeze({kind:v.kind,streamId:v.streamId,offerId:v.offerId,scope:s,roomGeometry,authorRasterProfile:author,floor:0,throughSeq:v.throughSeq,operationCount:v.throughSeq})
+ return Object.freeze({...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),kind:v.kind,streamId:v.streamId,offerId:v.offerId,scope:s,roomGeometry,authorRasterProfile:author,floor:0,throughSeq:v.throughSeq,operationCount:v.throughSeq})
 }
 export function parseCanonicalIndexedRoot(value:unknown):Readonly<CanonicalIndexedRootV1>{
  const v=fields(value,['originalUserId','strokeId','layerId','firstOperationId','firstSequence'])
@@ -233,11 +248,12 @@ export type CanonicalHistoryStreamClientEvents = {
 /** Follow is a bounded original range after an actual completed parent; the
  * received floor is DATA until bound to that parent by private ingress. */
 export function parseCanonicalIndexedHistoryFollow(value:unknown):Readonly<CanonicalIndexedHistoryFollowV1>{
- const v=fields(value,['kind','streamId','parentStreamId','scope','roomGeometry','authorRasterProfile','floor','throughSeq','operationCount','latestObservedSeq'])
+ const v=fields(value,['kind','streamId','parentStreamId','scope','roomGeometry','authorRasterProfile','floor','throughSeq','operationCount','latestObservedSeq'],['authorPrimaryTextureSource'])
  if(v.kind!=='canonical-indexed-history-follow-v1'||!text(v.streamId)||!text(v.parentStreamId)||v.streamId===v.parentStreamId||!sequence(v.floor)||!sequence(v.throughSeq)||v.throughSeq<v.floor||v.throughSeq-v.floor>CANONICAL_INDEXED_HISTORY_LIMITS.pageOperations||v.operationCount!==v.throughSeq-v.floor||!sequence(v.latestObservedSeq)||v.latestObservedSeq<v.throughSeq)return fail()
  const s=scope(v.scope),roomGeometry=geometry(v.roomGeometry),authorRasterProfile=canonicalStrokeRasterContract(v.authorRasterProfile).profile
+ const authorPrimaryTextureSource=canonicalAuthorPrimaryTextureSource(value,'authorPrimaryTextureSource',authorRasterProfile)
  if(!s.allowedRasterProfiles!.includes(authorRasterProfile))return fail()
- return Object.freeze({kind:v.kind,streamId:v.streamId,parentStreamId:v.parentStreamId,scope:s,roomGeometry,authorRasterProfile,floor:v.floor,throughSeq:v.throughSeq,operationCount:v.throughSeq-v.floor,latestObservedSeq:v.latestObservedSeq})
+ return Object.freeze({...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),kind:v.kind,streamId:v.streamId,parentStreamId:v.parentStreamId,scope:s,roomGeometry,authorRasterProfile,floor:v.floor,throughSeq:v.throughSeq,operationCount:v.throughSeq-v.floor,latestObservedSeq:v.latestObservedSeq})
 }
 export function parseCanonicalIndexedHistoryStart(value:unknown):Readonly<CanonicalIndexedHistoryStartV1>{
  if(!value||typeof value!=='object')return fail()

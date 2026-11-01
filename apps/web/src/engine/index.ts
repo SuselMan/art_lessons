@@ -1624,7 +1624,7 @@ interface CanonicalLayerOwner {
  readonly cache:BrushTextureCache;readonly prepass:TransformedMaskPrepass;readonly composite:CanonicalRgba8CompositePass
  bank?:CanonicalMaskSourceBank
  fullSource?:CanonicalMaskSourceLease
- defaultSourceRoots?:readonly {readonly lease:CanonicalMaskSourceLease;readonly jobs:CanonicalMaskSourceRootPreparation['jobs']}[]
+ defaultSourceRoots?:readonly {readonly lease:CanonicalMaskSourceLease;readonly jobs:CanonicalMaskSourceRootPreparation['jobs'];readonly selectionKey:string;readonly releaseSelectionKey:()=>void}[]
  indexedSource?:{readonly input?:CanonicalRecordedInput;readonly lease:CanonicalMaskSourceLease}
  indexedLocalSource?:{readonly author:CanonicalLocalWashAuthor;readonly lease:CanonicalMaskSourceLease}
  resourceCandidate?:{cancel(lost:boolean):void}
@@ -6937,7 +6937,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
   private _retireCanonicalEmptyJob(c:CanonicalEmptyJob,lost:boolean,keepResources=false):unknown[] {
     c.retiring=true;const failures:unknown[]=[],attempt=(fn:()=>void)=>{try{fn()}catch(error){failures.push(error)}}
-    if(c.indexedOwner){const owner=c.indexedOwner;owner.retiring=true;attempt(()=>owner.resourceCandidate?.cancel(lost));const pending=owner.indexedSource;owner.indexedSource=undefined;if(pending)attempt(()=>pending.lease.release(lost));failures.push(...this._retireCanonicalLayerCycle(owner,lost));const release=owner.releaseResources;owner.releaseResources=undefined;if(release)attempt(release);if(!keepResources){const bank=owner.bank;owner.bank=undefined;attempt(()=>bank?.reset(lost))}}
+    if(c.indexedOwner){const owner=c.indexedOwner;owner.retiring=true;attempt(()=>owner.resourceCandidate?.cancel(lost));const pending=owner.indexedSource;owner.indexedSource=undefined;if(pending)attempt(()=>pending.lease.release(lost));failures.push(...this._retireCanonicalLayerCycle(owner,lost));const release=owner.releaseResources;owner.releaseResources=undefined;if(release)attempt(release);if(!keepResources){const defaults=owner.defaultSourceRoots;owner.defaultSourceRoots=undefined;for(const root of defaults??[]){attempt(()=>root.lease.release(lost));attempt(root.releaseSelectionKey)}const bank=owner.bank;owner.bank=undefined;attempt(()=>bank?.reset(lost))}}
     const preparation=c.sourcePreparation;c.sourcePreparation=undefined;if(preparation)attempt(()=>preparation.cancel(lost))
     const coordinator=c.coordinator;c.coordinator=undefined
     if(coordinator){attempt(()=>coordinator.cancel(new Error('Canonical baseline candidate retired'),{lost}));failures.push(...coordinator.cleanupFailures)}
@@ -7162,7 +7162,7 @@ export class PencilEngine implements PencilEngineAPI {
     const assertAssets=()=>{for(const asset of [...pin.assets,...texture?[texture.assets[1]]:[]])if(!isBrushAssetReady(asset.id,asset.size))throw new Error('Canonical image asset unavailable')}
     assertAssets()
     if(growing&&!originalAddition&&!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical workspace busy; finish and confirm the current gesture before changing brush')
-    const key='recorded-image:'+JSON.stringify([pin.primarySource,pin.assets,texture?.assets[1]])
+    const key='recorded-image:'+JSON.stringify([pin,texture])
     while(!this._brushPreparation.canRunWithoutReplacing(key)){
       // Passive work completion only: no candidate, author ownership, timer,
       // gesture-end or ACK dependency is retained by this waiter.
@@ -7173,8 +7173,8 @@ export class PencilEngine implements PencilEngineAPI {
     }
     const count=withCanonicalImageRequiredLevels(this._brushMipCache,accept=>accept(pin.primarySource,pin.assets,pin),requirements=>requirements.reduce((n,r)=>n+r.indexes.length,0))+(texture?1:0),authorGeneration=this._brushPreparationGeneration
     let bank:CanonicalMaskSourceBank|undefined,extension:CanonicalMaskSourceRootPreparation|undefined,maskUpdate:CanonicalPreparedResourceUpdate|undefined,capacityUpdate:CanonicalPreparedCapacityUpdate|undefined,compositeUpdate:CanonicalPreparedResourceUpdate|undefined
-    let rootLease:CanonicalMaskSourceLease|undefined,defaultRoot:CanonicalMaskSourceLease|undefined
-    let retiredDefaultRoots:CanonicalLayerOwner['defaultSourceRoots'],retiredPendingSource:CanonicalLayerOwner['indexedSource']
+    let rootLease:CanonicalMaskSourceLease|undefined,defaultRoot:CanonicalMaskSourceLease|undefined,handoffRoot:CanonicalMaskSourceLease|undefined,retiredCandidateRoot:CanonicalMaskSourceLease|undefined
+    let retiredDefaultRoots:CanonicalLayerOwner['defaultSourceRoots'],retiredPendingSource:CanonicalLayerOwner['indexedSource'],releaseDefaultSelectionKey:(()=>void)|undefined
     let replacingSources=false
     let defaultCapacity:ReturnType<TransformedMaskPrepass['retainPreparedCapacity']>|undefined
     let releaseUnion:(()=>void)|undefined,releaseAdopted:(()=>void)|undefined,published=false,cleaned=false,candidate:NonNullable<CanonicalLayerOwner['resourceCandidate']>|undefined
@@ -7183,8 +7183,8 @@ export class PencilEngine implements PencilEngineAPI {
       if(cleaned)return
       cleaned=true
       const failures:unknown[]=[],attempt=(fn:()=>void)=>{try{fn()}catch(error){failures.push(error)}}
-      if(!published){attempt(()=>defaultRoot?.release(lost));defaultRoot=undefined;attempt(()=>rootLease?.release(lost));rootLease=undefined;if(initializing){attempt(()=>owner.prepass.reset(lost));attempt(()=>owner.composite.reset(lost));owner.mask=oldMask;owner.prepared=false}attempt(()=>maskUpdate?.cancel());attempt(()=>capacityUpdate?.cancel());attempt(()=>compositeUpdate?.cancel());attempt(()=>extension?.cancel(lost));if(bank&&bank!==owner.bank)attempt(()=>bank!.reset(lost))}
-      else{attempt(()=>maskUpdate?.finalizeCleanup());attempt(()=>capacityUpdate?.finalizeCleanup());attempt(()=>compositeUpdate?.finalizeCleanup());attempt(()=>extension?.finalizeCleanup());for(const root of retiredDefaultRoots??[])attempt(()=>root.lease.release(lost));retiredDefaultRoots=undefined;const pending=retiredPendingSource;retiredPendingSource=undefined;if(pending)attempt(()=>pending.lease.release(lost))}
+      if(!published){attempt(()=>handoffRoot?.release(lost));handoffRoot=undefined;attempt(()=>defaultRoot?.release(lost));defaultRoot=undefined;const keyRelease=releaseDefaultSelectionKey;releaseDefaultSelectionKey=undefined;if(keyRelease)attempt(keyRelease);attempt(()=>rootLease?.release(lost));rootLease=undefined;if(initializing){attempt(()=>owner.prepass.reset(lost));attempt(()=>owner.composite.reset(lost));owner.mask=oldMask;owner.prepared=false}attempt(()=>maskUpdate?.cancel());attempt(()=>capacityUpdate?.cancel());attempt(()=>compositeUpdate?.cancel());attempt(()=>extension?.cancel(lost));if(bank&&bank!==owner.bank)attempt(()=>bank!.reset(lost))}
+      else{attempt(()=>maskUpdate?.finalizeCleanup());attempt(()=>capacityUpdate?.finalizeCleanup());attempt(()=>compositeUpdate?.finalizeCleanup());attempt(()=>extension?.finalizeCleanup());const unused=retiredCandidateRoot;retiredCandidateRoot=undefined;if(unused)attempt(()=>unused.release(lost));for(const root of retiredDefaultRoots??[]){attempt(()=>root.lease.release(lost));attempt(root.releaseSelectionKey)}retiredDefaultRoots=undefined;const pending=retiredPendingSource;retiredPendingSource=undefined;if(pending)attempt(()=>pending.lease.release(lost))}
       const release=releaseUnion,adopted=releaseAdopted;releaseUnion=undefined;releaseAdopted=undefined;attempt(()=>release?.());attempt(()=>adopted?.());const capacity=defaultCapacity;defaultCapacity=undefined;attempt(()=>capacity?.release())
       if(owner.resourceCandidate===candidate)owner.resourceCandidate=undefined
       if(failures.length)throw failures[0]
@@ -7250,11 +7250,19 @@ export class PencilEngine implements PencilEngineAPI {
         try{
           current();if(authorGeneration!==this._brushPreparationGeneration||owner.resourceCandidate!==candidate||owner.mask!==oldMask)throw new Error('Canonical resource preparation selection changed');if(growing&&!originalAddition&&!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical workspace busy');extension!.assertPreparedPublication();rootLease=extension!.publish();
           const preserve=!!growing||!growing&&!initializing&&!this._canonicalWorkspaceIdle(owner),oldRoots=owner.defaultSourceRoots??[],known=new Set(oldRoots.flatMap(r=>r.jobs.map(j=>j.key)))
-          if(!preserve||extension!.jobs.some(j=>!known.has(j.key)))defaultRoot=rootLease.retain()
+          // An identical idle map keeps its genuine root owner. Otherwise a
+          // cancelled subscriber could strand a second full root's metadata
+          // while the unchanged selected author still owns the first root.
+          const reuseDefault=!preserve?oldRoots.find(r=>r.jobs.length===extension!.jobs.length&&r.jobs.every((old,index)=>old.key===extension!.jobs[index].key&&old.bytes===extension!.jobs[index].bytes)):undefined
+          if(!reuseDefault&&(!preserve||extension!.jobs.some(j=>!known.has(j.key)))){releaseDefaultSelectionKey=this._brushMipCache.reserve(2*key.length);defaultRoot=rootLease.retain()}
+          // Resource ownership may be shared by a fresh genuine child only
+          // for the SAME closed source semantics; different texture phases
+          // keep their independently prepared candidate root for execution.
+          if(reuseDefault?.selectionKey===key)handoffRoot=reuseDefault.lease.retain()
           stage();maskUpdate?.assertCurrent();capacityUpdate?.assertPreparedPublication();compositeUpdate?.assertCurrent();if(replacingSources&&!this._canonicalWorkspaceIdle(owner))throw new Error('Canonical source replacement requires quiescence')
           if(localLease?.lease)throw new Error('Canonical local source lease already owned')
           const previous=owner.releaseResources,next=releaseAdopted??releaseUnion!
-          maskUpdate?.publish();capacityUpdate?.publish();compositeUpdate?.publish();if(initialMask){owner.mask=initialMask;owner.prepared=true}owner.bank=bank;retiredDefaultRoots=preserve?undefined:oldRoots;owner.defaultSourceRoots=[...preserve?oldRoots:[],...defaultRoot?[{lease:defaultRoot,jobs:extension!.jobs}]:[]];defaultRoot=undefined;{if(!rootLease)throw new Error('Canonical root residency missing');if(localLease)localLease.lease=rootLease;else{retiredPendingSource=owner.indexedSource;owner.indexedSource={input:rootInput,lease:rootLease}}rootLease=undefined}owner.releaseResources=next;if(releaseAdopted)releaseAdopted=undefined;else releaseUnion=undefined;published=true
+          maskUpdate?.publish();capacityUpdate?.publish();compositeUpdate?.publish();if(initialMask){owner.mask=initialMask;owner.prepared=true}owner.bank=bank;retiredDefaultRoots=preserve?undefined:oldRoots.filter(r=>r!==reuseDefault);owner.defaultSourceRoots=[...preserve?oldRoots:reuseDefault?[reuseDefault]:[],...defaultRoot?[{lease:defaultRoot,jobs:extension!.jobs,selectionKey:key,releaseSelectionKey:releaseDefaultSelectionKey!}]:[]];defaultRoot=undefined;releaseDefaultSelectionKey=undefined;{if(!rootLease)throw new Error('Canonical root residency missing');const handoff=handoffRoot??rootLease;if(handoffRoot)retiredCandidateRoot=rootLease;if(localLease)localLease.lease=handoff;else{retiredPendingSource=owner.indexedSource;owner.indexedSource={input:rootInput,lease:handoff}}rootLease=undefined;handoffRoot=undefined}owner.releaseResources=next;if(releaseAdopted)releaseAdopted=undefined;else releaseUnion=undefined;published=true
           let failed=false,primary:unknown
           for(const retire of [()=>cleanup(false),()=>previous?.()])try{retire()}catch(error){if(!failed){failed=true;primary=error}}
           if(failed)throw primary
@@ -7551,7 +7559,7 @@ export class PencilEngine implements PencilEngineAPI {
     const releaseResources=owner.releaseResources;owner.releaseResources=undefined;attempt(()=>releaseResources?.())
     errors.push(...this._retireCanonicalLayerCycle(owner,lost))
     const fullSource=owner.fullSource;owner.fullSource=undefined;if(fullSource)attempt(()=>fullSource.release(lost))
-    const defaults=owner.defaultSourceRoots;owner.defaultSourceRoots=undefined;for(const root of defaults??[])attempt(()=>root.lease.release(lost))
+    const defaults=owner.defaultSourceRoots;owner.defaultSourceRoots=undefined;for(const root of defaults??[]){attempt(()=>root.lease.release(lost));attempt(root.releaseSelectionKey)}
     const pendingLocal=owner.indexedLocalSource;owner.indexedLocalSource=undefined;if(pendingLocal)attempt(()=>pendingLocal.lease.release(lost))
     const pendingSource=owner.indexedSource;owner.indexedSource=undefined;if(pendingSource)attempt(()=>pendingSource.lease.release(lost))
     const carry=owner.indexedCarry;owner.indexedCarry=undefined;if(carry)for(const root of carry.values())attempt(root.release)

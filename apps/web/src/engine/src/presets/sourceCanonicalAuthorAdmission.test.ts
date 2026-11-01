@@ -1,9 +1,11 @@
 import marker from './fixtures/sourceDefaultAutoWholePath/markerDry.normal.native.json'
 import {describe,expect,it,vi} from 'vitest'
-import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as generic,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE as density,isBrushLibrary,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as browser,CANONICAL_STROKE_RASTER_PROFILE as native,type BrushDescriptor} from '@grafetto/shared'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as generic,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE as density,extractDefaultAutoSourceDataCapability,extractGaussianAutoSourceDataCapability,extractSoftAutoSourceDataCapability,isBrushLibrary,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as browser,CANONICAL_STROKE_RASTER_PROFILE as native,type BrushDescriptor} from '@grafetto/shared'
 import basic6 from './fixtures/sourcePngWholePath/guiStroke.native.json'
 import mountains from './fixtures/sourceImagePipe/mountains.native.json'
 import graphite from './fixtures/sourceImagePipe/pencilRandom.native.json'
+import gaussianStock from '../../../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.mapped.native'
+import softStock from '../../../../../../packages/shared/src/fixtures/sourceSoftAutoData/stock.native'
 import stock from '../../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
 import {canonicalSourceAuthorAdmission} from './sourceCanonicalAuthorAdmission'
 import {canonicalSourceAuthorAdmission as publicAdmission} from '../../brushLibrary'
@@ -138,4 +140,42 @@ it('keeps ordinary image and auto admission identical when primary texture suppo
  }
  const{d,available:assets}=textureAdmissionFixture();Reflect.set(d.texture!.application!,'mode','multiply')
  expect(canonicalSourceAuthorAdmission(d,generic,assets,options)).toMatchObject({supported:false})
+})
+
+describe('auto eligibility requires the SAME pure family capability as canonical binding',()=>{
+ // Soft inventory retains raw sourceStamp only: the descriptor container is
+ // explicitly self-authored from the existing default fixture, not stock identity.
+ const families=[['defaultAuto',stock,extractDefaultAutoSourceDataCapability],['gaussianAuto',gaussianStock,extractGaussianAutoSourceDataCapability],['softAuto',{rows:softStock.rows.map(row=>({index:row.index,descriptor:{...brush(),sourceStamp:row.sourceStamp}}))},extractSoftAutoSourceDataCapability]] as const
+ for(const [kind,originals,extract]of families){
+  it(`never offers original ${kind} outside actual source-data capability`,()=>{
+   expect(originals.rows.length).toBeGreaterThan(0)
+   for(const row of originals.rows){
+    const d=row.descriptor as unknown as BrushDescriptor,before=JSON.stringify(d),cap=extract(d)
+    for(const profile of [native,browser,generic]){
+     const result=canonicalSourceAuthorAdmission(d,profile)
+     if(result.supported)expect(cap.supported,`${kind} actual row ${row.index}`).toBe(true)
+    }
+    expect(JSON.stringify(d)).toBe(before)
+   }
+  })
+  for(const fault of ['texture','unsupported','rawProgram']as const)it(`rejects ${kind} ${fault} rather than advertising unsupported auto`,()=>{
+   // Original family data remains original; edits are explicit diagnostic test
+   // cases, never importer provenance or online descriptor migration.
+   for(const row of originals.rows){
+    const d=structuredClone(row.descriptor) as unknown as Mutable<BrushDescriptor>
+    if(!d.sourceStamp)throw Error('Actual source missing')
+    if(fault==='texture')d.sourceStamp.flags.textureEnabled=true
+    else if(fault==='unsupported')d.sourceStamp.unsupported.push('test-unimplemented-mechanism')
+    else {
+     Reflect.deleteProperty(d.sourceStamp,'compiled')
+     const option=d.sourceStamp.options.find(o=>o.id==='Size')!
+     const curve={text:'0,0;0.5,0.25;1,1;',points:[{x:0,y:0,corner:false},{x:.5,y:.25,corner:false},{x:1,y:1,corner:false}]}
+     Object.assign(option,{checked:true,useCurve:true,useSameCurve:true,commonCurve:curve});option.sensors=[{id:'pressure',sourceId:'pressure',sourceSlot:0,curve}]
+    }
+    expect(extract(d).supported).toBe(false)
+    expect(canonicalSourceAuthorAdmission(d,generic).supported).toBe(false)
+    expect(canonicalSourceAuthorAdmission(d,generic,undefined,{primaryTextureSource:'pressure-identity-subtract-v3'}).supported).toBe(false)
+   }
+  })
+ }
 })

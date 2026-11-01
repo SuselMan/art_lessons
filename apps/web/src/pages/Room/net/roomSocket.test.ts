@@ -904,6 +904,14 @@ it('rejects indexed offer without explicit consumer and rejects forbidden full-t
  try{Reflect.apply(h.listeners.get('room_state')!,null,[{...h.state,tailOperations:undefined}]);expect(h.issuer.requests).toHaveLength(0)}finally{close()}
 })
 
+it.each([undefined,'pressure-identity-subtract-v3'])('rejects full author policy on indexed outer payload before actual open (%s)',async policy=>{
+ const h=await indexedIngressSetup(),close=connectRoomSocket(h.deps)
+ try{
+  Reflect.apply(h.listeners.get('room_state')!,null,[{...h.state,canonicalAuthorPrimaryTextureSource:policy}])
+  expect(h.issuer.requests).toHaveLength(0);expect(h.stashes).toHaveLength(0)
+ }finally{close()}
+})
+
 function indexedSocketEngine(read:import('./canonicalIndexedRead').CanonicalIndexedSocketRead,onCanonicalIndexedMetadata?:(input:import('../../../engine').CanonicalRecordedInput)=>void,onCanonicalIndexedReadIdle?:()=>void){
  const side=8
  const result=createTestEngine({onLocalOperation:vi.fn(),onCanonicalIndexedMetadata,onCanonicalIndexedReadIdle,canonicalAuthor:{begin:async()=>{throw Error('Unexpected socket test author begin')}},rasterVersion:'straight-rgba8-v1',pageWidth:side,pageHeight:side,canonicalIndexedRoom:read},{width:side,height:side}),gl=result.engine['gl'],get=gl.getParameter.bind(gl),mock=result.canvas.getContext('webgl')!

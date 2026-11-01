@@ -346,10 +346,11 @@ ACKs. They do not attest real database durability, actual engine target selectio
 GPU pixels or device performance; those remain paired integration gates. The
 feature remains inactive until ROOT wires and verifies the complete pair.
 
-## Explicit primary texture author option
+## Original primary texture author policy
 
-The same service forwards the engine-captured descriptor SHA to BEGIN admission.
-It captures the optional literal primaryTextureSource by value before returning
-the frozen service. Absent means author OFF; recorded V3 reads do not depend on
-this flag. Existing Room construction does not yet opt in. The option never
-mints a read, source lease, BEGIN grant, or server policy.
+The service forwards the engine-captured descriptor SHA to BEGIN admission. It
+captures primaryTextureSource ONLY from the same current original connection
+read's server-issued authorPrimaryTextureSource. The independent fifth options
+argument is removed. Absent is author OFF; recorded V3 reads and drawing protocol
+revision never enable authoring. Replacement/reconnect constructs a new original
+and service; old socket/engine/read lifetime checks remain. No grant is minted.

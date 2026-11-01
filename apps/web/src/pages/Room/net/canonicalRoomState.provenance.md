@@ -63,3 +63,15 @@ same-owner handler rebuild. Actual editor/source activation remains OFF. No new
 runtime resources, services, dependencies, browser contexts or registries created.
 Combined web app + service-worker TypeScript gate: PASS
 (R52/connection-read-lifetime-final-web-tsc.log). Scoped oxlint/diff check PASS.
+
+## Paired author-policy scalar
+
+Full ingress captures canonicalAuthorPrimaryTextureSource through the shared own
+DATA normalizer before minting the frozen original read. Absence means OFF;
+present undefined/false/null/unknown/inherited/accessor values reject. The literal
+is allowed only with GenericSC author profile. The indexed issuer compares the
+same captured scalar on offer/open/recovery/FOLLOW and carries it on original,
+finite read and genuine published cut. Changing policy within one origin rejects;
+reconnect can create a new OFF original. Finite cancellation does not revoke the
+original parent. This metadata neither alters replay grants nor enables authoring
+from received material3. Legacy room ingress rejects the canonical field.

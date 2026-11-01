@@ -6,7 +6,7 @@ import {
   type BrushDescriptor, type BrushLibrary, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalStrokeOperation, type CanonicalMaterialContextV2, decodeCanonicalStrokeFrame,
   prepareCanonicalRecordedAttachment, CANONICAL_RECORDED_ATTACHMENT_LIMITS, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadCapability, type Operation,
 } from '@grafetto/shared'
-import { freezeCanonicalPrimaryTexturePolicy,freezeCanonicalSeededDefaultAutoPolicies,freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,type CanonicalImagePipeSource,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,type CanonicalRoomExecutionPolicy, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
+import { freezeCanonicalAuthorPrimaryTexturePolicy,freezeCanonicalPrimaryTexturePolicy,freezeCanonicalSeededDefaultAutoPolicies,freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,type CanonicalImagePipeSource,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,type CanonicalRoomExecutionPolicy, type CanonicalAutoExecutionPolicies } from './canonicalExecutionPolicy.js'
 import { BrushStorage, merge } from '../brushLibrary/storage.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
 import { lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
@@ -60,6 +60,7 @@ export class CanonicalBrushCapabilityResolver {
   private readonly authorProfile:CanonicalStrokeRasterProfile
   private readonly recordedProfiles:readonly CanonicalStrokeRasterProfile[]
   private readonly primaryTextureSource:CanonicalRoomExecutionPolicy['primaryTextureSource']
+  private readonly authorPrimaryTextureSource:CanonicalRoomExecutionPolicy['authorPrimaryTextureSource']
   private readonly primaryImageSource:CanonicalRoomExecutionPolicy['primaryImageSource']
   private readonly imagePipePolicies:ReturnType<typeof freezeCanonicalImagePipePolicies>
   private readonly seededPolicies:ReturnType<typeof freezeCanonicalSeededDefaultAutoPolicies>
@@ -88,6 +89,7 @@ export class CanonicalBrushCapabilityResolver {
     readonly alphaDarkenVariants: readonly ('creamy' | 'hard')[]
     readonly maxGestures: number
     readonly primaryTextureSource?:CanonicalRoomExecutionPolicy['primaryTextureSource']
+    readonly authorPrimaryTextureSource?:CanonicalRoomExecutionPolicy['authorPrimaryTextureSource']
     readonly primaryImageSource?:CanonicalRoomExecutionPolicy['primaryImageSource']
     readonly allowedRecordedImagePipeSources?:readonly CanonicalImagePipeSource[]
     readonly authorImagePipeSources?:readonly CanonicalImagePipeSource[]
@@ -105,6 +107,7 @@ export class CanonicalBrushCapabilityResolver {
     this.authorProfile=raster.authorRasterProfile;this.recordedProfiles=raster.allowedRecordedRasterProfiles
     this.primaryImageSource=freezeCanonicalPrimaryImagePolicy(options.primaryImageSource)
     this.primaryTextureSource=freezeCanonicalPrimaryTexturePolicy(options)
+    this.authorPrimaryTextureSource=freezeCanonicalAuthorPrimaryTexturePolicy(options)
     this.imagePipePolicies=freezeCanonicalImagePipePolicies(options)
     this.seededPolicies=freezeCanonicalSeededDefaultAutoPolicies(options)
     this.autoSources=freezeCanonicalAutoPolicies(options.autoSources)
@@ -466,6 +469,7 @@ export class CanonicalBrushCapabilityResolver {
       if(profile!==CANONICAL_STROKE_RASTER_PROFILE&&(!this.primaryImageSource||profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))fail(this.primaryImageSource?'image V2 raster profile unavailable':'V1 material requires historical raster profile')
       if(descriptor.sourceStamp.flags.textureEnabled){
         if(!this.primaryTextureSource)fail('unsupported-material-consumer')
+        if(role==='author'&&!this.authorPrimaryTextureSource)fail('primary texture author policy disabled')
         if(profile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)fail('primary texture raster profile unavailable')
         const primary=library.assets.find(a=>a.id===descriptor.tip.mask),pattern=library.assets.find(a=>a.id===descriptor.texture?.id)
         if(!primary||!pattern)fail('primary texture CAS metadata unavailable')

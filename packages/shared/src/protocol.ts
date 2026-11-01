@@ -284,6 +284,7 @@ export type RoomStateLegacyPayload = {
   canonicalReadScope?:CanonicalRecordedReadScope
   canonicalHistoryBase?:CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2
   canonicalAuthorRasterProfile?:import('./canonicalStrokeFrame.js').CanonicalStrokeRasterProfile
+  canonicalAuthorPrimaryTextureSource?:import('./canonicalIndexedHistory.js').CanonicalAuthorPrimaryTextureSource
   canonicalCapabilities?:CanonicalRecordedAttachmentV1
   palette: string[]
   // (#254/#255 epic) Room-wide freeze, live in-memory only (never
@@ -299,13 +300,14 @@ export type RoomStateLegacyPayload = {
 } & {canonicalIndexedHistory?:never}
 export type RoomStateIndexedPayload = Omit<RoomStateLegacyPayload,
  'latestSnapshotSeq'|'tailOperations'|'canonicalReadScope'|'canonicalHistoryBase'|
- 'canonicalAuthorRasterProfile'|'canonicalCapabilities'|'canonicalIndexedHistory'> & {
+ 'canonicalAuthorRasterProfile'|'canonicalAuthorPrimaryTextureSource'|'canonicalCapabilities'|'canonicalIndexedHistory'> & {
  readonly latestSnapshotSeq:null
  readonly canonicalIndexedHistory:CanonicalIndexedHistoryOfferV1
  readonly tailOperations?:never
  readonly canonicalReadScope?:never
  readonly canonicalHistoryBase?:never
  readonly canonicalAuthorRasterProfile?:never
+ readonly canonicalAuthorPrimaryTextureSource?:never
  readonly canonicalCapabilities?:never
 }
 export type RoomStatePayload = RoomStateLegacyPayload | RoomStateIndexedPayload

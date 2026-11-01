@@ -1,3 +1,6 @@
+import {indexedSocketFixture} from './testing/canonicalIndexedReadFixture'
+import type {CanonicalIndexedRead} from './src/oplog/CanonicalRecordedDelivery'
+import {canonicalImageMaterialPin} from '@grafetto/shared'
 import {CanonicalRgba8CompositePass} from './src/dabs/CanonicalRgba8CompositePass'
 import {canonicalPrimaryTextureMaterialContext,buildCanonicalMaterial,canonicalStrokeSnapshotV3} from '@grafetto/shared'
 import markerFixture from './src/presets/fixtures/sourceDefaultAutoWholePath/markerDry.normal.native.json'
@@ -58,8 +61,8 @@ function original(isCurrent=()=>true,open=false,emptyLane=false,traceInput=trace
  const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:512,canvasHeight:512,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:tail,participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:1},canonicalHistoryBase:{kind:open&&!emptyLane?'full-room-prefix-v2':'empty-room-prefix-v1',roomId:'room',boardEpoch:1,throughSeq:tail.length,operationCount:tail.length},canonicalCapabilities:{version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot:trace.snapshot}],bindings:tail.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}))}}
  return {...prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent}),wire:state}
 }
-function engineFor(p:ReturnType<typeof original>,author=false,service?:NonNullable<NonNullable<Parameters<typeof createTestEngine>[0]>['canonicalAuthor']>,onLocalOperation?:(op:Operation)=>void){
- const r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:512,pageHeight:512,canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations},...(author?{canonicalAuthor:service??{begin:async()=>{throw Error('Unexpected BEGIN')}},onLocalOperation:onLocalOperation??vi.fn()}: {})},{width:512,height:512}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
+function engineFor(p:ReturnType<typeof original>|CanonicalIndexedRead,author=false,service?:NonNullable<NonNullable<Parameters<typeof createTestEngine>[0]>['canonicalAuthor']>,onLocalOperation?:(op:Operation)=>void){
+ const r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:512,pageHeight:512,...('canonicalRead'in p?{canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations}}:{canonicalIndexedRoom:p}),...(author?{canonicalAuthor:service??{begin:async()=>{throw Error('Unexpected BEGIN')}},onLocalOperation:onLocalOperation??vi.fn()}: {})},{width:512,height:512}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
  Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23,rangeMin:127,rangeMax:127}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,512,512]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
  engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);return r
 }
@@ -691,6 +694,12 @@ it.each([false,true])('authors CMAT3 only with captured optin=%s and hands the S
   await expect(engine.prepareBrush(preset)).resolves.toEqual({status:'ready'});expect(engine['_canonicalPreparedAuthor']!.material.kind).toBe('imageTexture')
   const owner=engine['_canonicalLayerOwner']!,roots=owner.defaultSourceRoots!
   expect(roots).toHaveLength(1);expect(owner.bank!.jobs.filter(j=>j.kind==='raw-pattern-l8')).toHaveLength(1)
+  // Warm the first source-map/companion update and retained author token.
+  // Later identical preparations must not retain another full root's metadata.
+  await expect(engine.prepareBrush(preset)).resolves.toEqual({status:'ready'})
+  const warmCpu=engine['_brushMipCache'].reservedBytes
+  await expect(engine.prepareBrush(preset)).resolves.toEqual({status:'ready'})
+  expect(engine['_brushMipCache'].reservedBytes).toBe(warmCpu);expect(owner.defaultSourceRoots![0].lease).toBe(roots[0].lease)
   engine['_onStart'](packet(20,0));engine['_onMove'](packet(24,10));engine['_onEnd'](packet(24,20))
   await vi.waitFor(()=>expect(operations.length).toBeGreaterThan(0),{timeout:10000});await vi.waitFor(()=>expect(engine.hasActiveCanonicalAuthor()).toBe(false),{timeout:10000})
   expect(begins).toHaveBeenCalledOnce();expect(draw.mock.calls.some(([r])=>r.source.kind==='texturedMaskRgb')).toBe(true);expect(owner.defaultSourceRoots).toHaveLength(1)
@@ -713,4 +722,55 @@ it('reprepares genuine A after speculative B on the SAME full owner and then del
   await vi.waitFor(()=>expect(engine['_canonicalExportReady']()).toBe(true),{timeout:15000})
   expect(owner.failed).toBe(false);expect(owner.indexedSource).toBeUndefined();expect(owner.defaultSourceRoots!.length).toBeLessThanOrEqual(3);expect(engine['_log'].entries).toHaveLength(163+inputs.length)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+
+it('keeps concurrent SAME-CAS texture phases in distinct preparation keys and paints only the actual admitted phase',async()=>{
+ const p=textureOriginal(true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!,source=p.snapshot.material,recipe=decodeCanonicalStrokeFrame(p.operations[0].frame,{rasterProfile:G,materialVersion:3,brush:p.snapshot.brush,strokeId:p.snapshot.strokeId,frameOrdinal:0,pigmentRgb8:p.snapshot.pigmentRgb8,composition:p.snapshot.composition,material:source}).frame.definitions[0]
+  const make=(name:string,offsetX:number)=>{
+   const material=canonicalPrimaryTextureMaterialContext({...source,primaryTexture:{...source.primaryTexture,offsetX}}),snapshot=canonicalStrokeSnapshotV3({...p.snapshot,strokeId:name,material,assets:material.assets},1,G)
+   const packed=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:20,y:20,opacity:1,flow:1,grainDepth:.5}],fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:1,group:0},{kind:'segmentEnd',at:1,group:0},{kind:'gestureEnd',at:1}]},material).packed
+   const op:CanonicalStrokeOperation={id:name,userId:'author',timestamp:0,seq:3,type:'canonical_stroke',layerId:'layer-1',frame:{version:2,rasterProfile:G,brush:snapshot.brush,strokeId:name,frameOrdinal:0,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}},atom=prepareCanonicalRecordedAttachment({version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot}],bindings:[{operationId:name,sequence:3,originalUserId:'author',capability:0}]},[op],p.canonicalRead.scope)[0],input=attachCanonicalRecordedDelivery(atom,p.canonicalRead.scope)
+   if(!('delivery'in input))throw Error('Missing genuine phase input');return input
+  }
+  const a=make('texture-phase-a',2),b=make('texture-phase-b',3),run=vi.spyOn(engine['_brushPreparation'],'run'),prepare=vi.spyOn(owner.bank!,'prepareRoot')
+  const before=engine['_log'].entries.length
+  expect(await Promise.all([engine.prepareOriginalRecorded(a),engine.prepareOriginalRecorded(b)])).toEqual([{status:'ready'},{status:'ready'}])
+  const keys=run.mock.calls.map(call=>call[3]).filter(key=>key?.startsWith('recorded-image:'))
+  expect(keys).toHaveLength(2);expect(new Set(keys).size).toBe(2);expect(prepare).toHaveBeenCalledTimes(2);expect(owner.indexedSource!.input).toBe(b);expect(engine['_log'].entries).toHaveLength(before)
+  const draw=vi.spyOn(owner.composite,'drawSource')
+  expect(await engine.prepareOriginalRecorded(a)).toEqual({status:'ready'});engine.appendOriginalRecorded(a)
+  await vi.waitFor(()=>expect(draw.mock.calls.some(([r])=>r.source.kind==='texturedMaskRgb')).toBe(true),{timeout:10000})
+  expect(draw.mock.calls.filter(([r])=>r.source.kind==='texturedMaskRgb').every(([r])=>r.source.kind==='texturedMaskRgb'&&r.source.pin.offsetX===2)).toBe(true)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+
+it('keeps the old genuine root, source map and exact CPU baseline when retained selection-key reservation fails before map publication',async()=>{
+ const p=original(()=>true,true),{engine}=engineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!,before=engine['_brushMipCache'].reservedBytes,oldMap=owner.prepass['sources'],oldResources=owner.bank!.resources(),oldDefaults=owner.defaultSourceRoots,changed={...asset,x:asset.x-1},snapshot={...trace.snapshot,strokeId:'key-reservation-failure',assets:[changed],material:{...trace.snapshot.material,assets:[changed]}},op={...trace.operations[0],id:'key-reservation-failure',seq:163,frame:{...trace.operations[0].frame,strokeId:snapshot.strokeId}},input=imageInput(p,op,snapshot)
+  const pin=canonicalImageMaterialPin(snapshot.material.primarySource,snapshot.material.assets),key='recorded-image:'+JSON.stringify([pin,undefined]),fault=Error('selection-key reservation failed'),reserve=engine['_brushMipCache'].reserve.bind(engine['_brushMipCache']);let failed=false
+  const spy=vi.spyOn(engine['_brushMipCache'],'reserve').mockImplementation(bytes=>{if(bytes===2*key.length){failed=true;expect(owner.prepass['sources']).toBe(oldMap);throw fault}return reserve(bytes)})
+  await expect(engine.prepareOriginalRecorded(input)).rejects.toBe(fault);spy.mockRestore()
+  expect(failed).toBe(true);expect(owner.prepass['sources']).toBe(oldMap);expect(owner.bank!.resources()).toEqual(oldResources);expect(owner.defaultSourceRoots).toBe(oldDefaults);expect(owner.indexedSource).toBeUndefined();expect(owner.fullSource!.isReady()).toBe(true);expect(engine['_brushMipCache'].reservedBytes).toBe(before)
+  expect(await engine.prepareOriginalRecorded(input)).toEqual({status:'ready'});expect(owner.defaultSourceRoots).toHaveLength(1)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+it.each(['cancel','loss']as const)('releases the separately charged selection key when an actual indexed image candidate stops by %s after root publication',async mode=>{
+ const operations=[{...trace.operations[0],seq:1}],snapshot={...trace.snapshot,boardEpoch:2},issuer=indexedSocketFixture(operations,1)
+ issuer.offer.roomGeometry.width=512;issuer.offer.roomGeometry.height=512
+ const attachment=(rows:typeof operations)=>({version:1,roomId:'room',boardEpoch:2,capabilities:[{originalUserId:'author',snapshot}],bindings:rows.map(op=>({operationId:op.id,sequence:op.seq,originalUserId:op.userId,capability:0}))})
+ const next=issuer.handlers.canonical_history_stream_next
+ issuer.handlers.canonical_history_stream_next=async body=>{const reply=await next(body);if(!reply||typeof reply!=='object'||!('value'in reply))throw Error('Actual page missing');const value=reply.value;if(!value||typeof value!=='object'||!('operations'in value)||!Array.isArray(value.operations))throw Error('Actual page rows missing');return{...reply,value:{...value,canonicalCapabilities:attachment(value.operations)}}}
+ issuer.handlers.canonical_history_stream_evidence=body=>({ok:true,value:{kind:'canonical-indexed-history-root-evidence-v1',streamId:body.streamId,throughSeq:1,root:body.root,rows:operations,canonicalCapabilities:attachment(operations),first:0,terminal:null,lastMetadata:null,latestRedo:null,firstUndoAfterLatestRedo:null,ownBranchAfterUndo:null}})
+ const read=await issuer.open(),{engine}=engineFor(read),prepare=engine['_prepareOriginalRecorded'].bind(engine)
+ try{
+  await engine.paperReady();const baseline=engine['_brushMipCache'].reservedBytes;let captured:NonNullable<typeof engine['_canonicalLayerOwner']>|undefined,seenKey=''
+  engine['_prepareOriginalRecorded']=async(...args)=>{const result=await prepare(...args),owner=args[0];if(owner?.defaultSourceRoots?.length){captured=owner;seenKey=owner.defaultSourceRoots[0].selectionKey;expect(seenKey.length).toBeGreaterThan(0);if(mode==='loss')engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));else engine['_cancelRebuildJob']('layer-1')}return result}
+  await expect(engine.restoreCanonicalIndexedRoom(read)).rejects.toThrow()
+  expect(seenKey).not.toBe('');expect(captured!.defaultSourceRoots).toBeUndefined();expect(engine.getCanonicalIndexedCut()).toBeNull();expect(engine['_brushMipCache'].reservedBytes).toBe(baseline)
+ }finally{engine['_prepareOriginalRecorded']=prepare;engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)

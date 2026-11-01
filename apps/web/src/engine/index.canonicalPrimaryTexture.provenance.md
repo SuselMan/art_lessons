@@ -58,3 +58,48 @@ faults. Mock precision now supplies the range required by the actual prepared
 variant. Updated legacy full-bank fixture assertions exercise root preparation
 rather than calling the forbidden root-bank full prepare API. These are lifecycle/
 source-routing tests, not independent GPU pixel or online protocol attestation.
+
+## Identical warm selection and late cancellation
+
+Late subscriber cancellation can occur after synchronous source-map publication.
+An idle update with exactly the same immutable job key/byte group keeps its existing
+default storage owner instead of retaining another root's full metadata. This is a
+storage-lifetime equivalence only: native job keys encode CAS/crop/level, and the
+bank rejects conflicting full job metadata or original CAS side before publishing;
+raw pattern keys include the full asset tuple and explicit L8/nearest storage role.
+Native prepared bindings reconstruct the complete asset tuple/index. Primary pin,
+texture phase, period and strength are independently validated material semantics.
+
+Work sharing keys include the complete normalized image pin and optional material3
+context (including full texture pin and budgets). A newly retained handoff child may
+reuse the old genuine root only when that complete selection key also matches the
+exact job group. Otherwise execution receives the separately prepared candidate
+root. The unused candidate is released only after successful map publication;
+rollback releases its staging child and candidate while leaving old owners intact.
+Thus a successful identical warm selection does not retain a second full root's
+metadata, and repeated late cancellation preserves the fully warm byte baseline.
+
+The first source/companion update and first retained author token have existing
+one-time charges. A controlled fixture-only reserve observer isolated those charges
+from root metadata; it was removed after diagnosis. Tests warm those existing owners
+before asserting an exact repeated-preparation/cancellation baseline. The indexed
+image test additionally covers two real local gestures and original promotions.
+The new same-CAS/different-phase test prepares distinct genuine original inputs
+concurrently, checks separate work keys, then uses normal reprepare/append to verify
+that actual primary deposition receives only the admitted phase. No cache ceiling,
+execution grant, global binding state or phase-derived texture allocation is added.
+
+The retained selection string is the existing preparation key reference, not a
+second serialization or independent catalog. Its contents are bounded by the
+closed 256-asset / 256-frame source grammar (material3 has two asset roles).
+Repeated frame IDs can nevertheless make it larger than a root-handle wrapper.
+Before a new default entry retains that key, `2 * key.length` bytes are explicitly
+reserved from the SAME BrushMipCache ceiling; the entry owns the release callback.
+SAME semantic reuse preserves that reservation, rollback releases only staging
+key/children, and replacement releases old key charges only after commit. Both
+published-owner retirement and unpublished indexed-candidate cancellation attempt
+all lease AND key releases. Bank reset alone is deliberately insufficient for this
+external key reservation. Tests inject failure at that exact reservation before
+map publication, then verify unchanged old source/root/CPU and a successful retry;
+actual indexed image cancellation/context-loss after root/key publication returns
+to the original CPU baseline without an accepted cut. No budget limit is raised.

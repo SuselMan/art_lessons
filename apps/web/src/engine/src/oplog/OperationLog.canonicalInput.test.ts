@@ -75,7 +75,9 @@ describe('original recorded delivery retained by existing history entries',()=>{
   expect(()=>log.confirm(a.operation.id,3,undefined,a)).toThrow()
   expect(log.isPending(a.operation.id)).toBe(true);expect(log.revision).toBe(revision)
   const clean=new OperationLog(),read=a.read!
-  const snapshot=read.capability.snapshot,pin=snapshot.material.primarySource
+  const snapshot=read.capability.snapshot
+  if(snapshot.materialVersion!==2)throw Error('Expected V2 fixture')
+  const pin=snapshot.material.primarySource
   if(pin.kind!=='defaultAuto')throw Error('Expected default source fixture')
   const conflicting={...read,capability:{...read.capability,snapshot:{...snapshot,descriptorSha256:'c'.repeat(64),material:{...snapshot.material,primarySource:{...pin,descriptorSha256:'c'.repeat(64)}}}}}
   expect(()=>clean.append(a.operation,{serverSeq:3,canonicalInput:a,canonicalRead:conflicting})).toThrow()

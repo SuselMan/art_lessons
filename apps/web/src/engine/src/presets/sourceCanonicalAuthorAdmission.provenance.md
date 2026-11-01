@@ -236,3 +236,31 @@ textured branch. Regression tests cover these unchanged ordinary results plus
 true unsupported texture refusal. Genuine freshly imported compiled Chalk35
 separately passes explicit query with nativeSize60, while default OFF still
 refuses its image binding; private source descriptor remains unchanged.
+
+
+## Family auto eligibility matches the existing pure source capability
+
+Before returning supported auto, the leaf now requires the existing family
+extractDefaultAutoSourceDataCapability / extractGaussianAutoSourceDataCapability /
+extractSoftAutoSourceDataCapability result. The existing seeded-density extractor
+remains its separate explicit gate. Pointer/effect/timing/profile/role guards and
+the original image/imageTexture branches are unchanged. In particular enabling
+primary texture does not enable textured AUTO sources: those remain rejected by
+the SAME family capability used by canonical binding. This fixes an eligibility
+false positive; it does not implement auto texture, compile raw curves, strip
+unsupported tags, fabricate source provenance or authorize a BEGIN.
+
+Tests query actual Default/Gaussian fixture inventory against its family helper,
+then exercise texture/unsupported/uncompiled dynamic curve failures with texture
+option both OFF and ON. Soft raw inventory has no descriptor, so its original
+sourceStamp is placed in an explicitly self-authored existing descriptor container;
+that test does not claim genuine stock Soft descriptor identity or readiness.
+Absence of compiled programs is only a failure when the actual curve requires a
+program: an earlier diagnostic incorrectly assumed deleting compiled always
+fails even a constant/identity law. Final test uses explicit nonlinear Size curve
+without program, retaining the actual pure-helper decision instead of loosening it.
+Existing ordinary/seeded/image/texture/profile/pointer eligibility tests remain.
+
+SOURCE gates:61tests/2suites PASS maxWorkers1 (admission + tool availability),
+strict targeted2roots/fulltransitive TS0, scoped lint0, diff-check0. No device,
+whole-catalog online count, source asset mutation, active library or runtime claim.

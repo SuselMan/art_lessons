@@ -70,3 +70,28 @@ it('keeps a follow range distinct from a full baseline and bounds each hop, not 
  expect(parseCanonicalHistoryStreamReopen({mode:'follow',streamId:'read',requestId:'follow',afterSeq:10000})).toMatchObject({mode:'follow'})
  expect(()=>parseCanonicalHistoryStreamReopen({mode:'follow',offerId:'offer',roomId:'room',boardEpoch:2,throughSeq:10000})).toThrow()
 })
+
+it('captures only a server author texture literal without widening replay scope or absent OFF',async()=>{
+ const {canonicalAuthorPrimaryTextureSource,parseCanonicalIndexedHistoryFollow}=await import('./canonicalIndexedHistory.js')
+ const profile='installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2' as const
+ const allowed={...scope,allowedRasterProfiles:[profile]},policy='pressure-identity-subtract-v3' as const
+ const values:[(v:unknown)=>unknown,Record<string,unknown>][]=[
+  [parseCanonicalIndexedHistoryOffer,{...offer,scope:allowed,authorRasterProfile:profile}],
+  [parseCanonicalIndexedHistoryBegin,{...begin,scope:allowed,authorRasterProfile:profile}],
+  [parseCanonicalIndexedHistoryFollow,{kind:'canonical-indexed-history-follow-v1',streamId:'next',parentStreamId:'read',scope:allowed,roomGeometry,authorRasterProfile:profile,floor:0,throughSeq:0,operationCount:0,latestObservedSeq:0}],
+ ]
+ for(const [parse,value]of values){
+  expect(parse(value)).not.toHaveProperty('authorPrimaryTextureSource')
+  const enabled=parse({...value,authorPrimaryTextureSource:policy})
+  expect(enabled).toMatchObject({authorPrimaryTextureSource:policy,scope:allowed});expect(Object.isFrozen(enabled)).toBe(true)
+  for(const invalid of [false,null,undefined,'unknown'])expect(()=>parse({...value,authorPrimaryTextureSource:invalid})).toThrow()
+  const get=vi.fn(()=>policy),accessor={...value};Object.defineProperty(accessor,'authorPrimaryTextureSource',{get})
+  expect(()=>parse(accessor)).toThrow();expect(get).not.toHaveBeenCalled()
+  const inherited=Object.assign(Object.create({authorPrimaryTextureSource:policy}),value)
+  expect(()=>parse(inherited)).toThrow()
+  expect(()=>parse({...value,authorPrimaryTextureSource:policy,authorRasterProfile:profiles[0],scope})).toThrow()
+ }
+ expect(canonicalAuthorPrimaryTextureSource({},'canonicalAuthorPrimaryTextureSource',profile)).toBeUndefined()
+ expect(canonicalAuthorPrimaryTextureSource({canonicalAuthorPrimaryTextureSource:policy},'canonicalAuthorPrimaryTextureSource',profile)).toBe(policy)
+ for(const invalid of [false,null,undefined,'unknown'])expect(()=>canonicalAuthorPrimaryTextureSource({canonicalAuthorPrimaryTextureSource:invalid},'canonicalAuthorPrimaryTextureSource',profile)).toThrow()
+})

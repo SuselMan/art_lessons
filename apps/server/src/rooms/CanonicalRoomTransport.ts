@@ -12,7 +12,7 @@ import {withCanonicalIndexedValidation} from '../db/canonicalIndexedReader.js'
 import {canSeeResidentBoard} from './classroom.js'
 import { CanonicalBrushCapabilityResolver } from './CanonicalBrushCapabilityResolver.js'
 import { CanonicalStrokeAdmission, decodeTrustedCanonicalFrame, type CanonicalAdmissionIdentity, type TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
-import { CANONICAL_ROOM_EXECUTION_POLICY, freezeCanonicalPrimaryTexturePolicy,freezeCanonicalSeededDefaultAutoPolicies,freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,freezeCanonicalFullHistoryFormat, type CanonicalRoomExecutionPolicy,type CanonicalFullHistoryFormat } from './canonicalExecutionPolicy.js'
+import { CANONICAL_ROOM_EXECUTION_POLICY, freezeCanonicalAuthorPrimaryTexturePolicy,freezeCanonicalPrimaryTexturePolicy,freezeCanonicalSeededDefaultAutoPolicies,freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,freezeCanonicalFullHistoryFormat, type CanonicalRoomExecutionPolicy,type CanonicalFullHistoryFormat } from './canonicalExecutionPolicy.js'
 import { assertPreparedAuthorizedJoinRead,type PreparedAuthorizedJoin } from './roomAccess.js'
 import {captureEmptyBoardSeats,assertCurrentRoomSeat,type PreparedRoomDisconnect} from './rooms.js'
 import { mayReadBoardContent } from './boardContentAccess.js'
@@ -66,7 +66,7 @@ interface RoomLifetime { readonly record: RoomRecord; readonly lesson: RoomRecor
 export class CanonicalRoomTransport {
   private readonly policy:CanonicalRoomExecutionPolicy
   constructor(policy:CanonicalRoomExecutionPolicy=CANONICAL_ROOM_EXECUTION_POLICY){
-    this.policy=Object.freeze({...freezeCanonicalSeededDefaultAutoPolicies(policy),...freezeCanonicalImagePipePolicies(policy),primaryImageSource:freezeCanonicalPrimaryImagePolicy(policy.primaryImageSource),primaryTextureSource:freezeCanonicalPrimaryTexturePolicy(policy),fullHistoryFormat:freezeCanonicalFullHistoryFormat(policy.fullHistoryFormat),...freezeCanonicalRasterPolicy(policy),alphaDarkenVariants:Object.freeze([...policy.alphaDarkenVariants]),autoSources:freezeCanonicalAutoPolicies(policy.autoSources)})
+    this.policy=Object.freeze({...freezeCanonicalSeededDefaultAutoPolicies(policy),...freezeCanonicalImagePipePolicies(policy),primaryImageSource:freezeCanonicalPrimaryImagePolicy(policy.primaryImageSource),primaryTextureSource:freezeCanonicalPrimaryTexturePolicy(policy),authorPrimaryTextureSource:freezeCanonicalAuthorPrimaryTexturePolicy(policy),fullHistoryFormat:freezeCanonicalFullHistoryFormat(policy.fullHistoryFormat),...freezeCanonicalRasterPolicy(policy),alphaDarkenVariants:Object.freeze([...policy.alphaDarkenVariants]),autoSources:freezeCanonicalAutoPolicies(policy.autoSources)})
   }
   get requiresPrimaryTextureProtocol():boolean{return this.policy.primaryTextureSource==='pressure-identity-subtract-v3'}
   get fullHistoryFormat():CanonicalFullHistoryFormat{return this.policy.fullHistoryFormat??'frames-v1'}
@@ -85,7 +85,7 @@ export class CanonicalRoomTransport {
     return parseCanonicalIndexedHistoryOffer({kind:'canonical-indexed-history-offer-v1',offerId:randomUUID(),
       scope:{roomId,boardEpoch:scope.boardEpoch,allowedRasterProfiles:canonicalRecordedRasterProfiles(scope)},
       roomGeometry:{width:record.room.canvasWidth,height:record.room.canvasHeight,infinite:record.room.infinite},
-      authorRasterProfile:this.policy.authorRasterProfile??this.policy.rasterProfile??CANONICAL_STROKE_RASTER_PROFILE})
+      authorRasterProfile:this.policy.authorRasterProfile??this.policy.rasterProfile??CANONICAL_STROKE_RASTER_PROFILE,...this.policy.authorPrimaryTextureSource==='pressure-identity-subtract-v3'?{authorPrimaryTextureSource:this.policy.authorPrimaryTextureSource}:{}})
   }
 
   /** Post-seat owner. The supplied seat must be the actual private rooms proof;
@@ -112,7 +112,8 @@ export class CanonicalRoomTransport {
     }
     current()
     if(!isDeepStrictEqual(offer.roomGeometry,{width:record.room.canvasWidth,height:record.room.canvasHeight,infinite:record.room.infinite})
-      ||offer.authorRasterProfile!==(this.policy.authorRasterProfile??this.policy.rasterProfile??CANONICAL_STROKE_RASTER_PROFILE))fail('invalid_operation')
+      ||offer.authorRasterProfile!==(this.policy.authorRasterProfile??this.policy.rasterProfile??CANONICAL_STROKE_RASTER_PROFILE)
+      ||offer.authorPrimaryTextureSource!==(this.policy.authorPrimaryTextureSource||undefined))fail('invalid_operation')
     // Capture BOTH the immutable logical cut and queue promises before await.
     // Later writes/persistence failures beyond C are not evidence against C.
     let cut=record.nextSeq-1
@@ -152,7 +153,7 @@ export class CanonicalRoomTransport {
     committedCarry=await validateCut(cut)
     current()
     let begin:Readonly<CanonicalIndexedHistoryStartV1>=Object.freeze({kind:'canonical-indexed-history-begin-v1',streamId:randomUUID(),offerId:offer.offerId,
-      scope:offer.scope,roomGeometry:offer.roomGeometry,authorRasterProfile:offer.authorRasterProfile,floor:0,throughSeq:cut,operationCount:cut})
+      scope:offer.scope,roomGeometry:offer.roomGeometry,authorRasterProfile:offer.authorRasterProfile,...offer.authorPrimaryTextureSource?{authorPrimaryTextureSource:offer.authorPrimaryTextureSource}:{},floor:0,throughSeq:cut,operationCount:cut})
     let cancelled=false,consumed=0,finished=false,busy=false,completedCut:number|undefined,completedStreamId:string|undefined
     const assertOrigin=(receiver:unknown)=>{if(receiver!==read)fail('canonical_repair_required');current()}
     const assert=(receiver:unknown)=>{assertOrigin(receiver);if(cancelled)fail('canonical_repair_required')}
@@ -264,7 +265,7 @@ export class CanonicalRoomTransport {
           await afterRead();assertOrigin(this)
           const candidate=throughSeq===completedCut?committedCarry:await validateCut(throughSeq)
           const next:Readonly<CanonicalIndexedHistoryBeginV1>=Object.freeze({kind:'canonical-indexed-history-begin-v1',streamId:randomUUID(),offerId:offer.offerId,
-            scope:offer.scope,roomGeometry:offer.roomGeometry,authorRasterProfile:offer.authorRasterProfile,floor:0,throughSeq,operationCount:throughSeq})
+            scope:offer.scope,roomGeometry:offer.roomGeometry,authorRasterProfile:offer.authorRasterProfile,...offer.authorPrimaryTextureSource?{authorPrimaryTextureSource:offer.authorPrimaryTextureSource}:{},floor:0,throughSeq,operationCount:throughSeq})
           assertOrigin(this)
           pendingCarry=candidate;begin=next;cut=throughSeq;consumed=0;cancelled=false;finished=false
           return read
@@ -312,7 +313,7 @@ export class CanonicalRoomTransport {
           }
           const upper=operations.at(-1)?.seq??floor
           const next:Readonly<CanonicalIndexedHistoryFollowV1>=Object.freeze({kind:'canonical-indexed-history-follow-v1',streamId:randomUUID(),parentStreamId,
-            scope:offer.scope,roomGeometry:offer.roomGeometry,authorRasterProfile:offer.authorRasterProfile,floor,throughSeq:upper,operationCount:upper-floor,latestObservedSeq:watermark})
+            scope:offer.scope,roomGeometry:offer.roomGeometry,authorRasterProfile:offer.authorRasterProfile,...offer.authorPrimaryTextureSource?{authorPrimaryTextureSource:offer.authorPrimaryTextureSource}:{},floor,throughSeq:upper,operationCount:upper-floor,latestObservedSeq:watermark})
           assertOrigin(this)
           pendingCarry=candidate;begin=next;cut=upper;consumed=floor;cancelled=false;finished=false
           return next
@@ -462,7 +463,7 @@ export class CanonicalRoomTransport {
   /** Two-phase reader preparation. Caller awaits BEFORE channel join, then
    * calls finish(snapshot.tailOperations) synchronously before join+state emit.
    * No await/queue/registry survives finish; no paint permission is inferred. */
-  prepareReadDelivery(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly fullHistoryFormat:CanonicalFullHistoryFormat;readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
+  prepareReadDelivery(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly fullHistoryFormat:CanonicalFullHistoryFormat;readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalAuthorPrimaryTextureSource?:import('@grafetto/shared').CanonicalAuthorPrimaryTextureSource;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
     const captured={roomId:identity.roomId,userId:identity.userId}
     return this.prepareReadContext(captured,isCurrent,()=>mayReadBoardContent(captured.roomId,captured.userId,this.fullHistoryFormat),()=>{})
   }
@@ -470,7 +471,7 @@ export class CanonicalRoomTransport {
   /** Genuine prepared join can read its exact target BEFORE membership exists.
    * Its private lexical proof comes from the same block/password/invite gate;
    * no caller ok:true object or fabricated durable participation is accepted. */
-  prepareJoinReadDelivery(preparation:PreparedAuthorizedJoin,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly fullHistoryFormat:CanonicalFullHistoryFormat;readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
+  prepareJoinReadDelivery(preparation:PreparedAuthorizedJoin,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly fullHistoryFormat:CanonicalFullHistoryFormat;readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalAuthorPrimaryTextureSource?:import('@grafetto/shared').CanonicalAuthorPrimaryTextureSource;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
     const identity={roomId:preparation.roomId,userId:preparation.userId}
     const assert=()=>assertPreparedAuthorizedJoinRead(preparation,identity.roomId,identity.userId)
     assert()
@@ -605,7 +606,7 @@ export class CanonicalRoomTransport {
     current()
   }
 
-  private async prepareReadContext(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean,authorize:()=>Promise<boolean>,assertAuthorization:()=>void):Promise<{readonly scope:CanonicalRecordedReadScope;readonly fullHistoryFormat:CanonicalFullHistoryFormat;readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
+  private async prepareReadContext(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean,authorize:()=>Promise<boolean>,assertAuthorization:()=>void):Promise<{readonly scope:CanonicalRecordedReadScope;readonly fullHistoryFormat:CanonicalFullHistoryFormat;readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalAuthorPrimaryTextureSource?:import('@grafetto/shared').CanonicalAuthorPrimaryTextureSource;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
     if(!text(identity?.roomId)||!text(identity.userId))fail('not_joined')
     const {roomId}=identity
     const record=rooms.get(roomId)
@@ -701,7 +702,7 @@ export class CanonicalRoomTransport {
         verify(fullHistory,fullOwner,operations)
       }
       current()
-      return Object.freeze({...canonicalHistoryBase?{canonicalHistoryBase}:{},canonicalReadScope:scope,...this.policy.authorRasterProfile===CANONICAL_STROKE_RASTER_PROFILE?{}:{canonicalAuthorRasterProfile:this.policy.authorRasterProfile},...canonicalCapabilities?{canonicalCapabilities}:{}})
+      return Object.freeze({...canonicalHistoryBase?{canonicalHistoryBase}:{},canonicalReadScope:scope,...this.policy.authorPrimaryTextureSource==='pressure-identity-subtract-v3'?{canonicalAuthorPrimaryTextureSource:this.policy.authorPrimaryTextureSource}:{},...this.policy.authorRasterProfile===CANONICAL_STROKE_RASTER_PROFILE?{}:{canonicalAuthorRasterProfile:this.policy.authorRasterProfile},...canonicalCapabilities?{canonicalCapabilities}:{}})
     }})
   }
 

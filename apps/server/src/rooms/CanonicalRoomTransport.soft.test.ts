@@ -1691,3 +1691,39 @@ for(const fault of ['dense','unreachable','revoked-final-root-query','revoked-se
   if(fault==='revoked-final-root-query')expect(rootEnded&&revoked).toBe(true)
  }finally{leaveRoom('board','student','candidate-seat')}
 })
+
+
+it('advertises author texture only from captured policy in original full and indexed recovery/follow headers',async()=>{
+ const {board}=setup(),profile='installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2' as const,primaryTextureSource='pressure-identity-subtract-v3' as const
+ const configured={...policy,rasterProfile:profile,allowedRecordedRasterProfiles:[profile],primaryImageSource:'single-inverse-gray-v2' as const,primaryTextureSource,authorPrimaryTextureSource:primaryTextureSource,fullHistoryFormat:'mixed-indexed-v1' as const}
+ const transport=new CanonicalRoomTransport(configured)
+ Reflect.set(configured,'primaryTextureSource',false);Reflect.set(configured,'authorPrimaryTextureSource',false)
+ db.roomParticipant.upsert.mockResolvedValue({});db.$executeRawUnsafe.mockResolvedValue(0);db.$queryRawUnsafe.mockResolvedValue([]);db.operation.findMany.mockResolvedValue([])
+ const full=await transport.prepareReadDelivery(identity,()=>true)
+ expect(full.finish([])).toMatchObject({canonicalAuthorPrimaryTextureSource:primaryTextureSource})
+ const off=new CanonicalRoomTransport({...configured,primaryTextureSource:false})
+ expect((await off.prepareReadDelivery(identity,()=>true)).finish([])).not.toHaveProperty('canonicalAuthorPrimaryTextureSource')
+ const readerOnly=new CanonicalRoomTransport({...configured,primaryTextureSource,authorPrimaryTextureSource:false})
+ expect(readerOnly.requiresPrimaryTextureProtocol).toBe(true)
+ expect((await readerOnly.prepareReadDelivery(identity,()=>true)).finish([])).not.toHaveProperty('canonicalAuthorPrimaryTextureSource')
+ board.canonicalHistoryResidency='indexed-v1'
+ const offer=transport.createIndexedHistoryOffer('board')
+ expect(offer.authorPrimaryTextureSource).toBe(primaryTextureSource)
+ expect(off.createIndexedHistoryOffer('board')).not.toHaveProperty('authorPrimaryTextureSource')
+ expect(readerOnly.createIndexedHistoryOffer('board')).not.toHaveProperty('authorPrimaryTextureSource')
+ expect(joinRoom('board','author','Owner','texture-advertisement-seat',true).ok).toBe(true)
+ const seat=captureCurrentRoomSeat('board','author','texture-advertisement-seat');if(!seat)throw Error('actual seat')
+ try{
+  const {authorPrimaryTextureSource:_,...forgedOff}=offer
+  await expect(transport.openIndexedHistory(identity,forgedOff,seat,()=>true)).rejects.toThrow()
+  await expect(off.openIndexedHistory(identity,offer,seat,()=>true)).rejects.toThrow()
+  const read=await transport.openIndexedHistory(identity,JSON.parse(JSON.stringify(offer)),seat,()=>true)
+  expect(read.begin).toMatchObject({authorPrimaryTextureSource:primaryTextureSource})
+  expect((await read.next(0)).terminal).toBe(true)
+  const recovered=await read.recover(0)
+  expect(recovered).toBe(read);expect(read.begin).toMatchObject({authorPrimaryTextureSource:primaryTextureSource})
+  expect((await read.next(0)).terminal).toBe(true)
+  expect(await read.follow(0)).toMatchObject({kind:'canonical-indexed-history-follow-v1',authorPrimaryTextureSource:primaryTextureSource})
+  expect((await read.next(0)).terminal).toBe(true)
+ }finally{leaveRoom('board','author','texture-advertisement-seat')}
+})

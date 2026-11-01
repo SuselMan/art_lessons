@@ -38,7 +38,7 @@ async function harness(begin:(request:CanonicalStrokeBegin,lifetime:{signal:Abor
  const snapshots=new Map<string,CanonicalStrokeSnapshotV2>()
  const acceptedBegin=async(request:CanonicalStrokeBegin,lifetime:{signal:AbortSignal;isCurrent:()=>boolean})=>{const reply=await begin(request,lifetime);if(reply.ok&&'materialVersion'in reply.snapshot&&reply.snapshot.materialVersion===2)snapshots.set(request.strokeId,reply.snapshot);return reply}
  const p=original(isCurrent,page,profile),operations:Operation[]=[],r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:page.width,pageHeight:page.height,...(indexed?{canonicalIndexedRoom:indexed}:{canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations}}),canonicalAuthor:{begin:acceptedBegin},onLocalOperation:op=>operations.push(op)},{width:8,height:8}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
- Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,8,8]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
+ Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23,rangeMin:127,rangeMax:127}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,8,8]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
  engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil('brush:'+selected.id+'@'+selected.version);engine.setSize(40);engine.setLocked(false)
  await engine.paperReady();if(indexed)await engine.restoreCanonicalIndexedRoom(indexed);else await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
  return{engine,operations,p,snapshots}
@@ -563,7 +563,7 @@ it('cancels auto growth after work progress without publishing a new workspace o
 function markerDescriptor(){const library:unknown={schemaVersion:1,brushes:[markerFixture.imported],assets:[],skipped:[]};if(!isBrushLibrary(library))throw Error('Invalid original Marker');return library.brushes[0].descriptor}
 const marker=markerDescriptor(),markerPreset=`brush:${marker.id}@${marker.version}`,markerSHA=createHash('sha256').update(canonicalBrushDescriptorJSON(marker)).digest('hex'),markerPin=canonicalDefaultAutoSourceBinding(marker,markerSHA,D,G)
 function markerVerdict(request:CanonicalStrokeBegin):CanonicalStrokeBeginResult{
- const result=verdict(request);if(!result.ok||!('materialVersion'in result.snapshot))throw Error('Expected fixture grant')
+ const result=verdict(request);if(!result.ok||!('materialVersion'in result.snapshot)||result.snapshot.materialVersion!==2)throw Error('Expected V2 fixture grant')
  return{...result,snapshot:{...result.snapshot,descriptorSha256:markerSHA,rasterProfile:G,material:{...result.snapshot.material,primarySource:markerPin}}}
 }
 function markerPacket(i:number):PointerData{const p=markerFixture.packets[i];return{...packet(p.x,100+p.t),y:p.y,pressure:p.pressure,tiltX:p.tiltX,tiltY:p.tiltY}}
@@ -662,9 +662,15 @@ it('keeps the indexed selected image source lease across two local gestures and 
   engine.setSize(7.5);expect(await engine.prepareBrush(selectedPreset)).toEqual({status:'ready'})
   // Warm existing data-only required-level lookup before measuring lease cleanup.
   expect(await engine.prepareBrush(selectedPreset)).toEqual({status:'ready'})
-  const initialPrepared=engine['_canonicalPreparedAuthor'],baselineCpu=engine['_brushMipCache'].reservedBytes,abort=new AbortController()
-  expect(await engine.prepareBrush(selectedPreset,{signal:abort.signal,onProgress:(done,total)=>{if(done===total)queueMicrotask(()=>abort.abort())}})).toEqual({status:'cancelled'})
-  expect(engine['_canonicalPreparedAuthor']).toBe(initialPrepared);expect(engine['_brushMipCache'].reservedBytes).toBe(baselineCpu);expect(engine['_canonicalLayerOwner']?.indexedSource).toBeUndefined()
+  const initialPrepared=engine['_canonicalPreparedAuthor'],baselineCpu=engine['_brushMipCache'].reservedBytes,initialDefaultRoots=engine['_canonicalLayerOwner']!.defaultSourceRoots!
+  expect(initialDefaultRoots).toHaveLength(1)
+  for(let attempt=0;attempt<2;attempt++){
+   const abort=new AbortController()
+   expect(await engine.prepareBrush(selectedPreset,{signal:abort.signal,onProgress:(done,total)=>{if(done===total)queueMicrotask(()=>abort.abort())}})).toEqual({status:'cancelled'})
+   expect(engine['_canonicalPreparedAuthor']).toBe(initialPrepared);expect(engine['_brushMipCache'].reservedBytes).toBe(baselineCpu);expect(engine['_canonicalLayerOwner']?.indexedSource).toBeUndefined()
+   const currentRoots=engine['_canonicalLayerOwner']!.defaultSourceRoots!
+   expect(currentRoots).toHaveLength(initialDefaultRoots.length);expect(currentRoots[0].lease).toBe(initialDefaultRoots[0].lease)
+  }
   const sharedAbort=new AbortController()
   const canceled=engine.prepareBrush(selectedPreset,{signal:sharedAbort.signal,onProgress:(done,total)=>{if(done===total)queueMicrotask(()=>sharedAbort.abort())}}),ready=engine.prepareBrush(selectedPreset)
   expect(await canceled).toEqual({status:'cancelled'});expect(await ready).toEqual({status:'ready'})

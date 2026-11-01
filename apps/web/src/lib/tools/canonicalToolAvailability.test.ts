@@ -2,9 +2,11 @@ import {beforeEach,expect,it,vi} from 'vitest'
 import basic6 from '../../engine/src/presets/fixtures/sourcePngWholePath/guiStroke.native.json'
 import mountains from '../../engine/src/presets/fixtures/sourceImagePipe/mountains.native.json'
 import graphite from '../../engine/src/presets/fixtures/sourceImagePipe/pencilRandom.native.json'
-import {CANONICAL_STROKE_RASTER_PROFILE as profile,isBrushLibrary,type ImportedBrush} from '@grafetto/shared'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G,CANONICAL_STROKE_RASTER_PROFILE as profile,isBrushLibrary,type ImportedBrush} from '@grafetto/shared'
 import stock from '../../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
 import {canonicalToolAvailability,canonicalToolOffered} from './canonicalToolAvailability'
+import type {RoomStateLegacyPayload} from '@grafetto/shared'
+import {prepareCanonicalRoomState} from '../../pages/Room/net/canonicalRoomState'
 import {TOOL_SCHEMAS} from './toolSchemas'
 import {resetRoomStore,useRoomStore} from '../../stores/roomStore'
 function library():ImportedBrush[]{
@@ -93,4 +95,24 @@ it('keeps image pointer sensor admission strict and rejects asset-side mismatch/
  const invoked=vi.fn(),metadata={get id(){invoked();return primary.id},size:primary.size}
  expect(canonicalToolAvailability(true,true,read,[original],()=>[metadata])?.options).toHaveLength(0);expect(invoked).not.toHaveBeenCalled()
  expect(canonicalToolAvailability(true,true,read,[original],()=>{throw Error('metadata unavailable')})?.options).toHaveLength(0)
+})
+
+it('uses SAME normalized original author policy for textured tools; OFF/read3 compatibility and stale are not grants',()=>{
+ const descriptor=structuredClone(basic6.descriptor),pattern={id:'asset:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' as const,size:8}
+ descriptor.sourceStamp.flags.textureEnabled=true
+ Object.assign(descriptor.sourceStamp.settings,{'Texture/Pattern/Enabled':'true','PressureTexture/Strength/':'true','Texture/Strength/StrengthVersion':'2','Texture/Strength/UseCurve':'true','Texture/Strength/UseSameCurve':'true','Texture/Strength/Value':'1','Texture/Strength/curveMode':'0','Texture/Strength/Sensor':'<params id="pressure"><curve>0,0;1,1;</curve></params>'})
+ Reflect.set(descriptor,'texture',{id:pattern.id,strength:1,periodPx:4,patternSize:{width:4,height:4},application:{mode:'subtract',soft:false},offset:{x:0,y:0,randomX:false,randomY:false}})
+ const candidate:unknown={schemaVersion:1,brushes:[{descriptor,name:'Self-authored texture',source:'test',warnings:[]}],assets:[{id:basic6.asset.id,size:basic6.asset.size},pattern].map(a=>({...a,file:a.id.slice(6)+'.bin'})),skipped:[]}
+ if(!isBrushLibrary(candidate))throw Error('Invalid self-authored library')
+ let current=true
+ const wire:RoomStateLegacyPayload={room:{id:'test',name:'Test',ownerId:'U',paper:'flat',infinite:false,canvasWidth:8,canvasHeight:8,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[],participants:[],palette:[],frozen:false,lesson:{id:'L',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'test',boardEpoch:2,allowedRasterProfiles:[G]},canonicalAuthorRasterProfile:G,canonicalAuthorPrimaryTextureSource:'pressure-identity-subtract-v3'}
+ const original=prepareCanonicalRoomState(wire,{expectedBoardId:'test',isCurrent:()=>current}).canonicalRead
+ const metadata=()=>candidate.assets
+ expect(canonicalToolAvailability(true,true,original,candidate.brushes,metadata)?.options).toEqual([{id:descriptor.id,sizePx:7.5}])
+ expect(canonicalToolAvailability(true,true,original,candidate.brushes,()=>[candidate.assets[0]])?.options).toEqual([])
+ expect(canonicalToolAvailability(true,false,original,candidate.brushes,metadata)?.status).toBe('restoring')
+ const {canonicalAuthorPrimaryTextureSource:_,...offWire}=wire
+ const off=prepareCanonicalRoomState(offWire,{expectedBoardId:'test',isCurrent:()=>true}).canonicalRead
+ expect(canonicalToolAvailability(true,true,off,candidate.brushes,metadata)?.options).toEqual([])
+ current=false;expect(canonicalToolAvailability(true,true,original,candidate.brushes,metadata)?.status).toBe('restoring')
 })

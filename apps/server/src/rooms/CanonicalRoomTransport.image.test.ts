@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto'
 import {prepareCanonicalRecordedAttachment,type CanonicalStrokeSnapshotV3,parseCanonicalStrokeCloseOperation} from '@grafetto/shared'
-import {freezeCanonicalPrimaryTexturePolicy} from './canonicalExecutionPolicy.js'
+import {freezeCanonicalAuthorPrimaryTexturePolicy,freezeCanonicalPrimaryTexturePolicy} from './canonicalExecutionPolicy.js'
 import {mkdtempSync,rmSync,readFileSync,writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
@@ -236,7 +236,7 @@ function textureSetup(){
  d.texture={id:id as `asset:${string}`,strength:1,periodPx:4,patternSize:{width:4,height:4},application:{mode:'subtract',soft:false},offset:{x:0,y:0,randomX:false,randomY:false}}
  return{...setup(d,{id,size:8,bytes}),pattern:{id,size:8,bytes}}
 }
-const texturePolicy={rasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy']as const,primaryImageSource:'single-inverse-gray-v2'as const,primaryTextureSource:'pressure-identity-subtract-v3'as const}
+const texturePolicy={rasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy']as const,primaryImageSource:'single-inverse-gray-v2'as const,primaryTextureSource:'pressure-identity-subtract-v3'as const,authorPrimaryTextureSource:'pressure-identity-subtract-v3'as const}
 function textureSnapshot(result:CanonicalStrokeBeginResult):CanonicalStrokeSnapshotV3{
  if(!result.ok||!('materialVersion'in result.snapshot)||result.snapshot.materialVersion!==3)throw Error(JSON.stringify(result))
  return result.snapshot
@@ -248,10 +248,14 @@ function textureOperation(s:CanonicalStrokeSnapshotV3,end=true):CanonicalStrokeO
  return{id:'texture-op',userId:'author',timestamp:1,type:'canonical_stroke',layerId:'layer',frame:{version:2,rasterProfile:G,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked}}
 }
 it('keeps primary texture policy default OFF and refuses unsupported policy pairings',async()=>{
- const f=textureSetup(),closed=new CanonicalRoomTransport({...texturePolicy,primaryTextureSource:false})
+ const f=textureSetup(),closed=new CanonicalRoomTransport({...texturePolicy,primaryTextureSource:false,authorPrimaryTextureSource:false})
  expect((await closed.begin(identity,f.input,()=>true)).ok).toBe(false);expect(db.operation.create).not.toHaveBeenCalled()
  expect(freezeCanonicalPrimaryTexturePolicy({})).toBe(false);expect(closed.requiresPrimaryTextureProtocol).toBe(false)
- const mutable={...texturePolicy},enabled=new CanonicalRoomTransport(mutable);Reflect.set(mutable,'primaryTextureSource',false);expect(enabled.requiresPrimaryTextureProtocol).toBe(true)
+ const mutable={...texturePolicy},enabled=new CanonicalRoomTransport(mutable);Reflect.set(mutable,'primaryTextureSource',false);Reflect.set(mutable,'authorPrimaryTextureSource',false);expect(enabled.requiresPrimaryTextureProtocol).toBe(true)
+ expect(freezeCanonicalAuthorPrimaryTexturePolicy({})).toBe(false)
+ expect(()=>new CanonicalRoomTransport({...texturePolicy,primaryTextureSource:false})).toThrow()
+ const readerOnly=new CanonicalRoomTransport({...texturePolicy,authorPrimaryTextureSource:false})
+ expect(readerOnly.requiresPrimaryTextureProtocol).toBe(true);expect((await readerOnly.begin(identity,f.input,()=>true)).ok).toBe(false)
  for(const p of [{...texturePolicy,primaryImageSource:false},{...texturePolicy,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE}])expect(()=>Reflect.apply(freezeCanonicalPrimaryTexturePolicy,null,[p])).toThrow()
 })
 it('binds BOTH actual CAS assets and original SHA, emits explicit BEGIN3 and durable attachment1 snapshot3',async()=>{
@@ -270,7 +274,8 @@ it('binds BOTH actual CAS assets and original SHA, emits explicit BEGIN3 and dur
  const atoms=prepareCanonicalRecordedAttachment(saved.canonicalCapabilities,[saved.accepted!],{roomId:'board',boardEpoch:s.boardEpoch,allowedRasterProfiles:[G]})
  expect(atoms[0].read!.capability.snapshot.materialVersion).toBe(3)
  const repeated=await transport.recorded(identity,op,()=>true);expect(repeated.result).toMatchObject({ok:true,seq:1,duplicate:true});expect(db.operation.create).toHaveBeenCalledTimes(1)
- const row=db.operation.create.mock.calls[0][0].data,cold=new CanonicalBrushCapabilityResolver({...texturePolicy,storage:f.storage,operator:()=>empty(),maxGestures:8})
+ const row=db.operation.create.mock.calls[0][0].data,cold=new CanonicalBrushCapabilityResolver({...texturePolicy,authorPrimaryTextureSource:false,storage:f.storage,operator:()=>empty(),maxGestures:8})
+ expect(()=>cold.prepareBeginGesture(identity,f.input)).toThrow('author policy disabled')
  const read=cold.readRecordedCapability({roomId:'board',boardEpoch:s.boardEpoch,operation:saved.accepted!,row})
  expect(read.material).toEqual(s.material);expect(cold.size).toBe(0)
  const attachment=cold.prepareRecordedAttachment({roomId:'board',boardEpoch:s.boardEpoch,operations:[saved.accepted!],rows:[row]})

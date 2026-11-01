@@ -1,3 +1,4 @@
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G} from '@grafetto/shared'
 import {expect,it} from 'vitest'
 import {indexedFrame,indexedSocketFixture} from '../../../engine/testing/canonicalIndexedReadFixture'
 it('issues original inputs only after the actual open and keeps their parent alive after page release',async()=>{
@@ -147,5 +148,33 @@ it('selects the completed parent after a cancelled recovery export even without 
  const selects=f.requests.filter(request=>request.event==='canonical_history_stream_select')
  expect(selects).toHaveLength(1);expect(selects[0].body.streamId).toBe('read0')
  expect(f.requests.filter(request=>request.event==='canonical_history_stream_reopen')).toHaveLength(1)
+ expect(()=>cut.assertCurrent(cut)).not.toThrow()
+})
+
+// Actual controlled socket ACKs mint the origin; no direct read/grant factory.
+function texturePolicyFixture(){
+ const f=indexedSocketFixture([])
+ Object.assign(f.offer,{authorRasterProfile:G,authorPrimaryTextureSource:'pressure-identity-subtract-v3'});Reflect.set(f.offer.scope,'allowedRasterProfiles',[G])
+ for(const event of ['canonical_history_stream_open','canonical_history_stream_reopen']){
+  const previous=f.handlers[event]
+  f.handlers[event]=async body=>{const response=await previous(body) as {ok:true;value:object};return {...response,value:{...response.value,authorPrimaryTextureSource:'pressure-identity-subtract-v3'}}}
+ }
+ return f
+}
+it('captures author policy on actual original/read/cut and keeps it stable through recovery and FOLLOW',async()=>{
+ const f=texturePolicyFixture(),read=await f.open(),terminal=await read.nextPage(),cut=read.finish(terminal);terminal.release()
+ expect(read.authorPrimaryTextureSource).toBe('pressure-identity-subtract-v3');expect(read.lifetime.authorPrimaryTextureSource).toBe(read.authorPrimaryTextureSource);expect(cut.authorPrimaryTextureSource).toBe(read.authorPrimaryTextureSource)
+ const recovered=await read.lifetime.reopen(cut),end=await recovered.nextPage(),next=recovered.finish(end);end.release()
+ expect(recovered.authorPrimaryTextureSource).toBe(read.authorPrimaryTextureSource)
+ const follow=await read.lifetime.follow(next);expect(follow.authorPrimaryTextureSource).toBe(read.authorPrimaryTextureSource);await follow.cancel()
+ f.setCurrent(false);expect(()=>read.lifetime.assertCurrent()).toThrow()
+ const fresh=indexedSocketFixture([]),off=await fresh.open();expect(off.lifetime.authorPrimaryTextureSource).toBeUndefined();await off.cancel()
+})
+it.each(['open','recovery','follow']as const)('rejects author policy mismatch during actual %s',async mode=>{
+ const f=texturePolicyFixture(),event=mode==='open'?'canonical_history_stream_open':'canonical_history_stream_reopen'
+ const mismatch=()=>{const previous=f.handlers[event];f.handlers[event]=async body=>{const response=await previous(body)as {ok:true;value:Record<string,unknown>};const value={...response.value};delete value.authorPrimaryTextureSource;return{...response,value}}}
+ if(mode==='open'){mismatch();await expect(f.open()).rejects.toThrow();return}
+ const read=await f.open(),end=await read.nextPage(),cut=read.finish(end);end.release();mismatch()
+ await expect(mode==='follow'?read.lifetime.follow(cut):read.lifetime.reopen(cut)).rejects.toThrow()
  expect(()=>cut.assertCurrent(cut)).not.toThrow()
 })

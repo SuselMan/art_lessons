@@ -31,6 +31,7 @@ export interface CanonicalRoomExecutionPolicy {
  readonly recordedSeededDefaultAutoProfile?:false|typeof CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
  readonly primaryImageSource?:'single-inverse-gray-v2'|false
  readonly primaryTextureSource?:'pressure-identity-subtract-v3'|false
+ readonly authorPrimaryTextureSource?:'pressure-identity-subtract-v3'|false
  readonly allowedRecordedImagePipeSources?:readonly CanonicalImagePipeSource[]
  readonly authorImagePipeSources?:readonly CanonicalImagePipeSource[]
  readonly fullHistoryFormat?:CanonicalFullHistoryFormat
@@ -79,6 +80,16 @@ export function freezeCanonicalPrimaryTexturePolicy(value:Pick<CanonicalRoomExec
  const raster=freezeCanonicalRasterPolicy(value)
  if(raster.authorRasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||!raster.allowedRecordedRasterProfiles.includes(CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))throw TypeError('invalid explicit primary texture policy')
  return selected
+}
+
+/** Author selection is independently OFF; a configured read consumer is necessary. */
+export function freezeCanonicalAuthorPrimaryTexturePolicy(value:Pick<CanonicalRoomExecutionPolicy,'authorPrimaryTextureSource'|'primaryTextureSource'|'primaryImageSource'|'authorRasterProfile'|'rasterProfile'|'allowedRecordedRasterProfiles'>):CanonicalRoomExecutionPolicy['authorPrimaryTextureSource'] {
+ const field=Object.getOwnPropertyDescriptor(value,'authorPrimaryTextureSource')
+ if(!field){if('authorPrimaryTextureSource'in value)throw TypeError('invalid explicit author primary texture policy');return false}
+ if(!Object.hasOwn(field,'value'))throw TypeError('invalid explicit author primary texture policy')
+ if(field.value===undefined||field.value===false)return false
+ if(field.value!=='pressure-identity-subtract-v3'||freezeCanonicalPrimaryTexturePolicy(value)!==field.value)throw TypeError('invalid explicit author primary texture policy')
+ return field.value
 }
 
 export type CanonicalImagePipeSource='incremental-inverse-gray-v2'|'random-inverse-gray-v2'

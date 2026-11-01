@@ -1,6 +1,6 @@
 import {captureCanonicalLocalReadScope,attachCanonicalRecordedDelivery} from './canonicalRecordedDelivery'
 import type {CanonicalRecordedLifetime} from '../../../engine'
-import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_RECORDED_ATTACHMENT_LIMITS,LEGACY_ROOM_RASTER_VERSION,STRAIGHT_ROOM_RASTER_VERSION,readRoomRasterVersion,canonicalRecordedRasterProfiles,prepareCanonicalRecordedAttachment,verifyCanonicalEmptyHistoryBase,verifyCanonicalFullHistoryBase,captureCanonicalFullHistoryMetadata,type CanonicalFullHistoryBaseV2,type CanonicalEmptyHistoryBaseV1,type CanonicalPreparedRecordedOperation,type CanonicalStrokeRasterProfile,type Operation,type ServerToClientEvents} from '@grafetto/shared'
+import {canonicalAuthorPrimaryTextureSource,CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_RECORDED_ATTACHMENT_LIMITS,LEGACY_ROOM_RASTER_VERSION,STRAIGHT_ROOM_RASTER_VERSION,readRoomRasterVersion,canonicalRecordedRasterProfiles,prepareCanonicalRecordedAttachment,verifyCanonicalEmptyHistoryBase,verifyCanonicalFullHistoryBase,captureCanonicalFullHistoryMetadata,type CanonicalFullHistoryBaseV2,type CanonicalEmptyHistoryBaseV1,type CanonicalPreparedRecordedOperation,type CanonicalStrokeRasterProfile,type Operation,type ServerToClientEvents} from '@grafetto/shared'
 import {type CanonicalHistoryScope} from './canonicalHistoryPage'
 
 type WireState=import('@grafetto/shared').RoomStateLegacyPayload
@@ -9,6 +9,7 @@ const authority:unique symbol=Symbol('prepared-canonical-room-state')
 export interface CanonicalRoomStateRead extends CanonicalRecordedLifetime {
  readonly scope:CanonicalHistoryScope
  readonly roomGeometry:Readonly<{width:number|undefined;height:number|undefined;infinite:boolean}>
+ readonly authorPrimaryTextureSource?:'pressure-identity-subtract-v3'
  readonly authorRasterProfile:CanonicalStrokeRasterProfile
  readonly tailOperations:readonly Operation[]
  readonly preparedAtoms:readonly CanonicalPreparedRecordedOperation[]
@@ -19,7 +20,7 @@ export interface CanonicalRoomStateRead extends CanonicalRecordedLifetime {
  readonly [authority]:(candidate:unknown,operations:readonly Operation[],boardId:string)=>void
 }
 /** Original connection metadata shared by both finite-history readers. */
-export type CanonicalRoomConnectionRead=Pick<CanonicalRoomStateRead,'scope'|'roomGeometry'|'authorRasterProfile'|'assertCurrent'>
+export type CanonicalRoomConnectionRead=Pick<CanonicalRoomStateRead,'scope'|'roomGeometry'|'authorRasterProfile'|'authorPrimaryTextureSource'|'assertCurrent'>
 export type PreparedCanonicalRoomState=WireState&{readonly canonicalRead:CanonicalRoomStateRead}
 export type IndexedRoomStateDelivery=import('@grafetto/shared').RoomStateIndexedPayload&{readonly canonicalRead?:never;readonly canonicalIndexedRead:import('./canonicalIndexedRead').CanonicalIndexedSocketRead}
 export type RoomStateDelivery=(WireState&{readonly canonicalRead?:CanonicalRoomStateRead;readonly canonicalIndexedRead?:never})|IndexedRoomStateDelivery
@@ -42,6 +43,7 @@ export function prepareCanonicalRoomState(state:WireState,lifetime:{readonly exp
  const profiles=canonicalRecordedRasterProfiles(wireScope)
  const authorRasterProfile=state.canonicalAuthorRasterProfile===undefined?CANONICAL_STROKE_RASTER_PROFILE:state.canonicalAuthorRasterProfile
  if(!profiles.includes(authorRasterProfile))throw Error('Invalid canonical room state author profile')
+ const authorPrimaryTextureSource=canonicalAuthorPrimaryTextureSource(state,'canonicalAuthorPrimaryTextureSource',authorRasterProfile)
  let read:CanonicalRoomStateRead
  const scope=captureCanonicalLocalReadScope({roomId:expectedBoardId,boardEpoch:wireScope.boardEpoch,allowedRasterProfiles:profiles,isCurrent},()=>{
   assertCanonicalRoomStateRead(read,read.tailOperations,expectedBoardId);return read
@@ -67,7 +69,7 @@ export function prepareCanonicalRoomState(state:WireState,lifetime:{readonly exp
  const emptyHistoryBase=rawBase===undefined||fullKind?undefined:verifyCanonicalEmptyHistoryBase(rawBase,baseAtoms,scope)
  const preparedAtoms:CanonicalPreparedRecordedOperation[]=[]
  const operations=baseAtoms.map(atom=>atom.operation);Object.freeze(operations)
- read=Object.freeze({scope,roomGeometry,authorRasterProfile,tailOperations:operations,preparedAtoms,...(emptyHistoryBase?{emptyHistoryBase}:{}),...(fullHistory?{fullHistoryBase:fullHistory.base,assertFullHistoryBase(this:CanonicalRoomStateRead,candidateTail:readonly Operation[]){
+ read=Object.freeze({scope,roomGeometry,authorRasterProfile,...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),tailOperations:operations,preparedAtoms,...(emptyHistoryBase?{emptyHistoryBase}:{}),...(fullHistory?{fullHistoryBase:fullHistory.base,assertFullHistoryBase(this:CanonicalRoomStateRead,candidateTail:readonly Operation[]){
   if(this!==read)throw Error('Foreign canonical full history receiver')
   assertCanonicalRoomStateRead(read,candidateTail,expectedBoardId);return fullHistory
  }}:{}),
@@ -92,7 +94,7 @@ export function preflightRoomStateDelivery(state:IncomingWireState,prepare?:Cano
  const version=readRoomRasterVersion(state.room.rasterVersion)
  if(version===LEGACY_ROOM_RASTER_VERSION){
   if(state.tailOperations?.some(op=>(op.type as string)==='canonical_stroke_close'))throw Error('Canonical close requires a recorded seal owner')
-  if('canonicalHistoryBase'in state||state.canonicalReadScope!==undefined||state.canonicalAuthorRasterProfile!==undefined||state.canonicalCapabilities!==undefined||Object.hasOwn(state,'canonicalRead'))throw Error('Unexpected canonical legacy room state')
+  if('canonicalAuthorPrimaryTextureSource'in state||'canonicalHistoryBase'in state||state.canonicalReadScope!==undefined||state.canonicalAuthorRasterProfile!==undefined||state.canonicalCapabilities!==undefined||Object.hasOwn(state,'canonicalRead'))throw Error('Unexpected canonical legacy room state')
   return state
  }
  if(version!==STRAIGHT_ROOM_RASTER_VERSION||!prepare)throw Error('Unsupported canonical room state')

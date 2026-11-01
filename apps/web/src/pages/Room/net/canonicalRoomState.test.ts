@@ -211,3 +211,18 @@ it('captures original room geometry once before lifetime callbacks and does not 
  s.room.canvasWidth=2;expect(result.canonicalRead.roomGeometry.width).toBe(64)
  expect(result.canonicalRead.assertCurrent()).toBe(result.canonicalRead.scope)
 })
+
+it('captures optional author texture policy only from own DATA original room state; reconnect OFF drops it',()=>{
+ const {state:s}=state();Object.assign(s,{canonicalAuthorRasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,canonicalReadScope:{roomId:'room',boardEpoch:2,allowedRasterProfiles:[CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]},canonicalAuthorPrimaryTextureSource:'pressure-identity-subtract-v3'})
+ let current=true
+ const read=prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>current}).canonicalRead
+ expect(read.authorPrimaryTextureSource).toBe('pressure-identity-subtract-v3')
+ Reflect.deleteProperty(s,'canonicalAuthorPrimaryTextureSource');expect(read.authorPrimaryTextureSource).toBe('pressure-identity-subtract-v3')
+ current=false;expect(()=>read.assertCurrent()).toThrow()
+ expect(prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true}).canonicalRead.authorPrimaryTextureSource).toBeUndefined()
+ for(const invalid of [undefined,false,null,'other']){const value={...s,canonicalAuthorPrimaryTextureSource:invalid};expect(()=>prepareCanonicalRoomState(value as typeof s,{expectedBoardId:'room',isCurrent:()=>true})).toThrow()}
+ let calls=0;const accessor={...s};Object.defineProperty(accessor,'canonicalAuthorPrimaryTextureSource',{get(){calls++;return 'pressure-identity-subtract-v3'}})
+ expect(()=>prepareCanonicalRoomState(accessor,{expectedBoardId:'room',isCurrent:()=>true})).toThrow();expect(calls).toBe(0)
+ const inherited=Object.assign(Object.create({canonicalAuthorPrimaryTextureSource:'pressure-identity-subtract-v3'}),s)
+ expect(()=>prepareCanonicalRoomState(inherited,{expectedBoardId:'room',isCurrent:()=>true})).toThrow()
+})

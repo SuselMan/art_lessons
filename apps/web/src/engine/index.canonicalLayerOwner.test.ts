@@ -34,7 +34,7 @@ function engineFor(prepared:ReturnType<typeof original>){
  // Local state observation supplements only; real engine/services/jobs execute.
  Object.assign(gl,{getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,
   getAttribLocation:(_program:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),
-  getShaderPrecisionFormat:()=>({precision:23}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},
+  getShaderPrecisionFormat:()=>({precision:23,rangeMin:127,rangeMax:127}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},
   getTexParameter:(_target:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,
   getParameter:(key:number)=>key===9001?[0,0,8,8]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
  for(const id of ['background','layer-1'])result.engine.initLayer(id)
@@ -42,7 +42,9 @@ function engineFor(prepared:ReturnType<typeof original>){
  return result
 }
 function recorded(p:ReturnType<typeof original>,seq:number,strokeId:string,ended:boolean,ordinal=0,diameter=8,angle=0,subX=0,subY=0,control=false){
- const f=fixture(ended,diameter,angle,subX,subY),snapshot={...f.attachment.capabilities[0].snapshot,strokeId},op:CanonicalStrokeOperation={...f.op,id:'frame-'+seq,seq,frame:{...f.op.frame,strokeId,frameOrdinal:ordinal}}
+ const f=fixture(ended,diameter,angle,subX,subY),originalSnapshot=f.attachment.capabilities[0].snapshot
+ if(originalSnapshot.materialVersion!==2)throw Error('Expected V2 fixture')
+ const snapshot={...originalSnapshot,strokeId},op:CanonicalStrokeOperation={...f.op,id:'frame-'+seq,seq,frame:{...f.op.frame,strokeId,frameOrdinal:ordinal}}
  if(control)op.frame={...op.frame,materialPacked:buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},snapshot.material).packed}
  if(ordinal)op.frame={...op.frame,materialPacked:buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[{at:0,kind:'gestureEnd'}]},snapshot.material).packed}
  const attachment:CanonicalRecordedAttachmentV1={...f.attachment,capabilities:[{originalUserId:'author',snapshot}],bindings:[{operationId:op.id,sequence:seq,originalUserId:'author',capability:0}]}
@@ -188,7 +190,9 @@ it('admits the actual Basic2Opacity original40 antialiased source pin through th
   expect(createHash('sha256').update(JSON.stringify(descriptor)).digest('hex')).toBe('5413745f981351a6621ec85e75311aadcd64220c599f70bacb18a97e0bf6d985')
   const pin=canonicalDefaultAutoSourceBinding(descriptor,'5413745f981351a6621ec85e75311aadcd64220c599f70bacb18a97e0bf6d985','neon64-f32-fma-v1')
   expect(pin.source.antialias).toBe(true);expect(pin.source.diameter).toBe(40)
-  const f=fixture(),material={...f.attachment.capabilities[0].snapshot.material,primarySource:pin,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}},snapshot={...f.attachment.capabilities[0].snapshot,brush:'brush:'+descriptor.id+'@'+descriptor.version,descriptorSha256:pin.descriptorSha256,material}
+  const f=fixture(),originalSnapshot=f.attachment.capabilities[0].snapshot
+  if(originalSnapshot.materialVersion!==2)throw Error('Expected V2 fixture')
+  const material={...originalSnapshot.material,primarySource:pin,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}},snapshot={...originalSnapshot,brush:'brush:'+descriptor.id+'@'+descriptor.version,descriptorSha256:pin.descriptorSha256,material}
   const geometry=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:pin.source.diameter,ratio:pin.source.ratio,spikes:2,scale:pin.brushScale,angle:pin.brushAngle},{scale:1,ratio:1,rotation:0},.999,.999)
   const recipe={kind:'defaultAuto' as const,source:pin.source,coverageProfile:pin.coverageProfile,brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale:1,ratio:1,rotation:0,subX:.999,subY:.999,width:geometry.maskSize[0],height:geometry.maskSize[1],mirrorH:false,mirrorV:false}
   const packed=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:0,y:0,opacity:1,flow:1}],fences:[{at:0,kind:'segmentBegin',group:0},{at:1,kind:'primaryEnd',group:0},{at:1,kind:'segmentEnd',group:0},{at:1,kind:'gestureEnd'}]},material).packed
@@ -250,9 +254,12 @@ it('continues the same source lane after restoring an original full history with
  try{
   await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
   expect(engine['_canonicalLayerOwner']?.prepared).toBe(false)
+  expect(engine['_log'].entries.map(e=>e.state)).toEqual(['undone','done'])
   engine.appendOriginalRecorded(recorded(p,3,'new',true))
   await vi.waitFor(()=>expect(engine['_rebuildJobs'].size).toBe(0))
-  expect(engine['_log'].entries.map(e=>e.state)).toEqual(['undone','done','done'])
+  // A new gesture by the same author makes the earlier undone branch unreachable.
+  expect(engine['_log'].entries.map(e=>e.state)).toEqual(['gone','done','done'])
+  expect(engine['_log'].redoTarget('author')).toBeNull()
   expect(engine['_log'].pixelOpDoneCount('layer-1')).toBe(1)
   expect(engine['_canonicalLayerOwner']?.coordinator).toBeUndefined()
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}

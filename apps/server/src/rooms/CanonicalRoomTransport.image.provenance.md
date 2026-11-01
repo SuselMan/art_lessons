@@ -146,3 +146,46 @@ Fixtures prove structural policy/CAS/packing/close behavior; they are not a
 claim of native Chalk pixel identity or a live V3 grant. Genuine reimport and
 actual author evidence remain separate QA artifacts. No temporary service,
 browser, database resource, or persistent process was created by this unit.
+
+
+### Server-issued author texture policy (read support remains independent)
+
+The captured immutable execution policy alone emits optional
+`authorPrimaryTextureSource: pressure-identity-subtract-v3` on indexed
+Offer/Begin/Follow, and `canonicalAuthorPrimaryTextureSource` on full room
+delivery. OFF is actual absence. Open rejects policy mismatches; recovery and
+FOLLOW preserve the original issuer policy. No descriptor, material3 row, ACK,
+protocol tag or client request can enable it. Read scope, recorded attachment,
+material Any unions, authority/lifetime and default execution policy unchanged.
+
+One shared own-DATA optional-literal normalizer is used by indexed parsers and
+available for the actual full ingress consumer: absent OFF; PRESENT undefined,
+false, null, unknown, accessors and inherited fields reject; ON requires GenericSC.
+Indexed outer room_state forbids the full-only property, retaining its offer
+discriminant. This metadata is not BEGIN permission.
+
+Focused source-alias shared indexed + full server soft suites: 146/2 PASS,
+maxWorkers1; scoped lint exits0 with no errors and diff-check passes. The real
+seat fixture verifies captured mutable constructor input, full ON/OFF, forged
+offer rejection, original open, empty terminal, same-owner recovery and FOLLOW.
+No runtime/policy activation, shared/dist build, device/service or commit.
+Final source TypeScript status is recorded in the accompanying freeze artifact.
+
+
+### Consumer/author role split (supersedes coupled initial advertisement)
+
+`primaryTextureSource` remains the explicit read/material consumer and protocol3
+requirement. NEW independent `authorPrimaryTextureSource` defaults OFF; ON
+requires that consumer plus the existing image/GenericSC policy. Transport
+advertises only the captured AUTHOR scalar. Resolver author branch requires
+both; recorded reads require consumer only. No unconditional reader3 enable.
+The original default policy remains unchanged.
+
+Actual structural durable3 CAS/SHA fixture now cold-reads and builds attachment1
+snapshot3 with consumer ON / author OFF, while that SAME resolver refuses BEGIN.
+Full/indexed advertisement is absent for reader-only transport; its protocol
+getter remains true, and the existing REAL socket missing/wrong handshake test
+therefore exercises reader ON / author absent. Both-ON writer fixtures declare
+both flags explicitly. Constructor input mutations cannot alter either frozen
+role. Author ON without consumer is invalid rather than silently downgraded.
+Final focused/types/lint results are in the v2 source-freeze artifact.

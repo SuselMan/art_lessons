@@ -53,3 +53,11 @@ local UI2 commit; it is NOT a completed fresh Mountains UI selection claim.
 Existing useToolSync remains the sole prepareBrushPresets/publish/CAS loading
 path before engine.prepareBrush. No engine fetch or ad-hoc pixel installation
 was added. ROOT owns the next immutable UI build and actual selection proof.
+
+
+Author primary texture policy is captured from the SAME current original read
+alongside authorRasterProfile and passed to admission's fourth options argument.
+No local override, protocol-derived enable or snapshot-derived enable exists.
+Restoring/stale reads remain ineligible; exact assets/source/sensor guards remain.
+Room's existing engineEpoch/connected/library memo dependencies follow original
+replacement, so no additional Room state/flag or index.tsx edit is required.
