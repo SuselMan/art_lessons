@@ -1,7 +1,7 @@
 import { MAX_SOURCE_DENSITY_GESTURE_ID } from '../presets/sourceDefaultAutoDensitySeed'
 import {borrowBrushGlTurnAutoUploadRestore,type BrushGlTurn,type BrushGlBatchFrame,type BrushGlBatchInfo,type BrushGlBatchParticipant} from './BrushGlBatch';
 import { canonicalSoftAutoSourcePin, canonicalSoftAutoStatic, sourcePngPyramid } from '@grafetto/shared';
-import { saveBrushGlState,restoreBrushAutoUploadState } from './BrushGlState';
+import { saveBrushGlState,restoreBrushAutoUploadState,type BrushGlContextOwner } from './BrushGlState';
 import type { SourceDabMaterialSpec } from '../presets/sourceDabCache';
 import { buildRgba64FactorLut } from '../raster/sourceRgba64StraightShader';
 import { SOURCE_TRANSFORMED_MASK_VERT, sourceTransformedMaskFragment } from '../raster/sourceTransformedMaskShader';
@@ -199,7 +199,9 @@ export class TransformedMaskPrepass {
   private readonly cache: BrushTextureCache;
   private readonly cpu: BrushMipCache;
   private readonly prefix: string;
-  constructor(gl: WebGLRenderingContext, cache: BrushTextureCache, cpu: BrushMipCache, prefix: string) {
+  private readonly contextOwner?:BrushGlContextOwner;
+  constructor(gl: WebGLRenderingContext, cache: BrushTextureCache, cpu: BrushMipCache, prefix: string,contextOwner?:BrushGlContextOwner) {
+    this.contextOwner=contextOwner;
     this.gl = gl;
     this.cache = cache;
     this.cpu = cpu;
@@ -562,7 +564,7 @@ export class TransformedMaskPrepass {
   brushGlBatchInfo(): BrushGlBatchInfo {return this.recordInfo(this.defaultCapacityRecord())}
   private recordInfo(record:CapacityRecord):BrushGlBatchInfo{
     if(!this.recordReady(record))throw new Error('Prepass capacity is not prepared')
-    return {gl:this.gl,cache:this.cache,cpu:this.cpu,epoch:record.workspace,attributes:this.attributes,instancing:this.instancing,vertexArrays:this.vertexArrays,
+    return {gl:this.gl,cache:this.cache,cpu:this.cpu,contextOwner:this.contextOwner,epoch:record.workspace,attributes:this.attributes,instancing:this.instancing,vertexArrays:this.vertexArrays,
       resources:[...this.recordResources(record),...[...record.sources].map(([key,bytes])=>({key,bytes}))],
       ownedPointSamplers:record.slots.filter((slot):slot is Slot=>!!slot).map(slot=>({key:slot.key,texture:slot.texture,bytes:record.limits.width*record.limits.height*4,epoch:record.workspace}))}
   }

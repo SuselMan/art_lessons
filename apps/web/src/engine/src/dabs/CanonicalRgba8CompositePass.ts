@@ -10,7 +10,7 @@ import type { SourceOver32ScalarControl } from '../presets/sourceOver32Scalar';
 import { SOURCE_OVER32_SCALAR_GLSL } from '../raster/sourceOver32ScalarShader';
 import type { SourceAlphaDarken32Control } from '../presets/sourceAlphaDarken32';
 import { SOURCE_ALPHA_DARKEN32_GLSL } from '../raster/sourceAlphaDarken32Shader';
-import { saveBrushGlState } from './BrushGlState';
+import { saveBrushGlState,type BrushGlContextOwner } from './BrushGlState';
 import { BrushMipCache } from './BrushMipCache';
 import { BrushTextureCache, allocateOwnedBrushTexture, allocateOwnedBrushBuffer, combineOwnedBrushResources, releaseUnpublishedBrushResource, type OwnedBrushResource, type OwnedBrushBuffer } from './BrushTextureCache';
 import { reserveContextStorage, releaseStorageReservation, type StorageReservation } from '../buffers/ContextStorageOwner';
@@ -213,6 +213,7 @@ export class CanonicalRgba8CompositePass {
     private readonly cpu: BrushMipCache;
     private limits?: CanonicalCompositeLimits;
     private workspace?: Workspace;
+  private readonly contextOwner?:BrushGlContextOwner;
     private releaseCpu?: () => void;
     private reservedCpuBytes = 0;
     private companions: readonly Resource[] = [];
@@ -222,9 +223,10 @@ export class CanonicalRgba8CompositePass {
     private vertexArrays: OES_vertex_array_object | null = null;
     private busy = false;
     private batch?: BrushGlBatchFrame;
-    constructor(gl: WebGLRenderingContext, cache: BrushTextureCache, cpu: BrushMipCache, prefix: string) {
+    constructor(gl: WebGLRenderingContext, cache: BrushTextureCache, cpu: BrushMipCache, prefix: string,contextOwner?:BrushGlContextOwner) {
         if (!prefix || prefix.includes('\0'))
             throw new RangeError('Invalid canonical composite scope');
+        this.contextOwner=contextOwner;
         this.gl = gl;
         this.cache = cache;
         this.cpu = cpu;
@@ -371,7 +373,7 @@ export class CanonicalRgba8CompositePass {
     }
     brushGlBatchInfo(): BrushGlBatchInfo {
         if (!this.isReady() || !this.workspace) throw new Error('Composite pass is not prepared');
-        return { gl: this.gl, cache: this.cache, cpu: this.cpu, epoch: this.workspace,
+        return { gl: this.gl, cache: this.cache, cpu: this.cpu, contextOwner:this.contextOwner, epoch: this.workspace,
             attributes: [...this.workspace.programs.values()].map(info => info.attribute), instancing: this.instancing, vertexArrays: this.vertexArrays,
             resources: [...this.companions, ...this.preparedResources()] };
     }

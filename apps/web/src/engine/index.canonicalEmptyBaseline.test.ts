@@ -1,3 +1,5 @@
+import {openBrushGlRestoreGate,closeBrushGlRestoreGate,saveBrushGlState} from './src/dabs/BrushGlState'
+import {runBrushGlTurn} from './src/dabs/BrushGlBatch'
 import {indexedSocketFixture,indexedFrame,indexedSnapshot,indexedAttachment} from './testing/canonicalIndexedReadFixture'
 import type {CanonicalIndexedRead,CanonicalRecordedInput} from './src/oplog/CanonicalRecordedDelivery'
 import {createHash} from 'node:crypto'
@@ -837,4 +839,61 @@ it('uses ordinary ordered evidence when the optional lookahead metadata reservat
   f.fulfill!();await transport.drain();await restore
   expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(5)
  }finally{engine.destroy();expect(cpu.reservedBytes).toBe(0)}
+})
+
+// MockGL intentionally omits binding tracking. Expose these actual engine-owned
+// captured handles only; all unrelated GL state uses the original fixture.
+function captureManagedBindings(gl:WebGLRenderingContext,buffer:WebGLBuffer,texture?:WebGLTexture|null){
+ const original=gl.getParameter.bind(gl)
+ return vi.spyOn(gl,'getParameter').mockImplementation(parameter=>parameter===gl.ARRAY_BUFFER_BINDING?buffer:parameter===gl.TEXTURE_BINDING_2D?(texture??null):original(parameter))
+}
+
+it('activates the engine-minted screen/paper proof after successful FIRST GL initialization in its real canonical services',async()=>{
+ const issuer=indexedSocketFixture([paintedIndexedPreviewFrame(1,0,true)],1),read=await issuer.open(),{engine}=engineFor(read)
+ try{
+  await engine.paperReady();await engine.restoreCanonicalIndexedRoom(read)
+  expect(engine['_glInitializedGeneration']).toBe(engine['_physicalGeneration']);expect(engine['_glSceneGeneration']).toBeGreaterThan(0)
+  const owner=engine['_canonicalLayerOwner']!,gl=engine['gl'],buffer=engine['_screenBuf']!,texture=engine['_paper'].texture
+  gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture)
+  captureManagedBindings(gl,buffer,texture)
+  const buffers=vi.spyOn(gl,'isBuffer'),textures=vi.spyOn(gl,'isTexture')
+  runBrushGlTurn({participants:[owner.prepass,owner.composite],callbackScope:owner.callbackScope},()=>{})
+  expect(buffers).not.toHaveBeenCalledWith(buffer);expect(textures).not.toHaveBeenCalledWith(texture)
+  runBrushGlTurn({participants:[owner.prepass,owner.composite]},()=>{})
+  expect(buffers).toHaveBeenCalledWith(buffer);expect(textures).toHaveBeenCalledWith(texture)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it.each(['physical','scene','initialized','destroyed','lost']as const)('actual engine ownership falls back when %s changes despite retained native pointers',async mutation=>{
+ const issuer=indexedSocketFixture([paintedIndexedPreviewFrame(1,0,true)],1),read=await issuer.open(),{engine}=engineFor(read)
+ try{
+  await engine.paperReady();await engine.restoreCanonicalIndexedRoom(read)
+  const pair=engine['_createCanonicalGlOwner'](),gl=engine['gl'],buffer=engine['_screenBuf']!,texture=engine['_paper'].texture
+  gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture)
+  captureManagedBindings(gl,buffer,typeof texture==='undefined'?null:texture)
+  const gate=openBrushGlRestoreGate(pair.callbackScope,gl,pair.owner),restore=saveBrushGlState(gl,[],null,null,1,false,gate),buffers=vi.spyOn(gl,'isBuffer'),textures=vi.spyOn(gl,'isTexture')
+  restore();expect(buffers).not.toHaveBeenCalledWith(buffer);expect(textures).not.toHaveBeenCalledWith(texture)
+  const prior={physical:engine['_physicalGeneration'],scene:engine['_glSceneGeneration'],initialized:engine['_glInitializedGeneration'],destroyed:engine['_destroyed'],lost:engine['_contextLost']}
+  try{
+   if(mutation==='physical')engine['_physicalGeneration']++
+   if(mutation==='scene')engine['_glSceneGeneration']++
+   if(mutation==='initialized')engine['_glInitializedGeneration']=-1
+   if(mutation==='destroyed')engine['_destroyed']=true
+   if(mutation==='lost')engine['_contextLost']=true
+   expect(engine['_screenBuf']).toBe(buffer);restore()
+   expect(buffers).toHaveBeenCalledWith(buffer);expect(textures).toHaveBeenCalledWith(texture)
+  }finally{engine['_physicalGeneration']=prior.physical;engine['_glSceneGeneration']=prior.scene;engine['_glInitializedGeneration']=prior.initialized;engine['_destroyed']=prior.destroyed;engine['_contextLost']=prior.lost;closeBrushGlRestoreGate(gate)}
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('actual GL rollback invalidates positive ownership before clearing a deleted screen-buffer pointer',async()=>{
+ const issuer=indexedSocketFixture([paintedIndexedPreviewFrame(1,0,true)],1),read=await issuer.open(),{engine}=engineFor(read)
+ try{
+  await engine.paperReady();await engine.restoreCanonicalIndexedRoom(read)
+  const rollback=engine['_initGL'](),pair=engine['_createCanonicalGlOwner'](),gl=engine['gl'],buffer=engine['_screenBuf']!
+  gl.bindBuffer(gl.ARRAY_BUFFER,buffer)
+  captureManagedBindings(gl,buffer)
+  const gate=openBrushGlRestoreGate(pair.callbackScope,gl,pair.owner),restore=saveBrushGlState(gl,[],null,null,0,false,gate),buffers=vi.spyOn(gl,'isBuffer')
+  restore();expect(buffers).not.toHaveBeenCalledWith(buffer)
+  rollback();expect(engine['_glInitializedGeneration']).toBe(-1);expect(engine['_screenBuf']).toBe(buffer)
+  restore();expect(buffers).toHaveBeenCalledWith(buffer);closeBrushGlRestoreGate(gate)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })

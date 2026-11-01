@@ -471,7 +471,7 @@ export class CanonicalWashLayerCoordinator {
           const tile=pending.ownership!.tiles[pending.tile]
           pending.commitTarget=this.target(pending.targetPlan!,tile,true)
           if(!pending.commitTarget){
-            runBrushGlTurn({participants:[this.maskParticipant,this.options.composite]},()=>{
+            runBrushGlTurn({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},()=>{
               this.gl.activeTexture(this.gl.TEXTURE0)
               pending.commitTarget=this.target(pending.targetPlan!,tile)
             })
@@ -549,14 +549,14 @@ export class CanonicalWashLayerCoordinator {
       if(!entry.commitTarget)entry.commitTarget=this.target(entry.targetPlan,tile,true)
       if(performance.now()-turnStarted>=4)return
       if(!entry.commitTarget){
-        runBrushGlTurn({participants:[this.maskParticipant,this.options.composite]},()=>{
+        runBrushGlTurn({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},()=>{
           const gl=this.maskParticipant.brushGlBatchInfo().gl;gl.activeTexture(gl.TEXTURE0)
           entry.commitTarget=this.target(entry.targetPlan!,tile)
         })
         return
       }
     }
-    if (entry.tile < tiles.length) runBrushGlTurn({ participants: [this.maskParticipant, this.options.composite] }, turn => {
+    if (entry.tile < tiles.length) runBrushGlTurn({callbackScope:this.options.callbackScope, participants: [this.maskParticipant, this.options.composite] }, turn => {
       const gl=this.maskParticipant.brushGlBatchInfo().gl
       gl.activeTexture(gl.TEXTURE0)
       const tile = tiles[entry.tile], target = this.target(entry.targetPlan!,tile)
@@ -606,14 +606,14 @@ export class CanonicalWashLayerCoordinator {
     if(!work.derivedTarget)work.derivedTarget=this.target(work.derivedPlan!,p,true)
     if(performance.now()-turnStarted>=4)return
     if(!work.stableTarget||!work.derivedTarget){
-      runBrushGlTurn({participants:[this.maskParticipant,this.options.composite]},()=>{
+      runBrushGlTurn({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},()=>{
         const gl=this.maskParticipant.brushGlBatchInfo().gl;gl.activeTexture(gl.TEXTURE0)
         if(!work.stableTarget)work.stableTarget=this.target(work.stablePlan!,p)
         else work.derivedTarget=this.target(work.derivedPlan!,p)
       })
       return
     }
-    runBrushGlTurn({participants:[this.maskParticipant,this.options.composite]},turn=>{
+    runBrushGlTurn({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite]},turn=>{
       const gl=this.maskParticipant.brushGlBatchInfo().gl
       gl.activeTexture(gl.TEXTURE0)
       // Resolve while preserving the caller's complete GL state. Each actual

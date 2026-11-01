@@ -1,10 +1,14 @@
 import { expect, it, vi } from 'vitest'
+import {BrushMipCache} from './BrushMipCache'
+import {BrushTextureCache} from './BrushTextureCache'
+import {runBrushGlTurn,runBrushGlBatch,type BrushGlBatchParticipant} from './BrushGlBatch'
+import {createBrushGlContextOwner} from './BrushGlState'
 import { MockGL } from '../../testing/mockGL'
 import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { RibbonScratchPool } from '../buffers/RibbonScratchPool'
 import {attachContextStorage,snapshotContextStorage} from '../buffers/ContextStorageOwner'
-import { bindCanonicalLayerTargets,prepareCanonicalLayerFrame } from './CanonicalLayerTargets'
+import { bindCanonicalLayerTargets,prepareCanonicalLayerFrame,isCanonicalOwnedLifetime,createCanonicalRawLifetime } from './CanonicalLayerTargets'
 
 it('binds actual straight tile handles to one validated batch lifetime, and rejects stale re-acquisition', () => {
   const gl = new MockGL() as unknown as WebGLRenderingContext
@@ -84,4 +88,46 @@ it('tracks resident-only target and scratch takes in the same coupled ownership 
   expect(()=>plan.takeResidentScratch(0)).toThrow();expect(snapshotContextStorage(gl)).toMatchObject({residentBytes:128,reservedBytes:64})
  }finally{plan.close();pool.destroy();layer.destroy()}
  expect(snapshotContextStorage(gl)).toMatchObject({residentBytes:0,reservedBytes:0})
+})
+
+it('marks only native factory leases; fake/custom layers stay functional without receiving closed-callback provenance',()=>{
+ const gl=new MockGL() as unknown as WebGLRenderingContext,layer=new TiledLayerBuffer(gl,4,4,undefined,undefined,undefined,'straight-rgba8'),targets=layer.resolveForPaint({minX:0,minY:0,maxX:1,maxY:1})
+ try{
+  const genuine=bindCanonicalLayerTargets(layer,targets)[0].lifetime
+  expect(isCanonicalOwnedLifetime(gl,genuine)).toBe(true);expect(isCanonicalOwnedLifetime(gl,{...genuine})).toBe(false)
+  const fake={pixelEncoding:'straight-rgba8',retainTargets:vi.fn(()=>()=>{})} as unknown as TiledLayerBuffer
+  const external=bindCanonicalLayerTargets(fake,targets)[0].lifetime
+  expect(isCanonicalOwnedLifetime(gl,external)).toBe(false);expect(()=>external.lease()()).not.toThrow()
+  const accessor=vi.fn(()=>TiledLayerBuffer.prototype.retainTargets)
+  Object.defineProperty(layer,'retainTargets',{get:accessor})
+  expect(()=>isCanonicalOwnedLifetime(gl,genuine)).not.toThrow();expect(isCanonicalOwnedLifetime(gl,genuine)).toBe(false);expect(accessor).not.toHaveBeenCalled()
+ }finally{layer.destroy()}
+})
+it('native raw provenance requires real buffers and plain owned metadata; later owner accessors remove the optional trust',()=>{
+ const gl=new MockGL() as unknown as WebGLRenderingContext,buffer=new AccumulationBuffer(gl,4,4,'nearest','straight-rgba8'),owner={alive:true,leases:0},position={x:0,y:0,width:4,height:4}
+ try{
+  const native=createCanonicalRawLifetime(gl,owner,buffer,position)
+  expect(isCanonicalOwnedLifetime(gl,native)).toBe(true);const release=native.lease();expect(owner.leases).toBe(1);release();expect(owner.leases).toBe(0)
+  Object.defineProperty(owner,'alive',{get:()=>true,configurable:true})
+  expect(isCanonicalOwnedLifetime(gl,native)).toBe(false)
+  const external=createCanonicalRawLifetime(gl,owner,buffer,position)
+  expect(isCanonicalOwnedLifetime(gl,external)).toBe(false);external.lease()();expect(owner.leases).toBe(0)
+ }finally{buffer.destroy()}
+})
+
+it('downgrades the whole turn before acquiring a native target whose later method became an accessor',()=>{
+ const gl=new MockGL() as unknown as WebGLRenderingContext,layer=new TiledLayerBuffer(gl,4,4,undefined,undefined,undefined,'straight-rgba8'),cpu=new BrushMipCache(),cache=new BrushTextureCache(gl)
+ try{
+  const lifetime=bindCanonicalLayerTargets(layer,layer.resolveForPaint({minX:0,minY:0,maxX:1,maxY:1}))[0].lifetime,buffer=gl.createBuffer()!,texture=gl.createTexture()!
+  const original=gl.getParameter.bind(gl)
+  Object.assign(gl,{VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,isBuffer:()=>true,isTexture:()=>true,colorMask:()=>{}})
+  vi.spyOn(gl,'getParameter').mockImplementation((p:number)=>p===gl.ARRAY_BUFFER_BINDING?buffer:p===gl.TEXTURE_BINDING_2D?texture:p===9001?[0,0,4,4]:p===9002?[0,0,0,0]:p===9003?[true,true,true,true]:original(p))
+  const pair=createBrushGlContextOwner(gl,{bufferIsCurrent:b=>b===buffer,textureIsCurrent:t=>t===texture}),epoch={}
+  const service:BrushGlBatchParticipant={brushGlBatchInfo:()=>({gl,cache,cpu,epoch,attributes:[],instancing:null,vertexArrays:null,resources:[],contextOwner:pair.owner}),enterBrushGlBatch:()=>()=>{}}
+  const accessor=vi.fn(()=>{gl.deleteBuffer(buffer);gl.deleteTexture(texture);return TiledLayerBuffer.prototype.retainTargets})
+  Object.defineProperty(layer,'retainTargets',{get:accessor})
+  const buffers=vi.spyOn(gl,'isBuffer'),textures=vi.spyOn(gl,'isTexture')
+  runBrushGlTurn({participants:[service],callbackScope:pair.callbackScope},turn=>runBrushGlBatch({turn,participants:[service],owners:[lifetime]},()=>{}))
+  expect(accessor).not.toHaveBeenCalled();expect(buffers).toHaveBeenCalledWith(buffer);expect(textures).toHaveBeenCalledWith(texture);expect(cpu.reservedBytes).toBe(0)
+ }finally{layer.destroy();vi.restoreAllMocks()}
 })

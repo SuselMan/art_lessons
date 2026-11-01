@@ -1,10 +1,24 @@
-import type { AccumulationBuffer } from '../buffers/AccumulationBuffer'
+import { AccumulationBuffer } from '../buffers/AccumulationBuffer'
 import type { RibbonScratchPool,RibbonScratchRequest,RibbonScratchAcquisition } from '../buffers/RibbonScratchPool'
 import type { WorldRect } from '../buffers/tileMath'
 import type { PaintTarget } from '../buffers/ILayerBuffer'
-import type { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
+import { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import type { BrushGlBatchLifetimeFramebuffer } from './BrushGlBatch'
 import type { CanonicalOwnedRgba8Target } from './CanonicalRgba8CompositePass'
+
+// Factory provenance only: no handle/state registry and no caller-supplied
+// arbitrary lease can be marked trusted. Non-native/custom layers still work,
+// but remain on the original native validity-query path.
+const closedLifetimes=new WeakMap<object,{gl:WebGLRenderingContext;closed:()=>boolean}>();
+const nativeRetainTargets=TiledLayerBuffer.prototype.retainTargets;
+function hasNativeRetainTargets(layer:TiledLayerBuffer):boolean {
+  const own=Object.getOwnPropertyDescriptor(layer,'retainTargets')
+  if(own)return 'value'in own&&own.value===nativeRetainTargets
+  if(Object.getPrototypeOf(layer)!==TiledLayerBuffer.prototype)return false
+  const inherited=Object.getOwnPropertyDescriptor(TiledLayerBuffer.prototype,'retainTargets')
+  return !!inherited&&'value'in inherited&&inherited.value===nativeRetainTargets
+}
+export function isCanonicalOwnedLifetime(gl:WebGLRenderingContext,lifetime:object):boolean{const record=closedLifetimes.get(lifetime);if(!record||record.gl!==gl)return false;try{return record.closed()}catch{return false}}
 
 /** Metadata-only binding to real, authoritative straight layer tiles. A binding
  * does not keep textures resident: each synchronous batch acquires its shared
@@ -19,14 +33,17 @@ export function bindCanonicalLayerTargets(layer: TiledLayerBuffer, targets: read
   })
   // Validate the whole set before exposing target handles; this is metadata
   // only and deliberately does not trigger an eviction sweep on release.
-  layer.retainTargets(snapshot)()
+  const native=layer instanceof TiledLayerBuffer&&hasNativeRetainTargets(layer)
+  const acquire=native?()=>nativeRetainTargets.call(layer,snapshot):()=>layer.retainTargets(snapshot)
+  acquire()()
   const layouts=new Map<PaintTarget['buffer'],BrushGlBatchLifetimeFramebuffer>()
   for(const {buffer,originX,originY}of snapshot){
     const certificate=buffer.verifiedFramebufferLayout
     if(!certificate)throw new Error('Canonical layer target lacks a current fixed framebuffer certificate')
     if(!layouts.has(buffer))layouts.set(buffer,Object.freeze({source:buffer,certificate,originX,originY}))
   }
-  const lifetime = Object.freeze({ kind: 'external' as const, owner: Object.freeze({}), ownedFramebufferLayouts:Object.freeze([...layouts.values()]), lease: () => layer.retainTargets(snapshot) })
+  const lifetime = Object.freeze({ kind: 'external' as const, owner: Object.freeze({}), ownedFramebufferLayouts:Object.freeze([...layouts.values()]), lease: acquire })
+  if(snapshot.length&&native)closedLifetimes.set(lifetime,{gl:snapshot[0].buffer.gl,closed:()=>hasNativeRetainTargets(layer)})
   return Object.freeze(snapshot.map(({ buffer, originX, originY }) => Object.freeze({
     brand: 'canonical-straight-rgba8-v1' as const,
     texture: buffer.texture, framebuffer: buffer.fbo, width: buffer.width, height: buffer.height,
@@ -68,4 +85,29 @@ export interface CanonicalLayerFrame {
  scratchAt(index:number):AccumulationBuffer
  transferScratch(index:number):AccumulationBuffer
  close(options?:{lost?:boolean}):void
+}
+
+/** Native raw-wash owner closure: accepts resources/metadata, NEVER a caller
+ * supplied lease callback. This is the executor's former implementation. */
+export function createCanonicalRawLifetime(gl:WebGLRenderingContext,owner:{alive:boolean;leases:number},local:AccumulationBuffer,position:{x:number;y:number;width:number;height:number},original?:AccumulationBuffer):CanonicalOwnedRgba8Target['lifetime']{
+ if(original===local)throw new Error('Canonical wash requires distinct scratch allocations');
+ const data=(object:object,key:string)=>{try{const d=Object.getOwnPropertyDescriptor(object,key);return d&&Object.hasOwn(d,'value')?d.value:undefined}catch{return undefined}};
+ const plainOwner=()=>typeof data(owner,'alive')==='boolean'&&typeof data(owner,'leases')==='number';
+ const plainPosition=['x','y','width','height'].every(key=>typeof data(position,key)==='number');
+ const native=plainOwner()&&plainPosition;
+ if(native)position={x:position.x,y:position.y,width:position.width,height:position.height};
+
+ const pinned=[local,...original?[original]:[]].map(buffer=>{
+  const certificate=buffer.verifiedFramebufferLayout;
+  if(!certificate||buffer.gl!==gl||buffer.pixelEncoding!=='straight-rgba8'||buffer.samplingFilter!=='nearest'||buffer.width!==position.width||buffer.height!==position.height)throw new Error('Stale canonical raw wash framebuffer certificate');
+  return{buffer,certificate,texture:buffer.texture,framebuffer:buffer.fbo};
+ });
+ const ownedPointSampler=Object.freeze({texture:pinned[0].texture,source:local,epoch:owner});
+ const ownedFramebufferLayouts=Object.freeze(pinned.map(({buffer,certificate})=>Object.freeze({source:buffer,certificate,originX:position.x,originY:position.y})));
+ const current=()=>owner.alive&&pinned.every(p=>p.buffer.storageOwnerCurrent&&p.buffer.texture===p.texture&&p.buffer.fbo===p.framebuffer&&p.buffer.gl===gl&&p.buffer.width===position.width&&p.buffer.height===position.height&&p.buffer.verifiedFramebufferLayout===p.certificate);
+ const lifetime=Object.freeze({kind:'external' as const,owner,ownedPointSampler,ownedFramebufferLayouts,lease:()=>{
+  if(!current()||gl.isContextLost()||!current())throw new Error('Stale canonical raw wash');owner.leases++;let held=true;return()=>{if(held){held=false;owner.leases--}};
+ }});
+ if(native&&pinned.every(p=>p.buffer instanceof AccumulationBuffer))closedLifetimes.set(lifetime,{gl,closed:plainOwner});
+ return lifetime;
 }

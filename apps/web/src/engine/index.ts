@@ -11,6 +11,7 @@ import {CanonicalRgba8CompositePass,canonicalRgba8CompositeBudget,type Canonical
 import {CanonicalWashLayerCoordinator,type CanonicalLocalWashAuthor} from './src/dabs/CanonicalWashLayerCoordinator'
 import {planCanonicalTargets} from './src/dabs/CanonicalTargetPlan'
 import {runBrushGlTurn} from './src/dabs/BrushGlBatch'
+import {createBrushGlContextOwner,type BrushGlCanonicalCallbackScope} from './src/dabs/BrushGlState'
 import type {CanonicalRecordedEmptyRoomRead,CanonicalRecordedInput,CanonicalRecordedLifetime,CanonicalIndexedRead,CanonicalIndexedPage,CanonicalIndexedRootProof,CanonicalRootWitnesses,CanonicalAcceptedCut} from './src/oplog/CanonicalRecordedDelivery'
 import { readRoomRasterVersion, roomRasterPixelEncoding, isRasterPixelEncoding, LEGACY_ROOM_RASTER_VERSION, type RasterPixelEncoding, type RoomRasterVersion } from '@grafetto/shared'
 import { attachContextStorage, snapshotContextStorage } from './src/buffers/ContextStorageOwner'
@@ -1602,6 +1603,7 @@ function canonicalLayerMaskCapacity(pin:Pick<CanonicalAutoSource|CanonicalSoftAu
  transformedMaskPrepassBudget(limits);return limits
 }
 interface CanonicalLayerOwner {
+ readonly callbackScope?:BrushGlCanonicalCallbackScope
  readonly plan:CanonicalEmptyPlan;readonly stable:TiledLayerBuffer;readonly generation:number
  readonly cache:BrushTextureCache;readonly prepass:TransformedMaskPrepass;readonly composite:CanonicalRgba8CompositePass
  bank?:CanonicalMaskSourceBank
@@ -1622,6 +1624,7 @@ interface CanonicalEmptyTransaction {
  committed:boolean;finished:boolean;readonly failures:unknown[]
 }
 interface CanonicalEmptyJob {
+ readonly callbackScope?:BrushGlCanonicalCallbackScope
  readonly transaction:CanonicalEmptyTransaction;readonly stable:TiledLayerBuffer;derived:TiledLayerBuffer
  indexedOwner?:CanonicalLayerOwner
  readonly cache:BrushTextureCache;readonly prepass:TransformedMaskPrepass;readonly composite:CanonicalRgba8CompositePass
@@ -6695,7 +6698,7 @@ export class PencilEngine implements PencilEngineAPI {
     const c=job.canonical!,tx=c.transaction,state=tx.indexed!,plan=tx.plan
     if(state.waiting)return
     this._assertCanonicalEmptyCurrent(tx)
-    const owner=c.indexedOwner??=( {plan,stable:c.stable,generation:tx.generation,cache:c.cache,prepass:c.prepass,composite:c.composite,mask:plan.mask,prepared:false,proof:this._captureCanonicalJournal(),inputs:[],indexedCandidate:c,accepting:false,retiring:false,failed:false,outstanding:0,logicalBytes:plan.logicalBytes} )
+    const owner=c.indexedOwner??=( {plan,stable:c.stable,generation:tx.generation,cache:c.cache,prepass:c.prepass,composite:c.composite,callbackScope:c.callbackScope,mask:plan.mask,prepared:false,proof:this._captureCanonicalJournal(),inputs:[],indexedCandidate:c,accepting:false,retiring:false,failed:false,outstanding:0,logicalBytes:plan.logicalBytes} )
     this._prefetchIndexedEvidence(job)
     // Peek only at adjacent originals already owned by this SAME page. This
     // grants no input authority: admission below still validates delivery,
@@ -6853,6 +6856,14 @@ export class PencilEngine implements PencilEngineAPI {
       return this._beginCanonicalEmpty(plan,old,revision,staged)
     }catch(error){return Promise.reject(error)}
   }
+  /** Exclusive engine names only; providers never query GL or cache a result.
+   * Physical/scene domains differ: rollback marks initialized=-1 even when it
+   * deleted a VBO without clearing its pointer. Both domains must stay current. */
+  private _createCanonicalGlOwner(){
+    const gl=this.gl,physical=this._physicalGeneration,scene=this._glSceneGeneration
+    const current=()=>this.gl===gl&&!this._destroyed&&!this._contextLost&&this._physicalGeneration===physical&&this._glSceneGeneration===scene&&this._glInitializedGeneration===physical
+    return createBrushGlContextOwner(gl,{bufferIsCurrent:buffer=>current()&&this._screenBuf===buffer,textureIsCurrent:texture=>current()&&this._paper.ownsCurrentTexture(gl,texture)})
+  }
   private _beginCanonicalEmpty(plan:CanonicalEmptyPlan,old:Map<string,ILayerBuffer>,revision:number,staged:OperationLog,recovery?:CanonicalAcceptedBaseline,indexed?:CanonicalIndexedState):Promise<CanonicalEmptyRoomRestoreResult> {
     return new Promise((resolve,reject)=>{
         const tx:CanonicalEmptyTransaction={plan,old,revision,staged,indexed,generation:this._physicalGeneration,recovery,candidate:new Map(),jobs:[],oldEntries:[...old],resolve,reject,committed:false,finished:false,failures:[]}
@@ -6862,8 +6873,8 @@ export class PencilEngine implements PencilEngineAPI {
           if(recovery||this._glInitializedGeneration!==this._physicalGeneration){this._ribbonScratchPool.forget();tx.rollbackGL=this._initGL()}
           for(const id of IMPLICIT_LAYER_IDS)tx.candidate.set(id,this._makeLayerBuffer())
           const stable=tx.candidate.get(INITIAL_LAYER_ID) as TiledLayerBuffer,derived=this._makeLayerBuffer() as TiledLayerBuffer
-          const cache=new BrushTextureCache(this.gl),prepass=new TransformedMaskPrepass(this.gl,cache,this._brushMipCache,'engine-empty-mask'),composite=new CanonicalRgba8CompositePass(this.gl,cache,this._brushMipCache,'engine-empty-composite')
-          const canonical:CanonicalEmptyJob={transaction:tx,stable,derived,cache,prepass,composite,imageNext:0,stage:0,next:0,outstanding:0,retiring:false,complete:false}
+          const managed=this._createCanonicalGlOwner(),cache=new BrushTextureCache(this.gl),prepass=new TransformedMaskPrepass(this.gl,cache,this._brushMipCache,'engine-empty-mask',managed.owner),composite=new CanonicalRgba8CompositePass(this.gl,cache,this._brushMipCache,'engine-empty-composite',managed.owner)
+          const canonical:CanonicalEmptyJob={transaction:tx,stable,derived,cache,prepass,composite,callbackScope:managed.callbackScope,imageNext:0,stage:0,next:0,outstanding:0,retiring:false,complete:false}
           tx.jobs.push(canonical)
           canonical.releaseMetadata=this._brushMipCache.reserve(1024+plan.inputs.length*128+plan.gestures*512)
           const job:RebuildJob={layerId:INITIAL_LAYER_ID,fresh:stable,chunks:new Map(),cp:null,start:0,applied:[],timer:0,part:null,canonical}
@@ -6972,7 +6983,7 @@ export class PencilEngine implements PencilEngineAPI {
       else if(c.stage===1){c.composite.prepare(plan.composite,[...(c.bank?.preparedResources()??[]),...c.prepass.preparedResources()],transformedMaskPrepassBudget(plan.mask).cpuBytes);c.stage=2}
       else{
         if(!c.coordinator){
-          c.coordinator=new CanonicalWashLayerCoordinator({rasterProfile:plan.profile,layerId:INITIAL_LAYER_ID,layerEpoch:plan.scope.boardEpoch,maxGestures:CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities,pageBounds:plan.page,prepass:c.prepass,composite:c.composite,scratch:this._ribbonScratchPool,
+          c.coordinator=new CanonicalWashLayerCoordinator({rasterProfile:plan.profile,layerId:INITIAL_LAYER_ID,layerEpoch:plan.scope.boardEpoch,maxGestures:CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities,pageBounds:plan.page,prepass:c.prepass,composite:c.composite,scratch:this._ribbonScratchPool,callbackScope:c.callbackScope,
             layer:()=>({buffer:c.stable,epoch:plan.scope.boardEpoch}),presentation:()=>({buffer:c.derived,epoch:plan.scope.boardEpoch}),
             source:(_id,input,local)=>{this._assertCanonicalEmptyCoordinatorCurrent(c);if(local){if(!c.publishedOwner)throw new Error('Canonical candidate cannot accept local input');local.assertCurrent(local);if(local.lifetime!==plan.read)throw new Error('Foreign canonical author lease')}else{if(!input||input.delivery.lifetime!==plan.read||!input.read)throw new Error('Foreign canonical source owner');input.delivery.assertCurrent(input)}const source=local?local.snapshot.material.primarySource:input!.read!.capability.snapshot.material.primarySource;if(source.kind==='image'){const bank=c.publishedOwner?.bank??c.bank;if(!bank)throw new Error('Image canonical bank unavailable');return{bank}}return{autoSource:source}},
             reserveTransient:bytes=>{this._assertCanonicalEmptyCoordinatorCurrent(c);const account=c.publishedOwner??c,limit=c.publishedOwner?.logicalBytes??plan.logicalBytes;if(!Number.isSafeInteger(bytes)||bytes<0||account.outstanding+bytes>Math.min(limit,this._gpuBudget))throw new RangeError('Canonical logical allowance exceeded');account.outstanding+=bytes;let released=false;return()=>{if(!released){released=true;(c.publishedOwner??c).outstanding-=bytes}}},
@@ -7002,7 +7013,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._layers=tx.candidate
     this._canonicalAccepted={plan:tx.plan,revision:this._log.revision,entries:this._log.entries,originalEntries:tx.recovery?.originalEntries??Object.freeze([...this._log.entries]),originalOperations:tx.recovery?.originalOperations??Object.freeze(this._log.entries.map(entry=>entry.op)),originalReads:tx.recovery?.originalReads??Object.freeze(this._log.entries.map(entry=>entry.canonicalRead)),originalStates:tx.recovery?.originalStates??Object.freeze(this._log.entries.map(entry=>entry.state)),generation:tx.generation}
     const resources=tx.jobs[0],maxTiles=Math.min(64,Math.ceil(tx.plan.page.maxX/tx.plan.tileWidth)*Math.ceil(tx.plan.page.maxY/tx.plan.tileHeight))
-    this._canonicalLayerOwner={plan:tx.plan,stable:resources.stable,generation:tx.generation,cache:resources.cache,prepass:resources.prepass,composite:resources.composite,bank:resources.bank,mask:tx.plan.mask,prepared:!!tx.plan.paintInputs.length,proof:this._canonicalAccepted,inputs:tx.plan.inputs,accepting:false,retiring:false,failed:false,outstanding:0,logicalBytes:(maxTiles+2*maxTiles*CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)*tx.plan.tileWidth*tx.plan.tileHeight*4}
+    this._canonicalLayerOwner={plan:tx.plan,stable:resources.stable,generation:tx.generation,cache:resources.cache,prepass:resources.prepass,composite:resources.composite,callbackScope:resources.callbackScope,bank:resources.bank,mask:tx.plan.mask,prepared:!!tx.plan.paintInputs.length,proof:this._canonicalAccepted,inputs:tx.plan.inputs,accepting:false,retiring:false,failed:false,outstanding:0,logicalBytes:(maxTiles+2*maxTiles*CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)*tx.plan.tileWidth*tx.plan.tileHeight*4}
     resources.bank=undefined;resources.publishedOwner=this._canonicalLayerOwner
     if(tx.plan.open){
       // Transfer the charged account once. Existing release closures resolve
@@ -7289,7 +7300,7 @@ export class PencilEngine implements PencilEngineAPI {
     const page=owner.plan.page,width=owner.stable.tileWidth,height=owner.stable.tileHeight
     if(!available()||!this._canonicalWorkspaceIdle(owner)||page.minX!==0||page.minY!==0||page.maxX!==width||page.maxY!==height)return
     const pool=this._ribbonScratchPool
-    runBrushGlTurn({participants:[owner.prepass,owner.composite]},()=>{
+    runBrushGlTurn({callbackScope:owner.callbackScope,participants:[owner.prepass,owner.composite]},()=>{
       this._assertCanonicalLayerCurrent(owner)
       if(!available()||!this._canonicalWorkspaceIdle(owner))return
       let failed=false,primary:unknown
@@ -7438,7 +7449,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(!owner.coordinator){
         owner.lastDisplayedPresentationRevision=undefined
         owner.derived=owner.indexedCandidate?.derived??this._makeLayerBuffer() as TiledLayerBuffer
-        owner.coordinator=new CanonicalWashLayerCoordinator({rasterProfile:owner.plan.profile,layerId:INITIAL_LAYER_ID,layerEpoch:owner.plan.scope.boardEpoch,maxGestures:CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities,pageBounds:owner.plan.page,prepass:owner.prepass,composite:owner.composite,scratch:this._ribbonScratchPool,
+        owner.coordinator=new CanonicalWashLayerCoordinator({rasterProfile:owner.plan.profile,layerId:INITIAL_LAYER_ID,layerEpoch:owner.plan.scope.boardEpoch,maxGestures:CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities,pageBounds:owner.plan.page,prepass:owner.prepass,composite:owner.composite,scratch:this._ribbonScratchPool,callbackScope:owner.callbackScope,
           layer:()=>({buffer:owner.stable,epoch:owner.plan.scope.boardEpoch}),presentation:()=>({buffer:owner.derived!,epoch:owner.plan.scope.boardEpoch}),
           source:(_id,original,local)=>{this._assertCanonicalLayerCurrent(owner);if(local){local.assertCurrent(local);if(local.lifetime!==owner.plan.read)throw new Error('Foreign canonical author lease');const source=local.snapshot.material.primarySource;if(source.kind==='image'){if(owner.indexedLocalSource){const pending=owner.indexedLocalSource;if(pending.author!==local)throw new Error('Foreign local indexed source handoff');owner.indexedLocalSource=undefined;return{bank:pending.lease,sourceLease:pending.lease}}if(!owner.bank)throw new Error('Canonical image bank unavailable');return{bank:owner.bank}}return{autoSource:source}}if(!original||original.delivery.lifetime!==owner.plan.read||!original.read)throw new Error('Foreign canonical source');original.delivery.assertCurrent(original);const source=original.read.capability.snapshot.material.primarySource;if(source.kind==='image'){if(owner.indexedSource){const pending=owner.indexedSource;if(pending.input!==original)throw new Error('Foreign indexed source handoff');owner.indexedSource=undefined;return{bank:pending.lease,sourceLease:pending.lease}}if(!owner.bank)throw new Error('Canonical image bank unavailable');return{bank:owner.bank}}return{autoSource:source}},
           reserveTransient:bytes=>{this._assertCanonicalLayerCurrent(owner);if(!Number.isSafeInteger(bytes)||bytes<0||owner.outstanding+bytes>Math.min(owner.logicalBytes,this._gpuBudget))throw new RangeError('Canonical logical allowance exceeded');owner.outstanding+=bytes;let closed=false;return()=>{if(!closed){closed=true;owner.outstanding-=bytes}}},

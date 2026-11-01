@@ -1,3 +1,4 @@
+import type {BrushGlCanonicalCallbackScope} from './BrushGlState'
 import { captureSourceDefaultAutoDensityStrokeIdentity, type SourceDefaultAutoDensityStrokeIdentity } from '../presets/sourceDefaultAutoDensitySeed'
 import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE, CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, canonicalAutoCost, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition, type CanonicalStrokeRasterProfile, type CanonicalMaterialAsset, type CanonicalAutoSource, type CanonicalSoftAutoSource, type CanonicalAutoRecipe, type CanonicalSoftAutoRecipe, type AnyCanonicalMaterialRecipe, type AnyCanonicalMaterialFrame } from '@grafetto/shared'
 import { SOURCE_RGBA8_GENERIC_SC_PROFILE } from '../presets/sourceColorRgba8'
@@ -10,7 +11,7 @@ import type { RibbonScratchPool } from '../buffers/RibbonScratchPool'
 import type { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { advanceSourcePrimaryComposition, createSourcePrimaryComposition, sealSourcePrimaryComposition, type SourcePrimaryCompositionContext, type SourcePrimaryCompositionResult, type SourcePrimaryCompositionState } from '../presets/sourcePrimaryComposition'
 import { runBrushGlBatch, runBrushGlTurn, type BrushGlTurn } from './BrushGlBatch'
-import { bindCanonicalLayerTargets,prepareCanonicalLayerFrame,type CanonicalLayerFrame } from './CanonicalLayerTargets'
+import { bindCanonicalLayerTargets,prepareCanonicalLayerFrame,createCanonicalRawLifetime,type CanonicalLayerFrame } from './CanonicalLayerTargets'
 import type { CanonicalMaskSourceReader } from './CanonicalMaskSourceBank'
 import type { CanonicalCompositeOperationKind, CanonicalOwnedRgba8Target, CanonicalRgba8CompositePass, CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
 import { canonicalTransformedMaskMetadata } from './TransformedMaskPlan'
@@ -70,6 +71,8 @@ export interface CanonicalWashOwnership {
   release(options?: { lost?: boolean }): void
 }
 export interface CanonicalFrameExecutorOptions {
+  /** Engine-only closed callback capability; generic/custom executors omit it. */
+  readonly callbackScope?:BrushGlCanonicalCallbackScope
   readonly washMode?: 'exclusive' | 'deposition-only'
   /** Pinned by the room/capability adapter, never selected from mutable tools.
    * No default: a caller must explicitly prepare the matching shader pair. */
@@ -427,7 +430,7 @@ export class CanonicalFrameExecutor {
     const request=recipe&&autoRecipe(recipe)?this.maskRequest(work,work.draw):undefined;
     const upload=!!request&&this.maskParticipant.finalAutoUploadPending(request);
     let executed=false;
-    runBrushGlTurn({participants:[this.maskParticipant,this.options.composite],...(upload?{captureAutoUploadUnpack:true as const}:{})},turn=>{
+    runBrushGlTurn({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite],...(upload?{captureAutoUploadUnpack:true as const}:{})},turn=>{
       if(upload){
         this.maskParticipant.flushFinalAutoGeneration(request!,turn);
         if(performance.now()-turnStarted>=4)return;
@@ -746,26 +749,7 @@ export class CanonicalFrameExecutor {
   }
 
   private rawLifetime(local:AccumulationBuffer,position:TilePosition,original?:AccumulationBuffer): CanonicalOwnedRgba8Target['lifetime'] {
-    const owner=this.rawOwner
-    if(original===local)throw new Error('Canonical wash requires distinct scratch allocations')
-    // Actual pool buffers are straight/nearest and exclusively owned. The
-    // original is an FBO copy source; only the raw local texture is sampled.
-    const pinned=[local,...original?[original]:[]].map(buffer=>{
-      const certificate=buffer.verifiedFramebufferLayout
-      if(!certificate||buffer.gl!==this.gl||buffer.pixelEncoding!=='straight-rgba8'||buffer.samplingFilter!=='nearest'
-        ||buffer.width!==position.width||buffer.height!==position.height)throw new Error('Stale canonical raw wash framebuffer certificate')
-      return {buffer,certificate,texture:buffer.texture,framebuffer:buffer.fbo}
-    })
-    const ownedPointSampler=Object.freeze({texture:pinned[0].texture,source:local,epoch:owner})
-    const ownedFramebufferLayouts=Object.freeze(pinned.map(({buffer,certificate})=>Object.freeze({source:buffer,certificate,originX:position.x,originY:position.y})))
-    const current=()=>owner.alive&&pinned.every(p=>p.buffer.storageOwnerCurrent&&p.buffer.texture===p.texture&&p.buffer.fbo===p.framebuffer
-      &&p.buffer.gl===this.gl&&p.buffer.width===position.width&&p.buffer.height===position.height&&p.buffer.verifiedFramebufferLayout===p.certificate)
-    return {kind:'external',owner,ownedPointSampler,ownedFramebufferLayouts,lease:()=>{
-      if(!current()||this.gl.isContextLost()||!current())throw new Error('Stale canonical raw wash')
-      owner.leases++
-      let held=true
-      return ()=>{if(held){held=false;owner.leases--}}
-    }}
+    return createCanonicalRawLifetime(this.gl,this.rawOwner,local,position,original)
   }
 
   rawWashTiles(): readonly CanonicalWashLocalTile[] {
