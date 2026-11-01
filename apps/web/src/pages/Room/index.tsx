@@ -1188,7 +1188,7 @@ function RoomEditor() {
   // topics: #470 replaced a bounded room's CSS transform with a camera, and
   // these are the two halves of keeping that camera honest.
   useCanvasViewport({
-    engineRef, vp, vpRef, vpEl,
+    engineRef, engineEpoch, vp, vpRef, vpEl,
     infinite: config?.infinite ?? false,
     pageW: enginePageW, pageH: enginePageH,
   })

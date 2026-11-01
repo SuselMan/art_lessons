@@ -6,6 +6,8 @@ import type { Viewport } from './viewport/useViewport'
 
 export interface CanvasViewportInput {
   engineRef: RefObject<PencilEngineAPI | null>
+  /** Existing Room lifetime counter: a replacement needs the same viewport. */
+  engineEpoch: number
   /** The gesture layer's live viewport — see useViewport. */
   vp: Viewport
   /** The same element the gestures are measured against. */
@@ -33,19 +35,11 @@ export interface CanvasViewportInput {
  *  configuration and the engine, and pretending otherwise would only hide the
  *  seam it is being pulled through.
  *
- *  **Do not act on `exhaustive-deps` here.** It asks for `engineRef.current`,
- *  `infinite`, `pageW` and `pageH` in the arrays below, and every one of those
- *  requests is wrong. The three values describe the room and cannot change
- *  while it is open — listing them says otherwise and invites a reader to
- *  wonder what happens when they do. `engineRef.current` is worse: the engine
- *  is created after this hook first runs, so a dependency on the instance
- *  would rebuild the resize observer the moment it appeared, and both effects
- *  read it at call time precisely so its identity never matters. The rule only
- *  loses track of this because the ref is a parameter rather than a `useRef`
- *  it can see; the arrays are unchanged from when these effects lived in
- *  Room. */
+ *  Read the engine through its ref, but rerun on Room's existing engineEpoch:
+ *  undo/recovery can replace the engine without changing the viewport or DOM.
+ *  Room geometry is fixed for this mounted room. */
 export function useCanvasViewport(
-  { engineRef, vp, vpRef, vpEl, infinite, pageW, pageH }: CanvasViewportInput,
+  { engineRef, engineEpoch, vp, vpRef, vpEl, infinite, pageW, pageH }: CanvasViewportInput,
 ): void {
   useEffect(() => {
     const el = vpRef.current; if (!el) return
@@ -74,7 +68,7 @@ export function useCanvasViewport(
       // Input history uses the authored CSS zoom, independently of rounded backing pixels.
       engineRef.current?.setInfiniteCamera(x, y, vp.zoom / nz, vp.angle, vp.zoom)
     }
-  }, [vp, vpRef])
+  }, [vp, vpRef, engineEpoch])
 
   // The canvas element tracks the viewport container's own size (#133 Phase 1
   // for infinite rooms, every room since #470: a bounded room's canvas used to
@@ -111,14 +105,20 @@ export function useCanvasViewport(
       applySize(entry.contentRect.width, entry.contentRect.height)
     })
     observer.observe(el)
-    // And once the engine exists, since the observer's own first callback has
-    // very likely already come and gone by then.
-    const engineArrived = window.setInterval(() => {
-      if (!engineRef.current) return
-      window.clearInterval(engineArrived)
+    // A replacement already exists at this effect: size it synchronously so
+    // input cannot use the new camera with the default backing dimensions.
+    const applyCurrentSize = (): void => {
       const rect = el.getBoundingClientRect()
       applySize(rect.width, rect.height)
+    }
+    let engineArrived: number | undefined
+    if (engineRef.current) applyCurrentSize()
+    else engineArrived = window.setInterval(() => {
+      if (!engineRef.current) return
+      window.clearInterval(engineArrived)
+      applyCurrentSize()
     }, 50)
     return () => { observer.disconnect(); window.clearInterval(engineArrived) }
-  }, [vpEl])
+
+  }, [vpEl, engineEpoch])
 }
