@@ -640,3 +640,84 @@ it('rejects late genuine indexed terminal delivery after original owner invalida
   expect(engine.getCanonicalIndexedCut()).toBeNull();expect(engine['_rebuildJobs'].size).toBe(0);expect(engine['_brushMipCache'].reservedBytes).toBe(0)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
+
+function paintedIndexedPreviewFrame(seq:number,ordinal:number,ended=false,stroke='preview'){
+ const op=indexedFrame(seq,stroke,ended,ordinal)
+ if(op.type!=='canonical_stroke'||indexedSnapshot.material.primarySource.kind!=='defaultAuto')throw Error('Default original required')
+ const pin=indexedSnapshot.material.primarySource,g=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:pin.source.diameter,ratio:pin.source.ratio,spikes:2,scale:pin.brushScale,angle:pin.brushAngle},{scale:.01,ratio:1,rotation:0},0,0)
+ op.frame={...op.frame,materialPacked:buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe:{kind:'defaultAuto',source:pin.source,coverageProfile:pin.coverageProfile,brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale:.01,ratio:1,rotation:0,subX:0,subY:0,width:g.maskSize[0],height:g.maskSize[1],mirrorH:false,mirrorV:false},role:'primary',x:ordinal,y:0,opacity:.5,flow:.7}],fences:[{kind:'segmentBegin',at:0,group:ordinal},{kind:'primaryEnd',at:1,group:ordinal},{kind:'segmentEnd',at:1,group:ordinal},...(ended?[{kind:'gestureEnd' as const,at:1}]:[])]},indexedSnapshot.material).packed}
+ return op
+}
+it('defers unpublished SAME-page continuation previews, but flushes every page boundary before the genuine final cut',async()=>{
+ const run=async(pageSize:number)=>{
+  const operations=Array.from({length:4},(_,i)=>paintedIndexedPreviewFrame(i+1,i,i===3)),issuer=indexedSocketFixture(operations,pageSize),read=await issuer.open(),{engine}=engineFor(read)
+  const advance=vi.spyOn(CanonicalWashLayerCoordinator.prototype,'advance'),present=vi.spyOn(CanonicalWashLayerCoordinator.prototype as unknown as {present:(started:number)=>void},'present'),draw=vi.spyOn(CanonicalRgba8CompositePass.prototype,'drawSource')
+  const next=issuer.handlers.canonical_history_stream_next
+  issuer.handlers.canonical_history_stream_next=body=>{
+   if(Number(body.afterSeq)>0){
+    const coordinator=engine['_rebuildJobs'].get('layer-1')?.canonical?.indexedOwner?.coordinator
+    if(coordinator){expect(coordinator.pending).toBe(false);expect(coordinator.presentationReady).toBe(true)}
+   }
+   return next(body)
+  }
+  try{
+   await engine.paperReady();const transport=indexedRestoreTransport(engine),restore=engine.restoreCanonicalIndexedRoom(read)
+   void restore.catch(()=>{});await transport.drain();await restore
+   const deferred=advance.mock.calls.filter(([options])=>options?.deferPresentation).length
+   expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(4);expect(engine['_canonicalPixelsReady']).toBe(true)
+   expect(draw.mock.calls.filter(([request])=>request.source.kind==='maskRgb')).toHaveLength(4)
+   expect(engine['_canonicalLayerOwner']?.coordinator).toBeUndefined()
+   return {deferred,presents:present.mock.calls.length}
+  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);advance.mockRestore();present.mockRestore();draw.mockRestore()}
+ }
+ const boundary=await run(1),samePage=await run(64)
+ expect(boundary.deferred).toBe(0);expect(samePage.deferred).toBeGreaterThan(0);expect(samePage.presents).toBeLessThan(boundary.presents)
+})
+it('flushes preview before a different original root and never defers its ended predecessor',async()=>{
+ const operations=[paintedIndexedPreviewFrame(1,0,true,'one'),paintedIndexedPreviewFrame(2,0,true,'two')],issuer=indexedSocketFixture(operations,64),read=await issuer.open(),{engine}=engineFor(read),advance=vi.spyOn(CanonicalWashLayerCoordinator.prototype,'advance')
+ try{
+  await engine.paperReady();await engine.restoreCanonicalIndexedRoom(read)
+  expect(advance.mock.calls.every(([options])=>!options?.deferPresentation)).toBe(true)
+  expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(2)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('does not defer healthy physical recovery of an accepted original indexed prefix',async()=>{
+ const operations=Array.from({length:3},(_,i)=>paintedIndexedPreviewFrame(i+1,i,i===2)),issuer=indexedSocketFixture(operations,64),read=await issuer.open(),{engine}=engineFor(read),advance=vi.spyOn(CanonicalWashLayerCoordinator.prototype,'advance')
+ try{
+  await engine.paperReady();await engine.restoreCanonicalIndexedRoom(read);advance.mockClear()
+  engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));engine['_handleContextRestored']()
+  await vi.waitFor(()=>expect(engine['_canonicalPixelsReady']).toBe(true),{timeout:5000})
+  expect(advance).toHaveBeenCalled();expect(advance.mock.calls.every(([options])=>!options?.deferPresentation)).toBe(true)
+  expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(3)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+for(const failure of ['stale','cancel'] as const)it(`rejects actual ${failure} after deferred deposition without publishing a cut or retaining ownership`,async()=>{
+ const operations=Array.from({length:4},(_,i)=>paintedIndexedPreviewFrame(i+1,i,i===3)),issuer=indexedSocketFixture(operations,64),read=await issuer.open(),{engine}=engineFor(read)
+ const advance=CanonicalWashLayerCoordinator.prototype.advance
+ let deferred=false,interrupted=false
+ vi.spyOn(CanonicalWashLayerCoordinator.prototype,'advance').mockImplementation(function(this:CanonicalWashLayerCoordinator,options){
+  advance.call(this,options)
+  if(options?.deferPresentation){deferred=true;if(!this.executionPending&&!interrupted){interrupted=true;if(failure==='stale')issuer.setCurrent(false);else engine['_cancelRebuildJob']('layer-1')}}
+ })
+ try{
+  await engine.paperReady();const layers=engine['_layers'],revision=engine['_log'].revision
+  const restore=engine.restoreCanonicalIndexedRoom(read),rejected=expect(restore).rejects.toThrow()
+  await rejected
+  expect(deferred).toBe(true);expect(interrupted).toBe(true)
+  expect(engine.getCanonicalIndexedCut()).toBeNull();expect(engine['_canonicalPixelsReady']).toBe(false)
+  expect(engine['_layers']).toBe(layers);expect(engine['_log'].revision).toBe(revision)
+  expect(engine['_rebuildJobs'].size).toBe(0);expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('keeps metadata and hidden original roots on the ordinary validation path without source preparation',async()=>{
+ const first=paintedIndexedPreviewFrame(1,0,false,'hidden'),last=paintedIndexedPreviewFrame(2,1,true,'hidden'),undo={id:'hide',seq:3,type:'operation_undo' as const,userId:'actor',timestamp:1,targetOpId:first.id}
+ const operations=[first,last,undo],issuer=indexedSocketFixture(operations,64)
+ issuer.handlers.canonical_history_stream_evidence=body=>({ok:true,value:{kind:'canonical-indexed-history-root-evidence-v1',streamId:'read0',throughSeq:3,root:body.root,rows:operations,canonicalCapabilities:indexedAttachment(operations),first:0,terminal:1,lastMetadata:2,latestRedo:null,firstUndoAfterLatestRedo:2,ownBranchAfterUndo:null}})
+ const read=await issuer.open(),{engine}=engineFor(read),prepare=vi.spyOn(TransformedMaskPrepass.prototype,'prepare'),advance=vi.spyOn(CanonicalWashLayerCoordinator.prototype,'advance')
+ try{
+  await engine.paperReady();await engine.restoreCanonicalIndexedRoom(read)
+  expect(prepare).not.toHaveBeenCalled();expect(advance).not.toHaveBeenCalled()
+  expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(3);expect(engine.hasLayerContent('layer-1')).toBe(false)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})

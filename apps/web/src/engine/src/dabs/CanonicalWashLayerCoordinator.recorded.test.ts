@@ -41,10 +41,10 @@ function fixture(compositeSide=4){
  const scope=Object.freeze({roomId:'room',boardEpoch:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE})
  let current=true,replaced=false
  const lifetime:CanonicalRecordedLifetime=Object.freeze({assertCurrent(){if(this!==lifetime||!current)throw Error('stale');return replaced?Object.freeze({...scope}):scope}})
- const input=(userId='author',ordinal=0,seq=1,ended=false,painted=false)=>{
+ const input=(userId='author',ordinal=0,seq=1,ended=false,painted=false,group=0)=>{
   const dab=painted?prepareSourceDefaultAutoDab({dialect:'krita-default-auto-qt5-arm64-v1',tip:{...pin.source,kind:'auto',spikes:2,softness:1,randomness:0,density:1},storedScale:pin.brushScale,storedAngle:pin.brushAngle,shape:{scale:.01,ratio:1,rotation:0},subpixelX:0,subpixelY:0,coverageProfile:nativeCoverage,maxPixels:1048576,maxWorkSamples:16*1048576}):undefined
   const recipe={kind:'defaultAuto' as const,source:pin.source,coverageProfile:pin.coverageProfile,brushScale:pin.brushScale,brushAngle:pin.brushAngle,scale:.01,ratio:1,rotation:0,subX:0,subY:0,width:dab?.geometry.maskSize[0]??1,height:dab?.geometry.maskSize[1]??1,mirrorH:false,mirrorV:false}
-  const paintedMaterial=painted?buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:0,y:0,opacity:.5,flow:.7}],fences:[{kind:'segmentBegin',at:0,group:0},{kind:'primaryEnd',at:1,group:0},{kind:'segmentEnd',at:1,group:0},...(ended?[{kind:'gestureEnd' as const,at:1}]:[])]},material):undefined
+  const paintedMaterial=painted?buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:0,y:0,opacity:.5,flow:.7}],fences:[{kind:'segmentBegin',at:0,group},{kind:'primaryEnd',at:1,group},{kind:'segmentEnd',at:1,group},...(ended?[{kind:'gestureEnd' as const,at:1}]:[])]},material):undefined
   const packed=paintedMaterial?.packed??buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:ended?[{kind:'gestureEnd',at:0}]:[]},material).packed
   const operation:CanonicalStrokeOperation={type:'canonical_stroke',id:`${userId}-${seq}`,userId,timestamp:0,seq,layerId:'layer',frame:{version:1,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,brush:snapshot.brush,strokeId:'same',frameOrdinal:ordinal,pigmentRgb8:snapshot.pigmentRgb8,composition:snapshot.composition,materialPacked:packed}}
   const atom=prepareCanonicalRecordedAttachment({version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:userId,snapshot}],bindings:[{operationId:operation.id,sequence:seq,originalUserId:userId,capability:0}]},[operation],scope)[0]
@@ -456,4 +456,56 @@ it('derives local promotion resource reuse from the exact current receipt withou
   expect(s.coordinator.hasLocalRecordedPromotion(own)).toBe(false)
  }finally{s.close()}
  expect(s.cpu.reservedBytes).toBe(0)
+})
+
+// The fixture executes genuine original delivery, source mask generation,
+// deposition and commit services. recordingGL does not rasterize pixels.
+it('defers only NEW derived previews while preserving actual deposition and final stable composition',()=>{
+ const run=(defer:boolean)=>{
+  const s=fixture(),present=vi.spyOn(s.coordinator as unknown as {present:(started:number)=>void},'present'),draw=vi.spyOn(s.composite,'drawSource')
+  const deposition:unknown[]=[],commit:unknown[]=[]
+  try{
+   for(let ordinal=0;ordinal<4;ordinal++){
+    s.coordinator.enqueueRecorded(s.input('author',ordinal,ordinal+1,ordinal===3,true,ordinal))
+    let turns=0
+    while((defer&&ordinal<3?s.coordinator.executionPending:s.coordinator.pending)){
+     if(++turns>1000)throw Error('Cooperative execution stalled')
+     s.coordinator.advance(defer&&ordinal<3?{deferPresentation:true}:undefined)
+    }
+    if(defer&&ordinal<3){expect(s.coordinator.pending).toBe(true);expect(s.coordinator.presentationReady).toBe(false);expect(s.coordinator.checkpointReady).toBe(false);expect(present).not.toHaveBeenCalled()}
+   }
+   for(const [request]of draw.mock.calls){
+    const row={source:request.source.kind,operation:request.operation,writeBounds:request.writeBounds}
+    if(request.source.kind==='maskRgb')deposition.push(row)
+    else if(request.target.texture===s.layer['tiles'].values().next().value?.texture)commit.push(row)
+   }
+   expect(s.coordinator.checkpointReady).toBe(true);expect(s.coordinator.executionPending).toBe(false)
+   return {deposition,commit,present:present.mock.calls.length}
+  }finally{s.close();expect(s.cpu.reservedBytes).toBe(0)}
+ }
+ const ordinary=run(false),deferred=run(true)
+ expect(deferred.deposition).toHaveLength(4);expect(deferred.deposition).toEqual(ordinary.deposition)
+ expect(deferred.commit).toEqual(ordinary.commit);expect(deferred.commit.length).toBeGreaterThan(0)
+ expect(deferred.present).toBeLessThan(ordinary.present)
+})
+it('finishes an already-started preview normally even when later execution requests deferral',()=>{
+ const s=fixture(1),present=vi.spyOn(s.coordinator as unknown as {present:(started:number)=>void},'present')
+ try{
+  s.coordinator.enqueueRecorded(s.input('author',0,1,false,true))
+  let turns=0
+  while(!s.coordinator['work']){if(++turns>1000)throw Error('Preview never started');s.coordinator.advance()}
+  const started=present.mock.calls.length
+  while(s.coordinator.executionPending){if(++turns>2000)throw Error('Partial preview stalled');s.coordinator.advance({deferPresentation:true})}
+  expect(present.mock.calls.length).toBeGreaterThan(started);expect(s.coordinator.presentationReady).toBe(true)
+  expect(s.coordinator.checkpointReady).toBe(false)
+ }finally{s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it('cancels deferred dirty originals without leaking source or scratch ownership',()=>{
+ const s=fixture()
+ try{
+  s.coordinator.enqueueRecorded(s.input('author',0,1,false,true))
+  let turns=0;while(s.coordinator.executionPending){if(++turns>1000)throw Error('Execution stalled');s.coordinator.advance({deferPresentation:true})}
+  expect(s.coordinator.pending).toBe(true);s.coordinator.cancel()
+  expect(s.coordinator.presentationReady).toBe(false);expect(s.coordinator.checkpointReady).toBe(false)
+ }finally{s.close();expect(s.cpu.reservedBytes).toBe(0)}
 })

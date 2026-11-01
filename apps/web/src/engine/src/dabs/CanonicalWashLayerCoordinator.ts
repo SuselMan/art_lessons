@@ -162,6 +162,8 @@ export class CanonicalWashLayerCoordinator {
   /** Original receipts only; a retained local lease after promotion is not pending. */
   get hasPendingLocal():boolean {return this.entries.some(entry=>!!entry.local?.receipts.length)}
   get poisoned(): boolean { return this.failed }
+  /** Pixel execution still owed when an unpublished restore defers NEW preview. */
+  get executionPending():boolean { return !!this.queue.length || !!this.work || !!this.commitFrontier()?.ownership }
   get pending(): boolean { return !!this.queue.length || !!this.dirty.size || !!this.work || !!this.commitFrontier()?.ownership }
   get presentationReady(): boolean { return !this.failed && !this.closed && !this.dirty.size && !this.work }
   /** Visual publication exists only after every dirty position has finished. */
@@ -448,7 +450,7 @@ export class CanonicalWashLayerCoordinator {
   /** Exactly one existing deposition turn OR one <=8 draw rebase/commit turn.
    * No draw leases or GL state survive the synchronous return. Metadata
    * storage pins can span turns; no RAF, promise or automatic retry is created. */
-  advance(): void {
+  advance(options:{readonly deferPresentation?:true}={}): void {
     this.assertOpen();this.assertRecordedCurrent(); this.busy = true
     try {
       const turnStarted = performance.now()
@@ -478,7 +480,10 @@ export class CanonicalWashLayerCoordinator {
         }
         this.advanceEntry(this.queue[0],0)
       }
-      else if (this.dirty.size) this.present(turnStarted)
+      // A started preview owns physical plans and must finish normally. Only
+      // a NEW preview may wait while an unpublished indexed candidate consumes
+      // its next already-delivered continuation. Readiness remains unchanged.
+      else if (this.dirty.size && (this.work || !options.deferPresentation)) this.present(turnStarted)
       else if (this.queue.length)this.advanceEntry(this.queue[0],0)
     } catch (error) {
       this.failed = true

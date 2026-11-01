@@ -6635,7 +6635,18 @@ export class PencilEngine implements PencilEngineAPI {
     if(state.waiting)return
     this._assertCanonicalEmptyCurrent(tx)
     const owner=c.indexedOwner??=( {plan,stable:c.stable,generation:tx.generation,cache:c.cache,prepass:c.prepass,composite:c.composite,mask:plan.mask,prepared:false,proof:this._captureCanonicalJournal(),inputs:[],indexedCandidate:c,accepting:false,retiring:false,failed:false,outstanding:0,logicalBytes:plan.logicalBytes} )
-    if(owner.coordinator?.pending||owner.coordinator?.queuedFrameCount){owner.coordinator.advance();this._assertCanonicalEmptyCurrent(tx);this._scheduleCanonicalRebuild(job);return}
+    // Peek only at adjacent originals already owned by this SAME page. This
+    // grants no input authority: admission below still validates delivery,
+    // snapshot and the actual material prefix. Never span a page/END/root.
+    const previous=state.inputs?.[state.next-1]?.operation,nextInput=state.inputs?.[state.next],nextOperation=nextInput?.operation
+    const adjacent=!tx.recovery&&!!state.page&&!state.replayingSuffix&&previous?.type==='canonical_stroke'&&nextOperation?.type==='canonical_stroke'
+      &&previous.userId===nextOperation.userId&&previous.layerId===nextOperation.layerId&&previous.frame.strokeId===nextOperation.frame.strokeId
+      &&nextOperation.frame.frameOrdinal===previous.frame.frameOrdinal+1&&previous.seq===state.count&&nextOperation.seq===state.count+1
+    const continuing=adjacent?state.roots.get(JSON.stringify([nextOperation.userId,nextOperation.frame.strokeId])):undefined
+    const deferPresentation=!!continuing?.visible&&nextOperation?.type==='canonical_stroke'&&nextOperation.frame.frameOrdinal===continuing.state.nextOrdinal
+    if(owner.coordinator&&(deferPresentation?owner.coordinator.executionPending:owner.coordinator.pending)){
+      owner.coordinator.advance(deferPresentation?{deferPresentation:true}:undefined);this._assertCanonicalEmptyCurrent(tx);this._scheduleCanonicalRebuild(job);return
+    }
     if(owner.coordinator?.checkpointReady){
       const errors=this._retireCanonicalLayerCycle(owner,false);if(errors.length)throw errors[0]
       c.derived=this._makeLayerBuffer() as TiledLayerBuffer
