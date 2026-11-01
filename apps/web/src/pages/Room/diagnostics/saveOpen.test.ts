@@ -19,8 +19,38 @@ describe('saving all room opens independently of Sentry', () => {
   })
   it('retries a lost response with the same attempt and preserves the finish', async () => {
     vi.useFakeTimers()
-    vi.mocked(apiResponse).mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce(new Response())
+    vi.mocked(apiResponse).mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce(new Response('{"ok":true}'))
     saveRoomOpenMeasurement(measurement)
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(apiResponse).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(apiResponse).mock.calls[1][1]).toEqual({ body: measurement })
+  })
+  it('consumes the successful response without blocking the caller on its body', async () => {
+    vi.useFakeTimers()
+    let finish!: () => void
+    const response = new Response(new ReadableStream({ start(controller) {
+      controller.enqueue(new TextEncoder().encode('{"ok":true}'))
+      finish = () => controller.close()
+    } }))
+    vi.mocked(apiResponse).mockResolvedValueOnce(response)
+    expect(saveRoomOpenMeasurement(measurement)).toBeUndefined()
+    try {
+      await vi.advanceTimersByTimeAsync(0)
+      expect(response.bodyUsed).toBe(true)
+    } finally { finish() }
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(apiResponse).toHaveBeenCalledTimes(1)
+  })
+  it('retries a response body failure with the same id after receiving headers', async () => {
+    vi.useFakeTimers()
+    let fail!: () => void
+    const response = new Response(new ReadableStream({ start(controller) {
+      fail = () => controller.error(new Error('body interrupted'))
+    } }))
+    vi.mocked(apiResponse).mockResolvedValueOnce(response).mockResolvedValueOnce(new Response('{"ok":true}'))
+    saveRoomOpenMeasurement(measurement)
+    await vi.advanceTimersByTimeAsync(0)
+    fail()
     await vi.advanceTimersByTimeAsync(2000)
     expect(apiResponse).toHaveBeenCalledTimes(2)
     expect(vi.mocked(apiResponse).mock.calls[1][1]).toEqual({ body: measurement })

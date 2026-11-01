@@ -7,9 +7,12 @@ import { ApiError, apiResponse } from '../../../lib/api/api'
 export function saveRoomOpenMeasurement(measurement: RoomOpenMeasurement): void {
   const send = async (attempt: number): Promise<void> => {
     try {
-      await apiResponse('POST /api/me/room-open', { body: measurement }, {
+      const response = await apiResponse('POST /api/me/room-open', { body: measurement }, {
         keepalive: true, signal: AbortSignal.timeout(15_000),
       })
+      // Receiving headers does not finish reading the response. Drain the small
+      // acknowledgement before its timeout can abort an unused body stream.
+      await response.json()
     } catch (error) {
       // Invalid input/identity is not repaired by retries. Transient failures
       // get bounded retries, with the same id so a lost response is harmless.
