@@ -1,7 +1,7 @@
 import {decodeCanonicalStrokeFrame} from './canonicalStrokeFrame.js'
 import {CANONICAL_RECORDED_ATTACHMENT_LIMITS,prepareCanonicalRecordedAttachment,type CanonicalPreparedRecordedOperation,type CanonicalRecordedAttachmentV1} from './canonicalRecordedAttachment.js'
 import {captureCanonicalFullHistoryMetadata} from './canonicalFullHistoryBase.js'
-import {CANONICAL_INDEXED_HISTORY_LIMITS,parseCanonicalIndexedRoot,type CanonicalIndexedHistoryBeginV1,type CanonicalIndexedHistoryPageV1,type CanonicalIndexedHistoryRootEvidenceV1,type CanonicalIndexedRootV1,type CanonicalIndexedOperation} from './canonicalIndexedHistory.js'
+import {CANONICAL_INDEXED_HISTORY_LIMITS,parseCanonicalIndexedRoot,type CanonicalIndexedHistoryStartV1,type CanonicalIndexedHistoryPageV1,type CanonicalIndexedHistoryRootEvidenceV1,type CanonicalIndexedRootV1,type CanonicalIndexedOperation} from './canonicalIndexedHistory.js'
 
 const fail=():never=>{throw new TypeError('Invalid canonical indexed original page')}
 function fields(value:unknown,keys:readonly string[]):Record<string,unknown>{
@@ -30,7 +30,7 @@ function captureRows(value:unknown,limit:number):readonly CanonicalIndexedOperat
   return { ...op,frame } as unknown as CanonicalIndexedOperation
  }))
 }
-function attachmentOf(atoms:readonly CanonicalPreparedRecordedOperation[],begin:CanonicalIndexedHistoryBeginV1):CanonicalRecordedAttachmentV1{
+function attachmentOf(atoms:readonly CanonicalPreparedRecordedOperation[],begin:CanonicalIndexedHistoryStartV1):CanonicalRecordedAttachmentV1{
  const capabilities:CanonicalRecordedAttachmentV1['capabilities'][number][]=[],bindings:CanonicalRecordedAttachmentV1['bindings'][number][]=[]
  const indexes=new Map<NonNullable<CanonicalPreparedRecordedOperation['read']>['capability'],number>()
  for(const atom of atoms){if(!atom.read)continue
@@ -40,7 +40,7 @@ function attachmentOf(atoms:readonly CanonicalPreparedRecordedOperation[],begin:
  }
  return Object.freeze({version:1,roomId:begin.scope.roomId,boardEpoch:begin.scope.boardEpoch,capabilities:Object.freeze(capabilities),bindings:Object.freeze(bindings)})
 }
-function prepareRows(value:unknown,rawAttachment:unknown,begin:CanonicalIndexedHistoryBeginV1,limit:number){
+function prepareRows(value:unknown,rawAttachment:unknown,begin:CanonicalIndexedHistoryStartV1,limit:number){
  const rows=captureRows(value,limit)
  const atoms=prepareCanonicalRecordedAttachment(rawAttachment,rows,begin.scope)
  const operations=Object.freeze(atoms.map(atom=>atom.operation as CanonicalIndexedOperation))
@@ -52,8 +52,8 @@ function prepareRows(value:unknown,rawAttachment:unknown,begin:CanonicalIndexedH
 }
 /** DATA preparation only. Actual authenticated ingress binds issuer, current
  * origin and request before lending these originals to an executor. */
-export function prepareCanonicalIndexedHistoryPage(value:unknown,begin:CanonicalIndexedHistoryBeginV1,afterSeq:number):Readonly<{page:CanonicalIndexedHistoryPageV1;atoms:readonly CanonicalPreparedRecordedOperation[]}>{
- if(!seq(afterSeq)||afterSeq>begin.throughSeq||!value||typeof value!=='object')return fail()
+export function prepareCanonicalIndexedHistoryPage(value:unknown,begin:CanonicalIndexedHistoryStartV1,afterSeq:number):Readonly<{page:CanonicalIndexedHistoryPageV1;atoms:readonly CanonicalPreparedRecordedOperation[]}>{
+ if(!seq(afterSeq)||afterSeq<begin.floor||afterSeq>begin.throughSeq||!value||typeof value!=='object')return fail()
  const t=Object.getOwnPropertyDescriptor(value,'terminal')
  if(!t||!Object.hasOwn(t,'value')||typeof t.value!=='boolean')return fail()
  const v=fields(value,['kind','streamId','throughSeq','afterSeq','nextAfterSeq','operations','canonicalCapabilities','terminal',...(t.value?['finish']:[])])
@@ -61,9 +61,13 @@ export function prepareCanonicalIndexedHistoryPage(value:unknown,begin:Canonical
  const {operations,atoms,canonicalCapabilities}=prepareRows(v.operations,v.canonicalCapabilities,begin,CANONICAL_INDEXED_HISTORY_LIMITS.pageOperations)
  if(t.value){
   if(operations.length!==0||afterSeq!==begin.throughSeq||v.nextAfterSeq!==afterSeq)return fail()
-  const f=fields(v.finish,['kind','streamId','throughSeq','operationCount','lastSeq'])
-  if(f.kind!=='canonical-indexed-history-finish-v1'||f.streamId!==begin.streamId||f.throughSeq!==begin.throughSeq||f.operationCount!==begin.throughSeq||f.lastSeq!==begin.throughSeq)return fail()
-  const finish=Object.freeze({kind:'canonical-indexed-history-finish-v1' as const,streamId:begin.streamId,throughSeq:begin.throughSeq,operationCount:begin.throughSeq,lastSeq:begin.throughSeq})
+  const follow=begin.kind==='canonical-indexed-history-follow-v1'
+  const f=fields(v.finish,['kind','streamId','throughSeq','operationCount','lastSeq',...follow?['floor']:[]])
+  const kind=follow?'canonical-indexed-history-follow-finish-v1':'canonical-indexed-history-finish-v1'
+  if(f.kind!==kind||f.streamId!==begin.streamId||f.throughSeq!==begin.throughSeq||f.operationCount!==begin.operationCount||f.lastSeq!==begin.throughSeq||follow&&f.floor!==begin.floor)return fail()
+  const finish=Object.freeze(follow
+   ?{kind:'canonical-indexed-history-follow-finish-v1' as const,streamId:begin.streamId,floor:begin.floor,throughSeq:begin.throughSeq,operationCount:begin.operationCount,lastSeq:begin.throughSeq}
+   :{kind:'canonical-indexed-history-finish-v1' as const,streamId:begin.streamId,throughSeq:begin.throughSeq,operationCount:begin.operationCount,lastSeq:begin.throughSeq})
   const page:CanonicalIndexedHistoryPageV1=Object.freeze({kind:v.kind,streamId:begin.streamId,throughSeq:begin.throughSeq,afterSeq,nextAfterSeq:afterSeq,operations:Object.freeze([]) as readonly [],canonicalCapabilities,terminal:true,finish})
   return Object.freeze({page,atoms})
  }
@@ -75,7 +79,7 @@ export function prepareCanonicalIndexedHistoryPage(value:unknown,begin:Canonical
 
 /** Bounded original witnesses. Root membership and absence are attested by the
  * actual indexed issuer; this parser alone cannot establish that issuer. */
-export function prepareCanonicalIndexedRootEvidence(value:unknown,begin:CanonicalIndexedHistoryBeginV1,expectedRoot:CanonicalIndexedRootV1):Readonly<{evidence:CanonicalIndexedHistoryRootEvidenceV1;atoms:readonly CanonicalPreparedRecordedOperation[]}>{
+export function prepareCanonicalIndexedRootEvidence(value:unknown,begin:CanonicalIndexedHistoryStartV1,expectedRoot:CanonicalIndexedRootV1):Readonly<{evidence:CanonicalIndexedHistoryRootEvidenceV1;atoms:readonly CanonicalPreparedRecordedOperation[]}>{
  const v=fields(value,['kind','streamId','throughSeq','root','rows','canonicalCapabilities','first','terminal','lastMetadata','latestRedo','firstUndoAfterLatestRedo','ownBranchAfterUndo'])
  if(v.kind!=='canonical-indexed-history-root-evidence-v1'||v.streamId!==begin.streamId||v.throughSeq!==begin.throughSeq)return fail()
  const root=parseCanonicalIndexedRoot(v.root),expected=parseCanonicalIndexedRoot(expectedRoot)

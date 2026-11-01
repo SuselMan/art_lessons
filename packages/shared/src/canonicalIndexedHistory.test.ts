@@ -13,7 +13,7 @@ const requests:[(v:unknown)=>unknown,Record<string,unknown>][]=[
  [parseCanonicalHistoryStreamEvidence,{streamId:'read',requestId:'evidence',root}],
  [parseCanonicalHistoryStreamSelect,{streamId:'read',requestId:'select',historyAction:'redo'}],
  [parseCanonicalHistoryStreamCancel,{streamId:'read',requestId:'cancel'}],
- [parseCanonicalHistoryStreamReopen,{offerId:'offer',roomId:'room',boardEpoch:2,throughSeq:2048}],
+ [parseCanonicalHistoryStreamReopen,{mode:'recovery',offerId:'offer',roomId:'room',boardEpoch:2,throughSeq:2048}],
 ]
 describe('indexed history closed data without read authority',()=>{
  it('copies the explicit mixed read policy without using the author as a whitelist',()=>{
@@ -58,4 +58,15 @@ describe('indexed history closed data without read authority',()=>{
   expect(()=>parseCanonicalHistoryStreamEvidence({streamId:'read',requestId:'e',root:{...root,firstSequence:0}})).toThrow()
   expect(()=>parseCanonicalHistoryStreamSelect({streamId:'read',requestId:'s',historyAction:'clear'})).toThrow()
  })
+})
+
+it('keeps a follow range distinct from a full baseline and bounds each hop, not the session',async()=>{
+ const {parseCanonicalIndexedHistoryFollow,parseCanonicalIndexedHistoryStart}=await import('./canonicalIndexedHistory.js')
+ const follow={kind:'canonical-indexed-history-follow-v1',streamId:'follow',parentStreamId:'read',scope,roomGeometry,authorRasterProfile:profiles[0],floor:10000,throughSeq:10064,operationCount:64,latestObservedSeq:20000}
+ expect(parseCanonicalIndexedHistoryFollow(follow)).toEqual(follow)
+ expect(parseCanonicalIndexedHistoryStart(follow).kind).toBe(follow.kind)
+ expect(()=>parseCanonicalIndexedHistoryBegin(follow)).toThrow()
+ for(const v of [{...follow,throughSeq:10065,operationCount:65},{...follow,operationCount:10064},{...follow,latestObservedSeq:10063},{...follow,streamId:'read'}])expect(()=>parseCanonicalIndexedHistoryFollow(v)).toThrow()
+ expect(parseCanonicalHistoryStreamReopen({mode:'follow',streamId:'read',requestId:'follow',afterSeq:10000})).toMatchObject({mode:'follow'})
+ expect(()=>parseCanonicalHistoryStreamReopen({mode:'follow',offerId:'offer',roomId:'room',boardEpoch:2,throughSeq:10000})).toThrow()
 })

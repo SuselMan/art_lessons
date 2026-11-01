@@ -43,6 +43,28 @@ export interface CanonicalIndexedHistoryFinishV1 {
   readonly operationCount:number // === C
   readonly lastSeq:number // === C
 }
+export interface CanonicalIndexedHistoryFollowV1 {
+ readonly kind:'canonical-indexed-history-follow-v1'
+ readonly streamId:string
+ readonly parentStreamId:string
+ readonly scope:Readonly<CanonicalRecordedReadScope>
+ readonly roomGeometry:CanonicalIndexedRoomGeometry
+ readonly authorRasterProfile:CanonicalStrokeRasterProfile
+ readonly floor:number
+ readonly throughSeq:number
+ readonly operationCount:number
+ /** Observed producer watermark only, never original read/paint authority. */
+ readonly latestObservedSeq:number
+}
+export interface CanonicalIndexedHistoryFollowFinishV1 {
+ readonly kind:'canonical-indexed-history-follow-finish-v1'
+ readonly streamId:string
+ readonly floor:number
+ readonly throughSeq:number
+ readonly operationCount:number
+ readonly lastSeq:number
+}
+export type CanonicalIndexedHistoryStartV1=CanonicalIndexedHistoryBeginV1|CanonicalIndexedHistoryFollowV1
 interface CanonicalIndexedPageCommon {
   readonly kind:'canonical-indexed-history-page-v1'
   readonly streamId:string
@@ -60,7 +82,7 @@ export type CanonicalIndexedHistoryPageV1 =
   | (CanonicalIndexedPageCommon & {
       readonly terminal:true
       readonly operations:readonly [] // actual indexed EMPTY query, afterSeq===nextAfterSeq===C
-      readonly finish:CanonicalIndexedHistoryFinishV1
+      readonly finish:CanonicalIndexedHistoryFinishV1|CanonicalIndexedHistoryFollowFinishV1
     })
 export interface CanonicalIndexedRootV1 {
   readonly originalUserId:string
@@ -87,7 +109,9 @@ export interface CanonicalHistoryStreamNextV1 { readonly streamId:string; readon
 export interface CanonicalHistoryStreamEvidenceV1 { readonly streamId:string; readonly requestId:string; readonly root:CanonicalIndexedRootV1 }
 export interface CanonicalHistoryStreamSelectV1 { readonly streamId:string; readonly requestId:string; readonly historyAction:CanonicalHistoryAction }
 export interface CanonicalHistoryStreamCancelV1 { readonly streamId:string; readonly requestId:string }
-export interface CanonicalHistoryStreamReopenV1 { readonly offerId:string; readonly roomId:string; readonly boardEpoch:number; readonly throughSeq:number }
+export type CanonicalHistoryStreamReopenV1 =
+ |{readonly mode:'recovery';readonly offerId:string;readonly roomId:string;readonly boardEpoch:number;readonly throughSeq:number}
+ |{readonly mode:'follow';readonly streamId:string;readonly requestId:string;readonly afterSeq:number}
 export type CanonicalHistoryReadError = 'not_joined'|'canonical_repair_required'|'invalid_operation'|
   'read_expired'|'read_busy'|'invalid_history'|'stale_read'
 export type CanonicalHistoryAck<T> =
@@ -102,7 +126,7 @@ export interface CanonicalHistoryStreamRequestMap {
   canonical_history_stream_open:readonly [CanonicalHistoryOpenRequestV1, CanonicalHistoryAck<CanonicalIndexedHistoryBeginV1>]
   canonical_history_stream_next:readonly [CanonicalHistoryStreamNextV1, CanonicalHistoryAck<CanonicalIndexedHistoryPageV1>]
   canonical_history_stream_evidence:readonly [CanonicalHistoryStreamEvidenceV1, CanonicalHistoryAck<CanonicalIndexedHistoryRootEvidenceV1>]
-  canonical_history_stream_reopen:readonly [CanonicalHistoryStreamReopenV1, CanonicalHistoryAck<CanonicalIndexedHistoryBeginV1>]
+  canonical_history_stream_reopen:readonly [CanonicalHistoryStreamReopenV1, CanonicalHistoryAck<CanonicalIndexedHistoryStartV1>]
   canonical_history_stream_select:readonly [CanonicalHistoryStreamSelectV1, CanonicalHistoryAck<CanonicalHistorySelectResultV1|null>]
   canonical_history_stream_cancel:readonly [CanonicalHistoryStreamCancelV1, CanonicalHistoryAck<{readonly streamId:string; readonly requestId:string}>]
 }
@@ -186,9 +210,17 @@ export function parseCanonicalHistoryStreamCancel(value:unknown):Readonly<Canoni
  return Object.freeze({streamId:v.streamId,requestId:v.requestId})
 }
 export function parseCanonicalHistoryStreamReopen(value:unknown):Readonly<CanonicalHistoryStreamReopenV1>{
- const v=fields(value,['offerId','roomId','boardEpoch','throughSeq'])
- if(!text(v.offerId)||!text(v.roomId)||!sequence(v.boardEpoch)||!sequence(v.throughSeq))return fail()
- return Object.freeze({offerId:v.offerId,roomId:v.roomId,boardEpoch:v.boardEpoch,throughSeq:v.throughSeq})
+ if(!value||typeof value!=='object')return fail()
+ const mode=Object.getOwnPropertyDescriptor(value,'mode')
+ if(!mode||!Object.hasOwn(mode,'value'))return fail()
+ if(mode.value==='follow'){
+  const v=fields(value,['mode','streamId','requestId','afterSeq'])
+  if(!text(v.streamId)||!text(v.requestId)||!sequence(v.afterSeq))return fail()
+  return Object.freeze({mode:'follow',streamId:v.streamId,requestId:v.requestId,afterSeq:v.afterSeq})
+ }
+ const v=fields(value,['mode','offerId','roomId','boardEpoch','throughSeq'])
+ if(v.mode!=='recovery'||!text(v.offerId)||!text(v.roomId)||!sequence(v.boardEpoch)||!sequence(v.throughSeq))return fail()
+ return Object.freeze({mode:'recovery',offerId:v.offerId,roomId:v.roomId,boardEpoch:v.boardEpoch,throughSeq:v.throughSeq})
 }
 
 export type CanonicalHistoryStreamClientEvents = {
@@ -196,4 +228,20 @@ export type CanonicalHistoryStreamClientEvents = {
   request:CanonicalHistoryStreamRequestMap[K][0],
   ack:(result:CanonicalHistoryStreamRequestMap[K][1])=>void,
  )=>void
+}
+
+/** Follow is a bounded original range after an actual completed parent; the
+ * received floor is DATA until bound to that parent by private ingress. */
+export function parseCanonicalIndexedHistoryFollow(value:unknown):Readonly<CanonicalIndexedHistoryFollowV1>{
+ const v=fields(value,['kind','streamId','parentStreamId','scope','roomGeometry','authorRasterProfile','floor','throughSeq','operationCount','latestObservedSeq'])
+ if(v.kind!=='canonical-indexed-history-follow-v1'||!text(v.streamId)||!text(v.parentStreamId)||v.streamId===v.parentStreamId||!sequence(v.floor)||!sequence(v.throughSeq)||v.throughSeq<v.floor||v.throughSeq-v.floor>CANONICAL_INDEXED_HISTORY_LIMITS.pageOperations||v.operationCount!==v.throughSeq-v.floor||!sequence(v.latestObservedSeq)||v.latestObservedSeq<v.throughSeq)return fail()
+ const s=scope(v.scope),roomGeometry=geometry(v.roomGeometry),authorRasterProfile=canonicalStrokeRasterContract(v.authorRasterProfile).profile
+ if(!s.allowedRasterProfiles!.includes(authorRasterProfile))return fail()
+ return Object.freeze({kind:v.kind,streamId:v.streamId,parentStreamId:v.parentStreamId,scope:s,roomGeometry,authorRasterProfile,floor:v.floor,throughSeq:v.throughSeq,operationCount:v.throughSeq-v.floor,latestObservedSeq:v.latestObservedSeq})
+}
+export function parseCanonicalIndexedHistoryStart(value:unknown):Readonly<CanonicalIndexedHistoryStartV1>{
+ if(!value||typeof value!=='object')return fail()
+ const tag=Object.getOwnPropertyDescriptor(value,'kind')
+ if(!tag||!Object.hasOwn(tag,'value'))return fail()
+ return tag.value==='canonical-indexed-history-follow-v1'?parseCanonicalIndexedHistoryFollow(value):parseCanonicalIndexedHistoryBegin(value)
 }
