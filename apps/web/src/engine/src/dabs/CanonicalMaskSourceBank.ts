@@ -46,11 +46,12 @@ export interface CanonicalPatternSourceJob {
 }
 export type CanonicalMaskSourceJob=CanonicalNativeImageSourceJob|CanonicalPatternSourceJob
 const patternResourceBrand:unique symbol=Symbol('canonical-pattern-resource')
-const patternViews=new WeakMap<object,(owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>void>()
-export function assertCanonicalPatternResourceCurrent(resource:CanonicalPatternResource,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache}):void {
+const patternViews=new WeakMap<object,{readonly root:CanonicalMaskSourceLease;readonly assert:(owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>void}>()
+export function assertCanonicalPatternResourceCurrent(resource:CanonicalPatternResource,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache},expectedRoot?:CanonicalMaskSourceLease):void {
   const check=patternViews.get(resource)
   if(!check)throw new Error('Unknown canonical pattern view')
-  check(owners)
+  if(expectedRoot!==undefined&&check.root!==expectedRoot)throw new Error('Canonical pattern root handle changed')
+  check.assert(owners)
 }
 export interface CanonicalPatternResource {
   readonly [patternResourceBrand]:true
@@ -467,7 +468,7 @@ export class CanonicalMaskSourceBank {
         if(failed)throw error
         return undefined
       }
-      return Object.freeze({
+      const handle:CanonicalMaskSourceLease=Object.freeze({
         patternResource:(pin:CanonicalPrimaryTexturePin,asset:CanonicalMaterialAsset,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>{
           assertHandle()
           if(owners.gl!==this.gl||owners.cache!==this.cache||owners.cpu!==this.cpu)throw new Error('Canonical pattern owner changed')
@@ -478,11 +479,11 @@ export class CanonicalMaskSourceBank {
           if(!texture)throw new Error('Canonical pattern resource unavailable')
           assertHandle()
           const view:CanonicalPatternResource=Object.freeze({[patternResourceBrand]:true as const,kind:'raw-pattern-l8',key:job.key,asset:job.asset,texture,width:a.size,height:a.size,sampling:'nearest-clamp-l8-v1'})
-          patternViews.set(view,expected=>{
+          patternViews.set(view,{root:handle,assert:expected=>{
             assertHandle()
             if(expected.gl!==this.gl||expected.cache!==this.cache||expected.cpu!==this.cpu||this.cache.resourceBytes(job.key)!==job.bytes||this.cache.get(job.key)!==texture)throw new Error('Canonical pattern view changed')
             assertHandle()
-          })
+          }})
           return view
         },
         isReady:()=>{assertHandle();return ready()},
@@ -506,6 +507,7 @@ export class CanonicalMaskSourceBank {
         },
         release:releaseHandle,
       })
+      return handle
     }
     lease=makeHandle(owner,noRelease)
     const assert=(receiver:unknown)=>{if(receiver!==preparation)throw new Error('Canonical root preparation receiver changed');current();if(state==='pending'&&this.pending!==preparation)throw new Error('Canonical root preparation replaced')}

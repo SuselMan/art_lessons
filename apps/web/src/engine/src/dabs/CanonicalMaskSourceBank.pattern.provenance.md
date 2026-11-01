@@ -78,3 +78,9 @@ literal issues were corrected; no production failure was hidden. Legacy test
 changes are only explicit native-image union narrowing at four accesses. No
 runtime/dependency copy, browser/device job, service or background process was
 created by this unit; no temporary process remains. No commit yet.
+
+Executor integration adds an optional expectedRoot argument to the existing view
+assertion. The private view record remembers its genuine minting root handle;
+a forwarded view from a wrapper or sibling cannot certify SAME-handle identity.
+The original two-argument currentness behavior is unchanged. This is storage-only
+provenance, no semantic execution grant or GL liveness witness/global state cache.

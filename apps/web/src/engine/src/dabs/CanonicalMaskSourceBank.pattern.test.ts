@@ -97,3 +97,12 @@ it('refuses raw patterns at legacy full constructor and extension before readers
   expect(()=>full!.beginExtension(new Array(257),companion)).toThrow(/plan/)
  }finally{full?.reset();cleanup(s)}
 })
+
+it('binds genuine pattern views to the exact minting root handle without changing two-argument checks',()=>{
+ const s=fixture(),a=input();try{const root=prepare(s,a),child=root.retain(),view=child.patternResource(a.pin,a.asset,s)
+  assertCanonicalPatternResourceCurrent(view,s);assertCanonicalPatternResourceCurrent(view,s,child)
+  expect(()=>assertCanonicalPatternResourceCurrent(view,s,root)).toThrow(/root handle/)
+  const forwarded={...child,patternResource:()=>view};expect(()=>assertCanonicalPatternResourceCurrent(forwarded.patternResource(),s,forwarded)).toThrow(/root handle/)
+  child.release();root.release()
+ }finally{cleanup(s)}
+})

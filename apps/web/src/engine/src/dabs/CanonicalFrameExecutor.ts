@@ -1,3 +1,4 @@
+import {captureCanonicalPrimaryTextureFrame,canonicalPrimaryTextureMaterialContext,canonicalPrimaryTextureStrengthU8,canonicalImageMaterialPin,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,type CanonicalMaterialContextV3,type CanonicalMaterialFrameV3} from '@grafetto/shared'
 import type {BrushGlCanonicalCallbackScope} from './BrushGlState'
 import { captureSourceDefaultAutoDensityStrokeIdentity, type SourceDefaultAutoDensityStrokeIdentity } from '../presets/sourceDefaultAutoDensitySeed'
 import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE, CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, canonicalAutoCost, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition, type CanonicalStrokeRasterProfile, type CanonicalMaterialAsset, type CanonicalAutoSource, type CanonicalSoftAutoSource, type CanonicalAutoRecipe, type CanonicalSoftAutoRecipe, type AnyCanonicalMaterialRecipe, type AnyCanonicalMaterialFrame } from '@grafetto/shared'
@@ -12,7 +13,7 @@ import type { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { advanceSourcePrimaryComposition, createSourcePrimaryComposition, sealSourcePrimaryComposition, type SourcePrimaryCompositionContext, type SourcePrimaryCompositionResult, type SourcePrimaryCompositionState } from '../presets/sourcePrimaryComposition'
 import { runBrushGlBatch, runBrushGlTurn, type BrushGlTurn } from './BrushGlBatch'
 import { bindCanonicalLayerTargets,prepareCanonicalLayerFrame,createCanonicalRawLifetime,type CanonicalLayerFrame } from './CanonicalLayerTargets'
-import type { CanonicalMaskSourceReader } from './CanonicalMaskSourceBank'
+import {assertCanonicalPatternResourceCurrent,type CanonicalPatternResource,type CanonicalMaskSourceReader,type CanonicalMaskSourceLease} from './CanonicalMaskSourceBank'
 import type { CanonicalCompositeOperationKind, CanonicalOwnedRgba8Target, CanonicalRgba8CompositePass, CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
 import { canonicalTransformedMaskMetadata } from './TransformedMaskPlan'
 import type { AnyTransformedMaskRequest, CanonicalMaskCapacityLease, TransformedMaskPrepass } from './TransformedMaskPrepass'
@@ -33,6 +34,22 @@ export interface CanonicalFrameSubmission {
   readonly assets: readonly CanonicalMaterialAsset[]
   readonly rgb: readonly [number, number, number]
   readonly composition: SourcePrimaryCompositionContext
+}
+/** Explicit local renderer input; the global shared Any unions stay V1/2. */
+export interface CanonicalFrameSubmissionV3 extends Omit<CanonicalFrameSubmission,'frame'|'densityStrokeIdentity'> {
+  readonly frame:CanonicalMaterialFrameV3
+  readonly densityStrokeIdentity?:never
+}
+type ExecutorFrameSubmission=CanonicalFrameSubmission|CanonicalFrameSubmissionV3
+function textureFrameCaptureBytes(frame:unknown):number {
+  if(!frame||typeof frame!=='object')throw new TypeError('Invalid texture frame capture')
+  let bytes=1536
+  for(const [name,limit,unit]of [['definitions',800,1024],['draws',800,512],['fences',2404,128]]as const){
+    const field=Object.getOwnPropertyDescriptor(frame,name),array=field&&Object.hasOwn(field,'value')?field.value:undefined
+    if(!Array.isArray(array)||array.length>limit)throw new RangeError('Texture frame capture exceeds metadata bounds')
+    bytes+=array.length*unit
+  }
+  return bytes
 }
 /** Reference profile is retained for recorded diagnostic corpora only. The
  * shared canonical wire profile requires the installed fused scalar kernels. */
@@ -84,6 +101,7 @@ export interface CanonicalFrameExecutorOptions {
   readonly softProgramOwner?: CanonicalSoftCircleProgramOwner
   /** Authoritative room page, never viewport. Absent retains the closed infinite-page QA API. */
   readonly pageBounds?: Readonly<WorldRect> | null
+  readonly primaryTexture?:Readonly<{readonly context:CanonicalMaterialContextV3;readonly root:CanonicalMaskSourceLease}>
   readonly bank?: CanonicalMaskSourceReader
   readonly prepass: TransformedMaskPrepass
   readonly composite: CanonicalRgba8CompositePass
@@ -107,7 +125,8 @@ interface WashTile extends TilePosition {
 }
 type PreparedTurnAction = 'paint' | 'presentation' | 'physical'
 interface Work {
-  input: CanonicalFrameSubmission
+  input: ExecutorFrameSubmission
+  textureStrengths?:Uint8Array
   result: SourcePrimaryCompositionResult
   sourceKeys: readonly (string | undefined)[]
   draw: number
@@ -139,6 +158,7 @@ export class CanonicalFrameExecutor {
   private maskCapacity: Readonly<{width:number;height:number;epoch:object}>
   private maskLease?:CanonicalMaskCapacityLease
   private retireMaskAfterTurn=false
+  private retireTextureAfterTurn=false
   private readonly compositeCapacity: Readonly<{width:number;height:number;epoch:object}>
   private readonly gl: WebGLRenderingContext
   private readonly queue: Work[] = []
@@ -146,7 +166,7 @@ export class CanonicalFrameExecutor {
   private readonly admittedTiles = new Map<string, TilePosition>()
   private readonly admissionReleases = new Set<() => void>()
   private planned?: SourcePrimaryCompositionState
-  private gesture?: { densityStrokeIdentity?: Readonly<SourceDefaultAutoDensityStrokeIdentity>; id: string; layerId: string; epoch: number; buffer: TiledLayerBuffer; rgb: readonly [number, number, number]; profile: AnyCanonicalMaterialFrame['profile'] }
+  private gesture?: { densityStrokeIdentity?: Readonly<SourceDefaultAutoDensityStrokeIdentity>; id: string; layerId: string; epoch: number; buffer: TiledLayerBuffer; rgb: readonly [number, number, number]; profile: ExecutorFrameSubmission['frame']['profile'] }
   private failed = false
   private readonly cleanupErrors: unknown[] = []
   private advancing = false
@@ -157,6 +177,7 @@ export class CanonicalFrameExecutor {
   private readonly softProgram?: CanonicalSoftCircleProgramOwner
   private readonly ownsSoftProgram:boolean
   private sourceRetired = false
+  private primaryTexture?:Readonly<{context:CanonicalMaterialContextV3;root:CanonicalMaskSourceLease;view:CanonicalPatternResource;releaseMetadata:()=>void}>
 
   constructor(options: CanonicalFrameExecutorOptions) {
     if(options.softProgramOwner && options.autoSource?.kind!=='softAuto')throw new TypeError('A soft program owner requires a trusted soft source')
@@ -175,6 +196,30 @@ export class CanonicalFrameExecutor {
     this.ownsSoftProgram=!options.softProgramOwner
     this.acquireMaskCapacity()
     try{
+    if(options.primaryTexture){
+      if(options.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||options.autoSource||options.softProgramOwner||options.bank!==options.primaryTexture.root)throw new TypeError('Texture source requires the same root and GenericSC owner')
+      if(!options.composite.supportsTexturedOperations(['alphaDarken32FusedScalar']))throw new Error('Canonical texture variant was not prepared')
+      const releaseMetadata=a.cpu.reserve(4096)
+      let child:CanonicalMaskSourceLease|undefined
+      try{
+        const context=canonicalPrimaryTextureMaterialContext(options.primaryTexture.context)
+        const image=canonicalImageMaterialPin(context.primarySource,[context.assets[0]])
+        const sourceView=options.primaryTexture.root.patternResource(context.primaryTexture,context.assets[1],a)
+        assertCanonicalPatternResourceCurrent(sourceView,a,options.primaryTexture.root)
+        child=options.primaryTexture.root.retain()
+        const view=child.patternResource(context.primaryTexture,context.assets[1],a)
+        assertCanonicalPatternResourceCurrent(view,a,child)
+        if(view.width>4096||(view.width&(view.width-1))!==0)throw new TypeError('Canonical texture requires POT storage')
+        const resources=child.preparedResources(),tip=image.assets[0]
+        const indexes=resources.filter(r=>r.canonical&&JSON.stringify(r.canonical.asset)===JSON.stringify(tip)).map(r=>r.canonical!.index)
+        if(!indexes.length)throw new Error('Canonical texture root has no primary tip')
+        child.assertRequiredSourceBinding(tip,indexes,a)
+        if(!b.resources.some(r=>r.key===view.key&&r.bytes===view.width*view.height*4)||resources.some(r=>!a.resources.some(p=>p.key===r.key&&p.bytes===r.bytes)))throw new Error('Canonical texture root group was not prepared')
+        this.primaryTexture=Object.freeze({context,root:child,view,releaseMetadata});child=undefined
+        this.options=Object.freeze({...this.options,bank:this.primaryTexture.root,primaryTexture:undefined})
+        this.assertPrepared()
+      }catch(error){if(!this.primaryTexture){try{child?.release()}catch{/* Preserve source admission failure. */}try{releaseMetadata()}catch{/* Preserve source admission failure. */}}throw error}
+    }
     const source=this.options.autoSource
     if(source?.kind==='softAuto') {
       if(source.sourceSlot!==0)throw new TypeError('Canonical executor requires a primary soft source')
@@ -184,7 +229,7 @@ export class CanonicalFrameExecutor {
           spikes:2,softness:1,randomness:0,density:1,antialias:false},
         {points:source.radialCurve.source.points,coefficients:source.radialCurve.coefficients},Math.floor(source.source.diameter*4+.5)+2)
     }
-    }catch(error){this.retireMaskCapacity();throw error}
+    }catch(error){this.retirePrimaryTexture();this.retireMaskCapacity();throw error}
   }
 
   private get maskParticipant():CanonicalMaskCapacityLease {
@@ -219,16 +264,48 @@ export class CanonicalFrameExecutor {
   /** Additional cleanup/notification errors never replace a primary draw error. */
   get cleanupFailures(): readonly unknown[] { return Object.freeze([...this.cleanupErrors]) }
 
-  /** Entire metadata admission before tile allocation, reservations or pixels.
+  /** Metadata admission before GPU target reservations, allocation or pixels.
+   * V3 first holds bounded CPU capture workspace before shared validation.
    * At most eight accepted frames are retained. Inputs are copied, so later
    * caller mutation cannot relabel a queued definition, pigment or opacity. */
-  enqueue(input: CanonicalFrameSubmission): void {
+  enqueue(input:CanonicalFrameSubmission):void
+  enqueue(input:CanonicalFrameSubmissionV3):void
+  enqueue(input:ExecutorFrameSubmission):void {
+    if(input?.frame?.profile!==CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE){
+      if(this.primaryTexture)throw new TypeError('Texture executor requires material3')
+      return this.enqueueCaptured(input)
+    }
+    if(this.failed||this.sourceRetired||this.advancing||this.rawOwner.leases)throw new Error('Canonical executor is poisoned or busy')
+    if(this.queue.length>=8)throw new RangeError('Canonical frame queue is full')
+    const source=this.primaryTexture
+    if(!source)throw new TypeError('Canonical material3 requires a texture root')
+    if(Object.hasOwn(input,'densityStrokeIdentity')||!isCanonicalStrokeComposition(input.composition,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)||input.composition.mode!=='wash'||!Array.isArray(input.rgb)||input.rgb.length!==3)throw new TypeError('Unsupported canonical texture composition')
+    const identity={gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal}
+    const rgb=Object.freeze([input.rgb[0],input.rgb[1],input.rgb[2]]as [number,number,number]),composition=Object.freeze({...input.composition})
+    const info=this.options.prepass.brushGlBatchInfo(),release=info.cpu.reserve(textureFrameCaptureBytes(input.frame))
+    let failed=false,failure:unknown
+    try{
+      assertCanonicalPatternResourceCurrent(source.view,info,source.root)
+      const context=canonicalPrimaryTextureMaterialContext({...source.context,assets:input.assets})
+      if(JSON.stringify(context.assets)!==JSON.stringify(source.context.assets))throw new TypeError('Canonical texture frame assets changed')
+      const frame=captureCanonicalPrimaryTextureFrame(input.frame,source.context)
+      this.enqueueCaptured({...identity,rgb,composition,assets:source.context.assets,frame})
+    }catch(error){failed=true;failure=error}
+    try{release()}catch(error){
+      if(failed)this.cleanupErrors.push(error)
+      else{if(!this.failed)this.fail(error,this.cleanupContextLost());throw error}
+    }
+    if(failed)throw failure
+  }
+
+  private enqueueCaptured(input:ExecutorFrameSubmission):void {
+    if((input?.frame?.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE)!==!!this.primaryTexture)throw new TypeError('Canonical texture source/frame mismatch')
     if (this.failed || this.sourceRetired || this.advancing || this.rawOwner.leases) throw new Error('Canonical executor is poisoned or busy')
     if (this.rawComplete) throw new Error('Canonical deposition gesture has ended')
     if (this.options.washMode === 'deposition-only' && input?.composition?.mode !== 'wash') throw new TypeError('Deposition-only requires wash')
     if (!isCanonicalStrokeComposition(input?.composition, this.options.rasterProfile === 'reference-scalar-f32-rne-v1' ? CANONICAL_STROKE_RASTER_PROFILE : this.options.rasterProfile)) throw new TypeError('Invalid canonical composition for pinned raster profile')
     if (this.queue.length >= 8) throw new RangeError('Canonical frame queue is full')
-    if (![CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE].includes(input?.frame?.profile)) throw new TypeError('Canonical executor requires accepted material profile')
+    if (![CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE].includes(input?.frame?.profile)) throw new TypeError('Canonical executor requires accepted material profile')
     if (!input || !input.gestureId || !input.layerId || !int(input.layerEpoch) || !int(input.ordinal)
       || !Array.isArray(input.rgb) || input.rgb.length !== 3 || !input.rgb.every(n => int(n) && n <= 255)) throw new TypeError('Invalid canonical frame identity/pigment')
     if (input.frame.definitions.some(r => 'kind' in r && r.kind === 'softAuto') && this.options.autoSource?.kind !== 'softAuto') throw new TypeError('Soft source data requires a trusted canonical executor raster grant')
@@ -316,8 +393,9 @@ export class CanonicalFrameExecutor {
       const resources = new Set([...info.resources, ...other.resources].map(r => r.key)).size
       if(densityStrokeIdentity&&!this.gesture)releaseDensityIdentity=info.cpu.reserve(1024)
       if (info.cpu.reservedBytes + (input.frame.definitions.some(autoRecipe) ? 82432 : 65536) + resources * 128 > info.cpu.budgetBytes) throw new RangeError('Canonical queue exceeds shared CPU work headroom')
-      const saved: CanonicalFrameSubmission = structuredClone(seeded?{gestureId:input.gestureId,densityStrokeIdentity,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition}:input)
-      this.queue.push({ input: saved, result, sourceKeys, draw: 0, tile: 0, paintPart: 0, present: 0, part: 0, frameTargets:[...frameTargets.values()],newTiles:[...newTiles.values()],targetCursor:0,scratchCursor:0,washCursor:0,
+      const textureStrengths=input.frame.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE?Uint8Array.from(input.frame.draws,d=>canonicalPrimaryTextureStrengthU8(d.grainDepth)):undefined
+      const saved:ExecutorFrameSubmission = input.frame.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE?input:structuredClone(seeded?{gestureId:input.gestureId,densityStrokeIdentity,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition}:input)
+      this.queue.push({ input: saved,textureStrengths, result, sourceKeys, draw: 0, tile: 0, paintPart: 0, present: 0, part: 0, frameTargets:[...frameTargets.values()],newTiles:[...newTiles.values()],targetCursor:0,scratchCursor:0,washCursor:0,
         releaseMetadata: () => { try { releaseMetadata() } finally { releaseTargetBudget?.() } } })
       for (const [k, tile] of newTiles) this.admittedTiles.set(k, tile)
       if (releaseBudget) {
@@ -381,8 +459,10 @@ export class CanonicalFrameExecutor {
     return result
   }
   private retireFinishedMask():void {
-    if(!this.retireMaskAfterTurn)return
-    const before=this.cleanupErrors.length;this.retireMaskCapacity()
+    if(!this.retireMaskAfterTurn&&!this.retireTextureAfterTurn)return
+    const before=this.cleanupErrors.length
+    if(this.retireMaskAfterTurn)this.retireMaskCapacity()
+    if(this.retireTextureAfterTurn)this.retirePrimaryTexture()
     if(!this.failed&&this.cleanupErrors.length>before){const error=this.cleanupErrors[before];this.fail(error);throw error}
   }
   private advanceWork(): { pending: boolean; checkpointReady: boolean } {
@@ -507,6 +587,11 @@ export class CanonicalFrameExecutor {
   }
 
   private assertPrepared(): void {
+    if(this.primaryTexture){
+      const source=this.primaryTexture,info=this.options.composite.brushGlBatchInfo()
+      assertCanonicalPatternResourceCurrent(source.view,info,source.root)
+      if(!this.options.composite.supportsTexturedOperations(['alphaDarken32FusedScalar'])||!info.resources.some(r=>r.key===source.view.key&&r.bytes===source.view.width*source.view.height*4))throw new Error('Canonical texture group/variant changed')
+    }
     let mask:Readonly<{width:number;height:number;epoch:object}>
     try{mask=this.maskParticipant.preparedCapacity()}catch{throw new Error('Canonical prepared service capacity/epoch changed')}
     const composite=this.options.composite.preparedCapacity();
@@ -612,7 +697,10 @@ export class CanonicalFrameExecutor {
                 ? { kind: 'alphaDarken32FusedScalar' as const, control: { profile: CANONICAL_STROKE_RASTER_PROFILE, variant: d.controls.variant, opacity: d.controls.opacity, averageOpacity: d.controls.averageOpacity, flow: d.controls.flow } }
                 : { kind: 'alphaDarken32' as const, control: { profile: 'optimized32-scalar-f32-rne-v1' as const, variant: d.controls.variant, opacity: d.controls.opacity, averageOpacity: d.controls.averageOpacity, flow: d.controls.flow } }
               : this.overOperation(d.controls.opacity)
-            this.options.composite.drawSource({ source: { kind: 'maskRgb', view: group.views[0], rgb: work.input.rgb }, target: output, operation, writeBounds: task.writeBounds }, frame)
+            const texture=this.primaryTexture
+            const source=work.textureStrengths&&texture?{kind:'texturedMaskRgb' as const,view:group.views[0],rgb:work.input.rgb,pattern:texture.view,pin:texture.context.primaryTexture,strengthU8:work.textureStrengths[d.frameDrawIndex]}:{kind:'maskRgb' as const,view:group.views[0],rgb:work.input.rgb}
+            if(work.textureStrengths&&!texture)throw new Error('Canonical texture root retired before paint')
+            this.options.composite.drawSource({ source, target: output, operation, writeBounds: task.writeBounds }, frame)
             work.draw = task.draw; work.tiles = task.tiles; work.tile = task.tile; work.paintPart=task.part+1;
             if(work.paintPart===task.parts){
               work.paintPart=0;work.tile++;
@@ -715,6 +803,8 @@ export class CanonicalFrameExecutor {
       else if(this.advancing)this.retireMaskAfterTurn=true
       else this.retireMaskCapacity()
       this.gesture = undefined; this.planned = undefined
+      if(this.advancing)this.retireTextureAfterTurn=true
+      else this.retirePrimaryTexture()
       if (this.cleanupErrors.length > before) throw this.cleanupErrors[before]
     }
   }
@@ -730,6 +820,7 @@ export class CanonicalFrameExecutor {
       this.fail(reason, options.lost ?? this.cleanupContextLost())
     }
     this.retireMaskCapacity()
+    this.retirePrimaryTexture(options.lost??false)
     if (this.cleanupErrors.length > before) throw this.cleanupErrors[before]
   }
 
@@ -747,6 +838,14 @@ export class CanonicalFrameExecutor {
     this.releaseWashes(lost)
     this.retireMaskCapacity()
     this.retireSoftProgram()
+    this.retirePrimaryTexture(lost)
+  }
+
+  private retirePrimaryTexture(lost=false):void {
+    const source=this.primaryTexture;this.primaryTexture=undefined;this.retireTextureAfterTurn=false
+    if(!source)return
+    this.sourceRetired=true
+    this.cleanup(()=>source.root.release(lost));this.cleanup(source.releaseMetadata)
   }
 
   private retireSoftProgram():void {
