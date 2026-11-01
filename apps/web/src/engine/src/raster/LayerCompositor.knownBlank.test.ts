@@ -66,3 +66,18 @@ it('keeps an existing lower PM item while the straight layer contributes nothing
   expect(s.draw).toHaveBeenCalledTimes(1);expect(s.presentation).not.toHaveBeenCalled()
  }finally{s.close()}
 })
+it.each(['ink',null])('composes the canonical implicit layer without empty split resources (active %s)',active=>{
+ const s=fixture(),below=vi.fn(()=>{throw Error('Unused below cache allocated')}),above=vi.fn(()=>{throw Error('Unused above cache allocated')})
+ const compositor=new LayerCompositor({...s.compositor['ctx'],assembly:()=>s.target,activeId:()=>active,below,above}),clear=vi.spyOn(s.target,'clear'),disable=vi.spyOn(s.mock,'disable')
+ const draw=vi.spyOn(compositor,'drawCompositeItem');vi.spyOn(compositor,'drawTileComposite').mockImplementation(()=>{})
+ try{
+  s.layer.markContentPainted(rect)
+  compositor.runComposite(frame,[{id:'ink',opacity:.4}],rect,true)
+  expect(clear).toHaveBeenCalledOnce();expect(draw).toHaveBeenCalledWith(frame,'ink',.4,s.target.fbo,8,8)
+  expect(s.presentation).toHaveBeenCalledOnce();expect(below).not.toHaveBeenCalled();expect(above).not.toHaveBeenCalled();expect(disable).toHaveBeenCalledWith(s.mock.SCISSOR_TEST)
+  compositor.runComposite(frame,[],null,true)
+  expect(clear).toHaveBeenCalledTimes(2);expect(draw).toHaveBeenCalledOnce();expect(below).not.toHaveBeenCalled();expect(above).not.toHaveBeenCalled()
+  const fault=Error('actual canonical item display failure');draw.mockImplementationOnce(()=>{throw fault})
+  expect(()=>compositor.runComposite(frame,[{id:'ink',opacity:1}],rect,true)).toThrow(fault);expect(disable).toHaveBeenLastCalledWith(s.mock.SCISSOR_TEST)
+ }finally{s.close()}
+})

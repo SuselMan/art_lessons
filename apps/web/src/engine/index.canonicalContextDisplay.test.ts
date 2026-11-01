@@ -40,7 +40,7 @@ beforeEach(()=>{expect('asset:'+createHash('sha256').update(bytes).digest('hex')
 afterEach(()=>{vi.restoreAllMocks();clearImportedBrushPixels()})
 function original(isCurrent=()=>true,open=false,inputTrace=trace,limit?:number){
  const tail=limit!==undefined?inputTrace.operations.slice(0,limit):open?inputTrace.operations.slice(0,-1):inputTrace.operations
- const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:512,canvasHeight:512,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:tail,participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:1},canonicalHistoryBase:{kind:open?'full-room-prefix-v2':'empty-room-prefix-v1',roomId:'room',boardEpoch:1,throughSeq:tail.length,operationCount:tail.length},canonicalCapabilities:{version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:'author',snapshot:inputTrace.snapshot}],bindings:tail.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}))}}
+ const state:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:512,canvasHeight:512,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:tail,participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalReadScope:{roomId:'room',boardEpoch:1},canonicalHistoryBase:{kind:open?'full-room-prefix-v2':'empty-room-prefix-v1',roomId:'room',boardEpoch:1,throughSeq:tail.length,operationCount:tail.length},canonicalCapabilities:{version:1,roomId:'room',boardEpoch:1,capabilities:tail.length?[{originalUserId:'author',snapshot:inputTrace.snapshot}]:[],bindings:tail.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}))}}
  return prepareCanonicalRoomState(state,{expectedBoardId:'room',isCurrent})
 }
 function engineFor(p:ReturnType<typeof original>,author=false){
@@ -97,7 +97,7 @@ it('forgets actual displayed old framebuffer handles before restored display/exp
  try{
   await engine.paperReady();await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);engine['_paperWet'].deposit('layer-1',20,20,10,.5,performance.now());engine['_wetTexAt']=0;engine['_display']()
   const old=engine['_screenCache'];expect(old).not.toBeNull();const oldFbo=old!.fbo,oldTexture=old!.texture,oldWet=engine['_wetTex'],entries=engine['_log'].entries;expect(oldWet).not.toBeNull()
-  f.lose();expect(engine['_screenCache']).toBeNull();expect(engine['_wetTex']).toBeNull()
+  f.lose();expect(engine['_compositeFBO']).toBeNull();expect(engine['_belowCache']).toBeNull();expect(engine['_aboveCache']).toBeNull();expect(engine['_screenCache']).toBeNull();expect(engine['_wetTex']).toBeNull()
   // A real restored context rejects old names; MockGL otherwise accepts all.
   vi.spyOn(gl,'isTexture').mockImplementation(texture=>texture!==oldTexture&&texture!==oldWet)
   const bindFbo=gl.bindFramebuffer.bind(gl),bindTex=gl.bindTexture.bind(gl),bad=vi.fn()
@@ -105,7 +105,7 @@ it('forgets actual displayed old framebuffer handles before restored display/exp
   vi.spyOn(gl,'bindTexture').mockImplementation((target,texture)=>{if(texture===oldTexture||texture===oldWet){bad();throw Error('Dead display texture bound')}bindTex(target,texture)})
   const restore=vi.spyOn(engine,'restoreCanonicalEmptyRoom');f.restore();const result=await restore.mock.results[0].value
   expect(result.cleanupFailures).toEqual([]);engine['_display']();const composite=engine['_exporter'].buildContentComposite({x:0,y:0,width:512,height:512});expect(composite).not.toBeNull();composite?.buffer.destroy()
-  expect(bad).not.toHaveBeenCalled();expect(engine['_screenCache']).not.toBe(old);expect(engine['_log'].entries).toBe(entries);expect(engine['_canonicalExportReady']()).toBe(true)
+  expect(bad).not.toHaveBeenCalled();expect(engine['_compositeFBO']).toBeNull();expect(engine['_screenCache']).not.toBe(old);expect(engine['_log'].entries).toBe(entries);expect(engine['_canonicalExportReady']()).toBe(true)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },30000)
 it('aborted waiting caller allocates no source program after successful recovery',async()=>{
@@ -132,3 +132,41 @@ it('twice loss cancels the old waiter instead of preparing the newer restored ow
   f.lose();engine['_scheduleCanonicalRebuild']=schedule;const resumeSecond=pauseRecovery(engine);f.restore();let newSettled=false;const newer=engine.prepareBrush(preset).finally(()=>{newSettled=true}),newOutcome=expect(newer).resolves.toEqual({status:'ready'});await oldOutcome;await Promise.resolve();expect(newSettled).toBe(false);expect(engine['_canonicalPixelsReady']).toBe(false);expect(engine['_canonicalPreparedAuthor']).toBeUndefined();resumeSecond();await newOutcome;expect(engine['_canonicalPreparedAuthor']?.owner).toBe(engine['_canonicalLayerOwner']);expect(resumeFirst).toBeTypeOf('function')
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },30000)
+it('keeps canonical display copies absent across real display content export and backing resize',async()=>{
+ const p=original(),{engine}=engineFor(p)
+ try{
+  expect(engine['_compositeFBO']).toBeNull();expect(engine['_belowCache']).toBeNull();expect(engine['_aboveCache']).toBeNull()
+  await engine.paperReady();await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  engine['_display']();expect(engine['_assemblyFBO']).toBeDefined();expect(engine['_screenCache']).not.toBeNull()
+  expect(engine['_compositeFBO']).toBeNull();expect(engine['_belowCache']).toBeNull();expect(engine['_aboveCache']).toBeNull()
+  const nonempty=engine['_exporter'].buildContentComposite({x:0,y:0,width:512,height:512});expect(nonempty).not.toBeNull();nonempty?.buffer.destroy();expect(engine['_compositeFBO']).toBeNull()
+  engine.resizeCanvas(640,480);expect(engine['_compositeFBO']).toBeNull();expect(engine['_belowCache']).toBeNull();expect(engine['_aboveCache']).toBeNull()
+  engine['_display']();expect(engine['_screenCache']!.width).toBe(640);expect(engine['_assemblyFBO'].width).toBe(800)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},30000)
+it('exports actual bounded empty paper and transparency without demanding a viewport copy',async()=>{
+ const p=original(()=>true,false,trace,0),{engine}=engineFor(p)
+ try{
+  await engine.paperReady();await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const encode=vi.spyOn(engine['_exporter']['ctx'],'encode').mockResolvedValue(new Blob(['recording-GL encoder seam'])),compose=vi.spyOn(engine['_exporter']['ctx'],'composeScreen'),read=vi.spyOn(engine['gl'],'readPixels')
+  await engine.exportPNG(false);await engine.exportPNG(true)
+  expect(encode).toHaveBeenCalledTimes(2);expect(read).toHaveBeenCalledTimes(2);expect(compose).not.toHaveBeenCalled()
+  expect(engine['_compositeFBO']).toBeNull();expect(engine['_belowCache']).toBeNull();expect(engine['_aboveCache']).toBeNull()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},30000)
+it('preserves legacy eager display allocation across a real backing resize',async()=>{
+ const {engine}=createTestEngine({pageWidth:512,pageHeight:512},{width:512,height:512})
+ try{
+  await engine.paperReady();expect(engine['_compositeFBO']).not.toBeNull();expect(engine['_belowCache']).not.toBeNull();expect(engine['_aboveCache']).not.toBeNull()
+  engine.resizeCanvas(640,480);expect(engine['_compositeFBO']!.width).toBe(640);expect(engine['_belowCache']!.width).toBe(800);expect(engine['_aboveCache']!.height).toBe(800)
+ }finally{engine.destroy()}
+})
+
+it('keeps the genuine legacy infinite empty transparent viewport fallback',async()=>{
+ const {engine}=createTestEngine({infinite:true},{width:64,height:64})
+ try{
+  await engine.paperReady();const compose=vi.spyOn(engine['_exporter']['ctx'],'composeScreen'),canvasBlob=vi.spyOn(engine['_exporter']['ctx'],'canvasBlob')
+  await engine.exportPNG(false);expect(compose).not.toHaveBeenCalled()
+  await engine.exportPNG(true);expect(compose).toHaveBeenCalledOnce();expect(canvasBlob).toHaveBeenCalledTimes(2);expect(engine['_compositeFBO']).not.toBeNull()
+ }finally{engine.destroy()}
+})

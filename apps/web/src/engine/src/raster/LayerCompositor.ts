@@ -523,6 +523,7 @@ export class LayerCompositor {
   runComposite(
     frame: CameraFrame, items: CompositeItem[],
     partialWorld: { minX: number; minY: number; maxX: number; maxY: number } | null = null,
+    directImplicitLayer = false,
   ): void {
     const buildFbo = this.ctx.assembly().fbo
     const targetW  = this.ctx.assembly().width
@@ -538,7 +539,7 @@ export class LayerCompositor {
     const activeItem  = idx === -1 ? null  : items[idx]
     const aboveItems  = idx === -1 ? []    : items.slice(idx + 1)
     // (§17.46) The split caches are rebuilt (in full) before any scissor.
-    if (this.ctx.previews().tiles.size === 0 && !this.ctx.transientPreviews?.().size && !this.ctx.materialPresentations?.().size) this.rebuildSplitCacheIfDirty(frame, belowItems, aboveItems, targetW, targetH)
+    if (!directImplicitLayer && this.ctx.previews().tiles.size === 0 && !this.ctx.transientPreviews?.().size && !this.ctx.materialPresentations?.().size) this.rebuildSplitCacheIfDirty(frame, belowItems, aboveItems, targetW, targetH)
     // (§17.46) A frame whose only change is the live stroke reassembles only
     // its rect (unrotated camera: the assembly is then the screen, padded):
     // clearing and redrawing the whole assembly - the caches and every
@@ -559,8 +560,9 @@ export class LayerCompositor {
     }
     this.ctx.assembly().clear()
 
-    if (this.ctx.previews().tiles.size > 0 || this.ctx.transientPreviews?.().size || this.ctx.materialPresentations?.().size) {
-      for (const { id, opacity } of items) this.drawCompositeItem(frame, id, opacity, buildFbo, targetW, targetH)
+    if (directImplicitLayer || this.ctx.previews().tiles.size > 0 || this.ctx.transientPreviews?.().size || this.ctx.materialPresentations?.().size) {
+      try { for (const { id, opacity } of items) this.drawCompositeItem(frame, id, opacity, buildFbo, targetW, targetH) }
+      finally { if (scissored) this.ctx.gl.disable(this.ctx.gl.SCISSOR_TEST) }
       return
     }
 

@@ -162,7 +162,10 @@ it('forgets the four dead-generation programs without deleting them after contex
 
 it('preserves conservative orphan storage and does not refund a failed texture deletion', () => {
   const { engine } = createTestEngine({ paper: 'flat' })
-  const gl = engine['gl'], buffer = engine['_compositeFBO'], texture = buffer.texture
+  const gl = engine['gl'], buffer = engine['_compositeFBO']
+  expect(buffer).not.toBeNull()
+  if(!buffer)throw Error('Legacy viewport copy must be eager')
+  const texture = buffer.texture
   const primary = new Error('texture release failed'), original = gl.deleteTexture.bind(gl)
   vi.spyOn(gl, 'deleteTexture').mockImplementation(value => {
     if (value === texture) throw primary

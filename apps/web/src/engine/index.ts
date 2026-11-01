@@ -2317,7 +2317,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _straightPresentation?: StraightLayerPresentation
   private _quadBuf: WebGLBuffer | null = null
   private _screenBuf: WebGLBuffer | null = null
-  private _compositeFBO!: AccumulationBuffer
+  private _compositeFBO: AccumulationBuffer | null = null
   // Layer composition reads the current buffers on every call: resize and
   // context restore replace their GL handles without changing this owner.
   private readonly _compositor: LayerCompositor
@@ -2378,8 +2378,8 @@ export class PencilEngine implements PencilEngineAPI {
   // drag frame, and reasoning about invalidating a persistent cache through
   // it isn't worth it — drags aren't the hot path this exists for. See
   // _runComposite.
-  private _belowCache!: AccumulationBuffer
-  private _aboveCache!: AccumulationBuffer
+  private _belowCache: AccumulationBuffer | null = null
+  private _aboveCache: AccumulationBuffer | null = null
 
   // Infinite canvas rotation (#134) — _runComposite builds the unrotated,
   // zoom-applied composite into this buffer instead of the real (canvas-
@@ -2678,8 +2678,8 @@ export class PencilEngine implements PencilEngineAPI {
     drawReveal: (...args) => this._drawTileReveal(...args),
     activeId: () => this._activeId,
     assembly: () => this._assemblyFBO,
-    below: () => this._belowCache,
-    above: () => this._aboveCache,
+    below: () => {if(!this._belowCache)throw new Error('Split cache unavailable');return this._belowCache},
+    above: () => {if(!this._aboveCache)throw new Error('Split cache unavailable');return this._aboveCache},
   })
     // (#494) Built before the passes below, which hold it by reference; its
     // texture only exists once init() runs after _initGL.
@@ -2761,7 +2761,7 @@ export class PencilEngine implements PencilEngineAPI {
       composePaper: (tex, fbo, w, h, origin) => this._renderPaperComposeInto(tex, fbo, w, h, origin),
       composeScreen: () => {
         this._composeToFBO()
-        return this._compositeFBO.texture
+        return this._requireCompositeFBO().texture
       },
       display: () => this._display(),
       canvasSize: () => ({ w: this.canvas.width, h: this.canvas.height }),
@@ -4354,13 +4354,16 @@ export class PencilEngine implements PencilEngineAPI {
     // stale from here on until re-queried.
     this._camera.invalidateRect()
     const { w: ew, h: eh } = this._camera.renderBufferExtent()
-    this._compositeFBO.destroy()
-    this._belowCache.destroy()
-    this._aboveCache.destroy()
+    this._compositeFBO?.destroy()
+    this._belowCache?.destroy()
+    this._aboveCache?.destroy()
     this._assemblyFBO.destroy()
-    this._compositeFBO = new AccumulationBuffer(gl, width, height)
-    this._belowCache = new AccumulationBuffer(gl, ew, eh)
-    this._aboveCache = new AccumulationBuffer(gl, ew, eh)
+    this._compositeFBO=null;this._belowCache=null;this._aboveCache=null
+    if(this.rasterVersion===LEGACY_ROOM_RASTER_VERSION){
+      this._compositeFBO = new AccumulationBuffer(gl, width, height)
+      this._belowCache = new AccumulationBuffer(gl, ew, eh)
+      this._aboveCache = new AccumulationBuffer(gl, ew, eh)
+    }
     this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
     this._compositor.invalidateSplitCache()
     // The paper texture itself is NOT recreated here (unlike
@@ -4835,9 +4838,9 @@ export class PencilEngine implements PencilEngineAPI {
     retire(() => this.canvas.removeEventListener('webglcontextrestored', this._handleContextRestored))
     retire(() => this._pointer.destroy())
     for (const buf of this._layers.values()) retire(() => buf.destroy())
-    retire(() => this._compositeFBO.destroy())
-    retire(() => this._belowCache.destroy())
-    retire(() => this._aboveCache.destroy())
+    retire(() => this._compositeFBO?.destroy())
+    retire(() => this._belowCache?.destroy())
+    retire(() => this._aboveCache?.destroy())
     retire(() => this._assemblyFBO.destroy())
     const screenCache = this._screenCache
     this._screenCache = null
@@ -5777,6 +5780,7 @@ export class PencilEngine implements PencilEngineAPI {
     // These lazy display names belong to the lost physical context too. Never
     // delete or bind them after restoration, even at unchanged canvas dimensions.
     this._screenCache=null
+    this._compositeFBO=null;this._belowCache=null;this._aboveCache=null
     this._paperCacheKey=''
     this._paperDamage=null
     this._paperPartialOK=false
@@ -7641,16 +7645,21 @@ export class PencilEngine implements PencilEngineAPI {
     // to the additive sum of stamps.
     this._minmaxExt = gl.getExtension('EXT_blend_minmax') as { MAX_EXT: number } | null
 
-    const compositeFBO = this._compositeFBO = new AccumulationBuffer(gl, canvas.width, canvas.height)
-    owned.push(() => compositeFBO.destroy())
+    this._compositeFBO=null;this._belowCache=null;this._aboveCache=null
+    if(this.rasterVersion===LEGACY_ROOM_RASTER_VERSION){
+      const compositeFBO = this._compositeFBO = new AccumulationBuffer(gl, canvas.width, canvas.height)
+      owned.push(() => compositeFBO.destroy())
+    }
     // Fresh (or, on context restore, brand-new-and-empty) GL objects — any
     // previously baked content is gone either way, so the split cache must
     // be rebuilt before its next read regardless of why _initGL() ran.
     const { w: ew, h: eh } = this._camera.renderBufferExtent()
-    const belowCache = this._belowCache = new AccumulationBuffer(gl, ew, eh)
-    owned.push(() => belowCache.destroy())
-    const aboveCache = this._aboveCache = new AccumulationBuffer(gl, ew, eh)
-    owned.push(() => aboveCache.destroy())
+    if(this.rasterVersion===LEGACY_ROOM_RASTER_VERSION){
+      const belowCache = this._belowCache = new AccumulationBuffer(gl, ew, eh)
+      owned.push(() => belowCache.destroy())
+      const aboveCache = this._aboveCache = new AccumulationBuffer(gl, ew, eh)
+      owned.push(() => aboveCache.destroy())
+    }
     const assemblyFBO = this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
     owned.push(() => assemblyFBO.destroy())
     this._compositor.invalidateSplitCache()
@@ -11223,7 +11232,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _runComposite(
     frame: CameraFrame, items: CompositeItem[],
     partialWorld: { minX: number; minY: number; maxX: number; maxY: number } | null = null,
-  ): void { this._compositor.runComposite(frame, items, partialWorld) }
+  ): void { this._compositor.runComposite(frame, items, partialWorld,this.rasterVersion!==LEGACY_ROOM_RASTER_VERSION) }
 
   /** (#134) The one place camera rotation actually applies for infinite
    *  rooms — a no-op for bounded rooms (angle is always 0 there for the
@@ -11648,6 +11657,13 @@ export class PencilEngine implements PencilEngineAPI {
    *  _runComposite above just populated, *before* _finishInfiniteComposite's
    *  single rotate blit at the bottom applies the camera's actual rotation
    *  to everything (real content and previews alike) at once. */
+  /** Viewport copy is only demanded by transparent empty-content export.
+   * Canonical display uses the SAME assembly/paper path without this copy. */
+  private _requireCompositeFBO():AccumulationBuffer {
+    if(this._destroyed||this._contextLost)throw new Error('Display context unavailable')
+    if(!this._compositeFBO)this._compositeFBO=new AccumulationBuffer(this.gl,this.canvas.width,this.canvas.height)
+    return this._compositeFBO
+  }
   private _composeToFBO(needCompositeFBO = true, partialWorld: { minX: number; minY: number; maxX: number; maxY: number } | null = null): void {
     const { gl, canvas } = this
     const w = canvas.width, h = canvas.height
@@ -11665,9 +11681,10 @@ export class PencilEngine implements PencilEngineAPI {
     // assembly buffer now, so _compositeFBO is only built when a caller
     // genuinely wants the rotated canvas-sized copy (the transparent export).
     const skipCompositeFBO = !needCompositeFBO
+    const composite=needCompositeFBO?this._requireCompositeFBO():null
 
     if (!skipCompositeFBO) {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this._compositeFBO.fbo)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, composite!.fbo)
       gl.viewport(0, 0, w, h)
       gl.clearColor(0, 0, 0, 0)
       gl.clear(gl.COLOR_BUFFER_BIT)
@@ -11718,7 +11735,7 @@ export class PencilEngine implements PencilEngineAPI {
     // `skipCompositeFBO` above): the screen pass rotates _assemblyFBO
     // itself, so doing it a second time here would only be building a copy
     // nobody reads.
-    if (!skipCompositeFBO) this._finishInfiniteComposite(this._compositeFBO.fbo)
+    if (!skipCompositeFBO) this._finishInfiniteComposite(composite!.fbo)
   }
 
   /** (#155) See _displayRafId's own doc comment for why this exists. Safe to

@@ -19,7 +19,8 @@ it('native watercolor enters ribbon geometry with codec inputs and returns stand
   const seam = engine as unknown as { _paintRibbonDabs: (...args: unknown[]) => Map<Dab, number> }
   const spy = vi.spyOn(seam, '_paintRibbonDabs').mockImplementation((...args) => new Map([[(args[1] as Dab[])[0], .6]]))
   try {
-    const result = engine['_paintDabs'](engine['_compositeFBO'], [dab, dropped], 'watercolor', 'normal:100:100:PB29:round', [.2, .3, .6], 'self', previous, scratch, 'gesture', 'wash', '00', [1, 2])
+    const buffer=engine['_compositeFBO'];expect(buffer).not.toBeNull();if(!buffer)throw Error('Legacy viewport copy must be eager')
+    const result = engine['_paintDabs'](buffer, [dab, dropped], 'watercolor', 'normal:100:100:PB29:round', [.2, .3, .6], 'self', previous, scratch, 'gesture', 'wash', '00', [1, 2])
     const args = spy.mock.calls[0] as unknown[]
     expect(args[1]).toEqual(unpackDabs(packDabs([dab, dropped])))
     expect(args[6]).toEqual(unpackDabs(packDabs([previous]))[0])
