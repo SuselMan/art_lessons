@@ -1,7 +1,8 @@
 import { describe,expect,it } from 'vitest'
 import {
   CANONICAL_MATERIAL_PROFILE as profile, assertPrimaryCanonicalMaterial, buildCanonicalMaterial,
-  packCanonicalMaterial, unpackCanonicalMaterial,
+  packCanonicalMaterial, unpackCanonicalMaterial, CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,
+  type CanonicalMaterialContextV3, type CanonicalMaterialBuildInputV3,
   type CanonicalMaterialContext, type CanonicalMaterialFrame, type CanonicalMaterialRecipe,
 } from './canonicalMaterialCodec.js'
 type Mutable<T> = T extends readonly (infer U)[] ? Mutable<U>[] : T extends object ? {-readonly [K in keyof T]:Mutable<T[K]>} : T
@@ -194,4 +195,117 @@ it('does not invoke an inherited frame-list includes override to authorize an un
  expect(()=>build(primary)).not.toThrow()
  expect(()=>build(b.id)).toThrow()
  expect(calls).toBe(0)
+})
+
+
+// Actual a3e57b03c source-codec output captured BEFORE the V3 implementation.
+const oldWireGoldens = {"v1":"1|Q01BVAEBAQABAAEAAAAAAAAAAAAAAAAAEREREREREREREREREREREREREREREREREREREREREREIAAgAAAAAAAAAAAAIAAgAAAAAAAAA8D8AAAAAAAAAAAAAAAAAAPA/AAAAAAAA8D8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADwPwAAAAAAAPA/AAAAAA==","v2":"2|Q01BVAIBAQABAAEAAAAAAAAAAAAAAAAAEREREREREREREREREREREREREREREREREREREREREREIAAgAAAAAAAAAAAAIAAgAAAAAAAAA8D8AAAAAAAAAAAAAAAAAAPA/AAAAAAAA8D8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPA/AAAAAAAA8D8AAAAA"}
+const textureContext=():CanonicalMaterialContextV3=>({version:3,
+ assets:[{id:primary,size:8,x:0,y:0,width:8,height:8},{id:mask,size:8,x:0,y:0,width:4,height:4}],
+ primarySource:{kind:'image',asset:primary,brushScale:1,brushAngle:0},
+ primaryTexture:{kind:'canvasTexture',asset:mask,law:'subtract-u8-v1',width:4,height:4,periodX:4,periodY:4,offsetX:0,offsetY:0,strength:'pressure-identity-v1'},
+ budget:context().budget})
+const textureRecipe=()=>({kind:'image' as const,...recipe({rotation:0,subY:0,width:8,height:8})})
+const textureInput=():Mutable<CanonicalMaterialBuildInputV3>=>({masked:false,entry:{phase:'between'},draws:[{recipe:textureRecipe(),role:'primary',x:1,y:2,opacity:.75,flow:.5,grainDepth:.25}],
+ fences:[{at:0,kind:'segmentBegin',group:7},{at:1,kind:'primaryEnd',group:7},{at:1,kind:'segmentEnd',group:7},{at:1,kind:'gestureEnd'}]})
+const textureBytes=(text:string)=>Uint8Array.from(atob(text.slice(2)),v=>v.charCodeAt(0))
+const editTextureBytes=(packed:string,edit:(v:DataView,b:Uint8Array)=>void)=>{const b=textureBytes(packed);edit(new DataView(b.buffer),b);return'3|'+btoa(String.fromCharCode(...b))}
+
+describe('staged unified CMAT3 primary texture codec; no wire/executor activation',()=>{
+ it('preserves actual V1/V2 baseline golden bytes',()=>{
+  const a={id:primary,size:8,x:0,y:0,width:8,height:8},r=textureRecipe(),{kind:_kind,...legacy}=r
+  const input={masked:false,entry:{phase:'primary' as const,group:0},draws:[{recipe:legacy,role:'primary' as const,x:0,y:0,opacity:1,flow:1}],fences:[]}
+  const c={...context(),assets:[a],primaryAsset:primary,maskAsset:undefined,preflightDefinition:()=>({workUnits:1,outputBytes:64})}
+  const c2={version:2 as const,assets:[a],primarySource:{kind:'image' as const,asset:primary,brushScale:1,brushAngle:0},budget:c.budget}
+  expect(buildCanonicalMaterial(input,c).packed).toBe(oldWireGoldens.v1)
+  expect(buildCanonicalMaterial({...input,draws:[{...input.draws[0],recipe:r}]},c2).packed).toBe(oldWireGoldens.v2)
+  expect(packCanonicalMaterial(unpackCanonicalMaterial(oldWireGoldens.v1,c),c)).toBe(oldWireGoldens.v1)
+  expect(packCanonicalMaterial(unpackCanonicalMaterial(oldWireGoldens.v2,c2),c2)).toBe(oldWireGoldens.v2)
+ })
+ it('uses direct CMAT3 layout, exact roles, image96 definition and draw40 F64 scalar',()=>{
+  const c=textureContext(),input=textureInput(),built=buildCanonicalMaterial(input,c),b=textureBytes(built.packed),v=new DataView(b.buffer)
+  expect(built.packed.startsWith('3|')).toBe(true);expect(b.length).toBe(24+80+96+40+64)
+  expect(Array.from(b.slice(0,8))).toEqual([67,77,65,84,3,0,2,0])
+  expect(v.getUint16(8,true)).toBe(1);expect(v.getUint16(10,true)).toBe(1);expect(v.getUint16(12,true)).toBe(4)
+  expect(Array.from(b.slice(24,56))).toEqual(Array(32).fill(0x11));expect(Array.from(b.slice(64,96))).toEqual(Array(32).fill(0x22))
+  expect(v.getUint16(96,true)).toBe(4);expect(v.getUint16(98,true)).toBe(4)
+  expect(Array.from(b.slice(104,108))).toEqual([0,0,0,0]);expect(Array.from(b.slice(168,200))).toEqual(Array(32).fill(0))
+  expect(v.getInt32(204,true)).toBe(1);expect(v.getInt32(208,true)).toBe(2)
+  expect(v.getFloat64(212,true)).toBe(.75);expect(v.getFloat64(220,true)).toBe(.5);expect(v.getUint32(228,true)).toBe(0);expect(v.getFloat64(232,true)).toBe(.25)
+  expect(built.frame.profile).toBe(CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE)
+  expect(unpackCanonicalMaterial(built.packed,c)).toEqual(built.frame);expect(packCanonicalMaterial(built.frame,c)).toBe(built.packed)
+ })
+ it('keeps grainDepth on DRAW, preserving negative zero and one geometry definition',()=>{
+  const input=textureInput();input.draws=[-0,.5,1].map(grainDepth=>({...input.draws[0],grainDepth}));input.fences[1].at=3;input.fences[2].at=3;input.fences[3].at=3
+  const out=buildCanonicalMaterial(input,textureContext()).frame
+  expect(out.definitions).toHaveLength(1);expect(out.draws.map(d=>d.definition)).toEqual([0,0,0]);expect(Object.is(out.draws[0].grainDepth,-0)).toBe(true)
+  expect(out.draws.slice(1).map(d=>d.grainDepth)).toEqual([.5,1]);expect(out.draws.map(d=>d.opacity)).toEqual([.75,.75,.75])
+ })
+ it('retains the two-role ledger even for empty baseline and phase2 structural suffix',()=>{
+  for(const tail of [{masked:false as const,entry:{phase:'between' as const},draws:[],fences:[]},
+   {masked:false as const,entry:{phase:'mask' as const,group:7},draws:[],fences:[{at:0,kind:'segmentEnd' as const,group:7},{at:0,kind:'gestureEnd' as const}]}]){
+   const built=buildCanonicalMaterial(tail,textureContext()),b=textureBytes(built.packed)
+   expect(b[6]).toBe(2);expect(b.length).toBe(104+tail.fences.length*16);expect(built.frame.entry).toEqual(tail.entry);expect(built.frame.fences).toEqual(tail.fences)
+  }
+  const first=textureInput();first.fences=first.fences.slice(0,2)
+  expect(buildCanonicalMaterial(first,textureContext()).frame.fences.at(-1)?.kind).toBe('primaryEnd')
+ })
+ it('refuses cross-version contexts, profiles and inserted new scalar on historical draws',()=>{
+  const c=textureContext(),built=buildCanonicalMaterial(textureInput(),c),c2={version:2 as const,assets:[c.assets[0]],primarySource:c.primarySource,budget:c.budget}
+  expect(()=>unpackCanonicalMaterial(built.packed,context())).toThrow();expect(()=>unpackCanonicalMaterial(built.packed,c2)).toThrow()
+  expect(()=>unpackCanonicalMaterial(oldWireGoldens.v1,c)).toThrow();expect(()=>unpackCanonicalMaterial(oldWireGoldens.v2,c)).toThrow()
+  expect(()=>packCanonicalMaterial(built.frame as unknown as CanonicalMaterialFrame,context())).toThrow()
+  const old=frame();Object.assign(old.draws[0],{grainDepth:1});expect(()=>packCanonicalMaterial(old,context())).toThrow()
+ })
+ it('refuses masked execution, auto recipes and secondary/texture asset definitions',()=>{
+  for(const mutate of [(i:Mutable<CanonicalMaterialBuildInputV3>)=>{Reflect.set(i,'masked',true)},(i:Mutable<CanonicalMaterialBuildInputV3>)=>{Reflect.set(i.draws[0],'role','mask')},(i:Mutable<CanonicalMaterialBuildInputV3>)=>{i.draws[0].recipe.asset=mask},(i:Mutable<CanonicalMaterialBuildInputV3>)=>{Reflect.set(i.draws[0].recipe,'kind','defaultAuto')}]){
+   const i=textureInput();mutate(i);expect(()=>buildCanonicalMaterial(i,textureContext())).toThrow()
+  }
+ })
+ it('bounds draw scalar, geometry costs, pixel sum and counts without a texture GPU grant',()=>{
+  for(const grainDepth of [NaN,Infinity,-Infinity,-.001,1.001]){const i=textureInput();i.draws[0].grainDepth=grainDepth;expect(()=>buildCanonicalMaterial(i,textureContext())).toThrow()}
+  for(const patch of [{workUnits:0},{outputBytes:0},{drawPixels:63}]){const c=textureContext();expect(()=>buildCanonicalMaterial(textureInput(),{...c,budget:{...c.budget,...patch}})).toThrow()}
+  const i=textureInput();i.draws=Array.from({length:801},()=>i.draws[0]);expect(()=>buildCanonicalMaterial(i,textureContext())).toThrow()
+  const c=textureContext();expect(()=>buildCanonicalMaterial(textureInput(),{...c,expectedDrawCount:0})).toThrow();expect(()=>buildCanonicalMaterial(textureInput(),{...c,expectedStrokeEnd:false})).toThrow()
+ })
+ it('rejects malformed binary header, definitions, grain, reserved fields, ledger roles and trailing data',()=>{
+  const packed=buildCanonicalMaterial(textureInput(),textureContext()).packed
+  const edits=[(v:DataView,b:Uint8Array)=>{b[4]=2},(_v:DataView,b:Uint8Array)=>{b[6]=1},(_v:DataView,b:Uint8Array)=>{b[7]=1},(v:DataView)=>v.setUint16(14,1,true),
+   (_v:DataView,b:Uint8Array)=>{b[104]=1},(_v:DataView,b:Uint8Array)=>{b[105]=1},(_v:DataView,b:Uint8Array)=>{b[107]=1},(_v:DataView,b:Uint8Array)=>{b[168]=1},
+   (_v:DataView,b:Uint8Array)=>{b[202]=1},(_v:DataView,b:Uint8Array)=>{b[203]=1},(v:DataView)=>v.setUint32(228,1,true),(v:DataView)=>v.setFloat64(232,NaN,true),(v:DataView)=>v.setFloat64(232,1.1,true),
+   (v:DataView)=>v.setUint16(96,5,true),(_v:DataView,b:Uint8Array)=>{const first=b.slice(24,64);b.copyWithin(24,64,104);b.set(first,64)},(v:DataView)=>v.setUint16(10,801,true)]
+  for(const edit of edits)expect(()=>unpackCanonicalMaterial(editTextureBytes(packed,edit),textureContext())).toThrow()
+  expect(()=>unpackCanonicalMaterial(packed+'AAAA',textureContext())).toThrow()
+  expect(()=>unpackCanonicalMaterial('3|'+btoa(String.fromCharCode(...textureBytes(packed).slice(0,-1))),textureContext())).toThrow()
+ })
+ it('rejects closed context extras, unmatched roles, sparse/accessor assets and getter payloads without executing them',()=>{
+  const packed=buildCanonicalMaterial(textureInput(),textureContext()).packed
+  for(const mutate of [(c:Mutable<CanonicalMaterialContextV3>)=>{Reflect.set(c,'maskSource',c.primarySource)},(c:Mutable<CanonicalMaterialContextV3>)=>{Reflect.set(c.primarySource,'frames',[primary,primary])},(c:Mutable<CanonicalMaterialContextV3>)=>{c.primaryTexture.asset=primary},(c:Mutable<CanonicalMaterialContextV3>)=>{c.assets.reverse()},(c:Mutable<CanonicalMaterialContextV3>)=>{Reflect.set(c.assets[0],'extra',1)},(c:Mutable<CanonicalMaterialContextV3>)=>{delete (c.assets as Partial<typeof c.assets>)[1]}]){
+   const c=textureContext() as Mutable<CanonicalMaterialContextV3>;mutate(c);expect(()=>unpackCanonicalMaterial(packed,c)).toThrow()
+  }
+  let calls=0
+  for(const objectKey of ['version','assets','primarySource','primaryTexture','budget']){
+   const c=textureContext(),value=Reflect.get(c,objectKey);Object.defineProperty(c,objectKey,{get(){calls++;return value}})
+   expect(()=>unpackCanonicalMaterial(packed,c)).toThrow()
+  }
+  const c=textureContext();Object.defineProperty(c.assets,'0',{get(){calls++;return c.assets[1]}});expect(()=>unpackCanonicalMaterial(packed,c)).toThrow()
+  const input=textureInput();Object.defineProperty(input.draws[0],'grainDepth',{get(){calls++;return .5}});expect(()=>buildCanonicalMaterial(input,textureContext())).toThrow()
+  const f=buildCanonicalMaterial(textureInput(),textureContext()).frame;Object.defineProperty(f.definitions[0],'width',{get(){calls++;return 8}});expect(()=>packCanonicalMaterial(f,textureContext())).toThrow()
+  expect(calls).toBe(0)
+ })
+ it('rejects inherited version data/getters before consulting nested context payloads',()=>{
+  const packed=buildCanonicalMaterial(textureInput(),textureContext()).packed
+  let calls=0
+  for(const prototype of [{version:3},Object.defineProperty({},'version',{get(){calls++;return 3}})]){
+   const c=Object.create(prototype,Object.getOwnPropertyDescriptors(textureContext()));delete c.version
+   Object.defineProperty(c,'assets',{get(){calls++;return textureContext().assets}})
+   expect(()=>unpackCanonicalMaterial(packed,c)).toThrow()
+  }
+  for(const select of [(c:CanonicalMaterialContextV3)=>[c.primarySource,'asset'] as const,(c:CanonicalMaterialContextV3)=>[c.primaryTexture,'asset'] as const,(c:CanonicalMaterialContextV3)=>[c.budget,'workUnits'] as const,(c:CanonicalMaterialContextV3)=>[c.assets[0],'width'] as const]){
+   const c=textureContext(),[object,key]=select(c),value=Reflect.get(object,key)
+   Object.defineProperty(object,key,{get(){calls++;return value}})
+   expect(()=>unpackCanonicalMaterial(packed,c)).toThrow()
+  }
+  expect(calls).toBe(0)
+ })
 })

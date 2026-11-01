@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest'
-import { CANONICAL_MATERIAL_PROFILE, packCanonicalMaterial, type CanonicalMaterialContext } from './canonicalMaterialCodec.js'
+import { CANONICAL_MATERIAL_PROFILE, CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE, packCanonicalMaterial, type CanonicalMaterialContext, type CanonicalMaterialContextV3 } from './canonicalMaterialCodec.js'
 import { CANONICAL_STROKE_RASTER_PROFILE, decodeCanonicalStrokeFrame, type CanonicalStrokeFrameContext, type CanonicalStrokeFrameEnvelope } from './canonicalStrokeFrame.js'
 
 function fixture() {
@@ -48,6 +48,27 @@ it('delegates trusted CAS, byte budgets and end fences to the shared material de
 })
 
 const genericProfile = 'installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2' as const
+it('keeps material3 pure parsing separate from existing stroke admission even with a fabricated trusted context', () => {
+  const { trusted, value } = fixture(), primary = trusted.material.assets[0]
+  const pattern = { ...primary, id: 'asset:' + '2'.repeat(64) }
+  const material: CanonicalMaterialContextV3 = { version: 3, assets: [primary, pattern],
+    primarySource: { kind: 'image', asset: primary.id, brushScale: 1, brushAngle: 0 },
+    primaryTexture: { kind: 'canvasTexture', asset: pattern.id, law: 'subtract-u8-v1', width: 2, height: 2,
+      periodX: 2, periodY: 2, offsetX: 0, offsetY: 0, strength: 'pressure-identity-v1' }, budget: trusted.material.budget }
+  const materialPacked = packCanonicalMaterial({ profile: CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,
+    masked: false, entry: { phase: 'between' }, definitions: [], draws: [], fences: [] }, material)
+  const context = { ...trusted, rasterProfile: genericProfile }
+  Reflect.set(context, 'material', material)
+  const input = { ...value, version: 2, rasterProfile: genericProfile, materialPacked }
+  expect(() => decodeCanonicalStrokeFrame(input, context)).toThrow('Unsupported canonical stroke material version')
+  const getter = vi.fn(() => 3), accessor = { ...trusted.material }
+  Object.defineProperty(accessor, 'version', { get: getter })
+  Reflect.set(context, 'material', accessor)
+  expect(() => decodeCanonicalStrokeFrame(input, context)).toThrow('Unsupported canonical stroke material version')
+  expect(getter).not.toHaveBeenCalled()
+  Reflect.set(context, 'material', Object.assign(Object.create({ version: 3 }), trusted.material))
+  expect(() => decodeCanonicalStrokeFrame(input, context)).toThrow('Unsupported canonical stroke material version')
+})
 for (const outerBlend of ['over','multiply','lighten','colorDodge','overlay'] as const) it(`admits V2 ${outerBlend} only against an explicit trusted whole-pipeline profile`, () => {
   const { trusted, value } = fixture()
   const composition = { ...trusted.composition, outerBlend }

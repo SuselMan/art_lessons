@@ -1,4 +1,4 @@
-import { unpackCanonicalMaterial, type CanonicalMaterialContext, type CanonicalMaterialFrame, type CanonicalMaterialContextV2, type CanonicalMaterialFrameV2, type AnyCanonicalMaterialContext } from './canonicalMaterialCodec.js'
+import { unpackCanonicalMaterial, type CanonicalMaterialContext, type CanonicalMaterialFrame, type CanonicalMaterialContextV2, type CanonicalMaterialFrameV2 } from './canonicalMaterialCodec.js'
 
 /** Stroke resource policy; frame fences never reset this state. */
 export interface CanonicalStrokeComposition {
@@ -89,6 +89,15 @@ export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStr
   const contract=canonicalStrokeRasterContract(rasterProfile)
   if (!trusted || !text(trusted.brush) || !text(trusted.strokeId) || !ordinal(trusted.frameOrdinal) || !rgb(trusted.pigmentRgb8) || !isCanonicalStrokeComposition(trusted.composition, rasterProfile))
     throw new TypeError('Invalid trusted canonical stroke context')
+  // Pure material parsing can support more versions than this admitted stroke
+  // contract. Refuse them here until every stroke consumer handles that version.
+  if (!trusted.material || typeof trusted.material !== 'object' || Array.isArray(trusted.material))
+    throw new TypeError('Invalid trusted canonical stroke context')
+  if ('version' in trusted.material) {
+    const version = Object.getOwnPropertyDescriptor(trusted.material, 'version')
+    if (!version || !Object.hasOwn(version, 'value') || version.value !== 2)
+      throw new TypeError('Unsupported canonical stroke material version')
+  }
   if (!record(value) || !fields(value, ['version', 'rasterProfile', 'brush', 'strokeId', 'frameOrdinal', 'pigmentRgb8', 'composition', 'materialPacked'])
     || value.version !== contract.envelopeVersion || value.rasterProfile !== rasterProfile || !text(value.brush) || !text(value.strokeId)
     || !ordinal(value.frameOrdinal) || !rgb(value.pigmentRgb8) || !isCanonicalStrokeComposition(value.composition, rasterProfile) || typeof value.materialPacked !== 'string')
@@ -102,7 +111,7 @@ export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStr
     for(const source of [trusted.material.primarySource,trusted.material.maskSource])
       if(source&&source.kind!=='image'&&!canonicalStrokeCoverageMatches(rasterProfile,source.coverageProfile))throw new TypeError('Canonical raster/coverage profile mismatch')
   }
-  const frame = unpackCanonicalMaterial(value.materialPacked, trusted.material as AnyCanonicalMaterialContext)
+  const frame = unpackCanonicalMaterial(value.materialPacked, trusted.material)
   Object.freeze(frame.entry)
   // Soft curves arrive as independent deep-frozen trusted-pin snapshots.
   for (const item of frame.definitions) { if ('kind' in item && (item.kind==='defaultAuto'||item.kind==='gaussianAuto'||item.kind==='softAuto')) Object.freeze(item.source); Object.freeze(item) }
