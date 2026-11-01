@@ -840,6 +840,9 @@ export interface PencilEngineAPI {
   getOperationsSinceRestore(): Operation[]
   undo(): Operation | null
   redo(): Operation | null
+  /** History selection may read original evidence asynchronously. The current
+   * legacy/full-prefix lanes execute their existing operation synchronously. */
+  requestHistory(action: 'undo' | 'redo'): Promise<Operation | null>
   // (#263) Read-only peek at what undo()/redo() would act on *without*
   // applying it — null unless the target is a structural op that would
   // actually *remove* content from any author, not just the one about to
@@ -3728,6 +3731,10 @@ export class PencilEngine implements PencilEngineAPI {
       timestamp: Date.now(), targetOpId: target.id,
     })
     return target
+  }
+
+  async requestHistory(action: 'undo' | 'redo'): Promise<Operation | null> {
+    return action === 'undo' ? this.undo() : this.redo()
   }
 
   /** Shared by peekUndo/peekRedo: reduces a candidate target op (already

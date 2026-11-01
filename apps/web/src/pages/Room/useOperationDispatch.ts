@@ -193,9 +193,12 @@ export function useOperationDispatch({
     })) return
     // Reset *after* the undo, not before: re-opening the session re-derives
     // the gizmo bounds from the layer, and doing that first would read the
-    // pixels the undo is about to change. Both happen in this one task, so
-    // nothing is painted in between.
-    const undone = engineRef.current?.undo()
+    // pixels the undo is about to change. Await the actual history result
+    // before deriving the new gizmo bounds.
+    const engine = engineRef.current
+    const undone = await engine?.requestHistory('undo')
+    // A history read can outlive the Room engine that started it.
+    if (engineRef.current !== engine) return
     resetTransformSessionRef.current()
     if (undone) syncFromLog()
   }, [dispatchOp, syncFromLog, roomContentReady, editingBlocked, t, confirm,
@@ -217,7 +220,9 @@ export function useOperationDispatch({
       danger: true,
     })) return
     // Same ordering as handleUndo above.
-    const redone = engineRef.current?.redo()
+    const engine = engineRef.current
+    const redone = await engine?.requestHistory('redo')
+    if (engineRef.current !== engine) return
     resetTransformSessionRef.current()
     if (redone) syncFromLog()
   }, [dispatchOp, syncFromLog, roomContentReady, editingBlocked, t, confirm,
