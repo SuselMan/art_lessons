@@ -81,3 +81,5 @@ export * from './canonicalImageMaterial.js'
 
 export * from './canonicalIndexedHistory.js'
 export * from './canonicalIndexedHistoryPage.js'
+
+export * from './canonicalPrimaryTexture.js'

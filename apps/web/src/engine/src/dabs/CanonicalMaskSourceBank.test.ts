@@ -42,7 +42,7 @@ describe('finite opaque grayscale canonical source bank', () => {
     let count = 0
     for (const row of levels.cases) {
       const s = setup(input(row.sourceWidth, row.sourceHeight, row.sourceGrayBytes))
-      const index = s.bank.jobs.findIndex(job => job.resource.scale === row.selectedScale)
+      const index = s.bank.jobs.findIndex(job => job.kind==='native-image'&&job.resource.scale === row.selectedScale)
       expect(index).toBeGreaterThanOrEqual(0); s.bank.prepareJob(index)
       expect([...s.images.get(s.cache.get(s.bank.jobs[index].key)!)!]).toEqual(row.borderedBytesRGBA)
       s.bank.reset(); count++
@@ -50,7 +50,7 @@ describe('finite opaque grayscale canonical source bank', () => {
     for (const row of transforms.cases) {
       if (row.preparation !== 'opaque-gray') continue
       const s = setup(input(row.width, row.height, row.input.filter((_, i) => i % 4 === 0)))
-      const index = s.bank.jobs.findIndex(job => job.resource.scale === row.expected.baseScale)
+      const index = s.bank.jobs.findIndex(job => job.kind==='native-image'&&job.resource.scale === row.expected.baseScale)
       expect(index).toBeGreaterThanOrEqual(0); s.bank.prepareJob(index)
       expect([...s.images.get(s.cache.get(s.bank.jobs[index].key)!)!]).toEqual(row.expected.levelRGBA)
       s.bank.reset(); count++
@@ -146,7 +146,7 @@ describe('finite opaque grayscale canonical source bank', () => {
     const source = input(153, 64), state = mockGL(), cache = new BrushTextureCache(state.gl), cpu = new BrushMipCache()
     const bank = new CanonicalMaskSourceBank(state.gl, cache, cpu, [source], { gpuBytes: 692224, cpuBytes: 692224 })
     expect(bank.maximumTransientCpuBytes).toBe(3150820)
-    const index = bank.jobs.findIndex(job => job.resource.scale === 8)
+    const index = bank.jobs.findIndex(job => job.kind==='native-image'&&job.resource.scale === 8)
     expect(index).toBeGreaterThanOrEqual(0)
     const upload = state.gl.texImage2D.getMockImplementation()
     state.gl.texImage2D.mockImplementation((...args: any[]) => {
@@ -172,7 +172,7 @@ it('exports cold immutable CAS/crop/level bindings without new reads, uploads or
   bindings.forEach((r, i) => {
     expect(r.key).toBe(resources[i]!.key); expect(r.bytes).toBe(resources[i]!.width * resources[i]!.height * 4);
     expect(r.canonical!.index).toBe(i); expect(r.canonical!.asset).toMatchObject({ id: 'chalk', x: 1, y: 1, width: 3, height: 5 });
-    expect(r.canonical!.baseScale).toBe(s.bank.jobs[i]!.resource.scale);
+    expect(r.canonical!.baseScale).toBe(s.bank.jobs.filter(job=>job.kind==='native-image')[i]!.resource.scale);
     expect(Object.isFrozen(r.canonical!.asset)).toBe(true);
   });
   expect(s.source.readOriginalCoverage).toHaveBeenCalledTimes(reads); expect(s.gl.texImage2D).toHaveBeenCalledTimes(uploads);
