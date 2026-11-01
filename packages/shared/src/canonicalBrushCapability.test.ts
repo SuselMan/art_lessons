@@ -1,3 +1,4 @@
+import {extractCanonicalPrimaryTextureCapability} from './canonicalBrushCapability.js'
 import {canonicalSourceComposition,canonicalSourceEffectReject,extractCanonicalIncrementalImagePipeCapability,extractCanonicalRandomImagePipeCapability} from './canonicalBrushCapability.js'
 import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE} from './canonicalStrokeFrame.js'
 import { describe, expect, it } from 'vitest'
@@ -126,4 +127,86 @@ it('shares outer effect rejection between local preparation and server binding w
  d.tip.alphaThreshold={value:.5,softness:0};expect(canonicalSourceEffectReject(d,CANONICAL_STROKE_RASTER_PROFILE)).toBe('mask-threshold')
  delete d.tip.alphaThreshold;Object.assign(d,{behavior:{rendering:{mode:'buildUp',opacityCeiling:'shape'}}})
  expect(canonicalSourceEffectReject(d,CANONICAL_STROKE_RASTER_PROFILE)).toBe('stroke-rendering-mode')
+})
+
+// Structural retained-raw fixture, not a claim of imported descriptor/CAS authority.
+const pattern={id:`asset:${'b'.repeat(64)}` as const,size:8}
+function texturedDescriptor():BrushDescriptor {
+ const d=descriptor()
+ Object.assign(d.sourceStamp!.flags,{textureEnabled:true})
+ Object.assign(d.sourceStamp!.settings,{
+  'Texture/Pattern/Enabled':'true','PressureTexture/Strength/':'true',
+  'Texture/Strength/StrengthVersion':'2','Texture/Strength/UseCurve':'true',
+  'Texture/Strength/UseSameCurve':'true','Texture/Strength/Value':'1',
+  'Texture/Strength/curveMode':'0',
+  'Texture/Strength/Sensor':'<!DOCTYPE params> <params id="pressure"> <curve>0,0;1,1;</curve> </params> ',
+ })
+ d.texture={id:pattern.id,periodPx:4,strength:1,patternSize:{width:4,height:4},application:{mode:'subtract',soft:false},offset:{x:0,y:0,randomX:false,randomY:false}}
+ return d
+}
+const textureCapability=(d:BrushDescriptor)=>extractCanonicalPrimaryTextureCapability(d,{primary:asset,pattern})
+describe('closed primary texture semantic capability; no execution authority',()=>{
+ it('captures original image and pattern metadata without mutating descriptor or widening old APIs',()=>{
+  const d=texturedDescriptor(),before=structuredClone(d),r=textureCapability(d)
+  expect(r.supported).toBe(true);expect(d).toEqual(before)
+  if(!r.supported)throw Error('fixture must classify')
+  expect(r.capability.kind).toBe('primary-image-pressure-texture-v1')
+  expect(r.capability.asset).toEqual({...asset,x:1,y:2,width:3,height:5})
+  expect(r.capability.patternAsset).toEqual({...pattern,x:0,y:0,width:4,height:4})
+  expect(r.capability.primaryTexture).toMatchObject({strength:'pressure-identity-v1',periodX:4,periodY:4})
+  for(const value of [r.capability,r.capability.asset,r.capability.patternAsset,r.capability.primaryTexture])expect(Object.isFrozen(value)).toBe(true)
+  d.texture!.offset!.x=2;expect(r.capability.primaryTexture.offsetX).toBe(0)
+  expect(extractCanonicalSinglePngCapability(d,asset).supported).toBe(false)
+  const tagged=texturedDescriptor();Object.assign(tagged.sourceStamp!,{version:2,source:{kind:'image'}})
+  expect(textureCapability(tagged).supported).toBe(true)
+ })
+ it.each([`<params id='pressure'><curve>0,0;1,1;</curve></params>`, '\t<!DOCTYPE params>\n<params id = "pressure"> <curve> 0 , 0 ; 1 , 1 ; </curve> </params>\r'])('accepts only whole bounded pressure identity grammar: %s',xml=>{
+  const d=texturedDescriptor();Reflect.set(d.sourceStamp!.settings,'Texture/Strength/Sensor',xml);expect(textureCapability(d).supported).toBe(true)
+ })
+ it.each([
+  '<!DOCTYPE params SYSTEM "x"><params id="pressure"><curve>0,0;1,1;</curve></params>',
+  '<!DOCTYPE params [<!ENTITY a "0">]><params id="pressure"><curve>&a;,0;1,1;</curve></params>',
+  '<params id="pressure" extra="0"><curve>0,0;1,1;</curve></params>',
+  '<params id="pressure" id="pressure"><curve>0,0;1,1;</curve></params>',
+  '<params id="pressure"><curve>0,0;1,1;</curve><curve>0,0;1,1;</curve></params>',
+  '<params id="pressure"><ChildSensor id="pressure"/><curve>0,0;1,1;</curve></params>',
+  '<params id="pressure"/>','<params id="pressure"><curve>0,1;1,1;</curve></params>',
+  '<!--x--><params id="pressure"><curve>0,0;1,1;</curve></params>',
+  '<?xml version="1.0"?><params id="pressure"><curve>0,0;1,1;</curve></params>',
+  '<params id="pressure"><curve>0,0;1,1;</curve></params>junk', 'x'.repeat(2049),
+ ])('refuses nonclosed XML without substring admission',xml=>{
+  const d=texturedDescriptor();Reflect.set(d.sourceStamp!.settings,'Texture/Strength/Sensor',xml);expect(textureCapability(d).supported).toBe(false)
+ })
+ it('requires retained raw fields even when legacy grain modulation looks identity',()=>{
+  const d=texturedDescriptor();for(const key of Object.keys(d.sourceStamp!.settings))if(key.startsWith('Texture/Strength/'))Reflect.deleteProperty(d.sourceStamp!.settings,key)
+  expect(textureCapability(d).supported).toBe(false)
+ })
+ it.each(['Texture/Strength/unknown','Texture/Strength/commonCurve','PressureTexture/Strength/extra','CustomTexture/Strength/','CurveTexture/Strength/'])('refuses ambiguous extra raw program %s',key=>{
+  const d=texturedDescriptor();Reflect.set(d.sourceStamp!.settings,key,'0,0;1,1;');expect(textureCapability(d).supported).toBe(false)
+ })
+ it('rejects missing or changed original scalar fields',()=>{
+  const original=texturedDescriptor().sourceStamp!.settings
+  for(const key of Object.keys(original).filter(k=>k!=='PaintOpAction')){
+   const d=texturedDescriptor();Reflect.deleteProperty(d.sourceStamp!.settings,key);expect(textureCapability(d).supported).toBe(false)
+   const changed=texturedDescriptor();Reflect.set(changed.sourceStamp!.settings,key,'false');expect(textureCapability(changed).supported).toBe(false)
+  }
+ })
+ it('rejects unsupported geometry, effects and source flags',()=>{
+  const edits:((d:BrushDescriptor)=>void)[]=[d=>{d.texture!.application!.soft=true},d=>{d.texture!.application!.mode='multiply'},d=>{d.texture!.offset!.randomX=true},d=>{d.texture!.offset!.x=-1},d=>{d.texture!.periodPx=5},d=>{d.texture!.strength=.5},d=>{d.texture!.id=asset.id},d=>{d.texture!.patternSize!.width=9},d=>{Object.assign(d.sourceStamp!.flags,{textureEnabled:false})},d=>{Object.assign(d.sourceStamp!.flags,{materialFixed1:false})},d=>{Reflect.set(d.sourceStamp!,'role','mask')},d=>{d.model='mixer'},d=>{d.wet={edge:0,mottle:0,granulation:0,glaze:false}},d=>{d.screentonePx=2}]
+  for(const edit of edits){const d=texturedDescriptor();edit(d);expect(textureCapability(d).supported).toBe(false)}
+ })
+ it('does not widen old image pipe extractors and refuses animated texture sources',()=>{
+  const d=texturedDescriptor();d.tip.animation={mode:'incremental',frames:[asset.id,asset.id]}
+  expect(textureCapability(d).supported).toBe(false)
+  expect(extractCanonicalIncrementalImagePipeCapability(d,[asset]).supported).toBe(false)
+  d.tip.animation.mode='random'
+  expect(extractCanonicalRandomImagePipeCapability(d,[asset]).supported).toBe(false)
+ })
+ it('refuses NPOT pattern storage independently of valid rectangle geometry',()=>{
+  expect(extractCanonicalPrimaryTextureCapability(texturedDescriptor(),{primary:asset,pattern:{...pattern,size:7}}).supported).toBe(false)
+ })
+ it('rejects settings accessors without invoking them',()=>{
+  const d=texturedDescriptor();let called=0;Object.defineProperty(d.sourceStamp!.settings,'Texture/Strength/Sensor',{get(){called++;return 'x'}})
+  expect(textureCapability(d).supported).toBe(false);expect(called).toBe(0)
+ })
 })

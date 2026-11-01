@@ -1,3 +1,4 @@
+import {canonicalPrimaryTexturePin,type CanonicalPrimaryTexturePin} from './canonicalPrimaryTexture.js'
 import {CANONICAL_STROKE_RASTER_PROFILE,canonicalStrokeRasterContract,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
 import type { BrushDescriptor } from './brushes.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
@@ -70,8 +71,9 @@ export function extractCanonicalSinglePngCapability(
 
 function extractImageFrameCapability(
   descriptor:BrushDescriptor,asset:{readonly id:string;readonly size:number},
-  animation?:NonNullable<BrushDescriptor['tip']['animation']>,
+  policy?:Readonly<{animation?:NonNullable<BrushDescriptor['tip']['animation']>;material?:'verified-primary-texture'}>,
 ):CanonicalSinglePngResult {
+  const animation=policy?.animation
   const reject = (reason: string): CanonicalSinglePngResult => ({ supported: false, reasons: [reason] })
   const data = descriptor.sourceStamp
   if (data === undefined) return reject('legacy-descriptor-no-source-data')
@@ -86,7 +88,7 @@ function extractImageFrameCapability(
     || !Object.values(sampling.sourceRect).every(v => Number.isInteger(v) && v >= 0)
     || sampling.sourceRect.width !== data.brush.width || sampling.sourceRect.height !== data.brush.height
     || sampling.sourceRect.x + data.brush.width > asset.size || sampling.sourceRect.y + data.brush.height > asset.size) return reject('native-cas-source-grid-unavailable')
-  if (!data.flags.materialFixed1 || data.flags.textureEnabled || descriptor.behavior?.colorAdjustment) return reject('unsupported-material-consumer')
+  if (!data.flags.materialFixed1 || (policy?.material==='verified-primary-texture'?!data.flags.textureEnabled:data.flags.textureEnabled) || descriptor.behavior?.colorAdjustment) return reject('unsupported-material-consumer')
   if (data.options.length !== 9) return reject('native-option-program-unavailable')
   const rotation = data.options.find(o => o.id === 'Rotation')!
   const fan = rotation.checked && rotation.useCurve ? rotation.sensors.find(s => s.id === 'drawingAngle' && s.fanCorners) : undefined
@@ -98,6 +100,95 @@ function extractImageFrameCapability(
   const rect = sampling.sourceRect
   return { supported: true, capability: Object.freeze({ kind: 'single-inverse-gray-png-v1', brushId: descriptor.id,
     brushVersion: descriptor.version, brushScale: data.brush.scale, brushAngle: data.brush.angle, asset: Object.freeze({ id: asset.id, size: asset.size, ...rect }), mode }) }
+}
+
+/** Semantic data only: neither verified CAS provenance nor a room execution grant.
+ * Caller still requires canonicalSourceEffectReject for its actual raster profile. */
+export interface CanonicalPrimaryTextureCapability extends Omit<CanonicalSinglePngCapability,'kind'> {
+  readonly kind:'primary-image-pressure-texture-v1'
+  readonly patternAsset:CanonicalMaterialAsset
+  readonly primaryTexture:CanonicalPrimaryTexturePin
+  readonly strengthProgram:'pressure-identity-v1'
+}
+export type CanonicalPrimaryTextureCapabilityResult=
+  {readonly supported:true;readonly capability:CanonicalPrimaryTextureCapability}|
+  {readonly supported:false;readonly reasons:readonly string[]}
+function textureData(value:unknown,required:readonly string[]):Record<string,unknown> {
+  if(!value||typeof value!=='object'||Array.isArray(value)||![Object.prototype,null].includes(Object.getPrototypeOf(value)))throw new TypeError('Invalid texture data')
+  const keys=Reflect.ownKeys(value)
+  if(keys.length!==required.length||keys.some(k=>typeof k!=='string'||!required.includes(k)))throw new TypeError('Invalid texture fields')
+  const result:Record<string,unknown>=Object.create(null)
+  for(const key of required){const d=Object.getOwnPropertyDescriptor(value,key);if(!d||!Object.hasOwn(d,'value'))throw new TypeError('Invalid texture accessor');result[key]=d.value}
+  return result
+}
+/** Only the exact two-endpoint native pressure grammar. No XML entity parser. */
+function texturePressureIdentity(text:string):boolean {
+  if(text.length>2048)return false
+  let at=0
+  const ws=()=>{while(at<text.length&&' \t\r\n'.includes(text[at]))at++}
+  const take=(token:string)=>{if(!text.startsWith(token,at))return false;at+=token.length;return true}
+  ws();if(text.startsWith('<!DOCTYPE',at)){if(!take('<!DOCTYPE params>'))return false;ws()}
+  if(!take('<params'))return false
+  const before=at;ws();if(at===before||!take('id'))return false
+  ws();if(!take('='))return false;ws()
+  const quote=text[at];if(quote!=='"'&&quote!=="'")return false;at++
+  if(!take('pressure')||!take(quote))return false
+  ws();if(!take('>'))return false;ws();if(!take('<curve>'))return false
+  for(const token of ['0',',','0',';','1',',','1',';']){ws();if(!take(token))return false}
+  ws();if(!take('</curve>'))return false;ws();if(!take('</params>'))return false;ws()
+  return at===text.length
+}
+function textureStrengthSettings(value:unknown):boolean {
+  if(!value||typeof value!=='object'||Array.isArray(value)||![Object.prototype,null].includes(Object.getPrototypeOf(value)))return false
+  const keys=Reflect.ownKeys(value)
+  if(keys.length>256)return false
+  const expected:Readonly<Record<string,string>>={
+    'Texture/Pattern/Enabled':'true','PressureTexture/Strength/':'true',
+    'Texture/Strength/StrengthVersion':'2','Texture/Strength/UseCurve':'true',
+    'Texture/Strength/UseSameCurve':'true','Texture/Strength/Value':'1','Texture/Strength/curveMode':'0',
+  }
+  const captured:Record<string,string>=Object.create(null)
+  for(const key of keys){
+    if(typeof key!=='string'||key.length>128)return false
+    const d=Object.getOwnPropertyDescriptor(value,key)
+    if(!d||!Object.hasOwn(d,'value')||typeof d.value!=='string'||d.value.length>65536)return false
+    if((key.startsWith('Texture/Strength/')&&!Object.hasOwn(expected,key)&&key!=='Texture/Strength/Sensor')
+      ||key.startsWith('PressureTexture/Strength/')&&key!=='PressureTexture/Strength/'
+      ||key.startsWith('CustomTexture/Strength/')||key.startsWith('CurveTexture/Strength/'))return false
+    captured[key]=d.value
+  }
+  return Object.entries(expected).every(([key,v])=>captured[key]===v)
+    &&typeof captured['Texture/Strength/Sensor']==='string'&&texturePressureIdentity(captured['Texture/Strength/Sensor'])
+}
+export function extractCanonicalPrimaryTextureCapability(
+  descriptor:BrushDescriptor,assets:Readonly<{primary:Readonly<{id:string;size:number}>;pattern:Readonly<{id:string;size:number}>}>,
+):CanonicalPrimaryTextureCapabilityResult {
+  const reject=(reason:string):CanonicalPrimaryTextureCapabilityResult=>({supported:false,reasons:[reason]})
+  try{
+    // Capture new raw boundary before schema validation can enumerate settings.
+    const source=Object.getOwnPropertyDescriptor(descriptor,'sourceStamp')
+    if(!source||!Object.hasOwn(source,'value')||!source.value||typeof source.value!=='object')return reject('texture-source-data-unavailable')
+    const settings=Object.getOwnPropertyDescriptor(source.value,'settings')
+    if(!settings||!Object.hasOwn(settings,'value')||!textureStrengthSettings(settings.value))return reject('texture-pressure-program-unavailable')
+    const available=textureData(assets,['primary','pattern']),primary=textureData(available.primary,['id','size']),pattern=textureData(available.pattern,['id','size'])
+    if(typeof primary.id!=='string'||typeof primary.size!=='number'||typeof pattern.id!=='string'||typeof pattern.size!=='number'
+      ||primary.id===pattern.id||!/^asset:[a-f0-9]{64}$/.test(pattern.id)||!Number.isInteger(pattern.size)||pattern.size<2||pattern.size>2048||(pattern.size&(pattern.size-1))!==0)return reject('texture-asset-unavailable')
+    const behavior=descriptor.behavior
+    if(descriptor.mixer||descriptor.wet||descriptor.screentonePx||behavior?.wetMix||behavior?.edgeBleed||behavior?.grain||behavior?.taper)return reject('unsupported-texture-effect')
+    const field=Object.getOwnPropertyDescriptor(descriptor,'texture')
+    if(!field||!Object.hasOwn(field,'value'))return reject('texture-descriptor-unavailable')
+    const t=textureData(field.value,['id','periodPx','strength','application','patternSize','offset'])
+    const application=textureData(t.application,['mode','soft']),size=textureData(t.patternSize,['width','height']),offset=textureData(t.offset,['x','y','randomX','randomY'])
+    if(t.id!==pattern.id||t.strength!==1||application.mode!=='subtract'||application.soft!==false
+      ||offset.randomX!==false||offset.randomY!==false||typeof size.width!=='number'||typeof size.height!=='number'
+      ||size.width!==size.height||t.periodPx!==size.width)return reject('unsupported-primary-texture')
+    const patternAsset=Object.freeze({id:pattern.id,size:pattern.size,x:0,y:0,width:size.width,height:size.height})
+    const primaryTexture=canonicalPrimaryTexturePin({kind:'canvasTexture',asset:pattern.id,law:'subtract-u8-v1',width:size.width,height:size.height,
+      periodX:t.periodPx,periodY:t.periodPx,offsetX:offset.x,offsetY:offset.y,strength:'pressure-identity-v1'},patternAsset)
+    const image=extractImageFrameCapability(descriptor,{id:primary.id,size:primary.size},{material:'verified-primary-texture'})
+    if(!image.supported)return image
+    return {supported:true,capability:Object.freeze({...image.capability,kind:'primary-image-pressure-texture-v1',patternAsset,primaryTexture,strengthProgram:'pressure-identity-v1'})}
+  }catch{return reject('invalid-primary-texture-data')}
 }
 
 /** Ordered image frames share the existing image recipe and asset bank.
@@ -146,7 +237,7 @@ function extractImagePipeCapability(
   for(const id of animation.frames){
     const asset=metadata.get(id)
     if(!asset)return reject('image-pipe-frame-unavailable')
-    const frame=extractImageFrameCapability(descriptor,asset,animation)
+    const frame=extractImageFrameCapability(descriptor,asset,{animation})
     if(!frame.supported)return frame
     if(first&&first.asset.size!==asset.size)return reject('image-pipe-frame-grid-mismatch')
     first??=frame.capability;frames.push(frame.capability.asset)
