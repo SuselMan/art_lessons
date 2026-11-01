@@ -434,43 +434,69 @@ export class CanonicalGesturePrefixError extends Error { constructor(){super('Ca
  * A known actual operation/read-cap anchor must be present exactly. */
 export interface CanonicalIndexedCloseEvidence {readonly operation:RecordedCanonicalStrokeCloseOperation;readonly row:CanonicalStoredOperationRow}
 export interface CanonicalGesturePrefixRead {readonly operations:CanonicalStrokeOperation[];readonly canonicalRows:CanonicalStoredOperationRow[];readonly close?:CanonicalIndexedCloseEvidence}
-export async function getCanonicalGesturePrefixWithRows(roomId:string,selector:{readonly userId:string;readonly strokeId:string},throughSeq:number,requiredFrame?:CanonicalStrokeOperation):Promise<CanonicalGesturePrefixRead> {
+export interface CanonicalGesturePrefixVisit {
+ readonly requiredFrame?:CanonicalStrokeOperation
+ readonly afterRead?:()=>Promise<void>
+ readonly visit:(operation:CanonicalStrokeOperation|RecordedCanonicalStrokeCloseOperation,row:CanonicalStoredOperationRow)=>undefined
+}
+/** Actual DB id PK plus strict indexed seq supplies cross-page uniqueness.
+ * One selected page is retained; the visitor must synchronously fold and release
+ * it. This result is DATA, never a read/append capability or physical DB claim. */
+export async function visitCanonicalGesturePrefixRows(roomId:string,selector:{readonly userId:string;readonly strokeId:string},throughSeq:number,input:CanonicalGesturePrefixVisit):Promise<{readonly lastOperation?:CanonicalStrokeOperation;readonly lastRow?:CanonicalStoredOperationRow;readonly close?:CanonicalIndexedCloseEvidence}> {
  const fail=():never=>{throw new CanonicalGesturePrefixError()}
  const text=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.length<=256&&!v.includes('\0')
- if(!text(roomId)||!text(selector?.userId)||!text(selector.strokeId)||!Number.isSafeInteger(throughSeq)||throughSeq<0||throughSeq>=Number.MAX_SAFE_INTEGER)return fail()
- if(requiredFrame&&(requiredFrame.type!=='canonical_stroke'||requiredFrame.userId!==selector.userId||requiredFrame.frame.strokeId!==selector.strokeId
+ const {requiredFrame,visit,afterRead}=input
+ const userId=selector?.userId,strokeId=selector?.strokeId
+ if(!text(roomId)||!text(userId)||!text(strokeId)||!Number.isSafeInteger(throughSeq)||throughSeq<0||throughSeq>=Number.MAX_SAFE_INTEGER)return fail()
+ if(requiredFrame&&(requiredFrame.type!=='canonical_stroke'||requiredFrame.userId!==userId||requiredFrame.frame.strokeId!==strokeId
   ||!Number.isSafeInteger(requiredFrame.seq)||requiredFrame.seq!<1||requiredFrame.seq!>throughSeq))return fail()
- const operations:CanonicalStrokeOperation[]=[],canonicalRows:CanonicalStoredOperationRow[]=[],ids=new Set<string>()
- let previous=0,size=0,anchored=!requiredFrame,close:CanonicalIndexedCloseEvidence|undefined
+ let previous=0,size=0,count=0,anchored=!requiredFrame,first:CanonicalStrokeOperation|undefined,lastOperation:CanonicalStrokeOperation|undefined,lastRow:CanonicalStoredOperationRow|undefined,close:CanonicalIndexedCloseEvidence|undefined
  while(true){
-  const rows=await prisma.operation.findMany({where:{roomId,seq:{gt:previous,lte:throughSeq},OR:[{userId:selector.userId,type:'canonical_stroke',data:{path:['frame','strokeId'],equals:selector.strokeId}},{type:'canonical_stroke_close',AND:[{data:{path:['targetUserId'],equals:selector.userId}},{data:{path:['strokeId'],equals:selector.strokeId}}]}]},orderBy:{seq:'asc'},take:CANONICAL_GESTURE_QUERY_PAGE,select:canonicalOperationRowSelect})
+  const rows=await prisma.operation.findMany({where:{roomId,seq:{gt:previous,lte:throughSeq},OR:[{userId:userId,type:'canonical_stroke',data:{path:['frame','strokeId'],equals:strokeId}},{type:'canonical_stroke_close',AND:[{data:{path:['targetUserId'],equals:userId}},{data:{path:['strokeId'],equals:strokeId}}]}]},orderBy:{seq:'asc'},take:CANONICAL_GESTURE_QUERY_PAGE,select:canonicalOperationRowSelect})
+  if(afterRead)await afterRead()
   if(rows.length>CANONICAL_GESTURE_QUERY_PAGE)return fail()
+  const ids=new Set<string>() // page-local only; actual indexed source owns PK.
   for(const row of rows){
+   if(ids.has(row.id))return fail();ids.add(row.id)
    if(row.type==='canonical_stroke_close'){
     let projected:ReturnType<typeof projectCanonicalIndexedCloseOperation>
     try{projected=projectCanonicalIndexedCloseOperation(roomId,row)}catch{return fail()}
-    const op=projected.operation,first=operations[0],last=operations.at(-1)
-    if(close||!first||!last||op.targetUserId!==selector.userId||op.strokeId!==selector.strokeId||op.layerId!==first.layerId
-      ||op.recordedNext!==operations.length||op.firstFrameOpId!==first.id||op.lastFrameOpId!==last.id||op.seq<=previous||op.seq>throughSeq||ids.has(op.id))return fail()
+    const op=projected.operation
+    if(close||!first||!lastOperation||op.targetUserId!==userId||op.strokeId!==strokeId||op.layerId!==first.layerId
+      ||op.recordedNext!==count||op.firstFrameOpId!==first.id||op.lastFrameOpId!==lastOperation.id||op.seq<=previous||op.seq>throughSeq)return fail()
     size+=projected.bytes;if(size>CANONICAL_GESTURE_PREFIX_BYTES)return fail()
-    close=Object.freeze({operation:op,row:Object.freeze({...row,data:op})});ids.add(op.id);previous=op.seq
-    continue
+    close=Object.freeze({operation:op,row:Object.freeze({...row,data:op})})
+    if(visit(op,close.row)!==undefined)return fail()
+    previous=op.seq;continue
    }
    if(close)return fail()
    let projected:CanonicalStrokeOperation,bytes:number
-   try { ({operation:projected,bytes}=projectCanonicalIndexedOperation(roomId,row)) } catch { return fail() }
+   try{({operation:projected,bytes}=projectCanonicalIndexedOperation(roomId,row))}catch{return fail()}
    const op=projected
-   if(op.userId!==selector.userId||op.frame.strokeId!==selector.strokeId||op.seq!<=previous||op.seq!>throughSeq||ids.has(op.id)||op.frame.frameOrdinal!==operations.length)return fail()
+   if(op.userId!==userId||op.frame.strokeId!==strokeId||op.seq!<=previous||op.seq!>throughSeq||op.frame.frameOrdinal!==count)return fail()
    size+=bytes;if(size>CANONICAL_GESTURE_PREFIX_BYTES)return fail()
    const copy=immutableCanonicalOperation(projected,op.seq!)
    if(copy.type!=='canonical_stroke')return fail()
    if(requiredFrame&&op.id===requiredFrame.id){if(!isDeepStrictEqual(copy,requiredFrame))return fail();anchored=true}
-   operations.push(copy);canonicalRows.push(Object.freeze({...row,data:copy}));ids.add(op.id);previous=op.seq!
+   first??=copy;lastOperation=copy;lastRow=Object.freeze({...row,data:copy})
+   if(visit(copy,lastRow)!==undefined)return fail()
+   count++;previous=op.seq!
   }
   if(rows.length<CANONICAL_GESTURE_QUERY_PAGE)break
  }
  if(!anchored)return fail()
- return {operations,canonicalRows,...close?{close}:{}}
+ return Object.freeze({...lastOperation?{lastOperation,lastRow}:{},...close?{close}:{}})
+}
+/** Compatibility adapter: callers that need the old bounded arrays retain
+ * their cross-page duplicate validation and exact original result shape. */
+export async function getCanonicalGesturePrefixWithRows(roomId:string,selector:{readonly userId:string;readonly strokeId:string},throughSeq:number,requiredFrame?:CanonicalStrokeOperation):Promise<CanonicalGesturePrefixRead> {
+ const operations:CanonicalStrokeOperation[]=[],canonicalRows:CanonicalStoredOperationRow[]=[],ids=new Set<string>()
+ const result=await visitCanonicalGesturePrefixRows(roomId,selector,throughSeq,{requiredFrame,visit(operation,row){
+  if(ids.has(operation.id))throw new CanonicalGesturePrefixError();ids.add(operation.id)
+  if(operation.type==='canonical_stroke'){operations.push(operation);canonicalRows.push(row)}
+  return undefined
+ }})
+ return {operations,canonicalRows,...result.close?{close:result.close}:{}}
 }
 
 /** Actual all-global-row range evidence under a captured single-writer cut.

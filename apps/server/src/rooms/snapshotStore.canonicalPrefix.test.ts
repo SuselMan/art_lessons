@@ -51,3 +51,21 @@ it('propagates DB failure instead of converting failed recovery to a new empty g
  const error=Error('db unavailable');db.operation.findMany.mockRejectedValue(error)
  await expect(getCanonicalGesturePrefixWithRows('room',selector,9)).rejects.toBe(error)
 })
+
+it('visits indexed pages synchronously without retaining a second whole-prefix result',async()=>{
+ const {visitCanonicalGesturePrefixRows}=await import('./snapshotStore.js')
+ const ops=Array.from({length:202},(_,n)=>operation(n)),rows=ops.map(indexed),seen:number[]=[],afterRead=vi.fn(async()=>{})
+ db.operation.findMany.mockImplementation(async({where,take})=>rows.filter(r=>r.seq>where.seq.gt&&r.seq<=where.seq.lte).slice(0,take))
+ const result=await visitCanonicalGesturePrefixRows('room',selector,403,{requiredFrame:ops[201],afterRead,visit(op,row){expect(row.data).toBe(op);if(op.type!=='canonical_stroke')throw Error('Unexpected close');seen.push(op.frame.frameOrdinal);return undefined}})
+ expect(seen).toEqual(ops.map(op=>op.frame.frameOrdinal));expect(result.lastOperation?.id).toBe(ops[201].id);expect(result.lastRow?.data).toBe(result.lastOperation)
+ expect(Object.hasOwn(result,'operations')).toBe(false);expect(Object.hasOwn(result,'canonicalRows')).toBe(false);expect(afterRead).toHaveBeenCalledTimes(4)
+})
+it('rechecks the indexed page owner after awaits including empty terminal and refuses async visitors without reading then',async()=>{
+ const {visitCanonicalGesturePrefixRows}=await import('./snapshotStore.js'),error=Error('Original cut invalidated'),visit=vi.fn(()=>undefined)
+ db.operation.findMany.mockResolvedValue([])
+ await expect(visitCanonicalGesturePrefixRows('room',selector,0,{afterRead:async()=>{throw error},visit})).rejects.toBe(error);expect(visit).not.toHaveBeenCalled()
+ db.operation.findMany.mockResolvedValue([indexed(operation(0))]);let thenReads=0
+ const thenable=Object.defineProperty({},'then',{get(){thenReads++;throw Error('Do not inspect')}})
+ await expect(Reflect.apply(visitCanonicalGesturePrefixRows,null,['room',selector,1,{visit:()=>thenable}])).rejects.toThrow();expect(thenReads).toBe(0)
+ await expect(visitCanonicalGesturePrefixRows('room',selector,1,{requiredFrame:operation(1),visit})).rejects.toThrow()
+})

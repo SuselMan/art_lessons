@@ -19,7 +19,7 @@ import { canonicalWriteFence, ensureCanonicalWrite, findDuplicateOperation, know
 import { captureCanonicalMetadata,verifyCanonicalMetadataRow,verifyIndexedOperationRow,projectCanonicalIndexedOperation,projectCanonicalIndexedCloseOperation,type CanonicalMetadataOperation,canonicalOperationRowSelect, verifyCanonicalOperationRow,type CanonicalStoredOperationRow } from './roomPersistence.js'
 import { flushRoomWrites, lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
 import type {CanonicalPrefixPreparer,CanonicalFullHistoryReceipt} from './snapshotReplayLoader.js'
-import { getCanonicalFullHistoryWithRows,CanonicalGesturePrefixError, getCanonicalGesturePrefixWithRows } from './snapshotStore.js'
+import { getCanonicalFullHistoryWithRows,CanonicalGesturePrefixError, getCanonicalGesturePrefixWithRows,visitCanonicalGesturePrefixRows } from './snapshotStore.js'
 
 const fullHistoryAuthority:unique symbol=Symbol('canonical-full-history-owner')
 type OwnedFullHistory=CanonicalFullHistoryReceipt&{readonly [fullHistoryAuthority]:(candidate:unknown,owner:object,operations:readonly Operation[])=>void}
@@ -481,12 +481,13 @@ export class CanonicalRoomTransport {
       }
       await flushRoomWrites(identity.roomId);current();if(canonicalWriteFence(record).failed)fail('canonical_repair_required')
       const cut=record.nextSeq-1
-      const prefix=await getCanonicalGesturePrefixWithRows(identity.roomId,{userId:identity.userId,strokeId:input.strokeId},cut,session?.recordedTail)
+      const fold=binder.createRecordedPrefixFold({roomId:identity.roomId,boardEpoch:session?.grant.boardEpoch??orphan!.boardEpoch,...session?.recordedTail?{anchor:session.recordedTail}:{},purpose:'read'})
+      const prefix=await visitCanonicalGesturePrefixRows(identity.roomId,{userId:identity.userId,strokeId:input.strokeId},cut,{requiredFrame:session?.recordedTail,
+        afterRead:async()=>{current();if(record.nextSeq-1!==cut)fail('canonical_repair_required')},
+        visit(operation,row){current();fold.accept(operation,row);return undefined}})
       current()
       if(record.nextSeq-1!==cut)fail('canonical_repair_required')
-      const anchor=prefix.operations.at(-1),row=prefix.canonicalRows.at(-1)
-      if(!anchor||!row)fail('canonical_repair_required')
-      const summary=binder.readRecordedPrefix({roomId:identity.roomId,boardEpoch:session?.grant.boardEpoch??orphan!.boardEpoch,anchor,row,operations:prefix.operations,rows:prefix.canonicalRows,purpose:'read',...prefix.close?{close:prefix.close}:{}})
+      const summary=fold.finish()
       if('expectedRecordedNext'in input&&(summary.recordedNext!==input.expectedRecordedNext||summary.lastOperationId!==input.expectedLastFrameOpId))fail('invalid_operation')
       const raced=findDuplicateOperation(identity.roomId,input.operationId)
       if(raced&&(!previous||!isDeepStrictEqual(parseCanonicalStrokeCloseOperation(raced),previous)))fail('canonical_repair_required')
@@ -703,9 +704,10 @@ export class CanonicalRoomTransport {
     else binder.readResidentRecordedCapability({roomId:identity.roomId,boardEpoch:scope.boardEpoch,operation:anchor})
     await flushRoomWrites(identity.roomId);current()
     try{
-      const prefix=await getCanonicalGesturePrefixWithRows(identity.roomId,{userId:anchor.userId,strokeId:anchor.frame.strokeId},cut,anchor)
-      current();await authorize()
-      binder.readRecordedPrefix({roomId:identity.roomId,boardEpoch:scope.boardEpoch,anchor,row,operations:prefix.operations,rows:prefix.canonicalRows,purpose:'undo-redo',...prefix.close?{close:prefix.close}:{}})
+      const fold=binder.createRecordedPrefixFold({roomId:identity.roomId,boardEpoch:scope.boardEpoch,anchor,row,purpose:'undo-redo'})
+      await visitCanonicalGesturePrefixRows(identity.roomId,{userId:anchor.userId,strokeId:anchor.frame.strokeId},cut,{requiredFrame:anchor,afterRead:authorize,
+        visit(operation,actualRow){current();fold.accept(operation,actualRow);return undefined}})
+      current();await authorize();fold.finish()
     }catch(error){if(error instanceof TransportFailure)throw error;fail('canonical_repair_required')}
     current();return current
   }

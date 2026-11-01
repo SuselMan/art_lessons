@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import {
-  CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, verifyCanonicalRecordedClose,parseCanonicalStrokeCloseOperation,verifyCanonicalRecordedPrefix, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION,
+  CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, verifyCanonicalRecordedClose,parseCanonicalStrokeCloseOperation,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION,
   canonicalImageSourceBinding,canonicalImagePipeSourceBinding,canonicalSourceEffectReject, canonicalBrushDescriptorJSON, canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, canonicalSourceComposition,
   type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalStrokeOperation, type CanonicalMaterialContextV2, decodeCanonicalStrokeFrame,
   prepareCanonicalRecordedAttachment, CANONICAL_RECORDED_ATTACHMENT_LIMITS, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadCapability, type Operation,
@@ -199,38 +199,66 @@ export class CanonicalBrushCapabilityResolver {
     return this.bindRecordedOperation(roomId,boardEpoch,op)
   }
 
-  /** Pure ROOM-only read-prefix binding. Caller owns read permission, actual
-   * indexed-query provenance and current lifetime; never an append grant. */
-  readRecordedPrefix(input:{readonly roomId:string;readonly boardEpoch:number;readonly anchor:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly operations:readonly CanonicalStrokeOperation[];readonly rows:readonly CanonicalStoredOperationRow[];readonly purpose:'read'|'undo-redo';readonly close?:CanonicalIndexedCloseEvidence}){
-    const {roomId,boardEpoch,anchor,operations,rows}=input
-    if(input.purpose!=='read'&&input.purpose!=='undo-redo')fail('invalid recorded prefix purpose')
-    const bound=input.row?this.readRecordedCapability({roomId,boardEpoch,operation:anchor,row:input.row}):this.readResidentRecordedCapability({roomId,boardEpoch,operation:anchor})
-    if(!Array.isArray(operations)||!operations.length||operations.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings||!Array.isArray(rows)||rows.length!==operations.length)fail('recorded prefix closure unavailable')
-    let anchored=false,bytes=0
-    const verified=[]
-    for(let n=0;n<operations.length;n++){
-      const op=operations[n];verifyCanonicalOperationRow(roomId,op,rows[n])
-      if(op.userId!==bound.originalUserId||op.layerId!==bound.layerId)fail('recorded prefix immutable identity changed')
-      const normalized=projectCanonicalIndexedOperation(roomId,rows[n])
-      if(!isDeepStrictEqual(normalized.operation,op))fail('recorded prefix projected identity changed')
-      bytes+=normalized.bytes;if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix byte capacity exceeded')
-      const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:bound.rasterProfile,brush:bound.brush,strokeId:bound.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:bound.pigmentRgb8,composition:bound.composition,material:bound.material})
-      if(decoded.frame.masked)fail('recorded masked prefix unavailable')
-      verified.push({operationId:op.id,sequence:op.seq!,frameOrdinal:op.frame.frameOrdinal,decoded:{entry:decoded.frame.entry,fences:decoded.frame.fences}})
-      if(op.id===anchor.id){if(!isDeepStrictEqual(op,anchor))fail('recorded prefix anchor changed');anchored=true}
-    }
-    if(!anchored)fail('recorded prefix anchor unavailable')
-    const summary=verifyCanonicalRecordedPrefix(verified)
+  /** Internal scalar fold. Actual indexed visitor/old array adapter owns row
+   * provenance and id uniqueness; this is not a source/read/append grant. */
+  createRecordedPrefixFold(input:{readonly roomId:string;readonly boardEpoch:number;readonly anchor?:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly purpose:'read'|'undo-redo'}) {
+    const {roomId,boardEpoch,anchor,purpose,row}=input
+    if(purpose!=='read'&&purpose!=='undo-redo')fail('invalid recorded prefix purpose')
+    const bindRow=(operation:CanonicalStrokeOperation,row:CanonicalStoredOperationRow)=>this.readRecordedCapability({roomId,boardEpoch,operation,row})
+    let bound=anchor?(row?this.readRecordedCapability({roomId,boardEpoch,operation:anchor,row}):this.readResidentRecordedCapability({roomId,boardEpoch,operation:anchor})):undefined
+    let state=CANONICAL_MATERIAL_PREFIX_START,bytes=0,anchored=!anchor,firstOperationId='',lastOperationId='',firstSeq=0,lastSeq=0,endSeq:number|undefined,closed=false,failed=false
     let closeSeal:ReturnType<typeof verifyCanonicalRecordedClose>|undefined
-    if(input.close){
-      if(!('version'in bound.material)||bound.material.version!==2)fail('recorded close V1 source read unsupported')
-      const close=projectCanonicalIndexedCloseOperation(roomId,input.close.row),operation=parseCanonicalStrokeCloseOperation(input.close.operation)
-      if(!isDeepStrictEqual(close.operation,operation)||operations.some(op=>op.id===operation.id))fail('recorded close immutable identity changed')
-      bytes+=close.bytes;if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix close byte capacity exceeded')
-      closeSeal=verifyCanonicalRecordedClose(summary,{userId:bound.originalUserId,layerId:bound.layerId,strokeId:bound.strokeId},operation)
+    const summary=()=>Object.freeze({...state,recordedNext:state.nextOrdinal,firstOperationId,lastOperationId,firstSeq,lastSeq,...endSeq===undefined?{}:{endSeq}})
+    const assert=(receiver:unknown)=>{if(receiver!==fold||closed||failed)fail('recorded prefix fold owner changed')}
+    const fold={
+      accept(this:unknown,operation:CanonicalStrokeOperation|import('@grafetto/shared').RecordedCanonicalStrokeCloseOperation,row:CanonicalStoredOperationRow):undefined {
+        assert(this)
+        try{
+        if(operation.type==='canonical_stroke_close'){
+          if(!bound||!state.nextOrdinal||closeSeal||!('version'in bound.material)||bound.material.version!==2)fail('recorded close V1 source read unsupported')
+          const close=projectCanonicalIndexedCloseOperation(roomId,row),op=parseCanonicalStrokeCloseOperation(operation)
+          if(!isDeepStrictEqual(close.operation,op)||op.id===firstOperationId||op.id===lastOperationId)fail('recorded close immutable identity changed')
+          bytes+=close.bytes;if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix close byte capacity exceeded')
+          closeSeal=verifyCanonicalRecordedClose(summary(),{userId:bound.originalUserId,layerId:bound.layerId,strokeId:bound.strokeId},op)
+          return undefined
+        }
+        if(closeSeal||state.nextOrdinal>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)fail('recorded prefix closure unavailable')
+        const normalized=projectCanonicalIndexedOperation(roomId,row),op=normalized.operation
+        if(!isDeepStrictEqual(op,operation))fail('recorded prefix projected identity changed')
+        bound??=bindRow(op,row)
+        if(op.userId!==bound.originalUserId||op.layerId!==bound.layerId||op.seq!<=lastSeq)fail('recorded prefix immutable identity changed')
+        bytes+=normalized.bytes;if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix byte capacity exceeded')
+        const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:bound.rasterProfile,brush:bound.brush,strokeId:bound.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:bound.pigmentRgb8,composition:bound.composition,material:bound.material})
+        if(decoded.frame.masked)fail('recorded masked prefix unavailable')
+        state=advanceCanonicalMaterialPrefix(state,op.frame.frameOrdinal,decoded.frame)
+        if(!firstOperationId){firstOperationId=op.id;firstSeq=op.seq!}
+        lastOperationId=op.id;lastSeq=op.seq!;if(state.ended)endSeq=op.seq!
+        if(anchor&&op.id===anchor.id){if(!isDeepStrictEqual(op,anchor))fail('recorded prefix anchor changed');anchored=true}
+        return undefined
+        }catch(error){failed=true;throw error}
+      },
+      finish(this:unknown){
+        assert(this)
+        if(!state.nextOrdinal||!anchored)fail('recorded prefix anchor unavailable')
+        if(purpose==='undo-redo'&&!state.ended&&!closeSeal)fail('recorded undo prefix is open')
+        closed=true
+        return Object.freeze({...summary(),...closeSeal?{closeSeal}:{}})
+      },
     }
-    if(input.purpose==='undo-redo'&&!summary.ended&&!closeSeal)fail('recorded undo prefix is open')
-    return Object.freeze({...summary,...closeSeal?{closeSeal}:{}})
+    return Object.freeze(fold)
+  }
+
+  /** Compatibility reader: same bounded arrays and cross-page duplicate law. */
+  readRecordedPrefix(input:{readonly roomId:string;readonly boardEpoch:number;readonly anchor:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly operations:readonly CanonicalStrokeOperation[];readonly rows:readonly CanonicalStoredOperationRow[];readonly purpose:'read'|'undo-redo';readonly close?:CanonicalIndexedCloseEvidence}){
+    const {operations,rows}=input
+    if(!Array.isArray(operations)||!operations.length||operations.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings||!Array.isArray(rows)||rows.length!==operations.length)fail('recorded prefix closure unavailable')
+    const fold=this.createRecordedPrefixFold(input),ids=new Set<string>()
+    for(let n=0;n<operations.length;n++){
+      if(ids.has(operations[n].id))fail('recorded prefix duplicate identity');ids.add(operations[n].id)
+      fold.accept(operations[n],rows[n])
+    }
+    if(input.close){if(ids.has(input.close.operation.id))fail('recorded close immutable identity changed');fold.accept(input.close.operation,input.close.row)}
+    return fold.finish()
   }
 
   /** Existing actual resident receipt is the provenance boundary; no row echo. */
