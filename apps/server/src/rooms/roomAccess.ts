@@ -36,6 +36,7 @@ export interface PreparedAuthorizedJoin {
  readonly roomId:string;readonly userId:string;readonly socketId:string
  readonly [joinReadAuthority]:(candidate:unknown,roomId:string,userId:string)=>void
  assertCurrent():void
+ assertAuthorized():Promise<void>
  commit():JoinRoomOutcome
 }
 /** Opaque lexical proof of the SAME join decision, not a caller ok:true echo. */
@@ -58,6 +59,13 @@ export async function prepareAuthorizedJoin(roomId:string,userId:string,name:str
  const assertCurrent=()=>{seat.assertCurrent();if(!canSeeResidentBoard(roomId,userId))throw Error('Stale authorized join visibility')}
  const preparation:PreparedAuthorizedJoin=Object.freeze({roomId,userId,socketId,
   assertCurrent(this:PreparedAuthorizedJoin){if(this!==preparation)throw Error('Foreign authorized join receiver');assertCurrent()},
+  async assertAuthorized(this:PreparedAuthorizedJoin){
+   if(this!==preparation)throw Error('Foreign authorized join receiver')
+   assertCurrent()
+   const fresh=await checkJoinAccess(roomId,userId,name,password)
+   assertCurrent()
+   if(!fresh.ok)throw Error('Authorized join access denied',{cause:fresh})
+  },
   commit(this:PreparedAuthorizedJoin){if(this!==preparation)throw Error('Foreign authorized join receiver');assertCurrent();return seat.commit()},
   [joinReadAuthority]:(candidate:unknown,room:string,user:string)=>{if(candidate!==preparation||room!==roomId||user!==userId)throw Error('Authorized join read identity mismatch');assertCurrent()}})
  return {ok:true,preparation}

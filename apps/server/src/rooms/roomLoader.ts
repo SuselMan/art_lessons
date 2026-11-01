@@ -1,3 +1,4 @@
+import type {CanonicalFullHistoryFormat} from './canonicalExecutionPolicy.js'
 import type { AssignmentSummary, BoardSummary, Operation } from '@grafetto/shared'
 import { DEFAULT_PALETTE_COLORS } from '@grafetto/shared'
 
@@ -58,7 +59,7 @@ async function loadResidentOperations(
  *  true) if the room is already live in memory. Reconstructed `participants`
  *  always starts empty: presence is inherently live-only, nobody is
  *  "currently connected" to a room that just got cold-loaded. */
-export async function ensureRoomLoaded(roomId: string,fullHistoryFormat:'frames-v1'|'mixed-v2'='frames-v1'): Promise<boolean> {
+export async function ensureRoomLoaded(roomId: string,fullHistoryFormat:CanonicalFullHistoryFormat='frames-v1'): Promise<boolean> {
   const resident = rooms.get(roomId)
   if (resident) {
     if (!supportsCurrentRoomRaster(resident.room.rasterVersion,fullHistoryFormat)) return false
@@ -98,7 +99,13 @@ export async function ensureRoomLoaded(roomId: string,fullHistoryFormat:'frames-
   ])
   // Sequenced after coverage rather than alongside it: which operations are
   // resident is decided by that map (#372).
-  const operationRows = await loadResidentOperations(roomId, coveredSeqByLayer)
+  const indexed=fullHistoryFormat==='mixed-indexed-v1'&&dbRoom.rasterVersion==='straight-rgba8-v1'
+  if(indexed){
+    if(storedLayerState||coveredSeqByLayer.size)return false
+    const unsupported=await prisma.operation.findFirst({where:{roomId,type:{notIn:['canonical_stroke','canonical_stroke_close','operation_undo','operation_redo']}},select:{id:true}})
+    if(unsupported)return false
+  }
+  const operationRows = indexed?[]:await loadResidentOperations(roomId, coveredSeqByLayer)
   const operations = operationRows.map(row => row.data as Operation)
 
   // (#292) Read from Postgres rather than from `operations`: the resident
@@ -172,6 +179,7 @@ export async function ensureRoomLoaded(roomId: string,fullHistoryFormat:'frames-
     assignmentStarting: false,
     passwordHash: dbRoom.passwordHash ?? undefined,
     operations,
+    ...(indexed?{canonicalHistoryResidency:'indexed-v1' as const}:{}),
     participants: new Map(),
     nextSeq,
     layerStateSeq: storedLayerState?.seq ?? null,

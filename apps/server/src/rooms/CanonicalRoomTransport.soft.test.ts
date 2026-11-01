@@ -2,7 +2,7 @@ import {mkdtempSync,rmSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {afterEach,beforeEach,expect,it,vi} from 'vitest'
-import {CANONICAL_STROKE_RASTER_PROFILE,isBrushLibrary,sourceStampRequiredCurves,SOURCE_STAMP_MAPPED_COMPILER_PROFILE,type BrushDescriptor,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type CanonicalStrokeFrameEnvelope} from '@grafetto/shared'
+import {CANONICAL_STROKE_RASTER_PROFILE,unpackCanonicalMaterial,isBrushLibrary,sourceStampRequiredCurves,SOURCE_STAMP_MAPPED_COMPILER_PROFILE,type BrushDescriptor,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type CanonicalStrokeFrameEnvelope} from '@grafetto/shared'
 // Test-only dynamic source imports keep browser compiler code OUT of the
 // server production/NodeNext build graph while exercising actual author glue.
 const {default:stock}=await import(new URL('../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native.ts',import.meta.url).href)
@@ -13,12 +13,16 @@ const {SourceCanonicalFrameEncoder}=await import(new URL('../../../web/src/engin
 import {BrushStorage,empty,setBrushStorage} from '../brushLibrary/storage.js'
 import {rooms,flushRoomWrites,type RoomRecord} from './roomRegistry.js'
 import {CanonicalRoomTransport} from './CanonicalRoomTransport.js'
+import {joinRoom,leaveRoom,captureCurrentRoomSeat} from './rooms.js'
+import {prepareAuthorizedJoin} from './roomAccess.js'
 import {prepareSnapshotReplay} from './snapshotReplayLoader.js'
 import {getCanonicalGesturePrefixWithRows,visitCanonicalGesturePrefixRows,type CanonicalGesturePrefixVisit} from './snapshotStore.js'
 import {CanonicalBrushCapabilityResolver} from './CanonicalBrushCapabilityResolver.js'
 import {CanonicalStrokeAdmission} from './CanonicalStrokeAdmission.js'
-const db=vi.hoisted(()=>({operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn()},roomLayerState:{findUnique:vi.fn()},roomLayerSnapshot:{findMany:vi.fn()}}))
+const db=vi.hoisted(()=>({$transaction:vi.fn(),$queryRawUnsafe:vi.fn(),$executeRawUnsafe:vi.fn(),roomBlock:{findUnique:vi.fn()},roomParticipant:{upsert:vi.fn()},operation:{count:vi.fn(),findMany:vi.fn(),findUnique:vi.fn(),create:vi.fn()},room:{update:vi.fn()},roomLayerState:{findUnique:vi.fn()},roomLayerSnapshot:{findMany:vi.fn()}}))
+db.$transaction=vi.fn(async(run:(connection:typeof db)=>Promise<unknown>)=>run(db))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
+vi.mock('../db/canonicalIndexedReader.js',()=>({withCanonicalIndexedValidation:async(run:(client:unknown)=>Promise<unknown>)=>run(db)}))
 const history=vi.hoisted(()=>({rows:[] as unknown[],canonicalRows:[] as unknown[],close:undefined as import('./snapshotStore.js').CanonicalIndexedCloseEvidence|undefined}))
 vi.mock('./snapshotStore.js',async importOriginal=>({...await importOriginal<typeof import('./snapshotStore.js')>(),visitCanonicalGesturePrefixRows:vi.fn(),getCanonicalGesturePrefixWithRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows,...history.close?{close:history.close}:{}})),getOperationsBefore:vi.fn(async()=>history.rows),getOperationsBeforeWithCanonicalRows:vi.fn(async()=>({operations:history.rows,canonicalRows:history.canonicalRows}))}))
 const readAccess=vi.hoisted(()=>({allowed:true,gate:undefined as Promise<void>|undefined,calls:[] as [string,string][]}))
@@ -33,7 +37,7 @@ async function boundedPrefixVisitor(roomId:string,selector:{userId:string;stroke
  return{lastOperation:prefix.operations.at(-1),lastRow:prefix.canonicalRows.at(-1),...prefix.close?{close:prefix.close}:{}}
 }
 const dirs:string[]=[]
-beforeEach(()=>{vi.mocked(visitCanonicalGesturePrefixRows).mockImplementation(boundedPrefixVisitor);db.roomLayerState.findUnique.mockResolvedValue(null);db.roomLayerSnapshot.findMany.mockResolvedValue([]);readAccess.allowed=true;readAccess.gate=undefined;readAccess.calls=[];db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[];history.canonicalRows=[];history.close=undefined})
+beforeEach(()=>{db.roomBlock.findUnique.mockResolvedValue(null);vi.mocked(getCanonicalGesturePrefixWithRows).mockReset();vi.mocked(visitCanonicalGesturePrefixRows).mockImplementation(boundedPrefixVisitor);db.roomLayerState.findUnique.mockResolvedValue(null);db.roomLayerSnapshot.findMany.mockResolvedValue([]);readAccess.allowed=true;readAccess.gate=undefined;readAccess.calls=[];db.operation.count.mockResolvedValue(0);db.operation.findUnique.mockResolvedValue(null);db.operation.create.mockResolvedValue({});history.rows=[];history.canonicalRows=[];history.close=undefined})
 afterEach(async()=>{for(const id of rooms.keys())await flushRoomWrites(id);rooms.clear();for(const d of dirs.splice(0))rmSync(d,{recursive:true,force:true});vi.restoreAllMocks();vi.clearAllMocks()})
 function resident():RoomRecord{
  const record:RoomRecord={room:{id:'board',name:'Board',ownerId:'author',paper:'coarse',infinite:false,canvasWidth:64,canvasHeight:64,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-29T00:00:00Z',rasterVersion:'straight-rgba8-v1'},lessonId:null,sockets:new Set(),boards:[],assignments:[],activeAssignmentId:null,spotlightBoardId:null,handsRaised:new Set(),assignmentStarting:false,passwordHash:undefined,operations:[],participants:new Map(),nextSeq:1,layerStateSeq:null,layerStateIds:null,coveredSeqByLayer:new Map(),palette:[],roomFrozen:false,frozenUserIds:new Set(),lockedLayerIds:new Set(),sharedLockedLayerIds:new Set(),aliveIds:new Set(['layer']),deletedIds:new Set(),operationsById:new Map(),structuralLog:[]}
@@ -1013,7 +1017,10 @@ it('reauthorizes private sealed metadata after the indexed query instead of trus
 })
 
 it('never classifies a canonical close as a legacy undo terminal or appends poison to the full-history domain',async()=>{
- const f=await closeWriterFixture(),closed=await f.transport.close(identity,f.request,()=>true)
+ const f=await closeWriterFixture()
+ db.operation.findUnique.mockImplementation(async({where})=>db.operation.create.mock.calls.map(([request])=>request.data).find(row=>row.id===where.id)??null)
+ db.operation.findMany.mockImplementation(async({where,take})=>db.operation.create.mock.calls.map(([request])=>request.data).filter(row=>row.roomId===where.roomId&&row.seq>where.seq.gt&&row.seq<=where.seq.lte).slice(0,take))
+ const closed=await f.transport.close(identity,f.request,()=>true)
  if(!closed.accepted)throw Error('Missing actual typed close')
  const writes=db.operation.create.mock.calls.length,next=f.board.nextSeq
  expect(await new CanonicalRoomTransport({...selected,fullHistoryFormat:'mixed-v2'}).metadata(identity,{type:'operation_undo',id:'undo-close-meta',userId:'author',timestamp:200,targetOpId:closed.accepted.id},()=>true)).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
@@ -1201,4 +1208,365 @@ it('consumes and repairs an actual indexed partial close without the bounded arr
  expect(result).toMatchObject({result:{ok:true},accepted:{type:'canonical_stroke_close',recordedNext:f.operations.length,firstFrameOpId:f.operations[0].id,lastFrameOpId:f.operations.at(-1)!.id}})
  expect(await f.transport.close(identity,f.request,()=>true)).toMatchObject({result:{ok:true,duplicate:true}})
  expect(old.mock.calls).toHaveLength(before)
+})
+
+it('indexed offer is closed policy DATA, not an empty legacy baseline or seat grant',async()=>{
+ const {board}=setup()
+ board.canonicalHistoryResidency='indexed-v1'
+ expect(()=>new CanonicalRoomTransport(policy).createIndexedHistoryOffer(identity.roomId)).toThrow()
+ const transport=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'})
+ const offer=transport.createIndexedHistoryOffer(identity.roomId)
+ expect(offer.kind).toBe('canonical-indexed-history-offer-v1')
+ expect(offer.scope.roomId).toBe(identity.roomId)
+ expect(offer.scope.allowedRasterProfiles).toContain(CANONICAL_STROKE_RASTER_PROFILE)
+ expect(offer.roomGeometry).toEqual({width:64,height:64,infinite:false})
+ expect(Object.hasOwn(offer,'tailOperations')).toBe(false)
+ expect(board.operations).toEqual([])
+ await expect(transport.openIndexedHistory(identity,offer,{roomId:'board',userId:'author',socketId:'copied-seat'},()=>true)).rejects.toThrow()
+})
+
+it('indexed cut0 owner consumes actual empty queries, copied receiver refuses, later replacement seat expires it',async()=>{
+ const {board}=setup();board.canonicalHistoryResidency='indexed-v1'
+ db.roomParticipant.upsert.mockResolvedValue({});db.$executeRawUnsafe.mockResolvedValue(0);db.$queryRawUnsafe.mockResolvedValue([]);db.operation.findMany.mockResolvedValue([])
+ expect(joinRoom('board','author','Owner','indexed-original-seat',true).ok).toBe(true)
+ const seat=captureCurrentRoomSeat('board','author','indexed-original-seat')
+ if(!seat)throw Error('Missing actual seated owner')
+ const transport=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'})
+ const offer=transport.createIndexedHistoryOffer('board')
+ try{
+  const read=await transport.openIndexedHistory(identity,JSON.parse(JSON.stringify(offer)),seat,()=>true)
+  expect(read.begin).toMatchObject({floor:0,throughSeq:0,operationCount:0})
+  const copies={...read}
+  await expect(copies.next(0)).rejects.toThrow()
+  const before=db.$queryRawUnsafe.mock.calls.length
+  const terminal=await read.next(0)
+  expect(db.$queryRawUnsafe.mock.calls.length).toBeGreaterThan(before)
+  expect(terminal).toMatchObject({terminal:true,operations:[],nextAfterSeq:0,finish:{lastSeq:0,operationCount:0}})
+  expect(joinRoom('board','author','Owner','indexed-new-seat',true).ok).toBe(true)
+  expect(()=>read.assertCurrent()).toThrow()
+ }finally{leaveRoom('board','author','indexed-original-seat');leaveRoom('board','author','indexed-new-seat')}
+})
+
+async function indexedReadFixture(){
+ const {board,input,descriptor}=setup(),writer=new CanonicalRoomTransport(policy)
+ const s=snapshot(await writer.begin(identity,input,()=>true)),encoded=frames(descriptor,s)
+ const persisted:import('./roomPersistence.js').CanonicalStoredOperationRow[]=[]
+ db.operation.create.mockImplementation(async({data})=>{persisted.push(data);return data})
+ for(let i=0;i<encoded.length;i++)expect((await writer.recorded(identity,{type:'canonical_stroke',id:`indexed-frame-${i}`,userId:'author',timestamp:i,layerId:input.layerId,frame:encoded[i]},()=>true)).result.ok).toBe(true)
+ await flushRoomWrites('board')
+ const cut=board.nextSeq-1
+ expect(cut).toBe(encoded.length)
+ board.canonicalHistoryResidency='indexed-v1';board.operations=[];board.operationsById.clear()
+ let portalCursor=0,portalCut=cut
+ db.$executeRawUnsafe.mockImplementation(async(sql:string,...parameters:unknown[])=>{if(sql.startsWith('DECLARE ')){portalCursor=0;portalCut=parameters[1] as number}return 0})
+ db.$queryRawUnsafe.mockImplementation(async(sql:string,...parameters:unknown[])=>{
+  const scalar=(row:import('./roomPersistence.js').CanonicalStoredOperationRow)=>({id:row.id,seq:row.seq,type:row.type,bytes:Buffer.byteLength(JSON.stringify(row.data),'utf8')})
+  if(sql.startsWith('FETCH ')){const selected=persisted.filter(row=>row.seq<=portalCut).slice(portalCursor,portalCursor+64);portalCursor+=selected.length;return selected.map(scalar)}
+  if(sql.includes("'firstUndoAfterLatestRedo'")){
+   const cut=parameters[1] as number,user=parameters[2],stroke=parameters[3],ordered=persisted.filter(row=>row.seq<=cut).sort((a,b)=>a.seq-b.seq),members=new Set<string>(),metadata:typeof persisted=[]
+   for(const row of ordered){const op=row.data as import('@grafetto/shared').Operation;if(row.userId!==user)continue;if(op.type==='canonical_stroke'&&op.frame.strokeId===stroke)members.add(row.id);else if((op.type==='operation_undo'||op.type==='operation_redo')&&members.has(op.targetOpId)){members.add(row.id);metadata.push(row)}}
+   const redo=metadata.filter(row=>row.type==='operation_redo').at(-1),undo=metadata.find(row=>row.type==='operation_undo'&&row.seq>(redo?.seq??0)),branch=undo&&ordered.find(row=>row.userId===user&&row.seq>undo.seq&&row.type==='canonical_stroke'&&(row.data as import('@grafetto/shared').CanonicalStrokeOperation).frame.frameOrdinal===0)
+   return [['firstMetadata',metadata[0]],['lastMetadata',metadata.at(-1)],['latestRedo',redo],['firstUndoAfterLatestRedo',undo],['ownBranchAfterUndo',branch]].flatMap(([role,row])=>typeof row==='object'&&row?[{role,id:row.id,seq:row.seq}]:[])
+  }
+  if(sql.startsWith('SELECT id,seq,type,octet_length'))return persisted.filter(row=>{
+   if(sql.includes('AND id=$3::text'))return row.id===parameters[2]&&row.seq<=(parameters[1] as number)
+   if(sql.includes('ORDER BY seq DESC'))return row.seq<=(parameters[1] as number)&&row.userId===parameters[2]&&row.seq<(parameters[3] as number)&&(row.data as import('@grafetto/shared').CanonicalStrokeOperation).frame?.frameOrdinal===0
+   if(row.seq<=(parameters[2] as number)||row.seq>(parameters[1] as number))return false
+   const op=row.data as import('@grafetto/shared').Operation
+   if(sql.includes("frameOrdinal"))return op.type==='canonical_stroke'&&op.frame.frameOrdinal===0
+   if(parameters.length===5)return op.type==='canonical_stroke'&&op.userId===parameters[3]&&op.frame.strokeId===parameters[4]
+   return true
+  }).sort((a,b)=>sql.includes('ORDER BY seq DESC')?b.seq-a.seq:a.seq-b.seq).slice(0,64).map(scalar)
+  return []
+ })
+ db.roomParticipant.upsert.mockResolvedValue({})
+ db.operation.findUnique.mockImplementation(async({where})=>persisted.find(row=>row.id===where.id)??null)
+ db.operation.findMany.mockImplementation(async({where,take})=>persisted.filter(row=>{
+  if(row.roomId!==where.roomId)return false
+  if(where.id)return where.id.in.includes(row.id)
+  if(row.seq<=where.seq.gt||row.seq>where.seq.lte)return false
+  const op=row.data as import('@grafetto/shared').Operation
+  if(where.data?.path?.[1]==='frameOrdinal')return op.type==='canonical_stroke'&&op.frame.frameOrdinal===0
+  const selector=where.OR?.[0]
+  return !selector||op.type==='canonical_stroke'&&op.userId===selector.userId&&op.frame.strokeId===selector.data.equals
+ }).slice(0,take))
+ expect(joinRoom('board','author','Owner','indexed-source-seat',true).ok).toBe(true)
+ const seat=captureCurrentRoomSeat('board','author','indexed-source-seat')
+ if(!seat)throw Error('Missing original source seat')
+ const transport=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'})
+ const read=await transport.openIndexedHistory(identity,transport.createIndexedHistoryOffer('board'),seat,()=>true)
+ return{board,input,descriptor,writer,persisted,cut,read}
+}
+
+it('indexed owner validates and pages actual durable source rows without adopting a full resident history',async()=>{
+ const {board,cut,persisted,read}=await indexedReadFixture()
+ try{
+  expect(read.begin.operationCount).toBe(cut)
+  const page=await read.next(0)
+  expect(page.terminal).toBe(false)
+  expect(page.operations.map(op=>op.id)).toEqual(persisted.map(row=>row.id))
+  const first=page.operations[0]
+  if(first.type!=='canonical_stroke')throw Error('Expected actual source frame')
+  const proof=await read.evidence({originalUserId:first.userId,strokeId:first.frame.strokeId,layerId:first.layerId,firstOperationId:first.id,firstSequence:first.seq!})
+  expect(proof.rows[proof.first]).toEqual(first)
+  expect(proof.terminal).not.toBeNull()
+  expect(proof.lastMetadata).toBeNull()
+  const terminal=await read.next(page.nextAfterSeq)
+  expect(terminal).toMatchObject({terminal:true,finish:{lastSeq:cut,operationCount:cut}})
+  expect(board.operations).toEqual([])
+ }finally{leaveRoom('board','author','indexed-source-seat')}
+})
+
+it('indexed OPEN scalar checkpoint carries the real source prefix without closing or granting an author session',async()=>{
+ const f=await redoBranchFixture(),operations=await f.author('indexed-carry','author',3)
+ const binder=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:empty,...selected,maxGestures:4}),scope=binder.captureReadScope('board')
+ const first=operations[0],row=f.persisted.get(first.id)!,input={roomId:'board',boardEpoch:scope.boardEpoch,anchor:first,row,purpose:'read' as const}
+ const fold=binder.createIndexedRecordedPrefixFold(input)
+ fold.accept(first,row)
+ expect(fold.checkpoint()).toMatchObject({recordedNext:1,ended:false})
+ expect(()=>Reflect.apply(fold.checkpoint,{...fold},[])).toThrow('owner')
+ for(const operation of operations.slice(1))fold.accept(operation,f.persisted.get(operation.id)!)
+ expect(fold.finish()).toMatchObject({recordedNext:operations.length,ended:true})
+ expect(()=>fold.checkpoint()).toThrow('owner')
+ expect(binder.size).toBe(0)
+ const legacy=binder.createRecordedPrefixFold(input)
+ legacy.accept(first,row)
+ expect(()=>legacy.checkpoint()).toThrow('indexed')
+})
+
+it('forked indexed carry failure never advances the committed original prefix or strands a retry ordinal',async()=>{
+ const f=await redoBranchFixture(),operations=await f.author('indexed-fork','author',3)
+ const binder=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:empty,...selected,maxGestures:4}),scope=binder.captureReadScope('board')
+ const first=operations[0],base=binder.createIndexedRecordedPrefixFold({roomId:'board',boardEpoch:scope.boardEpoch,anchor:first,row:f.persisted.get(first.id)!,purpose:'read'})
+ base.accept(first,f.persisted.get(first.id)!)
+ const candidate=base.fork()
+ expect(()=>Reflect.apply(base.fork,{...base},[])).toThrow('owner')
+ const second=operations[1]
+ candidate.accept(second,f.persisted.get(second.id)!)
+ const wrong={...operations[2],frame:{...operations[2].frame,pigmentRgb8:[8,8,8] as [number,number,number]}}
+ expect(()=>candidate.accept(wrong,{...f.persisted.get(wrong.id)!,data:wrong})).toThrow()
+ expect(()=>candidate.checkpoint()).toThrow('owner')
+ expect(base.checkpoint()).toMatchObject({recordedNext:1,ended:false})
+ const retry=base.fork()
+ for(const operation of operations.slice(1))retry.accept(operation,f.persisted.get(operation.id)!)
+ expect(retry.finish()).toMatchObject({recordedNext:operations.length,ended:true})
+ expect(base.checkpoint()).toMatchObject({recordedNext:1,ended:false})
+ expect(binder.size).toBe(0)
+})
+
+it('failed candidate after an actual typed partial close keeps the committed OPEN carry retryable',async()=>{
+ const f=await closeWriterFixture()
+ db.operation.findUnique.mockImplementation(async({where})=>db.operation.create.mock.calls.map(([request])=>request.data).find(row=>row.id===where.id)??null)
+ db.operation.findMany.mockImplementation(async({where,take})=>db.operation.create.mock.calls.map(([request])=>request.data).filter(row=>row.roomId===where.roomId&&row.seq>where.seq.gt&&row.seq<=where.seq.lte).slice(0,take))
+ const closed=await f.transport.close(identity,f.request,()=>true)
+ if(!closed.accepted)throw Error('Expected actual durable typed close: '+JSON.stringify(closed.result))
+ const row=db.operation.create.mock.calls.map(([request])=>request.data).find(value=>value.id===closed.accepted!.id)
+ if(!row)throw Error('Missing actual indexed close row')
+ const binder=new CanonicalBrushCapabilityResolver({storage:f.storage,operator:empty,...selected,maxGestures:4}),scope=binder.captureReadScope('board')
+ const base=binder.createIndexedRecordedPrefixFold({roomId:'board',boardEpoch:scope.boardEpoch,anchor:f.operations[0],row:f.rows[0],purpose:'read'})
+ for(let i=0;i<f.operations.length;i++)base.accept(f.operations[i],f.rows[i])
+ const candidate=base.fork()
+ candidate.accept(closed.accepted,row)
+ expect(candidate.checkpoint().closeSeal).toBeDefined()
+ expect(()=>candidate.accept(closed.accepted!,row)).toThrow()
+ expect(base.checkpoint()).toMatchObject({recordedNext:f.operations.length,ended:false})
+ expect(base.checkpoint().closeSeal).toBeUndefined()
+ const retry=base.fork();retry.accept(closed.accepted,row)
+ expect(retry.finish().closeSeal).toBeDefined()
+ expect(base.checkpoint().closeSeal).toBeUndefined()
+})
+
+it('follows actual durable OPEN frames in finite ranges and retries a cancelled candidate without rescanning the committed prefix',async()=>{
+ const f=await indexedReadFixture()
+ try{
+  const firstPage=await f.read.next(0);await f.read.next(firstPage.nextAfterSeq)
+  const input={...f.input,strokeId:'long-follow-source'},s=snapshot(await f.writer.begin(identity,input,()=>true)),packets=frames(f.descriptor,s,70)
+  expect(packets.length).toBeGreaterThan(64)
+  for(let i=0;i<packets.length;i++)expect((await f.writer.recorded(identity,{type:'canonical_stroke',id:`follow-frame-${i}`,userId:'author',timestamp:i,layerId:input.layerId,frame:packets[i]},()=>true)).result.ok).toBe(true)
+  await flushRoomWrites('board')
+  const finalCut=f.board.nextSeq-1
+  const prefixQueries=()=>db.$queryRawUnsafe.mock.calls.filter(([sql,...parameters])=>String(sql).startsWith('SELECT id,seq,type,octet_length')&&parameters.length===5).length
+  const originalParent=f.read.begin.streamId
+  const before=prefixQueries(),first=await f.read.follow(f.cut)
+  expect(first).toMatchObject({floor:f.cut,operationCount:64,throughSeq:f.cut+64,latestObservedSeq:finalCut})
+  const cancelled=await f.read.next(f.cut)
+  f.read.cancel()
+  const retry=await f.read.follow(f.cut)
+  expect(retry.floor).toBe(first.floor);expect(retry.throughSeq).toBe(first.throughSeq)
+  expect(retry.parentStreamId).toBe(originalParent)
+  const retried=await f.read.next(f.cut)
+  expect(retried.operations.map(op=>op.id)).toEqual(cancelled.operations.map(op=>op.id))
+  const terminal=await f.read.next(retry.throughSeq)
+  expect(terminal).toMatchObject({terminal:true,finish:{kind:'canonical-indexed-history-follow-finish-v1',floor:f.cut,lastSeq:retry.throughSeq,operationCount:64}})
+  let completed=retry.throughSeq,seen=64
+  while(completed<finalCut){
+   const range=await f.read.follow(completed)
+   expect(range.floor).toBe(completed);expect(range.operationCount).toBeGreaterThan(0);expect(range.operationCount).toBeLessThanOrEqual(64)
+   const page=await f.read.next(completed)
+   seen+=page.operations.length
+   expect(page.operations[0].seq).toBe(completed+1)
+   expect((await f.read.next(range.throughSeq)).terminal).toBe(true)
+   completed=range.throughSeq
+  }
+  expect(seen).toBe(packets.length)
+  expect(prefixQueries()).toBe(before)
+  await expect(f.read.follow(f.cut)).rejects.toThrow()
+  const empty=await f.read.follow(completed)
+  expect(empty).toMatchObject({floor:completed,throughSeq:completed,operationCount:0})
+  expect((await f.read.next(completed)).terminal).toBe(true)
+ }finally{leaveRoom('board','author','indexed-source-seat')}
+})
+
+it('indexed history selection names an actual first-frame witness and recovery reads the same completed cut',async()=>{
+ const f=await indexedReadFixture()
+ try{
+  const page=await f.read.next(0);await f.read.next(page.nextAfterSeq)
+  const selected=await f.read.select('undo')
+  expect(selected).not.toBeNull()
+  expect(selected!.targetOperationId).toBe(selected!.evidence.rows[selected!.evidence.first].id)
+  expect(selected!.targetOperationId).toBe(f.persisted[0].id)
+  expect(await f.read.select('redo')).toBeNull()
+  await expect(f.read.recover(f.cut+1)).rejects.toThrow()
+  const originalStreamId=f.read.begin.streamId
+  const recovered=await f.read.recover(f.cut)
+  expect(recovered.begin).toMatchObject({kind:'canonical-indexed-history-begin-v1',floor:0,throughSeq:f.cut,operationCount:f.cut})
+  expect(recovered.begin.streamId).not.toBe(originalStreamId)
+  expect((await recovered.next(0)).operations.map(op=>op.id)).toEqual(page.operations.map(op=>op.id))
+ }finally{leaveRoom('board','author','indexed-source-seat')}
+})
+
+it('a quiet completed logical parent remains selectable/followable after an actual finite recovery is cancelled',async()=>{
+ const f=await indexedReadFixture()
+ try{
+  const page=await f.read.next(0);await f.read.next(page.nextAfterSeq)
+  const parent=f.read.begin.streamId,queries=db.$executeRawUnsafe.mock.calls.filter(([sql])=>sql.startsWith('DECLARE ')).length
+  const candidate=await f.read.recover(f.cut)
+  await expect(candidate.select('undo',parent)).rejects.toThrow()
+  candidate.cancel()
+  const selected=await candidate.select('undo',parent)
+  expect(selected?.targetOperationId).toBe(f.persisted[0].id)
+  expect(selected?.evidence).toMatchObject({streamId:parent,throughSeq:f.cut})
+  expect(candidate).toBe(f.read)
+  expect(db.$executeRawUnsafe.mock.calls.filter(([sql])=>sql.startsWith('DECLARE ')).length).toBe(queries)
+  const follow=await candidate.follow(f.cut,parent)
+  expect(follow).toMatchObject({parentStreamId:parent,floor:f.cut,throughSeq:f.cut,operationCount:0})
+  candidate.cancel()
+  const recovered=await candidate.recover(f.cut)
+  expect(recovered).toBe(candidate)
+  recovered.cancel()
+  expect((await recovered.select('undo',parent))?.evidence.streamId).toBe(parent)
+ }finally{leaveRoom('board','author','indexed-source-seat')}
+})
+
+it('hydrates a cold indexed writer from more than 1024 actual OPEN frames without a whole-array resume adapter',async()=>{
+ const f=await indexedReadFixture()
+ try{
+  const input={...f.input,strokeId:'indexed-long-resume'},s=snapshot(await f.writer.begin(identity,input,()=>true)),packets=frames(f.descriptor,s,1100).slice(0,-1)
+  expect(packets.length).toBeGreaterThan(1024)
+  for(let i=0;i<packets.length;i++)expect((await f.writer.recorded(identity,{type:'canonical_stroke',id:`resume-frame-${i}`,userId:'author',timestamp:i,layerId:input.layerId,frame:packets[i]},()=>true)).result.ok).toBe(true)
+  await flushRoomWrites('board')
+  f.board.operations=[];f.board.operationsById.clear()
+  const old=vi.mocked(getCanonicalGesturePrefixWithRows),before=old.mock.calls.length
+  old.mockImplementation(async()=>{throw Error('Whole-array resume unavailable in indexed mode')})
+  const fresh=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'})
+  const duplicate=await fresh.recorded(identity,{type:'canonical_stroke',id:'resume-frame-0',userId:'author',timestamp:0,layerId:input.layerId,frame:packets[0]},()=>true)
+  expect(duplicate.result).toMatchObject({ok:true,duplicate:true})
+  expect(duplicate.canonicalCapabilities?.bindings).toHaveLength(1)
+  const resumed=await fresh.begin(identity,input,()=>true)
+  expect(resumed).toMatchObject({ok:true,recordedNext:packets.length,liveNext:packets.length,ended:false})
+  expect(old.mock.calls.length).toBe(before)
+  expect(f.board.operations).toEqual([])
+  const closed=await fresh.close(identity,{operationId:'long-resume-close',layerId:input.layerId,targetUserId:'author',strokeId:input.strokeId,disposition:'commitPartial',expectedRecordedNext:packets.length,expectedLastFrameOpId:`resume-frame-${packets.length-1}`},()=>true)
+  expect(closed.result.ok).toBe(true)
+  const coldClose=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'})
+  expect((await coldClose.close(identity,{operationId:'long-resume-close',layerId:input.layerId,targetUserId:'author',strokeId:input.strokeId,disposition:'commitPartial',expectedRecordedNext:packets.length,expectedLastFrameOpId:`resume-frame-${packets.length-1}`},()=>true)).result).toMatchObject({ok:true,duplicate:true})
+  const sourceBodies=db.operation.findMany.mock.calls.filter(([request])=>request.where.id)
+  expect(sourceBodies.length).toBeGreaterThan(16)
+  expect(sourceBodies.every(([request])=>request.take<=64)).toBe(true)
+ }finally{leaveRoom('board','author','indexed-source-seat')}
+},30000)
+
+it('retires more than 1024 completed indexed gestures while exact old recorded retries remain durable',async()=>{
+ const f=await indexedReadFixture(),writer=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'})
+ try{
+  let oldest:import('@grafetto/shared').CanonicalStrokeOperation|undefined
+  for(let gesture=0;gesture<1025;gesture++){
+   const input={...f.input,strokeId:`completed-${gesture}`},s=snapshot(await writer.begin(identity,input,()=>true)),encoded=frames(f.descriptor,s,1)
+   expect(encoded.some(frame=>unpackCanonicalMaterial(frame.materialPacked,s.material).draws.length>0)).toBe(true)
+   for(let ordinal=0;ordinal<encoded.length;ordinal++){
+    const op={type:'canonical_stroke' as const,id:`completed-${gesture}-${ordinal}`,userId:'author',timestamp:gesture,layerId:input.layerId,frame:encoded[ordinal]!}
+    oldest??=op
+    expect((await writer.recorded(identity,op,()=>true)).result.ok).toBe(true)
+   }
+   expect(f.board.operations).toHaveLength(0)
+   expect(f.board.operationsById.size).toBe(0)
+   expect(writer['binder']?.size).toBe(0)
+   expect(writer['lifetimes'].get('board')?.sessions.size).toBe(0)
+  }
+  const duplicate=await writer.recorded(identity,oldest!,()=>true)
+  expect(duplicate.result).toMatchObject({ok:true,duplicate:true})
+  expect(duplicate.canonicalCapabilities?.bindings).toHaveLength(1)
+  const beforeLate=f.board.nextSeq,late=writer.live(identity,{layerId:oldest!.layerId,frame:oldest!.frame})
+  expect(late.result.ok).toBe(false)
+  expect(late.accepted).toBeUndefined()
+  expect(f.board.nextSeq).toBe(beforeLate)
+  const undo={type:'operation_undo' as const,id:'retired-root-undo',userId:'author',timestamp:9000,targetOpId:oldest!.id}
+  expect(await writer.metadata(identity,undo,()=>true)).toMatchObject({result:{ok:true}})
+  expect(f.board.operations).toHaveLength(0)
+  expect(await writer.metadata(identity,undo,()=>true)).toMatchObject({result:{ok:true,duplicate:true}})
+  const redo={...undo,type:'operation_redo' as const,id:'retired-root-redo',targetOpId:undo.id}
+  expect(await writer.metadata(identity,redo,()=>true)).toMatchObject({result:{ok:true}})
+  const secondUndo={...undo,id:'retired-root-second-undo',targetOpId:redo.id}
+  expect(await writer.metadata(identity,secondUndo,()=>true)).toMatchObject({result:{ok:true}})
+  const branchInput={...f.input,strokeId:'retired-root-new-branch'},branchSnapshot=snapshot(await writer.begin(identity,branchInput,()=>true)),branchFrames=frames(f.descriptor,branchSnapshot,0)
+  for(let i=0;i<branchFrames.length;i++)expect((await writer.recorded(identity,{type:'canonical_stroke',id:`retired-branch-${i}`,userId:'author',timestamp:9500,layerId:branchInput.layerId,frame:branchFrames[i]},()=>true)).result.ok).toBe(true)
+  expect(await writer.metadata(identity,{...redo,id:'retired-root-stale-redo',targetOpId:secondUndo.id},()=>true)).toMatchObject({result:{ok:false,reason:'invalid_operation'}})
+  const seat=captureCurrentRoomSeat('board','author','indexed-source-seat')
+  if(!seat)throw Error('Missing actual joined seat')
+  const reader=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'})
+  const reopened=await reader.openIndexedHistory(identity,reader.createIndexedHistoryOffer('board'),seat,()=>true)
+  expect(reopened.begin.operationCount).toBe(f.board.nextSeq-1)
+  let after=0,seen=0
+  while(true){const page=await reopened.next(after);expect(page.operations.length).toBeLessThanOrEqual(64);seen+=page.operations.length;after=page.nextAfterSeq;if(page.terminal)break}
+  expect(seen).toBe(f.board.nextSeq-1)
+  expect(f.board.operations).toHaveLength(0)
+  expect(reader['binder']?.size).toBe(0)
+  expect(f.persisted.length).toBeGreaterThan(1024)
+ }finally{leaveRoom('board','author','indexed-source-seat')}
+},30000)
+
+
+it.each(['healthy','new-seat','policy','revoked'] as const)('checks %s while sealing an indexed orphan before the genuine empty-board seat commits',async mode=>{
+ const f=await indexedReadFixture()
+ try{
+  const input={...f.input,strokeId:'indexed-orphan'},s=snapshot(await f.writer.begin(identity,input,()=>true)),encoded=frames(f.descriptor,s,70).slice(0,-1)
+  for(let i=0;i<encoded.length;i++)expect((await f.writer.recorded(identity,{type:'canonical_stroke',id:`orphan-frame-${i}`,userId:'author',timestamp:i,layerId:input.layerId,frame:encoded[i]},()=>true)).result.ok).toBe(true)
+  await flushRoomWrites('board')
+  leaveRoom('board','author','indexed-source-seat')
+  // Simulate the bounded cold indexed resident, retaining DB originals only.
+  f.board.operations=[];f.board.operationsById.clear();rooms.set('board',f.board)
+  const joiningUser=mode==='revoked'?'student':'author'
+  const access=await prepareAuthorizedJoin('board',joiningUser,'Owner',undefined,'orphan-new-seat',()=>true)
+  if(!access.ok)throw Error(access.error)
+  const transport=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'}),before=f.persisted.length
+  await expect(transport.prepareIndexedJoinOrphans({...access.preparation},()=>true)).rejects.toThrow()
+  if(mode!=='healthy'){
+   const query=db.operation.findMany.getMockImplementation()!
+   db.operation.findMany.mockImplementationOnce(async args=>{
+    if(mode==='new-seat')expect(joinRoom('board','peer','Peer','orphan-peer-seat').ok).toBe(true)
+    else if(mode==='policy')f.board.passwordHash='changed-orphan-policy'
+    else db.roomBlock.findUnique.mockResolvedValue({id:'fresh-revoked'})
+    return query(args)
+   })
+   await expect(transport.prepareIndexedJoinOrphans(access.preparation,()=>true)).rejects.toThrow()
+   expect(f.persisted).toHaveLength(before)
+   expect(f.board.sockets.has('orphan-new-seat')).toBe(false)
+   return
+  }
+  await transport.prepareIndexedJoinOrphans(access.preparation,()=>true)
+  expect(f.persisted).toHaveLength(before+1)
+  expect(f.persisted.at(-1)?.data).toMatchObject({type:'canonical_stroke_close',strokeId:input.strokeId,recordedNext:encoded.length,firstFrameOpId:'orphan-frame-0',lastFrameOpId:`orphan-frame-${encoded.length-1}`})
+  expect(f.board.sockets.size).toBe(0)
+  expect(access.preparation.commit().ok).toBe(true)
+ }finally{leaveRoom('board','peer','orphan-peer-seat');leaveRoom('board','student','orphan-new-seat');leaveRoom('board','author','orphan-new-seat');leaveRoom('board','author','indexed-source-seat')}
 })

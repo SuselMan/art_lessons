@@ -22,20 +22,23 @@ import { createBrushRandomStrokeId, packDabs, type Dab, type ClientToServerEvent
 // what we meant to call. Postgres is a fake in-memory row store so a board
 // can be cold-loaded the way production loads it; identity is the cookie
 // header verbatim, so each client picks its own userId.
-const mockPrisma = vi.hoisted(() => ({
+const mockPrisma = vi.hoisted(() => ({$transaction:vi.fn(),
   room: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
   roomParticipant: { upsert: vi.fn(), findUnique: vi.fn() },
   roomPalette: { findUnique: vi.fn(), upsert: vi.fn() },
   roomLayerState: { findUnique: vi.fn() },
   assignment: { findMany: vi.fn() },
   roomLayerSnapshot: { groupBy: vi.fn(), findMany: vi.fn() },
-  operation: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), count: vi.fn(), aggregate: vi.fn(), groupBy: vi.fn() },
+  $queryRawUnsafe:vi.fn(),$executeRawUnsafe:vi.fn(),
+  operation: { findFirst:vi.fn(),create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), count: vi.fn(), aggregate: vi.fn(), groupBy: vi.fn() },
   roomBlock: { findUnique: vi.fn() },
   roomInvite: { findUnique: vi.fn() },
   roomJoinRequest: { findUnique: vi.fn(), upsert: vi.fn() },
   user: { findUnique: vi.fn() },
 }))
+mockPrisma.$transaction=vi.fn(async(run:(connection:typeof mockPrisma)=>Promise<unknown>)=>run(mockPrisma))
 vi.mock('../db/prisma.js', () => ({ prisma: mockPrisma }))
+vi.mock('../db/canonicalIndexedReader.js',()=>({withCanonicalIndexedValidation:async(run:(database:unknown)=>Promise<unknown>)=>run(mockPrisma)}))
 vi.mock('../auth/identity.js', () => ({
   resolveSocketIdentity: async (cookie: string | undefined) => ({ userId: cookie ?? 'anonymous', deviceId: 'device' }),
 }))
@@ -148,8 +151,10 @@ const fresh = (prefix: string) => `${prefix}-${seq++}`
 
 beforeEach(async () => {
   for (const model of Object.values(mockPrisma)) {
-    for (const fn of Object.values(model)) (fn as ReturnType<typeof vi.fn>).mockReset()
+    if(vi.isMockFunction(model))model.mockReset()
+    else for(const fn of Object.values(model))if(vi.isMockFunction(fn))fn.mockReset()
   }
+  mockPrisma.$transaction.mockImplementation(async(run:(connection:typeof mockPrisma)=>Promise<unknown>)=>run(mockPrisma))
   rows.clear()
   mockPrisma.room.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) => rows.get(where.id) ?? null)
   mockPrisma.room.findMany.mockImplementation(async ({ where }: { where: { OR: [{ id: string }] } }) =>
@@ -361,7 +366,9 @@ describe('explicit independent brush seeds transport', () => {
     const late = client('seed-late')
     const state = next(late, 'room_state')
     await join(late, lessonId, 'Later')
-    const history = (await state).tailOperations.filter(op => op.type === 'stroke' && op.strokeId === gestureId)
+    const legacyState=await state
+    if(!legacyState.tailOperations)throw Error('Expected legacy original tail')
+    const history = legacyState.tailOperations.filter(op => op.type === 'stroke' && op.strokeId === gestureId)
     expect(history).toHaveLength(2)
     for (const op of history) expect(op).toHaveProperty('brushRandom', brushRandom)
     const bad = { ...stroke('bad-final', 'teacher'), tool: 'digitalBrush', strokeId: gestureId, brushRandom: { ...brushRandom, strokeSeed: 1 }, dabsPacked: '', strokeEnd: true,
@@ -383,7 +390,9 @@ it('preserves explicit seeds from stored operation JSON on cold board history lo
   mockPrisma.operation.aggregate.mockResolvedValue({ _max: { seq: 1 } })
   const state = next(teacher, 'room_state')
   await join(teacher, boardId, 'Teacher')
-  const tail = (await state).tailOperations
+  const legacyState=await state
+  if(!legacyState.tailOperations)throw Error('Expected legacy original tail')
+  const tail = legacyState.tailOperations
   expect(tail).toContainEqual(saved)
   expect(tail.find(op => op.id === saved.id)).toHaveProperty('brushRandom', saved.brushRandom)
 })
@@ -1001,6 +1010,7 @@ it('delivers durable V2 confirmation and rejoined closed undo prefix atomically 
   const state=next(c.student,'room_state')
   expect(await new Promise(resolve=>c.student.emit('join_room',{roomId:c.lessonId,name:'Student'},resolve))).toMatchObject({ok:true})
   const restored=await state
+  if(!restored.tailOperations)throw Error('Expected legacy original tail')
   expect(restored.tailOperations.map(entry=>entry.id)).toEqual([op.id,undo.id])
   expect(restored.canonicalReadScope?.roomId).toBe(c.lessonId)
   if(!restored.canonicalReadScope)throw Error('Expected captured read scope')
@@ -1148,13 +1158,13 @@ it('rejects the old typed close lifetime but finalizes its own server prefix aft
  }finally{release([]);await _flushPendingWrites(c.lessonId);c.cleanup()}
 })
 
-async function mixedFullHistoryServer(){
+async function mixedFullHistoryServer(format:'mixed-v2'|'mixed-indexed-v1'='mixed-v2'){
  // Replace this test's unused default server, keeping one actual backend.
  io.close();await new Promise<void>(resolve=>http.close(()=>resolve()))
  const {CanonicalRoomTransport}=await import('./CanonicalRoomTransport.js')
  const {CANONICAL_ROOM_EXECUTION_POLICY}=await import('./canonicalExecutionPolicy.js')
  http=createServer();io=new Server(http)
- registerRoomHandlers(io as never,log,new CanonicalRoomTransport({...CANONICAL_ROOM_EXECUTION_POLICY,fullHistoryFormat:'mixed-v2'}))
+ registerRoomHandlers(io as never,log,new CanonicalRoomTransport({...CANONICAL_ROOM_EXECUTION_POLICY,fullHistoryFormat:format}))
  await new Promise<void>(resolve=>http.listen(0,resolve));port=(http.address() as AddressInfo).port
 }
 it('uses trusted mixed full-history bootstrap for an actual cold stored straight board even with a high client cursor',async()=>{
@@ -1179,6 +1189,7 @@ it('preserves the complete mixed source/close tail on explicit bootstrap and ref
   const state=next(c.student,'room_state');void state.catch(()=>{})
   expect(await new Promise(resolve=>c.student.emit('join_room',{roomId:c.lessonId,name:'Student',lastKnownSeq:999},resolve))).toMatchObject({ok:true})
   const snapshot=await state
+  if(!snapshot.tailOperations)throw Error('Expected legacy original tail')
   expect(snapshot.tailOperations.map(op=>op.id)).toEqual([c.op.id,c.request.operationId])
   expect(snapshot.canonicalHistoryBase).toMatchObject({kind:'full-room-prefix-v2',throughSeq:2,operationCount:2})
   expect(snapshot.canonicalCapabilities?.bindings).toHaveLength(1)
@@ -1300,4 +1311,54 @@ it.each([false,true])('keeps two actual socket frames ordered across a held dura
   }else{expect(await first).toMatchObject({ok:true,seq:1});expect(await second).toMatchObject({ok:true,seq:2})}
   expect(c.record.operations.map(op=>op.id)).toEqual(operations.map(op=>op.id));expect(c.record.nextSeq).toBe(3)
  }finally{log.mockRestore();c.cleanup()}
+})
+
+it('indexed policy joins with DATA-only offer then serves an actual post-seat cut0 open and terminal retry',async()=>{
+ await mixedFullHistoryServer('mixed-indexed-v1')
+ const dir=mkdtempSync(joinPath(tmpdir(),'indexed-empty-socket-'));setBrushStorage(new BrushStorage(dir),empty())
+ mockPrisma.operation.findFirst.mockResolvedValue(null);mockPrisma.$executeRawUnsafe.mockResolvedValue(0);mockPrisma.$queryRawUnsafe.mockResolvedValue([])
+ try{
+  const roomId=fresh('indexed-cold');rows.set(roomId,row(roomId,{rasterVersion:'straight-rgba8-v1'}))
+  const teacher=client('teacher'),state=next(teacher,'room_state');void state.catch(()=>{})
+  await join(teacher,roomId,'Teacher')
+  const offered=await state
+  if(!offered.canonicalIndexedHistory)throw Error('Expected actual indexed offer')
+  expect(Object.hasOwn(offered,'tailOperations')).toBe(false)
+  expect(Object.hasOwn(offered,'canonicalHistoryBase')).toBe(false)
+  expect(offered.latestSnapshotSeq).toBeNull()
+  expect(rooms.get(roomId)?.operations).toEqual([])
+  const offer=offered.canonicalIndexedHistory
+  const opened=await new Promise<import('@grafetto/shared').CanonicalHistoryStreamRequestMap['canonical_history_stream_open'][1]>(resolve=>teacher.emit('canonical_history_stream_open',{kind:'canonical-history-open-v1',offerId:offer.offerId,roomId,boardEpoch:offer.scope.boardEpoch},resolve))
+  if(!opened.ok)throw Error('Indexed post-seat open failed: '+opened.reason)
+  expect(opened.value).toMatchObject({floor:0,throughSeq:0,operationCount:0})
+  const request={streamId:opened.value.streamId,requestId:'actual-empty-page',afterSeq:0}
+  const terminal=await new Promise<import('@grafetto/shared').CanonicalHistoryStreamRequestMap['canonical_history_stream_next'][1]>(resolve=>teacher.emit('canonical_history_stream_next',request,resolve))
+  expect(terminal).toMatchObject({ok:true,value:{terminal:true,operations:[],finish:{lastSeq:0,operationCount:0}}})
+  const before=mockPrisma.$queryRawUnsafe.mock.calls.length
+  expect(await new Promise(resolve=>teacher.emit('canonical_history_stream_next',request,resolve))).toEqual(terminal)
+  expect(mockPrisma.$queryRawUnsafe.mock.calls.length).toBe(before)
+  expect(await new Promise(resolve=>teacher.emit('canonical_history_stream_next',{...request,afterSeq:1},resolve))).toMatchObject({ok:false,reason:'invalid_operation'})
+  expect(await new Promise(resolve=>teacher.emit('canonical_history_stream_select',{streamId:opened.value.streamId,requestId:'empty-undo',historyAction:'undo'},resolve))).toMatchObject({ok:true,value:null})
+  expect(await new Promise(resolve=>teacher.emit('canonical_history_stream_evidence',{streamId:opened.value.streamId,requestId:'unknown-root',root:{originalUserId:'teacher',strokeId:'none',layerId:'layer-1',firstOperationId:'none',firstSequence:1}},resolve))).toMatchObject({ok:false})
+  const recovery=await new Promise<import('@grafetto/shared').CanonicalHistoryStreamRequestMap['canonical_history_stream_reopen'][1]>(resolve=>teacher.emit('canonical_history_stream_reopen',{mode:'recovery',offerId:offer.offerId,roomId,boardEpoch:offer.scope.boardEpoch,throughSeq:0},resolve))
+  if(!recovery.ok)throw Error('Expected actual completed-cut recovery')
+  expect(recovery.value.kind).toBe('canonical-indexed-history-begin-v1')
+  const recoveredTerminal={streamId:recovery.value.streamId,requestId:'recovered-empty',afterSeq:0}
+  expect(await new Promise(resolve=>teacher.emit('canonical_history_stream_next',recoveredTerminal,resolve))).toMatchObject({ok:true,value:{terminal:true}})
+  const followed=await new Promise<import('@grafetto/shared').CanonicalHistoryStreamRequestMap['canonical_history_stream_reopen'][1]>(resolve=>teacher.emit('canonical_history_stream_reopen',{mode:'follow',streamId:recovery.value.streamId,requestId:'follow-empty',afterSeq:0},resolve))
+  if(!followed.ok)throw Error('Expected finite empty follow')
+  expect(followed.value).toMatchObject({kind:'canonical-indexed-history-follow-v1',floor:0,throughSeq:0,operationCount:0})
+  expect(await new Promise(resolve=>teacher.emit('canonical_history_stream_next',{streamId:followed.value.streamId,requestId:'followed-empty',afterSeq:0},resolve))).toMatchObject({ok:true,value:{terminal:true}})
+  expect(await new Promise(resolve=>teacher.emit('canonical_history_stream_cancel',{streamId:followed.value.streamId,requestId:'cancel-empty'},resolve))).toMatchObject({ok:true})
+  const again=await new Promise<import('@grafetto/shared').CanonicalHistoryStreamRequestMap['canonical_history_stream_reopen'][1]>(resolve=>teacher.emit('canonical_history_stream_reopen',{mode:'recovery',offerId:offer.offerId,roomId,boardEpoch:offer.scope.boardEpoch,throughSeq:0},resolve))
+  if(!again.ok)throw Error('Expected recovery after finite cursor cancellation')
+  const cached={streamId:again.value.streamId,requestId:'cached-auth-page',afterSeq:0}
+  expect(await new Promise(resolve=>teacher.emit('canonical_history_stream_next',cached,resolve))).toMatchObject({ok:true,value:{terminal:true}})
+  expect(await new Promise(resolve=>teacher.emit('canonical_history_stream_open',{kind:'canonical-history-open-v1',offerId:offer.offerId,roomId,boardEpoch:offer.scope.boardEpoch},resolve))).toMatchObject({ok:false,reason:'invalid_operation'})
+  // Actual DB disappearance leaves the resident seat intact. A cache replay
+  // MUST still perform fresh DB authorization instead of reusing its payload.
+  rows.delete(roomId)
+  expect(rooms.has(roomId)).toBe(true)
+  expect(await new Promise(resolve=>teacher.emit('canonical_history_stream_next',cached,resolve))).toMatchObject({ok:false,reason:'stale_read'})
+ }finally{rmSync(dir,{recursive:true,force:true})}
 })

@@ -345,6 +345,8 @@ model RoomFolder {
 // without parsing JSON. Only `stroke` ops have `tool`, and a few op types
 // (layer_delete, operation_revoke/undo/redo) have no `layerId` at all — see
 // the `Operation` union in packages/shared — hence both stay nullable.
+// Canonical original JSON-edge expression/partial indexes are SQL-owned in
+// 20261101120000_canonical_original_edges; Prisma cannot represent their predicates.
 model Operation {
   id        String   @id
   seq       Int

@@ -93,3 +93,20 @@ it('uses explicit trusted mixed read format while preserving current DB block an
  expect(await mayReadBoardContent('board','student','mixed-v2')).toBe(false)
  expect(await mayReadBoardContent('board','teacher')).toBe(false)
 })
+
+it('indexed captured drains do not await later drawing but still perform fresh stored membership checks',async()=>{
+ mocks.flushRoomWrites.mockReturnValue(new Promise<void>(()=>{}))
+ const current=vi.fn(),drains={roomId:'board',lessonId:'lesson',board:Promise.resolve(),lesson:Promise.resolve(),assertCurrent:current}
+ expect(await mayReadBoardContent('board','student','mixed-v2',drains)).toBe(true)
+ expect(mocks.flushRoomWrites).not.toHaveBeenCalled()
+ mocks.roomParticipant.findUnique.mockResolvedValue(null)
+ expect(await mayReadBoardContent('board','student','mixed-v2',drains)).toBe(false)
+ expect(current.mock.calls.length).toBeGreaterThan(3)
+})
+it('indexed captured drains cannot publish across a queued live visibility or seat change',async()=>{
+ let live=true
+ const drains={roomId:'board',lessonId:'lesson',board:Promise.resolve(),lesson:Promise.resolve(),assertCurrent:()=>{if(!live)throw Error('Live policy changed')}}
+ mocks.room.findUnique.mockImplementation(async({where})=>{if(where.id==='board'){live=false;return board}return lesson})
+ await expect(mayReadBoardContent('board','student','mixed-v2',drains)).rejects.toThrow('Live policy changed')
+ expect(mocks.roomParticipant.findUnique).not.toHaveBeenCalled()
+})

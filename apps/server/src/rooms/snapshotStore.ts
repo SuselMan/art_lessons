@@ -442,7 +442,15 @@ export interface CanonicalGesturePrefixVisit {
 /** Actual DB id PK plus strict indexed seq supplies cross-page uniqueness.
  * One selected page is retained; the visitor must synchronously fold and release
  * it. This result is DATA, never a read/append capability or physical DB claim. */
-export async function visitCanonicalGesturePrefixRows(roomId:string,selector:{readonly userId:string;readonly strokeId:string},throughSeq:number,input:CanonicalGesturePrefixVisit):Promise<{readonly lastOperation?:CanonicalStrokeOperation;readonly lastRow?:CanonicalStoredOperationRow;readonly close?:CanonicalIndexedCloseEvidence}> {
+export function visitCanonicalGesturePrefixRows(roomId:string,selector:{readonly userId:string;readonly strokeId:string},throughSeq:number,input:CanonicalGesturePrefixVisit){
+ return scanCanonicalGesturePrefixRows(roomId,selector,throughSeq,input,prisma,false)
+}
+/** New indexed reader only: one bounded page, scalar prefix across page cuts.
+ * The old aggregate-byte reader contract above remains unchanged. */
+export function visitCanonicalIndexedGesturePrefixRows(roomId:string,selector:{readonly userId:string;readonly strokeId:string},throughSeq:number,input:CanonicalGesturePrefixVisit,database:CanonicalIndexedDatabase=prisma){
+ return scanCanonicalGesturePrefixRows(roomId,selector,throughSeq,input,database,true)
+}
+async function scanCanonicalGesturePrefixRows(roomId:string,selector:{readonly userId:string;readonly strokeId:string},throughSeq:number,input:CanonicalGesturePrefixVisit,database:CanonicalIndexedDatabase,indexed:boolean):Promise<{readonly lastOperation?:CanonicalStrokeOperation;readonly lastRow?:CanonicalStoredOperationRow;readonly close?:CanonicalIndexedCloseEvidence}> {
  const fail=():never=>{throw new CanonicalGesturePrefixError()}
  const text=(v:unknown):v is string=>typeof v==='string'&&v.length>0&&v.length<=256&&!v.includes('\0')
  const {requiredFrame,visit,afterRead}=input
@@ -452,8 +460,11 @@ export async function visitCanonicalGesturePrefixRows(roomId:string,selector:{re
   ||!Number.isSafeInteger(requiredFrame.seq)||requiredFrame.seq!<1||requiredFrame.seq!>throughSeq))return fail()
  let previous=0,size=0,count=0,anchored=!requiredFrame,first:CanonicalStrokeOperation|undefined,lastOperation:CanonicalStrokeOperation|undefined,lastRow:CanonicalStoredOperationRow|undefined,close:CanonicalIndexedCloseEvidence|undefined
  while(true){
-  const rows=await prisma.operation.findMany({where:{roomId,seq:{gt:previous,lte:throughSeq},OR:[{userId:userId,type:'canonical_stroke',data:{path:['frame','strokeId'],equals:strokeId}},{type:'canonical_stroke_close',AND:[{data:{path:['targetUserId'],equals:userId}},{data:{path:['strokeId'],equals:strokeId}}]}]},orderBy:{seq:'asc'},take:CANONICAL_GESTURE_QUERY_PAGE,select:canonicalOperationRowSelect})
-  if(afterRead)await afterRead()
+  if(indexed)size=0
+  const rows=indexed
+   ?await loadIndexedBodyPrefix(roomId,indexedBodyPrefix(await indexedScalarPage(roomId,throughSeq,previous,afterRead??(async()=>{}),database,selector)),afterRead??(async()=>{}),database)
+   :await database.operation.findMany({where:{roomId,seq:{gt:previous,lte:throughSeq},OR:[{userId:userId,type:'canonical_stroke',data:{path:['frame','strokeId'],equals:strokeId}},{type:'canonical_stroke_close',AND:[{data:{path:['targetUserId'],equals:userId}},{data:{path:['strokeId'],equals:strokeId}}]}]},orderBy:{seq:'asc'},take:CANONICAL_GESTURE_QUERY_PAGE,select:canonicalOperationRowSelect})
+  if(!indexed&&afterRead)await afterRead()
   if(rows.length>CANONICAL_GESTURE_QUERY_PAGE)return fail()
   const ids=new Set<string>() // page-local only; actual indexed source owns PK.
   for(const row of rows){
@@ -482,7 +493,7 @@ export async function visitCanonicalGesturePrefixRows(roomId:string,selector:{re
    if(visit(copy,lastRow)!==undefined)return fail()
    count++;previous=op.seq!
   }
-  if(rows.length<CANONICAL_GESTURE_QUERY_PAGE)break
+  if(!rows.length||!indexed&&rows.length<CANONICAL_GESTURE_QUERY_PAGE)break
  }
  if(!anchored)return fail()
  return Object.freeze({...lastOperation?{lastOperation,lastRow}:{},...close?{close}:{}})
@@ -548,4 +559,235 @@ export async function getCanonicalFullHistoryWithRows(roomId:string,throughSeq:n
  if(format==='mixed-v2')return Object.freeze({kind:'mixed-canonical-history-v2',throughSeq,operations:Object.freeze(operations),canonicalRows:Object.freeze(canonicalRows),orderedRows:Object.freeze(orderedRows)})
  const frames=operations.map(op=>{if(op.type!=='canonical_stroke')return fail();return op})
  return Object.freeze({throughSeq,operations:Object.freeze(frames),canonicalRows:Object.freeze(canonicalRows)})
+}
+
+/** Internal original-index data access. These pages/summaries do not mint a
+ * socket read owner or grant; the consuming Transport owns authorization. */
+export type CanonicalIndexedDatabase=Pick<import('@prisma/client').Prisma.TransactionClient,'operation'|'$queryRawUnsafe'|'$executeRawUnsafe'>
+/** Short main-pool statement scope. The connection is released BEFORE its
+ * caller invokes afterRead/fresh authorization, including connection_limit=1.
+ * The dedicated validation transaction is already limited and never nested. */
+async function indexedQuery<T>(database:CanonicalIndexedDatabase,query:(connection:CanonicalIndexedDatabase)=>Promise<T>):Promise<T>{
+ if(database!==prisma)return query(database)
+ return prisma.$transaction(async connection=>{
+  await connection.$executeRawUnsafe("SET LOCAL statement_timeout='15s'")
+  await connection.$executeRawUnsafe("SET LOCAL lock_timeout='1s'")
+  await connection.$executeRawUnsafe("SET LOCAL work_mem='4MB'")
+  await connection.$executeRawUnsafe("SET LOCAL temp_file_limit='64MB'")
+  return query(connection)
+ },{maxWait:1000,timeout:20000})
+}
+interface CanonicalIndexedScalarRow {readonly id:string;readonly seq:number;readonly type:string;readonly bytes:number}
+/** Size uses the uncompressed JSON text, not pg_column_size/TOAST storage.
+ * A batch is only scalar metadata until this bounded prefix is selected. */
+function indexedBodyPrefix(scalars:readonly CanonicalIndexedScalarRow[],direction:'asc'|'desc'='asc'):readonly CanonicalIndexedScalarRow[]{
+ if(scalars.length>64)throw new CanonicalGesturePrefixError()
+ let bytes=2,previous=direction==='asc'?0:Infinity;const selected:CanonicalIndexedScalarRow[]=[]
+ for(const scalar of scalars){
+  if(typeof scalar.id!=='string'||!scalar.id||scalar.id.length>256||!Number.isInteger(scalar.seq)||(direction==='asc'?scalar.seq<=previous:scalar.seq>=previous)
+   ||!Number.isSafeInteger(scalar.bytes)||scalar.bytes<1)throw new CanonicalGesturePrefixError()
+  if(bytes+scalar.bytes+1>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes){if(!selected.length)throw new CanonicalGesturePrefixError();break}
+  selected.push(scalar);bytes+=scalar.bytes+1;previous=scalar.seq
+ }
+ return selected
+}
+async function loadIndexedBodyPrefix(roomId:string,scalars:readonly CanonicalIndexedScalarRow[],afterRead:()=>Promise<void>,database:CanonicalIndexedDatabase):Promise<readonly CanonicalStoredOperationRow[]>{
+ if(!scalars.length)return []
+ const rows=await indexedQuery(database,connection=>connection.operation.findMany({where:{roomId,id:{in:scalars.map(row=>row.id)}},orderBy:{seq:'asc'},take:scalars.length,select:canonicalOperationRowSelect}))
+ await afterRead()
+ if(rows.length!==scalars.length)throw new CanonicalGesturePrefixError()
+ for(let i=0;i<rows.length;i++)if(rows[i].id!==scalars[i].id||rows[i].seq!==scalars[i].seq||rows[i].type!==scalars[i].type)throw new CanonicalGesturePrefixError()
+ return rows
+}
+async function indexedScalarPage(roomId:string,throughSeq:number,afterSeq:number,afterRead:()=>Promise<void>,database:CanonicalIndexedDatabase,selector?:{readonly userId:string;readonly strokeId:string},roots=false):Promise<readonly CanonicalIndexedScalarRow[]>{
+ const base='SELECT id,seq,type,octet_length(data::text) AS bytes FROM "Operation" WHERE "roomId"=$1::text AND seq>$3::int AND seq<=$2::int'
+ const filter=selector?` AND ((type='canonical_stroke' AND "userId"=$4::text AND data#>>'{frame,strokeId}'=$5::text) OR (type='canonical_stroke_close' AND data->>'targetUserId'=$4::text AND data->>'strokeId'=$5::text))`:roots?` AND type='canonical_stroke' AND data#>>'{frame,frameOrdinal}'='0'`:''
+ const selected=await indexedQuery(database,connection=>connection.$queryRawUnsafe<readonly CanonicalIndexedScalarRow[]>(base+filter+' ORDER BY seq LIMIT 64',roomId,throughSeq,afterSeq,...selector?[selector.userId,selector.strokeId]:[]))
+ await afterRead()
+ return selected
+}
+export function projectCanonicalIndexedHistoryRow(roomId:string,row:CanonicalStoredOperationRow):import('@grafetto/shared').CanonicalIndexedOperation{
+ let operation:import('@grafetto/shared').CanonicalIndexedOperation
+ if(row.type==='canonical_stroke'){
+  const value=projectCanonicalIndexedOperation(roomId,row).operation
+  const frozen=immutableCanonicalOperation(value,value.seq!)
+  if(frozen.type!=='canonical_stroke')throw new CanonicalGesturePrefixError()
+  operation=frozen
+ }else if(row.type==='canonical_stroke_close')operation=projectCanonicalIndexedCloseOperation(roomId,row).operation
+ else if(row.type==='operation_undo'||row.type==='operation_redo'){
+  operation=captureCanonicalMetadata(row.data,true)
+  verifyCanonicalMetadataRow(roomId,operation,row)
+ }else throw new CanonicalGesturePrefixError()
+ if(Buffer.byteLength(JSON.stringify(operation),'utf8')>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)throw new CanonicalGesturePrefixError()
+ return operation
+}
+/** Untrusted root IDs are size/filter checked before retrieving JSON. The
+ * global proof for C cannot bound an arbitrary foreign ID outside that cut. */
+/** Latest actor roots from the same original partial index. Payload sizing
+ * precedes JSON bodies even when the keyset direction is descending. */
+export async function getCanonicalIndexedActorRootRows(roomId:string,throughSeq:number,userId:string,beforeSeq:number,afterRead:()=>Promise<void>,database:CanonicalIndexedDatabase=prisma):Promise<readonly CanonicalStoredOperationRow[]>{
+ const scalars=await indexedQuery(database,connection=>connection.$queryRawUnsafe<readonly CanonicalIndexedScalarRow[]>(`SELECT id,seq,type,octet_length(data::text) AS bytes FROM "Operation" WHERE "roomId"=$1::text AND seq<=$2::int AND "userId"=$3::text AND seq<$4::int AND type='canonical_stroke' AND data#>>'{frame,frameOrdinal}'='0' ORDER BY seq DESC LIMIT 64`,roomId,throughSeq,userId,beforeSeq))
+ await afterRead()
+ const chosen=indexedBodyPrefix(scalars,'desc')
+ return [...await loadIndexedBodyPrefix(roomId,[...chosen].reverse(),afterRead,database)].reverse()
+}
+export async function getCanonicalIndexedOriginalRowById(roomId:string,throughSeq:number,id:string,afterRead:()=>Promise<void>,database:CanonicalIndexedDatabase=prisma):Promise<CanonicalStoredOperationRow|undefined>{
+ const scalars=await indexedQuery(database,connection=>connection.$queryRawUnsafe<readonly CanonicalIndexedScalarRow[]>('SELECT id,seq,type,octet_length(data::text) AS bytes FROM "Operation" WHERE "roomId"=$1::text AND seq<=$2::int AND id=$3::text',roomId,throughSeq,id))
+ await afterRead()
+ if(scalars.length>1)throw new CanonicalGesturePrefixError()
+ return (await loadIndexedBodyPrefix(roomId,indexedBodyPrefix(scalars),afterRead,database))[0]
+}
+export async function getCanonicalIndexedHistoryPageRows(roomId:string,throughSeq:number,afterSeq:number,afterRead:()=>Promise<void>,database:CanonicalIndexedDatabase=prisma):Promise<{
+ readonly operations:readonly import('@grafetto/shared').CanonicalIndexedOperation[]
+ readonly rows:readonly CanonicalStoredOperationRow[]
+ readonly nextAfterSeq:number;readonly terminal:boolean
+}>{
+ if(!Number.isInteger(throughSeq)||throughSeq<0||throughSeq>2147483647||!Number.isInteger(afterSeq)||afterSeq<0||afterSeq>throughSeq)throw new CanonicalGesturePrefixError()
+ const scalars=await indexedScalarPage(roomId,throughSeq,afterSeq,afterRead,database)
+ const selected=await loadIndexedBodyPrefix(roomId,indexedBodyPrefix(scalars),afterRead,database)
+ if(selected.length>64)throw new CanonicalGesturePrefixError()
+ if(!selected.length){if(afterSeq!==throughSeq)throw new CanonicalGesturePrefixError();return Object.freeze({operations:Object.freeze([]),rows:Object.freeze([]),nextAfterSeq:afterSeq,terminal:true})}
+ const operations:import('@grafetto/shared').CanonicalIndexedOperation[]=[],rows:CanonicalStoredOperationRow[]=[],ids=new Set<string>()
+ let cursor=afterSeq,bytes=2
+ for(const row of selected){
+  if(row.seq!==cursor+1||ids.has(row.id))throw new CanonicalGesturePrefixError()
+  const operation=projectCanonicalIndexedHistoryRow(roomId,row),cost=Buffer.byteLength(JSON.stringify(operation),'utf8')+(operations.length?1:0)
+  if(bytes+cost>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes){if(!operations.length)throw new CanonicalGesturePrefixError();break}
+  ids.add(row.id);operations.push(operation);rows.push(Object.freeze({...row,data:operation}));cursor=row.seq;bytes+=cost
+ }
+ return Object.freeze({operations:Object.freeze(operations),rows:Object.freeze(rows),nextAfterSeq:cursor,terminal:false})
+}
+
+/** Original edges have one parent. LATERAL keeps the recursive edge lookup
+ * selective on the expression index, rather than re-sorting all metadata on
+ * every depth. PostgreSQL worktables remain bounded by the read-tx temp limit. */
+export const CANONICAL_INDEXED_UNREACHABLE_METADATA_SQL=`WITH RECURSIVE reached AS (
+ SELECT o.id,o.seq,o."userId" FROM "Operation" o
+ WHERE o."roomId"=$1::text AND o.type='canonical_stroke' AND o.seq<=$2::int
+ UNION ALL
+ SELECT m.id,m.seq,m."userId" FROM reached r
+ JOIN LATERAL (SELECT o.id,o.seq,o."userId" FROM "Operation" o
+  WHERE o."roomId"=$1::text AND o.type IN ('operation_undo','operation_redo')
+  AND o.data->>'targetOpId'=r.id AND o."userId"=r."userId"
+  AND o.seq>r.seq AND o.seq<=$2::int OFFSET 0) m ON true
+) SELECT o.id FROM "Operation" o WHERE o."roomId"=$1::text
+ AND o.type IN ('operation_undo','operation_redo') AND o.seq<=$2::int
+ AND NOT EXISTS(SELECT 1 FROM reached r WHERE r.id=o.id) LIMIT 1`
+
+/** Bounded frame-zero keyset used by the zero-seat orphan pass. The global
+ * validation pass must succeed first; this page is actual DATA, not a grant. */
+export async function getCanonicalIndexedRootRows(roomId:string,throughSeq:number,afterSeq:number,afterRead:()=>Promise<void>):Promise<readonly CanonicalStoredOperationRow[]>{
+ const scalars=await indexedScalarPage(roomId,throughSeq,afterSeq,afterRead,prisma,undefined,true)
+ const rows=await loadIndexedBodyPrefix(roomId,indexedBodyPrefix(scalars),afterRead,prisma)
+ let previous=afterSeq
+ for(const row of rows){
+  const op=projectCanonicalIndexedHistoryRow(roomId,row)
+  if(op.type!=='canonical_stroke'||op.frame.frameOrdinal!==0||op.seq!<=previous)throw new CanonicalGesturePrefixError()
+  previous=op.seq!
+ }
+ return rows
+}
+
+export async function validateCanonicalIndexedHistoryRows(roomId:string,throughSeq:number,afterRead:()=>Promise<void>,visitRoot:(operation:CanonicalStrokeOperation,row:CanonicalStoredOperationRow)=>Promise<{readonly recordedNext:number;readonly closed:boolean}>,database:CanonicalIndexedDatabase=prisma):Promise<Readonly<{
+ throughSeq:number;operationCount:number;frameCount:number;metadataCount:number;closeCount:number;gestureCount:number
+}>>{
+ let cursor=0,frameCount=0,metadataCount=0,closeCount=0
+ if(!Number.isInteger(throughSeq)||throughSeq<0||throughSeq>2147483647)throw new CanonicalGesturePrefixError()
+ // One server-drained WITHOUT HOLD portal; no cursor/transaction survives
+ // candidate validation or waits for a browser, GPU, socket ACK or author UP.
+ await database.$executeRawUnsafe('DECLARE canonical_indexed_validation NO SCROLL CURSOR WITHOUT HOLD FOR SELECT id,seq,type,octet_length(data::text) AS bytes FROM "Operation" WHERE "roomId"=$1::text AND seq<=$2::int ORDER BY seq',roomId,throughSeq)
+ let failed=false,primary:unknown
+ try{
+  await afterRead()
+  while(true){
+   const scalarBatch=await database.$queryRawUnsafe<readonly CanonicalIndexedScalarRow[]>('FETCH FORWARD 64 FROM canonical_indexed_validation')
+   await afterRead()
+   if(scalarBatch.length>64)throw new CanonicalGesturePrefixError()
+   if(!scalarBatch.length){if(cursor!==throughSeq)throw new CanonicalGesturePrefixError();break}
+   let offset=0
+   while(offset<scalarBatch.length){
+    const prefix=indexedBodyPrefix(scalarBatch.slice(offset)),selected=await loadIndexedBodyPrefix(roomId,prefix,afterRead,database)
+    for(const row of selected){
+     if(row.seq!==cursor+1)throw new CanonicalGesturePrefixError()
+     const operation=projectCanonicalIndexedHistoryRow(roomId,row)
+     if(operation.type==='canonical_stroke')frameCount++;else if(operation.type==='canonical_stroke_close')closeCount++;else metadataCount++
+     cursor=row.seq
+    }
+    offset+=prefix.length
+   }
+  }
+ }catch(error){failed=true;primary=error}
+ try{await database.$executeRawUnsafe('CLOSE canonical_indexed_validation');await afterRead()}catch(error){if(!failed){failed=true;primary=error}}
+ if(failed)throw primary
+ const unreachable=await database.$queryRawUnsafe<readonly {id:string}[]>(CANONICAL_INDEXED_UNREACHABLE_METADATA_SQL,roomId,throughSeq)
+ await afterRead();if(unreachable.length)throw new CanonicalGesturePrefixError()
+ let rootCursor=0,gestureCount=0,verifiedFrames=0,verifiedCloses=0
+ while(true){
+  const scalars=await indexedScalarPage(roomId,throughSeq,rootCursor,afterRead,database,undefined,true)
+  const selected=await loadIndexedBodyPrefix(roomId,indexedBodyPrefix(scalars),afterRead,database)
+  if(!selected.length)break
+  for(const row of selected){
+   const operation=projectCanonicalIndexedHistoryRow(roomId,row)
+   if(operation.type!=='canonical_stroke'||operation.frame.frameOrdinal!==0||operation.seq!<=rootCursor)throw new CanonicalGesturePrefixError()
+   const summary=await visitRoot(operation,Object.freeze({...row,data:operation}))
+   await afterRead()
+   if(!Number.isInteger(summary.recordedNext)||summary.recordedNext<1)throw new CanonicalGesturePrefixError()
+   verifiedFrames+=summary.recordedNext;if(summary.closed)verifiedCloses++;gestureCount++;rootCursor=operation.seq!
+  }
+ }
+ if(verifiedFrames!==frameCount||verifiedCloses!==closeCount)throw new CanonicalGesturePrefixError()
+ return Object.freeze({throughSeq,operationCount:throughSeq,frameCount,metadataCount,closeCount,gestureCount})
+}
+
+const CANONICAL_INDEXED_ROOT_EFFECTS_SQL=`WITH RECURSIVE reached AS (
+ SELECT o.id,o.seq,o."userId" FROM "Operation" o
+ WHERE o."roomId"=$1::text AND o.type='canonical_stroke' AND o.seq<=$2::int
+ AND o."userId"=$3::text AND o.data#>>'{frame,strokeId}'=$4::text
+ UNION ALL
+ SELECT m.id,m.seq,m."userId" FROM reached r
+ JOIN LATERAL (SELECT o.id,o.seq,o."userId" FROM "Operation" o
+  WHERE o."roomId"=$1::text AND o.type IN ('operation_undo','operation_redo')
+  AND o.data->>'targetOpId'=r.id AND o."userId"=r."userId"
+  AND o.seq>r.seq AND o.seq<=$2::int OFFSET 0) m ON true
+), metadata AS (
+ SELECT o.id,o.seq,o.type FROM reached r JOIN "Operation" o ON o.id=r.id
+ WHERE o.type IN ('operation_undo','operation_redo')
+), last_metadata AS (SELECT id,seq FROM metadata ORDER BY seq DESC LIMIT 1),
+ latest_redo AS (SELECT id,seq FROM metadata WHERE type='operation_redo' ORDER BY seq DESC LIMIT 1),
+ first_undo AS (SELECT id,seq FROM metadata WHERE type='operation_undo'
+ AND seq>coalesce((SELECT seq FROM latest_redo),0) ORDER BY seq LIMIT 1),
+ own_branch AS (SELECT o.id,o.seq FROM "Operation" o WHERE o."roomId"=$1::text
+ AND o."userId"=$3::text AND o.type='canonical_stroke' AND o.data#>>'{frame,frameOrdinal}'='0'
+ AND o.seq>(SELECT seq FROM first_undo) AND o.seq<=$2::int ORDER BY o.seq DESC LIMIT 1)
+ SELECT 'lastMetadata'::text AS role,id,seq FROM last_metadata
+ UNION ALL SELECT 'latestRedo',id,seq FROM latest_redo
+ UNION ALL SELECT 'firstUndoAfterLatestRedo',id,seq FROM first_undo
+ UNION ALL SELECT 'ownBranchAfterUndo',id,seq FROM own_branch
+ UNION ALL SELECT 'firstMetadata',id,seq FROM (SELECT id,seq FROM metadata ORDER BY seq LIMIT 1) first_metadata ORDER BY role,seq`
+export type CanonicalIndexedEffectRole='lastMetadata'|'latestRedo'|'firstUndoAfterLatestRedo'|'ownBranchAfterUndo'
+export async function getCanonicalIndexedRootEffectRows(roomId:string,throughSeq:number,root:import('@grafetto/shared').CanonicalIndexedRootV1,afterRead:()=>Promise<void>,database:CanonicalIndexedDatabase=prisma):Promise<{
+ readonly firstMetadataSequence?:number
+ readonly effects:Readonly<Partial<Record<CanonicalIndexedEffectRole,CanonicalStoredOperationRow>>>
+}>{
+ const selected=await indexedQuery(database,connection=>connection.$queryRawUnsafe<readonly {role:string;id:string;seq:number}[]>(CANONICAL_INDEXED_ROOT_EFFECTS_SQL,roomId,throughSeq,root.originalUserId,root.strokeId))
+ await afterRead()
+ if(selected.length>5)throw new CanonicalGesturePrefixError()
+ const effects:Partial<Record<CanonicalIndexedEffectRole,CanonicalStoredOperationRow>>={},seen=new Set<string>()
+ let firstMetadataSequence:number|undefined
+ for(const effect of selected){
+  if(seen.has(effect.role)||!Number.isInteger(effect.seq)||effect.seq<=root.firstSequence||effect.seq>throughSeq)throw new CanonicalGesturePrefixError()
+  seen.add(effect.role)
+  if(effect.role==='firstMetadata'){firstMetadataSequence=effect.seq;continue}
+  if(effect.role!=='lastMetadata'&&effect.role!=='latestRedo'&&effect.role!=='firstUndoAfterLatestRedo'&&effect.role!=='ownBranchAfterUndo')throw new CanonicalGesturePrefixError()
+  const row=await indexedQuery(database,connection=>connection.operation.findUnique({where:{id:effect.id},select:canonicalOperationRowSelect}))
+  await afterRead()
+  if(!row||row.seq!==effect.seq)throw new CanonicalGesturePrefixError()
+  const operation=projectCanonicalIndexedHistoryRow(roomId,row)
+  if(operation.userId!==root.originalUserId)throw new CanonicalGesturePrefixError()
+  if(effect.role==='ownBranchAfterUndo'){
+   if(operation.type!=='canonical_stroke'||operation.frame.frameOrdinal!==0)throw new CanonicalGesturePrefixError()
+  }else if(operation.type!=='operation_undo'&&operation.type!=='operation_redo')throw new CanonicalGesturePrefixError()
+  effects[effect.role]=Object.freeze({...row,data:operation})
+ }
+ return Object.freeze({...firstMetadataSequence===undefined?{}:{firstMetadataSequence},effects:Object.freeze(effects)})
 }

@@ -53,6 +53,8 @@ export interface RoomRecord {
   // teacher's tap and the round existing is where a double tap would make two.
   assignmentStarting: boolean
   passwordHash: string | undefined
+  /** Indexed mode retains only live write objects, never a complete original history. */
+  canonicalHistoryResidency?: 'indexed-v1'
   operations: Operation[]
   participants: Map<string, Participant> // keyed by userId — live presence only, not join history
   nextSeq: number

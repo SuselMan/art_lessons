@@ -294,6 +294,30 @@ describe('checkJoinAccess — a board resolves to its lesson (#176)', () => {
 })
 
 describe('authorized join lexical preparation without seat/membership side effects',()=>{
+ it('freshly reauthorizes the original unseated preparation without requiring persisted participation',async()=>{
+  const id=makeRoom({password:'private-test'});await _flushPendingWrites(id)
+  const access=await prepareAuthorizedJoin(id,'student','Alice','private-test','fresh-auth',()=>true)
+  if(!access.ok)throw Error(access.error)
+  mockPrisma.roomParticipant.upsert.mockClear()
+  await expect(access.preparation.assertAuthorized()).resolves.toBeUndefined()
+  expect(rooms.get(id)!.participants.has('student')).toBe(false)
+  expect(mockPrisma.roomParticipant.upsert).not.toHaveBeenCalled()
+  mockPrisma.roomBlock.findUnique.mockResolvedValueOnce({id:'revoked'})
+  await expect(access.preparation.assertAuthorized()).rejects.toMatchObject({cause:{ok:false,error:'access_revoked'}})
+  expect(()=>Reflect.apply(access.preparation.assertCurrent,{...access.preparation},[])).toThrow('receiver')
+ })
+ it.each(['password','replacement-seat'] as const)('rejects %s changes during fresh authorization before the old seat commits',async mode=>{
+  const id=makeRoom();await _flushPendingWrites(id)
+  const access=await prepareAuthorizedJoin(id,'student','Alice',undefined,'fresh-race',()=>true)
+  if(!access.ok)throw Error(access.error)
+  mockPrisma.roomBlock.findUnique.mockImplementationOnce(async()=>{
+   if(mode==='password')rooms.get(id)!.passwordHash='replacement-policy'
+   else{const replacement=await prepareAuthorizedJoin(id,'student','Alice',undefined,'replacement-seat',()=>true);if(!replacement.ok)throw Error(replacement.error);expect(replacement.preparation.commit().ok).toBe(true)}
+   return null
+  })
+  await expect(access.preparation.assertAuthorized()).rejects.toThrow('Stale')
+  expect(rooms.get(id)!.sockets.has('fresh-race')).toBe(false)
+ })
  it('admits through the real gate but writes membership and seats only on one exact commit',async()=>{
   const id=makeRoom({password:'test-password'});await _flushPendingWrites(id);mockPrisma.roomParticipant.upsert.mockClear()
   const record=rooms.get(id)!,sockets=[...record.sockets]

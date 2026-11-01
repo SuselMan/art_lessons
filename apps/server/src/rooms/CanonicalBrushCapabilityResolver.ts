@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import {
-  CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, verifyCanonicalRecordedClose,parseCanonicalStrokeCloseOperation,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION,
+  CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, verifyCanonicalRecordedClose,parseCanonicalStrokeCloseOperation,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,type CanonicalMaterialPrefixState, CANONICAL_MATERIAL_LIMITS, CANONICAL_STROKE_RASTER_PROFILE, type CanonicalStrokeRasterProfile, STRAIGHT_ROOM_RASTER_VERSION,
   canonicalImageSourceBinding,canonicalImagePipeSourceBinding,canonicalSourceEffectReject, canonicalBrushDescriptorJSON, canonicalMaterialGeometryCost, isSourceStampData, extractCanonicalSinglePngCapability, hasCanonicalSourceCurvePrograms, canonicalDefaultAutoSourceBinding, canonicalGaussianAutoSourceBinding, canonicalSoftAutoSourceBinding, canonicalSourceComposition,
   type BrushDescriptor, type BrushLibrary, type AnyCanonicalMaterialContext, type CanonicalMaterialContext, type CanonicalStrokeBegin, type CanonicalStrokeOperation, type CanonicalMaterialContextV2, decodeCanonicalStrokeFrame,
   prepareCanonicalRecordedAttachment, CANONICAL_RECORDED_ATTACHMENT_LIMITS, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadCapability, type Operation,
@@ -25,6 +25,21 @@ export interface CanonicalRecordedCapability {
  readonly pigmentRgb8:readonly[number,number,number]
  readonly composition:TrustedCanonicalGesture['composition']
  readonly material:CanonicalMaterialContextV2
+}
+interface RecordedFoldCheckpoint extends CanonicalMaterialPrefixState {
+ readonly recordedNext:number;readonly firstOperationId:string;readonly lastOperationId:string;readonly firstSeq:number;readonly lastSeq:number
+ readonly endSeq?:number;readonly closeSeal?:ReturnType<typeof verifyCanonicalRecordedClose>
+}
+interface RecordedSourceFold {
+ accept(this:unknown,operation:CanonicalStrokeOperation|import('@grafetto/shared').RecordedCanonicalStrokeCloseOperation,row:CanonicalStoredOperationRow):undefined
+ checkpoint(this:unknown):Readonly<RecordedFoldCheckpoint>
+ finish(this:unknown):Readonly<RecordedFoldCheckpoint>
+ fork(this:unknown):Readonly<RecordedSourceFold>
+}
+interface RecordedFoldSeed {
+ readonly source:CanonicalRecordedCapability;readonly state:CanonicalMaterialPrefixState
+ readonly firstOperationId:string;readonly lastOperationId:string;readonly firstSeq:number;readonly lastSeq:number
+ readonly endSeq?:number;readonly closeSeal?:ReturnType<typeof verifyCanonicalRecordedClose>
 }
 interface PinnedGesture { readonly board: RoomRecord; readonly lesson: RoomRecord; readonly grant: TrustedCanonicalGesture; readonly pipeSource?:CanonicalImagePipeSource }
 const text = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 256 && !v.includes('\0')
@@ -145,6 +160,20 @@ export class CanonicalBrushCapabilityResolver {
     return this.prepareGesture(identity,captured,profile,true)
   }
 
+  /** Streamed resume starts from an ACTUAL first indexed row. The Transport
+   * must validate/hydrate every subsequent prefix row before committing this
+   * ticket. This helper grants nothing from a caller-provided summary. */
+  prepareIndexedResumeGesture(identity:CanonicalAdmissionIdentity,input:CanonicalGestureBegin,first:CanonicalStrokeOperation,row:CanonicalStoredOperationRow):{readonly grant:TrustedCanonicalGesture;readonly commit:()=>void}{
+    const captured=this.captureBeginInput(identity,input)
+    verifyCanonicalOperationRow(identity.roomId,first,row)
+    const profile=first.frame.rasterProfile
+    if(!this.recordedProfiles.includes(profile)||first.userId!==identity.userId||first.layerId!==captured.layerId||first.frame.frameOrdinal!==0
+      ||first.frame.brush!==captured.brush||first.frame.strokeId!==captured.strokeId
+      ||first.frame.pigmentRgb8.some((value,index)=>value!==captured.pigmentRgb8[index])
+      ||first.frame.composition.alphaDarken!==captured.alphaDarken||first.frame.composition.outerResourceOpacity!==captured.outerResourceOpacity)fail('stored indexed resume resources changed')
+    return this.prepareGesture(identity,captured,profile,true)
+  }
+
   private prepareGesture(identity:CanonicalAdmissionIdentity,input:CanonicalGestureBegin,profile:CanonicalStrokeRasterProfile,roomOnly:boolean):{readonly grant:TrustedCanonicalGesture;readonly commit:()=>void} {
     const current=this.authorizedBoard(identity,input.layerId)
     if(!current)fail('board or paint permission unavailable')
@@ -201,16 +230,26 @@ export class CanonicalBrushCapabilityResolver {
 
   /** Internal scalar fold. Actual indexed visitor/old array adapter owns row
    * provenance and id uniqueness; this is not a source/read/append grant. */
-  createRecordedPrefixFold(input:{readonly roomId:string;readonly boardEpoch:number;readonly anchor?:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly purpose:'read'|'undo-redo'}) {
+  createRecordedPrefixFold(input:{readonly roomId:string;readonly boardEpoch:number;readonly anchor?:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly purpose:'read'|'undo-redo'}) {return this.foldRecordedPrefix(input,false)}
+  /** Original indexed stream only; limits belong to each page, not the total prefix. */
+  createIndexedRecordedPrefixFold(input:{readonly roomId:string;readonly boardEpoch:number;readonly anchor?:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly purpose:'read'|'undo-redo'}) {return this.foldRecordedPrefix(input,true)}
+  private foldRecordedPrefix(input:{readonly roomId:string;readonly boardEpoch:number;readonly anchor?:CanonicalStrokeOperation;readonly row?:CanonicalStoredOperationRow;readonly purpose:'read'|'undo-redo'},indexed:boolean,seed?:RecordedFoldSeed):Readonly<RecordedSourceFold> {
     const {roomId,boardEpoch,anchor,purpose,row}=input
     if(purpose!=='read'&&purpose!=='undo-redo')fail('invalid recorded prefix purpose')
     const bindRow=(operation:CanonicalStrokeOperation,row:CanonicalStoredOperationRow)=>this.readRecordedCapability({roomId,boardEpoch,operation,row})
-    let bound=anchor?(row?this.readRecordedCapability({roomId,boardEpoch,operation:anchor,row}):this.readResidentRecordedCapability({roomId,boardEpoch,operation:anchor})):undefined
-    let state=CANONICAL_MATERIAL_PREFIX_START,bytes=0,anchored=!anchor,firstOperationId='',lastOperationId='',firstSeq=0,lastSeq=0,endSeq:number|undefined,closed=false,failed=false
-    let closeSeal:ReturnType<typeof verifyCanonicalRecordedClose>|undefined
+    let bound=seed?.source??(anchor?(row?this.readRecordedCapability({roomId,boardEpoch,operation:anchor,row}):this.readResidentRecordedCapability({roomId,boardEpoch,operation:anchor})):undefined)
+    let requiredAnchor=anchor
+    let state=seed?.state??CANONICAL_MATERIAL_PREFIX_START,bytes=0,anchored=!anchor,firstOperationId=seed?.firstOperationId??'',lastOperationId=seed?.lastOperationId??'',firstSeq=seed?.firstSeq??0,lastSeq=seed?.lastSeq??0,endSeq=seed?.endSeq,closed=false,failed=false
+    let closeSeal=seed?.closeSeal
+    const resolver=this
     const summary=()=>Object.freeze({...state,recordedNext:state.nextOrdinal,firstOperationId,lastOperationId,firstSeq,lastSeq,...endSeq===undefined?{}:{endSeq}})
     const assert=(receiver:unknown)=>{if(receiver!==fold||closed||failed)fail('recorded prefix fold owner changed')}
-    const fold={
+    const fold:RecordedSourceFold={
+      fork(this:unknown){
+        assert(this)
+        if(!indexed||!bound||!anchored||!state.nextOrdinal)fail('indexed source fold fork unavailable')
+        return resolver.foldRecordedPrefix({roomId,boardEpoch,purpose},true,{source:bound,state,firstOperationId,lastOperationId,firstSeq,lastSeq,...endSeq===undefined?{}:{endSeq},...closeSeal?{closeSeal}:{}})
+      },
       accept(this:unknown,operation:CanonicalStrokeOperation|import('@grafetto/shared').RecordedCanonicalStrokeCloseOperation,row:CanonicalStoredOperationRow):undefined {
         assert(this)
         try{
@@ -218,24 +257,32 @@ export class CanonicalBrushCapabilityResolver {
           if(!bound||!state.nextOrdinal||closeSeal||!('version'in bound.material)||bound.material.version!==2)fail('recorded close V1 source read unsupported')
           const close=projectCanonicalIndexedCloseOperation(roomId,row),op=parseCanonicalStrokeCloseOperation(operation)
           if(!isDeepStrictEqual(close.operation,op)||op.id===firstOperationId||op.id===lastOperationId)fail('recorded close immutable identity changed')
-          bytes+=close.bytes;if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix close byte capacity exceeded')
+          bytes+=close.bytes;if(!indexed&&bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix close byte capacity exceeded')
           closeSeal=verifyCanonicalRecordedClose(summary(),{userId:bound.originalUserId,layerId:bound.layerId,strokeId:bound.strokeId},op)
           return undefined
         }
-        if(closeSeal||state.nextOrdinal>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)fail('recorded prefix closure unavailable')
+        if(closeSeal||!indexed&&state.nextOrdinal>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)fail('recorded prefix closure unavailable')
         const normalized=projectCanonicalIndexedOperation(roomId,row),op=normalized.operation
         if(!isDeepStrictEqual(op,operation))fail('recorded prefix projected identity changed')
         bound??=bindRow(op,row)
         if(op.userId!==bound.originalUserId||op.layerId!==bound.layerId||op.seq!<=lastSeq)fail('recorded prefix immutable identity changed')
-        bytes+=normalized.bytes;if(bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix byte capacity exceeded')
+        bytes+=normalized.bytes;if(!indexed&&bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('recorded prefix byte capacity exceeded')
         const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:bound.rasterProfile,brush:bound.brush,strokeId:bound.strokeId,frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:bound.pigmentRgb8,composition:bound.composition,material:bound.material})
         if(decoded.frame.masked)fail('recorded masked prefix unavailable')
         state=advanceCanonicalMaterialPrefix(state,op.frame.frameOrdinal,decoded.frame)
         if(!firstOperationId){firstOperationId=op.id;firstSeq=op.seq!}
         lastOperationId=op.id;lastSeq=op.seq!;if(state.ended)endSeq=op.seq!
-        if(anchor&&op.id===anchor.id){if(!isDeepStrictEqual(op,anchor))fail('recorded prefix anchor changed');anchored=true}
+        if(requiredAnchor&&op.id===requiredAnchor.id){if(!isDeepStrictEqual(op,requiredAnchor))fail('recorded prefix anchor changed');anchored=true;requiredAnchor=undefined}
         return undefined
         }catch(error){failed=true;throw error}
+      },
+      /** Indexed owner may retain one OPEN carry, not prior rows/pages. The
+       * checkpoint is DATA only and cannot restore/copy a fold or mint a grant. */
+      checkpoint(this:unknown){
+        assert(this)
+        if(!indexed)fail('indexed prefix checkpoint unavailable')
+        if(!state.nextOrdinal||!anchored)fail('recorded prefix anchor unavailable')
+        return Object.freeze({...summary(),...closeSeal?{closeSeal}:{}})
       },
       finish(this:unknown){
         assert(this)
@@ -436,6 +483,15 @@ export class CanonicalBrushCapabilityResolver {
       material=this.primaryImageSource?Object.freeze({version:2 as const,...canonicalImageSourceBinding(descriptor,asset),budget}):Object.freeze({assets:Object.freeze([capability.asset]),primaryAsset:asset.id,preflightDefinition,budget})
     }
     return {material,mode,outerBlend:composition.outerBlend,descriptorSha256}
+  }
+
+  /** Transport-only durable indexed END retirement. Exact grant identity prevents
+   * a copied/stale reference from deleting a later admitted gesture. */
+  retireGesture(grant:TrustedCanonicalGesture):boolean {
+    const id=key(grant,grant.strokeId),pinned=this.gestures.get(id)
+    if(!pinned||pinned.grant!==grant)return false
+    this.gestures.delete(id)
+    return true
   }
 
   /** Trusted lifetime close only, paired with admission.clearRoom. Caller must

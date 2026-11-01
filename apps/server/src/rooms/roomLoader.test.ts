@@ -14,7 +14,7 @@ const mockPrisma = vi.hoisted(() => ({
   roomLayerState: { findUnique: vi.fn() },
   assignment: { findMany: vi.fn() },
   roomLayerSnapshot: { groupBy: vi.fn() },
-  operation: { create: vi.fn(), findMany: vi.fn(), aggregate: vi.fn(), groupBy: vi.fn() },
+  operation: { create: vi.fn(), findFirst:vi.fn(), findMany: vi.fn(), aggregate: vi.fn(), groupBy: vi.fn() },
   roomParticipant: { upsert: vi.fn() },
 }))
 vi.mock('../db/prisma.js', () => ({ prisma: mockPrisma }))
@@ -61,6 +61,7 @@ beforeEach(() => {
   mockPrisma.assignment.findMany.mockResolvedValue([])
   mockPrisma.roomLayerSnapshot.groupBy.mockResolvedValue([])
   mockPrisma.operation.groupBy.mockResolvedValue([])
+  mockPrisma.operation.findFirst.mockResolvedValue(null)
   mockPrisma.roomPalette.findUnique.mockResolvedValue({ colors: ['#111111'] })
 })
 
@@ -212,4 +213,32 @@ it('loads actual straight metadata only for trusted mixed full-history preparati
  expect(rooms.get(id)?.room.rasterVersion).toBe('straight-rgba8-v1')
  expect(await ensureRoomLoaded(id)).toBe(false)
  expect(await ensureRoomLoaded(id,'mixed-v2')).toBe(true)
+})
+
+
+it('loads indexed closed history metadata without pulling or adopting historical operation bodies',async()=>{
+ const id=seed([],10000)
+ mockPrisma.room.findUnique.mockResolvedValue({...row(id),rasterVersion:'straight-rgba8-v1'})
+ mockPrisma.operation.findMany.mockRejectedValue(Error('whole history must remain indexed'))
+ expect(await ensureRoomLoaded(id,'mixed-indexed-v1')).toBe(true)
+ const record=rooms.get(id)!
+ expect(record.nextSeq).toBe(10001)
+ expect(record.operations).toEqual([]);expect(record.operationsById.size).toBe(0)
+ expect(record.canonicalHistoryResidency).toBe('indexed-v1')
+ expect(record.aliveIds).toEqual(new Set(['background','layer-1']))
+ expect(mockPrisma.operation.findMany).not.toHaveBeenCalled()
+ expect(mockPrisma.operation.findFirst).toHaveBeenCalledWith(expect.objectContaining({where:expect.objectContaining({roomId:id}),select:{id:true}}))
+ expect(()=>getRoomSnapshot(id,0,OWNER)).toThrow('Indexed room requires an offer')
+})
+it('does not present an indexed implicit layer structure for persisted structural operations or snapshots',async()=>{
+ const id=seed([],9000)
+ mockPrisma.room.findUnique.mockResolvedValue({...row(id),rasterVersion:'straight-rgba8-v1'})
+ mockPrisma.operation.findFirst.mockResolvedValue({id:'persisted-layer-delete'})
+ expect(await ensureRoomLoaded(id,'mixed-indexed-v1')).toBe(false)
+ expect(rooms.has(id)).toBe(false)
+ expect(mockPrisma.operation.findMany).not.toHaveBeenCalled()
+ mockPrisma.operation.findFirst.mockResolvedValue(null)
+ mockPrisma.roomLayerState.findUnique.mockResolvedValue({seq:8000,state:{}})
+ expect(await ensureRoomLoaded(id,'mixed-indexed-v1')).toBe(false)
+ expect(rooms.has(id)).toBe(false)
 })

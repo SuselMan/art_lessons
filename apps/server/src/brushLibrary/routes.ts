@@ -10,13 +10,13 @@ import { Readable, Transform } from 'node:stream'
 import type { FastifyInstance } from 'fastify'
 import type { BrushImportJob } from '@grafetto/shared'
 import { apiRoute } from '../http/apiRoute.js'
-import {freezeCanonicalFullHistoryFormat} from '../rooms/canonicalExecutionPolicy.js'
+import {freezeCanonicalFullHistoryFormat,type CanonicalFullHistoryFormat} from '../rooms/canonicalExecutionPolicy.js'
 import { mayReadBoardContent } from '../rooms/boardContentAccess.js'
 import { loadBrushLibrary } from './brushLibrary.js'
 import { BrushStorage, boundedRead, empty, merge, setBrushStorage } from './storage.js'
 
 const MAX_UPLOAD=512*1024*1024
-export async function registerBrushLibraryRoutes(app: FastifyInstance, directory=process.env.GRAFETTO_BRUSH_LIBRARY_DIR,fullHistoryFormat:'frames-v1'|'mixed-v2'='frames-v1'): Promise<void> {
+export async function registerBrushLibraryRoutes(app: FastifyInstance, directory=process.env.GRAFETTO_BRUSH_LIBRARY_DIR,fullHistoryFormat:CanonicalFullHistoryFormat='frames-v1'): Promise<void> {
   const readFormat=freezeCanonicalFullHistoryFormat(fullHistoryFormat)
   // A configured legacy directory is an explicit operator-provisioned QA library.
   const operator=await loadBrushLibrary(directory)

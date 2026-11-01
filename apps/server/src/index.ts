@@ -20,6 +20,7 @@ import { noteBoardThumbnail } from './rooms/classroom.js'
 import { flushAllRoomWrites, pendingWriteCount } from './rooms/rooms.js'
 import { disconnectAllClients } from './health/shutdown.js'
 import { prisma } from './db/prisma.js'
+import {closeCanonicalIndexedReader} from './db/canonicalIndexedReader.js'
 import { identityHook } from './auth/identity.js'
 import { startEventLoopMonitor } from './health/eventLoop.js'
 import { registerHealthRoutes } from './health/healthRoutes.js'
@@ -271,8 +272,10 @@ const shutdown = async (signal: string): Promise<void> => {
   const work = (async () => {
     disconnectAllClients(io)
     await flushAllRoomWrites()
-    await app.close()
-    await prisma.$disconnect()
+    try{await app.close()}finally{
+      const closed=await Promise.allSettled([closeCanonicalIndexedReader(),prisma.$disconnect()])
+      for(const result of closed)if(result.status==='rejected')app.log.error({err:result.reason},'database shutdown failed')
+    }
     return 'done' as const
   })()
 

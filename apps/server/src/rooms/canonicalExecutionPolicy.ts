@@ -23,6 +23,8 @@ export function freezeCanonicalAutoPolicies(value:CanonicalAutoExecutionPolicies
  }
  return Object.freeze({...(value.defaultAuto?{defaultAuto:Object.freeze({...value.defaultAuto})}:{}),...(value.gaussianAuto?{gaussianAuto:Object.freeze({...value.gaussianAuto})}:{}),...(value.softAuto?{softAuto:Object.freeze({...value.softAuto})}:{})})
 }
+export type CanonicalFullHistoryFormat='frames-v1'|'mixed-v2'|'mixed-indexed-v1'
+
 /** Execution config only. This does NOT open straight rooms or switch a renderer. */
 export interface CanonicalRoomExecutionPolicy {
  readonly seededDefaultAuto?:false|Readonly<{coverageProfile:typeof CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE;storedScale:1}>
@@ -30,7 +32,7 @@ export interface CanonicalRoomExecutionPolicy {
  readonly primaryImageSource?:'single-inverse-gray-v2'|false
  readonly allowedRecordedImagePipeSources?:readonly CanonicalImagePipeSource[]
  readonly authorImagePipeSources?:readonly CanonicalImagePipeSource[]
- readonly fullHistoryFormat?:'frames-v1'|'mixed-v2'
+ readonly fullHistoryFormat?:CanonicalFullHistoryFormat
  readonly rasterProfile?:CanonicalStrokeRasterProfile
  readonly authorRasterProfile?:CanonicalStrokeRasterProfile
  readonly allowedRecordedRasterProfiles?:readonly CanonicalStrokeRasterProfile[]
@@ -51,9 +53,9 @@ export function freezeCanonicalRasterPolicy(value:Pick<CanonicalRoomExecutionPol
  return Object.freeze({authorRasterProfile,allowedRecordedRasterProfiles})
 }
 
-export function freezeCanonicalFullHistoryFormat(value:CanonicalRoomExecutionPolicy['fullHistoryFormat']):'frames-v1'|'mixed-v2'{
+export function freezeCanonicalFullHistoryFormat(value:CanonicalRoomExecutionPolicy['fullHistoryFormat']):CanonicalFullHistoryFormat{
  if(value===undefined)return 'frames-v1'
- if(value!=='frames-v1'&&value!=='mixed-v2')throw TypeError('invalid explicit full history format')
+ if(value!=='frames-v1'&&value!=='mixed-v2'&&value!=='mixed-indexed-v1')throw TypeError('invalid explicit full history format')
  return value
 }
 
@@ -104,7 +106,7 @@ export function freezeCanonicalSeededDefaultAutoPolicies(value:Pick<CanonicalRoo
  }
  if(recorded!==undefined&&recorded!==false&&recorded!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)return fail()
  if(author||recorded){
-  if(value.fullHistoryFormat!=='mixed-v2'||!value.allowedRecordedRasterProfiles?.includes(CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return fail()
+  if(value.fullHistoryFormat!=='mixed-v2'&&value.fullHistoryFormat!=='mixed-indexed-v1'||!value.allowedRecordedRasterProfiles?.includes(CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return fail()
   if(author&&(recorded!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||(value.authorRasterProfile??value.rasterProfile)!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE))return fail()
  }
  return Object.freeze({...(author?{seededDefaultAuto:Object.freeze({coverageProfile:CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,storedScale:1 as const})}:{}),...(recorded?{recordedSeededDefaultAutoProfile:CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE}:{})})

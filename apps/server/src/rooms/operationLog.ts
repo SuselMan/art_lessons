@@ -19,7 +19,10 @@ import { advanceStructuralLog, deriveLayerIds } from './structuralLog.js'
 export function getOperationRejectReason(roomId: string, userId: string, op: Operation): RejectReason | null {
   const record = rooms.get(roomId)
   if (!record) return 'not_owner'
-  return operationRejectReason(record, lessonRecordOf(record), userId, op)
+  const reason=operationRejectReason(record, lessonRecordOf(record), userId, op)
+  if(reason)return reason
+  if(record.canonicalHistoryResidency==='indexed-v1'&&!['canonical_stroke','canonical_stroke_close','operation_undo','operation_redo'].includes(op.type))return 'invalid_operation'
+  return null
 }
 
 /** Recomputes `aliveIds`/`deletedIds` from whatever is currently `done`.
@@ -52,6 +55,7 @@ function refreshLayerIdMirrors(record: RoomRecord): void {
 export function updateAliveIds(roomId: string, op: Operation): void {
   const record = rooms.get(roomId)
   if (!record) return
+  if(record.canonicalHistoryResidency==='indexed-v1')return
   // (#462) Carries the seq `recordOperation` is about to assign. This runs
   // just before it (see socketHandlers.ts) and so is handed the operation
   // unstamped, which left every entry added while the room was resident
@@ -174,6 +178,20 @@ export function ensureCanonicalWrite(record: RoomRecord, op: Operation, options:
   return startCanonicalWrite(receipt, () => retryCanonicalOperationWrite(record.room.id, op))
 }
 
+/** Internal successful-write retirement for the indexed residency lane only.
+ * Caller must first move any session/cursor fence to its durable successor.
+ * Pending/failed originals retain the SAME receipt and remain repairable. */
+export function retireSucceededCanonicalOperation(record:RoomRecord,operation:Operation):boolean{
+ if(record.canonicalHistoryResidency!=='indexed-v1'||rooms.get(record.room.id)!==record||record.operationsById.get(operation.id)!==operation)return false
+ const receipt=canonicalWrites.get(operation)
+ if(!receipt||receipt.owner!==canonicalWriteOwners.get(record)||receipt.status!=='succeeded')return false
+ const position=record.operations.indexOf(operation)
+ if(position<0)throw new Error('Canonical indexed resident identity conflict')
+ record.operations.splice(position,1)
+ record.operationsById.delete(operation.id)
+ return true
+}
+
 /** Shared live/DB boundary: copy only the small header; packed material stays a string. */
 export function immutableCanonicalOperation(op: Extract<Operation, { type: 'canonical_stroke' }>, seq: number): Operation {
   return Object.freeze({ ...op, seq, frame: Object.freeze({ ...op.frame,
@@ -213,6 +231,7 @@ export function recordCanonicalCloseOperation(roomId:string,draft:Omit<Canonical
 function appendOperation(roomId: string, op: Operation, trackedMetadata:boolean): Operation {
   const record = rooms.get(roomId)
   if (!record) throw new Error(`recordOperation: unknown room "${roomId}"`)
+  if(record.canonicalHistoryResidency==='indexed-v1'&&op.type!=='canonical_stroke'&&!trackedMetadata)throw new Error('Indexed closed format refuses legacy placement')
   // Copy/freeze the small canonical header before any room mutation. Packed
   // material is an immutable string; no duplicate body journal is retained.
   const stamped: Operation = op.type === 'canonical_stroke' ? immutableCanonicalOperation(op, record.nextSeq) : trackedMetadata?Object.freeze({...op,seq:record.nextSeq}):{ ...op, seq: record.nextSeq }

@@ -34,6 +34,7 @@ export async function prepareSnapshotReplay(roomId: string,preparation?:Snapshot
   for (let attempt = 0; attempt < 3; attempt++) {
     await flushRoomWrites(roomId)
     const record = rooms.get(roomId)
+    if(record?.canonicalHistoryResidency==='indexed-v1')throw new Error('Indexed room requires an original stream')
     const watermark = (record?.nextSeq ?? 1) - 1
     const [stored, rows] = await Promise.all([
       prisma.roomLayerState.findUnique({ where: { roomId }, select: { seq: true, state: true } }),

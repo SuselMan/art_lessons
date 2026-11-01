@@ -1,13 +1,13 @@
 import { captureCanonicalMetadata } from './roomPersistence.js'
 import { rooms } from './roomRegistry.js'
-import { CanonicalRoomTransport } from './CanonicalRoomTransport.js'
+import { CanonicalRoomTransport,type PreparedCanonicalIndexedRead } from './CanonicalRoomTransport.js'
 import { hasCompatibleLegacyWriter, hasKnownOperationDiscriminant, hasReservedCanonicalFields } from './operationAdmissionShape.js'
 import { admitsStoredRoomRaster } from './roomRasterAdmission.js'
 import { hasRequiredOperationBrushContext, pinOperationBrush } from '../brushLibrary/storage.js'
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
-import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@grafetto/shared'
-import { canonicalStrokeStorage, hasValidBrushRandomContext, isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, STRAIGHT_ROOM_RASTER_VERSION, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
+import type { ClientToServerEvents, Operation, ServerToClientEvents,CanonicalIndexedHistoryOfferV1,CanonicalHistoryAck } from '@grafetto/shared'
+import {parseCanonicalHistoryOpenRequest,parseCanonicalHistoryStreamNext,parseCanonicalHistoryStreamEvidence,parseCanonicalHistoryStreamSelect,parseCanonicalHistoryStreamCancel,parseCanonicalHistoryStreamReopen, canonicalStrokeStorage, hasValidBrushRandomContext, isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, STRAIGHT_ROOM_RASTER_VERSION, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import {
   abortAssignmentStart, beginAssignmentStart, canSeeLessonBoard, getClassroom, getLessonStateFor,
@@ -15,7 +15,7 @@ import {
   setHandRaised, setSpotlight,
 } from './classroom.js'
 import {
-  addPaletteColor, createRoom, evictIdleRooms, getParticipant, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom,
+  getRoomIndexedState,addPaletteColor, createRoom, evictIdleRooms, getParticipant, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom,
   leaveRoom, captureCurrentRoomSeat,assertCurrentRoomSeat,releaseRoomIfUnused, removePaletteColor,
 } from './rooms.js'
 import { getRoomBacklog } from './roomStats.js'
@@ -61,6 +61,15 @@ const FALLBACK_PARTICIPANT_NAME = 'Guest'
 
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents, DefaultEventsMap, SocketData>
 
+interface IndexedSocketFamily {
+ readonly offer:CanonicalIndexedHistoryOfferV1
+ readonly generation:number;readonly roomId:string;readonly userId:string
+ readonly seat:NonNullable<ReturnType<typeof captureCurrentRoomSeat>>
+ readonly current:()=>boolean
+ read?:PreparedCanonicalIndexedRead
+ busy:boolean
+ last?:{readonly requestId?:string;readonly signature:string;readonly replay:(ack:unknown)=>void}
+}
 /** (#415, трек #314 §1) Пускать ли ещё одну холодную загрузку комнаты в кучу.
  *
  *  Возвращает `true` во всех случаях кроме одного: куча выше
@@ -307,6 +316,79 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, cano
 
   io.on('connection', (socket) => {
     let joinGeneration = 0
+    let indexedFamily:IndexedSocketFamily|undefined
+    // This is ONE finite read slot, independent of the canonical writer tail.
+    // The bounded last response is DATA only, bound to the full normalized
+    // request signature. It never attests an engine/GPU publication.
+    const indexedRequest=<Request extends object,Value>(event:string,raw:unknown,parse:(value:unknown)=>Request,
+      ack:(result:CanonicalHistoryAck<Value>)=>void,work:(family:IndexedSocketFamily,request:Request)=>Promise<Value>|Value)=>{
+      if(typeof ack!=='function')return
+      let request:Request
+      try{request=parse(raw)}catch{ack({ok:false,reason:'invalid_operation'});return}
+      const family=indexedFamily
+      if(!family||!family.current()){ack({ok:false,reason:'not_joined'});return}
+      if(family.busy){ack({ok:false,reason:'read_busy'});return}
+      const signature=event+JSON.stringify(request),id=Object.getOwnPropertyDescriptor(request,'requestId')?.value
+      const requestId=typeof id==='string'?id:undefined
+      if(family.last?.signature===signature){
+        const previous=family.last
+        family.busy=true
+        void Promise.resolve().then(async()=>{
+          if(!family.read)throw Error('not_joined')
+          await family.read.assertAuthorized()
+          if(!family.current())throw Error('not_joined')
+          family.read.assertJoinedCurrent()
+          previous.replay(ack)
+        }).catch(()=>ack({ok:false,reason:'stale_read'})).finally(()=>{family.busy=false})
+        return
+      }
+      if(requestId&&family.last?.requestId===requestId){ack({ok:false,reason:'invalid_operation'});return}
+      family.busy=true
+      void Promise.resolve().then(()=>work(family,request)).then(value=>{
+        if(!family.current()){ack({ok:false,reason:'stale_read'});return}
+        family.read?.assertJoinedCurrent()
+        const result:CanonicalHistoryAck<Value>={ok:true,value}
+        family.last={requestId,signature,replay:callback=>{if(typeof callback==='function')callback(result)}}
+        ack(result)
+      }).catch(error=>{
+        if(!family.current()){ack({ok:false,reason:'stale_read'});return}
+        const message=error instanceof Error?error.message:''
+        const reason=message==='not_joined'?'not_joined':message==='invalid_operation'?'invalid_operation':message==='Canonical indexed validation busy'?'read_busy':'canonical_repair_required'
+        ack({ok:false,reason})
+        log.warn({err:error,roomId:family.roomId,socketId:socket.id},'canonical indexed read failed')
+      }).finally(()=>{family.busy=false})
+    }
+    const requireIndexedRead=(family:IndexedSocketFamily,streamId:string)=>{
+      const read=family.read
+      if(!read||read.begin.streamId!==streamId)throw Error('invalid_operation')
+      read.assertJoinedCurrent();return read
+    }
+    socket.on('canonical_history_stream_open',(raw,ack)=>indexedRequest('open',raw,parseCanonicalHistoryOpenRequest,ack,async(family,request)=>{
+      if(request.offerId!==family.offer.offerId||request.roomId!==family.roomId||request.boardEpoch!==family.offer.scope.boardEpoch||family.read)throw Error('invalid_operation')
+      const read=await canonicalTransport.openIndexedHistory({roomId:family.roomId,userId:family.userId},family.offer,family.seat,family.current)
+      if(!family.current())throw Error('not_joined')
+      const begin=read.begin;if(begin.kind!=='canonical-indexed-history-begin-v1')throw Error('invalid_operation')
+      family.read=read;return begin
+    }))
+    socket.on('canonical_history_stream_next',(raw,ack)=>indexedRequest('next',raw,parseCanonicalHistoryStreamNext,ack,(family,request)=>requireIndexedRead(family,request.streamId).next(request.afterSeq)))
+    socket.on('canonical_history_stream_evidence',(raw,ack)=>indexedRequest('evidence',raw,parseCanonicalHistoryStreamEvidence,ack,(family,request)=>requireIndexedRead(family,request.streamId).evidence(request.root)))
+    socket.on('canonical_history_stream_select',(raw,ack)=>indexedRequest('select',raw,parseCanonicalHistoryStreamSelect,ack,(family,request)=>{
+      if(!family.read)throw Error('invalid_operation')
+      return family.read.select(request.historyAction,request.streamId)
+    }))
+    socket.on('canonical_history_stream_cancel',(raw,ack)=>indexedRequest('cancel',raw,parseCanonicalHistoryStreamCancel,ack,(family,request)=>{
+      requireIndexedRead(family,request.streamId).cancel();return {streamId:request.streamId,requestId:request.requestId}
+    }))
+    socket.on('canonical_history_stream_reopen',(raw,ack)=>indexedRequest('reopen',raw,parseCanonicalHistoryStreamReopen,ack,async(family,request)=>{
+      if(request.mode==='follow'){
+        if(!family.read)throw Error('invalid_operation')
+        return family.read.follow(request.afterSeq,request.streamId)
+      }
+      if(request.offerId!==family.offer.offerId||request.roomId!==family.roomId||request.boardEpoch!==family.offer.scope.boardEpoch||!family.read)throw Error('invalid_operation')
+      const read=await family.read.recover(request.throughSeq)
+      if(!family.current())throw Error('not_joined')
+      family.read=read;return read.begin
+    }))
     // Bounded ordering across canonical begin/live/recorded on this socket.
     // DB preflight may await; the mutation section itself never does.
     let canonicalPending = 0, canonicalTail = Promise.resolve()
@@ -489,11 +571,19 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, cano
         return
       }
 
+      const indexed=canonicalTransport.fullHistoryFormat==='mixed-indexed-v1'&&rooms.get(roomId)?.canonicalHistoryResidency==='indexed-v1'
+      let indexedOffer:CanonicalIndexedHistoryOfferV1|undefined
       let replay
       let snapshotFloor=lastKnownSeq
       let readDelivery: Awaited<ReturnType<CanonicalRoomTransport['prepareJoinReadDelivery']>> | undefined
       let readFields: ReturnType<NonNullable<typeof readDelivery>['finish']> | undefined
       try {
+        if(indexed){
+          access.preparation.assertCurrent()
+          await canonicalTransport.prepareIndexedJoinOrphans(access.preparation,isCurrent)
+          access.preparation.assertCurrent()
+          indexedOffer=canonicalTransport.createIndexedHistoryOffer(roomId)
+        }else{
         if (rooms.get(roomId)?.room.rasterVersion === STRAIGHT_ROOM_RASTER_VERSION) {
           readDelivery = await canonicalTransport.prepareJoinReadDelivery(access.preparation, isCurrent)
         }
@@ -504,6 +594,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, cano
         const candidate = getRoomSnapshot(roomId, snapshotFloor, userId, replay)
         if (!candidate) throw Error('Join snapshot unavailable')
         readFields = readDelivery?.finish(candidate.tailOperations, replay.canonicalRows.filter(row => candidate.tailOperations.some(op => op.id === row.id)),replay.fullCanonicalHistory)
+        }
         access.preparation.assertCurrent()
       } catch (err) {
         if (isCurrent()) releaseRoomIfUnused(roomId)
@@ -557,8 +648,23 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, cano
       // no-op, so a page turn simply keeps the lesson channel.
       socket.join(roomId)
       socket.join(lessonChannel(lessonId))
-      const snapshot = getRoomSnapshot(roomId, snapshotFloor, userId, replay)
-      if (snapshot) socket.emit('room_state', { ...snapshot, ...readFields })
+      if(indexedOffer){
+        const seat=captureCurrentRoomSeat(roomId,userId,socket.id)
+        if(!seat)throw Error('Indexed joined seat unavailable')
+        const family:IndexedSocketFamily={offer:indexedOffer,generation,roomId,userId,seat,busy:false,
+          current:()=>{
+            if(indexedFamily!==family||generation!==joinGeneration||!socket.connected||socket.data.roomId!==roomId||socket.data.userId!==userId||socket.data.lessonId!==lessonId)return false
+            try{assertCurrentRoomSeat(seat);return true}catch{return false}
+          }}
+        indexedFamily=family
+        const offered=getRoomIndexedState(roomId,userId,indexedOffer)
+        if(!offered)throw Error('Indexed joined offer unavailable')
+        socket.emit('room_state',offered)
+      }else{
+        indexedFamily=undefined
+        const snapshot = getRoomSnapshot(roomId, snapshotFloor, userId, replay)
+        if (snapshot) socket.emit('room_state', { ...snapshot, ...readFields })
+      }
       // (#176) Someone the lesson already had, now on a different board, is
       // announced as having moved; everyone else — first join or a reconnect
       // to the same board — as having joined, exactly as before.

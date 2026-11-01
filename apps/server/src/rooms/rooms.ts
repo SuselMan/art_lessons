@@ -1,7 +1,7 @@
 import type { PreparedSnapshotReplay } from './snapshotReplayLoader.js'
 import bcrypt from 'bcryptjs'
 import type {
-  LessonState, Operation, Participant, Room, RoomAccessMode,
+  LessonState, Operation, Participant, Room, RoomAccessMode,RoomStateIndexedPayload,CanonicalIndexedHistoryOfferV1,
 } from '@grafetto/shared'
 import { LEGACY_ROOM_RASTER_VERSION, DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS } from '@grafetto/shared'
 
@@ -560,6 +560,16 @@ export function getParticipant(roomId: string, userId: string): Participant | un
  *  after a successful `createRoom`/`joinRoom`, so that should never happen in
  *  practice, but the type keeps that assumption honest rather than silently
  *  fabricating a `Room`. */
+/** Indexed bootstrap is only room/presence DATA. No tail, full baseline or
+ * original read authority exists until the separate authenticated seated open. */
+export function getRoomIndexedState(roomId:string,viewerId:string,offer:CanonicalIndexedHistoryOfferV1):RoomStateIndexedPayload|undefined{
+ const record=rooms.get(roomId)
+ if(!record||record.canonicalHistoryResidency!=='indexed-v1'||offer.scope.roomId!==roomId)return undefined
+ const lesson=lessonRecordOf(record)
+ return {room:wireRoomOf(record,lesson),latestSnapshotSeq:null,canonicalIndexedHistory:offer,
+  participants:[...lesson.participants.values()],palette:lesson.palette,frozen:lesson.roomFrozen,lesson:lessonStateFor(lesson,viewerId)}
+}
+
 export function getRoomSnapshot(
   roomId: string,
   lastKnownSeq?: number,
@@ -589,6 +599,7 @@ export function getRoomSnapshot(
   // Now a stroke is withheld only when *its own* layer's stored pixels
   // positively reach it, so a layer nobody snapshotted keeps every operation.
   const floor = lastKnownSeq ?? 0
+  if(record.canonicalHistoryResidency==='indexed-v1')throw new Error('Indexed room requires an offer')
   const available = replay?.operations ?? record.operations
   const availableById = new Map(available.map(op => [op.id, op]))
   const tailOperations = available.filter(op =>

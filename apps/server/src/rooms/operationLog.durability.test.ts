@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE,verifyCanonicalRecordedClose,verifyCanonicalRecordedPrefix, packCanonicalMaterial, type CanonicalStrokeOperation, type Operation } from '@grafetto/shared'
 const db=vi.hoisted(()=>({operation:{create:vi.fn(),findUnique:vi.fn()}}))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
-import { adoptLoadedCanonicalWrites, canonicalWriteFence, ensureCanonicalWrite, knownCanonicalWrite, recordCanonicalCloseOperation,recordCanonicalMetadataOperation,recordOperation } from './operationLog.js'
+import { adoptLoadedCanonicalWrites, canonicalWriteFence, ensureCanonicalWrite, knownCanonicalWrite, recordCanonicalCloseOperation,recordCanonicalMetadataOperation,recordOperation,retireSucceededCanonicalOperation } from './operationLog.js'
 import { rooms, flushRoomWrites, type RoomRecord } from './roomRegistry.js'
 import { CanonicalStrokeAdmission, type TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
 const asset={id:`asset:${'1'.repeat(64)}`,size:1,x:0,y:0,width:1,height:1}
@@ -192,4 +192,29 @@ it('bounds close draft own-key count before cloning property descriptors',()=>{
  try{try{recordCanonicalCloseOperation('room',draft)}catch{rejected=true}calls=inspect.mock.calls.length}finally{inspect.mockRestore()}
  expect(rejected).toBe(true);expect(calls).toBe(0);expect(r.nextSeq).toBe(1);expect(r.operations).toEqual([])
  expect(canonicalWriteFence(r)).toEqual({pending:0,failed:0})
+})
+
+
+it('indexed residency retires only the exact succeeded actual write, never pending or failed repair truth',async()=>{
+ const r=resident(),write=deferred<void>();r.canonicalHistoryResidency='indexed-v1'
+ db.operation.create.mockImplementationOnce(()=>write.promise)
+ const op=recordOperation('room',candidate('indexed-retire'))
+ expect(retireSucceededCanonicalOperation(r,op)).toBe(false)
+ expect(r.operationsById.get(op.id)).toBe(op)
+ write.resolve();await ensureCanonicalWrite(r,op)
+ expect(retireSucceededCanonicalOperation(r,{...op})).toBe(false)
+ expect(retireSucceededCanonicalOperation(r,op)).toBe(true)
+ expect(r.operations).toEqual([]);expect(r.operationsById.size).toBe(0);expect(r.nextSeq).toBe(2)
+ expect(()=>ensureCanonicalWrite(r,op)).toThrow('unknown or stale')
+ const report=vi.spyOn(console,'error').mockImplementation(()=>{})
+ db.operation.create.mockRejectedValueOnce(Error('durable failure'))
+ const failed=recordOperation('room',candidate('indexed-failed'));await ensureCanonicalWrite(r,failed)
+ expect(retireSucceededCanonicalOperation(r,failed)).toBe(false)
+ expect(r.operationsById.get(failed.id)).toBe(failed)
+ expect(canonicalWriteFence(r).failed).toBe(1);report.mockRestore()
+})
+it('indexed closed residency refuses direct legacy placement before consuming a sequence',()=>{
+ const r=resident();r.canonicalHistoryResidency='indexed-v1'
+ expect(()=>recordOperation('room',{type:'layer_clear',id:'bad',userId:'author',timestamp:0,layerId:'layer'})).toThrow('Indexed closed format')
+ expect(r.nextSeq).toBe(1);expect(r.operationsById.size).toBe(0)
 })

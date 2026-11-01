@@ -1,25 +1,28 @@
 import { isDeepStrictEqual } from 'node:util'
 import {randomUUID} from 'node:crypto'
 import {
-  STRAIGHT_ROOM_RASTER_VERSION,CANONICAL_STROKE_RASTER_PROFILE,
+  STRAIGHT_ROOM_RASTER_VERSION,CANONICAL_STROKE_RASTER_PROFILE,canonicalRecordedRasterProfiles,parseCanonicalIndexedHistoryOffer,
+  type CanonicalIndexedHistoryOfferV1,type CanonicalIndexedHistoryBeginV1,type CanonicalIndexedHistoryStartV1,type CanonicalIndexedHistoryFollowV1,type CanonicalIndexedHistoryPageV1,type CanonicalIndexedRootV1,type CanonicalIndexedHistoryRootEvidenceV1,type CanonicalIndexedOperation,type CanonicalHistoryAction,type CanonicalHistorySelectResultV1,
   parseCanonicalStrokeCloseRequest,verifyCanonicalRecordedClose,type CanonicalStrokeCloseRequest,type RecordedCanonicalStrokeCloseOperation,parseCanonicalStrokeCloseOperation,parseCanonicalEmptyHistoryBase,parseCanonicalFullHistoryBase,verifyCanonicalFullHistoryBase,type CanonicalFullHistoryBaseV2,type CanonicalEmptyHistoryBaseV1, verifyCanonicalRecordedPrefix, type CanonicalStrokeBegin, type CanonicalStrokeBeginResult, type CanonicalStrokeLive, type CanonicalStrokeLiveResult,
   type CanonicalStrokeOperation, type CanonicalStrokeSnapshot, type SendResult, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadScope, type CanonicalRecordedHistoryPage, type Operation, CANONICAL_RECORDED_ATTACHMENT_LIMITS, prepareCanonicalRecordedAttachment,
 } from '@grafetto/shared'
 import { canonicalBrushStorageContext } from '../brushLibrary/storage.js'
 import { prisma } from '../db/prisma.js'
+import {withCanonicalIndexedValidation} from '../db/canonicalIndexedReader.js'
+import {canSeeResidentBoard} from './classroom.js'
 import { CanonicalBrushCapabilityResolver } from './CanonicalBrushCapabilityResolver.js'
 import { CanonicalStrokeAdmission, decodeTrustedCanonicalFrame, type CanonicalAdmissionIdentity, type TrustedCanonicalGesture } from './CanonicalStrokeAdmission.js'
-import { CANONICAL_ROOM_EXECUTION_POLICY, freezeCanonicalSeededDefaultAutoPolicies,freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,freezeCanonicalFullHistoryFormat, type CanonicalRoomExecutionPolicy } from './canonicalExecutionPolicy.js'
+import { CANONICAL_ROOM_EXECUTION_POLICY, freezeCanonicalSeededDefaultAutoPolicies,freezeCanonicalPrimaryImagePolicy,freezeCanonicalImagePipePolicies,freezeCanonicalAutoPolicies,freezeCanonicalRasterPolicy,freezeCanonicalFullHistoryFormat, type CanonicalRoomExecutionPolicy,type CanonicalFullHistoryFormat } from './canonicalExecutionPolicy.js'
 import { assertPreparedAuthorizedJoinRead,type PreparedAuthorizedJoin } from './roomAccess.js'
 import {captureEmptyBoardSeats,assertCurrentRoomSeat,type PreparedRoomDisconnect} from './rooms.js'
 import { mayReadBoardContent } from './boardContentAccess.js'
 import { hasKnownOperationDiscriminant } from './operationAdmissionShape.js'
 import { canonicalPaintRejectReason } from './operationGate.js'
-import { canonicalWriteFence, ensureCanonicalWrite, findDuplicateOperation, knownCanonicalWrite, hasSucceededCanonicalWrite,recordOperation,recordCanonicalCloseOperation, recordCanonicalMetadataOperation,getOperationRejectReason,updateAliveIds } from './operationLog.js'
+import { canonicalWriteFence, ensureCanonicalWrite, findDuplicateOperation, knownCanonicalWrite, hasSucceededCanonicalWrite,retireSucceededCanonicalOperation,recordOperation,recordCanonicalCloseOperation, recordCanonicalMetadataOperation,getOperationRejectReason,updateAliveIds } from './operationLog.js'
 import { captureCanonicalMetadata,verifyCanonicalMetadataRow,verifyIndexedOperationRow,projectCanonicalIndexedOperation,projectCanonicalIndexedCloseOperation,type CanonicalMetadataOperation,canonicalOperationRowSelect, verifyCanonicalOperationRow,type CanonicalStoredOperationRow } from './roomPersistence.js'
 import { flushRoomWrites, lessonRecordOf, rooms, type RoomRecord } from './roomRegistry.js'
 import type {CanonicalPrefixPreparer,CanonicalFullHistoryReceipt} from './snapshotReplayLoader.js'
-import { getCanonicalFullHistoryWithRows,CanonicalGesturePrefixError, getCanonicalGesturePrefixWithRows,visitCanonicalGesturePrefixRows } from './snapshotStore.js'
+import { getCanonicalFullHistoryWithRows,validateCanonicalIndexedHistoryRows,getCanonicalIndexedRootEffectRows,getCanonicalIndexedHistoryPageRows,getCanonicalIndexedOriginalRowById,getCanonicalIndexedActorRootRows,getCanonicalIndexedRootRows,projectCanonicalIndexedHistoryRow,visitCanonicalIndexedGesturePrefixRows,CanonicalGesturePrefixError, getCanonicalGesturePrefixWithRows,visitCanonicalGesturePrefixRows } from './snapshotStore.js'
 
 const fullHistoryAuthority:unique symbol=Symbol('canonical-full-history-owner')
 type OwnedFullHistory=CanonicalFullHistoryReceipt&{readonly [fullHistoryAuthority]:(candidate:unknown,owner:object,operations:readonly Operation[])=>void}
@@ -38,10 +41,22 @@ interface Session {
   recordedTail?: CanonicalStrokeOperation
 }
 type DisconnectedCloseInput=Omit<CanonicalStrokeCloseRequest,'expectedRecordedNext'|'expectedLastFrameOpId'>&{readonly capturedSession:Session}
-type OrphanCloseInput=Omit<CanonicalStrokeCloseRequest,'expectedRecordedNext'|'expectedLastFrameOpId'>&{readonly orphan:{readonly record:RoomRecord;readonly boardEpoch:number;assertCurrent():void;beforeAppend(op:RecordedCanonicalStrokeCloseOperation):void;appended():void}}
+type OrphanCloseInput=Omit<CanonicalStrokeCloseRequest,'expectedRecordedNext'|'expectedLastFrameOpId'>&{readonly orphan:{readonly record:RoomRecord;readonly boardEpoch:number;assertCurrent():void;authorize?():Promise<void>;beforeAppend(op:RecordedCanonicalStrokeCloseOperation):void;appended():void}}
 export interface PreparedCanonicalDisconnect {
   assertCurrent(this:PreparedCanonicalDisconnect):void
   finish(this:PreparedCanonicalDisconnect):Promise<readonly RecordedCanonicalStrokeCloseOperation[]>
+}
+export interface PreparedCanonicalIndexedRead {
+ readonly begin:Readonly<CanonicalIndexedHistoryStartV1>
+ assertCurrent(this:unknown):void
+ assertJoinedCurrent(this:unknown):void
+ assertAuthorized(this:unknown):Promise<void>
+ next(this:unknown,afterSeq:number):Promise<CanonicalIndexedHistoryPageV1>
+ evidence(this:unknown,root:CanonicalIndexedRootV1):Promise<CanonicalIndexedHistoryRootEvidenceV1>
+ follow(this:unknown,afterSeq:number,parentStreamId?:string):Promise<Readonly<CanonicalIndexedHistoryFollowV1>>
+ select(this:unknown,action:CanonicalHistoryAction,parentStreamId?:string):Promise<CanonicalHistorySelectResultV1|null>
+ recover(this:unknown,throughSeq:number):Promise<PreparedCanonicalIndexedRead>
+ cancel(this:unknown):void
 }
 interface RoomLifetime { readonly record: RoomRecord; readonly lesson: RoomRecord; readonly sessions: Map<string, Session> }
 /** Actual protocol coordinator. No author/RNG execution, second log, straight
@@ -53,11 +68,259 @@ export class CanonicalRoomTransport {
   constructor(policy:CanonicalRoomExecutionPolicy=CANONICAL_ROOM_EXECUTION_POLICY){
     this.policy=Object.freeze({...freezeCanonicalSeededDefaultAutoPolicies(policy),...freezeCanonicalImagePipePolicies(policy),primaryImageSource:freezeCanonicalPrimaryImagePolicy(policy.primaryImageSource),fullHistoryFormat:freezeCanonicalFullHistoryFormat(policy.fullHistoryFormat),...freezeCanonicalRasterPolicy(policy),alphaDarkenVariants:Object.freeze([...policy.alphaDarkenVariants]),autoSources:freezeCanonicalAutoPolicies(policy.autoSources)})
   }
-  get fullHistoryFormat():'frames-v1'|'mixed-v2'{return this.policy.fullHistoryFormat??'frames-v1'}
+  get fullHistoryFormat():CanonicalFullHistoryFormat{return this.policy.fullHistoryFormat??'frames-v1'}
   private context: ReturnType<typeof canonicalBrushStorageContext>
   private binder?: CanonicalBrushCapabilityResolver
   private readonly lifetimes = new Map<string, RoomLifetime>()
   private readonly begins = new Map<string, { readonly signature: string; readonly promise: Promise<CanonicalStrokeBeginResult> }>()
+
+  /** This offer is DATA only. Only a separately authenticated post-seat open
+   * may produce an original indexed read. No empty legacy tail is fabricated. */
+  createIndexedHistoryOffer(roomId:string):Readonly<CanonicalIndexedHistoryOfferV1> {
+    if(this.fullHistoryFormat!=='mixed-indexed-v1')fail('invalid_operation')
+    const record=rooms.get(roomId)
+    if(!record||record.canonicalHistoryResidency!=='indexed-v1'||record.room.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION)fail('canonical_repair_required')
+    const binder=this.currentBinder(),scope=binder.captureReadScope(roomId)
+    return parseCanonicalIndexedHistoryOffer({kind:'canonical-indexed-history-offer-v1',offerId:randomUUID(),
+      scope:{roomId,boardEpoch:scope.boardEpoch,allowedRasterProfiles:canonicalRecordedRasterProfiles(scope)},
+      roomGeometry:{width:record.room.canvasWidth,height:record.room.canvasHeight,infinite:record.room.infinite},
+      authorRasterProfile:this.policy.authorRasterProfile??this.policy.rasterProfile??CANONICAL_STROKE_RASTER_PROFILE})
+  }
+
+  /** Post-seat owner. The supplied seat must be the actual private rooms proof;
+   * neither an offer nor a caller boolean can substitute for it. */
+  async openIndexedHistory(identity:CanonicalAdmissionIdentity,offered:CanonicalIndexedHistoryOfferV1,seat:PreparedRoomDisconnect,isCurrent:()=>boolean):Promise<PreparedCanonicalIndexedRead>{
+    if(this.fullHistoryFormat!=='mixed-indexed-v1')fail('invalid_operation')
+    const offer=parseCanonicalIndexedHistoryOffer(offered),{roomId,userId}=identity
+    const actualSeat=assertCurrentRoomSeat(seat)
+    if(actualSeat.roomId!==roomId||actualSeat.userId!==userId||offer.scope.roomId!==roomId)fail('not_joined')
+    const record=rooms.get(roomId)
+    if(!record||record.canonicalHistoryResidency!=='indexed-v1')fail('canonical_repair_required')
+    const lesson=lessonRecordOf(record),binder=this.currentBinder(),context=this.context!
+    const policySnapshot=()=>JSON.stringify([lesson.passwordHash,lesson.room.ownerId,lesson.room.accessMode,
+      lesson.room.classVisibility,lesson.spotlightBoardId,record.room.boardOwnerId,record.room.ownerId,record.room.rasterVersion,record.room.canvasWidth,record.room.canvasHeight,record.room.infinite])
+    const policy=policySnapshot(),layerState=record.layerStateSeq,coverage=JSON.stringify([...record.coveredSeqByLayer])
+    const current=()=>{
+      if(!isCurrent())fail('not_joined')
+      assertCurrentRoomSeat(seat)
+      const actual=canonicalBrushStorageContext()
+      if(rooms.get(roomId)!==record||lessonRecordOf(record)!==lesson||this.binder!==binder||actual?.storage!==context.storage||actual.operator!==context.operator
+        ||policySnapshot()!==policy||record.layerStateSeq!==layerState||JSON.stringify([...record.coveredSeqByLayer])!==coverage
+        ||!canSeeResidentBoard(roomId,userId)||!isDeepStrictEqual(binder.captureReadScope(roomId).boardEpoch,offer.scope.boardEpoch))fail('canonical_repair_required')
+      if(!isDeepStrictEqual(canonicalRecordedRasterProfiles(binder.captureReadScope(roomId)),offer.scope.allowedRasterProfiles))fail('canonical_repair_required')
+    }
+    current()
+    if(!isDeepStrictEqual(offer.roomGeometry,{width:record.room.canvasWidth,height:record.room.canvasHeight,infinite:record.room.infinite})
+      ||offer.authorRasterProfile!==(this.policy.authorRasterProfile??this.policy.rasterProfile??CANONICAL_STROKE_RASTER_PROFILE))fail('invalid_operation')
+    // Capture BOTH the immutable logical cut and queue promises before await.
+    // Later writes/persistence failures beyond C are not evidence against C.
+    let cut=record.nextSeq-1
+    if(!Number.isInteger(cut)||cut<0||cut>=record.nextSeq)fail('invalid_operation')
+    const board=flushRoomWrites(roomId),lessonDrain=flushRoomWrites(lesson.room.id)
+    const originDrains={roomId,lessonId:lesson.room.id,board,lesson:lessonDrain,assertCurrent:current}
+    let drains=originDrains
+    const afterRead=async()=>{current();if(!await mayReadBoardContent(roomId,userId,this.fullHistoryFormat,drains))fail('not_joined');current()}
+    await afterRead()
+    type Carry={readonly fold:ReturnType<CanonicalBrushCapabilityResolver['createIndexedRecordedPrefixFold']>;readonly root:CanonicalIndexedRootV1;readonly bytes:number}
+    let committedCarry=new Map<string,Carry>(),pendingCarry:Map<string,Carry>|undefined
+    const carryKey=(user:string,stroke:string)=>JSON.stringify([user,stroke])
+    const assertCarryBudget=(carry:ReadonlyMap<string,Carry>)=>{
+      let bytes=0;for(const value of carry.values())bytes+=value.bytes
+      if(carry.size>64||bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('canonical_repair_required')
+    }
+    const sourceBytes=(first:CanonicalStrokeOperation,row:CanonicalStoredOperationRow)=>Buffer.byteLength(JSON.stringify(binder.readRecordedCapability({roomId,boardEpoch:offer.scope.boardEpoch,operation:first,row})),'utf8')
+    const validateCut=async(target:number):Promise<Map<string,Carry>>=>{
+      const candidate=new Map<string,Carry>()
+      await withCanonicalIndexedValidation(async database=>{
+      await validateCanonicalIndexedHistoryRows(roomId,target,afterRead,async(first,row)=>{
+        const fold=binder.createIndexedRecordedPrefixFold({roomId,boardEpoch:offer.scope.boardEpoch,anchor:first,row,purpose:'read'})
+        const visited=await visitCanonicalIndexedGesturePrefixRows(roomId,{userId:first.userId,strokeId:first.frame.strokeId},target,
+          {requiredFrame:first,afterRead,visit:(operation,originalRow)=>fold.accept(operation,originalRow)},database)
+        const summary=fold.checkpoint()
+        const root=Object.freeze({originalUserId:first.userId,strokeId:first.frame.strokeId,layerId:first.layerId,firstOperationId:first.id,firstSequence:first.seq!})
+        const effects=await getCanonicalIndexedRootEffectRows(roomId,target,root,afterRead,database)
+        const terminal=visited.close?.operation.seq??summary.endSeq
+        if(effects.firstMetadataSequence!==undefined&&(terminal===undefined||terminal>=effects.firstMetadataSequence))fail('canonical_repair_required')
+        if(summary.ended||summary.closeSeal)fold.finish()
+        else{candidate.set(carryKey(first.userId,first.frame.strokeId),{fold,root,bytes:sourceBytes(first,row)});assertCarryBudget(candidate)}
+        return {recordedNext:summary.recordedNext,closed:!!visited.close}
+      },database)
+    })
+      return candidate
+    }
+    committedCarry=await validateCut(cut)
+    current()
+    let begin:Readonly<CanonicalIndexedHistoryStartV1>=Object.freeze({kind:'canonical-indexed-history-begin-v1',streamId:randomUUID(),offerId:offer.offerId,
+      scope:offer.scope,roomGeometry:offer.roomGeometry,authorRasterProfile:offer.authorRasterProfile,floor:0,throughSeq:cut,operationCount:cut})
+    let cancelled=false,consumed=0,finished=false,busy=false,completedCut:number|undefined,completedStreamId:string|undefined
+    const assertOrigin=(receiver:unknown)=>{if(receiver!==read)fail('canonical_repair_required');current()}
+    const assert=(receiver:unknown)=>{assertOrigin(receiver);if(cancelled)fail('canonical_repair_required')}
+    const buildEvidence=async(root:CanonicalIndexedRootV1,atCut=cut,proofStreamId=begin.streamId):Promise<CanonicalIndexedHistoryRootEvidenceV1>=>{
+          await afterRead();assertOrigin(read)
+          const firstRow=await getCanonicalIndexedOriginalRowById(roomId,atCut,root.firstOperationId,afterRead)
+          assertOrigin(read)
+          if(!firstRow)fail('canonical_repair_required')
+          const first=projectCanonicalIndexedHistoryRow(roomId,firstRow)
+          if(first.type!=='canonical_stroke'||first.frame.frameOrdinal!==0||first.seq!==root.firstSequence||first.userId!==root.originalUserId
+            ||first.layerId!==root.layerId||first.frame.strokeId!==root.strokeId||first.seq!>atCut)fail('invalid_operation')
+          const fold=binder.createIndexedRecordedPrefixFold({roomId,boardEpoch:offer.scope.boardEpoch,anchor:first,row:firstRow,purpose:'read'})
+          const prefix=await visitCanonicalIndexedGesturePrefixRows(roomId,{userId:first.userId,strokeId:first.frame.strokeId},atCut,
+            {requiredFrame:first,afterRead,visit:(operation,row)=>fold.accept(operation,row)})
+          const summary=fold.finish(),effects=await getCanonicalIndexedRootEffectRows(roomId,atCut,root,afterRead)
+          const terminal=prefix.close?.operation??(summary.endSeq===undefined?undefined:prefix.lastOperation)
+          if(effects.firstMetadataSequence!==undefined&&(!terminal||terminal.seq!>=effects.firstMetadataSequence))fail('canonical_repair_required')
+          const rows:CanonicalIndexedOperation[]=[],sourceRows:CanonicalStoredOperationRow[]=[]
+          const add=(operation:CanonicalIndexedOperation,row:CanonicalStoredOperationRow):number=>{
+            const previous=rows.findIndex(value=>value.id===operation.id)
+            if(previous>=0){if(!isDeepStrictEqual(rows[previous],operation))fail('canonical_repair_required');return previous}
+            if(rows.length>=6)fail('canonical_repair_required')
+            rows.push(operation);if(operation.type==='canonical_stroke')sourceRows.push(row)
+            return rows.length-1
+          }
+          const firstRef=add(first,firstRow)
+          const terminalRef=terminal?add(terminal,prefix.close?.row??prefix.lastRow!):null
+          const ref=(role:'lastMetadata'|'latestRedo'|'firstUndoAfterLatestRedo'|'ownBranchAfterUndo')=>{
+            const row=effects.effects[role]
+            return row?add(projectCanonicalIndexedHistoryRow(roomId,row),row):null
+          }
+          const lastMetadata=ref('lastMetadata'),latestRedo=ref('latestRedo'),firstUndoAfterLatestRedo=ref('firstUndoAfterLatestRedo'),ownBranchAfterUndo=ref('ownBranchAfterUndo')
+          const capabilities=binder.prepareRecordedAttachment({roomId,boardEpoch:offer.scope.boardEpoch,operations:rows,rows:sourceRows})
+          if(Buffer.byteLength(JSON.stringify({rows,canonicalCapabilities:capabilities}),'utf8')>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)fail('canonical_repair_required')
+          assertOrigin(read)
+          return Object.freeze({kind:'canonical-indexed-history-root-evidence-v1',streamId:proofStreamId,throughSeq:atCut,
+            root:Object.freeze({originalUserId:first.userId,strokeId:first.frame.strokeId,layerId:first.layerId,firstOperationId:first.id,firstSequence:first.seq!}),
+            rows:Object.freeze(rows),canonicalCapabilities:capabilities,first:firstRef,terminal:terminalRef,lastMetadata,latestRedo,firstUndoAfterLatestRedo,ownBranchAfterUndo})
+    }
+    const read:PreparedCanonicalIndexedRead=Object.freeze({get begin():Readonly<CanonicalIndexedHistoryStartV1>{return begin},
+      assertCurrent(this:unknown){assert(this)},
+      assertJoinedCurrent(this:unknown){assertOrigin(this)},
+      async assertAuthorized(this:unknown):Promise<void>{assertOrigin(this);await afterRead();assertOrigin(this)},
+      async next(this:unknown,afterSeq:number):Promise<CanonicalIndexedHistoryPageV1>{
+        assert(this)
+        if(busy||finished||afterSeq!==consumed)fail('invalid_operation')
+        busy=true
+        try{
+          await afterRead();assert(this)
+          const page=await getCanonicalIndexedHistoryPageRows(roomId,cut,afterSeq,afterRead)
+          assert(this)
+          let operations=page.operations,rows=page.rows
+          let capabilities=binder.prepareRecordedAttachment({roomId,boardEpoch:offer.scope.boardEpoch,operations,rows:rows.filter(row=>row.type==='canonical_stroke')})
+          while(Buffer.byteLength(JSON.stringify({operations,canonicalCapabilities:capabilities}),'utf8')>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes){
+            if(operations.length<=1)fail('canonical_repair_required')
+            operations=Object.freeze(operations.slice(0,-1));rows=Object.freeze(rows.slice(0,-1))
+            capabilities=binder.prepareRecordedAttachment({roomId,boardEpoch:offer.scope.boardEpoch,operations,rows:rows.filter(row=>row.type==='canonical_stroke')})
+          }
+          assert(this)
+          if(page.terminal){
+            const finish=begin.kind==='canonical-indexed-history-begin-v1'
+              ?Object.freeze({kind:'canonical-indexed-history-finish-v1' as const,streamId:begin.streamId,throughSeq:cut,operationCount:cut,lastSeq:cut})
+              :Object.freeze({kind:'canonical-indexed-history-follow-finish-v1' as const,streamId:begin.streamId,floor:begin.floor,throughSeq:cut,operationCount:cut-begin.floor,lastSeq:cut})
+            // Publication is synchronous and contains no callback/DB/GL work.
+            if(pendingCarry){committedCarry=pendingCarry;pendingCarry=undefined}
+            completedCut=cut;completedStreamId=begin.streamId;finished=true
+            return Object.freeze({kind:'canonical-indexed-history-page-v1',streamId:begin.streamId,throughSeq:cut,afterSeq,nextAfterSeq:cut,
+              canonicalCapabilities:capabilities,terminal:true,operations:Object.freeze([] as const),finish})
+          }
+          consumed=operations.at(-1)!.seq!
+          return Object.freeze({kind:'canonical-indexed-history-page-v1',streamId:begin.streamId,throughSeq:cut,afterSeq,nextAfterSeq:consumed,canonicalCapabilities:capabilities,terminal:false,operations})
+        }finally{busy=false}
+      },
+      async evidence(this:unknown,root:CanonicalIndexedRootV1):Promise<CanonicalIndexedHistoryRootEvidenceV1>{
+        assert(this);if(busy)fail('invalid_operation');busy=true
+        try{return await buildEvidence(root)}finally{busy=false}
+      },
+      async select(this:unknown,action:CanonicalHistoryAction,parentStreamId=completedStreamId):Promise<CanonicalHistorySelectResultV1|null>{
+        assertOrigin(this)
+        if(busy||completedCut===undefined||parentStreamId===undefined||parentStreamId!==completedStreamId||!finished&&!cancelled||(action!=='undo'&&action!=='redo'))fail('invalid_operation')
+        busy=true
+        try{
+          drains=originDrains
+          const selectedCut=completedCut,selectedStreamId=parentStreamId
+          let before=selectedCut+1
+          while(true){
+            const roots=await getCanonicalIndexedActorRootRows(roomId,selectedCut,userId,before,afterRead)
+            assertOrigin(this);if(!roots.length)return null
+            for(const row of roots){
+              const first=projectCanonicalIndexedHistoryRow(roomId,row)
+              if(first.type!=='canonical_stroke'||first.userId!==userId||first.frame.frameOrdinal!==0||first.seq!>=before)fail('canonical_repair_required')
+              before=first.seq!
+              const evidence=await buildEvidence({originalUserId:userId,strokeId:first.frame.strokeId,layerId:first.layerId,firstOperationId:first.id,firstSequence:first.seq!},selectedCut,selectedStreamId)
+              const last=evidence.lastMetadata===null?undefined:evidence.rows[evidence.lastMetadata]
+              const hidden=last?.type==='operation_undo'
+              if(evidence.terminal!==null&&(action==='undo'?!hidden:hidden&&evidence.firstUndoAfterLatestRedo!==null&&evidence.ownBranchAfterUndo===null)){
+                assertOrigin(this);return Object.freeze({targetOperationId:evidence.rows[evidence.first].id,evidence})
+              }
+            }
+          }
+        }finally{busy=false}
+      },
+      async recover(this:unknown,throughSeq:number):Promise<PreparedCanonicalIndexedRead>{
+        assertOrigin(this)
+        if(busy||completedCut===undefined||!finished&&!cancelled||!Number.isInteger(throughSeq)||throughSeq<0||throughSeq>completedCut)fail('invalid_operation')
+        busy=true
+        try{
+          drains=originDrains
+          await afterRead();assertOrigin(this)
+          const candidate=throughSeq===completedCut?committedCarry:await validateCut(throughSeq)
+          const next:Readonly<CanonicalIndexedHistoryBeginV1>=Object.freeze({kind:'canonical-indexed-history-begin-v1',streamId:randomUUID(),offerId:offer.offerId,
+            scope:offer.scope,roomGeometry:offer.roomGeometry,authorRasterProfile:offer.authorRasterProfile,floor:0,throughSeq,operationCount:throughSeq})
+          assertOrigin(this)
+          pendingCarry=candidate;begin=next;cut=throughSeq;consumed=0;cancelled=false;finished=false
+          return read
+        }finally{busy=false}
+      },
+      async follow(this:unknown,afterSeq:number,parentStreamId=completedStreamId):Promise<Readonly<CanonicalIndexedHistoryFollowV1>>{
+        assertOrigin(this)
+        if(busy||completedCut===undefined||parentStreamId===undefined||afterSeq!==completedCut||parentStreamId!==completedStreamId||!finished&&!cancelled)fail('invalid_operation')
+        busy=true
+        try{
+          // Watermark is a hint; only the bounded original range becomes V.
+          const floor=completedCut,watermark=record.nextSeq-1,maxUpper=Math.min(watermark,floor+64)
+          drains={roomId,lessonId:lesson.room.id,board:flushRoomWrites(roomId),lesson:flushRoomWrites(lesson.room.id),assertCurrent:current}
+          await afterRead();assertOrigin(this)
+          const page=await getCanonicalIndexedHistoryPageRows(roomId,maxUpper,floor,afterRead)
+          if(watermark>floor&&!page.operations.length)fail('canonical_repair_required')
+          const candidate=new Map(committedCarry),changed=new Set<string>()
+          const metadataIndex=page.operations.findIndex(operation=>operation.type==='operation_undo'||operation.type==='operation_redo')
+          const operations:CanonicalIndexedOperation[]=page.operations.slice(0,metadataIndex<0?undefined:metadataIndex+1)
+          const rows:CanonicalStoredOperationRow[]=page.rows.slice(0,operations.length)
+          let capabilities=binder.prepareRecordedAttachment({roomId,boardEpoch:offer.scope.boardEpoch,operations,rows:rows.filter(row=>row.type==='canonical_stroke')})
+          while(Buffer.byteLength(JSON.stringify({operations,canonicalCapabilities:capabilities}),'utf8')>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes){
+            if(operations.length<=1)fail('canonical_repair_required')
+            operations.pop();rows.pop()
+            capabilities=binder.prepareRecordedAttachment({roomId,boardEpoch:offer.scope.boardEpoch,operations,rows:rows.filter(row=>row.type==='canonical_stroke')})
+          }
+          for(let i=0;i<operations.length;i++){
+            const operation=operations[i],row=rows[i]
+            // This original metadata is a barrier for the paired consumer's
+            // genuine full replacement; never read/publish beyond it here.
+            if(operation.type==='operation_undo'||operation.type==='operation_redo')break
+            const user=operation.type==='canonical_stroke'?operation.userId:operation.targetUserId
+            const stroke=operation.type==='canonical_stroke'?operation.frame.strokeId:operation.strokeId,key=carryKey(user,stroke)
+            let carry=candidate.get(key)
+            if(!carry){
+              if(operation.type!=='canonical_stroke'||operation.frame.frameOrdinal!==0)fail('canonical_repair_required')
+              const root=Object.freeze({originalUserId:user,strokeId:stroke,layerId:operation.layerId,firstOperationId:operation.id,firstSequence:operation.seq!})
+              carry={fold:binder.createIndexedRecordedPrefixFold({roomId,boardEpoch:offer.scope.boardEpoch,anchor:operation,row,purpose:'read'}),root,bytes:sourceBytes(operation,row)}
+              candidate.set(key,carry);changed.add(key)
+            }else if(!changed.has(key)){carry={...carry,fold:carry.fold.fork()};candidate.set(key,carry);changed.add(key)}
+            carry.fold.accept(operation.type==='canonical_stroke_close'?parseCanonicalStrokeCloseOperation(operation):operation,row)
+            const summary=carry.fold.checkpoint()
+            if(summary.ended||summary.closeSeal){carry.fold.finish();candidate.delete(key)}
+            assertCarryBudget(candidate)
+          }
+          const upper=operations.at(-1)?.seq??floor
+          const next:Readonly<CanonicalIndexedHistoryFollowV1>=Object.freeze({kind:'canonical-indexed-history-follow-v1',streamId:randomUUID(),parentStreamId,
+            scope:offer.scope,roomGeometry:offer.roomGeometry,authorRasterProfile:offer.authorRasterProfile,floor,throughSeq:upper,operationCount:upper-floor,latestObservedSeq:watermark})
+          assertOrigin(this)
+          pendingCarry=candidate;begin=next;cut=upper;consumed=floor;cancelled=false;finished=false
+          return next
+        }finally{busy=false}
+      },
+      cancel(this:unknown){assertOrigin(this);cancelled=true;pendingCarry=undefined;drains=originDrains},
+    })
+    return read
+  }
 
   async begin(identity: CanonicalAdmissionIdentity, input: CanonicalStrokeBegin, isCurrent: () => boolean): Promise<CanonicalStrokeBeginResult> {
     try {
@@ -96,6 +359,7 @@ export class CanonicalRoomTransport {
       prepared.commit()
       return snapshot(previous)
     }
+    if(this.fullHistoryFormat==='mixed-indexed-v1')return this.finishIndexedBegin(identity,input,lifetime,binder,isCurrent)
     const watermark = lifetime.record.nextSeq - 1
     // Drain the existing persistence queue; still cross-check resident history,
     // because a failed background DB write is not proof that a gesture is new.
@@ -144,10 +408,60 @@ export class CanonicalRoomTransport {
     return snapshot(session)
   }
 
+  /** Same admitted Session, hydrated page-by-page. No verified[]/whole prefix
+   * survives a page; admission retains only its existing bounded fingerprints. */
+  private async finishIndexedBegin(identity:CanonicalAdmissionIdentity,input:CanonicalStrokeBegin,lifetime:RoomLifetime,binder:CanonicalBrushCapabilityResolver,isCurrent:()=>boolean):Promise<CanonicalStrokeBeginResult>{
+    const context=this.context!,cut=lifetime.record.nextSeq-1,key=gestureKey(identity,input.strokeId)
+    const current=()=>{
+      if(!isCurrent())fail('not_joined')
+      this.sameLifetime(identity,input.layerId,lifetime)
+      const actual=canonicalBrushStorageContext()
+      if(this.binder!==binder||actual?.storage!==context.storage||actual.operator!==context.operator||lifetime.sessions.has(key))fail('canonical_repair_required')
+      this.requireHealthyWrites(lifetime)
+    }
+    current();await flushRoomWrites(identity.roomId);current()
+    let prepared:ReturnType<CanonicalBrushCapabilityResolver['prepareBeginGesture']>|undefined,admission:CanonicalStrokeAdmission|undefined,hydrating=true,count=0
+    const fold=binder.createIndexedRecordedPrefixFold({roomId:identity.roomId,boardEpoch:binder.captureReadScope(identity.roomId).boardEpoch,purpose:'read'})
+    const prefix=await visitCanonicalIndexedGesturePrefixRows(identity.roomId,{userId:identity.userId,strokeId:input.strokeId},cut,{
+      afterRead:async()=>{current()},visit:(operation,row)=>{
+        current();fold.accept(operation,row)
+        if(operation.type==='canonical_stroke_close')fail('canonical_repair_required')
+        if(!prepared){
+          prepared=binder.prepareIndexedResumeGesture(identity,input,operation,row)
+          const grant=prepared.grant
+          admission=new CanonicalStrokeAdmission({maxGestures:1,retainedFrames:8,resolve:(actor,source)=>hydrating
+            ?actor.roomId===identity.roomId&&actor.userId===identity.userId&&source.layerId===input.layerId&&source.brush===input.brush&&source.strokeId===input.strokeId?grant:undefined
+            :binder.resolve(actor,source)})
+        }
+        admission!.prepare(identity,{type:'canonical_stroke',id:operation.id,layerId:operation.layerId,frame:operation.frame}).commit()
+        admission!.prepare(identity,{type:'canonical_stroke_live',layerId:operation.layerId,frame:operation.frame}).commit()
+        count++;return undefined
+      },
+    })
+    current()
+    if(prefix.close)fail('canonical_repair_required')
+    if(count){const summary=fold.finish(),cursor=admission!.cursor(identity,input.strokeId);if(summary.recordedNext!==cursor.recordedNext||summary.ended!==cursor.ended)fail('canonical_repair_required')}
+    else{
+      prepared=binder.prepareBeginGesture(identity,input)
+      const grant=prepared.grant
+      admission=new CanonicalStrokeAdmission({maxGestures:1,retainedFrames:8,resolve:(actor,source)=>hydrating
+        ?actor.roomId===identity.roomId&&actor.userId===identity.userId&&source.layerId===input.layerId&&source.brush===input.brush&&source.strokeId===input.strokeId?grant:undefined
+        :binder.resolve(actor,source)})
+    }
+    current()
+    if(!prepared||!admission)fail('canonical_repair_required')
+    if(admission.cursor(identity,input.strokeId).ended)return snapshot({grant:prepared.grant,admission,durableRecordedNext:count})
+    context.storage.pin(identity.roomId,identity.userId,[prepared.grant.brush],context.operator)
+    prepared.commit();hydrating=false
+    const session:Session={grant:prepared.grant,admission,durableRecordedNext:count}
+    lifetime.sessions.set(key,session)
+    return snapshot(session)
+  }
+
   /** Two-phase reader preparation. Caller awaits BEFORE channel join, then
    * calls finish(snapshot.tailOperations) synchronously before join+state emit.
    * No await/queue/registry survives finish; no paint permission is inferred. */
-  prepareReadDelivery(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly fullHistoryFormat:'frames-v1'|'mixed-v2';readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
+  prepareReadDelivery(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly fullHistoryFormat:CanonicalFullHistoryFormat;readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
     const captured={roomId:identity.roomId,userId:identity.userId}
     return this.prepareReadContext(captured,isCurrent,()=>mayReadBoardContent(captured.roomId,captured.userId,this.fullHistoryFormat),()=>{})
   }
@@ -155,11 +469,72 @@ export class CanonicalRoomTransport {
   /** Genuine prepared join can read its exact target BEFORE membership exists.
    * Its private lexical proof comes from the same block/password/invite gate;
    * no caller ok:true object or fabricated durable participation is accepted. */
-  prepareJoinReadDelivery(preparation:PreparedAuthorizedJoin,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly fullHistoryFormat:'frames-v1'|'mixed-v2';readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
+  prepareJoinReadDelivery(preparation:PreparedAuthorizedJoin,isCurrent:()=>boolean):Promise<{readonly scope:CanonicalRecordedReadScope;readonly fullHistoryFormat:CanonicalFullHistoryFormat;readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
     const identity={roomId:preparation.roomId,userId:preparation.userId}
     const assert=()=>assertPreparedAuthorizedJoinRead(preparation,identity.roomId,identity.userId)
     assert()
     return this.recoverOrphanedPrefixes(preparation,isCurrent).then(()=>this.prepareReadContext(identity,isCurrent,async()=>{assert();return true},assert))
+  }
+
+  /** Indexed bootstrap cleanup is pre-seat only and never issues a read owner.
+   * The first validation pass is read-only; the second bounded root walk seals
+   * genuine abandoned prefixes through the SAME durable close writer. */
+  async prepareIndexedJoinOrphans(preparation:PreparedAuthorizedJoin,isCurrent:()=>boolean):Promise<void>{
+    if(this.fullHistoryFormat!=='mixed-indexed-v1')fail('invalid_operation')
+    assertPreparedAuthorizedJoinRead(preparation,preparation.roomId,preparation.userId)
+    const absence=captureEmptyBoardSeats(preparation.roomId)
+    if(!absence)return
+    const record=absence.assertCurrent(),lesson=lessonRecordOf(record),binder=this.currentBinder(),context=this.context!,scope=binder.captureReadScope(preparation.roomId)
+    let cut=record.nextSeq-1
+    const policy=()=>JSON.stringify([lesson.passwordHash,lesson.room.ownerId,lesson.room.accessMode,lesson.room.classVisibility,lesson.spotlightBoardId,record.room.boardOwnerId,record.layerStateSeq,[...record.coveredSeqByLayer]])
+    const originalPolicy=policy()
+    const current=()=>{
+      assertPreparedAuthorizedJoinRead(preparation,record.room.id,preparation.userId)
+      const actual=canonicalBrushStorageContext()
+      if(!isCurrent()||absence.assertCurrent()!==record||rooms.get(record.room.id)!==record||lessonRecordOf(record)!==lesson
+        ||this.binder!==binder||actual?.storage!==context.storage||actual.operator!==context.operator||policy()!==originalPolicy
+        ||binder.captureReadScope(record.room.id).boardEpoch!==scope.boardEpoch||record.nextSeq-1!==cut
+        ||record.layerStateSeq!==null||record.coveredSeqByLayer.size)fail('canonical_repair_required')
+      for(const key of this.begins.keys())if(JSON.parse(key)[0]===record.room.id)fail('canonical_repair_required')
+    }
+    const afterRead=async()=>{current();await preparation.assertAuthorized();current()}
+    current();await flushRoomWrites(record.room.id);await afterRead()
+    if(canonicalWriteFence(record).pending)fail('canonical_repair_required')
+    const orphan={record,boardEpoch:scope.boardEpoch,assertCurrent:current,authorize:afterRead,beforeAppend:()=>{current()},appended:()=>{if(record.nextSeq-1!==cut+1)fail('canonical_repair_required');cut++;current()}}
+    while(true){
+      const failed=record.operations.find(op=>op.type==='canonical_stroke_close'&&knownCanonicalWrite(op)&&knownCanonicalWrite(op)!.status!=='succeeded')
+      if(!failed||failed.type!=='canonical_stroke_close')break
+      const result=await this.closeBound({roomId:record.room.id,userId:failed.targetUserId},{operationId:failed.id,layerId:failed.layerId,targetUserId:failed.targetUserId,strokeId:failed.strokeId,disposition:'commitPartial',orphan},()=>{current();return true})
+      await afterRead();if(!result.result.ok)fail('canonical_repair_required')
+    }
+    if(canonicalWriteFence(record).failed)fail('canonical_repair_required')
+    const originalCut=cut
+    await withCanonicalIndexedValidation(database=>validateCanonicalIndexedHistoryRows(record.room.id,originalCut,afterRead,async(first,row)=>{
+      const fold=binder.createIndexedRecordedPrefixFold({roomId:record.room.id,boardEpoch:scope.boardEpoch,anchor:first,row,purpose:'read'})
+      const prefix=await visitCanonicalIndexedGesturePrefixRows(record.room.id,{userId:first.userId,strokeId:first.frame.strokeId},originalCut,{requiredFrame:first,afterRead,visit:(op,actualRow)=>fold.accept(op,actualRow)},database)
+      const summary=fold.checkpoint(),root={originalUserId:first.userId,strokeId:first.frame.strokeId,layerId:first.layerId,firstOperationId:first.id,firstSequence:first.seq!}
+      const effects=await getCanonicalIndexedRootEffectRows(record.room.id,originalCut,root,afterRead,database),terminal=prefix.close?.operation.seq??summary.endSeq
+      if(effects.firstMetadataSequence!==undefined&&(terminal===undefined||terminal>=effects.firstMetadataSequence))fail('canonical_repair_required')
+      return {recordedNext:summary.recordedNext,closed:!!prefix.close}
+    },database))
+    let after=0
+    while(true){
+      const roots=await getCanonicalIndexedRootRows(record.room.id,originalCut,after,afterRead)
+      if(!roots.length)break
+      for(const row of roots){
+        const first=projectCanonicalIndexedHistoryRow(record.room.id,row)
+        if(first.type!=='canonical_stroke'||first.frame.frameOrdinal!==0)fail('canonical_repair_required')
+        const fold=binder.createIndexedRecordedPrefixFold({roomId:record.room.id,boardEpoch:scope.boardEpoch,anchor:first,row,purpose:'read'})
+        await visitCanonicalIndexedGesturePrefixRows(record.room.id,{userId:first.userId,strokeId:first.frame.strokeId},cut,{requiredFrame:first,afterRead,visit:(op,actualRow)=>fold.accept(op,actualRow)})
+        const summary=fold.checkpoint()
+        if(!summary.ended&&!summary.closeSeal){
+          const result=await this.closeBound({roomId:record.room.id,userId:first.userId},{operationId:randomUUID(),layerId:first.layerId,targetUserId:first.userId,strokeId:first.frame.strokeId,disposition:'commitPartial',orphan},()=>{current();return true})
+          await afterRead();if(!result.result.ok)fail('canonical_repair_required')
+        }
+        after=first.seq!
+      }
+    }
+    await afterRead()
   }
 
   /** First authorized pre-seat join may close historical ink only while the
@@ -205,7 +580,7 @@ export class CanonicalRoomTransport {
     current()
   }
 
-  private async prepareReadContext(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean,authorize:()=>Promise<boolean>,assertAuthorization:()=>void):Promise<{readonly scope:CanonicalRecordedReadScope;readonly fullHistoryFormat:'frames-v1'|'mixed-v2';readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
+  private async prepareReadContext(identity:CanonicalAdmissionIdentity,isCurrent:()=>boolean,authorize:()=>Promise<boolean>,assertAuthorization:()=>void):Promise<{readonly scope:CanonicalRecordedReadScope;readonly fullHistoryFormat:CanonicalFullHistoryFormat;readonly preparePrefix:CanonicalPrefixPreparer;readonly prepareFullHistory:(input:{readonly throughSeq:number;readonly floor:number})=>Promise<CanonicalFullHistoryReceipt>;readonly finish:(operations:readonly Operation[],rows?:readonly CanonicalStoredOperationRow[],fullHistory?:CanonicalFullHistoryReceipt)=>{readonly canonicalReadScope:CanonicalRecordedReadScope;readonly canonicalAuthorRasterProfile?:import('@grafetto/shared').CanonicalStrokeRasterProfile;readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1;readonly canonicalHistoryBase?:Readonly<CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2>}}> {
     if(!text(identity?.roomId)||!text(identity.userId))fail('not_joined')
     const {roomId}=identity
     const record=rooms.get(roomId)
@@ -329,6 +704,7 @@ export class CanonicalRoomTransport {
   async recorded(identity: CanonicalAdmissionIdentity, value: unknown, isCurrent: () => boolean): Promise<{ readonly result: SendResult; readonly accepted?: CanonicalStrokeOperation; readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1 }> {
     try {
       const raw = canonicalOperation(value, identity, true), lifetime = this.authorized(identity, raw.layerId)
+      if(this.fullHistoryFormat==='mixed-indexed-v1'&&!lifetime.sessions.has(gestureKey(identity,raw.frame.strokeId)))return await this.indexedRecordedDuplicate(identity,raw,lifetime,isCurrent)
       const session = this.session(lifetime, identity, raw.frame.strokeId)
       const decoded = decodeTrustedCanonicalFrame(raw.frame,session.grant,raw.frame.frameOrdinal)
       const op: CanonicalStrokeOperation = Object.freeze({ type: 'canonical_stroke', id: raw.id, userId: identity.userId,
@@ -378,7 +754,19 @@ export class CanonicalRoomTransport {
       this.sameLifetime(identity, op.layerId, lifetime)
       if (lifetime.sessions.get(gestureKey(identity, op.frame.strokeId)) !== session) fail('canonical_repair_required')
       this.requireHealthyWrites(lifetime)
-      return { result: { ok: true, seq: accepted.seq! }, accepted, ...this.recordedAttachment(accepted,session) }
+      const attachment=this.recordedAttachment(accepted,session)
+      if(this.fullHistoryFormat==='mixed-indexed-v1'){
+        // The actual durable successor cursor no longer needs RAM receipts.
+        // Construct relay provenance before retiring its exact author grant.
+        const cursor=session.admission.cursor(identity,op.frame.strokeId)
+        if(session.durableRecordedNext!==cursor.recordedNext)fail('canonical_repair_required')
+        retireSucceededCanonicalOperation(lifetime.record,accepted)
+        if(cursor.ended){
+          if(!this.binder!.retireGesture(session.grant))fail('canonical_repair_required')
+          lifetime.sessions.delete(gestureKey(identity,op.frame.strokeId))
+        }
+      }
+      return { result: { ok: true, seq: accepted.seq! }, accepted, ...attachment }
     } catch (error) { return { result: { ok: false, reason: reason(error) } } }
   }
 
@@ -445,7 +833,7 @@ export class CanonicalRoomTransport {
     try{
       if(input.targetUserId!==identity.userId)fail('invalid_operation')
       const orphan='orphan'in input?input.orphan:undefined
-      const lifetime=orphan?undefined:this.authorized(identity,input.layerId),session=lifetime?this.session(lifetime,identity,input.strokeId):undefined
+      const lifetime=orphan?undefined:this.authorized(identity,input.layerId),session=lifetime?(this.fullHistoryFormat==='mixed-indexed-v1'?lifetime.sessions.get(gestureKey(identity,input.strokeId)):this.session(lifetime,identity,input.strokeId)):undefined
       const record=orphan?.record??lifetime!.record,binder=this.currentBinder(),context=this.context!
       if('capturedSession'in input&&input.capturedSession!==session)fail('canonical_repair_required')
       if(session&&(session.grant.layerId!==input.layerId||!('version'in session.grant.material)||session.grant.material.version!==2))fail('invalid_operation')
@@ -456,12 +844,13 @@ export class CanonicalRoomTransport {
         if(this.binder!==binder||this.context!==context)fail('canonical_repair_required')
         if(record.operations.some(op=>op.type==='canonical_stroke_close'&&op.targetUserId===identity.userId&&op.strokeId===input.strokeId&&op.id!==input.operationId))fail('canonical_repair_required')
       }
+      const authorize=async()=>{current();await orphan?.authorize?.();current()}
       const matches=(op:RecordedCanonicalStrokeCloseOperation)=>op.id===input.operationId&&op.userId===identity.userId&&op.layerId===input.layerId&&op.targetUserId===input.targetUserId&&op.strokeId===input.strokeId&&op.disposition===input.disposition&&(!('expectedRecordedNext'in input)||op.recordedNext===input.expectedRecordedNext&&op.lastFrameOpId===input.expectedLastFrameOpId)
       current()
       let existing=findDuplicateOperation(identity.roomId,input.operationId)
       let indexed:CanonicalStoredOperationRow|null=null
       if(!existing){
-        indexed=await prisma.operation.findUnique({where:{id:input.operationId},select:canonicalOperationRowSelect});current()
+        indexed=await prisma.operation.findUnique({where:{id:input.operationId},select:canonicalOperationRowSelect});await authorize()
         if(indexed)existing=projectCanonicalIndexedCloseOperation(identity.roomId,indexed).operation
       }
       current();existing=findDuplicateOperation(identity.roomId,input.operationId)??existing
@@ -470,20 +859,22 @@ export class CanonicalRoomTransport {
         previous=parseCanonicalStrokeCloseOperation(existing)
         if(!matches(previous))fail('invalid_operation')
         if(knownCanonicalWrite(existing)){
-          const outcome=await ensureCanonicalWrite(record,existing,{retryFailed:true});current()
+          const outcome=await ensureCanonicalWrite(record,existing,{retryFailed:true});await authorize()
           if(!outcome.ok)fail('canonical_repair_required')
         }else{
-          indexed=indexed??await prisma.operation.findUnique({where:{id:input.operationId},select:canonicalOperationRowSelect});current()
+          indexed=indexed??await prisma.operation.findUnique({where:{id:input.operationId},select:canonicalOperationRowSelect});await authorize()
           if(!indexed||!isDeepStrictEqual(projectCanonicalIndexedCloseOperation(identity.roomId,indexed).operation,previous))fail('canonical_repair_required')
         }
       }else{
+        if(!session&&!orphan)fail('canonical_repair_required')
         if(lifetime&&session)await this.durablePrefix(lifetime,session);current()
       }
-      await flushRoomWrites(identity.roomId);current();if(canonicalWriteFence(record).failed)fail('canonical_repair_required')
+      await flushRoomWrites(identity.roomId);await authorize();if(canonicalWriteFence(record).failed)fail('canonical_repair_required')
       const cut=record.nextSeq-1
-      const fold=binder.createRecordedPrefixFold({roomId:identity.roomId,boardEpoch:session?.grant.boardEpoch??orphan!.boardEpoch,...session?.recordedTail?{anchor:session.recordedTail}:{},purpose:'read'})
-      const prefix=await visitCanonicalGesturePrefixRows(identity.roomId,{userId:identity.userId,strokeId:input.strokeId},cut,{requiredFrame:session?.recordedTail,
-        afterRead:async()=>{current();if(record.nextSeq-1!==cut)fail('canonical_repair_required')},
+      const indexedPrefix=this.fullHistoryFormat==='mixed-indexed-v1'
+      const fold=(indexedPrefix?binder.createIndexedRecordedPrefixFold.bind(binder):binder.createRecordedPrefixFold.bind(binder))({roomId:identity.roomId,boardEpoch:session?.grant.boardEpoch??orphan?.boardEpoch??binder.captureReadScope(identity.roomId).boardEpoch,...session?.recordedTail?{anchor:session.recordedTail}:{},purpose:'read'})
+      const prefix=await (indexedPrefix?visitCanonicalIndexedGesturePrefixRows:visitCanonicalGesturePrefixRows)(identity.roomId,{userId:identity.userId,strokeId:input.strokeId},cut,{requiredFrame:session?.recordedTail,
+        afterRead:async()=>{await authorize();if(record.nextSeq-1!==cut)fail('canonical_repair_required')},
         visit(operation,row){current();fold.accept(operation,row);return undefined}})
       current()
       if(record.nextSeq-1!==cut)fail('canonical_repair_required')
@@ -507,10 +898,18 @@ export class CanonicalRoomTransport {
       const retained=previous&&existing?existing:accepted
       if(!previous||knownCanonicalWrite(retained)){
         const outcome=await ensureCanonicalWrite(record,retained,{retryFailed:true})
-        current();if(!outcome.ok)fail('canonical_repair_required')
+        await authorize();if(!outcome.ok)fail('canonical_repair_required')
         if(record.operationsById.get(retained.id)!==retained)fail('canonical_repair_required')
       }
       current();if(canonicalWriteFence(record).failed)fail('canonical_repair_required')
+      if(this.fullHistoryFormat==='mixed-indexed-v1'){
+        if(session){
+          if(!session.admission.cursor(identity,input.strokeId).ended)fail('canonical_repair_required')
+          if(!binder.retireGesture(session.grant))fail('canonical_repair_required')
+          lifetime!.sessions.delete(gestureKey(identity,input.strokeId))
+        }
+        retireSucceededCanonicalOperation(record,retained)
+      }
       return{result:{ok:true,seq:accepted.seq,...previous?{duplicate:true}:{}},accepted}
     }catch(error){return{result:{ok:false,reason:reason(error)}}}
   }
@@ -543,6 +942,7 @@ export class CanonicalRoomTransport {
      if(!outcome.ok)fail('canonical_repair_required')
      current()
      if(canonicalWriteFence(record).failed)fail('canonical_repair_required')
+     if(this.fullHistoryFormat==='mixed-indexed-v1')retireSucceededCanonicalOperation(record,op)
      return {result:{ok:true as const,seq:op.seq!,...duplicate?{duplicate:true}:{}},accepted:op as CanonicalMetadataOperation}
     }
     let existing=findDuplicateOperation(identity.roomId,input.id)
@@ -618,8 +1018,8 @@ export class CanonicalRoomTransport {
      // receipt is repaired; current target/layer authority is checked again.
      return await durable(tracked,true)
     }
-    let assertPrefixCurrent:()=>void
-    if(this.fullHistoryFormat==='mixed-v2'){
+    let assertPrefixCurrent:()=>void,indexedRoot:CanonicalIndexedRootV1|undefined,indexedTerminal:number|undefined
+    if(this.fullHistoryFormat==='mixed-v2'||this.fullHistoryFormat==='mixed-indexed-v1'){
       // Existing metadata must be justified by history BEFORE its actual seq,
       // never by a close/end appended later in the room's current tail.
       let prefixCut=cut
@@ -629,7 +1029,8 @@ export class CanonicalRoomTransport {
         try{verifyCanonicalMetadataRow(identity.roomId,captured,existingRow)}catch{fail('canonical_repair_required')}
         prefixCut=captured.seq!-1
       }
-      assertPrefixCurrent=await this.prepareMetadataPrefix(identity,anchor,anchorRow,prefixCut,current)
+      const prefix=await this.prepareMetadataPrefix(identity,anchor,anchorRow,prefixCut,current)
+      assertPrefixCurrent=prefix.assertCurrent;indexedRoot=prefix.root;indexedTerminal=prefix.terminalSequence
     }else{
       const read=await this.prepareReadDelivery(identity,isCurrent)
       try{await read.preparePrefix({anchor,row:anchorRow,throughSeq:cut,purpose:'undo-redo'})}
@@ -651,6 +1052,32 @@ export class CanonicalRoomTransport {
     }
     if(requestedSeq!==undefined)fail('invalid_operation')
     let assertRedoCut:undefined|(()=>void)
+    if(input.type==='operation_redo'&&this.fullHistoryFormat==='mixed-indexed-v1'){
+     if(!indexedRoot||indexedTerminal===undefined)fail('canonical_repair_required')
+     const redoCut=record.nextSeq-1
+     const check=()=>{current();if(record.nextSeq-1!==redoCut)fail('canonical_repair_required')}
+     try{
+      await flushRoomWrites(identity.roomId);check()
+      const afterRead=async()=>{check();if(!await mayReadBoardContent(identity.roomId,identity.userId,this.fullHistoryFormat))fail('not_joined');check()}
+      const effects=await getCanonicalIndexedRootEffectRows(identity.roomId,redoCut,indexedRoot,afterRead)
+      check()
+      if(effects.firstMetadataSequence!==undefined&&effects.firstMetadataSequence<=indexedTerminal)fail('canonical_repair_required')
+      const last=effects.effects.lastMetadata,latest=last?projectCanonicalIndexedHistoryRow(identity.roomId,last):undefined
+      if(!latest||latest.type!=='operation_undo'||!effects.effects.firstUndoAfterLatestRedo||effects.effects.ownBranchAfterUndo)fail('invalid_operation')
+      assertRedoCut=check
+     }catch(error){
+      // Indexed success may already have retired its RAM receipt. Repair the
+      // exact durable ID before propagating a concurrently changed cut.
+      const row=await prisma.operation.findUnique({where:{id:input.id},select:canonicalOperationRowSelect});current()
+      if(row){
+       const duplicate=captureCanonicalMetadata(row.data,true)
+       verifyCanonicalMetadataRow(identity.roomId,duplicate,row)
+       if(!same(duplicate))fail('invalid_operation')
+       return {result:{ok:true,seq:duplicate.seq!,duplicate:true},accepted:duplicate}
+      }
+      throw error
+     }
+    }
     if(input.type==='operation_redo'&&this.fullHistoryFormat==='mixed-v2'){
      // Prospective command policy only. Already accepted historical redo and
      // SAME-ID repairs above retain their original durable meaning.
@@ -689,7 +1116,7 @@ export class CanonicalRoomTransport {
   }
 
   /** Private write-purpose proof; never widens generic reader/suffix grants. */
-  private async prepareMetadataPrefix(identity:CanonicalAdmissionIdentity,anchor:CanonicalStrokeOperation,row:CanonicalStoredOperationRow|undefined,cut:number,assertActor:()=>void):Promise<()=>void>{
+  private async prepareMetadataPrefix(identity:CanonicalAdmissionIdentity,anchor:CanonicalStrokeOperation,row:CanonicalStoredOperationRow|undefined,cut:number,assertActor:()=>void):Promise<{readonly assertCurrent:()=>void;readonly root:CanonicalIndexedRootV1;readonly terminalSequence:number}>{
     const binder=this.currentBinder(),context=this.context!,record=rooms.get(identity.roomId),format=this.fullHistoryFormat
     if(!record)fail('not_joined')
     const scope=binder.captureReadScope(identity.roomId)
@@ -703,13 +1130,39 @@ export class CanonicalRoomTransport {
     if(row)binder.readRecordedCapability({roomId:identity.roomId,boardEpoch:scope.boardEpoch,operation:anchor,row})
     else binder.readResidentRecordedCapability({roomId:identity.roomId,boardEpoch:scope.boardEpoch,operation:anchor})
     await flushRoomWrites(identity.roomId);current()
+    let summary:ReturnType<ReturnType<CanonicalBrushCapabilityResolver['createIndexedRecordedPrefixFold']>['finish']>|undefined
     try{
-      const fold=binder.createRecordedPrefixFold({roomId:identity.roomId,boardEpoch:scope.boardEpoch,anchor,row,purpose:'undo-redo'})
-      await visitCanonicalGesturePrefixRows(identity.roomId,{userId:anchor.userId,strokeId:anchor.frame.strokeId},cut,{requiredFrame:anchor,afterRead:authorize,
+      const indexed=format==='mixed-indexed-v1'
+      const fold=(indexed?binder.createIndexedRecordedPrefixFold.bind(binder):binder.createRecordedPrefixFold.bind(binder))({roomId:identity.roomId,boardEpoch:scope.boardEpoch,anchor,row,purpose:'undo-redo'})
+      await (indexed?visitCanonicalIndexedGesturePrefixRows:visitCanonicalGesturePrefixRows)(identity.roomId,{userId:anchor.userId,strokeId:anchor.frame.strokeId},cut,{requiredFrame:anchor,afterRead:authorize,
         visit(operation,actualRow){current();fold.accept(operation,actualRow);return undefined}})
-      current();await authorize();fold.finish()
+      current();await authorize();summary=fold.finish()
     }catch(error){if(error instanceof TransportFailure)throw error;fail('canonical_repair_required')}
-    current();return current
+    current();if(!summary)fail('canonical_repair_required')
+    const terminalSequence=summary.endSeq??summary.closeSeal?.closeSeq
+    if(terminalSequence===undefined)fail('canonical_repair_required')
+    return {assertCurrent:current,root:{originalUserId:anchor.userId,strokeId:anchor.frame.strokeId,layerId:anchor.layerId,firstOperationId:summary.firstOperationId,firstSequence:summary.firstSeq},terminalSequence}
+  }
+
+  /** Retired/cold sessions may acknowledge ONLY an exact durable original row.
+   * No BEGIN grant, admission cursor, pin or new sequence is reconstructed. */
+  private async indexedRecordedDuplicate(identity:CanonicalAdmissionIdentity,op:CanonicalStrokeOperation,lifetime:RoomLifetime,isCurrent:()=>boolean){
+    const binder=this.currentBinder(),scope=binder.captureReadScope(identity.roomId)
+    const current=()=>{
+      if(!isCurrent())fail('not_joined')
+      this.sameLifetime(identity,op.layerId,lifetime)
+      if(this.binder!==binder)fail('canonical_repair_required')
+    }
+    current()
+    const row=await prisma.operation.findUnique({where:{id:op.id},select:canonicalOperationRowSelect})
+    current()
+    if(!row||row.roomId!==identity.roomId||row.userId!==identity.userId)fail('canonical_repair_required')
+    const stored=canonicalOperation(row.data,identity,true)
+    verifyCanonicalOperationRow(identity.roomId,stored,row)
+    if(!Number.isSafeInteger(stored.seq)||!sameOperation(op,stored)||op.seq!==undefined&&op.seq!==stored.seq)fail('invalid_operation')
+    const canonicalCapabilities=binder.prepareRecordedAttachment({roomId:identity.roomId,boardEpoch:scope.boardEpoch,operations:[stored],rows:[row]})
+    current()
+    return {result:{ok:true as const,seq:stored.seq!,duplicate:true},accepted:stored,canonicalCapabilities}
   }
 
   private async durableDuplicate(identity: CanonicalAdmissionIdentity, op: CanonicalStrokeOperation, existing: unknown, lifetime: RoomLifetime, session: Session, isCurrent: () => boolean): Promise<{ readonly result: SendResult; readonly accepted?: CanonicalStrokeOperation; readonly canonicalCapabilities?:CanonicalRecordedAttachmentV1 }> {
