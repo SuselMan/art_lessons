@@ -1,3 +1,4 @@
+import type {CanonicalMaskCapacityLease} from './TransformedMaskPrepass'
 import {canonicalImageRequiredSourceLevels} from './canonicalImageCapacity'
 import {CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,canonicalImageMaterialPin,canonicalStrokeSnapshotV2,advanceCanonicalMaterialPrefix,CANONICAL_MATERIAL_PREFIX_START,decodeCanonicalStrokeFrame,prepareCanonicalRecordedAttachment,verifyCanonicalRecordedClose,canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin,canonicalSoftAutoSourcePin,type CanonicalMaterialPrefixState,type CanonicalStrokeSnapshotV2,type CanonicalRecordedReadScope,type CanonicalStrokeOperation} from '@grafetto/shared'
 import type {CanonicalMaskSourceBank} from './CanonicalMaskSourceBank'
@@ -113,6 +114,7 @@ export class CanonicalWashLayerCoordinator {
   private readonly stable: TiledLayerBuffer
   private readonly derived: TiledLayerBuffer
   private readonly derivedEpoch: number
+  private readonly maskParticipant:CanonicalMaskCapacityLease
   private readonly preparations: readonly Readonly<{ width: number; height: number; epoch: object }>[]
   private readonly entries: Entry[] = []
   private readonly queue: Entry[] = []
@@ -135,7 +137,10 @@ export class CanonicalWashLayerCoordinator {
     if (!Number.isSafeInteger(derived.epoch) || derived.epoch < 0 || stable.epoch !== options.layerEpoch || stable.buffer === derived.buffer
       || stable.buffer.pixelEncoding !== 'straight-rgba8' || derived.buffer.pixelEncoding !== 'straight-rgba8'
       || stable.buffer.tileWidth !== derived.buffer.tileWidth || stable.buffer.tileHeight !== derived.buffer.tileHeight) throw new Error('Canonical wash requires distinct matching straight layers')
-    this.preparations = [options.prepass.preparedCapacity(), options.composite.preparedCapacity()]
+    this.maskParticipant=options.prepass.retainPreparedCapacity()
+    try{
+    this.preparations = [this.maskParticipant.preparedCapacity(), options.composite.preparedCapacity()]
+    this.reservations.push(()=>this.maskParticipant.release())
     // The existing CPU owner charges bounded metadata, not actual JS heap.
     const batch = options.prepass.brushGlBatchInfo()
     this.gl = batch.gl
@@ -143,6 +148,7 @@ export class CanonicalWashLayerCoordinator {
     this.reservations.push(release)
     this.options = Object.freeze({ ...options, pageBounds: options.pageBounds ? Object.freeze({ ...options.pageBounds }) : null })
     this.stable = stable.buffer; this.derived = derived.buffer; this.derivedEpoch = derived.epoch
+    }catch(error){for(const release of this.reservations.splice(0))try{release()}catch{/* Preserve construction error. */}try{this.maskParticipant.release()}catch{/* Preserve construction error. */}throw error}
   }
 
   get queuedFrameCount():number { return this.queue.length }
@@ -442,7 +448,7 @@ export class CanonicalWashLayerCoordinator {
           const tile=pending.ownership!.tiles[pending.tile]
           pending.commitTarget=this.target(pending.targetPlan!,tile,true)
           if(!pending.commitTarget){
-            runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{
+            runBrushGlTurn({participants:[this.maskParticipant,this.options.composite]},()=>{
               this.gl.activeTexture(this.gl.TEXTURE0)
               pending.commitTarget=this.target(pending.targetPlan!,tile)
             })
@@ -517,21 +523,21 @@ export class CanonicalWashLayerCoordinator {
       if(!entry.commitTarget)entry.commitTarget=this.target(entry.targetPlan,tile,true)
       if(performance.now()-turnStarted>=4)return
       if(!entry.commitTarget){
-        runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{
-          const gl=this.options.prepass.brushGlBatchInfo().gl;gl.activeTexture(gl.TEXTURE0)
+        runBrushGlTurn({participants:[this.maskParticipant,this.options.composite]},()=>{
+          const gl=this.maskParticipant.brushGlBatchInfo().gl;gl.activeTexture(gl.TEXTURE0)
           entry.commitTarget=this.target(entry.targetPlan!,tile)
         })
         return
       }
     }
-    if (entry.tile < tiles.length) runBrushGlTurn({ participants: [this.options.prepass, this.options.composite] }, turn => {
-      const gl=this.options.prepass.brushGlBatchInfo().gl
+    if (entry.tile < tiles.length) runBrushGlTurn({ participants: [this.maskParticipant, this.options.composite] }, turn => {
+      const gl=this.maskParticipant.brushGlBatchInfo().gl
       gl.activeTexture(gl.TEXTURE0)
       const tile = tiles[entry.tile], target = this.target(entry.targetPlan!,tile)
       if (entry.committingBuffer && entry.committingBuffer !== target.buffer) throw new Error('Partially committed canonical target was replaced; rebuild required')
       const bound = bindCanonicalLayerTargets(this.stable, [target])[0]
       if(tile.view.residency.kind!=='external')throw new Error('Raw wash must have explicit ownership')
-      runBrushGlBatch({turn,participants:[this.options.prepass,this.options.composite],owners:[bound.lifetime,tile.view.residency]},frame=>{
+      runBrushGlBatch({turn,participants:[this.maskParticipant,this.options.composite],owners:[bound.lifetime,tile.view.residency]},frame=>{
         let draws=0
         while(draws++<8){
           this.assertLayers()
@@ -570,15 +576,15 @@ export class CanonicalWashLayerCoordinator {
     if(!work.derivedTarget)work.derivedTarget=this.target(work.derivedPlan!,p,true)
     if(performance.now()-turnStarted>=4)return
     if(!work.stableTarget||!work.derivedTarget){
-      runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},()=>{
-        const gl=this.options.prepass.brushGlBatchInfo().gl;gl.activeTexture(gl.TEXTURE0)
+      runBrushGlTurn({participants:[this.maskParticipant,this.options.composite]},()=>{
+        const gl=this.maskParticipant.brushGlBatchInfo().gl;gl.activeTexture(gl.TEXTURE0)
         if(!work.stableTarget)work.stableTarget=this.target(work.stablePlan!,p)
         else work.derivedTarget=this.target(work.derivedPlan!,p)
       })
       return
     }
-    runBrushGlTurn({participants:[this.options.prepass,this.options.composite]},turn=>{
-      const gl=this.options.prepass.brushGlBatchInfo().gl
+    runBrushGlTurn({participants:[this.maskParticipant,this.options.composite]},turn=>{
+      const gl=this.maskParticipant.brushGlBatchInfo().gl
       gl.activeTexture(gl.TEXTURE0)
       // Resolve while preserving the caller's complete GL state. Each actual
       // layer binding is retained only inside this one synchronous capsule.
@@ -596,7 +602,7 @@ export class CanonicalWashLayerCoordinator {
         if(tile.view.residency.kind!=='external')throw new Error('Raw wash must have explicit ownership')
         owners.push(tile.view.residency)
       }
-      runBrushGlBatch({turn,participants:[this.options.prepass,this.options.composite],owners},frame=>{
+      runBrushGlBatch({turn,participants:[this.maskParticipant,this.options.composite],owners},frame=>{
         if (work.stage === -1) {
           const b=work.bounds
           if(b.minX===p.x&&b.minY===p.y&&b.maxX===p.x+p.width&&b.maxY===p.y+p.height)stable.buffer.copyTo(target.buffer)
@@ -629,7 +635,9 @@ export class CanonicalWashLayerCoordinator {
 
   private assertOpen(): void { if (this.closed || this.failed || this.busy) throw new Error('Canonical wash coordinator is closed, poisoned or busy') }
   private assertLayers(): void {
-    const current = [this.options.prepass.preparedCapacity(), this.options.composite.preparedCapacity()]
+    let mask:Readonly<{width:number;height:number;epoch:object}>
+    try{mask=this.maskParticipant.preparedCapacity()}catch{throw new Error('Canonical wash service preparation changed')}
+    const current = [mask, this.options.composite.preparedCapacity()]
     for (let i = 0; i < current.length; i++) {
       const a=current[i], b=this.preparations[i]
       if(a.width!==b.width||a.height!==b.height||a.epoch!==b.epoch)throw new Error('Canonical wash service preparation changed')

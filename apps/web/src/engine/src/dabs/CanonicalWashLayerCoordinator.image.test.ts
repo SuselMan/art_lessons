@@ -1,3 +1,4 @@
+import {canonicalImageRequiredSourceLevels} from './canonicalImageCapacity'
 import {expect,it,vi,afterEach} from 'vitest'
 import {inflateSync} from 'node:zlib'
 import {createHash} from 'node:crypto'
@@ -75,7 +76,7 @@ function physical(dataInput=false){
  return{gl,cache,cpu,bank,prepass,composite,source,coordinator,owners,close(){coordinator.cancel();scratch.destroy();layer.destroy();derived.destroy();prepass.reset();composite.reset();bank.reset();cache.clear()}}
 }
 it.each([false,true])('consumes actual Basic6 V2 source frames through original room read and the same prepared image bank (asset input:%s)',dataInput=>{
- const p=original(),s=physical(dataInput),cold=vi.spyOn(s.bank,'assertSourceBinding')
+ const p=original(),s=physical(dataInput),cold=vi.spyOn(s.bank,'assertRequiredSourceBinding')
  try{for(const input of p.inputs){s.coordinator.enqueueRecorded(input);let turns=0;while(s.coordinator.pending&&turns++<10000)s.coordinator.advance();expect(turns).toBeLessThan(10000)}expect(s.coordinator.checkpointReady).toBe(true);expect(s.source).toHaveBeenCalledOnce();expect(s.source.mock.calls[0][1]).toBe(p.inputs[0]);expect(cold).toHaveBeenCalledOnce()}finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
 })
 it('checks exact original bank context and reset generation without a repeated cold resource scan',()=>{
@@ -106,8 +107,9 @@ it('rejects copied receivers, missing metadata charge and owner mutation without
 })
 it.each(['missing','duplicate','dimension','scale','bytes','crop'] as const)('rejects %s bank level metadata before publishing a new original Entry',kind=>{
  const p=original(),s=physical(),before=s.cpu.reservedBytes
- try{const resources=s.bank.preparedResources()
-  const altered=kind==='missing'?resources.slice(1):kind==='duplicate'?[...resources.slice(1),resources[1]]:resources.map((r,i)=>i?r:{...r,...kind==='bytes'?{bytes:r.bytes+4}:{},canonical:{...r.canonical!,...kind==='dimension'?{nativeWidth:r.canonical!.nativeWidth+1}:kind==='scale'?{baseScale:r.canonical!.baseScale*2}:kind==='crop'?{asset:{...r.canonical!.asset,x:r.canonical!.asset.x+1}}:{}}})
+ try{const resources=s.bank.preparedResources(),required=canonicalImageRequiredSourceLevels(binding.primarySource,binding.assets)[0].indexes[0],selected=resources.find(r=>r.canonical?.index===required)
+  if(!selected)throw Error('Actual required suffix fixture missing')
+  const altered=kind==='missing'?resources.filter(r=>r!==selected):kind==='duplicate'?[...resources,selected]:resources.map(r=>r!==selected?r:{...r,...kind==='bytes'?{bytes:r.bytes+4}:{},canonical:{...r.canonical!,...kind==='dimension'?{nativeWidth:r.canonical!.nativeWidth+1}:kind==='scale'?{baseScale:r.canonical!.baseScale*2}:kind==='crop'?{asset:{...r.canonical!.asset,x:r.canonical!.asset.x+1}}:{}}})
   vi.spyOn(s.bank,'preparedResources').mockReturnValue(altered)
   const writes=[s.gl.drawArrays,s.gl.clear,s.gl.texImage2D].map(fn=>fn.mock.calls.length)
   expect(()=>s.coordinator.enqueueRecorded(p.inputs[0])).toThrow()
@@ -127,7 +129,8 @@ it('rejects a reset/reprepared bank generation before writes, then releases only
 it('rechecks bank generation after callback-capable enqueue before publishing a new Entry',()=>{
  const p=original(),s=physical(),before=s.cpu.reservedBytes,reserve=s.cpu.reserve.bind(s.cpu)
  let armed=false
- s.source.mockImplementation(()=>{armed=true;return{bank:s.bank}})
+ const checked=s.bank.assertRequiredSourceBinding.bind(s.bank)
+ vi.spyOn(s.bank,'assertRequiredSourceBinding').mockImplementation((value,indexes,owners)=>{const generation=checked(value,indexes,owners);armed=true;return generation})
  vi.spyOn(s.cpu,'reserve').mockImplementation(bytes=>{if(armed){armed=false;s.bank.reset();for(let i=0;i<s.bank.jobs.length;i++)s.bank.prepareJob(i)}return reserve(bytes)})
  try{expect(()=>s.coordinator.enqueueRecorded(p.inputs[0])).toThrow();expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.cpu.reservedBytes).toBe(before)}finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
 })
@@ -139,7 +142,8 @@ it('refuses a missing image bank before executor publication',()=>{
 })
 it('rechecks the actual original read after callback-capable admission before publication',()=>{
  const p=original(),s=physical(),before=s.cpu.reservedBytes,reserve=s.cpu.reserve.bind(s.cpu)
- let armed=false;s.source.mockImplementation(()=>{armed=true;return{bank:s.bank}})
+ let armed=false;const checked=s.bank.assertRequiredSourceBinding.bind(s.bank)
+ vi.spyOn(s.bank,'assertRequiredSourceBinding').mockImplementation((value,indexes,owners)=>{const generation=checked(value,indexes,owners);armed=true;return generation})
  vi.spyOn(s.cpu,'reserve').mockImplementation(bytes=>{if(armed){armed=false;p.stale()}return reserve(bytes)})
  try{expect(()=>s.coordinator.enqueueRecorded(p.inputs[0])).toThrow();expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.cpu.reservedBytes).toBe(before)}finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
 })

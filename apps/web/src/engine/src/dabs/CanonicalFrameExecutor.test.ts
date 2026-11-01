@@ -18,6 +18,7 @@ import { SourceStrokeAuthor, type SourceAuthorPacket } from '../presets/sourceSt
 import { describe, expect, it, vi } from 'vitest'
 import { CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE, CANONICAL_MATERIAL_PROFILE, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, packCanonicalMaterial, unpackCanonicalMaterial, canonicalDefaultAutoSourceBinding, buildCanonicalMaterial, type BrushDescriptor, type CanonicalDefaultAutoSource, type CanonicalDefaultAutoRecipe, type CanonicalMaterialContextV2, type BrushTip, type CanonicalMaterialFrame, type CanonicalMaterialRecipe, type TipMaskId } from '@grafetto/shared'
 import { recordingGL } from '../../testing/brushPassTestUtils'
+import { CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES } from './TransformedMaskPrepass'
 import { TiledLayerBuffer } from '../buffers/TiledLayerBuffer'
 import { RibbonScratchPool } from '../buffers/RibbonScratchPool'
 import { sourceBlendAverageOpacity } from '../presets/brushWash'
@@ -250,7 +251,7 @@ describe('canonical decoded frames over actual straight tiled layers', () => {
       for (let i = 0; i < 8; i++) s.executor.enqueue(s.submit(decoded(1, i, false, i ? { phase: 'primary', group: 0 } : { phase: 'between' }), i))
       expect(() => s.executor.enqueue(s.submit(decoded(1, 8, false, { phase: 'primary', group: 0 }), 8))).toThrow('queue is full')
       s.executor.cancel()
-      expect(s.cpu.reservedBytes).toBe(baseline)
+      expect(s.cpu.reservedBytes).toBe(baseline-CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES)
       expect(s.poison).toHaveBeenCalledTimes(1)
     } finally { s.close() }
   })
@@ -270,7 +271,7 @@ describe('canonical decoded frames over actual straight tiled layers', () => {
       expect(s.executor.cleanupFailures).toEqual([notify, pool, budget])
       expect(returned).toHaveBeenCalledTimes(2)
       for (const release of s.releases) expect(release).toHaveBeenCalledTimes(1)
-      expect(s.scratch.bytes.live).toBe(0); expect(s.cpu.reservedBytes).toBe(baseline)
+      expect(s.scratch.bytes.live).toBe(0); expect(s.cpu.reservedBytes).toBe(baseline-CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES)
       expect(s.executor.pending).toBe(false); expect(s.executor.checkpointReady).toBe(false)
       expect(() => s.layer.clear()).not.toThrow()
       s.executor.cancel(); expect(returned).toHaveBeenCalledTimes(2)
@@ -285,7 +286,7 @@ describe('canonical decoded frames over actual straight tiled layers', () => {
       s.releases[0].mockImplementation(() => { throw callback })
       expect(() => s.executor.cancel()).toThrow(callback)
       expect(s.releases[1]).toHaveBeenCalledTimes(1)
-      expect(s.cpu.reservedBytes).toBe(baseline)
+      expect(s.cpu.reservedBytes).toBe(baseline-CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES)
       expect(s.executor.poisoned).toBe(true); expect(s.executor.pending).toBe(false)
       s.executor.cancel(); expect(s.releases[1]).toHaveBeenCalledTimes(1)
     } finally { s.close() }
@@ -495,7 +496,7 @@ it('yields mid-generation before all GL/target work, then cancellation owns ever
     try{expect(s.executor.advance().pending).toBe(true)}finally{now.mockRestore()}
     expect(getters).not.toHaveBeenCalled();expect(resolve).not.toHaveBeenCalled();expect(s.gl.texSubImage2D).not.toHaveBeenCalled();
     expect(s.cpu.reservedBytes).toBeGreaterThan(baseline);
-    s.executor.cancel();expect(s.poison).toHaveBeenCalledTimes(1);expect(s.cpu.reservedBytes).toBe(baseline);
+    s.executor.cancel();expect(s.poison).toHaveBeenCalledTimes(1);expect(s.cpu.reservedBytes).toBe(baseline-CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES);
   }finally{s.close()}
 });
 it('rejects a forged auto definition before reservations and never grants execution from frame metadata',()=>{
@@ -607,7 +608,7 @@ it('retains and cancels one local part cursor without rerunning the logical sour
     s.executor.advance();expect(s.executor['queue'][0].draw).toBe(0);expect(s.executor['queue'][0].paintPart).toBe(2);expect(calls).toHaveBeenCalledTimes(2);
     const a=calls.mock.calls[0][0].writeBounds!,b=calls.mock.calls[1][0].writeBounds!;expect(a.maxX).toBe(b.minX);
     s.executor.cancel();expect(s.executor.poisoned).toBe(true);expect(s.poison).toHaveBeenCalledTimes(1);
-    expect(s.cpu.reservedBytes).toBe(baseline);for(const release of s.releases)expect(release).toHaveBeenCalledTimes(1);
+    expect(s.cpu.reservedBytes).toBe(baseline-CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES);for(const release of s.releases)expect(release).toHaveBeenCalledTimes(1);
     expect(()=>s.executor.advance()).toThrow('poisoned');expect(calls).toHaveBeenCalledTimes(2);
   }finally{now.mockRestore();s.close()}
 });
@@ -652,8 +653,8 @@ it('fails closed when target preparation reenters canonical state ownership, bef
   try{
     expect(()=>s.executor.advance()).toThrow('Nested');
     expect(resolve).toHaveBeenCalledOnce();expect(draw).not.toHaveBeenCalled();expect(s.executor.poisoned).toBe(true);
-    expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(baseline);
-    expect(s.cache['leases'].size).toBe(0);for(const release of s.releases)expect(release).toHaveBeenCalledOnce();
+    expect(s.snapshot()).toEqual(before);expect(s.cpu.reservedBytes).toBe(baseline-CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES);
+    expect(s.prepass['defaultRecord']!.leases.size).toBe(0);expect(s.cache['leases'].size).toBe(1);for(const release of s.releases)expect(release).toHaveBeenCalledOnce();
   }finally{s.close()}
 });
 
@@ -713,6 +714,7 @@ describe('deposition-only wash ownership', () => {
       expect(local.storageOwnerCurrent).toBe(false);expect(s.executor['rawOwner'].alive).toBe(true)
       expect(()=>{release=owner.lease()}).toThrow(/Stale/)
       expect(s.executor['rawOwner'].leases).toBe(0)
+      const before=s.cpu.reservedBytes;expect(()=>s.executor.cancel()).toThrow(/stale/);expect(s.cpu.reservedBytes).toBeLessThan(before);expect(s.executor['maskLease']).toBeUndefined()
     }finally{release?.();s.close()}
   })
   it('declares only the actual live nearest pool local as a lifetime-owned point sampler',()=>{
@@ -845,7 +847,8 @@ describe('recorded same-layer concurrent wash lane', () => {
     const s=lane(),primary=new Error('close cleanup failed')
     try{
       s.coordinator.enqueue(s.frame('A',.5,false),1);s.drain()
-      vi.spyOn(s.prepass,'releaseOwner').mockImplementationOnce(()=>{throw primary})
+      const executor=s.coordinator['entries'][0].executor,captured=executor['maskParticipant']
+      executor['maskLease']={...captured,isReady:()=>captured.isReady(),preparedCapacity:()=>captured.preparedCapacity(),releaseOwner:()=>{throw primary},release:()=>captured.release()}
       expect(()=>s.coordinator.enqueueRecordedClose('A',1,2)).toThrow(primary)
       expect(s.coordinator.poisoned).toBe(true);expect(s.coordinator.pending).toBe(false)
       expect(s.scratch.bytes.live).toBe(0);expect(s.layer['retainedTargets'].size).toBe(0)
@@ -1270,7 +1273,7 @@ describe('Gaussian through the SAME bounded frame executor', () => {
           expect(b ? b.maxX-b.minX : call.source.view.rect.width).toBeLessThanOrEqual(8)
           expect(b ? b.maxY-b.minY : call.source.view.rect.height).toBeLessThanOrEqual(8)
         }
-        expect(s.cpu.reservedBytes).toBe(baseline)
+        expect(s.cpu.reservedBytes).toBe(baseline-CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES)
         expect(s.scratch.bytes.live).toBe(0)
       } finally {s.close()}
     }
@@ -1309,11 +1312,11 @@ for(const mode of ['wash','buildup'] as const)it(`executes a decoded native soft
     const rgba=Uint8Array.from(uploads.flatMap(a=>Array.from(a))),expected=Uint8Array.from(atob(sample.coverageBase64),c=>c.charCodeAt(0))
     expect(rgba.length).toBe(expected.length*4)
     for(let i=0;i<expected.length;i++)expect(Array.from(rgba.subarray(i*4,i*4+4))).toEqual([expected[i],expected[i],expected[i],expected[i]])
-    expect(s.executor.checkpointReady).toBe(true);expect(s.cpu.reservedBytes).toBe(baseline)
+    expect(s.executor.checkpointReady).toBe(true);expect(s.cpu.reservedBytes).toBe(baseline-CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES)
     const preparedCalls=advance.mock.calls.length
     s.executor.enqueue({...s.submit(),gestureId:'second-soft-gesture',frame,assets:[]});s.drain()
     expect(advance.mock.calls.length).toBe(preparedCalls)
-    s.executor.cancel();expect(s.cpu.reservedBytes).toBe(baseline-table.estimatedCpuBytes)
+    s.executor.cancel();expect(s.cpu.reservedBytes).toBe(baseline-table.estimatedCpuBytes-CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES)
   }finally{s.close()}
 })
 it('rejects untrusted soft frames before target access and releases a never-used source on cancellation',()=>{
@@ -1325,7 +1328,7 @@ it('rejects untrusted soft frames before target access and releases a never-used
     const r=frame.definitions[0];if(r.kind!=='softAuto')throw Error('Expected soft recipe')
     expect(()=>s.executor.enqueue({...s.submit(),frame:{...frame,definitions:[{...r,sourceSlot:1}]},assets:[]})).toThrow()
     expect(s.cpu.reservedBytes).toBe(before);expect(resolve).not.toHaveBeenCalled();expect(s.reserveTransient).not.toHaveBeenCalled()
-    s.executor.cancel();s.executor.cancel();expect(s.cpu.reservedBytes).toBe(before-own.estimatedCpuBytes)
+    s.executor.cancel();s.executor.cancel();expect(s.cpu.reservedBytes).toBe(before-own.estimatedCpuBytes-CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES)
     expect(()=>s.executor.enqueue({...s.submit(),frame,assets:[]})).toThrow('poisoned')
   }finally{s.close()}
 })
@@ -1354,10 +1357,10 @@ it('borrows one fixed source across gesture executors without retiring the calle
   const a=new CanonicalFrameExecutor({...s.executor['options'],softProgramOwner:owner})
   const b=new CanonicalFrameExecutor({...s.executor['options'],softProgramOwner:owner})
   try {
-    expect(s.cpu.reservedBytes).toBe(baseline)
+    expect(s.cpu.reservedBytes).toBe(baseline+2*CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES)
     a.enqueue({...s.submit(),frame,assets:[]});while(a.pending)a.advance()
     const calls=advance.mock.calls.length;expect(calls).toBeGreaterThan(0)
-    a.cancel();expect(owner.done).toBe(true);expect(s.cpu.reservedBytes).toBe(baseline)
+    a.cancel();expect(owner.done).toBe(true);expect(s.cpu.reservedBytes).toBe(baseline+CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES)
     b.enqueue({...s.submit(),gestureId:'shared-soft-second',frame,assets:[]});while(b.pending)b.advance()
     expect(advance.mock.calls.length).toBe(calls)
     b.cancel();expect(s.cpu.reservedBytes).toBe(baseline)
@@ -1464,7 +1467,7 @@ it('cancels partially taken scratch before poison can undo the layer and release
   expect(s.scratch.bytes.live).toBe(64);expect(s.layer['retainedTargets'].size).toBe(1)
   s.poison.mockImplementation(()=>{expect(()=>s.layer.clear()).not.toThrow()})
   s.executor.cancel();expect(release).toHaveBeenCalledOnce();expect(s.scratch.bytes.live).toBe(0)
-  expect(s.cpu.reservedBytes).toBe(baseline);expect(s.layer['retainedTargets'].size).toBe(0)
+  expect(s.cpu.reservedBytes).toBe(baseline-CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES);expect(s.layer['retainedTargets'].size).toBe(0)
   s.executor.cancel();expect(release).toHaveBeenCalledOnce()
  }finally{s.close()}
 })
@@ -1765,7 +1768,7 @@ it('flushes a final computed source stripe and paints without rereading upload a
   while(!s.executor['softProgram']!.done)s.executor['softProgram']!.advance(65536)
   frame.draws.forEach(d=>Object.assign(d,{x:0,y:0}));s.layer.resolveForPaint({minX:0,minY:0,maxX:64,maxY:64})
   s.executor.enqueue({...s.submit(),frame,assets:[]});const work=s.executor['queue'][0],request=s.executor['maskRequest'](work,0)
-  s.prepass.beginAutoGeneration(request);s.gl.texSubImage2D.mockClear()
+  s.executor['maskParticipant'].beginAutoGeneration(request);s.gl.texSubImage2D.mockClear()
   const step=s.prepass.advanceAutoGeneration(65536,{deferFinalUpload:true});expect(step.finalUploadPending).toBe(true);expect(s.gl.texSubImage2D).not.toHaveBeenCalled()
   const query=vi.spyOn(s.gl,'getParameter'),draw=vi.spyOn(s.composite,'drawSource');query.mockClear()
   expect(s.executor.advance().pending).toBe(false);expect(draw).toHaveBeenCalledOnce();expect(s.gl.texSubImage2D).toHaveBeenCalledOnce()
@@ -1780,12 +1783,12 @@ it.each([false,true])('retains an uploaded source without allocating or painting
   while(!s.executor['softProgram']!.done)s.executor['softProgram']!.advance(65536)
   frame.draws.forEach(d=>Object.assign(d,{x:0,y:0}));if(resident)s.layer.resolveForPaint({minX:0,minY:0,maxX:64,maxY:64})
   s.executor.enqueue({...s.submit(),frame,assets:[]});const work=s.executor['queue'][0],request=s.executor['maskRequest'](work,0)
-  s.prepass.beginAutoGeneration(request);s.prepass.advanceAutoGeneration(65536,{deferFinalUpload:true})
+  s.executor['maskParticipant'].beginAutoGeneration(request);s.prepass.advanceAutoGeneration(65536,{deferFinalUpload:true})
   s.gl.texSubImage2D.mockClear();s.gl.texImage2D.mockClear();const draw=vi.spyOn(s.composite,'drawSource')
   s.gl.texSubImage2D.mockImplementationOnce(()=>{now=4})
   expect(s.executor.advance().pending).toBe(true)
   expect(s.gl.texSubImage2D).toHaveBeenCalledOnce();expect(s.gl.texImage2D).not.toHaveBeenCalled();expect(draw).not.toHaveBeenCalled()
-  expect(s.prepass.finalAutoUploadPending(request)).toBe(false)
+  expect(s.executor['maskParticipant'].finalAutoUploadPending(request)).toBe(false)
   now=0;let turns=0;while(s.executor.pending&&turns++<100)s.executor.advance()
   expect(turns).toBeLessThan(100);expect(draw).toHaveBeenCalledOnce();expect(s.gl.texSubImage2D).toHaveBeenCalledOnce()
  }finally{clock.mockRestore();s.close()}
@@ -1798,13 +1801,123 @@ it('keeps the final CPU stripe charged without capturing GL when computation exh
   while(!s.executor['softProgram']!.done)s.executor['softProgram']!.advance(65536)
   frame.draws.forEach(d=>Object.assign(d,{x:0,y:0}));s.layer.resolveForPaint({minX:0,minY:0,maxX:64,maxY:64})
   s.executor.enqueue({...s.submit(),frame,assets:[]});const work=s.executor['queue'][0],request=s.executor['maskRequest'](work,0)
-  s.prepass.beginAutoGeneration(request);s.prepass.advanceAutoGeneration(65536,{deferFinalUpload:true})
+  s.executor['maskParticipant'].beginAutoGeneration(request);s.prepass.advanceAutoGeneration(65536,{deferFinalUpload:true})
   const advance=s.prepass.advanceAutoGeneration.bind(s.prepass);let expire=true
   vi.spyOn(s.prepass,'advanceAutoGeneration').mockImplementation((samples,options)=>{const result=advance(samples,options);if(expire&&result.finalUploadPending){expire=false;now=4}return result})
   const query=vi.spyOn(s.gl,'getParameter'),draw=vi.spyOn(s.composite,'drawSource');query.mockClear();s.gl.texSubImage2D.mockClear()
   const charged=s.cpu.reservedBytes
   expect(s.executor.advance().pending).toBe(true);expect(query).not.toHaveBeenCalled();expect(draw).not.toHaveBeenCalled();expect(s.gl.texSubImage2D).not.toHaveBeenCalled()
-  expect(s.cpu.reservedBytes).toBe(charged);expect(s.prepass.finalAutoUploadPending(request)).toBe(true)
+  expect(s.cpu.reservedBytes).toBe(charged);expect(s.executor['maskParticipant'].finalAutoUploadPending(request)).toBe(true)
   now=0;expect(s.executor.advance().pending).toBe(false);expect(draw).toHaveBeenCalledOnce();expect(s.gl.texSubImage2D).toHaveBeenCalledOnce()
  }finally{clock.mockRestore();s.close()}
+})
+
+it('captures real capacity before work and charges/releases an unused executor token',()=>{
+ const s=setup(),before=s.cpu.reservedBytes
+ try{
+  const acquire=vi.spyOn(s.prepass,'retainPreparedCapacity')
+  const e=new CanonicalFrameExecutor(s.executor['options'])
+  expect(acquire).toHaveBeenCalledTimes(1);expect(s.cpu.reservedBytes-before).toBe(2048)
+  e.cancel();expect(s.cpu.reservedBytes).toBe(before);e.cancel();expect(s.cpu.reservedBytes).toBe(before)
+ }finally{s.close()}
+})
+it('retains sealed deposition capacity through actual raw holds, then releases without whole lane cancellation',()=>{
+ const s=setup('wash',4,4,undefined,'reference-scalar-f32-rne-v1',undefined,4,'deposition-only')
+ let owned:ReturnType<CanonicalFrameExecutor['takeRawWash']>|undefined
+ try{
+  s.executor.enqueue(s.submit());s.drain();const tiles=s.executor.rawWashTiles(),residency=tiles[0].view.residency
+  if(residency.kind!=='external')throw new Error('Expected actual raw owner')
+  const held=residency.lease()
+  expect(()=>s.executor.takeRawWash()).toThrow(/leased/);held();const captured=s.executor['maskParticipant'];owned=s.executor.takeRawWash()
+  const before=s.cpu.reservedBytes
+  // The actual captured participant is detached; resetting the default does not release transferred raw ownership.
+  expect(s.executor['maskLease']).toBeUndefined();s.executor.cancel();expect(captured.isReady()).toBe(true)
+  const raw=owned.tiles[0].view.residency;if(raw.kind!=='external')throw new Error('Expected actual raw owner');const releaseRaw=raw.lease()
+  expect(()=>owned!.release()).toThrow(/leased/);expect(captured.isReady()).toBe(true);releaseRaw()
+  owned.release();expect(()=>captured.isReady()).toThrow(/Closed/);expect(s.cpu.reservedBytes).toBeLessThan(before);owned.release()
+ }finally{owned?.release();s.close()}
+})
+
+function addExecutorCapacity(s:ReturnType<typeof setup>,side:number){
+ const sources=s.bank?.preparedResources()??[],update=s.prepass.prepareCapacityAddition({width:side,height:side,slots:1},sources,s.composite.preparedResources())
+ let companions:ReturnType<CanonicalRgba8CompositePass['prepareCompanionUpdate']>|undefined
+ try{companions=s.composite.prepareCompanionUpdate([...sources,...update.preparedResources()]);update.assertPreparedPublication();companions.assertCurrent();update.publish();companions.publish();update.finalizeCleanup();companions.finalizeCleanup()}
+ catch(error){try{update.cancel()}finally{companions?.cancel()}throw error}
+}
+it.each([false,true])('keeps the exact captured auto cursor and UV across genuine capacity addition (computed final=%s)',final=>{
+ const {pin,frame}=nativeSoftFrame(),s=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  while(!s.executor['softProgram']!.done)s.executor['softProgram']!.advance(65536)
+  frame.draws.forEach(d=>Object.assign(d,{x:0,y:0}));s.executor.enqueue({...s.submit(),frame,assets:[]})
+  const work=s.executor['queue'][0];s.executor['preparePhysicalPlan'](work,s.layer)
+  const request=s.executor['maskRequest'](work,0),lease=s.executor['maskParticipant'],old=lease.preparedCapacity()
+  lease.beginAutoGeneration(request);lease.advanceAutoGeneration(final?65536:1,{deferFinalUpload:true})
+  const pending=s.prepass['pendingAuto']!;expect(pending.participant).toBe(lease);expect(pending.computedFinal).toBe(final)
+  expect(s.executor.hasPendingLayerTargetPreparation).toBe(true)
+  addExecutorCapacity(s,96)
+  expect(s.prepass.preparedCapacity().epoch).not.toBe(old.epoch);expect(lease.preparedCapacity()).toEqual(old)
+  expect(s.prepass['pendingAuto']).toBe(pending);expect(pending.participant).toBe(lease)
+  const draw=vi.spyOn(s.composite,'drawSource');s.drain();expect(draw).toHaveBeenCalled();expect(s.executor.poisoned).toBe(false)
+  expect(s.prepass['pendingAuto']).toBeUndefined();expect(s.executor['maskLease']).toBeUndefined()
+  expect(()=>lease.isReady()).toThrow(/Closed/)
+ }finally{clock.mockRestore();s.close()}
+})
+it('exclusive reuse captures the new default after the ended gesture released its old record',()=>{
+ const s=setup(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const old=s.executor['maskParticipant'];s.executor.enqueue(s.submit());s.drain();expect(()=>old.isReady()).toThrow(/Closed/)
+  addExecutorCapacity(s,8);const current=s.prepass.preparedCapacity()
+  s.executor.enqueue({...s.submit(),gestureId:'next'});expect(s.executor['maskParticipant'].preparedCapacity()).toEqual(current)
+  s.drain();expect(s.executor.checkpointReady).toBe(true);expect(s.executor['maskLease']).toBeUndefined()
+ }finally{clock.mockRestore();s.close()}
+})
+it('rolls back capture when later owned soft-program construction fails',()=>{
+ const {pin}=nativeSoftFrame(),s=setup('buildup',64,64),before=s.cpu.reservedBytes,reserve=s.cpu.reserve.bind(s.cpu),primary=new Error('program CPU admission failed');let calls=0
+ const allocation=vi.spyOn(s.cpu,'reserve').mockImplementation(bytes=>{if(++calls===2)throw primary;return reserve(bytes)})
+ try{expect(()=>new CanonicalFrameExecutor({...s.executor['options'],autoSource:pin})).toThrow(primary);expect(s.cpu.reservedBytes).toBe(before);expect(s.prepass['defaultRecord']!.leases.size).toBe(1)}
+ finally{allocation.mockRestore();s.close()}
+})
+
+it('transfers the same retained token even when a genuine ended gesture produced no raw tiles',()=>{
+ const s=setup('wash',4,4,undefined,'reference-scalar-f32-rne-v1',undefined,4,'deposition-only');let owned:ReturnType<CanonicalFrameExecutor['takeRawWash']>|undefined
+ try{
+  const captured=s.executor['maskParticipant'],frame:CanonicalMaterialFrame={profile:CANONICAL_MATERIAL_PROFILE,masked:false,entry:{phase:'between'},definitions:[],draws:[],fences:[{kind:'gestureEnd',at:0}]}
+  s.executor.enqueue({...s.submit(),frame});s.drain();owned=s.executor.takeRawWash();expect(owned.tiles).toEqual([])
+  expect(s.executor['maskLease']).toBeUndefined();s.executor.cancel();expect(captured.isReady()).toBe(true)
+  owned.release();expect(()=>captured.isReady()).toThrow(/Closed/)
+ }finally{owned?.release();s.close()}
+})
+it('attempts stale token cleanup after reset without touching the newly prepared default resources',()=>{
+ const s=setup()
+ try{
+  const captured=s.executor['maskParticipant'];s.prepass.reset();s.prepass.prepare({width:8,height:8,slots:1},s.bank!.preparedResources())
+  const current=s.prepass.preparedCapacity(),resources=s.prepass.preparedResources(),cpu=s.cpu.reservedBytes;const deletes=vi.spyOn(s.gl,'deleteTexture');deletes.mockClear()
+  expect(()=>s.executor.cancel()).toThrow(/stale/);expect(s.executor['maskLease']).toBeUndefined();expect(()=>captured.isReady()).toThrow(/Closed/)
+  expect(s.prepass.preparedCapacity()).toEqual(current);expect(s.prepass.preparedResources()).toEqual(resources);expect(s.cpu.reservedBytes).toBe(cpu);expect(deletes).not.toHaveBeenCalled()
+ }finally{s.close()}
+})
+it('keeps the captured old image bindings after addition and additive source publication',()=>{
+ const s=setup(),nextId=`asset:${'8'.repeat(64)}`,tip:BrushTip={kind:'bitmap',mask:nextId as TipMaskId,hardness:1,aspect:1,angle:0,rotation:'fixed',imageSampling:{kind:'integer-pyramid',signal:'inverse-gray',sourceRect:{x:0,y:0,width:1,height:1}}}
+ const bank=new CanonicalMaskSourceBank(s.gl,s.cache,s.cpu,[{id:nextId as TipMaskId,tip,assetSide:1,readOriginalCoverage:()=>new Uint8Array([77])}],{gpuBytes:0,cpuBytes:0})
+ try{
+  const lease=s.executor['maskParticipant'],epoch=lease.preparedCapacity().epoch,record=[...s.prepass['records']].find(r=>r.workspace===epoch)!,bindings=record.bindings,sources=record.sources
+  addExecutorCapacity(s,8);bank.jobs.forEach((_,i)=>bank.prepareJob(i))
+  const update=s.prepass.prepareSourceUpdate([...s.bank!.preparedResources(),...bank.preparedResources()],{additive:true});update.assertCurrent();update.publish();update.finalizeCleanup()
+  expect(lease.isReady()).toBe(true);expect(record.bindings).toBe(bindings);expect(record.sources).toBe(sources)
+  const draw=vi.spyOn(s.composite,'drawSource');s.executor.enqueue(s.submit());s.drain();expect(draw).toHaveBeenCalled();expect(s.executor.poisoned).toBe(false)
+ }finally{s.close();bank.reset()}
+})
+it('retires exclusive capture after a metadata-only recorded seal with no following advance',()=>{
+ const s=setup(),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const lease=s.executor['maskParticipant'];s.executor.enqueue(s.submit(decoded(1,0,false)));s.drain();expect(lease.isReady()).toBe(true)
+  s.executor.sealRecordedPrefix({gestureId:'gesture',layerId:'layer',layerEpoch:0,recordedNext:1})
+  expect(s.executor.checkpointReady).toBe(true);expect(s.executor['maskLease']).toBeUndefined();expect(()=>lease.isReady()).toThrow(/Closed/)
+ }finally{clock.mockRestore();s.close()}
+})
+it('blocks reentrant enqueue during detached capacity token retirement',()=>{
+ const s=setup(),reserve=s.cpu.reserve.bind(s.cpu);let e:CanonicalFrameExecutor|undefined,observed:unknown
+ const allocation=vi.spyOn(s.cpu,'reserve').mockImplementation(bytes=>{const release=reserve(bytes);return bytes===CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES?()=>{release();if(e)try{e.enqueue(s.submit())}catch(error){observed=error}}:release})
+ try{e=new CanonicalFrameExecutor(s.executor['options']);e.cancel();expect(String(observed)).toContain('busy');expect(e.pending).toBe(false);expect(e['maskLease']).toBeUndefined()}
+ finally{allocation.mockRestore();e?.cancel();s.close()}
 })

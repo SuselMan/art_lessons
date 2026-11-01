@@ -356,3 +356,76 @@ incrementing raw leases. Production performs no ledger reset/forget or extra GL
 query.83 executor/layer-binding tests, lint and combined app/SW TSC cover this
 metadata-only guard. Existing709a41e58 Samsung receipts remain historical and are
 not relabeled as measurements of this follow-up.
+
+## O3: retained mask-capacity participants (2026-11-01)
+
+Scope: `CanonicalFrameExecutor.ts`, its existing test and this provenance;
+`CanonicalWashLayerCoordinator.ts` and its existing recorded test are the
+explicit paired prerequisite. No prepass/cache API, source arithmetic, profile,
+wire admission, queue, scheduler, pool or engine policy changes belong to this
+unit. Original-only resource growth is the separately reviewed index half.
+
+Every executor captures the genuine O2 capacity lease before mask work. Its
+actual 2048-byte token is charged by the existing CPU owner, including constructors
+that have not accepted a frame. All readiness, mask/CPU-stripe/final-upload,
+resolveGroup and GL turn/batch calls use that SAME participant. Exclusive ended
+work releases after the synchronous outer turn has restored GL; metadata-only
+recorded sealing also retires without requiring a future advance. Reuse captures
+the new default before admission assertions. Retirement detaches ownership before
+callbacks and blocks recursive enqueue while cleanup runs.
+
+Deposition transfers its detached lease into the existing raw ownership, including
+an empty raw tile list. Actual raw holds prevent release; once drained, release
+detaches the retained slot before attempting scratch, metadata, releaseOwner and
+lease cleanup. A committed Entry retaining its inert raw release closure therefore
+does not retain the capacity token/record through that slot. Constructor rollback,
+never-enqueued cancel, loss/reset and callback failure attempt independent cleanup
+without addressing new-generation default slots.
+
+The coordinator independently captures a genuine participant before its metadata
+reservation and uses it for strict capacity identity and composite-only turns.
+New gesture executors still acquire from the original service's current default.
+The coordinator's initial mask record deliberately remains charged/pinned for the
+whole lane cycle; this is not a claim that every old allocation retires immediately.
+Candidate/companion admission must include the complete retained resource union.
+An inert default record's existing residency pin remains warm until its owner's
+normal reset; per-token CPU charge is released separately. Tests now state this
+actual accounting rather than expecting the pre-O3 zero-token baseline.
+
+Host recording-GL coverage includes actual partial and final-computed auto cursors
+across a genuine capacity addition, old image bindings after an additive second
+bank publication, exclusive reuse, raw transfer/held rejection/empty tiles,
+constructor CPU failure, stale cleanup after a new default is prepared, reentrant
+retirement and coordinator A-open/B-new-default publication. These are resource,
+command and lifecycle proofs, not GPU pixel or timing claims. Actual hardware and
+whole-engine original-growth proofs are separate ROOT gates.
+
+The final approved scope also migrates the two existing observation tests
+`CanonicalWashLayerCoordinator.densityIdentity.test.ts` and
+`CanonicalWashLayerCoordinator.image.test.ts` (seven owned files total). Density
+observes the existing service's actual pending cursor during delegated CPU
+advancement, rather than overriding the bare default participant's begin method;
+all 17 Marker mask hashes, fork identity and retired-owner checks remain.
+
+The image test's nine failures were independently reproduced with an exact RAM
+source overlay of **both production files from HEAD
+37d100cb1688c1fddba2159c61f527d136e0ce41**, leaving its original test bytes and
+worktree untouched. Overlay source hashes were Executor
+`e9c9f3d5525bcef652e0f261e628e0976dc246480082035e81d97347b400787e`
+and Coordinator
+`43142cd6e71a24b78c9af740434df47509968a2ae652a76ec3730dc83b72a9fe`.
+The retained ignored proof manifest SHA256 is
+`d4e49d43640e07296cc1b56f5f78403ca1116f348a899383ccda4bda93fc88ce`;
+baseline result was 9 FAIL / 10 PASS. Those preexisting full-pyramid assumptions
+predated the actual required-suffix consumer: assertions now observe
+`assertRequiredSourceBinding`, corrupt an actually required level for each of the
+six metadata negatives, and reset the bank after generation capture but before
+the next real CPU reservation. No production admission guard was relaxed for
+these test migrations; all rejection/no-publication/no-write checks remain.
+
+Final targeted application-options TypeScript check includes both production
+files and all four modified tests: PASS. Scoped oxlint: zero errors/warnings.
+Recording-GL lifecycle regressions are retained in ignored R52 O3 logs. No shader,
+shared build, runtime, device or physical GPU claim is part of these host checks.
+Final focused run: **207 tests / 6 files PASS**, including native/D masks, image
+suffix admission and actual recording-GL resource ownership; no skipped failures.

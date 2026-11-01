@@ -74,3 +74,80 @@ plus an existing ready original source bypassing unrelated pending work. This
 does not activate Room or invent a context-failure recovery policy.
 The passive follow-up's final full app gate is pending root's coordinated check;
 its focused tests/lint passed. No separate typecheck or device run was started.
+
+## O3 original incoming capacity addition
+
+Only an original recorded source preparation opts into retained capacity addition.
+Local brush selection keeps the existing idle-only replacement rule. The original
+still decodes and validates the full captured source/recipe before allocation;
+there is no new source authority, queue, END wait or profile inference.
+
+Image-bank jobs use the existing bounded preparation RAF lifecycle while A can
+continue painting. The candidate retains only resource transaction ownership.
+Mask/source update construction, all-current assertions and bank/mask/composite/
+owner publication run synchronously in the work finalizer AFTER progress callbacks.
+No O2 token spans a progress callback or asynchronous yield. Auto originals use
+that same finalizer boundary. A false availability predicate remains cancellation.
+
+Admission inventories include every retained prepass record plus incoming sources,
+new mask storage and composite storage. The persistent published companion list
+and owner pin contain the current default mask and bank, not retired record keys:
+old captured participants already own their independent exact pins, and a later
+retirement must not leave a stale mandatory composite companion. Composite epoch
+checks and retained-participant UV/epoch checks remain exact.
+
+Index copies/maps/unions have lexical CPU reservations based on the captured actual
+inventory lengths before their materialization; the synchronous service query's
+own temporary arrays are covered by O2's per-record/slot metadata allowance. Index
+captures each service inventory once per phase and reasserts candidate/default
+identity after reservation callbacks. Temporary index reservations do not become
+another retained resource plan or change existing budget caps.
+
+The counterfactual test reads ONLY the reviewed 37d100cb index from Git into a
+Vitest in-memory loader; current tests and real Executor/Coordinator stay in place.
+Both new partial/final-cursor tests fail the old idle guard (o3-index-red.log).
+The first current-source pass exposed the Coordinator's genuine bare-capacity
+assertion; its captured participant is the paired Stamp unit. Intermediate whole-B
+fixtures then paused A while awaiting the existing queue-capacity barrier, creating
+a test-only cycle. The corrected observer invokes the real finalizer, verifies
+A's exact cursor/participant immediately at publication, then resumes the real
+coordinator BEFORE waiting for ingress capacity. No timeout increase or production
+queue bypass was used.
+
+Current engine tests cover A CPU-midstripe and computed-final-upload, larger B's
+whole original burst before A confirmations, ordinary later UP and export readiness;
+OPEN image growth; generic OPEN A plus genuine original seeded-auto growth; and
+abort, budget exhaustion, upload failure and actual context loss without journal
+publication or surviving CPU reservations. The old cold-progress witnesses now
+assert that cancellation happens BEFORE GPU allocation, reflecting finalizer-only
+construction while retaining candidate, journal and cleanup assertions.
+
+Terminal results are retained in R52/o3-index-*.log. This is host/mock-GL mechanism
+evidence; root owns common acceptance and later hardware proof. No device, runtime,
+build, service, dependency copy, publication or source grant was created here.
+
+Review follow-up: a same-capacity image extension captures a genuine temporary
+DEFAULT capacity lease (actual 2048-byte token reservation), rather than publishing
+all retained records as permanent companions. That lease is retired independently
+in transaction cleanup. The regression prepares Basic6 OPEN, a Graphite intermediate
+record, then Mountains; it publishes a newly encoded real-Author crop binding at
+that same final capacity, releases the intermediate lease, verifies those actual
+old keys are gone, draws the new original stream and closes the original A. The
+initial hand-edited crop/body was rightly rejected by the strict decoder; the
+fixture now uses the same author/adapter/encoder under the changed material pin.
+Healthy cycle retirement intentionally closes the old coordinator; the test checks
+its empty cleanup failures plus the current owner's ready/retired state, rather
+than treating that deliberate closed flag as a rendering fault.
+
+A separate actual local lifecycle proof finishes and promotes generic A and the
+incoming D stroke, reaches export readiness, verifies coordinator retirement, and
+then uses public setPencil/setSize/prepareBrush for Mountains. Idle G2 replacement
+succeeds without changing its rule to allow OPEN local selection.
+
+Final index leaf gates: **65/65 tests PASS** (o3-index-final-full.log), targeted
+actual-app-options TypeScript PASS (o3-index-target-final.log), scoped lint zero
+errors with 18 existing index warnings outside this changed preparation section,
+and git diff --check PASS. After that full run, one repeated pure composite inventory
+query was replaced with its already captured identical inventory; the final targeted
+TypeScript/lint checks include that exact source. Common root whole-source acceptance
+and actual O3 GPU proof are separate; no claim is inferred from earlier immutable QA.

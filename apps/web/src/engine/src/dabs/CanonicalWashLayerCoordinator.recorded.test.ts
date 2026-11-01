@@ -6,7 +6,7 @@ import {prepareSourceDefaultAutoDab} from '../presets/sourceDefaultAutoDab'
 import {recordingGL} from '../../testing/brushPassTestUtils'
 import {BrushMipCache} from './BrushMipCache'
 import {BrushTextureCache} from './BrushTextureCache'
-import {TransformedMaskPrepass} from './TransformedMaskPrepass'
+import {CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES,TransformedMaskPrepass} from './TransformedMaskPrepass'
 import {CanonicalRgba8CompositePass} from './CanonicalRgba8CompositePass'
 import {RibbonScratchPool} from '../buffers/RibbonScratchPool'
 import {AccumulationBuffer} from '../buffers/AccumulationBuffer'
@@ -82,7 +82,7 @@ describe('original-lifetime recorded prefix owner',()=>{
  it('seals only an existing original prefix; close-only delivery never resolves a source',()=>{
   const s=fixture();try{const frame=s.input(),close=s.seal(frame),before=s.cpu.reservedBytes
    expect(()=>s.coordinator.enqueueRecordedSeal(close)).toThrow();expect(s.source).not.toHaveBeenCalled();expect(s.cpu.reservedBytes).toBe(before)
-   s.coordinator.enqueueRecorded(frame);expect(s.cpu.reservedBytes).toBe(before+6144)
+   s.coordinator.enqueueRecorded(frame);expect(s.cpu.reservedBytes).toBe(before+6144+CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES)
    expect(()=>s.coordinator.enqueueRecordedSeal({...close})).toThrow()
    s.coordinator.enqueueRecordedSeal(close);expect(()=>s.coordinator.enqueueRecordedSeal(close)).toThrow()
    expect(s.source).toHaveBeenCalledTimes(1)
@@ -419,4 +419,26 @@ it('derives pending local receipts independently of drained CPU and an original 
   for(let i=0;i<100&&s.coordinator.pending;i++)s.coordinator.advance()
   expect(s.coordinator.presentationReady).toBe(true);expect(s.coordinator.checkpointReady).toBe(false);expect(s.coordinator['entries'].some(entry=>entry.recorded?.userId==='peer'&&!entry.recorded.state.ended)).toBe(true)
  }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('keeps a genuine coordinator participant across addition while new recorded entries capture the new default',()=>{
+ const s=fixture(),prepass=s.coordinator['options'].prepass,old=s.coordinator['maskParticipant'],clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  s.coordinator.enqueueRecorded(s.input('A',0,1,false,true));while(s.coordinator.pending)s.coordinator.advance()
+  const oldCapacity=old.preparedCapacity(),update=prepass.prepareCapacityAddition({width:8,height:8,slots:1},[],s.composite.preparedResources())
+  const companions=s.composite.prepareCompanionUpdate(update.preparedResources())
+  update.assertPreparedPublication();companions.assertCurrent();update.publish();companions.publish();update.finalizeCleanup();companions.finalizeCleanup()
+  expect(old.preparedCapacity()).toEqual(oldCapacity);expect(prepass.preparedCapacity().epoch).not.toBe(oldCapacity.epoch)
+  const next=s.input('B',0,2,true,true);expect(s.coordinator.canAcceptRecorded(next)).toBe(true);s.coordinator.enqueueRecorded(next)
+  expect(s.coordinator['entries'][1].executor['maskParticipant'].preparedCapacity()).toEqual(prepass.preparedCapacity())
+  while(s.coordinator.pending)s.coordinator.advance()
+  expect(s.coordinator.presentationReady).toBe(true);expect(s.coordinator.checkpointReady).toBe(false);expect(s.coordinator.poisoned).toBe(false)
+  expect(old.isReady()).toBe(true)
+ }finally{clock.mockRestore();s.close()}expect(s.cpu.reservedBytes).toBe(0);expect(()=>old.isReady()).toThrow(/Closed/)
+})
+it('retires a constructor capacity capture when coordinator metadata admission throws',()=>{
+ const s=fixture(),before=s.cpu.reservedBytes,reserve=s.cpu.reserve.bind(s.cpu),primary=new Error('lane metadata cap');let n=0
+ const allocation=vi.spyOn(s.cpu,'reserve').mockImplementation(bytes=>{if(++n===2)throw primary;return reserve(bytes)})
+ try{expect(()=>new CanonicalWashLayerCoordinator(s.coordinator['options'])).toThrow(primary);expect(s.cpu.reservedBytes).toBe(before)}finally{allocation.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
 })

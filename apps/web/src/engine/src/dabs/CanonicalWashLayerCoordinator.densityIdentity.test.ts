@@ -74,9 +74,9 @@ function execute(roomId:string,boardEpoch:number,userId:string,strokeId=fixture.
 
  const cpu=new BrushMipCache(),cache=new BrushTextureCache(gl),prepass=new TransformedMaskPrepass(gl,cache,cpu,'identity'),composite=new CanonicalRgba8CompositePass(gl,cache,cpu,'identity-composite'),scratch=new RibbonScratchPool(gl)
  const layer=new TiledLayerBuffer(gl,32,32,undefined,undefined,undefined,'straight-rgba8'),derived=new TiledLayerBuffer(gl,32,32,undefined,undefined,undefined,'straight-rgba8')
- const uploaded:{ordinal:number;bytes:number[]}[]=[],begin=prepass.beginAutoGeneration.bind(prepass)
+ const uploaded:{ordinal:number;bytes:number[]}[]=[],advance=prepass.advanceAutoGeneration.bind(prepass)
  let current:typeof uploaded[number]|undefined,alive=true
- prepass.beginAutoGeneration=r=>{const hit=begin(r);if(!hit){const ordinal='densityIdentity' in r.material?r.material.densityIdentity?.drawOrdinal:undefined;if(ordinal===undefined)throw Error('Missing ordinal');if(current?.ordinal!==ordinal){current={ordinal,bytes:[]};uploaded.push(current)}}return hit}
+ prepass.advanceAutoGeneration=(samples,options)=>{const material=prepass['pendingAuto']?.material,ordinal=material&&'densityIdentity' in material?material.densityIdentity?.drawOrdinal:undefined;if(ordinal===undefined)throw Error('Missing ordinal');if(current?.ordinal!==ordinal){current={ordinal,bytes:[]};uploaded.push(current)}return advance(samples,options)}
  gl.texSubImage2D=vi.fn((...args:unknown[])=>{if(current){const bytes=args[8] as Uint8Array;for(let i=0;i<(args[4] as number)*(args[5] as number);i++)current.bytes.push(bytes[i*4])}})
  const scope=Object.freeze({roomId,boardEpoch,rasterProfile:G})
  const lifetime:CanonicalRecordedLifetime=Object.freeze({assertCurrent(){if(this!==lifetime||!alive)throw Error('Retired original owner');return scope}})

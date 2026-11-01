@@ -14,7 +14,7 @@ import { bindCanonicalLayerTargets,prepareCanonicalLayerFrame,type CanonicalLaye
 import type { CanonicalMaskSourceBank } from './CanonicalMaskSourceBank'
 import type { CanonicalCompositeOperationKind, CanonicalOwnedRgba8Target, CanonicalRgba8CompositePass, CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
 import { canonicalTransformedMaskMetadata } from './TransformedMaskPlan'
-import type { AnyTransformedMaskRequest, TransformedMaskPrepass } from './TransformedMaskPrepass'
+import type { AnyTransformedMaskRequest, CanonicalMaskCapacityLease, TransformedMaskPrepass } from './TransformedMaskPrepass'
 
 const autoRecipe = (recipe:AnyCanonicalMaterialRecipe):recipe is CanonicalAutoRecipe|CanonicalSoftAutoRecipe =>
   'kind' in recipe && (recipe.kind==='defaultAuto'||recipe.kind==='gaussianAuto'||recipe.kind==='softAuto')
@@ -132,7 +132,9 @@ const rect = (t: TilePosition) => ({ minX: t.x, minY: t.y, maxX: t.x + t.width, 
  * Caller serializes ALL writes to the gesture's layer, including peer writes. */
 export class CanonicalFrameExecutor {
   private readonly options: CanonicalFrameExecutorOptions
-  private readonly maskCapacity: Readonly<{width:number;height:number;epoch:object}>
+  private maskCapacity: Readonly<{width:number;height:number;epoch:object}>
+  private maskLease?:CanonicalMaskCapacityLease
+  private retireMaskAfterTurn=false
   private readonly compositeCapacity: Readonly<{width:number;height:number;epoch:object}>
   private readonly gl: WebGLRenderingContext
   private readonly queue: Work[] = []
@@ -161,11 +163,14 @@ export class CanonicalFrameExecutor {
     if (a.gl !== b.gl || a.cache !== b.cache || a.cpu !== b.cpu) throw new Error('Canonical executor services must share budgets and context')
     if(options.softProgramOwner && !options.softProgramOwner.sharesCpuOwner(a.cpu))throw new Error('Canonical soft program must share the CPU owner')
     planCanonicalTargets({minX:0,minY:0,maxX:0,maxY:0},options.pageBounds ?? null,1,1)
+
     this.maskCapacity=options.prepass.preparedCapacity();
     this.compositeCapacity=options.composite.preparedCapacity();
     this.options = Object.freeze({ ...options, pageBounds: options.pageBounds ? Object.freeze({...options.pageBounds}) : null, autoSource: options.autoSource ? (options.autoSource.kind === 'defaultAuto' ? canonicalDefaultAutoSourcePin(options.autoSource) : options.autoSource.kind === 'gaussianAuto' ? canonicalGaussianAutoSourcePin(options.autoSource) : canonicalSoftAutoSourcePin(options.autoSource)) : undefined })
     this.gl = a.gl
     this.ownsSoftProgram=!options.softProgramOwner
+    this.acquireMaskCapacity()
+    try{
     const source=this.options.autoSource
     if(source?.kind==='softAuto') {
       if(source.sourceSlot!==0)throw new TypeError('Canonical executor requires a primary soft source')
@@ -175,6 +180,25 @@ export class CanonicalFrameExecutor {
           spikes:2,softness:1,randomness:0,density:1,antialias:false},
         {points:source.radialCurve.source.points,coefficients:source.radialCurve.coefficients},Math.floor(source.source.diameter*4+.5)+2)
     }
+    }catch(error){this.retireMaskCapacity();throw error}
+  }
+
+  private get maskParticipant():CanonicalMaskCapacityLease {
+    if(!this.maskLease)throw new Error('Canonical mask capacity is not retained')
+    return this.maskLease
+  }
+  private acquireMaskCapacity():void {
+    if(this.maskLease)return
+    const lease=this.options.prepass.retainPreparedCapacity()
+    try{this.maskCapacity=lease.preparedCapacity();this.maskLease=lease}
+    catch(error){try{lease.release()}catch{/* Preserve capture error. */}throw error}
+  }
+  private retireMaskCapacity():void {
+    const lease=this.maskLease;this.maskLease=undefined;this.retireMaskAfterTurn=false
+    if(!lease)return
+    const advancing=this.advancing;this.advancing=true
+    try{this.cleanup(()=>lease.releaseOwner(this));this.cleanup(()=>lease.release())}
+    finally{this.advancing=advancing}
   }
 
   get pending(): boolean { return this.queue.length !== 0 }
@@ -209,10 +233,11 @@ export class CanonicalFrameExecutor {
     const identityProperty=Object.getOwnPropertyDescriptor(input,'densityStrokeIdentity')
     const densityStrokeIdentity=seeded ? captureSourceDefaultAutoDensityStrokeIdentity(identityProperty && Object.hasOwn(identityProperty,'value') ? identityProperty.value : undefined) : undefined
     if(this.gesture && this.gesture.densityStrokeIdentity?.strokeId!==densityStrokeIdentity?.strokeId)throw new TypeError('Density stroke identity changed')
+    this.acquireMaskCapacity()
     this.assertPrepared();
     const { buffer, epoch } = this.options.layer(input.layerId)
     if (epoch !== input.layerEpoch || buffer.tileWidth > 4096 || buffer.tileHeight > 4096 || buffer.pixelEncoding !== 'straight-rgba8') throw new Error('Stale or non-straight canonical layer')
-    if (!this.options.prepass.isReady() || !this.options.composite.isReady()) throw new Error('Canonical services are not prepared')
+    if (!this.maskParticipant.isReady() || !this.options.composite.isReady()) throw new Error('Canonical services are not prepared')
     if (this.gesture && (this.gesture.profile !== input.frame.profile || this.gesture.id !== input.gestureId || this.gesture.layerId !== input.layerId || this.gesture.epoch !== input.layerEpoch
       || this.gesture.rgb.some((n, i) => n !== input.rgb[i]) || !sameContext(this.planned!.context, input.composition))) throw new Error('Canonical gesture interleaving or context change')
     if (!input.frame || input.frame.draws.length > 800 || input.frame.definitions.length > 800 || input.frame.fences.length > 2404 || input.assets.length > 512) throw new RangeError('Canonical frame exceeds decoder limits')
@@ -263,7 +288,7 @@ export class CanonicalFrameExecutor {
     if (newTiles.size + this.admittedTiles.size > 64) throw new RangeError('Canonical wash exceeds bounded tile count')
     // Queued copy and resident brush identity use the SAME existing CPU owner.
     // Each 1024-byte estimate covers at most 256 UTF16 units plus bounded metadata.
-    const releaseMetadata = this.options.prepass.brushGlBatchInfo().cpu.reserve(bytes+frameTargets.size*128+(densityStrokeIdentity?1024:0))
+    const releaseMetadata = this.maskParticipant.brushGlBatchInfo().cpu.reserve(bytes+frameTargets.size*128+(densityStrokeIdentity?1024:0))
     let releaseDensityIdentity:(()=>void)|undefined
     let releaseWashMetadata: (() => void) | undefined, releaseBudget: (() => void) | undefined, releaseTargetBudget: (() => void) | undefined
     try {
@@ -275,7 +300,7 @@ export class CanonicalFrameExecutor {
       // Admit the entire frame union BEFORE any tile creation or pixel write.
       // Pool accounting stays authoritative; caller applies the existing fence.
       if (newTiles.size) {
-        releaseWashMetadata = this.options.prepass.brushGlBatchInfo().cpu.reserve(newTiles.size * (this.options.washMode==='deposition-only'?512:608))
+        releaseWashMetadata = this.maskParticipant.brushGlBatchInfo().cpu.reserve(newTiles.size * (this.options.washMode==='deposition-only'?512:608))
         // Exclusive: captured original4 + raw local4. Deposition-only: raw
         // local4 + potential stable target4, still resolved by the SAME paint
         // cursor. No duplicate original buffer is allocated in that mode.
@@ -283,7 +308,7 @@ export class CanonicalFrameExecutor {
       }
       // Leave bounded headroom for the existing batch capsule plus <=8 staged
       // commands. Never let queued DTOs predictably consume its next turn.
-      const info = this.options.prepass.brushGlBatchInfo(), other = this.options.composite.brushGlBatchInfo()
+      const info = this.maskParticipant.brushGlBatchInfo(), other = this.options.composite.brushGlBatchInfo()
       const resources = new Set([...info.resources, ...other.resources].map(r => r.key)).size
       if(densityStrokeIdentity&&!this.gesture)releaseDensityIdentity=info.cpu.reserve(1024)
       if (info.cpu.reservedBytes + (input.frame.definitions.some(autoRecipe) ? 82432 : 65536) + resources * 128 > info.cpu.budgetBytes) throw new RangeError('Canonical queue exceeds shared CPU work headroom')
@@ -341,11 +366,22 @@ export class CanonicalFrameExecutor {
       if(accepted)this.fail(error,this.cleanupContextLost())
       throw error
     }finally{this.advancing=false}
+    this.retireFinishedMask()
   }
 
   /** One synchronous cooperative batch. Call again from the existing engine
    * drain after yielding; this service creates no RAF, promise or scheduler. */
   advance(): { pending: boolean; checkpointReady: boolean } {
+    const result=this.advanceWork()
+    this.retireFinishedMask()
+    return result
+  }
+  private retireFinishedMask():void {
+    if(!this.retireMaskAfterTurn)return
+    const before=this.cleanupErrors.length;this.retireMaskCapacity()
+    if(!this.failed&&this.cleanupErrors.length>before){const error=this.cleanupErrors[before];this.fail(error);throw error}
+  }
+  private advanceWork(): { pending: boolean; checkpointReady: boolean } {
     if (this.failed || this.advancing || this.rawOwner.leases) throw new Error('Canonical executor is poisoned or busy')
     const work = this.queue[0]
     if (!work) return { pending: false, checkpointReady: this.checkpointReady }
@@ -389,11 +425,11 @@ export class CanonicalFrameExecutor {
   private runPreparedTurn(work:Work,turnStarted:number,execute:(turn:BrushGlTurn)=>void):boolean {
     const recipe=work.input.frame.definitions[work.result.draws[work.draw]?.definition];
     const request=recipe&&autoRecipe(recipe)?this.maskRequest(work,work.draw):undefined;
-    const upload=!!request&&this.options.prepass.finalAutoUploadPending(request);
+    const upload=!!request&&this.maskParticipant.finalAutoUploadPending(request);
     let executed=false;
-    runBrushGlTurn({participants:[this.options.prepass,this.options.composite],...(upload?{captureAutoUploadUnpack:true as const}:{})},turn=>{
+    runBrushGlTurn({participants:[this.maskParticipant,this.options.composite],...(upload?{captureAutoUploadUnpack:true as const}:{})},turn=>{
       if(upload){
-        this.options.prepass.flushFinalAutoGeneration(request!,turn);
+        this.maskParticipant.flushFinalAutoGeneration(request!,turn);
         if(performance.now()-turnStarted>=4)return;
       }
       execute(turn);executed=true;
@@ -461,7 +497,9 @@ export class CanonicalFrameExecutor {
   }
 
   private assertPrepared(): void {
-    const mask=this.options.prepass.preparedCapacity(), composite=this.options.composite.preparedCapacity();
+    let mask:Readonly<{width:number;height:number;epoch:object}>
+    try{mask=this.maskParticipant.preparedCapacity()}catch{throw new Error('Canonical prepared service capacity/epoch changed')}
+    const composite=this.options.composite.preparedCapacity();
     for (const [current,pinned] of [[mask,this.maskCapacity],[composite,this.compositeCapacity]]) {
       if(current.width!==pinned.width||current.height!==pinned.height||current.epoch!==pinned.epoch)
         throw new Error('Canonical prepared service capacity/epoch changed');
@@ -505,9 +543,9 @@ export class CanonicalFrameExecutor {
         if(performance.now()-start>=4)return false;
       }
     }
-    if (this.options.prepass.beginAutoGeneration(this.maskRequest(work,work.draw))) return performance.now()-start < 4;
+    if (this.maskParticipant.beginAutoGeneration(this.maskRequest(work,work.draw))) return performance.now()-start < 4;
     if (performance.now()-start >= 4) return false;
-    do { const step=this.options.prepass.advanceAutoGeneration(64,{deferFinalUpload:true});if(step.done||step.finalUploadPending)return performance.now()-start < 4; }
+    do { const step=this.maskParticipant.advanceAutoGeneration(64,{deferFinalUpload:true});if(step.done||step.finalUploadPending)return performance.now()-start < 4; }
     while(performance.now()-start < 4);
     return false;
   }
@@ -549,12 +587,12 @@ export class CanonicalFrameExecutor {
       }
       if (!tasks.length) return;
       const bound = bindCanonicalLayerTargets(layer, tasks.map(t => t.target))
-      runBrushGlBatch({ turn, participants: [this.options.prepass, this.options.composite], owners: [bound[0].lifetime, ...tasks.flatMap(t => t.wash ? [t.wash.lifetime] : [])] }, frame => {
+      runBrushGlBatch({ turn, participants: [this.maskParticipant, this.options.composite], owners: [bound[0].lifetime, ...tasks.flatMap(t => t.wash ? [t.wash.lifetime] : [])] }, frame => {
         for (let i = 0; i < tasks.length; i++) {
           if (this.currentLayer(work) !== layer) throw new Error('Canonical layer changed during batch')
           const task = tasks[i], d = work.result.draws[task.draw]
           const output = task.wash ? this.scratchTarget(task.wash.local, task.tiles[task.tile], task.wash.lifetime) : bound[i]
-          const group = this.options.prepass.resolveGroup([this.maskRequest(work,task.draw)], frame)
+          const group = this.maskParticipant.resolveGroup([this.maskRequest(work,task.draw)], frame)
           try {
             const fused = this.options.rasterProfile !== 'reference-scalar-f32-rne-v1'
             const operation = d.controls.kind === 'localAlphaDarken'
@@ -623,7 +661,7 @@ export class CanonicalFrameExecutor {
       }
       if (!tasks.length) return
       const bound = bindCanonicalLayerTargets(layer, tasks.map(t => t.target))
-      runBrushGlBatch({ turn, participants: [this.options.prepass, this.options.composite], owners: [bound[0].lifetime, ...tasks.map(t => t.tile.lifetime)] }, frame => {
+      runBrushGlBatch({ turn, participants: [this.maskParticipant, this.options.composite], owners: [bound[0].lifetime, ...tasks.map(t => t.tile.lifetime)] }, frame => {
         for (let i = 0; i < tasks.length; i++) {
           if (this.currentLayer(work) !== layer) throw new Error('Canonical layer changed during batch')
           const task = tasks[i], tile = task.tile
@@ -663,7 +701,9 @@ export class CanonicalFrameExecutor {
       if(this.gesture)this.gesture.densityStrokeIdentity=undefined
       if (this.options.washMode === 'deposition-only') this.rawComplete = true
       else this.releaseWashes()
-      this.cleanup(() => this.options.prepass.releaseOwner(this))
+      if(this.options.washMode==='deposition-only')this.cleanup(()=>this.maskParticipant.releaseOwner(this))
+      else if(this.advancing)this.retireMaskAfterTurn=true
+      else this.retireMaskCapacity()
       this.gesture = undefined; this.planned = undefined
       if (this.cleanupErrors.length > before) throw this.cleanupErrors[before]
     }
@@ -679,6 +719,7 @@ export class CanonicalFrameExecutor {
     if (this.gesture || this.pending || (this.washes.size && !this.rawTransferred)) {
       this.fail(reason, options.lost ?? this.cleanupContextLost())
     }
+    this.retireMaskCapacity()
     if (this.cleanupErrors.length > before) throw this.cleanupErrors[before]
   }
 
@@ -694,7 +735,7 @@ export class CanonicalFrameExecutor {
     if (layerId) this.cleanup(() => this.options.poison(layerId, reason))
     for (const work of pending)this.cleanup(work.releaseMetadata)
     this.releaseWashes(lost)
-    this.cleanup(() => this.options.prepass.releaseOwner(this))
+    this.retireMaskCapacity()
     this.retireSoftProgram()
   }
 
@@ -745,6 +786,7 @@ export class CanonicalFrameExecutor {
     if (!this.rawWashSealed || this.pending || this.rawOwner.leases) throw new Error('Raw wash is not sealed or is leased')
     const tiles = this.rawWashTiles(), owned = [...this.washes.values()], releases = [...this.admissionReleases], owner = this.rawOwner
     this.washes.clear(); this.admittedTiles.clear(); this.admissionReleases.clear(); this.rawTransferred = true
+    let retainedMask=this.maskLease;this.maskLease=undefined
     let alive = true
     return Object.freeze({ tiles, release: (options: { lost?: boolean } = {}) => {
       if (!alive) return
@@ -752,10 +794,12 @@ export class CanonicalFrameExecutor {
       if (owner.leases) throw new Error('Raw wash still leased')
       const lost = options.lost ?? this.cleanupContextLost()
       alive = false; owner.alive = false
+      const maskLease=retainedMask;retainedMask=undefined
       const errors: unknown[] = []
       const clean = (f: () => void) => { try { f() } catch (e) { errors.push(e) } }
       for (const t of owned) if (!lost) clean(() => this.options.scratch.release(t.local))
       for (const release of releases) clean(release)
+      clean(()=>maskLease?.releaseOwner(this));clean(()=>maskLease?.release())
       if (errors.length) throw errors[0]
     } })
   }
