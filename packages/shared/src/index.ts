@@ -78,3 +78,6 @@ export * from './canonicalEmptyHistoryBase.js'
 export * from './canonicalFullHistoryBase.js'
 
 export * from './canonicalImageMaterial.js'
+
+export * from './canonicalIndexedHistory.js'
+export * from './canonicalIndexedHistoryPage.js'

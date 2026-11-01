@@ -1,3 +1,4 @@
+import type {CanonicalHistoryStreamClientEvents,CanonicalIndexedHistoryOfferV1} from './canonicalIndexedHistory.js'
 import type {CanonicalFullHistoryBaseV2} from './canonicalFullHistoryBase.js'
 import type { CanonicalEmptyHistoryBaseV1 } from './canonicalEmptyHistoryBase.js'
 import type { CanonicalStrokeCloseRequest } from './canonicalStrokeClose.js'
@@ -266,6 +267,39 @@ export function isTransientReject(reason: RejectReason): boolean {
   return (TRANSIENT_REJECT_REASONS as readonly RejectReason[]).includes(reason)
 }
 
+/** Existing complete/snapshot-backed room state. Indexed offers have a separate
+ * branch so their absent original history cannot masquerade as an empty tail. */
+export type RoomStateLegacyPayload = {
+  room: Room; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
+  canonicalReadScope?:CanonicalRecordedReadScope
+  canonicalHistoryBase?:CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2
+  canonicalAuthorRasterProfile?:import('./canonicalStrokeFrame.js').CanonicalStrokeRasterProfile
+  canonicalCapabilities?:CanonicalRecordedAttachmentV1
+  palette: string[]
+  // (#254/#255 epic) Room-wide freeze, live in-memory only (never
+  // persisted — see rooms.ts's RoomRecord.roomFrozen) — included in the
+  // join/reconnect snapshot so a reconnecting client sees the current
+  // status immediately, same reasoning as `participants`/`palette` above.
+  frozen: boolean
+  // (#176, ADR 014) The lesson this board is a page of, its board strip and
+  // the teacher's current board. `participants` above are the *lesson's*,
+  // each carrying the board they are on. A client that receives this for a
+  // board id it reached by URL learns the lesson id here and redirects.
+  lesson: LessonState
+} & {canonicalIndexedHistory?:never}
+export type RoomStateIndexedPayload = Omit<RoomStateLegacyPayload,
+ 'latestSnapshotSeq'|'tailOperations'|'canonicalReadScope'|'canonicalHistoryBase'|
+ 'canonicalAuthorRasterProfile'|'canonicalCapabilities'|'canonicalIndexedHistory'> & {
+ readonly latestSnapshotSeq:null
+ readonly canonicalIndexedHistory:CanonicalIndexedHistoryOfferV1
+ readonly tailOperations?:never
+ readonly canonicalReadScope?:never
+ readonly canonicalHistoryBase?:never
+ readonly canonicalAuthorRasterProfile?:never
+ readonly canonicalCapabilities?:never
+}
+export type RoomStatePayload = RoomStateLegacyPayload | RoomStateIndexedPayload
+
 export type ServerToClientEvents = {
   // `latestSnapshotSeq` is null until anyone has stored a snapshot for this
   // room (short rooms) — `tailOperations` is then simply the room's entire
@@ -289,24 +323,7 @@ export type ServerToClientEvents = {
   // nothing about it needs saying here: deciding it from what this client
   // really has is what makes a snapshot landing mid-join harmless rather than
   // a double-paint.
-  room_state: (state: {
-    room: Room; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
-    canonicalReadScope?:CanonicalRecordedReadScope
-    canonicalHistoryBase?:CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2
-    canonicalAuthorRasterProfile?:import('./canonicalStrokeFrame.js').CanonicalStrokeRasterProfile
-    canonicalCapabilities?:CanonicalRecordedAttachmentV1
-    palette: string[]
-    // (#254/#255 epic) Room-wide freeze, live in-memory only (never
-    // persisted — see rooms.ts's RoomRecord.roomFrozen) — included in the
-    // join/reconnect snapshot so a reconnecting client sees the current
-    // status immediately, same reasoning as `participants`/`palette` above.
-    frozen: boolean
-    // (#176, ADR 014) The lesson this board is a page of, its board strip and
-    // the teacher's current board. `participants` above are the *lesson's*,
-    // each carrying the board they are on. A client that receives this for a
-    // board id it reached by URL learns the lesson id here and redirects.
-    lesson: LessonState
-  }) => void
+  room_state: (state: RoomStatePayload) => void
   // The single channel that drives painting into every client's confirmed
   // buffer — including the author's own (unlike the old `peer_operation`,
   // which `socket.to()` deliberately excluded the sender from). Broadcast
@@ -447,7 +464,7 @@ export type AssignmentStartResult =
   | { ok: true; assignment: AssignmentSummary }
   | { ok: false; error: 'not_owner' | 'busy' | 'server_error' }
 
-export type ClientToServerEvents = {
+export type ClientToServerEvents = CanonicalHistoryStreamClientEvents & {
   /** Registers a new room and joins the calling socket as its `owner` —
    *  the room's `ownerId` is fixed to this socket's connection, deterministic
    *  regardless of when other participants subsequently call `join_room`. */
