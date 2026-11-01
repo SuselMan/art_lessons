@@ -235,3 +235,33 @@ callback failure/reentry and real pointer-author→original-confirmation after a
 hidden full baseline. Recording GL demonstrates lifecycle/command routing, not
 physical GPU pixel equivalence. No runtime/device/policy activation is part of
 these host checks; paired server and later ROOT UI/cold proofs remain separate.
+
+
+## Actual BEGIN promise parking (2026-11-01)
+
+Base: 231ae7f803d9fe6fe2b4374753c0dcd4c7506711 (indexed restore batching).
+Only the existing author FIFO learns an explicit promise wait; `_onCanonicalStart`
+yields the actual `service.begin` promise with its existing absolute five-second
+deadline. MOVE/UP stay captured in the same FIFO. Service rejection/deadline is
+thrown through the original generator catch; genuine ACK/snapshot/material/current
+validation and subsequent original confirmation remain unchanged. No service
+proxy, scheduler queue, frame authority or ACK paint is introduced.
+
+The result observer is created outside the generator and retains a detachable
+outcome cell. Generator finally detaches it on success/cancel/failure; pending
+promise reactions cannot publish into a canceled source. FIFO cancellation still
+releases every captured packet/CPU lease exactly once, and a reentrant service
+that changes tool before returning cannot strand the active source.
+
+A readonly Vitest overlay of the exact base index+FIFO reproduces the new actual
+parking test failure: 22 scheduler calls while the genuine service remained
+unresolved for 25ms. Current source parks with no calls over that interval.
+This demonstrates runnable-poll elimination, not a physical latency/speed claim.
+The coupled HOST run is 74/3 PASS (18 FIFO,49 actual author,7 scheduler), followed
+by a four-case rerun after moving the outcome observer outside the generator.
+Targeted app-options/shared-source TypeScript passes. Scoped lint: zero errors,
+38 style/intentional-fault warnings. Fake deadline testing advances 5001ms to cover
+native timer integer rounding of the unchanged absolute five-second deadline.
+Initial failed fake-boundary/observer-order assertions are retained in diagnostic
+logs; their corrected rerun passes. No device/runtime/service/build was started;
+no shared/dist output was changed. ROOT owns subsequent physical validation.

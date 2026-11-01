@@ -694,3 +694,58 @@ it('keeps the indexed selected image source lease across two local gestures and 
   expect(begin).toHaveBeenCalledTimes(2);expect(program).not.toHaveBeenCalled();expect(prepareRoot).not.toHaveBeenCalled()
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },30000)
+it('parks actual BEGIN without scheduling CPU turns while captured MOVE/UP remain owned and ordered',async()=>{
+ let resolve!:(value:CanonicalStrokeBeginResult)=>void,request!:CanonicalStrokeBegin
+ const {engine,operations}=await harness(r=>{request=r;return new Promise(done=>{resolve=done})})
+ try{
+  await engine.prepareBrush(preset)
+  const schedule=vi.spyOn(engine['_authorTasks'],'schedule'),before=engine['_brushMipCache'].reservedBytes
+  engine['_onStart'](packet(1,100));engine['_onMove'](packet(4,110));engine['_onEnd'](packet(4,120))
+  const captured=engine['_brushMipCache'].reservedBytes
+  expect(captured).toBeGreaterThan(before);expect(engine['_authorInput'].pending).toBe(true)
+  await new Promise(done=>setTimeout(done,25))
+  expect(schedule).not.toHaveBeenCalled();expect(operations).toEqual([]);expect(engine['_brushMipCache'].reservedBytes).toBe(captured)
+  resolve(verdict(request))
+  await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false),{timeout:10000})
+  expect(operations.length).toBeGreaterThan(0);expect(engine['_authorInputError']).toBeUndefined()
+  const frames=operations.filter((op):op is CanonicalStrokeOperation=>op.type==='canonical_stroke')
+  expect(frames.map(op=>op.frame.frameOrdinal)).toEqual(frames.map((_,i)=>i))
+  expect(engine['_authorProducer']).toBeUndefined();expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('retires actual queued BEGIN ownership on service rejection without local paint or outgoing frames',async()=>{
+ let reject!:(error:unknown)=>void
+ const failure=Error('actual service rejection'),{engine,operations}=await harness(()=>new Promise((_,no)=>{reject=no}))
+ try{
+  await engine.prepareBrush(preset);const before=engine['_brushMipCache'].reservedBytes,draw=vi.spyOn(engine['gl'],'drawArrays')
+  engine['_onStart'](packet(1,100));engine['_onMove'](packet(4,110));engine['_onEnd'](packet(4,120));reject(failure)
+  await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false))
+  expect(engine['_authorInputError']).toBe(failure);expect(operations).toEqual([]);expect(draw).not.toHaveBeenCalled()
+  expect(engine['_canonicalSourceLifetimeHolds']).toBe(0);expect(engine['_brushMipCache'].reservedBytes).toBe(before)
+ }finally{engine.destroy()}
+})
+it('expires an actual never-settling BEGIN and aborts its captured service exactly once without pump polling',async()=>{
+ let signal!:AbortSignal
+ const {engine,operations}=await harness((_r,lifetime)=>{signal=lifetime.signal;return new Promise(()=>{})})
+ try{
+  await engine.prepareBrush(preset);const before=engine['_brushMipCache'].reservedBytes,schedule=vi.spyOn(engine['_authorTasks'],'schedule')
+  vi.useFakeTimers({toFake:['setTimeout','clearTimeout']})
+  engine['_onStart'](packet(1,100));engine['_onMove'](packet(4,110));engine['_onEnd'](packet(4,120))
+  expect(schedule).not.toHaveBeenCalled();vi.advanceTimersByTime(5001);vi.useRealTimers()
+  await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false))
+  expect(engine['_authorInputError']).toEqual(new Error('Canonical BEGIN timed out'));expect(signal.aborted).toBe(true)
+  expect(operations).toEqual([]);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0);expect(engine['_brushMipCache'].reservedBytes).toBe(before)
+ }finally{vi.useRealTimers();engine.destroy()}
+})
+
+it('detaches BEGIN outcome when the actual service synchronously cancels its source before returning',async()=>{
+ let cancel=()=>{},resolve!:(value:CanonicalStrokeBeginResult)=>void,request!:CanonicalStrokeBegin
+ const {engine,operations}=await harness(r=>{request=r;cancel();return new Promise(done=>{resolve=done})})
+ try{
+  await engine.prepareBrush(preset);const before=engine['_brushMipCache'].reservedBytes
+  cancel=()=>engine.setTool('pencil');engine['_onStart'](packet(1,100))
+  expect(engine['_authorInput'].pending).toBe(false);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0);expect(engine['_brushMipCache'].reservedBytes).toBe(before)
+  resolve(verdict(request));await Promise.resolve();await Promise.resolve()
+  expect(operations).toEqual([]);expect(engine['_log'].entries).toHaveLength(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})

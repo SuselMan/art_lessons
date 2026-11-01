@@ -16,7 +16,7 @@ import { readRoomRasterVersion, roomRasterPixelEncoding, isRasterPixelEncoding, 
 import { attachContextStorage, snapshotContextStorage } from './src/buffers/ContextStorageOwner'
 import { distinctBrushStorageChargeBytes } from './src/dabs/BrushTextureCache'
 import { AuthorTaskScheduler } from './src/input/AuthorTaskScheduler'
-import { AuthorInputFIFO } from './src/input/AuthorInputFIFO'
+import { AuthorInputFIFO, type AuthorInputYield } from './src/input/AuthorInputFIFO'
 import { createCursorHistory, pushCursorHistory, startCursorDirection } from './src/input/kritaStrokeInput'
 import { brushExecutionContext, assertBrushSourceInputs, assertBrushExecutionContext, type BrushExecutionContext } from './src/presets/brushExecutionContext'
 import { createBrushRandomContext, brushRandomMetadata, assertBrushRandomContext } from './src/oplog/brushRandomContext'
@@ -1326,11 +1326,16 @@ interface CanonicalPreparedAuthor {
   readonly imageLease?:CanonicalMaskSourceLease
   readonly nativeSizePx:number;readonly program:SourceStrokeAuthorProgram;readonly bytes:number;readonly release:()=>void
 }
+interface CanonicalBeginOutcome { active:boolean;value?:CanonicalStrokeBeginResult }
+// Reactions are created outside the generator so their lexical context cannot
+// retain its source session/engine after the outcome cell is detached.
+function observeCanonicalBegin(promise:Promise<CanonicalStrokeBeginResult>,cell:CanonicalBeginOutcome):void {
+  void promise.then(value=>{if(cell.active)cell.value=value},()=>{/* FIFO throws the actual rejection. */})
+}
 interface CanonicalSourceSession {
   readonly prepared:CanonicalPreparedAuthor;readonly controller:AbortController;readonly request:CanonicalStrokeBegin
   readonly release:()=>void;readonly seeds:BrushRandomSeeds;readonly timestamp:number
   references:number;closed:boolean;released:boolean;emitted:number;partialCancel?:Error;closeIssued?:boolean;firstEmittedId?:string;lastEmittedId?:string;lastEmittedEnded?:boolean;localAdmitted?:boolean;reason?:{error:unknown}
-  outcome?:{value:CanonicalStrokeBeginResult}|{error:unknown}
   localAuthor?:CanonicalLocalWashAuthor
   author?:SourceStrokeAuthor;state?:SourceStrokeAuthorState;adapter?:SourceStrokeMaterialAdapter<SourceStrokeMaterialContextV2>;encoder?:SourceCanonicalFrameEncoder<import('./src/presets/sourceCanonicalFrameEncoder').SourceCanonicalStrokeContextV2>
 }
@@ -7920,7 +7925,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(this._authorProducer===session){this._authorProducer=undefined;this._authorSnapshot=undefined}
     try{source.controller.abort()}finally{this._retireCanonicalSource(session)}
   }
-  private _enqueueCanonicalSource(session:TimedAuthorSession,job:()=>Generator<void,void,void>):void {
+  private _enqueueCanonicalSource(session:TimedAuthorSession,job:()=>Generator<AuthorInputYield,void,void>):void {
     const source=session.source!
     let release:()=>void
     try{release=this._brushMipCache.reserve(1024)}catch(error){
@@ -8011,14 +8016,17 @@ export class PencilEngine implements PencilEngineAPI {
     const owner=this,service=this._canonicalAuthorService
     this._enqueueCanonicalSource(session,function*(){
       const source=session.source!
+      // Unresolved service reactions retain only this detachable outcome cell.
+      const outcome:CanonicalBeginOutcome={active:true}
       try{
         owner._assertCanonicalSource(session)
         const isCurrent=()=>{try{owner._assertCanonicalSource(session);return true}catch{return false}}
-        Promise.resolve(service.begin(request,{signal:controller.signal,isCurrent})).then(value=>{if(!source.closed)source.outcome={value}},error=>{if(!source.closed)source.outcome={error}})
-        const deadline=performance.now()+5000
-        while(!source.outcome){owner._assertCanonicalSource(session);if(performance.now()>deadline)throw new Error('Canonical BEGIN timed out');yield}
-        if('error'in source.outcome)throw source.outcome.error
-        const result=source.outcome.value
+        const promise=service.begin(request,{signal:controller.signal,isCurrent})
+        observeCanonicalBegin(promise,outcome)
+        yield {kind:'author-input-wait',promise,deadline:performance.now()+5000,timeoutError:new Error('Canonical BEGIN timed out')}
+        owner._assertCanonicalSource(session)
+        const result=outcome.value
+        if(!result)throw new Error('Canonical BEGIN result unavailable')
         if(!result.ok||result.recordedNext!==0||result.liveNext!==0||result.ended||!('materialVersion'in result.snapshot)||result.snapshot.materialVersion!==2)throw new Error('Canonical BEGIN unavailable/resume unsupported')
         const s=result.snapshot,policy=canonicalSourceComposition(prepared.descriptor,prepared.owner.plan.profile)
         if(s.layerId!==request.layerId||s.brush!==request.brush||s.strokeId!==request.strokeId||s.boardEpoch!==prepared.owner.plan.scope.boardEpoch||s.descriptorSha256!==prepared.sha||s.rasterProfile!==prepared.owner.plan.profile||!canonicalSoftAutoDataEqual(s.pigmentRgb8,request.pigmentRgb8)||s.composition.mode!==policy?.mode||s.composition.outerBlend!==policy.outerBlend||s.composition.alphaDarken!==request.alphaDarken||s.composition.outerResourceOpacity!==request.outerResourceOpacity||s.material.maskSource||!canonicalSoftAutoDataEqual(s.assets,prepared.material.kind==='image'?prepared.material.pin.assets:[])||!canonicalSoftAutoDataEqual(s.material.assets,prepared.material.kind==='image'?prepared.material.pin.assets:[])||!canonicalSoftAutoDataEqual(s.material.primarySource,prepared.material.kind==='image'?prepared.material.pin.primarySource:prepared.material.pin))throw new Error('Canonical BEGIN source mismatch')
@@ -8040,6 +8048,7 @@ export class PencilEngine implements PencilEngineAPI {
         yield* owner._acceptCanonicalChunks(session,source.adapter!.beginInput(source.state))
         yield* owner._consumeCanonicalSource(session,source.author.plan(source.state,owner._canonicalPacket(session,captured)))
       }catch(error){if(!session.source!.partialCancel||error!==session.source!.partialCancel){owner._closeCanonicalSource(session,{error});throw error}}
+      finally{outcome.active=false;outcome.value=undefined}
     })
   }
   private _onCanonicalMove(input:PointerData):void {
