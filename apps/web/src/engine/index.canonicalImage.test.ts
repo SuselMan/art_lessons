@@ -120,7 +120,7 @@ it.each(['mountains','graphite'] as const)('restores the original %s whole frame
  const pipe=pipeTrace(name),p=original(()=>true,false,pipe),packed=pipe.operations.map(op=>op.frame.materialPacked),authorPlan=vi.spyOn(SourceStrokeAuthor.prototype,'plan'),{engine}=engineFor(p)
  try{
   await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
-  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,ids=new Set(bank.jobs.map(job=>job.resource.id))
+  const owner=engine['_canonicalLayerOwner']!,bank=owner.bank!,ids=new Set(bank.jobs.map(job=>{if(job.kind!=='native-image')throw new Error('Expected native image source');return job.resource.id}))
   expect(ids).toEqual(new Set(pipe.snapshot.assets.map(a=>a.id)));expect(bank.jobs).toHaveLength(pipe.snapshot.assets.length*(name==='mountains'?11:6))
   expect(engine['_log'].entries.map(e=>e.canonicalInput)).toEqual(p.canonicalRead.preparedAtoms)
   expect(engine['_canonicalExportReady']()).toBe(true)
@@ -128,7 +128,7 @@ it.each(['mountains','graphite'] as const)('restores the original %s whole frame
   engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));lost.mockReturnValue(false);engine['_handleContextRestored']()
   await vi.waitFor(()=>expect(engine['_canonicalPixelsReady']).toBe(true),{timeout:20000})
   expect(engine['_log'].entries).toBe(entries);expect(engine['_log'].revision).toBe(revision);expect(pipe.operations.map(op=>op.frame.materialPacked)).toEqual(packed)
-  expect(new Set(engine['_canonicalLayerOwner']!.bank!.jobs.map(job=>job.resource.id))).toEqual(ids);expect(authorPlan).not.toHaveBeenCalled()
+  expect(new Set(engine['_canonicalLayerOwner']!.bank!.jobs.map(job=>{if(job.kind!=='native-image')throw new Error('Expected native image source');return job.resource.id}))).toEqual(ids);expect(authorPlan).not.toHaveBeenCalled()
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },30000)
 it('prepares all original pipe frames while open and appends the exact selected recorded recipes without reselecting',async()=>{

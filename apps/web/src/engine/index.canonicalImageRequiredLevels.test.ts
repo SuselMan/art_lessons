@@ -82,7 +82,7 @@ it('merges two synthetic original pins sharing one CAS crop at different admitte
  const first=captures()[0],primarySource={...first.pin.primarySource,brushScale:.1},material={...first.snapshot.material,primarySource}
  const second={...first,pin:{...first.pin,primarySource},snapshot:{...first.snapshot,strokeId:'second-native-size',material}}
  const p=original([first,second]),{engine}=engineFor(p)
- try{await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);const bank=engine['_canonicalLayerOwner']!.bank!;expect(bank.jobs).toHaveLength(6);expect(bank.gpuBytes).toBe(2580);expect(new Set(bank.jobs.map(j=>j.resource.id))).toEqual(new Set([first.pin.assets[0].id]));expect(engine['_log'].entries.map(e=>e.canonicalInput)).toEqual(p.canonicalRead.preparedAtoms)}finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+ try{await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);const bank=engine['_canonicalLayerOwner']!.bank!;expect(bank.jobs).toHaveLength(6);expect(bank.gpuBytes).toBe(2580);expect(new Set(bank.jobs.map(j=>{if(j.kind!=='native-image')throw new Error('Expected native image source');return j.resource.id}))).toEqual(new Set([first.pin.assets[0].id]));expect(engine['_log'].entries.map(e=>e.canonicalInput)).toEqual(p.canonicalRead.preparedAtoms)}finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
 it.each([false,true])('retains the whole source suffix union across original undo and redo metadata (redo=%s)',async redo=>{
  const cs=captures(),tail:Operation[]=cs.flatMap((c,i)=>operations(c,i*2)),targetOpId=tail[0].id
