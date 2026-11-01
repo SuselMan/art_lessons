@@ -238,7 +238,7 @@ export class CanonicalRoomTransport {
           const selectedCut=completedCut,selectedStreamId=parentStreamId
           let before=selectedCut+1
           while(true){
-            const roots=await getCanonicalIndexedActorRootRows(roomId,selectedCut,userId,before,afterRead)
+            const roots=await getCanonicalIndexedActorRootRows(roomId,selectedCut,userId,before,afterRead,action)
             assertOrigin(this);if(!roots.length)return null
             for(const row of roots){
               const first=projectCanonicalIndexedHistoryRow(roomId,row)

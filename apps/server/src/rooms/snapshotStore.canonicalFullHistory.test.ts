@@ -3,7 +3,7 @@ import type {CanonicalStrokeOperation} from '@grafetto/shared'
 const db=vi.hoisted(()=>({$transaction:vi.fn(),operation:{findMany:vi.fn()},$queryRawUnsafe:vi.fn(),$executeRawUnsafe:vi.fn()}))
 db.$transaction=vi.fn(async(run:(connection:typeof db)=>Promise<unknown>)=>run(db))
 vi.mock('../db/prisma.js',()=>({prisma:db}))
-import {getCanonicalFullHistoryWithRows,getCanonicalIndexedHistoryPageRows,validateCanonicalIndexedHistoryRows} from './snapshotStore.js'
+import {getCanonicalFullHistoryWithRows,getCanonicalIndexedActorRootRows,getCanonicalIndexedHistoryPageRows,validateCanonicalIndexedHistoryRows} from './snapshotStore.js'
 import {prisma as typedMain} from '../db/prisma.js'
 import {canonicalOperationRowSelect} from './roomPersistence.js'
 const op=(n:number):CanonicalStrokeOperation=>({id:'frame'+n,seq:n,userId:n%2?'A':'B',timestamp:0,type:'canonical_stroke',layerId:'L',frame:{version:1,rasterProfile:'installed-arm64-scalar-fused-fpcr0-v1',brush:'brush:test@1',strokeId:'S',frameOrdinal:0,pigmentRgb8:[1,2,3],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'},materialPacked:'2|query-only evidence, decoded by owner'}})
@@ -139,4 +139,24 @@ it('does not nest main transactions or rewrite limits on the existing validation
  const validation={operation:typedMain.operation,$queryRawUnsafe:typedMain.$queryRawUnsafe,$executeRawUnsafe:typedMain.$executeRawUnsafe}
  expect(await getCanonicalIndexedHistoryPageRows('room',0,0,async()=>{},validation)).toMatchObject({terminal:true})
  expect(db.$transaction).not.toHaveBeenCalled();expect(db.$executeRawUnsafe).not.toHaveBeenCalled()
+})
+
+
+it('bounds candidate bodies before loading and advances the keyset only over returned original rows',async()=>{
+ const originals=[4,3,2].map(n=>row({...op(n),userId:'A'})),scalars=originals.map(r=>({id:r.id,seq:r.seq,type:r.type,bytes:2*1024*1024-64}))
+ db.$queryRawUnsafe.mockImplementation(async(_sql:string,...parameters:unknown[])=>scalars.filter(r=>r.seq<(parameters[3] as number)))
+ db.operation.findMany.mockImplementation(async({where})=>originals.filter(r=>where.id.in.includes(r.id)).sort((a,b)=>a.seq-b.seq))
+ const after=vi.fn(async()=>{})
+ const first=await getCanonicalIndexedActorRootRows('room',4,'A',5,after,'undo')
+ expect(first.map(r=>r.seq)).toEqual([4,3])
+ expect(db.operation.findMany.mock.calls[0][0].where.id.in).toEqual(['frame3','frame4'])
+ expect(db.$queryRawUnsafe.mock.calls[0].slice(1)).toEqual(['room',4,'A',5,'undo'])
+ const second=await getCanonicalIndexedActorRootRows('room',4,'A',first.at(-1)!.seq,after,'undo')
+ expect(second.map(r=>r.seq)).toEqual([2])
+ const primary=Error('revoked before actual candidate body');db.operation.findMany.mockClear()
+ await expect(getCanonicalIndexedActorRootRows('room',4,'A',5,async()=>{throw primary},'redo')).rejects.toBe(primary)
+ expect(db.operation.findMany).not.toHaveBeenCalled()
+ db.$queryRawUnsafe.mockResolvedValue([{id:'oversize',seq:4,type:'canonical_stroke',bytes:4*1024*1024+1}])
+ await expect(getCanonicalIndexedActorRootRows('room',4,'A',5,async()=>{},'undo')).rejects.toThrow()
+ expect(db.operation.findMany).not.toHaveBeenCalled()
 })

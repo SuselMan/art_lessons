@@ -1262,12 +1262,19 @@ async function indexedReadFixture(){
  db.$queryRawUnsafe.mockImplementation(async(sql:string,...parameters:unknown[])=>{
   const scalar=(row:import('./roomPersistence.js').CanonicalStoredOperationRow)=>({id:row.id,seq:row.seq,type:row.type,bytes:Buffer.byteLength(JSON.stringify(row.data),'utf8')})
   if(sql.startsWith('FETCH ')){const selected=persisted.filter(row=>row.seq<=portalCut).slice(portalCursor,portalCursor+64);portalCursor+=selected.length;return selected.map(scalar)}
-  if(sql.includes("'firstUndoAfterLatestRedo'")){
-   const cut=parameters[1] as number,user=parameters[2],stroke=parameters[3],ordered=persisted.filter(row=>row.seq<=cut).sort((a,b)=>a.seq-b.seq),members=new Set<string>(),metadata:typeof persisted=[]
+  const rootEffects=(cut:number,user:unknown,stroke:unknown)=>{
+   const ordered=persisted.filter(row=>row.seq<=cut).sort((a,b)=>a.seq-b.seq),members=new Set<string>(),metadata:typeof persisted=[]
    for(const row of ordered){const op=row.data as import('@grafetto/shared').Operation;if(row.userId!==user)continue;if(op.type==='canonical_stroke'&&op.frame.strokeId===stroke)members.add(row.id);else if((op.type==='operation_undo'||op.type==='operation_redo')&&members.has(op.targetOpId)){members.add(row.id);metadata.push(row)}}
    const redo=metadata.filter(row=>row.type==='operation_redo').at(-1),undo=metadata.find(row=>row.type==='operation_undo'&&row.seq>(redo?.seq??0)),branch=undo&&ordered.find(row=>row.userId===user&&row.seq>undo.seq&&row.type==='canonical_stroke'&&(row.data as import('@grafetto/shared').CanonicalStrokeOperation).frame.frameOrdinal===0)
-   return [['firstMetadata',metadata[0]],['lastMetadata',metadata.at(-1)],['latestRedo',redo],['firstUndoAfterLatestRedo',undo],['ownBranchAfterUndo',branch]].flatMap(([role,row])=>typeof row==='object'&&row?[{role,id:row.id,seq:row.seq}]:[])
+   return {firstMetadata:metadata[0],lastMetadata:metadata.at(-1),latestRedo:redo,firstUndoAfterLatestRedo:undo,ownBranchAfterUndo:branch}
   }
+  if(sql.includes("'firstUndoAfterLatestRedo'"))return Object.entries(rootEffects(parameters[1] as number,parameters[2],parameters[3])).flatMap(([role,row])=>row?[{role,id:row.id,seq:row.seq}]:[])
+  if(sql.includes('effects.candidate'))return persisted.filter(row=>{
+   const op=row.data as import('@grafetto/shared').Operation
+   if(row.seq>(parameters[1] as number)||row.seq>=(parameters[3] as number)||row.userId!==parameters[2]||op.type!=='canonical_stroke'||op.frame.frameOrdinal!==0)return false
+   const effect=rootEffects(parameters[1] as number,row.userId,op.frame.strokeId),hidden=effect.lastMetadata?.type==='operation_undo'
+   return parameters[4]==='undo'?!hidden:hidden&&!!effect.firstUndoAfterLatestRedo&&!effect.ownBranchAfterUndo
+  }).sort((a,b)=>b.seq-a.seq).slice(0,64).map(scalar)
   if(sql.startsWith('SELECT id,seq,type,octet_length'))return persisted.filter(row=>{
    if(sql.includes('AND id=$3::text'))return row.id===parameters[2]&&row.seq<=(parameters[1] as number)
    if(sql.includes('ORDER BY seq DESC'))return row.seq<=(parameters[1] as number)&&row.userId===parameters[2]&&row.seq<(parameters[3] as number)&&(row.data as import('@grafetto/shared').CanonicalStrokeOperation).frame?.frameOrdinal===0
@@ -1570,3 +1577,31 @@ it.each(['healthy','new-seat','policy','revoked'] as const)('checks %s while sea
   expect(access.preparation.commit().ok).toBe(true)
  }finally{leaveRoom('board','peer','orphan-peer-seat');leaveRoom('board','student','orphan-new-seat');leaveRoom('board','author','orphan-new-seat');leaveRoom('board','author','indexed-source-seat')}
 })
+
+it('selects an original eligible root behind hidden roots while OPEN candidates still require actual evidence',async()=>{
+ const f=await indexedReadFixture(),writer=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'})
+ try{
+  for(let gesture=0;gesture<70;gesture++){
+   const input={...f.input,strokeId:`hidden-select-${gesture}`},s=snapshot(await writer.begin(identity,input,()=>true)),encoded=frames(f.descriptor,s,1)
+   for(let ordinal=0;ordinal<encoded.length;ordinal++)expect((await writer.recorded(identity,{type:'canonical_stroke',id:`hidden-select-${gesture}-${ordinal}`,userId:'author',timestamp:gesture,layerId:input.layerId,frame:encoded[ordinal]},()=>true)).result.ok).toBe(true)
+   expect(await writer.metadata(identity,{type:'operation_undo',id:`hide-select-${gesture}`,userId:'author',timestamp:gesture,targetOpId:`hidden-select-${gesture}-0`},()=>true)).toMatchObject({result:{ok:true}})
+  }
+  const openInput={...f.input,strokeId:'open-select'},openSnapshot=snapshot(await writer.begin(identity,openInput,()=>true)),prefix=frames(f.descriptor,openSnapshot,1).slice(0,-1)
+  for(let ordinal=0;ordinal<prefix.length;ordinal++)expect((await writer.recorded(identity,{type:'canonical_stroke',id:`open-select-${ordinal}`,userId:'author',timestamp:80,layerId:openInput.layerId,frame:prefix[ordinal]},()=>true)).result.ok).toBe(true)
+  const seat=captureCurrentRoomSeat('board','author','indexed-source-seat')
+  if(!seat)throw Error('Missing actual selection seat')
+  const transport=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'}),read=await transport.openIndexedHistory(identity,transport.createIndexedHistoryOffer('board'),seat,()=>true)
+  let after=0
+  while(true){const page=await read.next(after);after=page.nextAfterSeq;if(page.terminal)break}
+  const effectQueries=()=>db.$queryRawUnsafe.mock.calls.filter(([sql])=>sql.includes("'firstUndoAfterLatestRedo'")).length,before=effectQueries()
+  const selected=await read.select('undo')
+  expect(selected?.targetOperationId).toBe(f.persisted[0].id)
+  expect(selected?.evidence.rows[selected.evidence.first].id).toBe(f.persisted[0].id)
+  expect(selected?.evidence.terminal).not.toBeNull()
+  expect(selected?.evidence.canonicalCapabilities?.bindings.length).toBeGreaterThan(0)
+  // One real OPEN candidate and the actual selected old root; hidden roots
+  // never invoke prefix/effect evidence after the metadata prefilter.
+  expect(effectQueries()-before).toBe(2)
+  expect(writer['lifetimes'].get('board')?.sessions.get(JSON.stringify(['board','author','open-select']))?.admission.cursor(identity,'open-select').ended).toBe(false)
+ }finally{leaveRoom('board','author','indexed-source-seat')}
+},15000)

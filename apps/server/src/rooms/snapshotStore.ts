@@ -5,7 +5,7 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
 import {CANONICAL_RECORDED_ATTACHMENT_LIMITS} from '@grafetto/shared'
-import type { Operation, RecordedCanonicalStrokeCloseOperation,CanonicalStrokeOperation } from '@grafetto/shared'
+import type { Operation, RecordedCanonicalStrokeCloseOperation,CanonicalStrokeOperation,CanonicalHistoryAction } from '@grafetto/shared'
 
 import { canonicalOperationRowSelect,captureCanonicalMetadata,verifyCanonicalMetadataRow,verifyCanonicalOperationRow,projectCanonicalIndexedOperation,projectCanonicalIndexedCloseOperation,type CanonicalStoredOperationRow } from './roomPersistence.js'
 import { immutableCanonicalOperation } from './operationLog.js'
@@ -621,16 +621,69 @@ export function projectCanonicalIndexedHistoryRow(roomId:string,row:CanonicalSto
  if(Buffer.byteLength(JSON.stringify(operation),'utf8')>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes)throw new CanonicalGesturePrefixError()
  return operation
 }
-/** Untrusted root IDs are size/filter checked before retrieving JSON. The
- * global proof for C cannot bound an arbitrary foreign ID outside that cut. */
+/** Metadata-only candidate filter, not visibility/read/paint authority. Seed
+ * ALL original frames so metadata targeting middle-frame aliases is included.
+ * The existing source/effect evidence and owner checks still decide selection. */
+const CANONICAL_INDEXED_ACTOR_CANDIDATES_SQL=`SELECT r.id,r.seq,r.type,octet_length(r.data::text) AS bytes
+FROM "Operation" r
+CROSS JOIN LATERAL (
+ WITH RECURSIVE reached AS (
+  SELECT o.id,o.seq,o."userId"
+  FROM "Operation" o
+  WHERE o."roomId"=$1::text AND o.type='canonical_stroke'
+   AND o.seq<=$2::int AND o."userId"=$3::text
+   AND o.data#>>'{frame,strokeId}'=r.data#>>'{frame,strokeId}'
+  UNION ALL
+  SELECT m.id,m.seq,m."userId" FROM reached x
+  JOIN LATERAL (
+   SELECT o.id,o.seq,o."userId" FROM "Operation" o
+   WHERE o."roomId"=$1::text
+    AND o.type IN ('operation_undo','operation_redo')
+    AND o.data->>'targetOpId'=x.id AND o."userId"=x."userId"
+    AND o.seq>x.seq AND o.seq<=$2::int OFFSET 0
+  ) m ON true
+ ), metadata AS (
+  SELECT o.id,o.seq,o.type FROM reached x
+  JOIN "Operation" o ON o.id=x.id
+  WHERE o.type IN ('operation_undo','operation_redo')
+ ), latest AS (
+  SELECT type FROM metadata ORDER BY seq DESC LIMIT 1
+ ), latest_redo AS (
+  SELECT seq FROM metadata WHERE type='operation_redo'
+  ORDER BY seq DESC LIMIT 1
+ ), first_undo AS (
+  SELECT seq FROM metadata WHERE type='operation_undo'
+   AND seq>coalesce((SELECT seq FROM latest_redo),0)
+  ORDER BY seq LIMIT 1
+ )
+ SELECT
+  (($5::text='undo' AND NOT EXISTS (
+    SELECT 1 FROM latest WHERE type='operation_undo'))
+   OR ($5::text='redo' AND EXISTS (
+    SELECT 1 FROM latest WHERE type='operation_undo')
+    AND EXISTS (SELECT 1 FROM first_undo)
+    AND NOT EXISTS (
+     SELECT 1 FROM "Operation" b WHERE b."roomId"=$1::text
+      AND b."userId"=$3::text AND b.type='canonical_stroke'
+      AND b.data#>>'{frame,frameOrdinal}'='0'
+      AND b.seq>(SELECT seq FROM first_undo) AND b.seq<=$2::int
+    ))) AS candidate
+) effects
+WHERE r."roomId"=$1::text AND r.seq<=$2::int
+ AND r."userId"=$3::text AND r.seq<$4::int
+ AND r.type='canonical_stroke' AND r.data#>>'{frame,frameOrdinal}'='0'
+ AND effects.candidate
+ORDER BY r.seq DESC LIMIT 64`
 /** Latest actor roots from the same original partial index. Payload sizing
  * precedes JSON bodies even when the keyset direction is descending. */
-export async function getCanonicalIndexedActorRootRows(roomId:string,throughSeq:number,userId:string,beforeSeq:number,afterRead:()=>Promise<void>,database:CanonicalIndexedDatabase=prisma):Promise<readonly CanonicalStoredOperationRow[]>{
- const scalars=await indexedQuery(database,connection=>connection.$queryRawUnsafe<readonly CanonicalIndexedScalarRow[]>(`SELECT id,seq,type,octet_length(data::text) AS bytes FROM "Operation" WHERE "roomId"=$1::text AND seq<=$2::int AND "userId"=$3::text AND seq<$4::int AND type='canonical_stroke' AND data#>>'{frame,frameOrdinal}'='0' ORDER BY seq DESC LIMIT 64`,roomId,throughSeq,userId,beforeSeq))
+export async function getCanonicalIndexedActorRootRows(roomId:string,throughSeq:number,userId:string,beforeSeq:number,afterRead:()=>Promise<void>,action:CanonicalHistoryAction,database:CanonicalIndexedDatabase=prisma):Promise<readonly CanonicalStoredOperationRow[]>{
+ const scalars=await indexedQuery(database,connection=>connection.$queryRawUnsafe<readonly CanonicalIndexedScalarRow[]>(CANONICAL_INDEXED_ACTOR_CANDIDATES_SQL,roomId,throughSeq,userId,beforeSeq,action))
  await afterRead()
  const chosen=indexedBodyPrefix(scalars,'desc')
  return [...await loadIndexedBodyPrefix(roomId,[...chosen].reverse(),afterRead,database)].reverse()
 }
+/** Untrusted root IDs are size/filter checked before retrieving JSON. The
+ * global proof for C cannot bound an arbitrary foreign ID outside that cut. */
 export async function getCanonicalIndexedOriginalRowById(roomId:string,throughSeq:number,id:string,afterRead:()=>Promise<void>,database:CanonicalIndexedDatabase=prisma):Promise<CanonicalStoredOperationRow|undefined>{
  const scalars=await indexedQuery(database,connection=>connection.$queryRawUnsafe<readonly CanonicalIndexedScalarRow[]>('SELECT id,seq,type,octet_length(data::text) AS bytes FROM "Operation" WHERE "roomId"=$1::text AND seq<=$2::int AND id=$3::text',roomId,throughSeq,id))
  await afterRead()
