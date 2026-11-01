@@ -1,4 +1,5 @@
-import { canonicalTexturedSourceMaterialContext, type CanonicalMaterialContextV4, CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE } from '@grafetto/shared'
+import { canonicalPressureTexturedSourceMaterialContext, type CanonicalMaterialContextV5, type SourceTexturePressureProgramData, canonicalTexturedSourceMaterialContext, type CanonicalMaterialContextV4, CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE } from '@grafetto/shared'
+import { sourceStandardOption } from './sourceOption'
 import { sourceRotationMixDegrees } from './sourceRotationMix'
 import { SourceDistanceTiming, sourceTimingInterval, type SourceSpacing } from '../dabs/sourceDistanceTiming'
 import { sourceDrawingDirection, sourceFanRequests, shortestSourceTurn } from '../input/kritaStrokeInput'
@@ -25,8 +26,10 @@ export interface SourceAuthorRoleProgram {
   readonly imagePipe?: {readonly mode:'incremental'|'random';readonly frames:readonly string[]}
   readonly material: Omit<SourceDabCacheRequest, 'x' | 'y' | 'shape'>
   /** Current supported material law; active extra consumers must be rejected. */
-  readonly textureProgram?:{readonly strength:'pressure-identity-v1'}|{readonly strength:'fixed-one-v1';readonly context:CanonicalMaterialContextV4}
-  readonly materialPolicy: 'default-auto-fixed-texture-v1' | 'png-pressure-texture-v1' | 'png-fixed1-rng-free' | 'default-auto-fixed1-rng-free' | 'default-auto-fixed1-seeded-density-v1' | 'gaussian-auto-fixed1-rng-free' | 'soft-auto-fixed1-rng-free'
+  readonly materialCpuBytes?:number;readonly materialCpuBudgetBytes?:number
+  readonly materialProgram?:SourceTexturePressureProgramData
+  readonly textureProgram?:{readonly strength:'source-pressure-curve-v1';readonly context:CanonicalMaterialContextV5}|{readonly strength:'pressure-identity-v1'}|{readonly strength:'fixed-one-v1';readonly context:CanonicalMaterialContextV4}
+  readonly materialPolicy: 'default-auto-pressure-texture-v1' | 'default-auto-fixed-texture-v1' | 'png-pressure-texture-v1' | 'png-fixed1-rng-free' | 'default-auto-fixed1-rng-free' | 'default-auto-fixed1-seeded-density-v1' | 'gaussian-auto-fixed1-rng-free' | 'soft-auto-fixed1-rng-free'
   readonly lodScale: number
   readonly scatterX: boolean; readonly scatterY: boolean
   readonly mirrorX: boolean; readonly mirrorY: boolean; readonly indirectPainting: boolean
@@ -79,6 +82,7 @@ export interface SourceStrokeAuthorStep {
   readonly query?: 'paint' | 'spacing' | 'timing'
   readonly sourceAngle?: number; readonly sourceTime?: number; readonly logicalSequence?: number
   readonly packet?: SourceAuthorPacket
+  readonly materialStrength?:number
   readonly result?: SourceStampResult
   readonly state: SourceStrokeAuthorState
 }
@@ -130,33 +134,71 @@ function spacing(program: SourceAuthorRoleProgram,r: SourceStampResult): SourceS
  * partially consumed segment. Consumers may stop at any yield and resume/fork.
  * Query events are NOT render dabs. No RNG is evaluated by replay here.
  */
+
+/** Conservative declared extra metadata, not literal JS heap/GPU work units.
+ * Caller reserves through SAME existing CPU owner BEFORE author preparation. */
+export function sourcePressureMaterialProgramCpuBytes(program:SourceTexturePressureProgramData):number {
+  const own=(value:unknown,names:readonly string[]):Record<string,unknown>=>{
+    if(!value||typeof value!=='object'||Array.isArray(value)||![Object.prototype,null].includes(Object.getPrototypeOf(value)))throw new RangeError('Invalid pressure material DATA')
+    const keys=Reflect.ownKeys(value)
+    if(keys.length!==names.length||keys.some(k=>typeof k!=='string'||!names.includes(k)))throw new RangeError('Invalid pressure material fields')
+    const out:Record<string,unknown>=Object.create(null)
+    for(const key of names){const d=Object.getOwnPropertyDescriptor(value,key);if(!d||!Object.hasOwn(d,'value'))throw new RangeError('Pressure material accessor');out[key]=d.value}
+    return out
+  }
+  const dense=(value:unknown,min:number,max:number):unknown[]=>{
+    if(!Array.isArray(value)||Object.getPrototypeOf(value)!==Array.prototype)throw new RangeError('Pressure material array')
+    const field=Object.getOwnPropertyDescriptor(value,'length'),length:unknown=field&&Object.hasOwn(field,'value')?field.value:undefined
+    if(typeof length!=='number'||!Number.isSafeInteger(length)||length<min||length>max||Reflect.ownKeys(value).length!==length+1)throw new RangeError('Pressure material array')
+    const result:unknown[]=[]
+    for(let i=0;i<length;i++){const d=Object.getOwnPropertyDescriptor(value,String(i));if(!d||!Object.hasOwn(d,'value'))throw new RangeError('Pressure material accessor');result.push(d.value)}
+    return result
+  }
+  const p=own(program,['kind','reader','profile','buildId','curve']),c=own(p.curve,['source','coefficients']),source=own(c.source,['text','points'])
+  if(p.kind!=='texture-pressure-curve-v1'||p.reader!=='krita-bd6e8d0-v1'||p.profile!=='eigen-5.0.1-mapped-arm64-f64-v3'||typeof p.buildId!=='string'||!/^[a-f0-9]{64}$/.test(p.buildId)||typeof source.text!=='string'||source.text.length>65536)throw new RangeError('Invalid pressure material program')
+  const points=dense(source.points,2,9),coefficients=dense(c.coefficients,1,8)
+  if(coefficients.length!==points.length-1)throw new RangeError('Invalid pressure material coefficients')
+  let last=-1
+  for(let i=0;i<points.length;i++){const point=own(points[i],['x','y','corner']);if(typeof point.x!=='number'||typeof point.y!=='number'||!Number.isFinite(point.x)||!Number.isFinite(point.y)||point.x<0||point.x>1||point.y<0||point.y>1||point.x<=last||typeof point.corner!=='boolean'||(i===0||i===points.length-1)&&point.corner)throw new RangeError('Invalid pressure material curve');last=point.x}
+  for(let i=0;i<coefficients.length;i++){const row=dense(coefficients[i],4,4);for(let j=0;j<4;j++)if(typeof row[j]!=='number'||!Number.isFinite(row[j]))throw new RangeError('Invalid pressure material coefficients')}
+  // Two bounded owned program copies + transient source transfer preparation,
+  // ONE retained256-entry table and object/array overhead. No global cache.
+  return 32768+source.text.length*4+points.length*256+coefficients.length*256
+}
 export class SourceStrokeAuthor {
   private readonly program: SourceStrokeAuthorProgram
   private readonly options: readonly Readonly<Record<SourceStampOptionId, SourceOptionProgram>>[]
+  private readonly materialOptions:readonly (SourceOptionProgram|undefined)[]
   constructor(program: SourceStrokeAuthorProgram) {
     if(!program.id || program.roles.length<1 || program.roles.length>2 || program.roles[0].id!=='primary'
       || program.roles.length===2 && program.roles[1].id!=='mask') throw new RangeError('Invalid author source roles')
     if(program.inputProfile!==undefined && (program.inputProfile!=='krita-freehand-no-smoothing-v1' || program.roles.length!==1)) {
       throw new RangeError('Unsupported native freehand input profile/roles')
     }
+    for(const role of program.roles){if(role.materialPolicy==='default-auto-pressure-texture-v1'){const field=Object.getOwnPropertyDescriptor(role,'materialProgram'),declared=Object.getOwnPropertyDescriptor(role,'materialCpuBytes'),allowance=Object.getOwnPropertyDescriptor(role,'materialCpuBudgetBytes');if(!field||!Object.hasOwn(field,'value')||!declared||!Object.hasOwn(declared,'value')||!allowance||!Object.hasOwn(allowance,'value'))throw new RangeError('pressure-material-cpu-budget');const bytes=sourcePressureMaterialProgramCpuBytes(field.value);if(declared.value!==bytes||!Number.isSafeInteger(allowance.value)||allowance.value<bytes)throw new RangeError('pressure-material-cpu-budget')}else if(role.materialProgram!==undefined||role.materialCpuBytes!==undefined||role.materialCpuBudgetBytes!==undefined)throw new RangeError('Unexpected material program')}
     this.program=freeze(structuredClone(program))
     this.options=this.program.roles.map(role=>{
       if(role.material.imagePipe!==undefined)throw new RangeError('Pipe selection must belong to the author role')
       if(role.imagePipe&&(!['incremental','random'].includes(role.imagePipe.mode)||role.imagePipe.frames.length<2||role.imagePipe.frames.length>256
         ||role.imagePipe.frames[0]!==role.material.brushIdentity||role.imagePipe.frames.some(v=>!/^asset:[a-f0-9]{64}$/.test(v))
         ||role.materialPolicy!=='png-fixed1-rng-free'||role.geometry&&role.geometry.kind!=='image'))throw new RangeError('Invalid incremental image pipe')
+      const pressureTexture=role.materialPolicy==='default-auto-pressure-texture-v1'
       const fixedTexture=role.materialPolicy==='default-auto-fixed-texture-v1',texture=role.materialPolicy==='png-pressure-texture-v1'
-      if(fixedTexture){
+      if(pressureTexture){
+        if(role.id!=='primary'||this.program.roles.length!==1||role.imagePipe||role.geometry?.kind!=='defaultAuto'||role.geometry.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||role.geometry.source.density!==1||role.geometry.source.randomness!==0||role.geometry.source.spikes!==2||!role.material.textureEnabled||!role.textureProgram||role.textureProgram.strength!=='source-pressure-curve-v1'||Object.keys(role.textureProgram).length!==2||!role.materialProgram||role.materialProgram.kind!=='texture-pressure-curve-v1')throw new RangeError('Unsupported pressure source texture program')
+        canonicalPressureTexturedSourceMaterialContext(role.textureProgram.context)
+      }else if(fixedTexture){
         if(role.id!=='primary'||this.program.roles.length!==1||role.imagePipe||role.geometry?.kind!=='defaultAuto'
           ||role.geometry.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||role.geometry.source.density!==1||role.geometry.source.randomness!==0||role.geometry.source.spikes!==2
           ||!role.material.textureEnabled||!role.textureProgram||Object.keys(role.textureProgram).length!==2||role.textureProgram.strength!=='fixed-one-v1')throw new RangeError('Unsupported fixed source texture program')
         canonicalTexturedSourceMaterialContext(role.textureProgram.context)
       }else if(texture?(role.id!=='primary'||this.program.roles.length!==1||role.imagePipe!==undefined||role.geometry&&role.geometry.kind!=='image'||!role.material.textureEnabled||!role.textureProgram||Object.keys(role.textureProgram).length!==1||role.textureProgram.strength!=='pressure-identity-v1'):role.textureProgram!==undefined)throw new RangeError('Unsupported source texture program')
+      if(!pressureTexture&&role.materialProgram!==undefined)throw new RangeError('Unexpected material program')
       const seededDensity=role.materialPolicy==='default-auto-fixed1-seeded-density-v1'
       if(seededDensity&&(role.id!=='primary'||this.program.roles.length!==1||role.geometry?.kind!=='defaultAuto'||role.geometry.coverageProfile!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||role.geometry.source.density!==1&&role.material.supportsCaching))throw new RangeError('Unsupported density material program')
       if(role.geometry?.kind==='defaultAuto'&&(role.geometry.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)!==seededDensity)throw new RangeError('Density profile/policy mismatch')
-      if(!['default-auto-fixed-texture-v1','png-pressure-texture-v1','png-fixed1-rng-free','default-auto-fixed1-rng-free','default-auto-fixed1-seeded-density-v1','gaussian-auto-fixed1-rng-free','soft-auto-fixed1-rng-free'].includes(role.materialPolicy)
-        || (role.geometry?.kind==='defaultAuto')!==(role.materialPolicy==='default-auto-fixed1-rng-free'||seededDensity||fixedTexture)
+      if(!['default-auto-pressure-texture-v1','default-auto-fixed-texture-v1','png-pressure-texture-v1','png-fixed1-rng-free','default-auto-fixed1-rng-free','default-auto-fixed1-seeded-density-v1','gaussian-auto-fixed1-rng-free','soft-auto-fixed1-rng-free'].includes(role.materialPolicy)
+        || (role.geometry?.kind==='defaultAuto')!==(role.materialPolicy==='default-auto-fixed1-rng-free'||seededDensity||fixedTexture||pressureTexture)
         || (role.geometry?.kind==='gaussianAuto')!==(role.materialPolicy==='gaussian-auto-fixed1-rng-free') || (role.geometry?.kind==='softAuto')!==(role.materialPolicy==='soft-auto-fixed1-rng-free') || role.material.softness!==1 || role.material.lightness!==1
         || role.material.sharpnessChecked || !Number.isFinite(role.lodScale) || role.lodScale<=0
         || ![role.spacing.value,role.spacing.coefficient,role.spacingRefreshMs,role.timingRefreshMs].every(v=>Number.isFinite(v)&&v>=0)
@@ -173,6 +215,14 @@ export class SourceStrokeAuthor {
         if(!option || option.id!==id)throw new RangeError('Missing source option program')
         return [id,compileSourceOptionProgram(option)]
       })) as unknown as Readonly<Record<SourceStampOptionId, SourceOptionProgram>>
+    })
+    this.materialOptions=this.program.roles.map(role=>{
+      const material=role.materialProgram
+      if(!material)return undefined
+      const curve=material.curve
+      if(material.kind!=='texture-pressure-curve-v1'||material.profile!=='eigen-5.0.1-mapped-arm64-f64-v3'||material.reader!=='krita-bd6e8d0-v1'||!/^[a-f0-9]{64}$/.test(material.buildId))throw new RangeError('Invalid pressure material program')
+      return compileSourceOptionProgram({id:'TextureStrength',checked:true,useCurve:true,curveMode:0,strength:1,min:0,max:1,
+        sensors:[{id:'pressure',curve:{points:curve.source.points,coefficients:curve.coefficients,arithmetic:'installed-arm64-fused-v1'}}]})
     })
   }
   createState(sequentialSeed:number,perStrokeSeed:number,initialAngle:number):SourceStrokeAuthorState {
@@ -370,7 +420,10 @@ export class SourceStrokeAuthor {
       }
       const roles=[...state.roles];roles[index]=nextRole
       state=freeze({...state,roles,cursor:nextCursor,random:context.random.snapshot(),perStroke:context.perStroke.snapshot(),eventOrdinal:state.eventOrdinal+1})
-      yield freeze({kind:result.painted?'material':'query',role:program.id,query:kind,packet:{...packet},sourceAngle:drawingAngle,sourceTime:packet.t,logicalSequence:role.sequence,result,state})
+      const materialOption=this.materialOptions[index]
+      const materialStrength=result.painted&&materialOption?sourceStandardOption(materialOption.bind(sensor),context):undefined
+      if(materialStrength!==undefined&&(!Number.isFinite(materialStrength)||materialStrength<0||materialStrength>1))throw new RangeError('Invalid pressure material strength')
+      yield freeze({...materialStrength!==undefined?{materialStrength}:{},kind:result.painted?'material':'query',role:program.id,query:kind,packet:{...packet},sourceAngle:drawingAngle,sourceTime:packet.t,logicalSequence:role.sequence,result,state})
     }
     return state
   }

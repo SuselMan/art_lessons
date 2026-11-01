@@ -1,4 +1,4 @@
-import { CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE, CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalMaterialEntry, type AnyCanonicalMaterialFrame, type CanonicalMaterialFrameV3, type CanonicalMaterialFrameV4, type CanonicalStrokeComposition } from '@grafetto/shared'
+import { CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE, CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE, CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalMaterialEntry, type AnyCanonicalMaterialFrame, type CanonicalMaterialFrameV3, type CanonicalMaterialFrameV4, type CanonicalMaterialFrameV5, type CanonicalStrokeComposition } from '@grafetto/shared'
 import { sourceBlendAverageOpacity } from './brushWash'
 import { normalizeSourcePainterOpacity, type SourcePainterOpacity } from './sourcePainterOpacity'
 
@@ -82,12 +82,12 @@ export function createSourcePrimaryComposition(c: SourcePrimaryCompositionContex
 /** Input must be the shared decoder's accepted frame, never pre-encode author
  * data. This layer rechecks capability/order, not CAS geometry/cost validation.
  * Pure all-or-nothing: rejection cannot advance state or issue renderer commands. */
-export function advanceSourcePrimaryComposition(s: SourcePrimaryCompositionState, input: { readonly ordinal: number; readonly frame: AnyCanonicalMaterialFrame|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4 }): SourcePrimaryCompositionResult {
+export function advanceSourcePrimaryComposition(s: SourcePrimaryCompositionState, input: { readonly ordinal: number; readonly frame: AnyCanonicalMaterialFrame|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4|CanonicalMaterialFrameV5 }): SourcePrimaryCompositionResult {
   validate(s)
   if (!input || s.ended || input.ordinal !== s.nextFrameOrdinal || !integer(input.ordinal)
     || !integer(s.nextFrameOrdinal + 1)) fail()
   const f = input.frame
-  if (!f || ![CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE].includes(f.profile) || f.masked !== false || !Array.isArray(f.draws)
+  if (!f || ![CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE,CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE].includes(f.profile) || f.masked !== false || !Array.isArray(f.draws)
     || !Array.isArray(f.fences) || !Array.isArray(f.definitions)) fail()
   entry(f.entry)
   if (f.entry.phase !== s.entry.phase || f.entry.phase !== 'between' && (s.entry.phase === 'between' || f.entry.group !== s.entry.group)) fail()
@@ -122,7 +122,8 @@ export function advanceSourcePrimaryComposition(s: SourcePrimaryCompositionState
     if (ended || current.phase !== 'primary' || !d || d.role !== 'primary'
       || !integer(d.definition) || d.definition >= f.definitions.length || !integer(d.x, -100000000)
       || !integer(d.y, -100000000) || !unit(d.opacity) || !unit(d.flow) || !integer(count + 1)) fail()
-    if(f.profile===CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE&&(!('grainDepth'in d)||d.grainDepth!==1))fail()
+    if(f.profile===CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE&&(!('grainDepth'in d)||!unit(d.grainDepth)))fail()
+      if(f.profile===CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE&&(!('grainDepth'in d)||d.grainDepth!==1))fail()
     if(f.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE&&(!('grainDepth'in d)||!unit(d.grainDepth)))fail()
     // Every actual draw updates history, including zero opacity / zero A8 masks.
     // No asset read is allowed to decide whether this record "counts".
