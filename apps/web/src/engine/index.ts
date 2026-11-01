@@ -1594,6 +1594,8 @@ interface CanonicalEmptyJob {
  coordinator?:CanonicalWashLayerCoordinator;publishedOwner?:CanonicalLayerOwner;stage:number;next:number;outstanding:number;retiring:boolean;complete:boolean
  releaseMetadata?:()=>void
  wake?:number
+ /** Undefined outside a synchronous indexed restore slice; true requests its next transition. */
+ indexedSliceRequested?:boolean
 }
 
 /** (#536, ADR 011 §17.53) A layer rebuild in progress: the layer's done pixel
@@ -6783,11 +6785,28 @@ export class PencilEngine implements PencilEngineAPI {
   }
   private _scheduleCanonicalRebuild(job:RebuildJob):void {
     const canonical=job.canonical??job.canonicalLayer!
+    if(job.canonical?.indexedSliceRequested!==undefined){job.canonical.indexedSliceRequested=true;return}
     canonical.wake=this._authorTasks.schedule(()=>{
       canonical.wake=undefined
       if(this._destroyed||this._rebuildJobs.get(job.layerId)!==job)return
+      if(job.canonical?.transaction.indexed){this._runCanonicalIndexedSlice(job);return}
       this._stepRebuildJob(job)
     })
+  }
+  private _runCanonicalIndexedSlice(job:RebuildJob):void {
+    const c=job.canonical!,tx=c.transaction,state=tx.indexed!,started=performance.now()
+    c.indexedSliceRequested=false
+    try{
+      for(let transitions=0;transitions<64;transitions++){
+        c.indexedSliceRequested=false
+        this._stepRebuildJob(job)
+        if(!c.indexedSliceRequested||state.waiting||tx.finished||this._destroyed||this._rebuildJobs.get(job.layerId)!==job||performance.now()-started>=4)break
+      }
+    }finally{
+      const requested=c.indexedSliceRequested
+      c.indexedSliceRequested=undefined
+      if(requested&&!state.waiting&&!tx.finished&&!this._destroyed&&this._rebuildJobs.get(job.layerId)===job)this._scheduleCanonicalRebuild(job)
+    }
   }
   private _retireCanonicalEmptyJob(c:CanonicalEmptyJob,lost:boolean,keepResources=false):unknown[] {
     c.retiring=true;const failures:unknown[]=[],attempt=(fn:()=>void)=>{try{fn()}catch(error){failures.push(error)}}

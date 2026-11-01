@@ -556,3 +556,87 @@ it('keeps the engine read reservation until actual finite cancel ACK cleanup set
   prepare.mockRestore();expect(await engine.appendCanonicalIndexedContinuation(()=>read.lifetime.follow(cut))).toBe('advanced')
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
+
+
+/** Controlled delivery of the actual shared scheduler callbacks; no read/cut is fabricated. */
+function indexedRestoreTransport(engine:PencilEngine){
+ const wakes=new Map<number,()=>void>();let token=0
+ const schedule=vi.spyOn(engine['_authorTasks'],'schedule').mockImplementation(callback=>{wakes.set(++token,callback);return token})
+ vi.spyOn(engine['_authorTasks'],'unschedule').mockImplementation(id=>{wakes.delete(id)})
+ const step=vi.spyOn(engine as unknown as {_stepCanonicalIndexed:typeof engine['_stepCanonicalIndexed']},'_stepCanonicalIndexed')
+ const turns:number[]=[]
+ async function drain(){
+  for(let idle=0,guard=0;idle<24;guard++){
+   if(guard>20000)throw Error('Indexed restore did not park')
+   const first=wakes.entries().next().value
+   if(first){idle=0;wakes.delete(first[0]);const before=step.mock.calls.length;first[1]();turns.push(step.mock.calls.length-before)}else idle++
+   for(let i=0;i<8;i++)await Promise.resolve()
+   await new Promise(resolve=>setTimeout(resolve,1))
+  }
+ }
+ return {wakes,schedule,step,turns,drain}
+}
+it('batches genuine indexed restore transitions within64 and parks until the actual empty terminal ACK',async()=>{
+ const operations=Array.from({length:190},(_,i)=>indexedFrame(i+1,'bounded',i===189,i)),issuer=indexedSocketFixture(operations,64),read=await issuer.open(),{engine}=engineFor(read)
+ let terminal:(()=>void)|undefined
+ const next=issuer.handlers.canonical_history_stream_next
+ issuer.handlers.canonical_history_stream_next=body=>Number(body.afterSeq)===operations.length?new Promise(resolve=>{terminal=()=>resolve(next(body))}):next(body)
+ try{
+  await engine.paperReady();vi.spyOn(performance,'now').mockReturnValue(0)
+  const transport=indexedRestoreTransport(engine),restore=engine.restoreCanonicalIndexedRoom(read)
+  void restore.catch(()=>{})
+  await transport.drain()
+  expect(terminal).toBeTypeOf('function');expect(transport.wakes.size).toBe(0)
+  expect(engine.getCanonicalIndexedCut()).toBeNull();expect(engine['_canonicalPixelsReady']).toBe(false)
+  const parked=transport.schedule.mock.calls.length;await transport.drain();expect(transport.schedule).toHaveBeenCalledTimes(parked)
+  expect(Math.max(...transport.turns)).toBe(64);expect(transport.turns.every(n=>n<=64)).toBe(true)
+  terminal!();await transport.drain();await restore
+  expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(190)
+  expect(engine['_log'].entries).toHaveLength(0);expect(engine['_log'].canonicalRetainedSuffix).toHaveLength(0);expect(engine['_canonicalLayerOwner']?.inputs).toHaveLength(0)
+  expect(transport.schedule.mock.calls.length).toBeLessThan(operations.length)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('yields indexed restore at the4ms slice budget while retaining the same genuine job and exact final cut',async()=>{
+ const operations=Array.from({length:40},(_,i)=>indexedFrame(i+1,'timed',i===39,i)),issuer=indexedSocketFixture(operations,64),read=await issuer.open(),{engine}=engineFor(read)
+ try{
+  await engine.paperReady();let now=0;vi.spyOn(performance,'now').mockImplementation(()=>now+=2)
+  const transport=indexedRestoreTransport(engine),restore=engine.restoreCanonicalIndexedRoom(read)
+  void restore.catch(()=>{})
+  await transport.drain();await restore
+  expect(transport.turns.some(n=>n===2)).toBe(true);expect(transport.turns.every(n=>n<=2)).toBe(true)
+  expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(40);expect(transport.wakes.size).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+for(const failure of ['cancel','fault'] as const)it(`stops the SAME indexed slice after actual ${failure} without a successor wake or false cut`,async()=>{
+ const operations=Array.from({length:40},(_,i)=>indexedFrame(i+1,'interrupted',i===39,i)),issuer=indexedSocketFixture(operations,64),read=await issuer.open(),{engine}=engineFor(read)
+ try{
+  await engine.paperReady();vi.spyOn(performance,'now').mockReturnValue(0)
+  const actual=engine['_stepCanonicalIndexed'].bind(engine),transport=indexedRestoreTransport(engine)
+  // Delegate to the real implementation until actual originals have been consumed.
+  transport.step.mockImplementation(job=>{
+   actual(job)
+   if(job.canonical!.transaction.indexed!.count>=2&&!job.canonical!.transaction.finished){
+    if(failure==='cancel')engine['_cancelRebuildJob']('layer-1')
+    else throw Error('actual indexed slice fault')
+   }
+  })
+  const restore=engine.restoreCanonicalIndexedRoom(read),rejected=expect(restore).rejects.toThrow(failure==='cancel'?'cancelled':'actual indexed slice fault')
+  await transport.drain();await rejected
+  expect(transport.wakes.size).toBe(0);expect(engine.getCanonicalIndexedCut()).toBeNull();expect(engine['_canonicalPixelsReady']).toBe(false)
+  expect(engine['_rebuildJobs'].size).toBe(0);expect(engine['_log'].entries).toHaveLength(0);expect(engine['_brushMipCache'].reservedBytes).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('rejects late genuine indexed terminal delivery after original owner invalidation without reawakening the candidate',async()=>{
+ const issuer=indexedSocketFixture([indexedFrame()],64),read=await issuer.open(),{engine}=engineFor(read)
+ const next=issuer.handlers.canonical_history_stream_next;let terminal:(()=>void)|undefined
+ issuer.handlers.canonical_history_stream_next=body=>Number(body.afterSeq)===1?new Promise(resolve=>{terminal=()=>resolve(next(body))}):next(body)
+ try{
+  await engine.paperReady();const transport=indexedRestoreTransport(engine),restore=engine.restoreCanonicalIndexedRoom(read)
+  const rejected=expect(restore).rejects.toThrow()
+  await transport.drain();expect(terminal).toBeTypeOf('function');const wakes=transport.schedule.mock.calls.length
+  issuer.setCurrent(false);terminal!();await transport.drain();await rejected
+  expect(transport.schedule).toHaveBeenCalledTimes(wakes);expect(transport.wakes.size).toBe(0)
+  expect(engine.getCanonicalIndexedCut()).toBeNull();expect(engine['_rebuildJobs'].size).toBe(0);expect(engine['_brushMipCache'].reservedBytes).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
