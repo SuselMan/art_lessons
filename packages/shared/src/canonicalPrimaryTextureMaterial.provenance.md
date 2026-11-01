@@ -93,3 +93,25 @@ canonicalPrimaryTextureMaterialContext before envelope callbacks and requires
 `3|` packed text. Codec V3 capture delegates to that same public pure factory;
 legacy contexts retain their existing validation. This closes in-place context
 mutation/downgrade, without enabling source admission or rendering.
+
+
+## Unified V3 work allowance
+
+V3 workUnits includes the existing geometry work (once per distinct prepared
+geometry definition) plus width*height for EVERY primary draw occurrence. The
+second term represents one conservative texture lookup/subtract work unit per
+full, unclipped recipe texel, including repeated definitions/copy hits and zero
+opacity/flow/grain strengths. It is not a GPU-cycle estimate or native identity
+claim. The same existing 64Mi work ceiling and drawPixels/output ceilings remain;
+there is no caller-selectable exemption or texture-cost deduplication. Both
+builder prevalidation and packed-reader preflight enforce the same sum before
+frame publication/GPU work. V1/V2 cost laws and golden bytes are unchanged.
+
+Regression tests cover geometry-fitting but texture-exceeding work, exact total
+boundaries on builder and unpack, and three repeated zero-strength draws using
+one definition. Baseline: these two tests RED (44 prior codec cases PASS).
+
+Final source gates:94 tests/3 suites PASS (codec, stroke frame, recorded
+attachment), maxWorkers1; strict targeted NodeNext TypeScript noEmit exit0;
+scoped oxlint0 warnings/errors and git diff-check PASS. No runtime/device,
+shared-dist, dependency or commit change; no own background process remains.

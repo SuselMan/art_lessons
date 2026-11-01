@@ -1,3 +1,4 @@
+import { canonicalMaterialGeometryCost } from './canonicalMaterialGeometry.js'
 import { canonicalPrimaryTextureMaterialContext } from './canonicalMaterialCodec.js'
 import { describe,expect,it } from 'vitest'
 import {
@@ -321,4 +322,32 @@ it('captures independent deeply frozen V3 metadata and rejects accessor/unknown 
  const bad=textureContext();Object.defineProperty(bad.budget,'drawPixels',{get(){calls++;return 10000}})
  for(const value of [bad,undefined,{...textureContext(),version:2},{...textureContext(),extra:true},{...textureContext(),budget:{workUnits:-1,outputBytes:1,drawPixels:1}}])expect(()=>canonicalPrimaryTextureMaterialContext(value)).toThrow()
  expect(calls).toBe(0)
+})
+
+// Texture lookup/subtract work is charged per occurrence, never per dictionary entry.
+it('charges V3 total geometry plus full primary area at the exact work boundary',()=>{
+ const input=textureInput(),base=textureContext(),r=input.draws[0].recipe
+ const geometry=canonicalMaterialGeometryCost(r,base.assets[0]).workUnits,area=r.width*r.height
+ const packed=buildCanonicalMaterial(input,base).packed
+ for(const workUnits of [geometry,geometry+area-1]){
+  const c={...base,budget:{...base.budget,workUnits}}
+  expect(()=>buildCanonicalMaterial(input,c)).toThrow()
+  expect(()=>unpackCanonicalMaterial(packed,c)).toThrow()
+ }
+ const c={...base,budget:{...base.budget,workUnits:geometry+area}}
+ expect(unpackCanonicalMaterial(packed,c)).toEqual(buildCanonicalMaterial(input,c).frame)
+})
+it('charges every repeated V3 draw including copy hits and zero strengths',()=>{
+ const input=textureInput(),base=textureContext(),r=input.draws[0].recipe,count=3
+ input.draws=Array.from({length:count},()=>({...input.draws[0],opacity:0,flow:0,grainDepth:0}))
+ for(const fence of input.fences)if(fence.at===1)fence.at=count
+ const geometry=canonicalMaterialGeometryCost(r,base.assets[0]).workUnits,total=geometry+count*r.width*r.height
+ const built=buildCanonicalMaterial(input,base)
+ expect(built.frame.definitions).toHaveLength(1)
+ const exact={...base,budget:{...base.budget,workUnits:total}}
+ expect(buildCanonicalMaterial(input,exact).packed).toBe(built.packed)
+ expect(unpackCanonicalMaterial(built.packed,exact)).toEqual(built.frame)
+ const short={...base,budget:{...base.budget,workUnits:total-1}}
+ expect(()=>buildCanonicalMaterial(input,short)).toThrow()
+ expect(()=>unpackCanonicalMaterial(built.packed,short)).toThrow()
 })
