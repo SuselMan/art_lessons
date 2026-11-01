@@ -16,16 +16,24 @@ import { DEVICE_TYPE_STORAGE_KEY, type DeviceType } from '../browser/deviceType'
 /** Sticky across loads: a pen is a fact about the device, and a page load in
  *  which nobody happened to draw must not report it as gone. */
 const PEN_SEEN_KEY = 'al_pen_seen'
+let penSeenThisPage = false
+let pageGpuInfo: ReturnType<typeof probeGpuInfo> | undefined
 
 function readPenSeen(): boolean {
+  if (penSeenThisPage) return true
   try {
-    return localStorage.getItem(PEN_SEEN_KEY) === '1'
+    penSeenThisPage = localStorage.getItem(PEN_SEEN_KEY) === '1'
+    return penSeenThisPage
   } catch {
     return false
   }
 }
 
-function gpuInfo(): Pick<ClientEnvironment, 'webgl' | 'gpuVendor' | 'gpuRenderer' | 'maxTextureSize'> {
+function gpuInfo(): ReturnType<typeof probeGpuInfo> {
+  return pageGpuInfo ??= probeGpuInfo()
+}
+
+function probeGpuInfo(): Pick<ClientEnvironment, 'webgl' | 'gpuVendor' | 'gpuRenderer' | 'maxTextureSize'> {
   try {
     const gl = document.createElement('canvas').getContext('webgl')
     if (!gl) return { webgl: false }
@@ -86,10 +94,14 @@ export function collectEnvironment(deviceType: DeviceType): ClientEnvironment {
 }
 
 function send(deviceType: () => DeviceType): void {
-  api('POST /api/me/environment', { body: collectEnvironment(deviceType()) })
-    .catch(() => {
-      // Diagnostics only. A failure here must never surface to the person.
-    })
+  try {
+    api('POST /api/me/environment', { body: collectEnvironment(deviceType()) })
+      .catch(() => {
+        // Diagnostics only. A failure here must never surface to the person.
+      })
+  } catch {
+    // Collection and request setup can also fail synchronously.
+  }
 }
 
 /** Reports once now, and once more the first time a pen with pressure
@@ -103,15 +115,22 @@ function send(deviceType: () => DeviceType): void {
 export function reportEnvironment(deviceType: () => DeviceType): void {
   send(deviceType)
   if (readPenSeen()) return
-  const onPointer = (event: PointerEvent) => {
-    if (event.pointerType !== 'pen' || event.pressure <= 0) return
-    window.removeEventListener('pointerdown', onPointer, true)
+  // This closure captures no event/canvas; only the existing settings callback.
+  const reportPen = () => {
     try {
       localStorage.setItem(PEN_SEEN_KEY, '1')
     } catch {
-      // Private mode: this load still reports it, the next one asks again.
+      // The in-memory fact remains true even when private storage refuses it.
     }
     send(deviceType)
+  }
+  const onPointer = (event: PointerEvent) => {
+    if (event.pointerType !== 'pen' || event.pressure <= 0) return
+    window.removeEventListener('pointerdown', onPointer, true)
+    if (penSeenThisPage) return
+    penSeenThisPage = true
+    // A macrotask, not a microtask: diagnostics must leave input dispatch first.
+    try { setTimeout(reportPen, 0) } catch { /* Diagnostics never break input. */ }
   }
   window.addEventListener('pointerdown', onPointer, true)
 }
