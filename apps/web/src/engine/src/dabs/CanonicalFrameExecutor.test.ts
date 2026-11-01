@@ -947,7 +947,7 @@ describe('recorded same-layer concurrent wash lane', () => {
         const at=(y*4+x)*4,dst=rgba(pixels(r.target.texture),at)
         let src:Rgba8
         if(r.source.kind==='maskRgb')src=[...r.source.rgb,255]
-        else{const raw=r.source.view,sx=Math.round(raw.bounds.x*raw.textureWidth)+x-raw.rect.x,sy=Math.round((1-raw.bounds.y-raw.bounds.height)*raw.textureHeight)+y-raw.rect.y;src=rgba(pixels(raw.texture),(sy*4+sx)*4)}
+        else{if(r.source.kind!=='straightRgba8')throw Error('Unexpected textured source in legacy oracle');const raw=r.source.view,sx=Math.round(raw.bounds.x*raw.textureWidth)+x-raw.rect.x,sy=Math.round((1-raw.bounds.y-raw.bounds.height)*raw.textureHeight)+y-raw.rect.y;src=rgba(pixels(raw.texture),(sy*4+sx)*4)}
         if(r.operation.kind==='alphaDarken32')pixels(r.target.texture).set(compositeSourceAlphaDarken32(src,dst,r.operation.control),at)
         else if(r.operation.kind==='over32')pixels(r.target.texture).set(compositeSourceOver32Scalar(src,dst,r.operation.control),at)
         else throw Error('Unexpected test profile')
