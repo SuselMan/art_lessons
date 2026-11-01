@@ -1067,7 +1067,7 @@ function RoomEditor() {
       rasterVersion: engineRasterVersion,
       ...connectionRead?{
         ...(indexed?{canonicalIndexedRoom:indexed}:{canonicalEmptyRoom:bootstrap}),canonicalAuthor,
-        onCanonicalIndexedMetadata:(input:import('../../engine/src/oplog/CanonicalRecordedDelivery').CanonicalRecordedInput)=>{
+        onCanonicalIndexedMetadata:(input:import('../../engine').CanonicalRecordedInput)=>{
           if(constructed&&indexed)confirmIndexedHistory(input,indexed.lifetime,constructed)
         },
         onCanonicalAuthorIdle:()=>{if(constructed)canonicalRecovery.authorIdle(constructed,boardId)},
