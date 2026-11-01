@@ -32,7 +32,7 @@ export function useRoomRestore(deps: RoomRestoreDeps) {
   const {
     restoreFromSnapshot, backfillHistory, applyRemoteOp,applyCanonicalOp,restoreCanonicalHistory,restoreCanonicalEmptyRoom,restoreCanonicalIndexedRoom, syncFromLogNow, markJoinRestoreDone, dispatchParticipants,
     setRestoreFailure, setRoomContentReady, latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef,
-    replayGate, diagnosticClearPrefixElision,
+    replayGate, diagnosticClearPrefixElision, isIndexedRestoreOwnerCurrent,
   } = deps
   return useCallback((
     engine: PencilEngineAPI | null, state: RoomStatePayload,
@@ -44,10 +44,10 @@ export function useRoomRestore(deps: RoomRestoreDeps) {
     notifyReplayIncomplete: () => notifyError(tRef.current('room.replayIncomplete'), {
       key: 'replay-incomplete', durationMs: null,
     }),
-    latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef, replayGate, diagnosticClearPrefixElision,
+    latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef, replayGate, diagnosticClearPrefixElision, isIndexedRestoreOwnerCurrent,
   }), [
     restoreFromSnapshot, backfillHistory, applyRemoteOp,applyCanonicalOp,restoreCanonicalHistory,restoreCanonicalEmptyRoom,restoreCanonicalIndexedRoom, syncFromLogNow, markJoinRestoreDone, dispatchParticipants,
     setRestoreFailure, setRoomContentReady, latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef,
-    replayGate, diagnosticClearPrefixElision,
+    replayGate, diagnosticClearPrefixElision, isIndexedRestoreOwnerCurrent,
   ])
 }

@@ -21,6 +21,8 @@ export interface ReplayGateDelivery { readonly [deliveryBrand]: true }
 export interface ReplayGate<T> {
   /** Replace the restore owner and shut the existing gate. */
   begin(): ReplayGateTicket
+  /** Reporting-only latest begin identity, retained after end/drain failure. */
+  isLatest(ticket:ReplayGateTicket):boolean
   /** A release token bypasses only this gate's current synchronous delivery,
    * exactly once. Ordinary arrivals stay queued throughout a release. */
   hold(payload: T, delivery?: ReplayGateDelivery): boolean
@@ -34,14 +36,17 @@ export function createReplayGate<T>(): ReplayGate<T> {
   const held: T[] = []
   let handler: ((payload: T, delivery?: ReplayGateDelivery) => void) | null = null
   let owner: ReplayGateTicket | null = null
+  let latest: ReplayGateTicket | null = null
   let draining = false
   let inflight: { payload: T; token: ReplayGateDelivery; ticket: ReplayGateTicket; used: boolean } | null = null
   return {
     begin() {
       owner = Object.freeze({ [ticketBrand]: true as const })
+      latest = owner
       shut = true
       return owner
     },
+    isLatest(ticket) { return latest !== null && ticket === latest },
     hold(payload, delivery) {
       if (delivery !== undefined) {
         if (!inflight || inflight.token !== delivery || inflight.payload !== payload

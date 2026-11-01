@@ -3,7 +3,7 @@ import { expect, it, vi } from 'vitest'
 import type { Operation, OperationUndoOperation, OperationRedoOperation } from '@grafetto/shared'
 
 import { createTestEngine, dab, makeStroke, readLayerPixels } from '../../engine/testing/engineTestUtils'
-import { restoreRoomState, type RestoreRoomStateDeps } from './restoreRoomState'
+import { restoreRoomState, isCurrentIndexedRestoreOwner, type RestoreRoomStateDeps } from './restoreRoomState'
 import { createPendingPreviews } from './net/pendingPreviews'
 import { createReplayGate } from './replayGate'
 import { createConfirmedStreamHandler } from './net/confirmedStream'
@@ -311,7 +311,7 @@ it('restores indexed admission through one original cursor sink without legacy t
  const state={canonicalIndexedRead:read,latestSnapshotSeq:null,participants:[],palette:[],frozen:false}
  try{
   await restoreRoomState(f.engine,state,{mode:'join',alreadyHadSeq:0},f.deps)
-  expect(sink).toHaveBeenCalledExactlyOnceWith(f.engine,read)
+  expect(sink).toHaveBeenCalledExactlyOnceWith(f.engine,read,expect.any(Function))
   expect(f.sink).not.toHaveBeenCalled()
   expect(f.deps.applyRemoteOp).not.toHaveBeenCalled()
   expect(f.deps.restoreFromSnapshot).not.toHaveBeenCalled()
@@ -336,5 +336,48 @@ it.each(['stale','throw','superseded']as const)('does not announce indexed conte
   expect(f.deps.setRoomContentReady).not.toHaveBeenCalledWith(true)
   expect(f.deps.syncFromLogNow).not.toHaveBeenCalled()
   expect(f.sink).not.toHaveBeenCalled()
+ }finally{f.engine.destroy()}
+})
+
+it.each(['current','origin-expired','engine-replaced','origin-replaced','board-changed','unjoined','absent-guard'] as const)('reports cancelled indexed failure only for current original owner: %s',async kind=>{
+ const f=emptyRestoreFixture(),issuer=indexedSocketFixture(),read=await issuer.open()
+ let actualEngine:unknown=f.engine,actualOrigin:unknown=read.lifetime,board='room',joined=true
+ f.deps.isIndexedRestoreOwnerCurrent=kind==='absent-guard'?undefined:(engine,input)=>actualEngine===engine&&actualOrigin===input.lifetime&&board===input.scope.roomId&&joined
+ f.deps.restoreCanonicalIndexedRoom=vi.fn(async()=>{
+  await read.cancel()
+  if(kind==='origin-expired')issuer.setCurrent(false)
+  if(kind==='engine-replaced')actualEngine=null
+  if(kind==='origin-replaced')actualOrigin=null
+  if(kind==='board-changed')board='other-board'
+  if(kind==='unjoined')joined=false
+  throw Error('Actual indexed sink failed after finite cleanup')
+ })
+ try{
+  await restoreRoomState(f.engine,{canonicalIndexedRead:read,latestSnapshotSeq:null,participants:[],palette:[],frozen:false},{mode:'join',alreadyHadSeq:0},f.deps)
+  if(kind==='current'){expect(f.deps.setRestoreFailure).toHaveBeenCalledExactlyOnceWith('apply');expect(f.deps.replayIncompleteRef.current).toBe(true)}
+  else{expect(f.deps.setRestoreFailure).not.toHaveBeenCalled();expect(f.deps.replayIncompleteRef.current).toBe(false)}
+  expect(f.deps.setRoomContentReady).not.toHaveBeenCalledWith(true);expect(f.deps.latestKnownSeqRef.current).toBe(0)
+ }finally{f.engine.destroy()}
+})
+it('checks owner identity again after original current callback reenters replacement',async()=>{
+ const f=emptyRestoreFixture(),issuer=indexedSocketFixture();let owner=true,replace=false
+ const {openCanonicalIndexedRoomForSocket}=await import('./net/canonicalIndexedRead')
+ const read=await openCanonicalIndexedRoomForSocket(issuer.socket,issuer.offer,{expectedBoardId:'room',isCurrent:()=>{if(replace)owner=false;return true}})
+ await read.cancel();const guard=vi.fn(()=>owner)
+ try{replace=true;expect(isCurrentIndexedRestoreOwner(f.engine,read,guard)).toBe(false);expect(guard).toHaveBeenCalledTimes(2)}finally{f.engine.destroy()}
+})
+
+it.each(['sink-rejected','end-failed','owner-callback-superseded'] as const)('retains failure ticket identity without gate release probing: %s',async kind=>{
+ const f=emptyRestoreFixture(),issuer=indexedSocketFixture(),read=await issuer.open()
+ f.deps.isIndexedRestoreOwnerCurrent=()=>{if(kind==='owner-callback-superseded')f.deps.replayGate.begin();return true}
+ f.deps.restoreCanonicalIndexedRoom=vi.fn(async()=>{
+  if(kind==='end-failed'){f.deps.replayGate.setHandler(()=>{throw Error('Own gate drain failed')});f.deps.replayGate.hold({});return}
+  await read.cancel();if(kind==='sink-rejected')f.deps.replayGate.begin();throw Error('Old indexed sink failed')
+ })
+ try{
+  await restoreRoomState(f.engine,{canonicalIndexedRead:read,latestSnapshotSeq:null,participants:[],palette:[],frozen:false},{mode:'join',alreadyHadSeq:0},f.deps)
+  if(kind==='end-failed'){expect(f.deps.setRestoreFailure).toHaveBeenCalledExactlyOnceWith('apply');expect(f.deps.replayIncompleteRef.current).toBe(true)}
+  else{expect(f.deps.setRestoreFailure).not.toHaveBeenCalled();expect(f.deps.replayIncompleteRef.current).toBe(false)}
+  expect(f.deps.setRoomContentReady).not.toHaveBeenCalledWith(true)
  }finally{f.engine.destroy()}
 })

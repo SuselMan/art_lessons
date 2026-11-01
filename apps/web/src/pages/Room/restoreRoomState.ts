@@ -29,9 +29,23 @@ export type RoomStatePayload = import('./net/roomStateHandler').RoomStateStash
  *    and there is no open to time any more. */
 export type RestoreMode = 'join' | 'catchup'
 
+export type IndexedRestoreOwnerCurrent=(engine:PencilEngineAPI,read:import('./net/canonicalIndexedRead').CanonicalIndexedSocketRead)=>boolean
+/** Reporting only: a failed engine may already have cancelled its finite reader.
+ * The original owner must survive, and external validation may replace it. */
+export function isCurrentIndexedRestoreOwner(engine:PencilEngineAPI|null,read:import('./net/canonicalIndexedRead').CanonicalIndexedSocketRead,ownerCurrent:IndexedRestoreOwnerCurrent|undefined):boolean {
+  if(!engine||!ownerCurrent)return false
+  try{
+    if(!ownerCurrent(engine,read))return false
+    if(read.lifetime.assertCurrent()!==read.scope)return false
+    return ownerCurrent(engine,read)
+  }catch{return false}
+}
+
 export interface RestoreRoomStateDeps {
   /** (#176) Snapshots belong to a board, not to the lesson it is in. */
   boardId: string
+  /** Does not authorize execution or final readiness after finite cancellation. */
+  isIndexedRestoreOwnerCurrent?:IndexedRestoreOwnerCurrent
   /** Default OFF until full-journal material/lifecycle hardware gates. */
   diagnosticClearPrefixElision?: boolean
   restoreFromSnapshot: (engine: PencilEngineAPI, boardId: string,canonicalRead?:CanonicalRoomStateRead) => Promise<SnapshotRestoreOutcome['status']>
@@ -40,7 +54,7 @@ export interface RestoreRoomStateDeps {
   /** Full original baseline transaction; engine independently rejects pending/live
    * resources until reconciliation exists. Never implement as an atom loop. */
   restoreCanonicalEmptyRoom?: (engine:PencilEngineAPI,read:CanonicalRoomStateRead,originalTail:readonly Operation[])=>Promise<void>
-  restoreCanonicalIndexedRoom?: (engine:PencilEngineAPI,read:import('./net/canonicalIndexedRead').CanonicalIndexedSocketRead)=>Promise<void>
+  restoreCanonicalIndexedRoom?: (engine:PencilEngineAPI,read:import('./net/canonicalIndexedRead').CanonicalIndexedSocketRead,isLatestRestore:()=>boolean)=>Promise<void>
   applyCanonicalOp?: (atom:CanonicalPreparedRecordedOperation)=>void
   restoreCanonicalHistory?: (atoms:readonly CanonicalPreparedRecordedOperation[])=>Promise<void>
   syncFromLogNow: () => void
@@ -185,7 +199,7 @@ export async function restoreRoomState(
 
     let failed=0
     if(indexedRead){
-      await (deps.restoreCanonicalIndexedRoom ? deps.restoreCanonicalIndexedRoom(engine!,indexedRead) : engine!.restoreCanonicalIndexedRoom(indexedRead))
+      await (deps.restoreCanonicalIndexedRoom ? deps.restoreCanonicalIndexedRoom(engine!,indexedRead,()=>deps.replayGate.isLatest(replayTicket)) : engine!.restoreCanonicalIndexedRoom(indexedRead))
       assertCurrent()
     }else if(canonicalBaseline){
       if(!tailOperations)throw Error('Original room tail unavailable')
@@ -332,7 +346,7 @@ export async function restoreRoomState(
     // nothing. The same shape #533 closed for a failed snapshot, so the same
     // screen and the same retry.
     restoreFailedHere = true
-    if(error!==supersededReplay&&isCurrent()){
+    if(error!==supersededReplay&&(indexedRead?isCurrentIndexedRestoreOwner(engine,indexedRead,deps.isIndexedRestoreOwnerCurrent)&&deps.replayGate.isLatest(replayTicket):isCurrent())){
       deps.setRestoreFailure('apply')
       deps.replayIncompleteRef.current = true
     }

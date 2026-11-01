@@ -113,7 +113,7 @@ import { ChiselAngleDial } from './overlays/ChiselAngleDial'
 import { reportInvariant } from '../../lib/observability/reportInvariant'
 import { pressureMapOf } from '../../lib/input/pressureCalibration'
 import { createSnapshotGate } from './net/snapshotGate'
-import type { RoomStatePayload } from './restoreRoomState'
+import {isCurrentIndexedRestoreOwner,type RoomStatePayload,type IndexedRestoreOwnerCurrent} from './restoreRoomState'
 import { useRoomRestore } from './useRoomRestore'
 import { useTransformSession, type TransformSession } from './useTransformSession'
 import { initEngineFromStore, openParkedRoomState, releaseOnPageHide, retireEngine, wireLocalStrokeEvents } from './engineWiring'
@@ -998,16 +998,17 @@ function RoomEditor() {
 
   // (#493) restoreRoomState with what its two callers — the mount effect and
   // the socket's catch-up — share bound once. See useRoomRestore.
-  const restoreCanonicalIndexedBaseline=useCallback(async(engine:PencilEngineAPI,read:import('./net/canonicalIndexedRead').CanonicalIndexedSocketRead)=>{
+  const isIndexedRestoreOwnerCurrent=useCallback<IndexedRestoreOwnerCurrent>((engine,read)=>engineRef.current===engine&&installedCanonicalReadRef.current===read.lifetime&&hasJoinedRef.current&&socketBoardRef.current===read.scope.roomId,[])
+  const restoreCanonicalIndexedBaseline=useCallback(async(engine:PencilEngineAPI,read:import('./net/canonicalIndexedRead').CanonicalIndexedSocketRead,isLatestRestore:()=>boolean)=>{
     try{
       await engine.restoreCanonicalIndexedRoom(read)
       if(engineRef.current===engine&&installedCanonicalReadRef.current===read.lifetime)canonicalRecovery.restored(engine)
-    }catch(error){canonicalRecovery.failed(engine);throw error}
-  },[canonicalRecovery])
+    }catch(error){if(isCurrentIndexedRestoreOwner(engine,read,isIndexedRestoreOwnerCurrent)&&isLatestRestore())canonicalRecovery.failed(engine);throw error}
+  },[canonicalRecovery,isIndexedRestoreOwnerCurrent])
   const restoreRoom = useRoomRestore({
     restoreFromSnapshot, backfillHistory, applyRemoteOp,restoreCanonicalEmptyRoom:restoreCanonicalBaseline,restoreCanonicalIndexedRoom:restoreCanonicalIndexedBaseline, syncFromLogNow, markJoinRestoreDone, dispatchParticipants,
     setRestoreFailure, setRoomContentReady, latestKnownSeqRef, replayIncompleteRef, pendingPreviewsRef, openTimerRef,
-    replayGate: replayGateRef.current,
+    replayGate: replayGateRef.current,isIndexedRestoreOwnerCurrent,
   })
 
   const replaceCanonicalRoom=useCallback((board:string,stash:RoomStatePayload)=>{

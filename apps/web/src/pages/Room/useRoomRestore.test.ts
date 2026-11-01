@@ -79,3 +79,17 @@ it('forwards the original full-history baseline sink through the Room hook to th
   hooks.cursor=0;expect(useRoomRestore({...deps,restoreCanonicalEmptyRoom:undefined})).not.toBe(restore)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
+
+it('forwards the indexed reporting owner guard and rememoizes when it changes',async()=>{
+ hooks.cursor=0;hooks.slots=[]
+ const {indexedSocketFixture}=await import('../../engine/testing/canonicalIndexedReadFixture'),issuer=indexedSocketFixture(),read=await issuer.open()
+ const engine=createTestEngine({userId:'reader'},{width:8,height:8}).engine
+ const guard=vi.fn(()=>true),sink=vi.fn(async()=>{await read.cancel();throw Error('Indexed failure after cleanup')})
+ const deps:RoomRestoreDeps={isIndexedRestoreOwnerCurrent:guard,restoreCanonicalIndexedRoom:sink,restoreFromSnapshot:vi.fn(),backfillHistory:vi.fn(),applyRemoteOp:vi.fn(),syncFromLogNow:vi.fn(),markJoinRestoreDone:vi.fn(),dispatchParticipants:vi.fn(),setRestoreFailure:vi.fn(),setRoomContentReady:vi.fn(),latestKnownSeqRef:{current:0},replayIncompleteRef:{current:false},pendingPreviewsRef:{current:createPendingPreviews()},openTimerRef:{current:null},replayGate:createReplayGate()}
+ try{
+  const restore=useRoomRestore(deps);hooks.cursor=0;expect(useRoomRestore(deps)).toBe(restore)
+  await restore(engine,{canonicalIndexedRead:read,latestSnapshotSeq:null,participants:[],palette:[],frozen:false},{mode:'join',alreadyHadSeq:0},{boardId:'room',finishOpenTimer:vi.fn(),getSnapshotUploader:()=>null})
+  expect(guard).toHaveBeenCalledWith(engine,read);expect(deps.setRestoreFailure).toHaveBeenCalledExactlyOnceWith('apply');expect(deps.setRoomContentReady).not.toHaveBeenCalledWith(true)
+  hooks.cursor=0;expect(useRoomRestore({...deps,isIndexedRestoreOwnerCurrent:()=>false})).not.toBe(restore)
+ }finally{engine.destroy()}
+})

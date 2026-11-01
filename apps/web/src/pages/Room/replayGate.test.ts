@@ -124,3 +124,13 @@ it('preserves a newer ticket and old remainder when its predecessor handler thro
  if(!next)throw Error('Expected newer owner')
  expect(gate.end(next)).toBe(true);expect(seen).toEqual([1,2,3])
 })
+
+it('reports latest begin identity after normal end and own drain failure without changing gate behavior',()=>{
+ const gate=createReplayGate<number>(),other=createReplayGate<number>(),foreign=other.begin()
+ const first=gate.begin();expect(gate.isLatest(first)).toBe(true);expect(gate.isLatest(foreign)).toBe(false)
+ expect(gate.end(first)).toBe(true);expect(gate.isLatest(first)).toBe(true);expect(gate.hold(1)).toBe(false)
+ const second=gate.begin();expect(gate.isLatest(first)).toBe(false);expect(gate.isLatest(second)).toBe(true)
+ gate.setHandler(()=>{throw Error('Actual drain failed')});gate.hold(2);expect(()=>gate.end(second)).toThrow('Actual drain failed')
+ expect(gate.isLatest(second)).toBe(true);expect(gate.end(second)).toBe(false)
+ const third=gate.begin();expect(gate.isLatest(second)).toBe(false);expect(gate.isLatest(third)).toBe(true)
+})
