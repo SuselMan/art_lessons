@@ -13,7 +13,15 @@ export interface AuthorInputWait {
   readonly deadline:number
   readonly timeoutError:Error
 }
-export type AuthorInputYield=void|AuthorInputWait
+/** Pending material stays with the producer. This only cuts its SAME owner
+ * before another pump/input proceeds; it never carries a source result. */
+export interface AuthorInputCheckpoint {
+  readonly kind:'author-input-checkpoint'
+  readonly flush:()=>Generator<void,void,void>
+  readonly immediate?:true
+}
+export type AuthorInputYield=void|AuthorInputWait|AuthorInputCheckpoint
+interface PendingCheckpoint {readonly flush:()=>Generator<void,void,void>;immediate:boolean}
 type WaitOutcome={ok:true}|{ok:false;error:unknown}
 interface WaitCell { wake?: (outcome:WaitOutcome)=>void }
 interface JobWait {
@@ -30,6 +38,10 @@ interface AuthorInputJob {
   readonly release?:()=>void
   iterator?:Generator<AuthorInputYield,void,void>
   wait?:JobWait
+  checkpoint?:PendingCheckpoint
+  checkpointSuspended?:boolean
+  cut?:Generator<void,void,void>
+  producerDone?:boolean
   retired:boolean
 }
 export class AuthorInputFIFO {
@@ -52,45 +64,98 @@ export class AuthorInputFIFO {
     if(job.retired)return
     job.retired=true
     let failed=false,primary:unknown
-    const wait=job.wait;job.wait=undefined
+    const wait=job.wait,cut=job.cut,iterator=job.iterator
+    job.wait=undefined;job.cut=undefined;job.iterator=undefined;job.checkpoint=undefined;job.checkpointSuspended=undefined
     try{if(wait)this.detachWait(wait)}catch(error){failed=true;primary=error}
-    try{if(close)job.iterator?.return()}catch(error){if(!failed){failed=true;primary=error}}
+    try{if(close)cut?.return()}catch(error){if(!failed){failed=true;primary=error}}
+    try{if(close)iterator?.return()}catch(error){if(!failed){failed=true;primary=error}}
     try{job.release?.()}catch(error){if(!failed){failed=true;primary=error}}
     if(failed)throw primary
   }
+  private runnable():boolean {
+    const job=this.work
+    return !job?.wait||!!job.wait.outcome||!!job.cut||!!job.checkpoint
+  }
+  private captureCheckpoint(value:AuthorInputWait|AuthorInputCheckpoint):PendingCheckpoint|undefined {
+    const fields=Object.getOwnPropertyDescriptors(value),kind=fields.kind
+    if(!kind||!Object.hasOwn(kind,'value'))throw new TypeError('Invalid author input yield')
+    if(kind.value!=='author-input-checkpoint')return undefined
+    if(Reflect.ownKeys(fields).some(key=>!['kind','flush','immediate'].includes(String(key)))
+      ||!fields.flush||!Object.hasOwn(fields.flush,'value')||typeof fields.flush.value!=='function'
+      ||fields.immediate&&(!Object.hasOwn(fields.immediate,'value')||fields.immediate.value!==true))throw new TypeError('Invalid author input checkpoint')
+    return{flush:fields.flush.value,immediate:fields.immediate?.value===true}
+  }
   private pump():void{
-    if(this.pumping||(this.work?.wait&&!this.work.wait.outcome))return
+    if(this.pumping||!this.runnable())return
     this.pumping=true
     const epoch=this.epoch
     let steps=0,current:AuthorInputJob|undefined,failed=false,primary:unknown
+    // Material from an earlier pump is cut before querying its source again.
+    if(this.work?.checkpoint&&!this.work.checkpointSuspended)this.work.checkpoint.immediate=true
     try{
       const start=this.context.now()
       while(this.pending){
         current=this.work??=this.jobs.shift()!
-        const iterator=current.iterator??=current.create()
         if(epoch!==this.epoch){this.retire(current,true);break}
-        const wait=current.wait
-        current.wait=undefined
-        const step=wait?.outcome?.ok===false?iterator.throw(wait.outcome.error):iterator.next()
-        if(epoch!==this.epoch){this.retire(current,true);break}
-        if(step.done){this.work=undefined;this.retire(current,false)}
-        else if(step.value!==undefined){this.park(current,step.value,epoch);if(epoch!==this.epoch)this.retire(current,true);break}
-        else steps++
+        if(current.checkpoint?.immediate&&!current.checkpointSuspended&&!current.cut){
+          const checkpoint=current.checkpoint;current.checkpoint=undefined
+          current.cut=checkpoint.flush()
+          if(epoch!==this.epoch){this.retire(current,true);break}
+        }
+        if(current.cut){
+          const step=current.cut.next()
+          if(epoch!==this.epoch){this.retire(current,true);break}
+          if(step.done){
+            current.cut=undefined
+            if(current.producerDone){this.work=undefined;this.retire(current,false)}
+            else if(current.wait&&!current.wait.outcome)break
+          }else{
+            if(step.value!==undefined)throw new TypeError('Author checkpoint may only yield queue pressure')
+            steps++
+          }
+        }else{
+          if(current.wait&&!current.wait.outcome)break
+          const iterator=current.iterator??=current.create()
+          if(epoch!==this.epoch){this.retire(current,true);break}
+          const wait=current.wait;current.wait=undefined
+          // Resuming a producer can enter an older automatic-cut handoff. A
+          // plain queue-pressure yield is NOT a new cut-safe suspension point.
+          if(current.checkpoint)current.checkpointSuspended=true
+          const step=wait?.outcome?.ok===false?iterator.throw(wait.outcome.error):iterator.next()
+          if(epoch!==this.epoch){this.retire(current,true);break}
+          if(step.done){
+            current.producerDone=true;current.checkpointSuspended=false
+            if(current.checkpoint)current.checkpoint.immediate=true
+            else{this.work=undefined;this.retire(current,false)}
+          }else if(step.value!==undefined){
+            const checkpoint=this.captureCheckpoint(step.value)
+            if(epoch!==this.epoch){this.retire(current,true);break}
+            if(checkpoint){
+              if(current.checkpoint&&current.checkpoint.flush!==checkpoint.flush)throw new TypeError('Pending author checkpoint owner changed')
+              current.checkpoint=checkpoint;current.checkpointSuspended=false;steps++
+            }else{
+              current.checkpointSuspended=false
+              this.park(current,step.value,epoch)
+              if(epoch!==this.epoch){this.retire(current,true);break}
+              if(current.checkpoint)current.checkpoint.immediate=true
+              else break
+            }
+          }else steps++
+        }
         if(epoch!==this.epoch||steps>=this.maxSteps||this.context.now()-start>=this.budgetMs)break
         current=undefined
       }
     }catch(error){
       failed=true;primary=error
-      // cancel detaches queued owners before invoking arbitrary cleanup. The
-      // current generator may have been cancelled reentrantly during next.
       const active=current??this.work
       try{this.cancel()}catch{/* the work failure remains primary */}
       if(active)try{this.retire(active,true)}catch{/* all releases attempted */}
-    }finally{this.pumping=false}
+    }finally{
+      if(epoch===this.epoch&&this.work?.checkpoint&&!this.work.checkpointSuspended)this.work.checkpoint.immediate=true
+      this.pumping=false
+    }
     let notificationFailed=false,notificationError:unknown
     try{if(failed)this.context.failed(primary)}catch(error){notificationFailed=true;notificationError=error}
-    // Cleanup can enqueue a new epoch. A throwing failure observer must not
-    // strand those independently owned jobs without their accepted wakeup.
     try{this.schedulePending()}catch(error){if(!notificationFailed){notificationFailed=true;notificationError=error}}
     if(notificationFailed)throw notificationError
   }
@@ -99,7 +164,7 @@ export class AuthorInputFIFO {
     const timer=wait.timer;wait.timer=undefined
     if(timer!==undefined)clearTimeout(timer)
   }
-  private park(job:AuthorInputJob,token:AuthorInputWait,epoch:number):void {
+  private park(job:AuthorInputJob,token:AuthorInputWait|AuthorInputCheckpoint,epoch:number):void {
     // Capture data fields without invoking accessors from a malformed yield.
     const fields=Object.getOwnPropertyDescriptors(token)
     for(const key of ['kind','promise','deadline','timeoutError']){
@@ -133,7 +198,7 @@ export class AuthorInputFIFO {
     else clearTimeout(timer)
   }
   private schedulePending():void {
-    if(this.pending&&(!this.work?.wait||this.work.wait.outcome)&&this.frame===undefined){
+    if(this.pending&&this.runnable()&&this.frame===undefined){
       const scheduledEpoch=this.epoch
       try{this.frame=this.context.schedule(()=>{if(scheduledEpoch!==this.epoch)return;this.frame=undefined;this.pump()})}
       catch(error){try{this.cancel()}catch{/* preserve scheduling failure */}this.context.failed(error)}

@@ -1,3 +1,6 @@
+import {canonicalSourceAuthorAdmission} from './src/presets/sourceCanonicalAuthorAdmission'
+import {SourceStrokeMaterialAdapter} from './src/presets/sourceStrokeMaterialAdapter'
+import {SourceCanonicalFrameEncoder} from './src/presets/sourceCanonicalFrameEncoder'
 import * as brushLibraryApi from '../lib/api/brushLibrary'
 import {indexedSocketFixture} from './testing/canonicalIndexedReadFixture'
 import type {CanonicalIndexedRead} from './src/oplog/CanonicalRecordedDelivery'
@@ -6,7 +9,7 @@ import {prepareSourceSeededDefaultAutoDab} from './src/presets/sourceDefaultAuto
 import {afterEach,expect,it,vi} from 'vitest'
 import {inflateSync} from 'node:zlib'
 import {createHash} from 'node:crypto'
-import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE as D,type CanonicalStrokeRasterProfile,CANONICAL_STROKE_RASTER_PROFILE,isBrushLibrary,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,canonicalSourceComposition,parseCanonicalStrokeCloseOperation,decodeCanonicalStrokeFrame,prepareCanonicalRecordedAttachment,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type BrushDescriptor,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type Operation} from '@grafetto/shared'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE as D,type CanonicalStrokeRasterProfile,CANONICAL_STROKE_RASTER_PROFILE,isBrushLibrary,canonicalBrushDescriptorJSON,canonicalDefaultAutoSourceBinding,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,canonicalSourceComposition,parseCanonicalStrokeCloseOperation,decodeCanonicalStrokeFrame,prepareCanonicalRecordedAttachment,canonicalPrimaryTextureMaterialContext,canonicalStrokeSnapshotV3,type CanonicalStrokeSnapshotV3,type CanonicalStrokeSnapshotV2,type CanonicalStrokeOperation,type BrushDescriptor,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type Operation} from '@grafetto/shared'
 import stock from '../../../../packages/shared/src/fixtures/sourceDefaultAutoData/stock.native'
 import mappedGaussian from '../../../../packages/shared/src/fixtures/sourceGaussianAutoData/stock.mapped.native'
 import basic6Image from './src/presets/fixtures/sourcePngWholePath/guiStroke.native.json'
@@ -34,11 +37,11 @@ const sha=createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).
 const pin=canonicalDefaultAutoSourceBinding(descriptor,sha,'neon64-f32-fma-v1')
 function verdict(request:CanonicalStrokeBegin):CanonicalStrokeBeginResult{return{ok:true,recordedNext:0,liveNext:0,ended:false,snapshot:{layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,pigmentRgb8:request.pigmentRgb8,boardEpoch:2,descriptorSha256:sha,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,composition:{mode:'wash',alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity,outerBlend:'over'},assets:[],materialVersion:2,material:{version:2,assets:[],primarySource:pin,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}}}}}
 function packet(x:number,timeStamp:number):PointerData{return{x,y:2,pressure:.5,tiltX:0,tiltY:0,speed:0,pointerType:'pen',timeStamp,dispatchTime:timeStamp}}
-async function harness(begin:(request:CanonicalStrokeBegin,lifetime:{signal:AbortSignal;isCurrent:()=>boolean})=>Promise<CanonicalStrokeBeginResult>,selected=descriptor,isCurrent=()=>true,page={width:8,height:8},profile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_RASTER_PROFILE,indexed?:CanonicalIndexedRead){
+async function harness(begin:(request:CanonicalStrokeBegin,lifetime:{signal:AbortSignal;isCurrent:()=>boolean})=>Promise<CanonicalStrokeBeginResult>,selected=descriptor,isCurrent=()=>true,page={width:8,height:8},profile:CanonicalStrokeRasterProfile=CANONICAL_STROKE_RASTER_PROFILE,indexed?:CanonicalIndexedRead,primaryTextureSource?:'pressure-identity-subtract-v3'){
  installBrushLibrary({schemaVersion:1,brushes:[{descriptor:selected,name:'native Basic2Opacity',source:'native',warnings:[]}],assets:[],skipped:[]})
  const snapshots=new Map<string,CanonicalStrokeSnapshotV2>()
  const acceptedBegin=async(request:CanonicalStrokeBegin,lifetime:{signal:AbortSignal;isCurrent:()=>boolean})=>{const reply=await begin(request,lifetime);if(reply.ok&&'materialVersion'in reply.snapshot&&reply.snapshot.materialVersion===2)snapshots.set(request.strokeId,reply.snapshot);return reply}
- const p=original(isCurrent,page,profile),operations:Operation[]=[],r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:page.width,pageHeight:page.height,...(indexed?{canonicalIndexedRoom:indexed}:{canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations}}),canonicalAuthor:{begin:acceptedBegin},onLocalOperation:op=>operations.push(op)},{width:8,height:8}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
+ const p=original(isCurrent,page,profile),operations:Operation[]=[],r=createTestEngine({rasterVersion:'straight-rgba8-v1',pageWidth:page.width,pageHeight:page.height,...(indexed?{canonicalIndexedRoom:indexed}:{canonicalEmptyRoom:{read:p.canonicalRead,tail:p.tailOperations}}),canonicalAuthor:{begin:acceptedBegin,...primaryTextureSource?{primaryTextureSource}:{}},onLocalOperation:op=>operations.push(op)},{width:8,height:8}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
  Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23,rangeMin:127,rangeMax:127}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,8,8]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
  engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil('brush:'+selected.id+'@'+selected.version);engine.setSize(40);engine.setLocked(false)
  await engine.paperReady();if(indexed)await engine.restoreCanonicalIndexedRoom(indexed);else await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
@@ -759,4 +762,86 @@ it('detaches BEGIN outcome when the actual service synchronously cancels its sou
   resolve(verdict(request));await Promise.resolve();await Promise.resolve()
   expect(operations).toEqual([]);expect(engine['_log'].entries).toHaveLength(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('packs ready source draws at FIFO cuts without changing source order, fences or final RNG state',async()=>{
+ const h=await harness(async request=>verdict(request),descriptor,()=>true,{width:128,height:32}),{engine,operations}=h
+ const clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  await engine.prepareBrush(preset);const prepared=engine['_canonicalPreparedAuthor']!,admit=vi.spyOn(CanonicalWashLayerCoordinator.prototype,'tryEnqueueLocal')
+  engine['_onLocalOperation']=op=>{expect(admit.mock.calls.at(-1)?.[1]).toBe(op);expect(admit.mock.results.at(-1)?.value).toBe(true);operations.push(op)}
+  engine['_onStart'](packet(1,100));const session=engine['_authorProducer']!
+  engine['_onMove'](packet(100,110));engine['_onEnd'](packet(100,120))
+  await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false),{timeout:10000})
+  const frames=operations.filter((op):op is CanonicalStrokeOperation=>op.type==='canonical_stroke'),snapshot=h.snapshots.get(frames[0].frame.strokeId)!
+  const decoded=frames.map(op=>decodeCanonicalStrokeFrame(op.frame,{...snapshot,frameOrdinal:op.frame.frameOrdinal}).frame)
+  expect(decoded.some(frame=>frame.draws.length>1)).toBe(true);expect(decoded.find(frame=>frame.draws.length)!.draws).toHaveLength(1)
+  expect(frames.map(op=>op.frame.frameOrdinal)).toEqual(frames.map((_,i)=>i))
+  expect(decoded.flatMap(frame=>frame.fences).filter(f=>f.kind==='gestureEnd')).toHaveLength(1)
+  const source=session.source!,author=new SourceStrokeAuthor(prepared.program)
+  let state=author.createState(source.seeds.sequentialSeed,source.seeds.strokeSeed,source.state!.initialAngle)
+  const adapter=new SourceStrokeMaterialAdapter(prepared.program,snapshot.material,state),encoder=new SourceCanonicalFrameEncoder(snapshot),baseline:ReturnType<typeof encoder.encode>['frame'][]=[]
+  const accept=(chunks:ReturnType<typeof adapter.finish>)=>{for(const chunk of chunks)baseline.push(encoder.encode(chunk.packed).frame)}
+  const consume=(iterator:ReturnType<typeof author.plan>)=>{for(;;){const step=iterator.next();if(step.done){state=step.value;return}state=step.value.state;accept(adapter.accept(step.value));const cut=adapter.flush();if(cut)accept([cut])}}
+  for(const input of [packet(1,100),packet(100,110)]){accept(adapter.beginInput(state));consume(author.plan(state,{x:input.x,y:input.y,t:input.timeStamp-source.timestamp,pressure:input.pressure,tiltX:input.tiltX,tiltY:input.tiltY,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false}))}
+  accept(adapter.beginInput(state));consume(author.finish(state));accept(adapter.finish(state))
+  const events=(items:typeof decoded)=>items.flatMap(frame=>Array.from({length:frame.draws.length+1},(_,i)=>[...frame.fences.filter(f=>f.at===i).map(({at:_at,...f})=>({fence:f})),...i<frame.draws.length?[{draw:{...frame.draws[i],definition:undefined,recipe:frame.definitions[frame.draws[i].definition]}}]:[]]).flat())
+  expect(events(decoded)).toEqual(events(baseline));expect(source.state).toEqual(state);expect(frames.length).toBeLessThan(baseline.length)
+  expect(engine['_authorInputError']).toBeUndefined();expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)
+ }finally{clock.mockRestore();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},15000)
+
+it('charges pending source material before BEGIN instead of relying on the old session allowance',async()=>{
+ const begin=vi.fn(async request=>verdict(request)),{engine,operations}=await harness(begin)
+ try{
+  await engine.prepareBrush(preset);const cpu=engine['_brushMipCache'],prepared=engine['_canonicalPreparedAuthor']!,baseline=cpu.reservedBytes
+  const release=cpu.reserve(cpu.budgetBytes-baseline-(prepared.bytes+8192+8192))
+  try{expect(()=>engine['_onStart'](packet(1,100))).toThrow(/budget/);expect(begin).not.toHaveBeenCalled();expect(engine['_authorInput'].pending).toBe(false);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0);expect(operations).toEqual([])}finally{release()}
+  expect(cpu.reservedBytes).toBe(baseline)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('packs actual opted-in material3 pressure grains with SAME source semantics and first draw local before send',async()=>{
+ const d=structuredClone(basic6Image.descriptor) as unknown as BrushDescriptor,gray=Uint8Array.from({length:64},(_,i)=>i*3),pattern={id:`asset:${createHash('sha256').update(gray).digest('hex')}` as `asset:${string}`,size:8,x:0,y:0,width:4,height:4}
+ Reflect.set(d,'id','imported-'+createHash('sha256').update('pump-cut-pressure-texture').digest('hex'));Reflect.set(d.sourceStamp!.flags,'textureEnabled',true)
+ Object.assign(d.sourceStamp!.settings,{'Texture/Pattern/Enabled':'true','PressureTexture/Strength/':'true','Texture/Strength/StrengthVersion':'2','Texture/Strength/UseCurve':'true','Texture/Strength/UseSameCurve':'true','Texture/Strength/Value':'1','Texture/Strength/curveMode':'0','Texture/Strength/Sensor':'<params id="pressure"><curve>0,0;1,1;</curve></params>'})
+ Reflect.set(d,'texture',{id:pattern.id,strength:1,periodPx:4,patternSize:{width:4,height:4},application:{mode:'subtract',soft:false},offset:{x:1,y:2,randomX:false,randomY:false}})
+ const tip={id:basic6Image.asset.id,size:basic6Image.asset.size},admission=canonicalSourceAuthorAdmission(d,G,[tip,pattern],{primaryTextureSource:'pressure-identity-subtract-v3'});if(!admission.supported||admission.material.kind!=='imageTexture')throw Error('Actual texture capability required')
+ const pin=admission.material.pin,digest=createHash('sha256').update(canonicalBrushDescriptorJSON(d)).digest('hex'),material=canonicalPrimaryTextureMaterialContext({version:3,assets:[pin.assets[0],admission.material.capability.patternAsset],primarySource:pin.primarySource,primaryTexture:admission.material.capability.primaryTexture,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}})
+ let captured:CanonicalStrokeSnapshotV3|undefined
+ const h=await harness(async request=>{captured=canonicalStrokeSnapshotV3({layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,pigmentRgb8:request.pigmentRgb8,boardEpoch:2,descriptorSha256:digest,rasterProfile:G,composition:{...canonicalSourceComposition(d)!,alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity},materialVersion:3,material,assets:material.assets},2,G);return{ok:true,recordedNext:0,liveNext:0,ended:false,snapshot:captured}},d,()=>true,{width:128,height:32},G,undefined,'pressure-identity-subtract-v3'),{engine,operations}=h
+ const library:unknown={schemaVersion:1,brushes:[{descriptor:d,name:'Self-authored pressure texture',source:'native',warnings:[]}],assets:[tip,pattern].map(a=>({id:a.id,size:a.size,file:a.id.slice(6)+'.bin'})),skipped:[]};if(!isBrushLibrary(library))throw Error('Actual fixture library required');installBrushLibrary(library)
+ installBrushPixels(tip.id,new Uint8Array(inflateSync(Buffer.from(basic6Image.asset.deflateBase64,'base64'),{maxOutputLength:tip.size**2})));installBrushPixels(pattern.id,gray)
+ const clock=vi.spyOn(performance,'now').mockReturnValue(0),inputs=[{...packet(1,100),pressure:.2},{...packet(100,110),pressure:.8}]
+ try{
+  engine.setSize(7.5);await engine.prepareBrush(`brush:${d.id}@${d.version}`)
+  const prepared=engine['_canonicalPreparedAuthor']!,admit=vi.spyOn(CanonicalWashLayerCoordinator.prototype,'tryEnqueueLocal')
+  engine['_onLocalOperation']=op=>{expect(admit.mock.calls.at(-1)?.[1]).toBe(op);expect(admit.mock.results.at(-1)?.value).toBe(true);operations.push(op)}
+  engine['_onStart'](inputs[0]);const session=engine['_authorProducer']!;engine['_onMove'](inputs[1]);engine['_onEnd'](packet(100,120))
+  await vi.waitFor(()=>expect(engine['_authorInput'].pending).toBe(false),{timeout:10000})
+  const snapshot=captured;if(!snapshot)throw Error('Actual opted-in BEGIN required')
+  const frames=operations.filter((op):op is CanonicalStrokeOperation=>op.type==='canonical_stroke'),decoded=frames.map(op=>decodeCanonicalStrokeFrame(op.frame,{...snapshot,frameOrdinal:op.frame.frameOrdinal}).frame)
+  expect(decoded.some(frame=>frame.draws.length>1)).toBe(true);expect(decoded.find(frame=>frame.draws.length)!.draws).toHaveLength(1)
+  expect(frames.map(op=>op.frame.frameOrdinal)).toEqual(frames.map((_,i)=>i));expect(decoded.flatMap(frame=>frame.fences).filter(f=>f.kind==='gestureEnd')).toHaveLength(1)
+  const source=session.source!,author=new SourceStrokeAuthor(prepared.program);let state=author.createState(source.seeds.sequentialSeed,source.seeds.strokeSeed,source.state!.initialAngle)
+  const adapter=new SourceStrokeMaterialAdapter(prepared.program,snapshot.material,state),encoder=new SourceCanonicalFrameEncoder(snapshot),baseline:ReturnType<typeof encoder.encode>['frame'][]=[]
+  const accept=(chunks:ReturnType<typeof adapter.finish>)=>{for(const chunk of chunks)baseline.push(encoder.encode(chunk.packed).frame)}
+  const consume=(iterator:ReturnType<typeof author.plan>)=>{for(;;){const step=iterator.next();if(step.done){state=step.value;return}state=step.value.state;accept(adapter.accept(step.value));const cut=adapter.flush();if(cut)accept([cut])}}
+  for(const input of inputs){accept(adapter.beginInput(state));consume(author.plan(state,{x:input.x,y:input.y,t:input.timeStamp-source.timestamp,pressure:input.pressure,tiltX:input.tiltX,tiltY:input.tiltY,speed:0,rotation:0,tangentialPressure:0,perspective:1,canvasRotation:0,mirroredH:false,mirroredV:false,tiltDirectionOffset:0,hover:false}))}
+  accept(adapter.beginInput(state));consume(author.finish(state));accept(adapter.finish(state))
+  const events=(items:typeof decoded)=>items.flatMap(frame=>Array.from({length:frame.draws.length+1},(_,i)=>[...frame.fences.filter(f=>f.at===i).map(({at:_at,...f})=>({fence:f})),...i<frame.draws.length?[{draw:{...frame.draws[i],definition:undefined,recipe:frame.definitions[frame.draws[i].definition]}}]:[]]).flat())
+  expect(events(decoded)).toEqual(events(baseline));expect(source.state).toEqual(state);expect(frames.length).toBeLessThan(baseline.length)
+  expect(new Set(decoded.flatMap(frame=>frame.draws.map(draw=>draw.grainDepth))).size).toBeGreaterThan(2)
+  expect(engine['_authorInputError']).toBeUndefined();expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)
+ }finally{clock.mockRestore();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+it('retires a lazy multi-draw cut with its actual send failure as the session reason and no held metadata',async()=>{
+ const h=await harness(async request=>verdict(request),descriptor,()=>true,{width:128,height:32}),{engine,operations}=h,primary=Error('lazy-cut-send-failed'),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  await engine.prepareBrush(preset)
+  engine['_onLocalOperation']=op=>{if(op.type!=='canonical_stroke')throw Error('frame required');const snapshot=h.snapshots.get(op.frame.strokeId)!;if(decodeCanonicalStrokeFrame(op.frame,{...snapshot,frameOrdinal:op.frame.frameOrdinal}).frame.draws.length>1)throw primary;operations.push(op)}
+  engine['_onStart'](packet(1,100));const source=engine['_authorProducer']!.source!;engine['_onMove'](packet(100,110));engine['_onEnd'](packet(100,120))
+  await vi.waitFor(()=>expect(engine['_authorInputError']).toBe(primary),{timeout:10000})
+  expect(source.reason?.error).toBe(primary);expect(source.released).toBe(true);expect(engine['_authorInput'].pending).toBe(false);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0);expect(engine['_brushMipCache'].reservedBytes).toBe(0)
+ }finally{clock.mockRestore();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })

@@ -151,3 +151,88 @@ it('contains async observer exceptions after attempting cleanup and preserving f
  while(frames.length)frames.shift()!()
  expect(events).toEqual(['release','fresh','done','notified']);expect(fifo.pending).toBe(false);expect(vi.getTimerCount()).toBe(0)
 })
+
+it('cuts the same pending producer before its next pump without taking a third source step',()=>{
+ const frames:Array<()=>void>=[],events:string[]=[],pending:number[]=[]
+ const fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>0,failed:e=>{throw e}},4,2)
+ const flush=function*(){events.push('cut:'+pending.splice(0).join(','))}
+ fifo.enqueue(function*(){for(let i=0;i<5;i++){pending.push(i);events.push('source:'+i);yield{kind:'author-input-checkpoint' as const,flush}}})
+ expect(events).toEqual(['source:0','source:1'])
+ frames.shift()!();expect(events).toEqual(['source:0','source:1','cut:0,1','source:2','source:3'])
+ while(frames.length)frames.shift()!()
+ expect(events).toEqual(['source:0','source:1','cut:0,1','source:2','source:3','cut:2,3','source:4','cut:4']);expect(fifo.pending).toBe(false)
+})
+it('charges cut CPU to the same deadline and never advances source while a cut is blocked',()=>{
+ const frames:Array<()=>void>=[],events:string[]=[];let now=0,blocked=2
+ const fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>now,failed:e=>{throw e}},4,2)
+ const flush=function*(){while(blocked--){events.push('wait');yield}events.push('cut');now+=5}
+ fifo.enqueue(function*(){events.push('source:0');now+=5;yield{kind:'author-input-checkpoint' as const,flush};events.push('source:1')})
+ expect(events).toEqual(['source:0']);frames.shift()!();expect(events).toEqual(['source:0','wait','wait'])
+ frames.shift()!();expect(events).toEqual(['source:0','wait','wait','cut']);expect(fifo.pending).toBe(true)
+ frames.shift()!();expect(events.at(-1)).toBe('source:1');expect(fifo.pending).toBe(false)
+})
+it('closes cut and source once before releasing a reentrantly cancelled job',()=>{
+ const frames:Array<()=>void>=[],events:string[]=[]
+ const fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>0,failed:e=>{throw e}},4,1)
+ const flush=function*(){try{events.push('cut-next');fifo.cancel();yield}finally{events.push('cut-return')}}
+ fifo.enqueue(function*(){try{yield{kind:'author-input-checkpoint' as const,flush}}finally{events.push('source-return')}},()=>events.push('release'))
+ frames.shift()!();expect(events).toEqual(['cut-next','cut-return','source-return','release']);fifo.cancel();expect(events).toHaveLength(4);expect(fifo.pending).toBe(false)
+})
+it('flushes pending data before parking an unresolved wait without resuming the producer',async()=>{
+ const frames:Array<()=>void>=[],events:string[]=[];let resolve!:()=>void
+ const promise=new Promise<void>(done=>{resolve=done}),fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>0,failed:e=>{throw e}},4,2)
+ const flush=function*(){events.push('cut')}
+ fifo.enqueue(function*(){yield{kind:'author-input-checkpoint' as const,flush};yield{kind:'author-input-wait' as const,promise,deadline:1000,timeoutError:Error('late')};events.push('resumed')})
+ expect(events).toEqual(['cut']);expect(frames).toHaveLength(0);resolve();await Promise.resolve();await Promise.resolve();frames.shift()!();expect(events).toEqual(['cut','resumed'])
+})
+it('does not invoke checkpoint accessors or strand captured ownership on malformed tokens',()=>{
+ const errors:unknown[]=[],get=vi.fn(),release=vi.fn(),fifo=new AuthorInputFIFO({schedule:()=>1,unschedule:()=>{},now:()=>0,failed:e=>errors.push(e)})
+ fifo.enqueue(function*(){yield Object.defineProperty({kind:'author-input-checkpoint' as const},'flush',{get}) as {kind:'author-input-checkpoint';flush:()=>Generator<void,void,void>}},release)
+ expect(get).not.toHaveBeenCalled();expect(errors).toHaveLength(1);expect(release).toHaveBeenCalledOnce();expect(fifo.pending).toBe(false)
+})
+
+it('honours an immediate input cut before continuing the source or the next input',()=>{
+ const events:string[]=[],fifo=new AuthorInputFIFO({schedule:()=>{throw Error('unneeded wake')},unschedule:()=>{},now:()=>0,failed:e=>{throw e}},4,2)
+ const flush=function*(){events.push('cut')}
+ fifo.enqueue(function*(){events.push('input');yield{kind:'author-input-checkpoint' as const,flush,immediate:true as const};events.push('after-cut')})
+ fifo.enqueue(function*(){events.push('next-input')})
+ expect(events).toEqual(['input','cut','after-cut','next-input']);expect(fifo.pending).toBe(false)
+})
+it('attempts cut/source/captured cleanup after a cut failure without replacing its primary error',()=>{
+ const frames:Array<()=>void>=[],events:string[]=[],errors:unknown[]=[],primary=Error('cut-next')
+ const fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>0,failed:e=>errors.push(e)},4,1)
+ const flush=function*(){try{throw primary}finally{events.push('cut-finally')}}
+ fifo.enqueue(function*(){try{yield{kind:'author-input-checkpoint' as const,flush}}finally{events.push('source-finally');throw Error('source-return')}},()=>{events.push('release');throw Error('release')})
+ frames.shift()!();expect(errors).toEqual([primary]);expect(events).toEqual(['cut-finally','source-finally','release']);expect(fifo.pending).toBe(false)
+})
+it('tries all three cleanup owners when a suspended cut return throws',()=>{
+ const frames:Array<()=>void>=[],events:string[]=[],primary=Error('cut-return'),fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>0,failed:e=>{throw e}},4,1)
+ const flush=function*(){try{yield}finally{events.push('cut');throw primary}}
+ fifo.enqueue(function*(){try{yield{kind:'author-input-checkpoint' as const,flush}}finally{events.push('source');throw Error('source')}},()=>{events.push('release');throw Error('release')})
+ frames.shift()!();expect(()=>fifo.cancel()).toThrow(primary);expect(events).toEqual(['cut','source','release']);expect(fifo.pending).toBe(false);expect(()=>fifo.cancel()).not.toThrow()
+})
+it('keeps next-epoch work behind both old cleanup owners after cancellation inside a cut',()=>{
+ const frames:Array<()=>void>=[],events:string[]=[],fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>0,failed:e=>{throw e}},4,1)
+ const flush=function*(){try{fifo.cancel();fifo.enqueue(function*(){events.push('fresh')});yield}finally{events.push('cut-return')}}
+ fifo.enqueue(function*(){try{yield{kind:'author-input-checkpoint' as const,flush}}finally{events.push('source-return')}},()=>events.push('release'))
+ frames.shift()!();expect(events).toEqual(['cut-return','source-return','release']);frames.shift()!();expect(events).toEqual(['cut-return','source-return','release','fresh'])
+})
+it('observes a late wait rejection after cancelling its pending cut without resuming either owner',async()=>{
+ const frames:Array<()=>void>=[],events:string[]=[],failed=vi.fn();let reject!:(error:unknown)=>void
+ const promise=new Promise<void>((_resolve,no)=>{reject=no}),fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>0,failed},4,2)
+ const flush=function*(){try{yield}finally{events.push('cut-return')}}
+ fifo.enqueue(function*(){try{yield{kind:'author-input-checkpoint' as const,flush};yield{kind:'author-input-wait' as const,promise,deadline:1000,timeoutError:Error('timeout')};events.push('stale-resume')}finally{events.push('source-return')}})
+ fifo.cancel();reject(Error('late'));await Promise.resolve();await Promise.resolve();while(frames.length)frames.shift()!();expect(events).toEqual(['cut-return','source-return']);expect(failed).not.toHaveBeenCalled();expect(fifo.pending).toBe(false)
+})
+it('does not cut newer pending data ahead of an older in-flight producer handoff',()=>{
+ const frames:Array<()=>void>=[],events:string[]=[],pending:number[]=[],fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>0,failed:e=>{throw e}},4,2)
+ const flush=function*(){events.push('cut:'+pending.splice(0).join(','))}
+ fifo.enqueue(function*(){pending.push(0);yield{kind:'author-input-checkpoint' as const,flush};const older=pending.splice(0);pending.push(1);yield;events.push('admit:'+older.join(','));yield{kind:'author-input-checkpoint' as const,flush}})
+ expect(events).toEqual([]);while(frames.length)frames.shift()!();expect(events).toEqual(['admit:0','cut:1'])
+})
+it('retires the cancelled source when checkpoint descriptor capture reenters a new epoch',()=>{
+ const frames:Array<()=>void>=[],events:string[]=[],flush=vi.fn(function*(){events.push('stale-cut')}),fifo=new AuthorInputFIFO({schedule:cb=>{frames.push(cb);return frames.length},unschedule:()=>{},now:()=>0,failed:e=>{throw e}})
+ const token=new Proxy({kind:'author-input-checkpoint' as const,flush},{ownKeys(target){fifo.cancel();fifo.enqueue(function*(){events.push('fresh')});return Reflect.ownKeys(target)}})
+ fifo.enqueue(function*(){try{yield token}finally{events.push('source-return')}},()=>events.push('release'))
+ expect(events).toEqual(['source-return','release']);while(frames.length)frames.shift()!();expect(events).toEqual(['source-return','release','fresh']);expect(flush).not.toHaveBeenCalled();expect(fifo.pending).toBe(false)
+})

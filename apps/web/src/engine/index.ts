@@ -8116,16 +8116,25 @@ export class PencilEngine implements PencilEngineAPI {
       }
     }finally{release()}
   }
-  private *_consumeCanonicalSource(session:TimedAuthorSession,iterator:Generator<import('./src/presets/sourceStrokeAuthor').SourceStrokeAuthorStep,SourceStrokeAuthorState>):Generator<void,void,void> {
-    const source=session.source!
+  private *_consumeCanonicalSource(session:TimedAuthorSession,iterator:Generator<import('./src/presets/sourceStrokeAuthor').SourceStrokeAuthorStep,SourceStrokeAuthorState>):Generator<AuthorInputYield,void,void> {
+    const source=session.source!,owner=this
+    let firstMaterial=true
+    // The existing adapter remains the only pending material owner. A lazy cut
+    // captures packed bytes only when this SAME FIFO job can hand them off.
+    const flush=function*(){
+      try{owner._assertCanonicalSource(session);const cut=source.adapter!.flush();if(cut)yield* owner._acceptCanonicalChunks(session,[cut])}
+      catch(error){if(!source.partialCancel||error!==source.partialCancel){owner._closeCanonicalSource(session,{error});throw error}}
+    }
+    const checkpoint={kind:'author-input-checkpoint' as const,flush},immediate={...checkpoint,immediate:true as const}
     try{
       while(true){
         this._assertCanonicalSource(session)
         const next=iterator.next()
         if(next.done){source.state=next.value;return}
         source.state=next.value.state;yield* this._acceptCanonicalChunks(session,source.adapter!.accept(next.value))
-        const cut=source.adapter!.flush();if(cut)yield* this._acceptCanonicalChunks(session,[cut])
-        yield
+        // Preserve first paint latency for every captured START/MOVE input.
+        if(firstMaterial&&next.value.kind==='material'){yield* flush();firstMaterial=false}
+        yield next.value.kind==='inputComplete'?immediate:checkpoint
       }
     }finally{iterator.return(source.state!)}
   }
@@ -8139,7 +8148,12 @@ export class PencilEngine implements PencilEngineAPI {
     if(this._authorProducer&&!this._authorProducer.ended)throw new Error('Canonical pointer gesture already active')
     const captured={...input},seeds=createBrushRandomContext('digitalBrush')!,controller=new AbortController()
     if(![captured.x,captured.y,captured.pressure,captured.tiltX,captured.tiltY,captured.timeStamp,snapshot.opts.opacity,...snapshot.opts.graphiteColor].every(Number.isFinite)||captured.pressure<0||captured.pressure>1||snapshot.opts.opacity<0||snapshot.opts.opacity>1||snapshot.opts.graphiteColor.some(v=>v<0||v>1))throw new Error('Invalid canonical captured input')
-    const release=this._brushMipCache.reserve(prepared.bytes+8192)
+    // Logical pending metadata: <=2 draws, two recipe trees per draw, projected
+    // 15-scalar inputs, <=10 fences and <=64 bounded target keys. SOFT copies
+    // additionally retain curve text/points; compiled coefficients are not recipes.
+    const curve=prepared.material.kind==='auto'&&prepared.material.pin.kind==='softAuto'?prepared.material.pin.source.softnessCurve:undefined
+    const pendingMetadata=1024+2*(2*1024+512+512)+10*128+64*256+(curve?4*(2*curve.text.length+32*curve.points.length):0)
+    const release=this._brushMipCache.reserve(prepared.bytes+8192+pendingMetadata)
     const pigment=snapshot.opts.graphiteColor.map(v=>Math.round(v*255)) as [number,number,number]
     const request:CanonicalStrokeBegin=Object.freeze({layerId:snapshot.layerId,brush:'brush:'+prepared.descriptor.id+'@'+prepared.descriptor.version,strokeId:createBrushRandomStrokeId(nanoid(10),seeds),pigmentRgb8:Object.freeze(pigment),outerResourceOpacity:snapshot.opts.opacity,alphaDarken:'creamy'})
     const session:TimedAuthorSession={snapshot,input:captured,lastTime:0,cameraAngle:snapshot.cameraAngle,ended:false,source:{prepared,controller,request,release,seeds,timestamp:input.timeStamp,references:0,closed:false,released:false,emitted:0}}

@@ -54,3 +54,13 @@ witnesses). The final module-scoped outcome observer has a separate four-case
 actual BEGIN rerun. These are HOST lifecycle results, not physical GPU/performance
 claims. No runtime/device/service
 was created. Integration base is commit 231ae7f803d9fe6fe2b4374753c0dcd4c7506711.
+
+## Opt-in same-job material checkpoint
+
+Canonical source producers can yield an own-DATA `author-input-checkpoint` with a lazy void-yielding flush factory. The SAME active FIFO record holds one pending checkpoint/running cut; no second queue, source-result buffer or global turn cache exists. Default void producers and BEGIN wait behavior remain unchanged. At pump end the source's pending cut becomes eligible before any further source work; actual cut execution waits for the next cooperative turn if step/time cap is exhausted. Immediate inputComplete cut precedes return/next input. Two counted yields and the same4ms clock apply to source and cut queue-pressure yields; completed cut housekeeping still consumes CPU time and never resets the clock. A first quantum can overrun cooperatively as before, not a hard walltime guarantee.
+
+A producer resume revokes the prior cut-safe suspension point until another checkpoint, completion or wait is reached. In particular a plain void pressure yield can be an OLDER automatic-overflow chunk awaiting local admission while the adapter already contains NEWER material. The suspended bit prevents the cut factory from overtaking that handoff. The actual ordering witness was RED cut:new before admit:old, then GREEN with this gate. Factory identity cannot change while old pending ownership exists. Wait observation may attach before a cut completes; the existing same-job wait owns the detachable promise cell, while the cut drains first and source cannot resume until both permit it.
+
+Checkpoint descriptor capture invokes no accessors but may run Proxy traps, so epoch is rechecked immediately afterward before any assignment. A real reentrant-cancel witness was RED with missing source.return/release; the postcapture retire guard restores both and permits only fresh epoch work. Invalid descriptors/factory errors, cut.next/return errors, source.return/release errors, cancellation while cut runs/suspends, and late rejected waits attempt every owned cleanup and preserve the first work/cleanup failure. Cut fields/factory/iterator references detach before retirement callbacks. No metadata is emitted by cancellation itself.
+
+Evidence receipts are in R52/source-author-pump-{fifo-red,handoff-order-red,capture-cancel-red,final2-five-suites}.log. Runtime source scheduling and renderer responsiveness still require separate actual-device validation; these are unit/engine ownership proofs.
