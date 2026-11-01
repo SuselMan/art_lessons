@@ -407,3 +407,16 @@ it('drains bounded raw work behind a partial pinned stable commit so B head can 
  }finally{s.close()}
  expect(s.cpu.reservedBytes).toBe(0)
 })
+it('derives pending local receipts independently of drained CPU and an original peer OPEN wash',()=>{
+ const s=fixture();try{
+  expect(Reflect.get(s.coordinator,'hasPendingLocal')).toBe(false)
+  const own=s.input('author',0,2,true,true),peer=s.input('peer',0,1,false,true)
+  s.coordinator.enqueueRecorded(peer);expect(s.coordinator.tryEnqueueLocal(s.localAuthor(),s.local(own))).toBe(true)
+  for(let i=0;i<100&&s.coordinator.pending;i++)s.coordinator.advance()
+  expect(s.coordinator.queuedFrameCount).toBe(0);expect(s.coordinator.presentationReady).toBe(true);expect(s.coordinator.checkpointReady).toBe(false);expect(Reflect.get(s.coordinator,'hasPendingLocal')).toBe(true)
+  s.coordinator.enqueueRecorded(own)
+  expect(Reflect.get(s.coordinator,'hasPendingLocal')).toBe(false)
+  for(let i=0;i<100&&s.coordinator.pending;i++)s.coordinator.advance()
+  expect(s.coordinator.presentationReady).toBe(true);expect(s.coordinator.checkpointReady).toBe(false);expect(s.coordinator['entries'].some(entry=>entry.recorded?.userId==='peer'&&!entry.recorded.state.ended)).toBe(true)
+ }finally{s.close()}expect(s.cpu.reservedBytes).toBe(0)
+})

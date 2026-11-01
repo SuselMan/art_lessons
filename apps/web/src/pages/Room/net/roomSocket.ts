@@ -11,7 +11,7 @@ import { BANNED_ERROR_CODE, noteBanned } from '../../../lib/api/banned'
 import { prepareBrushPresets, setBrushRoomScope, loadBrushLibrary } from '../../../lib/api/brushLibrary'
 import { dismissNotice, notifyError } from '../../../stores/noticeStore'
 import { createBoardEventHandlers } from './boardEvents'
-import { createConfirmedStreamHandler, type ConfirmedStreamDeps,type PreparedConfirmedDelivery } from './confirmedStream'
+import { createConfirmedStreamHandler, type ConfirmedStreamDeps,type PreparedConfirmedDelivery,type CanonicalHistoryMetadata } from './confirmedStream'
 import { createJoinFlow, type JoinFlowDeps } from './joinFlow'
 import { createPeerEventHandlers, type PeerEventDeps } from './peerEvents'
 import { createRoomControlEventHandlers, type RoomControlEventDeps } from './roomControlEvents'
@@ -31,7 +31,7 @@ export type RoomSocketDeps =
   & Pick<RoomStateDeps<PencilEngineAPI>,
     | 'holdReviewArrivals' | 'replaceUrl' | 'enterBoard' | 'awaitPaper' | 'markJoinRestoreDone' | 'clearRestoreFailure' | 'restoreCatchup'
     | 'replaceCanonicalRoom' | 'firstRoomStateReceivedRef' | 'awaitingSeededBoardStateRef' | 'pendingSnapshotRef' | 'snapshotGateRef'>
-  & Omit<ConfirmedStreamDeps, 'engineRef' | 'confirmOwnOperation' | 'requestFullResync' | 'dispatchPrepared'>
+  & Omit<ConfirmedStreamDeps, 'engineRef' | 'confirmOwnOperation' | 'requestFullResync' | 'dispatchPrepared' | 'onCanonicalHistoryConfirmed'>
   & Pick<PeerEventDeps, 'roomContentReadyRef' | 'markActive' | 'forgetDrawingActivity'>
   & Pick<RoomControlEventDeps, 'queryClient' | 'retryJoinRef' | 'setJoinState'>
   & {
@@ -53,6 +53,9 @@ export type RoomSocketDeps =
     /** Explicit preparer; omission keeps canonical room admission OFF. */
     prepareCanonicalRoomState?:CanonicalRoomStatePreparer
     prepareCanonicalRecordedInput?:(input:CanonicalRecordedInput,engine:PencilEngineAPI)=>Promise<CanonicalRecordedPreparationOutcome>
+    onCanonicalHistoryConfirmed?:(operation:Readonly<CanonicalHistoryMetadata>,read:CanonicalRoomStateRead,engine:PencilEngineAPI)=>void
+    /** Association check only: never mint a read from the current engine. */
+    isCanonicalEngineCurrent?:(engine:PencilEngineAPI,read:CanonicalRoomStateRead)=>boolean
     joinRoomRef?:RefObject<ClientToServerEvents['join_room']|null>
     /** The socket is connected (true) or has dropped (false). */
     onConnectionChange: (connected: boolean) => void
@@ -126,9 +129,10 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
   })
   // (#493) Out of line — see confirmedStream.ts.
   let confirmedScope:CanonicalRoomStateRead['scope']|undefined
+  let confirmedRead:CanonicalRoomStateRead|undefined
   const dispatchPrepared:ConfirmedStreamDeps['dispatchPrepared']=deps.prepareCanonicalRecordedInput?(input,applyFinal)=>{
-    const generation=readGeneration,scope=confirmedScope,handler=handleOperationConfirmed,engine=deps.engineRef.current
-    const current=()=>generation===readGeneration&&handleOperationConfirmed===handler&&!!scope&&scope.isCurrent()&&deps.engineRef.current===engine
+    const generation=readGeneration,scope=confirmedScope,read=confirmedRead,handler=handleOperationConfirmed,engine=deps.engineRef.current
+    const current=()=>generation===readGeneration&&handleOperationConfirmed===handler&&!!scope&&scope.isCurrent()&&deps.engineRef.current===engine&&(!deps.isCanonicalEngineCurrent||!!engine&&!!read&&deps.isCanonicalEngineCurrent(engine,read))
     brushes.dispatch([],applyFinal,current,async()=>{
       input.delivery.assertCurrent(input)
       if(!current())return
@@ -139,7 +143,14 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
       if(outcome!=='ready')throw Error('Current canonical preparation cannot become obsolete')
     })
   }:undefined
-  let handleOperationConfirmed = createConfirmedStreamHandler({ ...deps,dispatchPrepared,canonicalReadScope:undefined, confirmOwnOperation, requestFullResync })
+  const createConfirmed=(read?:CanonicalRoomStateRead)=>createConfirmedStreamHandler({...deps,dispatchPrepared,canonicalReadScope:read?.scope,confirmOwnOperation,requestFullResync,
+    onCanonicalHistoryConfirmed:read&&deps.onCanonicalHistoryConfirmed?operation=>{
+      if(confirmedRead!==read||!read.scope.isCurrent())return
+      const engine=deps.engineRef.current
+      if(!engine||deps.isCanonicalEngineCurrent&&!deps.isCanonicalEngineCurrent(engine,read))throw Error('Canonical history engine unavailable')
+      deps.onCanonicalHistoryConfirmed!(operation,read,engine)
+    }:undefined})
+  let handleOperationConfirmed = createConfirmed()
 
   // (#152) peer_cursor itself is not handled here at all — Room had nothing to
   // do with it beyond forwarding into Room-level state (which is exactly what
@@ -250,14 +261,19 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
       }
       // No await or arbitrary callback between publication and dispatch.
       readGeneration=after;published=true
-      confirmedScope=accepted.canonicalRead?.scope
-      handleOperationConfirmed=createConfirmedStreamHandler({...deps,dispatchPrepared,confirmOwnOperation,requestFullResync,canonicalReadScope:confirmedScope})
+      confirmedRead=accepted.canonicalRead;confirmedScope=confirmedRead?.scope
+      handleOperationConfirmed=createConfirmed(confirmedRead)
       dispatchRoomState(accepted)
     }
     catch{deps.setRoomContentReady(false);reportJoinFailure('unsupported_raster_version','room_state canonical contract')}
   })
   socket.on('operation_confirmed',message=>{
-    const handler=handleOperationConfirmed,generation=readGeneration,scope=confirmedScope,arrivalEngine=deps.prepareCanonicalRecordedInput&&(message.operation.type==='canonical_stroke'||message.operation.type==='canonical_stroke_close')?deps.engineRef.current:undefined
+    const handler=handleOperationConfirmed,generation=readGeneration,scope=confirmedScope,read=confirmedRead,engine=deps.engineRef.current
+    const source=message.operation.type==='canonical_stroke'||message.operation.type==='canonical_stroke_close',history=!!scope&&(message.operation.type==='operation_undo'||message.operation.type==='operation_redo')
+    // A NEW scope may still see the OLD mounted engine. Such a delivery belongs
+    // in the existing replay gate until that scope's actual baseline mounts.
+    const bound=!deps.isCanonicalEngineCurrent||!!engine&&!!read&&deps.isCanonicalEngineCurrent(engine,read)
+    const arrivalEngine=(deps.prepareCanonicalRecordedInput||deps.onCanonicalHistoryConfirmed)&&(source||history)&&bound?engine:undefined
     let prepared:PreparedConfirmedDelivery|undefined
     // Pin only canonical deliveries across CAS/resource awaits. Legacy arrivals
     // retain their existing same-read behavior across engine replacement.

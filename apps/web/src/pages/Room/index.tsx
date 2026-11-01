@@ -1,7 +1,7 @@
+import {notifyError} from '../../stores/noticeStore'
 import {importedBrushes,importedBrushAssetMetadata} from '../../engine/brushLibrary'
 import {canonicalToolAvailability} from '../../lib/tools/canonicalToolAvailability'
-import {canonicalBootstrapOf,stageCanonicalRoomReplacement,createCanonicalRoomAuthor,createCanonicalControlCapture,createCanonicalRoomVerdicts,restoreCanonicalRoomBaseline,createCanonicalRecoveryControl,prepareCanonicalRoomRecordedInput} from './canonicalRoomController'
-import {prepareCanonicalRoomState} from './net/canonicalRoomState'
+import {canonicalBootstrapOf,stageCanonicalRoomReplacement,createCanonicalRoomAuthor,createCanonicalControlCapture,createCanonicalRoomVerdicts,createCanonicalHistoryVerdicts,createCanonicalRoomHistoryLifecycle,prepareCanonicalRoomStateForSocket,createCanonicalHistoryOperationHandler,createCanonicalRecoveryControl,prepareCanonicalRoomRecordedInput} from './canonicalRoomController'
 import type {CanonicalRoomStateRead} from './net/canonicalRoomState'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
@@ -694,9 +694,10 @@ function RoomEditor() {
     const engine=engineRef.current,board=boardIdRef.current
     if(engine&&board)canonicalRecoveryRef.current?.request(engine,board)
   },[])
-  const canonicalVerdicts=useMemo(()=>createCanonicalRoomVerdicts({repair:requestCanonicalRecovery,
-    isReplacing:()=>canonicalRecoveryRef.current?.isReplacing()??false,
-    drain:()=>canonicalRecoveryRef.current?.drain()}),[requestCanonicalRecovery])
+  const canonicalVerdicts=useMemo(()=>createCanonicalHistoryVerdicts(
+    createCanonicalRoomVerdicts({repair:requestCanonicalRecovery,isReplacing:()=>canonicalRecoveryRef.current?.isReplacing()??false,drain:()=>canonicalRecoveryRef.current?.drain()}),
+    ()=>canonicalRecoveryRef.current,()=>notifyError(tRef.current('room.error.historyChange')),
+  ),[requestCanonicalRecovery])
 
   // True once this session's `handleRoomState` has processed its very first
   // `room_state` — governs "initial handshake" vs. "genuine reconnect" there.
@@ -744,18 +745,14 @@ function RoomEditor() {
       resolveTransformCommit, scheduleLostWorkRecovery, setLostWork,canonicalVerdicts,requestFullResync:requestCanonicalRecovery,
     },
   })
-  const canonicalRecovery=useMemo(()=>createCanonicalRecoveryControl({
-    getEngine:()=>engineRef.current,getBoard:()=>boardIdRef.current,
-    hasPendingLocals:()=>outboxRef.current.pendingCount!==0||pendingIdsRef.current.size!==0||strokeActiveRef.current,
-    canRequest:()=>!!socketRef.current?.connected&&requestFullResyncRef.current!==null,
-    resync:()=>requestFullResyncRef.current?.(),
-    onWaiting:()=>{setRoomContentReady(false);setRestoreFailure('transfer')},
-  }),[outboxRef,pendingIdsRef])
+  const {control:canonicalRecovery,canRequest:canRequestHistory,restore:restoreCanonicalBaseline,confirmed:confirmCanonicalHistory}=useMemo(()=>createCanonicalRoomHistoryLifecycle({
+    engineRef,boardIdRef,socketRef,readRef:installedCanonicalReadRef,socketBoardRef,joinedRef:hasJoinedRef,outboxRef,pendingIdsRef,strokeActiveRef,
+    readyRef:roomContentReadyRef,latestKnownSeqRef,resyncRef:requestFullResyncRef,replayGateRef,appliedRef:appliedOpIdsRef,
+    legacyHistory:()=>useRoomStore.getState().annotationMode&&useRoomStore.getState().reviewAnnotationHistory!==null,
+    onWaiting:()=>{setRoomContentReady(false);setRestoreFailure('transfer')},onJoining:()=>{setRestoreFailure(null);setRoomContentReady(false)},
+    notify:()=>notifyError(tRef.current('room.error.historyChange')),
+  }),[outboxRef,pendingIdsRef,latestKnownSeqRef,appliedOpIdsRef])
   canonicalRecoveryRef.current=canonicalRecovery
-  const restoreCanonicalBaseline=useCallback(async(engine:PencilEngineAPI,read:CanonicalRoomStateRead,tail:readonly Operation[])=>{
-    try{await restoreCanonicalRoomBaseline(engine,read,tail,()=>engineRef.current,appliedOpIdsRef.current);canonicalRecovery.restored(engine)}
-    catch(error){canonicalRecovery.failed(engine);throw error}
-  },[appliedOpIdsRef,canonicalRecovery])
   useEffect(()=>{if(connected)canonicalRecovery.drain()},[connected,canonicalRecovery])
 
 
@@ -1033,13 +1030,19 @@ function RoomEditor() {
     let constructed:PencilEngineAPI|undefined
     const canonicalAuthor=bootstrap&&capturedSocket?createCanonicalRoomAuthor(bootstrap.read,capturedSocket,()=>socketRef.current,()=>engineRef.current===constructed):undefined
     const captureCanonicalControl=bootstrap?createCanonicalControlCapture(bootstrap.read,bootstrap.tail,boardId,{socket:capturedSocket,getSocket:()=>socketRef.current,getInstalledRead:()=>installedCanonicalReadRef.current,isEngineCurrent:()=>constructed!==undefined&&engineRef.current===constructed,isJoined:()=>hasJoinedRef.current,getBoard:()=>socketBoardRef.current}):undefined
+    const networkCallbacks=createEngineNetworkCallbacks({engineRef,appliedOpIdsRef,pendingIdsRef,outbox,markActive,pendingPreviewsRef,applyRemoteOp,syncFromLog,checkSnapshotBoundary,editingBlockedRef,captureCanonicalControl,
+      sendLive:data=>{socketRef.current?.emit('stroke_live',data)},sendLiveEnd:data=>{socketRef.current?.emit('stroke_live_end',data)}})
+    const onLocalOperation=createCanonicalHistoryOperationHandler({bootstrap,getEngine:()=>constructed,
+      isCurrent:engine=>engineRef.current===engine&&socketRef.current===capturedSocket,canRequest:canRequestHistory,capture:captureCanonicalControl,
+      board:boardId,control:canonicalRecovery,enqueue:(op,options)=>outbox.enqueue(op,options),
+      notify:()=>notifyError(tRef.current('room.error.historyChange')),legacy:networkCallbacks.onLocalOperation})
     // Per mount, not per board — see enterBoard's doc comment on why these two
     // are reset here rather than there.
     replayIncompleteRef.current = false
     snapshotGateRef.current = createSnapshotGate(reportInvariant)
     const engine = new PencilEngine(canvasRef.current, {
       rasterVersion: engineRasterVersion,
-      ...bootstrap?{canonicalEmptyRoom:bootstrap,canonicalAuthor,onCanonicalRecoveryRequired:()=>{if(constructed)canonicalRecovery.retired(constructed,boardId)}}:{},
+      ...bootstrap?{canonicalEmptyRoom:bootstrap,canonicalAuthor,onCanonicalAuthorIdle:()=>{if(constructed)canonicalRecovery.authorIdle(constructed,boardId)},onCanonicalRecoveryRequired:()=>{if(constructed)canonicalRecovery.retired(constructed,boardId)}}:{},
       asyncFinish: false,
       joinedTouch: !import.meta.env.DEV || joinedTouchQaEnabled(import.meta.env.DEV, import.meta.env.VITE_QA_JOINED_TOUCH, location.search),
       bandBatch: import.meta.env.DEV && new URLSearchParams(location.search).get('qaBandBatch') === '1',
@@ -1060,12 +1063,7 @@ function RoomEditor() {
       userId: useRoomStore.getState().userId,
       // (#493) Local operations out, peer reveals committed, the live stroke
       // channel — see engineNetwork.ts.
-      ...createEngineNetworkCallbacks({
-        engineRef, appliedOpIdsRef, pendingIdsRef, outbox, markActive, pendingPreviewsRef,
-        applyRemoteOp, syncFromLog, checkSnapshotBoundary, editingBlockedRef,captureCanonicalControl,
-        sendLive: data => { socketRef.current?.emit('stroke_live', data) },
-        sendLiveEnd: data => { socketRef.current?.emit('stroke_live_end', data) },
-      }),
+      ...networkCallbacks,onLocalOperation,
       onSnapshotHistoryRepairNeeded: repairSnapshotHistory,
       // (#480) Движку некому докладывать самому — см. PencilEngineOptions.onInvariant.
       onInvariant: reportInvariant,
@@ -1111,7 +1109,7 @@ function RoomEditor() {
       retireEngine(engine, boardId, replayIncompleteRef, unhookPageHide)
     }
   }, [
-    boardId,canonicalMountRevision,requestRoomResync,canonicalRecovery, engineRasterVersion, enginePaper, enginePaperColor, engineInfinite,
+    boardId,canonicalMountRevision,requestRoomResync,canonicalRecovery,canRequestHistory, engineRasterVersion, enginePaper, enginePaperColor, engineInfinite,
     markActive, applyRemoteOp, syncFromLog, engineDevOptions, checkSnapshotBoundary, restoreRoom, finishOpenTimer,
     isCreator, snapshotUploader, outbox,
     awaitPaper,
@@ -1203,10 +1201,12 @@ function RoomEditor() {
   // ── operation log bridge ──────────────────────────────────────────────────────
   // (#493) How an operation leaves this client — optimistic, through the
   // outbox, or refused — and undo/redo, in useOperationDispatch.
-  const { dispatchOp, handleUndo, handleRedo } = useOperationDispatch({
+  const { dispatchOp, handleUndo:dispatchUndo, handleRedo:dispatchRedo } = useOperationDispatch({
     roomContentReady, editingBlocked, connected, outbox, engineRef, pendingIdsRef, isOwnerRef,
     syncFromLog, transformSessionRef, resetTransformSessionRef,
   })
+  const handleUndo=useCallback(async()=>{if(canRequestHistory())await dispatchUndo()},[canRequestHistory,dispatchUndo])
+  const handleRedo=useCallback(async()=>{if(canRequestHistory())await dispatchRedo()},[canRequestHistory,dispatchRedo])
 
   // (#312) The banner's "undo" — drops the replacement layers again, for
   // when the deletion was right and the recovered strokes aren't wanted.
@@ -1406,11 +1406,10 @@ function RoomEditor() {
     // dependency list below that decides when it is rebuilt.
     return connectRoomSocket({
       sessionId, isCreator, creatorDraft,joinRoomRef,
+      isCanonicalEngineCurrent:(engine,read)=>engineRef.current===engine&&installedCanonicalReadRef.current===read,
+      onCanonicalHistoryConfirmed:confirmCanonicalHistory,
       prepareCanonicalRecordedInput:(input,engine)=>prepareCanonicalRoomRecordedInput(engine,input,{currentEngine:()=>engineRef.current,currentBoard:()=>boardIdRef.current,recovery:canonicalRecovery}),
-      prepareCanonicalRoomState:(state,lifetime)=>{
-        if(!lifetime.expectedBoardId)throw Error('Canonical requested board unavailable')
-        return prepareCanonicalRoomState(state,{expectedBoardId:lifetime.expectedBoardId,isCurrent:lifetime.isCurrent})
-      },
+      prepareCanonicalRoomState:prepareCanonicalRoomStateForSocket,
       // Same-origin: the Vite dev server proxies /socket.io to apps/server
       // (see vite.config.ts) — works under both `npm run dev` (https, needed
       // for AudioWorklet-based sound experiments) and `npm run dev:http`.
@@ -1445,7 +1444,7 @@ function RoomEditor() {
       replayGate: replayGateRef.current,
     })
   }, [
-    sessionId, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary, markJoinRestoreDone,replaceCanonicalRoom,requestCanonicalRecovery,canonicalRecovery,
+    sessionId, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary, markJoinRestoreDone,replaceCanonicalRoom,requestCanonicalRecovery,canonicalRecovery,confirmCanonicalHistory,
     restoreRoom, confirmOwnOperation, enterBoard,
     // (#429) Used by the live-stroke handler, markLayerActive too. Both are
     // useCallback with no dependencies (see their definitions), so they are

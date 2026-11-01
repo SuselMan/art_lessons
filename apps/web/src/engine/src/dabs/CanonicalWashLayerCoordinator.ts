@@ -152,6 +152,8 @@ export class CanonicalWashLayerCoordinator {
     return !this.commitFrontier()&&this.entries.some(entry=>!entry.committed&&!!entry.ownership&&!!(entry.targetPlan||entry.tile||entry.part))
   }
   get awaitingRecordedOrder():boolean {return this.stableOrderBlocked&&!this.queue.length}
+  /** Original receipts only; a retained local lease after promotion is not pending. */
+  get hasPendingLocal():boolean {return this.entries.some(entry=>!!entry.local?.receipts.length)}
   get poisoned(): boolean { return this.failed }
   get pending(): boolean { return !!this.queue.length || !!this.dirty.size || !!this.work || !!this.commitFrontier()?.ownership }
   get presentationReady(): boolean { return !this.failed && !this.closed && !this.dirty.size && !this.work }

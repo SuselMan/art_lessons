@@ -144,3 +144,34 @@ it.each([false,true])('rejects close wire metadata before every side effect (sco
   expect(s.deps.applyRemoteOp).not.toHaveBeenCalled();expect(s.deps.requestFullResync).toHaveBeenCalledOnce()
  }finally{observe.mockRestore()}
 })
+
+it('prepares canonical history metadata without effects and hands it to replacement owner without paint cursor/review',()=>{
+ const s=current(),history=vi.fn(),observe=vi.spyOn(useRoomStore.getState(),'observeReviewOperation'),hold=vi.fn(()=>false)
+ observe.mockClear()
+ const handler=createConfirmedStreamHandler({...s.deps,canonicalReadScope:s.scope,onCanonicalHistoryConfirmed:history,replayGate:{hold,setHandler:vi.fn()}})
+ const operation={id:'undo',type:'operation_undo' as const,userId:'author',timestamp:0,targetOpId:'op',seq:3},payload={seq:3,operation}
+ const prepared=handler.prepare(payload)
+ expect(prepared?.history).toEqual(operation);expect(history).not.toHaveBeenCalled();expect(hold).not.toHaveBeenCalled();expect(observe).not.toHaveBeenCalled();expect(s.deps.requestFullResync).not.toHaveBeenCalled()
+ handler(prepared!.payload)
+ expect(history).toHaveBeenCalledWith(operation);expect(Object.isFrozen(history.mock.calls[0][0])).toBe(true)
+ expect(s.deps.lastConfirmedSeqRef.current).toBe(2);expect(s.deps.latestKnownSeqRef.current).toBe(2);expect(s.deps.applyRemoteOp).not.toHaveBeenCalled();expect(s.deps.confirmOwnOperation).not.toHaveBeenCalled();expect(s.deps.checkSnapshotBoundary).not.toHaveBeenCalled();expect(observe).not.toHaveBeenCalled();observe.mockRestore()
+})
+it('holds the exact metadata payload in SAME replay gate and rejects copies/stale original lifetime',()=>{
+ const s=current(),history=vi.fn(),gate=createReplayGate<{seq:number;operation:Operation}>(),ticket=gate.begin(),handler=createConfirmedStreamHandler({...s.deps,canonicalReadScope:s.scope,onCanonicalHistoryConfirmed:history,replayGate:gate})
+ const payload={seq:3,operation:{id:'redo',type:'operation_redo' as const,userId:'author',timestamp:0,targetOpId:'op',seq:3}},prepared=handler.prepare(payload)!
+ handler({...prepared.payload});expect(history).not.toHaveBeenCalled();handler(prepared.payload);expect(history).not.toHaveBeenCalled()
+ s.isCurrent.mockReturnValue(false);expect(gate.end(ticket)).toBe(true);expect(history).not.toHaveBeenCalled();expect(s.deps.lastConfirmedSeqRef.current).toBe(2)
+})
+it('refuses malformed metadata/capabilities in pure preflight before replacement or review',()=>{
+ const s=current(),history=vi.fn(),handler=createConfirmedStreamHandler({...s.deps,canonicalReadScope:s.scope,onCanonicalHistoryConfirmed:history})
+ const operation={id:'undo',type:'operation_undo' as const,userId:'author',timestamp:0,targetOpId:'op',seq:3}
+ expect(()=>handler.prepare({seq:4,operation})).toThrow();expect(()=>handler.prepare({seq:3,operation,canonicalCapabilities:s.attachment})).toThrow()
+ expect(history).not.toHaveBeenCalled();expect(s.deps.requestFullResync).not.toHaveBeenCalled();expect(s.deps.applyRemoteOp).not.toHaveBeenCalled();expect(s.deps.lastConfirmedSeqRef.current).toBe(2)
+})
+
+it('ignores delayed genuine metadata already represented by the published full-cut cursor',()=>{
+ const s=current(),history=vi.fn(),hold=vi.fn(()=>false),observe=vi.spyOn(useRoomStore.getState(),'observeReviewOperation');observe.mockClear();s.deps.lastConfirmedSeqRef.current=3
+ const handler=createConfirmedStreamHandler({...s.deps,canonicalReadScope:s.scope,onCanonicalHistoryConfirmed:history,replayGate:{hold,setHandler:vi.fn()}})
+ handler({seq:3,operation:{id:'undo',type:'operation_undo',userId:'author',timestamp:0,targetOpId:'op',seq:3}})
+ expect(history).not.toHaveBeenCalled();expect(hold).not.toHaveBeenCalled();expect(observe).not.toHaveBeenCalled();expect(s.deps.requestFullResync).not.toHaveBeenCalled();expect(s.deps.lastConfirmedSeqRef.current).toBe(3);observe.mockRestore()
+})

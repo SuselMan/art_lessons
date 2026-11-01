@@ -226,3 +226,94 @@ observation remains separate and returns failed for a healthy interval. Tests
 first RED2/prior58PASS then final79/2PASS include shared wait, active/ACK ordering,
 detach and throwing resync. The future Room hold callback can retain its ticket
 lexically in the shared promise continuation, without an active-ticket registry.
+
+## U3b: paired healthy history ingress and actual U1 consumer
+
+The constructed Room callback arms the SAME Origin before enqueueing the exact
+U1 metadata candidate with the existing local-only Outbox classification. Its
+receipt is retained only by that enqueue rejection continuation. There is no
+Room command map/ref, optimistic metadata append, ACK paint, pending-ID clear,
+physical-retirement witness or fabricated END. Current offline/busy callbacks
+refuse a new command. Permanent undurable rejection uses the existing toast.
+
+Current original-scoped undo/redo confirmations are closed metadata, not new
+CanonicalRecordedInput grants. Pure preflight captures the same payload/private
+proof; replay keeps its exact original lifetime. The handler invokes the healthy
+owner before review/cursor/snapshot effects. Metadata already represented by the
+full baseline cursor is ignored. A gap requests a genuine complete cut bounded
+by actual placement rather than inventing missing frames. Frames/seals retain
+original recorded delivery and the existing ordered resource gate.
+
+The replay ticket is lexical to the SAME Origin history-transition promise.
+Joining settles only after the actual socket resync invalidates the old read;
+then releasing held old originals cannot promote an obsolete journal. A new
+room-state scope arriving before engine mounting keeps frame AND metadata
+suffixes held until the new associated engine is installed. Legacy operations
+retain their old engine-replacement behavior. Original-tail parameter/storage types are readonly without a runtime copy.
+The final architecture-map review additionally required extracting the new
+healthy-control algorithms from Room into this existing controller module.
+
+Actual host integration uses the real source compiler/BEGIN snapshot, pointer
+callbacks, engine, original Room preparer, SAME socket ordered/replay gate and
+SAME Outbox with independently resolved durable ACKs. It first authors/promotes
+an ended gesture, starts another OPEN gesture, receives metadata ahead of its
+original confirmations, emits MORE THAN EIGHT subsequent packets, then finishes
+ordinary UP. Source CPU/holds drain while original receipts remain held and the
+old journal/cursor stay unchanged. All actual ACKs settle independently; only
+then the healthy transition requests and restores a genuine full prefix,
+including the metadata and all emitted frames. Original inputs/server sequence
+are retained, hidden gesture state is verified, no fault/legacy confirmation
+runs, and destroyed owners return charged CPU to zero. The second actual engine
+uses the genuine author service too: its U1 undo goes through marked Outbox;
+ACK without any broadcast starts another full join and duplicate invocation is
+blocked without mutating the journal. This is HOST/mock-GL evidence, not native
+pixels, physical DB durability or interactive browser acceptance.
+
+Initial paired run: **128 tests / four suites PASS**, one worker (controller,
+confirmed source ingress, Room socket integration, actual U1 engine). Targeted
+actual-app-options TypeScript PASS. Scoped lint has zero errors; the existing
+mount-effect dependency warning is retained. The fresh-scope test was then
+extended to assert metadata as well as frame suffix delivery; its separate
+result is recorded in ignored R52 healthy-control-u3b-fresh-history.log.
+
+Concurrent O2 resource WIP was isolated honestly in that HOST run by a Vitest
+in-memory loader reading ONLY TransformedMaskPrepass.ts, BrushGlBatch.ts and
+BrushTextureCache.ts from reviewed dd763a6a695ad8746e472e508be4d7317857f076.
+All U1/Room/controller sources and tests were current; no disk source replacement,
+relaxed assertion or production bypass. Captured source hashes are retained in
+R52/u3b-pinned-resource-overlay-result.json. A joined run with the final actual O2
+sources is REQUIRED before paired commit/activation; no full-graph or GPU PASS
+is claimed by this intermediate receipt. No runtime/device/service was started;
+only compact ignored diagnostics/configs remain.
+
+
+Final map-budget correction: Room grew to 1974 lines against its unchanged1915
+budget. Healthy verdict routing, exact-candidate submission/rollback, captured
+lineage, lexical replay-ticket rendezvous, request eligibility and the ref-to-
+lifecycle adaptation were extracted into this SAME controller. Room now has1914
+lines; comments were retained and the budget was not raised. Controller helpers
+receive observations and UI notifications explicitly and import no UI store.
+They reuse the same Origin, Outbox, gate, original read/tail and callbacks, with
+no additional command state, registry, queue, timer or authority. The original
+socket preparation wrapper was also moved unchanged into this module. Scope is
+now ten owned files: the previous nine plus existing controller.test.ts; the
+controller.ts exception now includes these runtime helpers rather than only
+readonly types.
+
+Three meaningful helper tests cover exact candidate/legacy routing, undurable
+enqueue rollback and duplicate blocking, marked rejected/stalled control versus
+source faults, and Room-ref adaptation through active waiting to actual original
+read invalidation before lexical gate release. Controller63PASS includes these
+three. Final current-source paired and map/type receipts are recorded in R52
+healthy-control-u3b-refactor-* (no foreign-resource loader in this final run).
+
+Final joined HOST receipt: **131 tests / four suites PASS** on the actual current
+resource sources (default Vitest, no overlay). After correcting the helper's
+legacy fixture discriminator from invalid `clear` to actual `layer_clear`, the
+three extracted-helper tests PASS again. Final targeted actual-app TypeScript
+session5594 exit0 includes existing controller.test.ts plus Room/net roots.
+Scoped lint0errors/one retained mount-dependency warning; map:check PASS with
+Room1914/1915, map:rules PASS0errors/24knownwarnings/11ignored, diffcheck PASS.
+No source runtime, device, service, database or browser process was started by
+this unit. Frozen scope10 is awaiting ROOT's atomic paired16 commit (U1six plus
+these ten); there is no standalone U1 activation commit or push.

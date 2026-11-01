@@ -464,3 +464,42 @@ it('healthy rendezvous settles stale on detach and failed on actual resync failu
  const failed=historyControl();failed.setPending(true);failed.control.confirmedControl(failed.engine,'B',failed.read,failed.tail,{...failed.op,seq:3})
  const b=failed.control.whenHistoryTransition(failed.engine,'B');failed.resync.mockImplementation(()=>{throw Error('join failed')});failed.setPending(false);failed.control.drain();expect(await b).toBe('failed');expect(()=>failed.read.assertCurrent()).not.toThrow()
 })
+
+it('intercepts the exact healthy candidate once and rolls back an undurable enqueue rejection without legacy fallback',async()=>{
+ const {createCanonicalHistoryOperationHandler}=await import('./canonicalRoomController')
+ const h=historyControl(),notify=vi.fn(),legacy=vi.fn(),capture=vi.fn(()=> 'canonical-control-v1' as const)
+ let current=true,reject=true
+ const enqueue=vi.fn(async()=>{if(reject)throw Error('Local persistence refused')})
+ const handle=createCanonicalHistoryOperationHandler({bootstrap:{read:h.read,tail:h.tail},getEngine:()=>h.engine,isCurrent:()=>current,canRequest:()=>!h.control.controlBusy(h.engine,'B'),capture,board:'B',control:h.control,enqueue,notify,legacy})
+ handle(h.op);expect(h.control.controlBusy(h.engine,'B')).toBe(true)
+ await vi.waitFor(()=>expect(notify).toHaveBeenCalledOnce())
+ expect(h.control.controlBusy(h.engine,'B')).toBe(false);expect(h.resync).not.toHaveBeenCalled()
+ reject=false;handle(h.op);handle({...h.op,id:'duplicate-click'})
+ expect(enqueue).toHaveBeenCalledTimes(2);expect(enqueue).toHaveBeenLastCalledWith(h.op,{deliveryLane:'canonical-control-v1'});expect(legacy).not.toHaveBeenCalled()
+ current=false;handle({...h.op,id:'stale'});expect(enqueue).toHaveBeenCalledTimes(2)
+ const ordinary={id:'old-clear',userId:'U',timestamp:0,type:'layer_clear' as const,layerId:'L'}
+ handle(ordinary);expect(legacy).toHaveBeenCalledWith(ordinary);expect(capture).toHaveBeenCalledTimes(2)
+})
+it('keeps extracted marked verdicts separate from source faults and reports a rejected command once',async()=>{
+ const {createCanonicalHistoryVerdicts}=await import('./canonicalRoomController'),h=historyControl(),source={onSettled:vi.fn(),onStalled:vi.fn()},notify=vi.fn()
+ const verdicts=createCanonicalHistoryVerdicts(source,()=>h.control,notify)
+ h.begin();verdicts.onStalled(h.op,h.context);expect(source.onStalled).not.toHaveBeenCalled();expect(h.control.controlBusy(h.engine,'B')).toBe(true)
+ verdicts.onSettled(h.op,{ok:false,reason:'invalid_operation'},h.context);verdicts.onSettled(h.op,{ok:false,reason:'invalid_operation'},h.context)
+ expect(notify).toHaveBeenCalledOnce();expect(h.control.controlBusy(h.engine,'B')).toBe(false);expect(h.resync).not.toHaveBeenCalled()
+ verdicts.onSettled(h.op,{ok:true,seq:1});verdicts.onStalled(h.op)
+ expect(source.onSettled).toHaveBeenCalledWith(h.op,{ok:true,seq:1},undefined);expect(source.onStalled).toHaveBeenCalledWith(h.op,undefined)
+})
+it('adapts Room refs to the SAME healthy interval and releases its lexical replay ticket only after original invalidation',async()=>{
+ const {createCanonicalRoomHistoryLifecycle}=await import('./canonicalRoomController'),{createReplayGate}=await import('./replayGate')
+ const f=state(),engine={hasActiveCanonicalAuthor:vi.fn(()=>false),setLocked:vi.fn()} as unknown as import('../../engine').PencilEngineAPI,socket={connected:true,id:'one'},gate=createReplayGate<Parameters<ServerToClientEvents['operation_confirmed']>[0]>(),end=vi.spyOn(gate,'end')
+ const engineRef={current:engine},boardIdRef={current:'B'},socketRef={current:socket},readRef={current:f.stash.canonicalRead},socketBoardRef={current:'B'},joinedRef={current:true},outboxRef={current:{pendingCount:0}},pendingIdsRef={current:new Set<string>()},strokeActiveRef={current:false},readyRef={current:true},latestKnownSeqRef={current:0},notify=vi.fn(),joining=vi.fn(),resync=vi.fn(()=>f.expire())
+ const room=createCanonicalRoomHistoryLifecycle({engineRef,boardIdRef,socketRef,readRef,socketBoardRef,joinedRef,outboxRef,pendingIdsRef,strokeActiveRef,readyRef,latestKnownSeqRef,resyncRef:{current:resync},replayGateRef:{current:gate},appliedRef:{current:new Set()},legacyHistory:()=>false,onWaiting:vi.fn(),onJoining:joining,notify})
+ room.control.bind(engine,'B');room.control.restored(engine);expect(room.canRequest()).toBe(true)
+ const operation={id:'meta',type:'operation_undo' as const,userId:'U',timestamp:0,targetOpId:'frame'}
+ room.control.beginControl(engine,'B',readRef.current,f.stash.tailOperations,operation);expect(room.canRequest()).toBe(false)
+ strokeActiveRef.current=true;room.confirmed({...operation,seq:3},readRef.current,engine)
+ expect(latestKnownSeqRef.current).toBe(3);expect(end).not.toHaveBeenCalled();expect(joining).not.toHaveBeenCalled();expect(engine.setLocked).not.toHaveBeenCalled()
+ strokeActiveRef.current=false;room.control.authorIdle(engine,'B');await Promise.resolve();await Promise.resolve()
+ expect(resync).toHaveBeenCalledOnce();expect(joining).toHaveBeenCalledOnce();expect(readRef.current.scope.isCurrent()).toBe(false);expect(end).toHaveBeenCalledOnce();expect(notify).not.toHaveBeenCalled()
+ room.confirmed({...operation,seq:4},state().stash.canonicalRead,engine);expect(resync).toHaveBeenCalledOnce()
+})

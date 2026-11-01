@@ -390,6 +390,7 @@ export const ru: Dictionary = {
   'room.reopen': 'Открыть',
   'room.takeCopy': 'Взять копию',
   'room.error.rename': 'Не удалось переименовать проект',
+  'room.error.historyChange': 'Не удалось изменить историю рисунка',
   'room.error.reopen': 'Не удалось открыть проект',
   'room.error.takeCopy': 'Не удалось создать копию',
 

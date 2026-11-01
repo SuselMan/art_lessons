@@ -146,3 +146,49 @@ passed with one worker; targeted TypeScript includes all three exact test paths
 under app options and passed. Scoped lint has zero errors (existing index warnings
 remain); diff check passed. Whole eight-path unit stays uncommitted until parent
 review. No runtime, device, shared build or policy activation was performed.
+
+## U1 — canonical history request and healthy author idle (uncommitted pair)
+
+Canonical undo/redo selects a complete original group from the SAME journal and
+emits one existing frozen operation_undo/redo only. No journal state/revision,
+layer/storage/program, confirmation or pixels change optimistically. The selected
+Operation return is a request candidate, not paint or durable completion. This
+unit MUST ship paired with U3 Room's captured onLocalOperation wrapper; no enable
+flag or new request/preflight API is introduced. Ordinary busy UI is a no-op in
+that paired wrapper, not an uncaught exception from the click route.
+
+Every retained exact canonicalInput delivery callback runs before the final pure
+owner/journal snapshot check. Selection DATA folds original input.operation and
+the existing journal's normalized canonicalRead: actual per-frame inputs may
+carry distinct equivalent capabilities, while the log already verified and
+normalized their group capability. A test explicitly proves that distinction.
+The fold does not mint OriginalRead/delivery or a new full-prefix receipt; local
+projected operation.seq never becomes server authority. Entire target groups
+must agree with actual original done/undone state and genuine END/verified seal.
+
+Pending local is derived ONLY from existing coordinator entry.local.receipts;
+a lease retained after original promotion is not pending. CPU holds/FIFO and
+this derived getter close request admission, while a peer OPEN wash alone does
+not block an ended own group. No pending map, second journal or command queue.
+
+The optional constructed-engine onCanonicalAuthorIdle callback runs after all
+source releases, genuine partial close emission, hold decrement and repair drain,
+only for the healthy current owner at holds0. Callback errors cannot poison the
+source or retain CPU. It is merely a U3 drain wakeup, never confirmation/stable
+readiness. Tests cover two queued source owners, callback throw, source poison,
+partial-close-before-idle ordering and exact released references.
+
+Host tests use genuine locally authored nonempty Basic2 gestures and original
+confirmed inputs; a genuine full hidden prefix supplies redo. They verify no
+optimistic GL/journal work, current-owner callback reentry, stale/user/journal
+refusal, unpromoted local receipts, peer OPEN eligibility, real typed close,
+submission failure and legacy undo/structural peek regressions. Room delivery,
+ACK/broadcast ordering and actual GPU/device behavior require the paired U3 unit
+and ROOT's hardware proof; this engine-only WIP does not activate them.
+
+The existing readonly frontier test migrates only undo/redo from the pixel-writer
+throw list to null/no-effects assertions for an empty locked original owner.
+Every other writer guard remains unchanged. Final metadata object construction
+occurs before the last pure journal/owner check; the existing sink receives that
+same frozen object once. A submission callback exception preserves the unchanged
+journal/resources; normal busy refusal remains the paired Room wrapper's no-op.

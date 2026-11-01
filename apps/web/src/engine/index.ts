@@ -361,6 +361,8 @@ export interface PencilEngineOptions {
   onPreviewApplied?: (op: StrokeOperation) => void
   /** A covered history mutation needs the missing authoritative prefix. */
   onCanonicalRecoveryRequired?: (error:unknown) => void
+  /** Healthy CPU author release wakeup; not confirmation or pixel readiness. */
+  onCanonicalAuthorIdle?: () => void
   onSnapshotHistoryRepairNeeded?: () => void
   /** A deferred peer operation has actually entered the log. Derive UI state now. */
   onQueuedOperationApplied?: (op: Operation) => void
@@ -1767,6 +1769,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _canonicalSourcePoisoning=false
   private _canonicalSourceRepair?:{readonly error:unknown}
   private _onCanonicalRecoveryRequired?: (error:unknown)=>void
+  private _onCanonicalAuthorIdle?:()=>void
   private _canonicalPixelsReady=false
   private _physicalGeneration=0
   private _glSceneGeneration=0
@@ -2802,6 +2805,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._canonicalAuthorService=options.canonicalAuthor&&Object.freeze({begin:options.canonicalAuthor.begin.bind(options.canonicalAuthor)})
     this._onPreviewApplied = options.onPreviewApplied
     this._onCanonicalRecoveryRequired = options.onCanonicalRecoveryRequired
+    this._onCanonicalAuthorIdle = options.onCanonicalAuthorIdle
     this._onSnapshotHistoryRepairNeeded = options.onSnapshotHistoryRepairNeeded
     this._onQueuedOperationApplied = options.onQueuedOperationApplied
     this._onInvariant = options.onInvariant
@@ -3654,6 +3658,33 @@ export class PencilEngine implements PencilEngineAPI {
     return this._opQueue.length ? [...done, ...this._opQueue.map(q => q.op)] : done
   }
 
+  /** Select original whole-gesture metadata only. The paired Room sink owns
+   * online/busy control delivery; this never mutates the journal or pixels. */
+  private _requestCanonicalHistoryControl(direction:'undo'|'redo'):Operation|null {
+    const owner=this._canonicalLayerOwner,userId=this._userId,emit=this._onLocalOperation
+    const busy=()=>!owner||this._destroyed||this._contextLost||this._locked||!this._canonicalPixelsReady||!!this._canonicalEmptyTransaction||owner.accepting||!!owner.resourceCandidate||this._canonicalSourceLifetimeHolds>0||this._authorInput.pending||!!owner.coordinator?.hasPendingLocal
+    if(!emit||busy()||!owner)return null
+    const entries=this._log.entries,revision=this._log.revision,inputs=owner.inputs,proof=owner.proof
+    let target:Operation|undefined,operation:Operation|undefined
+    try{
+      for(const input of inputs)input.delivery.assertCurrent(input)
+      this._assertCanonicalLayerCurrent(owner)
+      const fold=verifyCanonicalFullHistoryBase({kind:'full-room-prefix-v2',roomId:owner.plan.scope.roomId,boardEpoch:owner.plan.scope.boardEpoch,throughSeq:inputs.length,operationCount:inputs.length},inputs.map((input,i)=>({operation:input.operation,read:entries[i].canonicalRead})),owner.plan.scope)
+      const own=fold.gestures.filter(group=>group.userId===userId),group=direction==='undo'?own.findLast(group=>group.visible):own.find(group=>!group.visible)
+      if(!group||!group.ended&&!group.sealed)return null
+      for(const id of group.frameOperationIds){const i=inputs.findIndex(input=>input.operation.id===id);if(i<0||entries[i].state!==(group.visible?'done':'undone'))return null}
+      const id=group.frameOperationIds.at(-1),at=inputs.findIndex(input=>input.operation.id===id)
+      if(at<0)return null
+      target=entries[at].op
+      operation=Object.freeze({id:nanoid(10),type:direction==='undo'?'operation_undo':'operation_redo',userId,timestamp:Date.now(),targetOpId:target.id})
+      // No original callback after this final pure journal/owner snapshot check.
+      if(busy()||this._canonicalLayerOwner!==owner||this._userId!==userId||this._onLocalOperation!==emit||owner.inputs!==inputs||owner.proof!==proof||this._log.entries!==entries||this._log.revision!==revision||!canonicalJournalValid(proof,this._log,inputs))return null
+    }catch{return null}
+    if(!operation||!target)return null
+    this._onLocalOperation!(operation)
+    return target
+  }
+
   /** Undoes this user's own latest done operation — and, unlike before #103,
    *  broadcasts it: wraps the target's id in an `operation_undo` and runs it
    *  through the normal `appendOperation` path (so `onLocalOperation` fires,
@@ -3663,6 +3694,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  everyone else's canvas from this one. Returns the affected operation
    *  (e.g. the stroke), same contract as before. */
   undo(): Operation | null {
+    if(this.rasterVersion===STRAIGHT_ROOM_RASTER_VERSION)return this._requestCanonicalHistoryControl('undo')
     this._assertLegacyWriter();
     if (this._wcAsyncFinish && this._strokeLayerId) return null
     const target = this._log.undoTarget(this._userId)
@@ -3686,6 +3718,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Symmetric with `undo()` — see its docstring. */
   redo(): Operation | null {
+    if(this.rasterVersion===STRAIGHT_ROOM_RASTER_VERSION)return this._requestCanonicalHistoryControl('redo')
     this._assertLegacyWriter();
     if (this._wcAsyncFinish && this._strokeLayerId) return null
     const target = this._log.redoTarget(this._userId)
@@ -7353,6 +7386,12 @@ export class PencilEngine implements PencilEngineAPI {
     if(failed)source.partialCancel=undefined
     if(source.closed&&!source.partialCancel&&(source.emitted||source.localAdmitted))this._poisonCanonicalLayer(source.reason?.error??primary??new Error('Canonical source cancelled after emission'))
     else this._drainCanonicalSourceRepair()
+    if(!failed&&this._canonicalSourceLifetimeHolds===0){
+      const owner=source.prepared.owner
+      // Notification runs only after releases, genuine partial-close emission
+      // and repair drain. A stale/faulted owner cannot announce healthy idle.
+      try{this._assertCanonicalLayerCurrent(owner);if(!owner.failed&&!owner.retiring&&this._canonicalSourceLifetimeHolds===0)this._onCanonicalAuthorIdle?.()}catch{/* A UI wakeup cannot poison healthy source retirement. */}
+    }
     if(failed)throw primary
   }
 

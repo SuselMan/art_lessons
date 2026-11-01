@@ -3,7 +3,7 @@ import type {CanonicalRecordedInput} from '../../../engine'
 import type { ReplayGate, ReplayGateDelivery } from '../replayGate'
 import type { RefObject } from 'react'
 
-import { parseCanonicalStrokeCloseOperation,canonicalRecordedRasterProfiles, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation, type CanonicalRecordedReadScope,type CanonicalStrokeRasterProfile, type Operation, type ServerToClientEvents } from '@grafetto/shared'
+import { captureCanonicalFullHistoryMetadata,type CanonicalFullHistoryMetadata,parseCanonicalStrokeCloseOperation,canonicalRecordedRasterProfiles, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation, type CanonicalRecordedReadScope,type CanonicalStrokeRasterProfile, type Operation, type ServerToClientEvents } from '@grafetto/shared'
 
 import type { PencilEngineAPI } from '../../../engine'
 import { useRoomStore } from '../../../stores/roomStore'
@@ -14,7 +14,8 @@ import { commitRevealsBelow as commitRevealsBelowShared, type PendingPreviews } 
 /** The part of the engine the confirmed stream drives. */
 type ConfirmedPayload = Parameters<ServerToClientEvents['operation_confirmed']>[0]
 type CanonicalRead = CanonicalPreparedRecordedOperation['read']
-export interface PreparedConfirmedDelivery { readonly payload:ConfirmedPayload;readonly recorded?:CanonicalRecordedInput }
+export type CanonicalHistoryMetadata=Extract<CanonicalFullHistoryMetadata,{type:'operation_undo'|'operation_redo'}>
+export interface PreparedConfirmedDelivery { readonly payload:ConfirmedPayload;readonly recorded?:CanonicalRecordedInput;readonly history?:Readonly<CanonicalHistoryMetadata> }
 export type ConfirmedStreamHandler=((payload:ConfirmedPayload,delivery?:ReplayGateDelivery)=>void)&{prepare:(payload:ConfirmedPayload)=>PreparedConfirmedDelivery|undefined}
 
 export type ConfirmedStreamEngine = Pick<PencilEngineAPI, 'previewOperation' | 'dropPendingPreview'>
@@ -48,6 +49,8 @@ export interface ConfirmedStreamDeps {
   requestFullResync: () => void
   /** Only an original recorded sink failure may defer through its current owner. */
   requestCanonicalRecovery?:()=>void
+  /** Metadata-only durable placement; no original execution input is minted. */
+  onCanonicalHistoryConfirmed?:(operation:Readonly<CanonicalHistoryMetadata>)=>void
   /** (#536, ADR 011 §17.49) Holds arrivals while a restore's tail replay
    *  yields - see replayGate.ts. */
   replayGate?: Pick<ReplayGate<ConfirmedPayload>, 'hold' | 'setHandler'>
@@ -59,7 +62,7 @@ export interface ConfirmedStreamDeps {
 type ScopeOwner=NonNullable<ConfirmedStreamDeps['canonicalReadScope']>
 type CapturedScope=ScopeOwner&{readonly allowedRasterProfiles:readonly CanonicalStrokeRasterProfile[]}
 const replayAuthority:unique symbol=Symbol('canonical-confirmed-replay-lifetime')
-type HeldCanonicalPayload=ConfirmedPayload&{readonly [replayAuthority]?:(candidate:unknown,owner:ScopeOwner|undefined,policy:CapturedScope|undefined)=>{readonly read:CanonicalRead;readonly recorded?:CanonicalRecordedInput}|undefined}
+type HeldCanonicalPayload=ConfirmedPayload&{readonly [replayAuthority]?:(candidate:unknown,owner:ScopeOwner|undefined,policy:CapturedScope|undefined)=>{readonly read:CanonicalRead;readonly recorded?:CanonicalRecordedInput;readonly history?:Readonly<CanonicalHistoryMetadata>}|undefined}
 
 /** (#493) `operation_confirmed` — the room's one ordered stream of what
  *  happened, for every operation including this client's own. Out of Room's
@@ -69,7 +72,7 @@ type HeldCanonicalPayload=ConfirmedPayload&{readonly [replayAuthority]?:(candida
 export function createConfirmedStreamHandler({
   engineRef, lastConfirmedSeqRef, latestKnownSeqRef, appliedOpIdsRef, pendingPreviewsRef,
   catchingUpRef, streamedStrokeIdsRef, deferredOpsQueueRef, previewScheduleRef,
-  confirmOwnOperation, markLayerActive, applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,requestCanonicalRecovery,
+  confirmOwnOperation, markLayerActive, applyRemoteOp, syncFromLog, checkSnapshotBoundary, requestFullResync,requestCanonicalRecovery,onCanonicalHistoryConfirmed,
   replayGate, canonicalReadScope: readScope,dispatchPrepared,
 }: ConfirmedStreamDeps): ConfirmedStreamHandler {
   const canonicalReadScope = readScope ? Object.freeze({
@@ -95,25 +98,40 @@ export function createConfirmedStreamHandler({
     // A gate can replace its handler while held messages survive. The
     // ORIGINAL local lifetime must authorize release before a new scope sees it.
     const held=payload as HeldCanonicalPayload
-    let read:CanonicalRead,recorded:CanonicalRecordedInput|undefined
+    let read:CanonicalRead,recorded:CanonicalRecordedInput|undefined,history:Readonly<CanonicalHistoryMetadata>|undefined
     if(Object.hasOwn(held,replayAuthority)){
       const proof=held[replayAuthority]
       if(typeof proof!=='function')return
       const original=proof(payload,readScope,canonicalReadScope)
       if(!original)return
-      read=original.read;recorded=original.recorded
+      read=original.read;recorded=original.recorded;history=original.history
     }
     const { seq } = payload
     let op = payload.operation, acceptedPayload = payload
-    const close=op.type==='canonical_stroke_close'
+    const close=op.type==='canonical_stroke_close',historyType=op.type==='operation_undo'||op.type==='operation_redo'
     // Nothing, including review state and the existing replay queue, sees an
     // invalid or stale capability. Expected epoch comes from room-state scope.
     if (canonicalReadScope && !canonicalReadScope.isCurrent()) return
     // This first live source domain admits only original frame/seal resources.
     // Undo and other legacy writers require an authoritative full replacement;
     // they must not publish review/cursors before a legacy sink rejects them.
-    if(canonicalReadScope&&op.type!=='canonical_stroke'&&!close)throw new TypeError('Unsupported canonical stream writer')
-    if (!recorded&&!read&&(close||payload.canonicalCapabilities !== undefined || canonicalReadScope && op.type === 'canonical_stroke')) {
+    if(canonicalReadScope&&op.type!=='canonical_stroke'&&!close&&!(historyType&&onCanonicalHistoryConfirmed))throw new TypeError('Unsupported canonical stream writer')
+    if(historyType&&canonicalReadScope&&!history){
+      if(payload.canonicalCapabilities!==undefined||op.seq!==seq)throw new TypeError('Invalid canonical history placement')
+      const metadata=captureCanonicalFullHistoryMetadata(op)
+      if(metadata.type!=='operation_undo'&&metadata.type!=='operation_redo')throw new TypeError('Invalid canonical history metadata')
+      history=metadata;op=metadata
+      const originalHistory=history,origin=canonicalReadScope,owner=readScope
+      let accepted:HeldCanonicalPayload
+      accepted=Object.freeze({seq,operation:metadata,[replayAuthority]:(candidate:unknown,currentOwner:ScopeOwner|undefined,policy:CapturedScope|undefined)=>{
+        if(candidate!==accepted||currentOwner!==owner||!origin.isCurrent()||!policy||policy.roomId!==origin.roomId||policy.boardEpoch!==origin.boardEpoch
+          ||policy.isCurrent!==origin.isCurrent||policy.allowedRasterProfiles.length!==origin.allowedRasterProfiles.length
+          ||policy.allowedRasterProfiles.some((profile,i)=>profile!==origin.allowedRasterProfiles[i]))return undefined
+        return Object.freeze({read:undefined,history:originalHistory})
+      }})
+      acceptedPayload=accepted
+    }
+    if (!history&&!recorded&&!read&&(close||payload.canonicalCapabilities !== undefined || canonicalReadScope && op.type === 'canonical_stroke')) {
         if (!canonicalReadScope || op.seq !== seq) throw new TypeError('Missing canonical recorded read scope')
         if(close&&payload.canonicalCapabilities!==undefined)throw new TypeError('Close cannot carry frame capability')
         if(!close&&op.type!=='canonical_stroke')throw new TypeError('Unsupported recorded operation')
@@ -144,17 +162,25 @@ export function createConfirmedStreamHandler({
     if(scopedCanonical&&(!recorded||recorded.operation!==op||recorded.read!==read||(close?read!==undefined:!read))){
       throw new TypeError('Missing original canonical stream input')
     }
-    return Object.freeze({payload:acceptedPayload,...recorded?{recorded}:{}})
+    return Object.freeze({payload:acceptedPayload,...recorded?{recorded}:{},...history?{history}:{}})
   }
   const handler = (payload:ConfirmedPayload,delivery?:ReplayGateDelivery):void => {
     let prepared:PreparedConfirmedDelivery|undefined
     try{prepared=prepare(payload)}catch{requestFullResync();return}
     if(!prepared)return
-    const acceptedPayload=prepared.payload,op=acceptedPayload.operation,seq=acceptedPayload.seq,recorded=prepared.recorded,read=recorded?.read
+    const acceptedPayload=prepared.payload,op=acceptedPayload.operation,seq=acceptedPayload.seq,recorded=prepared.recorded,read=recorded?.read,history=prepared.history
     const close=op.type==='canonical_stroke_close'
     const scopedCanonical=(op.type==='canonical_stroke'||close)&&(read!==undefined||recorded!==undefined||canonicalReadScope!==undefined)
-    if(!scopedCanonical)useRoomStore.getState().observeReviewOperation({ ...op, seq })
+    if(!scopedCanonical&&!history)useRoomStore.getState().observeReviewOperation({ ...op, seq })
+    if(history&&seq<=lastConfirmedSeqRef.current)return // already represented by the published original full cut
     if (replayGate?.hold(acceptedPayload, delivery)) return
+    if(history){
+      if(canonicalReadScope&&!canonicalReadScope.isCurrent())return
+      // A gap still requests a complete original cut through this durable
+      // lower bound; no missing operation is fabricated or cursor advanced.
+      onCanonicalHistoryConfirmed!(history)
+      return
+    }
     if(scopedCanonical){
       if(!recorded)throw new TypeError('Missing original canonical input')
       const applyFinal=()=>{

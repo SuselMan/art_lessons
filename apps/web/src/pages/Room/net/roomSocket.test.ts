@@ -541,8 +541,8 @@ function actualImagePrefix(){
  if(!packets.length)throw Error('Missing actual source prefix')
  return {op:packets[0],snapshot}
 }
-function actualEngineForRead(read:ReturnType<typeof prepareCanonicalRoomState>['canonicalRead'],onLocalOperation:(op:Operation)=>void,onFault:()=>void,begin?:NonNullable<Parameters<typeof createTestEngine>[0]>['canonicalAuthor']){
- const r=createTestEngine({userId:'author',rasterVersion:'straight-rgba8-v1',pageWidth:64,pageHeight:64,canonicalEmptyRoom:{read,tail:read.tailOperations},canonicalAuthor:begin,onLocalOperation,onCanonicalRecoveryRequired:onFault},{width:64,height:64}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
+function actualEngineForRead(read:ReturnType<typeof prepareCanonicalRoomState>['canonicalRead'],onLocalOperation:(op:Operation)=>void,onFault:()=>void,begin?:NonNullable<Parameters<typeof createTestEngine>[0]>['canonicalAuthor'],onIdle?:()=>void){
+ const r=createTestEngine({userId:'author',rasterVersion:'straight-rgba8-v1',pageWidth:64,pageHeight:64,canonicalEmptyRoom:{read,tail:read.tailOperations},canonicalAuthor:begin,onLocalOperation,onCanonicalRecoveryRequired:onFault,onCanonicalAuthorIdle:onIdle},{width:64,height:64}),engine=r.engine,gl=engine['gl'],get=gl.getParameter.bind(gl),mock=r.canvas.getContext('webgl')!,extension=gl.getExtension.bind(gl),extensions=new Map<string,unknown>()
  Object.assign(gl,{bufferSubData:vi.fn(),getExtension:(name:string)=>{if(!extensions.has(name))extensions.set(name,extension(name));return extensions.get(name)},VIEWPORT:9001,COLOR_CLEAR_VALUE:9002,COLOR_WRITEMASK:9003,HIGH_FLOAT:9004,getAttribLocation:(_p:WebGLProgram,name:string)=>['a_position','a_origin','a_step','a_span','position'].indexOf(name),getShaderPrecisionFormat:()=>({precision:23}),getVertexAttrib:()=>null,getVertexAttribOffset:()=>0,isTexture:()=>true,isBuffer:()=>true,colorMask:()=>{},getTexParameter:(_t:number,key:number)=>key===gl.TEXTURE_MIN_FILTER||key===gl.TEXTURE_MAG_FILTER?mock.getMinFilter(get(gl.TEXTURE_BINDING_2D) as Parameters<typeof mock.getMinFilter>[0])??gl.NEAREST:gl.CLAMP_TO_EDGE,getParameter:(key:number)=>key===9001?[0,0,64,64]:key===9002?[0,0,0,0]:key===9003?[true,true,true,true]:get(key)})
  engine.initLayer('background');engine.initLayer('layer-1');engine.setCompositeOrder([{id:'layer-1',opacity:1}]);return r
 }
@@ -667,3 +667,195 @@ it('keeps a capacity-held ninth original ahead of replayed later frames, close a
   expect(applied).toEqual(Array.from({length:14},(_,i)=>i+1));expect(deps.lastConfirmedSeqRef.current).toBe(14);expect(fake.disconnect).not.toHaveBeenCalled()
  }finally{release();close();engine.destroy()}
 })
+
+it('passes closed healthy metadata with the exact original Room read and engine without cursors or legacy paint',()=>{
+ const {deps,listeners,reads}=sourceSetup(),engine={setLocked:vi.fn()}as unknown as PencilEngineAPI,history=vi.fn()
+ deps.engineRef.current=engine
+ const close=connectRoomSocket({...deps,onCanonicalHistoryConfirmed:history})
+ try{
+  Reflect.apply(listeners.get('room_state')!,null,[emptyCanonicalState()])
+  const operation={id:'undo',type:'operation_undo' as const,userId:'peer',timestamp:0,targetOpId:'frame',seq:1}
+  Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:1,operation}])
+  expect(history).toHaveBeenCalledWith(operation,reads[0],engine);expect(deps.lastConfirmedSeqRef.current).toBe(0);expect(deps.applyRemoteOp).not.toHaveBeenCalled();expect(deps.confirmOwnOperation).not.toHaveBeenCalled();expect(deps.checkSnapshotBoundary).not.toHaveBeenCalled()
+ }finally{close()}
+})
+it('retains fresh-scope suffix across old-engine replacement before the genuine new baseline mounts',async()=>{
+ const {deps,listeners,reads,fake}=sourceSetup(),f=await gateFrameFixture(false),old={setLocked:vi.fn()}as unknown as PencilEngineAPI,next={setLocked:vi.fn()}as unknown as PencilEngineAPI,gate=createReplayGate<Parameters<ServerToClientEvents['operation_confirmed']>[0]>()
+ deps.engineRef.current=old;deps.replayGate=gate;deps.holdReviewArrivals=()=>{gate.begin()};deps.applyRemoteOp=vi.fn(()=>true)
+ let installed:typeof reads[number]|undefined,release!:()=>void
+ const waiting=new Promise<void>(done=>{release=done}),prepareCanonicalRecordedInput=vi.fn(async()=> 'ready' as const)
+ const history=vi.fn(),metadata={type:'operation_undo' as const,id:'fresh-history',userId:f.op.userId,timestamp:1,targetOpId:f.op.id,seq:2}
+ const close=connectRoomSocket({...deps,prepareCanonicalRecordedInput,onCanonicalHistoryConfirmed:history,isCanonicalEngineCurrent:(engine,read)=>engine===deps.engineRef.current&&installed===read})
+ try{
+  vi.mocked(prepareBrushPresets).mockReturnValueOnce(waiting)
+  Reflect.apply(listeners.get('peer_stroke_live')!,null,[{preset:'blocking'}])
+  const wire=emptyCanonicalState();wire.canonicalHistoryBase={kind:'full-room-prefix-v2',roomId:'B2',boardEpoch:2,throughSeq:0,operationCount:0}
+  Reflect.apply(listeners.get('room_state')!,null,[wire])
+  Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:1,operation:f.op,canonicalCapabilities:{...f.attachment,roomId:'B2'}}])
+  Reflect.apply(listeners.get('operation_confirmed')!,null,[{seq:2,operation:metadata}])
+  expect(history).not.toHaveBeenCalled()
+  deps.engineRef.current=next;installed=reads[0];release();await waiting;await Promise.resolve();await Promise.resolve()
+  expect(deps.applyRemoteOp).not.toHaveBeenCalled();const ticket=gate.begin();expect(gate.end(ticket)).toBe(true)
+  await vi.waitFor(()=>expect(deps.applyRemoteOp).toHaveBeenCalledOnce());expect(prepareCanonicalRecordedInput).toHaveBeenCalledWith(expect.objectContaining({operation:expect.objectContaining({id:f.op.id})}),next);expect(deps.lastConfirmedSeqRef.current).toBe(1);expect(fake.disconnect).not.toHaveBeenCalled();expect(history).toHaveBeenCalledWith(metadata,reads[0],next);expect(history).toHaveBeenCalledOnce()
+ }finally{release();close()}
+})
+
+it('joins healthy full history after OPEN local CPU exceeds eight packets while originals wait behind metadata and ACKs drain independently', async () => {
+    const { deps, listeners, fake, reads } = sourceSetup(), { useRoomStore } = await import('../../../stores/roomStore'), descriptor = stockNative.rows.find(row => row.index === 4)!.descriptor as unknown as BrushDescriptor, preset = `brush:${descriptor.id}@${descriptor.version}`, sha = createHash('sha256').update(canonicalBrushDescriptorJSON(descriptor)).digest('hex'), pin = canonicalDefaultAutoSourceBinding(descriptor, sha, 'neon64-f32-fma-v1');
+    installBrushLibrary({ schemaVersion: 1, brushes: [{ descriptor, name: 'native Basic2', source: 'native', warnings: [] }], assets: [], skipped: [] });
+    useRoomStore.setState({ boardId: 'B2', reviewBoardId: null });
+    deps.boardIdRef.current = 'B2';
+    deps.socketBoardRef.current = 'B2';
+    const replay = createReplayGate<Parameters<ServerToClientEvents['operation_confirmed']>[0]>();
+    deps.replayGate = replay;
+    deps.holdReviewArrivals = () => { replay.begin(); };
+    let engine: ReturnType<typeof actualEngineForRead>['engine'] | undefined, nextEngine: typeof engine, installed: typeof reads[number] | undefined, outbox!: Outbox, read: typeof reads[number], sequence = 0, acked = 0;
+    const operations: CanonicalStrokeOperation[] = [], snapshots = new Map<string, CanonicalStrokeSnapshotV2>(), attempts: {
+        op: Operation;
+        resolve: (r: SendResult) => void;
+    }[] = [], tail: Operation[] = [], fault = vi.fn(), joining = vi.fn(), stashes: import('../restoreRoomState').RoomStatePayload[] = [];
+    const control = createCanonicalRecoveryControl({ getEngine: () => deps.engineRef.current, getBoard: () => deps.boardIdRef.current, hasPendingLocals: () => outbox.pendingCount !== 0, canRequest: () => fake.connected, resync: () => deps.requestFullResyncRef.current!(), onWaiting: vi.fn(), getControlLineage: () => ({ socket: fake, connectionId: 'actual', boardId: 'B2', originalRead: read }), noteKnownSequence: seq => { deps.latestKnownSeqRef.current = Math.max(deps.latestKnownSeqRef.current, seq); }, onHistoryJoining: joining, holdHistory: () => { const ticket = replay.begin(); void control.whenHistoryTransition(engine!, 'B2').then(outcome => { if (outcome === 'joining')
+            replay.end(ticket); }); } });
+    outbox = new Outbox({ roomId: 'B2', storage: { getAll: async () => [], put: async () => { }, delete: async () => { } }, getCanonicalSendLineage: () => ({ socket: fake, connectionId: 'actual', boardId: 'B2', originalRead: read }), send: op => new Promise(resolve => attempts.push({ op, resolve })), onSettled: (op, result, context) => { if (result.ok)
+            deps.latestKnownSeqRef.current = Math.max(deps.latestKnownSeqRef.current, result.seq); if (op.type === 'operation_undo' || op.type === 'operation_redo')
+            control.settleControl(op, result, context); control.drain(); }, canSend: () => true });
+    const original = (op: CanonicalStrokeOperation, seq: number) => ({ seq, operation: { ...op, seq }, canonicalCapabilities: { version: 1 as const, roomId: 'B2', boardEpoch: 2, capabilities: [{ originalUserId: op.userId, snapshot: snapshots.get(op.frame.strokeId)! }], bindings: [{ operationId: op.id, sequence: seq, originalUserId: op.userId, capability: 0 }] } });
+    async function acknowledge() { while (acked < operations.length) {
+        await vi.waitFor(() => expect(attempts.length).toBeGreaterThan(acked));
+        const a = attempts[acked++];
+        const op = a.op;
+        if (op.type !== 'canonical_stroke')
+            throw Error('Unexpected source control');
+        const seq = ++sequence;
+        tail.push({ ...op, seq });
+        Reflect.apply(listeners.get('operation_confirmed')!, null, [original(op, seq)]);
+        a.resolve({ ok: true, seq });
+    } await outbox.whenIdle(2000); }
+    deps.prepareCanonicalRecordedInput = (input, captured) => prepareCanonicalRoomRecordedInput(captured, input, { currentEngine: () => deps.engineRef.current, currentBoard: () => deps.boardIdRef.current, recovery: control });
+    deps.isCanonicalEngineCurrent = (candidate, scope) => candidate === deps.engineRef.current && scope === installed;
+    deps.applyRemoteOp = vi.fn((op, cap, input) => { if (!input || input.operation !== op || input.read !== cap)
+        throw Error('Lost original'); deps.engineRef.current!.appendOriginalRecorded(input); return true; });
+    deps.onCanonicalHistoryConfirmed = (op, scope, captured) => { expect(control.confirmedControl(captured, 'B2', scope, scope.tailOperations, op)).toBe(true); };
+    deps.replaceCanonicalRoom = (_board, stash) => { stashes.push(stash); };
+    deps.enterBoard = vi.fn((_board, stash) => { stashes.push(stash); });
+    const close = connectRoomSocket(deps);
+    try {
+        const initial = emptyCanonicalState();
+        initial.canonicalHistoryBase = { kind: 'full-room-prefix-v2', roomId: 'B2', boardEpoch: 2, throughSeq: 0, operationCount: 0 };
+        Reflect.apply(listeners.get('room_state')!, null, [initial]);
+        await vi.waitFor(() => expect(stashes).toHaveLength(1));
+        read = reads[0];
+        installed = read;
+        const begin: NonNullable<NonNullable<Parameters<typeof createTestEngine>[0]>['canonicalAuthor']> = { begin: async (request) => { const snapshot: CanonicalStrokeSnapshotV2 = { layerId: request.layerId, brush: request.brush, strokeId: request.strokeId, pigmentRgb8: request.pigmentRgb8, boardEpoch: 2, descriptorSha256: sha, rasterProfile: CANONICAL_STROKE_RASTER_PROFILE, composition: { mode: 'wash', alphaDarken: request.alphaDarken, outerResourceOpacity: request.outerResourceOpacity, outerBlend: 'over' }, assets: [], materialVersion: 2, material: { version: 2, assets: [], primarySource: pin, budget: { workUnits: 64 * 1048576, outputBytes: 16 * 1048576, drawPixels: 16 * 1048576 } } }; snapshots.set(request.strokeId, snapshot); return { ok: true, recordedNext: 0, liveNext: 0, ended: false, snapshot }; } };
+        engine = actualEngineForRead(read, op => { if (op.type !== 'canonical_stroke')
+            throw Error('No synthetic END/control'); operations.push(op); void outbox.enqueue(op); }, fault, begin, () => control.authorIdle(engine!, 'B2')).engine;
+        deps.engineRef.current = engine;
+        control.bind(engine, 'B2');
+        await engine.paperReady();
+        await restoreCanonicalRoomBaseline(engine, read, read.tailOperations, () => deps.engineRef.current, deps.appliedOpIdsRef.current);
+        control.restored(engine);
+        const ticket = replay.begin();
+        replay.end(ticket);
+        engine.setActiveLayer('layer-1');
+        engine.setTool('digitalBrush');
+        engine.setPencil(preset);
+        engine.setSize(40);
+        engine.setLocked(false);
+        await engine.prepareBrush(preset);
+        const packet = (x: number, t: number) => ({ x, y: 20, pressure: .5, tiltX: 0, tiltY: 0, speed: 0, pointerType: 'pen' as const, timeStamp: t, dispatchTime: t });
+        engine['_onStart'](packet(20, 0));
+        engine['_onMove'](packet(24, 10));
+        engine['_onEnd'](packet(24, 20));
+        await vi.waitFor(() => expect(engine!.hasActiveCanonicalAuthor()).toBe(false), { timeout: 10000 });
+        await acknowledge();
+        await vi.waitFor(() => expect(engine!['_canonicalExportReady']()).toBe(true), { timeout: 10000 });
+        const firstCount = operations.length, target = operations.at(-1)!.id;
+        engine['_onStart'](packet(10, 100));
+        engine['_onMove'](packet(12, 110));
+        await vi.waitFor(() => expect(operations.length).toBeGreaterThan(firstCount));
+        await vi.waitFor(() => expect(engine!['_authorInput'].pending).toBe(false));
+        expect(engine.hasActiveCanonicalAuthor()).toBe(true);
+        const metadata: Operation = { type: 'operation_undo', id: 'actual-peer-undo', userId: 'author', timestamp: 120, seq: ++sequence, targetOpId: target };
+        tail.push(metadata);
+        Reflect.apply(listeners.get('operation_confirmed')!, null, [{ seq: sequence, operation: metadata }]);
+        expect(control.controlBusy(engine, 'B2')).toBe(true);
+        expect(joining).not.toHaveBeenCalled();
+        for (let i = 0; i < 18; i++)
+            engine['_onMove'](packet(12 + i * 2, 130 + i * 10));
+        engine['_onEnd'](packet(48, 320));
+        await vi.waitFor(() => expect(engine!.hasActiveCanonicalAuthor()).toBe(false), { timeout: 15000 });
+        expect(operations.length - firstCount).toBeGreaterThan(8);
+        expect(engine['_log'].entries).toHaveLength(firstCount);
+        expect(fault).not.toHaveBeenCalled();
+        expect(joining).not.toHaveBeenCalled();
+        expect(deps.lastConfirmedSeqRef.current).toBe(firstCount);
+        await acknowledge();
+        await vi.waitFor(() => expect(joining).toHaveBeenCalledOnce());
+        expect(read.scope.isCurrent()).toBe(false);
+        expect(engine['_log'].entries).toHaveLength(firstCount);
+        expect(deps.confirmOwnOperation).not.toHaveBeenCalled();
+        expect(fake.disconnect).not.toHaveBeenCalled();
+        expect(deps.latestKnownSeqRef.current).toBe(sequence);
+        const full = emptyCanonicalState();
+        full.tailOperations = tail;
+        full.canonicalHistoryBase = { kind: 'full-room-prefix-v2', roomId: 'B2', boardEpoch: 2, throughSeq: sequence, operationCount: tail.length };
+        const all = [...snapshots.values()];
+        full.canonicalCapabilities = { version: 1, roomId: 'B2', boardEpoch: 2, capabilities: all.map(snapshot => ({ originalUserId: 'author', snapshot })), bindings: tail.flatMap(op => op.type === 'canonical_stroke' ? [{ operationId: op.id, sequence: op.seq!, originalUserId: 'author', capability: all.findIndex(s => s.strokeId === op.frame.strokeId) }] : []) };
+        Reflect.apply(listeners.get('room_state')!, null, [full]);
+        await vi.waitFor(() => expect(stashes).toHaveLength(2));
+        const fresh = reads.at(-1)!;
+        control.detach(engine);
+        engine.destroy();
+        nextEngine = actualEngineForRead(fresh, op => { if (op.type !== 'operation_undo' && op.type !== 'operation_redo')
+            throw Error('Unexpected local write'); const receipt = control.beginControl(nextEngine!, 'B2', fresh, stashes.at(-1)!.tailOperations, op); void outbox.enqueue(op, { deliveryLane: 'canonical-control-v1' }).catch(() => { control.cancelControl(receipt); }); }, fault, begin, () => control.authorIdle(nextEngine!, 'B2')).engine;
+        installed = fresh;
+        deps.engineRef.current = nextEngine;
+        await restoreCanonicalRoomBaseline(nextEngine, fresh, fresh.tailOperations, () => deps.engineRef.current, deps.appliedOpIdsRef.current);
+        expect(nextEngine['_log'].entries.map(e => e.serverSeq)).toEqual(tail.map(op => op.seq));
+        expect(nextEngine['_log'].entries.every(e => e.canonicalInput?.operation.id === e.op.id)).toBe(true);
+        expect(nextEngine['_log'].entries.filter(e => e.op.type === 'canonical_stroke' && e.op.frame.strokeId === operations[0].frame.strokeId).every(e => e.state === 'undone')).toBe(true);
+        expect(nextEngine['_canonicalPixelsReady']).toBe(true);
+        expect(fault).not.toHaveBeenCalled();
+        // The real U1 candidate goes through the SAME local classification and Attempt.
+        // Its ACK, with no broadcast at all, must keep the command busy until a new full cut.
+        engine = nextEngine;
+        read = fresh;
+        control.bind(engine, 'B2');
+        control.restored(engine);
+        engine.setLocked(false);
+        expect(engine['_canonicalLayerOwner']?.coordinator?.hasPendingLocal).not.toBe(true);
+        const journal = engine['_log'].entries, revision = engine['_log'].revision, priorAttempts = attempts.length, request = () => { if (control.controlBusy(engine!, 'B2') || outbox.pendingCount)
+            return null; return engine!.undo(); };
+        expect(control.controlBusy(engine, 'B2')).toBe(false);
+        expect(outbox.pendingCount).toBe(0);
+        expect(request()).not.toBeNull();
+        expect(control.controlBusy(engine, 'B2')).toBe(true);
+        expect(request()).toBeNull();
+        await vi.waitFor(() => expect(attempts).toHaveLength(priorAttempts + 1));
+        const own = attempts.at(-1)!.op;
+        expect(own.type).toBe('operation_undo');
+        expect(engine['_log'].entries).toBe(journal);
+        expect(engine['_log'].revision).toBe(revision);
+        attempts.at(-1)!.resolve({ ok: true, seq: sequence + 1 });
+        await outbox.whenIdle(2000);
+        await vi.waitFor(() => expect(joining).toHaveBeenCalledTimes(2));
+        expect(fresh.scope.isCurrent()).toBe(false);
+        expect(control.controlBusy(engine, 'B2')).toBe(true);
+        expect(request()).toBeNull();
+        expect(engine['_log'].entries).toBe(journal);
+        expect(engine['_log'].revision).toBe(revision);
+        expect(deps.latestKnownSeqRef.current).toBe(sequence + 1);
+        expect(fault).not.toHaveBeenCalled();
+    }
+    finally {
+        close();
+        outbox.dispose();
+        nextEngine?.destroy();
+        engine?.destroy();
+        if (engine)
+            expect(engine['_brushMipCache'].reservedBytes).toBe(0);
+        if (nextEngine)
+            expect(nextEngine['_brushMipCache'].reservedBytes).toBe(0);
+        vi.restoreAllMocks();
+    }
+}, 45000);

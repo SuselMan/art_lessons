@@ -1,10 +1,11 @@
 import {captureCanonicalFullHistoryMetadata,type Operation,type SendResult} from '@grafetto/shared'
-import type {CanonicalSendLineage,OutboxDeliveryContext} from './net/outbox'
-import {assertCanonicalRoomStateRead,type CanonicalRoomStateRead} from './net/canonicalRoomState'
+import type {CanonicalSendLineage,OutboxDeliveryContext,Outbox} from './net/outbox'
+import {prepareCanonicalRoomState,assertCanonicalRoomStateRead,type CanonicalRoomStatePreparer,type CanonicalRoomStateRead} from './net/canonicalRoomState'
 import type {RoomStatePayload} from './restoreRoomState'
 import type {LocalDeliveryLane} from './net/outboxStorage'
 import type {CanonicalOutboxVerdicts} from './net/outboxVerdict'
 import {sendCanonicalStrokeBegin,type CanonicalBeginEmitter} from './net/sendCanonicalStrokeBegin'
+import type {ReplayGate} from './replayGate'
 import type {CanonicalSourceAuthorService,CanonicalRecordedInput,PencilEngineAPI} from '../../engine'
 
 /** The existing pending stash is the sole payload owner before construction. */
@@ -34,7 +35,7 @@ export function createCanonicalRoomAuthor(read:CanonicalRoomStateRead,socket:Can
 }
 /** Captured local classification only, never read/undo/append permission.
  * A canonical constructor keeps this callback even when its origin is offline. */
-export function createCanonicalControlCapture(read:CanonicalRoomStateRead,tail:RoomStatePayload['tailOperations'],boardId:string,deps:{
+export function createCanonicalControlCapture(read:CanonicalRoomStateRead,tail:readonly Operation[],boardId:string,deps:{
  readonly socket:{readonly connected:boolean}|null
  readonly getSocket:()=>{readonly connected:boolean}|null
  readonly getInstalledRead:()=>CanonicalRoomStateRead|undefined
@@ -101,7 +102,7 @@ export function createCanonicalRecoveryControl(deps:{readonly getEngine:()=>Penc
 }){
  type Transition='joining'|'stale'|'failed'
  type Interval={retired:boolean;outcome?:Transition;barrier?:{promise:Promise<Transition>;resolve:(value:Transition)=>void}}
- type History={readonly read:CanonicalRoomStateRead;readonly tail:RoomStatePayload['tailOperations'];readonly lineage:CanonicalSendLineage;readonly operation?:CanonicalHistoryRequest;readonly receipt?:CanonicalHistoryControlReceipt;minimumSequence?:number;held:boolean}
+ type History={readonly read:CanonicalRoomStateRead;readonly tail:readonly Operation[];readonly lineage:CanonicalSendLineage;readonly operation?:CanonicalHistoryRequest;readonly receipt?:CanonicalHistoryControlReceipt;minimumSequence?:number;held:boolean}
  type Origin={history?:History;engine:PencilEngineAPI;board:string;phase:'restoring'|'ready'|'waiting'|'joining'|'failed';requested:boolean;interval:Interval}
  let origin:Origin|undefined
  const settle=(interval:Interval,result:Transition)=>{if(interval.outcome)return;interval.outcome=result;const barrier=interval.barrier;interval.barrier=undefined;barrier?.resolve(result)}
@@ -119,7 +120,7 @@ export function createCanonicalRecoveryControl(deps:{readonly getEngine:()=>Penc
    return current(owner)&&owner.history===history&&sameControlLineage(history.lineage,lineage)
   }catch{return false}
  }
- const historyFor=(engine:PencilEngineAPI,board:string,read:CanonicalRoomStateRead,tail:RoomStatePayload['tailOperations']):{owner:Origin;history:History}=>{
+ const historyFor=(engine:PencilEngineAPI,board:string,read:CanonicalRoomStateRead,tail:readonly Operation[]):{owner:Origin;history:History}=>{
   const owner=matching(engine,board)
   if(!owner||owner.phase!=='ready'&&!(owner.phase==='waiting'&&owner.history)||owner.interval.outcome)throw Error('Canonical history origin unavailable')
   assertCanonicalRoomStateRead(read,tail,board)
@@ -215,7 +216,7 @@ export function createCanonicalRecoveryControl(deps:{readonly getEngine:()=>Penc
   detach(engine:PencilEngineAPI){if(origin?.engine===engine){const old=origin;origin=undefined;settle(old.interval,'stale')}},
   request,drain,
   /** Healthy local submission is armed before enqueue; it supplies NO cut. */
-  beginControl(engine:PencilEngineAPI,board:string,read:CanonicalRoomStateRead,tail:RoomStatePayload['tailOperations'],operation:CanonicalHistoryRequest):CanonicalHistoryControlReceipt{
+  beginControl(engine:PencilEngineAPI,board:string,read:CanonicalRoomStateRead,tail:readonly Operation[],operation:CanonicalHistoryRequest):CanonicalHistoryControlReceipt{
    const captured=controlRequest(operation)
    const {owner,history}=historyFor(engine,board,read,tail)
    if(owner.history||engine.hasActiveCanonicalAuthor()||deps.hasPendingLocals())throw Error('Canonical history control busy')
@@ -236,7 +237,7 @@ export function createCanonicalRecoveryControl(deps:{readonly getEngine:()=>Penc
    if(!owner||!history||history.receipt!==receipt||history.minimumSequence!==undefined||owner.interval.outcome||!historyCurrent(owner,history))return false
    settle(owner.interval,'failed');owner.history=undefined;owner.interval={retired:false};owner.requested=false;owner.phase='ready';return true
   },
-  confirmedControl(engine:PencilEngineAPI,board:string,read:CanonicalRoomStateRead,tail:RoomStatePayload['tailOperations'],operation:Operation):boolean{
+  confirmedControl(engine:PencilEngineAPI,board:string,read:CanonicalRoomStateRead,tail:readonly Operation[],operation:Operation):boolean{
    const existing=matching(engine,board);if(!existing)return false
    const metadata=captureCanonicalFullHistoryMetadata(operation)
    if(metadata.type!=='operation_undo'&&metadata.type!=='operation_redo')throw Error('Canonical history metadata required')
@@ -343,4 +344,141 @@ export async function prepareCanonicalRoomRecordedInput(engine:PencilEngineAPI,i
   if((transition==='joining'||transition==='stale')&&!current())return 'obsolete'
   throw error
  }
+}
+
+
+/** Room supplies observations/UI notifications; these helpers retain no extra
+ * command owner, payload queue or authority. */
+type RecoveryControl=ReturnType<typeof createCanonicalRecoveryControl>
+type HistorySocket={readonly connected:boolean;readonly id?:string}
+export function createCanonicalHistoryVerdicts(source:CanonicalOutboxVerdicts,getControl:()=>RecoveryControl|null,notify:()=>void):CanonicalOutboxVerdicts {
+ const verdicts:CanonicalOutboxVerdicts={onSettled:(op,result,context)=>{
+  if((op.type==='operation_undo'||op.type==='operation_redo')&&context?.deliveryLane==='canonical-control-v1'){
+   if(getControl()?.settleControl(op,result,context)&&!result.ok)notify()
+   return
+  }
+  source.onSettled(op,result,context)
+ },onStalled:(op,context)=>{
+  // The SAME Outbox retains visible stalled control work, not a source fault.
+  if((op.type==='operation_undo'||op.type==='operation_redo')&&context?.deliveryLane==='canonical-control-v1')return
+  source.onStalled(op,context)
+ }}
+ return Object.freeze(verdicts)
+}
+export function createCanonicalRoomHistoryControl(deps:Omit<Parameters<typeof createCanonicalRecoveryControl>[0],'getControlLineage'|'holdHistory'> & {
+ readonly getSocket:()=>HistorySocket|null
+ readonly getRead:()=>CanonicalRoomStateRead|undefined
+ readonly getSocketBoard:()=>string|null
+ readonly isJoined:()=>boolean
+ readonly getReplayGate:()=>ReplayGate<Parameters<import('@grafetto/shared').ServerToClientEvents['operation_confirmed']>[0]>
+ readonly notify:()=>void
+}):RecoveryControl {
+ const control=createCanonicalRecoveryControl({...deps,getControlLineage:()=>{
+  const socket=deps.getSocket(),read=deps.getRead(),board=deps.getBoard()
+  if(!socket?.connected||!socket.id||!deps.isJoined()||!read||!board||deps.getSocketBoard()!==board)return undefined
+  try{read.assertCurrent()}catch{return undefined}
+  return{socket,connectionId:socket.id,boardId:board,originalRead:read}
+ },holdHistory:()=>{
+  const engine=deps.getEngine(),board=deps.getBoard()
+  if(!engine||!board)throw Error('Canonical history hold owner unavailable')
+  const gate=deps.getReplayGate(),ticket=gate.begin()
+  const notifyCurrent=()=>{if(deps.getEngine()===engine&&deps.getBoard()===board)deps.notify()}
+  void control.whenHistoryTransition(engine,board).then(outcome=>{
+   if(outcome==='joining')gate.end(ticket)
+   else if(outcome==='failed')notifyCurrent()
+  }).catch(notifyCurrent)
+ }})
+ return control
+}
+export function createCanonicalHistoryRequestCheck(deps:{
+ readonly getRead:()=>CanonicalRoomStateRead|undefined
+ readonly legacyHistory:()=>boolean
+ readonly getEngine:()=>PencilEngineAPI|null
+ readonly getBoard:()=>string|null
+ readonly getSocket:()=>HistorySocket|null
+ readonly getSocketBoard:()=>string|null
+ readonly isJoined:()=>boolean
+ readonly isReady:()=>boolean
+ readonly hasPending:()=>boolean
+ readonly control:RecoveryControl
+}):()=>boolean {
+ return()=>{
+  const read=deps.getRead()
+  if(!read||deps.legacyHistory())return true
+  const engine=deps.getEngine(),socket=deps.getSocket(),board=deps.getBoard()
+  try{read.assertCurrent()}catch{return false}
+  return !!engine&&!!board&&read.scope.roomId===board&&!!socket?.connected&&deps.isJoined()&&deps.getSocketBoard()===board&&deps.isReady()
+   &&!deps.control.controlBusy(engine,board)&&!deps.hasPending()&&!engine.hasActiveCanonicalAuthor()
+ }
+}
+export function createCanonicalHistoryOperationHandler(deps:{
+ readonly bootstrap:ReturnType<typeof canonicalBootstrapOf>
+ readonly getEngine:()=>PencilEngineAPI|undefined
+ readonly isCurrent:(engine:PencilEngineAPI)=>boolean
+ readonly canRequest:()=>boolean
+ readonly capture:(()=>LocalDeliveryLane)|undefined
+ readonly board:string
+ readonly control:RecoveryControl
+ readonly enqueue:Outbox['enqueue']
+ readonly notify:()=>void
+ readonly legacy:(operation:Operation)=>void
+}):(operation:Operation)=>void {
+ return op=>{
+  const bootstrap=deps.bootstrap
+  if(!bootstrap||op.type!=='operation_undo'&&op.type!=='operation_redo'){deps.legacy(op);return}
+  const engine=deps.getEngine()
+  if(!engine||!deps.isCurrent(engine)||!deps.canRequest())return
+  try{
+   if(!deps.capture)throw Error('Canonical history classification unavailable')
+   deps.capture()
+   const receipt=deps.control.beginControl(engine,deps.board,bootstrap.read,bootstrap.tail,op)
+   void deps.enqueue(op,{deliveryLane:'canonical-control-v1'}).catch(()=>{if(deps.control.cancelControl(receipt))deps.notify()})
+  }catch{if(deps.isCurrent(engine)&&deps.canRequest())deps.notify()}
+ }
+}
+
+/** Adapt existing Room refs once; all ownership and history state still belong
+ * to createCanonicalRecoveryControl's single Origin. */
+export function createCanonicalRoomHistoryLifecycle(deps:{
+ readonly engineRef:{readonly current:PencilEngineAPI|null}
+ readonly boardIdRef:{readonly current:string|null}
+ readonly socketRef:{readonly current:HistorySocket|null}
+ readonly readRef:{readonly current:CanonicalRoomStateRead|undefined}
+ readonly socketBoardRef:{readonly current:string|null}
+ readonly joinedRef:{readonly current:boolean}
+ readonly outboxRef:{readonly current:Pick<Outbox,'pendingCount'>}
+ readonly pendingIdsRef:{readonly current:ReadonlySet<string>}
+ readonly strokeActiveRef:{readonly current:boolean}
+ readonly readyRef:{readonly current:boolean}
+ readonly latestKnownSeqRef:{current:number}
+ readonly resyncRef:{readonly current:(()=>void)|null}
+ readonly replayGateRef:{readonly current:ReplayGate<Parameters<import('@grafetto/shared').ServerToClientEvents['operation_confirmed']>[0]>}
+ readonly appliedRef:{readonly current:Set<string>}
+ readonly legacyHistory:()=>boolean
+ readonly onWaiting:()=>void
+ readonly onJoining:()=>void
+ readonly notify:()=>void
+}) {
+ const getEngine=()=>deps.engineRef.current,getBoard=()=>deps.boardIdRef.current,getRead=()=>deps.readRef.current,getSocket=()=>deps.socketRef.current,getSocketBoard=()=>deps.socketBoardRef.current,isJoined=()=>deps.joinedRef.current
+ const hasPending=()=>deps.outboxRef.current.pendingCount!==0||deps.pendingIdsRef.current.size!==0||deps.strokeActiveRef.current
+ const control=createCanonicalRoomHistoryControl({getEngine,getBoard,getRead,getSocket,getSocketBoard,isJoined,
+  hasPendingLocals:hasPending,canRequest:()=>!!getSocket()?.connected&&deps.resyncRef.current!==null,resync:()=>deps.resyncRef.current?.(),onWaiting:deps.onWaiting,
+  getReplayGate:()=>deps.replayGateRef.current,notify:deps.notify,onHistoryJoining:deps.onJoining,
+  noteKnownSequence:sequence=>{deps.latestKnownSeqRef.current=Math.max(deps.latestKnownSeqRef.current,sequence)}})
+ const canRequest=createCanonicalHistoryRequestCheck({getRead,legacyHistory:deps.legacyHistory,getEngine,getBoard,getSocket,getSocketBoard,isJoined,isReady:()=>deps.readyRef.current,hasPending,control})
+ const restore=async(engine:PencilEngineAPI,read:CanonicalRoomStateRead,tail:readonly Operation[])=>{
+  try{await restoreCanonicalRoomBaseline(engine,read,tail,getEngine,deps.appliedRef.current);control.restored(engine)}
+  catch(error){control.failed(engine);throw error}
+ }
+ const confirmed=(operation:Operation,read:CanonicalRoomStateRead,engine:PencilEngineAPI)=>{
+  if(getEngine()!==engine||getRead()!==read||read.scope.roomId!==getBoard())return
+  control.confirmedControl(engine,read.scope.roomId,read,read.tailOperations,operation)
+ }
+ return Object.freeze({control,canRequest,restore,confirmed})
+}
+
+/** Preserve the socket's original captured lifetime and expected board. */
+export const prepareCanonicalRoomStateForSocket:CanonicalRoomStatePreparer=(state,lifetime)=>{
+ if(!lifetime.expectedBoardId)throw Error('Canonical requested board unavailable')
+ return prepareCanonicalRoomState(state,{expectedBoardId:lifetime.expectedBoardId,isCurrent:lifetime.isCurrent})
 }

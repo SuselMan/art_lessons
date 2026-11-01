@@ -39,7 +39,8 @@ it('setLocked(false) never admits ready pointer writing',async()=>{
 it('rejects direct ordinary journal writers before their log or wet-state effects',async()=>{
  const f=await fixture(),wet=vi.spyOn(f.engine['_paperWet'],'forgetLayer')
  try{
-  for(const action of [()=>f.engine.appendOperation(f.stroke),()=>f.engine.undo(),()=>f.engine.redo(),()=>f.engine.clear(),()=>f.engine.confirmOperation('missing',1),()=>f.engine.discardOperation('missing'),()=>f.engine.setBaseLayers(IMPLICIT_LAYER_IDS),()=>f.engine.watercolorDryWash(),()=>f.engine.watercolorDryAll()])expect(action).toThrow()
+  for(const action of [()=>f.engine.appendOperation(f.stroke),()=>f.engine.clear(),()=>f.engine.confirmOperation('missing',1),()=>f.engine.discardOperation('missing'),()=>f.engine.setBaseLayers(IMPLICIT_LAYER_IDS),()=>f.engine.watercolorDryWash(),()=>f.engine.watercolorDryAll()])expect(action).toThrow()
+  expect(f.engine.undo()).toBeNull();expect(f.engine.redo()).toBeNull()
   expect(wet).not.toHaveBeenCalled();f.unchanged()
  }finally{f.engine.destroy()}
 })
