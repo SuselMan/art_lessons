@@ -1533,6 +1533,35 @@ interface CanonicalIndexedActiveRoot {
  lastSeq:number
  release:()=>void
 }
+interface CanonicalIndexedEvidenceOutcome {
+ active:boolean
+ settled:boolean
+ cleanupError?:string
+ proof?:CanonicalIndexedRootProof
+ error?:unknown
+ failed?:boolean
+ notify?:()=>void
+}
+// Pending wire reactions retain ONLY this detachable cell, never an engine,
+// job, page or input. A canceled candidate cannot retain them until ACK/timeout.
+function observeCanonicalIndexedEvidence(promise:Promise<CanonicalIndexedRootProof>,cell:CanonicalIndexedEvidenceOutcome):void {
+ void promise.then(proof=>{
+  if(!cell.active){try{proof.release()}catch(error){cell.cleanupError=error instanceof Error?error.message.slice(0,256):'Late indexed proof cleanup failed'}return}
+  cell.proof=proof;cell.settled=true
+  const notify=cell.notify;cell.notify=undefined;notify?.()
+ },error=>{
+  if(!cell.active)return
+  cell.error=error;cell.failed=true;cell.settled=true
+  const notify=cell.notify;cell.notify=undefined;notify?.()
+ })
+}
+interface CanonicalIndexedEvidenceLookahead {
+ readonly page:CanonicalIndexedPage
+ readonly input:CanonicalRecordedInput
+ readonly key:string
+ readonly outcome:CanonicalIndexedEvidenceOutcome
+ readonly release:()=>void
+}
 interface CanonicalIndexedState {
  readonly read:CanonicalIndexedRead
  readonly recoverySuffix?:readonly CanonicalRecordedInput[]
@@ -1546,6 +1575,7 @@ interface CanonicalIndexedState {
  waiting:boolean
  cut?:CanonicalAcceptedCut
  readonly roots:Map<string,CanonicalIndexedActiveRoot>
+ evidenceLookahead?:CanonicalIndexedEvidenceLookahead
  readonly proofs:Map<string,{proof:CanonicalIndexedRootProof;witnesses:Readonly<CanonicalRootWitnesses>;visible:boolean}>
  visibleFrames:number
  count:number
@@ -6630,11 +6660,43 @@ export class PencilEngine implements PencilEngineAPI {
     if(last&&last.type!=='operation_undo'&&last.type!=='operation_redo'||redo&&redo.type!=='operation_redo'||undo&&undo.type!=='operation_undo'||branch&&(branch.type!=='canonical_stroke'||branch.frame.frameOrdinal!==0||branch.userId!==op.userId||!undo||branch.seq!<=undo.seq!))throw new TypeError('Invalid indexed history witnesses')
     return {proof,witnesses,visible:last?.type!=='operation_undo'}
   }
+  private _retireIndexedEvidenceLookahead(state:CanonicalIndexedState):void {
+    const pending=state.evidenceLookahead;state.evidenceLookahead=undefined
+    if(!pending)return
+    const cell=pending.outcome;cell.active=false;cell.notify=undefined
+    const proof=cell.proof;cell.proof=undefined;cell.error=undefined
+    try{proof?.release()}finally{pending.release()}
+  }
+  private _prefetchIndexedEvidence(job:RebuildJob):void {
+    const c=job.canonical!,tx=c.transaction,state=tx.indexed!,page=state.page,inputs=state.inputs
+    if(tx.recovery||state.replayingSuffix||state.waiting||state.evidenceLookahead||!page||!inputs||!c.indexedOwner?.coordinator?.executionPending)return
+    page.assertCurrent(page)
+    // One earliest unknown root from this already-owned bounded page. Never
+    // cross metadata/close, acquire another page or enqueue another wire read.
+    for(let i=state.next;i<inputs.length;i++){
+      const input=inputs[i],op=input.operation
+      if(op.type!=='canonical_stroke'||op.layerId!==INITIAL_LAYER_ID)return
+      const key=JSON.stringify([op.userId,op.frame.strokeId])
+      if(state.roots.has(key)||state.proofs.has(key))continue
+      if(op.frame.frameOrdinal!==0||!input.read)return
+      input.delivery.assertCurrent(input)
+      if(input.delivery.lifetime!==state.read.lifetime)return
+      const metadataBytes=512+key.length*2
+      if(this._brushMipCache.reservedBytes+metadataBytes>this._brushMipCache.budgetBytes)return // No room for the optional slot: use ordered evidence later.
+      const release=this._brushMipCache.reserve(metadataBytes),outcome:CanonicalIndexedEvidenceOutcome={active:true,settled:false}
+      const pending:CanonicalIndexedEvidenceLookahead={page,input,key,outcome,release}
+      state.evidenceLookahead=pending
+      try{observeCanonicalIndexedEvidence(state.read.rootEvidence(input),outcome)}
+      catch(error){this._retireIndexedEvidenceLookahead(state);throw error}
+      return
+    }
+  }
   private _stepCanonicalIndexed(job:RebuildJob):void {
     const c=job.canonical!,tx=c.transaction,state=tx.indexed!,plan=tx.plan
     if(state.waiting)return
     this._assertCanonicalEmptyCurrent(tx)
     const owner=c.indexedOwner??=( {plan,stable:c.stable,generation:tx.generation,cache:c.cache,prepass:c.prepass,composite:c.composite,mask:plan.mask,prepared:false,proof:this._captureCanonicalJournal(),inputs:[],indexedCandidate:c,accepting:false,retiring:false,failed:false,outstanding:0,logicalBytes:plan.logicalBytes} )
+    this._prefetchIndexedEvidence(job)
     // Peek only at adjacent originals already owned by this SAME page. This
     // grants no input authority: admission below still validates delivery,
     // snapshot and the actual material prefix. Never span a page/END/root.
@@ -6662,6 +6724,7 @@ export class PencilEngine implements PencilEngineAPI {
       return
     }
     if(state.next===state.inputs.length){
+      if(state.evidenceLookahead)throw new Error('Indexed evidence lookahead escaped its page')
       const page=state.page
       if(page){
         page.assertCurrent(page)
@@ -6702,6 +6765,25 @@ export class PencilEngine implements PencilEngineAPI {
       if(!active){
         if(op.frame.frameOrdinal!==0)throw new Error('Indexed continuation has no active original prefix')
         let evidence=state.proofs.get(key)
+        const lookahead=state.evidenceLookahead
+        if(!evidence&&lookahead){
+          if(lookahead.input!==input||lookahead.page!==state.page||lookahead.key!==key)throw new Error('Indexed evidence lookahead order changed')
+          const cell=lookahead.outcome
+          if(!cell.settled){
+            state.waiting=true
+            cell.notify=()=>{
+              if(tx.finished)return
+              try{this._assertCanonicalEmptyCurrent(tx);state.waiting=false;this._scheduleCanonicalRebuild(job)}catch(error){this._failCanonicalEmpty(tx,error)}
+            }
+            return
+          }
+          if(cell.failed){const error=cell.error;this._retireIndexedEvidenceLookahead(state);throw error}
+          const proof=cell.proof
+          if(!proof)throw new Error('Indexed evidence lookahead proof missing')
+          evidence=this._indexedWitnessVisibility(state,input,proof)
+          state.proofs.set(key,evidence);cell.proof=undefined
+          this._retireIndexedEvidenceLookahead(state)
+        }
         if(!evidence&&!state.replayingSuffix){this._waitCanonicalIndexed(job,state.read.rootEvidence(input),proof=>{state.proofs.set(key,this._indexedWitnessVisibility(state,input,proof))},proof=>proof.release());return}
         if(state.roots.size>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)throw new RangeError('Indexed active prefix capacity exceeded')
         const release=this._reserveIndexedRoot(snapshot,input)
@@ -6847,6 +6929,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     if(tx.indexed){
       const state=tx.indexed
+      try{this._retireIndexedEvidenceLookahead(state)}catch(error){tx.failures.push(error)}
       for(const action of [()=>state.page?.release(),()=>state.releasePage?.(),()=>state.read.cancel(),...Array.from(state.proofs.values(),p=>()=>p.proof.release()),...Array.from(state.roots.values(),r=>r.release),...Array.from(state.acceptedRoots?.values()??[],r=>r.release)])try{action()}catch(error){tx.failures.push(error)}
       state.page=undefined;state.inputs=undefined;state.proofs.clear();state.roots.clear();state.acceptedRoots?.clear();state.acceptedRoots=undefined
     }

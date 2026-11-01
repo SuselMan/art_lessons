@@ -721,3 +721,120 @@ it('keeps metadata and hidden original roots on the ordinary validation path wit
   expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(3);expect(engine.hasLayerContent('layer-1')).toBe(false)
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
+
+function indexedEvidenceLookaheadFixture(hidden=false){
+ const operations:ReturnType<typeof indexedFrame>[]=[...Array.from({length:3},(_,i)=>paintedIndexedPreviewFrame(i+1,i,i===2,'first')),paintedIndexedPreviewFrame(4,0,false,'next'),paintedIndexedPreviewFrame(5,1,true,'next')]
+ if(hidden)operations.push({id:'hide-next',seq:6,type:'operation_undo',userId:'actor',timestamp:1,targetOpId:operations[3].id})
+ const issuer=indexedSocketFixture(operations,64),actualEvidence=issuer.handlers.canonical_history_stream_evidence
+ let fulfill:(()=>void)|undefined,reject:((error:unknown)=>void)|undefined,requests=0
+ issuer.handlers.canonical_history_stream_evidence=body=>{
+  requests++
+  if((body.root as {strokeId:string}).strokeId!=='next')return actualEvidence(body)
+  return new Promise((resolve,fail)=>{fulfill=()=>resolve(hidden?{ok:true,value:{kind:'canonical-indexed-history-root-evidence-v1',streamId:'read0',throughSeq:operations.length,root:body.root,rows:operations.slice(3),canonicalCapabilities:indexedAttachment(operations.slice(3)),first:0,terminal:1,lastMetadata:2,latestRedo:null,firstUndoAfterLatestRedo:2,ownBranchAfterUndo:null}}:actualEvidence(body));reject=fail})
+ }
+ return {issuer,operations,get requests(){return requests},get fulfill(){return fulfill},get reject(){return reject}}
+}
+it('overlaps ONE genuine same-page root evidence ACK with current pixel execution, then admits that SAME result in order',async()=>{
+ const f=indexedEvidenceLookaheadFixture(),read=await f.issuer.open(),{engine}=engineFor(read),draw=vi.spyOn(CanonicalRgba8CompositePass.prototype,'drawSource')
+ const next=f.issuer.handlers.canonical_history_stream_next
+ let terminal:(()=>void)|undefined,drawsAtRequest:number|undefined
+ const evidence=f.issuer.handlers.canonical_history_stream_evidence
+ f.issuer.handlers.canonical_history_stream_evidence=body=>{if((body.root as {strokeId:string}).strokeId==='next')drawsAtRequest=draw.mock.calls.length;return evidence(body)}
+ f.issuer.handlers.canonical_history_stream_next=body=>Number(body.afterSeq)===5?new Promise(resolve=>{terminal=()=>resolve(next(body))}):next(body)
+ try{
+  await engine.paperReady();const transport=indexedRestoreTransport(engine),restore=engine.restoreCanonicalIndexedRoom(read)
+  void restore.catch(()=>{});await transport.drain()
+  expect(f.fulfill).toBeTypeOf('function');expect(f.requests).toBe(2)
+  expect(draw.mock.calls.length).toBeGreaterThan(drawsAtRequest!)
+  const state=engine['_rebuildJobs'].get('layer-1')!.canonical!.transaction.indexed!
+  expect(state.count).toBe(3);expect(state.waiting).toBe(true);expect(state.evidenceLookahead?.outcome.settled).toBe(false)
+  expect(draw.mock.calls.filter(([request])=>request.source.kind==='maskRgb')).toHaveLength(3)
+  expect(engine.getCanonicalIndexedCut()).toBeNull();expect(f.issuer.requests.filter(r=>r.event==='canonical_history_stream_next')).toHaveLength(1)
+  await expect(read.nextPage()).rejects.toThrow('original read unavailable') // Actual consumer busy gate, no extra wire request.
+  expect(f.issuer.requests.filter(r=>r.event==='canonical_history_stream_next')).toHaveLength(1)
+  f.fulfill!();await transport.drain()
+  expect(f.requests).toBe(2);expect(state.evidenceLookahead).toBeUndefined();expect(terminal).toBeTypeOf('function')
+  expect(draw.mock.calls.filter(([request])=>request.source.kind==='maskRgb')).toHaveLength(5)
+  expect(engine.getCanonicalIndexedCut()).toBeNull();expect(engine['_canonicalPixelsReady']).toBe(false)
+  terminal!();await transport.drain();await restore
+  expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(5);expect(engine['_brushMipCache'].reservedBytes).toBeGreaterThan(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+for(const late of ['fulfill','reject'] as const)it(`detaches a pending lookahead before cancellation and observes its late ${late} without a wake or retained candidate`,async()=>{
+ const f=indexedEvidenceLookaheadFixture(),read=await f.issuer.open(),{engine}=engineFor(read)
+ try{
+  await engine.paperReady();const transport=indexedRestoreTransport(engine),restore=engine.restoreCanonicalIndexedRoom(read),rejected=expect(restore).rejects.toThrow('cancelled')
+  await transport.drain()
+  const state=engine['_rebuildJobs'].get('layer-1')!.canonical!.transaction.indexed!,cell=state.evidenceLookahead!.outcome
+  expect(cell.notify).toBeTypeOf('function')
+  engine['_cancelRebuildJob']('layer-1');await rejected
+  expect(state.evidenceLookahead).toBeUndefined();expect(cell.active).toBe(false);expect(cell.notify).toBeUndefined();expect(cell.proof).toBeUndefined()
+  const scheduled=transport.schedule.mock.calls.length
+  if(late==='fulfill')f.fulfill!();else f.reject!(Error('late genuine evidence failure'))
+  await transport.drain()
+  expect(transport.schedule).toHaveBeenCalledTimes(scheduled);expect(engine['_rebuildJobs'].size).toBe(0)
+  expect(engine.getCanonicalIndexedCut()).toBeNull();expect(engine['_brushMipCache'].reservedBytes).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('retains a failed lookahead only until ordered root admission, then rejects the candidate without false cut',async()=>{
+ const f=indexedEvidenceLookaheadFixture(),read=await f.issuer.open(),{engine}=engineFor(read)
+ try{
+  await engine.paperReady();const transport=indexedRestoreTransport(engine),restore=engine.restoreCanonicalIndexedRoom(read),rejected=expect(restore).rejects.toThrow('genuine evidence failure')
+  await transport.drain();expect(f.requests).toBe(2)
+  f.reject!(Error('genuine evidence failure'));await transport.drain();await rejected
+  expect(engine.getCanonicalIndexedCut()).toBeNull();expect(engine['_canonicalPixelsReady']).toBe(false)
+  expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_ribbonScratchPool'].bytes.live).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('releases an already-fulfilled genuine lookahead proof when the candidate is canceled before adoption',async()=>{
+ const f=indexedEvidenceLookaheadFixture(),read=await f.issuer.open(),{engine}=engineFor(read)
+ try{
+  await engine.paperReady();const transport=indexedRestoreTransport(engine),restore=engine.restoreCanonicalIndexedRoom(read),rejected=expect(restore).rejects.toThrow('cancelled')
+  await transport.drain()
+  const state=engine['_rebuildJobs'].get('layer-1')!.canonical!.transaction.indexed!,pending=state.evidenceLookahead!,cell=pending.outcome
+  f.fulfill!();for(let i=0;i<32;i++)await Promise.resolve()
+  expect(cell.settled).toBe(true);const proof=cell.proof!;expect(proof.assertCurrent(proof,pending.input).first.operation.id).toBe('frame4')
+  engine['_cancelRebuildJob']('layer-1');await rejected
+  expect(cell.proof).toBeUndefined();expect(cell.notify).toBeUndefined();expect(()=>proof.assertCurrent(proof,pending.input)).toThrow()
+  expect(state.evidenceLookahead).toBeUndefined();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine.getCanonicalIndexedCut()).toBeNull()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('uses actual prefetched hidden-root witnesses only for visibility, never for source admission or painting',async()=>{
+ const f=indexedEvidenceLookaheadFixture(true),read=await f.issuer.open(),{engine}=engineFor(read),draw=vi.spyOn(CanonicalRgba8CompositePass.prototype,'drawSource')
+ try{
+  await engine.paperReady();const transport=indexedRestoreTransport(engine),restore=engine.restoreCanonicalIndexedRoom(read)
+  void restore.catch(()=>{});await transport.drain();expect(f.requests).toBe(2)
+  f.fulfill!();await transport.drain();await restore
+  expect(draw.mock.calls.filter(([request])=>request.source.kind==='maskRgb')).toHaveLength(3)
+  expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(6);expect(engine['_canonicalPixelsReady']).toBe(true)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('rejects a stale real origin while its prefetched evidence ACK is pending without publishing the candidate',async()=>{
+ const f=indexedEvidenceLookaheadFixture(),read=await f.issuer.open(),{engine}=engineFor(read)
+ try{
+  await engine.paperReady();const transport=indexedRestoreTransport(engine),restore=engine.restoreCanonicalIndexedRoom(read),rejected=expect(restore).rejects.toThrow()
+  await transport.drain();const state=engine['_rebuildJobs'].get('layer-1')!.canonical!.transaction.indexed!,cell=state.evidenceLookahead!.outcome
+  f.issuer.setCurrent(false);f.fulfill!();await transport.drain();await rejected
+  expect(cell.active).toBe(false);expect(cell.notify).toBeUndefined();expect(cell.proof).toBeUndefined()
+  expect(engine.getCanonicalIndexedCut()).toBeNull();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_rebuildJobs'].size).toBe(0)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+it('uses ordinary ordered evidence when the optional lookahead metadata reservation does not fit',async()=>{
+ const f=indexedEvidenceLookaheadFixture(),read=await f.issuer.open(),{engine}=engineFor(read),prefetch=engine['_prefetchIndexedEvidence'].bind(engine),cpu=engine['_brushMipCache']
+ vi.spyOn(engine as unknown as {_prefetchIndexedEvidence:typeof prefetch},'_prefetchIndexedEvidence').mockImplementation(job=>{
+  // Temporary real CPU-owner pressure applies ONLY during optional admission;
+  // mandatory coordinator work resumes with its normal budget afterwards.
+  const release=cpu.reserve(cpu.budgetBytes-cpu.reservedBytes)
+  try{prefetch(job)}finally{release()}
+ })
+ try{
+  await engine.paperReady();const transport=indexedRestoreTransport(engine),restore=engine.restoreCanonicalIndexedRoom(read)
+  void restore.catch(()=>{});await transport.drain()
+  const state=engine['_rebuildJobs'].get('layer-1')!.canonical!.transaction.indexed!
+  expect(state.evidenceLookahead).toBeUndefined();expect(state.count).toBe(3);expect(f.requests).toBe(2)
+  f.fulfill!();await transport.drain();await restore
+  expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(5)
+ }finally{engine.destroy();expect(cpu.reservedBytes).toBe(0)}
+})
