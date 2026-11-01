@@ -1,5 +1,6 @@
+import {assertCanonicalPatternResourceCurrent,type CanonicalPatternResource} from './CanonicalMaskSourceBank';
 import type { CanonicalPreparedResourceUpdate } from './TransformedMaskPrepass';
-import {CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE} from '@grafetto/shared';
+import {canonicalPrimaryTexturePin, canonicalPrimaryTextureCell, type CanonicalPrimaryTexturePin, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE} from '@grafetto/shared';
 import { SOURCE_FUSED_OVER32_SCALAR_GLSL, prepareSourceFusedOver32ScalarControls } from '../raster/sourceFusedOver32ScalarShader';
 import { SOURCE_RGBA8_COMPOSITE_WEBGL1_GLSL, SOURCE_RGBA8_INSTALLED_HSY_WEBGL1_GLSL } from '../raster/sourceRgba8CompositeWebGL1';
 import { canonicalizeSourceRgba8Control, canonicalizeSourceInstalledHsyControl } from '../raster/sourceRgba8CompositeShader';
@@ -67,6 +68,13 @@ export type CanonicalCompositeSource = {
         number
     ];
 } | {
+    readonly kind:'texturedMaskRgb';
+    readonly view:TransformedMaskView;
+    readonly rgb:readonly [number,number,number];
+    readonly pattern:CanonicalPatternResource;
+    readonly pin:CanonicalPrimaryTexturePin;
+    readonly strengthU8:number;
+} | {
     readonly kind: 'straightRgba8';
     readonly view: CanonicalRgba8SourceView;
 };
@@ -111,6 +119,8 @@ export interface CanonicalCompositeLimits {
     readonly width: number;
     readonly height: number;
     readonly operations?: readonly CanonicalCompositeOperationKind[];
+    /** Explicit additional source-law variant; never an implicit plain-mask fallback. */
+    readonly texturedOperations?:readonly 'alphaDarken32FusedScalar'[];
 }
 interface Resource {
     readonly key: string;
@@ -133,6 +143,14 @@ function operationsFor(limits: CanonicalCompositeLimits): readonly CanonicalComp
         throw new RangeError('Invalid composite operations');
     return (['alphaDarken32', 'over32', 'alphaDarken32FusedScalar', 'over32FusedScalar', 'genericSCU8', 'colorHsyInstalled', 'alphaDarkenBrowserFloat', 'overBrowserFloat'] as const).filter(kind => operations.includes(kind));
 }
+const TEXTURED_PROGRAM='alphaDarken32FusedScalar:subtract-u8-v1' as const;
+type CompositeProgramKey=CanonicalCompositeOperationKind|typeof TEXTURED_PROGRAM;
+function texturedOperationsFor(limits:CanonicalCompositeLimits):readonly 'alphaDarken32FusedScalar'[] {
+    const selected=limits.texturedOperations??[];
+    if(!Array.isArray(selected)||selected.length>1||selected.some(kind=>kind!=='alphaDarken32FusedScalar')
+        ||selected.length&&!operationsFor(limits).includes('alphaDarken32FusedScalar'))throw new RangeError('Invalid textured composite operations');
+    return selected.length?['alphaDarken32FusedScalar']:[];
+}
 const whole = (n: number, minimum = 0) => Number.isSafeInteger(n) && n >= minimum;
 const rectValid = (r: {
     x: number;
@@ -152,7 +170,7 @@ export function canonicalRgba8CompositeBudget(limits: CanonicalCompositeLimits):
     if (!whole(limits.width, 1) || !whole(limits.height, 1) || limits.width > 4096 || limits.height > 4096
         || limits.width * limits.height > 1048576)
         throw new RangeError('Invalid canonical composite capacity');
-    return { gpuBytes: limits.width * limits.height * 4 + VBO_BYTES, cpuBytes: VBO_BYTES + PROGRAM_CPU_BYTES * operationsFor(limits).length };
+    return { gpuBytes: limits.width * limits.height * 4 + VBO_BYTES, cpuBytes: VBO_BYTES + PROGRAM_CPU_BYTES * (operationsFor(limits).length+texturedOperationsFor(limits).length) };
 }
 const VERTEX = 'attribute highp vec2 position;void main(){gl_Position=vec4(position,0.0,1.0);}';
 /** One source/geometry template; only the selected numerical kernel is included. */
@@ -192,6 +210,30 @@ void main(){
   gl_FragColor=${apply}/255.0;
 }`;
 }
+/** The old fragment remains byte-identical; this explicit variant fuses the
+ * versioned U8 coverage law before the existing composition kernel. */
+function texturedFragmentFor():string {
+    const reduce=[2048,1024,512,256,128,64,32,16,8,4,2,1].map(n=>`if(value>=period*${n}.0)value-=period*${n}.0;`).join('\n');
+    const base=fragmentFor('alphaDarken32FusedScalar');
+    for(const required of ['uniform highp vec4 clipRect;','void main(){','  highp vec4 source=sourcePolicy.x==0.0?vec4(pigment,sampled.r):sampled;'])if(!base.includes(required))throw new Error('Composite texture template changed');
+    return base
+        .replace('uniform highp vec4 clipRect;',`uniform highp sampler2D patternTexture;
+uniform highp vec2 patternPhase;
+uniform highp vec2 patternPeriod;
+uniform highp float patternSide;
+uniform highp float patternStrength;
+uniform highp vec4 clipRect;`)
+        .replace('void main(){',`highp float patternCell(highp float value,highp float period){
+${reduce}
+return value;
+}
+void main(){`)
+        .replace('  highp vec4 source=sourcePolicy.x==0.0?vec4(pigment,sampled.r):sampled;',`  highp vec2 patternPixel=patternPhase+floor(vec2(local.x,clipRect.w-local.y));
+  highp vec2 cell=vec2(patternCell(patternPixel.x,patternPeriod.x),patternCell(patternPixel.y,patternPeriod.y));
+  highp float grain=floor(texture2D(patternTexture,(cell+0.5)/patternSide).r*255.0+0.5);
+  highp float coverage=max(0.0,sampled.r-grain-(255.0-patternStrength));
+  highp vec4 source=vec4(pigment,coverage);`);
+}
 interface ProgramInfo {
     program: WebGLProgram;
     attribute: number;
@@ -200,7 +242,7 @@ interface ProgramInfo {
 interface Workspace {
     texture: WebGLTexture;
     buffer: WebGLBuffer;
-    programs: Map<CanonicalCompositeOperationKind, ProgramInfo>;
+    programs: Map<CompositeProgramKey, ProgramInfo>;
     vao?: WebGLVertexArrayObjectOES;
 }
 /** Internal opt-in numerical composition. Target is explicit straight RGBA8,
@@ -255,6 +297,7 @@ export class CanonicalRgba8CompositePass {
             if([...group.values()].reduce((a,b)=>a+b,0)+budget.gpuBytes>this.cache.budgetBytes||Math.max(this.cpu.reservedBytes-this.reservedCpuBytes,companionCpuBytes)+budget.cpuBytes>this.cpu.budgetBytes)throw new RangeError('Composite working set exceeds brush budgets')
             const maximum=this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) as number,precision=this.gl.getShaderPrecisionFormat(this.gl.FRAGMENT_SHADER,this.gl.HIGH_FLOAT)
             if(!precision||precision.precision<23||Math.max(limits.width,limits.height)>maximum)throw new RangeError('Unverified composite GPU capability')
+            if(texturedOperationsFor(limits).length&&(!whole(precision.rangeMax,24)||!whole(precision.rangeMin,14)))throw new RangeError('Unverified textured composite precision range')
             let next:readonly Resource[]|undefined=Object.freeze([...group].map(([key,bytes])=>Object.freeze({key,bytes})))
             const scalar=()=>state==='pending'&&owner.pass.companionUpdate===update&&owner.pass.workspace===epoch&&owner.pass.limits===limits&&owner.pass.companions===oldCompanions&&!owner.pass.batch&&!owner.pass.busy
             const assert=(receiver:unknown)=>{if(receiver!==update||!scalar())throw new Error('Composite companion update changed')}
@@ -278,9 +321,9 @@ export class CanonicalRgba8CompositePass {
         if (this.batch) throw new Error('Cannot prepare inside an active brush GL batch');
         if (signal?.aborted)
             return 'cancelled';
-        const operations = operationsFor(limits);
+        const operations = operationsFor(limits),texturedOperations=texturedOperationsFor(limits);
         if(this.limits){
-            if(this.limits.width!==limits.width||this.limits.height!==limits.height||operations.join(',')!==operationsFor(this.limits).join(',')||!this.isReady())throw new Error('Reset composite pass before changing capacity/residency')
+            if(this.limits.width!==limits.width||this.limits.height!==limits.height||operations.join(',')!==operationsFor(this.limits).join(',')||texturedOperations.join(',')!==texturedOperationsFor(this.limits).join(',')||!this.isReady())throw new Error('Reset composite pass before changing capacity/residency')
             const update=this.prepareCompanionUpdate(companions,companionCpuBytes);update.publish();update.finalizeCleanup();return 'ready'
         }
         const budget = canonicalRgba8CompositeBudget(limits), group = new Map<string, number>();
@@ -295,13 +338,14 @@ export class CanonicalRgba8CompositePass {
         const precision = this.gl.getShaderPrecisionFormat(this.gl.FRAGMENT_SHADER, this.gl.HIGH_FLOAT);
         if (!precision || precision.precision < 23 || Math.max(limits.width, limits.height) > maximum)
             throw new RangeError('Unverified composite GPU capability');
+        if(texturedOperations.length&&(!whole(precision.rangeMax,24)||!whole(precision.rangeMin,14)))throw new RangeError('Unverified textured composite precision range');
         if (this.cache.resourceBytes(this.key) !== undefined)
             throw new Error('Canonical composite resource scope is already owned');
         const textureStorage=reserveContextStorage(this.gl,limits.width*limits.height*4,'brush-texture-rgba-equivalent');
         let bufferStorage:StorageReservation;
         try{bufferStorage=reserveContextStorage(this.gl,VBO_BYTES,'brush-buffer')}catch(error){releaseStorageReservation(textureStorage);throw error}
         let releaseCpu=()=>{},restore=()=>{},retainedCpu=false,failed=false,failure:unknown,cancelled=false;
-        const loose:(OwnedBrushResource|OwnedBrushBuffer)[]=[],programs=new Map<CanonicalCompositeOperationKind,ProgramInfo>();
+        const loose:(OwnedBrushResource|OwnedBrushBuffer)[]=[],programs=new Map<CompositeProgramKey,ProgramInfo>();
         let vao:WebGLVertexArrayObjectOES|null=null,auxTransferred=false;
         const attempt=(cleanup:()=>void)=>{try{cleanup()}catch(error){if(!failed){failed=true;failure=error}}};
         try {
@@ -317,6 +361,7 @@ export class CanonicalRgba8CompositePass {
                 for(const name of [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T])gl.texParameteri(gl.TEXTURE_2D,name,gl.CLAMP_TO_EDGE);
             },textureStorage);loose.push(texture);
             for(const kind of operations)programs.set(kind,this.compile(kind));
+            if(texturedOperations.length)programs.set(TEXTURED_PROGRAM,this.compile('alphaDarken32FusedScalar',true));
             const buffer=allocateOwnedBrushBuffer(gl,VBO_BYTES,(handle,mark)=>{gl.bindBuffer(gl.ARRAY_BUFFER,handle);mark(VBO_BYTES);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW)},bufferStorage);loose.push(buffer);
             vao=this.vertexArrays?.createVertexArrayOES()??null;
             if(this.vertexArrays&&!vao)throw new Error('Composite VAO allocation failed');
@@ -329,7 +374,7 @@ export class CanonicalRgba8CompositePass {
                 if(bad)throw first;
             });loose.push(bundle);auxTransferred=true;
             this.workspace=owned;this.cache.putOwned(this.key,bundle);
-            this.limits={...limits,operations};this.companions=[...group].map(([key,bytes])=>({key,bytes}));
+            this.limits={...limits,operations,texturedOperations};this.companions=[...group].map(([key,bytes])=>({key,bytes}));
             this.releaseCpu=releaseCpu;this.reservedCpuBytes=budget.cpuBytes;retainedCpu=true;cancelled=!!signal?.aborted;
         }catch(error){failed=true;failure=error}
         finally{
@@ -355,6 +400,9 @@ export class CanonicalRgba8CompositePass {
      * shader preparation or alternative operation is permitted. */
     supportsOperations(kinds: readonly CanonicalCompositeOperationKind[]): boolean {
         return this.isReady() && kinds.every(kind => this.workspace!.programs.has(kind));
+    }
+    supportsTexturedOperations(kinds:readonly CanonicalCompositeOperationKind[]):boolean {
+        return this.isReady()&&kinds.every(kind=>kind==='alphaDarken32FusedScalar'&&this.workspace!.programs.has(TEXTURED_PROGRAM));
     }
     preparedResources(): readonly Resource[] {
         if (!this.isReady())
@@ -394,6 +442,7 @@ export class CanonicalRgba8CompositePass {
         if (bounds !== undefined && (!bounds || ![bounds.minX, bounds.minY, bounds.maxX, bounds.maxY].every(Number.isSafeInteger)
             || bounds.maxX < bounds.minX || bounds.maxY < bounds.minY))
             throw new RangeError('Invalid composite write bounds');
+        const pattern=source.kind==='texturedMaskRgb'?this.validatePattern(source):undefined;
         const sampled = this.validateSource(source);
         this.validateTarget(target);
         if (base !== target) this.validateTarget(base);
@@ -402,12 +451,14 @@ export class CanonicalRgba8CompositePass {
             throw new RangeError('Immutable destination geometry must match the output target');
         if (!this.isReady() || !this.workspace || !this.limits)
             throw new Error('Composite pass is not prepared');
-        const info = this.workspace.programs.get(operation.kind);
+        const info = this.workspace.programs.get(pattern?TEXTURED_PROGRAM:operation.kind);
+        if(pattern&&operation.kind!=='alphaDarken32FusedScalar')throw new RangeError('Unsupported textured composite operation');
         if (!info)
             throw new Error('Composite operation was not prepared');
         if (target.texture === sampled.texture || target.texture === this.workspace.texture || sampled.texture === this.workspace.texture || base.texture === this.workspace.texture)
             throw new RangeError('Composite framebuffer feedback alias');
-        const resources = [...this.companions, ...this.preparedResources()];
+        if(pattern&&(pattern.view.texture===target.texture||pattern.view.texture===base.texture||pattern.view.texture===this.workspace.texture||pattern.view.texture===sampled.texture))throw new RangeError('Composite pattern feedback alias');
+        const resources = [...this.companions, ...this.preparedResources(),...pattern?[{key:pattern.view.key,bytes:pattern.view.width*pattern.view.height*4}]:[]];
         for (const r of this.companions)
             if (this.cache.resourceBytes(r.key) !== r.bytes || !this.cache.get(r.key))
                 throw new Error('Composite companion residency changed');
@@ -433,9 +484,10 @@ export class CanonicalRgba8CompositePass {
         frame?.beginDraw();
         this.cache.protect([...unique.keys()]);
         const release = frame ? () => {} : this.cache.lease([...unique].map(([key, bytes]) => ({ key, bytes })));
-        const gl = this.gl, work = this.workspace, restore = frame ? () => {} : saveBrushGlState(gl, [info.attribute], this.instancing, this.vertexArrays, 2), releases: (() => void)[] = [];
+        const gl = this.gl, work = this.workspace, restore = frame ? () => {} : saveBrushGlState(gl, [info.attribute], this.instancing, this.vertexArrays, pattern?3:2), releases: (() => void)[] = [];
         this.busy = true;
-        let restoreSampling: (() => void) | undefined, failure: unknown, failed = false;
+        const restoreSamplings:(()=>void)[]=[];
+        let failure: unknown, failed = false;
         try {
             for (const lifetime of frame ? [] : declaredOwners) {
                 const done = lifetime.lease();
@@ -445,6 +497,7 @@ export class CanonicalRgba8CompositePass {
             }
             if (this.workspace !== work || !this.limits)
                 throw new Error('Composite resources changed during owner acquisition');
+            if(pattern)assertCanonicalPatternResourceCurrent(pattern.view,{gl:this.gl,cache:this.cache,cpu:this.cpu});
             if (frame) { frame.bindTarget(target); if (base !== target) frame.bindTarget(base); }
             else { this.bindTarget(target); if (base !== target) this.bindTarget(base); }
             gl.activeTexture(gl.TEXTURE1);
@@ -464,17 +517,28 @@ export class CanonicalRgba8CompositePass {
             gl.vertexAttribPointer(info.attribute, 2, gl.FLOAT, false, 0, 0);
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, sampled.texture);
-            restoreSampling = frame ? frame.pointSampling(sampled.texture) : this.pointSampling(sampled.texture);
+            restoreSamplings.push(frame ? frame.pointSampling(sampled.texture) : this.pointSampling(sampled.texture));
+            if(pattern){
+                gl.activeTexture(gl.TEXTURE0+2);gl.bindTexture(gl.TEXTURE_2D,pattern.view.texture);
+                restoreSamplings.push(frame?frame.pointSampling(pattern.view.texture):this.pointSampling(pattern.view.texture,gl.TEXTURE0+2));
+            }
             const u = info.uniforms;
             gl.uniform1i(u.sourceTexture, 0);
             gl.uniform1i(u.destinationTexture, 1);
+            if(pattern){
+                const phaseX=canonicalPrimaryTextureCell(sampled.rect.x+clip.maskX,pattern.pin.periodX,pattern.pin.offsetX);
+                const phaseY=canonicalPrimaryTextureCell(sampled.rect.y+clip.maskY,pattern.pin.periodY,pattern.pin.offsetY);
+                gl.uniform1i(u.patternTexture,2);gl.uniform2f(u.patternPhase,phaseX,phaseY);
+                gl.uniform2f(u.patternPeriod,pattern.pin.periodX,pattern.pin.periodY);
+                gl.uniform1f(u.patternSide,pattern.view.width);gl.uniform1f(u.patternStrength,pattern.strengthU8);
+            }
             gl.uniform4f(u.clipRect, clip.x, clip.y, clip.width, clip.height);
             gl.uniform4f(u.sourceGeometry, clip.maskX, clip.maskY, sampled.rect.width, sampled.rect.height);
             gl.uniform4f(u.sourceBounds, sampled.bounds.x, sampled.bounds.y, sampled.bounds.width, sampled.bounds.height);
             gl.uniform2f(u.mirrorFlags, +sampled.mirror.horizontal, +sampled.mirror.vertical);
             gl.uniform2f(u.sourcePolicy, source.kind === 'straightRgba8' ? 1 : 0, sampled.rowOrder === 'bottomAtV0' ? 1 : 0);
             gl.uniform2f(u.scratchSize, this.limits.width, this.limits.height);
-            gl.uniform3f(u.pigment, ...source.kind === 'maskRgb' ? source.rgb : [0, 0, 0] as [
+            gl.uniform3f(u.pigment, ...source.kind !== 'straightRgba8' ? source.rgb : [0, 0, 0] as [
                 number,
                 number,
                 number
@@ -524,8 +588,7 @@ export class CanonicalRgba8CompositePass {
                 }
             } };
             // Restore the sampler while its external/cache owner is still held.
-            if (restoreSampling)
-                cleanup(restoreSampling);
+            for(const restoreSampling of restoreSamplings.reverse())cleanup(restoreSampling);
             cleanup(restore);
             for (const done of releases.reverse())
                 cleanup(done);
@@ -536,23 +599,23 @@ export class CanonicalRgba8CompositePass {
             throw failure;
         return 'painted';
     }
-    private pointSampling(texture: WebGLTexture): () => void {
+    private pointSampling(texture: WebGLTexture,unit:number=this.gl.TEXTURE0): () => void {
         const gl = this.gl, names = [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER, gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T];
         const previous = names.map(name => gl.getTexParameter(gl.TEXTURE_2D, name) as number);
         const desired = [gl.NEAREST, gl.NEAREST, gl.CLAMP_TO_EDGE, gl.CLAMP_TO_EDGE];
-        for (let i = 0; i < names.length; i++)
-            if (previous[i] !== desired[i])
-                gl.texParameteri(gl.TEXTURE_2D, names[i], desired[i]);
-        return () => {
-            if (gl.isContextLost() || !gl.isTexture(texture))
-                return;
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, texture);
-            for (let i = 0; i < names.length; i++)
-                if (previous[i] !== desired[i])
-                    gl.texParameteri(gl.TEXTURE_2D, names[i], previous[i]);
+        const restore=()=>{
+            if(gl.isContextLost()||!gl.isTexture(texture))return;
+            gl.activeTexture(unit);gl.bindTexture(gl.TEXTURE_2D,texture);
+            let failed=false,error:unknown;
+            for(let i=0;i<names.length;i++)if(previous[i]!==desired[i])try{gl.texParameteri(gl.TEXTURE_2D,names[i],previous[i]);}catch(e){if(!failed){failed=true;error=e;}}
+            if(failed)throw error;
         };
+        try{
+            for(let i=0;i<names.length;i++)if(previous[i]!==desired[i])gl.texParameteri(gl.TEXTURE_2D,names[i],desired[i]);
+        }catch(error){try{restore();}catch{/* Preserve sampler preparation failure. */}throw error;}
+        return restore;
     }
+
     reset(lost = false): void {
         if (this.batch && !lost) throw new Error('Cannot reset inside an active brush GL batch');
         if (this.busy && !lost)
@@ -569,6 +632,13 @@ export class CanonicalRgba8CompositePass {
         if(failed)throw primary;
     }
 
+    private validatePattern(source:Extract<CanonicalCompositeSource,{kind:'texturedMaskRgb'}>):{view:CanonicalPatternResource;pin:CanonicalPrimaryTexturePin;strengthU8:number} {
+        const view=source.pattern;
+        assertCanonicalPatternResourceCurrent(view,{gl:this.gl,cache:this.cache,cpu:this.cpu});
+        const pin=canonicalPrimaryTexturePin(source.pin,view.asset),side=view.width,strengthU8=source.strengthU8;
+        if(!whole(side,1)||side>4096||(side&(side-1))!==0||view.height!==side||!whole(strengthU8)||Object.is(strengthU8,-0)||strengthU8>255)throw new RangeError('Invalid textured composite source');
+        return {view,pin,strengthU8};
+    }
     private validateSource(source: CanonicalCompositeSource): {
         texture: WebGLTexture;
         rect: TransformedMaskView['rect'];
@@ -583,7 +653,7 @@ export class CanonicalRgba8CompositePass {
             || view.bounds.x < 0 || view.bounds.y < 0 || view.bounds.width <= 0 || view.bounds.height <= 0 || view.bounds.x + view.bounds.width > 1 || view.bounds.y + view.bounds.height > 1
             || !view.mirror || typeof view.mirror.horizontal !== 'boolean' || typeof view.mirror.vertical !== 'boolean')
             throw new RangeError('Invalid composite source view');
-        if (source.kind === 'maskRgb') {
+        if (source.kind === 'maskRgb'||source.kind==='texturedMaskRgb') {
             const mask = source.view;
             if (mask.channel !== 'r' || !mask.key || !Array.isArray(source.rgb) || source.rgb.length !== 3 || !source.rgb.every(v => whole(v) && v <= 255))
                 throw new RangeError('Invalid mask source/pigment bytes');
@@ -653,11 +723,11 @@ export class CanonicalRgba8CompositePass {
             || gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME) !== target.texture)
             throw new Error('Canonical target attachment does not match its declared texture');
     }
-    private compile(kind: CanonicalCompositeOperationKind): ProgramInfo {
+    private compile(kind: CanonicalCompositeOperationKind,textured=false): ProgramInfo {
         const gl = this.gl, shaders: WebGLShader[] = [];
         let program: WebGLProgram | null = null;
         try {
-            for (const [type, source] of [[gl.VERTEX_SHADER, VERTEX], [gl.FRAGMENT_SHADER, fragmentFor(kind)]] as const) {
+            for (const [type, source] of [[gl.VERTEX_SHADER, VERTEX], [gl.FRAGMENT_SHADER, textured?texturedFragmentFor():fragmentFor(kind)]] as const) {
                 const shader = gl.createShader(type);
                 if (!shader)
                     throw new Error('Composite shader allocation failed');
@@ -679,7 +749,7 @@ export class CanonicalRgba8CompositePass {
             if (attribute < 0)
                 throw new Error('Composite attribute unavailable');
             const uniforms: Record<string, WebGLUniformLocation | null> = {};
-            for (const name of ['sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment', 'controls', 'policy', 'opacityParts', 'flowParts', ...kind === 'colorHsyInstalled' ? ['sourceHsyStageLimit'] : []])
+            for (const name of ['sourceTexture', 'destinationTexture', 'clipRect', 'sourceGeometry', 'sourceBounds', 'mirrorFlags', 'sourcePolicy', 'scratchSize', 'pigment', 'controls', 'policy', 'opacityParts', 'flowParts', ...kind === 'colorHsyInstalled' ? ['sourceHsyStageLimit'] : [],...textured?['patternTexture','patternPhase','patternPeriod','patternSide','patternStrength']:[]])
                 uniforms[name] = gl.getUniformLocation(program, name);
             return { program, attribute, uniforms };
         }
