@@ -429,3 +429,32 @@ Recording-GL lifecycle regressions are retained in ignored R52 O3 logs. No shade
 shared build, runtime, device or physical GPU claim is part of these host checks.
 Final focused run: **207 tests / 6 files PASS**, including native/D masks, image
 suffix admission and actual recording-GL resource ownership; no skipped failures.
+
+## Final auto upload and the first resident paint task
+
+`runPreparedTurn` distinguishes private physical, paint and presentation actions.
+Physical target/scratch allocation, wash initialization and presentation retain
+their previous exit after final upload spends the cooperative budget. Only the
+actual paint callsite reached after complete physical preparation may execute
+its first paint task in that same captured turn. The original turn clock remains
+unchanged; `paint` admits its first task and checks that clock before subsequent
+tasks and after the first composite, retaining the existing eight-task cap. This
+is a cooperative first-task rule, not a guarantee every turn lasts at most4ms.
+
+The positive guard requires a remaining draw and all physical target, scratch
+and wash cursors complete. `prepareCanonicalLayerFrame` owns the actual
+`TiledLayerBuffer.preparePaintTargetRects` admission until `finish`/failure closes
+it. Its `storagePins` retain every frame target; eviction skips retained keys,
+and layer clear/destroy reject while retained targets exist. Completed target
+acquisition therefore means `resolveForPaint` finds the same existing tile,
+without allocating the first paint target. Scratch and wash initialization must
+already be complete; their callbacks never gain the post-upload paint exception.
+No input/source state, upload readiness owner, lease lifetime, generic GL turn
+contract or cross-frame snapshot cache is added.
+
+Actual executor fixtures verify one post-deadline part, retained target pins,
+no new texture allocation, unchanged upload bytes/material geometry/composition,
+next genuine revision, physical allocation/init exits, upload/draw/changed errors
+and cancellation after a partial paired draw. Recording GL tests establish
+control flow and state ownership, not raster pixel or device latency equality;
+immutable device acceptance remains separate.

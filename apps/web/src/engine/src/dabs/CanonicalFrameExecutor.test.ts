@@ -1776,7 +1776,7 @@ it('flushes a final computed source stripe and paints without rereading upload a
  }finally{clock.mockRestore();s.close()}
 })
 
-it.each([false,true])('retains an uploaded source without allocating or painting after its turn budget expires (resident=%s)',resident=>{
+it.each([false,true])('pairs the first resident paint after final upload but preserves the physical allocation budget exit (resident=%s)',resident=>{
  const {pin,frame}=nativeSoftFrame(),s=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin);let now=0
  const clock=vi.spyOn(performance,'now').mockImplementation(()=>now)
  try{
@@ -1786,9 +1786,9 @@ it.each([false,true])('retains an uploaded source without allocating or painting
   s.executor['maskParticipant'].beginAutoGeneration(request);s.prepass.advanceAutoGeneration(65536,{deferFinalUpload:true})
   s.gl.texSubImage2D.mockClear();s.gl.texImage2D.mockClear();const draw=vi.spyOn(s.composite,'drawSource')
   s.gl.texSubImage2D.mockImplementationOnce(()=>{now=4})
-  expect(s.executor.advance().pending).toBe(true)
-  expect(s.gl.texSubImage2D).toHaveBeenCalledOnce();expect(s.gl.texImage2D).not.toHaveBeenCalled();expect(draw).not.toHaveBeenCalled()
-  expect(s.executor['maskParticipant'].finalAutoUploadPending(request)).toBe(false)
+  expect(s.executor.advance().pending).toBe(!resident)
+  expect(s.gl.texSubImage2D).toHaveBeenCalledOnce();expect(s.gl.texImage2D).not.toHaveBeenCalled();expect(draw).toHaveBeenCalledTimes(resident?1:0)
+  if(!resident)expect(s.executor['maskParticipant'].finalAutoUploadPending(request)).toBe(false)
   now=0;let turns=0;while(s.executor.pending&&turns++<100)s.executor.advance()
   expect(turns).toBeLessThan(100);expect(draw).toHaveBeenCalledOnce();expect(s.gl.texSubImage2D).toHaveBeenCalledOnce()
  }finally{clock.mockRestore();s.close()}
@@ -1920,4 +1920,127 @@ it('blocks reentrant enqueue during detached capacity token retirement',()=>{
  const allocation=vi.spyOn(s.cpu,'reserve').mockImplementation(bytes=>{const release=reserve(bytes);return bytes===CANONICAL_MASK_CAPACITY_LEASE_CPU_BYTES?()=>{release();if(e)try{e.enqueue(s.submit())}catch(error){observed=error}}:release})
  try{e=new CanonicalFrameExecutor(s.executor['options']);e.cancel();expect(String(observed)).toContain('busy');expect(e.pending).toBe(false);expect(e['maskLease']).toBeUndefined()}
  finally{allocation.mockRestore();e?.cancel();s.close()}
+})
+
+function residentFinalSoft(compositeCapacity=16){
+ const {pin,frame}=nativeSoftFrame(),s=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin,compositeCapacity)
+ // recordingGL's old pixelStorei models alignment only. Model independent
+ // WebGL upload flags here so their real restore cannot alias alignment.
+ s.gl.UNPACK_FLIP_Y_WEBGL=9501;s.gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL=9502
+ const flags=new Map<number,boolean>([[9501,true],[9502,true]]),get=s.gl.getParameter,store=s.gl.pixelStorei
+ s.gl.getParameter=(p:number)=>flags.has(p)?flags.get(p):get(p)
+ s.gl.pixelStorei=(p:number,v:number|boolean)=>{if(flags.has(p))flags.set(p,v as boolean);else store(p,v)}
+ while(!s.executor['softProgram']!.done)s.executor['softProgram']!.advance(65536)
+ frame.draws.forEach(d=>Object.assign(d,{x:0,y:0}));s.layer.resolveForPaint({minX:0,minY:0,maxX:64,maxY:64})
+ s.executor.enqueue({...s.submit(),frame,assets:[]})
+ const work=s.executor['queue'][0],request=s.executor['maskRequest'](work,0)
+ s.executor['maskParticipant'].beginAutoGeneration(request);s.prepass.advanceAutoGeneration(65536,{deferFinalUpload:true})
+ s.gl.texSubImage2D.mockClear();s.gl.texImage2D.mockClear()
+ return{...s,work,request,flags}
+}
+it('pairs one ACTUAL resident paint part with a final upload past deadline, retaining cursors/pins and the original turn clock',()=>{
+ const s=residentFinalSoft(),draw=vi.spyOn(s.composite,'drawSource');let now=0
+ const clock=vi.spyOn(performance,'now').mockImplementation(()=>now),before=s.snapshot(),storage=snapshotContextStorage(s.gl)
+ try{
+  s.gl.texSubImage2D.mockImplementationOnce(()=>{
+   now=4;expect(s.layer['retainedTargets'].size).toBe(1)
+   expect([...s.layer['retainedTargets'].values()][0].storagePins).toBeGreaterThan(0)
+   expect(()=>s.layer.clear()).toThrow(/retained/)
+  })
+  expect(s.executor.advance().pending).toBe(true)
+  expect(draw).toHaveBeenCalledOnce();expect(s.work.draw).toBe(0);expect(s.work.paintPart).toBe(1)
+  expect(s.gl.texSubImage2D).toHaveBeenCalledOnce();expect(s.gl.texImage2D).not.toHaveBeenCalled();expect(s.snapshot()).toEqual(before)
+  expect(snapshotContextStorage(s.gl).residentBytes).toBe(storage.residentBytes)
+  expect(s.prepass['pendingAuto']).toBeUndefined();expect(s.layer['retainedTargets'].size).toBe(1);expect([...s.flags.values()]).toEqual([true,true])
+  now=0;s.drain();expect(draw).toHaveBeenCalledTimes(4);expect(s.gl.texSubImage2D).toHaveBeenCalledOnce()
+  expect(s.layer['retainedTargets'].size).toBe(0);expect(s.executor.checkpointReady).toBe(true)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it('preserves actual upload bytes, paint geometry/controls and final composition state versus an unexpired prepared turn',()=>{
+ function run(expire:boolean){
+  const s=residentFinalSoft(),uploads:number[][]=[],commands:unknown[]=[];let now=0
+  const clock=vi.spyOn(performance,'now').mockImplementation(()=>now),draw=s.composite.drawSource.bind(s.composite),planned=s.work.result.state
+  try{
+   s.gl.texSubImage2D.mockImplementation((...args:unknown[])=>{uploads.push(Array.from(args[8] as Uint8Array));if(expire)now=4})
+   vi.spyOn(s.composite,'drawSource').mockImplementation((request,frame)=>{commands.push({source:request.source,operation:request.operation,writeBounds:request.writeBounds});return draw(request,frame)})
+   s.executor.advance();now=0;s.drain()
+   // Resource handles differ between independent real services; compare actual
+   // material view placement/control data, never pretend MockGL rasterizes.
+   const normalized=commands.map(c=>{const r=c as {source:{kind:string;rgb?:unknown;view:{rect:unknown;bounds:unknown;mirror:unknown;textureWidth:number;textureHeight:number}};operation:unknown;writeBounds:unknown};return{source:{kind:r.source.kind,rgb:r.source.rgb,rect:r.source.view.rect,bounds:r.source.view.bounds,mirror:r.source.view.mirror,width:r.source.view.textureWidth,height:r.source.view.textureHeight},operation:r.operation,writeBounds:r.writeBounds}})
+   return{uploads,commands:normalized,planned,ready:s.executor.checkpointReady,parts:normalized.length}
+  }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+ }
+ expect(run(true)).toEqual(run(false))
+})
+it.each(['upload','draw','changed']as const)('retires the actual paired upload/first paint on %s failure before poison, preserving the original error',stage=>{
+ const s=residentFinalSoft(),primary=Error('paired '+stage),before=s.snapshot();let now=0
+ const clock=vi.spyOn(performance,'now').mockImplementation(()=>now)
+ try{
+  s.gl.texSubImage2D.mockImplementationOnce(()=>{now=4;if(stage==='upload')throw primary})
+  if(stage==='draw')vi.spyOn(s.composite,'drawSource').mockImplementationOnce(()=>{throw primary})
+  if(stage==='changed')s.changed.mockImplementationOnce(()=>{throw primary})
+  s.poison.mockImplementation(()=>{expect(s.layer['retainedTargets'].size).toBe(0);expect(s.prepass['pendingAuto']).toBeUndefined()})
+  expect(()=>s.executor.advance()).toThrow(primary);expect(s.poison).toHaveBeenCalledOnce();expect(s.executor.poisoned).toBe(true)
+  expect(s.executor.pending).toBe(false);expect(s.snapshot()).toEqual(before);expect(s.releases.every(r=>r.mock.calls.length===1)).toBe(true)
+  s.executor.cancel();expect(s.poison).toHaveBeenCalledOnce()
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it('cancels after one paired part without replaying the upload or releasing the physical plan twice',()=>{
+ const s=residentFinalSoft(),draw=vi.spyOn(s.composite,'drawSource');let now=0
+ const clock=vi.spyOn(performance,'now').mockImplementation(()=>now)
+ try{
+  s.gl.texSubImage2D.mockImplementationOnce(()=>{now=4});expect(s.executor.advance().pending).toBe(true);expect(draw).toHaveBeenCalledOnce()
+  s.executor.cancel();s.executor.cancel();expect(s.poison).toHaveBeenCalledOnce();expect(s.layer['retainedTargets'].size).toBe(0)
+  expect(s.gl.texSubImage2D).toHaveBeenCalledOnce();expect(s.prepass['pendingAuto']).toBeUndefined();expect(s.executor.pending).toBe(false)
+  expect(s.releases.every(r=>r.mock.calls.length===1)).toBe(true)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+
+it.each(['scratch','wash-init']as const)('keeps the old final-upload deadline exit for the actual %s physical action',stage=>{
+ const {pin,frame}=nativeSoftFrame(),s=setup('wash',64,64,undefined,'reference-scalar-f32-rne-v1',pin,16,'deposition-only');let now=0
+ const clock=vi.spyOn(performance,'now').mockImplementation(()=>now)
+ try{
+  while(!s.executor['softProgram']!.done)s.executor['softProgram']!.advance(65536)
+  frame.draws.forEach(d=>Object.assign(d,{x:0,y:0}));s.executor.enqueue({...s.submit(),frame,assets:[]})
+  const work=s.executor['queue'][0];s.executor['preparePhysicalPlan'](work,s.layer);const plan=work.physical!
+  while(work.targetCursor<plan.targetCount)plan.takeTarget(work.targetCursor++)
+  if(stage==='wash-init')while(work.scratchCursor<plan.scratchCount)plan.takeScratch(work.scratchCursor++)
+  const request=s.executor['maskRequest'](work,0);s.executor['maskParticipant'].beginAutoGeneration(request);s.prepass.advanceAutoGeneration(65536,{deferFinalUpload:true})
+  const draw=vi.spyOn(s.composite,'drawSource'),live=s.scratch.bytes.live;s.gl.texSubImage2D.mockClear();s.gl.texImage2D.mockClear()
+  s.gl.texSubImage2D.mockImplementationOnce(()=>{now=4})
+  expect(s.executor.advance().pending).toBe(true);expect(draw).not.toHaveBeenCalled();expect(s.executor['washes'].size).toBe(0)
+  expect(s.scratch.bytes.live).toBe(live);expect(s.gl.texImage2D).not.toHaveBeenCalled();expect(s.gl.texSubImage2D).toHaveBeenCalledOnce()
+  if(stage==='scratch')expect(work.scratchCursor).toBe(0);expect(work.washCursor).toBe(0)
+  now=0;s.drain();expect(draw).toHaveBeenCalled();expect(s.gl.texSubImage2D).toHaveBeenCalledOnce()
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it('publishes the next genuine auto revision after a paired frame without reusing the previous mask or skipping source framing',()=>{
+ const {pin,frame}=nativeSoftFrame(),s=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin);let now=0
+ const clock=vi.spyOn(performance,'now').mockImplementation(()=>now)
+ try{
+  while(!s.executor['softProgram']!.done)s.executor['softProgram']!.advance(65536)
+  s.layer.resolveForPaint({minX:0,minY:0,maxX:64,maxY:64})
+  const context:CanonicalMaterialContextV2={version:2,assets:[],primarySource:pin,budget:{workUnits:1048576,outputBytes:4*1048576,drawPixels:1048576}},recipe=frame.definitions[0] as CanonicalSoftAutoRecipe
+  const first=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:0,y:0,opacity:.5,flow:.7}],fences:[{kind:'segmentBegin',at:0,group:0}]},context).frame
+  const second=buildCanonicalMaterial({masked:false,entry:{phase:'primary',group:0},draws:[{recipe:{...recipe,mirrorH:!recipe.mirrorH},role:'primary',x:0,y:0,opacity:.5,flow:.7}],fences:[{kind:'primaryEnd',at:1,group:0},{kind:'segmentEnd',at:1,group:0},{kind:'gestureEnd',at:1}]},context).frame
+  const draw=vi.spyOn(s.composite,'drawSource');s.gl.texSubImage2D.mockClear();s.gl.texSubImage2D.mockImplementation(()=>{now=4})
+  s.executor.enqueue({...s.submit(),frame:first,assets:[]});expect(s.executor.advance().pending).toBe(false)
+  expect(draw).toHaveBeenCalledOnce();expect(s.executor.checkpointReady).toBe(false);expect(s.gl.texSubImage2D).toHaveBeenCalledOnce()
+  now=0;s.executor.enqueue({...s.submit(),ordinal:1,frame:second,assets:[]});expect(s.executor.advance().pending).toBe(false)
+  expect(draw).toHaveBeenCalledTimes(2);expect(s.gl.texSubImage2D).toHaveBeenCalledTimes(2);expect(s.executor.checkpointReady).toBe(true)
+  expect(draw.mock.calls[0][0].source.kind).toBe('maskRgb');expect(draw.mock.calls[1][0].source.kind).toBe('maskRgb')
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+})
+it('pairs a genuine native default-auto final stripe with its resident first draw without another capture or allocation',()=>{
+ const pin=canonicalDefaultAutoSourceBinding(stock.rows[0].descriptor as unknown as BrushDescriptor,'b'.repeat(64),'neon64-f32-fma-v1'),s=setup('buildup',64,64,undefined,'reference-scalar-f32-rne-v1',pin);let now=0
+ const clock=vi.spyOn(performance,'now').mockImplementation(()=>now)
+ try{
+  s.layer.resolveForPaint({minX:0,minY:0,maxX:64,maxY:64});s.executor.enqueue({...s.submit(),frame:closedAutoFrame(pin),assets:[]})
+  const work=s.executor['queue'][0],request=s.executor['maskRequest'](work,0);s.executor['maskParticipant'].beginAutoGeneration(request)
+  expect(s.prepass.advanceAutoGeneration(65536,{deferFinalUpload:true}).finalUploadPending).toBe(true)
+  const query=vi.spyOn(s.gl,'getParameter'),draw=vi.spyOn(s.composite,'drawSource');query.mockClear();s.gl.texSubImage2D.mockClear();s.gl.texImage2D.mockClear()
+  s.gl.texSubImage2D.mockImplementationOnce(()=>{now=4})
+  expect(s.executor.advance().pending).toBe(false);expect(draw).toHaveBeenCalledOnce();expect(s.gl.texSubImage2D).toHaveBeenCalledOnce();expect(s.gl.texImage2D).not.toHaveBeenCalled()
+  expect(query.mock.calls.filter(c=>c[0]===s.gl.UNPACK_ALIGNMENT)).toHaveLength(1);expect(s.executor.checkpointReady).toBe(true)
+ }finally{clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
 })

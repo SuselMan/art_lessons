@@ -105,6 +105,7 @@ interface WashTile extends TilePosition {
   local: AccumulationBuffer
   lifetime: CanonicalOwnedRgba8Target['lifetime']
 }
+type PreparedTurnAction = 'paint' | 'presentation' | 'physical'
 interface Work {
   input: CanonicalFrameSubmission
   result: SourcePrimaryCompositionResult
@@ -413,7 +414,7 @@ export class CanonicalFrameExecutor {
       if (!this.preparePhysical(work,layer,turnStarted)) return {pending:this.pending,checkpointReady:this.checkpointReady}
       // One owned capture covers direct target preparation, inner batch and
       // its release callbacks; no GL state or lease survives this turn.
-      this.runPreparedTurn(work,turnStarted,turn=>{
+      this.runPreparedTurn(work,turnStarted,work.draw<work.result.draws.length?'paint':'presentation',turn=>{
         this.paintPrepared(work,layer,turn,turnStarted)
       })
     } catch (error) {
@@ -425,7 +426,7 @@ export class CanonicalFrameExecutor {
 
   /** A computed final stripe borrows the NEXT actual GL turn, never a new
    * readiness owner. If upload spends the budget, physical cursors stay put. */
-  private runPreparedTurn(work:Work,turnStarted:number,execute:(turn:BrushGlTurn)=>void):boolean {
+  private runPreparedTurn(work:Work,turnStarted:number,action:PreparedTurnAction,execute:(turn:BrushGlTurn)=>void):boolean {
     const recipe=work.input.frame.definitions[work.result.draws[work.draw]?.definition];
     const request=recipe&&autoRecipe(recipe)?this.maskRequest(work,work.draw):undefined;
     const upload=!!request&&this.maskParticipant.finalAutoUploadPending(request);
@@ -433,7 +434,13 @@ export class CanonicalFrameExecutor {
     runBrushGlTurn({callbackScope:this.options.callbackScope,participants:[this.maskParticipant,this.options.composite],...(upload?{captureAutoUploadUnpack:true as const}:{})},turn=>{
       if(upload){
         this.maskParticipant.flushFinalAutoGeneration(request!,turn);
-        if(performance.now()-turnStarted>=4)return;
+        if(performance.now()-turnStarted>=4){
+          // Only the actual paint callsite follows COMPLETE physical preparation.
+          // Its first task is indivisible; later tasks keep the original clock.
+          const p=work.physical;
+          if(action!=='paint'||!p||work.targetCursor!==p.targetCount||work.scratchCursor!==p.scratchCount
+            ||work.washCursor!==work.newTiles.length||work.draw>=work.result.draws.length)return;
+        }
       }
       execute(turn);executed=true;
     });
@@ -463,7 +470,7 @@ export class CanonicalFrameExecutor {
       if(plan.takeResidentTarget(work.targetCursor)){
         work.targetCursor++;if(performance.now()-turnStarted>=4)return false
       }else{
-        if(this.runPreparedTurn(work,turnStarted,()=>{this.gl.activeTexture(this.gl.TEXTURE0);plan.takeTarget(work.targetCursor)}))work.targetCursor++;
+        if(this.runPreparedTurn(work,turnStarted,'physical',()=>{this.gl.activeTexture(this.gl.TEXTURE0);plan.takeTarget(work.targetCursor)}))work.targetCursor++;
         return false
       }
     }
@@ -471,7 +478,7 @@ export class CanonicalFrameExecutor {
       if(plan.takeResidentScratch(work.scratchCursor)){
         work.scratchCursor++;if(performance.now()-turnStarted>=4)return false
       }else{
-        if(this.runPreparedTurn(work,turnStarted,()=>{this.gl.activeTexture(this.gl.TEXTURE0);plan.takeScratch(work.scratchCursor)}))work.scratchCursor++;
+        if(this.runPreparedTurn(work,turnStarted,'physical',()=>{this.gl.activeTexture(this.gl.TEXTURE0);plan.takeScratch(work.scratchCursor)}))work.scratchCursor++;
         return false
       }
     }
@@ -479,7 +486,7 @@ export class CanonicalFrameExecutor {
       const position=work.newTiles[work.washCursor],base=work.washCursor*perTile
       // All allocation is complete. Only the LAST initialization may spend
       // remaining turn time painting; all earlier tile clears precede pixels.
-      this.runPreparedTurn(work,turnStarted,turn=>{
+      this.runPreparedTurn(work,turnStarted,'physical',turn=>{
         this.gl.activeTexture(this.gl.TEXTURE0)
         const target=this.resolveTile(layer,position),bound=bindCanonicalLayerTargets(layer,[target])[0],release=bound.lifetime.lease()
         try{
