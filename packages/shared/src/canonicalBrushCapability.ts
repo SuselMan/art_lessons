@@ -445,9 +445,9 @@ export function extractCanonicalDefaultAutoPressureTextureProgramData(descriptor
   if(!field||!Object.hasOwn(field,'value'))return reject('texture-descriptor-unavailable')
   const t=textureData(field.value,['id','periodPx','strength','application','patternSize','offset']),application=textureData(t.application,['mode','soft']),size=textureData(t.patternSize,['width','height']),offset=textureData(t.offset,['x','y','randomX','randomY'])
   if(t.id!==pattern.id||t.strength!==1||application.mode!=='subtract'||application.soft!==false||offset.randomX!==false||offset.randomY!==false||size.width!==size.height||t.periodPx!==size.width)return reject('unsupported-pressure-texture')
-  const patternAsset=Object.freeze({id:pattern.id,size:pattern.size,x:0,y:0,width:size.width,height:size.height})
   const dimension=(v:unknown):v is number=>typeof v==='number'&&Number.isSafeInteger(v)&&!Object.is(v,-0)&&v>=1&&v<=2048
   if(!dimension(size.width)||size.width>pattern.size||!dimension(size.height)||size.height>pattern.size||!dimension(t.periodPx)||typeof offset.x!=='number'||typeof offset.y!=='number'||!Number.isSafeInteger(offset.x)||!Number.isSafeInteger(offset.y)||Object.is(offset.x,-0)||Object.is(offset.y,-0)||offset.x<0||offset.y<0||offset.x>=t.periodPx||offset.y>=t.periodPx)return reject('unsupported-static-texture-geometry')
+  const patternAsset=Object.freeze({id:pattern.id,size:pattern.size,x:0,y:0,width:size.width,height:size.height})
   const auto=extractDefaultAutoData(descriptor,false,'pressure-curve-data',captured.data)
   if(!auto.supported)return auto
   if(descriptor.mixer||descriptor.wet||descriptor.screentonePx||descriptor.behavior?.wetMix||descriptor.behavior?.edgeBleed||descriptor.behavior?.grain||descriptor.behavior?.taper)return reject('unsupported-texture-effect')
