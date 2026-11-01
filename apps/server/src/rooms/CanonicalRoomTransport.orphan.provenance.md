@@ -28,3 +28,64 @@ Known resident failed close receipts are repaired first with the SAME ID. Repeat
 Final verification: 16 orphan tests and adjacent disconnect, soft transport and actual socket regressions total **169 tests in four suites PASS**, 10.51 s, maxWorkers=2/testTimeout=30000. Added tests cover record/storage/actual epoch/caller revocation, failed-close repair, concurrent recovery, lexical absence proof and durable write-queue draining. Final receipt: `temp/device-runs/krita-stroke-20261024/fixes-v52/canonical-orphan-regression.log`. Lint has zero errors; transport retains the pre-existing no-this-alias warning. Final server TypeScript check passed (exit 0; `canonical-orphan-server-tsc.log`).
 
 No device access, service, runtime, forward or native library copy was created. Small test-owned brush stores are removed in afterEach, and room writes are flushed before fixture cleanup. No actual new server/browser orphan-recovery run is claimed by the host tests.
+
+
+## Indexed zero-seat JOIN: bounded OPEN candidate filter (base d06ea8036)
+
+`prepareIndexedJoinOrphans` still completes actual whole-cut validation before
+seating or using any candidate: dense global original sequence/body checks,
+unreachable metadata validation, per-root actual original material fold and
+metadata-order effects are unchanged. The callback records ONLY actually OPEN
+roots (`!checkpoint.ended && !checkpoint.closeSeal`) as frozen scalar IDs:
+original user, stroke, layer, first operation ID and sequence. Closed roots keep
+no candidate reference. No folds, row bodies, source capabilities or grants are
+retained by this filter. It is request-local DATA, not read/close authority.
+
+At most64 candidates and4MiB serialized scalar-list accounting (brackets and
+commas included) are kept. On overflow the list clears and the ORIGINAL bounded
+all-root keyset walk runs. More than64 repairable OPEN roots therefore do not
+receive a new capacity refusal; no unbounded all-roots cache is introduced.
+
+After complete validation succeeds, fresh original join authorization runs.
+Each selected first row is reloaded from actual storage at originalCut and
+compared with every scalar identity field. Its entire prefix is freshly folded
+through the evolving current cut using the same required first-frame anchor and
+fresh per-query checks as the old second pass. Only then the SAME `closeBound`
+performs its existing independent fresh prefix/fence/authorization and final
+beforeAppend checks, durable write and own-cut advancement. Known failed-close
+repair still precedes global validation. Original seat absence, record/binder/
+storage/epoch/policy checks and appended-only own-cut changes remain unchanged.
+
+Closed roots need no second orphan-detection fold because complete actual first
+validation already established their terminal/close status and they cause no
+write in this phase. This is no cached OPEN/read publication: post-seat
+`openIndexedHistory` still captures its OWN current C and write drains and
+independently validates ALL originals/material/effects before its actual ACK.
+No second-pass result or scalar candidate can mint a grant or skip validation.
+
+Nine new tests use genuine source author/encoder/write acceptance with existing
+mock SQL paging and actual production validator/folds, not fabricated read/cut
+proofs.72closed roots require72folds (not144); independent post-seat OPEN still
+requires72folds.72closed+1OPEN requires73initial+1fresh candidate+1close-core fold
+and one exact actual close.65OPEN roots take the original streaming fallback and
+produce65durable closes, with66initial+66oldwalk+65close folds. Dense gaps and
+unreachable metadata still fail before candidate use. Fresh access revocation,
+missing first frame and changed first source between validation and selected
+reload fail without close or seat publication. Existing healthy/new-seat/policy/
+revocation orphan controls remain. This is HOST control/source validation, not
+PostgreSQL timing or physical execution proof; no real PG command was needed.
+
+Immutable baseline single-production overlay at d06ea803608b784a04d049989fc861e96f21da09
+fails the SAME72closed test (144folds versus72), recorded in R52
+`indexed-orphan-candidates-baseline-red.log` with original blob SHA. Final source
+regression201tests/5suites PASS, maxWorkers1/shared source alias,50.86s. Receipts,
+source manifest and final TS/lint status are in R52 indexed-orphan-candidates-*.
+No runtime/device/server/frontend process, dependency or worktree was created.
+Agent did not commit or stage other agents' changes.
+
+Final targeted source TypeScript PASS with actual @fastify/cookie and
+@fastify/rate-limit module augmentations included in the QA target config. The
+first reused target omitted these declarations and reported5 unrelated Fastify
+cookies/setCookie/rateLimit errors; no production types were weakened. oxlint
+--fix exits0, zeroerrors/one existing no-this-alias warning outside this diff;
+git diff --check PASS. Source frozen for ROOT review; no agent commit/staging.

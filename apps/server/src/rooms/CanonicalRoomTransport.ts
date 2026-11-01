@@ -477,8 +477,8 @@ export class CanonicalRoomTransport {
   }
 
   /** Indexed bootstrap cleanup is pre-seat only and never issues a read owner.
-   * The first validation pass is read-only; the second bounded root walk seals
-   * genuine abandoned prefixes through the SAME durable close writer. */
+   * The first validation pass is read-only; bounded OPEN candidates (or the
+   * original overflow walk) receive fresh proof before the SAME close writer. */
   async prepareIndexedJoinOrphans(preparation:PreparedAuthorizedJoin,isCurrent:()=>boolean):Promise<void>{
     if(this.fullHistoryFormat!=='mixed-indexed-v1')fail('invalid_operation')
     assertPreparedAuthorizedJoinRead(preparation,preparation.roomId,preparation.userId)
@@ -509,29 +509,53 @@ export class CanonicalRoomTransport {
     }
     if(canonicalWriteFence(record).failed)fail('canonical_repair_required')
     const originalCut=cut
+    // Request-local DATA filter only. A successful whole-cut validation must
+    // precede use; actual selected rows/prefixes are freshly checked below.
+    let openRoots:Readonly<CanonicalIndexedRootV1>[]=[],openBytes=2,overflow=false
     await withCanonicalIndexedValidation(database=>validateCanonicalIndexedHistoryRows(record.room.id,originalCut,afterRead,async(first,row)=>{
       const fold=binder.createIndexedRecordedPrefixFold({roomId:record.room.id,boardEpoch:scope.boardEpoch,anchor:first,row,purpose:'read'})
       const prefix=await visitCanonicalIndexedGesturePrefixRows(record.room.id,{userId:first.userId,strokeId:first.frame.strokeId},originalCut,{requiredFrame:first,afterRead,visit:(op,actualRow)=>fold.accept(op,actualRow)},database)
       const summary=fold.checkpoint(),root={originalUserId:first.userId,strokeId:first.frame.strokeId,layerId:first.layerId,firstOperationId:first.id,firstSequence:first.seq!}
       const effects=await getCanonicalIndexedRootEffectRows(record.room.id,originalCut,root,afterRead,database),terminal=prefix.close?.operation.seq??summary.endSeq
       if(effects.firstMetadataSequence!==undefined&&(terminal===undefined||terminal>=effects.firstMetadataSequence))fail('canonical_repair_required')
+      if(!summary.ended&&!summary.closeSeal&&!overflow){
+        const bytes=Buffer.byteLength(JSON.stringify(root),'utf8')+(openRoots.length?1:0)
+        if(openRoots.length===64||openBytes+bytes>CANONICAL_RECORDED_ATTACHMENT_LIMITS.batchBytes){openRoots=[];openBytes=2;overflow=true}
+        else{openRoots.push(Object.freeze(root));openBytes+=bytes}
+      }
       return {recordedNext:summary.recordedNext,closed:!!prefix.close}
     },database))
-    let after=0
-    while(true){
-      const roots=await getCanonicalIndexedRootRows(record.room.id,originalCut,after,afterRead)
-      if(!roots.length)break
-      for(const row of roots){
+    await afterRead()
+    const prepareRoot=async(first:CanonicalStrokeOperation,row:CanonicalStoredOperationRow)=>{
+      const fold=binder.createIndexedRecordedPrefixFold({roomId:record.room.id,boardEpoch:scope.boardEpoch,anchor:first,row,purpose:'read'})
+      await visitCanonicalIndexedGesturePrefixRows(record.room.id,{userId:first.userId,strokeId:first.frame.strokeId},cut,{requiredFrame:first,afterRead,visit:(op,actualRow)=>fold.accept(op,actualRow)})
+      const summary=fold.checkpoint()
+      if(!summary.ended&&!summary.closeSeal){
+        const result=await this.closeBound({roomId:record.room.id,userId:first.userId},{operationId:randomUUID(),layerId:first.layerId,targetUserId:first.userId,strokeId:first.frame.strokeId,disposition:'commitPartial',orphan},()=>{current();return true})
+        await afterRead();if(!result.result.ok)fail('canonical_repair_required')
+      }
+    }
+    if(!overflow){
+      for(const root of openRoots){
+        const row=await getCanonicalIndexedOriginalRowById(record.room.id,originalCut,root.firstOperationId,afterRead)
+        if(!row)fail('canonical_repair_required')
         const first=projectCanonicalIndexedHistoryRow(record.room.id,row)
-        if(first.type!=='canonical_stroke'||first.frame.frameOrdinal!==0)fail('canonical_repair_required')
-        const fold=binder.createIndexedRecordedPrefixFold({roomId:record.room.id,boardEpoch:scope.boardEpoch,anchor:first,row,purpose:'read'})
-        await visitCanonicalIndexedGesturePrefixRows(record.room.id,{userId:first.userId,strokeId:first.frame.strokeId},cut,{requiredFrame:first,afterRead,visit:(op,actualRow)=>fold.accept(op,actualRow)})
-        const summary=fold.checkpoint()
-        if(!summary.ended&&!summary.closeSeal){
-          const result=await this.closeBound({roomId:record.room.id,userId:first.userId},{operationId:randomUUID(),layerId:first.layerId,targetUserId:first.userId,strokeId:first.frame.strokeId,disposition:'commitPartial',orphan},()=>{current();return true})
-          await afterRead();if(!result.result.ok)fail('canonical_repair_required')
+        if(first.type!=='canonical_stroke'||first.frame.frameOrdinal!==0||first.id!==root.firstOperationId||first.seq!==root.firstSequence
+          ||first.userId!==root.originalUserId||first.frame.strokeId!==root.strokeId||first.layerId!==root.layerId)fail('canonical_repair_required')
+        await prepareRoot(first,row)
+      }
+    }else{
+      // More than64 OPEN roots retain the original streaming walk, not a new
+      // capacity refusal or an unbounded candidate population.
+      let after=0
+      while(true){
+        const roots=await getCanonicalIndexedRootRows(record.room.id,originalCut,after,afterRead)
+        if(!roots.length)break
+        for(const row of roots){
+          const first=projectCanonicalIndexedHistoryRow(record.room.id,row)
+          if(first.type!=='canonical_stroke'||first.frame.frameOrdinal!==0)fail('canonical_repair_required')
+          await prepareRoot(first,row);after=first.seq!
         }
-        after=first.seq!
       }
     }
     await afterRead()

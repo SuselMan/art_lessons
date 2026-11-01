@@ -1605,3 +1605,89 @@ it('selects an original eligible root behind hidden roots while OPEN candidates 
   expect(writer['lifetimes'].get('board')?.sessions.get(JSON.stringify(['board','author','open-select']))?.admission.cursor(identity,'open-select').ended).toBe(false)
  }finally{leaveRoom('board','author','indexed-source-seat')}
 },15000)
+
+
+async function indexedOrphanCandidateFixture(closedRoots:number,openRoots:number){
+ const f=await indexedReadFixture()
+ for(let n=1;n<closedRoots+openRoots;n++){
+  const input={...f.input,strokeId:`candidate-${n}`},s=snapshot(await f.writer.begin(identity,input,()=>true))
+  const encoded=n<closedRoots?frames(f.descriptor,s,0):frames(f.descriptor,s,1).slice(0,-1)
+  if(!encoded.length)throw Error('Actual original prefix missing')
+  for(let ordinal=0;ordinal<encoded.length;ordinal++)expect((await f.writer.recorded(identity,{type:'canonical_stroke',id:`candidate-${n}-${ordinal}`,userId:'author',timestamp:n,layerId:input.layerId,frame:encoded[ordinal]},()=>true)).result.ok).toBe(true)
+ }
+ await flushRoomWrites('board');leaveRoom('board','author','indexed-source-seat')
+ f.board.operations=[];f.board.operationsById.clear();rooms.set('board',f.board)
+ return f
+}
+it('validates72closed indexed roots once before zero-seat JOIN without repeating their closed prefixes',async()=>{
+ const f=await indexedOrphanCandidateFixture(72,0),transport=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'}),fold=vi.spyOn(CanonicalBrushCapabilityResolver.prototype,'createIndexedRecordedPrefixFold')
+ try{
+  const access=await prepareAuthorizedJoin('board','author','Owner',undefined,'candidate-seat',()=>true);if(!access.ok)throw Error(access.error)
+  const before=f.persisted.length;db.$queryRawUnsafe.mockClear()
+  await transport.prepareIndexedJoinOrphans(access.preparation,()=>true)
+  expect(fold).toHaveBeenCalledTimes(72);expect(f.persisted).toHaveLength(before)
+  // Original whole-cut validation still runs; only the redundant orphan walk disappears.
+  expect(db.$queryRawUnsafe.mock.calls.some(([sql])=>String(sql).startsWith('FETCH '))).toBe(true)
+  expect(db.$queryRawUnsafe.mock.calls.some(([sql])=>String(sql).includes('AND id=$3::text'))).toBe(false)
+  expect(access.preparation.commit().ok).toBe(true)
+  const seat=captureCurrentRoomSeat('board','author','candidate-seat');if(!seat)throw Error('Actual seat missing')
+  fold.mockClear();const reader=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'})
+  const read=await reader.openIndexedHistory(identity,reader.createIndexedHistoryOffer('board'),seat,()=>true)
+  expect(read.begin.operationCount).toBe(before);expect(fold).toHaveBeenCalledTimes(72)
+ }finally{leaveRoom('board','author','candidate-seat')}
+},30000)
+it('freshly reloads and closes only the actual OPEN candidate after validating72closed roots',async()=>{
+ const f=await indexedOrphanCandidateFixture(72,1),transport=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'}),fold=vi.spyOn(CanonicalBrushCapabilityResolver.prototype,'createIndexedRecordedPrefixFold')
+ try{
+  const access=await prepareAuthorizedJoin('board','author','Owner',undefined,'candidate-seat',()=>true);if(!access.ok)throw Error(access.error)
+  const before=f.persisted.length;db.$queryRawUnsafe.mockClear()
+  await transport.prepareIndexedJoinOrphans(access.preparation,()=>true)
+  expect(fold).toHaveBeenCalledTimes(75) //73 original roots +selected fresh prefix +genuine close core.
+  const selected=db.$queryRawUnsafe.mock.calls.filter(([sql])=>String(sql).includes('AND id=$3::text'))
+  expect(selected).toHaveLength(1);expect(selected[0][3]).toBe('candidate-72-0')
+  expect(f.persisted).toHaveLength(before+1);expect(f.persisted.at(-1)?.data).toMatchObject({type:'canonical_stroke_close',strokeId:'candidate-72'})
+ }finally{leaveRoom('board','author','candidate-seat')}
+},30000)
+it('falls back to the original streaming orphan walk after65OPEN candidates without a new64root refusal',async()=>{
+ const f=await indexedOrphanCandidateFixture(1,65),transport=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'}),fold=vi.spyOn(CanonicalBrushCapabilityResolver.prototype,'createIndexedRecordedPrefixFold')
+ try{
+  const access=await prepareAuthorizedJoin('board','author','Owner',undefined,'candidate-seat',()=>true);if(!access.ok)throw Error(access.error)
+  const before=f.persisted.length;db.$queryRawUnsafe.mockClear()
+  await transport.prepareIndexedJoinOrphans(access.preparation,()=>true)
+  expect(f.persisted).toHaveLength(before+65)
+  expect(f.persisted.slice(before).every(row=>row.type==='canonical_stroke_close')).toBe(true)
+  expect(fold).toHaveBeenCalledTimes(66+66+65) //full original validation +unchanged allroot walk +close core.
+  expect(db.$queryRawUnsafe.mock.calls.some(([sql])=>String(sql).includes('AND id=$3::text'))).toBe(false)
+ }finally{leaveRoom('board','author','candidate-seat')}
+},30000)
+for(const fault of ['dense','unreachable','revoked-final-root-query','revoked-selected-reload','missing-selected-frame','changed-selected-source'] as const)it(`retains ${fault} checks before candidate closes or seat publication`,async()=>{
+ const f=await indexedOrphanCandidateFixture(2,1),transport=new CanonicalRoomTransport({...policy,fullHistoryFormat:'mixed-indexed-v1'})
+ try{
+  const access=await prepareAuthorizedJoin('board','student','Student',undefined,'candidate-seat',()=>true);if(!access.ok)throw Error(access.error)
+  const before=f.persisted.length,query=db.$queryRawUnsafe.getMockImplementation()!
+  if(fault==='dense')f.persisted.splice(1,1)
+  let selected=false,rootEnded=false,revoked=false
+  db.$queryRawUnsafe.mockImplementation(async(sql:string,...parameters:unknown[])=>{
+   const result=await query(sql,...parameters)
+   if(fault==='unreachable'&&sql.includes('NOT EXISTS(SELECT 1 FROM reached'))return[{id:'unreachable'}]
+   if(sql.includes('AND id=$3::text')){
+    selected=true
+    if(fault==='revoked-selected-reload'){revoked=true;db.roomBlock.findUnique.mockResolvedValue({id:'revoked'})}
+    if(fault==='missing-selected-frame'||fault==='changed-selected-source'){
+     const index=f.persisted.findIndex(row=>row.id===parameters[2]);if(index<0)throw Error('Actual candidate row missing before injection')
+     if(fault==='missing-selected-frame')f.persisted.splice(index,1)
+     else{const row=f.persisted[index],op=row.data as CanonicalStrokeOperation;f.persisted[index]={...row,data:{...op,frame:{...op.frame,brush:'brush:missing@1'}}}}
+    }
+   }
+   // Empty final root-keyset query: original full validation is about to complete.
+   if(fault==='revoked-final-root-query'&&sql.includes("data#>>'{frame,frameOrdinal}'='0'")&&Array.isArray(result)&&!result.length){rootEnded=true;revoked=true;db.roomBlock.findUnique.mockResolvedValue({id:'revoked'})}
+   return result
+  })
+  await expect(transport.prepareIndexedJoinOrphans(access.preparation,()=>true)).rejects.toThrow()
+  expect(f.persisted.length).toBe(fault==='dense'||fault==='missing-selected-frame'?before-1:before)
+  expect(f.board.sockets.has('candidate-seat')).toBe(false)
+  if(fault==='revoked-selected-reload')expect(selected&&revoked).toBe(true)
+  if(fault==='missing-selected-frame'||fault==='changed-selected-source')expect(selected).toBe(true)
+  if(fault==='revoked-final-root-query')expect(rootEnded&&revoked).toBe(true)
+ }finally{leaveRoom('board','student','candidate-seat')}
+})
