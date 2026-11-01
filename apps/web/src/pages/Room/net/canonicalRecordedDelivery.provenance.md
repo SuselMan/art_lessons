@@ -27,3 +27,52 @@ V3 neighbor cannot turn an oversized historical pipe into a larger availability
 grant. Test creates an actual strict CMAT2 ledger65 plus original V3 and verifies
 refusal before any asset helper call. Both ledgers use real builder/normalizer;
 changing snapshot CAS without rebuilding its binary ledger correctly rejects.
+
+
+## Indexed cold page/evidence availability
+
+Actual cold CMAT3 lacked imported tip/pattern pixels after metadata-only join.
+The original indexed issuer now calls this SAME availability helper after strict
+page/evidence parsing and minting its genuine original inputs, before handing any
+page/witness to the engine. It does not spread/re-mint delivery authority or create
+another cache, queue, NativeImage pattern, grant, scope or owner. Page afterSeq
+advances only after success; resource failure does not create a cut. Published
+older cuts/inputs keep their original parent and survive finite cancellation.
+
+Optional assertFiniteCurrent only adds a refusal condition to the existing
+original lifetime checks. It is composed into every existing loader assertCurrent,
+including before/after each64asset batch; same-origin cancellation cannot start a
+second batch. No image atoms returns null and adds no availability await. 64caps/
+128assets/legacy64 subledger and existing metadata/cost limits remain unchanged.
+
+One per-cursor preparing scalar covers nextPage/rootEvidence and whole select
+RPC+resource handoff. It rejects reentrant page/evidence/finish/select/recovery/
+FOLLOW instead of queuing. select uses the genuine completed cut plus captured
+active/completed cursor identity, not assertCursor on a finished/cancelled reader:
+completedA→recoveryB→cancelB may still selectA. Its resource-wait finally always
+releases the same latch. Cancellation never expires the adopted original parent.
+
+Tests use actual controlled socket ACK private origins and normalized CMAT3,
+with a mocked ordinary asset-availability I/O boundary only: both CAS roles before
+handoff, 64capability/128asset sequential batches, same-origin cancellation before
+next batch, page/evidence reentry and cancellation, FOLLOW failure preserving cut
+and recovery, cancelled-B/completed-A select, native helper-null. Engine-owned
+112frame/64+48 cold test separately exercises actual bank/prepass/replay and END.
+These are source/ownership proofs, not an already deployed/fixed Samsung claim.
+
+The optional finite guard runs both before and after the original lifetime/input
+checks: an original current callback can reenter finite cancellation without
+expiring the parent. The added regression cancels from that actual callback
+inside the loader's current check and proves execution cannot continue past it.
+
+### Finite latch reentry correction
+
+The first four-file freeze was rejected: an original `isCurrent` callback could
+start an inner page/evidence/select before the outer invocation claimed
+`preparing`; the outer failure then cleared the inner invocation's latch.
+Three genuine callback-reentry regressions failed on that freeze. Each claim
+now checks `preparing` again immediately after external current validation and
+before its owned try/finally. Follow/reopen also recheck after cut validation;
+two further regressions prove a reentrant select prevents either RPC. Existing
+RPC ordering and original scope/cut ownership are unchanged. The held inner
+asset preparation remains protected; a third call emits no request.

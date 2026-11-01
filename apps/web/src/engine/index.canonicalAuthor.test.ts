@@ -1,3 +1,4 @@
+import * as brushLibraryApi from '../lib/api/brushLibrary'
 import {indexedSocketFixture} from './testing/canonicalIndexedReadFixture'
 import type {CanonicalIndexedRead} from './src/oplog/CanonicalRecordedDelivery'
 import markerFixture from './src/presets/fixtures/sourceDefaultAutoWholePath/markerDry.normal.native.json'
@@ -11,7 +12,7 @@ import mappedGaussian from '../../../../packages/shared/src/fixtures/sourceGauss
 import basic6Image from './src/presets/fixtures/sourcePngWholePath/guiStroke.native.json'
 import mountainsImage from './src/presets/fixtures/sourceImagePipe/mountains.native.json'
 import graphiteImage from './src/presets/fixtures/sourceImagePipe/pencilRandom.native.json'
-import {installBrushLibrary,installBrushPixels} from './src/presets/importedBrushes'
+import {installBrushLibrary,installBrushPixels,importedAssetPixels,isBrushAssetReady} from './src/presets/importedBrushes'
 import {attachCanonicalRecordedDelivery} from '../pages/Room/net/canonicalRecordedDelivery'
 import {prepareCanonicalRoomState} from '../pages/Room/net/canonicalRoomState'
 import {SourceStrokeAuthor} from './src/presets/sourceStrokeAuthor'
@@ -645,7 +646,10 @@ it('keeps G2 busy Basic2 intact before growing the SAME idle owner to D Marker',
 it('keeps the indexed selected image source lease across two local gestures and original promotions',async()=>{
  const selected=basic6Image.descriptor as unknown as BrushDescriptor,metadata=[{id:basic6Image.asset.id,size:basic6Image.asset.size,file:basic6Image.asset.id.slice(6)+'.bin'}],imageBinding=canonicalImageSourceBinding(selected,metadata[0]),selectedPreset=`brush:${selected.id}@${selected.version}`,digest=createHash('sha256').update(canonicalBrushDescriptorJSON(selected)).digest('hex')
  const library:unknown={schemaVersion:1,brushes:[{descriptor:selected,name:'Basic6',source:'native',warnings:[]}],assets:metadata,skipped:[]};if(!isBrushLibrary(library))throw Error('Invalid actual image library');installBrushLibrary(library)
- installBrushPixels(basic6Image.asset.id,new Uint8Array(inflateSync(Buffer.from(basic6Image.asset.deflateBase64,'base64'),{maxOutputLength:basic6Image.asset.size**2})))
+ const selectedPixels=new Uint8Array(inflateSync(Buffer.from(basic6Image.asset.deflateBase64,'base64'),{maxOutputLength:basic6Image.asset.size**2}));installBrushPixels(basic6Image.asset.id,selectedPixels)
+ // The genuine indexed client now invokes the normal external API prerequisite.
+ // This engine unit supplies its already-verified original CAS at that seam.
+ const resources=vi.spyOn(brushLibraryApi,'prepareCanonicalImageAssets').mockImplementation(async(board,assets,assertCurrent)=>{assertCurrent();expect(board).toBe('room');expect(assets).toHaveLength(1);expect(assets[0].id).toBe(basic6Image.asset.id);expect(assets[0].size).toBe(basic6Image.asset.size);expect(isBrushAssetReady(basic6Image.asset.id,basic6Image.asset.size)).toBe(true);expect(importedAssetPixels(basic6Image.asset.id)).toEqual(selectedPixels);assertCurrent()})
  const confirmedFrames:CanonicalStrokeOperation[]=[],issuer=indexedSocketFixture(confirmedFrames,64);issuer.offer.roomGeometry.width=512;issuer.offer.roomGeometry.height=512
  const read=await issuer.open(),begin=vi.fn(async(request:CanonicalStrokeBegin):Promise<CanonicalStrokeBeginResult>=>({ok:true,recordedNext:0,liveNext:0,ended:false,snapshot:{layerId:request.layerId,brush:request.brush,strokeId:request.strokeId,pigmentRgb8:request.pigmentRgb8,boardEpoch:2,descriptorSha256:digest,rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,composition:{...canonicalSourceComposition(selected)!,alphaDarken:request.alphaDarken,outerResourceOpacity:request.outerResourceOpacity},assets:imageBinding.assets,materialVersion:2,material:{version:2,...imageBinding,budget:{workUnits:64*1048576,outputBytes:16*1048576,drawPixels:16*1048576}}}})),h=await harness(begin,selected,()=>true,{width:512,height:512},CANONICAL_STROKE_RASTER_PROFILE,read),{engine,operations}=h
  // The genuine socket issuer, rather than a generic delivery factory, captures
@@ -698,6 +702,7 @@ it('keeps the indexed selected image source lease across two local gestures and 
    expect(engine['_canonicalPreparedAuthor']?.imageLease).toBe(selectedLease);expect(engine['_canonicalLayerOwner']).toBe(owner)
   }
   expect(begin).toHaveBeenCalledTimes(2);expect(program).not.toHaveBeenCalled();expect(prepareRoot).not.toHaveBeenCalled()
+ expect(resources).toHaveBeenCalled()
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },30000)
 it('parks actual BEGIN without scheduling CPU turns while captured MOVE/UP remain owned and ordered',async()=>{

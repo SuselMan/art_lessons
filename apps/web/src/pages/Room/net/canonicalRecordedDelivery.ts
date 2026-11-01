@@ -70,7 +70,7 @@ export function attachCanonicalRecordedDelivery(atom:CanonicalPreparedRecordedOp
 
 /** Availability preparation only, attached to the SAME original ingress atoms.
  * Native-only items retain their synchronous path. No source owner is minted. */
-export function prepareCanonicalRecordedImageResources(atoms:readonly CanonicalPreparedRecordedOperation[],scope:LocalScope):Promise<void>|null {
+export function prepareCanonicalRecordedImageResources(atoms:readonly CanonicalPreparedRecordedOperation[],scope:LocalScope,assertFiniteCurrent?:()=>void):Promise<void>|null {
  if(atoms.length>CANONICAL_RECORDED_ATTACHMENT_LIMITS.bindings)throw new RangeError('Canonical resource atom limit')
  if(!atoms.some(atom=>(atom.read?.capability.snapshot.materialVersion===2||atom.read?.capability.snapshot.materialVersion===3)&&atom.read.capability.snapshot.material.primarySource.kind==='image'))return null
  const lifetime=canonicalRecordedLifetimeOf(scope)
@@ -98,8 +98,10 @@ export function prepareCanonicalRecordedImageResources(atoms:readonly CanonicalP
   }
  }
  const assertCurrent=()=>{
+  assertFiniteCurrent?.()
   if(canonicalRecordedLifetimeOf(scope)!==lifetime||lifetime.assertCurrent()!==originalScope)return fail()
   for(const input of inputs)input.delivery.assertCurrent(input)
+  assertFiniteCurrent?.()
  }
  assertCurrent()
  const selected=[...assets.values()]

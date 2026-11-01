@@ -2,7 +2,7 @@ import {nanoid} from 'nanoid'
 import type {Socket} from 'socket.io-client'
 import {parseCanonicalIndexedHistoryOffer,parseCanonicalIndexedHistoryBegin,parseCanonicalIndexedHistoryFollow,parseCanonicalIndexedRoot,prepareCanonicalIndexedHistoryPage,prepareCanonicalIndexedRootEvidence,type CanonicalHistoryAck,type CanonicalIndexedHistoryStartV1,type CanonicalIndexedRootV1,type CanonicalPreparedRecordedOperation,type ClientToServerEvents,type ServerToClientEvents} from '@grafetto/shared'
 import type {CanonicalAcceptedCut,CanonicalIndexedOrigin,CanonicalIndexedPage,CanonicalIndexedRead,CanonicalIndexedRootProof,CanonicalRootWitnesses,CanonicalRecordedDelivery,CanonicalRecordedInput} from '../../../engine'
-import {captureCanonicalLocalReadScope} from './canonicalRecordedDelivery'
+import {captureCanonicalLocalReadScope,prepareCanonicalRecordedImageResources} from './canonicalRecordedDelivery'
 import type {CanonicalHistoryScope} from './canonicalHistoryPage'
 
 /** Same joined origin used by authoring/outbox/UI; no full-history array is
@@ -53,7 +53,7 @@ export async function openCanonicalIndexedRoomForSocket(
  const cuts=new WeakSet<CanonicalAcceptedCut>(),inputs=new WeakSet<CanonicalRecordedInput>()
  const scope=captureCanonicalLocalReadScope({...offer.scope,isCurrent:current},()=>origin)
  const assertOrigin=()=>{if(!current())return fail();return scope}
- type Cursor={readonly begin:CanonicalIndexedHistoryStartV1;after:number;cancelled:boolean;finished:boolean;cancelSent:boolean;cancelDone?:Promise<void>;resolveCancel?:()=>void}
+ type Cursor={readonly begin:CanonicalIndexedHistoryStartV1;after:number;cancelled:boolean;finished:boolean;cancelSent:boolean;preparing:boolean;cancelDone?:Promise<void>;resolveCancel?:()=>void}
  const assertCursor=(c:Cursor)=>{assertOrigin();if(cursor!==c||c.cancelled)return fail()}
  async function request<T>(run:()=>Promise<CanonicalHistoryAck<T>>):Promise<T>{
   assertOrigin();if(busy)return fail();busy=true
@@ -86,8 +86,11 @@ export async function openCanonicalIndexedRoomForSocket(
  function assertCut(cut:CanonicalAcceptedCut){
   assertOrigin();if(!cuts.has(cut)||cut.lifetime!==origin)return fail();cut.assertCurrent(cut)
  }
- function proofOf(raw:unknown,begin:CanonicalIndexedHistoryStartV1,root:CanonicalIndexedRootV1,bound?:CanonicalRecordedInput){
+ async function proofOf(raw:unknown,begin:CanonicalIndexedHistoryStartV1,root:CanonicalIndexedRootV1,assertFiniteCurrent:()=>void,bound?:CanonicalRecordedInput){
   const prepared=prepareCanonicalIndexedRootEvidence(raw,begin,root),refs=prepared.evidence,atoms=prepared.atoms.map(mint)
+  assertFiniteCurrent()
+  const resources=prepareCanonicalRecordedImageResources(atoms,scope,assertFiniteCurrent);if(resources)await resources
+  assertFiniteCurrent()
   const at=(index:number|null)=>index===null?null:atoms[index]
   let witnesses:Readonly<CanonicalRootWitnesses>|undefined=Object.freeze({root:refs.root,first:atoms[refs.first],terminal:at(refs.terminal),lastMetadata:at(refs.lastMetadata),latestRedo:at(refs.latestRedo),firstUndoAfterLatestRedo:at(refs.firstUndoAfterLatestRedo),ownBranchAfterUndo:at(refs.ownBranchAfterUndo)})
   let exact:CanonicalRecordedInput|undefined=bound??witnesses.first
@@ -100,19 +103,22 @@ export async function openCanonicalIndexedRoomForSocket(
  }
  function makeRead(begin:CanonicalIndexedHistoryStartV1,parentCut?:CanonicalAcceptedCut):CanonicalIndexedSocketRead{
   if(!equalPolicy(begin,offer))return fail()
-  const c:Cursor={begin,after:begin.floor,cancelled:false,finished:false,cancelSent:false}
+  const c:Cursor={begin,after:begin.floor,cancelled:false,finished:false,cancelSent:false,preparing:false}
   // Weak membership carries no page payload or historical page collection.
   const terminalPages=new WeakSet<CanonicalIndexedPage>()
   let read:CanonicalIndexedSocketRead
   read=Object.freeze({kind:begin.kind==='canonical-indexed-history-follow-v1'?'follow':'full',floor:begin.floor,latestObservedSeq:begin.kind==='canonical-indexed-history-follow-v1'?begin.latestObservedSeq:begin.throughSeq,lifetime:origin,throughSeq:begin.throughSeq,operationCount:begin.operationCount,scope,roomGeometry:begin.roomGeometry,authorRasterProfile:begin.authorRasterProfile,...(begin.authorPrimaryTextureSource?{authorPrimaryTextureSource:begin.authorPrimaryTextureSource}:{}),
    assertCurrent(this:CanonicalIndexedRead,candidate:CanonicalIndexedRead){if(this!==read||candidate!==read)return fail();assertCursor(c)},
    async nextPage(this:CanonicalIndexedRead){
-    if(this!==read||c.finished)return fail();assertCursor(c)
+    if(this!==read||c.finished||c.preparing)return fail();assertCursor(c);if(c.preparing)return fail();c.preparing=true
+    try{
     const after=c.after
     const raw=await request(()=>socket.timeout(30000).emitWithAck('canonical_history_stream_next',{streamId:begin.streamId,requestId:nanoid(16),afterSeq:after})).finally(()=>{if(c.cancelled)cancelWire(c)})
     assertCursor(c)
     const prepared=prepareCanonicalIndexedHistoryPage(raw,begin,after)
     let payload:readonly CanonicalRecordedInput[]|undefined=Object.freeze(prepared.atoms.map(mint))
+    const resources=prepareCanonicalRecordedImageResources(payload,scope,()=>assertCursor(c));if(resources)await resources
+    assertCursor(c)
     let page:CanonicalIndexedPage
     page=Object.freeze({afterSeq:after,nextAfterSeq:prepared.page.nextAfterSeq,terminal:prepared.page.terminal,
      inputs(this:CanonicalIndexedPage){if(this!==page||!payload)return fail();assertCursor(c);return payload},
@@ -122,16 +128,19 @@ export async function openCanonicalIndexedRoomForSocket(
     c.after=prepared.page.nextAfterSeq
     if(prepared.page.terminal)terminalPages.add(page)
     return page
+    }finally{c.preparing=false}
    },
    async rootEvidence(this:CanonicalIndexedRead,input:CanonicalRecordedInput){
-    if(this!==read)return fail();assertCursor(c)
+    if(this!==read||c.preparing)return fail();assertCursor(c);if(c.preparing)return fail();c.preparing=true
+    try{
     const root=originalRoot(input)
     const raw=await request(()=>socket.timeout(30000).emitWithAck('canonical_history_stream_evidence',{streamId:begin.streamId,requestId:nanoid(16),root})).finally(()=>{if(c.cancelled)cancelWire(c)})
     assertCursor(c);input.delivery.assertCurrent(input)
-    return proofOf(raw,begin,root,input).proof
+    return (await proofOf(raw,begin,root,()=>assertCursor(c),input)).proof
+    }finally{c.preparing=false}
    },
    finish(this:CanonicalIndexedRead,page:CanonicalIndexedPage){
-    if(this!==read||c.finished||!terminalPages.has(page))return fail()
+    if(this!==read||c.finished||c.preparing||!terminalPages.has(page))return fail()
     page.assertCurrent(page);assertCursor(c)
     if(c.after!==begin.throughSeq||!page.terminal||page.nextAfterSeq!==begin.throughSeq)return fail()
     let cut:CanonicalAcceptedCut
@@ -157,17 +166,17 @@ export async function openCanonicalIndexedRoomForSocket(
  }
  origin=Object.freeze({kind:'indexed-room-origin-v1',scope,roomGeometry:offer.roomGeometry,authorRasterProfile:offer.authorRasterProfile,...(offer.authorPrimaryTextureSource?{authorPrimaryTextureSource:offer.authorPrimaryTextureSource}:{}),assertCurrent(this:CanonicalIndexedOrigin){if(this!==origin)return fail();return assertOrigin()},
   async reopen(this:CanonicalIndexedOrigin,cut:CanonicalAcceptedCut){
-   if(this!==origin)return fail();assertCut(cut)
-   if(cursor&&!cursor.finished&&!cursor.cancelled)return fail()
+   if(this!==origin||cursor?.preparing)return fail();assertCut(cut)
+   if(cursor?.preparing||cursor&&!cursor.finished&&!cursor.cancelled)return fail()
    const raw=await request(()=>socket.timeout(150000).emitWithAck('canonical_history_stream_reopen',{mode:'recovery',offerId:offer.offerId,roomId:scope.roomId,boardEpoch:scope.boardEpoch,throughSeq:cut.throughSeq}))
    assertCut(cut);const begin=parseCanonicalIndexedHistoryBegin(raw)
    if(begin.throughSeq!==cut.throughSeq)return fail()
    return makeRead(begin)
   },
   async follow(this:CanonicalIndexedOrigin,cut:CanonicalAcceptedCut){
-   if(this!==origin)return fail();assertCut(cut)
+   if(this!==origin||cursor?.preparing)return fail();assertCut(cut)
    const previous=cursor,parent=completedCursor
-   if(previous&&!previous.finished&&!previous.cancelled)return fail()
+   if(previous?.preparing||previous&&!previous.finished&&!previous.cancelled)return fail()
    if(!parent||!parent.finished||parent.begin.throughSeq!==cut.throughSeq)return fail()
    const raw=await request(()=>socket.timeout(150000).emitWithAck('canonical_history_stream_reopen',{mode:'follow',streamId:parent.begin.streamId,requestId:nanoid(16),afterSeq:cut.throughSeq}))
    assertCut(cut);if(cursor!==previous||completedCursor!==parent)return fail()
@@ -176,13 +185,15 @@ export async function openCanonicalIndexedRoomForSocket(
    return makeRead(begin,cut)
   },
   async selectHistory(this:CanonicalIndexedOrigin,cut:CanonicalAcceptedCut,action:'undo'|'redo'){
-   if(this!==origin)return fail();assertCut(cut)
+   if(this!==origin||cursor?.preparing)return fail();assertCut(cut)
    const active=cursor,c=completedCursor
    if(!c||c.begin.throughSeq!==cut.throughSeq||active&&!active.finished&&!active.cancelled)return fail()
+   const preparing=active??c;if(preparing.preparing)return fail();preparing.preparing=true
+   try{
    const raw=await request(()=>socket.timeout(30000).emitWithAck('canonical_history_stream_select',{streamId:c.begin.streamId,requestId:nanoid(16),historyAction:action}))
    assertCut(cut);if(cursor!==active||completedCursor!==c)return fail();if(raw===null)return null
    const result=fields(raw,['targetOperationId','evidence']),wire=fields(result.evidence,['kind','streamId','throughSeq','root','rows','canonicalCapabilities','first','terminal','lastMetadata','latestRedo','firstUndoAfterLatestRedo','ownBranchAfterUndo'])
-   const root=parseCanonicalIndexedRoot(wire.root),prepared=proofOf(result.evidence,c.begin,root)
+   const root=parseCanonicalIndexedRoot(wire.root),prepared=await proofOf(result.evidence,c.begin,root,()=>{assertCut(cut);if(cursor!==active||completedCursor!==c)return fail()})
    if(result.targetOperationId!==prepared.target.operation.id){prepared.proof.release();return fail()}
    let released=false
    const candidate=Object.freeze({target:prepared.target,proof:prepared.proof,
@@ -190,6 +201,7 @@ export async function openCanonicalIndexedRoomForSocket(
     release(this:unknown){if(this!==candidate)return fail();if(!released){released=true;prepared.proof.release()}},
    })
    return candidate
+   }finally{preparing.preparing=false}
   },
  })
  return makeRead(initial)
