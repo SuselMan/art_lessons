@@ -1,5 +1,5 @@
 import { reserveContextStorage, releaseStorageReservation } from '../buffers/ContextStorageOwner'
-import { sourcePngPyramid, type BrushTip, type TipMaskId, type CanonicalMaterialAsset, canonicalPrimaryTexturePin, type CanonicalPrimaryTexturePin } from '@grafetto/shared'
+import { sourcePngPyramid, type BrushTip, type TipMaskId, type CanonicalMaterialAsset, canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, type CanonicalPrimaryTexturePin, type CanonicalFixedPrimaryTexturePin } from '@grafetto/shared'
 import { nativeImageBank, nativeImageBankFromRect, nativeImagePixels, type NativeImageResource } from './NativeImageBank'
 import { BrushTextureCache, uploadBrushTexture, releaseUnpublishedBrushResource, type OwnedBrushResource } from './BrushTextureCache'
 import { BrushMipCache } from './BrushMipCache'
@@ -34,7 +34,7 @@ export interface CanonicalNativeImageSourceJob {
 export interface CanonicalPatternSourceInput {
   readonly kind:'raw-pattern-l8'
   readonly asset:CanonicalMaterialAsset
-  readonly pin:CanonicalPrimaryTexturePin
+  readonly pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin
   readonly readOriginalGray:()=>Uint8Array
 }
 export interface CanonicalPatternSourceJob {
@@ -76,10 +76,16 @@ function assertImageOnlyInputs(inputs:unknown):void {
     if(kind&&Object.hasOwn(kind,'value')&&kind.value==='raw-pattern-l8')throw new TypeError('Raw pattern requires root residency')
   }
 }
+function capturePatternPin(value:unknown,asset:CanonicalMaterialAsset):CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin {
+  const field=value&&typeof value==='object'?Object.getOwnPropertyDescriptor(value,'strength'):undefined
+  if(!field||!Object.hasOwn(field,'value'))throw new TypeError('Invalid canonical pattern strength')
+  if(field.value==='fixed-one-v1')return canonicalFixedPrimaryTexturePin(value,asset)
+  return canonicalPrimaryTexturePin(value,asset)
+}
 function capturePatternInput(value:unknown):CanonicalPatternSourceInput {
   const input=ownData(value,['kind','asset','pin','readOriginalGray']),asset=captureAsset(input.asset)
   if(input.kind!=='raw-pattern-l8'||typeof input.readOriginalGray!=='function')throw new TypeError('Invalid canonical pattern input')
-  const pin=canonicalPrimaryTexturePin(input.pin,asset)
+  const pin=capturePatternPin(input.pin,asset)
   return Object.freeze({kind:'raw-pattern-l8',asset,pin,readOriginalGray:input.readOriginalGray as ()=>Uint8Array})
 }
 const patternKey=(asset:CanonicalMaterialAsset)=>`canonical-pattern:raw-l8-nearest-clamp-v1:${assetKey(asset)}`
@@ -282,7 +288,7 @@ export interface CanonicalMaskSourceReader {
   assertCurrentOwners(generation:number):void
 }
 export interface CanonicalMaskSourceLease extends CanonicalMaskSourceReader {
-  patternResource(pin:CanonicalPrimaryTexturePin,asset:CanonicalMaterialAsset,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache}):CanonicalPatternResource
+  patternResource(pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin,asset:CanonicalMaterialAsset,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache}):CanonicalPatternResource
   /** Resource-only child ownership; no pixel read, readiness scan or GL work. */
   retain():CanonicalMaskSourceLease
   release(lost?:boolean):undefined
@@ -469,10 +475,10 @@ export class CanonicalMaskSourceBank {
         return undefined
       }
       const handle:CanonicalMaskSourceLease=Object.freeze({
-        patternResource:(pin:CanonicalPrimaryTexturePin,asset:CanonicalMaterialAsset,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>{
+        patternResource:(pin:CanonicalPrimaryTexturePin|CanonicalFixedPrimaryTexturePin,asset:CanonicalMaterialAsset,owners:{gl:WebGLRenderingContext;cache:BrushTextureCache;cpu:BrushMipCache})=>{
           assertHandle()
           if(owners.gl!==this.gl||owners.cache!==this.cache||owners.cpu!==this.cpu)throw new Error('Canonical pattern owner changed')
-          const a=captureAsset(asset);canonicalPrimaryTexturePin(pin,a)
+          const a=captureAsset(asset);capturePatternPin(pin,a)
           const job=jobs.find(j=>j.kind==='raw-pattern-l8'&&j.key===patternKey(a))
           if(!job||job.kind!=='raw-pattern-l8'||assetKey(job.asset)!==assetKey(a)||this.cache.resourceBytes(job.key)!==job.bytes)throw new Error('Canonical pattern binding unavailable')
           const texture=this.cache.get(job.key)

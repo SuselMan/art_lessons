@@ -1,4 +1,4 @@
-import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,extractSeededDensityDefaultAutoSourceDataCapability,extractDefaultAutoSourceDataCapability,extractGaussianAutoSourceDataCapability,extractSoftAutoSourceDataCapability,canonicalSourceComposition,canonicalSourceEffectReject,canonicalImageMaterialPin,extractCanonicalPrimaryTextureCapability,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,isSourceStampData,sourceStampSourceKind,type CanonicalPrimaryTextureCapability,type BrushDescriptor,type CanonicalStrokeRasterProfile,type SourceStampData} from '@grafetto/shared'
+import {canonicalStrokeRasterContract,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,extractSeededDensityDefaultAutoSourceDataCapability,extractDefaultAutoSourceDataCapability,extractGaussianAutoSourceDataCapability,extractSoftAutoSourceDataCapability,canonicalSourceComposition,canonicalSourceEffectReject,canonicalImageMaterialPin,extractCanonicalPrimaryTextureCapability,extractCanonicalDefaultAutoFixedTextureCapability,canonicalImageSourceBinding,canonicalImagePipeSourceBinding,isSourceStampData,sourceStampSourceKind,type CanonicalPrimaryTextureCapability,type CanonicalDefaultAutoFixedTextureCapability,type BrushDescriptor,type CanonicalStrokeRasterProfile,type SourceStampData} from '@grafetto/shared'
 
 type ImagePin=ReturnType<typeof canonicalImageSourceBinding>
 export type CanonicalSourceAuthorAdmission =
@@ -6,6 +6,8 @@ export type CanonicalSourceAuthorAdmission =
  |{readonly supported:true;readonly data:SourceStampData;readonly nativeSizePx:number;readonly material:{readonly kind:'image';readonly pin:ImagePin}}
  |{readonly supported:true;readonly data:SourceStampData;readonly nativeSizePx:number;readonly material:{readonly kind:'imageTexture';readonly pin:ImagePin;readonly capability:CanonicalPrimaryTextureCapability}}
  |{readonly supported:false;readonly reason:string}
+
+export type CanonicalSourceAuthorAdmissionV4=CanonicalSourceAuthorAdmission|{readonly supported:true;readonly data:Extract<SourceStampData,{version:2}>;readonly nativeSizePx:number;readonly material:{readonly kind:'autoTexture';readonly capability:CanonicalDefaultAutoFixedTextureCapability}}
 
 /** Declared metadata only; never pixels, a resource owner or BEGIN authority. */
 function captureMetadata(values:readonly {readonly id:string;readonly size:number}[]|undefined){
@@ -20,12 +22,18 @@ function captureMetadata(values:readonly {readonly id:string;readonly size:numbe
  }
  return result
 }
-export interface CanonicalSourceAuthorAdmissionOptions {readonly primaryTextureSource?:'pressure-identity-subtract-v3'}
+export interface CanonicalSourceAuthorAdmissionOptions {readonly primaryTextureSource?:'pressure-identity-subtract-v3';readonly texturedSource?:never}
+
+export interface CanonicalSourceAuthorAdmissionV4Options extends Omit<CanonicalSourceAuthorAdmissionOptions,'texturedSource'> {readonly texturedSource:'fixed-default-auto-texture-v4'}
 
 /** Static pointer-domain query over original validated source data. DATA1 image
  * remains DATA1; wire material V2 and real server BEGIN are separate boundaries. */
-export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available?:readonly {readonly id:string;readonly size:number}[],options?:CanonicalSourceAuthorAdmissionOptions):CanonicalSourceAuthorAdmission {
- const texture=options?.primaryTextureSource
+export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available:readonly {readonly id:string;readonly size:number}[]|undefined,options:CanonicalSourceAuthorAdmissionV4Options):CanonicalSourceAuthorAdmissionV4
+export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available?:readonly {readonly id:string;readonly size:number}[],options?:CanonicalSourceAuthorAdmissionOptions):CanonicalSourceAuthorAdmission
+export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profile:CanonicalStrokeRasterProfile,available?:readonly {readonly id:string;readonly size:number}[],options?:CanonicalSourceAuthorAdmissionOptions|CanonicalSourceAuthorAdmissionV4Options):CanonicalSourceAuthorAdmissionV4 {
+ const texture=options?.primaryTextureSource,fixed=options&&'texturedSource'in options?options.texturedSource:undefined
+ if(fixed!==undefined&&fixed!=='fixed-default-auto-texture-v4')return{supported:false,reason:'Unsupported canonical fixed texture policy/profile'}
+ if(fixed){try{if(!canonicalStrokeRasterContract(profile).genericSC)return{supported:false,reason:'Unsupported canonical fixed texture policy/profile'}}catch{return{supported:false,reason:'Unsupported canonical fixed texture policy/profile'}}}
  if(texture!==undefined&&texture!=='pressure-identity-subtract-v3')return{supported:false,reason:'Unsupported canonical primary texture policy/profile'}
  const unsupported=canonicalSourceEffectReject(descriptor,profile)
  if(unsupported)return{supported:false,reason:'Unsupported canonical source effect: '+unsupported}
@@ -58,6 +66,13 @@ export function canonicalSourceAuthorAdmission(descriptor:BrushDescriptor,profil
    const pin=descriptor.tip.animation?canonicalImagePipeSourceBinding(descriptor,metadata):canonicalImageSourceBinding(descriptor,asset)
    return{supported:true,data,nativeSizePx,material:{kind:'image',pin}}
   }catch{return{supported:false,reason:'Unsupported canonical image source binding'}}
+ }
+ if(fixed&&data.flags.textureEnabled){
+  const metadata=captureMetadata(available),pattern=metadata?.find(a=>a.id===descriptor.texture?.id)
+  if(!pattern)return{supported:false,reason:'Canonical fixed texture metadata unavailable'}
+  const result=extractCanonicalDefaultAutoFixedTextureCapability(descriptor,{pattern})
+  if(!result.supported)return{supported:false,reason:'Unsupported canonical fixed texture: '+result.reasons.join(',')}
+  return{supported:true,data:result.data,nativeSizePx:result.data.source.diameter,material:{kind:'autoTexture',capability:result.capability}}
  }
  if(data.version!==2||data.source.kind==='image')return{supported:false,reason:'Unsupported canonical pointer material/timing'}
  if(!seeded){

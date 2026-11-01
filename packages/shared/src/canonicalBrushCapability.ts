@@ -1,4 +1,4 @@
-import {canonicalPrimaryTexturePin,type CanonicalPrimaryTexturePin} from './canonicalPrimaryTexture.js'
+import {canonicalPrimaryTexturePin,canonicalFixedPrimaryTexturePin,type CanonicalPrimaryTexturePin,type CanonicalFixedPrimaryTexturePin} from './canonicalPrimaryTexture.js'
 import {CANONICAL_STROKE_RASTER_PROFILE,canonicalStrokeRasterContract,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
 import type { BrushDescriptor } from './brushes.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
@@ -191,6 +191,85 @@ export function extractCanonicalPrimaryTextureCapability(
   }catch{return reject('invalid-primary-texture-data')}
 }
 
+/** Data-only semantic class. No DefaultAuto source binding/coverage grant,
+ * codec, author, room permission or CAS-content attestation is minted here. */
+export interface CanonicalDefaultAutoFixedTextureCapability {
+  readonly kind:'primary-default-auto-fixed-texture-v1'
+  readonly brushId:string
+  readonly brushVersion:number
+  readonly mode:'wash'|'buildup'
+  readonly patternAsset:CanonicalMaterialAsset
+  readonly primaryTexture:CanonicalFixedPrimaryTexturePin
+  readonly strengthProgram:'fixed-one-v1'
+}
+export type CanonicalDefaultAutoFixedTextureCapabilityResult =
+  {readonly supported:true;readonly status:'source-data-only';readonly rasterReady:false;
+    readonly data:Extract<ReturnType<typeof extractDefaultAutoSourceDataCapability>,{supported:true}>['data'];
+    readonly capability:CanonicalDefaultAutoFixedTextureCapability} |
+  {readonly supported:false;readonly reasons:readonly string[]}
+
+/** Inactive Sensor is retained, bounded metadata. NEVER interpret it as pressure
+ * identity or compile it while UseCurve=false and PressureTexture=false. */
+function textureFixedOneSettings(value:unknown):boolean {
+  if(!value||typeof value!=='object'||Array.isArray(value)||![Object.prototype,null].includes(Object.getPrototypeOf(value)))return false
+  const keys=Reflect.ownKeys(value)
+  if(keys.length>256)return false
+  const expected:Readonly<Record<string,string>>={
+    'Texture/Pattern/Enabled':'true','PressureTexture/Strength/':'false',
+    'Texture/Strength/StrengthVersion':'2','Texture/Strength/UseCurve':'false',
+    'Texture/Strength/UseSameCurve':'true','Texture/Strength/Value':'1','Texture/Strength/curveMode':'0',
+  }
+  const captured:Record<string,string>=Object.create(null)
+  for(const key of keys){
+    if(typeof key!=='string'||key.length>128)return false
+    const d=Object.getOwnPropertyDescriptor(value,key)
+    if(!d||!Object.hasOwn(d,'value')||typeof d.value!=='string'||d.value.length>65536)return false
+    if((key.startsWith('Texture/Strength/')&&!Object.hasOwn(expected,key)&&key!=='Texture/Strength/Sensor')
+      ||key.startsWith('PressureTexture/Strength/')&&key!=='PressureTexture/Strength/'
+      ||key.startsWith('CustomTexture/Strength/')||key.startsWith('CurveTexture/Strength/'))return false
+    captured[key]=d.value
+  }
+  return Object.entries(expected).every(([key,v])=>captured[key]===v)
+    &&typeof captured['Texture/Strength/Sensor']==='string'
+}
+
+export function extractCanonicalDefaultAutoFixedTextureCapability(
+  descriptor:BrushDescriptor,assets:Readonly<{pattern:Readonly<{id:string;size:number}>}>,
+):CanonicalDefaultAutoFixedTextureCapabilityResult {
+  const reject=(reason:string):CanonicalDefaultAutoFixedTextureCapabilityResult=>({supported:false,reasons:[reason]})
+  try{
+    // Capture new raw settings boundary BEFORE schema/family validation reads it.
+    const source=Object.getOwnPropertyDescriptor(descriptor,'sourceStamp')
+    if(!source||!Object.hasOwn(source,'value')||!source.value||typeof source.value!=='object')return reject('texture-source-data-unavailable')
+    const settings=Object.getOwnPropertyDescriptor(source.value,'settings')
+    if(!settings||!Object.hasOwn(settings,'value')||!textureFixedOneSettings(settings.value))return reject('texture-fixed-one-program-unavailable')
+    const available=textureData(assets,['pattern']),pattern=textureData(available.pattern,['id','size'])
+    if(typeof pattern.id!=='string'||!/^asset:[a-f0-9]{64}$/.test(pattern.id)||typeof pattern.size!=='number'
+      ||!Number.isInteger(pattern.size)||pattern.size<2||pattern.size>2048||(pattern.size&(pattern.size-1))!==0)return reject('texture-asset-unavailable')
+    const behavior=descriptor.behavior
+    if(descriptor.mixer||descriptor.wet||descriptor.screentonePx||behavior?.wetMix||behavior?.edgeBleed||behavior?.grain||behavior?.taper)return reject('unsupported-texture-effect')
+    const field=Object.getOwnPropertyDescriptor(descriptor,'texture')
+    if(!field||!Object.hasOwn(field,'value'))return reject('texture-descriptor-unavailable')
+    const t=textureData(field.value,['id','periodPx','strength','application','patternSize','offset'])
+    const application=textureData(t.application,['mode','soft']),size=textureData(t.patternSize,['width','height']),offset=textureData(t.offset,['x','y','randomX','randomY'])
+    if(t.id!==pattern.id||t.strength!==1||application.mode!=='subtract'||application.soft!==false
+      ||offset.randomX!==false||offset.randomY!==false||typeof size.width!=='number'||typeof size.height!=='number'
+      ||size.width!==size.height||t.periodPx!==size.width)return reject('unsupported-primary-texture')
+    const patternAsset=Object.freeze({id:pattern.id,size:pattern.size,x:0,y:0,width:size.width,height:size.height})
+    const primaryTexture=canonicalFixedPrimaryTexturePin({kind:'canvasTexture',asset:pattern.id,law:'subtract-u8-v1',width:size.width,height:size.height,
+      periodX:t.periodPx,periodY:t.periodPx,offsetX:offset.x,offsetY:offset.y,strength:'fixed-one-v1'},patternAsset)
+    // Same actual geometry/options/unsupported/source checks; only this PRIVATE
+    // call requests the separately verified material. Public old auto caps stay plain.
+    const auto=extractDefaultAutoData(descriptor,false,'fixed-one-texture')
+    if(!auto.supported)return auto
+    const mode=sourceStampPaintingMode(auto.data)
+    if(!mode)return reject('inconsistent-source-painting-mode')
+    return {supported:true,status:'source-data-only',rasterReady:false,data:auto.data,
+      capability:Object.freeze({kind:'primary-default-auto-fixed-texture-v1',brushId:descriptor.id,brushVersion:descriptor.version,
+        mode,patternAsset,primaryTexture,strengthProgram:'fixed-one-v1'})}
+  }catch{return reject('invalid-fixed-primary-texture-data')}
+}
+
 /** Ordered image frames share the existing image recipe and asset bank.
  * Selection belongs to the author; recorded replay never selects a frame.
  * Structural material support only, not room execution permission. */
@@ -263,7 +342,7 @@ export function extractDefaultAutoSourceDataCapability(descriptor: BrushDescript
 export function extractSeededDensityDefaultAutoSourceDataCapability(descriptor: BrushDescriptor) {
   return extractDefaultAutoData(descriptor, true)
 }
-function extractDefaultAutoData(descriptor: BrushDescriptor, seededDensity: boolean):
+function extractDefaultAutoData(descriptor: BrushDescriptor, seededDensity: boolean, material: 'plain'|'fixed-one-texture' = 'plain'):
   { readonly supported: true; readonly status: 'source-data-only'; readonly rasterReady: false; readonly data: SourceStampData & { readonly version: 2; readonly source: import('./sourceStampData.js').SourceDefaultAutoData } } |
   { readonly supported: false; readonly reasons: readonly string[] } {
   const reject = (reason: string) => ({ supported: false as const, reasons: [reason] })
@@ -275,7 +354,8 @@ function extractDefaultAutoData(descriptor: BrushDescriptor, seededDensity: bool
   if (descriptor.model !== 'stamp' || descriptor.tip.kind !== 'procedural' || descriptor.tip.profile?.kind !== 'standard'
     || descriptor.tip.mask || descriptor.tip.animation || descriptor.tip.imageSampling || descriptor.tip.material) return reject('inconsistent-default-auto-descriptor')
   const source = data.source
-  if (source.spikes !== 2 || source.randomness !== 0 || (!seededDensity && source.density !== 1) || !data.flags.materialFixed1 || data.flags.textureEnabled
+  if (source.spikes !== 2 || source.randomness !== 0 || (!seededDensity && source.density !== 1) || !data.flags.materialFixed1
+    || (material === 'fixed-one-texture' ? !data.flags.textureEnabled : data.flags.textureEnabled)
     || descriptor.behavior?.colorAdjustment) return reject('unsupported-default-auto-material-consumer')
   const p = descriptor.tip.profile
   if (p.shape !== (source.shape === 'circle' ? 'ellipse' : 'rectangle') || p.horizontalFade !== source.horizontalFade

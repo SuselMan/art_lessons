@@ -14,6 +14,11 @@ export interface CanonicalPrimaryTexturePin {
   readonly strength: 'pressure-identity-v1'
 }
 
+/** Distinct fixed-strength metadata; pressure pins never accept this token. */
+export interface CanonicalFixedPrimaryTexturePin extends Omit<CanonicalPrimaryTexturePin, 'strength'> {
+  readonly strength: 'fixed-one-v1'
+}
+
 const fail = (): never => { throw new TypeError('Invalid canonical primary texture') }
 const fields = ['kind', 'asset', 'law', 'width', 'height', 'periodX', 'periodY', 'offsetX', 'offsetY', 'strength'] as const
 const assetFields = ['id', 'size', 'x', 'y', 'width', 'height'] as const
@@ -43,8 +48,20 @@ const cas = (value: unknown): value is string => typeof value === 'string' && /^
 /** Capture a closed immutable pin against authoritative CAS rectangle metadata.
  * Padding outside the rectangle is allowed, but never belongs to the period. */
 export function canonicalPrimaryTexturePin(input: unknown, trustedAsset: CanonicalMaterialAsset): Readonly<CanonicalPrimaryTexturePin> {
+  return capturePrimaryTexturePin(input, trustedAsset, 'pressure-identity-v1')
+}
+
+/** Closed fixed-one pin only. Same geometry validation, a different strength law.
+ * No source-data attestation, CAS-content validation or execution permission. */
+export function canonicalFixedPrimaryTexturePin(input: unknown, trustedAsset: CanonicalMaterialAsset): Readonly<CanonicalFixedPrimaryTexturePin> {
+  return capturePrimaryTexturePin(input, trustedAsset, 'fixed-one-v1')
+}
+
+function capturePrimaryTexturePin<S extends CanonicalPrimaryTexturePin['strength'] | CanonicalFixedPrimaryTexturePin['strength']>(
+  input: unknown, trustedAsset: CanonicalMaterialAsset, strength: S,
+): Readonly<Omit<CanonicalPrimaryTexturePin, 'strength'> & { readonly strength: S }> {
   const p = capture(input, fields), a = capture(trustedAsset, assetFields)
-  if (p.kind !== 'canvasTexture' || p.law !== 'subtract-u8-v1' || p.strength !== 'pressure-identity-v1'
+  if (p.kind !== 'canvasTexture' || p.law !== 'subtract-u8-v1' || p.strength !== strength
     || !cas(p.asset) || p.asset !== a.id || !cas(a.id)
     || !dimension(p.width) || !dimension(p.height) || p.width * p.height > 1048576
     || !dimension(a.size) || a.x !== 0 || Object.is(a.x, -0) || a.y !== 0 || Object.is(a.y, -0)
@@ -53,7 +70,7 @@ export function canonicalPrimaryTexturePin(input: unknown, trustedAsset: Canonic
     || typeof p.periodY !== 'number' || !Number.isFinite(p.periodY) || p.periodY <= 0 || p.periodY > 1e6 || p.periodY !== p.height
     || !integer(p.offsetX, 0, p.width - 1) || !integer(p.offsetY, 0, p.height - 1)) return fail()
   return Object.freeze({ kind: 'canvasTexture', asset: p.asset, law: 'subtract-u8-v1', width: p.width, height: p.height,
-    periodX: p.periodX, periodY: p.periodY, offsetX: p.offsetX, offsetY: p.offsetY, strength: 'pressure-identity-v1' })
+    periodX: p.periodX, periodY: p.periodY, offsetX: p.offsetX, offsetY: p.offsetY, strength })
 }
 
 /** Binary64 multiplication by255, then nearest integer, ties to even; no epsilon.

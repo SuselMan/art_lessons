@@ -1,7 +1,7 @@
 import type { OperationBase } from './operationBase.js'
-import type { CanonicalMaterialContextV2, CanonicalMaterialContextV3 } from './canonicalMaterialCodec.js'
+import type { CanonicalMaterialContextV2, CanonicalMaterialContextV3, CanonicalMaterialContextV4 } from './canonicalMaterialCodec.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
-import type { CanonicalStrokeComposition, CanonicalStrokeFrameEnvelope, CanonicalStrokeRasterProfile, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE } from './canonicalStrokeFrame.js'
+import type { CanonicalStrokeComposition, CanonicalStrokeFrameEnvelope, CanonicalStrokeRasterProfile, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE } from './canonicalStrokeFrame.js'
 
 /** Deliberately separate from legacy stroke/dabs. Server begin pins authority;
  * recorded frames carry immutable canonical material, not source author state. */
@@ -43,6 +43,12 @@ export interface CanonicalStrokeSnapshotV3 extends Omit<CanonicalStrokeSnapshotV
   readonly rasterProfile:typeof CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE
   readonly materialVersion:3
   readonly material:CanonicalMaterialContextV3
+}
+/** Standalone metadata declaration; NOT in actual snapshot/result/read unions. */
+export interface CanonicalStrokeSnapshotV4 extends Omit<CanonicalStrokeSnapshotV1,'rasterProfile'> {
+  readonly rasterProfile:typeof CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE|typeof CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE
+  readonly materialVersion:4
+  readonly material:CanonicalMaterialContextV4
 }
 export type CanonicalStrokeSnapshot = CanonicalStrokeSnapshotV1 | CanonicalStrokeSnapshotV2 | CanonicalStrokeSnapshotV3
 /** Resume state: ended describes the recorded prefix. A speculative live-only

@@ -1,3 +1,4 @@
+import {canonicalFixedPrimaryTexturePin} from '@grafetto/shared'
 import {expect,it,vi} from 'vitest'
 import {canonicalPrimaryTexturePin} from '@grafetto/shared'
 import {recordingGL} from '../../testing/brushPassTestUtils'
@@ -104,5 +105,21 @@ it('binds genuine pattern views to the exact minting root handle without changin
   expect(()=>assertCanonicalPatternResourceCurrent(view,s,root)).toThrow(/root handle/)
   const forwarded={...child,patternResource:()=>view};expect(()=>assertCanonicalPatternResourceCurrent(forwarded.patternResource(),s,forwarded)).toThrow(/root handle/)
   child.release();root.release()
+ }finally{cleanup(s)}
+})
+
+it('accepts a genuine fixed pattern-only root without image jobs and retains the same phase/owner checks',()=>{
+ const s=fixture(),a=input(16),pin=canonicalFixedPrimaryTexturePin({...a.pin,strength:'fixed-one-v1'},a.asset)
+ try{const root=prepare(s,{...a,pin}),view=root.patternResource(pin,a.asset,s)
+  expect(root.preparedResources()).toEqual([]);expect(s.bank.jobs.map(j=>j.kind)).toEqual(['raw-pattern-l8'])
+  const child=root.retain();root.release();expect(child.patternResource(pin,a.asset,s).texture).toBe(view.texture)
+  expect(()=>root.patternResource(pin,a.asset,s)).toThrow();child.release();expect(s.bank.jobs).toEqual([])
+ }finally{cleanup(s)}
+})
+it.each(['cancel','reset'] as const)('cleans fixed root preparation when provider reenters %s',mode=>{
+ const s=fixture(),a=input(16),pin=canonicalFixedPrimaryTexturePin({...a.pin,strength:'fixed-one-v1'},a.asset)
+ let p:ReturnType<CanonicalMaskSourceBank['prepareRoot']>
+ try{p=s.bank.prepareRoot([{...a,pin,readOriginalGray:()=>{if(mode==='cancel')p.cancel();else s.bank.reset();return new Uint8Array(256)}}],companion)
+  expect(p.prepareJob(0)).toBe('cancelled');expect(s.gl.createTexture).not.toHaveBeenCalled();p.cancel()
  }finally{cleanup(s)}
 })

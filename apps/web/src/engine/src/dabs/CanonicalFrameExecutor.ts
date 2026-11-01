@@ -1,4 +1,4 @@
-import {captureCanonicalPrimaryTextureFrame,canonicalPrimaryTextureMaterialContext,canonicalPrimaryTextureStrengthU8,canonicalImageMaterialPin,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,type CanonicalMaterialContextV3,type CanonicalMaterialFrameV3} from '@grafetto/shared'
+import {captureCanonicalTexturedSourceFrame,canonicalTexturedSourceMaterialContext,CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE,canonicalBrushDescriptorJSON,canonicalStrokeCoverageMatches,type CanonicalMaterialContextV4,type CanonicalMaterialFrameV4,captureCanonicalPrimaryTextureFrame,canonicalPrimaryTextureMaterialContext,canonicalPrimaryTextureStrengthU8,canonicalImageMaterialPin,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,type CanonicalMaterialContextV3,type CanonicalMaterialFrameV3} from '@grafetto/shared'
 import type {BrushGlCanonicalCallbackScope} from './BrushGlState'
 import { captureSourceDefaultAutoDensityStrokeIdentity, type SourceDefaultAutoDensityStrokeIdentity } from '../presets/sourceDefaultAutoDensitySeed'
 import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE, CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, canonicalAutoCost, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition, type CanonicalStrokeRasterProfile, type CanonicalMaterialAsset, type CanonicalAutoSource, type CanonicalSoftAutoSource, type CanonicalAutoRecipe, type CanonicalSoftAutoRecipe, type AnyCanonicalMaterialRecipe, type AnyCanonicalMaterialFrame } from '@grafetto/shared'
@@ -40,7 +40,19 @@ export interface CanonicalFrameSubmissionV3 extends Omit<CanonicalFrameSubmissio
   readonly frame:CanonicalMaterialFrameV3
   readonly densityStrokeIdentity?:never
 }
-type ExecutorFrameSubmission=CanonicalFrameSubmission|CanonicalFrameSubmissionV3
+/** Standalone explicit accepted4 metadata; no Operation/recorded-input union activation. */
+export interface CanonicalFrameSubmissionV4 extends Omit<CanonicalFrameSubmission,'frame'|'densityStrokeIdentity'> {
+  readonly frame:CanonicalMaterialFrameV4
+  readonly densityStrokeIdentity?:never
+}
+type ExecutorFrameSubmission=CanonicalFrameSubmission|CanonicalFrameSubmissionV3|CanonicalFrameSubmissionV4
+const textureProfile=(profile:unknown)=>profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE||profile===CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE
+function textureSubmission(input:ExecutorFrameSubmission):input is CanonicalFrameSubmissionV3|CanonicalFrameSubmissionV4 {return textureProfile(input.frame.profile)}
+function captureTextureContext(value:CanonicalMaterialContextV3|CanonicalMaterialContextV4):CanonicalMaterialContextV3|CanonicalMaterialContextV4 {
+  const version=Object.getOwnPropertyDescriptor(value,'version')
+  if(!version||!Object.hasOwn(version,'value'))throw new TypeError('Explicit texture context required')
+  return version.value===4?canonicalTexturedSourceMaterialContext(value):canonicalPrimaryTextureMaterialContext(value)
+}
 function textureFrameCaptureBytes(frame:unknown):number {
   if(!frame||typeof frame!=='object')throw new TypeError('Invalid texture frame capture')
   let bytes=1536
@@ -101,7 +113,7 @@ export interface CanonicalFrameExecutorOptions {
   readonly softProgramOwner?: CanonicalSoftCircleProgramOwner
   /** Authoritative room page, never viewport. Absent retains the closed infinite-page QA API. */
   readonly pageBounds?: Readonly<WorldRect> | null
-  readonly primaryTexture?:Readonly<{readonly context:CanonicalMaterialContextV3;readonly root:CanonicalMaskSourceLease}>
+  readonly primaryTexture?:Readonly<{readonly context:CanonicalMaterialContextV3|CanonicalMaterialContextV4;readonly root:CanonicalMaskSourceLease}>
   readonly bank?: CanonicalMaskSourceReader
   readonly prepass: TransformedMaskPrepass
   readonly composite: CanonicalRgba8CompositePass
@@ -177,7 +189,7 @@ export class CanonicalFrameExecutor {
   private readonly softProgram?: CanonicalSoftCircleProgramOwner
   private readonly ownsSoftProgram:boolean
   private sourceRetired = false
-  private primaryTexture?:Readonly<{context:CanonicalMaterialContextV3;root:CanonicalMaskSourceLease;view:CanonicalPatternResource;releaseMetadata:()=>void}>
+  private primaryTexture?:Readonly<{context:CanonicalMaterialContextV3|CanonicalMaterialContextV4;root:CanonicalMaskSourceLease;view:CanonicalPatternResource;releaseMetadata:()=>void}>
 
   constructor(options: CanonicalFrameExecutorOptions) {
     if(options.softProgramOwner && options.autoSource?.kind!=='softAuto')throw new TypeError('A soft program owner requires a trusted soft source')
@@ -197,23 +209,34 @@ export class CanonicalFrameExecutor {
     this.acquireMaskCapacity()
     try{
     if(options.primaryTexture){
-      if(options.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||options.autoSource||options.softProgramOwner||options.bank!==options.primaryTexture.root)throw new TypeError('Texture source requires the same root and GenericSC owner')
-      if(!options.composite.supportsTexturedOperations(['alphaDarken32FusedScalar']))throw new Error('Canonical texture variant was not prepared')
+      if(options.softProgramOwner||options.bank!==options.primaryTexture.root)throw new TypeError('Texture source requires the same root owner')
+      const textureOperation=options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'alphaDarkenBrowserFloat':'alphaDarken32FusedScalar'
+      if(!options.composite.supportsTexturedOperations([textureOperation]))throw new Error('Canonical texture variant was not prepared')
       const releaseMetadata=a.cpu.reserve(4096)
       let child:CanonicalMaskSourceLease|undefined
       try{
-        const context=canonicalPrimaryTextureMaterialContext(options.primaryTexture.context)
-        const image=canonicalImageMaterialPin(context.primarySource,[context.assets[0]])
-        const sourceView=options.primaryTexture.root.patternResource(context.primaryTexture,context.assets[1],a)
+        const context=captureTextureContext(options.primaryTexture.context)
+        if(context.version===3){
+          if(options.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE||options.autoSource)throw new TypeError('Material3 requires its existing image GenericSC source')
+        }else{
+          if((options.rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&options.rasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)
+            ||this.options.autoSource?.kind!=='defaultAuto'||canonicalBrushDescriptorJSON(this.options.autoSource)!==canonicalBrushDescriptorJSON(context.primarySource)
+            ||!canonicalStrokeCoverageMatches(options.rasterProfile,context.primarySource.coverageProfile))throw new TypeError('Material4 source/profile binding mismatch')
+        }
+        const patternAsset=context.assets[context.version===3?1:0]
+        const sourceView=options.primaryTexture.root.patternResource(context.primaryTexture,patternAsset,a)
         assertCanonicalPatternResourceCurrent(sourceView,a,options.primaryTexture.root)
         child=options.primaryTexture.root.retain()
-        const view=child.patternResource(context.primaryTexture,context.assets[1],a)
+        const view=child.patternResource(context.primaryTexture,patternAsset,a)
         assertCanonicalPatternResourceCurrent(view,a,child)
         if(view.width>4096||(view.width&(view.width-1))!==0)throw new TypeError('Canonical texture requires POT storage')
-        const resources=child.preparedResources(),tip=image.assets[0]
-        const indexes=resources.filter(r=>r.canonical&&JSON.stringify(r.canonical.asset)===JSON.stringify(tip)).map(r=>r.canonical!.index)
-        if(!indexes.length)throw new Error('Canonical texture root has no primary tip')
-        child.assertRequiredSourceBinding(tip,indexes,a)
+        const resources=child.preparedResources()
+        if(context.version===3){
+          const tip=canonicalImageMaterialPin(context.primarySource,[context.assets[0]]).assets[0]
+          const indexes=resources.filter(r=>r.canonical&&JSON.stringify(r.canonical.asset)===JSON.stringify(tip)).map(r=>r.canonical!.index)
+          if(!indexes.length)throw new Error('Canonical texture root has no primary tip')
+          child.assertRequiredSourceBinding(tip,indexes,a)
+        }
         if(!b.resources.some(r=>r.key===view.key&&r.bytes===view.width*view.height*4)||resources.some(r=>!a.resources.some(p=>p.key===r.key&&p.bytes===r.bytes)))throw new Error('Canonical texture root group was not prepared')
         this.primaryTexture=Object.freeze({context,root:child,view,releaseMetadata});child=undefined
         this.options=Object.freeze({...this.options,bank:this.primaryTexture.root,primaryTexture:undefined})
@@ -270,26 +293,35 @@ export class CanonicalFrameExecutor {
    * caller mutation cannot relabel a queued definition, pigment or opacity. */
   enqueue(input:CanonicalFrameSubmission):void
   enqueue(input:CanonicalFrameSubmissionV3):void
+  enqueue(input:CanonicalFrameSubmissionV4):void
   enqueue(input:ExecutorFrameSubmission):void {
-    if(input?.frame?.profile!==CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE){
-      if(this.primaryTexture)throw new TypeError('Texture executor requires material3')
+    if(!textureProfile(input?.frame?.profile)){
+      if(this.primaryTexture)throw new TypeError('Texture executor requires its selected material profile')
       return this.enqueueCaptured(input)
     }
     if(this.failed||this.sourceRetired||this.advancing||this.rawOwner.leases)throw new Error('Canonical executor is poisoned or busy')
     if(this.queue.length>=8)throw new RangeError('Canonical frame queue is full')
     const source=this.primaryTexture
     if(!source)throw new TypeError('Canonical material3 requires a texture root')
-    if(Object.hasOwn(input,'densityStrokeIdentity')||!isCanonicalStrokeComposition(input.composition,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)||input.composition.mode!=='wash'||!Array.isArray(input.rgb)||input.rgb.length!==3)throw new TypeError('Unsupported canonical texture composition')
+    const textureRasterProfile=this.options.rasterProfile
+    if(textureRasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE&&textureRasterProfile!==CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE)throw new TypeError('Unsupported canonical texture raster profile')
+    if(Object.hasOwn(input,'densityStrokeIdentity')||!isCanonicalStrokeComposition(input.composition,textureRasterProfile)||input.composition.mode!=='wash'||!Array.isArray(input.rgb)||input.rgb.length!==3)throw new TypeError('Unsupported canonical texture composition')
     const identity={gestureId:input.gestureId,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal}
     const rgb=Object.freeze([input.rgb[0],input.rgb[1],input.rgb[2]]as [number,number,number]),composition=Object.freeze({...input.composition})
     const info=this.options.prepass.brushGlBatchInfo(),release=info.cpu.reserve(textureFrameCaptureBytes(input.frame))
     let failed=false,failure:unknown
     try{
       assertCanonicalPatternResourceCurrent(source.view,info,source.root)
-      const context=canonicalPrimaryTextureMaterialContext({...source.context,assets:input.assets})
+      const context=captureTextureContext({...source.context,assets:input.assets})
       if(JSON.stringify(context.assets)!==JSON.stringify(source.context.assets))throw new TypeError('Canonical texture frame assets changed')
-      const frame=captureCanonicalPrimaryTextureFrame(input.frame,source.context)
-      this.enqueueCaptured({...identity,rgb,composition,assets:source.context.assets,frame})
+      if(input.frame.profile!==(source.context.version===4?CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE:CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE))throw new TypeError('Texture frame/context version mismatch')
+      if(source.context.version===4){
+        const frame=captureCanonicalTexturedSourceFrame(input.frame,source.context)
+        this.enqueueCaptured({...identity,rgb,composition,assets:source.context.assets,frame})
+      }else{
+        const frame=captureCanonicalPrimaryTextureFrame(input.frame,source.context)
+        this.enqueueCaptured({...identity,rgb,composition,assets:source.context.assets,frame})
+      }
     }catch(error){failed=true;failure=error}
     try{release()}catch(error){
       if(failed)this.cleanupErrors.push(error)
@@ -299,13 +331,13 @@ export class CanonicalFrameExecutor {
   }
 
   private enqueueCaptured(input:ExecutorFrameSubmission):void {
-    if((input?.frame?.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE)!==!!this.primaryTexture)throw new TypeError('Canonical texture source/frame mismatch')
+    if(textureProfile(input?.frame?.profile)!==!!this.primaryTexture)throw new TypeError('Canonical texture source/frame mismatch')
     if (this.failed || this.sourceRetired || this.advancing || this.rawOwner.leases) throw new Error('Canonical executor is poisoned or busy')
     if (this.rawComplete) throw new Error('Canonical deposition gesture has ended')
     if (this.options.washMode === 'deposition-only' && input?.composition?.mode !== 'wash') throw new TypeError('Deposition-only requires wash')
     if (!isCanonicalStrokeComposition(input?.composition, this.options.rasterProfile === 'reference-scalar-f32-rne-v1' ? CANONICAL_STROKE_RASTER_PROFILE : this.options.rasterProfile)) throw new TypeError('Invalid canonical composition for pinned raster profile')
     if (this.queue.length >= 8) throw new RangeError('Canonical frame queue is full')
-    if (![CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE].includes(input?.frame?.profile)) throw new TypeError('Canonical executor requires accepted material profile')
+    if (![CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE].includes(input?.frame?.profile)) throw new TypeError('Canonical executor requires accepted material profile')
     if (!input || !input.gestureId || !input.layerId || !int(input.layerEpoch) || !int(input.ordinal)
       || !Array.isArray(input.rgb) || input.rgb.length !== 3 || !input.rgb.every(n => int(n) && n <= 255)) throw new TypeError('Invalid canonical frame identity/pigment')
     if (input.frame.definitions.some(r => 'kind' in r && r.kind === 'softAuto') && this.options.autoSource?.kind !== 'softAuto') throw new TypeError('Soft source data requires a trusted canonical executor raster grant')
@@ -327,7 +359,7 @@ export class CanonicalFrameExecutor {
     const hasImageDefinitions = input.frame.definitions.some(r => !autoRecipe(r))
     const hasImage = hasImageDefinitions || input.frame.profile === CANONICAL_MATERIAL_PROFILE || (!input.frame.definitions.length && !this.options.autoSource)
     if (hasImage && !this.options.bank?.isReady()) throw new Error('Canonical image bank is not prepared')
-    if (!hasImage && input.assets.length) throw new TypeError('Auto-only frame must not supply image assets')
+    if (!hasImage && input.assets.length&&!this.primaryTexture) throw new TypeError('Auto-only frame must not supply image assets')
     const prepared = hasImage ? this.options.bank!.preparedResources() : []
     const sourceKeys = input.frame.definitions.map(recipe => {
       if (recipe.width > this.maskCapacity.width || recipe.height > this.maskCapacity.height) throw new RangeError('Canonical material exceeds prepared capacity')
@@ -393,8 +425,14 @@ export class CanonicalFrameExecutor {
       const resources = new Set([...info.resources, ...other.resources].map(r => r.key)).size
       if(densityStrokeIdentity&&!this.gesture)releaseDensityIdentity=info.cpu.reserve(1024)
       if (info.cpu.reservedBytes + (input.frame.definitions.some(autoRecipe) ? 82432 : 65536) + resources * 128 > info.cpu.budgetBytes) throw new RangeError('Canonical queue exceeds shared CPU work headroom')
-      const textureStrengths=input.frame.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE?Uint8Array.from(input.frame.draws,d=>canonicalPrimaryTextureStrengthU8(d.grainDepth)):undefined
-      const saved:ExecutorFrameSubmission = input.frame.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE?input:structuredClone(seeded?{gestureId:input.gestureId,densityStrokeIdentity,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition}:input)
+      const textureStrengths=input.frame.profile===CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE?Uint8Array.from(input.frame.draws,d=>{if(d.grainDepth!==1)throw new TypeError('Fixed material4 strength required');return 255}):input.frame.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE?Uint8Array.from(input.frame.draws,d=>canonicalPrimaryTextureStrengthU8(d.grainDepth)):undefined
+      let saved:ExecutorFrameSubmission
+      if(textureSubmission(input)){
+        saved=input
+      }else{
+        const legacy:CanonicalFrameSubmission=seeded?{gestureId:input.gestureId,densityStrokeIdentity,layerId:input.layerId,layerEpoch:input.layerEpoch,ordinal:input.ordinal,frame:input.frame,assets:input.assets,rgb:input.rgb,composition:input.composition}:input
+        saved=structuredClone(legacy)
+      }
       this.queue.push({ input: saved,textureStrengths, result, sourceKeys, draw: 0, tile: 0, paintPart: 0, present: 0, part: 0, frameTargets:[...frameTargets.values()],newTiles:[...newTiles.values()],targetCursor:0,scratchCursor:0,washCursor:0,
         releaseMetadata: () => { try { releaseMetadata() } finally { releaseTargetBudget?.() } } })
       for (const [k, tile] of newTiles) this.admittedTiles.set(k, tile)
@@ -590,7 +628,7 @@ export class CanonicalFrameExecutor {
     if(this.primaryTexture){
       const source=this.primaryTexture,info=this.options.composite.brushGlBatchInfo()
       assertCanonicalPatternResourceCurrent(source.view,info,source.root)
-      if(!this.options.composite.supportsTexturedOperations(['alphaDarken32FusedScalar'])||!info.resources.some(r=>r.key===source.view.key&&r.bytes===source.view.width*source.view.height*4))throw new Error('Canonical texture group/variant changed')
+      if(!this.options.composite.supportsTexturedOperations([this.options.rasterProfile===CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE?'alphaDarkenBrowserFloat':'alphaDarken32FusedScalar'])||!info.resources.some(r=>r.key===source.view.key&&r.bytes===source.view.width*source.view.height*4))throw new Error('Canonical texture group/variant changed')
     }
     let mask:Readonly<{width:number;height:number;epoch:object}>
     try{mask=this.maskParticipant.preparedCapacity()}catch{throw new Error('Canonical prepared service capacity/epoch changed')}

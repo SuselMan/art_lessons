@@ -1,8 +1,8 @@
 import {canonicalImageMaterialPin} from './canonicalImageMaterial.js'
 import type {Operation} from './operations.js'
-import type {CanonicalStrokeOperation,CanonicalStrokeSnapshotV2,CanonicalStrokeSnapshotV3} from './canonicalStrokeOperation.js'
+import type {CanonicalStrokeOperation,CanonicalStrokeSnapshotV2,CanonicalStrokeSnapshotV3,CanonicalStrokeSnapshotV4} from './canonicalStrokeOperation.js'
 import {canonicalPrimaryTexturePin} from './canonicalPrimaryTexture.js'
-import {buildCanonicalMaterial,type CanonicalMaterialAsset} from './canonicalMaterialCodec.js'
+import {buildCanonicalMaterial,canonicalTexturedSourceMaterialContext,type CanonicalMaterialAsset} from './canonicalMaterialCodec.js'
 import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_STROKE_RASTER_CONTRACTS,canonicalStrokeRasterContract,decodeCanonicalStrokeFrame,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
 import {canonicalDefaultAutoSourcePin,canonicalGaussianAutoSourcePin} from './canonicalDefaultAutoMaterial.js'
 import {canonicalSoftAutoSourcePin} from './canonicalSoftAutoMaterial.js'
@@ -114,6 +114,35 @@ export function canonicalStrokeSnapshotV3(value:unknown,epoch:number,rasterProfi
  const decoded=decodeCanonicalStrokeFrame({version:2,rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:pigment,composition,materialPacked:probe.packed},trusted)
  return Object.freeze({layerId:s.layerId,brush:s.brush,strokeId:s.strokeId,boardEpoch:epoch,descriptorSha256:s.descriptorSha256,rasterProfile,
   pigmentRgb8:decoded.envelope.pigmentRgb8,composition:decoded.envelope.composition,assets:material.assets,materialVersion:3 as const,material})
+}
+/** Standalone material4 metadata only. No attachment/BEGIN/read union activation. */
+export function canonicalStrokeSnapshotV4(value:unknown,epoch:number,rasterProfile:CanonicalStrokeRasterProfile):CanonicalStrokeSnapshotV4 {
+ const contract=canonicalStrokeRasterContract(rasterProfile)
+ if(!contract.genericSC)return fail()
+ const selectedProfile=contract.profile
+ const s=plainData(value,['layerId','brush','strokeId','boardEpoch','descriptorSha256','rasterProfile','pigmentRgb8','composition','assets','materialVersion','material'])
+ if(s.rasterProfile!==selectedProfile||s.materialVersion!==4||s.boardEpoch!==epoch||!integer(epoch)
+  ||!text(s.layerId)||!text(s.brush)||!text(s.strokeId)||typeof s.descriptorSha256!=='string'||!/^[a-f0-9]{64}$/.test(s.descriptorSha256))return fail()
+ const brush=/^brush:([a-z0-9-]+)@([1-9][0-9]*)$/.exec(s.brush)
+ if(!brush||!Number.isSafeInteger(Number(brush[2])))return fail()
+ // Snapshot metadata cannot smuggle frame-local expectedDrawCount/end selectors.
+ plainData(s.material,['version','assets','primarySource','primaryTexture','budget'])
+ const material=canonicalTexturedSourceMaterialContext(s.material)
+ if(material.primarySource.descriptorId!==brush[1]||material.primarySource.descriptorVersion!==Number(brush[2])||material.primarySource.descriptorSha256!==s.descriptorSha256)return fail()
+ const outer=s.assets
+ if(!Array.isArray(outer)||outer.length!==1||Object.getPrototypeOf(outer)!==Array.prototype||Reflect.ownKeys(outer).length!==2)return fail()
+ const d=Object.getOwnPropertyDescriptor(outer,'0')
+ if(!d||!Object.hasOwn(d,'value'))return fail()
+ const a=plainData(d.value,['id','size','x','y','width','height'])
+ for(const k of ['id','size','x','y','width','height'] as const)if(!Object.is(a[k],material.assets[0][k]))return fail()
+ const composition=plainData(s.composition,['mode','alphaDarken','outerResourceOpacity','outerBlend']),rgb=s.pigmentRgb8
+ if(!Array.isArray(rgb)||rgb.length!==3||Object.getPrototypeOf(rgb)!==Array.prototype||Reflect.ownKeys(rgb).length!==4)return fail()
+ const pigment=Object.freeze([0,1,2].map(i=>{const d=Object.getOwnPropertyDescriptor(rgb,String(i));if(!d||!Object.hasOwn(d,'value')||!Number.isInteger(d.value)||d.value<0||d.value>255)return fail();return d.value})) as unknown as readonly [number,number,number]
+ const probe=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},material)
+ const trusted={materialVersion:4 as const,rasterProfile:selectedProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:pigment,composition:composition as unknown as CanonicalStrokeComposition,material}
+ const decoded=decodeCanonicalStrokeFrame({version:2,rasterProfile:selectedProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:pigment,composition,materialPacked:probe.packed},trusted)
+ return Object.freeze({layerId:s.layerId,brush:s.brush,strokeId:s.strokeId,boardEpoch:epoch,descriptorSha256:s.descriptorSha256,rasterProfile:selectedProfile,
+  pigmentRgb8:decoded.envelope.pigmentRgb8,composition:decoded.envelope.composition,assets:material.assets,materialVersion:4 as const,material})
 }
 /** Pure decoder dispatch for an already normalized immutable snapshot. This is
  * not an authenticated delivery/read grant; material3 always carries top selector3. */

@@ -1,3 +1,4 @@
+import {canonicalFixedPrimaryTexturePin,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B} from '@grafetto/shared'
 import {expect,it,vi} from 'vitest'
 import {canonicalPrimaryTexturePin} from '@grafetto/shared'
 import {recordingGL} from '../../testing/brushPassTestUtils'
@@ -118,5 +119,15 @@ it('cleans both program variants and workspace if preparation is cancelled durin
  const s=fixture();try{const abort=new AbortController(),bytes=s.cpu.reservedBytes,cacheBytes=s.cache.bytes,shaderSource=s.gl.shaderSource.getMockImplementation()
   s.gl.shaderSource.mockImplementation((...args:unknown[])=>{abort.abort();return shaderSource?.(...args)})
   expect(s.pass.prepare(limits,s.companions,0,abort.signal)).toBe('cancelled');expect(s.cpu.reservedBytes).toBe(bytes);expect(s.cache.bytes).toBe(cacheBytes);expect(s.gl.deleteProgram).toHaveBeenCalledTimes(2)
+ }finally{s.close()}
+})
+
+it.each(['alphaDarken32FusedScalar','alphaDarkenBrowserFloat'] as const)('uses fixed S255 in the explicitly prepared %s texture variant',kind=>{
+ const s=fixture();try{
+  s.pass.prepare({width:16,height:16,operations:[kind],texturedOperations:[kind]},s.companions)
+  const pin=canonicalFixedPrimaryTexturePin({...s.pin,strength:'fixed-one-v1'},s.pattern.asset)
+  const base=s.request.source;if(base.kind!=='texturedMaskRgb')throw Error('Texture fixture required');const source={...base,pin,strengthU8:255},chosenOperation=kind==='alphaDarkenBrowserFloat'?{kind,control:{...operation.control,profile:B}}:operation
+  expect(()=>s.pass.drawSource({...s.request,source,operation:chosenOperation})).not.toThrow()
+  expect(()=>s.pass.drawSource({...s.request,source:{...source,strengthU8:128},operation:chosenOperation})).toThrow(/S255/)
  }finally{s.close()}
 })

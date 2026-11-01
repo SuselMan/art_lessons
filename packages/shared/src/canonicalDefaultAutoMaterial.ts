@@ -1,6 +1,6 @@
-import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,canonicalStrokeCoverageMatches,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
+import {canonicalStrokeRasterContract,CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,canonicalStrokeCoverageMatches,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
 import type { BrushDescriptor } from './brushes.js'
-import { extractDefaultAutoSourceDataCapability, extractSeededDensityDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability, canonicalSourceComposition } from './canonicalBrushCapability.js'
+import { extractCanonicalDefaultAutoFixedTextureCapability, extractDefaultAutoSourceDataCapability, extractSeededDensityDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability, canonicalSourceComposition } from './canonicalBrushCapability.js'
 import type { SourceDefaultAutoData, SourceGaussianAutoData } from './sourceStampData.js'
 import { sourceAutoGeometry } from './sourceAutoGeometry.js'
 
@@ -101,6 +101,23 @@ export function canonicalDefaultAutoSourceBinding(descriptor: BrushDescriptor, d
   const normalized = canonicalDefaultAutoStatic(result.data.source, result.data.brush.scale, result.data.brush.angle,coverageProfile)
   return canonicalDefaultAutoSourcePin({kind:'defaultAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,
     descriptorSha256, ...normalized, coverageProfile})
+}
+
+
+/** Verified caller supplies exact descriptor SHA/CAS metadata. This binds only
+ * original DefaultAuto geometry+coverage; no room/CAS-storage/execution grant.
+ * Old texture-free binding above remains unchanged and refuses this descriptor. */
+export function canonicalDefaultAutoFixedTextureSourceBinding(
+  descriptor:BrushDescriptor,descriptorSha256:string,coverageProfile:CanonicalAutoCoverageProfile,
+  pattern:Readonly<{id:string;size:number}>,rasterProfile:CanonicalStrokeRasterProfile,
+):CanonicalDefaultAutoSource {
+  if(coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||!canonicalStrokeRasterContract(rasterProfile).genericSC||!canonicalStrokeCoverageMatches(rasterProfile,coverageProfile)
+    ||!canonicalSourceComposition(descriptor,rasterProfile))throw new TypeError('Fixed DefaultAuto texture outer composition unavailable')
+  const result=extractCanonicalDefaultAutoFixedTextureCapability(descriptor,{pattern})
+  if(!result.supported||typeof descriptorSha256!=='string'||!/^[a-f0-9]{64}$/.test(descriptorSha256))throw new TypeError('Fixed DefaultAuto texture source capability unavailable')
+  const normalized=canonicalDefaultAutoStatic(result.data.source,result.data.brush.scale,result.data.brush.angle,coverageProfile)
+  return canonicalDefaultAutoSourcePin({kind:'defaultAuto',descriptorId:descriptor.id,descriptorVersion:descriptor.version,
+    descriptorSha256,...normalized,coverageProfile})
 }
 
 

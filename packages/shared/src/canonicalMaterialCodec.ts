@@ -1,7 +1,7 @@
 import {CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE} from './canonicalStrokeFrame.js'
 import { canonicalSoftAutoSourcePin, canonicalSoftAutoStatic, canonicalSoftAutoCost, type CanonicalSoftAutoSource, type CanonicalSoftAutoRecipe } from './canonicalSoftAutoMaterial.js'
 import { canonicalAutoCost, canonicalDefaultAutoStatic, canonicalDefaultAutoSourcePin, canonicalGaussianAutoStatic, canonicalGaussianAutoSourcePin, type CanonicalAutoRecipe, type CanonicalAutoSource } from './canonicalDefaultAutoMaterial.js'
-import { canonicalPrimaryTexturePin, type CanonicalPrimaryTexturePin } from './canonicalPrimaryTexture.js'
+import { canonicalPrimaryTexturePin, canonicalFixedPrimaryTexturePin, type CanonicalPrimaryTexturePin, type CanonicalFixedPrimaryTexturePin } from './canonicalPrimaryTexture.js'
 import { canonicalMaterialGeometryCost } from './canonicalMaterialGeometry.js'
 /** Pure, opt-in source-material transport. Not imported by the operation/wire API.
  * Fences are source INPUT framing, never native composite/reset commands.
@@ -116,17 +116,50 @@ export interface CanonicalMaterialBuildInputV3 extends Omit<CanonicalMaterialBui
   readonly masked:false
   readonly draws:readonly (Omit<CanonicalMaterialDrawV3,'definition'>&{readonly recipe:CanonicalMaterialRecipe & {readonly kind:'image'}})[]
 }
+/** Parse-only material4. Not an execution grant or active operation union.
+ * One textured-source binary family. The FIRST accepted subset will be
+ * DefaultAuto + fixed-one-v1; unknown source/strength discriminants fail closed.
+ * Requires unit1 CanonicalFixedPrimaryTexturePin; never widens pressure pin3. */
+export const CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE = 'canonical-textured-source-material-v4' as const
+export interface CanonicalMaterialContextV4 {
+  readonly version:4
+  /** Exactly one genuine pattern asset, including an empty probe/frame. */
+  readonly assets:readonly CanonicalMaterialAsset[]
+  readonly primarySource:Extract<CanonicalAutoSource,{readonly kind:'defaultAuto'}>
+  readonly primaryTexture:CanonicalFixedPrimaryTexturePin
+  readonly budget:CanonicalMaterialCost & {readonly drawPixels:number}
+  readonly expectedDrawCount?:number
+  readonly expectedStrokeEnd?:boolean
+}
+export interface CanonicalMaterialDrawV4 extends Omit<CanonicalMaterialDraw,'role'> {
+  readonly role:'primary'
+  /** Wire F64 slot is future-compatible; first fixed-only subset accepts +1 ONLY. */
+  readonly grainDepth:1
+}
+export interface CanonicalMaterialFrameV4 extends Omit<CanonicalMaterialFrame,'profile'|'definitions'|'draws'|'masked'> {
+  readonly profile:typeof CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE
+  readonly masked:false
+  readonly definitions:readonly Extract<CanonicalAutoRecipe,{readonly kind:'defaultAuto'}>[]
+  readonly draws:readonly CanonicalMaterialDrawV4[]
+}
+export interface CanonicalMaterialBuildInputV4 extends Omit<CanonicalMaterialBuildInput,'masked'|'draws'> {
+  readonly masked:false
+  readonly draws:readonly (Omit<CanonicalMaterialDrawV4,'definition'>&{
+    readonly recipe:Extract<CanonicalAutoRecipe,{readonly kind:'defaultAuto'}>})[]
+}
 export type AnyCanonicalMaterialContext = CanonicalMaterialContext | CanonicalMaterialContextV2
 export type AnyCanonicalMaterialFrame = CanonicalMaterialFrame | CanonicalMaterialFrameV2
 export type AnyCanonicalMaterialRecipe = CanonicalMaterialRecipe | CanonicalSourceMaterialRecipe
-type CodecContext=AnyCanonicalMaterialContext|CanonicalMaterialContextV3
-type CodecFrame=AnyCanonicalMaterialFrame|CanonicalMaterialFrameV3
-type CodecDraw=CanonicalMaterialDraw|CanonicalMaterialDrawV3
-type CodecInput=CanonicalMaterialBuildInput|CanonicalMaterialBuildInputV2|CanonicalMaterialBuildInputV3
+type CodecContext=AnyCanonicalMaterialContext|CanonicalMaterialContextV3|CanonicalMaterialContextV4
+type CodecFrame=AnyCanonicalMaterialFrame|CanonicalMaterialFrameV3|CanonicalMaterialFrameV4
+type CodecDraw=CanonicalMaterialDraw|CanonicalMaterialDrawV3|CanonicalMaterialDrawV4
+type CodecInput=CanonicalMaterialBuildInput|CanonicalMaterialBuildInputV2|CanonicalMaterialBuildInputV3|CanonicalMaterialBuildInputV4
 const isV3=(c:CodecContext):c is CanonicalMaterialContextV3=>'version'in c&&c.version===3
-const versioned=(c:CodecContext):c is CanonicalMaterialContextV2|CanonicalMaterialContextV3=>isV2(c)||isV3(c)
-const contextVersion=(c:CodecContext):1|2|3=>isV3(c)?3:isV2(c)?2:1
-const frameProfile=(version:1|2|3)=>version===1?CANONICAL_MATERIAL_PROFILE:version===2?CANONICAL_SOURCE_MATERIAL_PROFILE:CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE
+const isV4=(c:CodecContext):c is CanonicalMaterialContextV4=>'version'in c&&c.version===4
+const textured=(c:CodecContext):c is CanonicalMaterialContextV3|CanonicalMaterialContextV4=>isV3(c)||isV4(c)
+const versioned=(c:CodecContext):c is CanonicalMaterialContextV2|CanonicalMaterialContextV3|CanonicalMaterialContextV4=>isV2(c)||textured(c)
+const contextVersion=(c:CodecContext):1|2|3|4=>isV4(c)?4:isV3(c)?3:isV2(c)?2:1
+const frameProfile=(version:1|2|3|4)=>version===1?CANONICAL_MATERIAL_PROFILE:version===2?CANONICAL_SOURCE_MATERIAL_PROFILE:version===3?CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE:CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE
 const isV2 = (c:CodecContext):c is CanonicalMaterialContextV2 => 'version' in c && c.version===2
 const auto = (r:AnyCanonicalMaterialRecipe):r is CanonicalAutoRecipe | CanonicalSoftAutoRecipe => 'kind' in r && (r.kind==='defaultAuto'||r.kind==='gaussianAuto'||r.kind==='softAuto')
 function normalized(r:AnyCanonicalMaterialRecipe):AnyCanonicalMaterialRecipe {
@@ -173,6 +206,7 @@ function captureContext(c:CodecContext):CodecContext{
   const v=Object.getOwnPropertyDescriptor(c,'version')
   if(!v&&'version'in c)return fail()
   if(v&&!Object.hasOwn(v,'value'))return fail()
+  if(v?.value===4)return canonicalTexturedSourceMaterialContext(c)
   if(!v||v.value!==3)return c
   return canonicalPrimaryTextureMaterialContext(c)
 }
@@ -190,17 +224,45 @@ export function canonicalPrimaryTextureMaterialContext(value:unknown):CanonicalM
   Object.freeze(assets);Object.freeze(primarySource);Object.freeze(budget)
   return Object.freeze(captured)
 }
+const autoSourceFields=['kind','generator','shape','diameter','ratio','horizontalFade','verticalFade','antialias','spikes','randomness','density'] as const
+const autoPinFields=['kind','descriptorId','descriptorVersion','descriptorSha256','source','brushScale','brushAngle','coverageProfile'] as const
+function capturedDefaultAuto(value:unknown){
+  const p=ownRecord(value,autoPinFields),source=ownRecord(p.source,autoSourceFields)
+  // The existing pure pin owns static-domain normalization. Raw objects never
+  // reach it until all fields have been captured without invoking accessors.
+  const pin=canonicalDefaultAutoSourcePin({...p,source} as unknown as Extract<CanonicalAutoSource,{kind:'defaultAuto'}>)
+  if(pin.coverageProfile!== 'scalar-f64-fma-v1'&&pin.coverageProfile!=='neon64-f32-fma-v1'&&pin.coverageProfile!==CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE)return fail()
+  return pin
+}
+/** Closed, independent parser metadata. No grant, source evaluation or CAS fetch. */
+export function canonicalTexturedSourceMaterialContext(value:unknown):CanonicalMaterialContextV4 {
+  const p=ownRecord(value,['version','assets','primarySource','primaryTexture','budget'],['expectedDrawCount','expectedStrokeEnd'])
+  if(p.version!==4)return fail()
+  const assets=ownArray(p.assets,1,a=>ownRecord(a,['id','size','x','y','width','height'])) as unknown as CanonicalMaterialAsset[]
+  if(assets.length!==1)return fail()
+  const primarySource=capturedDefaultAuto(p.primarySource),budget=ownRecord(p.budget,['workUnits','outputBytes','drawPixels'])
+  const primaryTexture=canonicalFixedPrimaryTexturePin(p.primaryTexture,assets[0])
+  const captured={...p,assets,primarySource,primaryTexture,budget} as unknown as CanonicalMaterialContextV4
+  context(captured)
+  Object.freeze(assets[0]);Object.freeze(assets);Object.freeze(budget)
+  return Object.freeze(captured)
+}
 const imageFields=['kind','asset',...FLOATS,'width','height','mirrorH','mirrorV'] as const
-function captureTextureInput(value:unknown,framed:boolean):Record<string,unknown>{
+function captureTextureInput(value:unknown,framed:boolean,version:3|4=3):Record<string,unknown>{
   const p=ownRecord(value,framed?['profile','masked','entry','definitions','draws','fences']:['masked','entry','draws','fences'])
   const draws=ownArray(p.draws,800,d=>{
     const a=ownRecord(d,framed?['definition','role','x','y','opacity','flow','grainDepth']:['recipe','role','x','y','opacity','flow','grainDepth'])
-    if(!number(a.grainDepth,0,1))return fail()
-    return framed?a:{...a,recipe:ownRecord(a.recipe,imageFields)}
+    if(version===4?a.grainDepth!==1:!number(a.grainDepth,0,1))return fail()
+    return framed?a:{...a,recipe:version===4?captureAutoRecipe(a.recipe):ownRecord(a.recipe,imageFields)}
   })
   const fences=ownArray(p.fences,3*(draws.length+1)+1,f=>ownRecord(f,['at','kind'],['group']))
   const entry=ownRecord(p.entry,['phase'],['group'])
-  return {...p,entry,draws,fences,...framed?{definitions:ownArray(p.definitions,draws.length,d=>ownRecord(d,imageFields))}:{}}
+  return {...p,entry,draws,fences,...framed?{definitions:ownArray(p.definitions,draws.length,d=>version===4?captureAutoRecipe(d):ownRecord(d,imageFields))}:{}}
+}
+function captureAutoRecipe(value:unknown):Record<string,unknown>{
+  const r=ownRecord(value,['kind','source','coverageProfile',...FLOATS,'width','height','mirrorH','mirrorV'])
+  if(r.kind!=='defaultAuto')return fail()
+  return {...r,source:Object.freeze(ownRecord(r.source,autoSourceFields))}
 }
 /** Closed own-data ordered identities; availability alone is never a role grant. */
 export function canonicalImageFrameIds(value:unknown,primary:string,ids:ReadonlySet<string>):readonly string[] {
@@ -222,6 +284,11 @@ function context(c:CodecContext):void {
     ||c.expectedDrawCount!==undefined&&!integer(c.expectedDrawCount,0,800)||c.expectedStrokeEnd!==undefined&&typeof c.expectedStrokeEnd!=='boolean')fail()
   const ids=new Set<string>()
   for(const a of c.assets){keys(a,['id','size','x','y','width','height']);if(!assetId(a.id)||!integer(a.size,1,4096)||!integer(a.width,1,4096)||!integer(a.height,1,4096)||a.width*a.height>1048576||!integer(a.x,0,a.size-a.width)||!integer(a.y,0,a.size-a.height)||ids.has(a.id))fail();ids.add(a.id)}
+  if(isV4(c)){
+    if(c.assets.length!==1||c.primarySource.kind!=='defaultAuto'||c.primaryTexture.asset!==c.assets[0].id||c.primaryTexture.strength!=='fixed-one-v1')fail()
+    capturedDefaultAuto(c.primarySource)
+    return
+  }
   if(isV3(c)){
     if(c.assets.length!==2||c.primarySource.kind!=='image'||c.primarySource.asset!==c.assets[0].id||c.primaryTexture.asset!==c.assets[1].id
       ||!number(c.primarySource.brushScale,Number.MIN_VALUE,1e6)||!number(c.primarySource.brushAngle,-1e6,1e6))fail()
@@ -264,7 +331,10 @@ function recipe(r:AnyCanonicalMaterialRecipe,c:CodecContext):CanonicalMaterialCo
     ||!number(r.brushAngle,-1e6,1e6)||!number(r.rotation,-1e6,1e6)||!number(r.subX,0,1)||r.subX===1||!number(r.subY,0,1)||r.subY===1
     ||typeof r.mirrorH!=='boolean'||typeof r.mirrorV!=='boolean')fail()
   let cost:CanonicalMaterialCost
-  if(auto(r)) {
+  if(isV4(c)) {
+    if(!auto(r)||r.kind!=='defaultAuto')return fail()
+    cost=canonicalAutoCost(r,c.primarySource)
+  } else if(auto(r)) {
     if(!isV2(c))return fail()
     if(r.kind==='softAuto') {
       const source=r.sourceSlot===0?c.primarySource:r.sourceSlot===1?c.maskSource:undefined
@@ -291,6 +361,7 @@ function recipe(r:AnyCanonicalMaterialRecipe,c:CodecContext):CanonicalMaterialCo
   return cost
 }
 function roleMatches(r:AnyCanonicalMaterialRecipe,role:'primary'|'mask',c:CodecContext):boolean {
+  if(isV4(c)){if(role!=='primary'||!auto(r)||r.kind!=='defaultAuto')return false;try{canonicalAutoCost(r,c.primarySource);return true}catch{return false}}
   if(isV3(c))return role==='primary'&&!auto(r)&&r.asset===c.primarySource.asset&&Object.is(r.brushScale,c.primarySource.brushScale)&&Object.is(r.brushAngle,c.primarySource.brushAngle)
   if(!isV2(c))return !auto(r)&&(role==='primary'
     ?c.primaryImageFrames?c.primaryImageFrames.includes(r.asset):r.asset===c.primaryAsset
@@ -320,7 +391,7 @@ function recipeKey(r:AnyCanonicalMaterialRecipe):string {
   return identity+(auto(r)&&r.kind==='defaultAuto'&&r.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE?':density'+r.source.density:'')+':'+r.width+':'+r.height+':'+Number(r.mirrorH)+Number(r.mirrorV)+':'+FLOATS.map(k=>{view.setFloat64(0,r[k],true);return view.getUint32(0,true).toString(16).padStart(8,'0')+view.getUint32(4,true).toString(16).padStart(8,'0')}).join('')
 }
 interface FrameReader {
-  readonly version:1|2|3
+  readonly version:1|2|3|4
   readonly masked:boolean; readonly entry:CanonicalMaterialEntry; readonly definitions:number;readonly draws:number;readonly fences:number
   definition(index:number):AnyCanonicalMaterialRecipe
   draw(index:number):CodecDraw
@@ -330,7 +401,7 @@ interface FrameReader {
  * are allocated until all costs and framing have passed. */
 function preflight(r:FrameReader,c:CodecContext):void {
   context(c);if(r.version!==contextVersion(c))fail();checkedCounts(r.definitions,r.draws,r.fences);entry(r.entry)
-  if(typeof r.masked!=='boolean'||r.masked&&(isV3(c)|| (isV2(c)?c.maskSource===undefined:c.maskAsset===undefined))||c.expectedDrawCount!==undefined&&r.draws!==c.expectedDrawCount)fail()
+  if(typeof r.masked!=='boolean'||r.masked&&(textured(c)|| (isV2(c)?c.maskSource===undefined:c.maskAsset===undefined))||c.expectedDrawCount!==undefined&&r.draws!==c.expectedDrawCount)fail()
   const densityContext=isV2(c)&&c.primarySource.kind==='defaultAuto'&&c.primarySource.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
   if(densityContext&&r.masked)fail()
   let work=0,output=0,drawPixels=0,nextDefinition=0
@@ -364,8 +435,8 @@ function preflight(r:FrameReader,c:CodecContext):void {
       fi++
     }
     if(at===r.draws)break
-    const d=r.draw(at);keys(d,['definition','role','x','y','opacity','flow',...r.version===3?['grainDepth']:[]])
-    if(r.version===3&&(d.role!=='primary'||!('grainDepth'in d)||!number(d.grainDepth,0,1)))fail()
+    const d=r.draw(at);keys(d,['definition','role','x','y','opacity','flow',...r.version>=3?['grainDepth']:[]])
+    if(r.version>=3&&(d.role!=='primary'||!('grainDepth'in d)||(r.version===4?d.grainDepth!==1:!number(d.grainDepth,0,1))))fail()
     if(densityContext&&d.role!=='primary')fail()
     if(!integer(d.definition,0,r.definitions-1)||!['primary','mask'].includes(d.role)||d.role!==phase||d.role==='mask'&&!r.masked
       ||!integer(d.x,-1e8,1e8)||!integer(d.y,-1e8,1e8)||!number(d.opacity,0,1)||!number(d.flow,0,1))fail()
@@ -377,7 +448,7 @@ function preflight(r:FrameReader,c:CodecContext):void {
       if(!Number.isSafeInteger(work)||!Number.isSafeInteger(output)||work>c.budget.workUnits||output>c.budget.outputBytes)fail()
     }
     // V3 texture lookup/subtract is paid for every draw, including copy hits.
-    if(r.version===3){work+=canonicalPrimaryTextureDrawWork(def.width,def.height);if(!Number.isSafeInteger(work)||work>c.budget.workUnits)fail()}
+    if(r.version>=3){work+=canonicalPrimaryTextureDrawWork(def.width,def.height);if(!Number.isSafeInteger(work)||work>c.budget.workUnits)fail()}
     drawPixels+=def.width*def.height
     if(!Number.isSafeInteger(drawPixels)||drawPixels>c.budget.drawPixels)fail()
   }
@@ -385,14 +456,24 @@ function preflight(r:FrameReader,c:CodecContext):void {
 }
 function localReader(f:CodecFrame):FrameReader {
   keys(f,['profile','masked','entry','definitions','draws','fences'])
-  if(![CANONICAL_MATERIAL_PROFILE,CANONICAL_SOURCE_MATERIAL_PROFILE,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE].includes(f.profile)||!Array.isArray(f.definitions)||!Array.isArray(f.draws)||!Array.isArray(f.fences))fail()
-  return{version:f.profile===CANONICAL_MATERIAL_PROFILE?1:f.profile===CANONICAL_SOURCE_MATERIAL_PROFILE?2:3,masked:f.masked,entry:f.entry,definitions:f.definitions.length,draws:f.draws.length,fences:f.fences.length,definition:i=>f.definitions[i],draw:i=>f.draws[i],fence:i=>f.fences[i]}
+  if(![CANONICAL_MATERIAL_PROFILE,CANONICAL_SOURCE_MATERIAL_PROFILE,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE].includes(f.profile)||!Array.isArray(f.definitions)||!Array.isArray(f.draws)||!Array.isArray(f.fences))fail()
+  return{version:f.profile===CANONICAL_MATERIAL_PROFILE?1:f.profile===CANONICAL_SOURCE_MATERIAL_PROFILE?2:f.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE?3:4,masked:f.masked,entry:f.entry,definitions:f.definitions.length,draws:f.draws.length,fences:f.fences.length,definition:i=>f.definitions[i],draw:i=>f.draws[i],fence:i=>f.fences[i]}
 }
 /** Independent closed V3 DTO capture for actual prepared consumers. No packing,
  * source grant, pixel work or cross-version projection. */
 export function captureCanonicalPrimaryTextureFrame(value:unknown,context:CanonicalMaterialContextV3):CanonicalMaterialFrameV3 {
   const c=canonicalPrimaryTextureMaterialContext(context)
   const f=captureTextureInput(value,true) as unknown as CanonicalMaterialFrameV3
+  preflight(localReader(f),c)
+  Object.freeze(f.entry)
+  for(const records of [f.definitions,f.draws,f.fences])for(const record of records)Object.freeze(record)
+  Object.freeze(f.definitions);Object.freeze(f.draws);Object.freeze(f.fences)
+  return Object.freeze(f)
+}
+/** Independent bounded own-data frame capture; no repacking or grant. */
+export function captureCanonicalTexturedSourceFrame(value:unknown,context:CanonicalMaterialContextV4):CanonicalMaterialFrameV4 {
+  const c=canonicalTexturedSourceMaterialContext(context)
+  const f=captureTextureInput(value,true,4) as unknown as CanonicalMaterialFrameV4
   preflight(localReader(f),c)
   Object.freeze(f.entry)
   for(const records of [f.definitions,f.draws,f.fences])for(const record of records)Object.freeze(record)
@@ -406,14 +487,15 @@ export function packCanonicalMaterial(f:CanonicalMaterialFrame,c:CanonicalMateri
 export function packCanonicalMaterial(f:CanonicalMaterialFrameV2,c:CanonicalMaterialContextV2):string
 export function packCanonicalMaterial(f:AnyCanonicalMaterialFrame,c:AnyCanonicalMaterialContext):string
 export function packCanonicalMaterial(f:CanonicalMaterialFrameV3,c:CanonicalMaterialContextV3):string
+export function packCanonicalMaterial(f:CanonicalMaterialFrameV4,c:CanonicalMaterialContextV4):string
 export function packCanonicalMaterial(f:CodecFrame,c:CodecContext):string {
   c=captureContext(c)
-  if(isV3(c))f=captureTextureInput(f,true) as unknown as CanonicalMaterialFrameV3
+  if(textured(c))f=captureTextureInput(f,true,isV4(c)?4:3) as unknown as CanonicalMaterialFrameV3|CanonicalMaterialFrameV4
   const r=localReader(f);preflight(r,c)
-  const ids:string[]=isV3(c)?c.assets.map(a=>a.id):[]
+  const ids:string[]=textured(c)?c.assets.map(a=>a.id):[]
   for(const d of f.definitions)if(!auto(d)&&!ids.includes(d.asset))ids.push(d.asset)
   if(ids.length>2)fail()
-  const definitionBytes=r.version===1?DEFINITION:DEFINITION2,drawBytes=r.version===3?DRAW3:DRAW
+  const definitionBytes=r.version===1?DEFINITION:DEFINITION2,drawBytes=r.version>=3?DRAW3:DRAW
   const length=HEADER+ids.length*ASSET+r.definitions*definitionBytes+r.draws*drawBytes+r.fences*FENCE
   if(length>CANONICAL_MATERIAL_LIMITS.rawBytes)fail()
   const bytes=new Uint8Array(length),v=new DataView(bytes.buffer)
@@ -437,7 +519,7 @@ export function packCanonicalMaterial(f:CodecFrame,c:CodecContext):string {
     }
     offset+=definitionBytes
   }
-  for(const d of f.draws){v.setUint16(offset,d.definition,true);bytes[offset+2]=Number(d.role==='mask');v.setInt32(offset+4,d.x,true);v.setInt32(offset+8,d.y,true);v.setFloat64(offset+12,d.opacity,true);v.setFloat64(offset+20,d.flow,true);if(r.version===3){if(!('grainDepth'in d))return fail();v.setFloat64(offset+32,d.grainDepth,true)}offset+=drawBytes}
+  for(const d of f.draws){v.setUint16(offset,d.definition,true);bytes[offset+2]=Number(d.role==='mask');v.setInt32(offset+4,d.x,true);v.setInt32(offset+8,d.y,true);v.setFloat64(offset+12,d.opacity,true);v.setFloat64(offset+20,d.flow,true);if(r.version>=3){if(!('grainDepth'in d))return fail();v.setFloat64(offset+32,d.grainDepth,true)}offset+=drawBytes}
   for(const fence of f.fences){v.setUint16(offset,fence.at,true);bytes[offset+2]=KINDS.indexOf(fence.kind);v.setFloat64(offset+4,fence.kind==='gestureEnd'?0:fence.group===0?0:fence.group,true);offset+=FENCE}
   return r.version+'|'+base64(bytes)
 }
@@ -448,18 +530,19 @@ export function unpackCanonicalMaterial(text:string,c:CanonicalMaterialContext):
 export function unpackCanonicalMaterial(text:string,c:CanonicalMaterialContextV2):CanonicalMaterialFrameV2
 export function unpackCanonicalMaterial(text:string,c:AnyCanonicalMaterialContext):AnyCanonicalMaterialFrame
 export function unpackCanonicalMaterial(text:string,c:CanonicalMaterialContextV3):CanonicalMaterialFrameV3
+export function unpackCanonicalMaterial(text:string,c:CanonicalMaterialContextV4):CanonicalMaterialFrameV4
 export function unpackCanonicalMaterial(text:string,c:CodecContext):CodecFrame {
   c=captureContext(c)
   context(c)
-  if(typeof text!=='string'||text.length>CANONICAL_MATERIAL_LIMITS.textBytes||!/^([123])\|/.test(text))fail()
+  if(typeof text!=='string'||text.length>CANONICAL_MATERIAL_LIMITS.textBytes||!/^([1234])\|/.test(text))fail()
   const b64=text.slice(2)
   if(!b64.length||b64.length%4||!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(b64))fail()
   const raw=atob(b64)
   if(raw.length<HEADER||raw.length>CANONICAL_MATERIAL_LIMITS.rawBytes||btoa(raw)!==b64)fail()
   const u8=(i:number)=>raw.charCodeAt(i),u16=(i:number)=>u8(i)+u8(i+1)*256
-  if(raw.slice(0,4)!=='CMAT'||(u8(4)!==1&&u8(4)!==2&&u8(4)!==3)||String(u8(4))!==text[0]||u8(5)>2||u8(6)>2||u8(7)>1||u16(14)!==0)fail()
-  const version=u8(4) as 1|2|3,definitionBytes=version===1?DEFINITION:DEFINITION2,drawBytes=version===3?DRAW3:DRAW
-  if(version!==contextVersion(c)||version===3&&(u8(6)!==2||u8(7)!==0))fail()
+  if(raw.slice(0,4)!=='CMAT'||(u8(4)!==1&&u8(4)!==2&&u8(4)!==3&&u8(4)!==4)||String(u8(4))!==text[0]||u8(5)>2||u8(6)>2||u8(7)>1||u16(14)!==0)fail()
+  const version=u8(4) as 1|2|3|4,definitionBytes=version===1?DEFINITION:DEFINITION2,drawBytes=version>=3?DRAW3:DRAW
+  if(version!==contextVersion(c)||version===3&&(u8(6)!==2||u8(7)!==0)||version===4&&(u8(6)!==1||u8(7)!==0))fail()
   const ac=u8(6),dc=u16(8),rc=u16(10),fc=u16(12)
   checkedCounts(dc,rc,fc)
   if(raw.length!==HEADER+ac*ASSET+dc*definitionBytes+rc*drawBytes+fc*FENCE)fail()
@@ -467,7 +550,7 @@ export function unpackCanonicalMaterial(text:string,c:CodecContext):CodecFrame {
   const assetOffset=HEADER,defOffset=assetOffset+ac*ASSET,drawOffset=defOffset+dc*definitionBytes,fenceOffset=drawOffset+rc*drawBytes
   const id=(i:number):string=>{if(!integer(i,0,ac-1))fail();let out='asset:';for(let j=0;j<32;j++)out+=bytes[assetOffset+i*ASSET+j].toString(16).padStart(2,'0');return out}
   const seenAssets=new Set<string>()
-  for(let i=0;i<ac;i++){const o=assetOffset+i*ASSET,a=asset(c,id(i));if(seenAssets.has(a.id)||v.getUint16(o+32,true)!==a.width||v.getUint16(o+34,true)!==a.height||v.getUint16(o+36,true)!==a.x||v.getUint16(o+38,true)!==a.y)fail();if(isV3(c)&&a.id!==c.assets[i].id)fail();seenAssets.add(a.id)}
+  for(let i=0;i<ac;i++){const o=assetOffset+i*ASSET,a=asset(c,id(i));if(seenAssets.has(a.id)||v.getUint16(o+32,true)!==a.width||v.getUint16(o+34,true)!==a.height||v.getUint16(o+36,true)!==a.x||v.getUint16(o+38,true)!==a.y)fail();if(textured(c)&&a.id!==c.assets[i].id)fail();seenAssets.add(a.id)}
   const entryGroup=v.getFloat64(16,true)
   if(u8(5)===0&&(entryGroup!==0||Object.is(entryGroup,-0))||u8(5)!==0&&(!integer(entryGroup,0,Number.MAX_SAFE_INTEGER)||Object.is(entryGroup,-0)))fail()
   const e:CanonicalMaterialEntry=u8(5)===0?{phase:'between'}:{phase:u8(5)===1?'primary':'mask',group:entryGroup}
@@ -475,6 +558,7 @@ export function unpackCanonicalMaterial(text:string,c:CodecContext):CodecFrame {
   for(let i=0;i<dc;i++){
     const o=defOffset+i*definitionBytes,tag=version===1?0:u8(o)
     if(version===3&&(tag!==0||u8(o+1)!==0||u8(o+2)>3||u8(o+3)!==0))fail()
+    if(version===4&&((tag!==1&&tag!==2)||(u8(o+1)!==1&&u8(o+1)!==2&&u8(o+1)!==3)||u8(o+2)>7||u8(o+3)!==0))fail()
     if(version===2&&(tag>4||u8(o+1)>(tag===1||tag===2?4:tag?3:0)||tag&&u8(o+1)===0||u8(o+2)>(tag&&tag!==4?7:3)))fail()
     if(version===1&& (u8(o+1)>3||u16(o+2)!==0))fail()
     if(version===2&&u8(o+1)===4&&(!isV2(c)||c.primarySource.kind!=='defaultAuto'||c.primarySource.coverageProfile!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||c.maskSource!==undefined||u8(7)!==0))fail()
@@ -482,7 +566,7 @@ export function unpackCanonicalMaterial(text:string,c:CodecContext):CodecFrame {
     else {const ai=version===1?u8(o):u8(o+3);if(ai>nextAsset||ai>=ac)fail();if(ai===nextAsset)nextAsset++}
     if(version!==1&&!tag)for(let j=64;j<96;j++)if(u8(o+j))fail()
   }
-  if(version!==3&&nextAsset!==ac)fail()
+  if(version!==3&&version!==4&&nextAsset!==ac)fail()
   const readDefinition=(i:number):AnyCanonicalMaterialRecipe=>{
     const o=defOffset+i*definitionBytes,tag=version===1?0:u8(o),flags=u8(o+(version===1?1:2))
     const common={width:u16(o+4),height:u16(o+6),mirrorH:!!(flags&1),mirrorV:!!(flags&2)}
@@ -511,7 +595,7 @@ export function unpackCanonicalMaterial(text:string,c:CodecContext):CodecFrame {
     return version===1?image:{...image,kind:'image'}
   }
 
-  const readDraw=(i:number):CodecDraw=>{const o=drawOffset+i*drawBytes;if(u8(o+2)>1||u8(o+3)||v.getUint32(o+28,true))fail();return{definition:u16(o),role:u8(o+2)?'mask':'primary',x:v.getInt32(o+4,true),y:v.getInt32(o+8,true),opacity:v.getFloat64(o+12,true),flow:v.getFloat64(o+20,true),...version===3?{grainDepth:v.getFloat64(o+32,true)}:{}}}
+  const readDraw=(i:number):CodecDraw=>{const o=drawOffset+i*drawBytes;if(u8(o+2)>1||u8(o+3)||v.getUint32(o+28,true))fail();return{definition:u16(o),role:u8(o+2)?'mask':'primary',x:v.getInt32(o+4,true),y:v.getInt32(o+8,true),opacity:v.getFloat64(o+12,true),flow:v.getFloat64(o+20,true),...version>=3?{grainDepth:v.getFloat64(o+32,true)}:{}}}
   const readFence=(i:number):CanonicalMaterialFence=>{const o=fenceOffset+i*FENCE,tag=u8(o+2),group=v.getFloat64(o+4,true);if(tag>3||u8(o+3)||v.getUint32(o+12,true)||Object.is(group,-0))fail();if(tag===3){if(group!==0)fail();return{at:u16(o),kind:'gestureEnd'}}return{at:u16(o),kind:KINDS[tag] as 'segmentBegin'|'primaryEnd'|'segmentEnd',group}}
   preflight({version,masked:!!u8(7),entry:e,definitions:dc,draws:rc,fences:fc,definition:readDefinition,draw:readDraw,fence:readFence},c)
   return{profile:frameProfile(version),masked:!!u8(7),entry:e,definitions:Array.from({length:dc},(_,i)=>readDefinition(i)),draws:Array.from({length:rc},(_,i)=>readDraw(i)),fences:Array.from({length:fc},(_,i)=>readFence(i))} as CodecFrame
@@ -532,25 +616,31 @@ export function buildCanonicalMaterial(input:CanonicalMaterialBuildInput,c:Canon
 export function buildCanonicalMaterial(input:CanonicalMaterialBuildInputV2,c:CanonicalMaterialContextV2):{packed:string;frame:CanonicalMaterialFrameV2}
 export function buildCanonicalMaterial(input:CanonicalMaterialBuildInput|CanonicalMaterialBuildInputV2,c:AnyCanonicalMaterialContext):{packed:string;frame:AnyCanonicalMaterialFrame}
 export function buildCanonicalMaterial(input:CanonicalMaterialBuildInputV3,c:CanonicalMaterialContextV3):{packed:string;frame:CanonicalMaterialFrameV3}
+export function buildCanonicalMaterial(input:CanonicalMaterialBuildInputV4,c:CanonicalMaterialContextV4):{packed:string;frame:CanonicalMaterialFrameV4}
 export function buildCanonicalMaterial(input:CodecInput,c:CodecContext):{packed:string;frame:CodecFrame} {
   c=captureContext(c)
-  if(isV3(c))input=captureTextureInput(input,false) as unknown as CanonicalMaterialBuildInputV3
+  if(textured(c))input=captureTextureInput(input,false,isV4(c)?4:3) as unknown as CanonicalMaterialBuildInputV3|CanonicalMaterialBuildInputV4
   keys(input,['masked','entry','draws','fences'])
   if(!input||!Array.isArray(input.draws)||!Array.isArray(input.fences))fail()
   checkedCounts(0,input.draws.length,input.fences.length);context(c)
   // Validate every input recipe and costs BEFORE allocating dictionary/record arrays.
   let work=0,output=0,drawPixels=0
   const known=new Set<string>()
-  for(const d of input.draws){keys(d,['recipe','role','x','y','opacity','flow',...isV3(c)?['grainDepth']:[]]);const saved=normalized(d.recipe),cost=recipe(saved,c),key=recipeKey(saved);if(!known.has(key)||auto(saved)&&saved.kind==='defaultAuto'&&saved.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE){known.add(key);work+=cost.workUnits;output+=cost.outputBytes}if(isV3(c))work+=canonicalPrimaryTextureDrawWork(saved.width,saved.height);drawPixels+=d.recipe.width*d.recipe.height;if(!Number.isSafeInteger(work)||!Number.isSafeInteger(output)||!Number.isSafeInteger(drawPixels)||work>c.budget.workUnits||output>c.budget.outputBytes||drawPixels>c.budget.drawPixels)fail()}
+  for(const d of input.draws){keys(d,['recipe','role','x','y','opacity','flow',...textured(c)?['grainDepth']:[]]);const saved=normalized(d.recipe),cost=recipe(saved,c),key=recipeKey(saved);if(!known.has(key)||auto(saved)&&saved.kind==='defaultAuto'&&saved.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE){known.add(key);work+=cost.workUnits;output+=cost.outputBytes}if(textured(c))work+=canonicalPrimaryTextureDrawWork(saved.width,saved.height);drawPixels+=d.recipe.width*d.recipe.height;if(!Number.isSafeInteger(work)||!Number.isSafeInteger(output)||!Number.isSafeInteger(drawPixels)||work>c.budget.workUnits||output>c.budget.outputBytes||drawPixels>c.budget.drawPixels)fail()}
   const definitions:AnyCanonicalMaterialRecipe[]=[],draws:CodecDraw[]=[],index=new Map<string,number>()
-  for(const d of input.draws){const saved=normalized(d.recipe),key=recipeKey(saved);let i=index.get(key);if(i===undefined){i=definitions.length;index.set(key,i);definitions.push({...saved})}draws.push({definition:i,role:d.role,x:d.x,y:d.y,opacity:d.opacity,flow:d.flow,...isV3(c)&&'grainDepth'in d?{grainDepth:d.grainDepth}:{}})}
+  for(const d of input.draws){const saved=normalized(d.recipe),key=recipeKey(saved);let i=index.get(key);if(i===undefined){i=definitions.length;index.set(key,i);definitions.push({...saved})}draws.push({definition:i,role:d.role,x:d.x,y:d.y,opacity:d.opacity,flow:d.flow,...textured(c)&&'grainDepth'in d?{grainDepth:d.grainDepth}:{}})}
   const frame={profile:frameProfile(contextVersion(c)),masked:input.masked,entry:input.entry,definitions,draws,fences:input.fences} as CodecFrame
+  if(isV4(c)){
+    if(frame.profile!==CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE)return fail()
+    const packed=packCanonicalMaterial(frame,c)
+    return{packed,frame:unpackCanonicalMaterial(packed,c)}
+  }
   if(isV3(c)){
     if(frame.profile!==CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE)return fail()
     const packed=packCanonicalMaterial(frame,c)
     return{packed,frame:unpackCanonicalMaterial(packed,c)}
   }
-  if(frame.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE)return fail()
+  if(frame.profile===CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE||frame.profile===CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE)return fail()
   const packed=packCanonicalMaterial(frame,c)
   return{packed,frame:unpackCanonicalMaterial(packed,c)}
 }

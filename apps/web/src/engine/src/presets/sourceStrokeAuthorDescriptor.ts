@@ -1,5 +1,5 @@
 import { SOURCE_LONG_TIME } from '../dabs/sourceDistanceTiming'
-import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, extractCanonicalPrimaryTextureCapability, extractSeededDensityDefaultAutoSourceDataCapability, extractCanonicalSinglePngCapability, extractCanonicalIncrementalImagePipeCapability, extractCanonicalRandomImagePipeCapability, extractDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability, extractSoftAutoSourceDataCapability, type BrushDescriptor, type SourceStampCurveData } from '@grafetto/shared'
+import { type CanonicalStrokeRasterProfile, canonicalTexturedSourceMaterialContext, canonicalDefaultAutoFixedTextureSourceBinding, extractCanonicalDefaultAutoFixedTextureCapability, type CanonicalMaterialContextV4, CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, extractCanonicalPrimaryTextureCapability, extractSeededDensityDefaultAutoSourceDataCapability, extractCanonicalSinglePngCapability, extractCanonicalIncrementalImagePipeCapability, extractCanonicalRandomImagePipeCapability, extractDefaultAutoSourceDataCapability, extractGaussianAutoSourceDataCapability, extractSoftAutoSourceDataCapability, type BrushDescriptor, type SourceStampCurveData } from '@grafetto/shared'
 import { sourceCurveIsIdentity, type SourceCurvePolynomial } from './sourceCurve'
 import { compileSourceOptionProgram, type SourceOptionProgramInput } from './sourceOptionProgram'
 import { SourceStrokeAuthor, type SourceAuthorRoleProgram, type SourceStrokeAuthorProgram } from './sourceStrokeAuthor'
@@ -15,6 +15,8 @@ export interface SourceAuthorDescriptorContext {
   readonly coverageProfile?: 'scalar-f64-fma-v1' | 'scalar-bionic-f64-fma-v1' | 'neon64-f32-fma-v1' | 'browser-number-coverage-v1' | typeof CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE
   /** Explicit material3 semantic path; not a room/BEGIN permission. */
   readonly primaryTexture?:{readonly pattern:{readonly id:string;readonly size:number}}
+  /** Explicit captured material4; semantic capability alone is insufficient. */
+  readonly fixedPrimaryTexture?:{readonly context:CanonicalMaterialContextV4;readonly rasterProfile:CanonicalStrokeRasterProfile}
   readonly asset?: { readonly id: string; readonly size: number }
   readonly assets?: readonly {readonly id:string;readonly size:number}[]
   /** Explicit compiler capability; absence rejects nonidentity curves.
@@ -33,10 +35,25 @@ export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, contex
   if(seededDensity&&(!data||data.version!==2||data.source.kind!=='defaultAuto'))return reject('seeded-density-default-auto-only')
   const pipe=descriptor.tip.animation?.mode==='incremental'||descriptor.tip.animation?.mode==='random'
   const texture=context.primaryTexture
+  let fixed:CanonicalMaterialContextV4|undefined
+  try{if(context.fixedPrimaryTexture)fixed=canonicalTexturedSourceMaterialContext(context.fixedPrimaryTexture.context)}catch{return reject('invalid-fixed-texture-context')}
+  if(fixed&&(texture||!auto||soft||gaussian||pipe||context.asset||context.assets||seededDensity))return reject('fixed-texture-default-auto-only')
   if(texture&&(auto||pipe||!context.asset))return reject('primary-texture-image-only')
-  const material = texture&&context.asset ? extractCanonicalPrimaryTextureCapability(descriptor,{primary:context.asset,pattern:texture.pattern}) : soft ? extractSoftAutoSourceDataCapability(descriptor) : gaussian ? extractGaussianAutoSourceDataCapability(descriptor) : auto ? (seededDensity?extractSeededDensityDefaultAutoSourceDataCapability(descriptor):extractDefaultAutoSourceDataCapability(descriptor))
+  const material = fixed ? extractCanonicalDefaultAutoFixedTextureCapability(descriptor,{pattern:{id:fixed.assets[0].id,size:fixed.assets[0].size}}) : texture&&context.asset ? extractCanonicalPrimaryTextureCapability(descriptor,{primary:context.asset,pattern:texture.pattern}) : soft ? extractSoftAutoSourceDataCapability(descriptor) : gaussian ? extractGaussianAutoSourceDataCapability(descriptor) : auto ? (seededDensity?extractSeededDensityDefaultAutoSourceDataCapability(descriptor):extractDefaultAutoSourceDataCapability(descriptor))
     : pipe && context.assets ? (descriptor.tip.animation!.mode==='random'?extractCanonicalRandomImagePipeCapability(descriptor,context.assets):extractCanonicalIncrementalImagePipeCapability(descriptor,context.assets)) : context.asset ? extractCanonicalSinglePngCapability(descriptor, context.asset) : reject('image-source-asset-required')
   if (!material.supported) return material
+  if(fixed){
+    try{
+      if(context.coverageProfile!==fixed.primarySource.coverageProfile)return reject('fixed-texture-source-context-mismatch')
+      const expected=canonicalDefaultAutoFixedTextureSourceBinding(descriptor,fixed.primarySource.descriptorSha256,fixed.primarySource.coverageProfile,{id:fixed.assets[0].id,size:fixed.assets[0].size},context.fixedPrimaryTexture!.rasterProfile)
+      const actual=fixed.primarySource
+      if(!['descriptorId','descriptorVersion','descriptorSha256','brushScale','brushAngle','coverageProfile'].every(k=>Object.is(Reflect.get(expected,k),Reflect.get(actual,k)))
+        ||!Object.keys(expected.source).every(k=>Object.is(Reflect.get(expected.source,k),Reflect.get(actual.source,k))))return reject('fixed-texture-source-context-mismatch')
+      if(!('capability'in material)||!('primaryTexture'in material.capability))return reject('fixed-texture-pattern-context-mismatch')
+      const primaryTexture=material.capability.primaryTexture
+      if(!Object.keys(primaryTexture).every(k=>Object.is(Reflect.get(primaryTexture,k),Reflect.get(fixed.primaryTexture,k))))return reject('fixed-texture-pattern-context-mismatch')
+    }catch{return reject('fixed-texture-source-context-mismatch')}
+  }
   if(auto && !(gaussian?['scalar-bionic-f64-fma-v1','neon64-f32-fma-v1','browser-number-coverage-v1']:['scalar-f64-fma-v1','neon64-f32-fma-v1','browser-number-coverage-v1',CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE]).includes(context.coverageProfile??''))return reject('explicit-auto-coverage-profile-required')
   if (!Number.isFinite(context.lodScale) || context.lodScale <= 0 || typeof context.colorIdentity !== 'string' || !context.colorIdentity.length
     || context.scale !== undefined && (!Number.isFinite(context.scale) || context.scale <= 0)) return reject('invalid-author-context')
@@ -72,15 +89,15 @@ export function sourceStrokeAuthorDescriptor(descriptor: BrushDescriptor, contex
     const brush={...data.brush,scale:context.scale ?? data.brush.scale}
     const role:SourceAuthorRoleProgram={id:'primary',...(pipe?{imagePipe:{mode:descriptor.tip.animation!.mode,frames:descriptor.tip.animation!.frames}}:{}),options:programs as unknown as SourceAuthorRoleProgram['options'],brush,
       ...(data.version===2 && data.source.kind==='softAuto'?{geometry:{kind:'softAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-f64-fma-v1'|'neon64-f32-fma-v1'|'browser-number-coverage-v1'}}:data.version===2 && data.source.kind==='gaussianAuto'?{geometry:{kind:'gaussianAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-bionic-f64-fma-v1'|'neon64-f32-fma-v1'|'browser-number-coverage-v1'}}:data.version===2 && data.source.kind==='defaultAuto'?{geometry:{kind:'defaultAuto' as const,source:data.source,coverageProfile:context.coverageProfile as 'scalar-f64-fma-v1'|'neon64-f32-fma-v1'|'browser-number-coverage-v1'|typeof CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE}}:data.version===2?{geometry:{kind:'image' as const}}:{}),
-      ...(texture?{textureProgram:{strength:'pressure-identity-v1' as const}}:{}),
-      materialPolicy:texture?'png-pressure-texture-v1':soft?'soft-auto-fixed1-rng-free':gaussian?'gaussian-auto-fixed1-rng-free':auto?seededDensity?'default-auto-fixed1-seeded-density-v1':'default-auto-fixed1-rng-free':'png-fixed1-rng-free',lodScale:context.lodScale,
+      ...(fixed?{textureProgram:{strength:'fixed-one-v1' as const,context:fixed}}:texture?{textureProgram:{strength:'pressure-identity-v1' as const}}:{}),
+      materialPolicy:fixed?'default-auto-fixed-texture-v1':texture?'png-pressure-texture-v1':soft?'soft-auto-fixed1-rng-free':gaussian?'gaussian-auto-fixed1-rng-free':auto?seededDensity?'default-auto-fixed1-seeded-density-v1':'default-auto-fixed1-rng-free':'png-fixed1-rng-free',lodScale:context.lodScale,
       scatterX:data.flags.scatterX,scatterY:data.flags.scatterY,mirrorX:data.flags.mirrorX,mirrorY:data.flags.mirrorY,indirectPainting:data.flags.indirectPainting,
       spacing:data.spacing,timing:data.timing,fanStepDegrees:fan?.fanStep,spacingRefreshMs,timingRefreshMs,
       material:{brushIdentity:auto?descriptor.id+'@'+descriptor.version:descriptor.tip.mask!,color:context.colorIdentity,softness:1,lightness:1,
         precisionLevel:data.precision.level,autoPrecision:data.precision.automatic,
         imprecisePosition:programs.Mirror.checked || programs.Scatter.checked || programs.Rotation.checked || data.timing.enabled,
         disableSubpixel:false,supportsCaching:!(seededDensity&&data.version===2&&data.source.kind==='defaultAuto'&&data.source.density!==1),solidColor:true,textureEnabled:data.flags.textureEnabled,sharpnessChecked:false}}
-    const program={id:descriptor.id+':'+descriptor.version+(texture?':primary-texture-pressure-identity-v1':'')+(seededDensity?':'+CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE:''),...(context.inputProfile!==undefined?{inputProfile:context.inputProfile}:{}),roles:[role]}
+    const program={id:descriptor.id+':'+descriptor.version+(fixed?':default-auto-fixed-texture-v1':texture?':primary-texture-pressure-identity-v1':'')+(seededDensity?':'+CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE:''),...(context.inputProfile!==undefined?{inputProfile:context.inputProfile}:{}),roles:[role]}
     // Same owner preflight as the eventual caller; no RNG/state mutation.
     new SourceStrokeAuthor(program)
     return {supported:true,program}

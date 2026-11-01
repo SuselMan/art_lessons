@@ -1,4 +1,4 @@
-import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE } from '@grafetto/shared'
+import { canonicalTexturedSourceMaterialContext, type CanonicalMaterialContextV4, CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE } from '@grafetto/shared'
 import { sourceRotationMixDegrees } from './sourceRotationMix'
 import { SourceDistanceTiming, sourceTimingInterval, type SourceSpacing } from '../dabs/sourceDistanceTiming'
 import { sourceDrawingDirection, sourceFanRequests, shortestSourceTurn } from '../input/kritaStrokeInput'
@@ -25,8 +25,8 @@ export interface SourceAuthorRoleProgram {
   readonly imagePipe?: {readonly mode:'incremental'|'random';readonly frames:readonly string[]}
   readonly material: Omit<SourceDabCacheRequest, 'x' | 'y' | 'shape'>
   /** Current supported material law; active extra consumers must be rejected. */
-  readonly textureProgram?:{readonly strength:'pressure-identity-v1'}
-  readonly materialPolicy: 'png-pressure-texture-v1' | 'png-fixed1-rng-free' | 'default-auto-fixed1-rng-free' | 'default-auto-fixed1-seeded-density-v1' | 'gaussian-auto-fixed1-rng-free' | 'soft-auto-fixed1-rng-free'
+  readonly textureProgram?:{readonly strength:'pressure-identity-v1'}|{readonly strength:'fixed-one-v1';readonly context:CanonicalMaterialContextV4}
+  readonly materialPolicy: 'default-auto-fixed-texture-v1' | 'png-pressure-texture-v1' | 'png-fixed1-rng-free' | 'default-auto-fixed1-rng-free' | 'default-auto-fixed1-seeded-density-v1' | 'gaussian-auto-fixed1-rng-free' | 'soft-auto-fixed1-rng-free'
   readonly lodScale: number
   readonly scatterX: boolean; readonly scatterY: boolean
   readonly mirrorX: boolean; readonly mirrorY: boolean; readonly indirectPainting: boolean
@@ -145,13 +145,18 @@ export class SourceStrokeAuthor {
       if(role.imagePipe&&(!['incremental','random'].includes(role.imagePipe.mode)||role.imagePipe.frames.length<2||role.imagePipe.frames.length>256
         ||role.imagePipe.frames[0]!==role.material.brushIdentity||role.imagePipe.frames.some(v=>!/^asset:[a-f0-9]{64}$/.test(v))
         ||role.materialPolicy!=='png-fixed1-rng-free'||role.geometry&&role.geometry.kind!=='image'))throw new RangeError('Invalid incremental image pipe')
-      const texture=role.materialPolicy==='png-pressure-texture-v1'
-      if(texture?(role.id!=='primary'||this.program.roles.length!==1||role.imagePipe!==undefined||role.geometry&&role.geometry.kind!=='image'||!role.material.textureEnabled||!role.textureProgram||Object.keys(role.textureProgram).length!==1||role.textureProgram.strength!=='pressure-identity-v1'):role.textureProgram!==undefined)throw new RangeError('Unsupported source texture program')
+      const fixedTexture=role.materialPolicy==='default-auto-fixed-texture-v1',texture=role.materialPolicy==='png-pressure-texture-v1'
+      if(fixedTexture){
+        if(role.id!=='primary'||this.program.roles.length!==1||role.imagePipe||role.geometry?.kind!=='defaultAuto'
+          ||role.geometry.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||role.geometry.source.density!==1||role.geometry.source.randomness!==0||role.geometry.source.spikes!==2
+          ||!role.material.textureEnabled||!role.textureProgram||Object.keys(role.textureProgram).length!==2||role.textureProgram.strength!=='fixed-one-v1')throw new RangeError('Unsupported fixed source texture program')
+        canonicalTexturedSourceMaterialContext(role.textureProgram.context)
+      }else if(texture?(role.id!=='primary'||this.program.roles.length!==1||role.imagePipe!==undefined||role.geometry&&role.geometry.kind!=='image'||!role.material.textureEnabled||!role.textureProgram||Object.keys(role.textureProgram).length!==1||role.textureProgram.strength!=='pressure-identity-v1'):role.textureProgram!==undefined)throw new RangeError('Unsupported source texture program')
       const seededDensity=role.materialPolicy==='default-auto-fixed1-seeded-density-v1'
       if(seededDensity&&(role.id!=='primary'||this.program.roles.length!==1||role.geometry?.kind!=='defaultAuto'||role.geometry.coverageProfile!==CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE||role.geometry.source.density!==1&&role.material.supportsCaching))throw new RangeError('Unsupported density material program')
       if(role.geometry?.kind==='defaultAuto'&&(role.geometry.coverageProfile===CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE)!==seededDensity)throw new RangeError('Density profile/policy mismatch')
-      if(!['png-pressure-texture-v1','png-fixed1-rng-free','default-auto-fixed1-rng-free','default-auto-fixed1-seeded-density-v1','gaussian-auto-fixed1-rng-free','soft-auto-fixed1-rng-free'].includes(role.materialPolicy)
-        || (role.geometry?.kind==='defaultAuto')!==(role.materialPolicy==='default-auto-fixed1-rng-free'||seededDensity)
+      if(!['default-auto-fixed-texture-v1','png-pressure-texture-v1','png-fixed1-rng-free','default-auto-fixed1-rng-free','default-auto-fixed1-seeded-density-v1','gaussian-auto-fixed1-rng-free','soft-auto-fixed1-rng-free'].includes(role.materialPolicy)
+        || (role.geometry?.kind==='defaultAuto')!==(role.materialPolicy==='default-auto-fixed1-rng-free'||seededDensity||fixedTexture)
         || (role.geometry?.kind==='gaussianAuto')!==(role.materialPolicy==='gaussian-auto-fixed1-rng-free') || (role.geometry?.kind==='softAuto')!==(role.materialPolicy==='soft-auto-fixed1-rng-free') || role.material.softness!==1 || role.material.lightness!==1
         || role.material.sharpnessChecked || !Number.isFinite(role.lodScale) || role.lodScale<=0
         || ![role.spacing.value,role.spacing.coefficient,role.spacingRefreshMs,role.timingRefreshMs].every(v=>Number.isFinite(v)&&v>=0)
