@@ -39,7 +39,10 @@ def source_stamp_budget(data):
     if 'compiled' in data:
         compiled=data['compiled']
         if not isinstance(compiled,dict) or not isinstance(compiled.get('curves'),list) or len(compiled['curves'])>MAX_CURVES: raise ValueError('Invalid compiled source budget')
-        entries=compiled['curves']+([compiled['radialCurve']] if 'radialCurve' in compiled else [])
+        if 'textureStrength' in compiled:
+            slot=compiled['textureStrength']
+            if type(slot) is not dict or set(slot)!={'kind','curve'} or type(slot.get('curve')) is not dict: raise ValueError('Invalid compiled texture budget')
+        entries=compiled['curves']+([compiled['radialCurve']] if 'radialCurve' in compiled else [])+([compiled['textureStrength']['curve']] if 'textureStrength' in compiled else [])
         if len(entries)>MAX_CURVES: raise ValueError('Invalid compiled source budget')
         for entry in entries:
             source=entry['source'];coefficients=entry['coefficients']
@@ -117,6 +120,38 @@ def mapped_soft_frontier_retired(data):
             and same_source_data(radial['source'],raw))
 
 
+
+def texture_pressure_source_curve(data):
+    """Closed optional material DATA. None preserves unsupported legacy imports.
+
+    This selects original raw pressure only, never a raster/author capability.
+    No XML reader entity handling or fallback/default curve is involved.
+    """
+    if type(data) is not dict: return None
+    source=data.get('source',{}); flags=data.get('flags',{}); settings=data.get('settings',{})
+    if not all(type(v) is dict for v in (source,flags,settings)): return None
+    if (data.get('version')!=2 or data.get('role')!='primary' or source.get('kind')!='defaultAuto'
+            or data.get('unsupported') or flags.get('textureEnabled') is not True
+            or flags.get('materialFixed1') is not True or source.get('spikes')!=2
+            or source.get('randomness')!=0 or source.get('density')!=1): return None
+    expected={'Texture/Pattern/Enabled':'true','PressureTexture/Strength/':'true',
+              'Texture/Strength/StrengthVersion':'2','Texture/Strength/UseCurve':'true',
+              'Texture/Strength/UseSameCurve':'true','Texture/Strength/Value':'1',
+              'Texture/Strength/curveMode':'0'}
+    for key in settings:
+        if ((key.startswith('Texture/Strength/') and key not in expected and key!='Texture/Strength/Sensor')
+                or (key.startswith('PressureTexture/Strength/') and key!='PressureTexture/Strength/')
+                or key.startswith(('CustomTexture/Strength/','CurveTexture/Strength/'))): return None
+    if any(settings.get(k)!=v for k,v in expected.items()): return None
+    text=settings.get('Texture/Strength/Sensor')
+    if type(text) is not str or len(text)>65536: return None
+    match=re.fullmatch(r"[ \t\r\n]*(?:<!DOCTYPE params>[ \t\r\n]*)?<params[ \t\r\n]+id[ \t\r\n]*=[ \t\r\n]*(?:\"pressure\"|'pressure')[ \t\r\n]*>[ \t\r\n]*<curve>([^<&]*)</curve>[ \t\r\n]*</params>[ \t\r\n]*",text)
+    if match is None: return None
+    try: curve=curve_data(match[1].strip())
+    except ValueError: return None
+    if not 2<=len(curve['points'])<=9 or curve['points'][0]['corner'] or curve['points'][-1]['corner']: return None
+    return curve
+
 def required_source_curves(data):
     curves={}
     for option in data['options']:
@@ -143,7 +178,7 @@ def compile_source_stamp(data,executable):
 def validate_compiled_source_shape(data):
     if 'compiled' not in data: return
     compiled=data['compiled']
-    if isinstance(compiled,dict) and compiled.get('version')==2:
+    if isinstance(compiled,dict) and compiled.get('version') in (2,3):
         from source_stamp_mapped import validate_mapped_source_stamp_shape
         validate_mapped_source_stamp_shape(data,compiled)
         return
@@ -159,7 +194,7 @@ def validate_compiled_source_shape(data):
 
 def verify_compiled_source_stamp(data,executable,*,mapped_curve_provider=None):
     if 'compiled' not in data: return
-    if data['compiled'].get('version')==2:
+    if data['compiled'].get('version') in (2,3):
         from source_stamp_mapped import verify_mapped_source_stamp
         verify_mapped_source_stamp(data,data['compiled'],mapped_curve_provider)
         return

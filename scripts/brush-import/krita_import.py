@@ -385,6 +385,16 @@ def _new_mapped_soft_material_supported(d, engine, depth):
             and soft_source_material_domain(d['sourceStamp']))
 
 
+
+def _texture_pressure_data_candidate(d):
+    from source_stamp_data import texture_pressure_source_curve
+    if texture_pressure_source_curve(d.get('sourceStamp')) is None: return False
+    t=d.get('texture',{}); a=t.get('application',{}); offset=t.get('offset',{}); b=d.get('behavior',{})
+    return (d.get('model')=='stamp' and t.get('strength')==1 and a.get('mode')=='subtract'
+            and a.get('soft') is False and offset.get('randomX') is False and offset.get('randomY') is False
+            and not any(d.get(k) for k in ('mixer','wet','screentonePx'))
+            and not any(b.get(k) for k in ('dual','colorAdjustment','wetMix','edgeBleed','grain','taper')))
+
 def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, stroke_input=False, timed_input=False, curve_compiler=None, mapped_curve_provider=None, source_material_profile=None):
     if curve_compiler is not None and mapped_curve_provider is not None: raise ValueError('Choose one explicit curve compiler profile')
     if source_material_profile is not None and (type(source_material_profile) is not str or source_material_profile!=SEEDED_DEFAULT_AUTO_PROFILE): raise ValueError('Unsupported explicit source material profile')
@@ -1053,7 +1063,7 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
                 from source_stamp_mapped import compile_mapped_source_stamp, validate_mapped_source_stamp_shape
                 try:
                     # A partial/invalid result never becomes a published dictionary.
-                    compiled=compile_mapped_source_stamp(d['sourceStamp'],mapped_curve_provider)
+                    compiled=(compile_mapped_source_stamp(d['sourceStamp'],mapped_curve_provider, texture_strength=True) if _texture_pressure_data_candidate(d) else compile_mapped_source_stamp(d['sourceStamp'],mapped_curve_provider))
                     validate_mapped_source_stamp_shape(d['sourceStamp'],compiled)
                     if compiled['buildId']!=mapped_curve_provider.expected_build_id:
                         raise ValueError('Mapped source profile/build binding differs')
@@ -1101,6 +1111,8 @@ def preset(data, name, catalog, external, depth=0, *, sequential_xy=False, strok
         if not b:return False
         return b.get('colorAdjustment',{}).get('model')=='hsvChromaRgba8' or native_color(b.get('dual',{}).get('brush',{}).get('behavior',{}))
     if native_color(behavior):d['version']=36
+    # New immutable descriptor revision only for successful material-option DATA.
+    if d.get('sourceStamp',{}).get('compiled',{}).get('version')==3:d['version']=37
     if seeded_source is not None and any(n['status']=='unsupported' for n in notes):
         raise ValueError('Unsupported seeded default-auto final lowering')
     result={'descriptor':finalize_identity(d,data),'name':root.get('name') or PurePosixPath(name).stem,'source':PurePosixPath(name).name,'warnings':warnings,'compatibility':notes}
