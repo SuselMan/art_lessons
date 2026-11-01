@@ -7,7 +7,7 @@ import { hasRequiredOperationBrushContext, pinOperationBrush } from '../brushLib
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents,CanonicalIndexedHistoryOfferV1,CanonicalHistoryAck } from '@grafetto/shared'
-import {CLIENT_UPDATE_REQUIRED,supportsPrimaryTextureProtocol,parseCanonicalHistoryOpenRequest,parseCanonicalHistoryStreamNext,parseCanonicalHistoryStreamEvidence,parseCanonicalHistoryStreamSelect,parseCanonicalHistoryStreamCancel,parseCanonicalHistoryStreamReopen, canonicalStrokeStorage, hasValidBrushRandomContext, isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, STRAIGHT_ROOM_RASTER_VERSION, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
+import {CLIENT_UPDATE_REQUIRED,supportsDrawingProtocol,parseCanonicalHistoryOpenRequest,parseCanonicalHistoryStreamNext,parseCanonicalHistoryStreamEvidence,parseCanonicalHistoryStreamSelect,parseCanonicalHistoryStreamCancel,parseCanonicalHistoryStreamReopen, canonicalStrokeStorage, hasValidBrushRandomContext, isClassVisibility, isRoomAccessMode, sanitizeEnabledTools, STRAIGHT_ROOM_RASTER_VERSION, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import {
   abortAssignmentStart, beginAssignmentStart, canSeeLessonBoard, getClassroom, getLessonStateFor,
@@ -301,7 +301,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, cano
     const ip = handshakeIp(socket.handshake.headers, socket.handshake.address)
     if (isIpBanned(ip)) return next(new Error('banned'))
     // Before identity, seat, room loading, or any history grant.
-    if (canonicalTransport.requiresPrimaryTextureProtocol && !supportsPrimaryTextureProtocol(socket.handshake.auth?.drawingProtocol)) {
+    if (canonicalTransport.requiredDrawingProtocol && !supportsDrawingProtocol(socket.handshake.auth?.drawingProtocol,canonicalTransport.requiredDrawingProtocol)) {
       return next(new Error(CLIENT_UPDATE_REQUIRED))
     }
     resolveSocketIdentity(socket.handshake.headers.cookie)

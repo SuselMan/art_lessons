@@ -15,11 +15,17 @@ import type { ToggleableTool } from './toolset.js'
 /** Whole-client renderer revision. This is compatibility DATA, never authorization.
  * Enabling material 3 requires a single backend restart with the frozen policy:
  * old sockets/read grants must not survive that cutover. */
-export const DRAWING_PROTOCOL_VERSION = '3'
+export const DRAWING_PROTOCOL_VERSION = '4'
 export const DRAWING_PROTOCOL_HEADER = 'x-grafetto-drawing-protocol'
 export const CLIENT_UPDATE_REQUIRED = 'client_update_required'
 export function supportsPrimaryTextureProtocol(value: unknown): boolean {
-  return value === DRAWING_PROTOCOL_VERSION
+  return supportsDrawingProtocol(value,'3')
+}
+
+export type DrawingProtocolMinimum='3'|'4'
+/** Closed known compatibility, never a numeric >= comparison or authorization. */
+export function supportsDrawingProtocol(value:unknown,minimum:DrawingProtocolMinimum):boolean {
+ return minimum==='4'?value==='4':minimum==='3'&&(value==='3'||value==='4')
 }
 
 /** (#613) The socket contract: join results, cursors and live strokes,
@@ -285,6 +291,7 @@ export type RoomStateLegacyPayload = {
   canonicalHistoryBase?:CanonicalEmptyHistoryBaseV1|CanonicalFullHistoryBaseV2
   canonicalAuthorRasterProfile?:import('./canonicalStrokeFrame.js').CanonicalStrokeRasterProfile
   canonicalAuthorPrimaryTextureSource?:import('./canonicalIndexedHistory.js').CanonicalAuthorPrimaryTextureSource
+  canonicalAuthorTexturedSource?:import('./canonicalIndexedHistory.js').CanonicalAuthorTexturedSource
   canonicalCapabilities?:CanonicalRecordedAttachmentV1
   palette: string[]
   // (#254/#255 epic) Room-wide freeze, live in-memory only (never
@@ -300,7 +307,7 @@ export type RoomStateLegacyPayload = {
 } & {canonicalIndexedHistory?:never}
 export type RoomStateIndexedPayload = Omit<RoomStateLegacyPayload,
  'latestSnapshotSeq'|'tailOperations'|'canonicalReadScope'|'canonicalHistoryBase'|
- 'canonicalAuthorRasterProfile'|'canonicalAuthorPrimaryTextureSource'|'canonicalCapabilities'|'canonicalIndexedHistory'> & {
+ 'canonicalAuthorRasterProfile'|'canonicalAuthorPrimaryTextureSource'|'canonicalAuthorTexturedSource'|'canonicalCapabilities'|'canonicalIndexedHistory'> & {
  readonly latestSnapshotSeq:null
  readonly canonicalIndexedHistory:CanonicalIndexedHistoryOfferV1
  readonly tailOperations?:never
@@ -308,6 +315,7 @@ export type RoomStateIndexedPayload = Omit<RoomStateLegacyPayload,
  readonly canonicalHistoryBase?:never
  readonly canonicalAuthorRasterProfile?:never
  readonly canonicalAuthorPrimaryTextureSource?:never
+ readonly canonicalAuthorTexturedSource?:never
  readonly canonicalCapabilities?:never
 }
 export type RoomStatePayload = RoomStateLegacyPayload | RoomStateIndexedPayload

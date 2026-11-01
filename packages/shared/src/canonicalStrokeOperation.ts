@@ -50,7 +50,7 @@ export interface CanonicalStrokeSnapshotV4 extends Omit<CanonicalStrokeSnapshotV
   readonly materialVersion:4
   readonly material:CanonicalMaterialContextV4
 }
-export type CanonicalStrokeSnapshot = CanonicalStrokeSnapshotV1 | CanonicalStrokeSnapshotV2 | CanonicalStrokeSnapshotV3
+export type CanonicalStrokeSnapshot = CanonicalStrokeSnapshotV1 | CanonicalStrokeSnapshotV2 | CanonicalStrokeSnapshotV3 | CanonicalStrokeSnapshotV4
 /** Resume state: ended describes the recorded prefix. A speculative live-only
  * terminal frame does not establish a recorded end. */
 export type CanonicalStrokeBeginResult = { readonly ok: true; readonly snapshot: CanonicalStrokeSnapshot; readonly recordedNext: number; readonly liveNext: number; readonly ended: boolean }

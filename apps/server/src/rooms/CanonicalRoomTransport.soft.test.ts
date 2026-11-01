@@ -1727,3 +1727,38 @@ it('advertises author texture only from captured policy in original full and ind
   expect((await read.next(0)).terminal).toBe(true)
  }finally{leaveRoom('board','author','texture-advertisement-seat')}
 })
+
+it('advertises independent author4 only from captured policy in original full and indexed recovery/follow headers',async()=>{
+ const {board}=setup(),profile='installed-arm64-scalar-fused-generic-sc-u8-fpcr0-v2' as const,texturedSource='fixed-default-auto-texture-v4' as const
+ const configured={...policy,rasterProfile:profile,allowedRecordedRasterProfiles:[profile],primaryImageSource:'single-inverse-gray-v2' as const,texturedSource,authorTexturedSource:texturedSource,fullHistoryFormat:'mixed-indexed-v1' as const}
+ const transport=new CanonicalRoomTransport(configured)
+ Reflect.set(configured,'texturedSource',false);Reflect.set(configured,'authorTexturedSource',false)
+ db.roomParticipant.upsert.mockResolvedValue({});db.$executeRawUnsafe.mockResolvedValue(0);db.$queryRawUnsafe.mockResolvedValue([]);db.operation.findMany.mockResolvedValue([])
+ const full=await transport.prepareReadDelivery(identity,()=>true)
+ expect(full.finish([])).toMatchObject({canonicalAuthorTexturedSource:texturedSource})
+ const off=new CanonicalRoomTransport({...configured,texturedSource:false})
+ expect((await off.prepareReadDelivery(identity,()=>true)).finish([])).not.toHaveProperty('canonicalAuthorTexturedSource')
+ const readerOnly=new CanonicalRoomTransport({...configured,texturedSource,authorTexturedSource:false})
+ expect(readerOnly.requiredDrawingProtocol).toBe('4')
+ expect((await readerOnly.prepareReadDelivery(identity,()=>true)).finish([])).not.toHaveProperty('canonicalAuthorTexturedSource')
+ board.canonicalHistoryResidency='indexed-v1'
+ const offer=transport.createIndexedHistoryOffer('board')
+ expect(offer.authorTexturedSource).toBe(texturedSource)
+ expect(off.createIndexedHistoryOffer('board')).not.toHaveProperty('authorTexturedSource')
+ expect(readerOnly.createIndexedHistoryOffer('board')).not.toHaveProperty('authorTexturedSource')
+ expect(joinRoom('board','author','Owner','fixed4-advertisement-seat',true).ok).toBe(true)
+ const seat=captureCurrentRoomSeat('board','author','fixed4-advertisement-seat');if(!seat)throw Error('actual seat')
+ try{
+  const {authorTexturedSource:_,...forgedOff}=offer
+  await expect(transport.openIndexedHistory(identity,forgedOff,seat,()=>true)).rejects.toThrow()
+  await expect(off.openIndexedHistory(identity,offer,seat,()=>true)).rejects.toThrow()
+  const read=await transport.openIndexedHistory(identity,JSON.parse(JSON.stringify(offer)),seat,()=>true)
+  expect(read.begin).toMatchObject({authorTexturedSource:texturedSource})
+  expect((await read.next(0)).terminal).toBe(true)
+  const recovered=await read.recover(0)
+  expect(recovered).toBe(read);expect(read.begin).toMatchObject({authorTexturedSource:texturedSource})
+  expect((await read.next(0)).terminal).toBe(true)
+  expect(await read.follow(0)).toMatchObject({kind:'canonical-indexed-history-follow-v1',authorTexturedSource:texturedSource})
+  expect((await read.next(0)).terminal).toBe(true)
+ }finally{leaveRoom('board','author','fixed4-advertisement-seat')}
+})

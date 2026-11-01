@@ -29,9 +29,9 @@ export function stageCanonicalRoomReplacement(stash:RoomStatePayload,deps:{reado
 }
 export function createCanonicalRoomAuthor(read:CanonicalRoomConnectionRead,socket:CanonicalBeginEmitter,getSocket:()=>CanonicalBeginEmitter|null,isEngineCurrent:()=>boolean):CanonicalSourceAuthorService{
  read.assertCurrent()
- const primaryTextureSource=read.authorPrimaryTextureSource
- const service:CanonicalSourceAuthorService={...(primaryTextureSource==='pressure-identity-subtract-v3'?{primaryTextureSource}:{}),begin:(input,lifetime)=>sendCanonicalStrokeBegin(socket,input,{boardEpoch:read.scope.boardEpoch,
-  expectedDescriptorSha256:lifetime.expectedDescriptorSha256,authorRasterProfile:read.authorRasterProfile,responseRasterProfiles:read.scope.allowedRasterProfiles??(read.scope.rasterProfile?[read.scope.rasterProfile]:undefined),signal:lifetime.signal,
+ const primaryTextureSource=read.authorPrimaryTextureSource,texturedSource=read.authorTexturedSource
+ const service:CanonicalSourceAuthorService={...(texturedSource==='fixed-default-auto-texture-v4'?{texturedSource}:{}),...(primaryTextureSource==='pressure-identity-subtract-v3'?{primaryTextureSource}:{}),begin:(input,lifetime)=>sendCanonicalStrokeBegin(socket,input,{boardEpoch:read.scope.boardEpoch,
+  expectedDescriptorSha256:lifetime.expectedDescriptorSha256,...(texturedSource?{authorTexturedSource:texturedSource}:{}),authorRasterProfile:read.authorRasterProfile,responseRasterProfiles:read.scope.allowedRasterProfiles??(read.scope.rasterProfile?[read.scope.rasterProfile]:undefined),signal:lifetime.signal,
   isCurrent:()=>{try{read.assertCurrent();return getSocket()===socket&&isEngineCurrent()&&lifetime.isCurrent()}catch{return false}}})}
  return Object.freeze(service)
 }

@@ -1,4 +1,4 @@
-import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE} from '@grafetto/shared'
+import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE,canonicalStrokeRasterContract} from '@grafetto/shared'
 import { CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,canonicalStrokeCoverageMatches,canonicalRecordedRasterProfiles, type CanonicalStrokeRasterProfile, type CanonicalAutoCoverageProfile, type CanonicalGaussianCoverageProfile } from '@grafetto/shared'
 /** Seeded density requires a separately admitted consumer; keep current policy closed. */
 export interface CanonicalDefaultAutoExecutionPolicy { readonly coverageProfile:Exclude<CanonicalAutoCoverageProfile,'neon64-f32-fma-seeded-density-v1'>; readonly storedScale:1 }
@@ -32,6 +32,8 @@ export interface CanonicalRoomExecutionPolicy {
  readonly primaryImageSource?:'single-inverse-gray-v2'|false
  readonly primaryTextureSource?:'pressure-identity-subtract-v3'|false
  readonly authorPrimaryTextureSource?:'pressure-identity-subtract-v3'|false
+ readonly texturedSource?:'fixed-default-auto-texture-v4'|false
+ readonly authorTexturedSource?:'fixed-default-auto-texture-v4'|false
  readonly allowedRecordedImagePipeSources?:readonly CanonicalImagePipeSource[]
  readonly authorImagePipeSources?:readonly CanonicalImagePipeSource[]
  readonly fullHistoryFormat?:CanonicalFullHistoryFormat
@@ -90,6 +92,29 @@ export function freezeCanonicalAuthorPrimaryTexturePolicy(value:Pick<CanonicalRo
  if(field.value===undefined||field.value===false)return false
  if(field.value!=='pressure-identity-subtract-v3'||freezeCanonicalPrimaryTexturePolicy(value)!==field.value)throw TypeError('invalid explicit author primary texture policy')
  return field.value
+}
+
+/** Independent fixed-auto read4/author4 gates, frozen once at startup. */
+export function freezeCanonicalTexturedPolicies(value:CanonicalRoomExecutionPolicy):Readonly<Pick<CanonicalRoomExecutionPolicy,'texturedSource'|'authorTexturedSource'>> {
+ const flag=(key:'texturedSource'|'authorTexturedSource')=>{
+  const d=Object.getOwnPropertyDescriptor(value,key)
+  if(!d){if(key in value)throw TypeError('invalid explicit material4 policy');return false as const}
+  if(!Object.hasOwn(d,'value'))throw TypeError('invalid explicit material4 policy')
+  if(d.value===undefined||d.value===false)return false as const
+  if(d.value!=='fixed-default-auto-texture-v4')throw TypeError('invalid explicit material4 policy')
+  return d.value as 'fixed-default-auto-texture-v4'
+ }
+ const texturedSource=flag('texturedSource'),authorTexturedSource=flag('authorTexturedSource')
+ if(authorTexturedSource&&!texturedSource)throw TypeError('material4 author requires read consumer')
+ if(texturedSource){
+  const raster=freezeCanonicalRasterPolicy(value)
+  if(!raster.allowedRecordedRasterProfiles.some(p=>canonicalStrokeRasterContract(p).genericSC))throw TypeError('material4 recorded raster unavailable')
+  if(authorTexturedSource){
+   const source=freezeCanonicalAutoPolicies(value.autoSources).defaultAuto
+   if(!source||!canonicalStrokeRasterContract(raster.authorRasterProfile).genericSC||!canonicalStrokeCoverageMatches(raster.authorRasterProfile,source.coverageProfile))throw TypeError('material4 author source/raster unavailable')
+  }
+ }
+ return Object.freeze({texturedSource,authorTexturedSource})
 }
 
 export type CanonicalImagePipeSource='incremental-inverse-gray-v2'|'random-inverse-gray-v2'

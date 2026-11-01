@@ -1,4 +1,4 @@
-import type { CanonicalPreparedRecordedOperation, CanonicalRecordedReadScope, CanonicalAuthorPrimaryTextureSource } from '@grafetto/shared'
+import type { CanonicalPreparedRecordedOperation, CanonicalRecordedReadScope, CanonicalAuthorPrimaryTextureSource,CanonicalAuthorTexturedSource } from '@grafetto/shared'
 
 /** Local captured read lifetime. Wire data and immutable log copies cannot mint it. */
 export interface CanonicalRecordedLifetime {
@@ -21,6 +21,7 @@ export interface CanonicalRecordedEmptyRoomRead extends CanonicalRecordedLifetim
  readonly roomGeometry:Readonly<{width:number|undefined;height:number|undefined;infinite:boolean}>
  readonly scope:Readonly<CanonicalRecordedReadScope>
  readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
+ readonly authorTexturedSource?:CanonicalAuthorTexturedSource
  readonly authorRasterProfile:import('@grafetto/shared').CanonicalStrokeRasterProfile
  readonly tailOperations:readonly import('@grafetto/shared').Operation[]
  readonly preparedAtoms:readonly CanonicalPreparedRecordedOperation[]
@@ -57,6 +58,7 @@ export interface CanonicalAcceptedCut {
  readonly operationCount:number
  readonly roomGeometry:Readonly<import('@grafetto/shared').CanonicalIndexedRoomGeometry>
  readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
+ readonly authorTexturedSource?:CanonicalAuthorTexturedSource
  readonly authorRasterProfile:import('@grafetto/shared').CanonicalStrokeRasterProfile
  readonly scope:Readonly<CanonicalRecordedReadScope>
  assertCurrent(this:CanonicalAcceptedCut,candidate:CanonicalAcceptedCut):void
@@ -69,6 +71,7 @@ export interface CanonicalIndexedHistoryCandidate {
 }
 export interface CanonicalIndexedOrigin extends CanonicalRecordedLifetime {
  readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
+ readonly authorTexturedSource?:CanonicalAuthorTexturedSource
  reopen(this:CanonicalIndexedOrigin,cut:CanonicalAcceptedCut):Promise<CanonicalIndexedRead>
  follow(this:CanonicalIndexedOrigin,cut:CanonicalAcceptedCut):Promise<CanonicalIndexedRead>
  selectHistory(this:CanonicalIndexedOrigin,cut:CanonicalAcceptedCut,action:'undo'|'redo'):Promise<CanonicalIndexedHistoryCandidate|null>
@@ -82,6 +85,7 @@ export interface CanonicalIndexedRead {
  readonly operationCount:number
  readonly roomGeometry:Readonly<import('@grafetto/shared').CanonicalIndexedRoomGeometry>
  readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
+ readonly authorTexturedSource?:CanonicalAuthorTexturedSource
  readonly authorRasterProfile:import('@grafetto/shared').CanonicalStrokeRasterProfile
  readonly scope:Readonly<CanonicalRecordedReadScope>
  assertCurrent(this:CanonicalIndexedRead,candidate:CanonicalIndexedRead):void

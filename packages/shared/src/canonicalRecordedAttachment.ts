@@ -14,7 +14,7 @@ export interface CanonicalRecordedReadScope {
  readonly rasterProfile?:CanonicalStrokeRasterProfile
  readonly allowedRasterProfiles?:readonly CanonicalStrokeRasterProfile[]
 }
-export interface CanonicalRecordedReadCapability {readonly originalUserId:string;readonly snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3}
+export interface CanonicalRecordedReadCapability {readonly originalUserId:string;readonly snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3|CanonicalStrokeSnapshotV4}
 /** Batch-local wire dictionary only; indexes never become retained history truth. */
 export interface CanonicalRecordedAttachmentV1 {
  readonly version:1;readonly roomId:string;readonly boardEpoch:number
@@ -146,9 +146,11 @@ export function canonicalStrokeSnapshotV4(value:unknown,epoch:number,rasterProfi
 }
 /** Pure decoder dispatch for an already normalized immutable snapshot. This is
  * not an authenticated delivery/read grant; material3 always carries top selector3. */
-export function decodeCanonicalRecordedSnapshotFrame(value:unknown,snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3,frameOrdinal:number) {
+export function decodeCanonicalRecordedSnapshotFrame(value:unknown,snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3|CanonicalStrokeSnapshotV4,frameOrdinal:number) {
  const s=snapshot,common={rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal,pigmentRgb8:s.pigmentRgb8,composition:s.composition}
- return s.materialVersion===3
+ return s.materialVersion===4
+  ?decodeCanonicalStrokeFrame(value,{...common,rasterProfile:s.rasterProfile,materialVersion:4,material:s.material})
+  :s.materialVersion===3
   ?decodeCanonicalStrokeFrame(value,{...common,rasterProfile:s.rasterProfile,materialVersion:3,material:s.material})
   :decodeCanonicalStrokeFrame(value,{...common,material:s.material})
 }
@@ -167,14 +169,14 @@ export function prepareCanonicalRecordedAttachment(value:unknown,operations:read
   if(!closed(item,['originalUserId','snapshot'])||!text(item.originalUserId))return fail()
   if(!record(item.snapshot))return fail()
   const selector=Object.getOwnPropertyDescriptor(item.snapshot,'materialVersion')
-  if(!selector||!Object.hasOwn(selector,'value'))return fail()
+  if(!selector||!Object.hasOwn(selector,'value')||![2,3,4].includes(selector.value))return fail()
   // Explicit3 is a closed own-DATA boundary before any snapshot user code.
   // Retain the existing legacy2 profile read policy.
-  const profile=selector.value===3?Object.getOwnPropertyDescriptor(item.snapshot,'rasterProfile'):undefined
-  if(selector.value===3&&(!profile||!Object.hasOwn(profile,'value')))return fail()
-  const rasterProfile=attachmentRasterProfile(selector.value===3?profile!.value:item.snapshot.rasterProfile)
+  const profile=selector.value===3||selector.value===4?Object.getOwnPropertyDescriptor(item.snapshot,'rasterProfile'):undefined
+  if((selector.value===3||selector.value===4)&&(!profile||!Object.hasOwn(profile,'value')))return fail()
+  const rasterProfile=attachmentRasterProfile(selector.value===3||selector.value===4?profile!.value:item.snapshot.rasterProfile)
   if(!profiles.includes(rasterProfile))return fail()
-  const s=selector.value===3?canonicalStrokeSnapshotV3(item.snapshot,expected.boardEpoch,rasterProfile):canonicalStrokeSnapshotV2(item.snapshot,expected.boardEpoch,rasterProfile),identity=JSON.stringify([item.originalUserId,s.strokeId])
+  const s=selector.value===4?canonicalStrokeSnapshotV4(item.snapshot,expected.boardEpoch,rasterProfile):selector.value===3?canonicalStrokeSnapshotV3(item.snapshot,expected.boardEpoch,rasterProfile):canonicalStrokeSnapshotV2(item.snapshot,expected.boardEpoch,rasterProfile),identity=JSON.stringify([item.originalUserId,s.strokeId])
   // One gesture has ONE immutable capability, even if a duplicate is equal.
   if(identities.has(identity))return fail();identities.add(identity)
   const capability=Object.freeze({originalUserId:item.originalUserId,snapshot:s}),n=bytes(capability)

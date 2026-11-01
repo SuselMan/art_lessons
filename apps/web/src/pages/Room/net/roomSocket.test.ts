@@ -1050,3 +1050,8 @@ it('locks an incompatible client and offers explicit reload without revival', ()
   expect(fake.connect).not.toHaveBeenCalled()
   close()
 })
+
+it.each([undefined,'fixed-default-auto-texture-v4'])('rejects full author4 policy on indexed outer payload BEFORE actual open (%s)',async policy=>{
+ const h=await indexedIngressSetup(),close=connectRoomSocket(h.deps)
+ try{Reflect.apply(h.listeners.get('room_state')!,null,[{...h.state,canonicalAuthorTexturedSource:policy}]);expect(h.issuer.requests).toHaveLength(0);expect(h.stashes).toHaveLength(0)}finally{close()}
+})

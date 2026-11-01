@@ -1,6 +1,7 @@
+import {sourceAutoGeometry,type CanonicalStrokeSnapshotV4} from '@grafetto/shared'
 import {createHash} from 'node:crypto'
 import {prepareCanonicalRecordedAttachment,type CanonicalStrokeSnapshotV3,parseCanonicalStrokeCloseOperation} from '@grafetto/shared'
-import {freezeCanonicalAuthorPrimaryTexturePolicy,freezeCanonicalPrimaryTexturePolicy} from './canonicalExecutionPolicy.js'
+import {freezeCanonicalSeededDefaultAutoPolicies,freezeCanonicalTexturedPolicies,freezeCanonicalAuthorPrimaryTexturePolicy,freezeCanonicalPrimaryTexturePolicy} from './canonicalExecutionPolicy.js'
 import {mkdtempSync,rmSync,readFileSync,writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
@@ -296,4 +297,68 @@ it('folds a genuine durable3 OPEN root and original indexed typed close without 
  const close=parseCanonicalStrokeCloseOperation({type:'canonical_stroke_close',id:'texture-close',userId:'author',timestamp:2,seq:2,layerId:'layer',targetUserId:'author',strokeId:s.strokeId,disposition:'commitPartial',recordedNext:1,firstFrameOpId:first.id,lastFrameOpId:first.id})
  fold.accept(close,{id:close.id,roomId:'board',userId:'author',seq:2,type:close.type,layerId:'layer',tool:null,data:close})
  expect(fold.finish()).toMatchObject({recordedNext:1,ended:false,closeSeal:{kind:'commitPartial',closeOperationId:close.id}});expect(binder.size).toBe(0)
+})
+
+const actualRegular=JSON.parse(readFileSync(new URL('../../../../packages/shared/src/fixtures/sourceDefaultAutoData/screentonesRegular.texture.native.json',import.meta.url),'utf8'))
+
+/** Self-authored resource identity, not genuine vendor-pattern equivalence. */
+function fixedAuto4Setup(){
+ const descriptor=structuredClone(actualRegular.descriptor) as unknown as BrushDescriptor
+ const bytes=Buffer.from(Array.from({length:256},(_,i)=>(i*37+11)%256)),id='asset:'+createHash('sha256').update(bytes).digest('hex')
+ descriptor.id='imported-'+createHash('sha256').update('self-authored-material4-pattern-mechanism').digest('hex').slice(0,24);descriptor.version=1
+ if(!descriptor.texture)throw Error('fixture texture');descriptor.texture.id=id as `asset:${string}`
+ const dir=mkdtempSync(join(tmpdir(),'server-fixed4-'));dirs.push(dir);const storage=new BrushStorage(dir)
+ const library={schemaVersion:1,brushes:[{name:'Self-authored pattern mechanism',source:'self-authored-test',warnings:[],descriptor}],assets:[{id,size:16,file:id.slice(6)+'.bin'}],skipped:[]}
+ if(!isBrushLibrary(library))throw Error('Invalid fixed4 fixture')
+ storage.install('author',library,new Map([[id.slice(6),bytes]]));setBrushStorage(storage,empty());const board=resident()
+ const input={layerId:'layer',brush:`brush:${descriptor.id}@1`,strokeId:'fixed4',pigmentRgb8:[11,22,33]as[number,number,number],outerResourceOpacity:1,alphaDarken:'creamy'as const}
+ return{descriptor,storage,dir,board,input,pattern:{id,size:16}}
+}
+const fixed4Policy={rasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy']as const,autoSources:{defaultAuto:{coverageProfile:'neon64-f32-fma-v1'as const,storedScale:1 as const}},texturedSource:'fixed-default-auto-texture-v4'as const,authorTexturedSource:'fixed-default-auto-texture-v4'as const}
+function fixed4Snapshot(r:CanonicalStrokeBeginResult):CanonicalStrokeSnapshotV4{if(!r.ok||!('materialVersion'in r.snapshot)||r.snapshot.materialVersion!==4)throw Error(JSON.stringify(r));return r.snapshot}
+function fixed4Operation(s:CanonicalStrokeSnapshotV4,end=true):CanonicalStrokeOperation{
+ const p=s.material.primarySource,g=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:p.source.diameter,ratio:p.source.ratio,spikes:2,scale:p.brushScale,angle:p.brushAngle},{scale:1,ratio:1,rotation:0})
+ const recipe={kind:'defaultAuto'as const,source:p.source,coverageProfile:p.coverageProfile,brushScale:p.brushScale,brushAngle:p.brushAngle,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:g.maskSize[0],height:g.maskSize[1],mirrorH:false,mirrorV:false}
+ const materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[{recipe,role:'primary',x:1,y:2,opacity:1,flow:1,grainDepth:1}],fences:[{at:0,kind:'segmentBegin',group:0},...end?[{at:1,kind:'primaryEnd'as const,group:0},{at:1,kind:'segmentEnd'as const,group:0},{at:1,kind:'gestureEnd'as const}]:[]]},s.material).packed
+ return{id:'fixed4-op',userId:'author',timestamp:1,type:'canonical_stroke',layerId:'layer',frame:{version:2,rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked}}
+}
+it('separates fixed4 read/author and old3 protocol policy; author requires consumer',async()=>{
+ const f=fixedAuto4Setup(),reader=new CanonicalRoomTransport({...fixed4Policy,authorTexturedSource:false})
+ expect(reader.requiredDrawingProtocol).toBe('4');expect((await reader.begin(identity,f.input,()=>true)).ok).toBe(false)
+ expect(()=>new CanonicalRoomTransport({...fixed4Policy,texturedSource:false})).toThrow()
+ expect(freezeCanonicalTexturedPolicies({...fixed4Policy,texturedSource:false,authorTexturedSource:false})).toEqual({texturedSource:false,authorTexturedSource:false})
+ let calls=0;const p={...fixed4Policy};Object.defineProperty(p,'texturedSource',{get(){calls++;return fixed4Policy.texturedSource}});expect(()=>new CanonicalRoomTransport(p)).toThrow();expect(calls).toBe(0)
+ expect(new CanonicalRoomTransport(texturePolicy).requiredDrawingProtocol).toBe('3');expect(new CanonicalRoomTransport(policy).requiredDrawingProtocol).toBeUndefined()
+})
+it('accepts actual BEGIN4/live/typedEND/durable ACK and read4 cold while author4OFF, with pattern-only ledger',async()=>{
+ const f=fixedAuto4Setup(),before=canonicalBrushDescriptorJSON(f.descriptor),t=new CanonicalRoomTransport(fixed4Policy),s=fixed4Snapshot(await t.begin(identity,f.input,()=>true))
+ expect(s.assets).toHaveLength(1);expect(s.assets[0].id).toBe(f.pattern.id);expect(s.material.primarySource.kind).toBe('defaultAuto')
+ expect(s.descriptorSha256).toBe(createHash('sha256').update(before).digest('hex'));expect(canonicalBrushDescriptorJSON(f.descriptor)).toBe(before)
+ const op=fixed4Operation(s);expect(t.live(identity,{layerId:'layer',frame:op.frame}).result).toEqual({ok:true,duplicate:false})
+ const saved=await t.recorded(identity,op,()=>true);expect(saved.result).toMatchObject({ok:true,seq:1});expect(db.operation.create).toHaveBeenCalledTimes(1)
+ const atoms=prepareCanonicalRecordedAttachment(saved.canonicalCapabilities,[saved.accepted!],{roomId:'board',boardEpoch:s.boardEpoch,allowedRasterProfiles:[G]});expect(atoms[0].read!.capability.snapshot.materialVersion).toBe(4)
+ const cold=new CanonicalBrushCapabilityResolver({...fixed4Policy,authorTexturedSource:false,storage:f.storage,operator:()=>empty(),maxGestures:8})
+ expect(()=>cold.prepareBeginGesture(identity,f.input)).toThrow('author policy disabled')
+ const row=db.operation.create.mock.calls[0][0].data,read=cold.readRecordedCapability({roomId:'board',boardEpoch:s.boardEpoch,operation:saved.accepted!,row});expect(read.material).toEqual(s.material);expect(cold.size).toBe(0)
+ const repeated=await t.recorded(identity,op,()=>true);expect(repeated.result).toMatchObject({ok:true,seq:1,duplicate:true});expect(db.operation.create).toHaveBeenCalledTimes(1)
+})
+it.each(['missing','corrupt']as const)('refuses %s actual self-authored pattern CAS BEFORE BEGIN4 grant',async kind=>{
+ const f=fixedAuto4Setup(),path=join(f.dir,'assets',f.pattern.id.slice(6)+'.bin');if(kind==='missing')rmSync(path);else writeFileSync(path,Buffer.alloc(256))
+ expect((await new CanonicalRoomTransport(fixed4Policy).begin(identity,f.input,()=>true)).ok).toBe(false);expect(db.operation.create).not.toHaveBeenCalled()
+})
+
+it('folds durable4 OPEN prefix and original typed close with read4/author4OFF using SAME bounded verifier',async()=>{
+ const f=fixedAuto4Setup(),transport=new CanonicalRoomTransport(fixed4Policy),s=fixed4Snapshot(await transport.begin(identity,f.input,()=>true))
+ const saved=await transport.recorded(identity,fixed4Operation(s,false),()=>true);expect(saved.result.ok).toBe(true)
+ const first=saved.accepted!,row=db.operation.create.mock.calls[0][0].data
+ const binder=new CanonicalBrushCapabilityResolver({...fixed4Policy,authorTexturedSource:false,storage:f.storage,operator:()=>empty(),maxGestures:8}),fold=binder.createIndexedRecordedPrefixFold({roomId:'board',boardEpoch:s.boardEpoch,anchor:first,row,purpose:'undo-redo'})
+ fold.accept(first,row)
+ const close=parseCanonicalStrokeCloseOperation({type:'canonical_stroke_close',id:'fixed4-close',userId:'author',timestamp:2,seq:2,layerId:'layer',targetUserId:'author',strokeId:s.strokeId,disposition:'commitPartial',recordedNext:1,firstFrameOpId:first.id,lastFrameOpId:first.id})
+ fold.accept(close,{id:close.id,roomId:'board',userId:'author',seq:2,type:close.type,layerId:'layer',tool:null,data:close})
+ expect(fold.finish()).toMatchObject({recordedNext:1,ended:false,closeSeal:{kind:'commitPartial',closeOperationId:close.id}});expect(binder.size).toBe(0)
+})
+
+it('keeps recorded seeded policy DATA-only without leaking the imported raster-contract function',()=>{
+ const p=freezeCanonicalSeededDefaultAutoPolicies({recordedSeededDefaultAutoProfile:D,fullHistoryFormat:'mixed-indexed-v1',allowedRecordedRasterProfiles:[G]})
+ expect(Reflect.ownKeys(p)).toEqual(['recordedSeededDefaultAutoProfile']);expect(p).toEqual({recordedSeededDefaultAutoProfile:D})
 })

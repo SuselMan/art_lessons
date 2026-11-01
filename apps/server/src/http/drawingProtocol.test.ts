@@ -16,7 +16,7 @@ describe('whole-renderer HTTP compatibility barrier', () => {
     app.get('/api/rooms/:id/thumbnail', async () => 'bitmap')
     try {
       for (const url of ['/api/rooms/r/snapshots/index', '/api/rooms/r/snapshots/layer/1?x=2', '/api/rooms/r/operations', '/api/rooms/r/%73napshots/index', '/api/rooms/r/%6fperations']) {
-        for (const revision of [undefined, '2', '4', '3, 2']) {
+        for (const revision of [undefined, '2', '5', '3, 2']) {
           const result = await app.inject({ method: 'GET', url, headers: revision ? { [DRAWING_PROTOCOL_HEADER]: revision } : {} })
           expect(result.statusCode).toBe(426)
           expect(result.json()).toEqual({ error: CLIENT_UPDATE_REQUIRED })
@@ -42,4 +42,19 @@ describe('whole-renderer HTTP compatibility barrier', () => {
     try { expect((await app.inject('/api/rooms/r/operations')).statusCode).toBe(200) }
     finally { await app.close() }
   })
+})
+
+it('requires exact4 on read4 binary GET/encoded upload BEFORE handlers and preserves Vary',async()=>{
+ const app=Fastify();let reached=0;app.addHook('onRequest',async(_q,r)=>{r.header('Vary','Origin')});registerDrawingProtocolGate(app,'4')
+ app.get('/api/rooms/:id/snapshots/:layer/:seq',async()=>{reached++;return Buffer.from([1,2,3])});app.post('/api/rooms/:id/snapshots',async()=>{reached++;return{ok:true}});app.get('/api/rooms/:id/operations',async()=>{reached++;return[]})
+ try{
+  for(const revision of [undefined,'2','3','5','04','4, 3'])for(const url of ['/api/rooms/r/snapshots/l/1','/api/rooms/r/%73napshots/l/1','/api/rooms/r/operations'])expect((await app.inject({url,headers:revision?{[DRAWING_PROTOCOL_HEADER]:revision}:{}})).statusCode).toBe(426)
+  expect(reached).toBe(0)
+  expect((await app.inject({method:'POST',url:'/api/rooms/r/%73napshots',headers:{[DRAWING_PROTOCOL_HEADER]:'3'},payload:{}})).statusCode).toBe(426);expect(reached).toBe(0)
+  const accepted=await app.inject({url:'/api/rooms/r/snapshots/l/1',headers:{[DRAWING_PROTOCOL_HEADER]:'4'}});expect(accepted.statusCode).toBe(200);expect(accepted.headers.vary).toContain('Origin');expect(accepted.headers.vary).toContain(DRAWING_PROTOCOL_HEADER)
+ }finally{await app.close()}
+})
+it('accepts exact3 and4 on an image3-only captured minimum3',async()=>{
+ const app=Fastify();registerDrawingProtocolGate(app,'3');app.get('/api/rooms/:id/operations',async()=>[])
+ try{for(const revision of ['3','4'])expect((await app.inject({url:'/api/rooms/r/operations',headers:{[DRAWING_PROTOCOL_HEADER]:revision}})).statusCode).toBe(200)}finally{await app.close()}
 })
