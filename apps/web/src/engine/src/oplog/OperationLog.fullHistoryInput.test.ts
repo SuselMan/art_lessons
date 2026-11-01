@@ -3,7 +3,7 @@ import {OperationLog,type LogEntry} from './OperationLog'
 import type {CanonicalRecordedInput} from './CanonicalRecordedDelivery'
 import {expect,it,vi} from 'vitest'
 vi.mock('@sentry/react',()=>({captureException:vi.fn()}))
-import {sourceAutoGeometry,canonicalSoftAutoSourcePin,buildCanonicalMaterial,CANONICAL_STROKE_RASTER_PROFILE,type CanonicalStrokeOperation,type CanonicalStrokeSnapshotV2,type CanonicalRecordedAttachmentV1,type ServerToClientEvents,type Operation} from '@grafetto/shared'
+import {parseCanonicalStrokeCloseOperation,prepareCanonicalRecordedAttachment,sourceAutoGeometry,canonicalSoftAutoSourcePin,buildCanonicalMaterial,CANONICAL_STROKE_RASTER_PROFILE,type CanonicalStrokeOperation,type CanonicalStrokeSnapshotV2,type CanonicalRecordedAttachmentV1,type ServerToClientEvents,type Operation} from '@grafetto/shared'
 import {prepareCanonicalRoomState} from '../../../pages/Room/net/canonicalRoomState'
 function fixture(ended=true){
  const curve={text:'0,1;1,0',points:[{x:0,y:1,corner:false},{x:1,y:0,corner:false}]}
@@ -95,4 +95,77 @@ it('cannot mint metadata delivery from data-only policy or a foreign frozen oper
  expect(attachCanonicalRecordedDelivery({operation},plain)).not.toHaveProperty('delivery')
  expect(()=>attachCanonicalRecordedDelivery({operation},read.scope)).toThrow()
  expect(()=>attachCanonicalRecordedDelivery({operation:inputs[2].operation,read:inputs[0].read},read.scope)).toThrow()
+})
+
+type BranchStep={readonly kind:'frame';readonly id:string;readonly stroke:string;readonly user?:string;readonly ordinal?:number;readonly ended?:boolean;readonly empty?:boolean}|{readonly kind:'undo'|'redo';readonly id:string;readonly target:string;readonly user?:string}
+function branchOperation(step:BranchStep,seq:number):{operation:Operation;snapshot?:CanonicalStrokeSnapshotV2}{
+ const userId=step.user??'author'
+ if(step.kind!=='frame')return{operation:{type:step.kind==='undo'?'operation_undo':'operation_redo',id:step.id,userId,timestamp:seq,seq,targetOpId:step.target}}
+ const f=fixture(step.ended!==false),captured=f.attachment.capabilities[0].snapshot
+ if(!('materialVersion'in captured)||captured.materialVersion!==2)throw Error('Actual V2 fixture required')
+ const snapshot={...captured,strokeId:step.stroke}
+ const materialPacked=step.empty?buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[],fences:step.ended===false?[]:[{kind:'gestureEnd',at:0}]},snapshot.material).packed:f.op.frame.materialPacked
+ return{snapshot,operation:{...f.op,id:step.id,userId,seq,frame:{...f.op.frame,strokeId:step.stroke,frameOrdinal:step.ordinal??0,materialPacked}}}
+}
+function branchRead(steps:readonly BranchStep[],isCurrent=()=>true){
+ const room=fullState(),rows=steps.map((s,i)=>branchOperation(s,i+1)),capabilities:CanonicalRecordedAttachmentV1['capabilities'][number][]=[],indexes=new Map<string,number>()
+ const bindings:CanonicalRecordedAttachmentV1['bindings'][number][]=[]
+ for(const {operation,snapshot} of rows)if(operation.type==='canonical_stroke'&&snapshot){const key=JSON.stringify([operation.userId,snapshot.strokeId]);let index=indexes.get(key);if(index===undefined){index=capabilities.length;indexes.set(key,index);capabilities.push({originalUserId:operation.userId,snapshot})}bindings.push({operationId:operation.id,sequence:operation.seq!,originalUserId:operation.userId,capability:index})}
+ room.tailOperations=rows.map(r=>r.operation);room.canonicalCapabilities={version:1,roomId:'room',boardEpoch:2,capabilities,bindings};countTail(room)
+ const read=prepareCanonicalRoomState(room,{expectedBoardId:'room',isCurrent}).canonicalRead
+ const inputs=read.preparedAtoms as readonly CanonicalRecordedInput[],log=new OperationLog()
+ inputs.forEach(input=>log.append(input.operation,{serverSeq:input.operation.seq,canonicalInput:input}))
+ const fold=read.assertFullHistoryBase!(read.tailOperations)
+ for(const group of fold.gestures)if(!group.visible){log.applyUndo(group.frameOperationIds[0],group.userId);if(!group.redoable)for(const id of group.frameOperationIds)log.revoke(id)}
+ const future=(step:BranchStep,seq:number)=>{const row=branchOperation(step,seq);if(row.operation.type!=='canonical_stroke'||!row.snapshot)throw Error('Original frame required');const atom=prepareCanonicalRecordedAttachment({version:1,roomId:'room',boardEpoch:2,capabilities:[{originalUserId:row.operation.userId,snapshot:row.snapshot}],bindings:[{operationId:row.operation.id,sequence:seq,originalUserId:row.operation.userId,capability:0}]},[row.operation],read.scope)[0],input=attachCanonicalRecordedDelivery(atom,read.scope);if(!('delivery'in input))throw Error('Missing original owner');return input}
+ return{log,read,inputs,future,fold}
+}
+const hiddenBranch:readonly BranchStep[]=[{kind:'frame',id:'A',stroke:'A'},{kind:'frame',id:'B',stroke:'B'},{kind:'undo',id:'undoB',target:'B'}]
+it('invalidates a hidden group only at the first new original empty source frame, atomically retaining its original input',()=>{
+ const s=branchRead(hiddenBranch),{log}=s,entries=log.entries,revision=log.revision,before=log.pixelOpDoneCount('L'),input=s.future({kind:'frame',id:'C0',stroke:'C',empty:true,ended:false},4),originalB=entries[1]
+ expect(originalB.state).toBe('undone')
+ log.append(input.operation,{serverSeq:4,canonicalInput:input},()=>{expect(log.entries).toBe(entries);expect(entries[1].state).toBe('undone');expect(log.revision).toBe(revision);return undefined})
+ expect(log.entries[1].state).toBe('gone');expect(originalB.state).toBe('undone');expect(log.entries[1]).not.toBe(originalB)
+ expect(log.entries[1].canonicalInput).toBe(originalB.canonicalInput);expect(Object.getOwnPropertyDescriptor(log.entries[1],'canonicalInput')?.enumerable).toBe(false)
+ expect(log.pixelOpDoneCount('L')).toBe(before+1)
+ const next=s.future({kind:'frame',id:'C1',stroke:'C',ordinal:1,empty:true},5);log.append(next.operation,{serverSeq:5,canonicalInput:next},()=>undefined)
+ expect(log.entries[1].state).toBe('gone');expect(log.pixelOpDoneCount('L')).toBe(before+2)
+})
+it.each(['continuation','peer']as const)('preserves hidden redo state for an original %s while another original source is OPEN',kind=>{
+ const prefix:readonly BranchStep[]=[{kind:'frame',id:'A0',stroke:'A',ended:false,empty:true},...hiddenBranch.slice(1)],s=branchRead(prefix),input=s.future({kind:'frame',id:'next',stroke:kind==='continuation'?'A':'peer',user:kind==='peer'?'peer':'author',ordinal:kind==='continuation'?1:0,ended:false,empty:true},4)
+ s.log.append(input.operation,{serverSeq:4,canonicalInput:input},()=>undefined)
+ expect(s.log.entries.find(e=>e.op.id==='B')?.state).toBe('undone')
+})
+it.each(['throw','reentry']as const)('leaves hidden states and grouped counts intact when guarded branch publication encounters %s',kind=>{
+ const s=branchRead(hiddenBranch),entries=s.log.entries,count=s.log.pixelOpDoneCount('L'),input=s.future({kind:'frame',id:'C',stroke:'C',empty:true},4),primary=Error('CAS refused')
+ expect(()=>s.log.append(input.operation,{serverSeq:4,canonicalInput:input},()=>{if(kind==='throw')throw primary;s.log.applyUndo('A','author');return undefined})).toThrow(kind==='throw'?primary:'journal changed')
+ expect(s.log.entries).toBe(entries);expect(entries[1].state).toBe('undone');expect(s.log.entries.some(e=>e.op.id==='C')).toBe(false);expect(s.log.pixelOpDoneCount('L')).toBe(count-(kind==='reentry'?1:0))
+})
+it('keeps historical redo of gone original frames valid, with exact grouped count restoration',()=>{
+ const s=branchRead([...hiddenBranch,{kind:'frame',id:'C',stroke:'C'},{kind:'undo',id:'repeatUndoB',target:'B'}]),{log}=s
+ expect(log.entries.find(e=>e.op.id==='B')?.state).toBe('gone');expect(log.pixelOpDoneCount('L')).toBe(2)
+ expect(log.applyUndo('B','author')).toBeNull();expect(log.entries.find(e=>e.op.id==='B')?.state).toBe('gone')
+ expect(log.applyRedo('B','author')?.id).toBe('B');expect(log.entries.find(e=>e.op.id==='B')?.state).toBe('done');expect(log.pixelOpDoneCount('L')).toBe(3)
+ log.applyRedo('B','author');expect(log.pixelOpDoneCount('L')).toBe(3);log.applyUndo('B','author');expect(log.entries.find(e=>e.op.id==='B')?.state).toBe('undone');expect(log.pixelOpDoneCount('L')).toBe(2)
+ const historical=branchRead([...hiddenBranch,{kind:'frame',id:'C',stroke:'C'},{kind:'redo',id:'oldAcceptedRedoB',target:'undoB'}]);expect(historical.log.entries.find(e=>e.op.id==='B')?.state).toBe('done')
+})
+it('keeps grouped hidden counts exact across new source invalidation and historical revival of two original frames',()=>{
+ const s=branchRead([{kind:'frame',id:'A',stroke:'A'},{kind:'frame',id:'B0',stroke:'B',empty:true,ended:false},{kind:'frame',id:'B1',stroke:'B',ordinal:1,empty:true},{kind:'undo',id:'undoB',target:'B1'}]),{log}=s
+ expect(log.pixelOpDoneCount('L')).toBe(1);expect(log.entries.filter(e=>e.op.type==='canonical_stroke'&&e.op.frame.strokeId==='B').every(e=>e.state==='undone')).toBe(true)
+ const input=s.future({kind:'frame',id:'C',stroke:'C',empty:true},5);log.append(input.operation,{serverSeq:5,canonicalInput:input},()=>undefined)
+ expect(log.pixelOpDoneCount('L')).toBe(2);expect(log.entries.filter(e=>e.op.type==='canonical_stroke'&&e.op.frame.strokeId==='B').every(e=>e.state==='gone')).toBe(true)
+ log.applyRedo('B1','author');expect(log.pixelOpDoneCount('L')).toBe(4);log.applyRedo('B0','author');expect(log.pixelOpDoneCount('L')).toBe(4)
+ log.applyUndo('B0','author');expect(log.pixelOpDoneCount('L')).toBe(2);expect(log.entries.filter(e=>e.op.type==='canonical_stroke'&&e.op.frame.strokeId==='B').every(e=>e.state==='undone')).toBe(true)
+})
+it('preserves original hidden redo when an earlier OPEN source is sealed by a genuine typed close',()=>{
+ const s=branchRead([{kind:'frame',id:'A0',stroke:'A',ended:false,empty:true},...hiddenBranch.slice(1)]),operation:Operation=parseCanonicalStrokeCloseOperation({type:'canonical_stroke_close',id:'closeA',userId:'author',timestamp:4,seq:4,layerId:'L',targetUserId:'author',strokeId:'A',disposition:'commitPartial',recordedNext:1,firstFrameOpId:'A0',lastFrameOpId:'A0'}),input=attachCanonicalRecordedDelivery({operation},s.read.scope)
+ if(!('delivery'in input))throw Error('Original close required')
+ s.log.append(operation,{serverSeq:4,canonicalInput:input},()=>undefined)
+ expect(s.log.entries.find(e=>e.op.id==='B')?.state).toBe('undone');expect(s.log.pixelOpDoneCount('L')).toBe(1)
+})
+it('refuses gone rows absent from the original full hidden proof instead of treating a local revoke as recorded authority',()=>{
+ const s=branchRead(hiddenBranch),input=s.future({kind:'frame',id:'C',stroke:'C',empty:true},4)
+ s.log.revoke('A');const entries=s.log.entries,revision=s.log.revision,count=s.log.pixelOpDoneCount('L')
+ expect(()=>s.log.append(input.operation,{serverSeq:4,canonicalInput:input},()=>undefined)).toThrow('cannot account for hidden frames')
+ expect(s.log.entries).toBe(entries);expect(s.log.revision).toBe(revision);expect(s.log.pixelOpDoneCount('L')).toBe(count)
 })

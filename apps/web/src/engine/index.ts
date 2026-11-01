@@ -1372,7 +1372,7 @@ export interface CanonicalEmptyRoomRestoreResult {readonly committed:true;readon
 interface CanonicalEmptyPlan {
  readonly read:CanonicalRecordedEmptyRoomRead;readonly tail:readonly Operation[]
  readonly scope:ReturnType<CanonicalRecordedEmptyRoomRead['assertCurrent']>
- readonly inputs:readonly CanonicalRecordedInput[];readonly paintInputs:readonly CanonicalRecordedInput[];readonly hiddenFrameIds:readonly string[];readonly full:boolean;readonly open:boolean;readonly profile:CanonicalStrokeRasterProfile
+ readonly inputs:readonly CanonicalRecordedInput[];readonly paintInputs:readonly CanonicalRecordedInput[];readonly hiddenFrameIds:readonly string[];readonly goneFrameIds:readonly string[];readonly full:boolean;readonly open:boolean;readonly profile:CanonicalStrokeRasterProfile
  readonly mask:TransformedMaskLimits;readonly composite:CanonicalCompositeLimits
  readonly imageAssets:readonly CanonicalMaterialAsset[]
  readonly gestures:number;readonly logicalBytes:number;readonly page:Readonly<WorldRect>;readonly tileWidth:number;readonly tileHeight:number
@@ -1434,7 +1434,7 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
  const page={minX:0,minY:0,maxX:width!,maxY:height!},tileWidth=Math.min(TILE_SIZE,width!),tileHeight=Math.min(TILE_SIZE,height!)
  const visible=full?new Set(full.gestures.filter(g=>g.visible).flatMap(g=>g.frameOperationIds)):undefined
  const open=!!full?.gestures.some(g=>g.visible&&!g.ended&&!g.sealed)
- const paintInputs:CanonicalRecordedInput[]=[],hiddenFrameIds:string[]=full?.gestures.filter(g=>!g.visible).map(g=>g.frameOperationIds[0])??[],inputs:CanonicalRecordedInput[]=[],prefixes=new Map<string,CanonicalMaterialPrefixState>(),tiles=new Set<string>(),gestureTiles=new Map<string,Set<string>>()
+ const paintInputs:CanonicalRecordedInput[]=[],hiddenFrameIds:string[]=full?.gestures.filter(g=>!g.visible).map(g=>g.frameOperationIds[0])??[],goneFrameIds:string[]=full?.gestures.filter(g=>!g.visible&&!g.redoable).flatMap(g=>g.frameOperationIds)??[],inputs:CanonicalRecordedInput[]=[],prefixes=new Map<string,CanonicalMaterialPrefixState>(),tiles=new Set<string>(),gestureTiles=new Map<string,Set<string>>()
  const imageAssets=new Map<string,CanonicalMaterialAsset>(),imageGestures=new Set<string>()
  let maskWidth=1,maskHeight=1
  for(let i=0;i<read.preparedAtoms.length;i++){
@@ -1492,7 +1492,7 @@ function planCanonicalEmptyRoom(read:CanonicalRecordedEmptyRoomRead,tail:readonl
  const logicalBytes=(tiles.size+2*[...gestureTiles.values()].reduce((n,t)=>n+t.size,0))*tileWidth*tileHeight*4
  if(!Number.isSafeInteger(logicalBytes))throw new RangeError('Invalid canonical logical admission')
  if(read.assertCurrent()!==scope)throw new Error('Canonical baseline scope changed')
- return Object.freeze({read,tail,scope,imageAssets:Object.freeze([...imageAssets.values()]),inputs:Object.freeze(inputs),paintInputs:Object.freeze(paintInputs),hiddenFrameIds:Object.freeze(hiddenFrameIds),full:!!full,open,profile:read.authorRasterProfile,mask:Object.freeze(mask),composite:Object.freeze(composite),gestures:prefixes.size,logicalBytes,page:Object.freeze(page),tileWidth,tileHeight})
+ return Object.freeze({read,tail,scope,imageAssets:Object.freeze([...imageAssets.values()]),inputs:Object.freeze(inputs),paintInputs:Object.freeze(paintInputs),hiddenFrameIds:Object.freeze(hiddenFrameIds),goneFrameIds:Object.freeze(goneFrameIds),full:!!full,open,profile:read.authorRasterProfile,mask:Object.freeze(mask),composite:Object.freeze(composite),gestures:prefixes.size,logicalBytes,page:Object.freeze(page),tileWidth,tileHeight})
 }
 interface CanonicalJournalProof {
  readonly revision:number;readonly entries:OperationLog['entries'];readonly originalEntries:OperationLog['entries'];readonly originalOperations:readonly Operation[];readonly originalReads:readonly OperationLog['entries'][number]['canonicalRead'][];readonly originalStates:readonly OperationLog['entries'][number]['state'][]
@@ -3670,9 +3670,9 @@ export class PencilEngine implements PencilEngineAPI {
       for(const input of inputs)input.delivery.assertCurrent(input)
       this._assertCanonicalLayerCurrent(owner)
       const fold=verifyCanonicalFullHistoryBase({kind:'full-room-prefix-v2',roomId:owner.plan.scope.roomId,boardEpoch:owner.plan.scope.boardEpoch,throughSeq:inputs.length,operationCount:inputs.length},inputs.map((input,i)=>({operation:input.operation,read:entries[i].canonicalRead})),owner.plan.scope)
-      const own=fold.gestures.filter(group=>group.userId===userId),group=direction==='undo'?own.findLast(group=>group.visible):own.find(group=>!group.visible)
+      const own=fold.gestures.filter(group=>group.userId===userId),group=direction==='undo'?own.findLast(group=>group.visible):own.find(group=>!group.visible&&group.redoable)
       if(!group||!group.ended&&!group.sealed)return null
-      for(const id of group.frameOperationIds){const i=inputs.findIndex(input=>input.operation.id===id);if(i<0||entries[i].state!==(group.visible?'done':'undone'))return null}
+      for(const id of group.frameOperationIds){const i=inputs.findIndex(input=>input.operation.id===id);if(i<0||entries[i].state!==(group.visible?'done':group.redoable?'undone':'gone'))return null}
       const id=group.frameOperationIds.at(-1),at=inputs.findIndex(input=>input.operation.id===id)
       if(at<0)return null
       target=entries[at].op
@@ -6333,6 +6333,7 @@ export class PencilEngine implements PencilEngineAPI {
       const staged=new OperationLog()
       for(const input of plan.inputs)staged.append(input.operation,{serverSeq:input.operation.seq,canonicalRead:input.read,canonicalInput:input})
       for(const id of plan.hiddenFrameIds){const input=plan.inputs.find(input=>input.operation.id===id)!;staged.applyUndo(id,input.operation.userId)}
+      for(const id of plan.goneFrameIds)staged.revoke(id)
       if(this._log.revision!==revision||this._log.entries.length||this._layers!==old)throw new Error('Canonical baseline journal changed')
       return this._beginCanonicalEmpty(plan,old,revision,staged)
     }catch(error){return Promise.reject(error)}

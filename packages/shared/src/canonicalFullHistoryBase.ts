@@ -47,6 +47,14 @@ interface Gesture {
  state:CanonicalMaterialPrefixState
  sealed:boolean
  visible:boolean
+ redoable:boolean
+}
+/** Derived history DATA only: neither paint authority nor permission to admit a
+ * new command. Accepted historical redo remains replay-valid after a branch. */
+export function transitionCanonicalHistoryGesture(state:{readonly visible:boolean;readonly redoable:boolean},action:'undo'|'redo'|'new-own-gesture'):Readonly<{visible:boolean;redoable:boolean}>{
+ if(action==='redo')return Object.freeze({visible:true,redoable:true})
+ if(action==='undo')return Object.freeze({visible:false,redoable:state.visible||state.redoable})
+ return Object.freeze({visible:state.visible,redoable:state.visible&&state.redoable})
 }
 export interface CanonicalFullHistoryGesture {
  readonly userId:string
@@ -56,6 +64,7 @@ export interface CanonicalFullHistoryGesture {
  readonly ended:boolean
  readonly sealed:boolean
  readonly visible:boolean
+ readonly redoable:boolean
 }
 /** DATA validation of one complete prepared batch, not proof of an absent DB
  * row, actor permissions, original delivery lifetime or an execution grant.
@@ -80,7 +89,8 @@ export function verifyCanonicalFullHistoryBase(value:unknown,atoms:readonly Cano
    if(!previous&&gestures.size>=CANONICAL_RECORDED_ATTACHMENT_LIMITS.capabilities)return fail()
    const decoded=decodeCanonicalStrokeFrame(op.frame,{rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,
     frameOrdinal:op.frame.frameOrdinal,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:s.material})
-   const group:Gesture=previous??{capability:cap,frames:[],state:CANONICAL_MATERIAL_PREFIX_START,sealed:false,visible:true}
+   if(!previous)for(const group of gestures.values())if(group.capability.originalUserId===op.userId)Object.assign(group,transitionCanonicalHistoryGesture(group,'new-own-gesture'))
+   const group:Gesture=previous??{capability:cap,frames:[],state:CANONICAL_MATERIAL_PREFIX_START,sealed:false,visible:true,redoable:true}
    group.frames.push({operationId:op.id,sequence:op.seq,frameOrdinal:op.frame.frameOrdinal,decoded:decoded.frame})
    group.state=advanceCanonicalMaterialPrefix(group.state,op.frame.frameOrdinal,decoded.frame)
    gestures.set(key,group);targets.set(op.id,group)
@@ -95,12 +105,12 @@ export function verifyCanonicalFullHistoryBase(value:unknown,atoms:readonly Cano
    const group=targets.get(metadata.targetOpId)
    if(!group||group.capability.originalUserId!==op.userId||!group.sealed&&!group.state.ended)return fail()
    // Repeated server-accepted undo/redo is idempotent, matching the log.
-   group.visible=op.type==='operation_redo';targets.set(op.id,group)
+   Object.assign(group,transitionCanonicalHistoryGesture(group,op.type==='operation_redo'?'redo':'undo'));targets.set(op.id,group)
   }else return fail()
   ids.add(op.id)
  }
  const result=[...gestures.values()].map(group=>Object.freeze({userId:group.capability.originalUserId,layerId:group.capability.snapshot.layerId,
   strokeId:group.capability.snapshot.strokeId,frameOperationIds:Object.freeze(group.frames.map(frame=>frame.operationId)),
-  ended:group.state.ended,sealed:group.sealed,visible:group.visible}))
+  ended:group.state.ended,sealed:group.sealed,visible:group.visible,redoable:group.redoable}))
  return Object.freeze({base,gestures:Object.freeze(result)})
 }

@@ -192,3 +192,46 @@ Every other writer guard remains unchanged. Final metadata object construction
 occurs before the last pure journal/owner check; the existing sink receives that
 same frozen object once. A submission callback exception preserves the unchanged
 journal/resources; normal busy refusal remains the paired Room wrapper's no-op.
+
+## U4: compatible prospective redo selection (2026-11-01)
+
+This paired unit uses the shared `transitionCanonicalHistoryGesture` DATA law;
+there is no wire/schema/profile flag, new source grant, optimistic journal update
+or UI/outbox owner. A first genuinely new same-user original source frame makes
+currently hidden groups `gone`, including a valid empty/control frame. Continuation
+of an already known OPEN gesture, peer input and typed close do not. A historical
+accepted redo still restores a gone canonical group; repeating undo on an already
+hidden group never restores its redoability. The normal PM log law is unchanged.
+
+Owned scope is exactly `OperationLog.ts`, its existing `fullHistoryInput.test.ts`,
+`engine/index.ts`, its existing `index.canonicalHistoryControl.test.ts`, and this
+provenance. ROOT owns the shared fold/reader expectation and server prospective
+writer/duplicate-repair half; these client changes are not published alone.
+
+The guarded original append derives group freshness from retained original
+headers, not local projected seq, then prepares copied hidden rows before its
+existing pure journal CAS. Original nonenumerable input identity and normalized
+read references survive. Caller callbacks still see the original undone rows;
+a thrown/reentrant validator never publishes partial gone state. The cached
+original full-read hidden set accounts for both undone/gone rows; an unrelated
+locally revoked row does not acquire that original authority. No packed-frame
+history decode is added to source append.
+
+Cold installation uses the existing scratch journal: hide original whole groups,
+mark every derived gone frame through the existing revoke method, then publish
+through the same empty-journal CAS. Pixel counters count done original frame rows
+under the established control-frame law: undone→gone changes no count, and
+historical grouped redo/undo changes each frame exactly once. Journal proofs
+already retain exact state/ref snapshots and are recaptured after live append.
+U1 emits a redo request only for hidden+redoable ended/sealed groups from the
+original full-prefix DATA fold; emission itself changes neither pixels nor log.
+
+Tests-first produced two meaningful Log failures and two engine failures before
+the implementation. Current focused run is **78 tests / 4 files PASS**, covering
+legacy log/guarded append plus actual original-owner installation, first empty
+frame, OPEN continuation, peer frame, typed close, two-frame grouped counts,
+no-resurrection undo, permissive historical redo, forged hidden-state rejection,
+callback failure/reentry and real pointer-author→original-confirmation after a
+hidden full baseline. Recording GL demonstrates lifecycle/command routing, not
+physical GPU pixel equivalence. No runtime/device/policy activation is part of
+these host checks; paired server and later ROOT UI/cold proofs remain separate.

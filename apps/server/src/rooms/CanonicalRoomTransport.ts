@@ -649,7 +649,38 @@ export class CanonicalRoomTransport {
      return {result:{ok:true,seq:existing.seq!,duplicate:true},accepted:captureCanonicalMetadata(existing,true)}
     }
     if(requestedSeq!==undefined)fail('invalid_operation')
+    let assertRedoCut:undefined|(()=>void)
+    if(input.type==='operation_redo'&&this.fullHistoryFormat==='mixed-v2'){
+     // Prospective command policy only. Already accepted historical redo and
+     // SAME-ID repairs above retain their original durable meaning.
+     let redoable:boolean
+     try{
+      const read=await this.prepareReadDelivery(identity,isCurrent)
+      // Prefix authority stays at its original cut; only the prospective
+      // whole-history decision starts at the latest completed room cut.
+      const redoCut=record.nextSeq-1
+      const full=await read.prepareFullHistory({throughSeq:redoCut,floor:0})
+      const envelope=read.finish(full.operations,full.canonicalRows,full)
+      if(!envelope.canonicalHistoryBase||!envelope.canonicalCapabilities)fail('canonical_repair_required')
+      const folded=verifyCanonicalFullHistoryBase(envelope.canonicalHistoryBase,prepareCanonicalRecordedAttachment(envelope.canonicalCapabilities,full.operations,read.scope),read.scope)
+      const targetId=anchor.id,target=folded.gestures.find(group=>group.userId===identity.userId&&group.frameOperationIds.includes(targetId))
+      if(!target)fail('canonical_repair_required')
+      redoable=target.redoable
+      assertRedoCut=()=>{current();full.assertCurrent()}
+     }catch(error){
+      // A concurrent identical command may itself have moved the read cut.
+      // Its receipt must be repaired before any new-command branch decision.
+      const duplicate=findDuplicateOperation(identity.roomId,input.id)
+      if(duplicate&&knownCanonicalWrite(duplicate))return await durable(duplicate,true)
+      throw error
+     }
+     const duplicate=findDuplicateOperation(identity.roomId,input.id)
+     if(duplicate&&knownCanonicalWrite(duplicate))return await durable(duplicate,true)
+     assertPrefixCurrent();assertRedoCut()
+     if(!redoable)fail('invalid_operation')
+    }
     // No await between last authority checks, mirror update and SAME receipt.
+    assertPrefixCurrent();assertRedoCut?.()
     updateAliveIds(identity.roomId,input)
     const accepted=recordCanonicalMetadataOperation(identity.roomId,input)
     return await durable(accepted,false)

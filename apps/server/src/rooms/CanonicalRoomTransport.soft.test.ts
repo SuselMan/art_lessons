@@ -937,6 +937,9 @@ it('refuses accessor close requests without invoking them or resolving any datab
 
 it('admits own undo/redo over the actual indexed partial-close seal without opening generic prefix reads',async()=>{
  const f=await recordedCloseReadFixture(),transport=new CanonicalRoomTransport({...selected,fullHistoryFormat:'mixed-v2'}),undo={type:'operation_undo' as const,id:'sealed-undo',userId:'author',timestamp:200,targetOpId:f.operations[0].id}
+ // New redo admission reads the complete indexed cut, including the undo
+ // just persisted by this real transport, rather than only its target prefix.
+ db.operation.findMany.mockImplementation(async({where,take})=>db.operation.create.mock.calls.map(([q])=>q.data).filter(row=>row.roomId===where.roomId&&row.seq>where.seq.gt&&row.seq<=where.seq.lte).slice(0,take))
  const writes=db.operation.create.mock.calls.length,pin=vi.spyOn(f.storage,'pin')
  expect(await transport.metadata(identity,undo,()=>true)).toMatchObject({result:{ok:true},accepted:{type:'operation_undo'}})
  expect(await transport.metadata(identity,{...undo,id:'sealed-redo',type:'operation_redo',targetOpId:undo.id},()=>true)).toMatchObject({result:{ok:true}})
@@ -1006,4 +1009,148 @@ it('never classifies a canonical close as a legacy undo terminal or appends pois
  const writes=db.operation.create.mock.calls.length,next=f.board.nextSeq
  expect(await new CanonicalRoomTransport({...selected,fullHistoryFormat:'mixed-v2'}).metadata(identity,{type:'operation_undo',id:'undo-close-meta',userId:'author',timestamp:200,targetOpId:closed.accepted.id},()=>true)).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
  expect(db.operation.create).toHaveBeenCalledTimes(writes);expect(f.board.nextSeq).toBe(next)
+})
+
+/** Indexed rows are created by the actual writer. Both full-cut and gesture
+ * queries below run the real snapshotStore parsers over this tiny DB double. */
+async function redoBranchFixture(){
+ const f=setup(softDescriptor()),persisted=new Map<string,import('./roomPersistence.js').CanonicalStoredOperationRow>()
+ db.operation.create.mockReset().mockImplementation(async({data})=>{const row=structuredClone(data);persisted.set(row.id,row);return structuredClone(row)})
+ db.operation.findUnique.mockImplementation(async({where})=>structuredClone(persisted.get(where.id)??null))
+ db.operation.findMany.mockImplementation(async({where,take})=>[...persisted.values()].filter(row=>{
+  if(row.roomId!==where.roomId||row.seq<=where.seq.gt||row.seq>where.seq.lte)return false
+  if(!where.OR)return true
+  const selector=where.OR[0],op=row.data as import('@grafetto/shared').Operation
+  return op.type==='canonical_stroke'?op.userId===selector.userId&&op.frame.strokeId===selector.data.equals
+   :op.type==='canonical_stroke_close'&&op.targetUserId===selector.userId&&op.strokeId===selector.data.equals
+ }).sort((a,b)=>a.seq-b.seq).slice(0,take).map(row=>structuredClone(row)))
+ const actual=await vi.importActual<typeof import('./snapshotStore.js')>('./snapshotStore.js')
+ vi.mocked(getCanonicalGesturePrefixWithRows).mockImplementation(actual.getCanonicalGesturePrefixWithRows)
+ const transport=new CanonicalRoomTransport({...selected,fullHistoryFormat:'mixed-v2'})
+ const author=async(strokeId:string,userId='author')=>{
+  const who={roomId:'board',userId},s=snapshot(await transport.begin(who,{...f.input,strokeId},()=>true)),packets=frames(f.descriptor,s),accepted:CanonicalStrokeOperation[]=[]
+  for(let n=0;n<packets.length;n++){
+   const outcome=await transport.recorded(who,{id:strokeId+'-'+n,type:'canonical_stroke',userId,timestamp:n,layerId:'layer',frame:packets[n]},()=>true)
+   if(!outcome.accepted)throw Error('Actual branch source rejected: '+JSON.stringify(outcome.result));accepted.push(outcome.accepted)
+  }
+  return accepted
+ }
+ const command=(id:string,type:'operation_undo'|'operation_redo',targetOpId:string)=>({id,type,targetOpId,userId:'author',timestamp:200})
+ return{...f,transport,persisted,author,command}
+}
+it('refuses only a new redo after a new own gesture, and a repeated undo cannot revive the discarded branch',async()=>{
+ const f=await redoBranchFixture(),first=await f.author('branch-a'),second=await f.author('branch-b')
+ const undo=f.command('branch-undo','operation_undo',second[0].id)
+ expect(await f.transport.metadata(identity,undo,()=>true)).toMatchObject({result:{ok:true}})
+ await f.author('branch-c');const next=f.board.nextSeq,writes=db.operation.create.mock.calls.length
+ expect(await f.transport.metadata(identity,f.command('gone-redo','operation_redo',undo.id),()=>true)).toMatchObject({result:{ok:false,reason:'invalid_operation'}})
+ expect(f.board.nextSeq).toBe(next);expect(db.operation.create).toHaveBeenCalledTimes(writes)
+ const again=f.command('gone-undo','operation_undo',undo.id)
+ expect(await f.transport.metadata(identity,again,()=>true)).toMatchObject({result:{ok:true}})
+ expect(await f.transport.metadata(identity,f.command('gone-redo-again','operation_redo',again.id),()=>true)).toMatchObject({result:{ok:false,reason:'invalid_operation'}})
+ const read=await f.transport.prepareReadDelivery(identity,()=>true),full=await read.prepareFullHistory({throughSeq:f.board.nextSeq-1,floor:0})
+ expect(full.operations.some(op=>op.id===first[0].id)).toBe(true);expect(read.finish(full.operations,full.canonicalRows,full).canonicalHistoryBase?.operationCount).toBe(f.board.nextSeq-1)
+})
+it('does not discard an author redo branch when a different participant starts a gesture',async()=>{
+ const f=await redoBranchFixture(),a=await f.author('peer-a'),undo=f.command('peer-undo','operation_undo',a[0].id)
+ expect(await f.transport.metadata(identity,undo,()=>true)).toMatchObject({result:{ok:true}})
+ f.board.participants.set('peer',{userId:'peer',name:'Peer',role:'member',color:'#fff',frozen:false,boardId:'board'});f.storage.install('peer',f.library,new Map())
+ await f.author('peer-c','peer')
+ expect(await f.transport.metadata(identity,f.command('peer-redo','operation_redo',undo.id),()=>true)).toMatchObject({result:{ok:true}})
+})
+it('keeps durable and indexed SAME-ID redo repair valid after a later undo and branch',async()=>{
+ const f=await redoBranchFixture(),a=await f.author('repair-a'),undo=f.command('repair-undo','operation_undo',a[0].id),redo=f.command('repair-redo','operation_redo',undo.id)
+ expect(await f.transport.metadata(identity,undo,()=>true)).toMatchObject({result:{ok:true}})
+ const accepted=await f.transport.metadata(identity,redo,()=>true);expect(accepted).toMatchObject({result:{ok:true}})
+ expect(await f.transport.metadata(identity,f.command('repair-undo-again','operation_undo',redo.id),()=>true)).toMatchObject({result:{ok:true}})
+ await f.author('repair-c');const next=f.board.nextSeq,writes=db.operation.create.mock.calls.length
+ expect(await f.transport.metadata(identity,redo,()=>true)).toMatchObject({result:{ok:true,duplicate:true}})
+ f.board.operationsById.delete(redo.id);f.board.operations=f.board.operations.filter(op=>op.id!==redo.id)
+ expect(await f.transport.metadata(identity,redo,()=>true)).toMatchObject({result:{ok:true,duplicate:true}})
+ expect(await f.transport.metadata(identity,{...redo,targetOpId:'conflict'},()=>true)).toMatchObject({result:{ok:false}})
+ expect(f.board.nextSeq).toBe(next);expect(db.operation.create).toHaveBeenCalledTimes(writes)
+})
+it('rechecks the full original cut when a new own gesture is persisted during the redo read',async()=>{
+ const f=await redoBranchFixture(),a=await f.author('race-a'),undo=f.command('race-undo','operation_undo',a[0].id)
+ expect(await f.transport.metadata(identity,undo,()=>true)).toMatchObject({result:{ok:true}})
+ const query=db.operation.findMany.getMockImplementation()!;let inserted=false
+ db.operation.findMany.mockImplementation(async request=>{
+  const rows=await query(request)
+  if(!request.where.OR&&!inserted){inserted=true;await f.author('race-c')}
+  return rows
+ })
+ const request=f.command('race-redo','operation_redo',undo.id)
+ expect(await f.transport.metadata(identity,request,()=>true)).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
+ expect(inserted).toBe(true);expect(f.board.operationsById.has(request.id)).toBe(false)
+ expect(await f.transport.metadata(identity,{...request,id:'race-redo-after'},()=>true)).toMatchObject({result:{ok:false,reason:'invalid_operation'}})
+})
+it('repairs a concurrent identical redo even when its acceptance moves the full-read cut',async()=>{
+ const f=await redoBranchFixture(),a=await f.author('same-a'),undo=f.command('same-undo','operation_undo',a[0].id)
+ expect(await f.transport.metadata(identity,undo,()=>true)).toMatchObject({result:{ok:true}})
+ const request=f.command('same-redo','operation_redo',undo.id),query=db.operation.findMany.getMockImplementation()!;let nested:Awaited<ReturnType<typeof f.transport.metadata>>|undefined,started=false
+ db.operation.findMany.mockImplementation(async input=>{
+  const rows=await query(input)
+  if(!input.where.OR&&!started){started=true;nested=await f.transport.metadata(identity,request,()=>true)}
+  return rows
+ })
+ const result=await f.transport.metadata(identity,request,()=>true)
+ expect(nested).toMatchObject({result:{ok:true}});expect(result).toMatchObject({result:{ok:true,duplicate:true}})
+ expect(f.board.operations.filter(op=>op.id===request.id)).toHaveLength(1)
+})
+it('still reads an old accepted redo after a branch, and a later genuine undo makes that restored gesture redoable again',async()=>{
+ const f=await redoBranchFixture(),a=await f.author('historical-a'),undo=f.command('historical-undo','operation_undo',a[0].id)
+ expect(await f.transport.metadata(identity,undo,()=>true)).toMatchObject({result:{ok:true}})
+ await f.author('historical-c')
+ // A durable row from the previous admission law, not a new-policy request.
+ const {recordCanonicalMetadataOperation,ensureCanonicalWrite}=await import('./operationLog.js')
+ const old=recordCanonicalMetadataOperation('board',f.command('old-accepted-redo','operation_redo',undo.id))
+ expect(await ensureCanonicalWrite(f.board,old)).toMatchObject({ok:true})
+ const read=await f.transport.prepareReadDelivery(identity,()=>true),full=await read.prepareFullHistory({throughSeq:f.board.nextSeq-1,floor:0})
+ expect(read.finish(full.operations,full.canonicalRows,full).canonicalHistoryBase?.operationCount).toBe(full.operations.length)
+ const next=f.command('historical-new-undo','operation_undo',old.id)
+ expect(await f.transport.metadata(identity,next,()=>true)).toMatchObject({result:{ok:true}})
+ expect(await f.transport.metadata(identity,f.command('historical-new-redo','operation_redo',next.id),()=>true)).toMatchObject({result:{ok:true}})
+})
+it('repairs only the identical failed redo without running a fresh full-cut policy over its unpersisted row',async()=>{
+ const f=await redoBranchFixture(),a=await f.author('failed-a'),undo=f.command('failed-undo','operation_undo',a[0].id)
+ expect(await f.transport.metadata(identity,undo,()=>true)).toMatchObject({result:{ok:true}})
+ const request=f.command('failed-redo','operation_redo',undo.id),log=vi.spyOn(console,'error').mockImplementation(()=>{})
+ try{
+  db.operation.create.mockRejectedValueOnce(Error('Actual redo durable failure'))
+  expect(await f.transport.metadata(identity,request,()=>true)).toMatchObject({result:{ok:false,reason:'canonical_repair_required'}})
+  const next=f.board.nextSeq
+  await expect(f.author('blocked-while-failed')).rejects.toThrow('canonical_repair_required')
+  expect(await f.transport.metadata(identity,request,()=>true)).toMatchObject({result:{ok:true,duplicate:true,seq:next-1}})
+  expect(f.board.nextSeq).toBe(next);expect(f.persisted.has(request.id)).toBe(true)
+ }finally{log.mockRestore()}
+})
+it('reauthorizes the full redo read before any new metadata publication',async()=>{
+ const f=await redoBranchFixture(),a=await f.author('revoked-a'),undo=f.command('revoked-undo','operation_undo',a[0].id)
+ expect(await f.transport.metadata(identity,undo,()=>true)).toMatchObject({result:{ok:true}})
+ const query=db.operation.findMany.getMockImplementation()!,writes=db.operation.create.mock.calls.length,next=f.board.nextSeq
+ db.operation.findMany.mockImplementation(async request=>{const rows=await query(request);if(!request.where.OR)readAccess.allowed=false;return rows})
+ const request=f.command('revoked-redo','operation_redo',undo.id)
+ expect(await f.transport.metadata(identity,request,()=>true)).toMatchObject({result:{ok:false,reason:'not_joined'}})
+ expect(f.board.nextSeq).toBe(next);expect(db.operation.create).toHaveBeenCalledTimes(writes)
+})
+
+it('captures a fresh redo cut after a peer write has completed during its earlier target-prefix preparation',async()=>{
+ const f=await redoBranchFixture(),a=await f.author('late-cut-a'),undo=f.command('late-cut-undo','operation_undo',a[0].id)
+ expect(await f.transport.metadata(identity,undo,()=>true)).toMatchObject({result:{ok:true}})
+ f.board.participants.set('peer',{userId:'peer',name:'Peer',role:'member',color:'#fff',frozen:false,boardId:'board'});f.storage.install('peer',f.library,new Map())
+ const oldCut=f.board.nextSeq-1,query=db.operation.findMany.getMockImplementation()!,fullCuts:number[]=[]
+ let inserted=false,completedPeerCut=0
+ db.operation.findMany.mockImplementation(async input=>{
+  const rows=await query(input)
+  if(input.where.OR&&!inserted){
+   inserted=true;await f.author('late-cut-peer','peer');completedPeerCut=f.board.nextSeq-1
+  }
+  if(!input.where.OR)fullCuts.push(input.where.seq.lte)
+  return rows
+ })
+ const request=f.command('late-cut-redo','operation_redo',undo.id),result=await f.transport.metadata(identity,request,()=>true)
+ expect(inserted).toBe(true);expect(completedPeerCut).toBeGreaterThan(oldCut)
+ expect(result).toMatchObject({result:{ok:true,seq:completedPeerCut+1},accepted:{id:request.id,type:'operation_redo'}})
+ expect(fullCuts.length).toBeGreaterThan(0);expect(fullCuts.every(cut=>cut===completedPeerCut)).toBe(true)
+ expect(f.board.operations.filter(op=>op.id===request.id)).toHaveLength(1)
 })

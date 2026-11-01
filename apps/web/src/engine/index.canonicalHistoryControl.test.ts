@@ -135,3 +135,34 @@ it('notifies once after both queued source owners and all their CPU references r
   release();await vi.waitFor(()=>expect(idle).toHaveBeenCalledOnce(),{timeout:10000})
  }finally{release();engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 },20000)
+
+function fullOriginalHistory(h:Awaited<ReturnType<typeof harness>>,tail:readonly Operation[],snapshots:readonly CanonicalStrokeSnapshotV2[]){
+ const {canonicalRead:_read,...wire}=h.p
+ const operations:Operation[]=tail.map((op,i)=>({...op,seq:i+1})),frames=operations.filter((op):op is CanonicalStrokeOperation=>op.type==='canonical_stroke')
+ return prepareCanonicalRoomState({...wire,tailOperations:operations,canonicalHistoryBase:{kind:'full-room-prefix-v2',roomId:'room',boardEpoch:2,throughSeq:operations.length,operationCount:operations.length},canonicalCapabilities:{version:1,roomId:'room',boardEpoch:2,capabilities:snapshots.map(snapshot=>({originalUserId:'local',snapshot})),bindings:frames.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:snapshots.findIndex(s=>s.strokeId===op.frame.strokeId)}))}},{expectedBoardId:'room',isCurrent:()=>true})
+}
+it.each([false,true])('installs original gone metadata without rejecting previously accepted historical redo (historical redo=%s)',async historicalRedo=>{
+ const h=await harness(async r=>verdict(r));let restored:Awaited<ReturnType<typeof harness>>|undefined
+ try{
+  await h.engine.prepareBrush(preset);const a=await author(h),b=await author(h,200),snapshot=h.snapshots.get(a[0].frame.strokeId)!,c=a.map((op,i)=>({...op,id:'C-'+i,frame:{...op.frame,strokeId:'C'}})),tail:Operation[]=[...a,...b,{type:'operation_undo',id:'undoB',userId:'local',timestamp:300,targetOpId:b[0].id},...c]
+  if(historicalRedo)tail.push({type:'operation_redo',id:'oldAcceptedRedo',userId:'local',timestamp:500,targetOpId:'undoB'})
+  const p=fullOriginalHistory(h,tail,[...h.snapshots.values(),{...snapshot,strokeId:'C'}]);restored=await harness(async r=>verdict(r),descriptor,()=>true,{width:8,height:8},CANONICAL_STROKE_RASTER_PROFILE,undefined,p)
+  const {engine,operations}=restored,entries=engine['_log'].entries,hidden=entries.filter(e=>e.op.type==='canonical_stroke'&&e.op.frame.strokeId===b[0].frame.strokeId)
+  expect(hidden.length).toBe(b.length);expect(hidden.every(e=>e.state===(historicalRedo?'done':'gone'))).toBe(true)
+  expect(engine['_log'].pixelOpDoneCount('layer-1')).toBe(a.length+c.length+(historicalRedo?b.length:0))
+  expect(engine.redo()).toBeNull();expect(operations).toHaveLength(0);expect(engine['_canonicalExportReady']()).toBe(true)
+  expect(engine['_canonicalLayerOwner']?.proof.originalStates).toEqual(entries.map(e=>e.state))
+ }finally{h.engine.destroy();restored?.engine.destroy();expect(h.engine['_brushMipCache'].reservedBytes).toBe(0);if(restored)expect(restored.engine['_brushMipCache'].reservedBytes).toBe(0)}
+},30000)
+it('invalidates redo on a newly confirmed original source after a hidden full baseline, preserving journal proof and grouped counts',async()=>{
+ const h=await harness(async r=>verdict(r));let restored:Awaited<ReturnType<typeof harness>>|undefined
+ try{
+  await h.engine.prepareBrush(preset);const a=await author(h),b=await author(h,200),tail:Operation[]=[...a,...b,{type:'operation_undo',id:'undoB',userId:'local',timestamp:300,targetOpId:b[0].id}],p=fullOriginalHistory(h,tail,[...h.snapshots.values()])
+  restored=await harness(async r=>verdict(r),descriptor,()=>true,{width:8,height:8},CANONICAL_STROKE_RASTER_PROFILE,undefined,p)
+  const {engine}=restored,old=engine['_log'].entries,hidden=old.filter(e=>e.op.type==='canonical_stroke'&&e.op.frame.strokeId===b[0].frame.strokeId)
+  expect(hidden.every(e=>e.state==='undone')).toBe(true);await engine.prepareBrush(preset);const c=await author(restored,500)
+  expect(hidden.every(e=>e.state==='undone')).toBe(true);expect(engine['_log'].entries.filter(e=>e.op.type==='canonical_stroke'&&e.op.frame.strokeId===b[0].frame.strokeId).every(e=>e.state==='gone')).toBe(true)
+  expect(engine['_log'].pixelOpDoneCount('layer-1')).toBe(a.length+c.length);expect(engine['_canonicalLayerOwner']?.proof.originalStates).toEqual(engine['_log'].entries.map(e=>e.state))
+  const count=restored.operations.length;expect(engine.redo()).toBeNull();expect(restored.operations).toHaveLength(count);expect(engine.undo()?.id).toBe(c.at(-1)!.id)
+ }finally{h.engine.destroy();restored?.engine.destroy();expect(h.engine['_brushMipCache'].reservedBytes).toBe(0);if(restored)expect(restored.engine['_brushMipCache'].reservedBytes).toBe(0)}
+},30000)

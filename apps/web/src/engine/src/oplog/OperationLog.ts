@@ -6,14 +6,15 @@ import type {CanonicalRecordedInput} from './CanonicalRecordedDelivery'
 //   done   — applied, visible on canvas
 //   undone — reverted by its author, eligible for redo
 //   gone   — unreachable history branch (author acted after undo, or a teacher
-//            revoked it); can never return to `done`
+//            revoked it); new redo selection excludes it. Previously accepted
+//            canonical historical redo remains replay-valid.
 
 import type {
   Operation, StrokeOperation, CanonicalStrokeOperation, LayerClearOperation, LayerMergeOperation, LayerDuplicateOperation,
   ImageImportOperation, LayerTransformOperation, AreaTransformOperation, AreaClearOperation,
   AreaPasteOperation, AreaFillOperation, ShapeOperation, LayerFilterOperation,
 } from '@grafetto/shared'
-import { captureCanonicalFullHistoryMetadata, parseCanonicalStrokeCloseOperation, operationLayerIds, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation } from '@grafetto/shared'
+import { transitionCanonicalHistoryGesture, captureCanonicalFullHistoryMetadata, parseCanonicalStrokeCloseOperation, operationLayerIds, prepareCanonicalRecordedAttachment, type CanonicalPreparedRecordedOperation } from '@grafetto/shared'
 
 /** Restore only the authoritative sequence, preserving every own descriptor so
  * the shared closed parser still rejects hidden extras and accessors. */
@@ -36,6 +37,10 @@ function captureMetadataForPlacement(op:Operation,serverSeq:number|undefined){
 }
 
 export type OperationState = 'done' | 'undone' | 'gone'
+function canonicalStateAfter(state:OperationState,action:Parameters<typeof transitionCanonicalHistoryGesture>[1]):OperationState {
+  const next=transitionCanonicalHistoryGesture({visible:state==='done',redoable:state!=='gone'},action)
+  return next.visible?'done':next.redoable?'undone':'gone'
+}
 export type CanonicalLogRead = NonNullable<CanonicalPreparedRecordedOperation['read']>
 
 export interface LogEntry {
@@ -327,8 +332,12 @@ export class OperationLog {
       placement.pending ? undefined : placement.canonicalRead,canonicalInput)
     this._revision++
     if (!META_OP_TYPES.has(op.type)) {
+      const fresh=op.type!=='canonical_stroke'||!this._entries.some(e=>e.op.type==='canonical_stroke'&&e.op.userId===op.userId&&e.op.frame.strokeId===op.frame.strokeId)
       for (const e of this._entries) {
-        if (e.state === 'undone' && e.op.userId === op.userId) e.state = 'gone'
+        if (e.state === 'undone' && e.op.userId === op.userId) {
+          if(op.type!=='canonical_stroke'||e.op.type!=='canonical_stroke')e.state='gone'
+          else if(fresh)e.state=canonicalStateAfter(e.state,'new-own-gesture')
+        }
       }
     }
 
@@ -393,13 +402,19 @@ export class OperationLog {
       const lifetime=originalInput.delivery.lifetime as Partial<import('./CanonicalRecordedDelivery').CanonicalRecordedEmptyRoomRead>
       if(!lifetime.assertFullHistoryBase||!lifetime.tailOperations)throw new TypeError('Guarded append requires an original full history for hidden frames')
       const full=lifetime.assertFullHistoryBase(lifetime.tailOperations),hidden=new Set(full.gestures.filter(g=>!g.visible).flatMap(g=>g.frameOperationIds))
-      if(entries.some(entry=>entry.state!=='done'&&(entry.state!=='undone'||!hidden.has(entry.op.id)||entry.canonicalInput?.delivery.lifetime!==lifetime)))throw new TypeError('Guarded append cannot account for hidden frames')
+      if(entries.some(entry=>entry.state!=='done'&&((entry.state!=='undone'&&entry.state!=='gone')||!hidden.has(entry.op.id)||entry.canonicalInput?.delivery.lifetime!==lifetime)))throw new TypeError('Guarded append cannot account for hidden frames')
     }
     const canonicalRead=this._prepareCanonicalReadAndInput(op,serverSeq,read,canonicalInput)
     const candidate=retainCanonicalInput({op:{...op,seq:length},state:'done',serverSeq,canonicalRead},canonicalInput)
     const counts=new Map(this._pixelOpDoneCount),layerId=op.layerId
     if(op.type==='canonical_stroke')counts.set(layerId,(counts.get(layerId)??0)+1)
-    const nextEntries=[...entries,candidate],overtaken:LogEntry[]=[]
+    const fresh=op.type==='canonical_stroke'&&!entries.some(entry=>entry.op.type==='canonical_stroke'&&entry.op.userId===op.userId&&entry.op.frame.strokeId===op.frame.strokeId)
+    const nextEntries=entries.map(entry=>{
+      if(!fresh||entry.op.type!=='canonical_stroke'||entry.op.userId!==op.userId)return entry
+      const state=canonicalStateAfter(entry.state,'new-own-gesture')
+      return state===entry.state?entry:copyLogEntry(entry,{state})
+    }),overtaken:LogEntry[]=[]
+    nextEntries.push(candidate)
     assertJournal()
     if(beforePublish()!==undefined)throw new TypeError('Publication validator must be synchronous and return undefined')
     assertJournal()
@@ -539,7 +554,7 @@ export class OperationLog {
     const target = this._entries.find(e => e.op.id === targetOpId && e.state === 'done' && e.op.userId === userId)
     if (!target || target.op.type === 'canonical_stroke_close') return null
     for (const e of this._gestureEntries(target, 'done')) {
-      e.state = 'undone'
+      e.state = e.op.type==='canonical_stroke'?canonicalStateAfter(e.state,'undo'):'undone'
       this._bumpPixelOpCount(e.op, -1)
     }
     return target.op
@@ -603,10 +618,12 @@ export class OperationLog {
   /** Symmetric with `applyUndo`: undone → done for one specific entry. */
   applyRedo(targetOpId: string, userId: string): Operation | null {
     this._revision++
-    const target = this._entries.find(e => e.op.id === targetOpId && e.state === 'undone' && e.op.userId === userId)
+    const target = this._entries.find(e => e.op.id === targetOpId && (e.state === 'undone'||e.op.type==='canonical_stroke'&&e.state==='gone') && e.op.userId === userId)
     if (!target || target.op.type === 'canonical_stroke_close') return null
-    for (const e of this._gestureEntries(target, 'undone')) {
-      e.state = 'done'
+    const hidden=[...this._gestureEntries(target,'undone'),...(target.op.type==='canonical_stroke'?this._gestureEntries(target,'gone'):[])]
+    for (const e of hidden) {
+      if(e.state==='done')continue
+      e.state = e.op.type==='canonical_stroke'?canonicalStateAfter(e.state,'redo'):'done'
       this._bumpPixelOpCount(e.op, 1)
     }
     return target.op

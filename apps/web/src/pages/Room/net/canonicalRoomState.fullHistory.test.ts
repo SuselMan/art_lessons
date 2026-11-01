@@ -30,7 +30,7 @@ function countTail(s:ReturnType<typeof fullState>){s.canonicalHistoryBase={kind:
 it('captures full close history under the original read and preserves every exact normalized operation pointer',()=>{
  let current=true;const s=fullState(false),raw=close();s.tailOperations.push(raw,{type:'operation_undo',id:'undo',userId:'author',timestamp:3,seq:3,targetOpId:'op'});countTail(s)
  const prepared=prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>current}),read=prepared.canonicalRead,verified=read.assertFullHistoryBase!(prepared.tailOperations)
- expect(verified.gestures).toEqual([{userId:'author',layerId:'L',strokeId:'S',frameOperationIds:['op'],ended:false,sealed:true,visible:false}])
+ expect(verified.gestures).toEqual([{userId:'author',layerId:'L',strokeId:'S',frameOperationIds:['op'],ended:false,sealed:true,visible:false,redoable:true}])
  expect(verified.base).toBe(read.fullHistoryBase);expect(prepared.canonicalHistoryBase).toBe(read.fullHistoryBase)
  expect(read.emptyHistoryBase).toBeUndefined();expect(()=>read.assertEmptyHistoryBase(prepared.tailOperations)).toThrow()
  expect(prepared.tailOperations[1]).not.toBe(raw);expect(Object.isFrozen(prepared.tailOperations[1])).toBe(true)
