@@ -1,3 +1,4 @@
+import { canonicalPrimaryTextureMaterialContext } from './canonicalMaterialCodec.js'
 import { describe,expect,it } from 'vitest'
 import {
   CANONICAL_MATERIAL_PROFILE as profile, assertPrimaryCanonicalMaterial, buildCanonicalMaterial,
@@ -308,4 +309,16 @@ describe('staged unified CMAT3 primary texture codec; no wire/executor activatio
   }
   expect(calls).toBe(0)
  })
+})
+
+it('captures independent deeply frozen V3 metadata and rejects accessor/unknown contexts',()=>{
+ const original=textureContext(), captured=canonicalPrimaryTextureMaterialContext(original)
+ expect(captured).not.toBe(original);expect(captured.assets).not.toBe(original.assets)
+ for(const value of [captured,captured.assets,...captured.assets,captured.primarySource,captured.primaryTexture,captured.budget])expect(Object.isFrozen(value)).toBe(true)
+ Reflect.set(original.assets[0],'width',1);Reflect.set(original.budget,'drawPixels',0)
+ expect(captured.assets[0].width).toBe(8);expect(captured.budget.drawPixels).toBeGreaterThan(0)
+ let calls=0
+ const bad=textureContext();Object.defineProperty(bad.budget,'drawPixels',{get(){calls++;return 10000}})
+ for(const value of [bad,undefined,{...textureContext(),version:2},{...textureContext(),extra:true},{...textureContext(),budget:{workUnits:-1,outputBytes:1,drawPixels:1}}])expect(()=>canonicalPrimaryTextureMaterialContext(value)).toThrow()
+ expect(calls).toBe(0)
 })

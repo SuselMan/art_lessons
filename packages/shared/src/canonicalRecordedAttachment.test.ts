@@ -1,10 +1,10 @@
 import {expect,it,vi} from 'vitest'
-import {prepareCanonicalRecordedAttachment,CANONICAL_RECORDED_ATTACHMENT_LIMITS,type CanonicalRecordedAttachmentV1} from './canonicalRecordedAttachment.js'
+import {prepareCanonicalRecordedAttachment,canonicalStrokeSnapshotV3,canonicalStrokeSnapshotV2,CANONICAL_RECORDED_ATTACHMENT_LIMITS,type CanonicalRecordedAttachmentV1} from './canonicalRecordedAttachment.js'
 import {sourceAutoGeometry} from './sourceAutoGeometry.js'
 import {canonicalSoftAutoSourcePin} from './canonicalSoftAutoMaterial.js'
 import {buildCanonicalMaterial} from './canonicalMaterialCodec.js'
-import {CANONICAL_STROKE_RASTER_PROFILE} from './canonicalStrokeFrame.js'
-import type {CanonicalStrokeOperation,CanonicalStrokeSnapshotV2} from './canonicalStrokeOperation.js'
+import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,decodeCanonicalStrokeFrame} from './canonicalStrokeFrame.js'
+import type {CanonicalStrokeOperation,CanonicalStrokeSnapshotV2,CanonicalStrokeSnapshotV3} from './canonicalStrokeOperation.js'
 function fixture(){
  const curve={text:'0,1;1,0',points:[{x:0,y:1,corner:false},{x:1,y:0,corner:false}]}
  const primarySource=canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:0,descriptorId:'soft',descriptorVersion:1,descriptorSha256:'a'.repeat(64),source:{kind:'softAuto',generator:'soft',shape:'circle',diameter:8,ratio:1,horizontalFade:1,verticalFade:1,antialias:false,spikes:2,randomness:0,density:1,softnessCurve:curve},brushScale:1,brushAngle:0,coverageProfile:'neon64-f32-fma-v1',reader:'krita-bd6e8d0-v1',compilerProfile:'eigen-5.0.1-mapped-arm64-f64-v3',buildId:'b'.repeat(64),radialCurve:{source:curve,coefficients:[[0,0,-1,1]]}})
@@ -135,4 +135,37 @@ it('captures original ordered image frames with exact outer/inner assets and rej
  expect(()=>prepareCanonicalRecordedAttachment(attachment,[op],f.expected)).toThrow() // unique metadata no longer exactly matches role list
  const restored={...snapshot,material:{...material,primarySource:{...material.primarySource,frames:[id,other,id]}}}
  expect(()=>prepareCanonicalRecordedAttachment({...attachment,capabilities:[{originalUserId:'author',snapshot:{...restored,assets:[assets[0],{...assets[1],x:1,width:7}]}}]},[op],f.expected)).toThrow()
+})
+
+
+type MutableTexture<T> = T extends readonly (infer U)[] ? MutableTexture<U>[] : T extends object ? {-readonly [K in keyof T]:MutableTexture<T[K]>} : T
+function textureSnapshot():MutableTexture<CanonicalStrokeSnapshotV3>{
+ const primary='asset:'+'1'.repeat(64),pattern='asset:'+'2'.repeat(64),assets=[{id:primary,size:8,x:0,y:0,width:8,height:8},{id:pattern,size:256,x:0,y:0,width:252,height:252}]
+ return{layerId:'L',brush:'brush:chalk@1',strokeId:'S',boardEpoch:2,descriptorSha256:'a'.repeat(64),rasterProfile:CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,pigmentRgb8:[1,2,3],composition:{mode:'wash',alphaDarken:'hard',outerResourceOpacity:1,outerBlend:'over'},assets,materialVersion:3,
+ material:{version:3,assets,primarySource:{kind:'image',asset:primary,brushScale:1,brushAngle:0},primaryTexture:{kind:'canvasTexture',asset:pattern,law:'subtract-u8-v1',width:252,height:252,periodX:252,periodY:252,offsetX:0,offsetY:0,strength:'pressure-identity-v1'},budget:{workUnits:100000,outputBytes:100000,drawPixels:100000}}}
+}
+it('normalizes standalone3 with exact pattern role, frozen independent captures and an actual aware empty probe',()=>{
+ const input=textureSnapshot(),s=canonicalStrokeSnapshotV3(input,2,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)
+ expect(s).toEqual(input);expect(s).not.toBe(input);expect(s.material.primaryTexture).not.toBe(input.material.primaryTexture);expect(s.assets).toBe(s.material.assets)
+ for(const object of [s,s.material,s.assets,...s.assets,s.material.primarySource,s.material.primaryTexture,s.material.budget,s.pigmentRgb8,s.composition])expect(Object.isFrozen(object)).toBe(true)
+ const packed=buildCanonicalMaterial({masked:false,entry:{phase:'primary',group:0},draws:[{recipe:{kind:'image',asset:s.assets[0].id,brushScale:1,brushAngle:0,scale:1,ratio:1,rotation:0,subX:0,subY:0,width:8,height:8,mirrorH:false,mirrorV:false},role:'primary',x:1,y:2,opacity:1,flow:1,grainDepth:.5}],fences:[]},s.material).packed
+ const trusted={materialVersion:3 as const,rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,material:s.material}
+ const decoded=decodeCanonicalStrokeFrame({version:2,rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked:packed},trusted)
+ expect(decoded.frame.draws[0].grainDepth).toBe(.5);expect(s.assets[1].width).toBe(252);expect(s.assets[1].size).toBe(256)
+ expect(()=>canonicalStrokeSnapshotV2(input,2,s.rasterProfile)).toThrow()
+ const f=fixture(),attachment={...f.attachment,capabilities:[{originalUserId:'author',snapshot:input}]}
+ expect(()=>prepareCanonicalRecordedAttachment(attachment,[f.op],{...f.expected,allowedRasterProfiles:[s.rasterProfile]})).toThrow()
+})
+it('refuses V3 snapshot version/profile/epoch, extra fields, budget, roles/order and metadata mismatches',()=>{
+ const changes:((s:MutableTexture<CanonicalStrokeSnapshotV3>)=>void)[]=[s=>{Reflect.set(s,'materialVersion',2)},s=>{Reflect.set(s.material,'version',2)},s=>{s.boardEpoch=3},s=>{Reflect.set(s,'extra',1)},s=>{Reflect.set(s.material,'extra',1)},s=>{s.material.budget.workUnits=-1},s=>{s.material.budget.drawPixels=Infinity},s=>{Reflect.set(s.material.primarySource,'frames',[s.assets[0].id])},s=>{s.material.primaryTexture.asset=s.assets[0].id},s=>{s.material.assets=[...s.material.assets].reverse()},s=>{s.assets=[{...s.assets[0]},{...s.assets[1],size:512}]},s=>{s.material.assets=[{...s.assets[0]},{...s.assets[1],x:1}]},s=>{s.assets=[{...s.assets[0]},{...s.assets[1],width:256}]},s=>{s.material.primaryTexture.periodX=256},s=>{s.descriptorSha256='bad'},s=>{s.brush='brush:chalk@0'}]
+ for(const change of changes){const s=textureSnapshot();change(s);expect(()=>canonicalStrokeSnapshotV3(s,2,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toThrow()}
+ expect(()=>canonicalStrokeSnapshotV3(textureSnapshot(),2,CANONICAL_STROKE_RASTER_PROFILE)).toThrow()
+})
+it('rejects nested snapshot getters, symbols, prototype and sparse metadata without executing getter code',()=>{
+ let calls=0
+ const selects:((s:MutableTexture<CanonicalStrokeSnapshotV3>)=>[object,string])[]=[s=>[s,'materialVersion'],s=>[s,'material'],s=>[s.material,'version'],s=>[s.material.primaryTexture,'asset'],s=>[s.material.primarySource,'asset'],s=>[s.material.budget,'workUnits'],s=>[s.assets[1],'size'],s=>[s.pigmentRgb8,'0']]
+ for(const select of selects){const s=textureSnapshot(),[object,key]=select(s),value=Reflect.get(object,key);Object.defineProperty(object,key,{get(){calls++;return value}});expect(()=>canonicalStrokeSnapshotV3(s,2,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toThrow()}
+ const custom=Object.assign(Object.create({}),textureSnapshot());expect(()=>canonicalStrokeSnapshotV3(custom,2,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toThrow()
+ const symbol=textureSnapshot();Reflect.set(symbol,Symbol('extra'),0);expect(()=>canonicalStrokeSnapshotV3(symbol,2,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toThrow()
+ const sparse=textureSnapshot();Reflect.deleteProperty(sparse.assets,'1');expect(()=>canonicalStrokeSnapshotV3(sparse,2,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toThrow();expect(calls).toBe(0)
 })

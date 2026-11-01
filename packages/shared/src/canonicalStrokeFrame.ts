@@ -1,4 +1,4 @@
-import { unpackCanonicalMaterial, type CanonicalMaterialContext, type CanonicalMaterialFrame, type CanonicalMaterialContextV2, type CanonicalMaterialFrameV2 } from './canonicalMaterialCodec.js'
+import { canonicalPrimaryTextureMaterialContext, unpackCanonicalMaterial, type CanonicalMaterialContext, type CanonicalMaterialFrame, type CanonicalMaterialContextV2, type CanonicalMaterialFrameV2, type CanonicalMaterialContextV3, type CanonicalMaterialFrameV3 } from './canonicalMaterialCodec.js'
 
 /** Stroke resource policy; frame fences never reset this state. */
 export interface CanonicalStrokeComposition {
@@ -50,6 +50,7 @@ export interface CanonicalStrokeFrameContext {
   /** Omission preserves the historical Over-only policy. New execution requires
    * an explicit trusted pin; the received envelope cannot select this policy. */
   readonly rasterProfile?: CanonicalStrokeRasterProfile
+  readonly materialVersion?: 2
   readonly brush: string
   readonly strokeId: string
   readonly frameOrdinal: number
@@ -59,6 +60,19 @@ export interface CanonicalStrokeFrameContext {
 }
 export interface CanonicalStrokeFrameContextV2 extends Omit<CanonicalStrokeFrameContext,'material'> {
   readonly material:CanonicalMaterialContextV2
+}
+/** Explicit parse-only awareness, not a grant or renderer capability. */
+export interface CanonicalStrokeFrameContextV3 extends Omit<CanonicalStrokeFrameContext,'material'|'materialVersion'|'rasterProfile'> {
+  readonly materialVersion:3
+  readonly rasterProfile:typeof CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE
+  readonly material:CanonicalMaterialContextV3
+}
+function awareMaterial3(trusted:CanonicalStrokeFrameContext|CanonicalStrokeFrameContextV2|CanonicalStrokeFrameContextV3):trusted is CanonicalStrokeFrameContextV3 {
+  if(!trusted||typeof trusted!=='object')return false
+  const selector=Object.getOwnPropertyDescriptor(trusted,'materialVersion')
+  if('materialVersion'in trusted&&(!selector||!Object.hasOwn(selector,'value')||selector.value!==2&&selector.value!==3))
+    throw new TypeError('Unsupported canonical stroke material selector')
+  return selector?.value===3
 }
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
 const text = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 256 && !value.includes('\0')
@@ -80,38 +94,43 @@ export function isCanonicalStrokeComposition(value: unknown, rasterProfile: Cano
  * Descriptor capability and contiguous gesture/group ownership still belong to
  * the caller. Profile names alone never attest compatibility. No dabs/options,
  * author inputs, random journal or second colour authority can accompany it. */
+export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStrokeFrameContextV3): {readonly envelope:CanonicalStrokeFrameEnvelope;readonly frame:CanonicalMaterialFrameV3}
 export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStrokeFrameContextV2): {readonly envelope:CanonicalStrokeFrameEnvelope;readonly frame:CanonicalMaterialFrameV2}
 export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStrokeFrameContext): {readonly envelope:CanonicalStrokeFrameEnvelope;readonly frame:CanonicalMaterialFrame}
-export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStrokeFrameContext|CanonicalStrokeFrameContextV2): {
-  readonly envelope:CanonicalStrokeFrameEnvelope;readonly frame:CanonicalMaterialFrame|CanonicalMaterialFrameV2
+export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStrokeFrameContext|CanonicalStrokeFrameContextV2|CanonicalStrokeFrameContextV3): {
+  readonly envelope:CanonicalStrokeFrameEnvelope;readonly frame:CanonicalMaterialFrame|CanonicalMaterialFrameV2|CanonicalMaterialFrameV3
 } {
+  const aware3=awareMaterial3(trusted)
   const rasterProfile = trusted?.rasterProfile === undefined ? CANONICAL_STROKE_RASTER_PROFILE : trusted.rasterProfile
   const contract=canonicalStrokeRasterContract(rasterProfile)
   if (!trusted || !text(trusted.brush) || !text(trusted.strokeId) || !ordinal(trusted.frameOrdinal) || !rgb(trusted.pigmentRgb8) || !isCanonicalStrokeComposition(trusted.composition, rasterProfile))
     throw new TypeError('Invalid trusted canonical stroke context')
-  // Pure material parsing can support more versions than this admitted stroke
-  // contract. Refuse them here until every stroke consumer handles that version.
-  if (!trusted.material || typeof trusted.material !== 'object' || Array.isArray(trusted.material))
-    throw new TypeError('Invalid trusted canonical stroke context')
-  if ('version' in trusted.material) {
-    const version = Object.getOwnPropertyDescriptor(trusted.material, 'version')
-    if (!version || !Object.hasOwn(version, 'value') || version.value !== 2)
-      throw new TypeError('Unsupported canonical stroke material version')
-  }
+  const field=Object.getOwnPropertyDescriptor(trusted,'material')
+  if(aware3&&(!field||!Object.hasOwn(field,'value')))throw new TypeError('Invalid explicit canonical material context')
+  const captured=aware3 ? {aware3:true as const,material:canonicalPrimaryTextureMaterialContext(field!.value)} : {aware3:false as const,material:trusted.material}
+  const material=captured.material
+  if(!material||typeof material!=='object'||Array.isArray(material))throw new TypeError('Invalid trusted canonical stroke context')
+  const version=Object.getOwnPropertyDescriptor(material,'version')
+  if(aware3?(!version||!Object.hasOwn(version,'value')||version.value!==3):('version'in material&&(!version||!Object.hasOwn(version,'value')||version.value!==2)))
+    throw new TypeError('Unsupported canonical stroke material version')
+  if(aware3&&rasterProfile!==CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)throw new TypeError('Unsupported explicit texture raster profile')
   if (!record(value) || !fields(value, ['version', 'rasterProfile', 'brush', 'strokeId', 'frameOrdinal', 'pigmentRgb8', 'composition', 'materialPacked'])
     || value.version !== contract.envelopeVersion || value.rasterProfile !== rasterProfile || !text(value.brush) || !text(value.strokeId)
     || !ordinal(value.frameOrdinal) || !rgb(value.pigmentRgb8) || !isCanonicalStrokeComposition(value.composition, rasterProfile) || typeof value.materialPacked !== 'string')
     throw new TypeError('Invalid canonical stroke frame envelope')
+  const materialPacked=value.materialPacked
+  if(typeof materialPacked!=='string'||!(aware3?/^3\|/:/^[12]\|/).test(materialPacked))throw new TypeError('Unsupported selected canonical stroke material')
   const c = value.composition, expected = trusted.composition
   if (value.brush !== trusted.brush || value.strokeId !== trusted.strokeId || value.frameOrdinal !== trusted.frameOrdinal
     || value.pigmentRgb8.some((n, i) => n !== trusted.pigmentRgb8[i]) || c.mode !== expected.mode || c.alphaDarken !== expected.alphaDarken
     || c.outerResourceOpacity !== expected.outerResourceOpacity || c.outerBlend !== expected.outerBlend)
     throw new TypeError('Canonical stroke frame does not match the pinned gesture')
-  if('version'in trusted.material&&trusted.material.version===2){
-    for(const source of [trusted.material.primarySource,trusted.material.maskSource])
+  if('version'in material&&material.version===2){
+    for(const source of [material.primarySource,material.maskSource])
       if(source&&source.kind!=='image'&&!canonicalStrokeCoverageMatches(rasterProfile,source.coverageProfile))throw new TypeError('Canonical raster/coverage profile mismatch')
   }
-  const frame = unpackCanonicalMaterial(value.materialPacked, trusted.material)
+  // Discriminated capture selects the overload; both branches use ONE codec.
+  const frame = captured.aware3 ? unpackCanonicalMaterial(materialPacked, captured.material) : unpackCanonicalMaterial(materialPacked, captured.material)
   Object.freeze(frame.entry)
   // Soft curves arrive as independent deep-frozen trusted-pin snapshots.
   for (const item of frame.definitions) { if ('kind' in item && (item.kind==='defaultAuto'||item.kind==='gaussianAuto'||item.kind==='softAuto')) Object.freeze(item.source); Object.freeze(item) }
@@ -121,7 +140,7 @@ export function decodeCanonicalStrokeFrame(value: unknown, trusted: CanonicalStr
     brush: value.brush, strokeId: value.strokeId, frameOrdinal: value.frameOrdinal,
     pigmentRgb8: Object.freeze([value.pigmentRgb8[0], value.pigmentRgb8[1], value.pigmentRgb8[2]] as const),
     composition: Object.freeze({ mode: c.mode, alphaDarken: c.alphaDarken, outerResourceOpacity: c.outerResourceOpacity, outerBlend: c.outerBlend }),
-    materialPacked: value.materialPacked }
+    materialPacked }
   const envelope: CanonicalStrokeFrameEnvelope = Object.freeze(contract.envelopeVersion === 1
     ? { version: 1, rasterProfile:contract.profile, ...data } : { version: 2, rasterProfile:contract.profile, ...data })
   return Object.freeze({ envelope, frame })

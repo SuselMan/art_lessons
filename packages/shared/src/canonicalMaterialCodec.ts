@@ -169,13 +169,21 @@ function captureContext(c:CodecContext):CodecContext{
   if(!v&&'version'in c)return fail()
   if(v&&!Object.hasOwn(v,'value'))return fail()
   if(!v||v.value!==3)return c
-  const p=ownRecord(c,['version','assets','primarySource','primaryTexture','budget'],['expectedDrawCount','expectedStrokeEnd'])
+  return canonicalPrimaryTextureMaterialContext(c)
+}
+/** Independently captured, closed V3 parser metadata; not an execution grant. */
+export function canonicalPrimaryTextureMaterialContext(value:unknown):CanonicalMaterialContextV3 {
+  const p=ownRecord(value,['version','assets','primarySource','primaryTexture','budget'],['expectedDrawCount','expectedStrokeEnd'])
   if(p.version!==3)return fail()
   const assets=ownArray(p.assets,2,a=>ownRecord(a,['id','size','x','y','width','height'])) as unknown as CanonicalMaterialAsset[]
   if(assets.length!==2)return fail()
   const primarySource=ownRecord(p.primarySource,['kind','asset','brushScale','brushAngle'])
   const budget=ownRecord(p.budget,['workUnits','outputBytes','drawPixels'])
-  return {...p,assets,primarySource,primaryTexture:canonicalPrimaryTexturePin(p.primaryTexture,assets[1]),budget} as unknown as CanonicalMaterialContextV3
+  const captured={...p,assets,primarySource,primaryTexture:canonicalPrimaryTexturePin(p.primaryTexture,assets[1]),budget} as unknown as CanonicalMaterialContextV3
+  context(captured)
+  for(const asset of assets)Object.freeze(asset)
+  Object.freeze(assets);Object.freeze(primarySource);Object.freeze(budget)
+  return Object.freeze(captured)
 }
 const imageFields=['kind','asset',...FLOATS,'width','height','mirrorH','mirrorV'] as const
 function captureTextureInput(value:unknown,framed:boolean):Record<string,unknown>{

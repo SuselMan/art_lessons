@@ -64,19 +64,32 @@ getter execution. Existing V2/soft/gaussian/density suites exercise the shared
 preflight and binary implementation. This is CPU parsing proof only, not device,
 cross-GPU pixel, negotiated-client or complete primary texture support proof.
 
-Before activation a coherent consumer unit must define SnapshotV3, original
-source/admission/recorded evidence authority, actual authored grainDepth,
+A later shared-only metadata unit adds standalone SnapshotV3 and explicit-aware
+parse entry. Before activation a coherent consumer unit must still adopt them in
+actual result/attachment unions and original source/admission/recorded evidence
+authority, actual authored grainDepth,
 budgeted pattern resources, explicit material3 kernel dispatch on envelope2,
 recovery/leases and old-client capability negotiation. All are currently closed;
 unknown frame3 is not silently cast to V2 or rendered without texture.
-# Existing stroke admission remains closed
+# Historical guard and old-selected stroke admission remain closed
 
-The existing `decodeCanonicalStrokeFrame` entry point explicitly accepts only
-the legacy material context without a version field or an own data version2.
-It rejects material3 before calling the expanded pure parser, including an
-inherited/accessor version without invoking the getter. This also protects
+Unit5edd introduced an old-entry guard on `decodeCanonicalStrokeFrame`: without
+an explicit top-level materialVersion3 awareness selector, it accepts only the
+legacy material context without a version field or own data version2. That OLD
+branch still rejects material3, including inherited/accessor version without
+invoking the getter. The later metadata-only overload adds an explicit own-data
+selector3 plus own-data context3 and genericSC/envelope2 parse path. It does not
+open actual Snapshot/result/attachment1/server/renderer consumers. This also protects
 JavaScript callers fabricating a trusted context rather than relying only on
 the unchanged TypeScript snapshot unions. A valid empty CMAT3 frame in the
 old generic-SC envelope reproduced acceptance before the guard; the regression
-test now requires rejection. No snapshot, grant, renderer or peer capability
-is widened by this parser unit.
+test continues requiring rejection in the OLD/top-less branch. The original
+RED evidence remains valid for the historical guard. Standalone SnapshotV3
+metadata parsing is now available; actual snapshot/result unions, grants,
+attachment1, renderer and peer capabilities remain closed.
+
+The explicit-aware metadata follow-up now independently freezes material3 via
+canonicalPrimaryTextureMaterialContext before envelope callbacks and requires
+`3|` packed text. Codec V3 capture delegates to that same public pure factory;
+legacy contexts retain their existing validation. This closes in-place context
+mutation/downgrade, without enabling source admission or rendering.
