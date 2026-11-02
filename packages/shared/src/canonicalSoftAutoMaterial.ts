@@ -1,6 +1,6 @@
-import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,canonicalStrokeCoverageMatches,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
+import {CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_BROWSER_NUMBER_COVERAGE_PROFILE,canonicalStrokeCoverageMatches,canonicalStrokeRasterContract,type CanonicalStrokeRasterProfile} from './canonicalStrokeFrame.js'
 import type { BrushDescriptor } from './brushes.js'
-import { extractSoftAutoSourceDataCapability, canonicalSourceComposition } from './canonicalBrushCapability.js'
+import { extractSoftAutoSourceDataCapability, extractCanonicalSoftAutoNativeDefaultTextureProgramData, canonicalSourceComposition } from './canonicalBrushCapability.js'
 import type { SourceSoftAutoData, SourceStampCompiledCurve } from './sourceStampData.js'
 import { isSourceStampCurveData, SOURCE_STAMP_MAPPED_COMPILER_PROFILE } from './sourceStampData.js'
 import { sourceAutoGeometry } from './sourceAutoGeometry.js'
@@ -95,4 +95,14 @@ export function canonicalSoftAutoSourceBinding(descriptor:BrushDescriptor,descri
   return canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot,descriptorId:descriptor.id,descriptorVersion:descriptor.version,descriptorSha256,
     source:data.source,brushScale:data.brush.scale,brushAngle:data.brush.angle,coverageProfile,reader:data.reader,
     compilerProfile:compiled.profile,buildId:compiled.buildId,radialCurve:compiled.radialCurve})
+}
+
+/** Explicit native-default Soft6 metadata binding; ordinary Soft2 unchanged. */
+export function canonicalSoftAutoNativeDefaultTextureSourceBinding(descriptor:BrushDescriptor,descriptorSha256:string,coverageProfile:CanonicalSoftAutoSource['coverageProfile'],pattern:Readonly<{id:string;size:number}>,rasterProfile:CanonicalStrokeRasterProfile):CanonicalSoftAutoSource {
+ if(!canonicalStrokeRasterContract(rasterProfile).genericSC||!canonicalStrokeCoverageMatches(rasterProfile,coverageProfile)||!canonicalSourceComposition(descriptor,rasterProfile)||typeof descriptorSha256!=='string'||!/^[a-f0-9]{64}$/.test(descriptorSha256))throw new TypeError('Native-default Soft texture numeric/source policy unavailable')
+ const result=extractCanonicalSoftAutoNativeDefaultTextureProgramData(descriptor,{pattern})
+ if(!result.supported||result.data.compiled?.version!==4)throw new TypeError('Native-default Soft texture source unavailable')
+ const {data}=result,compiled=result.data.compiled
+ return canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:0,descriptorId:descriptor.id,descriptorVersion:descriptor.version,descriptorSha256,
+  source:data.source,brushScale:data.brush.scale,brushAngle:data.brush.angle,coverageProfile,reader:data.reader,compilerProfile:compiled.profile,buildId:compiled.buildId,radialCurve:compiled.radialCurve})
 }

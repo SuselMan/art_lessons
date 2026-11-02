@@ -2,7 +2,7 @@ import {canonicalPrimaryTexturePin,canonicalFixedPrimaryTexturePin,type Canonica
 import {CANONICAL_STROKE_RASTER_PROFILE,canonicalStrokeRasterContract,type CanonicalStrokeRasterProfile,type CanonicalStrokeComposition} from './canonicalStrokeFrame.js'
 import type { BrushDescriptor } from './brushes.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
-import { captureSourceTexturePressureProgram, isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData } from './sourceStampData.js'
+import { captureSourceTextureNativeDefaultProgram, captureSourceTexturePressureProgram, isSourceStampData, sourceStampSourceKind, sourceStampRequiredCurves, type SourceStampData } from './sourceStampData.js'
 
 /** Only the native outer law representable by canonical over32 today.
  * This checks composition of an already verified descriptor, not source-data
@@ -439,6 +439,17 @@ export function extractCanonicalDefaultAutoPressureTextureProgramData(descriptor
   const source=Object.getOwnPropertyDescriptor(descriptor,'sourceStamp')
   if(!source||!Object.hasOwn(source,'value'))return reject('texture-original-source-unavailable')
   const captured=captureSourceTexturePressureProgram(source.value)
+    const geometry=pressureTextureGeometry(descriptor,assets);if(!geometry.supported)return geometry
+    const {patternAsset}=geometry
+  const auto=extractDefaultAutoData(descriptor,false,'pressure-curve-data',captured.data)
+  if(!auto.supported)return auto
+  if(descriptor.mixer||descriptor.wet||descriptor.screentonePx||descriptor.behavior?.wetMix||descriptor.behavior?.edgeBleed||descriptor.behavior?.grain||descriptor.behavior?.taper)return reject('unsupported-texture-effect')
+  return Object.freeze({supported:true as const,status:'source-data-only' as const,rasterReady:false as const,data:captured.data,program:captured.program,patternAsset})
+ }catch{return reject('invalid-pressure-texture-program-data')}
+}
+
+function pressureTextureGeometry(descriptor:BrushDescriptor,assets:Readonly<{pattern:Readonly<{id:string;size:number}>}>){
+ const reject=(reason:string)=>({supported:false as const,reasons:[reason]})
   const available=textureData(assets,['pattern']),pattern=textureData(available.pattern,['id','size'])
   if(typeof pattern.id!=='string'||!/^asset:[a-f0-9]{64}$/.test(pattern.id)||typeof pattern.size!=='number'||!Number.isInteger(pattern.size)||pattern.size<2||pattern.size>2048||(pattern.size&(pattern.size-1))!==0)return reject('texture-asset-unavailable')
   const field=Object.getOwnPropertyDescriptor(descriptor,'texture')
@@ -448,9 +459,25 @@ export function extractCanonicalDefaultAutoPressureTextureProgramData(descriptor
   const dimension=(v:unknown):v is number=>typeof v==='number'&&Number.isSafeInteger(v)&&!Object.is(v,-0)&&v>=1&&v<=2048
   if(!dimension(size.width)||size.width>pattern.size||!dimension(size.height)||size.height>pattern.size||!dimension(t.periodPx)||typeof offset.x!=='number'||typeof offset.y!=='number'||!Number.isSafeInteger(offset.x)||!Number.isSafeInteger(offset.y)||Object.is(offset.x,-0)||Object.is(offset.y,-0)||offset.x<0||offset.y<0||offset.x>=t.periodPx||offset.y>=t.periodPx)return reject('unsupported-static-texture-geometry')
   const patternAsset=Object.freeze({id:pattern.id,size:pattern.size,x:0,y:0,width:size.width,height:size.height})
-  const auto=extractDefaultAutoData(descriptor,false,'pressure-curve-data',captured.data)
-  if(!auto.supported)return auto
-  if(descriptor.mixer||descriptor.wet||descriptor.screentonePx||descriptor.behavior?.wetMix||descriptor.behavior?.edgeBleed||descriptor.behavior?.grain||descriptor.behavior?.taper)return reject('unsupported-texture-effect')
-  return Object.freeze({supported:true as const,status:'source-data-only' as const,rasterReady:false as const,data:captured.data,program:captured.program,patternAsset})
- }catch{return reject('invalid-pressure-texture-program-data')}
+ return {supported:true as const,patternAsset}
+}
+
+/** Closed native-default Soft DATA; no source, raster or room authority. */
+export function extractCanonicalSoftAutoNativeDefaultTextureProgramData(descriptor:BrushDescriptor,assets:Readonly<{pattern:Readonly<{id:string;size:number}>}>){
+ const reject=(reason:string)=>({supported:false as const,reasons:[reason]})
+ try{
+  const field=Object.getOwnPropertyDescriptor(descriptor,'sourceStamp')
+  if(!field||!Object.hasOwn(field,'value'))return reject('texture-original-source-unavailable')
+  const captured=captureSourceTextureNativeDefaultProgram(field.value),data=captured.data
+  if(data.version!==2||data.source.kind!=='softAuto'||data.role!=='primary'||data.options.length!==9||data.compiled?.version!==4)return reject('native-default-soft-data-unavailable')
+  // This original DATA-only frontier remains in the descriptor. A new explicit
+  // Soft6 consumer interprets it only after full source/program validation.
+  if(data.unsupported.some(reason=>reason!=='soft-auto-raster-author-unavailable'))return reject('unsupported-soft-texture-source')
+  const source=data.source
+  if(descriptor.model!=='stamp'||descriptor.behavior?.dual||source.ratio>1||source.spikes!==2||source.antialias||source.randomness!==0||source.density!==1||!data.flags.materialFixed1||!data.flags.textureEnabled)return reject('unsupported-soft-texture-source')
+  if(!sourceStampPaintingMode(data))return reject('inconsistent-source-painting-mode')
+  if(descriptor.mixer||descriptor.wet||descriptor.screentonePx||descriptor.behavior?.colorAdjustment||descriptor.behavior?.wetMix||descriptor.behavior?.edgeBleed||descriptor.behavior?.grain||descriptor.behavior?.taper)return reject('unsupported-texture-effect')
+  const geometry=pressureTextureGeometry(descriptor,assets);if(!geometry.supported)return geometry
+  return Object.freeze({supported:true as const,status:'source-data-only' as const,rasterReady:false as const,data:data as SourceStampData & {readonly version:2;readonly source:import('./sourceStampData.js').SourceSoftAutoData},program:captured.program,patternAsset:geometry.patternAsset})
+ }catch{return reject('invalid-native-default-soft-texture-data')}
 }

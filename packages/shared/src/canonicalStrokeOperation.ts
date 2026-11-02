@@ -1,5 +1,5 @@
 import type { OperationBase } from './operationBase.js'
-import type { CanonicalMaterialContextV2, CanonicalMaterialContextV3, CanonicalMaterialContextV4, CanonicalMaterialContextV5 } from './canonicalMaterialCodec.js'
+import type { CanonicalMaterialContextV2, CanonicalMaterialContextV3, CanonicalMaterialContextV4, CanonicalMaterialContextV5,CanonicalMaterialContextV6 } from './canonicalMaterialCodec.js'
 import type { CanonicalMaterialAsset } from './canonicalMaterialCodec.js'
 import type { CanonicalStrokeComposition, CanonicalStrokeFrameEnvelope, CanonicalStrokeRasterProfile, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE } from './canonicalStrokeFrame.js'
 
@@ -56,6 +56,8 @@ export interface CanonicalStrokeSnapshotV5 extends Omit<CanonicalStrokeSnapshotV
   readonly materialVersion:5
   readonly material:CanonicalMaterialContextV5
 }
+/** Standalone Soft6 DATA; deliberately absent from active snapshot/result unions. */
+export interface CanonicalStrokeSnapshotV6 extends Omit<CanonicalStrokeSnapshotV5,'materialVersion'|'material'>{readonly materialVersion:6;readonly material:CanonicalMaterialContextV6}
 export type CanonicalStrokeSnapshot = CanonicalStrokeSnapshotV1 | CanonicalStrokeSnapshotV2 | CanonicalStrokeSnapshotV3 | CanonicalStrokeSnapshotV4 | CanonicalStrokeSnapshotV5
 /** Resume state: ended describes the recorded prefix. A speculative live-only
  * terminal frame does not establish a recorded end. */
