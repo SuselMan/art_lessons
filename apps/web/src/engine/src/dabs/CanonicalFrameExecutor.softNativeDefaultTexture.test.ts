@@ -1347,3 +1347,87 @@ it.each(['zero-END','zero-close','clipped-END','clipped-close']as const)('late o
  }finally{clock.mockRestore();s.close()}
  expect(s.cpu.reservedBytes).toBe(0)
 })
+
+
+// Scheduling-only structural source fixture. Real executor/prepass/composite on
+// recordingGL; command equivalence is NOT a real GPU pixel/latency claim.
+function frameTurnCohort(cheapBetween=false){
+ const s=replayConsumer7(undefined,true),name='turn-cohort',author=s.author(name),c=context7('defaultAuto')
+ for(let ordinal=0;ordinal<4;ordinal++){
+  const op=s.operation(name,ordinal),sourceFrame=cheapBetween&&(ordinal===1||ordinal===2)?buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},c).frame:ordinal===3?decoded7(c):renderedOpen7(c)
+  const frame=buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:sourceFrame.draws.map(d=>({recipe:sourceFrame.definitions[d.definition],role:'primary',x:d.x,y:d.y,opacity:d.opacity,flow:d.flow,grainDepth:d.grainDepth})),fences:sourceFrame.fences.map(f=>'group'in f?{...f,group:cheapBetween?(ordinal===3?1:0):ordinal}:f)},c).frame
+  const operation=Object.freeze({...op,frame:{...op.frame,materialPacked:packCanonicalTexturedAutoMaterial(frame,c)}})
+  expect(s.coordinator.tryEnqueueLocal(author,operation)).toBe(true)
+ }
+ return s
+}
+it('mixed frame-turn reuses SAME child for multiple completed cheap captured frames in one advance',()=>{
+ const s=frameTurnCohort(true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  let maximumCompleted=0,ready=false
+  for(let turn=0;turn<200&&!ready;turn++){
+   const previous=s.coordinator['candidate']?.mixed,before=previous?(previous.group?4:previous.frame):0
+   const out=s.coordinator.advance(),current=s.coordinator['candidate']?.mixed
+   if(out?.kind==='preview-failed')throw out.error
+   if(previous&&current===previous)maximumCompleted=Math.max(maximumCompleted,(current.group?4:current.frame)-before)
+   if(out?.kind==='preview-ready'){s.publish(out.ticket);ready=true}
+  }
+  expect(ready).toBe(true);expect(maximumCompleted).toBeGreaterThan(1)
+  expect(s.source).toHaveBeenCalledTimes(1);expect(s.coordinator.poisoned).toBe(false)
+ }finally{clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('mixed frame-turn never spins a pending child and never starts another frame after outer budget',()=>{
+ const s=frameTurnCohort();let now=0,steps=0,sawPending=false
+ const clock=vi.spyOn(performance,'now').mockImplementation(()=>now),advance=CanonicalFrameExecutor.prototype.advance,enqueue=CanonicalFrameExecutor.prototype.enqueue
+ const calls=vi.spyOn(CanonicalFrameExecutor.prototype,'advance').mockImplementation(function(this:CanonicalFrameExecutor){steps++;return advance.call(this)})
+ const starts:{ordinal:number;at:number}[]=[]
+ const enqueues=vi.spyOn(CanonicalFrameExecutor.prototype,'enqueue').mockImplementation(function(this:CanonicalFrameExecutor,input){starts.push({ordinal:input.ordinal,at:now});return enqueue.call(this,input)})
+ const draw=s.composite.drawSource.bind(s.composite),draws=vi.spyOn(s.composite,'drawSource').mockImplementation((request,frame)=>{const result=draw(request,frame);if(request.source.kind==='texturedMaskRgb')now+=4;return result})
+ try{
+  let ready=false
+  for(let turn=0;turn<200&&!ready;turn++){
+   now=0;steps=0;const start=starts.length,out=s.coordinator.advance()
+   if(out?.kind==='preview-failed')throw out.error
+   for(const input of starts.slice(start))expect(input.at).toBeLessThan(4)
+   if(s.coordinator['candidate']?.mixed?.child?.pending){sawPending=true;expect(steps).toBe(1)}
+   if(out?.kind==='preview-ready'){s.publish(out.ticket);ready=true}
+  }
+  expect(ready).toBe(true);expect(sawPending).toBe(true);expect(starts.map(s=>s.ordinal)).toEqual([0,1,2,3])
+ }finally{draws.mockRestore();enqueues.mockRestore();calls.mockRestore();clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('mixed frame-turn preserves exact ordered OVER command inputs across cheap and budget-yielded schedules',()=>{
+ const run=(cost:number)=>{
+  const s=frameTurnCohort();let now=0
+  const clock=vi.spyOn(performance,'now').mockImplementation(()=>now),commands:unknown[]=[]
+  const draw=s.composite.drawSource.bind(s.composite),hook=vi.spyOn(s.composite,'drawSource').mockImplementation((request,frame)=>{
+   if(request.source.kind==='texturedMaskRgb')commands.push({operation:request.operation,strength:request.source.strengthU8,rgb:[...request.source.rgb],bounds:request.writeBounds})
+   const result=draw(request,frame);if(request.source.kind==='texturedMaskRgb')now+=cost;return result
+  })
+  try{
+   let ready=false
+   for(let turn=0;turn<200&&!ready;turn++){now=0;const out=s.coordinator.advance();if(out?.kind==='preview-failed')throw out.error;if(out?.kind==='preview-ready'){s.publish(out.ticket);ready=true}}
+   expect(ready).toBe(true);expect(commands.length).toBeGreaterThan(0);expect(s.source).toHaveBeenCalledTimes(1)
+   return JSON.stringify(commands)
+  }finally{hook.mockRestore();clock.mockRestore();s.close();expect(s.cpu.reservedBytes).toBe(0)}
+ }
+ expect(run(0)).toBe(run(4))
+})
+
+it('mixed frame-turn starts the next actual painted frame after prior pending frame completes in SAME advance',()=>{
+ const s=frameTurnCohort(),clock=vi.spyOn(performance,'now').mockReturnValue(0),enqueue=CanonicalFrameExecutor.prototype.enqueue
+ const starts:number[]=[];const hook=vi.spyOn(CanonicalFrameExecutor.prototype,'enqueue').mockImplementation(function(this:CanonicalFrameExecutor,input){starts.push(input.ordinal);return enqueue.call(this,input)})
+ try{
+  let ready=false,combined=false
+  for(let turn=0;turn<200&&!ready;turn++){
+   const before=s.coordinator['candidate']?.mixed,ordinal=before?.frame,pending=before?.child?.pending,start=starts.length
+   const out=s.coordinator.advance()
+   if(out?.kind==='preview-failed')throw out.error
+   if(pending&&ordinal!==undefined&&starts.slice(start).includes(ordinal+1))combined=true
+   if(out?.kind==='preview-ready'){s.publish(out.ticket);ready=true}
+  }
+  expect(ready).toBe(true);expect(combined).toBe(true);expect(starts).toEqual([0,1,2,3]);expect(s.source).toHaveBeenCalledTimes(1)
+ }finally{hook.mockRestore();clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})

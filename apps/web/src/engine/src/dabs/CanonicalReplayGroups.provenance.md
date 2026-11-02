@@ -93,3 +93,57 @@ Independent and ROOT actual-source acceptance PENDING. All own gate processes ar
 ## ROOT actual acceptance — mixed WASH original close V3 (2026-11-02)
 
 Independent FINAL BLOCK0 exact3 applied to actual3765b089f. Actual common regression: 349 tests / 12 suites PASS; full strict web types 1194 roots / 1351 inputs / zero diagnostics, all consumed hashes rechecked. Configured exact2-file lint exit0, zero errors/four qualified existing warnings, source bytes unchanged; guarded architecture map/rules exit0 with32 existing warnings. Detailed proof: `temp/device-runs/krita-stroke-20261024/fixes-v52/wash-close-actual-root1-proof.json`. Original close receipt is metadata-only under mixed opt-in; no native fake END/seal, additional render slot, closed pixel proof, index/read/Saved activation or new GPU claim. Existing QA retained, no new browser/build resources; own gates reaped.
+
+
+## Completed-frame cooperative batching (RAM review, 2026-11-02)
+
+The mixed candidate cursor previously returned after every completed captured
+frame. This unit continues only on the SAME captured R/group/child while the
+existing outer turn clock has elapsed less than 4ms. A pending child immediately
+returns; it is never spun to completion. Every completion increments ordinal
+once, and the existing accepted-envelope decoder, original/source assertions,
+root ownership, fixed-R order, genuine END cancel / OPEN native retirement and
+failure cleanup remain unchanged. Constructor also waits for remaining budget.
+No owner/cache/queue, source evaluator, packet merge, synthetic END or numeric
+composition change is introduced.
+
+The 4ms boundary is cooperative: an existing indivisible child step can cross
+it. The loop does not reset the outer clock or launch a new frame after it.
+MessageChannel is the engine's normal author task scheduler (RAF is fallback),
+so there is no universal N*16ms bound and no measured performance gain claim.
+A painted child Work may still be pending until its existing finish step on a
+subsequent advance. This unit preserves that boundary; completing a prior frame
+and starting the next can now share one turn. Cheap metadata-only frames can
+complete together while budget remains. No GPU pixel/completion latency is
+inferred from recordingGL.
+
+Immutable evidence in fixes-v52/mixed-frame-turn-v3-*:
+- V3 old-source SAME API contrast: 2 intended assertion failures, 2 controls
+  passed, 120 skipped; cleanup reaches CPU0. Cheap completed-frame delta stays1
+  and no next painted frame starts in the prior completion call on baseline.
+- Candidate full relevant suite: 124/124 PASS (120 existing +4 new), strict
+  actual app options with shared Git-source alias: 2 roots /127 inputs /0 errors.
+- Tests use actual executor/prepass/composite on recordingGL, valid monotone
+  segment groups and recorded END only on final frame. They prove multi-cheap
+  completion, pending one-step/no-spin, no new enqueue at elapsed>=4ms, SAME
+  ordered OVER command input sequence versus a deliberately slow draw schedule,
+  SAME original source factory call once and final CPU ledger0. Command equality
+  is not real GPU pixel proof; existing numeric kernels are not reimplemented.
+- Configured explicit-file lint: 0 errors; 6 warnings on both baseline and
+  candidate, pre-existing no-unsafe-finally/no-this-alias. Temporary source copies
+  removed; no protected foreign source read. Review apply check is non-mutating.
+
+Earlier failures remain preserved: V1 repeats segment group0 across frames and
+therefore is an invalid test fixture (both old/new fail prefix validation); it
+is NOT a semantic RED. V2 valid painted frames expose an overstrong test
+expectation: GREEN122/123, because pending finish boundaries correctly remain.
+V3 separates cheap metadata completion from actual painted next-frame launch;
+production executable bytes are identical V1/V2/V3. No logs/results are renamed.
+
+Baseline bdef9901f95fd8ceaa8851623309971e62040955. Actual ROOT later committed
+92b33bc0a9b04dc414d581e9c57bbe8635093593; the two executable input paths remain
+byte-identical. Actual root mixed timeout is separate functional/performance
+failure evidence, not repaired/relabeled by these CPU/mock gates. Real-device
+verification after coherent committed build remains ROOT responsibility.
+No actual source/resource/runtime/device/provider changes by RAM preparer;
+all own child processes reaped and temporary lint files removed.

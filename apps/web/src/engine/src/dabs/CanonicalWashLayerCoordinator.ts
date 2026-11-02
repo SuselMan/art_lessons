@@ -1614,6 +1614,7 @@ export class CanonicalWashLayerCoordinator {
     }
     // Child failures are fatal, including constructor and retirement: there is
     // no evidence that a failed executable turn restored its GL capsule.
+    if(performance.now()-turnStarted>=4)return
     candidate.executionStarted=true
     if(!mixed.child){
       mixed.lastEnded=false
@@ -1626,17 +1627,27 @@ export class CanonicalWashLayerCoordinator {
         },changed:()=>{},poison:(_id,reason)=>{if(!candidate.obsoleteReason||reason!==candidate.obsoleteReason)candidate.executionFailed=true}})
     }
     const child=mixed.child
-    if(child.pending){child.advance();mixed.snapshot.assertOwned();if(child.pending)return;mixed.lastEnded=mixed.pendingEnded;mixed.pendingEnded=undefined;mixed.frame++;return}
-    if(mixed.frame<group.frames.length){
+    // Continue only completely rendered frames on THIS captured child/group.
+    // The outer turn budget never resets between frames; an existing atomic
+    // child step can cross its soft boundary, but no new frame starts after it.
+    while(performance.now()-turnStarted<4){
+      if(child.pending){
+        child.advance();mixed.snapshot.assertOwned()
+        if(child.pending)return
+        mixed.lastEnded=mixed.pendingEnded;mixed.pendingEnded=undefined;mixed.frame++
+        continue
+      }
+      if(mixed.frame>=group.frames.length)break
       const captured=group.frames[mixed.frame],accepted=captured.frame
       if(group.source.rasterProfile===CANONICAL_STROKE_RASTER_PROFILE)throw Error('Mixed material7 requires GenericSC composition')
       const decoded=decodeCanonicalTexturedAutoStrokeFrame(accepted,{rasterProfile:group.source.rasterProfile,materialVersion:7,material:group.source.context,brush:accepted.brush,strokeId:accepted.strokeId,frameOrdinal:mixed.frame,pigmentRgb8:accepted.pigmentRgb8,composition:accepted.composition})
       mixed.pendingEnded=decoded.frame.fences.some(f=>f.kind==='gestureEnd')
       child.enqueue({gestureId:group.id,layerId:this.options.layerId,layerEpoch:this.options.layerEpoch,ordinal:mixed.frame,frame:decoded.frame,assets:group.source.context.assets,rgb:accepted.pigmentRgb8,composition:accepted.composition})
       child.advance();mixed.snapshot.assertOwned()
-      if(!child.pending){mixed.lastEnded=mixed.pendingEnded;mixed.pendingEnded=undefined;mixed.frame++}
-      return
+      if(child.pending)return
+      mixed.lastEnded=mixed.pendingEnded;mixed.pendingEnded=undefined;mixed.frame++
     }
+    if(mixed.frame<group.frames.length)return
     if(mixed.lastEnded)child.cancel()
     else child.retireRenderedPrefix({gestureId:group.id,layerId:this.options.layerId,layerEpoch:this.options.layerEpoch,nextFrameOrdinal:mixed.frame})
     mixed.child=undefined
