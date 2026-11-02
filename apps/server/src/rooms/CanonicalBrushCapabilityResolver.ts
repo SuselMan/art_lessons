@@ -488,7 +488,7 @@ export class CanonicalBrushCapabilityResolver {
       if(!this.texturedAutoPolicies.texturedAutoSource)fail('material7 consumer disabled')
       if(role==='author'&&!this.texturedAutoPolicies.authorTexturedAutoSource)fail('material7 author policy disabled')
       material4Raster(profile)
-      if(composition.mode!=='wash')fail('material7 buildup publication unavailable')
+      if(!(composition.mode==='wash'||composition.mode==='buildup'&&composition.outerBlend==='over'))fail('material7 composition unavailable')
       const kind=descriptor.sourceStamp.source?.kind
       const configured=kind==='defaultAuto'?this.autoSources.defaultAuto:kind==='gaussianAuto'?this.autoSources.gaussianAuto:kind==='softAuto'?this.autoSources.softAuto:undefined
       if(!configured)fail('textured-auto family policy disabled')

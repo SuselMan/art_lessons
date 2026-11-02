@@ -255,3 +255,31 @@ it('captures original7 on full read without granting independent5/6 and refuses 
  Object.setPrototypeOf(s,{canonicalAuthorTexturedAutoSource:'textured-auto-material-v7'})
  expect(()=>prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true})).toThrow()
 })
+
+// READ routing DATA is independent of all author permissions.
+it('captures original read7 routing with authorOFF and preserves absent legacy routing',()=>{
+ const {state:s}=state();s.canonicalAuthorRasterProfile=CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE
+ s.canonicalReadScope={...s.canonicalReadScope!,allowedRasterProfiles:[CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]}
+ Reflect.set(s,'canonicalTexturedAutoSource','textured-auto-material-v7')
+ let current=true
+ const read=prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>current}).canonicalRead
+ expect(read.texturedAutoSource).toBe('textured-auto-material-v7');expect(read.authorTexturedAutoSource).toBeUndefined()
+ Reflect.deleteProperty(s,'canonicalTexturedAutoSource');expect(read.texturedAutoSource).toBe('textured-auto-material-v7')
+ expect(prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true}).canonicalRead.texturedAutoSource).toBeUndefined()
+ s.canonicalAuthorTexturedAutoSource='textured-auto-material-v7'
+ expect(prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true}).canonicalRead.texturedAutoSource).toBeUndefined()
+ current=false;expect(()=>read.assertCurrent()).toThrow()
+})
+it('rejects malformed/accessor/inherited full read7 routing without invoking getter',()=>{
+ const {state:s}=state();s.canonicalAuthorRasterProfile=CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE
+ s.canonicalReadScope={...s.canonicalReadScope!,allowedRasterProfiles:[CANONICAL_STROKE_RASTER_PROFILE,CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]}
+ for(const value of [undefined,false,null,'other',7])expect(()=>prepareCanonicalRoomState({...s,canonicalTexturedAutoSource:value} as typeof s,{expectedBoardId:'room',isCurrent:()=>true})).toThrow()
+ const getter=vi.fn(()=> 'textured-auto-material-v7'),raw={...s};Object.defineProperty(raw,'canonicalTexturedAutoSource',{get:getter})
+ expect(()=>prepareCanonicalRoomState(raw,{expectedBoardId:'room',isCurrent:()=>true})).toThrow();expect(getter).not.toHaveBeenCalled()
+ const inherited=Object.assign(Object.create({canonicalTexturedAutoSource:'textured-auto-material-v7'}),s)
+ expect(()=>prepareCanonicalRoomState(inherited,{expectedBoardId:'room',isCurrent:()=>true})).toThrow()
+ s.canonicalAuthorRasterProfile=CANONICAL_STROKE_RASTER_PROFILE;Reflect.set(s,'canonicalTexturedAutoSource','textured-auto-material-v7')
+ expect(()=>prepareCanonicalRoomState(s,{expectedBoardId:'room',isCurrent:()=>true})).toThrow()
+ s.room.rasterVersion=LEGACY_ROOM_RASTER_VERSION
+ expect(()=>preflightRoomStateDelivery(s)).toThrow()
+})

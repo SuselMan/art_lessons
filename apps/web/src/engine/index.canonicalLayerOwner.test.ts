@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import {OperationLog} from './src/oplog/OperationLog'
 import * as paired7Assets from '../lib/api/brushLibrary'
 import * as paired7Shared from '@grafetto/shared'
 import paired7Def from '../../../../packages/shared/src/fixtures/sourceDefaultAutoData/textureReptile.pressure.compiled3.metadata.json' with {type:'json'}
@@ -879,7 +880,7 @@ function paired7Fixture(randomDefault=false,buildup=false){
  const descriptor=structuredClone((randomDefault?paired7Def:paired7Soft).descriptor)as unknown as BrushDescriptor
  // Self-authored resource/composition mechanism paired7Fixture; retained paired7Original curves,
  // geometry and raw options, not a claim to the vendor preset identity/artwork.
- Reflect.set(descriptor,'id','imported-'+createHash('sha256').update('engine7-self-authored-'+randomDefault).digest('hex'));Reflect.set(descriptor,'version',1)
+ Reflect.set(descriptor,'id','imported-'+createHash('sha256').update('engine7-self-authored-'+randomDefault+'-'+buildup).digest('hex'));Reflect.set(descriptor,'version',1)
  if(randomDefault){Reflect.set(descriptor.texture!.offset!,'randomX',true);Reflect.set(descriptor.texture!.offset!,'randomY',true);Reflect.set(descriptor.texture!.offset!,'x',1);Reflect.set(descriptor.texture!.offset!,'y',65)}
  if(buildup){Reflect.set(descriptor.sourceStamp!.flags,'indirectPainting',false);Reflect.set(descriptor.sourceStamp!.settings,'PaintOpAction','1')}
  const side=randomDefault?256:16,gray=Uint8Array.from({length:side*side},(_,i)=>(i*37+11)%256),id='asset:'+createHash('sha256').update(gray).digest('hex')
@@ -892,8 +893,8 @@ function paired7Fixture(randomDefault=false,buildup=false){
  installBrushPixels(id,gray);installBrushLibrary(library)
  return{buildup,descriptor:d,library,sha,binding,data,preset:'brush:'+d.id+'@1',pattern:{id,size:side},nativeSize:data.data.source.diameter*data.data.brush.scale}
 }
-function paired7Original(author=true,tail:readonly paired7Shared.Operation[]=[],snapshots:ReadonlyMap<string,ReturnType<typeof paired7Shared.canonicalStrokeSnapshotV7>>=new Map(),isCurrent=()=>true,author4=false){
- const wire:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:512,canvasHeight:512,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[...tail],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalAuthorRasterProfile:paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,...author4?{canonicalAuthorTexturedSource:'fixed-default-auto-texture-v4' as const}:{},...author?{canonicalAuthorTexturedAutoSource:paired7Token}:{},canonicalReadScope:{roomId:'room',boardEpoch:1,allowedRasterProfiles:[paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]},canonicalHistoryBase:{kind:'full-room-prefix-v2',roomId:'room',boardEpoch:1,throughSeq:tail.length,operationCount:tail.length},canonicalCapabilities:{version:1,roomId:'room',boardEpoch:1,capabilities:[...snapshots.values()].map(snapshot=>({originalUserId:tail.find(op=>op.type==='canonical_stroke'&&op.frame.strokeId===snapshot.strokeId)!.userId,snapshot})),bindings:tail.filter((op):op is CanonicalStrokeOperation=>op.type==='canonical_stroke').map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:[...snapshots.keys()].indexOf(op.frame.strokeId)}))}}
+function paired7Original(author=true,tail:readonly paired7Shared.Operation[]=[],snapshots:ReadonlyMap<string,ReturnType<typeof paired7Shared.canonicalStrokeSnapshotV7>>=new Map(),isCurrent=()=>true,author4=false,readRouting=false){
+ const wire:Parameters<ServerToClientEvents['room_state']>[0]={room:{id:'room',name:'Board',ownerId:'reader',paper:'flat',infinite:false,canvasWidth:512,canvasHeight:512,hasPassword:false,accessMode:'anyone_with_link',createdAt:'2026-10-31T00:00:00Z',rasterVersion:'straight-rgba8-v1'},latestSnapshotSeq:null,tailOperations:[...tail],participants:[],palette:[],frozen:false,lesson:{id:'room',boards:[],assignments:[],activeAssignmentId:null,activeBoardId:null,spotlightBoardId:null,classVisibility:'teacher_only',handsRaised:[]},canonicalAuthorRasterProfile:paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE,...author4?{canonicalAuthorTexturedSource:'fixed-default-auto-texture-v4' as const}:{},...author?{canonicalAuthorTexturedAutoSource:paired7Token}:{},...readRouting?{canonicalTexturedAutoSource:paired7Token}:{},canonicalReadScope:{roomId:'room',boardEpoch:1,allowedRasterProfiles:[paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]},canonicalHistoryBase:{kind:'full-room-prefix-v2',roomId:'room',boardEpoch:1,throughSeq:tail.length,operationCount:tail.length},canonicalCapabilities:{version:1,roomId:'room',boardEpoch:1,capabilities:[...snapshots.values()].map(snapshot=>({originalUserId:tail.find(op=>op.type==='canonical_stroke'&&op.frame.strokeId===snapshot.strokeId)!.userId,snapshot})),bindings:tail.filter((op):op is CanonicalStrokeOperation=>op.type==='canonical_stroke').map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:[...snapshots.keys()].indexOf(op.frame.strokeId)}))}}
  return prepareCanonicalRoomState(wire,{expectedBoardId:'room',isCurrent})
 }
 function paired7EngineFor(p:ReturnType<typeof paired7Original>|CanonicalIndexedRead,service?:CanonicalSourceAuthorService,ops:paired7Shared.Operation[]=[]){
@@ -925,18 +926,18 @@ it('rechecks the prepared original7 buildup role before START reservation, roots
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })
 
-async function paired7AcceptedBuildup(){
- const f=paired7Fixture(true,true),p=paired7Original(),ops:paired7Shared.Operation[]=[],snapshots=new Map<string,ReturnType<typeof paired7Shared.canonicalStrokeSnapshotV7>>()
+async function paired7AcceptedBuildup(routed=false,buildup=true){
+ const f=paired7Fixture(true,buildup),p=paired7Original(true,[],new Map(),()=>true,false,routed),ops:paired7Shared.Operation[]=[],snapshots=new Map<string,ReturnType<typeof paired7Shared.canonicalStrokeSnapshotV7>>()
  const engine=paired7EngineFor(p,{texturedAutoSource:paired7Token,begin:async(request,lifetime)=>{const reply=paired7Verdict(f,request,lifetime.expectedMaterialContext7!);snapshots.set(request.strokeId,reply.snapshot);return reply}},ops)
  try{
-  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);engine['_canonicalLayerOwner']!.previewPublication=true
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);if(!routed)engine['_canonicalLayerOwner']!.previewPublication=true
   engine.setActiveLayer('layer-1');engine.setTool('digitalBrush');engine.setPencil(f.preset);engine.setSize(f.nativeSize);engine.setLocked(false)
   expect(await engine.prepareBrush(f.preset)).toEqual({status:'ready'})
   engine['_onStart'](paired7Packet(20,0,.2));engine['_onMove'](paired7Packet(36,10,1));engine['_onEnd'](paired7Packet(36,20,1))
   await vi.waitFor(()=>expect(ops.length).toBeGreaterThan(0),{timeout:10000});await vi.waitFor(()=>expect(engine.hasActiveCanonicalAuthor()).toBe(false),{timeout:10000})
   const frames=ops.filter((op):op is CanonicalStrokeOperation=>op.type==='canonical_stroke').map((op,i)=>({...op,seq:i+1}))
   expect(frames.length).toBe(ops.length);expect(frames.some(op=>paired7Shared.decodeCanonicalRecordedSnapshotFrame(op.frame,snapshots.get(op.frame.strokeId)!,op.frame.frameOrdinal).frame.fences.some(f=>f.kind==='gestureEnd'))).toBe(true)
-  expect(frames.every(op=>op.frame.composition.mode==='buildup'&&op.frame.composition.outerBlend==='over')).toBe(true)
+  expect(frames.every(op=>op.frame.composition.mode===(buildup?'buildup':'wash')&&op.frame.composition.outerBlend==='over')).toBe(true)
   return{f,frames,snapshots}
  }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0);expect(engine['_canonicalSourceLifetimeHolds']).toBe(0)}
 }
@@ -985,4 +986,99 @@ it('rejects non-OVER native7 originals at the normal captured snapshot boundary'
  const {frames,snapshots}=await paired7AcceptedBuildup(),raw=structuredClone(snapshots.get(frames[0].frame.strokeId)!)
  Reflect.set(raw.composition,'outerBlend','multiply')
  expect(()=>paired7Shared.canonicalStrokeSnapshotV7(raw,1,paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)).toThrow()
+})
+
+function routed7Original(author=false,tail:readonly paired7Shared.Operation[]=[],snapshots:ReadonlyMap<string,ReturnType<typeof paired7Shared.canonicalStrokeSnapshotV7>>=new Map()){
+ return paired7Original(author,tail,snapshots,()=>true,false,true)
+}
+it.each([false,true])('selects mixed before first allocation/input from original READ7, author=%s',async author=>{
+ const p=routed7Original(author),engine=paired7EngineFor(p)
+ try{
+  const make=vi.fn(engine['_makeLayerBuffer'].bind(engine));engine['_makeLayerBuffer']=make
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  expect(make).toHaveBeenCalled();expect(engine['_canonicalLayerOwner']!.previewPublication).toBe(true)
+  expect(p.canonicalRead.texturedAutoSource).toBe(paired7Token);expect(p.canonicalRead.authorTexturedAutoSource).toBe(author?paired7Token:undefined)
+  expect(engine['_canonicalReadReady']()).toBe(true)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+it('does not select mixed from author7 alone or absent historical marker',async()=>{
+ for(const author of [false,true]){
+  const p=paired7Original(author),engine=paired7EngineFor(p)
+  try{await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);expect(engine['_canonicalLayerOwner']!.previewPublication).toBeUndefined()}
+  finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+ }
+})
+it('routes actual author7 buildup and reader-only live originals without a private flag write',async()=>{
+ const {frames,snapshots}=await paired7AcceptedBuildup(true),p=routed7Original(),engine=paired7EngineFor(p)
+ try{
+  await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations)
+  const owner=engine['_canonicalLayerOwner']!;expect(owner.previewPublication).toBe(true);expect(p.canonicalRead.authorTexturedAutoSource).toBeUndefined()
+  for(const op of frames){const scope=p.canonicalRead.scope,attachment=prepareCanonicalRecordedAttachment({version:1,roomId:'room',boardEpoch:1,capabilities:[{originalUserId:op.userId,snapshot:snapshots.get(op.frame.strokeId)!}],bindings:[{operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}]},[op],scope),input=attachCanonicalRecordedDelivery(attachment[0],scope);if(!('delivery'in input))throw Error('Expected issued original');expect(await engine.prepareOriginalRecorded(input)).toEqual({status:'ready'});engine.appendOriginalRecorded(input)}
+  await vi.waitFor(()=>expect(engine['_canonicalReadReady']()).toBe(true),{timeout:10000});expect(owner.coordinator).toBeUndefined();expect(owner.failed).toBe(false)
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+it('restores actual OVER full originals through original read routing only',async()=>{
+ const {frames,snapshots}=await paired7AcceptedBuildup(true),p=routed7Original(false,frames,snapshots),engine=paired7EngineFor(p)
+ try{await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);expect(engine['_canonicalLayerOwner']!.previewPublication).toBe(true);expect(engine['_canonicalReadReady']()).toBe(true);expect(engine['_log'].entries).toHaveLength(frames.length)}
+ finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+
+it('routes actual native7 indexed originals from original READ7 with authorOFF and no private flag write',async()=>{
+ const {f,frames,snapshots}=await paired7AcceptedBuildup(true),issuer=indexedSocketFixture(frames,64)
+ Reflect.set(issuer.offer,'authorRasterProfile',paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE);Reflect.set(issuer.offer.scope,'allowedRasterProfiles',[paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]);issuer.offer.roomGeometry.width=512;issuer.offer.roomGeometry.height=512
+ const attachment=(rows:readonly CanonicalStrokeOperation[])=>({version:1 as const,roomId:'room',boardEpoch:2,capabilities:rows.length?[{originalUserId:rows[0].userId,snapshot:paired7Shared.canonicalStrokeSnapshotV7({...snapshots.get(rows[0].frame.strokeId)!,boardEpoch:2},2,paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE)}]:[],bindings:rows.map(op=>({operationId:op.id,sequence:op.seq!,originalUserId:op.userId,capability:0}))})
+ const next=issuer.handlers.canonical_history_stream_next;issuer.handlers.canonical_history_stream_next=async body=>{const reply=await next(body);if(!reply||typeof reply!=='object'||!('value'in reply)||!reply.value||typeof reply.value!=='object')throw Error('Missing issued indexed page');const rows=frames.slice(Number(body.afterSeq),Number(body.afterSeq)+64);return{...reply,value:{...reply.value,canonicalCapabilities:attachment(rows)}}}
+ issuer.handlers.canonical_history_stream_evidence=body=>({ok:true,value:{kind:'canonical-indexed-history-root-evidence-v1',streamId:body.streamId,throughSeq:frames.length,root:body.root,rows:[frames[0],frames.at(-1)!],canonicalCapabilities:attachment([frames[0],frames.at(-1)!]),first:0,terminal:1,lastMetadata:null,latestRedo:null,firstUndoAfterLatestRedo:null,ownBranchAfterUndo:null}})
+ Reflect.set(issuer.offer,'texturedAutoSource',paired7Token)
+  for(const event of ['canonical_history_stream_open','canonical_history_stream_reopen']){const previous=issuer.handlers[event];issuer.handlers[event]=async body=>{const reply=await previous(body)as{ok:true;value:object};return{...reply,value:{...reply.value,texturedAutoSource:paired7Token}}}}
+  const resources=vi.spyOn(paired7Assets,'prepareCanonicalImageAssets').mockImplementation(async(room,assets,current)=>{current();expect(room).toBe('room');expect(assets).toHaveLength(1);expect(assets[0]).toMatchObject(f.pattern);expect(isBrushAssetReady(f.pattern.id,f.pattern.size)).toBe(true);expect(createHash('sha256').update(importedAssetPixels(f.pattern.id)).digest('hex')).toBe(f.pattern.id.slice(6));current()})
+ const read=await issuer.open(),engine=paired7EngineFor(read)
+ try{const restored=engine.restoreCanonicalIndexedRoom(read);expect(engine['_canonicalEmptyTransaction']!.jobs[0].previewPublication).toBe(true);await restored;expect(engine.getCanonicalIndexedCut()?.throughSeq).toBe(frames.length);expect(resources).toHaveBeenCalled();expect(engine['_canonicalReadReady']()).toBe(true);expect(engine['_canonicalLayerOwner']!.coordinator).toBeUndefined()}
+ finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+
+
+it('selects original mixed read before WASH-first history then later buildup7',async()=>{
+ const wash=await paired7AcceptedBuildup(true,false),build=await paired7AcceptedBuildup(true),frames=[...wash.frames,...build.frames.map((op,i)=>({...op,seq:wash.frames.length+i+1}))],snapshots=new Map([...wash.snapshots,...build.snapshots]),p=routed7Original(false,frames,snapshots),engine=paired7EngineFor(p)
+ try{await engine.restoreCanonicalEmptyRoom(p.canonicalRead,p.tailOperations);expect(frames[0].frame.composition.mode).toBe('wash');expect(frames.at(-1)!.frame.composition.mode).toBe('buildup');expect(engine['_canonicalLayerOwner']!.previewPublication).toBe(true);expect(engine['_canonicalReadReady']()).toBe(true);expect(engine['_log'].entries).toHaveLength(frames.length)}
+ finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+},20000)
+it('rejects unsupported routing DATA before hidden buffers or GL preparation',async()=>{
+ const p=paired7Original(),engine=paired7EngineFor(p)
+ try{
+  await engine.paperReady();const old=engine['_layers'],make=vi.fn(engine['_makeLayerBuffer'].bind(engine));engine['_makeLayerBuffer']=make
+  const gl=vi.fn(engine['_initGL'].bind(engine));engine['_initGL']=gl
+  // A copied interface is intentionally NOT a minted read. This tests the
+  // early ownDATA routing boundary and cannot grant reading or publication.
+  const candidate=Object.create(p.canonicalRead);Object.defineProperty(candidate,'texturedAutoSource',{value:'textured-auto-material-v7'})
+  const plan={...engine['_canonicalEmptyAdmission']!,originalRead:candidate,profile:CANONICAL_STROKE_RASTER_PROFILE}
+  await expect(engine['_beginCanonicalEmpty'](plan,old,engine['_log'].revision,new OperationLog())).rejects.toThrow()
+  expect(make).not.toHaveBeenCalled();expect(gl).not.toHaveBeenCalled();expect(engine['_layers']).toBe(old);expect(engine['_canonicalEmptyTransaction']).toBeUndefined()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
+})
+
+function routingEmptyIndexed(){
+ const f=indexedSocketFixture([])
+ Reflect.set(f.offer,'authorRasterProfile',paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE);Reflect.set(f.offer.scope,'allowedRasterProfiles',[paired7Shared.CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE]);f.offer.roomGeometry.width=512;f.offer.roomGeometry.height=512;Reflect.set(f.offer,'texturedAutoSource',paired7Token)
+ for(const event of ['canonical_history_stream_open','canonical_history_stream_reopen']){const previous=f.handlers[event];f.handlers[event]=async body=>{const reply=await previous(body)as{ok:true;value:object};return{...reply,value:{...reply.value,texturedAutoSource:paired7Token}}}}
+ return f
+}
+it.each(['follow','recovery']as const)('rejects copied %s read routing mismatch before next page or hidden allocation',async mode=>{
+ const f=routingEmptyIndexed(),read=await f.open(),engine=paired7EngineFor(read)
+ try{
+  await engine.restoreCanonicalIndexedRoom(read);const cut=engine.getCanonicalIndexedCut()!
+  const original=mode==='follow'?await read.lifetime.follow(cut):await read.lifetime.reopen(cut)
+  // Explicit copied-interface negative; the underlying original cursor remains
+  // genuinely minted. No copy is used to produce inputs or accepted cuts.
+  const candidate={...original,assertCurrent(){original.assertCurrent(original)},cancel(){return original.cancel()}}
+  Reflect.deleteProperty(candidate,'texturedAutoSource')
+  const next=vi.fn(()=>original.nextPage());candidate.nextPage=next
+  const make=vi.fn(engine['_makeLayerBuffer'].bind(engine));engine['_makeLayerBuffer']=make
+  if(mode==='recovery'){
+   const lost=vi.spyOn(engine['gl'],'isContextLost').mockReturnValue(true);engine['_handleContextLost'](new Event('webglcontextlost',{cancelable:true}));lost.mockReturnValue(false)
+   await expect(engine.restoreCanonicalIndexedRoom(candidate)).rejects.toThrow()
+  }else await expect(engine.appendCanonicalIndexedContinuation(candidate)).rejects.toThrow()
+  expect(next).not.toHaveBeenCalled();expect(make).not.toHaveBeenCalled()
+  await original.cancel()
+ }finally{engine.destroy();expect(engine['_brushMipCache'].reservedBytes).toBe(0)}
 })

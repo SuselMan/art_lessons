@@ -103,3 +103,14 @@ same-API early-role baseline2 FAIL/169 skipped; RUN13 172 PASS/1 missing-history
 fixture FAIL +strict0; RUN14 proper-history fixture correction173/2 PASS +strict0.
 Compact receipts, maps and logs remain in R52. No disposable build, browser,
 context, service, dependency copy or runtime resource was created by this unit.
+
+
+## Original read-routing engine integration — RAM V2
+
+Selector consumes SAME plan.originalRead??plan.indexedRead texturedAutoSource through shared ownDATA capture before transaction/GL/layer buffers/inputs. Only server READ token chooses existing previewPublication; author token and numeric raster profile alone do not select it. Copies into hidden/indexed/published owners use existing propagation. No first-buildup scan, policyflag, owner, queue or author grant. Indexed admission compares read/origin; recovery compares read/cut after admission; FOLLOW compares read/cut/origin routing exactly. Existing phase/SHA/context/lifetime guards remain unchanged.
+
+Immutable dependency inputs: Git ed228 plus cameraV5 index a18b11829888ee1b9a9de72ef86ab7dd474da621273781743ec67067b0057fd3 and other camera production, client routing4 and shared routing2. Actual accepted camera commit6bab8077bb87eaee14f12ba02218db0bfa8543a4 has exact owned input bytes; patch is against that accepted index/test, not against earlier pre-camera index. No actual source changes by this unit.
+
+Normal read/restore tests cover empty READ7 authorOFF/ON, author7-only and absent-marker legacy, actual engine-author buildup→issued recorded live/full/indexed originals, WASH-first then buildup, accepted cut/read completion and cleanup. Patterns/variant identities remain explicitly self-authored; no vendor artwork/native pixel/GPU grant claim. Negative copied-interface probes are labeled structural, do not mint authority: portable routing rejects before transaction/GL/buffers; FOLLOW/recovery routing mismatch rejects before next page/allocation. Existing 53 owner tests retained.
+
+V1 RED5 intended plus1 fixture collision and GREEN62/63 preserved: two WASH/buildup variants reused sameID/version with changed settings. V2 fixes test identity only by including buildup discriminator, production identical; clean baseline camera RED6FAIL57skip, GREEN63/1PASS, strict10 roots363 inputs0 and every input rehashed. Configured lint baseline/candidate measured separately, warnings qualified by logs; no errors. All worker receipts reaped. No devices/resources/dependency copies/runtime activation. Future protocol8/server/client routing coherent apply remains ROOT-owned.

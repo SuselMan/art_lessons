@@ -28,7 +28,7 @@ export function decodeTrustedCanonicalFrame(value:unknown,grant:TrustedCanonical
   const material=grant.material,common={rasterProfile:grant.rasterProfile,brush:grant.brush,strokeId:grant.strokeId,frameOrdinal:ordinal,pigmentRgb8:grant.pigmentRgb8,composition:grant.composition}
   if('version'in material&&material.version===7){
     const contract=canonicalStrokeRasterContract(grant.rasterProfile)
-    if(!contract.genericSC||!canonicalStrokeCoverageMatches(grant.rasterProfile,material.primarySource.coverageProfile)||grant.composition.mode!=='wash')fail('material7 raster/composition mismatch')
+    if(!contract.genericSC||!canonicalStrokeCoverageMatches(grant.rasterProfile,material.primarySource.coverageProfile)||!(grant.composition.mode==='wash'||grant.composition.mode==='buildup'&&grant.composition.outerBlend==='over'))fail('material7 raster/composition mismatch')
     return decodeCanonicalTexturedAutoStrokeFrame(value,{...common,rasterProfile:contract.profile,materialVersion:7,material})
   }
   if('version'in material&&material.version===6){
@@ -170,7 +170,7 @@ export class CanonicalStrokeAdmission {
     if('version'in m&&m.version===7){
       const c=canonicalTexturedAutoMaterialContext(m),pin=c.primarySource
       if(!canonicalStrokeRasterContract(grant.rasterProfile).genericSC||!canonicalStrokeCoverageMatches(grant.rasterProfile,pin.coverageProfile)
-        ||pin.brushScale!==1||pin.descriptorSha256!==grant.descriptorSha256||grant.brush!==`brush:${pin.descriptorId}@${pin.descriptorVersion}`||grant.composition.mode!=='wash')fail('trusted material7 descriptor/raster/composition mismatch')
+        ||pin.brushScale!==1||pin.descriptorSha256!==grant.descriptorSha256||grant.brush!==`brush:${pin.descriptorId}@${pin.descriptorVersion}`||!(grant.composition.mode==='wash'||grant.composition.mode==='buildup'&&grant.composition.outerBlend==='over'))fail('trusted material7 descriptor/raster/composition mismatch')
       materialSignature=c;preflight=undefined
     }else if('version'in m&&m.version===6){
       const c=canonicalSoftNativeDefaultTexturedSourceMaterialContext(m),pin=c.primarySource

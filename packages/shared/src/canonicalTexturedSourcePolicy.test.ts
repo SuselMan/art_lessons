@@ -5,9 +5,9 @@ import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G,CANONICAL_STROKE_RASTER_
 const token='fixed-default-auto-texture-v4' as const
 const common={scope:{roomId:'r',boardEpoch:1,allowedRasterProfiles:[G]},roomGeometry:{width:64,height:64,infinite:false},authorRasterProfile:G}
 it('uses closed compatible3 vs strict4, never unknownfuture/numericcoercion',()=>{
- expect(DRAWING_PROTOCOL_VERSION).toBe('7');for(const v of ['3','4'])expect(supportsPrimaryTextureProtocol(v)).toBe(true)
+ expect(DRAWING_PROTOCOL_VERSION).toBe('8');for(const v of ['3','4'])expect(supportsPrimaryTextureProtocol(v)).toBe(true)
  expect(supportsDrawingProtocol('3','4')).toBe(false);expect(supportsDrawingProtocol('4','4')).toBe(true);expect(supportsDrawingProtocol('7','4')).toBe(true)
- for(const v of [undefined,'8',4,'04','4, 3'])expect(supportsDrawingProtocol(v,'4')).toBe(false)
+ for(const v of [undefined,'9',4,'04','4, 3'])expect(supportsDrawingProtocol(v,'4')).toBe(false)
 })
 it('captures independent author4 DATA in Offer/OPEN/FOLLOW without inferring read permission',()=>{
  const o=parseCanonicalIndexedHistoryOffer({kind:'canonical-indexed-history-offer-v1',offerId:'O',...common,authorTexturedSource:token})

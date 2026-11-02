@@ -265,3 +265,35 @@ it.each(['open','follow','recovery'] as const)('rejects changed original7 policy
  await expect(kind==='follow'?read.lifetime.follow(cut):read.lifetime.reopen(cut)).rejects.toThrow()
  expect(()=>cut.assertCurrent(cut)).not.toThrow()
 })
+
+function read7RoutingFixture(){
+ const f=indexedSocketFixture([])
+ Object.assign(f.offer,{authorRasterProfile:G,texturedAutoSource:'textured-auto-material-v7'})
+ Reflect.set(f.offer.scope,'allowedRasterProfiles',[G])
+ for(const event of ['canonical_history_stream_open','canonical_history_stream_reopen']){
+  const previous=f.handlers[event];f.handlers[event]=async body=>{const reply=await previous(body)as{ok:true;value:object};return{...reply,value:{...reply.value,texturedAutoSource:'textured-auto-material-v7'}}}
+ }
+ return f
+}
+it('retains exact original reader7 authorOFF across origin/read/cut/recovery/FOLLOW without author grant',async()=>{
+ const f=read7RoutingFixture(),read=await f.open(),page=await read.nextPage(),cut=read.finish(page);page.release()
+ for(const original of [read,read.lifetime,cut]){expect(original.texturedAutoSource).toBe('textured-auto-material-v7');expect(original.authorTexturedAutoSource).toBeUndefined()}
+ Reflect.deleteProperty(f.offer,'texturedAutoSource');expect(read.texturedAutoSource).toBe('textured-auto-material-v7')
+ const recovery=await read.lifetime.reopen(cut);expect(recovery.texturedAutoSource).toBe(read.texturedAutoSource);await recovery.cancel()
+ const follow=await read.lifetime.follow(cut);expect(follow.texturedAutoSource).toBe(read.texturedAutoSource);await follow.cancel()
+ f.setCurrent(false);expect(()=>read.lifetime.assertCurrent()).toThrow()
+})
+it.each(['open','recovery','follow']as const)('rejects read7 routing mismatch in %s while retaining original cut',async mode=>{
+ const f=read7RoutingFixture(),event=mode==='open'?'canonical_history_stream_open':'canonical_history_stream_reopen'
+ const alter=()=>{const previous=f.handlers[event];f.handlers[event]=async body=>{const reply=await previous(body)as{ok:true;value:object};const value={...reply.value};Reflect.deleteProperty(value,'texturedAutoSource');return{...reply,value}}}
+ if(mode==='open'){alter();await expect(f.open()).rejects.toThrow();return}
+ const read=await f.open(),end=await read.nextPage(),cut=read.finish(end);end.release();alter()
+ await expect(mode==='follow'?read.lifetime.follow(cut):read.lifetime.reopen(cut)).rejects.toThrow()
+ expect(cut.texturedAutoSource).toBe('textured-auto-material-v7');expect(()=>cut.assertCurrent(cut)).not.toThrow()
+})
+it('rejects accessor read7 offer without getter or OPEN and leaves absent author7 routing absent',async()=>{
+ const f=read7RoutingFixture(),getter=vi.fn(()=> 'textured-auto-material-v7')
+ Object.defineProperty(f.offer,'texturedAutoSource',{get:getter,configurable:true})
+ await expect(f.open()).rejects.toThrow();expect(getter).not.toHaveBeenCalled();expect(f.requests).toHaveLength(0)
+ const legacy=auto7PolicyFixture(),read=await legacy.open();expect(read.authorTexturedAutoSource).toBe('textured-auto-material-v7');expect(read.texturedAutoSource).toBeUndefined();await read.cancel()
+})

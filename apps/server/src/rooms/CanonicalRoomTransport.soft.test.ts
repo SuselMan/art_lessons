@@ -1770,7 +1770,7 @@ it('keeps original7 author policy stable full/indexed/recovery/FOLLOW and absent
  const configured={authorRasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy']as const,fullHistoryFormat:'mixed-indexed-v1'as const,autoSources:{defaultAuto:{coverageProfile:'neon64-f32-fma-v1'as const,storedScale:1 as const}},texturedAutoSource,authorTexturedAutoSource:texturedAutoSource}
  const transport=new CanonicalRoomTransport(configured),reader=new CanonicalRoomTransport({...configured,authorTexturedAutoSource:false})
  expect((await transport.prepareReadDelivery(identity,()=>true)).finish([])).toMatchObject({canonicalAuthorTexturedAutoSource:texturedAutoSource})
- expect((await reader.prepareReadDelivery(identity,()=>true)).finish([])).not.toHaveProperty('canonicalAuthorTexturedAutoSource');expect(reader.requiredDrawingProtocol).toBe('7')
+ expect((await reader.prepareReadDelivery(identity,()=>true)).finish([])).not.toHaveProperty('canonicalAuthorTexturedAutoSource');expect(reader.requiredDrawingProtocol).toBe('8')
  board.canonicalHistoryResidency='indexed-v1';const offer=transport.createIndexedHistoryOffer('board');expect(offer.authorTexturedAutoSource).toBe(texturedAutoSource);expect(reader.createIndexedHistoryOffer('board')).not.toHaveProperty('authorTexturedAutoSource')
  expect(joinRoom('board','author','Owner','auto7-offer-seat',true).ok).toBe(true);const seat=captureCurrentRoomSeat('board','author','auto7-offer-seat');if(!seat)throw Error('Missing actual seat')
  try{
@@ -1780,4 +1780,33 @@ it('keeps original7 author policy stable full/indexed/recovery/FOLLOW and absent
   expect(await read.recover(0)).toBe(read);expect(read.begin.authorTexturedAutoSource).toBe(texturedAutoSource);expect((await read.next(0)).terminal).toBe(true)
   expect(await read.follow(0)).toMatchObject({authorTexturedAutoSource:texturedAutoSource});expect((await read.next(0)).terminal).toBe(true)
  }finally{leaveRoom('board','author','auto7-offer-seat')}
+})
+
+
+it.each([false,true])('emits original READ7 routing with author7=%s and retains it across OPEN/recovery/FOLLOW',async author=>{
+ const {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE:G}=await import('@grafetto/shared'),{board}=setup(),texturedAutoSource='textured-auto-material-v7'as const
+ const configured={authorRasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy']as const,fullHistoryFormat:'mixed-indexed-v1'as const,autoSources:{defaultAuto:{coverageProfile:'neon64-f32-fma-v1'as const,storedScale:1 as const}},texturedAutoSource,...author?{authorTexturedAutoSource:texturedAutoSource}:{authorTexturedAutoSource:false as const}}
+ const transport=new CanonicalRoomTransport(configured),off=new CanonicalRoomTransport({...configured,texturedAutoSource:false,authorTexturedAutoSource:false})
+ const full=(await transport.prepareReadDelivery(identity,()=>true)).finish([])
+ expect(full.canonicalTexturedAutoSource).toBe(texturedAutoSource);expect(full.canonicalAuthorTexturedAutoSource).toBe(author?texturedAutoSource:undefined);expect(transport.requiredDrawingProtocol).toBe('8')
+ expect((await off.prepareReadDelivery(identity,()=>true)).finish([])).not.toHaveProperty('canonicalTexturedAutoSource')
+ board.canonicalHistoryResidency='indexed-v1';db.roomParticipant.upsert.mockResolvedValue({});db.$executeRawUnsafe.mockResolvedValue(0);db.$queryRawUnsafe.mockResolvedValue([]);db.operation.findMany.mockResolvedValue([])
+ const offer=transport.createIndexedHistoryOffer('board');expect(offer.texturedAutoSource).toBe(texturedAutoSource);expect(offer.authorTexturedAutoSource).toBe(author?texturedAutoSource:undefined);expect(off.createIndexedHistoryOffer('board')).not.toHaveProperty('texturedAutoSource')
+ const socketId='routing-read-seat-'+author;expect(joinRoom('board','author','Owner',socketId,true).ok).toBe(true);const seat=captureCurrentRoomSeat('board','author',socketId);if(!seat)throw Error('Actual seat required')
+ try{
+  const {texturedAutoSource:_,...missing}=offer
+  await expect(transport.openIndexedHistory(identity,missing,seat,()=>true)).rejects.toThrow();await expect(off.openIndexedHistory(identity,offer,seat,()=>true)).rejects.toThrow()
+  const getter=vi.fn(()=>texturedAutoSource),accessor={...offer};Object.defineProperty(accessor,'texturedAutoSource',{get:getter});await expect(transport.openIndexedHistory(identity,accessor,seat,()=>true)).rejects.toThrow();expect(getter).not.toHaveBeenCalled()
+  const read=await transport.openIndexedHistory(identity,JSON.parse(JSON.stringify(offer)),seat,()=>true)
+  expect(read.begin.texturedAutoSource).toBe(texturedAutoSource);expect(read.begin.authorTexturedAutoSource).toBe(author?texturedAutoSource:undefined);expect((await read.next(0)).terminal).toBe(true)
+  expect(await read.recover(0)).toBe(read);expect(read.begin.texturedAutoSource).toBe(texturedAutoSource);expect((await read.next(0)).terminal).toBe(true)
+  const followed=await read.follow(0);expect(followed.texturedAutoSource).toBe(texturedAutoSource);expect(followed.authorTexturedAutoSource).toBe(author?texturedAutoSource:undefined);expect((await read.next(0)).terminal).toBe(true)
+ }finally{leaveRoom('board','author',socketId)}
+})
+it('rejects READ routing transport startup behind a stale compatibility gate',async()=>{
+ const {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE:G}=await import('@grafetto/shared')
+ class StaleGate extends CanonicalRoomTransport{override get requiredDrawingProtocol():'3'|'4'|'5'|'6'|'7'|'8'|undefined{return'7'}}
+ const configured={authorRasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy']as const,texturedAutoSource:'textured-auto-material-v7'as const,autoSources:{defaultAuto:{coverageProfile:'neon64-f32-fma-v1'as const,storedScale:1 as const}}}
+ expect(()=>new StaleGate(configured)).toThrow('requires protocol8')
+ expect(new CanonicalRoomTransport(configured).requiredDrawingProtocol).toBe('8')
 })

@@ -368,8 +368,9 @@ it('keeps recorded seeded policy DATA-only without leaking the imported raster-c
 /** Genuine nonlinear37 metadata + explicit self-authored pattern CAS mechanism.
  * This exercises server authority, not vendor pattern/pixel equivalence. */
 const actualPressure37=JSON.parse(readFileSync(new URL('../../../../packages/shared/src/fixtures/sourceDefaultAutoData/textureReptile.pressure.compiled3.metadata.json',import.meta.url),'utf8'))
-function pressureAuto5Setup(offset?:{x:number;y:number}){
+function pressureAuto5Setup(offset?:{x:number;y:number},buildup=false){
  const descriptor=structuredClone(actualPressure37.descriptor) as unknown as BrushDescriptor
+ if(buildup){Reflect.set(descriptor.sourceStamp!.flags,'indirectPainting',false);Reflect.set(descriptor.sourceStamp!.settings,'PaintOpAction','1')}
  const bytes=Buffer.from(Array.from({length:256*256},(_,i)=>(i*43+17)%256)),id='asset:'+createHash('sha256').update(bytes).digest('hex')
  descriptor.id='imported-'+createHash('sha256').update('self-authored-pressure5-pattern-authority').digest('hex').slice(0,24)
  if(!descriptor.texture)throw Error('fixture texture');descriptor.texture.id=id as `asset:${string}`;if(offset)descriptor.texture.offset={...descriptor.texture.offset!,...offset}
@@ -450,9 +451,10 @@ it.each([{version:4,mode:'direct'},{version:5,mode:'direct'},{version:4,mode:'di
  * These are server ownership/close mechanisms, not vendor pattern raster proof. */
 import {getCanonicalGesturePrefixWithRows as getSoft6Prefix} from './snapshotStore.js'
 const originalSoft6=JSON.parse(readFileSync(new URL('../../../../packages/shared/src/fixtures/sourceSoftAutoData/texturePressure.native-default.compiled4.metadata.json',import.meta.url),'utf8'))
-function soft6Setup(){
+function soft6Setup(buildup=false){
  vi.mocked(getSoft6Prefix).mockResolvedValue({operations:[],canonicalRows:[]});db.operation.findMany.mockResolvedValue([]);db.operation.findUnique.mockResolvedValue(null)
  const descriptor=structuredClone(originalSoft6.descriptor)as unknown as BrushDescriptor,bytes=Buffer.from(Array.from({length:256},(_,i)=>(i*37+11)%256)),lookup=Buffer.alloc(1024,127),id='asset:'+createHash('sha256').update(bytes).digest('hex'),lookupId='asset:'+createHash('sha256').update(lookup).digest('hex')
+ if(buildup){Reflect.set(descriptor.sourceStamp!.flags,'indirectPainting',false);Reflect.set(descriptor.sourceStamp!.settings,'PaintOpAction','1')}
  descriptor.id='imported-'+createHash('sha256').update('self-authored-soft6-pattern-server').digest('hex').slice(0,24)
  if(!descriptor.texture||descriptor.tip.kind!=='procedural'||descriptor.tip.profile?.kind!=='radialCurve')throw Error('Invalid original Soft DATA')
  descriptor.texture.id=id as `asset:${string}`;descriptor.tip.profile.lookup=lookupId as `asset:${string}`
@@ -505,16 +507,15 @@ function snapshot7(result:CanonicalStrokeBeginResult):CanonicalStrokeSnapshotV7{
  if(!result.ok||!('materialVersion'in result.snapshot)||result.snapshot.materialVersion!==7)throw Error(JSON.stringify(result))
  return result.snapshot
 }
-function input7(f:ReturnType<typeof pressureAuto5Setup>|ReturnType<typeof soft6Setup>){
+function input7(f:Pick<ReturnType<typeof pressureAuto5Setup>,'descriptor'|'input'>){
  const t=f.descriptor.texture!
  return {...f.input,texturePhase:resolveCanonicalTexturePhase({width:t.patternSize!.width,height:t.patternSize!.height,offsetX:t.offset!.x,offsetY:t.offset!.y,randomX:t.offset!.randomX,randomY:t.offset!.randomY},()=>0)}
 }
 function operation7(s:CanonicalStrokeSnapshotV7,end=true):CanonicalStrokeOperation{
  const p=s.material.primarySource
- if(p.kind==='gaussianAuto')throw Error('Gaussian online buildup remains closed')
  const g=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:p.source.diameter,ratio:p.source.ratio,spikes:2,scale:p.brushScale,angle:p.brushAngle},{scale:.1,ratio:1,rotation:0})
  const geometry={brushScale:p.brushScale,brushAngle:p.brushAngle,scale:.1,ratio:1,rotation:0,subX:0,subY:0,width:g.maskSize[0],height:g.maskSize[1],mirrorH:false,mirrorV:false}
- const recipe=p.kind==='softAuto'?{...geometry,kind:'softAuto'as const,sourceSlot:0 as const,source:p.source,coverageProfile:p.coverageProfile}:{...geometry,kind:'defaultAuto'as const,source:p.source,coverageProfile:p.coverageProfile}
+ const recipe=p.kind==='softAuto'?{...geometry,kind:'softAuto'as const,sourceSlot:0 as const,source:p.source,coverageProfile:p.coverageProfile}:p.kind==='gaussianAuto'?{...geometry,kind:'gaussianAuto'as const,source:p.source,coverageProfile:p.coverageProfile}:{...geometry,kind:'defaultAuto'as const,source:p.source,coverageProfile:p.coverageProfile}
  const materialPacked=buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:[0,.5,1].map((grainDepth,x)=>({recipe,role:'primary'as const,x,y:2,opacity:1,flow:1,grainDepth})),fences:[{at:0,kind:'segmentBegin',group:0},...end?[{at:3,kind:'primaryEnd'as const,group:0},{at:3,kind:'segmentEnd'as const,group:0},{at:3,kind:'gestureEnd'as const}]:[]]},s.material).packed
  return{id:'auto7-op',userId:'author',timestamp:1,type:'canonical_stroke',layerId:'layer',frame:{version:2,rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked,texturePhase:s.material.primaryTexture.phase}}
 }
@@ -522,7 +523,7 @@ it.each(['default','soft']as const)('binds original %s BEGIN7 saved phase/live/d
  vi.mocked(getSoft6Prefix).mockResolvedValue({operations:[],canonicalRows:[]})
  const f=kind==='default'?pressureAuto5Setup():soft6Setup(),input=input7(f),before=canonicalBrushDescriptorJSON(f.descriptor),t=new CanonicalRoomTransport(auto7Policy)
  const s=snapshot7(await t.begin(identity,input,()=>true));expect(s.material.primaryTexture.phase).toEqual(input.texturePhase);expect(s.descriptorSha256).toBe(createHash('sha256').update(before).digest('hex'));expect(s.material.primarySource.kind).toBe(kind==='default'?'defaultAuto':'softAuto');expect(s.assets.map(a=>a.id)).toEqual([f.pattern.id]);expect(JSON.stringify(s)).not.toContain('strengthProgram')
- expect(t.requiredDrawingProtocol).toBe('7');expect(snapshot7(await t.begin(identity,input,()=>true))).toEqual(s)
+ expect(t.requiredDrawingProtocol).toBe('8');expect(snapshot7(await t.begin(identity,input,()=>true))).toEqual(s)
  expect((await t.begin(identity,{...input,texturePhase:{...input.texturePhase,x:1}},()=>true)).ok).toBe(false)
  const op=operation7(s);expect(t.live(identity,{layerId:op.layerId,frame:op.frame}).result.ok).toBe(true)
  const saved=await t.recorded(identity,op,()=>true);expect(saved.result).toMatchObject({ok:true,seq:1});expect(saved.accepted!.frame.texturePhase).toEqual(input.texturePhase)
@@ -536,7 +537,7 @@ it.each(['default','soft']as const)('binds original %s BEGIN7 saved phase/live/d
 })
 it('material7 policy is captured/defaultOFF/independent6 and author requires reader',async()=>{
  const f=soft6Setup(),input=input7(f),policy={...auto7Policy},reader=new CanonicalRoomTransport({...policy,authorTexturedAutoSource:false})
- expect(reader.requiredDrawingProtocol).toBe('7');expect((await reader.begin(identity,input,()=>true)).ok).toBe(false)
+ expect(reader.requiredDrawingProtocol).toBe('8');expect((await reader.begin(identity,input,()=>true)).ok).toBe(false)
  expect((await new CanonicalRoomTransport(soft6Policy).begin(identity,input,()=>true)).ok).toBe(false)
  expect(()=>new CanonicalRoomTransport({...policy,texturedAutoSource:false})).toThrow()
  const captured=new CanonicalRoomTransport(policy);Reflect.set(policy,'texturedAutoSource',false);Reflect.set(policy,'authorTexturedAutoSource',false)
@@ -571,23 +572,48 @@ it('binds canonical MINUS-normalized fixed phase, not old plus offsets',async()=
  expect(snapshot7(await t.begin(identity,input,()=>true)).material.primaryTexture.phase).toEqual(input.texturePhase)
  expect((await new CanonicalRoomTransport(auto7Policy).begin(identity,{...input,strokeId:'wrong-plus',texturePhase:{kind:'resolved-stroke-phase-v1',x:1,y:65}},()=>true)).ok).toBe(false)
 })
-it('keeps genuine Gaussian7 buildup denied without rewriting its mode or sampling RNG',async()=>{
+/** Original retained Gaussian source/program/settings, self-authored CAS/id.
+ * This server predicate proof does not admit the preset's client pointer path. */
+function gaussian7BuildupSetup(){
  const original=JSON.parse(readFileSync(new URL('../../../../packages/shared/src/fixtures/sourceGaussianAutoData/pencil3.texture-pressure.compiled3.metadata.json',import.meta.url),'utf8')),descriptor=structuredClone(original.descriptor)as BrushDescriptor
  const pattern=Buffer.from(Array.from({length:4096},(_,i)=>(i*31+3)%256)),tip=Buffer.alloc(256*256,129),patternId='asset:'+createHash('sha256').update(pattern).digest('hex'),tipId='asset:'+createHash('sha256').update(tip).digest('hex')
- descriptor.id='imported-'+createHash('sha256').update('self-authored-gaussian7-server-denial').digest('hex').slice(0,24)
+ descriptor.id='imported-'+createHash('sha256').update('self-authored-gaussian7-server-buildup').digest('hex').slice(0,24)
  if(!descriptor.texture||descriptor.tip.kind!=='bitmap')throw Error('Invalid original Gaussian metadata')
  descriptor.texture.id=patternId as `asset:${string}`;descriptor.tip.mask=tipId as `asset:${string}`
- const dir=mkdtempSync(join(tmpdir(),'server-gaussian7-denial-'));dirs.push(dir);const storage=new BrushStorage(dir)
+ const dir=mkdtempSync(join(tmpdir(),'server-gaussian7-buildup-'));dirs.push(dir);const storage=new BrushStorage(dir)
  const library={schemaVersion:1,brushes:[{name:'Gaussian native program/self-authored CAS',source:'self-authored-test',warnings:[],descriptor}],assets:[{id:patternId,size:64,file:patternId.slice(6)+'.bin'},{id:tipId,size:256,file:tipId.slice(6)+'.bin'}],skipped:[]}
  if(!isBrushLibrary(library))throw Error('Invalid explicit Gaussian test catalog')
  storage.install('author',library,new Map([[patternId.slice(6),pattern],[tipId.slice(6),tip]]));setBrushStorage(storage,empty());resident()
- const binder=new CanonicalBrushCapabilityResolver({...auto7Policy,storage,operator:()=>empty(),maxGestures:8}),before=canonicalBrushDescriptorJSON(descriptor)
- expect(()=>binder.prepareBeginGesture(identity,{layerId:'layer',brush:`brush:${descriptor.id}@37`,strokeId:'gaussian7',pigmentRgb8:[1,2,3],outerResourceOpacity:1,alphaDarken:'creamy',texturePhase:{kind:'resolved-stroke-phase-v1',x:50,y:37}})).toThrow('buildup publication unavailable')
- expect(binder.size).toBe(0);expect(db.operation.create).not.toHaveBeenCalled();expect(canonicalBrushDescriptorJSON(descriptor)).toBe(before)
+ return{descriptor,storage,dir,pattern:{id:patternId,size:64},input:{layerId:'layer',brush:`brush:${descriptor.id}@${descriptor.version}`,strokeId:'gaussian7',pigmentRgb8:[1,2,3]as[number,number,number],outerResourceOpacity:1,alphaDarken:'creamy'as const,texturePhase:{kind:'resolved-stroke-phase-v1'as const,x:50,y:37}}}
+}
+
+it.each(['default','soft','gaussian']as const)('binds eligible %s buildup7 through original BEGIN/live/durable/read8authorOFF without legacy downgrade',async kind=>{
+ const f=kind==='default'?pressureAuto5Setup(undefined,true):kind==='soft'?soft6Setup(true):gaussian7BuildupSetup()
+ const before=canonicalBrushDescriptorJSON(f.descriptor),input='texturePhase'in f.input?f.input:input7(f),t=new CanonicalRoomTransport(auto7Policy)
+ expect(f.descriptor.sourceStamp!.settings.PaintOpAction).toBe('1');expect(f.descriptor.sourceStamp!.flags.indirectPainting).toBe(false)
+ const s=snapshot7(await t.begin(identity,input,()=>true));expect(s.composition.mode).toBe('buildup');expect(s.composition.outerBlend).toBe('over')
+ expect(s.descriptorSha256).toBe(createHash('sha256').update(before).digest('hex'));expect(s.material.primarySource.kind).toBe(kind==='default'?'defaultAuto':kind==='soft'?'softAuto':'gaussianAuto')
+ expect(s.assets.map(a=>a.id)).toEqual([f.pattern.id]);expect(s.material.primaryTexture.phase).toEqual(input.texturePhase)
+ const op=operation7(s,false),foreign={...op,id:'bad-composition',frame:{...op.frame,composition:{...op.frame.composition,outerBlend:'multiply'as const}}}
+ expect(t.live(identity,{layerId:'layer',frame:foreign.frame}).result.ok).toBe(false);expect((await t.recorded(identity,foreign,()=>true)).result.ok).toBe(false);expect(db.operation.create).not.toHaveBeenCalled()
+ expect(t.live(identity,{layerId:'layer',frame:op.frame}).result.ok).toBe(true)
+ const saved=await t.recorded(identity,op,()=>true);expect(saved.result).toMatchObject({ok:true,seq:1});expect(db.operation.create).toHaveBeenCalledTimes(1)
+ expect((await t.recorded(identity,op,()=>true)).result).toMatchObject({ok:true,seq:1,duplicate:true});expect(db.operation.create).toHaveBeenCalledTimes(1)
+ const row=db.operation.create.mock.calls.at(-1)![0].data,readerPolicy={...auto7Policy,authorTexturedAutoSource:false as const},reader=new CanonicalBrushCapabilityResolver({...readerPolicy,storage:f.storage,operator:()=>empty(),maxGestures:8}),readTransport=new CanonicalRoomTransport(readerPolicy)
+ expect(readTransport.requiredDrawingProtocol).toBe('8');expect((await readTransport.begin(identity,input,()=>true)).ok).toBe(false)
+ expect(()=>reader.prepareBeginGesture(identity,input)).toThrow('author policy disabled');expect(()=>reader.prepareIndexedResumeGesture(identity,input,saved.accepted!,row)).toThrow('author policy disabled');expect(reader.size).toBe(0)
+ expect(reader.readRecordedCapability({roomId:'board',boardEpoch:s.boardEpoch,operation:saved.accepted!,row}).material).toEqual(s.material)
+ const fold=reader.createIndexedRecordedPrefixFold({roomId:'board',boardEpoch:s.boardEpoch,anchor:saved.accepted!,row,purpose:'undo-redo'});fold.accept(saved.accepted!,row)
+ const close=parseCanonicalStrokeCloseOperation({type:'canonical_stroke_close',id:'buildup7-close',userId:'author',timestamp:2,seq:2,layerId:'layer',targetUserId:'author',strokeId:s.strokeId,disposition:'commitPartial',recordedNext:1,firstFrameOpId:op.id,lastFrameOpId:op.id})
+ fold.accept(close,{id:close.id,roomId:'board',userId:'author',seq:2,type:close.type,layerId:'layer',tool:null,data:close});expect(fold.finish()).toMatchObject({recordedNext:1,ended:false,closeSeal:{closeOperationId:close.id}})
+ // No phase means the existing historical branch; seven-only policies do not
+ // create independent five/six permission, even for the same source family.
+ if(kind!=='gaussian')expect((await new CanonicalRoomTransport(auto7Policy).begin(identity,{...f.input,strokeId:'no-phase-downgrade'},()=>true)).ok).toBe(false)
+ expect(canonicalBrushDescriptorJSON(f.descriptor)).toBe(before);expect(reader.size).toBe(0)
 })
-it.each(['direct','disconnect']as const)('closes actual interrupted7 via %s without manufactured material tail',async mode=>{
+it.each([{mode:'direct',buildup:false},{mode:'disconnect',buildup:false},{mode:'direct',buildup:true},{mode:'disconnect',buildup:true}]as const)('closes actual interrupted7 via $mode with buildup=$buildup without manufactured material tail',async({mode,buildup})=>{
  const {joinRoom,captureCurrentRoomSeat,leaveRoom}=await import('./rooms.js'),{getCanonicalGesturePrefixWithRows}=await import('./snapshotStore.js');db.roomParticipant.upsert.mockResolvedValue({});vi.mocked(getCanonicalGesturePrefixWithRows).mockResolvedValue({operations:[],canonicalRows:[]});db.operation.findMany.mockResolvedValue([]);db.operation.findUnique.mockResolvedValue(null)
- const f=soft6Setup(),t=new CanonicalRoomTransport(auto7Policy);expect(joinRoom('board','author','A','auto7-close-seat').ok).toBe(true);await flushRoomWrites('board')
+ const f=soft6Setup(buildup),t=new CanonicalRoomTransport(auto7Policy);expect(joinRoom('board','author','A','auto7-close-seat').ok).toBe(true);await flushRoomWrites('board')
  try{
   const seat=captureCurrentRoomSeat('board','author','auto7-close-seat');if(!seat)throw Error('Missing actual7 seat')
   const s=snapshot7(await t.begin(identity,input7(f),()=>true)),op=operation7(s,false),saved=await t.recorded(identity,op,()=>true);expect(saved.result.ok).toBe(true)

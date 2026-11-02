@@ -1,5 +1,5 @@
 import type {CanonicalPreviewCandidate,CanonicalPreviewPublication} from './src/dabs/CanonicalWashLayerCoordinator'
-import {canonicalTexturedAutoMaterialContext,canonicalTexturedAutoProgramBinding,assertTexturedAutoProgramContext,canonicalStrokeSnapshotV7,type CanonicalTexturedAutoProgramBinding,type CanonicalMaterialContextV7,type CanonicalStrokeSnapshotV7} from '@grafetto/shared'
+import {canonicalTexturedAutoReadSource,canonicalTexturedAutoMaterialContext,canonicalTexturedAutoProgramBinding,assertTexturedAutoProgramContext,canonicalStrokeSnapshotV7,type CanonicalTexturedAutoProgramBinding,type CanonicalMaterialContextV7,type CanonicalStrokeSnapshotV7} from '@grafetto/shared'
 import {canonicalSoftNativeDefaultTexturedSourceMaterialContext,canonicalSoftAutoNativeDefaultTextureSourceBinding,canonicalStrokeSnapshotV6,type CanonicalStrokeSnapshotV6,type CanonicalMaterialContextV6,canonicalPressureTexturedSourceMaterialContext,canonicalPressureCurvePrimaryTexturePin,canonicalStrokeSnapshotV5,canonicalDefaultAutoPressureTextureSourceBinding,type CanonicalMaterialContextV5,type CanonicalStrokeSnapshotV5,canonicalTexturedSourceMaterialContext,canonicalStrokeSnapshotV4,canonicalDefaultAutoFixedTextureSourceBinding,type CanonicalMaterialContextV4,type CanonicalStrokeSnapshotV4,CANONICAL_MATERIAL_LIMITS,canonicalPrimaryTextureMaterialContext,canonicalStrokeSnapshotV3,decodeCanonicalRecordedSnapshotFrame,type CanonicalMaterialContextV3,type CanonicalStrokeSnapshotV2,type CanonicalStrokeSnapshotV3} from '@grafetto/shared'
 import { canonicalImageMaterialPin, type CanonicalMaterialAsset } from '@grafetto/shared'
 import {canonicalAutoMaskCapacity,assertCanonicalAutoRecipeCapacity,canonicalTexturedAuto7MaskCapacity,assertCanonicalTexturedAuto7RecipeCapacity} from './src/dabs/canonicalAutoCapacity'
@@ -1564,6 +1564,7 @@ function assertCanonicalIndexedAdmission(read:CanonicalIndexedRead,width?:number
  read.assertCurrent(read)
  const scope=read.lifetime.assertCurrent(),geometry=read.roomGeometry
  if(read.kind!=='full'||read.floor!==0||read.scope!==scope||!Number.isSafeInteger(read.throughSeq)||read.throughSeq<0||read.operationCount!==read.throughSeq||infinite||!geometry||geometry.infinite||geometry.width!==width||geometry.height!==height||!Number.isSafeInteger(width)||width!<=0||!Number.isSafeInteger(height)||height!<=0)throw new TypeError('Invalid original indexed room admission')
+ if(canonicalTexturedAutoReadSource(read,'texturedAutoSource',read.authorRasterProfile)!==canonicalTexturedAutoReadSource(read.lifetime,'texturedAutoSource',read.authorRasterProfile))throw new TypeError('Indexed textured Auto read routing differs from original')
  if(read.authorTexturedAutoSource!==read.lifetime.authorTexturedAutoSource)throw new TypeError('Indexed textured Auto author policy differs from original')
  if(read.authorSoftPressureTexturedSource!==read.lifetime.authorSoftPressureTexturedSource)throw new TypeError('Indexed Soft texture author policy differs from original')
  if(read.authorPressureTexturedSource!==read.lifetime.authorPressureTexturedSource)throw new TypeError('Indexed pressure author policy differs from original')
@@ -6591,7 +6592,7 @@ export class PencilEngine implements PencilEngineAPI {
     const recovery=!!accepted&&!!cut
     if(this.rasterVersion!==STRAIGHT_ROOM_RASTER_VERSION||this._destroyed||this._contextLost||this._canonicalEmptyTransaction||this._rebuildJobs.size||this._pendingRebuilds.size||this._canonicalSourceLifetimeHolds||this._authorInput.pending||this._opQueue.length)throw new Error('Indexed canonical restore unavailable')
     if(recovery){
-      if(this._canonicalPixelsReady||this._canonicalRecoveryDirty||accepted!.generation>=this._physicalGeneration||read.lifetime!==cut!.lifetime||read.throughSeq!==cut!.throughSeq||read.authorTexturedSource!==cut!.authorTexturedSource||read.authorPressureTexturedSource!==cut!.authorPressureTexturedSource||read.authorSoftPressureTexturedSource!==cut!.authorSoftPressureTexturedSource||read.authorTexturedAutoSource!==cut!.authorTexturedAutoSource)throw new Error('Indexed canonical recovery requires newest original prefix')
+      if(this._canonicalPixelsReady||this._canonicalRecoveryDirty||accepted!.generation>=this._physicalGeneration||read.lifetime!==cut!.lifetime||read.throughSeq!==cut!.throughSeq||read.authorTexturedSource!==cut!.authorTexturedSource||read.authorPressureTexturedSource!==cut!.authorPressureTexturedSource||read.authorSoftPressureTexturedSource!==cut!.authorSoftPressureTexturedSource||read.authorTexturedAutoSource!==cut!.authorTexturedAutoSource||canonicalTexturedAutoReadSource(read,'texturedAutoSource',read.authorRasterProfile)!==canonicalTexturedAutoReadSource(cut!,'texturedAutoSource',cut!.authorRasterProfile))throw new Error('Indexed canonical recovery requires newest original prefix')
       cut!.assertCurrent(cut!)
     }else if(read!==this._canonicalIndexedAdmission||this._log.entries.length||old.size!==IMPLICIT_LAYER_IDS.length||IMPLICIT_LAYER_IDS.some(id=>!old.has(id)))throw new Error('Original indexed constructor admission required')
     const scope=read.lifetime.assertCurrent(),width=read.roomGeometry.width,height=read.roomGeometry.height,tileWidth=Math.min(TILE_SIZE,width),tileHeight=Math.min(TILE_SIZE,height)
@@ -6638,7 +6639,7 @@ export class PencilEngine implements PencilEngineAPI {
       current()
       read=typeof source==='function'?await source():source
       current()
-      if(read.kind!=='follow'||read.floor!==cut.throughSeq||read.lifetime!==cut.lifetime||read.authorRasterProfile!==owner.plan.profile||read.authorTexturedSource!==cut.authorTexturedSource||read.authorPressureTexturedSource!==cut.authorPressureTexturedSource||read.authorSoftPressureTexturedSource!==cut.authorSoftPressureTexturedSource||read.authorTexturedAutoSource!==cut.authorTexturedAutoSource||read.authorTexturedSource!==read.lifetime.authorTexturedSource||read.authorPressureTexturedSource!==read.lifetime.authorPressureTexturedSource||read.authorSoftPressureTexturedSource!==read.lifetime.authorSoftPressureTexturedSource||read.authorTexturedAutoSource!==read.lifetime.authorTexturedAutoSource||read.throughSeq-read.floor>64||read.throughSeq<read.floor)throw new TypeError('Invalid canonical follow range')
+      if(read.kind!=='follow'||read.floor!==cut.throughSeq||read.lifetime!==cut.lifetime||read.authorRasterProfile!==owner.plan.profile||read.authorTexturedSource!==cut.authorTexturedSource||read.authorPressureTexturedSource!==cut.authorPressureTexturedSource||read.authorSoftPressureTexturedSource!==cut.authorSoftPressureTexturedSource||read.authorTexturedAutoSource!==cut.authorTexturedAutoSource||canonicalTexturedAutoReadSource(read,'texturedAutoSource',read.authorRasterProfile)!==canonicalTexturedAutoReadSource(cut,'texturedAutoSource',cut.authorRasterProfile)||read.authorTexturedSource!==read.lifetime.authorTexturedSource||read.authorPressureTexturedSource!==read.lifetime.authorPressureTexturedSource||read.authorSoftPressureTexturedSource!==read.lifetime.authorSoftPressureTexturedSource||read.authorTexturedAutoSource!==read.lifetime.authorTexturedAutoSource||canonicalTexturedAutoReadSource(read,'texturedAutoSource',read.authorRasterProfile)!==canonicalTexturedAutoReadSource(read.lifetime,'texturedAutoSource',read.authorRasterProfile)||read.throughSeq-read.floor>64||read.throughSeq<read.floor)throw new TypeError('Invalid canonical follow range')
       while(true){
         page=await read.nextPage();current();page.assertCurrent(page)
         const inputs=page.inputs()
@@ -6940,6 +6941,10 @@ export class PencilEngine implements PencilEngineAPI {
   }
   private _beginCanonicalEmpty(plan:CanonicalEmptyPlan,old:Map<string,ILayerBuffer>,revision:number,staged:OperationLog,recovery?:CanonicalAcceptedBaseline,indexed?:CanonicalIndexedState):Promise<CanonicalEmptyRoomRestoreResult> {
     return new Promise((resolve,reject)=>{
+        // Capture only SAME original read-routing DATA before GL, layer buffers
+        // or input. Author policy and profile alone never select this role.
+        const original=plan.originalRead??plan.indexedRead
+        const routing=canonicalTexturedAutoReadSource(original,'texturedAutoSource',plan.profile)
         const tx:CanonicalEmptyTransaction={plan,old,revision,staged,indexed,generation:this._physicalGeneration,recovery,candidate:new Map(),jobs:[],oldEntries:[...old],resolve,reject,committed:false,finished:false,failures:[]}
         this._canonicalEmptyTransaction=tx
         try{
@@ -6948,7 +6953,7 @@ export class PencilEngine implements PencilEngineAPI {
           for(const id of IMPLICIT_LAYER_IDS)tx.candidate.set(id,this._makeLayerBuffer())
           const stable=tx.candidate.get(INITIAL_LAYER_ID) as TiledLayerBuffer,derived=this._makeLayerBuffer() as TiledLayerBuffer
           const managed=this._createCanonicalGlOwner(),cache=new BrushTextureCache(this.gl),prepass=new TransformedMaskPrepass(this.gl,cache,this._brushMipCache,'engine-empty-mask',managed.owner),composite=new CanonicalRgba8CompositePass(this.gl,cache,this._brushMipCache,'engine-empty-composite',managed.owner)
-          const canonical:CanonicalEmptyJob={transaction:tx,stable,derived,cache,prepass,composite,callbackScope:managed.callbackScope,imageNext:0,stage:0,next:0,outstanding:0,retiring:false,complete:false}
+          const canonical:CanonicalEmptyJob={...routing?{previewPublication:true as const}:{},transaction:tx,stable,derived,cache,prepass,composite,callbackScope:managed.callbackScope,imageNext:0,stage:0,next:0,outstanding:0,retiring:false,complete:false}
           tx.jobs.push(canonical)
           canonical.releaseMetadata=this._brushMipCache.reserve(1024+plan.inputs.length*128+plan.gestures*512)
           const job:RebuildJob={layerId:INITIAL_LAYER_ID,fresh:stable,chunks:new Map(),cp:null,start:0,applied:[],timer:0,part:null,canonical}

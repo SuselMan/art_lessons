@@ -1060,3 +1060,12 @@ it.each([undefined,'fixed-default-auto-texture-v4'])('rejects full author4 polic
 it.each([undefined,'pressure-default-auto-texture-v5'])('rejects author5 indexed OUTER field before OPEN even presentundefined (%s)',async policy=>{const h=await indexedIngressSetup(),close=connectRoomSocket(h.deps);try{Reflect.apply(h.listeners.get('room_state')!,null,[{...h.state,canonicalAuthorPressureTexturedSource:policy}]);expect(h.issuer.requests).toHaveLength(0);expect(h.stashes).toHaveLength(0)}finally{close()}})
 
 it.each([undefined,'pressure-soft-auto-texture-v6'])('rejects author6 indexed OUTER field before OPEN even presentundefined (%s)',async policy=>{const h=await indexedIngressSetup(),close=connectRoomSocket(h.deps);try{Reflect.apply(h.listeners.get('room_state')!,null,[{...h.state,canonicalAuthorSoftPressureTexturedSource:policy}]);expect(h.issuer.requests).toHaveLength(0);expect(h.stashes).toHaveLength(0)}finally{close()}})
+
+it.each(['value','undefined','accessor','inherited']as const)('rejects full read-routing %s on indexed outer state before OPEN without getter',async kind=>{
+ const h=await indexedIngressSetup(),close=connectRoomSocket(h.deps),raw={...h.state},getter=vi.fn(()=> 'textured-auto-material-v7')
+ if(kind==='accessor')Object.defineProperty(raw,'canonicalTexturedAutoSource',{get:getter})
+ else if(kind==='inherited')Object.setPrototypeOf(raw,{canonicalTexturedAutoSource:'textured-auto-material-v7'})
+ else Reflect.set(raw,'canonicalTexturedAutoSource',kind==='value'?'textured-auto-material-v7':undefined)
+ try{Reflect.apply(h.listeners.get('room_state')!,null,[raw]);expect(h.issuer.requests).toHaveLength(0);expect(h.stashes).toHaveLength(0);expect(getter).not.toHaveBeenCalled()}
+ finally{close()}
+})
