@@ -77,3 +77,12 @@ export function verifyCanonicalRecordedClose(prefix:ReturnType<typeof verifyCano
   ||close.firstFrameOpId!==prefix.firstOperationId||close.lastFrameOpId!==prefix.lastOperationId||close.seq<=prefix.lastSeq||close.id===prefix.firstOperationId||close.id===prefix.lastOperationId)return fail()
  return Object.freeze({kind:'commitPartial',closeOperationId:close.id,closeSeq:close.seq,recordedNext:prefix.recordedNext,firstOperationId:prefix.firstOperationId,lastOperationId:prefix.lastOperationId,firstSeq:prefix.firstSeq,lastSeq:prefix.lastSeq})
 }
+
+/** Ephemeral control only; never a recorded close, source grant or tombstone. */
+export interface CanonicalStrokeDiscardEmptyRequest {readonly layerId:string;readonly strokeId:string;readonly boardEpoch:number;readonly emptyDiscardNonce:string}
+export type CanonicalStrokeDiscardEmptyResult={readonly ok:true;readonly discarded:boolean}|{readonly ok:false;readonly reason:'invalid_operation'|'not_joined'|'canonical_repair_required'|'server_error'}
+export function parseCanonicalStrokeDiscardEmptyRequest(value:unknown):Readonly<CanonicalStrokeDiscardEmptyRequest>{
+ const v=closed(value,['layerId','strokeId','boardEpoch','emptyDiscardNonce'])
+ if(!text(v.layerId)||!text(v.strokeId)||typeof v.emptyDiscardNonce!=='string'||!/^[A-Za-z0-9_-]{10,64}$/.test(v.emptyDiscardNonce)||typeof v.boardEpoch!=='number'||!Number.isSafeInteger(v.boardEpoch)||v.boardEpoch<0||v.boardEpoch>=Number.MAX_SAFE_INTEGER)return fail()
+ return Object.freeze({layerId:v.layerId,strokeId:v.strokeId,boardEpoch:v.boardEpoch,emptyDiscardNonce:v.emptyDiscardNonce})
+}

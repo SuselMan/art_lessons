@@ -17,6 +17,9 @@ export interface CanonicalBeginLifetime {
  readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
  readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
  readonly authorTexturedSource?:CanonicalAuthorTexturedSource
+ /** Captured SAME socket cleanup. Never confers an author grant. */
+ readonly discardEmpty?:()=>void
+ readonly onBeginAccepted?:()=>void
  readonly boardEpoch:number
  /** Captured caller execution policy; never selected from received ACK data. */
  readonly rasterProfile?:CanonicalStrokeRasterProfile
@@ -104,7 +107,11 @@ export function sendCanonicalStrokeBegin(socket:CanonicalBeginEmitter|null,input
   }catch{reject(Error('Invalid canonical BEGIN raster profile policy'));return}
   const timeout=lifetime.timeoutMs??5000
   if(!integer(boardEpoch)||!Number.isSafeInteger(timeout)||timeout<=0||timeout>2147483647){reject(Error('Invalid canonical BEGIN lifetime'));return}
-  const request=freeze({...texturePhase?{texturePhase}:{},layerId:input.layerId,brush:input.brush,strokeId:input.strokeId,pigmentRgb8:[...input.pigmentRgb8] as [number,number,number],outerResourceOpacity:input.outerResourceOpacity,alphaDarken:input.alphaDarken})
+  const nonce=Object.getOwnPropertyDescriptor(input,'emptyDiscardNonce')
+  if('emptyDiscardNonce'in input&&(!nonce||!Object.hasOwn(nonce,'value')||typeof nonce.value!=='string'||!/^[A-Za-z0-9_-]{10,64}$/.test(nonce.value))){reject(Error('Invalid canonical BEGIN empty control'));return}
+  const request=freeze({...nonce?{emptyDiscardNonce:nonce.value}:{},...texturePhase?{texturePhase}:{},layerId:input.layerId,brush:input.brush,strokeId:input.strokeId,pigmentRgb8:[...input.pigmentRgb8] as [number,number,number],outerResourceOpacity:input.outerResourceOpacity,alphaDarken:input.alphaDarken})
+  let emitted=false,discarded=false
+  const discard=()=>{if(discarded||!emitted||!request.emptyDiscardNonce)return;discarded=true;try{lifetime.discardEmpty?.()}catch(error){console.error('Canonical empty discard cleanup failed',error)}}
   let settled=false,timer:ReturnType<typeof setTimeout>|undefined,registered=false,abortRegistered=false
   const finish=(error?:unknown,value?:CanonicalBeginOutcome)=>{
    if(settled)return;settled=true
@@ -115,7 +122,7 @@ export function sendCanonicalStrokeBegin(socket:CanonicalBeginEmitter|null,input
    if(error!==undefined||cleanupError!==undefined)reject(error??cleanupError);else resolve(value!)
   }
   const disconnected=()=>finish(Error('Canonical BEGIN socket disconnected'))
-  const aborted=()=>finish(Error('Canonical BEGIN aborted'))
+  const aborted=()=>{discard();finish(Error('Canonical BEGIN aborted'))}
   try{
    if(signal?.aborted||!isCurrent()){finish(Error('Stale canonical BEGIN lifetime'));return}
    registered=true;socket.on('disconnect',disconnected)
@@ -123,11 +130,12 @@ export function sendCanonicalStrokeBegin(socket:CanonicalBeginEmitter|null,input
    if(signal){abortRegistered=true;signal.addEventListener('abort',aborted,{once:true})}
    if(settled)return
    if(signal?.aborted){aborted();return}
-   timer=setTimeout(()=>finish(Error('Canonical BEGIN timed out')),timeout)
+   timer=setTimeout(()=>{discard();finish(Error('Canonical BEGIN timed out'))},timeout)
+   emitted=true
    socket.emit('canonical_stroke_begin',request,result=>{
     if(settled)return
-    try{if(signal?.aborted||!isCurrent())throw Error('Stale canonical BEGIN lifetime');finish(undefined,validate(result,request,boardEpoch,profiles,expectedDescriptorSha256,authorTexturedSource,authorPressureTexturedSource,authorSoftPressureTexturedSource,authorTexturedAutoSource,expectedMaterialContext7))}catch(e){finish(e)}
+    try{if(signal?.aborted||!isCurrent())throw Error('Stale canonical BEGIN lifetime');const value=validate(result,request,boardEpoch,profiles,expectedDescriptorSha256,authorTexturedSource,authorPressureTexturedSource,authorSoftPressureTexturedSource,authorTexturedAutoSource,expectedMaterialContext7);if(value.ok)lifetime.onBeginAccepted?.();finish(undefined,value)}catch(e){discard();finish(e)}
    })
-  }catch(e){finish(e)}
+  }catch(e){discard();finish(e)}
  })
 }

@@ -1462,3 +1462,19 @@ it('requires literal8 on actual reader7/authorOFF protocol before identity/load/
  const delivered=next(current,'room_state');await join(current,id,'Current8');const state=await delivered
  expect(isRoomResident(id)).toBe(true);expect(mockPrisma.room.findUnique).toHaveBeenCalled();expect(state).not.toHaveProperty('canonicalAuthorTexturedAutoSource')
 })
+
+it('serializes actual socket BEGIN -> empty discard -> frame without a future cleanup tombstone',async()=>{
+ const c=await canonicalClassroom()
+ try{
+  const base=await new Promise<CanonicalStrokeBeginResult>(resolve=>c.teacher.emit('canonical_stroke_begin',c.begin,resolve));if(!base.ok)throw Error('Expected baseline')
+  let release!:(rows:import('./roomPersistence.js').CanonicalStoredOperationRow[])=>void
+  mockPrisma.operation.findMany.mockImplementationOnce(()=>new Promise(resolve=>{release=resolve}))
+  const request={...c.begin,emptyDiscardNonce:'attempt_nonce_1',strokeId:fresh('empty-discard')},pending=new Promise<CanonicalStrokeBeginResult>(resolve=>c.teacher.emit('canonical_stroke_begin',request,resolve))
+  await vi.waitFor(()=>expect(release).toBeTypeOf('function'))
+  const discarded=new Promise<import('@grafetto/shared').CanonicalStrokeDiscardEmptyResult>(resolve=>c.teacher.emit('canonical_stroke_discard_empty',{layerId:request.layerId,strokeId:request.strokeId,boardEpoch:base.snapshot.boardEpoch,emptyDiscardNonce:request.emptyDiscardNonce},resolve))
+  const frame=canonicalFrames({...base.snapshot,strokeId:request.strokeId},c.descriptor)[0],op:CanonicalStrokeOperation={type:'canonical_stroke',id:fresh('discard-frame'),userId:'teacher',timestamp:0,layerId:request.layerId,frame}
+  const rejected=new Promise<SendResult>(resolve=>c.teacher.emit('operation',op,resolve));release([])
+  expect((await pending).ok).toBe(true);expect(await discarded).toEqual({ok:true,discarded:true});expect((await rejected).ok).toBe(false)
+  expect(c.record.operations).toEqual([]);expect(mockPrisma.operation.create).not.toHaveBeenCalled()
+ }finally{c.cleanup()}
+})

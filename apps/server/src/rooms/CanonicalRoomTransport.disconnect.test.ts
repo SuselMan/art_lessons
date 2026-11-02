@@ -52,10 +52,10 @@ function packet(s:CanonicalStrokeSnapshotV2,ended=false,ordinal=0):CanonicalStro
 const identity={roomId:'board',userId:'author'}
 const nativePolicy={rasterProfile:CANONICAL_STROKE_RASTER_PROFILE,alphaDarkenVariants:['creamy'] as const,autoSources:{defaultAuto:{coverageProfile:'neon64-f32-fma-v1' as const,storedScale:1 as const}}}
 
-async function start(){
+async function start(emptyDiscardNonce?:string){
  const f=setup(),transport=new CanonicalRoomTransport(nativePolicy)
  expect(joinRoom('board','author','A','old').ok).toBe(true);await flushRoomWrites('board')
- const snapshotValue=snapshot(await transport.begin(identity,f.input,()=>true)),seat=captureCurrentRoomSeat('board','author','old')!
+ const snapshotValue=snapshot(await transport.begin(identity,{...f.input,...emptyDiscardNonce?{emptyDiscardNonce}:{}},()=>true)),seat=captureCurrentRoomSeat('board','author','old')!
  const operation=(ordinal=0,end=false):CanonicalStrokeOperation=>({type:'canonical_stroke',id:'frame-'+ordinal,userId:'author',timestamp:1+ordinal,layerId:'layer',frame:packet(snapshotValue,end,ordinal)})
  return {...f,transport,s:snapshotValue,seat,operation}
 }
@@ -154,4 +154,54 @@ it('cannot manufacture cleanup from an empty transport or copied/foreign seat',a
  expect(()=>transport.prepareDisconnectedClose({...seat},()=>true)).toThrow()
  expect(()=>transport.prepareDisconnectedClose({...seat,userId:'other'},()=>true)).toThrow()
  expect(rows).toEqual([]);expect(f.board.nextSeq).toBe(1)
+})
+
+it('discards only the existing exact zero/zero session; unknown has no future tombstone',async()=>{
+ const f=await start('attempt_nonce_1'),request={layerId:'layer',strokeId:f.input.strokeId,emptyDiscardNonce:'attempt_nonce_1',boardEpoch:0}
+ if(!('boardEpoch'in f.s))throw Error('Expected epoch');request.boardEpoch=f.s.boardEpoch
+ expect(f.transport.discardEmpty(identity,{...request,boardEpoch:request.boardEpoch+1},()=>true)).toEqual({ok:false,reason:'invalid_operation'})
+ expect(f.transport.discardEmpty(identity,request,()=>false)).toEqual({ok:false,reason:'not_joined'})
+ expect(f.transport.discardEmpty(identity,request,()=>true)).toEqual({ok:true,discarded:true})
+ expect(f.transport.discardEmpty(identity,request,()=>true)).toEqual({ok:true,discarded:false})
+ expect(f.transport.live(identity,{layerId:'layer',frame:packet(f.s)}).result.ok).toBe(false)
+ const other={...f.input,strokeId:'unknown'};expect(f.transport.discardEmpty(identity,{...request,strokeId:other.strokeId},()=>true)).toEqual({ok:true,discarded:false})
+ expect((await f.transport.begin(identity,other,()=>true)).ok).toBe(true)
+ expect(f.board.operations).toEqual([]);expect(rows).toEqual([])
+})
+it.each(['live','recorded']as const)('never discards a progressed %s grant',async lane=>{
+ const f=await start('attempt_nonce_1'),op=f.operation();if(lane==='live')expect(f.transport.live(identity,{layerId:'layer',frame:op.frame}).result.ok).toBe(true);else expect((await f.transport.recorded(identity,op,()=>true)).result.ok).toBe(true)
+ expect(f.transport.discardEmpty(identity,{layerId:'layer',strokeId:f.input.strokeId,emptyDiscardNonce:'attempt_nonce_1',boardEpoch:f.s.boardEpoch},()=>true)).toEqual({ok:true,discarded:false})
+ const again=await f.transport.begin(identity,{...f.input,emptyDiscardNonce:'attempt_nonce_1'},()=>true);expect(again.ok).toBe(true);if(!again.ok)throw Error('Expected active session');expect(again[lane==='live'?'liveNext':'recordedNext']).toBe(1)
+})
+it('reclaims zero-frame grants on the same disconnect ticket with no synthetic close',async()=>{
+ const f=await start('attempt_nonce_1');expect(await f.transport.prepareDisconnectedClose(f.seat,()=>true)!.finish()).toEqual([])
+ expect(f.transport.live(identity,{layerId:'layer',frame:packet(f.s)}).result.ok).toBe(false)
+ expect(f.board.nextSeq).toBe(1);expect(rows).toEqual([])
+})
+it('does not exhaust actual 1024 gesture quota after 1025 empty begin/discard cycles',async()=>{
+ const f=await start('attempt_nonce_1');expect(f.transport.discardEmpty(identity,{layerId:'layer',strokeId:f.input.strokeId,emptyDiscardNonce:'attempt_nonce_1',boardEpoch:f.s.boardEpoch},()=>true).ok).toBe(true)
+ for(let i=0;i<1025;i++){const input={...f.input,emptyDiscardNonce:'attempt_nonce_1',strokeId:'empty-'+i},result=await f.transport.begin(identity,input,()=>true);expect(result.ok).toBe(true);expect(f.transport.discardEmpty(identity,{layerId:'layer',strokeId:input.strokeId,emptyDiscardNonce:'attempt_nonce_1',boardEpoch:f.s.boardEpoch},()=>true)).toEqual({ok:true,discarded:true})}
+ expect(rows).toEqual([]);expect(f.board.nextSeq).toBe(1)
+})
+
+it('late duplicate discard cannot delete a new exact same-stroke session with another attempt nonce',async()=>{
+ const f=await start('attempt_nonce_1'),request={layerId:'layer',strokeId:f.input.strokeId,boardEpoch:f.s.boardEpoch,emptyDiscardNonce:'attempt_nonce_1'}
+ expect(f.transport.discardEmpty(identity,request,()=>true)).toEqual({ok:true,discarded:true})
+ const next=await f.transport.begin(identity,{...f.input,emptyDiscardNonce:'attempt_nonce_2'},()=>true);expect(next.ok).toBe(true)
+ expect(f.transport.discardEmpty(identity,request,()=>true)).toEqual({ok:true,discarded:false})
+ expect(f.transport.discardEmpty(identity,{...request,emptyDiscardNonce:'attempt_nonce_2'},()=>true)).toEqual({ok:true,discarded:true})
+})
+it('wire discard cannot retire a nonce-less legacy session; exact disconnect still can',async()=>{
+ const f=await start();expect(f.transport.discardEmpty(identity,{layerId:'layer',strokeId:f.input.strokeId,boardEpoch:f.s.boardEpoch,emptyDiscardNonce:'attempt_nonce_1'},()=>true)).toEqual({ok:true,discarded:false})
+ expect(await f.transport.prepareDisconnectedClose(f.seat,()=>true)!.finish()).toEqual([])
+ expect(f.transport.live(identity,{layerId:'layer',frame:packet(f.s)}).result.ok).toBe(false)
+})
+
+it('nonce control reconstructs from captured own values without raw field re-reads',async()=>{
+ const f=await start(),gets:string[]=[],input=new Proxy({...f.input,strokeId:'captured-control',emptyDiscardNonce:'attempt_nonce_3'},{get(target,key,receiver){gets.push(String(key));return Reflect.get(target,key,receiver)}})
+ expect((await f.transport.begin(identity,input,()=>true)).ok).toBe(true)
+ // Existing pre-auth layer read remains; the NEW bounded control projection does not re-read raw fields.
+ expect(gets).toEqual(['layerId'])
+ let calls=0;const bad={...f.input,strokeId:'control-getter',get emptyDiscardNonce(){calls++;return 'attempt_nonce_4'}}
+ expect((await f.transport.begin(identity,bad,()=>true)).ok).toBe(false);expect(calls).toBe(0)
 })

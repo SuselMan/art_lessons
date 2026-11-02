@@ -1,7 +1,7 @@
 import type {CanonicalHistoryStreamClientEvents,CanonicalIndexedHistoryOfferV1} from './canonicalIndexedHistory.js'
 import type {CanonicalFullHistoryBaseV2} from './canonicalFullHistoryBase.js'
 import type { CanonicalEmptyHistoryBaseV1 } from './canonicalEmptyHistoryBase.js'
-import type { CanonicalStrokeCloseRequest } from './canonicalStrokeClose.js'
+import type { CanonicalStrokeDiscardEmptyRequest,CanonicalStrokeDiscardEmptyResult,CanonicalStrokeCloseRequest } from './canonicalStrokeClose.js'
 import type { CanonicalRecordedAttachmentV1, CanonicalRecordedReadScope } from './canonicalRecordedAttachment.js'
 import type { CanonicalStrokeBegin, CanonicalStrokeBeginResult, CanonicalStrokeLive, CanonicalStrokeLiveResult } from './canonicalStrokeOperation.js'
 import type { BrushRandomSeeds } from './brushRandom.js'
@@ -543,6 +543,7 @@ export type ClientToServerEvents = CanonicalHistoryStreamClientEvents & {
   // StrokeLiveData. No ack: this is not a record, and there is nothing the
   // sender would do differently on a failure. The gesture's real operation
   // follows through `operation` above.
+  canonical_stroke_discard_empty: (data:CanonicalStrokeDiscardEmptyRequest,ack:(result:CanonicalStrokeDiscardEmptyResult)=>void)=>void
   canonical_stroke_close: (data: CanonicalStrokeCloseRequest, ack: (result: SendResult) => void) => void
   canonical_stroke_begin: (data: CanonicalStrokeBegin, ack: (result: CanonicalStrokeBeginResult) => void) => void
   canonical_stroke_live: (data: CanonicalStrokeLive, ack?: (result: CanonicalStrokeLiveResult) => void) => void

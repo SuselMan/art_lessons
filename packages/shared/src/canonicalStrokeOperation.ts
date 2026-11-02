@@ -13,6 +13,8 @@ export type CanonicalStrokeOperation = OperationBase & {
   frame: CanonicalStrokeFrameEnvelope
 }
 export interface CanonicalStrokeBegin {
+  /** Ephemeral exact attempt control; excluded from source/snapshot/history. */
+  readonly emptyDiscardNonce?:string
   readonly layerId: string
   readonly brush: string
   readonly strokeId: string

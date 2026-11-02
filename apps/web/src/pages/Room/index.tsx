@@ -1023,7 +1023,7 @@ function RoomEditor() {
     const {indexed,bootstrap,connectionRead}=original,capturedSocket=socketRef.current
     if(connectionRead&&!capturedSocket){setRestoreFailure('transfer');return}
     let constructed:PencilEngineAPI|undefined
-    const canonicalAuthor=connectionRead&&capturedSocket?createCanonicalRoomAuthor(connectionRead,capturedSocket,()=>socketRef.current,()=>engineRef.current===constructed):undefined
+    const canonicalAuthor=connectionRead&&capturedSocket?createCanonicalRoomAuthor(connectionRead,capturedSocket,()=>socketRef.current,()=>engineRef.current===constructed,input=>{capturedSocket.emit('canonical_stroke_discard_empty',input,()=>{})}):undefined
     const captureCanonicalControl=connectionRead?createCanonicalControlCapture(connectionRead,bootstrap?.tail,boardId,{socket:capturedSocket,getSocket:()=>socketRef.current,getInstalledRead:()=>installedCanonicalReadRef.current,isEngineCurrent:()=>constructed!==undefined&&engineRef.current===constructed,isJoined:()=>hasJoinedRef.current,getBoard:()=>socketBoardRef.current}):undefined
     const networkCallbacks=createEngineNetworkCallbacks({engineRef,appliedOpIdsRef,pendingIdsRef,outbox,markActive,pendingPreviewsRef,applyRemoteOp,syncFromLog,checkSnapshotBoundary,editingBlockedRef,captureCanonicalControl,
       sendLive:data=>{socketRef.current?.emit('stroke_live',data)},sendLiveEnd:data=>{socketRef.current?.emit('stroke_live_end',data)}})

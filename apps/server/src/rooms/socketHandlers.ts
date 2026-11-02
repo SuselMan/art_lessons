@@ -413,6 +413,13 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger, cano
         ack?.(result)
       }, () => ack?.({ ok: false, reason: 'canonical_repair_required' }))
     })
+    socket.on('canonical_stroke_discard_empty',(data,ack)=>{
+      const {roomId,userId}=socket.data,generation=joinGeneration
+      if(!roomId||!userId){ack?.({ok:false,reason:'not_joined'});return}
+      enqueueCanonical(()=>{ack?.(canonicalTransport.discardEmpty({roomId,userId},data,
+        ()=>socket.connected&&socket.data.roomId===roomId&&socket.data.userId===userId&&joinGeneration===generation))},
+        ()=>ack?.({ok:false,reason:'canonical_repair_required'}))
+    })
     socket.on('canonical_stroke_live', (data, ack) => {
       const { roomId, userId } = socket.data
       if (!roomId || !userId) { ack?.({ ok: false, reason: 'not_joined' }); return }

@@ -59,3 +59,10 @@ it('rejects symbol/nonenumerable extras and accessors without invoking them',()=
   expect(reads).toBe(0)
  }
 })
+
+it('captures empty-discard own DATA without changing positive-prefix close semantics',async()=>{
+ const {parseCanonicalStrokeDiscardEmptyRequest:parse}=await import('./canonicalStrokeClose.js')
+ expect(parse({layerId:'L',strokeId:'S',boardEpoch:2,emptyDiscardNonce:'attempt_nonce_1'})).toEqual({layerId:'L',strokeId:'S',boardEpoch:2,emptyDiscardNonce:'attempt_nonce_1'})
+ let calls=0;for(const value of [{layerId:'L',strokeId:'S',boardEpoch:-1},{layerId:'L',strokeId:'S',boardEpoch:2,extra:1},Object.create({layerId:'L',strokeId:'S',boardEpoch:2}),{get layerId(){calls++;return 'L'},strokeId:'S',boardEpoch:2}])expect(()=>parse(value)).toThrow()
+ expect(calls).toBe(0);expect(()=>parseCanonicalStrokeCloseRequest({...request,expectedRecordedNext:0})).toThrow()
+})

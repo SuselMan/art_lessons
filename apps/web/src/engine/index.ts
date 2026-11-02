@@ -287,12 +287,14 @@ const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
 
 /** Explicit CPU author transport. Recorded delivery remains the only paint grant. */
 export interface CanonicalSourceAuthorService {
+  /** Retire an emitted but locally unadmitted BEGIN on its captured transport. */
+  discardEmpty?(input:CanonicalStrokeBegin):void
   readonly texturedAutoSource?:'textured-auto-material-v7'
   readonly primaryTextureSource?:'pressure-identity-subtract-v3'
   readonly texturedSource?:'fixed-default-auto-texture-v4'
   readonly softPressureTexturedSource?:'pressure-soft-auto-texture-v6'
   readonly pressureTexturedSource?:'pressure-default-auto-texture-v5'
-  begin(input:CanonicalStrokeBegin,lifetime:{readonly signal:AbortSignal;readonly isCurrent:()=>boolean;readonly expectedDescriptorSha256:string;readonly expectedMaterialContext7?:CanonicalMaterialContextV7}):Promise<CanonicalStrokeBeginResult>
+  begin(input:CanonicalStrokeBegin,lifetime:{readonly signal:AbortSignal;readonly isCurrent:()=>boolean;readonly expectedDescriptorSha256:string;readonly expectedMaterialContext7?:CanonicalMaterialContextV7;readonly onBeginAccepted?:()=>void}):Promise<CanonicalStrokeBeginResult>
 }
 export interface PencilEngineOptions {
   rasterVersion?: RoomRasterVersion
@@ -1348,7 +1350,7 @@ function observeCanonicalPreparation(promise:Promise<BrushPreparationResult>,cel
 interface CanonicalSourceSession {
   readonly prepared:CanonicalPreparedAuthor;readonly controller:AbortController;readonly request:CanonicalStrokeBegin
   readonly release:()=>void;readonly seeds:BrushRandomSeeds;readonly timestamp:number
-  references:number;closed:boolean;released:boolean;emitted:number;partialCancel?:Error;closeIssued?:boolean;firstEmittedId?:string;lastEmittedId?:string;lastEmittedEnded?:boolean;localAdmitted?:boolean;reason?:{error:unknown}
+  references:number;closed:boolean;released:boolean;emitted:number;beginAccepted?:boolean;discardEmpty?:()=>void;partialCancel?:Error;closeIssued?:boolean;firstEmittedId?:string;lastEmittedId?:string;lastEmittedEnded?:boolean;localAdmitted?:boolean;reason?:{error:unknown}
   localAuthor?:CanonicalLocalWashAuthor
   root7?:CanonicalMaskSourceLease;readonly context7?:CanonicalMaterialContextV7;author?:SourceStrokeAuthor;state?:SourceStrokeAuthorState;adapter?:SourceTexturedAutoMaterialAdapter|SourceStrokeMaterialAdapter<SourceStrokeMaterialContextV2|SourceStrokeMaterialContextV3|SourceStrokeMaterialContextV4|SourceStrokeMaterialContextV5|SourceStrokeMaterialContextV6>;encoder?:SourceTexturedAutoFrameEncoder|SourceCanonicalFrameEncoder<import('./src/presets/sourceCanonicalFrameEncoder').SourceCanonicalStrokeContextV2|import('./src/presets/sourceCanonicalFrameEncoder').SourceCanonicalStrokeContextV3|import('./src/presets/sourceCanonicalFrameEncoder').SourceCanonicalStrokeContextV4|import('./src/presets/sourceCanonicalFrameEncoder').SourceCanonicalStrokeContextV5|import('./src/presets/sourceCanonicalFrameEncoder').SourceCanonicalStrokeContextV6>
 }
@@ -2963,7 +2965,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._userId = options.userId ?? 'local'
     this._onLocalOperation = options.onLocalOperation
-    this._canonicalAuthorService=options.canonicalAuthor&&Object.freeze({begin:options.canonicalAuthor.begin.bind(options.canonicalAuthor),...(options.canonicalAuthor.texturedAutoSource==='textured-auto-material-v7'?{texturedAutoSource:options.canonicalAuthor.texturedAutoSource}:{}),...(options.canonicalAuthor.softPressureTexturedSource==='pressure-soft-auto-texture-v6'?{softPressureTexturedSource:options.canonicalAuthor.softPressureTexturedSource}:{}),...(options.canonicalAuthor.primaryTextureSource==='pressure-identity-subtract-v3'?{primaryTextureSource:options.canonicalAuthor.primaryTextureSource}:{}),...(options.canonicalAuthor.texturedSource==='fixed-default-auto-texture-v4'?{texturedSource:options.canonicalAuthor.texturedSource}:{}),...(options.canonicalAuthor.pressureTexturedSource==='pressure-default-auto-texture-v5'?{pressureTexturedSource:options.canonicalAuthor.pressureTexturedSource}:{})})
+    this._canonicalAuthorService=options.canonicalAuthor&&Object.freeze({begin:options.canonicalAuthor.begin.bind(options.canonicalAuthor),...options.canonicalAuthor.discardEmpty?{discardEmpty:options.canonicalAuthor.discardEmpty.bind(options.canonicalAuthor)}:{},...(options.canonicalAuthor.texturedAutoSource==='textured-auto-material-v7'?{texturedAutoSource:options.canonicalAuthor.texturedAutoSource}:{}),...(options.canonicalAuthor.softPressureTexturedSource==='pressure-soft-auto-texture-v6'?{softPressureTexturedSource:options.canonicalAuthor.softPressureTexturedSource}:{}),...(options.canonicalAuthor.primaryTextureSource==='pressure-identity-subtract-v3'?{primaryTextureSource:options.canonicalAuthor.primaryTextureSource}:{}),...(options.canonicalAuthor.texturedSource==='fixed-default-auto-texture-v4'?{texturedSource:options.canonicalAuthor.texturedSource}:{}),...(options.canonicalAuthor.pressureTexturedSource==='pressure-default-auto-texture-v5'?{pressureTexturedSource:options.canonicalAuthor.pressureTexturedSource}:{})})
     this._onPreviewApplied = options.onPreviewApplied
     this._onCanonicalRecoveryRequired = options.onCanonicalRecoveryRequired
     this._onCanonicalIndexedReadIdle = options.onCanonicalIndexedReadIdle
@@ -8333,7 +8335,7 @@ export class PencilEngine implements PencilEngineAPI {
     if(session.ended&&!source.encoder?.ended){source.closed=true;source.reason??={error:new Error('Canonical source ended before author completion')}}
     let failed=false,primary:unknown
     try{
-      for(const cleanup of [()=>source.controller.abort(),()=>{const root=source.root7;source.root7=undefined;root?.release()},()=>{
+      for(const cleanup of [()=>source.controller.abort(),()=>{if(source.beginAccepted&&!source.localAdmitted&&source.emitted===0)try{source.discardEmpty?.()}catch(error){console.error('Canonical empty discard cleanup failed',error)}},()=>{const root=source.root7;source.root7=undefined;root?.release()},()=>{
         const pending=source.prepared.owner.indexedLocalSource
         if(pending&&pending.author===source.localAuthor){source.prepared.owner.indexedLocalSource=undefined;pending.lease.release()}
       },source.release])try{cleanup()}catch(error){if(!failed){failed=true;primary=error}}
@@ -8499,9 +8501,10 @@ export class PencilEngine implements PencilEngineAPI {
     let releaseDone=false;const release=()=>{if(releaseDone)return;releaseDone=true;let failure:unknown;try{releasePrepared?.()}catch(e){failure=e}try{releaseCpu()}catch(e){failure??=e}if(failure)throw failure}
     try{
     const pigment=snapshot.opts.graphiteColor.map(v=>Math.round(v*255)) as [number,number,number]
-    const request:CanonicalStrokeBegin=Object.freeze({layerId:snapshot.layerId,brush:'brush:'+prepared.descriptor.id+'@'+prepared.descriptor.version,strokeId:createBrushRandomStrokeId(nanoid(10),seeds),pigmentRgb8:Object.freeze(pigment),outerResourceOpacity:snapshot.opts.opacity,alphaDarken:'creamy',...context7?{texturePhase:context7.primaryTexture.phase}:{}})
-    const session:TimedAuthorSession={snapshot,input:captured,lastTime:0,cameraAngle:snapshot.cameraAngle,ended:false,source:{prepared,controller,request,release,seeds,...context7?{context7}:{},timestamp:input.timeStamp,references:0,closed:false,released:false,emitted:0}}
-    if(context7)assertStart7()
+    const request:CanonicalStrokeBegin=Object.freeze({emptyDiscardNonce:nanoid(),layerId:snapshot.layerId,brush:'brush:'+prepared.descriptor.id+'@'+prepared.descriptor.version,strokeId:createBrushRandomStrokeId(nanoid(10),seeds),pigmentRgb8:Object.freeze(pigment),outerResourceOpacity:snapshot.opts.opacity,alphaDarken:'creamy',...context7?{texturePhase:context7.primaryTexture.phase}:{}})
+    const capturedService=this._canonicalAuthorService
+    const session:TimedAuthorSession={snapshot,input:captured,lastTime:0,cameraAngle:snapshot.cameraAngle,ended:false,source:{prepared,controller,request,release,seeds,...context7?{context7}:{},...capturedService.discardEmpty?{discardEmpty:()=>capturedService.discardEmpty!(request)}:{},timestamp:input.timeStamp,references:0,closed:false,released:false,emitted:0}}
+    assertStart7()
     this._canonicalSourceLifetimeHolds++
     this._authorProducer=session;this._authorSnapshot=snapshot
     const owner=this,service=this._canonicalAuthorService
@@ -8524,12 +8527,13 @@ export class PencilEngine implements PencilEngineAPI {
           }finally{preparedOutcome.active=false;preparedOutcome.value=undefined;localLease.lease?.release()}
         }
         owner._assertCanonicalSource(session)
-        const promise=service.begin(request,{signal:controller.signal,isCurrent,expectedDescriptorSha256:prepared.sha,...source.context7?{expectedMaterialContext7:source.context7}:{}})
+        const promise=service.begin(request,{signal:controller.signal,isCurrent,onBeginAccepted:()=>{source.beginAccepted=true},expectedDescriptorSha256:prepared.sha,...source.context7?{expectedMaterialContext7:source.context7}:{}})
         observeCanonicalBegin(promise,outcome)
         yield {kind:'author-input-wait',promise,deadline:performance.now()+5000,timeoutError:new Error('Canonical BEGIN timed out')}
         owner._assertCanonicalSource(session)
         const result=outcome.value
         if(!result)throw new Error('Canonical BEGIN result unavailable')
+        if(result.ok)source.beginAccepted=true
         if(!result.ok||result.recordedNext!==0||result.liveNext!==0||result.ended||!('materialVersion'in result.snapshot)||![2,3,4,5,6,7].includes(result.snapshot.materialVersion))throw new Error('Canonical BEGIN unavailable/resume unsupported')
         const s=result.snapshot,policy=canonicalSourceComposition(prepared.descriptor,prepared.owner.plan.profile)
         const expectedAssets=prepared.material.kind==='texturedAuto'?[prepared.material.binding.patternAsset]:prepared.material.kind==='imageTexture'||prepared.material.kind==='autoTexture'||prepared.material.kind==='autoPressureTexture'||prepared.material.kind==='autoSoftPressureTexture'?prepared.material.texture.assets:prepared.material.kind==='image'?prepared.material.pin.assets:[]

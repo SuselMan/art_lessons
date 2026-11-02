@@ -8,7 +8,7 @@ import {sendCanonicalStrokeBegin,type CanonicalBeginEmitter} from './sendCanonic
 // Compile-time assertion: the real Room socket satisfies the structural seam.
 const acceptsSocket=(socket:Socket<ServerToClientEvents,ClientToServerEvents>):CanonicalBeginEmitter=>socket
 void acceptsSocket
-const input=():CanonicalStrokeBegin=>({layerId:'L',brush:'brush:soft@1',strokeId:'S',pigmentRgb8:[1,2,3],outerResourceOpacity:.7,alphaDarken:'hard'})
+const input=():CanonicalStrokeBegin=>({emptyDiscardNonce:'attempt_nonce_1',layerId:'L',brush:'brush:soft@1',strokeId:'S',pigmentRgb8:[1,2,3],outerResourceOpacity:.7,alphaDarken:'hard'})
 function answer():CanonicalStrokeBeginResult{
  const curve={text:'0,1;1,0',points:[{x:0,y:1,corner:false},{x:1,y:0,corner:false}]}
  const primarySource=canonicalSoftAutoSourcePin({kind:'softAuto',sourceSlot:0,descriptorId:'soft',descriptorVersion:1,descriptorSha256:'a'.repeat(64),source:{kind:'softAuto',generator:'soft',shape:'circle',diameter:8,ratio:1,horizontalFade:1,verticalFade:1,antialias:false,spikes:2,randomness:0,density:1,softnessCurve:curve},brushScale:1,brushAngle:0,coverageProfile:'neon64-f32-fma-v1',reader:'krita-bd6e8d0-v1',compilerProfile:'eigen-5.0.1-mapped-arm64-f64-v3',buildId:'b'.repeat(64),radialCurve:{source:curve,coefficients:[[0,0,-1,1]]}})
@@ -257,4 +257,26 @@ it('cancels a prepared7 BEGIN and ignores its late valid ACK',async()=>{
  const rejected=expect(pending).rejects.toThrow('aborted');abort.abort();await rejected
  s.ack({ok:true,snapshot:f.snapshot,recordedNext:0,liveNext:0,ended:false})
  expect(s.listeners.size).toBe(0)
+})
+
+it.each(['abort','timeout']as const)('sends one owned empty discard before late ACK on %s',async kind=>{
+ const s=socket(),controller=new AbortController(),discardEmpty=vi.fn(),pending=sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true,signal:controller.signal,timeoutMs:50,discardEmpty}),rejected=expect(pending).rejects.toThrow()
+ if(kind==='abort')controller.abort();else vi.advanceTimersByTime(50)
+ await rejected;s.ack();controller.abort();expect(discardEmpty).toHaveBeenCalledTimes(1);expect(s.listeners.size).toBe(0)
+})
+it('does not send empty cleanup before emission or on positive ACK; cleanup errors preserve primary',async()=>{
+ const s=socket(),discardEmpty=vi.fn(()=>{throw Error('secondary')}),log=vi.spyOn(console,'error').mockImplementation(()=>{})
+ await expect(sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>false,discardEmpty})).rejects.toThrow('Stale');expect(discardEmpty).not.toHaveBeenCalled()
+ const controller=new AbortController(),p=sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true,signal:controller.signal,discardEmpty});s.ack();await p;controller.abort();expect(discardEmpty).not.toHaveBeenCalled()
+ const c=new AbortController(),q=sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true,signal:c.signal,discardEmpty}),rejected=expect(q).rejects.toThrow('aborted');c.abort();await rejected;expect(discardEmpty).toHaveBeenCalledTimes(1);expect(log).toHaveBeenCalledTimes(1);log.mockRestore()
+})
+
+it.each(['emit','onBeginAccepted']as const)('preserves %s primary and attempts empty cleanup once',async kind=>{
+ const s=socket(),discardEmpty=vi.fn(),primary=Error('primary'),onBeginAccepted=()=>{if(kind==='onBeginAccepted')throw primary}
+ if(kind==='emit')vi.mocked(s.emitter.emit).mockImplementation(()=>{throw primary})
+ const p=sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true,discardEmpty,onBeginAccepted}),rejected=expect(p).rejects.toBe(primary)
+ if(kind==='onBeginAccepted')s.ack();await rejected;expect(discardEmpty).toHaveBeenCalledTimes(1);expect(s.listeners.size).toBe(0)
+})
+it('announces validated BEGIN synchronously before FIFO continuation can consume the Promise',async()=>{
+ const s=socket(),accepted=vi.fn(),p=sendCanonicalStrokeBegin(s.emitter,input(),{boardEpoch:2,isCurrent:()=>true,onBeginAccepted:accepted});s.ack();expect(accepted).toHaveBeenCalledTimes(1);await p
 })

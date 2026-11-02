@@ -3,7 +3,7 @@ import {randomUUID} from 'node:crypto'
 import {
   canonicalTexturedAutoReadSource,canonicalStrokeSnapshotV7,canonicalStrokeSnapshotV6,canonicalStrokeSnapshotV5,canonicalStrokeSnapshotV4,canonicalStrokeSnapshotV3,STRAIGHT_ROOM_RASTER_VERSION,CANONICAL_STROKE_RASTER_PROFILE,canonicalRecordedRasterProfiles,parseCanonicalIndexedHistoryOffer,
   type CanonicalIndexedHistoryOfferV1,type CanonicalIndexedHistoryBeginV1,type CanonicalIndexedHistoryStartV1,type CanonicalIndexedHistoryFollowV1,type CanonicalIndexedHistoryPageV1,type CanonicalIndexedRootV1,type CanonicalIndexedHistoryRootEvidenceV1,type CanonicalIndexedOperation,type CanonicalHistoryAction,type CanonicalHistorySelectResultV1,
-  parseCanonicalStrokeCloseRequest,verifyCanonicalRecordedClose,type CanonicalStrokeCloseRequest,type RecordedCanonicalStrokeCloseOperation,parseCanonicalStrokeCloseOperation,parseCanonicalEmptyHistoryBase,parseCanonicalFullHistoryBase,verifyCanonicalFullHistoryBase,type CanonicalFullHistoryBaseV2,type CanonicalEmptyHistoryBaseV1, verifyCanonicalRecordedPrefix, type CanonicalStrokeBegin, type CanonicalStrokeBeginResult, type CanonicalStrokeLive, type CanonicalStrokeLiveResult,
+  parseCanonicalStrokeDiscardEmptyRequest,type CanonicalStrokeDiscardEmptyResult,parseCanonicalStrokeCloseRequest,verifyCanonicalRecordedClose,type CanonicalStrokeCloseRequest,type RecordedCanonicalStrokeCloseOperation,parseCanonicalStrokeCloseOperation,parseCanonicalEmptyHistoryBase,parseCanonicalFullHistoryBase,verifyCanonicalFullHistoryBase,type CanonicalFullHistoryBaseV2,type CanonicalEmptyHistoryBaseV1, verifyCanonicalRecordedPrefix, type CanonicalStrokeBegin, type CanonicalStrokeBeginResult, type CanonicalStrokeLive, type CanonicalStrokeLiveResult,
   type CanonicalStrokeOperation, type CanonicalStrokeSnapshot, type SendResult, type CanonicalRecordedAttachmentV1, type CanonicalRecordedReadScope, type CanonicalRecordedHistoryPage, type Operation, CANONICAL_RECORDED_ATTACHMENT_LIMITS, prepareCanonicalRecordedAttachment,
 } from '@grafetto/shared'
 import { canonicalBrushStorageContext } from '../brushLibrary/storage.js'
@@ -35,6 +35,7 @@ const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v ===
 const text = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 256 && !v.includes('\0')
 const gestureKey = (i: CanonicalAdmissionIdentity, strokeId: string) => JSON.stringify([i.roomId, i.userId, strokeId])
 interface Session {
+  readonly emptyDiscardNonce?:string
   readonly grant: TrustedCanonicalGesture
   readonly admission: CanonicalStrokeAdmission
   durableRecordedNext: number
@@ -336,12 +337,44 @@ export class CanonicalRoomTransport {
     return read
   }
 
+  /** SAME admitted session only. No future target/tombstone and no persisted row. */
+  discardEmpty(identity:CanonicalAdmissionIdentity,value:unknown,isCurrent:()=>boolean):CanonicalStrokeDiscardEmptyResult {
+    try{
+      const input=parseCanonicalStrokeDiscardEmptyRequest(value)
+      if(!isCurrent())fail('not_joined')
+      const lifetime=this.authorized(identity,input.layerId),binder=this.currentBinder(),key=gestureKey(identity,input.strokeId),session=lifetime.sessions.get(key)
+      if(!session)return {ok:true,discarded:false}
+      if(session.grant.layerId!==input.layerId||session.grant.boardEpoch!==input.boardEpoch)fail('invalid_operation')
+      if(session.emptyDiscardNonce!==input.emptyDiscardNonce)return {ok:true,discarded:false}
+      if(!isCurrent())fail('not_joined')
+      this.sameLifetime(identity,input.layerId,lifetime)
+      if(this.binder!==binder||lifetime.sessions.get(key)!==session)fail('canonical_repair_required')
+      return {ok:true,discarded:this.retireEmpty(lifetime,key,session,binder)}
+    }catch(error){return {ok:false,reason:reason(error)}}
+  }
+  private retireEmpty(lifetime:RoomLifetime,key:string,session:Session,binder:CanonicalBrushCapabilityResolver):boolean {
+    const cursor=session.admission.cursor(session.grant,session.grant.strokeId)
+    if(cursor.recordedNext!==0||cursor.liveNext!==0||cursor.ended||session.recordedTail||session.durableRecordedNext!==0)return false
+    if(this.binder!==binder||lifetime.sessions.get(key)!==session||!binder.retireGesture(session.grant))fail('canonical_repair_required')
+    lifetime.sessions.delete(key)
+    return true
+  }
+
   async begin(identity: CanonicalAdmissionIdentity, input: CanonicalStrokeBegin, isCurrent: () => boolean): Promise<CanonicalStrokeBeginResult> {
     try {
       const lifetime = this.authorized(identity, input?.layerId)
       const binder = this.currentBinder()
-      input = binder.captureBeginInput(identity,input)
-      const key = gestureKey(identity, input.strokeId), signature = JSON.stringify(input)
+      // Capture transport control separately; source resolver keeps its OLD closed schema.
+      let emptyDiscardNonce:string|undefined
+      if(input&&typeof input==='object'&&'emptyDiscardNonce'in input){
+        if(![Object.prototype,null].includes(Object.getPrototypeOf(input)))fail('invalid_operation')
+        const names=Reflect.ownKeys(input)
+        if(names.length<7||names.length>8||names.some(k=>typeof k!=='string'||!['layerId','brush','strokeId','pigmentRgb8','outerResourceOpacity','alphaDarken','texturePhase','emptyDiscardNonce'].includes(k)))fail('invalid_operation')
+        const body:Record<string,PropertyDescriptor>=Object.create(null)
+        for(const name of names){const d=Object.getOwnPropertyDescriptor(input,name);if(!d||!Object.hasOwn(d,'value'))fail('invalid_operation');if(name==='emptyDiscardNonce'){if(typeof d.value!=='string'||!/^[A-Za-z0-9_-]{10,64}$/.test(d.value))fail('invalid_operation');emptyDiscardNonce=d.value}else body[String(name)]=d}
+        input=binder.captureBeginInput(identity,{layerId:body.layerId?.value,brush:body.brush?.value,strokeId:body.strokeId?.value,pigmentRgb8:body.pigmentRgb8?.value,outerResourceOpacity:body.outerResourceOpacity?.value,alphaDarken:body.alphaDarken?.value,...Object.hasOwn(body,'texturePhase')?{texturePhase:body.texturePhase.value}:{}})
+      }else input=binder.captureBeginInput(identity,input)
+      const key = gestureKey(identity, input.strokeId), signature = JSON.stringify(emptyDiscardNonce?[input,emptyDiscardNonce]:input)
       const pending = this.begins.get(key)
       if (pending) {
         if (pending.signature !== signature) fail('invalid_operation')
@@ -351,7 +384,7 @@ export class CanonicalRoomTransport {
         return result
       }
       if (this.begins.size >= MAX_BEGIN_JOBS) fail('canonical_repair_required')
-      const promise = this.finishBegin(identity, input, lifetime, binder, isCurrent)
+      const promise = this.finishBegin(identity, input, lifetime, binder, isCurrent,emptyDiscardNonce)
       this.begins.set(key, { signature, promise })
       try { return await promise } finally { if (this.begins.get(key)?.promise === promise) this.begins.delete(key) }
     } catch (error) { return { ok: false, reason: reason(error) } }
@@ -359,10 +392,11 @@ export class CanonicalRoomTransport {
 
   private async finishBegin(identity: CanonicalAdmissionIdentity, input: CanonicalStrokeBegin, lifetime: RoomLifetime,
     binder: CanonicalBrushCapabilityResolver,
-    isCurrent: () => boolean): Promise<CanonicalStrokeBeginResult> {
+    isCurrent: () => boolean,emptyDiscardNonce?:string): Promise<CanonicalStrokeBeginResult> {
     const key = gestureKey(identity, input.strokeId), previous = lifetime.sessions.get(key), context = this.context!
     if(lifetime.record.operations.some(op=>op.type==='canonical_stroke_close'&&op.targetUserId===identity.userId&&op.strokeId===input.strokeId))fail('canonical_repair_required')
     if (previous) {
+      if(previous.emptyDiscardNonce!==emptyDiscardNonce)fail('invalid_operation')
       await this.durablePrefix(lifetime, previous)
       if (!isCurrent()) fail('not_joined')
       this.sameLifetime(identity, input.layerId, lifetime)
@@ -373,7 +407,7 @@ export class CanonicalRoomTransport {
       prepared.commit()
       return snapshot(previous)
     }
-    if(this.fullHistoryFormat==='mixed-indexed-v1')return this.finishIndexedBegin(identity,input,lifetime,binder,isCurrent)
+    if(this.fullHistoryFormat==='mixed-indexed-v1')return this.finishIndexedBegin(identity,input,lifetime,binder,isCurrent,emptyDiscardNonce)
     const watermark = lifetime.record.nextSeq - 1
     // Drain the existing persistence queue; still cross-check resident history,
     // because a failed background DB write is not proof that a gesture is new.
@@ -417,14 +451,14 @@ export class CanonicalRoomTransport {
     this.sameLifetime(identity, input.layerId, lifetime)
     context.storage.pin(identity.roomId, identity.userId, [prepared.grant.brush], context.operator)
     prepared.commit(); hydrating = false
-    const session: Session = { grant: prepared.grant, admission, durableRecordedNext: prefix.length }
+    const session: Session = { grant: prepared.grant, admission, durableRecordedNext: prefix.length,...emptyDiscardNonce?{emptyDiscardNonce}:{} }
     lifetime.sessions.set(key, session)
     return snapshot(session)
   }
 
   /** Same admitted Session, hydrated page-by-page. No verified[]/whole prefix
    * survives a page; admission retains only its existing bounded fingerprints. */
-  private async finishIndexedBegin(identity:CanonicalAdmissionIdentity,input:CanonicalStrokeBegin,lifetime:RoomLifetime,binder:CanonicalBrushCapabilityResolver,isCurrent:()=>boolean):Promise<CanonicalStrokeBeginResult>{
+  private async finishIndexedBegin(identity:CanonicalAdmissionIdentity,input:CanonicalStrokeBegin,lifetime:RoomLifetime,binder:CanonicalBrushCapabilityResolver,isCurrent:()=>boolean,emptyDiscardNonce?:string):Promise<CanonicalStrokeBeginResult>{
     const context=this.context!,cut=lifetime.record.nextSeq-1,key=gestureKey(identity,input.strokeId)
     const current=()=>{
       if(!isCurrent())fail('not_joined')
@@ -464,10 +498,10 @@ export class CanonicalRoomTransport {
     }
     current()
     if(!prepared||!admission)fail('canonical_repair_required')
-    if(admission.cursor(identity,input.strokeId).ended)return snapshot({grant:prepared.grant,admission,durableRecordedNext:count})
+    if(admission.cursor(identity,input.strokeId).ended)return snapshot({grant:prepared.grant,admission,durableRecordedNext:count,...emptyDiscardNonce?{emptyDiscardNonce}:{}})
     context.storage.pin(identity.roomId,identity.userId,[prepared.grant.brush],context.operator)
     prepared.commit();hydrating=false
-    const session:Session={grant:prepared.grant,admission,durableRecordedNext:count}
+    const session:Session={grant:prepared.grant,admission,durableRecordedNext:count,...emptyDiscardNonce?{emptyDiscardNonce}:{}}
     lifetime.sessions.set(key,session)
     return snapshot(session)
   }
@@ -817,6 +851,7 @@ export class CanonicalRoomTransport {
     const sessions=[...lifetime.sessions.entries()].filter(([,session])=>session.grant.roomId===identity.roomId&&session.grant.userId===identity.userId&&'version'in session.grant.material&&(session.grant.material.version===2||session.grant.material.version===3||session.grant.material.version===4||session.grant.material.version===5||session.grant.material.version===6||session.grant.material.version===7))
       .map(([key,session])=>Object.freeze({key,session,operationId:randomUUID()}))
     if(!sessions.length)return undefined
+    const retiredEmpty=new Set<Session>() // bounded by this captured session list
     const current=()=>{
       if(!isCurrent())fail('not_joined')
       let actual:PreparedRoomDisconnect
@@ -825,7 +860,7 @@ export class CanonicalRoomTransport {
       if(actual!==scope||rooms.get(identity.roomId)!==lifetime.record||lessonRecordOf(lifetime.record)!==lifetime.lesson
         ||this.lifetimes.get(identity.roomId)!==lifetime||this.binder!==binder||this.context!==context
         ||storage?.storage!==context.storage||storage.operator!==context.operator
-        ||sessions.some(({key,session})=>lifetime.sessions.get(key)!==session))fail('canonical_repair_required')
+        ||sessions.some(({key,session})=>retiredEmpty.has(session)?lifetime.sessions.has(key):lifetime.sessions.get(key)!==session))fail('canonical_repair_required')
     }
     current()
     let used=false,ticket:PreparedCanonicalDisconnect
@@ -844,7 +879,7 @@ export class CanonicalRoomTransport {
         if(!previous){
           await thisTransport.durablePrefix(lifetime,session);current()
           const cursor=session.admission.cursor(identity,session.grant.strokeId)
-          if(cursor.recordedNext===0||cursor.ended){thisTransport.requireHealthyWrites(lifetime);continue}
+          if(cursor.recordedNext===0||cursor.ended){thisTransport.requireHealthyWrites(lifetime);current();if(cursor.recordedNext===0&&cursor.liveNext===0&&!cursor.ended&&thisTransport.retireEmpty(lifetime,captured.key,session,binder))retiredEmpty.add(session);continue}
         }
         const input:DisconnectedCloseInput={operationId:previous?.id??captured.operationId,layerId:session.grant.layerId,targetUserId:identity.userId,
           strokeId:session.grant.strokeId,disposition:'commitPartial',capturedSession:session}
