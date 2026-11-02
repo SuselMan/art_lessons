@@ -1058,3 +1058,5 @@ it.each([undefined,'fixed-default-auto-texture-v4'])('rejects full author4 polic
 
 
 it.each([undefined,'pressure-default-auto-texture-v5'])('rejects author5 indexed OUTER field before OPEN even presentundefined (%s)',async policy=>{const h=await indexedIngressSetup(),close=connectRoomSocket(h.deps);try{Reflect.apply(h.listeners.get('room_state')!,null,[{...h.state,canonicalAuthorPressureTexturedSource:policy}]);expect(h.issuer.requests).toHaveLength(0);expect(h.stashes).toHaveLength(0)}finally{close()}})
+
+it.each([undefined,'pressure-soft-auto-texture-v6'])('rejects author6 indexed OUTER field before OPEN even presentundefined (%s)',async policy=>{const h=await indexedIngressSetup(),close=connectRoomSocket(h.deps);try{Reflect.apply(h.listeners.get('room_state')!,null,[{...h.state,canonicalAuthorSoftPressureTexturedSource:policy}]);expect(h.issuer.requests).toHaveLength(0);expect(h.stashes).toHaveLength(0)}finally{close()}})

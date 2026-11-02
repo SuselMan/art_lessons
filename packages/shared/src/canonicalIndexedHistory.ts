@@ -39,6 +39,14 @@ export function canonicalAuthorPressureTexturedSource(owner:unknown,key:'authorP
  if(!Object.hasOwn(d,'value')||d.value!=='pressure-default-auto-texture-v5'||!canonicalStrokeRasterContract(profile).genericSC)return fail()
  return d.value
 }
+export type CanonicalAuthorSoftPressureTexturedSource='pressure-soft-auto-texture-v6'
+export function canonicalAuthorSoftPressureTexturedSource(owner:unknown,key:'authorSoftPressureTexturedSource'|'canonicalAuthorSoftPressureTexturedSource',profile:CanonicalStrokeRasterProfile):CanonicalAuthorSoftPressureTexturedSource|undefined {
+ if(!owner||typeof owner!=='object'||Array.isArray(owner))return fail()
+ const d=Object.getOwnPropertyDescriptor(owner,key)
+ if(!d){if(key in owner)return fail();return undefined}
+ if(!Object.hasOwn(d,'value')||d.value!=='pressure-soft-auto-texture-v6'||!canonicalStrokeRasterContract(profile).genericSC)return fail()
+ return d.value
+}
 
 // SHARED WIRE DATA ONLY. Numeric invariants require actual closed validators:
 // C integer0..DBIntMax; floor0; operationCount===C; dense actual seq1..C.
@@ -51,6 +59,7 @@ export interface CanonicalIndexedHistoryOfferV1 {
   readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
   readonly authorTexturedSource?:CanonicalAuthorTexturedSource
   readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
+  readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
 }
 export interface CanonicalHistoryOpenRequestV1 {
   readonly kind:'canonical-history-open-v1'
@@ -68,6 +77,7 @@ export interface CanonicalIndexedHistoryBeginV1 {
   readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
   readonly authorTexturedSource?:CanonicalAuthorTexturedSource
   readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
+  readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
   readonly floor:0
   readonly throughSeq:number
   readonly operationCount:number // === throughSeq, never frames count
@@ -89,6 +99,7 @@ export interface CanonicalIndexedHistoryFollowV1 {
   readonly authorPrimaryTextureSource?:CanonicalAuthorPrimaryTextureSource
   readonly authorTexturedSource?:CanonicalAuthorTexturedSource
   readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
+  readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
  readonly floor:number
  readonly throughSeq:number
  readonly operationCount:number
@@ -203,26 +214,28 @@ function geometry(value:unknown):Readonly<CanonicalIndexedRoomGeometry>{
  return Object.freeze({width:v.width,height:v.height,infinite:false})
 }
 export function parseCanonicalIndexedHistoryOffer(value:unknown):Readonly<CanonicalIndexedHistoryOfferV1>{
- const v=fields(value,['kind','offerId','scope','roomGeometry','authorRasterProfile'],['authorPrimaryTextureSource','authorTexturedSource','authorPressureTexturedSource'])
+ const v=fields(value,['kind','offerId','scope','roomGeometry','authorRasterProfile'],['authorPrimaryTextureSource','authorTexturedSource','authorPressureTexturedSource','authorSoftPressureTexturedSource'])
  if(v.kind!=='canonical-indexed-history-offer-v1'||!text(v.offerId))return fail()
  const s=scope(v.scope),roomGeometry=geometry(v.roomGeometry)
  const author=canonicalStrokeRasterContract(v.authorRasterProfile).profile
  const authorPrimaryTextureSource=canonicalAuthorPrimaryTextureSource(value,'authorPrimaryTextureSource',author)
  const authorTexturedSource=canonicalAuthorTexturedSource(value,'authorTexturedSource',author)
  const authorPressureTexturedSource=canonicalAuthorPressureTexturedSource(value,'authorPressureTexturedSource',author)
+ const authorSoftPressureTexturedSource=canonicalAuthorSoftPressureTexturedSource(value,'authorSoftPressureTexturedSource',author)
  if(!s.allowedRasterProfiles!.includes(author))return fail()
- return Object.freeze({...(authorPressureTexturedSource?{authorPressureTexturedSource}:{}),...(authorTexturedSource?{authorTexturedSource}:{}),...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),kind:v.kind,offerId:v.offerId,scope:s,roomGeometry,authorRasterProfile:author})
+ return Object.freeze({...(authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource}:{}),...(authorPressureTexturedSource?{authorPressureTexturedSource}:{}),...(authorTexturedSource?{authorTexturedSource}:{}),...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),kind:v.kind,offerId:v.offerId,scope:s,roomGeometry,authorRasterProfile:author})
 }
 export function parseCanonicalIndexedHistoryBegin(value:unknown):Readonly<CanonicalIndexedHistoryBeginV1>{
- const v=fields(value,['kind','streamId','offerId','scope','roomGeometry','authorRasterProfile','floor','throughSeq','operationCount'],['authorPrimaryTextureSource','authorTexturedSource','authorPressureTexturedSource'])
+ const v=fields(value,['kind','streamId','offerId','scope','roomGeometry','authorRasterProfile','floor','throughSeq','operationCount'],['authorPrimaryTextureSource','authorTexturedSource','authorPressureTexturedSource','authorSoftPressureTexturedSource'])
  if(v.kind!=='canonical-indexed-history-begin-v1'||!text(v.streamId)||!text(v.offerId)||v.floor!==0||!sequence(v.throughSeq)||v.operationCount!==v.throughSeq)return fail()
  const s=scope(v.scope),roomGeometry=geometry(v.roomGeometry)
  const author=canonicalStrokeRasterContract(v.authorRasterProfile).profile
  const authorPrimaryTextureSource=canonicalAuthorPrimaryTextureSource(value,'authorPrimaryTextureSource',author)
  const authorTexturedSource=canonicalAuthorTexturedSource(value,'authorTexturedSource',author)
  const authorPressureTexturedSource=canonicalAuthorPressureTexturedSource(value,'authorPressureTexturedSource',author)
+ const authorSoftPressureTexturedSource=canonicalAuthorSoftPressureTexturedSource(value,'authorSoftPressureTexturedSource',author)
  if(!s.allowedRasterProfiles!.includes(author))return fail()
- return Object.freeze({...(authorPressureTexturedSource?{authorPressureTexturedSource}:{}),...(authorTexturedSource?{authorTexturedSource}:{}),...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),kind:v.kind,streamId:v.streamId,offerId:v.offerId,scope:s,roomGeometry,authorRasterProfile:author,floor:0,throughSeq:v.throughSeq,operationCount:v.throughSeq})
+ return Object.freeze({...(authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource}:{}),...(authorPressureTexturedSource?{authorPressureTexturedSource}:{}),...(authorTexturedSource?{authorTexturedSource}:{}),...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),kind:v.kind,streamId:v.streamId,offerId:v.offerId,scope:s,roomGeometry,authorRasterProfile:author,floor:0,throughSeq:v.throughSeq,operationCount:v.throughSeq})
 }
 export function parseCanonicalIndexedRoot(value:unknown):Readonly<CanonicalIndexedRootV1>{
  const v=fields(value,['originalUserId','strokeId','layerId','firstOperationId','firstSequence'])
@@ -278,14 +291,15 @@ export type CanonicalHistoryStreamClientEvents = {
 /** Follow is a bounded original range after an actual completed parent; the
  * received floor is DATA until bound to that parent by private ingress. */
 export function parseCanonicalIndexedHistoryFollow(value:unknown):Readonly<CanonicalIndexedHistoryFollowV1>{
- const v=fields(value,['kind','streamId','parentStreamId','scope','roomGeometry','authorRasterProfile','floor','throughSeq','operationCount','latestObservedSeq'],['authorPrimaryTextureSource','authorTexturedSource','authorPressureTexturedSource'])
+ const v=fields(value,['kind','streamId','parentStreamId','scope','roomGeometry','authorRasterProfile','floor','throughSeq','operationCount','latestObservedSeq'],['authorPrimaryTextureSource','authorTexturedSource','authorPressureTexturedSource','authorSoftPressureTexturedSource'])
  if(v.kind!=='canonical-indexed-history-follow-v1'||!text(v.streamId)||!text(v.parentStreamId)||v.streamId===v.parentStreamId||!sequence(v.floor)||!sequence(v.throughSeq)||v.throughSeq<v.floor||v.throughSeq-v.floor>CANONICAL_INDEXED_HISTORY_LIMITS.pageOperations||v.operationCount!==v.throughSeq-v.floor||!sequence(v.latestObservedSeq)||v.latestObservedSeq<v.throughSeq)return fail()
  const s=scope(v.scope),roomGeometry=geometry(v.roomGeometry),authorRasterProfile=canonicalStrokeRasterContract(v.authorRasterProfile).profile
  const authorPrimaryTextureSource=canonicalAuthorPrimaryTextureSource(value,'authorPrimaryTextureSource',authorRasterProfile)
  const authorTexturedSource=canonicalAuthorTexturedSource(value,'authorTexturedSource',authorRasterProfile)
  const authorPressureTexturedSource=canonicalAuthorPressureTexturedSource(value,'authorPressureTexturedSource',authorRasterProfile)
+ const authorSoftPressureTexturedSource=canonicalAuthorSoftPressureTexturedSource(value,'authorSoftPressureTexturedSource',authorRasterProfile)
  if(!s.allowedRasterProfiles!.includes(authorRasterProfile))return fail()
- return Object.freeze({...(authorPressureTexturedSource?{authorPressureTexturedSource}:{}),...(authorTexturedSource?{authorTexturedSource}:{}),...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),kind:v.kind,streamId:v.streamId,parentStreamId:v.parentStreamId,scope:s,roomGeometry,authorRasterProfile,floor:v.floor,throughSeq:v.throughSeq,operationCount:v.throughSeq-v.floor,latestObservedSeq:v.latestObservedSeq})
+ return Object.freeze({...(authorSoftPressureTexturedSource?{authorSoftPressureTexturedSource}:{}),...(authorPressureTexturedSource?{authorPressureTexturedSource}:{}),...(authorTexturedSource?{authorTexturedSource}:{}),...(authorPrimaryTextureSource?{authorPrimaryTextureSource}:{}),kind:v.kind,streamId:v.streamId,parentStreamId:v.parentStreamId,scope:s,roomGeometry,authorRasterProfile,floor:v.floor,throughSeq:v.throughSeq,operationCount:v.throughSeq-v.floor,latestObservedSeq:v.latestObservedSeq})
 }
 export function parseCanonicalIndexedHistoryStart(value:unknown):Readonly<CanonicalIndexedHistoryStartV1>{
  if(!value||typeof value!=='object')return fail()

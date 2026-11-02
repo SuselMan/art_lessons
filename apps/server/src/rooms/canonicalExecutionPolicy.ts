@@ -32,6 +32,8 @@ export interface CanonicalRoomExecutionPolicy {
  readonly primaryImageSource?:'single-inverse-gray-v2'|false
  readonly primaryTextureSource?:'pressure-identity-subtract-v3'|false
  readonly authorPrimaryTextureSource?:'pressure-identity-subtract-v3'|false
+ readonly softPressureTexturedSource?:'pressure-soft-auto-texture-v6'|false
+ readonly authorSoftPressureTexturedSource?:'pressure-soft-auto-texture-v6'|false
  readonly pressureTexturedSource?:'pressure-default-auto-texture-v5'|false
  readonly authorPressureTexturedSource?:'pressure-default-auto-texture-v5'|false
  readonly texturedSource?:'fixed-default-auto-texture-v4'|false
@@ -140,6 +142,27 @@ export function freezeCanonicalPressureTexturedPolicies(value:CanonicalRoomExecu
   }
  }
  return Object.freeze({pressureTexturedSource,authorPressureTexturedSource})
+}
+export function freezeCanonicalSoftPressureTexturedPolicies(value:CanonicalRoomExecutionPolicy):Readonly<Pick<CanonicalRoomExecutionPolicy,'softPressureTexturedSource'|'authorSoftPressureTexturedSource'>> {
+ const flag=(key:'softPressureTexturedSource'|'authorSoftPressureTexturedSource')=>{
+  const d=Object.getOwnPropertyDescriptor(value,key)
+  if(!d){if(key in value)throw TypeError('invalid explicit material6 policy');return false as const}
+  if(!Object.hasOwn(d,'value'))throw TypeError('invalid explicit material6 policy')
+  if(d.value===undefined||d.value===false)return false as const
+  if(d.value!=='pressure-soft-auto-texture-v6')throw TypeError('invalid explicit material6 policy')
+  return d.value as 'pressure-soft-auto-texture-v6'
+ }
+ const softPressureTexturedSource=flag('softPressureTexturedSource'),authorSoftPressureTexturedSource=flag('authorSoftPressureTexturedSource')
+ if(authorSoftPressureTexturedSource&&!softPressureTexturedSource)throw TypeError('material6 author requires read consumer')
+ if(softPressureTexturedSource){
+  const raster=freezeCanonicalRasterPolicy(value)
+  if(!raster.allowedRecordedRasterProfiles.some(p=>canonicalStrokeRasterContract(p).genericSC))throw TypeError('material6 recorded raster unavailable')
+  if(authorSoftPressureTexturedSource){
+   const source=freezeCanonicalAutoPolicies(value.autoSources).softAuto
+   if(!source||!canonicalStrokeRasterContract(raster.authorRasterProfile).genericSC||!canonicalStrokeCoverageMatches(raster.authorRasterProfile,source.coverageProfile))throw TypeError('material6 author source/raster unavailable')
+  }
+ }
+ return Object.freeze({softPressureTexturedSource,authorSoftPressureTexturedSource})
 }
 
 export type CanonicalImagePipeSource='incremental-inverse-gray-v2'|'random-inverse-gray-v2'

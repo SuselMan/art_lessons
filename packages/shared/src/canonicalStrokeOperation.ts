@@ -56,9 +56,9 @@ export interface CanonicalStrokeSnapshotV5 extends Omit<CanonicalStrokeSnapshotV
   readonly materialVersion:5
   readonly material:CanonicalMaterialContextV5
 }
-/** Standalone Soft6 DATA; deliberately absent from active snapshot/result unions. */
+/** Coherent Soft6 snapshot DATA; actual server/read authority remains external. */
 export interface CanonicalStrokeSnapshotV6 extends Omit<CanonicalStrokeSnapshotV5,'materialVersion'|'material'>{readonly materialVersion:6;readonly material:CanonicalMaterialContextV6}
-export type CanonicalStrokeSnapshot = CanonicalStrokeSnapshotV1 | CanonicalStrokeSnapshotV2 | CanonicalStrokeSnapshotV3 | CanonicalStrokeSnapshotV4 | CanonicalStrokeSnapshotV5
+export type CanonicalStrokeSnapshot = CanonicalStrokeSnapshotV1 | CanonicalStrokeSnapshotV2 | CanonicalStrokeSnapshotV3 | CanonicalStrokeSnapshotV4 | CanonicalStrokeSnapshotV5 | CanonicalStrokeSnapshotV6
 /** Resume state: ended describes the recorded prefix. A speculative live-only
  * terminal frame does not establish a recorded end. */
 export type CanonicalStrokeBeginResult = { readonly ok: true; readonly snapshot: CanonicalStrokeSnapshot; readonly recordedNext: number; readonly liveNext: number; readonly ended: boolean }

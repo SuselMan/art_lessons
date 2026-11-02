@@ -1,4 +1,4 @@
-import {canonicalAuthorPressureTexturedSource,type CanonicalAuthorPressureTexturedSource,canonicalStrokeSnapshotV5,type CanonicalStrokeSnapshotV5,canonicalAuthorTexturedSource,type CanonicalAuthorTexturedSource,canonicalStrokeSnapshotV4,type CanonicalStrokeSnapshotV4,canonicalStrokeSnapshotV3,canonicalStrokeSnapshotV2,canonicalRecordedRasterProfiles,CANONICAL_STROKE_RASTER_PROFILE,type CanonicalStrokeRasterProfile,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2,type CanonicalStrokeSnapshotV3} from '@grafetto/shared'
+import {canonicalAuthorSoftPressureTexturedSource,canonicalAuthorPressureTexturedSource,type CanonicalAuthorPressureTexturedSource,type CanonicalAuthorSoftPressureTexturedSource,canonicalStrokeSnapshotV6,type CanonicalStrokeSnapshotV6,canonicalStrokeSnapshotV5,type CanonicalStrokeSnapshotV5,canonicalAuthorTexturedSource,type CanonicalAuthorTexturedSource,canonicalStrokeSnapshotV4,type CanonicalStrokeSnapshotV4,canonicalStrokeSnapshotV3,canonicalStrokeSnapshotV2,canonicalRecordedRasterProfiles,CANONICAL_STROKE_RASTER_PROFILE,type CanonicalStrokeRasterProfile,type CanonicalStrokeBegin,type CanonicalStrokeBeginResult,type CanonicalStrokeSnapshotV2,type CanonicalStrokeSnapshotV3} from '@grafetto/shared'
 
 /** Captured typed socket; disconnect invalidates this one request. */
 export interface CanonicalBeginEmitter {
@@ -10,6 +10,7 @@ export interface CanonicalBeginLifetime {
  /** Captured original descriptor SHA; mandatory for a material3 response. */
  readonly expectedDescriptorSha256?:string
  /** Captured ORIGINAL server author permission; replay4 support is independent. */
+ readonly authorSoftPressureTexturedSource?:CanonicalAuthorSoftPressureTexturedSource
  readonly authorPressureTexturedSource?:CanonicalAuthorPressureTexturedSource
  readonly authorTexturedSource?:CanonicalAuthorTexturedSource
  readonly boardEpoch:number
@@ -23,12 +24,12 @@ export interface CanonicalBeginLifetime {
  readonly signal?:AbortSignal
  readonly timeoutMs?:number
 }
-export type AcceptedCanonicalBegin = {readonly ok:true;readonly snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3|CanonicalStrokeSnapshotV4|CanonicalStrokeSnapshotV5;readonly recordedNext:number;readonly liveNext:number;readonly ended:boolean}
+export type AcceptedCanonicalBegin = {readonly ok:true;readonly snapshot:CanonicalStrokeSnapshotV2|CanonicalStrokeSnapshotV3|CanonicalStrokeSnapshotV4|CanonicalStrokeSnapshotV5|CanonicalStrokeSnapshotV6;readonly recordedNext:number;readonly liveNext:number;readonly ended:boolean}
 export type CanonicalBeginOutcome = AcceptedCanonicalBegin | Extract<CanonicalStrokeBeginResult,{ok:false}>
 const closed=(v:object,keys:readonly string[])=>Reflect.ownKeys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k))
 const integer=(n:unknown):n is number=>typeof n==='number'&&Number.isSafeInteger(n)&&n>=0&&n<Number.MAX_SAFE_INTEGER
 function freeze<T>(v:T):T{if(v&&typeof v==='object'){Object.freeze(v);for(const c of Object.values(v))if(c&&typeof c==='object'&&!Object.isFrozen(c))freeze(c)}return v}
-function validate(result:CanonicalStrokeBeginResult,input:CanonicalStrokeBegin,epoch:number,profiles:readonly CanonicalStrokeRasterProfile[],expectedDescriptorSha256:string|undefined,authorTexturedSource:CanonicalAuthorTexturedSource|undefined,authorPressureTexturedSource:CanonicalAuthorPressureTexturedSource|undefined):CanonicalBeginOutcome {
+function validate(result:CanonicalStrokeBeginResult,input:CanonicalStrokeBegin,epoch:number,profiles:readonly CanonicalStrokeRasterProfile[],expectedDescriptorSha256:string|undefined,authorTexturedSource:CanonicalAuthorTexturedSource|undefined,authorPressureTexturedSource:CanonicalAuthorPressureTexturedSource|undefined,authorSoftPressureTexturedSource:CanonicalAuthorSoftPressureTexturedSource|undefined):CanonicalBeginOutcome {
  if(!result||typeof result!=='object')throw Error('Invalid canonical BEGIN verdict')
  if(result.ok===false){
   if(!closed(result,['ok','reason']))throw Error('Invalid canonical BEGIN verdict fields')
@@ -41,13 +42,14 @@ function validate(result:CanonicalStrokeBeginResult,input:CanonicalStrokeBegin,e
  if(result.ok!==true||!integer(result.recordedNext)||!integer(result.liveNext)||result.liveNext>result.recordedNext+8||typeof result.ended!=='boolean')throw Error('Invalid canonical BEGIN cursor')
  const s=result.snapshot
  const selector=s&&Object.getOwnPropertyDescriptor(s,'materialVersion')
- if(!s||!('materialVersion'in s)||!selector||!Object.hasOwn(selector,'value')||![2,3,4,5].includes(selector.value))throw Error('Unsupported canonical BEGIN snapshot V1')
+ if(!s||!('materialVersion'in s)||!selector||!Object.hasOwn(selector,'value')||![2,3,4,5,6].includes(selector.value))throw Error('Unsupported canonical BEGIN snapshot V1')
  if(!closed(s,['layerId','brush','strokeId','boardEpoch','descriptorSha256','rasterProfile','pigmentRgb8','composition','assets','materialVersion','material']))throw Error('Invalid canonical BEGIN snapshot fields')
+ if(selector.value===6&&authorSoftPressureTexturedSource!=='pressure-soft-auto-texture-v6')throw Error('Canonical BEGIN6 original author policy unavailable')
  if(selector.value===5&&authorPressureTexturedSource!=='pressure-default-auto-texture-v5')throw Error('Canonical BEGIN5 original author policy unavailable')
  if(selector.value===4&&authorTexturedSource!=='fixed-default-auto-texture-v4')throw Error('Canonical BEGIN4 original author policy unavailable')
  const profileField=Object.getOwnPropertyDescriptor(s,'rasterProfile')
- if((selector.value===3||selector.value===4||selector.value===5)&&(!profileField||!Object.hasOwn(profileField,'value')))throw Error('Invalid canonical BEGIN snapshot profile')
- const textureSnapshot=selector.value===5?canonicalStrokeSnapshotV5(s,epoch,profileField!.value):selector.value===4?canonicalStrokeSnapshotV4(s,epoch,profileField!.value):selector.value===3?canonicalStrokeSnapshotV3(s,epoch,profileField!.value):undefined
+ if((selector.value===3||selector.value===4||selector.value===5||selector.value===6)&&(!profileField||!Object.hasOwn(profileField,'value')))throw Error('Invalid canonical BEGIN snapshot profile')
+ const textureSnapshot=selector.value===6?canonicalStrokeSnapshotV6(s,epoch,profileField!.value):selector.value===5?canonicalStrokeSnapshotV5(s,epoch,profileField!.value):selector.value===4?canonicalStrokeSnapshotV4(s,epoch,profileField!.value):selector.value===3?canonicalStrokeSnapshotV3(s,epoch,profileField!.value):undefined
  const capturedSnapshot=textureSnapshot??s
  const rasterProfile=capturedSnapshot.rasterProfile
  if(!profiles.includes(rasterProfile))throw Error('Canonical BEGIN resource mismatch')
@@ -56,7 +58,7 @@ function validate(result:CanonicalStrokeBeginResult,input:CanonicalStrokeBegin,e
   ||capturedSnapshot.composition?.outerResourceOpacity!==input.outerResourceOpacity||capturedSnapshot.composition?.alphaDarken!==input.alphaDarken
   ||!capturedSnapshot.material||capturedSnapshot.material.version!==selector.value||('maskSource'in capturedSnapshot.material&&capturedSnapshot.material.maskSource!==undefined))throw Error('Canonical BEGIN resource mismatch')
  const accepted=textureSnapshot??canonicalStrokeSnapshotV2(capturedSnapshot,epoch,rasterProfile)
- if((selector.value===3||selector.value===4||selector.value===5)&&expectedDescriptorSha256===undefined||expectedDescriptorSha256!==undefined&&accepted.descriptorSha256!==expectedDescriptorSha256)throw Error('Canonical BEGIN descriptor identity mismatch')
+ if((selector.value===3||selector.value===4||selector.value===5||selector.value===6)&&expectedDescriptorSha256===undefined||expectedDescriptorSha256!==undefined&&accepted.descriptorSha256!==expectedDescriptorSha256)throw Error('Canonical BEGIN descriptor identity mismatch')
  const copy=structuredClone(accepted)
  return freeze({ok:true,snapshot:copy,recordedNext:result.recordedNext,liveNext:result.liveNext,ended:result.ended})
 }
@@ -67,12 +69,13 @@ export function sendCanonicalStrokeBegin(socket:CanonicalBeginEmitter|null,input
   const {boardEpoch,isCurrent,signal}=lifetime
   const expectedDescriptorSha256=lifetime.expectedDescriptorSha256
   if(expectedDescriptorSha256!==undefined&&(typeof expectedDescriptorSha256!=='string'||!/^[a-f0-9]{64}$/.test(expectedDescriptorSha256))){reject(Error('Invalid canonical BEGIN descriptor identity'));return}
-  let profiles:readonly CanonicalStrokeRasterProfile[],authorTexturedSource:CanonicalAuthorTexturedSource|undefined,authorPressureTexturedSource:CanonicalAuthorPressureTexturedSource|undefined
+  let profiles:readonly CanonicalStrokeRasterProfile[],authorTexturedSource:CanonicalAuthorTexturedSource|undefined,authorPressureTexturedSource:CanonicalAuthorPressureTexturedSource|undefined,authorSoftPressureTexturedSource:CanonicalAuthorSoftPressureTexturedSource|undefined
   try{
    if(lifetime.rasterProfile!==undefined&&(lifetime.authorRasterProfile!==undefined||lifetime.responseRasterProfiles!==undefined))throw Error('Ambiguous canonical BEGIN raster profile')
    const author=lifetime.authorRasterProfile!==undefined?lifetime.authorRasterProfile:lifetime.rasterProfile===undefined?CANONICAL_STROKE_RASTER_PROFILE:lifetime.rasterProfile
    profiles=canonicalRecordedRasterProfiles({allowedRasterProfiles:lifetime.responseRasterProfiles===undefined?[author]:lifetime.responseRasterProfiles})
    if(!profiles.includes(author))throw Error('Canonical BEGIN author profile unavailable')
+   authorSoftPressureTexturedSource=canonicalAuthorSoftPressureTexturedSource(lifetime,'authorSoftPressureTexturedSource',author)
    authorPressureTexturedSource=canonicalAuthorPressureTexturedSource(lifetime,'authorPressureTexturedSource',author)
    authorTexturedSource=canonicalAuthorTexturedSource(lifetime,'authorTexturedSource',author)
   }catch{reject(Error('Invalid canonical BEGIN raster profile policy'));return}
@@ -100,7 +103,7 @@ export function sendCanonicalStrokeBegin(socket:CanonicalBeginEmitter|null,input
    timer=setTimeout(()=>finish(Error('Canonical BEGIN timed out')),timeout)
    socket.emit('canonical_stroke_begin',request,result=>{
     if(settled)return
-    try{if(signal?.aborted||!isCurrent())throw Error('Stale canonical BEGIN lifetime');finish(undefined,validate(result,request,boardEpoch,profiles,expectedDescriptorSha256,authorTexturedSource,authorPressureTexturedSource))}catch(e){finish(e)}
+    try{if(signal?.aborted||!isCurrent())throw Error('Stale canonical BEGIN lifetime');finish(undefined,validate(result,request,boardEpoch,profiles,expectedDescriptorSha256,authorTexturedSource,authorPressureTexturedSource,authorSoftPressureTexturedSource))}catch(e){finish(e)}
    })
   }catch(e){finish(e)}
  })

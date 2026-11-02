@@ -1386,7 +1386,7 @@ it('requires compatible minimum3 on actual texture sockets BEFORE identity/load/
  expect(isRoomResident(id)).toBe(true)
 })
 
-it('requires known drawing protocol4/5 before identity/load/seat, then permits normal authenticated join',async()=>{
+it('requires known drawing protocol4/5/6 before identity/load/seat, then permits normal authenticated join',async()=>{
  io.close();await new Promise<void>(resolve=>http.close(()=>resolve()))
  const {CanonicalRoomTransport}=await import('./CanonicalRoomTransport.js')
  const {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE:G}=await import('@grafetto/shared')
@@ -1395,7 +1395,7 @@ it('requires known drawing protocol4/5 before identity/load/seat, then permits n
  registerRoomHandlers(io as never,log,transport)
  await new Promise<void>(resolve=>http.listen(0,resolve));port=(http.address()as AddressInfo).port
  const id=fresh('protocol-door');rows.set(id,row(id));resolveIdentity.mockClear();mockPrisma.room.findUnique.mockClear()
- for(const auth of [undefined,{drawingProtocol:'2'},{drawingProtocol:'3'},{drawingProtocol:4},{drawingProtocol:5},{drawingProtocol:'6'}]){
+ for(const auth of [undefined,{drawingProtocol:'2'},{drawingProtocol:'3'},{drawingProtocol:4},{drawingProtocol:5},{drawingProtocol:6},{drawingProtocol:'7'}]){
   const socket:Client=connect(`http://localhost:${port}`,{autoConnect:false,reconnection:false,forceNew:true,transports:['websocket'],extraHeaders:{cookie:'protocol-author'},...auth===undefined?{}:{auth}})
   clients.push(socket)
   const refused=new Promise<string>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('protocol refusal timeout')),2000);socket.once('connect_error',error=>{clearTimeout(timer);resolve(error.message)})})
@@ -1412,4 +1412,29 @@ it('requires known drawing protocol4/5 before identity/load/seat, then permits n
  clients.push(nextVersion)
  const nextConnected=new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('protocol5 connect timeout')),2000);nextVersion.once('connect',()=>{clearTimeout(timer);resolve()});nextVersion.once('connect_error',error=>{clearTimeout(timer);reject(error)})})
  nextVersion.connect();await nextConnected;expect(resolveIdentity).toHaveBeenCalledTimes(2)
+ const sixth:Client=connect(`http://localhost:${port}`,{autoConnect:false,reconnection:false,forceNew:true,transports:['websocket'],extraHeaders:{cookie:'teacher'},auth:{drawingProtocol:'6'}});clients.push(sixth);const ready6=new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('protocol6 compatibility timeout')),2000);sixth.once('connect',()=>{clearTimeout(timer);resolve()});sixth.once('connect_error',e=>{clearTimeout(timer);reject(e)})});sixth.connect();await ready6;expect(resolveIdentity).toHaveBeenCalledTimes(3)
+})
+
+it('requires only literal6 at minimum6 before identity/load/seat',async()=>{
+ io.close();await new Promise<void>(resolve=>http.close(()=>resolve()))
+ const {CanonicalRoomTransport}=await import('./CanonicalRoomTransport.js')
+ const {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE:G}=await import('@grafetto/shared')
+ http=createServer();io=new Server(http)
+ const transport=new CanonicalRoomTransport({rasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy'],primaryImageSource:'single-inverse-gray-v2',primaryTextureSource:'pressure-identity-subtract-v3',softPressureTexturedSource:'pressure-soft-auto-texture-v6'})
+ registerRoomHandlers(io as never,log,transport)
+ await new Promise<void>(resolve=>http.listen(0,resolve));port=(http.address()as AddressInfo).port
+ const id=fresh('protocol-door');rows.set(id,row(id));resolveIdentity.mockClear();mockPrisma.room.findUnique.mockClear()
+ for(const auth of [undefined,{drawingProtocol:'2'},{drawingProtocol:'3'},{drawingProtocol:'4'},{drawingProtocol:'5'},{drawingProtocol:4},{drawingProtocol:5},{drawingProtocol:6},{drawingProtocol:'7'}]){
+  const socket:Client=connect(`http://localhost:${port}`,{autoConnect:false,reconnection:false,forceNew:true,transports:['websocket'],extraHeaders:{cookie:'protocol-author'},...auth===undefined?{}:{auth}})
+  clients.push(socket)
+  const refused=new Promise<string>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('protocol refusal timeout')),2000);socket.once('connect_error',error=>{clearTimeout(timer);resolve(error.message)})})
+  socket.connect();expect(await refused).toBe('client_update_required');expect(socket.connected).toBe(false);socket.close()
+ }
+ expect(resolveIdentity).not.toHaveBeenCalled();expect(mockPrisma.room.findUnique).not.toHaveBeenCalled();expect(isRoomResident(id)).toBe(false)
+ const current:Client=connect(`http://localhost:${port}`,{autoConnect:false,reconnection:false,forceNew:true,transports:['websocket'],extraHeaders:{cookie:'teacher'},auth:{drawingProtocol:'6'}})
+ clients.push(current)
+ const connected=new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('protocol connect timeout')),2000);current.once('connect',()=>{clearTimeout(timer);resolve()});current.once('connect_error',error=>{clearTimeout(timer);reject(error)})})
+ current.connect();await connected;expect(resolveIdentity).toHaveBeenCalledTimes(1)
+ const delivered=next(current,'room_state');await join(current,id,'Current');await delivered
+ expect(isRoomResident(id)).toBe(true)
 })

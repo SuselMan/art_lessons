@@ -311,7 +311,7 @@ export function connectRoomSocket(deps: RoomSocketDeps): () => void {
       if(state.canonicalIndexedHistory!==undefined){
         if(!deps.indexedFollowRef||!deps.isCanonicalEngineCurrent||!deps.holdReviewArrivals)throw Error('Indexed room consumer unavailable')
         const target=requestedBoard(),offer=parseCanonicalIndexedHistoryOffer(state.canonicalIndexedHistory)
-        const forbidden=['canonicalAuthorPressureTexturedSource','canonicalAuthorTexturedSource','canonicalAuthorPrimaryTextureSource','tailOperations','canonicalReadScope','canonicalHistoryBase','canonicalAuthorRasterProfile','canonicalCapabilities','canonicalRead','canonicalIndexedRead']
+        const forbidden=['canonicalAuthorSoftPressureTexturedSource','canonicalAuthorPressureTexturedSource','canonicalAuthorTexturedSource','canonicalAuthorPrimaryTextureSource','tailOperations','canonicalReadScope','canonicalHistoryBase','canonicalAuthorRasterProfile','canonicalCapabilities','canonicalRead','canonicalIndexedRead']
         if(forbidden.some(key=>Object.hasOwn(state,key))||state.latestSnapshotSeq!==null||state.room.id!==target||offer.scope.roomId!==target||readRoomRasterVersion(state.room.rasterVersion)!==STRAIGHT_ROOM_RASTER_VERSION||offer.roomGeometry.width!==state.room.canvasWidth||offer.roomGeometry.height!==state.room.canvasHeight||offer.roomGeometry.infinite!==state.room.infinite)throw Error('Invalid indexed room offer metadata')
         const generation=++readGeneration,owner:IndexedOwner={generation,offer,watermark:0,busy:false,metadataPaused:false}
         indexed=owner;confirmedRead=undefined;confirmedScope=undefined

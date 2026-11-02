@@ -443,3 +443,52 @@ it.each([{version:4,mode:'direct'},{version:5,mode:'direct'},{version:4,mode:'di
  expect((await t.recorded(identity,{...op,id:'after-close'},()=>true)).result.ok).toBe(false)
  }finally{leaveRoom('board','author','close45-seat')}
 })
+
+/** Genuine native-default Soft31 DATA with explicitly self-authored CAS assets.
+ * These are server ownership/close mechanisms, not vendor pattern raster proof. */
+import {getCanonicalGesturePrefixWithRows as getSoft6Prefix} from './snapshotStore.js'
+const originalSoft6=JSON.parse(readFileSync(new URL('../../../../packages/shared/src/fixtures/sourceSoftAutoData/texturePressure.native-default.compiled4.metadata.json',import.meta.url),'utf8'))
+function soft6Setup(){
+ vi.mocked(getSoft6Prefix).mockResolvedValue({operations:[],canonicalRows:[]});db.operation.findMany.mockResolvedValue([]);db.operation.findUnique.mockResolvedValue(null)
+ const descriptor=structuredClone(originalSoft6.descriptor)as unknown as BrushDescriptor,bytes=Buffer.from(Array.from({length:256},(_,i)=>(i*37+11)%256)),lookup=Buffer.alloc(1024,127),id='asset:'+createHash('sha256').update(bytes).digest('hex'),lookupId='asset:'+createHash('sha256').update(lookup).digest('hex')
+ descriptor.id='imported-'+createHash('sha256').update('self-authored-soft6-pattern-server').digest('hex').slice(0,24)
+ if(!descriptor.texture||descriptor.tip.kind!=='procedural'||descriptor.tip.profile?.kind!=='radialCurve')throw Error('Invalid original Soft DATA')
+ descriptor.texture.id=id as `asset:${string}`;descriptor.tip.profile.lookup=lookupId as `asset:${string}`
+ const dir=mkdtempSync(join(tmpdir(),'server-soft6-'));dirs.push(dir);const storage=new BrushStorage(dir),library={schemaVersion:1,brushes:[{name:'Self authored CAS Soft31',source:'self-authored-test',warnings:[],descriptor}],assets:[{id,size:16,file:id.slice(6)+'.bin'},{id:lookupId,size:32,file:lookupId.slice(6)+'.bin'}],skipped:[]}
+ if(!isBrushLibrary(library))throw Error('Invalid closed Soft6 test library')
+ storage.install('author',library,new Map([[id.slice(6),bytes],[lookupId.slice(6),lookup]]));setBrushStorage(storage,empty());const board=resident()
+ return{descriptor,storage,dir,board,pattern:{id,size:16},lookupId,input:{layerId:'layer',brush:`brush:${descriptor.id}@31`,strokeId:'soft6',pigmentRgb8:[11,22,33]as[number,number,number],outerResourceOpacity:1,alphaDarken:'creamy'as const}}
+}
+const soft6Policy={rasterProfile:G,allowedRecordedRasterProfiles:[G],alphaDarkenVariants:['creamy']as const,autoSources:{softAuto:{coverageProfile:'neon64-f32-fma-v1'as const,storedScale:1 as const}},softPressureTexturedSource:'pressure-soft-auto-texture-v6'as const,authorSoftPressureTexturedSource:'pressure-soft-auto-texture-v6'as const}
+function soft6Snapshot(r:CanonicalStrokeBeginResult):import('@grafetto/shared').CanonicalStrokeSnapshotV6{if(!r.ok||!('materialVersion'in r.snapshot)||r.snapshot.materialVersion!==6)throw Error(JSON.stringify(r));return r.snapshot}
+function soft6Operation(s:import('@grafetto/shared').CanonicalStrokeSnapshotV6,end=true):CanonicalStrokeOperation{
+ const p=s.material.primarySource,g=sourceAutoGeometry({kind:'auto',profile:'default-auto-qt5-arm64-f64-v1',diameter:p.source.diameter,ratio:p.source.ratio,spikes:2,scale:p.brushScale,angle:p.brushAngle},{scale:.1,ratio:1,rotation:0})
+ const recipe={kind:'softAuto'as const,sourceSlot:0 as const,source:p.source,coverageProfile:p.coverageProfile,brushScale:p.brushScale,brushAngle:p.brushAngle,scale:.1,ratio:1,rotation:0,subX:0,subY:0,width:g.maskSize[0],height:g.maskSize[1],mirrorH:false,mirrorV:false}
+ const materialPacked=buildCanonicalMaterial({masked:false,entry:{phase:'between'},draws:[0,.5,1].map((grainDepth,x)=>({recipe,role:'primary'as const,x,y:2,opacity:1,flow:1,grainDepth})),fences:[{at:0,kind:'segmentBegin',group:0},...end?[{at:3,kind:'primaryEnd'as const,group:0},{at:3,kind:'segmentEnd'as const,group:0},{at:3,kind:'gestureEnd'as const}]:[]]},s.material).packed
+ return{id:'soft6-op',userId:'author',timestamp:1,type:'canonical_stroke',layerId:'layer',frame:{version:2,rasterProfile:s.rasterProfile,brush:s.brush,strokeId:s.strokeId,frameOrdinal:0,pigmentRgb8:s.pigmentRgb8,composition:s.composition,materialPacked}}
+}
+it('keeps explicit6 defaultOFF/authorRequiresRead/min6 and old5 independent',async()=>{
+ const f=soft6Setup();expect((await new CanonicalRoomTransport(pressure5Policy).begin(identity,f.input,()=>true)).ok).toBe(false)
+ const reader=new CanonicalRoomTransport({...soft6Policy,authorSoftPressureTexturedSource:false});expect(reader.requiredDrawingProtocol).toBe('6');expect((await reader.begin(identity,f.input,()=>true)).ok).toBe(false)
+ expect(()=>new CanonicalRoomTransport({...soft6Policy,softPressureTexturedSource:false})).toThrow()
+ let calls=0;const policy={...soft6Policy};Object.defineProperty(policy,'softPressureTexturedSource',{get(){calls++;return'pressure-soft-auto-texture-v6'}});expect(()=>new CanonicalRoomTransport(policy)).toThrow();expect(calls).toBe(0)
+ const old=pressureAuto5Setup();expect((await new CanonicalRoomTransport({...soft6Policy,autoSources:{...soft6Policy.autoSources,...pressure5Policy.autoSources}}).begin(identity,old.input,()=>true)).ok).toBe(false)
+ expect((await new CanonicalRoomTransport({...pressure5Policy,...soft6Policy,autoSources:{...pressure5Policy.autoSources,...soft6Policy.autoSources}}).begin(identity,old.input,()=>true)).ok).toBe(true)
+})
+it('binds original Soft6 BEGIN/live/durable typedEND/read6authorOFF to exactSHA and only pattern CAS',async()=>{
+ const f=soft6Setup(),t=new CanonicalRoomTransport(soft6Policy),s=soft6Snapshot(await t.begin(identity,f.input,()=>true));expect(s.descriptorSha256).toBe(createHash('sha256').update(canonicalBrushDescriptorJSON(f.descriptor)).digest('hex'));expect(s.assets.map(a=>a.id)).toEqual([f.pattern.id]);expect(s.material.primarySource.radialCurve.source).toEqual(s.material.primarySource.source.softnessCurve);expect(s.material).not.toHaveProperty('program');expect(s.material).not.toHaveProperty('materialCpuBudgetBytes')
+ const op=soft6Operation(s);expect(t.live(identity,{layerId:'layer',frame:op.frame}).result.ok).toBe(true);const saved=await t.recorded(identity,op,()=>true);expect(saved.result).toMatchObject({ok:true,seq:1});expect(saved.accepted).toBeDefined()
+ const row=db.operation.create.mock.calls.at(-1)![0].data,binder=new CanonicalBrushCapabilityResolver({...soft6Policy,authorSoftPressureTexturedSource:false,storage:f.storage,operator:()=>empty(),maxGestures:8});expect(()=>binder.prepareBeginGesture(identity,f.input)).toThrow('author policy disabled');expect(binder.readRecordedCapability({roomId:'board',boardEpoch:s.boardEpoch,operation:saved.accepted!,row}).material).toEqual(s.material);expect(()=>binder.prepareIndexedResumeGesture(identity,f.input,saved.accepted!,row)).toThrow('author policy disabled')
+ expect(prepareCanonicalRecordedAttachment(saved.canonicalCapabilities,[saved.accepted!],{roomId:'board',boardEpoch:s.boardEpoch,allowedRasterProfiles:[G]})[0].read!.capability.snapshot.materialVersion).toBe(6)
+ expect((await t.recorded(identity,op,()=>true)).result).toMatchObject({ok:true,seq:1,duplicate:true})
+})
+it.each(['missing','corrupt']as const)('denies original Soft6 %s pattern CAS before grant',async mode=>{const f=soft6Setup(),p=join(f.dir,'assets',f.pattern.id.slice(6)+'.bin');if(mode==='missing')rmSync(p);else writeFileSync(p,Buffer.alloc(256));expect((await new CanonicalRoomTransport(soft6Policy).begin(identity,f.input,()=>true)).ok).toBe(false);expect(db.operation.create).not.toHaveBeenCalled()})
+it.each(['direct','disconnect']as const)('closes real interrupted Soft6 using %s existing close verifier',async mode=>{
+ const {joinRoom,captureCurrentRoomSeat,leaveRoom}=await import('./rooms.js'),{getCanonicalGesturePrefixWithRows}=await import('./snapshotStore.js');db.roomParticipant.upsert.mockResolvedValue({});vi.mocked(getCanonicalGesturePrefixWithRows).mockResolvedValue({operations:[],canonicalRows:[]});db.operation.findMany.mockResolvedValue([]);db.operation.findUnique.mockResolvedValue(null)
+ const f=soft6Setup(),t=new CanonicalRoomTransport(soft6Policy);expect(joinRoom('board','author','A','soft6-close').ok).toBe(true);await flushRoomWrites('board')
+ try{const seat=captureCurrentRoomSeat('board','author','soft6-close');if(!seat)throw Error('Missing genuine seat');const s=soft6Snapshot(await t.begin(identity,f.input,()=>true)),op=soft6Operation(s,false),saved=await t.recorded(identity,op,()=>true);expect(saved.result.ok).toBe(true);const row=db.operation.create.mock.calls.at(-1)![0].data;vi.mocked(getCanonicalGesturePrefixWithRows).mockResolvedValue({operations:[saved.accepted!],canonicalRows:[row]});db.operation.findMany.mockImplementation(async({where})=>row.seq>where.seq.gt&&row.seq<=where.seq.lte?[row]:[]);db.operation.findUnique.mockImplementation(async({where})=>where.id===row.id?row:null)
+ const request={operationId:'soft6-close',layerId:'layer',targetUserId:'author',strokeId:s.strokeId,disposition:'commitPartial'as const,expectedRecordedNext:1,expectedLastFrameOpId:op.id};expect((await t.close(identity,{...request,expectedLastFrameOpId:'foreign'},()=>true)).result.ok).toBe(false)
+ if(mode==='direct'){const closed=await t.close(identity,request,()=>true);expect(closed.result).toMatchObject({ok:true,seq:2});expect(closed.accepted).toMatchObject({recordedNext:1,lastFrameOpId:op.id})}else{const ticket=t.prepareDisconnectedClose(seat,()=>true)!;expect(await ticket.finish()).toMatchObject([{recordedNext:1,lastFrameOpId:op.id,seq:2}]);await expect(ticket.finish()).rejects.toThrow()}
+ expect((await t.recorded(identity,{...op,id:'after-soft6-close'},()=>true)).result.ok).toBe(false)
+ }finally{leaveRoom('board','author','soft6-close')}
+})
