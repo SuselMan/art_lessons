@@ -1,4 +1,5 @@
-import {captureCanonicalTexturedAutoFrame,canonicalTexturedAutoMaterialContext,CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE,type CanonicalMaterialContextV7,type CanonicalMaterialFrameV7,captureCanonicalSoftNativeDefaultTexturedSourceFrame,canonicalSoftNativeDefaultTexturedSourceMaterialContext,CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalMaterialContextV6,type CanonicalMaterialFrameV6,captureCanonicalPressureTexturedSourceFrame,canonicalPressureTexturedSourceMaterialContext,CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalMaterialContextV5,type CanonicalMaterialFrameV5,captureCanonicalTexturedSourceFrame,canonicalTexturedSourceMaterialContext,CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE,canonicalBrushDescriptorJSON,canonicalStrokeCoverageMatches,type CanonicalMaterialContextV4,type CanonicalMaterialFrameV4,captureCanonicalPrimaryTextureFrame,canonicalPrimaryTextureMaterialContext,canonicalPrimaryTextureStrengthU8,canonicalImageMaterialPin,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,type CanonicalMaterialContextV3,type CanonicalMaterialFrameV3} from '@grafetto/shared'
+import type {BrushMipCache} from './BrushMipCache'
+import {canonicalSoftAutoDataEqual,captureCanonicalTexturedAutoFrame,canonicalTexturedAutoMaterialContext,CANONICAL_TEXTURED_AUTO_MATERIAL_PROFILE,type CanonicalMaterialContextV7,type CanonicalMaterialFrameV7,captureCanonicalSoftNativeDefaultTexturedSourceFrame,canonicalSoftNativeDefaultTexturedSourceMaterialContext,CANONICAL_SOFT_NATIVE_DEFAULT_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalMaterialContextV6,type CanonicalMaterialFrameV6,captureCanonicalPressureTexturedSourceFrame,canonicalPressureTexturedSourceMaterialContext,CANONICAL_PRESSURE_TEXTURED_SOURCE_MATERIAL_PROFILE,type CanonicalMaterialContextV5,type CanonicalMaterialFrameV5,captureCanonicalTexturedSourceFrame,canonicalTexturedSourceMaterialContext,CANONICAL_TEXTURED_SOURCE_MATERIAL_PROFILE,canonicalBrushDescriptorJSON,canonicalStrokeCoverageMatches,type CanonicalMaterialContextV4,type CanonicalMaterialFrameV4,captureCanonicalPrimaryTextureFrame,canonicalPrimaryTextureMaterialContext,canonicalPrimaryTextureStrengthU8,canonicalImageMaterialPin,CANONICAL_PRIMARY_TEXTURE_MATERIAL_PROFILE,type CanonicalMaterialContextV3,type CanonicalMaterialFrameV3} from '@grafetto/shared'
 import type {BrushGlCanonicalCallbackScope} from './BrushGlState'
 import { captureSourceDefaultAutoDensityStrokeIdentity, type SourceDefaultAutoDensityStrokeIdentity } from '../presets/sourceDefaultAutoDensitySeed'
 import { CANONICAL_SEEDED_DENSITY_COVERAGE_PROFILE, CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE, CANONICAL_MATERIAL_PROFILE, CANONICAL_SOURCE_MATERIAL_PROFILE, canonicalDefaultAutoSourcePin, canonicalGaussianAutoSourcePin, canonicalSoftAutoSourcePin, canonicalSoftAutoCost, canonicalAutoCost, CANONICAL_STROKE_RASTER_PROFILE, CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE, isCanonicalStrokeComposition, type CanonicalStrokeComposition, type CanonicalStrokeRasterProfile, type CanonicalMaterialAsset, type CanonicalAutoSource, type CanonicalSoftAutoSource, type CanonicalAutoRecipe, type CanonicalSoftAutoRecipe, type AnyCanonicalMaterialRecipe, type AnyCanonicalMaterialFrame } from '@grafetto/shared'
@@ -208,6 +209,41 @@ const rect = (t: TilePosition) => ({ minX: t.x, minY: t.y, maxX: t.x + t.width, 
 /** Opt-in production layer service, not wired to engine operation transport yet.
  * One ordered cursor; synchronous leases only. Checkpoint readiness is explicit.
  * Caller serializes ALL writes to the gesture's layer, including peer writes. */
+/** Opaque rendered state only. Normal constructor source authority is still required. */
+export interface CanonicalRenderedPrefixCursor7 {release(this:CanonicalRenderedPrefixCursor7):void}
+interface RenderedPrefixState7 {
+ readonly context:CanonicalMaterialContextV7
+ readonly state:SourcePrimaryCompositionState
+ readonly gesture:Readonly<{id:string;layerId:string;epoch:number;rgb:readonly [number,number,number];profile:ExecutorFrameSubmission['frame']['profile']}>
+ readonly rasterProfile:CanonicalFrameExecutorOptions['rasterProfile']
+ readonly gl:WebGLRenderingContext
+ readonly prepass:CanonicalFrameExecutorOptions['prepass']
+ readonly composite:CanonicalFrameExecutorOptions['composite']
+ readonly maskEpoch:object
+ readonly compositeEpoch:object
+ readonly oldBuffer:TiledLayerBuffer
+}
+interface RenderedPrefixCharge7 {readonly cpu:BrushMipCache;data?:RenderedPrefixState7;releaseMetadata?:()=>void}
+const renderedPrefixStates7=new WeakMap<CanonicalRenderedPrefixCursor7,RenderedPrefixCharge7>()
+/** Optional checkpoint header precharged BEFORE candidate pixels. No source
+ * or rendered-state authority exists until the real executor fills this cell. */
+export function prepareRenderedPrefixCursor7(cpu:BrushMipCache):CanonicalRenderedPrefixCursor7 {
+  const releaseHeader=cpu.reserve(1024)
+  try{
+    const charge:RenderedPrefixCharge7={cpu}
+    let released=false,cursor:CanonicalRenderedPrefixCursor7
+    cursor=Object.freeze({release:function(this:CanonicalRenderedPrefixCursor7){
+      if(this!==cursor)throw Error('Foreign rendered cursor receiver')
+      if(released)return;released=true;renderedPrefixStates7.delete(cursor)
+      const metadata=charge.releaseMetadata;charge.releaseMetadata=undefined;charge.data=undefined
+      let failed=false,primary:unknown
+      for(const action of[metadata,releaseHeader])if(action)try{action()}catch(error){if(!failed){failed=true;primary=error}}
+      if(failed)throw primary
+    }})
+    renderedPrefixStates7.set(cursor,charge);return cursor
+  }catch(primary){releaseHeader();throw primary}
+}
+
 export class CanonicalFrameExecutor {
   private readonly candidateReceiver=this
   private readonly candidateReplay7:boolean
@@ -1012,11 +1048,21 @@ export class CanonicalFrameExecutor {
   /** Terminal resource retirement of an exactly completed OPEN hidden prefix.
    * No END/close/seal or checkpoint/read authority is manufactured. */
   retireRenderedPrefix(expected:{readonly gestureId:string;readonly layerId:string;readonly layerEpoch:number;readonly nextFrameOrdinal:number}):void {
+    this.retireRenderedPrefixOwned(expected)
+  }
+  takeRenderedPrefix(expected:{readonly gestureId:string;readonly layerId:string;readonly layerEpoch:number;readonly nextFrameOrdinal:number},precharged:CanonicalRenderedPrefixCursor7):CanonicalRenderedPrefixCursor7 {
+    const cursor=this.retireRenderedPrefixOwned(expected,precharged)
+    if(!cursor)throw Error('Rendered prefix cursor was not captured')
+    return cursor
+  }
+  private retireRenderedPrefixOwned(expected:{readonly gestureId:string;readonly layerId:string;readonly layerEpoch:number;readonly nextFrameOrdinal:number},precharged?:CanonicalRenderedPrefixCursor7):CanonicalRenderedPrefixCursor7|undefined {
+    const capture=precharged!==undefined
     if(this.candidateReceiver!==this||!this.candidateReplay7||this.candidateTerminal||this.failed
       ||this.sourceRetired||this.advancing||this.rawOwner.leases||this.cleanupErrors.length
       ||this.queue.length||this.frontierPending||this.frontierReleases.size
       ||this.retireMaskAfterTurn||this.retireTextureAfterTurn)throw new Error('Rendered OPEN prefix retirement unavailable')
     this.advancing=true // Before descriptor traps or any resource/layer callback.
+    let retainedMetadata:(()=>void)|undefined
     try {
       const gesture=this.gesture,planned=this.planned,mask=this.maskLease,texture=this.primaryTexture,soft=this.softProgram
       if(!gesture||!planned||planned.ended||!mask||!texture||texture.context.version!==7)
@@ -1050,22 +1096,62 @@ export class CanonicalFrameExecutor {
         ||this.retireMaskAfterTurn||this.retireTextureAfterTurn||this.gesture!==gesture||this.planned!==planned
         ||this.maskLease!==mask||this.primaryTexture!==texture||this.softProgram!==soft)
         throw new Error('Rendered OPEN prefix owner changed')
-      // Terminal and detached before cleanup callbacks. No caller-owned layer
-      // or root is released; only this executor's retained child/owned tables.
+      let captured:RenderedPrefixState7|undefined
+      if(capture){
+        const charge=renderedPrefixStates7.get(precharged!)
+        if(!charge||charge.data||charge.releaseMetadata||charge.cpu!==this.maskParticipant.brushGlBatchInfo().cpu)throw Error('Rendered cursor precharge unavailable')
+        this.assertPrepared()
+        const next=this.options.layer(gesture.layerId)
+        assertCanonicalPatternResourceCurrent(texture.view,resourceInfo,texture.root)
+        mask.assertMutationIdle();this.options.composite.assertMutationIdle(this.compositeCapacity.epoch)
+        if(renderedPrefixStates7.get(precharged!)!==charge||next.buffer!==gesture.buffer||next.epoch!==gesture.epoch||this.gesture!==gesture||this.planned!==planned||this.primaryTexture!==texture||this.maskLease!==mask||this.softProgram!==soft||this.failed||this.sourceRetired||this.candidateTerminal||this.queue.length||this.cleanupErrors.length)throw Error('Rendered cursor capture changed')
+        captured=Object.freeze({context:texture.context,state:planned,gesture:Object.freeze({id:gesture.id,layerId:gesture.layerId,epoch:gesture.epoch,rgb:Object.freeze([gesture.rgb[0],gesture.rgb[1],gesture.rgb[2]] as const),profile:gesture.profile}),rasterProfile:this.options.rasterProfile,gl:this.gl,prepass:this.options.prepass,composite:this.options.composite,maskEpoch:this.maskCapacity.epoch,compositeEpoch:this.compositeCapacity.epoch,oldBuffer:gesture.buffer})
+        retainedMetadata=texture.releaseMetadata
+      }
+      // Terminal and detached before cleanup callbacks. Source DATA remains
+      // charged by its existing transferred metadata reservation if captured.
       this.candidateTerminal=true;this.sourceRetired=true
       this.gesture=undefined;this.planned=undefined;this.softProgram=undefined
       const before=this.cleanupErrors.length
       this.releaseWashes()
       this.retireMaskCapacity()
       if(soft&&this.ownsSoftProgram)this.cleanup(()=>soft.retire())
-      this.retirePrimaryTexture()
+      this.retirePrimaryTexture(false,capture)
       if(this.cleanupErrors.length>before){
         const primary=this.cleanupErrors[before]
         this.failed=true
         this.cleanup(()=>this.options.poison(gesture.layerId,primary))
         throw primary
       }
+      if(captured){
+        const charge=renderedPrefixStates7.get(precharged!)
+        if(!charge||charge.data||charge.releaseMetadata)throw Error('Rendered cursor precharge retired during cleanup')
+        charge.data=captured;charge.releaseMetadata=retainedMetadata;retainedMetadata=undefined
+        return precharged
+      }
+    } catch(primary){
+      if(retainedMetadata&&this.primaryTexture?.releaseMetadata===retainedMetadata)retainedMetadata=undefined
+      if(retainedMetadata)this.cleanup(retainedMetadata)
+      throw primary
     } finally {this.advancing=false}
+  }
+
+  /** Restores only an executor-issued completed cursor into a NEW normal
+   * hidden target. No source/frame/recipe authority is minted by this token. */
+  resumeRenderedPrefix(cursor:CanonicalRenderedPrefixCursor7):void {
+    if(this.candidateReceiver!==this||!this.candidateReplay7||this.candidateTerminal||this.failed||this.sourceRetired||this.advancing||this.gesture||this.planned||this.queue.length||this.rawOwner.leases||this.cleanupErrors.length)throw Error('Rendered cursor destination busy')
+    this.advancing=true
+    try{
+      const charge=renderedPrefixStates7.get(cursor),captured=charge?.data,texture=this.primaryTexture,mask=this.maskLease
+      if(!captured||!texture||texture.context.version!==7||!mask||captured.gl!==this.gl||captured.prepass!==this.options.prepass||captured.composite!==this.options.composite||captured.rasterProfile!==this.options.rasterProfile||captured.maskEpoch!==this.maskCapacity.epoch||captured.compositeEpoch!==this.compositeCapacity.epoch||!canonicalSoftAutoDataEqual(texture.context,captured.context))throw Error('Rendered cursor source mismatch')
+      this.assertPrepared()
+      const layer=this.options.layer(captured.gesture.layerId)
+      assertCanonicalPatternResourceCurrent(texture.view,this.options.composite.brushGlBatchInfo(),texture.root)
+      mask.assertMutationIdle();this.options.composite.assertMutationIdle(this.compositeCapacity.epoch)
+      if(layer.buffer===captured.oldBuffer||layer.epoch!==captured.gesture.epoch||layer.buffer.pixelEncoding!=='straight-rgba8'||renderedPrefixStates7.get(cursor)!==charge||charge?.data!==captured||this.gesture||this.planned||this.primaryTexture!==texture||this.maskLease!==mask||this.failed||this.sourceRetired||this.candidateTerminal||this.queue.length||this.cleanupErrors.length)throw Error('Rendered cursor target changed')
+      this.gesture={...captured.gesture,buffer:layer.buffer,rgb:[captured.gesture.rgb[0],captured.gesture.rgb[1],captured.gesture.rgb[2]]}
+      this.planned=captured.state
+    }finally{this.advancing=false}
   }
 
   /** Cancel after ANY accepted work requires trusted rebuild, even if this
@@ -1108,11 +1194,11 @@ export class CanonicalFrameExecutor {
     this.retirePrimaryTexture(lost)
   }
 
-  private retirePrimaryTexture(lost=false):void {
+  private retirePrimaryTexture(lost=false,retainMetadata=false):void {
     const source=this.primaryTexture;this.primaryTexture=undefined;this.replaySourceRead=undefined;this.retireTextureAfterTurn=false
     if(!source)return
     this.sourceRetired=true
-    this.cleanup(()=>source.root.release(lost));this.cleanup(source.releaseMetadata)
+    this.cleanup(()=>source.root.release(lost));if(!retainMetadata)this.cleanup(source.releaseMetadata)
   }
 
   private retireSoftProgram():void {

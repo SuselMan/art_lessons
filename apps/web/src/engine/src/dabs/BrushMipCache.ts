@@ -2,6 +2,14 @@
  * Re-uploading an evicted texture must not rebuild its premultiplied pyramid. */
 export class BrushMipCache {
   private readonly entries=new Map<string,readonly Uint8Array[]>()
+  private optionalReclaims=new Set<()=>void>()
+  private reclaiming=false
+  /** Already-charged optional owner only. No credit or new budget is created. */
+  registerOptionalReclaim(reclaim:()=>void):()=>void {
+    if(this.reclaiming||typeof reclaim!=='function')throw new Error('CPU optional reclaim is busy or invalid')
+    this.optionalReclaims.add(reclaim)
+    return ()=>{this.optionalReclaims.delete(reclaim)}
+  }
   private usedBytes=0
   private readonly reservations=new Map<symbol,number>()
   private readonly targetBytes:number
@@ -11,7 +19,22 @@ export class BrushMipCache {
   get reservedBytes():number{return [...this.reservations.values()].reduce((a,b)=>a+b,0)}
   /** Retained/workspace peak charged before allocation, sharing the old cap. */
   reserve(bytes:number):()=>void {
-    if(!Number.isSafeInteger(bytes)||bytes<0||this.reservedBytes+bytes>this.targetBytes)throw new RangeError('CPU brush workspace exceeds its budget')
+    if(!Number.isSafeInteger(bytes)||bytes<0)throw new RangeError('CPU brush workspace exceeds its budget')
+    if(this.reclaiming)throw new Error('Cannot reserve during CPU optional reclaim')
+    if(this.reservedBytes+bytes>this.targetBytes&&this.optionalReclaims.size){
+      this.reclaiming=true
+      let failed=false,primary:unknown
+      try{
+        // Detach BEFORE callbacks. Every registered owner is attempted once,
+        // even if another callback throws undefined or releases its neighbour.
+        const owners=this.optionalReclaims;this.optionalReclaims=new Set()
+        for(const reclaim of owners){
+          try{reclaim()}catch(error){if(!failed){failed=true;primary=error}}
+        }
+      }finally{this.reclaiming=false}
+      if(failed)throw primary
+    }
+    if(this.reservedBytes+bytes>this.targetBytes)throw new RangeError('CPU brush workspace exceeds its budget')
     const token=Symbol();this.reservations.set(token,bytes);this.trim(this.targetBytes-this.reservedBytes)
     return ()=>{this.reservations.delete(token)}
   }

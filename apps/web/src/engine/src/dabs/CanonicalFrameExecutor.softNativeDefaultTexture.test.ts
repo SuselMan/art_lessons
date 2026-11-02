@@ -8,7 +8,7 @@ import {CanonicalSoftCircleProgramOwner} from './CanonicalSoftCircleProgramOwner
 import {expect,it,vi} from 'vitest'
 import {CANONICAL_STROKE_GENERIC_SC_RASTER_PROFILE as G,CANONICAL_STROKE_BROWSER_FLOAT_RASTER_PROFILE as B,canonicalSoftAutoSourcePin,canonicalSoftNativeDefaultTexturedSourceMaterialContext,buildCanonicalMaterial,sourceAutoGeometry,type CanonicalMaterialContextV6} from '@grafetto/shared'
 import {recordingGL} from '../../testing/brushPassTestUtils'
-import {CanonicalFrameExecutor,canonicalExecutorOperations,type CanonicalFrameSubmissionV6,type CanonicalFrameExecutorOptions} from './CanonicalFrameExecutor'
+import {CanonicalFrameExecutor,prepareRenderedPrefixCursor7,canonicalExecutorOperations,type CanonicalFrameSubmissionV6,type CanonicalFrameExecutorOptions} from './CanonicalFrameExecutor'
 import {CanonicalMaskSourceBank} from './CanonicalMaskSourceBank'
 import {CanonicalRgba8CompositePass} from './CanonicalRgba8CompositePass'
 import {TransformedMaskPrepass} from './TransformedMaskPrepass'
@@ -1033,7 +1033,7 @@ it('mixed genuine FIRST reorder cancels healthy active OPEN child once and resta
  const s=replayConsumer7(undefined,true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
  try{
   const local=s.author('local-L');expect(s.coordinator.tryEnqueueLocal(local,mixedOpenOperation(s,'local-L'))).toBe(true);s.publish(mixedReady(s))
-  const old=s.currentPresentation();expect(s.coordinator.tryEnqueueLocal(local,s.operation('local-L',1,true))).toBe(true)
+  const old=s.currentPresentation();expect(s.coordinator.tryEnqueueLocal(local,tailSuffixOperation(s,'local-L',1))).toBe(true)
   let now=0;clock.mockImplementation(()=>++now)
   const draw=vi.spyOn(s.composite,'drawSource');let active=false
   for(let i=0;i<500;i++){s.coordinator.advance();const child=s.coordinator['candidate']?.mixed?.child;if(child&&child.pending&&draw.mock.calls.length){active=true;break}}
@@ -1429,5 +1429,202 @@ it('mixed frame-turn starts the next actual painted frame after prior pending fr
   }
   expect(ready).toBe(true);expect(combined).toBe(true);expect(starts).toEqual([0,1,2,3]);expect(s.source).toHaveBeenCalledTimes(1)
  }finally{hook.mockRestore();clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+// Rendered-tail structural commands/state oracle: no physical GPU/pixel claim.
+it.each(['defaultAuto','gaussianAuto','softAuto']as const)('rendered cursor transfers actual OPEN state to a normal suffix executor %s',kind=>{
+ const c=context7(kind),s=fixture(true,true,G,true,c),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ const next=new TiledLayerBuffer(s.gl,4,4,undefined,undefined,undefined,'straight-rgba8')
+ const cursor=prepareRenderedPrefixCursor7(s.cpu)
+ try{
+  const first=s.create({candidateReplay7:'textured7-buildup-v1'}),input=submission7(c),frame=renderedOpen7(c)
+  first.enqueue({...input,frame,composition:{...input.composition,mode:'buildup'}});s.drain()
+  const state=first['planned'],draw=vi.spyOn(s.composite,'drawSource'),calls=draw.mock.calls.length
+  expect(first.takeRenderedPrefix(renderedIdentity,cursor)).toBe(cursor)
+  expect(draw.mock.calls.length).toBe(calls);expect(first['planned']).toBeUndefined()
+  const resumed=s.create({candidateReplay7:'textured7-buildup-v1',layer:()=>({buffer:next,epoch:0})})
+  resumed.resumeRenderedPrefix(cursor);expect(resumed['planned']).toBe(state)
+  const empty=buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},c).frame
+  resumed.enqueue({...input,ordinal:1,frame:empty,composition:{...input.composition,mode:'buildup'}});s.drain()
+  expect(resumed['planned']?.nextFrameOrdinal).toBe(2);expect(draw.mock.calls.length).toBe(calls)
+  resumed.retireRenderedPrefix({...renderedIdentity,nextFrameOrdinal:2});cursor.release()
+  expect(s.poison).not.toHaveBeenCalled();expect(()=>resumed.resumeRenderedPrefix(cursor)).toThrow()
+ }finally{clock.mockRestore();cursor.release();next.destroy();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('rendered tail LAST OPEN append skips accepted prefix commands while full replay remains the oracle',()=>{
+ const s=replayConsumer7(undefined,true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const author=s.author('tail-cursor'),first=mixedOpenOperation(s,'tail-cursor')
+  expect(s.coordinator.tryEnqueueLocal(author,first)).toBe(true);s.publish(mixedReady(s))
+  expect(s.coordinator['renderedTail']?.ready).toBe(true);expect(s.coordinator['replayWork']).toBeUndefined()
+  const draw=vi.spyOn(s.composite,'drawSource')
+  expect(s.coordinator.tryEnqueueLocal(author,s.operation('tail-cursor',1,true))).toBe(true)
+  s.publish(mixedReady(s))
+  const textured=draw.mock.calls.filter(([request])=>request.source.kind==='texturedMaskRgb')
+  expect(textured).toHaveLength(0);expect(s.coordinator['renderedTail']?.groups.at(-1)?.frames).toHaveLength(2)
+  expect(s.coordinator.poisoned).toBe(false)
+ }finally{clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+function renderedSuffix7(c:CanonicalMaterialContextV7,group:number){
+ const f=renderedOpen7(c)
+ return buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:f.draws.map(d=>({recipe:f.definitions[d.definition],role:'primary',x:d.x,y:d.y,opacity:d.opacity*.5,flow:d.flow,grainDepth:d.grainDepth})),fences:f.fences.map(fence=>'group'in fence?{...fence,group}:fence)},c).frame
+}
+function tailSuffixOperation(s:ReturnType<typeof replayConsumer7>,name:string,ordinal:number){
+ const op=s.operation(name,ordinal),c=context7('defaultAuto')
+ return Object.freeze({...op,frame:{...op.frame,materialPacked:packCanonicalTexturedAutoMaterial(renderedSuffix7(c,ordinal),c)}})
+}
+it('rendered tail nonempty suffix preserves full command strengths and reduces actual prefix drawing',()=>{
+ const full=replayConsumer7(undefined,true),inc=replayConsumer7(undefined,true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ const fullDraw=vi.spyOn(full.composite,'drawSource'),incDraw=vi.spyOn(inc.composite,'drawSource'),authors=new Map([[full,full.author('prefix')],[inc,inc.author('prefix')]])
+ const paint=(spy:typeof fullDraw)=>spy.mock.calls.flatMap(([r])=>r.source.kind==='texturedMaskRgb'?[{strength:r.source.strengthU8,operation:r.operation}]:[])
+ try{
+  for(const s of[full,inc])expect(s.coordinator.tryEnqueueLocal(authors.get(s)!,mixedOpenOperation(s,'prefix'))).toBe(true)
+  inc.publish(mixedReady(inc));const prefix=paint(incDraw);incDraw.mockClear()
+  for(const s of[full,inc])expect(s.coordinator.tryEnqueueLocal(authors.get(s)!,tailSuffixOperation(s,'prefix',1))).toBe(true)
+  full.publish(mixedReady(full));inc.publish(mixedReady(inc))
+  const suffix=paint(incDraw),all=paint(fullDraw)
+  expect(prefix.length).toBeGreaterThan(0);expect(suffix.length).toBeGreaterThan(0)
+  expect([...prefix,...suffix]).toEqual(all);expect(suffix.length).toBeLessThan(all.length)
+  expect(inc.coordinator['renderedTail']?.groups.at(-1)?.frames).toHaveLength(2)
+  expect(full.coordinator.poisoned||inc.coordinator.poisoned).toBe(false)
+ }finally{clock.mockRestore();inc.close();full.close()}
+ expect(inc.cpu.reservedBytes).toBe(0);expect(full.cpu.reservedBytes).toBe(0)
+})
+it('rendered cursor rejects released, foreign receiver and SAME previous visible target without state mutation',()=>{
+ const c=context7('softAuto'),s=fixture(true,true,G,true,c),clock=vi.spyOn(performance,'now').mockReturnValue(0),cursor=prepareRenderedPrefixCursor7(s.cpu)
+ try{
+  const e=s.create({candidateReplay7:'textured7-buildup-v1'}),input=submission7(c)
+  e.enqueue({...input,frame:renderedOpen7(c),composition:{...input.composition,mode:'buildup'}});s.drain();e.takeRenderedPrefix(renderedIdentity,cursor)
+  const destination=s.create({candidateReplay7:'textured7-buildup-v1'})
+  expect(()=>Reflect.apply(destination.resumeRenderedPrefix,{...destination},[cursor])).toThrow()
+  expect(()=>destination.resumeRenderedPrefix(cursor)).toThrow('target changed');expect(destination['planned']).toBeUndefined()
+  expect(()=>Reflect.apply(cursor.release,{},[])).toThrow();cursor.release();cursor.release()
+  expect(()=>destination.resumeRenderedPrefix(cursor)).toThrow();expect(destination['planned']).toBeUndefined();expect(s.poison).not.toHaveBeenCalled()
+ }finally{clock.mockRestore();cursor.release();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('rendered tail SAME paint promotion preserves suffix reuse; additional group falls back and releases old checkpoint',()=>{
+ const s=replayConsumer7(undefined,true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ try{
+  const author=s.author('promoted-tail'),first=mixedOpenOperation(s,'promoted-tail')
+  s.coordinator.tryEnqueueLocal(author,first);s.publish(mixedReady(s));const checkpoint=s.coordinator['renderedTail']
+  expect(checkpoint?.ready).toBe(true)
+  s.coordinator.enqueueRecorded(s.recorded(first,1))
+  expect(s.coordinator['renderedTail']).toBe(checkpoint)
+  const draw=vi.spyOn(s.composite,'drawSource')
+  s.coordinator.tryEnqueueLocal(author,s.operation('promoted-tail',1,true));s.publish(mixedReady(s))
+  expect(draw.mock.calls.filter(([r])=>r.source.kind==='texturedMaskRgb')).toHaveLength(0)
+  const second=s.coordinator['renderedTail'];expect(second?.ready).toBe(true)
+  s.coordinator.enqueueRecorded(s.recorded(s.operation('earlier-original'),2))
+  // A later original group is not FIRST reorder: fallback owns old P until publication.
+  expect(second?.retired).toBe(false);draw.mockClear();s.publish(mixedReady(s))
+  expect(draw.mock.calls.filter(([r])=>r.source.kind==='texturedMaskRgb').length).toBeGreaterThan(0)
+  expect(second?.retired).toBe(true);expect(s.coordinator.poisoned).toBe(false)
+ }finally{clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('cursor precharge reserves before allocation and take rejects callback release without terminal mutation',()=>{
+ const tiny=new BrushMipCache(1023);expect(()=>prepareRenderedPrefixCursor7(tiny)).toThrow();expect(tiny.reservedBytes).toBe(0)
+ const c=context7('defaultAuto'),s=fixture(true,true,G,true,c),clock=vi.spyOn(performance,'now').mockReturnValue(0),cursor=prepareRenderedPrefixCursor7(s.cpu)
+ let armed=false
+ try{
+  const e=s.create({candidateReplay7:'textured7-buildup-v1',layer:()=>{if(armed){armed=false;cursor.release()}return{buffer:s.layer,epoch:0}}}),input=submission7(c)
+  e.enqueue({...input,frame:renderedOpen7(c),composition:{...input.composition,mode:'buildup'}});s.drain()
+  const planned=e['planned'];armed=true;expect(()=>e.takeRenderedPrefix(renderedIdentity,cursor)).toThrow()
+  expect(e['planned']).toBe(planned);expect(e['candidateTerminal']).toBe(false);expect(s.poison).not.toHaveBeenCalled()
+  e.retireRenderedPrefix(renderedIdentity)
+ }finally{clock.mockRestore();cursor.release();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('twenty rendered handoffs retain one cursor metadata reservation and release every previous4096',()=>{
+ const c=context7('softAuto'),s=fixture(true,true,G,true,c),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ const other=new TiledLayerBuffer(s.gl,4,4,undefined,undefined,undefined,'straight-rgba8'),baseline=s.cpu.reservedBytes,input=submission7(c)
+ let cursor=prepareRenderedPrefixCursor7(s.cpu),destination=s.layer
+ try{
+  let e=s.create({candidateReplay7:'textured7-buildup-v1'})
+  e.enqueue({...input,frame:renderedOpen7(c),composition:{...input.composition,mode:'buildup'}});s.drain();e.takeRenderedPrefix(renderedIdentity,cursor)
+  const held=s.cpu.reservedBytes;expect(held-baseline).toBe(5120)
+  const empty=buildCanonicalTexturedAutoMaterial({masked:false,entry:{phase:'between'},draws:[],fences:[]},c).frame
+  for(let ordinal=1;ordinal<=20;ordinal++){
+   destination=destination===s.layer?other:s.layer
+   const target=destination,next=prepareRenderedPrefixCursor7(s.cpu)
+   try{
+    e=s.create({candidateReplay7:'textured7-buildup-v1',layer:()=>({buffer:target,epoch:0})})
+    e.resumeRenderedPrefix(cursor);cursor.release();cursor=next
+    e.enqueue({...input,ordinal,frame:empty,composition:{...input.composition,mode:'buildup'}});s.drain()
+    e.takeRenderedPrefix({...renderedIdentity,nextFrameOrdinal:ordinal+1},cursor)
+    expect(s.cpu.reservedBytes).toBe(held);expect(e['planned']).toBeUndefined()
+   }catch(error){next.release();throw error}
+  }
+  cursor.release();expect(s.cpu.reservedBytes).toBe(baseline);expect(s.poison).not.toHaveBeenCalled()
+ }finally{clock.mockRestore();cursor.release();other.destroy();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('optional CPU owners reclaim once before real mandatory reserve; reentry and undefined cleanup remain fatal',()=>{
+ const cpu=new BrushMipCache(32),a=cpu.reserve(16),b=cpu.reserve(8),calls:string[]=[]
+ const offA=cpu.registerOptionalReclaim(()=>{calls.push('a');a();expect(()=>cpu.reserve(1)).toThrow('during');expect(()=>cpu.registerOptionalReclaim(()=>{})).toThrow('busy');throw undefined})
+ const offB=cpu.registerOptionalReclaim(()=>{calls.push('b');b()})
+ let failed=false;try{cpu.reserve(16)}catch(error){failed=true;expect(error).toBeUndefined()}
+ expect(failed).toBe(true);expect(calls).toEqual(['a','b']);expect(cpu.reservedBytes).toBe(0);offA();offB()
+ const release=cpu.reserve(32);expect(cpu.reservedBytes).toBe(32);release();expect(calls).toEqual(['a','b'])
+})
+it('late external mandatory CPU reserve evicts idle checkpoint and preserves normal full replay and old P',()=>{
+ const s=replayConsumer7(undefined,true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ let release:(()=>void)|undefined
+ try{
+  const author=s.author('external-pressure');s.coordinator.tryEnqueueLocal(author,mixedOpenOperation(s,'external-pressure'));s.publish(mixedReady(s))
+  const cp=s.coordinator['renderedTail'],old=s.currentPresentation();expect(cp?.ready).toBe(true)
+  const request=s.cpu.budgetBytes-s.cpu.reservedBytes+1;release=s.cpu.reserve(request)
+  expect(cp?.preempted).toBe(true);expect(cp?.retired).toBe(true);expect(s.coordinator['renderedTail']).toBeUndefined();expect(s.currentPresentation()).toBe(old)
+  release();release=undefined
+  const draw=vi.spyOn(s.composite,'drawSource');s.coordinator.tryEnqueueLocal(author,s.operation('external-pressure',1,true));s.publish(mixedReady(s))
+  expect(draw.mock.calls.filter(([r])=>r.source.kind==='texturedMaskRgb').length).toBeGreaterThan(0);expect(s.coordinator.poisoned).toBe(false)
+ }finally{release?.();clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+it('real constructor boundary pressure preempts old cursor before pixels and chooses full stable replay',()=>{
+ const s=replayConsumer7(undefined,true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ let held:(()=>void)|undefined,armed=false,hit=0
+ const reserve=s.cpu.reserve.bind(s.cpu),spy=vi.spyOn(s.cpu,'reserve').mockImplementation(bytes=>{
+  if(armed&&bytes===4096){armed=false;hit++;held=reserve(s.cpu.budgetBytes-s.cpu.reservedBytes-4095)
+   try{return reserve(bytes)}finally{held();held=undefined}
+  }
+  return reserve(bytes)
+ })
+ try{
+  const author=s.author('constructor-pressure');s.coordinator.tryEnqueueLocal(author,mixedOpenOperation(s,'constructor-pressure'));s.publish(mixedReady(s))
+  const cp=s.coordinator['renderedTail'],draw=vi.spyOn(s.composite,'drawSource');expect(cp?.ready).toBe(true)
+  s.coordinator.tryEnqueueLocal(author,s.operation('constructor-pressure',1,true));armed=true;s.publish(mixedReady(s))
+  expect(hit).toBe(1);expect(cp?.preempted).toBe(true)
+  expect(draw.mock.calls.filter(([r])=>r.source.kind==='texturedMaskRgb').length).toBeGreaterThan(0);expect(s.coordinator.poisoned).toBe(false)
+ }finally{held?.();spy.mockRestore();clock.mockRestore();s.close()}
+ expect(s.cpu.reservedBytes).toBe(0)
+})
+
+it('actual optional root cleanup fault preserves undefined, poisons coordinator and reclaims other owners',()=>{
+ const s=replayConsumer7(undefined,true),clock=vi.spyOn(performance,'now').mockReturnValue(0)
+ let extra:(()=>void)|undefined,armed=false,injected=0
+ const original=s.cpu.reserve.bind(s.cpu),spy=vi.spyOn(s.cpu,'reserve').mockImplementation(bytes=>{
+  const release=original(bytes)
+  // Frozen real root cannot be monkeypatched. Inject the fault through its
+  // actual2048 CPU-header release, identified at the real CP retain callsite.
+  if(bytes===2048&&new Error().stack?.includes('prepareRenderedTailOwned')){injected++;return()=>{release();if(armed)throw undefined}}
+  return release
+ })
+ try{
+  s.coordinator.tryEnqueueLocal(s.author('cleanup-pressure'),mixedOpenOperation(s,'cleanup-pressure'));s.publish(mixedReady(s))
+  const cp=s.coordinator['renderedTail'];if(!cp)throw Error('checkpoint required')
+  expect(injected).toBe(1);armed=true
+  extra=s.cpu.reserve(8);const free=extra,other=vi.fn(()=>free());const off=s.cpu.registerOptionalReclaim(other)
+  let caught=false;try{s.cpu.reserve(s.cpu.budgetBytes-s.cpu.reservedBytes+1)}catch(error){caught=true;expect(error).toBeUndefined()}
+  expect(caught).toBe(true);expect(other).toHaveBeenCalledTimes(1);off();expect(s.coordinator.poisoned).toBe(true);expect(cp.retired).toBe(true)
+ }finally{armed=false;spy.mockRestore();extra?.();clock.mockRestore();s.close()}
  expect(s.cpu.reservedBytes).toBe(0)
 })

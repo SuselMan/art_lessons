@@ -12,7 +12,7 @@ import type { TiledLayerBuffer,PreparedLayerTargets } from '../buffers/TiledLaye
 import type { WorldRect } from '../buffers/tileMath'
 import { runBrushGlBatch, runBrushGlTurn } from './BrushGlBatch'
 import { bindCanonicalLayerTargets } from './CanonicalLayerTargets'
-import { CanonicalFrameExecutor, canonicalWashOuterOperation, type CanonicalReplaySource7, type CanonicalReplayAdmissionTicket, type CanonicalFrameExecutorOptions, type CanonicalFrameSubmission, type CanonicalWashLocalTile, type CanonicalWashOwnership } from './CanonicalFrameExecutor'
+import {prepareRenderedPrefixCursor7,type CanonicalRenderedPrefixCursor7, CanonicalFrameExecutor, canonicalWashOuterOperation, type CanonicalReplaySource7, type CanonicalReplayAdmissionTicket, type CanonicalFrameExecutorOptions, type CanonicalFrameSubmission, type CanonicalWashLocalTile, type CanonicalWashOwnership } from './CanonicalFrameExecutor'
 import { planCanonicalTargets } from './CanonicalTargetPlan'
 import type { CanonicalRgba8SourceView } from './CanonicalRgba8CompositePass'
 
@@ -65,6 +65,7 @@ interface PreviewSnapshotEntry {
   readonly tiles:readonly CanonicalWashLocalTile[]
 }
 interface PreviewCandidateWork {
+  checkpoint?:RenderedTailCheckpoint7
   mixed?:MixedCandidateWork
   executionStarted?:true
   executionFailed?:true
@@ -190,7 +191,24 @@ interface ReplayWashGroup {
     readonly close?:Readonly<Pick<RecordedCloseReceipt,'input'|'seal'>>
 }
 type ReplayCapturedGroup=ReplayGroup7|ReplayWashGroup
+interface RenderedTailCheckpoint7 {
+ readonly generation:number
+ readonly order:number
+ readonly stable:TiledLayerBuffer
+ readonly buffer:TiledLayerBuffer
+ readonly grid:Readonly<{x0:number;y0:number;x1:number;y1:number;count:number}>
+ readonly groups:readonly Readonly<{owner:Entry;frames:readonly ReplayEntry[];source?:CanonicalReplaySource7;sourceLease?:CanonicalMaskSourceLease;ownership?:CanonicalWashOwnership;deposited:number;opacity:number;blend:CanonicalStrokeComposition['outerBlend']}>[]
+ readonly root:CanonicalMaskSourceLease
+ readonly cursor:CanonicalRenderedPrefixCursor7
+ ready:boolean
+ retired:boolean
+ preempted:boolean
+ release():void
+}
 interface MixedCandidateWork {
+    seedBase?:TiledLayerBuffer
+    seedPlan?:PreparedLayerTargets
+    resumeCursor?:CanonicalRenderedPrefixCursor7
     readonly snapshot:ReplayGroupsWork
     readonly groups:readonly ReplayCapturedGroup[]
     group:number
@@ -279,6 +297,7 @@ export class CanonicalWashLayerCoordinator {
   private replayGeneration = 0
   private replayOrderRevision = 0
   private replayWork?:ReplaySnapshot|ReplayGroupsWork
+  private renderedTail?:RenderedTailCheckpoint7
 
   constructor(options: CanonicalWashLayerCoordinatorOptions) {
     if (!options.layerId || !Number.isSafeInteger(options.layerEpoch) || options.layerEpoch < 0
@@ -515,7 +534,7 @@ export class CanonicalWashLayerCoordinator {
     // Sequence promotion can change authority without changing visual order.
     // Preserve the current dirty/presentation state for that common case.
     for(let i=1;i<this.entries.length;i++)if(compare(this.entries[i-1],this.entries[i])>0){
-      this.entries.sort(compare);this.replayOrderRevision++;this.invalidate();return
+      this.entries.sort(compare);this.replayOrderRevision++;const checkpoint=this.renderedTail;this.renderedTail=undefined;if(checkpoint)this.cleanFrontier(checkpoint.release);this.invalidate();return
     }
   }
   /** No sequence is invented. Temporary GPU queue pressure alone returns false. */
@@ -1419,6 +1438,7 @@ export class CanonicalWashLayerCoordinator {
 
   private present(turnStarted: number): void {
     const candidate=this.candidate,dirty=candidate?.remaining??this.dirty
+    const seedBase=candidate?.mixed?.seedBase??this.stable
     const derived=candidate?.staged.buffer??this.derived
     const entries=candidate?.mixed?candidate.mixed.activeEntries:candidate?.entries??this.entries
     const k = dirty.keys().next().value as string | undefined
@@ -1426,7 +1446,7 @@ export class CanonicalWashLayerCoordinator {
     this.work ??= { position: (candidate?.positions??this.positions).get(k)!, revision: candidate?.revision??this.revision, stage: candidate?.mixed?.seeded?0:-1, part: 0, bounds: { ...dirty.get(k)! } }
     const work = this.work, p = work.position
     if(!work.stablePlan){
-      const stable=this.stable.preparePaintTargetRects([rect(p)])
+      const stable=seedBase.preparePaintTargetRects([rect(p)])
       try{work.derivedPlan=derived.preparePaintTargetRects([rect(p)]);work.stablePlan=stable}
       catch(primary){try{stable.close()}catch{if(candidate)candidate.cleanupFailed=true}throw primary}
     }
@@ -1435,7 +1455,7 @@ export class CanonicalWashLayerCoordinator {
     // blank from retained content metadata (including evicted content), without
     // materializing/recovering stable storage during candidate work.
     if(candidate&&!work.stableTarget){
-      const content=this.stable.getContentBoundsWorld()
+      const content=seedBase.getContentBoundsWorld()
       if(content&&content.minX<p.x+p.width&&content.maxX>p.x&&content.minY<p.y+p.height&&content.maxY>p.y)throw new Error('Preview nonempty stable target is not resident')
     }
     if(performance.now()-turnStarted>=4)return
@@ -1455,7 +1475,7 @@ export class CanonicalWashLayerCoordinator {
       // Resolve while preserving the caller's complete GL state. Each actual
       // layer binding is retained only inside this one synchronous capsule.
       const target = this.target(work.derivedPlan!,p), stable = candidate?work.stableTarget:this.target(work.stablePlan!,p)
-      const bound = bindCanonicalLayerTargets(derived, [target])[0], base = stable?bindCanonicalLayerTargets(this.stable, [stable])[0]:undefined
+      const bound = bindCanonicalLayerTargets(derived, [target])[0], base = stable?bindCanonicalLayerTargets(seedBase, [stable])[0]:undefined
       const initialized=p.presentation!
       if(work.buffer ? work.buffer!==target.buffer || work.texture!==target.buffer.texture || work.stableBuffer!==stable?.buffer || work.stableTexture!==stable?.buffer.texture
         : initialized.derived!==target.buffer || initialized.derivedTexture!==target.buffer.texture || initialized.stable!==stable?.buffer || initialized.stableTexture!==stable?.buffer.texture){
@@ -1591,13 +1611,25 @@ export class CanonicalWashLayerCoordinator {
     return true
   }
 
+  private createMixedChildOwned(candidate:PreviewCandidateWork,mixed:MixedCandidateWork,group:Extract<ReplayCapturedGroup,{kind:'buildup7'}>,current:()=>void):CanonicalFrameExecutor {
+    const root=mixed.root=mixed.snapshot.retainRootOwned(group)
+    mixed.child=new CanonicalFrameExecutor({...this.options,bank:root,primaryTexture:{context:group.source.context,root},autoSource:group.source.autoSource,
+      washMode:undefined,replayFrontier:undefined,candidateReplay7:'textured7-buildup-v1',
+      layer:id=>{
+        current();if(id!==this.options.layerId||this.closed||this.failed)throw Error('Mixed child target retired')
+        return {buffer:candidate.staged.buffer,epoch:this.options.layerEpoch}
+      },changed:()=>{},poison:(_id,reason)=>{if(!candidate.obsoleteReason||reason!==candidate.obsoleteReason)candidate.executionFailed=true}})
+    return mixed.child
+  }
   private advanceMixedCandidate(candidate:PreviewCandidateWork,turnStarted:number):void {
     const mixed=candidate.mixed!
     mixed.snapshot.assertOwned()
     if(!mixed.seeded){
       this.present(turnStarted)
       if(candidate.remaining.size)return
-      mixed.seeded=true
+      const plan=mixed.seedPlan;mixed.seedPlan=undefined
+      if(plan)try{plan.close()}catch(error){candidate.cleanupFailed=true;throw error}
+      mixed.snapshot.assertOwned();mixed.seeded=true
       return
     }
     const group=mixed.groups[mixed.group]
@@ -1618,15 +1650,11 @@ export class CanonicalWashLayerCoordinator {
     candidate.executionStarted=true
     if(!mixed.child){
       mixed.lastEnded=false
-      const root=mixed.root=mixed.snapshot.retainRootOwned(group)
-      mixed.child=new CanonicalFrameExecutor({...this.options,bank:root,primaryTexture:{context:group.source.context,root},autoSource:group.source.autoSource,
-        washMode:undefined,replayFrontier:undefined,candidateReplay7:'textured7-buildup-v1',
-        layer:id=>{
-          if(id!==this.options.layerId||this.candidate!==candidate||this.closed||this.failed)throw Error('Mixed child target retired')
-          return {buffer:candidate.staged.buffer,epoch:this.options.layerEpoch}
-        },changed:()=>{},poison:(_id,reason)=>{if(!candidate.obsoleteReason||reason!==candidate.obsoleteReason)candidate.executionFailed=true}})
+      const created=this.createMixedChildOwned(candidate,mixed,group,()=>{if(this.candidate!==candidate)throw Error('Mixed child target retired')})
+      if(mixed.resumeCursor){created.resumeRenderedPrefix(mixed.resumeCursor);mixed.resumeCursor=undefined}
     }
     const child=mixed.child
+    if(!child)throw Error('Mixed child missing')
     // Continue only completely rendered frames on THIS captured child/group.
     // The outer turn budget never resets between frames; an existing atomic
     // child step can cross its soft boundary, but no new frame starts after it.
@@ -1649,6 +1677,7 @@ export class CanonicalWashLayerCoordinator {
     }
     if(mixed.frame<group.frames.length)return
     if(mixed.lastEnded)child.cancel()
+    else if(mixed.group===mixed.groups.length-1&&candidate.checkpoint&&!candidate.checkpoint.retired){child.takeRenderedPrefix({gestureId:group.id,layerId:this.options.layerId,layerEpoch:this.options.layerEpoch,nextFrameOrdinal:mixed.frame},candidate.checkpoint.cursor);candidate.checkpoint.ready=true}
     else child.retireRenderedPrefix({gestureId:group.id,layerId:this.options.layerId,layerEpoch:this.options.layerEpoch,nextFrameOrdinal:mixed.frame})
     mixed.child=undefined
     const root=mixed.root;mixed.root=undefined;root!.release(this.cleanupContextLost())
@@ -1710,6 +1739,7 @@ export class CanonicalWashLayerCoordinator {
       }
       const coordinator=this
       const disposition:CanonicalPreviewPublicationDisposition=this.closedCandidateOwned(candidate)?'closed-handoff':'display'
+      const previousCheckpoint=this.renderedTail,nextCheckpoint=disposition==='display'&&candidate.checkpoint?.ready&&!candidate.checkpoint.retired?candidate.checkpoint:undefined
       let published=false,finished=false,asserting=false,validated=false,ticket:CanonicalPreviewPublication
       ticket=Object.freeze({disposition,buffer:candidate.staged.buffer,previous:candidate.previous,revision:candidate.revision,
         assertCurrent(){
@@ -1737,7 +1767,7 @@ export class CanonicalWashLayerCoordinator {
           // immediately afterwards; no callback/GL/cleanup occurs in between.
           if(this!==ticket||published||asserting||!validated||coordinator.busy||coordinator.closed||coordinator.failed||candidate.generation!==coordinator.replayGeneration||candidate.order!==coordinator.replayOrderRevision||coordinator.candidate!==candidate||candidate.ticket!==ticket||coordinator.derived!==candidate.previous||candidate.remaining.size||coordinator.work||candidate.mixed&&coordinator.replayWork!==candidate.mixed.snapshot)throw new Error('Stale preview publication')
           if(disposition==='closed-handoff'&&!coordinator.closedCandidateOwned(candidate))throw Error('Stale closed preview publication')
-          published=true;validated=false;coordinator.derived=candidate.staged.buffer
+          published=true;validated=false;coordinator.derived=candidate.staged.buffer;coordinator.renderedTail=nextCheckpoint
           coordinator.completedPresentation=candidate.revision
           coordinator.candidate=undefined;coordinator.previewFailure=undefined;coordinator.previewBoundaryReady=false
           if(coordinator.revision===candidate.revision)coordinator.dirty.clear()
@@ -1752,6 +1782,8 @@ export class CanonicalWashLayerCoordinator {
           const previousErrors=coordinator.errors.length
           const cleanup=(action:()=>void)=>{try{action()}catch(e){if(!failed){failed=true;error=e}}}
           try{
+            cleanup(()=>previousCheckpoint?.release())
+            if(candidate.checkpoint!==nextCheckpoint)cleanup(()=>candidate.checkpoint?.release())
             cleanup(()=>mixed?.snapshot.detach())
             cleanup(()=>candidate.staged.finish(candidate.previous,disposition))
             if(disposition==='closed-handoff')cleanup(()=>coordinator.releaseAll(coordinator.cleanupContextLost()))
@@ -1802,6 +1834,75 @@ export class CanonicalWashLayerCoordinator {
     }
     return maximum
   }
+  private prepareRenderedTailOwned(mixed:MixedCandidateWork,buffer:TiledLayerBuffer):RenderedTailCheckpoint7|undefined {
+    const tail=mixed.groups.at(-1)
+    if(!tail||tail.kind!=='buildup7'||tail.close)return
+    const count=mixed.groups.reduce((n,g)=>n+g.frames.length,0),bytes=1024+count*128+mixed.groups.length*512
+    const cpu=this.maskParticipant.brushGlBatchInfo().cpu
+    // Exact current retain() child header2048 + cursor precharge1024. No new cap.
+    // Insufficient OPTIONAL metadata disables checkpoint, never denies full rendering.
+    if(cpu.budgetBytes-cpu.reservedBytes<bytes+3072)return
+    let releaseMetadata:()=>void
+    try{releaseMetadata=cpu.reserve(bytes)}catch(error){this.failed=true;throw error}
+    let cursor:CanonicalRenderedPrefixCursor7|undefined,root:CanonicalMaskSourceLease|undefined,pinned=false,checkpoint:RenderedTailCheckpoint7|undefined,unregister:(()=>void)|undefined
+    const groups:{owner:Entry;frames:readonly ReplayEntry[];source?:CanonicalReplaySource7;sourceLease?:CanonicalMaskSourceLease;ownership?:CanonicalWashOwnership;deposited:number;opacity:number;blend:CanonicalStrokeComposition['outerBlend']}[]=[]
+    const release=()=>{
+      if(checkpoint?.retired)return
+      if(checkpoint)checkpoint.retired=true
+      unregister?.();unregister=undefined
+      if(this.renderedTail===checkpoint)this.renderedTail=undefined
+      let failed=false,primary:unknown
+      const attempt=(action:()=>void)=>{try{action()}catch(error){if(!failed){failed=true;primary=error}}}
+      attempt(()=>cursor?.release());attempt(()=>root?.release(this.cleanupContextLost()))
+      if(pinned){pinned=false
+        for(const group of groups){for(const frame of group.frames){frame.pins--;if(frame.retired&&!frame.pins)attempt(()=>this.releaseReplayEntry(frame))}group.owner.replayPins!--;if(!group.owner.replayPins&&group.owner.metadataRetired)attempt(()=>this.releaseReplayOwnerMetadata(group.owner))}
+      }
+      attempt(releaseMetadata)
+      if(failed)throw primary
+    }
+    try{
+      cursor=prepareRenderedPrefixCursor7(cpu);mixed.snapshot.assertOwned()
+      for(const group of mixed.groups){
+        const owner=this.entries.find(e=>e.id===group.id)
+        if(!owner)throw Error('Rendered checkpoint owner disappeared')
+        const frames=group.frames.map(frame=>{const value=frame.value,id=value.kind==='recorded'?value.input.operation.id:value.operation.id,entry=this.replay.get(id);if(!entry||entry.gestureId!==group.id||entry.acceptedFrame!==frame.frame)throw Error('Rendered checkpoint prefix changed');return entry})
+        groups.push({owner,frames:Object.freeze(frames),source:owner.replaySource,sourceLease:owner.sourceLease,ownership:owner.ownership,deposited:owner.depositedNextOrdinal,opacity:owner.opacity,blend:owner.blend})
+      }
+      root=mixed.snapshot.retainRootOwned(tail);mixed.snapshot.assertOwned()
+      const grid=this.seedGrid()
+      checkpoint={generation:this.replayGeneration,order:this.replayOrderRevision,stable:this.stable,buffer,grid,groups:Object.freeze(groups.map(g=>Object.freeze(g))),root,cursor,ready:false,retired:false,preempted:false,release}
+      for(const group of groups){group.owner.replayPins=(group.owner.replayPins??0)+1;for(const frame of group.frames)frame.pins++}pinned=true
+      unregister=cpu.registerOptionalReclaim(()=>{checkpoint!.preempted=true;try{release()}catch(primary){this.failed=true;this.errors.push(primary);throw primary}})
+      return checkpoint
+    }catch(primary){this.failed=true;try{release()}catch(error){this.errors.push(error)}throw primary}
+  }
+  private incrementalTailOwned(groups:readonly ReplayCapturedGroup[],positions:ReadonlyMap<string,Position>):Readonly<{checkpoint:RenderedTailCheckpoint7;plan:PreparedLayerTargets}>|undefined {
+    const checkpoint=this.renderedTail,tail=groups.at(-1)
+    if(!checkpoint||checkpoint.retired||!checkpoint.ready||!tail||tail.kind!=='buildup7'||tail.close||checkpoint.generation!==this.replayGeneration||checkpoint.order!==this.replayOrderRevision||checkpoint.stable!==this.stable||checkpoint.buffer!==this.derived||checkpoint.groups.length!==groups.length||groups.length!==this.entries.length)return
+    const grid=this.seedGrid(),previous=checkpoint.grid
+    if(grid.x0!==previous.x0||grid.y0!==previous.y0||grid.x1!==previous.x1||grid.y1!==previous.y1||grid.count!==previous.count||positions.size>64||this.derived.evictedTileCount||this.derived.tileCount!==positions.size)return
+    for(let index=0;index<groups.length;index++){
+      const group=groups[index],old=checkpoint.groups[index],owner=this.entries[index]
+      if(owner!==old.owner||group.id!==owner.id||owner.metadataRetired||owner.metadataReleased||owner.replaySource!==old.source||owner.sourceLease!==old.sourceLease||owner.opacity!==old.opacity||owner.blend!==old.blend||owner.washInFlight)return
+      if(index===groups.length-1?group.frames.length<=old.frames.length:group.frames.length!==old.frames.length)return
+      if(group.kind==='wash'&&(owner.mode!=='wash'||owner.depositedNextOrdinal!==old.deposited||owner.ownership!==old.ownership))return
+      if(group.kind==='buildup7'&&owner.mode!=='buildup')return
+      for(let ordinal=0;ordinal<old.frames.length;ordinal++){
+        const value=group.frames[ordinal].value,id=value.kind==='recorded'?value.input.operation.id:value.operation.id
+        if(old.frames[ordinal].retired||this.replay.get(id)!==old.frames[ordinal])return
+      }
+    }
+    if(!checkpoint.root.isReady())return
+    this.assertMixedSourcesCurrent()
+    if(this.renderedTail!==checkpoint||checkpoint.retired||checkpoint.generation!==this.replayGeneration||checkpoint.order!==this.replayOrderRevision||checkpoint.buffer!==this.derived)throw Error('Incremental checkpoint changed during source check')
+    const plan=this.derived.preparePaintTargetRects([...positions.values()].map(rect))
+    try{
+      for(let i=0;i<plan.length;i++)if(!plan.takeResident(i))throw Error('Incremental checkpoint resident source disappeared')
+      if(this.renderedTail!==checkpoint||checkpoint.retired||checkpoint.buffer!==this.derived||checkpoint.order!==this.replayOrderRevision)throw Error('Incremental checkpoint owner changed')
+      return {checkpoint,plan}
+    }catch(primary){try{plan.close()}catch(error){this.failed=true;this.errors.push(error)}throw primary}
+  }
+
   private beginPreview():void {
     if(this.candidate||this.previewLane)throw new Error('Preview lane busy')
     const seed=this.seedGrid(),count=this.fullSeedCount(),entries=this.entries.length,revision=this.revision
@@ -1810,7 +1911,7 @@ export class CanonicalWashLayerCoordinator {
     // Reserve BEFORE allocating any captured raw-view arrays or candidate.
     const releaseMetadata=this.maskParticipant.brushGlBatchInfo().cpu.reserve(bytes)
     const seedCurrent=()=>{const now=this.seedGrid();return now.x0===seed.x0&&now.y0===seed.y0&&now.x1===seed.x1&&now.y1===seed.y1&&now.count===seed.count}
-    let staged:CanonicalPreviewCandidate|undefined,snapshot:ReplayGroupsWork|undefined
+    let staged:CanonicalPreviewCandidate|undefined,snapshot:ReplayGroupsWork|undefined,preparedMixed:MixedCandidateWork|undefined,preparedCheckpoint:RenderedTailCheckpoint7|undefined
     try{
       const gpu=count*this.stable.tileWidth*this.stable.tileHeight*4
       if(!Number.isSafeInteger(gpu))throw new RangeError('Preview target bound')
@@ -1835,11 +1936,45 @@ export class CanonicalWashLayerCoordinator {
       const groups=snapshot?.groupsOwned()
       snapshot?.assertOwned()
       if(this.candidate||this.previewLane||this.revision!==revision||this.fullSeedCount()!==count||!seedCurrent())throw Error('Candidate publication owner changed')
-      this.candidate={revision,generation:this.replayGeneration,order:this.replayOrderRevision,previous:this.derived,staged,positions,remaining,entries:Object.freeze(captured),releaseMetadata,...snapshot?{mixed:{snapshot,groups:groups!,group:0,frame:0,seeded:false,activeEntries:[]}}:{}}
-      staged=undefined
+      const mixed:MixedCandidateWork|undefined=snapshot?{snapshot,groups:groups!,group:0,frame:0,seeded:false,activeEntries:[]}:undefined
+      preparedMixed=mixed
+      let checkpoint:RenderedTailCheckpoint7|undefined,selected:RenderedTailCheckpoint7|undefined
+      if(mixed){
+        checkpoint=this.prepareRenderedTailOwned(mixed,staged.buffer);preparedCheckpoint=checkpoint
+        try{
+          const previous=this.incrementalTailOwned(mixed.groups,positions)
+          if(previous){selected=previous.checkpoint;mixed.seedBase=previous.checkpoint.buffer;mixed.seedPlan=previous.plan;mixed.resumeCursor=previous.checkpoint.cursor;mixed.group=mixed.groups.length-1;mixed.frame=previous.checkpoint.groups.at(-1)!.frames.length}
+          mixed.snapshot.assertOwned()
+          if(this.candidate||this.previewLane||this.revision!==revision||this.fullSeedCount()!==count||!seedCurrent())throw Error('Incremental candidate staging changed')
+        }catch(primary){this.failed=true;for(const action of[()=>mixed.seedPlan?.close(),()=>checkpoint?.release()])try{action()}catch(error){this.errors.push(error)}throw primary}
+      }
+      const next:PreviewCandidateWork={revision,generation:this.replayGeneration,order:this.replayOrderRevision,previous:this.derived,staged,positions,remaining,entries:Object.freeze(captured),releaseMetadata,...mixed?{mixed}:{},...checkpoint?{checkpoint}:{}}
+      let attached=false
+      if(mixed?.resumeCursor&&selected){
+        const tail=mixed.groups.at(-1)!
+        if(tail.kind!=='buildup7')throw Error('Incremental tail source changed')
+        this.createMixedChildOwned(next,mixed,tail,()=>{
+          if(attached?this.candidate!==next:this.candidate!==undefined||this.previewLane!==undefined||this.revision!==revision||next.generation!==this.replayGeneration||next.order!==this.replayOrderRevision)throw Error('Incremental prepared child changed')
+        })
+        // Mandatory constructor reserves can synchronously evict OPTIONAL old
+        // checkpoint. No pixels exist yet; normal full replay is still valid.
+        if(selected.preempted){
+          mixed.child!.cancel();mixed.child=undefined
+          const root=mixed.root;mixed.root=undefined;root!.release(this.cleanupContextLost())
+          const plan=mixed.seedPlan;mixed.seedPlan=undefined;plan!.close()
+          mixed.seedBase=undefined;mixed.resumeCursor=undefined;mixed.group=0;mixed.frame=0
+        }else{
+          mixed.child!.resumeRenderedPrefix(mixed.resumeCursor);mixed.resumeCursor=undefined
+          selected.release()
+        }
+        mixed.snapshot.assertOwned()
+        if(this.candidate||this.previewLane||this.revision!==revision||next.generation!==this.replayGeneration||next.order!==this.replayOrderRevision||!seedCurrent())throw Error('Incremental pre-pixel owner changed')
+      }
+      this.candidate=next;attached=true
+      preparedMixed=undefined;preparedCheckpoint=undefined;staged=undefined
     }catch(error){
       let cleanupFailed=false,cleanupError:unknown
-      try{staged?.cancel()}catch(e){cleanupFailed=true;cleanupError=e}
+      for(const action of[()=>preparedMixed?.child?.cancel(),()=>preparedMixed?.root?.release(this.cleanupContextLost()),()=>preparedMixed?.seedPlan?.close(),()=>preparedCheckpoint?.release(),()=>staged?.cancel()])try{action()}catch(e){if(!cleanupFailed){cleanupFailed=true;cleanupError=e}}
       try{snapshot?.detach()}catch(e){if(!cleanupFailed){cleanupFailed=true;cleanupError=e}}
       try{releaseMetadata()}catch(e){if(!cleanupFailed){cleanupFailed=true;cleanupError=e}}
       if(cleanupFailed){this.failed=true;throw new AggregateError([error,cleanupError],'Preview staging cleanup failed',{cause:error})}
@@ -1850,7 +1985,7 @@ export class CanonicalWashLayerCoordinator {
     const candidate=this.candidate;this.candidate=undefined
     const work=this.work;this.work=undefined
     let failed=false,error:unknown
-    for(const action of [()=>this.closePresentationPlans(work),()=>candidate?.mixed?.child?.cancel(reason),()=>candidate?.mixed?.root?.release(this.cleanupContextLost()),()=>candidate?.mixed?.snapshot.detach(),()=>candidate?.staged.cancel(),()=>candidate?.releaseMetadata()])try{action()}catch(e){if(!failed){failed=true;error=e}}
+    for(const action of [()=>this.closePresentationPlans(work),()=>candidate?.mixed?.child?.cancel(reason),()=>candidate?.mixed?.root?.release(this.cleanupContextLost()),()=>candidate?.mixed?.seedPlan?.close(),()=>candidate?.checkpoint?.release(),()=>candidate?.mixed?.snapshot.detach(),()=>candidate?.staged.cancel(),()=>candidate?.releaseMetadata()])try{action()}catch(e){if(!failed){failed=true;error=e}}
     if(failed)throw error
   }
 
@@ -1887,6 +2022,7 @@ export class CanonicalWashLayerCoordinator {
   }
   private releaseAll(lost: boolean): void {
     this.clean(()=>this.cancelPreview());this.previewLane=undefined
+    const checkpoint=this.renderedTail;this.renderedTail=undefined;if(checkpoint)this.clean(checkpoint.release)
     this.replayGeneration++
     for(const entry of this.entries)this.retireReplayGesture(entry.id)
     this.clean(()=>{const work=this.replayWork;if(work){if('snapshot'in work)work.detach();else work.release()}})
